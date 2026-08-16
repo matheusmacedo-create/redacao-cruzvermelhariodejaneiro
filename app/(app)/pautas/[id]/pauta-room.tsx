@@ -25,6 +25,9 @@ import {
   Check,
   Clock,
   X,
+  Archive,
+  Copy,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -90,6 +93,8 @@ export function PautaRoom({
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
   const [participantsOpen, setParticipantsOpen] = useState(false)
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const responsible = getPerson(pauta.responsibleId)
   const project = getProject(pauta.projectId)
   const pautaFiles = files.filter((f) => f.project === pauta.project)
@@ -151,9 +156,62 @@ export function PautaRoom({
               <UserPlus className="size-4" />
               Adicionar pessoas
             </Button>
-            <Button variant="ghost" size="icon-lg" aria-label="Mais opções">
-              <MoreHorizontal className="size-4" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                type="button"
+                aria-label="Mais opções"
+                aria-haspopup="menu"
+                aria-expanded={optionsOpen}
+                onClick={() => setOptionsOpen((open) => !open)}
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+              {optionsOpen && (
+                <div className="absolute right-0 top-11 z-40 w-52 rounded-lg border border-border bg-background p-1 shadow-lg" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() => {
+                      setTab('informacoes')
+                      setOptionsOpen(false)
+                    }}
+                  >
+                    <Pencil className="size-4 text-muted-foreground" />
+                    Ver informações
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(window.location.href)
+                      setLinkCopied(true)
+                      setOptionsOpen(false)
+                      window.setTimeout(() => setLinkCopied(false), 2000)
+                    }}
+                  >
+                    <Copy className="size-4 text-muted-foreground" />
+                    {linkCopied ? 'Link copiado' : 'Copiar link'}
+                  </button>
+                  <form action={updatePautaStatus}>
+                    <input type="hidden" name="id" value={pauta.id} />
+                    <input type="hidden" name="title" value={pauta.title} />
+                    <input type="hidden" name="description" value={pauta.summary} />
+                    <input type="hidden" name="priority" value={pauta.priority} />
+                    <input type="hidden" name="coordination" value={pauta.coordenacao} />
+                    <input type="hidden" name="project" value={pauta.project} />
+                    <input type="hidden" name="status" value="archived" />
+                    <button type="submit" role="menuitem" className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10">
+                      <Archive className="size-4" />
+                      Arquivar pauta
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
