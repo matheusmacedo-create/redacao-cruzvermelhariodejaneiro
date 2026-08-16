@@ -44,11 +44,18 @@ function Button({
   className,
   variant = 'default',
   size = 'default',
+  render,
+  nativeButton,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // When a custom `render` element is provided (e.g. a Next.js <Link/>), the
+  // rendered node is not a native <button>, so disable native button semantics
+  // to satisfy Base UI and keep proper anchor semantics.
   return (
     <ButtonPrimitive
       data-slot="button"
+      render={render}
+      nativeButton={nativeButton ?? (render ? false : undefined)}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
