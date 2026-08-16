@@ -15,7 +15,7 @@ import {
   UserCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { CrossMark } from './brand-mark'
+import { BrandMark } from './brand-mark'
 
 const main = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -74,14 +74,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-      <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-4">
-        <CrossMark className="size-9 border border-sidebar-border" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold tracking-tight text-sidebar-foreground">
-            CVRJ Redação
-          </p>
-          <p className="truncate text-[11px] text-muted-foreground">Central de Comunicação</p>
-        </div>
+      <div className="border-b border-sidebar-border px-5 py-4">
+        <BrandMark className="w-full" />
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">

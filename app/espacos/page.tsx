@@ -1,5 +1,5 @@
 import { Database, FlaskConical, ArrowRight, LogOut } from 'lucide-react'
-import { CrossMark } from '@/components/app/brand-mark'
+import { BrandMark } from '@/components/app/brand-mark'
 import { Button } from '@/components/ui/button'
 import { requireSession } from '@/lib/session'
 import { selectWorkspace } from './actions'
@@ -9,7 +9,7 @@ export default async function WorkspacesPage() {
   return (
     <main className="min-h-screen bg-muted/30 px-6 py-10">
       <div className="mx-auto max-w-5xl">
-        <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-3"><CrossMark className="size-11 border border-border"/><div><p className="font-bold">CVRJ Redação</p><p className="text-xs text-muted-foreground">Central de Comunicação</p></div></div><form action="/auth/signout" method="post"><Button variant="ghost" type="submit"><LogOut className="size-4"/> Sair</Button></form></div>
+        <div className="flex items-center justify-between gap-4"><BrandMark className="w-72 items-start" /><form action="/auth/signout" method="post"><Button variant="ghost" type="submit"><LogOut className="size-4"/> Sair</Button></form></div>
         <div className="mt-14 max-w-2xl"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Ambiente de trabalho</p><h1 className="mt-3 text-3xl font-bold tracking-tight">Escolha por onde começar</h1><p className="mt-3 leading-relaxed text-muted-foreground">Os dados dos dois espaços são totalmente isolados. Use a demonstração para aprender e a produção para construir sua operação do zero.</p></div>
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           {context.memberships.map((item: any) => {
