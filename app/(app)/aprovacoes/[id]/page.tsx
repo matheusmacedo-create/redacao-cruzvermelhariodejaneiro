@@ -25,9 +25,18 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
     responsibleId: '', requesterId: data.requested_by,
     date: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(data.created_at)),
     contentId: rawContent?.id,
-    steps: [...(data.approval_steps ?? [])].sort((a: any, b: any) => a.step_order - b.step_order),
+    steps: [...(data.approval_steps ?? [])]
+      .sort((a: any, b: any) => a.step_order - b.step_order)
+      .map((step: any) => ({
+        ...step,
+        status: step.status === 'approved' || step.status === 'aprovado'
+          ? 'aprovado'
+          : step.status === 'changes_requested' || step.status === 'reprovado'
+            ? 'reprovado'
+            : 'pendente',
+      })),
   }
-  const content: any = rawContent ? { ...rawContent, type: rawContent.format, pautaId: '', pautaTitle: approval.pauta, responsibleId: '', version: `v${rawContent.version}`, lastEdit: '' } : undefined
+  const content: any = rawContent ? { ...rawContent, status: rawContent.status === 'review' ? 'aprovacao' : rawContent.status, type: rawContent.format, pautaId: '', pautaTitle: approval.pauta, responsibleId: '', version: `v${rawContent.version}`, lastEdit: '' } : undefined
   const requester: any = rawRequester ? { id: rawRequester.id, name: rawRequester.full_name, role: rawRequester.job_title || '', coordenacao: '', category: 'Equipe', specialties: [], email: '', initials: rawRequester.initials, color: rawRequester.color } : undefined
   return <ReviewView approval={approval} content={content} requester={requester} />
 }

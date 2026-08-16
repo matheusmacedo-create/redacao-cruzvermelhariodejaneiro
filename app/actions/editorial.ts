@@ -29,15 +29,75 @@ export async function saveContent(formData: FormData) {
 }
 
 export async function submitContentForApproval(formData: FormData) {
-  const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
-  const { data: existing } = await supabase.from('approvals').select('id').eq('content_id',id).eq('workspace_id',context.workspace.id).maybeSingle()
-  if (!existing) {
-    const { data: approval, error } = await supabase.from('approvals').insert({ workspace_id:context.workspace.id,content_id:id,requested_by:context.user.id }).select('id').single()
-    if (error) throw new Error(error.message)
-    await supabase.from('approval_steps').insert([{ approval_id:approval.id,step_order:1,label:'Revisão editorial' },{ approval_id:approval.id,step_order:2,label:'Aprovação final' }])
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const title = text(formData, 'title')
+  const body = text(formData, 'body')
+  const format = text(formData, 'format') || 'Matéria editorial'
+
+  if (!id || title.length < 3 || body.length < 10) {
+    throw new Error('Preencha o título e o conteúdo antes de enviar para aprovação.')
   }
-  await supabase.from('content_pieces').update({ status:'review', updated_at:new Date().toISOString() }).eq('id',id).eq('workspace_id',context.workspace.id)
-  revalidatePath('/aprovacoes'); revalidatePath(`/conteudos/${id}`)
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  let contentId = id
+
+  if (isUuid) {
+    const { data: content, error: contentError } = await supabase
+      .from('content_pieces')
+      .update({ title, body, status: 'review', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('workspace_id', context.workspace.id)
+      .select('id')
+      .single()
+    if (contentError || !content) throw new Error('Conteúdo não encontrado neste espaço.')
+  } else {
+    const { data: created, error: createError } = await supabase
+      .from('content_pieces')
+      .insert({
+        workspace_id: context.workspace.id,
+        title,
+        body,
+        format,
+        status: 'review',
+        responsible_id: context.user.id,
+        created_by: context.user.id,
+      })
+      .select('id')
+      .single()
+    if (createError || !created) throw new Error(createError?.message || 'Não foi possível salvar o conteúdo.')
+    contentId = created.id
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from('approvals')
+    .select('id')
+    .eq('content_id', contentId)
+    .eq('workspace_id', context.workspace.id)
+    .maybeSingle()
+  if (existingError) throw new Error(existingError.message)
+
+  let approvalId = existing?.id
+  if (!approvalId) {
+    const { data: approval, error } = await supabase
+      .from('approvals')
+      .insert({ workspace_id: context.workspace.id, content_id: contentId, requested_by: context.user.id })
+      .select('id')
+      .single()
+    if (error || !approval) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
+    approvalId = approval.id
+
+    const { error: stepsError } = await supabase.from('approval_steps').insert([
+      { approval_id: approvalId, step_order: 1, label: 'Revisão editorial' },
+      { approval_id: approvalId, step_order: 2, label: 'Aprovação final' },
+    ])
+    if (stepsError) throw new Error(stepsError.message)
+  }
+
+  revalidatePath('/aprovacoes')
+  revalidatePath(`/conteudos/${contentId}`)
+  redirect(`/aprovacoes/${approvalId}`)
 }
 
 export async function createCalendarEvent(formData: FormData) {

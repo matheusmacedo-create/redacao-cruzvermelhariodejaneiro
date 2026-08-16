@@ -22,6 +22,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { getPerson } from '@/lib/data'
+import { saveContent, submitContentForApproval } from '@/app/actions/editorial'
 
 const tools = [
   { icon: Heading2, label: 'Título' },
@@ -82,14 +83,25 @@ export function ContentEditor({
             <Clock className="size-3.5" />
             {saved ? 'Salvo automaticamente' : 'Alterações não salvas'}
           </span>
-          <Button variant="outline" size="lg" onClick={() => setSaved(true)}>
-            <Save className="size-4" />
-            Salvar
-          </Button>
-          <Button size="lg">
-            <Send className="size-4" />
-            Enviar para aprovação
-          </Button>
+          <form action={saveContent} onSubmit={() => setSaved(true)}>
+            <input type="hidden" name="id" value={content.id} />
+            <input type="hidden" name="title" value={title} />
+            <input type="hidden" name="body" value={body} />
+            <Button variant="outline" size="lg" type="submit">
+              <Save className="size-4" />
+              Salvar
+            </Button>
+          </form>
+          <form action={submitContentForApproval}>
+            <input type="hidden" name="id" value={content.id} />
+            <input type="hidden" name="title" value={title} />
+            <input type="hidden" name="body" value={body} />
+            <input type="hidden" name="format" value={content.type} />
+            <Button size="lg" type="submit">
+              <Send className="size-4" />
+              Enviar para aprovação
+            </Button>
+          </form>
         </div>
       </div>
 
