@@ -112,6 +112,44 @@ export async function addPautaParticipant(formData: FormData) {
   revalidatePath(`/pautas/${pautaId}`)
 }
 
+export async function sendPautaMessage(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const pautaId = text(formData, 'pautaId')
+  const body = text(formData, 'body')
+
+  if (!pautaId || body.length < 1 || body.length > 5_000) {
+    throw new Error('Escreva uma mensagem com até 5.000 caracteres.')
+  }
+
+  const { data: pauta } = await supabase
+    .from('pautas')
+    .select('id')
+    .eq('id', pautaId)
+    .eq('workspace_id', context.workspace.id)
+    .maybeSingle()
+  if (!pauta) throw new Error('Pauta não encontrada neste espaço.')
+
+  const { error } = await supabase.from('messages').insert({
+    workspace_id: context.workspace.id,
+    pauta_id: pautaId,
+    author_id: context.user.id,
+    body,
+  })
+  if (error) throw new Error('Não foi possível enviar a mensagem.')
+
+  await supabase.from('activity_log').insert({
+    workspace_id: context.workspace.id,
+    actor_id: context.user.id,
+    action: 'message_sent',
+    entity_type: 'pauta',
+    entity_id: pautaId,
+    metadata: {},
+  })
+
+  revalidatePath(`/pautas/${pautaId}`)
+}
+
 export async function saveContent(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
   const title = text(formData,'title'); const body = text(formData,'body')

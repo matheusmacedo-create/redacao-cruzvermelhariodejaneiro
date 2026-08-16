@@ -44,7 +44,7 @@ import {
   type Pauta,
 } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addPautaParticipant, updatePautaStatus } from '@/app/actions/editorial'
+import { addPautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -70,14 +70,23 @@ type PautaPerson = {
   coordination: string
 }
 
+type PautaMessage = {
+  id: string
+  text: string
+  time: string
+  author: Omit<PautaPerson, 'id'>
+}
+
 export function PautaRoom({
   pauta,
   participants,
   availablePeople,
+  messages,
 }: {
   pauta: Pauta
   participants?: PautaPerson[]
   availablePeople?: PautaPerson[]
+  messages?: PautaMessage[]
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
   const [participantsOpen, setParticipantsOpen] = useState(false)
@@ -186,6 +195,8 @@ export function PautaRoom({
 
       {tab === 'conversa' && (
         <ConversaTab
+          pautaId={pauta.id}
+          messages={messages}
           participants={participants}
           onAddParticipant={() => setParticipantsOpen(true)}
         />
@@ -284,12 +295,30 @@ function Meta({
 
 /* ---------------- Conversa ---------------- */
 function ConversaTab({
+  pautaId,
+  messages,
   participants,
   onAddParticipant,
 }: {
+  pautaId: string
+  messages?: PautaMessage[]
   participants?: PautaPerson[]
   onAddParticipant: () => void
 }) {
+  const visibleMessages: PautaMessage[] = messages ?? conversation.map((message) => {
+    const person = getPerson(message.authorId)
+    return {
+      id: message.id,
+      text: message.text,
+      time: message.time,
+      author: {
+        name: person?.name || 'Colaborador',
+        initials: person?.initials || '?',
+        color: person?.color || 'var(--muted)',
+        coordination: message.role,
+      },
+    }
+  })
   const visibleParticipants = participants ?? ['matheus', 'carlos', 'ana'].map((id) => {
     const person = getPerson(id)
     return {
@@ -305,89 +334,59 @@ function ConversaTab({
     <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
       <Card className="flex h-[560px] flex-col">
         <div className="flex-1 space-y-5 overflow-y-auto p-5">
-          {conversation.map((m) => {
-            const person = getPerson(m.authorId)
-            const isComm = m.role === 'Comunicação'
-            return (
-              <div key={m.id} className="flex gap-3">
-                <Avatar initials={person?.initials ?? '?'} color={person?.color} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{person?.name}</span>
-                    <span
-                      className={cn(
-                        'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                        isComm ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {m.role}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{m.time}</span>
-                    {m.question && (
-                      <span
-                        className={cn(
-                          'ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-                          m.resolved
-                            ? 'bg-success/14 text-success'
-                            : 'bg-warning/20 text-warning-foreground',
-                        )}
-                      >
-                        {m.resolved ? <CheckCircle2 className="size-3" /> : <Clock className="size-3" />}
-                        {m.resolved ? 'Resolvida' : 'Pergunta'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed">
-                    {m.text}
-                  </div>
-                  {m.attachments ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {Array.from({ length: Math.min(m.attachments, 4) }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="size-16 rounded-md border border-border"
-                          style={{ backgroundColor: `oklch(0.85 0.05 ${27 + i * 30})` }}
-                        />
-                      ))}
-                      {m.attachments > 4 && (
-                        <div className="flex size-16 items-center justify-center rounded-md bg-muted text-xs font-medium text-muted-foreground">
-                          +{m.attachments - 4}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+          {visibleMessages.length ? visibleMessages.map((message) => (
+            <div key={message.id} className="flex gap-3">
+              <Avatar initials={message.author.initials} color={message.author.color} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">{message.author.name}</span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {message.author.coordination}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{message.time}</span>
+                </div>
+                <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed">
+                  {message.text}
                 </div>
               </div>
-            )
-          })}
+            </div>
+          )) : (
+            <p className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
+              Nenhuma mensagem ainda. Inicie a conversa desta pauta.
+            </p>
+          )}
         </div>
 
-        <div className="border-t border-border p-3">
+        <form action={sendPautaMessage} className="border-t border-border p-3">
+          <input type="hidden" name="pautaId" value={pautaId} />
           <div className="rounded-lg border border-border focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
             <textarea
+              name="body"
               rows={2}
+              required
+              maxLength={5000}
               placeholder="Escreva uma mensagem…"
               className="w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-0.5 text-muted-foreground">
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Anexar">
+                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Anexar">
                   <Paperclip className="size-4" />
                 </button>
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Áudio">
+                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Áudio">
                   <Mic className="size-4" />
                 </button>
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Mencionar">
+                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Mencionar">
                   <AtSign className="size-4" />
                 </button>
               </div>
-              <Button size="sm">
+              <Button size="sm" type="submit">
                 <Send className="size-3.5" />
                 Enviar
               </Button>
             </div>
           </div>
-        </div>
+        </form>
       </Card>
 
       <div className="space-y-4">

@@ -42,15 +42,31 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
 
   if (!data) notFound()
 
-  const [{ data: participantRows }, { data: memberRows }] = await Promise.all([
+  const [{ data: participantRows }, { data: memberRows }, { data: messageRows }] = await Promise.all([
     supabase.from('pauta_participants').select('user_id').eq('pauta_id', data.id),
     supabase.from('workspace_members').select('user_id,coordination').eq('workspace_id', context.workspace.id),
+    supabase.from('messages').select('id,author_id,body,created_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: true }),
   ])
   const memberIds = (memberRows ?? []).map((member) => member.user_id)
   const { data: profileRows } = memberIds.length
     ? await supabase.from('profiles').select('id,full_name,initials,color').in('id', memberIds).eq('active', true)
     : { data: [] }
   const coordinationById = new Map((memberRows ?? []).map((member) => [member.user_id, member.coordination]))
+  const profileById = new Map((profileRows ?? []).map((profile) => [profile.id, profile]))
+  const messages = (messageRows ?? []).map((message) => {
+    const author = profileById.get(message.author_id)
+    return {
+      id: message.id,
+      text: message.body,
+      time: new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at)),
+      author: {
+        name: author?.full_name || 'Colaborador',
+        initials: author?.initials || '?',
+        color: author?.color || 'var(--muted)',
+        coordination: coordinationById.get(message.author_id) || 'Sem coordenação',
+      },
+    }
+  })
   const participantIds = new Set((participantRows ?? []).map((participant) => participant.user_id))
   const people = (profileRows ?? []).map((profile) => ({
     id: profile.id,
@@ -82,5 +98,5 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  return <PautaRoom pauta={pauta} participants={participants} availablePeople={people} />
+  return <PautaRoom pauta={pauta} participants={participants} availablePeople={people} messages={messages} />
 }
