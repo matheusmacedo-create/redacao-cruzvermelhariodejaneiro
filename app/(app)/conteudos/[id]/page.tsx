@@ -49,6 +49,27 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     version: `v${row.version}`,
     lastEdit: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.updated_at)),
   }
+  const { data: commentRows } = await supabase
+    .from('content_comments')
+    .select('id,body,created_at,profiles!content_comments_author_id_fkey(id,full_name,initials,color)')
+    .eq('content_id', row.id)
+    .eq('workspace_id', context.workspace.id)
+    .order('created_at', { ascending: true })
+
+  const comments = (commentRows ?? []).map((comment: any) => {
+    const author = Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles
+    return {
+      id: comment.id,
+      text: comment.body,
+      time: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(comment.created_at)),
+      author: {
+        name: author?.full_name || 'Colaborador',
+        initials: author?.initials || '?',
+        color: author?.color,
+      },
+    }
+  })
+
   const pauta: any = rawPauta ? { id: rawPauta.id, project: rawPauta.coordination || 'Editorial' } : undefined
   const responsible: any = profile ? {
     id: profile.id,
@@ -58,5 +79,5 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     role: profile.job_title,
   } : undefined
 
-  return <ContentEditor content={content} pauta={pauta} responsible={responsible} />
+  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} />
 }

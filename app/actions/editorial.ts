@@ -143,6 +143,27 @@ export async function convertInboxToPauta(formData: FormData) {
   revalidatePath('/caixa-de-entrada'); revalidatePath('/pautas'); redirect(`/pautas/${pauta.id}`)
 }
 
+export async function addContentComment(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const contentId = text(formData, 'contentId')
+  const body = text(formData, 'body')
+
+  if (!contentId || body.length < 1 || body.length > 2000) {
+    throw new Error('Escreva um comentário com até 2.000 caracteres.')
+  }
+
+  const { error } = await supabase.from('content_comments').insert({
+    workspace_id: context.workspace.id,
+    content_id: contentId,
+    author_id: context.user.id,
+    body,
+  })
+  if (error) throw new Error('Não foi possível adicionar o comentário.')
+
+  revalidatePath(`/conteudos/${contentId}`)
+}
+
 export async function decideApproval(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id=text(formData,'id'); const decision=text(formData,'decision'); const note=text(formData,'note')
   if (!['approved','changes_requested'].includes(decision)) throw new Error('Decisão inválida.')

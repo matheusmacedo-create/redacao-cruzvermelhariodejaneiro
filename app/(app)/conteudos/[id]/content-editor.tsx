@@ -22,7 +22,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { getPerson } from '@/lib/data'
-import { saveContent, submitContentForApproval } from '@/app/actions/editorial'
+import { addContentComment, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 
 const tools = [
   { icon: Heading2, label: 'Título' },
@@ -43,10 +43,17 @@ export function ContentEditor({
   content,
   pauta,
   responsible,
+  comments,
 }: {
   content: ContentPiece
   pauta?: Pauta
   responsible?: Person
+  comments?: Array<{
+    id: string
+    text: string
+    time: string
+    author: { name: string; initials: string; color?: string }
+  }>
 }) {
   const [title, setTitle] = useState(content.title ?? '')
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
@@ -55,6 +62,19 @@ export function ContentEditor({
 
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0
   const readMinutes = Math.max(1, Math.round(wordCount / 200))
+  const visibleComments = comments ?? editorComments.map((comment) => {
+    const author = getPerson(comment.authorId)
+    return {
+      id: comment.id,
+      text: comment.text,
+      time: comment.time,
+      author: {
+        name: author?.name || 'Colaborador',
+        initials: author?.initials || '?',
+        color: author?.color,
+      },
+    }
+  })
 
   return (
     <div className="flex flex-col">
@@ -189,34 +209,38 @@ export function ContentEditor({
           <div className="border-t border-border pt-6">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <MessageSquare className="size-3.5" />
-              Comentários ({editorComments.length})
+              Comentários ({visibleComments.length})
             </h3>
-            <ul className="mt-4 space-y-4">
-              {editorComments.map((c) => {
-                const author = getPerson(c.authorId)
-                return (
-                  <li key={c.id} className="flex gap-3">
-                    <Avatar initials={author?.initials ?? '?'} color={author?.color} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">{author?.name}</span>
-                        <span className="text-xs text-muted-foreground">{c.time}</span>
-                      </div>
-                      <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{c.text}</p>
+            <ul className="mt-4 space-y-4" aria-live="polite">
+              {visibleComments.map((comment) => (
+                <li key={comment.id} className="flex gap-3">
+                  <Avatar initials={comment.author.initials} color={comment.author.color} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-medium">{comment.author.name}</span>
+                      <span className="text-xs text-muted-foreground">{comment.time}</span>
                     </div>
-                  </li>
-                )
-              })}
+                    <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{comment.text}</p>
+                  </div>
+                </li>
+              ))}
             </ul>
-            <div className="mt-4 flex gap-2">
-              <input
-                className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
-                placeholder="Adicionar comentário…"
-              />
-              <Button variant="outline" size="lg">
-                Enviar
-              </Button>
-            </div>
+            {/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(content.id) && (
+              <form action={addContentComment} className="mt-4 flex gap-2">
+                <input type="hidden" name="contentId" value={content.id} />
+                <input
+                  name="body"
+                  required
+                  maxLength={2000}
+                  className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  placeholder="Adicionar comentário…"
+                  aria-label="Adicionar comentário"
+                />
+                <Button variant="outline" size="lg" type="submit">
+                  Enviar
+                </Button>
+              </form>
+            )}
           </div>
         </aside>
       </div>
