@@ -43,6 +43,7 @@ import {
   type Pauta,
 } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -91,10 +92,34 @@ export function PautaRoom({ pauta }: { pauta: Pauta }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="lg">
-              Alterar status
-              <ChevronDown className="size-4" />
-            </Button>
+            <form action={updatePautaStatus}>
+              <input type="hidden" name="id" value={pauta.id} />
+              <input type="hidden" name="title" value={pauta.title} />
+              <input type="hidden" name="description" value={pauta.summary} />
+              <input type="hidden" name="priority" value={pauta.priority} />
+              <input type="hidden" name="coordination" value={pauta.coordenacao} />
+              <input type="hidden" name="project" value={pauta.project} />
+              <label className="relative block">
+                <span className="sr-only">Alterar status</span>
+                <select
+                  name="status"
+                  defaultValue=""
+                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                  className="h-10 appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm font-medium outline-none hover:bg-muted focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  aria-label="Alterar status"
+                >
+                  <option value="" disabled>Alterar status</option>
+                  <option value="incoming">Entrada</option>
+                  <option value="collection">Coleta</option>
+                  <option value="production">Produção</option>
+                  <option value="review">Revisão</option>
+                  <option value="approval">Aprovação</option>
+                  <option value="approved">Pronto</option>
+                  <option value="archived">Arquivado</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" />
+              </label>
+            </form>
             <Button variant="outline" size="lg">
               <UserPlus className="size-4" />
               Adicionar pessoas

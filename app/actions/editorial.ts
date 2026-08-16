@@ -16,6 +16,61 @@ export async function createPauta(formData: FormData) {
   revalidatePath('/pautas'); redirect(`/pautas/${data.id}`)
 }
 
+export async function updatePautaStatus(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const status = text(formData, 'status')
+  const allowedStatuses = ['incoming', 'collection', 'production', 'review', 'approval', 'approved', 'archived']
+
+  if (!allowedStatuses.includes(status)) throw new Error('Status inválido.')
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  let pautaId = id
+
+  if (isUuid) {
+    const { data, error } = await supabase
+      .from('pautas')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('workspace_id', context.workspace.id)
+      .select('id')
+      .single()
+    if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+  } else {
+    const { data, error } = await supabase
+      .from('pautas')
+      .insert({
+        workspace_id: context.workspace.id,
+        title: text(formData, 'title'),
+        description: text(formData, 'description'),
+        status,
+        priority: text(formData, 'priority') || 'medium',
+        coordination: text(formData, 'coordination'),
+        created_by: context.user.id,
+        owner_id: context.user.id,
+        tags: [text(formData, 'project')].filter(Boolean),
+      })
+      .select('id')
+      .single()
+    if (error || !data) throw new Error(error?.message || 'Não foi possível atualizar a pauta.')
+    pautaId = data.id
+  }
+
+  await supabase.from('activity_log').insert({
+    workspace_id: context.workspace.id,
+    actor_id: context.user.id,
+    action: 'status_changed',
+    entity_type: 'pauta',
+    entity_id: pautaId,
+    metadata: { status },
+  })
+
+  revalidatePath('/pautas')
+  revalidatePath(`/pautas/${pautaId}`)
+  if (!isUuid) redirect(`/pautas/${pautaId}`)
+}
+
 export async function saveContent(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
   const title = text(formData,'title'); const body = text(formData,'body')
