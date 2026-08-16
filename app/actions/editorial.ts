@@ -40,6 +40,49 @@ export async function submitContentForApproval(formData: FormData) {
   revalidatePath('/aprovacoes'); revalidatePath(`/conteudos/${id}`)
 }
 
+export async function createCalendarEvent(formData: FormData) {
+  const context = await requireWorkspace(); const supabase = await createClient()
+  const title = text(formData, 'title'); const eventDate = text(formData, 'eventDate')
+  if (title.length < 3 || !eventDate) throw new Error('Informe título e data do agendamento.')
+  const { error } = await supabase.from('calendar_events').insert({
+    workspace_id: context.workspace.id,
+    title,
+    event_date: eventDate,
+    event_time: text(formData, 'eventTime') || null,
+    type: text(formData, 'type') || 'publicacao',
+    created_by: context.user.id,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/calendario')
+}
+
+export async function archiveInboxItem(formData: FormData) {
+  const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData, 'id')
+  const { error } = await supabase.from('inbox_items').update({ status: 'archived' }).eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/caixa-de-entrada')
+}
+
+export async function convertInboxToPauta(formData: FormData) {
+  const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData, 'id')
+  const { data: item, error: readError } = await supabase.from('inbox_items').select('*').eq('id', id).eq('workspace_id', context.workspace.id).single()
+  if (readError || !item) throw new Error('Item da caixa de entrada não encontrado.')
+  const { data: pauta, error } = await supabase.from('pautas').insert({
+    workspace_id: context.workspace.id,
+    title: item.title,
+    description: item.summary,
+    status: 'incoming',
+    priority: item.priority || 'medium',
+    coordination: item.coordination,
+    created_by: context.user.id,
+    owner_id: context.user.id,
+    tags: [item.type].filter(Boolean),
+  }).select('id').single()
+  if (error) throw new Error(error.message)
+  await supabase.from('inbox_items').update({ status: 'converted' }).eq('id', id).eq('workspace_id', context.workspace.id)
+  revalidatePath('/caixa-de-entrada'); revalidatePath('/pautas'); redirect(`/pautas/${pauta.id}`)
+}
+
 export async function decideApproval(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id=text(formData,'id'); const decision=text(formData,'decision'); const note=text(formData,'note')
   if (!['approved','changes_requested'].includes(decision)) throw new Error('Decisão inválida.')

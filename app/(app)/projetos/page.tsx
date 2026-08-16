@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { projects } from '@/lib/data'
+import { requireWorkspace } from '@/lib/session'
 
-export default function ProjetosPage() {
+export default async function ProjetosPage() {
+  const context = await requireWorkspace()
+  const visibleProjects = context.workspace.kind === 'demo' ? projects : []
   return (
     <div>
       <PageHeader
@@ -20,7 +23,8 @@ export default function ProjetosPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((p) => (
+        {!visibleProjects.length && <Card className="p-10 text-center sm:col-span-2 lg:col-span-3"><p className="font-medium">Nenhum projeto neste espaço.</p><p className="mt-1 text-sm text-muted-foreground">Crie um projeto para organizar as pautas de Produção.</p></Card>}
+        {visibleProjects.map((p) => (
           <Card key={p.id} className="flex flex-col p-5">
             <div className="flex items-start gap-3">
               <span

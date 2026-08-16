@@ -10,6 +10,7 @@ import { ContentStatusBadge } from '@/components/ui/status-badge'
 import type { ApprovalItem, ContentPiece, Person } from '@/lib/data'
 import { getPerson } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { decideApproval } from '@/app/actions/editorial'
 
 const stepMeta = {
   aprovado: { icon: Check, className: 'bg-success text-white', label: 'Aprovado', tone: 'text-success' },
@@ -110,6 +111,9 @@ export function ReviewView({
           </Card>
 
           <Card className="p-5">
+            <form action={decideApproval}>
+            <input type="hidden" name="id" value={approval.id} />
+            <input type="hidden" name="decision" value={decision === 'aprovado' ? 'approved' : decision === 'reprovado' ? 'changes_requested' : ''} />
             <h3 className="text-sm font-semibold">Sua decisão</h3>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -145,6 +149,7 @@ export function ReviewView({
               Comentário {decision === 'reprovado' && <span className="text-primary">(obrigatório)</span>}
             </label>
             <textarea
+              name="note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
@@ -159,6 +164,7 @@ export function ReviewView({
             >
               Confirmar decisão
             </Button>
+            </form>
           </Card>
         </div>
       </div>
