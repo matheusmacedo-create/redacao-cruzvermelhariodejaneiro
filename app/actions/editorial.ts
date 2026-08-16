@@ -298,6 +298,50 @@ export async function addContentComment(formData: FormData) {
   revalidatePath(`/conteudos/${contentId}`)
 }
 
+export async function createProject(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const name = text(formData, 'name')
+  if (name.length < 3) throw new Error('Informe um nome com pelo menos 3 caracteres.')
+  const { error } = await supabase.from('projects').insert({
+    workspace_id: context.workspace.id,
+    name,
+    description: text(formData, 'description'),
+    status: 'active',
+    color: text(formData, 'color') || 'blue',
+    created_by: context.user.id,
+  })
+  if (error) throw new Error('Não foi possível criar o projeto.')
+  revalidatePath('/projetos')
+}
+
+export async function updateProfile(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const fullName = text(formData, 'fullName')
+  if (fullName.length < 3) throw new Error('Informe seu nome completo.')
+  const initials = fullName.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
+  const { error } = await supabase.from('profiles').update({
+    full_name: fullName,
+    job_title: text(formData, 'jobTitle'),
+    initials,
+    updated_at: new Date().toISOString(),
+  }).eq('id', context.user.id)
+  if (error) throw new Error('Não foi possível atualizar o perfil.')
+  revalidatePath('/perfil')
+}
+
+export async function updatePassword(formData: FormData) {
+  await requireWorkspace()
+  const supabase = await createClient()
+  const password = text(formData, 'password')
+  const confirmation = text(formData, 'confirmation')
+  if (password.length < 8) throw new Error('A senha deve ter pelo menos 8 caracteres.')
+  if (password !== confirmation) throw new Error('As senhas não coincidem.')
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw new Error('Não foi possível atualizar a senha.')
+}
+
 export async function decideApproval(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id=text(formData,'id'); const decision=text(formData,'decision'); const note=text(formData,'note')
   if (!['approved','changes_requested'].includes(decision)) throw new Error('Decisão inválida.')
