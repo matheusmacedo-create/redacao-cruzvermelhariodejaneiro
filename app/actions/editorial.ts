@@ -71,6 +71,47 @@ export async function updatePautaStatus(formData: FormData) {
   if (!isUuid) redirect(`/pautas/${pautaId}`)
 }
 
+export async function addPautaParticipant(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const pautaId = text(formData, 'pautaId')
+  const userId = text(formData, 'userId')
+
+  if (!pautaId || !userId) throw new Error('Selecione uma pessoa para adicionar.')
+
+  const { data: pauta } = await supabase
+    .from('pautas')
+    .select('id')
+    .eq('id', pautaId)
+    .eq('workspace_id', context.workspace.id)
+    .maybeSingle()
+  if (!pauta) throw new Error('Pauta não encontrada neste espaço.')
+
+  const { data: member } = await supabase
+    .from('workspace_members')
+    .select('user_id')
+    .eq('workspace_id', context.workspace.id)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!member) throw new Error('A pessoa selecionada não pertence a este espaço.')
+
+  const { error } = await supabase
+    .from('pauta_participants')
+    .upsert({ pauta_id: pautaId, user_id: userId }, { onConflict: 'pauta_id,user_id', ignoreDuplicates: true })
+  if (error) throw new Error('Não foi possível adicionar o participante.')
+
+  await supabase.from('activity_log').insert({
+    workspace_id: context.workspace.id,
+    actor_id: context.user.id,
+    action: 'participant_added',
+    entity_type: 'pauta',
+    entity_id: pautaId,
+    metadata: { user_id: userId },
+  })
+
+  revalidatePath(`/pautas/${pautaId}`)
+}
+
 export async function saveContent(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
   const title = text(formData,'title'); const body = text(formData,'body')

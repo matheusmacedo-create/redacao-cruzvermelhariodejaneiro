@@ -24,6 +24,7 @@ import {
   FileText,
   Check,
   Clock,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -43,7 +44,7 @@ import {
   type Pauta,
 } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { updatePautaStatus } from '@/app/actions/editorial'
+import { addPautaParticipant, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -61,8 +62,25 @@ const fileKindIcon = {
   documento: FileText,
 }
 
-export function PautaRoom({ pauta }: { pauta: Pauta }) {
+type PautaPerson = {
+  id: string
+  name: string
+  initials: string
+  color: string
+  coordination: string
+}
+
+export function PautaRoom({
+  pauta,
+  participants,
+  availablePeople,
+}: {
+  pauta: Pauta
+  participants?: PautaPerson[]
+  availablePeople?: PautaPerson[]
+}) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
+  const [participantsOpen, setParticipantsOpen] = useState(false)
   const responsible = getPerson(pauta.responsibleId)
   const project = getProject(pauta.projectId)
   const pautaFiles = files.filter((f) => f.project === pauta.project)
@@ -120,7 +138,7 @@ export function PautaRoom({ pauta }: { pauta: Pauta }) {
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" />
               </label>
             </form>
-            <Button variant="outline" size="lg">
+            <Button variant="outline" size="lg" type="button" onClick={() => setParticipantsOpen(true)}>
               <UserPlus className="size-4" />
               Adicionar pessoas
             </Button>
@@ -166,12 +184,83 @@ export function PautaRoom({ pauta }: { pauta: Pauta }) {
         ))}
       </div>
 
-      {tab === 'conversa' && <ConversaTab />}
+      {tab === 'conversa' && (
+        <ConversaTab
+          participants={participants}
+          onAddParticipant={() => setParticipantsOpen(true)}
+        />
+      )}
       {tab === 'informacoes' && <InformacoesTab pauta={pauta} />}
       {tab === 'arquivos' && <ArquivosTab items={pautaFiles} />}
       {tab === 'conteudos' && <ConteudosTab items={pautaContents} />}
       {tab === 'aprovacoes' && <AprovacoesTab />}
       {tab === 'historico' && <HistoricoTab />}
+
+      {participantsOpen && (
+        <ParticipantDialog
+          pautaId={pauta.id}
+          people={availablePeople ?? []}
+          participantIds={new Set((participants ?? []).map((person) => person.id))}
+          onClose={() => setParticipantsOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ParticipantDialog({
+  pautaId,
+  people,
+  participantIds,
+  onClose,
+}: {
+  pautaId: string
+  people: PautaPerson[]
+  participantIds: Set<string>
+  onClose: () => void
+}) {
+  const available = people.filter((person) => !participantIds.has(person.id))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="participants-title">
+      <Card className="w-full max-w-md p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 id="participants-title" className="text-lg font-semibold">Adicionar participantes</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Selecione uma pessoa do espaço editorial.</p>
+          </div>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fechar">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <div className="mt-4 max-h-80 overflow-y-auto">
+          {available.length ? (
+            <ul className="flex flex-col gap-2">
+              {available.map((person) => (
+                <li key={person.id}>
+                  <form action={addPautaParticipant}>
+                    <input type="hidden" name="pautaId" value={pautaId} />
+                    <input type="hidden" name="userId" value={person.id} />
+                    <button type="submit" className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <Avatar initials={person.initials} color={person.color} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{person.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{person.coordination}</span>
+                      </span>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+              Todas as pessoas deste espaço já participam da pauta.
+            </p>
+          )}
+        </div>
+      </Card>
+      <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
     </div>
   )
 }
@@ -194,7 +283,24 @@ function Meta({
 }
 
 /* ---------------- Conversa ---------------- */
-function ConversaTab() {
+function ConversaTab({
+  participants,
+  onAddParticipant,
+}: {
+  participants?: PautaPerson[]
+  onAddParticipant: () => void
+}) {
+  const visibleParticipants = participants ?? ['matheus', 'carlos', 'ana'].map((id) => {
+    const person = getPerson(id)
+    return {
+      id,
+      name: person?.name || 'Colaborador',
+      initials: person?.initials || '?',
+      color: person?.color || 'var(--muted)',
+      coordination: person?.coordenacao || 'Sem coordenação',
+    }
+  })
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
       <Card className="flex h-[560px] flex-col">
@@ -287,21 +393,18 @@ function ConversaTab() {
       <div className="space-y-4">
         <Card className="p-4">
           <h3 className="mb-3 text-sm font-semibold">Participantes</h3>
-          <ul className="space-y-2.5">
-            {['matheus', 'carlos', 'ana'].map((id) => {
-              const p = getPerson(id)
-              return (
-                <li key={id} className="flex items-center gap-2">
-                  <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{p?.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{p?.coordenacao}</p>
-                  </div>
-                </li>
-              )
-            })}
+          <ul className="space-y-2.5" aria-live="polite">
+            {visibleParticipants.map((person) => (
+              <li key={person.id} className="flex items-center gap-2">
+                <Avatar initials={person.initials} color={person.color} size="xs" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{person.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{person.coordination}</p>
+                </div>
+              </li>
+            ))}
           </ul>
-          <Button variant="ghost" size="sm" className="mt-2 w-full">
+          <Button variant="ghost" size="sm" className="mt-2 w-full" type="button" onClick={onAddParticipant}>
             <UserPlus className="size-3.5" />
             Adicionar
           </Button>

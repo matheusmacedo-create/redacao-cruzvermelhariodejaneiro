@@ -42,6 +42,27 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
 
   if (!data) notFound()
 
+  const [{ data: participantRows }, { data: memberRows }] = await Promise.all([
+    supabase.from('pauta_participants').select('user_id').eq('pauta_id', data.id),
+    supabase.from('workspace_members').select('user_id,coordination').eq('workspace_id', context.workspace.id),
+  ])
+  const memberIds = (memberRows ?? []).map((member) => member.user_id)
+  const { data: profileRows } = memberIds.length
+    ? await supabase.from('profiles').select('id,full_name,initials,color').in('id', memberIds).eq('active', true)
+    : { data: [] }
+  const coordinationById = new Map((memberRows ?? []).map((member) => [member.user_id, member.coordination]))
+  const participantIds = new Set((participantRows ?? []).map((participant) => participant.user_id))
+  const people = (profileRows ?? []).map((profile) => ({
+    id: profile.id,
+    name: profile.full_name,
+    initials: profile.initials,
+    color: profile.color,
+    coordination: coordinationById.get(profile.id) || 'Sem coordenação',
+  }))
+  const participants = [...participantIds]
+    .map((participantId) => people.find((person) => person.id === participantId))
+    .filter((person): person is NonNullable<typeof person> => Boolean(person))
+
   const project = Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Editorial'
   const pauta: Pauta = {
     id: data.id,
@@ -61,5 +82,5 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  return <PautaRoom pauta={pauta} />
+  return <PautaRoom pauta={pauta} participants={participants} availablePeople={people} />
 }
