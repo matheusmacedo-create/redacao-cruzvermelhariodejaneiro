@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { coordenacoes } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { createPauta } from '@/app/actions/editorial'
 
 const tipos = ['Ação', 'Evento', 'História', 'Ideia', 'Material', 'Sugestão', 'Outro']
 
@@ -46,7 +47,9 @@ export default function RegistrarPage() {
         ]}
       />
 
-      <form className="flex flex-col gap-6">
+      <form action={createPauta} className="flex flex-col gap-6">
+        <input type="hidden" name="priority" value="medium" />
+        <input type="hidden" name="tags" value={tipo} />
         <Card className="flex flex-col gap-5 p-6">
           <Field label="Tipo do registro">
             <div className="flex flex-wrap gap-2">
@@ -69,12 +72,12 @@ export default function RegistrarPage() {
           </Field>
 
           <Field label="Nome da atividade">
-            <input className={inputClass} placeholder="Ex.: Ação de primeiros socorros no Centro" />
+            <input required minLength={3} name="title" className={inputClass} placeholder="Ex.: Ação de primeiros socorros no Centro" />
           </Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Coordenação responsável">
-              <select className={inputClass} defaultValue="">
+              <select required name="coordination" className={inputClass} defaultValue="">
                 <option value="" disabled>
                   Selecione…
                 </option>
@@ -84,7 +87,7 @@ export default function RegistrarPage() {
               </select>
             </Field>
             <Field label="Data">
-              <input type="date" className={inputClass} />
+              <input name="dueDate" type="date" className={inputClass} />
             </Field>
           </div>
 
@@ -95,6 +98,7 @@ export default function RegistrarPage() {
           <Field label="O que aconteceu?" hint="Escreva livremente, do seu jeito.">
             <textarea
               rows={4}
+              name="description"
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
               placeholder="Descreva a atividade em poucas linhas…"
             />
