@@ -12,7 +12,7 @@ export default function PautasPage() {
         title="Pautas"
         description="Acompanhe todas as pautas em produção pela Redação CVRJ."
         actions={
-          <Button size="lg">
+          <Button size="lg" render={<a href="/registrar" />}>
             <Plus className="size-4" />
             Nova pauta
           </Button>

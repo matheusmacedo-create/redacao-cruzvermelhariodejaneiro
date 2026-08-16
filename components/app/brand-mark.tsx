@@ -1,19 +1,33 @@
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
-// Red Cross emblem — a red cross on white, per the CVB identity manual.
-export function CrossMark({ className }: { className?: string }) {
+type BrandMarkProps = {
+  className?: string
+  imageClassName?: string
+  inverted?: boolean
+}
+
+export function BrandMark({ className, imageClassName, inverted = false }: BrandMarkProps) {
   return (
-    <span
-      className={cn(
-        'relative inline-flex items-center justify-center rounded-md bg-background',
-        className,
-      )}
-      aria-hidden="true"
-    >
-      <span className="relative block size-[62%]">
-        <span className="absolute left-1/2 top-0 h-full w-[34%] -translate-x-1/2 rounded-[1px] bg-primary" />
-        <span className="absolute top-1/2 left-0 h-[34%] w-full -translate-y-1/2 rounded-[1px] bg-primary" />
-      </span>
-    </span>
+    <div className={cn('flex min-w-0 flex-col items-center', className)}>
+      <div className="overflow-hidden rounded-sm bg-white px-2 py-1.5">
+        <Image
+          src="/images/logo-cvrj.png"
+          alt="Cruz Vermelha Brasileira — Rio de Janeiro"
+          width={1844}
+          height={752}
+          priority
+          className={cn('h-auto w-full object-contain', imageClassName)}
+        />
+      </div>
+      <p
+        className={cn(
+          'mt-2 text-center text-[10px] font-bold uppercase leading-tight tracking-[0.16em]',
+          inverted ? 'text-primary-foreground' : 'text-foreground',
+        )}
+      >
+        Redação — Central de Comunicação
+      </p>
+    </div>
   )
 }
