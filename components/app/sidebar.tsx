@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Inbox,
+  MessageCircle,
   ClipboardList,
   Images,
   FolderKanban,
@@ -23,6 +24,7 @@ import { useMobileNav } from './app-shell'
 const main = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox },
+  { href: '/mensagens', label: 'Mensagens', icon: MessageCircle },
   { href: '/pautas', label: 'Pautas', icon: ClipboardList },
   { href: '/biblioteca', label: 'Biblioteca', icon: Images },
   { href: '/projetos', label: 'Projetos', icon: FolderKanban },

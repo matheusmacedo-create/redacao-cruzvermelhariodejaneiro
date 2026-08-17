@@ -434,6 +434,8 @@ export async function addContentComment(formData: FormData) {
   if (error) throw new Error('Não foi possível adicionar o comentário.')
 
   revalidatePath(`/conteudos/${contentId}`)
+  revalidatePath(`/mensagens/${contentId}`)
+  revalidatePath('/mensagens')
 }
 
 export async function createProject(formData: FormData) {
