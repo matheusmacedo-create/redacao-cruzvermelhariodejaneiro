@@ -110,5 +110,6 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: 'cv01', 'ss01';
+    overflow-wrap: break-word;
   }
 }

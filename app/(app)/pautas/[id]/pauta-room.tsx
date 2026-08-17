@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import {
   MessageSquare,
@@ -104,16 +105,16 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
     <div>
       {/* Header */}
       <div className="mb-5">
-        <nav className="mb-2 flex items-center gap-1 text-xs text-muted-foreground">
-          <Link href="/pautas" className="hover:text-foreground">
+        <nav className="mb-2 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          <Link href="/pautas" className="shrink-0 hover:text-foreground">
             Pautas
           </Link>
-          <span>/</span>
-          <span className="text-foreground">{pauta.title}</span>
+          <span className="shrink-0">/</span>
+          <span className="truncate text-foreground">{pauta.title}</span>
         </nav>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight text-balance">{pauta.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={pauta.status} />
@@ -121,12 +122,12 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
                 type="button"
                 onClick={() => setProjectDialogOpen(true)}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium hover:opacity-80',
+                  'flex max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-xs font-medium hover:opacity-80',
                   pauta.projectId ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive',
                 )}
               >
-                <FolderKanban className="size-3" />
-                {pauta.project}
+                <FolderKanban className="size-3 shrink-0" />
+                <span className="truncate">{pauta.project}</span>
               </button>
               <PriorityBadge priority={pauta.priority} />
             </div>
@@ -481,9 +482,32 @@ function Meta({
   capitalize?: boolean
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('mt-1 text-sm font-medium', capitalize && 'capitalize')}>{value}</dd>
+      <dd className={cn('mt-1 text-sm font-medium break-words', capitalize && 'capitalize')}>{value}</dd>
+    </div>
+  )
+}
+
+function MessageComposer() {
+  const { pending } = useFormStatus()
+  return (
+    <div className="rounded-lg border border-border focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+      <textarea
+        name="body"
+        rows={2}
+        required
+        maxLength={5000}
+        disabled={pending}
+        placeholder="Escreva uma mensagem…"
+        className="w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm outline-none disabled:opacity-60"
+      />
+      <div className="flex items-center justify-end px-2 pb-2">
+        <Button size="sm" type="submit" disabled={pending}>
+          <Send className="size-3.5" />
+          {pending ? 'Enviando…' : 'Enviar'}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -504,21 +528,21 @@ function ConversaTab({
   const visibleParticipants = participants ?? []
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
-      <Card className="flex h-[560px] flex-col">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+      <Card className="flex h-[560px] min-w-0 flex-col">
         <div className="flex-1 space-y-5 overflow-y-auto p-5">
           {visibleMessages.length ? visibleMessages.map((message) => (
             <div key={message.id} className="flex gap-3">
               <Avatar initials={message.author.initials} color={message.author.color} src={privateAvatarUrl(message.author.avatarPath)} size="sm" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm font-semibold">{message.author.name}</span>
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                     {message.author.coordination}
                   </span>
                   <span className="text-xs text-muted-foreground">{message.time}</span>
                 </div>
-                <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed">
+                <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed break-words">
                   {message.text}
                 </div>
               </div>
@@ -532,22 +556,7 @@ function ConversaTab({
 
         <form action={sendPautaMessage} className="border-t border-border p-3">
           <input type="hidden" name="pautaId" value={pautaId} />
-          <div className="rounded-lg border border-border focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-            <textarea
-              name="body"
-              rows={2}
-              required
-              maxLength={5000}
-              placeholder="Escreva uma mensagem…"
-              className="w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
-            />
-            <div className="flex items-center justify-end px-2 pb-2">
-              <Button size="sm" type="submit">
-                <Send className="size-3.5" />
-                Enviar
-              </Button>
-            </div>
-          </div>
+          <MessageComposer />
         </form>
       </Card>
 
