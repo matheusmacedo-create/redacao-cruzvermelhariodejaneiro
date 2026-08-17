@@ -136,7 +136,6 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
                   <option value="collection">Coleta</option>
                   <option value="production">Produção</option>
                   <option value="review">Revisão</option>
-                  <option value="approval">Aprovação</option>
                   <option value="approved">Pronto</option>
                   <option value="archived">Arquivado</option>
                 </select>

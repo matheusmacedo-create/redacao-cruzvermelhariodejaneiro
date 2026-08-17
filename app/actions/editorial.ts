@@ -180,6 +180,7 @@ export async function submitContentForApproval(formData: FormData) {
   const id = text(formData, 'id')
   const title = text(formData, 'title')
   const body = text(formData, 'body')
+  const subtitle = text(formData, 'subtitle')
   const format = text(formData, 'format') || 'Matéria editorial'
 
   if (!id || title.length < 3 || body.length < 10) {
@@ -192,7 +193,7 @@ export async function submitContentForApproval(formData: FormData) {
   if (isUuid) {
     const { data: content, error: contentError } = await supabase
       .from('content_pieces')
-      .update({ title, body, status: 'review', updated_at: new Date().toISOString() })
+      .update({ title, subtitle, body, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('workspace_id', context.workspace.id)
       .select('id')

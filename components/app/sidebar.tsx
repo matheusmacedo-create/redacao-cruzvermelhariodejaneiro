@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
+import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
 
 const main = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -95,9 +96,7 @@ export function Sidebar({ profile }: { profile: any }) {
 
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-info text-xs font-semibold text-white">
-            {initials}
-          </span>
+          <Avatar initials={initials} color={profile?.color} src={privateAvatarUrl(profile?.avatar_path)} alt={displayName} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
             <p className="truncate text-[11px] text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>

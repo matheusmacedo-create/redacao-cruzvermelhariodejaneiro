@@ -24,7 +24,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   let query = supabase
     .from('content_pieces')
-    .select('id,title,body,format,status,version,updated_at,responsible_id,pauta_id,pautas(id,title,coordination)')
+    .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,pautas(id,title,coordination,owner_id)')
     .eq('workspace_id', context.workspace.id)
 
   query = isUuid ? query.eq('id', id) : query.order('updated_at', { ascending: false }).limit(1)
@@ -42,7 +42,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     pautaId: rawPauta?.id,
     pautaTitle: rawPauta?.title || 'Sem pauta vinculada',
     title: row.title,
-    subtitle: '',
+    subtitle: row.subtitle || '',
     body: row.body,
     type: row.format,
     status: row.status === 'review' ? 'aprovacao' : row.status === 'draft' ? 'rascunho' : 'producao',
@@ -79,5 +79,6 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     role: profile.job_title,
   } : undefined
 
-  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} />
+  const canSubmit = context.role === 'admin' || row.responsible_id === context.user.id || rawPauta?.owner_id === context.user.id
+  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} canSubmit={canSubmit} />
 }

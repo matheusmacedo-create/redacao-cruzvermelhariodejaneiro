@@ -38,10 +38,12 @@ export function ContentEditor({
   pauta,
   responsible,
   comments,
+  canSubmit = false,
 }: {
   content: ContentPiece
   pauta?: Pauta
   responsible?: Person
+  canSubmit?: boolean
   comments?: Array<{
     id: string
     text: string
@@ -95,16 +97,21 @@ export function ContentEditor({
               Salvar
             </Button>
           </form>
-          <form action={submitContentForApproval}>
-            <input type="hidden" name="id" value={content.id} />
-            <input type="hidden" name="title" value={title} />
-            <input type="hidden" name="body" value={body} />
-            <input type="hidden" name="format" value={content.type} />
-            <Button size="lg" type="submit">
-              <Send className="size-4" />
-              Enviar para aprovação
-            </Button>
-          </form>
+          {canSubmit && content.status !== 'aprovacao' && (
+            <form action={submitContentForApproval} onSubmit={(event) => {
+              if (!window.confirm('Enviar esta matéria para aprovação dos participantes da pauta? Depois do envio, cada decisão ficará registrada com data e horário.')) event.preventDefault()
+            }}>
+              <input type="hidden" name="id" value={content.id} />
+              <input type="hidden" name="title" value={title} />
+              <input type="hidden" name="subtitle" value={subtitle} />
+              <input type="hidden" name="body" value={body} />
+              <input type="hidden" name="format" value={content.type} />
+              <Button size="lg" type="submit">
+                <Send className="size-4" />
+                Enviar para aprovação
+              </Button>
+            </form>
+          )}
         </div>
       </div>
 
