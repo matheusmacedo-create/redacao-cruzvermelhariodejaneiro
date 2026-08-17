@@ -209,30 +209,8 @@ export async function submitContentForApproval(formData: FormData) {
     contentId = created.id
   }
 
-  const { data: existing, error: existingError } = await supabase
-    .from('approvals')
-    .select('id')
-    .eq('content_id', contentId)
-    .eq('workspace_id', context.workspace.id)
-    .maybeSingle()
-  if (existingError) throw new Error(existingError.message)
-
-  let approvalId = existing?.id
-  if (!approvalId) {
-    const { data: approval, error } = await supabase
-      .from('approvals')
-      .insert({ workspace_id: context.workspace.id, content_id: contentId, requested_by: context.user.id })
-      .select('id')
-      .single()
-    if (error || !approval) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
-    approvalId = approval.id
-
-    const { error: stepsError } = await supabase.from('approval_steps').insert([
-      { approval_id: approvalId, step_order: 1, label: 'Revisão editorial' },
-      { approval_id: approvalId, step_order: 2, label: 'Aprovação final' },
-    ])
-    if (stepsError) throw new Error(stepsError.message)
-  }
+  const { data: approvalId, error: submitError } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
+  if (submitError || !approvalId) throw new Error(submitError?.message || 'Não foi possível enviar para aprovação.')
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)
@@ -315,12 +293,9 @@ export async function createPautaApproval(formData: FormData) {
     const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title: text(formData, 'title'), body: text(formData, 'body') || text(formData, 'url'), format: text(formData, 'format') || 'Conteúdo', status: 'review', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
     if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.'); contentId = data.id
   }
-  const { data: approval, error } = await supabase.from('approvals').insert({ workspace_id: context.workspace.id, content_id: contentId, requested_by: context.user.id, status: 'pending', current_step: 1 }).select('id').single()
-  if (error || !approval) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
-  const { error: stepsError } = await supabase.from('approval_steps').insert([{ approval_id: approval.id, step_order: 1, label: 'Votação da equipe' }])
-  if (stepsError) throw new Error(stepsError.message)
-  await supabase.from('content_pieces').update({ status: 'review' }).eq('id', contentId)
-  revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approval.id}`)
+  const { data: approvalId, error } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
+  if (error || !approvalId) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
+  revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
 }
 
 export async function archiveInboxItem(formData: FormData) {
@@ -424,18 +399,10 @@ export async function decideApproval(formData: FormData) {
   const note = text(formData, 'note')
   if (!['approved', 'changes_requested'].includes(decision)) throw new Error('Selecione uma decisão.')
   if (decision === 'changes_requested' && !note) throw new Error('Explique quais ajustes são necessários.')
-  const { data: approval } = await supabase.from('approvals').select('content_id,current_step').eq('id', id).eq('workspace_id', context.workspace.id).single()
+  const { data: approval } = await supabase.from('approvals').select('id').eq('id', id).eq('workspace_id', context.workspace.id).single()
   if (!approval) throw new Error('Aprovação não encontrada.')
-  const stepStatus = decision === 'approved' ? 'approved' : 'changes_requested'
-  const { error: stepError } = await supabase.from('approval_steps').update({ status: stepStatus, comment: note || null, decided_at: new Date().toISOString(), reviewer_id: context.user.id }).eq('approval_id', id).eq('step_order', approval.current_step)
-  if (stepError) throw new Error('Não foi possível registrar a decisão.')
-  const { data: nextStep } = decision === 'approved' ? await supabase.from('approval_steps').select('step_order').eq('approval_id', id).gt('step_order', approval.current_step).order('step_order').limit(1).maybeSingle() : { data: null }
-  const approvalStatus = decision === 'changes_requested' ? 'changes_requested' : nextStep ? 'pending' : 'approved'
-  const { error: approvalError } = await supabase.from('approvals').update({ status: approvalStatus, current_step: nextStep?.step_order || approval.current_step, updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id)
-  if (approvalError) throw new Error('Não foi possível atualizar a aprovação.')
-  const contentStatus = decision === 'changes_requested' ? 'draft' : nextStep ? 'review' : 'approved'
-  const { error: contentError } = await supabase.from('content_pieces').update({ status: contentStatus, updated_at: new Date().toISOString() }).eq('id', approval.content_id).eq('workspace_id', context.workspace.id)
-  if (contentError) throw new Error('Não foi possível atualizar o conteúdo.')
+  const { error: voteError } = await supabase.rpc('vote_on_approval', { p_approval_id: id, p_decision: decision, p_comment: note || null })
+  if (voteError) throw new Error(voteError.message)
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note } })
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${id}`)
