@@ -30,7 +30,7 @@ export function ReviewView({
   const [decision, setDecision] = useState<'aprovado' | 'reprovado' | null>(null)
   const [note, setNote] = useState('')
 
-  const bodyParagraphs = (content?.body ?? 'Conteúdo em elaboração.').split('\n\n')
+  const bodyParagraphs = content?.body ? content.body.split('\n\n') : []
 
   return (
     <div>

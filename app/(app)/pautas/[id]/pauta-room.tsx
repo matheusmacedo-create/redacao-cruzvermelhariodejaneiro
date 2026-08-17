@@ -38,16 +38,9 @@ import {
   ContentStatusBadge,
   FileStatusBadge,
 } from '@/components/ui/status-badge'
-import {
-  conversation,
-  contents,
-  files,
-  getPerson,
-  getProject,
-  type Pauta,
-} from '@/lib/data'
+import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addPautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { addDriveLink, addPautaParticipant, removeDriveLink, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -80,25 +73,25 @@ type PautaMessage = {
   author: Omit<PautaPerson, 'id'>
 }
 
-export function PautaRoom({
-  pauta,
-  participants,
-  availablePeople,
-  messages,
-}: {
+type DriveLink = { id: string; name: string; fileType: string; url: string; createdAt: string }
+type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
+type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string }
+
+export function PautaRoom({ pauta, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
   pauta: Pauta
   participants?: PautaPerson[]
   availablePeople?: PautaPerson[]
   messages?: PautaMessage[]
+  responsible?: PautaPerson
+  driveLinks?: DriveLink[]
+  contentItems?: ContentItem[]
+  history?: HistoryItem[]
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
   const [participantsOpen, setParticipantsOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
-  const responsible = getPerson(pauta.responsibleId)
-  const project = getProject(pauta.projectId)
-  const pautaFiles = files.filter((f) => f.project === pauta.project)
-  const pautaContents = contents.filter((c) => c.pautaId === pauta.id)
+
 
   return (
     <div>
@@ -118,7 +111,7 @@ export function PautaRoom({
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={pauta.status} />
               <span className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {project?.emoji} {pauta.project}
+                {pauta.project}
               </span>
               <PriorityBadge priority={pauta.priority} />
             </div>
@@ -260,10 +253,10 @@ export function PautaRoom({
         />
       )}
       {tab === 'informacoes' && <InformacoesTab pauta={pauta} />}
-      {tab === 'arquivos' && <ArquivosTab items={pautaFiles} />}
-      {tab === 'conteudos' && <ConteudosTab items={pautaContents} />}
-      {tab === 'aprovacoes' && <AprovacoesTab />}
-      {tab === 'historico' && <HistoricoTab />}
+      {tab === 'arquivos' && <ArquivosTab pautaId={pauta.id} items={driveLinks} />}
+      {tab === 'conteudos' && <ConteudosTab items={contentItems} />}
+      {tab === 'aprovacoes' && <AprovacoesTab items={contentItems} />}
+      {tab === 'historico' && <HistoricoTab items={history} />}
 
       {participantsOpen && (
         <ParticipantDialog
@@ -363,30 +356,8 @@ function ConversaTab({
   participants?: PautaPerson[]
   onAddParticipant: () => void
 }) {
-  const visibleMessages: PautaMessage[] = messages ?? conversation.map((message) => {
-    const person = getPerson(message.authorId)
-    return {
-      id: message.id,
-      text: message.text,
-      time: message.time,
-      author: {
-        name: person?.name || 'Colaborador',
-        initials: person?.initials || '?',
-        color: person?.color || 'var(--muted)',
-        coordination: message.role,
-      },
-    }
-  })
-  const visibleParticipants = participants ?? ['matheus', 'carlos', 'ana'].map((id) => {
-    const person = getPerson(id)
-    return {
-      id,
-      name: person?.name || 'Colaborador',
-      initials: person?.initials || '?',
-      color: person?.color || 'var(--muted)',
-      coordination: person?.coordenacao || 'Sem coordenação',
-    }
-  })
+  const visibleMessages: PautaMessage[] = messages ?? []
+  const visibleParticipants = participants ?? []
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
@@ -466,12 +437,7 @@ function ConversaTab({
             Adicionar
           </Button>
         </Card>
-        <Card className="p-4">
-          <h3 className="mb-2 text-sm font-semibold">Perguntas em aberto</h3>
-          <p className="rounded-lg bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
-            História marcante para a matéria — aguardando Carlos.
-          </p>
-        </Card>
+
       </div>
     </div>
   )
@@ -503,53 +469,18 @@ function InfoBlock({
 }
 
 function InformacoesTab({ pauta }: { pauta: Pauta }) {
-  const responsible = getPerson(pauta.responsibleId)
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <InfoBlock
-        title="Sobre a pauta"
-        rows={[
-          { label: 'Tipo', value: pauta.type },
-          { label: 'Projeto', value: pauta.project },
-          { label: 'Coordenação', value: pauta.coordenacao },
-          { label: 'Responsável', value: responsible?.name ?? '—' },
-          { label: 'Prioridade', value: pauta.priority },
-          { label: 'Status', value: pauta.status },
-        ]}
-      />
-      <InfoBlock
-        title="Ação"
-        rows={[
-          { label: 'Data', value: '14 AGO 2025' },
-          { label: 'Local', value: 'Centro, Rio de Janeiro' },
-          { label: 'Pessoas alcançadas', value: '180' },
-          { label: 'Voluntários envolvidos', value: '14' },
-          { label: 'Instituições parceiras', value: 'Prefeitura, SUS' },
-        ]}
-      />
-      <Card className="p-5 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Contexto
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ContextItem label="Objetivo" value="Levar orientação e atendimento em saúde à população em situação de vulnerabilidade no Centro do Rio." />
-          <ContextItem label="Resultado" value="180 pessoas atendidas, com aferição de pressão, orientação e distribuição de kits de higiene." />
-          <ContextItem label="Descrição" value={pauta.summary} />
-          <ContextItem label="Histórias relevantes" value="Um voluntário reencontrou uma pessoa que havia atendido em uma ação anterior." />
-        </div>
-      </Card>
-      <Card className="p-5 lg:col-span-2">
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Observações internas
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] normal-case text-muted-foreground">
-            Privado — Comunicação
-          </span>
-        </h3>
-        <textarea
-          rows={3}
-          defaultValue="Confirmar número final de atendidos com o Carlos antes de publicar. Verificar autorização de uso das fotos com crianças."
-          className="w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-        />
+      <InfoBlock title="Sobre a pauta" rows={[
+        { label: 'Projeto', value: pauta.project || 'Não informado' },
+        { label: 'Coordenação', value: pauta.coordenacao || 'Não informada' },
+        { label: 'Prazo', value: pauta.deadline },
+        { label: 'Prioridade', value: pauta.priority },
+        { label: 'Status', value: pauta.status },
+      ]} />
+      <Card className="p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3>
+        <p className="text-sm leading-relaxed text-pretty">{pauta.summary || 'Nenhuma descrição informada.'}</p>
       </Card>
     </div>
   )
@@ -565,192 +496,41 @@ function ContextItem({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------------- Arquivos ---------------- */
-function ArquivosTab({ items }: { items: typeof files }) {
-  const cats = ['Todos', 'Fotos', 'Vídeos', 'Áudios', 'Documentos']
+function ArquivosTab({ pautaId, items }: { pautaId: string; items: DriveLink[] }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {cats.map((c, i) => (
-            <button
-              key={c}
-              className={cn(
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                i === 0
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <Button variant="outline" size="sm">
-          <Plus className="size-3.5" />
-          Adicionar arquivos
-        </Button>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Links de arquivos armazenados no Google Drive.</p>
+        <Button variant="outline" size="sm" type="button" onClick={() => setOpen((value) => !value)}><Plus className="size-3.5" />Adicionar link</Button>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {items.map((f) => {
-          const Icon = fileKindIcon[f.kind]
-          const person = getPerson(f.authorId)
-          return (
-            <Link key={f.id} href={`/biblioteca/${f.id}`}>
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                <div
-                  className="flex aspect-[4/3] items-center justify-center"
-                  style={{ backgroundColor: f.bg }}
-                >
-                  <Icon className="size-8 text-white/70" />
-                </div>
-                <div className="p-3">
-                  <p className="truncate text-sm font-medium">{f.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {person?.name.split(' ')[0]} · {f.size}
-                  </p>
-                  <div className="mt-2">
-                    <FileStatusBadge status={f.status} />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
+      {open && <Card className="p-4"><form action={async (formData) => { await addDriveLink(formData); setOpen(false) }} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <input type="hidden" name="pautaId" value={pautaId} />
+        <label className="text-sm font-medium">Nome<input name="name" placeholder="Ex.: Fotos da atividade" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="text-sm font-medium">Link do Drive<input required name="url" type="url" placeholder="https://drive.google.com/..." className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <Button type="submit" className="self-end">Salvar link</Button>
+      </form></Card>}
+      {items.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum link do Drive adicionado.</Card> : <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Abrir no Google Drive</a></div><form action={removeDriveLink}><input type="hidden" name="pautaId" value={pautaId} /><input type="hidden" name="fileId" value={item.id} /><Button type="submit" variant="ghost" size="sm">Remover</Button></form></Card>)}</div>}
     </div>
   )
 }
 
 /* ---------------- Conteúdos ---------------- */
-function ConteudosTab({ items }: { items: typeof contents }) {
-  const suggestions = ['Matéria para o site', 'Instagram', 'LinkedIn', 'Reel', 'Release para imprensa']
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Conteúdos que nascem desta pauta
-        </h3>
-        <Button size="sm">
-          <Plus className="size-3.5" />
-          Criar conteúdo
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {suggestions.map((s) => {
-          const existing = items.find((c) => c.type.includes(s.split(' ')[0]))
-          return (
-            <Card key={s} className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-sm font-medium">{s}</p>
-                {existing ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {existing.version} · {existing.lastEdit}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-muted-foreground">Não iniciado</p>
-                )}
-              </div>
-              {existing ? (
-                <div className="flex items-center gap-2">
-                  <ContentStatusBadge status={existing.status} />
-                  <Button variant="outline" size="sm" render={<Link href={`/conteudos/${existing.id}`} />}>
-                    Abrir
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="ghost" size="sm">
-                  <Plus className="size-3.5" />
-                  Iniciar
-                </Button>
-              )}
-            </Card>
-          )
-        })}
-      </div>
-    </div>
-  )
+function ConteudosTab({ items }: { items: ContentItem[] }) {
+  if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo vinculado a esta pauta.</Card>
+  return <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.format} · v{item.version}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Abrir</Button></Card>)}</div>
 }
 
 /* ---------------- Aprovações ---------------- */
-function AprovacoesTab() {
-  const steps = [
-    { label: 'Comunicação', person: 'matheus', status: 'aprovado' as const, time: 'Hoje, 09:12' },
-    { label: 'Coordenação Humanitário', person: 'carlos', status: 'aprovado' as const, time: 'Hoje, 10:04' },
-    { label: 'Diretoria', person: 'diretoria', status: 'pendente' as const, time: 'Aguardando' },
-  ]
-  return (
-    <Card className="p-6">
-      <h3 className="mb-5 text-sm font-semibold">Fluxo de aprovação</h3>
-      <ol className="relative ml-3 space-y-6 border-l border-border">
-        {steps.map((s) => {
-          const p = getPerson(s.person)
-          const done = s.status === 'aprovado'
-          return (
-            <li key={s.label} className="relative pl-6">
-              <span
-                className={cn(
-                  'absolute -left-[9px] top-0.5 flex size-4 items-center justify-center rounded-full',
-                  done ? 'bg-success text-white' : 'bg-warning text-white',
-                )}
-              >
-                {done ? <Check className="size-2.5" /> : <Clock className="size-2.5" />}
-              </span>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{s.label}</p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-                    {p?.name}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span
-                    className={cn(
-                      'text-xs font-medium',
-                      done ? 'text-success' : 'text-warning-foreground',
-                    )}
-                  >
-                    {done ? 'Aprovado' : 'Pendente'}
-                  </span>
-                  <p className="text-xs text-muted-foreground">{s.time}</p>
-                </div>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </Card>
-  )
+function AprovacoesTab({ items }: { items: ContentItem[] }) {
+  const submitted = items.filter((item) => ['review', 'approval', 'approved'].includes(item.status))
+  if (!submitted.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>
+  return <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div>
 }
 
 /* ---------------- Histórico ---------------- */
-function HistoricoTab() {
-  const events = [
-    { who: 'matheus', text: 'criou a pauta', time: '14 AGO, 08:00' },
-    { who: 'carlos', text: 'enviou 12 fotos e 2 vídeos', time: '14 AGO, 14:20' },
-    { who: 'matheus', text: 'alterou o status para “Em coleta”', time: '14 AGO, 14:35' },
-    { who: 'ana', text: 'iniciou a matéria para o site', time: '15 AGO, 09:10' },
-    { who: 'diretoria', text: 'foi adicionada como aprovadora', time: '15 AGO, 11:00' },
-  ]
-  return (
-    <Card className="p-6">
-      <ol className="space-y-4">
-        {events.map((e, i) => {
-          const p = getPerson(e.who)
-          return (
-            <li key={i} className="flex gap-3">
-              <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-              <div>
-                <p className="text-sm">
-                  <span className="font-medium">{p?.name.split(' ')[0]}</span>{' '}
-                  <span className="text-muted-foreground">{e.text}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">{e.time}</p>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </Card>
-  )
+function HistoricoTab({ items }: { items: HistoryItem[] }) {
+  const labels: Record<string, string> = { created: 'criou a pauta', status_changed: 'alterou o status', participant_added: 'adicionou um participante', message_sent: 'enviou uma mensagem' }
+  if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma atividade registrada.</Card>
+  return <Card className="p-6"><ol className="flex flex-col gap-4">{items.map((item) => <li key={item.id} className="flex gap-3"><Avatar initials={item.initials} color={item.color} size="xs" /><div><p className="text-sm"><span className="font-medium">{item.actor}</span>{' '}<span className="text-muted-foreground">{labels[item.action] || item.action}</span></p><p className="text-xs text-muted-foreground">{item.time}</p></div></li>)}</ol></Card>
 }
