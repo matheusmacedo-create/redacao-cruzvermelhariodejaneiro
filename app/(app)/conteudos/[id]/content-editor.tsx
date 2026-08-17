@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  Archive,
   Heading2,
   Bold,
   Italic,
@@ -11,26 +12,37 @@ import {
   Quote,
   Link2,
   ImageIcon,
+  Video,
+  Music,
   Save,
   Send,
   Clock,
   MessageSquare,
   Sparkles,
+  Loader2,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Avatar } from '@/components/ui/avatar'
+import { Card } from '@/components/ui/card'
+import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
-import { addContentComment, saveContent, submitContentForApproval } from '@/app/actions/editorial'
+import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
+import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
 
-const tools = [
+const decorativeTools = [
   { icon: Heading2, label: 'Título' },
   { icon: Bold, label: 'Negrito' },
   { icon: Italic, label: 'Itálico' },
   { icon: List, label: 'Lista' },
   { icon: Quote, label: 'Citação' },
   { icon: Link2, label: 'Link' },
-  { icon: ImageIcon, label: 'Imagem' },
+]
+
+const mediaKinds = [
+  { kind: 'image' as const, icon: ImageIcon, label: 'Imagem', accept: 'image/jpeg,image/png,image/webp,image/gif' },
+  { kind: 'video' as const, icon: Video, label: 'Vídeo', accept: 'video/mp4,video/webm,video/quicktime' },
+  { kind: 'audio' as const, icon: Music, label: 'Áudio', accept: 'audio/mpeg,audio/wav,audio/ogg' },
 ]
 
 export function ContentEditor({
@@ -48,17 +60,57 @@ export function ContentEditor({
     id: string
     text: string
     time: string
-    author: { name: string; initials: string; color?: string }
+    author: { name: string; initials: string; color?: string; avatarPath?: string | null }
   }>
 }) {
   const [title, setTitle] = useState(content.title ?? '')
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
   const [body, setBody] = useState(content.body ?? '')
   const [saved, setSaved] = useState(true)
+  const [showConcludeModal, setShowConcludeModal] = useState(false)
+  const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
+  const [mediaError, setMediaError] = useState('')
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
+  const audioInputRef = useRef<HTMLInputElement>(null)
+  const inputRefs = { image: imageInputRef, video: videoInputRef, audio: audioInputRef }
 
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0
   const readMinutes = Math.max(1, Math.round(wordCount / 200))
   const visibleComments = comments ?? []
+  const mediaBlocks = parseContentBlocks(body).filter((block) => block.type !== 'text') as Array<
+    { type: 'image' | 'video' | 'audio'; url: string; alt: string }
+  >
+
+  async function uploadMedia(kind: 'image' | 'video' | 'audio', file: File) {
+    setMediaError('')
+    setUploadingKind(kind)
+    try {
+      const formData = new FormData()
+      formData.set('file', file)
+      formData.set('tags', 'conteudo')
+      const response = await fetch('/api/files/upload', { method: 'POST', body: formData })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Não foi possível enviar o arquivo.')
+      const url = `/api/private-blob?pathname=${encodeURIComponent(result.storagePath)}`
+      const token = mediaToken(kind, url, file.name)
+      setBody((current) => `${current}${current.trim() ? '\n\n' : ''}${token}\n\n`)
+      setSaved(false)
+    } catch (error) {
+      setMediaError(error instanceof Error ? error.message : 'Não foi possível enviar o arquivo.')
+    } finally {
+      setUploadingKind(null)
+    }
+  }
+
+  function removeMediaBlock(target: { type: string; url: string }) {
+    const lines = body.split(/\n\n+/).filter((paragraph) => {
+      const trimmed = paragraph.trim()
+      return !(trimmed.includes(target.url) && trimmed.startsWith('!['))
+    })
+    setBody(lines.join('\n\n'))
+    setSaved(false)
+  }
 
   return (
     <div className="flex flex-col">
@@ -98,19 +150,10 @@ export function ContentEditor({
             </Button>
           </form>
           {canSubmit && content.status !== 'aprovacao' && (
-            <form action={submitContentForApproval} onSubmit={(event) => {
-              if (!window.confirm('Enviar esta matéria para aprovação dos participantes da pauta? Depois do envio, cada decisão ficará registrada com data e horário.')) event.preventDefault()
-            }}>
-              <input type="hidden" name="id" value={content.id} />
-              <input type="hidden" name="title" value={title} />
-              <input type="hidden" name="subtitle" value={subtitle} />
-              <input type="hidden" name="body" value={body} />
-              <input type="hidden" name="format" value={content.type} />
-              <Button size="lg" type="submit">
-                <Send className="size-4" />
-                Enviar para aprovação
-              </Button>
-            </form>
+            <Button size="lg" type="button" onClick={() => setShowConcludeModal(true)}>
+              <Send className="size-4" />
+              Concluir matéria
+            </Button>
           )}
         </div>
       </div>
@@ -118,8 +161,8 @@ export function ContentEditor({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px]">
         {/* Editor pane */}
         <div className="lg:border-r lg:border-border">
-          <div className="flex items-center gap-1 border-b border-border px-6 py-2 lg:px-8">
-            {tools.map((t) => (
+          <div className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2 lg:px-8">
+            {decorativeTools.map((t) => (
               <button
                 key={t.label}
                 type="button"
@@ -130,6 +173,19 @@ export function ContentEditor({
               </button>
             ))}
             <div className="mx-2 h-5 w-px bg-border" />
+            {mediaKinds.map((m) => (
+              <button
+                key={m.kind}
+                type="button"
+                aria-label={`Adicionar ${m.label.toLowerCase()}`}
+                disabled={uploadingKind !== null}
+                onClick={() => inputRefs[m.kind].current?.click()}
+                className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+              >
+                {uploadingKind === m.kind ? <Loader2 className="size-4 animate-spin" /> : <m.icon className="size-4" />}
+              </button>
+            ))}
+            <div className="mx-2 h-5 w-px bg-border" />
             <button
               type="button"
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
@@ -137,7 +193,22 @@ export function ContentEditor({
               <Sparkles className="size-4" />
               Assistente
             </button>
+            {mediaKinds.map((m) => (
+              <input
+                key={m.kind}
+                ref={inputRefs[m.kind]}
+                type="file"
+                accept={m.accept}
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  event.target.value = ''
+                  if (file) uploadMedia(m.kind, file)
+                }}
+              />
+            ))}
           </div>
+          {mediaError && <p className="px-6 pt-2 text-xs text-destructive lg:px-8">{mediaError}</p>}
 
           <div className="mx-auto max-w-3xl px-6 py-8 lg:px-12">
             <input
@@ -173,6 +244,35 @@ export function ContentEditor({
               className="mt-6 w-full resize-none border-none bg-transparent text-base leading-relaxed outline-none placeholder:text-muted-foreground/50"
               placeholder="Comece a escrever o conteúdo…"
             />
+
+            {mediaBlocks.length > 0 && (
+              <div className="mt-6 flex flex-col gap-3 border-t border-border pt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Mídia anexada ({mediaBlocks.length})
+                </h3>
+                {mediaBlocks.map((block, index) => (
+                  <div key={`${block.url}-${index}`} className="flex items-center gap-3 rounded-lg border border-border p-2">
+                    {block.type === 'image' && <img src={block.url} alt={block.alt} className="size-14 shrink-0 rounded-md object-cover" />}
+                    {block.type === 'video' && <video src={block.url} className="size-14 shrink-0 rounded-md bg-muted object-cover" muted />}
+                    {block.type === 'audio' && (
+                      <span className="flex size-14 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                        <Music className="size-5" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm">{block.alt || 'Arquivo sem nome'}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Remover ${block.alt || 'mídia'}`}
+                      onClick={() => removeMediaBlock(block)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -185,7 +285,7 @@ export function ContentEditor({
             <dl className="mt-3 space-y-3 text-sm">
               <Row label="Responsável">
                 <span className="flex items-center gap-2">
-                  <Avatar initials={responsible?.initials ?? '?'} color={responsible?.color} size="sm" />
+                  <Avatar initials={responsible?.initials ?? '?'} color={responsible?.color} src={privateAvatarUrl((responsible as any)?.avatarPath)} size="sm" />
                   {responsible?.name}
                 </span>
               </Row>
@@ -204,7 +304,7 @@ export function ContentEditor({
             <ul className="mt-4 space-y-4" aria-live="polite">
               {visibleComments.map((comment) => (
                 <li key={comment.id} className="flex gap-3">
-                  <Avatar initials={comment.author.initials} color={comment.author.color} size="sm" />
+                  <Avatar initials={comment.author.initials} color={comment.author.color} src={privateAvatarUrl(comment.author.avatarPath)} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-medium">{comment.author.name}</span>
@@ -234,6 +334,65 @@ export function ContentEditor({
           </div>
         </aside>
       </div>
+
+      {showConcludeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+            aria-label="Fechar"
+            onClick={() => setShowConcludeModal(false)}
+          />
+          <Card className="relative z-10 w-full max-w-md p-6 shadow-lg">
+            <h2 className="text-lg font-semibold">Concluir matéria</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              “{title || 'Sem título'}” está pronta. O que você quer fazer agora?
+            </p>
+            <div className="mt-5 flex flex-col gap-3">
+              <form action={submitContentForApproval} onSubmit={() => setShowConcludeModal(false)}>
+                <input type="hidden" name="id" value={content.id} />
+                <input type="hidden" name="title" value={title} />
+                <input type="hidden" name="subtitle" value={subtitle} />
+                <input type="hidden" name="body" value={body} />
+                <input type="hidden" name="format" value={content.type} />
+                <button
+                  type="submit"
+                  className="w-full rounded-lg border border-primary bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-primary">
+                    <Send className="size-4" />
+                    Disponibilizar para os participantes
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Envia para aprovação agora e notifica quem está na pauta.
+                  </span>
+                </button>
+              </form>
+              <form action={archiveContentDraft} onSubmit={() => setShowConcludeModal(false)}>
+                <input type="hidden" name="id" value={content.id} />
+                <input type="hidden" name="title" value={title} />
+                <input type="hidden" name="subtitle" value={subtitle} />
+                <input type="hidden" name="body" value={body} />
+                <button
+                  type="submit"
+                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted"
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <Archive className="size-4" />
+                    Arquivar e continuar depois
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Guarda como rascunho arquivado, sem enviar para ninguém ainda.
+                  </span>
+                </button>
+              </form>
+            </div>
+            <Button variant="ghost" size="sm" className="mt-4 w-full" type="button" onClick={() => setShowConcludeModal(false)}>
+              Cancelar
+            </Button>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

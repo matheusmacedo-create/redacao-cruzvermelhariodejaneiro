@@ -28,7 +28,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Avatar } from '@/components/ui/avatar'
+import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
 import {
   StatusBadge,
   PriorityBadge,
@@ -60,6 +60,7 @@ type PautaPerson = {
   name: string
   initials: string
   color: string
+  avatarPath?: string | null
   coordination: string
 }
 
@@ -72,7 +73,7 @@ type PautaMessage = {
 
 type DriveLink = { id: string; name: string; fileType: string; url: string; createdAt: string }
 type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
-type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string }
+type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string; avatarPath?: string | null }
 
 export function PautaRoom({ pauta, details = {}, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
   pauta: Pauta
@@ -213,8 +214,8 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
           <div>
             <dt className="text-xs text-muted-foreground">Responsável</dt>
             <dd className="mt-1 flex items-center gap-1.5">
-              <Avatar initials={responsible?.initials ?? '?'} color={responsible?.color} size="xs" />
-              <span className="text-sm font-medium">{responsible?.name.split(' ')[0]}</span>
+              <Avatar initials={responsible?.initials ?? '?'} color={responsible?.color} src={privateAvatarUrl(responsible?.avatarPath)} size="xs" />
+              <span className="text-sm font-medium">{responsible?.name?.split(' ')[0]}</span>
             </dd>
           </div>
           <Meta label="Arquivos" value={String(pauta.files)} />
@@ -301,7 +302,7 @@ function ParticipantDialog({
                     <input type="hidden" name="pautaId" value={pautaId} />
                     <input type="hidden" name="userId" value={person.id} />
                     <button type="submit" className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <Avatar initials={person.initials} color={person.color} size="sm" />
+                      <Avatar initials={person.initials} color={person.color} src={privateAvatarUrl(person.avatarPath)} size="sm" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{person.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">{person.coordination}</span>
@@ -362,7 +363,7 @@ function ConversaTab({
         <div className="flex-1 space-y-5 overflow-y-auto p-5">
           {visibleMessages.length ? visibleMessages.map((message) => (
             <div key={message.id} className="flex gap-3">
-              <Avatar initials={message.author.initials} color={message.author.color} size="sm" />
+              <Avatar initials={message.author.initials} color={message.author.color} src={privateAvatarUrl(message.author.avatarPath)} size="sm" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">{message.author.name}</span>
@@ -410,7 +411,7 @@ function ConversaTab({
           <ul className="space-y-2.5" aria-live="polite">
             {visibleParticipants.map((person) => (
               <li key={person.id} className="flex items-center gap-2">
-                <Avatar initials={person.initials} color={person.color} size="xs" />
+                <Avatar initials={person.initials} color={person.color} src={privateAvatarUrl(person.avatarPath)} size="xs" />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{person.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{person.coordination}</p>
@@ -504,5 +505,5 @@ function AprovacoesTab({ pautaId, items }: { pautaId: string; items: ContentItem
 function HistoricoTab({ items }: { items: HistoryItem[] }) {
   const labels: Record<string, string> = { created: 'criou a pauta', status_changed: 'alterou o status', participant_added: 'adicionou um participante', message_sent: 'enviou uma mensagem' }
   if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma atividade registrada.</Card>
-  return <Card className="p-6"><ol className="flex flex-col gap-4">{items.map((item) => <li key={item.id} className="flex gap-3"><Avatar initials={item.initials} color={item.color} size="xs" /><div><p className="text-sm"><span className="font-medium">{item.actor}</span>{' '}<span className="text-muted-foreground">{labels[item.action] || item.action}</span></p><p className="text-xs text-muted-foreground">{item.time}</p></div></li>)}</ol></Card>
+  return <Card className="p-6"><ol className="flex flex-col gap-4">{items.map((item) => <li key={item.id} className="flex gap-3"><Avatar initials={item.initials} color={item.color} src={privateAvatarUrl(item.avatarPath)} size="xs" /><div><p className="text-sm"><span className="font-medium">{item.actor}</span>{' '}<span className="text-muted-foreground">{labels[item.action] || item.action}</span></p><p className="text-xs text-muted-foreground">{item.time}</p></div></li>)}</ol></Card>
 }
