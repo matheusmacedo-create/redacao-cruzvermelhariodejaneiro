@@ -13,23 +13,27 @@ export function Avatar({
   color,
   size = 'sm',
   className,
+  src,
+  alt = '',
 }: {
   initials: string
   color?: string
   size?: keyof typeof sizes
   className?: string
+  src?: string | null
+  alt?: string
 }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white select-none',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-white select-none',
         sizes[size],
         className,
       )}
       style={{ backgroundColor: color ?? 'oklch(0.52 0 0)' }}
-      aria-hidden="true"
+      aria-hidden={!alt}
     >
-      {initials}
+      {src ? <img src={src} alt={alt} className="size-full object-cover" /> : initials}
     </span>
   )
 }
