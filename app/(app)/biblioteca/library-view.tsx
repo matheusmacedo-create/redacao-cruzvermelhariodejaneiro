@@ -1,123 +1,21 @@
 'use client'
-
-import { useState } from 'react'
-import Link from 'next/link'
-import { ImageIcon, Video, Music, FileText, Search } from 'lucide-react'
+import { useRef,useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Download,FileText,ImageIcon,Music,Search,Trash2,UploadCloud,Video } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { FileStatusBadge } from '@/components/ui/status-badge'
-import { files, getPerson, type MediaFile } from '@/lib/data'
 import { cn } from '@/lib/utils'
 
-const kindIcon = { foto: ImageIcon, video: Video, audio: Music, documento: FileText }
-
-const kindFilters: { label: string; value: 'todos' | MediaFile['kind'] }[] = [
-  { label: 'Todos', value: 'todos' },
-  { label: 'Fotos', value: 'foto' },
-  { label: 'Vídeos', value: 'video' },
-  { label: 'Áudios', value: 'audio' },
-  { label: 'Documentos', value: 'documento' },
-]
-
-const statusFilters: { label: string; value: 'todos' | MediaFile['status'] }[] = [
-  { label: 'Qualquer status', value: 'todos' },
-  { label: 'Autorizados', value: 'autorizado' },
-  { label: 'Pendentes', value: 'pendente' },
-  { label: 'Não utilizar', value: 'nao-utilizar' },
-]
-
-export function LibraryView() {
-  const [kind, setKind] = useState<'todos' | MediaFile['kind']>('todos')
-  const [status, setStatus] = useState<'todos' | MediaFile['status']>('todos')
-  const [query, setQuery] = useState('')
-
-  const list = files.filter((f) => {
-    if (kind !== 'todos' && f.kind !== kind) return false
-    if (status !== 'todos' && f.status !== status) return false
-    if (query && !`${f.name} ${f.tags.join(' ')} ${f.event ?? ''}`.toLowerCase().includes(query.toLowerCase()))
-      return false
-    return true
-  })
-
-  return (
-    <div>
-      <div className="mb-5 flex flex-col gap-3">
-        <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por nome, tag ou evento…"
-            className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-wrap gap-1.5">
-            {kindFilters.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setKind(f.value)}
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  kind === f.value
-                    ? 'bg-foreground text-background'
-                    : 'bg-muted text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as typeof status)}
-            className="ml-auto h-9 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring"
-          >
-            {statusFilters.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <p className="mb-3 text-xs text-muted-foreground">{list.length} arquivo(s)</p>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {list.map((f) => {
-          const Icon = kindIcon[f.kind]
-          const person = getPerson(f.authorId)
-          return (
-            <Link key={f.id} href={`/biblioteca/${f.id}`}>
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                <div
-                  className="flex aspect-[4/3] items-center justify-center"
-                  style={{ backgroundColor: f.bg }}
-                >
-                  <Icon className="size-8 text-white/70" />
-                </div>
-                <div className="p-3">
-                  <p className="truncate text-sm font-medium">{f.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {person?.name.split(' ')[0]} · {f.date}
-                  </p>
-                  <div className="mt-2">
-                    <FileStatusBadge status={f.status} />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
-
-      {list.length === 0 && (
-        <Card className="flex flex-col items-center gap-1 py-16 text-center">
-          <p className="text-sm font-medium">Nenhum arquivo encontrado.</p>
-          <p className="text-sm text-muted-foreground">Ajuste os filtros ou a busca.</p>
-        </Card>
-      )}
-    </div>
-  )
+type Item={id:string;name:string;kind:string;contentType:string|null;size:number;status:string;tags:string[];createdAt:string;storagePath:string|null;author:{name:string;initials:string;color?:string};canDelete:boolean}
+const icons:Record<string,typeof FileText>={foto:ImageIcon,video:Video,audio:Music,documento:FileText}
+const kinds=[['todos','Todos'],['foto','Fotos'],['video','Vídeos'],['audio','Áudios'],['documento','Documentos']]
+const format=(n:number)=>n<1024*1024?`${Math.max(1,Math.round(n/1024))} KB`:`${(n/1024/1024).toFixed(1)} MB`
+export function LibraryView({initialFiles,usedBytes,limitBytes}:{initialFiles:Item[];usedBytes:number;limitBytes:number}){
+ const router=useRouter(),input=useRef<HTMLInputElement>(null);const [kind,setKind]=useState('todos'),[query,setQuery]=useState(''),[tags,setTags]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ const list=initialFiles.filter(f=>(kind==='todos'||f.kind===kind)&&`${f.name} ${f.tags.join(' ')}`.toLowerCase().includes(query.toLowerCase()))
+ async function upload(){const file=input.current?.files?.[0];if(!file)return;setBusy(true);setError('');const body=new FormData();body.set('file',file);body.set('tags',tags);const res=await fetch('/api/files/upload',{method:'POST',body});const json=await res.json();setBusy(false);if(!res.ok){setError(json.error);return}router.refresh();if(input.current)input.current.value='';setTags('')}
+ async function remove(id:string){if(!confirm('Excluir este arquivo permanentemente?'))return;const res=await fetch(`/api/files/${id}`,{method:'DELETE'});if(res.ok)router.refresh();else setError((await res.json()).error)}
+ return <div className="flex flex-col gap-5"><Card className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-end"><div className="flex-1"><p className="text-sm font-semibold">Enviar arquivo</p><p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · máximo de 10 MB.</p><input ref={input} type="file" className="mt-3 block w-full text-sm" /></div><label className="text-sm font-medium">Tags<input value={tags} onChange={e=>setTags(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 lg:w-64" placeholder="evento, campanha" /></label><Button onClick={upload} disabled={busy}>{busy?'Enviando…':<><UploadCloud className="size-4"/>Enviar</>}</Button></div>{error&&<p className="mt-3 text-sm text-destructive">{error}</p>}<div className="mt-4"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Espaço usado</span><span>{format(usedBytes)} de {format(limitBytes)}</span></div><div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{width:`${Math.min(100,usedBytes/limitBytes*100)}%`}}/></div></div></Card>
+ <div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-3 size-4 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3" placeholder="Buscar arquivos e tags"/></div><div className="flex flex-wrap gap-2">{kinds.map(([value,label])=><button key={value} onClick={()=>setKind(value)} className={cn('rounded-lg px-3 py-2 text-sm',kind===value?'bg-foreground text-background':'bg-muted text-muted-foreground')}>{label}</button>)}</div></div>
+ <p className="text-xs text-muted-foreground">{list.length} arquivo(s)</p><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{list.map(f=>{const Icon=icons[f.kind]||FileText;const preview=f.kind==='foto'&&f.storagePath?`/api/private-blob?pathname=${encodeURIComponent(f.storagePath)}`:null;return <Card key={f.id} className="overflow-hidden"><div className="flex aspect-video items-center justify-center bg-muted">{preview?<img src={preview} alt={f.name} className="size-full object-cover"/>:<Icon className="size-10 text-muted-foreground"/>}</div><div className="flex flex-col gap-3 p-4"><div><p className="truncate text-sm font-semibold">{f.name}</p><p className="text-xs text-muted-foreground">{f.author.name} · {format(f.size)} · {new Intl.DateTimeFormat('pt-BR').format(new Date(f.createdAt))}</p></div><div className="flex flex-wrap gap-1">{f.tags.map(t=><span key={t} className="rounded bg-muted px-2 py-0.5 text-xs">#{t}</span>)}</div><div className="flex gap-2"><Button variant="outline" size="sm" className="flex-1" render={<a href={`/api/files/${f.id}/download`}/> }><Download className="size-4"/>Baixar</Button>{f.canDelete&&<Button variant="ghost" size="icon-sm" onClick={()=>remove(f.id)} aria-label={`Excluir ${f.name}`}><Trash2 className="size-4"/></Button>}</div></div></Card>})}</div>{!list.length&&<Card className="p-12 text-center text-sm text-muted-foreground">Nenhum arquivo encontrado.</Card>}</div>
 }

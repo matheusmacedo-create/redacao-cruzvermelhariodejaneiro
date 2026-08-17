@@ -2,166 +2,36 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Check, X, Clock, MessageSquarePlus } from 'lucide-react'
+import { ArrowLeft, Check, Clock, MessageSquarePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
-import { ContentStatusBadge } from '@/components/ui/status-badge'
-import type { ApprovalItem, ContentPiece, Person } from '@/lib/data'
-import { getPerson } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { decideApproval } from '@/app/actions/editorial'
 
-const stepMeta = {
-  aprovado: { icon: Check, className: 'bg-success text-white', label: 'Aprovado', tone: 'text-success' },
-  pendente: { icon: Clock, className: 'bg-warning text-white', label: 'Pendente', tone: 'text-warning-foreground' },
-  reprovado: { icon: X, className: 'bg-destructive text-white', label: 'Reprovado', tone: 'text-destructive' },
-} as const
+type Voter = { userId:string; decision:string; comment?:string; decidedAt?:string; name:string; initials:string; color?:string; role:string }
+type Approval = { id:string; status:string; title:string; type:string; pauta:string; date:string; voters:Voter[]; currentUserId:string }
+type Content = { title?:string; subtitle?:string; body?:string; version?:string }
 
-export function ReviewView({
-  approval,
-  content,
-  requester,
-}: {
-  approval: ApprovalItem
-  content?: ContentPiece
-  requester?: Person
-}) {
-  const [decision, setDecision] = useState<'aprovado' | 'reprovado' | null>(null)
-  const [note, setNote] = useState('')
+export function ReviewView({ approval, content, requester }: { approval: Approval; content?: Content; requester?: { name:string; initials:string; color?:string; role:string } }) {
+  const [decision,setDecision] = useState<'approved'|'changes_requested'|null>(null)
+  const [note,setNote] = useState('')
+  const approved = approval.voters.filter(v=>v.decision==='approved')
+  const pending = approval.voters.filter(v=>v.decision==='pending')
+  const rejected = approval.voters.filter(v=>v.decision==='changes_requested')
+  const currentVoter = approval.voters.find(v=>v.userId===approval.currentUserId)
+  const canVote = approval.status==='pending' && Boolean(currentVoter)
+  const bodyParagraphs = content?.body ? content.body.split(/\n\n+/) : []
 
-  const bodyParagraphs = (content?.body ?? 'Conteúdo em elaboração.').split('\n\n')
-
-  return (
-    <div>
-      <nav className="mb-4 flex items-center gap-1 text-xs text-muted-foreground">
-        <Link href="/aprovacoes" className="flex items-center gap-1 hover:text-foreground">
-          <ArrowLeft className="size-3.5" />
-          Aprovações
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">{approval.title}</span>
-      </nav>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Content preview */}
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-6 py-3">
-            <div className="flex items-center gap-2">
-              {content && <ContentStatusBadge status={content.status} />}
-              <span className="text-xs text-muted-foreground">{approval.type}</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{content?.version}</span>
-          </div>
-          <article className="px-6 py-8 lg:px-10">
-            <p className="text-xs font-medium uppercase tracking-wide text-primary">
-              {approval.pauta}
-            </p>
-            <h1 className="mt-2 font-serif text-3xl font-bold leading-tight text-balance">
-              {content?.title ?? approval.title}
-            </h1>
-            {content?.subtitle && (
-              <p className="mt-3 text-lg text-muted-foreground text-pretty">{content.subtitle}</p>
-            )}
-            <div className="mt-6 flex flex-col gap-4 text-base leading-relaxed">
-              {bodyParagraphs.map((p, i) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          </article>
-        </Card>
-
-        {/* Decision panel */}
-        <div className="flex flex-col gap-4">
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold">Fluxo de aprovação</h3>
-            <ol className="mt-4 space-y-4">
-              {approval.steps.map((s) => {
-                const m = stepMeta[s.status]
-                return (
-                  <li key={s.label} className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        'flex size-6 shrink-0 items-center justify-center rounded-full',
-                        m.className,
-                      )}
-                    >
-                      <m.icon className="size-3.5" />
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{s.label}</p>
-                    </div>
-                    <span className={cn('text-xs font-medium', m.tone)}>{m.label}</span>
-                  </li>
-                )
-              })}
-            </ol>
-          </Card>
-
-          <Card className="p-5">
-            <div className="flex items-center gap-2">
-              <Avatar initials={requester?.initials ?? '?'} color={requester?.color} size="sm" />
-              <div>
-                <p className="text-sm font-medium">{requester?.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  Solicitou em {approval.date}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold">Sua decisão</h3>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setDecision('aprovado')}
-                className={cn(
-                  'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                  decision === 'aprovado'
-                    ? 'border-success bg-success/12 text-success'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
-              >
-                <Check className="size-4" />
-                Aprovar
-              </button>
-              <button
-                type="button"
-                onClick={() => setDecision('reprovado')}
-                className={cn(
-                  'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
-                  decision === 'reprovado'
-                    ? 'border-destructive bg-destructive/10 text-destructive'
-                    : 'border-border text-muted-foreground hover:bg-muted',
-                )}
-              >
-                <X className="size-4" />
-                Solicitar ajustes
-              </button>
-            </div>
-
-            <label className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <MessageSquarePlus className="size-3.5" />
-              Comentário {decision === 'reprovado' && <span className="text-primary">(obrigatório)</span>}
-            </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={3}
-              placeholder="Deixe uma observação para a equipe…"
-              className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-            />
-
-            <Button
-              size="lg"
-              className="mt-4 h-11 w-full"
-              disabled={!decision || (decision === 'reprovado' && !note.trim())}
-            >
-              Confirmar decisão
-            </Button>
-          </Card>
-        </div>
-      </div>
-    </div>
-  )
+  return <div><nav className="mb-4 flex items-center gap-1 text-xs text-muted-foreground"><Link href="/aprovacoes" className="flex items-center gap-1 hover:text-foreground"><ArrowLeft className="size-3.5" />Aprovações</Link><span>/</span><span className="text-foreground">{approval.title}</span></nav>
+    <div className="grid gap-6 lg:grid-cols-[1fr_360px]"><Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-border px-6 py-3"><span className="text-xs text-muted-foreground">{approval.type}</span><span className="text-xs text-muted-foreground">{content?.version}</span></div><article className="px-6 py-8 lg:px-10"><p className="text-xs font-medium uppercase tracking-wide text-primary">{approval.pauta}</p><h1 className="mt-2 font-serif text-3xl font-bold leading-tight text-balance">{content?.title || approval.title}</h1>{content?.subtitle && <p className="mt-3 text-lg text-muted-foreground">{content.subtitle}</p>}<div className="mt-6 flex flex-col gap-4 text-base leading-relaxed">{bodyParagraphs.length ? bodyParagraphs.map((p,i)=><p key={i}>{p}</p>) : <p className="text-muted-foreground">Conteúdo sem texto.</p>}</div></article></Card>
+      <aside className="flex flex-col gap-4"><Card className="p-5"><div className="flex items-center justify-between"><h2 className="text-sm font-semibold">Progresso da aprovação</h2><span className="text-sm font-semibold">{approved.length}/{approval.voters.length}</span></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-success transition-all" style={{width:`${approval.voters.length ? approved.length/approval.voters.length*100 : 0}%`}} /></div>{rejected.length>0 && <p className="mt-3 text-xs font-medium text-destructive">Ajustes solicitados por {rejected[0].name}</p>}</Card>
+        <Card className="p-5"><h2 className="text-sm font-semibold">Já aprovaram</h2><VoterList voters={approved} empty="Nenhuma aprovação registrada ainda." approved /><h2 className="mt-5 text-sm font-semibold">Ainda falta</h2><VoterList voters={pending} empty="Todas as pessoas já decidiram." /></Card>
+        <Card className="p-5"><div className="flex items-center gap-2"><Avatar initials={requester?.initials || '?'} color={requester?.color} size="sm" /><div><p className="text-sm font-medium">{requester?.name}</p><p className="text-xs text-muted-foreground">Solicitou em {approval.date}</p></div></div></Card>
+        <Card className="p-5"><form action={decideApproval}><input type="hidden" name="id" value={approval.id}/><input type="hidden" name="decision" value={decision || ''}/><h2 className="text-sm font-semibold">Sua decisão</h2>{!canVote && <p className="mt-2 text-sm text-muted-foreground">{approval.status==='pending' ? 'Você acompanha esta rodada, mas não está entre os votantes.' : 'Esta rodada já foi encerrada.'}</p>}<div className="mt-3 grid grid-cols-2 gap-2"><DecisionButton active={decision==='approved'} disabled={!canVote} onClick={()=>setDecision('approved')} icon={Check} label="Aprovar" /><DecisionButton active={decision==='changes_requested'} destructive disabled={!canVote} onClick={()=>setDecision('changes_requested')} icon={X} label="Pedir ajustes" /></div><label className="mt-4 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><MessageSquarePlus className="size-3.5"/>Comentário</label><textarea name="note" value={note} onChange={e=>setNote(e.target.value)} disabled={!canVote} rows={3} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm disabled:opacity-60" placeholder="Registre uma observação"/><Button className="mt-4 h-11 w-full" disabled={!canVote || !decision || (decision==='changes_requested'&&!note.trim())}>Confirmar decisão</Button></form></Card>
+      </aside></div></div>
 }
+
+function VoterList({ voters, empty, approved=false }: { voters:Voter[]; empty:string; approved?:boolean }) { return <div className="mt-3 flex flex-col gap-3">{voters.length ? voters.map(v=><div key={v.userId} className="flex items-start gap-2"><span className={cn('mt-0.5 flex size-6 items-center justify-center rounded-full',approved?'bg-success/15 text-success':'bg-warning/15 text-warning-foreground')}>{approved?<Check className="size-3.5"/>:<Clock className="size-3.5"/>}</span><div><p className="text-sm font-medium">{v.name}</p><p className="text-xs text-muted-foreground">{v.role}{v.decidedAt?` · ${new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v.decidedAt))}`:''}</p>{v.comment&&<p className="mt-1 text-xs">{v.comment}</p>}</div></div>) : <p className="text-xs text-muted-foreground">{empty}</p>}</div> }
+
+function DecisionButton({active,disabled,onClick,icon:Icon,label,destructive=false}:{active:boolean;disabled:boolean;onClick:()=>void;icon:typeof Check;label:string;destructive?:boolean}) { return <button type="button" disabled={disabled} onClick={onClick} className={cn('flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-sm font-medium disabled:opacity-50',active?(destructive?'border-destructive bg-destructive/10 text-destructive':'border-success bg-success/10 text-success'):'border-border text-muted-foreground')}><Icon className="size-4"/>{label}</button> }

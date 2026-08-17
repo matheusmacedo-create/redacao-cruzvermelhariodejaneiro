@@ -12,9 +12,6 @@ import {
   UserPlus,
   ChevronDown,
   MoreHorizontal,
-  Paperclip,
-  Mic,
-  AtSign,
   Send,
   CheckCircle2,
   Plus,
@@ -24,6 +21,10 @@ import {
   FileText,
   Check,
   Clock,
+  X,
+  Archive,
+  Copy,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -34,15 +35,9 @@ import {
   ContentStatusBadge,
   FileStatusBadge,
 } from '@/components/ui/status-badge'
-import {
-  conversation,
-  contents,
-  files,
-  getPerson,
-  getProject,
-  type Pauta,
-} from '@/lib/data'
+import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
+import { addDriveLink, addPautaParticipant, createPautaApproval, createPautaContent, removeDriveLink, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -60,12 +55,41 @@ const fileKindIcon = {
   documento: FileText,
 }
 
-export function PautaRoom({ pauta }: { pauta: Pauta }) {
+type PautaPerson = {
+  id: string
+  name: string
+  initials: string
+  color: string
+  coordination: string
+}
+
+type PautaMessage = {
+  id: string
+  text: string
+  time: string
+  author: Omit<PautaPerson, 'id'>
+}
+
+type DriveLink = { id: string; name: string; fileType: string; url: string; createdAt: string }
+type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
+type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string }
+
+export function PautaRoom({ pauta, details = {}, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
+  pauta: Pauta
+  details?: Record<string, string>
+  participants?: PautaPerson[]
+  availablePeople?: PautaPerson[]
+  messages?: PautaMessage[]
+  responsible?: PautaPerson
+  driveLinks?: DriveLink[]
+  contentItems?: ContentItem[]
+  history?: HistoryItem[]
+}) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
-  const responsible = getPerson(pauta.responsibleId)
-  const project = getProject(pauta.projectId)
-  const pautaFiles = files.filter((f) => f.project === pauta.project)
-  const pautaContents = contents.filter((c) => c.pautaId === pauta.id)
+  const [participantsOpen, setParticipantsOpen] = useState(false)
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
 
   return (
     <div>
@@ -85,23 +109,100 @@ export function PautaRoom({ pauta }: { pauta: Pauta }) {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={pauta.status} />
               <span className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                {project?.emoji} {pauta.project}
+                {pauta.project}
               </span>
               <PriorityBadge priority={pauta.priority} />
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="lg">
-              Alterar status
-              <ChevronDown className="size-4" />
-            </Button>
-            <Button variant="outline" size="lg">
+            <form action={updatePautaStatus}>
+              <input type="hidden" name="id" value={pauta.id} />
+              <input type="hidden" name="title" value={pauta.title} />
+              <input type="hidden" name="description" value={pauta.summary} />
+              <input type="hidden" name="priority" value={pauta.priority} />
+              <input type="hidden" name="coordination" value={pauta.coordenacao} />
+              <input type="hidden" name="project" value={pauta.project} />
+              <label className="relative block">
+                <span className="sr-only">Alterar status</span>
+                <select
+                  name="status"
+                  defaultValue=""
+                  onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                  className="h-10 appearance-none rounded-lg border border-border bg-background py-2 pl-3 pr-9 text-sm font-medium outline-none hover:bg-muted focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  aria-label="Alterar status"
+                >
+                  <option value="" disabled>Alterar status</option>
+                  <option value="incoming">Entrada</option>
+                  <option value="collection">Coleta</option>
+                  <option value="production">Produção</option>
+                  <option value="review">Revisão</option>
+                  <option value="approval">Aprovação</option>
+                  <option value="approved">Pronto</option>
+                  <option value="archived">Arquivado</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" />
+              </label>
+            </form>
+            <Button variant="outline" size="lg" type="button" onClick={() => setParticipantsOpen(true)}>
               <UserPlus className="size-4" />
               Adicionar pessoas
             </Button>
-            <Button variant="ghost" size="icon-lg" aria-label="Mais opções">
-              <MoreHorizontal className="size-4" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                type="button"
+                aria-label="Mais opções"
+                aria-haspopup="menu"
+                aria-expanded={optionsOpen}
+                onClick={() => setOptionsOpen((open) => !open)}
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+              {optionsOpen && (
+                <div className="absolute right-0 top-11 z-40 w-52 rounded-lg border border-border bg-background p-1 shadow-lg" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() => {
+                      setTab('informacoes')
+                      setOptionsOpen(false)
+                    }}
+                  >
+                    <Pencil className="size-4 text-muted-foreground" />
+                    Ver informações
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(window.location.href)
+                      setLinkCopied(true)
+                      setOptionsOpen(false)
+                      window.setTimeout(() => setLinkCopied(false), 2000)
+                    }}
+                  >
+                    <Copy className="size-4 text-muted-foreground" />
+                    {linkCopied ? 'Link copiado' : 'Copiar link'}
+                  </button>
+                  <form action={updatePautaStatus}>
+                    <input type="hidden" name="id" value={pauta.id} />
+                    <input type="hidden" name="title" value={pauta.title} />
+                    <input type="hidden" name="description" value={pauta.summary} />
+                    <input type="hidden" name="priority" value={pauta.priority} />
+                    <input type="hidden" name="coordination" value={pauta.coordenacao} />
+                    <input type="hidden" name="project" value={pauta.project} />
+                    <input type="hidden" name="status" value="archived" />
+                    <button type="submit" role="menuitem" className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10">
+                      <Archive className="size-4" />
+                      Arquivar pauta
+                    </button>
+                  </form>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -141,12 +242,85 @@ export function PautaRoom({ pauta }: { pauta: Pauta }) {
         ))}
       </div>
 
-      {tab === 'conversa' && <ConversaTab />}
-      {tab === 'informacoes' && <InformacoesTab pauta={pauta} />}
-      {tab === 'arquivos' && <ArquivosTab items={pautaFiles} />}
-      {tab === 'conteudos' && <ConteudosTab items={pautaContents} />}
-      {tab === 'aprovacoes' && <AprovacoesTab />}
-      {tab === 'historico' && <HistoricoTab />}
+      {tab === 'conversa' && (
+        <ConversaTab
+          pautaId={pauta.id}
+          messages={messages}
+          participants={participants}
+          onAddParticipant={() => setParticipantsOpen(true)}
+        />
+      )}
+      {tab === 'informacoes' && <InformacoesTab pauta={pauta} details={details} />}
+      {tab === 'arquivos' && <ArquivosTab pautaId={pauta.id} items={driveLinks} />}
+      {tab === 'conteudos' && <ConteudosTab pautaId={pauta.id} items={contentItems} />}
+      {tab === 'aprovacoes' && <AprovacoesTab pautaId={pauta.id} items={contentItems} />}
+      {tab === 'historico' && <HistoricoTab items={history} />}
+
+      {participantsOpen && (
+        <ParticipantDialog
+          pautaId={pauta.id}
+          people={availablePeople ?? []}
+          participantIds={new Set((participants ?? []).map((person) => person.id))}
+          onClose={() => setParticipantsOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ParticipantDialog({
+  pautaId,
+  people,
+  participantIds,
+  onClose,
+}: {
+  pautaId: string
+  people: PautaPerson[]
+  participantIds: Set<string>
+  onClose: () => void
+}) {
+  const available = people.filter((person) => !participantIds.has(person.id))
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="participants-title">
+      <Card className="w-full max-w-md p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 id="participants-title" className="text-lg font-semibold">Adicionar participantes</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Selecione uma pessoa do espaço editorial.</p>
+          </div>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fechar">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <div className="mt-4 max-h-80 overflow-y-auto">
+          {available.length ? (
+            <ul className="flex flex-col gap-2">
+              {available.map((person) => (
+                <li key={person.id}>
+                  <form action={addPautaParticipant}>
+                    <input type="hidden" name="pautaId" value={pautaId} />
+                    <input type="hidden" name="userId" value={person.id} />
+                    <button type="submit" className="flex w-full items-center gap-3 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                      <Avatar initials={person.initials} color={person.color} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{person.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{person.coordination}</span>
+                      </span>
+                      <Plus className="size-4 text-muted-foreground" />
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+              Todas as pessoas deste espaço já participam da pauta.
+            </p>
+          )}
+        </div>
+      </Card>
+      <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
     </div>
   )
 }
@@ -169,124 +343,88 @@ function Meta({
 }
 
 /* ---------------- Conversa ---------------- */
-function ConversaTab() {
+function ConversaTab({
+  pautaId,
+  messages,
+  participants,
+  onAddParticipant,
+}: {
+  pautaId: string
+  messages?: PautaMessage[]
+  participants?: PautaPerson[]
+  onAddParticipant: () => void
+}) {
+  const visibleMessages: PautaMessage[] = messages ?? []
+  const visibleParticipants = participants ?? []
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
       <Card className="flex h-[560px] flex-col">
         <div className="flex-1 space-y-5 overflow-y-auto p-5">
-          {conversation.map((m) => {
-            const person = getPerson(m.authorId)
-            const isComm = m.role === 'Comunicação'
-            return (
-              <div key={m.id} className="flex gap-3">
-                <Avatar initials={person?.initials ?? '?'} color={person?.color} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{person?.name}</span>
-                    <span
-                      className={cn(
-                        'rounded px-1.5 py-0.5 text-[10px] font-medium',
-                        isComm ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {m.role}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{m.time}</span>
-                    {m.question && (
-                      <span
-                        className={cn(
-                          'ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
-                          m.resolved
-                            ? 'bg-success/14 text-success'
-                            : 'bg-warning/20 text-warning-foreground',
-                        )}
-                      >
-                        {m.resolved ? <CheckCircle2 className="size-3" /> : <Clock className="size-3" />}
-                        {m.resolved ? 'Resolvida' : 'Pergunta'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed">
-                    {m.text}
-                  </div>
-                  {m.attachments ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {Array.from({ length: Math.min(m.attachments, 4) }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="size-16 rounded-md border border-border"
-                          style={{ backgroundColor: `oklch(0.85 0.05 ${27 + i * 30})` }}
-                        />
-                      ))}
-                      {m.attachments > 4 && (
-                        <div className="flex size-16 items-center justify-center rounded-md bg-muted text-xs font-medium text-muted-foreground">
-                          +{m.attachments - 4}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
+          {visibleMessages.length ? visibleMessages.map((message) => (
+            <div key={message.id} className="flex gap-3">
+              <Avatar initials={message.author.initials} color={message.author.color} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">{message.author.name}</span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {message.author.coordination}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{message.time}</span>
+                </div>
+                <div className="mt-1 rounded-lg rounded-tl-sm bg-muted/60 px-3 py-2 text-sm leading-relaxed">
+                  {message.text}
                 </div>
               </div>
-            )
-          })}
+            </div>
+          )) : (
+            <p className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
+              Nenhuma mensagem ainda. Inicie a conversa desta pauta.
+            </p>
+          )}
         </div>
 
-        <div className="border-t border-border p-3">
+        <form action={sendPautaMessage} className="border-t border-border p-3">
+          <input type="hidden" name="pautaId" value={pautaId} />
           <div className="rounded-lg border border-border focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
             <textarea
+              name="body"
               rows={2}
+              required
+              maxLength={5000}
               placeholder="Escreva uma mensagem…"
               className="w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
             />
-            <div className="flex items-center justify-between px-2 pb-2">
-              <div className="flex items-center gap-0.5 text-muted-foreground">
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Anexar">
-                  <Paperclip className="size-4" />
-                </button>
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Áudio">
-                  <Mic className="size-4" />
-                </button>
-                <button className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Mencionar">
-                  <AtSign className="size-4" />
-                </button>
-              </div>
-              <Button size="sm">
+            <div className="flex items-center justify-end px-2 pb-2">
+              <Button size="sm" type="submit">
                 <Send className="size-3.5" />
                 Enviar
               </Button>
             </div>
           </div>
-        </div>
+        </form>
       </Card>
 
       <div className="space-y-4">
         <Card className="p-4">
           <h3 className="mb-3 text-sm font-semibold">Participantes</h3>
-          <ul className="space-y-2.5">
-            {['matheus', 'carlos', 'ana'].map((id) => {
-              const p = getPerson(id)
-              return (
-                <li key={id} className="flex items-center gap-2">
-                  <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{p?.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{p?.coordenacao}</p>
-                  </div>
-                </li>
-              )
-            })}
+          <ul className="space-y-2.5" aria-live="polite">
+            {visibleParticipants.map((person) => (
+              <li key={person.id} className="flex items-center gap-2">
+                <Avatar initials={person.initials} color={person.color} size="xs" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{person.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{person.coordination}</p>
+                </div>
+              </li>
+            ))}
           </ul>
-          <Button variant="ghost" size="sm" className="mt-2 w-full">
+          <Button variant="ghost" size="sm" className="mt-2 w-full" type="button" onClick={onAddParticipant}>
             <UserPlus className="size-3.5" />
             Adicionar
           </Button>
         </Card>
-        <Card className="p-4">
-          <h3 className="mb-2 text-sm font-semibold">Perguntas em aberto</h3>
-          <p className="rounded-lg bg-warning/15 px-3 py-2 text-sm text-warning-foreground">
-            História marcante para a matéria — aguardando Carlos.
-          </p>
-        </Card>
+
       </div>
     </div>
   )
@@ -317,57 +455,10 @@ function InfoBlock({
   )
 }
 
-function InformacoesTab({ pauta }: { pauta: Pauta }) {
-  const responsible = getPerson(pauta.responsibleId)
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <InfoBlock
-        title="Sobre a pauta"
-        rows={[
-          { label: 'Tipo', value: pauta.type },
-          { label: 'Projeto', value: pauta.project },
-          { label: 'Coordenação', value: pauta.coordenacao },
-          { label: 'Responsável', value: responsible?.name ?? '—' },
-          { label: 'Prioridade', value: pauta.priority },
-          { label: 'Status', value: pauta.status },
-        ]}
-      />
-      <InfoBlock
-        title="Ação"
-        rows={[
-          { label: 'Data', value: '14 AGO 2025' },
-          { label: 'Local', value: 'Centro, Rio de Janeiro' },
-          { label: 'Pessoas alcançadas', value: '180' },
-          { label: 'Voluntários envolvidos', value: '14' },
-          { label: 'Instituições parceiras', value: 'Prefeitura, SUS' },
-        ]}
-      />
-      <Card className="p-5 lg:col-span-2">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Contexto
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ContextItem label="Objetivo" value="Levar orientação e atendimento em saúde à população em situação de vulnerabilidade no Centro do Rio." />
-          <ContextItem label="Resultado" value="180 pessoas atendidas, com aferição de pressão, orientação e distribuição de kits de higiene." />
-          <ContextItem label="Descrição" value={pauta.summary} />
-          <ContextItem label="Histórias relevantes" value="Um voluntário reencontrou uma pessoa que havia atendido em uma ação anterior." />
-        </div>
-      </Card>
-      <Card className="p-5 lg:col-span-2">
-        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-          Observações internas
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] normal-case text-muted-foreground">
-            Privado — Comunicação
-          </span>
-        </h3>
-        <textarea
-          rows={3}
-          defaultValue="Confirmar número final de atendidos com o Carlos antes de publicar. Verificar autorização de uso das fotos com crianças."
-          className="w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-        />
-      </Card>
-    </div>
-  )
+function InformacoesTab({ pauta, details }: { pauta: Pauta; details: Record<string, string> }) {
+  const labels: Record<string, string> = { local:'Local', participantsCount:'Pessoas participantes', volunteersCount:'Voluntários', story:'História relevante', contact:'Contato para entrevista', objective:'Objetivo', result:'Resultado', audience:'Público', schedule:'Horário', organizer:'Organização', ideaGoal:'Objetivo da ideia', materialType:'Tipo de material', request:'Solicitação', notes:'Observações' }
+  const detailRows = Object.entries(details).filter(([, value]) => value).map(([key, value]) => ({ label: labels[key] || key, value }))
+  return <div className="grid gap-4 lg:grid-cols-2"><InfoBlock title="Sobre a pauta" rows={[{ label: 'Tipo', value: pauta.type }, { label: 'Coordenação', value: pauta.coordenacao || 'Não informada' }, { label: 'Prazo', value: pauta.deadline }, { label: 'Prioridade', value: pauta.priority }, { label: 'Status', value: pauta.status }]} /><Card className="p-5"><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3><p className="text-sm leading-relaxed text-pretty">{pauta.summary || 'Nenhuma descrição informada.'}</p></Card>{detailRows.length > 0 && <div className="lg:col-span-2"><InfoBlock title="Dados informados no formulário" rows={detailRows} /></div>}</div>
 }
 
 function ContextItem({ label, value }: { label: string; value: string }) {
@@ -380,192 +471,39 @@ function ContextItem({ label, value }: { label: string; value: string }) {
 }
 
 /* ---------------- Arquivos ---------------- */
-function ArquivosTab({ items }: { items: typeof files }) {
-  const cats = ['Todos', 'Fotos', 'Vídeos', 'Áudios', 'Documentos']
+function ArquivosTab({ pautaId, items }: { pautaId: string; items: DriveLink[] }) {
+  const [open, setOpen] = useState(false)
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {cats.map((c, i) => (
-            <button
-              key={c}
-              className={cn(
-                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                i === 0
-                  ? 'bg-foreground text-background'
-                  : 'bg-muted text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-        <Button variant="outline" size="sm">
-          <Plus className="size-3.5" />
-          Adicionar arquivos
-        </Button>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Links de arquivos armazenados no Google Drive.</p>
+        <Button variant="outline" size="sm" type="button" onClick={() => setOpen((value) => !value)}><Plus className="size-3.5" />Adicionar link</Button>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {items.map((f) => {
-          const Icon = fileKindIcon[f.kind]
-          const person = getPerson(f.authorId)
-          return (
-            <Link key={f.id} href={`/biblioteca/${f.id}`}>
-              <Card className="overflow-hidden transition-shadow hover:shadow-md">
-                <div
-                  className="flex aspect-[4/3] items-center justify-center"
-                  style={{ backgroundColor: f.bg }}
-                >
-                  <Icon className="size-8 text-white/70" />
-                </div>
-                <div className="p-3">
-                  <p className="truncate text-sm font-medium">{f.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {person?.name.split(' ')[0]} · {f.size}
-                  </p>
-                  <div className="mt-2">
-                    <FileStatusBadge status={f.status} />
-                  </div>
-                </div>
-              </Card>
-            </Link>
-          )
-        })}
-      </div>
+      {open && <Card className="p-4"><form action={async (formData) => { await addDriveLink(formData); setOpen(false) }} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <input type="hidden" name="pautaId" value={pautaId} />
+        <label className="text-sm font-medium">Nome<input name="name" placeholder="Ex.: Fotos da atividade" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <label className="text-sm font-medium">Link do Drive<input required name="url" type="url" placeholder="https://drive.google.com/..." className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label>
+        <Button type="submit" className="self-end">Salvar link</Button>
+      </form></Card>}
+      {items.length === 0 ? <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum link do Drive adicionado.</Card> : <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Abrir no Google Drive</a></div><form action={removeDriveLink}><input type="hidden" name="pautaId" value={pautaId} /><input type="hidden" name="fileId" value={item.id} /><Button type="submit" variant="ghost" size="sm">Remover</Button></form></Card>)}</div>}
     </div>
   )
 }
 
 /* ---------------- Conteúdos ---------------- */
-function ConteudosTab({ items }: { items: typeof contents }) {
-  const suggestions = ['Matéria para o site', 'Instagram', 'LinkedIn', 'Reel', 'Release para imprensa']
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Conteúdos que nascem desta pauta
-        </h3>
-        <Button size="sm">
-          <Plus className="size-3.5" />
-          Criar conteúdo
-        </Button>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {suggestions.map((s) => {
-          const existing = items.find((c) => c.type.includes(s.split(' ')[0]))
-          return (
-            <Card key={s} className="flex items-center justify-between p-4">
-              <div>
-                <p className="text-sm font-medium">{s}</p>
-                {existing ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {existing.version} · {existing.lastEdit}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-muted-foreground">Não iniciado</p>
-                )}
-              </div>
-              {existing ? (
-                <div className="flex items-center gap-2">
-                  <ContentStatusBadge status={existing.status} />
-                  <Button variant="outline" size="sm" render={<Link href={`/conteudos/${existing.id}`} />}>
-                    Abrir
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="ghost" size="sm">
-                  <Plus className="size-3.5" />
-                  Iniciar
-                </Button>
-              )}
-            </Card>
-          )
-        })}
-      </div>
-    </div>
-  )
+function ConteudosTab({ pautaId, items }: { pautaId: string; items: ContentItem[] }) {
+  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={createPautaContent} className="grid gap-3 md:grid-cols-[1fr_180px_auto]"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Título<input required minLength={3} name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Nome do conteúdo" /></label><label className="text-sm font-medium">Formato<select name="format" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option>Matéria</option><option>Post</option><option>Vídeo</option><option>Link</option></select></label><Button type="submit" className="self-end"><Plus className="size-4" />Criar conteúdo</Button></form></Card>{items.length ? <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.format} · v{item.version}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Abrir</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo vinculado a esta pauta.</Card>}</div>
 }
 
 /* ---------------- Aprovações ---------------- */
-function AprovacoesTab() {
-  const steps = [
-    { label: 'Comunicação', person: 'matheus', status: 'aprovado' as const, time: 'Hoje, 09:12' },
-    { label: 'Coordenação Humanitário', person: 'carlos', status: 'aprovado' as const, time: 'Hoje, 10:04' },
-    { label: 'Diretoria', person: 'diretoria', status: 'pendente' as const, time: 'Aguardando' },
-  ]
-  return (
-    <Card className="p-6">
-      <h3 className="mb-5 text-sm font-semibold">Fluxo de aprovação</h3>
-      <ol className="relative ml-3 space-y-6 border-l border-border">
-        {steps.map((s) => {
-          const p = getPerson(s.person)
-          const done = s.status === 'aprovado'
-          return (
-            <li key={s.label} className="relative pl-6">
-              <span
-                className={cn(
-                  'absolute -left-[9px] top-0.5 flex size-4 items-center justify-center rounded-full',
-                  done ? 'bg-success text-white' : 'bg-warning text-white',
-                )}
-              >
-                {done ? <Check className="size-2.5" /> : <Clock className="size-2.5" />}
-              </span>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{s.label}</p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-                    {p?.name}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span
-                    className={cn(
-                      'text-xs font-medium',
-                      done ? 'text-success' : 'text-warning-foreground',
-                    )}
-                  >
-                    {done ? 'Aprovado' : 'Pendente'}
-                  </span>
-                  <p className="text-xs text-muted-foreground">{s.time}</p>
-                </div>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </Card>
-  )
+function AprovacoesTab({ pautaId, items }: { pautaId: string; items: ContentItem[] }) {
+  const submitted = items.filter((item) => ['review', 'approval', 'approved'].includes(item.status))
+  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={createPautaApproval} className="flex flex-col gap-3"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Conteúdo existente<select name="contentId" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Criar caso rápido</option>{items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">Título do caso<input name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Obrigatório no caso rápido" /></label><label className="text-sm font-medium">Texto ou link<input name="body" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label></div><Button type="submit" className="self-end"><CheckSquare className="size-4" />Abrir aprovação</Button></form></Card>{submitted.length ? <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>}</div>
 }
 
 /* ---------------- Histórico ---------------- */
-function HistoricoTab() {
-  const events = [
-    { who: 'matheus', text: 'criou a pauta', time: '14 AGO, 08:00' },
-    { who: 'carlos', text: 'enviou 12 fotos e 2 vídeos', time: '14 AGO, 14:20' },
-    { who: 'matheus', text: 'alterou o status para “Em coleta”', time: '14 AGO, 14:35' },
-    { who: 'ana', text: 'iniciou a matéria para o site', time: '15 AGO, 09:10' },
-    { who: 'diretoria', text: 'foi adicionada como aprovadora', time: '15 AGO, 11:00' },
-  ]
-  return (
-    <Card className="p-6">
-      <ol className="space-y-4">
-        {events.map((e, i) => {
-          const p = getPerson(e.who)
-          return (
-            <li key={i} className="flex gap-3">
-              <Avatar initials={p?.initials ?? '?'} color={p?.color} size="xs" />
-              <div>
-                <p className="text-sm">
-                  <span className="font-medium">{p?.name.split(' ')[0]}</span>{' '}
-                  <span className="text-muted-foreground">{e.text}</span>
-                </p>
-                <p className="text-xs text-muted-foreground">{e.time}</p>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </Card>
-  )
+function HistoricoTab({ items }: { items: HistoryItem[] }) {
+  const labels: Record<string, string> = { created: 'criou a pauta', status_changed: 'alterou o status', participant_added: 'adicionou um participante', message_sent: 'enviou uma mensagem' }
+  if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma atividade registrada.</Card>
+  return <Card className="p-6"><ol className="flex flex-col gap-4">{items.map((item) => <li key={item.id} className="flex gap-3"><Avatar initials={item.initials} color={item.color} size="xs" /><div><p className="text-sm"><span className="font-medium">{item.actor}</span>{' '}<span className="text-muted-foreground">{labels[item.action] || item.action}</span></p><p className="text-xs text-muted-foreground">{item.time}</p></div></li>)}</ol></Card>
 }

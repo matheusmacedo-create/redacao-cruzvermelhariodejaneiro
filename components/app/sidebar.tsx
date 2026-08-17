@@ -19,12 +19,12 @@ import { BrandMark } from './brand-mark'
 
 const main = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox, badge: 3 },
+  { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox },
   { href: '/pautas', label: 'Pautas', icon: ClipboardList },
   { href: '/biblioteca', label: 'Biblioteca', icon: Images },
   { href: '/projetos', label: 'Projetos', icon: FolderKanban },
   { href: '/calendario', label: 'Calendário', icon: CalendarDays },
-  { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare, badge: 2 },
+  { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
   { href: '/pessoas', label: 'Pessoas', icon: Users },
 ]
 
@@ -67,8 +67,10 @@ function NavItem({
   )
 }
 
-export function Sidebar() {
+export function Sidebar({ profile }: { profile: any }) {
   const pathname = usePathname()
+  const displayName = profile?.full_name || profile?.username || 'Usuário'
+  const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === href : pathname.startsWith(href)
 
@@ -94,11 +96,11 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
           <span className="inline-flex size-8 items-center justify-center rounded-full bg-info text-xs font-semibold text-white">
-            MA
+            {initials}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">Matheus Andrade</p>
-            <p className="truncate text-[11px] text-muted-foreground">Editor-chefe</p>
+            <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>
           </div>
         </div>
       </div>

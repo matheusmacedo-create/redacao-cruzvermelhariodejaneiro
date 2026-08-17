@@ -6,7 +6,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const context = await requireWorkspace()
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
+      <Sidebar profile={context.profile} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar workspace={context.workspace} role={context.role} profile={context.profile} />
         <main className="flex-1 overflow-y-auto">
