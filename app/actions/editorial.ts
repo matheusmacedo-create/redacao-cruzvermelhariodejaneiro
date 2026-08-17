@@ -48,6 +48,28 @@ export async function createPauta(formData: FormData) {
   revalidatePath('/pautas'); revalidatePath('/calendario'); redirect(`/pautas/${data.id}`)
 }
 
+export async function changePautaProject(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const projectId = text(formData, 'projectId')
+
+  let validProjectId: string | null = null
+  if (projectId) {
+    const { data: project } = await supabase.from('projects').select('id').eq('id', projectId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!project) throw new Error('Projeto não encontrado neste espaço.')
+    validProjectId = project.id
+  }
+
+  const { data, error } = await supabase.from('pautas').update({ project_id: validProjectId, updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id).select('id').single()
+  if (error || !data) throw new Error('Não foi possível atualizar o projeto desta pauta.')
+
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'status_changed', entity_type: 'pauta', entity_id: id, metadata: { field: 'project', projectId: validProjectId } })
+
+  revalidatePath(`/pautas/${id}`)
+  revalidatePath('/projetos')
+}
+
 export async function updatePautaStatus(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()

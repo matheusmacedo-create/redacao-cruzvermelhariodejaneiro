@@ -25,6 +25,7 @@ import {
   Archive,
   Copy,
   Pencil,
+  FolderKanban,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -38,7 +39,7 @@ import {
 } from '@/components/ui/status-badge'
 import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addDriveLink, addPautaParticipant, createPautaApproval, createPautaContent, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { addDriveLink, addPautaParticipant, changePautaProject, createPautaApproval, createPautaContent, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -76,11 +77,12 @@ type DriveLink = { id: string; name: string; fileType: string; url: string; crea
 type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
 type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string; avatarPath?: string | null }
 
-export function PautaRoom({ pauta, details = {}, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
+export function PautaRoom({ pauta, details = {}, participants, availablePeople, availableProjects = [], messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
   pauta: Pauta
   details?: Record<string, string>
   participants?: PautaPerson[]
   availablePeople?: PautaPerson[]
+  availableProjects?: { id: string; name: string }[]
   messages?: PautaMessage[]
   responsible?: PautaPerson
   driveLinks?: DriveLink[]
@@ -89,6 +91,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
   const [participantsOpen, setParticipantsOpen] = useState(false)
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -110,9 +113,17 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
             <h1 className="text-2xl font-bold tracking-tight text-balance">{pauta.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge status={pauta.status} />
-              <span className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              <button
+                type="button"
+                onClick={() => setProjectDialogOpen(true)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium hover:opacity-80',
+                  pauta.projectId ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive',
+                )}
+              >
+                <FolderKanban className="size-3" />
                 {pauta.project}
-              </span>
+              </button>
               <PriorityBadge priority={pauta.priority} />
             </div>
           </div>
@@ -173,6 +184,18 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
                   >
                     <Pencil className="size-4 text-muted-foreground" />
                     Ver informações
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                    onClick={() => {
+                      setProjectDialogOpen(true)
+                      setOptionsOpen(false)
+                    }}
+                  >
+                    <FolderKanban className="size-4 text-muted-foreground" />
+                    Alterar projeto
                   </button>
                   <button
                     type="button"
@@ -280,6 +303,15 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
           onClose={() => setParticipantsOpen(false)}
         />
       )}
+
+      {projectDialogOpen && (
+        <ProjectDialog
+          pautaId={pauta.id}
+          currentProjectId={pauta.projectId}
+          projects={availableProjects}
+          onClose={() => setProjectDialogOpen(false)}
+        />
+      )}
     </div>
   )
 }
@@ -335,6 +367,57 @@ function ParticipantDialog({
             </p>
           )}
         </div>
+      </Card>
+      <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
+    </div>
+  )
+}
+
+function ProjectDialog({
+  pautaId,
+  currentProjectId,
+  projects,
+  onClose,
+}: {
+  pautaId: string
+  currentProjectId?: string
+  projects: { id: string; name: string }[]
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="project-title">
+      <Card className="w-full max-w-md p-5 shadow-xl">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 id="project-title" className="text-lg font-semibold">Alterar projeto</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Escolha a qual projeto esta pauta pertence, ou remova o vínculo.</p>
+          </div>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fechar">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <form
+          action={async (formData) => {
+            await changePautaProject(formData)
+            onClose()
+          }}
+          className="mt-4 flex flex-col gap-3"
+        >
+          <input type="hidden" name="id" value={pautaId} />
+          <label className="text-sm font-medium">
+            Projeto
+            <select name="projectId" defaultValue={currentProjectId || ''} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30">
+              <option value="">Nenhum projeto</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button type="submit">Salvar</Button>
+          </div>
+        </form>
       </Card>
       <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
     </div>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
@@ -73,7 +74,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <span>Criado por {creator?.full_name || 'alguém que já saiu do espaço'} em {formatDate(project.created_at, { dateStyle: 'long' })}</span>
           </div>
         </div>
-        {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="lg" render={<Link href={`/registrar?projeto=${project.id}`} />}><Plus className="size-4" />Nova pauta</Button>
+          {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
+        </div>
       </div>
 
       <h2 className="mb-3 mt-6 text-sm font-semibold uppercase text-muted-foreground">Ferramentas vinculadas a este projeto</h2>
