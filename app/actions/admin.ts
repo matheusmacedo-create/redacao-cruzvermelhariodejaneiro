@@ -66,7 +66,7 @@ export async function seedDemoWorkspace(formData: FormData) {
 
   const projectDefs = [
     { name: 'Campanha de Doação de Sangue', description: 'Mobilização contínua para aumentar os estoques dos bancos de sangue parceiros.' },
-    { name: 'Resposta a Emergências Climáticas', description: 'Cobertura das ações da CVRJ em enchentes, deslizamentos e ondas de calor.' },
+    { name: 'Resposta a Emergências Climáticas', description: 'Cobertura das ações da Cruz Vermelha Brasileira Rio de Janeiro em enchentes, deslizamentos e ondas de calor.' },
     { name: 'Educação em Primeiros Socorros', description: 'Série de conteúdos ensinando técnicas básicas de primeiros socorros à população.' },
     { name: 'Voluntariado Comunitário RJ', description: 'Histórias e chamadas para voluntários nas comunidades atendidas pela Cruz Vermelha.' },
   ]

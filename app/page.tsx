@@ -21,7 +21,7 @@ export default async function LoginPage() {
           <BrandMark className="w-72 items-start" />
           <div className="mt-12">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Redação institucional</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse a Redação CVRJ'}</h1>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse a Redação Cruz Vermelha Brasileira Rio de Janeiro'}</h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
           <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} /></div>

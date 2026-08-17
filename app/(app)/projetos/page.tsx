@@ -18,7 +18,7 @@ export default async function ProjetosPage() {
 
   return (
     <div>
-      <PageHeader title="Projetos" description="Linhas editoriais e séries de conteúdo da Comunicação CVRJ." />
+      <PageHeader title="Projetos" description="Linhas editoriais e séries de conteúdo da Comunicação Cruz Vermelha Brasileira Rio de Janeiro." />
       <Card className="mb-6 p-5">
         <form action={createProject} className="grid gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
           <label className="text-sm font-medium">Nome<input name="name" required minLength={3} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" /></label>
