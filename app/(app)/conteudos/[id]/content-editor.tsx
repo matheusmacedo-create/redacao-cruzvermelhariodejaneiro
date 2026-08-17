@@ -149,10 +149,10 @@ export function ContentEditor({
               Salvar
             </Button>
           </form>
-          {canSubmit && content.status !== 'aprovacao' && (
+          {canSubmit && (
             <Button size="lg" type="button" onClick={() => setShowConcludeModal(true)}>
               <Send className="size-4" />
-              Concluir matéria
+              {content.status === 'aprovacao' ? 'Atualizar aprovação' : 'Concluir matéria'}
             </Button>
           )}
         </div>
@@ -344,9 +344,11 @@ export function ContentEditor({
             onClick={() => setShowConcludeModal(false)}
           />
           <Card className="relative z-10 w-full max-w-md p-6 shadow-lg">
-            <h2 className="text-lg font-semibold">Concluir matéria</h2>
+            <h2 className="text-lg font-semibold">{content.status === 'aprovacao' ? 'Atualizar aprovação' : 'Concluir matéria'}</h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              “{title || 'Sem título'}” está pronta. O que você quer fazer agora?
+              {content.status === 'aprovacao'
+                ? `“${title || 'Sem título'}” já está em aprovação. O que você quer fazer agora?`
+                : `“${title || 'Sem título'}” está pronta. O que você quer fazer agora?`}
             </p>
             <div className="mt-5 flex flex-col gap-3">
               <form action={submitContentForApproval} onSubmit={() => setShowConcludeModal(false)}>
@@ -361,10 +363,12 @@ export function ContentEditor({
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Send className="size-4" />
-                    Disponibilizar para os participantes
+                    {content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    Envia para aprovação agora e notifica quem está na pauta.
+                    {content.status === 'aprovacao'
+                      ? 'Atualiza a lista de aprovadores com os participantes atuais da pauta (remove quem saiu, adiciona quem entrou) e notifica quem for adicionado.'
+                      : 'Envia para aprovação agora e notifica quem está na pauta.'}
                   </span>
                 </button>
               </form>
@@ -379,10 +383,12 @@ export function ContentEditor({
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     <Archive className="size-4" />
-                    Arquivar e continuar depois
+                    {content.status === 'aprovacao' ? 'Cancelar aprovação e arquivar' : 'Arquivar e continuar depois'}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    Guarda como rascunho arquivado, sem enviar para ninguém ainda.
+                    {content.status === 'aprovacao'
+                      ? 'Tira a matéria da fila de aprovação e guarda como rascunho arquivado, sem avisar quem ainda não decidiu.'
+                      : 'Guarda como rascunho arquivado, sem enviar para ninguém ainda.'}
                   </span>
                 </button>
               </form>

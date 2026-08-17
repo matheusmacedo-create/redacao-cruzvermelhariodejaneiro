@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/status-badge'
 import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addDriveLink, addPautaParticipant, createPautaApproval, createPautaContent, removeDriveLink, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { addDriveLink, addPautaParticipant, createPautaApproval, createPautaContent, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -412,10 +412,17 @@ function ConversaTab({
             {visibleParticipants.map((person) => (
               <li key={person.id} className="flex items-center gap-2">
                 <Avatar initials={person.initials} color={person.color} src={privateAvatarUrl(person.avatarPath)} size="xs" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{person.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{person.coordination}</p>
                 </div>
+                <form action={removePautaParticipant}>
+                  <input type="hidden" name="pautaId" value={pautaId} />
+                  <input type="hidden" name="userId" value={person.id} />
+                  <Button type="submit" variant="ghost" size="icon-sm" aria-label={`Remover ${person.name} da pauta`}>
+                    <X className="size-3.5" />
+                  </Button>
+                </form>
               </li>
             ))}
           </ul>
@@ -503,7 +510,7 @@ function AprovacoesTab({ pautaId, items }: { pautaId: string; items: ContentItem
 
 /* ---------------- Histórico ---------------- */
 function HistoricoTab({ items }: { items: HistoryItem[] }) {
-  const labels: Record<string, string> = { created: 'criou a pauta', status_changed: 'alterou o status', participant_added: 'adicionou um participante', message_sent: 'enviou uma mensagem' }
+  const labels: Record<string, string> = { created: 'criou a pauta', status_changed: 'alterou o status', participant_added: 'adicionou um participante', participant_removed: 'removeu um participante', message_sent: 'enviou uma mensagem' }
   if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhuma atividade registrada.</Card>
   return <Card className="p-6"><ol className="flex flex-col gap-4">{items.map((item) => <li key={item.id} className="flex gap-3"><Avatar initials={item.initials} color={item.color} src={privateAvatarUrl(item.avatarPath)} size="xs" /><div><p className="text-sm"><span className="font-medium">{item.actor}</span>{' '}<span className="text-muted-foreground">{labels[item.action] || item.action}</span></p><p className="text-xs text-muted-foreground">{item.time}</p></div></li>)}</ol></Card>
 }
