@@ -396,6 +396,28 @@ export async function createProject(formData: FormData) {
   revalidatePath('/projetos')
 }
 
+export async function deleteProject(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+
+  const { data: project } = await supabase.from('projects').select('id,name,created_by').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+  if (!project) throw new Error('Projeto não encontrado.')
+  if (context.role !== 'admin' && project.created_by !== context.user.id) {
+    throw new Error('Somente quem criou o projeto ou um administrador pode excluí-lo.')
+  }
+
+  const admin = createAdminClient()
+  await admin.from('pautas').update({ project_id: null }).eq('project_id', id).eq('workspace_id', context.workspace.id)
+  const { error } = await admin.from('projects').delete().eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error('Não foi possível excluir o projeto.')
+
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'deleted', entity_type: 'project', entity_id: id, metadata: { name: project.name } })
+
+  revalidatePath('/projetos')
+  redirect('/projetos')
+}
+
 export async function updateProfile(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()

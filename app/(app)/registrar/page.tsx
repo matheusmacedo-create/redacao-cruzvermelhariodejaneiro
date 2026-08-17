@@ -32,6 +32,6 @@ export default function RegistrarPage() {
         <div className="grid gap-5 sm:grid-cols-2"><Field label="Objetivo"><input name="objective" className={inputClass} /></Field><Field label="Resultado"><input name="result" className={inputClass} /></Field></div>
       </Card>
       <Card className="flex items-start gap-3 p-5"><Link2 className="mt-0.5 size-5 text-primary" /><div><h2 className="text-sm font-semibold">Fotos, vídeos e documentos</h2><p className="mt-1 text-sm text-muted-foreground">Após enviar, adicione links do Google Drive ou de outras fontes na aba Arquivos da pauta.</p></div></Card>
-      <div className="flex justify-end gap-2"><Button variant="ghost" size="lg" render={<Link href="/caixa-de-entrada" />}>Cancelar</Button><Button size="lg" type="submit"><Send className="size-4" />Enviar para Comunicação</Button></div>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button variant="ghost" size="lg" render={<Link href="/caixa-de-entrada" />}>Cancelar</Button><Button size="lg" type="submit"><Send className="size-4" />Enviar para Comunicação</Button></div>
     </form></div>
 }

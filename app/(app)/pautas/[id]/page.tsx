@@ -1,25 +1,9 @@
 import { notFound } from 'next/navigation'
-import { type Pauta, type PautaStatus, type Priority } from '@/lib/data'
+import { type Pauta } from '@/lib/data'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { pautaStatus, PRIORITY_DB } from '@/lib/status-maps'
 import { PautaRoom } from './pauta-room'
-
-const statusMap: Record<string, PautaStatus> = {
-  incoming: 'entrada',
-  collection: 'coleta',
-  production: 'producao',
-  review: 'revisao',
-  approval: 'aprovacao',
-  approved: 'pronto',
-  archived: 'arquivado',
-}
-
-const priorityMap: Record<string, Priority> = {
-  low: 'baixa',
-  medium: 'normal',
-  high: 'alta',
-  critical: 'critica',
-}
 
 export default async function PautaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -101,8 +85,8 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     deadline: data.due_date
       ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(`${data.due_date}T12:00:00`)).toUpperCase()
       : 'Sem prazo',
-    priority: priorityMap[data.priority] || (data.priority as Priority) || 'normal',
-    status: statusMap[data.status] || (data.status as PautaStatus) || 'entrada',
+    priority: PRIORITY_DB[data.priority] || 'normal',
+    status: pautaStatus(data.status),
     comments: 0,
     files: driveLinks.length,
     summary: data.description || '',

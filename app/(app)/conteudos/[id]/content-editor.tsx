@@ -134,7 +134,7 @@ export function ContentEditor({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="size-3.5" />
             {saved ? 'Salvo automaticamente' : 'Alterações não salvas'}

@@ -115,7 +115,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
               <PriorityBadge priority={pauta.priority} />
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <form action={updatePautaStatus}>
               <input type="hidden" name="id" value={pauta.id} />
               <input type="hidden" name="title" value={pauta.title} />
