@@ -18,7 +18,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
-import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 import { useMobileNav } from './app-shell'
 
 const main = [

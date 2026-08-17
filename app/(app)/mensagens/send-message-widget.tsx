@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { MessageCirclePlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 import { sendDirectMessage } from '@/app/actions/editorial'
 
 type Colleague = { id: string; name: string; initials: string; color?: string; avatarPath?: string | null }

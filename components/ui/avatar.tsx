@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 
 const sizes = {
   xs: 'size-6 text-[10px]',
@@ -9,10 +10,6 @@ const sizes = {
   md: 'size-10 text-sm',
   lg: 'size-14 text-base',
   xl: 'size-20 text-xl',
-}
-
-export function privateAvatarUrl(path?: string | null) {
-  return path ? `/api/private-blob?pathname=${encodeURIComponent(path)}` : null
 }
 
 export function Avatar({ initials, color, size = 'sm', className, src, alt = '' }: { initials: string; color?: string; size?: keyof typeof sizes; className?: string; src?: string | null; alt?: string }) {
