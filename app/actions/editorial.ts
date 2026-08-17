@@ -10,7 +10,8 @@ const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
-  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, title, description: text(formData,'description'), status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: text(formData,'tags').split(',').map((tag) => tag.trim()).filter(Boolean) }).select('id').single()
+  const details = Object.fromEntries(['local','participantsCount','volunteersCount','story','contact','objective','result','audience','schedule','organizer','ideaGoal','materialType','request','notes'].map((key) => [key, text(formData, key)]).filter(([, value]) => value))
+  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, title, description: text(formData,'description'), details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
   if (error) throw new Error(error.message)
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'created', entity_type: 'pauta', entity_id: data.id, metadata: { title } })
   const dueDate = text(formData, 'dueDate')
@@ -156,11 +157,11 @@ export async function sendPautaMessage(formData: FormData) {
 
 export async function saveContent(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
-  const title = text(formData,'title'); const body = text(formData,'body')
+  const title = text(formData,'title'); const body = text(formData,'body'); const subtitle = text(formData,'subtitle')
   const { data: current, error: readError } = await supabase.from('content_pieces').select('version').eq('id',id).eq('workspace_id',context.workspace.id).single()
   if (readError) throw new Error('Conteúdo não encontrado.')
   const version = current.version + 1
-  const { error } = await supabase.from('content_pieces').update({ title, body, version, updated_at: new Date().toISOString() }).eq('id',id).eq('workspace_id',context.workspace.id)
+  const { error } = await supabase.from('content_pieces').update({ title, subtitle, body, version, updated_at: new Date().toISOString() }).eq('id',id).eq('workspace_id',context.workspace.id)
   if (error) throw new Error(error.message)
   await supabase.from('content_versions').insert({ content_id:id, version, title, body, author_id:context.user.id })
   revalidatePath(`/conteudos/${id}`)
@@ -281,31 +282,45 @@ export async function createCalendarEvent(formData: FormData) {
 }
 
 export async function addDriveLink(formData: FormData) {
-  const context = await requireWorkspace()
-  const supabase = await createClient()
-  const pautaId = text(formData, 'pautaId')
-  const rawUrl = text(formData, 'url')
-  const name = text(formData, 'name') || 'Arquivo do Google Drive'
+  const context = await requireWorkspace(); const supabase = await createClient()
+  const pautaId = text(formData, 'pautaId'); const rawUrl = text(formData, 'url'); const title = text(formData, 'name') || 'Link da pauta'
   let url: URL
-  try { url = new URL(rawUrl) } catch { throw new Error('Informe um link válido do Google Drive.') }
-  if (url.protocol !== 'https:' || !['drive.google.com', 'docs.google.com'].includes(url.hostname)) throw new Error('Use um link de drive.google.com ou docs.google.com.')
-  const { data: pauta } = await supabase.from('pautas').select('id').eq('id', pautaId).eq('workspace_id', context.workspace.id).maybeSingle()
-  if (!pauta) throw new Error('Pauta não encontrada.')
-  const { data: file, error: fileError } = await supabase.from('files').insert({ workspace_id: context.workspace.id, name, file_type: text(formData, 'fileType') || 'link', storage_path: url.toString(), status: 'available', uploaded_by: context.user.id }).select('id').single()
-  if (fileError || !file) throw new Error('Não foi possível salvar o link.')
-  const { error: linkError } = await supabase.from('file_links').insert({ file_id: file.id, pauta_id: pautaId, workspace_id: context.workspace.id })
-  if (linkError) { await supabase.from('files').delete().eq('id', file.id); throw new Error('Não foi possível vincular o link à pauta.') }
+  try { url = new URL(rawUrl) } catch { throw new Error('Informe uma URL válida.') }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Informe um link HTTP ou HTTPS.')
+  const { error } = await supabase.from('pauta_links').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title, url: url.toString(), category: text(formData, 'category') || 'arquivo', created_by: context.user.id })
+  if (error) throw new Error(`Não foi possível salvar o link: ${error.message}`)
   revalidatePath(`/pautas/${pautaId}`)
 }
 
 export async function removeDriveLink(formData: FormData) {
-  const context = await requireWorkspace()
-  const supabase = await createClient()
-  const pautaId = text(formData, 'pautaId')
-  const fileId = text(formData, 'fileId')
-  await supabase.from('file_links').delete().eq('file_id', fileId).eq('pauta_id', pautaId).eq('workspace_id', context.workspace.id)
-  await supabase.from('files').delete().eq('id', fileId).eq('workspace_id', context.workspace.id)
+  const context = await requireWorkspace(); const supabase = await createClient(); const pautaId = text(formData, 'pautaId')
+  const { error } = await supabase.from('pauta_links').delete().eq('id', text(formData, 'fileId')).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error('Não foi possível remover o link.')
   revalidatePath(`/pautas/${pautaId}`)
+}
+
+export async function createPautaContent(formData: FormData) {
+  const context = await requireWorkspace(); const supabase = await createClient(); const pautaId = text(formData, 'pautaId')
+  const title = text(formData, 'title'); const body = text(formData, 'body'); const format = text(formData, 'format') || 'Link'
+  if (title.length < 3) throw new Error('Informe o título do conteúdo.')
+  const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title, body, format, status: 'draft', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
+  if (error || !data) throw new Error(error?.message || 'Não foi possível criar o conteúdo.')
+  revalidatePath(`/pautas/${pautaId}`); redirect(`/conteudos/${data.id}`)
+}
+
+export async function createPautaApproval(formData: FormData) {
+  const context = await requireWorkspace(); const supabase = await createClient(); const pautaId = text(formData, 'pautaId')
+  let contentId = text(formData, 'contentId')
+  if (!contentId) {
+    const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title: text(formData, 'title'), body: text(formData, 'body') || text(formData, 'url'), format: text(formData, 'format') || 'Conteúdo', status: 'review', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
+    if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.'); contentId = data.id
+  }
+  const { data: approval, error } = await supabase.from('approvals').insert({ workspace_id: context.workspace.id, content_id: contentId, requested_by: context.user.id, status: 'pending', current_step: 1 }).select('id').single()
+  if (error || !approval) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
+  const { error: stepsError } = await supabase.from('approval_steps').insert([{ approval_id: approval.id, step_order: 1, label: 'Votação da equipe' }])
+  if (stepsError) throw new Error(stepsError.message)
+  await supabase.from('content_pieces').update({ status: 'review' }).eq('id', contentId)
+  revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approval.id}`)
 }
 
 export async function archiveInboxItem(formData: FormData) {
@@ -379,12 +394,13 @@ export async function updateProfile(formData: FormData) {
   const fullName = text(formData, 'fullName')
   if (fullName.length < 3) throw new Error('Informe seu nome completo.')
   const initials = fullName.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-  const { error } = await supabase.from('profiles').update({
+  const { error } = await supabase.from('profiles').upsert({
+    id: context.user.id,
     full_name: fullName,
     job_title: text(formData, 'jobTitle'),
     initials,
     updated_at: new Date().toISOString(),
-  }).eq('id', context.user.id)
+  }, { onConflict: 'id' })
   if (error) throw new Error('Não foi possível atualizar o perfil.')
   revalidatePath('/perfil')
 }
@@ -410,12 +426,15 @@ export async function decideApproval(formData: FormData) {
   if (decision === 'changes_requested' && !note) throw new Error('Explique quais ajustes são necessários.')
   const { data: approval } = await supabase.from('approvals').select('content_id,current_step').eq('id', id).eq('workspace_id', context.workspace.id).single()
   if (!approval) throw new Error('Aprovação não encontrada.')
-  const status = decision === 'approved' ? 'approved' : 'changes_requested'
-  const { error: stepError } = await supabase.from('approval_steps').update({ status, comment: note || null, decided_at: new Date().toISOString(), reviewer_id: context.user.id }).eq('approval_id', id).eq('step_order', approval.current_step)
+  const stepStatus = decision === 'approved' ? 'approved' : 'changes_requested'
+  const { error: stepError } = await supabase.from('approval_steps').update({ status: stepStatus, comment: note || null, decided_at: new Date().toISOString(), reviewer_id: context.user.id }).eq('approval_id', id).eq('step_order', approval.current_step)
   if (stepError) throw new Error('Não foi possível registrar a decisão.')
-  const { error: approvalError } = await supabase.from('approvals').update({ status, updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id)
+  const { data: nextStep } = decision === 'approved' ? await supabase.from('approval_steps').select('step_order').eq('approval_id', id).gt('step_order', approval.current_step).order('step_order').limit(1).maybeSingle() : { data: null }
+  const approvalStatus = decision === 'changes_requested' ? 'changes_requested' : nextStep ? 'pending' : 'approved'
+  const { error: approvalError } = await supabase.from('approvals').update({ status: approvalStatus, current_step: nextStep?.step_order || approval.current_step, updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id)
   if (approvalError) throw new Error('Não foi possível atualizar a aprovação.')
-  const { error: contentError } = await supabase.from('content_pieces').update({ status: decision === 'approved' ? 'approved' : 'draft', updated_at: new Date().toISOString() }).eq('id', approval.content_id).eq('workspace_id', context.workspace.id)
+  const contentStatus = decision === 'changes_requested' ? 'draft' : nextStep ? 'review' : 'approved'
+  const { error: contentError } = await supabase.from('content_pieces').update({ status: contentStatus, updated_at: new Date().toISOString() }).eq('id', approval.content_id).eq('workspace_id', context.workspace.id)
   if (contentError) throw new Error('Não foi possível atualizar o conteúdo.')
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note } })
   revalidatePath('/aprovacoes')

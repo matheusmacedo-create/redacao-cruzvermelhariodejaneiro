@@ -31,7 +31,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   const supabase = await createClient()
   const { data } = await supabase
     .from('pautas')
-    .select('id,title,description,status,priority,coordination,due_date,owner_id,tags')
+    .select('id,title,description,details,status,priority,coordination,due_date,owner_id,tags')
     .eq('id', id)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
@@ -42,7 +42,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     supabase.from('pauta_participants').select('user_id').eq('pauta_id', data.id),
     supabase.from('workspace_members').select('user_id,coordination').eq('workspace_id', context.workspace.id),
     supabase.from('messages').select('id,author_id,body,created_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: true }),
-    supabase.from('file_links').select('file_id,files(id,name,file_type,storage_path,created_at)').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id),
+    supabase.from('pauta_links').select('id,title,url,category,created_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }),
     supabase.from('content_pieces').select('id,title,format,status,version,updated_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at'),
     supabase.from('activity_log').select('id,actor_id,action,metadata,created_at').eq('entity_type', 'pauta').eq('entity_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }),
   ])
@@ -79,10 +79,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     .filter((person): person is NonNullable<typeof person> => Boolean(person))
 
   const project = Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto'
-  const driveLinks = (linkRows ?? []).flatMap((row: any) => {
-    const file = Array.isArray(row.files) ? row.files[0] : row.files
-    return file?.storage_path ? [{ id: file.id, name: file.name, fileType: file.file_type, url: file.storage_path, createdAt: file.created_at }] : []
-  })
+  const driveLinks = (linkRows ?? []).map((row) => ({ id: row.id, name: row.title, fileType: row.category, url: row.url, createdAt: row.created_at }))
   const realContents = (contentRows ?? []).map((content) => ({ id: content.id, title: content.title, format: content.format, status: content.status, version: content.version, updatedAt: content.updated_at }))
   const history = (activityRows ?? []).map((event) => {
     const actor = profileById.get(event.actor_id)
@@ -108,5 +105,5 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  return <PautaRoom pauta={pauta} participants={participants} availablePeople={people} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} />
+  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} />
 }

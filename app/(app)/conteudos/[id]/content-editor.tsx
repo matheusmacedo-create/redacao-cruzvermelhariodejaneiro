@@ -21,7 +21,6 @@ import { Button } from '@/components/ui/button'
 import { Avatar } from '@/components/ui/avatar'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
-import { getPerson } from '@/lib/data'
 import { addContentComment, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 
 const tools = [
@@ -32,11 +31,6 @@ const tools = [
   { icon: Quote, label: 'Citação' },
   { icon: Link2, label: 'Link' },
   { icon: ImageIcon, label: 'Imagem' },
-]
-
-const editorComments = [
-  { id: 'ec1', authorId: 'matheus', time: 'há 40 min', text: 'Podemos citar o número exato de voluntários no segundo parágrafo?' },
-  { id: 'ec2', authorId: 'ana', time: 'há 25 min', text: 'Ajustei. Confirmei com o Carlos: foram 14 voluntários.' },
 ]
 
 export function ContentEditor({
@@ -62,19 +56,7 @@ export function ContentEditor({
 
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0
   const readMinutes = Math.max(1, Math.round(wordCount / 200))
-  const visibleComments = comments ?? editorComments.map((comment) => {
-    const author = getPerson(comment.authorId)
-    return {
-      id: comment.id,
-      text: comment.text,
-      time: comment.time,
-      author: {
-        name: author?.name || 'Colaborador',
-        initials: author?.initials || '?',
-        color: author?.color,
-      },
-    }
-  })
+  const visibleComments = comments ?? []
 
   return (
     <div className="flex flex-col">
@@ -107,6 +89,7 @@ export function ContentEditor({
             <input type="hidden" name="id" value={content.id} />
             <input type="hidden" name="title" value={title} />
             <input type="hidden" name="body" value={body} />
+            <input type="hidden" name="subtitle" value={subtitle} />
             <Button variant="outline" size="lg" type="submit">
               <Save className="size-4" />
               Salvar

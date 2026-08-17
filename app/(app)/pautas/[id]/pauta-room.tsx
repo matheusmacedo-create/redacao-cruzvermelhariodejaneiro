@@ -12,9 +12,6 @@ import {
   UserPlus,
   ChevronDown,
   MoreHorizontal,
-  Paperclip,
-  Mic,
-  AtSign,
   Send,
   CheckCircle2,
   Plus,
@@ -40,7 +37,7 @@ import {
 } from '@/components/ui/status-badge'
 import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addDriveLink, addPautaParticipant, removeDriveLink, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { addDriveLink, addPautaParticipant, createPautaApproval, createPautaContent, removeDriveLink, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -77,8 +74,9 @@ type DriveLink = { id: string; name: string; fileType: string; url: string; crea
 type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
 type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string }
 
-export function PautaRoom({ pauta, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
+export function PautaRoom({ pauta, details = {}, participants, availablePeople, messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
   pauta: Pauta
+  details?: Record<string, string>
   participants?: PautaPerson[]
   availablePeople?: PautaPerson[]
   messages?: PautaMessage[]
@@ -252,10 +250,10 @@ export function PautaRoom({ pauta, participants, availablePeople, messages, resp
           onAddParticipant={() => setParticipantsOpen(true)}
         />
       )}
-      {tab === 'informacoes' && <InformacoesTab pauta={pauta} />}
+      {tab === 'informacoes' && <InformacoesTab pauta={pauta} details={details} />}
       {tab === 'arquivos' && <ArquivosTab pautaId={pauta.id} items={driveLinks} />}
-      {tab === 'conteudos' && <ConteudosTab items={contentItems} />}
-      {tab === 'aprovacoes' && <AprovacoesTab items={contentItems} />}
+      {tab === 'conteudos' && <ConteudosTab pautaId={pauta.id} items={contentItems} />}
+      {tab === 'aprovacoes' && <AprovacoesTab pautaId={pauta.id} items={contentItems} />}
       {tab === 'historico' && <HistoricoTab items={history} />}
 
       {participantsOpen && (
@@ -397,18 +395,7 @@ function ConversaTab({
               placeholder="Escreva uma mensagem…"
               className="w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm outline-none"
             />
-            <div className="flex items-center justify-between px-2 pb-2">
-              <div className="flex items-center gap-0.5 text-muted-foreground">
-                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Anexar">
-                  <Paperclip className="size-4" />
-                </button>
-                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Áudio">
-                  <Mic className="size-4" />
-                </button>
-                <button type="button" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-muted" aria-label="Mencionar">
-                  <AtSign className="size-4" />
-                </button>
-              </div>
+            <div className="flex items-center justify-end px-2 pb-2">
               <Button size="sm" type="submit">
                 <Send className="size-3.5" />
                 Enviar
@@ -468,22 +455,10 @@ function InfoBlock({
   )
 }
 
-function InformacoesTab({ pauta }: { pauta: Pauta }) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <InfoBlock title="Sobre a pauta" rows={[
-        { label: 'Projeto', value: pauta.project || 'Não informado' },
-        { label: 'Coordenação', value: pauta.coordenacao || 'Não informada' },
-        { label: 'Prazo', value: pauta.deadline },
-        { label: 'Prioridade', value: pauta.priority },
-        { label: 'Status', value: pauta.status },
-      ]} />
-      <Card className="p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3>
-        <p className="text-sm leading-relaxed text-pretty">{pauta.summary || 'Nenhuma descrição informada.'}</p>
-      </Card>
-    </div>
-  )
+function InformacoesTab({ pauta, details }: { pauta: Pauta; details: Record<string, string> }) {
+  const labels: Record<string, string> = { local:'Local', participantsCount:'Pessoas participantes', volunteersCount:'Voluntários', story:'História relevante', contact:'Contato para entrevista', objective:'Objetivo', result:'Resultado', audience:'Público', schedule:'Horário', organizer:'Organização', ideaGoal:'Objetivo da ideia', materialType:'Tipo de material', request:'Solicitação', notes:'Observações' }
+  const detailRows = Object.entries(details).filter(([, value]) => value).map(([key, value]) => ({ label: labels[key] || key, value }))
+  return <div className="grid gap-4 lg:grid-cols-2"><InfoBlock title="Sobre a pauta" rows={[{ label: 'Tipo', value: pauta.type }, { label: 'Coordenação', value: pauta.coordenacao || 'Não informada' }, { label: 'Prazo', value: pauta.deadline }, { label: 'Prioridade', value: pauta.priority }, { label: 'Status', value: pauta.status }]} /><Card className="p-5"><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3><p className="text-sm leading-relaxed text-pretty">{pauta.summary || 'Nenhuma descrição informada.'}</p></Card>{detailRows.length > 0 && <div className="lg:col-span-2"><InfoBlock title="Dados informados no formulário" rows={detailRows} /></div>}</div>
 }
 
 function ContextItem({ label, value }: { label: string; value: string }) {
@@ -516,16 +491,14 @@ function ArquivosTab({ pautaId, items }: { pautaId: string; items: DriveLink[] }
 }
 
 /* ---------------- Conteúdos ---------------- */
-function ConteudosTab({ items }: { items: ContentItem[] }) {
-  if (!items.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo vinculado a esta pauta.</Card>
-  return <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.format} · v{item.version}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Abrir</Button></Card>)}</div>
+function ConteudosTab({ pautaId, items }: { pautaId: string; items: ContentItem[] }) {
+  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={createPautaContent} className="grid gap-3 md:grid-cols-[1fr_180px_auto]"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Título<input required minLength={3} name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Nome do conteúdo" /></label><label className="text-sm font-medium">Formato<select name="format" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option>Matéria</option><option>Post</option><option>Vídeo</option><option>Link</option></select></label><Button type="submit" className="self-end"><Plus className="size-4" />Criar conteúdo</Button></form></Card>{items.length ? <div className="grid gap-3 sm:grid-cols-2">{items.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.format} · v{item.version}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Abrir</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo vinculado a esta pauta.</Card>}</div>
 }
 
 /* ---------------- Aprovações ---------------- */
-function AprovacoesTab({ items }: { items: ContentItem[] }) {
+function AprovacoesTab({ pautaId, items }: { pautaId: string; items: ContentItem[] }) {
   const submitted = items.filter((item) => ['review', 'approval', 'approved'].includes(item.status))
-  if (!submitted.length) return <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>
-  return <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div>
+  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={createPautaApproval} className="flex flex-col gap-3"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Conteúdo existente<select name="contentId" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Criar caso rápido</option>{items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">Título do caso<input name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Obrigatório no caso rápido" /></label><label className="text-sm font-medium">Texto ou link<input name="body" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label></div><Button type="submit" className="self-end"><CheckSquare className="size-4" />Abrir aprovação</Button></form></Card>{submitted.length ? <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>}</div>
 }
 
 /* ---------------- Histórico ---------------- */

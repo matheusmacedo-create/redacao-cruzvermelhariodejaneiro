@@ -17,7 +17,7 @@ export default async function PerfilPage() {
     supabase.from('activity_log').select('id,action,entity_type,created_at').eq('workspace_id', context.workspace.id).eq('actor_id', context.user.id).order('created_at', { ascending: false }).limit(8),
   ])
   const name = profile?.full_name || context.user.email || 'Usuário'
-  const coordination = context.memberships.find((membership) => membership.workspaces.some((workspace) => workspace.id === context.workspace.id))?.coordination || 'Sem coordenação'
+  const coordination = context.memberships.find((membership) => { const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces; return workspace?.id === context.workspace.id })?.coordination || 'Sem coordenação'
 
   return <div className="mx-auto max-w-3xl">
     <PageHeader title="Meu perfil" description="Suas informações e preferências de conta." />
