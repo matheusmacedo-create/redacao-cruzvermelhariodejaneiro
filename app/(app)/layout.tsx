@@ -14,10 +14,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .eq('user_id', context.user.id)
     .order('created_at', { ascending: false })
     .limit(10)
+  const buildInfo = {
+    sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    message: process.env.VERCEL_GIT_COMMIT_MESSAGE?.slice(0, 80) ?? null,
+    renderedAt: new Date().toISOString(),
+  }
   return (
     <AppShellProvider>
       <div className="flex h-[100dvh] overflow-hidden bg-background">
-        <Sidebar profile={context.profile} />
+        <Sidebar profile={context.profile} buildInfo={buildInfo} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar workspace={context.workspace} role={context.role} profile={context.profile} notifications={notifications ?? []} />
           <main className="flex-1 overflow-y-auto">

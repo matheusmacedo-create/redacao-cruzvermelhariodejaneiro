@@ -72,12 +72,15 @@ function NavItem({
   )
 }
 
-function SidebarContent({ profile, onNavigate }: { profile: any; onNavigate?: () => void }) {
+type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
+
+function SidebarContent({ profile, buildInfo, onNavigate }: { profile: any; buildInfo?: BuildInfo; onNavigate?: () => void }) {
   const pathname = usePathname()
   const displayName = profile?.full_name || profile?.username || 'Usuário'
   const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === href : pathname.startsWith(href)
+  const showBuildInfo = buildInfo && profile?.username === 'matheus.macedo'
 
   return (
     <>
@@ -102,12 +105,18 @@ function SidebarContent({ profile, onNavigate }: { profile: any; onNavigate?: ()
             <p className="truncate text-[11px] text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>
           </div>
         </div>
+        {showBuildInfo && (
+          <div className="mt-2 rounded-lg bg-sidebar-accent/40 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
+            <p>Build {buildInfo!.sha || 'local'}{buildInfo!.message ? ` — ${buildInfo!.message}` : ''}</p>
+            <p>Visto em {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(buildInfo!.renderedAt))}</p>
+          </div>
+        )}
       </div>
     </>
   )
 }
 
-export function Sidebar({ profile }: { profile: any }) {
+export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: BuildInfo }) {
   const { open, close } = useMobileNav()
 
   return (
@@ -117,7 +126,7 @@ export function Sidebar({ profile }: { profile: any }) {
         <div className="border-b border-sidebar-border px-5 py-4">
           <BrandMark className="w-full" />
         </div>
-        <SidebarContent profile={profile} />
+        <SidebarContent profile={profile} buildInfo={buildInfo} />
       </aside>
 
       {/* Mobile drawer */}
@@ -131,7 +140,7 @@ export function Sidebar({ profile }: { profile: any }) {
                 <X className="size-5" />
               </button>
             </div>
-            <SidebarContent profile={profile} onNavigate={close} />
+            <SidebarContent profile={profile} buildInfo={buildInfo} onNavigate={close} />
           </aside>
         </div>
       )}
