@@ -545,9 +545,9 @@ export async function sendDirectMessage(formData: FormData) {
     user_id: recipientId,
     title: `Mensagem de ${context.profile?.full_name || 'um colega'}`,
     message: body,
-    link: '/caixa-de-entrada',
+    link: '/mensagens',
   })
   if (error) throw new Error('Não foi possível enviar a mensagem.')
 
-  revalidatePath('/caixa-de-entrada')
+  revalidatePath('/mensagens')
 }

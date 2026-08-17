@@ -5,6 +5,8 @@ import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { formatDate } from '@/lib/format'
+import { SendMessageWidget } from './send-message-widget'
 
 const statusLabel: Record<string, string> = { pending: 'Aguardando decisão', approved: 'Aprovada', changes_requested: 'Ajustes solicitados' }
 
@@ -12,10 +14,16 @@ export default async function MensagensPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
 
-  const [{ data: myVoterRows }, { data: requestedRows }] = await Promise.all([
+  const [{ data: myVoterRows }, { data: requestedRows }, { data: memberRows }] = await Promise.all([
     supabase.from('approval_voters').select('approval_id').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id),
     supabase.from('approvals').select('id').eq('workspace_id', context.workspace.id).eq('requested_by', context.user.id),
+    supabase.from('workspace_members').select('user_id,profiles(id,full_name,initials,color,avatar_path,active)').eq('workspace_id', context.workspace.id),
   ])
+
+  const colleagues = (memberRows ?? [])
+    .map((member: any) => Array.isArray(member.profiles) ? member.profiles[0] : member.profiles)
+    .filter((profile: any) => profile && profile.active !== false && profile.id !== context.user.id)
+    .map((profile: any) => ({ id: profile.id, name: profile.full_name, initials: profile.initials, color: profile.color, avatarPath: profile.avatar_path }))
   const approvalIds = [...new Set([...(myVoterRows ?? []).map((r) => r.approval_id), ...(requestedRows ?? []).map((r) => r.id)])]
 
   const { data: approvals } = approvalIds.length
@@ -60,7 +68,7 @@ export default async function MensagensPage() {
 
   return (
     <div>
-      <PageHeader title="Mensagens" description="Conversas ligadas às matérias que você enviou ou precisa aprovar." />
+      <PageHeader title="Mensagens" description="Conversas ligadas às matérias que você enviou ou precisa aprovar." actions={<SendMessageWidget colleagues={colleagues} />} />
       <div className="flex flex-col gap-3">
         {dedupedThreads.map((thread) => (
           <Link key={thread.contentId} href={`/mensagens/${thread.contentId}`}>
@@ -82,7 +90,7 @@ export default async function MensagensPage() {
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">{statusLabel[thread.status] || thread.status}</span>
-                <span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(thread.lastActivity))}</span>
+                <span className="text-xs text-muted-foreground">{formatDate(thread.lastActivity, { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
             </Card>
           </Link>

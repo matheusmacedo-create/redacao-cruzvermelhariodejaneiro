@@ -6,6 +6,7 @@ import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { formatDate } from '@/lib/format'
 import { addContentComment } from '@/app/actions/editorial'
 
 const decisionMeta: Record<string, { label: string; icon: typeof Clock; className: string }> = {
@@ -44,10 +45,11 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
   const otherVoters = (voterRows ?? []).filter((v) => v.user_id !== context.user.id)
   const isRequester = approval?.requested_by === context.user.id
 
+  const approvalDate = formatDate(approval?.created_at, { dateStyle: 'long', timeStyle: 'short' })
   const introLine = approval
     ? isRequester
-      ? `Você enviou “${content.title}” para aprovação de ${otherVoters.map((v) => profileById.get(v.user_id)?.full_name?.split(' ')[0] || 'alguém').join(', ') || 'alguém'} em ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(approval.created_at))}.`
-      : `${requesterProfile?.full_name || 'Alguém'} enviou “${content.title}” para sua aprovação em ${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(approval.created_at))}.`
+      ? `Você enviou “${content.title}” para aprovação de ${otherVoters.map((v) => profileById.get(v.user_id)?.full_name?.split(' ')[0] || 'alguém').join(', ') || 'alguém'} em ${approvalDate}.`
+      : `${requesterProfile?.full_name || 'Alguém'} enviou “${content.title}” para sua aprovação em ${approvalDate}.`
     : `Conversa sobre “${content.title}”.`
 
   return (
@@ -93,7 +95,7 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
               <div className={cn('max-w-[75%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed', mine ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-muted')}>
                 {!mine && <p className="mb-0.5 text-xs font-semibold opacity-80">{author?.full_name?.split(' ')[0] || 'Colaborador'}</p>}
                 <p className="text-pretty">{comment.body}</p>
-                <p className={cn('mt-1 text-[10px] opacity-70')}>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(comment.created_at))}</p>
+                <p className={cn('mt-1 text-[10px] opacity-70')}>{formatDate(comment.created_at, { dateStyle: 'short', timeStyle: 'short' })}</p>
               </div>
             </div>
           )
