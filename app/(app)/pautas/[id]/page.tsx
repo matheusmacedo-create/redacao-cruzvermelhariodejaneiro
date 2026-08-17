@@ -48,7 +48,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   ])
   const memberIds = (memberRows ?? []).map((member) => member.user_id)
   const { data: profileRows } = memberIds.length
-    ? await supabase.from('profiles').select('id,full_name,initials,color').in('id', memberIds).eq('active', true)
+    ? await supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', memberIds).eq('active', true)
     : { data: [] }
   const coordinationById = new Map((memberRows ?? []).map((member) => [member.user_id, member.coordination]))
   const profileById = new Map((profileRows ?? []).map((profile) => [profile.id, profile]))
@@ -62,6 +62,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
         name: author?.full_name || 'Colaborador',
         initials: author?.initials || '?',
         color: author?.color || 'var(--muted)',
+        avatarPath: author?.avatar_path ?? null,
         coordination: coordinationById.get(message.author_id) || 'Sem coordenação',
       },
     }
@@ -72,6 +73,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     name: profile.full_name,
     initials: profile.initials,
     color: profile.color,
+    avatarPath: profile.avatar_path,
     coordination: coordinationById.get(profile.id) || 'Sem coordenação',
   }))
   const participants = [...participantIds]
@@ -84,10 +86,10 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   const realContents = (contentRows ?? []).map((content) => ({ id: content.id, title: content.title, format: content.format, status: content.status, version: content.version, updatedAt: content.updated_at }))
   const history = (activityRows ?? []).map((event) => {
     const actor = profileById.get(event.actor_id)
-    return { id: event.id, action: event.action, time: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.created_at)), actor: actor?.full_name || 'Sistema', initials: actor?.initials || '?', color: actor?.color || 'var(--muted)' }
+    return { id: event.id, action: event.action, time: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.created_at)), actor: actor?.full_name || 'Sistema', initials: actor?.initials || '?', color: actor?.color || 'var(--muted)', avatarPath: actor?.avatar_path ?? null }
   })
   const ownerProfile = profileById.get(data.owner_id)
-  const responsible = ownerProfile ? { id: ownerProfile.id, name: ownerProfile.full_name, initials: ownerProfile.initials, color: ownerProfile.color, coordination: coordinationById.get(ownerProfile.id) || 'Sem coordenação' } : undefined
+  const responsible = ownerProfile ? { id: ownerProfile.id, name: ownerProfile.full_name, initials: ownerProfile.initials, color: ownerProfile.color, avatarPath: ownerProfile.avatar_path, coordination: coordinationById.get(ownerProfile.id) || 'Sem coordenação' } : undefined
   const pauta: Pauta = {
     id: data.id,
     title: data.title,
