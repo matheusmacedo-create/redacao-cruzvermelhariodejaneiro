@@ -16,7 +16,7 @@ export function SendMessageWidget({ colleagues }: { colleagues: Colleague[] }) {
     <>
       <Button variant="outline" size="lg" type="button" onClick={() => setOpen(true)}>
         <MessageCirclePlus className="size-4" />
-        Enviar mensagem
+        Enviar aviso
       </Button>
 
       {open && (
@@ -25,8 +25,8 @@ export function SendMessageWidget({ colleagues }: { colleagues: Colleague[] }) {
           <Card className="relative z-10 w-full max-w-md p-6 shadow-lg">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="send-message-title" className="text-lg font-semibold">Enviar mensagem</h2>
-                <p className="mt-1 text-sm text-muted-foreground">A pessoa recebe como notificação, no sino no topo da tela.</p>
+                <h2 id="send-message-title" className="text-lg font-semibold">Enviar aviso</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Para avisos rápidos que não são sobre uma matéria específica. A pessoa recebe como notificação, no sino no topo da tela — isso não cria uma conversa nesta lista.</p>
               </div>
               <Button type="button" variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Fechar">
                 <X className="size-4" />

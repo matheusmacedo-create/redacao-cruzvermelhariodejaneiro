@@ -7,6 +7,7 @@ import { StatusBadge, ContentStatusBadge } from '@/components/ui/status-badge'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { pautaStatus, contentStatus } from '@/lib/status-maps'
+import { formatDate } from '@/lib/format'
 import { DeleteProjectButton } from './delete-project-button'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -68,7 +69,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{project.description || 'Sem descrição.'}</p>
           <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             {creator && <Avatar initials={creator.initials || '?'} color={creator.color} src={privateAvatarUrl(creator.avatar_path)} size="xs" />}
-            <span>Criado por {creator?.full_name || 'alguém que já saiu do espaço'} em {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(project.created_at))}</span>
+            <span>Criado por {creator?.full_name || 'alguém que já saiu do espaço'} em {formatDate(project.created_at, { dateStyle: 'long' })}</span>
           </div>
         </div>
         {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
@@ -113,7 +114,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 <p className="truncate font-medium">{event.title}</p>
                 <p className="truncate text-xs text-muted-foreground">{pautaTitleById.get(event.pauta_id) || 'Sem pauta'}</p>
               </div>
-              <span className="shrink-0 text-sm text-muted-foreground">{new Intl.DateTimeFormat('pt-BR').format(new Date(`${event.event_date}T12:00:00`))}</span>
+              <span className="shrink-0 text-sm text-muted-foreground">{event.event_date ? formatDate(`${event.event_date}T12:00:00`) : 'sem data'}</span>
             </Link>
           ))}
           {!events?.length && <EmptyRow>Nenhum agendamento vinculado a este projeto ainda.</EmptyRow>}
