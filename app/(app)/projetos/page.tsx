@@ -36,7 +36,7 @@ export default async function ProjetosPage() {
             <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4 text-center">
               <Stat value={pautas.length} label="Pautas" /><Stat value={pautas.filter((p) => p.status === 'production').length} label="Produção" /><Stat value={pautas.filter((p) => p.status === 'approved').length} label="Prontas" />
             </div>
-            <Link href="/pautas" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">Ver pautas<ArrowRight className="size-3.5" /></Link>
+            <Link href={`/pautas?projeto=${project.id}`} className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">Ver pautas<ArrowRight className="size-3.5" /></Link>
           </Card>
         })}
       </div>

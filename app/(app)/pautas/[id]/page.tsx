@@ -31,7 +31,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   const supabase = await createClient()
   const { data } = await supabase
     .from('pautas')
-    .select('id,title,description,details,status,priority,coordination,due_date,owner_id,tags')
+    .select('id,title,description,details,status,priority,coordination,due_date,owner_id,tags,project_id,projects(name)')
     .eq('id', id)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
@@ -78,7 +78,8 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     .map((participantId) => people.find((person) => person.id === participantId))
     .filter((person): person is NonNullable<typeof person> => Boolean(person))
 
-  const project = Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto'
+  const projectRow = Array.isArray(data.projects) ? data.projects[0] : data.projects
+  const project = projectRow?.name || (Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto')
   const driveLinks = (linkRows ?? []).map((row) => ({ id: row.id, name: row.title, fileType: row.category, url: row.url, createdAt: row.created_at }))
   const realContents = (contentRows ?? []).map((content) => ({ id: content.id, title: content.title, format: content.format, status: content.status, version: content.version, updatedAt: content.updated_at }))
   const history = (activityRows ?? []).map((event) => {
@@ -92,7 +93,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     title: data.title,
     type: project,
     project,
-    projectId: project.toLowerCase().replaceAll(' ', '-'),
+    projectId: data.project_id || '',
     coordenacao: data.coordination || 'Não informada',
     responsibleId: data.owner_id || '',
     deadline: data.due_date

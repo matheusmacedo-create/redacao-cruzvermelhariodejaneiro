@@ -34,14 +34,19 @@ export async function updatePautaStatus(formData: FormData) {
   let pautaId = id
 
   if (isUuid) {
-    const { data, error } = await supabase
-      .from('pautas')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('workspace_id', context.workspace.id)
-      .select('id')
-      .single()
-    if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+    if (status === 'approval') {
+      const { data: approvalId, error } = await supabase.rpc('submit_pauta_for_approval', { p_pauta_id: id })
+      if (error || !approvalId) throw new Error(error?.message || 'Não foi possível enviar a pauta para aprovação.')
+    } else {
+      const { data, error } = await supabase
+        .from('pautas')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
+        .select('id')
+        .single()
+      if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+    }
   } else {
     const { data, error } = await supabase
       .from('pautas')
@@ -72,6 +77,8 @@ export async function updatePautaStatus(formData: FormData) {
   })
 
   revalidatePath('/pautas')
+  revalidatePath('/projetos')
+  revalidatePath('/aprovacoes')
   revalidatePath(`/pautas/${pautaId}`)
   if (!isUuid) redirect(`/pautas/${pautaId}`)
 }
@@ -293,7 +300,7 @@ export async function createPautaApproval(formData: FormData) {
     const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title: text(formData, 'title'), body: text(formData, 'body') || text(formData, 'url'), format: text(formData, 'format') || 'Conteúdo', status: 'review', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
     if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.'); contentId = data.id
   }
-  const { data: approvalId, error } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
+  const { data: approvalId, error } = await supabase.rpc('submit_pauta_for_approval', { p_pauta_id: pautaId })
   if (error || !approvalId) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
   revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
 }
@@ -369,14 +376,13 @@ export async function updateProfile(formData: FormData) {
   const fullName = text(formData, 'fullName')
   if (fullName.length < 3) throw new Error('Informe seu nome completo.')
   const initials = fullName.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-  const { error } = await supabase.from('profiles').upsert({
-    id: context.user.id,
+  const { data, error } = await supabase.from('profiles').update({
     full_name: fullName,
     job_title: text(formData, 'jobTitle'),
     initials,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'id' })
-  if (error) throw new Error('Não foi possível atualizar o perfil.')
+  }).eq('id', context.user.id).select('id').single()
+  if (error || !data) throw new Error('Não foi possível atualizar o perfil. Tente novamente.')
   revalidatePath('/perfil')
 }
 
