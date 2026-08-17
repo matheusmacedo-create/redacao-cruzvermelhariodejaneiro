@@ -1,0 +1,90 @@
+export type EmojiEntry = { char: string; name: string }
+export type EmojiCategory = { id: string; label: string; emojis: EmojiEntry[] }
+
+export const EMOJI_CATEGORIES: EmojiCategory[] = [
+  {
+    id: 'rostos',
+    label: 'Rostos',
+    emojis: [
+      { char: '😀', name: 'rindo' }, { char: '😃', name: 'sorrindo' }, { char: '😄', name: 'sorrindo feliz' },
+      { char: '😁', name: 'sorriso largo' }, { char: '😆', name: 'rindo muito' }, { char: '😅', name: 'suando de rir' },
+      { char: '🤣', name: 'rolando de rir' }, { char: '😂', name: 'chorando de rir' }, { char: '🙂', name: 'sorriso leve' },
+      { char: '🙃', name: 'de cabeça pra baixo' }, { char: '😉', name: 'piscando' }, { char: '😊', name: 'sorrindo tímido' },
+      { char: '😇', name: 'anjinho' }, { char: '🥰', name: 'apaixonado' }, { char: '😍', name: 'olhos de coração' },
+      { char: '🤩', name: 'maravilhado' }, { char: '😘', name: 'beijo' }, { char: '😋', name: 'saboreando' },
+      { char: '😛', name: 'língua de fora' }, { char: '🤪', name: 'doidinho' }, { char: '🤗', name: 'abraço' },
+      { char: '🤔', name: 'pensando' }, { char: '🤨', name: 'desconfiado' }, { char: '😐', name: 'neutro' },
+      { char: '😑', name: 'sem expressão' }, { char: '😏', name: 'sorriso maroto' }, { char: '🙄', name: 'revirando os olhos' },
+      { char: '😌', name: 'aliviado' }, { char: '😴', name: 'dormindo' }, { char: '🤒', name: 'febril' },
+      { char: '🤕', name: 'machucado' }, { char: '🥵', name: 'com calor' }, { char: '🥶', name: 'com frio' },
+      { char: '😵', name: 'zonzo' }, { char: '🤯', name: 'cabeça explodindo' }, { char: '🥳', name: 'festa' },
+      { char: '😎', name: 'estiloso' }, { char: '🧐', name: 'monóculo' }, { char: '😕', name: 'confuso' },
+      { char: '🙁', name: 'triste leve' }, { char: '😮', name: 'boca aberta' }, { char: '😲', name: 'espantado' },
+      { char: '🥺', name: 'implorando' }, { char: '😢', name: 'chorando' }, { char: '😭', name: 'chorando muito' },
+      { char: '😱', name: 'gritando de medo' }, { char: '😞', name: 'desapontado' }, { char: '😩', name: 'exausto' },
+      { char: '😡', name: 'bravo' }, { char: '🤬', name: 'xingando' },
+    ],
+  },
+  {
+    id: 'gestos',
+    label: 'Gestos',
+    emojis: [
+      { char: '👋', name: 'acenando' }, { char: '🤚', name: 'mão levantada' }, { char: '✋', name: 'pare' },
+      { char: '👌', name: 'ok' }, { char: '🤏', name: 'pouquinho' }, { char: '✌️', name: 'paz' },
+      { char: '🤞', name: 'dedos cruzados' }, { char: '🤟', name: 'te amo' }, { char: '🤘', name: 'rock' },
+      { char: '👈', name: 'apontando esquerda' }, { char: '👉', name: 'apontando direita' }, { char: '👆', name: 'apontando cima' },
+      { char: '👇', name: 'apontando baixo' }, { char: '☝️', name: 'dedo em riste' }, { char: '👍', name: 'joinha' },
+      { char: '👎', name: 'joinha negativo' }, { char: '✊', name: 'punho' }, { char: '👊', name: 'soco' },
+      { char: '👏', name: 'palmas' }, { char: '🙌', name: 'mãos pra cima' }, { char: '👐', name: 'mãos abertas' },
+      { char: '🤲', name: 'mãos em concha' }, { char: '🙏', name: 'agradecendo' }, { char: '✍️', name: 'escrevendo' },
+      { char: '💪', name: 'força' },
+    ],
+  },
+  {
+    id: 'coracoes',
+    label: 'Corações',
+    emojis: [
+      { char: '❤️', name: 'coração vermelho' }, { char: '🧡', name: 'coração laranja' }, { char: '💛', name: 'coração amarelo' },
+      { char: '💚', name: 'coração verde' }, { char: '💙', name: 'coração azul' }, { char: '💜', name: 'coração roxo' },
+      { char: '🖤', name: 'coração preto' }, { char: '🤍', name: 'coração branco' }, { char: '🤎', name: 'coração marrom' },
+      { char: '💔', name: 'coração partido' }, { char: '❣️', name: 'exclamação de coração' }, { char: '💕', name: 'dois corações' },
+      { char: '💞', name: 'corações girando' }, { char: '💓', name: 'coração pulsando' }, { char: '💗', name: 'coração crescendo' },
+      { char: '💖', name: 'coração brilhando' }, { char: '💘', name: 'coração com flecha' }, { char: '💝', name: 'coração com laço' },
+    ],
+  },
+  {
+    id: 'celebracao',
+    label: 'Celebração',
+    emojis: [
+      { char: '🎉', name: 'confete' }, { char: '🎊', name: 'bolinhas de festa' }, { char: '🎈', name: 'balão' },
+      { char: '🎁', name: 'presente' }, { char: '🎂', name: 'bolo' }, { char: '🏆', name: 'troféu' },
+      { char: '🥇', name: 'medalha de ouro' }, { char: '🎯', name: 'alvo' }, { char: '✨', name: 'brilho' },
+      { char: '🌟', name: 'estrela brilhante' }, { char: '⭐', name: 'estrela' }, { char: '🔥', name: 'fogo' },
+      { char: '💯', name: 'cem pontos' }, { char: '✅', name: 'concluído' }, { char: '❌', name: 'errado' },
+      { char: '⚠️', name: 'atenção' }, { char: '📢', name: 'megafone' }, { char: '📣', name: 'megafone anunciando' },
+      { char: '📌', name: 'fixado' }, { char: '📍', name: 'localização' },
+    ],
+  },
+  {
+    id: 'natureza',
+    label: 'Natureza',
+    emojis: [
+      { char: '🌞', name: 'sol sorrindo' }, { char: '🌤️', name: 'sol com nuvem' }, { char: '⛅', name: 'parcialmente nublado' },
+      { char: '🌧️', name: 'chuva' }, { char: '⛈️', name: 'tempestade' }, { char: '🌈', name: 'arco-íris' },
+      { char: '🌍', name: 'planeta terra' }, { char: '🌊', name: 'onda' }, { char: '🌸', name: 'flor de cerejeira' },
+      { char: '🌺', name: 'hibisco' }, { char: '🌻', name: 'girassol' }, { char: '🌹', name: 'rosa' },
+      { char: '🍀', name: 'trevo' }, { char: '🌳', name: 'árvore' }, { char: '🐝', name: 'abelha' }, { char: '🦋', name: 'borboleta' },
+    ],
+  },
+  {
+    id: 'objetos',
+    label: 'Objetos',
+    emojis: [
+      { char: '📷', name: 'câmera' }, { char: '📸', name: 'câmera com flash' }, { char: '🎥', name: 'câmera de vídeo' },
+      { char: '🎬', name: 'claquete' }, { char: '📱', name: 'celular' }, { char: '💻', name: 'notebook' },
+      { char: '📝', name: 'anotação' }, { char: '📅', name: 'calendário' }, { char: '🔗', name: 'link' },
+      { char: '💬', name: 'balão de fala' }, { char: '📧', name: 'e-mail' }, { char: '🩸', name: 'gota de sangue' },
+      { char: '🏥', name: 'hospital' }, { char: '🚑', name: 'ambulância' }, { char: '🤝', name: 'aperto de mãos' },
+    ],
+  },
+]
