@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { getContent, getPauta, getPerson } from '@/lib/data'
+import { contentStatus } from '@/lib/status-maps'
 import { ContentEditor } from './content-editor'
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +46,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     subtitle: row.subtitle || '',
     body: row.body,
     type: row.format,
-    status: row.status === 'review' ? 'aprovacao' : row.status === 'draft' ? 'rascunho' : row.status === 'archived' ? 'arquivado' : 'producao',
+    status: contentStatus(row.status),
     version: `v${row.version}`,
     lastEdit: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.updated_at)),
   }
