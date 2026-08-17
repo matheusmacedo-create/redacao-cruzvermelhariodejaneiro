@@ -26,5 +26,5 @@ export async function POST(request: Request) {
     await del(blob.pathname)
     return NextResponse.json({ error: error?.message || 'Não foi possível salvar o arquivo.' }, { status: 500 })
   }
-  return NextResponse.json({ id: data.id })
+  return NextResponse.json({ id: data.id, storagePath: blob.pathname })
 }

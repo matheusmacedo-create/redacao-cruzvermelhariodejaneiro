@@ -13,9 +13,12 @@ import {
   Users,
   Settings,
   UserCircle,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
+import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { useMobileNav } from './app-shell'
 
 const main = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -67,7 +70,7 @@ function NavItem({
   )
 }
 
-export function Sidebar({ profile }: { profile: any }) {
+function SidebarContent({ profile, onNavigate }: { profile: any; onNavigate?: () => void }) {
   const pathname = usePathname()
   const displayName = profile?.full_name || profile?.username || 'Usuário'
   const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -75,12 +78,8 @@ export function Sidebar({ profile }: { profile: any }) {
     href === '/dashboard' ? pathname === href : pathname.startsWith(href)
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-      <div className="border-b border-sidebar-border px-5 py-4">
-        <BrandMark className="w-full" />
-      </div>
-
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
+    <>
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" onClick={onNavigate}>
         {main.map((item) => (
           <NavItem key={item.href} {...item} active={isActive(item.href)} />
         ))}
@@ -93,17 +92,47 @@ export function Sidebar({ profile }: { profile: any }) {
         ))}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <span className="inline-flex size-8 items-center justify-center rounded-full bg-info text-xs font-semibold text-white">
-            {initials}
-          </span>
+          <Avatar initials={initials} color={profile?.color} src={privateAvatarUrl(profile?.avatar_path)} alt={displayName} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
             <p className="truncate text-[11px] text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>
           </div>
         </div>
       </div>
-    </aside>
+    </>
+  )
+}
+
+export function Sidebar({ profile }: { profile: any }) {
+  const { open, close } = useMobileNav()
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+        <div className="border-b border-sidebar-border px-5 py-4">
+          <BrandMark className="w-full" />
+        </div>
+        <SidebarContent profile={profile} />
+      </aside>
+
+      {/* Mobile drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
+          <button type="button" className="absolute inset-0 bg-foreground/40" aria-label="Fechar menu" onClick={close} />
+          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col bg-sidebar shadow-xl [padding-top:env(safe-area-inset-top)]">
+            <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-4">
+              <BrandMark className="w-full" />
+              <button type="button" onClick={close} aria-label="Fechar menu" className="ml-2 flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent">
+                <X className="size-5" />
+              </button>
+            </div>
+            <SidebarContent profile={profile} onNavigate={close} />
+          </aside>
+        </div>
+      )}
+    </>
   )
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
@@ -34,14 +35,19 @@ export async function updatePautaStatus(formData: FormData) {
   let pautaId = id
 
   if (isUuid) {
-    const { data, error } = await supabase
-      .from('pautas')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .eq('workspace_id', context.workspace.id)
-      .select('id')
-      .single()
-    if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+    if (status === 'approval') {
+      const { data: approvalId, error } = await supabase.rpc('submit_pauta_for_approval', { p_pauta_id: id })
+      if (error || !approvalId) throw new Error(error?.message || 'Não foi possível enviar a pauta para aprovação.')
+    } else {
+      const { data, error } = await supabase
+        .from('pautas')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('workspace_id', context.workspace.id)
+        .select('id')
+        .single()
+      if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+    }
   } else {
     const { data, error } = await supabase
       .from('pautas')
@@ -72,6 +78,8 @@ export async function updatePautaStatus(formData: FormData) {
   })
 
   revalidatePath('/pautas')
+  revalidatePath('/projetos')
+  revalidatePath('/aprovacoes')
   revalidatePath(`/pautas/${pautaId}`)
   if (!isUuid) redirect(`/pautas/${pautaId}`)
 }
@@ -173,6 +181,7 @@ export async function submitContentForApproval(formData: FormData) {
   const id = text(formData, 'id')
   const title = text(formData, 'title')
   const body = text(formData, 'body')
+  const subtitle = text(formData, 'subtitle')
   const format = text(formData, 'format') || 'Matéria editorial'
 
   if (!id || title.length < 3 || body.length < 10) {
@@ -185,7 +194,7 @@ export async function submitContentForApproval(formData: FormData) {
   if (isUuid) {
     const { data: content, error: contentError } = await supabase
       .from('content_pieces')
-      .update({ title, body, status: 'review', updated_at: new Date().toISOString() })
+      .update({ title, subtitle, body, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('workspace_id', context.workspace.id)
       .select('id')
@@ -215,6 +224,30 @@ export async function submitContentForApproval(formData: FormData) {
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)
   redirect(`/aprovacoes/${approvalId}`)
+}
+
+export async function archiveContentDraft(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const title = text(formData, 'title')
+  const body = text(formData, 'body')
+  const subtitle = text(formData, 'subtitle')
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  if (!isUuid) throw new Error('Salve a matéria antes de arquivá-la.')
+
+  const { data: current, error: readError } = await supabase.from('content_pieces').select('version').eq('id', id).eq('workspace_id', context.workspace.id).single()
+  if (readError) throw new Error('Conteúdo não encontrado.')
+  const version = current.version + 1
+
+  const { error } = await supabase.from('content_pieces').update({ title, subtitle, body, version, status: 'archived', updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error(error.message)
+  await supabase.from('content_versions').insert({ content_id: id, version, title, body, author_id: context.user.id })
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'archived', entity_type: 'content_piece', entity_id: id, metadata: { title } })
+
+  revalidatePath(`/conteudos/${id}`)
+  revalidatePath('/pautas')
 }
 
 export async function createCalendarEvent(formData: FormData) {
@@ -293,7 +326,7 @@ export async function createPautaApproval(formData: FormData) {
     const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title: text(formData, 'title'), body: text(formData, 'body') || text(formData, 'url'), format: text(formData, 'format') || 'Conteúdo', status: 'review', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
     if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.'); contentId = data.id
   }
-  const { data: approvalId, error } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
+  const { data: approvalId, error } = await supabase.rpc('submit_pauta_for_approval', { p_pauta_id: pautaId })
   if (error || !approvalId) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
   revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
 }
@@ -363,20 +396,41 @@ export async function createProject(formData: FormData) {
   revalidatePath('/projetos')
 }
 
+export async function deleteProject(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+
+  const { data: project } = await supabase.from('projects').select('id,name,created_by').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+  if (!project) throw new Error('Projeto não encontrado.')
+  if (context.role !== 'admin' && project.created_by !== context.user.id) {
+    throw new Error('Somente quem criou o projeto ou um administrador pode excluí-lo.')
+  }
+
+  const admin = createAdminClient()
+  await admin.from('pautas').update({ project_id: null }).eq('project_id', id).eq('workspace_id', context.workspace.id)
+  const { error } = await admin.from('projects').delete().eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error('Não foi possível excluir o projeto.')
+
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'deleted', entity_type: 'project', entity_id: id, metadata: { name: project.name } })
+
+  revalidatePath('/projetos')
+  redirect('/projetos')
+}
+
 export async function updateProfile(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const fullName = text(formData, 'fullName')
   if (fullName.length < 3) throw new Error('Informe seu nome completo.')
   const initials = fullName.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
-  const { error } = await supabase.from('profiles').upsert({
-    id: context.user.id,
+  const { data, error } = await supabase.from('profiles').update({
     full_name: fullName,
     job_title: text(formData, 'jobTitle'),
     initials,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'id' })
-  if (error) throw new Error('Não foi possível atualizar o perfil.')
+  }).eq('id', context.user.id).select('id').single()
+  if (error || !data) throw new Error('Não foi possível atualizar o perfil. Tente novamente.')
   revalidatePath('/perfil')
 }
 
@@ -407,4 +461,28 @@ export async function decideApproval(formData: FormData) {
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${id}`)
   redirect('/aprovacoes')
+}
+
+export async function sendDirectMessage(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const recipientId = text(formData, 'recipientId')
+  const body = text(formData, 'body')
+  if (!recipientId || body.length < 1 || body.length > 2000) throw new Error('Escreva uma mensagem com até 2.000 caracteres.')
+  if (recipientId === context.user.id) throw new Error('Selecione outra pessoa do espaço.')
+
+  const { data: member } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('user_id', recipientId).maybeSingle()
+  if (!member) throw new Error('A pessoa selecionada não pertence a este espaço.')
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('notifications').insert({
+    workspace_id: context.workspace.id,
+    user_id: recipientId,
+    title: `Mensagem de ${context.profile?.full_name || 'um colega'}`,
+    message: body,
+    link: '/caixa-de-entrada',
+  })
+  if (error) throw new Error('Não foi possível enviar a mensagem.')
+
+  revalidatePath('/caixa-de-entrada')
 }

@@ -1,25 +1,9 @@
 import { notFound } from 'next/navigation'
-import { type Pauta, type PautaStatus, type Priority } from '@/lib/data'
+import { type Pauta } from '@/lib/data'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { pautaStatus, PRIORITY_DB } from '@/lib/status-maps'
 import { PautaRoom } from './pauta-room'
-
-const statusMap: Record<string, PautaStatus> = {
-  incoming: 'entrada',
-  collection: 'coleta',
-  production: 'producao',
-  review: 'revisao',
-  approval: 'aprovacao',
-  approved: 'pronto',
-  archived: 'arquivado',
-}
-
-const priorityMap: Record<string, Priority> = {
-  low: 'baixa',
-  medium: 'normal',
-  high: 'alta',
-  critical: 'critica',
-}
 
 export default async function PautaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -31,7 +15,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   const supabase = await createClient()
   const { data } = await supabase
     .from('pautas')
-    .select('id,title,description,details,status,priority,coordination,due_date,owner_id,tags')
+    .select('id,title,description,details,status,priority,coordination,due_date,owner_id,tags,project_id,projects(name)')
     .eq('id', id)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
@@ -48,7 +32,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   ])
   const memberIds = (memberRows ?? []).map((member) => member.user_id)
   const { data: profileRows } = memberIds.length
-    ? await supabase.from('profiles').select('id,full_name,initials,color').in('id', memberIds).eq('active', true)
+    ? await supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', memberIds).eq('active', true)
     : { data: [] }
   const coordinationById = new Map((memberRows ?? []).map((member) => [member.user_id, member.coordination]))
   const profileById = new Map((profileRows ?? []).map((profile) => [profile.id, profile]))
@@ -62,6 +46,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
         name: author?.full_name || 'Colaborador',
         initials: author?.initials || '?',
         color: author?.color || 'var(--muted)',
+        avatarPath: author?.avatar_path ?? null,
         coordination: coordinationById.get(message.author_id) || 'Sem coordenação',
       },
     }
@@ -72,34 +57,36 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     name: profile.full_name,
     initials: profile.initials,
     color: profile.color,
+    avatarPath: profile.avatar_path,
     coordination: coordinationById.get(profile.id) || 'Sem coordenação',
   }))
   const participants = [...participantIds]
     .map((participantId) => people.find((person) => person.id === participantId))
     .filter((person): person is NonNullable<typeof person> => Boolean(person))
 
-  const project = Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto'
+  const projectRow = Array.isArray(data.projects) ? data.projects[0] : data.projects
+  const project = projectRow?.name || (Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto')
   const driveLinks = (linkRows ?? []).map((row) => ({ id: row.id, name: row.title, fileType: row.category, url: row.url, createdAt: row.created_at }))
   const realContents = (contentRows ?? []).map((content) => ({ id: content.id, title: content.title, format: content.format, status: content.status, version: content.version, updatedAt: content.updated_at }))
   const history = (activityRows ?? []).map((event) => {
     const actor = profileById.get(event.actor_id)
-    return { id: event.id, action: event.action, time: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.created_at)), actor: actor?.full_name || 'Sistema', initials: actor?.initials || '?', color: actor?.color || 'var(--muted)' }
+    return { id: event.id, action: event.action, time: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(event.created_at)), actor: actor?.full_name || 'Sistema', initials: actor?.initials || '?', color: actor?.color || 'var(--muted)', avatarPath: actor?.avatar_path ?? null }
   })
   const ownerProfile = profileById.get(data.owner_id)
-  const responsible = ownerProfile ? { id: ownerProfile.id, name: ownerProfile.full_name, initials: ownerProfile.initials, color: ownerProfile.color, coordination: coordinationById.get(ownerProfile.id) || 'Sem coordenação' } : undefined
+  const responsible = ownerProfile ? { id: ownerProfile.id, name: ownerProfile.full_name, initials: ownerProfile.initials, color: ownerProfile.color, avatarPath: ownerProfile.avatar_path, coordination: coordinationById.get(ownerProfile.id) || 'Sem coordenação' } : undefined
   const pauta: Pauta = {
     id: data.id,
     title: data.title,
     type: project,
     project,
-    projectId: project.toLowerCase().replaceAll(' ', '-'),
+    projectId: data.project_id || '',
     coordenacao: data.coordination || 'Não informada',
     responsibleId: data.owner_id || '',
     deadline: data.due_date
       ? new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(new Date(`${data.due_date}T12:00:00`)).toUpperCase()
       : 'Sem prazo',
-    priority: priorityMap[data.priority] || (data.priority as Priority) || 'normal',
-    status: statusMap[data.status] || (data.status as PautaStatus) || 'entrada',
+    priority: PRIORITY_DB[data.priority] || 'normal',
+    status: pautaStatus(data.status),
     comments: 0,
     files: driveLinks.length,
     summary: data.description || '',

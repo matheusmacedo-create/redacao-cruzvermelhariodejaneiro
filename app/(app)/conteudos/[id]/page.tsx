@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { getContent, getPauta, getPerson } from '@/lib/data'
+import { contentStatus } from '@/lib/status-maps'
 import { ContentEditor } from './content-editor'
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +25,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   let query = supabase
     .from('content_pieces')
-    .select('id,title,body,format,status,version,updated_at,responsible_id,pauta_id,pautas(id,title,coordination)')
+    .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,pautas(id,title,coordination,owner_id)')
     .eq('workspace_id', context.workspace.id)
 
   query = isUuid ? query.eq('id', id) : query.order('updated_at', { ascending: false }).limit(1)
@@ -34,7 +35,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   const rawPauta: any = Array.isArray(row.pautas) ? row.pautas[0] : row.pautas
   const { data: profile } = row.responsible_id
-    ? await supabase.from('profiles').select('id,full_name,initials,color,job_title').eq('id', row.responsible_id).maybeSingle()
+    ? await supabase.from('profiles').select('id,full_name,initials,color,job_title,avatar_path').eq('id', row.responsible_id).maybeSingle()
     : { data: context.profile }
 
   const content: any = {
@@ -42,16 +43,16 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     pautaId: rawPauta?.id,
     pautaTitle: rawPauta?.title || 'Sem pauta vinculada',
     title: row.title,
-    subtitle: '',
+    subtitle: row.subtitle || '',
     body: row.body,
     type: row.format,
-    status: row.status === 'review' ? 'aprovacao' : row.status === 'draft' ? 'rascunho' : 'producao',
+    status: contentStatus(row.status),
     version: `v${row.version}`,
     lastEdit: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.updated_at)),
   }
   const { data: commentRows } = await supabase
     .from('content_comments')
-    .select('id,body,created_at,profiles!content_comments_author_id_fkey(id,full_name,initials,color)')
+    .select('id,body,created_at,profiles!content_comments_author_id_fkey(id,full_name,initials,color,avatar_path)')
     .eq('content_id', row.id)
     .eq('workspace_id', context.workspace.id)
     .order('created_at', { ascending: true })
@@ -66,6 +67,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
         name: author?.full_name || 'Colaborador',
         initials: author?.initials || '?',
         color: author?.color,
+        avatarPath: author?.avatar_path ?? null,
       },
     }
   })
@@ -76,8 +78,10 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     name: profile.full_name,
     initials: profile.initials,
     color: profile.color,
+    avatarPath: profile.avatar_path,
     role: profile.job_title,
   } : undefined
 
-  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} />
+  const canSubmit = context.role === 'admin' || row.responsible_id === context.user.id || rawPauta?.owner_id === context.user.id
+  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} canSubmit={canSubmit} />
 }

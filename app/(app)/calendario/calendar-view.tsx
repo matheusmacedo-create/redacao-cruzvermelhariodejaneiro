@@ -17,6 +17,9 @@ export function CalendarView({ events }: { events: Event[] }) {
   const offset = new Date(year, monthIndex, 1).getDay(); const days = new Date(year, monthIndex + 1, 0).getDate()
   const cells = [...Array.from({ length: offset }, () => null), ...Array.from({ length: days }, (_, i) => i + 1)]
   const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+  const agendaDays = Array.from({ length: days }, (_, i) => i + 1)
+    .map((day) => ({ day, key: `${month}-${String(day).padStart(2, '0')}`, dayEvents: events.filter((event) => event.event_date === `${month}-${String(day).padStart(2, '0')}`) }))
+    .filter((entry) => entry.dayEvents.length > 0)
 
   return <>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -26,7 +29,32 @@ export function CalendarView({ events }: { events: Event[] }) {
       </div>
       <Button size="lg" onClick={() => setOpen(true)}><Plus className="size-4" />Agendar</Button>
     </div>
-    <Card className="overflow-hidden">
+
+    {/* Agenda list — used on narrow screens where the 7-column grid can't fit event text */}
+    <Card className="divide-y divide-border sm:hidden">
+      {agendaDays.map(({ day, dayEvents }) => (
+        <div key={day} className="px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Dia {day}</p>
+          <div className="mt-2 flex flex-col gap-2">
+            {dayEvents.map((event) => event.pauta_id ? (
+              <Link key={event.id} href={`/pautas/${event.pauta_id}`} className="rounded-md border-l-2 border-primary bg-primary/10 px-3 py-2 text-sm hover:bg-primary/15">
+                <span className="block font-medium">{event.title}</span>
+                <span className="block text-xs text-muted-foreground">Pauta integrada{event.event_time ? ` · ${event.event_time.slice(0, 5)}` : ''}</span>
+              </Link>
+            ) : (
+              <div key={event.id} className="rounded-md border-l-2 border-primary bg-primary/10 px-3 py-2 text-sm">
+                <span className="block font-medium">{event.title}</span>
+                {event.event_time && <span className="block text-xs text-muted-foreground">{event.event_time.slice(0, 5)}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!agendaDays.length && <p className="p-8 text-center text-sm text-muted-foreground">Nenhum agendamento neste mês.</p>}
+    </Card>
+
+    {/* Month grid — desktop and wider tablets */}
+    <Card className="hidden overflow-hidden sm:block">
       <div className="grid grid-cols-7 border-b border-border bg-muted/40">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d => <div key={d} className="px-2 py-2.5 text-center text-xs font-semibold uppercase text-muted-foreground">{d}</div>)}</div>
       <div className="grid grid-cols-7">{cells.map((day, i) => {
         const key = day ? `${month}-${String(day).padStart(2,'0')}` : ''
