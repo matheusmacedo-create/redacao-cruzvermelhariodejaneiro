@@ -11,7 +11,7 @@ const libreFranklin = Libre_Franklin({
 })
 
 export const metadata: Metadata = {
-  title: 'CVRJ Redação — Central de Comunicação',
+  title: 'Redação Cruz Vermelha Brasileira Rio de Janeiro — Central de Comunicação',
   description:
     'Ambiente interno da equipe de Comunicação da Cruz Vermelha Brasileira — Rio de Janeiro para receber, produzir, revisar e aprovar conteúdos institucionais.',
   generator: 'v0.app',
