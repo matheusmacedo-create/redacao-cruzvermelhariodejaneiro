@@ -65,7 +65,8 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     .filter((person): person is NonNullable<typeof person> => Boolean(person))
 
   const projectRow = Array.isArray(data.projects) ? data.projects[0] : data.projects
-  const project = projectRow?.name || (Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : 'Sem projeto')
+  const recordType = Array.isArray(data.tags) && data.tags[0] ? String(data.tags[0]) : null
+  const project = projectRow?.name || null
   const driveLinks = (linkRows ?? []).map((row) => ({ id: row.id, name: row.title, fileType: row.category, url: row.url, createdAt: row.created_at }))
   const realContents = (contentRows ?? []).map((content) => ({ id: content.id, title: content.title, format: content.format, status: content.status, version: content.version, updatedAt: content.updated_at }))
   const history = (activityRows ?? []).map((event) => {
@@ -77,8 +78,8 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
   const pauta: Pauta = {
     id: data.id,
     title: data.title,
-    type: project,
-    project,
+    type: recordType || 'Pauta',
+    project: project || 'Sem projeto vinculado',
     projectId: data.project_id || '',
     coordenacao: data.coordination || 'Não informada',
     responsibleId: data.owner_id || '',

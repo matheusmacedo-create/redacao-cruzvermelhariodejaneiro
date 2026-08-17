@@ -219,6 +219,21 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
             </dd>
           </div>
           <Meta label="Arquivos" value={String(pauta.files)} />
+          <div>
+            <dt className="text-xs text-muted-foreground">Aprovadores</dt>
+            <dd className="mt-1 flex items-center -space-x-1.5">
+              {(participants ?? []).length ? (
+                <>
+                  {(participants ?? []).slice(0, 4).map((person) => (
+                    <Avatar key={person.id} initials={person.initials} color={person.color} src={privateAvatarUrl(person.avatarPath)} size="xs" className="ring-2 ring-background" />
+                  ))}
+                  {(participants ?? []).length > 4 && <span className="ml-1.5 text-xs text-muted-foreground">+{(participants ?? []).length - 4}</span>}
+                </>
+              ) : (
+                <span className="text-sm text-muted-foreground">Ninguém adicionado ainda</span>
+              )}
+            </dd>
+          </div>
         </dl>
       </div>
 
