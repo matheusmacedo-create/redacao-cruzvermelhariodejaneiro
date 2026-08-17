@@ -32,7 +32,13 @@ export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
   const details = Object.fromEntries(['local','participantsCount','volunteersCount','story','contact','objective','result','audience','schedule','organizer','ideaGoal','materialType','request','notes'].map((key) => [key, text(formData, key)]).filter(([, value]) => value))
-  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, title, description: text(formData,'description'), details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
+  const projectId = text(formData, 'projectId')
+  let validProjectId: string | null = null
+  if (projectId) {
+    const { data: project } = await supabase.from('projects').select('id').eq('id', projectId).eq('workspace_id', context.workspace.id).maybeSingle()
+    validProjectId = project?.id ?? null
+  }
+  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, project_id: validProjectId, title, description: text(formData,'description'), details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
   if (error) throw new Error(error.message)
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'created', entity_type: 'pauta', entity_id: data.id, metadata: { title } })
   const dueDate = text(formData, 'dueDate')
