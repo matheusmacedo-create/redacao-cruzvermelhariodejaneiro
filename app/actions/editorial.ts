@@ -8,38 +8,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
-async function notifyPautaParticipants(params: {
-  workspaceId: string
-  pautaId: string | null
-  actorId: string
-  actorName: string
-  contentTitle: string
-  link: string
-}) {
-  if (!params.pautaId) return
-  const supabase = await createClient()
-  const [{ data: participantRows }, { data: pautaRow }] = await Promise.all([
-    supabase.from('pauta_participants').select('user_id').eq('pauta_id', params.pautaId),
-    supabase.from('pautas').select('owner_id,title').eq('id', params.pautaId).maybeSingle(),
-  ])
-
-  const recipientIds = new Set<string>((participantRows ?? []).map((row) => row.user_id))
-  if (pautaRow?.owner_id) recipientIds.add(pautaRow.owner_id)
-  recipientIds.delete(params.actorId)
-  if (!recipientIds.size) return
-
-  const rows = [...recipientIds].map((userId) => ({
-    workspace_id: params.workspaceId,
-    user_id: userId,
-    title: 'Matéria enviada para aprovação',
-    message: `${params.actorName} enviou "${params.contentTitle}" para aprovação${pautaRow?.title ? ` na pauta "${pautaRow.title}"` : ''}.`,
-    link: params.link,
-  }))
-
-  const admin = createAdminClient()
-  await admin.from('notifications').insert(rows)
-}
-
 export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
@@ -252,16 +220,6 @@ export async function submitContentForApproval(formData: FormData) {
 
   const { data: approvalId, error: submitError } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
   if (submitError || !approvalId) throw new Error(submitError?.message || 'Não foi possível enviar para aprovação.')
-
-  const { data: contentRow } = await supabase.from('content_pieces').select('pauta_id').eq('id', contentId).maybeSingle()
-  await notifyPautaParticipants({
-    workspaceId: context.workspace.id,
-    pautaId: contentRow?.pauta_id ?? null,
-    actorId: context.user.id,
-    actorName: context.profile?.full_name || 'Alguém da equipe',
-    contentTitle: title,
-    link: `/aprovacoes/${approvalId}`,
-  })
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)
