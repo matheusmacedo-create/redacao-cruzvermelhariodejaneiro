@@ -267,6 +267,17 @@ export async function sendPautaMessage(formData: FormData) {
     .maybeSingle()
   if (!pauta) throw new Error('Pauta não encontrada neste espaço.')
 
+  const { data: duplicate } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('pauta_id', pautaId)
+    .eq('author_id', context.user.id)
+    .eq('body', body)
+    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
+    .limit(1)
+    .maybeSingle()
+  if (duplicate) { revalidatePath(`/pautas/${pautaId}`); return }
+
   const { error } = await supabase.from('messages').insert({
     workspace_id: context.workspace.id,
     pauta_id: pautaId,
@@ -493,6 +504,17 @@ export async function addContentComment(formData: FormData) {
   if (!contentId || body.length < 1 || body.length > 2000) {
     throw new Error('Escreva um comentário com até 2.000 caracteres.')
   }
+
+  const { data: duplicate } = await supabase
+    .from('content_comments')
+    .select('id')
+    .eq('content_id', contentId)
+    .eq('author_id', context.user.id)
+    .eq('body', body)
+    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
+    .limit(1)
+    .maybeSingle()
+  if (duplicate) { revalidatePath(`/mensagens/${contentId}`); return }
 
   const { error } = await supabase.from('content_comments').insert({
     workspace_id: context.workspace.id,

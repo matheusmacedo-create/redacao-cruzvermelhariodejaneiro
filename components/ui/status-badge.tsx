@@ -64,7 +64,7 @@ function Pill({ label, tone, dot }: { label: string; tone: Tone; dot?: boolean }
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap',
         toneClass[tone],
       )}
     >

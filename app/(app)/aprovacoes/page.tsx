@@ -107,7 +107,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
                   <meta.icon className="size-3" />
                   {meta.label}
                 </span>
-                <span className="ml-auto text-xs text-muted-foreground">Solicitado por {requester?.full_name?.split(' ')[0] || 'alguém'} em {formatDate(approval.created_at, { dateStyle: 'short' })}</span>
+                <span className="text-xs text-muted-foreground sm:ml-auto">Solicitado por {requester?.full_name?.split(' ')[0] || 'alguém'} em {formatDate(approval.created_at, { dateStyle: 'short' })}</span>
               </div>
 
               <Link href={`/aprovacoes/${approval.id}`} className="mt-2 block">
@@ -150,10 +150,10 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {pendingVoters.length > 0 ? (
                   <span className="text-xs text-muted-foreground">Aguardando: {pendingVoters.map((v) => profileById.get(v.user_id)?.full_name?.split(' ')[0] || 'alguém').join(', ')}</span>
-                ) : <span />}
+                ) : <span className="hidden sm:block" />}
                 <Link href={`/aprovacoes/${approval.id}`} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground">
                   {approval.status === 'pending' ? 'Revisar' : 'Ver decisão'}
                   <ArrowRight className="size-4" />
