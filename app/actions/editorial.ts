@@ -70,6 +70,47 @@ export async function changePautaProject(formData: FormData) {
   revalidatePath('/projetos')
 }
 
+export async function deletePauta(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+
+  const { data: pauta } = await supabase.from('pautas').select('id,title,created_by,owner_id').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+  if (!pauta) throw new Error('Pauta não encontrada.')
+  if (context.role !== 'admin' && pauta.created_by !== context.user.id && pauta.owner_id !== context.user.id) {
+    throw new Error('Somente quem criou a pauta, o responsável ou um administrador pode excluí-la.')
+  }
+
+  const admin = createAdminClient()
+
+  const { data: contentRows } = await admin.from('content_pieces').select('id').eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  const contentIds = (contentRows ?? []).map((c) => c.id)
+
+  if (contentIds.length) {
+    const { data: approvalRows } = await admin.from('approvals').select('id').in('content_id', contentIds)
+    const approvalIds = (approvalRows ?? []).map((a) => a.id)
+    if (approvalIds.length) await admin.from('approval_voters').delete().in('approval_id', approvalIds)
+    await admin.from('approvals').delete().in('content_id', contentIds)
+    await admin.from('content_comments').delete().in('content_id', contentIds)
+    await admin.from('content_versions').delete().in('content_id', contentIds)
+  }
+
+  await admin.from('pauta_participants').delete().eq('pauta_id', id)
+  await admin.from('messages').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('calendar_events').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('pauta_links').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('content_pieces').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('activity_log').delete().eq('entity_type', 'pauta').eq('entity_id', id).eq('workspace_id', context.workspace.id)
+
+  const { error } = await admin.from('pautas').delete().eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error('Não foi possível excluir a pauta.')
+
+  revalidatePath('/pautas')
+  revalidatePath('/calendario')
+  revalidatePath('/projetos')
+  redirect('/pautas')
+}
+
 export async function updatePautaStatus(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()

@@ -26,6 +26,8 @@ import {
   Copy,
   Pencil,
   FolderKanban,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -39,7 +41,7 @@ import {
 } from '@/components/ui/status-badge'
 import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
-import { addDriveLink, addPautaParticipant, changePautaProject, createPautaApproval, createPautaContent, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { addDriveLink, addPautaParticipant, changePautaProject, createPautaApproval, createPautaContent, deletePauta, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -77,7 +79,7 @@ type DriveLink = { id: string; name: string; fileType: string; url: string; crea
 type ContentItem = { id: string; title: string; format: string; status: string; version: number; updatedAt: string }
 type HistoryItem = { id: string; action: string; time: string; actor: string; initials: string; color: string; avatarPath?: string | null }
 
-export function PautaRoom({ pauta, details = {}, participants, availablePeople, availableProjects = [], messages, responsible, driveLinks = [], contentItems = [], history = [] }: {
+export function PautaRoom({ pauta, details = {}, participants, availablePeople, availableProjects = [], messages, responsible, driveLinks = [], contentItems = [], history = [], canDelete = false }: {
   pauta: Pauta
   details?: Record<string, string>
   participants?: PautaPerson[]
@@ -88,10 +90,12 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
   driveLinks?: DriveLink[]
   contentItems?: ContentItem[]
   history?: HistoryItem[]
+  canDelete?: boolean
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('conversa')
   const [participantsOpen, setParticipantsOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [optionsOpen, setOptionsOpen] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
 
@@ -224,6 +228,20 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
                       Arquivar pauta
                     </button>
                   </form>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                      onClick={() => {
+                        setDeleteOpen(true)
+                        setOptionsOpen(false)
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                      Excluir pauta
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -311,6 +329,10 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
           projects={availableProjects}
           onClose={() => setProjectDialogOpen(false)}
         />
+      )}
+
+      {deleteOpen && (
+        <DeletePautaDialog pautaId={pauta.id} pautaTitle={pauta.title} onClose={() => setDeleteOpen(false)} />
       )}
     </div>
   )
@@ -417,6 +439,31 @@ function ProjectDialog({
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit">Salvar</Button>
           </div>
+        </form>
+      </Card>
+      <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
+    </div>
+  )
+}
+
+function DeletePautaDialog({ pautaId, pautaTitle, onClose }: { pautaId: string; pautaTitle: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-pauta-title">
+      <Card className="w-full max-w-md p-6 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"><AlertTriangle className="size-4" /></span>
+            <h2 id="delete-pauta-title" className="text-lg font-semibold text-balance">Excluir “{pautaTitle}”?</h2>
+          </div>
+          <Button type="button" variant="ghost" size="icon-sm" onClick={onClose} aria-label="Fechar"><X className="size-4" /></Button>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Isso apaga a pauta e tudo o que está dentro dela — matérias, aprovações, mensagens, agendamentos e links. Não é possível desfazer.
+        </p>
+        <form action={deletePauta} className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <input type="hidden" name="id" value={pautaId} />
+          <Button type="button" variant="outline" size="lg" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="destructive" size="lg">Excluir definitivamente</Button>
         </form>
       </Card>
       <button type="button" className="fixed inset-0 -z-10 cursor-default" onClick={onClose} aria-label="Fechar janela" />
