@@ -8,6 +8,26 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
+async function syncApprovalVoters(params: { approvalId: string; contentId: string; actorId: string; workspaceId: string }) {
+  const supabase = await createClient()
+  const { data: contentRow } = await supabase.from('content_pieces').select('pauta_id,responsible_id,created_by').eq('id', params.contentId).maybeSingle()
+  if (!contentRow?.pauta_id) return
+
+  const excluded = new Set([contentRow.responsible_id, contentRow.created_by, params.actorId].filter(Boolean) as string[])
+  const { data: participantRows } = await supabase.from('pauta_participants').select('user_id').eq('pauta_id', contentRow.pauta_id)
+  const desired = new Set((participantRows ?? []).map((row) => row.user_id).filter((id) => !excluded.has(id)))
+
+  const { data: voterRows } = await supabase.from('approval_voters').select('id,user_id,decision').eq('approval_id', params.approvalId)
+  const admin = createAdminClient()
+
+  const toRemove = (voterRows ?? []).filter((voter) => voter.decision === 'pending' && !desired.has(voter.user_id)).map((voter) => voter.id)
+  if (toRemove.length) await admin.from('approval_voters').delete().in('id', toRemove)
+
+  const existingIds = new Set((voterRows ?? []).map((voter) => voter.user_id))
+  const toAdd = [...desired].filter((id) => !existingIds.has(id))
+  if (toAdd.length) await admin.from('approval_voters').insert(toAdd.map((user_id) => ({ approval_id: params.approvalId, workspace_id: params.workspaceId, user_id })))
+}
+
 export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
@@ -125,6 +145,41 @@ export async function addPautaParticipant(formData: FormData) {
   revalidatePath(`/pautas/${pautaId}`)
 }
 
+export async function removePautaParticipant(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const pautaId = text(formData, 'pautaId')
+  const userId = text(formData, 'userId')
+
+  if (!pautaId || !userId) throw new Error('Selecione uma pessoa para remover.')
+
+  const { data: pauta } = await supabase
+    .from('pautas')
+    .select('id')
+    .eq('id', pautaId)
+    .eq('workspace_id', context.workspace.id)
+    .maybeSingle()
+  if (!pauta) throw new Error('Pauta não encontrada neste espaço.')
+
+  const { error } = await supabase
+    .from('pauta_participants')
+    .delete()
+    .eq('pauta_id', pautaId)
+    .eq('user_id', userId)
+  if (error) throw new Error('Não foi possível remover o participante.')
+
+  await supabase.from('activity_log').insert({
+    workspace_id: context.workspace.id,
+    actor_id: context.user.id,
+    action: 'participant_removed',
+    entity_type: 'pauta',
+    entity_id: pautaId,
+    metadata: { user_id: userId },
+  })
+
+  revalidatePath(`/pautas/${pautaId}`)
+}
+
 export async function sendPautaMessage(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
@@ -220,6 +275,8 @@ export async function submitContentForApproval(formData: FormData) {
 
   const { data: approvalId, error: submitError } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
   if (submitError || !approvalId) throw new Error(submitError?.message || 'Não foi possível enviar para aprovação.')
+
+  await syncApprovalVoters({ approvalId, contentId, actorId: context.user.id, workspaceId: context.workspace.id })
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)

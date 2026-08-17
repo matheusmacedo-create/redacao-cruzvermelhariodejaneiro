@@ -37,6 +37,7 @@ export const ACTIVITY_ACTION_LABEL: Record<string, string> = {
   created: 'criou',
   status_changed: 'alterou o status de',
   participant_added: 'adicionou um participante em',
+  participant_removed: 'removeu um participante de',
   message_sent: 'enviou uma mensagem em',
   archived: 'arquivou',
   approved: 'aprovou algo em',
