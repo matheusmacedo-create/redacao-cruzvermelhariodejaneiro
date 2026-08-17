@@ -308,7 +308,7 @@ export async function submitContentForApproval(formData: FormData) {
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)
-  redirect(`/aprovacoes/${approvalId}`)
+  return { approvalId }
 }
 
 export async function archiveContentDraft(formData: FormData) {

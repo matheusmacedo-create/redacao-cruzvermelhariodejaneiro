@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Archive,
@@ -64,11 +65,14 @@ export function ContentEditor({
     author: { name: string; initials: string; color?: string; avatarPath?: string | null }
   }>
 }) {
+  const router = useRouter()
   const [title, setTitle] = useState(content.title ?? '')
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
   const [body, setBody] = useState(content.body ?? '')
   const [saved, setSaved] = useState(true)
   const [showConcludeModal, setShowConcludeModal] = useState(false)
+  const [concludeBusy, setConcludeBusy] = useState(false)
+  const [concludeError, setConcludeError] = useState('')
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
   const [mediaError, setMediaError] = useState('')
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -111,6 +115,34 @@ export function ContentEditor({
     })
     setBody(lines.join('\n\n'))
     setSaved(false)
+  }
+
+  async function handleSubmitForApproval(formData: FormData) {
+    setConcludeBusy(true)
+    setConcludeError('')
+    try {
+      await submitContentForApproval(formData)
+      setShowConcludeModal(false)
+      router.push('/aprovacoes')
+    } catch (error) {
+      setConcludeError(error instanceof Error ? error.message : 'Não foi possível enviar para aprovação.')
+    } finally {
+      setConcludeBusy(false)
+    }
+  }
+
+  async function handleArchive(formData: FormData) {
+    setConcludeBusy(true)
+    setConcludeError('')
+    try {
+      await archiveContentDraft(formData)
+      setShowConcludeModal(false)
+      router.refresh()
+    } catch (error) {
+      setConcludeError(error instanceof Error ? error.message : 'Não foi possível arquivar a matéria.')
+    } finally {
+      setConcludeBusy(false)
+    }
   }
 
   return (
@@ -351,8 +383,9 @@ export function ContentEditor({
                 ? `“${title || 'Sem título'}” já está em aprovação. O que você quer fazer agora?`
                 : `“${title || 'Sem título'}” está pronta. O que você quer fazer agora?`}
             </p>
+            {concludeError && <p className="mt-3 text-sm text-destructive">{concludeError}</p>}
             <div className="mt-5 flex flex-col gap-3">
-              <form action={submitContentForApproval} onSubmit={() => setShowConcludeModal(false)}>
+              <form action={handleSubmitForApproval}>
                 <input type="hidden" name="id" value={content.id} />
                 <input type="hidden" name="title" value={title} />
                 <input type="hidden" name="subtitle" value={subtitle} />
@@ -360,27 +393,29 @@ export function ContentEditor({
                 <input type="hidden" name="format" value={content.type} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border border-primary bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
+                  disabled={concludeBusy}
+                  className="w-full rounded-lg border border-primary bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Send className="size-4" />
-                    {content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
+                    {concludeBusy ? 'Enviando…' : content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {content.status === 'aprovacao'
                       ? 'Atualiza a lista de aprovadores com os participantes atuais da pauta (remove quem saiu, adiciona quem entrou) e notifica quem for adicionado.'
-                      : 'Envia para aprovação agora e notifica quem está na pauta.'}
+                      : 'Envia para aprovação agora, notifica quem está na pauta e leva você para a lista de aprovações pendentes.'}
                   </span>
                 </button>
               </form>
-              <form action={archiveContentDraft} onSubmit={() => setShowConcludeModal(false)}>
+              <form action={handleArchive}>
                 <input type="hidden" name="id" value={content.id} />
                 <input type="hidden" name="title" value={title} />
                 <input type="hidden" name="subtitle" value={subtitle} />
                 <input type="hidden" name="body" value={body} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted"
+                  disabled={concludeBusy}
+                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     <Archive className="size-4" />
@@ -394,7 +429,7 @@ export function ContentEditor({
                 </button>
               </form>
             </div>
-            <Button variant="ghost" size="sm" className="mt-4 w-full" type="button" onClick={() => setShowConcludeModal(false)}>
+            <Button variant="ghost" size="sm" className="mt-4 w-full" type="button" disabled={concludeBusy} onClick={() => { setShowConcludeModal(false); setConcludeError('') }}>
               Cancelar
             </Button>
           </Card>
