@@ -94,5 +94,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} />
+  const canDelete = context.role === 'admin' || data.owner_id === context.user.id
+
+  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} canDelete={canDelete} />
 }
