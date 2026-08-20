@@ -25,5 +25,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-# mantém o template de env versionado
-!.env.example
