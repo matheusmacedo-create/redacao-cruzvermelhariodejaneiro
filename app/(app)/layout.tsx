@@ -21,11 +21,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   return (
     <AppShellProvider>
-      <div className="flex min-h-[100dvh] overflow-hidden bg-background">
+      <div className="flex h-[100dvh] overflow-hidden bg-background">
         <Sidebar profile={context.profile} buildInfo={buildInfo} />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <Topbar workspace={context.workspace} role={context.role} profile={context.profile} notifications={notifications ?? []} />
-
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="mx-auto w-full max-w-[1400px] px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6">{children}</div>
+          </main>
         </div>
       </div>
     </AppShellProvider>

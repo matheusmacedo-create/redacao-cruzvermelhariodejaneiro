@@ -61,8 +61,8 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0 0);
 
-  /* Vermelho institucional: RGB 227 34 25 / Pantone 485 */
-  --primary: rgb(227 34 25);
+  /* Institutional red — Pantone 485 / #FF0000 */
+  --primary: oklch(0.593 0.244 27.2);
   --primary-foreground: oklch(1 0 0);
 
   --secondary: oklch(0.968 0 0);
@@ -73,7 +73,7 @@
   --accent-foreground: oklch(0.3 0 0);
 
   /* States */
-  --destructive: rgb(227 34 25);
+  --destructive: oklch(0.593 0.244 27.2);
   --destructive-foreground: oklch(1 0 0);
   --success: oklch(0.58 0.14 150);
   --success-foreground: oklch(1 0 0);
@@ -84,9 +84,9 @@
 
   --border: oklch(0.918 0 0);
   --input: oklch(0.918 0 0);
-  --ring: rgb(227 34 25);
+  --ring: oklch(0.593 0.244 27.2);
 
-  --chart-1: rgb(227 34 25);
+  --chart-1: oklch(0.593 0.244 27.2);
   --chart-2: oklch(0.58 0.14 150);
   --chart-3: oklch(0.74 0.16 70);
   --chart-4: oklch(0.55 0.13 250);
@@ -95,12 +95,12 @@
   /* Sidebar */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.32 0 0);
-  --sidebar-primary: rgb(227 34 25);
+  --sidebar-primary: oklch(0.593 0.244 27.2);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: oklch(0.955 0.012 20);
-  --sidebar-accent-foreground: rgb(227 34 25);
+  --sidebar-accent-foreground: oklch(0.593 0.244 27.2);
   --sidebar-border: oklch(0.918 0 0);
-  --sidebar-ring: rgb(227 34 25);
+  --sidebar-ring: oklch(0.593 0.244 27.2);
 }
 
 @layer base {
@@ -111,30 +111,5 @@
     @apply bg-background text-foreground;
     font-feature-settings: 'cv01', 'ss01';
     overflow-wrap: break-word;
-  }
-}
-
-@layer base {
-  html {
-    min-width: 320px;
-    overflow-x: hidden;
-  }
-
-  body {
-    min-height: 100dvh;
-    overflow-x: hidden;
-  }
-
-  button,
-  a,
-  input,
-  textarea,
-  select {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  :focus-visible {
-    outline: 2px solid rgb(227 34 25 / 0.7);
-    outline-offset: 2px;
   }
 }
