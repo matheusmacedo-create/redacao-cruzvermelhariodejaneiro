@@ -56,7 +56,7 @@ function NavItem({
     <Link
       href={href}
       className={cn(
-        'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+        'group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors md:min-h-0 md:py-2',
         active
           ? 'bg-sidebar-accent text-sidebar-accent-foreground'
           : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
@@ -123,9 +123,9 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-        <div className="border-b border-sidebar-border px-5 py-4">
-          <BrandMark className="w-full" />
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex" aria-label="Navegação principal">
+        <div className="border-b border-sidebar-border bg-white px-5 py-5">
+          <BrandMark className="w-full" compact />
         </div>
         <SidebarContent profile={profile} buildInfo={buildInfo} />
       </aside>
@@ -133,11 +133,11 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
       {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
-          <button type="button" className="absolute inset-0 bg-foreground/40" aria-label="Fechar menu" onClick={close} />
-          <aside className="relative flex h-full w-72 max-w-[85vw] flex-col bg-sidebar shadow-xl [padding-top:env(safe-area-inset-top)]">
-            <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-4">
-              <BrandMark className="w-full" />
-              <button type="button" onClick={close} aria-label="Fechar menu" className="ml-2 flex size-9 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent">
+          <button type="button" className="absolute inset-0 bg-foreground/45 backdrop-blur-[2px]" aria-label="Fechar menu" onClick={close} />
+          <aside className="relative flex h-full w-80 max-w-[88vw] flex-col bg-sidebar shadow-2xl [padding-top:env(safe-area-inset-top)]">
+            <div className="flex items-start justify-between border-b border-sidebar-border bg-white px-5 py-4">
+              <BrandMark className="w-full" compact />
+              <button type="button" onClick={close} aria-label="Fechar menu" className="ml-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent">
                 <X className="size-5" />
               </button>
             </div>
