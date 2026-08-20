@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 import { StatusBadge, ContentStatusBadge } from '@/components/ui/status-badge'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
@@ -72,7 +74,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <span>Criado por {creator?.full_name || 'alguém que já saiu do espaço'} em {formatDate(project.created_at, { dateStyle: 'long' })}</span>
           </div>
         </div>
-        {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="lg" render={<Link href={`/registrar?projeto=${project.id}`} />}><Plus className="size-4" />Nova pauta</Button>
+          {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
+        </div>
       </div>
 
       <h2 className="mb-3 mt-6 text-sm font-semibold uppercase text-muted-foreground">Ferramentas vinculadas a este projeto</h2>
@@ -86,8 +91,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Section title={`Pautas (${pautas?.length ?? 0})`}>
           {pautas?.map((pauta) => (
-            <Link key={pauta.id} href={`/pautas/${pauta.id}`} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
-              <p className="min-w-0 truncate font-medium">{pauta.title}</p>
+            <Link key={pauta.id} href={`/pautas/${pauta.id}`} className="flex min-w-0 items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
+              <p className="min-w-0 flex-1 truncate font-medium">{pauta.title}</p>
               <StatusBadge status={pautaStatus(pauta.status)} />
             </Link>
           ))}
@@ -96,8 +101,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
         <Section title={`Matérias (${contents?.length ?? 0})`}>
           {contents?.map((content: any) => (
-            <Link key={content.id} href={`/conteudos/${content.id}`} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
-              <div className="min-w-0">
+            <Link key={content.id} href={`/conteudos/${content.id}`} className="flex min-w-0 items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{content.title || 'Sem título'}</p>
                 <p className="truncate text-xs text-muted-foreground">{pautaTitleById.get(content.pauta_id) || 'Sem pauta'}</p>
               </div>
@@ -109,8 +114,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
         <Section title={`Agendamentos (${events?.length ?? 0})`}>
           {events?.map((event: any) => (
-            <Link key={event.id} href="/calendario" className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
-              <div className="min-w-0">
+            <Link key={event.id} href="/calendario" className="flex min-w-0 items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{event.title}</p>
                 <p className="truncate text-xs text-muted-foreground">{pautaTitleById.get(event.pauta_id) || 'Sem pauta'}</p>
               </div>
@@ -149,7 +154,7 @@ function ToolStat({ icon: Icon, value, label }: { icon: typeof ClipboardList; va
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section>
+    <section className="min-w-0">
       <h2 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">{title}</h2>
       <Card className="divide-y divide-border">{children}</Card>
     </section>

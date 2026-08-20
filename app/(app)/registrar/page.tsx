@@ -4,14 +4,9 @@ import { RegistrarForm } from './registrar-form'
 
 export default async function RegistrarPage({ searchParams }: { searchParams: Promise<{ projeto?: string }> }) {
   const { projeto } = await searchParams
-  let projectName: string | undefined
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const { data: projects } = await supabase.from('projects').select('id,name').eq('workspace_id', context.workspace.id).order('name')
 
-  if (projeto) {
-    const context = await requireWorkspace()
-    const supabase = await createClient()
-    const { data: project } = await supabase.from('projects').select('name').eq('id', projeto).eq('workspace_id', context.workspace.id).maybeSingle()
-    projectName = project?.name
-  }
-
-  return <RegistrarForm projectId={projeto} projectName={projectName} />
+  return <RegistrarForm projectId={projeto} projects={projects ?? []} />
 }

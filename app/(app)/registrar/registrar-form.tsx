@@ -15,17 +15,26 @@ const inputClass = 'h-10 w-full rounded-lg border border-border bg-background px
 const areaClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) { return <label className="flex flex-col gap-1.5 text-sm font-medium">{label}{children}{hint && <span className="text-xs font-normal text-muted-foreground">{hint}</span>}</label> }
 
-export function RegistrarForm({ projectId, projectName }: { projectId?: string; projectName?: string }) {
+export function RegistrarForm({ projectId, projects }: { projectId?: string; projects: { id: string; name: string }[] }) {
   const [tipo, setTipo] = useState<(typeof tipos)[number]>('Ação')
+  const [selectedProject, setSelectedProject] = useState(projectId ?? '')
+  const prefilledProject = projectId ? projects.find((p) => p.id === projectId) : undefined
   return <div className="mx-auto max-w-3xl"><PageHeader title="Registrar atividade" description="Informe o essencial. A ficha será organizada automaticamente para a Comunicação." breadcrumbs={[{ label: 'Caixa de Entrada', href: '/caixa-de-entrada' }, { label: 'Registrar atividade' }]} />
-    <form action={createPauta} className="flex flex-col gap-6"><input type="hidden" name="recordType" value={tipo} /><input type="hidden" name="priority" value="medium" />{projectId && <input type="hidden" name="projectId" value={projectId} />}
-      {projectId && (
+    <form action={createPauta} className="flex flex-col gap-6"><input type="hidden" name="recordType" value={tipo} /><input type="hidden" name="priority" value="medium" /><input type="hidden" name="projectId" value={selectedProject} />
+      {prefilledProject && selectedProject === projectId && (
         <Card className="flex items-center gap-3 border-primary/30 bg-primary/5 p-4">
           <FolderKanban className="size-5 shrink-0 text-primary" />
-          <p className="text-sm">Esta pauta será criada dentro do projeto <strong className="font-semibold">{projectName || 'selecionado'}</strong>.</p>
+          <p className="text-sm">Esta pauta será criada dentro do projeto <strong className="font-semibold">{prefilledProject.name}</strong>. Você pode trocar abaixo, se não for o projeto certo.</p>
         </Card>
       )}
-      <Card className="flex flex-col gap-5 p-6"><Field label="Tipo do registro"><div className="flex flex-wrap gap-2">{tipos.map((item) => <button key={item} type="button" onClick={() => setTipo(item)} className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium', tipo === item ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>{item}</button>)}</div></Field>
+      <Card className="flex flex-col gap-5 p-6">
+        <Field label="Projeto" hint="Selecione se esta pauta pertence a um projeto. Pode ser alterado depois, a qualquer momento.">
+          <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)} className={inputClass}>
+            <option value="">Nenhum projeto</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Tipo do registro"><div className="flex flex-wrap gap-2">{tipos.map((item) => <button key={item} type="button" onClick={() => setTipo(item)} className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium', tipo === item ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>{item}</button>)}</div></Field>
         <Field label={tipo === 'História' ? 'Título da história' : tipo === 'Ideia' ? 'Nome da ideia' : tipo === 'Material' ? 'Nome do material' : 'Nome da atividade'}><input required minLength={3} name="title" className={inputClass} /></Field>
         <div className="grid gap-5 sm:grid-cols-2"><Field label="Coordenação responsável"><select required name="coordination" className={inputClass} defaultValue=""><option value="" disabled>Selecione…</option>{coordenacoes.map((item) => <option key={item}>{item}</option>)}</select></Field><Field label="Data"><input name="dueDate" type="date" className={inputClass} /></Field></div>
         {(tipo === 'Ação' || tipo === 'Evento') && <><div className="grid gap-5 sm:grid-cols-2"><Field label="Local"><input name="local" className={inputClass} /></Field><Field label="Horário"><input name="schedule" className={inputClass} placeholder="Ex.: 14h às 17h" /></Field></div><div className="grid gap-5 sm:grid-cols-2"><Field label="Pessoas participantes"><input name="participantsCount" type="number" min={0} className={inputClass} /></Field><Field label="Voluntários"><input name="volunteersCount" type="number" min={0} className={inputClass} /></Field></div><Field label="Público atendido"><input name="audience" className={inputClass} /></Field></>}

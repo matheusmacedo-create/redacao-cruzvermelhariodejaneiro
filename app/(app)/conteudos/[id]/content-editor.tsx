@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Archive,
@@ -21,23 +22,17 @@ import {
   Sparkles,
   Loader2,
   Trash2,
+  Smile,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
+import { EmojiPicker } from '@/components/app/emoji-picker'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
-
-const decorativeTools = [
-  { icon: Heading2, label: 'Título' },
-  { icon: Bold, label: 'Negrito' },
-  { icon: Italic, label: 'Itálico' },
-  { icon: List, label: 'Lista' },
-  { icon: Quote, label: 'Citação' },
-  { icon: Link2, label: 'Link' },
-]
 
 const mediaKinds = [
   { kind: 'image' as const, icon: ImageIcon, label: 'Imagem', accept: 'image/jpeg,image/png,image/webp,image/gif' },
@@ -63,24 +58,30 @@ export function ContentEditor({
     author: { name: string; initials: string; color?: string; avatarPath?: string | null }
   }>
 }) {
+  const router = useRouter()
   const [title, setTitle] = useState(content.title ?? '')
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
   const [body, setBody] = useState(content.body ?? '')
   const [saved, setSaved] = useState(true)
   const [showConcludeModal, setShowConcludeModal] = useState(false)
+  const [concludeBusy, setConcludeBusy] = useState(false)
+  const [concludeError, setConcludeError] = useState('')
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
   const [mediaError, setMediaError] = useState('')
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
   const inputRefs = { image: imageInputRef, video: videoInputRef, audio: audioInputRef }
 
   const wordCount = body.trim() ? body.trim().split(/\s+/).length : 0
   const readMinutes = Math.max(1, Math.round(wordCount / 200))
   const visibleComments = comments ?? []
-  const mediaBlocks = parseContentBlocks(body).filter((block) => block.type !== 'text') as Array<
-    { type: 'image' | 'video' | 'audio'; url: string; alt: string }
-  >
+  const mediaBlocks = parseContentBlocks(body).filter(
+    (block): block is { type: 'image' | 'video' | 'audio'; url: string; alt: string } =>
+      block.type === 'image' || block.type === 'video' || block.type === 'audio',
+  )
 
   async function uploadMedia(kind: 'image' | 'video' | 'audio', file: File) {
     setMediaError('')
@@ -110,6 +111,100 @@ export function ContentEditor({
     })
     setBody(lines.join('\n\n'))
     setSaved(false)
+  }
+
+  function focusBodyAt(start: number, end: number) {
+    requestAnimationFrame(() => {
+      const el = bodyRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(start, end)
+    })
+  }
+
+  function wrapSelection(before: string, after: string, placeholder: string) {
+    const el = bodyRef.current
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = body.slice(start, end) || placeholder
+    const newBody = body.slice(0, start) + before + selected + after + body.slice(end)
+    setBody(newBody)
+    setSaved(false)
+    focusBodyAt(start + before.length, start + before.length + selected.length)
+  }
+
+  function prefixLines(prefix: string) {
+    const el = bodyRef.current
+    if (!el) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const lineStart = body.lastIndexOf('\n', start - 1) + 1
+    const nextBreak = body.indexOf('\n', end)
+    const lineEnd = nextBreak === -1 ? body.length : nextBreak
+    const segment = body.slice(lineStart, lineEnd)
+    const prefixed = segment
+      .split('\n')
+      .map((line) => (line.startsWith(prefix) ? line : `${prefix}${line}`))
+      .join('\n')
+    const newBody = body.slice(0, lineStart) + prefixed + body.slice(lineEnd)
+    setBody(newBody)
+    setSaved(false)
+    focusBodyAt(lineStart, lineStart + prefixed.length)
+  }
+
+  function insertLink() {
+    const el = bodyRef.current
+    if (!el) return
+    const url = window.prompt('Endereço do link (https://…)')
+    if (!url) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const selected = body.slice(start, end) || 'texto do link'
+    const token = `[${selected}](${url})`
+    const newBody = body.slice(0, start) + token + body.slice(end)
+    setBody(newBody)
+    setSaved(false)
+    focusBodyAt(start, start + token.length)
+  }
+
+  function insertEmoji(emoji: string) {
+    const el = bodyRef.current
+    const start = el?.selectionStart ?? body.length
+    const end = el?.selectionEnd ?? body.length
+    const newBody = body.slice(0, start) + emoji + body.slice(end)
+    setBody(newBody)
+    setSaved(false)
+    setEmojiPickerOpen(false)
+    focusBodyAt(start + emoji.length, start + emoji.length)
+  }
+
+  async function handleSubmitForApproval(formData: FormData) {
+    setConcludeBusy(true)
+    setConcludeError('')
+    try {
+      await submitContentForApproval(formData)
+      setShowConcludeModal(false)
+      router.push('/aprovacoes')
+    } catch (error) {
+      setConcludeError(error instanceof Error ? error.message : 'Não foi possível enviar para aprovação.')
+    } finally {
+      setConcludeBusy(false)
+    }
+  }
+
+  async function handleArchive(formData: FormData) {
+    setConcludeBusy(true)
+    setConcludeError('')
+    try {
+      await archiveContentDraft(formData)
+      setShowConcludeModal(false)
+      router.refresh()
+    } catch (error) {
+      setConcludeError(error instanceof Error ? error.message : 'Não foi possível arquivar a matéria.')
+    } finally {
+      setConcludeBusy(false)
+    }
   }
 
   return (
@@ -158,20 +253,34 @@ export function ContentEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Editor pane */}
         <div className="lg:border-r lg:border-border">
           <div className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2 lg:px-8">
-            {decorativeTools.map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                aria-label={t.label}
-                className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <t.icon className="size-4" />
+            <button type="button" aria-label="Título" onClick={() => prefixLines('## ')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Heading2 className="size-4" />
+            </button>
+            <button type="button" aria-label="Negrito" onClick={() => wrapSelection('**', '**', 'negrito')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Bold className="size-4" />
+            </button>
+            <button type="button" aria-label="Itálico" onClick={() => wrapSelection('*', '*', 'itálico')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Italic className="size-4" />
+            </button>
+            <button type="button" aria-label="Lista" onClick={() => prefixLines('- ')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <List className="size-4" />
+            </button>
+            <button type="button" aria-label="Citação" onClick={() => prefixLines('> ')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Quote className="size-4" />
+            </button>
+            <button type="button" aria-label="Link" onClick={insertLink} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Link2 className="size-4" />
+            </button>
+            <div className="relative">
+              <button type="button" aria-label="Emoji" onClick={() => setEmojiPickerOpen((open) => !open)} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                <Smile className="size-4" />
               </button>
-            ))}
+              {emojiPickerOpen && <EmojiPicker onSelect={insertEmoji} onClose={() => setEmojiPickerOpen(false)} />}
+            </div>
             <div className="mx-2 h-5 w-px bg-border" />
             {mediaKinds.map((m) => (
               <button
@@ -188,10 +297,12 @@ export function ContentEditor({
             <div className="mx-2 h-5 w-px bg-border" />
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+              disabled
+              title="Em breve — depende de escolher e configurar um serviço de IA"
+              className="flex cursor-not-allowed items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground opacity-60"
             >
               <Sparkles className="size-4" />
-              Assistente
+              Assistente (em breve)
             </button>
             {mediaKinds.map((m) => (
               <input
@@ -235,6 +346,7 @@ export function ContentEditor({
               <span>{readMinutes} min de leitura</span>
             </div>
             <textarea
+              ref={bodyRef}
               value={body}
               onChange={(e) => {
                 setBody(e.target.value)
@@ -350,8 +462,9 @@ export function ContentEditor({
                 ? `“${title || 'Sem título'}” já está em aprovação. O que você quer fazer agora?`
                 : `“${title || 'Sem título'}” está pronta. O que você quer fazer agora?`}
             </p>
+            {concludeError && <p className="mt-3 text-sm text-destructive">{concludeError}</p>}
             <div className="mt-5 flex flex-col gap-3">
-              <form action={submitContentForApproval} onSubmit={() => setShowConcludeModal(false)}>
+              <form action={handleSubmitForApproval}>
                 <input type="hidden" name="id" value={content.id} />
                 <input type="hidden" name="title" value={title} />
                 <input type="hidden" name="subtitle" value={subtitle} />
@@ -359,27 +472,29 @@ export function ContentEditor({
                 <input type="hidden" name="format" value={content.type} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border border-primary bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10"
+                  disabled={concludeBusy}
+                  className="w-full rounded-lg border border-primary bg-primary/5 p-3 text-left transition-colors hover:bg-primary/10 disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Send className="size-4" />
-                    {content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
+                    {concludeBusy ? 'Enviando…' : content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {content.status === 'aprovacao'
                       ? 'Atualiza a lista de aprovadores com os participantes atuais da pauta (remove quem saiu, adiciona quem entrou) e notifica quem for adicionado.'
-                      : 'Envia para aprovação agora e notifica quem está na pauta.'}
+                      : 'Envia para aprovação agora, notifica quem está na pauta e leva você para a lista de aprovações pendentes.'}
                   </span>
                 </button>
               </form>
-              <form action={archiveContentDraft} onSubmit={() => setShowConcludeModal(false)}>
+              <form action={handleArchive}>
                 <input type="hidden" name="id" value={content.id} />
                 <input type="hidden" name="title" value={title} />
                 <input type="hidden" name="subtitle" value={subtitle} />
                 <input type="hidden" name="body" value={body} />
                 <button
                   type="submit"
-                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted"
+                  disabled={concludeBusy}
+                  className="w-full rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted disabled:opacity-60"
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold">
                     <Archive className="size-4" />
@@ -393,7 +508,7 @@ export function ContentEditor({
                 </button>
               </form>
             </div>
-            <Button variant="ghost" size="sm" className="mt-4 w-full" type="button" onClick={() => setShowConcludeModal(false)}>
+            <Button variant="ghost" size="sm" className="mt-4 w-full" type="button" disabled={concludeBusy} onClick={() => { setShowConcludeModal(false); setConcludeError('') }}>
               Cancelar
             </Button>
           </Card>

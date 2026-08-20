@@ -48,6 +48,69 @@ export async function createPauta(formData: FormData) {
   revalidatePath('/pautas'); revalidatePath('/calendario'); redirect(`/pautas/${data.id}`)
 }
 
+export async function changePautaProject(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const projectId = text(formData, 'projectId')
+
+  let validProjectId: string | null = null
+  if (projectId) {
+    const { data: project } = await supabase.from('projects').select('id').eq('id', projectId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!project) throw new Error('Projeto não encontrado neste espaço.')
+    validProjectId = project.id
+  }
+
+  const { data, error } = await supabase.from('pautas').update({ project_id: validProjectId, updated_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', context.workspace.id).select('id').single()
+  if (error || !data) throw new Error('Não foi possível atualizar o projeto desta pauta.')
+
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'status_changed', entity_type: 'pauta', entity_id: id, metadata: { field: 'project', projectId: validProjectId } })
+
+  revalidatePath(`/pautas/${id}`)
+  revalidatePath('/projetos')
+}
+
+export async function deletePauta(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+
+  const { data: pauta } = await supabase.from('pautas').select('id,title,created_by,owner_id').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+  if (!pauta) throw new Error('Pauta não encontrada.')
+  if (context.role !== 'admin' && pauta.created_by !== context.user.id && pauta.owner_id !== context.user.id) {
+    throw new Error('Somente quem criou a pauta, o responsável ou um administrador pode excluí-la.')
+  }
+
+  const admin = createAdminClient()
+
+  const { data: contentRows } = await admin.from('content_pieces').select('id').eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  const contentIds = (contentRows ?? []).map((c) => c.id)
+
+  if (contentIds.length) {
+    const { data: approvalRows } = await admin.from('approvals').select('id').in('content_id', contentIds)
+    const approvalIds = (approvalRows ?? []).map((a) => a.id)
+    if (approvalIds.length) await admin.from('approval_voters').delete().in('approval_id', approvalIds)
+    await admin.from('approvals').delete().in('content_id', contentIds)
+    await admin.from('content_comments').delete().in('content_id', contentIds)
+    await admin.from('content_versions').delete().in('content_id', contentIds)
+  }
+
+  await admin.from('pauta_participants').delete().eq('pauta_id', id)
+  await admin.from('messages').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('calendar_events').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('pauta_links').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('content_pieces').delete().eq('pauta_id', id).eq('workspace_id', context.workspace.id)
+  await admin.from('activity_log').delete().eq('entity_type', 'pauta').eq('entity_id', id).eq('workspace_id', context.workspace.id)
+
+  const { error } = await admin.from('pautas').delete().eq('id', id).eq('workspace_id', context.workspace.id)
+  if (error) throw new Error('Não foi possível excluir a pauta.')
+
+  revalidatePath('/pautas')
+  revalidatePath('/calendario')
+  revalidatePath('/projetos')
+  redirect('/pautas')
+}
+
 export async function updatePautaStatus(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
@@ -204,6 +267,17 @@ export async function sendPautaMessage(formData: FormData) {
     .maybeSingle()
   if (!pauta) throw new Error('Pauta não encontrada neste espaço.')
 
+  const { data: duplicate } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('pauta_id', pautaId)
+    .eq('author_id', context.user.id)
+    .eq('body', body)
+    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
+    .limit(1)
+    .maybeSingle()
+  if (duplicate) { revalidatePath(`/pautas/${pautaId}`); return }
+
   const { error } = await supabase.from('messages').insert({
     workspace_id: context.workspace.id,
     pauta_id: pautaId,
@@ -286,7 +360,7 @@ export async function submitContentForApproval(formData: FormData) {
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/conteudos/${contentId}`)
-  redirect(`/aprovacoes/${approvalId}`)
+  return { approvalId }
 }
 
 export async function archiveContentDraft(formData: FormData) {
@@ -430,6 +504,17 @@ export async function addContentComment(formData: FormData) {
   if (!contentId || body.length < 1 || body.length > 2000) {
     throw new Error('Escreva um comentário com até 2.000 caracteres.')
   }
+
+  const { data: duplicate } = await supabase
+    .from('content_comments')
+    .select('id')
+    .eq('content_id', contentId)
+    .eq('author_id', context.user.id)
+    .eq('body', body)
+    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
+    .limit(1)
+    .maybeSingle()
+  if (duplicate) { revalidatePath(`/mensagens/${contentId}`); return }
 
   const { error } = await supabase.from('content_comments').insert({
     workspace_id: context.workspace.id,

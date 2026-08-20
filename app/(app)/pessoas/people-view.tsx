@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
-import { Avatar, privateAvatarUrl } from '@/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
 import { cn } from '@/lib/utils'
 
 type Person = { id: string; name: string; role: string; coordination: string; initials: string; color: string; avatarPath?: string | null; accessRole: string }

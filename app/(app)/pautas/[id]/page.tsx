@@ -22,13 +22,14 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
 
   if (!data) notFound()
 
-  const [{ data: participantRows }, { data: memberRows }, { data: messageRows }, { data: linkRows }, { data: contentRows }, { data: activityRows }] = await Promise.all([
+  const [{ data: participantRows }, { data: memberRows }, { data: messageRows }, { data: linkRows }, { data: contentRows }, { data: activityRows }, { data: projectRows }] = await Promise.all([
     supabase.from('pauta_participants').select('user_id').eq('pauta_id', data.id),
     supabase.from('workspace_members').select('user_id,coordination').eq('workspace_id', context.workspace.id),
     supabase.from('messages').select('id,author_id,body,created_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: true }),
     supabase.from('pauta_links').select('id,title,url,category,created_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }),
     supabase.from('content_pieces').select('id,title,format,status,version,updated_at').eq('pauta_id', data.id).eq('workspace_id', context.workspace.id).order('created_at'),
     supabase.from('activity_log').select('id,actor_id,action,metadata,created_at').eq('entity_type', 'pauta').eq('entity_id', data.id).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }),
+    supabase.from('projects').select('id,name').eq('workspace_id', context.workspace.id).order('name'),
   ])
   const memberIds = (memberRows ?? []).map((member) => member.user_id)
   const { data: profileRows } = memberIds.length
@@ -93,5 +94,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} />
+  const canDelete = context.role === 'admin' || data.owner_id === context.user.id
+
+  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} canDelete={canDelete} />
 }

@@ -8,6 +8,55 @@ This repository is linked to a [v0](https://v0.app) project. You can continue de
 
 [Continue working on v0 →](https://v0.app/chat/projects/prj_azjMa3KcVyvOD7eNt8NCJyvb5QV4)
 
+## Configuração
+
+O app depende de um projeto Supabase (Postgres + Auth) e do Vercel Blob para
+arquivos. Sem as variáveis abaixo o build passa, mas toda página quebra na
+primeira query.
+
+```bash
+cp .env.example .env.local   # depois preencha SUPABASE_SERVICE_ROLE_KEY
+pnpm install
+pnpm dev
+```
+
+| Variável | Onde usar | Observação |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | browser + server | pública, vai no bundle |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser + server | pública, vai no bundle |
+| `SUPABASE_URL` | server | usada por `lib/supabase/admin.ts` |
+| `SUPABASE_SERVICE_ROLE_KEY` | server | **segredo** — ignora RLS, nunca prefixe com `NEXT_PUBLIC_` |
+| `BLOB_READ_WRITE_TOKEN` | server | Vercel Blob; sem ela os uploads em `/api/files` falham |
+
+### Banco de dados
+
+O schema vive em `supabase/migrations/` — 18 tabelas, RLS em todas elas e três
+funções (`submit_pauta_for_approval`, `submit_content_for_approval`,
+`vote_on_approval`) que as server actions chamam via `supabase.rpc`.
+
+Para aplicar em um projeto novo:
+
+```bash
+supabase link --project-ref <ref>
+supabase db push
+```
+
+Os status são gravados em inglês (`incoming`, `production`, `draft`, ...) e
+traduzidos para a interface em `lib/status-maps.ts`. `lib/data.ts` é mock da
+Fase 1 e não reflete o banco.
+
+### Primeiro acesso
+
+Com o banco vazio, a home detecta que não há nenhum perfil e abre a tela de
+configuração inicial, que cria o primeiro administrador e o vincula aos espaços
+de Demonstração e Produção (inseridos pela migration de seed).
+
+## Deploy
+
+Todo merge em `main` dispara deploy automático na Vercel. Antes do primeiro
+deploy, cadastre as cinco variáveis acima em Project Settings → Environment
+Variables — o build não falha sem elas, então a falta só aparece em runtime.
+
 ## Getting Started
 
 First, run the development server:
