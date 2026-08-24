@@ -1,15 +1,15 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { publicSupabaseEnv } from '@/lib/supabase/env'
+import { publicSupabaseEnv, SupabaseConfigError } from '@/lib/supabase/env'
 
 export async function proxy(request: NextRequest) {
-  const { url, key, missing } = publicSupabaseEnv()
+  const { url, key, missing, invalid } = publicSupabaseEnv()
 
   // O proxy roda em toda requisição. Se ele lançar por falta de variável, o
   // site inteiro devolve 500 sem dizer o motivo — inclusive a página que
   // explicaria o problema. Sem credenciais, segue sem renovar a sessão.
-  if (missing.length) {
-    console.error('[proxy] Supabase não configurado. Faltam:', missing.join(', '))
+  if (missing.length || invalid.length) {
+    console.error('[proxy] Supabase não configurado.', new SupabaseConfigError(missing, invalid).message)
     return NextResponse.next({ request })
   }
 

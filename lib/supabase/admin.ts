@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { adminSupabaseEnv, SupabaseConfigError } from './env'
 
 export function createAdminClient() {
-  const { url, key, missing } = adminSupabaseEnv()
-  if (missing.length) throw new SupabaseConfigError(missing)
+  const { url, key, missing, invalid } = adminSupabaseEnv()
+  if (missing.length || invalid.length) throw new SupabaseConfigError(missing, invalid)
   return createClient(url!, key!, {
     auth: { autoRefreshToken: false, persistSession: false },
   })

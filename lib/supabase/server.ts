@@ -6,8 +6,8 @@ export async function createClient() {
   // cookies() antes da checagem: é ele que marca a rota como dinâmica. Lançar
   // antes faria o Next tentar pré-renderizar as páginas e quebrar o build.
   const cookieStore = await cookies()
-  const { url, key, missing } = publicSupabaseEnv()
-  if (missing.length) throw new SupabaseConfigError(missing)
+  const { url, key, missing, invalid } = publicSupabaseEnv()
+  if (missing.length || invalid.length) throw new SupabaseConfigError(missing, invalid)
   return createServerClient(
     url!,
     key!,
