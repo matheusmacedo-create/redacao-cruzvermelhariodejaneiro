@@ -7,16 +7,31 @@ const clean = (value: string | undefined) => {
   return trimmed ? trimmed : undefined
 }
 
-const isPublicKey = (key: string) => key.startsWith('sb_publishable_')
-const isSecretKey = (key: string) => key.startsWith('sb_secret_')
+/**
+ * Papel declarado por uma chave legada (JWT). As chaves novas
+ * (sb_publishable_ / sb_secret_) são opacas e não carregam essa informação.
+ */
+function jwtRole(key: string): string | undefined {
+  const payload = key.split('.')[1]
+  if (!payload || !key.startsWith('eyJ')) return undefined
+  try {
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const role = (JSON.parse(json) as { role?: unknown }).role
+    return typeof role === 'string' ? role : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export type InvalidKey = { name: string; reason: string }
 
 export type SupabaseEnv = {
   url?: string
   key?: string
   /** Nomes de variáveis ausentes ou vazias. */
   missing: string[]
-  /** Nomes de variáveis preenchidas com o valor errado. */
-  invalid: string[]
+  /** Variáveis preenchidas com o valor errado, e o motivo. */
+  invalid: InvalidKey[]
 }
 
 function publicKeyFromEnv() {
@@ -37,7 +52,13 @@ export function publicSupabaseEnv(): SupabaseEnv {
 
   // Uma chave secreta aqui iria para o bundle do browser, entregando a todo
   // visitante uma credencial que ignora RLS.
-  const invalid = key && isSecretKey(key) ? ['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'] : []
+  const name = 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+  const invalid: InvalidKey[] = []
+  if (key?.startsWith('sb_secret_')) {
+    invalid.push({ name, reason: 'o valor começa com sb_secret_, que é uma chave secreta' })
+  } else if (key && jwtRole(key) === 'service_role') {
+    invalid.push({ name, reason: 'o valor é um JWT com papel service_role' })
+  }
 
   return { url, key: invalid.length ? undefined : key, missing, invalid }
 }
@@ -53,23 +74,31 @@ export function adminSupabaseEnv(): SupabaseEnv {
   if (!url) missing.push('SUPABASE_URL')
   if (!key) missing.push('SUPABASE_SERVICE_ROLE_KEY')
 
-  // Uma chave pública neste lugar não gera erro nenhum: o PostgREST responde
-  // 200 e o RLS filtra tudo, então o banco parece vazio. Foi assim que a tela
-  // de configuração inicial reapareceu num sistema que já tinha administrador.
-  const swapped = !!key && (isPublicKey(key) || key === publicKeyFromEnv())
-  const invalid = swapped ? ['SUPABASE_SERVICE_ROLE_KEY'] : []
+  // Uma chave pública aqui não gera erro nenhum: o PostgREST responde 200 e o
+  // RLS filtra tudo, então o banco parece vazio. O motivo vai para a tela
+  // porque distingue valor errado de deployment antigo, que é a dúvida real
+  // de quem acabou de trocar a variável.
+  const name = 'SUPABASE_SERVICE_ROLE_KEY'
+  const invalid: InvalidKey[] = []
+  if (key?.startsWith('sb_publishable_')) {
+    invalid.push({ name, reason: 'o valor começa com sb_publishable_, que é a chave pública' })
+  } else if (key && key === publicKeyFromEnv()) {
+    invalid.push({ name, reason: 'o valor é idêntico ao da chave pública configurada' })
+  } else if (key && jwtRole(key) === 'anon') {
+    invalid.push({ name, reason: 'o valor é um JWT com papel anon, não service_role' })
+  }
 
-  return { url, key: swapped ? undefined : key, missing, invalid }
+  return { url, key: invalid.length ? undefined : key, missing, invalid }
 }
 
 export class SupabaseConfigError extends Error {
   constructor(
     public readonly missing: string[],
-    public readonly invalid: string[] = [],
+    public readonly invalid: InvalidKey[] = [],
   ) {
     const partes = [
       missing.length ? `faltam: ${missing.join(', ')}` : '',
-      invalid.length ? `com valor incorreto: ${invalid.join(', ')}` : '',
+      invalid.length ? `incorretas: ${invalid.map((i) => `${i.name} (${i.reason})`).join('; ')}` : '',
     ].filter(Boolean)
     super(`Configuração do Supabase incompleta (${partes.join('; ')}).`)
     this.name = 'SupabaseConfigError'

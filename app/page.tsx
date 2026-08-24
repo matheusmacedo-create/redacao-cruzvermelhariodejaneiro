@@ -4,10 +4,10 @@ import { BrandMark } from '@/components/app/brand-mark'
 import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError } from '@/lib/supabase/env'
+import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError, type InvalidKey } from '@/lib/supabase/env'
 
 // Só nomes de variáveis, nunca valores: a página é pública.
-function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid: string[] }) {
+function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid: InvalidKey[] }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-lg">
@@ -35,10 +35,17 @@ function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid:
               Settings → API Keys qual chave pertence a cada campo:
             </p>
             <ul className="mt-4 flex flex-col gap-2">
-              {invalid.map((name) => (
-                <li key={name} className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 font-mono text-sm">{name}</li>
+              {invalid.map((item) => (
+                <li key={item.name} className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
+                  <span className="font-mono text-sm">{item.name}</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">{item.reason}</span>
+                </li>
               ))}
             </ul>
+            <p className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm leading-relaxed text-muted-foreground">
+              Se você já corrigiu esse valor, então a versão publicada ainda é anterior à
+              alteração: variável de ambiente só passa a valer a partir de um novo deploy.
+            </p>
           </>
         )}
         <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
@@ -55,7 +62,7 @@ export default async function LoginPage() {
   const publicEnv = publicSupabaseEnv()
   const adminEnv = adminSupabaseEnv()
   const missingConfig = [...new Set([...publicEnv.missing, ...adminEnv.missing])]
-  const invalidConfig = [...new Set([...publicEnv.invalid, ...adminEnv.invalid])]
+  const invalidConfig = [...publicEnv.invalid, ...adminEnv.invalid]
   if (missingConfig.length || invalidConfig.length) {
     console.error('[login]', new SupabaseConfigError(missingConfig, invalidConfig).message)
     return <ConfigurationNotice missing={missingConfig} invalid={invalidConfig} />
