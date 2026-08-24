@@ -624,15 +624,39 @@ export async function sendDirectMessage(formData: FormData) {
   const { data: member } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('user_id', recipientId).maybeSingle()
   if (!member) throw new Error('A pessoa selecionada não pertence a este espaço.')
 
+  const { data: duplicate } = await supabase
+    .from('messages')
+    .select('id')
+    .is('pauta_id', null)
+    .eq('author_id', context.user.id)
+    .eq('recipient_id', recipientId)
+    .eq('body', body)
+    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
+    .limit(1)
+    .maybeSingle()
+  if (duplicate) { revalidatePath(`/mensagens/pessoa/${recipientId}`); return }
+
+  // A mensagem vem primeiro: é ela que fica. A notificação só avisa que chegou.
+  const { error } = await supabase.from('messages').insert({
+    workspace_id: context.workspace.id,
+    pauta_id: null,
+    author_id: context.user.id,
+    recipient_id: recipientId,
+    body,
+  })
+  if (error) throw new Error('Não foi possível enviar a mensagem.')
+
   const admin = createAdminClient()
-  const { error } = await admin.from('notifications').insert({
+  const { error: notifyError } = await admin.from('notifications').insert({
     workspace_id: context.workspace.id,
     user_id: recipientId,
     title: `Mensagem de ${context.profile?.full_name || 'um colega'}`,
     message: body,
-    link: '/mensagens',
+    link: `/mensagens/pessoa/${context.user.id}`,
   })
-  if (error) throw new Error('Não foi possível enviar a mensagem.')
+  // Falhar o aviso não pode apagar a mensagem, que já está salva.
+  if (notifyError) console.error('[sendDirectMessage] notificação não enviada:', notifyError.message)
 
   revalidatePath('/mensagens')
+  revalidatePath(`/mensagens/pessoa/${recipientId}`)
 }
