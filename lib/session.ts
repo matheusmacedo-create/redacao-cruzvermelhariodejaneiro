@@ -1,6 +1,5 @@
 import 'server-only'
 import { cache } from 'react'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
@@ -24,15 +23,17 @@ export async function requireSession() {
   return context
 }
 
+const workspaceOf = (membership: any) =>
+  Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces
+
 export async function requireWorkspace() {
   const context = await requireSession()
-  const cookieStore = await cookies()
-  const workspaceId = cookieStore.get('cvrj_workspace')?.value
-  const membership = context.memberships.find((item: any) => {
-    const workspace = Array.isArray(item.workspaces) ? item.workspaces[0] : item.workspaces
-    return workspace?.id === workspaceId
-  })
-  if (!membership) redirect('/espacos')
+  // Espaço único: não há mais tela de seleção nem cookie. Prefere a Produção e
+  // cai no primeiro vínculo, caso um outro espaço volte a existir um dia.
+  const membership =
+    context.memberships.find((item: any) => workspaceOf(item)?.kind === 'production') ??
+    context.memberships[0]
+  if (!membership) redirect('/')
   const workspace = (Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces) as unknown as { id: string; name: string; slug: string; kind: 'demo' | 'production' }
   return { ...context, workspace, role: membership.role as WorkspaceRole }
 }
