@@ -1,23 +1,38 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { publicSupabaseEnv } from '@/lib/supabase/env'
 
 export async function proxy(request: NextRequest) {
+  const { url, key, missing } = publicSupabaseEnv()
+
+  // O proxy roda em toda requisição. Se ele lançar por falta de variável, o
+  // site inteiro devolve 500 sem dizer o motivo — inclusive a página que
+  // explicaria o problema. Sem credenciais, segue sem renovar a sessão.
+  if (missing.length) {
+    console.error('[proxy] Supabase não configurado. Faltam:', missing.join(', '))
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-        },
+  const supabase = createServerClient(url!, key!, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        response = NextResponse.next({ request })
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },
-  )
-  await supabase.auth.getUser()
+  })
+
+  try {
+    await supabase.auth.getUser()
+  } catch (cause) {
+    // Supabase fora do ar não pode derrubar o site inteiro: as páginas já
+    // tratam a ausência de sessão redirecionando para o login.
+    console.error('[proxy] falha ao renovar a sessão:', cause instanceof Error ? cause.message : cause)
+  }
+
   return response
 }
 

@@ -1,11 +1,47 @@
 import { redirect } from 'next/navigation'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, TriangleAlert } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { adminSupabaseEnv, publicSupabaseEnv } from '@/lib/supabase/env'
+
+// Só nomes de variáveis, nunca valores: a página é pública.
+function ConfigurationNotice({ missing }: { missing: string[] }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-lg">
+        <BrandMark className="w-72 items-start" />
+        <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+          <TriangleAlert className="size-6" />
+        </div>
+        <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Configuração incompleta</h1>
+        <p className="mt-3 leading-relaxed text-muted-foreground">
+          O sistema não conseguiu se conectar ao banco de dados porque estas variáveis de ambiente
+          não chegaram até a aplicação:
+        </p>
+        <ul className="mt-4 flex flex-col gap-2">
+          {missing.map((name) => (
+            <li key={name} className="rounded-lg border border-border bg-muted/40 px-3 py-2 font-mono text-sm">{name}</li>
+          ))}
+        </ul>
+        <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+          Cadastre-as no ambiente de <strong>Production</strong> e publique novamente. Variáveis com
+          o prefixo <code className="font-mono">NEXT_PUBLIC_</code> são embutidas durante a
+          compilação, então alterá-las exige um novo build — salvar sem publicar não muda nada.
+        </p>
+      </div>
+    </main>
+  )
+}
 
 export default async function LoginPage() {
+  const missingConfig = [...new Set([...publicSupabaseEnv().missing, ...adminSupabaseEnv().missing])]
+  if (missingConfig.length) {
+    console.error('[login] variáveis ausentes:', missingConfig.join(', '))
+    return <ConfigurationNotice missing={missingConfig} />
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (user) redirect('/espacos')

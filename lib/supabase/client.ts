@@ -1,11 +1,13 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { publicSupabaseEnv, SupabaseConfigError } from './env'
 
 let client: ReturnType<typeof createBrowserClient> | undefined
 
 export function createClient() {
-  client ??= createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  if (!client) {
+    const { url, key, missing } = publicSupabaseEnv()
+    if (missing.length) throw new SupabaseConfigError(missing)
+    client = createBrowserClient(url!, key!)
+  }
   return client
 }
