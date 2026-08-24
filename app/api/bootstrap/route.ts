@@ -63,16 +63,13 @@ export async function POST(request: Request) {
   const { error: profileError } = await admin.from('profiles').insert({ id: userId, username, full_name: fullName, job_title: 'Administrador', initials: initials(fullName) })
   if (profileError) { await admin.auth.admin.deleteUser(userId); return NextResponse.json({ error: 'Não foi possível criar o perfil.' }, { status: 500 }) }
 
-  const { data: workspaces } = await admin.from('workspaces').select('id,kind')
-  await admin.from('workspace_members').insert((workspaces ?? []).map((workspace) => ({ workspace_id: workspace.id, user_id: userId, role: 'admin', coordination: 'Comunicação' })))
-
-  const demo = workspaces?.find((workspace) => workspace.kind === 'demo')
-  if (demo) {
-    const { data: project } = await admin.from('projects').insert({ workspace_id: demo.id, name: 'Ações Humanitárias 2026', description: 'Conteúdo demonstrativo para conhecer o fluxo editorial.', created_by: userId }).select('id').single()
-    const { data: pauta } = await admin.from('pautas').insert({ workspace_id: demo.id, project_id: project?.id, title: 'Ação de saúde no Centro do Rio', description: 'Cobertura demonstrativa de atendimento comunitário.', status: 'production', priority: 'high', coordination: 'Saúde', owner_id: userId, created_by: userId, due_date: '2026-08-28', tags: ['saúde','voluntariado'] }).select('id').single()
-    await admin.from('inbox_items').insert([{ workspace_id: demo.id, type: 'Solicitação', title: 'Divulgação da campanha de doação de sangue', summary: 'Material recebido para triagem editorial.', sender_name: 'Coordenação de Saúde', coordination: 'Saúde', priority: 'high', status: 'new', created_by: userId }])
-    await admin.from('content_pieces').insert({ workspace_id: demo.id, pauta_id: pauta?.id, title: 'Voluntários levam cuidado ao Centro do Rio', format: 'Matéria', status: 'draft', body: 'Uma ação da Cruz Vermelha Brasileira reuniu voluntários no Centro do Rio de Janeiro.\n\nA equipe realizou orientações de saúde e distribuiu kits de higiene para a população.', responsible_id: userId, created_by: userId })
-    await admin.from('calendar_events').insert({ workspace_id: demo.id, title: 'Publicação da ação no Centro', event_date: '2026-08-28', event_time: '10:00', type: 'publicacao', pauta_id: pauta?.id, created_by: userId })
+  // Espaço único: o primeiro administrador entra direto na Produção.
+  const { data: workspace } = await admin.from('workspaces').select('id').eq('kind', 'production').maybeSingle()
+  if (!workspace) {
+    await admin.auth.admin.deleteUser(userId)
+    return NextResponse.json({ error: 'Nenhum espaço de produção encontrado.' }, { status: 500 })
   }
+  await admin.from('workspace_members').insert({ workspace_id: workspace.id, user_id: userId, role: 'admin', coordination: 'Comunicação' })
+
   return NextResponse.json({ ok: true })
 }

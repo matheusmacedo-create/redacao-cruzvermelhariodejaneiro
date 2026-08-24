@@ -1,45 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Sparkles, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { resetWorkspaceData, seedDemoWorkspace } from '@/app/actions/admin'
+import { resetWorkspaceData } from '@/app/actions/admin'
 
-export function DangerZone({ workspace }: { workspace: { id: string; name: string; kind: 'demo' | 'production' } }) {
+export function DangerZone({ workspace }: { workspace: { id: string; name: string } }) {
   return (
     <div className="mt-8 flex flex-col gap-4">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Zona de risco</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {workspace.kind === 'production'
-            ? 'Ações que apagam dados reais deste espaço de Produção. Use apenas quando quiser começar do zero.'
-            : 'Ações para manter o espaço de Demonstração cheio de exemplos, sem afetar a Produção.'}
+          Ações que apagam dados reais. Use apenas quando quiser começar do zero.
         </p>
       </div>
-
-      {workspace.kind === 'demo' && (
-        <Card className="flex flex-col gap-3 border-primary/30 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Sparkles className="size-4" /></span>
-            <div>
-              <p className="font-medium">Adicionar dados de demonstração</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">Cria projetos, pautas, matérias, aprovações e agendamentos de exemplo neste espaço.</p>
-            </div>
-          </div>
-          <form action={seedDemoWorkspace}>
-            <input type="hidden" name="workspaceId" value={workspace.id} />
-            <Button type="submit" variant="outline" className="w-full sm:w-auto">Gerar dados de exemplo</Button>
-          </form>
-        </Card>
-      )}
 
       <ResetCard workspace={workspace} />
     </div>
   )
 }
 
-function ResetCard({ workspace }: { workspace: { id: string; name: string; kind: 'demo' | 'production' } }) {
+function ResetCard({ workspace }: { workspace: { id: string; name: string } }) {
   const [open, setOpen] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const matches = confirmText.trim() === workspace.name
@@ -50,7 +32,7 @@ function ResetCard({ workspace }: { workspace: { id: string; name: string; kind:
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"><Trash2 className="size-4" /></span>
           <div>
-            <p className="font-medium">Reiniciar dados de {workspace.kind === 'production' ? 'Produção' : 'Demonstração'}</p>
+            <p className="font-medium">Reiniciar dados de {workspace.name}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">Apaga projetos, pautas, matérias, aprovações, agendamentos, mensagens e arquivos deste espaço. Contas e pessoas continuam existindo.</p>
           </div>
         </div>
