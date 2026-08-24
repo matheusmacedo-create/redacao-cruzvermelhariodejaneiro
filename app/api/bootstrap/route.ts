@@ -6,13 +6,20 @@ const initials = (name: string) => name.split(/\s+/).slice(0, 2).map((part) => p
 
 export async function GET() {
   const admin = createAdminClient()
-  const { count } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+  const { count, error } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+  if (error) return NextResponse.json({ error: 'Não foi possível verificar o estado da instalação.' }, { status: 503 })
   return NextResponse.json({ needsBootstrap: (count ?? 0) === 0 })
 }
 
 export async function POST(request: Request) {
   const admin = createAdminClient()
-  const { count } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+  const { count, error: countError } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+  // Falha ao contar não pode liberar a criação de administrador: sem esta
+  // checagem, um erro de credencial abriria o cadastro para qualquer pessoa.
+  if (countError) {
+    console.error('[bootstrap] não foi possível contar os perfis:', countError.message)
+    return NextResponse.json({ error: 'Não foi possível verificar o estado da instalação. Tente novamente.' }, { status: 503 })
+  }
   if ((count ?? 0) > 0) return NextResponse.json({ error: 'A configuração inicial já foi concluída.' }, { status: 409 })
 
   const payload = await request.json()
