@@ -1,11 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { publicSupabaseEnv, SupabaseConfigError } from './env'
 
 export async function createClient() {
+  // cookies() antes da checagem: é ele que marca a rota como dinâmica. Lançar
+  // antes faria o Next tentar pré-renderizar as páginas e quebrar o build.
   const cookieStore = await cookies()
+  const { url, key, missing } = publicSupabaseEnv()
+  if (missing.length) throw new SupabaseConfigError(missing)
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url!,
+    key!,
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
