@@ -1,6 +1,15 @@
-export const LIBRARY_FILE_LIMIT = 10 * 1024 * 1024
+// Limites elevados para caber vídeo de Reels, que não passava nos 10 MB
+// originais. O Instagram aceita até ~300 MB por Reels; 200 MB cobre a
+// prática da equipe sem virar depósito de arquivo bruto.
+export const LIBRARY_FILE_LIMIT = 200 * 1024 * 1024
 export const AVATAR_FILE_LIMIT = 2 * 1024 * 1024
-export const WORKSPACE_STORAGE_LIMIT = 50 * 1024 * 1024
+export const WORKSPACE_STORAGE_LIMIT = 5 * 1024 * 1024 * 1024
+
+/** Formata bytes para as mensagens de erro, evitando números mágicos no texto. */
+export function formatarLimite(bytes: number) {
+  const gb = bytes / (1024 * 1024 * 1024)
+  return gb >= 1 ? `${Number(gb.toFixed(1))} GB` : `${Math.round(bytes / (1024 * 1024))} MB`
+}
 
 export const LIBRARY_MIME_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',

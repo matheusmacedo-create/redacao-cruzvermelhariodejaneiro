@@ -72,7 +72,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1">
             <p className="text-sm font-semibold">Enviar arquivo</p>
-            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · máximo de 10 MB.</p>
+            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · máximo de 200 MB.</p>
             <input
               ref={input}
               type="file"

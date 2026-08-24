@@ -11,6 +11,7 @@ import {
   FolderKanban,
   CalendarDays,
   CheckSquare,
+  Megaphone,
   Users,
   Settings,
   UserCircle,
@@ -30,6 +31,7 @@ const main = [
   { href: '/biblioteca', label: 'Biblioteca', icon: Images },
   { href: '/projetos', label: 'Projetos', icon: FolderKanban },
   { href: '/calendario', label: 'Calendário', icon: CalendarDays },
+  { href: '/publicacoes', label: 'Publicações', icon: Megaphone },
   { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
   { href: '/pessoas', label: 'Pessoas', icon: Users },
 ]

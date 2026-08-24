@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { ShieldCheck, TriangleAlert } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
@@ -99,7 +100,15 @@ export default async function LoginPage() {
           <h2 className="text-4xl font-bold leading-tight text-balance">Comunicação humanitária com organização e responsabilidade.</h2>
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-primary-foreground/80">Do registro da ação à publicação, cada etapa permanece documentada e acessível à equipe.</p>
         </div>
-        <p className="text-sm text-primary-foreground/70">Cruz Vermelha Brasileira · Rio de Janeiro</p>
+        <div className="text-sm text-primary-foreground/70">
+          <p>Cruz Vermelha Brasileira · Rio de Janeiro</p>
+          {/* Exigidos pelo App Review da Meta: precisam ser alcançáveis sem login. */}
+          <nav className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            <Link href="/privacidade" className="underline-offset-4 hover:underline">Privacidade</Link>
+            <Link href="/termos" className="underline-offset-4 hover:underline">Termos de Uso</Link>
+            <Link href="/exclusao-de-dados" className="underline-offset-4 hover:underline">Exclusão de dados</Link>
+          </nav>
+        </div>
       </section>
     </main>
   )
