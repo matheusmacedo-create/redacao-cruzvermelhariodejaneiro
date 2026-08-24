@@ -11,8 +11,11 @@ export default async function LoginPage() {
   if (user) redirect('/espacos')
 
   const admin = createAdminClient()
-  const { count } = await admin.from('profiles').select('*', { count: 'exact', head: true })
-  const needsBootstrap = (count ?? 0) === 0
+  const { count, error } = await admin.from('profiles').select('*', { count: 'exact', head: true })
+  // Sem distinguir erro de zero, uma falha de credencial faria a tela de
+  // configuração inicial reaparecer num sistema que já tem usuários.
+  if (error) console.error('[login] não foi possível contar os perfis:', error.message)
+  const needsBootstrap = !error && (count ?? 0) === 0
 
   return (
     <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(380px,0.9fr)_1.1fr]">
