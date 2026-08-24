@@ -29,7 +29,7 @@ export function LoginForm({ needsBootstrap }: { needsBootstrap: boolean }) {
       const supabase = createClient()
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: internalEmail(username.trim()), password })
       if (signInError) throw new Error('Usuário ou senha inválidos.')
-      router.push('/espacos'); router.refresh()
+      router.push('/dashboard'); router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.')
     } finally { setLoading(false) }

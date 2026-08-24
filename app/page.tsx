@@ -70,7 +70,7 @@ export default async function LoginPage() {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/espacos')
+  if (user) redirect('/dashboard')
 
   const admin = createAdminClient()
   const { count, error } = await admin.from('profiles').select('*', { count: 'exact', head: true })
