@@ -43,6 +43,7 @@ import {
 import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { addDriveLink, addPautaParticipant, changePautaProject, createPautaApproval, createPautaContent, deletePauta, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
+import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -311,7 +312,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
       {tab === 'informacoes' && <InformacoesTab pauta={pauta} details={details} />}
       {tab === 'arquivos' && <ArquivosTab pautaId={pauta.id} items={driveLinks} />}
       {tab === 'conteudos' && <ConteudosTab pautaId={pauta.id} items={contentItems} />}
-      {tab === 'aprovacoes' && <AprovacoesTab pautaId={pauta.id} items={contentItems} />}
+      {tab === 'aprovacoes' && <AprovacoesTab pautaId={pauta.id} items={contentItems} pessoas={(availablePeople ?? []).map((p) => ({ id: p.id, nome: p.name, iniciais: p.initials || '?', cor: p.color }))} />}
       {tab === 'historico' && <HistoricoTab items={history} />}
 
       {participantsOpen && (
@@ -658,9 +659,11 @@ function ConteudosTab({ pautaId, items }: { pautaId: string; items: ContentItem[
 }
 
 /* ---------------- Aprovações ---------------- */
-function AprovacoesTab({ pautaId, items }: { pautaId: string; items: ContentItem[] }) {
+function AprovacoesTab({ pautaId, items, pessoas = [] }: { pautaId: string; items: ContentItem[]; pessoas?: PessoaDoEspaco[] }) {
   const submitted = items.filter((item) => ['review', 'approval', 'approved'].includes(item.status))
-  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={createPautaApproval} className="flex flex-col gap-3"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Conteúdo existente<select name="contentId" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Criar caso rápido</option>{items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">Título do caso<input name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Obrigatório no caso rápido" /></label><label className="text-sm font-medium">Texto ou link<input name="body" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label></div><Button type="submit" className="self-end"><CheckSquare className="size-4" />Abrir aprovação</Button></form></Card>{submitted.length ? <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>}</div>
+  const [revisores, setRevisores] = useState<string[]>([])
+  const [erro, setErro] = useState('')
+  return <div className="flex flex-col gap-4"><Card className="p-4"><form action={async (formData) => { setErro(''); try { await createPautaApproval(formData) } catch (causa) { setErro(causa instanceof Error ? causa.message : 'Não foi possível abrir a aprovação.') } }} className="flex flex-col gap-3"><input type="hidden" name="pautaId" value={pautaId} /><label className="text-sm font-medium">Conteúdo existente<select name="contentId" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="">Criar caso rápido</option>{items.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-medium">Título do caso<input name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" placeholder="Obrigatório no caso rápido" /></label><label className="text-sm font-medium">Texto ou link<input name="body" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label></div><SeletorDeRevisores pessoas={pessoas} selecionados={revisores} onChange={setRevisores} vazio="Não há outras pessoas neste espaço para aprovar." />{erro && <p className="text-sm text-destructive">{erro}</p>}<Button type="submit" className="self-end"><CheckSquare className="size-4" />Abrir aprovação</Button></form></Card>{submitted.length ? <div className="grid gap-3">{submitted.map((item) => <Card key={item.id} className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">{item.title}</p><p className="text-xs text-muted-foreground">Status: {item.status}</p></div><Button variant="outline" size="sm" render={<Link href={`/conteudos/${item.id}`} />}>Ver conteúdo</Button></Card>)}</div> : <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum conteúdo desta pauta foi enviado para aprovação.</Card>}</div>
 }
 
 /* ---------------- Histórico ---------------- */

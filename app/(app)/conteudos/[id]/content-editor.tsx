@@ -32,6 +32,7 @@ import { ContentStatusBadge } from '@/components/ui/status-badge'
 import { EmojiPicker } from '@/components/app/emoji-picker'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
+import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
 import { PublicadorRedes, type PublicacaoRegistro } from '@/components/app/publicador-redes'
 
@@ -49,6 +50,7 @@ export function ContentEditor({
   canSubmit = false,
   publicacoes = [],
   workspaceId,
+  pessoas = [],
 }: {
   content: ContentPiece
   pauta?: Pauta
@@ -56,6 +58,7 @@ export function ContentEditor({
   canSubmit?: boolean
   publicacoes?: PublicacaoRegistro[]
   workspaceId: string
+  pessoas?: PessoaDoEspaco[]
   comments?: Array<{
     id: string
     text: string
@@ -73,6 +76,7 @@ export function ContentEditor({
   const [saved, setSaved] = useState(true)
   const [showConcludeModal, setShowConcludeModal] = useState(false)
   const [concludeBusy, setConcludeBusy] = useState(false)
+  const [revisores, setRevisores] = useState<string[]>([])
   const [concludeError, setConcludeError] = useState('')
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
   const [mediaError, setMediaError] = useState('')
@@ -483,12 +487,18 @@ export function ContentEditor({
             </p>
             {concludeError && <p className="mt-3 text-sm text-destructive">{concludeError}</p>}
             <div className="mt-5 flex flex-col gap-3">
-              <form action={handleSubmitForApproval}>
+              <form action={handleSubmitForApproval} className="flex flex-col gap-3">
                 <input type="hidden" name="id" value={content.id} />
                 <input type="hidden" name="title" value={title} />
                 <input type="hidden" name="subtitle" value={subtitle} />
                 <input type="hidden" name="body" value={body} />
                 <input type="hidden" name="format" value={content.type} />
+                <SeletorDeRevisores
+                  pessoas={pessoas}
+                  selecionados={revisores}
+                  onChange={setRevisores}
+                  vazio="Não há outras pessoas neste espaço para revisar."
+                />
                 <button
                   type="submit"
                   disabled={concludeBusy}
@@ -496,12 +506,11 @@ export function ContentEditor({
                 >
                   <span className="flex items-center gap-2 text-sm font-semibold text-primary">
                     <Send className="size-4" />
-                    {concludeBusy ? 'Enviando…' : content.status === 'aprovacao' ? 'Sincronizar quem precisa aprovar' : 'Disponibilizar para os participantes'}
+                    {concludeBusy ? 'Enviando…' : content.status === 'aprovacao' ? 'Atualizar quem precisa aprovar' : 'Enviar para aprovação'}
                   </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    {content.status === 'aprovacao'
-                      ? 'Atualiza a lista de aprovadores com os participantes atuais da pauta (remove quem saiu, adiciona quem entrou) e notifica quem for adicionado.'
-                      : 'Envia para aprovação agora, notifica quem está na pauta e leva você para a lista de aprovações pendentes.'}
+                    Quem você marcar acima recebe o pedido, somado aos participantes da pauta. Quem escreve e quem responde
+                    pelo conteúdo não entra — ninguém aprova o próprio texto.
                   </span>
                 </button>
               </form>
