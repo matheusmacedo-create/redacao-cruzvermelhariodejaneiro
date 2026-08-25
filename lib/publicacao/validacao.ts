@@ -31,8 +31,9 @@ export function validarPost(params: {
   corpo: string
   temMidia: boolean
   midiaUrl: string
+  linkUrl?: string
 }) {
-  const { formato, redes, corpo, temMidia, midiaUrl } = params
+  const { formato, redes, corpo, temMidia, midiaUrl, linkUrl } = params
 
   if (!redes.length) throw new Error('Escolha ao menos uma rede.')
 
@@ -65,5 +66,14 @@ export function validarPost(params: {
     let url: URL
     try { url = new URL(midiaUrl) } catch { throw new Error('A URL da mídia é inválida.') }
     if (url.protocol !== 'https:') throw new Error('A URL da mídia precisa ser https.')
+  }
+
+  // O link da matéria é opcional, mas o que for digitado aqui vai junto para a
+  // rede e vira o card de pré-visualização do post. Um "abc" passava direto e
+  // só dava erro do outro lado.
+  if (linkUrl) {
+    let url: URL
+    try { url = new URL(linkUrl) } catch { throw new Error('O link da matéria não é um endereço válido. Apague o campo ou cole o endereço inteiro.') }
+    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('O link da matéria precisa começar com http:// ou https://.')
   }
 }

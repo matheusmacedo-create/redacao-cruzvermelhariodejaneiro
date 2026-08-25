@@ -228,6 +228,12 @@ export function PublicadorRedes({
   }, null), [selecionadas])
 
   const precisaMidia = spec.midia !== 'nenhuma' && !midiaUrl.trim() && !midias.length
+  // Cobrar mídia de um formulário em branco é ralhar antes de a pessoa fazer
+  // qualquer coisa — e, logo depois de um envio que deu certo, é dizer que
+  // falhou o que acabou de entrar na fila. O aviso só vale quando já existe
+  // post começado.
+  const comecou = selecionadas.length > 0 || corpo.trim().length > 0
+    || midias.length > 0 || midiaUrl.trim().length > 0
   const excedeu = limite !== null && corpo.length > limite
   const exigeTexto = formato !== 'stories'
   const bloqueado = enviando || !selecionadas.length || estado !== 'ok'
@@ -246,6 +252,20 @@ export function PublicadorRedes({
     return form
   }
 
+  // Envio que deu certo devolve o formulário ao ponto de partida. Limpar só
+  // metade — redes e mídia, mantendo legenda, link e agendamento — deixava a
+  // tela num estado que denunciava erro num post que tinha acabado de sair.
+  function limparFormulario() {
+    setSelecionadas([])
+    setMidias([])
+    setMidiaUrl('')
+    setCorpo(textoInicial)
+    setLinkUrl(linkInicial)
+    setAgendarPara('')
+    setAprovadores([])
+    setPedindoAprovacao(false)
+  }
+
   function pedirAprovacao() {
     setErro(''); setAviso('')
     const form = montarFormulario()
@@ -256,7 +276,7 @@ export function PublicadorRedes({
         const resposta = await enviarPostParaAprovacao(form)
         if (resposta?.erro) { setErro(resposta.erro); return }
         setAviso('Enviado para aprovação. Aparece na tela de Aprovações de quem você marcou.')
-        setSelecionadas([]); setMidias([]); setAprovadores([]); setPedindoAprovacao(false)
+        limparFormulario()
         router.refresh()
       } catch (causa) {
         setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar para aprovação.')
@@ -273,8 +293,7 @@ export function PublicadorRedes({
         const resposta = await publicarNasRedes(form)
         if (resposta?.erro) { setErro(resposta.erro); return }
         setAviso(agendarPara ? 'Publicação agendada.' : 'Enviado. O resultado por rede aparece abaixo em segundos.')
-        setSelecionadas([])
-        setMidias([])
+        limparFormulario()
         router.refresh()
       } catch (causa) {
         setErro(causa instanceof Error ? causa.message : 'Não foi possível publicar.')
@@ -439,10 +458,10 @@ export function PublicadorRedes({
             </label>
           </div>
 
-          {precisaMidia && (
+          {precisaMidia && comecou && (
             <p className="text-sm text-destructive">
               {spec.rotulo} exige {spec.midia === 'video' ? 'um vídeo' : spec.midia === 'imagem' ? 'uma imagem' : 'uma imagem ou vídeo'}.
-              Informe a URL acima.
+              Escolha um arquivo da Biblioteca ou cole uma URL.
             </p>
           )}
           {achados.length > 0 && (
