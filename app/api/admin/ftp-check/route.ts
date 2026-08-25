@@ -60,10 +60,11 @@ export async function GET() {
   }
 
   const nomeTemp = `.cvrj-diagnostico-${Date.now()}.txt`
+  let raiz = ''
 
   try {
     await withFtp(async (client) => {
-      const raiz = await client.pwd()
+      raiz = await client.pwd()
       probes.push({ etapa: 'pasta ao entrar', ok: true, detalhe: raiz })
 
       const itens = await client.list()
@@ -93,5 +94,18 @@ export async function GET() {
     return NextResponse.json({ ok: false, conectado, probes }, { status: 502 })
   }
 
-  return NextResponse.json({ ok: probes.every((p) => p.ok), conectado, probes })
+  // As tentativas de conexão descartadas não contam como falha: sondar do modo
+  // mais seguro para o menos seguro é o desenho, e a primeira reprovar é o
+  // resultado esperado enquanto FTP_HOST for um IP.
+  const falhou = probes.some((p) => !p.ok && !p.etapa.startsWith('conexão ('))
+
+  return NextResponse.json({
+    ok: !falhou,
+    conectado,
+    pastaEsperada: config.baseDir,
+    aviso: raiz === '/' && config.baseDir === '/'
+      ? 'A conta de FTP está na raiz do site, com permissão de escrita sobre o index.html mantido pela outra equipe. Aponte FTP_BASE_DIR para /noticias e, quando puder, recrie a conta limitada a /public_html/noticias.'
+      : null,
+    probes,
+  })
 }

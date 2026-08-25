@@ -33,6 +33,7 @@ import { EmojiPicker } from '@/components/app/emoji-picker'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
+import { PublicadorRedes, type PublicacaoRegistro } from '@/components/app/publicador-redes'
 
 const mediaKinds = [
   { kind: 'image' as const, icon: ImageIcon, label: 'Imagem', accept: 'image/jpeg,image/png,image/webp,image/gif' },
@@ -46,11 +47,13 @@ export function ContentEditor({
   responsible,
   comments,
   canSubmit = false,
+  publicacoes = [],
 }: {
   content: ContentPiece
   pauta?: Pauta
   responsible?: Person
   canSubmit?: boolean
+  publicacoes?: PublicacaoRegistro[]
   comments?: Array<{
     id: string
     text: string
@@ -59,6 +62,9 @@ export function ContentEditor({
   }>
 }) {
   const router = useRouter()
+  // Rascunhos de demonstração não têm id no banco: não há o que publicar,
+  // nem onde registrar o envio.
+  const isPersisted = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(content.id)
   const [title, setTitle] = useState(content.title ?? '')
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
   const [body, setBody] = useState(content.body ?? '')
@@ -385,6 +391,16 @@ export function ContentEditor({
                 ))}
               </div>
             )}
+
+            {isPersisted && (
+              <div className="mt-6 border-t border-border pt-6">
+                <PublicadorRedes
+                  contentId={content.id}
+                  textoInicial={[title, subtitle].filter(Boolean).join('\n\n')}
+                  publicacoes={publicacoes}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -427,7 +443,7 @@ export function ContentEditor({
                 </li>
               ))}
             </ul>
-            {/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(content.id) && (
+            {isPersisted && (
               <form action={addContentComment} className="mt-4 flex gap-2">
                 <input type="hidden" name="contentId" value={content.id} />
                 <input
