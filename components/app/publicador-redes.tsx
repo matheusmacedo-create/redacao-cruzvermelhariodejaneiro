@@ -253,7 +253,8 @@ export function PublicadorRedes({
 
     iniciarEnvio(async () => {
       try {
-        await enviarPostParaAprovacao(form)
+        const resposta = await enviarPostParaAprovacao(form)
+        if (resposta?.erro) { setErro(resposta.erro); return }
         setAviso('Enviado para aprovação. Aparece na tela de Aprovações de quem você marcou.')
         setSelecionadas([]); setMidias([]); setAprovadores([]); setPedindoAprovacao(false)
         router.refresh()
@@ -269,7 +270,8 @@ export function PublicadorRedes({
 
     iniciarEnvio(async () => {
       try {
-        await publicarNasRedes(form)
+        const resposta = await publicarNasRedes(form)
+        if (resposta?.erro) { setErro(resposta.erro); return }
         setAviso(agendarPara ? 'Publicação agendada.' : 'Enviado. O resultado por rede aparece abaixo em segundos.')
         setSelecionadas([])
         setMidias([])
@@ -1118,7 +1120,11 @@ function Rascunho({ rascunho }: { rascunho: RascunhoRegistro }) {
     const form = new FormData()
     form.set('rascunhoId', rascunho.id)
     iniciar(async () => {
-      try { await publicarRascunho(form); router.refresh() }
+      try {
+        const resposta = await publicarRascunho(form)
+        if (resposta?.erro) { setErro(resposta.erro); return }
+        router.refresh()
+      }
       catch (causa) { setErro(causa instanceof Error ? causa.message : 'Não foi possível publicar.') }
     })
   }
