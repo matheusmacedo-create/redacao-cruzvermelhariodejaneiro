@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmojiPicker } from '@/components/app/emoji-picker'
 import { publicarNasRedes, atualizarStatusPublicacao } from '@/app/actions/redes'
 import { upload } from '@vercel/blob/client'
+import { caminhoDaBiblioteca } from '@/lib/storage'
 import { conferir, tambemAceitam, type Achado, type Midia } from '@/lib/publicacao/requisitos'
 
 /** Espelha FORMATOS do cliente da API. Mantido aqui porque este arquivo roda no
@@ -83,6 +84,7 @@ export function PublicadorRedes({
   publicacoes = [],
   podeConectar = false,
   perfil = 'cruzvermelhabrasileirj',
+  workspaceId,
 }: {
   contentId?: string
   textoInicial: string
@@ -90,6 +92,8 @@ export function PublicadorRedes({
   publicacoes?: PublicacaoRegistro[]
   podeConectar?: boolean
   perfil?: string
+  /** Necessário para montar o caminho do arquivo no armazenamento. */
+  workspaceId: string
 }) {
   const router = useRouter()
   const [enviando, iniciarEnvio] = useTransition()
@@ -357,6 +361,7 @@ export function PublicadorRedes({
             {spec.midia !== 'nenhuma' && (
               <div className="sm:col-span-2">
                 <SeletorDeMidia
+                  workspaceId={workspaceId}
                   formato={formato}
                   arquivo={arquivo}
                   onEscolher={(a) => { setArquivo(a); setMidiaUrl('') }}
@@ -630,8 +635,9 @@ function RegistroDeEnvio({ publicacao }: { publicacao: PublicacaoRegistro }) {
  * dentro do espaço, com autoria registrada.
  */
 function SeletorDeMidia({
-  formato, arquivo, onEscolher, midiaUrl, onUrl,
+  workspaceId, formato, arquivo, onEscolher, midiaUrl, onUrl,
 }: {
+  workspaceId: string
   formato: Formato
   arquivo: ArquivoDaBiblioteca | null
   onEscolher: (a: ArquivoDaBiblioteca | null) => void
@@ -666,7 +672,9 @@ function SeletorDeMidia({
     try {
       // Direto do navegador para o Blob: um Reels de 40 MB não passaria pela
       // função serverless, que corta o corpo da requisição em 4,5 MB.
-      const blob = await upload(file.name, file, {
+      // O caminho vai daqui: o servidor não consegue trocá-lo ao emitir a
+      // permissão, só conferir se pertence a este espaço — e ele confere.
+      const blob = await upload(caminhoDaBiblioteca(workspaceId, file.name), file, {
         // Privado como o resto da Biblioteca: o arquivo é servido por
         // /api/private-blob, que confere a sessão a cada pedido.
         access: 'private',
