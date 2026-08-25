@@ -68,6 +68,30 @@ export const REQUISITOS: Record<string, Partial<Record<string, Requisito>>> = {
   },
 }
 
+/**
+ * Quantas mídias cada rede aceita numa publicação só.
+ *
+ * O que passa disso não é recusado — Threads e X quebram em vários posts
+ * automaticamente — mas quem está publicando precisa saber que vai virar mais
+ * de um post antes de clicar.
+ */
+export const LIMITE_DE_MIDIAS: Record<string, number> = {
+  instagram: 10,
+  threads: 10,
+  facebook: 10,
+  pinterest: 5,
+  x: 4,
+  linkedin: 9,
+  bluesky: 4,
+  google_business: 1,
+}
+
+/** O teto do conjunto marcado é o da rede mais restrita. */
+export function limiteDeMidias(redes: string[]): number {
+  const limites = redes.map((r) => LIMITE_DE_MIDIAS[r]).filter((n): n is number => Boolean(n))
+  return limites.length ? Math.min(...limites) : 10
+}
+
 export type Midia = {
   largura: number
   altura: number
@@ -95,13 +119,19 @@ const segundos = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}min${String(Mat
  * tipicamente corte de imagem. A distinção importa porque um corte às vezes é
  * aceitável e um recusa nunca é.
  */
+const FORMATOS_ROTULO: Record<string, string> = {
+  texto: 'Texto', feed: 'Feed', stories: 'Stories', reels: 'Reels',
+}
+
 export function conferir(params: {
   formato: string
   redes: string[]
   texto: string
   midia?: Midia | null
+  /** Quantas mídias no total; 1 quando não é carrossel. */
+  quantidade?: number
 }): Achado[] {
-  const { formato, redes, texto, midia } = params
+  const { formato, redes, texto, midia, quantidade = 1 } = params
   const achados: Achado[] = []
 
   for (const rede of redes) {
@@ -109,6 +139,21 @@ export function conferir(params: {
     if (!req) {
       achados.push({ rede, nivel: 'erro', mensagem: `não publica neste formato` })
       continue
+    }
+
+    if (quantidade > 1) {
+      const teto = LIMITE_DE_MIDIAS[rede]
+      if (teto === 1) {
+        achados.push({ rede, nivel: 'erro', mensagem: `não aceita carrossel; publica uma mídia por vez` })
+      } else if (teto && quantidade > teto) {
+        achados.push({
+          rede, nivel: 'aviso',
+          mensagem: `${quantidade} mídias passam do limite de ${teto} — vira mais de um post`,
+        })
+      }
+      if (formato === 'stories' || formato === 'reels') {
+        achados.push({ rede, nivel: 'erro', mensagem: `${FORMATOS_ROTULO[formato] ?? formato} não aceita carrossel` })
+      }
     }
 
     if (req.caracteres && texto.length > req.caracteres) {
@@ -166,11 +211,12 @@ export function tambemAceitam(params: {
   conectadas: string[]
   texto: string
   midia?: Midia | null
+  quantidade?: number
 }): string[] {
-  const { formato, jaMarcadas, conectadas, texto, midia } = params
+  const { formato, jaMarcadas, conectadas, texto, midia, quantidade = 1 } = params
   return conectadas
     .filter((rede) => !jaMarcadas.includes(rede) && REQUISITOS[rede]?.[formato])
-    .filter((rede) => conferir({ formato, redes: [rede], texto, midia }).every((a) => a.nivel !== 'erro'))
+    .filter((rede) => conferir({ formato, redes: [rede], texto, midia, quantidade }).every((a) => a.nivel !== 'erro'))
 }
 
 export type Enquadramento = {
