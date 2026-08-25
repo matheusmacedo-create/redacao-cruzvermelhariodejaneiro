@@ -393,11 +393,18 @@ export async function publicarRascunho(formData: FormData) {
 
   const { data: rascunho } = await supabase
     .from('social_publications')
-    .select('id,content_id,networks,body,link_url,image_url,file_ids,format,scheduled_for,status')
+    .select('id,content_id,networks,body,link_url,image_url,file_ids,format,scheduled_for,status,created_by')
     .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
 
   if (!rascunho) throw new Error('Rascunho não encontrado.')
   if (rascunho.status !== 'draft') throw new Error('Este post já foi enviado.')
+
+  // Quem montou o post é quem publica. A aprovação diz que o conteúdo pode
+  // sair; não diz que qualquer pessoa do espaço pode ser quem o solta em nome
+  // da instituição, nem em que momento.
+  if (rascunho.created_by !== context.user.id && context.role !== 'admin') {
+    throw new Error('Só quem criou este post, ou um administrador, pode publicá-lo.')
+  }
 
   if (rascunho.content_id) {
     const { data: aprovacao } = await supabase
