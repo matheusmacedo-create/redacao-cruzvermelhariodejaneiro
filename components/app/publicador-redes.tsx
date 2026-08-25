@@ -14,7 +14,7 @@ import { EmojiPicker } from '@/components/app/emoji-picker'
 import { publicarNasRedes, atualizarStatusPublicacao, enviarPostParaAprovacao, publicarRascunho } from '@/app/actions/redes'
 import { upload } from '@vercel/blob/client'
 import { caminhoDaBiblioteca } from '@/lib/storage'
-import { conferir, tambemAceitam, type Achado, type Midia } from '@/lib/publicacao/requisitos'
+import { conferir, tambemAceitam, enquadrar, proporcaoEmTexto, type Achado, type Midia } from '@/lib/publicacao/requisitos'
 
 /** Espelha FORMATOS do cliente da API. Mantido aqui porque este arquivo roda no
  * navegador e não pode importar código marcado com 'server-only'. */
@@ -557,7 +557,15 @@ export function PublicadorRedes({
       </Card>
 
       <div className="space-y-5">
-        <Previa formato={formato} corpo={corpo} midiaUrl={previaUrl} eVideo={midiaEhVideo} midia={midia} perfil={perfil} />
+        <Previa
+          formato={formato}
+          corpo={corpo}
+          midiaUrl={previaUrl}
+          eVideo={midiaEhVideo}
+          midia={midia}
+          perfil={perfil}
+          redes={selecionadas}
+        />
         {rascunhos.length > 0 && (
           <Card>
             <CardHeader className="pb-3">
@@ -598,18 +606,47 @@ function Alerta({ children }: { children: React.ReactNode }) {
  * legenda ficou grande demais? O Stories aparece em 9:16 justamente porque é
  * onde o enquadramento errado mais estraga.
  */
-function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil }: {
-  formato: Formato; corpo: string; midiaUrl: string; eVideo: boolean; midia: Midia | null; perfil: string
+function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil, redes }: {
+  formato: Formato
+  corpo: string
+  midiaUrl: string
+  eVideo: boolean
+  midia: Midia | null
+  perfil: string
+  redes: string[]
 }) {
-  const vertical = formato === 'stories' || formato === 'reels'
-  const video = eVideo
+  // A prévia é de uma rede por vez, como no Business Suite: cada uma recorta
+  // diferente, e uma prévia "média" não seria verdadeira para nenhuma.
+  const [rede, setRede] = useState<string>(redes[0] ?? 'instagram')
+  const atual = redes.includes(rede) ? rede : (redes[0] ?? 'instagram')
+
+  const { proporcao, corta } = enquadrar(formato, atual, midia)
+  const vertical = proporcao < 0.9
 
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Prévia</CardTitle>
-        <CardDescription className="text-xs">Aproximada — cada rede tem seu recorte.</CardDescription>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm">Prévia</CardTitle>
+          {redes.length > 1 && (
+            <select
+              value={atual}
+              onChange={(e) => setRede(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
+              aria-label="Rede da prévia"
+            >
+              {redes.map((r) => <option key={r} value={r}>{REDES[r]?.nome ?? r}</option>)}
+            </select>
+          )}
+        </div>
+        <CardDescription className="text-xs">
+          {midia
+            ? <>{midia.largura}×{midia.altura} · {proporcaoEmTexto(midia.largura / midia.altura)}
+                {midia.duracao ? ` · ${Math.round(midia.duracao)}s` : ''}</>
+            : 'Escolha a mídia para ver o enquadramento.'}
+        </CardDescription>
       </CardHeader>
+
       <CardContent>
         <div className="mx-auto w-full max-w-[260px] overflow-hidden rounded-xl border border-border bg-card">
           <div className="flex items-center gap-2 p-2.5">
@@ -619,23 +656,23 @@ function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil }: {
             <span className="truncate text-xs font-semibold">{perfil}</span>
           </div>
 
-          <div className={`relative bg-muted ${vertical ? 'aspect-[9/16]' : 'aspect-square'}`}>
-            {midiaUrl && !video && (
+          {/* A proporção vem da mídia quando a rede aceita, e da rede quando ela
+              vai recortar — então o quadro mostra o que a pessoa vai ver lá. */}
+          <div className="relative bg-muted" style={{ aspectRatio: String(proporcao) }}>
+            {midiaUrl && !eVideo && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={midiaUrl} alt="" className="size-full object-cover" />
             )}
-            {midiaUrl && video && (
+            {midiaUrl && eVideo && (
               <div className="flex size-full items-center justify-center bg-foreground/90">
                 <Play className="size-8 text-background" />
               </div>
             )}
             {!midiaUrl && (
               <div className="flex size-full flex-col items-center justify-center gap-1 text-muted-foreground">
-                {formato === 'texto'
-                  ? <TypeIcon className="size-6" />
-                  : <ImageIcon className="size-6" />}
+                {formato === 'texto' ? <TypeIcon className="size-6" /> : <ImageIcon className="size-6" />}
                 <span className="px-4 text-center text-[10px]">
-                  {formato === 'texto' ? 'post sem mídia' : 'cole a URL da mídia'}
+                  {formato === 'texto' ? 'post sem mídia' : 'escolha a mídia'}
                 </span>
               </div>
             )}
@@ -646,7 +683,7 @@ function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil }: {
             )}
           </div>
 
-          {!vertical && (
+          {formato !== 'stories' && formato !== 'reels' && (
             <div className="space-y-1.5 p-2.5">
               <div className="flex gap-3 text-muted-foreground">
                 <Heart className="size-3.5" />
@@ -662,6 +699,17 @@ function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil }: {
             <p className="p-2.5 text-[10px] text-muted-foreground">Stories não exibe legenda · some em 24h</p>
           )}
         </div>
+
+        {corta && midia && (
+          <p className="mt-2 text-center text-[11px] text-amber-600 dark:text-amber-500">
+            O {REDES[atual]?.nome ?? atual} vai recortar para {proporcaoEmTexto(proporcao)}.
+          </p>
+        )}
+        {!corta && midia && (
+          <p className="mt-2 text-center text-[11px] text-muted-foreground">
+            Sai inteira, em {proporcaoEmTexto(proporcao)}.
+          </p>
+        )}
       </CardContent>
     </Card>
   )
