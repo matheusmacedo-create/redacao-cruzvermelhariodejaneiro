@@ -17,6 +17,7 @@ import {
   type Formato,
   type RespostaDeEnvio,
 } from '@/lib/publicacao/upload-post'
+import { limiteDeMidias } from '@/lib/publicacao/requisitos'
 
 const texto = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
@@ -93,6 +94,12 @@ function resumirResultados(resposta: RespostaDeEnvio) {
  * folgado na função serverless. Vale conferir o vínculo com o espaço aqui
  * também: o id vem do formulário, e formulário é do navegador.
  */
+async function carregarArquivos(fileIds: string[], workspaceId: string) {
+  const carregados = []
+  for (const id of fileIds) carregados.push(await carregarArquivo(id, workspaceId))
+  return carregados
+}
+
 async function carregarArquivo(fileId: string, workspaceId: string) {
   const supabase = await createClient()
   const { data: arquivo } = await supabase
@@ -134,7 +141,7 @@ type Post = {
   corpo: string
   linkUrl: string
   midiaUrl: string
-  fileId: string
+  fileIds: string[]
   quando?: string
 }
 
@@ -160,16 +167,24 @@ async function entregar(registroId: string, post: Post, workspaceId: string) {
   }
 
   try {
-    const daBiblioteca = post.fileId ? await carregarArquivo(post.fileId, workspaceId) : null
-    const midia = daBiblioteca?.blob ?? post.midiaUrl
-    const eVideo = daBiblioteca
-      ? daBiblioteca.contentType.startsWith('video/')
+    const daBiblioteca = post.fileIds.length
+      ? await carregarArquivos(post.fileIds, workspaceId)
+      : []
+
+    // Vídeo é sempre um só: carrossel de vídeo não existe nas redes que
+    // atendemos, e a primeira mídia é quem decide o endpoint.
+    const eVideo = daBiblioteca.length
+      ? daBiblioteca[0].contentType.startsWith('video/')
       : ehVideo(post.formato, post.midiaUrl)
 
+    const fotos: (string | Blob)[] = daBiblioteca.length
+      ? daBiblioteca.map((a) => a.blob)
+      : post.midiaUrl ? [post.midiaUrl] : []
+
     const { dados } = eVideo
-      ? await publicarVideo({ ...comum, video: midia })
-      : midia
-        ? await publicarFotos({ ...comum, fotos: [midia] })
+      ? await publicarVideo({ ...comum, video: fotos[0] })
+      : fotos.length
+        ? await publicarFotos({ ...comum, fotos })
         : await publicarTexto(comum)
 
     await supabase.from('social_publications').update({
@@ -201,15 +216,23 @@ async function lerPost(formData: FormData, workspaceId: string): Promise<Post & 
   const corpo = texto(formData, 'corpo')
   const linkUrl = texto(formData, 'linkUrl')
   const midiaUrl = texto(formData, 'midiaUrl')
-  const fileId = texto(formData, 'fileId')
+  const fileIds = formData.getAll('fileIds').map((v) => String(v)).filter(Boolean)
   const agendarPara = texto(formData, 'agendarPara')
 
   const bruto = texto(formData, 'formato') || 'texto'
   if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
   const formato = bruto as Formato
 
-  validar(formato, redes, corpo, midiaUrl || (fileId ? 'biblioteca' : ''))
-  if (midiaUrl && fileId) throw new Error('Escolha um arquivo da Biblioteca ou informe uma URL, não os dois.')
+  validar(formato, redes, corpo, midiaUrl || (fileIds.length ? 'biblioteca' : ''))
+  if (midiaUrl && fileIds.length) throw new Error('Escolha arquivos da Biblioteca ou informe uma URL, não os dois.')
+
+  if (fileIds.length > 1) {
+    if (formato === 'stories' || formato === 'reels') {
+      throw new Error(`${FORMATOS[formato].rotulo} aceita uma mídia só.`)
+    }
+    const teto = limiteDeMidias(redes)
+    if (teto === 1) throw new Error('Uma das redes marcadas não aceita carrossel.')
+  }
 
   let quando: string | undefined
   if (agendarPara) {
@@ -226,7 +249,7 @@ async function lerPost(formData: FormData, workspaceId: string): Promise<Post & 
     if (!peca) throw new Error('Conteúdo não encontrado neste espaço.')
   }
 
-  return { formato, redes, corpo, linkUrl, midiaUrl, fileId, quando, contentId }
+  return { formato, redes, corpo, linkUrl, midiaUrl, fileIds, quando, contentId }
 }
 
 export async function publicarNasRedes(formData: FormData) {
@@ -246,7 +269,7 @@ export async function publicarNasRedes(formData: FormData) {
       body: post.corpo,
       link_url: post.linkUrl || null,
       image_url: post.midiaUrl || null,
-      file_id: post.fileId || null,
+      file_ids: post.fileIds,
       format: post.formato,
       scheduled_for: post.quando ?? null,
       created_by: context.user.id,
@@ -331,7 +354,7 @@ export async function enviarPostParaAprovacao(formData: FormData) {
       body: post.corpo,
       link_url: post.linkUrl || null,
       image_url: post.midiaUrl || null,
-      file_id: post.fileId || null,
+      file_ids: post.fileIds,
       format: post.formato,
       scheduled_for: post.quando ?? null,
       created_by: context.user.id,
@@ -370,7 +393,7 @@ export async function publicarRascunho(formData: FormData) {
 
   const { data: rascunho } = await supabase
     .from('social_publications')
-    .select('id,content_id,networks,body,link_url,image_url,file_id,format,scheduled_for,status')
+    .select('id,content_id,networks,body,link_url,image_url,file_ids,format,scheduled_for,status')
     .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
 
   if (!rascunho) throw new Error('Rascunho não encontrado.')
@@ -400,7 +423,7 @@ export async function publicarRascunho(formData: FormData) {
     corpo: rascunho.body ?? '',
     linkUrl: rascunho.link_url ?? '',
     midiaUrl: rascunho.image_url ?? '',
-    fileId: rascunho.file_id ?? '',
+    fileIds: rascunho.file_ids ?? [],
     quando: agendado,
   }, context.workspace.id)
 

@@ -28,7 +28,7 @@ export default async function RedesPage() {
   // Rascunhos parados na fila de aprovação, com o estado da votação ao lado.
   const { data: draftRows } = await supabase
     .from('social_publications')
-    .select('id,networks,body,format,created_at,content_id')
+    .select('id,networks,body,format,created_at,content_id,file_ids')
     .eq('workspace_id', context.workspace.id)
     .eq('status', 'draft')
     .order('created_at', { ascending: false })
