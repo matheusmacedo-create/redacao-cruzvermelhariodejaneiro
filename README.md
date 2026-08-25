@@ -8,6 +8,12 @@ This repository is linked to a [v0](https://v0.app) project. You can continue de
 
 [Continue working on v0 →](https://v0.app/chat/projects/prj_azjMa3KcVyvOD7eNt8NCJyvb5QV4)
 
+## Como o projeto funciona
+
+[**ARQUITETURA.md**](./ARQUITETURA.md) explica o sistema inteiro: fluxos, banco,
+integrações, convenções e as armadilhas que já custaram produção. É a leitura de
+entrada para quem — pessoa ou agente — vai mexer no código.
+
 ## Configuração
 
 O app depende de um projeto Supabase (Postgres + Auth) e do Vercel Blob para
@@ -30,7 +36,7 @@ pnpm dev
 
 ### Banco de dados
 
-O schema vive em `supabase/migrations/` — 18 tabelas, RLS em todas elas e três
+O schema vive em `supabase/migrations/` — 19 tabelas, RLS em todas elas e três
 funções (`submit_pauta_for_approval`, `submit_content_for_approval`,
 `vote_on_approval`) que as server actions chamam via `supabase.rpc`.
 
