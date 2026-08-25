@@ -74,7 +74,11 @@ create policy social_publications_update_member on public.social_publications
   with check ((select private.is_workspace_member(workspace_id)));
 
 create or replace function public.touch_social_publications()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+-- search_path vazio: função com search_path mutável é vetor de sequestro de
+-- nome de objeto, e o advisor do Supabase sinaliza por isso.
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
