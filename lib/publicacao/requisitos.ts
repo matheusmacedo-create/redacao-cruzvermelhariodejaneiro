@@ -172,3 +172,54 @@ export function tambemAceitam(params: {
     .filter((rede) => !jaMarcadas.includes(rede) && REQUISITOS[rede]?.[formato])
     .filter((rede) => conferir({ formato, redes: [rede], texto, midia }).every((a) => a.nivel !== 'erro'))
 }
+
+export type Enquadramento = {
+  /** largura ÷ altura com que a prévia deve ser desenhada */
+  proporcao: number
+  /** true quando a rede vai cortar, porque a mídia está fora da faixa aceita */
+  corta: boolean
+}
+
+/**
+ * Com que proporção a prévia deve aparecer.
+ *
+ * O Instagram não força tudo em 1:1: entre 4:5 e 1.91:1 ele publica na
+ * proporção original. Desenhar sempre quadrado mostraria um corte que não vai
+ * acontecer — e esconderia o corte quando ele acontece de verdade.
+ *
+ * Dentro da faixa aceita, a prévia usa a proporção da própria mídia. Fora dela,
+ * usa a proporção ideal da rede, que é exatamente o recorte que o post vai
+ * sofrer.
+ */
+export function enquadrar(formato: string, rede: string, midia?: Midia | null): Enquadramento {
+  const req = REQUISITOS[rede]?.[formato]
+  const ideal = req?.proporcao.ideal ?? 1
+
+  if (!midia || !midia.largura || !midia.altura) return { proporcao: ideal, corta: false }
+
+  const proporcao = midia.largura / midia.altura
+  if (!req) return { proporcao, corta: false }
+
+  const dentro = proporcao >= req.proporcao.min && proporcao <= req.proporcao.max
+  if (dentro) return { proporcao, corta: false }
+
+  // Stories e Reels têm tela fixa: seja o que for que entre, sai em 9:16.
+  if (formato === 'stories' || formato === 'reels') return { proporcao: ideal, corta: true }
+
+  // No feed a tela é elástica, então o corte para na borda mais próxima da
+  // faixa aceita — uma foto 9:16 vira 4:5, não 1:1.
+  const limite = proporcao < req.proporcao.min ? req.proporcao.min : req.proporcao.max
+  return { proporcao: limite, corta: true }
+}
+
+/** "4:5", "1:1", "16:9" — a leitura que as pessoas usam, não o número cru. */
+export function proporcaoEmTexto(proporcao: number): string {
+  const conhecidas: Array<[number, string]> = [
+    [1, '1:1'], [4 / 5, '4:5'], [9 / 16, '9:16'], [16 / 9, '16:9'],
+    [1.91, '1.91:1'], [2 / 3, '2:3'], [3 / 4, '3:4'], [3 / 2, '3:2'],
+  ]
+  for (const [valor, rotulo] of conhecidas) {
+    if (Math.abs(proporcao - valor) < 0.02) return rotulo
+  }
+  return proporcao > 1 ? `${proporcao.toFixed(2)}:1` : `1:${(1 / proporcao).toFixed(2)}`
+}
