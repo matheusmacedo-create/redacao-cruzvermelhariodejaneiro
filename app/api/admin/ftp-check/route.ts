@@ -61,6 +61,9 @@ export async function GET() {
 
   const nomeTemp = `cvrj-diagnostico-${Date.now()}.txt`
   let raiz = ''
+  // Marcas de que a conta caiu na raiz do site em vez da pasta de notícias.
+  let naRaizDoSite = false
+  let servidaNaWeb: boolean | null = null
 
   try {
     await withFtp(async (client) => {
@@ -68,6 +71,10 @@ export async function GET() {
       probes.push({ etapa: 'pasta ao entrar', ok: true, detalhe: raiz })
 
       const itens = await client.list()
+      // O aviso não pode sair de um palpite sobre o caminho: ele sai do que
+      // está de fato na pasta. Encontrar o index.html do site significa que a
+      // conta enxerga as páginas da outra equipe.
+      naRaizDoSite = itens.some((item) => /^(index|default)\.(html?|php)$/i.test(item.name))
       probes.push({
         etapa: 'listagem',
         ok: true,
@@ -95,6 +102,7 @@ export async function GET() {
         const publica = `${base.replace(/\/$/, '')}/${nomeTemp}`
         try {
           const resposta = await fetch(publica, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+          servidaNaWeb = resposta.ok
           probes.push({
             etapa: 'conferir pela web',
             ok: resposta.ok,
@@ -133,9 +141,16 @@ export async function GET() {
     ok: !falhou,
     conectado,
     pastaEsperada: config.baseDir,
-    aviso: raiz === '/' && config.baseDir === '/'
-      ? 'A conta de FTP está na raiz do site, com permissão de escrita sobre o index.html mantido pela outra equipe. Aponte FTP_BASE_DIR para /noticias e, quando puder, recrie a conta limitada a /public_html/noticias.'
-      : null,
+    aviso: naRaizDoSite
+      ? 'A conta de FTP enxerga o index.html do site, ou seja, está na raiz e'
+        + ' pode sobrescrever as páginas mantidas pela outra equipe. Recrie a'
+        + ' conta limitada a /public_html/noticias.'
+      : servidaNaWeb === false
+        ? 'A gravação funciona, mas o arquivo não aparece no endereço público.'
+          + ' A pasta da conta de FTP existe fora de public_html — provavelmente'
+          + ' foi criada como irmã dela, e nada que estiver ali é servido na web.'
+          + ' Recrie a conta com o diretório /public_html/noticias.'
+        : null,
     probes,
   })
 }
