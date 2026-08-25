@@ -19,6 +19,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
         content={legacyContent}
         pauta={getPauta(legacyContent.pautaId)}
         responsible={getPerson(legacyContent.responsibleId)}
+        workspaceId={context.workspace.id}
       />
     )
   }
@@ -112,6 +113,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
       comments={comments}
       canSubmit={canSubmit}
       publicacoes={publicacoes}
+      workspaceId={context.workspace.id}
     />
   )
 }

@@ -48,12 +48,14 @@ export function ContentEditor({
   comments,
   canSubmit = false,
   publicacoes = [],
+  workspaceId,
 }: {
   content: ContentPiece
   pauta?: Pauta
   responsible?: Person
   canSubmit?: boolean
   publicacoes?: PublicacaoRegistro[]
+  workspaceId: string
   comments?: Array<{
     id: string
     text: string
@@ -395,6 +397,7 @@ export function ContentEditor({
             {isPersisted && (
               <div className="mt-6 border-t border-border pt-6">
                 <PublicadorRedes
+                  workspaceId={workspaceId}
                   contentId={content.id}
                   textoInicial={[title, subtitle].filter(Boolean).join('\n\n')}
                   publicacoes={publicacoes}

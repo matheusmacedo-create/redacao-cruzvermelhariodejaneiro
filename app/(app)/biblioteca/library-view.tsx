@@ -2,6 +2,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { upload as uploadToBlob } from '@vercel/blob/client'
+import { caminhoDaBiblioteca } from '@/lib/storage'
 import { CheckCircle2, Download, FileText, Folder, ImageIcon, Music, Search, Trash2, UploadCloud, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -16,7 +17,7 @@ const FOLDER_PREFIX = 'pasta:'
 const folderOf = (tags: string[]) => tags.find((t) => t.startsWith(FOLDER_PREFIX))?.slice(FOLDER_PREFIX.length) || null
 const visibleTags = (tags: string[]) => tags.filter((t) => !t.startsWith(FOLDER_PREFIX))
 
-export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFiles: Item[]; usedBytes: number; limitBytes: number }) {
+export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }: { initialFiles: Item[]; usedBytes: number; limitBytes: number; workspaceId: string }) {
   const router = useRouter()
   const input = useRef<HTMLInputElement>(null)
   const [kind, setKind] = useState('todos')
@@ -50,7 +51,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
     try {
       // O arquivo vai direto do navegador para o armazenamento. Passar pela
       // função serverless limitaria tudo a 4,5 MB — vídeo nenhum caberia.
-      const blob = await uploadToBlob(file.name, file, {
+      const blob = await uploadToBlob(caminhoDaBiblioteca(workspaceId, file.name), file, {
         access: 'private',
         handleUploadUrl: '/api/files/upload-token',
         clientPayload: String(file.size),

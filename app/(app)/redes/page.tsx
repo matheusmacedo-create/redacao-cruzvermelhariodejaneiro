@@ -43,7 +43,7 @@ export default async function RedesPage() {
         title="Redes Sociais"
         description="Escreva um post e envie para as contas oficiais da Cruz Vermelha. Para publicar uma matéria já escrita, use o painel dentro do próprio conteúdo."
       />
-      <PublicadorRedes textoInicial="" publicacoes={publicacoes} podeConectar={context.role === 'admin'} />
+      <PublicadorRedes textoInicial="" publicacoes={publicacoes} podeConectar={context.role === 'admin'} workspaceId={context.workspace.id} />
     </div>
   )
 }

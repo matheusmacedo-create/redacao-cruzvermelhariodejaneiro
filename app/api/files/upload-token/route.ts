@@ -2,7 +2,7 @@ import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { NextResponse } from 'next/server'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
-import { LIBRARY_FILE_LIMIT, LIBRARY_MIME_TYPES, WORKSPACE_STORAGE_LIMIT, safeExtension } from '@/lib/storage'
+import { LIBRARY_FILE_LIMIT, LIBRARY_MIME_TYPES, WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -26,6 +26,18 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
+        // O caminho vem do navegador e NÃO pode ser trocado aqui: o retorno
+        // desta função só aceita allowedContentTypes, maximumSizeInBytes,
+        // validUntil, addRandomSuffix, allowOverwrite, cacheControlMaxAge e
+        // ifMatch. Devolver "pathname" era ignorado em silêncio.
+        //
+        // Então o gate é este: recusar o envio quando o caminho pedido não
+        // pertence a este espaço. Sem isto, um cliente gravaria onde quisesse.
+        const prefixo = `workspaces/${context.workspace.id}/library/`
+        if (!pathname.startsWith(prefixo) || pathname.includes('..')) {
+          throw new Error('Caminho de destino inválido para este espaço.')
+        }
+
         const declarado = Number(clientPayload ?? 0)
         if (!declarado || declarado > LIBRARY_FILE_LIMIT) {
           throw new Error(`O arquivo deve ter no máximo ${Math.round(LIBRARY_FILE_LIMIT / 1024 / 1024)} MB.`)
@@ -45,9 +57,8 @@ export async function POST(request: Request) {
         return {
           allowedContentTypes: [...LIBRARY_MIME_TYPES],
           maximumSizeInBytes: LIBRARY_FILE_LIMIT,
-          // O caminho é fixado aqui, não pelo navegador: sem isso um cliente
-          // poderia gravar dentro da pasta de outro espaço.
-          pathname: `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}${safeExtension(pathname)}`,
+          // O nome já carrega um identificador único vindo do cliente; sufixo
+          // aleatório em cima disso só deixaria o caminho ilegível.
           addRandomSuffix: false,
           tokenPayload: JSON.stringify({ workspaceId: context.workspace.id, userId: context.user.id }),
         }

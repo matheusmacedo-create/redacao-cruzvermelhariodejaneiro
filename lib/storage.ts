@@ -36,3 +36,15 @@ export function fileKind(contentType: string) {
   if (contentType.startsWith('audio/')) return 'audio'
   return 'documento'
 }
+
+/**
+ * Monta o caminho de um arquivo da Biblioteca.
+ *
+ * Vive aqui porque quem chama é o navegador — o SDK do Blob não deixa o
+ * servidor escolher o caminho no momento de emitir a permissão, só aceitar ou
+ * recusar o que foi pedido. A conferência de que o caminho pertence ao espaço
+ * acontece em /api/files/upload-token e de novo em /api/files/register.
+ */
+export function caminhoDaBiblioteca(workspaceId: string, nomeOriginal: string) {
+  return `workspaces/${workspaceId}/library/${crypto.randomUUID()}${safeExtension(nomeOriginal)}`
+}
