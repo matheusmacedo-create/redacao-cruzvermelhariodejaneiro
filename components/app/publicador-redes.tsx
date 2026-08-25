@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ExternalLink, Heart, Loader2, MessageCircle, Play, RefreshCw,
   Send, Share2, TriangleAlert, Image as ImageIcon, Film, Type as TypeIcon, Layers,
-  Upload, X as XIcon, Check,
+  Upload, X as XIcon, Check, ShieldCheck, Smile,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmojiPicker } from '@/components/app/emoji-picker'
 import { publicarNasRedes, atualizarStatusPublicacao } from '@/app/actions/redes'
+import { upload } from '@vercel/blob/client'
+import { conferir, tambemAceitam, type Achado, type Midia } from '@/lib/publicacao/requisitos'
 
 /** Espelha FORMATOS do cliente da API. Mantido aqui porque este arquivo roda no
  * navegador e não pode importar código marcado com 'server-only'. */
@@ -96,9 +99,25 @@ export function PublicadorRedes({
   const [linkUrl, setLinkUrl] = useState(linkInicial)
   const [midiaUrl, setMidiaUrl] = useState('')
   const [arquivo, setArquivo] = useState<ArquivoDaBiblioteca | null>(null)
+  const [midia, setMidia] = useState<Midia | null>(null)
   const [agendarPara, setAgendarPara] = useState('')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
+  const [emojiAberto, setEmojiAberto] = useState(false)
+  const areaTexto = useRef<HTMLTextAreaElement>(null)
+
+  // Insere no cursor, não no fim: emoji quase sempre entra no meio da frase.
+  function inserirEmoji(emoji: string) {
+    const area = areaTexto.current
+    const pos = area?.selectionStart ?? corpo.length
+    setCorpo(corpo.slice(0, pos) + emoji + corpo.slice(area?.selectionEnd ?? pos))
+    setEmojiAberto(false)
+    requestAnimationFrame(() => {
+      area?.focus()
+      const destino = pos + emoji.length
+      area?.setSelectionRange(destino, destino)
+    })
+  }
 
   const [conectadas, setConectadas] = useState<string[] | null>(null)
   const [estado, setEstado] = useState<'carregando' | 'ok' | 'sem-chave' | 'indisponivel'>('carregando')
@@ -116,7 +135,49 @@ export function PublicadorRedes({
     return () => { ativo = false }
   }, [])
 
+  const previaUrl = arquivo?.previa || midiaUrl
+  const midiaEhVideo = arquivo ? arquivo.tipo === 'video' : ehVideo(midiaUrl)
+
+  // Medir no navegador é o único jeito de saber as dimensões sem decodificar o
+  // arquivo no servidor. O tamanho vem do registro da Biblioteca quando existe.
+  useEffect(() => {
+    if (!previaUrl) { setMidia(null); return }
+    let ativo = true
+    const tamanho = arquivo?.tamanho
+
+    if (midiaEhVideo) {
+      const v = document.createElement('video')
+      v.preload = 'metadata'
+      v.onloadedmetadata = () => {
+        if (ativo) setMidia({ largura: v.videoWidth, altura: v.videoHeight, duracao: v.duration, tamanho })
+      }
+      v.onerror = () => { if (ativo) setMidia(null) }
+      v.src = previaUrl
+    } else {
+      const img = new Image()
+      img.onload = () => {
+        if (ativo) setMidia({ largura: img.naturalWidth, altura: img.naturalHeight, tamanho })
+      }
+      img.onerror = () => { if (ativo) setMidia(null) }
+      img.src = previaUrl
+    }
+    return () => { ativo = false }
+  }, [previaUrl, midiaEhVideo, arquivo?.tamanho])
+
   const spec = FORMATOS[formato]
+
+  const achados: Achado[] = useMemo(
+    () => (selecionadas.length ? conferir({ formato, redes: selecionadas, texto: corpo, midia }) : []),
+    [formato, selecionadas, corpo, midia],
+  )
+  const temErro = achados.some((a) => a.nivel === 'erro')
+
+  const sugestoes = useMemo(
+    () => (conectadas && selecionadas.length
+      ? tambemAceitam({ formato, jaMarcadas: selecionadas, conectadas, texto: corpo, midia })
+      : []),
+    [formato, selecionadas, conectadas, corpo, midia],
+  )
 
   // Trocar de formato não pode deixar para trás uma rede que o novo não aceita:
   // o envio seria recusado por algo que a tela não mostra mais.
@@ -141,7 +202,7 @@ export function PublicadorRedes({
   const excedeu = limite !== null && corpo.length > limite
   const exigeTexto = formato !== 'stories'
   const bloqueado = enviando || !selecionadas.length || estado !== 'ok'
-    || (exigeTexto && corpo.trim().length < 2) || precisaMidia || excedeu
+    || (exigeTexto && corpo.trim().length < 2) || precisaMidia || excedeu || temErro
 
   function enviar() {
     setErro(''); setAviso('')
@@ -256,7 +317,22 @@ export function PublicadorRedes({
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {formato === 'stories' ? 'Texto (não aparece no Stories)' : 'Legenda'}
             </label>
+            {/* O seletor se posiciona sozinho abaixo do botão (top-11), então o
+                botão precisa vir antes da área de texto, não sobre ela. */}
+            <div className="relative mb-1.5">
+              <button
+                type="button"
+                aria-label="Inserir emoji"
+                aria-expanded={emojiAberto}
+                onClick={() => setEmojiAberto((v) => !v)}
+                className="flex size-8 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Smile className="size-4" />
+              </button>
+              {emojiAberto && <EmojiPicker onSelect={inserirEmoji} onClose={() => setEmojiAberto(false)} />}
+            </div>
             <textarea
+              ref={areaTexto}
               value={corpo}
               onChange={(e) => setCorpo(e.target.value)}
               rows={5}
@@ -314,6 +390,55 @@ export function PublicadorRedes({
               Informe a URL acima.
             </p>
           )}
+          {achados.length > 0 && (
+            <div className="space-y-1.5 rounded-lg border border-border p-3">
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <ShieldCheck className="size-3.5" />
+                Conferência
+              </p>
+              {achados.map((a, i) => (
+                <p key={i} className={`text-xs ${a.nivel === 'erro' ? 'text-destructive' : 'text-amber-600 dark:text-amber-500'}`}>
+                  <span className="font-medium">{REDES[a.rede]?.nome ?? a.rede}</span>
+                  {a.nivel === 'erro' ? ' recusa: ' : ' aceita, mas '}
+                  {a.mensagem}
+                </p>
+              ))}
+              {temErro && (
+                <p className="pt-1 text-xs text-muted-foreground">
+                  Corrija os itens em vermelho ou desmarque essas redes para liberar o envio.
+                </p>
+              )}
+            </div>
+          )}
+
+          {selecionadas.length > 0 && !temErro && achados.length === 0 && midia && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <ShieldCheck className="size-3.5 text-primary" />
+              {midia.largura}×{midia.altura}
+              {midia.duracao ? ` · ${Math.round(midia.duracao)}s` : ''} — tudo dentro do que as redes marcadas aceitam.
+            </p>
+          )}
+
+          {sugestoes.length > 0 && (
+            <div className="rounded-lg border border-dashed border-border p-3">
+              <p className="text-xs text-muted-foreground">
+                Este mesmo post também caberia em:
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {sugestoes.map((rede) => (
+                  <button
+                    key={rede}
+                    type="button"
+                    onClick={() => alternar(rede)}
+                    className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    + {REDES[rede]?.nome ?? rede}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {erro && <p className="text-sm text-destructive">{erro}</p>}
           {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
@@ -332,7 +457,7 @@ export function PublicadorRedes({
       </Card>
 
       <div className="space-y-5">
-        <Previa formato={formato} corpo={corpo} midiaUrl={arquivo?.previa || midiaUrl} eVideo={arquivo ? arquivo.tipo === 'video' : ehVideo(midiaUrl)} perfil={perfil} />
+        <Previa formato={formato} corpo={corpo} midiaUrl={previaUrl} eVideo={midiaEhVideo} midia={midia} perfil={perfil} />
         {publicacoes.length > 0 && (
           <Card>
             <CardHeader><CardTitle className="text-sm">Envios recentes</CardTitle></CardHeader>
@@ -361,8 +486,8 @@ function Alerta({ children }: { children: React.ReactNode }) {
  * legenda ficou grande demais? O Stories aparece em 9:16 justamente porque é
  * onde o enquadramento errado mais estraga.
  */
-function Previa({ formato, corpo, midiaUrl, eVideo, perfil }: {
-  formato: Formato; corpo: string; midiaUrl: string; eVideo: boolean; perfil: string
+function Previa({ formato, corpo, midiaUrl, eVideo, midia, perfil }: {
+  formato: Formato; corpo: string; midiaUrl: string; eVideo: boolean; midia: Midia | null; perfil: string
 }) {
   const vertical = formato === 'stories' || formato === 'reels'
   const video = eVideo
@@ -516,6 +641,7 @@ function SeletorDeMidia({
   const spec = FORMATOS[formato]
   const [arquivos, setArquivos] = useState<ArquivoDaBiblioteca[] | null>(null)
   const [subindo, setSubindo] = useState(false)
+  const [progresso, setProgresso] = useState(0)
   const [erro, setErro] = useState('')
   const [mostrarUrl, setMostrarUrl] = useState(false)
 
@@ -538,19 +664,38 @@ function SeletorDeMidia({
   async function subir(file: File) {
     setErro(''); setSubindo(true)
     try {
-      const form = new FormData()
-      form.set('file', file)
-      const r = await fetch('/api/files/upload', { method: 'POST', body: form })
+      // Direto do navegador para o Blob: um Reels de 40 MB não passaria pela
+      // função serverless, que corta o corpo da requisição em 4,5 MB.
+      const blob = await upload(file.name, file, {
+        // Privado como o resto da Biblioteca: o arquivo é servido por
+        // /api/private-blob, que confere a sessão a cada pedido.
+        access: 'private',
+        handleUploadUrl: '/api/files/upload-token',
+        clientPayload: String(file.size),
+        onUploadProgress: ({ percentage }) => setProgresso(Math.round(percentage)),
+      })
+
+      const r = await fetch('/api/files/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pathname: blob.pathname,
+          name: file.name,
+          // Quem envia por aqui está enviando para publicar; a autorização de
+          // uso de imagem é confirmada no mesmo gesto, não numa tela à parte.
+          authorization: 'authorized',
+        }),
+      })
       const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Não foi possível enviar o arquivo.')
-      await carregar()
-      // Selecionar o recém-enviado poupa um clique e confirma que subiu.
+      if (!r.ok) throw new Error(d.error || 'Não foi possível registrar o arquivo.')
+
       const lista = await fetch('/api/redes/imagens', { cache: 'no-store' }).then((x) => x.json())
+      setArquivos(lista.arquivos ?? [])
       const novo = (lista.arquivos ?? []).find((a: ArquivoDaBiblioteca) => a.id === d.id)
       if (novo) onEscolher(novo)
     } catch (causa) {
       setErro(causa instanceof Error ? causa.message : 'Falha no envio.')
-    } finally { setSubindo(false) }
+    } finally { setSubindo(false); setProgresso(0) }
   }
 
   return (
@@ -580,7 +725,7 @@ function SeletorDeMidia({
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
             <label className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted ${subindo ? 'pointer-events-none opacity-60' : ''}`}>
               {subindo ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              <span className="text-[10px]">{subindo ? 'enviando' : 'enviar'}</span>
+              <span className="text-[10px]">{subindo ? `${progresso}%` : 'enviar'}</span>
               <input
                 type="file"
                 accept={spec.midia === 'video' ? 'video/*' : spec.midia === 'imagem' ? 'image/*' : 'image/*,video/*'}
