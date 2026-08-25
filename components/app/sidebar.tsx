@@ -15,6 +15,7 @@ import {
   Settings,
   UserCircle,
   X,
+  Share2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -31,6 +32,7 @@ const main = [
   { href: '/projetos', label: 'Projetos', icon: FolderKanban },
   { href: '/calendario', label: 'Calendário', icon: CalendarDays },
   { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
+  { href: '/redes', label: 'Redes Sociais', icon: Share2 },
   { href: '/pessoas', label: 'Pessoas', icon: Users },
 ]
 
