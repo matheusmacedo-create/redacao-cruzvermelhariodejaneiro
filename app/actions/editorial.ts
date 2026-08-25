@@ -221,6 +221,47 @@ export async function deletePauta(formData: FormData) {
   redirect('/pautas')
 }
 
+/**
+ * Reescreve a descrição de uma pauta.
+ *
+ * Antes disso a descrição só podia ser escrita uma vez, no formulário de
+ * registro, e nunca mais. Quem lia um "PENDENCIA: preencher a data da proxima
+ * turma" não tinha como preencher a data nem como tirar o recado depois de
+ * resolvido — o aviso ficava na tela para sempre, e um aviso que não sai
+ * ensina todo mundo a ignorar aviso.
+ *
+ * Qualquer pessoa do espaço edita, como já acontece com o status: o briefing é
+ * trabalho de mais de uma cabeça. Quem editou fica no histórico da pauta.
+ */
+export async function atualizarDescricaoDaPauta(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = text(formData, 'id')
+  const descricao = String(formData.get('description') ?? '').trim()
+
+  if (!id) throw new Error('Pauta não informada.')
+  if (descricao.length > 20_000) throw new Error('A descrição passou de 20.000 caracteres.')
+
+  const { data, error } = await supabase
+    .from('pautas')
+    .update({ description: descricao, updated_at: new Date().toISOString() })
+    .eq('id', id).eq('workspace_id', context.workspace.id)
+    .select('id,title')
+    .single()
+  if (error || !data) throw new Error('Pauta não encontrada neste espaço.')
+
+  await supabase.from('activity_log').insert({
+    workspace_id: context.workspace.id,
+    actor_id: context.user.id,
+    action: 'description_updated',
+    entity_type: 'pauta',
+    entity_id: id,
+    metadata: { title: data.title },
+  })
+
+  revalidatePath(`/pautas/${id}`)
+}
+
 export async function updatePautaStatus(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()

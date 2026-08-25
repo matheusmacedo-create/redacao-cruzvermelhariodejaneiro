@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, CircleAlert, Copy, Megaphone } from 'lucide-react'
+import { Check, CircleAlert, Copy, Megaphone, Pencil, X } from 'lucide-react'
 import { lerDescricao } from '@/lib/editorial/descricao-da-pauta'
+import { atualizarDescricaoDaPauta } from '@/app/actions/editorial'
+import { Button } from '@/components/ui/button'
 
 /** Cabeçalho do calendário editorial: semana, pilar, formato. */
 function Ficha({ itens }: { itens: { rotulo: string; valor: string }[] }) {
@@ -40,14 +42,74 @@ function BotaoCopiar({ texto }: { texto: string }) {
   )
 }
 
-export function DescricaoDaPauta({ descricao }: { descricao?: string | null }) {
+export function DescricaoDaPauta({ descricao, pautaId }: { descricao?: string | null; pautaId?: string }) {
   const blocos = lerDescricao(descricao)
+  const original = (descricao ?? '').replace(/\r\n?/g, '\n')
+  const [editando, setEditando] = useState(false)
+  const [rascunho, setRascunho] = useState(original)
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const abrirEdicao = () => { setRascunho(original); setErro(''); setEditando(true) }
+
+  if (editando && pautaId) {
+    return (
+      <form
+        action={async (formData) => {
+          setSalvando(true); setErro('')
+          try { await atualizarDescricaoDaPauta(formData); setEditando(false) }
+          catch (causa) { setErro(causa instanceof Error ? causa.message : 'Não foi possível salvar.') }
+          finally { setSalvando(false) }
+        }}
+        className="flex flex-col gap-3"
+      >
+        <input type="hidden" name="id" value={pautaId} />
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Editar descrição</h3>
+        <textarea
+          name="description"
+          value={rascunho}
+          onChange={(e) => setRascunho(e.target.value)}
+          rows={16}
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-[13px] leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+        />
+        {/* A pessoa acabou de descobrir que ">>" vira uma barra vermelha. Aqui
+            é onde ela precisa saber disso — não num manual à parte. */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+          <p className="mb-1.5 font-semibold uppercase tracking-wide">Como o texto vira tela</p>
+          <ul className="flex flex-col gap-0.5">
+            <li><code className="font-mono text-foreground">SLIDES</code> — linha inteira em caixa alta vira título de seção</li>
+            <li><code className="font-mono text-foreground">1 (Capa): texto</code> — vira item com o marcador destacado</li>
+            <li><code className="font-mono text-foreground">&gt;&gt; PENDENCIA: texto</code> — vira a barra vermelha de pendência</li>
+            <li><code className="font-mono text-foreground">&gt;&gt; texto</code> — vira a barra de recado</li>
+            <li><code className="font-mono text-foreground">#tag</code> — linha só de hashtags vira etiquetas</li>
+          </ul>
+          <p className="mt-2">Resolveu a pendência? Apague a linha do <code className="font-mono text-foreground">&gt;&gt;</code> e ela some da tela.</p>
+        </div>
+        {erro && <p className="text-sm text-destructive">{erro}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={() => setEditando(false)} disabled={salvando}><X className="size-4" />Cancelar</Button>
+          <Button type="submit" disabled={salvando || rascunho === original}>{salvando ? 'Salvando…' : 'Salvar descrição'}</Button>
+        </div>
+      </form>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-1">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3>
-        {blocos.length > 0 && <BotaoCopiar texto={(descricao ?? '').replace(/\r\n?/g, '\n')} />}
+        <div className="flex items-center gap-2">
+          {blocos.length > 0 && <BotaoCopiar texto={original} />}
+          {pautaId && (
+            <button
+              type="button"
+              onClick={abrirEdicao}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Pencil className="size-3.5" />{blocos.length ? 'Editar' : 'Escrever'}
+            </button>
+          )}
+        </div>
       </div>
 
       {!blocos.length && <p className="text-sm text-muted-foreground">Nenhuma descrição informada.</p>}

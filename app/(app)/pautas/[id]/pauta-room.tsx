@@ -629,7 +629,7 @@ function InformacoesTab({ pauta, details }: { pauta: Pauta; details: Record<stri
     ...Object.entries(details).filter(([, value]) => value).map(([key, value]) => ({ label: labels[key] || key, value })),
   ]
   return <div className="flex flex-col gap-4">
-    <Card className="p-5 lg:p-6"><DescricaoDaPauta descricao={pauta.summary} /></Card>
+    <Card className="p-5 lg:p-6"><DescricaoDaPauta descricao={pauta.summary} pautaId={pauta.id} /></Card>
     {detailRows.length > 0 && <InfoBlock title="Dados informados no formulário" rows={detailRows} />}
   </div>
 }

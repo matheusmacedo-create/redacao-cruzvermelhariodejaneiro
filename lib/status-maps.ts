@@ -43,5 +43,6 @@ export const ACTIVITY_ACTION_LABEL: Record<string, string> = {
   approved: 'aprovou algo em',
   changes_requested: 'pediu ajustes em',
   deleted: 'excluiu',
+  description_updated: 'editou a descrição de',
 }
 
