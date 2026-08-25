@@ -196,7 +196,7 @@ async function lerPost(formData: FormData, workspaceId: string): Promise<Post & 
   if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
   const formato = bruto as Formato
 
-  validarPost({ formato, redes, corpo, temMidia: Boolean(midiaUrl || fileIds.length), midiaUrl })
+  validarPost({ formato, redes, corpo, temMidia: Boolean(midiaUrl || fileIds.length), midiaUrl, linkUrl })
   if (midiaUrl && fileIds.length) throw new Error('Escolha arquivos da Biblioteca ou informe uma URL, não os dois.')
 
   if (fileIds.length > 1) {
