@@ -18,54 +18,27 @@ import {
   type RespostaDeEnvio,
 } from '@/lib/publicacao/upload-post'
 import { limiteDeMidias } from '@/lib/publicacao/requisitos'
+import { validarPost } from '@/lib/publicacao/validacao'
 
 const texto = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
+/**
+ * Erro de server action vira mensagem que a tela consegue mostrar.
+ *
+ * O Next apaga a mensagem de exceção não capturada numa server action em
+ * produção — o navegador recebe só "Minified React error #441". Foi o que
+ * escondeu, por duas rodadas de investigação, um "A URL da mídia é inválida"
+ * que teria apontado o defeito na hora.
+ *
+ * Como estas falhas são recados escritos para quem está publicando, elas
+ * voltam como valor. Passam por semSegredo() porque uma delas pode carregar
+ * texto de erro vindo da API.
+ */
+export type ResultadoDaAcao = { erro?: string }
 
-/** Limites reais de cada rede, para recusar aqui em vez de descobrir no erro
- * da API depois que metade das redes já publicou. */
-const LIMITE_DE_TEXTO: Record<string, number> = {
-  x: 25_000,        // vira thread automaticamente acima de 280
-  threads: 25_000,  // idem acima de 500
-  bluesky: 300,
-  instagram: 2_200,
-  facebook: 63_206,
-  linkedin: 3_000,
-  pinterest: 500,
-}
-
-function validar(formato: Formato, redes: string[], corpo: string, midiaUrl: string) {
-  if (!redes.length) throw new Error('Escolha ao menos uma rede.')
-
-  const permitidas = redesDoFormato(formato)
-  const incompativel = redes.find((rede) => !permitidas.includes(rede))
-  if (incompativel) {
-    throw new Error(`${incompativel} não aceita ${FORMATOS[formato].rotulo}. Desmarque essa rede ou troque o formato.`)
-  }
-
-  // Stories não leva legenda: a Meta ignora o texto nesse formato. Exigir texto
-  // aqui seria pedir trabalho que não vai aparecer em lugar nenhum.
-  const exigeTexto = formato !== 'stories'
-  if (exigeTexto && corpo.length < 2) throw new Error('Escreva o texto da publicação.')
-
-  for (const rede of redes) {
-    const limite = LIMITE_DE_TEXTO[rede]
-    if (limite && corpo.length > limite) {
-      throw new Error(`O texto tem ${corpo.length} caracteres e o limite do ${rede} é ${limite}.`)
-    }
-  }
-
-  const midia = FORMATOS[formato].midia
-  if (midia !== 'nenhuma' && !midiaUrl) {
-    const oQue = midia === 'video' ? 'um vídeo' : midia === 'imagem' ? 'uma imagem' : 'uma imagem ou um vídeo'
-    throw new Error(`${FORMATOS[formato].rotulo} exige ${oQue}. Informe a URL.`)
-  }
-
-  if (midiaUrl) {
-    let url: URL
-    try { url = new URL(midiaUrl) } catch { throw new Error('A URL da mídia é inválida.') }
-    if (url.protocol !== 'https:') throw new Error('A URL da mídia precisa ser https.')
-  }
+function comoErro(causa: unknown, padrao: string): ResultadoDaAcao {
+  const bruto = causa instanceof Error ? causa.message : String(causa)
+  return { erro: semSegredo(bruto).slice(0, 500) || padrao }
 }
 
 /** Reels é sempre vídeo; stories depende da extensão do arquivo informado. */
@@ -223,7 +196,7 @@ async function lerPost(formData: FormData, workspaceId: string): Promise<Post & 
   if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
   const formato = bruto as Formato
 
-  validar(formato, redes, corpo, midiaUrl || (fileIds.length ? 'biblioteca' : ''))
+  validarPost({ formato, redes, corpo, temMidia: Boolean(midiaUrl || fileIds.length), midiaUrl })
   if (midiaUrl && fileIds.length) throw new Error('Escolha arquivos da Biblioteca ou informe uma URL, não os dois.')
 
   if (fileIds.length > 1) {
@@ -252,7 +225,8 @@ async function lerPost(formData: FormData, workspaceId: string): Promise<Post & 
   return { formato, redes, corpo, linkUrl, midiaUrl, fileIds, quando, contentId }
 }
 
-export async function publicarNasRedes(formData: FormData) {
+export async function publicarNasRedes(formData: FormData): Promise<ResultadoDaAcao> {
+  try {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const post = await lerPost(formData, context.workspace.id)
@@ -285,6 +259,10 @@ export async function publicarNasRedes(formData: FormData) {
   if (post.contentId) revalidatePath(`/conteudos/${post.contentId}`)
   revalidatePath('/redes')
   revalidatePath('/calendario')
+  return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível publicar.')
+  }
 }
 
 /**
@@ -295,7 +273,8 @@ export async function publicarNasRedes(formData: FormData) {
  * notificações. Duplicar esse fluxo só para posts seria manter duas verdades
  * sobre quem aprovou o quê.
  */
-export async function enviarPostParaAprovacao(formData: FormData) {
+export async function enviarPostParaAprovacao(formData: FormData): Promise<ResultadoDaAcao> {
+  try {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const post = await lerPost(formData, context.workspace.id)
@@ -376,6 +355,10 @@ export async function enviarPostParaAprovacao(formData: FormData) {
 
   revalidatePath('/aprovacoes')
   revalidatePath('/redes')
+  return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível enviar para aprovação.')
+  }
 }
 
 /**
@@ -385,7 +368,8 @@ export async function enviarPostParaAprovacao(formData: FormData) {
  * publicar em nome da instituição algo que ninguém aprovou é justamente o que
  * o fluxo existe para impedir.
  */
-export async function publicarRascunho(formData: FormData) {
+export async function publicarRascunho(formData: FormData): Promise<ResultadoDaAcao> {
+  try {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const id = texto(formData, 'rascunhoId')
@@ -436,6 +420,10 @@ export async function publicarRascunho(formData: FormData) {
 
   revalidatePath('/redes')
   revalidatePath('/aprovacoes')
+  return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível publicar.')
+  }
 }
 
 /**
