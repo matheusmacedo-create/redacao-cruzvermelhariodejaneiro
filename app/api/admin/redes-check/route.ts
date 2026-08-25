@@ -4,6 +4,9 @@ import {
   conta,
   listarPerfis,
   paginasDoFacebook,
+  normalizarPaginas,
+  chavesDaPagina,
+  type PaginaFacebook,
   perfilPadrao,
   paginaFacebookPadrao,
   redesConectadas,
@@ -110,17 +113,25 @@ export async function GET() {
   }
 
   // 4. O id da página do Facebook, que precisa ir em toda publicação.
-  let paginas: { page_id: string; page_name: string }[] = []
+  let paginas: PaginaFacebook[] = []
+  let chaves: string[] = []
   if (redes.includes('facebook')) {
     try {
       const { dados } = await paginasDoFacebook(perfil)
-      paginas = (dados.pages || []).map(({ page_id, page_name }) => ({ page_id, page_name }))
+      const brutas = dados.pages || []
+      paginas = normalizarPaginas(brutas)
+      chaves = chavesDaPagina(brutas)
       etapas.push({
         etapa: 'páginas do Facebook',
-        ok: true,
+        // Receber páginas e não conseguir ler nenhuma é falha, não sucesso
+        // vazio: sem id não há como publicar, e o silêncio esconderia isso.
+        ok: paginas.length > 0 || brutas.length === 0,
         detalhe: paginas.length
-          ? paginas.map((p) => `${p.page_name} (${p.page_id})`).join(' · ')
-          : 'nenhuma página encontrada nesta conta',
+          ? `${paginas.length} encontradas · ${paginas.map((p) => `${p.nome} = ${p.id}`).join(' · ')}`
+          : brutas.length
+            ? `${brutas.length} páginas vieram, mas sem id reconhecível.`
+              + ` Chaves recebidas: ${chaves.join(', ') || '(nenhuma)'}`
+            : 'nenhuma página encontrada nesta conta',
       })
     } catch (erro) {
       etapas.push({ etapa: 'páginas do Facebook', ok: false, detalhe: semSegredo(String(erro)).slice(0, 200) })
@@ -135,6 +146,7 @@ export async function GET() {
     plano,
     redesConectadas: redes,
     paginasFacebook: paginas,
+    chavesDaPaginaFacebook: chaves,
     perfisDisponiveis: nomes,
     proximoPasso: !existe
       ? `Ajuste UPLOAD_POST_PROFILE para um dos nomes em perfisDisponiveis.`

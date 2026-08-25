@@ -219,11 +219,40 @@ export async function linkDeConexao(opcoes: OpcoesDeConexao) {
 
 // ---------------------------------------------------------------- facebook
 
-export type PaginaFacebook = { page_id: string; page_name: string; profile: string }
+export type PaginaFacebook = { id: string; nome: string }
+
+/**
+ * O retorno cru. Os nomes das chaves não estão garantidos: a documentação
+ * promete page_id/page_name, mas a resposta real trouxe outra coisa. Tipar como
+ * registro aberto e normalizar depois evita silenciar o problema em undefined.
+ */
+type PaginaBruta = Record<string, unknown>
 
 export async function paginasDoFacebook(perfil?: string) {
   const busca = perfil ? `?profile=${encodeURIComponent(perfil)}` : ''
-  return chamar<{ success: boolean; pages: PaginaFacebook[] }>(`/uploadposts/facebook/pages${busca}`)
+  return chamar<{ success: boolean; pages: PaginaBruta[] }>(`/uploadposts/facebook/pages${busca}`)
+}
+
+const texto = (valor: unknown): string =>
+  typeof valor === 'string' ? valor : typeof valor === 'number' ? String(valor) : ''
+
+/**
+ * Aceita as grafias plausíveis para id e nome. Uma página sem id não serve para
+ * publicar, então é descartada em vez de virar uma linha vazia na tela.
+ */
+export function normalizarPaginas(brutas: PaginaBruta[]): PaginaFacebook[] {
+  return brutas
+    .map((p) => ({
+      id: texto(p.page_id ?? p.pageId ?? p.id),
+      nome: texto(p.page_name ?? p.pageName ?? p.name) || '(sem nome)',
+    }))
+    .filter((p) => p.id)
+}
+
+/** As chaves que a API realmente devolveu, para diagnosticar quando o formato
+ * mudar de novo em vez de adivinhar. */
+export function chavesDaPagina(brutas: PaginaBruta[]): string[] {
+  return brutas.length ? Object.keys(brutas[0]) : []
 }
 
 // ---------------------------------------------------------------- publicar
