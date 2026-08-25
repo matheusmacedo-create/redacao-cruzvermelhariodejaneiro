@@ -184,6 +184,21 @@ export const coordenacoes = [
   'Diretoria',
 ]
 
+// Onde uma publicação pode sair. Serve tanto para o canal previsto no
+// calendário quanto para o formato da peça que a Comunicação vai produzir.
+export const canaisDePublicacao = [
+  'Instagram',
+  'Facebook',
+  'LinkedIn',
+  'Site / Notícia',
+  'WhatsApp',
+  'YouTube',
+  'Impresso',
+  'Outro',
+] as const
+
+export type CanalDePublicacao = (typeof canaisDePublicacao)[number]
+
 export type Project = {
   id: string
   name: string

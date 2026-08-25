@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { contextoParaComunicacao, publicacoesPrevistas } from '@/lib/editorial/publicacoes-previstas'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
@@ -32,15 +33,61 @@ export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
   const details = Object.fromEntries(['local','participantsCount','volunteersCount','story','contact','objective','result','audience','schedule','organizer','ideaGoal','materialType','request','notes'].map((key) => [key, text(formData, key)]).filter(([, value]) => value))
+  const description = text(formData, 'description')
+  // Conferido antes de gravar: data errada numa publicação não pode deixar
+  // uma pauta órfã para trás.
+  const previstas = publicacoesPrevistas(formData, title)
   const projectId = text(formData, 'projectId')
   let validProjectId: string | null = null
   if (projectId) {
     const { data: project } = await supabase.from('projects').select('id').eq('id', projectId).eq('workspace_id', context.workspace.id).maybeSingle()
     validProjectId = project?.id ?? null
   }
-  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, project_id: validProjectId, title, description: text(formData,'description'), details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
+  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, project_id: validProjectId, title, description, details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
   if (error) throw new Error(error.message)
-  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'created', entity_type: 'pauta', entity_id: data.id, metadata: { title } })
+
+  if (previstas.length) {
+    // Cada publicação prevista nasce como peça de conteúdo em rascunho, com o
+    // contexto do registro já dentro dela, e como data no calendário apontando
+    // para essa peça. É o caminho que o Marketing percorre para aprovar: abre
+    // a data, lê o contexto, aprova — sem caçar quem pediu.
+    const contexto = contextoParaComunicacao(description, details as Record<string, string>)
+    try {
+      for (const prevista of previstas) {
+        const { data: peca, error: pecaError } = await supabase.from('content_pieces').insert({
+          workspace_id: context.workspace.id,
+          pauta_id: data.id,
+          title: prevista.assunto,
+          body: contexto,
+          format: prevista.canal,
+          status: 'draft',
+          created_by: context.user.id,
+        }).select('id').single()
+        if (pecaError || !peca) throw new Error(pecaError?.message || 'Não foi possível criar o conteúdo da publicação.')
+
+        const { error: eventoError } = await supabase.from('calendar_events').insert({
+          workspace_id: context.workspace.id,
+          pauta_id: data.id,
+          content_id: peca.id,
+          title: prevista.assunto,
+          event_date: prevista.data,
+          event_time: prevista.hora,
+          type: 'publicacao',
+          channel: prevista.canal,
+          created_by: context.user.id,
+        })
+        if (eventoError) throw new Error(eventoError.message)
+      }
+    } catch (causa) {
+      // Some a pauta inteira: em cascata levam-se conteúdos e eventos já
+      // criados. Meia agenda de pé é pior do que agenda nenhuma, porque
+      // ninguém percebe o que ficou faltando.
+      await supabase.from('pautas').delete().eq('id', data.id).eq('workspace_id', context.workspace.id)
+      throw causa instanceof Error ? causa : new Error('Não foi possível agendar as publicações previstas.')
+    }
+  }
+
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'created', entity_type: 'pauta', entity_id: data.id, metadata: { title, publicacoes: previstas.length } })
   const dueDate = text(formData, 'dueDate')
   if (dueDate) {
     await supabase.from('calendar_events').insert({ workspace_id: context.workspace.id, pauta_id: data.id, title, event_date: dueDate, type: 'atividade', created_by: context.user.id })
