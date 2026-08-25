@@ -15,6 +15,7 @@ const REDES = [
   { id: 'x', nome: 'X', exigeImagem: false },
   { id: 'threads', nome: 'Threads', exigeImagem: false },
   { id: 'bluesky', nome: 'Bluesky', exigeImagem: false },
+  { id: 'google_business', nome: 'Perfil do Google', exigeImagem: false },
 ] as const
 
 /** Limites por rede, para mostrar o contador antes de o envio ser recusado. */

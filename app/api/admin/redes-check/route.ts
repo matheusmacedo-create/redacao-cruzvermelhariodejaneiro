@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/session'
 import {
   conta,
-  garantirPerfil,
   listarPerfis,
   paginasDoFacebook,
   perfilPadrao,
@@ -73,32 +72,41 @@ export async function GET() {
     return falhar(erro)
   }
 
-  // 2. O perfil existe (criando se ainda não existir).
+  // 2. Lista os perfis existentes. Conferir NÃO pode criar nada: no plano
+  // gratuito são dois perfis no total, e um perfil criado por engano — por
+  // UPLOAD_POST_PROFILE apontar para um nome que não existe — queimaria uma
+  // das duas vagas e ainda pareceria certo, porque perfil vazio não dá erro,
+  // só não publica em lugar nenhum.
   let redes: string[] = []
-  try {
-    const encontrado = await garantirPerfil(perfil)
-    redes = redesConectadas(encontrado)
-    etapas.push({
-      etapa: 'perfil',
-      ok: true,
-      detalhe: redes.length
-        ? `${perfil} · conectadas: ${redes.join(', ')}`
-        : `${perfil} · nenhuma rede conectada ainda`,
-    })
-  } catch (erro) {
-    return falhar(erro)
-  }
-
-  // 3. Quantos perfis o plano permite — informativo, não bloqueia.
+  let nomes: string[] = []
+  let existe = false
   try {
     const { dados } = await listarPerfis()
+    const lista = dados.profiles ?? []
+    nomes = lista.map((p) => p.username)
     etapas.push({
       etapa: 'perfis do plano',
       ok: true,
-      detalhe: `${dados.profiles?.length ?? 0} em uso de ${dados.limit ?? '?'} permitidos`,
+      detalhe: `${lista.length} em uso de ${dados.limit ?? '?'} permitidos`
+        + (nomes.length ? ` · nomes exatos: ${nomes.join(' | ')}` : ''),
+    })
+
+    const encontrado = lista.find((p) => p.username === perfil)
+    existe = Boolean(encontrado)
+    redes = encontrado ? redesConectadas(encontrado) : []
+
+    etapas.push({
+      etapa: 'perfil configurado',
+      ok: existe,
+      detalhe: !existe
+        ? `UPLOAD_POST_PROFILE está como "${perfil}", que não existe nesta conta.`
+          + ` Copie um dos nomes acima para a variável — nenhum perfil foi criado.`
+        : redes.length
+          ? `${perfil} · conectadas: ${redes.join(', ')}`
+          : `${perfil} existe, mas nenhuma rede foi conectada ainda`,
     })
   } catch (erro) {
-    etapas.push({ etapa: 'perfis do plano', ok: false, detalhe: semSegredo(String(erro)).slice(0, 200) })
+    return falhar(erro)
   }
 
   // 4. O id da página do Facebook, que precisa ir em toda publicação.
@@ -122,14 +130,17 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: existe,
     perfil,
     plano,
     redesConectadas: redes,
     paginasFacebook: paginas,
-    proximoPasso: redes.length
-      ? 'Redes conectadas. Dá para publicar.'
-      : 'Abra /api/admin/redes-conectar para autorizar as contas da instituição.',
+    perfisDisponiveis: nomes,
+    proximoPasso: !existe
+      ? `Ajuste UPLOAD_POST_PROFILE para um dos nomes em perfisDisponiveis.`
+      : redes.length
+        ? 'Redes conectadas. Dá para publicar.'
+        : 'Abra /api/admin/redes-conectar para autorizar as contas da instituição.',
     etapas,
   })
 }

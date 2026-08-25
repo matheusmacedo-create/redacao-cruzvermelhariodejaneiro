@@ -231,12 +231,12 @@ export async function paginasDoFacebook(perfil?: string) {
 /** Redes que aceitam post só de texto. O Instagram não está aqui de propósito:
  * a API da Meta não permite post sem mídia. */
 export const REDES_DE_TEXTO = [
-  'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'reddit',
+  'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'reddit', 'google_business',
 ] as const
 
 /** Redes que aceitam post com imagem. */
 export const REDES_DE_FOTO = [
-  'instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest',
+  'instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest', 'google_business',
 ] as const
 
 export type Rede = (typeof REDES_DE_TEXTO)[number] | (typeof REDES_DE_FOTO)[number]
