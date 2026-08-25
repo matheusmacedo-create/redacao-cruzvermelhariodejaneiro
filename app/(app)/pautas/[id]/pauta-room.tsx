@@ -44,6 +44,7 @@ import { type Pauta } from '@/lib/data'
 import { cn } from '@/lib/utils'
 import { addDriveLink, addPautaParticipant, changePautaProject, createPautaApproval, createPautaContent, deletePauta, removeDriveLink, removePautaParticipant, sendPautaMessage, updatePautaStatus } from '@/app/actions/editorial'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
+import { DescricaoDaPauta } from '@/components/app/descricao-da-pauta'
 
 const tabs = [
   { id: 'conversa', label: 'Conversa', icon: MessageSquare },
@@ -620,8 +621,17 @@ function InfoBlock({
 
 function InformacoesTab({ pauta, details }: { pauta: Pauta; details: Record<string, string> }) {
   const labels: Record<string, string> = { local:'Local', participantsCount:'Pessoas participantes', volunteersCount:'Voluntários', story:'História relevante', contact:'Contato para entrevista', objective:'Objetivo', result:'Resultado', audience:'Público', schedule:'Horário', organizer:'Organização', ideaGoal:'Objetivo da ideia', materialType:'Tipo de material', request:'Solicitação', notes:'Observações' }
-  const detailRows = Object.entries(details).filter(([, value]) => value).map(([key, value]) => ({ label: labels[key] || key, value }))
-  return <div className="grid gap-4 lg:grid-cols-2"><InfoBlock title="Sobre a pauta" rows={[{ label: 'Tipo', value: pauta.type }, { label: 'Coordenação', value: pauta.coordenacao || 'Não informada' }, { label: 'Prazo', value: pauta.deadline }, { label: 'Prioridade', value: pauta.priority }, { label: 'Status', value: pauta.status }]} /><Card className="p-5"><h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Descrição</h3><p className="text-sm leading-relaxed text-pretty">{pauta.summary || 'Nenhuma descrição informada.'}</p></Card>{detailRows.length > 0 && <div className="lg:col-span-2"><InfoBlock title="Dados informados no formulário" rows={detailRows} /></div>}</div>
+  // Coordenação, prazo, prioridade e status já estão na faixa do topo da tela.
+  // Repeti-los aqui só roubava a largura da descrição, que é o que a pessoa
+  // veio ler. Sobra o tipo do registro, que vai junto do resto do formulário.
+  const detailRows = [
+    ...(pauta.type ? [{ label: 'Tipo do registro', value: pauta.type }] : []),
+    ...Object.entries(details).filter(([, value]) => value).map(([key, value]) => ({ label: labels[key] || key, value })),
+  ]
+  return <div className="flex flex-col gap-4">
+    <Card className="p-5 lg:p-6"><DescricaoDaPauta descricao={pauta.summary} /></Card>
+    {detailRows.length > 0 && <InfoBlock title="Dados informados no formulário" rows={detailRows} />}
+  </div>
 }
 
 function ContextItem({ label, value }: { label: string; value: string }) {
