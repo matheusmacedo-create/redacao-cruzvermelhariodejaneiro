@@ -1,26 +1,47 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, RefreshCw, Send, Share2, TriangleAlert, ExternalLink } from 'lucide-react'
+import {
+  ExternalLink, Heart, Loader2, MessageCircle, Play, RefreshCw,
+  Send, Share2, TriangleAlert, Image as ImageIcon, Film, Type as TypeIcon, Layers,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { publicarNasRedes, atualizarStatusPublicacao } from '@/app/actions/redes'
 
-/** Rótulo e regra de cada rede oferecida na tela. */
-const REDES = [
-  { id: 'facebook', nome: 'Facebook', exigeImagem: false },
-  { id: 'instagram', nome: 'Instagram', exigeImagem: true },
-  { id: 'linkedin', nome: 'LinkedIn', exigeImagem: false },
-  { id: 'x', nome: 'X', exigeImagem: false },
-  { id: 'threads', nome: 'Threads', exigeImagem: false },
-  { id: 'bluesky', nome: 'Bluesky', exigeImagem: false },
-  { id: 'google_business', nome: 'Perfil do Google', exigeImagem: false },
-] as const
+/** Espelha FORMATOS do cliente da API. Mantido aqui porque este arquivo roda no
+ * navegador e não pode importar código marcado com 'server-only'. */
+const FORMATOS = {
+  texto: { rotulo: 'Texto', icone: TypeIcon, midia: 'nenhuma',
+    redes: ['facebook', 'linkedin', 'x', 'threads', 'bluesky', 'google_business'],
+    dica: 'Post escrito. Link vira card de pré-visualização.' },
+  feed: { rotulo: 'Feed', icone: ImageIcon, midia: 'imagem',
+    redes: ['instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest', 'google_business'],
+    dica: 'Imagem quadrada com legenda. Fica no perfil.' },
+  stories: { rotulo: 'Stories', icone: Layers, midia: 'imagem-ou-video',
+    redes: ['instagram', 'facebook'],
+    dica: 'Vertical, some em 24 horas. A legenda não aparece.' },
+  reels: { rotulo: 'Reels', icone: Film, midia: 'video',
+    redes: ['instagram', 'facebook'],
+    dica: 'Vídeo vertical. Alcança quem ainda não segue.' },
+} as const
 
-/** Limites por rede, para mostrar o contador antes de o envio ser recusado. */
+type Formato = keyof typeof FORMATOS
+
+const REDES: Record<string, { nome: string; cor: string }> = {
+  instagram: { nome: 'Instagram', cor: 'bg-[#C13584] text-white border-[#C13584]' },
+  facebook: { nome: 'Facebook', cor: 'bg-[#1877F2] text-white border-[#1877F2]' },
+  linkedin: { nome: 'LinkedIn', cor: 'bg-[#0A66C2] text-white border-[#0A66C2]' },
+  x: { nome: 'X', cor: 'bg-foreground text-background border-foreground' },
+  threads: { nome: 'Threads', cor: 'bg-foreground text-background border-foreground' },
+  bluesky: { nome: 'Bluesky', cor: 'bg-[#0085FF] text-white border-[#0085FF]' },
+  pinterest: { nome: 'Pinterest', cor: 'bg-[#E60023] text-white border-[#E60023]' },
+  google_business: { nome: 'Perfil do Google', cor: 'bg-[#1A73E8] text-white border-[#1A73E8]' },
+}
+
 const LIMITES: Record<string, number> = {
-  bluesky: 300, linkedin: 3_000, instagram: 2_200, pinterest: 500,
+  bluesky: 300, linkedin: 3_000, instagram: 2_200, pinterest: 500, google_business: 1_500,
 }
 
 export type PublicacaoRegistro = {
@@ -31,6 +52,7 @@ export type PublicacaoRegistro = {
   criadaEm: string
   agendadaPara: string | null
   erro: string | null
+  formato?: string
   resultados: Array<{ rede: string; ok: boolean; mensagem: string | null; url: string | null; pulada: boolean }>
 }
 
@@ -39,32 +61,36 @@ const ROTULO_STATUS: Record<string, string> = {
   in_progress: 'em andamento', completed: 'publicado', failed: 'falhou',
 }
 
+const ehVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|$)/i.test(url)
+
 export function PublicadorRedes({
   contentId,
   textoInicial,
   linkInicial = '',
   publicacoes = [],
   podeConectar = false,
+  perfil = 'cruzvermelhabrasileirj',
 }: {
   contentId?: string
   textoInicial: string
   linkInicial?: string
   publicacoes?: PublicacaoRegistro[]
-  /** Admin vê o botão de autorizar as contas; os demais, a quem pedir. */
   podeConectar?: boolean
+  perfil?: string
 }) {
   const router = useRouter()
   const [enviando, iniciarEnvio] = useTransition()
+  const [formato, setFormato] = useState<Formato>('feed')
   const [selecionadas, setSelecionadas] = useState<string[]>([])
   const [corpo, setCorpo] = useState(textoInicial)
   const [linkUrl, setLinkUrl] = useState(linkInicial)
-  const [imagemUrl, setImagemUrl] = useState('')
+  const [midiaUrl, setMidiaUrl] = useState('')
   const [agendarPara, setAgendarPara] = useState('')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
 
   const [conectadas, setConectadas] = useState<string[] | null>(null)
-  const [estadoConexao, setEstadoConexao] = useState<'carregando' | 'ok' | 'sem-chave' | 'indisponivel'>('carregando')
+  const [estado, setEstado] = useState<'carregando' | 'ok' | 'sem-chave' | 'indisponivel'>('carregando')
 
   useEffect(() => {
     let ativo = true
@@ -73,40 +99,52 @@ export function PublicadorRedes({
       .then((dados) => {
         if (!ativo) return
         setConectadas(dados.redes ?? [])
-        setEstadoConexao(!dados.configurado ? 'sem-chave' : dados.indisponivel ? 'indisponivel' : 'ok')
+        setEstado(!dados.configurado ? 'sem-chave' : dados.indisponivel ? 'indisponivel' : 'ok')
       })
-      .catch(() => { if (ativo) setEstadoConexao('indisponivel') })
+      .catch(() => { if (ativo) setEstado('indisponivel') })
     return () => { ativo = false }
   }, [])
+
+  const spec = FORMATOS[formato]
+
+  // Trocar de formato não pode deixar para trás uma rede que o novo não aceita:
+  // o envio seria recusado por algo que a tela não mostra mais.
+  function trocarFormato(novo: Formato) {
+    setFormato(novo)
+    setSelecionadas((atual) => atual.filter((r) => (FORMATOS[novo].redes as readonly string[]).includes(r)))
+    setErro('')
+  }
 
   const alternar = (id: string) =>
     setSelecionadas((atual) => (atual.includes(id) ? atual.filter((r) => r !== id) : [...atual, id]))
 
-  // O menor limite entre as redes marcadas é o que vale: o mesmo texto vai
-  // para todas, então quem tem o teto mais baixo manda no contador.
-  const limite = selecionadas.reduce<number | null>((menor, rede) => {
+  const limite = useMemo(() => selecionadas.reduce<number | null>((menor, rede) => {
     const l = LIMITES[rede]
     if (!l) return menor
     return menor === null ? l : Math.min(menor, l)
-  }, null)
+  }, null), [selecionadas])
 
-  const precisaImagem = selecionadas.includes('instagram') && !imagemUrl.trim()
+  const precisaMidia = spec.midia !== 'nenhuma' && !midiaUrl.trim()
   const excedeu = limite !== null && corpo.length > limite
+  const exigeTexto = formato !== 'stories'
+  const bloqueado = enviando || !selecionadas.length || estado !== 'ok'
+    || (exigeTexto && corpo.trim().length < 2) || precisaMidia || excedeu
 
   function enviar() {
     setErro(''); setAviso('')
     const form = new FormData()
     if (contentId) form.set('contentId', contentId)
+    form.set('formato', formato)
     for (const rede of selecionadas) form.append('redes', rede)
     form.set('corpo', corpo)
     form.set('linkUrl', linkUrl.trim())
-    form.set('imagemUrl', imagemUrl.trim())
+    form.set('midiaUrl', midiaUrl.trim())
     form.set('agendarPara', agendarPara)
 
     iniciarEnvio(async () => {
       try {
         await publicarNasRedes(form)
-        setAviso(agendarPara ? 'Publicação agendada.' : 'Enviado. O resultado por rede aparece abaixo em alguns segundos.')
+        setAviso(agendarPara ? 'Publicação agendada.' : 'Enviado. O resultado por rede aparece abaixo em segundos.')
         setSelecionadas([])
         router.refresh()
       } catch (causa) {
@@ -115,147 +153,265 @@ export function PublicadorRedes({
     })
   }
 
-  const bloqueado =
-    enviando || !selecionadas.length || corpo.trim().length < 2 || precisaImagem || excedeu || estadoConexao !== 'ok'
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Share2 className="size-4" />
-          Publicar nas redes
-        </CardTitle>
-        <CardDescription>
-          O mesmo texto vai para as redes marcadas. O envio é assíncrono: o resultado de cada
-          rede chega em seguida.
-        </CardDescription>
-      </CardHeader>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Share2 className="size-4" />
+            Publicar nas redes
+          </CardTitle>
+          <CardDescription>{spec.dica}</CardDescription>
+        </CardHeader>
 
-      <CardContent className="space-y-4">
-        {estadoConexao === 'sem-chave' && (
-          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            A integração com as redes ainda não foi configurada neste ambiente.
-          </p>
-        )}
-        {estadoConexao === 'indisponivel' && (
-          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-            Não foi possível consultar as redes conectadas agora. Tente novamente em instantes.
-          </p>
-        )}
+        <CardContent className="space-y-5">
+          {estado === 'sem-chave' && <Alerta>A integração com as redes ainda não foi configurada neste ambiente.</Alerta>}
+          {estado === 'indisponivel' && <Alerta>Não foi possível consultar as redes conectadas agora. Tente em instantes.</Alerta>}
 
-        <div className="flex flex-wrap gap-2">
-          {REDES.map((rede) => {
-            const disponivel = conectadas === null || conectadas.includes(rede.id)
-            const marcada = selecionadas.includes(rede.id)
-            return (
-              <button
-                key={rede.id}
-                type="button"
-                disabled={!disponivel || estadoConexao !== 'ok'}
-                onClick={() => alternar(rede.id)}
-                className={`rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                  marcada
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-                title={disponivel ? undefined : 'Conta não conectada'}
-              >
-                {rede.nome}
-              </button>
-            )
-          })}
-        </div>
-        {conectadas?.length === 0 && estadoConexao === 'ok' && (
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-sm text-muted-foreground">
-              Nenhuma conta conectada ainda.
-              {podeConectar
-                ? ' Autorize as contas oficiais para liberar a publicação.'
-                : ' Peça a um administrador para autorizar as contas oficiais.'}
+          {/* Formato */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Formato</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {(Object.keys(FORMATOS) as Formato[]).map((id) => {
+                const F = FORMATOS[id]
+                const Icone = F.icone
+                const ativo = formato === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => trocarFormato(id)}
+                    aria-pressed={ativo}
+                    className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-sm transition-colors ${
+                      ativo ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <Icone className="size-4" />
+                    {F.rotulo}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Redes */}
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Onde publicar
             </p>
-            {podeConectar && (
-              <Button variant="outline" size="lg" className="mt-3" render={<a href="/api/admin/redes-conectar" />}>
-                Conectar contas
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              {spec.redes.map((id) => {
+                const rede = REDES[id]
+                const conectada = conectadas === null || conectadas.includes(id)
+                const marcada = selecionadas.includes(id)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={!conectada || estado !== 'ok'}
+                    onClick={() => alternar(id)}
+                    aria-pressed={marcada}
+                    title={conectada ? undefined : 'Conta não conectada'}
+                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
+                      marcada ? rede.cor : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    {rede.nome}
+                  </button>
+                )
+              })}
+            </div>
+            {conectadas?.length === 0 && estado === 'ok' && (
+              <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma conta conectada ainda.
+                  {podeConectar ? ' Autorize as contas oficiais para liberar a publicação.' : ' Peça a um administrador para autorizar.'}
+                </p>
+                {podeConectar && (
+                  <Button variant="outline" size="lg" className="mt-3" render={<a href="/api/admin/redes-conectar" />}>
+                    Conectar contas
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        )}
 
-        <div>
-          <textarea
-            value={corpo}
-            onChange={(e) => setCorpo(e.target.value)}
-            rows={5}
-            className="w-full resize-y rounded-lg border border-border bg-background p-3 text-sm outline-none focus-visible:border-ring"
-            placeholder="Texto da publicação"
-          />
-          <p className={`mt-1 text-xs ${excedeu ? 'text-destructive' : 'text-muted-foreground'}`}>
-            {corpo.length} caracteres
-            {limite !== null && ` · limite de ${limite} na rede mais restrita marcada`}
-          </p>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-sm">
-            <span className="mb-1 block text-muted-foreground">Link da matéria (opcional)</span>
-            <input
-              type="url"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              placeholder="https://cruzvermelhariodejaneiro.org/noticias/..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+          {/* Texto */}
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {formato === 'stories' ? 'Texto (não aparece no Stories)' : 'Legenda'}
+            </label>
+            <textarea
+              value={corpo}
+              onChange={(e) => setCorpo(e.target.value)}
+              rows={5}
+              className="w-full resize-y rounded-lg border border-border bg-background p-3 text-sm outline-none focus-visible:border-ring"
+              placeholder={formato === 'stories' ? 'Opcional — o Stories não exibe legenda' : 'Escreva a legenda da publicação'}
             />
-          </label>
-
-          <label className="text-sm">
-            <span className="mb-1 block text-muted-foreground">
-              URL da imagem {selecionadas.includes('instagram') && <span className="text-destructive">obrigatória</span>}
-            </span>
-            <input
-              type="url"
-              value={imagemUrl}
-              onChange={(e) => setImagemUrl(e.target.value)}
-              placeholder="https://cruzvermelhariodejaneiro.org/noticias/..."
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
-            />
-          </label>
-
-          <label className="text-sm">
-            <span className="mb-1 block text-muted-foreground">Agendar (opcional)</span>
-            <input
-              type="datetime-local"
-              value={agendarPara}
-              onChange={(e) => setAgendarPara(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
-            />
-          </label>
-        </div>
-
-        {precisaImagem && (
-          <p className="text-sm text-destructive">
-            O Instagram não aceita publicação sem imagem. Informe a URL ou desmarque o Instagram.
-          </p>
-        )}
-        {erro && <p className="text-sm text-destructive">{erro}</p>}
-        {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
-
-        <div className="flex justify-end">
-          <Button onClick={enviar} disabled={bloqueado}>
-            {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {agendarPara ? 'Agendar' : 'Publicar agora'}
-          </Button>
-        </div>
-
-        {publicacoes.length > 0 && (
-          <div className="space-y-2 border-t border-border pt-4">
-            <p className="text-sm font-medium">Envios desta matéria</p>
-            {publicacoes.map((pub) => (
-              <RegistroDeEnvio key={pub.id} publicacao={pub} />
-            ))}
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full transition-all ${excedeu ? 'bg-destructive' : 'bg-primary'}`}
+                  style={{ width: `${Math.min(100, limite ? (corpo.length / limite) * 100 : corpo.length / 20)}%` }}
+                />
+              </div>
+              <span className={`shrink-0 text-xs ${excedeu ? 'text-destructive' : 'text-muted-foreground'}`}>
+                {corpo.length}{limite !== null && ` / ${limite}`}
+              </span>
+            </div>
           </div>
+
+          {/* Mídia e opções */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {spec.midia !== 'nenhuma' && (
+              <label className="text-sm sm:col-span-2">
+                <span className="mb-1 block text-muted-foreground">
+                  URL {spec.midia === 'video' ? 'do vídeo' : spec.midia === 'imagem' ? 'da imagem' : 'da imagem ou vídeo'}
+                  <span className="ml-1 text-destructive">obrigatória</span>
+                </span>
+                <input
+                  type="url" value={midiaUrl} onChange={(e) => setMidiaUrl(e.target.value)}
+                  placeholder="https://cruzvermelhariodejaneiro.org/noticias/foto.jpg"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+                />
+              </label>
+            )}
+
+            <label className="text-sm">
+              <span className="mb-1 block text-muted-foreground">Link da matéria (opcional)</span>
+              <input
+                type="url" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://cruzvermelhariodejaneiro.org/noticias/..."
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+              />
+            </label>
+
+            <label className="text-sm">
+              <span className="mb-1 block text-muted-foreground">Agendar (opcional)</span>
+              <input
+                type="datetime-local" value={agendarPara} onChange={(e) => setAgendarPara(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+              />
+            </label>
+          </div>
+
+          {precisaMidia && (
+            <p className="text-sm text-destructive">
+              {spec.rotulo} exige {spec.midia === 'video' ? 'um vídeo' : spec.midia === 'imagem' ? 'uma imagem' : 'uma imagem ou vídeo'}.
+              Informe a URL acima.
+            </p>
+          )}
+          {erro && <p className="text-sm text-destructive">{erro}</p>}
+          {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
+
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              {selecionadas.length
+                ? `${selecionadas.length} ${selecionadas.length === 1 ? 'rede marcada' : 'redes marcadas'} · conta como 1 publicação`
+                : 'Nenhuma rede marcada'}
+            </p>
+            <Button onClick={enviar} disabled={bloqueado} size="lg">
+              {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              {agendarPara ? 'Agendar' : 'Publicar agora'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="space-y-5">
+        <Previa formato={formato} corpo={corpo} midiaUrl={midiaUrl} perfil={perfil} />
+        {publicacoes.length > 0 && (
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Envios recentes</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {publicacoes.map((pub) => <RegistroDeEnvio key={pub.id} publicacao={pub} />)}
+            </CardContent>
+          </Card>
         )}
+      </div>
+    </div>
+  )
+}
+
+function Alerta({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" />
+      {children}
+    </p>
+  )
+}
+
+/**
+ * Prévia do post. Não é uma renderização fiel de cada rede — é o suficiente
+ * para responder a pergunta que importa antes de publicar: a foto corta? a
+ * legenda ficou grande demais? O Stories aparece em 9:16 justamente porque é
+ * onde o enquadramento errado mais estraga.
+ */
+function Previa({ formato, corpo, midiaUrl, perfil }: {
+  formato: Formato; corpo: string; midiaUrl: string; perfil: string
+}) {
+  const vertical = formato === 'stories' || formato === 'reels'
+  const video = ehVideo(midiaUrl)
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm">Prévia</CardTitle>
+        <CardDescription className="text-xs">Aproximada — cada rede tem seu recorte.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mx-auto w-full max-w-[260px] overflow-hidden rounded-xl border border-border bg-card">
+          <div className="flex items-center gap-2 p-2.5">
+            <span className="flex size-7 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+              CV
+            </span>
+            <span className="truncate text-xs font-semibold">{perfil}</span>
+          </div>
+
+          <div className={`relative bg-muted ${vertical ? 'aspect-[9/16]' : 'aspect-square'}`}>
+            {midiaUrl && !video && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={midiaUrl} alt="" className="size-full object-cover" />
+            )}
+            {midiaUrl && video && (
+              <div className="flex size-full items-center justify-center bg-foreground/90">
+                <Play className="size-8 text-background" />
+              </div>
+            )}
+            {!midiaUrl && (
+              <div className="flex size-full flex-col items-center justify-center gap-1 text-muted-foreground">
+                {formato === 'texto'
+                  ? <TypeIcon className="size-6" />
+                  : <ImageIcon className="size-6" />}
+                <span className="px-4 text-center text-[10px]">
+                  {formato === 'texto' ? 'post sem mídia' : 'cole a URL da mídia'}
+                </span>
+              </div>
+            )}
+            {vertical && corpo && formato === 'reels' && (
+              <p className="absolute inset-x-0 bottom-0 line-clamp-2 bg-gradient-to-t from-foreground/80 to-transparent p-2 text-[10px] text-background">
+                {corpo}
+              </p>
+            )}
+          </div>
+
+          {!vertical && (
+            <div className="space-y-1.5 p-2.5">
+              <div className="flex gap-3 text-muted-foreground">
+                <Heart className="size-3.5" />
+                <MessageCircle className="size-3.5" />
+              </div>
+              <p className="line-clamp-4 text-[11px] leading-snug">
+                <span className="font-semibold">{perfil} </span>
+                {corpo || <span className="text-muted-foreground">a legenda aparece aqui</span>}
+              </p>
+            </div>
+          )}
+          {formato === 'stories' && (
+            <p className="p-2.5 text-[10px] text-muted-foreground">Stories não exibe legenda · some em 24h</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
@@ -265,7 +421,6 @@ function RegistroDeEnvio({ publicacao }: { publicacao: PublicacaoRegistro }) {
   const router = useRouter()
   const [atualizando, iniciar] = useTransition()
   const [erro, setErro] = useState('')
-
   const terminou = publicacao.status === 'completed' || publicacao.status === 'failed'
 
   function atualizar() {
@@ -273,54 +428,49 @@ function RegistroDeEnvio({ publicacao }: { publicacao: PublicacaoRegistro }) {
     const form = new FormData()
     form.set('publicacaoId', publicacao.id)
     iniciar(async () => {
-      try {
-        await atualizarStatusPublicacao(form)
-        router.refresh()
-      } catch (causa) {
-        setErro(causa instanceof Error ? causa.message : 'Não foi possível atualizar.')
-      }
+      try { await atualizarStatusPublicacao(form); router.refresh() }
+      catch (causa) { setErro(causa instanceof Error ? causa.message : 'Não foi possível atualizar.') }
     })
   }
 
   return (
     <div className="rounded-lg border border-border p-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded px-1.5 py-0.5 text-xs ${
-              publicacao.status === 'failed'
-                ? 'bg-destructive/10 text-destructive'
-                : publicacao.status === 'completed'
-                  ? 'bg-muted text-foreground'
-                  : 'bg-muted text-muted-foreground'
-            }`}
-          >
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className={`rounded px-1.5 py-0.5 text-[11px] ${
+            publicacao.status === 'failed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+          }`}>
             {ROTULO_STATUS[publicacao.status] ?? publicacao.status}
           </span>
-          <span className="text-muted-foreground">{publicacao.redes.join(', ')}</span>
-          <span className="text-xs text-muted-foreground">
-            {publicacao.agendadaPara ? `agendado para ${publicacao.agendadaPara}` : publicacao.criadaEm}
-          </span>
+          {publicacao.formato && publicacao.formato !== 'texto' && (
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+              {FORMATOS[publicacao.formato as Formato]?.rotulo ?? publicacao.formato}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">{publicacao.redes.join(', ')}</span>
         </div>
         {!terminou && (
           <Button variant="ghost" size="sm" onClick={atualizar} disabled={atualizando}>
             {atualizando ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-            Atualizar
           </Button>
         )}
       </div>
+
+      <p className="mt-1 text-xs text-muted-foreground">
+        {publicacao.agendadaPara ? `agendado para ${publicacao.agendadaPara}` : publicacao.criadaEm}
+      </p>
 
       {publicacao.resultados.length > 0 && (
         <ul className="mt-2 space-y-1">
           {publicacao.resultados.map((r, i) => (
             <li key={`${r.rede}-${i}`} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="font-medium">{r.rede}</span>
+              <span className="font-medium">{REDES[r.rede]?.nome ?? r.rede}</span>
               <span className={r.ok ? 'text-muted-foreground' : 'text-destructive'}>
-                {r.pulada ? 'conta não conectada' : r.ok ? 'ok' : (r.mensagem ?? 'falhou')}
+                {r.pulada ? 'não conectada' : r.ok ? 'ok' : (r.mensagem ?? 'falhou')}
               </span>
               {r.url && (
                 <a href={r.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                  ver post <ExternalLink className="size-3" />
+                  ver <ExternalLink className="size-3" />
                 </a>
               )}
             </li>

@@ -4,19 +4,20 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import {
-  REDES_DE_FOTO,
-  REDES_DE_TEXTO,
+  FORMATOS,
   publicarFotos,
   publicarTexto,
+  publicarVideo,
+  redesDoFormato,
   statusDoEnvio,
   semSegredo,
   UploadPostError,
+  type Formato,
   type RespostaDeEnvio,
 } from '@/lib/publicacao/upload-post'
 
 const texto = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
-const TODAS = new Set<string>([...REDES_DE_TEXTO, ...REDES_DE_FOTO])
 
 /** Limites reais de cada rede, para recusar aqui em vez de descobrir no erro
  * da API depois que metade das redes já publicou. */
@@ -30,13 +31,19 @@ const LIMITE_DE_TEXTO: Record<string, number> = {
   pinterest: 500,
 }
 
-function validar(redes: string[], corpo: string, imagemUrl: string) {
+function validar(formato: Formato, redes: string[], corpo: string, midiaUrl: string) {
   if (!redes.length) throw new Error('Escolha ao menos uma rede.')
 
-  const desconhecida = redes.find((rede) => !TODAS.has(rede))
-  if (desconhecida) throw new Error(`Rede não suportada: ${desconhecida}.`)
+  const permitidas = redesDoFormato(formato)
+  const incompativel = redes.find((rede) => !permitidas.includes(rede))
+  if (incompativel) {
+    throw new Error(`${incompativel} não aceita ${FORMATOS[formato].rotulo}. Desmarque essa rede ou troque o formato.`)
+  }
 
-  if (corpo.length < 2) throw new Error('Escreva o texto da publicação.')
+  // Stories não leva legenda: a Meta ignora o texto nesse formato. Exigir texto
+  // aqui seria pedir trabalho que não vai aparecer em lugar nenhum.
+  const exigeTexto = formato !== 'stories'
+  if (exigeTexto && corpo.length < 2) throw new Error('Escreva o texto da publicação.')
 
   for (const rede of redes) {
     const limite = LIMITE_DE_TEXTO[rede]
@@ -45,22 +52,24 @@ function validar(redes: string[], corpo: string, imagemUrl: string) {
     }
   }
 
-  // A API da Meta não aceita post sem mídia no Instagram. Falhar aqui é melhor
-  // que publicar em três redes e receber um erro só da quarta.
-  if (redes.includes('instagram') && !imagemUrl) {
-    throw new Error('O Instagram exige uma imagem. Informe a URL da imagem ou desmarque o Instagram.')
+  const midia = FORMATOS[formato].midia
+  if (midia !== 'nenhuma' && !midiaUrl) {
+    const oQue = midia === 'video' ? 'um vídeo' : midia === 'imagem' ? 'uma imagem' : 'uma imagem ou um vídeo'
+    throw new Error(`${FORMATOS[formato].rotulo} exige ${oQue}. Informe a URL.`)
   }
 
-  if (imagemUrl) {
+  if (midiaUrl) {
     let url: URL
-    try { url = new URL(imagemUrl) } catch { throw new Error('A URL da imagem é inválida.') }
-    if (url.protocol !== 'https:') throw new Error('A URL da imagem precisa ser https.')
-
-    const semFoto = redes.filter((rede) => !(REDES_DE_FOTO as readonly string[]).includes(rede))
-    if (semFoto.length) {
-      throw new Error(`Estas redes não aceitam imagem por aqui: ${semFoto.join(', ')}.`)
-    }
+    try { url = new URL(midiaUrl) } catch { throw new Error('A URL da mídia é inválida.') }
+    if (url.protocol !== 'https:') throw new Error('A URL da mídia precisa ser https.')
   }
+}
+
+/** Reels é sempre vídeo; stories depende da extensão do arquivo informado. */
+function ehVideo(formato: Formato, midiaUrl: string): boolean {
+  if (formato === 'reels') return true
+  if (formato !== 'stories') return false
+  return /\.(mp4|mov|m4v|webm)(\?|$)/i.test(midiaUrl)
 }
 
 /** Só os campos que vale a pena guardar do retorno — a resposta crua traz muita
@@ -83,10 +92,14 @@ export async function publicarNasRedes(formData: FormData) {
   const redes = formData.getAll('redes').map((r) => String(r)).filter(Boolean)
   const corpo = texto(formData, 'corpo')
   const linkUrl = texto(formData, 'linkUrl')
-  const imagemUrl = texto(formData, 'imagemUrl')
+  const midiaUrl = texto(formData, 'midiaUrl')
   const agendarPara = texto(formData, 'agendarPara')
 
-  validar(redes, corpo, imagemUrl)
+  const bruto = texto(formData, 'formato') || 'texto'
+  if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
+  const formato = bruto as Formato
+
+  validar(formato, redes, corpo, midiaUrl)
 
   let quando: string | undefined
   if (agendarPara) {
@@ -116,7 +129,8 @@ export async function publicarNasRedes(formData: FormData) {
       networks: redes,
       body: corpo,
       link_url: linkUrl || null,
-      image_url: imagemUrl || null,
+      image_url: midiaUrl || null,
+      format: formato,
       scheduled_for: quando ?? null,
       created_by: context.user.id,
       status: 'pending',
@@ -136,12 +150,17 @@ export async function publicarNasRedes(formData: FormData) {
     agendarPara: quando,
     timezone: 'America/Sao_Paulo',
     linkUrl: linkUrl || undefined,
+    formato,
   }
 
   try {
-    const { dados } = imagemUrl
-      ? await publicarFotos({ ...comum, fotos: [imagemUrl] })
-      : await publicarTexto(comum)
+    // Cada formato tem seu endpoint: vídeo vai em /upload, imagem em
+    // /upload_photos, texto puro em /upload_text.
+    const { dados } = ehVideo(formato, midiaUrl)
+      ? await publicarVideo({ ...comum, video: midiaUrl })
+      : midiaUrl
+        ? await publicarFotos({ ...comum, fotos: [midiaUrl] })
+        : await publicarTexto(comum)
 
     await supabase
       .from('social_publications')
