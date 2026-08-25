@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ExternalLink, Heart, Loader2, MessageCircle, Play, RefreshCw,
   Send, Share2, TriangleAlert, Image as ImageIcon, Film, Type as TypeIcon, Layers,
+  Upload, X as XIcon, Check,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,6 +43,15 @@ const REDES: Record<string, { nome: string; cor: string }> = {
 
 const LIMITES: Record<string, number> = {
   bluesky: 300, linkedin: 3_000, instagram: 2_200, pinterest: 500, google_business: 1_500,
+}
+
+export type ArquivoDaBiblioteca = {
+  id: string
+  nome: string
+  tipo: 'foto' | 'video'
+  contentType: string
+  tamanho: number
+  previa: string
 }
 
 export type PublicacaoRegistro = {
@@ -85,6 +95,7 @@ export function PublicadorRedes({
   const [corpo, setCorpo] = useState(textoInicial)
   const [linkUrl, setLinkUrl] = useState(linkInicial)
   const [midiaUrl, setMidiaUrl] = useState('')
+  const [arquivo, setArquivo] = useState<ArquivoDaBiblioteca | null>(null)
   const [agendarPara, setAgendarPara] = useState('')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
@@ -110,6 +121,8 @@ export function PublicadorRedes({
   // Trocar de formato não pode deixar para trás uma rede que o novo não aceita:
   // o envio seria recusado por algo que a tela não mostra mais.
   function trocarFormato(novo: Formato) {
+    // Reels só aceita vídeo; manter uma foto escolhida ali só produziria erro.
+    if (novo === 'reels' && arquivo?.tipo === 'foto') setArquivo(null)
     setFormato(novo)
     setSelecionadas((atual) => atual.filter((r) => (FORMATOS[novo].redes as readonly string[]).includes(r)))
     setErro('')
@@ -124,7 +137,7 @@ export function PublicadorRedes({
     return menor === null ? l : Math.min(menor, l)
   }, null), [selecionadas])
 
-  const precisaMidia = spec.midia !== 'nenhuma' && !midiaUrl.trim()
+  const precisaMidia = spec.midia !== 'nenhuma' && !midiaUrl.trim() && !arquivo
   const excedeu = limite !== null && corpo.length > limite
   const exigeTexto = formato !== 'stories'
   const bloqueado = enviando || !selecionadas.length || estado !== 'ok'
@@ -138,7 +151,8 @@ export function PublicadorRedes({
     for (const rede of selecionadas) form.append('redes', rede)
     form.set('corpo', corpo)
     form.set('linkUrl', linkUrl.trim())
-    form.set('midiaUrl', midiaUrl.trim())
+    form.set('midiaUrl', arquivo ? '' : midiaUrl.trim())
+    if (arquivo) form.set('fileId', arquivo.id)
     form.set('agendarPara', agendarPara)
 
     iniciarEnvio(async () => {
@@ -146,6 +160,7 @@ export function PublicadorRedes({
         await publicarNasRedes(form)
         setAviso(agendarPara ? 'Publicação agendada.' : 'Enviado. O resultado por rede aparece abaixo em segundos.')
         setSelecionadas([])
+        setArquivo(null)
         router.refresh()
       } catch (causa) {
         setErro(causa instanceof Error ? causa.message : 'Não foi possível publicar.')
@@ -264,17 +279,15 @@ export function PublicadorRedes({
           {/* Mídia e opções */}
           <div className="grid gap-3 sm:grid-cols-2">
             {spec.midia !== 'nenhuma' && (
-              <label className="text-sm sm:col-span-2">
-                <span className="mb-1 block text-muted-foreground">
-                  URL {spec.midia === 'video' ? 'do vídeo' : spec.midia === 'imagem' ? 'da imagem' : 'da imagem ou vídeo'}
-                  <span className="ml-1 text-destructive">obrigatória</span>
-                </span>
-                <input
-                  type="url" value={midiaUrl} onChange={(e) => setMidiaUrl(e.target.value)}
-                  placeholder="https://cruzvermelhariodejaneiro.org/noticias/foto.jpg"
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+              <div className="sm:col-span-2">
+                <SeletorDeMidia
+                  formato={formato}
+                  arquivo={arquivo}
+                  onEscolher={(a) => { setArquivo(a); setMidiaUrl('') }}
+                  midiaUrl={midiaUrl}
+                  onUrl={(v) => { setMidiaUrl(v); if (v) setArquivo(null) }}
                 />
-              </label>
+              </div>
             )}
 
             <label className="text-sm">
@@ -319,7 +332,7 @@ export function PublicadorRedes({
       </Card>
 
       <div className="space-y-5">
-        <Previa formato={formato} corpo={corpo} midiaUrl={midiaUrl} perfil={perfil} />
+        <Previa formato={formato} corpo={corpo} midiaUrl={arquivo?.previa || midiaUrl} eVideo={arquivo ? arquivo.tipo === 'video' : ehVideo(midiaUrl)} perfil={perfil} />
         {publicacoes.length > 0 && (
           <Card>
             <CardHeader><CardTitle className="text-sm">Envios recentes</CardTitle></CardHeader>
@@ -348,11 +361,11 @@ function Alerta({ children }: { children: React.ReactNode }) {
  * legenda ficou grande demais? O Stories aparece em 9:16 justamente porque é
  * onde o enquadramento errado mais estraga.
  */
-function Previa({ formato, corpo, midiaUrl, perfil }: {
-  formato: Formato; corpo: string; midiaUrl: string; perfil: string
+function Previa({ formato, corpo, midiaUrl, eVideo, perfil }: {
+  formato: Formato; corpo: string; midiaUrl: string; eVideo: boolean; perfil: string
 }) {
   const vertical = formato === 'stories' || formato === 'reels'
-  const video = ehVideo(midiaUrl)
+  const video = eVideo
 
   return (
     <Card className="overflow-hidden">
@@ -479,6 +492,156 @@ function RegistroDeEnvio({ publicacao }: { publicacao: PublicacaoRegistro }) {
       )}
 
       {publicacao.erro && <p className="mt-2 text-xs text-destructive">{publicacao.erro}</p>}
+      {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
+    </div>
+  )
+}
+
+/**
+ * Escolher a mídia da Biblioteca, subir uma nova, ou colar uma URL de fora.
+ *
+ * A Biblioteca vem primeiro porque é o caminho que funciona sem o usuário
+ * precisar saber o que é uma URL pública — e porque um arquivo de lá já está
+ * dentro do espaço, com autoria registrada.
+ */
+function SeletorDeMidia({
+  formato, arquivo, onEscolher, midiaUrl, onUrl,
+}: {
+  formato: Formato
+  arquivo: ArquivoDaBiblioteca | null
+  onEscolher: (a: ArquivoDaBiblioteca | null) => void
+  midiaUrl: string
+  onUrl: (v: string) => void
+}) {
+  const spec = FORMATOS[formato]
+  const [arquivos, setArquivos] = useState<ArquivoDaBiblioteca[] | null>(null)
+  const [subindo, setSubindo] = useState(false)
+  const [erro, setErro] = useState('')
+  const [mostrarUrl, setMostrarUrl] = useState(false)
+
+  async function carregar() {
+    try {
+      const r = await fetch('/api/redes/imagens', { cache: 'no-store' })
+      const d = await r.json()
+      setArquivos(d.arquivos ?? [])
+    } catch { setArquivos([]) }
+  }
+
+  useEffect(() => { carregar() }, [])
+
+  // Reels não aceita foto; mostrar o que não serve só gera clique frustrado.
+  const compativeis = (arquivos ?? []).filter((a) =>
+    spec.midia === 'video' ? a.tipo === 'video'
+      : spec.midia === 'imagem' ? a.tipo === 'foto'
+        : true)
+
+  async function subir(file: File) {
+    setErro(''); setSubindo(true)
+    try {
+      const form = new FormData()
+      form.set('file', file)
+      const r = await fetch('/api/files/upload', { method: 'POST', body: form })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Não foi possível enviar o arquivo.')
+      await carregar()
+      // Selecionar o recém-enviado poupa um clique e confirma que subiu.
+      const lista = await fetch('/api/redes/imagens', { cache: 'no-store' }).then((x) => x.json())
+      const novo = (lista.arquivos ?? []).find((a: ArquivoDaBiblioteca) => a.id === d.id)
+      if (novo) onEscolher(novo)
+    } catch (causa) {
+      setErro(causa instanceof Error ? causa.message : 'Falha no envio.')
+    } finally { setSubindo(false) }
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {spec.midia === 'video' ? 'Vídeo' : spec.midia === 'imagem' ? 'Imagem' : 'Imagem ou vídeo'}
+          <span className="ml-1 text-destructive">obrigatório</span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setMostrarUrl((v) => !v)}
+          className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {mostrarUrl ? 'usar a Biblioteca' : 'ou colar uma URL'}
+        </button>
+      </div>
+
+      {mostrarUrl ? (
+        <input
+          type="url" value={midiaUrl} onChange={(e) => onUrl(e.target.value)}
+          placeholder="https://exemplo.org/foto.jpg"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring"
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+            <label className={`flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted ${subindo ? 'pointer-events-none opacity-60' : ''}`}>
+              {subindo ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+              <span className="text-[10px]">{subindo ? 'enviando' : 'enviar'}</span>
+              <input
+                type="file"
+                accept={spec.midia === 'video' ? 'video/*' : spec.midia === 'imagem' ? 'image/*' : 'image/*,video/*'}
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) subir(f); e.target.value = '' }}
+              />
+            </label>
+
+            {arquivos === null && (
+              <div className="col-span-3 flex aspect-square items-center justify-center text-xs text-muted-foreground sm:col-span-5">
+                <Loader2 className="size-4 animate-spin" />
+              </div>
+            )}
+
+            {compativeis.map((a) => {
+              const escolhido = arquivo?.id === a.id
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => onEscolher(escolhido ? null : a)}
+                  title={a.nome}
+                  className={`relative aspect-square overflow-hidden rounded-lg border transition-all ${
+                    escolhido ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:opacity-80'
+                  }`}
+                >
+                  {a.tipo === 'foto' ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={a.previa} alt={a.nome} className="size-full object-cover" />
+                  ) : (
+                    <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
+                      <Film className="size-4" />
+                    </span>
+                  )}
+                  {escolhido && (
+                    <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      <Check className="size-3" />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {arquivos !== null && compativeis.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Nenhum {spec.midia === 'video' ? 'vídeo' : 'arquivo'} na Biblioteca ainda. Envie um pelo botão acima.
+            </p>
+          )}
+        </>
+      )}
+
+      {arquivo && (
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Check className="size-3 text-primary" />
+          {arquivo.nome}
+          <button type="button" onClick={() => onEscolher(null)} className="hover:text-foreground" aria-label="Remover seleção">
+            <XIcon className="size-3" />
+          </button>
+        </p>
+      )}
       {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
     </div>
   )
