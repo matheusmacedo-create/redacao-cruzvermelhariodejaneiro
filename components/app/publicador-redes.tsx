@@ -44,11 +44,14 @@ export function PublicadorRedes({
   textoInicial,
   linkInicial = '',
   publicacoes = [],
+  podeConectar = false,
 }: {
   contentId?: string
   textoInicial: string
   linkInicial?: string
   publicacoes?: PublicacaoRegistro[]
+  /** Admin vê o botão de autorizar as contas; os demais, a quem pedir. */
+  podeConectar?: boolean
 }) {
   const router = useRouter()
   const [enviando, iniciarEnvio] = useTransition()
@@ -165,10 +168,19 @@ export function PublicadorRedes({
           })}
         </div>
         {conectadas?.length === 0 && estadoConexao === 'ok' && (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma conta conectada ainda. Um administrador precisa autorizar as contas em{' '}
-            <span className="font-medium text-foreground">/api/admin/redes-conectar</span>.
-          </p>
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="text-sm text-muted-foreground">
+              Nenhuma conta conectada ainda.
+              {podeConectar
+                ? ' Autorize as contas oficiais para liberar a publicação.'
+                : ' Peça a um administrador para autorizar as contas oficiais.'}
+            </p>
+            {podeConectar && (
+              <Button variant="outline" size="lg" className="mt-3" render={<a href="/api/admin/redes-conectar" />}>
+                Conectar contas
+              </Button>
+            )}
+          </div>
         )}
 
         <div>
