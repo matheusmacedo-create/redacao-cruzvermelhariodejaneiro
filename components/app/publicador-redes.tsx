@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation'
 import {
   ExternalLink, Heart, Loader2, MessageCircle, Play, RefreshCw,
   Send, Share2, TriangleAlert, Image as ImageIcon, Film, Type as TypeIcon, Layers,
-  Upload, X as XIcon, Check, ShieldCheck, Smile,
+  Upload, X as XIcon, Check, ShieldCheck, Smile, UserCheck,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar } from '@/components/ui/avatar'
 import { EmojiPicker } from '@/components/app/emoji-picker'
-import { publicarNasRedes, atualizarStatusPublicacao } from '@/app/actions/redes'
+import { publicarNasRedes, atualizarStatusPublicacao, enviarPostParaAprovacao, publicarRascunho } from '@/app/actions/redes'
 import { upload } from '@vercel/blob/client'
 import { caminhoDaBiblioteca } from '@/lib/storage'
 import { conferir, tambemAceitam, type Achado, type Midia } from '@/lib/publicacao/requisitos'
@@ -58,6 +59,18 @@ export type ArquivoDaBiblioteca = {
   previa: string
 }
 
+export type Pessoa = { id: string; nome: string; iniciais: string; cor?: string }
+
+export type RascunhoRegistro = {
+  id: string
+  redes: string[]
+  corpo: string
+  formato?: string
+  criadaEm: string
+  aprovacao: 'pending' | 'approved' | 'changes_requested' | null
+  aprovacaoId: string | null
+}
+
 export type PublicacaoRegistro = {
   id: string
   redes: string[]
@@ -85,6 +98,8 @@ export function PublicadorRedes({
   podeConectar = false,
   perfil = 'cruzvermelhabrasileirj',
   workspaceId,
+  pessoas = [],
+  rascunhos = [],
 }: {
   contentId?: string
   textoInicial: string
@@ -94,6 +109,9 @@ export function PublicadorRedes({
   perfil?: string
   /** Necessário para montar o caminho do arquivo no armazenamento. */
   workspaceId: string
+  /** Quem pode ser escolhido como aprovador. */
+  pessoas?: Pessoa[]
+  rascunhos?: RascunhoRegistro[]
 }) {
   const router = useRouter()
   const [enviando, iniciarEnvio] = useTransition()
@@ -108,6 +126,8 @@ export function PublicadorRedes({
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
   const [emojiAberto, setEmojiAberto] = useState(false)
+  const [aprovadores, setAprovadores] = useState<string[]>([])
+  const [pedindoAprovacao, setPedindoAprovacao] = useState(false)
   const areaTexto = useRef<HTMLTextAreaElement>(null)
 
   // Insere no cursor, não no fim: emoji quase sempre entra no meio da frase.
@@ -208,8 +228,7 @@ export function PublicadorRedes({
   const bloqueado = enviando || !selecionadas.length || estado !== 'ok'
     || (exigeTexto && corpo.trim().length < 2) || precisaMidia || excedeu || temErro
 
-  function enviar() {
-    setErro(''); setAviso('')
+  function montarFormulario() {
     const form = new FormData()
     if (contentId) form.set('contentId', contentId)
     form.set('formato', formato)
@@ -219,6 +238,29 @@ export function PublicadorRedes({
     form.set('midiaUrl', arquivo ? '' : midiaUrl.trim())
     if (arquivo) form.set('fileId', arquivo.id)
     form.set('agendarPara', agendarPara)
+    return form
+  }
+
+  function pedirAprovacao() {
+    setErro(''); setAviso('')
+    const form = montarFormulario()
+    for (const id of aprovadores) form.append('aprovadores', id)
+
+    iniciarEnvio(async () => {
+      try {
+        await enviarPostParaAprovacao(form)
+        setAviso('Enviado para aprovação. Aparece na tela de Aprovações de quem você marcou.')
+        setSelecionadas([]); setArquivo(null); setAprovadores([]); setPedindoAprovacao(false)
+        router.refresh()
+      } catch (causa) {
+        setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar para aprovação.')
+      }
+    })
+  }
+
+  function enviar() {
+    setErro(''); setAviso('')
+    const form = montarFormulario()
 
     iniciarEnvio(async () => {
       try {
@@ -447,22 +489,87 @@ export function PublicadorRedes({
           {erro && <p className="text-sm text-destructive">{erro}</p>}
           {aviso && <p className="text-sm text-muted-foreground">{aviso}</p>}
 
-          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+          {pedindoAprovacao && (
+            <div className="rounded-lg border border-border p-3">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <UserCheck className="size-3.5" />
+                Quem precisa aprovar
+              </p>
+              {pessoas.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {pessoas.map((pessoa) => {
+                    const marcado = aprovadores.includes(pessoa.id)
+                    return (
+                      <button
+                        key={pessoa.id}
+                        type="button"
+                        aria-pressed={marcado}
+                        onClick={() => setAprovadores((atual) =>
+                          atual.includes(pessoa.id) ? atual.filter((i) => i !== pessoa.id) : [...atual, pessoa.id])}
+                        className={`flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors ${
+                          marcado ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <Avatar initials={pessoa.iniciais} color={pessoa.cor} size="sm" />
+                        {pessoa.nome}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Não há outras pessoas neste espaço para aprovar.</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <p className="text-xs text-muted-foreground">
               {selecionadas.length
                 ? `${selecionadas.length} ${selecionadas.length === 1 ? 'rede marcada' : 'redes marcadas'} · conta como 1 publicação`
                 : 'Nenhuma rede marcada'}
             </p>
-            <Button onClick={enviar} disabled={bloqueado} size="lg">
-              {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {agendarPara ? 'Agendar' : 'Publicar agora'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {pedindoAprovacao ? (
+                <>
+                  <Button variant="ghost" size="lg" onClick={() => setPedindoAprovacao(false)} disabled={enviando}>
+                    Cancelar
+                  </Button>
+                  <Button size="lg" onClick={pedirAprovacao} disabled={bloqueado || !aprovadores.length}>
+                    {enviando ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
+                    Enviar para aprovação
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" size="lg" onClick={() => setPedindoAprovacao(true)} disabled={bloqueado}>
+                    <UserCheck className="size-4" />
+                    Pedir aprovação
+                  </Button>
+                  <Button onClick={enviar} disabled={bloqueado} size="lg">
+                    {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                    {agendarPara ? 'Agendar' : 'Publicar agora'}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="space-y-5">
         <Previa formato={formato} corpo={corpo} midiaUrl={previaUrl} eVideo={midiaEhVideo} midia={midia} perfil={perfil} />
+        {rascunhos.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Aguardando aprovação</CardTitle>
+              <CardDescription className="text-xs">Publica com um clique assim que for aprovado.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {rascunhos.map((r) => <Rascunho key={r.id} rascunho={r} />)}
+            </CardContent>
+          </Card>
+        )}
+
         {publicacoes.length > 0 && (
           <Card>
             <CardHeader><CardTitle className="text-sm">Envios recentes</CardTitle></CardHeader>
@@ -795,6 +902,68 @@ function SeletorDeMidia({
           </button>
         </p>
       )}
+      {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
+    </div>
+  )
+}
+
+const ROTULO_APROVACAO: Record<string, { texto: string; classe: string }> = {
+  pending: { texto: 'aguardando aprovação', classe: 'bg-muted text-muted-foreground' },
+  approved: { texto: 'aprovado', classe: 'bg-primary/10 text-primary' },
+  changes_requested: { texto: 'ajustes pedidos', classe: 'bg-destructive/10 text-destructive' },
+}
+
+/**
+ * Um post parado esperando a aprovação sair.
+ *
+ * O botão de publicar só aparece depois do aprovado, mas quem decide de fato é
+ * o servidor: a tela pode estar desatualizada, e publicar em nome da
+ * instituição algo que ninguém aprovou é o que o fluxo existe para impedir.
+ */
+function Rascunho({ rascunho }: { rascunho: RascunhoRegistro }) {
+  const router = useRouter()
+  const [enviando, iniciar] = useTransition()
+  const [erro, setErro] = useState('')
+  const marca = ROTULO_APROVACAO[rascunho.aprovacao ?? 'pending']
+
+  function publicar() {
+    setErro('')
+    const form = new FormData()
+    form.set('rascunhoId', rascunho.id)
+    iniciar(async () => {
+      try { await publicarRascunho(form); router.refresh() }
+      catch (causa) { setErro(causa instanceof Error ? causa.message : 'Não foi possível publicar.') }
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={`rounded px-1.5 py-0.5 text-[11px] ${marca.classe}`}>{marca.texto}</span>
+        {rascunho.formato && rascunho.formato !== 'texto' && (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            {FORMATOS[rascunho.formato as Formato]?.rotulo ?? rascunho.formato}
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">{rascunho.redes.join(', ')}</span>
+      </div>
+
+      <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{rascunho.corpo || '(sem legenda)'}</p>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {rascunho.aprovacaoId && (
+          <a href={`/aprovacoes/${rascunho.aprovacaoId}`} className="text-xs text-primary hover:underline">
+            ver aprovação
+          </a>
+        )}
+        {rascunho.aprovacao === 'approved' && (
+          <Button size="sm" onClick={publicar} disabled={enviando}>
+            {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+            Publicar
+          </Button>
+        )}
+      </div>
+
       {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
     </div>
   )

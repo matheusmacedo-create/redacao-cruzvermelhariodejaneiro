@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { get } from '@vercel/blob'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   FORMATOS,
   publicarFotos,
@@ -126,10 +127,75 @@ async function carregarArquivo(fileId: string, workspaceId: string) {
   }
 }
 
-export async function publicarNasRedes(formData: FormData) {
-  const context = await requireWorkspace()
+/** Campos que descrevem um post, venham do formulário ou de um rascunho. */
+type Post = {
+  formato: Formato
+  redes: string[]
+  corpo: string
+  linkUrl: string
+  midiaUrl: string
+  fileId: string
+  quando?: string
+}
+
+/**
+ * Entrega o post ao Upload-Post e grava o retorno na linha já existente.
+ *
+ * Separado de quem cria a linha porque publicar acontece em dois momentos:
+ * agora, direto da tela, ou depois, quando a aprovação sai. O caminho até a
+ * API precisa ser o mesmo nos dois casos.
+ */
+async function entregar(registroId: string, post: Post, workspaceId: string) {
   const supabase = await createClient()
 
+  const comum = {
+    redes: post.redes,
+    texto: post.corpo,
+    externalId: registroId,
+    idempotencyKey: registroId,
+    agendarPara: post.quando,
+    timezone: 'America/Sao_Paulo',
+    linkUrl: post.linkUrl || undefined,
+    formato: post.formato,
+  }
+
+  try {
+    const daBiblioteca = post.fileId ? await carregarArquivo(post.fileId, workspaceId) : null
+    const midia = daBiblioteca?.blob ?? post.midiaUrl
+    const eVideo = daBiblioteca
+      ? daBiblioteca.contentType.startsWith('video/')
+      : ehVideo(post.formato, post.midiaUrl)
+
+    const { dados } = eVideo
+      ? await publicarVideo({ ...comum, video: midia })
+      : midia
+        ? await publicarFotos({ ...comum, fotos: [midia] })
+        : await publicarTexto(comum)
+
+    await supabase.from('social_publications').update({
+      request_id: dados.request_id ?? null,
+      job_id: dados.job_id ?? null,
+      external_id: dados.external_id ?? registroId,
+      status: dados.status && dados.status !== 'not_found' ? dados.status : 'queued',
+      results: resumirResultados(dados),
+      error: null,
+    }).eq('id', registroId)
+  } catch (causa) {
+    const mensagem = causa instanceof UploadPostError
+      ? `${causa.message} (HTTP ${causa.status})`
+      : semSegredo(causa instanceof Error ? causa.message : String(causa))
+
+    await supabase.from('social_publications')
+      .update({ status: 'failed', error: mensagem.slice(0, 500) })
+      .eq('id', registroId)
+
+    throw new Error(mensagem)
+  }
+}
+
+/** Lê e valida o post que veio do formulário. Compartilhado pelos dois botões. */
+async function lerPost(formData: FormData, workspaceId: string): Promise<Post & { contentId: string | null }> {
+  const supabase = await createClient()
   const contentId = texto(formData, 'contentId') || null
   const redes = formData.getAll('redes').map((r) => String(r)).filter(Boolean)
   const corpo = texto(formData, 'corpo')
@@ -142,7 +208,6 @@ export async function publicarNasRedes(formData: FormData) {
   if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
   const formato = bruto as Formato
 
-  // Um arquivo da Biblioteca satisfaz a exigência de mídia tanto quanto uma URL.
   validar(formato, redes, corpo, midiaUrl || (fileId ? 'biblioteca' : ''))
   if (midiaUrl && fileId) throw new Error('Escolha um arquivo da Biblioteca ou informe uma URL, não os dois.')
 
@@ -154,92 +219,193 @@ export async function publicarNasRedes(formData: FormData) {
     quando = data.toISOString()
   }
 
-  // A matéria pertence mesmo a este espaço? Sem esta checagem, um id de outro
-  // espaço vindo pelo formulário amarraria a publicação ao registro errado.
   if (contentId) {
     const { data: peca } = await supabase
       .from('content_pieces').select('id')
-      .eq('id', contentId).eq('workspace_id', context.workspace.id).maybeSingle()
+      .eq('id', contentId).eq('workspace_id', workspaceId).maybeSingle()
     if (!peca) throw new Error('Conteúdo não encontrado neste espaço.')
   }
+
+  return { formato, redes, corpo, linkUrl, midiaUrl, fileId, quando, contentId }
+}
+
+export async function publicarNasRedes(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const post = await lerPost(formData, context.workspace.id)
 
   // A linha nasce antes do envio. Se a chamada estourar o tempo depois de a API
   // ter aceitado, ainda existe um registro para reconciliar — o contrário
   // deixaria uma publicação no ar sem rastro nenhum aqui dentro.
-  const { data: registro, error: erroInsert } = await supabase
+  const { data: registro, error } = await supabase
     .from('social_publications')
     .insert({
       workspace_id: context.workspace.id,
-      content_id: contentId,
-      networks: redes,
-      body: corpo,
-      link_url: linkUrl || null,
-      image_url: midiaUrl || null,
-      file_id: fileId || null,
-      format: formato,
-      scheduled_for: quando ?? null,
+      content_id: post.contentId,
+      networks: post.redes,
+      body: post.corpo,
+      link_url: post.linkUrl || null,
+      image_url: post.midiaUrl || null,
+      file_id: post.fileId || null,
+      format: post.formato,
+      scheduled_for: post.quando ?? null,
       created_by: context.user.id,
       status: 'pending',
     })
     .select('id')
     .single()
 
-  if (erroInsert || !registro) throw new Error('Não foi possível registrar a publicação.')
+  if (error || !registro) throw new Error('Não foi possível registrar a publicação.')
 
-  const comum = {
-    redes,
-    texto: corpo,
-    externalId: registro.id,
-    // A chave de idempotência é o id da linha: um retry do fetch depois de
-    // timeout reencontra o mesmo envio em vez de publicar de novo.
-    idempotencyKey: registro.id,
-    agendarPara: quando,
-    timezone: 'America/Sao_Paulo',
-    linkUrl: linkUrl || undefined,
-    formato,
-  }
+  await entregar(registro.id, post, context.workspace.id)
 
-  try {
-    // A mídia pode vir de dois lugares. Da Biblioteca ela sobe como bytes:
-    // os arquivos são privados e o Upload-Post baixaria do servidor dele, sem
-    // a sessão do usuário — uma URL nossa devolveria 403 para ele.
-    const daBiblioteca = fileId ? await carregarArquivo(fileId, context.workspace.id) : null
-    const midia = daBiblioteca?.blob ?? midiaUrl
-    const eVideo = daBiblioteca
-      ? daBiblioteca.contentType.startsWith('video/')
-      : ehVideo(formato, midiaUrl)
-
-    const { dados } = eVideo
-      ? await publicarVideo({ ...comum, video: midia })
-      : midia
-        ? await publicarFotos({ ...comum, fotos: [midia] })
-        : await publicarTexto(comum)
-
-    await supabase
-      .from('social_publications')
-      .update({
-        request_id: dados.request_id ?? null,
-        job_id: dados.job_id ?? null,
-        external_id: dados.external_id ?? registro.id,
-        status: dados.status && dados.status !== 'not_found' ? dados.status : 'queued',
-        results: resumirResultados(dados),
-      })
-      .eq('id', registro.id)
-  } catch (causa) {
-    const mensagem = causa instanceof UploadPostError
-      ? `${causa.message} (HTTP ${causa.status})`
-      : semSegredo(causa instanceof Error ? causa.message : String(causa))
-
-    await supabase
-      .from('social_publications')
-      .update({ status: 'failed', error: mensagem.slice(0, 500) })
-      .eq('id', registro.id)
-
-    throw new Error(mensagem)
-  }
-
-  if (contentId) revalidatePath(`/conteudos/${contentId}`)
+  if (post.contentId) revalidatePath(`/conteudos/${post.contentId}`)
+  revalidatePath('/redes')
   revalidatePath('/calendario')
+}
+
+/**
+ * Guarda o post e o manda para a fila de aprovação existente.
+ *
+ * O post vira um content_piece de formato "Post para redes" e entra na mesma
+ * tela de Aprovações das matérias — mesma votação, mesmos comentários, mesmas
+ * notificações. Duplicar esse fluxo só para posts seria manter duas verdades
+ * sobre quem aprovou o quê.
+ */
+export async function enviarPostParaAprovacao(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const post = await lerPost(formData, context.workspace.id)
+
+  const aprovadores = [...new Set(formData.getAll('aprovadores').map((v) => String(v)).filter(Boolean))]
+    .filter((id) => id !== context.user.id)
+  if (!aprovadores.length) throw new Error('Escolha quem precisa aprovar este post.')
+
+  // Só gente do espaço aprova. Os ids vêm do formulário.
+  const { data: membros } = await supabase
+    .from('workspace_members').select('user_id')
+    .eq('workspace_id', context.workspace.id).in('user_id', aprovadores)
+  const validos = (membros ?? []).map((m) => m.user_id)
+  if (!validos.length) throw new Error('Nenhuma das pessoas escolhidas pertence a este espaço.')
+
+  // O título é a primeira linha da legenda: é assim que o post aparece na fila
+  // de Aprovações, e "Post para redes" repetido não distinguiria nada.
+  const primeiraLinha = post.corpo.split('\n')[0].trim()
+  const titulo = (primeiraLinha || `Post para ${post.redes.join(', ')}`).slice(0, 120)
+
+  const { data: peca, error: erroPeca } = await supabase
+    .from('content_pieces')
+    .insert({
+      workspace_id: context.workspace.id,
+      title: titulo,
+      subtitle: `${FORMATOS[post.formato].rotulo} · ${post.redes.join(', ')}`,
+      body: post.corpo || '(sem legenda)',
+      format: 'Post para redes',
+      status: 'review',
+      responsible_id: context.user.id,
+      created_by: context.user.id,
+    })
+    .select('id')
+    .single()
+  if (erroPeca || !peca) throw new Error('Não foi possível criar o item de aprovação.')
+
+  const { data: approvalId, error: erroEnvio } = await supabase
+    .rpc('submit_content_for_approval', { p_content_id: peca.id })
+  if (erroEnvio || !approvalId) throw new Error(erroEnvio?.message || 'Não foi possível enviar para aprovação.')
+
+  const admin = createAdminClient()
+  await admin.from('approval_voters').insert(
+    validos.map((user_id) => ({
+      approval_id: approvalId as string,
+      workspace_id: context.workspace.id,
+      user_id,
+    })),
+  )
+
+  const { data: rascunho, error: erroRascunho } = await supabase
+    .from('social_publications')
+    .insert({
+      workspace_id: context.workspace.id,
+      content_id: peca.id,
+      networks: post.redes,
+      body: post.corpo,
+      link_url: post.linkUrl || null,
+      image_url: post.midiaUrl || null,
+      file_id: post.fileId || null,
+      format: post.formato,
+      scheduled_for: post.quando ?? null,
+      created_by: context.user.id,
+      status: 'draft',
+    })
+    .select('id')
+    .single()
+  if (erroRascunho || !rascunho) throw new Error('Não foi possível guardar o rascunho do post.')
+
+  await admin.from('notifications').insert(
+    validos.map((user_id) => ({
+      workspace_id: context.workspace.id,
+      user_id,
+      title: `${context.profile?.full_name || 'Um colega'} pediu sua aprovação`,
+      message: titulo,
+      link: `/aprovacoes/${approvalId}`,
+    })),
+  )
+
+  revalidatePath('/aprovacoes')
+  revalidatePath('/redes')
+}
+
+/**
+ * Publica um rascunho que já passou pela aprovação.
+ *
+ * A checagem é feita aqui e não na tela: o botão pode estar desatualizado, e
+ * publicar em nome da instituição algo que ninguém aprovou é justamente o que
+ * o fluxo existe para impedir.
+ */
+export async function publicarRascunho(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const id = texto(formData, 'rascunhoId')
+  if (!id) throw new Error('Rascunho não informado.')
+
+  const { data: rascunho } = await supabase
+    .from('social_publications')
+    .select('id,content_id,networks,body,link_url,image_url,file_id,format,scheduled_for,status')
+    .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+
+  if (!rascunho) throw new Error('Rascunho não encontrado.')
+  if (rascunho.status !== 'draft') throw new Error('Este post já foi enviado.')
+
+  if (rascunho.content_id) {
+    const { data: aprovacao } = await supabase
+      .from('approvals').select('status')
+      .eq('content_id', rascunho.content_id)
+      .order('created_at', { ascending: false })
+      .limit(1).maybeSingle()
+    if (aprovacao?.status !== 'approved') {
+      throw new Error('Este post ainda não foi aprovado.')
+    }
+  }
+
+  // Agendamento no passado, porque a aprovação demorou, vira publicação agora.
+  const agendado = rascunho.scheduled_for && new Date(rascunho.scheduled_for).getTime() > Date.now()
+    ? new Date(rascunho.scheduled_for).toISOString()
+    : undefined
+
+  await supabase.from('social_publications').update({ status: 'pending' }).eq('id', rascunho.id)
+
+  await entregar(rascunho.id, {
+    formato: rascunho.format as Formato,
+    redes: rascunho.networks ?? [],
+    corpo: rascunho.body ?? '',
+    linkUrl: rascunho.link_url ?? '',
+    midiaUrl: rascunho.image_url ?? '',
+    fileId: rascunho.file_id ?? '',
+    quando: agendado,
+  }, context.workspace.id)
+
+  revalidatePath('/redes')
+  revalidatePath('/aprovacoes')
 }
 
 /**
