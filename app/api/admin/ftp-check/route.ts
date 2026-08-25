@@ -59,7 +59,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, conectado: null, probes }, { status: 502 })
   }
 
-  const nomeTemp = `.cvrj-diagnostico-${Date.now()}.txt`
+  const nomeTemp = `cvrj-diagnostico-${Date.now()}.txt`
   let raiz = ''
 
   try {
@@ -85,6 +85,36 @@ export async function GET() {
       const depois = await client.list()
       const gravou = depois.some((item) => item.name === nomeTemp)
       probes.push({ etapa: 'confirmar gravação', ok: gravou, detalhe: gravou ? 'apareceu na listagem' : 'NÃO apareceu na listagem' })
+
+      // A prova real: o arquivo que acabou de subir aparece na web?
+      // Gravar numa pasta que o servidor não publica não serve para nada — é
+      // deste endereço que sai o link do artigo e a URL da imagem que o
+      // Instagram vai baixar.
+      const base = process.env.SITE_PUBLIC_BASE_URL
+      if (base) {
+        const publica = `${base.replace(/\/$/, '')}/${nomeTemp}`
+        try {
+          const resposta = await fetch(publica, { cache: 'no-store', signal: AbortSignal.timeout(15_000) })
+          probes.push({
+            etapa: 'conferir pela web',
+            ok: resposta.ok,
+            detalhe: `${publica} respondeu ${resposta.status}`
+              + (resposta.ok ? '' : ' — a pasta do FTP não corresponde a este endereço'),
+          })
+        } catch (causa) {
+          probes.push({
+            etapa: 'conferir pela web',
+            ok: false,
+            detalhe: `${publica} não respondeu: ${seguro(causa, config.password)}`,
+          })
+        }
+      } else {
+        probes.push({
+          etapa: 'conferir pela web',
+          ok: true,
+          detalhe: 'pulado: defina SITE_PUBLIC_BASE_URL para conferir se a pasta é publicada',
+        })
+      }
 
       await client.remove(nomeTemp)
       probes.push({ etapa: 'apagar arquivo', ok: true, detalhe: 'removido' })
