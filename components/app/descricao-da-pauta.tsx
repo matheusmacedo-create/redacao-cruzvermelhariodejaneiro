@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, Copy, Megaphone } from 'lucide-react'
+import { Check, CircleAlert, Copy, Megaphone } from 'lucide-react'
 import { lerDescricao } from '@/lib/editorial/descricao-da-pauta'
 
 /** Cabeçalho do calendário editorial: semana, pilar, formato. */
@@ -70,12 +70,23 @@ export function DescricaoDaPauta({ descricao }: { descricao?: string | null }) {
           </ul>
         )
 
-        if (bloco.tipo === 'nota') return (
-          <div key={i} className="mt-5 flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary/5 p-3">
-            <Megaphone className="mt-0.5 size-4 shrink-0 text-primary" />
-            <p className="text-sm leading-relaxed text-pretty">{bloco.texto}</p>
-          </div>
-        )
+        if (bloco.tipo === 'nota') {
+          const pendencia = bloco.variante === 'pendencia'
+          const Icone = pendencia ? CircleAlert : Megaphone
+          return (
+            <div key={i} className="mt-5 flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary/5 p-3">
+              <Icone className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                {/* Sem rótulo, a barra parece um alerta do sistema. Ela é uma
+                    linha da descrição, escrita por quem montou a pauta. */}
+                <p className="text-xs font-bold uppercase tracking-widest text-primary">
+                  {pendencia ? 'Pendência' : 'Recado'}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-pretty">{bloco.texto}</p>
+              </div>
+            </div>
+          )
+        }
 
         if (bloco.tipo === 'hashtags') return (
           <div key={i} className="mt-2 flex flex-wrap gap-1.5">

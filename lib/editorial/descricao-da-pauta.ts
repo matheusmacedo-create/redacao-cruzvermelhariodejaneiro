@@ -20,7 +20,7 @@ export type BlocoDaPauta =
   | { tipo: 'ficha'; itens: { rotulo: string; valor: string }[] }
   | { tipo: 'titulo'; texto: string }
   | { tipo: 'itens'; itens: ItemDaPauta[] }
-  | { tipo: 'nota'; texto: string }
+  | { tipo: 'nota'; variante: 'pendencia' | 'recado'; texto: string }
   | { tipo: 'hashtags'; tags: string[] }
   | { tipo: 'paragrafo'; texto: string }
 
@@ -47,6 +47,15 @@ function fatiarFicha(linha: string): { rotulo: string; valor: string }[] {
       if (comTravessao) return { rotulo: comTravessao[1].trim(), valor: comTravessao[2].trim() }
       return { rotulo: '', valor: parte }
     })
+}
+
+// Os recados vêm de duas naturezas, e quem lê precisa distinguir: pendência é
+// coisa que falta preencher antes de produzir; recado é orientação sobre como
+// produzir. O prefixo vira rótulo e sai do corpo, para não repetir a palavra.
+function lerNota(texto: string): { tipo: 'nota'; variante: 'pendencia' | 'recado'; texto: string } {
+  const pendencia = /^pend[eê]ncias?\s*:\s*(.+)$/i.exec(texto)
+  if (pendencia) return { tipo: 'nota', variante: 'pendencia', texto: pendencia[1].trim() }
+  return { tipo: 'nota', variante: 'recado', texto }
 }
 
 export function lerDescricao(descricao?: string | null): BlocoDaPauta[] {
@@ -79,7 +88,7 @@ export function lerDescricao(descricao?: string | null): BlocoDaPauta[] {
     }
     if (linha.startsWith('>>') || linha.startsWith('> ')) {
       fecharTudo()
-      blocos.push({ tipo: 'nota', texto: linha.replace(/^>+\s*/, '') })
+      blocos.push(lerNota(linha.replace(/^>+\s*/, '')))
       return
     }
     if (SO_HASHTAGS.test(linha)) {
