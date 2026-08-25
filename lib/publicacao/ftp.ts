@@ -72,3 +72,53 @@ export async function withFtp<T>(
     client.close()
   }
 }
+
+export class FtpEscopoError extends Error {
+  constructor(caminho: string) {
+    super(`Caminho fora da pasta permitida: ${caminho}`)
+    this.name = 'FtpEscopoError'
+  }
+}
+
+/**
+ * Resolve um caminho relativo dentro de FTP_BASE_DIR e recusa qualquer um que
+ * escape dela.
+ *
+ * Por que isto existe: a conta de FTP entrou na raiz do site, ao lado do
+ * index.html mantido pela outra equipe. Enquanto ela não for reduzida à pasta
+ * de notícias, o único freio contra um slug malformado sobrescrever a home é
+ * este aqui. Um slug vem de texto digitado por uma pessoa; "../index.html" não
+ * precisa de má intenção para acontecer, basta um bug na geração dele.
+ */
+export function caminhoSeguro(baseDir: string, relativo: string): string {
+  const base = ('/' + baseDir).replace(/\/+/g, '/').replace(/\/$/, '') || '/'
+
+  const partes: string[] = []
+  for (const parte of relativo.split('/')) {
+    if (!parte || parte === '.') continue
+    if (parte === '..') {
+      // Subir para além da base é exatamente o que não pode acontecer.
+      if (!partes.length) throw new FtpEscopoError(relativo)
+      partes.pop()
+      continue
+    }
+    partes.push(parte)
+  }
+
+  if (!partes.length) throw new FtpEscopoError(relativo)
+  const resolvido = `${base === '/' ? '' : base}/${partes.join('/')}`
+
+  // Cinto e suspensório: mesmo com a normalização acima, conferimos o prefixo.
+  const prefixo = base === '/' ? '/' : `${base}/`
+  if (!resolvido.startsWith(prefixo)) throw new FtpEscopoError(relativo)
+  return resolvido
+}
+
+/**
+ * Entra na pasta de trabalho, criando-a se preciso, e devolve o cliente já
+ * posicionado. Todo caminho depois disto é relativo a ela.
+ */
+export async function entrarNaBase(client: Client, config: FtpConfig): Promise<string> {
+  if (config.baseDir && config.baseDir !== '/') await client.ensureDir(config.baseDir)
+  return client.pwd()
+}
