@@ -96,13 +96,22 @@ async function carregarArquivo(fileId: string, workspaceId: string) {
   const supabase = await createClient()
   const { data: arquivo } = await supabase
     .from('files')
-    .select('name,content_type,storage_path,status')
+    .select('name,content_type,storage_path,status,authorization_status')
     .eq('id', fileId)
     .eq('workspace_id', workspaceId)
     .maybeSingle()
 
   if (!arquivo || arquivo.status === 'deleted' || !arquivo.storage_path) {
     throw new Error('Arquivo não encontrado na Biblioteca deste espaço.')
+  }
+
+  // A tela já filtra, mas o id chega pelo formulário e formulário é do
+  // navegador. Publicar imagem sem autorização de uso é o tipo de erro que
+  // não se desfaz depois que saiu na página da instituição.
+  if (arquivo.authorization_status !== 'authorized') {
+    throw new Error(
+      'Este arquivo não tem autorização de uso de imagem. Marque a autorização na Biblioteca antes de publicar.',
+    )
   }
 
   const resultado = await get(arquivo.storage_path, { access: 'private' })

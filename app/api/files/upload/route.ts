@@ -18,10 +18,16 @@ export async function POST(request: Request) {
   const used = (usageRows ?? []).reduce((total, row) => total + Number(row.size_bytes ?? 0), 0)
   if (used + file.size > WORKSPACE_STORAGE_LIMIT) return NextResponse.json({ error: 'O espaço de teste de 50 MB foi atingido.' }, { status: 413 })
 
+  // Quem envia declara se a imagem pode sair daqui. Sem valor válido a
+  // publicação fica bloqueada mais adiante — o padrão nega, não permite.
+  const AUTORIZACOES = new Set(['pending', 'authorized', 'internal'])
+  const bruto = String(formData.get('authorization') ?? 'pending')
+  const authorization = AUTORIZACOES.has(bruto) ? bruto : 'pending'
+
   const pathname = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}${safeExtension(file.name)}`
   const blob = await put(pathname, file, { access: 'private', addRandomSuffix: false, contentType: file.type })
   const tags = String(formData.get('tags') ?? '').split(',').map((tag) => tag.trim()).filter(Boolean).slice(0, 10)
-  const { data, error } = await supabase.from('files').insert({ workspace_id: context.workspace.id, name: file.name, original_name: file.name, file_type: fileKind(file.type), content_type: file.type, storage_path: blob.pathname, size_bytes: file.size, status: 'available', authorization_status: 'pending', tags, uploaded_by: context.user.id }).select('id').single()
+  const { data, error } = await supabase.from('files').insert({ workspace_id: context.workspace.id, name: file.name, original_name: file.name, file_type: fileKind(file.type), content_type: file.type, storage_path: blob.pathname, size_bytes: file.size, status: 'available', authorization_status: authorization, tags, uploaded_by: context.user.id }).select('id').single()
   if (error || !data) {
     await del(blob.pathname)
     return NextResponse.json({ error: error?.message || 'Não foi possível salvar o arquivo.' }, { status: 500 })

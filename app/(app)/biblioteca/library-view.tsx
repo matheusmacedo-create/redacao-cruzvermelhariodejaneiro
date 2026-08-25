@@ -1,6 +1,7 @@
 'use client'
 import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { upload as uploadToBlob } from '@vercel/blob/client'
 import { CheckCircle2, Download, FileText, Folder, ImageIcon, Music, Search, Trash2, UploadCloud, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -25,6 +26,8 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
   const [newFolder, setNewFolder] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [authorization, setAuthorization] = useState<'pending' | 'authorized' | 'internal'>('pending')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -40,22 +43,40 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
   async function upload() {
     const file = selectedFile ?? input.current?.files?.[0]
     if (!file) { setError('Escolha um arquivo antes de enviar.'); return }
-    setBusy(true); setError(''); setSuccess('')
-    const body = new FormData()
-    body.set('file', file)
+    setBusy(true); setError(''); setSuccess(''); setProgress(0)
     const folderTag = newFolder.trim() ? `${FOLDER_PREFIX}${newFolder.trim()}` : ''
-    const allTags = [folderTag, ...tags.split(',').map((t) => t.trim())].filter(Boolean).join(',')
-    body.set('tags', allTags)
-    const res = await fetch('/api/files/upload', { method: 'POST', body })
-    const json = await res.json()
-    setBusy(false)
-    if (!res.ok) { setError(json.error || 'Não foi possível enviar o arquivo.'); return }
-    setSuccess(`“${file.name}” enviado com sucesso.`)
-    router.refresh()
-    if (input.current) input.current.value = ''
-    setSelectedFile(null)
-    setTags('')
-    setNewFolder('')
+    const allTags = [folderTag, ...tags.split(',').map((t) => t.trim())].filter(Boolean)
+
+    try {
+      // O arquivo vai direto do navegador para o armazenamento. Passar pela
+      // função serverless limitaria tudo a 4,5 MB — vídeo nenhum caberia.
+      const blob = await uploadToBlob(file.name, file, {
+        access: 'private',
+        handleUploadUrl: '/api/files/upload-token',
+        clientPayload: String(file.size),
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      })
+
+      const res = await fetch('/api/files/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pathname: blob.pathname, name: file.name, tags: allTags, authorization }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Não foi possível registrar o arquivo.')
+
+      setSuccess(`“${file.name}” enviado com sucesso.`)
+      router.refresh()
+      if (input.current) input.current.value = ''
+      setSelectedFile(null)
+      setTags('')
+      setNewFolder('')
+      setAuthorization('pending')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível enviar o arquivo.')
+    } finally {
+      setBusy(false); setProgress(0)
+    }
   }
 
   async function remove(id: string, name: string) {
@@ -72,7 +93,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1">
             <p className="text-sm font-semibold">Enviar arquivo</p>
-            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · máximo de 10 MB.</p>
+            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · até 300 MB. Só arquivos com autorização de uso podem ir para as redes ou para o site.</p>
             <input
               ref={input}
               type="file"
@@ -100,7 +121,19 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes }: { initialFi
             Tags
             <input value={tags} onChange={(e) => setTags(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 lg:w-56" placeholder="evento, campanha" />
           </label>
-          <Button onClick={upload} disabled={busy || !selectedFile}>{busy ? 'Enviando…' : <><UploadCloud className="size-4" />Enviar</>}</Button>
+          <label className="text-sm font-medium">
+            Uso de imagem
+            <select
+              value={authorization}
+              onChange={(e) => setAuthorization(e.target.value as typeof authorization)}
+              className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 lg:w-52"
+            >
+              <option value="pending">Não informado</option>
+              <option value="authorized">Tem autorização</option>
+              <option value="internal">Uso interno apenas</option>
+            </select>
+          </label>
+          <Button onClick={upload} disabled={busy || !selectedFile}>{busy ? `${progress}%` : <><UploadCloud className="size-4" />Enviar</>}</Button>
         </div>
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         {success && <p className="mt-3 flex items-center gap-1.5 text-sm text-success"><CheckCircle2 className="size-4" />{success}</p>}

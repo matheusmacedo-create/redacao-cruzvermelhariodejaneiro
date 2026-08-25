@@ -24,6 +24,9 @@ export async function GET() {
     .select('id,name,file_type,content_type,size_bytes,storage_path,created_at')
     .eq('workspace_id', context.workspace.id)
     .neq('status', 'deleted')
+    // Só o que tem autorização de uso de imagem. Um arquivo pendente ou
+    // marcado como interno não pode nem aparecer como opção.
+    .eq('authorization_status', 'authorized')
     .in('file_type', ['foto', 'video'])
     .order('created_at', { ascending: false })
     .limit(60)
