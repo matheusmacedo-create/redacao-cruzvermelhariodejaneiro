@@ -104,6 +104,18 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     agendadaPara: pub.scheduled_for ? quando.format(new Date(pub.scheduled_for)) : null,
   }))
 
+  // Quem pode ser convidado a revisar: qualquer membro ativo do espaço, menos
+  // quem está olhando a tela.
+  const { data: memberRows } = await supabase
+    .from('workspace_members')
+    .select('user_id,profiles(id,full_name,initials,color,active)')
+    .eq('workspace_id', context.workspace.id)
+
+  const pessoas = (memberRows ?? [])
+    .map((m: any) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles))
+    .filter((p: any) => p && p.active !== false && p.id !== context.user.id)
+    .map((p: any) => ({ id: p.id, nome: p.full_name, iniciais: p.initials || '?', cor: p.color }))
+
   const canSubmit = context.role === 'admin' || row.responsible_id === context.user.id || rawPauta?.owner_id === context.user.id
   return (
     <ContentEditor
@@ -114,6 +126,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
       canSubmit={canSubmit}
       publicacoes={publicacoes}
       workspaceId={context.workspace.id}
+      pessoas={pessoas}
     />
   )
 }

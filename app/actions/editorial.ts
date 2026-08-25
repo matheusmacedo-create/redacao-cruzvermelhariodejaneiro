@@ -9,15 +9,61 @@ import { contextoParaComunicacao, publicacoesPrevistas } from '@/lib/editorial/p
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
-async function syncApprovalVoters(params: { approvalId: string; contentId: string; actorId: string; workspaceId: string }) {
+/**
+ * Quem deve aprovar este conteúdo.
+ *
+ * Junta duas origens: as pessoas escolhidas na tela e os participantes da
+ * pauta. Tira de fora quem escreveu, quem responde pelo conteúdo e quem está
+ * enviando — ninguém aprova o próprio texto.
+ *
+ * Os ids escolhidos chegam pelo formulário, então são conferidos contra a
+ * lista de membros do espaço antes de virarem convite.
+ */
+async function revisoresDesejados(params: { contentId: string; actorId: string; workspaceId: string; escolhidos: string[] }) {
   const supabase = await createClient()
-  const { data: contentRow } = await supabase.from('content_pieces').select('pauta_id,responsible_id,created_by').eq('id', params.contentId).maybeSingle()
-  if (!contentRow?.pauta_id) return
+  const { data: contentRow } = await supabase
+    .from('content_pieces').select('pauta_id,responsible_id,created_by')
+    .eq('id', params.contentId).maybeSingle()
 
-  const excluded = new Set([contentRow.responsible_id, contentRow.created_by, params.actorId].filter(Boolean) as string[])
-  const { data: participantRows } = await supabase.from('pauta_participants').select('user_id').eq('pauta_id', contentRow.pauta_id)
-  const desired = new Set((participantRows ?? []).map((row) => row.user_id).filter((id) => !excluded.has(id)))
+  const excluidos = new Set([contentRow?.responsible_id, contentRow?.created_by, params.actorId].filter(Boolean) as string[])
 
+  const escolhidos = [...new Set(params.escolhidos)].filter(Boolean)
+  let validos: string[] = []
+  if (escolhidos.length) {
+    const { data: membros } = await supabase
+      .from('workspace_members').select('user_id')
+      .eq('workspace_id', params.workspaceId).in('user_id', escolhidos)
+    validos = (membros ?? []).map((m) => m.user_id)
+  }
+
+  const daPauta = contentRow?.pauta_id
+    ? (await supabase.from('pauta_participants').select('user_id').eq('pauta_id', contentRow.pauta_id)).data ?? []
+    : []
+
+  const desejados = new Set([...validos, ...daPauta.map((row) => row.user_id)].filter((id) => !excluidos.has(id)))
+
+  // Escolheu gente, mas toda ela caiu na exclusão: dizer "escolha alguém" seria
+  // mentira, porque a pessoa escolheu.
+  if (!desejados.size && escolhidos.length) {
+    throw new Error('Quem escreve e quem responde pelo conteúdo não entra na própria aprovação. Escolha outra pessoa para revisar.')
+  }
+  if (!desejados.size) {
+    throw new Error('Escolha pelo menos uma pessoa para revisar antes de enviar para aprovação.')
+  }
+
+  return [...desejados]
+}
+
+/**
+ * Acerta a lista de votantes de uma aprovação e devolve quem entrou agora —
+ * são essas as pessoas que precisam ser avisadas.
+ *
+ * Só remove quem ainda não decidiu: voto registrado é histórico, não some
+ * porque alguém saiu da pauta depois.
+ */
+async function syncApprovalVoters(params: { approvalId: string; workspaceId: string; desejados: string[] }) {
+  const supabase = await createClient()
+  const desired = new Set(params.desejados)
   const { data: voterRows } = await supabase.from('approval_voters').select('id,user_id,decision').eq('approval_id', params.approvalId)
   const admin = createAdminClient()
 
@@ -26,7 +72,24 @@ async function syncApprovalVoters(params: { approvalId: string; contentId: strin
 
   const existingIds = new Set((voterRows ?? []).map((voter) => voter.user_id))
   const toAdd = [...desired].filter((id) => !existingIds.has(id))
-  if (toAdd.length) await admin.from('approval_voters').insert(toAdd.map((user_id) => ({ approval_id: params.approvalId, workspace_id: params.workspaceId, user_id })))
+  if (toAdd.length) {
+    const { error } = await admin.from('approval_voters').insert(toAdd.map((user_id) => ({ approval_id: params.approvalId, workspace_id: params.workspaceId, user_id })))
+    if (error) throw new Error('Não foi possível registrar quem precisa aprovar.')
+  }
+  return toAdd
+}
+
+/** Avisa quem acabou de ser convidado a aprovar. Sem isso o convite fica só na tela de quem pediu. */
+async function avisarRevisores(params: { userIds: string[]; workspaceId: string; approvalId: string; titulo: string; quem: string }) {
+  if (!params.userIds.length) return
+  const admin = createAdminClient()
+  await admin.from('notifications').insert(params.userIds.map((user_id) => ({
+    workspace_id: params.workspaceId,
+    user_id,
+    title: `${params.quem} pediu sua aprovação`,
+    message: params.titulo,
+    link: `/aprovacoes/${params.approvalId}`,
+  })))
 }
 
 export async function createPauta(formData: FormData) {
@@ -400,14 +463,91 @@ export async function submitContentForApproval(formData: FormData) {
     contentId = created.id
   }
 
+  // Resolvido antes da RPC: uma aprovação sem ninguém convidado fica pendente
+  // para sempre, e a tela ainda mostra "0/0 — todas as pessoas já decidiram".
+  // Melhor recusar o envio do que criar uma rodada que nunca fecha.
+  const desejados = await revisoresDesejados({
+    contentId,
+    actorId: context.user.id,
+    workspaceId: context.workspace.id,
+    escolhidos: formData.getAll('aprovadores').map((valor) => String(valor)),
+  })
+
   const { data: approvalId, error: submitError } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
   if (submitError || !approvalId) throw new Error(submitError?.message || 'Não foi possível enviar para aprovação.')
 
-  await syncApprovalVoters({ approvalId, contentId, actorId: context.user.id, workspaceId: context.workspace.id })
+  const novos = await syncApprovalVoters({ approvalId, workspaceId: context.workspace.id, desejados })
+  await avisarRevisores({
+    userIds: novos,
+    workspaceId: context.workspace.id,
+    approvalId,
+    titulo: title,
+    quem: context.profile?.full_name || 'Um colega',
+  })
 
   revalidatePath('/aprovacoes')
+  revalidatePath(`/aprovacoes/${approvalId}`)
   revalidatePath(`/conteudos/${contentId}`)
   return { approvalId }
+}
+
+/**
+ * Convida mais gente para uma aprovação já aberta.
+ *
+ * Existe porque a rodada pode ter nascido sem votante — foi o que aconteceu com
+ * as aprovações criadas antes desta conferência — e porque revisor a mais é uma
+ * decisão normal no meio do caminho. Só quem pediu a aprovação, ou um
+ * administrador, convida.
+ */
+export async function adicionarRevisores(formData: FormData) {
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const approvalId = text(formData, 'approvalId')
+
+  const { data: approval } = await supabase
+    .from('approvals').select('id,status,content_id,requested_by')
+    .eq('id', approvalId).eq('workspace_id', context.workspace.id).maybeSingle()
+  if (!approval) throw new Error('Aprovação não encontrada.')
+  if (approval.status !== 'pending') throw new Error('Esta rodada já foi encerrada.')
+  if (approval.requested_by !== context.user.id && context.role !== 'admin') {
+    throw new Error('Só quem pediu a aprovação pode convidar mais pessoas.')
+  }
+
+  const escolhidos = [...new Set(formData.getAll('aprovadores').map((valor) => String(valor)).filter(Boolean))]
+  if (!escolhidos.length) throw new Error('Escolha quem mais precisa aprovar.')
+
+  const { data: membros } = await supabase
+    .from('workspace_members').select('user_id')
+    .eq('workspace_id', context.workspace.id).in('user_id', escolhidos)
+  const validos = (membros ?? []).map((m) => m.user_id).filter((id) => id !== context.user.id)
+  if (!validos.length) throw new Error('Nenhuma das pessoas escolhidas pertence a este espaço.')
+
+  // Só acrescenta. Quem já está na rodada continua, tenha votado ou não.
+  const { data: jaConvidados } = await supabase
+    .from('approval_voters').select('user_id').eq('approval_id', approvalId)
+  const existentes = new Set((jaConvidados ?? []).map((v) => v.user_id))
+  const novos = validos.filter((id) => !existentes.has(id))
+  if (!novos.length) throw new Error('Essas pessoas já estão nesta aprovação.')
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('approval_voters').insert(
+    novos.map((user_id) => ({ approval_id: approvalId, workspace_id: context.workspace.id, user_id })),
+  )
+  if (error) throw new Error('Não foi possível convidar essas pessoas.')
+
+  const { data: peca } = await supabase
+    .from('content_pieces').select('title').eq('id', approval.content_id).maybeSingle()
+
+  await avisarRevisores({
+    userIds: novos,
+    workspaceId: context.workspace.id,
+    approvalId,
+    titulo: peca?.title || 'Conteúdo editorial',
+    quem: context.profile?.full_name || 'Um colega',
+  })
+
+  revalidatePath('/aprovacoes')
+  revalidatePath(`/aprovacoes/${approvalId}`)
 }
 
 export async function archiveContentDraft(formData: FormData) {
@@ -504,14 +644,63 @@ export async function createPautaContent(formData: FormData) {
 }
 
 export async function createPautaApproval(formData: FormData) {
-  const context = await requireWorkspace(); const supabase = await createClient(); const pautaId = text(formData, 'pautaId')
+  const context = await requireWorkspace()
+  const supabase = await createClient()
+  const pautaId = text(formData, 'pautaId')
   let contentId = text(formData, 'contentId')
-  if (!contentId) {
-    const { data, error } = await supabase.from('content_pieces').insert({ workspace_id: context.workspace.id, pauta_id: pautaId, title: text(formData, 'title'), body: text(formData, 'body') || text(formData, 'url'), format: text(formData, 'format') || 'Conteúdo', status: 'review', responsible_id: context.user.id, created_by: context.user.id }).select('id').single()
-    if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.'); contentId = data.id
+
+  if (contentId) {
+    // Conferido porque o id vem do formulário: um conteúdo de outro espaço, ou
+    // de outra pauta, não entra na aprovação desta.
+    const { data: existente } = await supabase
+      .from('content_pieces').select('id')
+      .eq('id', contentId).eq('pauta_id', pautaId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!existente) throw new Error('Conteúdo não encontrado nesta pauta.')
+  } else {
+    const titulo = text(formData, 'title')
+    if (titulo.length < 3) throw new Error('Informe o título do caso.')
+    const { data, error } = await supabase.from('content_pieces').insert({
+      workspace_id: context.workspace.id,
+      pauta_id: pautaId,
+      title: titulo,
+      body: text(formData, 'body') || text(formData, 'url'),
+      format: text(formData, 'format') || 'Conteúdo',
+      status: 'review',
+      responsible_id: context.user.id,
+      created_by: context.user.id,
+    }).select('id').single()
+    if (error || !data) throw new Error(error?.message || 'Não foi possível criar o caso.')
+    contentId = data.id
   }
-  const { data: approvalId, error } = await supabase.rpc('submit_pauta_for_approval', { p_pauta_id: pautaId })
+
+  // Antes de criar a rodada, porque rodada sem votante fica pendente para
+  // sempre — e era exatamente o que este caminho produzia: ele nunca convidou
+  // ninguém.
+  const desejados = await revisoresDesejados({
+    contentId,
+    actorId: context.user.id,
+    workspaceId: context.workspace.id,
+    escolhidos: formData.getAll('aprovadores').map((valor) => String(valor)),
+  })
+
+  // submit_content_for_approval, e não submit_pauta_for_approval: aquela pega o
+  // conteúdo mais recente da pauta e ignorava o que a pessoa escolheu na tela.
+  const { data: approvalId, error } = await supabase.rpc('submit_content_for_approval', { p_content_id: contentId })
   if (error || !approvalId) throw new Error(error?.message || 'Não foi possível criar a aprovação.')
+
+  await supabase.from('pautas').update({ status: 'approval', updated_at: new Date().toISOString() })
+    .eq('id', pautaId).eq('workspace_id', context.workspace.id)
+
+  const novos = await syncApprovalVoters({ approvalId, workspaceId: context.workspace.id, desejados })
+  const { data: peca } = await supabase.from('content_pieces').select('title').eq('id', contentId).maybeSingle()
+  await avisarRevisores({
+    userIds: novos,
+    workspaceId: context.workspace.id,
+    approvalId,
+    titulo: peca?.title || 'Conteúdo editorial',
+    quem: context.profile?.full_name || 'Um colega',
+  })
+
   revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
 }
 
