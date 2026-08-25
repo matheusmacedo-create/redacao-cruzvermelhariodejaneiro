@@ -82,6 +82,35 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     role: profile.job_title,
   } : undefined
 
+  const { data: pubRows } = await supabase
+    .from('social_publications')
+    .select('id,networks,body,status,error,results,scheduled_for,created_at')
+    .eq('workspace_id', context.workspace.id)
+    .eq('content_id', row.id)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+  const publicacoes = (pubRows ?? []).map((pub: any) => ({
+    id: pub.id,
+    redes: pub.networks ?? [],
+    corpo: pub.body,
+    status: pub.status,
+    erro: pub.error,
+    resultados: Array.isArray(pub.results) ? pub.results : [],
+    criadaEm: quando.format(new Date(pub.created_at)),
+    agendadaPara: pub.scheduled_for ? quando.format(new Date(pub.scheduled_for)) : null,
+  }))
+
   const canSubmit = context.role === 'admin' || row.responsible_id === context.user.id || rawPauta?.owner_id === context.user.id
-  return <ContentEditor content={content} pauta={pauta} responsible={responsible} comments={comments} canSubmit={canSubmit} />
+  return (
+    <ContentEditor
+      content={content}
+      pauta={pauta}
+      responsible={responsible}
+      comments={comments}
+      canSubmit={canSubmit}
+      publicacoes={publicacoes}
+    />
+  )
 }
