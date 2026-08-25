@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { get } from '@vercel/blob'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -84,6 +85,38 @@ function resumirResultados(resposta: RespostaDeEnvio) {
   }))
 }
 
+/**
+ * Traz o arquivo da Biblioteca para a memória, pronto para virar multipart.
+ *
+ * O limite da Biblioteca é 10 MB por arquivo, então carregar inteiro cabe
+ * folgado na função serverless. Vale conferir o vínculo com o espaço aqui
+ * também: o id vem do formulário, e formulário é do navegador.
+ */
+async function carregarArquivo(fileId: string, workspaceId: string) {
+  const supabase = await createClient()
+  const { data: arquivo } = await supabase
+    .from('files')
+    .select('name,content_type,storage_path,status')
+    .eq('id', fileId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle()
+
+  if (!arquivo || arquivo.status === 'deleted' || !arquivo.storage_path) {
+    throw new Error('Arquivo não encontrado na Biblioteca deste espaço.')
+  }
+
+  const resultado = await get(arquivo.storage_path, { access: 'private' })
+  if (!resultado) throw new Error('O arquivo não está mais disponível no armazenamento.')
+
+  const bytes = await new Response(resultado.stream).arrayBuffer()
+  const contentType = arquivo.content_type || resultado.blob.contentType || 'application/octet-stream'
+
+  return {
+    blob: new File([bytes], arquivo.name || 'arquivo', { type: contentType }),
+    contentType,
+  }
+}
+
 export async function publicarNasRedes(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
@@ -93,13 +126,16 @@ export async function publicarNasRedes(formData: FormData) {
   const corpo = texto(formData, 'corpo')
   const linkUrl = texto(formData, 'linkUrl')
   const midiaUrl = texto(formData, 'midiaUrl')
+  const fileId = texto(formData, 'fileId')
   const agendarPara = texto(formData, 'agendarPara')
 
   const bruto = texto(formData, 'formato') || 'texto'
   if (!(bruto in FORMATOS)) throw new Error('Formato inválido.')
   const formato = bruto as Formato
 
-  validar(formato, redes, corpo, midiaUrl)
+  // Um arquivo da Biblioteca satisfaz a exigência de mídia tanto quanto uma URL.
+  validar(formato, redes, corpo, midiaUrl || (fileId ? 'biblioteca' : ''))
+  if (midiaUrl && fileId) throw new Error('Escolha um arquivo da Biblioteca ou informe uma URL, não os dois.')
 
   let quando: string | undefined
   if (agendarPara) {
@@ -130,6 +166,7 @@ export async function publicarNasRedes(formData: FormData) {
       body: corpo,
       link_url: linkUrl || null,
       image_url: midiaUrl || null,
+      file_id: fileId || null,
       format: formato,
       scheduled_for: quando ?? null,
       created_by: context.user.id,
@@ -154,12 +191,19 @@ export async function publicarNasRedes(formData: FormData) {
   }
 
   try {
-    // Cada formato tem seu endpoint: vídeo vai em /upload, imagem em
-    // /upload_photos, texto puro em /upload_text.
-    const { dados } = ehVideo(formato, midiaUrl)
-      ? await publicarVideo({ ...comum, video: midiaUrl })
-      : midiaUrl
-        ? await publicarFotos({ ...comum, fotos: [midiaUrl] })
+    // A mídia pode vir de dois lugares. Da Biblioteca ela sobe como bytes:
+    // os arquivos são privados e o Upload-Post baixaria do servidor dele, sem
+    // a sessão do usuário — uma URL nossa devolveria 403 para ele.
+    const daBiblioteca = fileId ? await carregarArquivo(fileId, context.workspace.id) : null
+    const midia = daBiblioteca?.blob ?? midiaUrl
+    const eVideo = daBiblioteca
+      ? daBiblioteca.contentType.startsWith('video/')
+      : ehVideo(formato, midiaUrl)
+
+    const { dados } = eVideo
+      ? await publicarVideo({ ...comum, video: midia })
+      : midia
+        ? await publicarFotos({ ...comum, fotos: [midia] })
         : await publicarTexto(comum)
 
     await supabase
