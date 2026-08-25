@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ExternalLink, Heart, Loader2, MessageCircle, Play, RefreshCw,
   Send, Share2, TriangleAlert, Image as ImageIcon, Film, Type as TypeIcon, Layers,
-  Upload, X as XIcon, Check, ShieldCheck, Smile, UserCheck,
+  Upload, X as XIcon, Check, ShieldCheck, Smile, UserCheck, Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -755,6 +755,7 @@ function SeletorDeMidia({
   const [arquivos, setArquivos] = useState<ArquivoDaBiblioteca[] | null>(null)
   const [subindo, setSubindo] = useState(false)
   const [progresso, setProgresso] = useState(0)
+  const [apagando, setApagando] = useState<string | null>(null)
   const [erro, setErro] = useState('')
   const [mostrarUrl, setMostrarUrl] = useState(false)
 
@@ -773,6 +774,26 @@ function SeletorDeMidia({
     spec.midia === 'video' ? a.tipo === 'video'
       : spec.midia === 'imagem' ? a.tipo === 'foto'
         : true)
+
+  /**
+   * Exclusão é definitiva e o arquivo pode estar em uso por outra pessoa do
+   * espaço, então confirma antes. Quem não enviou o arquivo e não é admin ou
+   * editor recebe a recusa do servidor — a permissão não é decidida aqui.
+   */
+  async function apagar(a: ArquivoDaBiblioteca) {
+    if (!confirm(`Excluir "${a.nome}" da Biblioteca? Essa ação não pode ser desfeita.`)) return
+    setErro(''); setApagando(a.id)
+    try {
+      const r = await fetch(`/api/files/${a.id}`, { method: 'DELETE' })
+      if (!r.ok) throw new Error((await r.json()).error || 'Não foi possível excluir.')
+      // Some da grade e, se era o escolhido, sai também da seleção — publicar
+      // com um arquivo que não existe mais só produziria erro na hora do envio.
+      setArquivos((atual) => (atual ?? []).filter((x) => x.id !== a.id))
+      if (arquivo?.id === a.id) onEscolher(null)
+    } catch (causa) {
+      setErro(causa instanceof Error ? causa.message : 'Não foi possível excluir.')
+    } finally { setApagando(null) }
+  }
 
   async function subir(file: File) {
     setErro(''); setSubindo(true)
@@ -857,30 +878,48 @@ function SeletorDeMidia({
 
             {compativeis.map((a) => {
               const escolhido = arquivo?.id === a.id
+              const apagandoEste = apagando === a.id
               return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => onEscolher(escolhido ? null : a)}
-                  title={a.nome}
-                  className={`relative aspect-square overflow-hidden rounded-lg border transition-all ${
-                    escolhido ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:opacity-80'
-                  }`}
-                >
-                  {a.tipo === 'foto' ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={a.previa} alt={a.nome} className="size-full object-cover" />
-                  ) : (
-                    <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
-                      <Film className="size-4" />
-                    </span>
-                  )}
+                // Contêiner em vez de um botão só: botão dentro de botão é HTML
+                // inválido e o clique de apagar acabaria selecionando o arquivo.
+                <div key={a.id} className="group relative aspect-square">
+                  <button
+                    type="button"
+                    onClick={() => onEscolher(escolhido ? null : a)}
+                    title={a.nome}
+                    className={`size-full overflow-hidden rounded-lg border transition-all ${
+                      escolhido ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:opacity-80'
+                    }`}
+                  >
+                    {a.tipo === 'foto' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={a.previa} alt={a.nome} className="size-full object-cover" />
+                    ) : (
+                      <span className="flex size-full items-center justify-center bg-muted text-muted-foreground">
+                        <Film className="size-4" />
+                      </span>
+                    )}
+                  </button>
+
                   {escolhido && (
-                    <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                    <span className="pointer-events-none absolute left-1 top-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
                       <Check className="size-3" />
                     </span>
                   )}
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={() => apagar(a)}
+                    disabled={apagandoEste}
+                    aria-label={`Excluir ${a.nome}`}
+                    title="Excluir da Biblioteca"
+                    // Some até o cursor chegar perto, para não competir com a
+                    // miniatura; no toque, onde não há hover, fica sempre visível.
+                    className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-foreground/70 text-background opacity-0 transition-opacity hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                  >
+                    {apagandoEste ? <Loader2 className="size-3 animate-spin" /> : <Trash2 className="size-3" />}
+                  </button>
+                </div>
               )
             })}
           </div>
