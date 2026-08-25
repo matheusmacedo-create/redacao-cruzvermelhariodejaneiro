@@ -84,7 +84,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   const { data: pubRows } = await supabase
     .from('social_publications')
-    .select('id,networks,body,status,error,results,scheduled_for,created_at')
+    .select('id,networks,body,status,error,results,scheduled_for,created_at,format')
     .eq('workspace_id', context.workspace.id)
     .eq('content_id', row.id)
     .order('created_at', { ascending: false })
@@ -97,6 +97,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     corpo: pub.body,
     status: pub.status,
     erro: pub.error,
+    formato: pub.format,
     resultados: Array.isArray(pub.results) ? pub.results : [],
     criadaEm: quando.format(new Date(pub.created_at)),
     agendadaPara: pub.scheduled_for ? quando.format(new Date(pub.scheduled_for)) : null,

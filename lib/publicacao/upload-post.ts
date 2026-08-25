@@ -289,6 +289,41 @@ export type RespostaDeEnvio = {
   message?: string
 }
 
+/**
+ * O formato decide três coisas ao mesmo tempo: qual endpoint atende, que mídia
+ * é obrigatória e quais redes aceitam. Manter isso num lugar só evita que a
+ * tela ofereça uma combinação que a API vai recusar.
+ */
+export const FORMATOS = {
+  texto: {
+    rotulo: 'Texto',
+    midia: 'nenhuma',
+    redes: ['facebook', 'linkedin', 'x', 'threads', 'bluesky', 'google_business'],
+  },
+  feed: {
+    rotulo: 'Feed',
+    midia: 'imagem',
+    redes: ['instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest', 'google_business'],
+  },
+  stories: {
+    rotulo: 'Stories',
+    midia: 'imagem-ou-video',
+    // Só Meta tem stories. Oferecer LinkedIn aqui seria mentira de interface.
+    redes: ['instagram', 'facebook'],
+  },
+  reels: {
+    rotulo: 'Reels',
+    midia: 'video',
+    redes: ['instagram', 'facebook'],
+  },
+} as const
+
+export type Formato = keyof typeof FORMATOS
+
+export function redesDoFormato(formato: Formato): readonly string[] {
+  return FORMATOS[formato].redes
+}
+
 export type EnvioComum = {
   /** Perfil do Upload-Post. Omitido, usa o padrão do ambiente. */
   perfil?: string
@@ -307,6 +342,7 @@ export type EnvioComum = {
   paginaFacebookId?: string
   /** Textos por rede, quando o mesmo texto não serve para todas. */
   textoPorRede?: Partial<Record<string, string>>
+  formato?: Formato
 }
 
 function montarComum(form: FormData, envio: EnvioComum) {
@@ -329,6 +365,30 @@ function montarComum(form: FormData, envio: EnvioComum) {
 
   for (const [rede, texto] of Object.entries(envio.textoPorRede || {})) {
     if (texto) form.set(`${rede}_title`, texto)
+  }
+
+  aplicarFormato(form, envio)
+}
+
+/**
+ * Traduz o formato para os nomes que cada rede espera. Os defaults da API não
+ * servem: em foto o Instagram assume IMAGE, em vídeo assume REELS — então
+ * Stories precisa ser dito explicitamente nos dois casos.
+ */
+function aplicarFormato(form: FormData, envio: EnvioComum) {
+  const formato = envio.formato
+  if (!formato || formato === 'texto') return
+
+  if (envio.redes.includes('instagram')) {
+    // Foto aceita IMAGE|STORIES; vídeo aceita REELS|STORIES.
+    form.set('media_type', formato === 'stories' ? 'STORIES' : formato === 'reels' ? 'REELS' : 'IMAGE')
+  }
+
+  if (envio.redes.includes('facebook')) {
+    form.set(
+      'facebook_media_type',
+      formato === 'stories' ? 'STORIES' : formato === 'reels' ? 'REELS' : 'POSTS',
+    )
   }
 }
 
@@ -361,6 +421,26 @@ export async function publicarFotos(envio: EnvioComFotos) {
   for (const foto of envio.fotos) form.append('photos[]', foto)
   if (envio.legenda) form.set('description', envio.legenda)
   return chamar<RespostaDeEnvio>('/upload_photos', {
+    method: 'POST',
+    form,
+    headers: cabecalhosDeEnvio(envio),
+  })
+}
+
+export type EnvioComVideo = EnvioComum & {
+  /** URL pública do vídeo, ou o próprio arquivo. */
+  video: string | Blob
+}
+
+/**
+ * Reels e stories em vídeo. O endpoint é /upload mesmo — não /upload_video,
+ * apesar do nome da página na documentação.
+ */
+export async function publicarVideo(envio: EnvioComVideo) {
+  const form = new FormData()
+  montarComum(form, envio)
+  form.append('video', envio.video)
+  return chamar<RespostaDeEnvio>('/upload', {
     method: 'POST',
     form,
     headers: cabecalhosDeEnvio(envio),
