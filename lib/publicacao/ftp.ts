@@ -1,5 +1,6 @@
 import 'server-only'
 import { Client } from 'basic-ftp'
+import { Readable } from 'node:stream'
 
 export type FtpConfig = { host: string; user: string; password: string; baseDir: string }
 
@@ -121,4 +122,32 @@ export function caminhoSeguro(baseDir: string, relativo: string): string {
 export async function entrarNaBase(client: Client, config: FtpConfig): Promise<string> {
   if (config.baseDir && config.baseDir !== '/') await client.ensureDir(config.baseDir)
   return client.pwd()
+}
+
+/**
+ * Grava um arquivo dentro de FTP_BASE_DIR, criando as pastas do caminho.
+ *
+ * O caminho passa por caminhoSeguro antes de qualquer coisa: ele nasce de um
+ * slug, que nasce de um título digitado por uma pessoa, e "../index.html" não
+ * precisa de má intenção para acontecer — basta um bug na geração do slug.
+ *
+ * ensureDir muda o diretório de trabalho da sessão, então voltamos para a base
+ * ao fim de cada arquivo. Sem isso o segundo arquivo de uma mesma remessa
+ * subiria relativo à pasta do primeiro.
+ */
+export async function enviarArquivo(
+  client: Client,
+  config: FtpConfig,
+  relativo: string,
+  conteudo: Buffer | string,
+): Promise<string> {
+  const destino = caminhoSeguro(config.baseDir, relativo)
+  const pasta = destino.slice(0, destino.lastIndexOf('/')) || '/'
+  const nome = destino.slice(destino.lastIndexOf('/') + 1)
+
+  await client.ensureDir(pasta)
+  const bytes = typeof conteudo === 'string' ? Buffer.from(conteudo, 'utf8') : conteudo
+  await client.uploadFrom(Readable.from(bytes), nome)
+  await client.cd('/')
+  return destino
 }

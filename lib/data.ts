@@ -646,6 +646,10 @@ export type ContentPiece = {
   title?: string
   subtitle?: string
   body?: string
+  /** Endereço da matéria no site institucional, quando já foi publicada. */
+  slug?: string | null
+  siteUrl?: string | null
+  sitePublishedAt?: string | null
 }
 
 export const contents: ContentPiece[] = [
