@@ -65,8 +65,26 @@ export async function publicarArtigoNoSite(formData: FormData): Promise<Resultad
       .select('id,title,subtitle,body,slug,site_url')
       .eq('id', contentId).eq('workspace_id', context.workspace.id).maybeSingle()
     if (!peca) throw new Error('Conteúdo não encontrado neste espaço.')
+
+    // O formulário manda o que está na tela agora. Publicar o que a pessoa
+    // está vendo — e não a última versão salva — mata a armadilha de digitar,
+    // clicar em publicar e receber "a matéria precisa de texto" porque o
+    // salvamento ainda não tinha acontecido.
+    const tituloDaTela = texto(formData, 'title')
+    const subtituloDaTela = texto(formData, 'subtitle')
+    const corpoDaTela = texto(formData, 'body')
+    if (tituloDaTela || corpoDaTela) {
+      peca.title = tituloDaTela || peca.title
+      peca.subtitle = subtituloDaTela || null
+      peca.body = corpoDaTela || peca.body
+      const { error: erroSalvar } = await supabase.from('content_pieces')
+        .update({ title: peca.title, subtitle: peca.subtitle, body: peca.body, updated_at: new Date().toISOString() })
+        .eq('id', contentId).eq('workspace_id', context.workspace.id)
+      if (erroSalvar) throw new Error('Não foi possível salvar a matéria antes de publicar.')
+    }
+
     if (!peca.title?.trim()) throw new Error('A matéria precisa de um título antes de virar página.')
-    if (!peca.body?.trim()) throw new Error('A matéria precisa de texto antes de virar página.')
+    if (!peca.body?.trim()) throw new Error('A matéria precisa de texto antes de virar página. Escreva o texto e publique de novo.')
 
     // Endereço definido uma vez e mantido: trocar o slug de uma página já
     // publicada quebraria todo link que já saiu nas redes.
