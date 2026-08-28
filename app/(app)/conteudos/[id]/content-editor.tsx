@@ -35,6 +35,7 @@ import { addContentComment, archiveContentDraft, saveContent, submitContentForAp
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
 import { PublicadorRedes, type PublicacaoRegistro } from '@/components/app/publicador-redes'
+import { PublicadorSite } from '@/components/app/publicador-site'
 
 const mediaKinds = [
   { kind: 'image' as const, icon: ImageIcon, label: 'Imagem', accept: 'image/jpeg,image/png,image/webp,image/gif' },
@@ -51,6 +52,7 @@ export function ContentEditor({
   publicacoes = [],
   workspaceId,
   pessoas = [],
+  siteBaseUrl,
 }: {
   content: ContentPiece
   pauta?: Pauta
@@ -59,6 +61,7 @@ export function ContentEditor({
   publicacoes?: PublicacaoRegistro[]
   workspaceId: string
   pessoas?: PessoaDoEspaco[]
+  siteBaseUrl?: string | null
   comments?: Array<{
     id: string
     text: string
@@ -77,6 +80,9 @@ export function ContentEditor({
   const [showConcludeModal, setShowConcludeModal] = useState(false)
   const [concludeBusy, setConcludeBusy] = useState(false)
   const [revisores, setRevisores] = useState<string[]>([])
+  // Sobe para cá porque o endereço da página alimenta o Link da matéria do
+  // publicador de redes assim que a matéria vai ao ar.
+  const [siteUrl, setSiteUrl] = useState(content.siteUrl ?? '')
   const [concludeError, setConcludeError] = useState('')
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
   const [mediaError, setMediaError] = useState('')
@@ -399,11 +405,21 @@ export function ContentEditor({
             )}
 
             {isPersisted && (
-              <div className="mt-6 border-t border-border pt-6">
+              <div className="mt-6 flex flex-col gap-6 border-t border-border pt-6">
+                <PublicadorSite
+                  contentId={content.id}
+                  titulo={title}
+                  siteUrl={siteUrl}
+                  publicadoEm={content.sitePublishedAt}
+                  baseUrl={siteBaseUrl}
+                  onPublicado={setSiteUrl}
+                />
                 <PublicadorRedes
+                  key={siteUrl}
                   workspaceId={workspaceId}
                   contentId={content.id}
                   textoInicial={[title, subtitle].filter(Boolean).join('\n\n')}
+                  linkInicial={siteUrl}
                   publicacoes={publicacoes}
                 />
               </div>

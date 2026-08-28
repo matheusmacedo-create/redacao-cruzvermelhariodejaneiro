@@ -26,7 +26,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   let query = supabase
     .from('content_pieces')
-    .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,pautas(id,title,coordination,owner_id)')
+    .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,slug,site_url,site_published_at,pautas(id,title,coordination,owner_id)')
     .eq('workspace_id', context.workspace.id)
 
   query = isUuid ? query.eq('id', id) : query.order('updated_at', { ascending: false }).limit(1)
@@ -50,6 +50,11 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     status: contentStatus(row.status),
     version: `v${row.version}`,
     lastEdit: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.updated_at)),
+    slug: row.slug ?? null,
+    siteUrl: row.site_url ?? null,
+    sitePublishedAt: row.site_published_at
+      ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.site_published_at))
+      : null,
   }
   const { data: commentRows } = await supabase
     .from('content_comments')
@@ -127,6 +132,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
       publicacoes={publicacoes}
       workspaceId={context.workspace.id}
       pessoas={pessoas}
+      siteBaseUrl={process.env.SITE_PUBLIC_BASE_URL ?? null}
     />
   )
 }

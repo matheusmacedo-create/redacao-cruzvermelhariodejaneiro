@@ -44,5 +44,6 @@ export const ACTIVITY_ACTION_LABEL: Record<string, string> = {
   changes_requested: 'pediu ajustes em',
   deleted: 'excluiu',
   description_updated: 'editou a descrição de',
+  site_published: 'publicou no site',
 }
 
