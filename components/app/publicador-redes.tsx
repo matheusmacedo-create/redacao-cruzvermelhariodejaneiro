@@ -15,6 +15,7 @@ import { publicarNasRedes, atualizarStatusPublicacao, enviarPostParaAprovacao, p
 import { upload } from '@vercel/blob/client'
 import { caminhoDaBiblioteca } from '@/lib/storage'
 import { conferir, tambemAceitam, enquadrar, proporcaoEmTexto, limiteDeMidias, type Achado, type Midia } from '@/lib/publicacao/requisitos'
+import { SecaoSite, type DadosDaMateria } from '@/components/app/publicador-site'
 
 /** Espelha FORMATOS do cliente da API. Mantido aqui porque este arquivo roda no
  * navegador e não pode importar código marcado com 'server-only'. */
@@ -100,6 +101,7 @@ export function PublicadorRedes({
   workspaceId,
   pessoas = [],
   rascunhos = [],
+  site,
 }: {
   contentId?: string
   textoInicial: string
@@ -112,6 +114,13 @@ export function PublicadorRedes({
   /** Quem pode ser escolhido como aprovador. */
   pessoas?: Pessoa[]
   rascunhos?: RascunhoRegistro[]
+  /** Presente quando o post nasce de uma matéria: o site vira mais um destino. */
+  site?: {
+    baseUrl?: string | null
+    url?: string | null
+    publicadoEm?: string | null
+    dados: () => DadosDaMateria
+  }
 }) {
   const router = useRouter()
   const [enviando, iniciarEnvio] = useTransition()
@@ -383,6 +392,17 @@ export function PublicadorRedes({
               </div>
             )}
           </div>
+
+          {contentId && site && (
+            <SecaoSite
+              contentId={contentId}
+              siteUrl={site.url}
+              publicadoEm={site.publicadoEm}
+              baseUrl={site.baseUrl}
+              dados={site.dados}
+              onPublicado={(url) => setLinkUrl(url)}
+            />
+          )}
 
           {/* Texto */}
           <div>

@@ -461,7 +461,14 @@ export async function saveContent(formData: FormData) {
   revalidatePath(`/conteudos/${id}`)
 }
 
-export async function submitContentForApproval(formData: FormData) {
+/**
+ * As falhas esperadas voltam como valor, não como exceção: o Next apaga a
+ * mensagem de uma exceção de server action em produção, e a tela recebe só o
+ * "Minified React error #441" — foi o que escondeu, de quem enviava, o recado
+ * "escolha pelo menos uma pessoa para revisar".
+ */
+export async function submitContentForApproval(formData: FormData): Promise<{ approvalId?: string; erro?: string }> {
+  try {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const id = text(formData, 'id')
@@ -530,6 +537,9 @@ export async function submitContentForApproval(formData: FormData) {
   revalidatePath(`/aprovacoes/${approvalId}`)
   revalidatePath(`/conteudos/${contentId}`)
   return { approvalId }
+  } catch (causa) {
+    return { erro: (causa instanceof Error ? causa.message : 'Não foi possível enviar para aprovação.').slice(0, 500) }
+  }
 }
 
 /**
@@ -540,7 +550,8 @@ export async function submitContentForApproval(formData: FormData) {
  * decisão normal no meio do caminho. Só quem pediu a aprovação, ou um
  * administrador, convida.
  */
-export async function adicionarRevisores(formData: FormData) {
+export async function adicionarRevisores(formData: FormData): Promise<{ erro?: string }> {
+  try {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const approvalId = text(formData, 'approvalId')
@@ -589,6 +600,10 @@ export async function adicionarRevisores(formData: FormData) {
 
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${approvalId}`)
+  return {}
+  } catch (causa) {
+    return { erro: (causa instanceof Error ? causa.message : 'Não foi possível convidar.').slice(0, 500) }
+  }
 }
 
 export async function archiveContentDraft(formData: FormData) {

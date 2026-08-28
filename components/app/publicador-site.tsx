@@ -6,19 +6,29 @@ import { Button } from '@/components/ui/button'
 import { publicarArtigoNoSite } from '@/app/actions/site'
 import { gerarSlug } from '@/lib/site/slug'
 
-export function PublicadorSite({
+export type DadosDaMateria = { titulo: string; subtitulo: string; corpo: string }
+
+/**
+ * Seção "Site" do publicador de redes.
+ *
+ * Vive dentro do cartão de publicar, como mais um destino, porque é assim que
+ * quem publica pensa: o site é uma das redes. O formulário manda o texto que
+ * está na tela — a ação salva antes de publicar, então o que você vê é o que
+ * sobe.
+ */
+export function SecaoSite({
   contentId,
-  titulo,
   siteUrl,
   publicadoEm,
   baseUrl,
+  dados,
   onPublicado,
 }: {
   contentId: string
-  titulo: string
   siteUrl?: string | null
   publicadoEm?: string | null
   baseUrl?: string | null
+  dados: () => DadosDaMateria
   onPublicado?: (url: string) => void
 }) {
   const [enviando, iniciar] = useTransition()
@@ -27,14 +37,19 @@ export function PublicadorSite({
   const [aviso, setAviso] = useState('')
   const [copiado, setCopiado] = useState(false)
 
-  // Prévia do endereço antes de publicar: quem escreve o título decide o
-  // endereço, e é melhor ver isso antes do que descobrir depois.
+  const titulo = dados().titulo
+  // O endereço nasce do título. Mostrar antes de publicar deixa a pessoa
+  // corrigir o título enquanto ainda é barato; depois de no ar, ele congela.
   const previa = url || (baseUrl && titulo.trim() ? `${baseUrl.replace(/\/+$/, '')}/${gerarSlug(titulo)}/` : '')
 
   function publicar() {
     setErro(''); setAviso('')
+    const atual = dados()
     const form = new FormData()
     form.set('contentId', contentId)
+    form.set('title', atual.titulo)
+    form.set('subtitle', atual.subtitulo)
+    form.set('body', atual.corpo)
     iniciar(async () => {
       const r = await publicarArtigoNoSite(form)
       if (r.erro) { setErro(r.erro); return }
@@ -44,62 +59,53 @@ export function PublicadorSite({
   }
 
   return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <Globe className="size-4" />
-          Página no site
-        </h3>
-        <Button size="sm" variant={url ? 'outline' : 'default'} onClick={publicar} disabled={enviando}>
-          {url ? <RefreshCw className="size-4" /> : <Globe className="size-4" />}
-          {enviando ? 'Publicando…' : url ? 'Republicar' : 'Publicar no site'}
-        </Button>
-      </div>
-
-      <p className="mt-2 text-sm text-muted-foreground">
-        {url
-          ? 'A página está no ar. Republique depois de editar o texto para atualizar o que está publicado.'
-          : 'Gera uma página no domínio da instituição, com endereço terminado em barra e as marcações que o Google e as redes leem. As imagens do texto sobem junto.'}
-      </p>
-
-      {previa && (
-        <p className="mt-3 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs">
-          {url ? previa : <><span className="text-muted-foreground">endereço previsto: </span>{previa}</>}
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Globe className="size-3.5" />
+          Site da instituição
         </p>
-      )}
-
-      {url && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" render={<a href={url} target="_blank" rel="noreferrer" />}>
-            <ExternalLink className="size-4" />Abrir
-          </Button>
-          <Button
-            size="sm" variant="ghost"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(url)
-                setCopiado(true); setTimeout(() => setCopiado(false), 2000)
-              } catch { /* navegador sem permissão: o endereço continua na tela */ }
-            }}
-          >
-            {copiado ? <><Check className="size-4" />Copiado</> : <><Copy className="size-4" />Copiar link</>}
+        <div className="flex items-center gap-1.5">
+          {url && (
+            <>
+              <Button size="sm" variant="ghost" render={<a href={url} target="_blank" rel="noreferrer" />}>
+                <ExternalLink className="size-3.5" />Abrir
+              </Button>
+              <Button
+                size="sm" variant="ghost"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(url)
+                    setCopiado(true); setTimeout(() => setCopiado(false), 2000)
+                  } catch { /* sem permissão de área de transferência: o endereço segue visível */ }
+                }}
+              >
+                {copiado ? <><Check className="size-3.5" />Copiado</> : <><Copy className="size-3.5" />Copiar</>}
+              </Button>
+            </>
+          )}
+          <Button size="sm" variant={url ? 'outline' : 'default'} onClick={publicar} disabled={enviando || !titulo.trim()}>
+            {url ? <RefreshCw className="size-3.5" /> : <Globe className="size-3.5" />}
+            {enviando ? 'Publicando…' : url ? 'Republicar' : 'Publicar página'}
           </Button>
         </div>
-      )}
+      </div>
 
-      {publicadoEm && url && (
-        <p className="mt-2 text-xs text-muted-foreground">No ar desde {publicadoEm}.</p>
-      )}
-
-      {url && (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Este endereço já entra como <strong className="font-medium">Link da matéria</strong> no publicador abaixo — é ele
-          que vira o card da notícia quando o post sai nas redes.
+      {previa && (
+        <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
+          {url ? previa : <>vai para: {previa}</>}
+          {url && publicadoEm && <span className="font-sans"> · no ar desde {publicadoEm}</span>}
         </p>
       )}
 
-      {aviso && <p className="mt-3 text-sm text-amber-600 dark:text-amber-500">{aviso}</p>}
-      {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
+      {url && (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          O endereço já entrou como link da matéria: os posts abaixo saem apontando para ele.
+        </p>
+      )}
+
+      {aviso && <p className="mt-2 text-sm text-amber-600 dark:text-amber-500">{aviso}</p>}
+      {erro && <p className="mt-2 text-sm text-destructive">{erro}</p>}
     </div>
   )
 }
