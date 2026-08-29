@@ -128,6 +128,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   }, [])
 
   const varianteSuja = useRef<string | null>(null)
+
+  /** Salva a variante ativa só se houver edição pendente. Salvar sem mudança
+   *  antes de publicar era o que rebaixava um destino pronto para "gerada". */
+  const salvarSeSuja = useCallback(async (d: DestinoRegistro | null) => {
+    if (!d || varianteSuja.current !== d.id) return
+    varianteSuja.current = null
+    await salvarVarianteAgora(d)
+  }, [salvarVarianteAgora])
   useEffect(() => {
     if (!destinoAtivo || !varianteSuja.current || varianteSuja.current !== destinoAtivo.id) return
     const alvo = destinoAtivo
@@ -179,7 +187,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
   async function pronta(d: DestinoRegistro) {
     setErro('')
-    await salvarVarianteAgora(d)
+    await salvarSeSuja(d)
     const form = new FormData()
     form.set('destinoId', d.id)
     const r = await marcarPronta(form)
@@ -209,7 +217,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   async function pedirAprovacao() {
     setErro(''); setAviso('')
     await salvarAgora()
-    if (destinoAtivo) await salvarVarianteAgora(destinoAtivo)
+    await salvarSeSuja(destinoAtivo)
     const form = new FormData()
     form.set('pacoteId', inicial.id)
     for (const id of revisores) form.append('aprovadores', id)
@@ -242,7 +250,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   async function abrirModalPublicar() {
     setErro('')
     await salvarAgora()
-    if (destinoAtivo) await salvarVarianteAgora(destinoAtivo)
+    await salvarSeSuja(destinoAtivo)
     const marcados = elegiveis.map((d) => d.id)
     setIncluidos(marcados)
     setModalPublicar({ grupos: null })

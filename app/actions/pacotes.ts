@@ -244,6 +244,15 @@ export async function salvarVariante(formData: FormData): Promise<ResultadoDoHub
 
     const avisos = validarVariante({ corpo, extras, fileIds }, destino.canal, destino.formato)
 
+    // Salvar não pode desmarcar o "pronta" de um destino que continua válido.
+    // Foi a corrida do segundo teste real: o clique em Publicar salvava a
+    // variante ativa "por garantia", o salvamento rebaixava para gerada, e o
+    // disparo não achava mais nenhum destino pronto — com a tela dizendo o
+    // contrário. Com erro, aí sim: pronta nenhuma sobrevive a um erro.
+    const estadoNovo = temErro(avisos)
+      ? 'em_ajuste'
+      : destino.estado === 'pronta' ? 'pronta' : 'gerada'
+
     const { error } = await supabase.from('package_destinations').update({
       corpo,
       extras,
@@ -251,7 +260,7 @@ export async function salvarVariante(formData: FormData): Promise<ResultadoDoHub
       crops,
       agendar_para: agendarPara ? deBrasilia(agendarPara).toISOString() : null,
       descolada: true,
-      estado: temErro(avisos) ? 'em_ajuste' : 'gerada',
+      estado: estadoNovo,
     }).eq('id', id).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível salvar a variante.')
 
