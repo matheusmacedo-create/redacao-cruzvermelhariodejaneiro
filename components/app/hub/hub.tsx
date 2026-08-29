@@ -129,6 +129,19 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
   const varianteSuja = useRef<string | null>(null)
 
+  // router.refresh() traz props novas, mas useState não reinicializa com elas:
+  // sem esta sincronização, um destino criado no servidor nunca aparecia no
+  // trilho ("0/0") e o segundo clique dava "já está neste pacote".
+  useEffect(() => {
+    setDestinos((atual) =>
+      destinosIniciais.map((doServidor) => {
+        const local = atual.find((d) => d.id === doServidor.id)
+        // Edição ainda não salva vence a versão do servidor.
+        return local && varianteSuja.current === doServidor.id ? local : doServidor
+      }),
+    )
+  }, [destinosIniciais])
+
   /** Salva a variante ativa só se houver edição pendente. Salvar sem mudança
    *  antes de publicar era o que rebaixava um destino pronto para "gerada". */
   const salvarSeSuja = useCallback(async (d: DestinoRegistro | null) => {
@@ -244,7 +257,13 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     form.set('pacoteId', inicial.id)
     for (const id of ids) form.append('incluir', id)
     const r = await estimarCota(form)
-    if (!r.erro) setModalPublicar({ grupos: r.grupos ?? 0 })
+    if (r.erro) {
+      // Sem isto o modal ficava preso em "Calculando a cota…" para sempre.
+      setModalPublicar(null)
+      setErro(r.erro)
+      return
+    }
+    setModalPublicar({ grupos: r.grupos ?? 0 })
   }
 
   async function abrirModalPublicar() {
@@ -360,9 +379,6 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         )}
       </div>
 
-      {erro && <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{erro}</p>}
-      {aviso && <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{aviso}</p>}
-
       {/* Região 2 — editor + preview */}
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0 p-5">
@@ -413,8 +429,22 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         </div>
       </div>
 
-      {/* Região 3 — barra de ação */}
+      {/* Região 3 — barra de ação. Erros e avisos moram aqui, colados nos
+          botões que os causaram — no topo da página eles passavam batidos
+          ou pareciam vir de outro lugar. */}
       <div className="sticky bottom-0 z-40 -mx-1 rounded-t-lg border border-border bg-background/95 backdrop-blur">
+        {erro && (
+          <div className="flex items-start justify-between gap-3 border-b border-destructive/30 bg-destructive/5 px-4 py-2">
+            <p className="text-sm text-destructive">{erro}</p>
+            <button type="button" onClick={() => setErro('')} aria-label="Dispensar erro" className="mt-0.5 text-destructive/70 hover:text-destructive"><X className="size-3.5" /></button>
+          </div>
+        )}
+        {aviso && !erro && (
+          <div className="flex items-start justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2">
+            <p className="text-sm text-muted-foreground">{aviso}</p>
+            <button type="button" onClick={() => setAviso('')} aria-label="Dispensar aviso" className="mt-0.5 text-muted-foreground/70 hover:text-muted-foreground"><X className="size-3.5" /></button>
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {salvo === 'ok' ? <><Check className="size-3.5 text-emerald-600" />Salvo</>
