@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { get } from '@vercel/blob'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -18,6 +17,7 @@ import {
   type RespostaDeEnvio,
 } from '@/lib/publicacao/upload-post'
 import { limiteDeMidias } from '@/lib/publicacao/requisitos'
+import { carregarArquivos } from '@/lib/publicacao/arquivos'
 import { validarPost } from '@/lib/publicacao/validacao'
 
 const texto = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
@@ -67,46 +67,6 @@ function resumirResultados(resposta: RespostaDeEnvio) {
  * folgado na função serverless. Vale conferir o vínculo com o espaço aqui
  * também: o id vem do formulário, e formulário é do navegador.
  */
-async function carregarArquivos(fileIds: string[], workspaceId: string) {
-  const carregados = []
-  for (const id of fileIds) carregados.push(await carregarArquivo(id, workspaceId))
-  return carregados
-}
-
-async function carregarArquivo(fileId: string, workspaceId: string) {
-  const supabase = await createClient()
-  const { data: arquivo } = await supabase
-    .from('files')
-    .select('name,content_type,storage_path,status,authorization_status')
-    .eq('id', fileId)
-    .eq('workspace_id', workspaceId)
-    .maybeSingle()
-
-  if (!arquivo || arquivo.status === 'deleted' || !arquivo.storage_path) {
-    throw new Error('Arquivo não encontrado na Biblioteca deste espaço.')
-  }
-
-  // A tela já filtra, mas o id chega pelo formulário e formulário é do
-  // navegador. Publicar imagem sem autorização de uso é o tipo de erro que
-  // não se desfaz depois que saiu na página da instituição.
-  if (arquivo.authorization_status !== 'authorized') {
-    throw new Error(
-      'Este arquivo não tem autorização de uso de imagem. Marque a autorização na Biblioteca antes de publicar.',
-    )
-  }
-
-  const resultado = await get(arquivo.storage_path, { access: 'private' })
-  if (!resultado) throw new Error('O arquivo não está mais disponível no armazenamento.')
-
-  const bytes = await new Response(resultado.stream).arrayBuffer()
-  const contentType = arquivo.content_type || resultado.blob.contentType || 'application/octet-stream'
-
-  return {
-    blob: new File([bytes], arquivo.name || 'arquivo', { type: contentType }),
-    contentType,
-  }
-}
-
 /** Campos que descrevem um post, venham do formulário ou de um rascunho. */
 type Post = {
   formato: Formato
