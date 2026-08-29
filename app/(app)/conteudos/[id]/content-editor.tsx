@@ -34,7 +34,7 @@ import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
-import { PublicadorRedes, type PublicacaoRegistro } from '@/components/app/publicador-redes'
+import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
 
 
 const mediaKinds = [
@@ -49,7 +49,6 @@ export function ContentEditor({
   responsible,
   comments,
   canSubmit = false,
-  publicacoes = [],
   workspaceId,
   pessoas = [],
   siteBaseUrl,
@@ -58,7 +57,6 @@ export function ContentEditor({
   pauta?: Pauta
   responsible?: Person
   canSubmit?: boolean
-  publicacoes?: PublicacaoRegistro[]
   workspaceId: string
   pessoas?: PessoaDoEspaco[]
   siteBaseUrl?: string | null
@@ -403,22 +401,14 @@ export function ContentEditor({
             )}
 
             {isPersisted && (
-              <div className="mt-6 border-t border-border pt-6">
-                <PublicadorRedes
-                  workspaceId={workspaceId}
-                  contentId={content.id}
-                  textoInicial={[title, subtitle].filter(Boolean).join('\n\n')}
-                  linkInicial={content.siteUrl ?? ''}
-                  publicacoes={publicacoes}
-                  site={{
-                    baseUrl: siteBaseUrl,
-                    url: content.siteUrl,
-                    publicadoEm: content.sitePublishedAt,
-                    // Sempre o estado atual do editor: o publicar salva o que
-                    // está na tela antes de subir a página.
-                    dados: () => ({ titulo: title, subtitulo: subtitle, corpo: body }),
-                  }}
-                />
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+                <div>
+                  <h3 className="text-sm font-semibold">Publicar esta matéria</h3>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Abre o hub com o texto já carregado: site, Instagram, Facebook e as demais redes, cada uma com sua versão.
+                  </p>
+                </div>
+                <NovoPacoteBotao origemTipo="materia" origemId={content.id} rotulo="Criar pacote de publicação" />
               </div>
             )}
           </div>
