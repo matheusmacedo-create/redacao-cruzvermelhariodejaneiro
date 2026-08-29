@@ -15,7 +15,6 @@ export const instagram: Adapter = {
   camposExtras: [
     { chave: 'firstComment', rotulo: 'Primeiro comentário', tipo: 'textarea', max: 2_200,
       formatos: ['feed', 'reels'],
-      dica: 'Hashtags aqui deixam a legenda limpa.',
-      indisponivel: 'Em verificação: o conector ainda não confirmou o envio de primeiro comentário.' },
+      dica: 'Hashtags aqui deixam a legenda limpa. Publicado logo depois do post, pela própria conta.' },
   ],
 }

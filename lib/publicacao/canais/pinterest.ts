@@ -10,8 +10,9 @@ export const pinterest: Adapter = {
   ],
   camposExtras: [
     { chave: 'pinTitle', rotulo: 'Título do pin', tipo: 'texto', max: 100,
-      dica: 'É o que aparece em destaque na busca do Pinterest.',
-      indisponivel: 'Em verificação: o conector ainda não confirmou o campo de título.' },
+      dica: 'É o que aparece em destaque na busca do Pinterest.' },
+    { chave: 'pinterestBoardId', rotulo: 'Board (ID)', tipo: 'texto',
+      dica: 'Obrigatório: a API exige o ID do board. Peça a um administrador ou consulte /api/uploadposts/pinterest/boards.' },
   ],
   aoGerar(variante, mestre) {
     // O título do pin nasce do título do mestre — Pinterest sem título é um
@@ -22,9 +23,14 @@ export const pinterest: Adapter = {
     return variante
   },
   validarExtras(variante): Aviso[] {
+    const avisos: Aviso[] = []
     if (!variante.extras.pinTitle?.trim()) {
-      return [{ nivel: 'aviso', mensagem: 'Pin sem título rende mal na busca do Pinterest.' }]
+      avisos.push({ nivel: 'aviso', mensagem: 'Pin sem título rende mal na busca do Pinterest.' })
     }
-    return []
+    // A API recusa pin sem board — melhor recusar aqui, com o motivo legível.
+    if (!variante.extras.pinterestBoardId?.trim()) {
+      avisos.push({ nivel: 'erro', mensagem: 'O Pinterest exige o ID do board de destino.' })
+    }
+    return avisos
   },
 }

@@ -11,8 +11,17 @@ export const googleBusiness: Adapter = {
       texto: { max: 1_500, unidade: 'caracteres' } },
   ],
   camposExtras: [
+    // Os valores são os da API (gbp_cta_type); o rótulo legível fica na UI.
     { chave: 'ctaTipo', rotulo: 'Botão de ação', tipo: 'select',
-      opcoes: ['Saiba mais', 'Ligar', 'Reservar', 'Inscrever-se'],
-      indisponivel: 'Em verificação: o conector ainda não confirmou o botão de ação.' },
+      opcoes: ['LEARN_MORE', 'BOOK', 'ORDER', 'SHOP', 'SIGN_UP', 'CALL'],
+      dica: 'LEARN_MORE = Saiba mais · BOOK = Reservar · ORDER = Pedir · SHOP = Comprar · SIGN_UP = Inscrever-se · CALL = Ligar' },
+    { chave: 'ctaUrl', rotulo: 'Link do botão', tipo: 'url',
+      dica: 'Obrigatório quando o botão está definido.' },
   ],
+  validarExtras(variante) {
+    if (variante.extras.ctaTipo && !variante.extras.ctaUrl?.trim()) {
+      return [{ nivel: 'erro' as const, mensagem: 'Botão de ação sem link: a API exige gbp_cta_url quando há botão.' }]
+    }
+    return []
+  },
 }
