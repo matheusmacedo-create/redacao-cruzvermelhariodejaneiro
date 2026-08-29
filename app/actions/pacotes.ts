@@ -244,6 +244,15 @@ export async function salvarVariante(formData: FormData): Promise<ResultadoDoHub
 
     const avisos = validarVariante({ corpo, extras, fileIds }, destino.canal, destino.formato)
 
+    // Salvar não pode desmarcar o "pronta" de um destino que continua válido.
+    // Foi a corrida do segundo teste real: o clique em Publicar salvava a
+    // variante ativa "por garantia", o salvamento rebaixava para gerada, e o
+    // disparo não achava mais nenhum destino pronto — com a tela dizendo o
+    // contrário. Com erro, aí sim: pronta nenhuma sobrevive a um erro.
+    const estadoNovo = temErro(avisos)
+      ? 'em_ajuste'
+      : destino.estado === 'pronta' ? 'pronta' : 'gerada'
+
     const { error } = await supabase.from('package_destinations').update({
       corpo,
       extras,
@@ -251,7 +260,7 @@ export async function salvarVariante(formData: FormData): Promise<ResultadoDoHub
       crops,
       agendar_para: agendarPara ? deBrasilia(agendarPara).toISOString() : null,
       descolada: true,
-      estado: temErro(avisos) ? 'em_ajuste' : 'gerada',
+      estado: estadoNovo,
     }).eq('id', id).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível salvar a variante.')
 
@@ -437,13 +446,16 @@ export async function estimarCota(formData: FormData): Promise<ResultadoDoHub & 
     const pacoteId = texto(formData, 'pacoteId')
     const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
 
+    const incluirIds = new Set(formData.getAll('incluir').map((v) => String(v)).filter(Boolean))
     const { data: destinos } = await supabase
       .from('package_destinations')
-      .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para')
+      .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado')
       .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
-      .eq('estado', 'pronta')
+      .in('estado', ['pronta', 'gerada', 'em_ajuste'])
 
-    const sociais = (destinos ?? []).filter((d) => d.canal !== 'site_web') as DestinoParaDisparo[]
+    const sociais = (destinos ?? [])
+      .filter((d) => d.estado === 'pronta' || incluirIds.has(d.id))
+      .filter((d) => d.canal !== 'site_web') as DestinoParaDisparo[]
     const grupos = new Set(sociais.map((d) => chaveDoGrupo(d, pacote.agendar_para))).size
     return { grupos }
   } catch (causa) {
@@ -489,12 +501,33 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       throw new Error('Este pacote está em aprovação. Aguarde a decisão antes de publicar.')
     }
 
+    // Além dos já marcados como prontos, a tela pode pedir para levar juntos
+    // destinos ainda em "gerada" — desde que passem AGORA na validação do
+    // adapter, no servidor. Foi o buraco do primeiro teste real: o Facebook
+    // saiu e o site ficou para trás em silêncio, só porque ninguém tinha
+    // clicado no ritual de "marcar como pronta".
+    const incluirIds = new Set(formData.getAll('incluir').map((v) => String(v)).filter(Boolean))
+
     const { data: linhas } = await supabase
       .from('package_destinations')
       .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado')
       .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
-      .eq('estado', 'pronta')
-    const prontos = (linhas ?? []) as (DestinoParaDisparo & { estado: string })[]
+      .in('estado', ['pronta', 'gerada', 'em_ajuste'])
+    const todas = (linhas ?? []) as (DestinoParaDisparo & { estado: string })[]
+
+    const prontos: typeof todas = []
+    for (const d of todas) {
+      if (d.estado === 'pronta') { prontos.push(d); continue }
+      if (!incluirIds.has(d.id)) continue
+      const avisos = validarVariante(
+        { corpo: d.corpo ?? '', extras: (d.extras ?? {}) as Record<string, string>, fileIds: d.file_ids ?? [] },
+        d.canal, d.formato,
+      )
+      if (temErro(avisos)) continue   // com erro não vai, mesmo pedido
+      await supabase.from('package_destinations').update({ estado: 'pronta' })
+        .eq('id', d.id).eq('workspace_id', context.workspace.id)
+      prontos.push(d)
+    }
     if (!prontos.length) throw new Error('Nenhum destino pronto para publicar. Marque ao menos um como pronto.')
 
     const marcar = async (ids: string[], campos: Record<string, unknown>) => {
@@ -637,7 +670,16 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       }
     }
 
-    const statusFinal = falhas === 0 ? 'publicado' : publicados > 0 ? 'parcial' : 'falhou'
+    // "Publicado" encerra e congela o pacote. Um destino deixado para trás —
+    // gerado, em ajuste, bloqueado — mantém o pacote em "parcial", editável,
+    // para ninguém repetir o pacote trancado do primeiro teste.
+    const { data: restantes } = await supabase
+      .from('package_destinations').select('estado')
+      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
+    const pendentes = (restantes ?? []).filter((d) => !['publicada', 'na_fila', 'ignorada'].includes(d.estado)).length
+    const statusFinal = falhas > 0 || pendentes > 0
+      ? (publicados > 0 ? 'parcial' : 'falhou')
+      : 'publicado'
     await supabase.from('social_packages').update({ status: statusFinal })
       .eq('id', pacoteId).eq('workspace_id', context.workspace.id)
 

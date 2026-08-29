@@ -66,7 +66,8 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   const [aviso, setAviso] = useState('')
   const [conectadas, setConectadas] = useState<string[] | null>(null)
   const [biblioteca, setBiblioteca] = useState<ArquivoDaBiblioteca[]>([])
-  const [modalPublicar, setModalPublicar] = useState<null | { grupos: number }>(null)
+  const [modalPublicar, setModalPublicar] = useState<null | { grupos: number | null }>(null)
+  const [incluidos, setIncluidos] = useState<string[]>([])
   const [modalAprovacao, setModalAprovacao] = useState(false)
   const [revisores, setRevisores] = useState<string[]>([])
   const [adicionando, setAdicionando] = useState(false)
@@ -127,6 +128,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   }, [])
 
   const varianteSuja = useRef<string | null>(null)
+
+  /** Salva a variante ativa só se houver edição pendente. Salvar sem mudança
+   *  antes de publicar era o que rebaixava um destino pronto para "gerada". */
+  const salvarSeSuja = useCallback(async (d: DestinoRegistro | null) => {
+    if (!d || varianteSuja.current !== d.id) return
+    varianteSuja.current = null
+    await salvarVarianteAgora(d)
+  }, [salvarVarianteAgora])
   useEffect(() => {
     if (!destinoAtivo || !varianteSuja.current || varianteSuja.current !== destinoAtivo.id) return
     const alvo = destinoAtivo
@@ -178,7 +187,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
   async function pronta(d: DestinoRegistro) {
     setErro('')
-    await salvarVarianteAgora(d)
+    await salvarSeSuja(d)
     const form = new FormData()
     form.set('destinoId', d.id)
     const r = await marcarPronta(form)
@@ -208,7 +217,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   async function pedirAprovacao() {
     setErro(''); setAviso('')
     await salvarAgora()
-    if (destinoAtivo) await salvarVarianteAgora(destinoAtivo)
+    await salvarSeSuja(destinoAtivo)
     const form = new FormData()
     form.set('pacoteId', inicial.id)
     for (const id of revisores) form.append('aprovadores', id)
@@ -220,20 +229,44 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   }
 
   // ---------- publicar ----------
+  // Sem erro na validação = elegível para ir junto, mesmo sem o clique em
+  // "marcar como pronta". Foi o buraco do primeiro teste real: o site ficou
+  // para trás em silêncio.
+  const elegiveis = destinos.filter((d) =>
+    ['gerada', 'em_ajuste'].includes(d.estado)
+    && !temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato)))
+  const barrados = destinos.filter((d) =>
+    ['gerada', 'em_ajuste', 'bloqueada'].includes(d.estado)
+    && temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato)))
+
+  async function estimar(ids: string[]) {
+    const form = new FormData()
+    form.set('pacoteId', inicial.id)
+    for (const id of ids) form.append('incluir', id)
+    const r = await estimarCota(form)
+    if (!r.erro) setModalPublicar({ grupos: r.grupos ?? 0 })
+  }
+
   async function abrirModalPublicar() {
     setErro('')
     await salvarAgora()
-    if (destinoAtivo) await salvarVarianteAgora(destinoAtivo)
-    const form = new FormData()
-    form.set('pacoteId', inicial.id)
-    const r = await estimarCota(form)
-    if (r.erro) { setErro(r.erro); return }
-    setModalPublicar({ grupos: r.grupos ?? 0 })
+    await salvarSeSuja(destinoAtivo)
+    const marcados = elegiveis.map((d) => d.id)
+    setIncluidos(marcados)
+    setModalPublicar({ grupos: null })
+    await estimar(marcados)
+  }
+
+  function alternarIncluido(id: string) {
+    const proximos = incluidos.includes(id) ? incluidos.filter((x) => x !== id) : [...incluidos, id]
+    setIncluidos(proximos)
+    estimar(proximos)
   }
 
   function publicar() {
     const form = new FormData()
     form.set('pacoteId', inicial.id)
+    for (const id of incluidos) form.append('incluir', id)
     setModalPublicar(null)
     iniciar(async () => {
       const r = await publicarPacote(form)
@@ -395,7 +428,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             <Button variant="outline" onClick={() => setModalAprovacao(true)} disabled={enviando || encerrado || destinos.length === 0 || inicial.status === 'em_aprovacao'}>
               {inicial.status === 'em_aprovacao' ? 'Em aprovação' : 'Pedir aprovação'}
             </Button>
-            <Button onClick={abrirModalPublicar} disabled={enviando || encerrado || prontos === 0}>
+            <Button onClick={abrirModalPublicar} disabled={enviando || encerrado || (prontos === 0 && elegiveis.length === 0)}>
               <Rocket className="size-4" />
               {enviando ? 'Publicando…' : agendarPara ? 'Agendar prontos' : 'Publicar prontos'}
             </Button>
@@ -432,15 +465,43 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
                   <Check className="size-4 text-emerald-600" />{nomeDoDestino(d)}
                 </li>
               ))}
+              {elegiveis.map((d) => (
+                <li key={d.id}>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={incluidos.includes(d.id)}
+                      onChange={() => alternarIncluido(d.id)}
+                      className="size-4 accent-primary"
+                    />
+                    {nomeDoDestino(d)}
+                    <span className="text-xs text-muted-foreground">— sem pendências, vai junto</span>
+                  </label>
+                </li>
+              ))}
             </ul>
+            {barrados.length > 0 && (
+              <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Ficam de fora, com pendência:</p>
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {barrados.map((d) => (
+                    <li key={d.id} className="text-xs text-amber-700 dark:text-amber-400">
+                      {nomeDoDestino(d)} — corrija a validação para incluir.
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="mt-4 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              Este envio consome <strong className="text-foreground">{modalPublicar.grupos} publicaç{modalPublicar.grupos === 1 ? 'ão' : 'ões'}</strong> do plano do Upload-Post
-              {destinos.some((d) => d.estado === 'pronta' && d.canal === 'site_web') ? ' (o site não conta na cota)' : ''}.
-              Destinos com o mesmo texto e mídia saem numa chamada só.
+              {modalPublicar.grupos === null
+                ? 'Calculando a cota…'
+                : <>Este envio consome <strong className="text-foreground">{modalPublicar.grupos} publicaç{modalPublicar.grupos === 1 ? 'ão' : 'ões'}</strong> do plano do Upload-Post
+                  {[...destinos.filter((d) => d.estado === 'pronta'), ...elegiveis.filter((d) => incluidos.includes(d.id))].some((d) => d.canal === 'site_web') ? ' (o site não conta na cota)' : ''}.
+                  {' '}Destinos com o mesmo texto e mídia saem numa chamada só.</>}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setModalPublicar(null)}>Cancelar</Button>
-              <Button onClick={publicar}><Rocket className="size-4" />Confirmar</Button>
+              <Button onClick={publicar} disabled={modalPublicar.grupos === null || (destinos.filter((d) => d.estado === 'pronta').length + incluidos.length === 0)}><Rocket className="size-4" />Confirmar</Button>
             </div>
           </Card>
         </div>
