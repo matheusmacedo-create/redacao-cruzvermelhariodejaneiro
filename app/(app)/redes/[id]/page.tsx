@@ -61,5 +61,14 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     externalUrl: d.external_url,
   }))
 
-  return <PacoteHub pacote={pacote} destinos={destinos} />
+  const { data: memberRows } = await supabase
+    .from('workspace_members')
+    .select('user_id,profiles(id,full_name,initials,color,active)')
+    .eq('workspace_id', context.workspace.id)
+  const pessoas = (memberRows ?? [])
+    .map((m: any) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles))
+    .filter((p: any) => p && p.active !== false && p.id !== context.user.id)
+    .map((p: any) => ({ id: p.id, nome: p.full_name, iniciais: p.initials || '?', cor: p.color }))
+
+  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} />
 }

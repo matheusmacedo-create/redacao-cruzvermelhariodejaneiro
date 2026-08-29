@@ -343,6 +343,8 @@ export type EnvioComum = {
   /** Textos por rede, quando o mesmo texto não serve para todas. */
   textoPorRede?: Partial<Record<string, string>>
   formato?: Formato
+  /** Campos extras da variante (hub): firstComment, pinterestBoardId, ctaTipo… */
+  extras?: Record<string, string>
 }
 
 function montarComum(form: FormData, envio: EnvioComum) {
@@ -368,6 +370,28 @@ function montarComum(form: FormData, envio: EnvioComum) {
   }
 
   aplicarFormato(form, envio)
+  aplicarExtras(form, envio)
+}
+
+/**
+ * Campos extras confirmados na documentação do conector (ago/2026):
+ * first_comment (IG, FB, Threads, Bluesky, X, LinkedIn), pinterest_title,
+ * pinterest_board_id (obrigatório para pin) e gbp_cta_type/gbp_cta_url.
+ * Chave que o conector não conhece não é enviada — descartar em silêncio do
+ * lado de cá é melhor do que um 400 opaco do lado de lá.
+ */
+function aplicarExtras(form: FormData, envio: EnvioComum) {
+  const extras = envio.extras
+  if (!extras) return
+  if (extras.firstComment) form.set('first_comment', extras.firstComment)
+  if (envio.redes.includes('pinterest')) {
+    if (extras.pinTitle) form.set('pinterest_title', extras.pinTitle)
+    if (extras.pinterestBoardId) form.set('pinterest_board_id', extras.pinterestBoardId)
+  }
+  if (envio.redes.includes('google_business')) {
+    if (extras.ctaTipo) form.set('gbp_cta_type', extras.ctaTipo)
+    if (extras.ctaUrl) form.set('gbp_cta_url', extras.ctaUrl)
+  }
 }
 
 /**

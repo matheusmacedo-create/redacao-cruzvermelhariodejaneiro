@@ -14,10 +14,11 @@ import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import {
-  adicionarDestino, arquivarPacote, estimarCota, marcarPronta, publicarPacote,
-  realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
+  adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
+  publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
   salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
+import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, PacoteRegistro } from './tipos'
 
 /**
@@ -46,9 +47,10 @@ function proporcaoNumerica(rotulo: string): number {
   return parseFloat(m[1]) / parseFloat(m[2])
 }
 
-export function PacoteHub({ pacote: inicial, destinos: destinosIniciais }: {
+export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas = [] }: {
   pacote: PacoteRegistro
   destinos: DestinoRegistro[]
+  pessoas?: PessoaDoEspaco[]
 }) {
   const router = useRouter()
   const [enviando, iniciar] = useTransition()
@@ -65,6 +67,8 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais }: {
   const [conectadas, setConectadas] = useState<string[] | null>(null)
   const [biblioteca, setBiblioteca] = useState<ArquivoDaBiblioteca[]>([])
   const [modalPublicar, setModalPublicar] = useState<null | { grupos: number }>(null)
+  const [modalAprovacao, setModalAprovacao] = useState(false)
+  const [revisores, setRevisores] = useState<string[]>([])
   const [adicionando, setAdicionando] = useState(false)
 
   const encerrado = ['publicado', 'arquivado'].includes(inicial.status)
@@ -199,6 +203,20 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais }: {
       if (r.erro) { setErro(r.erro); return }
       router.refresh()
     })
+  }
+
+  async function pedirAprovacao() {
+    setErro(''); setAviso('')
+    await salvarAgora()
+    if (destinoAtivo) await salvarVarianteAgora(destinoAtivo)
+    const form = new FormData()
+    form.set('pacoteId', inicial.id)
+    for (const id of revisores) form.append('aprovadores', id)
+    const r = await enviarPacoteParaAprovacao(form)
+    if (r.erro) { setErro(r.erro); return }
+    setModalAprovacao(false)
+    setAviso('Enviado para aprovação. O pacote inteiro — site e redes — aparece na tela de Aprovações de quem você marcou.')
+    router.refresh()
   }
 
   // ---------- publicar ----------
@@ -373,12 +391,35 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais }: {
           <span className="text-xs text-muted-foreground">
             {prontos} pronto{prontos === 1 ? '' : 's'}{publicadas ? ` · ${publicadas} publicado${publicadas === 1 ? '' : 's'}` : ''}{comAlerta ? ` · ${comAlerta} com alerta` : ''}
           </span>
-          <Button onClick={abrirModalPublicar} disabled={enviando || encerrado || prontos === 0}>
-            <Rocket className="size-4" />
-            {enviando ? 'Publicando…' : agendarPara ? 'Agendar prontos' : 'Publicar prontos'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setModalAprovacao(true)} disabled={enviando || encerrado || destinos.length === 0 || inicial.status === 'em_aprovacao'}>
+              {inicial.status === 'em_aprovacao' ? 'Em aprovação' : 'Pedir aprovação'}
+            </Button>
+            <Button onClick={abrirModalPublicar} disabled={enviando || encerrado || prontos === 0}>
+              <Rocket className="size-4" />
+              {enviando ? 'Publicando…' : agendarPara ? 'Agendar prontos' : 'Publicar prontos'}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {modalAprovacao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true">
+          <Card className="w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold">Enviar para aprovação</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Quem você marcar recebe o pacote inteiro para revisar — a página do site e cada post, como vão sair.
+            </p>
+            <div className="mt-4">
+              <SeletorDeRevisores pessoas={pessoas} selecionados={revisores} onChange={setRevisores} />
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setModalAprovacao(false)}>Cancelar</Button>
+              <Button onClick={pedirAprovacao} disabled={!revisores.length}>Enviar</Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {modalPublicar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true">

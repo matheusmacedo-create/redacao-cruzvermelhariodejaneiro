@@ -424,6 +424,7 @@ function chaveDoGrupo(d: DestinoParaDisparo, agendaDoPacote: string | null): str
     formato: d.formato,
     fileIds: d.file_ids,
     crops: d.crops,
+    extras: d.extras,
     quando: d.agendar_para ?? agendaDoPacote,
   })
 }
@@ -468,8 +469,24 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     const pacoteId = texto(formData, 'pacoteId')
     const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
 
-    if (pacote.status === 'em_aprovacao') {
-      throw new Error('Este pacote está em aprovação. Aguarde a decisão ou cancele o ciclo antes de publicar.')
+    // Passou por aprovação? A decisão é conferida AQUI, no servidor — a tela
+    // pode estar desatualizada, e publicar em nome da instituição algo que
+    // ninguém aprovou é o que o fluxo existe para impedir.
+    if (pacote.content_id) {
+      const { data: aprovacao } = await supabase
+        .from('approvals').select('status')
+        .eq('content_id', pacote.content_id)
+        .order('created_at', { ascending: false })
+        .limit(1).maybeSingle()
+      if (aprovacao && aprovacao.status !== 'approved') {
+        throw new Error(
+          aprovacao.status === 'pending'
+            ? 'Este pacote está em aprovação. Aguarde a decisão antes de publicar.'
+            : 'A aprovação deste pacote pediu ajustes. Revise as variantes e envie de novo.',
+        )
+      }
+    } else if (pacote.status === 'em_aprovacao') {
+      throw new Error('Este pacote está em aprovação. Aguarde a decisão antes de publicar.')
     }
 
     const { data: linhas } = await supabase
@@ -575,6 +592,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           agendarPara: quando,
           timezone: 'America/Sao_Paulo',
           formato: modelo.formato as FormatoConector,
+          extras: modelo.extras,
         }
 
         const { dados } = eVideo
@@ -592,7 +610,25 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
         }).eq('id', registro.id)
 
         publicados += grupo.length
-        await marcar(ids, { estado: 'publicada', request_id: registro.id, erro: null })
+        // Agendado fica na fila — dizer "publicada" antes da hora seria mentira
+        // que o calendário repetiria.
+        await marcar(ids, { estado: quando ? 'na_fila' : 'publicada', request_id: registro.id, erro: null })
+
+        if (quando) {
+          // Cada destino agendado vira um evento no calendário editorial, com
+          // o canal visível — integração pedida no cap. 14 do spec.
+          const dia = new Date(quando)
+          const dataLocal = new Date(dia.getTime() - 3 * 60 * 60 * 1000)
+          await supabase.from('calendar_events').insert(grupo.map((d) => ({
+            workspace_id: context.workspace.id,
+            title: pacote.titulo_interno || corpo.slice(0, 60) || 'Publicação agendada',
+            event_date: dataLocal.toISOString().slice(0, 10),
+            event_time: dataLocal.toISOString().slice(11, 16),
+            type: 'publicacao',
+            channel: adapter(d.canal)?.nome ?? d.canal,
+            created_by: context.user.id,
+          })))
+        }
       } catch (causa) {
         const mensagem = semSegredo(causa instanceof Error ? causa.message : String(causa)).slice(0, 500)
         falhas += grupo.length
@@ -700,4 +736,125 @@ async function publicarSiteDoPacote(
     subtitulo: String(extras.subtitulo ?? ''),
     corpo: corpoDaPagina,
   })
+}
+
+// ---------------------------------------------------------------- aprovação
+
+/**
+ * Envia o pacote para o fluxo de aprovação existente.
+ *
+ * O snapshot é uma peça de conteúdo com o resumo legível de TODAS as
+ * variantes: o aprovador decide sobre o pacote inteiro — site e cada rede —
+ * numa rodada só (decisão do usuário no planejamento). Quem aprova entra pelo
+ * mesmo /aprovacoes de sempre.
+ */
+export async function enviarPacoteParaAprovacao(formData: FormData): Promise<ResultadoDoHub> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const pacoteId = texto(formData, 'pacoteId')
+    const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
+
+    const aprovadores = [...new Set(formData.getAll('aprovadores').map((v) => String(v)).filter(Boolean))]
+      .filter((id) => id !== context.user.id)
+    if (!aprovadores.length) throw new Error('Escolha quem precisa aprovar este pacote.')
+
+    const { data: membros } = await supabase
+      .from('workspace_members').select('user_id')
+      .eq('workspace_id', context.workspace.id).in('user_id', aprovadores)
+    const validos = (membros ?? []).map((m) => m.user_id)
+    if (!validos.length) throw new Error('Nenhuma das pessoas escolhidas pertence a este espaço.')
+
+    const { data: destinos } = await supabase
+      .from('package_destinations')
+      .select('canal,formato,corpo,extras,file_ids,estado')
+      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
+      .not('estado', 'in', '("ignorada")')
+      .order('created_at')
+    if (!(destinos ?? []).length) throw new Error('Adicione ao menos um destino antes de pedir aprovação.')
+
+    const mestre = lerMestre(pacote.mestre)
+    const titulo = (pacote.titulo_interno || mestre.titulo || mestre.corpo.split('\n')[0] || 'Pacote de redes').slice(0, 120)
+
+    // O corpo do snapshot mostra cada variante como vai sair — o aprovador lê
+    // o pacote, não um texto genérico.
+    const secoes = (destinos ?? []).map((d) => {
+      const canal = adapter(d.canal)
+      const nome = `${canal?.nome ?? d.canal} · ${formatoDoAdapter(canal!, d.formato)?.rotulo ?? d.formato}`
+      const extras = (d.extras ?? {}) as Record<string, string>
+      const linhas = [`## ${nome}`]
+      if (d.canal === 'site_web') {
+        linhas.push(`**${extras.titulo ?? ''}**`)
+        if (extras.subtitulo) linhas.push(extras.subtitulo)
+      }
+      linhas.push(d.corpo || '(sem texto)')
+      if (extras.firstComment) linhas.push(`> Primeiro comentário: ${extras.firstComment}`)
+      if ((d.file_ids ?? []).length) linhas.push(`(${d.file_ids.length} mídia${d.file_ids.length === 1 ? '' : 's'})`)
+      return linhas.join('\n\n')
+    })
+    const notas = String((pacote.mestre as Record<string, unknown>)?.notas ?? '')
+    const corpoSnapshot = [
+      notas ? `> Nota de quem enviou: ${notas}` : '',
+      ...secoes,
+    ].filter(Boolean).join('\n\n')
+
+    let contentId = pacote.content_id
+    if (contentId) {
+      await supabase.from('content_pieces')
+        .update({ title: titulo, body: corpoSnapshot, status: 'review', updated_at: new Date().toISOString() })
+        .eq('id', contentId).eq('workspace_id', context.workspace.id)
+    } else {
+      const { data: peca, error } = await supabase
+        .from('content_pieces')
+        .insert({
+          workspace_id: context.workspace.id,
+          title: titulo,
+          subtitle: `Pacote multicanal · ${(destinos ?? []).length} destino${(destinos ?? []).length === 1 ? '' : 's'}`,
+          body: corpoSnapshot,
+          format: 'Pacote de redes',
+          status: 'review',
+          responsible_id: context.user.id,
+          created_by: context.user.id,
+        })
+        .select('id')
+        .single()
+      if (error || !peca) throw new Error('Não foi possível criar o item de aprovação.')
+      contentId = peca.id
+    }
+
+    const { data: approvalId, error: erroEnvio } = await supabase
+      .rpc('submit_content_for_approval', { p_content_id: contentId })
+    if (erroEnvio || !approvalId) throw new Error(erroEnvio?.message || 'Não foi possível abrir a aprovação.')
+
+    const admin = createAdminClient()
+    // Acrescenta quem ainda não está na rodada; votos já dados ficam.
+    const { data: jaConvidados } = await supabase
+      .from('approval_voters').select('user_id').eq('approval_id', approvalId)
+    const existentes = new Set((jaConvidados ?? []).map((v) => v.user_id))
+    const novos = validos.filter((id) => !existentes.has(id))
+    if (novos.length) {
+      await admin.from('approval_voters').insert(
+        novos.map((user_id) => ({ approval_id: approvalId as string, workspace_id: context.workspace.id, user_id })),
+      )
+      await admin.from('notifications').insert(
+        novos.map((user_id) => ({
+          workspace_id: context.workspace.id,
+          user_id,
+          title: `${context.profile?.full_name || 'Um colega'} pediu sua aprovação`,
+          message: titulo,
+          link: `/aprovacoes/${approvalId}`,
+        })),
+      )
+    }
+
+    await supabase.from('social_packages')
+      .update({ status: 'em_aprovacao', content_id: contentId })
+      .eq('id', pacoteId).eq('workspace_id', context.workspace.id)
+
+    revalidatePath(`/redes/${pacoteId}`)
+    revalidatePath('/aprovacoes')
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível enviar para aprovação.')
+  }
 }
