@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
 import { requireAdmin } from '@/lib/session'
-import { ftpConfig, withFtp, FtpConfigError, type TlsMode } from '@/lib/publicacao/ftp'
+import { ftpConfig, withFtp, nomesDoCertificado, FtpConfigError, type TlsMode } from '@/lib/publicacao/ftp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -52,6 +52,29 @@ export async function GET() {
       break
     } catch (cause) {
       probes.push({ etapa: `conexão (${modo})`, ok: false, detalhe: seguro(cause, config.password) })
+    }
+  }
+
+  // Quando o modo estrito reprova (FTP_HOST com IP, certificado só vale para
+  // nome), a saída não é "afrouxe a verificação": é descobrir o nome certo.
+  // Ele está no certificado que o servidor apresenta — lemos e mostramos aqui,
+  // para FTP_HOST ser trocado pelo nome e o modo estrito voltar a funcionar.
+  if (conectado !== 'ftps-estrito') {
+    try {
+      const { sujeito, nomes } = await nomesDoCertificado()
+      const lista = nomes.length ? nomes.join(', ') : sujeito || '(certificado sem nomes legíveis)'
+      const soCuringa = nomes.length > 0 && nomes.every((n) => n.startsWith('*.'))
+      probes.push({
+        etapa: 'certificado do servidor',
+        ok: true,
+        detalhe: `vale para: ${lista}.`
+          + (soCuringa
+            ? ' São curingas — o nome exato do servidor aparece no painel da hospedagem'
+              + ' (detalhes do plano); troque FTP_HOST para ele.'
+            : ' Troque FTP_HOST para um destes nomes em Vercel → Environment Variables e a conexão estrita passa.'),
+      })
+    } catch (cause) {
+      probes.push({ etapa: 'certificado do servidor', ok: false, detalhe: seguro(cause, config.password) })
     }
   }
 
@@ -135,7 +158,9 @@ export async function GET() {
   // As tentativas de conexão descartadas não contam como falha: sondar do modo
   // mais seguro para o menos seguro é o desenho, e a primeira reprovar é o
   // resultado esperado enquanto FTP_HOST for um IP.
-  const falhou = probes.some((p) => !p.ok && !p.etapa.startsWith('conexão ('))
+  const falhou = probes.some(
+    (p) => !p.ok && !p.etapa.startsWith('conexão (') && p.etapa !== 'certificado do servidor',
+  )
 
   return NextResponse.json({
     ok: !falhou,

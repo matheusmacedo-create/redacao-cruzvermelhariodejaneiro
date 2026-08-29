@@ -174,6 +174,16 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       return { erro: `${causa.message} Cadastre-as em Vercel → Environment Variables.` }
     }
     const bruto = causa instanceof Error ? causa.message : String(causa)
+    // O erro cru do Node ("Hostname/IP does not match certificate's altnames")
+    // é correto e inútil para quem está na tela. Traduzimos para a ação.
+    if (/does not match certificate|ERR_TLS_CERT_ALTNAME/i.test(bruto)) {
+      return {
+        erro: 'O servidor de FTP recusou a conexão segura: FTP_HOST está com o IP do servidor,'
+          + ' e o certificado dele só vale para o nome. Abra /api/admin/ftp-check — a etapa'
+          + ' "certificado do servidor" mostra o nome certo — e troque FTP_HOST para esse nome'
+          + ' em Vercel → Environment Variables.',
+      }
+    }
     const limpo = process.env.FTP_PASSWORD
       ? bruto.split(process.env.FTP_PASSWORD).join('«senha»')
       : bruto

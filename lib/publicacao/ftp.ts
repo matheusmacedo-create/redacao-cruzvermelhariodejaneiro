@@ -74,6 +74,40 @@ export async function withFtp<T>(
   }
 }
 
+/**
+ * Lê do próprio servidor os nomes para os quais o certificado TLS dele vale.
+ *
+ * Existe para responder à pergunta que trava a produção: FTP_HOST está com o
+ * IP do servidor, o certificado só casa com nome — mas QUAL nome? A hospedagem
+ * não documenta. A resposta está no certificado que o servidor apresenta, e é
+ * pública por definição (qualquer um que conecta na porta 21 a recebe): aqui
+ * conectamos sem verificar só para lê-la e mostrar no diagnóstico.
+ */
+export async function nomesDoCertificado(): Promise<{ sujeito: string; nomes: string[] }> {
+  const config = ftpConfig()
+  const client = new Client(30_000)
+  try {
+    await client.access({
+      host: config.host,
+      user: config.user,
+      password: config.password,
+      secure: true,
+      secureOptions: { rejectUnauthorized: false },
+    })
+    const socket = client.ftp.socket as import('node:tls').TLSSocket
+    if (typeof socket.getPeerCertificate !== 'function') return { sujeito: '', nomes: [] }
+    const cert = socket.getPeerCertificate()
+    const nomes = (cert.subjectaltname ?? '')
+      .split(',')
+      .map((parte) => parte.trim())
+      .filter((parte) => parte.startsWith('DNS:'))
+      .map((parte) => parte.slice(4))
+    return { sujeito: cert.subject?.CN ?? '', nomes }
+  } finally {
+    client.close()
+  }
+}
+
 export class FtpEscopoError extends Error {
   constructor(caminho: string) {
     super(`Caminho fora da pasta permitida: ${caminho}`)
