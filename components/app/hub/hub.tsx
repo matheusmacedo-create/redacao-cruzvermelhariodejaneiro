@@ -776,6 +776,9 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
       {destino.erro && destino.estado === 'falhou' && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{destino.erro}</p>
       )}
+      {destino.erro && destino.estado === 'publicada' && (
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">{destino.erro}</p>
+      )}
 
       <label className="text-sm font-medium">{eSite ? 'Texto da página' : 'Legenda'}
         <div className="relative mt-1">

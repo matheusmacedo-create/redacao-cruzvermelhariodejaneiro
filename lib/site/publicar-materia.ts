@@ -6,7 +6,14 @@ import { gerarSlug, slugDisponivel, slugValido } from '@/lib/site/slug'
 import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, FtpConfigError } from '@/lib/publicacao/ftp'
 
-export type ResultadoDoSite = { erro?: string; url?: string; aviso?: string }
+export type ResultadoDoSite = {
+  erro?: string
+  url?: string
+  aviso?: string
+  /** O que a conferência pós-publicação viu: true = página no ar, false = o
+   *  endereço público respondeu erro, undefined = não deu para conferir. */
+  paginaNoAr?: boolean
+}
 
 /** Endereço público da pasta que guarda as matérias. Sem ele não há canônica,
  * e sem canônica a publicação não serve ao propósito de SEO que a motivou. */
@@ -142,10 +149,12 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const url = `${base}/${slug}/`
 
     let aviso: string | undefined
+    let paginaNoAr: boolean | undefined
     try {
       const resposta = await fetch(url, { cache: 'no-store', redirect: 'follow' })
+      paginaNoAr = resposta.ok
       if (!resposta.ok) {
-        aviso = `Os arquivos subiram, mas ${url} respondeu ${resposta.status}. A pasta do FTP provavelmente está fora de public_html — confira FTP_BASE_DIR em /api/admin/ftp-check.`
+        aviso = `Os arquivos subiram, mas ${url} respondeu ${resposta.status}. A pasta da conta de FTP não corresponde a public_html/noticias — confira em /api/admin/ftp-check.`
       }
     } catch {
       aviso = `Os arquivos subiram, mas não consegui abrir ${url} daqui para conferir. Abra no navegador.`
@@ -168,7 +177,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       metadata: { url, midias: paraSubir.length },
     })
 
-    return { url, aviso }
+    return { url, aviso, paginaNoAr }
   } catch (causa) {
     if (causa instanceof FtpConfigError) {
       return { erro: `${causa.message} Cadastre-as em Vercel → Environment Variables.` }

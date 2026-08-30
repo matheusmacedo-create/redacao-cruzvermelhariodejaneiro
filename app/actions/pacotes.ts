@@ -549,6 +549,17 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       if (resultado.erro) {
         falhas++
         await marcar([site.id], { estado: 'falhou', erro: resultado.erro.slice(0, 500) })
+      } else if (resultado.paginaNoAr === false) {
+        // O FTP aceitou os arquivos, mas o endereço público respondeu erro:
+        // para quem publica, página fora do ar É falha — e marcar "publicada"
+        // esconderia o aviso e travaria o reprocesso. Sem linkDaMateria, os
+        // posts que dependem da URL também não saem com link morto.
+        falhas++
+        await marcar([site.id], {
+          estado: 'falhou',
+          external_url: resultado.url ?? null,
+          erro: (resultado.aviso ?? `A página não respondeu em ${resultado.url ?? 'seu endereço'}.`).slice(0, 500),
+        })
       } else {
         publicados++
         linkDaMateria = resultado.url ?? linkDaMateria
