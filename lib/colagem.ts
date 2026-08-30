@@ -70,9 +70,15 @@ function traduzirLinha(linha: string): string | null {
   const numerado = /^\s*(\d{1,3})[.)]\s+(.*)$/.exec(t)
   if (numerado) return `${numerado[1]}. ${limparEnfase(numerado[2])}`
 
-  // Linha inteira em negrito é subtítulo na prática, não uma frase gritada.
+  // Rótulo curto em negrito, sozinho na linha, é intertítulo na prática —
+  // "**Requisitos**". Mas o lead da matéria também vem em negrito e não é
+  // título: é a frase de abertura. O que separa os dois é o tamanho e o
+  // ponto final — título não termina em ponto.
   const soNegrito = /^\*\*(.+?)\*\*:?$/.exec(t.trim())
-  if (soNegrito && !soNegrito[1].includes('**')) return `## ${limparEnfase(soNegrito[1])}`
+  if (soNegrito && !soNegrito[1].includes('**')) {
+    const rotulo = soNegrito[1].trim()
+    if (rotulo.length <= 80 && !/[.!]$/.test(rotulo)) return `## ${limparEnfase(rotulo)}`
+  }
 
   t = limparEnfase(t)
   return t
@@ -272,6 +278,36 @@ export function htmlParaFormato(html: string): string {
 }
 
 /**
+ * Diz se o texto É código HTML, em vez de texto que por acaso tem um sinal
+ * de menor.
+ *
+ * Isto acontece de verdade: a pessoa pede o artigo à IA, recebe em um bloco
+ * de código e copia o bloco. Aí a área de transferência não tem versão rica
+ * nenhuma — o HTML chega como texto puro, e sem esta checagem as tags vão
+ * inteiras para a página, à vista de quem lê.
+ */
+export function pareceMarcacaoHtml(texto: string): boolean {
+  const t = texto.trim()
+  if (!t.includes('<')) return false
+  const tags = t.match(/<\/?(p|div|h[1-6]|ul|ol|li|br|strong|b|em|i|a|blockquote|table|tr|td|th|section|article|span|figure|img)\b[^>]*>/gi)
+  if (!tags) return false
+  // Uma tag solta pode ser exemplo dentro do texto ("use <br> para quebrar").
+  // Marcação de verdade vem em quantidade e fecha o que abre.
+  return tags.length >= 2 && /<\/(p|div|h[1-6]|li|ul|ol|strong|em|a|blockquote|td)>/i.test(t)
+}
+
+/**
+ * Põe qualquer texto no formato da matéria — inclusive HTML colado como texto.
+ */
+export function arrumarTexto(texto: string): string {
+  if (pareceMarcacaoHtml(texto) && typeof DOMParser !== 'undefined') {
+    const doHtml = htmlParaFormato(texto)
+    if (doHtml) return doHtml
+  }
+  return normalizarTexto(texto)
+}
+
+/**
  * O que colar, a partir do que a área de transferência oferece.
  *
  * O HTML vem primeiro quando existe e rende mais do que o texto puro — mas
@@ -280,7 +316,7 @@ export function htmlParaFormato(html: string): string {
  */
 export function textoDaColagem(html: string | null | undefined, texto: string): string {
   const doHtml = html ? htmlParaFormato(html) : ''
-  const doTexto = normalizarTexto(texto)
+  const doTexto = arrumarTexto(texto)
   if (!doHtml) return doTexto
   const marcado = /(\*\*|^## |^- |^\d+\. |^> |\]\()/m.test(doHtml)
   return marcado || !doTexto ? doHtml : doTexto
