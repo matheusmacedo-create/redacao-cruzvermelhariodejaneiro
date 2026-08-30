@@ -56,16 +56,46 @@ function textoDoInline(tokens: InlineToken[]): string {
 
 export type ArquivoLocal = { nome: string; alt: string }
 
+/**
+ * Legenda no padrão do jornalismo: descrição — crédito.
+ *
+ * Quem digita só o nome ("Reprodução/TV Globo") não deveria ter de lembrar do
+ * prefixo, então ele entra sozinho; quem já escreveu "Foto: Ana" não ganha um
+ * segundo "Foto:" na frente.
+ */
+function legendaDaMidia(tipo: 'image' | 'video' | 'audio', alt: string, credito?: string): string {
+  const partes: string[] = []
+  if (alt.trim()) partes.push(escapar(alt.trim()))
+  const bruto = credito?.trim()
+  if (bruto) {
+    const prefixo = tipo === 'image' ? 'Foto: ' : tipo === 'video' ? 'Vídeo: ' : 'Áudio: '
+    const texto = bruto.includes(':') ? bruto : `${prefixo}${bruto}`
+    partes.push(`<span class="credito">${escapar(texto)}</span>`)
+  }
+  return partes.length ? `<figcaption>${partes.join(' — ')}</figcaption>` : ''
+}
+
+type BlocoDeMidia = { type: 'image' | 'video' | 'audio'; url: string; alt: string; credito?: string }
+
+function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = ''): string {
+  const alt = escapar(local.alt || bloco.alt || '')
+  const src = escapar(local.nome)
+  const legenda = legendaDaMidia(bloco.type, local.alt || bloco.alt || '', bloco.credito)
+  const corpo = bloco.type === 'image'
+    ? `<img src="${src}" alt="${alt}" loading="lazy" decoding="async">`
+    : bloco.type === 'video'
+      ? `<video src="${src}" controls playsinline></video>`
+      : `<audio src="${src}" controls></audio>`
+  return `<figure${classe ? ` class="${classe}"` : ''}>${corpo}${legenda}</figure>`
+}
+
 function renderBlocos(blocos: ContentBlock[], arquivos: Map<string, ArquivoLocal>): string {
   const partes: string[] = []
   for (const bloco of blocos) {
     if (bloco.type === 'image' || bloco.type === 'video' || bloco.type === 'audio') {
       const local = arquivos.get(bloco.url)
       if (!local) continue
-      const alt = escapar(local.alt || bloco.alt || '')
-      if (bloco.type === 'image') partes.push(`<figure><img src="${escapar(local.nome)}" alt="${alt}" loading="lazy" decoding="async">${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`)
-      else if (bloco.type === 'video') partes.push(`<figure><video src="${escapar(local.nome)}" controls playsinline></video>${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`)
-      else partes.push(`<figure><audio src="${escapar(local.nome)}" controls></audio>${alt ? `<figcaption>${alt}</figcaption>` : ''}</figure>`)
+      partes.push(renderMidia(bloco, local))
       continue
     }
     if (bloco.type === 'heading') { partes.push(`<h2>${renderInline(bloco.inline)}</h2>`); continue }
@@ -92,7 +122,8 @@ const CSS = `
 :root{
   --red:#cc0000;--red-dark:#a30000;--black:#0f1318;--ink:#0f1318;
   --text:#1a202c;--muted:#718096;--line:#e2e8f0;--soft:#f7f8fa;
-  --paper:#ffffff;--stone:#f7f8fa;--blue:#2b6cb0;--max:1100px
+  --paper:#ffffff;--stone:#f7f8fa;--blue:#2b6cb0;--max:1100px;
+  --coluna:680px;--coluna-larga:940px
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -126,21 +157,37 @@ a{color:inherit;text-decoration:none}
   .header-actions .btn-login-sutil{justify-content:center;width:100%}
   .logo-img{height:48px}
 }
-.materia{background:var(--paper)}
-.materia-wrap{width:min(720px,calc(100% - 40px));margin:0 auto;padding:48px 0 80px}
+.materia{background:var(--paper);padding-bottom:72px}
+.coluna{width:min(var(--coluna),calc(100% - 40px));margin:0 auto}
+.coluna-larga{width:min(var(--coluna-larga),calc(100% - 40px));margin:0 auto}
+.cabecalho{padding-top:44px}
 .materia-kicker{color:var(--red);font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin:0 0 14px}
-.materia h1{color:var(--black);font-size:clamp(1.85rem,3.4vw,2.55rem);line-height:1.12;letter-spacing:-.035em;font-weight:800;margin:0 0 .7rem}
-.linhafina{font-size:1.12rem;color:var(--muted);margin:0 0 1.25rem;line-height:1.5;font-weight:500}
-.data{font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:1.2rem;margin:0 0 2rem}
-article p{margin:0 0 1.25rem;font-size:1.05rem;line-height:1.75;color:var(--text)}
-article h2{color:var(--black);font-size:1.35rem;line-height:1.25;letter-spacing:-.02em;margin:2.4rem 0 .7rem}
+.materia h1{color:var(--black);font-size:clamp(1.75rem,4.2vw,2.5rem);line-height:1.16;letter-spacing:-.045em;font-weight:800;margin:0 0 .85rem}
+.linhafina{font-size:1.2rem;color:var(--muted);margin:0 0 1.6rem;line-height:1.45;font-weight:400}
+.materia-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin:0}
+.materia-por{font-weight:600;color:var(--text)}
+.materia-meta .sep{color:var(--line)}
+.compartilhar{display:flex;align-items:center;gap:8px;padding:16px 0 4px;flex-wrap:wrap}
+.compartilhar-rotulo{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.compartilhar a,.compartilhar button{width:34px;height:34px;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;transition:background .2s,color .2s,border-color .2s;font-family:inherit;padding:0}
+.compartilhar a:hover,.compartilhar button:hover{background:var(--red);border-color:var(--red);color:#fff}
+.compartilhar .copiado{background:#0f766e;border-color:#0f766e;color:#fff}
+.capa{margin:28px auto 0}
+.capa img,.capa video{width:100%;height:auto;border-radius:4px}
+figure{margin:2.2rem 0}
+figure img,figure video{width:100%;height:auto;display:block;border-radius:4px}
+figcaption{font-size:13px;color:var(--muted);line-height:1.5;margin-top:.6rem}
+figcaption .credito{color:#a0aec0}
+article{padding-top:8px}
+article p{margin:0 0 1.55rem;font-size:1.125rem;line-height:1.72;color:var(--text)}
+article h2{color:var(--black);font-size:1.5rem;line-height:1.2;letter-spacing:-.03em;font-weight:800;margin:2.6rem 0 1rem}
 article a{color:var(--red);text-decoration:underline;text-underline-offset:3px}
-article ul{margin:0 0 1.25rem;padding-left:1.2rem}
-article li{margin-bottom:.45rem;line-height:1.7}
-blockquote{margin:2rem 0;padding:.2rem 0 .2rem 1.15rem;border-left:3px solid var(--red);color:var(--muted);font-style:italic}
-figure{margin:2rem 0}
-figure img,figure video{width:100%;height:auto;display:block;border-radius:12px}
-figcaption{font-size:13px;color:var(--muted);margin-top:.55rem}
+article ul{margin:0 0 1.55rem;padding-left:1.25rem}
+article li{margin-bottom:.6rem;font-size:1.125rem;line-height:1.7}
+article li::marker{color:var(--red)}
+blockquote{margin:2.2rem 0;padding:.35rem 0 .35rem 1.25rem;border-left:4px solid var(--red);color:var(--black);font-size:1.25rem;line-height:1.45;font-weight:600;letter-spacing:-.01em}
+.materia-fim{border-top:1px solid var(--line);margin-top:44px;padding-top:20px;font-size:13px;color:var(--muted)}
+.materia-fim a{color:var(--red);font-weight:600}
 footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted);padding:0}
 .footer-grid{max-width:1100px;margin:0 auto;padding:48px 24px 36px;display:grid;grid-template-columns:1.5fr 1fr 1.3fr 1fr;gap:20px}
 .footer-brand{display:flex;flex-direction:column}
@@ -162,10 +209,13 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
 .wpp-float i{font-size:28px}
 @media(max-width:920px){
   .footer-grid{grid-template-columns:1fr;padding:36px 20px 28px}
-  .materia-wrap{width:min(720px,calc(100% - 32px));padding:32px 0 64px}
+  .coluna,.coluna-larga{width:calc(100% - 32px)}
+  .cabecalho{padding-top:28px}
+  .materia{padding-bottom:48px}
+  article p,article li{font-size:1.0625rem}
 }
 @media print{
-  .main-header,footer,.wpp-float{display:none}
+  .main-header,footer,.wpp-float,.compartilhar{display:none}
   body{font-size:12pt}
 }
 `.trim()
@@ -197,9 +247,34 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 
   const descricao = (dados.subtitulo?.trim() || resumoDoCorpo(blocos) || dados.titulo).slice(0, 300)
 
+  // A foto de abertura do noticiário: ela só sobe para o topo se o autor já a
+  // escreveu antes do texto. Quem enterrou a foto no meio da matéria quis ela
+  // ali — mover por conta própria seria reescrever a edição de outra pessoa.
+  const iImagem = blocos.findIndex((b) => b.type === 'image' || b.type === 'video')
+  const iTexto = blocos.findIndex((b) => b.type === 'text' || b.type === 'heading' || b.type === 'quote' || b.type === 'list')
+  const iCapa = iImagem >= 0 && (iTexto === -1 || iImagem < iTexto) ? iImagem : -1
+  const blocoCapa = iCapa >= 0 ? (blocos[iCapa] as BlocoDeMidia) : undefined
+  const corpoBlocos = iCapa >= 0 ? blocos.filter((_, i) => i !== iCapa) : blocos
+
+  // O og:image continua saindo da primeira imagem, esteja ela na capa ou no
+  // meio do texto: é a miniatura que o WhatsApp e o Facebook mostram.
   const primeiraImagem = blocos.find((b) => b.type === 'image')
   const capa = primeiraImagem && 'url' in primeiraImagem ? arquivos.get(primeiraImagem.url) : undefined
   const capaUrl = capa ? `${canonica}${capa.nome}` : ''
+
+  const arquivoDaCapa = blocoCapa ? arquivos.get(blocoCapa.url) : undefined
+  const htmlDaCapa = blocoCapa && arquivoDaCapa
+    ? `<div class="coluna-larga capa">${renderMidia(blocoCapa, arquivoDaCapa)}</div>`
+    : ''
+
+  // Endereços de compartilhamento: links estáticos, sem script de terceiros e
+  // sem rastreador — a página não carrega nada das redes para existir.
+  const compartilhar = {
+    whatsapp: `https://wa.me/?text=${encodeURIComponent(`${dados.titulo} ${canonica}`)}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(canonica)}`,
+    x: `https://twitter.com/intent/tweet?url=${encodeURIComponent(canonica)}&text=${encodeURIComponent(dados.titulo)}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(canonica)}`,
+  }
 
   const publicado = dados.publicadoEm.toISOString()
   const atualizado = (dados.atualizadoEm ?? dados.publicadoEm).toISOString()
@@ -290,16 +365,30 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     </header>
 
     <main class="materia">
-      <div class="materia-wrap">
+      <div class="coluna cabecalho">
         <p class="materia-kicker">Notícias</p>
         <h1>${escapar(dados.titulo)}</h1>
         ${dados.subtitulo?.trim() ? `<p class="linhafina">${escapar(dados.subtitulo.trim())}</p>` : ''}
-        <p class="data">
-          <time datetime="${publicado}">${dataLegivel}</time>${dados.autor ? ` · ${escapar(dados.autor)}` : ''}
+        <p class="materia-meta">
+          <span class="materia-por">Por ${escapar(dados.autor || org)}</span>
+          <span class="sep">|</span>
+          <time datetime="${publicado}">${dataLegivel}</time>
         </p>
+        <div class="compartilhar">
+          <span class="compartilhar-rotulo">Compartilhe</span>
+          <a href="${escapar(compartilhar.whatsapp)}" target="_blank" rel="noopener" aria-label="Compartilhar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+          <a href="${escapar(compartilhar.facebook)}" target="_blank" rel="noopener" aria-label="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+          <a href="${escapar(compartilhar.x)}" target="_blank" rel="noopener" aria-label="Compartilhar no X"><i class="fa-brands fa-x-twitter"></i></a>
+          <a href="${escapar(compartilhar.linkedin)}" target="_blank" rel="noopener" aria-label="Compartilhar no LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+          <button type="button" class="copiar-link" data-url="${escapar(canonica)}" aria-label="Copiar o endereço da página"><i class="fa-regular fa-copy"></i></button>
+        </div>
+      </div>
+      ${htmlDaCapa}
+      <div class="coluna">
         <article>
-      ${renderBlocos(blocos, arquivos)}
+      ${renderBlocos(corpoBlocos, arquivos)}
         </article>
+        <p class="materia-fim">Publicado por ${escapar(org)}. <a href="${escapar(home)}">Ver mais do nosso trabalho</a>.</p>
       </div>
     </main>
 
@@ -346,6 +435,13 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
         const header = this.closest('.main-header');
         const isOpen = header.classList.toggle('nav-open');
         this.setAttribute('aria-expanded', String(isOpen));
+      });
+      document.querySelector('.copiar-link')?.addEventListener('click', async function() {
+        try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
+        const icone = this.querySelector('i');
+        this.classList.add('copiado');
+        icone.className = 'fa-solid fa-check';
+        setTimeout(() => { this.classList.remove('copiado'); icone.className = 'fa-regular fa-copy'; }, 1800);
       });
       document.querySelectorAll('.nav-links a').forEach(function(link) {
         link.addEventListener('click', function() {
