@@ -14,7 +14,7 @@ import { ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from
 import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
-import { mediaToken, parseMediaLine } from '@/lib/content-blocks'
+import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import {
   adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
   publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
@@ -1021,7 +1021,9 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
   const [erro, setErro] = useState('')
 
   // Parágrafo é a unidade do formato: a linha de mídia mora sozinha em um.
-  const paragrafos = useMemo(() => valor.split(/\n\n+/), [valor])
+  // Texto vindo de fora chega com quebra do Windows: sem normalizar, o corpo
+  // inteiro é um parágrafo só e o painel de fotos abaixo nunca acha nenhuma.
+  const paragrafos = useMemo(() => normalizarQuebras(valor).split(/\n\n+/), [valor])
   const fotos = useMemo(
     () => paragrafos.flatMap((p, i) => {
       const midia = parseMediaLine(p)

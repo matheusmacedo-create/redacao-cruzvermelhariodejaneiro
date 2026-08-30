@@ -45,9 +45,19 @@ export function parseMediaLine(linha: string): { tipo: 'image' | 'video' | 'audi
   return { tipo: (m[1] as 'video' | 'audio') || 'image', url: m[3], alt: m[2], credito: m[4] ?? '' }
 }
 
+/**
+ * Texto colado do Word, do Docs ou do WhatsApp chega com quebra de linha do
+ * Windows (\r\n). Sem isto, o separador de parágrafo vira \r\n\r\n, nenhuma
+ * divisão acontece e a matéria inteira sai como um parágrafo só — foto,
+ * intertítulo e citação viram texto cru no meio da página.
+ */
+export function normalizarQuebras(texto: string): string {
+  return texto.replace(/\r\n?/g, '\n')
+}
+
 export function parseContentBlocks(body?: string | null): ContentBlock[] {
   if (!body) return []
-  return body
+  return normalizarQuebras(body)
     .split(/\n\n+/)
     .map((paragraph): ContentBlock | null => {
       const trimmed = paragraph.trim()
