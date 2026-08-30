@@ -8,7 +8,7 @@ export type ContentBlock =
   | { type: 'text'; inline: InlineToken[] }
   | { type: 'heading'; inline: InlineToken[] }
   | { type: 'quote'; inline: InlineToken[] }
-  | { type: 'list'; items: InlineToken[][] }
+  | { type: 'list'; items: InlineToken[][]; ordenada?: boolean }
   | { type: 'image'; url: string; alt: string; credito?: string }
   | { type: 'video'; url: string; alt: string; credito?: string }
   | { type: 'audio'; url: string; alt: string; credito?: string }
@@ -74,6 +74,15 @@ export function parseContentBlocks(body?: string | null): ContentBlock[] {
       const lines = trimmed.split('\n')
       if (lines.every((line) => line.trim().startsWith('- '))) {
         return { type: 'list', items: lines.map((line) => parseInline(line.trim().slice(2))) }
+      }
+      // Passo a passo numerado: a ordem é a informação, então vira <ol> e não
+      // um parágrafo começando com "1.".
+      if (lines.every((line) => /^\d+\.\s/.test(line.trim()))) {
+        return {
+          type: 'list',
+          ordenada: true,
+          items: lines.map((line) => parseInline(line.trim().replace(/^\d+\.\s+/, ''))),
+        }
       }
       return { type: 'text', inline: parseInline(trimmed) }
     })

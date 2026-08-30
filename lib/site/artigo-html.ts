@@ -101,7 +101,8 @@ function renderBlocos(blocos: ContentBlock[], arquivos: Map<string, ArquivoLocal
     if (bloco.type === 'heading') { partes.push(`<h2>${renderInline(bloco.inline)}</h2>`); continue }
     if (bloco.type === 'quote') { partes.push(`<blockquote>${renderInline(bloco.inline)}</blockquote>`); continue }
     if (bloco.type === 'list') {
-      partes.push(`<ul>${bloco.items.map((i) => `<li>${renderInline(i)}</li>`).join('')}</ul>`)
+      const tag = bloco.ordenada ? 'ol' : 'ul'
+      partes.push(`<${tag}>${bloco.items.map((i) => `<li>${renderInline(i)}</li>`).join('')}</${tag}>`)
       continue
     }
     partes.push(`<p>${renderInline(bloco.inline)}</p>`)
@@ -182,7 +183,7 @@ article{padding-top:8px}
 article p{margin:0 0 1.55rem;font-size:1.125rem;line-height:1.72;color:var(--text)}
 article h2{color:var(--black);font-size:1.5rem;line-height:1.2;letter-spacing:-.03em;font-weight:800;margin:2.6rem 0 1rem}
 article a{color:var(--red);text-decoration:underline;text-underline-offset:3px}
-article ul{margin:0 0 1.55rem;padding-left:1.25rem}
+article ul,article ol{margin:0 0 1.55rem;padding-left:1.35rem}
 article li{margin-bottom:.6rem;font-size:1.125rem;line-height:1.7}
 article li::marker{color:var(--red)}
 blockquote{margin:2.2rem 0;padding:.35rem 0 .35rem 1.25rem;border-left:4px solid var(--red);color:var(--black);font-size:1.25rem;line-height:1.45;font-weight:600;letter-spacing:-.01em}

@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Bold, Check, CircleAlert, Clock, Globe, Heading2, ImagePlus, Italic,
-  Link2, List, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, Trash2, X,
+  Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket,
+  Trash2, Wand2, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -15,6 +16,7 @@ import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
+import { normalizarTexto, textoDaColagem } from '@/lib/colagem'
 import {
   adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
   publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
@@ -745,6 +747,49 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
 
 const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 
+/**
+ * Traduz o que veio da área de transferência para o formato da matéria.
+ *
+ * O jeito real de escrever aqui é colar — de uma resposta de IA, de um
+ * documento, de um e-mail. Sem isto, `### Subtítulo`, `1. Passo` e a lista
+ * com `•` chegam à página publicada como texto cru.
+ *
+ * Devolve null quando não há nada a ganhar: aí o navegador cola sozinho e o
+ * desfazer nativo continua funcionando.
+ */
+function colagemNoFormato(
+  evento: React.ClipboardEvent<HTMLTextAreaElement>,
+  valor: string,
+): { texto: string; inicio: number; fim: number } | null {
+  const html = evento.clipboardData.getData('text/html')
+  const plano = evento.clipboardData.getData('text/plain')
+  if (!plano && !html) return null
+
+  const convertido = textoDaColagem(html, plano)
+  if (!convertido || convertido === plano) return null
+
+  const el = evento.currentTarget
+  const i = el.selectionStart
+  const f = el.selectionEnd
+
+  // Colar uma frase solta no meio de um parágrafo não pode abrir parágrafo
+  // novo; colar blocos no meio de um, sim — senão o primeiro bloco gruda na
+  // frase anterior e deixa de ser título ou item.
+  const temBloco = /\n/.test(convertido) || /^(## |- |\d+\. |> |!\[)/.test(convertido)
+  if (!temBloco) {
+    return { texto: valor.slice(0, i) + convertido + valor.slice(f), inicio: i + convertido.length, fim: i + convertido.length }
+  }
+
+  const antes = valor.slice(0, i).replace(/\s+$/, '')
+  const depois = valor.slice(f).replace(/^\s+/, '')
+  const posicao = (antes ? antes.length + 2 : 0) + convertido.length
+  return {
+    texto: `${antes}${antes ? '\n\n' : ''}${convertido}${depois ? `\n\n${depois}` : ''}`,
+    inicio: posicao,
+    fim: posicao,
+  }
+}
+
 function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onRegenerar, temDestinos, encerrado }: {
   mestre: { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
   onMudar: (m: EditorMestreProps) => void
@@ -781,11 +826,36 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
       <label className="text-sm font-medium">Linha fina <span className="font-normal text-muted-foreground">(opcional)</span>
         <input value={mestre.subtitulo} onChange={muda('subtitulo')} disabled={encerrado} className={`mt-1 ${inputClass}`} />
       </label>
-      <label className="text-sm font-medium">Texto
-        <textarea value={mestre.corpo} onChange={muda('corpo')} rows={10} disabled={encerrado} className={`mt-1 ${inputClass}`} />
+      <label className="text-sm font-medium">
+        <span className="flex items-center justify-between gap-2">
+          Texto
+          <button
+            type="button"
+            disabled={encerrado || !mestre.corpo.trim()}
+            onClick={() => onMudar({ ...mestre, corpo: normalizarTexto(mestre.corpo) })}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
+            title="Põe o texto todo no padrão: títulos, listas, negrito e parágrafos"
+          >
+            <Wand2 className="size-3.5" />Ajustar formatação
+          </button>
+        </span>
+        <textarea
+          value={mestre.corpo}
+          onChange={muda('corpo')}
+          onPaste={(e) => {
+            const colado = colagemNoFormato(e, mestre.corpo)
+            if (!colado) return
+            e.preventDefault()
+            onMudar({ ...mestre, corpo: colado.texto })
+          }}
+          rows={10}
+          disabled={encerrado}
+          className={`mt-1 ${inputClass}`}
+        />
         <span className="mt-1 block text-xs font-normal text-muted-foreground">
-          Hashtags no fim do texto são movidas automaticamente quando o canal aperta. Escreva {'{{URL_DA_MATERIA}}'} onde o
-          endereço da página do site deve entrar — ele é preenchido na hora da publicação.
+          Texto colado de IA ou de documento entra já no padrão. Hashtags no fim do texto são movidas automaticamente
+          quando o canal aperta. Escreva {'{{URL_DA_MATERIA}}'} onde o endereço da página do site deve entrar — ele é
+          preenchido na hora da publicação.
         </span>
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -1073,6 +1143,20 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
     focarEm(inicio, inicio + trecho.length)
   }
 
+  /** Numera as linhas selecionadas — a ordem é o que a lista numerada carrega. */
+  function numerarLinhas() {
+    const el = areaRef.current
+    if (!el) return
+    const inicio = valor.lastIndexOf('\n', el.selectionStart - 1) + 1
+    const quebra = valor.indexOf('\n', el.selectionEnd)
+    const fim = quebra === -1 ? valor.length : quebra
+    const trecho = valor.slice(inicio, fim).split('\n')
+      .map((linha, i) => (/^\d+\.\s/.test(linha) ? linha : `${i + 1}. ${linha.replace(/^[-*]\s+/, '')}`))
+      .join('\n')
+    onMudar(valor.slice(0, inicio) + trecho + valor.slice(fim))
+    focarEm(inicio, inicio + trecho.length)
+  }
+
   function inserirLink() {
     const el = areaRef.current
     if (!el) return
@@ -1130,10 +1214,20 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
         <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('## ')}><Heading2 className="size-3.5" />Intertítulo</button>
         <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('> ')}><Quote className="size-3.5" />Citação</button>
         <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('- ')}><List className="size-3.5" />Lista</button>
+        <button type="button" className={botao} disabled={desabilitado} onClick={numerarLinhas}><ListOrdered className="size-3.5" />Numerada</button>
         <span className="mx-1 h-4 w-px bg-border" />
         <button type="button" className={botao} disabled={desabilitado} onClick={() => envolver('**', '**', 'negrito')} title="Negrito"><Bold className="size-3.5" /></button>
         <button type="button" className={botao} disabled={desabilitado} onClick={() => envolver('*', '*', 'itálico')} title="Itálico"><Italic className="size-3.5" /></button>
         <button type="button" className={botao} disabled={desabilitado} onClick={inserirLink} title="Link"><Link2 className="size-3.5" /></button>
+        <button
+          type="button"
+          className={`${botao} ml-auto`}
+          disabled={desabilitado || !valor.trim()}
+          onClick={() => onMudar(normalizarTexto(valor))}
+          title="Põe o texto todo no padrão: títulos, listas, negrito e parágrafos"
+        >
+          <Wand2 className="size-3.5" />Ajustar formatação
+        </button>
       </div>
 
       <input
@@ -1149,6 +1243,13 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
           ref={areaRef}
           value={valor}
           onChange={(e) => onMudar(e.target.value)}
+          onPaste={(e) => {
+            const colado = colagemNoFormato(e, valor)
+            if (!colado) return
+            e.preventDefault()
+            onMudar(colado.texto)
+            focarEm(colado.inicio, colado.fim)
+          }}
           rows={14}
           disabled={desabilitado}
           className={inputClass}
@@ -1158,7 +1259,8 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
         </span>
       </div>
       <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
-        A foto fica onde você a inseriu. Se estiver antes do primeiro parágrafo, abre a matéria em destaque.
+        Texto colado de IA ou de documento entra já no padrão: títulos, listas e negrito são convertidos.
+        A foto fica onde você a inseriu — se estiver antes do primeiro parágrafo, abre a matéria em destaque.
       </span>
       {erro && <p className="mt-1 text-xs text-destructive">{erro}</p>}
 
