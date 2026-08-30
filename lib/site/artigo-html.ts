@@ -378,7 +378,9 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
           <span class="compartilhar-rotulo">Compartilhe</span>
           <a href="${escapar(compartilhar.whatsapp)}" target="_blank" rel="noopener" aria-label="Compartilhar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
           <a href="${escapar(compartilhar.facebook)}" target="_blank" rel="noopener" aria-label="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-          <a href="${escapar(compartilhar.x)}" target="_blank" rel="noopener" aria-label="Compartilhar no X"><i class="fa-brands fa-x-twitter"></i></a>
+          <!-- fa-twitter, não fa-x-twitter: o site carrega Font Awesome 6.4.0 e o
+               ícone novo só existe a partir da 6.4.2 — lá ele sai em branco. -->
+          <a href="${escapar(compartilhar.x)}" target="_blank" rel="noopener" aria-label="Compartilhar no X"><i class="fa-brands fa-twitter"></i></a>
           <a href="${escapar(compartilhar.linkedin)}" target="_blank" rel="noopener" aria-label="Compartilhar no LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
           <button type="button" class="copiar-link" data-url="${escapar(canonica)}" aria-label="Copiar o endereço da página"><i class="fa-regular fa-copy"></i></button>
         </div>

@@ -72,6 +72,26 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   const [modalAprovacao, setModalAprovacao] = useState(false)
   const [revisores, setRevisores] = useState<string[]>([])
   const [adicionando, setAdicionando] = useState(false)
+  const blocoAdicionar = useRef<HTMLDivElement>(null)
+
+  // Popover que só fecha no X obriga a mira num alvo de 14px e prende quem
+  // navega pelo teclado. O bloco inteiro entra no ref para o clique no
+  // próprio botão continuar alternando, em vez de fechar e reabrir.
+  useEffect(() => {
+    if (!adicionando) return
+    function foraDaCaixa(evento: MouseEvent) {
+      if (!blocoAdicionar.current?.contains(evento.target as Node)) setAdicionando(false)
+    }
+    function noEscape(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') setAdicionando(false)
+    }
+    document.addEventListener('mousedown', foraDaCaixa)
+    document.addEventListener('keydown', noEscape)
+    return () => {
+      document.removeEventListener('mousedown', foraDaCaixa)
+      document.removeEventListener('keydown', noEscape)
+    }
+  }, [adicionando])
 
   const encerrado = ['publicado', 'arquivado'].includes(inicial.status)
 
@@ -331,8 +351,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         </div>
       </div>
 
-      {/* Região 1 — trilho de destinos */}
-      <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+      {/* Região 1 — trilho de destinos.
+          O trilho rola na horizontal, mas o botão de adicionar fica FORA dessa
+          área: overflow recorta filho posicionado, e o popover aberto de dentro
+          dela aparecia espremido na altura do trilho, com barra de rolagem
+          própria. Do lado de fora ele abre inteiro — e ainda fica sempre à
+          vista, em vez de sumir quando há muitos destinos. */}
+      <div className="flex items-stretch gap-2">
+      <div className="flex min-w-0 flex-1 items-stretch gap-2 overflow-x-auto pb-1">
         <TrilhoCard ativo={ativo === 'mestre'} onClick={() => setAtivo('mestre')}>
           <span className="text-xs font-semibold uppercase tracking-wide">Mestre</span>
           <span className="text-[11px] text-muted-foreground">texto canônico</span>
@@ -363,9 +389,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             </TrilhoCard>
           )
         })}
+      </div>
         {!encerrado && (
-          <div className="relative">
-            <TrilhoCard ativo={false} onClick={() => setAdicionando((v) => !v)}>
+          <div className="relative shrink-0 pb-1" ref={blocoAdicionar}>
+            <TrilhoCard ativo={adicionando} onClick={() => setAdicionando((v) => !v)}>
               <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Plus className="size-3.5" />Adicionar destino</span>
             </TrilhoCard>
             {adicionando && (
@@ -567,45 +594,94 @@ function TrilhoCard({ ativo, onClick, title, children }: {
   )
 }
 
+/** Tira acento e caixa: quem procura "grafica" acha "Google Meu Negócio". */
+function semAcento(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
   conectadas: string[] | null
   jaExistem: string[]
   onEscolher: (canal: string, formato: string) => void
   onFechar: () => void
 }) {
+  const [busca, setBusca] = useState('')
+  const campoRef = useRef<HTMLInputElement>(null)
+
+  // Abrir já digitando poupa o passo de mirar no campo com o mouse.
+  useEffect(() => { campoRef.current?.focus() }, [])
+
+  const canais = useMemo(() => {
+    const termo = semAcento(busca.trim())
+    return ADAPTERS
+      .map((canal) => {
+        const conectado = canal.id === 'site_web' || conectadas === null || conectadas.includes(canal.id)
+        // Buscar pelo nome do canal traz todos os formatos dele; buscar por um
+        // formato ("reels") traz só o formato procurado.
+        const canalCasa = !termo || semAcento(canal.nome).includes(termo)
+        const formatos = canal.formatos.filter((f) => canalCasa || semAcento(f.rotulo).includes(termo))
+        return { canal, conectado, formatos }
+      })
+      .filter((linha) => linha.formatos.length > 0)
+      // Conta conectada primeiro: o que dá para usar agora fica no alcance da
+      // vista, e o que exige conectar antes desce para o fim da lista.
+      .sort((a, b) => Number(b.conectado) - Number(a.conectado))
+  }, [busca, conectadas])
+
+  const disponiveis = canais.filter((l) => l.conectado)
+    .flatMap((l) => l.formatos.filter((f) => !jaExistem.includes(`${l.canal.id}:${f.id}`)))
+
   return (
-    <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-border bg-background p-3 shadow-lg">
+    <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-lg border border-border bg-background p-3 shadow-lg">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Novo destino</p>
         <button type="button" onClick={onFechar} aria-label="Fechar"><X className="size-3.5 text-muted-foreground" /></button>
       </div>
+
+      <input
+        ref={campoRef}
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter com um único candidato à vista adiciona sem tirar a mão do teclado.
+          if (e.key === 'Enter' && disponiveis.length === 1) {
+            const linha = canais.find((l) => l.conectado && l.formatos.includes(disponiveis[0]))
+            if (linha) onEscolher(linha.canal.id, disponiveis[0].id)
+          }
+        }}
+        placeholder="Buscar canal ou formato…"
+        className="mb-2 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+      />
+
       <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-        {ADAPTERS.map((canal) => {
-          const conectado = canal.id === 'site_web' || conectadas === null || conectadas.includes(canal.id)
-          return (
-            <div key={canal.id}>
-              <p className={`text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
-                {canal.nome}{!conectado && ' — conta não conectada'}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {canal.formatos.map((f) => {
-                  const existe = jaExistem.includes(`${canal.id}:${f.id}`)
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      disabled={!conectado || existe}
-                      onClick={() => onEscolher(canal.id, f.id)}
-                      className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {f.rotulo}{existe && ' ✓'}
-                    </button>
-                  )
-                })}
-              </div>
+        {canais.length === 0 && (
+          <p className="py-4 text-center text-xs text-muted-foreground">Nenhum canal ou formato com “{busca}”.</p>
+        )}
+        {canais.map(({ canal, conectado, formatos }) => (
+          <div key={canal.id}>
+            <p className={`flex items-center gap-1 text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
+              {canal.id === 'site_web' && <Globe className="size-3" />}
+              {canal.nome}{!conectado && ' — conta não conectada'}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {formatos.map((f) => {
+                const existe = jaExistem.includes(`${canal.id}:${f.id}`)
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={!conectado || existe}
+                    onClick={() => onEscolher(canal.id, f.id)}
+                    title={existe ? 'Já está neste pacote' : !conectado ? 'Conecte a conta em Redes Sociais' : `Adicionar ${canal.nome} · ${f.rotulo}`}
+                    className="rounded-full border border-border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
+                  >
+                    {f.rotulo}{existe && ' ✓'}
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
     </div>
   )
