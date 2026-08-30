@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -80,6 +81,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   useEffect(() => {
     if (!adicionando) return
     function foraDaCaixa(evento: MouseEvent) {
+      const alvo = evento.target as Element | null
+      // O popover mora num portal, fora desta árvore: sem checar por ele,
+      // qualquer clique dentro da própria lista fecharia a lista.
+      if (alvo?.closest?.('[data-popover-destinos]')) return
       if (!blocoAdicionar.current?.contains(evento.target as Node)) setAdicionando(false)
     }
     function noEscape(evento: KeyboardEvent) {
@@ -397,6 +402,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             </TrilhoCard>
             {adicionando && (
               <PopoverDestinos
+                ancora={blocoAdicionar}
                 conectadas={conectadas}
                 jaExistem={destinos.map((d) => `${d.canal}:${d.formato}`)}
                 onEscolher={adicionar}
@@ -599,17 +605,56 @@ function semAcento(texto: string): string {
   return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
 
-function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
+/**
+ * A lista de canais e formatos, aberta a partir do botão "Adicionar destino".
+ *
+ * Vai num portal, com posição fixa medida a partir do botão, por um motivo
+ * concreto: a página inteira vive dentro de <main class="overflow-y-auto
+ * overflow-x-hidden"> e o trilho de destinos rola na horizontal. Qualquer
+ * ancestral com overflow recorta filho posicionado — foi assim que este
+ * popover apareceu espremido na altura do trilho, com barra de rolagem
+ * própria e a lista cortada. Fora da árvore, ninguém o recorta.
+ */
+function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }: {
+  ancora: React.RefObject<HTMLDivElement | null>
   conectadas: string[] | null
   jaExistem: string[]
   onEscolher: (canal: string, formato: string) => void
   onFechar: () => void
 }) {
   const [busca, setBusca] = useState('')
+  const [caixa, setCaixa] = useState<{ top: number; left: number; largura: number; altura: number } | null>(null)
   const campoRef = useRef<HTMLInputElement>(null)
 
   // Abrir já digitando poupa o passo de mirar no campo com o mouse.
-  useEffect(() => { campoRef.current?.focus() }, [])
+  useEffect(() => { campoRef.current?.focus() }, [caixa === null])
+
+  useEffect(() => {
+    function medir() {
+      const botao = ancora.current?.getBoundingClientRect()
+      if (!botao) return
+      const margem = 12
+      const largura = Math.min(320, window.innerWidth - margem * 2)
+      // Alinhado pela direita do botão, sem escapar da janela nos dois lados.
+      const left = Math.max(margem, Math.min(botao.right - largura, window.innerWidth - largura - margem))
+      const abaixo = window.innerHeight - botao.bottom - margem
+      const acima = botao.top - margem
+      // Abre para baixo quando cabe; senão para cima, onde houver mais espaço.
+      const paraBaixo = abaixo >= 260 || abaixo >= acima
+      const altura = Math.min(460, paraBaixo ? abaixo : acima)
+      const top = paraBaixo ? botao.bottom + 8 : Math.max(margem, botao.top - altura - 8)
+      setCaixa({ top, left, largura, altura })
+    }
+    medir()
+    window.addEventListener('resize', medir)
+    // O <main> rola, não a janela: sem a fase de captura o popover ficaria
+    // parado enquanto o botão que o ancora sobe com a página.
+    window.addEventListener('scroll', medir, true)
+    return () => {
+      window.removeEventListener('resize', medir)
+      window.removeEventListener('scroll', medir, true)
+    }
+  }, [ancora])
 
   const canais = useMemo(() => {
     const termo = semAcento(busca.trim())
@@ -631,9 +676,17 @@ function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
   const disponiveis = canais.filter((l) => l.conectado)
     .flatMap((l) => l.formatos.filter((f) => !jaExistem.includes(`${l.canal.id}:${f.id}`)))
 
-  return (
-    <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-lg border border-border bg-background p-3 shadow-lg">
-      <div className="mb-2 flex items-center justify-between">
+  // Até a primeira medição não há onde desenhar; renderizar antes disso
+  // faria o popover piscar no canto da tela.
+  if (!caixa) return null
+
+  return createPortal(
+    <div
+      data-popover-destinos=""
+      style={{ position: 'fixed', top: caixa.top, left: caixa.left, width: caixa.largura, maxHeight: caixa.altura }}
+      className="z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-background p-3 shadow-xl"
+    >
+      <div className="mb-2 flex shrink-0 items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Novo destino</p>
         <button type="button" onClick={onFechar} aria-label="Fechar"><X className="size-3.5 text-muted-foreground" /></button>
       </div>
@@ -650,10 +703,10 @@ function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
           }
         }}
         placeholder="Buscar canal ou formato…"
-        className="mb-2 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+        className="mb-2 w-full shrink-0 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
       />
 
-      <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {canais.length === 0 && (
           <p className="py-4 text-center text-xs text-muted-foreground">Nenhum canal ou formato com “{busca}”.</p>
         )}
@@ -683,7 +736,8 @@ function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

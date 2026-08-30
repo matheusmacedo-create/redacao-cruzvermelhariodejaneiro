@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Activity, ArrowRight, BarChart3, Eye, Gauge, Globe2, Heart, Instagram, MousePointerClick, Users } from 'lucide-react'
+import { Activity, ArrowRight, BarChart3, Eye, Gauge, Globe2, Heart, MousePointerClick, Share2, Users } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/app/page-header'
@@ -87,7 +87,7 @@ export default async function ImpactoPage() {
             {canaisOrdenados.map(([canal, quantidade]) => (
               <div key={canal} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-lg bg-muted">{canal === 'instagram' ? <Instagram className="size-4" /> : <Globe2 className="size-4" />}</div><div><p className="font-medium">{canalNome[canal] ?? canal}</p><p className="text-xs text-muted-foreground">Últimos 30 dias</p></div></div>
+                  <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-lg bg-muted">{canal === 'site_web' ? <Globe2 className="size-4" /> : <Share2 className="size-4" />}</div><div><p className="font-medium">{canalNome[canal] ?? canal}</p><p className="text-xs text-muted-foreground">Últimos 30 dias</p></div></div>
                   <p className="text-2xl font-bold tabular-nums">{quantidade}</p>
                 </div>
               </div>
