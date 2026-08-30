@@ -3,19 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard,
-  Inbox,
-  MessageCircle,
-  Images,
-  FolderKanban,
-  CalendarDays,
-  CheckSquare,
-  Users,
-  Settings,
-  UserCircle,
-  X,
-  Share2,
-  TrendingUp,
+  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -44,6 +32,7 @@ const sections = [
     label: 'Análise',
     items: [
       { href: '/impacto', label: 'Impacto', icon: TrendingUp },
+      { href: '/registro', label: 'Registro', icon: History },
     ],
   },
   {
