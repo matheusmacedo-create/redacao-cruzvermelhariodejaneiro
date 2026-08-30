@@ -54,9 +54,10 @@ export function defaultTlsMode(): TlsMode {
 export async function withFtp<T>(
   run: (client: Client, config: FtpConfig) => Promise<T>,
   mode: TlsMode = defaultTlsMode(),
+  timeoutMs = 30_000,
 ): Promise<T> {
   const config = ftpConfig()
-  const client = new Client(30_000)
+  const client = new Client(timeoutMs)
   try {
     await client.access({
       host: config.host,
@@ -83,9 +84,9 @@ export async function withFtp<T>(
  * pública por definição (qualquer um que conecta na porta 21 a recebe): aqui
  * conectamos sem verificar só para lê-la e mostrar no diagnóstico.
  */
-export async function nomesDoCertificado(): Promise<{ sujeito: string; nomes: string[] }> {
+export async function nomesDoCertificado(timeoutMs = 30_000): Promise<{ sujeito: string; nomes: string[] }> {
   const config = ftpConfig()
-  const client = new Client(30_000)
+  const client = new Client(timeoutMs)
   try {
     await client.access({
       host: config.host,
