@@ -16,7 +16,7 @@ import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
-import { normalizarTexto, textoDaColagem } from '@/lib/colagem'
+import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
   adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
   publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
@@ -832,7 +832,7 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
           <button
             type="button"
             disabled={encerrado || !mestre.corpo.trim()}
-            onClick={() => onMudar({ ...mestre, corpo: normalizarTexto(mestre.corpo) })}
+            onClick={() => onMudar({ ...mestre, corpo: arrumarTexto(mestre.corpo) })}
             className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
             title="Põe o texto todo no padrão: títulos, listas, negrito e parágrafos"
           >
@@ -1223,7 +1223,7 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
           type="button"
           className={`${botao} ml-auto`}
           disabled={desabilitado || !valor.trim()}
-          onClick={() => onMudar(normalizarTexto(valor))}
+          onClick={() => onMudar(arrumarTexto(valor))}
           title="Põe o texto todo no padrão: títulos, listas, negrito e parágrafos"
         >
           <Wand2 className="size-3.5" />Ajustar formatação
