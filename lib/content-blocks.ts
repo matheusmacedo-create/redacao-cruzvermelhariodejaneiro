@@ -9,11 +9,14 @@ export type ContentBlock =
   | { type: 'heading'; inline: InlineToken[] }
   | { type: 'quote'; inline: InlineToken[] }
   | { type: 'list'; items: InlineToken[][] }
-  | { type: 'image'; url: string; alt: string }
-  | { type: 'video'; url: string; alt: string }
-  | { type: 'audio'; url: string; alt: string }
+  | { type: 'image'; url: string; alt: string; credito?: string }
+  | { type: 'video'; url: string; alt: string; credito?: string }
+  | { type: 'audio'; url: string; alt: string; credito?: string }
 
-const MEDIA_LINE = /^!\[(?:(video|audio):)?([^\]]*)\]\((\S+)\)$/
+// O trecho entre aspas no fim é o crédito da foto, na sintaxe de título do
+// Markdown: ![legenda](url "Foto: Fulano"). É opcional — linha sem ele segue
+// valendo, que é como está todo o conteúdo já escrito.
+const MEDIA_LINE = /^!\[(?:(video|audio):)?([^\]]*)\]\((\S+?)(?:\s+"([^"]*)")?\)$/
 const INLINE_PATTERN = /\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]+)\]\((\S+?)\)/g
 
 export function parseInline(text: string): InlineToken[] {
@@ -32,6 +35,16 @@ export function parseInline(text: string): InlineToken[] {
   return tokens
 }
 
+/**
+ * Lê uma linha de mídia isolada — o editor precisa dela para saber a legenda e
+ * o crédito de cada foto sem reimplementar a sintaxe do token.
+ */
+export function parseMediaLine(linha: string): { tipo: 'image' | 'video' | 'audio'; url: string; alt: string; credito: string } | null {
+  const m = MEDIA_LINE.exec(linha.trim())
+  if (!m) return null
+  return { tipo: (m[1] as 'video' | 'audio') || 'image', url: m[3], alt: m[2], credito: m[4] ?? '' }
+}
+
 export function parseContentBlocks(body?: string | null): ContentBlock[] {
   if (!body) return []
   return body
@@ -42,8 +55,8 @@ export function parseContentBlocks(body?: string | null): ContentBlock[] {
 
       const media = MEDIA_LINE.exec(trimmed)
       if (media) {
-        const [, kind, alt, url] = media
-        return { type: (kind as 'video' | 'audio' | undefined) || 'image', url, alt }
+        const [, kind, alt, url, credito] = media
+        return { type: (kind as 'video' | 'audio' | undefined) || 'image', url, alt, credito: credito || undefined }
       }
       if (trimmed.startsWith('## ')) return { type: 'heading', inline: parseInline(trimmed.slice(3)) }
       if (trimmed.startsWith('> ')) return { type: 'quote', inline: parseInline(trimmed.slice(2)) }
@@ -57,7 +70,11 @@ export function parseContentBlocks(body?: string | null): ContentBlock[] {
     .filter((block): block is ContentBlock => block !== null)
 }
 
-export function mediaToken(kind: 'image' | 'video' | 'audio', url: string, alt: string) {
+export function mediaToken(kind: 'image' | 'video' | 'audio', url: string, alt: string, credito?: string) {
   const prefix = kind === 'image' ? '' : `${kind}:`
-  return `![${prefix}${alt}](${url})`
+  // ] fecharia a legenda e " fecharia o crédito antes da hora: o token
+  // deixaria de ser reconhecido e a mídia sumiria da página.
+  const legenda = alt.replace(/[\]\n]/g, ' ').trim()
+  const credito2 = credito?.replace(/["\n]/g, ' ').trim()
+  return `![${prefix}${legenda}](${url}${credito2 ? ` "${credito2}"` : ''})`
 }

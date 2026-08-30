@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Check, CircleAlert, Clock, Globe, Loader2, Pencil, Plus,
-  RefreshCw, Rocket, Trash2, X,
+  ArrowLeft, Bold, Check, CircleAlert, Clock, Globe, Heading2, ImagePlus, Italic,
+  Link2, List, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, Trash2, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import { ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from
 import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
+import { mediaToken, parseMediaLine } from '@/lib/content-blocks'
 import {
   adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
   publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
@@ -71,6 +72,26 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   const [modalAprovacao, setModalAprovacao] = useState(false)
   const [revisores, setRevisores] = useState<string[]>([])
   const [adicionando, setAdicionando] = useState(false)
+  const blocoAdicionar = useRef<HTMLDivElement>(null)
+
+  // Popover que só fecha no X obriga a mira num alvo de 14px e prende quem
+  // navega pelo teclado. O bloco inteiro entra no ref para o clique no
+  // próprio botão continuar alternando, em vez de fechar e reabrir.
+  useEffect(() => {
+    if (!adicionando) return
+    function foraDaCaixa(evento: MouseEvent) {
+      if (!blocoAdicionar.current?.contains(evento.target as Node)) setAdicionando(false)
+    }
+    function noEscape(evento: KeyboardEvent) {
+      if (evento.key === 'Escape') setAdicionando(false)
+    }
+    document.addEventListener('mousedown', foraDaCaixa)
+    document.addEventListener('keydown', noEscape)
+    return () => {
+      document.removeEventListener('mousedown', foraDaCaixa)
+      document.removeEventListener('keydown', noEscape)
+    }
+  }, [adicionando])
 
   const encerrado = ['publicado', 'arquivado'].includes(inicial.status)
 
@@ -330,8 +351,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         </div>
       </div>
 
-      {/* Região 1 — trilho de destinos */}
-      <div className="flex items-stretch gap-2 overflow-x-auto pb-1">
+      {/* Região 1 — trilho de destinos.
+          O trilho rola na horizontal, mas o botão de adicionar fica FORA dessa
+          área: overflow recorta filho posicionado, e o popover aberto de dentro
+          dela aparecia espremido na altura do trilho, com barra de rolagem
+          própria. Do lado de fora ele abre inteiro — e ainda fica sempre à
+          vista, em vez de sumir quando há muitos destinos. */}
+      <div className="flex items-stretch gap-2">
+      <div className="flex min-w-0 flex-1 items-stretch gap-2 overflow-x-auto pb-1">
         <TrilhoCard ativo={ativo === 'mestre'} onClick={() => setAtivo('mestre')}>
           <span className="text-xs font-semibold uppercase tracking-wide">Mestre</span>
           <span className="text-[11px] text-muted-foreground">texto canônico</span>
@@ -362,9 +389,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             </TrilhoCard>
           )
         })}
+      </div>
         {!encerrado && (
-          <div className="relative">
-            <TrilhoCard ativo={false} onClick={() => setAdicionando((v) => !v)}>
+          <div className="relative shrink-0 pb-1" ref={blocoAdicionar}>
+            <TrilhoCard ativo={adicionando} onClick={() => setAdicionando((v) => !v)}>
               <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Plus className="size-3.5" />Adicionar destino</span>
             </TrilhoCard>
             {adicionando && (
@@ -566,45 +594,94 @@ function TrilhoCard({ ativo, onClick, title, children }: {
   )
 }
 
+/** Tira acento e caixa: quem procura "grafica" acha "Google Meu Negócio". */
+function semAcento(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
+
 function PopoverDestinos({ conectadas, jaExistem, onEscolher, onFechar }: {
   conectadas: string[] | null
   jaExistem: string[]
   onEscolher: (canal: string, formato: string) => void
   onFechar: () => void
 }) {
+  const [busca, setBusca] = useState('')
+  const campoRef = useRef<HTMLInputElement>(null)
+
+  // Abrir já digitando poupa o passo de mirar no campo com o mouse.
+  useEffect(() => { campoRef.current?.focus() }, [])
+
+  const canais = useMemo(() => {
+    const termo = semAcento(busca.trim())
+    return ADAPTERS
+      .map((canal) => {
+        const conectado = canal.id === 'site_web' || conectadas === null || conectadas.includes(canal.id)
+        // Buscar pelo nome do canal traz todos os formatos dele; buscar por um
+        // formato ("reels") traz só o formato procurado.
+        const canalCasa = !termo || semAcento(canal.nome).includes(termo)
+        const formatos = canal.formatos.filter((f) => canalCasa || semAcento(f.rotulo).includes(termo))
+        return { canal, conectado, formatos }
+      })
+      .filter((linha) => linha.formatos.length > 0)
+      // Conta conectada primeiro: o que dá para usar agora fica no alcance da
+      // vista, e o que exige conectar antes desce para o fim da lista.
+      .sort((a, b) => Number(b.conectado) - Number(a.conectado))
+  }, [busca, conectadas])
+
+  const disponiveis = canais.filter((l) => l.conectado)
+    .flatMap((l) => l.formatos.filter((f) => !jaExistem.includes(`${l.canal.id}:${f.id}`)))
+
   return (
-    <div className="absolute left-0 top-full z-30 mt-2 w-72 rounded-lg border border-border bg-background p-3 shadow-lg">
+    <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-lg border border-border bg-background p-3 shadow-lg">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Novo destino</p>
         <button type="button" onClick={onFechar} aria-label="Fechar"><X className="size-3.5 text-muted-foreground" /></button>
       </div>
+
+      <input
+        ref={campoRef}
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter com um único candidato à vista adiciona sem tirar a mão do teclado.
+          if (e.key === 'Enter' && disponiveis.length === 1) {
+            const linha = canais.find((l) => l.conectado && l.formatos.includes(disponiveis[0]))
+            if (linha) onEscolher(linha.canal.id, disponiveis[0].id)
+          }
+        }}
+        placeholder="Buscar canal ou formato…"
+        className="mb-2 w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+      />
+
       <div className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-        {ADAPTERS.map((canal) => {
-          const conectado = canal.id === 'site_web' || conectadas === null || conectadas.includes(canal.id)
-          return (
-            <div key={canal.id}>
-              <p className={`text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
-                {canal.nome}{!conectado && ' — conta não conectada'}
-              </p>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {canal.formatos.map((f) => {
-                  const existe = jaExistem.includes(`${canal.id}:${f.id}`)
-                  return (
-                    <button
-                      key={f.id}
-                      type="button"
-                      disabled={!conectado || existe}
-                      onClick={() => onEscolher(canal.id, f.id)}
-                      className="rounded-full border border-border px-2.5 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {f.rotulo}{existe && ' ✓'}
-                    </button>
-                  )
-                })}
-              </div>
+        {canais.length === 0 && (
+          <p className="py-4 text-center text-xs text-muted-foreground">Nenhum canal ou formato com “{busca}”.</p>
+        )}
+        {canais.map(({ canal, conectado, formatos }) => (
+          <div key={canal.id}>
+            <p className={`flex items-center gap-1 text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
+              {canal.id === 'site_web' && <Globe className="size-3" />}
+              {canal.nome}{!conectado && ' — conta não conectada'}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {formatos.map((f) => {
+                const existe = jaExistem.includes(`${canal.id}:${f.id}`)
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    disabled={!conectado || existe}
+                    onClick={() => onEscolher(canal.id, f.id)}
+                    title={existe ? 'Já está neste pacote' : !conectado ? 'Conecte a conta em Redes Sociais' : `Adicionar ${canal.nome} · ${f.rotulo}`}
+                    className="rounded-full border border-border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
+                  >
+                    {f.rotulo}{existe && ' ✓'}
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -781,11 +858,23 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
       )}
 
       <label className="text-sm font-medium">{eSite ? 'Texto da página' : 'Legenda'}
+        {eSite ? (
+          <div className="mt-1">
+            <CampoDaMateria
+              valor={destino.corpo}
+              onMudar={(v) => onEditar({ corpo: v })}
+              desabilitado={congelado}
+              max={formato.texto.max}
+              tamanho={tamanho}
+              estourou={estourou}
+            />
+          </div>
+        ) : (
         <div className="relative mt-1">
           <textarea
             value={destino.corpo}
             onChange={(e) => onEditar({ corpo: e.target.value })}
-            rows={eSite ? 12 : 7}
+            rows={7}
             disabled={congelado}
             className={inputClass}
           />
@@ -793,6 +882,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
             {tamanho}/{formato.texto.max}
           </span>
         </div>
+        )}
         {formato.texto.dobra && tamanho > formato.texto.dobra && !estourou && (
           <span className="mt-1 block text-xs font-normal text-amber-600 dark:text-amber-500">
             Acima de {formato.texto.dobra} o leitor vê "…mais" — o essencial precisa estar antes disso.
@@ -850,6 +940,213 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
           className={`mt-1 ${inputClass} sm:w-64`}
         />
       </label>
+    </div>
+  )
+}
+
+/**
+ * O campo de texto da matéria: barra de formatação, foto no meio do texto e
+ * legenda/crédito por foto.
+ *
+ * Foto de notícia não é anexo: tem lugar no texto, legenda e crédito de quem
+ * fotografou. Enquanto escolher da biblioteca era o único caminho, toda foto
+ * caía antes do primeiro parágrafo ou depois do último — nunca ao lado do
+ * trecho que ela ilustra.
+ */
+function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }: {
+  valor: string
+  onMudar: (v: string) => void
+  desabilitado: boolean
+  max: number
+  tamanho: number
+  estourou: boolean
+}) {
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+  const arquivoRef = useRef<HTMLInputElement>(null)
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  // Parágrafo é a unidade do formato: a linha de mídia mora sozinha em um.
+  const paragrafos = useMemo(() => valor.split(/\n\n+/), [valor])
+  const fotos = useMemo(
+    () => paragrafos.flatMap((p, i) => {
+      const midia = parseMediaLine(p)
+      return midia ? [{ indice: i, ...midia }] : []
+    }),
+    [paragrafos],
+  )
+
+  function focarEm(inicio: number, fim: number) {
+    requestAnimationFrame(() => {
+      const el = areaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(inicio, fim)
+    })
+  }
+
+  /** Bloco próprio (foto, por ora) entra no ponto do cursor, isolado por linhas em branco. */
+  function inserirBloco(bloco: string) {
+    const posicao = areaRef.current?.selectionStart ?? valor.length
+    const antes = valor.slice(0, posicao).replace(/\s+$/, '')
+    const depois = valor.slice(posicao).replace(/^\s+/, '')
+    onMudar(`${antes}${antes ? '\n\n' : ''}${bloco}${depois ? `\n\n${depois}` : '\n'}`)
+    const fim = (antes ? antes.length + 2 : 0) + bloco.length
+    focarEm(fim, fim)
+  }
+
+  function envolver(abre: string, fecha: string, exemplo: string) {
+    const el = areaRef.current
+    if (!el) return
+    const i = el.selectionStart
+    const f = el.selectionEnd
+    const selecionado = valor.slice(i, f) || exemplo
+    onMudar(valor.slice(0, i) + abre + selecionado + fecha + valor.slice(f))
+    focarEm(i + abre.length, i + abre.length + selecionado.length)
+  }
+
+  function prefixarLinhas(prefixo: string) {
+    const el = areaRef.current
+    if (!el) return
+    const inicio = valor.lastIndexOf('\n', el.selectionStart - 1) + 1
+    const quebra = valor.indexOf('\n', el.selectionEnd)
+    const fim = quebra === -1 ? valor.length : quebra
+    const trecho = valor.slice(inicio, fim).split('\n')
+      .map((linha) => (linha.startsWith(prefixo) ? linha : `${prefixo}${linha}`)).join('\n')
+    onMudar(valor.slice(0, inicio) + trecho + valor.slice(fim))
+    focarEm(inicio, inicio + trecho.length)
+  }
+
+  function inserirLink() {
+    const el = areaRef.current
+    if (!el) return
+    const endereco = window.prompt('Endereço do link (https://…)')
+    if (!endereco) return
+    const i = el.selectionStart
+    const f = el.selectionEnd
+    const texto = valor.slice(i, f) || 'texto do link'
+    onMudar(`${valor.slice(0, i)}[${texto}](${endereco})${valor.slice(f)}`)
+    focarEm(i + 1, i + 1 + texto.length)
+  }
+
+  async function subirFoto(arquivo: File) {
+    setErro('')
+    setEnviando(true)
+    try {
+      const dados = new FormData()
+      dados.set('file', arquivo)
+      dados.set('tags', 'materia')
+      const resposta = await fetch('/api/files/upload', { method: 'POST', body: dados })
+      const resultado = await resposta.json()
+      if (!resposta.ok) throw new Error(resultado.error || 'Não foi possível enviar a foto.')
+      // A foto entra sem legenda de propósito: o nome do arquivo ("IMG_2043")
+      // viraria legenda na página. O painel abaixo pede o texto de verdade.
+      inserirBloco(mediaToken('image', `/api/private-blob?pathname=${encodeURIComponent(resultado.storagePath)}`, ''))
+    } catch (causa) {
+      setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar a foto.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  function mudarFoto(indice: number, campos: { legenda?: string; credito?: string }) {
+    const midia = parseMediaLine(paragrafos[indice])
+    if (!midia) return
+    const copia = [...paragrafos]
+    copia[indice] = mediaToken(midia.tipo, midia.url, campos.legenda ?? midia.alt, campos.credito ?? midia.credito)
+    onMudar(copia.join('\n\n'))
+  }
+
+  function tirarFoto(indice: number) {
+    onMudar(paragrafos.filter((_, i) => i !== indice).join('\n\n'))
+  }
+
+  const botao = 'inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40'
+
+  return (
+    <div>
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <button type="button" className={botao} disabled={desabilitado || enviando} onClick={() => arquivoRef.current?.click()}>
+          {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
+          {enviando ? 'Enviando…' : 'Foto'}
+        </button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('## ')}><Heading2 className="size-3.5" />Intertítulo</button>
+        <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('> ')}><Quote className="size-3.5" />Citação</button>
+        <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('- ')}><List className="size-3.5" />Lista</button>
+        <span className="mx-1 h-4 w-px bg-border" />
+        <button type="button" className={botao} disabled={desabilitado} onClick={() => envolver('**', '**', 'negrito')} title="Negrito"><Bold className="size-3.5" /></button>
+        <button type="button" className={botao} disabled={desabilitado} onClick={() => envolver('*', '*', 'itálico')} title="Itálico"><Italic className="size-3.5" /></button>
+        <button type="button" className={botao} disabled={desabilitado} onClick={inserirLink} title="Link"><Link2 className="size-3.5" /></button>
+      </div>
+
+      <input
+        ref={arquivoRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirFoto(f); e.target.value = '' }}
+      />
+
+      <div className="relative">
+        <textarea
+          ref={areaRef}
+          value={valor}
+          onChange={(e) => onMudar(e.target.value)}
+          rows={14}
+          disabled={desabilitado}
+          className={inputClass}
+        />
+        <span className={`pointer-events-none absolute bottom-2 right-2 rounded bg-background/90 px-1.5 py-0.5 text-[11px] font-medium ${estourou ? 'text-destructive' : 'text-muted-foreground'}`}>
+          {tamanho}/{max}
+        </span>
+      </div>
+      <span className="mt-1 block text-[11px] font-normal text-muted-foreground">
+        A foto fica onde você a inseriu. Se estiver antes do primeiro parágrafo, abre a matéria em destaque.
+      </span>
+      {erro && <p className="mt-1 text-xs text-destructive">{erro}</p>}
+
+      {fotos.length > 0 && (
+        <div className="mt-3 flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fotos no texto</p>
+          {fotos.map((foto) => (
+            <div key={`${foto.indice}-${foto.url}`} className="flex items-start gap-3 rounded-lg border border-border p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={foto.url} alt="" className="size-16 shrink-0 rounded object-cover" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <input
+                  value={foto.alt}
+                  onChange={(e) => mudarFoto(foto.indice, { legenda: e.target.value })}
+                  placeholder="Legenda — o que a foto mostra"
+                  disabled={desabilitado}
+                  className={inputClass}
+                />
+                <input
+                  value={foto.credito}
+                  onChange={(e) => mudarFoto(foto.indice, { credito: e.target.value })}
+                  placeholder="Crédito — ex.: Ana Souza/CVB-RJ"
+                  disabled={desabilitado}
+                  className={inputClass}
+                />
+                {!foto.alt.trim() && (
+                  <span className="text-[11px] text-amber-600 dark:text-amber-500">
+                    Sem legenda a foto sai muda para quem usa leitor de tela.
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => tirarFoto(foto.indice)}
+                disabled={desabilitado}
+                title="Tirar esta foto da matéria"
+                className="rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -987,6 +1284,12 @@ function PreviaSite({ destino, mestre, arquivoPorId }: {
         return `![${a.nome}](${a.previa})`
       })
     if (tokens.length) corpo = `${tokens[0]}\n\n${corpo}${tokens.length > 1 ? `\n\n${tokens.slice(1).join('\n\n')}` : ''}`
+    // Fotos escritas no meio do texto: o gerador só desenha a mídia que
+    // conhece, então cada uma precisa entrar no mapa antes de montar a página.
+    for (const paragrafo of corpo.split(/\n\n+/)) {
+      const midia = parseMediaLine(paragrafo)
+      if (midia && !arquivos.has(midia.url)) arquivos.set(midia.url, { nome: midia.url, alt: midia.alt })
+    }
     return montarPaginaDoArtigo({
       titulo: destino.extras.titulo || mestre.titulo || 'Sem título',
       subtitulo: destino.extras.subtitulo || mestre.subtitulo,
