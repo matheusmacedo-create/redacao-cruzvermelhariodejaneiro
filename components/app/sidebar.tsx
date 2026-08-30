@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Inbox,
   MessageCircle,
-  ClipboardList,
   Images,
   FolderKanban,
   CalendarDays,
@@ -16,6 +15,7 @@ import {
   UserCircle,
   X,
   Share2,
+  TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -23,17 +23,36 @@ import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 import { useMobileNav } from './app-shell'
 
-const main = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: Inbox },
-  { href: '/mensagens', label: 'Mensagens', icon: MessageCircle },
-  { href: '/pautas', label: 'Pautas', icon: ClipboardList },
-  { href: '/biblioteca', label: 'Biblioteca', icon: Images },
-  { href: '/projetos', label: 'Projetos', icon: FolderKanban },
-  { href: '/calendario', label: 'Calendário', icon: CalendarDays },
-  { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
-  { href: '/redes', label: 'Redes Sociais', icon: Share2 },
-  { href: '/pessoas', label: 'Pessoas', icon: Users },
+const sections = [
+  {
+    label: 'Trabalho',
+    items: [
+      { href: '/projetos', label: 'Projetos', icon: FolderKanban },
+      { href: '/redes', label: 'Publicações', icon: Share2 },
+      { href: '/calendario', label: 'Calendário', icon: CalendarDays },
+      { href: '/biblioteca', label: 'Biblioteca', icon: Images },
+    ],
+  },
+  {
+    label: 'Operação',
+    items: [
+      { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
+      { href: '/caixa-de-entrada', label: 'Caixa de entrada', icon: Inbox },
+    ],
+  },
+  {
+    label: 'Análise',
+    items: [
+      { href: '/impacto', label: 'Impacto', icon: TrendingUp },
+    ],
+  },
+  {
+    label: 'Equipe',
+    items: [
+      { href: '/mensagens', label: 'Mensagens', icon: MessageCircle },
+      { href: '/pessoas', label: 'Pessoas', icon: Users },
+    ],
+  },
 ]
 
 const admin = [
@@ -41,19 +60,7 @@ const admin = [
   { href: '/perfil', label: 'Perfil', icon: UserCircle },
 ]
 
-function NavItem({
-  href,
-  label,
-  icon: Icon,
-  badge,
-  active,
-}: {
-  href: string
-  label: string
-  icon: typeof LayoutDashboard
-  badge?: number
-  active: boolean
-}) {
+function NavItem({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutDashboard; active: boolean }) {
   return (
     <Link
       href={href}
@@ -66,11 +73,6 @@ function NavItem({
     >
       <Icon className={cn('size-[18px] shrink-0', active && 'text-primary')} strokeWidth={2} />
       <span className="flex-1 truncate">{label}</span>
-      {badge ? (
-        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-          {badge}
-        </span>
-      ) : null}
     </Link>
   )
 }
@@ -81,23 +83,29 @@ function SidebarContent({ profile, buildInfo, onNavigate }: { profile: any; buil
   const pathname = usePathname()
   const displayName = profile?.full_name || profile?.username || 'Usuário'
   const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
-  const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === href : pathname.startsWith(href)
+  const isActive = (href: string) => href === '/dashboard' ? pathname === href : pathname.startsWith(href)
   const showBuildInfo = buildInfo && profile?.username === 'matheus.macedo'
 
   return (
     <>
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" onClick={onNavigate}>
-        {main.map((item) => (
-          <NavItem key={item.href} {...item} active={isActive(item.href)} />
+      <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4" onClick={onNavigate}>
+        <NavItem href="/dashboard" label="Visão geral" icon={LayoutDashboard} active={isActive('/dashboard')} />
+
+        {sections.map((section) => (
+          <div key={section.label} className="mt-5 first:mt-0">
+            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{section.label}</p>
+            <div className="flex flex-col gap-1">
+              {section.items.map((item) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
+            </div>
+          </div>
         ))}
 
-        <p className="px-3 pt-5 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Administração
-        </p>
-        {admin.map((item) => (
-          <NavItem key={item.href} {...item} active={isActive(item.href)} />
-        ))}
+        <div className="mt-5">
+          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Administração</p>
+          <div className="flex flex-col gap-1">
+            {admin.map((item) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
+          </div>
+        </div>
       </nav>
 
       <div className="border-t border-sidebar-border p-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
@@ -124,7 +132,6 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex" aria-label="Navegação principal">
         <div className="border-b border-sidebar-border bg-white px-5 py-5">
           <BrandMark className="w-full" compact />
@@ -132,7 +139,6 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
         <SidebarContent profile={profile} buildInfo={buildInfo} />
       </aside>
 
-      {/* Mobile drawer */}
       {open && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           <button type="button" className="absolute inset-0 bg-foreground/45 backdrop-blur-[2px]" aria-label="Fechar menu" onClick={close} />
