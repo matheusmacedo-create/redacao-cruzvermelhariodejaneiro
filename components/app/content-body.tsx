@@ -20,7 +20,10 @@ export function ContentBody({ body, emptyLabel = 'Conteúdo sem texto.' }: { bod
         if (block.type === 'audio') return <audio key={index} src={block.url} controls className="my-4 w-full" />
         if (block.type === 'heading') return <h2 key={index} className="mt-6 font-serif text-xl font-bold">{renderInline(block.inline)}</h2>
         if (block.type === 'quote') return <blockquote key={index} className="my-4 border-l-2 border-primary pl-4 italic text-muted-foreground">{renderInline(block.inline)}</blockquote>
-        if (block.type === 'list') return <ul key={index} className="my-3 list-disc pl-5">{block.items.map((item, itemIndex) => <li key={itemIndex}>{renderInline(item)}</li>)}</ul>
+        if (block.type === 'list') {
+          const Lista = block.ordenada ? 'ol' : 'ul'
+          return <Lista key={index} className={`my-3 pl-5 ${block.ordenada ? 'list-decimal' : 'list-disc'}`}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{renderInline(item)}</li>)}</Lista>
+        }
         return <p key={index}>{renderInline(block.inline)}</p>
       })}
     </>
