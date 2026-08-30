@@ -5,6 +5,14 @@ import { ftpConfig, withFtp, nomesDoCertificado, FtpConfigError, type TlsMode } 
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// Sequência completa no pior caso: 3 sondas de conexão + certificado +
+// escrita. Com o timeout curto abaixo tudo cabe aqui dentro — sem isso, um
+// servidor que não responde (ex.: IP bloqueado após muitos logins errados)
+// deixava a página "carregando infinito" até o Vercel matar a função.
+export const maxDuration = 60
+
+/** Timeout das sondas: diagnóstico precisa responder, não esperar. */
+const TIMEOUT_DA_SONDA = 8_000
 
 type Probe = { etapa: string; ok: boolean; detalhe: string }
 
@@ -46,7 +54,7 @@ export async function GET() {
 
   for (const modo of modos) {
     try {
-      await withFtp(async (client) => { await client.pwd() }, modo)
+      await withFtp(async (client) => { await client.pwd() }, modo, TIMEOUT_DA_SONDA)
       probes.push({ etapa: `conexão (${modo})`, ok: true, detalhe: 'autenticou' })
       conectado = modo
       break
@@ -61,7 +69,7 @@ export async function GET() {
   // para FTP_HOST ser trocado pelo nome e o modo estrito voltar a funcionar.
   if (conectado !== 'ftps-estrito') {
     try {
-      const { sujeito, nomes } = await nomesDoCertificado()
+      const { sujeito, nomes } = await nomesDoCertificado(TIMEOUT_DA_SONDA)
       const lista = nomes.length ? nomes.join(', ') : sujeito || '(certificado sem nomes legíveis)'
       const soCuringa = nomes.length > 0 && nomes.every((n) => n.startsWith('*.'))
       probes.push({
