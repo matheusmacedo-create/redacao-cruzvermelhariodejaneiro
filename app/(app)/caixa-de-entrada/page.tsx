@@ -7,6 +7,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { archiveInboxItem, convertInboxToPauta } from '@/app/actions/editorial'
 import { formatDate } from '@/lib/format'
+import { PainelDeAtendimento } from '@/components/app/atendimento/painel'
 
 const draftStatusLabel: Record<string, string> = { draft: 'Rascunho', archived: 'Arquivado' }
 
@@ -43,9 +44,14 @@ export default async function CaixaEntradaPage() {
   return <div>
     <PageHeader
       title="Caixa de Entrada"
-      description="Materiais, relatos e sugestões enviados para a Comunicação."
+      description="O que o público escreveu nas redes, mais o que espera por você aqui dentro."
       actions={<Button variant="outline" size="lg" render={<Link href="/registrar" />}>Registrar atividade</Button>}
     />
+
+    {/* Primeiro o que vem de fora: comentário sem resposta é a pendência com
+        relógio correndo — no Instagram, literalmente 24h. Rascunho e aprovação
+        esperam sem custo. */}
+    <PainelDeAtendimento />
 
     <div className="mb-6 grid gap-4 md:grid-cols-2">
       <Card className="p-5">
