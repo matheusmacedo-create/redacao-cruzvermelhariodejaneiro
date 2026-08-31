@@ -41,6 +41,32 @@ export const iaConfigurada = () => Boolean(process.env.OPENAI_API_KEY?.trim())
 export const modeloDeImagem = () => process.env.OPENAI_IMAGE_MODEL?.trim() || MODELO_DE_IMAGEM_PADRAO
 export const modeloDeTexto = () => process.env.OPENAI_TEXT_MODEL?.trim() || MODELO_DE_TEXTO_PADRAO
 
+/**
+ * Quanto raciocínio pedir ao modelo de texto.
+ *
+ * A família GPT-5 raciocina por padrão, e a primeira chamada real levou 13,6
+ * segundos para adaptar uma frase — esforço gasto à toa. Adaptar legenda é
+ * reescrita curta com instrução clara, que é exatamente o caso em que o
+ * "minimal" existe: quase nenhum token de raciocínio, resposta rápida.
+ *
+ * Os valores aceitos dependem do modelo. Por isso a chamada tem recuo: se a
+ * OpenAI recusar o parâmetro, ela se refaz sem ele em vez de quebrar. Deixar
+ * a variável vazia desliga o envio.
+ */
+export function esforcoDeRaciocinio(): string {
+  const bruto = process.env.OPENAI_REASONING_EFFORT
+  return bruto === undefined ? 'minimal' : bruto.trim()
+}
+
+/**
+ * Teto de tokens da resposta de texto.
+ *
+ * Com modelo que raciocina, os tokens de raciocínio contam aqui dentro: um
+ * teto baixo devolve resposta vazia em vez de resposta curta. 1500 é folgado
+ * para uma legenda e ainda impede uma resposta desgovernada.
+ */
+const TETO_DE_TOKENS = 1500
+
 /** Teto mensal de imagens por espaço. Imagem gerada custa dinheiro a cada
  *  clique; sem teto, um engano em laço vira fatura. */
 export function tetoMensalDeImagens(): number {
@@ -99,6 +125,39 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs: number): Pr
   return dados as T
 }
 
+/**
+ * Chama com os ajustes de custo e, se a OpenAI recusar por causa deles, refaz
+ * a chamada sem eles.
+ *
+ * Existe porque os valores de `reasoning_effort` são dependentes do modelo, e
+ * a lista muda a cada família nova. Sem o recuo, escolher um valor que o
+ * modelo configurado não aceita derrubaria a adaptação de legenda inteira —
+ * trocar uma otimização por uma funcionalidade quebrada é um mau negócio.
+ *
+ * O recuo é estreito de propósito: só acontece em 400 cujo motivo cita um dos
+ * campos opcionais. Erro de chave, de cota ou de modelo continua subindo.
+ */
+async function chamarComRecuo<T>(
+  caminho: string,
+  corpo: Record<string, unknown>,
+  opcionais: Record<string, unknown>,
+  timeoutMs: number,
+): Promise<{ dados: T; recuou: boolean }> {
+  const chaves = Object.keys(opcionais)
+  if (!chaves.length) return { dados: await chamar<T>(caminho, corpo, timeoutMs), recuou: false }
+
+  try {
+    return { dados: await chamar<T>(caminho, { ...corpo, ...opcionais }, timeoutMs), recuou: false }
+  } catch (causa) {
+    const recusaDoCampo = causa instanceof IaError
+      && causa.status === 400
+      && chaves.some((chave) => causa.message.includes(chave))
+    if (!recusaDoCampo) throw causa
+    console.warn('[ia] a OpenAI recusou', chaves.join(', '), '— refazendo sem esses campos:', causa.message)
+    return { dados: await chamar<T>(caminho, corpo, timeoutMs), recuou: true }
+  }
+}
+
 // ---------------------------------------------------------------- imagem
 
 export type ImagemGerada = { bytes: Buffer; contentType: string; largura: number; altura: number }
@@ -138,7 +197,45 @@ export async function gerarImagem(pedido: {
 // ---------------------------------------------------------------- texto
 
 type RespostaDeTexto = {
-  choices?: { message?: { content?: string } }[]
+  choices?: { message?: { content?: string }; finish_reason?: string }[]
+  usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    completion_tokens_details?: { reasoning_tokens?: number }
+  }
+}
+
+/**
+ * O que a chamada custou, para o custo ser visível em vez de suposto.
+ *
+ * `raciocinio` é o número que motivou esta otimização: era ele que consumia
+ * os segundos e os tokens numa tarefa que não precisa pensar.
+ */
+export type MedidaDaChamada = {
+  esforco: string
+  /** A OpenAI recusou os ajustes e a chamada foi refeita sem eles. */
+  recuou: boolean
+  entrada: number
+  saida: number
+  raciocinio: number
+  segundos: number
+}
+
+function medir(dados: RespostaDeTexto, esforco: string, recuou: boolean, comecou: number): MedidaDaChamada {
+  return {
+    esforco: recuou ? '(recusado pelo modelo)' : esforco || '(padrão do modelo)',
+    recuou,
+    entrada: dados.usage?.prompt_tokens ?? 0,
+    saida: dados.usage?.completion_tokens ?? 0,
+    raciocinio: dados.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+    segundos: Math.round((Date.now() - comecou) / 100) / 10,
+  }
+}
+
+/** Os ajustes de custo, só quando há esforço configurado. */
+function ajustesDeCusto(): Record<string, unknown> {
+  const esforco = esforcoDeRaciocinio()
+  return esforco ? { reasoning_effort: esforco, max_completion_tokens: TETO_DE_TOKENS } : {}
 }
 
 /**
@@ -156,14 +253,15 @@ export async function adaptarTexto(pedido: {
   dobra?: number
   maxHashtags?: number
   instituicao?: string
-}): Promise<string> {
+}): Promise<{ texto: string; medida: MedidaDaChamada }> {
   const regras = [
     `Limite rígido: ${pedido.limite} caracteres. Não ultrapasse.`,
     pedido.dobra ? `O leitor só vê os primeiros ${pedido.dobra} caracteres antes do "ver mais": ponha o essencial antes disso.` : '',
     pedido.maxHashtags ? `No máximo ${pedido.maxHashtags} hashtags.` : 'Sem hashtags, a menos que já existam no texto.',
   ].filter(Boolean).join('\n')
 
-  const dados = await chamar<RespostaDeTexto>('/chat/completions', {
+  const comecou = Date.now()
+  const { dados, recuou } = await chamarComRecuo<RespostaDeTexto>('/chat/completions', {
     model: modeloDeTexto(),
     messages: [
       {
@@ -182,12 +280,25 @@ export async function adaptarTexto(pedido: {
         content: `Adapte o texto abaixo para ${pedido.canal} (${pedido.formato}).\n\n${regras}\n\n---\n${pedido.texto}`,
       },
     ],
-  }, 60_000)
+  }, ajustesDeCusto(), 60_000)
 
   const texto = dados.choices?.[0]?.message?.content?.trim()
-  if (!texto) throw new IaError('A OpenAI respondeu sem texto.', 502)
+  if (!texto) {
+    // Resposta vazia com finish_reason "length" quer dizer que o raciocínio
+    // comeu o teto de tokens. Dizer isso poupa procurar no lugar errado.
+    const porTeto = dados.choices?.[0]?.finish_reason === 'length'
+    throw new IaError(
+      porTeto
+        ? `A resposta veio vazia porque o modelo gastou o teto de ${TETO_DE_TOKENS} tokens raciocinando. Baixe OPENAI_REASONING_EFFORT ou deixe-a vazia.`
+        : 'A OpenAI respondeu sem texto.',
+      502,
+    )
+  }
   // Modelo às vezes devolve o texto entre aspas mesmo pedindo que não.
-  return semRotuloDoCanal(texto.replace(/^["“']|["”']$/g, '').trim(), pedido.canal, pedido.formato)
+  return {
+    texto: semRotuloDoCanal(texto.replace(/^["“']|["”']$/g, '').trim(), pedido.canal, pedido.formato),
+    medida: medir(dados, esforcoDeRaciocinio(), recuou, comecou),
+  }
 }
 
 /**
@@ -224,7 +335,7 @@ export async function sugerirBriefings(pedido: {
   texto: string
   proibicoes: string
 }): Promise<string[]> {
-  const dados = await chamar<RespostaDeTexto>('/chat/completions', {
+  const { dados } = await chamarComRecuo<RespostaDeTexto>('/chat/completions', {
     model: modeloDeTexto(),
     messages: [
       {
@@ -242,9 +353,18 @@ export async function sugerirBriefings(pedido: {
           + `Cada ideia deve terminar com estas restrições, literalmente: "${pedido.proibicoes}"`,
       },
     ],
-  }, 60_000)
+  }, ajustesDeCusto(), 60_000)
 
   const bruto = dados.choices?.[0]?.message?.content?.trim() ?? ''
+  // Mesma armadilha da adaptação: com esforço alto, o raciocínio pode gastar o
+  // teto e devolver vazio. Sem isto, a tela diria "tente de novo" para um
+  // problema que tentar de novo não resolve.
+  if (!bruto && dados.choices?.[0]?.finish_reason === 'length') {
+    throw new IaError(
+      `As ideias vieram vazias porque o modelo gastou o teto de ${TETO_DE_TOKENS} tokens raciocinando. Baixe OPENAI_REASONING_EFFORT ou deixe-a vazia.`,
+      502,
+    )
+  }
   return bruto
     .split('\n')
     .map((l) => l.replace(/^\s*[-*\d.)\s]+/, '').trim())

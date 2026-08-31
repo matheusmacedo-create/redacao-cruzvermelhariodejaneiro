@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/session'
 import {
-  adaptarTexto, iaConfigurada, modeloDeImagem, modeloDeTexto, modelosDisponiveis,
+  adaptarTexto, esforcoDeRaciocinio, iaConfigurada, modeloDeImagem, modeloDeTexto, modelosDisponiveis,
   semChave, tetoMensalDeImagens, MODELO_DE_IMAGEM_PADRAO, MODELO_DE_TEXTO_PADRAO,
 } from '@/lib/ia/openai'
 
@@ -70,21 +70,21 @@ export async function GET(request: NextRequest) {
   // fração de centavo. Imagem não é testada aqui de propósito — essa custa.
   let teste: Record<string, unknown> | undefined
   if (request.nextUrl.searchParams.get('testar')) {
-    const comecou = Date.now()
     try {
       // Canal e formato reais de propósito: com nomes de mentira ("Teste"), o
       // modelo devolveu "Teste (Teste) — …" e o diagnóstico deixou de exercitar
       // o caminho que a redação usa. O teste tem de ter a forma do uso.
-      const resposta = await adaptarTexto({
+      const { texto: resposta, medida } = await adaptarTexto({
         texto: 'A Cruz Vermelha Brasileira do Rio de Janeiro abriu inscrições para o curso de primeiros socorros.',
         canal: 'Facebook', formato: 'Feed', limite: 280, dobra: 125,
       })
       teste = {
         ok: true,
-        segundos: Math.round((Date.now() - comecou) / 100) / 10,
         devolveu: resposta.slice(0, 200),
         // Se o modelo voltar a colar o nome do canal na frente, aparece aqui.
         comecouComRotuloDoCanal: /^facebook\b/i.test(resposta),
+        // O custo em números: é isto que diz se a otimização está valendo.
+        custo: medida,
       }
     } catch (causa) {
       teste = { ok: false, erro: semChave(causa instanceof Error ? causa.message : String(causa)) }
@@ -98,9 +98,11 @@ export async function GET(request: NextRequest) {
     modeloDeImagemExiste: existe(imagem),
     modeloDeTextoExiste: existe(escrita),
     ...(teste ? { testeDeTexto: teste } : {}),
+    esforcoDeRaciocinio: esforcoDeRaciocinio() || '(padrão do modelo)',
     veredito: tudoOk
-      ? (teste ? 'Tudo funcionando: chave válida, modelos existem e a chamada de texto completou.'
-               : 'Chave válida e os dois modelos existem. Acrescente ?testar=1 para fazer uma chamada de verdade.')
+      ? (teste
+          ? `Tudo funcionando: chave válida, modelos existem e a chamada de texto completou em ${(teste.custo as { segundos: number }).segundos}s.`
+          : 'Chave válida e os dois modelos existem. Acrescente ?testar=1 para fazer uma chamada de verdade.')
       : !existe(escrita) ? `O modelo de texto "${escrita}" não existe nesta conta.`
       : !existe(imagem) ? `O modelo de imagem "${imagem}" não existe nesta conta.`
       : 'A chamada de teste falhou — veja testeDeTexto.',
