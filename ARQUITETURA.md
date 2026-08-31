@@ -373,7 +373,39 @@ Três coisas para saber antes de mexer:
    `garantirPerfil()` num diagnóstico já queimou uma vaga criando perfil fantasma.
    **Rota de diagnóstico não cria recurso** — só lê.
 
-### 8.2 Rotas de diagnóstico
+### 8.2 Cérebro
+
+O Cérebro ([cerebrocruzvermelha](https://github.com/matheusmacedo-create/cerebrocruzvermelha),
+`https://cerebrocruzvermelha.vercel.app`) observa uma lista fechada de contas
+oficiais do Rio, entende cada sinal por seis perguntas e decide o que merece
+virar pauta. **Ele não publica** — essa separação é o projeto inteiro dele, e a
+Redação é o lado humano dela.
+
+A integração tem três pontas, todas tolerantes a falha (Cérebro fora do ar
+nunca derruba tela daqui):
+
+1. **Leitura** (`lib/cerebro/cliente.ts` → `GET /api/pauta` de lá). A tela
+   **Cérebro** (`/cerebro`) mostra tudo com raciocínio, notas, plano por canal
+   e travas; o painel de Publicações resume as seis primeiras. Cache de 5
+   minutos na tag `cerebro`. O contrato está espelhado em
+   `lib/cerebro/contrato.ts` — o original versionado vive no repositório dele.
+2. **Importação** (`app/actions/cerebro.ts`). Uma sugestão vira pacote do hub
+   em rascunho: mestre em formato de matéria, um destino gerado por canal
+   viável e a capa na Biblioteca (`pending` se material da Casa, `internal` se
+   de terceiro — `authorization_status` continua mandando no disparo). O
+   vínculo mora em `social_packages.cerebro_sinal_id`, com índice único contra
+   duplicata.
+3. **Devolução.** Recusar com motivo grava no Cérebro (`POST /api/feedback` de
+   lá) e pesa nas próximas leituras dele. E `GET /api/cerebro/contexto`
+   (daqui) entrega a ele os títulos publicados nos últimos 60 dias e as
+   atividades Ação/Evento do Registrar — é o que alimenta as notas de
+   ineditismo e de ação real do motor. Só títulos saem por ali, nunca corpo,
+   contato ou história; `CEREBRO_CONTEXTO_TOKEN` fecha a rota se preciso.
+
+Variáveis: `CEREBRO_URL`, `CEREBRO_TOKEN`, `CEREBRO_CONTEXTO_TOKEN` — todas
+opcionais, documentadas no `.env.example`.
+
+### 8.3 Rotas de diagnóstico
 
 `/api/admin/ftp-check`, `/api/admin/redes-check`, `/api/admin/ftp-descobrir`.
 Existem porque adivinhar configuração de servidor alheio não funciona: elas
