@@ -129,9 +129,17 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
       throw new Error('Data de agendamento inválida.')
     }
 
+    // O mestre guarda chaves que esta tela não edita — a origem no Cérebro,
+    // por exemplo. Substituir o objeto inteiro apagava essas chaves em silêncio
+    // no primeiro autosave, e com elas a proteção contra importar duas vezes.
+    const { data: guardado } = await supabase
+      .from('social_packages').select('mestre')
+      .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+    const mestreCompleto = { ...((guardado?.mestre ?? {}) as Record<string, unknown>), ...mestre }
+
     const { error } = await supabase.from('social_packages').update({
       titulo_interno: texto(formData, 'tituloInterno'),
-      mestre,
+      mestre: mestreCompleto,
       mestre_file_ids: fileIds,
       agendar_para: agendarPara ? deBrasilia(agendarPara).toISOString() : null,
     }).eq('id', id).eq('workspace_id', context.workspace.id)
