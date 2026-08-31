@@ -178,7 +178,7 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
     const base = textoParaRede(mestre.corpo || destino.corpo || '').texto
     if (base.length < 20) throw new Error('Escreva o texto-mestre antes de pedir a adaptação.')
 
-    const proposta = await adaptarTexto({
+    const { texto: proposta } = await adaptarTexto({
       texto: base,
       canal: canal.nome,
       formato: formato.rotulo,
