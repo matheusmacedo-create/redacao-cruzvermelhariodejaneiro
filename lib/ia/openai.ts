@@ -75,17 +75,26 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs: number): Pr
     clearTimeout(relogio)
   }
 
-  const dados = await res.json().catch(() => null)
+  // Lê como texto primeiro: nem toda recusa vem da OpenAI. Um proxy de rede
+  // ou um WAF no caminho responde em texto puro, e um JSON.parse silencioso
+  // trocaria esse motivo — que diz exatamente o que fazer — por "recusou a
+  // chamada". Foi o que aconteceu no primeiro teste.
+  const bruto = await res.text()
+  let dados: unknown = null
+  try { dados = bruto ? JSON.parse(bruto) : null } catch { dados = null }
+
   if (!res.ok) {
-    const mensagem = (dados as { error?: { message?: string } })?.error?.message
+    const daApi = (dados as { error?: { message?: string } })?.error?.message
+    const motivo = daApi || bruto.trim().slice(0, 300) || 'A OpenAI recusou a chamada.'
     // 404 num endpoint que existe quase sempre é nome de modelo aposentado —
     // dizer isso poupa a caçada.
     const dica = res.status === 404
       ? ' Confira o nome do modelo em /api/admin/ia-check: a OpenAI aposenta nomes com frequência.'
-      : res.status === 401 ? ' A chave foi recusada — confira OPENAI_API_KEY.'
+      : res.status === 401 ? ' Confira OPENAI_API_KEY.'
       : res.status === 429 ? ' Cota ou limite de uso atingido no painel da OpenAI.'
+      : !daApi ? ' A resposta não veio da OpenAI: há algo na rede entre o servidor e api.openai.com.'
       : ''
-    throw new IaError(`${semChave(mensagem || 'A OpenAI recusou a chamada.')}${dica}`, res.status)
+    throw new IaError(`${semChave(motivo)}${dica}`, res.status)
   }
   return dados as T
 }
@@ -185,10 +194,12 @@ export async function adaptarTexto(pedido: {
 export async function modelosDisponiveis(): Promise<string[]> {
   const chave = chaveDaIa()
   const res = await fetch(`${BASE}/models`, { headers: { Authorization: `Bearer ${chave}` } })
-  const dados = await res.json().catch(() => null)
+  const bruto = await res.text()
+  let dados: unknown = null
+  try { dados = bruto ? JSON.parse(bruto) : null } catch { dados = null }
   if (!res.ok) {
-    const mensagem = (dados as { error?: { message?: string } })?.error?.message
-    throw new IaError(semChave(mensagem || 'Não foi possível listar os modelos.'), res.status)
+    const daApi = (dados as { error?: { message?: string } })?.error?.message
+    throw new IaError(semChave(daApi || bruto.trim().slice(0, 300) || 'Não foi possível listar os modelos.'), res.status)
   }
   return ((dados as { data?: { id?: string }[] })?.data ?? [])
     .map((m) => m.id ?? '')
