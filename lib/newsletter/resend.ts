@@ -129,6 +129,14 @@ export type Mensagem = {
    * exige que a pessoa saia sem mais nenhuma tela.
    */
   urlDeSaidaEmUmClique: string
+  /**
+   * Quando entregar, em ISO 8601. Ausente = agora.
+   *
+   * O agendamento é do Resend, não nosso: guardar a mensagem para enviar
+   * depois exigiria um processo vivo, que uma função sem estado não tem. Sem
+   * isto, um destino agendado sairia na hora — e e-mail enviado não volta.
+   */
+  agendarPara?: string
 }
 
 function corpoDaMensagem(m: Mensagem) {
@@ -139,6 +147,7 @@ function corpoDaMensagem(m: Mensagem) {
     html: m.html,
     text: m.texto,
     ...(respostaPara() ? { reply_to: respostaPara() } : {}),
+    ...(m.agendarPara ? { scheduled_at: m.agendarPara } : {}),
     headers: {
       'List-Unsubscribe': `<${m.urlDeSaidaEmUmClique}>`,
       'List-Unsubscribe-Post': 'List=One-Click',

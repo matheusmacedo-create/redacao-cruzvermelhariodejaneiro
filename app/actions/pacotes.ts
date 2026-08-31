@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
-import { adapter, formatoDoAdapter, type Mestre } from '@/lib/publicacao/canais'
+import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/publicacao/canais'
+import { textoParaRede } from '@/lib/publicacao/texto-plano'
+import { enviarEdicao } from '@/lib/newsletter/envio'
 import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/variantes'
 
 /**
@@ -480,7 +482,8 @@ export async function estimarCota(formData: FormData): Promise<ResultadoDoHub & 
 
     const sociais = (destinos ?? [])
       .filter((d) => d.estado === 'pronta' || incluirIds.has(d.id))
-      .filter((d) => d.canal !== 'site_web') as DestinoParaDisparo[]
+      // Só rede consome cota: site e newsletter são canais próprios.
+      .filter((d) => ehCanalDeRede(d.canal)) as DestinoParaDisparo[]
     const grupos = new Set(sociais.map((d) => chaveDoGrupo(d, pacote.agendar_para))).size
     return { grupos }
   } catch (causa) {
@@ -575,6 +578,10 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     let falhas = 0
     const mestre = lerMestre(pacote.mestre)
     let linkDaMateria = mestre.linkUrl ?? ''
+    // A capa da newsletter só pode ser uma imagem PÚBLICA — cliente de e-mail
+    // não autentica, e a Biblioteca é privada. Publicar no site é o que torna
+    // essas imagens públicas, então é de lá que a capa sai.
+    let imagensDoSite: string[] = []
 
     // ---- 1. Site primeiro ----
     const site = prontos.find((d) => d.canal === 'site_web')
@@ -598,12 +605,70 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       } else {
         publicados++
         linkDaMateria = resultado.url ?? linkDaMateria
+        imagensDoSite = resultado.imagens ?? []
         await marcar([site.id], { estado: 'publicada', external_url: resultado.url ?? null, erro: resultado.aviso?.slice(0, 500) ?? null })
       }
     }
 
+    // ---- 1.5. Newsletter, depois do site ----
+    // A ordem importa: o botão "ler a matéria completa" precisa de uma página
+    // que já esteja no ar. Antes do site, o e-mail sairia com link morto — e
+    // e-mail, ao contrário de post, não dá para editar depois de enviado.
+    const boletim = prontos.find((d) => d.canal === 'newsletter')
+    if (boletim) {
+      await marcar([boletim.id], { estado: 'publicando' })
+      const extras = (boletim.extras ?? {}) as Record<string, string>
+      const { texto } = textoParaRede(boletim.corpo || mestre.corpo || '')
+      // Destino com horário próprio manda; senão vale o do pacote.
+      const quandoOBoletim = boletim.agendar_para ?? pacote.agendar_para ?? undefined
+
+      const remessa = await enviarEdicao(context.workspace.id, {
+        assunto: extras.assunto || mestre.titulo || 'Novidades da Cruz Vermelha RJ',
+        chamada: extras.chamada,
+        paragrafos: texto.split(/\n{2,}/).map((p: string) => p.replace(/\n/g, ' ').trim()).filter(Boolean),
+        // Só oferece o botão quando há página de verdade para ele apontar.
+        urlDaMateria: linkDaMateria || undefined,
+        rotuloDoBotao: extras.rotuloDoBotao,
+        // Sem site publicado não há imagem pública, e a edição sai sem capa —
+        // melhor do que sair com um quadro quebrado em toda caixa de entrada.
+        imagemUrl: imagensDoSite[0],
+        // Sem isto, um destino agendado sairia na hora. E-mail enviado não volta.
+        agendarPara: quandoOBoletim,
+      })
+
+      if (remessa.erro) {
+        falhas++
+        await marcar([boletim.id], { estado: 'falhou', erro: remessa.erro.slice(0, 500) })
+      } else {
+        publicados++
+        await marcar([boletim.id], {
+          // Agendada fica na fila: dizer "publicada" antes da hora seria uma
+          // mentira que o calendário repetiria.
+          estado: remessa.agendada ? 'na_fila' : 'publicada',
+          erro: null,
+          // Não há URL externa numa remessa de e-mail; o que importa registrar
+          // é para quantas pessoas ela foi.
+          external_url: `${remessa.enviados} destinatário${remessa.enviados === 1 ? '' : 's'}`,
+        })
+
+        if (quandoOBoletim) {
+          const dia = new Date(quandoOBoletim)
+          const dataLocal = new Date(dia.getTime() - 3 * 60 * 60 * 1000)
+          await supabase.from('calendar_events').insert({
+            workspace_id: context.workspace.id,
+            title: pacote.titulo_interno || extras.assunto || 'Newsletter agendada',
+            event_date: dataLocal.toISOString().slice(0, 10),
+            event_time: dataLocal.toISOString().slice(11, 16),
+            type: 'publicacao',
+            channel: adapter('newsletter')?.nome ?? 'Newsletter',
+            created_by: context.user.id,
+          })
+        }
+      }
+    }
+
     // ---- 2. Redes, agrupadas por payload idêntico ----
-    const sociais = prontos.filter((d) => d.canal !== 'site_web')
+    const sociais = prontos.filter((d) => ehCanalDeRede(d.canal))
     const grupos = new Map<string, DestinoParaDisparo[]>()
     for (const d of sociais) {
       // Rede que usa a URL da matéria espera o site sair. Se o site falhou,
@@ -803,7 +868,8 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
     if (pacoteId) consulta = consulta.eq('package_id', pacoteId)
     const { data: destinos } = await consulta
 
-    const pendentes = (destinos ?? []).filter((d) => d.canal !== 'site_web')
+    // Canal próprio não tem job no Upload-Post para consultar.
+    const pendentes = (destinos ?? []).filter((d) => ehCanalDeRede(d.canal))
     if (!pendentes.length) return { mudou: 0 }
 
     // Gravar em silêncio é como um destino fica preso em "publicando" para

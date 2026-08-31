@@ -13,6 +13,17 @@ export type ResultadoDoSite = {
   /** O que a conferência pós-publicação viu: true = página no ar, false = o
    *  endereço público respondeu erro, undefined = não deu para conferir. */
   paginaNoAr?: boolean
+  /**
+   * As imagens que subiram junto com a página, já no endereço público.
+   *
+   * Existe para a newsletter: cliente de e-mail não autentica, então a capa da
+   * edição não pode sair da Biblioteca (que é privada) — tem de ser uma URL
+   * que qualquer um abre. Publicar no site é o que torna essas imagens
+   * públicas, e é daqui que a remessa pega a primeira.
+   *
+   * Só imagens: vídeo não se exibe em e-mail.
+   */
+  imagens?: string[]
 }
 
 /** Endereço público da pasta que guarda as matérias. Sem ele não há canônica,
@@ -115,6 +126,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const arquivos = new Map<string, ArquivoLocal>()
     const paraSubir: { nome: string; bytes: Buffer }[] = []
     let n = 0
+    const imagensPublicadas: string[] = []
 
     for (const bloco of blocos) {
       if (bloco.type !== 'image' && bloco.type !== 'video' && bloco.type !== 'audio') continue
@@ -137,6 +149,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
       arquivos.set(bloco.url, { nome, alt: bloco.alt })
       paraSubir.push({ nome, bytes })
+      if (tipo.startsWith('image/')) imagensPublicadas.push(nome)
     }
 
     const agora = new Date()
@@ -188,7 +201,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       metadata: { url, midias: paraSubir.length },
     })
 
-    return { url, aviso, paginaNoAr }
+    return { url, aviso, paginaNoAr, imagens: imagensPublicadas.map((nome) => `${base}/${slug}/${nome}`) }
   } catch (causa) {
     if (causa instanceof FtpConfigError) {
       return { erro: `${causa.message} Cadastre-as em Vercel → Environment Variables.` }

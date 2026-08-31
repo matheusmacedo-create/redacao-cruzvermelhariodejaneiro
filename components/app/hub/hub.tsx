@@ -11,7 +11,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from '@/lib/publicacao/canais'
+import { ehCanalDeRede, ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from '@/lib/publicacao/canais'
+import { emailDaNewsletter } from '@/lib/newsletter/modelo'
 import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
@@ -120,7 +121,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   // sem endereço do post, sem a falha posterior, e com o agendado parado em
   // "na fila". A conferência roda ao abrir, só quando há o que confirmar.
   const precisaConferir = destinos.some((d) =>
-    d.canal !== 'site_web'
+    ehCanalDeRede(d.canal)
     && (d.estado === 'na_fila' || d.estado === 'publicando'
         || (d.estado === 'publicada' && !d.externalUrl)))
   const jaConferiu = useRef(false)
@@ -634,7 +635,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               {modalPublicar.grupos === null
                 ? 'Calculando a cota…'
                 : <>Este envio consome <strong className="text-foreground">{modalPublicar.grupos} publicaç{modalPublicar.grupos === 1 ? 'ão' : 'ões'}</strong> do plano do Upload-Post
-                  {[...destinos.filter((d) => d.estado === 'pronta'), ...elegiveis.filter((d) => incluidos.includes(d.id))].some((d) => d.canal === 'site_web') ? ' (o site não conta na cota)' : ''}.
+                  {[...destinos.filter((d) => d.estado === 'pronta'), ...elegiveis.filter((d) => incluidos.includes(d.id))].some((d) => !ehCanalDeRede(d.canal)) ? ' (site e newsletter não contam na cota)' : ''}.
                   {' '}Destinos com o mesmo texto e mídia saem numa chamada só.</>}
             </p>
             <div className="mt-5 flex justify-end gap-2">
@@ -753,7 +754,9 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
     const termo = semAcento(busca.trim())
     return ADAPTERS
       .map((canal) => {
-        const conectado = canal.id === 'site_web' || conectadas === null || conectadas.includes(canal.id)
+        // Canal próprio da instituição não depende de conexão com o
+        // Upload-Post: o site sai por FTP e a newsletter, pelo Resend.
+        const conectado = !ehCanalDeRede(canal.id) || conectadas === null || conectadas.includes(canal.id)
         // Buscar pelo nome do canal traz todos os formatos dele; buscar por um
         // formato ("reels") traz só o formato procurado.
         const canalCasa = !termo || semAcento(canal.nome).includes(termo)
@@ -2119,6 +2122,9 @@ function PreviaDestino({ destino, arquivoPorId, mestre }: {
   if (destino.canal === 'site_web') {
     return <PreviaSite destino={destino} mestre={mestre} arquivoPorId={arquivoPorId} />
   }
+  if (destino.canal === 'newsletter') {
+    return <PreviaNewsletter destino={destino} mestre={mestre} arquivoPorId={arquivoPorId} />
+  }
   // A key remonta a prévia ao trocar de destino — é o que devolve o carrossel
   // ao primeiro slide, sem um efeito zerando estado depois do desenho.
   return <PreviaRede key={destino.id} destino={destino} arquivoPorId={arquivoPorId} />
@@ -2170,6 +2176,53 @@ function PreviaSite({ destino, mestre, arquivoPorId }: {
         <span className="truncate font-mono text-[10px] text-muted-foreground">/noticias/{destino.extras.slug || '…'}/</span>
       </div>
       <iframe srcDoc={html} title="Prévia da página no site" sandbox="allow-same-origin" className="h-96 w-full bg-white" />
+    </Card>
+  )
+}
+
+/**
+ * A prévia da newsletter É o gerador real, como a do site: o mesmo módulo que
+ * monta a mensagem enviada renderiza dentro do iframe. Prévia que diverge do
+ * que sai seria pior aqui do que em qualquer outro canal — e-mail enviado não
+ * se corrige.
+ *
+ * A capa aparece só quando o pacote também publica no site, porque é a
+ * publicação no site que torna a imagem pública: cliente de e-mail não
+ * autentica, e a Biblioteca é privada. A prévia mostra a imagem local para dar
+ * a ideia do enquadramento, com o aviso ao lado.
+ */
+function PreviaNewsletter({ destino, mestre, arquivoPorId }: {
+  destino: DestinoRegistro
+  mestre: { titulo: string; subtitulo: string }
+  arquivoPorId: Map<string, ArquivoDaBiblioteca>
+}) {
+  const capa = destino.fileIds
+    .map((id) => arquivoPorId.get(id))
+    .find((a): a is ArquivoDaBiblioteca => Boolean(a) && a!.tipo === 'foto')
+
+  const html = useMemo(() => emailDaNewsletter({
+    titulo: destino.extras.assunto || mestre.titulo || 'Sem assunto',
+    chamada: destino.extras.chamada,
+    paragrafos: (destino.corpo || '').split(/\n{2,}/).map((p) => p.replace(/\n/g, ' ').trim()).filter(Boolean),
+    urlDaMateria: 'https://cruzvermelhariodejaneiro.org/noticias/exemplo/',
+    rotuloDoBotao: destino.extras.rotuloDoBotao,
+    imagemUrl: capa?.previa,
+    urlDeSaida: 'https://redacao.cruzvermelhariodejaneiro.org/newsletter/sair?t=previa',
+  }).html, [destino, mestre, capa])
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prévia do e-mail</p>
+        <span className="truncate text-[10px] text-muted-foreground">
+          Assunto: {destino.extras.assunto || '(vazio)'}
+        </span>
+      </div>
+      <iframe srcDoc={html} title="Prévia da newsletter" sandbox="allow-same-origin" className="h-96 w-full bg-white" />
+      <p className="border-t border-border px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        O botão só aparece no envio real se o pacote também publicar no site.
+        {capa ? ' A capa também depende disso: e-mail não abre imagem da Biblioteca, que é privada.' : ''}
+      </p>
     </Card>
   )
 }
