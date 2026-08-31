@@ -18,6 +18,17 @@
 
 export type Origem = 'comentario' | 'dm'
 
+/** Uma fala dentro de uma conversa de DM, para a tela desenhar o chat. */
+export type Fala = {
+  id: string
+  texto: string
+  /** ISO 8601, ou vazio quando a rede não informou. */
+  quando: string
+  /** true quando quem falou fomos nós — o balão muda de lado. */
+  nossa: boolean
+  autor: string
+}
+
 export type Mensagem = {
   /** Identidade estável, para não duplicar entre atualizações da tela. */
   id: string
@@ -49,6 +60,12 @@ export type Mensagem = {
   aguardandoResposta?: boolean
   /** Não deu para saber quem é quem na conversa; a tela avisa em vez de mentir. */
   identidadeIncerta?: boolean
+  /**
+   * A conversa inteira, da mais antiga para a mais recente. Só em DM: é o que
+   * deixa a tela abrir o chat como ele aparece na rede, em vez de mostrar uma
+   * fala solta sem o antes e o depois.
+   */
+  conversa?: Fala[]
 }
 
 /** Primeiro valor não vazio entre os caminhos dados. */
@@ -199,6 +216,15 @@ export function normalizarConversas(
     // conversa está em dia — continua listada, mas sem urgência.
     const aguardando = !nossa
 
+    // O chat da tela, na ordem em que a conversa aconteceu.
+    const falas: Fala[] = [...ordenadas].reverse().map((m, i) => ({
+      id: primeiro(m, ID) || `fala:${i}`,
+      texto: primeiro(m, TEXTO) || '(mensagem sem texto — pode ser foto ou áudio)',
+      quando: normalizarData(primeiro(m, QUANDO)),
+      nossa: souEu(primeiro(m, ['from.id']), primeiro(m, ['from.username', 'from.name'])),
+      autor: primeiro(m, ['from.username', 'from.name']) || 'Sem nome',
+    }))
+
     return [{
       id: `dm:${canal}:${primeiro(conversa, ['id']) || destinatarioId}`,
       canal,
@@ -210,6 +236,7 @@ export function normalizarConversas(
       destinatarioId,
       respondivel: Boolean(destinatarioId) && dentroDaJanela,
       aguardandoResposta: aguardando,
+      conversa: falas,
       ...(sabemosQuemSomos ? {} : { identidadeIncerta: true }),
       motivo: !destinatarioId
         ? 'Não identifiquei para quem responder nesta conversa.'
