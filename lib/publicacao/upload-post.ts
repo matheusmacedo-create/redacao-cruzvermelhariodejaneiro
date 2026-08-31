@@ -87,7 +87,17 @@ function lerLimites(res: Response): LimiteDeUso {
   }
 }
 
-type Chamada = { method?: string; json?: unknown; form?: FormData; headers?: Record<string, string> }
+export type Chamada = { method?: string; json?: unknown; form?: FormData; headers?: Record<string, string> }
+
+/**
+ * Exportada para o módulo de atendimento (comentários e DMs) reusar a mesma
+ * autenticação, o mesmo tratamento de erro e a mesma leitura de limites. Um
+ * segundo cliente HTTP para a mesma API significaria dois lugares para o
+ * segredo vazar e dois formatos de erro para a tela entender.
+ */
+export async function chamarUploadPost<T>(caminho: string, opcoes: Chamada = {}): Promise<{ dados: T; limites: LimiteDeUso }> {
+  return chamar<T>(caminho, opcoes)
+}
 
 async function chamar<T>(caminho: string, opcoes: Chamada = {}): Promise<{ dados: T; limites: LimiteDeUso }> {
   const headers: Record<string, string> = {
