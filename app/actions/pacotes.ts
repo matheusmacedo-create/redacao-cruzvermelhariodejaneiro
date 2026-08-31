@@ -342,6 +342,29 @@ export async function realimentarDestino(formData: FormData): Promise<ResultadoD
 }
 
 /**
+ * Tipo de cada arquivo, para a validação saber se a mídia serve ao formato.
+ *
+ * Sem isto, mandar vídeo a um formato que só aceita foto — ou o contrário —
+ * só falharia na resposta da API, com uma mensagem que ninguém decifra.
+ */
+async function tiposDosArquivos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  ids: string[],
+): Promise<Record<string, 'foto' | 'video'>> {
+  const unicos = [...new Set(ids)].filter(Boolean)
+  if (!unicos.length) return {}
+  const { data } = await supabase
+    .from('files').select('id,file_type')
+    .eq('workspace_id', workspaceId).in('id', unicos)
+  return Object.fromEntries(
+    (data ?? [])
+      .filter((f) => f.file_type === 'foto' || f.file_type === 'video')
+      .map((f) => [f.id, f.file_type as 'foto' | 'video']),
+  )
+}
+
+/**
  * Marca um destino como pronto para disparo. A conferência roda AQUI, com o
  * mesmo validar() do adapter que a tela usa — o botão desabilitado do
  * navegador não é autoridade.
@@ -364,6 +387,7 @@ export async function marcarPronta(formData: FormData): Promise<ResultadoDoHub> 
       { corpo: destino.corpo ?? '', extras: (destino.extras ?? {}) as Record<string, string>, fileIds: destino.file_ids ?? [] },
       destino.canal,
       destino.formato,
+      await tiposDosArquivos(supabase, context.workspace.id, destino.file_ids ?? []),
     )
     if (temErro(avisos)) {
       const erros = avisos.filter((a) => a.nivel === 'erro').map((a) => a.mensagem).join(' · ')
@@ -515,13 +539,19 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       .in('estado', ['pronta', 'gerada', 'em_ajuste'])
     const todas = (linhas ?? []) as (DestinoParaDisparo & { estado: string })[]
 
+    const tipos = await tiposDosArquivos(
+      supabase,
+      context.workspace.id,
+      todas.flatMap((d) => d.file_ids ?? []),
+    )
+
     const prontos: typeof todas = []
     for (const d of todas) {
       if (d.estado === 'pronta') { prontos.push(d); continue }
       if (!incluirIds.has(d.id)) continue
       const avisos = validarVariante(
         { corpo: d.corpo ?? '', extras: (d.extras ?? {}) as Record<string, string>, fileIds: d.file_ids ?? [] },
-        d.canal, d.formato,
+        d.canal, d.formato, tipos,
       )
       if (temErro(avisos)) continue   // com erro não vai, mesmo pedido
       await supabase.from('package_destinations').update({ estado: 'pronta' })

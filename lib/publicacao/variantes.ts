@@ -1,5 +1,6 @@
 import { contar, type UnidadeDeTexto } from '@/lib/publicacao/contagem'
 import { adapter, formatoDoAdapter, type Aviso, type Mestre, type Variante } from '@/lib/publicacao/canais'
+import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 
 /**
  * Gera e valida a variante de um destino a partir do Mestre.
@@ -21,11 +22,17 @@ export function gerarVariante(mestre: Mestre, canalId: string, formatoId: string
   if (!formato) throw new Error(`${canal.nome} não publica no formato ${formatoId}.`)
 
   const extras: Record<string, string> = {}
-  let corpo = mestre.corpo.trim()
+  // O mestre é escrito no formato da matéria. A página do site entende esse
+  // formato; nenhuma rede social entende — lá a marcação sai literal na
+  // legenda. Converter aqui, antes de contar e de enxugar, é o que faz o
+  // contador medir o texto que a rede vai receber de fato.
+  let corpo = canalId === 'site_web' ? mestre.corpo.trim() : textoParaRede(mestre.corpo).texto
 
   // 1. Link do mestre entra no fim do corpo quando o canal não tem campo
-  //    próprio de link (nas redes atuais, é sempre no corpo).
-  if (mestre.linkUrl && canalId !== 'site_web' && !corpo.includes(mestre.linkUrl)) {
+  //    próprio de link (nas redes atuais, é sempre no corpo). O X fica de
+  //    fora: o conector apaga endereços clicáveis antes de publicar, então
+  //    colar o link ali só deixaria um parágrafo vazio no tuíte.
+  if (mestre.linkUrl && canalId !== 'site_web' && canalId !== 'x' && !corpo.includes(mestre.linkUrl)) {
     corpo = corpo ? `${corpo}\n\n${mestre.linkUrl}` : mestre.linkUrl
   }
 
@@ -56,7 +63,20 @@ export function gerarVariante(mestre: Mestre, canalId: string, formatoId: string
   return { variante, avisos: validarVariante(variante, canalId, formatoId) }
 }
 
-export function validarVariante(variante: Variante, canalId: string, formatoId: string): Aviso[] {
+/**
+ * Confere a variante contra o contrato do canal.
+ *
+ * `tipoPorArquivo` é opcional porque nem todo chamador tem a Biblioteca em
+ * mãos; quando vem, as regras de vídeo do formato passam a valer de verdade —
+ * mandar vídeo para um formato que só aceita foto falha na API com uma
+ * mensagem que ninguém decifra.
+ */
+export function validarVariante(
+  variante: Variante,
+  canalId: string,
+  formatoId: string,
+  tipoPorArquivo?: Record<string, 'foto' | 'video'>,
+): Aviso[] {
   const canal = adapter(canalId)
   if (!canal) return [{ nivel: 'erro', mensagem: `Canal desconhecido: ${canalId}` }]
   const formato = formatoDoAdapter(canal, formatoId)
@@ -83,6 +103,26 @@ export function validarVariante(variante: Variante, canalId: string, formatoId: 
   }
   if (variante.fileIds.length > formato.midia.max) {
     avisos.push({ nivel: 'erro', mensagem: `${variante.fileIds.length} mídias; o máximo é ${formato.midia.max}.` })
+  }
+
+  if (tipoPorArquivo) {
+    const tipos = variante.fileIds.map((id) => tipoPorArquivo[id]).filter(Boolean)
+    if (formato.midia.video === 'obrigatorio' && tipos.some((t) => t !== 'video')) {
+      avisos.push({ nivel: 'erro', mensagem: 'Este formato aceita apenas vídeo.' })
+    }
+    if (formato.midia.video === 'nao' && tipos.some((t) => t === 'video')) {
+      avisos.push({ nivel: 'erro', mensagem: 'Este formato não aceita vídeo — só foto.' })
+    }
+  }
+
+  // Marcação da matéria numa legenda de rede social sai literal para o leitor.
+  // Aviso e não erro: pode ser uma legenda antiga, e travar a publicação por
+  // causa de um asterisco seria pior do que mostrar o problema.
+  if (canalId !== 'site_web' && temMarcacaoVisivel(variante.corpo)) {
+    avisos.push({
+      nivel: 'aviso',
+      mensagem: 'A legenda tem marcação de texto (**, ##, ![foto]) que a rede publica literalmente. Use "Limpar marcação".',
+    })
   }
 
   if (canal.validarExtras) avisos.push(...canal.validarExtras(variante, formatoId))
