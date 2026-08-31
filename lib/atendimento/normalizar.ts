@@ -66,6 +66,8 @@ export type Mensagem = {
    * fala solta sem o antes e o depois.
    */
   conversa?: Fala[]
+  /** Foto de perfil de quem escreveu, quando a rede devolve. */
+  foto?: string
 }
 
 /** Primeiro valor não vazio entre os caminhos dados. */
@@ -93,6 +95,12 @@ const QUANDO = ['timestamp', 'created_time', 'createdAt', 'created_at', 'snippet
 const AUTOR = ['user.username', 'from.name', 'from.username', 'author.name', 'actor.name', 'snippet.authorDisplayName', 'snippet.topLevelComment.snippet.authorDisplayName', 'username']
 const AUTOR_ID = ['user.id', 'from.id', 'author.id', 'actor', 'snippet.authorChannelId.value', 'snippet.topLevelComment.snippet.authorChannelId.value']
 const ID = ['id', 'comment_id', 'commentId', 'urn']
+const FOTO = [
+  'profile_pic_url', 'profile_picture_url', 'profile_pic', 'avatar_url',
+  'picture.data.url', 'user.profile_pic_url', 'from.profile_pic_url',
+  'from.picture.data.url', 'author.profileImageUrl',
+  'snippet.authorProfileImageUrl', 'snippet.topLevelComment.snippet.authorProfileImageUrl',
+]
 
 /**
  * Normaliza a lista de comentários de um post.
@@ -127,6 +135,7 @@ export function normalizarComentarios(
       origem: 'comentario' as const,
       autor: autor || 'Autor não informado',
       autorId,
+      ...(primeiro(item, FOTO) ? { foto: primeiro(item, FOTO) } : {}),
       texto: texto || '(não consegui ler o texto deste comentário — abra na rede)',
       quando: normalizarData(primeiro(item, QUANDO)),
       postId: contexto.postId,
@@ -207,10 +216,23 @@ export function normalizarConversas(
     const dentroDaJanela = horas <= JANELA_DE_RESPOSTA_HORAS
 
     // Quem responde é a outra ponta da conversa, não quem falou por último.
+    // A pessoa é procurada entre participantes E remetentes — o endpoint nem
+    // sempre devolve participants, e foi assim que a fila inteira apareceu
+    // assinada com o nome da própria filial. Quando nem a identidade se sabe,
+    // a aposta honesta é quem ABRIU a conversa: o público escreve primeiro
+    // para a instituição, não o contrário — e a tela avisa a incerteza.
     const participantes = (conversa.participants as { data?: unknown[] } | undefined)?.data ?? []
-    const outro = (Array.isArray(participantes) ? participantes : [])
-      .filter((p): p is Record<string, unknown> => Boolean(p) && typeof p === 'object')
-      .find((p) => !souEu(primeiro(p, ['id']), primeiro(p, ['username', 'name'])))
+    const candidatos: Record<string, unknown>[] = [
+      ...(Array.isArray(participantes) ? participantes : []),
+      ...[...ordenadas].reverse().map((m) => (m.from ?? {}) as Record<string, unknown>),
+    ].filter((p): p is Record<string, unknown> => Boolean(p) && typeof p === 'object')
+
+    const primeiraFala = ordenadas[ordenadas.length - 1]
+    const outro = sabemosQuemSomos
+      ? candidatos.find((p) =>
+          (primeiro(p, ['id']) || primeiro(p, ['username', 'name']))
+          && !souEu(primeiro(p, ['id']), primeiro(p, ['username', 'name'])))
+      : (primeiraFala?.from as Record<string, unknown> | undefined)
     const destinatarioId = outro ? primeiro(outro, ['id']) : (nossa ? '' : autorId)
     // A fila existe para mostrar quem espera. Se a última fala foi nossa, a
     // conversa está em dia — continua listada, mas sem urgência.
@@ -231,6 +253,7 @@ export function normalizarConversas(
       origem: 'dm' as const,
       autor: outro ? (primeiro(outro, ['username', 'name']) || autor) : autor,
       autorId: destinatarioId,
+      ...(fotoDe(outro, candidatos) ? { foto: fotoDe(outro, candidatos) } : {}),
       texto: primeiro(ultima, TEXTO) || '(mensagem sem texto — pode ser foto ou áudio)',
       quando: normalizarData(primeiro(ultima, QUANDO)),
       destinatarioId,
@@ -289,25 +312,38 @@ function quemSomosNesteLote(
   const ids = new Set<string>()
   const usuarios = new Set<string>()
   if (opcoes.nossoId) ids.add(opcoes.nossoId)
-  if (opcoes.nossoUsuario) usuarios.add(opcoes.nossoUsuario.toLowerCase())
-  if (ids.size || usuarios.size) return { ids, usuarios }
+  if (opcoes.nossoUsuario) usuarios.add(opcoes.nossoUsuario.replace(/^@/, '').toLowerCase())
 
-  // Conta em quantas CONVERSAS cada participante aparece (não quantas
-  // mensagens mandou: quem escreve muito numa conversa só não é a instituição).
+  // A dedução roda SEMPRE, mesmo com o perfil em mãos. O perfil pode devolver
+  // um nome de exibição em vez do @ — e um "quem somos" que não casa com nada
+  // é pior do que nenhum: cada conversa passa a apontar para o participante
+  // errado com toda a confiança do mundo.
+  //
+  // Conta em quantas CONVERSAS cada conta aparece — como participante OU como
+  // remetente (não quantas mensagens mandou: quem escreve muito numa conversa
+  // só não é a instituição). Os remetentes entram porque o endpoint nem sempre
+  // devolve participants, e sem eles a dedução ficava cega.
   const emQuantas = new Map<string, { conversas: number; usuario: string }>()
   for (const cru of conversas) {
     if (!cru || typeof cru !== 'object') continue
-    const participantes = (cru as { participants?: { data?: unknown[] } }).participants?.data
-    if (!Array.isArray(participantes)) continue
+    const conversa = cru as { participants?: { data?: unknown[] }; messages?: { data?: unknown[] } }
+    const gente = [
+      ...(Array.isArray(conversa.participants?.data) ? conversa.participants.data : []),
+      ...(Array.isArray(conversa.messages?.data) ? conversa.messages.data : [])
+        .map((m) => (m && typeof m === 'object' ? (m as Record<string, unknown>).from : undefined)),
+    ]
     const vistos = new Set<string>()
-    for (const p of participantes) {
+    for (const p of gente) {
       if (!p || typeof p !== 'object') continue
-      const id = primeiro(p as Record<string, unknown>, ['id'])
-      if (!id || vistos.has(id)) continue
-      vistos.add(id)
-      const registro = emQuantas.get(id) ?? { conversas: 0, usuario: primeiro(p as Record<string, unknown>, ['username', 'name']) }
+      const registroDe = p as Record<string, unknown>
+      const usuario = primeiro(registroDe, ['username', 'name'])
+      const chave = primeiro(registroDe, ['id']) || (usuario ? `usuario:${usuario.toLowerCase()}` : '')
+      if (!chave || vistos.has(chave)) continue
+      vistos.add(chave)
+      const registro = emQuantas.get(chave) ?? { conversas: 0, usuario }
       registro.conversas++
-      emQuantas.set(id, registro)
+      if (!registro.usuario && usuario) registro.usuario = usuario
+      emQuantas.set(chave, registro)
     }
   }
 
@@ -320,8 +356,32 @@ function quemSomosNesteLote(
   // na tela — não um palpite disfarçado de fato.
   if (primeiroLugar && primeiroLugar[1].conversas >= 2
       && (!segundoLugar || primeiroLugar[1].conversas > segundoLugar[1].conversas)) {
-    ids.add(primeiroLugar[0])
+    if (!primeiroLugar[0].startsWith('usuario:')) ids.add(primeiroLugar[0])
     if (primeiroLugar[1].usuario) usuarios.add(primeiroLugar[1].usuario.toLowerCase())
   }
   return { ids, usuarios }
+}
+
+/**
+ * A foto da pessoa: a que vier nela mesma, ou a de qualquer outra aparição
+ * dela na conversa (participante e remetente carregam campos diferentes).
+ */
+function fotoDe(
+  pessoa: Record<string, unknown> | undefined,
+  candidatos: Record<string, unknown>[],
+): string {
+  if (!pessoa) return ''
+  const direta = primeiro(pessoa, FOTO)
+  if (direta) return direta
+  const id = primeiro(pessoa, ['id'])
+  const usuario = primeiro(pessoa, ['username', 'name']).toLowerCase()
+  for (const c of candidatos) {
+    const mesmo = (id && primeiro(c, ['id']) === id)
+      || (usuario && primeiro(c, ['username', 'name']).toLowerCase() === usuario)
+    if (mesmo) {
+      const foto = primeiro(c, FOTO)
+      if (foto) return foto
+    }
+  }
+  return ''
 }

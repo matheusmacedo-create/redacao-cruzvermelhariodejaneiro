@@ -75,6 +75,52 @@ function iniciais(nome: string): string {
   return (partes[0][0] + (partes[1]?.[0] ?? '')).toUpperCase()
 }
 
+/** A foto de perfil quando a rede devolve; as iniciais quando não. */
+function Rosto({ nome, foto, classe, tamanho = 'size-9' }: {
+  nome: string
+  foto?: string
+  classe: string
+  tamanho?: string
+}) {
+  const [quebrou, setQuebrou] = useState(false)
+  if (foto && !quebrou) {
+    return (
+      // A foto vem da CDN da rede, fora dos domínios do next/image.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={foto}
+        alt=""
+        aria-hidden
+        onError={() => setQuebrou(true)}
+        className={cn('shrink-0 rounded-full object-cover', tamanho)}
+      />
+    )
+  }
+  return (
+    <span aria-hidden className={cn('flex shrink-0 items-center justify-center rounded-full text-xs font-bold', tamanho, classe)}>
+      {iniciais(nome)}
+    </span>
+  )
+}
+
+/**
+ * As conversas já abertas, lembradas no navegador: abrir marca como lida e a
+ * linha sossega (sem negrito, sem ponto). Guardado por aparelho — é o
+ * suficiente para a caixa parar de gritar o que a pessoa já viu.
+ */
+const CHAVE_LIDAS = 'caixa-de-entrada:lidas'
+
+function lerLidas(): Set<string> {
+  try {
+    const bruto = JSON.parse(localStorage.getItem(CHAVE_LIDAS) ?? '[]')
+    return new Set(Array.isArray(bruto) ? bruto.filter((x) => typeof x === 'string') : [])
+  } catch { return new Set() }
+}
+
+function guardarLidas(lidas: Set<string>) {
+  try { localStorage.setItem(CHAVE_LIDAS, JSON.stringify([...lidas].slice(-800))) } catch { /* modo privado */ }
+}
+
 /** Um material interno (formulário, e-mail encaminhado, registro de atividade). */
 export type ItemInterno = {
   id: string
@@ -119,7 +165,20 @@ export function CaixaDeAtendimento({
   /** As respostas que demos a comentários nesta sessão, por comentário. */
   const [ecosComentario, setEcosComentario] = useState<Record<string, { texto: string; quando: string }>>({})
   const [avisosAbertos, setAvisosAbertos] = useState(false)
+  const [lidas, setLidas] = useState<Set<string>>(new Set())
   const jaBuscou = useRef(false)
+
+  // Depois de montar, para não divergir do HTML do servidor.
+  useEffect(() => { setLidas(lerLidas()) }, [])
+
+  const marcarLida = useCallback((id: string) => {
+    setLidas((antes) => {
+      if (antes.has(id)) return antes
+      const novo = new Set(antes).add(id)
+      guardarLidas(novo)
+      return novo
+    })
+  }, [])
 
   const buscar = useCallback(async () => {
     setCarregando(true)
@@ -142,9 +201,11 @@ export function CaixaDeAtendimento({
   /** Uma DM respondida nesta sessão deixa de esperar, mesmo sem recarregar. */
   const aguardandoDm = (m: Mensagem) => m.aguardandoResposta !== false && !ecosDm[m.id]?.length
 
-  const esperandoDms = dms.filter(aguardandoDm).length
+  // O número da pasta é o que ainda não foi VISTO: abrir a conversa baixa o
+  // contador, mesmo antes de responder — como na rede.
+  const esperandoDms = dms.filter((m) => aguardandoDm(m) && !lidas.has(m.id)).length
   const esperandoComentarios = comentarios.filter((m) => !ecosComentario[m.comentarioId ?? m.id]).length
-  const novosInternos = internos.filter((i) => i.status === 'new').length
+  const novosInternos = internos.filter((i) => i.status === 'new' && !lidas.has(i.id)).length
 
   const contagem: Record<Pasta, number> = {
     mensagens: esperandoDms,
@@ -258,7 +319,13 @@ export function CaixaDeAtendimento({
                 aoEnviar={(texto) => enviarDm(dmAberta, texto)}
               />
             ) : (
-              <ListaDeConversas dms={dms} ecos={ecosDm} aoAbrir={setAbertoId} carregando={carregando} />
+              <ListaDeConversas
+                dms={dms}
+                ecos={ecosDm}
+                lidas={lidas}
+                aoAbrir={(id) => { marcarLida(id); setAbertoId(id) }}
+                carregando={carregando}
+              />
             )
           )}
 
@@ -277,7 +344,11 @@ export function CaixaDeAtendimento({
             internoAberto ? (
               <Leitura item={internoAberto} aoVoltar={() => setAbertoId(null)} />
             ) : (
-              <ListaDeInternos itens={internos} aoAbrir={setAbertoId} />
+              <ListaDeInternos
+                itens={internos}
+                lidas={lidas}
+                aoAbrir={(id) => { marcarLida(id); setAbertoId(id) }}
+              />
             )
           )}
         </section>
@@ -374,9 +445,10 @@ export function CaixaDeAtendimento({
 /* Pasta Mensagens: a lista de conversas e o chat                      */
 /* ================================================================== */
 
-function ListaDeConversas({ dms, ecos, aoAbrir, carregando }: {
+function ListaDeConversas({ dms, ecos, lidas, aoAbrir, carregando }: {
   dms: Mensagem[]
   ecos: Record<string, Fala[]>
+  lidas: Set<string>
   aoAbrir: (id: string) => void
   carregando: boolean
 }) {
@@ -384,37 +456,41 @@ function ListaDeConversas({ dms, ecos, aoAbrir, carregando }: {
     return <Vazio texto={carregando ? 'Buscando conversas…' : 'Nenhuma mensagem direta nas conversas recentes.'} />
   }
 
-  // Quem espera vem primeiro; conversa em dia continua acessível, atrás.
-  const ordenadas = [...dms].sort((a, b) => {
-    const ea = a.aguardandoResposta !== false && !ecos[a.id]?.length ? 0 : 1
-    const eb = b.aguardandoResposta !== false && !ecos[b.id]?.length ? 0 : 1
-    return ea - eb
-  })
+  // Não lida vem primeiro; depois a lida que ainda espera; a em dia, atrás.
+  const peso = (m: Mensagem) => {
+    const espera = m.aguardandoResposta !== false && !ecos[m.id]?.length
+    if (espera && !lidas.has(m.id)) return 0
+    if (espera) return 1
+    return 2
+  }
+  const ordenadas = [...dms].sort((a, b) => peso(a) - peso(b))
 
   return (
     <ul className="divide-y divide-border">
       {ordenadas.map((m) => {
         const emDia = m.aguardandoResposta === false || Boolean(ecos[m.id]?.length)
+        const naoLida = !emDia && !lidas.has(m.id)
         const eco = ecos[m.id]?.at(-1)
         return (
           <li key={m.id}>
             <button
               onClick={() => aoAbrir(m.id)}
-              className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40"
+              className={cn(
+                'flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40',
+                !naoLida && 'opacity-60 hover:opacity-100',
+              )}
             >
-              <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-pink-500/12 text-sm font-bold text-pink-700">
-                {iniciais(m.autor)}
-              </span>
+              <Rosto nome={m.autor} foto={m.foto} classe="bg-pink-500/12 text-pink-700" tamanho="size-11" />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
-                  <span className={cn('truncate', emDia ? 'font-medium' : 'font-bold')}>{m.autor}</span>
+                  <span className={cn('truncate', naoLida ? 'font-bold' : 'font-medium')}>@{m.autor}</span>
                   <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{quando(eco?.quando ?? m.quando)}</span>
                 </span>
-                <span className={cn('mt-0.5 block truncate text-sm', emDia ? 'text-muted-foreground' : 'text-foreground')}>
+                <span className={cn('mt-0.5 block truncate text-sm', naoLida ? 'text-foreground' : 'text-muted-foreground')}>
                   {eco ? `Você: ${eco.texto}` : m.conversa?.at(-1)?.nossa ? `Você: ${m.texto}` : m.texto}
                 </span>
               </span>
-              {!emDia && <span aria-label="Esperando resposta" className="size-2.5 shrink-0 rounded-full bg-primary" />}
+              {naoLida && <span aria-label="Não lida" className="size-2.5 shrink-0 rounded-full bg-primary" />}
             </button>
           </li>
         )
@@ -446,9 +522,7 @@ function Conversa({ mensagem, ecos, aoVoltar, aoEnviar }: {
         <button onClick={aoVoltar} aria-label="Voltar para as conversas" className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
           <ArrowLeft className="size-4" />
         </button>
-        <span aria-hidden className="flex size-9 items-center justify-center rounded-full bg-pink-500/12 text-xs font-bold text-pink-700">
-          {iniciais(mensagem.autor)}
-        </span>
+        <Rosto nome={mensagem.autor} foto={mensagem.foto} classe="bg-pink-500/12 text-pink-700" />
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 truncate font-semibold"><AtSign className="size-3.5 text-muted-foreground" />{mensagem.autor}</p>
           <p className="text-[11px] text-muted-foreground">Instagram · mensagem direta</p>
@@ -612,8 +686,8 @@ function Comentario({ mensagem, escondido, eco, aoResponder, aoEsconder }: {
   return (
     <li className={cn('px-4 py-3', escondido && 'opacity-55')}>
       <div className="flex gap-3">
-        <span aria-hidden className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', r.classe)}>
-          {iniciais(mensagem.autor)}
+        <span className="mt-0.5">
+          <Rosto nome={mensagem.autor} foto={mensagem.foto} classe={r.classe} tamanho="size-8" />
         </span>
         <div className="min-w-0 flex-1">
           {/* como na rede: nome e texto na mesma linha de leitura */}
@@ -695,19 +769,26 @@ function Comentario({ mensagem, escondido, eco, aoResponder, aoEsconder }: {
 /* Pasta E-mail e materiais: lista e leitura, como um e-mail           */
 /* ================================================================== */
 
-function ListaDeInternos({ itens, aoAbrir }: { itens: ItemInterno[]; aoAbrir: (id: string) => void }) {
+function ListaDeInternos({ itens, lidas, aoAbrir }: {
+  itens: ItemInterno[]
+  lidas: Set<string>
+  aoAbrir: (id: string) => void
+}) {
   if (!itens.length) {
     return <Vazio texto="Nenhum material recebido. O que chegar por formulário ou registro aparece aqui." />
   }
   return (
     <ul className="divide-y divide-border">
       {itens.map((item) => {
-        const novo = item.status === 'new'
+        const novo = item.status === 'new' && !lidas.has(item.id)
         return (
           <li key={item.id}>
             <button
               onClick={() => aoAbrir(item.id)}
-              className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40"
+              className={cn(
+                'flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-muted/40',
+                !novo && 'opacity-60 hover:opacity-100',
+              )}
             >
               <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
                 {iniciais(item.remetente || item.titulo)}
