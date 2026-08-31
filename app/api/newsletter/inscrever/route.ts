@@ -50,13 +50,17 @@ export const dynamic = 'force-dynamic'
 const RECADO = 'Quase lá! Enviamos um e-mail para você confirmar a inscrição. Confira também a caixa de spam.'
 
 /**
- * O recado de quando ainda não há por onde enviar.
+ * O recado de quando o convite NÃO saiu.
  *
- * Enquanto o RESEND_API_KEY não existir, o endereço é guardado mas nenhum
- * convite sai. Responder "confira seu e-mail" nesse estado seria mandar a
- * pessoa esperar por uma mensagem que não vem — e ela concluiria que a
- * inscrição falhou. O endereço fica registrado e o convite é enviado quando o
- * envio for ligado; é isso que a resposta diz.
+ * Vale para os dois jeitos de não sair: a chave do Resend ainda não existe, ou
+ * ela existe e a chamada falhou (domínio não verificado é a causa nº 1). Nos
+ * dois casos o endereço está guardado — o que muda é o que se diz a quem está
+ * do outro lado.
+ *
+ * Responder "confira seu e-mail" quando o e-mail comprovadamente não saiu é
+ * mandar a pessoa esperar por uma mensagem que não vem; ela conclui que a
+ * inscrição falhou e vai embora. Este texto diz a verdade sem expor a falha
+ * técnica, e o cadastro segue valendo.
  */
 const RECADO_SEM_ENVIO = 'Recebemos seu cadastro! O e-mail de confirmação será enviado assim que nosso envio de newsletter entrar no ar.'
 
@@ -224,7 +228,11 @@ export async function POST(request: NextRequest) {
       urlDeSaidaEmUmClique: urlDeSaidaEmUmClique(gravado.token_descadastro as string),
     })
   } catch (causa) {
+    // O cadastro fica: perder o endereço de quem quis se inscrever seria o
+    // único erro irreversível aqui. Mas a resposta muda — dizer "enviamos" de
+    // um e-mail que não saiu é a promessa que este projeto começou consertando.
     console.error('[newsletter] convite não saiu:', semChave(causa instanceof Error ? causa.message : String(causa)))
+    return responder(true, RECADO_SEM_ENVIO)
   }
 
   return responder(true, RECADO)
