@@ -5,16 +5,19 @@ import { requireWorkspace } from '@/lib/session'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { lerPauta } from '@/lib/cerebro/cliente'
-import { DESTINO_POR_CANAL, type PautaDoCerebro } from '@/lib/cerebro/contrato'
 import { trazerCapa } from '@/lib/cerebro/midia'
+import { capaPodeIrParaPeca, mestreDaPauta, planejarDestinos } from '@/lib/cerebro/mestre'
 
 /**
  * Traz uma sugestão do Cérebro para o hub de publicações.
  *
  * O Cérebro observa as contas oficiais e decide o que merece virar pauta;
- * ele não publica. Isto é a fronteira: a sugestão vira um pacote em rascunho,
- * com o mestre preenchido e um destino por canal que o Cérebro liberou. Nada
- * é enviado — o trabalho segue em /redes/[id], com decisão humana.
+ * ele não publica. Isto é a fronteira: a sugestão vira um pacote em rascunho
+ * com o mestre escrito no formato da matéria e um destino já gerado para cada
+ * canal viável — site, feed, stories e, quando o sinal é vídeo, reels. As
+ * peças nascem da mesma `gerarVariante` do hub, então tudo que a tela sabe
+ * fazer (regerar, contar, validar) funciona nelas. Nada é enviado — o
+ * trabalho segue em /redes/[id], com decisão humana.
  *
  * A capa vem junto, para a Biblioteca. Sem ela a pessoa decidiria no escuro
  * sobre um post que não viu. Aparecer não é poder publicar: material da
@@ -59,13 +62,24 @@ export async function importarDoCerebro(
         })
       : { fileId: null as string | null, motivo: undefined as string | undefined }
 
+    const mestre = mestreDaPauta(pauta, capa.motivo)
+
     const { data: pacote, error } = await supabase
       .from('social_packages')
       .insert({
         workspace_id: context.workspace.id,
-        titulo_interno: pauta.titulo.slice(0, 180),
+        titulo_interno: mestre.titulo.slice(0, 180),
         origem_tipo: 'pauta',
-        mestre: mestreDaPauta(pauta, capa.motivo),
+        mestre: {
+          ...mestre,
+          // Identificador do sinal: deixa reencontrar a origem e impede
+          // importar o mesmo sinal duas vezes.
+          cerebroId: pauta.id,
+          cerebroUrl: pauta.urlNoCerebro ?? '',
+          ...(pauta.midia
+            ? { cerebroMidiaUrl: pauta.midia.url, cerebroMidiaCredito: pauta.midia.credito }
+            : {}),
+        },
         mestre_file_ids: capa.fileId ? [capa.fileId] : [],
         created_by: context.user.id,
       })
@@ -73,24 +87,22 @@ export async function importarDoCerebro(
       .single()
     if (error || !pacote) throw new Error('Não foi possível criar o pacote a partir desta pauta.')
 
-    // Só os canais que o Cérebro liberou viram destino. Os recusados ficam
-    // registrados nas notas com o motivo — a recusa é informação, não silêncio.
-    const destinos = pauta.canais
-      .filter((c) => c.usar && DESTINO_POR_CANAL[c.canal])
-      .map((c) => ({
-        workspace_id: context.workspace.id,
-        package_id: pacote.id,
-        canal: DESTINO_POR_CANAL[c.canal].canal,
-        formato: DESTINO_POR_CANAL[c.canal].formato,
-        corpo: corpoDoCanal(pauta, c.texto, c.cta),
-        // O site pede título e subtítulo próprios; sem isso a matéria nasce
-        // "Sem título" e alguém tem que recopiar o que já estava ali.
-        extras: DESTINO_POR_CANAL[c.canal].canal === 'site_web'
-          ? { titulo: pauta.titulo.slice(0, 180) }
-          : {},
-        file_ids: capa.fileId ? [capa.fileId] : [],
-        estado: 'gerada' as const,
-      }))
+    // Cada destino nasce com a peça pronta. A capa só viaja para a peça
+    // quando é material que a filial pode usar; a de terceiro fica na
+    // Biblioteca como referência, e o destino nasce `bloqueada` pedindo a
+    // mídia certa — o erro aparece agora, não na hora de publicar.
+    const capaNaPeca = capaPodeIrParaPeca(pauta.midia) && capa.fileId ? [capa.fileId] : []
+    const destinos = planejarDestinos(pauta, {
+      corpo: mestre.corpo,
+      titulo: mestre.titulo,
+      subtitulo: mestre.subtitulo,
+      linkUrl: mestre.linkUrl,
+      fileIds: capaNaPeca,
+    }).map((d) => ({
+      workspace_id: context.workspace.id,
+      package_id: pacote.id,
+      ...d,
+    }))
 
     if (destinos.length > 0) {
       const { error: erroDestinos } = await supabase.from('package_destinations').insert(destinos)
@@ -110,60 +122,4 @@ export async function importarDoCerebro(
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível importar esta pauta.') }
   }
-}
-
-/** O texto-mestre, com o fato, o raciocínio e as travas. */
-function mestreDaPauta(p: PautaDoCerebro, capaFalhou?: string): Record<string, unknown> {
-  const naoUsar = p.canais.filter((c) => !c.usar)
-  const notas = [
-    `Sugerido pelo Cérebro · nota ${p.decisao.nota}/100 · ${p.decisao.modoRotulo}.`,
-    '',
-    'POR QUE APARECEU',
-    ...p.decisao.porque.map((x) => `· ${x}`),
-    '',
-    'NÃO PODE',
-    ...p.proibido.map((x) => `· ${x}`),
-  ]
-
-  if (p.midia) {
-    notas.push('', 'CAPA DO SINAL', `· ${p.midia.credito} — direito: ${p.midia.direito}.`)
-    if (capaFalhou) {
-      notas.push(`· A capa não pôde ser trazida (${capaFalhou}). Veja no link da fonte abaixo.`)
-    } else if (p.midia.daCasa) {
-      notas.push(
-        '· Material da própria filial, na Biblioteca como PENDENTE. Confirme a autorização de quem aparece na foto antes de publicar.',
-      )
-    } else {
-      notas.push(
-        '· Material de terceiro, na Biblioteca como INTERNO. Serve de referência e não sai publicado em nome da Cruz — use arte própria ou foto autorizada da filial.',
-      )
-    }
-  }
-
-  if (naoUsar.length > 0) {
-    notas.push('', 'CANAIS QUE O CÉREBRO NÃO LIBEROU')
-    for (const c of naoUsar) notas.push(`· ${c.canal}: ${c.texto.split('\n')[0]}`)
-  }
-
-  notas.push('', `Fonte: ${p.fato.fonte} — ${p.fato.url}`)
-  if (p.urlNoCerebro) notas.push(`Raciocínio completo: ${p.urlNoCerebro}`)
-
-  return {
-    corpo: p.resumo || p.titulo,
-    titulo: p.titulo,
-    subtitulo: '',
-    notas: notas.join('\n'),
-    // Identificador do sinal: deixa reencontrar a origem e impede importar
-    // o mesmo sinal duas vezes.
-    cerebroId: p.id,
-    cerebroUrl: p.urlNoCerebro ?? '',
-    ...(p.midia ? { cerebroMidiaUrl: p.midia.url, cerebroMidiaCredito: p.midia.credito } : {}),
-  }
-}
-
-/** O corpo de cada destino sai do plano por canal, com o encaminhamento. */
-function corpoDoCanal(p: PautaDoCerebro, texto: string, cta: string): string {
-  const partes = [texto.trim()]
-  if (cta && cta !== '—') partes.push('', `Encaminhamento: ${cta}`)
-  return partes.join('\n').slice(0, 4000)
 }
