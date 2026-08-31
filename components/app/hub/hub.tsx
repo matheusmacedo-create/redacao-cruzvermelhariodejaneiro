@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
+  AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
   Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
   Sparkles, Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
@@ -14,7 +14,7 @@ import { Card } from '@/components/ui/card'
 import { ehCanalDeRede, ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from '@/lib/publicacao/canais'
 import { emailDaNewsletter } from '@/lib/newsletter/modelo'
 import { contar } from '@/lib/publicacao/contagem'
-import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/variantes'
+import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import {
@@ -32,6 +32,7 @@ import {
   enviarPacoteParaAprovacao, estimarCota, marcarPronta, publicarPacote, realimentarDestino,
   removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
+import { autorizarUsoDeImagem } from '@/app/actions/arquivos'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, MestreRegistro, PacoteRegistro } from './tipos'
 
@@ -177,10 +178,11 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   }, [recarregarBiblioteca])
 
   const arquivoPorId = useMemo(() => new Map(biblioteca.map((a) => [a.id, a])), [biblioteca])
-  // Sem os tipos, a validação não consegue barrar vídeo num formato que só
-  // aceita foto — e o erro só apareceria na resposta da API.
-  const tipoPorArquivo = useMemo(
-    () => Object.fromEntries(biblioteca.map((a) => [a.id, a.tipo])) as Record<string, 'foto' | 'video'>,
+  // Sem isto a validação não barra vídeo num formato que só aceita foto — e o
+  // erro só apareceria na resposta da API — nem acusa mídia sem autorização
+  // de uso, que só falharia na hora do disparo.
+  const dadosPorArquivo = useMemo(
+    () => Object.fromEntries(biblioteca.map((a) => [a.id, { tipo: a.tipo, autorizacao: a.autorizacao }])),
     [biblioteca],
   )
   // Foto escrita no texto da matéria não vira anexo de rede social: as redes
@@ -211,6 +213,23 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
   const destinoAtivo = destinosAoVivo.find((d) => d.id === ativo) ?? null
   const baseAtiva = destinoAtivo?.canal === 'site_web'
+
+  /**
+   * Registra a autorização de uso de imagem de uma mídia da Biblioteca.
+   *
+   * Muda o arquivo, não o pacote: a foto vale autorizada em todo lugar onde
+   * for usada, que é o que a declaração diz. Por isso a lista local é
+   * atualizada inteira, e não só o item deste destino.
+   */
+  const autorizarMidia = useCallback(async (arquivo: ArquivoDaBiblioteca) => {
+    setErro('')
+    const form = new FormData()
+    form.set('fileId', arquivo.id)
+    const r = await autorizarUsoDeImagem(form)
+    if (r.erro) { setErro(r.erro); return }
+    setBiblioteca((atual) => atual.map((a) => (a.id === arquivo.id ? { ...a, autorizacao: 'authorized' } : a)))
+    setAviso(`Autorização registrada para ${arquivo.nome}.`)
+  }, [])
 
   /** Mídia recém-enviada entra na Biblioteca da tela e no Mestre do pacote. */
   const acolherMidia = useCallback((arquivo: ArquivoDaBiblioteca) => {
@@ -394,10 +413,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   // para trás em silêncio.
   const elegiveis = destinos.filter((d) =>
     ['gerada', 'em_ajuste'].includes(d.estado)
-    && !temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, tipoPorArquivo)))
+    && !temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, dadosPorArquivo)))
   const barrados = destinos.filter((d) =>
     ['gerada', 'em_ajuste', 'bloqueada'].includes(d.estado)
-    && temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, tipoPorArquivo)))
+    && temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, dadosPorArquivo)))
 
   async function estimar(ids: string[]) {
     const form = new FormData()
@@ -561,6 +580,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               encerrado={encerrado}
               workspaceId={workspaceId}
               onNovaMidia={acolherMidia}
+              onAutorizarMidia={autorizarMidia}
             />
           ) : (
             <EditorCanal
@@ -576,6 +596,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               encerrado={encerrado}
               workspaceId={workspaceId}
               onNovaMidia={acolherMidia}
+              onAutorizarMidia={autorizarMidia}
               iaDisponivel={iaDisponivel}
               onRecarregarBiblioteca={recarregarBiblioteca}
             />
@@ -584,7 +605,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
         <div className="flex min-w-0 flex-col gap-4">
           <PreviaDestino destino={destinoAtivo} arquivoPorId={arquivoPorId} mestre={mestre} />
-          {destinoAtivo && <ValidacaoDoDestino destino={destinoAtivo} tipoPorArquivo={tipoPorArquivo} />}
+          {destinoAtivo && <ValidacaoDoDestino destino={destinoAtivo} dadosPorArquivo={dadosPorArquivo} />}
           {destinos.length > 1 && (
             <Card className="p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como vai sair nas outras</p>
@@ -978,7 +999,7 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, onNovaMidia }: {
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, onNovaMidia, onAutorizarMidia }: {
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -995,6 +1016,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   encerrado: boolean
   workspaceId: string
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
+  onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
 }) {
   const [maisOpcoes, setMaisOpcoes] = useState(false)
   const muda = (campo: keyof MestreRegistro) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -1084,7 +1106,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           </p>
           {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
         </div>
-        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} />
+        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} onAutorizar={onAutorizarMidia} />
       </div>
 
       {/* O que quase ninguém mexe fica recolhido: o endereço nasce do título,
@@ -1618,6 +1640,9 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
         contentType: escolhido.type,
         tamanho: escolhido.size,
         previa: salvo.previa,
+        // Enviado daqui já vai autorizado: a caixa de confirmação acima é
+        // exatamente essa declaração.
+        autorizacao: 'authorized',
       })
       limpar()
     } catch (causa) {
@@ -1666,17 +1691,39 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
   )
 }
 
-function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabilitado, filtroTipo }: {
+/**
+ * As mídias disponíveis, com o estado de autorização de uso à vista.
+ *
+ * Esta grade mostrava só o que já estava autorizado. Parecia prudente e era o
+ * contrário: a foto do post importado do Cérebro entra pendente, ficava
+ * anexada ao pacote e não aparecia aqui — quem importava via as fotos antigas
+ * da Biblioteca no lugar da foto da matéria, sem aviso nenhum, e não tinha
+ * como autorizar o que não conseguia ver.
+ *
+ * Agora aparece tudo, com a diferença dita:
+ *
+ *  - autorizada: escolhe e publica;
+ *  - pendente: escolhe, aparece marcada, e a peça acusa erro enquanto a
+ *    autorização não for confirmada — que se confirma aqui mesmo;
+ *  - uso interno: material de terceiro. Aparece como referência e não pode
+ *    ser escolhida, porque não sai publicada em nome da Cruz Vermelha.
+ */
+function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabilitado, filtroTipo, onAutorizar }: {
   biblioteca: ArquivoDaBiblioteca[]
   selecionados: string[]
   onMudar: (ids: string[]) => void
   limite: number
   desabilitado?: boolean
   filtroTipo?: 'foto' | 'video'
+  /** Sem isto a mídia pendente ainda aparece marcada — só não dá para liberar daqui. */
+  onAutorizar?: (arquivo: ArquivoDaBiblioteca) => void
 }) {
+  const [confirmando, setConfirmando] = useState<ArquivoDaBiblioteca | null>(null)
   const lista = filtroTipo ? biblioteca.filter((a) => a.tipo === filtroTipo) : biblioteca
   function alternar(id: string) {
     if (desabilitado) return
+    // Material de terceiro não entra em peça nenhuma: é referência.
+    if (biblioteca.find((a) => a.id === id)?.autorizacao === 'internal') return
     if (selecionados.includes(id)) { onMudar(selecionados.filter((x) => x !== id)); return }
     if (selecionados.length >= limite) return
     onMudar([...selecionados, id])
@@ -1690,34 +1737,85 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
           : 'Nenhuma foto ou vídeo disponível ainda. Envie um aqui ou pela Biblioteca.'}
     </p>
   }
+  const pendentesEscolhidas = lista.filter((a) => selecionados.includes(a.id) && a.autorizacao === 'pending')
+
   return (
-    <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
       {lista.map((a) => {
         const ordem = selecionados.indexOf(a.id)
+        const interna = a.autorizacao === 'internal'
+        const pendente = a.autorizacao === 'pending'
         return (
-          <button key={a.id} type="button" onClick={() => alternar(a.id)} disabled={desabilitado}
-            className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-colors ${ordem >= 0 ? 'border-primary' : 'border-transparent hover:border-border'}`}
-            title={a.nome}
+          <button key={a.id} type="button" onClick={() => alternar(a.id)} disabled={desabilitado || interna}
+            className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-colors ${
+              ordem >= 0 ? (pendente ? 'border-amber-500' : 'border-primary') : 'border-transparent hover:border-border'
+            } ${interna ? 'cursor-not-allowed' : ''}`}
+            title={interna
+              ? `${a.nome} — uso interno: material de terceiro, não publica em nome da Cruz Vermelha`
+              : pendente ? `${a.nome} — falta confirmar a autorização de uso de imagem` : a.nome}
           >
             {a.tipo === 'video'
-              ? <video src={a.previa} muted playsInline preload="metadata" className="size-full object-cover" />
-              : <img src={a.previa} alt={a.nome} className="size-full object-cover" />}
+              ? <video src={a.previa} muted playsInline preload="metadata" className={`size-full object-cover ${interna ? 'opacity-45' : ''}`} />
+              : <img src={a.previa} alt={a.nome} className={`size-full object-cover ${interna ? 'opacity-45' : ''}`} />}
             {ordem >= 0 && (
-              <span className="absolute left-1 top-1 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">{ordem + 1}</span>
+              <span className={`absolute left-1 top-1 flex size-5 items-center justify-center rounded-full text-[11px] font-bold ${pendente ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>{ordem + 1}</span>
+            )}
+            {(pendente || interna) && (
+              <span
+                className={`absolute inset-x-0 bottom-0 truncate px-1 py-0.5 text-[9px] font-semibold text-white ${interna ? 'bg-neutral-700/85' : 'bg-amber-600/90'}`}
+              >
+                {interna ? 'uso interno' : 'falta autorizar'}
+              </span>
             )}
             {a.geradaPorIa && (
-              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-foreground/75 px-1 py-0.5 text-[9px] font-semibold text-background" title="Imagem gerada por IA">
+              <span className="absolute right-1 top-1 flex items-center gap-0.5 rounded bg-foreground/75 px-1 py-0.5 text-[9px] font-semibold text-background" title="Imagem gerada por IA">
                 <Sparkles className="size-2.5" />IA
               </span>
             )}
           </button>
         )
       })}
+      </div>
+
+      {/* A confirmação fica junto do que foi escolhido, não numa outra tela.
+          Quem decide sobre a foto é quem está olhando para ela. */}
+      {onAutorizar && !desabilitado && pendentesEscolhidas.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">
+          <AlertTriangle className="size-3.5 shrink-0 text-amber-600" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">{a.nome}</span> ainda não tem autorização de uso de imagem — a peça não sai assim.
+          </span>
+          <button
+            type="button"
+            onClick={() => setConfirmando(a)}
+            className="rounded-md border border-amber-600/50 px-2 py-1 font-medium text-amber-800 transition-colors hover:bg-amber-500/20 dark:text-amber-300"
+          >
+            Autorizar uso
+          </button>
+        </div>
+      ))}
+
+      {confirmando && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+          <p className="font-medium">Autorizar “{confirmando.nome}”?</p>
+          <p className="mt-1 text-muted-foreground">
+            Confirmo que há autorização de uso de imagem das pessoas que aparecem nesta mídia para publicação pela Cruz
+            Vermelha Brasileira — Rio de Janeiro. Isto fica registrado na Biblioteca e vale para todos os usos deste arquivo.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => { onAutorizar?.(confirmando); setConfirmando(null) }}>
+              <Check className="size-3.5" />Confirmo
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, iaDisponivel, onRecarregarBiblioteca }: {
+function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, onAutorizarMidia, iaDisponivel, onRecarregarBiblioteca }: {
   destino: DestinoRegistro
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
   fileIdsDoMestre: string[]
@@ -1731,6 +1829,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
   encerrado: boolean
   workspaceId: string
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
+  onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
   iaDisponivel: boolean
   onRecarregarBiblioteca: () => void
 }) {
@@ -1890,6 +1989,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
             limite={formato.midia.max}
             desabilitado={congelado}
             filtroTipo={filtroDeTipo}
+            onAutorizar={onAutorizarMidia}
           />
           {temImagemDeIa && (
             <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
@@ -2446,13 +2546,13 @@ function PreviaRede({ destino, arquivoPorId }: {
   )
 }
 
-function ValidacaoDoDestino({ destino, tipoPorArquivo }: {
+function ValidacaoDoDestino({ destino, dadosPorArquivo }: {
   destino: DestinoRegistro
-  tipoPorArquivo: Record<string, 'foto' | 'video'>
+  dadosPorArquivo: Record<string, DadosDoArquivo>
 }) {
   const avisos: Aviso[] = useMemo(
-    () => validarVariante({ corpo: destino.corpo, extras: destino.extras, fileIds: destino.fileIds }, destino.canal, destino.formato, tipoPorArquivo),
-    [destino, tipoPorArquivo],
+    () => validarVariante({ corpo: destino.corpo, extras: destino.extras, fileIds: destino.fileIds }, destino.canal, destino.formato, dadosPorArquivo),
+    [destino, dadosPorArquivo],
   )
   if (!avisos.length) {
     return (

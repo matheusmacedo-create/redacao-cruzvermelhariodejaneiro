@@ -21,12 +21,22 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('files')
-    .select('id,name,file_type,content_type,size_bytes,storage_path,created_at,tags')
+    .select('id,name,file_type,content_type,size_bytes,storage_path,created_at,tags,authorization_status')
     .eq('workspace_id', context.workspace.id)
     .neq('status', 'deleted')
-    // Só o que tem autorização de uso de imagem. Um arquivo pendente ou
-    // marcado como interno não pode nem aparecer como opção.
-    .eq('authorization_status', 'authorized')
+    // Devolve TAMBÉM o que ainda não tem autorização de uso, com o estado
+    // junto — e não só o autorizado, como antes.
+    //
+    // Esconder era o que quebrava a importação do Cérebro: a foto do post
+    // importado entra na Biblioteca como 'pending' (é material da casa, mas
+    // falta confirmar quem aparece nela), ficava anexada ao pacote e, por
+    // não constar desta lista, sumia da tela. Quem importava via as fotos
+    // antigas da Biblioteca no lugar da foto da matéria, sem nenhum aviso —
+    // e não tinha como autorizar o que não conseguia ver.
+    //
+    // Aparecer não é poder publicar: a validação da peça acusa erro e o
+    // disparo barra (lib/publicacao/arquivos.ts). O que muda é que agora a
+    // pessoa vê a foto e decide sobre ela.
     .in('file_type', ['foto', 'video'])
     .order('created_at', { ascending: false })
     .limit(60)
@@ -42,6 +52,8 @@ export async function GET() {
       contentType: f.content_type as string,
       tamanho: Number(f.size_bytes ?? 0),
       previa: `/api/private-blob?pathname=${encodeURIComponent(f.storage_path as string)}`,
+      // Campo em branco no banco não é permissão: sem valor, pendente.
+      autorizacao: ((f.authorization_status as string | null) ?? 'pending') as 'authorized' | 'pending' | 'internal',
       // A etiqueta acompanha o arquivo para sempre: é ela que faz a tela
       // avisar, e o conector declarar à rede, que a imagem é sintética.
       geradaPorIa: (f.tags ?? []).includes(ETIQUETA_DE_IA),

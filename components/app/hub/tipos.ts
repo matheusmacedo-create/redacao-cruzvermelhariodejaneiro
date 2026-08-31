@@ -7,6 +7,14 @@ export type ArquivoDaBiblioteca = {
   contentType: string
   tamanho: number
   previa: string
+  /**
+   * Autorização de uso de imagem, como está na Biblioteca.
+   *
+   * 'authorized' publica; 'pending' espera alguém confirmar que há
+   * autorização de quem aparece na foto; 'internal' é material de terceiro —
+   * serve de referência na tela e nunca sai em nome da Cruz Vermelha.
+   */
+  autorizacao: 'authorized' | 'pending' | 'internal'
   /** Imagem gerada por IA. Acompanha o arquivo, nunca some. */
   geradaPorIa?: boolean
 }
