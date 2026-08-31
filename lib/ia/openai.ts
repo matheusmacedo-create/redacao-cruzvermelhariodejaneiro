@@ -174,6 +174,7 @@ export async function adaptarTexto(pedido: {
           'Não invente fato, número, data, nome nem citação que não esteja no texto recebido. Se faltar informação, escreva menos.',
           'Não use emoji em excesso: no máximo um, e só se couber ao assunto.',
           'Responda apenas com o texto final, sem aspas em volta e sem comentários.',
+          'A primeira palavra da resposta é a primeira palavra do post: não comece com o nome da rede, com o formato, com rótulo nem com prefixo nenhum.',
         ].join(' '),
       },
       {
@@ -186,7 +187,28 @@ export async function adaptarTexto(pedido: {
   const texto = dados.choices?.[0]?.message?.content?.trim()
   if (!texto) throw new IaError('A OpenAI respondeu sem texto.', 502)
   // Modelo às vezes devolve o texto entre aspas mesmo pedindo que não.
-  return texto.replace(/^["“']|["”']$/g, '').trim()
+  return semRotuloDoCanal(texto.replace(/^["“']|["”']$/g, '').trim(), pedido.canal, pedido.formato)
+}
+
+/**
+ * Tira o rótulo do canal que o modelo às vezes cola na frente da legenda.
+ *
+ * Pedimos "adapte para Facebook (Feed)" e a resposta volta como
+ * "Facebook (Feed) — Participantes devem…". A instrução no sistema pede que
+ * não, e mesmo assim acontece; foi o diagnóstico com ?testar=1 que mostrou.
+ *
+ * O corte é preciso de propósito: só sai o prefixo que repete EXATAMENTE o
+ * canal e o formato que mandamos, seguido de travessão ou dois-pontos. Uma
+ * legenda que comece legitimamente com a palavra "Instagram" continua
+ * inteira.
+ */
+export function semRotuloDoCanal(texto: string, canal: string, formato: string): string {
+  const escapar = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const rotulo = new RegExp(
+    `^\\s*${escapar(canal)}\\s*(?:\\(\\s*${escapar(formato)}\\s*\\))?\\s*[—–\\-:]\\s*`,
+    'i',
+  )
+  return texto.replace(rotulo, '').trim()
 }
 
 /**

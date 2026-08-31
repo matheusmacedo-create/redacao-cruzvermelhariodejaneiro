@@ -72,11 +72,20 @@ export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get('testar')) {
     const comecou = Date.now()
     try {
+      // Canal e formato reais de propósito: com nomes de mentira ("Teste"), o
+      // modelo devolveu "Teste (Teste) — …" e o diagnóstico deixou de exercitar
+      // o caminho que a redação usa. O teste tem de ter a forma do uso.
       const resposta = await adaptarTexto({
         texto: 'A Cruz Vermelha Brasileira do Rio de Janeiro abriu inscrições para o curso de primeiros socorros.',
-        canal: 'Teste', formato: 'Teste', limite: 200,
+        canal: 'Facebook', formato: 'Feed', limite: 280, dobra: 125,
       })
-      teste = { ok: true, segundos: Math.round((Date.now() - comecou) / 100) / 10, devolveu: resposta.slice(0, 160) }
+      teste = {
+        ok: true,
+        segundos: Math.round((Date.now() - comecou) / 100) / 10,
+        devolveu: resposta.slice(0, 200),
+        // Se o modelo voltar a colar o nome do canal na frente, aparece aqui.
+        comecouComRotuloDoCanal: /^facebook\b/i.test(resposta),
+      }
     } catch (causa) {
       teste = { ok: false, erro: semChave(causa instanceof Error ? causa.message : String(causa)) }
     }
