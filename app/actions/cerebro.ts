@@ -115,10 +115,10 @@ export async function importarDoCerebro(
     }
 
     revalidatePath('/redes')
-    // Abre no Site, não no mestre: a matéria é o ponto de partida, e dela as
-    // outras redes saem por variante. O mestre é o texto canônico, não a peça.
-    const temSite = destinos.some((d) => d.canal === 'site_web')
-    return { id: pacote.id, abrirEm: temSite ? 'site_web' : destinos[0]?.canal }
+    // Abre na notícia: é a base do pacote, e as redes saem dela por variante.
+    // Quando esta importação não criou a página do site, ela é criada ao abrir
+    // o pacote — todo pacote tem a sua.
+    return { id: pacote.id, abrirEm: 'site_web' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível importar esta pauta.') }
   }

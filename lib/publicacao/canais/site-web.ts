@@ -35,14 +35,14 @@ export const siteWeb: Adapter = {
         ...variante.extras,
         titulo,
         subtitulo: variante.extras.subtitulo || mestre.subtitulo || '',
-        slug: variante.extras.slug || (titulo ? gerarSlug(titulo) : ''),
+        slug: variante.extras.slug || mestre.slug || (titulo ? gerarSlug(titulo) : ''),
       },
     }
   },
   validarExtras(variante): Aviso[] {
     const avisos: Aviso[] = []
     if (!variante.extras.titulo?.trim()) avisos.push({ nivel: 'erro', mensagem: 'A página precisa de um título.' })
-    if (!variante.corpo?.trim()) avisos.push({ nivel: 'erro', mensagem: 'A página precisa de texto. Complete o contexto no Mestre para publicar no site.' })
+    if (!variante.corpo?.trim()) avisos.push({ nivel: 'erro', mensagem: 'A página precisa de texto. Escreva a notícia para publicar no site.' })
     return avisos
   },
 }

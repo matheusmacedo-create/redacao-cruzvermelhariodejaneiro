@@ -19,7 +19,16 @@ import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/varian
 
 const texto = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
-export type ResultadoDoHub = { erro?: string; id?: string }
+export type ResultadoDoHub = { erro?: string; id?: string; destinos?: DestinoAtualizado[]; estado?: string }
+
+/** O que a tela precisa saber de um destino regenerado no servidor. */
+export type DestinoAtualizado = {
+  id: string
+  corpo: string
+  extras: Record<string, string>
+  fileIds: string[]
+  estado: string
+}
 
 /**
  * datetime-local chega sem fuso ("2026-08-29T10:00") e o servidor roda em UTC:
@@ -44,8 +53,59 @@ function lerMestre(bruto: unknown): Mestre {
     titulo: typeof m.titulo === 'string' ? m.titulo : undefined,
     subtitulo: typeof m.subtitulo === 'string' ? m.subtitulo : undefined,
     linkUrl: typeof m.linkUrl === 'string' ? m.linkUrl : undefined,
+    slug: typeof m.slug === 'string' ? m.slug : undefined,
     fileIds: [],
   }
+}
+
+/**
+ * O formato em que a notícia nasce no site. Matéria é o padrão; nota rápida é
+ * escolha de quem escreve.
+ *
+ * Não é exportado: arquivo 'use server' só exporta função assíncrona, e um
+ * `export const` aqui derruba o build inteiro — com um erro que o tsc não vê.
+ */
+const FORMATO_BASE_DO_SITE = 'materia'
+
+/**
+ * Garante que o pacote tenha a sua página no site.
+ *
+ * A base de um pacote é a notícia publicada no site da instituição — não um
+ * "texto canônico" abstrato que depois vira página. Eram duas coisas na tela,
+ * com o mesmo título e o mesmo texto digitados em lugares diferentes, e a
+ * pergunta "qual dos dois é o de verdade?" não tinha resposta boa.
+ *
+ * Roda também ao abrir um pacote antigo: os que nasceram antes desta mudança
+ * ganham a base sem que ninguém precise criá-la na mão.
+ */
+export async function garantirBaseNoSite(pacoteId: string, workspaceId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: jaTem } = await supabase
+    .from('package_destinations').select('id')
+    .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('canal', 'site_web')
+    .limit(1)
+  if (jaTem?.length) return
+
+  const { data: pacote } = await supabase
+    .from('social_packages').select('mestre,mestre_file_ids')
+    .eq('id', pacoteId).eq('workspace_id', workspaceId).maybeSingle()
+  if (!pacote) return
+
+  const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
+  const { variante } = gerarVariante(mestre, 'site_web', FORMATO_BASE_DO_SITE)
+  await supabase.from('package_destinations').insert({
+    workspace_id: workspaceId,
+    package_id: pacoteId,
+    canal: 'site_web',
+    formato: FORMATO_BASE_DO_SITE,
+    corpo: variante.corpo,
+    extras: variante.extras,
+    file_ids: variante.fileIds,
+    // Nasce em 'gerada' mesmo quando a validação já acusa erro: um pacote
+    // recém-criado não tem título nem texto ainda, e abrir a tela com a base
+    // vermelha seria alarme por estar em branco.
+    estado: 'gerada',
+  })
 }
 
 async function pacoteDoEspaco(id: string, workspaceId: string) {
@@ -98,6 +158,10 @@ export async function criarPacote(formData: FormData): Promise<ResultadoDoHub> {
       .single()
     if (error || !data) throw new Error('Não foi possível criar o pacote.')
 
+    // Todo pacote nasce com a sua página no site: é a base, não um destino
+    // opcional que alguém lembra de acrescentar.
+    await garantirBaseNoSite(data.id, context.workspace.id)
+
     revalidatePath('/redes')
     return { id: data.id }
   } catch (causa) {
@@ -122,6 +186,7 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
       titulo: texto(formData, 'titulo'),
       subtitulo: texto(formData, 'subtitulo'),
       linkUrl: texto(formData, 'linkUrl'),
+      slug: texto(formData, 'slug'),
       notas: texto(formData, 'notas'),
     }
     const agendarPara = texto(formData, 'agendarPara')
@@ -145,10 +210,54 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
     }).eq('id', id).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível salvar o pacote.')
 
-    return { id }
+    // Salvar o mestre e deixar as variantes como estavam era a origem do pior
+    // defeito desta tela: o painel "como vai sair nas outras" mostrava o texto
+    // de uma versão anterior da matéria — e continuava mostrando até alguém
+    // lembrar de clicar num botão. Uma prévia que mente é pior do que prévia
+    // nenhuma, porque ninguém confere o que acredita já ter visto.
+    const atualizados = await regerarAcompanhantes(
+      id,
+      context.workspace.id,
+      { ...lerMestre(mestreCompleto), fileIds },
+    )
+
+    return { id, destinos: atualizados }
   } catch (causa) {
     return comoErro(causa, 'Não foi possível salvar o pacote.')
   }
+}
+
+/**
+ * Regenera as variantes que ainda acompanham o mestre.
+ *
+ * Não toca nas descoladas (alguém escreveu aquilo à mão), nem no que já saiu
+ * ou está saindo. Devolve as linhas atualizadas para a tela refletir a
+ * mudança sem recarregar — recarregar no meio da digitação perderia o cursor.
+ */
+async function regerarAcompanhantes(pacoteId: string, workspaceId: string, mestre: Mestre): Promise<DestinoAtualizado[]> {
+  const supabase = await createClient()
+  const { data: destinos } = await supabase
+    .from('package_destinations').select('id,canal,formato,descolada,estado')
+    .eq('package_id', pacoteId).eq('workspace_id', workspaceId)
+
+  const atualizados: DestinoAtualizado[] = []
+  for (const destino of destinos ?? []) {
+    if (destino.descolada) continue
+    if (['publicada', 'publicando', 'na_fila'].includes(destino.estado)) continue
+    const { variante, avisos } = gerarVariante(mestre, destino.canal, destino.formato)
+    // 'ignorada' é decisão de quem opera ("desta vez não sai no site"), e o
+    // conteúdo continua acompanhando o mestre: só o estado é preservado.
+    const estado = destino.estado === 'ignorada' ? 'ignorada'
+      : temErro(avisos) ? 'bloqueada' : 'gerada'
+    await supabase.from('package_destinations').update({
+      corpo: variante.corpo,
+      extras: variante.extras,
+      file_ids: variante.fileIds,
+      estado,
+    }).eq('id', destino.id).eq('workspace_id', workspaceId)
+    atualizados.push({ id: destino.id, corpo: variante.corpo, extras: variante.extras, fileIds: variante.fileIds, estado })
+  }
+  return atualizados
 }
 
 export async function adicionarDestino(formData: FormData): Promise<ResultadoDoHub> {
@@ -201,13 +310,19 @@ export async function removerDestino(formData: FormData): Promise<ResultadoDoHub
     const id = texto(formData, 'destinoId')
 
     const { data: destino } = await supabase
-      .from('package_destinations').select('id,package_id,estado')
+      .from('package_destinations').select('id,package_id,estado,canal')
       .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
     if (!destino) throw new Error('Destino não encontrado.')
     // Publicado é história, não rascunho: sai da tela via "ignorada"? Não —
     // removê-lo apagaria o registro do que saiu. Trava.
     if (destino.estado === 'publicada' || destino.estado === 'publicando') {
       throw new Error('Este destino já foi publicado e não pode ser removido do pacote.')
+    }
+    // A página do site é a base do pacote: é onde a notícia é escrita, e as
+    // outras variantes nascem dela. Apagá-la deixaria o pacote sem texto.
+    // Quem não quer publicá-la desta vez usa "não publicar no site".
+    if (destino.canal === 'site_web') {
+      throw new Error('A notícia no site é a base do pacote. Se não quiser publicá-la agora, use "não publicar no site desta vez".')
     }
 
     const { error } = await supabase.from('package_destinations')
@@ -218,6 +333,49 @@ export async function removerDestino(formData: FormData): Promise<ResultadoDoHub
     return {}
   } catch (causa) {
     return comoErro(causa, 'Não foi possível remover o destino.')
+  }
+}
+
+/**
+ * Liga e desliga a publicação de um destino sem apagá-lo.
+ *
+ * Existe pela base: nem toda notícia precisa virar página no site, mas o texto
+ * dela continua sendo escrito ali. "Ignorada" guarda o conteúdo e tira o
+ * destino da fila de publicação — apagar perderia a matéria inteira.
+ */
+export async function alternarPublicacao(formData: FormData): Promise<ResultadoDoHub> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const id = texto(formData, 'destinoId')
+    const ignorar = formData.get('ignorar') === '1'
+
+    const { data: destino } = await supabase
+      .from('package_destinations').select('id,package_id,estado,canal,formato,descolada')
+      .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!destino) throw new Error('Destino não encontrado.')
+    if (['publicada', 'publicando', 'na_fila'].includes(destino.estado)) {
+      throw new Error('Este destino já saiu — não dá para desligá-lo agora.')
+    }
+
+    // Ao voltar para a fila, o estado real vem da validação: um destino que
+    // estava bloqueado antes de ser ignorado continua bloqueado depois.
+    let estado = 'ignorada'
+    if (!ignorar) {
+      const pacote = await pacoteDoEspaco(destino.package_id, context.workspace.id)
+      const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
+      const { avisos } = gerarVariante(mestre, destino.canal, destino.formato)
+      estado = temErro(avisos) ? 'bloqueada' : 'gerada'
+    }
+
+    const { error } = await supabase.from('package_destinations')
+      .update({ estado }).eq('id', id).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível mudar a publicação deste destino.')
+
+    revalidatePath(`/redes/${destino.package_id}`)
+    return { estado }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível mudar a publicação deste destino.')
   }
 }
 
@@ -289,29 +447,14 @@ export async function salvarVariante(formData: FormData): Promise<ResultadoDoHub
 export async function regenerarVariantes(formData: FormData): Promise<ResultadoDoHub> {
   try {
     const context = await requireWorkspace()
-    const supabase = await createClient()
     const pacoteId = texto(formData, 'pacoteId')
     const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
     const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
 
-    const { data: destinos } = await supabase
-      .from('package_destinations').select('id,canal,formato,descolada,estado')
-      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
-
-    for (const destino of destinos ?? []) {
-      if (destino.descolada) continue
-      if (['publicada', 'publicando', 'ignorada'].includes(destino.estado)) continue
-      const { variante, avisos } = gerarVariante(mestre, destino.canal, destino.formato)
-      await supabase.from('package_destinations').update({
-        corpo: variante.corpo,
-        extras: variante.extras,
-        file_ids: variante.fileIds,
-        estado: temErro(avisos) ? 'bloqueada' : 'gerada',
-      }).eq('id', destino.id).eq('workspace_id', context.workspace.id)
-    }
+    const atualizados = await regerarAcompanhantes(pacoteId, context.workspace.id, mestre)
 
     revalidatePath(`/redes/${pacoteId}`)
-    return {}
+    return { destinos: atualizados }
   } catch (causa) {
     return comoErro(causa, 'Não foi possível regenerar as variantes.')
   }

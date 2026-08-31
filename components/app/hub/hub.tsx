@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Bold, Check, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
+  ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
   Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
   Sparkles, Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
@@ -14,7 +14,7 @@ import { Card } from '@/components/ui/card'
 import { ehCanalDeRede, ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from '@/lib/publicacao/canais'
 import { emailDaNewsletter } from '@/lib/newsletter/modelo'
 import { contar } from '@/lib/publicacao/contagem'
-import { validarVariante, temErro } from '@/lib/publicacao/variantes'
+import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import {
@@ -24,22 +24,36 @@ import {
 import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
 import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
+import { gerarSlug } from '@/lib/site/slug'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
-  adicionarDestino, arquivarPacote, atualizarStatusDoPacote, enviarPacoteParaAprovacao,
-  estimarCota, marcarPronta, publicarPacote, realimentarDestino, regenerarVariantes,
+  adicionarDestino, alternarPublicacao, arquivarPacote, atualizarStatusDoPacote,
+  enviarPacoteParaAprovacao, estimarCota, marcarPronta, publicarPacote, realimentarDestino,
   removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, MestreRegistro, PacoteRegistro } from './tipos'
 
 /**
- * O hub de criação multicanal: Mestre → Destinos → Variantes.
+ * O hub de criação multicanal: a notícia no site → destinos → variantes.
  *
- * Quatro regiões, como no spec: cabeçalho do pacote, trilho de destinos,
- * editor (tabs Mestre/Canal) com preview ao lado, e a barra de ação. Todos os
- * limites e campos vêm dos adapters — esta tela não hardcoda canal nenhum.
+ * A BASE É A PÁGINA DO SITE, e isso não é detalhe de layout.
+ *
+ * Antes havia um "Mestre (texto canônico)" — uma aba com título, linha fina e
+ * texto — e, ao lado, um destino "Site da instituição" com título, linha fina
+ * e texto. A mesma notícia digitada em dois lugares, sem que a tela dissesse
+ * qual dos dois era o de verdade. Não era: o destino do site é gerado do
+ * mestre, campo por campo, o tempo todo.
+ *
+ * Agora existe uma coisa só. Escreve-se a notícia como ela vai sair no site —
+ * que é o canal da casa, o que não depende do alcance que rede nenhuma
+ * resolva dar — e cada rede recebe uma versão adaptada dessa página. O pacote
+ * nasce com ela e não dá para removê-la; dá para não publicá-la desta vez.
+ *
+ * Quatro regiões: cabeçalho do pacote, trilho de destinos, editor com preview
+ * ao lado, e a barra de ação. Todos os limites e campos vêm dos adapters —
+ * esta tela não hardcoda canal nenhum.
  */
 
 const SEMAFORO: Record<string, { classe: string; rotulo: string }> = {
@@ -77,15 +91,20 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   const [mestre, setMestre] = useState(inicial.mestre)
   const [fileIds, setFileIds] = useState<string[]>(inicial.fileIds)
   const [agendarPara, setAgendarPara] = useState(inicial.agendarPara)
-  const [destinos, setDestinos] = useState<DestinoRegistro[]>(destinosIniciais)
-  /*
-   * Chegando do Cérebro, a URL diz em qual destino abrir. O mestre é o texto
-   * canônico, não a peça: quem vem de uma sugestão quer ver a matéria do site
-   * primeiro e de lá mandar para as redes.
-   */
+  // A base vem primeiro no trilho mesmo quando foi criada por último — é o
+  // caso dos pacotes anteriores a esta mudança, que a ganharam ao serem
+  // abertos. Ordem de criação não é a ordem de leitura.
+  const ordenar = (lista: DestinoRegistro[]) =>
+    [...lista].sort((a, b) => Number(b.canal === 'site_web') - Number(a.canal === 'site_web'))
+  const [destinos, setDestinos] = useState<DestinoRegistro[]>(() => ordenar(destinosIniciais))
+  const base = destinos.find((d) => d.canal === 'site_web') ?? null
+  /* Chegando do Cérebro, a URL diz em qual destino abrir; sem ela, a notícia. */
   const destinoPedido = useSearchParams().get('destino')
   const [ativo, setAtivo] = useState<string>(
-    () => destinosIniciais.find((d) => d.canal === destinoPedido)?.id ?? 'mestre',
+    () => {
+      const ordenados = ordenar(destinosIniciais)
+      return ordenados.find((d) => d.canal === destinoPedido)?.id ?? ordenados[0]?.id ?? ''
+    },
   )
   const [salvo, setSalvo] = useState<'ok' | 'salvando' | 'pendente'>('ok')
   const [erro, setErro] = useState('')
@@ -167,7 +186,31 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   // Foto escrita no texto da matéria não vira anexo de rede social: as redes
   // recebem mídia por fora da legenda. Contar aqui é o que permite avisar.
   const midiasNoTextoDoMestre = useMemo(() => textoParaRede(mestre.corpo).midiasNoTexto, [mestre.corpo])
-  const destinoAtivo = destinos.find((d) => d.id === ativo) ?? null
+  /**
+   * O que cada destino vai receber, calculado do texto que está na tela agora.
+   *
+   * O autosave só chega quatro segundos depois da última tecla, e o painel
+   * "como vai sair nas outras" lia a linha do banco: mostrava a versão
+   * anterior da notícia — às vezes de dias antes — como se fosse o que ia ao
+   * ar. Aqui a variante é gerada pelo MESMO módulo que o servidor usa, então
+   * a prévia é o resultado, não uma aproximação dele.
+   *
+   * Descolada não entra: alguém escreveu aquele texto à mão, e sobrescrevê-lo
+   * na tela seria apagar o trabalho sem avisar.
+   */
+  const destinosAoVivo = useMemo(() => destinos.map((d) => {
+    if (d.descolada || ['publicada', 'publicando', 'na_fila'].includes(d.estado)) return d
+    try {
+      const { variante } = gerarVariante({ ...mestre, fileIds }, d.canal, d.formato)
+      return { ...d, corpo: variante.corpo, extras: { ...d.extras, ...variante.extras }, fileIds: variante.fileIds }
+    } catch {
+      // Canal ou formato que este build não conhece: mostra o que está gravado.
+      return d
+    }
+  }), [destinos, mestre, fileIds])
+
+  const destinoAtivo = destinosAoVivo.find((d) => d.id === ativo) ?? null
+  const baseAtiva = destinoAtivo?.canal === 'site_web'
 
   /** Mídia recém-enviada entra na Biblioteca da tela e no Mestre do pacote. */
   const acolherMidia = useCallback((arquivo: ArquivoDaBiblioteca) => {
@@ -185,11 +228,22 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     form.set('titulo', mestre.titulo)
     form.set('subtitulo', mestre.subtitulo)
     form.set('linkUrl', mestre.linkUrl)
+    form.set('slug', mestre.slug)
     form.set('notas', mestre.notas)
     form.set('agendarPara', agendarPara)
     for (const id of fileIds) form.append('fileIds', id)
     const r = await salvarMestre(form)
     if (r.erro) { setErro(r.erro); setSalvo('pendente'); return }
+    // O servidor regenerou as variantes que acompanham a notícia; aplicar a
+    // resposta aqui evita um router.refresh() no meio da digitação, que
+    // devolveria o cursor para o começo do campo.
+    if (r.destinos?.length) {
+      const porId = new Map(r.destinos.map((d) => [d.id, d]))
+      setDestinos((atual) => atual.map((d) => {
+        const novo = porId.get(d.id)
+        return novo ? { ...d, corpo: novo.corpo, extras: novo.extras, fileIds: novo.fileIds, estado: novo.estado } : d
+      }))
+    }
     setSalvo('ok')
   }, [inicial.id, tituloInterno, mestre, fileIds, agendarPara])
 
@@ -277,19 +331,18 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     const r = await removerDestino(form)
     if (r.erro) { setErro(r.erro); return }
     setDestinos((atual) => atual.filter((x) => x.id !== d.id))
-    if (ativo === d.id) setAtivo('mestre')
+    if (ativo === d.id) setAtivo(base?.id ?? '')
     router.refresh()
   }
 
-  async function regenerar() {
+  async function alternarSaida(d: DestinoRegistro, ignorar: boolean) {
     setErro(''); setAviso('')
-    await salvarAgora()
     const form = new FormData()
-    form.set('pacoteId', inicial.id)
-    const r = await regenerarVariantes(form)
+    form.set('destinoId', d.id)
+    form.set('ignorar', ignorar ? '1' : '0')
+    const r = await alternarPublicacao(form)
     if (r.erro) { setErro(r.erro); return }
-    setAviso('Variantes regeneradas. As editadas à mão não foram tocadas.')
-    router.refresh()
+    setDestinos((atual) => atual.map((x) => (x.id === d.id ? { ...x, estado: r.estado ?? x.estado } : x)))
   }
 
   async function pronta(d: DestinoRegistro) {
@@ -415,7 +468,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
           />
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{prontos + publicadas}/{destinos.length || 0} prontos</span>
+          <span>{prontos + publicadas}/{destinos.filter((d) => d.estado !== 'ignorada').length} prontos</span>
           {!encerrado && (
             <button type="button" onClick={async () => { const f = new FormData(); f.set('pacoteId', inicial.id); const r = await arquivarPacote(f); if (r.erro) setErro(r.erro); else router.push('/redes') }} className="hover:text-foreground">
               Arquivar
@@ -432,19 +485,17 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
           vista, em vez de sumir quando há muitos destinos. */}
       <div className="flex items-stretch gap-2">
       <div className="flex min-w-0 flex-1 items-stretch gap-2 overflow-x-auto pb-1">
-        <TrilhoCard ativo={ativo === 'mestre'} onClick={() => setAtivo('mestre')}>
-          <span className="text-xs font-semibold uppercase tracking-wide">Mestre</span>
-          <span className="text-[11px] text-muted-foreground">texto canônico</span>
-        </TrilhoCard>
         {destinos.map((d) => {
           const sem = SEMAFORO[d.estado] ?? SEMAFORO.gerada
+          const ehBase = d.canal === 'site_web'
           return (
             <TrilhoCard
               key={d.id}
               ativo={ativo === d.id}
               onClick={() => setAtivo(d.id)}
-              title={sem.rotulo}
-              acao={!encerrado && !['publicada', 'publicando'].includes(d.estado) ? (
+              title={ehBase ? 'A notícia — base do pacote' : sem.rotulo}
+              // A base não tem X: apagá-la deixaria o pacote sem texto nenhum.
+              acao={!ehBase && !encerrado && !['publicada', 'publicando'].includes(d.estado) ? (
                 <button
                   type="button"
                   onClick={() => remover(d)}
@@ -459,12 +510,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             >
               <span className="flex items-center gap-1.5 text-xs font-semibold">
                 <span className={`size-2 rounded-full ${sem.classe}`} />
-                {d.canal === 'site_web' && <Globe className="size-3" />}
-                {adapter(d.canal)?.nome ?? d.canal}
+                {ehBase && <Globe className="size-3" />}
+                {ehBase ? 'A notícia' : adapter(d.canal)?.nome ?? d.canal}
               </span>
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                {formatoDoAdapter(adapter(d.canal)!, d.formato)?.rotulo ?? d.formato}
-                {d.descolada && <Pencil className="size-2.5" aria-label="editada à mão" />}
+                {ehBase
+                  ? (d.estado === 'ignorada' ? 'não sai no site' : 'página no site')
+                  : formatoDoAdapter(adapter(d.canal)!, d.formato)?.rotulo ?? d.formato}
+                {d.descolada && !ehBase && <Pencil className="size-2.5" aria-label="editada à mão" />}
               </span>
             </TrilhoCard>
           )
@@ -491,8 +544,9 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
       {/* Região 2 — editor + preview */}
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card className="min-w-0 p-5">
-          {ativo === 'mestre' || !destinoAtivo ? (
-            <EditorMestre
+          {!destinoAtivo || baseAtiva ? (
+            <EditorDaNoticia
+              base={destinoAtivo}
               mestre={mestre}
               onMudar={(m) => setMestre(m)}
               fileIds={fileIds}
@@ -500,8 +554,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               biblioteca={biblioteca}
               agendarPara={agendarPara}
               onAgendarPara={setAgendarPara}
-              onRegenerar={regenerar}
-              temDestinos={destinos.length > 0}
+              onPronta={() => destinoAtivo && pronta(destinoAtivo)}
+              onReprocessar={() => destinoAtivo && reprocessar(destinoAtivo)}
+              onAlternarSaida={(ignorar) => destinoAtivo && alternarSaida(destinoAtivo, ignorar)}
+              quantasRedes={destinos.filter((d) => d.canal !== 'site_web').length}
               encerrado={encerrado}
               workspaceId={workspaceId}
               onNovaMidia={acolherMidia}
@@ -533,7 +589,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             <Card className="p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como vai sair nas outras</p>
               <div className="flex flex-col gap-1.5">
-                {destinos.filter((d) => d.id !== ativo).map((d) => (
+                {destinosAoVivo.filter((d) => d.id !== ativo).map((d) => (
                   <button key={d.id} type="button" onClick={() => setAtivo(d.id)} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted">
                     <span className={`size-2 shrink-0 rounded-full ${(SEMAFORO[d.estado] ?? SEMAFORO.gerada).classe}`} />
                     <span className="font-medium">{nomeDoDestino(d)}</span>
@@ -658,6 +714,9 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 }
 
 function nomeDoDestino(d: DestinoRegistro): string {
+  // A base tem nome próprio: no trilho e nas listas ela é "a notícia", não
+  // mais um canal entre os outros.
+  if (d.canal === 'site_web') return 'A notícia · site'
   const canal = adapter(d.canal)
   const formato = canal ? formatoDoAdapter(canal, d.formato) : undefined
   return `${canal?.nome ?? d.canal} · ${formato?.rotulo ?? d.formato}`
@@ -761,6 +820,10 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
   const canais = useMemo(() => {
     const termo = semAcento(busca.trim())
     return ADAPTERS
+      // O site não entra na lista: ele já é a base do pacote, sempre presente
+      // no começo do trilho. Oferecê-lo aqui criaria uma segunda página com a
+      // mesma notícia.
+      .filter((canal) => canal.id !== 'site_web')
       .map((canal) => {
         // Canal próprio da instituição não depende de conexão com o
         // Upload-Post: o site sai por FTP e a newsletter, pelo Resend.
@@ -902,103 +965,190 @@ function colagemNoFormato(
   }
 }
 
-function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onRegenerar, temDestinos, encerrado, workspaceId, onNovaMidia }: {
-  mestre: { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
-  onMudar: (m: EditorMestreProps) => void
+/**
+ * O editor da notícia — a base do pacote.
+ *
+ * Aqui se escreve a matéria como ela vai sair no site: título, linha fina,
+ * texto com fotos no meio, endereço. É a mesma coisa que antes estava
+ * repartida entre uma aba "Mestre" e um destino "Site da instituição", com os
+ * mesmos três campos em cada uma. Quem escrevia num não via o outro mudar, e
+ * a pergunta "qual dos dois é o que vale?" não tinha resposta na tela.
+ *
+ * As mídias, o agendamento e as notas para quem aprova moram aqui porque valem
+ * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
+ * seu horário, mas o conjunto é um só.
+ */
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, onNovaMidia }: {
+  /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
+  base: DestinoRegistro | null
+  mestre: MestreRegistro
+  onMudar: (m: MestreRegistro) => void
   fileIds: string[]
   onFileIds: (ids: string[]) => void
   biblioteca: ArquivoDaBiblioteca[]
   agendarPara: string
   onAgendarPara: (v: string) => void
-  onRegenerar: () => void
-  temDestinos: boolean
+  onPronta: () => void
+  onReprocessar: () => void
+  onAlternarSaida: (ignorar: boolean) => void
+  quantasRedes: number
   encerrado: boolean
   workspaceId: string
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
 }) {
-  const muda = (campo: keyof typeof mestre) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const [maisOpcoes, setMaisOpcoes] = useState(false)
+  const muda = (campo: keyof MestreRegistro) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onMudar({ ...mestre, [campo]: e.target.value })
+
+  const naoSaiNoSite = base?.estado === 'ignorada'
+  const publicada = base?.estado === 'publicada'
+  const congelado = encerrado || publicada || base?.estado === 'publicando'
+  const formato = base ? formatoDoAdapter(adapter('site_web')!, base.formato) : undefined
+  const max = formato?.texto.max ?? 20_000
+  const tamanho = contar(mestre.corpo, 'caracteres')
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Texto-mestre</h2>
-        {temDestinos && !encerrado && (
-          <Button size="sm" variant="outline" onClick={onRegenerar}>
-            <RefreshCw className="size-3.5" />Regenerar variantes
-          </Button>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <Globe className="size-4" />A notícia
+          <span className="font-normal text-muted-foreground">
+            {naoSaiNoSite ? '— não sai no site desta vez' : '— vira uma página no site'}
+          </span>
+        </h2>
+        <div className="flex items-center gap-2">
+          {publicada && (
+            base.externalUrl
+              ? <a href={base.externalUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-emerald-700 underline">Publicada — abrir</a>
+              : <span className="text-xs font-medium text-emerald-700">Publicada</span>
+          )}
+          {base?.estado === 'falhou' && (
+            <Button size="sm" variant="outline" onClick={onReprocessar}><RefreshCw className="size-3.5" />Reprocessar</Button>
+          )}
+          {base && !congelado && !naoSaiNoSite && base.estado !== 'pronta' && (
+            <Button size="sm" onClick={onPronta}><Check className="size-3.5" />Marcar como pronta</Button>
+          )}
+          {base?.estado === 'pronta' && (
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="size-3.5" />Pronta</span>
+          )}
+        </div>
       </div>
+
       <p className="-mt-2 text-xs text-muted-foreground">
-        Escreva uma vez, longo e completo. Cada destino recebe uma versão adaptada ao limite daquele canal — e você ajusta
-        cada uma antes de publicar. O mestre nunca vai direto para a API.
+        Escreva a matéria inteira, do jeito que ela vai aparecer no site.
+        {quantasRedes === 0
+          ? ' Depois use “Adicionar destino” para mandá-la às redes, cada uma no limite dela.'
+          : quantasRedes === 1
+            ? ' O destino no trilho recebe uma versão adaptada ao limite dele, atualizada enquanto você digita.'
+            : ` Os ${quantasRedes} destinos no trilho recebem uma versão adaptada ao limite de cada um, atualizada enquanto você digita.`}
       </p>
 
+      {base?.erro && ['falhou', 'publicada'].includes(base.estado) && (
+        <p className={`rounded-lg border px-3 py-2 text-xs ${base.estado === 'falhou' ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>{base.erro}</p>
+      )}
+
       <label className="text-sm font-medium">Título
-        <input value={mestre.titulo} onChange={muda('titulo')} disabled={encerrado} placeholder="Vira o título da página no site e o título do pin" className={`mt-1 ${inputClass}`} />
+        <input value={mestre.titulo} onChange={muda('titulo')} disabled={congelado} placeholder="O título da página no site" className={`mt-1 ${inputClass}`} />
       </label>
       <label className="text-sm font-medium">Linha fina <span className="font-normal text-muted-foreground">(opcional)</span>
-        <input value={mestre.subtitulo} onChange={muda('subtitulo')} disabled={encerrado} className={`mt-1 ${inputClass}`} />
+        <input value={mestre.subtitulo} onChange={muda('subtitulo')} disabled={congelado} placeholder="Uma frase de resumo — é o que o Google e as redes mostram" className={`mt-1 ${inputClass}`} />
       </label>
+
+      {/* Sem botão de "ajustar formatação" nem dica de colagem aqui: o campo da
+          matéria já traz os dois na própria barra de ferramentas, e a versão
+          desta tela aparecia logo acima da dele, dizendo quase a mesma coisa
+          duas vezes. */}
       <label className="text-sm font-medium">
-        <span className="flex items-center justify-between gap-2">
-          Texto
-          <button
-            type="button"
-            disabled={encerrado || !mestre.corpo.trim()}
-            onClick={() => onMudar({ ...mestre, corpo: arrumarTexto(mestre.corpo) })}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
-            title="Põe o texto todo no padrão: títulos, listas, negrito e parágrafos"
-          >
-            <Wand2 className="size-3.5" />Ajustar formatação
-          </button>
-        </span>
-        <textarea
-          value={mestre.corpo}
-          onChange={muda('corpo')}
-          onPaste={(e) => {
-            const colado = colagemNoFormato(e, mestre.corpo)
-            if (!colado) return
-            e.preventDefault()
-            onMudar({ ...mestre, corpo: colado.texto })
-          }}
-          rows={10}
-          disabled={encerrado}
-          className={`mt-1 ${inputClass}`}
-        />
+        Texto da matéria
+        <div className="mt-1">
+          <CampoDaMateria
+            valor={mestre.corpo}
+            onMudar={(v) => onMudar({ ...mestre, corpo: v })}
+            desabilitado={congelado}
+            max={max}
+            tamanho={tamanho}
+            estourou={tamanho > max}
+            workspaceId={workspaceId}
+          />
+        </div>
         <span className="mt-1 block text-xs font-normal text-muted-foreground">
-          Texto colado de IA ou de documento entra já no padrão. Hashtags no fim do texto são movidas automaticamente
-          quando o canal aperta. Escreva {'{{URL_DA_MATERIA}}'} onde o endereço da página do site deve entrar — ele é
-          preenchido na hora da publicação.
+          As hashtags do fim são movidas para o primeiro comentário quando a rede aperta. Escreva {'{{URL_DA_MATERIA}}'} onde
+          o endereço desta página deve entrar nas redes — ele é preenchido na hora da publicação.
         </span>
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm font-medium">Link já existente <span className="font-normal text-muted-foreground">(opcional)</span>
-          <input value={mestre.linkUrl} onChange={muda('linkUrl')} disabled={encerrado} placeholder="https://…" className={`mt-1 ${inputClass}`} />
-        </label>
-        <label className="text-sm font-medium">Agendar o pacote <span className="font-normal text-muted-foreground">(opcional)</span>
-          <input type="datetime-local" value={agendarPara} onChange={(e) => onAgendarPara(e.target.value)} disabled={encerrado} className={`mt-1 ${inputClass}`} />
-          <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">Horário de Brasília. Cada destino pode ter o seu.</span>
-        </label>
-      </div>
 
       <div>
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
           <p className="pt-1 text-sm font-medium">
             Mídias do pacote <span className="font-normal text-muted-foreground">(cada destino escolhe entre elas)</span>
           </p>
-          {!encerrado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
+          {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
         </div>
-        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={encerrado} />
+        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} />
       </div>
 
-      <label className="text-sm font-medium">Notas para quem aprova <span className="font-normal text-muted-foreground">(não são publicadas)</span>
-        <textarea value={mestre.notas} onChange={muda('notas')} rows={2} disabled={encerrado} className={`mt-1 ${inputClass}`} />
-      </label>
+      {/* O que quase ninguém mexe fica recolhido: o endereço nasce do título,
+          o agendamento é opcional e o link externo é exceção. Deixar os três
+          sempre abertos empurrava o texto da matéria para baixo da dobra. */}
+      <div className="rounded-lg border border-border">
+        <button
+          type="button"
+          onClick={() => setMaisOpcoes((v) => !v)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/50"
+        >
+          Endereço, agendamento e notas
+          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${maisOpcoes ? 'rotate-180' : ''}`} />
+        </button>
+        {maisOpcoes && (
+          <div className="flex flex-col gap-4 border-t border-border p-3">
+            <label className="text-sm font-medium">Endereço da página <span className="font-normal text-muted-foreground">(opcional)</span>
+              <input
+                value={mestre.slug}
+                onChange={muda('slug')}
+                disabled={congelado}
+                placeholder={mestre.titulo ? gerarSlug(mestre.titulo) : 'nasce-do-titulo'}
+                className={`mt-1 ${inputClass}`}
+              />
+              <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                A parte final da URL, depois de /noticias/. Em branco, nasce do título. Depois de publicada não muda —
+                mudá-la quebraria os links já compartilhados.
+              </span>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium">Link já existente <span className="font-normal text-muted-foreground">(opcional)</span>
+                <input value={mestre.linkUrl} onChange={muda('linkUrl')} disabled={congelado} placeholder="https://…" className={`mt-1 ${inputClass}`} />
+                <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">Para apontar as redes a uma página que já existe, em vez desta.</span>
+              </label>
+              <label className="text-sm font-medium">Agendar o pacote <span className="font-normal text-muted-foreground">(opcional)</span>
+                <input type="datetime-local" value={agendarPara} onChange={(e) => onAgendarPara(e.target.value)} disabled={encerrado} className={`mt-1 ${inputClass}`} />
+                <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">Horário de Brasília. Cada destino pode ter o seu.</span>
+              </label>
+            </div>
+            <label className="text-sm font-medium">Notas para quem aprova <span className="font-normal text-muted-foreground">(não são publicadas)</span>
+              <textarea value={mestre.notas} onChange={muda('notas')} rows={2} disabled={encerrado} className={`mt-1 ${inputClass}`} />
+            </label>
+            {base && !congelado && (
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={naoSaiNoSite}
+                  onChange={(e) => onAlternarSaida(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0"
+                />
+                <span>
+                  Não publicar no site desta vez
+                  <span className="block text-[11px] text-muted-foreground">
+                    O texto continua sendo escrito aqui e as redes continuam saindo dele — só a página não é criada.
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
-type EditorMestreProps = { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
 
 /**
  * O estúdio de imagem: um diálogo de tela cheia, não um balão apertado.
@@ -1389,7 +1539,7 @@ function AdaptarComIa({ destino, onAceitar }: {
         onClick={pedir}
         disabled={pensando}
         className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
-        title="Propõe a legenda no limite deste canal, a partir do texto-mestre"
+        title="Propõe a legenda no limite deste canal, a partir da notícia"
       >
         {pensando ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
         {pensando ? 'Pensando…' : 'Adaptar com IA'}
@@ -1618,13 +1768,13 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
           {eSite && <Globe className="size-4" />}
           {canal.nome} · {formato.rotulo}
           {destino.descolada && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">não acompanha mais o mestre</span>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">escrita à mão — não acompanha mais a notícia</span>
           )}
         </h2>
         <div className="flex items-center gap-2">
           {destino.descolada && !congelado && (
-            <Button size="sm" variant="ghost" onClick={onRealimentar} title="Descarta a edição e regenera do mestre">
-              <RefreshCw className="size-3.5" />Realimentar do mestre
+            <Button size="sm" variant="ghost" onClick={onRealimentar} title="Descarta esta edição e gera de novo a partir da notícia">
+              <RefreshCw className="size-3.5" />Voltar a seguir a notícia
             </Button>
           )}
           {destino.estado === 'falhou' && (
@@ -1752,7 +1902,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
           )}
           {!eSite && midiasNoTextoDoMestre > 0 && destino.fileIds.length === 0 && (
             <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
-              O texto do Mestre tem {midiasNoTextoDoMestre === 1 ? 'uma foto escrita no meio do texto' : `${midiasNoTextoDoMestre} fotos escritas no meio do texto`}.
+              O texto da notícia tem {midiasNoTextoDoMestre === 1 ? 'uma foto escrita no meio do texto' : `${midiasNoTextoDoMestre} fotos escritas no meio do texto`}.
               Isso vale para a página do site; em rede social a mídia é anexo — escolha acima qual vai junto.
             </p>
           )}

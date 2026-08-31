@@ -176,7 +176,7 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
     // Prefere o texto-mestre; sem ele, adapta o que já está na variante. Em
     // qualquer caso vai limpo: marcação da matéria não é assunto do modelo.
     const base = textoParaRede(mestre.corpo || destino.corpo || '').texto
-    if (base.length < 20) throw new Error('Escreva o texto-mestre antes de pedir a adaptação.')
+    if (base.length < 20) throw new Error('Escreva a notícia antes de pedir a adaptação.')
 
     const { texto: proposta } = await adaptarTexto({
       texto: base,
