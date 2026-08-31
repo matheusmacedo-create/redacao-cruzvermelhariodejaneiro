@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
-  AlertTriangle, CheckCircle2, ExternalLink, Eye, EyeOff, Loader2,
-  MessageCircle, MessageSquare, RefreshCw, Send, X,
+  AlertTriangle, CheckCircle2, ChevronDown, ExternalLink, Eye, EyeOff, Inbox,
+  Loader2, MessageCircle, MessageSquare, RefreshCw, Send, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,42 +14,61 @@ import type { Mensagem } from '@/lib/atendimento/normalizar'
 /**
  * O painel de atendimento: o que o público escreveu, numa fila só.
  *
- * Carrega ao abrir, com botão de atualizar — não há webhook de comentário nem
- * de DM neste conector, então "tempo real" seria uma promessa falsa. Consulta
- * periódica gastaria chamadas o dia inteiro para chegar minutos atrasada do
- * mesmo jeito.
+ * O layout é organizado por URGÊNCIA, não por ordem de chegada. Numa fila de
+ * atendimento a pergunta não é "o que é mais recente" — é "quem está esperando
+ * resposta". Conversa já respondida e comentário já tratado continuam
+ * acessíveis, mas saem da frente.
+ *
+ * Carrega ao abrir, com botão de atualizar. Não há webhook de comentário nem
+ * de DM neste conector, então "tempo real" seria promessa falsa.
  */
 
-const CORES: Record<string, string> = {
-  instagram: 'bg-pink-500/12 text-pink-700',
-  facebook: 'bg-blue-500/12 text-blue-700',
-  youtube: 'bg-red-500/12 text-red-700',
-  linkedin: 'bg-sky-500/12 text-sky-700',
-}
-
-const NOMES: Record<string, string> = {
-  instagram: 'Instagram', facebook: 'Facebook', youtube: 'YouTube', linkedin: 'LinkedIn',
-}
-
-function quando(iso: string): string {
-  if (!iso) return 'sem data'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return 'sem data'
-  const minutos = Math.floor((Date.now() - d.getTime()) / 60_000)
-  if (minutos < 1) return 'agora'
-  if (minutos < 60) return `há ${minutos} min`
-  if (minutos < 60 * 24) return `há ${Math.floor(minutos / 60)} h`
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+const REDES: Record<string, { nome: string; classe: string }> = {
+  instagram: { nome: 'Instagram', classe: 'bg-pink-500/12 text-pink-700' },
+  facebook: { nome: 'Facebook', classe: 'bg-blue-500/12 text-blue-700' },
+  youtube: { nome: 'YouTube', classe: 'bg-red-500/12 text-red-700' },
+  linkedin: { nome: 'LinkedIn', classe: 'bg-sky-600/12 text-sky-700' },
 }
 
 /**
- * As três operações entram por parâmetro, com as ações reais como padrão.
+ * Nomes das redes que aparecem só no rodapé de "não atendido aqui".
  *
- * Não é indireção gratuita: é o que permite exercitar esta tela num navegador
- * de verdade, com respostas conhecidas, sem depender de rede social nem de
- * banco. O caminho de produção continua sendo o padrão — quem usa o painel não
- * passa nada.
+ * Elas não têm cor porque não têm item na fila — mas precisam de nome: o
+ * rodapé mostrava "google_business:" e "x:", identificadores de código
+ * vazando para quem só quer saber onde ainda precisa olhar na mão.
  */
+const NOMES_EXTRAS: Record<string, string> = {
+  google_business: 'Perfil da Empresa (Google)',
+  x: 'X', threads: 'Threads', bluesky: 'Bluesky', pinterest: 'Pinterest',
+  tiktok: 'TikTok', reddit: 'Reddit', telegram: 'Telegram', discord: 'Discord',
+  mastodon: 'Mastodon', messenger: 'Messenger',
+}
+
+const rede = (id: string) =>
+  REDES[id] ?? { nome: NOMES_EXTRAS[id] ?? id, classe: 'bg-muted text-muted-foreground' }
+
+function quando(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const min = Math.floor((Date.now() - d.getTime()) / 60_000)
+  if (min < 1) return 'agora'
+  if (min < 60) return `${min} min`
+  if (min < 60 * 24) return `${Math.floor(min / 60)} h`
+  if (min < 60 * 24 * 7) return `${Math.floor(min / (60 * 24))} d`
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+}
+
+/** Iniciais do autor, para dar rosto à fila sem depender de foto de perfil. */
+function iniciais(nome: string): string {
+  const limpo = nome.replace(/[^\p{L}\p{N}\s.]/gu, ' ').trim()
+  const partes = limpo.split(/[\s.]+/).filter(Boolean)
+  if (!partes.length) return '?'
+  return (partes[0][0] + (partes[1]?.[0] ?? '')).toUpperCase()
+}
+
+type Aba = 'esperando' | 'tudo'
+
 export function PainelDeAtendimento({
   carregar = carregarFila,
   enviar = responder,
@@ -61,9 +80,12 @@ export function PainelDeAtendimento({
 } = {}) {
   const [fila, setFila] = useState<Fila | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const [aba, setAba] = useState<Aba>('esperando')
+  const [canal, setCanal] = useState<string>('todos')
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
   const [escondidos, setEscondidos] = useState<Set<string>>(new Set())
   const [respondidos, setRespondidos] = useState<Set<string>>(new Set())
+  const [avisosAbertos, setAvisosAbertos] = useState(false)
   const jaBuscou = useRef(false)
 
   const buscar = useCallback(async () => {
@@ -73,30 +95,54 @@ export function PainelDeAtendimento({
   }, [carregar])
 
   useEffect(() => {
-    // O guarda existe porque o modo estrito do React roda o efeito duas vezes
-    // em desenvolvimento, e cada busca aqui são várias chamadas ao conector.
+    // O modo estrito do React roda o efeito duas vezes em desenvolvimento, e
+    // cada busca aqui são várias chamadas ao conector.
     if (jaBuscou.current) return
     jaBuscou.current = true
     void buscar()
   }, [buscar])
 
-  const mensagens = (fila?.mensagens ?? []).filter((m) => !respondidos.has(m.id))
+  const todas = useMemo(
+    () => (fila?.mensagens ?? []).filter((m) => !respondidos.has(m.id)),
+    [fila, respondidos],
+  )
+
+  /** Esperando = comentário (sempre pede resposta) ou DM cuja última fala não foi nossa. */
+  const esperando = useMemo(
+    () => todas.filter((m) => m.origem === 'comentario' || m.aguardandoResposta !== false),
+    [todas],
+  )
+
+  const canaisPresentes = useMemo(
+    () => [...new Set(todas.map((m) => m.canal))].sort(),
+    [todas],
+  )
+
+  const lista = useMemo(() => {
+    const base = aba === 'esperando' ? esperando : todas
+    return canal === 'todos' ? base : base.filter((m) => m.canal === canal)
+  }, [aba, canal, esperando, todas])
+
+  const avisos = fila?.avisos ?? []
+  const foraDoAlcance = fila?.foraDoAlcance ?? []
 
   return (
-    <Card className="mb-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+    <Card className="mb-6 overflow-hidden">
+      {/* ---- cabeçalho ---- */}
+      <div className="flex flex-wrap items-start justify-between gap-3 p-5 pb-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <MessageCircle className="size-4 text-muted-foreground" />
-            <h2 className="font-semibold">O que o público escreveu</h2>
-            {!carregando && fila?.mensagens && (
-              <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                {mensagens.length}
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Comentários das publicações e mensagens diretas, das redes que o conector alcança.
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Inbox className="size-5 text-primary" />
+            O que o público escreveu
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {carregando && !fila
+              ? 'Buscando nas redes…'
+              : esperando.length
+                ? `${esperando.length} ${esperando.length === 1 ? 'pessoa espera' : 'pessoas esperam'} resposta.`
+                : todas.length
+                  ? 'Nada pendente — tudo respondido.'
+                  : 'Nenhum comentário ou mensagem nas publicações recentes.'}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void buscar()} disabled={carregando}>
@@ -105,9 +151,52 @@ export function PainelDeAtendimento({
         </Button>
       </div>
 
+      {/* ---- filtros ---- */}
+      {todas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-5 pb-4">
+          <div className="flex gap-1" role="tablist">
+            {([
+              ['esperando', `Esperando${esperando.length ? ` (${esperando.length})` : ''}`],
+              ['tudo', `Tudo (${todas.length})`],
+            ] as [Aba, string][]).map(([id, rotulo]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={aba === id}
+                onClick={() => setAba(id)}
+                className={cn(
+                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                  aba === id ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {rotulo}
+              </button>
+            ))}
+          </div>
+
+          {canaisPresentes.length > 1 && (
+            <div className="flex flex-wrap gap-1">
+              {['todos', ...canaisPresentes].map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setCanal(id)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                    canal === id ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {id === 'todos' ? 'Todas as redes' : rede(id).nome}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---- recado de ação ---- */}
       {recado && (
         <div className={cn(
-          'flex items-start gap-2 border-b border-border px-4 py-3 text-sm',
+          'flex items-start gap-2 border-b border-border px-5 py-3 text-sm',
           recado.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-success/12 text-success',
         )}>
           {recado.tom === 'erro' ? <AlertTriangle className="mt-0.5 size-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0" />}
@@ -116,26 +205,33 @@ export function PainelDeAtendimento({
         </div>
       )}
 
+      {/* ---- corpo ---- */}
       {carregando && !fila && (
-        <p className="p-10 text-center text-sm text-muted-foreground">
-          <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
-          Buscando comentários e mensagens…
-        </p>
+        <div className="p-12 text-center text-sm text-muted-foreground">
+          <Loader2 className="mx-auto mb-3 size-6 animate-spin" />
+          Consultando comentários e mensagens das redes…
+        </div>
       )}
 
-      {fila?.erro && (
-        <p className="p-6 text-sm text-destructive">{fila.erro}</p>
+      {fila?.erro && <p className="px-5 py-6 text-sm text-destructive">{fila.erro}</p>}
+
+      {fila && !fila.erro && !lista.length && !carregando && (
+        <div className="p-12 text-center">
+          <CheckCircle2 className="mx-auto size-8 text-success" />
+          <p className="mt-3 font-medium">
+            {todas.length ? 'Nada esperando resposta' : 'Nenhuma mensagem por aqui'}
+          </p>
+          <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
+            {todas.length
+              ? 'Abra “Tudo” para rever as conversas já respondidas.'
+              : 'As perguntas do público aparecem aqui assim que alguém comentar numa publicação ou mandar mensagem.'}
+          </p>
+        </div>
       )}
 
-      {fila && !fila.erro && !mensagens.length && !carregando && (
-        <p className="p-10 text-center text-sm text-muted-foreground">
-          Nenhum comentário ou mensagem nova nas publicações recentes.
-        </p>
-      )}
-
-      {mensagens.length > 0 && (
+      {lista.length > 0 && (
         <ul className="divide-y divide-border">
-          {mensagens.map((m) => (
+          {lista.map((m) => (
             <Linha
               key={m.id}
               mensagem={m}
@@ -147,18 +243,34 @@ export function PainelDeAtendimento({
         </ul>
       )}
 
-      {(fila?.avisos?.length || fila?.foraDoAlcance?.length) && (
-        <div className="space-y-1 border-t border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground">
-          {fila.avisos?.map((aviso, i) => (
-            <p key={`a${i}`} className="flex items-start gap-1.5">
-              <AlertTriangle className="mt-0.5 size-3 shrink-0 text-warning" />{aviso}
-            </p>
-          ))}
-          {fila.foraDoAlcance?.map((f) => (
-            <p key={f.canal}>
-              <strong className="capitalize text-foreground">{NOMES[f.canal] ?? f.canal}:</strong> {f.motivo}
-            </p>
-          ))}
+      {/* ---- avisos, recolhidos: informação de rodapé não pode competir com a fila ---- */}
+      {(avisos.length > 0 || foraDoAlcance.length > 0) && (
+        <div className="border-t border-border bg-muted/30">
+          <button
+            type="button"
+            onClick={() => setAvisosAbertos((v) => !v)}
+            aria-expanded={avisosAbertos}
+            className="flex w-full items-center gap-2 px-5 py-3 text-left text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            <ChevronDown className={cn('size-4 transition-transform', avisosAbertos && 'rotate-180')} />
+            {avisos.length > 0
+              ? `${avisos.length} ${avisos.length === 1 ? 'rede não respondeu' : 'redes não responderam'} · o que não é atendido aqui`
+              : 'O que não é atendido por este painel'}
+          </button>
+          {avisosAbertos && (
+            <div className="space-y-2 px-5 pb-4 text-xs leading-relaxed text-muted-foreground">
+              {avisos.map((aviso, i) => (
+                <p key={`a${i}`} className="flex items-start gap-1.5">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0 text-warning" />{aviso}
+                </p>
+              ))}
+              {foraDoAlcance.map((f) => (
+                <p key={f.canal}>
+                  <strong className="text-foreground">{rede(f.canal).nome}:</strong> {f.motivo}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -175,8 +287,6 @@ export function PainelDeAtendimento({
 
     const r = await enviar(dados)
     if (r.erro) { setRecado({ tom: 'erro', texto: r.erro }); return false }
-    // Sai da fila: respondido não é mais pendência. A próxima atualização
-    // traz a lista de novo do conector, então nada se perde.
     setRespondidos((antes) => new Set(antes).add(m.id))
     setRecado({ tom: 'ok', texto: r.recado ?? 'Resposta enviada.' })
     return true
@@ -212,92 +322,118 @@ function Linha({ mensagem, escondido, aoResponder, aoEsconder }: {
   const [enviando, comecar] = useTransition()
 
   const eDm = mensagem.origem === 'dm'
+  const r = rede(mensagem.canal)
+  const respondida = eDm && mensagem.aguardandoResposta === false
 
   return (
-    <li className={cn('p-4', escondido && 'opacity-60')}>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className={cn('rounded-md px-2 py-0.5 font-medium', CORES[mensagem.canal] ?? 'bg-muted text-muted-foreground')}>
-          {NOMES[mensagem.canal] ?? mensagem.canal}
-        </span>
-        <span className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 font-medium text-muted-foreground">
-          {eDm ? <MessageSquare className="size-3" /> : <MessageCircle className="size-3" />}
-          {eDm ? 'Mensagem direta' : 'Comentário'}
-        </span>
-        <span className="font-medium text-foreground">{mensagem.autor}</span>
-        <span className="text-muted-foreground">{quando(mensagem.quando)}</span>
-        {escondido && <span className="rounded-md bg-secondary px-2 py-0.5 text-secondary-foreground">Escondido</span>}
-        {mensagem.formatoDesconhecido && (
-          <span className="rounded-md bg-warning/20 px-2 py-0.5 text-warning-foreground">Formato não reconhecido</span>
-        )}
-      </div>
-
-      <p className="mt-2 whitespace-pre-wrap text-sm">{mensagem.texto}</p>
-
-      {mensagem.postTitulo && (
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          em “{mensagem.postTitulo}”
-          {mensagem.postUrl && (
-            <a href={mensagem.postUrl} target="_blank" rel="noreferrer" className="ml-1 inline-flex items-center gap-0.5 text-primary hover:underline">
-              abrir <ExternalLink className="size-3" />
-            </a>
-          )}
-        </p>
-      )}
-
-      {!mensagem.respondivel && mensagem.motivo && (
-        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-muted/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          <AlertTriangle className="mt-0.5 size-3 shrink-0 text-warning" />{mensagem.motivo}
-        </p>
-      )}
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {mensagem.respondivel && !abrindo && (
-          <Button size="sm" variant="outline" onClick={() => setAbrindo(true)}>
-            <Send className="size-3.5" />Responder
-          </Button>
-        )}
-        {!eDm && mensagem.comentarioId && (
-          <Button size="sm" variant="ghost" onClick={() => void aoEsconder()}>
-            {escondido ? <><Eye className="size-3.5" />Mostrar</> : <><EyeOff className="size-3.5" />Esconder</>}
-          </Button>
-        )}
-      </div>
-
-      {abrindo && (
-        <form
-          className="mt-3"
-          onSubmit={(e) => {
-            e.preventDefault()
-            comecar(async () => {
-              const foi = await aoResponder(texto)
-              if (foi) { setTexto(''); setAbrindo(false) }
-            })
-          }}
+    <li className={cn('px-5 py-4 transition-colors hover:bg-muted/30', escondido && 'opacity-55')}>
+      <div className="flex gap-3">
+        {/* rosto: dá identidade à fila sem depender de foto de perfil */}
+        <div
+          aria-hidden
+          className={cn('mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold', r.classe)}
         >
-          <textarea
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            autoFocus
-            aria-label={`Resposta para ${mensagem.autor}`}
-            placeholder={eDm ? 'Sua mensagem…' : 'Sua resposta pública ao comentário…'}
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-          />
-          <div className="mt-2 flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={enviando || !texto.trim()}>
-              {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              {eDm ? 'Enviar mensagem' : 'Publicar resposta'}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={() => { setAbrindo(false); setTexto('') }}>
-              Cancelar
-            </Button>
-            {!eDm && (
-              <span className="text-xs text-muted-foreground">A resposta fica pública, sob o comentário.</span>
+          {iniciais(mensagem.autor)}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-semibold">{mensagem.autor}</span>
+            <span className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium', r.classe)}>{r.nome}</span>
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              {eDm ? <MessageSquare className="size-3" /> : <MessageCircle className="size-3" />}
+              {eDm ? 'mensagem direta' : 'comentário'}
+            </span>
+            {mensagem.quando && <span className="text-[11px] text-muted-foreground">· {quando(mensagem.quando)}</span>}
+            {respondida && (
+              <span className="rounded bg-success/12 px-1.5 py-0.5 text-[11px] font-medium text-success">Respondida</span>
+            )}
+            {escondido && (
+              <span className="rounded bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-secondary-foreground">Escondido</span>
+            )}
+            {mensagem.formatoDesconhecido && (
+              <span className="rounded bg-warning/20 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">
+                formato não reconhecido
+              </span>
+            )}
+            {mensagem.identidadeIncerta && (
+              <span className="rounded bg-warning/20 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground">
+                confira quem escreveu
+              </span>
             )}
           </div>
-        </form>
-      )}
+
+          <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed">{mensagem.texto}</p>
+
+          {mensagem.postTitulo && (
+            <p className="mt-1.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+              em “{mensagem.postTitulo}”
+              {mensagem.postUrl && (
+                <a href={mensagem.postUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-primary hover:underline">
+                  ver <ExternalLink className="size-3" />
+                </a>
+              )}
+            </p>
+          )}
+
+          {!mensagem.respondivel && mensagem.motivo && (
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-muted/70 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              <AlertTriangle className="mt-0.5 size-3 shrink-0 text-warning" />{mensagem.motivo}
+            </p>
+          )}
+
+          {(mensagem.respondivel || (!eDm && mensagem.comentarioId)) && !abrindo && (
+            <div className="mt-2.5 flex flex-wrap gap-1">
+              {mensagem.respondivel && (
+                <Button size="sm" variant="outline" onClick={() => setAbrindo(true)}>
+                  <Send className="size-3.5" />Responder
+                </Button>
+              )}
+              {!eDm && mensagem.comentarioId && (
+                <Button size="sm" variant="ghost" onClick={() => void aoEsconder()}>
+                  {escondido ? <><Eye className="size-3.5" />Mostrar</> : <><EyeOff className="size-3.5" />Esconder</>}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {abrindo && (
+            <form
+              className="mt-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                comecar(async () => {
+                  const foi = await aoResponder(texto)
+                  if (foi) { setTexto(''); setAbrindo(false) }
+                })
+              }}
+            >
+              <textarea
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                autoFocus
+                aria-label={`Resposta para ${mensagem.autor}`}
+                placeholder={eDm ? `Responder ${mensagem.autor}…` : 'Sua resposta pública ao comentário…'}
+                className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button type="submit" size="sm" disabled={enviando || !texto.trim()}>
+                  {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                  {eDm ? 'Enviar mensagem' : 'Publicar resposta'}
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => { setAbrindo(false); setTexto('') }}>
+                  Cancelar
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {eDm ? 'A mensagem vai direto para a pessoa.' : 'A resposta fica pública, sob o comentário.'}
+                </span>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </li>
   )
 }

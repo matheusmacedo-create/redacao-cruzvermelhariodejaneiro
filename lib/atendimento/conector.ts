@@ -130,7 +130,8 @@ export async function filaDeAtendimento(opcoes: { nossoId?: string; nossoUsuario
   // Em paralelo: cada post é uma chamada, e em série a tela abriria devagar.
   const porPost = await Promise.all(posts.map(async (post) => {
     try { return await comentariosDoPost(post) } catch (causa) {
-      avisos.push(`${nomeDoCanal(post.canal)} — "${post.titulo.slice(0, 40)}": ${mensagemDoErro(causa)}`)
+      const aviso = explicarFalha(post, mensagemDoErro(causa))
+      if (aviso) avisos.push(aviso)
       return [] as Mensagem[]
     }
   }))
@@ -210,4 +211,33 @@ export function nomeDoCanal(id: string): string {
 
 function mensagemDoErro(causa: unknown): string {
   return (causa instanceof Error ? causa.message : String(causa)).slice(0, 200)
+}
+
+/**
+ * Transforma a falha de um post em algo acionável — ou em silêncio.
+ *
+ * Nem toda falha é problema. Publicação apagada da rede responde "objeto não
+ * existe" para sempre, e um post de teste que alguém removeu ficaria gritando
+ * na tela todo dia sem nada a fazer. Erro assim não vira aviso: vira nada.
+ *
+ * O que sobra tem de dizer o que fazer. "HTTP 502" sozinho não ajuda ninguém;
+ * "o Facebook oscilou, tente atualizar" ajuda.
+ */
+function explicarFalha(post: Post, erro: string): string | null {
+  const onde = `${nomeDoCanal(post.canal)} — "${post.titulo.slice(0, 40)}"`
+
+  // A publicação não está mais lá. Nada a fazer, nada a avisar.
+  if (/does not exist|cannot be loaded|Unsupported get request|not found/i.test(erro)) return null
+
+  // Instabilidade da rede: passa sozinho, e a ação é atualizar.
+  if (/\b50[0234]\b|timeout|demorou/i.test(erro)) {
+    return `${onde}: a rede oscilou e não respondeu agora. Use Atualizar daqui a pouco.`
+  }
+
+  // Falta de escopo: tem conserto, e é reconectar a conta.
+  if (/permission|scope|forbidden|\b403\b/i.test(erro)) {
+    return `${onde}: a conta precisa ser reconectada no Upload-Post com permissão de leitura de comentários.`
+  }
+
+  return `${onde}: ${erro}`
 }
