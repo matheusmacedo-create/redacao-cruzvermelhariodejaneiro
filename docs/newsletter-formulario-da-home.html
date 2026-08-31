@@ -1,0 +1,140 @@
+<!--
+  ============================================================================
+  FORMULÁRIO DA NEWSLETTER — para colar no site institucional
+  ============================================================================
+
+  O QUE ESTE ARQUIVO É
+  Este trecho SUBSTITUI a <section class="newsletter-section"> que já existe na
+  home de cruzvermelhariodejaneiro.org. O formulário de lá tem action="#": ao
+  enviar, a página recarrega, os campos limpam — parece que funcionou — e o
+  endereço se perde. Quem se inscreveu acredita estar inscrito.
+
+  Este arquivo não é publicado por nada: a conta de FTP da Redação enxerga só
+  /public_html/noticias, e a home está fora dela. Ele mora aqui, no repositório,
+  para ficar versionado junto com a rota que o atende — e é colado à mão no
+  index.html do site, por quem tiver acesso à raiz.
+
+  O QUE MUDA EM RELAÇÃO AO ATUAL
+  1. action aponta para a rota de verdade, e method="post".
+  2. Os campos ganham name — sem isso, nada é enviado nem com a action certa.
+  3. Entra o aceite explícito, que é o que a LGPD exige registrar.
+  4. Entra a armadilha anti-robô: um campo escondido que humano não preenche.
+  5. Entra um trecho de JavaScript que responde na própria página. Ele é
+     OPCIONAL: sem ele o formulário continua funcionando, só que navegando
+     para a página de resposta. É de propósito — quem bloqueia script tem de
+     conseguir se inscrever do mesmo jeito.
+
+  AS CLASSES SÃO AS QUE JÁ EXISTEM no CSS da home (.newsletter-section,
+  .newsletter-form, .btn), então o visual não muda. As poucas regras novas,
+  para o aceite e para o recado, vão no <style> abaixo.
+  ============================================================================
+-->
+
+<style>
+  /* Só o que o CSS da home ainda não tem. */
+  .newsletter-form { align-items: flex-start; }
+  .newsletter-aceite {
+    display: flex; gap: 8px; align-items: flex-start; justify-content: center;
+    max-width: 480px; margin: 14px auto 0; text-align: left;
+    font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.92);
+  }
+  .newsletter-aceite input { margin-top: 3px; flex-shrink: 0; }
+  .newsletter-aceite a { color: #fff; text-decoration: underline; }
+  /* A armadilha: fora da tela, mas não display:none — robô melhor preparado
+     ignora campo escondido com display:none, e leitor de tela precisa do
+     aria-hidden e do tabindex para pular o campo. */
+  .newsletter-armadilha {
+    position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;
+  }
+  .newsletter-recado {
+    max-width: 480px; margin: 16px auto 0; font-size: 14.5px; line-height: 1.55;
+    color: #fff; min-height: 1.2em;
+  }
+  .newsletter-recado[data-erro] { color: #ffe08a; }
+</style>
+
+<!-- NEWSLETTER -->
+<section class="newsletter-section">
+  <div class="wrap">
+    <p class="eyebrow">Fique por dentro</p>
+    <h2>Receba novidades da Cruz Vermelha RJ</h2>
+    <p class="lead">Cursos, campanhas e o impacto da sua doação, direto no seu e-mail.</p>
+
+    <form class="newsletter-form"
+          id="newsletter-form"
+          action="https://redacao.cruzvermelhariodejaneiro.org/api/newsletter/inscrever"
+          method="post">
+
+      <label class="newsletter-armadilha" aria-hidden="true">
+        Não preencha este campo
+        <input type="text" name="site" tabindex="-1" autocomplete="off">
+      </label>
+
+      <input type="text" name="nome" placeholder="Seu nome" autocomplete="name" required>
+      <input type="email" name="email" placeholder="Seu e-mail" autocomplete="email" required>
+      <button type="submit" class="btn">Quero Receber</button>
+
+      <!-- Desmarcado por padrão. Caixa pré-marcada não é consentimento. -->
+      <label class="newsletter-aceite">
+        <input type="checkbox" name="consentimento" value="1" required>
+        <span>
+          Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu
+          e-mail notícias, campanhas e informações sobre cursos. Sei que posso sair da
+          lista a qualquer momento pelo link presente em todas as mensagens.
+        </span>
+      </label>
+    </form>
+
+    <p class="newsletter-recado" id="newsletter-recado" role="status" aria-live="polite"></p>
+  </div>
+</section>
+
+<script>
+  // Melhoria progressiva: responde na própria página em vez de navegar.
+  // Se este script não rodar, o formulário acima continua funcionando sozinho.
+  (function () {
+    var form = document.getElementById('newsletter-form')
+    var recado = document.getElementById('newsletter-recado')
+    if (!form || !recado || !window.fetch) return
+
+    form.addEventListener('submit', function (evento) {
+      evento.preventDefault()
+      var botao = form.querySelector('button[type=submit]')
+      var rotulo = botao.textContent
+      botao.disabled = true
+      botao.textContent = 'Enviando…'
+      recado.removeAttribute('data-erro')
+      recado.textContent = ''
+
+      var dados = new FormData(form)
+      fetch(form.action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: dados.get('nome'),
+          email: dados.get('email'),
+          site: dados.get('site'),
+          consentimento: dados.get('consentimento') === '1'
+        })
+      })
+        .then(function (r) { return r.json().catch(function () { return {} }) })
+        .then(function (resposta) {
+          if (resposta && resposta.ok) {
+            recado.textContent = resposta.recado || 'Quase lá! Confira seu e-mail para confirmar.'
+            form.reset()
+          } else {
+            recado.setAttribute('data-erro', '1')
+            recado.textContent = (resposta && resposta.erro) || 'Não foi possível concluir agora. Tente de novo.'
+          }
+        })
+        .catch(function () {
+          recado.setAttribute('data-erro', '1')
+          recado.textContent = 'Não foi possível concluir agora. Confira sua conexão e tente de novo.'
+        })
+        .then(function () {
+          botao.disabled = false
+          botao.textContent = rotulo
+        })
+    })
+  })()
+</script>
