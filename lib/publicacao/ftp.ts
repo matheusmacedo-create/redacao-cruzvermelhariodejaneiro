@@ -1,6 +1,6 @@
 import 'server-only'
 import { Client } from 'basic-ftp'
-import { Readable } from 'node:stream'
+import { Readable, Writable } from 'node:stream'
 
 export type FtpConfig = { host: string; user: string; password: string; baseDir: string }
 
@@ -185,4 +185,54 @@ export async function enviarArquivo(
   await client.uploadFrom(Readable.from(bytes), nome)
   await client.cd('/')
   return destino
+}
+
+/**
+ * Baixa um arquivo e devolve o conteúdo como texto.
+ *
+ * Não passa por caminhoSeguro de propósito: LER é diferente de escrever, e
+ * quem chama precisa poder olhar a raiz do site (onde mora a home) sem que a
+ * trava de escrita, que existe para impedir um slug malformado de sobrescrever
+ * a home, atrapalhe uma leitura inofensiva.
+ */
+export async function baixarTexto(client: Client, caminho: string): Promise<string> {
+  const pedacos: Buffer[] = []
+  const destino = new Writable({
+    write(pedaco, _codificacao, pronto) { pedacos.push(Buffer.from(pedaco)); pronto() },
+  })
+  await client.downloadTo(destino, caminho)
+  return Buffer.concat(pedacos).toString('utf8')
+}
+
+/**
+ * Nomes que podem ser escritos FORA da pasta de matérias.
+ *
+ * A trava caminhoSeguro impede que um slug malformado escape da pasta de
+ * notícias e sobrescreva a home — e ela continua valendo para tudo que vem de
+ * texto digitado. Ligar o formulário da newsletter, porém, precisa escrever
+ * justamente na home; então existe esta porta, e ela é estreita: uma lista
+ * fechada de nomes literais, nunca um caminho montado a partir de entrada de
+ * ninguém. O que não está aqui não é gravável por esta função.
+ */
+const NOMES_PERMITIDOS_NA_RAIZ = new Set(['index.html'])
+
+/**
+ * Grava um arquivo na raiz do site, fora da pasta de matérias.
+ *
+ * Só aceita nome da lista acima, e só nome — barra no valor é recusada, para
+ * que não haja caminho a interpretar.
+ */
+export async function enviarNaRaizDoSite(
+  client: Client,
+  raiz: string,
+  nome: string,
+  conteudo: string,
+): Promise<string> {
+  if (nome.includes('/') || nome.includes('\\') || !NOMES_PERMITIDOS_NA_RAIZ.has(nome)) {
+    throw new FtpEscopoError(nome)
+  }
+  await client.cd(raiz)
+  await client.uploadFrom(Readable.from(Buffer.from(conteudo, 'utf8')), nome)
+  await client.cd('/')
+  return `${raiz.replace(/\/$/, '')}/${nome}`
 }

@@ -1,140 +1,75 @@
 <!--
   ============================================================================
-  FORMULÁRIO DA NEWSLETTER — para colar no site institucional
+  FORMULÁRIO DA NEWSLETTER — trecho para colar na home
   ============================================================================
 
-  O QUE ESTE ARQUIVO É
-  Este trecho SUBSTITUI a <section class="newsletter-section"> que já existe na
-  home de cruzvermelhariodejaneiro.org. O formulário de lá tem action="#": ao
-  enviar, a página recarrega, os campos limpam — parece que funcionou — e o
-  endereço se perde. Quem se inscreveu acredita estar inscrito.
+  ESTE ARQUIVO É GERADO. Não edite aqui: a fonte é blocoLigado(), em
+  lib/site/formulario-newsletter.ts. Uma cópia editada à mão divergiria do que
+  o botão publica, e as duas versões não dariam nem erro — só comportamentos
+  diferentes no mesmo site.
 
-  Este arquivo não é publicado por nada: a conta de FTP da Redação enxerga só
-  /public_html/noticias, e a home está fora dela. Ele mora aqui, no repositório,
-  para ficar versionado junto com a rota que o atende — e é colado à mão no
-  index.html do site, por quem tiver acesso à raiz.
+  NO CAMINHO NORMAL VOCÊ NÃO PRECISA DELE. Na Central de e-mail há o botão
+  "Ligar o formulário": ele baixa a home por FTP, troca só esta seção e confere
+  na página pública se ficou no ar.
 
-  O QUE MUDA EM RELAÇÃO AO ATUAL
-  1. action aponta para a rota de verdade, e method="post".
-  2. Os campos ganham name — sem isso, nada é enviado nem com a action certa.
-  3. Entra o aceite explícito, que é o que a LGPD exige registrar.
-  4. Entra a armadilha anti-robô: um campo escondido que humano não preenche.
-  5. Entra um trecho de JavaScript que responde na própria página. Ele é
-     OPCIONAL: sem ele o formulário continua funcionando, só que navegando
-     para a página de resposta. É de propósito — quem bloqueia script tem de
-     conseguir se inscrever do mesmo jeito.
+  Este arquivo serve para o caso em que a conta de FTP está confinada à pasta
+  de notícias e não alcança a home. Aí alguém com acesso à raiz do site
+  substitui a <section class="newsletter-section"> do index.html por tudo o
+  que vem abaixo.
 
-  AS CLASSES SÃO AS QUE JÁ EXISTEM no CSS da home (.newsletter-section,
-  .newsletter-form, .btn), então o visual não muda. As poucas regras novas,
-  para o aceite e para o recado, vão no <style> abaixo.
+  As classes são as que o CSS da home já tem, então o visual não muda.
   ============================================================================
 -->
 
-<style>
-  /* Só o que o CSS da home ainda não tem. */
-  .newsletter-form { align-items: flex-start; }
-  .newsletter-aceite {
-    display: flex; gap: 8px; align-items: flex-start; justify-content: center;
-    max-width: 480px; margin: 14px auto 0; text-align: left;
-    font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.92);
-  }
-  .newsletter-aceite input { margin-top: 3px; flex-shrink: 0; }
-  .newsletter-aceite a { color: #fff; text-decoration: underline; }
-  /* A armadilha: fora da tela, mas não display:none — robô melhor preparado
-     ignora campo escondido com display:none, e leitor de tela precisa do
-     aria-hidden e do tabindex para pular o campo. */
-  .newsletter-armadilha {
-    position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;
-  }
-  .newsletter-recado {
-    max-width: 480px; margin: 16px auto 0; font-size: 14.5px; line-height: 1.55;
-    color: #fff; min-height: 1.2em;
-  }
-  .newsletter-recado[data-erro] { color: #ffe08a; }
-</style>
-
-<!-- NEWSLETTER -->
-<section class="newsletter-section">
-  <div class="wrap">
-    <p class="eyebrow">Fique por dentro</p>
-    <h2>Receba novidades da Cruz Vermelha RJ</h2>
-    <p class="lead">Cursos, campanhas e o impacto da sua doação, direto no seu e-mail.</p>
-
-    <form class="newsletter-form"
-          id="newsletter-form"
-          action="https://redacao.cruzvermelhariodejaneiro.org/api/newsletter/inscrever"
-          method="post">
-
-      <label class="newsletter-armadilha" aria-hidden="true">
-        Não preencha este campo
-        <input type="text" name="site" tabindex="-1" autocomplete="off">
-      </label>
-
-      <input type="text" name="nome" placeholder="Seu nome" autocomplete="name" required>
-      <input type="email" name="email" placeholder="Seu e-mail" autocomplete="email" required>
-      <button type="submit" class="btn">Quero Receber</button>
-
-      <!-- Desmarcado por padrão. Caixa pré-marcada não é consentimento. -->
-      <label class="newsletter-aceite">
-        <input type="checkbox" name="consentimento" value="1" required>
-        <span>
-          Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu
-          e-mail notícias, campanhas e informações sobre cursos. Sei que posso sair da
-          lista a qualquer momento pelo link presente em todas as mensagens.
-        </span>
-      </label>
-    </form>
-
-    <p class="newsletter-recado" id="newsletter-recado" role="status" aria-live="polite"></p>
-  </div>
-</section>
-
-<script>
-  // Melhoria progressiva: responde na própria página em vez de navegar.
-  // Se este script não rodar, o formulário acima continua funcionando sozinho.
-  (function () {
-    var form = document.getElementById('newsletter-form')
-    var recado = document.getElementById('newsletter-recado')
-    if (!form || !recado || !window.fetch) return
-
-    form.addEventListener('submit', function (evento) {
-      evento.preventDefault()
-      var botao = form.querySelector('button[type=submit]')
-      var rotulo = botao.textContent
-      botao.disabled = true
-      botao.textContent = 'Enviando…'
-      recado.removeAttribute('data-erro')
-      recado.textContent = ''
-
-      var dados = new FormData(form)
-      fetch(form.action, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: dados.get('nome'),
-          email: dados.get('email'),
-          site: dados.get('site'),
-          consentimento: dados.get('consentimento') === '1'
+<section class="newsletter-section" data-newsletter-cvrj="ligado">
+      <style>
+        .newsletter-form{align-items:flex-start}
+        /* O CSS da home tem .newsletter-form input{flex:1;min-width:200px} para
+           os campos de texto. Sem as duas regras abaixo, essa mesma regra
+           estica a caixinha de aceite para 200px de largura e a joga longe do
+           texto dela. */
+        .newsletter-aceite{flex:1 0 100%;display:flex;gap:8px;align-items:flex-start;max-width:480px;margin:14px auto 0;text-align:left;font-size:13px;line-height:1.5;color:rgba(255,255,255,.92)}
+        .newsletter-aceite input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;min-width:0;margin:2px 0 0;padding:0;border-radius:3px;-webkit-appearance:checkbox;appearance:checkbox}
+        .newsletter-armadilha{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+        .newsletter-recado{max-width:480px;margin:16px auto 0;font-size:14.5px;line-height:1.55;color:#fff;min-height:1.2em}
+        .newsletter-recado[data-erro]{color:#ffe08a}
+      </style>
+      <div class="wrap">
+        <p class="eyebrow">Fique por dentro</p>
+        <h2>Receba novidades da Cruz Vermelha RJ</h2>
+        <p class="lead">Cursos, campanhas e o impacto da sua doação, direto no seu e-mail.</p>
+        <form class="newsletter-form" id="newsletter-form" action="https://redacao.cruzvermelhariodejaneiro.org/api/newsletter/inscrever" method="post">
+          <label class="newsletter-armadilha" aria-hidden="true">Não preencha este campo
+            <input type="text" name="site" tabindex="-1" autocomplete="off"></label>
+          <input type="text" name="nome" placeholder="Seu nome" autocomplete="name" required>
+          <input type="email" name="email" placeholder="Seu e-mail" autocomplete="email" required>
+          <button type="submit" class="btn">Quero Receber</button>
+          <label class="newsletter-aceite">
+            <input type="checkbox" name="consentimento" value="1" required>
+            <span>Autorizo a Cruz Vermelha Brasileira — Filial Rio de Janeiro a enviar para o meu e-mail notícias, campanhas e informações sobre cursos. Sei que posso sair da lista a qualquer momento pelo link presente em todas as mensagens.</span>
+          </label>
+        </form>
+        <p class="newsletter-recado" id="newsletter-recado" role="status" aria-live="polite"></p>
+      </div>
+      <script>
+      (function(){
+        var f=document.getElementById('newsletter-form'),r=document.getElementById('newsletter-recado')
+        if(!f||!r||!window.fetch)return
+        f.addEventListener('submit',function(ev){
+          ev.preventDefault()
+          var b=f.querySelector('button[type=submit]'),rot=b.textContent
+          b.disabled=true;b.textContent='Enviando…';r.removeAttribute('data-erro');r.textContent=''
+          var d=new FormData(f)
+          fetch(f.action,{method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({nome:d.get('nome'),email:d.get('email'),site:d.get('site'),consentimento:d.get('consentimento')==='1'})})
+            .then(function(x){return x.json().catch(function(){return{}})})
+            .then(function(resp){
+              if(resp&&resp.ok){r.textContent=resp.recado||'Quase lá! Confira seu e-mail para confirmar.';f.reset()}
+              else{r.setAttribute('data-erro','1');r.textContent=(resp&&resp.erro)||'Não foi possível concluir agora. Tente de novo.'}
+            })
+            .catch(function(){r.setAttribute('data-erro','1');r.textContent='Não foi possível concluir agora. Confira sua conexão e tente de novo.'})
+            .then(function(){b.disabled=false;b.textContent=rot})
         })
-      })
-        .then(function (r) { return r.json().catch(function () { return {} }) })
-        .then(function (resposta) {
-          if (resposta && resposta.ok) {
-            recado.textContent = resposta.recado || 'Quase lá! Confira seu e-mail para confirmar.'
-            form.reset()
-          } else {
-            recado.setAttribute('data-erro', '1')
-            recado.textContent = (resposta && resposta.erro) || 'Não foi possível concluir agora. Tente de novo.'
-          }
-        })
-        .catch(function () {
-          recado.setAttribute('data-erro', '1')
-          recado.textContent = 'Não foi possível concluir agora. Confira sua conexão e tente de novo.'
-        })
-        .then(function () {
-          botao.disabled = false
-          botao.textContent = rotulo
-        })
-    })
-  })()
-</script>
+      })()
+      </script>
+    </section>
