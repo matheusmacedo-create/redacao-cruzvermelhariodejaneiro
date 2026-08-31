@@ -3,6 +3,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { PacoteHub } from '@/components/app/hub/hub'
 import { iaConfigurada } from '@/lib/ia/openai'
+import { garantirBaseNoSite } from '@/app/actions/pacotes'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
 const paraLocal = (iso: string | null) => {
@@ -24,6 +25,11 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!linha) notFound()
 
+  // A base é a notícia no site. Garantir aqui, e não só na criação, é o que
+  // dá a base aos pacotes que nasceram antes desta mudança — sem migração de
+  // dados e sem ninguém precisar recriá-los.
+  await garantirBaseNoSite(id, context.workspace.id)
+
   const { data: destinosLinhas } = await supabase
     .from('package_destinations')
     .select('id,canal,formato,corpo,extras,file_ids,crops,descolada,estado,agendar_para,erro,external_url')
@@ -42,6 +48,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       titulo: m.titulo ?? '',
       subtitulo: m.subtitulo ?? '',
       linkUrl: m.linkUrl ?? '',
+      slug: m.slug ?? '',
       notas: m.notas ?? '',
     },
     fileIds: linha.mestre_file_ids ?? [],

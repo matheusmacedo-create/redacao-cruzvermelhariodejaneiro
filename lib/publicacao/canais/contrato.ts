@@ -51,6 +51,8 @@ export type Mestre = {
   titulo?: string
   subtitulo?: string
   linkUrl?: string
+  /** Endereço da página no site. Vive no mestre porque o site É a base. */
+  slug?: string
   fileIds: string[]
 }
 

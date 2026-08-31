@@ -16,6 +16,8 @@ export type MestreRegistro = {
   titulo: string
   subtitulo: string
   linkUrl: string
+  /** Endereço da página no site. É o mestre porque o site é a base. */
+  slug: string
   notas: string
 }
 
