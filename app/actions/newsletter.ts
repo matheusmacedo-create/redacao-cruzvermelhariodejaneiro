@@ -5,7 +5,9 @@ import { requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, TEXTO_DO_CONSENTIMENTO } from '@/lib/newsletter/inscricao'
-import { urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
+import { urlBase, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
+import { withFtp, baixarTexto, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
+import { ligarFormularioNaHome, MARCA } from '@/lib/site/formulario-newsletter'
 import { emailDeConfirmacao } from '@/lib/newsletter/modelo'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 
@@ -284,5 +286,85 @@ export async function adicionarInscrito(formData: FormData): Promise<Resultado> 
     }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível acrescentar o endereço.')) }
+  }
+}
+
+/**
+ * Liga o formulário da newsletter na home do site institucional.
+ *
+ * Esta é a única ação do sistema que reescreve uma página do site
+ * institucional que não nasceu aqui. Por isso ela tem mais freios do que
+ * qualquer outra:
+ *
+ *  - RESTRITA A ADMINISTRADOR. Publicar no site já é sério; reescrever a home
+ *    é outro patamar.
+ *  - O CONTEÚDO É QUE IDENTIFICA O ARQUIVO, não o caminho. Se o que foi
+ *    baixado não tiver a seção da newsletter conhecida, nada é gravado — e
+ *    isso protege inclusive contra ter pego o index.html errado.
+ *  - CONFERE DEPOIS. Termina buscando a home pública para provar que a
+ *    mudança está no ar. Gravar por FTP e presumir que deu certo é como o
+ *    "os arquivos subiram mas a página não responde" já aconteceu aqui antes.
+ *  - IDEMPOTENTE. Rodar de novo não duplica nada.
+ */
+export async function ligarFormularioDoSite(): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    if (context.role !== 'admin') throw new Error('Só um administrador pode alterar a página inicial do site.')
+
+    const rota = `${urlBase()}/api/newsletter/inscrever`
+
+    const resultado = await withFtp(async (client, config) => {
+      // Candidatos, do mais provável ao menos. Qual deles é a home quem diz é
+      // o conteúdo, não o caminho: uma pasta de notícias também tem index.html.
+      const candidatos = ['/index.html', '/public_html/index.html', `${config.baseDir.replace(/\/$/, '')}/../index.html`]
+
+      for (const caminho of candidatos) {
+        let html: string
+        try { html = await baixarTexto(client, caminho) } catch { continue }
+        if (!html.includes('newsletter-section')) continue
+
+        const troca = ligarFormularioNaHome(html, rota)
+        if (troca.estado === 'ja-ligado') return { ok: true as const, detalhe: troca.detalhe, gravou: false }
+        if (troca.estado === 'recusado') return { ok: false as const, detalhe: troca.detalhe }
+
+        const raiz = caminho.slice(0, caminho.lastIndexOf('/')) || '/'
+        await enviarNaRaizDoSite(client, raiz, 'index.html', troca.html)
+        return { ok: true as const, detalhe: troca.detalhe, gravou: true, onde: caminho, tamanho: troca.html.length }
+      }
+
+      return {
+        ok: false as const,
+        detalhe: 'Não alcancei a página inicial pelo FTP. A conta está confinada à pasta de notícias — no hPanel da Hostinger, libere a conta para /public_html (ou a raiz do site) e tente de novo.',
+      }
+    })
+
+    if (!resultado.ok) return { erro: resultado.detalhe }
+
+    // A prova: a home pública tem de mostrar a marca. Sem esta conferência, um
+    // FTP que aceitou o arquivo na pasta errada passaria por sucesso.
+    let confirmado = false
+    try {
+      const res = await fetch('https://cruzvermelhariodejaneiro.org/', { cache: 'no-store' })
+      confirmado = (await res.text()).includes(MARCA)
+    } catch { /* rede: a conferência falha, a gravação não se desfaz */ }
+
+    if (resultado.gravou) {
+      await createAdminClient().from('activity_log').insert({
+        workspace_id: context.workspace.id,
+        actor_id: context.user.id,
+        action: 'newsletter_formulario_ligado',
+        entity_type: 'site',
+        metadata: { onde: resultado.onde, tamanho: resultado.tamanho, confirmado },
+      })
+    }
+
+    revalidatePath('/newsletter')
+    return {
+      recado: confirmado
+        ? `${resultado.detalhe} Conferido: a home pública já está com o formulário ligado.`
+        : `${resultado.detalhe} Não consegui confirmar na home pública agora — abra cruzvermelhariodejaneiro.org e teste o formulário.`,
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível ligar o formulário da home.') }
   }
 }

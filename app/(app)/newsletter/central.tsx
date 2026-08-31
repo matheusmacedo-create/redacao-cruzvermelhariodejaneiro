@@ -3,14 +3,15 @@
 import { useMemo, useState, useTransition } from 'react'
 import {
   AlertTriangle, CheckCircle2, Download, Loader2, Mail, MailCheck, Plus,
-  RefreshCw, Search, Send, Trash2, X,
+  Globe, RefreshCw, Search, Send, Trash2, X,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { rotuloDoEstado } from '@/lib/newsletter/csv'
 import {
-  adicionarInscrito, apagarInscrito, reenviarConvite, reenviarConvitesPendentes,
+  adicionarInscrito, apagarInscrito, ligarFormularioDoSite, reenviarConvite,
+  reenviarConvitesPendentes,
 } from '@/app/actions/newsletter'
 
 export type Inscrito = {
@@ -110,6 +111,7 @@ export function Central({
       )}
 
       <Numeros contagens={contagens} />
+      <FormularioDaHome podeLigar={podeApagar} executar={executar} processando={processando} />
       <EstadoDoEnvio envio={envio} pendentes={contagens.pendentes} executar={executar} processando={processando} />
       <Crescimento meses={meses} total={contagens.total} />
 
@@ -196,6 +198,83 @@ function Numeros({ contagens }: { contagens: Contagens }) {
         </Card>
       ))}
     </div>
+  )
+}
+
+/**
+ * O formulário da home: ligar, e saber se já está ligado.
+ *
+ * O estado é buscado sob demanda, no mesmo diagnóstico que confere o envio —
+ * ele lê o HTML público da home, e pendurar isso no carregamento faria a tela
+ * abrir na velocidade do site institucional.
+ */
+function FormularioDaHome({ podeLigar, executar, processando }: {
+  podeLigar: boolean
+  executar: (a: () => Promise<{ erro?: string; recado?: string }>) => void
+  processando: boolean
+}) {
+  const [estado, setEstado] = useState<string | null>(null)
+  const [olhando, setOlhando] = useState(false)
+
+  const olhar = async () => {
+    setOlhando(true)
+    try {
+      const r = await fetch('/api/admin/newsletter-check')
+      const d = await r.json()
+      setEstado(r.status === 403 ? 'restrito' : (d.formularioDaHome ?? 'desconhecido'))
+    } catch {
+      setEstado('desconhecido')
+    } finally {
+      setOlhando(false)
+    }
+  }
+
+  const ligado = estado === 'ligado'
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Globe className="size-4 text-muted-foreground" />
+            <h2 className="font-semibold">Formulário do site</h2>
+            {estado && (
+              <span className={cn(
+                'rounded-md px-2 py-0.5 text-xs font-medium',
+                ligado ? 'bg-success/14 text-success' : 'bg-warning/20 text-warning-foreground',
+              )}>
+                {ligado ? 'Ligado' : estado === 'restrito' ? 'Restrito a administrador' : 'Não está ligado'}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {ligado
+              ? 'A home de cruzvermelhariodejaneiro.org envia as inscrições para cá.'
+              : 'A home promete "Receba novidades da Cruz Vermelha RJ". Enquanto o formulário de lá não apontar para cá, quem se inscreve tem o endereço descartado sem saber.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={olhar} disabled={olhando}>
+            {olhando ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Ver situação
+          </Button>
+          {podeLigar && !ligado && (
+            <Button
+              size="sm"
+              disabled={processando}
+              onClick={() => executar(async () => {
+                const r = await ligarFormularioDoSite()
+                if (!r.erro) setEstado('ligado')
+                return r
+              })}
+            >
+              {processando ? <Loader2 className="size-4 animate-spin" /> : <Globe className="size-4" />}
+              Ligar o formulário
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
   )
 }
 
