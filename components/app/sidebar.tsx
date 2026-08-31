@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -18,6 +18,9 @@ const sections = [
       { href: '/pautas', label: 'Pautas', icon: ListChecks },
       { href: '/projetos', label: 'Projetos', icon: FolderKanban },
       { href: '/redes', label: 'Publicações', icon: Share2 },
+      // Logo depois de Publicações porque é de lá que a edição sai: a
+      // newsletter é um destino do pacote, não uma ferramenta à parte.
+      { href: '/newsletter', label: 'Central de e-mail', icon: Mail },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },
       { href: '/biblioteca', label: 'Biblioteca', icon: Images },
     ],
