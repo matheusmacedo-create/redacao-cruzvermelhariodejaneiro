@@ -189,6 +189,47 @@ export async function adaptarTexto(pedido: {
   return texto.replace(/^["“']|["”']$/g, '').trim()
 }
 
+/**
+ * Pede ao modelo três ideias de imagem para uma matéria.
+ *
+ * Complementa — não substitui — os modelos de pedido locais: aqueles são
+ * instantâneos e de graça, este custa uma chamada e enxerga o texto inteiro.
+ * As mesmas proibições vão no pedido, porque uma ideia que peça o emblema ou
+ * uma pessoa é uma ideia que não serve.
+ */
+export async function sugerirBriefings(pedido: {
+  titulo: string
+  texto: string
+  proibicoes: string
+}): Promise<string[]> {
+  const dados = await chamar<RespostaDeTexto>('/chat/completions', {
+    model: modeloDeTexto(),
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'Você propõe ideias de imagem para acompanhar publicações de uma organização humanitária.',
+          'Cada ideia é um parágrafo único, em português do Brasil, descrevendo a cena, o enquadramento, a luz e a paleta.',
+          'Nunca proponha pessoas, rostos, o emblema da cruz vermelha, cruzes, símbolos humanitários ou texto dentro da imagem.',
+          'Responda com exatamente três linhas, uma ideia por linha, sem numeração, sem título e sem comentário.',
+        ].join(' '),
+      },
+      {
+        role: 'user',
+        content: `Matéria: ${pedido.titulo}\n\n${pedido.texto.slice(0, 4000)}\n\n`
+          + `Cada ideia deve terminar com estas restrições, literalmente: "${pedido.proibicoes}"`,
+      },
+    ],
+  }, 60_000)
+
+  const bruto = dados.choices?.[0]?.message?.content?.trim() ?? ''
+  return bruto
+    .split('\n')
+    .map((l) => l.replace(/^\s*[-*\d.)\s]+/, '').trim())
+    .filter((l) => l.length > 40)
+    .slice(0, 3)
+}
+
 // ---------------------------------------------------------------- diagnóstico
 
 export async function modelosDisponiveis(): Promise<string[]> {
