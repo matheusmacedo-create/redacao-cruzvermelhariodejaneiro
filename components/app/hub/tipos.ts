@@ -7,6 +7,8 @@ export type ArquivoDaBiblioteca = {
   contentType: string
   tamanho: number
   previa: string
+  /** Imagem gerada por IA. Acompanha o arquivo, nunca some. */
+  geradaPorIa?: boolean
 }
 
 export type MestreRegistro = {

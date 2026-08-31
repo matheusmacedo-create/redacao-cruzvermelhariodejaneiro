@@ -662,6 +662,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           : []
         const eVideo = daBiblioteca.length > 0 && daBiblioteca[0].contentType.startsWith('video/')
         const midias = daBiblioteca.map((a) => a.blob)
+        const iaGerada = daBiblioteca.some((a) => a.geradaPorIa)
 
         const comum = {
           redes,
@@ -672,6 +673,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           timezone: 'America/Sao_Paulo',
           formato: modelo.formato as FormatoConector,
           extras: modelo.extras,
+          iaGerada,
         }
 
         const { dados } = eVideo

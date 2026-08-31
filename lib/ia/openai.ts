@@ -1,0 +1,197 @@
+import 'server-only'
+import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
+
+/**
+ * O conector da OpenAI: gerar imagem e adaptar legenda.
+ *
+ * Mesma forma do conector do Upload-Post — chave lida do ambiente, erro com
+ * status, segredo raspado da mensagem. A chave NUNCA pode ganhar o prefixo
+ * NEXT_PUBLIC_: ela é cobrada por uso, e no navegador vira gasto de quem
+ * achar.
+ *
+ * Os nomes dos modelos vêm do ambiente porque a OpenAI os renomeia e aposenta
+ * com frequência. Trocar um nome não pode exigir deploy — e um nome que não
+ * existe precisa falhar dizendo isso, não com um 400 opaco.
+ */
+
+const BASE = 'https://api.openai.com/v1'
+
+export const MODELO_DE_IMAGEM_PADRAO = 'gpt-image-2'
+export const MODELO_DE_TEXTO_PADRAO = 'gpt-5-mini'
+
+export class IaError extends Error {
+  constructor(message: string, public status: number) {
+    super(message)
+    this.name = 'IaError'
+  }
+}
+
+export function chaveDaIa(): string {
+  const chave = process.env.OPENAI_API_KEY?.trim()
+  if (!chave) {
+    throw new IaError(
+      'Falta a variável OPENAI_API_KEY. Cadastre a chave nas variáveis de ambiente da Vercel — nunca com o prefixo NEXT_PUBLIC_.',
+      0,
+    )
+  }
+  return chave
+}
+
+export const iaConfigurada = () => Boolean(process.env.OPENAI_API_KEY?.trim())
+export const modeloDeImagem = () => process.env.OPENAI_IMAGE_MODEL?.trim() || MODELO_DE_IMAGEM_PADRAO
+export const modeloDeTexto = () => process.env.OPENAI_TEXT_MODEL?.trim() || MODELO_DE_TEXTO_PADRAO
+
+/** Teto mensal de imagens por espaço. Imagem gerada custa dinheiro a cada
+ *  clique; sem teto, um engano em laço vira fatura. */
+export function tetoMensalDeImagens(): number {
+  const bruto = Number(process.env.OPENAI_IMAGE_LIMITE_MENSAL)
+  return Number.isFinite(bruto) && bruto > 0 ? Math.floor(bruto) : 60
+}
+
+/** Tira a chave de qualquer mensagem que vá parar no banco ou na tela. */
+export function semChave(texto: string): string {
+  const chave = process.env.OPENAI_API_KEY
+  return chave && chave.length >= 8 ? texto.split(chave).join('«oculto»') : texto
+}
+
+async function chamar<T>(caminho: string, corpo: unknown, timeoutMs: number): Promise<T> {
+  const chave = chaveDaIa()
+  const controle = new AbortController()
+  const relogio = setTimeout(() => controle.abort(), timeoutMs)
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${caminho}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo),
+      signal: controle.signal,
+    })
+  } catch (causa) {
+    const motivo = causa instanceof Error && causa.name === 'AbortError'
+      ? 'A OpenAI demorou demais para responder.'
+      : semChave(causa instanceof Error ? causa.message : String(causa))
+    throw new IaError(motivo, 0)
+  } finally {
+    clearTimeout(relogio)
+  }
+
+  const dados = await res.json().catch(() => null)
+  if (!res.ok) {
+    const mensagem = (dados as { error?: { message?: string } })?.error?.message
+    // 404 num endpoint que existe quase sempre é nome de modelo aposentado —
+    // dizer isso poupa a caçada.
+    const dica = res.status === 404
+      ? ' Confira o nome do modelo em /api/admin/ia-check: a OpenAI aposenta nomes com frequência.'
+      : res.status === 401 ? ' A chave foi recusada — confira OPENAI_API_KEY.'
+      : res.status === 429 ? ' Cota ou limite de uso atingido no painel da OpenAI.'
+      : ''
+    throw new IaError(`${semChave(mensagem || 'A OpenAI recusou a chamada.')}${dica}`, res.status)
+  }
+  return dados as T
+}
+
+// ---------------------------------------------------------------- imagem
+
+export type ImagemGerada = { bytes: Buffer; contentType: string; largura: number; altura: number }
+
+type RespostaDeImagem = { data?: { b64_json?: string }[] }
+
+/**
+ * Gera uma imagem no enquadramento que o canal pede.
+ *
+ * O modelo devolve sempre base64 — não existe resposta por URL para esta
+ * família — e sempre PNG, mesmo quando outro formato é pedido.
+ */
+export async function gerarImagem(pedido: {
+  prompt: string
+  proporcao: string
+  qualidade?: 'low' | 'medium' | 'high'
+}): Promise<ImagemGerada> {
+  const medida = tamanhoParaProporcao(pedido.proporcao)
+  const dados = await chamar<RespostaDeImagem>('/images/generations', {
+    model: modeloDeImagem(),
+    prompt: pedido.prompt,
+    size: medidaComoTexto(medida),
+    quality: pedido.qualidade ?? 'medium',
+    n: 1,
+  }, 180_000)
+
+  const b64 = dados.data?.[0]?.b64_json
+  if (!b64) throw new IaError('A OpenAI respondeu sem imagem.', 502)
+  return {
+    bytes: Buffer.from(b64, 'base64'),
+    contentType: 'image/png',
+    largura: medida.largura,
+    altura: medida.altura,
+  }
+}
+
+// ---------------------------------------------------------------- texto
+
+type RespostaDeTexto = {
+  choices?: { message?: { content?: string } }[]
+}
+
+/**
+ * Adapta um texto ao contrato de um canal.
+ *
+ * O modelo recebe o limite e a unidade que o adapter declara — não um número
+ * escrito à mão aqui. A conferência final continua sendo a nossa: a resposta
+ * volta como sugestão para alguém aceitar, nunca gravada direto na variante.
+ */
+export async function adaptarTexto(pedido: {
+  texto: string
+  canal: string
+  formato: string
+  limite: number
+  dobra?: number
+  maxHashtags?: number
+  instituicao?: string
+}): Promise<string> {
+  const regras = [
+    `Limite rígido: ${pedido.limite} caracteres. Não ultrapasse.`,
+    pedido.dobra ? `O leitor só vê os primeiros ${pedido.dobra} caracteres antes do "ver mais": ponha o essencial antes disso.` : '',
+    pedido.maxHashtags ? `No máximo ${pedido.maxHashtags} hashtags.` : 'Sem hashtags, a menos que já existam no texto.',
+  ].filter(Boolean).join('\n')
+
+  const dados = await chamar<RespostaDeTexto>('/chat/completions', {
+    model: modeloDeTexto(),
+    messages: [
+      {
+        role: 'system',
+        content: [
+          `Você adapta textos institucionais da ${pedido.instituicao ?? 'Cruz Vermelha Brasileira — Rio de Janeiro'} para redes sociais.`,
+          'Escreva em português do Brasil, em tom institucional, sóbrio e humano — é uma organização humanitária, não uma marca de varejo.',
+          'Não invente fato, número, data, nome nem citação que não esteja no texto recebido. Se faltar informação, escreva menos.',
+          'Não use emoji em excesso: no máximo um, e só se couber ao assunto.',
+          'Responda apenas com o texto final, sem aspas em volta e sem comentários.',
+        ].join(' '),
+      },
+      {
+        role: 'user',
+        content: `Adapte o texto abaixo para ${pedido.canal} (${pedido.formato}).\n\n${regras}\n\n---\n${pedido.texto}`,
+      },
+    ],
+  }, 60_000)
+
+  const texto = dados.choices?.[0]?.message?.content?.trim()
+  if (!texto) throw new IaError('A OpenAI respondeu sem texto.', 502)
+  // Modelo às vezes devolve o texto entre aspas mesmo pedindo que não.
+  return texto.replace(/^["“']|["”']$/g, '').trim()
+}
+
+// ---------------------------------------------------------------- diagnóstico
+
+export async function modelosDisponiveis(): Promise<string[]> {
+  const chave = chaveDaIa()
+  const res = await fetch(`${BASE}/models`, { headers: { Authorization: `Bearer ${chave}` } })
+  const dados = await res.json().catch(() => null)
+  if (!res.ok) {
+    const mensagem = (dados as { error?: { message?: string } })?.error?.message
+    throw new IaError(semChave(mensagem || 'Não foi possível listar os modelos.'), res.status)
+  }
+  return ((dados as { data?: { id?: string }[] })?.data ?? [])
+    .map((m) => m.id ?? '')
+    .filter(Boolean)
+    .sort()
+}

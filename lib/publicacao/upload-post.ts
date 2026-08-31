@@ -392,6 +392,12 @@ export type EnvioComum = {
   formato?: Formato
   /** Campos extras da variante (hub): firstComment, pinterestBoardId, ctaTipo… */
   extras?: Record<string, string>
+  /**
+   * A mídia enviada foi gerada por IA. As redes têm campo próprio para isso —
+   * o Instagram mostra o selo "AI info" sob o nome da conta. Declarar é o que
+   * separa ilustração de registro fotográfico numa publicação humanitária.
+   */
+  iaGerada?: boolean
 }
 
 function montarComum(form: FormData, envio: EnvioComum) {
@@ -411,6 +417,10 @@ function montarComum(form: FormData, envio: EnvioComum) {
 
   const pagina = envio.paginaFacebookId || paginaFacebookPadrao()
   if (pagina && envio.redes.includes('facebook')) form.set('facebook_page_id', pagina)
+
+  // Alias entre plataformas: o conector reparte para made_with_ai (X) e
+  // containsSyntheticMedia (YouTube) sozinho.
+  if (envio.iaGerada) form.set('is_ai_generated', 'true')
 
   for (const [rede, texto] of Object.entries(envio.textoPorRede || {})) {
     if (texto) form.set(`${rede}_title`, texto)

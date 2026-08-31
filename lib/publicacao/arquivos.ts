@@ -2,6 +2,7 @@ import 'server-only'
 import { get } from '@vercel/blob'
 import { createClient } from '@/lib/supabase/server'
 import { recortar, type CaixaDeRecorte } from '@/lib/publicacao/recorte'
+import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
 
 /**
  * Carrega arquivos da Biblioteca como bytes para envio às redes.
@@ -20,7 +21,7 @@ export async function carregarArquivo(
   const supabase = await createClient()
   const { data: arquivo } = await supabase
     .from('files')
-    .select('name,content_type,storage_path,status,authorization_status')
+    .select('name,content_type,storage_path,status,authorization_status,tags')
     .eq('id', fileId)
     .eq('workspace_id', workspaceId)
     .maybeSingle()
@@ -54,6 +55,9 @@ export async function carregarArquivo(
     blob: new File([new Uint8Array(bytes)], arquivo.name || 'arquivo', { type: contentType }),
     contentType,
     storagePath: arquivo.storage_path,
+    // A etiqueta viaja com o arquivo até o disparo: é ela que faz o conector
+    // declarar à rede que a imagem é sintética.
+    geradaPorIa: (arquivo.tags ?? []).includes(ETIQUETA_DE_IA),
   }
 }
 
