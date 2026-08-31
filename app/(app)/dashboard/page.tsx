@@ -6,9 +6,19 @@ import { StatusBadge } from '@/components/ui/status-badge'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { pautaStatus } from '@/lib/status-maps'
+import { adapter } from '@/lib/publicacao/canais'
+import { STATUS_EM_ABERTO } from '@/lib/editorial/status'
 
 function dataHoje() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+
+/** A saudação tem de bater com o relógio de quem lê — em Brasília, não em UTC. */
+function saudacao() {
+  const hora = Number(new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hour12: false }).format(new Date()))
+  if (hora < 12) return 'Bom dia'
+  if (hora < 18) return 'Boa tarde'
+  return 'Boa noite'
 }
 
 export default async function DashboardPage() {
@@ -16,54 +26,73 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const hoje = dataHoje()
 
+  // Os cartões de atenção são números, não listas: contar no banco evita
+  // trazer a operação inteira para a memória só para chamar .filter() nela —
+  // e um teto de linhas aqui esconderia justamente o atraso mais antigo.
   const [
-    { data: pautas },
+    { count: atrasadas },
+    { count: emProducao },
     { data: events },
-    { data: approvals },
+    { count: aguardandoAprovacao },
     { data: projects },
-    { data: packages },
+    { count: pacotesPublicados },
+    { count: pacotesComFalha },
+    { count: pacotesNaOperacao },
   ] = await Promise.all([
-    supabase.from('pautas').select('id,title,status,priority,due_date,project_id').eq('workspace_id', context.workspace.id).order('updated_at', { ascending: false }),
+    supabase.from('pautas').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id)
+      .lt('due_date', hoje)
+      .in('status', STATUS_EM_ABERTO),
+    supabase.from('pautas').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id).eq('status', 'production'),
     supabase.from('calendar_events').select('id,title,event_date,event_time,channel,pauta_id').eq('workspace_id', context.workspace.id).gte('event_date', hoje).order('event_date').order('event_time').limit(12),
-    supabase.from('approvals').select('id').eq('workspace_id', context.workspace.id).eq('status', 'pending'),
+    supabase.from('approvals').select('id', { count: 'exact', head: true }).eq('workspace_id', context.workspace.id).eq('status', 'pending'),
     supabase.from('projects').select('id,name,status,pautas(id,status,due_date)').eq('workspace_id', context.workspace.id).eq('status', 'active').order('updated_at', { ascending: false }).limit(6),
-    supabase.from('social_packages').select('id,titulo_interno,status,updated_at').eq('workspace_id', context.workspace.id).neq('status', 'arquivado').order('updated_at', { ascending: false }).limit(40),
+    supabase.from('social_packages').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id).eq('status', 'publicado'),
+    supabase.from('social_packages').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id).in('status', ['falhou', 'parcial']),
+    supabase.from('social_packages').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', context.workspace.id).neq('status', 'arquivado'),
   ])
 
-  const packageIds = (packages ?? []).map((p) => p.id)
-  const { data: destinations } = packageIds.length
-    ? await supabase.from('package_destinations').select('package_id,canal,estado').in('package_id', packageIds)
-    : { data: [] as { package_id: string; canal: string; estado: string }[] }
+  // A saúde do canal é sobre quando ele recebeu conteúdo pela última vez. Isso
+  // é uma pergunta ao destino publicado, não ao pacote: updated_at do pacote
+  // se move a cada edição e faria um canal parado há meses parecer ativo hoje.
+  const { data: ultimasPublicacoes } = await supabase
+    .from('package_destinations')
+    .select('canal,publicado_em')
+    .eq('workspace_id', context.workspace.id)
+    .eq('estado', 'publicada')
+    .not('publicado_em', 'is', null)
+    .order('publicado_em', { ascending: false })
+    .limit(200)
 
   const name = context.profile?.full_name?.split(' ')[0] || context.profile?.username || 'colaborador'
-  const atrasadas = (pautas ?? []).filter((p) => p.due_date && p.due_date < hoje && !['approved', 'archived', 'done'].includes(p.status))
-  const emProducao = (pautas ?? []).filter((p) => p.status === 'production')
   const eventosHoje = (events ?? []).filter((event) => event.event_date === hoje)
-  const publicadas = (packages ?? []).filter((p) => p.status === 'publicado')
-  const publicacoesComFalha = (packages ?? []).filter((p) => p.status === 'falhou' || p.status === 'parcial')
 
-  const packageUpdated = new Map((packages ?? []).map((p) => [p.id, p.updated_at]))
+  // Já vem em ordem decrescente: a primeira linha de cada canal é a mais nova.
   const canalUltima = new Map<string, string>()
-  for (const destination of destinations ?? []) {
-    if (destination.estado !== 'publicada') continue
-    const updatedAt = packageUpdated.get(destination.package_id)
-    if (!updatedAt) continue
-    const atual = canalUltima.get(destination.canal)
-    if (!atual || new Date(updatedAt) > new Date(atual)) canalUltima.set(destination.canal, updatedAt)
+  for (const linha of ultimasPublicacoes ?? []) {
+    if (!canalUltima.has(linha.canal)) canalUltima.set(linha.canal, linha.publicado_em as string)
   }
 
-  const canais = [
-    ['instagram', 'Instagram'],
-    ['facebook', 'Facebook'],
-    ['site_web', 'Site'],
-  ] as const
+  // O site sempre aparece — é o canal da casa, e um site parado é notícia.
+  // Os outros entram por uso: canal que a redação nunca usou não vira cobrança
+  // na tela, e canal novo aparece sozinho, sem ninguém editar esta lista.
+  const canais: [string, string][] = [
+    ['site_web', adapter('site_web')?.nome ?? 'Site'],
+    ...[...canalUltima.keys()]
+      .filter((id) => id !== 'site_web')
+      .map((id): [string, string] => [id, adapter(id)?.nome ?? id]),
+  ]
 
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-primary">Central de Comunicação</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">Boa tarde, {name}.</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">{saudacao()}, {name}.</h1>
           <p className="mt-1 text-sm text-muted-foreground">O que precisa de atenção e o que está programado na operação.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -78,10 +107,10 @@ export default async function DashboardPage() {
           <Link href="/aprovacoes" className="text-xs font-medium text-primary hover:underline">Ver fila completa</Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <AttentionCard icon={CheckCircle2} value={approvals?.length ?? 0} title="Aguardando aprovação" description="Conteúdos esperando decisão" href="/aprovacoes" tone="primary" />
-          <AttentionCard icon={AlertTriangle} value={atrasadas.length} title="Atrasados" description="Demandas que passaram do prazo" href="/pautas" tone={atrasadas.length ? 'danger' : 'neutral'} />
+          <AttentionCard icon={CheckCircle2} value={aguardandoAprovacao ?? 0} title="Aguardando aprovação" description="Conteúdos esperando decisão" href="/aprovacoes" tone="primary" />
+          <AttentionCard icon={AlertTriangle} value={atrasadas ?? 0} title="Atrasados" description="Demandas que passaram do prazo" href="/pautas" tone={atrasadas ? 'danger' : 'neutral'} />
           <AttentionCard icon={Clock3} value={eventosHoje.length} title="Publicações hoje" description="Itens previstos no calendário" href="/calendario" tone="neutral" />
-          <AttentionCard icon={Send} value={publicacoesComFalha.length} title="Publicação com atenção" description="Pacotes parciais ou com falha" href="/redes" tone={publicacoesComFalha.length ? 'danger' : 'neutral'} />
+          <AttentionCard icon={Send} value={pacotesComFalha ?? 0} title="Publicação com atenção" description="Pacotes parciais ou com falha" href="/redes" tone={pacotesComFalha ? 'danger' : 'neutral'} />
         </div>
       </section>
 
@@ -122,7 +151,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-2"><span className={`size-2 rounded-full ${ultima ? 'bg-success' : 'bg-muted-foreground/40'}`} /><p className="font-medium">{label}</p></div>
                     <span className="text-xs text-muted-foreground">{ultima ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(ultima)) : 'Sem publicação registrada'}</span>
                   </div>
-                  <p className="mt-1 pl-4 text-xs text-muted-foreground">Última atividade publicada registrada pelo Redação</p>
+                  <p className="mt-1 pl-4 text-xs text-muted-foreground">Data da última publicação neste canal</p>
                 </div>
               )
             })}
@@ -138,7 +167,7 @@ export default async function DashboardPage() {
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(projects ?? []).map((project: any) => {
             const projectPautas = project.pautas ?? []
-            const projectLate = projectPautas.filter((p: any) => p.due_date && p.due_date < hoje && !['approved', 'archived', 'done'].includes(p.status)).length
+            const projectLate = projectPautas.filter((p: any) => p.due_date && p.due_date < hoje && STATUS_EM_ABERTO.includes(p.status)).length
             const projectProduction = projectPautas.filter((p: any) => p.status === 'production').length
             return (
               <Link key={project.id} href={`/projetos/${project.id}`}>
@@ -157,9 +186,9 @@ export default async function DashboardPage() {
       </section>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <MiniStat value={emProducao.length} label="Demandas em produção" />
-        <MiniStat value={publicadas.length} label="Pacotes publicados" />
-        <MiniStat value={packages?.length ?? 0} label="Pacotes na operação" />
+        <MiniStat value={emProducao ?? 0} label="Demandas em produção" />
+        <MiniStat value={pacotesPublicados ?? 0} label="Pacotes publicados" />
+        <MiniStat value={pacotesNaOperacao ?? 0} label="Pacotes na operação" />
       </div>
     </div>
   )

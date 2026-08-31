@@ -58,9 +58,23 @@ export function paginaFacebookPadrao(): string | undefined {
 }
 
 /** Recorta a chave de qualquer texto antes de ele virar log ou resposta HTTP. */
+/**
+ * Tira do texto qualquer segredo que possa ter vindo junto na mensagem de erro.
+ *
+ * Mensagem de erro viaja longe: vai para o banco, para a tela do Registro e
+ * para o CSV que a instituição arquiva. Basta uma biblioteca ecoar a URL da
+ * chamada — com credencial dentro — para o segredo virar documento. Cobre
+ * também a senha do FTP, porque o erro de publicação do site passa pelo mesmo
+ * caminho até a tela.
+ */
 export function semSegredo(texto: string): string {
-  const key = process.env.UPLOAD_POST_API_KEY
-  return key ? texto.split(key).join('«chave»') : texto
+  const segredos = [process.env.UPLOAD_POST_API_KEY, process.env.FTP_PASSWORD, process.env.SUPABASE_SERVICE_ROLE_KEY]
+  let limpo = texto
+  for (const segredo of segredos) {
+    // Segredo curto demais viraria substituição em cima de texto legítimo.
+    if (segredo && segredo.length >= 8) limpo = limpo.split(segredo).join('«oculto»')
+  }
+  return limpo
 }
 
 export type LimiteDeUso = { limite: string | null; restante: string | null; reset: string | null }

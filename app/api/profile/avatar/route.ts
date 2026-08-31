@@ -1,11 +1,12 @@
 import { del, put } from '@vercel/blob'
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { AVATAR_FILE_LIMIT, AVATAR_MIME_TYPES, safeExtension } from '@/lib/storage'
 
 export async function POST(request: Request) {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const formData = await request.formData()
   const file = formData.get('file')
   if (!(file instanceof File)) return NextResponse.json({ error: 'Selecione uma imagem.' }, { status: 400 })
@@ -22,7 +23,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const supabase = await createClient()
   const { data: current } = await supabase.from('profiles').select('avatar_path').eq('id', context.user.id).single()
   const { error } = await supabase.from('profiles').update({ avatar_path: null, updated_at: new Date().toISOString() }).eq('id', context.user.id)

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { adapter, formatoDoAdapter, type Mestre } from '@/lib/publicacao/canais'
 import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/variantes'
@@ -31,7 +32,7 @@ function deBrasilia(valor: string): Date {
 }
 
 function comoErro(causa: unknown, padrao: string): ResultadoDoHub {
-  return { erro: (causa instanceof Error ? causa.message : padrao).slice(0, 500) }
+  return { erro: mensagemDoErro(causa, padrao) }
 }
 
 function lerMestre(bruto: unknown): Mestre {
@@ -49,7 +50,7 @@ async function pacoteDoEspaco(id: string, workspaceId: string) {
   const supabase = await createClient()
   const { data } = await supabase
     .from('social_packages')
-    .select('id,titulo_interno,mestre,mestre_file_ids,status,agendar_para,content_id')
+    .select('id,titulo_interno,mestre,mestre_file_ids,status,agendar_para,content_id,origem_tipo,origem_id')
     .eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
   if (!data) throw new Error('Pacote não encontrado neste espaço.')
   return data
@@ -428,7 +429,7 @@ export async function arquivarPacote(formData: FormData): Promise<ResultadoDoHub
 // ---------------------------------------------------------------- disparo
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { publicarFotos, publicarTexto, publicarVideo, semSegredo, type Formato as FormatoConector } from '@/lib/publicacao/upload-post'
+import { publicarFotos, publicarTexto, publicarVideo, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
 import { carregarArquivos } from '@/lib/publicacao/arquivos'
 import { publicarMateria } from '@/lib/site/publicar-materia'
 import type { CaixaDeRecorte } from '@/lib/publicacao/recorte'
@@ -560,10 +561,14 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     }
     if (!prontos.length) throw new Error('Nenhum destino pronto para publicar. Marque ao menos um como pronto.')
 
+    // Gravar em silêncio é como um destino fica preso em "publicando" para
+    // sempre: o post saiu, a linha não acompanhou, e o reprocesso nem aparece
+    // porque o estado nunca chegou a "falhou".
     const marcar = async (ids: string[], campos: Record<string, unknown>) => {
       if (!ids.length) return
-      await supabase.from('package_destinations').update(campos).in('id', ids)
+      const { error } = await supabase.from('package_destinations').update(campos).in('id', ids)
         .eq('workspace_id', context.workspace.id)
+      if (error) console.error('[pacotes] não foi possível gravar o estado dos destinos', ids.join(','), error.message)
     }
 
     let publicados = 0
@@ -759,6 +764,166 @@ export async function reprocessarDestino(formData: FormData): Promise<ResultadoD
 }
 
 /**
+ * Confere no conector o que aconteceu de fato com cada destino já disparado.
+ *
+ * O envio é assíncrono por obrigação: a documentação avisa que o modo síncrono
+ * vira assíncrono aos 59s, e a função da Vercel morre antes disso. Ou seja, a
+ * API responde "aceito" e publica depois. Sem esta conferência o hub ficava
+ * com a resposta do aceite como se fosse o resultado — e três coisas nunca
+ * chegavam:
+ *
+ *  - o endereço do post (era por isso que o Registro dizia "sem link do canal");
+ *  - a falha que acontece DEPOIS do aceite, que ficava marcada como publicada;
+ *  - a rede sem conta conectada, que o conector devolve como `skipped` e conta
+ *    como sucesso — o destino aparecia publicado sem nada ter saído.
+ *
+ * O agendado é o mesmo caso: ficava em "na fila" para sempre, porque nada
+ * voltava para dizer que a hora chegou.
+ */
+export async function atualizarStatusDoPacote(formData: FormData): Promise<ResultadoDoHub & { mudou?: number }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    // Sem pacoteId, confere o espaço inteiro — é o que o Registro precisa,
+    // porque lá as linhas vêm de pacotes diferentes.
+    const pacoteId = texto(formData, 'pacoteId')
+    if (pacoteId) await pacoteDoEspaco(pacoteId, context.workspace.id)
+
+    // Só o que já foi disparado e ainda pode mudar de ideia. Destino que
+    // falhou fica quieto: quem decide sobre ele é o botão de reprocessar.
+    let consulta = supabase
+      .from('package_destinations')
+      .select('id,package_id,canal,estado,request_id,external_url,erro')
+      .eq('workspace_id', context.workspace.id)
+      .in('estado', ['publicada', 'publicando', 'na_fila'])
+      .not('request_id', 'is', null)
+      .limit(200)
+    if (pacoteId) consulta = consulta.eq('package_id', pacoteId)
+    const { data: destinos } = await consulta
+
+    const pendentes = (destinos ?? []).filter((d) => d.canal !== 'site_web')
+    if (!pendentes.length) return { mudou: 0 }
+
+    // Gravar em silêncio é como um destino fica preso em "publicando" para
+    // sempre: o post saiu, a linha não acompanhou e ninguém fica sabendo.
+    const aplicar = async (id: string, campos: Record<string, unknown>) => {
+      const { error } = await supabase.from('package_destinations')
+        .update(campos).eq('id', id).eq('workspace_id', context.workspace.id)
+      if (error) console.error('[pacotes] não foi possível gravar o status do destino', id, error.message)
+    }
+
+    let mudou = 0
+    const registroIds = [...new Set(pendentes.map((d) => d.request_id as string))]
+
+    for (const registroId of registroIds) {
+      const { data: registro } = await supabase
+        .from('social_publications')
+        .select('id,request_id,job_id,status')
+        .eq('id', registroId).eq('workspace_id', context.workspace.id).maybeSingle()
+      if (!registro?.request_id && !registro?.job_id) continue
+
+      let dados: RespostaDeEnvio & { completed?: number; total?: number }
+      try {
+        ;({ dados } = await statusDoEnvio({
+          requestId: registro.request_id ?? undefined,
+          jobId: registro.job_id ?? undefined,
+        }))
+      } catch (causa) {
+        // Consultar e falhar não muda o que já foi publicado. Registrar o
+        // motivo e seguir é melhor do que marcar como falha um envio que pode
+        // estar correndo bem.
+        const motivo = semSegredo(causa instanceof Error ? causa.message : String(causa)).slice(0, 500)
+        await supabase.from('social_publications').update({ error: motivo }).eq('id', registro.id)
+        continue
+      }
+
+      // "not_found" é o conector dizendo que não conhece este envio — pode ser
+      // propagação. Apagar o estado por causa disso seria pior do que esperar.
+      if (dados.status === 'not_found') continue
+
+      await supabase.from('social_publications').update({
+        status: dados.status ?? registro.status,
+        results: (dados.results ?? []).map((r) => ({
+          rede: r.platform, ok: r.success, mensagem: r.message ?? null,
+          url: r.post_url ?? null, pulada: r.skipped ?? false,
+        })),
+      }).eq('id', registro.id)
+
+      const porRede = new Map((dados.results ?? []).map((r) => [r.platform, r]))
+      for (const destino of pendentes.filter((d) => d.request_id === registro.id)) {
+        const resultado = porRede.get(destino.canal)
+
+        if (!resultado) {
+          // Sem linha para esta rede: ou ainda está na fila do conector, ou o
+          // envio inteiro morreu. Só o segundo caso é notícia.
+          if (dados.status === 'failed') {
+            await aplicar(destino.id, { estado: 'falhou', erro: (dados.message ?? 'O envio falhou no conector.').slice(0, 500) })
+            mudou++
+          }
+          continue
+        }
+
+        if (resultado.skipped) {
+          await aplicar(destino.id, {
+            estado: 'falhou',
+            erro: `A conta de ${adapter(destino.canal)?.nome ?? destino.canal} não está conectada no Upload-Post — nada foi publicado.`,
+          })
+          mudou++
+          continue
+        }
+        if (resultado.success === false) {
+          await aplicar(destino.id, { estado: 'falhou', erro: (resultado.message ?? 'A rede recusou a publicação.').slice(0, 500) })
+          mudou++
+          continue
+        }
+
+        const url = resultado.post_url ?? null
+        const virou = destino.estado !== 'publicada' || (url && url !== destino.external_url)
+        if (!virou) continue
+        await aplicar(destino.id, { estado: 'publicada', external_url: url, erro: null })
+        mudou++
+      }
+    }
+
+    if (mudou) {
+      for (const id of [...new Set(pendentes.map((d) => d.package_id))]) {
+        await recalcularStatusDoPacote(supabase, id, context.workspace.id)
+        revalidatePath(`/redes/${id}`)
+      }
+      revalidatePath('/redes')
+      revalidatePath('/registro')
+      revalidatePath('/dashboard')
+    }
+    return { mudou }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível conferir a situação das publicações.')
+  }
+}
+
+/** O status do pacote é consequência do estado dos destinos, nunca ao contrário. */
+async function recalcularStatusDoPacote(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  pacoteId: string,
+  workspaceId: string,
+) {
+  const { data: estados } = await supabase
+    .from('package_destinations').select('estado')
+    .eq('package_id', pacoteId).eq('workspace_id', workspaceId)
+  const lista = (estados ?? []).map((e) => e.estado)
+  if (!lista.length) return
+
+  const publicados = lista.filter((e) => e === 'publicada').length
+  const falhas = lista.filter((e) => e === 'falhou').length
+  const pendentes = lista.filter((e) => !['publicada', 'na_fila', 'ignorada', 'falhou'].includes(e)).length
+
+  const status = falhas > 0 || pendentes > 0
+    ? (publicados > 0 ? 'parcial' : falhas > 0 ? 'falhou' : 'rascunho')
+    : 'publicado'
+  await supabase.from('social_packages').update({ status })
+    .eq('id', pacoteId).eq('workspace_id', workspaceId)
+}
+
+/**
  * O destino site_web publica pela mesma engrenagem das matérias: se o pacote
  * nasceu de uma matéria, publica NELA (checklist do spec: não criar
  * duplicata); senão, cria a peça de conteúdo na primeira publicação e guarda
@@ -766,7 +931,7 @@ export async function reprocessarDestino(formData: FormData): Promise<ResultadoD
  */
 async function publicarSiteDoPacote(
   destino: DestinoParaDisparo,
-  pacote: { id?: string; content_id?: string | null; mestre?: unknown },
+  pacote: { id?: string; content_id?: string | null; mestre?: unknown; origem_tipo?: string | null; origem_id?: string | null },
   workspaceId: string,
   userId: string,
 ) {
@@ -789,6 +954,18 @@ async function publicarSiteDoPacote(
   }
 
   let contentId = String(extras.contentId ?? '')
+
+  // Pacote que nasceu de uma matéria publica NELA. Sem isto, cada publicação
+  // criava uma segunda peça com o mesmo texto: a matéria aparecia duplicada em
+  // Conteúdos e a original nunca recebia site_url, continuando "não publicada"
+  // na tela de quem a escreveu.
+  if (!contentId && pacote.origem_tipo === 'materia' && pacote.origem_id) {
+    const { data: origem } = await supabase
+      .from('content_pieces').select('id')
+      .eq('id', pacote.origem_id).eq('workspace_id', workspaceId).maybeSingle()
+    if (origem) contentId = origem.id
+  }
+
   if (!contentId) {
     const { data: peca, error } = await supabase
       .from('content_pieces')
@@ -806,6 +983,11 @@ async function publicarSiteDoPacote(
       .single()
     if (error || !peca) return { erro: 'Não foi possível criar a matéria para o site.' }
     contentId = peca.id
+  }
+
+  // Guarda o vínculo mesmo quando veio da origem: da segunda publicação em
+  // diante ninguém precisa reencontrar a peça.
+  if (contentId && extras.contentId !== contentId) {
     await supabase.from('package_destinations')
       .update({ extras: { ...extras, contentId } })
       .eq('id', destino.id).eq('workspace_id', workspaceId)
@@ -818,6 +1000,7 @@ async function publicarSiteDoPacote(
     titulo: String(extras.titulo ?? ''),
     subtitulo: String(extras.subtitulo ?? ''),
     corpo: corpoDaPagina,
+    slug: String(extras.slug ?? ''),
   })
 }
 

@@ -22,7 +22,7 @@ export const siteWeb: Adapter = {
     { chave: 'subtitulo', rotulo: 'Linha fina', tipo: 'texto', max: 200,
       dica: 'Vira a descrição que o Google e as redes mostram.' },
     { chave: 'slug', rotulo: 'Endereço (slug)', tipo: 'texto', max: 80,
-      dica: 'Em branco, nasce do título. Depois de publicado, não muda.' },
+      dica: 'A parte final da URL. Em branco, nasce do título. Pode colar o caminho inteiro — o /noticias/ é retirado. Depois de publicado não muda, para não quebrar os links já compartilhados.' },
   ],
   aoGerar(variante, mestre) {
     const titulo = variante.extras.titulo || mestre.titulo || primeiraLinha(mestre.corpo)

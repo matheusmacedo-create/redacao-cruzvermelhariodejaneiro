@@ -1,10 +1,11 @@
 import { get } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const pathname = request.nextUrl.searchParams.get('pathname')
   if (!pathname) return NextResponse.json({ error: 'Arquivo não informado.' }, { status: 400 })
   const supabase = await createClient()

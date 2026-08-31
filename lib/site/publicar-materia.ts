@@ -2,7 +2,7 @@ import 'server-only'
 import { get } from '@vercel/blob'
 import { createClient } from '@/lib/supabase/server'
 import { parseContentBlocks } from '@/lib/content-blocks'
-import { gerarSlug, slugDisponivel, slugValido } from '@/lib/site/slug'
+import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/slug'
 import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, FtpConfigError } from '@/lib/publicacao/ftp'
 
@@ -50,6 +50,12 @@ export type PedidoDePublicacao = {
   titulo?: string
   subtitulo?: string
   corpo?: string
+  /**
+   * Endereço pedido à mão. Só vale na primeira publicação: depois de a página
+   * existir, trocar o endereço quebra todo link já compartilhado e deixa a
+   * versão antiga órfã no servidor.
+   */
+  slug?: string
 }
 
 /**
@@ -91,7 +97,12 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
     let slug = peca.slug ?? ''
     if (!slug) {
-      const desejado = gerarSlug(peca.title)
+      // O endereço pedido à mão ganha do título; sem ele, o título manda.
+      const pedidoLimpo = pedido.slug ? slugDigitado(pedido.slug) : ''
+      if (pedido.slug?.trim() && !pedidoLimpo) {
+        throw new Error(`O endereço "${pedido.slug.trim()}" não vira um caminho válido. Use letras, números e hífens.`)
+      }
+      const desejado = pedidoLimpo || gerarSlug(peca.title)
       if (!desejado) throw new Error('O título não gera um endereço válido. Use ao menos uma letra ou número.')
       const { data: usados } = await supabase
         .from('content_pieces').select('slug')

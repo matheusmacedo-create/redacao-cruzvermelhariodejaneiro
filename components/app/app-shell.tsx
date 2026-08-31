@@ -17,6 +17,9 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
 
+  // Fecha o menu do celular a cada navegação — inclusive na seta de voltar do
+  // navegador, que nenhum onClick de link alcança.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setOpen(false), [pathname])
 
   return (

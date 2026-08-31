@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 
@@ -13,10 +13,13 @@ const sizes = {
 }
 
 export function Avatar({ initials, color, size = 'sm', className, src, alt = '' }: { initials: string; color?: string; size?: keyof typeof sizes; className?: string; src?: string | null; alt?: string }) {
-  const [failed, setFailed] = useState(false)
-  useEffect(() => setFailed(false), [src])
+  // Guardamos QUAL endereço falhou, não um sim/não: assim a troca de foto já
+  // nasce válida, sem um efeito para zerar o estado e sem o quadro em que a
+  // foto nova aparece como quebrada.
+  const [enderecoQueFalhou, setEnderecoQueFalhou] = useState<string | null>(null)
+  const failed = Boolean(src) && enderecoQueFalhou === src
   return <span className={cn('inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-white select-none', sizes[size], className)} style={{ backgroundColor: color ?? 'oklch(0.52 0 0)' }} aria-label={alt || undefined} aria-hidden={!alt}>
-    {src && !failed ? <img src={src} alt={alt} className="size-full object-cover" onError={() => setFailed(true)} /> : initials}
+    {src && !failed ? <img src={src} alt={alt} className="size-full object-cover" onError={() => setEnderecoQueFalhou(src ?? null)} /> : initials}
   </span>
 }
 

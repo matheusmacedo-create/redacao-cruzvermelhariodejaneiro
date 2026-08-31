@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
-import { getContent, getPauta, getPerson } from '@/lib/data'
 import { contentStatus } from '@/lib/status-maps'
 import { ContentEditor } from './content-editor'
 
@@ -9,28 +8,15 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
   const { id } = await params
   const context = await requireWorkspace()
   const supabase = await createClient()
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+  // Só id de verdade. Antes, um caminho qualquer caía no conteúdo fictício do
+  // protótipo — e abria um editor de matéria real por cima de dado inventado.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) notFound()
 
-  if (!isUuid) {
-    const legacyContent = getContent(id)
-    if (!legacyContent) notFound()
-    return (
-      <ContentEditor
-        content={legacyContent}
-        pauta={getPauta(legacyContent.pautaId)}
-        responsible={getPerson(legacyContent.responsibleId)}
-        workspaceId={context.workspace.id}
-      />
-    )
-  }
-
-  let query = supabase
+  const { data: rows, error } = await supabase
     .from('content_pieces')
     .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,slug,site_url,site_published_at,pautas(id,title,coordination,owner_id)')
     .eq('workspace_id', context.workspace.id)
-
-  query = isUuid ? query.eq('id', id) : query.order('updated_at', { ascending: false }).limit(1)
-  const { data: rows, error } = await query
+    .eq('id', id)
   const row: any = Array.isArray(rows) ? rows[0] : rows
   if (error || !row) notFound()
 

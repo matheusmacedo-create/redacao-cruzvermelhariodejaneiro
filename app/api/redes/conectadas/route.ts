@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { obterPerfil, perfilPadrao, redesConectadas } from '@/lib/publicacao/upload-post'
 
 export const runtime = 'nodejs'
@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
  * lista de redes ligadas.
  */
 export async function GET() {
-  try { await requireWorkspace() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  if (!(await obterWorkspace())) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
 
   if (!process.env.UPLOAD_POST_API_KEY) {
     return NextResponse.json({ configurado: false, redes: [] })

@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { LIBRARY_FILE_LIMIT, LIBRARY_MIME_TYPES, WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 
@@ -18,7 +18,8 @@ export const runtime = 'nodejs'
  * depois, em /api/files/register, contra o tamanho real do arquivo gravado.
  */
 export async function POST(request: Request) {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const body = (await request.json()) as HandleUploadBody
 
   try {

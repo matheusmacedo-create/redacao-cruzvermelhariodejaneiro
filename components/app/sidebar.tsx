@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -15,6 +15,7 @@ const sections = [
   {
     label: 'Trabalho',
     items: [
+      { href: '/pautas', label: 'Pautas', icon: ListChecks },
       { href: '/projetos', label: 'Projetos', icon: FolderKanban },
       { href: '/redes', label: 'Publicações', icon: Share2 },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },

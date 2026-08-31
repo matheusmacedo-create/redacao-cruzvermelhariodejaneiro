@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { adapter } from '@/lib/publicacao/canais'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,14 +20,18 @@ export default async function ImpactoPage() {
   const supabase = await createClient()
   const desde = inicio30Dias()
 
-  const [{ data: packages }, { data: projects }] = await Promise.all([
+  // O recorte é por QUANDO SAIU, não por quando alguém editou. Filtrar por
+  // updated_at contava neste mês uma matéria publicada em maio e reaberta
+  // ontem — e um painel de impacto que erra o período não serve para decidir.
+  const [{ data: destinations }, { data: projects }] = await Promise.all([
     supabase
-      .from('social_packages')
-      .select('id,titulo_interno,status,updated_at')
+      .from('package_destinations')
+      .select('package_id,canal,estado,publicado_em')
       .eq('workspace_id', context.workspace.id)
-      .gte('updated_at', desde)
-      .order('updated_at', { ascending: false })
-      .limit(100),
+      .eq('estado', 'publicada')
+      .gte('publicado_em', desde)
+      .order('publicado_em', { ascending: false })
+      .limit(500),
     supabase
       .from('projects')
       .select('id,name,status,pautas(id,status)')
@@ -36,20 +41,16 @@ export default async function ImpactoPage() {
       .limit(8),
   ])
 
-  const ids = (packages ?? []).map((p) => p.id)
-  const { data: destinations } = ids.length
-    ? await supabase.from('package_destinations').select('package_id,canal,estado').in('package_id', ids)
-    : { data: [] as { package_id: string; canal: string; estado: string }[] }
-
-  const publicados = (packages ?? []).filter((p) => p.status === 'publicado')
   const canaisPublicados = new Map<string, number>()
   for (const destination of destinations ?? []) {
-    if (destination.estado !== 'publicada') continue
     canaisPublicados.set(destination.canal, (canaisPublicados.get(destination.canal) ?? 0) + 1)
   }
 
+  const publicados = new Set((destinations ?? []).map((d) => d.package_id))
   const totalDestinos = Array.from(canaisPublicados.values()).reduce((sum, value) => sum + value, 0)
-  const canalNome: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', site_web: 'Site', linkedin: 'LinkedIn', x: 'X', threads: 'Threads', bluesky: 'Bluesky', pinterest: 'Pinterest', google_business: 'Google Business' }
+  // O nome do canal vem do adapter: canal novo aparece com o nome certo sem
+  // ninguém lembrar de mexer nesta tela.
+  const canalNome = (id: string) => adapter(id)?.nome ?? id
   const canaisOrdenados = Array.from(canaisPublicados.entries()).sort((a, b) => b[1] - a[1])
 
   return (
@@ -73,7 +74,7 @@ export default async function ImpactoPage() {
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Atividade registrada</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard icon={BarChart3} value={publicados.length} label="Pacotes publicados" helper="Conteúdos concluídos no período" />
+          <MetricCard icon={BarChart3} value={publicados.size} label="Pacotes publicados" helper="Conteúdos concluídos no período" />
           <MetricCard icon={Activity} value={totalDestinos} label="Publicações por canal" helper="Destinos efetivamente publicados" />
           <MetricCard icon={Globe2} value={canaisPublicados.size} label="Canais ativos" helper="Canais com publicação registrada" />
           <MetricCard icon={Users} value={projects?.length ?? 0} label="Projetos ativos" helper="Projetos competindo pela agenda editorial" />
@@ -87,7 +88,7 @@ export default async function ImpactoPage() {
             {canaisOrdenados.map(([canal, quantidade]) => (
               <div key={canal} className="px-5 py-4">
                 <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-lg bg-muted">{canal === 'site_web' ? <Globe2 className="size-4" /> : <Share2 className="size-4" />}</div><div><p className="font-medium">{canalNome[canal] ?? canal}</p><p className="text-xs text-muted-foreground">Últimos 30 dias</p></div></div>
+                  <div className="flex items-center gap-3"><div className="flex size-9 items-center justify-center rounded-lg bg-muted">{canal === 'site_web' ? <Globe2 className="size-4" /> : <Share2 className="size-4" />}</div><div><p className="font-medium">{canalNome(canal)}</p><p className="text-xs text-muted-foreground">Últimos 30 dias</p></div></div>
                   <p className="text-2xl font-bold tabular-nums">{quantidade}</p>
                 </div>
               </div>
