@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Bold, Check, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
-  Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, Sparkles,
-  Trash2, UploadCloud, Wand2, X,
+  Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
+  Sparkles, Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -16,7 +16,12 @@ import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
-import { adaptarLegendaDoDestino, gerarImagemDoDestino } from '@/app/actions/ia'
+import {
+  adaptarLegendaDoDestino, descartarImagemDaIa, gerarImagemDoDestino,
+  sugerirIdeiasDeImagem, usarImagemNoDestino,
+} from '@/app/actions/ia'
+import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
+import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
@@ -26,7 +31,7 @@ import {
   removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
-import type { ArquivoDaBiblioteca, DestinoRegistro, PacoteRegistro } from './tipos'
+import type { ArquivoDaBiblioteca, DestinoRegistro, MestreRegistro, PacoteRegistro } from './tipos'
 
 /**
  * O hub de criação multicanal: Mestre → Destinos → Variantes.
@@ -498,6 +503,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               arquivoPorId={arquivoPorId}
               fileIdsDoMestre={fileIds}
               midiasNoTextoDoMestre={midiasNoTextoDoMestre}
+              mestre={mestre}
               onEditar={(mudanca) => editarVariante(destinoAtivo.id, mudanca)}
               onPronta={() => pronta(destinoAtivo)}
               onRealimentar={() => realimentar(destinoAtivo)}
@@ -984,81 +990,358 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
 type EditorMestreProps = { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
 
 /**
- * Gera uma imagem para este destino, no enquadramento que o canal pede.
+ * O estúdio de imagem: um diálogo de tela cheia, não um balão apertado.
  *
- * A proporção não é escolha de quem escreve: vem do adapter — 9:16 no Stories,
- * 4:5 no feed do Instagram — para a imagem nascer no formato certo em vez de
- * ser cortada depois e perder metade do que foi pedido.
+ * O que estava aqui antes era um campo em branco num popover de 28rem — a
+ * pior tela possível para quem escreve a matéria e não sabe descrever imagem.
+ * Agora a matéria escrita alimenta cinco pedidos prontos, o modelo pode
+ * propor mais três, e o resultado aparece ANTES de virar mídia do post.
  *
- * O gerador leva de vinte segundos a um minuto e cada clique custa dinheiro da
- * instituição; por isso o botão trava enquanto trabalha e o servidor guarda um
- * teto mensal que a tela não pode contornar.
+ * Três coisas atravessam todos os pedidos, e nenhuma é escolha de quem clica:
+ *
+ *  - o enquadramento vem do canal (9:16 no Stories, 4:5 no feed);
+ *  - nenhum pedido pede pessoa — rosto sintético numa publicação humanitária
+ *    é lido como registro de atendimento;
+ *  - nenhum pedido pede o emblema. A cruz vermelha sobre fundo branco é
+ *    símbolo protegido pelas Convenções de Genebra, e uma versão torta saída
+ *    de um gerador é pior do que imagem nenhuma no canal oficial.
  */
-function GerarImagemComIa({ destino, proporcao, onGerada }: {
+function GerarImagemComIa({ destino, canal, proporcao, mestre, cheio, onMudou }: {
   destino: DestinoRegistro
+  canal: string
   proporcao: string
-  onGerada: () => void
+  mestre: MestreRegistro
+  cheio: boolean
+  onMudou: () => void
 }) {
   const [aberto, setAberto] = useState(false)
-  const [prompt, setPrompt] = useState('')
-  const [gerando, iniciar] = useTransition()
-  const [erro, setErro] = useState('')
-  const router = useRouter()
-
-  function gerar() {
-    setErro('')
-    iniciar(async () => {
-      const form = new FormData()
-      form.set('destinoId', destino.id)
-      form.set('prompt', prompt)
-      const r = await gerarImagemDoDestino(form)
-      if (r.erro) { setErro(r.erro); return }
-      setPrompt('')
-      setAberto(false)
-      onGerada()
-      router.refresh()
-    })
-  }
-
   return (
-    <span className="relative inline-block">
+    <>
       <button
         type="button"
-        onClick={() => setAberto((v) => !v)}
+        onClick={() => setAberto(true)}
         className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted"
       >
         <Sparkles className="size-3.5" />Gerar imagem
       </button>
-
       {aberto && (
-        <span className="absolute right-0 top-full z-20 mt-2 block w-[min(28rem,78vw)] rounded-lg border border-border bg-background p-3 text-left shadow-xl">
-          <span className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            Sai em {proporcao === 'livre' ? 'formato quadrado' : proporcao}, o enquadramento deste canal.
-          </span>
-          <textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            rows={3}
-            disabled={gerando}
-            placeholder="Descreva a imagem: o que aparece, o clima, as cores…"
-            className={inputClass}
-          />
-          <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">
-            Ilustração, fundo, grafismo — não peça cena que finja registro de atendimento, voluntário ou pessoa
-            atendida. A imagem entra na Biblioteca marcada como gerada por IA.
-          </span>
-          {erro && <span className="mt-2 block text-xs text-destructive">{erro}</span>}
-          <span className="mt-2 flex items-center gap-2">
-            <Button size="sm" onClick={gerar} disabled={gerando || prompt.trim().length < 10}>
-              {gerando ? <><Loader2 className="size-3.5 animate-spin" />Gerando…</> : <><Sparkles className="size-3.5" />Gerar</>}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAberto(false); setErro('') }} disabled={gerando}>
-              Cancelar
-            </Button>
-          </span>
-        </span>
+        <EstudioDeImagem
+          destino={destino}
+          canal={canal}
+          proporcao={proporcao}
+          mestre={mestre}
+          cheio={cheio}
+          onMudou={onMudou}
+          onFechar={() => setAberto(false)}
+        />
       )}
-    </span>
+    </>
+  )
+}
+
+const QUALIDADES = [
+  { id: 'low' as const, rotulo: 'Rápida', dica: 'Mais barata e mais rápida. Boa para testar uma ideia.' },
+  { id: 'medium' as const, rotulo: 'Média', dica: 'O equilíbrio que serve à maioria dos posts.' },
+  { id: 'high' as const, rotulo: 'Caprichada', dica: 'Mais detalhe, mais custo, mais espera.' },
+]
+
+function EstudioDeImagem({ destino, canal, proporcao, mestre, cheio, onMudou, onFechar }: {
+  destino: DestinoRegistro
+  canal: string
+  proporcao: string
+  mestre: MestreRegistro
+  cheio: boolean
+  onMudou: () => void
+  onFechar: () => void
+}) {
+  const router = useRouter()
+  const [prompt, setPrompt] = useState('')
+  const [qualidade, setQualidade] = useState<'low' | 'medium' | 'high'>('medium')
+  const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [ideias, setIdeias] = useState<string[]>([])
+  const [pedindoIdeias, pedirIdeias] = useTransition()
+  const [gerando, gerar] = useTransition()
+  const [salvando, salvar] = useTransition()
+  const [erro, setErro] = useState('')
+  const [pronta, setPronta] = useState<{ fileId: string; previa: string; restantes?: number } | null>(null)
+
+  const sugestoes = useMemo(() => sugestoesDePrompt(mestre), [mestre])
+  const medida = useMemo(() => tamanhoParaProporcao(proporcao), [proporcao])
+  const semMateria = sugestoes.length === 0
+  const resumoDaMateria = useMemo(() => {
+    const limpo = textoParaRede(mestre.corpo).texto.replace(/\s+/g, ' ').trim()
+    return limpo.length > 220 ? `${limpo.slice(0, 220)}…` : limpo
+  }, [mestre.corpo])
+
+  useEffect(() => {
+    function noEscape(e: KeyboardEvent) { if (e.key === 'Escape') onFechar() }
+    document.addEventListener('keydown', noEscape)
+    return () => document.removeEventListener('keydown', noEscape)
+  }, [onFechar])
+
+  function usarSugestao(texto: string, id: string) {
+    setPrompt(texto)
+    setEscolhido(id)
+    setErro('')
+  }
+
+  function pedir() {
+    setErro('')
+    pedirIdeias(async () => {
+      const form = new FormData()
+      form.set('destinoId', destino.id)
+      const r = await sugerirIdeiasDeImagem(form)
+      if (r.erro) { setErro(r.erro); return }
+      setIdeias(r.ideias ?? [])
+    })
+  }
+
+  function gerarAgora() {
+    setErro('')
+    gerar(async () => {
+      const form = new FormData()
+      form.set('destinoId', destino.id)
+      form.set('prompt', prompt)
+      form.set('qualidade', qualidade)
+      const r = await gerarImagemDoDestino(form)
+      if (r.erro) { setErro(r.erro); return }
+      setPronta({ fileId: r.fileId!, previa: r.previa!, restantes: r.restantesNoMes })
+      onMudou()
+    })
+  }
+
+  function usar() {
+    if (!pronta) return
+    setErro('')
+    salvar(async () => {
+      const form = new FormData()
+      form.set('destinoId', destino.id)
+      form.set('fileId', pronta.fileId)
+      const r = await usarImagemNoDestino(form)
+      if (r.erro) { setErro(r.erro); return }
+      onMudou()
+      router.refresh()
+      onFechar()
+    })
+  }
+
+  function descartar() {
+    if (!pronta) return
+    setErro('')
+    salvar(async () => {
+      const form = new FormData()
+      form.set('fileId', pronta.fileId)
+      const r = await descartarImagemDaIa(form)
+      if (r.erro) { setErro(r.erro); return }
+      setPronta(null)
+      onMudou()
+    })
+  }
+
+  const ocupado = gerando || salvando || pedindoIdeias
+
+  return createPortal(
+    <div
+      data-estudio-de-imagem=""
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/45 p-4 py-8"
+      onMouseDown={(e) => { if (e.target === e.currentTarget && !ocupado) onFechar() }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="estudio-titulo"
+    >
+      <Card className="w-full max-w-3xl overflow-hidden p-0 shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+          <div className="min-w-0">
+            <h2 id="estudio-titulo" className="flex items-center gap-2 text-base font-semibold">
+              <Sparkles className="size-4 text-primary" />Gerar imagem
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {canal} · sai em <span className="font-medium text-foreground">{medidaComoTexto(medida)}</span>
+              {proporcao !== 'livre' && <> ({proporcao})</>}, o enquadramento deste canal.
+            </p>
+          </div>
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted">
+            <X className="size-4" />
+          </button>
+        </header>
+
+        {pronta ? (
+          <div className="px-6 py-5">
+            <p className="mb-3 text-sm font-medium">Ficou assim.</p>
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <img
+                src={pronta.previa}
+                alt="Imagem gerada"
+                className="mx-auto max-h-80 w-auto rounded-lg border border-border object-contain"
+              />
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Já está na Biblioteca, marcada como gerada por IA — você pagou por ela de todo jeito. Usar aqui a
+                  anexa a <span className="font-medium text-foreground">{canal}</span>; descartar apaga o arquivo.
+                </p>
+                {typeof pronta.restantes === 'number' && (
+                  <p className="text-xs text-muted-foreground">
+                    Ainda cabem <span className="font-medium text-foreground">{pronta.restantes}</span> imagens no teto deste mês.
+                  </p>
+                )}
+                {erro && <p className="text-xs text-destructive">{erro}</p>}
+                <div className="mt-auto flex flex-wrap items-center gap-2">
+                  <Button onClick={usar} disabled={salvando || cheio}>
+                    {salvando ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                    Usar neste destino
+                  </Button>
+                  <Button variant="outline" onClick={() => setPronta(null)} disabled={salvando}>
+                    <RefreshCw className="size-4" />Gerar outra
+                  </Button>
+                  <Button variant="ghost" onClick={descartar} disabled={salvando}>
+                    <Trash2 className="size-4" />Descartar
+                  </Button>
+                </div>
+                {cheio && (
+                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                    Este destino já está com o número máximo de mídias. Tire uma antes de anexar esta.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5 px-6 py-5">
+            {semMateria ? (
+              <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                Escreva o texto-mestre primeiro. As sugestões de imagem saem da matéria — sem ela, sobra o campo em
+                branco, que é justamente o que esta tela existe para evitar.
+              </p>
+            ) : (
+              <>
+                <section className="rounded-lg bg-muted/50 px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">A matéria</p>
+                  {mestre.titulo && <p className="mt-1 font-medium">{mestre.titulo}</p>}
+                  <p className="mt-0.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{resumoDaMateria}</p>
+                </section>
+
+                <section>
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-medium">Comece por um destes</p>
+                    <Button size="sm" variant="outline" onClick={pedir} disabled={ocupado}>
+                      {pedindoIdeias ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                      {pedindoIdeias ? 'Pensando…' : 'Pedir ideias à IA'}
+                    </Button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {sugestoes.map(({ estilo, prompt: sugerido }) => (
+                      <CartaoDeEstilo
+                        key={estilo.id}
+                        estilo={estilo}
+                        ativo={escolhido === estilo.id}
+                        onEscolher={() => usarSugestao(sugerido, estilo.id)}
+                      />
+                    ))}
+                  </div>
+                  {ideias.length > 0 && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ideias da IA</p>
+                      {ideias.map((ideia, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => usarSugestao(ideia, `ia-${i}`)}
+                          className={`rounded-lg border px-3 py-2 text-left text-xs leading-relaxed transition-colors hover:bg-muted ${
+                            escolhido === `ia-${i}` ? 'border-primary bg-primary/5' : 'border-border'
+                          }`}
+                        >
+                          {ideia}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section>
+                  <label className="text-sm font-medium">
+                    <span className="flex items-center justify-between gap-2">
+                      Pedido
+                      <span className="text-[11px] font-normal text-muted-foreground">{prompt.length}/4000</span>
+                    </span>
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => { setPrompt(e.target.value); setEscolhido(null) }}
+                      rows={6}
+                      disabled={ocupado}
+                      placeholder="Escolha um cartão acima ou descreva a imagem: o que aparece, o enquadramento, a luz, as cores…"
+                      className={`mt-1 ${inputClass}`}
+                    />
+                  </label>
+                </section>
+
+                <section>
+                  <p className="mb-1.5 text-sm font-medium">Capricho</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUALIDADES.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        onClick={() => setQualidade(q.id)}
+                        title={q.dica}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          qualidade === q.id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted'
+                        }`}
+                      >
+                        {q.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {QUALIDADES.find((q) => q.id === qualidade)?.dica}
+                  </p>
+                </section>
+
+                <section className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+                  <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
+                  <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                    Os pedidos prontos já proíbem <strong>pessoas</strong> e o <strong>emblema da cruz vermelha</strong>.
+                    O emblema é símbolo protegido pelas Convenções de Genebra — uma versão saída de um gerador não pode
+                    sair no canal oficial. E imagem que finja registro de atendimento custa a credibilidade do que a
+                    instituição mostra. Se escrever o pedido à mão, mantenha essas duas linhas.
+                  </p>
+                </section>
+
+                {erro && <p className="text-sm text-destructive">{erro}</p>}
+              </>
+            )}
+          </div>
+        )}
+
+        {!pronta && !semMateria && (
+          <footer className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-3">
+            <Button variant="ghost" onClick={onFechar} disabled={ocupado}>Cancelar</Button>
+            <Button onClick={gerarAgora} disabled={ocupado || prompt.trim().length < 15}>
+              {gerando ? <><Loader2 className="size-4 animate-spin" />Gerando… pode levar um minuto</> : <><Sparkles className="size-4" />Gerar imagem</>}
+            </Button>
+          </footer>
+        )}
+      </Card>
+    </div>,
+    document.body,
+  )
+}
+
+function CartaoDeEstilo({ estilo, ativo, onEscolher }: {
+  estilo: Estilo
+  ativo: boolean
+  onEscolher: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onEscolher}
+      className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+        ativo ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:bg-muted'
+      }`}
+    >
+      <span className="block text-xs font-semibold">{estilo.rotulo}</span>
+      <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{estilo.resumo}</span>
+    </button>
   )
 }
 
@@ -1273,11 +1556,13 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   )
 }
 
-function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, iaDisponivel, onRecarregarBiblioteca }: {
+function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, iaDisponivel, onRecarregarBiblioteca }: {
   destino: DestinoRegistro
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
   fileIdsDoMestre: string[]
   midiasNoTextoDoMestre: number
+  /** O texto-mestre alimenta as sugestões de imagem: elas falam da matéria. */
+  mestre: MestreRegistro
   onEditar: (mudanca: Partial<DestinoRegistro>) => void
   onPronta: () => void
   onRealimentar: () => void
@@ -1425,8 +1710,11 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
               {!congelado && iaDisponivel && formato.midia.video !== 'obrigatorio' && (
                 <GerarImagemComIa
                   destino={destino}
+                  canal={`${canal.nome} · ${formato.rotulo}`}
                   proporcao={formato.midia.proporcaoPreferida}
-                  onGerada={onRecarregarBiblioteca}
+                  mestre={mestre}
+                  cheio={destino.fileIds.length >= formato.midia.max}
+                  onMudou={onRecarregarBiblioteca}
                 />
               )}
               {!congelado && (

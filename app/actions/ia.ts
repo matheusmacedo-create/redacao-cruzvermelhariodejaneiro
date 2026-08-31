@@ -1,12 +1,14 @@
 'use server'
 
 import { put, del } from '@vercel/blob'
+import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
-import { adaptarTexto, gerarImagem, semChave, tetoMensalDeImagens } from '@/lib/ia/openai'
+import { adaptarTexto, gerarImagem, semChave, sugerirBriefings, tetoMensalDeImagens } from '@/lib/ia/openai'
+import { REGRAS_FIXAS, assuntoDaMateria } from '@/lib/ia/sugestoes'
 import { WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
 
@@ -27,7 +29,14 @@ import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
 
 export type ResultadoDaIa = { erro?: string }
 export type ResultadoDaLegenda = ResultadoDaIa & { texto?: string }
-export type ResultadoDaImagem = ResultadoDaIa & { fileId?: string; nome?: string; previa?: string }
+export type ResultadoDaImagem = ResultadoDaIa & {
+  fileId?: string
+  nome?: string
+  previa?: string
+  /** Quantas ainda cabem no teto do mês, depois desta. */
+  restantesNoMes?: number
+}
+export type ResultadoDasIdeias = ResultadoDaIa & { ideias?: string[] }
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
 
@@ -85,7 +94,9 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
       throw new Error(`O limite de ${teto} imagens geradas neste mês foi atingido. O teto vive em OPENAI_IMAGE_LIMITE_MENSAL.`)
     }
 
-    const imagem = await gerarImagem({ prompt, proporcao: formato.midia.proporcaoPreferida })
+    const pedida = texto(formData, 'qualidade')
+    const qualidade = (['low', 'medium', 'high'] as const).find((q) => q === pedida) ?? 'medium'
+    const imagem = await gerarImagem({ prompt, proporcao: formato.midia.proporcaoPreferida, qualidade })
 
     const { data: usoAtual } = await supabase
       .from('files').select('size_bytes').eq('workspace_id', context.workspace.id).neq('status', 'deleted')
@@ -122,15 +133,13 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
       throw new Error('Não foi possível registrar a imagem na Biblioteca.')
     }
 
-    const fileIds = [...(destino.file_ids ?? []), linha.id].slice(0, formato.midia.max)
-    await supabase.from('package_destinations')
-      .update({ file_ids: fileIds })
-      .eq('id', destino.id).eq('workspace_id', context.workspace.id)
-
+    // NÃO entra no destino sozinha: quem gerou vê antes de usar. Anexar às
+    // cegas era como uma imagem que não serve virava a capa do post.
     return {
       fileId: linha.id,
       nome,
       previa: `/api/private-blob?pathname=${encodeURIComponent(blob.pathname)}`,
+      restantesNoMes: Math.max(0, teto - jaGeradas - 1),
     }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível gerar a imagem.')) }
@@ -182,5 +191,125 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
     return { texto: proposta }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível adaptar a legenda.')) }
+  }
+}
+
+/**
+ * Anexa ao destino uma imagem que já está na Biblioteca.
+ *
+ * Separado da geração de propósito: entre uma coisa e outra existe alguém
+ * olhando a imagem e decidindo. O vínculo com o espaço é reconferido aqui —
+ * o id vem do formulário, e formulário é do navegador.
+ */
+export async function usarImagemNoDestino(formData: FormData): Promise<ResultadoDaIa> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const destinoId = texto(formData, 'destinoId')
+    const fileId = texto(formData, 'fileId')
+
+    const [{ data: destino }, { data: arquivo }] = await Promise.all([
+      supabase.from('package_destinations').select('id,canal,formato,file_ids,estado')
+        .eq('id', destinoId).eq('workspace_id', context.workspace.id).maybeSingle(),
+      supabase.from('files').select('id,status')
+        .eq('id', fileId).eq('workspace_id', context.workspace.id).maybeSingle(),
+    ])
+    if (!destino) throw new Error('Destino não encontrado neste espaço.')
+    if (!arquivo || arquivo.status === 'deleted') throw new Error('Imagem não encontrada na Biblioteca.')
+    if (['publicada', 'publicando'].includes(destino.estado)) throw new Error('Este destino já foi publicado.')
+
+    const canal = adapter(destino.canal)
+    const formato = canal ? formatoDoAdapter(canal, destino.formato) : undefined
+    if (!formato) throw new Error('Este destino não tem um formato válido.')
+
+    const atuais: string[] = destino.file_ids ?? []
+    if (atuais.includes(fileId)) return {}
+    if (atuais.length >= formato.midia.max) {
+      throw new Error(`${canal!.nome} · ${formato.rotulo} aceita no máximo ${formato.midia.max} mídia(s). Tire uma antes.`)
+    }
+
+    const { error } = await supabase.from('package_destinations')
+      .update({ file_ids: [...atuais, fileId] })
+      .eq('id', destinoId).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível anexar a imagem ao destino.')
+
+    revalidatePath(`/redes/${destino.id}`)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível usar a imagem.') }
+  }
+}
+
+/**
+ * Apaga uma imagem gerada que não serviu.
+ *
+ * Só apaga o que foi gerado por IA e ainda não está em uso: assim o botão de
+ * descartar nunca vira um caminho para remover foto de acervo. O arquivo sai
+ * do armazenamento junto — linha sem blob é registro morto, blob sem linha é
+ * espaço ocupado para sempre.
+ */
+export async function descartarImagemDaIa(formData: FormData): Promise<ResultadoDaIa> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const fileId = texto(formData, 'fileId')
+
+    const { data: arquivo } = await supabase
+      .from('files').select('id,storage_path,tags')
+      .eq('id', fileId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!arquivo) throw new Error('Imagem não encontrada.')
+    if (!(arquivo.tags ?? []).includes(ETIQUETA_DE_IA)) {
+      throw new Error('Só imagens geradas por IA podem ser descartadas por aqui.')
+    }
+
+    const { data: emUso } = await supabase
+      .from('package_destinations').select('id')
+      .eq('workspace_id', context.workspace.id).contains('file_ids', [fileId]).limit(1)
+    if ((emUso ?? []).length) throw new Error('Esta imagem já está em uso num destino. Tire-a de lá antes de apagar.')
+
+    if (arquivo.storage_path) await del(arquivo.storage_path)
+    const { error } = await supabase.from('files').delete()
+      .eq('id', fileId).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível apagar a imagem.')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível descartar a imagem.') }
+  }
+}
+
+/**
+ * Pede ao modelo três ideias de imagem para a matéria deste pacote.
+ *
+ * Os modelos de pedido locais já cobrem o caso comum sem custo nenhum; este
+ * caminho existe para quando o assunto pede algo que um molde não alcança.
+ */
+export async function sugerirIdeiasDeImagem(formData: FormData): Promise<ResultadoDasIdeias> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const destinoId = texto(formData, 'destinoId')
+
+    const { data: destino } = await supabase
+      .from('package_destinations').select('id,package_id,corpo')
+      .eq('id', destinoId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!destino) throw new Error('Destino não encontrado neste espaço.')
+
+    const { data: pacote } = await supabase
+      .from('social_packages').select('mestre')
+      .eq('id', destino.package_id).eq('workspace_id', context.workspace.id).maybeSingle()
+    const mestre = (pacote?.mestre ?? {}) as Record<string, string>
+
+    const { assunto } = assuntoDaMateria({ titulo: mestre.titulo, corpo: mestre.corpo || destino.corpo || '' })
+    if (!assunto) throw new Error('Escreva a matéria antes de pedir ideias de imagem.')
+
+    const ideias = await sugerirBriefings({
+      titulo: mestre.titulo || assunto,
+      texto: textoParaRede(mestre.corpo || destino.corpo || '').texto,
+      proibicoes: REGRAS_FIXAS,
+    })
+    if (!ideias.length) throw new Error('O modelo não devolveu ideia nenhuma. Tente de novo.')
+    return { ideias }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível pedir ideias.')) }
   }
 }
