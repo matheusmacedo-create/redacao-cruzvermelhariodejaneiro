@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -14,9 +14,8 @@ export const dynamic = 'force-dynamic'
  * armazenamento só serve para montar esse endereço autenticado.
  */
 export async function GET() {
-  try { await requireWorkspace() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
-
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const supabase = await createClient()
 
   const { data, error } = await supabase

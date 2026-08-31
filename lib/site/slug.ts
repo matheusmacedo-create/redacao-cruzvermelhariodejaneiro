@@ -44,6 +44,23 @@ export function slugValido(slug: string): boolean {
     && !RESERVADOS.has(slug)
 }
 
+/**
+ * Normaliza um endereço digitado à mão.
+ *
+ * Quem digita costuma colar o caminho inteiro — "/noticias/7-de-setembro/" —
+ * porque é o que aparece no navegador. Aceitar isso ao pé da letra criaria a
+ * página em noticias/noticias/, que é onde ela deixa de existir para quem
+ * clicar no link. O prefixo sai, o resto passa pelo mesmo saneamento do
+ * título.
+ */
+export function slugDigitado(bruto: string): string {
+  const limpo = bruto.trim()
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/^noticias\//i, '')
+  return gerarSlug(limpo)
+}
+
 /** Acrescenta sufixo numérico até não colidir com um slug já usado. */
 export function slugDisponivel(desejado: string, jaUsados: Iterable<string>): string {
   const usados = new Set(jaUsados)

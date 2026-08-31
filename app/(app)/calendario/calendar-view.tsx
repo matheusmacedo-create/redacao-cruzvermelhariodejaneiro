@@ -53,7 +53,11 @@ function ItemDoDia({ event, compacto = false }: { event: Event; compacto?: boole
 
 export function CalendarView({ events }: { events: Event[] }) {
   const [open, setOpen] = useState(false)
-  const [month, setMonth] = useState(() => events[0]?.event_date.slice(0, 7) || new Date().toISOString().slice(0, 7))
+  // Abre no mês corrente, sempre. Abrir no mês do primeiro evento da lista
+  // levava o calendário para o passado assim que houvesse histórico — e o mês
+  // é calculado em Brasília, senão vira o mês errado depois das 21h.
+  const [month, setMonth] = useState(() =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' }).format(new Date()))
   const date = new Date(`${month}-01T12:00:00`)
   const year = date.getFullYear(); const monthIndex = date.getMonth()
   const offset = new Date(year, monthIndex, 1).getDay(); const days = new Date(year, monthIndex + 1, 0).getDate()

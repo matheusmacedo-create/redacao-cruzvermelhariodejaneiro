@@ -57,12 +57,19 @@ export default async function MensagensPage() {
   for (const c of commentRows ?? []) commentsByContent.set(c.content_id, [...(commentsByContent.get(c.content_id) ?? []), c])
 
   // Conversas diretas: a RLS já entrega apenas as que envolvem quem está logado.
-  const { data: directRows } = await supabase
+  // Só as mais recentes: esta tela lista conversas, não o histórico — o
+  // histórico completo de cada uma abre em /mensagens/pessoa/[userId]. Sem
+  // teto, abrir a lista carregaria todas as mensagens já trocadas no espaço.
+  const { data: recentes } = await supabase
     .from('messages')
     .select('id,author_id,recipient_id,body,created_at')
     .eq('workspace_id', context.workspace.id)
     .is('pauta_id', null)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(300)
+  // A montagem abaixo espera ordem cronológica: a última linha de cada
+  // conversa é a que vira prévia.
+  const directRows = [...(recentes ?? [])].reverse()
 
   const profileIds = new Set<string>()
   for (const a of approvals ?? []) if (a.requested_by) profileIds.add(a.requested_by)

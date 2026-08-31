@@ -1,6 +1,6 @@
 import { head, del } from '@vercel/blob'
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { LIBRARY_FILE_LIMIT, LIBRARY_MIME_TYPES, WORKSPACE_STORAGE_LIMIT, fileKind } from '@/lib/storage'
 
@@ -18,7 +18,8 @@ const AUTORIZACOES = new Set(['pending', 'authorized', 'internal'])
  * mentindo sobre qualquer um desses campos não consegue nada além de um erro.
  */
 export async function POST(request: Request) {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const corpo = await request.json().catch(() => null)
   const pathname = typeof corpo?.pathname === 'string' ? corpo.pathname : ''
   const nome = typeof corpo?.name === 'string' ? corpo.name.slice(0, 200) : ''

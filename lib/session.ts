@@ -26,16 +26,30 @@ export async function requireSession() {
 const workspaceOf = (membership: any) =>
   Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces
 
-export async function requireWorkspace() {
-  const context = await requireSession()
+/**
+ * O espaço de quem está logado, ou null.
+ *
+ * Existe separado de requireWorkspace porque `redirect()` funciona lançando um
+ * erro de controle: numa página isso leva ao login, mas numa rota de API vira
+ * exceção não tratada e a resposta sai 500. Rota de API responde 401.
+ */
+export async function obterWorkspace() {
+  const context = await getSessionContext()
+  if (!context) return null
   // Espaço único: não há mais tela de seleção nem cookie. Prefere a Produção e
   // cai no primeiro vínculo, caso um outro espaço volte a existir um dia.
   const membership =
     context.memberships.find((item: any) => workspaceOf(item)?.kind === 'production') ??
     context.memberships[0]
-  if (!membership) redirect('/')
-  const workspace = (Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces) as unknown as { id: string; name: string; slug: string; kind: 'demo' | 'production' }
+  if (!membership) return null
+  const workspace = workspaceOf(membership) as unknown as { id: string; name: string; slug: string; kind: 'demo' | 'production' }
   return { ...context, workspace, role: membership.role as WorkspaceRole }
+}
+
+export async function requireWorkspace() {
+  const contexto = await obterWorkspace()
+  if (!contexto) redirect('/')
+  return contexto
 }
 
 export async function requireAdmin() {

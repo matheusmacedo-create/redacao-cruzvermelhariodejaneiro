@@ -20,9 +20,9 @@ import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
-  adicionarDestino, arquivarPacote, enviarPacoteParaAprovacao, estimarCota, marcarPronta,
-  publicarPacote, realimentarDestino, regenerarVariantes, removerDestino, reprocessarDestino,
-  salvarMestre, salvarVariante,
+  adicionarDestino, arquivarPacote, atualizarStatusDoPacote, enviarPacoteParaAprovacao,
+  estimarCota, marcarPronta, publicarPacote, realimentarDestino, regenerarVariantes,
+  removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, PacoteRegistro } from './tipos'
@@ -106,6 +106,24 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
   const encerrado = ['publicado', 'arquivado'].includes(inicial.status)
 
+  // O envio é assíncrono: a API aceita e publica depois. Sem perguntar de
+  // volta, o hub mostraria para sempre o aceite como se fosse o resultado —
+  // sem endereço do post, sem a falha posterior, e com o agendado parado em
+  // "na fila". A conferência roda ao abrir, só quando há o que confirmar.
+  const precisaConferir = destinos.some((d) =>
+    d.canal !== 'site_web'
+    && (d.estado === 'na_fila' || d.estado === 'publicando'
+        || (d.estado === 'publicada' && !d.externalUrl)))
+  const jaConferiu = useRef(false)
+
+  useEffect(() => {
+    if (!precisaConferir || jaConferiu.current) return
+    jaConferiu.current = true
+    const form = new FormData()
+    form.set('pacoteId', inicial.id)
+    atualizarStatusDoPacote(form).then((r) => { if (r.mudou) router.refresh() })
+  }, [precisaConferir, inicial.id, router])
+
   useEffect(() => {
     fetch('/api/redes/conectadas', { cache: 'no-store' })
       .then((r) => r.json())
@@ -153,14 +171,21 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     setSalvo('ok')
   }, [inicial.id, tituloInterno, mestre, fileIds, agendarPara])
 
-  const primeiraRenderizacao = useRef(true)
+  // O autosave dispara pelo CONTEÚDO, não por "não é a primeira renderização".
+  // A trava anterior era um ref ligado no primeiro efeito — e no modo estrito,
+  // que roda cada efeito duas vezes, a segunda passava direto: o hub salvava
+  // sozinho ao abrir, sem ninguém ter digitado nada.
+  const assinatura = JSON.stringify({ tituloInterno, mestre, fileIds, agendarPara })
+  const ultimaSalva = useRef(assinatura)
   useEffect(() => {
-    if (primeiraRenderizacao.current) { primeiraRenderizacao.current = false; return }
-    if (encerrado) return
+    if (encerrado || assinatura === ultimaSalva.current) return
     setSalvo('pendente')
-    const timer = setTimeout(() => { salvarAgora() }, 4000)
+    const timer = setTimeout(() => {
+      ultimaSalva.current = assinatura
+      salvarAgora()
+    }, 4000)
     return () => clearTimeout(timer)
-  }, [tituloInterno, mestre, fileIds, agendarPara, salvarAgora, encerrado])
+  }, [assinatura, salvarAgora, encerrado])
 
   const salvarVarianteAgora = useCallback(async (d: DestinoRegistro) => {
     const form = new FormData()
@@ -671,8 +696,15 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
   const [caixa, setCaixa] = useState<{ top: number; left: number; largura: number; altura: number } | null>(null)
   const campoRef = useRef<HTMLInputElement>(null)
 
-  // Abrir já digitando poupa o passo de mirar no campo com o mouse.
-  useEffect(() => { campoRef.current?.focus() }, [caixa === null])
+  // Abrir já digitando poupa o passo de mirar no campo com o mouse. A trava é
+  // necessária porque `caixa` é remedida a cada rolagem: sem ela, o foco
+  // voltaria para o campo de busca no meio da digitação.
+  const jaFocou = useRef(false)
+  useEffect(() => {
+    if (!caixa || jaFocou.current) return
+    jaFocou.current = true
+    campoRef.current?.focus()
+  }, [caixa])
 
   useEffect(() => {
     function medir() {
@@ -1199,7 +1231,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
         )}
         {formato.texto.dobra && tamanho > formato.texto.dobra && !estourou && (
           <span className="mt-1 block text-xs font-normal text-amber-600 dark:text-amber-500">
-            Acima de {formato.texto.dobra} o leitor vê "…mais" — o essencial precisa estar antes disso.
+            Acima de {formato.texto.dobra} o leitor vê “…mais” — o essencial precisa estar antes disso.
           </span>
         )}
       </label>
@@ -1464,7 +1496,6 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fotos no texto</p>
           {fotos.map((foto) => (
             <div key={`${foto.indice}-${foto.url}`} className="flex items-start gap-3 rounded-lg border border-border p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={foto.url} alt="" className="size-16 shrink-0 rounded object-cover" />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <input
@@ -1539,11 +1570,12 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
   onEditar: (mudanca: Partial<DestinoRegistro>) => void
   desabilitado: boolean
 }) {
-  const [selecionado, setSelecionado] = useState(destino.fileIds[0] ?? '')
+  const [escolhido, setEscolhido] = useState(destino.fileIds[0] ?? '')
+  // Derivado, não corrigido por efeito: quando a mídia escolhida sai da lista,
+  // o controle já desenha a próxima em vez de passar um quadro apontando para
+  // um arquivo que não está mais lá.
+  const selecionado = destino.fileIds.includes(escolhido) ? escolhido : (destino.fileIds[0] ?? '')
   const arquivo = arquivoPorId.get(selecionado)
-  useEffect(() => {
-    if (!destino.fileIds.includes(selecionado)) setSelecionado(destino.fileIds[0] ?? '')
-  }, [destino.fileIds, selecionado])
   if (!arquivo || arquivo.tipo !== 'foto') return null
 
   const caixa = destino.crops[selecionado] ?? { fx: 0.5, fy: 0.5, ratio: proporcaoAlvo }
@@ -1562,7 +1594,7 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
               const a = arquivoPorId.get(id)
               if (!a || a.tipo !== 'foto') return null
               return (
-                <button key={id} type="button" onClick={() => setSelecionado(id)}
+                <button key={id} type="button" onClick={() => setEscolhido(id)}
                   className={`size-10 overflow-hidden rounded border-2 ${id === selecionado ? 'border-primary' : 'border-transparent'}`}>
                   <img src={a.previa} alt="" className="size-full object-cover" />
                 </button>
@@ -1612,7 +1644,9 @@ function PreviaDestino({ destino, arquivoPorId, mestre }: {
   if (destino.canal === 'site_web') {
     return <PreviaSite destino={destino} mestre={mestre} arquivoPorId={arquivoPorId} />
   }
-  return <PreviaRede destino={destino} arquivoPorId={arquivoPorId} />
+  // A key remonta a prévia ao trocar de destino — é o que devolve o carrossel
+  // ao primeiro slide, sem um efeito zerando estado depois do desenho.
+  return <PreviaRede key={destino.id} destino={destino} arquivoPorId={arquivoPorId} />
 }
 
 /**
@@ -1678,7 +1712,6 @@ function PreviaRede({ destino, arquivoPorId }: {
   const dobra = formato.texto.dobra
   const cortado = dobra && destino.corpo.length > dobra
   const [slide, setSlide] = useState(0)
-  useEffect(() => { setSlide(0) }, [destino.id, destino.fileIds.length])
   const atual = midias[Math.min(slide, Math.max(0, midias.length - 1))]
 
   return (

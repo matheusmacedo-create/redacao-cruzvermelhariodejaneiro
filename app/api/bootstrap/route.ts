@@ -69,7 +69,16 @@ export async function POST(request: Request) {
     await admin.auth.admin.deleteUser(userId)
     return NextResponse.json({ error: 'Nenhum espaço de produção encontrado.' }, { status: 500 })
   }
-  await admin.from('workspace_members').insert({ workspace_id: workspace.id, user_id: userId, role: 'admin', coordination: 'Comunicação' })
+  // Sem o vínculo, a conta existe e não entra em lugar nenhum — e a instalação
+  // não pode ser refeita, porque já há um perfil. Desfazer é melhor.
+  const { error: memberError } = await admin.from('workspace_members')
+    .insert({ workspace_id: workspace.id, user_id: userId, role: 'admin', coordination: 'Comunicação' })
+  if (memberError) {
+    // Apagar o usuário leva o perfil junto (profiles.id tem ON DELETE CASCADE),
+    // o que devolve a instalação ao estado anterior e permite tentar de novo.
+    await admin.auth.admin.deleteUser(userId)
+    return NextResponse.json({ error: 'Não foi possível vincular o administrador ao espaço.' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }

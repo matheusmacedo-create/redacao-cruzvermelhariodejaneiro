@@ -16,9 +16,16 @@ export function AvatarCropper({ file, onCancel, onConfirm }: { file: File; onCan
   const [pos, setPos] = useState({ left: 0, top: 0 })
   const [busy, setBusy] = useState(false)
   const dragRef = useRef<{ startX: number; startY: number; left: number; top: number } | null>(null)
+  // O cursor precisa MUDAR durante o arraste, e mudança de ref não redesenha:
+  // lido só do ref, ele ficava em "grab" o tempo todo.
+  const [arrastando, setArrastando] = useState(false)
 
+  // Sincroniza com um sistema externo — o ciclo de vida do object URL, que
+  // precisa ser criado e revogado em par. É o caso que o efeito existe para
+  // atender.
   useEffect(() => {
     const url = URL.createObjectURL(file)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImageUrl(url)
     return () => URL.revokeObjectURL(url)
   }, [file])
@@ -61,6 +68,7 @@ export function AvatarCropper({ file, onCancel, onConfirm }: { file: File; onCan
   function handlePointerDown(e: React.PointerEvent) {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { startX: e.clientX, startY: e.clientY, left: pos.left, top: pos.top }
+    setArrastando(true)
   }
 
   function handlePointerMove(e: React.PointerEvent) {
@@ -72,6 +80,7 @@ export function AvatarCropper({ file, onCancel, onConfirm }: { file: File; onCan
 
   function handlePointerUp() {
     dragRef.current = null
+    setArrastando(false)
   }
 
   async function confirm() {
@@ -105,14 +114,13 @@ export function AvatarCropper({ file, onCancel, onConfirm }: { file: File; onCan
 
         <div
           className="relative mx-auto mt-4 touch-none select-none overflow-hidden rounded-lg bg-muted"
-          style={{ width: VIEWPORT, height: VIEWPORT, cursor: dragRef.current ? 'grabbing' : 'grab' }}
+          style={{ width: VIEWPORT, height: VIEWPORT, cursor: arrastando ? 'grabbing' : 'grab' }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
           {imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               ref={imgRef}
               src={imageUrl}

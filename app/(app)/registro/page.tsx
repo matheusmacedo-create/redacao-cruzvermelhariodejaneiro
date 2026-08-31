@@ -20,6 +20,7 @@ type DestinoDoRegistro = {
   extras: Record<string, unknown> | null
   external_url: string | null
   erro: string | null
+  request_id: string | null
   publicado_em: string | null
   updated_at: string
   social_packages: { titulo_interno: string | null; mestre: Record<string, unknown> | null } | null
@@ -52,7 +53,7 @@ export default async function RegistroPage() {
 
   const { data } = await supabase
     .from('package_destinations')
-    .select('id,package_id,canal,formato,estado,corpo,extras,external_url,erro,publicado_em,updated_at,social_packages(titulo_interno,mestre)')
+    .select('id,package_id,canal,formato,estado,corpo,extras,external_url,erro,publicado_em,updated_at,request_id,social_packages(titulo_interno,mestre)')
     .eq('workspace_id', context.workspace.id)
     .in('estado', ['publicada', 'falhou'])
     .order('updated_at', { ascending: false })
@@ -82,6 +83,12 @@ export default async function RegistroPage() {
     // falha para o fim da lista, fora da linha do tempo.
     .sort((a, b) => b.quando.localeCompare(a.quando))
 
+  // Publicada em rede sem endereço do post é envio cujo resultado ainda não
+  // voltou do conector — dá para perguntar, e é isso que o botão faz.
+  const temPendentes = ((data ?? []) as unknown as DestinoDoRegistro[]).some(
+    (d) => d.canal !== 'site_web' && d.estado === 'publicada' && !d.external_url && Boolean(d.request_id),
+  )
+
   return (
     <div>
       <PageHeader
@@ -96,7 +103,7 @@ export default async function RegistroPage() {
           </p>
         </Card>
       ) : (
-        <TabelaDoRegistro linhas={linhas} />
+        <TabelaDoRegistro linhas={linhas} temPendentes={temPendentes} />
       )}
     </div>
   )

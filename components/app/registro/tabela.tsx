@@ -1,9 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Download, ExternalLink, Globe, Search, Share2 } from 'lucide-react'
+import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Download, ExternalLink, Globe, Loader2, RefreshCw, Search, Share2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { atualizarStatusDoPacote } from '@/app/actions/pacotes'
 
 export type LinhaDoRegistro = {
   id: string
@@ -42,7 +44,18 @@ function celula(valor: string): string {
  * por mês, não milhares — e filtrar sem recarregar a página é o que faz a
  * tela servir para conferir uma coisa rápido, que é o uso real dela.
  */
-export function TabelaDoRegistro({ linhas }: { linhas: LinhaDoRegistro[] }) {
+export function TabelaDoRegistro({ linhas, temPendentes }: {
+  linhas: LinhaDoRegistro[]
+  /** Há destino disparado cujo resultado ainda não voltou do conector. */
+  temPendentes: boolean
+}) {
+  const router = useRouter()
+  const [conferindo, conferir] = useTransition()
+  const [conferido, setConferido] = useState('')
+  // O "agora" do filtro é fixado uma vez, na abertura da tela. Chamar
+  // Date.now() dentro do useMemo prendia o corte ao primeiro cálculo e, numa
+  // aba deixada aberta, "últimos 30 dias" passava a contar de ontem.
+  const [agora] = useState(() => Date.now())
   const [canal, setCanal] = useState('todos')
   const [periodo, setPeriodo] = useState('30')
   const [busca, setBusca] = useState('')
@@ -55,7 +68,7 @@ export function TabelaDoRegistro({ linhas }: { linhas: LinhaDoRegistro[] }) {
 
   const filtradas = useMemo(() => {
     const dias = PERIODOS.find((p) => p.id === periodo)?.dias ?? 0
-    const corte = dias ? Date.now() - dias * 24 * 60 * 60 * 1000 : 0
+    const corte = dias ? agora - dias * 24 * 60 * 60 * 1000 : 0
     const termo = busca.trim().toLowerCase()
     return linhas.filter((l) => {
       if (canal !== 'todos' && l.canal !== canal) return false
@@ -63,7 +76,7 @@ export function TabelaDoRegistro({ linhas }: { linhas: LinhaDoRegistro[] }) {
       if (termo && !`${l.titulo} ${l.canalNome} ${l.url ?? ''}`.toLowerCase().includes(termo)) return false
       return true
     })
-  }, [linhas, canal, periodo, busca])
+  }, [linhas, canal, periodo, busca, agora])
 
   const publicadas = filtradas.filter((l) => l.estado === 'publicada').length
   const falhas = filtradas.length - publicadas
@@ -110,10 +123,27 @@ export function TabelaDoRegistro({ linhas }: { linhas: LinhaDoRegistro[] }) {
         <select value={periodo} onChange={(e) => setPeriodo(e.target.value)} className={rotuloSelect} aria-label="Período">
           {PERIODOS.map((p) => <option key={p.id} value={p.id}>{p.rotulo}</option>)}
         </select>
+        {temPendentes && (
+          <Button
+            variant="outline"
+            disabled={conferindo}
+            onClick={() => conferir(async () => {
+              const r = await atualizarStatusDoPacote(new FormData())
+              setConferido(r.erro ? r.erro : r.mudou ? `${r.mudou} atualizado(s).` : 'Nada mudou ainda.')
+              if (r.mudou) router.refresh()
+            })}
+            title="Pergunta ao conector o que aconteceu com os envios que ainda não voltaram"
+          >
+            {conferindo ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+            Conferir situação
+          </Button>
+        )}
         <Button variant="outline" onClick={baixarCsv} disabled={!filtradas.length}>
           <Download className="size-4" />Baixar CSV
         </Button>
       </div>
+
+      {conferido && <p className="text-xs text-muted-foreground">{conferido}</p>}
 
       <p className="text-xs text-muted-foreground">
         {filtradas.length === 0

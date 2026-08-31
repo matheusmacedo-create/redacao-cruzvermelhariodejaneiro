@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
+import { mensagemDoErro } from '@/lib/erro-de-acao'
+import { STATUS_DA_PAUTA } from '@/lib/editorial/status'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { contextoParaComunicacao, publicacoesPrevistas } from '@/lib/editorial/publicacoes-previstas'
@@ -267,7 +269,7 @@ export async function updatePautaStatus(formData: FormData) {
   const supabase = await createClient()
   const id = text(formData, 'id')
   const status = text(formData, 'status')
-  const allowedStatuses = ['incoming', 'collection', 'production', 'review', 'approval', 'approved', 'archived']
+  const allowedStatuses: readonly string[] = STATUS_DA_PAUTA
 
   if (!allowedStatuses.includes(status)) throw new Error('Status inválido.')
 
@@ -538,7 +540,7 @@ export async function submitContentForApproval(formData: FormData): Promise<{ ap
   revalidatePath(`/conteudos/${contentId}`)
   return { approvalId }
   } catch (causa) {
-    return { erro: (causa instanceof Error ? causa.message : 'Não foi possível enviar para aprovação.').slice(0, 500) }
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar para aprovação.') }
   }
 }
 
@@ -602,7 +604,7 @@ export async function adicionarRevisores(formData: FormData): Promise<{ erro?: s
   revalidatePath(`/aprovacoes/${approvalId}`)
   return {}
   } catch (causa) {
-    return { erro: (causa instanceof Error ? causa.message : 'Não foi possível convidar.').slice(0, 500) }
+    return { erro: mensagemDoErro(causa, 'Não foi possível convidar.') }
   }
 }
 

@@ -1,10 +1,11 @@
 import { get } from '@vercel/blob'
 import { NextResponse } from 'next/server'
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const context = await requireWorkspace()
+  const context = await obterWorkspace()
+  if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const { id } = await params
   const supabase = await createClient()
   const { data: file } = await supabase.from('files').select('name,storage_path').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
