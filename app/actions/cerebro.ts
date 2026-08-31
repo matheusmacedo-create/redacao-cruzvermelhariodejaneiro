@@ -6,6 +6,7 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { lerPauta } from '@/lib/cerebro/cliente'
 import { DESTINO_POR_CANAL, type PautaDoCerebro } from '@/lib/cerebro/contrato'
+import { trazerCapa } from '@/lib/cerebro/midia'
 
 /**
  * Traz uma sugestão do Cérebro para o hub de publicações.
@@ -15,13 +16,14 @@ import { DESTINO_POR_CANAL, type PautaDoCerebro } from '@/lib/cerebro/contrato'
  * com o mestre preenchido e um destino por canal que o Cérebro liberou. Nada
  * é enviado — o trabalho segue em /redes/[id], com decisão humana.
  *
- * O que NÃO acontece aqui é tão importante quanto o que acontece: a mídia da
- * fonte não é anexada ao pacote. Ela é de terceiro — Defesa Civil, COR-Rio,
- * Bombeiros — e anexá-la faria a filial publicar foto alheia como se fosse
- * sua. Ela viaja como referência no mestre, creditada, para a pessoa ver do
- * que se trata e escolher a imagem própria.
+ * A capa vem junto, para a Biblioteca. Sem ela a pessoa decidiria no escuro
+ * sobre um post que não viu. Aparecer não é poder publicar: material da
+ * filial entra como `pending` e material de terceiro como `internal`, e o
+ * disparo barra tudo que não esteja `authorized`.
  */
-export async function importarDoCerebro(formData: FormData): Promise<{ erro?: string; id?: string }> {
+export async function importarDoCerebro(
+  formData: FormData,
+): Promise<{ erro?: string; id?: string; abrirEm?: string }> {
   try {
     const sinalId = String(formData.get('sinalId') ?? '').trim()
     if (!sinalId) throw new Error('Faltou o identificador do sinal.')
@@ -46,13 +48,25 @@ export async function importarDoCerebro(formData: FormData): Promise<{ erro?: st
       return { id: existente.id }
     }
 
+    // A capa entra antes do pacote: assim ela já nasce anexada, em vez de
+    // depender de um update que pode falhar depois.
+    const capa = pauta.midia
+      ? await trazerCapa(supabase, {
+          midia: pauta.midia,
+          workspaceId: context.workspace.id,
+          usuarioId: context.user.id,
+          sinalId: pauta.id,
+        })
+      : { fileId: null as string | null, motivo: undefined as string | undefined }
+
     const { data: pacote, error } = await supabase
       .from('social_packages')
       .insert({
         workspace_id: context.workspace.id,
         titulo_interno: pauta.titulo.slice(0, 180),
         origem_tipo: 'pauta',
-        mestre: mestreDaPauta(pauta),
+        mestre: mestreDaPauta(pauta, capa.motivo),
+        mestre_file_ids: capa.fileId ? [capa.fileId] : [],
         created_by: context.user.id,
       })
       .select('id')
@@ -69,6 +83,12 @@ export async function importarDoCerebro(formData: FormData): Promise<{ erro?: st
         canal: DESTINO_POR_CANAL[c.canal].canal,
         formato: DESTINO_POR_CANAL[c.canal].formato,
         corpo: corpoDoCanal(pauta, c.texto, c.cta),
+        // O site pede título e subtítulo próprios; sem isso a matéria nasce
+        // "Sem título" e alguém tem que recopiar o que já estava ali.
+        extras: DESTINO_POR_CANAL[c.canal].canal === 'site_web'
+          ? { titulo: pauta.titulo.slice(0, 180) }
+          : {},
+        file_ids: capa.fileId ? [capa.fileId] : [],
         estado: 'gerada' as const,
       }))
 
@@ -83,14 +103,17 @@ export async function importarDoCerebro(formData: FormData): Promise<{ erro?: st
     }
 
     revalidatePath('/redes')
-    return { id: pacote.id }
+    // Abre no Site, não no mestre: a matéria é o ponto de partida, e dela as
+    // outras redes saem por variante. O mestre é o texto canônico, não a peça.
+    const temSite = destinos.some((d) => d.canal === 'site_web')
+    return { id: pacote.id, abrirEm: temSite ? 'site_web' : destinos[0]?.canal }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível importar esta pauta.') }
   }
 }
 
 /** O texto-mestre, com o fato, o raciocínio e as travas. */
-function mestreDaPauta(p: PautaDoCerebro): Record<string, unknown> {
+function mestreDaPauta(p: PautaDoCerebro, capaFalhou?: string): Record<string, unknown> {
   const naoUsar = p.canais.filter((c) => !c.usar)
   const notas = [
     `Sugerido pelo Cérebro · nota ${p.decisao.nota}/100 · ${p.decisao.modoRotulo}.`,
@@ -103,14 +126,18 @@ function mestreDaPauta(p: PautaDoCerebro): Record<string, unknown> {
   ]
 
   if (p.midia) {
-    notas.push(
-      '',
-      'MÍDIA DA FONTE',
-      `· ${p.midia.credito} — direito: ${p.midia.direito}.`,
-      p.midia.podePublicar
-        ? '· Autorizada. Pode entrar na peça.'
-        : '· NÃO pode entrar na peça. Serve para você ver do que se trata; use arte própria ou foto autorizada da filial.',
-    )
+    notas.push('', 'CAPA DO SINAL', `· ${p.midia.credito} — direito: ${p.midia.direito}.`)
+    if (capaFalhou) {
+      notas.push(`· A capa não pôde ser trazida (${capaFalhou}). Veja no link da fonte abaixo.`)
+    } else if (p.midia.daCasa) {
+      notas.push(
+        '· Material da própria filial, na Biblioteca como PENDENTE. Confirme a autorização de quem aparece na foto antes de publicar.',
+      )
+    } else {
+      notas.push(
+        '· Material de terceiro, na Biblioteca como INTERNO. Serve de referência e não sai publicado em nome da Cruz — use arte própria ou foto autorizada da filial.',
+      )
+    }
   }
 
   if (naoUsar.length > 0) {

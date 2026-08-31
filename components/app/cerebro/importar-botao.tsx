@@ -28,7 +28,8 @@ export function ImportarBotao({ sinalId, destinos }: { sinalId: string; destinos
         setErro(r.erro)
         return
       }
-      if (r.id) router.push(`/redes/${r.id}`)
+      // Abre direto no destino que o Cérebro indicou — o site primeiro.
+      if (r.id) router.push(r.abrirEm ? `/redes/${r.id}?destino=${r.abrirEm}` : `/redes/${r.id}`)
     })
   }
 

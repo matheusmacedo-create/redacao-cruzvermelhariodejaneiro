@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, Bold, Check, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
@@ -78,7 +78,15 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   const [fileIds, setFileIds] = useState<string[]>(inicial.fileIds)
   const [agendarPara, setAgendarPara] = useState(inicial.agendarPara)
   const [destinos, setDestinos] = useState<DestinoRegistro[]>(destinosIniciais)
-  const [ativo, setAtivo] = useState<string>('mestre')
+  /*
+   * Chegando do Cérebro, a URL diz em qual destino abrir. O mestre é o texto
+   * canônico, não a peça: quem vem de uma sugestão quer ver a matéria do site
+   * primeiro e de lá mandar para as redes.
+   */
+  const destinoPedido = useSearchParams().get('destino')
+  const [ativo, setAtivo] = useState<string>(
+    () => destinosIniciais.find((d) => d.canal === destinoPedido)?.id ?? 'mestre',
+  )
   const [salvo, setSalvo] = useState<'ok' | 'salvando' | 'pendente'>('ok')
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')

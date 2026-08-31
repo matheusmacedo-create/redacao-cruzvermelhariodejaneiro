@@ -32,6 +32,13 @@ export interface MidiaDaPauta {
   direito: string
   /** Só `true` libera a mídia para entrar numa peça da filial. */
   podePublicar: boolean
+  /**
+   * Material da própria filial. Foto que a Casa publicou no Instagram dela é
+   * dela — tratar como de terceiro impediria a filial de reaproveitar a
+   * própria imagem. Continua exigindo autorização humana, mas por causa de
+   * quem aparece na foto, não de quem é a foto.
+   */
+  daCasa?: boolean
   credito: string
 }
 
