@@ -34,6 +34,7 @@ import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
+import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
 
 
@@ -100,14 +101,11 @@ export function ContentEditor({
     setMediaError('')
     setUploadingKind(kind)
     try {
-      const formData = new FormData()
-      formData.set('file', file)
-      formData.set('tags', 'conteudo')
-      const response = await fetch('/api/files/upload', { method: 'POST', body: formData })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || 'Não foi possível enviar o arquivo.')
-      const url = `/api/private-blob?pathname=${encodeURIComponent(result.storagePath)}`
-      const token = mediaToken(kind, url, file.name)
+      // Direto do navegador ao armazenamento. Pela função serverless, a Vercel
+      // corta o corpo da requisição em 4,5 MB: vídeo nenhum passava, e o botão
+      // de vídeo aqui existia sem nunca poder funcionar em produção.
+      const salvo = await enviarParaBiblioteca(file, { workspaceId, tags: ['conteudo'] })
+      const token = mediaToken(kind, salvo.previa, file.name)
       setBody((current) => `${current}${current.trim() ? '\n\n' : ''}${token}\n\n`)
       setSaved(false)
     } catch (error) {

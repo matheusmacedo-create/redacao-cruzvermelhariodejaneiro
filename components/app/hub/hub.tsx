@@ -5,15 +5,17 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ArrowLeft, Bold, Check, CircleAlert, Clock, Globe, Heading2, ImagePlus, Italic,
+  ArrowLeft, Bold, Check, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
   Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket,
-  Trash2, Wand2, X,
+  Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ADAPTERS, adapter, formatoDoAdapter, type Aviso, type CampoExtra } from '@/lib/publicacao/canais'
 import { contar } from '@/lib/publicacao/contagem'
 import { validarVariante, temErro } from '@/lib/publicacao/variantes'
+import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
+import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
@@ -51,10 +53,12 @@ function proporcaoNumerica(rotulo: string): number {
   return parseFloat(m[1]) / parseFloat(m[2])
 }
 
-export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas = [] }: {
+export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas = [], workspaceId }: {
   pacote: PacoteRegistro
   destinos: DestinoRegistro[]
   pessoas?: PessoaDoEspaco[]
+  /** Necessário para enviar mídia direto do navegador ao armazenamento. */
+  workspaceId: string
 }) {
   const router = useRouter()
   const [enviando, iniciar] = useTransition()
@@ -114,7 +118,22 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   }, [])
 
   const arquivoPorId = useMemo(() => new Map(biblioteca.map((a) => [a.id, a])), [biblioteca])
+  // Sem os tipos, a validação não consegue barrar vídeo num formato que só
+  // aceita foto — e o erro só apareceria na resposta da API.
+  const tipoPorArquivo = useMemo(
+    () => Object.fromEntries(biblioteca.map((a) => [a.id, a.tipo])) as Record<string, 'foto' | 'video'>,
+    [biblioteca],
+  )
+  // Foto escrita no texto da matéria não vira anexo de rede social: as redes
+  // recebem mídia por fora da legenda. Contar aqui é o que permite avisar.
+  const midiasNoTextoDoMestre = useMemo(() => textoParaRede(mestre.corpo).midiasNoTexto, [mestre.corpo])
   const destinoAtivo = destinos.find((d) => d.id === ativo) ?? null
+
+  /** Mídia recém-enviada entra na Biblioteca da tela e no Mestre do pacote. */
+  const acolherMidia = useCallback((arquivo: ArquivoDaBiblioteca) => {
+    setBiblioteca((atual) => (atual.some((a) => a.id === arquivo.id) ? atual : [arquivo, ...atual]))
+    setFileIds((ids) => (ids.includes(arquivo.id) ? ids : [...ids, arquivo.id]))
+  }, [])
 
   // ---------- autosave ----------
   const salvarAgora = useCallback(async () => {
@@ -275,10 +294,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   // para trás em silêncio.
   const elegiveis = destinos.filter((d) =>
     ['gerada', 'em_ajuste'].includes(d.estado)
-    && !temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato)))
+    && !temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, tipoPorArquivo)))
   const barrados = destinos.filter((d) =>
     ['gerada', 'em_ajuste', 'bloqueada'].includes(d.estado)
-    && temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato)))
+    && temErro(validarVariante({ corpo: d.corpo, extras: d.extras, fileIds: d.fileIds }, d.canal, d.formato, tipoPorArquivo)))
 
   async function estimar(ids: string[]) {
     const form = new FormData()
@@ -373,7 +392,24 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         {destinos.map((d) => {
           const sem = SEMAFORO[d.estado] ?? SEMAFORO.gerada
           return (
-            <TrilhoCard key={d.id} ativo={ativo === d.id} onClick={() => setAtivo(d.id)} title={sem.rotulo}>
+            <TrilhoCard
+              key={d.id}
+              ativo={ativo === d.id}
+              onClick={() => setAtivo(d.id)}
+              title={sem.rotulo}
+              acao={!encerrado && !['publicada', 'publicando'].includes(d.estado) ? (
+                <button
+                  type="button"
+                  onClick={() => remover(d)}
+                  // Só no hover, o X fica inalcançável em telas de toque, onde
+                  // hover não existe. Aparece sempre; o desktop é que o esconde.
+                  className="absolute -right-1.5 -top-1.5 rounded-full border border-border bg-background p-0.5 text-muted-foreground transition-opacity hover:text-destructive focus-visible:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                  aria-label={`Remover ${adapter(d.canal)?.nome ?? d.canal}`}
+                >
+                  <X className="size-3" />
+                </button>
+              ) : undefined}
+            >
               <span className="flex items-center gap-1.5 text-xs font-semibold">
                 <span className={`size-2 rounded-full ${sem.classe}`} />
                 {d.canal === 'site_web' && <Globe className="size-3" />}
@@ -383,16 +419,6 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
                 {formatoDoAdapter(adapter(d.canal)!, d.formato)?.rotulo ?? d.formato}
                 {d.descolada && <Pencil className="size-2.5" aria-label="editada à mão" />}
               </span>
-              {!encerrado && !['publicada', 'publicando'].includes(d.estado) && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); remover(d) }}
-                  className="absolute -right-1.5 -top-1.5 hidden rounded-full border border-border bg-background p-0.5 text-muted-foreground hover:text-destructive group-hover:block"
-                  aria-label="Remover destino"
-                >
-                  <X className="size-3" />
-                </button>
-              )}
             </TrilhoCard>
           )
         })}
@@ -430,24 +456,29 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               onRegenerar={regenerar}
               temDestinos={destinos.length > 0}
               encerrado={encerrado}
+              workspaceId={workspaceId}
+              onNovaMidia={acolherMidia}
             />
           ) : (
             <EditorCanal
               destino={destinoAtivo}
               arquivoPorId={arquivoPorId}
               fileIdsDoMestre={fileIds}
+              midiasNoTextoDoMestre={midiasNoTextoDoMestre}
               onEditar={(mudanca) => editarVariante(destinoAtivo.id, mudanca)}
               onPronta={() => pronta(destinoAtivo)}
               onRealimentar={() => realimentar(destinoAtivo)}
               onReprocessar={() => reprocessar(destinoAtivo)}
               encerrado={encerrado}
+              workspaceId={workspaceId}
+              onNovaMidia={acolherMidia}
             />
           )}
         </Card>
 
         <div className="flex min-w-0 flex-col gap-4">
           <PreviaDestino destino={destinoAtivo} arquivoPorId={arquivoPorId} mestre={mestre} />
-          {destinoAtivo && <ValidacaoDoDestino destino={destinoAtivo} />}
+          {destinoAtivo && <ValidacaoDoDestino destino={destinoAtivo} tipoPorArquivo={tipoPorArquivo} />}
           {destinos.length > 1 && (
             <Card className="p-4">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Como vai sair nas outras</p>
@@ -582,23 +613,35 @@ function nomeDoDestino(d: DestinoRegistro): string {
   return `${canal?.nome ?? d.canal} · ${formato?.rotulo ?? d.formato}`
 }
 
-function TrilhoCard({ ativo, onClick, title, children }: {
+/**
+ * Um cartão do trilho de destinos.
+ *
+ * A ação de remover é irmã do botão, não filha: botão dentro de botão é HTML
+ * inválido — o React acusa erro de hidratação e o navegador pode reconstruir a
+ * árvore por conta própria, deixando o X sem clique. Por isso `acao` entra
+ * fora do <button>, ancorada pelo <div> que envolve os dois.
+ */
+function TrilhoCard({ ativo, onClick, title, acao, children }: {
   ativo: boolean
   onClick: () => void
   title?: string
+  acao?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className={`group relative flex min-w-32 shrink-0 flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors ${
-        ativo ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:bg-muted/50'
-      }`}
-    >
-      {children}
-    </button>
+    <div className="group relative shrink-0">
+      <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        className={`flex h-full min-w-32 flex-col items-start gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors ${
+          ativo ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:bg-muted/50'
+        }`}
+      >
+        {children}
+      </button>
+      {acao}
+    </div>
   )
 }
 
@@ -678,6 +721,11 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
   const disponiveis = canais.filter((l) => l.conectado)
     .flatMap((l) => l.formatos.filter((f) => !jaExistem.includes(`${l.canal.id}:${f.id}`)))
 
+  // Conta ligada no Upload-Post que o hub ainda não sabe montar. Some da lista
+  // por não ter adapter — e sumir em silêncio faria parecer que a conexão não
+  // funcionou. Dizer o nome é o que transforma um sumiço num pedido claro.
+  const semSuporte = (conectadas ?? []).filter((id) => !ADAPTERS.some((a) => a.id === id))
+
   // Até a primeira medição não há onde desenhar; renderizar antes disso
   // faria o popover piscar no canto da tela.
   if (!caixa) return null
@@ -711,6 +759,11 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {canais.length === 0 && (
           <p className="py-4 text-center text-xs text-muted-foreground">Nenhum canal ou formato com “{busca}”.</p>
+        )}
+        {semSuporte.length > 0 && !busca && (
+          <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+            Conectadas mas ainda sem suporte aqui: {semSuporte.join(', ')}.
+          </p>
         )}
         {canais.map(({ canal, conectado, formatos }) => (
           <div key={canal.id}>
@@ -790,7 +843,7 @@ function colagemNoFormato(
   }
 }
 
-function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onRegenerar, temDestinos, encerrado }: {
+function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onRegenerar, temDestinos, encerrado, workspaceId, onNovaMidia }: {
   mestre: { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
   onMudar: (m: EditorMestreProps) => void
   fileIds: string[]
@@ -801,6 +854,8 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
   onRegenerar: () => void
   temDestinos: boolean
   encerrado: boolean
+  workspaceId: string
+  onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
 }) {
   const muda = (campo: keyof typeof mestre) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onMudar({ ...mestre, [campo]: e.target.value })
@@ -869,7 +924,12 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-medium">Mídias do pacote</p>
+        <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+          <p className="pt-1 text-sm font-medium">
+            Mídias do pacote <span className="font-normal text-muted-foreground">(cada destino escolhe entre elas)</span>
+          </p>
+          {!encerrado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
+        </div>
         <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={encerrado} />
       </div>
 
@@ -880,6 +940,103 @@ function EditorMestre({ mestre, onMudar, fileIds, onFileIds, biblioteca, agendar
   )
 }
 type EditorMestreProps = { corpo: string; titulo: string; subtitulo: string; linkUrl: string; notas: string }
+
+/**
+ * Envia foto ou vídeo sem sair do pacote.
+ *
+ * Antes, a única porta era a Biblioteca, em outra tela: quem montava o pacote
+ * lia "adicione mídias na tab Mestre primeiro", ia até lá, encontrava a mesma
+ * grade vazia e não tinha o que clicar. Um destino de Stories, que exige uma
+ * mídia, ficava impossível de completar sem abandonar a tela.
+ *
+ * A declaração de uso de imagem continua obrigatória e explícita: é a regra da
+ * instituição, e mídia enviada aqui vai para publicação por definição. Envio
+ * direto do navegador ao armazenamento — vídeo não passa pela função.
+ */
+function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
+  workspaceId: string
+  somenteFoto?: boolean
+  onEnviada: (arquivo: ArquivoDaBiblioteca) => void
+}) {
+  const entrada = useRef<HTMLInputElement>(null)
+  const [escolhido, setEscolhido] = useState<File | null>(null)
+  const [autorizado, setAutorizado] = useState(false)
+  const [progresso, setProgresso] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  function limpar() {
+    setEscolhido(null)
+    setAutorizado(false)
+    setProgresso(0)
+    if (entrada.current) entrada.current.value = ''
+  }
+
+  async function enviar() {
+    if (!escolhido || !autorizado) return
+    setErro('')
+    setEnviando(true)
+    try {
+      const salvo = await enviarParaBiblioteca(escolhido, {
+        workspaceId,
+        tags: ['redes'],
+        autorizacao: 'authorized',
+        onProgresso: setProgresso,
+      })
+      onEnviada({
+        id: salvo.id,
+        nome: escolhido.name,
+        tipo: escolhido.type.startsWith('video/') ? 'video' : 'foto',
+        contentType: escolhido.type,
+        tamanho: escolhido.size,
+        previa: salvo.previa,
+      })
+      limpar()
+    } catch (causa) {
+      setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar o arquivo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <div className="flex min-w-56 flex-col items-end gap-2">
+      <button
+        type="button"
+        onClick={() => entrada.current?.click()}
+        disabled={enviando}
+        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
+      >
+        <UploadCloud className="size-3.5" />{somenteFoto ? 'Enviar foto' : 'Enviar foto ou vídeo'}
+      </button>
+      <input
+        ref={entrada}
+        type="file"
+        accept={somenteFoto ? 'image/*' : 'image/*,video/*'}
+        className="hidden"
+        onChange={(e) => { setEscolhido(e.target.files?.[0] ?? null); setErro('') }}
+      />
+
+      {escolhido && (
+        <div className="w-full rounded-lg border border-border bg-muted/40 p-3">
+          <p className="truncate text-xs font-medium">{escolhido.name}</p>
+          <p className="text-[11px] text-muted-foreground">{(escolhido.size / 1024 / 1024).toFixed(1)} MB</p>
+          <label className="mt-2 flex items-start gap-2 text-[11px] leading-snug">
+            <input type="checkbox" checked={autorizado} onChange={(e) => setAutorizado(e.target.checked)} className="mt-0.5" />
+            <span>Confirmo que há autorização de uso de imagem para publicar esta mídia.</span>
+          </label>
+          <div className="mt-2 flex items-center gap-2">
+            <Button size="sm" onClick={enviar} disabled={!autorizado || enviando}>
+              {enviando ? <><Loader2 className="size-3.5 animate-spin" />{progresso}%</> : <>Enviar</>}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={limpar} disabled={enviando}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+      {erro && <p className="w-full text-[11px] text-destructive">{erro}</p>}
+    </div>
+  )
+}
 
 function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabilitado, filtroTipo }: {
   biblioteca: ArquivoDaBiblioteca[]
@@ -898,7 +1055,11 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   }
   if (!lista.length) {
     return <p className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-xs text-muted-foreground">
-      Nenhum arquivo autorizado na Biblioteca. Envie por lá e marque a autorização de uso de imagem.
+      {filtroTipo === 'video'
+        ? 'Nenhum vídeo disponível ainda. Envie um aqui ou pela Biblioteca.'
+        : filtroTipo === 'foto'
+          ? 'Nenhuma foto disponível ainda. Envie uma aqui ou pela Biblioteca.'
+          : 'Nenhuma foto ou vídeo disponível ainda. Envie um aqui ou pela Biblioteca.'}
     </p>
   }
   return (
@@ -923,15 +1084,18 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   )
 }
 
-function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado }: {
+function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia }: {
   destino: DestinoRegistro
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
   fileIdsDoMestre: string[]
+  midiasNoTextoDoMestre: number
   onEditar: (mudanca: Partial<DestinoRegistro>) => void
   onPronta: () => void
   onRealimentar: () => void
   onReprocessar: () => void
   encerrado: boolean
+  workspaceId: string
+  onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
 }) {
   const canal = adapter(destino.canal)!
   const formato = formatoDoAdapter(canal, destino.formato)!
@@ -942,6 +1106,18 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
   const midiasDoMestre = fileIdsDoMestre.map((id) => arquivoPorId.get(id)).filter((a): a is ArquivoDaBiblioteca => Boolean(a))
   const camposVisiveis = canal.camposExtras.filter((c) => !c.formatos || c.formatos.includes(destino.formato))
   const proporcaoAlvo = proporcaoNumerica(formato.midia.proporcaoPreferida)
+  // O formato manda no que pode ser oferecido: Reels sem vídeo e Perfil do
+  // Google com vídeo são recusas da API, não escolhas de quem publica.
+  const filtroDeTipo = formato.midia.video === 'obrigatorio' ? 'video' as const
+    : formato.midia.video === 'nao' ? 'foto' as const
+    : undefined
+
+  /** Mídia enviada daqui já entra selecionada neste destino, até o teto. */
+  function acolherAqui(arquivo: ArquivoDaBiblioteca) {
+    onNovaMidia(arquivo)
+    if (destino.fileIds.includes(arquivo.id)) return
+    onEditar({ fileIds: [...destino.fileIds, arquivo.id].slice(0, formato.midia.max) })
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -981,7 +1157,20 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">{destino.erro}</p>
       )}
 
-      <label className="text-sm font-medium">{eSite ? 'Texto da página' : 'Legenda'}
+      <label className="text-sm font-medium">
+        <span className="flex items-center justify-between gap-2">
+          {eSite ? 'Texto da página' : 'Legenda'}
+          {!eSite && temMarcacaoVisivel(destino.corpo) && !congelado && (
+            <button
+              type="button"
+              onClick={() => onEditar({ corpo: textoParaRede(destino.corpo).texto })}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted"
+              title="Tira **, ## e linhas de foto — a rede publicaria tudo isso literalmente"
+            >
+              <Eraser className="size-3.5" />Limpar marcação
+            </button>
+          )}
+        </span>
         {eSite ? (
           <div className="mt-1">
             <CampoDaMateria
@@ -991,6 +1180,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
               max={formato.texto.max}
               tamanho={tamanho}
               estourou={estourou}
+              workspaceId={workspaceId}
             />
           </div>
         ) : (
@@ -1026,20 +1216,27 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
 
       {formato.midia.max > 0 && (
         <div>
-          <p className="mb-2 text-sm font-medium">
-            Mídias deste destino <span className="font-normal text-muted-foreground">({formato.midia.min === 0 ? 'até' : `${formato.midia.min} a`} {formato.midia.max}{formato.midia.video === 'obrigatorio' ? ' · vídeo' : ''})</span>
-          </p>
-          {midiasDoMestre.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Adicione mídias na tab Mestre primeiro — os destinos escolhem entre elas.</p>
-          ) : (
-            <GradeDaBiblioteca
-              biblioteca={midiasDoMestre}
-              selecionados={destino.fileIds}
-              onMudar={(ids) => onEditar({ fileIds: ids })}
-              limite={formato.midia.max}
-              desabilitado={congelado}
-              filtroTipo={formato.midia.video === 'obrigatorio' ? 'video' : undefined}
-            />
+          <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+            <p className="pt-1 text-sm font-medium">
+              Mídias deste destino <span className="font-normal text-muted-foreground">({formato.midia.min === 0 ? 'até' : `${formato.midia.min} a`} {formato.midia.max}{formato.midia.video === 'obrigatorio' ? ' · só vídeo' : formato.midia.video === 'nao' ? ' · só foto' : ''})</span>
+            </p>
+            {!congelado && (
+              <BotaoEnviarMidia workspaceId={workspaceId} somenteFoto={filtroDeTipo === 'foto'} onEnviada={acolherAqui} />
+            )}
+          </div>
+          <GradeDaBiblioteca
+            biblioteca={midiasDoMestre}
+            selecionados={destino.fileIds}
+            onMudar={(ids) => onEditar({ fileIds: ids })}
+            limite={formato.midia.max}
+            desabilitado={congelado}
+            filtroTipo={filtroDeTipo}
+          />
+          {!eSite && midiasNoTextoDoMestre > 0 && destino.fileIds.length === 0 && (
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
+              O texto do Mestre tem {midiasNoTextoDoMestre === 1 ? 'uma foto escrita no meio do texto' : `${midiasNoTextoDoMestre} fotos escritas no meio do texto`}.
+              Isso vale para a página do site; em rede social a mídia é anexo — escolha acima qual vai junto.
+            </p>
           )}
         </div>
       )}
@@ -1077,13 +1274,14 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, onEditar, onPront
  * caía antes do primeiro parágrafo ou depois do último — nunca ao lado do
  * trecho que ela ilustra.
  */
-function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }: {
+function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId }: {
   valor: string
   onMudar: (v: string) => void
   desabilitado: boolean
   max: number
   tamanho: number
   estourou: boolean
+  workspaceId: string
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const arquivoRef = useRef<HTMLInputElement>(null)
@@ -1173,15 +1371,12 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou }
     setErro('')
     setEnviando(true)
     try {
-      const dados = new FormData()
-      dados.set('file', arquivo)
-      dados.set('tags', 'materia')
-      const resposta = await fetch('/api/files/upload', { method: 'POST', body: dados })
-      const resultado = await resposta.json()
-      if (!resposta.ok) throw new Error(resultado.error || 'Não foi possível enviar a foto.')
+      // Direto do navegador ao armazenamento: pela função serverless, a Vercel
+      // corta o corpo em 4,5 MB e foto de celular já batia nesse teto.
+      const salvo = await enviarParaBiblioteca(arquivo, { workspaceId, tags: ['materia'] })
       // A foto entra sem legenda de propósito: o nome do arquivo ("IMG_2043")
       // viraria legenda na página. O painel abaixo pede o texto de verdade.
-      inserirBloco(mediaToken('image', `/api/private-blob?pathname=${encodeURIComponent(resultado.storagePath)}`, ''))
+      inserirBloco(mediaToken('image', salvo.previa, ''))
     } catch (causa) {
       setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar a foto.')
     } finally {
@@ -1532,10 +1727,13 @@ function PreviaRede({ destino, arquivoPorId }: {
   )
 }
 
-function ValidacaoDoDestino({ destino }: { destino: DestinoRegistro }) {
+function ValidacaoDoDestino({ destino, tipoPorArquivo }: {
+  destino: DestinoRegistro
+  tipoPorArquivo: Record<string, 'foto' | 'video'>
+}) {
   const avisos: Aviso[] = useMemo(
-    () => validarVariante({ corpo: destino.corpo, extras: destino.extras, fileIds: destino.fileIds }, destino.canal, destino.formato),
-    [destino],
+    () => validarVariante({ corpo: destino.corpo, extras: destino.extras, fileIds: destino.fileIds }, destino.canal, destino.formato, tipoPorArquivo),
+    [destino, tipoPorArquivo],
   )
   if (!avisos.length) {
     return (

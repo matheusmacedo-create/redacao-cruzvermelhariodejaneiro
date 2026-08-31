@@ -179,14 +179,20 @@ export async function garantirPerfil(username: string): Promise<Perfil> {
   }
 }
 
-/** Só as redes efetivamente autorizadas. Serve para a tela não oferecer botão
- * de publicar numa rede que ninguém conectou. */
+/**
+ * Só as redes efetivamente autorizadas. Serve para a tela não oferecer botão
+ * de publicar numa rede que ninguém conectou.
+ *
+ * O X aparece na documentação ora como "x", ora como "twitter"; o resto do
+ * sistema só conhece "x". Normalizar aqui evita a conta conectada aparecer
+ * como desconectada na tela por causa do nome.
+ */
 export function redesConectadas(perfil: Perfil): string[] {
   const contas = perfil.social_accounts || {}
-  return Object.entries(contas)
+  const nomes = Object.entries(contas)
     .filter(([, valor]) => valor !== null && valor !== '' && valor !== undefined)
-    .map(([rede]) => rede)
-    .sort()
+    .map(([rede]) => (rede === 'twitter' ? 'x' : rede))
+  return [...new Set(nomes)].sort()
 }
 
 // ---------------------------------------------------------------- conexão
@@ -261,14 +267,25 @@ export function chavesDaPagina(brutas: PaginaBruta[]): string[] {
  * a API da Meta não permite post sem mídia. */
 export const REDES_DE_TEXTO = [
   'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'reddit', 'google_business',
+  'telegram', 'discord', 'mastodon',
 ] as const
 
 /** Redes que aceitam post com imagem. */
 export const REDES_DE_FOTO = [
   'instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest', 'google_business',
+  'tiktok', 'reddit', 'telegram', 'discord', 'mastodon',
 ] as const
 
-export type Rede = (typeof REDES_DE_TEXTO)[number] | (typeof REDES_DE_FOTO)[number]
+/** Redes que aceitam vídeo. YouTube só existe aqui: não publica texto nem foto. */
+export const REDES_DE_VIDEO = [
+  'instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest',
+  'tiktok', 'youtube', 'reddit', 'telegram', 'discord', 'mastodon',
+] as const
+
+export type Rede =
+  | (typeof REDES_DE_TEXTO)[number]
+  | (typeof REDES_DE_FOTO)[number]
+  | (typeof REDES_DE_VIDEO)[number]
 
 export type ResultadoPorRede = {
   platform: string
@@ -298,12 +315,18 @@ export const FORMATOS = {
   texto: {
     rotulo: 'Texto',
     midia: 'nenhuma',
-    redes: ['facebook', 'linkedin', 'x', 'threads', 'bluesky', 'google_business'],
+    redes: [
+      'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'google_business',
+      'reddit', 'telegram', 'discord', 'mastodon',
+    ],
   },
   feed: {
     rotulo: 'Feed',
     midia: 'imagem',
-    redes: ['instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest', 'google_business'],
+    redes: [
+      'instagram', 'facebook', 'linkedin', 'x', 'threads', 'bluesky', 'pinterest',
+      'google_business', 'tiktok', 'reddit', 'telegram', 'discord', 'mastodon',
+    ],
   },
   stories: {
     rotulo: 'Stories',
@@ -315,6 +338,16 @@ export const FORMATOS = {
     rotulo: 'Reels',
     midia: 'video',
     redes: ['instagram', 'facebook'],
+  },
+  // Vídeo comum, sem o enquadramento vertical do Reels: é o formato do
+  // YouTube e do TikTok, e o que Telegram, Discord e Mastodon entendem.
+  video: {
+    rotulo: 'Vídeo',
+    midia: 'video',
+    redes: [
+      'tiktok', 'youtube', 'linkedin', 'x', 'facebook', 'threads', 'bluesky',
+      'pinterest', 'reddit', 'telegram', 'discord', 'mastodon',
+    ],
   },
 } as const
 
@@ -392,6 +425,25 @@ function aplicarExtras(form: FormData, envio: EnvioComum) {
     if (extras.ctaTipo) form.set('gbp_cta_type', extras.ctaTipo)
     if (extras.ctaUrl) form.set('gbp_cta_url', extras.ctaUrl)
   }
+  if (envio.redes.includes('tiktok')) {
+    // No post de fotos o "title" do TikTok tem 90 caracteres; o texto longo é
+    // outro campo. Mandar a legenda inteira como título seria recusa na API.
+    if (extras.tiktokDescricao) form.set('tiktok_description', extras.tiktokDescricao)
+    if (extras.tiktokPrivacidade) form.set('privacy_level', extras.tiktokPrivacidade)
+  }
+  if (envio.redes.includes('youtube')) {
+    // O YouTube exige título próprio: o texto do post é a descrição do vídeo.
+    if (extras.youtubeTitulo) form.set('youtube_title', extras.youtubeTitulo)
+    if (extras.youtubePrivacidade) form.set('privacyStatus', extras.youtubePrivacidade)
+  }
+  if (envio.redes.includes('reddit')) {
+    // No Reddit o título é o que aparece na lista, e o corpo é outro campo.
+    // Sem separar, o post sairia com o texto inteiro como título.
+    if (extras.subreddit) form.set('subreddit', extras.subreddit)
+    if (extras.redditTitulo) form.set('reddit_title', extras.redditTitulo)
+    if (extras.redditFlairId) form.set('flair_id', extras.redditFlairId)
+    if (extras.redditTitulo && envio.texto) form.set('description', envio.texto)
+  }
 }
 
 /**
@@ -403,8 +455,10 @@ function aplicarFormato(form: FormData, envio: EnvioComum) {
   const formato = envio.formato
   if (!formato || formato === 'texto') return
 
-  if (envio.redes.includes('instagram')) {
-    // Foto aceita IMAGE|STORIES; vídeo aceita REELS|STORIES.
+  if (envio.redes.includes('instagram') && formato !== 'video') {
+    // Foto aceita IMAGE|STORIES; vídeo aceita REELS|STORIES. O formato 'video'
+    // não é do Instagram (lá vídeo é Reels) — declarar IMAGE nele seria mentir
+    // sobre o conteúdo enviado.
     form.set('media_type', formato === 'stories' ? 'STORIES' : formato === 'reels' ? 'REELS' : 'IMAGE')
   }
 

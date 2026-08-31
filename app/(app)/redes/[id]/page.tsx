@@ -70,5 +70,5 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     .filter((p: any) => p && p.active !== false && p.id !== context.user.id)
     .map((p: any) => ({ id: p.id, nome: p.full_name, iniciais: p.initials || '?', cor: p.color }))
 
-  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} />
+  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} workspaceId={context.workspace.id} />
 }
