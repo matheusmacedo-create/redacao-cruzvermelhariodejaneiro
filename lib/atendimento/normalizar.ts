@@ -42,6 +42,13 @@ export type Mensagem = {
   motivo?: string
   /** O código não reconheceu o formato; mostrado com aviso. */
   formatoDesconhecido?: boolean
+  /**
+   * A última palavra foi de quem escreveu, não nossa — ou seja, alguém espera
+   * resposta. É o que separa uma fila de trabalho de um registro de conversas.
+   */
+  aguardandoResposta?: boolean
+  /** Não deu para saber quem é quem na conversa; a tela avisa em vez de mentir. */
+  identidadeIncerta?: boolean
 }
 
 /** Primeiro valor não vazio entre os caminhos dados. */
@@ -143,15 +150,18 @@ export function normalizarConversas(
   bruto: unknown,
   opcoes: { canal?: string; nossoId?: string; nossoUsuario?: string; agora?: number } = {},
 ): Mensagem[] {
-  const souEu = (id: string, usuario: string) =>
-    (Boolean(opcoes.nossoId) && id === opcoes.nossoId)
-    || (Boolean(opcoes.nossoUsuario) && usuario.toLowerCase() === opcoes.nossoUsuario!.toLowerCase())
-  const sabemosQuemSomos = Boolean(opcoes.nossoId || opcoes.nossoUsuario)
   const canal = opcoes.canal ?? 'instagram'
   const agora = opcoes.agora ?? Date.now()
   const conversas = Array.isArray((bruto as { conversations?: unknown })?.conversations)
     ? (bruto as { conversations: unknown[] }).conversations
     : Array.isArray(bruto) ? bruto : []
+
+  // Quem somos nós, deduzido dos próprios dados quando não nos disseram.
+  const nossos = quemSomosNesteLote(conversas, opcoes)
+  const souEu = (id: string, usuario: string) =>
+    (Boolean(id) && nossos.ids.has(id))
+    || (Boolean(usuario) && nossos.usuarios.has(usuario.toLowerCase()))
+  const sabemosQuemSomos = nossos.ids.size > 0 || nossos.usuarios.size > 0
 
   return conversas.flatMap((cru) => {
     if (!cru || typeof cru !== 'object') return []
@@ -174,7 +184,7 @@ export function normalizarConversas(
 
     // A janela conta a partir da última mensagem DELA, não da nossa.
     const ultimaDelas = ordenadas.find((m) =>
-      !sabemosQuemSomos || !souEu(primeiro(m, ['from.id']), primeiro(m, ['from.username', 'from.name'])))
+      !souEu(primeiro(m, ['from.id']), primeiro(m, ['from.username', 'from.name'])))
     const quandoDelas = ultimaDelas ? new Date(normalizarData(primeiro(ultimaDelas, QUANDO))).getTime() : NaN
     const horas = Number.isNaN(quandoDelas) ? Infinity : (agora - quandoDelas) / 3_600_000
     const dentroDaJanela = horas <= JANELA_DE_RESPOSTA_HORAS
@@ -183,8 +193,11 @@ export function normalizarConversas(
     const participantes = (conversa.participants as { data?: unknown[] } | undefined)?.data ?? []
     const outro = (Array.isArray(participantes) ? participantes : [])
       .filter((p): p is Record<string, unknown> => Boolean(p) && typeof p === 'object')
-      .find((p) => !sabemosQuemSomos || !souEu(primeiro(p, ['id']), primeiro(p, ['username', 'name'])))
+      .find((p) => !souEu(primeiro(p, ['id']), primeiro(p, ['username', 'name'])))
     const destinatarioId = outro ? primeiro(outro, ['id']) : (nossa ? '' : autorId)
+    // A fila existe para mostrar quem espera. Se a última fala foi nossa, a
+    // conversa está em dia — continua listada, mas sem urgência.
+    const aguardando = !nossa
 
     return [{
       id: `dm:${canal}:${primeiro(conversa, ['id']) || destinatarioId}`,
@@ -196,6 +209,8 @@ export function normalizarConversas(
       quando: normalizarData(primeiro(ultima, QUANDO)),
       destinatarioId,
       respondivel: Boolean(destinatarioId) && dentroDaJanela,
+      aguardandoResposta: aguardando,
+      ...(sabemosQuemSomos ? {} : { identidadeIncerta: true }),
       motivo: !destinatarioId
         ? 'Não identifiquei para quem responder nesta conversa.'
         : !dentroDaJanela
@@ -222,4 +237,64 @@ export function maisRecentesPrimeiro(mensagens: Mensagem[]): Mensagem[] {
     if (!b.quando) return -1
     return new Date(b.quando).getTime() - new Date(a.quando).getTime()
   })
+}
+
+
+/**
+ * Descobre qual conta é a nossa dentro de um lote de conversas.
+ *
+ * O nome de usuário vem do perfil do conector quando essa chamada dá certo.
+ * Quando não dá — e ela pode falhar em silêncio —, a dedução salva: NÓS
+ * estamos em toda conversa, enquanto cada pessoa do público aparece em uma.
+ * O participante que se repete é a instituição.
+ *
+ * Isto não é elegância: é a correção de um erro que chegou à produção. Sem
+ * saber quem somos, o código pegava o primeiro participante da lista — que é
+ * justamente a nossa própria conta — e passou a exibir as RESPOSTAS DA
+ * INSTITUIÇÃO como se fossem mensagens do público, todas assinadas com o nome
+ * do perfil. Uma fila de atendimento que mostra a si mesma não é só inútil:
+ * esconde quem está esperando.
+ */
+function quemSomosNesteLote(
+  conversas: unknown[],
+  opcoes: { nossoId?: string; nossoUsuario?: string },
+): { ids: Set<string>; usuarios: Set<string> } {
+  const ids = new Set<string>()
+  const usuarios = new Set<string>()
+  if (opcoes.nossoId) ids.add(opcoes.nossoId)
+  if (opcoes.nossoUsuario) usuarios.add(opcoes.nossoUsuario.toLowerCase())
+  if (ids.size || usuarios.size) return { ids, usuarios }
+
+  // Conta em quantas CONVERSAS cada participante aparece (não quantas
+  // mensagens mandou: quem escreve muito numa conversa só não é a instituição).
+  const emQuantas = new Map<string, { conversas: number; usuario: string }>()
+  for (const cru of conversas) {
+    if (!cru || typeof cru !== 'object') continue
+    const participantes = (cru as { participants?: { data?: unknown[] } }).participants?.data
+    if (!Array.isArray(participantes)) continue
+    const vistos = new Set<string>()
+    for (const p of participantes) {
+      if (!p || typeof p !== 'object') continue
+      const id = primeiro(p as Record<string, unknown>, ['id'])
+      if (!id || vistos.has(id)) continue
+      vistos.add(id)
+      const registro = emQuantas.get(id) ?? { conversas: 0, usuario: primeiro(p as Record<string, unknown>, ['username', 'name']) }
+      registro.conversas++
+      emQuantas.set(id, registro)
+    }
+  }
+
+  const ordenados = [...emQuantas.entries()].sort((a, b) => b[1].conversas - a[1].conversas)
+  const primeiroLugar = ordenados[0]
+  const segundoLugar = ordenados[1]
+
+  // Só decide quando há folga: presente em pelo menos duas conversas e em mais
+  // conversas que qualquer outro. Empate é incerteza, e incerteza vira aviso
+  // na tela — não um palpite disfarçado de fato.
+  if (primeiroLugar && primeiroLugar[1].conversas >= 2
+      && (!segundoLugar || primeiroLugar[1].conversas > segundoLugar[1].conversas)) {
+    ids.add(primeiroLugar[0])
+    if (primeiroLugar[1].usuario) usuarios.add(primeiroLugar[1].usuario.toLowerCase())
+  }
+  return { ids, usuarios }
 }
