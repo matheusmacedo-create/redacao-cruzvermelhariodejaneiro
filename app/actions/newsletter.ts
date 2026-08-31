@@ -7,7 +7,7 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, TEXTO_DO_CONSENTIMENTO } from '@/lib/newsletter/inscricao'
 import { urlBase, urlDeConfirmacao, urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
 import { withFtp, baixarTexto, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
-import { ligarFormularioNaHome, MARCA } from '@/lib/site/formulario-newsletter'
+import { ligarFormularioNaHome, candidatosDeIndex, MARCA } from '@/lib/site/formulario-newsletter'
 import { emailDeConfirmacao } from '@/lib/newsletter/modelo'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 
@@ -314,27 +314,48 @@ export async function ligarFormularioDoSite(): Promise<Resultado> {
     const rota = `${urlBase()}/api/newsletter/inscrever`
 
     const resultado = await withFtp(async (client, config) => {
-      // Candidatos, do mais provável ao menos. Qual deles é a home quem diz é
-      // o conteúdo, não o caminho: uma pasta de notícias também tem index.html.
-      const candidatos = ['/index.html', '/public_html/index.html', `${config.baseDir.replace(/\/$/, '')}/../index.html`]
+      // A pasta certa é DESCOBERTA, não adivinhada: o painel da Hostinger mostra
+      // o caminho cortado, e já custou tentativa e erro neste projeto. Listamos
+      // o que a conta enxerga e montamos os candidatos a partir disso.
+      await client.cd('/')
+      const naRaiz = await client.list()
+      const pastasDaRaiz = naRaiz.filter((i) => i.isDirectory).map((i) => i.name)
+
+      let pastasDeDomains: string[] = []
+      if (pastasDaRaiz.includes('domains')) {
+        try {
+          await client.cd('/domains')
+          pastasDeDomains = (await client.list()).filter((i) => i.isDirectory).map((i) => i.name)
+          await client.cd('/')
+        } catch { /* sem permissão de listar: seguimos com os outros candidatos */ }
+      }
+
+      const candidatos = candidatosDeIndex({ baseDir: config.baseDir, pastasDaRaiz, pastasDeDomains })
+      const tentados: string[] = []
 
       for (const caminho of candidatos) {
+        tentados.push(caminho)
         let html: string
         try { html = await baixarTexto(client, caminho) } catch { continue }
+        // É o CONTEÚDO que identifica a home, não o caminho: uma pasta de
+        // notícias também tem index.html, e com acesso ao servidor inteiro há
+        // mais index.html por aí do que se imagina.
         if (!html.includes('newsletter-section')) continue
 
         const troca = ligarFormularioNaHome(html, rota)
         if (troca.estado === 'ja-ligado') return { ok: true as const, detalhe: troca.detalhe, gravou: false }
         if (troca.estado === 'recusado') return { ok: false as const, detalhe: troca.detalhe }
 
-        const raiz = caminho.slice(0, caminho.lastIndexOf('/')) || '/'
-        await enviarNaRaizDoSite(client, raiz, 'index.html', troca.html)
+        const pasta = caminho.slice(0, caminho.lastIndexOf('/')) || '/'
+        await enviarNaRaizDoSite(client, pasta, 'index.html', troca.html)
         return { ok: true as const, detalhe: troca.detalhe, gravou: true, onde: caminho, tamanho: troca.html.length }
       }
 
       return {
         ok: false as const,
-        detalhe: 'Não alcancei a página inicial pelo FTP. A conta está confinada à pasta de notícias — no hPanel da Hostinger, libere a conta para /public_html (ou a raiz do site) e tente de novo.',
+        detalhe: `Não encontrei a home em nenhum destes caminhos: ${tentados.join(', ')}. `
+          + `A conta enxerga na raiz: ${pastasDaRaiz.join(', ') || '(nada)'}. `
+          + 'Me diga qual é a pasta do site e eu acrescento.',
       }
     })
 

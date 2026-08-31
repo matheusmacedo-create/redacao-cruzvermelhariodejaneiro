@@ -150,3 +150,51 @@ export function ligarFormularioNaHome(html: string, urlDaRota: string): Resultad
     detalhe: 'O formulário da home passou a enviar para a Redação, com aceite de consentimento e proteção contra robô.',
   }
 }
+
+/**
+ * Onde procurar o index.html da home, em ordem de probabilidade.
+ *
+ * Função pura para que a ordem seja testável: descobrir a pasta certa foi, na
+ * história deste projeto, a parte que mais consumiu tentativa e erro — o painel
+ * da Hostinger mostra o caminho cortado e ninguém vê onde a conta cai.
+ *
+ * Não usa "..": depender de o servidor de FTP resolver caminho relativo é
+ * frágil, e alguns simplesmente não resolvem. Os ancestrais são calculados
+ * aqui, como caminhos absolutos.
+ *
+ * A ordem começa pelos ancestrais da pasta de matérias porque, se as notícias
+ * são publicadas em <site>/noticias, a home está um nível acima — é o palpite
+ * com mais chance e o mais barato de confirmar.
+ */
+export function candidatosDeIndex(entrada: {
+  baseDir: string
+  /** Diretórios vistos na raiz da conta. */
+  pastasDaRaiz?: string[]
+  /** Diretórios dentro de /domains, quando essa pasta existir. */
+  pastasDeDomains?: string[]
+}): string[] {
+  const candidatos: string[] = []
+  const juntar = (caminho: string) => {
+    const limpo = ('/' + caminho + '/index.html').replace(/\/+/g, '/')
+    if (!candidatos.includes(limpo)) candidatos.push(limpo)
+  }
+
+  // 1. Os ancestrais da pasta de matérias, do mais próximo ao mais distante.
+  const partes = entrada.baseDir.split('/').filter(Boolean)
+  for (let i = partes.length - 1; i >= 0; i--) juntar(partes.slice(0, i).join('/'))
+
+  // 2. As pastas de site que existem na raiz da conta.
+  const daRaiz = entrada.pastasDaRaiz ?? []
+  for (const nome of ['public_html', 'htdocs', 'www']) {
+    if (daRaiz.includes(nome)) juntar(nome)
+  }
+
+  // 3. O layout de hospedagem com vários domínios.
+  for (const dominio of entrada.pastasDeDomains ?? []) juntar(`domains/${dominio}/public_html`)
+
+  // 4. A própria raiz, por último: é a menos provável e a mais arriscada de
+  //    acertar por engano, então só depois de tudo o mais falhar.
+  juntar('')
+
+  return candidatos
+}
