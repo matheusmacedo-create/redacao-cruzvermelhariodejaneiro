@@ -6,6 +6,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
+import { PainelDoCerebro } from '@/components/app/cerebro/painel'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,9 @@ export default async function RedesPage() {
         description="Escreva uma vez, ajuste por canal e publique no site e em todas as contas oficiais."
         actions={<NovoPacoteBotao />}
       />
+
+      {/* O Cérebro vem antes dos pacotes: é de onde eles podem nascer. */}
+      <PainelDoCerebro />
 
       {(pacotes ?? []).length === 0 ? (
         <Card className="p-10 text-center">
