@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { PacoteHub } from '@/components/app/hub/hub'
+import { iaConfigurada } from '@/lib/ia/openai'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
 const paraLocal = (iso: string | null) => {
@@ -70,5 +71,5 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     .filter((p: any) => p && p.active !== false && p.id !== context.user.id)
     .map((p: any) => ({ id: p.id, nome: p.full_name, iniciais: p.initials || '?', cor: p.color }))
 
-  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} workspaceId={context.workspace.id} />
+  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} workspaceId={context.workspace.id} iaDisponivel={iaConfigurada()} />
 }
