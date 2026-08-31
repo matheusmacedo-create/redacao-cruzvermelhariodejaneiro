@@ -39,11 +39,24 @@ export const emailConfigurado = () => Boolean(process.env.RESEND_API_KEY?.trim()
  * O remetente. Precisa ser de um domínio verificado no Resend, senão toda
  * chamada volta 403 — é o erro nº 1 de quem começa.
  *
- * O padrão usa o domínio institucional, não o da Redação: quem recebe a
- * newsletter conhece cruzvermelhariodejaneiro.org, e remetente de um domínio
- * que o leitor não reconhece é o que faz a mensagem virar denúncia de spam.
+ * O padrão é o SUBDOMÍNIO noticias., não a raiz, e isso é deliberado nos dois
+ * sentidos:
+ *
+ *  - É o que está verificado no Resend. Para o Resend, "cruzvermelhariodejaneiro.org"
+ *    e "noticias.cruzvermelhariodejaneiro.org" são domínios diferentes: chave
+ *    DKIM própria, verificação própria. Remetente na raiz com só o subdomínio
+ *    verificado volta 403 em toda tentativa — foi exatamente o que aconteceu
+ *    aqui, e o sintoma foi inscrição gravada sem convite chegando.
+ *
+ *  - É a prática recomendada para envio em massa. A raiz já tem o e-mail
+ *    corporativo da Hostinger; separar a newsletter num subdomínio faz com que
+ *    uma remessa mal recebida não arraste junto a reputação do endereço que a
+ *    instituição usa para falar com hospital, cartório e doador.
+ *
+ * O leitor continua reconhecendo a origem: o nome do domínio institucional
+ * está inteiro dentro do endereço.
  */
-export const REMETENTE_PADRAO = 'Cruz Vermelha RJ <noticias@cruzvermelhariodejaneiro.org>'
+export const REMETENTE_PADRAO = 'Cruz Vermelha RJ <noticias@noticias.cruzvermelhariodejaneiro.org>'
 
 export function remetente(): string {
   return process.env.NEWSLETTER_REMETENTE?.trim() || REMETENTE_PADRAO
@@ -101,7 +114,7 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): P
       ?? (dados as { error?: string })?.error
     const motivo = daApi || bruto.trim().slice(0, 300) || 'O Resend recusou a chamada.'
     const dica = res.status === 401 || res.status === 403
-      ? ' Confira RESEND_API_KEY e se o domínio do remetente está verificado no painel do Resend — domínio não verificado é a causa mais comum.'
+      ? ` Confira RESEND_API_KEY e se o domínio de "${remetente()}" está verificado no painel do Resend. Atenção ao subdomínio: para o Resend, "dominio.org" e "sub.dominio.org" são domínios distintos, e verificar um não verifica o outro. /api/admin/newsletter-check lista o que está verificado na conta.`
       : res.status === 422 ? ' O Resend considerou a mensagem inválida: confira o formato do remetente ("Nome <caixa@dominio>").'
       : res.status === 429 ? ' Limite de envio atingido no plano do Resend.'
       : !daApi ? ' A resposta não veio do Resend: há algo na rede entre o servidor e api.resend.com.'
