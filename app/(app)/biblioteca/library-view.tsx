@@ -3,10 +3,11 @@ import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { upload as uploadToBlob } from '@vercel/blob/client'
 import { caminhoDaBiblioteca } from '@/lib/storage'
-import { CheckCircle2, Download, FileText, Folder, ImageIcon, Music, Search, Trash2, UploadCloud, Video } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileText, Folder, ImageIcon, Lock, Music, Search, ShieldCheck, Trash2, UploadCloud, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { autorizarUsoDeImagem } from '@/app/actions/arquivos'
 
 type Item = { id: string; name: string; kind: string; contentType: string | null; size: number; status: string; tags: string[]; createdAt: string; storagePath: string | null; author: { name: string; initials: string; color?: string }; canDelete: boolean }
 const icons: Record<string, typeof FileText> = { foto: ImageIcon, video: Video, audio: Music, documento: FileText }
@@ -31,6 +32,24 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
   const [authorization, setAuthorization] = useState<'pending' | 'authorized' | 'internal'>('pending')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  /**
+   * A autorização de uso de imagem só existia no envio: um arquivo que
+   * chegasse por outro caminho — a foto do post importado do Cérebro, por
+   * exemplo — nascia pendente e ficava assim para sempre, sem nada na tela
+   * dizendo isso nem onde mudar. Aqui ela vira estado visível e decisão.
+   */
+  const [confirmando, setConfirmando] = useState<Item | null>(null)
+
+  async function autorizar(item: Item) {
+    setError(''); setSuccess('')
+    const form = new FormData()
+    form.set('fileId', item.id)
+    const r = await autorizarUsoDeImagem(form)
+    setConfirmando(null)
+    if (r.erro) { setError(r.erro); return }
+    setSuccess(`Autorização de uso registrada para ${item.name}.`)
+    router.refresh()
+  }
 
   const knownFolders = useMemo(() => [...new Set(initialFiles.map((f) => folderOf(f.tags)).filter((f): f is string => !!f))].sort(), [initialFiles])
 
@@ -177,13 +196,32 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
                   <p className="text-xs text-muted-foreground">{f.author.name} · {format(f.size)} · {new Intl.DateTimeFormat('pt-BR').format(new Date(f.createdAt))}</p>
                 </div>
                 <div className="flex flex-wrap gap-1">
+                  {f.status === 'authorized' && <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-0.5 text-xs font-medium text-success"><ShieldCheck className="size-3" />Uso autorizado</span>}
+                  {f.status === 'pending' && <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"><AlertTriangle className="size-3" />Falta autorizar</span>}
+                  {f.status === 'internal' && <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"><Lock className="size-3" />Uso interno</span>}
                   {fileFolder && <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"><Folder className="size-3" />{fileFolder}</span>}
                   {visibleTags(f.tags).map((t) => <span key={t} className="rounded bg-muted px-2 py-0.5 text-xs">#{t}</span>)}
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" render={<a href={`/api/files/${f.id}/download`} />}><Download className="size-4" />Baixar</Button>
-                  {f.canDelete && <Button variant="ghost" size="icon-sm" onClick={() => remove(f.id, f.name)} aria-label={`Excluir ${f.name}`}><Trash2 className="size-4" /></Button>}
-                </div>
+                {confirmando?.id === f.id ? (
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+                    <p className="text-muted-foreground">
+                      Confirmo que há autorização de uso de imagem das pessoas que aparecem nesta mídia para publicação
+                      pela Cruz Vermelha Brasileira — Rio de Janeiro.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <Button size="sm" onClick={() => autorizar(f)}><CheckCircle2 className="size-4" />Confirmo</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" render={<a href={`/api/files/${f.id}/download`} />}><Download className="size-4" />Baixar</Button>
+                    {f.status === 'pending' && (
+                      <Button variant="outline" size="sm" onClick={() => setConfirmando(f)}>Autorizar uso</Button>
+                    )}
+                    {f.canDelete && <Button variant="ghost" size="icon-sm" onClick={() => remove(f.id, f.name)} aria-label={`Excluir ${f.name}`}><Trash2 className="size-4" /></Button>}
+                  </div>
+                )}
               </div>
             </Card>
           )

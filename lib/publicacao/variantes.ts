@@ -64,18 +64,32 @@ export function gerarVariante(mestre: Mestre, canalId: string, formatoId: string
 }
 
 /**
+ * O que a Biblioteca sabe sobre um arquivo e a validação precisa saber.
+ *
+ * A autorização de uso de imagem entra aqui, e não numa checagem separada na
+ * hora do disparo, porque o problema não é técnico: é que alguém escolheu uma
+ * foto que não pode sair. Isso tem de aparecer enquanto se edita, junto do
+ * resto — descobrir na hora de publicar é descobrir tarde.
+ */
+export type DadosDoArquivo = {
+  tipo?: 'foto' | 'video'
+  /** 'authorized' | 'pending' | 'internal' — como está na Biblioteca. */
+  autorizacao?: string
+}
+
+/**
  * Confere a variante contra o contrato do canal.
  *
- * `tipoPorArquivo` é opcional porque nem todo chamador tem a Biblioteca em
+ * `porArquivo` é opcional porque nem todo chamador tem a Biblioteca em
  * mãos; quando vem, as regras de vídeo do formato passam a valer de verdade —
  * mandar vídeo para um formato que só aceita foto falha na API com uma
- * mensagem que ninguém decifra.
+ * mensagem que ninguém decifra — e a autorização de uso passa a ser conferida.
  */
 export function validarVariante(
   variante: Variante,
   canalId: string,
   formatoId: string,
-  tipoPorArquivo?: Record<string, 'foto' | 'video'>,
+  porArquivo?: Record<string, DadosDoArquivo>,
 ): Aviso[] {
   const canal = adapter(canalId)
   if (!canal) return [{ nivel: 'erro', mensagem: `Canal desconhecido: ${canalId}` }]
@@ -105,13 +119,30 @@ export function validarVariante(
     avisos.push({ nivel: 'erro', mensagem: `${variante.fileIds.length} mídias; o máximo é ${formato.midia.max}.` })
   }
 
-  if (tipoPorArquivo) {
-    const tipos = variante.fileIds.map((id) => tipoPorArquivo[id]).filter(Boolean)
+  if (porArquivo) {
+    const tipos = variante.fileIds.map((id) => porArquivo[id]?.tipo).filter(Boolean)
     if (formato.midia.video === 'obrigatorio' && tipos.some((t) => t !== 'video')) {
       avisos.push({ nivel: 'erro', mensagem: 'Este formato aceita apenas vídeo.' })
     }
     if (formato.midia.video === 'nao' && tipos.some((t) => t === 'video')) {
       avisos.push({ nivel: 'erro', mensagem: 'Este formato não aceita vídeo — só foto.' })
+    }
+
+    // Autorização de uso de imagem. O disparo já barra (lib/publicacao/
+    // arquivos.ts), mas barrar lá é avisar tarde: a peça já foi dada como
+    // pronta, aprovada, agendada — e falha na hora em que deveria sair.
+    const semAutorizacao = variante.fileIds.filter((id) => {
+      const estado = porArquivo[id]?.autorizacao
+      return estado !== undefined && estado !== 'authorized'
+    })
+    if (semAutorizacao.length) {
+      const interna = semAutorizacao.some((id) => porArquivo[id]?.autorizacao === 'internal')
+      avisos.push({
+        nivel: 'erro',
+        mensagem: interna
+          ? 'Há mídia marcada como uso interno nesta peça. Material de terceiro serve de referência na tela e não sai publicado em nome da Cruz Vermelha.'
+          : `${semAutorizacao.length === 1 ? 'A mídia escolhida ainda não tem' : `${semAutorizacao.length} mídias escolhidas ainda não têm`} autorização de uso de imagem. Confirme a autorização na mídia antes de publicar.`,
+      })
     }
   }
 

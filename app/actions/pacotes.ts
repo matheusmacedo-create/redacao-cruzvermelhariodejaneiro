@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarEdicao } from '@/lib/newsletter/envio'
-import { gerarVariante, validarVariante, temErro } from '@/lib/publicacao/variantes'
+import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 
 /**
  * Ações do hub multicanal: pacote (mestre) e destinos (variantes).
@@ -501,21 +501,28 @@ export async function realimentarDestino(formData: FormData): Promise<ResultadoD
  * Sem isto, mandar vídeo a um formato que só aceita foto — ou o contrário —
  * só falharia na resposta da API, com uma mensagem que ninguém decifra.
  */
-async function tiposDosArquivos(
+/**
+ * O que a Biblioteca sabe das mídias escolhidas: tipo e autorização de uso.
+ *
+ * Os dois juntos porque a validação precisa dos dois, e ir ao banco duas
+ * vezes pela mesma linha seria só custo.
+ */
+async function dadosDosArquivos(
   supabase: Awaited<ReturnType<typeof createClient>>,
   workspaceId: string,
   ids: string[],
-): Promise<Record<string, 'foto' | 'video'>> {
+): Promise<Record<string, DadosDoArquivo>> {
   const unicos = [...new Set(ids)].filter(Boolean)
   if (!unicos.length) return {}
   const { data } = await supabase
-    .from('files').select('id,file_type')
+    .from('files').select('id,file_type,authorization_status')
     .eq('workspace_id', workspaceId).in('id', unicos)
-  return Object.fromEntries(
-    (data ?? [])
-      .filter((f) => f.file_type === 'foto' || f.file_type === 'video')
-      .map((f) => [f.id, f.file_type as 'foto' | 'video']),
-  )
+  return Object.fromEntries((data ?? []).map((f) => [f.id, {
+    tipo: f.file_type === 'foto' || f.file_type === 'video' ? f.file_type : undefined,
+    // Sem valor no banco, trata como pendente: o campo em branco não é
+    // permissão, e presumir o contrário publicaria o que ninguém liberou.
+    autorizacao: (f.authorization_status as string | null) ?? 'pending',
+  }]))
 }
 
 /**
@@ -541,7 +548,7 @@ export async function marcarPronta(formData: FormData): Promise<ResultadoDoHub> 
       { corpo: destino.corpo ?? '', extras: (destino.extras ?? {}) as Record<string, string>, fileIds: destino.file_ids ?? [] },
       destino.canal,
       destino.formato,
-      await tiposDosArquivos(supabase, context.workspace.id, destino.file_ids ?? []),
+      await dadosDosArquivos(supabase, context.workspace.id, destino.file_ids ?? []),
     )
     if (temErro(avisos)) {
       const erros = avisos.filter((a) => a.nivel === 'erro').map((a) => a.mensagem).join(' · ')
@@ -694,7 +701,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       .in('estado', ['pronta', 'gerada', 'em_ajuste'])
     const todas = (linhas ?? []) as (DestinoParaDisparo & { estado: string })[]
 
-    const tipos = await tiposDosArquivos(
+    const arquivos = await dadosDosArquivos(
       supabase,
       context.workspace.id,
       todas.flatMap((d) => d.file_ids ?? []),
@@ -706,7 +713,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       if (!incluirIds.has(d.id)) continue
       const avisos = validarVariante(
         { corpo: d.corpo ?? '', extras: (d.extras ?? {}) as Record<string, string>, fileIds: d.file_ids ?? [] },
-        d.canal, d.formato, tipos,
+        d.canal, d.formato, arquivos,
       )
       if (temErro(avisos)) continue   // com erro não vai, mesmo pedido
       await supabase.from('package_destinations').update({ estado: 'pronta' })
