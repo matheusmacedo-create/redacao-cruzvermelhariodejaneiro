@@ -239,7 +239,7 @@ function Tela({
       if (!vivo) return
       const s = sim.current
       if (s.alpha > 0.005) {
-        passo(s.nos, arestas, s.porId, s.alpha)
+        passo(s.nos, arestas, s.porId, grau, s.alpha)
         s.alpha *= 0.985
         desenhar()
       }
@@ -412,6 +412,9 @@ function Tela({
                   strokeWidth={a.tipo === 'importou' || a.tipo === 'saiu' ? 1.6 : 0.8}
                   strokeDasharray={a.tipo === 'sugere' || a.tipo === 'marca' ? '3 3' : undefined}
                   opacity={emFoco ? (emFoco.has(a.de) && emFoco.has(a.para) ? 0.9 : 0.12) : 0.7}
+                  // Sem a transição, varrer o mouse faz o mapa inteiro
+                  // estalar entre aceso e apagado a cada nó atravessado.
+                  style={{ transition: 'opacity 150ms ease' }}
                 />
               )
             })}
@@ -426,7 +429,11 @@ function Tela({
                     else noRefs.current.delete(n.id)
                   }}
                   transform={`translate(${inicio.x},${inicio.y})`}
-                  style={{ cursor: 'pointer', opacity: apagado(n.id) ? 0.15 : 1 }}
+                  style={{
+                    cursor: 'pointer',
+                    opacity: apagado(n.id) ? 0.15 : 1,
+                    transition: 'opacity 150ms ease',
+                  }}
                   onPointerDown={(e) => aoDescerNoNo(e, n.id)}
                   onPointerEnter={() => aoFocar(n.id)}
                   onPointerLeave={() => aoFocar(null)}
@@ -476,6 +483,7 @@ function passo(
   nos: Simulado[],
   arestas: ArestaDoGrafo[],
   porId: Map<string, Simulado>,
+  grau: Map<string, number>,
   alpha: number,
 ) {
   const DISTANCIA = 70
@@ -485,17 +493,23 @@ function passo(
     const de = porId.get(a.de)
     const para = porId.get(a.para)
     if (!de || !para) continue
-    let dx = para.x - de.x
-    let dy = para.y - de.y
+    const dx = para.x - de.x
+    const dy = para.y - de.y
     const d = Math.max(1, Math.hypot(dx, dy))
     const alvo = DISTANCIA + de.raio + para.raio
-    const forca = ((d - alvo) / d) * 0.06 * alpha
-    dx *= forca
-    dy *= forca
-    de.vx += dx
-    de.vy += dy
-    para.vx -= dx
-    para.vy -= dy
+    // Mola normalizada pelo grau, como no d3-force: um eixo com cinquenta
+    // ligações não pode somar cinquenta puxões inteiros por quadro — a
+    // integração diverge e o mapa inteiro é catapultado para fora da tela.
+    // A intensidade divide pelo lado menos ligado e o viés faz o nó mais
+    // ligado (o polo) mover menos que a folha.
+    const grauDe = grau.get(a.de) || 1
+    const grauPara = grau.get(a.para) || 1
+    const puxao = (((d - alvo) / d) * alpha) / Math.min(grauDe, grauPara)
+    const vies = grauDe / (grauDe + grauPara)
+    para.vx -= dx * puxao * vies
+    para.vy -= dy * puxao * vies
+    de.vx += dx * puxao * (1 - vies)
+    de.vy += dy * puxao * (1 - vies)
   }
 
   // Repulsão O(n²): com poucas centenas de nós isso é barato e o código
@@ -531,6 +545,13 @@ function passo(
     // Gravidade suave ao centro segura os desgarrados na tela.
     n.vx -= n.x * 0.003 * alpha
     n.vy -= n.y * 0.003 * alpha
+    // Teto de velocidade: nenhuma força legítima precisa de mais que isso
+    // num quadro. É o cinto de segurança contra qualquer divergência futura.
+    const v = Math.hypot(n.vx, n.vy)
+    if (v > 80) {
+      n.vx = (n.vx / v) * 80
+      n.vy = (n.vy / v) * 80
+    }
     if (!n.preso) {
       n.x += n.vx
       n.y += n.vy
