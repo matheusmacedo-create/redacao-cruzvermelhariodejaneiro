@@ -1,4 +1,5 @@
 import { parseContentBlocks, type ContentBlock, type InlineToken } from '@/lib/content-blocks'
+import { blocoDoAnalytics } from '@/lib/site/analytics'
 
 /**
  * Monta a página de uma matéria para o site institucional.
@@ -343,6 +344,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 <html lang="pt-BR">
   <head>
     ${meta}
+    ${blocoDoAnalytics()}
     <style>${CSS}</style>
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
   </head>

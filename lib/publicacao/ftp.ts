@@ -236,3 +236,23 @@ export async function enviarNaRaizDoSite(
   await client.cd('/')
   return `${raiz.replace(/\/$/, '')}/${nome}`
 }
+
+/**
+ * Regrava uma página .html num caminho que foi DESCOBERTO por listagem.
+ *
+ * Existe para o enxerto do Analytics, que anda pelo site inteiro. A guarda é
+ * diferente da raiz (lista fechada de nomes) porque aqui o conjunto de
+ * páginas não é conhecido de antemão — o que se trava é a forma: só .html,
+ * caminho absoluto vindo da própria listagem, sem `..` para interpretar.
+ * Quem chama é responsável por só passar caminhos que listou do servidor.
+ */
+export async function regravarPaginaListada(
+  client: Client,
+  caminho: string,
+  conteudo: string,
+): Promise<void> {
+  if (!caminho.startsWith('/') || caminho.includes('..') || !caminho.toLowerCase().endsWith('.html')) {
+    throw new FtpEscopoError(caminho)
+  }
+  await client.uploadFrom(Readable.from(Buffer.from(conteudo, 'utf8')), caminho)
+}
