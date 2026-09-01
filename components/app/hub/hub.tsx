@@ -1172,7 +1172,12 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           <span className="flex items-center gap-2">
             {/* Gerador de imagem é da OpenAI: o mesmo requisito da chave GPT. */}
             {!congelado && melhoria.gpt && (
-              <CriarImagensDaMateria mestre={mestre} onNovaMidia={onNovaMidia} onRecarregar={onRecarregarBiblioteca} />
+              <CriarImagensDaMateria
+                mestre={mestre}
+                onNovaMidia={onNovaMidia}
+                onDescartada={(id) => onFileIds(fileIds.filter((x) => x !== id))}
+                onRecarregar={onRecarregarBiblioteca}
+              />
             )}
             {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
           </span>
@@ -1299,9 +1304,12 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
  * como IA) e aparecem nas mídias do pacote — selecionar cada uma continua
  * sendo decisão de gente, como todo o resto.
  */
-function CriarImagensDaMateria({ mestre, onNovaMidia, onRecarregar }: {
+function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar }: {
   mestre: MestreRegistro
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
+  /** A imagem entrou sozinha nas mídias do pacote; descartar tem de tirá-la
+   *  de lá também — senão fica um id morto apontando para arquivo apagado. */
+  onDescartada: (fileId: string) => void
   /** Depois de descartar, a grade precisa esquecer a imagem apagada. */
   onRecarregar: () => void
 }) {
@@ -1391,6 +1399,7 @@ function CriarImagensDaMateria({ mestre, onNovaMidia, onRecarregar }: {
       const r = await descartarImagemDaIa(form)
       if (r.erro) { setErro(r.erro); return }
       setProntas((antes) => antes.filter((p) => p.fileId !== fileId))
+      onDescartada(fileId)
       onRecarregar()
     })
   }
@@ -2357,9 +2366,11 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
           )}
           {destino.estado === 'pronta' && <span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><Check className="size-3.5" />Pronta</span>}
           {destino.estado === 'publicada' && (
-            destino.externalUrl
+            // A newsletter grava "N destinatários" em externalUrl — informação,
+            // não endereço. Só vira link o que é link de verdade.
+            destino.externalUrl && /^https?:\/\//.test(destino.externalUrl)
               ? <a href={destino.externalUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-emerald-700 underline">Publicada — abrir</a>
-              : <span className="text-xs font-medium text-emerald-700">Publicada</span>
+              : <span className="text-xs font-medium text-emerald-700">Publicada{destino.externalUrl && !/^https?:\/\//.test(destino.externalUrl) ? ` — ${destino.externalUrl}` : ''}</span>
           )}
         </div>
       </div>

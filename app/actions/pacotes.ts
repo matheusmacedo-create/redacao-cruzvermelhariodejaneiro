@@ -86,6 +86,13 @@ const FORMATO_BASE_DO_SITE = 'materia'
  * ganham a base sem que ninguém precise criá-la na mão.
  */
 export async function garantirBaseNoSite(pacoteId: string, workspaceId: string): Promise<void> {
+  // Todo export de arquivo 'use server' vira endpoint chamável do navegador,
+  // e este recebe o workspaceId como argumento: a sessão é quem diz qual
+  // espaço vale, não quem chamou. Sem esta conferência, o RLS seria a única
+  // linha de defesa.
+  const context = await requireWorkspace()
+  if (context.workspace.id !== workspaceId) return
+
   const supabase = await createClient()
   const { data: jaTem } = await supabase
     .from('package_destinations').select('id')
@@ -247,7 +254,7 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
 async function regerarAcompanhantes(pacoteId: string, workspaceId: string, mestre: Mestre): Promise<DestinoAtualizado[]> {
   const supabase = await createClient()
   const { data: destinos } = await supabase
-    .from('package_destinations').select('id,canal,formato,descolada,estado')
+    .from('package_destinations').select('id,canal,formato,descolada,estado,corpo,extras,file_ids')
     .eq('package_id', pacoteId).eq('workspace_id', workspaceId)
 
   const atualizados: DestinoAtualizado[] = []
@@ -255,17 +262,29 @@ async function regerarAcompanhantes(pacoteId: string, workspaceId: string, mestr
     if (destino.descolada) continue
     if (['publicada', 'publicando', 'na_fila'].includes(destino.estado)) continue
     const { variante, avisos } = gerarVariante(mestre, destino.canal, destino.formato)
+    // O contentId é o vínculo do destino do site com a peça de conteúdo — foi
+    // gravado pelo servidor, não pela geração. Sobrescrever os extras sem ele
+    // faria a próxima publicação criar uma matéria duplicada.
+    const guardados = (destino.extras ?? {}) as Record<string, string>
+    const extras = guardados.contentId ? { ...variante.extras, contentId: guardados.contentId } : variante.extras
     // 'ignorada' é decisão de quem opera ("desta vez não sai no site"), e o
     // conteúdo continua acompanhando o mestre: só o estado é preservado.
     const estado = destino.estado === 'ignorada' ? 'ignorada'
       : temErro(avisos) ? 'bloqueada' : 'gerada'
+    // Nada mudou de verdade? Nada é gravado — e um destino 'pronta' continua
+    // pronto. Sem isto, editar as notas internas (que nem entram na variante)
+    // reescrevia todas as linhas e desfazia o "pronta" de todo mundo.
+    const igual = (destino.corpo ?? '') === variante.corpo
+      && JSON.stringify(guardados) === JSON.stringify(extras)
+      && JSON.stringify(destino.file_ids ?? []) === JSON.stringify(variante.fileIds)
+    if (igual) continue
     await supabase.from('package_destinations').update({
       corpo: variante.corpo,
-      extras: variante.extras,
+      extras,
       file_ids: variante.fileIds,
       estado,
     }).eq('id', destino.id).eq('workspace_id', workspaceId)
-    atualizados.push({ id: destino.id, corpo: variante.corpo, extras: variante.extras, fileIds: variante.fileIds, estado })
+    atualizados.push({ id: destino.id, corpo: variante.corpo, extras, fileIds: variante.fileIds, estado })
   }
   return atualizados
 }
@@ -361,7 +380,7 @@ export async function alternarPublicacao(formData: FormData): Promise<ResultadoD
     const ignorar = formData.get('ignorar') === '1'
 
     const { data: destino } = await supabase
-      .from('package_destinations').select('id,package_id,estado,canal,formato,descolada')
+      .from('package_destinations').select('id,package_id,estado,canal,formato,descolada,corpo,extras,file_ids')
       .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
     if (!destino) throw new Error('Destino não encontrado.')
     if (['publicada', 'publicando', 'na_fila'].includes(destino.estado)) {
@@ -372,9 +391,20 @@ export async function alternarPublicacao(formData: FormData): Promise<ResultadoD
     // estava bloqueado antes de ser ignorado continua bloqueado depois.
     let estado = 'ignorada'
     if (!ignorar) {
-      const pacote = await pacoteDoEspaco(destino.package_id, context.workspace.id)
-      const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
-      const { avisos } = gerarVariante(mestre, destino.canal, destino.formato)
+      let avisos
+      if (destino.descolada) {
+        // Descolada não segue o mestre: o que vale é o conteúdo gravado, não
+        // o que o mestre geraria — validar o mestre condenaria (ou liberaria)
+        // um texto que não é o desta peça.
+        avisos = validarVariante(
+          { corpo: destino.corpo ?? '', extras: (destino.extras ?? {}) as Record<string, string>, fileIds: destino.file_ids ?? [] },
+          destino.canal, destino.formato,
+        )
+      } else {
+        const pacote = await pacoteDoEspaco(destino.package_id, context.workspace.id)
+        const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
+        avisos = gerarVariante(mestre, destino.canal, destino.formato).avisos
+      }
       estado = temErro(avisos) ? 'bloqueada' : 'gerada'
     }
 

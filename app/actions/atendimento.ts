@@ -26,38 +26,28 @@ export type Fila = {
   erro?: string
 }
 
-/** Nome de usuário do Instagram conectado — é como sabemos quem somos na conversa. */
-async function nossoUsuarioNoInstagram(): Promise<string | undefined> {
-  try {
-    const { dados } = await obterPerfil(perfilPadrao())
-    const conta = dados.profile?.social_accounts?.instagram
-    if (typeof conta === 'string') return conta || undefined
-    return conta?.username || undefined
-  } catch {
-    // Sem isto a fila ainda funciona: o que se perde é distinguir a nossa
-    // própria resposta da mensagem de quem escreveu.
-    return undefined
-  }
-}
-
 export async function carregarFila(): Promise<Fila> {
   try {
     await requireWorkspace()
 
-    const nossoUsuario = await nossoUsuarioNoInstagram()
+    // UMA leitura do perfil serve às duas perguntas: quem somos no Instagram
+    // (para distinguir a nossa resposta da mensagem de quem escreveu) e quais
+    // redes conectadas ficam fora do alcance. Eram duas chamadas idênticas ao
+    // conector a cada abertura da fila. Falha aqui não derruba nada: a fila
+    // funciona sem perfil, só com menos contexto.
+    let perfil: Awaited<ReturnType<typeof obterPerfil>>['dados']['profile'] | undefined
+    try { perfil = (await obterPerfil(perfilPadrao())).dados.profile } catch { perfil = undefined }
+
+    const conta = perfil?.social_accounts?.instagram
+    const nossoUsuario = typeof conta === 'string' ? conta || undefined : conta?.username || undefined
     const { mensagens, avisos } = await filaDeAtendimento({ nossoUsuario })
 
     // O que está conectado mas não é atendido aqui. Dizer isso é o que impede
     // alguém de concluir que "não tem pergunta nenhuma" quando na verdade há
     // perguntas numa rede que este painel não alcança.
-    let foraDoAlcance: { canal: string; motivo: string }[] = []
-    try {
-      const { dados } = await obterPerfil(perfilPadrao())
-      const conectadas = dados.profile ? redesConectadas(dados.profile) : []
-      foraDoAlcance = conectadas
-        .filter((canal) => !REDES_COM_COMENTARIO.includes(canal as never) && !REDES_COM_DM.includes(canal as never))
-        .map((canal) => ({ canal, motivo: FORA_DO_ALCANCE[canal] ?? 'Este conector não lê respostas desta rede.' }))
-    } catch { /* a lista de fora do alcance é informativa; sem ela a fila serve */ }
+    const foraDoAlcance = (perfil ? redesConectadas(perfil) : [])
+      .filter((canal) => !REDES_COM_COMENTARIO.includes(canal as never) && !REDES_COM_DM.includes(canal as never))
+      .map((canal) => ({ canal, motivo: FORA_DO_ALCANCE[canal] ?? 'Este conector não lê respostas desta rede.' }))
 
     return { mensagens, avisos, foraDoAlcance }
   } catch (causa) {
