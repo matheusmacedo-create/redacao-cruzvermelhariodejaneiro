@@ -4,6 +4,9 @@ import {
   adaptarTexto, esforcoDeRaciocinio, iaConfigurada, modeloDeImagem, modeloDeTexto, modelosDisponiveis,
   semChave, tetoMensalDeImagens, MODELO_DE_IMAGEM_PADRAO, MODELO_DE_TEXTO_PADRAO,
 } from '@/lib/ia/openai'
+import {
+  claudeConfigurado, modeloDoClaude, reescreverComClaude, semChaveDoClaude, MODELO_CLAUDE_PADRAO,
+} from '@/lib/ia/anthropic'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,9 +30,35 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
+  // O lado do Claude é independente do da OpenAI: cada provedor responde por
+  // si, e um sem chave não esconde o diagnóstico do outro.
+  const claude: Record<string, unknown> = {
+    configurado: claudeConfigurado(),
+    modelo: modeloDoClaude(),
+    usandoPadrao: modeloDoClaude() === MODELO_CLAUDE_PADRAO,
+  }
+  if (!claude.configurado) {
+    claude.veredito = 'Sem chave. Cadastre ANTHROPIC_API_KEY na Vercel e republique — variável nova só entra em build novo.'
+  } else if (request.nextUrl.searchParams.get('testar')) {
+    try {
+      const { texto: resposta, medida } = await reescreverComClaude({
+        system: 'Responda apenas com o texto reescrito, sem comentários.',
+        texto: 'Reescreva em uma frase: A Cruz Vermelha do Rio abriu inscrições para o curso de primeiros socorros.',
+      })
+      claude.teste = { ok: true, devolveu: resposta.slice(0, 200), custo: medida }
+      claude.veredito = `Funcionando: a chamada completou em ${medida.segundos}s no modelo ${medida.modelo}.`
+    } catch (causa) {
+      claude.teste = { ok: false, erro: semChaveDoClaude(causa instanceof Error ? causa.message : String(causa)) }
+      claude.veredito = 'A chave chegou, mas a chamada de teste falhou — veja claude.teste.'
+    }
+  } else {
+    claude.veredito = 'Chave presente. Acrescente ?testar=1 para fazer uma chamada de verdade.'
+  }
+
   const imagem = modeloDeImagem()
   const escrita = modeloDeTexto()
   const base = {
+    claude,
     configurado: iaConfigurada(),
     modeloDeImagem: imagem,
     modeloDeTexto: escrita,

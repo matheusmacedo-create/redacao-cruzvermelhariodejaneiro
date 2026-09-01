@@ -19,8 +19,9 @@ import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import {
   adaptarLegendaDoDestino, descartarImagemDaIa, gerarImagemDoDestino,
-  sugerirIdeiasDeImagem, usarImagemNoDestino,
+  melhorarTextoDaMateria, sugerirIdeiasDeImagem, usarImagemNoDestino,
 } from '@/app/actions/ia'
+import { FORMATOS_DE_TEXTO } from '@/lib/ia/formatos'
 import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
 import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
@@ -76,7 +77,7 @@ function proporcaoNumerica(rotulo: string): number {
   return parseFloat(m[1]) / parseFloat(m[2])
 }
 
-export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas = [], workspaceId, iaDisponivel = false }: {
+export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas = [], workspaceId, iaDisponivel = false, melhoria = { gpt: false, claude: false } }: {
   pacote: PacoteRegistro
   destinos: DestinoRegistro[]
   pessoas?: PessoaDoEspaco[]
@@ -85,6 +86,8 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   /** Há chave da OpenAI configurada. Sem ela os botões não aparecem — botão
    *  que só produz "falta a chave" é pior do que botão nenhum. */
   iaDisponivel?: boolean
+  /** Provedores de melhoria de texto configurados. Mesma regra dos botões. */
+  melhoria?: MelhoriaDisponivel
 }) {
   const router = useRouter()
   const [enviando, iniciar] = useTransition()
@@ -581,6 +584,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               quantasRedes={destinos.filter((d) => d.canal !== 'site_web').length}
               encerrado={encerrado}
               workspaceId={workspaceId}
+              melhoria={melhoria}
               onNovaMidia={acolherMidia}
               onAutorizarMidia={autorizarMidia}
             />
@@ -600,6 +604,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               onNovaMidia={acolherMidia}
               onAutorizarMidia={autorizarMidia}
               iaDisponivel={iaDisponivel}
+              melhoria={melhoria}
               onRecarregarBiblioteca={recarregarBiblioteca}
             />
           )}
@@ -1001,7 +1006,7 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, onNovaMidia, onAutorizarMidia }: {
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia }: {
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -1017,6 +1022,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   quantasRedes: number
   encerrado: boolean
   workspaceId: string
+  melhoria: MelhoriaDisponivel
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
 }) {
@@ -1099,6 +1105,8 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
             tamanho={tamanho}
             estourou={tamanho > max}
             workspaceId={workspaceId}
+            titulo={mestre.titulo}
+            melhoria={melhoria}
           />
         </div>
         <span className="mt-1 block text-xs font-normal text-muted-foreground">
@@ -1869,7 +1877,7 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   )
 }
 
-function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, onAutorizarMidia, iaDisponivel, onRecarregarBiblioteca }: {
+function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, onAutorizarMidia, iaDisponivel, melhoria, onRecarregarBiblioteca }: {
   destino: DestinoRegistro
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
   fileIdsDoMestre: string[]
@@ -1885,6 +1893,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
   iaDisponivel: boolean
+  melhoria: MelhoriaDisponivel
   onRecarregarBiblioteca: () => void
 }) {
   const canal = adapter(destino.canal)!
@@ -1981,6 +1990,8 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
               tamanho={tamanho}
               estourou={estourou}
               workspaceId={workspaceId}
+              titulo={mestre.titulo}
+              melhoria={melhoria}
             />
           </div>
         ) : (
@@ -2096,7 +2107,162 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
  * caía antes do primeiro parágrafo ou depois do último — nunca ao lado do
  * trecho que ela ilustra.
  */
-function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId }: {
+/** Quais provedores de melhoria de texto têm chave configurada no servidor. */
+export type MelhoriaDisponivel = { gpt: boolean; claude: boolean }
+
+/**
+ * Melhorar o texto com IA, num formato predefinido.
+ *
+ * O botão vive na barra do editor; o painel abre na linha de baixo (a barra é
+ * flex-wrap, então um filho w-full quebra sozinho). A resposta NUNCA entra no
+ * texto por conta própria: vira uma prévia com "Usar este texto", e mesmo
+ * depois de aplicar há um Desfazer — texto da equipe não se perde por um
+ * clique.
+ */
+function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, onAplicar, classeDoBotao }: {
+  titulo?: string
+  corpo: string
+  desabilitado: boolean
+  disponivel: MelhoriaDisponivel
+  onAplicar: (texto: string) => void
+  classeDoBotao: string
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [formato, setFormato] = useState(FORMATOS_DE_TEXTO[0].id)
+  const [provedor, setProvedor] = useState<'claude' | 'gpt'>(disponivel.claude ? 'claude' : 'gpt')
+  const [rodando, setRodando] = useState(false)
+  const [proposta, setProposta] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [erro, setErro] = useState('')
+  const [anterior, setAnterior] = useState<string | null>(null)
+
+  const curtoDemais = corpo.trim().length < 40
+
+  async function gerar() {
+    setErro('')
+    setAviso('')
+    setProposta('')
+    setAnterior(null)
+    setRodando(true)
+    try {
+      const form = new FormData()
+      form.set('corpo', corpo)
+      form.set('titulo', titulo ?? '')
+      form.set('formato', formato)
+      form.set('provedor', provedor)
+      const r = await melhorarTextoDaMateria(form)
+      if (r.erro) setErro(r.erro)
+      else {
+        setProposta(r.texto ?? '')
+        setAviso(r.aviso ?? '')
+      }
+    } catch {
+      setErro('Não foi possível falar com o servidor. Tente de novo.')
+    } finally {
+      setRodando(false)
+    }
+  }
+
+  function aplicar() {
+    setAnterior(corpo)
+    onAplicar(proposta)
+    setProposta('')
+  }
+
+  function desfazer() {
+    if (anterior !== null) onAplicar(anterior)
+    setAnterior(null)
+  }
+
+  const chip = (ativo: boolean) =>
+    `rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+      ativo ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted'
+    }`
+
+  return (
+    <>
+      <button
+        type="button"
+        className={classeDoBotao}
+        disabled={desabilitado}
+        onClick={() => setAberto((a) => !a)}
+        title="Reescreve a matéria num formato predefinido — você revisa antes de usar"
+      >
+        <Sparkles className="size-3.5" />Melhorar com IA
+      </button>
+
+      {aberto && (
+        <div className="w-full rounded-lg border border-border bg-muted/20 p-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {FORMATOS_DE_TEXTO.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={chip(formato === f.id)}
+                title={f.explica}
+                onClick={() => setFormato(f.id)}
+              >
+                {f.rotulo}
+              </button>
+            ))}
+            <span className="mx-1 h-4 w-px bg-border" />
+            {disponivel.claude && (
+              <button type="button" className={chip(provedor === 'claude')} onClick={() => setProvedor('claude')}>
+                Claude
+              </button>
+            )}
+            {disponivel.gpt && (
+              <button type="button" className={chip(provedor === 'gpt')} onClick={() => setProvedor('gpt')}>
+                GPT
+              </button>
+            )}
+            <button
+              type="button"
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+              disabled={desabilitado || rodando || curtoDemais}
+              onClick={() => void gerar()}
+            >
+              {rodando ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+              {rodando ? 'Melhorando…' : 'Gerar sugestão'}
+            </button>
+          </div>
+
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {curtoDemais
+              ? 'Escreva a matéria primeiro — a IA melhora texto, não inventa um.'
+              : 'A sugestão não muda nada sozinha: ela aparece abaixo e você decide se usa. Fatos, nomes e números não são inventados.'}
+          </p>
+
+          {erro && <p className="mt-2 text-xs text-destructive">{erro}</p>}
+
+          {proposta && (
+            <div className="mt-2">
+              <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-border bg-card p-3 text-sm">
+                {proposta}
+              </div>
+              {aviso && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+              <div className="mt-2 flex items-center gap-2">
+                <Button size="sm" onClick={aplicar}><Check className="size-3.5" />Usar este texto</Button>
+                <Button size="sm" variant="outline" onClick={() => setProposta('')}>Descartar</Button>
+              </div>
+            </div>
+          )}
+
+          {anterior !== null && !proposta && (
+            <div className="mt-2 flex items-center gap-2">
+              <p className="text-xs text-emerald-700 dark:text-emerald-400">Texto aplicado no editor.</p>
+              <button type="button" className="text-xs font-medium text-muted-foreground underline hover:text-foreground" onClick={desfazer}>
+                Desfazer
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId, titulo, melhoria }: {
   valor: string
   onMudar: (v: string) => void
   desabilitado: boolean
@@ -2104,6 +2270,9 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
   tamanho: number
   estourou: boolean
   workspaceId: string
+  /** Título da matéria — contexto para a melhoria com IA. */
+  titulo?: string
+  melhoria?: MelhoriaDisponivel
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const arquivoRef = useRef<HTMLInputElement>(null)
@@ -2245,6 +2414,16 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
         >
           <Wand2 className="size-3.5" />Ajustar formatação
         </button>
+        {(melhoria?.claude || melhoria?.gpt) && (
+          <MelhorarComIa
+            titulo={titulo}
+            corpo={valor}
+            desabilitado={desabilitado}
+            disponivel={{ claude: Boolean(melhoria?.claude), gpt: Boolean(melhoria?.gpt) }}
+            onAplicar={onMudar}
+            classeDoBotao={botao}
+          />
+        )}
       </div>
 
       <input
