@@ -7,7 +7,9 @@ import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
-import { adaptarTexto, gerarImagem, semChave, sugerirBriefings, tetoMensalDeImagens } from '@/lib/ia/openai'
+import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens } from '@/lib/ia/openai'
+import { claudeConfigurado, reescreverComClaude, semChaveDoClaude } from '@/lib/ia/anthropic'
+import { TETO_DO_CORPO, garantirFotos, montarPedidoDeMelhoria } from '@/lib/ia/formatos'
 import { REGRAS_FIXAS, assuntoDaMateria } from '@/lib/ia/sugestoes'
 import { WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
@@ -37,6 +39,7 @@ export type ResultadoDaImagem = ResultadoDaIa & {
   restantesNoMes?: number
 }
 export type ResultadoDasIdeias = ResultadoDaIa & { ideias?: string[] }
+export type ResultadoDaMelhoria = ResultadoDaIa & { texto?: string; aviso?: string }
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
 
@@ -191,6 +194,54 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
     return { texto: proposta }
   } catch (causa) {
     return { erro: semChave(mensagemDoErro(causa, 'Não foi possível adaptar a legenda.')) }
+  }
+}
+
+/**
+ * Melhora o texto da matéria num formato predefinido, com o provedor que a
+ * pessoa escolher — Claude ou GPT.
+ *
+ * O texto chega do formulário, não do banco: quem pede a melhoria está com a
+ * matéria aberta no editor, possivelmente ainda não salva, e melhorar a versão
+ * do banco seria melhorar um texto que a pessoa já mudou. A resposta é
+ * SUGESTÃO — volta para a tela e só entra no editor se alguém aceitar.
+ */
+export async function melhorarTextoDaMateria(formData: FormData): Promise<ResultadoDaMelhoria> {
+  try {
+    await requireWorkspace()
+
+    const corpo = String(formData.get('corpo') ?? '')
+    const titulo = texto(formData, 'titulo')
+    const formatoId = texto(formData, 'formato')
+    const provedor = texto(formData, 'provedor')
+
+    if (corpo.trim().length < 40) throw new Error('Escreva a matéria antes de pedir a melhoria.')
+    if (corpo.length > TETO_DO_CORPO) throw new Error(`O texto passa de ${TETO_DO_CORPO} caracteres — o teto do editor.`)
+    if (!['claude', 'gpt'].includes(provedor)) throw new Error('Escolha o provedor: Claude ou GPT.')
+
+    const montado = montarPedidoDeMelhoria({ titulo, corpo, formatoId })
+    if (!montado) throw new Error('Formato de texto desconhecido.')
+
+    if (provedor === 'claude' && !claudeConfigurado()) {
+      throw new Error('O Claude não está configurado. Cadastre ANTHROPIC_API_KEY na Vercel e republique.')
+    }
+    if (provedor === 'gpt' && !iaConfigurada()) {
+      throw new Error('O GPT não está configurado. Cadastre OPENAI_API_KEY na Vercel e republique.')
+    }
+
+    const { texto: proposta } = provedor === 'claude'
+      ? await reescreverComClaude({ system: montado.system, texto: montado.pedido })
+      : await reescreverComGpt({ system: montado.system, texto: montado.pedido })
+
+    // Foto que o modelo perdeu volta; foto que ele inventou sai.
+    const { texto: garantido, aviso } = garantirFotos(corpo, proposta)
+    if (garantido.length > TETO_DO_CORPO) {
+      throw new Error('A sugestão ficou maior que o teto do editor. Tente outro formato ou encurte a matéria.')
+    }
+
+    return { texto: garantido, ...(aviso ? { aviso } : {}) }
+  } catch (causa) {
+    return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível melhorar o texto.'))) }
   }
 }
 

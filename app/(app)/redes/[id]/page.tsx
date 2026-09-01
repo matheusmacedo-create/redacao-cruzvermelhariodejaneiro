@@ -3,6 +3,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { PacoteHub } from '@/components/app/hub/hub'
 import { iaConfigurada } from '@/lib/ia/openai'
+import { claudeConfigurado } from '@/lib/ia/anthropic'
 import { garantirBaseNoSite } from '@/app/actions/pacotes'
 import { lerLegendas } from '@/lib/publicacao/legendas'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
@@ -80,5 +81,14 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     .filter((p: any) => p && p.active !== false && p.id !== context.user.id)
     .map((p: any) => ({ id: p.id, nome: p.full_name, iniciais: p.initials || '?', cor: p.color }))
 
-  return <PacoteHub pacote={pacote} destinos={destinos} pessoas={pessoas} workspaceId={context.workspace.id} iaDisponivel={iaConfigurada()} />
+  return (
+    <PacoteHub
+      pacote={pacote}
+      destinos={destinos}
+      pessoas={pessoas}
+      workspaceId={context.workspace.id}
+      iaDisponivel={iaConfigurada()}
+      melhoria={{ gpt: iaConfigurada(), claude: claudeConfigurado() }}
+    />
+  )
 }

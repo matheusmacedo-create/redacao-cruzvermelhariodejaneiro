@@ -302,6 +302,49 @@ export async function adaptarTexto(pedido: {
 }
 
 /**
+ * Reescreve o texto de uma matéria inteira.
+ *
+ * Separado de `adaptarTexto` porque o contrato é outro: lá é legenda curta
+ * com teto apertado; aqui é a matéria completa, e o teto de 1500 tokens
+ * devolveria texto amputado. As instruções vêm prontas de fora
+ * (lib/ia/formatos.ts) — o mesmo pedido serve a qualquer provedor.
+ */
+const TETO_DA_MATERIA = 12_000
+
+export async function reescreverComGpt(pedido: {
+  system: string
+  texto: string
+}): Promise<{ texto: string; medida: MedidaDaChamada }> {
+  const esforco = esforcoDeRaciocinio()
+  const comecou = Date.now()
+  const { dados, recuou } = await chamarComRecuo<RespostaDeTexto>('/chat/completions', {
+    model: modeloDeTexto(),
+    messages: [
+      { role: 'system', content: pedido.system },
+      { role: 'user', content: pedido.texto },
+    ],
+  }, {
+    ...(esforco ? { reasoning_effort: esforco } : {}),
+    max_completion_tokens: TETO_DA_MATERIA,
+  }, 120_000)
+
+  const texto = dados.choices?.[0]?.message?.content?.trim()
+  if (!texto) {
+    const porTeto = dados.choices?.[0]?.finish_reason === 'length'
+    throw new IaError(
+      porTeto
+        ? `A resposta veio vazia porque o modelo gastou o teto de ${TETO_DA_MATERIA} tokens raciocinando. Baixe OPENAI_REASONING_EFFORT ou deixe-a vazia.`
+        : 'A OpenAI respondeu sem texto.',
+      502,
+    )
+  }
+  return {
+    texto: texto.replace(/^["“']|["”']$/g, '').trim(),
+    medida: medir(dados, esforco, recuou, comecou),
+  }
+}
+
+/**
  * Tira o rótulo do canal que o modelo às vezes cola na frente da legenda.
  *
  * Pedimos "adapte para Facebook (Feed)" e a resposta volta como
