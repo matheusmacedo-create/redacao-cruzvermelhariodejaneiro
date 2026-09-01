@@ -1,4 +1,5 @@
 import { montarPaginaDoSite, escapar } from '@/lib/site/esqueleto'
+import { NOME_DO_CANAL, resumoDoPost, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 
 /**
  * A central de notícias — /noticias/ com cara de primeira página de jornal.
@@ -41,13 +42,38 @@ const CSS_INDICE = `
 .fila p{font-size:15.5px;line-height:1.6;color:var(--muted);margin:0 0 6px}
 .fila time{color:var(--muted);font-size:13px}
 .fila a:hover h3{color:var(--red)}
+
 .jornal-vazio{padding:48px 0;color:var(--muted);font-size:16px}
+.tempo{margin-top:48px}
+.tempo-topo{border-bottom:3px solid var(--ink);padding-bottom:10px;margin-bottom:4px}
+.tempo-topo h2{font-size:clamp(22px,3vw,30px);letter-spacing:-.4px;margin:0}
+.tempo-topo p{color:var(--muted);margin:4px 0 0;font-size:14px}
+.tempo ol{list-style:none;margin:0;padding:0}
+.tempo li{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+.tempo time{flex:0 0 92px;color:var(--muted);font-size:13px;padding-top:3px}
+.tempo .canal{display:inline-block;flex:0 0 auto;align-self:flex-start;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:var(--ink)}
+
+/* Com o ".tempo" na frente para vencer a regra base — sem ele, a cor de cada
+   canal perde na especificidade e toda etiqueta sai preta. */
+.tempo .canal-instagram{background:#c13584}.tempo .canal-facebook{background:#1877f2}.tempo .canal-linkedin{background:#0a66c2}
+.tempo .canal-x{background:#111}.tempo .canal-youtube{background:#cc0000}.tempo .canal-tiktok{background:#161823}
+.tempo .canal-threads{background:#333}.tempo .canal-bluesky{background:#1185fe}.tempo .canal-newsletter{background:var(--red)}
+.tempo .fala{min-width:0;flex:1}
+.tempo .fala p{margin:0;font-size:15.5px;line-height:1.6;color:var(--text)}
+.tempo .fala a{color:var(--blue);font-weight:600;font-size:13.5px;text-decoration:none}
+.tempo .fala a:hover{color:var(--red)}
+@media(max-width:640px){.tempo li{flex-wrap:wrap}.tempo time{flex-basis:100%}}
 `
 
 const dataLegivel = (d: Date) =>
   new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(d)
 
-export function paginaDeNoticias(noticias: NoticiaDoIndice[], agora: Date = new Date()): string {
+export function paginaDeNoticias(
+  noticias: NoticiaDoIndice[],
+  agora: Date = new Date(),
+  /** A vida nos outros canais — post de rede, edição de newsletter. */
+  linhaDoTempo: ItemDaLinha[] = [],
+): string {
   const ordenadas = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())
   const [manchete, ...fila] = ordenadas
 
@@ -67,12 +93,43 @@ export function paginaDeNoticias(noticias: NoticiaDoIndice[], agora: Date = new 
         </a></li>`).join('\n        ')}
       </ul>` : ''}`
 
+  const dataCurta = (d: Date) =>
+    new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+      .format(d).replace(/\. de /g, ' ').replace('.', '')
+
+  // A linha do tempo: o que saiu em CADA canal, do mais novo ao mais velho.
+  // O nome do canal sai por extenso e o texto sem marcação — este é um jornal,
+  // não um log de sistema.
+  const tempo = linhaDoTempo.length
+    ? `<section class="tempo">
+        <div class="tempo-topo">
+          <h2>Linha do tempo</h2>
+          <p>O que publicamos em cada canal — Instagram, Facebook, LinkedIn e além.</p>
+        </div>
+        <ol>
+          ${linhaDoTempo.map((i) => {
+            const nome = NOME_DO_CANAL[i.canal] ?? i.canal
+            const resumo = resumoDoPost(i.texto)
+            return `<li>
+            <time datetime="${i.quando.toISOString()}">${escapar(dataCurta(i.quando))}</time>
+            <span class="canal canal-${escapar(i.canal)}">${escapar(nome)}</span>
+            <div class="fala">
+              ${resumo ? `<p>${escapar(resumo)}</p>` : ''}
+              ${i.url ? `<a href="${escapar(i.url)}" target="_blank" rel="noopener">Ver no ${escapar(nome)} →</a>` : ''}
+            </div>
+          </li>`
+          }).join('\n          ')}
+        </ol>
+      </section>`
+    : ''
+
   const corpo = `<main class="jornal">
       <div class="jornal-topo">
         <h1>Notícias</h1>
         <p>O trabalho da Cruz Vermelha Brasileira no Rio de Janeiro, contado por quem o faz.</p>
       </div>
       ${miolo}
+      ${tempo}
     </main>`
 
   return montarPaginaDoSite({
