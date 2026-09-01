@@ -1113,17 +1113,25 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
               const arquivo = biblioteca.find((a) => a.id === id)
               return arquivo?.tipo === 'foto' && !(mestre.legendas[id]?.legenda ?? '').trim()
             })}
-            // Corpo e legendas entram num onMudar só: duas chamadas seguidas
-            // partiriam do mesmo mestre e a segunda engoliria a primeira.
-            aoAplicarMelhoria={(corpo, propostas) => {
+            linhaFina={mestre.subtitulo}
+            // Corpo, título, linha fina e legendas entram num onMudar só:
+            // chamadas seguidas partiriam do mesmo mestre e a última
+            // engoliria as outras.
+            aoAplicarMelhoria={(dados) => {
               const legendas = { ...mestre.legendas }
-              for (const [id, legenda] of Object.entries(propostas ?? {})) {
+              for (const [id, legenda] of Object.entries(dados.legendas ?? {})) {
                 // Preenche só campo vazio: o que uma pessoa escreveu fica.
                 if (!(legendas[id]?.legenda ?? '').trim()) {
                   legendas[id] = { legenda, credito: legendas[id]?.credito ?? '' }
                 }
               }
-              onMudar({ ...mestre, corpo, legendas })
+              onMudar({
+                ...mestre,
+                corpo: dados.corpo,
+                titulo: dados.titulo ?? mestre.titulo,
+                subtitulo: dados.linhaFina ?? mestre.subtitulo,
+                legendas,
+              })
             }}
           />
         </div>
@@ -2138,31 +2146,42 @@ export type MelhoriaDisponivel = { gpt: boolean; claude: boolean }
  * depois de aplicar há um Desfazer — texto da equipe não se perde por um
  * clique.
  */
-function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegenda, onAplicar, classeDoBotao }: {
+/** O que a melhoria aplica no mestre, de uma vez. */
+type AplicacaoDaMelhoria = {
+  corpo: string
   titulo?: string
+  linhaFina?: string
+  legendas?: Record<string, string>
+}
+
+function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fotosSemLegenda, aplicaTudo, onAplicar, classeDoBotao }: {
+  titulo?: string
+  linhaFina?: string
   corpo: string
   desabilitado: boolean
   disponivel: MelhoriaDisponivel
   fotosSemLegenda?: string[]
-  onAplicar: (texto: string, legendas?: Record<string, string>) => void
+  /** O aplicador alcança título e linha fina (editor da notícia) ou só o corpo. */
+  aplicaTudo: boolean
+  onAplicar: (dados: AplicacaoDaMelhoria) => void
   classeDoBotao: string
 }) {
   const [aberto, setAberto] = useState(false)
   const [formato, setFormato] = useState(FORMATOS_DE_TEXTO[0].id)
   const [provedor, setProvedor] = useState<'claude' | 'gpt'>(disponivel.claude ? 'claude' : 'gpt')
   const [rodando, setRodando] = useState(false)
-  const [proposta, setProposta] = useState('')
+  const [proposta, setProposta] = useState<{ corpo: string; titulo: string; linhaFina: string } | null>(null)
   const [legendas, setLegendas] = useState<Record<string, string> | null>(null)
   const [aviso, setAviso] = useState('')
   const [erro, setErro] = useState('')
-  const [anterior, setAnterior] = useState<string | null>(null)
+  const [anterior, setAnterior] = useState<AplicacaoDaMelhoria | null>(null)
 
   const curtoDemais = corpo.trim().length < 40
 
   async function gerar() {
     setErro('')
     setAviso('')
-    setProposta('')
+    setProposta(null)
     setLegendas(null)
     setAnterior(null)
     setRodando(true)
@@ -2191,7 +2210,7 @@ function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegend
 
       if (rTexto.erro) setErro(rTexto.erro)
       else {
-        setProposta(rTexto.texto ?? '')
+        setProposta({ corpo: rTexto.texto ?? '', titulo: rTexto.titulo ?? '', linhaFina: rTexto.linhaFina ?? '' })
         const avisos = [rTexto.aviso]
         if (rLegendas) {
           if (rLegendas.legendas) setLegendas(rLegendas.legendas)
@@ -2207,15 +2226,21 @@ function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegend
   }
 
   function aplicar() {
-    setAnterior(corpo)
-    onAplicar(proposta, legendas ?? undefined)
-    setProposta('')
+    if (!proposta) return
+    setAnterior({ corpo, titulo: titulo ?? '', linhaFina: linhaFina ?? '' })
+    onAplicar({
+      corpo: proposta.corpo,
+      ...(aplicaTudo && proposta.titulo ? { titulo: proposta.titulo } : {}),
+      ...(aplicaTudo && proposta.linhaFina ? { linhaFina: proposta.linhaFina } : {}),
+      ...(legendas ? { legendas } : {}),
+    })
+    setProposta(null)
     setLegendas(null)
   }
 
   function desfazer() {
-    // Desfaz o texto; as legendas propostas ficam nos campos, editáveis —
-    // eram campos vazios, e apagar é um clique de quem revisa.
+    // Devolve corpo, título e linha fina de antes; as legendas propostas
+    // ficam nos campos, editáveis — eram campos vazios, e apagar é um clique.
     if (anterior !== null) onAplicar(anterior)
     setAnterior(null)
   }
@@ -2283,9 +2308,23 @@ function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegend
 
           {proposta && (
             <div className="mt-2">
-              <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-border bg-card p-3 text-sm">
-                {proposta}
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-card p-3 text-sm">
+                {aplicaTudo && proposta.titulo && (
+                  <p className="mb-1 font-semibold leading-snug">{proposta.titulo}</p>
+                )}
+                {aplicaTudo && proposta.linhaFina && (
+                  <p className="mb-2 text-[13px] text-muted-foreground">{proposta.linhaFina}</p>
+                )}
+                {aplicaTudo && (proposta.titulo || proposta.linhaFina) && (
+                  <div className="mb-2 border-t border-border" />
+                )}
+                <div className="whitespace-pre-wrap">{proposta.corpo}</div>
               </div>
+              {aplicaTudo && (proposta.titulo || proposta.linhaFina) && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Título e linha fina propostos para busca e alcance orgânico — entram junto com o texto.
+                </p>
+              )}
               {legendas && Object.keys(legendas).length > 0 && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   Também propus {Object.keys(legendas).length === 1
@@ -2297,7 +2336,7 @@ function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegend
               {aviso && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
               <div className="mt-2 flex items-center gap-2">
                 <Button size="sm" onClick={aplicar}><Check className="size-3.5" />Usar este texto</Button>
-                <Button size="sm" variant="outline" onClick={() => { setProposta(''); setLegendas(null) }}>Descartar</Button>
+                <Button size="sm" variant="outline" onClick={() => { setProposta(null); setLegendas(null) }}>Descartar</Button>
               </div>
             </div>
           )}
@@ -2316,7 +2355,7 @@ function MelhorarComIa({ titulo, corpo, desabilitado, disponivel, fotosSemLegend
   )
 }
 
-function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId, titulo, melhoria, fotosSemLegenda, aoAplicarMelhoria }: {
+function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId, titulo, linhaFina, melhoria, fotosSemLegenda, aoAplicarMelhoria }: {
   valor: string
   onMudar: (v: string) => void
   desabilitado: boolean
@@ -2326,11 +2365,13 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
   workspaceId: string
   /** Título da matéria — contexto para a melhoria com IA. */
   titulo?: string
+  /** Linha fina atual — para o Desfazer da melhoria devolver tudo. */
+  linhaFina?: string
   melhoria?: MelhoriaDisponivel
   /** Ids das fotos do pacote sem legenda — a IA propõe junto com o texto. */
   fotosSemLegenda?: string[]
-  /** Aplica texto e legendas num único onMudar do mestre. */
-  aoAplicarMelhoria?: (corpo: string, legendas?: Record<string, string>) => void
+  /** Aplica corpo, título, linha fina e legendas num único onMudar do mestre. */
+  aoAplicarMelhoria?: (dados: AplicacaoDaMelhoria) => void
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const arquivoRef = useRef<HTMLInputElement>(null)
@@ -2475,11 +2516,14 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
         {(melhoria?.claude || melhoria?.gpt) && (
           <MelhorarComIa
             titulo={titulo}
+            linhaFina={linhaFina}
             corpo={valor}
             desabilitado={desabilitado}
             disponivel={{ claude: Boolean(melhoria?.claude), gpt: Boolean(melhoria?.gpt) }}
             fotosSemLegenda={fotosSemLegenda}
-            onAplicar={aoAplicarMelhoria ?? ((corpo) => onMudar(corpo))}
+            // Sem o aplicador completo (editor de destino), só o corpo entra.
+            aplicaTudo={Boolean(aoAplicarMelhoria)}
+            onAplicar={aoAplicarMelhoria ?? ((dados) => onMudar(dados.corpo))}
             classeDoBotao={botao}
           />
         )}

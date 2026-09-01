@@ -140,7 +140,12 @@ export function montarPedidoDeMelhoria(dados: {
     'Trechos entre chaves duplas como {{URL_DA_MATERIA}} são preenchidos pelo sistema: preserve-os literalmente.',
     'Preserve a linha de crédito da fonte ("Com informações de…") quando existir, e as hashtags que já existirem, juntas no fim. Não acrescente hashtags novas.',
     'Separe parágrafos com uma linha em branco.',
-    'Responda apenas com o texto final da matéria, sem repetir o título e sem comentários.',
+    '',
+    'A RESPOSTA TEM TRÊS PARTES, NESTA ORDEM, E NADA FORA DELAS:',
+    'TÍTULO: o título da página, pensado para busca e alcance orgânico — até 65 caracteres, o assunto principal nas primeiras palavras, específico e verdadeiro. Título de instituição humanitária informa; não faz caça-clique.',
+    'LINHA FINA: uma frase de 120 a 160 caracteres — é o que o Google e as redes mostram sob o título. Complementa o título (não o repete) e diz por que a matéria importa para quem lê.',
+    'Depois, uma linha contendo apenas ---, e então o corpo completo da matéria.',
+    'Não repita o título nem a linha fina dentro do corpo.',
   ].join('\n')
 
   const paginas = (dados.paginas ?? []).slice(0, TETO_DE_PAGINAS)
@@ -157,7 +162,9 @@ export function montarPedidoDeMelhoria(dados: {
     formato.instrucao,
     ...blocoDeLinks,
     '',
-    dados.titulo?.trim() ? `Título da matéria (contexto; não o repita no corpo): ${dados.titulo.trim()}` : '',
+    dados.titulo?.trim()
+      ? `Título atual da matéria (proponha na resposta a melhor versão dele para busca): ${dados.titulo.trim()}`
+      : '',
     '',
     'Texto a desenvolver:',
     '---',
@@ -165,6 +172,48 @@ export function montarPedidoDeMelhoria(dados: {
   ].filter((linha, i, todas) => linha !== '' || todas[i - 1] !== '').join('\n')
 
   return { system, pedido, formato }
+}
+
+/**
+ * Separa a resposta do modelo em título, linha fina e corpo.
+ *
+ * O contrato pede "TÍTULO:", "LINHA FINA:", uma linha de --- e o corpo — mas
+ * contrato com modelo se lê com tolerância: sem acento, com negrito em volta,
+ * sem o separador. O que não vier identificável vira corpo: uma resposta boa
+ * jamais é perdida porque o modelo errou a moldura.
+ */
+export function separarProposta(bruto: string): {
+  titulo: string
+  linhaFina: string
+  corpo: string
+} {
+  const linhas = bruto.split('\n')
+  let titulo = ''
+  let linhaFina = ''
+  let inicioDoCorpo = 0
+
+  for (let i = 0; i < Math.min(linhas.length, 8); i++) {
+    const linha = linhas[i].trim().replace(/^\*\*|\*\*$/g, '')
+    const mTitulo = /^t[íi]tulo\s*:\s*(.+)$/i.exec(linha)
+    const mLinha = /^linha\s*fina\s*:\s*(.+)$/i.exec(linha)
+    if (mTitulo && !titulo) {
+      titulo = mTitulo[1].trim().replace(/^["“']|["”']$/g, '').slice(0, 120)
+      inicioDoCorpo = i + 1
+    } else if (mLinha && !linhaFina) {
+      linhaFina = mLinha[1].trim().replace(/^["“']|["”']$/g, '').slice(0, 220)
+      inicioDoCorpo = i + 1
+    } else if (/^-{3,}$/.test(linha)) {
+      inicioDoCorpo = i + 1
+      break
+    } else if (linha && (titulo || linhaFina)) {
+      // Acabaram os cabeçalhos: daqui em diante é corpo.
+      inicioDoCorpo = i
+      break
+    }
+  }
+
+  const corpo = linhas.slice(inicioDoCorpo).join('\n').replace(/^\s*-{3,}\s*\n/, '').trim()
+  return { titulo, linhaFina, corpo: corpo || bruto.trim() }
 }
 
 /**
