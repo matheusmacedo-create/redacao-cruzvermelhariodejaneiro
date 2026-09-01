@@ -7,6 +7,7 @@ import {
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
 import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
+import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 
 /**
@@ -49,6 +50,65 @@ export async function noticiasPublicadas(workspaceId: string): Promise<(NoticiaD
         atualizadaEm: new Date(p.updated_at ?? publicada),
       }
     })
+}
+
+/**
+ * A vida nos outros canais, para a linha do tempo do jornal.
+ *
+ * Duas fontes: os destinos publicados pelo hub (têm canal, texto, link do
+ * post e a data carimbada) e o registro de disparos, que cobre o tempo de
+ * antes do hub. A fusão de-duplica — o hub grava nos dois lugares.
+ */
+export async function publicacoesDaLinhaDoTempo(workspaceId: string): Promise<ItemDaLinha[]> {
+  const supabase = createAdminClient()
+
+  const doHub: ItemDaLinha[] = []
+  try {
+    const { data } = await supabase
+      .from('package_destinations')
+      .select('canal,corpo,external_url,publicado_em,updated_at')
+      .eq('workspace_id', workspaceId).eq('estado', 'publicada')
+      .neq('canal', 'site_web')
+      .order('publicado_em', { ascending: false, nullsFirst: false })
+      .limit(120)
+    for (const d of data ?? []) {
+      doHub.push({
+        canal: String(d.canal),
+        texto: String(d.corpo ?? ''),
+        url: (d.external_url as string | null) ?? undefined,
+        quando: new Date(d.publicado_em ?? d.updated_at ?? Date.now()),
+      })
+    }
+  } catch { /* fonte a menos, linha do tempo mais curta */ }
+
+  const doRegistro: ItemDaLinha[] = []
+  try {
+    const { data } = await supabase
+      .from('social_publications')
+      .select('networks,body,results,created_at')
+      .eq('workspace_id', workspaceId).eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(120)
+    for (const linha of data ?? []) {
+      const resultados = Array.isArray(linha.results) ? linha.results as Record<string, unknown>[] : []
+      for (const rede of (linha.networks as string[] | null) ?? []) {
+        const daRede = resultados.find((r) => String(r.platform ?? '') === rede)
+        // Rede que falhou ou foi pulada não entra: a linha do tempo mostra o
+        // que o público pôde ver, não o que tentamos.
+        if (daRede && (daRede.success === false || daRede.skipped === true)) continue
+        const url = typeof daRede?.post_url === 'string' && daRede.post_url ? daRede.post_url : undefined
+        doRegistro.push({
+          canal: rede,
+          texto: String(linha.body ?? ''),
+          url,
+          quando: new Date(linha.created_at ?? Date.now()),
+        })
+      }
+    }
+  } catch { /* idem */ }
+
+  // O hub vem primeiro: é a fonte com link e data carimbada por destino.
+  return fundirLinhaDoTempo([doHub, doRegistro])
 }
 
 /**
@@ -119,9 +179,13 @@ export async function atualizarVitrine(
   }
   resultado.noticias = noticias.length
 
+  // A linha do tempo dos outros canais entra no mesmo jornal.
+  let linhaDoTempo: ItemDaLinha[] = []
+  try { linhaDoTempo = await publicacoesDaLinhaDoTempo(workspaceId) } catch { /* jornal sai sem a linha */ }
+
   // O índice mora na própria pasta de notícias (FTP_BASE_DIR).
   try {
-    await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora), 'utf8'))
+    await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora, linhaDoTempo), 'utf8'))
     resultado.indice = true
   } catch {
     problemas.push('o índice de notícias não subiu')
