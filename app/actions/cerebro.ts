@@ -1,11 +1,11 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
-import { lerPauta } from '@/lib/cerebro/cliente'
-import type { PautaDoCerebro } from '@/lib/cerebro/contrato'
+import { desfazerRecusa, enviarRecusa, lerPauta } from '@/lib/cerebro/cliente'
+import { MOTIVOS_RECUSA, type MotivoRecusa, type PautaDoCerebro } from '@/lib/cerebro/contrato'
 import { trazerCapa } from '@/lib/cerebro/midia'
 import { capaPodeIrParaPeca, mestreDaPauta, planejarDestinos } from '@/lib/cerebro/mestre'
 
@@ -150,6 +150,61 @@ export async function importarDoCerebro(
     return { id: pacote.id, abrirEm: 'site_web' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível importar esta pauta.') }
+  }
+}
+
+/**
+ * Recusa uma sugestão, com o motivo — o laço de volta do contrato.
+ *
+ * A recusa é gravada no Cérebro, não aqui: é lá que ela pesa nas próximas
+ * leituras, e é assim que a sugestão some para a equipe inteira em todas as
+ * telas, e não só para quem clicou.
+ */
+export async function recusarSugestao(
+  formData: FormData,
+): Promise<{ erro?: string; ok?: boolean }> {
+  try {
+    const sinalId = String(formData.get('sinalId') ?? '').trim()
+    if (!/^[a-zA-Z0-9_-]{4,64}$/.test(sinalId)) throw new Error('Faltou o identificador do sinal.')
+    const motivo = String(formData.get('motivo') ?? '') as MotivoRecusa
+    if (!(motivo in MOTIVOS_RECUSA)) throw new Error('Escolha um dos motivos.')
+
+    // Só quem tem sessão num espaço recusa: a ação fala em nome da equipe.
+    await requireWorkspace()
+
+    const r = await enviarRecusa(sinalId, motivo)
+    if (r.erro) throw new Error(r.erro)
+
+    // As leituras do Cérebro ficam 5 minutos em cache; uma recusa precisa
+    // sumir da tela agora, senão parece que o clique não valeu — updateTag
+    // expira na hora, em vez de servir o cartão recusado mais uma vez.
+    updateTag('cerebro')
+    revalidatePath('/cerebro')
+    revalidatePath('/redes')
+    return { ok: true }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível recusar esta sugestão.') }
+  }
+}
+
+/** Desfaz uma recusa feita há pouco. Errar o clique não pode custar a pauta. */
+export async function desfazerRecusaDaSugestao(
+  formData: FormData,
+): Promise<{ erro?: string; ok?: boolean }> {
+  try {
+    const sinalId = String(formData.get('sinalId') ?? '').trim()
+    if (!/^[a-zA-Z0-9_-]{4,64}$/.test(sinalId)) throw new Error('Faltou o identificador do sinal.')
+    await requireWorkspace()
+
+    const r = await desfazerRecusa(sinalId)
+    if (r.erro) throw new Error(r.erro)
+
+    updateTag('cerebro')
+    revalidatePath('/cerebro')
+    revalidatePath('/redes')
+    return { ok: true }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível desfazer a recusa.') }
   }
 }
 

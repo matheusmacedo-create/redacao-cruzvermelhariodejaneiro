@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  Brain, CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -15,6 +15,9 @@ const sections = [
   {
     label: 'Trabalho',
     items: [
+      // Antes de Pautas porque é de onde elas podem nascer: o Cérebro lê as
+      // contas oficiais e chega com o dever de casa feito. Ele não publica.
+      { href: '/cerebro', label: 'Cérebro', icon: Brain },
       { href: '/pautas', label: 'Pautas', icon: ListChecks },
       { href: '/projetos', label: 'Projetos', icon: FolderKanban },
       { href: '/redes', label: 'Publicações', icon: Share2 },

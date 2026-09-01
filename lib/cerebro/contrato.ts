@@ -78,6 +78,39 @@ export interface RespostaDoCerebro {
   pautas: PautaDoCerebro[]
 }
 
+/**
+ * Por que uma sugestão foi recusada. Espelha MOTIVOS de src/core/tipos.ts do
+ * Cérebro: o motivo é o que ele aprende — "repetitivo" faz recuar na fonte,
+ * "não é da Cruz" derruba o assunto. Recusar sem motivo só esconderia o
+ * cartão, e amanhã ele voltaria igual.
+ */
+export type MotivoRecusa =
+  | 'repetitivo'
+  | 'sem_relacao'
+  | 'sem_acao'
+  | 'ja_falamos'
+  | 'fonte_fraca'
+  | 'outro'
+
+export const MOTIVOS_RECUSA: Record<MotivoRecusa, { rotulo: string; explica: string }> = {
+  repetitivo: { rotulo: 'Repetitivo', explica: 'Já apareceu coisa demais desta fonte ou deste assunto.' },
+  sem_relacao: { rotulo: 'Não é da Cruz', explica: 'Boa informação, mas não é pauta da filial.' },
+  sem_acao: { rotulo: 'Sem ação nossa', explica: 'Sem operação da filial, não vira peça.' },
+  ja_falamos: { rotulo: 'Já falamos disso', explica: 'A Casa já publicou esse gancho.' },
+  fonte_fraca: { rotulo: 'Fonte fraca', explica: 'Não sustenta uma peça pública.' },
+  outro: { rotulo: 'Outro motivo', explica: 'Recusado por julgamento da equipe.' },
+}
+
+/** Rótulo curto de cada pergunta do motor, na ordem em que pesam. */
+export const PERGUNTAS: [chave: string, rotulo: string][] = [
+  ['localidade', 'É local?'],
+  ['urgencia', 'É urgente?'],
+  ['relacao', 'Tem relação conosco?'],
+  ['acaoReal', 'Existe ação real?'],
+  ['ineditismo', 'Já falamos disso?'],
+  ['confianca', 'Fonte confiável?'],
+]
+
 /** Do canal do Cérebro para o par canal+formato do hub de publicações. */
 export const DESTINO_POR_CANAL: Record<CanalCerebro, { canal: string; formato: string; rotulo: string }> = {
   site: { canal: 'site_web', formato: 'materia', rotulo: 'Site — matéria' },

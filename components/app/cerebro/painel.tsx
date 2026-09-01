@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { lerPautas, urlDoCerebro } from '@/lib/cerebro/cliente'
 import { DESTINO_POR_CANAL, type PautaDoCerebro } from '@/lib/cerebro/contrato'
@@ -41,14 +42,19 @@ export async function PainelDoCerebro() {
             {origem === 'seed' && ' Atenção: o Cérebro está servindo o acervo semente, não dado vivo.'}
           </p>
         </div>
-        <a
-          href={urlDoCerebro()}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="text-xs font-medium text-primary hover:underline"
-        >
-          Abrir o Cérebro{quando ? ` · atualizado ${quando}` : ''}
-        </a>
+        <span className="flex items-center gap-3">
+          <Link href="/cerebro" className="text-xs font-medium text-primary hover:underline">
+            Ver tudo
+          </Link>
+          <a
+            href={urlDoCerebro()}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Abrir o Cérebro{quando ? ` · atualizado ${quando}` : ''}
+          </a>
+        </span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
