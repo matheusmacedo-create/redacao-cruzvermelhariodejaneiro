@@ -1162,6 +1162,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
                         ? 'Esta abre a matéria, em destaque.'
                         : 'Entra no fim da página, depois do texto.'}
                       {!atual.legenda.trim() && ' Sem legenda a foto sai muda para quem usa leitor de tela.'}
+                      {' '}A legenda também vira o nome do arquivo na página — bom para o Google.
                     </span>
                   </div>
                 </div>

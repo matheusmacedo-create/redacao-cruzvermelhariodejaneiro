@@ -3,6 +3,7 @@ import { get } from '@vercel/blob'
 import { createClient } from '@/lib/supabase/server'
 import { parseContentBlocks } from '@/lib/content-blocks'
 import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/slug'
+import { nomeSeoDaMidia } from '@/lib/site/nome-da-midia'
 import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
 import { atualizarVitrine } from '@/lib/site/vitrine'
@@ -127,6 +128,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const arquivos = new Map<string, ArquivoLocal>()
     const paraSubir: { nome: string; bytes: Buffer }[] = []
     let n = 0
+    const nomesUsados = new Set<string>()
     const imagensPublicadas: string[] = []
 
     for (const bloco of blocos) {
@@ -145,7 +147,15 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
       const tipo = arquivo.content_type || blob.blob.contentType || ''
       const extensao = EXTENSAO[tipo] || pathname.slice(pathname.lastIndexOf('.')) || ''
-      const nome = `midia-${++n}${extensao}`
+      // O nome no servidor nasce da legenda (o mesmo texto do alt): era
+      // midia-1.jpg, que não diz nada a buscador nenhum.
+      const nome = nomeSeoDaMidia({
+        legenda: bloco.alt ?? '',
+        tituloDaMateria: peca.title ?? '',
+        indice: ++n,
+        extensao,
+        usados: nomesUsados,
+      })
       const bytes = Buffer.from(await new Response(blob.stream).arrayBuffer())
 
       arquivos.set(bloco.url, { nome, alt: bloco.alt })

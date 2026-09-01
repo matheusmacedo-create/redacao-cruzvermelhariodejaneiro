@@ -9,6 +9,7 @@ import { temAnalytics } from '@/lib/site/analytics'
 import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
 import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE } from '@/lib/site/sitemap'
+import { HTACCESS_DAS_NOTICIAS } from '@/lib/site/cache-do-site'
 
 /**
  * A vitrine do site: o índice de notícias, o sitemap e o robots.
@@ -189,6 +190,15 @@ export async function atualizarVitrine(
     resultado.indice = true
   } catch {
     problemas.push('o índice de notícias não subiu')
+  }
+
+  // As regras de cache da pasta: sem elas o navegador guarda a página velha
+  // por tempo indeterminado — e o jornal novo fica invisível para quem já
+  // visitou. Sobe em toda regeneração; é idempotente e pesa nada.
+  try {
+    await enviarArquivo(client, config, '.htaccess', Buffer.from(HTACCESS_DAS_NOTICIAS, 'utf8'))
+  } catch {
+    problemas.push('as regras de cache (.htaccess) não subiram')
   }
 
   // Sitemap e robots moram na raiz do site.
