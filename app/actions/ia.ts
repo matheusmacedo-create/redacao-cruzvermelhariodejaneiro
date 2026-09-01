@@ -11,7 +11,7 @@ import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, s
 import { claudeConfigurado, reescreverComClaude, semChaveDoClaude, verImagensComClaude, type ImagemParaVer } from '@/lib/ia/anthropic'
 import { TETO_DE_FOTOS, montarPedidoDeLegendas, parsearLegendas } from '@/lib/ia/fotos'
 import sharp from 'sharp'
-import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, type PaginaDoSite } from '@/lib/ia/formatos'
+import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, separarProposta, type PaginaDoSite } from '@/lib/ia/formatos'
 import { noticiasPublicadas } from '@/lib/site/vitrine'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 import { REGRAS_FIXAS, assuntoDaMateria } from '@/lib/ia/sugestoes'
@@ -43,7 +43,14 @@ export type ResultadoDaImagem = ResultadoDaIa & {
   restantesNoMes?: number
 }
 export type ResultadoDasIdeias = ResultadoDaIa & { ideias?: string[] }
-export type ResultadoDaMelhoria = ResultadoDaIa & { texto?: string; aviso?: string }
+export type ResultadoDaMelhoria = ResultadoDaIa & {
+  texto?: string
+  /** Título proposto, pensado para busca e alcance orgânico. */
+  titulo?: string
+  /** Linha fina proposta — o que o Google e as redes mostram sob o título. */
+  linhaFina?: string
+  aviso?: string
+}
 export type ResultadoDasLegendas = ResultadoDaIa & { legendas?: Record<string, string> }
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
@@ -256,20 +263,28 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
       throw new Error('O GPT não está configurado. Cadastre OPENAI_API_KEY na Vercel e republique.')
     }
 
-    const { texto: proposta } = provedor === 'claude'
+    const { texto: bruto } = provedor === 'claude'
       ? await reescreverComClaude({ system: montado.system, texto: montado.pedido })
       : await reescreverComGpt({ system: montado.system, texto: montado.pedido })
 
+    // A resposta vem em três partes: título e linha fina para busca, corpo.
+    const partes = separarProposta(bruto)
+
     // Foto que o modelo perdeu volta; foto que ele inventou sai; link para
     // endereço que não existe vira texto simples.
-    const fotos = garantirFotos(corpo, proposta)
+    const fotos = garantirFotos(corpo, partes.corpo)
     const links = conferirLinks(fotos.texto, paginas, corpo)
     if (links.texto.length > TETO_DO_CORPO) {
       throw new Error('A sugestão ficou maior que o teto do editor. Tente outro formato ou encurte a matéria.')
     }
 
     const aviso = [fotos.aviso, links.aviso].filter(Boolean).join(' ')
-    return { texto: links.texto, ...(aviso ? { aviso } : {}) }
+    return {
+      texto: links.texto,
+      ...(partes.titulo ? { titulo: partes.titulo } : {}),
+      ...(partes.linhaFina ? { linhaFina: partes.linhaFina } : {}),
+      ...(aviso ? { aviso } : {}),
+    }
   } catch (causa) {
     return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível melhorar o texto.'))) }
   }
