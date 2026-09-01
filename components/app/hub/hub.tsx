@@ -17,10 +17,14 @@ import { contar } from '@/lib/publicacao/contagem'
 import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
+import { cn } from '@/lib/utils'
+import { LogoDoCanal } from '@/components/ui/logo-do-canal'
 import {
-  adaptarLegendaDoDestino, descartarImagemDaIa, gerarImagemDoDestino,
-  melhorarTextoDaMateria, sugerirIdeiasDeImagem, sugerirLegendasDasFotos, usarImagemNoDestino,
+  adaptarLegendaDoDestino, descartarImagemDaIa, gerarImagemDoDestino, gerarImagensDaMateria,
+  melhorarTextoDaMateria, sugerirIdeiasDaMateria, sugerirIdeiasDeImagem, sugerirLegendasDasFotos,
+  usarImagemNoDestino, type ImagemDaMateria,
 } from '@/app/actions/ia'
+import { FORMATOS_DE_IMAGEM } from '@/lib/ia/formatos-de-imagem'
 import { FORMATOS_DE_TEXTO } from '@/lib/ia/formatos'
 import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
 import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
@@ -534,7 +538,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             >
               <span className="flex items-center gap-1.5 text-xs font-semibold">
                 <span className={`size-2 rounded-full ${sem.classe}`} />
-                {ehBase && <Globe className="size-3" />}
+                {ehBase ? <Globe className="size-3" /> : <LogoDoCanal canal={d.canal} tamanho={13} />}
                 {ehBase ? 'A notícia' : adapter(d.canal)?.nome ?? d.canal}
               </span>
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -585,6 +589,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               encerrado={encerrado}
               workspaceId={workspaceId}
               melhoria={melhoria}
+              onRecarregarBiblioteca={recarregarBiblioteca}
               onNovaMidia={acolherMidia}
               onAutorizarMidia={autorizarMidia}
             />
@@ -917,8 +922,8 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
         )}
         {canais.map(({ canal, conectado, formatos }) => (
           <div key={canal.id}>
-            <p className={`flex items-center gap-1 text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
-              {canal.id === 'site_web' && <Globe className="size-3" />}
+            <p className={`flex items-center gap-1.5 text-xs font-medium ${conectado ? '' : 'text-muted-foreground'}`}>
+              {canal.id === 'site_web' ? <Globe className="size-3" /> : <LogoDoCanal canal={canal.id} tamanho={13} />}
               {canal.nome}{!conectado && ' — conta não conectada'}
             </p>
             <div className="mt-1 flex flex-wrap gap-1.5">
@@ -1006,7 +1011,7 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia }: {
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onRecarregarBiblioteca }: {
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -1025,6 +1030,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   melhoria: MelhoriaDisponivel
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
+  onRecarregarBiblioteca: () => void
 }) {
   const [maisOpcoes, setMaisOpcoes] = useState(false)
   const muda = (campo: keyof MestreRegistro) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -1146,7 +1152,13 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           <p className="pt-1 text-sm font-medium">
             Mídias do pacote <span className="font-normal text-muted-foreground">(cada destino escolhe entre elas)</span>
           </p>
-          {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
+          <span className="flex items-center gap-2">
+            {/* Gerador de imagem é da OpenAI: o mesmo requisito da chave GPT. */}
+            {!congelado && melhoria.gpt && (
+              <CriarImagensDaMateria mestre={mestre} onNovaMidia={onNovaMidia} onRecarregar={onRecarregarBiblioteca} />
+            )}
+            {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
+          </span>
         </div>
         <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} onAutorizar={onAutorizarMidia} />
 
@@ -1258,6 +1270,304 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * A arte da matéria em até três formatos de uma vez — site, feed, stories.
+ *
+ * Mesmo espírito do estúdio por destino, com uma diferença: aqui a pessoa
+ * escolhe os ENQUADRAMENTOS, e a mesma descrição sai em paralelo na
+ * proporção certa de cada um. As imagens nascem na Biblioteca (etiquetadas
+ * como IA) e aparecem nas mídias do pacote — selecionar cada uma continua
+ * sendo decisão de gente, como todo o resto.
+ */
+function CriarImagensDaMateria({ mestre, onNovaMidia, onRecarregar }: {
+  mestre: MestreRegistro
+  onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
+  /** Depois de descartar, a grade precisa esquecer a imagem apagada. */
+  onRecarregar: () => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const [prompt, setPrompt] = useState('')
+  const [qualidade, setQualidade] = useState<'low' | 'medium' | 'high'>('medium')
+  const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [formatos, setFormatos] = useState<Set<string>>(new Set(FORMATOS_DE_IMAGEM.map((f) => f.id)))
+  const [ideias, setIdeias] = useState<string[]>([])
+  const [pedindoIdeias, pedirIdeias] = useTransition()
+  const [gerando, gerar] = useTransition()
+  const [erro, setErro] = useState('')
+  const [aviso, setAviso] = useState('')
+  const [prontas, setProntas] = useState<ImagemDaMateria[]>([])
+  const [restantes, setRestantes] = useState<number | null>(null)
+
+  const sugestoes = useMemo(() => sugestoesDePrompt(mestre), [mestre])
+  const semMateria = sugestoes.length === 0
+  const resumoDaMateria = useMemo(() => {
+    const limpo = textoParaRede(mestre.corpo).texto.replace(/\s+/g, ' ').trim()
+    return limpo.length > 220 ? `${limpo.slice(0, 220)}…` : limpo
+  }, [mestre.corpo])
+
+  useEffect(() => {
+    if (!aberto) return
+    function noEscape(e: KeyboardEvent) { if (e.key === 'Escape') setAberto(false) }
+    document.addEventListener('keydown', noEscape)
+    return () => document.removeEventListener('keydown', noEscape)
+  }, [aberto])
+
+  function alternarFormato(id: string) {
+    setFormatos((antes) => {
+      const prox = new Set(antes)
+      if (prox.has(id)) prox.delete(id)
+      else prox.add(id)
+      return prox
+    })
+  }
+
+  function pedir() {
+    setErro('')
+    pedirIdeias(async () => {
+      const form = new FormData()
+      form.set('titulo', mestre.titulo)
+      form.set('corpo', mestre.corpo)
+      const r = await sugerirIdeiasDaMateria(form)
+      if (r.erro) { setErro(r.erro); return }
+      setIdeias(r.ideias ?? [])
+    })
+  }
+
+  function gerarAgora() {
+    setErro('')
+    setAviso('')
+    gerar(async () => {
+      const form = new FormData()
+      form.set('prompt', prompt)
+      form.set('qualidade', qualidade)
+      form.set('formatos', JSON.stringify([...formatos]))
+      const r = await gerarImagensDaMateria(form)
+      if (r.erro) { setErro(r.erro); return }
+      const novas = r.imagens ?? []
+      setProntas((antes) => [...antes, ...novas])
+      setRestantes(r.restantesNoMes ?? null)
+      setAviso(r.aviso ?? '')
+      // Entram na grade de mídias na hora — selecionar é decisão de gente.
+      for (const img of novas) {
+        onNovaMidia({
+          id: img.fileId,
+          nome: img.nome,
+          tipo: 'foto',
+          contentType: 'image/png',
+          tamanho: img.tamanho,
+          previa: img.previa,
+          autorizacao: 'authorized',
+          geradaPorIa: true,
+        })
+      }
+    })
+  }
+
+  function descartar(fileId: string) {
+    setErro('')
+    gerar(async () => {
+      const form = new FormData()
+      form.set('fileId', fileId)
+      const r = await descartarImagemDaIa(form)
+      if (r.erro) { setErro(r.erro); return }
+      setProntas((antes) => antes.filter((p) => p.fileId !== fileId))
+      onRecarregar()
+    })
+  }
+
+  const rotuloDoFormato = (id: string) => FORMATOS_DE_IMAGEM.find((f) => f.id === id)?.rotulo ?? id
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted"
+      >
+        <Sparkles className="size-3.5" />Criar imagem com IA
+      </button>
+
+      {aberto && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/45 p-4 py-8"
+          onMouseDown={(e) => { if (e.target === e.currentTarget && !gerando) setAberto(false) }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="estudio-da-materia-titulo"
+        >
+          <Card className="w-full max-w-3xl overflow-hidden p-0 shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+              <div className="min-w-0">
+                <h2 id="estudio-da-materia-titulo" className="flex items-center gap-2 text-base font-semibold">
+                  <Sparkles className="size-4 text-primary" />Criar a arte da matéria
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Uma descrição, até três enquadramentos — cada um já na proporção do lugar onde vai viver.
+                </p>
+              </div>
+              <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted">
+                <X className="size-4" />
+              </button>
+            </header>
+
+            <div className="flex flex-col gap-5 px-6 py-5">
+              {semMateria ? (
+                <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                  Escreva a matéria primeiro. As sugestões de imagem saem do texto — sem ele, sobra o campo em branco.
+                </p>
+              ) : (
+                <>
+                  <section className="rounded-lg bg-muted/50 px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">A matéria</p>
+                    {mestre.titulo && <p className="mt-1 font-medium">{mestre.titulo}</p>}
+                    <p className="mt-0.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{resumoDaMateria}</p>
+                  </section>
+
+                  <section>
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium">Comece por um destes</p>
+                      <Button size="sm" variant="outline" onClick={pedir} disabled={gerando || pedindoIdeias}>
+                        {pedindoIdeias ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                        {pedindoIdeias ? 'Pensando…' : 'Pedir ideias à IA'}
+                      </Button>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {sugestoes.map(({ estilo, prompt: sugerido }) => (
+                        <CartaoDeEstilo
+                          key={estilo.id}
+                          estilo={estilo}
+                          ativo={escolhido === estilo.id}
+                          onEscolher={() => { setPrompt(sugerido); setEscolhido(estilo.id); setErro('') }}
+                        />
+                      ))}
+                    </div>
+                    {ideias.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Ideias da IA</p>
+                        {ideias.map((ideia, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => { setPrompt(ideia); setEscolhido(`ideia-${i}`); setErro('') }}
+                            className={cn(
+                              'rounded-lg border px-3 py-2 text-left text-xs leading-relaxed transition-colors',
+                              escolhido === `ideia-${i}` ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted',
+                            )}
+                          >
+                            {ideia}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  <label className="text-sm font-medium">
+                    O pedido
+                    <textarea
+                      value={prompt}
+                      onChange={(e) => { setPrompt(e.target.value); setEscolhido(null) }}
+                      rows={4}
+                      placeholder="Descreva a cena, a luz e a paleta — sem pessoas e sem o emblema."
+                      className={`mt-1 ${inputClass}`}
+                    />
+                  </label>
+
+                  <section className="flex flex-wrap items-start gap-6">
+                    <div>
+                      <p className="mb-1.5 text-sm font-medium">Formatos</p>
+                      <div className="flex flex-col gap-1.5">
+                        {FORMATOS_DE_IMAGEM.map((f) => (
+                          <label key={f.id} className="flex items-start gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={formatos.has(f.id)}
+                              onChange={() => alternarFormato(f.id)}
+                              className="mt-0.5 size-4 shrink-0"
+                            />
+                            <span>
+                              {f.rotulo}
+                              <span className="block text-[11px] text-muted-foreground">{f.explica}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-sm font-medium">Qualidade</p>
+                      <div className="flex flex-col gap-1.5">
+                        {QUALIDADES.map((q) => (
+                          <label key={q.id} className="flex items-start gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name="qualidade-da-materia"
+                              checked={qualidade === q.id}
+                              onChange={() => setQualidade(q.id)}
+                              className="mt-0.5 size-4 shrink-0"
+                            />
+                            <span>
+                              {q.rotulo}
+                              <span className="block text-[11px] text-muted-foreground">{q.dica}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+
+                  {erro && <p className="text-xs text-destructive">{erro}</p>}
+                  {aviso && <p className="text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={gerarAgora} disabled={gerando || prompt.trim().length < 10 || formatos.size === 0}>
+                      {gerando ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                      {gerando
+                        ? 'Gerando…'
+                        : `Gerar ${formatos.size} ${formatos.size === 1 ? 'imagem' : 'imagens'}`}
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Consome {formatos.size} do teto mensal de imagens.
+                      {typeof restantes === 'number' && <> Ainda cabem {restantes} depois desta.</>}
+                    </span>
+                  </div>
+
+                  {prontas.length > 0 && (
+                    <section>
+                      <p className="mb-2 text-sm font-medium">Geradas — já estão nas mídias do pacote</p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {prontas.map((img) => (
+                          <figure key={img.fileId} className="flex flex-col gap-1.5">
+                            <img src={img.previa} alt="" className="w-full rounded-lg border border-border object-contain" />
+                            <figcaption className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">{rotuloDoFormato(img.formato)}</span>
+                              <button
+                                type="button"
+                                onClick={() => descartar(img.fileId)}
+                                disabled={gerando}
+                                className="text-muted-foreground underline hover:text-destructive"
+                              >
+                                Descartar
+                              </button>
+                            </figcaption>
+                          </figure>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Selecionar cada uma nas mídias do pacote continua sendo decisão sua — nada entra em post sozinho.
+                        Todas carregam a etiqueta de imagem gerada por IA.
+                      </p>
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }
 
@@ -1954,7 +2264,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          {eSite && <Globe className="size-4" />}
+          {eSite ? <Globe className="size-4" /> : <LogoDoCanal canal={destino.canal} tamanho={15} />}
           {canal.nome} · {formato.rotulo}
           {destino.descolada && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">escrita à mão — não acompanha mais a notícia</span>

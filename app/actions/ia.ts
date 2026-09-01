@@ -10,6 +10,7 @@ import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt } from '@/lib/ia/openai'
 import { claudeConfigurado, reescreverComClaude, semChaveDoClaude, verImagensComClaude, type ImagemParaVer } from '@/lib/ia/anthropic'
 import { TETO_DE_FOTOS, montarPedidoDeLegendas, parsearLegendas } from '@/lib/ia/fotos'
+import { formatoDeImagem } from '@/lib/ia/formatos-de-imagem'
 import sharp from 'sharp'
 import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, separarProposta, type PaginaDoSite } from '@/lib/ia/formatos'
 import { noticiasPublicadas } from '@/lib/site/vitrine'
@@ -52,6 +53,18 @@ export type ResultadoDaMelhoria = ResultadoDaIa & {
   aviso?: string
 }
 export type ResultadoDasLegendas = ResultadoDaIa & { legendas?: Record<string, string> }
+export type ImagemDaMateria = {
+  fileId: string
+  nome: string
+  tamanho: number
+  previa: string
+  formato: string
+}
+export type ResultadoDasImagens = ResultadoDaIa & {
+  imagens?: ImagemDaMateria[]
+  restantesNoMes?: number
+  aviso?: string
+}
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
 
@@ -287,6 +300,146 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
     }
   } catch (causa) {
     return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível melhorar o texto.'))) }
+  }
+}
+
+/**
+ * Ideias de imagem a partir da matéria do pacote, sem depender de destino.
+ *
+ * Igual à versão por destino, mas o texto vem da tela: quem está escrevendo
+ * a matéria pede ideias para a arte dela, não para um canal específico.
+ */
+export async function sugerirIdeiasDaMateria(formData: FormData): Promise<ResultadoDasIdeias> {
+  try {
+    await requireWorkspace()
+    const titulo = texto(formData, 'titulo')
+    const corpo = String(formData.get('corpo') ?? '')
+
+    const { assunto } = assuntoDaMateria({ titulo, corpo })
+    if (!assunto) throw new Error('Escreva a matéria antes de pedir ideias de imagem.')
+
+    const ideias = await sugerirBriefings({
+      titulo: titulo || assunto,
+      texto: textoParaRede(corpo).texto,
+      proibicoes: REGRAS_FIXAS,
+    })
+    if (!ideias.length) throw new Error('O modelo não devolveu ideia nenhuma. Tente de novo.')
+    return { ideias }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível pedir ideias.')) }
+  }
+}
+
+/**
+ * Gera a arte da matéria nos formatos escolhidos — site, feed, stories.
+ *
+ * Uma descrição, até três enquadramentos, geração em paralelo (três em série
+ * estourariam o tempo da função). Cada imagem nasce na Biblioteca com a
+ * etiqueta de IA, como as demais; nenhuma entra em post sozinha. O teto
+ * mensal conta CADA imagem — pedir três consome três.
+ */
+export async function gerarImagensDaMateria(formData: FormData): Promise<ResultadoDasImagens> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+
+    const prompt = texto(formData, 'prompt')
+    if (prompt.length < 10) throw new Error('Descreva a imagem em pelo menos uma frase.')
+    if (prompt.length > 4000) throw new Error('A descrição da imagem está longa demais.')
+
+    const pedida = texto(formData, 'qualidade')
+    const qualidade = (['low', 'medium', 'high'] as const).find((q) => q === pedida) ?? 'medium'
+
+    let idsDeFormato: string[]
+    try {
+      const bruto = JSON.parse(String(formData.get('formatos') ?? '[]'))
+      idsDeFormato = Array.isArray(bruto) ? [...new Set(bruto.filter((x): x is string => typeof x === 'string'))] : []
+    } catch {
+      idsDeFormato = []
+    }
+    const formatos = idsDeFormato.map(formatoDeImagem).filter((f): f is NonNullable<typeof f> => Boolean(f))
+    if (!formatos.length) throw new Error('Escolha ao menos um formato: site, feed ou stories.')
+
+    // O teto conta cada imagem. Conferido AQUI, antes de gastar.
+    const teto = tetoMensalDeImagens()
+    const jaGeradas = await geradasNoMes(supabase, context.workspace.id)
+    if (jaGeradas + formatos.length > teto) {
+      const cabem = Math.max(0, teto - jaGeradas)
+      throw new Error(
+        cabem === 0
+          ? `O limite de ${teto} imagens geradas neste mês foi atingido.`
+          : `Pedir ${formatos.length} imagens passaria o teto do mês: cabem só ${cabem}. Desmarque formato(s) ou espere o mês virar.`,
+      )
+    }
+
+    const geradas = await Promise.allSettled(
+      formatos.map((f) => gerarImagem({ prompt, proporcao: f.proporcao, qualidade })),
+    )
+
+    const { data: usoAtual } = await supabase
+      .from('files').select('size_bytes').eq('workspace_id', context.workspace.id).neq('status', 'deleted')
+    let usado = (usoAtual ?? []).reduce((total, linha) => total + Number(linha.size_bytes ?? 0), 0)
+
+    const imagens: ImagemDaMateria[] = []
+    const problemas: string[] = []
+    for (let i = 0; i < formatos.length; i++) {
+      const formato = formatos[i]
+      const resultado = geradas[i]
+      if (resultado.status === 'rejected') {
+        problemas.push(`${formato.rotulo}: ${semChave(mensagemDoErro(resultado.reason, 'a geração falhou'))}`)
+        continue
+      }
+      const imagem = resultado.value
+      if (usado + imagem.bytes.length > WORKSPACE_STORAGE_LIMIT) {
+        problemas.push(`${formato.rotulo}: o espaço de armazenamento acabou antes desta.`)
+        continue
+      }
+
+      const nome = `ia-${formato.id}-${new Date().toISOString().slice(0, 10)}-${imagem.largura}x${imagem.altura}.png`
+      const caminho = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}.png`
+      const blob = await put(caminho, imagem.bytes, {
+        access: 'private', addRandomSuffix: false, contentType: imagem.contentType,
+      })
+      const { data: linha, error } = await supabase.from('files').insert({
+        workspace_id: context.workspace.id,
+        name: nome,
+        original_name: nome,
+        file_type: 'foto',
+        content_type: imagem.contentType,
+        storage_path: blob.pathname,
+        size_bytes: imagem.bytes.length,
+        status: 'available',
+        // Não há pessoa real retratada; o que esta imagem exige é divulgação,
+        // e a etiqueta abaixo é essa divulgação.
+        authorization_status: 'authorized',
+        tags: [ETIQUETA_DE_IA, 'materia'],
+        uploaded_by: context.user.id,
+      }).select('id').single()
+      if (error || !linha) {
+        await del(blob.pathname)
+        problemas.push(`${formato.rotulo}: não foi possível registrar na Biblioteca.`)
+        continue
+      }
+      usado += imagem.bytes.length
+      imagens.push({
+        fileId: linha.id,
+        nome,
+        tamanho: imagem.bytes.length,
+        previa: `/api/private-blob?pathname=${encodeURIComponent(blob.pathname)}`,
+        formato: formato.id,
+      })
+    }
+
+    if (!imagens.length) {
+      throw new Error(problemas.join(' ') || 'Nenhuma imagem pôde ser gerada.')
+    }
+    return {
+      imagens,
+      restantesNoMes: Math.max(0, teto - jaGeradas - imagens.length),
+      ...(problemas.length ? { aviso: problemas.join(' ') } : {}),
+    }
+  } catch (causa) {
+    return { erro: semChave(mensagemDoErro(causa, 'Não foi possível gerar as imagens.')) }
   }
 }
 
