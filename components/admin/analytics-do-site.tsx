@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { BarChart3, Check, FileText, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { BarChart3, Check, ExternalLink, FileText, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ligarAnalyticsDoSite, publicarPaginasDoSite, type ResultadoDoAnalytics, type ResultadoDasPaginas } from '@/app/actions/site'
+import {
+  ligarAnalyticsDoSite, materiasNoAr, publicarPaginasDoSite, tirarMateriaDoArAction,
+  type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
+} from '@/app/actions/site'
 import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
 
 /**
@@ -76,7 +79,97 @@ export function AnalyticsDoSite() {
             )}
           </div>
         )}
+
+      <SecaoNoAr />
       </div>
+    </div>
+  )
+}
+
+/**
+ * O que está publicado em /noticias/ AGORA — com o verbo que faltava.
+ *
+ * A central de notícias e o sitemap listam tudo que tem site_url, e no dia em
+ * que entraram no ar expuseram as matérias de teste publicadas meses antes:
+ * "Teste1", "UASNASKADK…", na primeira página do noticiário, para o público e
+ * para o Google. Publicar sempre teve botão; despublicar não existia.
+ *
+ * "Tirar do ar" apaga a pasta no servidor, limpa o endereço no registro e
+ * regera o índice e o sitemap na mesma hora. É reversível: o slug fica, e
+ * republicar volta ao mesmo endereço.
+ */
+function SecaoNoAr() {
+  const [materias, setMaterias] = useState<MateriaNoAr[] | null>(null)
+  const [erro, setErro] = useState('')
+  const [recado, setRecado] = useState('')
+  const [confirmando, setConfirmando] = useState<string | null>(null)
+  const [tirando, iniciar] = useTransition()
+
+  const carregar = useCallback(async () => {
+    const r = await materiasNoAr()
+    if (r.erro) setErro(r.erro)
+    else setMaterias(r.materias ?? [])
+  }, [])
+
+  const jaCarregou = useRef(false)
+  useEffect(() => {
+    if (jaCarregou.current) return
+    jaCarregou.current = true
+    carregar()
+  }, [carregar])
+
+  function tirar(m: MateriaNoAr) {
+    setErro(''); setRecado(''); setConfirmando(null)
+    iniciar(async () => {
+      const form = new FormData()
+      form.set('contentId', m.id)
+      const r = await tirarMateriaDoArAction(form)
+      if (r.erro) { setErro(r.erro); return }
+      setRecado(r.recado ?? 'A página saiu do ar.')
+      await carregar()
+    })
+  }
+
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold"><ExternalLink className="size-4" />No ar em /noticias/</h3>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Tudo que a central de notícias e o sitemap mostram ao público agora. Tirar do ar apaga a página do servidor
+        e a remove do índice e do sitemap na mesma hora — e é reversível: republicando, ela volta no mesmo endereço.
+      </p>
+      {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
+      {recado && <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-success"><Check className="size-4" />{recado}</p>}
+      {materias === null && !erro && <p className="mt-3 text-sm text-muted-foreground">Carregando…</p>}
+      {materias?.length === 0 && <p className="mt-3 text-sm text-muted-foreground">Nenhuma matéria publicada no site.</p>}
+      {(materias?.length ?? 0) > 0 && (
+        <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
+          {materias!.map((m) => (
+            <li key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+              <a href={m.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate font-medium hover:underline" title={m.url}>
+                {m.titulo}
+              </a>
+              {m.publicadaEm && (
+                <span className="text-xs text-muted-foreground">
+                  {new Intl.DateTimeFormat('pt-BR').format(new Date(m.publicadaEm))}
+                </span>
+              )}
+              {confirmando === m.id ? (
+                <span className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Apagar do servidor?</span>
+                  <Button size="sm" variant="destructive" disabled={tirando} onClick={() => tirar(m)}>
+                    {tirando ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}Tirar do ar
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
+                </span>
+              ) : (
+                <Button size="sm" variant="outline" disabled={tirando} onClick={() => setConfirmando(m.id)}>
+                  Tirar do ar
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

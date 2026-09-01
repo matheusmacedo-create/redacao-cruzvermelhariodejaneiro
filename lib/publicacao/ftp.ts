@@ -279,3 +279,22 @@ export async function enviarPastaFixaNaRaiz(
   await client.cd('/')
   return `${destino}/index.html`
 }
+
+/**
+ * Remove a pasta de uma matéria publicada — o desfazer do enviarArquivo.
+ *
+ * O guarda é o mesmo do envio: o caminho nasce de um slug e passa por
+ * caminhoSeguro, então só se apaga DENTRO de FTP_BASE_DIR. O formato do slug
+ * é conferido de novo aqui porque removeDir("/") apaga um servidor inteiro —
+ * e uma linha de defesa a mais não custa o que um erro custaria.
+ */
+export async function removerPastaDeMateria(
+  client: Client,
+  config: FtpConfig,
+  slug: string,
+): Promise<void> {
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) throw new FtpEscopoError(slug)
+  const destino = caminhoSeguro(config.baseDir, slug)
+  await client.removeDir(destino)
+  await client.cd('/')
+}
