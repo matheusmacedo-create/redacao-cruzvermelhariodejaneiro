@@ -38,7 +38,7 @@ import {
   enviarPacoteParaAprovacao, estimarCota, marcarPronta, publicarPacote, realimentarDestino,
   removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
 } from '@/app/actions/pacotes'
-import { autorizarUsoDeImagem } from '@/app/actions/arquivos'
+import { autorizarUsoDeImagem, liberarMidiaDeTerceiro } from '@/app/actions/arquivos'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, LegendaDaMidia, MestreRegistro, PacoteRegistro } from './tipos'
 
@@ -237,6 +237,20 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     if (r.erro) { setErro(r.erro); return }
     setBiblioteca((atual) => atual.map((a) => (a.id === arquivo.id ? { ...a, autorizacao: 'authorized' } : a)))
     setAviso(`Autorização registrada para ${arquivo.nome}.`)
+  }, [])
+
+  /**
+   * Libera material de terceiro — decisão de admin, registrada no log.
+   * O servidor é quem confere o papel; aqui só se reflete o resultado.
+   */
+  const liberarMidia = useCallback(async (arquivo: ArquivoDaBiblioteca) => {
+    setErro('')
+    const form = new FormData()
+    form.set('fileId', arquivo.id)
+    const r = await liberarMidiaDeTerceiro(form)
+    if (r.erro) { setErro(r.erro); return }
+    setBiblioteca((atual) => atual.map((a) => (a.id === arquivo.id ? { ...a, autorizacao: 'authorized' } : a)))
+    setAviso(`Uso liberado para ${arquivo.nome} — o crédito da fonte é obrigatório na peça.`)
   }, [])
 
   /** Mídia recém-enviada entra na Biblioteca da tela e no Mestre do pacote. */
@@ -592,6 +606,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               onRecarregarBiblioteca={recarregarBiblioteca}
               onNovaMidia={acolherMidia}
               onAutorizarMidia={autorizarMidia}
+              onLiberarMidia={liberarMidia}
             />
           ) : (
             <EditorCanal
@@ -608,6 +623,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               workspaceId={workspaceId}
               onNovaMidia={acolherMidia}
               onAutorizarMidia={autorizarMidia}
+              onLiberarMidia={liberarMidia}
               iaDisponivel={iaDisponivel}
               melhoria={melhoria}
               onRecarregarBiblioteca={recarregarBiblioteca}
@@ -1011,7 +1027,7 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onRecarregarBiblioteca }: {
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onLiberarMidia, onRecarregarBiblioteca }: {
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -1030,6 +1046,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   melhoria: MelhoriaDisponivel
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
+  onLiberarMidia: (arquivo: ArquivoDaBiblioteca) => void
   onRecarregarBiblioteca: () => void
 }) {
   const [maisOpcoes, setMaisOpcoes] = useState(false)
@@ -1160,7 +1177,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
             {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
           </span>
         </div>
-        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} onAutorizar={onAutorizarMidia} />
+        <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} onAutorizar={onAutorizarMidia} onLiberar={onLiberarMidia} />
 
         {/* O rodapé de cada foto na página. Existe aqui porque a foto anexada
             ao pacote não tem onde carregar isso — a escrita dentro do texto
@@ -2107,7 +2124,7 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
  *  - uso interno: material de terceiro. Aparece como referência e não pode
  *    ser escolhida, porque não sai publicada em nome da Cruz Vermelha.
  */
-function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabilitado, filtroTipo, onAutorizar }: {
+function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabilitado, filtroTipo, onAutorizar, onLiberar }: {
   biblioteca: ArquivoDaBiblioteca[]
   selecionados: string[]
   onMudar: (ids: string[]) => void
@@ -2116,14 +2133,24 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   filtroTipo?: 'foto' | 'video'
   /** Sem isto a mídia pendente ainda aparece marcada — só não dá para liberar daqui. */
   onAutorizar?: (arquivo: ArquivoDaBiblioteca) => void
+  /** Libera material de terceiro (admin). Sem isto, uso interno segue sem saída. */
+  onLiberar?: (arquivo: ArquivoDaBiblioteca) => void
 }) {
   const [confirmando, setConfirmando] = useState<ArquivoDaBiblioteca | null>(null)
+  const [liberando, setLiberando] = useState<ArquivoDaBiblioteca | null>(null)
   const lista = filtroTipo ? biblioteca.filter((a) => a.tipo === filtroTipo) : biblioteca
   function alternar(id: string) {
     if (desabilitado) return
-    // Material de terceiro não entra em peça nenhuma: é referência.
-    if (biblioteca.find((a) => a.id === id)?.autorizacao === 'internal') return
+    // Tirar da peça é sempre possível — inclusive o uso interno que entrou
+    // junto com uma importação; era isto que deixava a peça sem saída.
     if (selecionados.includes(id)) { onMudar(selecionados.filter((x) => x !== id)); return }
+    const arquivo = biblioteca.find((a) => a.id === id)
+    // Material de terceiro não entra direto: o clique abre a liberação, que é
+    // decisão de administrador e fica registrada no log.
+    if (arquivo?.autorizacao === 'internal') {
+      if (onLiberar) setLiberando(arquivo)
+      return
+    }
     if (selecionados.length >= limite) return
     onMudar([...selecionados, id])
   }
@@ -2137,6 +2164,7 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
     </p>
   }
   const pendentesEscolhidas = lista.filter((a) => selecionados.includes(a.id) && a.autorizacao === 'pending')
+  const internasEscolhidas = lista.filter((a) => selecionados.includes(a.id) && a.autorizacao === 'internal')
 
   return (
     <div className="flex flex-col gap-2">
@@ -2146,12 +2174,12 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
         const interna = a.autorizacao === 'internal'
         const pendente = a.autorizacao === 'pending'
         return (
-          <button key={a.id} type="button" onClick={() => alternar(a.id)} disabled={desabilitado || interna}
+          <button key={a.id} type="button" onClick={() => alternar(a.id)} disabled={desabilitado || (interna && !onLiberar && ordem < 0)}
             className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-colors ${
-              ordem >= 0 ? (pendente ? 'border-amber-500' : 'border-primary') : 'border-transparent hover:border-border'
-            } ${interna ? 'cursor-not-allowed' : ''}`}
+              ordem >= 0 ? (pendente ? 'border-amber-500' : interna ? 'border-destructive' : 'border-primary') : 'border-transparent hover:border-border'
+            } ${interna && !onLiberar ? 'cursor-not-allowed' : ''}`}
             title={interna
-              ? `${a.nome} — uso interno: material de terceiro, não publica em nome da Cruz Vermelha`
+              ? `${a.nome} — uso interno: material de terceiro. ${onLiberar ? 'Clique para liberar (administrador).' : 'Não publica em nome da Cruz Vermelha.'}`
               : pendente ? `${a.nome} — falta confirmar a autorização de uso de imagem` : a.nome}
           >
             {a.tipo === 'video'
@@ -2195,6 +2223,50 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
         </div>
       ))}
 
+      {/* Uso interno DENTRO da peça (entrou junto com a importação): a saída
+          existe dos dois lados — tirar da peça, ou liberar de vez. */}
+      {!desabilitado && internasEscolhidas.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs">
+          <ShieldAlert className="size-3.5 shrink-0 text-destructive" />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">{a.nome}</span> é material de terceiro (uso interno) — a peça não sai assim.
+          </span>
+          <button
+            type="button"
+            onClick={() => onMudar(selecionados.filter((x) => x !== a.id))}
+            className="rounded-md border border-border px-2 py-1 font-medium transition-colors hover:bg-muted"
+          >
+            Tirar da peça
+          </button>
+          {onLiberar && (
+            <button
+              type="button"
+              onClick={() => setLiberando(a)}
+              className="rounded-md border border-destructive/50 px-2 py-1 font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              Liberar uso
+            </button>
+          )}
+        </div>
+      ))}
+
+      {liberando && onLiberar && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs">
+          <p className="font-medium">Liberar “{liberando.nome}” para publicação?</p>
+          <p className="mt-1 text-muted-foreground">
+            Este arquivo veio de outra instituição e está marcado como uso interno. Ao liberar, você declara que a
+            Cruz Vermelha Brasileira — Rio de Janeiro tem permissão da fonte para republicá-lo, e assume o compromisso
+            de dar o crédito na peça. A liberação é restrita a administradores e fica registrada no log, com seu nome.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" variant="destructive" onClick={() => { onLiberar(liberando); setLiberando(null) }}>
+              <Check className="size-3.5" />Liberar uso
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setLiberando(null)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+
       {confirmando && (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
           <p className="font-medium">Autorizar “{confirmando.nome}”?</p>
@@ -2214,7 +2286,7 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
   )
 }
 
-function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, onAutorizarMidia, iaDisponivel, melhoria, onRecarregarBiblioteca }: {
+function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMestre, mestre, onEditar, onPronta, onRealimentar, onReprocessar, encerrado, workspaceId, onNovaMidia, onAutorizarMidia, onLiberarMidia, iaDisponivel, melhoria, onRecarregarBiblioteca }: {
   destino: DestinoRegistro
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
   fileIdsDoMestre: string[]
@@ -2229,6 +2301,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
   workspaceId: string
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   onAutorizarMidia: (arquivo: ArquivoDaBiblioteca) => void
+  onLiberarMidia: (arquivo: ArquivoDaBiblioteca) => void
   iaDisponivel: boolean
   melhoria: MelhoriaDisponivel
   onRecarregarBiblioteca: () => void
@@ -2392,6 +2465,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
             desabilitado={congelado}
             filtroTipo={filtroDeTipo}
             onAutorizar={onAutorizarMidia}
+            onLiberar={onLiberarMidia}
           />
           {temImagemDeIa && (
             <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
