@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
+import { LogoDoCanal } from '@/components/ui/logo-do-canal'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
 import { PainelDoCerebro } from '@/components/app/cerebro/painel'
 
@@ -94,8 +95,10 @@ export default async function RedesPage() {
                     <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                       {dests.length
                         ? dests.map((d, i) => (
-                            <span key={i} className="inline-flex items-center gap-0.5">
-                              {d.canal === 'site_web' && <Globe className="size-3" />}
+                            <span key={i} className="inline-flex items-center gap-1">
+                              {d.canal === 'site_web'
+                                ? <Globe className="size-3" />
+                                : <LogoDoCanal canal={d.canal} tamanho={12} />}
                               {adapter(d.canal)?.nome ?? d.canal}
                               {i < dests.length - 1 && ' ·'}
                             </span>

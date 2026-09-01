@@ -1,5 +1,6 @@
 import { montarPaginaDoSite, escapar } from '@/lib/site/esqueleto'
 import { NOME_DO_CANAL, resumoDoPost, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
+import { svgDaMarca } from '@/lib/marcas'
 
 /**
  * A central de notícias — /noticias/ com cara de primeira página de jornal.
@@ -51,13 +52,9 @@ const CSS_INDICE = `
 .tempo ol{list-style:none;margin:0;padding:0}
 .tempo li{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
 .tempo time{flex:0 0 92px;color:var(--muted);font-size:13px;padding-top:3px}
-.tempo .canal{display:inline-block;flex:0 0 auto;align-self:flex-start;border-radius:999px;padding:2px 10px;font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#fff;background:var(--ink)}
-
-/* Com o ".tempo" na frente para vencer a regra base — sem ele, a cor de cada
-   canal perde na especificidade e toda etiqueta sai preta. */
-.tempo .canal-instagram{background:#c13584}.tempo .canal-facebook{background:#1877f2}.tempo .canal-linkedin{background:#0a66c2}
-.tempo .canal-x{background:#111}.tempo .canal-youtube{background:#cc0000}.tempo .canal-tiktok{background:#161823}
-.tempo .canal-threads{background:#333}.tempo .canal-bluesky{background:#1185fe}.tempo .canal-newsletter{background:var(--red)}
+/* A marca oficial do canal + o nome: sem pílula, o logo é a identidade. */
+.tempo .canal{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;align-self:flex-start;padding-top:2px;font-size:12.5px;font-weight:700;letter-spacing:.2px;color:var(--ink);min-width:108px}
+.tempo .canal svg{flex:none}
 .tempo .fala{min-width:0;flex:1}
 .tempo .fala p{margin:0;font-size:15.5px;line-height:1.6;color:var(--text)}
 .tempo .fala a{color:var(--blue);font-weight:600;font-size:13.5px;text-decoration:none}
@@ -98,8 +95,8 @@ export function paginaDeNoticias(
       .format(d).replace(/\. de /g, ' ').replace('.', '')
 
   // A linha do tempo: o que saiu em CADA canal, do mais novo ao mais velho.
-  // O nome do canal sai por extenso e o texto sem marcação — este é um jornal,
-  // não um log de sistema.
+  // Cada canal aparece com a MARCA oficial (o glifo de verdade, embutido como
+  // SVG) e o nome por extenso — este é um jornal, não um log de sistema.
   const tempo = linhaDoTempo.length
     ? `<section class="tempo">
         <div class="tempo-topo">
@@ -110,9 +107,10 @@ export function paginaDeNoticias(
           ${linhaDoTempo.map((i) => {
             const nome = NOME_DO_CANAL[i.canal] ?? i.canal
             const resumo = resumoDoPost(i.texto)
+            const logo = svgDaMarca(i.canal, 18)
             return `<li>
             <time datetime="${i.quando.toISOString()}">${escapar(dataCurta(i.quando))}</time>
-            <span class="canal canal-${escapar(i.canal)}">${escapar(nome)}</span>
+            <span class="canal">${logo}${escapar(nome)}</span>
             <div class="fala">
               ${resumo ? `<p>${escapar(resumo)}</p>` : ''}
               ${i.url ? `<a href="${escapar(i.url)}" target="_blank" rel="noopener">Ver no ${escapar(nome)} →</a>` : ''}

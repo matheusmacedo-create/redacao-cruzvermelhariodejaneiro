@@ -1,6 +1,10 @@
 import { Recado } from '@/components/newsletter/recado'
+import { RedirecionarParaNoticias } from '@/components/newsletter/redirecionar'
 
 export const metadata = { title: 'Inscrição confirmada — Cruz Vermelha RJ' }
+
+/** Quem acabou de pedir notícias vai para as notícias. */
+const CENTRAL_DE_NOTICIAS = 'https://cruzvermelhariodejaneiro.org/noticias/'
 
 export default async function Confirmado({
   searchParams,
@@ -14,7 +18,11 @@ export default async function Confirmado({
   // achar que a inscrição falhou e tentar de novo.
   if (ja) {
     return (
-      <Recado tom="confirmado" titulo="Inscrição confirmada">
+      <Recado
+        tom="confirmado"
+        titulo="Inscrição confirmada"
+        acao={<RedirecionarParaNoticias url={CENTRAL_DE_NOTICIAS} />}
+      >
         <p>Você já está na lista — não precisa fazer mais nada.</p>
         <p>A próxima edição chega no seu e-mail.</p>
       </Recado>
@@ -22,7 +30,11 @@ export default async function Confirmado({
   }
 
   return (
-    <Recado tom="confirmado" titulo="Pronto! Inscrição confirmada">
+    <Recado
+      tom="confirmado"
+      titulo="Pronto! Inscrição confirmada"
+      acao={<RedirecionarParaNoticias url={CENTRAL_DE_NOTICIAS} />}
+    >
       <p>
         Você vai receber as novidades da Cruz Vermelha do Rio de Janeiro: cursos,
         campanhas e o destino das doações.
