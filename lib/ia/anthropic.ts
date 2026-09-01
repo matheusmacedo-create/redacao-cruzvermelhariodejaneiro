@@ -110,6 +110,74 @@ export async function reescreverComClaude(pedido: {
   }
 }
 
+/** Uma imagem pronta para o modelo ver. */
+export type ImagemParaVer = { b64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' }
+
+/**
+ * Manda as fotos DE VERDADE para o Claude e devolve o texto da resposta.
+ * Uma chamada só para todas: mais barato e as legendas saem coerentes
+ * entre si.
+ */
+export async function verImagensComClaude(pedido: {
+  system: string
+  texto: string
+  imagens: ImagemParaVer[]
+}): Promise<{ texto: string; medida: MedidaDoClaude }> {
+  const chave = chaveDoClaude()
+  if (!chave) {
+    throw new IaError(
+      'Falta a chave da Anthropic. Cadastre ANTHROPIC_API_KEY nas variáveis de ambiente da Vercel e republique.',
+      0,
+    )
+  }
+
+  const cliente = new Anthropic({ apiKey: chave, timeout: 120_000, maxRetries: 1 })
+  const comecou = Date.now()
+  let resposta: Anthropic.Beta.BetaMessage
+  try {
+    resposta = await cliente.beta.messages.create({
+      model: modeloDoClaude(),
+      max_tokens: 4_000,
+      system: pedido.system,
+      messages: [{
+        role: 'user',
+        content: [
+          ...pedido.imagens.map((im) => ({
+            type: 'image' as const,
+            source: { type: 'base64' as const, media_type: im.mediaType, data: im.b64 },
+          })),
+          { type: 'text' as const, text: pedido.texto },
+        ],
+      }],
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+    })
+  } catch (causa) {
+    throw traduzirErro(causa)
+  }
+
+  if (resposta.stop_reason === 'refusal') {
+    throw new IaError('O Claude recusou estas imagens.', 502)
+  }
+
+  const texto = resposta.content
+    .filter((bloco): bloco is Anthropic.Beta.BetaTextBlock => bloco.type === 'text')
+    .map((bloco) => bloco.text)
+    .join('')
+    .trim()
+  if (!texto) throw new IaError('O Claude respondeu sem texto.', 502)
+
+  return {
+    texto,
+    medida: {
+      modelo: resposta.model,
+      entrada: resposta.usage.input_tokens,
+      saida: resposta.usage.output_tokens,
+      segundos: Math.round((Date.now() - comecou) / 100) / 10,
+    },
+  }
+}
+
 /** Erro do SDK vira IaError com status e a dica que poupa a caçada. */
 function traduzirErro(causa: unknown): IaError {
   if (causa instanceof Anthropic.AuthenticationError) {
