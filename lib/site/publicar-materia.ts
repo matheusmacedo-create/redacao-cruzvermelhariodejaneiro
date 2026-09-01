@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { parseContentBlocks } from '@/lib/content-blocks'
 import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/slug'
 import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
-import { withFtp, enviarArquivo, FtpConfigError } from '@/lib/publicacao/ftp'
+import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
 import { atualizarVitrine } from '@/lib/site/vitrine'
 
 export type ResultadoDoSite = {
@@ -237,5 +237,76 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       ? bruto.split(process.env.FTP_PASSWORD).join('«senha»')
       : bruto
     return { erro: limpo.slice(0, 500) }
+  }
+}
+
+/**
+ * Tira uma matéria do ar — o desfazer da publicação.
+ *
+ * Nasceu no dia em que a central de notícias entrou no ar e expôs, na
+ * primeira página e no sitemap, as matérias de teste publicadas meses antes:
+ * "Teste1", "UASNASKADK…". Publicar sempre teve botão; despublicar não tinha
+ * verbo nenhum — o que entrava no ar era para sempre.
+ *
+ * A pasta sai do servidor, o registro perde site_url (o slug FICA: se a
+ * matéria voltar ao ar, volta no mesmo endereço, e links antigos revivem em
+ * vez de quebrar para sempre), e a vitrine é regerada na mesma sessão — o
+ * índice e o sitemap param de listar a página no mesmo instante em que ela
+ * deixa de existir.
+ */
+export async function tirarMateriaDoAr(pedido: {
+  workspaceId: string
+  userId: string
+  contentId: string
+}): Promise<{ erro?: string; url?: string; aviso?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: peca } = await supabase
+      .from('content_pieces').select('id,title,slug,site_url')
+      .eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId).maybeSingle()
+    if (!peca) return { erro: 'Matéria não encontrada neste espaço.' }
+    if (!peca.site_url) return { erro: 'Esta matéria não está no ar.' }
+
+    const daUrl = String(peca.site_url).replace(/\/+$/, '').split('/').pop() ?? ''
+    const slug = (peca.slug as string | null) || daUrl
+    if (!slugValido(slug)) return { erro: 'Não reconheci o endereço desta matéria no site.' }
+
+    let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined
+    await withFtp(async (client, config) => {
+      try {
+        await removerPastaDeMateria(client, config, slug)
+      } catch (causa) {
+        // Pasta que já não existe não é falha: o objetivo é ela não estar lá.
+        const texto = causa instanceof Error ? causa.message : String(causa)
+        if (!/550|not found|no such/i.test(texto)) throw causa
+      }
+
+      // O registro perde o endereço ANTES da vitrine ser regerada: é dele que
+      // a vitrine lê a lista, e na ordem inversa a página apagada continuaria
+      // no índice até a próxima publicação.
+      const { error } = await supabase.from('content_pieces')
+        .update({ site_url: null, site_published_at: null, updated_at: new Date().toISOString() })
+        .eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId)
+      if (error) throw new Error('A pasta saiu do servidor, mas não consegui limpar o registro aqui.')
+
+      try { vitrine = await atualizarVitrine(client, config, pedido.workspaceId) } catch { vitrine = undefined }
+    })
+
+    await supabase.from('activity_log').insert({
+      workspace_id: pedido.workspaceId,
+      actor_id: pedido.userId,
+      action: 'site_unpublished',
+      entity_type: 'content',
+      entity_id: pedido.contentId,
+      metadata: { titulo: peca.title, slug },
+    })
+
+    return {
+      url: String(peca.site_url),
+      aviso: vitrine?.aviso ?? (vitrine ? undefined : 'a página saiu, mas o índice e o sitemap não foram regerados — publique ou tire outra matéria para atualizá-los'),
+    }
+  } catch (causa) {
+    if (causa instanceof FtpConfigError) return { erro: causa.message }
+    return { erro: causa instanceof Error ? causa.message.slice(0, 300) : 'Não foi possível tirar a matéria do ar.' }
   }
 }

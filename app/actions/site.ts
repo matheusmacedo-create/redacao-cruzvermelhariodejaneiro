@@ -1,6 +1,9 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { createClient } from '@/lib/supabase/server'
+import { tirarMateriaDoAr } from '@/lib/site/publicar-materia'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite, enviarPastaFixaNaRaiz } from '@/lib/publicacao/ftp'
@@ -248,5 +251,59 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
     }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível publicar as páginas do site.') }
+  }
+}
+
+
+export type MateriaNoAr = { id: string; titulo: string; url: string; publicadaEm: string | null }
+
+/** As matérias publicadas no site — a lista viva que a vitrine expõe ao público. */
+export async function materiasNoAr(): Promise<{ erro?: string; materias?: MateriaNoAr[] }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('content_pieces')
+      .select('id,title,site_url,site_published_at')
+      .eq('workspace_id', context.workspace.id)
+      .not('site_url', 'is', null)
+      .order('site_published_at', { ascending: false })
+      .limit(200)
+    if (error) throw new Error('Não foi possível listar as matérias publicadas.')
+    return {
+      materias: (data ?? []).map((p: { id: string; title: string | null; site_url: unknown; site_published_at: string | null }) => ({
+        id: p.id as string,
+        titulo: String(p.title ?? 'Sem título'),
+        url: String(p.site_url),
+        publicadaEm: (p.site_published_at as string | null) ?? null,
+      })),
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível listar as matérias publicadas.') }
+  }
+}
+
+/**
+ * Tira uma matéria do ar: apaga a pasta no servidor, limpa o endereço no
+ * registro e regera o índice e o sitemap na mesma sessão. Reversível —
+ * republicar volta ao MESMO endereço, porque o slug é preservado.
+ */
+export async function tirarMateriaDoArAction(formData: FormData): Promise<{ erro?: string; recado?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (!['admin', 'editor'].includes(context.role)) {
+      throw new Error('Só administradores e editores podem tirar uma matéria do ar.')
+    }
+    const contentId = String(formData.get('contentId') ?? '').trim()
+    if (!contentId) throw new Error('Matéria não identificada.')
+
+    const r = await tirarMateriaDoAr({ workspaceId: context.workspace.id, userId: context.user.id, contentId })
+    if (r.erro) return { erro: r.erro }
+
+    revalidatePath('/configuracoes')
+    revalidatePath(`/conteudos/${contentId}`)
+    return { recado: r.aviso ? `A página saiu do ar. Atenção: ${r.aviso}.` : 'A página saiu do ar, e o índice e o sitemap já não a listam.' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível tirar a matéria do ar.') }
   }
 }
