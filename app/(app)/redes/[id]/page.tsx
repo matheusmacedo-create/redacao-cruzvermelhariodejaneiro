@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { PacoteHub } from '@/components/app/hub/hub'
 import { iaConfigurada } from '@/lib/ia/openai'
 import { garantirBaseNoSite } from '@/app/actions/pacotes'
+import { lerLegendas } from '@/lib/publicacao/legendas'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
 const paraLocal = (iso: string | null) => {
@@ -50,6 +51,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       linkUrl: m.linkUrl ?? '',
       slug: m.slug ?? '',
       notas: m.notas ?? '',
+      legendas: lerLegendas((linha.mestre as Record<string, unknown> | null)?.legendas),
     },
     fileIds: linha.mestre_file_ids ?? [],
   }

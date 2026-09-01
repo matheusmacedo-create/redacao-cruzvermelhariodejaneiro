@@ -8,6 +8,7 @@ import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/pub
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarEdicao } from '@/lib/newsletter/envio'
 import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
+import { corpoComMidias, lerLegendas } from '@/lib/publicacao/legendas'
 
 /**
  * Ações do hub multicanal: pacote (mestre) e destinos (variantes).
@@ -40,6 +41,12 @@ function deBrasilia(valor: string): Date {
     return new Date(`${valor}${valor.length === 16 ? ':00' : ''}-03:00`)
   }
   return new Date(valor)
+}
+
+/** JSON vindo do formulário: texto quebrado vira objeto vazio, nunca exceção. */
+function comoJson(valor: string): unknown {
+  if (!valor) return {}
+  try { return JSON.parse(valor) } catch { return {} }
 }
 
 function comoErro(causa: unknown, padrao: string): ResultadoDoHub {
@@ -188,6 +195,9 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
       linkUrl: texto(formData, 'linkUrl'),
       slug: texto(formData, 'slug'),
       notas: texto(formData, 'notas'),
+      // Chega como JSON porque é um mapa, não um campo. O que não couber no
+      // formato é descartado por lerLegendas — o corpo vem do navegador.
+      legendas: lerLegendas(comoJson(texto(formData, 'legendas'))),
     }
     const agendarPara = texto(formData, 'agendarPara')
     if (agendarPara && Number.isNaN(deBrasilia(agendarPara).getTime())) {
@@ -1165,18 +1175,21 @@ async function publicarSiteDoPacote(
   const extras = destino.extras ?? {}
 
   // Corpo da página: o texto da variante + as mídias como blocos, porque o
-  // gerador de página lê tokens de mídia do corpo.
+  // gerador de página lê tokens de mídia do corpo. A legenda e o crédito vêm
+  // do que foi escrito no pacote — antes daqui saía o NOME DO ARQUIVO como
+  // legenda, e a página publicada mostrava "cerebro-9093f620.jpg" embaixo da
+  // foto.
   let corpoDaPagina = destino.corpo
   if (destino.file_ids.length) {
     const { data: arquivos } = await supabase
-      .from('files').select('id,name,storage_path')
+      .from('files').select('id,storage_path')
       .in('id', destino.file_ids).eq('workspace_id', workspaceId)
     const porId = new Map((arquivos ?? []).map((a) => [a.id, a]))
-    const tokens = destino.file_ids
-      .map((id) => porId.get(id))
-      .filter((a): a is NonNullable<typeof a> => Boolean(a?.storage_path))
-      .map((a) => `![${a.name ?? ''}](/api/private-blob?pathname=${encodeURIComponent(a.storage_path!)})`)
-    if (tokens.length) corpoDaPagina = `${tokens[0]}\n\n${corpoDaPagina}${tokens.length > 1 ? `\n\n${tokens.slice(1).join('\n\n')}` : ''}`
+    const midias = destino.file_ids
+      .map((id) => ({ id, arquivo: porId.get(id) }))
+      .filter((m): m is { id: string; arquivo: { id: string; storage_path: string } } => Boolean(m.arquivo?.storage_path))
+      .map((m) => ({ id: m.id, url: `/api/private-blob?pathname=${encodeURIComponent(m.arquivo.storage_path)}` }))
+    corpoDaPagina = corpoComMidias(corpoDaPagina, midias, lerLegendas((pacote.mestre as Record<string, unknown> | null)?.legendas))
   }
 
   let contentId = String(extras.contentId ?? '')

@@ -24,6 +24,7 @@ import {
 import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
 import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
+import { corpoComMidias } from '@/lib/publicacao/legendas'
 import { gerarSlug } from '@/lib/site/slug'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
@@ -34,7 +35,7 @@ import {
 } from '@/app/actions/pacotes'
 import { autorizarUsoDeImagem } from '@/app/actions/arquivos'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
-import type { ArquivoDaBiblioteca, DestinoRegistro, MestreRegistro, PacoteRegistro } from './tipos'
+import type { ArquivoDaBiblioteca, DestinoRegistro, LegendaDaMidia, MestreRegistro, PacoteRegistro } from './tipos'
 
 /**
  * O hub de criação multicanal: a notícia no site → destinos → variantes.
@@ -249,6 +250,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     form.set('linkUrl', mestre.linkUrl)
     form.set('slug', mestre.slug)
     form.set('notas', mestre.notas)
+    form.set('legendas', JSON.stringify(mestre.legendas ?? {}))
     form.set('agendarPara', agendarPara)
     for (const id of fileIds) form.append('fileIds', id)
     const r = await salvarMestre(form)
@@ -1022,6 +1024,12 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   const muda = (campo: keyof MestreRegistro) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onMudar({ ...mestre, [campo]: e.target.value })
 
+  // Na ordem em que entram na página, e não na ordem da Biblioteca: a
+  // primeira é a que abre a matéria, e isso precisa estar visível.
+  const escolhidas = fileIds
+    .map((id) => biblioteca.find((a) => a.id === id))
+    .filter((a): a is ArquivoDaBiblioteca => Boolean(a))
+
   const naoSaiNoSite = base?.estado === 'ignorada'
   const publicada = base?.estado === 'publicada'
   const congelado = encerrado || publicada || base?.estado === 'publicando'
@@ -1107,6 +1115,52 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           {!congelado && <BotaoEnviarMidia workspaceId={workspaceId} onEnviada={onNovaMidia} />}
         </div>
         <GradeDaBiblioteca biblioteca={biblioteca} selecionados={fileIds} onMudar={onFileIds} limite={10} desabilitado={congelado} onAutorizar={onAutorizarMidia} />
+
+        {/* O rodapé de cada foto na página. Existe aqui porque a foto anexada
+            ao pacote não tem onde carregar isso — a escrita dentro do texto
+            leva legenda e crédito na própria linha, esta não levava nenhum, e
+            a página saía com o nome do arquivo embaixo da imagem. */}
+        {escolhidas.length > 0 && (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Rodapé das fotos na página
+            </p>
+            {escolhidas.map((a, i) => {
+              const atual = mestre.legendas?.[a.id] ?? { legenda: '', credito: '' }
+              const mudarLegenda = (campos: Partial<LegendaDaMidia>) =>
+                onMudar({ ...mestre, legendas: { ...(mestre.legendas ?? {}), [a.id]: { ...atual, ...campos } } })
+              return (
+                <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border p-2">
+                  {a.tipo === 'video'
+                    ? <video src={a.previa} muted playsInline preload="metadata" className="size-16 shrink-0 rounded object-cover" />
+                    : <img src={a.previa} alt="" className="size-16 shrink-0 rounded object-cover" />}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <input
+                      value={atual.legenda}
+                      onChange={(e) => mudarLegenda({ legenda: e.target.value })}
+                      placeholder="Legenda — o que a foto mostra"
+                      disabled={congelado}
+                      className={inputClass}
+                    />
+                    <input
+                      value={atual.credito}
+                      onChange={(e) => mudarLegenda({ credito: e.target.value })}
+                      placeholder="Crédito — ex.: Ana Souza/CVB-RJ"
+                      disabled={congelado}
+                      className={inputClass}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      {i === 0
+                        ? 'Esta abre a matéria, em destaque.'
+                        : 'Entra no fim da página, depois do texto.'}
+                      {!atual.legenda.trim() && ' Sem legenda a foto sai muda para quem usa leitor de tela.'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* O que quase ninguém mexe fica recolhido: o endereço nasce do título,
@@ -2367,7 +2421,7 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
 function PreviaDestino({ destino, arquivoPorId, mestre }: {
   destino: DestinoRegistro | null
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
-  mestre: { titulo: string; subtitulo: string }
+  mestre: { titulo: string; subtitulo: string; legendas?: Record<string, LegendaDaMidia> }
 }) {
   if (!destino) {
     return (
@@ -2395,21 +2449,26 @@ function PreviaDestino({ destino, arquivoPorId, mestre }: {
  */
 function PreviaSite({ destino, mestre, arquivoPorId }: {
   destino: DestinoRegistro
-  mestre: { titulo: string; subtitulo: string }
+  mestre: { titulo: string; subtitulo: string; legendas?: Record<string, LegendaDaMidia> }
   arquivoPorId: Map<string, ArquivoDaBiblioteca>
 }) {
   const html = useMemo(() => {
     const arquivos = new Map<string, { nome: string; alt: string }>()
-    let corpo = destino.corpo
-    // Mídias entram na prévia como blocos, na mesma posição do disparo real.
-    const tokens = destino.fileIds
-      .map((id) => arquivoPorId.get(id))
-      .filter((a): a is ArquivoDaBiblioteca => Boolean(a))
-      .map((a) => {
-        arquivos.set(a.previa, { nome: a.previa, alt: a.nome })
-        return `![${a.nome}](${a.previa})`
-      })
-    if (tokens.length) corpo = `${tokens[0]}\n\n${corpo}${tokens.length > 1 ? `\n\n${tokens.slice(1).join('\n\n')}` : ''}`
+    // Mídias entram na prévia como blocos, pelo MESMO módulo que o disparo
+    // usa: era por montarem isto separado que a prévia e a página publicada
+    // erravam igual, com o nome do arquivo no lugar da legenda.
+    const anexadas = destino.fileIds
+      .map((id) => ({ id, arquivo: arquivoPorId.get(id) }))
+      .filter((m): m is { id: string; arquivo: ArquivoDaBiblioteca } => Boolean(m.arquivo))
+    // `alt` fica vazio de propósito: a descrição da foto é a legenda escrita,
+    // que já viaja no bloco. Pôr o nome do arquivo aqui era o que fazia a
+    // prévia mostrar "cerebro-9093f620.jpg" embaixo da imagem.
+    for (const m of anexadas) arquivos.set(m.arquivo.previa, { nome: m.arquivo.previa, alt: '' })
+    let corpo = corpoComMidias(
+      destino.corpo,
+      anexadas.map((m) => ({ id: m.id, url: m.arquivo.previa })),
+      mestre.legendas ?? {},
+    )
     // Fotos escritas no meio do texto: o gerador só desenha a mídia que
     // conhece, então cada uma precisa entrar no mapa antes de montar a página.
     for (const paragrafo of corpo.split(/\n\n+/)) {
