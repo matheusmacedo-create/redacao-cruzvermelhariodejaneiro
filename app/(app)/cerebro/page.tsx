@@ -75,6 +75,13 @@ export default async function CerebroPage({
             {f.rotulo}
           </Link>
         ))}
+        <Link
+          href="/cerebro/mapa"
+          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+          title="Todas as ligações num grafo: eixos, fontes, sinais, calendário e pacotes."
+        >
+          ✳ Mapa
+        </Link>
         {quando && (
           <span className="ml-auto text-xs text-muted-foreground">
             Atualizado {quando}
