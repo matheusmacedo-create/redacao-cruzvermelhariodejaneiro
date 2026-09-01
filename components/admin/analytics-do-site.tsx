@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { BarChart3, Check, ExternalLink, FileText, Loader2, Trash2 } from 'lucide-react'
+import { Archive, BarChart3, Check, ExternalLink, FileText, Loader2, Trash2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  ligarAnalyticsDoSite, materiasNoAr, publicarPaginasDoSite, tirarMateriaDoArAction,
-  type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
+  ligarAnalyticsDoSite, materiasArquivadas, materiasNoAr, publicarPaginasDoSite,
+  republicarMateriaAction, tirarMateriaDoArAction,
+  type MateriaArquivada, type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
 } from '@/app/actions/site'
 import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
 
@@ -105,10 +106,13 @@ function SecaoNoAr() {
   const [confirmando, setConfirmando] = useState<string | null>(null)
   const [tirando, iniciar] = useTransition()
 
+  const [arquivadas, setArquivadas] = useState<MateriaArquivada[] | null>(null)
+
   const carregar = useCallback(async () => {
-    const r = await materiasNoAr()
-    if (r.erro) setErro(r.erro)
-    else setMaterias(r.materias ?? [])
+    const [noAr, fora] = await Promise.all([materiasNoAr(), materiasArquivadas()])
+    if (noAr.erro) setErro(noAr.erro)
+    else setMaterias(noAr.materias ?? [])
+    if (!fora.erro) setArquivadas(fora.materias ?? [])
   }, [])
 
   const jaCarregou = useRef(false)
@@ -117,6 +121,18 @@ function SecaoNoAr() {
     jaCarregou.current = true
     carregar()
   }, [carregar])
+
+  function republicar(m: MateriaArquivada) {
+    setErro(''); setRecado('')
+    iniciar(async () => {
+      const form = new FormData()
+      form.set('contentId', m.id)
+      const r = await republicarMateriaAction(form)
+      if (r.erro) { setErro(r.erro); return }
+      setRecado(r.recado ?? 'De volta ao ar.')
+      await carregar()
+    })
+  }
 
   function tirar(m: MateriaNoAr) {
     setErro(''); setRecado(''); setConfirmando(null)
@@ -169,6 +185,30 @@ function SecaoNoAr() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* A pasta das arquivadas: nada do que saiu do ar se perdeu. O texto
+          continua no banco, e daqui ele volta — no mesmo endereço. */}
+      {(arquivadas?.length ?? 0) > 0 && (
+        <div className="mt-5">
+          <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Archive className="size-3.5" />Arquivadas — fora do ar
+          </h4>
+          <p className="mt-1 text-xs text-muted-foreground">
+            O texto de cada uma continua guardado; republicar volta ao mesmo endereço de antes.
+          </p>
+          <ul className="mt-2 divide-y divide-border rounded-lg border border-dashed border-border">
+            {arquivadas!.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate text-muted-foreground" title={`/noticias/${m.slug}/`}>{m.titulo}</span>
+                <span className="font-mono text-[11px] text-muted-foreground">/{m.slug}/</span>
+                <Button size="sm" variant="outline" disabled={tirando} onClick={() => republicar(m)}>
+                  {tirando ? <Loader2 className="size-3.5 animate-spin" /> : <Undo2 className="size-3.5" />}Republicar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

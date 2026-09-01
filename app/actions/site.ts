@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
-import { tirarMateriaDoAr } from '@/lib/site/publicar-materia'
+import { publicarMateria, tirarMateriaDoAr } from '@/lib/site/publicar-materia'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite, enviarPastaFixaNaRaiz } from '@/lib/publicacao/ftp'
@@ -256,6 +256,7 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
 
 
 export type MateriaNoAr = { id: string; titulo: string; url: string; publicadaEm: string | null }
+export type MateriaArquivada = { id: string; titulo: string; slug: string; atualizadaEm: string | null }
 
 /** As matérias publicadas no site — a lista viva que a vitrine expõe ao público. */
 export async function materiasNoAr(): Promise<{ erro?: string; materias?: MateriaNoAr[] }> {
@@ -280,6 +281,74 @@ export async function materiasNoAr(): Promise<{ erro?: string; materias?: Materi
     }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível listar as matérias publicadas.') }
+  }
+}
+
+/**
+ * A pasta das arquivadas: matérias que JÁ estiveram no ar e foram tiradas.
+ *
+ * O marcador é o slug sem site_url — o slug só nasce na publicação e é
+ * preservado de propósito quando a página sai do ar. Nada aqui foi perdido:
+ * o texto inteiro continua no banco, e republicar volta ao mesmo endereço.
+ * A lista existe para isso ficar VISÍVEL — matéria que some da tela é
+ * matéria que alguém acha que sumiu do mundo.
+ */
+export async function materiasArquivadas(): Promise<{ erro?: string; materias?: MateriaArquivada[] }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('content_pieces')
+      .select('id,title,slug,updated_at')
+      .eq('workspace_id', context.workspace.id)
+      .is('site_url', null)
+      .not('slug', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(200)
+    if (error) throw new Error('Não foi possível listar as matérias arquivadas.')
+    return {
+      materias: (data ?? []).map((p: { id: string; title: string | null; slug: unknown; updated_at: string | null }) => ({
+        id: p.id,
+        titulo: String(p.title ?? 'Sem título'),
+        slug: String(p.slug),
+        atualizadaEm: p.updated_at ?? null,
+      })),
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível listar as matérias arquivadas.') }
+  }
+}
+
+/**
+ * Republica uma matéria arquivada — a volta do "tirar do ar".
+ *
+ * Sai com o texto que está no banco, no MESMO endereço de antes (o slug foi
+ * preservado justamente para isto): links compartilhados à época revivem.
+ * O índice e o sitemap se regeram sozinhos dentro da publicação.
+ */
+export async function republicarMateriaAction(formData: FormData): Promise<{ erro?: string; recado?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (!['admin', 'editor'].includes(context.role)) {
+      throw new Error('Só administradores e editores podem republicar uma matéria.')
+    }
+    const contentId = String(formData.get('contentId') ?? '').trim()
+    if (!contentId) throw new Error('Matéria não identificada.')
+
+    const r = await publicarMateria({
+      workspaceId: context.workspace.id,
+      userId: context.user.id,
+      contentId,
+      // Vazios de propósito: o texto que vale é o que está guardado no banco.
+      titulo: '', subtitulo: '', corpo: '', slug: '',
+    })
+    if (r.erro) return { erro: r.erro }
+
+    revalidatePath('/configuracoes')
+    revalidatePath(`/conteudos/${contentId}`)
+    return { recado: `De volta ao ar em ${r.url}.${r.aviso ? ` Atenção: ${r.aviso}` : ''}` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível republicar a matéria.') }
   }
 }
 
