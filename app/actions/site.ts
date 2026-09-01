@@ -3,7 +3,10 @@
 import { requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { withFtp, baixarTexto, regravarPaginaListada } from '@/lib/publicacao/ftp'
+import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite, enviarPastaFixaNaRaiz } from '@/lib/publicacao/ftp'
+import { paginaDePrivacidade, paginaDeTermos } from '@/lib/site/juridico'
+import { ligarAtalhosNaHome } from '@/lib/site/atalho-noticias'
+import { atualizarVitrine, descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { ligarAnalyticsNaPagina, temAnalytics, ID_DO_ANALYTICS } from '@/lib/site/analytics'
 import type { Client } from 'basic-ftp'
@@ -152,5 +155,98 @@ async function listarHtml(client: Client, pasta: string, profundidade: number, s
     } else if (item.isFile && item.name.toLowerCase().endsWith('.html')) {
       saida.push(caminho)
     }
+  }
+}
+
+
+export type ResultadoDasPaginas = {
+  erro?: string
+  recado?: string
+  detalhes?: string[]
+}
+
+/**
+ * Publica as páginas de base do site e liga os atalhos — tudo de uma vez.
+ *
+ *  1. /privacidade/ e /termos/ — o rodapé linkava /privacidade desde o
+ *     primeiro dia e a página nunca existiu: era um 404 num site que roda
+ *     Google Analytics e pixel. Agora existem, com o CNPJ e o endereço
+ *     oficiais da filial.
+ *  2. A central de notícias em /noticias/ — que também tira do ar o teste
+ *     que estava servindo de índice.
+ *  3. sitemap.xml e robots.txt — e a partir daqui os três acima se mantêm
+ *     sozinhos: toda publicação de matéria os regera.
+ *  4. Os atalhos de Notícias no menu e no rodapé da página inicial.
+ *
+ * Idempotente: rodar de novo só regrava o que é gerado (que é sempre igual ou
+ * mais novo) e não duplica atalho nenhum.
+ */
+export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
+  try {
+    const context = await requireWorkspace()
+    if (context.role !== 'admin') throw new Error('Só um administrador pode alterar as páginas do site.')
+
+    const detalhes: string[] = []
+
+    const resultado = await withFtp(async (client, config) => {
+      const raiz = await descobrirRaizDoSite(client, config)
+      if (!raiz) return { ok: false as const, detalhe: 'Não encontrei a pasta do site pela home. Me diga qual é a pasta e eu acrescento.' }
+
+      // 1. Páginas jurídicas.
+      const agora = new Date()
+      await enviarPastaFixaNaRaiz(client, raiz, 'privacidade', paginaDePrivacidade(agora))
+      detalhes.push('/privacidade/ publicada')
+      await enviarPastaFixaNaRaiz(client, raiz, 'termos', paginaDeTermos(agora))
+      detalhes.push('/termos/ publicada')
+
+      // 2 e 3. Índice de notícias + sitemap + robots.
+      const vitrine = await atualizarVitrine(client, config, context.workspace.id, agora)
+      if (vitrine.indice) detalhes.push(`/noticias/ atualizada (${vitrine.noticias} matéria(s))`)
+      if (vitrine.sitemap) detalhes.push('sitemap.xml no ar')
+      if (vitrine.robots) detalhes.push('robots.txt no ar')
+      if (vitrine.aviso) detalhes.push(`atenção: ${vitrine.aviso}`)
+
+      // 4. Atalhos na home.
+      try {
+        const home = await baixarTexto(client, `${raiz}/index.html`)
+        const troca = ligarAtalhosNaHome(home)
+        if (troca.estado === 'ligado') {
+          await enviarNaRaizDoSite(client, raiz, 'index.html', troca.html)
+          detalhes.push(troca.detalhe)
+        } else {
+          detalhes.push(troca.detalhe)
+        }
+      } catch {
+        detalhes.push('não consegui ler a página inicial para ligar os atalhos')
+      }
+
+      return { ok: true as const }
+    })
+
+    if (!resultado.ok) return { erro: resultado.detalhe }
+
+    // A prova pública: a política de privacidade tem de responder 200.
+    let confirmado = false
+    try {
+      const res = await fetch('https://cruzvermelhariodejaneiro.org/privacidade/', { cache: 'no-store' })
+      confirmado = res.ok && (await res.text()).includes('Política de Privacidade')
+    } catch { /* rede daqui; a gravação não se desfaz */ }
+
+    await createAdminClient().from('activity_log').insert({
+      workspace_id: context.workspace.id,
+      actor_id: context.user.id,
+      action: 'paginas_do_site_publicadas',
+      entity_type: 'site',
+      metadata: { detalhes: detalhes.slice(0, 20), confirmado },
+    })
+
+    return {
+      recado: confirmado
+        ? 'Páginas publicadas e conferidas no ar.'
+        : 'Páginas gravadas. A conferência pública ainda não respondeu — veja daqui a pouco.',
+      detalhes,
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível publicar as páginas do site.') }
   }
 }

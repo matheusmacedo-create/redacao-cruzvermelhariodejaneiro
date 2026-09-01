@@ -214,7 +214,7 @@ export async function baixarTexto(client: Client, caminho: string): Promise<stri
  * fechada de nomes literais, nunca um caminho montado a partir de entrada de
  * ninguém. O que não está aqui não é gravável por esta função.
  */
-const NOMES_PERMITIDOS_NA_RAIZ = new Set(['index.html'])
+const NOMES_PERMITIDOS_NA_RAIZ = new Set(['index.html', 'sitemap.xml', 'robots.txt'])
 
 /**
  * Grava um arquivo na raiz do site, fora da pasta de matérias.
@@ -255,4 +255,27 @@ export async function regravarPaginaListada(
     throw new FtpEscopoError(caminho)
   }
   await client.uploadFrom(Readable.from(Buffer.from(conteudo, 'utf8')), caminho)
+}
+
+/** Pastas de página fixa que o app pode criar na raiz do site. Lista fechada. */
+const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['privacidade', 'termos'])
+
+/**
+ * Grava a index.html de uma pasta fixa na raiz do site (ex.: /privacidade/).
+ *
+ * Mesma disciplina de enviarNaRaizDoSite: só nomes da lista, nunca um caminho
+ * a interpretar. A pasta é criada se não existir.
+ */
+export async function enviarPastaFixaNaRaiz(
+  client: Client,
+  raiz: string,
+  pasta: string,
+  conteudo: string,
+): Promise<string> {
+  if (!PASTAS_PERMITIDAS_NA_RAIZ.has(pasta)) throw new FtpEscopoError(pasta)
+  const destino = `${raiz.replace(/\/$/, '')}/${pasta}`
+  await client.ensureDir(destino)
+  await client.uploadFrom(Readable.from(Buffer.from(conteudo, 'utf8')), `${destino}/index.html`)
+  await client.cd('/')
+  return `${destino}/index.html`
 }

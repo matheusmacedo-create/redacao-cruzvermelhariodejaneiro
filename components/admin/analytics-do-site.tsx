@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { BarChart3, Check, Loader2 } from 'lucide-react'
+import { BarChart3, Check, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ligarAnalyticsDoSite, type ResultadoDoAnalytics } from '@/app/actions/site'
+import { ligarAnalyticsDoSite, publicarPaginasDoSite, type ResultadoDoAnalytics, type ResultadoDasPaginas } from '@/app/actions/site'
 import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
 
 /**
@@ -16,6 +16,7 @@ import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
  */
 export function AnalyticsDoSite() {
   const [resultado, setResultado] = useState<ResultadoDoAnalytics | null>(null)
+  const [paginas, setPaginas] = useState<ResultadoDasPaginas | null>(null)
   const [rodando, iniciar] = useTransition()
 
   return (
@@ -48,6 +49,34 @@ export function AnalyticsDoSite() {
           )}
         </div>
       )}
+      <div className="mt-6 border-t border-border pt-5">
+        <h3 className="flex items-center gap-2 text-sm font-semibold"><FileText className="size-4" />Páginas de base e vitrine</h3>
+        <p className="mt-1.5 text-sm text-muted-foreground">
+          Publica a Política de Privacidade e os Termos de Uso (com o CNPJ e o endereço da filial), a central de
+          notícias em /noticias/, o sitemap.xml e o robots.txt, e liga os atalhos de Notícias no menu e no rodapé da
+          página inicial. Daqui em diante o índice e o sitemap se atualizam sozinhos a cada matéria publicada.
+        </p>
+        <div className="mt-3">
+          <Button
+            variant="outline"
+            disabled={rodando}
+            onClick={() => iniciar(async () => setPaginas(await publicarPaginasDoSite()))}
+          >
+            {rodando ? <><Loader2 className="size-4 animate-spin" />Publicando…</> : 'Publicar páginas do site'}
+          </Button>
+        </div>
+        {paginas?.erro && <p className="mt-3 text-sm text-destructive">{paginas.erro}</p>}
+        {paginas?.recado && (
+          <div className="mt-3 text-sm">
+            <p className="flex items-center gap-1.5 font-medium text-success"><Check className="size-4" />{paginas.recado}</p>
+            {(paginas.detalhes?.length ?? 0) > 0 && (
+              <ul className="mt-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
+                {paginas.detalhes!.map((d) => <li key={d}>{d}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
