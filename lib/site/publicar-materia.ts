@@ -5,6 +5,7 @@ import { parseContentBlocks } from '@/lib/content-blocks'
 import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/slug'
 import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, FtpConfigError } from '@/lib/publicacao/ftp'
+import { atualizarVitrine } from '@/lib/site/vitrine'
 
 export type ResultadoDoSite = {
   erro?: string
@@ -163,14 +164,27 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       arquivos,
     })
 
+    const url = `${base}/${slug}/`
+
+    let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined
     await withFtp(async (client, config) => {
       for (const arquivo of paraSubir) {
         await enviarArquivo(client, config, `${slug}/${arquivo.nome}`, arquivo.bytes)
       }
       await enviarArquivo(client, config, `${slug}/index.html`, html)
-    })
 
-    const url = `${base}/${slug}/`
+      // A vitrine sobe no mesmo fôlego: a notícia entra no ar e o índice já a
+      // empilha, o sitemap já a registra. Falha aqui não desfaz a publicação —
+      // vira aviso, porque a matéria no ar vale mais do que o mapa.
+      try {
+        vitrine = await atualizarVitrine(client, config, pedido.workspaceId, agora, {
+          titulo: peca.title,
+          descricao: peca.subtitle,
+          url,
+          publicadaEm: agora,
+        })
+      } catch { vitrine = undefined }
+    })
 
     let aviso: string | undefined
     let paginaNoAr: boolean | undefined
@@ -183,6 +197,8 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     } catch {
       aviso = `Os arquivos subiram, mas não consegui abrir ${url} daqui para conferir. Abra no navegador.`
     }
+    const avisoDaVitrine = vitrine?.aviso ?? (vitrine ? undefined : 'o índice de notícias e o sitemap não foram atualizados desta vez')
+    if (avisoDaVitrine) aviso = aviso ? `${aviso} Além disso: ${avisoDaVitrine}.` : `A matéria está no ar; ${avisoDaVitrine}.`
 
     const { error } = await supabase.from('content_pieces').update({
       slug,
