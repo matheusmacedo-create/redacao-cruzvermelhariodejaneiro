@@ -19,6 +19,16 @@ export type ArquivoDaBiblioteca = {
   geradaPorIa?: boolean
 }
 
+/**
+ * O rodapé de uma foto na página do site: o que ela mostra e de quem é.
+ *
+ * Vive por arquivo dentro do pacote, e não no arquivo da Biblioteca, porque a
+ * legenda é do uso — a mesma foto abre uma matéria sobre a visita e ilustra
+ * outra sobre a parceria, com frases diferentes. O crédito costuma repetir, e
+ * repetir é barato; inventar uma legenda errada, não.
+ */
+export type LegendaDaMidia = { legenda: string; credito: string }
+
 export type MestreRegistro = {
   corpo: string
   titulo: string
@@ -27,6 +37,8 @@ export type MestreRegistro = {
   /** Endereço da página no site. É o mestre porque o site é a base. */
   slug: string
   notas: string
+  /** Legenda e crédito de cada mídia anexada, por id de arquivo. */
+  legendas: Record<string, LegendaDaMidia>
 }
 
 export type PacoteRegistro = {

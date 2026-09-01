@@ -78,9 +78,16 @@ function legendaDaMidia(tipo: 'image' | 'video' | 'audio', alt: string, credito?
 type BlocoDeMidia = { type: 'image' | 'video' | 'audio'; url: string; alt: string; credito?: string }
 
 function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = ''): string {
-  const alt = escapar(local.alt || bloco.alt || '')
+  // A LEGENDA É DO BLOCO, não do arquivo. O bloco carrega o que alguém
+  // escreveu sobre esta foto nesta matéria; `local` descreve o arquivo que vai
+  // para o servidor. Quando o arquivo vinha primeiro, um chamador que
+  // preenchia `local.alt` com o nome do arquivo fazia a página sair com
+  // "cerebro-9093f620.jpg" embaixo da imagem — e não havia legenda escrita
+  // que ganhasse dela.
+  const descricao = bloco.alt?.trim() || local.alt || ''
+  const alt = escapar(descricao)
   const src = escapar(local.nome)
-  const legenda = legendaDaMidia(bloco.type, local.alt || bloco.alt || '', bloco.credito)
+  const legenda = legendaDaMidia(bloco.type, descricao, bloco.credito)
   const corpo = bloco.type === 'image'
     ? `<img src="${src}" alt="${alt}" loading="lazy" decoding="async">`
     : bloco.type === 'video'
