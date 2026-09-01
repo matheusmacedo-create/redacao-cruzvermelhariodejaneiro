@@ -361,6 +361,44 @@ export async function reescreverComGpt(pedido: {
 }
 
 /**
+ * Manda as fotos DE VERDADE para o GPT e devolve o texto da resposta.
+ * Uma chamada só para todas — mais barato e as legendas saem coerentes.
+ * Usa o modelo de escrita (o mini não enxerga tão bem) com o esforço
+ * mínimo global: descrever foto não pede raciocínio longo.
+ */
+export async function verImagensComGpt(pedido: {
+  system: string
+  texto: string
+  imagens: { b64: string; mediaType: string }[]
+}): Promise<{ texto: string; medida: MedidaDaChamada }> {
+  const esforco = esforcoDeRaciocinio()
+  const comecou = Date.now()
+  const { dados, recuou } = await chamarComRecuo<RespostaDeTexto>('/chat/completions', {
+    model: modeloDeEscrita(),
+    messages: [
+      { role: 'system', content: pedido.system },
+      {
+        role: 'user',
+        content: [
+          ...pedido.imagens.map((im) => ({
+            type: 'image_url' as const,
+            image_url: { url: `data:${im.mediaType};base64,${im.b64}` },
+          })),
+          { type: 'text' as const, text: pedido.texto },
+        ],
+      },
+    ],
+  }, {
+    ...(esforco ? { reasoning_effort: esforco } : {}),
+    max_completion_tokens: 4_000,
+  }, 120_000)
+
+  const texto = dados.choices?.[0]?.message?.content?.trim()
+  if (!texto) throw new IaError('A OpenAI respondeu sem texto para as imagens.', 502)
+  return { texto, medida: medir(dados, esforco, recuou, comecou) }
+}
+
+/**
  * Tira o rótulo do canal que o modelo às vezes cola na frente da legenda.
  *
  * Pedimos "adapte para Facebook (Feed)" e a resposta volta como

@@ -1,14 +1,16 @@
 'use server'
 
-import { put, del } from '@vercel/blob'
+import { put, del, get } from '@vercel/blob'
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
-import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens } from '@/lib/ia/openai'
-import { claudeConfigurado, reescreverComClaude, semChaveDoClaude } from '@/lib/ia/anthropic'
+import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt } from '@/lib/ia/openai'
+import { claudeConfigurado, reescreverComClaude, semChaveDoClaude, verImagensComClaude, type ImagemParaVer } from '@/lib/ia/anthropic'
+import { TETO_DE_FOTOS, montarPedidoDeLegendas, parsearLegendas } from '@/lib/ia/fotos'
+import sharp from 'sharp'
 import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, type PaginaDoSite } from '@/lib/ia/formatos'
 import { noticiasPublicadas } from '@/lib/site/vitrine'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
@@ -42,6 +44,7 @@ export type ResultadoDaImagem = ResultadoDaIa & {
 }
 export type ResultadoDasIdeias = ResultadoDaIa & { ideias?: string[] }
 export type ResultadoDaMelhoria = ResultadoDaIa & { texto?: string; aviso?: string }
+export type ResultadoDasLegendas = ResultadoDaIa & { legendas?: Record<string, string> }
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
 
@@ -269,6 +272,86 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
     return { texto: links.texto, ...(aviso ? { aviso } : {}) }
   } catch (causa) {
     return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível melhorar o texto.'))) }
+  }
+}
+
+/**
+ * Propõe legendas para as fotos do pacote — olhando as fotos de verdade.
+ *
+ * O modelo recebe as imagens (reduzidas no servidor: mandar a foto de célula
+ * inteira seria pagar tokens por pixels que não mudam a legenda) e o contexto
+ * da matéria. A resposta preenche só campo VAZIO na tela, nunca o que uma
+ * pessoa escreveu — e a legenda vira também o alt e o nome SEO do arquivo na
+ * página, então errar aqui custaria em três lugares.
+ */
+export async function sugerirLegendasDasFotos(formData: FormData): Promise<ResultadoDasLegendas> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+
+    let fileIds: string[]
+    try {
+      const bruto = JSON.parse(String(formData.get('fileIds') ?? '[]'))
+      fileIds = Array.isArray(bruto) ? bruto.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      fileIds = []
+    }
+    fileIds = fileIds.slice(0, TETO_DE_FOTOS)
+    if (!fileIds.length) throw new Error('Nenhuma foto sem legenda para propor.')
+
+    const titulo = texto(formData, 'titulo')
+    const corpo = String(formData.get('corpo') ?? '')
+    const provedor = texto(formData, 'provedor')
+    if (!['claude', 'gpt'].includes(provedor)) throw new Error('Escolha o provedor: Claude ou GPT.')
+    if (provedor === 'claude' && !claudeConfigurado()) throw new Error('O Claude não está configurado.')
+    if (provedor === 'gpt' && !iaConfigurada()) throw new Error('O GPT não está configurado.')
+
+    const { data: linhas } = await supabase
+      .from('files').select('id,storage_path,content_type,file_type,status')
+      .eq('workspace_id', context.workspace.id).in('id', fileIds)
+    const porId = new Map((linhas ?? []).map((l) => [l.id, l]))
+
+    // Na ordem pedida pela tela — a resposta vem por índice, e índice trocado
+    // seria a legenda de uma foto na outra.
+    const prontas: { fileId: string; imagem: ImagemParaVer }[] = []
+    for (const id of fileIds) {
+      const linha = porId.get(id)
+      if (!linha || linha.status === 'deleted' || linha.file_type !== 'foto') continue
+      if (!linha.content_type?.startsWith('image/')) continue
+      if (!linha.storage_path) continue
+      try {
+        const blob = await get(linha.storage_path, { access: 'private' })
+        if (!blob) continue
+        const bytes = Buffer.from(await new Response(blob.stream).arrayBuffer())
+        const reduzida = await sharp(bytes)
+          .rotate()
+          .resize({ width: 896, withoutEnlargement: true })
+          .jpeg({ quality: 78 })
+          .toBuffer()
+        prontas.push({ fileId: id, imagem: { b64: reduzida.toString('base64'), mediaType: 'image/jpeg' } })
+      } catch {
+        // Foto que não abre fica sem proposta; as outras seguem.
+      }
+    }
+    if (!prontas.length) throw new Error('Não consegui ler nenhuma das fotos.')
+
+    const resumo = textoParaRede(corpo).texto.slice(0, 1200)
+    const pedido = montarPedidoDeLegendas({ titulo, resumo, quantidade: prontas.length })
+
+    const { texto: bruto } = provedor === 'claude'
+      ? await verImagensComClaude({ system: pedido.system, texto: pedido.texto, imagens: prontas.map((p) => p.imagem) })
+      : await verImagensComGpt({ system: pedido.system, texto: pedido.texto, imagens: prontas.map((p) => p.imagem) })
+
+    const lidas = parsearLegendas(bruto, prontas.length)
+    const legendas: Record<string, string> = {}
+    prontas.forEach((p, i) => {
+      if (lidas[i]) legendas[p.fileId] = lidas[i]
+    })
+    if (!Object.keys(legendas).length) throw new Error('O modelo não devolveu legenda nenhuma. Tente de novo.')
+
+    return { legendas }
+  } catch (causa) {
+    return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível propor as legendas.'))) }
   }
 }
 
