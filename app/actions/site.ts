@@ -113,15 +113,16 @@ export async function ligarAnalyticsDoSite(): Promise<ResultadoDoAnalytics> {
       } catch { /* rede: a conferência falha, a gravação não se desfaz */ }
     }
 
-    if (resultado.ligadas.length) {
-      await createAdminClient().from('activity_log').insert({
-        workspace_id: context.workspace.id,
-        actor_id: context.user.id,
-        action: 'analytics_ligado_no_site',
-        entity_type: 'site',
-        metadata: { id: ID_DO_ANALYTICS, ligadas: resultado.ligadas.slice(0, 50), jaTinham: resultado.jaTinham, confirmado },
-      })
-    }
+    // Registra TODA varredura, mesmo a que nada mudou: é este registro que
+    // permite à tela dizer "feito em tal data" em vez de se oferecer para
+    // sempre como pendência.
+    await createAdminClient().from('activity_log').insert({
+      workspace_id: context.workspace.id,
+      actor_id: context.user.id,
+      action: 'analytics_ligado_no_site',
+      entity_type: 'site',
+      metadata: { id: ID_DO_ANALYTICS, ligadas: resultado.ligadas.slice(0, 50), jaTinham: resultado.jaTinham, confirmado },
+    })
 
     const partes = [
       resultado.ligadas.length
@@ -374,5 +375,51 @@ export async function tirarMateriaDoArAction(formData: FormData): Promise<{ erro
     return { recado: r.aviso ? `A página saiu do ar. Atenção: ${r.aviso}.` : 'A página saiu do ar, e o índice e o sitemap já não a listam.' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível tirar a matéria do ar.') }
+  }
+}
+
+
+export type EstadoDoSite = {
+  analytics?: { quando: string; resumo: string }
+  paginas?: { quando: string }
+}
+
+/**
+ * Quando cada tarefa do site rodou pela última vez.
+ *
+ * Existe pelo mesmo motivo do cartão do formulário na Central de e-mail: um
+ * botão que se oferece para sempre como pendência, depois de já ter sido
+ * clicado e concluído, ensina a ser ignorado. O Analytics é NATIVO em toda
+ * página que a Redação gera; a varredura só existe para arquivos antigos —
+ * e a tela precisa saber dizer "isso já foi feito, em tal dia".
+ */
+export async function estadoDoSite(): Promise<{ erro?: string; estado?: EstadoDoSite }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const ultima = async (acao: string) => {
+      const { data } = await supabase
+        .from('activity_log').select('created_at,metadata')
+        .eq('workspace_id', context.workspace.id).eq('action', acao)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      return data as { created_at: string; metadata: Record<string, unknown> } | null
+    }
+    const [analytics, paginas] = await Promise.all([
+      ultima('analytics_ligado_no_site'),
+      ultima('paginas_do_site_publicadas'),
+    ])
+    const estado: EstadoDoSite = {}
+    if (analytics) {
+      const ligadas = Array.isArray(analytics.metadata?.ligadas) ? analytics.metadata.ligadas.length : 0
+      const jaTinham = typeof analytics.metadata?.jaTinham === 'number' ? analytics.metadata.jaTinham : 0
+      estado.analytics = {
+        quando: analytics.created_at,
+        resumo: ligadas ? `${ligadas} página(s) completadas, ${jaTinham} já tinham` : 'nada faltava — todas já tinham',
+      }
+    }
+    if (paginas) estado.paginas = { quando: paginas.created_at }
+    return { estado }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível ler o estado do site.') }
   }
 }

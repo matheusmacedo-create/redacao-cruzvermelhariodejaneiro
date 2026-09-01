@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { Archive, BarChart3, Check, ExternalLink, FileText, Loader2, Trash2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  ligarAnalyticsDoSite, materiasArquivadas, materiasNoAr, publicarPaginasDoSite,
+  estadoDoSite, ligarAnalyticsDoSite, materiasArquivadas, materiasNoAr, publicarPaginasDoSite,
   republicarMateriaAction, tirarMateriaDoArAction,
-  type MateriaArquivada, type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
+  type EstadoDoSite, type MateriaArquivada, type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
 } from '@/app/actions/site'
 import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
 
@@ -18,25 +18,51 @@ import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
  * Vercel, onde esta ação roda. A tela mostra exatamente o que foi alterado,
  * porque "mexi no seu site inteiro" sem lista é pedido de confiança demais.
  */
+const dataCurta = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+
 export function AnalyticsDoSite() {
   const [resultado, setResultado] = useState<ResultadoDoAnalytics | null>(null)
   const [paginas, setPaginas] = useState<ResultadoDasPaginas | null>(null)
+  const [estado, setEstado] = useState<EstadoDoSite | null>(null)
   const [rodando, iniciar] = useTransition()
+
+  // O cartão abre SABENDO o que já foi feito. Sem isto ele se oferecia para
+  // sempre como pendência vermelha, mesmo depois de concluído — o mesmo
+  // defeito do cartão do formulário na Central de e-mail, e a mesma lição:
+  // alarme que não confere ensina a ser ignorado.
+  const jaLeu = useRef(false)
+  useEffect(() => {
+    if (jaLeu.current) return
+    jaLeu.current = true
+    estadoDoSite().then((r) => setEstado(r.estado ?? {}))
+  }, [])
+
+  const analyticsFeito = Boolean(estado?.analytics) || Boolean(resultado?.recado)
+  const paginasFeitas = Boolean(estado?.paginas) || Boolean(paginas?.recado)
 
   return (
     <div className="mt-6 rounded-xl border border-border bg-card p-6">
       <h2 className="flex items-center gap-2 font-semibold"><BarChart3 className="size-4" />Google Analytics no site</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        As páginas de notícia novas já nascem com o Analytics ({ID_DO_ANALYTICS}, o mesmo da página inicial).
-        Este botão completa as páginas que já estão no servidor — notícias antigas, equipe, campanhas — sem tocar
-        no que já tem o rastreador. Pode rodar quantas vezes quiser.
+        O Analytics ({ID_DO_ANALYTICS}) é nativo: toda página que a Redação cria — matéria, central de notícias,
+        privacidade, termos — já nasce com ele, sem precisar de botão. A varredura abaixo só existe para arquivos
+        antigos ou colocados no servidor por fora, e pula o que já tem o rastreador.
       </p>
+      {estado?.analytics && !resultado && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-success">
+          <Check className="size-4" />Varredura feita em {dataCurta(estado.analytics.quando)} — {estado.analytics.resumo}.
+        </p>
+      )}
       <div className="mt-4">
         <Button
+          variant={analyticsFeito ? 'outline' : 'default'}
           disabled={rodando}
           onClick={() => iniciar(async () => setResultado(await ligarAnalyticsDoSite()))}
         >
-          {rodando ? <><Loader2 className="size-4 animate-spin" />Percorrendo o site…</> : 'Ligar o Analytics nas páginas do site'}
+          {rodando
+            ? <><Loader2 className="size-4 animate-spin" />Percorrendo o site…</>
+            : analyticsFeito ? 'Varrer de novo as páginas antigas' : 'Ligar o Analytics nas páginas do site'}
         </Button>
       </div>
       {resultado?.erro && <p className="mt-3 text-sm text-destructive">{resultado.erro}</p>}
@@ -60,13 +86,20 @@ export function AnalyticsDoSite() {
           notícias em /noticias/, o sitemap.xml e o robots.txt, e liga os atalhos de Notícias no menu e no rodapé da
           página inicial. Daqui em diante o índice e o sitemap se atualizam sozinhos a cada matéria publicada.
         </p>
+        {estado?.paginas && !paginas && (
+          <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-success">
+            <Check className="size-4" />Publicadas em {dataCurta(estado.paginas.quando)}. Índice e sitemap se mantêm sozinhos.
+          </p>
+        )}
         <div className="mt-3">
           <Button
             variant="outline"
             disabled={rodando}
             onClick={() => iniciar(async () => setPaginas(await publicarPaginasDoSite()))}
           >
-            {rodando ? <><Loader2 className="size-4 animate-spin" />Publicando…</> : 'Publicar páginas do site'}
+            {rodando
+              ? <><Loader2 className="size-4 animate-spin" />Publicando…</>
+              : paginasFeitas ? 'Publicar de novo (regrava tudo)' : 'Publicar páginas do site'}
           </Button>
         </div>
         {paginas?.erro && <p className="mt-3 text-sm text-destructive">{paginas.erro}</p>}
