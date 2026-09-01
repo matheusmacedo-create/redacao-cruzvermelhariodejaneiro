@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
   AlertTriangle, CheckCircle2, Download, Loader2, Mail, MailCheck, Plus,
   Globe, RefreshCw, Search, Send, Trash2, X,
@@ -202,11 +202,18 @@ function Numeros({ contagens }: { contagens: Contagens }) {
 }
 
 /**
- * O formulário da home: ligar, e saber se já está ligado.
+ * O formulário da home: saber se está ligado — e só então falar.
  *
- * O estado é buscado sob demanda, no mesmo diagnóstico que confere o envio —
- * ele lê o HTML público da home, e pendurar isso no carregamento faria a tela
- * abrir na velocidade do site institucional.
+ * A primeira versão esperava um clique em "Ver situação" para conferir, e até
+ * lá abria no aviso de perigo com o botão "Ligar o formulário" — TODA visita à
+ * Central recomeçava do susto, mesmo com o formulário ligado há dias. Alarme
+ * que dispara sem conferir ensina a ser ignorado, e o dia em que o formulário
+ * cair de verdade ninguém vai acreditar nele.
+ *
+ * Agora a conferência roda sozinha ao abrir o cartão. Ela lê a home pública
+ * pela rota de diagnóstico, mas não segura a tela: o resto da Central abre na
+ * hora, e este cartão diz "conferindo…" até saber — e só acusa quando SABE
+ * que está desligado.
  */
 function FormularioDaHome({ podeLigar, executar, processando }: {
   podeLigar: boolean
@@ -216,20 +223,31 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
   const [estado, setEstado] = useState<string | null>(null)
   const [olhando, setOlhando] = useState(false)
 
-  const olhar = async () => {
+  const olhar = useCallback(async () => {
     setOlhando(true)
     try {
       const r = await fetch('/api/admin/newsletter-check')
       const d = await r.json()
-      setEstado(r.status === 403 ? 'restrito' : (d.formularioDaHome ?? 'desconhecido'))
+      setEstado(r.status === 403 ? 'restrito' : (d.formularioDaHome ?? 'sem-resposta'))
     } catch {
-      setEstado('desconhecido')
+      setEstado('sem-resposta')
     } finally {
       setOlhando(false)
     }
-  }
+  }, [])
+
+  // No modo estrito o efeito roda duas vezes; a trava evita a chamada dupla.
+  const jaOlhou = useRef(false)
+  useEffect(() => {
+    if (jaOlhou.current) return
+    jaOlhou.current = true
+    olhar()
+  }, [olhar])
 
   const ligado = estado === 'ligado'
+  // Só é problema o que foi CONFERIDO e deu errado. Conferência que não
+  // respondeu é dúvida, e dúvida não veste vermelho.
+  const desligado = estado !== null && !ligado && estado !== 'restrito' && estado !== 'sem-resposta'
 
   return (
     <Card className="p-5">
@@ -238,19 +256,35 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
           <div className="flex items-center gap-2">
             <Globe className="size-4 text-muted-foreground" />
             <h2 className="font-semibold">Formulário do site</h2>
-            {estado && (
+            {estado === null && (
+              <span className="flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                <Loader2 className="size-3 animate-spin" />Conferindo…
+              </span>
+            )}
+            {estado !== null && (
               <span className={cn(
                 'rounded-md px-2 py-0.5 text-xs font-medium',
-                ligado ? 'bg-success/14 text-success' : 'bg-warning/20 text-warning-foreground',
+                ligado ? 'bg-success/14 text-success'
+                  : desligado ? 'bg-warning/20 text-warning-foreground'
+                    : 'bg-muted text-muted-foreground',
               )}>
-                {ligado ? 'Ligado' : estado === 'restrito' ? 'Restrito a administrador' : 'Não está ligado'}
+                {ligado ? 'Ligado'
+                  : estado === 'restrito' ? 'Restrito a administrador'
+                    : estado === 'sem-resposta' ? 'Sem resposta agora'
+                      : 'Não está ligado'}
               </span>
             )}
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {ligado
-              ? 'A home de cruzvermelhariodejaneiro.org envia as inscrições para cá.'
-              : 'A home promete "Receba novidades da Cruz Vermelha RJ". Enquanto o formulário de lá não apontar para cá, quem se inscreve tem o endereço descartado sem saber.'}
+            {estado === null
+              ? 'Conferindo se o formulário da home aponta para cá…'
+              : ligado
+                ? 'A home de cruzvermelhariodejaneiro.org envia as inscrições para cá.'
+                : estado === 'restrito'
+                  ? 'A situação do formulário é visível para administradores.'
+                  : estado === 'sem-resposta'
+                    ? 'Não consegui ler a home do site agora. Isso costuma ser instabilidade passageira — confira de novo daqui a pouco.'
+                    : 'A home promete "Receba novidades da Cruz Vermelha RJ". Enquanto o formulário de lá não apontar para cá, quem se inscreve tem o endereço descartado sem saber.'}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -258,7 +292,7 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
             {olhando ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
             Ver situação
           </Button>
-          {podeLigar && !ligado && (
+          {podeLigar && desligado && (
             <Button
               size="sm"
               disabled={processando}
