@@ -276,9 +276,10 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
       throw new Error('O GPT não está configurado. Cadastre OPENAI_API_KEY na Vercel e republique.')
     }
 
-    const { texto: bruto } = provedor === 'claude'
+    const { texto: bruto, medida } = provedor === 'claude'
       ? await reescreverComClaude({ system: montado.system, texto: montado.pedido })
       : await reescreverComGpt({ system: montado.system, texto: montado.pedido })
+    console.info('[ia] melhoria', provedor, montado.formato.id, JSON.stringify(medida))
 
     // A resposta vem em três partes: título e linha fina para busca, corpo.
     const partes = separarProposta(bruto)
@@ -491,10 +492,13 @@ export async function sugerirLegendasDasFotos(formData: FormData): Promise<Resul
         const blob = await get(linha.storage_path, { access: 'private' })
         if (!blob) continue
         const bytes = Buffer.from(await new Response(blob.stream).arrayBuffer())
+        // 768px é o suficiente para legendar (inclusive texto de card) e
+        // corta ~30% dos tokens de imagem em relação aos 896px de antes —
+        // pixel é o que mais custa numa chamada de visão.
         const reduzida = await sharp(bytes)
           .rotate()
-          .resize({ width: 896, withoutEnlargement: true })
-          .jpeg({ quality: 78 })
+          .resize({ width: 768, withoutEnlargement: true })
+          .jpeg({ quality: 74 })
           .toBuffer()
         prontas.push({ fileId: id, imagem: { b64: reduzida.toString('base64'), mediaType: 'image/jpeg' } })
       } catch {
@@ -503,12 +507,16 @@ export async function sugerirLegendasDasFotos(formData: FormData): Promise<Resul
     }
     if (!prontas.length) throw new Error('Não consegui ler nenhuma das fotos.')
 
-    const resumo = textoParaRede(corpo).texto.slice(0, 1200)
+    // 800 caracteres de contexto bastam para legendar; o resto é custo.
+    const resumo = textoParaRede(corpo).texto.slice(0, 800)
     const pedido = montarPedidoDeLegendas({ titulo, resumo, quantidade: prontas.length })
 
-    const { texto: bruto } = provedor === 'claude'
+    const { texto: bruto, medida } = provedor === 'claude'
       ? await verImagensComClaude({ system: pedido.system, texto: pedido.texto, imagens: prontas.map((p) => p.imagem) })
       : await verImagensComGpt({ system: pedido.system, texto: pedido.texto, imagens: prontas.map((p) => p.imagem) })
+    // O custo visível em vez de suposto: é por aqui que se afere se os
+    // ajustes de gasto estão valendo.
+    console.info('[ia] legendas', provedor, JSON.stringify(medida))
 
     const lidas = parsearLegendas(bruto, prontas.length)
     const legendas: Record<string, string> = {}
@@ -538,7 +546,7 @@ export async function usarImagemNoDestino(formData: FormData): Promise<Resultado
     const fileId = texto(formData, 'fileId')
 
     const [{ data: destino }, { data: arquivo }] = await Promise.all([
-      supabase.from('package_destinations').select('id,canal,formato,file_ids,estado')
+      supabase.from('package_destinations').select('id,package_id,canal,formato,file_ids,estado')
         .eq('id', destinoId).eq('workspace_id', context.workspace.id).maybeSingle(),
       supabase.from('files').select('id,status')
         .eq('id', fileId).eq('workspace_id', context.workspace.id).maybeSingle(),
@@ -562,7 +570,8 @@ export async function usarImagemNoDestino(formData: FormData): Promise<Resultado
       .eq('id', destinoId).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível anexar a imagem ao destino.')
 
-    revalidatePath(`/redes/${destino.id}`)
+    // A página do hub é a do PACOTE (/redes/[pacoteId]), não a do destino.
+    revalidatePath(`/redes/${destino.package_id}`)
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível usar a imagem.') }
@@ -591,10 +600,30 @@ export async function descartarImagemDaIa(formData: FormData): Promise<Resultado
       throw new Error('Só imagens geradas por IA podem ser descartadas por aqui.')
     }
 
+    // A imagem gerada entra sozinha nas mídias do pacote (e o autosave a
+    // propaga aos destinos que seguem o mestre). Descartar precisa desfazer
+    // esses vínculos automáticos — senão sobra um id morto em mestre_file_ids
+    // e em file_ids, e a publicação falha com "arquivo não encontrado". O que
+    // continua barrado é o que JÁ SAIU (ou está saindo): aí não há o que
+    // desanexar.
     const { data: emUso } = await supabase
-      .from('package_destinations').select('id')
-      .eq('workspace_id', context.workspace.id).contains('file_ids', [fileId]).limit(1)
-    if ((emUso ?? []).length) throw new Error('Esta imagem já está em uso num destino. Tire-a de lá antes de apagar.')
+      .from('package_destinations').select('id,file_ids,estado')
+      .eq('workspace_id', context.workspace.id).contains('file_ids', [fileId])
+    const publicados = (emUso ?? []).filter((d) => ['publicada', 'publicando', 'na_fila'].includes(d.estado))
+    if (publicados.length) throw new Error('Esta imagem já saiu (ou está saindo) num destino publicado e não pode ser apagada.')
+    for (const d of emUso ?? []) {
+      await supabase.from('package_destinations')
+        .update({ file_ids: ((d.file_ids ?? []) as string[]).filter((id) => id !== fileId) })
+        .eq('id', d.id).eq('workspace_id', context.workspace.id)
+    }
+    const { data: pacotesComEla } = await supabase
+      .from('social_packages').select('id,mestre_file_ids')
+      .eq('workspace_id', context.workspace.id).contains('mestre_file_ids', [fileId])
+    for (const p of pacotesComEla ?? []) {
+      await supabase.from('social_packages')
+        .update({ mestre_file_ids: ((p.mestre_file_ids ?? []) as string[]).filter((id) => id !== fileId) })
+        .eq('id', p.id).eq('workspace_id', context.workspace.id)
+    }
 
     if (arquivo.storage_path) await del(arquivo.storage_path)
     const { error } = await supabase.from('files').delete()

@@ -24,6 +24,21 @@ function chaveDoClaude(): string | undefined {
 export const claudeConfigurado = () => Boolean(chaveDoClaude())
 export const modeloDoClaude = () => process.env.ANTHROPIC_TEXT_MODEL?.trim() || MODELO_CLAUDE_PADRAO
 
+/**
+ * Quanto esforço pedir ao Claude na ESCRITA da matéria.
+ *
+ * O esforço é o preço do raciocínio: 'high' é o padrão do modelo e o que
+ * sustenta a qualidade que a redação cobrou; baixar para 'medium' corta
+ * custo quando a fatura pedir. A variável existe para essa decisão ser da
+ * instituição, sem deploy. Valor fora da lista cai no padrão em vez de
+ * derrubar a chamada.
+ */
+const ESFORCOS_VALIDOS = new Set(['low', 'medium', 'high', 'xhigh', 'max'])
+export function esforcoDoClaude(): 'low' | 'medium' | 'high' | 'xhigh' | 'max' {
+  const bruto = process.env.ANTHROPIC_EFFORT?.trim().toLowerCase()
+  return bruto && ESFORCOS_VALIDOS.has(bruto) ? (bruto as ReturnType<typeof esforcoDoClaude>) : 'high'
+}
+
 /** Tira a chave de qualquer mensagem que vá parar no banco ou na tela. */
 export function semChaveDoClaude(texto: string): string {
   let limpo = texto
@@ -67,6 +82,7 @@ export async function reescreverComClaude(pedido: {
     resposta = await cliente.beta.messages.create({
       model: modeloDoClaude(),
       max_tokens: 16_000,
+      output_config: { effort: esforcoDoClaude() },
       system: pedido.system,
       messages: [{ role: 'user', content: pedido.texto }],
       betas: ['server-side-fallback-2026-07-01'],
@@ -137,7 +153,10 @@ export async function verImagensComClaude(pedido: {
   try {
     resposta = await cliente.beta.messages.create({
       model: modeloDoClaude(),
-      max_tokens: 4_000,
+      // Legenda é descrição factual curta: esforço baixo entrega o mesmo por
+      // uma fração dos tokens de raciocínio, e 1500 de teto sobra.
+      max_tokens: 1_500,
+      output_config: { effort: 'low' },
       system: pedido.system,
       messages: [{
         role: 'user',
