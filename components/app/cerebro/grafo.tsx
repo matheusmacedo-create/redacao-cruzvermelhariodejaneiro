@@ -60,15 +60,24 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
   const [busca, setBusca] = useState('')
   const [focoId, setFocoId] = useState<string | null>(null)
   const [selecionado, setSelecionado] = useState<NoDoGrafo | null>(null)
+  // O ecossistema isolado: só o nó escolhido e o que está atrelado a ele
+  // (duas ligações de distância). É o que mantém o mapa navegável quando o
+  // acervo crescer — o todo vira sopa, o recorte continua legível.
+  const [isolado, setIsolado] = useState<{ id: string; rotulo: string; nos: Set<string> } | null>(
+    null,
+  )
 
   // O recorte visível: esconder um tipo esconde também as arestas dele.
+  // Vizinhança e grau saem do grafo inteiro (só o filtro de tipos), não do
+  // recorte isolado: o painel e o botão de isolar precisam enxergar o todo
+  // para deixar a pessoa saltar de ecossistema em ecossistema.
   const { visiveis, arestasVisiveis, vizinhos, grau } = useMemo(() => {
-    const visiveis = nos.filter((n) => !ocultos.has(n.tipo))
-    const ids = new Set(visiveis.map((n) => n.id))
-    const arestasVisiveis = arestas.filter((a) => ids.has(a.de) && ids.has(a.para))
+    const semTipoOculto = nos.filter((n) => !ocultos.has(n.tipo))
+    const idsCheios = new Set(semTipoOculto.map((n) => n.id))
     const vizinhos = new Map<string, Set<string>>()
     const grau = new Map<string, number>()
-    for (const a of arestasVisiveis) {
+    for (const a of arestas) {
+      if (!idsCheios.has(a.de) || !idsCheios.has(a.para)) continue
       if (!vizinhos.has(a.de)) vizinhos.set(a.de, new Set())
       if (!vizinhos.has(a.para)) vizinhos.set(a.para, new Set())
       vizinhos.get(a.de)!.add(a.para)
@@ -76,8 +85,11 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
       grau.set(a.de, (grau.get(a.de) ?? 0) + 1)
       grau.set(a.para, (grau.get(a.para) ?? 0) + 1)
     }
+    const visiveis = isolado ? semTipoOculto.filter((n) => isolado.nos.has(n.id)) : semTipoOculto
+    const ids = new Set(visiveis.map((n) => n.id))
+    const arestasVisiveis = arestas.filter((a) => ids.has(a.de) && ids.has(a.para))
     return { visiveis, arestasVisiveis, vizinhos, grau }
-  }, [nos, arestas, ocultos])
+  }, [nos, arestas, ocultos, isolado])
 
   const batem = useMemo(() => {
     const q = busca.trim().toLowerCase()
@@ -85,12 +97,35 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
     return new Set(visiveis.filter((n) => n.rotulo.toLowerCase().includes(q)).map((n) => n.id))
   }, [busca, visiveis])
 
+  // O foco tem dois tempos: pairar dá uma prévia, clicar fixa. Dentro de um
+  // ecossistema isolado a fixação não apaga nada — o recorte já é a resposta.
+  const focoAtivo = focoId ?? (isolado ? null : (selecionado?.id ?? null))
   const emFoco = useMemo(() => {
-    if (!focoId) return null
-    const conjunto = new Set([focoId])
-    for (const v of vizinhos.get(focoId) ?? []) conjunto.add(v)
+    if (!focoAtivo) return null
+    const conjunto = new Set([focoAtivo])
+    for (const v of vizinhos.get(focoAtivo) ?? []) conjunto.add(v)
     return conjunto
-  }, [focoId, vizinhos])
+  }, [focoAtivo, vizinhos])
+
+  // Duas ligações de distância: o eixo traz seus sinais, datas e propostas,
+  // e também quem publicou cada sinal — o ecossistema de verdade.
+  const isolar = (no: NoDoGrafo) => {
+    const conjunto = new Set([no.id])
+    let fronteira = [no.id]
+    for (let salto = 0; salto < 2; salto++) {
+      const proxima: string[] = []
+      for (const id of fronteira) {
+        for (const v of vizinhos.get(id) ?? []) {
+          if (!conjunto.has(v)) {
+            conjunto.add(v)
+            proxima.push(v)
+          }
+        }
+      }
+      fronteira = proxima
+    }
+    setIsolado({ id: no.id, rotulo: no.rotulo, nos: conjunto })
+  }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -139,17 +174,42 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
           grau={grau}
           emFoco={emFoco}
           batem={batem}
+          ancoraId={isolado?.id ?? null}
+          // Num recorte pequeno todo nó ganha nome; num grande isso viraria
+          // sopa de texto — lá, quem revela os nomes é o zoom.
+          rotulosSempre={Boolean(isolado) && visiveis.length <= 80}
           aoFocar={setFocoId}
           aoSelecionar={setSelecionado}
         />
+        {isolado && (
+          <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full border border-border bg-background/95 py-1 pl-3 pr-1 text-xs shadow-sm backdrop-blur">
+            <span className="text-muted-foreground">
+              Ecossistema de <span className="font-semibold text-foreground">{isolado.rotulo}</span>
+              {' · '}
+              {visiveis.length} nós
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsolado(null)}
+              className="rounded-full bg-muted px-2.5 py-1 font-medium text-foreground hover:bg-muted/70"
+            >
+              Ver o mapa inteiro
+            </button>
+          </div>
+        )}
         {selecionado && (
           <Painel
             no={selecionado}
+            // A vizinhança vem do grafo inteiro: mesmo isolado, o painel
+            // mostra tudo que está atrelado e permite saltar para lá.
             vizinhos={[...(vizinhos.get(selecionado.id) ?? [])]
-              .map((id) => visiveis.find((n) => n.id === id))
-              .filter((n): n is NoDoGrafo => Boolean(n))}
+              .map((id) => nos.find((n) => n.id === id))
+              .filter((n): n is NoDoGrafo => n !== undefined && !ocultos.has(n.tipo))}
+            isoladoNele={isolado?.id === selecionado.id}
             fechar={() => setSelecionado(null)}
             abrir={setSelecionado}
+            isolar={isolar}
+            mostrarTudo={() => setIsolado(null)}
           />
         )}
       </div>
@@ -167,6 +227,8 @@ function Tela({
   grau,
   emFoco,
   batem,
+  ancoraId,
+  rotulosSempre,
   aoFocar,
   aoSelecionar,
 }: {
@@ -175,8 +237,12 @@ function Tela({
   grau: Map<string, number>
   emFoco: Set<string> | null
   batem: Set<string> | null
+  /** Nó em torno do qual um ecossistema isolado se recentra. */
+  ancoraId: string | null
+  /** Num recorte pequeno todo nó merece nome, não só quem está em foco. */
+  rotulosSempre: boolean
   aoFocar: (id: string | null) => void
-  aoSelecionar: (no: NoDoGrafo) => void
+  aoSelecionar: (no: NoDoGrafo | null) => void
 }) {
   const container = useRef<HTMLDivElement>(null)
   const centroRef = useRef<SVGGElement>(null)
@@ -191,6 +257,25 @@ function Tela({
     porId: new Map(),
     alpha: 0,
   })
+
+  // O ref espelha a prop para que o zoom, que vive fora do React, saiba dela.
+  const rotulosSempreRef = useRef(rotulosSempre)
+
+  const aplicarCamera = () => {
+    const c = camera.current
+    gRef.current?.setAttribute('transform', `translate(${c.x},${c.y}) scale(${c.k})`)
+    // Rótulo dinâmico: de longe, só polos têm nome; chegando perto (ou num
+    // recorte isolado), todo nó se apresenta. CSS faz o resto via group-data.
+    if (container.current) {
+      container.current.dataset.zoom = rotulosSempreRef.current || c.k >= 1.6 ? 'perto' : 'longe'
+    }
+  }
+
+  useEffect(() => {
+    rotulosSempreRef.current = rotulosSempre
+    aplicarCamera()
+     
+  }, [rotulosSempre])
 
   // A simulação inteira vive dentro do efeito: os objetos que a física muta
   // a cada quadro nascem aqui, nunca no render — o React desenha a
@@ -211,6 +296,20 @@ function Tela({
         preso: false,
       }
     })
+    // Ao isolar um ecossistema, o recorte inteiro desliza para que a âncora
+    // caia na origem — que é para onde a gravidade puxa — e a câmera volta ao
+    // neutro. Sem isso o recorte ficaria no canto onde o nó calhou de estar.
+    const ancora = ancoraId ? simulados.find((s) => s.id === ancoraId) : null
+    if (ancora) {
+      const dx = ancora.x
+      const dy = ancora.y
+      for (const s of simulados) {
+        s.x -= dx
+        s.y -= dy
+      }
+      camera.current = { x: 0, y: 0, k: camera.current.k }
+      aplicarCamera()
+    }
     sim.current = { nos: simulados, porId: new Map(simulados.map((s) => [s.id, s])), alpha: 1 }
     let vivo = true
     let quadro: number
@@ -252,7 +351,8 @@ function Tela({
       vivo = false
       cancelAnimationFrame(quadro)
     }
-  }, [nos, grau, arestas])
+     
+  }, [nos, grau, arestas, ancoraId])
 
   // Centro do palco no meio do contêiner, acompanhando redimensionamento.
   // Layout effect: centrar depois da primeira pintura mostraria o grafo no
@@ -269,11 +369,6 @@ function Tela({
     observador.observe(el)
     return () => observador.disconnect()
   }, [])
-
-  const aplicarCamera = () => {
-    const c = camera.current
-    gRef.current?.setAttribute('transform', `translate(${c.x},${c.y}) scale(${c.k})`)
-  }
 
   // Zoom na roda. onWheel do React é passivo — o listener entra pelo ref
   // com {passive: false}, o mesmo caminho do recorte de avatar do Perfil.
@@ -382,11 +477,15 @@ function Tela({
   return (
     <div
       ref={container}
-      className="h-full w-full cursor-grab touch-none select-none"
+      className="group h-full w-full cursor-grab touch-none select-none"
       onPointerDown={aoDescerNoFundo}
       onPointerMove={aoMover}
       onPointerUp={aoSoltar}
       onPointerCancel={aoSoltar}
+      onClick={() => {
+        // Clique no fundo (sem arrasto) solta o foco fixado e fecha o painel.
+        if (!arrasto.current.moveu) aoSelecionar(null)
+      }}
     >
       <svg className="h-full w-full" role="img" aria-label="Mapa de ligações do Cérebro">
         <g ref={centroRef}>
@@ -437,10 +536,14 @@ function Tela({
                   onPointerDown={(e) => aoDescerNoNo(e, n.id)}
                   onPointerEnter={() => aoFocar(n.id)}
                   onPointerLeave={() => aoFocar(null)}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     if (!arrasto.current.moveu) aoSelecionar(n)
                   }}
                 >
+                  {/* Área de toque maior que o desenho: sinal de 3px é alvo
+                      impossível — o anel invisível é o que se clica. */}
+                  <circle r={raio + 7} fill="transparent" stroke="none" />
                   <circle
                     r={raio}
                     fill={COR[n.tipo]}
@@ -448,22 +551,29 @@ function Tela({
                     stroke={n.recusado ? 'var(--destructive)' : 'var(--card)'}
                     strokeWidth={n.recusado ? 1.5 : 1}
                     strokeDasharray={n.recusado ? '2 2' : undefined}
+                    style={{ pointerEvents: 'none' }}
                   />
-                  {(n.tipo === 'eixo' ||
-                    n.tipo === 'canal' ||
-                    n.tipo === 'conta' ||
-                    (emFoco?.has(n.id) ?? false)) && (
-                    <text
-                      y={raio + 11}
-                      textAnchor="middle"
-                      fill="var(--muted-foreground)"
-                      fontSize={n.tipo === 'eixo' ? 11 : 9}
-                      fontWeight={n.tipo === 'eixo' ? 700 : 500}
-                      style={{ pointerEvents: 'none' }}
-                    >
-                      {n.rotulo.length > 34 ? `${n.rotulo.slice(0, 33)}…` : n.rotulo}
-                    </text>
-                  )}
+                  <text
+                    y={raio + 11}
+                    textAnchor="middle"
+                    fill="var(--muted-foreground)"
+                    fontSize={n.tipo === 'eixo' ? 11 : 9}
+                    fontWeight={n.tipo === 'eixo' ? 700 : 500}
+                    style={{ pointerEvents: 'none' }}
+                    className={cn(
+                      'transition-opacity',
+                      n.tipo === 'eixo' ||
+                        n.tipo === 'canal' ||
+                        n.tipo === 'conta' ||
+                        (emFoco?.has(n.id) ?? false)
+                        ? 'opacity-100'
+                        : // De longe o nome some; perto (zoom ou recorte
+                          // isolado), aparece — é o que escala com o acervo.
+                          'opacity-0 group-data-[zoom=perto]:opacity-100',
+                    )}
+                  >
+                    {n.rotulo.length > 34 ? `${n.rotulo.slice(0, 33)}…` : n.rotulo}
+                  </text>
                 </g>
               )
             })}
@@ -541,10 +651,13 @@ function passo(
     }
   }
 
+  // Gravidade proporcional à população: com o mapa cheio ela precisa segurar
+  // tudo na tela; num recorte isolado, afrouxa para o ecossistema respirar.
+  const gravidade = 0.0008 + 0.0022 * Math.min(1, nos.length / 300)
   for (const n of nos) {
     // Gravidade suave ao centro segura os desgarrados na tela.
-    n.vx -= n.x * 0.003 * alpha
-    n.vy -= n.y * 0.003 * alpha
+    n.vx -= n.x * gravidade * alpha
+    n.vy -= n.y * gravidade * alpha
     // Teto de velocidade: nenhuma força legítima precisa de mais que isso
     // num quadro. É o cinto de segurança contra qualquer divergência futura.
     const v = Math.hypot(n.vx, n.vy)
@@ -596,14 +709,25 @@ function raioDe(n: NoDoGrafo, grau: number): number {
 function Painel({
   no,
   vizinhos,
+  isoladoNele,
   fechar,
   abrir,
+  isolar,
+  mostrarTudo,
 }: {
   no: NoDoGrafo
   vizinhos: NoDoGrafo[]
+  isoladoNele: boolean
   fechar: () => void
   abrir: (no: NoDoGrafo) => void
+  isolar: (no: NoDoGrafo) => void
+  mostrarTudo: () => void
 }) {
+  // Agrupadas por tipo, na ordem do vocabulário: "o que está atrelado" se
+  // responde por família — 3 contas, 12 sinais, 2 datas — não por lista corrida.
+  const grupos = (Object.keys(ROTULO_TIPO) as TipoDeNo[])
+    .map((tipo) => [tipo, vizinhos.filter((v) => v.tipo === tipo)] as const)
+    .filter(([, lista]) => lista.length > 0)
   return (
     <aside className="absolute inset-y-3 right-3 flex w-72 flex-col gap-2 overflow-y-auto rounded-xl border border-border bg-background/95 p-4 shadow-sm backdrop-blur">
       <div className="flex items-start justify-between gap-2">
@@ -669,34 +793,45 @@ function Painel({
         ))}
 
       {vizinhos.length > 0 && (
-        <div className="mt-1 border-t border-border pt-2">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-            Ligações ({vizinhos.length})
+        <button
+          type="button"
+          onClick={() => (isoladoNele ? mostrarTudo() : isolar(no))}
+          className="mt-1 w-full rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+        >
+          {isoladoNele ? 'Ver o mapa inteiro' : 'Isolar este ecossistema no mapa'}
+        </button>
+      )}
+
+      {grupos.map(([tipo, lista]) => (
+        <div key={tipo} className="mt-1 border-t border-border pt-2">
+          <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+            <span className="size-2 rounded-full" style={{ background: COR[tipo] }} />
+            {ROTULO_TIPO[tipo]}
+            <span className="tabular-nums">· {lista.length}</span>
           </p>
           <ul className="space-y-1">
-            {vizinhos.slice(0, 14).map((v) => (
+            {lista.slice(0, 8).map((v) => (
               <li key={v.id}>
                 <button
                   type="button"
                   onClick={() => abrir(v)}
                   className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ background: COR[v.tipo] }}
-                  />
                   <span className="truncate">{v.rotulo}</span>
                 </button>
               </li>
             ))}
-            {vizinhos.length > 14 && (
+            {lista.length > 8 && (
               <li className="px-1 text-[11px] text-muted-foreground/70">
-                e mais {vizinhos.length - 14}…
+                e mais {lista.length - 8}
+                {isoladoNele
+                  ? ' — aproxime o zoom no mapa para ler os nomes.'
+                  : ' — isole o ecossistema para ver todos.'}
               </li>
             )}
           </ul>
         </div>
-      )}
+      ))}
     </aside>
   )
 }
