@@ -42,6 +42,8 @@ export interface NoDoGrafo {
   /** Pacote: status do hub. Sinal: true quando só existe pela importação. */
   status?: string
   foraDoAcervo?: boolean
+  /** Sinal: ids dos boletins recolhidos neste nó pelo agrupamento. */
+  recolhidos?: string[]
 }
 
 export type TipoDeAresta =
@@ -107,11 +109,20 @@ export async function lerGrafo(workspaceId: string): Promise<Grafo> {
   const arestas = [...base.arestas]
   const ids = new Set(nos.map((n) => n.id))
 
+  // O agrupamento do Cérebro recolhe boletins num chefe de família; a
+  // importação pode ter guardado o id de qualquer membro. O apelido leva
+  // cada recolhido ao nó que o representa hoje — sem isso o pacote ganharia
+  // um sinal fantasma ao lado do verdadeiro.
+  const apelido = new Map<string, string>()
+  for (const n of nos) {
+    for (const r of n.recolhidos ?? []) apelido.set(`sinal:${r}`, n.id)
+  }
+
   // 2. A camada da Redação. Falha aqui não derruba o mapa: o grafo do
   //    Cérebro aparece sem a camada local, e o erro fica registrado no log.
   try {
     const supabase = await createClient()
-    const { data: pacotes } = await supabase
+    const { data: pacotes, error: erroPacotes } = await supabase
       .from('social_packages')
       .select('id,titulo_interno,status,cerebro_sinal_id')
       .eq('workspace_id', workspaceId)
@@ -119,17 +130,22 @@ export async function lerGrafo(workspaceId: string): Promise<Grafo> {
       .neq('status', 'arquivado')
       .order('updated_at', { ascending: false })
       .limit(200)
+    // supabase-js não lança: sem olhar o error, um mapa sem camada local
+    // passaria por "ninguém importou nada" com o banco fora do ar.
+    if (erroPacotes) console.error('[cerebro/grafo] pacotes:', erroPacotes)
 
     if (pacotes && pacotes.length > 0) {
-      const { data: destinos } = await supabase
+      const { data: destinos, error: erroDestinos } = await supabase
         .from('package_destinations')
         .select('package_id,canal,estado,external_url')
         .eq('workspace_id', workspaceId)
         .eq('estado', 'publicada')
         .in('package_id', pacotes.map((p) => p.id))
+      if (erroDestinos) console.error('[cerebro/grafo] destinos:', erroDestinos)
 
       for (const p of pacotes) {
-        const idSinal = `sinal:${p.cerebro_sinal_id}`
+        const idBruto = `sinal:${p.cerebro_sinal_id}`
+        const idSinal = apelido.get(idBruto) ?? idBruto
         // O acervo do Cérebro roda com a coleta; o que a equipe importou não
         // pode sumir do mapa junto. O sinal volta como nó de memória.
         if (!ids.has(idSinal)) {

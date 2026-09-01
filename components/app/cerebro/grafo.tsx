@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ExternalLink, X } from 'lucide-react'
 import type { ArestaDoGrafo, NoDoGrafo, TipoDeNo } from '@/lib/cerebro/grafo'
+import { MOTIVOS_RECUSA, type MotivoRecusa } from '@/lib/cerebro/contrato'
 import { cn } from '@/lib/utils'
 
 /**
@@ -40,6 +41,10 @@ const ROTULO_TIPO: Record<TipoDeNo, string> = {
   pacote: 'Pacote no hub',
   canal: 'Canal publicado',
 }
+
+// No servidor o layout effect não existe e o React avisa; cair para o
+// useEffect ali é inofensivo porque nada é pintado no servidor mesmo.
+const useLayoutEffectSeguro = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 interface Simulado extends NoDoGrafo {
   x: number
@@ -250,7 +255,9 @@ function Tela({
   }, [nos, grau, arestas])
 
   // Centro do palco no meio do contêiner, acompanhando redimensionamento.
-  useEffect(() => {
+  // Layout effect: centrar depois da primeira pintura mostraria o grafo no
+  // canto por um quadro.
+  useLayoutEffectSeguro(() => {
     const el = container.current
     if (!el) return
     const centrar = () => {
@@ -291,14 +298,26 @@ function Tela({
     return () => el.removeEventListener('wheel', aoRolar)
   })
 
-  const arrasto = useRef<{ id: string | null; x: number; y: number; baseX: number; baseY: number }>(
-    { id: null, x: 0, y: 0, baseX: 0, baseY: 0 },
-  )
+  // `ativo` diz que ESTE gesto começou aqui — sem ele, um botão pressionado
+  // vindo de fora reaproveitaria a origem de um arrasto antigo e a câmera
+  // saltaria. `moveu` separa arrasto de clique: soltar depois de arrastar
+  // não pode abrir o painel.
+  const arrasto = useRef<{
+    ativo: boolean
+    moveu: boolean
+    id: string | null
+    x: number
+    y: number
+    baseX: number
+    baseY: number
+  }>({ ativo: false, moveu: false, id: null, x: 0, y: 0, baseX: 0, baseY: 0 })
 
   const aoDescerNoFundo = (e: React.PointerEvent) => {
     if (e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
     arrasto.current = {
+      ativo: true,
+      moveu: false,
       id: null,
       x: e.clientX,
       y: e.clientY,
@@ -313,14 +332,23 @@ function Tela({
     e.stopPropagation()
     ;(e.currentTarget as SVGGElement).setPointerCapture(e.pointerId)
     n.preso = true
-    arrasto.current = { id, x: e.clientX, y: e.clientY, baseX: n.x, baseY: n.y }
+    arrasto.current = {
+      ativo: true,
+      moveu: false,
+      id,
+      x: e.clientX,
+      y: e.clientY,
+      baseX: n.x,
+      baseY: n.y,
+    }
   }
 
   const aoMover = (e: React.PointerEvent) => {
-    if (!e.buttons) return
     const a = arrasto.current
+    if (!a.ativo || !e.buttons) return
     const dx = e.clientX - a.x
     const dy = e.clientY - a.y
+    if (Math.abs(dx) + Math.abs(dy) > 3) a.moveu = true
     if (a.id) {
       const n = sim.current.porId.get(a.id)
       if (n) {
@@ -342,7 +370,10 @@ function Tela({
       const n = sim.current.porId.get(a.id)
       if (n) n.preso = false
     }
-    arrasto.current.id = null
+    a.id = null
+    a.ativo = false
+    // `moveu` sobrevive até o próximo gesto: o onClick que dispara depois
+    // deste pointerup ainda precisa saber que houve arrasto.
   }
 
   const apagado = (id: string) =>
@@ -355,23 +386,35 @@ function Tela({
       onPointerDown={aoDescerNoFundo}
       onPointerMove={aoMover}
       onPointerUp={aoSoltar}
+      onPointerCancel={aoSoltar}
     >
       <svg className="h-full w-full" role="img" aria-label="Mapa de ligações do Cérebro">
         <g ref={centroRef}>
           <g ref={gRef}>
-            {arestas.map((a, i) => (
-              <line
-                key={`${a.de}→${a.para}:${i}`}
-                ref={(el) => {
-                  if (el) arestaRefs.current.set(i, el)
-                  else arestaRefs.current.delete(i)
-                }}
-                stroke="var(--border)"
-                strokeWidth={a.tipo === 'importou' || a.tipo === 'saiu' ? 1.6 : 0.8}
-                strokeDasharray={a.tipo === 'sugere' || a.tipo === 'marca' ? '3 3' : undefined}
-                opacity={emFoco ? (emFoco.has(a.de) && emFoco.has(a.para) ? 0.9 : 0.12) : 0.7}
-              />
-            ))}
+            {arestas.map((a, i) => {
+              // Sem pontas no JSX toda linha nasceria colapsada em (0,0) até
+              // o primeiro desenhar(); as posições determinísticas dos nós
+              // valem para as arestas também.
+              const de = posInicial(a.de)
+              const para = posInicial(a.para)
+              return (
+                <line
+                  key={`${a.de}→${a.para}:${i}`}
+                  ref={(el) => {
+                    if (el) arestaRefs.current.set(i, el)
+                    else arestaRefs.current.delete(i)
+                  }}
+                  x1={de.x}
+                  y1={de.y}
+                  x2={para.x}
+                  y2={para.y}
+                  stroke="var(--border)"
+                  strokeWidth={a.tipo === 'importou' || a.tipo === 'saiu' ? 1.6 : 0.8}
+                  strokeDasharray={a.tipo === 'sugere' || a.tipo === 'marca' ? '3 3' : undefined}
+                  opacity={emFoco ? (emFoco.has(a.de) && emFoco.has(a.para) ? 0.9 : 0.12) : 0.7}
+                />
+              )
+            })}
             {nos.map((n) => {
               const inicio = posInicial(n.id)
               const raio = raioDe(n, grau.get(n.id) ?? 0)
@@ -387,7 +430,9 @@ function Tela({
                   onPointerDown={(e) => aoDescerNoNo(e, n.id)}
                   onPointerEnter={() => aoFocar(n.id)}
                   onPointerLeave={() => aoFocar(null)}
-                  onClick={() => aoSelecionar(n)}
+                  onClick={() => {
+                    if (!arrasto.current.moveu) aoSelecionar(n)
+                  }}
                 >
                   <circle
                     r={raio}
@@ -469,7 +514,9 @@ function passo(
         dy = ((hash(b.id) % 7) - 3) * 0.1 || -0.1
         d2 = dx * dx + dy * dy
       }
-      const f = (REPULSAO / d2) * alpha
+      // O piso no denominador é o que impede a catapulta: dois centros a
+      // ~1px sem teto de força chutariam o nó para fora da tela.
+      const f = (REPULSAO / Math.max(d2, (a.raio + b.raio) ** 2)) * alpha
       const d = Math.sqrt(d2)
       const fx = (dx / d) * f
       const fy = (dy / d) * f
@@ -564,7 +611,12 @@ function Painel({
             {typeof no.nota === 'number' ? ` · nota ${no.nota}/100` : ''}
           </p>
         )}
-        {no.recusado && <p className="text-destructive">Recusado pela equipe ({no.recusado}).</p>}
+        {no.recusado && (
+          <p className="text-destructive">
+            Recusado pela equipe ({MOTIVOS_RECUSA[no.recusado as MotivoRecusa]?.rotulo ?? no.recusado}
+            ).
+          </p>
+        )}
         {no.foraDoAcervo && <p>Fora da janela atual do Cérebro — mantido no mapa pela importação.</p>}
         {no.interna && <p>Fonte de uso interno: nunca vira conteúdo público.</p>}
         {typeof no.dias === 'number' && no.dias >= 0 && (
