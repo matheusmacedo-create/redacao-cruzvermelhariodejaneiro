@@ -9,7 +9,9 @@ import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens } from '@/lib/ia/openai'
 import { claudeConfigurado, reescreverComClaude, semChaveDoClaude } from '@/lib/ia/anthropic'
-import { TETO_DO_CORPO, garantirFotos, montarPedidoDeMelhoria } from '@/lib/ia/formatos'
+import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, type PaginaDoSite } from '@/lib/ia/formatos'
+import { noticiasPublicadas } from '@/lib/site/vitrine'
+import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 import { REGRAS_FIXAS, assuntoDaMateria } from '@/lib/ia/sugestoes'
 import { WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
@@ -206,9 +208,30 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
  * do banco seria melhorar um texto que a pessoa já mudou. A resposta é
  * SUGESTÃO — volta para a tela e só entra no editor se alguém aceitar.
  */
+/**
+ * As páginas do site que o modelo pode ligar no texto: as fixas com nome
+ * editorial e as últimas matérias publicadas. Falha aqui não derruba a
+ * melhoria — sem repertório, o texto sai sem links, que é como sempre saiu.
+ */
+async function paginasParaLinkar(workspaceId: string): Promise<PaginaDoSite[]> {
+  const fixas: PaginaDoSite[] = [
+    { titulo: 'Central de notícias', url: `${ORIGEM_DO_SITE}/noticias/` },
+    { titulo: 'Como doar para a Cruz Vermelha do Rio', url: `${ORIGEM_DO_SITE}/doacao.html` },
+    { titulo: 'Cursos e capacitações', url: `${ORIGEM_DO_SITE}/cursos.html` },
+    { titulo: 'Nossa equipe', url: `${ORIGEM_DO_SITE}/equipe.html` },
+    { titulo: 'Campanha do Agasalho', url: `${ORIGEM_DO_SITE}/campanha-agasalho.html` },
+  ]
+  try {
+    const noticias = await noticiasPublicadas(workspaceId)
+    return [...fixas, ...noticias.slice(0, 12).map((n) => ({ titulo: n.titulo, url: n.url }))]
+  } catch {
+    return fixas
+  }
+}
+
 export async function melhorarTextoDaMateria(formData: FormData): Promise<ResultadoDaMelhoria> {
   try {
-    await requireWorkspace()
+    const context = await requireWorkspace()
 
     const corpo = String(formData.get('corpo') ?? '')
     const titulo = texto(formData, 'titulo')
@@ -219,7 +242,8 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
     if (corpo.length > TETO_DO_CORPO) throw new Error(`O texto passa de ${TETO_DO_CORPO} caracteres — o teto do editor.`)
     if (!['claude', 'gpt'].includes(provedor)) throw new Error('Escolha o provedor: Claude ou GPT.')
 
-    const montado = montarPedidoDeMelhoria({ titulo, corpo, formatoId })
+    const paginas = await paginasParaLinkar(context.workspace.id)
+    const montado = montarPedidoDeMelhoria({ titulo, corpo, formatoId, paginas })
     if (!montado) throw new Error('Formato de texto desconhecido.')
 
     if (provedor === 'claude' && !claudeConfigurado()) {
@@ -233,13 +257,16 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
       ? await reescreverComClaude({ system: montado.system, texto: montado.pedido })
       : await reescreverComGpt({ system: montado.system, texto: montado.pedido })
 
-    // Foto que o modelo perdeu volta; foto que ele inventou sai.
-    const { texto: garantido, aviso } = garantirFotos(corpo, proposta)
-    if (garantido.length > TETO_DO_CORPO) {
+    // Foto que o modelo perdeu volta; foto que ele inventou sai; link para
+    // endereço que não existe vira texto simples.
+    const fotos = garantirFotos(corpo, proposta)
+    const links = conferirLinks(fotos.texto, paginas, corpo)
+    if (links.texto.length > TETO_DO_CORPO) {
       throw new Error('A sugestão ficou maior que o teto do editor. Tente outro formato ou encurte a matéria.')
     }
 
-    return { texto: garantido, ...(aviso ? { aviso } : {}) }
+    const aviso = [fotos.aviso, links.aviso].filter(Boolean).join(' ')
+    return { texto: links.texto, ...(aviso ? { aviso } : {}) }
   } catch (causa) {
     return { erro: semChaveDoClaude(semChave(mensagemDoErro(causa, 'Não foi possível melhorar o texto.'))) }
   }

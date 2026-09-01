@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/session'
 import {
-  adaptarTexto, esforcoDeRaciocinio, iaConfigurada, modeloDeImagem, modeloDeTexto, modelosDisponiveis,
-  semChave, tetoMensalDeImagens, MODELO_DE_IMAGEM_PADRAO, MODELO_DE_TEXTO_PADRAO,
+  adaptarTexto, esforcoDeEscrita, esforcoDeRaciocinio, iaConfigurada, modeloDeEscrita, modeloDeImagem,
+  modeloDeTexto, modelosDisponiveis, semChave, tetoMensalDeImagens,
+  MODELO_DE_ESCRITA_PADRAO, MODELO_DE_IMAGEM_PADRAO, MODELO_DE_TEXTO_PADRAO,
 } from '@/lib/ia/openai'
 import {
   claudeConfigurado, modeloDoClaude, reescreverComClaude, semChaveDoClaude, MODELO_CLAUDE_PADRAO,
@@ -57,14 +58,18 @@ export async function GET(request: NextRequest) {
 
   const imagem = modeloDeImagem()
   const escrita = modeloDeTexto()
+  const redator = modeloDeEscrita()
   const base = {
     claude,
     configurado: iaConfigurada(),
     modeloDeImagem: imagem,
     modeloDeTexto: escrita,
+    modeloDeEscrita: redator,
+    esforcoDeEscrita: esforcoDeEscrita() || '(padrão do modelo)',
     usandoPadrao: {
       imagem: imagem === MODELO_DE_IMAGEM_PADRAO,
       texto: escrita === MODELO_DE_TEXTO_PADRAO,
+      escrita: redator === MODELO_DE_ESCRITA_PADRAO,
     },
     tetoMensalDeImagens: tetoMensalDeImagens(),
   }
@@ -93,7 +98,7 @@ export async function GET(request: NextRequest) {
   }
 
   const existe = (nome: string) => modelos.includes(nome)
-  const modelosOk = existe(imagem) && existe(escrita)
+  const modelosOk = existe(imagem) && existe(escrita) && existe(redator)
 
   // O teste de verdade é opcional porque custa: uma chamada de texto curta,
   // fração de centavo. Imagem não é testada aqui de propósito — essa custa.
@@ -126,6 +131,7 @@ export async function GET(request: NextRequest) {
     chaveValida: true,
     modeloDeImagemExiste: existe(imagem),
     modeloDeTextoExiste: existe(escrita),
+    modeloDeEscritaExiste: existe(redator),
     ...(teste ? { testeDeTexto: teste } : {}),
     esforcoDeRaciocinio: esforcoDeRaciocinio() || '(padrão do modelo)',
     veredito: tudoOk
@@ -133,6 +139,7 @@ export async function GET(request: NextRequest) {
           ? `Tudo funcionando: chave válida, modelos existem e a chamada de texto completou em ${(teste.custo as { segundos: number }).segundos}s.`
           : 'Chave válida e os dois modelos existem. Acrescente ?testar=1 para fazer uma chamada de verdade.')
       : !existe(escrita) ? `O modelo de texto "${escrita}" não existe nesta conta.`
+      : !existe(redator) ? `O modelo de escrita "${redator}" não existe nesta conta (OPENAI_WRITER_MODEL).`
       : !existe(imagem) ? `O modelo de imagem "${imagem}" não existe nesta conta.`
       : 'A chamada de teste falhou — veja testeDeTexto.',
     ...(modelosOk ? {} : {

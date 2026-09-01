@@ -42,6 +42,22 @@ export const modeloDeImagem = () => process.env.OPENAI_IMAGE_MODEL?.trim() || MO
 export const modeloDeTexto = () => process.env.OPENAI_TEXT_MODEL?.trim() || MODELO_DE_TEXTO_PADRAO
 
 /**
+ * O modelo que ESCREVE matéria é outro que o que adapta legenda.
+ *
+ * Legenda é reescrita curta e cabe ao mini, que é rápido e quase de graça.
+ * Matéria completa de uma página, com contexto e estrutura, no mini sai rasa
+ * — foi o retorno de quem usou. Escrever é o trabalho caro que justifica o
+ * modelo cheio, e raciocinar faz parte dele: o esforço aqui é próprio, não o
+ * "minimal" global das legendas.
+ */
+export const MODELO_DE_ESCRITA_PADRAO = 'gpt-5'
+export const modeloDeEscrita = () => process.env.OPENAI_WRITER_MODEL?.trim() || MODELO_DE_ESCRITA_PADRAO
+export function esforcoDeEscrita(): string {
+  const bruto = process.env.OPENAI_WRITER_EFFORT
+  return bruto === undefined ? 'medium' : bruto.trim()
+}
+
+/**
  * Quanto raciocínio pedir ao modelo de texto.
  *
  * A família GPT-5 raciocina por padrão, e a primeira chamada real levou 13,6
@@ -315,10 +331,10 @@ export async function reescreverComGpt(pedido: {
   system: string
   texto: string
 }): Promise<{ texto: string; medida: MedidaDaChamada }> {
-  const esforco = esforcoDeRaciocinio()
+  const esforco = esforcoDeEscrita()
   const comecou = Date.now()
   const { dados, recuou } = await chamarComRecuo<RespostaDeTexto>('/chat/completions', {
-    model: modeloDeTexto(),
+    model: modeloDeEscrita(),
     messages: [
       { role: 'system', content: pedido.system },
       { role: 'user', content: pedido.texto },
@@ -333,7 +349,7 @@ export async function reescreverComGpt(pedido: {
     const porTeto = dados.choices?.[0]?.finish_reason === 'length'
     throw new IaError(
       porTeto
-        ? `A resposta veio vazia porque o modelo gastou o teto de ${TETO_DA_MATERIA} tokens raciocinando. Baixe OPENAI_REASONING_EFFORT ou deixe-a vazia.`
+        ? `A resposta veio vazia porque o modelo gastou o teto de ${TETO_DA_MATERIA} tokens raciocinando. Baixe OPENAI_WRITER_EFFORT ou deixe-a vazia.`
         : 'A OpenAI respondeu sem texto.',
       502,
     )
