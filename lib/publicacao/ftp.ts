@@ -51,6 +51,34 @@ export function defaultTlsMode(): TlsMode {
  *
  * FTPS aqui é o explícito: AUTH TLS na mesma porta 21, não uma porta separada.
  */
+/**
+ * Traduz o erro de CONEXÃO para a decisão que ele pede.
+ *
+ * "certificate has expired" chegou cru na tela de quem publicava, sem dizer
+ * de quem era a culpa nem o que fazer. Cada caso conhecido ganha a resposta
+ * em português; o desconhecido segue como veio — mensagem original nunca é
+ * engolida.
+ */
+export function explicarErroDeConexao(causa: unknown): string | null {
+  const texto = causa instanceof Error ? causa.message : String(causa)
+  if (/certificate has expired|CERT_HAS_EXPIRED/i.test(texto)) {
+    return 'O certificado TLS do servidor de FTP da hospedagem está VENCIDO — o problema é do servidor da Hostinger, não da Redação. Confira a validade em /api/admin/ftp-check e acione a hospedagem para renovar. Se a publicação não puder esperar, FTP_TLS_INSECURE=1 na Vercel (com redeploy) publica com a conexão cifrada porém sem verificar o certificado — retire a variável assim que a hospedagem renovar.'
+  }
+  if (/hostname\/ip does not match|altnames|ERR_TLS_CERT_ALTNAME/i.test(texto)) {
+    return 'O certificado do servidor não vale para o nome em FTP_HOST. /api/admin/ftp-check mostra para quais nomes ele vale — troque FTP_HOST por um deles.'
+  }
+  if (/self.signed|unable to (get|verify)/i.test(texto)) {
+    return 'O servidor apresentou um certificado que não fecha cadeia de confiança. Confira /api/admin/ftp-check; se for limitação da hospedagem, FTP_TLS_INSECURE=1 é o paliativo consciente.'
+  }
+  if (/530|login|authentication failed/i.test(texto)) {
+    return 'O servidor recusou usuário ou senha do FTP. Confira FTP_USER e FTP_PASSWORD na Vercel (variável nova só entra em build novo).'
+  }
+  if (/ENOTFOUND|EAI_AGAIN/i.test(texto)) {
+    return 'O endereço em FTP_HOST não resolveu. Confira o nome na Vercel.'
+  }
+  return null
+}
+
 export async function withFtp<T>(
   run: (client: Client, config: FtpConfig) => Promise<T>,
   mode: TlsMode = defaultTlsMode(),
@@ -59,16 +87,25 @@ export async function withFtp<T>(
   const config = ftpConfig()
   const client = new Client(timeoutMs)
   try {
-    await client.access({
-      host: config.host,
-      user: config.user,
-      password: config.password,
-      secure: mode !== 'sem-tls',
-      secureOptions:
-        mode === 'ftps-estrito'
-          ? { servername: config.host }
-          : { rejectUnauthorized: false },
-    })
+    try {
+      await client.access({
+        host: config.host,
+        user: config.user,
+        password: config.password,
+        secure: mode !== 'sem-tls',
+        secureOptions:
+          mode === 'ftps-estrito'
+            ? { servername: config.host }
+            : { rejectUnauthorized: false },
+      })
+    } catch (causa) {
+      const dica = explicarErroDeConexao(causa)
+      if (dica) {
+        const original = causa instanceof Error ? causa.message : String(causa)
+        throw new Error(`${dica} (erro do servidor: ${original.slice(0, 120)})`)
+      }
+      throw causa
+    }
     return await run(client, config)
   } finally {
     client.close()
@@ -84,7 +121,18 @@ export async function withFtp<T>(
  * pública por definição (qualquer um que conecta na porta 21 a recebe): aqui
  * conectamos sem verificar só para lê-la e mostrar no diagnóstico.
  */
-export async function nomesDoCertificado(timeoutMs = 30_000): Promise<{ sujeito: string; nomes: string[] }> {
+export type ValidadeDoCertificado = {
+  de: string
+  ate: string
+  expirado: boolean
+  diasRestantes: number
+}
+
+export async function nomesDoCertificado(timeoutMs = 30_000): Promise<{
+  sujeito: string
+  nomes: string[]
+  validade?: ValidadeDoCertificado
+}> {
   const config = ftpConfig()
   const client = new Client(timeoutMs)
   try {
@@ -103,7 +151,21 @@ export async function nomesDoCertificado(timeoutMs = 30_000): Promise<{ sujeito:
       .map((parte) => parte.trim())
       .filter((parte) => parte.startsWith('DNS:'))
       .map((parte) => parte.slice(4))
-    return { sujeito: cert.subject?.CN ?? '', nomes }
+
+    // A validade responde o caso que o nome não explica: certificado com o
+    // nome certo e VENCIDO. Foi exatamente o "certificate has expired" que
+    // travou a publicação sem dizer de quem era a culpa.
+    let validade: ValidadeDoCertificado | undefined
+    if (cert.valid_to) {
+      const ate = new Date(cert.valid_to)
+      validade = {
+        de: cert.valid_from ?? '',
+        ate: cert.valid_to,
+        expirado: ate.getTime() < Date.now(),
+        diasRestantes: Math.floor((ate.getTime() - Date.now()) / 86_400_000),
+      }
+    }
+    return { sujeito: cert.subject?.CN ?? '', nomes, validade }
   } finally {
     client.close()
   }
