@@ -69,17 +69,27 @@ export async function GET() {
   // para FTP_HOST ser trocado pelo nome e o modo estrito voltar a funcionar.
   if (conectado !== 'ftps-estrito') {
     try {
-      const { sujeito, nomes } = await nomesDoCertificado(TIMEOUT_DA_SONDA)
+      const { sujeito, nomes, validade } = await nomesDoCertificado(TIMEOUT_DA_SONDA)
       const lista = nomes.length ? nomes.join(', ') : sujeito || '(certificado sem nomes legíveis)'
       const soCuringa = nomes.length > 0 && nomes.every((n) => n.startsWith('*.'))
+      // O vencido vem ANTES do nome: com o certificado expirado, trocar o
+      // FTP_HOST não resolve nada — a decisão é outra.
+      const doVencimento = validade?.expirado
+        ? ` CERTIFICADO VENCIDO desde ${validade.ate} — o conserto é da hospedagem (renovar o certificado do servidor);`
+          + ' enquanto isso, FTP_TLS_INSECURE=1 na Vercel publica cifrado sem verificar, e deve ser retirada após a renovação.'
+        : validade
+          ? ` Válido até ${validade.ate} (${validade.diasRestantes} dia(s)).`
+          : ''
       probes.push({
         etapa: 'certificado do servidor',
-        ok: true,
-        detalhe: `vale para: ${lista}.`
-          + (soCuringa
-            ? ' São curingas — o nome exato do servidor aparece no painel da hospedagem'
-              + ' (detalhes do plano); troque FTP_HOST para ele.'
-            : ' Troque FTP_HOST para um destes nomes em Vercel → Environment Variables e a conexão estrita passa.'),
+        ok: !validade?.expirado,
+        detalhe: `vale para: ${lista}.${doVencimento}`
+          + (validade?.expirado
+            ? ''
+            : soCuringa
+              ? ' São curingas — o nome exato do servidor aparece no painel da hospedagem'
+                + ' (detalhes do plano); troque FTP_HOST para ele.'
+              : ' Troque FTP_HOST para um destes nomes em Vercel → Environment Variables e a conexão estrita passa.'),
       })
     } catch (cause) {
       probes.push({ etapa: 'certificado do servidor', ok: false, detalhe: seguro(cause, config.password) })
