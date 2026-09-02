@@ -630,6 +630,7 @@ export async function arquivarPacote(formData: FormData): Promise<ResultadoDoHub
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { publicarFotos, publicarTexto, publicarVideo, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
+import { explicarRecusaDaRede, motivoDaRecusa, traduzirSeConhecida } from '@/lib/publicacao/recusa'
 import { carregarArquivos } from '@/lib/publicacao/arquivos'
 import { publicarMateria } from '@/lib/site/publicar-materia'
 import type { CaixaDeRecorte } from '@/lib/publicacao/recorte'
@@ -974,7 +975,12 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           })))
         }
       } catch (causa) {
-        const mensagem = semSegredo(causa instanceof Error ? causa.message : String(causa)).slice(0, 500)
+        // O 429 do plano, o 401 da chave e afins chegam por aqui, em inglês.
+        // A mesma tradução das recusas por rede serve — e quando o motivo não
+        // é conhecido, o texto original fica como está (pode já ser português).
+        const bruta = causa instanceof Error ? causa.message : String(causa)
+        const nomes = grupo.map((d) => adapter(d.canal)?.nome ?? d.canal).join(', ')
+        const mensagem = semSegredo(traduzirSeConhecida(bruta, nomes) ?? bruta).slice(0, 500)
         falhas += grupo.length
         await supabase.from('social_publications').update({ status: 'failed', error: mensagem }).eq('id', registro.id)
         await marcar(ids, { estado: 'falhou', erro: mensagem })
@@ -1110,7 +1116,7 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
       await supabase.from('social_publications').update({
         status: dados.status ?? registro.status,
         results: (dados.results ?? []).map((r) => ({
-          rede: r.platform, ok: r.success, mensagem: r.message ?? null,
+          rede: r.platform, ok: r.success, mensagem: motivoDaRecusa(r),
           url: r.post_url ?? null, pulada: r.skipped ?? false,
         })),
       }).eq('id', registro.id)
@@ -1138,7 +1144,10 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
           continue
         }
         if (resultado.success === false) {
-          await aplicar(destino.id, { estado: 'falhou', erro: (resultado.message ?? 'A rede recusou a publicação.').slice(0, 500) })
+          // O motivo vem em `error` ou `message`, em inglês; a tradução diz
+          // o que aconteceu E o que fazer, sem apagar a resposta original.
+          const erro = semSegredo(explicarRecusaDaRede(resultado, adapter(destino.canal)?.nome ?? destino.canal))
+          await aplicar(destino.id, { estado: 'falhou', erro: erro.slice(0, 500) })
           mudou++
           continue
         }

@@ -315,6 +315,9 @@ export type ResultadoPorRede = {
   platform: string
   success: boolean
   message?: string
+  /** Em falha, o motivo de verdade costuma vir AQUI, não em message — a doc de
+   * error-handling mostra `results[plataforma].error` com o texto da rede. */
+  error?: string
   post_url?: string | null
   skipped?: boolean
   skip_reason?: string
