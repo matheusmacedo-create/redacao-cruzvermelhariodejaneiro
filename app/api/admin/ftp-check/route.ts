@@ -117,18 +117,27 @@ export async function GET() {
       // conta enxerga as páginas da outra equipe.
       naRaizDoSite = itens.some((item) => /^(index|default)\.(html?|php)$/i.test(item.name))
       probes.push({
-        etapa: 'listagem',
+        etapa: 'listagem (pasta de entrada)',
         ok: true,
         detalhe: itens.length
           ? itens.slice(0, 20).map((item) => `${item.isDirectory ? 'dir ' : 'arq '}${item.name}`).join(', ')
           : '(pasta vazia — esperado numa pasta recém-criada)',
       })
 
+      // A escrita de teste vai para a MESMA pasta que o publicador usa
+      // (FTP_BASE_DIR, caminho absoluto) — antes ela gravava na pasta de
+      // login: numa conta que entra na raiz do site, o diagnóstico largava
+      // o arquivo em /public_html e depois o procurava em /noticias/, com
+      // um 404 "falso" acusando a pasta errada.
+      await client.ensureDir(config.baseDir)
+      const pastaDePublicacao = await client.pwd()
+      probes.push({ etapa: 'pasta de publicação', ok: true, detalhe: pastaDePublicacao })
+
       // Escrita e remoção: é o que o publicador vai fazer de verdade. Falhar
       // aqui com a conexão funcionando aponta para permissão da conta FTP.
       const corpo = 'Arquivo temporário de diagnóstico da Redação. Pode ser apagado.\n'
       await client.uploadFrom(Readable.from([corpo]), nomeTemp)
-      probes.push({ etapa: 'gravar arquivo', ok: true, detalhe: nomeTemp })
+      probes.push({ etapa: 'gravar arquivo', ok: true, detalhe: `${nomeTemp} em ${pastaDePublicacao}` })
 
       const depois = await client.list()
       const gravou = depois.some((item) => item.name === nomeTemp)
