@@ -32,6 +32,7 @@ import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { corpoComMidias } from '@/lib/publicacao/legendas'
 import { gerarSlug } from '@/lib/site/slug'
 import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
+import { janelaDeRecorte, type CaixaDeRecorte } from '@/lib/publicacao/janela-de-recorte'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
   adicionarDestino, alternarPublicacao, arquivarPacote, atualizarStatusDoPacote,
@@ -3046,8 +3047,6 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
   if (!arquivo || arquivo.tipo !== 'foto') return null
 
   const caixa = destino.crops[selecionado] ?? { fx: 0.5, fy: 0.5, ratio: proporcaoAlvo }
-  const mudar = (campo: 'fx' | 'fy', v: number) =>
-    onEditar({ crops: { ...destino.crops, [selecionado]: { ...caixa, ratio: proporcaoAlvo, [campo]: v } } })
 
   return (
     <div className="rounded-lg border border-border p-3">
@@ -3069,26 +3068,171 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
             })}
           </div>
         )}
-        <div className="overflow-hidden rounded-md border border-border" style={{ aspectRatio: String(proporcaoAlvo), width: 180 }}>
-          <img
-            src={arquivo.previa}
-            alt=""
-            className="size-full object-cover"
-            style={{ objectPosition: `${caixa.fx * 100}% ${caixa.fy * 100}%` }}
-          />
-        </div>
-        <div className="flex min-w-40 flex-1 flex-col gap-3 text-xs text-muted-foreground">
-          <label>Horizontal
-            <input type="range" min={0} max={100} value={Math.round(caixa.fx * 100)} disabled={desabilitado}
-              onChange={(e) => mudar('fx', Number(e.target.value) / 100)} className="mt-1 w-full accent-primary" />
-          </label>
-          <label>Vertical
-            <input type="range" min={0} max={100} value={Math.round(caixa.fy * 100)} disabled={desabilitado}
-              onChange={(e) => mudar('fy', Number(e.target.value) / 100)} className="mt-1 w-full accent-primary" />
-          </label>
-          <p>O corte é feito na hora do envio; o original da Biblioteca não muda.</p>
-        </div>
+        <QuadroDeRecorte
+          key={selecionado}
+          src={arquivo.previa}
+          caixa={{ ...caixa, ratio: proporcaoAlvo }}
+          desabilitado={desabilitado}
+          onMudar={(nova) => onEditar({ crops: { ...destino.crops, [selecionado]: nova } })}
+        />
       </div>
+    </div>
+  )
+}
+
+/**
+ * O editor de enquadramento: a foto INTEIRA com a janela do corte por cima,
+ * que se arrasta com o dedo ou o mouse — clicar num ponto centra a janela
+ * nele. Ao lado, a prévia do resultado, desenhada pela MESMA conta
+ * (janelaDeRecorte) que o servidor usa para cortar na hora do envio.
+ *
+ * Os dois sliders que existiam antes pediam que a pessoa traduzisse
+ * "quero o rosto no quadro" para porcentagens — a direção certa é apontar.
+ */
+function QuadroDeRecorte({ src, caixa, desabilitado, onMudar }: {
+  src: string
+  caixa: CaixaDeRecorte
+  desabilitado: boolean
+  onMudar: (caixa: CaixaDeRecorte) => void
+}) {
+  // Medidas reais da imagem: sem elas não há conta de janela que preste.
+  const [dim, setDim] = useState<{ w: number; h: number } | null>(null)
+  // Durante o arrasto a caixa vive aqui; o commit para o autosave é no soltar
+  // — gravar a cada pixel de movimento inundaria o estado do pacote.
+  const [aoVivo, setAoVivo] = useState<CaixaDeRecorte | null>(null)
+  const arrastando = useRef(false)
+  const quadroRef = useRef<HTMLDivElement>(null)
+
+  const atual = aoVivo ?? caixa
+  const janela = dim ? janelaDeRecorte(dim.w, dim.h, atual) : null
+
+  function focalDoEvento(e: React.PointerEvent): CaixaDeRecorte | null {
+    const el = quadroRef.current
+    if (!el) return null
+    const r = el.getBoundingClientRect()
+    if (!r.width || !r.height) return null
+    return {
+      ...atual,
+      fx: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+      fy: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
+    }
+  }
+
+  function iniciar(e: React.PointerEvent) {
+    if (desabilitado || !janela) return
+    arrastando.current = true
+    quadroRef.current?.setPointerCapture(e.pointerId)
+    const nova = focalDoEvento(e)
+    if (nova) setAoVivo(nova)
+  }
+
+  function mover(e: React.PointerEvent) {
+    if (!arrastando.current) return
+    const nova = focalDoEvento(e)
+    if (nova) setAoVivo(nova)
+  }
+
+  function soltar() {
+    if (!arrastando.current) return
+    arrastando.current = false
+    setAoVivo((viva) => {
+      if (viva) onMudar(viva)
+      return null
+    })
+  }
+
+  // Setas do teclado: o arrasto não serve a quem navega sem mouse.
+  function teclado(e: React.KeyboardEvent) {
+    if (desabilitado || !janela) return
+    const passo = 0.05
+    const delta: Record<string, [number, number]> = {
+      ArrowLeft: [-passo, 0], ArrowRight: [passo, 0], ArrowUp: [0, -passo], ArrowDown: [0, passo],
+    }
+    const d = delta[e.key]
+    if (!d) return
+    e.preventDefault()
+    onMudar({
+      ...atual,
+      fx: Math.min(1, Math.max(0, atual.fx + d[0])),
+      fy: Math.min(1, Math.max(0, atual.fy + d[1])),
+    })
+  }
+
+  const PREVIA_LARGURA = 132
+  const escala = janela ? PREVIA_LARGURA / janela.w : 0
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-start gap-4">
+      <div className="w-64 max-w-full">
+        <div
+          ref={quadroRef}
+          role="slider"
+          aria-label="Enquadramento da imagem"
+          aria-valuetext={`foco ${Math.round(atual.fx * 100)}% × ${Math.round(atual.fy * 100)}%`}
+          aria-valuenow={Math.round(atual.fx * 100)}
+          tabIndex={desabilitado ? -1 : 0}
+          onPointerDown={iniciar}
+          onPointerMove={mover}
+          onPointerUp={soltar}
+          onPointerCancel={soltar}
+          onKeyDown={teclado}
+          className={`relative select-none overflow-hidden rounded-md border border-border focus-visible:ring-2 focus-visible:ring-primary ${
+            desabilitado ? '' : janela ? 'cursor-crosshair touch-none' : ''
+          }`}
+        >
+          <img
+            src={src}
+            alt=""
+            draggable={false}
+            onLoad={(e) => setDim({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+            className="block w-full"
+          />
+          {janela && dim && (
+            <div
+              className="pointer-events-none absolute rounded-sm border-2 border-white/95"
+              style={{
+                left: `${(janela.left / dim.w) * 100}%`,
+                top: `${(janela.top / dim.h) * 100}%`,
+                width: `${(janela.w / dim.w) * 100}%`,
+                height: `${(janela.h / dim.h) * 100}%`,
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
+              }}
+            />
+          )}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          {janela
+            ? desabilitado
+              ? 'A parte clara é o que sai na publicação.'
+              : 'Arraste a janela (ou toque no ponto que importa) para escolher o que aparece.'
+            : dim
+              ? 'A imagem já está na proporção deste canal — sai inteira, sem corte.'
+              : 'Carregando a imagem…'}
+        </p>
+      </div>
+      {janela && dim && (
+        <div className="text-[11px] text-muted-foreground">
+          <p className="mb-1 font-medium">Como vai sair</p>
+          <div
+            className="overflow-hidden rounded-md border border-border"
+            style={{ width: PREVIA_LARGURA, height: Math.round(janela.h * escala) }}
+          >
+            <img
+              src={src}
+              alt=""
+              draggable={false}
+              className="block max-w-none"
+              style={{
+                width: dim.w * escala,
+                height: dim.h * escala,
+                marginLeft: -janela.left * escala,
+                marginTop: -janela.top * escala,
+              }}
+            />
+          </div>
+          <p className="mt-1.5 max-w-40">O corte é feito na hora do envio; o original da Biblioteca não muda.</p>
+        </div>
+      )}
     </div>
   )
 }
