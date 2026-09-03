@@ -1,119 +1,52 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/session'
-import { apiKey, semSegredo, UploadPostConfigError } from '@/lib/publicacao/upload-post'
+import { semSegredo, UploadPostConfigError } from '@/lib/publicacao/upload-post'
+import { garantirWebhookRegistrado, lerConfiguracao, segredoDoWebhook, urlDoWebhook } from '@/lib/publicacao/webhook-do-conector'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * Ativa e confere o webhook do Upload-Post — o aviso em tempo real que faz o
- * hub saber do resultado de cada post sem ninguém abrir a tela.
+ * Confere (e força, com ?ativar=1) o webhook do Upload-Post — o aviso em
+ * tempo real que faz o hub saber do resultado de cada post sem ninguém abrir
+ * a tela.
  *
- * GET             → mostra a configuração atual da conta no conector.
- * GET ?ativar=1   → registra a URL desta aplicação no conector e devolve o
- *                   segredo de assinatura para colar na Vercel como
- *                   UPLOAD_POST_WEBHOOK_SECRET (e republicar).
- *
- * O segredo aparece aqui de propósito: é um segredo de VERIFICAÇÃO (com ele
- * só se assina aviso de webhook, não se publica nada), a rota é de admin, e
- * sem mostrá-lo não haveria como levá-lo até a variável de ambiente.
+ * Não há mais passo manual: o registro acontece sozinho na primeira
+ * publicação, e o verificador da assinatura é lido da própria API do
+ * conector. Esta rota existe para DIAGNOSTICAR — dizer se está tudo de pé —
+ * e para forçar o registro sem esperar uma publicação. O segredo em si nunca
+ * aparece na resposta, porque ninguém mais precisa copiá-lo.
  */
-
-// A configuração de notificações vive no host do painel, não no da API.
-const ENDERECO = 'https://app.upload-post.com/api/uploadposts/users/notifications'
-
-function urlDoWebhook(): string {
-  const base = process.env.NEWSLETTER_URL_BASE?.trim().replace(/\/$/, '')
-    || 'https://redacao.cruzvermelhariodejaneiro.org'
-  return `${base}/api/webhooks/upload-post`
-}
-
-type Notificacoes = {
-  channels?: Record<string, boolean>
-  webhook_url?: string | null
-  webhook_secret?: string | null
-  webhook_events?: Record<string, boolean>
-}
-
 export async function GET(req: Request) {
   try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
-  let chave: string
-  try {
-    chave = apiKey()
-  } catch (causa) {
-    if (causa instanceof UploadPostConfigError) {
-      return NextResponse.json({ ok: false, mensagem: causa.message }, { status: 503 })
-    }
-    throw causa
-  }
-
-  const cabecalhos = { Authorization: `Apikey ${chave}`, 'Content-Type': 'application/json' }
   const ativar = new URL(req.url).searchParams.get('ativar') === '1'
   const destino = urlDoWebhook()
 
   try {
-    if (ativar) {
-      const resposta = await fetch(ENDERECO, {
-        method: 'POST',
-        headers: cabecalhos,
-        cache: 'no-store',
-        signal: AbortSignal.timeout(15_000),
-        body: JSON.stringify({
-          channels: { webhook: true },
-          webhook_url: destino,
-          // Só o evento que o hub consome. Os de conexão de conta ficam para
-          // quando houver onde guardá-los.
-          webhook_events: {
-            upload_completed: true,
-            social_account_connected: false,
-            social_account_disconnected: false,
-            social_account_reauth_required: false,
-          },
-        }),
-      })
-      if (!resposta.ok) {
-        const texto = await resposta.text()
-        return NextResponse.json({
-          ok: false,
-          mensagem: `O conector recusou a ativação (HTTP ${resposta.status}): ${semSegredo(texto).slice(0, 300)}`,
-        }, { status: 502 })
-      }
-    }
+    if (ativar) await garantirWebhookRegistrado()
 
-    const leitura = await fetch(ENDERECO, {
-      headers: cabecalhos,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!leitura.ok) {
-      const texto = await leitura.text()
-      return NextResponse.json({
-        ok: false,
-        mensagem: `Não foi possível ler a configuração (HTTP ${leitura.status}): ${semSegredo(texto).slice(0, 300)}`,
-      }, { status: 502 })
-    }
-    const dados = await leitura.json() as { notifications?: Notificacoes } & Notificacoes
-    const config = dados.notifications ?? dados
-
+    const config = await lerConfiguracao()
     const urlConfigurada = config.webhook_url ?? null
-    const apontaParaCa = urlConfigurada === destino
-    const verificadorNaVercel = Boolean(process.env.UPLOAD_POST_WEBHOOK_SECRET?.trim())
+    const apontaParaCa = urlConfigurada === destino && Boolean(config.channels?.webhook)
+    const verificadorDisponivel = Boolean(await segredoDoWebhook())
 
     return NextResponse.json({
-      ok: apontaParaCa && verificadorNaVercel,
+      ok: apontaParaCa && verificadorDisponivel,
       urlEsperada: destino,
       urlConfigurada,
       canalWebhookLigado: Boolean(config.channels?.webhook),
-      segredoParaVercel: config.webhook_secret ?? null,
-      verificadorNaVercel,
+      verificadorDisponivel,
       proximoPasso: !apontaParaCa
-        ? 'Chame esta rota com ?ativar=1 para registrar a URL do webhook no conector.'
-        : !verificadorNaVercel
-          ? 'Copie segredoParaVercel para a variável UPLOAD_POST_WEBHOOK_SECRET na Vercel e republique. Não compartilhe o valor.'
+        ? 'Chame esta rota com ?ativar=1 (ou publique qualquer pacote — o registro acontece sozinho).'
+        : !verificadorDisponivel
+          ? 'A URL está registrada, mas o conector não devolveu o segredo de assinatura. Confira UPLOAD_POST_API_KEY.'
           : 'Webhook ativo: o resultado de cada post chega sozinho ao hub.',
     })
   } catch (causa) {
+    if (causa instanceof UploadPostConfigError) {
+      return NextResponse.json({ ok: false, mensagem: causa.message }, { status: 503 })
+    }
     return NextResponse.json({
       ok: false,
       mensagem: semSegredo(causa instanceof Error ? causa.message : String(causa)).slice(0, 300),
