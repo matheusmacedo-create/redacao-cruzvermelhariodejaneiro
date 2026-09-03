@@ -4,9 +4,9 @@ import { useMemo, useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ExternalLink, Map, Sparkles, X } from 'lucide-react'
+import { ExternalLink, Map, RefreshCw, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { importarDoCerebro, recusarSugestao } from '@/app/actions/cerebro'
+import { importarDoCerebro, recusarSugestao, sincronizarCerebro } from '@/app/actions/cerebro'
 import {
   DESTINO_POR_CANAL,
   MOTIVOS_RECUSA,
@@ -68,12 +68,34 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
   geradoEm: string | null
   erro: string | null
 }) {
+  const router = useRouter()
   const todas = useMemo(() => SECOES.flatMap((s) => filas[s.chave]), [filas])
   const [selecionadaId, setSelecionadaId] = useState<string | null>(todas[0]?.id ?? null)
   const [sheet, setSheet] = useState(false)
   const [fechadas, setFechadas] = useState<Set<string>>(new Set())
   const [briefingAberto, setBriefingAberto] = useState(false)
+  const [sincronizando, iniciarSync] = useTransition()
   const selecionada = todas.find((p) => p.id === selecionadaId) ?? null
+
+  // O "mergulho" de cada história fica guardado aqui em cima: trocar de
+  // história e voltar não paga a busca de novo.
+  const [relacionados, setRelacionados] = useState<Record<string, 'carregando' | Relacionados>>({})
+  const explorar = async (id: string) => {
+    setRelacionados((s) => ({ ...s, [id]: 'carregando' }))
+    try {
+      const r = await fetch(`/api/cerebro/relacionados?id=${encodeURIComponent(id)}`)
+      const d = (await r.json()) as Relacionados
+      setRelacionados((s) => ({ ...s, [id]: r.ok ? d : { doCerebro: [], daCasa: [], erro: d.erro ?? `HTTP ${r.status}` } }))
+    } catch {
+      setRelacionados((s) => ({ ...s, [id]: { doCerebro: [], daCasa: [], erro: 'Sem conexão. Tente de novo.' } }))
+    }
+  }
+
+  const sincronizar = () =>
+    iniciarSync(async () => {
+      await sincronizarCerebro()
+      router.refresh()
+    })
 
   const quando = geradoEm
     ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(geradoEm))
@@ -119,6 +141,10 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
           <Button size="sm" variant="outline" onClick={() => setBriefingAberto(true)}>Gerar briefing</Button>
           <Button size="sm" variant="outline" render={<Link href="/cerebro/mapa" />}>
             <Map className="size-3.5" />Mapa
+          </Button>
+          <Button size="sm" variant="outline" onClick={sincronizar} disabled={sincronizando} title="Relê o Cérebro agora, sem esperar o cache de 5 minutos.">
+            <RefreshCw className={cn('size-3.5', sincronizando && 'animate-spin')} />
+            {sincronizando ? 'Sincronizando…' : 'Sincronizar'}
           </Button>
           {quando && (
             <span className="text-xs text-muted-foreground">
@@ -172,7 +198,14 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
           )}
         </div>
 
-        <Drawer pauta={selecionada} sheet={sheet} fecharSheet={() => setSheet(false)} />
+        <Drawer
+          key={selecionada?.id ?? 'vazio'}
+          pauta={selecionada}
+          sheet={sheet}
+          fecharSheet={() => setSheet(false)}
+          rel={selecionada ? relacionados[selecionada.id] : undefined}
+          aoExplorar={() => selecionada && explorar(selecionada.id)}
+        />
       </div>
 
       {briefingAberto && <BriefingModal filas={filas} quando={quando} fechar={() => setBriefingAberto(false)} />}
@@ -230,12 +263,18 @@ function Linha({ pauta: p, ativa, aoAbrir }: { pauta: PautaDoCerebro; ativa: boo
 /* Drawer: a história inteira, com as ações                            */
 /* ------------------------------------------------------------------ */
 
-function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null; sheet: boolean; fecharSheet: () => void }) {
+function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
+  pauta: PautaDoCerebro | null
+  sheet: boolean
+  fecharSheet: () => void
+  rel: 'carregando' | Relacionados | undefined
+  aoExplorar: () => void
+}) {
   const router = useRouter()
   const [ocupado, iniciar] = useTransition()
   const [erroAcao, setErroAcao] = useState('')
   const [recusando, setRecusando] = useState(false)
-  const [relacionados, setRelacionados] = useState<Record<string, 'carregando' | Relacionados>>({})
+  const [fatoInteiro, setFatoInteiro] = useState(false)
 
   if (!p)
     return (
@@ -269,18 +308,6 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
     })
   }
 
-  const explorar = async () => {
-    setRelacionados((s) => ({ ...s, [p.id]: 'carregando' }))
-    try {
-      const r = await fetch(`/api/cerebro/relacionados?id=${encodeURIComponent(p.id)}`)
-      const d = (await r.json()) as Relacionados
-      setRelacionados((s) => ({ ...s, [p.id]: r.ok ? d : { doCerebro: [], daCasa: [], erro: d.erro ?? `HTTP ${r.status}` } }))
-    } catch {
-      setRelacionados((s) => ({ ...s, [p.id]: { doCerebro: [], daCasa: [], erro: 'Sem conexão. Tente de novo.' } }))
-    }
-  }
-  const rel = relacionados[p.id]
-
   return (
     <aside
       className={cn(
@@ -301,6 +328,50 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
         </div>
         <h2 className="text-base font-extrabold leading-snug text-balance">{p.titulo}</h2>
 
+        {/* As ações moram no topo: quem abre a história decide sem caçar
+            botão no fim de um drawer comprido. */}
+        <div>
+          {recusando ? (
+            <div>
+              <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Por que não usar?</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(MOTIVOS_RECUSA) as MotivoRecusa[]).map((m) => (
+                  <button key={m} type="button" disabled={ocupado} title={MOTIVOS_RECUSA[m].explica} onClick={() => recusar(m)}
+                    className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                    {MOTIVOS_RECUSA[m].rotulo}
+                  </button>
+                ))}
+                <button type="button" className="px-2 text-xs text-muted-foreground hover:underline" onClick={() => setRecusando(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={trazer} disabled={ocupado}>{ocupado ? 'Trazendo…' : 'Trazer para pauta'}</Button>
+              {!rel && (
+                <Button size="sm" variant="outline" onClick={aoExplorar}>
+                  <Sparkles className="size-3.5" />Explorar o assunto
+                </Button>
+              )}
+              <Button size="sm" variant="ghost" className="text-primary" onClick={() => setRecusando(true)} disabled={ocupado}>
+                Não usar
+              </Button>
+            </div>
+          )}
+          <div className="mt-1.5 flex items-center gap-3">
+            <a href={p.fato.url} target="_blank" rel="noreferrer noopener" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+              Ver na fonte <ExternalLink className="inline size-3" />
+            </a>
+            {p.urlNoCerebro && (
+              <a href={p.urlNoCerebro} target="_blank" rel="noreferrer noopener" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+                Raciocínio no Cérebro
+              </a>
+            )}
+          </div>
+          {erroAcao && <p className="mt-1 text-xs text-destructive">{erroAcao}</p>}
+        </div>
+
         {p.midia && (
           <div className="relative overflow-hidden rounded-lg border border-border">
             <Image src={p.midia.url} alt="" width={640} height={360} unoptimized className="h-40 w-full bg-muted object-contain" />
@@ -312,7 +383,14 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
         )}
 
         <Bloco titulo="Fato">
-          <p className="text-sm">{p.resumo || p.titulo}</p>
+          {/* A legenda crua do Instagram tem até 2.200 caracteres; o fato do
+              drawer são poucas linhas — o resto abre para quem quiser. */}
+          <p className={cn('text-sm', !fatoInteiro && 'line-clamp-4')}>{p.resumo || p.titulo}</p>
+          {(p.resumo?.length ?? 0) > 280 && (
+            <button type="button" onClick={() => setFatoInteiro((v) => !v)} className="mt-0.5 text-xs font-semibold text-primary hover:underline">
+              {fatoInteiro ? 'Encolher' : 'Ler o post inteiro'}
+            </button>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             {p.fato.fonte}
             {p.fato.conta ? ` (${p.fato.conta})` : ''} · {dataCurta(p.fato.quando)}
@@ -328,6 +406,16 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
             ))}
           </ul>
         </div>
+
+        {rel && (
+          <Bloco titulo="No mesmo assunto">
+            {rel === 'carregando' ? (
+              <p className="mt-1 animate-pulse text-xs text-muted-foreground">Buscando no acervo do Cérebro e no histórico da Casa…</p>
+            ) : (
+              <PainelRelacionados rel={rel} />
+            )}
+          </Bloco>
+        )}
 
         <Bloco titulo="Plano por canal">
           <table className="mt-1 w-full border-collapse text-xs">
@@ -373,23 +461,6 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
           )}
         </Bloco>
 
-        <Bloco titulo="No mesmo assunto">
-          {!rel && (
-            <>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Imagens, outros sinais e o que a Casa já publicou parecido — buscados só quando você pede, para o mural não pagar esse custo.
-              </p>
-              <Button size="sm" variant="outline" className="mt-2" onClick={explorar}>
-                <Sparkles className="size-3.5" />Explorar o assunto
-              </Button>
-            </>
-          )}
-          {rel === 'carregando' && (
-            <p className="mt-1 animate-pulse text-xs text-muted-foreground">Buscando no acervo do Cérebro e no histórico da Casa…</p>
-          )}
-          {rel && rel !== 'carregando' && <PainelRelacionados rel={rel} />}
-        </Bloco>
-
         <Bloco titulo="Critérios do motor">
           {PERGUNTAS.map(([chave, rotulo]) => {
             const nota = p.decisao.notas[chave] ?? 0
@@ -404,43 +475,6 @@ function Drawer({ pauta: p, sheet, fecharSheet }: { pauta: PautaDoCerebro | null
             )
           })}
         </Bloco>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t border-border p-3">
-        {recusando ? (
-          <div className="w-full">
-            <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Por que não usar?</p>
-            <div className="flex flex-wrap gap-1.5">
-              {(Object.keys(MOTIVOS_RECUSA) as MotivoRecusa[]).map((m) => (
-                <button key={m} type="button" disabled={ocupado} title={MOTIVOS_RECUSA[m].explica} onClick={() => recusar(m)}
-                  className="rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
-                  {MOTIVOS_RECUSA[m].rotulo}
-                </button>
-              ))}
-              <button type="button" className="px-2 text-xs text-muted-foreground hover:underline" onClick={() => setRecusando(false)}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Button size="sm" onClick={trazer} disabled={ocupado}>{ocupado ? 'Trazendo…' : 'Trazer para pauta'}</Button>
-            <Button size="sm" variant="ghost" className="text-primary" onClick={() => setRecusando(true)} disabled={ocupado}>
-              Não usar
-            </Button>
-            <span className="ml-auto flex items-center gap-3">
-              <a href={p.fato.url} target="_blank" rel="noreferrer noopener" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
-                Ver na fonte
-              </a>
-              {p.urlNoCerebro && (
-                <a href={p.urlNoCerebro} target="_blank" rel="noreferrer noopener" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
-                  Raciocínio <ExternalLink className="inline size-3" />
-                </a>
-              )}
-            </span>
-          </>
-        )}
-        {erroAcao && <p className="w-full text-xs text-destructive">{erroAcao}</p>}
       </div>
     </aside>
   )
