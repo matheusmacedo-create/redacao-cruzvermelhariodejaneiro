@@ -7,7 +7,8 @@ import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
-import { adaptarTexto, gerarImagem, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt } from '@/lib/ia/openai'
+import { adaptarTexto, gerarImagem, gerarImagemComBase, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt } from '@/lib/ia/openai'
+import { carregarArquivo } from '@/lib/publicacao/arquivos'
 import { claudeConfigurado, reescreverComClaude, semChaveDoClaude, verImagensComClaude, type ImagemParaVer } from '@/lib/ia/anthropic'
 import { TETO_DE_FOTOS, montarPedidoDeLegendas, parsearLegendas } from '@/lib/ia/fotos'
 import { formatoDeImagem } from '@/lib/ia/formatos-de-imagem'
@@ -85,6 +86,25 @@ async function geradasNoMes(
 }
 
 /**
+ * Prepara a imagem-base para a geração: carrega da Biblioteca (com a mesma
+ * conferência de autorização do disparo) e reduz no servidor — mandar a arte
+ * em resolução cheia seria pagar upload e tokens por pixels que o modelo vai
+ * reamostrar de qualquer jeito.
+ */
+async function baseParaGeracao(fileId: string, workspaceId: string) {
+  const arquivo = await carregarArquivo(fileId, workspaceId)
+  if (!arquivo.contentType.startsWith('image/')) {
+    throw new Error('A imagem de base precisa ser uma foto — vídeo não serve de base para gerar imagem.')
+  }
+  const bytes = Buffer.from(await arquivo.blob.arrayBuffer())
+  const reduzida = await sharp(bytes, { failOn: 'none' })
+    .resize({ width: 1536, height: 1536, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 88 })
+    .toBuffer()
+  return { bytes: reduzida, contentType: 'image/jpeg' as const, nome: 'base.jpg' }
+}
+
+/**
  * Gera uma imagem para um destino e a deixa pronta na Biblioteca, já no
  * enquadramento que aquele canal pede.
  */
@@ -124,7 +144,18 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
 
     const pedida = texto(formData, 'qualidade')
     const qualidade = (['low', 'medium', 'high'] as const).find((q) => q === pedida) ?? 'medium'
-    const imagem = await gerarImagem({ prompt, proporcao: formato.midia.proporcaoPreferida, qualidade })
+
+    // Com imagem-base, a geração parte dela (endpoint de edição) em vez de
+    // partir do zero. A base nunca é alterada — sai uma imagem NOVA.
+    const baseFileId = texto(formData, 'baseFileId')
+    const imagem = baseFileId
+      ? await gerarImagemComBase({
+          prompt,
+          proporcao: formato.midia.proporcaoPreferida,
+          qualidade,
+          base: await baseParaGeracao(baseFileId, context.workspace.id),
+        })
+      : await gerarImagem({ prompt, proporcao: formato.midia.proporcaoPreferida, qualidade })
 
     const { data: usoAtual } = await supabase
       .from('files').select('size_bytes').eq('workspace_id', context.workspace.id).neq('status', 'deleted')
@@ -373,8 +404,15 @@ export async function gerarImagensDaMateria(formData: FormData): Promise<Resulta
       )
     }
 
+    // A mesma imagem-base (quando escolhida) alimenta todos os formatos: é o
+    // caso "temos a arte do podcast, cria as variações dela".
+    const baseFileId = texto(formData, 'baseFileId')
+    const base = baseFileId ? await baseParaGeracao(baseFileId, context.workspace.id) : null
+
     const geradas = await Promise.allSettled(
-      formatos.map((f) => gerarImagem({ prompt, proporcao: f.proporcao, qualidade })),
+      formatos.map((f) => base
+        ? gerarImagemComBase({ prompt, proporcao: f.proporcao, qualidade, base })
+        : gerarImagem({ prompt, proporcao: f.proporcao, qualidade })),
     )
 
     const { data: usoAtual } = await supabase

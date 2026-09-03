@@ -16,10 +16,24 @@
  * Módulo puro de propósito: roda na suíte de testes sem servidor.
  */
 
-/** Uma linha de resultado por rede, nas duas grafias que a API usa. */
+/** Uma linha de resultado por rede, nas duas grafias que a API usa. Os campos
+ * são unknown de propósito: já houve resposta real com formato diferente do
+ * prometido, e um objeto onde se esperava string não pode custar o motivo. */
 export type RecusaBruta = {
-  message?: string | null
-  error?: string | null
+  message?: unknown
+  error?: unknown
+}
+
+/** String legível a partir do que vier: texto, objeto com message/error, ou o
+ * próprio JSON como último recurso. */
+function comoTexto(valor: unknown): string | null {
+  if (typeof valor === 'string') return valor.trim() || null
+  if (valor && typeof valor === 'object') {
+    const o = valor as { message?: unknown; error?: unknown; detail?: unknown }
+    return comoTexto(o.message) ?? comoTexto(o.error) ?? comoTexto(o.detail)
+      ?? (() => { try { return JSON.stringify(valor).slice(0, 200) } catch { return null } })()
+  }
+  return null
 }
 
 /**
@@ -28,10 +42,7 @@ export type RecusaBruta = {
  * — por isso ele tem prioridade.
  */
 export function motivoDaRecusa(resultado: RecusaBruta): string | null {
-  const erro = resultado.error?.trim()
-  if (erro) return erro
-  const mensagem = resultado.message?.trim()
-  return mensagem || null
+  return comoTexto(resultado.error) ?? comoTexto(resultado.message)
 }
 
 const CASOS: { padrao: RegExp; dica: (canal: string) => string }[] = [

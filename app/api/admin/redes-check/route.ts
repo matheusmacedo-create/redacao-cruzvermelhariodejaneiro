@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/session'
+import { createClient } from '@/lib/supabase/server'
 import {
   conta,
   listarPerfis,
@@ -11,6 +12,7 @@ import {
   paginaFacebookPadrao,
   redesConectadas,
   semSegredo,
+  statusDoEnvio,
   UploadPostConfigError,
   UploadPostError,
 } from '@/lib/publicacao/upload-post'
@@ -140,7 +142,71 @@ export async function GET() {
     etapas.push({ etapa: 'páginas do Facebook', ok: true, detalhe: 'pulado: Facebook não conectado' })
   }
 
+  // 5. A página configurada existe entre as conectadas? Um id errado aqui é
+  // recusa silenciosa em toda publicação no Facebook.
+  const paginaConfigurada = paginaFacebookPadrao()
+  if (redes.includes('facebook')) {
+    const bate = !paginaConfigurada || paginas.length === 0 || paginas.some((p) => p.id === paginaConfigurada)
+    etapas.push({
+      etapa: 'página configurada',
+      ok: bate,
+      detalhe: !paginaConfigurada
+        ? 'UPLOAD_POST_FACEBOOK_PAGE_ID não está definida — com mais de uma página conectada a publicação falha.'
+        : bate
+          ? `UPLOAD_POST_FACEBOOK_PAGE_ID=${paginaConfigurada} confere com uma página conectada.`
+          : `UPLOAD_POST_FACEBOOK_PAGE_ID=${paginaConfigurada} NÃO está entre as páginas conectadas`
+            + ` (${paginas.map((p) => p.id).join(', ')}). Troque a variável na Vercel para um destes ids e republique.`,
+    })
+  }
+
+  // 6. Os últimos envios, com a resposta CRUA do conector. É aqui que aparece
+  // o motivo de uma recusa que a rede devolveu num campo que o código não
+  // conhecia — despejar o JSON inteiro custa nada e poupa a adivinhação.
+  const envios: { id: string; quando: string | null; redes: string[]; status: string | null; resposta: string }[] = []
+  try {
+    const supabase = await createClient()
+    const { data: linhas } = await supabase
+      .from('social_publications')
+      .select('id,created_at,networks,status,request_id,job_id,error')
+      .or('request_id.not.is.null,job_id.not.is.null')
+      .order('created_at', { ascending: false })
+      .limit(3)
+    for (const linha of linhas ?? []) {
+      try {
+        const { dados } = await statusDoEnvio({
+          requestId: linha.request_id ?? undefined,
+          jobId: linha.job_id ?? undefined,
+        })
+        envios.push({
+          id: linha.id,
+          quando: linha.created_at,
+          redes: linha.networks ?? [],
+          status: linha.status,
+          resposta: semSegredo(JSON.stringify(dados)).slice(0, 2_000),
+        })
+      } catch (erro) {
+        envios.push({
+          id: linha.id,
+          quando: linha.created_at,
+          redes: linha.networks ?? [],
+          status: linha.status,
+          resposta: `(a consulta falhou: ${semSegredo(erro instanceof Error ? erro.message : String(erro)).slice(0, 200)})`,
+        })
+      }
+    }
+    etapas.push({
+      etapa: 'últimos envios',
+      ok: true,
+      detalhe: envios.length
+        ? `${envios.length} envio(s) consultados no conector — a resposta crua está em "envios".`
+        : 'nenhum envio registrado ainda.',
+    })
+  } catch (erro) {
+    etapas.push({ etapa: 'últimos envios', ok: false, detalhe: semSegredo(String(erro)).slice(0, 200) })
+  }
+
   return NextResponse.json({
+    envios,
     ok: existe,
     perfil,
     plano,

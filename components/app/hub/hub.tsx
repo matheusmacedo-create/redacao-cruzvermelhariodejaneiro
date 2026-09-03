@@ -1175,6 +1175,13 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
             {!congelado && melhoria.gpt && (
               <CriarImagensDaMateria
                 mestre={mestre}
+                // As escolhidas do pacote primeiro; depois o resto da
+                // Biblioteca, até um teto que mantém a fileira legível.
+                fotos={[...biblioteca].sort((a, b) => Number(fileIds.includes(b.id)) - Number(fileIds.includes(a.id)))
+                  .filter((a) => a.tipo === 'foto')
+                  .slice(0, 18)
+                  .map((a) => ({ id: a.id, previa: a.previa, nome: a.nome }))}
+                workspaceId={workspaceId}
                 onNovaMidia={onNovaMidia}
                 onDescartada={(id) => onFileIds(fileIds.filter((x) => x !== id))}
                 onRecarregar={onRecarregarBiblioteca}
@@ -1296,6 +1303,83 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   )
 }
 
+/** Uma foto candidata a servir de base na geração por IA. */
+type FotoDeBase = { id: string; previa: string; nome: string }
+
+/**
+ * A imagem-base opcional da geração por IA.
+ *
+ * É o caso "já temos a arte do post — cria as variações dela": a pessoa marca
+ * uma foto que já existe (ou sobe uma na hora) e o modelo parte dela em vez de
+ * partir do zero. A original nunca é alterada; o que sai é uma imagem NOVA,
+ * etiquetada como IA igual às demais.
+ */
+function ImagemDeBase({ fotos, baseId, onMudar, workspaceId, onNovaFoto, desabilitado }: {
+  fotos: FotoDeBase[]
+  baseId: string
+  onMudar: (id: string) => void
+  workspaceId: string
+  /** A foto enviada aqui também precisa aparecer na Biblioteca da tela. */
+  onNovaFoto: (arquivo: ArquivoDaBiblioteca) => void
+  desabilitado: boolean
+}) {
+  // As enviadas por aqui, para aparecerem já marcadas sem esperar recarregar.
+  const [extras, setExtras] = useState<FotoDeBase[]>([])
+  const todas = useMemo(() => {
+    const mapa = new Map<string, FotoDeBase>()
+    for (const f of [...extras, ...fotos]) if (!mapa.has(f.id)) mapa.set(f.id, f)
+    return [...mapa.values()]
+  }, [extras, fotos])
+
+  return (
+    <section>
+      <p className="mb-1 text-sm font-medium">
+        Partir de uma imagem <span className="font-normal text-muted-foreground">(opcional)</span>
+      </p>
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        Marque uma foto que já existe — a arte do post, por exemplo — e a IA cria a imagem nova em cima dela.
+        A original não muda.
+      </p>
+      <div className="flex flex-wrap items-start gap-2">
+        {todas.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            disabled={desabilitado}
+            onClick={() => onMudar(baseId === f.id ? '' : f.id)}
+            title={f.nome}
+            aria-pressed={baseId === f.id}
+            className={`relative size-16 overflow-hidden rounded-md border-2 transition-colors ${
+              baseId === f.id ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-muted-foreground/50'
+            }`}
+          >
+            <img src={f.previa} alt={f.nome} className="size-full object-cover" />
+            {baseId === f.id && (
+              <span className="absolute inset-x-0 bottom-0 bg-primary py-0.5 text-center text-[10px] font-semibold text-primary-foreground">
+                base
+              </span>
+            )}
+          </button>
+        ))}
+        <BotaoEnviarMidia
+          workspaceId={workspaceId}
+          somenteFoto
+          onEnviada={(a) => {
+            setExtras((antes) => [{ id: a.id, previa: a.previa, nome: a.nome }, ...antes])
+            onNovaFoto(a)
+            onMudar(a.id)
+          }}
+        />
+      </div>
+      {baseId && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          A imagem marcada é a base. Clique nela de novo para a IA criar do zero.
+        </p>
+      )}
+    </section>
+  )
+}
+
 /**
  * A arte da matéria em até três formatos de uma vez — site, feed, stories.
  *
@@ -1305,8 +1389,11 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
  * como IA) e aparecem nas mídias do pacote — selecionar cada uma continua
  * sendo decisão de gente, como todo o resto.
  */
-function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar }: {
+function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDescartada, onRecarregar }: {
   mestre: MestreRegistro
+  /** Fotos que já existem no pacote, candidatas a base da geração. */
+  fotos: FotoDeBase[]
+  workspaceId: string
   onNovaMidia: (arquivo: ArquivoDaBiblioteca) => void
   /** A imagem entrou sozinha nas mídias do pacote; descartar tem de tirá-la
    *  de lá também — senão fica um id morto apontando para arquivo apagado. */
@@ -1318,6 +1405,7 @@ function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar
   const [prompt, setPrompt] = useState('')
   const [qualidade, setQualidade] = useState<'low' | 'medium' | 'high'>('medium')
   const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [baseId, setBaseId] = useState('')
   const [formatos, setFormatos] = useState<Set<string>>(new Set(FORMATOS_DE_IMAGEM.map((f) => f.id)))
   const [ideias, setIdeias] = useState<string[]>([])
   const [pedindoIdeias, pedirIdeias] = useTransition()
@@ -1370,6 +1458,7 @@ function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar
       form.set('prompt', prompt)
       form.set('qualidade', qualidade)
       form.set('formatos', JSON.stringify([...formatos]))
+      if (baseId) form.set('baseFileId', baseId)
       const r = await gerarImagensDaMateria(form)
       if (r.erro) { setErro(r.erro); return }
       const novas = r.imagens ?? []
@@ -1502,6 +1591,15 @@ function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar
                     />
                   </label>
 
+                  <ImagemDeBase
+                    fotos={fotos}
+                    baseId={baseId}
+                    onMudar={setBaseId}
+                    workspaceId={workspaceId}
+                    onNovaFoto={onNovaMidia}
+                    desabilitado={gerando}
+                  />
+
                   <section className="flex flex-wrap items-start gap-6">
                     <div>
                       <p className="mb-1.5 text-sm font-medium">Formatos</p>
@@ -1615,11 +1713,14 @@ function CriarImagensDaMateria({ mestre, onNovaMidia, onDescartada, onRecarregar
  *    símbolo protegido pelas Convenções de Genebra, e uma versão torta saída
  *    de um gerador é pior do que imagem nenhuma no canal oficial.
  */
-function GerarImagemComIa({ destino, canal, proporcao, mestre, cheio, onMudou }: {
+function GerarImagemComIa({ destino, canal, proporcao, mestre, fotos, workspaceId, onNovaFoto, cheio, onMudou }: {
   destino: DestinoRegistro
   canal: string
   proporcao: string
   mestre: MestreRegistro
+  fotos: FotoDeBase[]
+  workspaceId: string
+  onNovaFoto: (arquivo: ArquivoDaBiblioteca) => void
   cheio: boolean
   onMudou: () => void
 }) {
@@ -1639,6 +1740,9 @@ function GerarImagemComIa({ destino, canal, proporcao, mestre, cheio, onMudou }:
           canal={canal}
           proporcao={proporcao}
           mestre={mestre}
+          fotos={fotos}
+          workspaceId={workspaceId}
+          onNovaFoto={onNovaFoto}
           cheio={cheio}
           onMudou={onMudou}
           onFechar={() => setAberto(false)}
@@ -1654,17 +1758,21 @@ const QUALIDADES = [
   { id: 'high' as const, rotulo: 'Caprichada', dica: 'Mais detalhe, mais custo, mais espera.' },
 ]
 
-function EstudioDeImagem({ destino, canal, proporcao, mestre, cheio, onMudou, onFechar }: {
+function EstudioDeImagem({ destino, canal, proporcao, mestre, fotos, workspaceId, onNovaFoto, cheio, onMudou, onFechar }: {
   destino: DestinoRegistro
   canal: string
   proporcao: string
   mestre: MestreRegistro
+  fotos: FotoDeBase[]
+  workspaceId: string
+  onNovaFoto: (arquivo: ArquivoDaBiblioteca) => void
   cheio: boolean
   onMudou: () => void
   onFechar: () => void
 }) {
   const router = useRouter()
   const [prompt, setPrompt] = useState('')
+  const [baseId, setBaseId] = useState('')
   const [qualidade, setQualidade] = useState<'low' | 'medium' | 'high'>('medium')
   const [escolhido, setEscolhido] = useState<string | null>(null)
   const [ideias, setIdeias] = useState<string[]>([])
@@ -1712,6 +1820,7 @@ function EstudioDeImagem({ destino, canal, proporcao, mestre, cheio, onMudou, on
       form.set('destinoId', destino.id)
       form.set('prompt', prompt)
       form.set('qualidade', qualidade)
+      if (baseId) form.set('baseFileId', baseId)
       const r = await gerarImagemDoDestino(form)
       if (r.erro) { setErro(r.erro); return }
       setPronta({ fileId: r.fileId!, previa: r.previa!, restantes: r.restantesNoMes })
@@ -1882,6 +1991,15 @@ function EstudioDeImagem({ destino, canal, proporcao, mestre, cheio, onMudou, on
                     />
                   </label>
                 </section>
+
+                <ImagemDeBase
+                  fotos={fotos}
+                  baseId={baseId}
+                  onMudar={setBaseId}
+                  workspaceId={workspaceId}
+                  onNovaFoto={onNovaFoto}
+                  desabilitado={ocupado}
+                />
 
                 <section>
                   <p className="mb-1.5 text-sm font-medium">Capricho</p>
@@ -2460,6 +2578,15 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
                   canal={`${canal.nome} · ${formato.rotulo}`}
                   proporcao={formato.midia.proporcaoPreferida}
                   mestre={mestre}
+                  // As fotos do destino e do pacote, candidatas a base da
+                  // geração — as já escolhidas aqui vêm primeiro.
+                  fotos={[...new Set([...destino.fileIds, ...fileIdsDoMestre])]
+                    .map((id) => arquivoPorId.get(id))
+                    .filter((a): a is ArquivoDaBiblioteca => Boolean(a && a.tipo === 'foto'))
+                    .slice(0, 18)
+                    .map((a) => ({ id: a.id, previa: a.previa, nome: a.nome }))}
+                  workspaceId={workspaceId}
+                  onNovaFoto={onNovaMidia}
                   cheio={destino.fileIds.length >= formato.midia.max}
                   onMudou={onRecarregarBiblioteca}
                 />
