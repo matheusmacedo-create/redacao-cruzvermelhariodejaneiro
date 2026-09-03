@@ -187,6 +187,26 @@ export async function recusarSugestao(
   }
 }
 
+/**
+ * Sincroniza a leitura do Cérebro agora.
+ *
+ * A tela guarda a resposta do Cérebro por 5 minutos (tag `cerebro`) para
+ * não bater nele a cada render. Quem quer o retrato de agora clica — o
+ * cache expira na hora e a próxima leitura vem fresca. Não dispara coleta
+ * na Apify: sincronizar é reler, não recoletar.
+ */
+export async function sincronizarCerebro(): Promise<{ erro?: string }> {
+  try {
+    await requireWorkspace()
+    updateTag('cerebro')
+    revalidatePath('/cerebro')
+    revalidatePath('/redes')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível sincronizar agora.') }
+  }
+}
+
 /** Desfaz uma recusa feita há pouco. Errar o clique não pode custar a pauta. */
 export async function desfazerRecusaDaSugestao(
   formData: FormData,
