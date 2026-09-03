@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ChevronRight, Globe, Pencil } from 'lucide-react'
+import { ChevronRight, ExternalLink, Globe, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { requireWorkspace } from '@/lib/session'
@@ -43,11 +43,11 @@ export default async function RedesPage() {
   const { data: destinos } = ids.length
     ? await supabase
         .from('package_destinations')
-        .select('package_id,canal,estado')
+        .select('package_id,canal,formato,estado,external_url')
         .in('package_id', ids)
-    : { data: [] as { package_id: string; canal: string; estado: string }[] }
+    : { data: [] as { package_id: string; canal: string; formato: string; estado: string; external_url: string | null }[] }
 
-  const porPacote = new Map<string, { canal: string; estado: string }[]>()
+  const porPacote = new Map<string, { canal: string; formato: string; estado: string; external_url: string | null }[]>()
   for (const d of destinos ?? []) {
     porPacote.set(d.package_id, [...(porPacote.get(d.package_id) ?? []), d])
   }
@@ -85,30 +85,62 @@ export default async function RedesPage() {
             const m = (p.mestre ?? {}) as Record<string, string>
             const nome = p.titulo_interno || m.titulo || (m.corpo ? m.corpo.slice(0, 60) : 'Pacote sem título')
             return (
-              <Link key={p.id} href={`/redes/${p.id}`}>
-                <Card className="flex flex-wrap items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{nome}</p>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      {dests.length
-                        ? dests.map((d, i) => (
-                            <span key={i} className="inline-flex items-center gap-1">
-                              {d.canal === 'site_web'
-                                ? <Globe className="size-3" />
-                                : <LogoDoCanal canal={d.canal} tamanho={12} />}
-                              {adapter(d.canal)?.nome ?? d.canal}
-                              {i < dests.length - 1 && ' ·'}
+              // O cartão deixou de ser um link inteiro: o selo do canal
+              // publicado precisa ser clicável para "ver como ficou", e
+              // âncora dentro de âncora é HTML inválido. Título e lado
+              // direito continuam levando ao pacote.
+              <Card key={p.id} className="flex flex-wrap items-center justify-between gap-3 p-4 transition-colors hover:bg-muted/40">
+                <div className="min-w-0 flex-1">
+                  <Link href={`/redes/${p.id}`} className="block">
+                    <p className="truncate text-sm font-semibold hover:underline">{nome}</p>
+                  </Link>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+                    {dests.length
+                      ? dests.map((d, i) => {
+                          const repetido = dests.filter((x) => x.canal === d.canal).length > 1
+                          const rotulo = `${adapter(d.canal)?.nome ?? d.canal}${repetido && d.formato ? ` · ${d.formato}` : ''}`
+                          const icone =
+                            d.canal === 'site_web' ? (
+                              <Globe className="size-3" />
+                            ) : (
+                              <LogoDoCanal canal={d.canal} tamanho={12} />
+                            )
+                          // A newsletter grava a contagem de destinatários
+                          // neste mesmo campo; link só quando há URL real.
+                          const noAr = d.estado === 'publicada' && d.external_url?.startsWith('http')
+                          return noAr ? (
+                            <a
+                              key={i}
+                              href={d.external_url!}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              title={`Ver como ficou — ${rotulo}`}
+                              className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-2 hover:text-primary hover:underline"
+                            >
+                              {icone}
+                              {rotulo}
+                              <ExternalLink className="size-2.5" />
+                            </a>
+                          ) : (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1"
+                              title={d.estado === 'publicada' ? 'Publicado, sem link registrado' : `Ainda não publicado (${d.estado})`}
+                            >
+                              {icone}
+                              {rotulo}
                             </span>
-                          ))
-                        : 'Sem destinos ainda'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${st.classe}`}>{st.texto}</span>
-                    <span className="text-xs text-muted-foreground">{quando.format(new Date(p.updated_at))}</span>
-                  </div>
-                </Card>
-              </Link>
+                          )
+                        })
+                      : 'Sem destinos ainda'}
+                  </p>
+                </div>
+                <Link href={`/redes/${p.id}`} className="flex items-center gap-3">
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${st.classe}`}>{st.texto}</span>
+                  <span className="text-xs text-muted-foreground">{quando.format(new Date(p.updated_at))}</span>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+              </Card>
             )
           })}
         </div>
