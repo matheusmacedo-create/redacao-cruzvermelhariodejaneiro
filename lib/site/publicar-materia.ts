@@ -4,9 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { parseContentBlocks } from '@/lib/content-blocks'
 import { gerarSlug, slugDigitado, slugDisponivel, slugValido } from '@/lib/site/slug'
 import { nomeSeoDaMidia } from '@/lib/site/nome-da-midia'
-import { montarPaginaDoArtigo, type ArquivoLocal } from '@/lib/site/artigo-html'
+import { montarPaginaDoArtigo, type ArquivoLocal, type NoticiaRelacionada } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
-import { atualizarVitrine } from '@/lib/site/vitrine'
+import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
 
 export type ResultadoDoSite = {
   erro?: string
@@ -164,6 +164,19 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     }
 
     const agora = new Date()
+    const url = `${base}/${slug}/`
+
+    // As outras matérias publicadas alimentam o rail "Leia também" e a faixa
+    // "Mais notícias" — no fim da leitura o leitor cai em outra notícia, não
+    // num footer de campanha. Sem a lista, a página sai sem rail e ponto.
+    let relacionadas: NoticiaRelacionada[] = []
+    try {
+      relacionadas = (await noticiasPublicadas(pedido.workspaceId))
+        .filter((n) => n.url !== url)
+        .slice(0, 8)
+        .map((n) => ({ titulo: n.titulo, url: n.url, publicadaEm: n.publicadaEm }))
+    } catch { relacionadas = [] }
+
     const html = montarPaginaDoArtigo({
       titulo: peca.title,
       subtitulo: peca.subtitle,
@@ -172,9 +185,8 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       baseUrl: base,
       publicadoEm: agora,
       arquivos,
+      relacionadas,
     })
-
-    const url = `${base}/${slug}/`
 
     let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined
     await withFtp(async (client, config) => {

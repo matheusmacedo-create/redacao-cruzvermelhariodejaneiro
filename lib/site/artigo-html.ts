@@ -1,6 +1,7 @@
 import { parseContentBlocks, type ContentBlock, type InlineToken } from '@/lib/content-blocks'
 import { blocoDoAnalytics } from '@/lib/site/analytics'
-import { CSS_DO_SITE, cabecalhoDoSite, escapar, origemDoSite, rodapeDoSite, scriptDoMenu } from '@/lib/site/esqueleto'
+import { CSS_DO_SITE, LINK_DAS_FONTES, cabecalhoDoSite, escapar, origemDoSite, rodapeDoSite, scriptDoMenu } from '@/lib/site/esqueleto'
+import { svgDaMarca } from '@/lib/marcas'
 export { escapar } from '@/lib/site/esqueleto'
 
 /**
@@ -65,7 +66,7 @@ function legendaDaMidia(tipo: 'image' | 'video' | 'audio', alt: string, credito?
 
 type BlocoDeMidia = { type: 'image' | 'video' | 'audio'; url: string; alt: string; credito?: string }
 
-function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = ''): string {
+function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = '', eager = false): string {
   // A LEGENDA É DO BLOCO, não do arquivo. O bloco carrega o que alguém
   // escreveu sobre esta foto nesta matéria; `local` descreve o arquivo que vai
   // para o servidor. Quando o arquivo vinha primeiro, um chamador que
@@ -76,8 +77,11 @@ function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = ''): str
   const alt = escapar(descricao)
   const src = escapar(local.nome)
   const legenda = legendaDaMidia(bloco.type, descricao, bloco.credito)
+  // A capa é o LCP da página: nunca lazy, e com prioridade de busca.
   const corpo = bloco.type === 'image'
-    ? `<img src="${src}" alt="${alt}" loading="lazy" decoding="async">`
+    ? (eager
+        ? `<img src="${src}" alt="${alt}" fetchpriority="high" decoding="async">`
+        : `<img src="${src}" alt="${alt}" loading="lazy" decoding="async">`)
     : bloco.type === 'video'
       ? `<video src="${src}" controls playsinline></video>`
       : `<audio src="${src}" controls></audio>`
@@ -117,6 +121,23 @@ export function resumoDoCorpo(blocos: ContentBlock[], limite = 155): string {
 // O CSS mora no esqueleto: uma folha só para o site inteiro.
 const CSS = CSS_DO_SITE
 
+/** Tempo de leitura no padrão de redação: palavras / 200, mínimo 1 minuto. */
+export function tempoDeLeitura(blocos: ContentBlock[]): number {
+  let palavras = 0
+  for (const b of blocos) {
+    if ('inline' in b) palavras += textoDoInline(b.inline).split(/\s+/).filter(Boolean).length
+    if (b.type === 'list') for (const item of b.items) palavras += textoDoInline(item).split(/\s+/).filter(Boolean).length
+  }
+  return Math.max(1, Math.round(palavras / 200))
+}
+
+/** Uma notícia irmã, para o rail "Leia também" e a faixa "Mais notícias". */
+export type NoticiaRelacionada = {
+  titulo: string
+  url: string
+  publicadaEm: Date
+}
+
 export type DadosDoArtigo = {
   titulo: string
   subtitulo?: string | null
@@ -129,6 +150,10 @@ export type DadosDoArtigo = {
   autor?: string | null
   organizacao?: string
   arquivos?: Map<string, ArquivoLocal>
+  /** A seção acima da manchete. Em branco, "Notícias". */
+  kicker?: string
+  /** As outras matérias publicadas — alimentam o rail e a faixa final. */
+  relacionadas?: NoticiaRelacionada[]
 }
 
 export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
@@ -161,7 +186,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 
   const arquivoDaCapa = blocoCapa ? arquivos.get(blocoCapa.url) : undefined
   const htmlDaCapa = blocoCapa && arquivoDaCapa
-    ? `<div class="coluna-larga capa">${renderMidia(blocoCapa, arquivoDaCapa)}</div>`
+    ? renderMidia(blocoCapa, arquivoDaCapa, 'news-hero', true)
     : ''
 
   // Endereços de compartilhamento: links estáticos, sem script de terceiros e
@@ -224,9 +249,74 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     ...(capaUrl ? [`<meta name="twitter:image" content="${escapar(capaUrl)}">`] : []),
     `<link rel="preconnect" href="https://fonts.googleapis.com">`,
     `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
-    `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">`,
+    LINK_DAS_FONTES,
     `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">`,
   ].join('\n    ')
+
+  // A testata e o tempo de leitura: sinais de jornal, calculados aqui.
+  const minutos = tempoDeLeitura(blocos)
+  const dataTestata = new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo',
+  }).format(dados.publicadoEm).replace(/\. de /g, ' ').replace('.', '').toUpperCase()
+  const kicker = dados.kicker?.trim() || 'Notícias'
+
+  // Os ícones de share saem das marcas oficiais embutidas (é o que garante o
+  // X no lugar do pássaro, sem depender da versão do Font Awesome do site).
+  const iconeDeCopiar = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`
+  const share = `<div class="news-share">
+            <a href="${escapar(compartilhar.whatsapp)}" target="_blank" rel="noopener" aria-label="Compartilhar no WhatsApp">${svgDaMarca('whatsapp', 17, 'currentColor')}</a>
+            <a href="${escapar(compartilhar.facebook)}" target="_blank" rel="noopener" aria-label="Compartilhar no Facebook">${svgDaMarca('facebook', 17, 'currentColor')}</a>
+            <a href="${escapar(compartilhar.x)}" target="_blank" rel="noopener" aria-label="Compartilhar no X">${svgDaMarca('x', 16, 'currentColor')}</a>
+            <a href="${escapar(compartilhar.linkedin)}" target="_blank" rel="noopener" aria-label="Compartilhar no LinkedIn">${svgDaMarca('linkedin', 17, 'currentColor')}</a>
+            <button type="button" class="copiar-link" data-url="${escapar(canonica)}" aria-label="Copiar o endereço da página">${iconeDeCopiar}</button>
+          </div>`
+
+  // Rail e faixa final: continuidade de leitura. No fim da matéria o leitor
+  // cai em outra notícia, não num footer de campanha.
+  const dataCurta = (d: Date) =>
+    new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' })
+      .format(d).replace(/\. de /g, ' ').replace('.', '')
+  const relacionadas = (dados.relacionadas ?? []).filter((n) => n.url !== canonica)
+  const doRail = relacionadas.slice(0, 5)
+  const daFaixa = relacionadas.slice(0, 3)
+
+  const leiaTambem = doRail.length
+    ? `<section>
+          <h2 class="rail-titulo">Leia também</h2>
+          <ul class="rail-lista">
+            ${doRail.map((n) => `<li><a href="${escapar(n.url)}">
+              <span class="t">${escapar(n.titulo)}</span>
+              <time datetime="${n.publicadaEm.toISOString()}">${escapar(dataCurta(n.publicadaEm))}</time>
+            </a></li>`).join('\n            ')}
+          </ul>
+        </section>`
+    : ''
+
+  const rail = `<aside class="news-rail">
+        ${leiaTambem}
+        <section class="rail-box">
+          <h2 class="rail-titulo">Para entender</h2>
+          <ul>
+            <li>A Cruz Vermelha Brasileira integra o maior movimento humanitário do mundo, presente em 191 países.</li>
+            <li>No Rio de Janeiro, a filial atua em emergências, saúde comunitária e capacitação.</li>
+            <li>O trabalho é feito por voluntários da própria cidade.</li>
+          </ul>
+        </section>
+        <p class="rail-cta"><a href="${escapar(home)}#contato">Seja voluntário no Rio →</a></p>
+      </aside>`
+
+  const maisNoticias = daFaixa.length
+    ? `<section class="news-more">
+        <h2>Mais notícias</h2>
+        <div class="cartoes">
+          ${daFaixa.map((n) => `<a href="${escapar(n.url)}">
+            <span class="kicker">Notícias</span>
+            <span class="t">${escapar(n.titulo)}</span>
+            <time datetime="${n.publicadaEm.toISOString()}">${escapar(dataCurta(n.publicadaEm))}</time>
+          </a>`).join('\n          ')}
+        </div>
+      </section>`
+    : ''
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -236,52 +326,40 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     <style>${CSS}</style>
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
   </head>
-  <body>
-    ${cabecalhoDoSite(origem)}
+  <body class="single-noticia">
+    ${cabecalhoDoSite(origem, 'noticias')}
 
-    <main class="materia">
-      <div class="coluna cabecalho">
-        <p class="materia-kicker">Notícias</p>
-        <h1>${escapar(dados.titulo)}</h1>
-        ${dados.subtitulo?.trim() ? `<p class="linhafina">${escapar(dados.subtitulo.trim())}</p>` : ''}
-        <p class="materia-meta">
-          <span class="materia-por">Por ${escapar(dados.autor || org)}</span>
-          <span class="sep">|</span>
-          <time datetime="${publicado}">${dataLegivel}</time>
-        </p>
-        <div class="compartilhar">
-          <span class="compartilhar-rotulo">Compartilhe</span>
-          <a href="${escapar(compartilhar.whatsapp)}" target="_blank" rel="noopener" aria-label="Compartilhar no WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-          <a href="${escapar(compartilhar.facebook)}" target="_blank" rel="noopener" aria-label="Compartilhar no Facebook"><i class="fa-brands fa-facebook-f"></i></a>
-          <!-- fa-twitter, não fa-x-twitter: o site carrega Font Awesome 6.4.0 e o
-               ícone novo só existe a partir da 6.4.2 — lá ele sai em branco. -->
-          <a href="${escapar(compartilhar.x)}" target="_blank" rel="noopener" aria-label="Compartilhar no X"><i class="fa-brands fa-twitter"></i></a>
-          <a href="${escapar(compartilhar.linkedin)}" target="_blank" rel="noopener" aria-label="Compartilhar no LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
-          <button type="button" class="copiar-link" data-url="${escapar(canonica)}" aria-label="Copiar o endereço da página"><i class="fa-regular fa-copy"></i></button>
-        </div>
-      </div>
-      ${htmlDaCapa}
-      <div class="coluna">
-        <article>
+    <div class="news-folio">
+      <div class="news-masthead"><span>Notícias</span><span class="dot">·</span><span>Cruz Vermelha RJ</span><span class="dot">·</span><span>${escapar(dataTestata)}</span></div>
+      <div class="news-grid">
+        <article class="news-article">
+          <header class="news-header">
+            <p class="kicker">${escapar(kicker)}</p>
+            <h1>${escapar(dados.titulo)}</h1>
+            ${dados.subtitulo?.trim() ? `<p class="deck">${escapar(dados.subtitulo.trim())}</p>` : ''}
+            <div class="meta-bar">
+              <p class="byline"><b>Por ${escapar(dados.autor || org)}</b><span class="dot">·</span><time datetime="${publicado}">${dataLegivel}</time><span class="dot">·</span><span>${minutos} min de leitura</span></p>
+              ${share}
+            </div>
+          </header>
+          ${htmlDaCapa}
+          <div class="news-body">
       ${renderBlocos(corpoBlocos, arquivos)}
+          </div>
+          <footer class="news-source">Publicado por ${escapar(org)}. <a href="${escapar(home)}">Ver mais do nosso trabalho</a>.</footer>
         </article>
-        <p class="materia-fim">Publicado por ${escapar(org)}. <a href="${escapar(home)}">Ver mais do nosso trabalho</a>.</p>
+        ${rail}
       </div>
-    </main>
+      ${maisNoticias}
+    </div>
 
     ${rodapeDoSite(origem, ano)}
-
-    <a class="wpp-float" href="https://wa.me/5521999922864?text=Ol%C3%A1!%20Tenho%20uma%20d%C3%BAvida%20sobre%20os%20cursos%20da%20Escola%20de%20Capacita%C3%A7%C3%A3o." target="_blank" rel="noopener" aria-label="Falar no WhatsApp">
-      <i class="fa-brands fa-whatsapp"></i>
-    </a>
     ${scriptDoMenu()}
     <script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
-        const icone = this.querySelector('i');
         this.classList.add('copiado');
-        icone.className = 'fa-solid fa-check';
-        setTimeout(() => { this.classList.remove('copiado'); icone.className = 'fa-regular fa-copy'; }, 1800);
+        setTimeout(() => this.classList.remove('copiado'), 1800);
       });
     </script>
   </body>

@@ -37,7 +37,15 @@ export const CSS_DO_SITE = `
   --red:#cc0000;--red-dark:#a30000;--black:#0f1318;--ink:#0f1318;
   --text:#1a202c;--muted:#718096;--line:#e2e8f0;--soft:#f7f8fa;
   --paper:#ffffff;--stone:#f7f8fa;--blue:#2b6cb0;--max:1100px;
-  --coluna:680px;--coluna-larga:940px
+  --coluna:680px;--coluna-larga:940px;
+  /* Tokens editoriais do briefing "jornal digital" — usados na área de
+     notícias; o chrome do site continua na paleta antiga. */
+  --news-ink:#111111;--ink-2:#2B2B2B;--news-muted:#5C6570;
+  --brand:#C8102E;--brand-dark:#8B0E20;--news-line:#D6D6D6;
+  --news-paper:#F7F4EF;--box:#F3F1ED;
+  --max-folio:1180px;--col-rail:320px;--gutter:40px;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --sans:Inter,'Source Sans 3',Arial,sans-serif
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -132,11 +140,105 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
   .main-header,footer,.wpp-float,.compartilhar{display:none}
   body{font-size:12pt}
 }
+
+/* ═══ A folha editorial — página de notícia como jornal digital ═══
+   Briefing fechado: corpo serifado, testata, grid artigo+rail, uma cor de
+   ênfase (o vermelho da cruz), foto documental com legenda e crédito. */
+.single-noticia{background:var(--news-paper)}
+.single-noticia a:focus-visible,.single-noticia button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.single-noticia .main-header{box-shadow:none;border-bottom:1px solid var(--news-line)}
+.single-noticia .header-container{padding:10px 32px}
+.single-noticia .logo-img{height:44px}
+.single-noticia .nav-links a{font-size:13px}
+.single-noticia .nav-links a[aria-current="page"]{color:var(--brand)}
+.single-noticia .btn-login-sutil{font-size:13px}
+.news-folio{max-width:var(--max-folio);margin:0 auto;padding:0 24px 56px}
+.news-masthead{border-top:3px solid var(--brand);padding:14px 0 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.news-masthead .dot{color:var(--news-line)}
+.news-grid{display:grid;grid-template-columns:minmax(0,1fr) var(--col-rail);gap:var(--gutter);align-items:start;padding-top:26px}
+.news-article{max-width:760px;min-width:0}
+.news-article .kicker{color:var(--brand);font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin:0 0 8px}
+.news-article h1{font-family:var(--serif);font-weight:800;font-size:48px;line-height:1.12;letter-spacing:-.02em;color:var(--news-ink);margin:0}
+.news-article .deck{font-family:var(--serif);font-size:21px;line-height:1.35;color:var(--news-muted);margin:12px 0 18px;font-weight:400}
+.meta-bar{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--news-line);margin-bottom:26px}
+.meta-bar .byline{font-size:13px;color:var(--news-muted);display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 8px}
+.meta-bar .byline b{font-weight:600;color:var(--news-ink)}
+.meta-bar .byline .dot{color:var(--news-line)}
+.news-share{display:flex;align-items:center;gap:14px}
+.news-share a,.news-share button{color:var(--news-muted);background:none;border:0;padding:2px;cursor:pointer;display:flex;transition:color .15s}
+.news-share a:hover,.news-share button:hover{color:var(--brand)}
+.news-share .copiado{color:#0f766e}
+.news-hero{margin:0 0 28px}
+.news-hero img,.news-hero video{width:100%;height:auto;border-radius:0;display:block}
+.news-hero figcaption{font-size:14px;line-height:1.4;color:var(--ink-2);margin-top:.55rem}
+.news-hero figcaption .credito{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--news-muted)}
+.news-body p{font-family:var(--serif);font-size:20px;line-height:1.58;color:var(--news-ink);margin:0 0 .85em;text-align:left}
+.news-body a{color:var(--brand);text-decoration:underline;text-underline-offset:2px;text-decoration-thickness:1px}
+.news-body a:hover{color:var(--brand-dark)}
+.news-body strong{font-weight:600}
+.news-body h2{font-family:var(--sans);font-size:19px;font-weight:700;letter-spacing:0;color:var(--news-ink);border-top:1px solid var(--news-line);padding-top:10px;margin:32px 0 14px}
+.news-body ul,.news-body ol{margin:0 0 1em;padding-left:1.3rem}
+.news-body li{font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--news-ink);margin-bottom:.5em}
+.news-body li::marker{color:var(--brand)}
+.news-body blockquote{border-left:3px solid var(--brand);margin:28px 0;padding:8px 0 8px 20px;font-family:var(--serif);font-style:italic;font-size:26px;line-height:1.3;font-weight:400;color:var(--news-ink);letter-spacing:0}
+.news-body figure{margin:1.8rem 0}
+.news-body figure img,.news-body figure video{width:100%;height:auto;border-radius:0}
+.news-body figcaption{font-size:14px;color:var(--ink-2)}
+.news-body figcaption .credito{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--news-muted)}
+.news-source{border-top:1px solid var(--news-line);margin-top:40px;padding-top:16px;font-size:13px;color:var(--news-muted)}
+.news-source a{color:var(--brand);font-weight:600}
+.news-rail{position:sticky;top:88px;display:flex;flex-direction:column;gap:26px;min-width:0}
+.news-rail .rail-titulo{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--news-ink);border-bottom:1px solid var(--news-line);padding-bottom:8px;margin:0 0 4px}
+.rail-lista{list-style:none;margin:0;padding:0}
+.rail-lista li{border-bottom:1px solid var(--news-line)}
+.rail-lista a{display:block;padding:12px 0;color:inherit}
+.rail-lista .t{font-size:14px;font-weight:600;line-height:1.3;color:var(--news-ink);display:block;margin:0 0 4px}
+.rail-lista a:hover .t{color:var(--brand)}
+.rail-lista time{font-size:12px;color:var(--news-muted)}
+.rail-box{background:var(--box);border-top:3px solid var(--brand);padding:18px 20px}
+.rail-box .rail-titulo{border-bottom:0;padding-bottom:0;margin-bottom:10px}
+.rail-box ul{list-style:none;margin:0;padding:0}
+.rail-box li{font-size:14.5px;line-height:1.45;color:var(--ink-2);padding-left:14px;position:relative;margin-bottom:8px}
+.rail-box li::before{content:'';position:absolute;left:0;top:.55em;width:5px;height:5px;background:var(--brand)}
+.rail-cta{font-size:14.5px;font-weight:600}
+.rail-cta a{color:var(--brand)}
+.rail-cta a:hover{color:var(--brand-dark)}
+.news-more{margin-top:52px;border-top:1px solid var(--news-line);padding-top:20px}
+.news-more>h2{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--news-ink);margin:0 0 18px}
+.news-more .cartoes{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.news-more a{display:block;color:inherit;min-width:0}
+.news-more .kicker{color:var(--brand);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px}
+.news-more .t{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.25;color:var(--news-ink);display:block;margin-bottom:6px}
+.news-more a:hover .t{color:var(--brand)}
+.news-more time{font-size:12px;color:var(--news-muted)}
+.single-noticia footer{margin-top:48px}
+@media(max-width:1199px){
+  .news-article h1{font-size:42px}
+  .news-body p{font-size:19px}
+  :root{--col-rail:280px;--gutter:24px}
+}
+@media(max-width:1023px){
+  .news-grid{grid-template-columns:1fr}
+  .news-rail{position:static;top:auto}
+  .news-article h1{font-size:36px}
+  .news-body p,.news-body li{font-size:18.5px}
+}
+@media(max-width:767px){
+  .news-folio{padding:0 18px 40px}
+  .news-article h1{font-size:32px}
+  .news-article .deck{font-size:18px}
+  .news-body p,.news-body li{font-size:18px}
+  .news-body blockquote{font-size:22px}
+  .news-more .cartoes{grid-template-columns:1fr}
+  .single-noticia .header-container{padding:10px 18px}
+}
 `
 
-/** O cabeçalho com o menu — o mesmo da home, com o atalho de Notícias. */
-export function cabecalhoDoSite(origem: string): string {
+/** O cabeçalho com o menu — o mesmo da home, com o atalho de Notícias.
+ * `ativo` marca a página atual no menu (aria-current + filete). */
+export function cabecalhoDoSite(origem: string, ativo?: 'noticias'): string {
   const o = escapar(origem)
+  const atual = ativo === 'noticias' ? ' aria-current="page"' : ''
   return `<header class="main-header">
       <div class="header-container">
         <a href="${o}/" class="logo-area">
@@ -148,7 +250,7 @@ export function cabecalhoDoSite(origem: string): string {
         <div class="header-collapse">
           <nav class="nav-links">
             <a href="${o}/#institucional">Sobre</a>
-            <a href="${o}/noticias/">Notícias</a>
+            <a href="${o}/noticias/"${atual}>Notícias</a>
             <a href="https://escola.cursoscruzvermelha.org" target="_blank" rel="noopener">Cursos</a>
             <a href="${o}/#campanhas">Campanhas</a>
             <a href="${o}/#parceiros">Parceiros</a>
@@ -236,7 +338,14 @@ export type DadosDaPagina = {
   cssExtra?: string
   jsonLd?: object
   agora?: Date
+  /** Item do menu a marcar como página atual. */
+  ativo?: 'noticias'
 }
+
+/** As fontes das páginas: Inter no chrome/UI, Source Serif 4 na leitura —
+ * duas famílias, quatro pesos, como o briefing editorial pede. */
+export const LINK_DAS_FONTES =
+  `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;0,8..60,800;1,8..60,400&display=swap" rel="stylesheet">`
 
 /** Uma página institucional completa, vestida com o esqueleto do site. */
 export function montarPaginaDoSite(dados: DadosDaPagina): string {
@@ -260,7 +369,7 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
     `<meta property="og:url" content="${escapar(canonica)}">`,
     `<link rel="preconnect" href="https://fonts.googleapis.com">`,
     `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
-    `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">`,
+    LINK_DAS_FONTES,
     `<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">`,
   ].join('\n    ')
 
@@ -273,7 +382,7 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
     <script type="application/ld+json">${JSON.stringify(dados.jsonLd).replace(/</g, '\\u003c')}</script>` : ''}
   </head>
   <body>
-    ${cabecalhoDoSite(origem)}
+    ${cabecalhoDoSite(origem, dados.ativo)}
 
     ${dados.corpo}
 
