@@ -190,8 +190,10 @@ export async function salvarMestre(formData: FormData): Promise<ResultadoDoHub> 
     const supabase = await createClient()
     const id = texto(formData, 'pacoteId')
     const pacote = await pacoteDoEspaco(id, context.workspace.id)
-    if (['publicado', 'arquivado'].includes(pacote.status)) {
-      throw new Error('Este pacote já foi encerrado. Duplique-o para reaproveitar o conteúdo.')
+    // Publicado NÃO tranca: a redação volta ao pacote para somar outra rede.
+    // O que saiu continua protegido destino a destino; só o arquivado congela.
+    if (pacote.status === 'arquivado') {
+      throw new Error('Este pacote foi arquivado. Duplique-o para reaproveitar o conteúdo.')
     }
 
     const fileIds = formData.getAll('fileIds').map((v) => String(v)).filter(Boolean)
@@ -865,6 +867,20 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
             created_by: context.user.id,
           })
         }
+      }
+    }
+
+    // Rodada nova num pacote que já publicou o site: a URL da matéria mora no
+    // destino site_web publicado. Sem esta leitura, um destino novo com
+    // {{URL_DA_MATERIA}} falharia pedindo para reprocessar um site que já
+    // está no ar.
+    if (!linkDaMateria) {
+      const { data: baseNoAr } = await supabase
+        .from('package_destinations').select('external_url,estado')
+        .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
+        .eq('canal', 'site_web').maybeSingle()
+      if (baseNoAr?.estado === 'publicada' && baseNoAr.external_url?.startsWith('http')) {
+        linkDaMateria = baseNoAr.external_url
       }
     }
 

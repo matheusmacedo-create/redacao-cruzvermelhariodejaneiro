@@ -151,7 +151,11 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     }
   }, [adicionando])
 
-  const encerrado = ['publicado', 'arquivado'].includes(inicial.status)
+  // Só o arquivado congela. Um pacote publicado continua ABERTO de propósito:
+  // é o pedido da redação — voltar numa publicação que já saiu e acrescentar
+  // outra rede. O que já foi publicado segue travado destino a destino; o
+  // pacote inteiro, não.
+  const encerrado = inicial.status === 'arquivado'
 
   // O envio é assíncrono: a API aceita e publica depois. Sem perguntar de
   // volta, o hub mostraria para sempre o aceite como se fosse o resultado —

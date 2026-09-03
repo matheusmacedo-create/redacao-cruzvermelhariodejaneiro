@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Globe, Pencil } from 'lucide-react'
+import { ChevronRight, Globe, Pencil } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { requireWorkspace } from '@/lib/session'
@@ -66,12 +66,9 @@ export default async function RedesPage() {
     <div>
       <PageHeader
         title="Redes Sociais"
-        description="Escreva uma vez, ajuste por canal e publique no site e em todas as contas oficiais."
+        description="O histórico das publicações. Abra qualquer uma para acrescentar outra rede — pacote publicado continua aberto."
         actions={<NovoPacoteBotao />}
       />
-
-      {/* O Cérebro vem antes dos pacotes: é de onde eles podem nascer. */}
-      <PainelDoCerebro />
 
       {(pacotes ?? []).length === 0 ? (
         <Card className="p-10 text-center">
@@ -116,6 +113,19 @@ export default async function RedesPage() {
           })}
         </div>
       )}
+
+      {/* O Cérebro saiu do topo a pedido da redação: a página é o histórico
+          das publicações, e as sugestões ficam à mão, recolhidas, para quem
+          for buscá-las — não na frente do trabalho. */}
+      <details className="group mt-8">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+          Sugestões do Cérebro
+        </summary>
+        <div className="mt-3">
+          <PainelDoCerebro />
+        </div>
+      </details>
 
       {(legado ?? []).length > 0 && (
         <div className="mt-8">
