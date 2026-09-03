@@ -14,7 +14,7 @@ import {
   type MotivoRecusa,
   type PautaDoCerebro,
 } from '@/lib/cerebro/contrato'
-import type { MateriaDaCasa, RelacionadoDoCerebro } from '@/lib/cerebro/relacionados'
+import type { Relacionados } from '@/lib/cerebro/relacionados'
 import { cn } from '@/lib/utils'
 
 /**
@@ -60,8 +60,6 @@ const faixaDaNota = (n: number) =>
       ? 'text-[#B7791F] bg-[#F7EEDD]'
       : 'text-muted-foreground bg-muted'
 
-type Relacionados = { doCerebro: RelacionadoDoCerebro[]; daCasa: MateriaDaCasa[]; erro: string | null }
-
 export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
   filas: Filas
   origem: 'apify' | 'seed' | null
@@ -80,14 +78,19 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
   // O "mergulho" de cada história fica guardado aqui em cima: trocar de
   // história e voltar não paga a busca de novo.
   const [relacionados, setRelacionados] = useState<Record<string, 'carregando' | Relacionados>>({})
-  const explorar = async (id: string) => {
-    setRelacionados((s) => ({ ...s, [id]: 'carregando' }))
+  const vazio = (erro: string): Relacionados => ({ palavras: [], naImprensa: [], doCerebro: [], daCasa: [], erro })
+  const explorar = async (p: PautaDoCerebro) => {
+    setRelacionados((s) => ({ ...s, [p.id]: 'carregando' }))
     try {
-      const r = await fetch(`/api/cerebro/relacionados?id=${encodeURIComponent(id)}`)
+      const r = await fetch('/api/cerebro/relacionados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id, titulo: p.titulo, resumo: p.resumo }),
+      })
       const d = (await r.json()) as Relacionados
-      setRelacionados((s) => ({ ...s, [id]: r.ok ? d : { doCerebro: [], daCasa: [], erro: d.erro ?? `HTTP ${r.status}` } }))
+      setRelacionados((s) => ({ ...s, [p.id]: r.ok ? d : vazio(d.erro ?? `HTTP ${r.status}`) }))
     } catch {
-      setRelacionados((s) => ({ ...s, [id]: { doCerebro: [], daCasa: [], erro: 'Sem conexão. Tente de novo.' } }))
+      setRelacionados((s) => ({ ...s, [p.id]: vazio('Sem conexão. Tente de novo.') }))
     }
   }
 
@@ -204,7 +207,7 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
           sheet={sheet}
           fecharSheet={() => setSheet(false)}
           rel={selecionada ? relacionados[selecionada.id] : undefined}
-          aoExplorar={() => selecionada && explorar(selecionada.id)}
+          aoExplorar={() => selecionada && explorar(selecionada)}
         />
       </div>
 
@@ -515,10 +518,29 @@ function Evidencia({ titulo, meta, url }: { titulo: string; meta: string; url?: 
 function PainelRelacionados({ rel }: { rel: Relacionados }) {
   if (rel.erro) return <p className="mt-1 text-xs text-destructive">{rel.erro}</p>
   const comImagem = rel.doCerebro.filter((r) => r.midia).slice(0, 6)
-  const semNada = rel.doCerebro.length === 0 && rel.daCasa.length === 0
+  const semNada = rel.doCerebro.length === 0 && rel.daCasa.length === 0 && rel.naImprensa.length === 0
   return (
     <div className="mt-1.5">
-      {semNada && <p className="text-xs text-muted-foreground">Nada parecido no acervo agora — assunto inédito para o Cérebro.</p>}
+      {rel.palavras.length > 0 && (
+        <p className="mb-2 flex flex-wrap items-baseline gap-1.5 text-[11px] text-muted-foreground">
+          Busca:
+          {rel.palavras.map((t) => (
+            <span key={t} className="rounded bg-muted px-1.5 py-px font-medium text-foreground">{t}</span>
+          ))}
+        </p>
+      )}
+      {semNada && <p className="text-xs text-muted-foreground">Nada encontrado com esses termos — assunto inédito por enquanto.</p>}
+      {rel.naImprensa.length > 0 && (
+        <div className="mb-2">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Na imprensa</p>
+          {rel.naImprensa.map((m) => (
+            <a key={m.url} href={m.url} target="_blank" rel="noreferrer noopener" className="group flex items-baseline gap-2 border-t border-border/50 py-1.5 text-xs first:border-t-0">
+              <span className="min-w-0 truncate group-hover:underline">{m.titulo}</span>
+              <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">{m.fonte}</span>
+            </a>
+          ))}
+        </div>
+      )}
       {comImagem.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5">
           {comImagem.map((r) => (
