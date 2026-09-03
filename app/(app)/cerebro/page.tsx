@@ -1,45 +1,33 @@
-import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
-import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
-import { CartaoDetalhado } from '@/components/app/cerebro/cartao-detalhado'
+import { TelaDoCerebro } from '@/components/app/cerebro/tela'
 import { requireWorkspace } from '@/lib/session'
 import { lerPautas, urlDoCerebro } from '@/lib/cerebro/cliente'
-import { cn } from '@/lib/utils'
+import type { PautaDoCerebro } from '@/lib/cerebro/contrato'
 
 /**
- * O Cérebro, dentro da Redação.
+ * O Cérebro, no estado-alvo: história em vez de post.
  *
- * O Cérebro observa as contas oficiais do Rio, entende cada sinal por seis
- * perguntas e decide o que merece atenção. Ele não publica — esta tela é onde
- * a decisão humana acontece: importar a sugestão para o hub de Publicações ou
- * recusá-la com o motivo, que volta para o Cérebro e pesa nas próximas
- * leituras. O painel de Publicações mostra as seis primeiras; aqui está tudo.
+ * A página junta as filas do contrato — o corte padrão (agir agora,
+ * produzir, agendar) mais o monitorar — e entrega tudo à tela de três
+ * zonas: briefing do dia, lista densa e drawer de decisão. As seis barras
+ * do motor vivem só no drawer; no mural, decisão, fato, flags e nota.
  */
-
-const FILTROS: { modo: string | null; rotulo: string; explica: string }[] = [
-  { modo: null, rotulo: 'Sugestões', explica: 'O que pede ação: agir agora, produzir e agendar.' },
-  { modo: 'agir_agora', rotulo: 'Agir agora', explica: 'Ruptura em curso. Cada hora custa relevância.' },
-  { modo: 'produzir', rotulo: 'Produzir', explica: 'Pauta boa sem urgência de minutos.' },
-  { modo: 'agendar', rotulo: 'Agendar', explica: 'Tem data certa. Entra no calendário.' },
-  { modo: 'avaliar', rotulo: 'Avaliar', explica: 'Quase passou do corte. Um olho humano decide.' },
-  { modo: 'monitorar', rotulo: 'Monitorar', explica: 'Informa a equipe; não vira peça por ora.' },
-]
-
-export default async function CerebroPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ modo?: string }>
-}) {
-  const { modo } = await searchParams
+export default async function CerebroPage() {
   await requireWorkspace()
 
-  const filtro = FILTROS.find((f) => f.modo === (modo || null)) ?? FILTROS[0]
-  const { pautas, origem, geradoEm, erro } = await lerPautas(60, filtro.modo ?? undefined)
+  // Duas leituras com cache próprio (5 min na tag `cerebro`): o corte de
+  // ação e a fila de monitorar. O que é caro — imagens e relacionados —
+  // fica para o clique em "Explorar o assunto".
+  const [sugestoes, monitorar] = await Promise.all([lerPautas(60), lerPautas(30, 'monitorar')])
 
-  const quando = geradoEm
-    ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(geradoEm))
-    : null
+  const porModo = (modo: string) => sugestoes.pautas.filter((p) => p.decisao.modo === modo)
+  const filas: { agir: PautaDoCerebro[]; pautar: PautaDoCerebro[]; agendar: PautaDoCerebro[]; monitorar: PautaDoCerebro[] } = {
+    agir: porModo('agir_agora'),
+    pautar: porModo('produzir'),
+    agendar: porModo('agendar'),
+    monitorar: monitorar.pautas,
+  }
 
   return (
     <div>
@@ -58,55 +46,12 @@ export default async function CerebroPage({
           </a>
         }
       />
-
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {FILTROS.map((f) => (
-          <Link
-            key={f.rotulo}
-            href={f.modo ? `/cerebro?modo=${f.modo}` : '/cerebro'}
-            title={f.explica}
-            className={cn(
-              'rounded-full border px-3 py-1.5 text-sm font-medium',
-              f.rotulo === filtro.rotulo
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border text-muted-foreground hover:bg-muted',
-            )}
-          >
-            {f.rotulo}
-          </Link>
-        ))}
-        <Link
-          href="/cerebro/mapa"
-          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-          title="Todas as ligações num grafo: eixos, fontes, sinais, calendário e pacotes."
-        >
-          ✳ Mapa
-        </Link>
-        {quando && (
-          <span className="ml-auto text-xs text-muted-foreground">
-            Atualizado {quando}
-            {origem === 'seed' && ' · acervo semente, não dado vivo'}
-          </span>
-        )}
-      </div>
-
-      {erro ? (
-        <Card className="border-dashed p-6 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">Cérebro indisponível.</span> {erro} O resto da
-          Redação não é afetado — tente de novo em instantes.
-        </Card>
-      ) : pautas.length === 0 ? (
-        <Card className="border-dashed p-6 text-sm text-muted-foreground">
-          Nada em <span className="font-medium text-foreground">{filtro.rotulo}</span> agora.{' '}
-          {filtro.explica} Quando a leitura das fontes trouxer algo, aparece aqui.
-        </Card>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-          {pautas.map((p) => (
-            <CartaoDetalhado key={p.id} pauta={p} />
-          ))}
-        </div>
-      )}
+      <TelaDoCerebro
+        filas={filas}
+        origem={sugestoes.origem ?? monitorar.origem}
+        geradoEm={sugestoes.geradoEm ?? monitorar.geradoEm}
+        erro={sugestoes.erro}
+      />
     </div>
   )
 }
