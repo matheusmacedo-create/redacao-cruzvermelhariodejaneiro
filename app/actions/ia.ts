@@ -16,7 +16,7 @@ import sharp from 'sharp'
 import { TETO_DO_CORPO, conferirLinks, garantirFotos, montarPedidoDeMelhoria, separarProposta, type PaginaDoSite } from '@/lib/ia/formatos'
 import { noticiasPublicadas } from '@/lib/site/vitrine'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
-import { REGRAS_FIXAS, assuntoDaMateria } from '@/lib/ia/sugestoes'
+import { REGRAS_FIXAS, assuntoDaMateria, completarPromptDeImagem } from '@/lib/ia/sugestoes'
 import { WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
 
@@ -126,6 +126,17 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
       throw new Error('Este destino já foi publicado.')
     }
 
+    // O texto-mestre do pacote vira âncora do pedido: a imagem nasce presa à
+    // matéria, mesmo quando o pedido digitado não a menciona.
+    const { data: pacoteDoDestino } = await supabase
+      .from('social_packages').select('mestre')
+      .eq('id', destino.package_id).eq('workspace_id', context.workspace.id).maybeSingle()
+    const mestreDoPacote = (pacoteDoDestino?.mestre ?? {}) as { titulo?: unknown; corpo?: unknown }
+    const anchor = {
+      titulo: typeof mestreDoPacote.titulo === 'string' ? mestreDoPacote.titulo : '',
+      corpo: typeof mestreDoPacote.corpo === 'string' ? mestreDoPacote.corpo : '',
+    }
+
     const canal = adapter(destino.canal)
     const formato = canal ? formatoDoAdapter(canal, destino.formato) : undefined
     if (!canal || !formato) throw new Error('Este destino não tem um formato válido.')
@@ -148,14 +159,15 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
     // Com imagem-base, a geração parte dela (endpoint de edição) em vez de
     // partir do zero. A base nunca é alterada — sai uma imagem NOVA.
     const baseFileId = texto(formData, 'baseFileId')
+    const promptCompleto = completarPromptDeImagem(prompt, anchor)
     const imagem = baseFileId
       ? await gerarImagemComBase({
-          prompt,
+          prompt: promptCompleto,
           proporcao: formato.midia.proporcaoPreferida,
           qualidade,
           base: await baseParaGeracao(baseFileId, context.workspace.id),
         })
-      : await gerarImagem({ prompt, proporcao: formato.midia.proporcaoPreferida, qualidade })
+      : await gerarImagem({ prompt: promptCompleto, proporcao: formato.midia.proporcaoPreferida, qualidade })
 
     const { data: usoAtual } = await supabase
       .from('files').select('size_bytes').eq('workspace_id', context.workspace.id).neq('status', 'deleted')
@@ -409,10 +421,17 @@ export async function gerarImagensDaMateria(formData: FormData): Promise<Resulta
     const baseFileId = texto(formData, 'baseFileId')
     const base = baseFileId ? await baseParaGeracao(baseFileId, context.workspace.id) : null
 
+    // A âncora da matéria viaja em todo pedido: título + resumo real do texto
+    // entram junto, e a imagem sai com relação reconhecível com a página.
+    const promptCompleto = completarPromptDeImagem(prompt, {
+      titulo: texto(formData, 'titulo'),
+      corpo: String(formData.get('corpo') ?? ''),
+    })
+
     const geradas = await Promise.allSettled(
       formatos.map((f) => base
-        ? gerarImagemComBase({ prompt, proporcao: f.proporcao, qualidade, base })
-        : gerarImagem({ prompt, proporcao: f.proporcao, qualidade })),
+        ? gerarImagemComBase({ prompt: promptCompleto, proporcao: f.proporcao, qualidade, base })
+        : gerarImagem({ prompt: promptCompleto, proporcao: f.proporcao, qualidade })),
     )
 
     const { data: usoAtual } = await supabase
