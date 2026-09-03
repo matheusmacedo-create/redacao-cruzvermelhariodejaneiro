@@ -26,28 +26,32 @@ export type NoticiaDoIndice = {
 }
 
 const CSS_INDICE = `
-.jornal{max-width:var(--coluna-larga);margin:0 auto;padding:40px 20px 72px}
-.jornal-topo{border-bottom:3px solid var(--ink);padding-bottom:14px;margin-bottom:8px}
-.jornal-topo h1{font-size:clamp(30px,4.5vw,44px);letter-spacing:-.5px;line-height:1.1;margin:0}
-.jornal-topo p{color:var(--muted);margin:6px 0 0;font-size:14.5px}
-.manchete{display:block;text-decoration:none;color:inherit;padding:28px 0;border-bottom:1px solid var(--line)}
-.manchete .kicker{color:var(--red);font-weight:800;font-size:12.5px;letter-spacing:1.5px;text-transform:uppercase}
-.manchete h2{font-size:clamp(24px,3.4vw,34px);line-height:1.18;letter-spacing:-.4px;margin:8px 0 10px;color:var(--ink)}
-.manchete p{font-size:17px;line-height:1.6;color:var(--text);margin:0 0 10px}
-.manchete time{color:var(--muted);font-size:13.5px}
-.manchete:hover h2{color:var(--red)}
-.fila{list-style:none;margin:0;padding:0}
-.fila li{border-bottom:1px solid var(--line)}
-.fila a{display:block;text-decoration:none;color:inherit;padding:20px 0}
-.fila h3{font-size:20px;line-height:1.3;letter-spacing:-.2px;margin:0 0 6px;color:var(--ink)}
-.fila p{font-size:15.5px;line-height:1.6;color:var(--muted);margin:0 0 6px}
-.fila time{color:var(--muted);font-size:13px}
-.fila a:hover h3{color:var(--red)}
+body{background:var(--news-paper)}
+.jornal{max-width:var(--max-folio);margin:0 auto;padding:0 24px 72px}
+.jornal-topo{border-top:3px solid var(--brand);padding:24px 0 16px;border-bottom:1px solid var(--news-line);margin-bottom:8px}
+.jornal-topo h1{font-family:var(--serif);font-weight:800;font-size:clamp(32px,4.5vw,42px);letter-spacing:-.02em;line-height:1.1;margin:0;color:var(--news-ink)}
+.jornal-topo p{color:var(--news-muted);margin:8px 0 0;font-size:15px;font-family:var(--serif)}
+.manchete{display:block;text-decoration:none;color:inherit;padding:30px 0;border-bottom:1px solid var(--news-line)}
+.manchete .kicker{color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.manchete h2{font-family:var(--serif);font-weight:800;font-size:clamp(26px,3.6vw,38px);line-height:1.15;letter-spacing:-.02em;margin:10px 0 10px;color:var(--news-ink)}
+.manchete p{font-family:var(--serif);font-size:19px;line-height:1.45;color:var(--news-muted);margin:0 0 10px}
+.manchete time{color:var(--news-muted);font-size:13px}
+.manchete:hover h2{color:var(--brand)}
+.grade{list-style:none;margin:0;padding:28px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}
+.grade li{border-bottom:1px solid var(--news-line)}
+.grade a{display:block;text-decoration:none;color:inherit;padding:20px 0}
+.grade .kicker{color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px}
+.grade h3{font-family:var(--serif);font-weight:700;font-size:20px;line-height:1.25;letter-spacing:-.01em;margin:0 0 6px;color:var(--news-ink)}
+.grade p{font-size:14.5px;line-height:1.5;color:var(--news-muted);margin:0 0 8px}
+.grade time{color:var(--news-muted);font-size:12px}
+.grade a:hover h3{color:var(--brand)}
+@media(max-width:1023px){.grade{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:680px){.grade{grid-template-columns:1fr}}
 
-.jornal-vazio{padding:48px 0;color:var(--muted);font-size:16px}
-.tempo{margin-top:48px}
-.tempo-topo{border-bottom:3px solid var(--ink);padding-bottom:10px;margin-bottom:4px}
-.tempo-topo h2{font-size:clamp(22px,3vw,30px);letter-spacing:-.4px;margin:0}
+.jornal-vazio{padding:48px 0;color:var(--news-muted);font-size:16px}
+.tempo{margin-top:56px}
+.tempo-topo{border-bottom:1px solid var(--news-line);padding-bottom:10px;margin-bottom:4px}
+.tempo-topo h2{font-family:var(--serif);font-size:clamp(22px,3vw,28px);letter-spacing:-.01em;margin:0;color:var(--news-ink)}
 .tempo-topo p{color:var(--muted);margin:4px 0 0;font-size:14px}
 .tempo ol{list-style:none;margin:0;padding:0}
 .tempo li{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
@@ -74,6 +78,8 @@ export function paginaDeNoticias(
   const ordenadas = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())
   const [manchete, ...fila] = ordenadas
 
+  // Destaque full-width + grade 3×N, como pede o briefing do jornal. Cards
+  // sem sombra, título serifado, data pequena — filete no lugar de caixa.
   const miolo = !manchete
     ? '<p class="jornal-vazio">As primeiras notícias estão a caminho.</p>'
     : `<a class="manchete" href="${escapar(manchete.url)}">
@@ -82,8 +88,9 @@ export function paginaDeNoticias(
         ${manchete.descricao?.trim() ? `<p>${escapar(manchete.descricao.trim())}</p>` : ''}
         <time datetime="${manchete.publicadaEm.toISOString()}">${dataLegivel(manchete.publicadaEm)}</time>
       </a>
-      ${fila.length ? `<ul class="fila">
+      ${fila.length ? `<ul class="grade">
         ${fila.map((n) => `<li><a href="${escapar(n.url)}">
+          <span class="kicker">Notícias</span>
           <h3>${escapar(n.titulo)}</h3>
           ${n.descricao?.trim() ? `<p>${escapar(n.descricao.trim())}</p>` : ''}
           <time datetime="${n.publicadaEm.toISOString()}">${dataLegivel(n.publicadaEm)}</time>
@@ -94,17 +101,23 @@ export function paginaDeNoticias(
     new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo' })
       .format(d).replace(/\. de /g, ' ').replace('.', '')
 
-  // A linha do tempo: o que saiu em CADA canal, do mais novo ao mais velho.
-  // Cada canal aparece com a MARCA oficial (o glifo de verdade, embutido como
-  // SVG) e o nome por extenso — este é um jornal, não um log de sistema.
-  const tempo = linhaDoTempo.length
+  // A linha do tempo: o que saiu em CADA canal, do mais novo ao mais velho —
+  // no FIM da página, depois das matérias (briefing do jornal). Posts de
+  // teste que sobraram no histórico não entram: numa primeira página de
+  // jornal, "fdsfdsfds" custa credibilidade.
+  const lixoDeTeste = /^(teste\d*|test\d*|fdsf|asdf|qwer|xxx+)/i
+  const linhaLimpa = linhaDoTempo.filter((i) => {
+    const resumo = resumoDoPost(i.texto).trim()
+    return resumo === '' || !lixoDeTeste.test(resumo)
+  })
+  const tempo = linhaLimpa.length
     ? `<section class="tempo">
         <div class="tempo-topo">
           <h2>Linha do tempo</h2>
           <p>O que publicamos em cada canal — Instagram, Facebook, LinkedIn e além.</p>
         </div>
         <ol>
-          ${linhaDoTempo.map((i) => {
+          ${linhaLimpa.map((i) => {
             const nome = NOME_DO_CANAL[i.canal] ?? i.canal
             const resumo = resumoDoPost(i.texto)
             const logo = svgDaMarca(i.canal, 18)
@@ -137,6 +150,7 @@ export function paginaDeNoticias(
     corpo,
     cssExtra: CSS_INDICE,
     agora,
+    ativo: 'noticias',
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
