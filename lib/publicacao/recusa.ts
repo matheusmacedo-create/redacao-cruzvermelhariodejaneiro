@@ -16,12 +16,15 @@
  * Módulo puro de propósito: roda na suíte de testes sem servidor.
  */
 
-/** Uma linha de resultado por rede, nas duas grafias que a API usa. Os campos
- * são unknown de propósito: já houve resposta real com formato diferente do
- * prometido, e um objeto onde se esperava string não pode custar o motivo. */
+/** Uma linha de resultado por rede, nas grafias que a API usa — a resposta
+ * real de produção trouxe `error_message`/`failure_stage`, que a documentação
+ * não prometia. Os campos são unknown de propósito: um objeto onde se esperava
+ * string não pode custar o motivo. */
 export type RecusaBruta = {
   message?: unknown
   error?: unknown
+  error_message?: unknown
+  failure_stage?: unknown
 }
 
 /** String legível a partir do que vier: texto, objeto com message/error, ou o
@@ -38,11 +41,15 @@ function comoTexto(valor: unknown): string | null {
 
 /**
  * O motivo cru da falha, venha no campo que vier. `message` em sucesso carrega
- * "Published"/"Queued"; em falha o motivo de verdade costuma estar em `error`
- * — por isso ele tem prioridade.
+ * "Published"/"Queued"; em falha o motivo de verdade vem em `error_message`
+ * (resposta real de produção) ou `error` (documentação) — por isso eles têm
+ * prioridade. `failure_stage` diz EM QUE PASSO morreu e entra como complemento.
  */
 export function motivoDaRecusa(resultado: RecusaBruta): string | null {
-  return comoTexto(resultado.error) ?? comoTexto(resultado.message)
+  const motivo = comoTexto(resultado.error_message) ?? comoTexto(resultado.error) ?? comoTexto(resultado.message)
+  const etapa = comoTexto(resultado.failure_stage)
+  if (motivo && etapa) return `${motivo} (etapa: ${etapa})`
+  return motivo ?? (etapa ? `Falhou na etapa: ${etapa}` : null)
 }
 
 const CASOS: { padrao: RegExp; dica: (canal: string) => string }[] = [
