@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { adapter } from '@/lib/publicacao/canais'
 import { semSegredo } from '@/lib/publicacao/upload-post'
 import { explicarRecusaDaRede } from '@/lib/publicacao/recusa'
+import { esquecerSegredo, segredoDoWebhook } from '@/lib/publicacao/webhook-do-conector'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,21 +21,20 @@ export const dynamic = 'force-dynamic'
  * Segurança: toda entrega vem assinada com HMAC-SHA256 sobre
  * "<timestamp>.<corpo cru>". Sem assinatura válida, nada é gravado — esta é
  * uma rota pública, e sem a conferência qualquer um poderia marcar posts como
- * publicados. O segredo entra por UPLOAD_POST_WEBHOOK_SECRET; a ativação
- * guiada vive em /api/admin/redes-webhook.
+ * publicados. O segredo é lido da própria API do conector (com a chave que já
+ * existe), sem passo manual; UPLOAD_POST_WEBHOOK_SECRET é um atalho opcional.
  */
 
 const JOB_VALIDO = /^[A-Za-z0-9._-]{4,128}$/
 
-export async function POST(req: Request) {
-  const segredo = process.env.UPLOAD_POST_WEBHOOK_SECRET?.trim()
-  if (!segredo) {
-    return NextResponse.json(
-      { ok: false, mensagem: 'Webhook sem verificador: defina UPLOAD_POST_WEBHOOK_SECRET (ative em /api/admin/redes-webhook).' },
-      { status: 503 },
-    )
-  }
+function assinaturaConfere(segredo: string, ts: string, bruto: string, assinatura: string): boolean {
+  const esperada = createHmac('sha256', segredo).update(`${ts}.`).update(bruto).digest('hex')
+  const a = Buffer.from(assinatura, 'hex')
+  const b = Buffer.from(esperada, 'hex')
+  return a.length === b.length && timingSafeEqual(a, b)
+}
 
+export async function POST(req: Request) {
   const bruto = await req.text()
   const ts = req.headers.get('x-upload-post-timestamp') ?? ''
   const assinatura = (req.headers.get('x-upload-post-signature') ?? '').replace(/^sha256=/, '')
@@ -42,11 +42,22 @@ export async function POST(req: Request) {
   if (!ts || !Number.isFinite(Number(ts)) || Math.abs(Date.now() / 1000 - Number(ts)) > 300) {
     return new NextResponse(null, { status: 400 })
   }
-  const esperada = createHmac('sha256', segredo).update(`${ts}.`).update(bruto).digest('hex')
-  const a = Buffer.from(assinatura, 'hex')
-  const b = Buffer.from(esperada, 'hex')
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    return new NextResponse(null, { status: 401 })
+
+  let segredo = await segredoDoWebhook()
+  if (!segredo) {
+    return NextResponse.json(
+      { ok: false, mensagem: 'Sem verificador: o conector não devolveu o segredo do webhook. Confira UPLOAD_POST_API_KEY e /api/admin/redes-webhook.' },
+      { status: 503 },
+    )
+  }
+  if (!assinaturaConfere(segredo, ts, bruto, assinatura)) {
+    // O segredo pode ter sido rotacionado agora há pouco: uma releitura
+    // fresca antes de recusar cobre a janela da troca.
+    esquecerSegredo()
+    segredo = await segredoDoWebhook()
+    if (!segredo || !assinaturaConfere(segredo, ts, bruto, assinatura)) {
+      return new NextResponse(null, { status: 401 })
+    }
   }
 
   let evento: {

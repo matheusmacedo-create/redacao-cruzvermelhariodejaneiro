@@ -632,6 +632,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { obterPerfil, perfilPadrao, publicarFotos, publicarTexto, publicarVideo, redesConectadas, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
 import { explicarRecusaDaRede, motivoDaRecusa, traduzirSeConhecida } from '@/lib/publicacao/recusa'
 import { conformarImagem } from '@/lib/publicacao/imagem-para-redes'
+import { garantirWebhookRegistrado } from '@/lib/publicacao/webhook-do-conector'
 import { carregarArquivos } from '@/lib/publicacao/arquivos'
 import { publicarMateria } from '@/lib/site/publicar-materia'
 import type { CaixaDeRecorte } from '@/lib/publicacao/recorte'
@@ -876,6 +877,9 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     // acompanhamento acusa depois.
     let conectadas: Set<string> | null = null
     if (sociais.length) {
+      // O aviso de resultado (webhook) se registra sozinho na primeira
+      // publicação — falha aqui não segura o disparo.
+      await garantirWebhookRegistrado()
       try {
         const { dados } = await obterPerfil(perfilPadrao())
         if (dados.profile) conectadas = new Set(redesConectadas(dados.profile))
