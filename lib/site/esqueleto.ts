@@ -42,7 +42,9 @@ export const CSS_DO_SITE = `
      notícias; o chrome do site continua na paleta antiga. */
   --news-ink:#111111;--ink-2:#2B2B2B;--news-muted:#5C6570;
   --brand:#C8102E;--brand-dark:#8B0E20;--news-line:#D6D6D6;
-  --news-paper:#F7F4EF;--box:#F3F1ED;
+  /* Fundo branco por decisão da redação (o off-white quente do briefing
+     pareceu amarelado); o box de contexto segue num cinza neutro claro. */
+  --news-paper:#ffffff;--box:#F4F4F2;
   --max-folio:1180px;--col-rail:320px;--gutter:40px;
   --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
   --sans:Inter,'Source Sans 3',Arial,sans-serif
