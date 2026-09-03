@@ -100,12 +100,17 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs: number): Pr
   const chave = chaveDaIa()
   const controle = new AbortController()
   const relogio = setTimeout(() => controle.abort(), timeoutMs)
+  // FormData vai como multipart (o fetch gera o boundary sozinho — declarar
+  // Content-Type na mão quebraria isso); o resto vai como JSON.
+  const eForm = corpo instanceof FormData
   let res: Response
   try {
     res = await fetch(`${BASE}${caminho}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(corpo),
+      headers: eForm
+        ? { Authorization: `Bearer ${chave}` }
+        : { Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' },
+      body: eForm ? corpo : JSON.stringify(corpo),
       signal: controle.signal,
     })
   } catch (causa) {
@@ -200,6 +205,43 @@ export async function gerarImagem(pedido: {
     n: 1,
   }, 180_000)
 
+  const b64 = dados.data?.[0]?.b64_json
+  if (!b64) throw new IaError('A OpenAI respondeu sem imagem.', 502)
+  return {
+    bytes: Buffer.from(b64, 'base64'),
+    contentType: 'image/png',
+    largura: medida.largura,
+    altura: medida.altura,
+  }
+}
+
+/**
+ * Gera uma imagem NOVA partindo de uma imagem existente (endpoint de edição).
+ *
+ * É o pedido da redação: "usar a arte que já temos como base e criar outra em
+ * cima". O modelo recebe a imagem e o texto, e devolve uma variação — a
+ * original não é alterada em lugar nenhum.
+ */
+export async function gerarImagemComBase(pedido: {
+  prompt: string
+  proporcao: string
+  qualidade?: 'low' | 'medium' | 'high'
+  base: { bytes: Buffer; contentType: string; nome?: string }
+}): Promise<ImagemGerada> {
+  const medida = tamanhoParaProporcao(pedido.proporcao)
+  const form = new FormData()
+  form.set('model', modeloDeImagem())
+  form.set('prompt', pedido.prompt)
+  form.set('size', medidaComoTexto(medida))
+  form.set('quality', pedido.qualidade ?? 'medium')
+  form.set('n', '1')
+  form.append(
+    'image[]',
+    new Blob([new Uint8Array(pedido.base.bytes)], { type: pedido.base.contentType }),
+    pedido.base.nome ?? 'base.jpg',
+  )
+
+  const dados = await chamar<RespostaDeImagem>('/images/edits', form, 180_000)
   const b64 = dados.data?.[0]?.b64_json
   if (!b64) throw new IaError('A OpenAI respondeu sem imagem.', 502)
   return {
