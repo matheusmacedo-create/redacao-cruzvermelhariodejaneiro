@@ -629,8 +629,9 @@ export async function arquivarPacote(formData: FormData): Promise<ResultadoDoHub
 // ---------------------------------------------------------------- disparo
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { publicarFotos, publicarTexto, publicarVideo, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
+import { obterPerfil, perfilPadrao, publicarFotos, publicarTexto, publicarVideo, redesConectadas, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
 import { explicarRecusaDaRede, motivoDaRecusa, traduzirSeConhecida } from '@/lib/publicacao/recusa'
+import { conformarImagem } from '@/lib/publicacao/imagem-para-redes'
 import { carregarArquivos } from '@/lib/publicacao/arquivos'
 import { publicarMateria } from '@/lib/site/publicar-materia'
 import type { CaixaDeRecorte } from '@/lib/publicacao/recorte'
@@ -868,6 +869,21 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
 
     // ---- 2. Redes, agrupadas por payload idêntico ----
     const sociais = prontos.filter((d) => ehCanalDeRede(d.canal))
+
+    // Conta desconectada falha ANTES de gastar. Sem esta pergunta, a rede sem
+    // conta voltava como "skipped" depois do aceite — com a cota do plano e o
+    // registro já queimados. Se a consulta falhar, segue como antes: o
+    // acompanhamento acusa depois.
+    let conectadas: Set<string> | null = null
+    if (sociais.length) {
+      try {
+        const { dados } = await obterPerfil(perfilPadrao())
+        if (dados.profile) conectadas = new Set(redesConectadas(dados.profile))
+      } catch {
+        conectadas = null
+      }
+    }
+
     const grupos = new Map<string, DestinoParaDisparo[]>()
     for (const d of sociais) {
       // Rede que usa a URL da matéria espera o site sair. Se o site falhou,
@@ -879,7 +895,23 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       grupos.set(chave, [...(grupos.get(chave) ?? []), d])
     }
 
-    for (const [, grupo] of grupos) {
+    for (const [, todosDoGrupo] of grupos) {
+      // Destino de rede desconectada sai do grupo com o motivo certo, sem
+      // derrubar os irmãos que têm conta.
+      const semConta = conectadas ? todosDoGrupo.filter((d) => !conectadas.has(d.canal)) : []
+      if (semConta.length) {
+        falhas += semConta.length
+        for (const d of semConta) {
+          await marcar([d.id], {
+            estado: 'falhou',
+            erro: `A conta de ${adapter(d.canal)?.nome ?? d.canal} não está conectada no Upload-Post.`
+              + ' Conecte em Configurações → Redes sociais e reprocesse — nada foi gasto do plano.',
+          })
+        }
+      }
+      const grupo = semConta.length ? todosDoGrupo.filter((d) => !semConta.includes(d)) : todosDoGrupo
+      if (!grupo.length) continue
+
       const modelo = grupo[0]
       const ids = grupo.map((d) => d.id)
       const redes = grupo.map((d) => d.canal)
@@ -925,7 +957,11 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           ? await carregarArquivos(modelo.file_ids, context.workspace.id, modelo.crops)
           : []
         const eVideo = daBiblioteca.length > 0 && daBiblioteca[0].contentType.startsWith('video/')
-        const midias = daBiblioteca.map((a) => a.blob)
+        // Foto grande demais para a rede mais exigente do grupo é recusa
+        // certa — a cópia que viaja é conformada aqui; o original não muda.
+        const midias = eVideo
+          ? daBiblioteca.map((a) => a.blob)
+          : await Promise.all(daBiblioteca.map((a) => conformarImagem(a.blob, redes)))
         const iaGerada = daBiblioteca.some((a) => a.geradaPorIa)
 
         const comum = {
@@ -1017,10 +1053,40 @@ export async function reprocessarDestino(formData: FormData): Promise<ResultadoD
     const id = texto(formData, 'destinoId')
 
     const { data: destino } = await supabase
-      .from('package_destinations').select('id,package_id,estado')
+      .from('package_destinations').select('id,package_id,estado,canal,request_id')
       .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
     if (!destino) throw new Error('Destino não encontrado.')
     if (destino.estado !== 'falhou') throw new Error('Só destinos que falharam podem ser reprocessados.')
+
+    // Antes de disparar de novo, pergunta ao conector o que houve com o
+    // disparo anterior. Foi assim que nasceu o post duplicado na página do
+    // Facebook: um "falhou" gravado por engano, e o reprocesso republicou o
+    // que já estava no ar. Se o post saiu, o conserto é corrigir o estado.
+    if (destino.request_id && ehCanalDeRede(destino.canal)) {
+      const { data: registro } = await supabase
+        .from('social_publications').select('request_id,job_id')
+        .eq('id', destino.request_id).eq('workspace_id', context.workspace.id).maybeSingle()
+      if (registro?.request_id || registro?.job_id) {
+        try {
+          const { dados } = await statusDoEnvio({
+            requestId: registro.request_id ?? undefined,
+            jobId: registro.job_id ?? undefined,
+          })
+          const resultado = (dados.results ?? []).find((r) => r.platform === destino.canal)
+          if (resultado?.success === true) {
+            await supabase.from('package_destinations')
+              .update({ estado: 'publicada', external_url: resultado.post_url ?? null, erro: null })
+              .eq('id', id).eq('workspace_id', context.workspace.id)
+            await recalcularStatusDoPacote(supabase, destino.package_id, context.workspace.id)
+            revalidatePath(`/redes/${destino.package_id}`)
+            revalidatePath('/redes')
+            return {}
+          }
+        } catch {
+          // Sem resposta do conector, segue para o reprocesso normal.
+        }
+      }
+    }
 
     // Volta a pronto e dispara de novo só ele, pelo mesmo caminho.
     await supabase.from('package_destinations').update({ estado: 'pronta', erro: null })
