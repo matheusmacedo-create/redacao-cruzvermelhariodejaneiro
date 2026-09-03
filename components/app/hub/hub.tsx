@@ -1051,6 +1051,8 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   onRecarregarBiblioteca: () => void
 }) {
   const [maisOpcoes, setMaisOpcoes] = useState(false)
+  const [gerandoLegendas, rodarLegendas] = useTransition()
+  const [avisoLegendas, setAvisoLegendas] = useState('')
   const muda = (campo: keyof MestreRegistro) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onMudar({ ...mestre, [campo]: e.target.value })
 
@@ -1059,6 +1061,33 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   const escolhidas = fileIds
     .map((id) => biblioteca.find((a) => a.id === id))
     .filter((a): a is ArquivoDaBiblioteca => Boolean(a))
+
+  // As fotos sem legenda escrita — são as que o botão de IA preenche. O que
+  // uma pessoa escreveu nunca é sobrescrito.
+  const fotosSemLegenda = escolhidas
+    .filter((a) => a.tipo === 'foto' && !(mestre.legendas?.[a.id]?.legenda ?? '').trim())
+    .map((a) => a.id)
+
+  function gerarLegendasComIa() {
+    setAvisoLegendas('')
+    rodarLegendas(async () => {
+      const form = new FormData()
+      form.set('fileIds', JSON.stringify(fotosSemLegenda))
+      form.set('titulo', mestre.titulo)
+      form.set('corpo', mestre.corpo)
+      form.set('provedor', melhoria.claude ? 'claude' : 'gpt')
+      const r = await sugerirLegendasDasFotos(form)
+      if (r.erro) { setAvisoLegendas(r.erro); return }
+      const legendas = { ...(mestre.legendas ?? {}) }
+      for (const [id, legenda] of Object.entries(r.legendas ?? {})) {
+        if (!legenda.trim()) continue
+        const atual = legendas[id] ?? { legenda: '', credito: '' }
+        if (atual.legenda.trim()) continue
+        legendas[id] = { ...atual, legenda }
+      }
+      onMudar({ ...mestre, legendas })
+    })
+  }
 
   const naoSaiNoSite = base?.estado === 'ignorada'
   const publicada = base?.estado === 'publicada'
@@ -1198,11 +1227,27 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
             a página saía com o nome do arquivo embaixo da imagem. */}
         {escolhidas.length > 0 && (
           <div className="mt-3 flex flex-col gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Rodapé das fotos na página
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Rodapé das fotos na página
+              </p>
+              {!congelado && (melhoria.claude || melhoria.gpt) && fotosSemLegenda.length > 0 && (
+                <button
+                  type="button"
+                  onClick={gerarLegendasComIa}
+                  disabled={gerandoLegendas}
+                  title="A IA olha as fotos e o texto da matéria e propõe legendas — só para os campos vazios"
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium transition-colors hover:bg-muted disabled:opacity-40"
+                >
+                  {gerandoLegendas ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+                  {gerandoLegendas ? 'Olhando as fotos…' : 'Gerar legendas com IA'}
+                </button>
+              )}
+            </div>
+            {avisoLegendas && <p className="text-xs text-destructive">{avisoLegendas}</p>}
             {escolhidas.map((a, i) => {
               const atual = mestre.legendas?.[a.id] ?? { legenda: '', credito: '' }
+              const posicao = atual.posicao ?? (i === 0 ? 'inicio' : 'meio')
               const mudarLegenda = (campos: Partial<LegendaDaMidia>) =>
                 onMudar({ ...mestre, legendas: { ...(mestre.legendas ?? {}), [a.id]: { ...atual, ...campos } } })
               return (
@@ -1225,13 +1270,25 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
                       disabled={congelado}
                       className={inputClass}
                     />
-                    <span className="text-[11px] text-muted-foreground">
-                      {i === 0
-                        ? 'Esta abre a matéria, em destaque.'
-                        : 'Entra no fim da página, depois do texto.'}
-                      {!atual.legenda.trim() && ' Sem legenda a foto sai muda para quem usa leitor de tela.'}
-                      {' '}A legenda também vira o nome do arquivo na página — bom para o Google.
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                        Onde entra
+                        <select
+                          value={posicao}
+                          onChange={(e) => mudarLegenda({ posicao: e.target.value as LegendaDaMidia['posicao'] })}
+                          disabled={congelado}
+                          className="rounded-md border border-border bg-background px-2 py-1 text-xs font-normal text-foreground"
+                        >
+                          <option value="inicio">Abertura — capa da matéria</option>
+                          <option value="meio">Meio do texto, entre os parágrafos</option>
+                          <option value="fim">Fim da página</option>
+                        </select>
+                      </label>
+                      <span className="text-[11px] text-muted-foreground">
+                        {!atual.legenda.trim() && 'Sem legenda a foto sai muda para quem usa leitor de tela. '}
+                        A legenda também vira o nome do arquivo na página — bom para o Google.
+                      </span>
+                    </div>
                   </div>
                 </div>
               )
@@ -1458,6 +1515,10 @@ function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDesc
       form.set('prompt', prompt)
       form.set('qualidade', qualidade)
       form.set('formatos', JSON.stringify([...formatos]))
+      // A âncora: o servidor cola título + resumo do texto em todo pedido,
+      // para a imagem sair com relação direta com a matéria.
+      form.set('titulo', mestre.titulo)
+      form.set('corpo', mestre.corpo)
       if (baseId) form.set('baseFileId', baseId)
       const r = await gerarImagensDaMateria(form)
       if (r.erro) { setErro(r.erro); return }

@@ -27,7 +27,8 @@ export type ArquivoDaBiblioteca = {
  * outra sobre a parceria, com frases diferentes. O crédito costuma repetir, e
  * repetir é barato; inventar uma legenda errada, não.
  */
-export type LegendaDaMidia = { legenda: string; credito: string }
+import type { LegendaDaMidia } from '@/lib/publicacao/legendas'
+export type { LegendaDaMidia }
 
 export type MestreRegistro = {
   corpo: string

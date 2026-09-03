@@ -76,11 +76,13 @@ export const ESTILOS: Estilo[] = [
   },
   {
     id: 'mapa',
-    rotulo: 'Cena urbana ampla',
-    resumo: 'Cidade em plano aberto, sem ninguém identificável',
+    rotulo: 'Cena ampla do local',
+    resumo: 'O cenário da matéria em plano aberto, sem ninguém identificável',
+    // Sem cidade escrita à mão: a matéria pode ser do Chocó, de Brasília ou
+    // da Zona Norte — o cenário sai do próprio assunto, não de um chute.
     montar: (assunto) =>
-      `Vista urbana ampla do Rio de Janeiro relacionada a ${assunto}, em plano aberto e distante. `
-      + `Luz de fim de tarde, tratamento fotográfico realista e sóbrio. Nenhuma pessoa identificável, nenhum rosto.`,
+      `Vista ampla e distante do cenário onde acontece ${assunto}, em plano aberto. `
+      + `Luz natural, tratamento fotográfico realista e sóbrio. Nenhuma pessoa identificável, nenhum rosto.`,
   },
 ]
 
@@ -149,6 +151,44 @@ export function sugestoesDePrompt(mestre: { titulo?: string; corpo?: string }): 
   const { assunto, termos } = assuntoDaMateria(mestre)
   if (!assunto) return []
   return ESTILOS.map((estilo) => ({ estilo, prompt: montarPrompt(estilo, assunto, termos) }))
+}
+
+/**
+ * A âncora que prende TODA geração de imagem à matéria.
+ *
+ * O retorno da redação: os pedidos pareciam aleatórios e a imagem saía sem
+ * relação com a página. A causa é que o modelo só via o pedido — quem digita
+ * "uma pessoa sorrindo" não repete o assunto da matéria, e o gerador inventa
+ * o resto. Este texto vai junto de QUALQUER pedido, escrito à mão ou
+ * sugerido, com o título e um resumo real do texto: a imagem nasce presa ao
+ * conteúdo, não à sorte.
+ */
+export function contextoDaMateria(mestre: { titulo?: string; corpo?: string }): string {
+  const titulo = (mestre.titulo ?? '').trim()
+  const limpo = textoParaRede(mestre.corpo ?? '').texto.replace(/\s+/g, ' ').trim()
+  if (!titulo && !limpo) return ''
+  const resumo = limpo.length > 300 ? `${limpo.slice(0, 300).replace(/\s+\S*$/, '')}…` : limpo
+  return [
+    `Contexto obrigatório: a imagem ilustra uma matéria jornalística da Cruz Vermelha`,
+    titulo ? `intitulada "${titulo}".` : '.',
+    resumo ? `A matéria conta: ${resumo}` : '',
+    'A imagem precisa ter relação direta e reconhecível com esse conteúdo — cenário, objetos e clima coerentes com a matéria.',
+  ].filter(Boolean).join(' ')
+}
+
+/**
+ * Completa um pedido de imagem com o contexto da matéria e as regras da casa.
+ *
+ * As sugestões prontas já carregam as restrições; o pedido digitado à mão não
+ * carregava nenhuma — e era por essa porta que podiam sair emblema, rosto e
+ * texto na imagem. Idempotente: o que o pedido já tem não entra de novo.
+ */
+export function completarPromptDeImagem(prompt: string, mestre: { titulo?: string; corpo?: string }): string {
+  const partes = [prompt.trim()]
+  const contexto = contextoDaMateria(mestre)
+  if (contexto && !prompt.includes('Contexto obrigatório:')) partes.push(contexto)
+  if (!prompt.includes('Restrições obrigatórias:')) partes.push(`Restrições obrigatórias: ${REGRAS_FIXAS}.`)
+  return partes.join('\n\n')
 }
 
 export { REGRAS_FIXAS, VERMELHO }
