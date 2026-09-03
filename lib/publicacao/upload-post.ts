@@ -314,10 +314,17 @@ export type Rede =
 export type ResultadoPorRede = {
   platform: string
   success: boolean
+  /** Estado próprio desta rede: queued | processing | completed | failed |
+   * retryable | skipped. É ELE que diz se a entrada é terminal — `success`
+   * ainda falso numa entrada em processamento não é recusa. */
+  status?: string
   message?: string
   /** Em falha, o motivo de verdade costuma vir AQUI, não em message — a doc de
    * error-handling mostra `results[plataforma].error` com o texto da rede. */
   error?: string
+  /** A resposta real de produção usa esta grafia (e error_code/failure_stage). */
+  error_message?: string | null
+  failure_stage?: string | null
   post_url?: string | null
   skipped?: boolean
   skip_reason?: string

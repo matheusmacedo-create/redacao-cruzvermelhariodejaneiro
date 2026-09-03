@@ -1060,13 +1060,17 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
     const pacoteId = texto(formData, 'pacoteId')
     if (pacoteId) await pacoteDoEspaco(pacoteId, context.workspace.id)
 
-    // Só o que já foi disparado e ainda pode mudar de ideia. Destino que
-    // falhou fica quieto: quem decide sobre ele é o botão de reprocessar.
+    // Tudo que já foi disparado — INCLUSIVE o que consta como falho. O caso
+    // real que exigiu isso: o conector foi consultado no meio do processamento,
+    // a entrada ainda sem success virou "falhou", e o post SAIU na página
+    // depois — mas o destino nunca era reconferido, o erro ficava eterno e o
+    // "Reprocessar" publicava de novo (post duplicado no Facebook). A verdade
+    // do conector corrige o estado nas duas direções.
     let consulta = supabase
       .from('package_destinations')
       .select('id,package_id,canal,estado,request_id,external_url,erro')
       .eq('workspace_id', context.workspace.id)
-      .in('estado', ['publicada', 'publicando', 'na_fila'])
+      .in('estado', ['publicada', 'publicando', 'na_fila', 'falhou'])
       .not('request_id', 'is', null)
       .limit(200)
     if (pacoteId) consulta = consulta.eq('package_id', pacoteId)
@@ -1116,7 +1120,7 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
       await supabase.from('social_publications').update({
         status: dados.status ?? registro.status,
         results: (dados.results ?? []).map((r) => ({
-          rede: r.platform, ok: r.success, mensagem: motivoDaRecusa(r),
+          rede: r.platform, ok: r.success, estado: r.status ?? null, mensagem: motivoDaRecusa(r),
           url: r.post_url ?? null, pulada: r.skipped ?? false,
         })),
       }).eq('id', registro.id)
@@ -1127,36 +1131,55 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
 
         if (!resultado) {
           // Sem linha para esta rede: ou ainda está na fila do conector, ou o
-          // envio inteiro morreu. Só o segundo caso é notícia.
-          if (dados.status === 'failed') {
+          // envio inteiro morreu. Só o segundo caso é notícia — e não para um
+          // destino que já consta como falho.
+          if (dados.status === 'failed' && destino.estado !== 'falhou') {
             await aplicar(destino.id, { estado: 'falhou', erro: (dados.message ?? 'O envio falhou no conector.').slice(0, 500) })
             mudou++
           }
           continue
         }
 
-        if (resultado.skipped) {
-          await aplicar(destino.id, {
-            estado: 'falhou',
-            erro: `A conta de ${adapter(destino.canal)?.nome ?? destino.canal} não está conectada no Upload-Post — nada foi publicado.`,
-          })
-          mudou++
-          continue
-        }
-        if (resultado.success === false) {
-          // O motivo vem em `error` ou `message`, em inglês; a tradução diz
-          // o que aconteceu E o que fazer, sem apagar a resposta original.
-          const erro = semSegredo(explicarRecusaDaRede(resultado, adapter(destino.canal)?.nome ?? destino.canal))
-          await aplicar(destino.id, { estado: 'falhou', erro: erro.slice(0, 500) })
+        // O sucesso vence qualquer estado anterior — inclusive um "falhou"
+        // gravado por engano no meio do processamento. É esta linha que
+        // conserta sozinha o destino cujo post na verdade saiu.
+        if (resultado.success === true) {
+          const url = resultado.post_url ?? null
+          const virou = destino.estado !== 'publicada' || (url && url !== destino.external_url)
+          if (!virou) continue
+          await aplicar(destino.id, { estado: 'publicada', external_url: url, erro: null })
           mudou++
           continue
         }
 
-        const url = resultado.post_url ?? null
-        const virou = destino.estado !== 'publicada' || (url && url !== destino.external_url)
-        if (!virou) continue
-        await aplicar(destino.id, { estado: 'publicada', external_url: url, erro: null })
-        mudou++
+        if (resultado.skipped) {
+          if (destino.estado !== 'falhou') {
+            await aplicar(destino.id, {
+              estado: 'falhou',
+              erro: `A conta de ${adapter(destino.canal)?.nome ?? destino.canal} não está conectada no Upload-Post — nada foi publicado.`,
+            })
+            mudou++
+          }
+          continue
+        }
+
+        // Falha só quando é TERMINAL. Uma entrada ainda em fila/processamento
+        // vem com success falso e sem erro — tratá-la como recusa foi
+        // exatamente o bug do falso "A rede recusou": o post saiu depois e o
+        // hub ficou com o erro gravado.
+        const estadoDaEntrada = resultado.status
+        const aindaRodando = estadoDaEntrada
+          ? ['queued', 'processing', 'retryable', 'pending'].includes(estadoDaEntrada)
+          : dados.status !== 'completed' && dados.status !== 'failed'
+        if (aindaRodando) continue
+
+        if (destino.estado !== 'falhou') {
+          // O motivo vem em error_message/error/message; a tradução diz o que
+          // aconteceu E o que fazer, sem apagar a resposta original.
+          const erro = semSegredo(explicarRecusaDaRede(resultado, adapter(destino.canal)?.nome ?? destino.canal))
+          await aplicar(destino.id, { estado: 'falhou', erro: erro.slice(0, 500) })
+          mudou++
+        }
       }
     }
 
