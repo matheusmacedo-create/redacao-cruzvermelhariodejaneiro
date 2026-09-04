@@ -1,4 +1,5 @@
 import { parseMediaLine } from '@/lib/content-blocks'
+import { GUIA_DE_ESTILO, REGRAS_DURAS_DE_FATO } from '@/lib/ia/estilo'
 
 /**
  * Os formatos de melhoria de texto da matéria.
@@ -10,10 +11,14 @@ import { parseMediaLine } from '@/lib/content-blocks'
  * site — porque retocar meia dúzia de palavras não é melhorar; é o que a
  * primeira versão desta funcionalidade fazia, e não bastou.
  *
- * Duas regras atravessam todos:
+ * Todos escrevem com a voz da casa (lib/ia/estilo.ts) e sob três regras:
  *  - dado específico (número, data, nome, cargo, citação) só o do texto
- *    recebido; contexto geral e explicativo pode e deve entrar;
- *  - a resposta é SUGESTÃO: volta para a tela e só entra se alguém aceitar.
+ *    recebido; contexto institucional pode entrar, marcado entre ⟦ e ⟧;
+ *  - quando a matéria nasceu de uma pauta do Cérebro, as travas dele viram
+ *    regra do pedido — a melhoria não pode desfazer o que a importação
+ *    respeitou;
+ *  - a resposta é SUGESTÃO: volta para a tela, com a lista do que conferir, e
+ *    só entra se alguém aceitar.
  */
 
 export interface FormatoDeTexto {
@@ -106,13 +111,23 @@ export interface PaginaDoSite {
 /** Quantas páginas entram no pedido. Mais que isso é ruído, não repertório. */
 const TETO_DE_PAGINAS = 18
 
+/** O que o Cérebro sabe desta pauta e a melhoria precisa respeitar. */
+export interface OrientacaoDaPauta {
+  /** Cada item vira regra literal do pedido. */
+  proibido?: string[]
+  /** Quem publicou o material original — a autora do fato, não a Cruz. */
+  fonte?: string
+  /** Conferências já apontadas, que a resposta precisa manter na lista. */
+  paraConferir?: string[]
+}
+
 /**
  * Monta o pedido de melhoria — o mesmo para qualquer provedor.
  *
- * A persona e as regras da casa vão no sistema; a estrutura do formato, as
- * páginas do site linkáveis e o texto vão no pedido. A marcação citada é
- * exatamente a que o editor da matéria produz, para a resposta cair de volta
- * no campo sem tradução.
+ * A voz da casa, as regras duras, a persona e as travas da pauta vão no
+ * sistema; a estrutura do formato, as páginas do site linkáveis e o texto vão
+ * no pedido. A marcação citada é exatamente a que o editor da matéria produz,
+ * para a resposta cair de volta no campo sem tradução.
  */
 export function montarPedidoDeMelhoria(dados: {
   titulo?: string
@@ -120,11 +135,17 @@ export function montarPedidoDeMelhoria(dados: {
   formatoId: string
   /** Páginas reais do site — as únicas URLs que o modelo pode linkar. */
   paginas?: PaginaDoSite[]
+  /** As travas do Cérebro, quando a matéria nasceu de uma pauta dele. */
+  orientacao?: OrientacaoDaPauta
 }): { system: string; pedido: string; formato: FormatoDeTexto } | null {
   const formato = formatoDeTexto(dados.formatoId)
   if (!formato) return null
 
   const system = [
+    GUIA_DE_ESTILO,
+    '',
+    REGRAS_DURAS_DE_FATO,
+    '',
     formato.persona,
     '',
     'Você escreve para o site da Cruz Vermelha Brasileira — Rio de Janeiro, em português do Brasil.',
@@ -133,7 +154,8 @@ export function montarPedidoDeMelhoria(dados: {
     '',
     'Sobre os fatos:',
     '- Dado específico — número, data, nome, cargo, citação — só o que está no texto recebido. Se faltar, escreva sem ele.',
-    '- Contexto geral e explicativo PODE E DEVE entrar: o papel da Cruz Vermelha e do movimento humanitário, o que faz a outra instituição citada, por que o assunto importa para a população. Só conhecimento institucional seguro, sem estatística e sem fato datado que não esteja no texto.',
+    '- Contexto institucional PODE entrar — o papel da Cruz Vermelha e do Movimento, o que faz a outra instituição citada, por que o assunto importa para a população — MAS todo acréscimo que não esteja no texto recebido vai entre ⟦ e ⟧, para quem revisa saber o que é apuração e o que é acréscimo. Nenhuma estatística e nenhum fato datado que não esteja no texto.',
+    ...blocoDeOrientacao(dados.orientacao),
     '',
     'Marcação disponível (a única que o editor entende): "## " para intertítulo, "> " para citação, "- " para lista, "1. " para lista numerada, **negrito**, *itálico* e [texto](url) para link.',
     'Linhas que começam com "![" são fotos da matéria: copie cada uma EXATAMENTE como está, sozinha num parágrafo, na posição equivalente do novo texto. Não crie, não remova e não edite linhas de foto.',
@@ -141,11 +163,12 @@ export function montarPedidoDeMelhoria(dados: {
     'Preserve a linha de crédito da fonte ("Com informações de…") quando existir, e as hashtags que já existirem, juntas no fim. Não acrescente hashtags novas.',
     'Separe parágrafos com uma linha em branco.',
     '',
-    'A RESPOSTA TEM TRÊS PARTES, NESTA ORDEM, E NADA FORA DELAS:',
+    'A RESPOSTA TEM TRÊS PARTES OBRIGATÓRIAS E UMA OPCIONAL, NESTA ORDEM, E NADA FORA DELAS:',
     'TÍTULO: o título da página, pensado para busca e alcance orgânico — até 65 caracteres, o assunto principal nas primeiras palavras, específico e verdadeiro. Título de instituição humanitária informa; não faz caça-clique.',
     'LINHA FINA: uma frase de 120 a 160 caracteres — é o que o Google e as redes mostram sob o título. Complementa o título (não o repete) e diz por que a matéria importa para quem lê.',
     'Depois, uma linha contendo apenas ---, e então o corpo completo da matéria.',
     'Não repita o título nem a linha fina dentro do corpo.',
+    'Por fim, a QUARTA parte: uma linha contendo apenas "PARA CONFERIR:" e, abaixo dela, um item por linha começando com "- " — o que um humano precisa checar antes de publicar (ação da filial, número, nome, data, direito de imagem). Só o que pede conferência de verdade, sem item genérico; se nada pedir, omita a parte inteira.',
   ].join('\n')
 
   const paginas = (dados.paginas ?? []).slice(0, TETO_DE_PAGINAS)
@@ -175,17 +198,48 @@ export function montarPedidoDeMelhoria(dados: {
 }
 
 /**
- * Separa a resposta do modelo em título, linha fina e corpo.
+ * As travas do Cérebro como regras do pedido. Cada proibição entra literal —
+ * reescrevê-la seria interpretar por conta própria o que o Cérebro decidiu —
+ * e a fonte é nomeada para o texto não trocar de autor no caminho.
+ */
+function blocoDeOrientacao(orientacao?: OrientacaoDaPauta): string[] {
+  if (!orientacao) return []
+  const proibido = (orientacao.proibido ?? []).map((x) => x.trim()).filter(Boolean)
+  const fonte = orientacao.fonte?.trim()
+  const conferir = (orientacao.paraConferir ?? []).map((x) => x.trim()).filter(Boolean)
+  if (!proibido.length && !fonte && !conferir.length) return []
+
+  return [
+    '',
+    'TRAVAS DESTA PAUTA (do Cérebro) — cada uma é regra literal:',
+    ...proibido.map((x) => `- ${x}`),
+    ...(fonte
+      ? [`- O material original foi publicado por ${fonte}: nomeie essa fonte como autora do fato. A Cruz Vermelha só aparece como agente se o texto recebido o afirmar.`]
+      : []),
+    ...(conferir.length
+      ? ['O Cérebro já apontou o que precisa de conferência humana; mantenha estes itens em PARA CONFERIR e acrescente o que o seu texto exigir:', ...conferir.map((x) => `- ${x}`)]
+      : []),
+  ]
+}
+
+/** A linha que abre a quarta parte da resposta — com ou sem negrito, dois-pontos ou "## ". */
+const MARCA_DE_CONFERIR = /^(?:#{1,6}\s*)?\**\s*para\s+conferir\s*:?\s*\**$/i
+
+/**
+ * Separa a resposta do modelo em título, linha fina, corpo e checagens.
  *
- * O contrato pede "TÍTULO:", "LINHA FINA:", uma linha de --- e o corpo — mas
- * contrato com modelo se lê com tolerância: sem acento, com negrito em volta,
- * sem o separador. O que não vier identificável vira corpo: uma resposta boa
- * jamais é perdida porque o modelo errou a moldura.
+ * O contrato pede "TÍTULO:", "LINHA FINA:", uma linha de ---, o corpo e, por
+ * fim, "PARA CONFERIR:" com itens — mas contrato com modelo se lê com
+ * tolerância: sem acento, com negrito em volta, sem o separador, sem a
+ * quarta parte. O que não vier identificável vira corpo: uma resposta boa
+ * jamais é perdida porque o modelo errou a moldura. As checagens saem do
+ * corpo — são para quem revisa, não para a página.
  */
 export function separarProposta(bruto: string): {
   titulo: string
   linhaFina: string
   corpo: string
+  checagens: string[]
 } {
   const linhas = bruto.split('\n')
   let titulo = ''
@@ -193,9 +247,10 @@ export function separarProposta(bruto: string): {
   let inicioDoCorpo = 0
 
   for (let i = 0; i < Math.min(linhas.length, 8); i++) {
-    const linha = linhas[i].trim().replace(/^\*\*|\*\*$/g, '')
+    // "**TÍTULO:** texto" e "**TÍTULO: texto**" são a mesma coisa para nós.
+    const linha = linhas[i].trim().replace(/\*\*/g, '')
     const mTitulo = /^t[íi]tulo\s*:\s*(.+)$/i.exec(linha)
-    const mLinha = /^linha\s*fina\s*:\s*(.+)$/i.exec(linha)
+    const mLinha = /^linha[\s-]*fina\s*:\s*(.+)$/i.exec(linha)
     if (mTitulo && !titulo) {
       titulo = mTitulo[1].trim().replace(/^["“']|["”']$/g, '').slice(0, 120)
       inicioDoCorpo = i + 1
@@ -212,8 +267,21 @@ export function separarProposta(bruto: string): {
     }
   }
 
-  const corpo = linhas.slice(inicioDoCorpo).join('\n').replace(/^\s*-{3,}\s*\n/, '').trim()
-  return { titulo, linhaFina, corpo: corpo || bruto.trim() }
+  const doCorpo = linhas.slice(inicioDoCorpo)
+  // A última marca vale: um "para conferir" no meio do texto é assunto da
+  // matéria, não a moldura da resposta.
+  let marca = -1
+  for (let i = doCorpo.length - 1; i >= 0; i--) {
+    if (MARCA_DE_CONFERIR.test(doCorpo[i].trim())) { marca = i; break }
+  }
+  const checagens = marca >= 0
+    ? doCorpo.slice(marca + 1)
+        .map((l) => l.trim().replace(/^(?:[-•*]|\d+[.)])\s*/, '').replace(/^\*\*|\*\*$/g, '').trim())
+        .filter(Boolean)
+    : []
+
+  const corpo = (marca >= 0 ? doCorpo.slice(0, marca) : doCorpo).join('\n').replace(/^\s*-{3,}\s*\n/, '').trim()
+  return { titulo, linhaFina, corpo: corpo || bruto.trim(), checagens }
 }
 
 /**

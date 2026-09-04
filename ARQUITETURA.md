@@ -390,20 +390,32 @@ nunca derruba tela daqui):
    minutos na tag `cerebro`. O contrato está espelhado em
    `lib/cerebro/contrato.ts` — o original versionado vive no repositório dele.
 2. **Importação** (`app/actions/cerebro.ts`). Uma sugestão vira pacote do hub
-   em rascunho: mestre em formato de matéria, um destino gerado por canal
-   viável e a capa na Biblioteca (`pending` se material da Casa, `internal` se
-   de terceiro — `authorization_status` continua mandando no disparo). O
+   em rascunho, de dois jeitos. **Rascunhar com IA** (`lib/cerebro/redator.ts`):
+   o Claude redige título, linha fina, matéria, legenda de feed e três stories
+   com a voz da casa (`lib/ia/estilo.ts`) e sob as travas do sinal — só com o
+   que está no material, acréscimos entre ⟦ ⟧ e uma lista PARA CONFERIR. **Sem
+   IA** (`lib/cerebro/mestre.ts`): a legenda da fonte reorganizada em matéria,
+   como sempre foi. Nos dois casos só nascem os destinos que o plano do Cérebro
+   liberou (`usar: true`), a capa vai à Biblioteca (`pending` se material da
+   Casa, `internal` se de terceiro — `authorization_status` continua mandando
+   no disparo) e a orientação inteira do Cérebro — o que não pode, o plano, o
+   que conferir — fica em `mestre.cerebro` como dado (`lib/cerebro/orientacao.ts`),
+   que o hub mostra aberto no editor e entrega aos prompts de melhoria. O
    vínculo mora em `social_packages.cerebro_sinal_id`, com índice único contra
-   duplicata.
+   duplicata; a tela `/cerebro` marca o que já virou pacote.
 3. **Devolução.** Recusar com motivo grava no Cérebro (`POST /api/feedback` de
-   lá) e pesa nas próximas leituras dele. E `GET /api/cerebro/contexto`
-   (daqui) entrega a ele os títulos publicados nos últimos 60 dias e as
-   atividades Ação/Evento do Registrar — é o que alimenta as notas de
-   ineditismo e de ação real do motor. Só títulos saem por ali, nunca corpo,
-   contato ou história; `CEREBRO_CONTEXTO_TOKEN` fecha a rota se preciso.
+   lá) e pesa nas próximas leituras dele. O "sim" também volta pela mesma rota:
+   `pautado` ao importar e `publicado` quando um destino vai ao ar
+   (`recalcularStatusDoPacote`, depois da resposta) — é o que tira da atenção
+   dele o que a Casa já cobriu. E `GET /api/cerebro/contexto` (daqui) entrega
+   a ele os títulos publicados nos últimos 60 dias e as atividades Ação/Evento
+   do Registrar — é o que alimenta as notas de ineditismo e de ação real do
+   motor. Só títulos saem por ali, nunca corpo, contato ou história;
+   `CEREBRO_CONTEXTO_TOKEN` fecha a rota se preciso.
 
-Variáveis: `CEREBRO_URL`, `CEREBRO_TOKEN`, `CEREBRO_CONTEXTO_TOKEN` — todas
-opcionais, documentadas no `.env.example`.
+Variáveis: `CEREBRO_URL`, `CEREBRO_TOKEN` (o mesmo valor do `PAUTA_TOKEN` do
+Cérebro — com ele configurado lá, todo o contrato exige Bearer),
+`CEREBRO_CONTEXTO_TOKEN` — todas opcionais, documentadas no `.env.example`.
 
 ### 8.3 Rotas de diagnóstico
 

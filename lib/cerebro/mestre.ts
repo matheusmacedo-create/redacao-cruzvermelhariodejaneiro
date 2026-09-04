@@ -1,6 +1,6 @@
-import type { MidiaDaPauta, PautaDoCerebro } from './contrato'
+import type { CanalCerebro, MidiaDaPauta, PautaDoCerebro } from './contrato'
 import { DESTINO_POR_CANAL } from './contrato'
-import { gerarVariante, temErro } from '@/lib/publicacao/variantes'
+import { gerarVariante, temErro, validarVariante } from '@/lib/publicacao/variantes'
 import type { Mestre } from '@/lib/publicacao/canais'
 
 /**
@@ -28,6 +28,14 @@ export type DestinoPlanejado = {
   extras: Record<string, string>
   file_ids: string[]
   estado: 'gerada' | 'bloqueada'
+  /** Peça escrita à parte (a IA redigiu a legenda): o mestre não a sobrescreve. */
+  descolada?: boolean
+}
+
+/** Peças por canal que vieram prontas — da IA — em vez de derivadas do mestre. */
+export type PecasProntas = {
+  feed?: string
+  stories?: string
 }
 
 export function mestreDaPauta(
@@ -77,28 +85,48 @@ export function fonteDeUsoInterno(p: PautaDoCerebro): boolean {
 }
 
 /**
- * Todos os destinos que dá para deixar na bala, já com a peça gerada.
+ * Os destinos que o Cérebro liberou, já com a peça gerada.
  *
- * A regra é gerar o máximo: site, feed e stories sempre; reels só quando o
- * sinal é vídeo — e mesmo aí sem anexo, porque a capa que trazemos é a foto
- * de capa, não o vídeo. O que nasce sem mídia utilizável nasce `bloqueada`,
- * com o erro dizendo exatamente o que falta — melhor que descobrir na hora
- * de publicar. Quem decide o que sai continua sendo quem apaga ou publica.
+ * Antes a importação criava site, feed e stories para qualquer sinal —
+ * inclusive quando o plano dizia NÃO em dois deles, e dois de três destinos
+ * nasciam vermelhos. Agora só nasce o canal com `usar: true` no plano; o
+ * site entra sempre que o Cérebro não vetou publicação pública, porque é a
+ * base de onde as redes saem (e o hub a garante ao abrir de todo jeito).
+ * Reels só quando o sinal é vídeo e o plano liberou — e mesmo aí sem anexo,
+ * porque a capa que trazemos é a foto de capa, não o vídeo.
+ *
+ * O que nasce sem mídia utilizável nasce `bloqueada`, com o erro dizendo o
+ * que falta. Peça que a IA redigiu (`pecas`) entra descolada: o autosave do
+ * mestre não a sobrescreve com a legenda derivada.
  */
-export function planejarDestinos(p: PautaDoCerebro, mestre: Mestre): DestinoPlanejado[] {
+export function planejarDestinos(p: PautaDoCerebro, mestre: Mestre, pecas: PecasProntas = {}): DestinoPlanejado[] {
   if (fonteDeUsoInterno(p)) return []
 
-  const formatos: { canal: string; formato: string; fileIds: string[] }[] = [
+  const liberado = (canal: CanalCerebro) => p.canais.some((c) => c.canal === canal && c.usar)
+
+  const formatos: { canal: string; formato: string; fileIds: string[]; pronta?: string }[] = [
     { canal: 'site_web', formato: 'materia', fileIds: mestre.fileIds },
-    { canal: 'instagram', formato: 'feed', fileIds: mestre.fileIds },
-    { canal: 'instagram', formato: 'stories', fileIds: mestre.fileIds },
   ]
-  if (p.midia?.tipo === 'video' && capaPodeIrParaPeca(p.midia)) {
+  if (liberado('feed')) formatos.push({ canal: 'instagram', formato: 'feed', fileIds: mestre.fileIds, pronta: pecas.feed })
+  if (liberado('stories')) formatos.push({ canal: 'instagram', formato: 'stories', fileIds: mestre.fileIds, pronta: pecas.stories })
+  if (liberado('reels') && p.midia?.tipo === 'video' && capaPodeIrParaPeca(p.midia)) {
     formatos.push({ canal: 'instagram', formato: 'reels', fileIds: [] })
   }
 
-  return formatos.map(({ canal, formato, fileIds }) => {
+  return formatos.map(({ canal, formato, fileIds, pronta }) => {
     const { variante, avisos } = gerarVariante({ ...mestre, fileIds }, canal, formato)
+    if (pronta?.trim()) {
+      const escrita = { ...variante, corpo: pronta.trim() }
+      return {
+        canal,
+        formato,
+        corpo: escrita.corpo,
+        extras: escrita.extras,
+        file_ids: escrita.fileIds,
+        estado: temErro(validarVariante(escrita, canal, formato)) ? 'bloqueada' : 'gerada',
+        descolada: true,
+      }
+    }
     return {
       canal,
       formato,

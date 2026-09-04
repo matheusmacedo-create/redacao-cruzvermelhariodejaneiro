@@ -126,6 +126,91 @@ export async function reescreverComClaude(pedido: {
   }
 }
 
+/**
+ * Pede ao Claude uma resposta num formato JSON fixo.
+ *
+ * A saída estruturada (`output_config.format`) faz a própria API sustentar o
+ * esquema; o que sobra para nós é o parse. Ele ainda falha em dois casos em
+ * que a API não garante nada — recusa e teto de tokens estourado —, e os dois
+ * viram IaError com a explicação certa em vez de "JSON inválido". O cliente
+ * beta é o mesmo dos irmãos porque é ele que aceita o recuo de segurança
+ * (`fallbacks`) junto do formato.
+ */
+export async function pedirJsonAoClaude<T>(pedido: {
+  system: string
+  texto: string
+  schema: Record<string, unknown>
+  maxTokens?: number
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+}): Promise<{ dados: T; medida: MedidaDoClaude }> {
+  const chave = chaveDoClaude()
+  if (!chave) {
+    throw new IaError(
+      'Falta a chave da Anthropic. Cadastre ANTHROPIC_API_KEY nas variáveis de ambiente da Vercel — nunca com o prefixo NEXT_PUBLIC_ — e republique.',
+      0,
+    )
+  }
+
+  const cliente = new Anthropic({ apiKey: chave, timeout: 120_000, maxRetries: 1 })
+  const comecou = Date.now()
+  let resposta: Anthropic.Beta.BetaMessage
+  try {
+    resposta = await cliente.beta.messages.create({
+      model: modeloDoClaude(),
+      max_tokens: pedido.maxTokens ?? 16_000,
+      output_config: {
+        effort: pedido.effort ?? esforcoDoClaude(),
+        format: { type: 'json_schema', schema: pedido.schema },
+      },
+      system: pedido.system,
+      messages: [{ role: 'user', content: pedido.texto }],
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+    })
+  } catch (causa) {
+    throw traduzirErro(causa)
+  }
+
+  if (resposta.stop_reason === 'refusal') {
+    const detalhe = resposta.stop_details?.explanation
+    throw new IaError(
+      `O Claude recusou este pedido${detalhe ? `: ${semChaveDoClaude(detalhe)}` : '.'}`,
+      502,
+    )
+  }
+  // JSON cortado no meio nunca faz parse; dizer o motivo real poupa a caçada.
+  if (resposta.stop_reason === 'max_tokens') {
+    throw new IaError(
+      'A resposta estourou o teto de tokens antes de fechar o JSON. Peça um texto menor ou suba o teto da chamada.',
+      502,
+    )
+  }
+
+  const texto = resposta.content
+    .filter((bloco): bloco is Anthropic.Beta.BetaTextBlock => bloco.type === 'text')
+    .map((bloco) => bloco.text)
+    .join('')
+    .trim()
+  if (!texto) throw new IaError('O Claude respondeu sem texto.', 502)
+
+  let dados: T
+  try {
+    dados = JSON.parse(texto) as T
+  } catch {
+    throw new IaError('O Claude devolveu uma resposta fora do formato pedido.', 502)
+  }
+
+  return {
+    dados,
+    medida: {
+      modelo: resposta.model,
+      entrada: resposta.usage.input_tokens,
+      saida: resposta.usage.output_tokens,
+      segundos: Math.round((Date.now() - comecou) / 100) / 10,
+    },
+  }
+}
+
 /** Uma imagem pronta para o modelo ver. */
 export type ImagemParaVer = { b64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' }
 

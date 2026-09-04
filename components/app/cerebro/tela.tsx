@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ExternalLink, Map, RefreshCw, Sparkles, X } from 'lucide-react'
+import { ExternalLink, Map, PenLine, RefreshCw, Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { importarDoCerebro, recusarSugestao, sincronizarCerebro } from '@/app/actions/cerebro'
 import {
@@ -28,20 +28,27 @@ import { cn } from '@/lib/utils'
  *
  * "Explorar o assunto" busca, sob demanda, outros sinais do acervo (com
  * imagem) e o que a Casa já publicou parecido — nunca junto do mural, que é
- * exatamente o custo que a pessoa não pediu.
+ * exatamente o custo que a pessoa não pediu. "Rascunhar com IA" idem: só
+ * quando alguém decide levar a história.
  */
 
 interface Filas {
   agir: PautaDoCerebro[]
   pautar: PautaDoCerebro[]
   agendar: PautaDoCerebro[]
+  /** Nota alta, mas o Cérebro não viu ação da filial: falta confirmar antes de pautar. */
+  conferir: PautaDoCerebro[]
   monitorar: PautaDoCerebro[]
 }
 
+/** O pacote que a Casa já abriu a partir de um sinal, quando existe. */
+export type PacoteDoSinal = { id: string; status: string }
+
 const SECOES: { chave: keyof Filas; rotulo: string; explica: string }[] = [
   { chave: 'agir', rotulo: 'Agir agora', explica: 'Ruptura em curso. Cada hora custa relevância.' },
-  { chave: 'pautar', rotulo: 'Pautar hoje', explica: 'Pauta boa sem urgência de minutos.' },
+  { chave: 'pautar', rotulo: 'Produzir', explica: 'Pauta boa sem urgência de minutos.' },
   { chave: 'agendar', rotulo: 'Agendar', explica: 'Tem data certa: entra no calendário.' },
+  { chave: 'conferir', rotulo: 'Conferir ação', explica: 'Nota alta, mas o Cérebro não viu ação da filial. Confirme com a operação antes de pautar.' },
   { chave: 'monitorar', rotulo: 'Monitorar', explica: 'Informa a equipe; não vira peça por ora.' },
 ]
 
@@ -49,19 +56,32 @@ const CHIP_MODO: Record<string, string> = {
   agir_agora: 'bg-primary text-white',
   produzir: 'bg-foreground text-background',
   agendar: 'bg-[#47586B] text-white',
-  avaliar: 'bg-[#47586B] text-white',
+  avaliar: 'bg-[#B7791F] text-white',
   monitorar: 'bg-muted text-muted-foreground',
 }
 
+const STATUS_DO_PACOTE: Record<string, string> = {
+  rascunho: 'rascunho',
+  em_aprovacao: 'em aprovação',
+  aprovado: 'aprovado',
+  parcial: 'parcialmente publicado',
+  publicado: 'publicado',
+  falhou: 'com falha',
+}
+
+// As faixas seguem os cortes do motor: 72 é "produzir", 55 é "agendar".
 const faixaDaNota = (n: number) =>
-  n >= 65
+  n >= 72
     ? 'text-[#1A7F45] bg-[#E7F3EB]'
-    : n >= 40
+    : n >= 55
       ? 'text-[#B7791F] bg-[#F7EEDD]'
       : 'text-muted-foreground bg-muted'
 
-export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
+export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel = false, origem, geradoEm, erro }: {
   filas: Filas
+  pacotesPorSinal?: Record<string, PacoteDoSinal>
+  /** Há chave de IA para redigir o rascunho na importação. */
+  redatorDisponivel?: boolean
   origem: 'apify' | 'seed' | null
   geradoEm: string | null
   erro: string | null
@@ -101,7 +121,7 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
     })
 
   const quando = geradoEm
-    ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(geradoEm))
+    ? new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date(geradoEm))
     : null
 
   if (erro) {
@@ -170,6 +190,7 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-0.5 py-1.5"
+                  title={s.explica}
                   onClick={() =>
                     setFechadas((antes) => {
                       const prox = new Set(antes)
@@ -182,13 +203,16 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
                   <span className={cn('text-[10px] text-muted-foreground transition-transform', fechada && '-rotate-90')}>▼</span>
                   <span className="text-[11px] font-bold uppercase tracking-wider">{s.rotulo}</span>
                   <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{grupo.length}</span>
+                  {s.chave === 'conferir' && grupo.length > 0 && (
+                    <span className="ml-1 text-[11px] font-normal text-muted-foreground">— {s.explica}</span>
+                  )}
                 </button>
                 {!fechada &&
                   (grupo.length === 0 ? (
                     <p className="mb-2 px-2 text-xs text-muted-foreground">Nada pedindo ação imediata agora — bom sinal.</p>
                   ) : (
                     grupo.map((p) => (
-                      <Linha key={p.id} pauta={p} ativa={p.id === selecionadaId} aoAbrir={() => abrir(p.id)} />
+                      <Linha key={p.id} pauta={p} pacote={pacotesPorSinal[p.id]} ativa={p.id === selecionadaId} aoAbrir={() => abrir(p.id)} />
                     ))
                   ))}
               </section>
@@ -204,6 +228,8 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
         <Drawer
           key={selecionada?.id ?? 'vazio'}
           pauta={selecionada}
+          pacote={selecionada ? pacotesPorSinal[selecionada.id] : undefined}
+          redatorDisponivel={redatorDisponivel}
           sheet={sheet}
           fecharSheet={() => setSheet(false)}
           rel={selecionada ? relacionados[selecionada.id] : undefined}
@@ -220,16 +246,24 @@ export function TelaDoCerebro({ filas, origem, geradoEm, erro }: {
 /* Linha da lista: decisão, título, fato, flags, nota                  */
 /* ------------------------------------------------------------------ */
 
-function flagsDe(p: PautaDoCerebro): { texto: string; alerta?: boolean }[] {
-  const f: { texto: string; alerta?: boolean }[] = []
+function flagsDe(p: PautaDoCerebro, pacote?: PacoteDoSinal): { texto: string; alerta?: boolean; destaque?: boolean }[] {
+  const f: { texto: string; alerta?: boolean; destaque?: boolean }[] = []
+  // O que a Casa já fez vem primeiro: é o que muda a decisão de quem olha.
+  if (pacote) f.push({ texto: `Pacote · ${STATUS_DO_PACOTE[pacote.status] ?? pacote.status}`, destaque: true })
+  else if (p.naRedacao?.publicadoEm) f.push({ texto: 'Publicado pela Casa', destaque: true })
+  else if (p.naRedacao?.pautadoEm) f.push({ texto: 'Em pauta na Redação', destaque: true })
   if (p.agrupados?.quantidade) f.push({ texto: `+${p.agrupados.quantidade} boletins juntos` })
-  if (p.midia) f.push({ texto: p.midia.podePublicar ? 'Mídia autorizada' : `Mídia: ${p.midia.direito}`, alerta: !p.midia.podePublicar })
+  if (p.midia) {
+    if (p.midia.podePublicar) f.push({ texto: 'Mídia autorizada' })
+    else if (p.midia.daCasa || p.midia.direito === 'casa') f.push({ texto: 'Foto da Casa · confirmar termo' })
+    else f.push({ texto: `Mídia: ${p.midia.direito}`, alerta: true })
+  }
   if (!p.fato.confiavel) f.push({ texto: 'Conferir fonte', alerta: true })
   else f.push({ texto: 'Fonte confiável' })
   return f.slice(0, 3)
 }
 
-function Linha({ pauta: p, ativa, aoAbrir }: { pauta: PautaDoCerebro; ativa: boolean; aoAbrir: () => void }) {
+function Linha({ pauta: p, pacote, ativa, aoAbrir }: { pauta: PautaDoCerebro; pacote?: PacoteDoSinal; ativa: boolean; aoAbrir: () => void }) {
   return (
     <button
       type="button"
@@ -250,10 +284,18 @@ function Linha({ pauta: p, ativa, aoAbrir }: { pauta: PautaDoCerebro; ativa: boo
       </span>
       <span className="col-start-1 truncate text-xs text-muted-foreground">
         {p.resumo || p.fato.fonte} · {p.fato.conta ?? p.fato.fonte}
+        {p.decisao.eixoRotulo ? ` · ${p.decisao.eixoRotulo}` : ''}
       </span>
       <span className="col-start-1 mt-1 flex flex-wrap gap-1.5">
-        {flagsDe(p).map((f) => (
-          <span key={f.texto} className={cn('rounded bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground', f.alerta && 'bg-[#FBE9EB] text-primary')}>
+        {flagsDe(p, pacote).map((f) => (
+          <span
+            key={f.texto}
+            className={cn(
+              'rounded bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground',
+              f.alerta && 'bg-[#FBE9EB] text-primary',
+              f.destaque && 'bg-[#E7F3EB] text-[#1A7F45]',
+            )}
+          >
             {f.texto}
           </span>
         ))}
@@ -266,8 +308,10 @@ function Linha({ pauta: p, ativa, aoAbrir }: { pauta: PautaDoCerebro; ativa: boo
 /* Drawer: a história inteira, com as ações                            */
 /* ------------------------------------------------------------------ */
 
-function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
+function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, aoExplorar }: {
   pauta: PautaDoCerebro | null
+  pacote?: PacoteDoSinal
+  redatorDisponivel: boolean
   sheet: boolean
   fecharSheet: () => void
   rel: 'carregando' | Relacionados | undefined
@@ -275,6 +319,7 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
 }) {
   const router = useRouter()
   const [ocupado, iniciar] = useTransition()
+  const [modoOcupado, setModoOcupado] = useState<'ia' | 'legenda' | null>(null)
   const [erroAcao, setErroAcao] = useState('')
   const [recusando, setRecusando] = useState(false)
   const [fatoInteiro, setFatoInteiro] = useState(false)
@@ -286,13 +331,18 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
       </aside>
     )
 
-  const trazer = () => {
+  const trazer = (rascunho: 'ia' | 'legenda') => {
     setErroAcao('')
+    setModoOcupado(rascunho)
     const form = new FormData()
     form.set('sinalId', p.id)
+    if (rascunho === 'ia') form.set('rascunho', 'ia')
     iniciar(async () => {
       const r = await importarDoCerebro(form)
-      if (r.erro && !r.id) return setErroAcao(r.erro)
+      if (r.erro && !r.id) {
+        setModoOcupado(null)
+        return setErroAcao(r.erro)
+      }
       if (r.id) router.push(r.abrirEm ? `/redes/${r.id}?destino=${r.abrirEm}` : `/redes/${r.id}`)
     })
   }
@@ -311,6 +361,8 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
     })
   }
 
+  const precisaConferirAcao = p.decisao.modo === 'avaliar' || (p.decisao.notas.acaoReal ?? 0) < 45
+
   return (
     <aside
       className={cn(
@@ -324,6 +376,9 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
             {p.decisao.modoRotulo}
           </span>
           <span className={cn('rounded px-2 py-0.5 text-sm font-extrabold tabular-nums', faixaDaNota(p.decisao.nota))}>{p.decisao.nota}</span>
+          {p.decisao.eixoRotulo && (
+            <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{p.decisao.eixoRotulo}</span>
+          )}
           <span className="text-xs text-muted-foreground">{p.fato.conta ?? p.fato.fonte}</span>
           <button type="button" onClick={fecharSheet} aria-label="Fechar" className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted min-[1200px]:hidden">
             <X className="size-4" />
@@ -349,9 +404,33 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
                 </button>
               </div>
             </div>
+          ) : pacote ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" render={<Link href={`/redes/${pacote.id}`} />}>
+                Abrir pacote
+              </Button>
+              <span className="text-xs text-muted-foreground">Já está em pauta ({STATUS_DO_PACOTE[pacote.status] ?? pacote.status}).</span>
+              {!rel && (
+                <Button size="sm" variant="outline" onClick={aoExplorar}>
+                  <Sparkles className="size-3.5" />Explorar o assunto
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={trazer} disabled={ocupado}>{ocupado ? 'Trazendo…' : 'Trazer para pauta'}</Button>
+              {redatorDisponivel ? (
+                <>
+                  <Button size="sm" onClick={() => trazer('ia')} disabled={ocupado} title="A IA redige matéria, legenda e stories com a voz da casa, sob o que não pode — e lista o que conferir.">
+                    <PenLine className="size-3.5" />
+                    {ocupado && modoOcupado === 'ia' ? 'Redigindo…' : 'Rascunhar com IA'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => trazer('legenda')} disabled={ocupado} title="Abre o pacote com a legenda da fonte reorganizada, sem IA.">
+                    {ocupado && modoOcupado === 'legenda' ? 'Trazendo…' : 'Trazer sem IA'}
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => trazer('legenda')} disabled={ocupado}>{ocupado ? 'Trazendo…' : 'Trazer para pauta'}</Button>
+              )}
               {!rel && (
                 <Button size="sm" variant="outline" onClick={aoExplorar}>
                   <Sparkles className="size-3.5" />Explorar o assunto
@@ -372,14 +451,23 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
               </a>
             )}
           </div>
+          {ocupado && modoOcupado === 'ia' && (
+            <p className="mt-1 text-xs text-muted-foreground">A IA está redigindo — leva alguns segundos. O pacote abre assim que ficar pronto.</p>
+          )}
           {erroAcao && <p className="mt-1 text-xs text-destructive">{erroAcao}</p>}
         </div>
+
+        {precisaConferirAcao && !pacote && (
+          <p className="rounded-lg border border-[#B7791F]/40 bg-[#F7EEDD] px-3 py-2 text-xs text-[#7A4F0A]">
+            O Cérebro não viu ação da filial neste assunto. Antes de produzir, confirme com a operação o que a Casa está fazendo — sem isso a peça vira eco de terceiro.
+          </p>
+        )}
 
         {p.midia && (
           <div className="relative overflow-hidden rounded-lg border border-border">
             <Image src={p.midia.url} alt="" width={640} height={360} unoptimized className="h-40 w-full bg-muted object-contain" />
-            <span className={cn('absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', p.midia.podePublicar ? 'bg-emerald-500/15 text-emerald-700' : 'bg-white/85 text-primary')}>
-              {p.midia.direito}
+            <span className={cn('absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', p.midia.podePublicar ? 'bg-emerald-500/15 text-emerald-700' : p.midia.daCasa || p.midia.direito === 'casa' ? 'bg-white/85 text-[#B7791F]' : 'bg-white/85 text-primary')}>
+              {p.midia.daCasa || p.midia.direito === 'casa' ? 'da Casa · confirmar termo' : p.midia.direito}
             </span>
             <span className="absolute bottom-2 right-2 max-w-[75%] truncate rounded bg-black/60 px-2 py-0.5 text-[10px] text-white">{p.midia.credito}</span>
           </div>
@@ -413,7 +501,7 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
         {rel && (
           <Bloco titulo="No mesmo assunto">
             {rel === 'carregando' ? (
-              <p className="mt-1 animate-pulse text-xs text-muted-foreground">Buscando no acervo do Cérebro e no histórico da Casa…</p>
+              <p className="mt-1 animate-pulse text-xs text-muted-foreground">Buscando na imprensa, no acervo do Cérebro e no histórico da Casa…</p>
             ) : (
               <PainelRelacionados rel={rel} />
             )}
@@ -457,7 +545,7 @@ function Drawer({ pauta: p, sheet, fecharSheet, rel, aoExplorar }: {
         <Bloco titulo={`Evidências · ${1 + (p.agrupados?.quantidade ?? 0)} sinal(is)`}>
           <Evidencia titulo={p.titulo} meta={`${p.fato.conta ?? p.fato.fonte} · ${dataCurta(p.fato.quando)}`} url={p.fato.url} />
           {(p.agrupados?.outros ?? []).slice(0, 6).map((o) => (
-            <Evidencia key={o.id} titulo={o.titulo} meta="boletim agrupado" url={(o as { url?: string }).url} />
+            <Evidencia key={o.id} titulo={o.titulo} meta={o.quando ? `boletim agrupado · ${dataCurta(o.quando)}` : 'boletim agrupado'} url={o.url} />
           ))}
           {(p.agrupados?.quantidade ?? 0) > 6 && (
             <p className="mt-1 text-[11px] text-muted-foreground">e mais {(p.agrupados?.quantidade ?? 0) - 6} boletins da mesma família…</p>
@@ -579,12 +667,33 @@ function PainelRelacionados({ rel }: { rel: Relacionados }) {
 /* ------------------------------------------------------------------ */
 
 function BriefingModal({ filas, quando, fechar }: { filas: Filas; quando: string | null; fechar: () => void }) {
-  const linha = (ps: PautaDoCerebro[]) => ps.slice(0, 3).map((p) => p.titulo).join('; ') || '—'
+  // Por história: o título e o primeiro motivo do Cérebro — é o que o editor
+  // cola no grupo às 8h, e "por quê" é o que a equipe pergunta de volta.
+  const linhas = (ps: PautaDoCerebro[]) =>
+    ps.slice(0, 4).map((p) => `· ${p.titulo} — ${p.decisao.porque[0] ?? ''} (${p.fato.conta ?? p.fato.fonte})`).join('\n') || '· —'
+  // O que não pode, agregado do que está em atenção: uma trava repetida em
+  // três histórias é uma regra do dia, não um detalhe de cada uma.
+  const naoFalar = [...new Set([...filas.agir, ...filas.pautar, ...filas.agendar].flatMap((p) => p.proibido))].slice(0, 6)
   const texto = `Briefing Cérebro — ${quando ?? 'agora'}
-AGIR: ${linha(filas.agir)}
-PAUTAR: ${linha(filas.pautar)}
-AGENDAR: ${linha(filas.agendar)}
-MONITORAR: ${linha(filas.monitorar)}
+
+AGIR AGORA
+${linhas(filas.agir)}
+
+PRODUZIR
+${linhas(filas.pautar)}
+
+AGENDAR
+${linhas(filas.agendar)}
+
+CONFERIR AÇÃO DA FILIAL ANTES DE PAUTAR
+${linhas(filas.conferir)}
+
+MONITORAR
+${linhas(filas.monitorar)}
+
+NÃO PODE HOJE
+${naoFalar.map((x) => `· ${x}`).join('\n') || '· —'}
+
 Fonte: leitura das contas oficiais e do acervo documental. O Cérebro recomenda; quem decide é a Redação.`
   const [copiado, setCopiado] = useState(false)
   return (

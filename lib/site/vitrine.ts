@@ -70,13 +70,22 @@ export async function publicacoesDaLinhaDoTempo(workspaceId: string): Promise<It
       .select('canal,corpo,external_url,publicado_em,updated_at')
       .eq('workspace_id', workspaceId).eq('estado', 'publicada')
       .neq('canal', 'site_web')
+      // E-mail não tem página para linkar: a newsletter entrava na linha do
+      // tempo pública com um "link" que apontava para lugar nenhum.
+      .neq('canal', 'newsletter')
       .order('publicado_em', { ascending: false, nullsFirst: false })
       .limit(120)
     for (const d of data ?? []) {
+      // external_url nem sempre é endereço: a newsletter grava ali "12
+      // destinatários", e o hub lê isso como texto. Na página pública só vale
+      // o que abre no navegador.
+      const url = typeof d.external_url === 'string' && d.external_url.startsWith('http')
+        ? d.external_url
+        : undefined
       doHub.push({
         canal: String(d.canal),
         texto: String(d.corpo ?? ''),
-        url: (d.external_url as string | null) ?? undefined,
+        url,
         quando: new Date(d.publicado_em ?? d.updated_at ?? Date.now()),
       })
     }

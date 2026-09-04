@@ -29,6 +29,11 @@ export interface MidiaDaPauta {
   urlOriginal?: string
   formato: string
   tipo?: string
+  /**
+   * autorizado | casa | oficial | movimento | terceiro | contexto | stock.
+   * "casa" (contrato 1.3) é a foto da própria filial ainda sem termo de
+   * imagem confirmado — entra como PENDENTE, nunca como de terceiro.
+   */
   direito: string
   /** Só `true` libera a mídia para entrar numa peça da filial. */
   podePublicar: boolean
@@ -61,11 +66,24 @@ export interface PautaDoCerebro {
     nota: number
     notas: Record<string, number>
     porque: string[]
+    /** A editoria em que o sinal encosta (contrato 1.3). */
+    eixo?: string | null
+    eixoRotulo?: string | null
   }
   midia: MidiaDaPauta | null
   canais: PlanoDeCanal[]
   proibido: string[]
-  agrupados?: { quantidade: number; outros: { id: string; titulo: string }[] } | null
+  agrupados?: { quantidade: number; outros: { id: string; titulo: string; quando?: string; url?: string }[] } | null
+  /**
+   * O que esta Redação já fez com o sinal, segundo a memória do Cérebro
+   * (contrato 1.3). Alimentado pelos eventos que devolvemos em enviarAceite.
+   */
+  naRedacao?: {
+    pautadoEm: string | null
+    publicadoEm: string | null
+    pacoteId: string | null
+    url: string | null
+  } | null
   urlNoCerebro?: string
 }
 

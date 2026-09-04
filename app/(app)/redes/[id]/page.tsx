@@ -6,6 +6,7 @@ import { iaConfigurada } from '@/lib/ia/openai'
 import { claudeConfigurado } from '@/lib/ia/anthropic'
 import { garantirBaseNoSite } from '@/app/actions/pacotes'
 import { lerLegendas } from '@/lib/publicacao/legendas'
+import { lerOrientacao } from '@/lib/cerebro/orientacao'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
 const paraLocal = (iso: string | null) => {
@@ -39,6 +40,10 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     .order('created_at')
 
   const m = (linha.mestre ?? {}) as Record<string, string>
+  // A orientação estruturada do Cérebro, quando o pacote veio de uma pauta
+  // dele. Pacote escrito do zero (ou importado antes desta chave existir) não
+  // tem — e o hub simplesmente não mostra o bloco.
+  const cerebro = lerOrientacao(linha.mestre)
   const pacote: PacoteRegistro = {
     id: linha.id,
     tituloInterno: linha.titulo_interno ?? '',
@@ -53,6 +58,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       slug: m.slug ?? '',
       notas: m.notas ?? '',
       legendas: lerLegendas((linha.mestre as Record<string, unknown> | null)?.legendas),
+      ...(cerebro ? { cerebro } : {}),
     },
     fileIds: linha.mestre_file_ids ?? [],
   }
