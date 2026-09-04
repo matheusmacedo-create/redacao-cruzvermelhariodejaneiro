@@ -1,13 +1,15 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { requireWorkspace } from '@/lib/session'
+import { enviarAceite } from '@/lib/cerebro/cliente'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarEdicao } from '@/lib/newsletter/envio'
-import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
+import { gerarVariante, validarVariante, temErro, separarHashtags, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { corpoComMidias, lerLegendas } from '@/lib/publicacao/legendas'
 
 /**
@@ -704,6 +706,12 @@ export async function estimarCota(formData: FormData): Promise<ResultadoDoHub & 
  *
  * Falha parcial é fluxo normal: cada destino guarda seu resultado, e
  * reprocessar um que falhou não republica os que já saíram.
+ *
+ * O FormData aceita, além de `pacoteId`, dois campos repetíveis com ids de
+ * destino: `incluir` (destinos em "gerada"/"em_ajuste" que vão junto se
+ * passarem na validação) e `somente`. Com um ou mais `somente`, a rodada só
+ * enxerga esses destinos — é assim que o reprocesso dispara um destino sem
+ * arrastar os outros prontos do pacote. Sem `somente`, vale o pacote inteiro.
  */
 export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub & { publicados?: number; falhas?: number }> {
   try {
@@ -738,13 +746,18 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     // saiu e o site ficou para trás em silêncio, só porque ninguém tinha
     // clicado no ritual de "marcar como pronta".
     const incluirIds = new Set(formData.getAll('incluir').map((v) => String(v)).filter(Boolean))
+    // `somente` fecha a rodada nos ids pedidos. Nasceu do reprocesso: devolver
+    // UM destino a "pronta" e chamar esta função levava junto todo destino que
+    // estivesse pronto no pacote — inclusive o que alguém ainda revisava.
+    const somenteIds = new Set(formData.getAll('somente').map((v) => String(v)).filter(Boolean))
 
     const { data: linhas } = await supabase
       .from('package_destinations')
       .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado')
       .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
       .in('estado', ['pronta', 'gerada', 'em_ajuste'])
-    const todas = (linhas ?? []) as (DestinoParaDisparo & { estado: string })[]
+    const todas = ((linhas ?? []) as (DestinoParaDisparo & { estado: string })[])
+      .filter((d) => !somenteIds.size || somenteIds.has(d.id))
 
     const arquivos = await dadosDosArquivos(
       supabase,
@@ -873,7 +886,8 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     // Rodada nova num pacote que já publicou o site: a URL da matéria mora no
     // destino site_web publicado. Sem esta leitura, um destino novo com
     // {{URL_DA_MATERIA}} falharia pedindo para reprocessar um site que já
-    // está no ar.
+    // está no ar. Vale igual para a rodada fechada por `somente`: o site fica
+    // fora dos prontos, e o link do post vem daqui.
     if (!linkDaMateria) {
       const { data: baseNoAr } = await supabase
         .from('package_destinations').select('external_url,estado')
@@ -1108,12 +1122,15 @@ export async function reprocessarDestino(formData: FormData): Promise<ResultadoD
       }
     }
 
-    // Volta a pronto e dispara de novo só ele, pelo mesmo caminho.
+    // Volta a pronto e dispara de novo só ele, pelo mesmo caminho. O `somente`
+    // é o que faz valer o "só ele": sem isso, qualquer outro destino pronto do
+    // pacote saía junto no reprocesso.
     await supabase.from('package_destinations').update({ estado: 'pronta', erro: null })
       .eq('id', id).eq('workspace_id', context.workspace.id)
 
     const form = new FormData()
     form.set('pacoteId', destino.package_id)
+    form.append('somente', id)
     return await publicarPacote(form)
   } catch (causa) {
     return comoErro(causa, 'Não foi possível reprocessar.')
@@ -1305,6 +1322,62 @@ async function recalcularStatusDoPacote(
     : 'publicado'
   await supabase.from('social_packages').update({ status })
     .eq('id', pacoteId).eq('workspace_id', workspaceId)
+
+  // Pacote que nasceu de um sinal do Cérebro e tem algo no ar: o "sim"
+  // volta para lá, depois da resposta, para o Cérebro tirar o sinal da
+  // atenção e saber que a Casa já cobriu a família dele. Depois da resposta
+  // porque quem publica não precisa esperar o Cérebro, e falha ali não é
+  // falha de publicação.
+  if (publicados > 0) {
+    after(async () => {
+      const { data: pacote } = await supabase
+        .from('social_packages').select('cerebro_sinal_id')
+        .eq('id', pacoteId).eq('workspace_id', workspaceId).maybeSingle()
+      const sinalId = pacote?.cerebro_sinal_id as string | null | undefined
+      if (!sinalId) return
+      const { data: noAr } = await supabase
+        .from('package_destinations').select('canal,external_url')
+        .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('estado', 'publicada')
+      const canais = [...new Set((noAr ?? []).map((d) => String(d.canal)))]
+      const url = (noAr ?? []).find((d) => d.canal === 'site_web' && String(d.external_url ?? '').startsWith('http'))?.external_url as string | undefined
+      const r = await enviarAceite(sinalId, 'publicado', { pacoteId, url, canais })
+      if (r.erro) console.error('[pacotes] aceite "publicado" não chegou ao Cérebro:', r.erro)
+    })
+  }
+}
+
+/**
+ * O texto do pacote como a página do site deve recebê-lo.
+ *
+ * O mestre é escrito uma vez para todos os canais, e duas coisas nele só fazem
+ * sentido nas redes: o marcador {{URL_DA_MATERIA}} (é o endereço DESTA página
+ * — na própria página vira um "{{URL_DA_MATERIA}}" literal no meio do texto)
+ * e o bloco final de hashtags (vai para a legenda ou para o primeiro
+ * comentário; numa notícia institucional é ruído). Os dois saem aqui.
+ *
+ * O marcador sai antes das hashtags: quem escreve costuma pôr o link entre o
+ * texto e as hashtags, e um marcador sobrando no fim esconderia o bloco de
+ * hashtags do separador. As linhas de mídia (`![…](…)`) e o resto do texto
+ * passam intactos — a definição de "bloco de hashtags" é a mesma das redes.
+ */
+function corpoParaOSite(corpo: string): string {
+  const MARCADOR = '{{URL_DA_MATERIA}}'
+  const paragrafos = corpo
+    .split(/\n(?:[ \t]*\n)+/)
+    .map((paragrafo) => {
+      if (!paragrafo.includes(MARCADOR)) return paragrafo
+      // Linha que é só o marcador some; no meio de uma frase, some o marcador
+      // e o espaço duplo (ou o espaço antes da pontuação) que ele deixaria.
+      return paragrafo
+        .split('\n')
+        .filter((linha) => linha.trim() !== MARCADOR)
+        .map((linha) => linha.includes(MARCADOR)
+          ? linha.split(MARCADOR).join('').replace(/ {2,}/g, ' ').replace(/ (?=[.,;:!?])/g, '').trim()
+          : linha)
+        .join('\n')
+    })
+    .filter((paragrafo) => paragrafo.trim())
+  return separarHashtags(paragrafos.join('\n\n')).corpoSem
 }
 
 /**
@@ -1326,8 +1399,9 @@ async function publicarSiteDoPacote(
   // gerador de página lê tokens de mídia do corpo. A legenda e o crédito vêm
   // do que foi escrito no pacote — antes daqui saía o NOME DO ARQUIVO como
   // legenda, e a página publicada mostrava "cerebro-9093f620.jpg" embaixo da
-  // foto.
-  let corpoDaPagina = destino.corpo
+  // foto. Antes de tudo, o texto perde o que só serve às redes — o marcador
+  // da URL e as hashtags do fim saíam literais na página institucional.
+  let corpoDaPagina = corpoParaOSite(destino.corpo)
   if (destino.file_ids.length) {
     const { data: arquivos } = await supabase
       .from('files').select('id,storage_path')
