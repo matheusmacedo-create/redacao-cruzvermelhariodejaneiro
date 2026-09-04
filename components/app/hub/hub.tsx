@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Eraser, Globe, Heading2, ImagePlus, Italic,
-  Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
+  AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Copy, Eraser, ExternalLink, Globe, Heading2,
+  ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
   Sparkles, Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,11 @@ import {
   usarImagemNoDestino, type ImagemDaMateria,
 } from '@/app/actions/ia'
 import { FORMATOS_DE_IMAGEM } from '@/lib/ia/formatos-de-imagem'
-import { FORMATOS_DE_TEXTO } from '@/lib/ia/formatos'
+import { FORMATOS_DE_TEXTO, type OrientacaoDaPauta } from '@/lib/ia/formatos'
+import { DESTINO_POR_CANAL, type CanalCerebro } from '@/lib/cerebro/contrato'
+// Com outro nome porque o componente que a desenha, mais abaixo, chama-se
+// OrientacaoDoCerebro — o nome que a tela usa; o do tipo é o do dado guardado.
+import type { OrientacaoDoCerebro as OrientacaoGuardada } from '@/lib/cerebro/orientacao'
 import { sugestoesDePrompt, type Estilo } from '@/lib/ia/sugestoes'
 import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
@@ -1100,6 +1104,17 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   const max = formato?.texto.max ?? 20_000
   const tamanho = contar(mestre.corpo, 'caracteres')
 
+  // O que o Cérebro decidiu vai à melhoria de texto como trava, no formato que
+  // ela entende: as proibições literais, a fonte nomeada (para o texto não
+  // trocar de autor no caminho) e o que já pede conferência humana.
+  const orientacaoParaIa: OrientacaoDaPauta | undefined = mestre.cerebro
+    ? {
+        proibido: mestre.cerebro.proibido,
+        fonte: `${mestre.cerebro.fonte.nome}${mestre.cerebro.fonte.conta ? ` (${mestre.cerebro.fonte.conta})` : ''}`.trim(),
+        paraConferir: mestre.cerebro.paraConferir,
+      }
+    : undefined
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1136,6 +1151,12 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
             : ` Os ${quantasRedes} destinos no trilho recebem uma versão adaptada ao limite de cada um, atualizada enquanto você digita.`}
       </p>
 
+      {/* A orientação do Cérebro mora AQUI, aberta, onde a matéria é escrita.
+          Antes era um texto colado em "notas para quem aprova", dentro de um
+          acordeão fechado — a trava mais importante da pauta sumia no exato
+          lugar em que ela precisava ser vista. */}
+      {mestre.cerebro && <OrientacaoDoCerebro orientacao={mestre.cerebro} congelado={congelado} />}
+
       {base?.erro && ['falhou', 'publicada'].includes(base.estado) && (
         <p className={`rounded-lg border px-3 py-2 text-xs ${base.estado === 'falhou' ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>{base.erro}</p>
       )}
@@ -1171,6 +1192,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
               return arquivo?.tipo === 'foto' && !(mestre.legendas[id]?.legenda ?? '').trim()
             })}
             linhaFina={mestre.subtitulo}
+            orientacao={orientacaoParaIa}
             // Corpo, título, linha fina e legendas entram num onMudar só:
             // chamadas seguidas partiriam do mesmo mestre e a última
             // engoliria as outras.
@@ -1360,6 +1382,199 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/** O rótulo do canal como o hub o conhece; o que o hub não conhece sai como veio. */
+function rotuloDoCanalDoCerebro(canal: string): string {
+  return canal in DESTINO_POR_CANAL ? DESTINO_POR_CANAL[canal as CanalCerebro].rotulo : canal
+}
+
+/** Copia um texto para a área de transferência, com aviso curto de que copiou. */
+function BotaoCopiar({ texto }: { texto: string }) {
+  const [copiado, setCopiado] = useState(false)
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(texto)
+          setCopiado(true)
+          setTimeout(() => setCopiado(false), 2000)
+        } catch {
+          // Navegador sem permissão de área de transferência: o texto continua
+          // na tela para seleção manual, então não vale interromper com erro.
+        }
+      }}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {copiado ? <><Check className="size-3" />Copiado</> : <><Copy className="size-3" />Copiar</>}
+    </button>
+  )
+}
+
+/** Título de seção do bloco do Cérebro — a mesma tipografia do drawer dele. */
+const tituloDaSecaoDoCerebro = 'text-[10px] font-bold uppercase tracking-wider'
+
+/**
+ * A orientação do Cérebro, aberta no editor da notícia.
+ *
+ * O Cérebro decidiu que este sinal vale pauta, disse o que não pode e traçou
+ * um plano por canal. Esse conteúdo antes chegava como texto colado em
+ * "notas para quem aprova" — um textarea de duas linhas num acordeão fechado.
+ * Aqui ele é DADO (mestre.cerebro), então a tela mostra o que importa na
+ * ordem em que importa: a trava sempre aberta, a conferência humana como
+ * lista de leitura, o plano e as peças recolhidos para quem quiser.
+ *
+ * Nada aqui grava: o checklist é da leitura desta sessão, e as peças da IA
+ * saem por "Copiar" — quem cola decide onde.
+ */
+function OrientacaoDoCerebro({ orientacao, congelado }: {
+  orientacao: OrientacaoGuardada
+  /** Notícia publicada ou pacote arquivado: a hora de conferir já passou. */
+  congelado: boolean
+}) {
+  // Um checklist de leitura, não um registro: vive só nesta tela, e cada
+  // clique nasce um Set novo — o anterior nunca é mexido.
+  const [conferidos, setConferidos] = useState<ReadonlySet<number>>(() => new Set())
+  const alternar = (i: number) => setConferidos((atual) => {
+    const proximo = new Set(atual)
+    if (proximo.has(i)) proximo.delete(i)
+    else proximo.add(i)
+    return proximo
+  })
+
+  const capa = orientacao.capa
+  const pecas = orientacao.pecas
+  const temPecas = Boolean(pecas?.legendaFeed) || (pecas?.stories?.length ?? 0) > 0
+  const stories = pecas?.stories ?? []
+
+  return (
+    <div className="flex flex-col gap-3 rounded-r-lg border-l-[3px] border-primary bg-[#F3F1ED] px-3 py-2.5 text-foreground dark:bg-muted/40">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+        <span className={`${tituloDaSecaoDoCerebro} text-primary`}>Sugerido pelo Cérebro</span>
+        <span>· nota {orientacao.nota}</span>
+        {orientacao.modoRotulo && <span>· {orientacao.modoRotulo}</span>}
+        {orientacao.eixoRotulo && <span>· {orientacao.eixoRotulo}</span>}
+        {orientacao.url && (
+          <a href={orientacao.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 hover:text-foreground hover:underline">
+            · Ver raciocínio <ExternalLink className="size-3" />
+          </a>
+        )}
+        <span
+          className="ml-auto rounded-full border border-border bg-background px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          title={orientacao.texto === 'ia'
+            ? 'A matéria abaixo foi redigida pela IA a partir do sinal — é rascunho para revisão, não texto pronto.'
+            : 'A matéria abaixo foi montada da legenda original da fonte — ainda precisa ser escrita.'}
+        >
+          {orientacao.texto === 'ia' ? 'texto redigido pela IA' : 'texto montado da legenda'}
+        </span>
+      </div>
+
+      {/* A trava nobre, sempre aberta — nunca um acordeão vazio. */}
+      <div>
+        <span className={`${tituloDaSecaoDoCerebro} text-[#8B0E20] dark:text-primary`}>O que não pode</span>
+        <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[13px]">
+          {(orientacao.proibido.length ? orientacao.proibido : ['Nenhuma trava específica além das regras gerais do Movimento.']).map((x, i) => (
+            <li key={i}>{x}</li>
+          ))}
+        </ul>
+      </div>
+
+      {orientacao.paraConferir.length > 0 && (
+        <div>
+          <span className={`${tituloDaSecaoDoCerebro} text-muted-foreground`}>Para conferir antes de publicar</span>
+          <ul className="mt-1 space-y-0.5 text-[13px]">
+            {orientacao.paraConferir.map((item, i) => (
+              <li key={i}>
+                <label className={cn('flex cursor-pointer items-start gap-2', conferidos.has(i) && 'text-muted-foreground line-through', congelado && 'cursor-default')}>
+                  <input
+                    type="checkbox"
+                    checked={conferidos.has(i)}
+                    onChange={() => alternar(i)}
+                    disabled={congelado}
+                    className="mt-0.5 size-3.5 shrink-0"
+                  />
+                  <span>{item}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {capa && (
+        <p className="text-xs text-muted-foreground">
+          Capa do sinal: {capa.credito || 'sem crédito'} — direito {capa.direito};{' '}
+          {capa.daCasa ? 'foto da própria filial, confirmar termo de imagem' : capa.podePublicar ? 'liberada' : 'não entra em peça da filial'}
+          {capa.motivoFalha ? `. ${capa.motivoFalha}` : ''}
+        </p>
+      )}
+
+      {orientacao.canais.length > 0 && (
+        <details className="group">
+          <summary className={`flex cursor-pointer list-none items-center gap-1 ${tituloDaSecaoDoCerebro} text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden`}>
+            <ChevronDown className="size-3 transition-transform group-open:rotate-180" />Plano do Cérebro por canal
+          </summary>
+          <div className="mt-1 overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <th className="border-b border-border py-1 pr-2 font-bold">Canal</th>
+                  <th className="border-b border-border py-1 pr-2 font-bold">Usar?</th>
+                  <th className="border-b border-border py-1 font-bold">Como</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orientacao.canais.map((c, i) => (
+                  <tr key={`${c.canal}-${i}`} className="align-top">
+                    <td className="border-b border-border/50 py-1.5 pr-2 font-medium">{rotuloDoCanalDoCerebro(c.canal)}</td>
+                    <td className={cn('border-b border-border/50 py-1.5 pr-2 text-[11px] font-extrabold', c.usar ? 'text-[#1A7F45]' : 'text-primary')}>
+                      {c.usar ? 'SIM' : 'NÃO'}
+                    </td>
+                    <td className="border-b border-border/50 py-1.5 text-muted-foreground">
+                      {c.usar && c.formato ? `${c.formato} — ` : ''}
+                      {c.texto}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+
+      {temPecas && (
+        <details className="group">
+          <summary className={`flex cursor-pointer list-none items-center gap-1 ${tituloDaSecaoDoCerebro} text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden`}>
+            <ChevronDown className="size-3 transition-transform group-open:rotate-180" />Peças que a IA redigiu
+          </summary>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Rascunhos para as redes, escritos junto com a matéria. Copie para a variante do destino e revise antes de publicar.
+          </p>
+          <div className="mt-1.5 flex flex-col gap-2">
+            {pecas?.legendaFeed && (
+              <div className="flex items-start gap-2">
+                <pre className="min-w-0 flex-1 whitespace-pre-wrap rounded-md border border-border bg-background p-2 font-mono text-[11px] leading-relaxed">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Legenda do feed</span>
+                  {pecas.legendaFeed}
+                </pre>
+                <BotaoCopiar texto={pecas.legendaFeed} />
+              </div>
+            )}
+            {stories.map((story, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <pre className="min-w-0 flex-1 whitespace-pre-wrap rounded-md border border-border bg-background p-2 font-mono text-[11px] leading-relaxed">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Story {i + 1}</span>
+                  {story}
+                </pre>
+                <BotaoCopiar texto={story} />
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   )
 }
@@ -2742,13 +2957,31 @@ type AplicacaoDaMelhoria = {
   legendas?: Record<string, string>
 }
 
-function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fotosSemLegenda, aplicaTudo, onAplicar, classeDoBotao }: {
+/**
+ * Marca no texto da prévia o que o modelo acrescentou por conta própria.
+ *
+ * O pedido manda o contexto que não estava na apuração vir entre ⟦ e ⟧. Na
+ * prévia esses trechos ganham fundo próprio: quem revisa vê de relance o que
+ * é apuração e o que é acréscimo, em vez de caçar os colchetes no texto. As
+ * partes ímpares do split são os trechos capturados; as pares, texto comum.
+ */
+function comAcrescimosMarcados(texto: string): React.ReactNode {
+  const partes = texto.split(/(⟦[^⟦⟧]*⟧)/)
+  if (partes.length === 1) return texto
+  return partes.map((parte, i) => (i % 2 === 1
+    ? <mark key={i} title="Acréscimo da IA — confira" className="rounded bg-amber-100 px-0.5 text-inherit dark:bg-amber-500/25">{parte}</mark>
+    : parte))
+}
+
+function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fotosSemLegenda, orientacao, aplicaTudo, onAplicar, classeDoBotao }: {
   titulo?: string
   linhaFina?: string
   corpo: string
   desabilitado: boolean
   disponivel: MelhoriaDisponivel
   fotosSemLegenda?: string[]
+  /** As travas do Cérebro, quando a matéria nasceu de uma pauta dele. */
+  orientacao?: OrientacaoDaPauta
   /** O aplicador alcança título e linha fina (editor da notícia) ou só o corpo. */
   aplicaTudo: boolean
   onAplicar: (dados: AplicacaoDaMelhoria) => void
@@ -2760,6 +2993,9 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
   const [rodando, setRodando] = useState(false)
   const [proposta, setProposta] = useState<{ corpo: string; titulo: string; linhaFina: string } | null>(null)
   const [legendas, setLegendas] = useState<Record<string, string> | null>(null)
+  // O que o modelo pediu para um humano conferir. Sobrevive ao "Usar este
+  // texto" de propósito: é depois de aplicar que a lista mais serve.
+  const [checagens, setChecagens] = useState<string[]>([])
   const [aviso, setAviso] = useState('')
   const [erro, setErro] = useState('')
   const [anterior, setAnterior] = useState<AplicacaoDaMelhoria | null>(null)
@@ -2771,6 +3007,7 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
     setAviso('')
     setProposta(null)
     setLegendas(null)
+    setChecagens([])
     setAnterior(null)
     setRodando(true)
     try {
@@ -2779,6 +3016,9 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
       form.set('titulo', titulo ?? '')
       form.set('formato', formato)
       form.set('provedor', provedor)
+      // As travas do Cérebro viajam junto: a melhoria não pode desfazer o que
+      // a importação respeitou. Quem escreve do zero não manda nada.
+      if (orientacao) form.set('orientacao', JSON.stringify(orientacao))
 
       // As legendas das fotos sem legenda saem na mesma rodada, em paralelo:
       // o modelo OLHA as fotos. Falha nas legendas não derruba o texto.
@@ -2799,6 +3039,7 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
       if (rTexto.erro) setErro(rTexto.erro)
       else {
         setProposta({ corpo: rTexto.texto ?? '', titulo: rTexto.titulo ?? '', linhaFina: rTexto.linhaFina ?? '' })
+        setChecagens(rTexto.checagens ?? [])
         const avisos = [rTexto.aviso]
         if (rLegendas) {
           if (rLegendas.legendas) setLegendas(rLegendas.legendas)
@@ -2906,12 +3147,25 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
                 {aplicaTudo && (proposta.titulo || proposta.linhaFina) && (
                   <div className="mb-2 border-t border-border" />
                 )}
-                <div className="whitespace-pre-wrap">{proposta.corpo}</div>
+                <div className="whitespace-pre-wrap">{comAcrescimosMarcados(proposta.corpo)}</div>
               </div>
+              {proposta.corpo.includes('⟦') && (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Trechos entre ⟦ ⟧ são acréscimos da IA; confira ou apague.
+                </p>
+              )}
               {aplicaTudo && (proposta.titulo || proposta.linhaFina) && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
                   Título e linha fina propostos para busca e alcance orgânico — entram junto com o texto.
                 </p>
+              )}
+              {checagens.length > 0 && (
+                <div className="mt-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Para conferir</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800 dark:text-amber-300">
+                    {checagens.map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
               )}
               {legendas && Object.keys(legendas).length > 0 && (
                 <p className="mt-1.5 text-xs text-muted-foreground">
@@ -2924,17 +3178,29 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
               {aviso && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
               <div className="mt-2 flex items-center gap-2">
                 <Button size="sm" onClick={aplicar}><Check className="size-3.5" />Usar este texto</Button>
-                <Button size="sm" variant="outline" onClick={() => { setProposta(null); setLegendas(null) }}>Descartar</Button>
+                <Button size="sm" variant="outline" onClick={() => { setProposta(null); setLegendas(null); setChecagens([]) }}>Descartar</Button>
               </div>
             </div>
           )}
 
           {anterior !== null && !proposta && (
-            <div className="mt-2 flex items-center gap-2">
-              <p className="text-xs text-emerald-700 dark:text-emerald-400">Texto aplicado no editor.</p>
-              <button type="button" className="text-xs font-medium text-muted-foreground underline hover:text-foreground" onClick={desfazer}>
-                Desfazer
-              </button>
+            <div className="mt-2">
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">Texto aplicado no editor.</p>
+                <button type="button" className="text-xs font-medium text-muted-foreground underline hover:text-foreground" onClick={desfazer}>
+                  Desfazer
+                </button>
+              </div>
+              {/* A lista fica depois de aplicar: é agora, com o texto no
+                  editor, que alguém vai atrás de cada item. */}
+              {checagens.length > 0 && (
+                <div className="mt-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Para conferir antes de publicar</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800 dark:text-amber-300">
+                    {checagens.map((item, i) => <li key={i}>{item}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -2943,7 +3209,7 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
   )
 }
 
-function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId, titulo, linhaFina, melhoria, fotosSemLegenda, aoAplicarMelhoria }: {
+function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, workspaceId, titulo, linhaFina, melhoria, fotosSemLegenda, orientacao, aoAplicarMelhoria }: {
   valor: string
   onMudar: (v: string) => void
   desabilitado: boolean
@@ -2958,6 +3224,8 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
   melhoria?: MelhoriaDisponivel
   /** Ids das fotos do pacote sem legenda — a IA propõe junto com o texto. */
   fotosSemLegenda?: string[]
+  /** As travas do Cérebro — só repassadas à melhoria com IA. */
+  orientacao?: OrientacaoDaPauta
   /** Aplica corpo, título, linha fina e legendas num único onMudar do mestre. */
   aoAplicarMelhoria?: (dados: AplicacaoDaMelhoria) => void
 }) {
@@ -3109,6 +3377,7 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
             desabilitado={desabilitado}
             disponivel={{ claude: Boolean(melhoria?.claude), gpt: Boolean(melhoria?.gpt) }}
             fotosSemLegenda={fotosSemLegenda}
+            orientacao={orientacao}
             // Sem o aplicador completo (editor de destino), só o corpo entra.
             aplicaTudo={Boolean(aoAplicarMelhoria)}
             onAplicar={aoAplicarMelhoria ?? ((dados) => onMudar(dados.corpo))}

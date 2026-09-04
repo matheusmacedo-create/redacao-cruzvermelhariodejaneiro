@@ -1,4 +1,5 @@
 import type { CaixaDeRecorte } from './recorte-tipos'
+import type { OrientacaoDoCerebro } from '@/lib/cerebro/orientacao'
 
 export type ArquivoDaBiblioteca = {
   id: string
@@ -40,6 +41,12 @@ export type MestreRegistro = {
   notas: string
   /** Legenda e crédito de cada mídia anexada, por id de arquivo. */
   legendas: Record<string, LegendaDaMidia>
+  /**
+   * A orientação do Cérebro, quando o pacote nasceu de uma pauta dele. A tela
+   * só lê: o autosave não a envia (o servidor preserva a chave) e o editor
+   * nunca a apaga do estado — `{ ...mestre, campo }` a carrega junto.
+   */
+  cerebro?: OrientacaoDoCerebro
 }
 
 export type PacoteRegistro = {

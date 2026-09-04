@@ -105,6 +105,42 @@ export async function enviarRecusa(id: string, motivo: MotivoRecusa): Promise<{ 
   }
 }
 
+/**
+ * Devolve o "sim" ao Cérebro: o sinal virou pacote (`pautado`) ou a peça foi
+ * ao ar (`publicado`).
+ *
+ * Sem este evento o Cérebro só ouvia "não" — e seguia sugerindo o que a Casa
+ * acabara de publicar. Falha aqui não pode travar a importação nem a
+ * publicação: o laço é melhoria, não pré-requisito.
+ */
+export async function enviarAceite(
+  id: string,
+  evento: 'pautado' | 'publicado',
+  extra: { pacoteId?: string; url?: string | null; canais?: string[] } = {},
+): Promise<{ erro?: string }> {
+  try {
+    const cabecalhos: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (process.env.CEREBRO_TOKEN) cabecalhos.Authorization = `Bearer ${process.env.CEREBRO_TOKEN}`
+    const r = await fetch(`${base()}/api/feedback`, {
+      method: 'POST',
+      headers: cabecalhos,
+      body: JSON.stringify({
+        id,
+        evento,
+        ...(extra.pacoteId ? { pacoteId: extra.pacoteId } : {}),
+        ...(extra.url?.startsWith('http') ? { url: extra.url } : {}),
+        ...(extra.canais?.length ? { canais: extra.canais } : {}),
+      }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!r.ok) return { erro: `O Cérebro respondeu ${r.status}.` }
+    return {}
+  } catch {
+    return { erro: 'Não foi possível falar com o Cérebro.' }
+  }
+}
+
 /** Desfaz uma recusa. Errar o clique não pode custar a pauta. */
 export async function desfazerRecusa(id: string): Promise<{ erro?: string }> {
   try {
