@@ -28,8 +28,14 @@ export function ImportarBotao({ sinalId, destinos }: { sinalId: string; destinos
         setErro(r.erro)
         return
       }
-      // Abre direto no destino que o Cérebro indicou — o site primeiro.
-      if (r.id) router.push(r.abrirEm ? `/redes/${r.id}?destino=${r.abrirEm}` : `/redes/${r.id}`)
+      // Abre direto no destino que o Cérebro indicou — o site primeiro — e
+      // leva o recado do que não saiu como pedido, se houver.
+      const recado = r.erro ?? r.aviso
+      if (r.id) {
+        const q = new URLSearchParams({ destino: r.abrirEm ?? 'site_web' })
+        if (recado) q.set('aviso', recado)
+        router.push(`/redes/${r.id}?${q.toString()}`)
+      }
     })
   }
 

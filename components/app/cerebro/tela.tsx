@@ -343,7 +343,15 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
         setModoOcupado(null)
         return setErroAcao(r.erro)
       }
-      if (r.id) router.push(r.abrirEm ? `/redes/${r.id}?destino=${r.abrirEm}` : `/redes/${r.id}`)
+      // O que deu errado pelo caminho — destinos que não nasceram, IA que caiu
+      // para o heurístico — viaja na URL: o hub mostra ao abrir, em vez de a
+      // pessoa descobrir sozinha que o pacote veio diferente do pedido.
+      const recado = r.erro ?? r.aviso
+      if (r.id) {
+        const q = new URLSearchParams({ destino: r.abrirEm ?? 'site_web' })
+        if (recado) q.set('aviso', recado)
+        router.push(`/redes/${r.id}?${q.toString()}`)
+      }
     })
   }
 

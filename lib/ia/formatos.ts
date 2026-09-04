@@ -276,7 +276,7 @@ export function separarProposta(bruto: string): {
   }
   const checagens = marca >= 0
     ? doCorpo.slice(marca + 1)
-        .map((l) => l.trim().replace(/^(?:[-•*]|\d+[.)])\s*/, '').replace(/^\*\*|\*\*$/g, '').trim())
+        .map((l) => l.trim().replace(/^(?:[-•*]|\d+[.)])\s*/, '').replace(/\*\*/g, '').trim())
         .filter(Boolean)
     : []
 

@@ -112,8 +112,11 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     [...lista].sort((a, b) => Number(b.canal === 'site_web') - Number(a.canal === 'site_web'))
   const [destinos, setDestinos] = useState<DestinoRegistro[]>(() => ordenar(destinosIniciais))
   const base = destinos.find((d) => d.canal === 'site_web') ?? null
-  /* Chegando do Cérebro, a URL diz em qual destino abrir; sem ela, a notícia. */
-  const destinoPedido = useSearchParams().get('destino')
+  /* Chegando do Cérebro, a URL diz em qual destino abrir; sem ela, a notícia.
+     E traz o recado da importação (IA que caiu para o heurístico, destinos
+     que não nasceram), que aparece na barra de avisos ao abrir. */
+  const parametros = useSearchParams()
+  const destinoPedido = parametros.get('destino')
   const [ativo, setAtivo] = useState<string>(
     () => {
       const ordenados = ordenar(destinosIniciais)
@@ -122,7 +125,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
   )
   const [salvo, setSalvo] = useState<'ok' | 'salvando' | 'pendente'>('ok')
   const [erro, setErro] = useState('')
-  const [aviso, setAviso] = useState('')
+  const [aviso, setAviso] = useState(() => parametros.get('aviso')?.slice(0, 300) ?? '')
   const [conectadas, setConectadas] = useState<string[] | null>(null)
   const [biblioteca, setBiblioteca] = useState<ArquivoDaBiblioteca[]>([])
   const [modalPublicar, setModalPublicar] = useState<null | { grupos: number | null }>(null)

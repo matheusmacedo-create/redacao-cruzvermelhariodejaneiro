@@ -255,11 +255,13 @@ export async function redigirDaPauta(p: PautaDoCerebro, contexto?: ContextoDoRed
   }
 
   const pedido = montarPedidoDoRedator(p, contexto)
+  // Sem teto próprio de tokens: o raciocínio do modelo divide o teto com a
+  // resposta, e 6 mil estouravam antes de fechar o JSON — com a chamada já
+  // cobrada. Vale o mesmo teto da melhoria de texto.
   const { dados, medida } = await pedirJsonAoClaude<RespostaDoRedator>({
     system: pedido.system,
     texto: pedido.texto,
     schema: pedido.schema,
-    maxTokens: 6_000,
     effort: esforcoDoClaude(),
   })
   // Custo visível, texto não: o rascunho é material editorial em elaboração.
@@ -297,13 +299,20 @@ function conferirRascunho(dados: RespostaDoRedator, p: PautaDoCerebro): Omit<Ras
     paraConferir.unshift(CONFERIR_ACAO_DA_FILIAL)
   }
 
+  const legendaFeed = cortarEmPalavra(campoTexto(dados.legendaFeed), TETO_LEGENDA)
+  // Os acréscimos marcados não são apuração: a validação das peças barra a
+  // publicação enquanto houver ⟦ ⟧, e a lista precisa dizer isso a quem lê.
+  if ([corpo, legendaFeed, ...stories].some((t) => /[⟦⟧]/u.test(t))) {
+    paraConferir.unshift('Conferir ou apagar os trechos entre ⟦ ⟧ — são acréscimos da IA, não apuração')
+  }
+
   return {
     titulo,
     linhaFina: cortarEmPalavra(campoTexto(dados.linhaFina).replace(/^["“']|["”']$/g, ''), TETO_LINHA_FINA),
     corpo,
-    legendaFeed: cortarEmPalavra(campoTexto(dados.legendaFeed), TETO_LEGENDA),
+    legendaFeed,
     stories,
-    paraConferir,
+    paraConferir: paraConferir.slice(0, TETO_CONFERIR + 1),
   }
 }
 
