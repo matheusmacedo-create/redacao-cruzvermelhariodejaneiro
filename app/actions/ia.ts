@@ -51,6 +51,8 @@ export type ResultadoDaMelhoria = ResultadoDaIa & {
   titulo?: string
   /** Linha fina proposta — o que o Google e as redes mostram sob o título. */
   linhaFina?: string
+  /** O que um humano precisa checar antes de publicar, na palavra do modelo. */
+  checagens?: string[]
   aviso?: string
 }
 export type ResultadoDasLegendas = ResultadoDaIa & { legendas?: Record<string, string> }
@@ -308,8 +310,37 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
     if (corpo.length > TETO_DO_CORPO) throw new Error(`O texto passa de ${TETO_DO_CORPO} caracteres — o teto do editor.`)
     if (!['claude', 'gpt'].includes(provedor)) throw new Error('Escolha o provedor: Claude ou GPT.')
 
+    // As travas do Cérebro chegam junto quando a matéria nasceu de uma pauta
+    // dele; quem escreve do zero não manda nada. JSON torto vale o mesmo que
+    // nada — a melhoria não pode falhar por causa da orientação.
+    let orientacao: Parameters<typeof montarPedidoDeMelhoria>[0]['orientacao']
+    const brutoDaOrientacao = formData.get('orientacao')
+    if (typeof brutoDaOrientacao === 'string' && brutoDaOrientacao.trim()) {
+      try {
+        const lido: unknown = JSON.parse(brutoDaOrientacao)
+        if (lido && typeof lido === 'object' && !Array.isArray(lido)) {
+          const o = lido as Record<string, unknown>
+          const textos = (v: unknown) => Array.isArray(v)
+            ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim().slice(0, 300)).slice(0, 20)
+            : []
+          const proibido = textos(o.proibido)
+          const paraConferir = textos(o.paraConferir)
+          const fonte = typeof o.fonte === 'string' ? o.fonte.trim().slice(0, 160) : ''
+          if (proibido.length || paraConferir.length || fonte) {
+            orientacao = {
+              ...(proibido.length ? { proibido } : {}),
+              ...(fonte ? { fonte } : {}),
+              ...(paraConferir.length ? { paraConferir } : {}),
+            }
+          }
+        }
+      } catch {
+        orientacao = undefined
+      }
+    }
+
     const paginas = await paginasParaLinkar(context.workspace.id)
-    const montado = montarPedidoDeMelhoria({ titulo, corpo, formatoId, paginas })
+    const montado = montarPedidoDeMelhoria({ titulo, corpo, formatoId, paginas, orientacao })
     if (!montado) throw new Error('Formato de texto desconhecido.')
 
     if (provedor === 'claude' && !claudeConfigurado()) {
@@ -324,7 +355,8 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
       : await reescreverComGpt({ system: montado.system, texto: montado.pedido })
     console.info('[ia] melhoria', provedor, montado.formato.id, JSON.stringify(medida))
 
-    // A resposta vem em três partes: título e linha fina para busca, corpo.
+    // A resposta vem em três partes — título e linha fina para busca, corpo —
+    // e uma quarta opcional: o que conferir antes de publicar.
     const partes = separarProposta(bruto)
 
     // Foto que o modelo perdeu volta; foto que ele inventou sai; link para
@@ -340,6 +372,7 @@ export async function melhorarTextoDaMateria(formData: FormData): Promise<Result
       texto: links.texto,
       ...(partes.titulo ? { titulo: partes.titulo } : {}),
       ...(partes.linhaFina ? { linhaFina: partes.linhaFina } : {}),
+      ...(partes.checagens.length ? { checagens: partes.checagens } : {}),
       ...(aviso ? { aviso } : {}),
     }
   } catch (causa) {
