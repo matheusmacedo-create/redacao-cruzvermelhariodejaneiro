@@ -156,6 +156,16 @@ export function validarVariante(
     })
   }
 
+  // O que a IA acrescentou por conta própria fica entre ⟦ ⟧ até alguém
+  // conferir. Erro, e não aviso: é conteúdo não apurado, em qualquer canal —
+  // inclusive na página do site.
+  if (/[⟦⟧]/u.test(variante.corpo)) {
+    avisos.push({
+      nivel: 'erro',
+      mensagem: 'O texto tem acréscimos da IA entre ⟦ ⟧ ainda não conferidos. Confirme ou apague os colchetes antes de publicar.',
+    })
+  }
+
   if (canal.validarExtras) avisos.push(...canal.validarExtras(variante, formatoId))
   return avisos
 }

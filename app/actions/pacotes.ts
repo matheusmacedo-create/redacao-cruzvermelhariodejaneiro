@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { after } from 'next/server'
 import { requireWorkspace } from '@/lib/session'
-import { enviarAceite } from '@/lib/cerebro/cliente'
+import { recalcularStatusDoPacote } from '@/lib/publicacao/status-do-pacote'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/publicacao/canais'
@@ -1059,16 +1058,9 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
 
     // "Publicado" encerra e congela o pacote. Um destino deixado para trás —
     // gerado, em ajuste, bloqueado — mantém o pacote em "parcial", editável,
-    // para ninguém repetir o pacote trancado do primeiro teste.
-    const { data: restantes } = await supabase
-      .from('package_destinations').select('estado')
-      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id)
-    const pendentes = (restantes ?? []).filter((d) => !['publicada', 'na_fila', 'ignorada'].includes(d.estado)).length
-    const statusFinal = falhas > 0 || pendentes > 0
-      ? (publicados > 0 ? 'parcial' : 'falhou')
-      : 'publicado'
-    await supabase.from('social_packages').update({ status: statusFinal })
-      .eq('id', pacoteId).eq('workspace_id', context.workspace.id)
+    // para ninguém repetir o pacote trancado do primeiro teste. A mesma
+    // fórmula dos outros caminhos, e é ela que avisa o Cérebro do que saiu.
+    await recalcularStatusDoPacote(supabase, pacoteId, context.workspace.id)
 
     revalidatePath(`/redes/${pacoteId}`)
     revalidatePath('/redes')
@@ -1301,51 +1293,6 @@ export async function atualizarStatusDoPacote(formData: FormData): Promise<Resul
   }
 }
 
-/** O status do pacote é consequência do estado dos destinos, nunca ao contrário. */
-async function recalcularStatusDoPacote(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  pacoteId: string,
-  workspaceId: string,
-) {
-  const { data: estados } = await supabase
-    .from('package_destinations').select('estado')
-    .eq('package_id', pacoteId).eq('workspace_id', workspaceId)
-  const lista = (estados ?? []).map((e) => e.estado)
-  if (!lista.length) return
-
-  const publicados = lista.filter((e) => e === 'publicada').length
-  const falhas = lista.filter((e) => e === 'falhou').length
-  const pendentes = lista.filter((e) => !['publicada', 'na_fila', 'ignorada', 'falhou'].includes(e)).length
-
-  const status = falhas > 0 || pendentes > 0
-    ? (publicados > 0 ? 'parcial' : falhas > 0 ? 'falhou' : 'rascunho')
-    : 'publicado'
-  await supabase.from('social_packages').update({ status })
-    .eq('id', pacoteId).eq('workspace_id', workspaceId)
-
-  // Pacote que nasceu de um sinal do Cérebro e tem algo no ar: o "sim"
-  // volta para lá, depois da resposta, para o Cérebro tirar o sinal da
-  // atenção e saber que a Casa já cobriu a família dele. Depois da resposta
-  // porque quem publica não precisa esperar o Cérebro, e falha ali não é
-  // falha de publicação.
-  if (publicados > 0) {
-    after(async () => {
-      const { data: pacote } = await supabase
-        .from('social_packages').select('cerebro_sinal_id')
-        .eq('id', pacoteId).eq('workspace_id', workspaceId).maybeSingle()
-      const sinalId = pacote?.cerebro_sinal_id as string | null | undefined
-      if (!sinalId) return
-      const { data: noAr } = await supabase
-        .from('package_destinations').select('canal,external_url')
-        .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('estado', 'publicada')
-      const canais = [...new Set((noAr ?? []).map((d) => String(d.canal)))]
-      const url = (noAr ?? []).find((d) => d.canal === 'site_web' && String(d.external_url ?? '').startsWith('http'))?.external_url as string | undefined
-      const r = await enviarAceite(sinalId, 'publicado', { pacoteId, url, canais })
-      if (r.erro) console.error('[pacotes] aceite "publicado" não chegou ao Cérebro:', r.erro)
-    })
-  }
-}
-
 /**
  * O texto do pacote como a página do site deve recebê-lo.
  *
@@ -1366,14 +1313,15 @@ function corpoParaOSite(corpo: string): string {
     .split(/\n(?:[ \t]*\n)+/)
     .map((paragrafo) => {
       if (!paragrafo.includes(MARCADOR)) return paragrafo
-      // Linha que é só o marcador some; no meio de uma frase, some o marcador
-      // e o espaço duplo (ou o espaço antes da pontuação) que ele deixaria.
+      // Sai a ORAÇÃO que carrega o marcador, não só o marcador: "Leia a
+      // matéria completa em {{URL_DA_MATERIA}}." sem o endereço é uma frase
+      // manca na página institucional. Linha que era só o marcador some.
       return paragrafo
         .split('\n')
-        .filter((linha) => linha.trim() !== MARCADOR)
         .map((linha) => linha.includes(MARCADOR)
-          ? linha.split(MARCADOR).join('').replace(/ {2,}/g, ' ').replace(/ (?=[.,;:!?])/g, '').trim()
+          ? linha.split(/(?<=[.!?…])\s+/).filter((oracao) => !oracao.includes(MARCADOR)).join(' ').trim()
           : linha)
+        .filter(Boolean)
         .join('\n')
     })
     .filter((paragrafo) => paragrafo.trim())

@@ -155,18 +155,23 @@ export async function pedirJsonAoClaude<T>(pedido: {
   const comecou = Date.now()
   let resposta: Anthropic.Beta.BetaMessage
   try {
-    resposta = await cliente.beta.messages.create({
-      model: modeloDoClaude(),
-      max_tokens: pedido.maxTokens ?? 16_000,
-      output_config: {
-        effort: pedido.effort ?? esforcoDoClaude(),
-        format: { type: 'json_schema', schema: pedido.schema },
-      },
-      system: pedido.system,
-      messages: [{ role: 'user', content: pedido.texto }],
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-    })
+    // Em fluxo, e não numa resposta só: uma matéria inteira em JSON leva
+    // minutos de geração, e a chamada de uma vez estourava o timeout — e o
+    // SDK a refazia sozinha, cobrando duas vezes sem entregar rascunho.
+    resposta = await cliente.beta.messages
+      .stream({
+        model: modeloDoClaude(),
+        max_tokens: pedido.maxTokens ?? 16_000,
+        output_config: {
+          effort: pedido.effort ?? esforcoDoClaude(),
+          format: { type: 'json_schema', schema: pedido.schema },
+        },
+        system: pedido.system,
+        messages: [{ role: 'user', content: pedido.texto }],
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+      })
+      .finalMessage()
   } catch (causa) {
     throw traduzirErro(causa)
   }

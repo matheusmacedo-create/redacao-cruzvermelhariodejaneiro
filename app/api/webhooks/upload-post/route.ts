@@ -6,6 +6,7 @@ import { adapter } from '@/lib/publicacao/canais'
 import { semSegredo } from '@/lib/publicacao/upload-post'
 import { explicarRecusaDaRede } from '@/lib/publicacao/recusa'
 import { esquecerSegredo, segredoDoWebhook } from '@/lib/publicacao/webhook-do-conector'
+import { recalcularStatusDoPacote } from '@/lib/publicacao/status-do-pacote'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -110,22 +111,11 @@ export async function POST(req: Request) {
     .in('estado', ['publicando', 'na_fila', 'falhou', 'publicada'])
     .select('package_id')
 
-  // O status do pacote é consequência do estado dos destinos.
+  // O status do pacote é consequência do estado dos destinos — a mesma
+  // fórmula do hub, que também devolve ao Cérebro o que foi ao ar.
   const pacotes = [...new Set((destinos ?? []).map((d) => d.package_id as string))]
   for (const pacoteId of pacotes) {
-    const { data: estados } = await supabase
-      .from('package_destinations').select('estado')
-      .eq('package_id', pacoteId).eq('workspace_id', registro.workspace_id)
-    const lista = (estados ?? []).map((e) => e.estado)
-    if (!lista.length) continue
-    const publicados = lista.filter((e) => e === 'publicada').length
-    const falhas = lista.filter((e) => e === 'falhou').length
-    const pendentes = lista.filter((e) => !['publicada', 'na_fila', 'ignorada', 'falhou'].includes(e)).length
-    const status = falhas > 0 || pendentes > 0
-      ? (publicados > 0 ? 'parcial' : falhas > 0 ? 'falhou' : 'rascunho')
-      : 'publicado'
-    await supabase.from('social_packages').update({ status })
-      .eq('id', pacoteId).eq('workspace_id', registro.workspace_id)
+    await recalcularStatusDoPacote(supabase, pacoteId, registro.workspace_id)
     revalidatePath(`/redes/${pacoteId}`)
   }
   if (pacotes.length) {

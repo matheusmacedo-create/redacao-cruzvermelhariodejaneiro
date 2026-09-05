@@ -11,6 +11,7 @@ import { capaPodeIrParaPeca, mestreDaPauta, planejarDestinos, type PecasProntas 
 import { orientacaoDaPauta, type OrientacaoDoCerebro } from '@/lib/cerebro/orientacao'
 import { redigirDaPauta } from '@/lib/cerebro/redator'
 import { claudeConfigurado, semChaveDoClaude } from '@/lib/ia/anthropic'
+import { temErro, validarVariante } from '@/lib/publicacao/variantes'
 
 /**
  * Traz uma sugestão do Cérebro para o hub de publicações.
@@ -355,19 +356,27 @@ async function completarPacoteExistente(
     .eq('id', existente.id).eq('workspace_id', workspaceId)
 
   // A capa entra nas peças pelas mesmas regras da importação: só material que
-  // a filial pode usar, só em destino que ainda acompanha o mestre, ainda não
-  // saiu e está sem mídia.
+  // a filial pode usar, só em destino que ainda não saiu e está sem mídia.
+  // "Descolada" protege o TEXTO escrito à parte, não a ausência de foto — a
+  // legenda que a IA redigiu nasce descolada e ficaria bloqueada para sempre.
+  // O estado é reavaliado com a foto no lugar: sem isso o semáforo continua
+  // vermelho no banco até alguém tocar no destino.
   if (!capaPodeIrParaPeca(pauta.midia)) return
   const { data: destinos } = await supabase
     .from('package_destinations')
-    .select('id,file_ids,descolada,estado')
+    .select('id,canal,formato,corpo,extras,file_ids,estado')
     .eq('package_id', existente.id).eq('workspace_id', workspaceId)
   for (const d of destinos ?? []) {
-    if (d.descolada) continue
-    if (['publicada', 'publicando', 'na_fila'].includes(d.estado)) continue
+    if (['publicada', 'publicando', 'na_fila', 'ignorada'].includes(d.estado)) continue
     if ((d.file_ids ?? []).length > 0) continue
+    const fileIds = [capa.fileId]
+    const avisos = validarVariante(
+      { corpo: d.corpo ?? '', extras: (d.extras ?? {}) as Record<string, string>, fileIds },
+      d.canal,
+      d.formato,
+    )
     await supabase.from('package_destinations')
-      .update({ file_ids: [capa.fileId] })
+      .update({ file_ids: fileIds, ...(d.estado === 'bloqueada' && !temErro(avisos) ? { estado: 'gerada', erro: null } : {}) })
       .eq('id', d.id).eq('workspace_id', workspaceId)
   }
 }
