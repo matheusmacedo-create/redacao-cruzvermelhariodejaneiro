@@ -47,6 +47,38 @@ supabase link --project-ref <ref>
 supabase db push
 ```
 
+### Onde o projeto mora
+
+A redação vive no projeto Supabase `puncaovenosa-fullautomatic` (ref
+`lqpnbqislaxzhqkszijg`, região `sa-east-1`), o mesmo do funil do Curso de
+Punção Venosa. O projeto próprio (`RedacaoCruzVermelha-Rj`) tinha sido criado
+no Canadá, região de projeto Supabase não se troca depois, e cada consulta a
+partir da Vercel em São Paulo pagava ~130 ms a mais — então a redação mudou de
+projeto: schema, policies, funções, usuários e dados foram levados para lá e
+conferidos linha a linha. O `.env.example` já aponta para o projeto certo.
+
+O schema `public` é dividido. As tabelas do funil (`inscricoes`, `pagamentos`,
+`triagem_respostas`, `validacoes`, `webhook_entregas`, `meta_capi_entregas`,
+`visitas_landing`, `meta_publico_membros`, `email_entregas`), as funções e os
+tipos dele são versionados no repositório `puncaovenosa-fullautomatic`;
+nenhuma migration daqui pode tocá-los. Duas regras vêm disso:
+
+- nome novo de tabela, função, tipo ou sequence é conferido contra o que o
+  funil já tem antes de virar migration — colisão quebra os dois sistemas;
+- privilégio é concedido tabela a tabela, nunca `grant ... on all tables in
+  schema public`: isso daria à chave publicável desta app, que está no bundle
+  do navegador, acesso às inscrições dos alunos. A migration 2 fazia isso e,
+  no projeto compartilhado, foi aplicada com a lista explícita das tabelas
+  daqui.
+
+No histórico do projeto as 21 migrations deste repositório aparecem como três
+entradas (`cvrj_01_editorial_tables_rls_rpcs_seed`,
+`cvrj_02_demo_mensagens_redes_arquivos`,
+`cvrj_03_carrossel_a_pacote_vinculado_ao_sinal`), aplicadas em bloco na
+mudança. Antes do primeiro `supabase db push` contra ele, marque os 21 arquivos
+como aplicados (`supabase migration repair --status applied <versão> ...`),
+senão a CLI tenta recriar o que já existe.
+
 Os status são gravados em inglês (`incoming`, `production`, `draft`, ...) e
 traduzidos para a interface em `lib/status-maps.ts`. `lib/data.ts` é mock da
 Fase 1 e não reflete o banco.
