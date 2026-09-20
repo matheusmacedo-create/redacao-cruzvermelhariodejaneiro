@@ -360,7 +360,10 @@ export const LINK_DAS_FONTES =
  * O <h1> e o og:title continuam com o texto inteiro.
  */
 export function tituloDaAba(titulo: string, limite = 60): string {
-  const assinaturas = [' — Cruz Vermelha Brasileira — Rio de Janeiro', ' — Cruz Vermelha RJ']
+  // Só a assinatura completa. "Cruz Vermelha RJ" é a forma curta que a filial não usa em texto
+  // visível — "Cruz Vermelha Brasileira" sozinha é a instituição nacional. Quando não cabe, o
+  // título fica só com a manchete: a marca já está no domínio e na trilha da página.
+  const assinaturas = [' — Cruz Vermelha Brasileira — Rio de Janeiro']
   const limpo = titulo.trim()
   for (const assinatura of assinaturas) {
     if (limpo.length + assinatura.length <= limite) return limpo + assinatura
@@ -368,7 +371,9 @@ export function tituloDaAba(titulo: string, limite = 60): string {
   if (limpo.length <= limite) return limpo
   const cabe = limpo.slice(0, limite - 1)
   const pausa = Math.max(cabe.lastIndexOf(': '), cabe.lastIndexOf(' — '), cabe.lastIndexOf(', '))
-  const corte = pausa > limite * 0.5 ? pausa : cabe.lastIndexOf(' ')
+  // A pausa só vale se estiver perto do fim: uma vírgula no meio da manchete cortaria cedo
+  // demais e jogaria fora metade do espaço que a busca mostra.
+  const corte = pausa >= limite * 0.8 ? pausa : cabe.lastIndexOf(' ')
   const cortado = (corte > 0 ? cabe.slice(0, corte) : cabe).replace(/[\s,;:—-]+$/, '')
   // Terminar em preposição ou artigo ("… em Libras no…") lê pior do que terminar uma palavra antes.
   return cortado.replace(/\s+\p{L}{1,3}$/u, '') + '…'
