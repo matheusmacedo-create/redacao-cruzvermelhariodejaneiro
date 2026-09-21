@@ -165,6 +165,10 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
     const agora = new Date()
     const url = `${base}/${slug}/`
+    // A capa que o índice de notícias vai mostrar: a PRIMEIRA imagem do corpo,
+    // que é exatamente a que artigo-html.ts usa no og:image. imagensPublicadas
+    // guarda os nomes na ordem dos blocos, então o primeiro é o mesmo arquivo.
+    const capaUrl = imagensPublicadas.length ? `${url}${imagensPublicadas[0]}` : null
 
     // As outras matérias publicadas alimentam o rail "Leia também" e a faixa
     // "Mais notícias" — no fim da leitura o leitor cai em outra notícia, não
@@ -203,6 +207,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
           titulo: peca.title,
           descricao: peca.subtitle,
           url,
+          capa: capaUrl,
           publicadaEm: agora,
         })
       } catch { vitrine = undefined }
@@ -225,6 +230,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const { error } = await supabase.from('content_pieces').update({
       slug,
       site_url: url,
+      site_cover_url: capaUrl,
       site_published_at: agora.toISOString(),
       updated_at: agora.toISOString(),
     }).eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId)
@@ -307,7 +313,7 @@ export async function tirarMateriaDoAr(pedido: {
       // a vitrine lê a lista, e na ordem inversa a página apagada continuaria
       // no índice até a próxima publicação.
       const { error } = await supabase.from('content_pieces')
-        .update({ site_url: null, site_published_at: null, updated_at: new Date().toISOString() })
+        .update({ site_url: null, site_cover_url: null, site_published_at: null, updated_at: new Date().toISOString() })
         .eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId)
       if (error) throw new Error('A pasta saiu do servidor, mas não consegui limpar o registro aqui.')
 

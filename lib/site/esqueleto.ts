@@ -349,6 +349,36 @@ export type DadosDaPagina = {
 export const LINK_DAS_FONTES =
   `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;0,8..60,800;1,8..60,400&display=swap" rel="stylesheet">`
 
+/**
+ * O <title> da aba, cortado em 60 caracteres.
+ *
+ * A assinatura completa — " — Cruz Vermelha Brasileira — Rio de Janeiro" — tem 43 caracteres:
+ * com ela, qualquer manchete acima de 17 passa do limite que a busca mostra, e o que fica
+ * visível é a assinatura repetida em vez do assunto. Então a manchete manda: a assinatura entra
+ * na versão que couber, e some quando não couber nenhuma. Manchete maior que o limite é cortada
+ * na última pausa antes dele (dois-pontos, travessão, vírgula) ou, na falta, na última palavra.
+ * O <h1> e o og:title continuam com o texto inteiro.
+ */
+export function tituloDaAba(titulo: string, limite = 60): string {
+  // Só a assinatura completa. "Cruz Vermelha RJ" é a forma curta que a filial não usa em texto
+  // visível — "Cruz Vermelha Brasileira" sozinha é a instituição nacional. Quando não cabe, o
+  // título fica só com a manchete: a marca já está no domínio e na trilha da página.
+  const assinaturas = [' — Cruz Vermelha Brasileira — Rio de Janeiro']
+  const limpo = titulo.trim()
+  for (const assinatura of assinaturas) {
+    if (limpo.length + assinatura.length <= limite) return limpo + assinatura
+  }
+  if (limpo.length <= limite) return limpo
+  const cabe = limpo.slice(0, limite - 1)
+  const pausa = Math.max(cabe.lastIndexOf(': '), cabe.lastIndexOf(' — '), cabe.lastIndexOf(', '))
+  // A pausa só vale se estiver perto do fim: uma vírgula no meio da manchete cortaria cedo
+  // demais e jogaria fora metade do espaço que a busca mostra.
+  const corte = pausa >= limite * 0.8 ? pausa : cabe.lastIndexOf(' ')
+  const cortado = (corte > 0 ? cabe.slice(0, corte) : cabe).replace(/[\s,;:—-]+$/, '')
+  // Terminar em preposição ou artigo ("… em Libras no…") lê pior do que terminar uma palavra antes.
+  return cortado.replace(/\s+\p{L}{1,3}$/u, '') + '…'
+}
+
 /** Uma página institucional completa, vestida com o esqueleto do site. */
 export function montarPaginaDoSite(dados: DadosDaPagina): string {
   const origem = dados.origem ?? 'https://cruzvermelhariodejaneiro.org'
@@ -357,7 +387,7 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
   const meta = [
     `<meta charset="utf-8">`,
     `<meta name="viewport" content="width=device-width, initial-scale=1">`,
-    `<title>${escapar(dados.titulo)} — Cruz Vermelha Brasileira — Rio de Janeiro</title>`,
+    `<title>${escapar(tituloDaAba(dados.titulo))}</title>`,
     `<meta name="description" content="${escapar(dados.descricao.slice(0, 300))}">`,
     `<link rel="canonical" href="${escapar(canonica)}">`,
     `<link rel="icon" href="${escapar(origem)}/assets/logo-cvb-rj.png">`,

@@ -27,9 +27,12 @@ export function paginasFixas(origem: string = ORIGEM_DO_SITE): EntradaDoMapa[] {
     { url: `${origem}/` },
     { url: `${origem}/noticias/` },
     { url: `${origem}/equipe.html` },
-    { url: `${origem}/cursos.html` },
-    { url: `${origem}/doacao.html` },
+    // cursos.html e doacao.html saíram do ar e respondem 301: o sitemap não deve
+    // listar endereço que redireciona — o Google conta como página incorreta no mapa.
+    { url: `${origem}/matricula-cursos-presenciais/` },
+    { url: `${origem}/doe/` },
     { url: `${origem}/campanha-agasalho.html` },
+    { url: `${origem}/bio/` },
     { url: `${origem}/privacidade/` },
     { url: `${origem}/termos/` },
   ]
@@ -59,10 +62,16 @@ export function gerarSitemap(entradas: EntradaDoMapa[]): string {
 
 export function gerarRobots(origem: string = ORIGEM_DO_SITE): string {
   // Aberto de propósito: site institucional existe para ser encontrado.
+  //
+  // São dois mapas, e os dois precisam estar aqui. O sitemap.xml é este, regerado a
+  // cada publicação. O sitemap-index.xml é do outro repositório (o site em si) e reúne
+  // páginas, notícias e subdomínios. Este arquivo é escrito por cima do que estiver lá,
+  // então omitir o índice o apagava a cada matéria publicada.
   return [
     'User-agent: *',
     'Allow: /',
     '',
+    `Sitemap: ${origem}/sitemap-index.xml`,
     `Sitemap: ${origem}/sitemap.xml`,
     '',
   ].join('\n')
