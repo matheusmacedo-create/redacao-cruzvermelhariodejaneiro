@@ -34,7 +34,7 @@ export async function noticiasPublicadas(workspaceId: string): Promise<(NoticiaD
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('content_pieces')
-    .select('title,subtitle,site_url,site_published_at,updated_at,created_at')
+    .select('title,subtitle,site_url,site_cover_url,site_published_at,updated_at,created_at')
     .eq('workspace_id', workspaceId)
     .not('site_url', 'is', null)
     .order('site_published_at', { ascending: false, nullsFirst: false })
@@ -47,6 +47,7 @@ export async function noticiasPublicadas(workspaceId: string): Promise<(NoticiaD
         titulo: String(p.title ?? 'Sem título'),
         descricao: (p.subtitle as string | null) ?? undefined,
         url: p.site_url as string,
+        capa: (p.site_cover_url as string | null) ?? undefined,
         publicadaEm: publicada,
         atualizadaEm: new Date(p.updated_at ?? publicada),
       }

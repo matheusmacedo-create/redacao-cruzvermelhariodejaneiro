@@ -10,10 +10,14 @@ import { svgDaMarca } from '@/lib/marcas'
  * Google. Agora o índice é gerado da lista real de matérias publicadas e
  * REGERADO a cada publicação — empilha sozinho, como o usuário pediu.
  *
- * A mais recente abre como manchete; as demais empilham em ordem. Sem
- * miniaturas por enquanto: a capa de cada matéria mora na pasta dela e o
- * índice não tem como saber o nome do arquivo — melhor um jornal de texto
- * bem posto do que um de imagens quebradas.
+ * A mais recente abre como manchete, com a capa grande ao lado; as demais
+ * empilham em ordem, com miniatura quem tiver.
+ *
+ * A capa vem de `site_cover_url`, gravada na publicação — é a MESMA imagem que
+ * vira og:image da matéria. Antes o índice não tinha como saber o nome do
+ * arquivo (ele nasce da legenda, em nomeSeoDaMidia) e por isso saía só de
+ * texto. Matéria sem imagem continua saindo só de texto, no mesmo lugar: o
+ * layout não reserva buraco para imagem que não existe.
  */
 
 export type NoticiaDoIndice = {
@@ -23,6 +27,8 @@ export type NoticiaDoIndice = {
   /** Endereço completo da matéria publicada. */
   url: string
   publicadaEm: Date
+  /** Capa publicada (a mesma do og:image). Falta nas matérias sem imagem. */
+  capa?: string | null
 }
 
 const CSS_INDICE = `
@@ -32,6 +38,10 @@ body{background:var(--news-paper)}
 .jornal-topo h1{font-family:var(--serif);font-weight:800;font-size:clamp(32px,4.5vw,42px);letter-spacing:-.02em;line-height:1.1;margin:0;color:var(--news-ink)}
 .jornal-topo p{color:var(--news-muted);margin:8px 0 0;font-size:15px;font-family:var(--serif)}
 .manchete{display:block;text-decoration:none;color:inherit;padding:30px 0;border-bottom:1px solid var(--news-line)}
+.manchete.tem-capa{display:grid;grid-template-columns:1.05fr .95fr;gap:32px;align-items:start}
+.manchete .texto{min-width:0}
+.manchete figure{margin:0;order:2}
+.manchete img{display:block;width:100%;aspect-ratio:3/2;object-fit:cover;background:var(--news-line)}
 .manchete .kicker{color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 .manchete h2{font-family:var(--serif);font-weight:800;font-size:clamp(26px,3.6vw,38px);line-height:1.15;letter-spacing:-.02em;margin:10px 0 10px;color:var(--news-ink)}
 .manchete p{font-family:var(--serif);font-size:19px;line-height:1.45;color:var(--news-muted);margin:0 0 10px}
@@ -40,12 +50,19 @@ body{background:var(--news-paper)}
 .grade{list-style:none;margin:0;padding:28px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:0 32px}
 .grade li{border-bottom:1px solid var(--news-line)}
 .grade a{display:block;text-decoration:none;color:inherit;padding:20px 0}
+.grade figure{margin:0 0 12px}
+.grade img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--news-line)}
+.grade a:hover img,.manchete:hover img{opacity:.92}
 .grade .kicker{color:var(--brand);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:6px}
 .grade h3{font-family:var(--serif);font-weight:700;font-size:20px;line-height:1.25;letter-spacing:-.01em;margin:0 0 6px;color:var(--news-ink)}
 .grade p{font-size:14.5px;line-height:1.5;color:var(--news-muted);margin:0 0 8px}
 .grade time{color:var(--news-muted);font-size:12px}
 .grade a:hover h3{color:var(--brand)}
 @media(max-width:1023px){.grade{grid-template-columns:repeat(2,1fr)}}
+/* Numa coluna só, a capa da manchete vem ANTES do título — é o que faz a
+   página abrir com imagem, como a primeira página de um jornal. order:0 não
+   subiria nada: .texto também é 0 e vem antes no HTML. */
+@media(max-width:860px){.manchete.tem-capa{grid-template-columns:1fr;gap:18px}.manchete figure{order:-1}}
 @media(max-width:680px){.grade{grid-template-columns:1fr}}
 
 .jornal-vazio{padding:48px 0;color:var(--news-muted);font-size:16px}
@@ -80,16 +97,31 @@ export function paginaDeNoticias(
 
   // Destaque full-width + grade 3×N, como pede o briefing do jornal. Cards
   // sem sombra, título serifado, data pequena — filete no lugar de caixa.
+  // A capa é decorativa AQUI: o título da matéria é o texto do mesmo link, e
+  // repeti-lo no alt faria o leitor de tela ouvir a manchete duas vezes.
+  const capaDe = (n: NoticiaDoIndice, manchete: boolean) => {
+    const url = n.capa?.trim()
+    if (!url) return ''
+    const carga = manchete
+      ? 'fetchpriority="high" decoding="async"'   // a capa da manchete é o LCP
+      : 'loading="lazy" decoding="async"'
+    return `<figure><img src="${escapar(url)}" alt="" ${carga}></figure>`
+  }
+
   const miolo = !manchete
     ? '<p class="jornal-vazio">As primeiras notícias estão a caminho.</p>'
-    : `<a class="manchete" href="${escapar(manchete.url)}">
-        <span class="kicker">Última notícia</span>
-        <h2>${escapar(manchete.titulo)}</h2>
-        ${manchete.descricao?.trim() ? `<p>${escapar(manchete.descricao.trim())}</p>` : ''}
-        <time datetime="${manchete.publicadaEm.toISOString()}">${dataLegivel(manchete.publicadaEm)}</time>
+    : `<a class="manchete${manchete.capa?.trim() ? ' tem-capa' : ''}" href="${escapar(manchete.url)}">
+        <div class="texto">
+          <span class="kicker">Última notícia</span>
+          <h2>${escapar(manchete.titulo)}</h2>
+          ${manchete.descricao?.trim() ? `<p>${escapar(manchete.descricao.trim())}</p>` : ''}
+          <time datetime="${manchete.publicadaEm.toISOString()}">${dataLegivel(manchete.publicadaEm)}</time>
+        </div>
+        ${capaDe(manchete, true)}
       </a>
       ${fila.length ? `<ul class="grade">
         ${fila.map((n) => `<li><a href="${escapar(n.url)}">
+          ${capaDe(n, false)}
           <span class="kicker">Notícias</span>
           <h3>${escapar(n.titulo)}</h3>
           ${n.descricao?.trim() ? `<p>${escapar(n.descricao.trim())}</p>` : ''}
@@ -158,6 +190,7 @@ export function paginaDeNoticias(
       url: 'https://cruzvermelhariodejaneiro.org/noticias/',
       hasPart: ordenadas.slice(0, 20).map((n) => ({
         '@type': 'NewsArticle', headline: n.titulo, url: n.url, datePublished: n.publicadaEm.toISOString(),
+        ...(n.capa?.trim() ? { image: n.capa.trim() } : {}),
       })),
     },
   })
