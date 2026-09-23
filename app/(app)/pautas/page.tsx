@@ -1,74 +1,94 @@
 import Link from 'next/link'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
-import { formatDate } from '@/lib/format'
+import { QuadroDePautas, type CartaoDaPauta, type PessoaDoQuadro } from '@/components/app/pautas/quadro'
 
-const columns = [
-  ['incoming', 'Entrada'],
-  ['collection', 'Coleta'],
-  ['production', 'Produção'],
-  ['review', 'Revisão'],
-  ['approval', 'Aprovação'],
-  ['approved', 'Pronto'],
-] as const
+export const dynamic = 'force-dynamic'
 
+const TETO = 3000
+
+type Contagem = { count: number }[] | null
+
+/**
+ * Pautas como quadro (estilo Trello): colunas por etapa, cartões arrastáveis,
+ * checklist e edição rápida sem sair do quadro. A sala completa da pauta
+ * continua em /pautas/[id].
+ */
 export default async function PautasPage({ searchParams }: { searchParams: Promise<{ projeto?: string }> }) {
   const { projeto } = await searchParams
   const context = await requireWorkspace()
   const supabase = await createClient()
-  let query = supabase.from('pautas').select('id,title,status,priority,coordination,due_date,project_id').eq('workspace_id', context.workspace.id).order('created_at', { ascending: false })
-  if (projeto) query = query.eq('project_id', projeto)
-  const [{ data: pautas }, { data: project }] = await Promise.all([
-    query,
-    projeto ? supabase.from('projects').select('id,name').eq('id', projeto).eq('workspace_id', context.workspace.id).maybeSingle() : Promise.resolve({ data: null }),
+  const workspaceId = context.workspace.id
+
+  // A API do banco devolve até 1000 linhas por pedido.
+  async function todasAsPautas() {
+    const linhas = []
+    for (let de = 0; de < TETO; de += 1000) {
+      let q = supabase.from('pautas')
+        .select('id,title,status,priority,coordination,due_date,owner_id,tags,project_id,posicao,created_at,projects(name),pauta_participants(user_id),pauta_checklist(feito),messages(count),pauta_links(count),content_pieces(count)')
+        .eq('workspace_id', workspaceId).neq('status', 'archived')
+        .order('created_at', { ascending: false }).order('id')
+        .range(de, de + 999)
+      if (projeto) q = q.eq('project_id', projeto)
+      const { data } = await q
+      linhas.push(...(data ?? []))
+      if (!data || data.length < 1000) break
+    }
+    return linhas
+  }
+
+  const [pautas, { data: project }, { data: membros }] = await Promise.all([
+    todasAsPautas(),
+    projeto ? supabase.from('projects').select('id,name').eq('id', projeto).eq('workspace_id', workspaceId).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from('workspace_members').select('user_id,profiles(full_name,initials,color,avatar_path,active)').eq('workspace_id', workspaceId),
   ])
-  const description = project ? `Kanban do projeto ${project.name}.` : `Fluxo editorial do espaço ${context.workspace.name}.`
+
+  const pessoas: PessoaDoQuadro[] = (membros ?? []).flatMap((m) => {
+    const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; initials?: string; color?: string; avatar_path?: string | null; active?: boolean } | null
+    if (!p || p.active === false) return []
+    return [{ id: m.user_id as string, nome: p.full_name || 'Colaborador', iniciais: p.initials || '?', cor: p.color || null, avatar: p.avatar_path ?? null }]
+  }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+  const conta = (c: unknown) => (c as Contagem)?.[0]?.count ?? 0
+  const cartoes: CartaoDaPauta[] = pautas.map((p) => {
+    const proj = (Array.isArray(p.projects) ? p.projects[0] : p.projects) as { name?: string } | null
+    const checklist = (p.pauta_checklist ?? []) as { feito: boolean }[]
+    return {
+      id: p.id,
+      titulo: p.title,
+      status: p.status,
+      prioridade: p.priority,
+      prazo: p.due_date,
+      responsavelId: p.owner_id,
+      participantes: ((p.pauta_participants ?? []) as { user_id: string }[]).map((x) => x.user_id),
+      tipo: Array.isArray(p.tags) && p.tags[0] ? String(p.tags[0]) : '',
+      coordenacao: p.coordination ?? '',
+      projeto: proj?.name ?? '',
+      posicao: p.posicao,
+      criadaEm: p.created_at,
+      checklist: { feitos: checklist.filter((i) => i.feito).length, total: checklist.length },
+      mensagens: conta(p.messages),
+      links: conta(p.pauta_links),
+      conteudos: conta(p.content_pieces),
+    }
+  })
 
   return (
     <div>
       <PageHeader
         title={project ? `Pautas · ${project.name}` : 'Pautas'}
-        description={description}
+        description={project ? `Quadro do projeto ${project.name}.` : `Fluxo editorial do espaço ${context.workspace.name}. Arraste os cartões entre as etapas.`}
         actions={
           <div className="flex items-center gap-2">
             {project && <Button variant="outline" render={<Link href="/pautas" />}><X className="size-4" />Limpar filtro</Button>}
-            <Button size="lg" render={<Link href={projeto ? `/registrar?projeto=${projeto}` : '/registrar'} />}><Plus className="size-4" />Nova pauta</Button>
+            <Button size="lg" render={<Link href={projeto ? `/registrar?projeto=${projeto}` : '/registrar'} />}><Plus className="size-4" />Nova pauta completa</Button>
           </div>
         }
       />
-
-      {/* Empilhado no celular, kanban lado a lado a partir de telas médias */}
-      <div className="flex flex-col gap-6 md:flex-row md:gap-4 md:overflow-x-auto md:pb-4">
-        {columns.map(([status, label]) => {
-          const items = (pautas ?? []).filter((pauta) => pauta.status === status)
-          return (
-            <section key={status} className="min-w-0 md:w-72 md:shrink-0">
-              <div className="mb-3 flex items-center justify-between px-1">
-                <h2 className="text-xs font-bold uppercase text-muted-foreground">{label}</h2>
-                <span className="rounded-full bg-muted px-2 text-xs">{items.length}</span>
-              </div>
-              <div className="flex flex-col gap-3">
-                {items.map((pauta) => (
-                  <Link key={pauta.id} href={`/pautas/${pauta.id}`}>
-                    <Card className="p-4 hover:shadow-sm">
-                      <p className="font-medium break-words">{pauta.title}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {pauta.coordination || 'Sem coordenação'}
-                        {pauta.due_date ? ` · ${formatDate(`${pauta.due_date}T12:00:00`)}` : ''}
-                      </p>
-                    </Card>
-                  </Link>
-                ))}
-                {!items.length && <div className="rounded-lg border border-dashed border-border py-8 text-center text-xs text-muted-foreground">Sem pautas</div>}
-              </div>
-            </section>
-          )
-        })}
-      </div>
+      <QuadroDePautas cartoes={cartoes} pessoas={pessoas} eu={context.user.id} projetoId={projeto ?? null} />
     </div>
   )
 }
