@@ -1,22 +1,23 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createPortal } from 'react-dom'
 import {
-  Building2, Check, ChevronDown, Download, History, Loader2, MailOpen, Pencil, Plus, Search, Send,
-  ShieldCheck, Trash2, Upload, UserSearch, Users, X,
+  Building2, Check, Download, History, Loader2, Pencil, Plus, Search, Send,
+  ShieldCheck, Trash2, Upload, UserSearch, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
   adicionarContatosDaBusca, atualizarContato, buscarContatosPorDominio, criarContatoManual,
-  destinatariosDaCampanha, encontrarEEcadastrarContato, enviarCampanha, excluirContato, excluirContatos,
+  encontrarEEcadastrarContato, excluirContato, excluirContatos,
   importarContatos, verificarEmailDoContato,
-  type CandidatoDeContato, type ContatoDeImprensa, type DestinatarioDaCampanha,
+  type CandidatoDeContato, type ContatoDeImprensa,
 } from '@/app/actions/imprensa'
 import { comoBalde } from '@/lib/imprensa/email-status'
-import { LIMITE_SEM_LEITURA, motivoDeFora, naoLe, TETO_DE_DESTINATARIOS } from '@/lib/imprensa/campanha'
+import { Dialog, inputClass, selectClass, podeReceber, quandoLegivel } from './comum'
+import { DialogCampanha, PainelDeCampanhas, type CampanhaNaTela, type Composicao } from './campanhas'
+import { LIMITE_SEM_LEITURA, naoLe } from '@/lib/imprensa/campanha'
 import {
   comoEtiqueta, lerCsv, linhasParaContatos, LOTE_DE_IMPORTACAO, TETO_DE_IMPORTACAO, type ResultadoDaLeitura,
 } from '@/lib/imprensa/importacao'
@@ -24,26 +25,7 @@ import {
 /** Quantas linhas a tabela desenha. Filtro e seleção valem para todas. */
 const LINHAS_NA_TELA = 300
 
-export type CampanhaNaTela = {
-  id: string
-  assunto: string
-  corpo: string
-  linkUrl: string
-  estado: string
-  destinatarios: number
-  enviados: number
-  falhas: number
-  aberturas: number
-  quando: string
-  quem: string
-}
 
-const quandoLegivel = new Intl.DateTimeFormat('pt-BR', {
-  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-})
-
-const podeReceber = (c: ContatoDeImprensa) =>
-  !motivoDeFora({ email: c.email, emailStatus: c.emailStatus, descadastradoEm: c.descadastradoEm })
 
 const FILTROS_DE_LEITURA = [
   { id: 'todos', rotulo: 'Toda leitura' },
@@ -54,7 +36,6 @@ const FILTROS_DE_LEITURA = [
   { id: 'saiu', rotulo: 'Saíram da lista' },
 ] as const
 
-const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 
 const STATUS_INFO: Record<ContatoDeImprensa['emailStatus'], { rotulo: string; classe: string }> = {
   nao_verificado: { rotulo: 'Não verificado', classe: 'bg-secondary text-secondary-foreground' },
@@ -83,19 +64,24 @@ function celula(valor: string): string {
  * Filtra no cliente de propósito — mesmo espírito do Registro: o volume aqui
  * é de uma redação, não de uma agência.
  */
-export function PainelDeImprensa({ contatos, campanhas, hunterDisponivel, envioDisponivel, podeDisparar, ehAdmin }: {
+export function PainelDeImprensa({ contatos, campanhas, envioNoMes, hunterDisponivel, envioDisponivel, podeDisparar, ehAdmin }: {
   contatos: ContatoDeImprensa[]
   campanhas: CampanhaNaTela[]
+  envioNoMes: { enviados: number; limite: number | null }
   hunterDisponivel: boolean
   envioDisponivel: boolean
   podeDisparar: boolean
   ehAdmin: boolean
 }) {
+  const router = useRouter()
   const [aba, setAba] = useState<'contatos' | 'campanhas'>('contatos')
+  const [composicao, setComposicao] = useState<Composicao | null>(null)
+  const [recado, setRecado] = useState('')
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-1 border-b border-border" role="tablist">
-        {([['contatos', `Contatos (${contatos.length})`, Users], ['campanhas', `Campanhas enviadas (${campanhas.length})`, History]] as const).map(([id, rotulo, Icone]) => (
+        {([['contatos', `Contatos (${contatos.length})`, Users], ['campanhas', `Campanhas (${campanhas.length})`, History]] as const).map(([id, rotulo, Icone]) => (
           <button
             key={id}
             type="button"
@@ -108,20 +94,34 @@ export function PainelDeImprensa({ contatos, campanhas, hunterDisponivel, envioD
           </button>
         ))}
       </div>
+      {recado && <p className="text-xs text-emerald-700 dark:text-emerald-500">{recado}</p>}
       {aba === 'contatos'
-        ? <Contatos contatos={contatos} hunterDisponivel={hunterDisponivel} envioDisponivel={envioDisponivel} podeDisparar={podeDisparar} ehAdmin={ehAdmin} aoEnviar={() => setAba('campanhas')} />
-        : <HistoricoDeCampanhas campanhas={campanhas} />}
+        ? <Contatos contatos={contatos} hunterDisponivel={hunterDisponivel} envioDisponivel={envioDisponivel} podeDisparar={podeDisparar} ehAdmin={ehAdmin} abrirCampanha={(ids) => setComposicao({ ids })} />
+        : <PainelDeCampanhas campanhas={campanhas} envioNoMes={envioNoMes} podeDisparar={podeDisparar} envioDisponivel={envioDisponivel} abrirCampanha={setComposicao} />}
+      {composicao && (
+        <DialogCampanha
+          todos={contatos}
+          inicial={composicao}
+          onFechar={() => setComposicao(null)}
+          onFeito={(texto, enviou) => {
+            setComposicao(null)
+            setRecado(texto)
+            router.refresh()
+            if (enviou) setAba('campanhas')
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, ehAdmin, aoEnviar }: {
+function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, ehAdmin, abrirCampanha }: {
   contatos: ContatoDeImprensa[]
   hunterDisponivel: boolean
   envioDisponivel: boolean
   podeDisparar: boolean
   ehAdmin: boolean
-  aoEnviar: () => void
+  abrirCampanha: (ids: string[]) => void
 }) {
   const router = useRouter()
   const [busca, setBusca] = useState('')
@@ -138,7 +138,6 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
   const [dialogNovo, setDialogNovo] = useState<'fechado' | 'criar' | ContatoDeImprensa>('fechado')
   const [dialogBusca, setDialogBusca] = useState(false)
   const [dialogFinder, setDialogFinder] = useState(false)
-  const [dialogCampanha, setDialogCampanha] = useState(false)
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
   const [removendo, remover] = useTransition()
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
@@ -229,18 +228,18 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
             className={`w-full pl-9 ${inputClass}`}
           />
         </div>
-        <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className={inputClass + ' w-auto'} aria-label="Situação do e-mail">
+        <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className={selectClass} aria-label="Situação do e-mail">
           <option value="todos">Toda situação</option>
           <option value="valido">Válido</option>
           <option value="arriscado">Arriscado</option>
           <option value="invalido">Inválido</option>
           <option value="nao_verificado">Não verificado</option>
         </select>
-        <select value={filtroLeitura} onChange={(e) => setFiltroLeitura(e.target.value as typeof filtroLeitura)} className={inputClass + ' w-auto'} aria-label="Leitura">
+        <select value={filtroLeitura} onChange={(e) => setFiltroLeitura(e.target.value as typeof filtroLeitura)} className={selectClass} aria-label="Leitura">
           {FILTROS_DE_LEITURA.map((f) => <option key={f.id} value={f.id}>{f.rotulo}</option>)}
         </select>
         {listas.length > 0 && (
-          <select value={filtroLista} onChange={(e) => setFiltroLista(e.target.value)} className={inputClass + ' w-auto'} aria-label="Lista">
+          <select value={filtroLista} onChange={(e) => setFiltroLista(e.target.value)} className={selectClass} aria-label="Lista">
             <option value="todas">Todas as listas</option>
             {listas.map(([t, n]) => <option key={t} value={t}>{t} ({n})</option>)}
           </select>
@@ -262,7 +261,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
           <span className="text-xs text-muted-foreground">· {escolhidos.filter(podeReceber).length} podem receber</span>
           <span className="flex-1" />
           {podeDisparar && (
-            <Button size="sm" onClick={() => setDialogCampanha(true)} disabled={!envioDisponivel || !escolhidos.some(podeReceber)}
+            <Button size="sm" onClick={() => abrirCampanha(escolhidos.filter(podeReceber).map((c) => c.id))} disabled={!envioDisponivel || !escolhidos.some(podeReceber)}
               title={envioDisponivel ? undefined : 'Envio de e-mail não configurado (RESEND_API_KEY)'}>
               <Send className="size-4" />Enviar campanha
             </Button>
@@ -344,19 +343,6 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
         <DialogEncontrarEmail
           onFechar={() => setDialogFinder(false)}
           onEncontrado={() => { setDialogFinder(false); router.refresh() }}
-        />
-      )}
-      {dialogCampanha && (
-        <DialogCampanha
-          escolhidos={escolhidos}
-          onFechar={() => setDialogCampanha(false)}
-          onEnviada={(texto) => {
-            setDialogCampanha(false)
-            setSelecionados(new Set())
-            setRecado({ tom: 'ok', texto })
-            router.refresh()
-            aoEnviar()
-          }}
         />
       )}
       {!ehAdmin && contatos.length > 0 && (
@@ -468,45 +454,6 @@ function LinhaDoContato({ contato, hunterDisponivel, selecionado, onSelecionar, 
         </div>
       </td>
     </tr>
-  )
-}
-
-/** A moldura repetida dos três diálogos: fundo, Escape, título e botão de fechar. */
-function Dialog({ titulo, descricao, largura = 'max-w-lg', onFechar, podeFechar = true, children }: {
-  titulo: string
-  descricao?: string
-  largura?: string
-  onFechar: () => void
-  podeFechar?: boolean
-  children: React.ReactNode
-}) {
-  useEffect(() => {
-    function noEscape(e: KeyboardEvent) { if (e.key === 'Escape' && podeFechar) onFechar() }
-    document.addEventListener('keydown', noEscape)
-    return () => document.removeEventListener('keydown', noEscape)
-  }, [onFechar, podeFechar])
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/45 p-4 py-8"
-      onMouseDown={(e) => { if (e.target === e.currentTarget && podeFechar) onFechar() }}
-      role="dialog"
-      aria-modal="true"
-    >
-      <Card className={`w-full ${largura} overflow-hidden p-0 shadow-2xl`}>
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
-          <div className="min-w-0">
-            <h2 className="text-base font-semibold">{titulo}</h2>
-            {descricao && <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>}
-          </div>
-          <button type="button" onClick={onFechar} disabled={!podeFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40">
-            <X className="size-4" />
-          </button>
-        </header>
-        <div className="flex flex-col gap-4 px-6 py-5">{children}</div>
-      </Card>
-    </div>,
-    document.body,
   )
 }
 
@@ -789,190 +736,6 @@ function DialogEncontrarEmail({ onFechar, onEncontrado }: {
         </Button>
       </div>
     </Dialog>
-  )
-}
-
-function DialogCampanha({ escolhidos, onFechar, onEnviada }: {
-  escolhidos: ContatoDeImprensa[]
-  onFechar: () => void
-  onEnviada: (recado: string) => void
-}) {
-  const [assunto, setAssunto] = useState('')
-  const [corpo, setCorpo] = useState('Olá, {nome}!\n\n')
-  const [linkUrl, setLinkUrl] = useState('')
-  const [linkRotulo, setLinkRotulo] = useState('')
-  const [erro, setErro] = useState('')
-  const [enviando, enviar] = useTransition()
-
-  const aptos = escolhidos.filter(podeReceber)
-  const fora = escolhidos.length - aptos.length
-  const alemDoTeto = aptos.length > TETO_DE_DESTINATARIOS
-
-  function disparar() {
-    if (!confirm(`Enviar "${assunto}" para ${aptos.length} contato(s)? Depois de enviado, não dá para desfazer.`)) return
-    setErro('')
-    enviar(async () => {
-      const form = new FormData()
-      form.set('assunto', assunto)
-      form.set('corpo', corpo)
-      form.set('linkUrl', linkUrl)
-      form.set('linkRotulo', linkRotulo)
-      form.set('ids', JSON.stringify(aptos.map((c) => c.id)))
-      const r = await enviarCampanha(form)
-      if (r.erro) { setErro(r.erro); return }
-      onEnviada(r.recado ?? 'Campanha enviada.')
-    })
-  }
-
-  return (
-    <Dialog
-      titulo="Enviar campanha"
-      descricao="Sai da Redação, fica registrada no histórico para toda a equipe, e mostra quem abriu."
-      largura="max-w-2xl"
-      onFechar={onFechar}
-      podeFechar={!enviando}
-    >
-      <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-        Para <strong>{aptos.length}</strong> contato(s).
-        {fora > 0 && <span className="text-muted-foreground"> {fora} ficam de fora: sem e-mail, e-mail inválido ou saíram da lista.</span>}
-      </p>
-      {alemDoTeto && <p className="text-xs text-destructive">No máximo {TETO_DE_DESTINATARIOS} por campanha. Divida a seleção.</p>}
-
-      <label className="text-sm font-medium">Assunto
-        <input value={assunto} onChange={(e) => setAssunto(e.target.value)} disabled={enviando} maxLength={200} className={`mt-1 ${inputClass}`} />
-      </label>
-      <label className="text-sm font-medium">Mensagem
-        <textarea value={corpo} onChange={(e) => setCorpo(e.target.value)} disabled={enviando} rows={10} className={`mt-1 font-normal ${inputClass}`} />
-        <span className="mt-1 block text-xs font-normal text-muted-foreground">
-          <code>{'{nome}'}</code> vira o primeiro nome de cada contato (some sozinho quando não há nome). Linha em branco separa parágrafos.
-        </span>
-      </label>
-      <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
-        <label className="text-sm font-medium">Link <span className="font-normal text-muted-foreground">(opcional)</span>
-          <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} disabled={enviando} placeholder="https://cruzvermelhariodejaneiro.org/noticias/…" className={`mt-1 ${inputClass}`} />
-        </label>
-        <label className="text-sm font-medium">Texto do link
-          <input value={linkRotulo} onChange={(e) => setLinkRotulo(e.target.value)} disabled={enviando} placeholder="Leia o release" className={`mt-1 ${inputClass}`} />
-        </label>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Toda mensagem leva o link de saída da lista. A abertura é estimada por imagem: alguns programas de e-mail abrem sozinhos,
-        outros bloqueiam imagens — vale para ver quem nunca abre ao longo de vários envios.
-      </p>
-
-      {erro && <p className="text-xs text-destructive">{erro}</p>}
-
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onFechar} disabled={enviando}>Cancelar</Button>
-        <Button onClick={disparar} disabled={enviando || !aptos.length || alemDoTeto || assunto.trim().length < 3 || corpo.trim().length < 10}>
-          {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          {enviando ? 'Enviando…' : `Enviar para ${aptos.length}`}
-        </Button>
-      </div>
-    </Dialog>
-  )
-}
-
-const ESTADO_DA_CAMPANHA: Record<string, { rotulo: string; classe: string }> = {
-  enviando: { rotulo: 'Enviando', classe: 'bg-sky-500/15 text-sky-700 dark:text-sky-400' },
-  enviada: { rotulo: 'Enviada', classe: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' },
-  parcial: { rotulo: 'Parcial', classe: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
-  falhou: { rotulo: 'Falhou', classe: 'bg-destructive/10 text-destructive' },
-}
-
-/**
- * O histórico: o que saiu, quem enviou, para quantos e quantos abriram.
- * Todo membro do espaço vê — é o registro da equipe, não de quem disparou.
- */
-function HistoricoDeCampanhas({ campanhas }: { campanhas: CampanhaNaTela[] }) {
-  if (!campanhas.length) {
-    return (
-      <Card className="p-10 text-center">
-        <MailOpen className="mx-auto size-8 text-muted-foreground" />
-        <p className="mt-3 font-medium">Nenhuma campanha enviada ainda</p>
-        <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-          Na aba Contatos, marque quem deve receber e use <strong>Enviar campanha</strong>. Tudo o que sair aparece aqui, para toda a equipe.
-        </p>
-      </Card>
-    )
-  }
-  return (
-    <Card className="overflow-hidden p-0">
-      <ul className="divide-y divide-border">
-        {campanhas.map((c) => <LinhaDaCampanha key={c.id} campanha={c} />)}
-      </ul>
-    </Card>
-  )
-}
-
-function LinhaDaCampanha({ campanha }: { campanha: CampanhaNaTela }) {
-  const [aberta, setAberta] = useState(false)
-  const [destinatarios, setDestinatarios] = useState<DestinatarioDaCampanha[] | null>(null)
-  const [erro, setErro] = useState('')
-  const [carregando, carregar] = useTransition()
-  const estado = ESTADO_DA_CAMPANHA[campanha.estado] ?? ESTADO_DA_CAMPANHA.enviando
-  const taxa = campanha.enviados ? Math.round((campanha.aberturas / campanha.enviados) * 100) : 0
-
-  function alternar() {
-    const abrir = !aberta
-    setAberta(abrir)
-    if (abrir && !destinatarios) {
-      carregar(async () => {
-        const form = new FormData()
-        form.set('id', campanha.id)
-        const r = await destinatariosDaCampanha(form)
-        if (r.erro) { setErro(r.erro); return }
-        setDestinatarios(r.destinatarios ?? [])
-      })
-    }
-  }
-
-  return (
-    <li>
-      <button type="button" onClick={alternar} aria-expanded={aberta} className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left hover:bg-muted/30">
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">{campanha.assunto}</p>
-          <p className="text-xs text-muted-foreground">{quandoLegivel.format(new Date(campanha.quando))} · por {campanha.quem}</p>
-        </div>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {campanha.enviados} enviados · {campanha.aberturas} abriram ({taxa}%)
-          {campanha.falhas > 0 && <span className="text-destructive"> · {campanha.falhas} falhas</span>}
-        </span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${estado.classe}`}>{estado.rotulo}</span>
-        <ChevronDown className={`size-4 text-muted-foreground transition-transform ${aberta ? 'rotate-180' : ''}`} />
-      </button>
-
-      {aberta && (
-        <div className="grid gap-4 border-t border-border bg-muted/20 px-4 py-4 lg:grid-cols-2">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mensagem</p>
-            <p className="whitespace-pre-wrap text-sm">{campanha.corpo}</p>
-            {campanha.linkUrl && <a href={campanha.linkUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block break-all text-xs text-primary hover:underline">{campanha.linkUrl}</a>}
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Destinatários</p>
-            {carregando && <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />Carregando…</p>}
-            {erro && <p className="text-xs text-destructive">{erro}</p>}
-            {destinatarios && (
-              <ul className="max-h-72 overflow-y-auto rounded-lg border border-border bg-background text-sm">
-                {destinatarios.map((d, i) => (
-                  <li key={`${d.email}-${i}`} className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5 last:border-0">
-                    <span className="min-w-0 truncate">{d.nome ? `${d.nome} · ` : ''}<span className="text-muted-foreground">{d.email}</span></span>
-                    {d.estado === 'falhou'
-                      ? <span className="shrink-0 text-[11px] text-destructive" title={d.erro ?? ''}>falhou</span>
-                      : d.estado === 'na_fila'
-                        ? <span className="shrink-0 text-[11px] text-muted-foreground">sem confirmação</span>
-                        : d.abertoEm
-                          ? <span className="shrink-0 text-[11px] text-emerald-700 dark:text-emerald-500">abriu {quandoLegivel.format(new Date(d.abertoEm))}</span>
-                          : <span className="shrink-0 text-[11px] text-muted-foreground">não abriu</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-    </li>
   )
 }
 

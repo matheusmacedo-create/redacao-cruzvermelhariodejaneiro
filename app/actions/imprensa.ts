@@ -392,8 +392,91 @@ const remetenteDaCampanha = () => process.env.IMPRENSA_REMETENTE?.trim() || REME
 const respostaDaCampanha = () => process.env.IMPRENSA_RESPONDER_PARA?.trim() || undefined
 
 const urlDoPixel = (token: string) => `${urlBase()}/api/comunicados/abertura/${token}`
-const urlDeSaidaDoContato = (token: string) => `${urlBase()}/comunicados/sair?t=${token}`
-const urlDeSaidaEmUmCliqueDoContato = (token: string) => `${urlBase()}/api/comunicados/sair?t=${token}`
+const urlDoClique = (token: string) => `${urlBase()}/api/comunicados/clique/${token}`
+// c = o destinatário: diz qual campanha fez a pessoa sair.
+const urlDeSaidaDoContato = (token: string, c: string) => `${urlBase()}/comunicados/sair?t=${token}&c=${c}`
+const urlDeSaidaEmUmCliqueDoContato = (token: string, c: string) => `${urlBase()}/api/comunicados/sair?t=${token}&c=${c}`
+
+type Rascunho = { assunto: string; corpo: string; linkUrl: string; linkRotulo: string }
+
+function lerRascunho(formData: FormData): Rascunho {
+  const r = {
+    assunto: texto(formData, 'assunto'),
+    corpo: String(formData.get('corpo') ?? '').trim(),
+    linkUrl: texto(formData, 'linkUrl'),
+    linkRotulo: texto(formData, 'linkRotulo'),
+  }
+  if (r.assunto.length > 200) throw new Error('Assunto longo demais (máximo 200 caracteres).')
+  if (!linkValido(r.linkUrl)) throw new Error('O link precisa começar com https://')
+  return r
+}
+
+/** Guarda a campanha sem enviar. Os destinatários se escolhem no envio. */
+export async function salvarRascunho(formData: FormData): Promise<{ erro?: string; id?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (context.role === 'colaborador') throw new Error('Campanhas são para administradores e editores.')
+    const r = lerRascunho(formData)
+    if (!r.assunto && !r.corpo) throw new Error('Escreva ao menos o assunto ou o texto.')
+    const id = texto(formData, 'campanhaId')
+    const admin = createAdminClient()
+    const linha = {
+      assunto: r.assunto, corpo: r.corpo, link_url: r.linkUrl, link_rotulo: r.linkRotulo,
+      atualizada_em: new Date().toISOString(),
+    }
+    if (id) {
+      const { data, error } = await admin.from('press_campanhas').update(linha)
+        .eq('id', id).eq('workspace_id', context.workspace.id).eq('estado', 'rascunho').select('id')
+      if (error || !data?.length) throw new Error('Este rascunho não existe mais ou já foi enviado.')
+      revalidatePath('/imprensa')
+      return { id }
+    }
+    const { data, error } = await admin.from('press_campanhas').insert({
+      ...linha, workspace_id: context.workspace.id, estado: 'rascunho', enviada_por: context.user.id,
+    }).select('id').single()
+    if (error || !data) throw new Error('Não foi possível guardar o rascunho.')
+    revalidatePath('/imprensa')
+    return { id: data.id }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível guardar o rascunho.')
+  }
+}
+
+export async function excluirRascunho(formData: FormData): Promise<{ erro?: string }> {
+  try {
+    const context = await requireWorkspace()
+    if (context.role === 'colaborador') throw new Error('Campanhas são para administradores e editores.')
+    const { error } = await createAdminClient().from('press_campanhas').delete()
+      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id).eq('estado', 'rascunho')
+    if (error) throw new Error('Não foi possível apagar o rascunho.')
+    revalidatePath('/imprensa')
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível apagar o rascunho.')
+  }
+}
+
+/** Follow-up: os contatos que receberam a campanha e não abriram. */
+export async function naoAbriramDaCampanha(formData: FormData): Promise<{ erro?: string; ids?: string[] }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const ids: string[] = []
+    for (let de = 0; ; de += 1000) {
+      const { data, error } = await supabase.from('press_campanha_destinatarios')
+        .select('contato_id')
+        .eq('workspace_id', context.workspace.id).eq('campanha_id', texto(formData, 'id'))
+        .eq('estado', 'enviado').is('aberto_em', null).not('contato_id', 'is', null)
+        .range(de, de + 999)
+      if (error) throw new Error('Não foi possível ler quem não abriu.')
+      ids.push(...(data ?? []).map((d) => d.contato_id as string))
+      if (!data || data.length < 1000) break
+    }
+    return { ids }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível ler quem não abriu.')
+  }
+}
 
 /**
  * Dispara uma campanha para os contatos escolhidos.
@@ -413,14 +496,10 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     if (context.role === 'colaborador') throw new Error('Disparar campanha é para administradores e editores.')
     if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado: falta RESEND_API_KEY.')
 
-    const assunto = texto(formData, 'assunto')
-    const corpo = String(formData.get('corpo') ?? '').trim()
-    const linkUrl = texto(formData, 'linkUrl')
-    const linkRotulo = texto(formData, 'linkRotulo')
+    const { assunto, corpo, linkUrl, linkRotulo } = lerRascunho(formData)
     if (assunto.length < 3) throw new Error('Escreva o assunto.')
-    if (assunto.length > 200) throw new Error('Assunto longo demais (máximo 200 caracteres).')
     if (corpo.length < 10) throw new Error('Escreva o texto da mensagem.')
-    if (!linkValido(linkUrl)) throw new Error('O link precisa começar com https://')
+    const rascunhoId = texto(formData, 'campanhaId')
 
     let ids: string[]
     try { ids = JSON.parse(texto(formData, 'ids') || '[]') } catch { ids = [] }
@@ -446,16 +525,28 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     const deFora = ids.length - aptos.length
     if (!aptos.length) throw new Error('Nenhum dos contatos selecionados pode receber: sem e-mail, e-mail inválido ou saíram da lista.')
 
-    const { data: campanha, error: erroCampanha } = await admin.from('press_campanhas').insert({
-      workspace_id: workspaceId,
+    const agora = new Date().toISOString()
+    const dadosDaCampanha = {
       assunto,
       corpo,
       link_url: linkUrl,
       link_rotulo: linkRotulo,
+      estado: 'enviando',
       total_destinatarios: aptos.length,
       enviada_por: context.user.id,
-    }).select('id').single()
-    if (erroCampanha || !campanha) throw new Error('Não foi possível registrar a campanha.')
+      enviada_em: agora,
+      atualizada_em: agora,
+    }
+    // Rascunho que sai vira a própria campanha: some da aba de rascunhos e
+    // aparece como enviada, sem cópia. O filtro por estado impede reenviar
+    // uma campanha que já saiu (dois cliques rápidos, duas abas abertas).
+    const { data: campanha, error: erroCampanha } = rascunhoId
+      ? await admin.from('press_campanhas').update(dadosDaCampanha)
+        .eq('id', rascunhoId).eq('workspace_id', workspaceId).eq('estado', 'rascunho').select('id').maybeSingle()
+      : await admin.from('press_campanhas').insert({ ...dadosDaCampanha, workspace_id: workspaceId }).select('id').single()
+    if (erroCampanha || !campanha) {
+      throw new Error(rascunhoId ? 'Este rascunho já foi enviado ou não existe mais.' : 'Não foi possível registrar a campanha.')
+    }
 
     const fila: { id: string; contato_id: string | null; email: string; nome: string; token_abertura: string }[] = []
     let erroFila = false
@@ -490,15 +581,16 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
         const tokenSaida = tokenDoContato.get(d.contato_id as string) as string
         const email = emailDaCampanha({
           assunto, corpo, nome: d.nome as string, linkUrl, linkRotulo,
-          urlDoPixel: urlDoPixel(d.token_abertura as string),
-          urlDeSaida: urlDeSaidaDoContato(tokenSaida),
+          urlDoClique: urlDoClique(d.token_abertura),
+          urlDoPixel: urlDoPixel(d.token_abertura),
+          urlDeSaida: urlDeSaidaDoContato(tokenSaida, d.token_abertura),
         })
         return {
           para: d.email as string,
           assunto: email.assunto,
           html: email.html,
           texto: email.texto,
-          urlDeSaidaEmUmClique: urlDeSaidaEmUmCliqueDoContato(tokenSaida),
+          urlDeSaidaEmUmClique: urlDeSaidaEmUmCliqueDoContato(tokenSaida, d.token_abertura),
           de: remetenteDaCampanha(),
           responderPara: respostaDaCampanha(),
         }
@@ -549,6 +641,8 @@ export type DestinatarioDaCampanha = {
   erro: string | null
   abertoEm: string | null
   aberturas: number
+  clicadoEm: string | null
+  descadastrouEm: string | null
 }
 
 /** Quem recebeu uma campanha e quem abriu — para o histórico. */
@@ -557,7 +651,7 @@ export async function destinatariosDaCampanha(formData: FormData): Promise<{ err
     const context = await requireWorkspace()
     const supabase = await createClient()
     const { data, error } = await supabase.from('press_campanha_destinatarios')
-      .select('email, nome, estado, erro, aberto_em, aberturas')
+      .select('email, nome, estado, erro, aberto_em, aberturas, clicado_em, descadastrou_em')
       .eq('workspace_id', context.workspace.id)
       .eq('campanha_id', texto(formData, 'id'))
       .order('aberto_em', { ascending: false, nullsFirst: false })
@@ -566,6 +660,7 @@ export async function destinatariosDaCampanha(formData: FormData): Promise<{ err
     return {
       destinatarios: (data ?? []).map((d) => ({
         email: d.email, nome: d.nome, estado: d.estado, erro: d.erro, abertoEm: d.aberto_em, aberturas: d.aberturas,
+        clicadoEm: d.clicado_em, descadastrouEm: d.descadastrou_em,
       })),
     }
   } catch (causa) {

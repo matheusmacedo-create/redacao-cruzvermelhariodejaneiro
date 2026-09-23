@@ -13,10 +13,11 @@ export const metadata = { title: 'Sair da lista — Cruz Vermelha RJ' }
 export default async function SairDosComunicados({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string }>
+  searchParams: Promise<{ t?: string; c?: string }>
 }) {
-  const { t } = await searchParams
+  const { t, c } = await searchParams
   const token = (t ?? '').trim()
+  const campanha = /^[0-9a-f]{32}$/.test((c ?? '').trim()) ? (c ?? '').trim() : ''
 
   if (!/^[0-9a-f]{48}$/.test(token)) {
     return (
@@ -34,6 +35,7 @@ export default async function SairDosComunicados({
       acao={
         <form action="/api/comunicados/sair" method="post">
           <input type="hidden" name="t" value={token} />
+          {campanha && <input type="hidden" name="c" value={campanha} />}
           <button
             type="submit"
             className="rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground transition hover:opacity-90"

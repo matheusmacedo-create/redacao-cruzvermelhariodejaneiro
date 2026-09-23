@@ -86,13 +86,15 @@ export function emailDaCampanha(dados: {
   nome: string
   linkUrl?: string
   linkRotulo?: string
+  /** O endereço rastreado que leva ao link (registra o clique). Ausente = o link direto. */
+  urlDoClique?: string
   urlDoPixel: string
   urlDeSaida: string
 }): EmailDaCampanha {
   const corpo = personalizar(dados.corpo, dados.nome)
   const assunto = personalizar(dados.assunto, dados.nome)
   const blocos = paragrafos(corpo)
-  const link = dados.linkUrl?.trim() ?? ''
+  const link = dados.linkUrl?.trim() ? (dados.urlDoClique || dados.linkUrl.trim()) : ''
   const rotulo = dados.linkRotulo?.trim() || 'Saiba mais'
 
   const miolo = blocos
@@ -130,4 +132,29 @@ ${acao}
   ].join('\n\n').replace(/\n{3,}/g, '\n\n')
 
   return { assunto, html, texto }
+}
+
+export type NumerosDeCampanhas = {
+  enviados: number
+  aberturasUnicas: number
+  aberturasTotais: number
+  cliquesUnicos: number
+  cliquesTotais: number
+  descadastros: number
+  falhas: number
+}
+
+const pct = (parte: number, todo: number) => (todo ? Math.round((parte / todo) * 1000) / 10 : 0)
+
+/** As taxas do painel, a partir da soma das campanhas do período. */
+export function taxas(n: NumerosDeCampanhas) {
+  return {
+    abertura: pct(n.aberturasUnicas, n.enviados),
+    cliques: pct(n.cliquesUnicos, n.enviados),
+    // Dos que abriram, quantos clicaram — mede o texto, não a lista.
+    cliquesSobreAberturas: pct(n.cliquesUnicos, n.aberturasUnicas),
+    descadastro: pct(n.descadastros, n.enviados),
+    falha: pct(n.falhas, n.enviados + n.falhas),
+    mediaDeAberturas: n.aberturasUnicas ? Math.round((n.aberturasTotais / n.aberturasUnicas) * 10) / 10 : 0,
+  }
 }
