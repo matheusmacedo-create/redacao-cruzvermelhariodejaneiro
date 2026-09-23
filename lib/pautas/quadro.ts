@@ -58,3 +58,25 @@ export const PRIORIDADES = [
   { id: 'medium', rotulo: 'Normal' },
   { id: 'low', rotulo: 'Baixa' },
 ] as const
+
+/**
+ * A paleta das etiquetas. Fechada de propósito: cada cor foi conferida para
+ * texto branco passar de 4,5:1 de contraste. A etiqueta sempre leva o nome
+ * escrito — a cor ajuda a achar, não é a única informação.
+ */
+export const CORES_DE_ETIQUETA = {
+  verde: { rotulo: 'Verde', hex: '#1f7a4d' },
+  lima: { rotulo: 'Lima', hex: '#4c6b1f' },
+  amarelo: { rotulo: 'Amarelo', hex: '#8a6500' },
+  laranja: { rotulo: 'Laranja', hex: '#b54a00' },
+  vermelho: { rotulo: 'Vermelho', hex: '#c42b1c' },
+  rosa: { rotulo: 'Rosa', hex: '#a8327a' },
+  roxo: { rotulo: 'Roxo', hex: '#6247b8' },
+  azul: { rotulo: 'Azul', hex: '#1f5fbf' },
+  ceu: { rotulo: 'Céu', hex: '#1b6f8a' },
+  cinza: { rotulo: 'Cinza', hex: '#5b6577' },
+} as const
+
+export type CorDeEtiqueta = keyof typeof CORES_DE_ETIQUETA
+
+export const ehCorDeEtiqueta = (c: string): c is CorDeEtiqueta => Object.prototype.hasOwnProperty.call(CORES_DE_ETIQUETA, c)
