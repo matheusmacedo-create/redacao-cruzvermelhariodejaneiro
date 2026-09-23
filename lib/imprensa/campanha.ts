@@ -11,8 +11,10 @@
 export const LIMITE_SEM_LEITURA = 3
 
 /** Teto de destinatários por campanha: o envio acontece dentro de uma função
- * da Vercel, e acima disso ela pode morrer no meio do lote. */
-export const TETO_DE_DESTINATARIOS = 500
+ * da Vercel (60 s), em lotes de 100 com pausa entre eles para respeitar o
+ * limite de chamadas do Resend. Acima disso, a função pode morrer no meio.
+ * Lista maior sai em mais de uma campanha. */
+export const TETO_DE_DESTINATARIOS = 1000
 
 export type ContatoParaEnvio = {
   email: string | null
