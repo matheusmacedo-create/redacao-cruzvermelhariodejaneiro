@@ -30,6 +30,7 @@ export type CartaoDaPauta = {
   status: string
   prioridade: string
   prazo: string | null
+  inicio: string | null
   responsavelId: string | null
   participantes: string[]
   etiquetas: string[]
@@ -498,6 +499,7 @@ function CartaoAberto({ cartao, pessoas, etiquetas, aoFechar, aoMudarLocal, aoMo
   const router = useRouter()
   const [titulo, setTitulo] = useState(cartao.titulo)
   const [prazo, setPrazo] = useState(cartao.prazo ?? '')
+  const [inicio, setInicio] = useState(cartao.inicio ?? '')
   const [prioridade, setPrioridade] = useState(cartao.prioridade)
   const [responsavel, setResponsavel] = useState(cartao.responsavelId ?? '')
   const [itens, setItens] = useState<ItemDoChecklist[] | null>(null)
@@ -525,16 +527,16 @@ function CartaoAberto({ cartao, pessoas, etiquetas, aoFechar, aoMudarLocal, aoMo
     return () => document.removeEventListener('keydown', noEscape)
   }, [aoFechar])
 
-  const mudou = titulo.trim() !== cartao.titulo || prazo !== (cartao.prazo ?? '') || prioridade !== cartao.prioridade || responsavel !== (cartao.responsavelId ?? '')
+  const mudou = titulo.trim() !== cartao.titulo || prazo !== (cartao.prazo ?? '') || inicio !== (cartao.inicio ?? '') || prioridade !== cartao.prioridade || responsavel !== (cartao.responsavelId ?? '')
 
   function guardar() {
     setErro('')
     salvar(async () => {
       const f = new FormData()
-      f.set('id', cartao.id); f.set('titulo', titulo); f.set('prazo', prazo); f.set('prioridade', prioridade); f.set('responsavel', responsavel)
+      f.set('id', cartao.id); f.set('titulo', titulo); f.set('prazo', prazo); f.set('inicio', inicio); f.set('prioridade', prioridade); f.set('responsavel', responsavel)
       const r = await atualizarCartao(f)
       if (r.erro) { setErro(r.erro); return }
-      aoMudarLocal({ titulo: titulo.trim(), prazo: prazo || null, prioridade, responsavelId: responsavel || null })
+      aoMudarLocal({ titulo: titulo.trim(), prazo: prazo || null, inicio: inicio || null, prioridade, responsavelId: responsavel || null })
       router.refresh()
     })
   }
@@ -643,8 +645,11 @@ function CartaoAberto({ cartao, pessoas, etiquetas, aoFechar, aoMudarLocal, aoMo
                 {pessoas.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </label>
+            <label className="flex flex-col gap-1 font-medium">Início
+              <input type="date" value={inicio} max={prazo || undefined} onChange={(e) => setInicio(e.target.value)} className={campo} />
+            </label>
             <label className="flex flex-col gap-1 font-medium">Prazo
-              <input type="date" value={prazo} onChange={(e) => setPrazo(e.target.value)} className={campo} />
+              <input type="date" value={prazo} min={inicio || undefined} onChange={(e) => setPrazo(e.target.value)} className={campo} />
             </label>
             <label className="flex flex-col gap-1 font-medium">Prioridade
               <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} className={campo}>

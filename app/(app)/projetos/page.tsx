@@ -1,52 +1,50 @@
-import Link from 'next/link'
-import { ArrowRight, Plus } from 'lucide-react'
-import { createProject } from '@/app/actions/editorial'
 import { PageHeader } from '@/components/app/page-header'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { progresso, situacaoDoProjeto } from '@/lib/projetos/cronograma'
+import { Carteira, type ProjetoNaCarteira } from '@/components/app/projetos/carteira'
+import { hojeEmSaoPaulo, type PessoaDoProjeto } from '@/components/app/projetos/comum'
 
+export const dynamic = 'force-dynamic'
+
+/** A carteira de projetos (modelo do Asana): situação, progresso, responsável, prazo e última atualização. */
 export default async function ProjetosPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
-  const { data: projects } = await supabase
-    .from('projects')
-    .select('id,name,description,status,color,updated_at,pautas(id,status)')
-    .eq('workspace_id', context.workspace.id)
-    .order('updated_at', { ascending: false })
+
+  const [{ data: projects }, { data: membros }] = await Promise.all([
+    supabase.from('projects')
+      .select('id,name,status,situacao,situacao_em,inicio,fim,responsavel_id,created_by,created_at,pautas(status)')
+      .eq('workspace_id', context.workspace.id)
+      .order('created_at', { ascending: false }),
+    supabase.from('workspace_members').select('user_id,profiles(full_name,initials,color,avatar_path,active)').eq('workspace_id', context.workspace.id),
+  ])
+
+  const pessoas: PessoaDoProjeto[] = (membros ?? []).flatMap((m) => {
+    const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; initials?: string; color?: string; avatar_path?: string | null; active?: boolean } | null
+    if (!p || p.active === false) return []
+    return [{ id: m.user_id as string, nome: p.full_name || 'Colaborador', iniciais: p.initials || '?', cor: p.color || null, avatar: p.avatar_path ?? null }]
+  }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+
+  const projetos: ProjetoNaCarteira[] = (projects ?? []).map((p) => {
+    const concluido = p.status === 'completed'
+    return {
+      id: p.id,
+      nome: p.name,
+      concluido,
+      situacao: situacaoDoProjeto({ situacao: p.situacao, concluido }),
+      progresso: progresso(((p.pautas ?? []) as { status: string }[]).map((x) => x.status)),
+      responsavelId: p.responsavel_id ?? p.created_by,
+      inicio: p.inicio,
+      fim: p.fim,
+      ultimaAtualizacao: p.situacao_em,
+    }
+  })
 
   return (
     <div>
-      <PageHeader title="Projetos" description="Campanhas, eventos e iniciativas com começo, desenvolvimento e fim — cada projeto organiza seu próprio ecossistema de comunicação." />
-      <Card className="mb-6 p-5">
-        <form action={createProject} className="grid gap-4 md:grid-cols-[1fr_2fr_auto] md:items-end">
-          <label className="text-sm font-medium">Nome<input name="name" required minLength={3} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" /></label>
-          <label className="text-sm font-medium">Objetivo / descrição<input name="description" className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3" placeholder="Ex.: promover o evento, gerar inscrições e organizar a cobertura" /></label>
-          <Button type="submit" size="lg"><Plus className="size-4" />Novo projeto</Button>
-        </form>
-      </Card>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {!projects?.length && <Card className="p-10 text-center sm:col-span-2 lg:col-span-3"><p className="font-medium">Nenhum projeto neste espaço.</p><p className="mt-1 text-sm text-muted-foreground">Crie um projeto para concentrar conteúdos, calendário, aprovações e resultados de uma iniciativa.</p></Card>}
-        {projects?.map((project) => {
-          const pautas = project.pautas ?? []
-          return <Card key={project.id} className="flex flex-col p-5">
-            <div className="flex items-start gap-3"><span className="mt-1 size-3 shrink-0 rounded-full bg-primary" /><div><h3 className="font-semibold">{project.name}</h3><p className="text-xs text-muted-foreground">{project.status === 'active' ? 'Em andamento' : project.status}</p></div></div>
-            <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">{project.description || 'Sem objetivo descrito.'}</p>
-            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4 text-center">
-              <Stat value={pautas.length} label="Demandas" /><Stat value={pautas.filter((p) => p.status === 'production').length} label="Produção" /><Stat value={pautas.filter((p) => p.status === 'approved').length} label="Prontas" />
-            </div>
-            <div className="mt-4 flex items-center gap-4 text-sm font-medium">
-              <Link href={`/projetos/${project.id}`} className="inline-flex items-center gap-1 text-primary hover:underline">Abrir projeto<ArrowRight className="size-3.5" /></Link>
-              <Link href={`/pautas?projeto=${project.id}`} className="text-muted-foreground hover:text-foreground hover:underline">Ver demandas</Link>
-            </div>
-          </Card>
-        })}
-      </div>
+      <PageHeader title="Projetos" description="Campanhas, eventos e iniciativas com começo, meio e fim — com situação, prazo e linha do tempo de cada um." />
+      <Carteira projetos={projetos} pessoas={pessoas} hoje={hojeEmSaoPaulo()} />
     </div>
   )
-}
-
-function Stat({ value, label }: { value: number; label: string }) {
-  return <div><p className="text-xl font-bold tabular-nums">{value}</p><p className="text-[11px] text-muted-foreground">{label}</p></div>
 }
