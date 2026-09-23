@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { QuadroDePautas, type CartaoDaPauta, type PessoaDoQuadro } from '@/components/app/pautas/quadro'
+import type { Etiqueta } from '@/app/actions/quadro'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +29,7 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
     const linhas = []
     for (let de = 0; de < TETO; de += 1000) {
       let q = supabase.from('pautas')
-        .select('id,title,status,priority,coordination,due_date,owner_id,tags,project_id,posicao,created_at,projects(name),pauta_participants(user_id),pauta_checklist(feito),messages(count),pauta_links(count),content_pieces(count)')
+        .select('id,title,status,priority,coordination,due_date,owner_id,tags,project_id,posicao,created_at,projects(name),pauta_participants(user_id),pauta_checklist(feito),pauta_etiquetas(etiqueta_id),messages(count),pauta_links(count),content_pieces(count)')
         .eq('workspace_id', workspaceId).neq('status', 'archived')
         .order('created_at', { ascending: false }).order('id')
         .range(de, de + 999)
@@ -40,10 +41,11 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
     return linhas
   }
 
-  const [pautas, { data: project }, { data: membros }] = await Promise.all([
+  const [pautas, { data: project }, { data: membros }, { data: etiquetas }] = await Promise.all([
     todasAsPautas(),
     projeto ? supabase.from('projects').select('id,name').eq('id', projeto).eq('workspace_id', workspaceId).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('workspace_members').select('user_id,profiles(full_name,initials,color,avatar_path,active)').eq('workspace_id', workspaceId),
+    supabase.from('etiquetas').select('id,nome,cor').eq('workspace_id', workspaceId).order('nome'),
   ])
 
   const pessoas: PessoaDoQuadro[] = (membros ?? []).flatMap((m) => {
@@ -64,6 +66,7 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
       prazo: p.due_date,
       responsavelId: p.owner_id,
       participantes: ((p.pauta_participants ?? []) as { user_id: string }[]).map((x) => x.user_id),
+      etiquetas: ((p.pauta_etiquetas ?? []) as { etiqueta_id: string }[]).map((x) => x.etiqueta_id),
       tipo: Array.isArray(p.tags) && p.tags[0] ? String(p.tags[0]) : '',
       coordenacao: p.coordination ?? '',
       projeto: proj?.name ?? '',
@@ -88,7 +91,14 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
           </div>
         }
       />
-      <QuadroDePautas cartoes={cartoes} pessoas={pessoas} eu={context.user.id} projetoId={projeto ?? null} />
+      <QuadroDePautas
+        cartoes={cartoes}
+        pessoas={pessoas}
+        etiquetas={(etiquetas ?? []) as Etiqueta[]}
+        eu={context.user.id}
+        workspaceId={workspaceId}
+        projetoId={projeto ?? null}
+      />
     </div>
   )
 }

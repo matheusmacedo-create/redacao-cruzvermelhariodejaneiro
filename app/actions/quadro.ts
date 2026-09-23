@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { COLUNAS, COLUNAS_COM_CRIACAO, PASSO, PRIORIDADES, type StatusDoQuadro } from '@/lib/pautas/quadro'
+import { COLUNAS, COLUNAS_COM_CRIACAO, ehCorDeEtiqueta, PASSO, PRIORIDADES, type CorDeEtiqueta, type StatusDoQuadro } from '@/lib/pautas/quadro'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * As ações do quadro de pautas. Usam o cliente da sessão: as políticas da
@@ -18,6 +19,15 @@ import { COLUNAS, COLUNAS_COM_CRIACAO, PASSO, PRIORIDADES, type StatusDoQuadro }
 type Resultado = { erro?: string }
 const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
 const ehStatus = (s: string): s is StatusDoQuadro => COLUNAS.some((c) => c.status === s)
+
+/**
+ * Toca o updated_at da pauta. É o UPDATE que o quadro escuta ao vivo: mudar
+ * etiqueta ou checklist de um cartão precisa aparecer para quem está olhando.
+ */
+async function tocar(supabase: SupabaseClient, workspaceId: string, ids: string[]) {
+  if (!ids.length) return
+  await supabase.from('pautas').update({ updated_at: new Date().toISOString() }).eq('workspace_id', workspaceId).in('id', ids)
+}
 
 function revalidar(id?: string) {
   revalidatePath('/pautas')
@@ -173,6 +183,7 @@ export async function adicionarItemDoChecklist(formData: FormData): Promise<Resu
       posicao: Date.now(), created_by: context.user.id,
     }).select('id,texto,feito').single()
     if (error || !data) throw new Error('Não foi possível adicionar o item.')
+    await tocar(supabase, context.workspace.id, [pautaId])
     revalidar()
     return { item: data }
   } catch (causa) {
@@ -184,9 +195,10 @@ export async function marcarItemDoChecklist(formData: FormData): Promise<Resulta
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
-    const { error } = await supabase.from('pauta_checklist').update({ feito: texto(formData, 'feito') === 'true' })
-      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id)
+    const { data, error } = await supabase.from('pauta_checklist').update({ feito: texto(formData, 'feito') === 'true' })
+      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id).select('pauta_id').maybeSingle()
     if (error) throw new Error('Não foi possível marcar o item.')
+    if (data) await tocar(supabase, context.workspace.id, [data.pauta_id])
     revalidar()
     return {}
   } catch (causa) {
@@ -198,12 +210,179 @@ export async function removerItemDoChecklist(formData: FormData): Promise<Result
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
-    const { error } = await supabase.from('pauta_checklist').delete()
-      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id)
+    const { data, error } = await supabase.from('pauta_checklist').delete()
+      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id).select('pauta_id').maybeSingle()
     if (error) throw new Error('Não foi possível remover o item.')
+    if (data) await tocar(supabase, context.workspace.id, [data.pauta_id])
     revalidar()
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível remover o item.') }
+  }
+}
+
+// ---------------------------------------------------------------- etiquetas
+
+export type Etiqueta = { id: string; nome: string; cor: CorDeEtiqueta }
+
+function lerEtiqueta(formData: FormData) {
+  const nome = texto(formData, 'nome')
+  const cor = texto(formData, 'cor')
+  if (!nome || nome.length > 40) throw new Error('O nome da etiqueta precisa ter entre 1 e 40 caracteres.')
+  if (!ehCorDeEtiqueta(cor)) throw new Error('Cor inválida.')
+  return { nome, cor }
+}
+
+export async function criarEtiqueta(formData: FormData): Promise<Resultado & { etiqueta?: Etiqueta }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const { nome, cor } = lerEtiqueta(formData)
+    const { data, error } = await supabase.from('etiquetas')
+      .insert({ workspace_id: context.workspace.id, nome, cor, created_by: context.user.id })
+      .select('id,nome,cor').single()
+    if (error || !data) throw new Error(error?.code === '23505' ? 'Já existe uma etiqueta com esse nome.' : 'Não foi possível criar a etiqueta.')
+    revalidar()
+    return { etiqueta: data as Etiqueta }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível criar a etiqueta.') }
+  }
+}
+
+export async function editarEtiqueta(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const { nome, cor } = lerEtiqueta(formData)
+    const { error } = await supabase.from('etiquetas').update({ nome, cor })
+      .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error(error.code === '23505' ? 'Já existe uma etiqueta com esse nome.' : 'Não foi possível salvar a etiqueta.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar a etiqueta.') }
+  }
+}
+
+/** Apaga a etiqueta do espaço — sai de todos os cartões que a usavam. */
+export async function excluirEtiqueta(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const id = texto(formData, 'id')
+    const { data: usos } = await supabase.from('pauta_etiquetas').select('pauta_id')
+      .eq('workspace_id', context.workspace.id).eq('etiqueta_id', id)
+    const { error } = await supabase.from('etiquetas').delete().eq('id', id).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível apagar a etiqueta.')
+    await tocar(supabase, context.workspace.id, (usos ?? []).map((u) => u.pauta_id as string))
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível apagar a etiqueta.') }
+  }
+}
+
+export async function alternarEtiqueta(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const pautaId = texto(formData, 'pautaId')
+    const etiquetaId = texto(formData, 'etiquetaId')
+    const ligar = texto(formData, 'ligar') === 'true'
+    const { error } = ligar
+      ? await supabase.from('pauta_etiquetas').upsert(
+        { pauta_id: pautaId, etiqueta_id: etiquetaId, workspace_id: context.workspace.id },
+        { onConflict: 'pauta_id,etiqueta_id', ignoreDuplicates: true },
+      )
+      : await supabase.from('pauta_etiquetas').delete()
+        .eq('workspace_id', context.workspace.id).eq('pauta_id', pautaId).eq('etiqueta_id', etiquetaId)
+    if (error) throw new Error('Não foi possível mudar a etiqueta.')
+    await tocar(supabase, context.workspace.id, [pautaId])
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível mudar a etiqueta.') }
+  }
+}
+
+// ---------------------------------------------------------------- arquivo
+
+/**
+ * Arquiva cartões de UMA coluna (um cartão ou a coluna inteira). Guarda de
+ * onde saíram, para restaurar no mesmo lugar.
+ */
+export async function arquivarPautas(formData: FormData): Promise<Resultado & { arquivadas?: number }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const status = texto(formData, 'status')
+    if (!ehStatus(status)) throw new Error('Coluna inválida.')
+    let ids: string[]
+    try { ids = JSON.parse(texto(formData, 'ids') || '[]') } catch { ids = [] }
+    ids = Array.isArray(ids) ? ids.filter((i) => typeof i === 'string').slice(0, 1000) : []
+    if (!ids.length) throw new Error('Nada para arquivar.')
+
+    let arquivadas = 0
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await supabase.from('pautas')
+        .update({ status: 'archived', arquivada_de: status, updated_at: new Date().toISOString() })
+        .eq('workspace_id', context.workspace.id).eq('status', status).in('id', ids.slice(i, i + 200)).select('id')
+      if (error) throw new Error('Não foi possível arquivar.')
+      arquivadas += data?.length ?? 0
+    }
+    await supabase.from('activity_log').insert(ids.slice(0, 200).map((id) => ({
+      workspace_id: context.workspace.id, actor_id: context.user.id, action: 'archived',
+      entity_type: 'pauta', entity_id: id, metadata: { de: status },
+    })))
+    revalidar()
+    return { arquivadas }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível arquivar.') }
+  }
+}
+
+export type PautaArquivada = { id: string; titulo: string; de: string; quando: string }
+
+export async function listarArquivadas(): Promise<Resultado & { pautas?: PautaArquivada[] }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const { data, error } = await supabase.from('pautas').select('id,title,arquivada_de,updated_at')
+      .eq('workspace_id', context.workspace.id).eq('status', 'archived')
+      .order('updated_at', { ascending: false }).limit(300)
+    if (error) throw new Error('Não foi possível carregar as arquivadas.')
+    return { pautas: (data ?? []).map((p) => ({ id: p.id, titulo: p.title, de: p.arquivada_de ?? '', quando: p.updated_at })) }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível carregar as arquivadas.') }
+  }
+}
+
+/**
+ * Devolve ao quadro, na etapa de onde saiu. Quem saiu de "Aprovação" volta
+ * para "Revisão": a rodada de aprovação daquela época não vale mais, e uma
+ * nova precisa ser pedida.
+ */
+export async function restaurarPauta(formData: FormData): Promise<Resultado & { status?: string }> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const id = texto(formData, 'id')
+    const { data: atual } = await supabase.from('pautas').select('status,arquivada_de')
+      .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!atual || atual.status !== 'archived') throw new Error('Esta pauta não está arquivada.')
+    const de = atual.arquivada_de ?? ''
+    const status = de === 'approval' ? 'review' : ehStatus(de) ? de : 'incoming'
+    const { error } = await supabase.from('pautas')
+      .update({ status, arquivada_de: null, posicao: null, updated_at: new Date().toISOString() })
+      .eq('id', id).eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível restaurar.')
+    await supabase.from('activity_log').insert({
+      workspace_id: context.workspace.id, actor_id: context.user.id, action: 'status_changed',
+      entity_type: 'pauta', entity_id: id, metadata: { status, restaurada: true },
+    })
+    revalidar(id)
+    return { status }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível restaurar.') }
   }
 }
