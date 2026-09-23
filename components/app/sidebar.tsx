@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Brain, CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  AtSign, Brain, CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -27,6 +27,8 @@ const sections = [
       // Relações públicas: contatos de imprensa, encontrados e verificados
       // pela Hunter.io — mesma vizinhança da newsletter, outro público.
       { href: '/imprensa', label: 'Imprensa', icon: Newspaper },
+      // O e-mail do dia a dia de cada setor: pelo alias e com a assinatura dele.
+      { href: '/correio', label: 'Correio', icon: AtSign },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },
       { href: '/biblioteca', label: 'Biblioteca', icon: Images },
     ],

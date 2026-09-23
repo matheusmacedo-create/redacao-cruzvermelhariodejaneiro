@@ -10,6 +10,7 @@ import { removerChaveDeIntegracao, salvarChaveDeIntegracao } from '@/app/actions
 export type ChaveNaTela = {
   servico: string
   nome: string
+  campos: readonly { id: string; rotulo: string; secreto: boolean }[]
   origem: 'cofre' | 'ambiente' | null
   atualizadaEm: string | null
   painel: string
@@ -41,6 +42,9 @@ export function Integracoes({ chaves }: { chaves: ChaveNaTela[] }) {
 function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
   const router = useRouter()
   const [valor, setValor] = useState('')
+  const [campos, setCampos] = useState<Record<string, string>>({})
+  const multiplo = chave.campos.length > 0
+  const pronto = multiplo ? chave.campos.every((c) => (campos[c.id] ?? '').trim().length >= 8) : valor.trim().length >= 8
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
   const [ocupado, rodar] = useTransition()
 
@@ -50,9 +54,10 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
       const form = new FormData()
       form.set('servico', chave.servico)
       form.set('valor', valor)
+      for (const c of chave.campos) form.set(c.id, campos[c.id] ?? '')
       const r = await salvarChaveDeIntegracao(form)
       setRecado(r.erro ? { tom: 'erro', texto: r.erro } : { tom: 'ok', texto: r.recado ?? 'Pronto.' })
-      if (!r.erro) { setValor(''); router.refresh() }
+      if (!r.erro) { setValor(''); setCampos({}); router.refresh() }
     })
   }
 
@@ -92,7 +97,20 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <input
+        {multiplo ? chave.campos.map((c) => (
+          <input
+            key={c.id}
+            type={c.secreto ? 'password' : 'text'}
+            autoComplete="off"
+            spellCheck={false}
+            value={campos[c.id] ?? ''}
+            onChange={(e) => setCampos((atual) => ({ ...atual, [c.id]: e.target.value }))}
+            disabled={ocupado}
+            placeholder={c.rotulo}
+            aria-label={c.rotulo}
+            className="min-w-56 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+          />
+        )) : <input
           type="password"
           autoComplete="off"
           spellCheck={false}
@@ -102,8 +120,8 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
           placeholder={chave.origem ? 'Colar uma chave nova para substituir' : 'Colar a chave'}
           aria-label={`Chave da ${chave.nome}`}
           className="min-w-56 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-        />
-        <Button onClick={salvar} disabled={ocupado || valor.trim().length < 8}>
+        />}
+        <Button onClick={salvar} disabled={ocupado || !pronto}>
           {ocupado ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
           Salvar no cofre
         </Button>
