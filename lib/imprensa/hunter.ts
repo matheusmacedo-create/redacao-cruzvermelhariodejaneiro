@@ -4,18 +4,17 @@ import 'server-only'
  * O conector da Hunter.io: encontrar e verificar e-mail de contato de
  * imprensa.
  *
- * Mesma forma dos outros conectores do projeto (Upload-Post, OpenAI) — chave
- * lida do ambiente, erro com status e dica, segredo raspado de qualquer
- * mensagem que possa ir para tela ou banco. A chave NUNCA pode ganhar o
- * prefixo NEXT_PUBLIC_: ela é cobrada por uso, e no navegador vira gasto de
- * quem achar.
+ * A chave chega por parâmetro, já resolvida por lib/integracoes/chaves.ts
+ * (cofre do Supabase primeiro, variável de ambiente depois). Erro com status
+ * e dica, segredo raspado de qualquer mensagem que possa ir para tela ou
+ * banco. A chave NUNCA vai para o navegador: é cobrada por uso.
  */
 
 const BASE = 'https://api.hunter.io/v2'
 
 export class HunterConfigError extends Error {
   constructor() {
-    super('Falta a variável HUNTER_API_KEY. Cadastre a chave nas variáveis de ambiente da Vercel — nunca com o prefixo NEXT_PUBLIC_ — e republique.')
+    super('A Hunter.io não está configurada. Um administrador cola a chave em Configurações → Integrações (ou cadastra HUNTER_API_KEY na Vercel).')
     this.name = 'HunterConfigError'
   }
 }
@@ -27,25 +26,19 @@ export class HunterError extends Error {
   }
 }
 
-function apiKey(): string {
-  const chave = process.env.HUNTER_API_KEY?.trim()
-  if (!chave) throw new HunterConfigError()
-  return chave
-}
-
-export const hunterConfigurado = () => Boolean(process.env.HUNTER_API_KEY?.trim())
-
 /** Tira a chave de qualquer mensagem que vá parar no banco ou na tela. */
-export function semSegredo(texto: string): string {
-  const chave = process.env.HUNTER_API_KEY
-  return chave && chave.length >= 8 ? texto.split(chave).join('«oculto»') : texto
+export function semSegredo(texto: string, chave?: string | null): string {
+  const conhecidas = [chave, process.env.HUNTER_API_KEY].filter((c): c is string => Boolean(c && c.length >= 8))
+  return conhecidas.reduce((t, c) => t.split(c).join('«oculto»'), texto)
+    .replace(/api_key=[^&\s]+/g, 'api_key=«oculto»')
 }
 
-async function chamar<T>(caminho: string, params: Record<string, string | number | undefined>): Promise<T> {
+async function chamar<T>(chave: string, caminho: string, params: Record<string, string | number | undefined>): Promise<T> {
+  if (!chave) throw new HunterConfigError()
   const url = new URL(`${BASE}${caminho}`)
-  url.searchParams.set('api_key', apiKey())
-  for (const [chave, valor] of Object.entries(params)) {
-    if (valor !== undefined && valor !== '') url.searchParams.set(chave, String(valor))
+  url.searchParams.set('api_key', chave)
+  for (const [nome, valor] of Object.entries(params)) {
+    if (valor !== undefined && valor !== '') url.searchParams.set(nome, String(valor))
   }
 
   let res: Response
@@ -54,7 +47,7 @@ async function chamar<T>(caminho: string, params: Record<string, string | number
   } catch (causa) {
     const motivo = causa instanceof Error && causa.name === 'AbortError'
       ? 'A Hunter.io demorou demais para responder.'
-      : semSegredo(causa instanceof Error ? causa.message : String(causa))
+      : semSegredo(causa instanceof Error ? causa.message : String(causa), chave)
     throw new HunterError(motivo, 0)
   }
 
@@ -66,7 +59,7 @@ async function chamar<T>(caminho: string, params: Record<string, string | number
     const corpo = dados as { errors?: { id?: string; code?: number; details?: string }[] } | null
     const primeiro = corpo?.errors?.[0]
     const detalhe = primeiro?.details || `HTTP ${res.status}`
-    throw new HunterError(semSegredo(detalhe), res.status, primeiro?.id)
+    throw new HunterError(semSegredo(detalhe, chave), res.status, primeiro?.id)
   }
 
   return dados as T
@@ -75,11 +68,12 @@ async function chamar<T>(caminho: string, params: Record<string, string | number
 /** Erro da Hunter traduzido, com a dica que poupa a caçada — mesmo espírito
  * de explicarErroDeConexao (FTP) e traduzirErro (Anthropic). */
 export function explicarErroDaHunter(causa: unknown): string {
+  if (causa instanceof HunterConfigError) return causa.message
   if (!(causa instanceof HunterError)) {
     return semSegredo(causa instanceof Error ? causa.message : String(causa))
   }
   if (causa.status === 401 || causa.status === 403) {
-    return 'A Hunter.io recusou a chave. Confira HUNTER_API_KEY na Vercel — chave revogada precisa ser trocada e republicada.'
+    return 'A Hunter.io recusou a chave. Um administrador troca a chave em Configurações → Integrações.'
   }
   if (causa.status === 429) {
     return 'Limite de chamadas por minuto da Hunter.io atingido. Espere um pouco e tente de novo.'
@@ -120,8 +114,8 @@ const numero = (v: unknown): number | null => typeof v === 'number' ? v : null
  * partida para achar contatos num veículo que ainda não está no banco.
  * Consome 1 requisição de busca por chamada, contra a cota do plano.
  */
-export async function buscarPorDominio(pedido: { dominio: string; limite?: number }): Promise<ResultadoDominio> {
-  const dados = await chamar<{ data?: Record<string, unknown> }>('/domain-search', {
+export async function buscarPorDominio(chave: string, pedido: { dominio: string; limite?: number }): Promise<ResultadoDominio> {
+  const dados = await chamar<{ data?: Record<string, unknown> }>(chave, '/domain-search', {
     domain: pedido.dominio.trim().toLowerCase(),
     limit: pedido.limite ?? 20,
   })
@@ -160,8 +154,8 @@ export type ResultadoEmailFinder = {
  * O e-mail mais provável de UMA pessoa específica, dado o domínio do veículo
  * e o nome. Consome 1 requisição, mesmo quando não encontra nada.
  */
-export async function encontrarEmail(pedido: { dominio: string; nome: string; sobrenome: string }): Promise<ResultadoEmailFinder> {
-  const dados = await chamar<{ data?: Record<string, unknown> }>('/email-finder', {
+export async function encontrarEmail(chave: string, pedido: { dominio: string; nome: string; sobrenome: string }): Promise<ResultadoEmailFinder> {
+  const dados = await chamar<{ data?: Record<string, unknown> }>(chave, '/email-finder', {
     domain: pedido.dominio.trim().toLowerCase(),
     first_name: pedido.nome.trim(),
     last_name: pedido.sobrenome.trim(),
@@ -187,8 +181,8 @@ const STATUS_VALIDOS = ['valid', 'invalid', 'accept_all', 'webmail', 'disposable
 
 /** Confirma se um e-mail existe de verdade antes de contar com ele. Consome
  * 1 requisição de verificação por chamada. */
-export async function verificarEmail(email: string): Promise<ResultadoDeVerificacao> {
-  const dados = await chamar<{ data?: Record<string, unknown> }>('/email-verifier', { email: email.trim() })
+export async function verificarEmail(chave: string, email: string): Promise<ResultadoDeVerificacao> {
+  const dados = await chamar<{ data?: Record<string, unknown> }>(chave, '/email-verifier', { email: email.trim() })
   const d = dados.data ?? {}
   return {
     status: STATUS_VALIDOS.find((s) => s === d.status) ?? 'unknown',
@@ -211,8 +205,8 @@ export type ContaHunter = {
  * fechado: já houve resposta de API de terceiro em formato diferente do
  * prometido, e travar o diagnóstico por isso é pior do que um campo nulo.
  */
-export async function contaHunter(): Promise<ContaHunter> {
-  const dados = await chamar<{ data?: Record<string, unknown> }>('/account', {})
+export async function contaHunter(chave: string): Promise<ContaHunter> {
+  const dados = await chamar<{ data?: Record<string, unknown> }>(chave, '/account', {})
   const d = dados.data ?? {}
   const req = (d.requests ?? {}) as Record<string, unknown>
   const parPar = (v: unknown) => {

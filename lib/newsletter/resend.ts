@@ -150,16 +150,21 @@ export type Mensagem = {
    * isto, um destino agendado sairia na hora — e e-mail enviado não volta.
    */
   agendarPara?: string
+  /** Remetente próprio (ex.: campanhas da Imprensa). Ausente = o da newsletter. */
+  de?: string
+  /** Endereço de resposta próprio. Ausente = o da newsletter. */
+  responderPara?: string
 }
 
 function corpoDaMensagem(m: Mensagem) {
+  const resposta = m.responderPara || respostaPara()
   return {
-    from: remetente(),
+    from: m.de || remetente(),
     to: [m.para],
     subject: m.assunto,
     html: m.html,
     text: m.texto,
-    ...(respostaPara() ? { reply_to: respostaPara() } : {}),
+    ...(resposta ? { reply_to: resposta } : {}),
     ...(m.agendarPara ? { scheduled_at: m.agendarPara } : {}),
     headers: {
       'List-Unsubscribe': `<${m.urlDeSaidaEmUmClique}>`,

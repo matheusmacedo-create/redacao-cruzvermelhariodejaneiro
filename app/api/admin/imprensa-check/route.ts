@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/session'
-import { contaHunter, explicarErroDaHunter, hunterConfigurado } from '@/lib/imprensa/hunter'
+import { obterChave } from '@/lib/integracoes/chaves'
+import { contaHunter, explicarErroDaHunter } from '@/lib/imprensa/hunter'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,19 +15,20 @@ export const dynamic = 'force-dynamic'
  * consome cota (a própria Hunter documenta o endpoint /account como gratuito).
  */
 export async function GET() {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  let workspaceId: string
+  try { workspaceId = (await requireAdmin()).workspace.id } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
-  if (!hunterConfigurado()) {
+  const chave = await obterChave(workspaceId, 'hunter')
+  if (!chave) {
     return NextResponse.json({
       configurado: false,
-      veredito: 'A chave não chegou a esta versão publicada.',
-      oQueFazer: 'Cadastre HUNTER_API_KEY nas variáveis de ambiente da Vercel — nunca com o prefixo NEXT_PUBLIC_ — '
-        + 'e republique: variável nova só entra em build novo (Deployments → o mais recente → ⋯ → Redeploy).',
+      veredito: 'Nenhuma chave da Hunter.io configurada.',
+      oQueFazer: 'Cole a chave em Configurações → Integrações (vale na hora, sem republicar).',
     })
   }
 
   try {
-    const conta = await contaHunter()
+    const conta = await contaHunter(chave)
     return NextResponse.json({
       configurado: true,
       chaveValida: true,
