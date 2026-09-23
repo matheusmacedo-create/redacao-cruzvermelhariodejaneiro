@@ -14,22 +14,25 @@ export const dynamic = 'force-dynamic'
  */
 
 const TOKEN = /^[0-9a-f]{48}$/
+const TOKEN_DA_CAMPANHA = /^[0-9a-f]{32}$/
 
-async function tokenDoPedido(request: NextRequest): Promise<string> {
-  const daUrl = request.nextUrl.searchParams.get('t')?.trim()
-  if (daUrl) return daUrl
-  const form = await request.formData().catch(() => null)
-  const doForm = form?.get('t')
-  return typeof doForm === 'string' ? doForm.trim() : ''
+/** t = o contato (quem sai); c = o destinatário (qual campanha o fez sair). */
+async function tokensDoPedido(request: NextRequest): Promise<{ t: string; c: string }> {
+  const url = request.nextUrl.searchParams
+  const form = url.get('t') ? null : await request.formData().catch(() => null)
+  const ler = (k: string) => (url.get(k) ?? (typeof form?.get(k) === 'string' ? String(form?.get(k)) : '')).trim()
+  return { t: ler('t'), c: ler('c') }
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get('t')?.trim() ?? ''
-  return NextResponse.redirect(new URL(`/comunicados/sair?t=${encodeURIComponent(token)}`, request.nextUrl.origin))
+  const t = request.nextUrl.searchParams.get('t')?.trim() ?? ''
+  const c = request.nextUrl.searchParams.get('c')?.trim() ?? ''
+  const destino = `/comunicados/sair?t=${encodeURIComponent(t)}${c ? `&c=${encodeURIComponent(c)}` : ''}`
+  return NextResponse.redirect(new URL(destino, request.nextUrl.origin))
 }
 
 export async function POST(request: NextRequest) {
-  const token = await tokenDoPedido(request)
+  const { t: token, c } = await tokensDoPedido(request)
   const doNavegador = (request.headers.get('accept') ?? '').includes('text/html')
   const pronto = () => doNavegador
     ? NextResponse.redirect(new URL('/comunicados/saiu', request.nextUrl.origin), { status: 303 })
@@ -41,12 +44,12 @@ export async function POST(request: NextRequest) {
       : NextResponse.json({ ok: false, erro: 'Token inválido.' }, { status: 400 })
   }
 
-  const { error } = await createAdminClient()
-    .from('press_contacts')
-    .update({ descadastrado_em: new Date().toISOString() })
-    .eq('token_descadastro', token)
-    // Segundo clique não reescreve a data em que a pessoa saiu.
-    .is('descadastrado_em', null)
+  // A função não reescreve a data de quem já saiu, e só credita o
+  // descadastro à campanha quando o destinatário é mesmo daquele contato.
+  const { error } = await createAdminClient().rpc('registrar_descadastro', {
+    p_token_contato: token,
+    p_token_destinatario: TOKEN_DA_CAMPANHA.test(c) ? c : null,
+  })
 
   if (error) {
     console.error('[comunicados] falha ao descadastrar:', error.message)

@@ -3,7 +3,8 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { obterChave } from '@/lib/integracoes/chaves'
 import { emailConfigurado } from '@/lib/newsletter/resend'
-import { PainelDeImprensa, type CampanhaNaTela } from '@/components/app/imprensa/painel'
+import { PainelDeImprensa } from '@/components/app/imprensa/painel'
+import type { CampanhaNaTela } from '@/components/app/imprensa/campanhas'
 import type { ContatoDeImprensa } from '@/app/actions/imprensa'
 
 export const dynamic = 'force-dynamic'
@@ -42,10 +43,10 @@ export default async function ImprensaPage() {
     todosOsContatos(),
     supabase
       .from('press_campanhas')
-      .select('id,assunto,corpo,link_url,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,created_at,enviada_por,profiles:enviada_por(full_name,username)')
+      .select('id,assunto,corpo,link_url,link_rotulo,estado,total_destinatarios,total_enviados,total_falhas,total_aberturas,total_aberturas_brutas,total_cliques,total_cliques_brutos,total_descadastros,created_at,enviada_em,enviada_por,profiles:enviada_por(full_name,username)')
       .eq('workspace_id', context.workspace.id)
       .order('created_at', { ascending: false })
-      .limit(100),
+      .limit(500),
     obterChave(context.workspace.id, 'hunter'),
   ])
 
@@ -80,15 +81,28 @@ export default async function ImprensaPage() {
       assunto: c.assunto,
       corpo: c.corpo,
       linkUrl: c.link_url,
+      linkRotulo: c.link_rotulo,
       estado: c.estado,
       destinatarios: c.total_destinatarios,
       enviados: c.total_enviados,
       falhas: c.total_falhas,
       aberturas: c.total_aberturas,
-      quando: c.created_at,
+      aberturasTotais: c.total_aberturas_brutas,
+      cliques: c.total_cliques,
+      cliquesTotais: c.total_cliques_brutos,
+      descadastros: c.total_descadastros,
+      criadaEm: c.created_at,
+      enviadaEm: c.enviada_em,
       quem: perfil?.full_name || perfil?.username || '—',
     }
   })
+
+  // O mês corrente no fuso de São Paulo: é o mês que a equipe enxerga.
+  const mesAtual = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date())
+  const enviadosNoMes = historico
+    .filter((c) => c.enviadaEm && new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(c.enviadaEm)) === mesAtual)
+    .reduce((soma, c) => soma + c.enviados, 0)
+  const limiteMensal = Number(process.env.IMPRENSA_LIMITE_MENSAL) || null
 
   return (
     <div>
@@ -99,6 +113,7 @@ export default async function ImprensaPage() {
       <PainelDeImprensa
         contatos={contatos}
         campanhas={historico}
+        envioNoMes={{ enviados: enviadosNoMes, limite: limiteMensal }}
         hunterDisponivel={Boolean(chaveHunter)}
         envioDisponivel={emailConfigurado()}
         podeDisparar={context.role !== 'colaborador'}
