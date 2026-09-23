@@ -94,9 +94,12 @@ async function avisarRevisores(params: { userIds: string[]; workspaceId: string;
   })))
 }
 
+const PRIORIDADES_VALIDAS = ['low', 'medium', 'high', 'critical']
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/
+
 export async function createPauta(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
-  const title = text(formData, 'title'); if (title.length < 3) throw new Error('Título obrigatório.')
+  const title = text(formData, 'title'); if (title.length < 3) throw new Error('Dê um nome à atividade (pelo menos 3 caracteres).')
   const details = Object.fromEntries(['local','participantsCount','volunteersCount','story','contact','objective','result','audience','schedule','organizer','ideaGoal','materialType','request','notes'].map((key) => [key, text(formData, key)]).filter(([, value]) => value))
   const description = text(formData, 'description')
   // Conferido antes de gravar: data errada numa publicação não pode deixar
@@ -108,8 +111,32 @@ export async function createPauta(formData: FormData) {
     const { data: project } = await supabase.from('projects').select('id').eq('id', projectId).eq('workspace_id', context.workspace.id).maybeSingle()
     validProjectId = project?.id ?? null
   }
-  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, project_id: validProjectId, title, description, details, status: 'incoming', priority: text(formData,'priority') || 'medium', coordination: text(formData,'coordination'), due_date: text(formData,'dueDate') || null, created_by: context.user.id, owner_id: context.user.id, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
-  if (error) throw new Error(error.message)
+
+  const dueDate = text(formData, 'dueDate')
+  const startDate = text(formData, 'startDate')
+  if ((dueDate && !DATA_ISO.test(dueDate)) || (startDate && !DATA_ISO.test(startDate))) throw new Error('Data inválida.')
+  if (startDate && dueDate && startDate > dueDate) throw new Error('O início precisa vir antes do prazo.')
+  const priority = PRIORIDADES_VALIDAS.includes(text(formData, 'priority')) ? text(formData, 'priority') : 'medium'
+
+  // Responsável e etiquetas chegam do formulário: só vale o que é deste espaço.
+  let ownerId = context.user.id
+  const responsavel = text(formData, 'responsavel')
+  if (responsavel && responsavel !== context.user.id) {
+    const { data: membro } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('user_id', responsavel).maybeSingle()
+    if (!membro) throw new Error('O responsável precisa ser alguém do espaço.')
+    ownerId = responsavel
+  }
+  const pedidas = [...new Set(formData.getAll('etiquetas').map(String).filter(Boolean))].slice(0, 20)
+  const { data: etiquetasValidas } = pedidas.length
+    ? await supabase.from('etiquetas').select('id').eq('workspace_id', context.workspace.id).in('id', pedidas)
+    : { data: [] as { id: string }[] }
+
+  const { data, error } = await supabase.from('pautas').insert({ workspace_id: context.workspace.id, project_id: validProjectId, title, description, details, status: 'incoming', priority, coordination: text(formData,'coordination'), due_date: dueDate || null, data_inicio: startDate || null, created_by: context.user.id, owner_id: ownerId, tags: [text(formData,'recordType') || 'Outro'] }).select('id').single()
+  if (error || !data) throw new Error('Não foi possível registrar a atividade. Tente de novo.')
+
+  if (etiquetasValidas?.length) {
+    await supabase.from('pauta_etiquetas').insert(etiquetasValidas.map((e) => ({ pauta_id: data.id, etiqueta_id: e.id, workspace_id: context.workspace.id })))
+  }
 
   if (previstas.length) {
     // Cada publicação prevista nasce como peça de conteúdo em rascunho, com o
@@ -153,11 +180,26 @@ export async function createPauta(formData: FormData) {
   }
 
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'created', entity_type: 'pauta', entity_id: data.id, metadata: { title, publicacoes: previstas.length } })
-  const dueDate = text(formData, 'dueDate')
   if (dueDate) {
     await supabase.from('calendar_events').insert({ workspace_id: context.workspace.id, pauta_id: data.id, title, event_date: dueDate, type: 'atividade', created_by: context.user.id })
   }
-  revalidatePath('/pautas'); revalidatePath('/calendario'); redirect(`/pautas/${data.id}`)
+  revalidatePath('/pautas'); revalidatePath('/calendario')
+  if (validProjectId) revalidatePath(`/projetos/${validProjectId}`)
+  redirect(`/pautas/${data.id}`)
+}
+
+/**
+ * A mesma criação, para o formulário com useActionState: o erro volta para a
+ * tela em vez de virar a página de erro genérica (o Next apaga a mensagem de
+ * uma exceção de server action em produção). O redirect de sucesso passa.
+ */
+export async function registrarPauta(_anterior: { erro?: string } | null, formData: FormData): Promise<{ erro?: string }> {
+  try {
+    await createPauta(formData)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível registrar a atividade.') }
+  }
 }
 
 export async function changePautaProject(formData: FormData) {

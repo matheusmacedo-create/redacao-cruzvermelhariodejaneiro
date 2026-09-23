@@ -125,10 +125,13 @@ export async function atualizarCartao(formData: FormData): Promise<Resultado> {
     const id = texto(formData, 'id')
     const titulo = texto(formData, 'titulo')
     const prazo = texto(formData, 'prazo')
+    const inicio = texto(formData, 'inicio')
     const prioridade = texto(formData, 'prioridade')
     const responsavel = texto(formData, 'responsavel')
     if (titulo.length < 2 || titulo.length > 200) throw new Error('O título precisa ter entre 2 e 200 caracteres.')
     if (prazo && !/^\d{4}-\d{2}-\d{2}$/.test(prazo)) throw new Error('Prazo inválido.')
+    if (inicio && !/^\d{4}-\d{2}-\d{2}$/.test(inicio)) throw new Error('Início inválido.')
+    if (inicio && prazo && inicio > prazo) throw new Error('O início precisa vir antes do prazo.')
     if (!PRIORIDADES.some((p) => p.id === prioridade)) throw new Error('Prioridade inválida.')
     if (responsavel) {
       const { data } = await supabase.from('workspace_members').select('user_id')
@@ -137,7 +140,7 @@ export async function atualizarCartao(formData: FormData): Promise<Resultado> {
     }
 
     const { error } = await supabase.from('pautas').update({
-      title: titulo, due_date: prazo || null, priority: prioridade, owner_id: responsavel || null,
+      title: titulo, due_date: prazo || null, data_inicio: inicio || null, priority: prioridade, owner_id: responsavel || null,
       updated_at: new Date().toISOString(),
     }).eq('id', id).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível salvar o cartão.')

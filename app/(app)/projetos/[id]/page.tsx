@@ -1,16 +1,18 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { Avatar } from '@/components/ui/avatar'
-import { privateAvatarUrl } from '@/lib/avatar-url'
 import { StatusBadge, ContentStatusBadge } from '@/components/ui/status-badge'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { pautaStatus, contentStatus } from '@/lib/status-maps'
 import { formatDate } from '@/lib/format'
 import { DeleteProjectButton } from './delete-project-button'
+import { ehSituacao, situacaoDoProjeto } from '@/lib/projetos/cronograma'
+import { ProjetoAsana, type AtualizacaoNaTela } from '@/components/app/projetos/projeto'
+import { hojeEmSaoPaulo, type PessoaDoProjeto } from '@/components/app/projetos/comum'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,22 +21,27 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const { data: project } = await supabase
     .from('projects')
-    .select('id,name,description,status,created_by,created_at,updated_at')
+    .select('id,name,description,status,created_by,created_at,updated_at,inicio,fim,responsavel_id,situacao')
     .eq('id', id)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
   if (!project) notFound()
 
-  const { data: creator } = project.created_by
-    ? await supabase.from('profiles').select('full_name,initials,color,avatar_path').eq('id', project.created_by).maybeSingle()
-    : { data: null }
+  const [{ data: pautas }, { data: atualizacoes }, { data: marcos }, { data: membros }] = await Promise.all([
+    supabase.from('pautas').select('id,title,status,priority,due_date,data_inicio')
+      .eq('workspace_id', context.workspace.id).eq('project_id', id).order('updated_at', { ascending: false }),
+    supabase.from('project_updates').select('id,situacao,texto,autor_id,created_at')
+      .eq('workspace_id', context.workspace.id).eq('project_id', id).order('created_at', { ascending: false }).limit(100),
+    supabase.from('project_marcos').select('id,titulo,data,feito')
+      .eq('workspace_id', context.workspace.id).eq('project_id', id).order('data'),
+    supabase.from('workspace_members').select('user_id,profiles(full_name,initials,color,avatar_path,active)').eq('workspace_id', context.workspace.id),
+  ])
 
-  const { data: pautas } = await supabase
-    .from('pautas')
-    .select('id,title,status,priority,due_date')
-    .eq('workspace_id', context.workspace.id)
-    .eq('project_id', id)
-    .order('updated_at', { ascending: false })
+  const pessoas: PessoaDoProjeto[] = (membros ?? []).flatMap((m) => {
+    const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; initials?: string; color?: string; avatar_path?: string | null; active?: boolean } | null
+    if (!p) return []
+    return [{ id: m.user_id as string, nome: p.full_name || 'Colaborador', iniciais: p.initials || '?', cor: p.color || null, avatar: p.avatar_path ?? null }]
+  }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 
   const pautaIds = (pautas ?? []).map((p) => p.id)
 
@@ -53,6 +60,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const pautaTitleById = new Map((pautas ?? []).map((p) => [p.id, p.title]))
   const pendingApprovals = (contents ?? []).filter((c) => c.status === 'review').length
   const canDelete = context.role === 'admin' || project.created_by === context.user.id
+  const concluido = project.status === 'completed'
+  const listaDeAtualizacoes: AtualizacaoNaTela[] = (atualizacoes ?? []).filter((a) => ehSituacao(a.situacao)).map((a) => ({
+    id: a.id, situacao: a.situacao, texto: a.texto, autorId: a.autor_id, quando: a.created_at,
+    podeApagar: context.role === 'admin' || a.autor_id === context.user.id,
+  }))
 
   return (
     <div>
@@ -62,23 +74,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <span className="text-foreground">{project.name}</span>
       </nav>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-balance">{project.name}</h1>
-            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{project.status === 'active' ? 'Ativo' : project.status}</span>
-          </div>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">{project.description || 'Sem descrição.'}</p>
-          <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-            {creator && <Avatar initials={creator.initials || '?'} color={creator.color} src={privateAvatarUrl(creator.avatar_path)} size="xs" />}
-            <span>Criado por {creator?.full_name || 'alguém que já saiu do espaço'} em {formatDate(project.created_at, { dateStyle: 'long' })}</span>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button size="lg" render={<Link href={`/registrar?projeto=${project.id}`} />}><Plus className="size-4" />Nova pauta</Button>
-          {canDelete && <DeleteProjectButton projectId={project.id} projectName={project.name} />}
-        </div>
-      </div>
+      <ProjetoAsana
+        projeto={{
+          id: project.id, nome: project.name, descricao: project.description ?? '', inicio: project.inicio, fim: project.fim,
+          responsavelId: project.responsavel_id ?? project.created_by, concluido,
+          situacao: situacaoDoProjeto({ situacao: project.situacao, concluido }),
+        }}
+        pautas={(pautas ?? []).map((p) => ({ id: p.id, titulo: p.title, status: p.status, inicio: p.data_inicio, fim: p.due_date }))}
+        atualizacoes={listaDeAtualizacoes}
+        marcos={marcos ?? []}
+        pessoas={pessoas}
+        hoje={hojeEmSaoPaulo()}
+        acoesExtras={canDelete ? <DeleteProjectButton projectId={project.id} projectName={project.name} /> : null}
+        visaoGeralExtra={<>
 
       <h2 className="mb-3 mt-6 text-sm font-semibold uppercase text-muted-foreground">Ferramentas vinculadas a este projeto</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -138,6 +146,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           {!links?.length && <EmptyRow>Nenhum link de arquivo anexado nas pautas deste projeto.</EmptyRow>}
         </Section>
       </div>
+        </>}
+      />
     </div>
   )
 }

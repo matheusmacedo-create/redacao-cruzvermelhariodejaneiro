@@ -29,7 +29,7 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
     const linhas = []
     for (let de = 0; de < TETO; de += 1000) {
       let q = supabase.from('pautas')
-        .select('id,title,status,priority,coordination,due_date,owner_id,tags,project_id,posicao,created_at,projects(name),pauta_participants(user_id),pauta_checklist(feito),pauta_etiquetas(etiqueta_id),messages(count),pauta_links(count),content_pieces(count)')
+        .select('id,title,status,priority,coordination,due_date,data_inicio,owner_id,tags,project_id,posicao,created_at,projects(name),pauta_participants(user_id),pauta_checklist(feito),pauta_etiquetas(etiqueta_id),messages(count),pauta_links(count),content_pieces(count)')
         .eq('workspace_id', workspaceId).neq('status', 'archived')
         .order('created_at', { ascending: false }).order('id')
         .range(de, de + 999)
@@ -64,6 +64,7 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
       status: p.status,
       prioridade: p.priority,
       prazo: p.due_date,
+      inicio: p.data_inicio,
       responsavelId: p.owner_id,
       participantes: ((p.pauta_participants ?? []) as { user_id: string }[]).map((x) => x.user_id),
       etiquetas: ((p.pauta_etiquetas ?? []) as { etiqueta_id: string }[]).map((x) => x.etiqueta_id),
