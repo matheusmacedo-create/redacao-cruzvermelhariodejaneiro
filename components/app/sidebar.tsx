@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Brain, CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  Brain, CalendarDays, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -24,6 +24,9 @@ const sections = [
       // Logo depois de Publicações porque é de lá que a edição sai: a
       // newsletter é um destino do pacote, não uma ferramenta à parte.
       { href: '/newsletter', label: 'Central de e-mail', icon: Mail },
+      // Relações públicas: contatos de imprensa, encontrados e verificados
+      // pela Hunter.io — mesma vizinhança da newsletter, outro público.
+      { href: '/imprensa', label: 'Imprensa', icon: Newspaper },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },
       { href: '/biblioteca', label: 'Biblioteca', icon: Images },
     ],
