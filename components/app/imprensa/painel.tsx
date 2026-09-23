@@ -5,18 +5,24 @@ import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
   Building2, Check, ChevronDown, Download, History, Loader2, MailOpen, Pencil, Plus, Search, Send,
-  ShieldCheck, Trash2, UserSearch, Users, X,
+  ShieldCheck, Trash2, Upload, UserSearch, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
   adicionarContatosDaBusca, atualizarContato, buscarContatosPorDominio, criarContatoManual,
   destinatariosDaCampanha, encontrarEEcadastrarContato, enviarCampanha, excluirContato, excluirContatos,
-  verificarEmailDoContato,
+  importarContatos, verificarEmailDoContato,
   type CandidatoDeContato, type ContatoDeImprensa, type DestinatarioDaCampanha,
 } from '@/app/actions/imprensa'
 import { comoBalde } from '@/lib/imprensa/email-status'
 import { LIMITE_SEM_LEITURA, motivoDeFora, naoLe, TETO_DE_DESTINATARIOS } from '@/lib/imprensa/campanha'
+import {
+  comoEtiqueta, lerCsv, linhasParaContatos, LOTE_DE_IMPORTACAO, TETO_DE_IMPORTACAO, type ResultadoDaLeitura,
+} from '@/lib/imprensa/importacao'
+
+/** Quantas linhas a tabela desenha. Filtro e seleção valem para todas. */
+const LINHAS_NA_TELA = 300
 
 export type CampanhaNaTela = {
   id: string
@@ -42,6 +48,7 @@ const podeReceber = (c: ContatoDeImprensa) =>
 const FILTROS_DE_LEITURA = [
   { id: 'todos', rotulo: 'Toda leitura' },
   { id: 'naole', rotulo: `Não leem (${LIMITE_SEM_LEITURA}+ envios sem abrir)` },
+  { id: 'engajados', rotulo: 'Engajados (abriram o último envio)' },
   { id: 'le', rotulo: 'Já abriram algo' },
   { id: 'nunca', rotulo: 'Nunca receberam' },
   { id: 'saiu', rotulo: 'Saíram da lista' },
@@ -120,6 +127,14 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
   const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('todos')
   const [filtroLeitura, setFiltroLeitura] = useState<(typeof FILTROS_DE_LEITURA)[number]['id']>('todos')
+  const [filtroLista, setFiltroLista] = useState('todas')
+  const [dialogImportar, setDialogImportar] = useState(false)
+
+  const listas = useMemo(() => {
+    const contagem = new Map<string, number>()
+    for (const c of contatos) for (const t of c.tags) contagem.set(t, (contagem.get(t) ?? 0) + 1)
+    return [...contagem.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'))
+  }, [contatos])
   const [dialogNovo, setDialogNovo] = useState<'fechado' | 'criar' | ContatoDeImprensa>('fechado')
   const [dialogBusca, setDialogBusca] = useState(false)
   const [dialogFinder, setDialogFinder] = useState(false)
@@ -133,14 +148,16 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
     return contatos.filter((c) => {
       if (filtroStatus !== 'todos' && c.emailStatus !== filtroStatus) return false
       if (filtroLeitura === 'naole' && (c.descadastradoEm || !naoLe(c.enviosSemAbertura))) return false
+      if (filtroLeitura === 'engajados' && (c.descadastradoEm || !c.totalAberturas || c.enviosSemAbertura > 0)) return false
       if (filtroLeitura === 'le' && !c.totalAberturas) return false
+      if (filtroLista !== 'todas' && !c.tags.includes(filtroLista)) return false
       if (filtroLeitura === 'nunca' && c.totalEnvios) return false
       if (filtroLeitura === 'saiu' && !c.descadastradoEm) return false
       if (!termo) return true
       const alvo = `${c.nome} ${c.veiculo} ${c.cargo} ${c.email ?? ''} ${c.dominio} ${c.tags.join(' ')}`.toLowerCase()
       return alvo.includes(termo)
     })
-  }, [contatos, busca, filtroStatus, filtroLeitura])
+  }, [contatos, busca, filtroStatus, filtroLeitura, filtroLista])
 
   // A seleção só vale para quem está na tela: filtrar de novo não pode deixar
   // gente escondida selecionada para um disparo.
@@ -222,6 +239,12 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
         <select value={filtroLeitura} onChange={(e) => setFiltroLeitura(e.target.value as typeof filtroLeitura)} className={inputClass + ' w-auto'} aria-label="Leitura">
           {FILTROS_DE_LEITURA.map((f) => <option key={f.id} value={f.id}>{f.rotulo}</option>)}
         </select>
+        {listas.length > 0 && (
+          <select value={filtroLista} onChange={(e) => setFiltroLista(e.target.value)} className={inputClass + ' w-auto'} aria-label="Lista">
+            <option value="todas">Todas as listas</option>
+            {listas.map(([t, n]) => <option key={t} value={t}>{t} ({n})</option>)}
+          </select>
+        )}
         {hunterDisponivel && (
           <>
             <Button variant="outline" onClick={() => setDialogBusca(true)}><Building2 className="size-4" />Buscar por domínio</Button>
@@ -229,6 +252,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
           </>
         )}
         <Button variant="outline" onClick={() => setDialogNovo('criar')}><Plus className="size-4" />Novo contato</Button>
+        <Button variant="outline" onClick={() => setDialogImportar(true)}><Upload className="size-4" />Importar planilha</Button>
         <Button variant="outline" onClick={baixarCsv} disabled={!filtrados.length}><Download className="size-4" />Baixar CSV</Button>
       </div>
 
@@ -254,7 +278,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
       <p className="text-xs text-muted-foreground">
         {filtrados.length === 0
           ? contatos.length === 0
-            ? 'Nenhum contato ainda. Busque por domínio, por nome, ou cadastre um à mão.'
+            ? 'Nenhum contato ainda. Importe uma planilha, busque pela Hunter.io ou cadastre à mão.'
             : 'Nenhum contato no filtro atual.'
           : <><span className="font-medium text-foreground">{filtrados.length}</span> {filtrados.length === 1 ? 'contato' : 'contatos'}</>}
       </p>
@@ -278,7 +302,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
                 </tr>
               </thead>
               <tbody>
-                {filtrados.map((c) => (
+                {filtrados.slice(0, LINHAS_NA_TELA).map((c) => (
                   <LinhaDoContato
                     key={c.id}
                     contato={c}
@@ -292,6 +316,20 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
             </table>
           </div>
         </Card>
+      )}
+
+      {filtrados.length > LINHAS_NA_TELA && (
+        <p className="text-xs text-muted-foreground">
+          A tabela mostra {LINHAS_NA_TELA} de {filtrados.length}. Filtros, &ldquo;selecionar todos&rdquo;, envio e CSV valem para os {filtrados.length}.
+        </p>
+      )}
+
+      {dialogImportar && (
+        <DialogImportar
+          listasExistentes={listas.map(([t]) => t)}
+          onFechar={() => setDialogImportar(false)}
+          onImportado={(etiqueta) => { router.refresh(); if (etiqueta) setFiltroLista(etiqueta) }}
+        />
       )}
 
       {dialogNovo !== 'fechado' && (
@@ -935,5 +973,136 @@ function LinhaDaCampanha({ campanha }: { campanha: CampanhaNaTela }) {
         </div>
       )}
     </li>
+  )
+}
+
+/**
+ * Importar planilha (CSV). A leitura acontece aqui no navegador: a pessoa vê
+ * o que foi entendido — quantos e-mails, quais colunas — antes de gravar
+ * qualquer coisa. Grava em lotes de mil.
+ */
+function DialogImportar({ listasExistentes, onFechar, onImportado }: {
+  listasExistentes: string[]
+  onFechar: () => void
+  onImportado: (etiqueta: string) => void
+}) {
+  const [arquivo, setArquivo] = useState('')
+  const [leitura, setLeitura] = useState<ResultadoDaLeitura | null>(null)
+  const [etiqueta, setEtiqueta] = useState('')
+  const [erro, setErro] = useState('')
+  const [progresso, setProgresso] = useState('')
+  const [resultado, setResultado] = useState('')
+  const [gravando, gravar] = useTransition()
+
+  async function escolher(e: React.ChangeEvent<HTMLInputElement>) {
+    setErro(''); setResultado(''); setLeitura(null)
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (!/\.(csv|txt|tsv)$/i.test(f.name)) {
+      setErro('Envie um arquivo .csv. No Excel ou no Google Planilhas: Arquivo → Salvar como / Fazer download → CSV.')
+      return
+    }
+    let texto = await f.text()
+    // Planilha salva pelo Excel em português costuma vir em Latin-1: os
+    // acentos chegam como "�". Relê no encoding certo.
+    if (texto.includes('\uFFFD')) texto = new TextDecoder('windows-1252').decode(await f.arrayBuffer())
+    const r = linhasParaContatos(lerCsv(texto))
+    if (!r.contatos.length) { setErro('Não encontrei nenhum e-mail nesse arquivo.'); return }
+    if (r.contatos.length > TETO_DE_IMPORTACAO) { setErro(`O arquivo tem ${r.contatos.length} e-mails; o máximo por importação é ${TETO_DE_IMPORTACAO}. Divida em partes.`); return }
+    setArquivo(f.name)
+    setEtiqueta((atual) => atual || comoEtiqueta(f.name.replace(/\.[^.]+$/, '')))
+    setLeitura(r)
+  }
+
+  function importar() {
+    if (!leitura) return
+    setErro(''); setResultado('')
+    const lista = comoEtiqueta(etiqueta)
+    gravar(async () => {
+      let inseridos = 0, atualizados = 0, recusados = 0
+      const total = leitura.contatos.length
+      for (let i = 0; i < total; i += LOTE_DE_IMPORTACAO) {
+        setProgresso(`Gravando ${Math.min(i + LOTE_DE_IMPORTACAO, total)} de ${total}…`)
+        const form = new FormData()
+        form.set('linhas', JSON.stringify(leitura.contatos.slice(i, i + LOTE_DE_IMPORTACAO)))
+        form.set('etiqueta', lista)
+        const r = await importarContatos(form)
+        if (r.erro) {
+          setErro(i ? `${r.erro} (os ${i} primeiros já foram gravados)` : r.erro)
+          setProgresso('')
+          if (i) onImportado(lista)
+          return
+        }
+        inseridos += r.inseridos ?? 0
+        atualizados += r.atualizados ?? 0
+        recusados += r.recusados ?? 0
+      }
+      setProgresso('')
+      setResultado(`${inseridos} novo(s) no banco. ${atualizados} já existiam${lista ? ` e ganharam a lista "${lista}"` : ''}.${recusados ? ` ${recusados} recusados por e-mail inválido.` : ''}`)
+      setLeitura(null)
+      onImportado(lista)
+    })
+  }
+
+  const COLUNAS: [keyof ResultadoDaLeitura['mapa'], string][] = [['email', 'E-mail'], ['nome', 'Nome'], ['veiculo', 'Organização'], ['cargo', 'Cargo'], ['telefone', 'Telefone']]
+
+  return (
+    <Dialog
+      titulo="Importar planilha"
+      descricao="CSV de qualquer origem — Excel, Google Planilhas, Gmail, Outlook, LinkedIn. E-mail repetido não duplica."
+      largura="max-w-2xl"
+      onFechar={onFechar}
+      podeFechar={!gravando}
+    >
+      <label className="text-sm font-medium">Arquivo .csv
+        <input type="file" accept=".csv,.txt,.tsv,text/csv" onChange={escolher} disabled={gravando} className="mt-1 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm" />
+      </label>
+
+      {leitura && (
+        <>
+          <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
+            <p><strong>{leitura.contatos.length}</strong> e-mail(s) em <span className="break-all">{arquivo}</span>.
+              {leitura.repetidosNoArquivo > 0 && <span className="text-muted-foreground"> {leitura.repetidosNoArquivo} repetido(s) no próprio arquivo.</span>}
+              {leitura.semEmail > 0 && <span className="text-muted-foreground"> {leitura.semEmail} linha(s) sem e-mail ignorada(s).</span>}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Colunas entendidas: {COLUNAS.map(([k, rotulo]) => `${rotulo} → ${leitura.mapa[k] === -1 ? '—' : `"${leitura.cabecalho[leitura.mapa[k]] ?? ''}"`}`).join(' · ')}
+            </p>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-border text-xs">
+            {leitura.contatos.slice(0, 8).map((c) => (
+              <p key={c.email} className="truncate border-b border-border px-3 py-1.5 last:border-0">
+                <span className="font-medium">{c.nome || '(sem nome)'}</span> · {c.email}{c.veiculo ? ` · ${c.veiculo}` : ''}
+              </p>
+            ))}
+            {leitura.contatos.length > 8 && <p className="px-3 py-1.5 text-muted-foreground">… e mais {leitura.contatos.length - 8}</p>}
+          </div>
+
+          <label className="text-sm font-medium">Nome da lista <span className="font-normal text-muted-foreground">(vira etiqueta: serve para segmentar por origem)</span>
+            <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} disabled={gravando} list="listas-existentes" placeholder="ex.: jornalistas-saude-rj" className={`mt-1 ${inputClass}`} />
+            <datalist id="listas-existentes">{listasExistentes.map((t) => <option key={t} value={t} />)}</datalist>
+          </label>
+
+          <p className="text-xs text-muted-foreground">
+            Antes do primeiro envio para uma lista comprada ou raspada, vale verificar os e-mails: endereço morto vira devolução, e devolução derruba a entrega de tudo o que sai do domínio — inclusive a newsletter.
+          </p>
+        </>
+      )}
+
+      {erro && <p className="text-xs text-destructive">{erro}</p>}
+      {progresso && <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />{progresso}</p>}
+      {resultado && <p className="text-xs text-emerald-700 dark:text-emerald-500">{resultado}</p>}
+
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onFechar} disabled={gravando}>{resultado ? 'Fechar' : 'Cancelar'}</Button>
+        {leitura && (
+          <Button onClick={importar} disabled={gravando}>
+            {gravando ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+            Importar {leitura.contatos.length}
+          </Button>
+        )}
+      </div>
+    </Dialog>
   )
 }

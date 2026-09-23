@@ -16,6 +16,14 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import {
   emailDaCampanha, linkValido, motivoDeFora, TETO_DE_DESTINATARIOS,
 } from '@/lib/imprensa/campanha'
+import { comoEtiqueta, extrairEmail, LOTE_DE_IMPORTACAO } from '@/lib/imprensa/importacao'
+
+/** Divide ids para filtros `in`: a lista vai na URL, e URL tem limite. */
+function emPedacos<T>(itens: T[], tamanho = 200): T[][] {
+  const pedacos: T[][] = []
+  for (let i = 0; i < itens.length; i += tamanho) pedacos.push(itens.slice(i, i + tamanho))
+  return pedacos
+}
 
 /**
  * Contatos de imprensa: encontrar (Hunter.io), verificar e guardar num lugar
@@ -353,10 +361,13 @@ export async function excluirContatos(formData: FormData): Promise<{ erro?: stri
     ids = Array.isArray(ids) ? ids.filter((i) => typeof i === 'string').slice(0, 1000) : []
     if (!ids.length) throw new Error('Nenhum contato selecionado.')
 
-    const { data, error } = await supabase.from('press_contacts')
-      .delete().in('id', ids).eq('workspace_id', context.workspace.id).select('id')
-    if (error) throw new Error('Não foi possível remover os contatos.')
-    const removidos = data?.length ?? 0
+    let removidos = 0
+    for (const pedaco of emPedacos(ids)) {
+      const { data, error } = await supabase.from('press_contacts')
+        .delete().in('id', pedaco).eq('workspace_id', context.workspace.id).select('id')
+      if (error) throw new Error(removidos ? `Removidos ${removidos}; o resto falhou.` : 'Não foi possível remover os contatos.')
+      removidos += data?.length ?? 0
+    }
     if (!removidos) throw new Error('Nenhum contato removido. Só administradores ou quem cadastrou podem remover.')
 
     await createAdminClient().from('activity_log').insert({
@@ -420,12 +431,16 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     const admin = createAdminClient()
     const workspaceId = context.workspace.id
 
-    const { data: contatos, error: erroContatos } = await admin.from('press_contacts')
-      .select('id, nome, email, email_status, descadastrado_em, token_descadastro')
-      .eq('workspace_id', workspaceId).in('id', ids)
-    if (erroContatos) throw new Error('Não foi possível ler os contatos.')
+    const contatos: { id: string; nome: string; email: string | null; email_status: string; descadastrado_em: string | null; token_descadastro: string }[] = []
+    for (const pedaco of emPedacos(ids)) {
+      const { data, error } = await admin.from('press_contacts')
+        .select('id, nome, email, email_status, descadastrado_em, token_descadastro')
+        .eq('workspace_id', workspaceId).in('id', pedaco)
+      if (error) throw new Error('Não foi possível ler os contatos.')
+      contatos.push(...(data ?? []))
+    }
 
-    const aptos = (contatos ?? []).filter((c) => !motivoDeFora({
+    const aptos = contatos.filter((c) => !motivoDeFora({
       email: c.email, emailStatus: c.email_status, descadastradoEm: c.descadastrado_em,
     }))
     const deFora = ids.length - aptos.length
@@ -442,17 +457,23 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     }).select('id').single()
     if (erroCampanha || !campanha) throw new Error('Não foi possível registrar a campanha.')
 
-    const { data: fila, error: erroFila } = await admin.from('press_campanha_destinatarios').insert(
-      aptos.map((c) => ({
-        campanha_id: campanha.id,
-        workspace_id: workspaceId,
-        contato_id: c.id,
-        email: c.email as string,
-        nome: c.nome ?? '',
-        estado: 'na_fila',
-      })),
-    ).select('id, contato_id, email, nome, token_abertura')
-    if (erroFila || !fila) {
+    const fila: { id: string; contato_id: string | null; email: string; nome: string; token_abertura: string }[] = []
+    let erroFila = false
+    for (const pedaco of emPedacos(aptos, 500)) {
+      const { data, error } = await admin.from('press_campanha_destinatarios').insert(
+        pedaco.map((c) => ({
+          campanha_id: campanha.id,
+          workspace_id: workspaceId,
+          contato_id: c.id,
+          email: c.email as string,
+          nome: c.nome ?? '',
+          estado: 'na_fila',
+        })),
+      ).select('id, contato_id, email, nome, token_abertura')
+      if (error || !data) { erroFila = true; break }
+      fila.push(...data)
+    }
+    if (erroFila) {
       await admin.from('press_campanhas').update({ estado: 'falhou', concluida_em: new Date().toISOString() }).eq('id', campanha.id)
       throw new Error('Não foi possível preparar a lista de destinatários.')
     }
@@ -460,7 +481,11 @@ export async function enviarCampanha(formData: FormData): Promise<{ erro?: strin
     const tokenDoContato = new Map(aptos.map((c) => [c.id, c.token_descadastro as string]))
     let primeiroErro = ''
 
-    for (const lote of emLotes(fila)) {
+    const lotes = emLotes(fila)
+    for (const [i, lote] of lotes.entries()) {
+      // O Resend aceita poucas chamadas por segundo; sem pausa, o lote 3
+      // volta 429 e metade da campanha falha por pressa.
+      if (i > 0) await new Promise((r) => setTimeout(r, 600))
       const mensagens: Mensagem[] = lote.map((d) => {
         const tokenSaida = tokenDoContato.get(d.contato_id as string) as string
         const email = emailDaCampanha({
@@ -545,5 +570,61 @@ export async function destinatariosDaCampanha(formData: FormData): Promise<{ err
     }
   } catch (causa) {
     return comoErro(causa, 'Não foi possível carregar os destinatários.')
+  }
+}
+
+/**
+ * Importa um lote de contatos de uma planilha (lida no navegador). A etiqueta
+ * marca de qual lista vieram — é o que permite, depois, segmentar por origem.
+ * Não duplica e-mail; quem já existe ganha a etiqueta nova; quem saiu da lista
+ * continua fora (a função do banco não toca nisso).
+ */
+export async function importarContatos(formData: FormData): Promise<{ erro?: string; inseridos?: number; atualizados?: number; recusados?: number }> {
+  try {
+    const context = await requireWorkspace()
+    const etiqueta = comoEtiqueta(texto(formData, 'etiqueta'))
+    let linhas: unknown
+    try { linhas = JSON.parse(String(formData.get('linhas') ?? '[]')) } catch { linhas = [] }
+    if (!Array.isArray(linhas) || !linhas.length) throw new Error('Nenhum contato para importar.')
+    if (linhas.length > LOTE_DE_IMPORTACAO) throw new Error(`No máximo ${LOTE_DE_IMPORTACAO} contatos por lote.`)
+
+    const campo = (l: Record<string, unknown>, k: string) => (typeof l[k] === 'string' ? (l[k] as string).trim().slice(0, 200) : '')
+    const limpas = linhas
+      .filter((l): l is Record<string, unknown> => typeof l === 'object' && l !== null)
+      .map((l) => ({
+        email: extrairEmail(campo(l, 'email')),
+        nome: campo(l, 'nome'),
+        veiculo: campo(l, 'veiculo'),
+        cargo: campo(l, 'cargo'),
+        telefone: campo(l, 'telefone').slice(0, 60),
+      }))
+      .filter((l) => l.email)
+    const recusados = linhas.length - limpas.length
+    if (!limpas.length) throw new Error('Nenhum e-mail válido neste lote.')
+
+    const admin = createAdminClient()
+    const { data, error } = await admin.rpc('importar_contatos', {
+      p_workspace_id: context.workspace.id,
+      p_autor: context.user.id,
+      p_linhas: limpas,
+      p_tags: etiqueta ? [etiqueta] : [],
+    })
+    if (error) throw new Error('Não foi possível gravar os contatos.')
+    const linha = (Array.isArray(data) ? data[0] : data) as { inseridos?: number; atualizados?: number } | null
+    const inseridos = linha?.inseridos ?? 0
+    const atualizados = linha?.atualizados ?? 0
+
+    await admin.from('activity_log').insert({
+      workspace_id: context.workspace.id,
+      actor_id: context.user.id,
+      action: 'contatos_importados',
+      entity_type: 'press_contacts',
+      metadata: { etiqueta, inseridos, atualizados, recusados },
+    })
+
+    revalidatePath('/imprensa')
+    return { inseridos, atualizados, recusados }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível importar os contatos.')
   }
 }
