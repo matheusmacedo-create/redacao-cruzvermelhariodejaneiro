@@ -5,7 +5,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { ehServico, SERVICOS } from '@/lib/integracoes/chaves'
+import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
 
 /**
  * Gravar e remover chaves de integração. A regra "só admin" mora no banco
@@ -24,9 +24,20 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
     if (context.role !== 'admin') throw new Error('Só administradores podem configurar chaves de integração.')
 
     const servico = String(formData.get('servico') ?? '')
-    const valor = String(formData.get('valor') ?? '').trim()
-    if (!ehServico(servico)) throw new Error('Serviço desconhecido.')
-    if (valor.length < 8) throw new Error('A chave parece curta demais. Cole a chave inteira.')
+    if (!ehServico(servico) || 'oculto' in SERVICOS[servico]) throw new Error('Serviço desconhecido.')
+    const campos = camposDo(servico)
+    let valor = String(formData.get('valor') ?? '').trim()
+    if (campos.length) {
+      const dados: Record<string, string> = {}
+      for (const c of campos) {
+        const v = String(formData.get(c.id) ?? '').trim()
+        if (v.length < 8) throw new Error(`Preencha "${c.rotulo}" inteiro.`)
+        dados[c.id] = v
+      }
+      valor = JSON.stringify(dados)
+    } else if (valor.length < 8) {
+      throw new Error('A chave parece curta demais. Cole a chave inteira.')
+    }
 
     const supabase = await createClient()
     const { error } = await supabase.rpc('definir_chave_de_integracao', {
@@ -56,7 +67,7 @@ export async function removerChaveDeIntegracao(formData: FormData): Promise<Resu
     if (context.role !== 'admin') throw new Error('Só administradores podem remover chaves de integração.')
 
     const servico = String(formData.get('servico') ?? '')
-    if (!ehServico(servico)) throw new Error('Serviço desconhecido.')
+    if (!ehServico(servico) || 'oculto' in SERVICOS[servico]) throw new Error('Serviço desconhecido.')
 
     const supabase = await createClient()
     const { error } = await supabase.rpc('remover_chave_de_integracao', {
