@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import {
   garantirPerfil,
   linkDeConexao,
@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic'
  * devolver o link em tela, onde ele acabaria copiado para um grupo de WhatsApp.
  */
 export async function GET(request: NextRequest) {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('integracoes.configurar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   if (!process.env.UPLOAD_POST_API_KEY) {
     return NextResponse.json({ error: 'Falta a variável UPLOAD_POST_API_KEY.' }, { status: 503 })

@@ -1,0 +1,422 @@
+'use client'
+
+import { useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  Check, ChevronDown, Copy, KeyRound, Loader2, Minus, Search, ShieldCheck, UserCheck, UserPlus, UserX, Users, X,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Avatar } from '@/components/ui/avatar'
+import { privateAvatarUrl } from '@/lib/avatar-url'
+import { cn } from '@/lib/utils'
+import { matrizDePermissoes, PAPEIS, PAPEL, type Papel } from '@/lib/permissoes'
+import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
+import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
+import { atualizarUsuario, criarUsuario, desativarUsuario, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
+
+export type UsuarioNaTela = {
+  id: string; usuario: string; nome: string; cargo: string; iniciais: string; cor: string | null; avatar: string | null
+  papel: Papel; coordenacao: string; ativo: boolean; trocarSenha: boolean; desativadoEm: string | null
+  criadoEm: string; ultimoAcesso: string | null; souEu: boolean
+}
+export type PessoaSemAcesso = { nome: string; cargo: string; setor: string; papel: Papel; usuario: string }
+export type EventoNaTela = { id: string; acao: string; detalhes: Record<string, unknown>; quando: string; ator: string; alvo: string | null }
+
+type Resultado = { erro?: string; recado?: string; senhaTemporaria?: string; usuario?: string }
+type Aviso = { tom: 'ok' | 'erro'; texto: string } | null
+
+const campo = 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
+const dataHora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
+const data = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' })
+
+const TOM_DO_PAPEL: Record<Papel, string> = {
+  admin: 'bg-primary/10 text-primary',
+  editor: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  colaborador: 'bg-muted text-muted-foreground',
+}
+
+export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel }: {
+  usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean
+}) {
+  const [criando, setCriando] = useState<Partial<PessoaSemAcesso> | null>(null)
+  const [senhaNova, setSenhaNova] = useState<{ usuario: string; senha: string } | null>(null)
+
+  const ativos = usuarios.filter((u) => u.ativo)
+  const numeros = [
+    { rotulo: 'Ativos', valor: ativos.length },
+    { rotulo: 'Administradores', valor: ativos.filter((u) => u.papel === 'admin').length },
+    { rotulo: 'Aguardando 1º acesso', valor: ativos.filter((u) => u.trocarSenha).length },
+    { rotulo: 'Desativados', valor: usuarios.length - ativos.length },
+  ]
+
+  function aoCriar(r: Resultado) {
+    if (r.senhaTemporaria && r.usuario) setSenhaNova({ usuario: r.usuario, senha: r.senhaTemporaria })
+    setCriando(null)
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className="text-2xl font-bold tabular-nums">{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p></Card>)}
+      </div>
+
+      {senhaNova && <SenhaTemporaria {...senhaNova} fechar={() => setSenhaNova(null)} />}
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-muted-foreground">Login por usuário e senha. Senha criada aqui é provisória: a pessoa troca no primeiro acesso.</p></div>
+          <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
+        </div>
+        {criando && <FormularioDeCriacao inicial={criando} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
+        <ListaDeUsuarios usuarios={usuarios} aoGerarSenha={setSenhaNova} />
+      </section>
+
+      {semAcesso.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div><h2 className="font-semibold">Da equipe, ainda sem acesso</h2><p className="text-sm text-muted-foreground">Pessoas da lista oficial de setores que ainda não têm login. O papel vem sugerido pelo setor; você confirma na criação.</p></div>
+          <Card className="divide-y divide-border">
+            {semAcesso.map((p) => (
+              <div key={p.nome} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0"><p className="text-sm font-medium">{p.nome}{p.cargo && <span className="font-normal text-muted-foreground"> · {p.cargo}</span>}</p><p className="text-xs text-muted-foreground">{p.setor} · sugestão: {PAPEL[p.papel].rotulo.toLowerCase()} · @{p.usuario}</p></div>
+                <Button variant="outline" size="sm" onClick={() => { setCriando(p); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><UserPlus className="size-3.5" />Criar acesso</Button>
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
+
+      <MatrizDePermissoes />
+
+      <Auditoria eventos={eventos} disponivel={auditoriaDisponivel} />
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ senha temporária
+
+function SenhaTemporaria({ usuario, senha, fechar }: { usuario: string; senha: string; fechar: () => void }) {
+  const [copiado, setCopiado] = useState(false)
+  async function copiar() {
+    try { await navigator.clipboard.writeText(`Usuário: ${usuario}\nSenha temporária: ${senha}`); setCopiado(true) } catch { setCopiado(false) }
+  }
+  return (
+    <div role="status" className="rounded-xl border border-warning/40 bg-warning/10 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <KeyRound className="mt-0.5 size-5 shrink-0" />
+          <div>
+            <p className="font-semibold">Senha temporária de @{usuario}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Ela aparece só agora e não fica guardada em lugar nenhum. Repasse pessoalmente ou por um canal privado — nunca em grupo.</p>
+            <p className="mt-3 select-all rounded-lg bg-background px-3 py-2 font-mono text-lg tracking-wider">{senha}</p>
+          </div>
+        </div>
+        <button type="button" onClick={fechar} aria-label="Fechar" className="rounded-lg p-1 text-muted-foreground hover:bg-muted"><X className="size-4" /></button>
+      </div>
+      <div className="mt-3 flex justify-end"><Button variant="outline" size="sm" onClick={copiar}>{copiado ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}{copiado ? 'Copiado' : 'Copiar usuário e senha'}</Button></div>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ criação
+
+function SeletorDePapel({ valor, onChange, desabilitado }: { valor: Papel; onChange: (p: Papel) => void; desabilitado?: boolean }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Papel">
+      {PAPEIS.map((p) => (
+        <button key={p} type="button" role="radio" aria-checked={valor === p} disabled={desabilitado} onClick={() => onChange(p)}
+          className={cn('rounded-lg border p-3 text-left transition-colors disabled:opacity-50', valor === p ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:bg-muted/50')}>
+          <p className="text-sm font-medium">{PAPEL[p].rotulo}</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{PAPEL[p].descricao}</p>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CampoDeSenha({ modo, setModo, senha, setSenha, usuario, nome }: { modo: 'gerar' | 'definir'; setModo: (m: 'gerar' | 'definir') => void; senha: string; setSenha: (s: string) => void; usuario: string; nome: string }) {
+  const problema = modo === 'definir' && senha ? problemaDaSenha(senha, { usuario, nome }) : null
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <div className="flex flex-wrap gap-4">
+        <label className="flex items-center gap-2"><input type="radio" checked={modo === 'gerar'} onChange={() => setModo('gerar')} />Gerar senha temporária (recomendado)</label>
+        <label className="flex items-center gap-2"><input type="radio" checked={modo === 'definir'} onChange={() => setModo('definir')} />Definir uma senha</label>
+      </div>
+      {modo === 'definir' && <>
+        <input type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={`Mínimo de ${SENHA_MINIMO} caracteres, letras e números`} className={campo} aria-invalid={Boolean(problema)} />
+        {problema && <p className="text-xs text-destructive">{problema}</p>}
+      </>}
+    </div>
+  )
+}
+
+function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Partial<PessoaSemAcesso>; aoConcluir: (r: Resultado) => void; cancelar: () => void }) {
+  const router = useRouter()
+  const [nome, setNome] = useState(inicial.nome ?? '')
+  const [usuario, setUsuario] = useState(inicial.usuario ?? '')
+  const [usuarioEditado, setUsuarioEditado] = useState(Boolean(inicial.usuario))
+  const [cargo, setCargo] = useState(inicial.cargo ?? '')
+  const [coordenacao, setCoordenacao] = useState(inicial.setor ?? '')
+  const [papel, setPapel] = useState<Papel>(inicial.papel ?? 'colaborador')
+  const [modo, setModo] = useState<'gerar' | 'definir'>('gerar')
+  const [senha, setSenha] = useState('')
+  const [aviso, setAviso] = useState<Aviso>(null)
+  const [ocupado, rodar] = useTransition()
+
+  function enviar(event: React.FormEvent) {
+    event.preventDefault()
+    setAviso(null)
+    rodar(async () => {
+      const form = new FormData()
+      Object.entries({ nome, usuario, cargo, coordenacao, papel, modoSenha: modo, senha }).forEach(([k, v]) => form.set(k, v))
+      const r = await criarUsuario(form)
+      if (r.erro) return setAviso({ tom: 'erro', texto: r.erro })
+      aoConcluir(r)
+      router.refresh()
+    })
+  }
+
+  return (
+    <Card className="p-5">
+      <form onSubmit={enviar} className="flex flex-col gap-4">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Nome completo
+            <input required minLength={3} value={nome} className={campo} onChange={(e) => { setNome(e.target.value); if (!usuarioEditado) setUsuario(usuarioSugerido(e.target.value)) }} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Usuário (para o login)
+            <input required pattern="[a-z0-9._\-]{3,40}" value={usuario} className={campo} placeholder="nome.sobrenome" onChange={(e) => { setUsuario(e.target.value.toLowerCase()); setUsuarioEditado(true) }} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Cargo ou função
+            <input value={cargo} maxLength={120} className={campo} onChange={(e) => setCargo(e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Coordenação
+            <select value={coordenacao} className={campo} onChange={(e) => setCoordenacao(e.target.value)}>
+              <option value="">Sem coordenação</option>
+              {NOMES_DOS_SETORES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </label>
+        </div>
+        <SeletorDePapel valor={papel} onChange={setPapel} />
+        <CampoDeSenha modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={usuario} nome={nome} />
+        {aviso && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{aviso.texto}</p>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" size="lg" onClick={cancelar}>Cancelar</Button>
+          <Button type="submit" size="lg" disabled={ocupado}>{ocupado && <Loader2 className="size-4 animate-spin" />}Criar acesso</Button>
+        </div>
+      </form>
+    </Card>
+  )
+}
+
+// ------------------------------------------------------------------ lista
+
+function ListaDeUsuarios({ usuarios, aoGerarSenha }: { usuarios: UsuarioNaTela[]; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+  const [busca, setBusca] = useState('')
+  const [filtro, setFiltro] = useState<'todos' | Papel | 'desativados'>('todos')
+  const [aberto, setAberto] = useState<string | null>(null)
+
+  const lista = useMemo(() => {
+    const termo = busca.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+    return usuarios.filter((u) => {
+      if (filtro === 'desativados' ? u.ativo : filtro !== 'todos' && (u.papel !== filtro || !u.ativo)) return false
+      if (!termo) return true
+      return `${u.nome} ${u.usuario} ${u.coordenacao} ${u.cargo}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(termo)
+    })
+  }, [usuarios, busca, filtro])
+
+  const filtros: { id: typeof filtro; rotulo: string }[] = [
+    { id: 'todos', rotulo: 'Todos' }, ...PAPEIS.map((p) => ({ id: p, rotulo: PAPEL[p].rotulo })), { id: 'desativados', rotulo: 'Desativados' },
+  ]
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative sm:w-72"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, usuário ou setor" className={cn(campo, 'pl-9')} /></div>
+        <div className="flex flex-wrap gap-1.5">{filtros.map((f) => <button key={f.id} type="button" onClick={() => setFiltro(f.id)} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f.id ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{f.rotulo}</button>)}</div>
+      </div>
+      <ul className="divide-y divide-border">
+        {lista.map((u) => <LinhaDoUsuario key={u.id} usuario={u} aberto={aberto === u.id} alternar={() => setAberto(aberto === u.id ? null : u.id)} aoGerarSenha={aoGerarSenha} />)}
+        {!lista.length && <li className="px-5 py-10 text-center text-sm text-muted-foreground"><Users className="mx-auto mb-2 size-5" />Ninguém encontrado com esse filtro.</li>}
+      </ul>
+    </Card>
+  )
+}
+
+function LinhaDoUsuario({ usuario: u, aberto, alternar, aoGerarSenha }: { usuario: UsuarioNaTela; aberto: boolean; alternar: () => void; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+  return (
+    <li className={cn(!u.ativo && 'bg-muted/30')}>
+      <button type="button" onClick={alternar} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-muted/40">
+        <Avatar initials={u.iniciais || '?'} color={u.cor ?? undefined} src={privateAvatarUrl(u.avatar)} alt={u.nome} size="md" className={cn(!u.ativo && 'opacity-50 grayscale')} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{u.nome}{u.souEu && <span className="ml-2 text-xs font-normal text-muted-foreground">(você)</span>}</p>
+          <p className="truncate text-xs text-muted-foreground">@{u.usuario} · {u.coordenacao || 'Sem coordenação'}{u.cargo && ` · ${u.cargo}`}</p>
+        </div>
+        <div className="hidden flex-col items-end gap-1 text-xs text-muted-foreground sm:flex">
+          <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
+          {u.trocarSenha && u.ativo && <span className="text-warning-foreground">Aguardando troca de senha</span>}
+        </div>
+        {u.ativo
+          ? <span className={cn('shrink-0 rounded-md px-2 py-1 text-xs font-medium', TOM_DO_PAPEL[u.papel])}>{PAPEL[u.papel].rotulo}</span>
+          : <span className="shrink-0 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Desativado</span>}
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
+      </button>
+      {aberto && <PainelDoUsuario usuario={u} aoGerarSenha={aoGerarSenha} />}
+    </li>
+  )
+}
+
+function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+  const router = useRouter()
+  const [nome, setNome] = useState(u.nome)
+  const [cargo, setCargo] = useState(u.cargo)
+  const [coordenacao, setCoordenacao] = useState(u.coordenacao)
+  const [papel, setPapel] = useState<Papel>(u.papel)
+  const [redefinindo, setRedefinindo] = useState(false)
+  const [modo, setModo] = useState<'gerar' | 'definir'>('gerar')
+  const [senha, setSenha] = useState('')
+  const [aviso, setAviso] = useState<Aviso>(null)
+  const [ocupado, rodar] = useTransition()
+
+  const mudou = nome !== u.nome || cargo !== u.cargo || coordenacao !== u.coordenacao || papel !== u.papel
+  // Coordenação antiga fora da lista oficial continua selecionável até alguém trocar.
+  const opcoes = u.coordenacao && !NOMES_DOS_SETORES.includes(u.coordenacao) ? [u.coordenacao, ...NOMES_DOS_SETORES] : NOMES_DOS_SETORES
+
+  function executar(acao: (f: FormData) => Promise<Resultado>, campos: Record<string, string>) {
+    setAviso(null)
+    rodar(async () => {
+      const form = new FormData()
+      form.set('userId', u.id)
+      Object.entries(campos).forEach(([k, v]) => form.set(k, v))
+      const r = await acao(form)
+      if (r.erro) return setAviso({ tom: 'erro', texto: r.erro })
+      setAviso({ tom: 'ok', texto: r.recado ?? 'Pronto.' })
+      if (r.senhaTemporaria && r.usuario) aoGerarSenha({ usuario: r.usuario, senha: r.senhaTemporaria })
+      setRedefinindo(false); setSenha('')
+      router.refresh()
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-4 border-t border-border bg-muted/20 px-5 py-5">
+      <div className="grid gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
+        <span>Acesso criado em {data.format(new Date(u.criadoEm))}</span>
+        <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
+        {u.desativadoEm && <span>Desativado em {data.format(new Date(u.desativadoEm))}</span>}
+      </div>
+
+      {u.ativo && <>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Nome completo<input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} /></label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Cargo ou função<input value={cargo} maxLength={120} onChange={(e) => setCargo(e.target.value)} className={campo} /></label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">Coordenação
+            <select value={coordenacao} onChange={(e) => setCoordenacao(e.target.value)} className={campo}><option value="">Sem coordenação</option>{opcoes.map((s) => <option key={s}>{s}</option>)}</select>
+          </label>
+        </div>
+        <SeletorDePapel valor={papel} onChange={setPapel} desabilitado={u.souEu} />
+        {u.souEu && <p className="text-xs text-muted-foreground">Você não pode mudar o seu próprio papel nem desativar a sua conta — outro administrador faz isso.</p>}
+        <div className="flex justify-end"><Button size="lg" disabled={!mudou || ocupado} onClick={() => executar(atualizarUsuario, { nome, cargo, coordenacao, papel })}>{ocupado && <Loader2 className="size-4 animate-spin" />}Salvar alterações</Button></div>
+      </>}
+
+      {redefinindo && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
+          <p className="text-sm font-medium">Redefinir a senha de {u.nome}</p>
+          <CampoDeSenha modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={u.usuario} nome={u.nome} />
+          <p className="text-xs text-muted-foreground">As sessões abertas dessa pessoa são encerradas, e ela troca a senha no próximo acesso.</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setRedefinindo(false)}>Cancelar</Button>
+            <Button disabled={ocupado} onClick={() => executar(redefinirSenha, { modoSenha: modo, senha })}>{ocupado && <Loader2 className="size-4 animate-spin" />}Redefinir</Button>
+          </div>
+        </div>
+      )}
+
+      {aviso && <p role={aviso.tom === 'erro' ? 'alert' : 'status'} className={cn('rounded-lg px-3 py-2 text-sm', aviso.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success')}>{aviso.texto}</p>}
+
+      {!u.souEu && (
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+          {u.ativo ? <>
+            {!redefinindo && <Button variant="outline" onClick={() => setRedefinindo(true)}><KeyRound className="size-4" />Redefinir senha</Button>}
+            <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
+          </> : (
+            <Button disabled={ocupado} onClick={() => { if (confirm(`Reativar ${u.nome}? Uma senha temporária nova será gerada.`)) executar(reativarUsuario, {}) }}><UserCheck className="size-4" />Reativar com senha temporária</Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ matriz
+
+function MatrizDePermissoes() {
+  const grupos = matrizDePermissoes()
+  return (
+    <section className="flex flex-col gap-3">
+      <div><h2 className="font-semibold">O que cada papel pode fazer</h2><p className="text-sm text-muted-foreground">Todo usuário ativo registra, cria pautas, escreve, comenta, sobe arquivos e vota quando é convidado. A tabela mostra só o que muda de um papel para outro — e é a mesma regra que o servidor aplica.</p></div>
+      <Card className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead><tr className="border-b border-border text-left"><th className="px-5 py-3 font-medium">Permissão</th>{PAPEIS.map((p) => <th key={p} className="w-28 px-3 py-3 text-center font-medium">{PAPEL[p].rotulo}</th>)}</tr></thead>
+          <tbody>
+            {grupos.map((g) => [
+              <tr key={g.grupo} className="bg-muted/40"><td colSpan={PAPEIS.length + 1} className="px-5 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.grupo}</td></tr>,
+              ...g.linhas.map((l) => (
+                <tr key={l.id} className="border-b border-border last:border-0">
+                  <td className="px-5 py-2.5">{l.rotulo}</td>
+                  {PAPEIS.map((p) => <td key={p} className="px-3 py-2.5 text-center">{l.papeis[p] ? <Check className="mx-auto size-4 text-success" aria-label="Sim" /> : <Minus className="mx-auto size-4 text-muted-foreground/40" aria-label="Não" />}</td>)}
+                </tr>
+              )),
+            ])}
+          </tbody>
+        </table>
+      </Card>
+    </section>
+  )
+}
+
+// ------------------------------------------------------------------ auditoria
+
+const ROTULO_DA_ACAO: Record<string, string> = {
+  usuario_criado: 'criou o acesso de',
+  vinculo_criado: 'vinculou ao espaço',
+  vinculo_removido: 'removeu do espaço',
+  papel_alterado: 'mudou o papel de',
+  coordenacao_alterada: 'mudou a coordenação de',
+  dados_alterados: 'alterou os dados de',
+  senha_redefinida: 'redefiniu a senha de',
+  senha_trocada: 'trocou a própria senha',
+  usuario_desativado: 'desativou',
+  usuario_reativado: 'reativou',
+}
+
+function detalheDoEvento(e: EventoNaTela): string {
+  const d = e.detalhes
+  const papel = (v: unknown) => (typeof v === 'string' && v in PAPEL ? PAPEL[v as Papel].rotulo : String(v ?? '—'))
+  if (e.acao === 'papel_alterado') return `${papel(d.de)} → ${papel(d.para)}`
+  if (e.acao === 'coordenacao_alterada') return `${d.de || 'sem coordenação'} → ${d.para || 'sem coordenação'}`
+  if (e.acao === 'usuario_criado' || e.acao === 'vinculo_criado') return papel(d.papel)
+  if (e.acao === 'dados_alterados') return `nome: ${d.nome_anterior} → ${d.nome_novo}`
+  return ''
+}
+
+function Auditoria({ eventos, disponivel }: { eventos: EventoNaTela[]; disponivel: boolean }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 text-muted-foreground" /><div><h2 className="font-semibold">Registro de acessos</h2><p className="text-sm text-muted-foreground">Toda criação, mudança de papel, senha redefinida e desativação — com quem fez e quando. Ninguém edita este registro, nem administradores.</p></div></div>
+      <Card>
+        {!disponivel ? <p className="px-5 py-6 text-sm text-muted-foreground">O registro ainda não está disponível: a migração de usuários e permissões precisa ser aplicada no banco.</p>
+          : eventos.length ? (
+            <ul className="divide-y divide-border">
+              {eventos.map((e) => {
+                const detalhe = detalheDoEvento(e)
+                return (
+                  <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-2.5 text-sm">
+                    <span><strong className="font-medium">{e.ator}</strong> {ROTULO_DA_ACAO[e.acao] ?? e.acao.replaceAll('_', ' ')}{e.alvo && e.acao !== 'senha_trocada' && <strong className="font-medium"> {e.alvo}</strong>}{detalhe && <span className="text-muted-foreground"> · {detalhe}</span>}</span>
+                    <time className="text-xs text-muted-foreground">{dataHora.format(new Date(e.quando))}</time>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : <p className="px-5 py-6 text-sm text-muted-foreground">Nada registrado ainda.</p>}
+      </Card>
+    </section>
+  )
+}

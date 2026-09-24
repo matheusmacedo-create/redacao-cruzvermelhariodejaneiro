@@ -113,6 +113,7 @@ app/
     editorial.ts      pautas, conteúdos, aprovações, calendário, projetos, perfil
     redes.ts          publicação em redes sociais
     admin.ts          reset de dados do espaço
+    usuarios.ts       criar, editar, redefinir senha, desativar/reativar
   api/                só o que precisa ser HTTP de verdade
     bootstrap/        primeiro administrador, quando o banco está vazio
     files/            upload-token, register, download, delete
@@ -127,7 +128,9 @@ lib/
   supabase/           client.ts (browser) · server.ts (SSR) · admin.ts (service role) · env.ts
   publicacao/         upload-post.ts · requisitos.ts · ftp.ts
   editorial/          publicacoes-previstas.ts
-  session.ts          requireSession · requireWorkspace · requireAdmin
+  session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
+  permissoes.ts       quem pode o quê (catálogo único de permissões)
+  equipe.ts           setores e pessoas da filial
   storage.ts          limites, tipos MIME, caminho da Biblioteca
   status-maps.ts      tradução banco → interface
   data.ts             constantes (coordenações, canais) + mock antigo da Fase 1
@@ -159,6 +162,46 @@ A estrutura multi-espaço continua no banco porque desmontá-la custaria mais do
 que mantê-la.
 
 Papéis: `admin`, `editor`, `colaborador` (em `workspace_members.role`).
+
+### Usuários e permissões
+
+**O que cada papel pode mora em um lugar só: `lib/permissoes.ts`.** Action não
+compara `context.role === 'admin'`; pergunta `pode(context.role, 'x')` ou abre
+com `requirePermissao('x')`. A tela `/usuarios` desenha a matriz a partir da
+mesma tabela — o que ela mostra é o que o servidor aplica. Permissão nova entra
+na tabela primeiro. Papel desconhecido não pode nada (falha fechada).
+
+O que todo membro ativo faz (registrar, escrever, comentar, votar quando
+convidado, subir arquivo) não está na tabela: é o piso, garantido pelo RLS.
+
+`/usuarios` (só admin) cria login, muda papel e coordenação, redefine senha e
+desativa/reativa. As actions estão em `app/actions/usuarios.ts`. Regras:
+
+- **Senha criada por admin é provisória.** `profiles.trocar_senha` faz
+  `requireWorkspace()` mandar para `/trocar-senha` (fora do grupo `(app)`, para
+  não dar laço). A temporária é gerada no servidor e aparece uma vez na tela;
+  não é guardada nem vai para log.
+- **Política de senha única** em `lib/usuarios/senha.ts` (instalação, admin e a
+  própria pessoa). Trocar a própria senha pede a atual e derruba as outras
+  sessões.
+- **Desativar, não apagar.** Apagar levaria junto (cascata) o histórico da
+  pessoa. Desativada: `profiles.active = false`, ban no Auth, sessões apagadas
+  (`encerrar_sessoes_do_usuario`, só service role). E, mais importante, os
+  helpers `private.is_workspace_member`/`workspace_role`/`shares_workspace`
+  exigem perfil ativo — o token que ainda vale por até 1 hora não enxerga nada.
+- **Ninguém muda o próprio papel nem se desativa**, e o banco recusa deixar o
+  espaço sem admin ativo (gatilhos `garantir_admin_*`, também contra a Data API).
+- **A pessoa não mexe no que não é dela**: privilégio por coluna em `profiles`
+  (só nome, cargo, iniciais, cor, foto) e em `workspace_members` (só papel e
+  coordenação, e só admin via RLS).
+- **Auditoria à prova do próprio usuário**: `auditoria_de_acesso` não aceita
+  insert pela Data API. Mudança de vínculo é registrada por gatilho (com o
+  autor, porque a action faz pelo cliente do admin); o resto, pela action.
+
+A equipe oficial e os setores ficam em `lib/equipe.ts`. É a fonte do campo
+Coordenação e da lista "da equipe, ainda sem acesso" em `/usuarios` — estar lá
+não cria conta. Mudar a coordenação de alguém sincroniza o `setor_membros` do
+setor de mesmo nome no Correio.
 
 ### Primeiro acesso
 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
@@ -25,7 +26,7 @@ const comoErro = (causa: unknown, padrao: string): Resultado => ({ erro: mensage
 
 async function exigirAdmin() {
   const context = await requireWorkspace()
-  if (context.role !== 'admin') throw new Error('Só administradores configuram o correio dos setores.')
+  if (!pode(context.role, 'correio.configurar')) throw new Error('Só administradores configuram o correio dos setores.')
   return context
 }
 
@@ -176,7 +177,7 @@ export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado>
       .eq('id', texto(formData, 'caixaId')).eq('workspace_id', workspaceId).maybeSingle()
     if (!caixa || !caixa.ativa || !caixa.no_gmail || !caixa.setor_id) throw new Error('Esta caixa não está disponível para envio.')
 
-    if (context.role !== 'admin') {
+    if (!pode(context.role, 'correio.todas_as_caixas')) {
       const { data: membro } = await admin.from('setor_membros').select('user_id')
         .eq('setor_id', caixa.setor_id).eq('user_id', context.user.id).maybeSingle()
       if (!membro) throw new Error('Você não faz parte do setor desta caixa.')

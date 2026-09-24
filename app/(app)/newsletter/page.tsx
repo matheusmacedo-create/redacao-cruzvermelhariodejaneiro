@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, remetente, respostaPara } from '@/lib/newsletter/resend'
 import { Central, type Inscrito, type Edicao } from './central'
@@ -104,7 +105,7 @@ export default async function NewsletterPage() {
           remetente: remetente(),
           responderPara: respostaPara() ?? '',
         }}
-        podeApagar={context.role === 'admin'}
+        podeApagar={pode(context.role, 'newsletter.apagar')}
       />
     </div>
   )

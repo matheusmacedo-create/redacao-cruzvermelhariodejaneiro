@@ -1,10 +1,13 @@
 import { PageHeader } from '@/components/app/page-header'
-import { UserManager } from '@/components/admin/user-manager'
+import Link from 'next/link'
+import { KeyRound } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { DangerZone } from '@/components/admin/danger-zone'
 import { AnalyticsDoSite } from '@/components/admin/analytics-do-site'
 import { Integracoes } from '@/components/admin/integracoes'
 import { CorreioDosSetores } from '@/components/admin/correio-setores'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { obterCampos, SERVICOS, situacaoDasChaves } from '@/lib/integracoes/chaves'
 
@@ -16,7 +19,7 @@ export default async function ConfiguracoesPage({
   const context = await requireWorkspace()
   const supabase = await createClient()
   const { data: members } = await supabase.from('workspace_members').select('user_id,role,coordination,profiles(full_name,username,job_title)').eq('workspace_id',context.workspace.id).order('created_at')
-  const admin = context.role === 'admin'
+  const admin = pode(context.role, 'integracoes.configurar')
 
   const workspaceId = context.workspace.id
   const [chaves, clienteGoogle, conexao, setores, membrosDeSetor, caixas] = admin
@@ -41,7 +44,7 @@ export default async function ConfiguracoesPage({
     return { id: m.user_id as string, nome: perfil?.full_name || perfil?.username || '—' }
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 
-  return <div><PageHeader title="Configurações" description={`Administração do espaço ${context.workspace.name}.`}/>{admin ? <UserManager members={members ?? []}/> : <div className="rounded-xl border border-border bg-card p-6"><h2 className="font-semibold">Preferências do espaço</h2><p className="mt-2 text-sm text-muted-foreground">A gestão de usuários é restrita aos administradores.</p></div>}
+  return <div><PageHeader title="Configurações" description={`Administração do espaço ${context.workspace.name}.`}/>{admin ? <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-semibold">Equipe deste espaço</h2><p className="mt-1 text-sm text-muted-foreground">{(members ?? []).length} pessoas com acesso. Criar logins, mudar papéis, redefinir senhas e desativar contas fica em Usuários e permissões.</p></div><Button size="lg" render={<Link href="/usuarios"/>}><KeyRound className="size-4"/>Usuários e permissões</Button></div> : <div className="rounded-xl border border-border bg-card p-6"><h2 className="font-semibold">Preferências do espaço</h2><p className="mt-2 text-sm text-muted-foreground">A gestão de usuários é restrita aos administradores.</p></div>}
     {admin && <Integracoes chaves={chaves.map((c) => ({ ...c, painel: SERVICOS[c.servico].painel }))} />}
     {admin && (
       <CorreioDosSetores
