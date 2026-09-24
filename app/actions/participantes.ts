@@ -22,8 +22,8 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
 }
 
 function revalidar(id?: string) {
-  revalidatePath('/participantes')
-  if (id) revalidatePath(`/participantes/${id}`)
+  revalidatePath('/voluntariado')
+  if (id) revalidatePath(`/voluntariado/${id}`)
 }
 
 export async function salvarParticipante(id: string | null, _anterior: Resultado, formData: FormData): Promise<Resultado> {
@@ -40,7 +40,7 @@ export async function salvarParticipante(id: string | null, _anterior: Resultado
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar o cadastro.') }
   }
-  redirect(`/participantes/${novoId}`)
+  redirect(`/voluntariado/${novoId}`)
 }
 
 export async function mudarSituacao(id: string, situacao: 'ativo' | 'inativo' | 'desligado', motivo?: string): Promise<Resultado> {

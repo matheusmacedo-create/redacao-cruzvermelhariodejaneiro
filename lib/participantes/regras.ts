@@ -1,18 +1,18 @@
 /**
- * O vocabulário e as regras do cadastro de participantes. Puro: a tela, as
+ * O vocabulário e as regras do cadastro do Voluntariado. Puro: a tela, as
  * actions e o formulário público usam as mesmas listas e validações, e o
  * banco confere tudo de novo (CPF, tipo sanguíneo, vínculo, menores).
  */
 
 import { SETORES } from '@/lib/equipe'
 
+// Só o voluntariado. Quem tem vínculo de trabalho com a filial (funcionários,
+// coordenadores, administrativo, diretoria) fica na Equipe, com outros dados
+// e outros acessos.
 export const VINCULOS = {
   voluntario: { rotulo: 'Voluntário', plural: 'Voluntários' },
-  colaborador: { rotulo: 'Colaborador', plural: 'Colaboradores' },
-  coordenador: { rotulo: 'Coordenador', plural: 'Coordenadores' },
-  diretoria: { rotulo: 'Diretoria', plural: 'Diretoria' },
   jovem: { rotulo: 'Juventude', plural: 'Juventude' },
-  instrutor: { rotulo: 'Instrutor', plural: 'Instrutores' },
+  instrutor: { rotulo: 'Instrutor voluntário', plural: 'Instrutores voluntários' },
 } as const
 export type Vinculo = keyof typeof VINCULOS
 export const ehVinculo = (s: unknown): s is Vinculo => typeof s === 'string' && Object.hasOwn(VINCULOS, s)

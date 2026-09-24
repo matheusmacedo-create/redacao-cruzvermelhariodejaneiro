@@ -6,11 +6,11 @@ import { FormularioDeParticipante } from '@/components/app/participantes/formula
 
 export default async function NovoParticipante() {
   const { nivel } = await contextoDeParticipantes()
-  if (nivel < 2) redirect('/participantes')
+  if (nivel < 2) redirect('/voluntariado')
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <Link href="/participantes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Participantes</Link>
-      <h1 className="text-2xl font-bold tracking-tight">Novo participante</h1>
+      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
+      <h1 className="text-2xl font-bold tracking-tight">Novo voluntário</h1>
       <FormularioDeParticipante p={null} />
     </div>
   )

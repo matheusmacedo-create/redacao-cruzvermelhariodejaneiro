@@ -39,7 +39,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/participantes" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Participantes</Link>
+      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{p.nome_social || p.nome}</h1>
@@ -50,7 +50,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
             {SITUACOES[p.situacao as keyof typeof SITUACOES]?.rotulo}
           </span>
         </div>
-        {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/participantes/${id}/editar`} />}><Pencil className="size-4" />Editar cadastro</Button>}
+        {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/voluntariado/${id}/editar`} />}><Pencil className="size-4" />Editar cadastro</Button>}
       </div>
 
       {anos !== null && anos < 18 && !p.anonimizado_em && (

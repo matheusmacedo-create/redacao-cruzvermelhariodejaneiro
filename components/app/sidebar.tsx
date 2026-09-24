@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, HeartHandshake, History, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, HeartHandshake, History, IdCard, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -54,8 +54,10 @@ const sections = [
     items: [
       { href: '/mensagens', label: 'Mensagens', icon: MessageCircle },
       { href: '/pessoas', label: 'Pessoas', icon: Users },
-      // Voluntários, colaboradores e coordenadores — com ou sem login.
-      { href: '/participantes', label: 'Participantes', icon: HeartHandshake },
+      // Funcionários, coordenadores, administrativo e diretoria: contrato, documentos e remuneração.
+      { href: '/equipe', label: 'Gestão da equipe', icon: IdCard },
+      // Voluntários, juventude e instrutores voluntários; a equipe contratada fica em Gestão da equipe.
+      { href: '/voluntariado', label: 'Voluntariado', icon: HeartHandshake },
     ],
   },
 ]
