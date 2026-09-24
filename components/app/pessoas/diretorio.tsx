@@ -64,7 +64,7 @@ function CartaoDaPessoa({ p, ehAdmin }: { p: PessoaDoDiretorio; ehAdmin: boolean
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-xs">
           {falta.length > 0 ? <span className="text-warning-foreground">Falta: {falta.join(', ')}</span> : p.visto_em ? <span className="text-muted-foreground">Visto em {quando(p.visto_em)}</span> : <span />}
           {p.acesso === 'sem_acesso'
-            ? <Link href={`/usuarios?criar=${encodeURIComponent(p.nome)}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline"><UserPlus className="size-3.5" />Dar acesso</Link>
+            ? <Link href={`/pessoas/adicionar?nome=${encodeURIComponent(p.nome)}`} className="inline-flex items-center gap-1 font-medium text-primary hover:underline"><UserPlus className="size-3.5" />Dar acesso</Link>
             : falta.length > 0 && <Link href="/usuarios" className="font-medium text-primary hover:underline">Completar</Link>}
         </div>
       )}
