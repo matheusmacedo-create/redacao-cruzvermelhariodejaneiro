@@ -14,6 +14,13 @@ This repository is linked to a [v0](https://v0.app) project. You can continue de
 integrações, convenções e as armadilhas que já custaram produção. É a leitura de
 entrada para quem — pessoa ou agente — vai mexer no código.
 
+## Colaborar com o Claude Code
+
+Cada colaborador pode conectar o próprio Claude Code (navegador, VS Code,
+Cursor, JetBrains, terminal ou Codespaces). O passo a passo — acessos, regras,
+atalhos `/validar`, `/migracao`, `/entregar` e o fluxo de branch + PR — está em
+[**docs/COLABORAR-COM-CLAUDE-CODE.md**](./docs/COLABORAR-COM-CLAUDE-CODE.md).
+
 ## Configuração
 
 O app depende de um projeto Supabase (Postgres + Auth) e do Vercel Blob para
