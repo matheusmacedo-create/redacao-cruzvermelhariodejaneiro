@@ -168,7 +168,7 @@ export function FormularioDeParticipante({ p }: { p: ParticipanteNoFormulario | 
 
       {estado.erro && <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{estado.erro}</p>}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" render={<Link href={p ? `/participantes/${p.id}` : '/participantes'} />}>Cancelar</Button>
+        <Button variant="outline" render={<Link href={p ? `/voluntariado/${p.id}` : '/voluntariado'} />}>Cancelar</Button>
         <Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}{p ? 'Salvar alterações' : 'Cadastrar'}</Button>
       </div>
     </form>
