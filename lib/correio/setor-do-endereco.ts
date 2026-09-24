@@ -43,3 +43,20 @@ export function setorDoEndereco(email: string, setores: SetorParaSugerir[]): str
   })
   return candidatos.length === 1 ? candidatos[0].id : null
 }
+
+/** Endereços de cargo, que não têm o nome do setor. */
+const CARGOS: Record<string, string> = { presidente: 'Presidência', presidencia: 'Presidência', vicepresidente: 'Vice-Presidência', vicepresidencia: 'Vice-Presidência', contato: 'Contato' }
+
+/**
+ * O nome de remetente sugerido: "CVB-RJ · <setor>". Endereço de pessoa
+ * (nome.sobrenome) vira "Nome Sobrenome · CVB-RJ"; de cargo, o cargo.
+ */
+export function nomeSugerido(email: string, setor: string | null | undefined): string {
+  const local = (email.split('@')[0] ?? '').toLowerCase()
+  if (CARGOS[local]) return `CVB-RJ · ${CARGOS[local]}`
+  if (/^[a-z]+(\.[a-z]+)+$/.test(local)) {
+    return `${local.split('.').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')} · CVB-RJ`
+  }
+  if (setor?.trim()) return `CVB-RJ · ${setor.trim().replace(/\s*\/\s*/g, ' e ')}`
+  return `CVB-RJ · ${local.charAt(0).toUpperCase()}${local.slice(1)}`
+}

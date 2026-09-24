@@ -33,7 +33,7 @@ export default async function ConfiguracoesPage({
       supabase.from('google_conexao').select('email_conta,estado,sincronizada_em').eq('workspace_id', workspaceId).maybeSingle(),
       supabase.from('setores').select('id,nome').eq('workspace_id', workspaceId).order('nome'),
       supabase.from('setor_membros').select('setor_id,user_id').eq('workspace_id', workspaceId),
-      supabase.from('caixas_de_email').select('id,email,nome_exibicao,assinatura_html,setor_id,ativa,no_gmail,principal').eq('workspace_id', workspaceId).order('email'),
+      supabase.from('caixas_de_email').select('id,email,nome_exibicao,nome_remetente,assinatura_html,setor_id,ativa,no_gmail,principal').eq('workspace_id', workspaceId).order('email'),
     ])
     : [[], null, null, null, null, null] as const
 
@@ -62,7 +62,7 @@ export default async function ConfiguracoesPage({
         }))}
         pessoas={pessoas}
         caixas={(caixas?.data ?? []).map((c) => ({
-          id: c.id, email: c.email, nome: c.nome_exibicao, assinatura: c.assinatura_html,
+          id: c.id, email: c.email, nome: c.nome_exibicao, nomeRemetente: c.nome_remetente ?? '', assinatura: c.assinatura_html,
           setorId: c.setor_id, ativa: c.ativa, noGmail: c.no_gmail, principal: c.principal,
         }))}
       />

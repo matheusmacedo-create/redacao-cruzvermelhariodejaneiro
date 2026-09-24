@@ -6,15 +6,19 @@ import { AlertTriangle, CheckCircle2, Link2, Loader2, Mail, Plus, RefreshCw, Tra
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
-  ativarCaixasComSetor, configurarCaixa, criarSetor, definirMembros, desconectarGoogle, excluirSetor, sincronizarCaixasAgora,
+  ativarCaixasComSetor, configurarCaixa, criarSetor, definirMembros, desconectarGoogle, excluirSetor, nomearCaixas, sincronizarCaixasAgora,
 } from '@/app/actions/correio'
+import { nomeSugerido } from '@/lib/correio/setor-do-endereco'
 
 export type SetorNaTela = { id: string; nome: string; membros: string[] }
 export type PessoaNaTela = { id: string; nome: string }
 export type CaixaNaTela = {
   id: string
   email: string
+  /** O nome do Gmail ("Enviar e-mail como"). */
   nome: string
+  /** O nome definido na Redação — vale mais que o do Gmail. */
+  nomeRemetente: string
   assinatura: string
   setorId: string | null
   ativa: boolean
@@ -237,8 +241,12 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
   const ativas = caixas.filter((c) => c.ativa && c.noGmail)
   const semMembros = new Set(setores.filter((s) => !s.membros.length).map((s) => s.id))
   const localDe = (email: string) => email.split('@')[0] ?? ''
-  // Nome de exibição igual ao endereço ("comunicacao") é o que o destinatário vê como remetente: vale ajustar no Gmail.
-  const nomeGenerico = (c: CaixaNaTela) => !c.nome.trim() || c.nome.trim().toLowerCase() === localDe(c.email).toLowerCase()
+  const nomeDoSetor = (id: string | null) => setores.find((s) => s.id === id)?.nome ?? null
+  const nomeQueSai = (c: CaixaNaTela) => c.nomeRemetente.trim() || c.nome.trim()
+  // Nome igual ao endereço ("comunicacao") é o que o destinatário vê como remetente: vale dar um nome de verdade.
+  const nomeGenerico = (c: CaixaNaTela) => !nomeQueSai(c) || nomeQueSai(c).toLowerCase() === localDe(c.email).toLowerCase()
+  const semNome = caixas.filter((c) => c.noGmail && nomeGenerico(c))
+  const nomear = (c: CaixaNaTela, nome: string) => { if (nome.trim() !== c.nomeRemetente.trim()) executar(() => nomearCaixas([{ id: c.id, nome }])) }
   return (
     <Card className="flex flex-col gap-3 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -252,6 +260,12 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
             </p>
           )}
         </div>
+        {semNome.length > 0 && (
+          <Button variant="outline" disabled={ocupado} id="usar-nomes-sugeridos"
+            onClick={() => executar(() => nomearCaixas(semNome.map((c) => ({ id: c.id, nome: nomeSugerido(c.email, nomeDoSetor(c.setorId)) }))))}>
+            Dar nome de remetente {semNome.length === 1 ? 'ao endereço' : `aos ${semNome.length} endereços`} sem nome
+          </Button>
+        )}
         {prontasParaAtivar > 0 && (
           <Button disabled={ocupado} onClick={() => executar(ativarCaixasComSetor)} id="ativar-com-setor">
             <CheckCircle2 className="size-4" />Ativar {prontasParaAtivar === 1 ? 'o endereço' : `os ${prontasParaAtivar} endereços`} com setor
@@ -271,10 +285,10 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{c.email}{c.principal && <span className="ml-2 text-xs font-normal text-muted-foreground">(endereço principal da conta)</span>}</p>
                   <p className="text-xs text-muted-foreground">
-                    Sai como “{c.nome || c.email}”
+                    Sai como “{nomeQueSai(c) || c.email}”
                     {!c.noGmail && <span className="text-destructive"> · não está mais no Gmail — não envia</span>}
                     {!c.assinatura && c.noGmail && <span className="text-warning-foreground"> · sem assinatura no Gmail</span>}
-                    {c.noGmail && nomeGenerico(c) && <span className="text-warning-foreground"> · nome de remetente genérico (ajuste em “editar informações” no Gmail)</span>}
+                    {c.noGmail && nomeGenerico(c) && <span className="text-warning-foreground"> · nome de remetente genérico</span>}
                     {c.ativa && c.setorId && semMembros.has(c.setorId) && <span className="text-warning-foreground"> · o setor não tem membros: ninguém envia por aqui</span>}
                     {!c.ativa && c.setorId && c.noGmail && <span> · setor sugerido, falta ativar</span>}
                   </p>
@@ -295,6 +309,15 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
                   </Button>
                 )}
               </div>
+              <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                Nome do remetente
+                <input key={c.nomeRemetente} defaultValue={c.nomeRemetente} maxLength={80} disabled={ocupado}
+                  placeholder={nomeSugerido(c.email, nomeDoSetor(c.setorId))} aria-label={`Nome do remetente de ${c.email}`}
+                  className={`${campo} min-w-0 flex-1 py-1.5 text-sm text-foreground sm:max-w-sm`}
+                  onBlur={(e) => nomear(c, e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() } }} />
+                {!c.nomeRemetente && c.nome && !nomeGenerico(c) && <span>vazio: usa “{c.nome}”, do Gmail</span>}
+              </label>
               {vendo === c.id && (
                 // sandbox vazio: a assinatura vem do Gmail e é mostrada como
                 // está, mas num quadro sem script e sem acesso a esta página.
@@ -307,7 +330,8 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
       )}
       <p className="text-xs text-muted-foreground">
         Assinatura de cada endereço: no Gmail, Configurações → Geral → Assinatura — crie uma por setor e escolha-a em “Padrões de assinatura” para o endereço dele.
-        Nome do remetente: Configurações → Contas → Enviar e-mail como → editar informações. Depois, “Sincronizar endereços”.
+        Nome do remetente: o daqui vale para tudo que sai pela Redação. Para o que a equipe envia direto pelo Gmail, use o mesmo nome em
+        Configurações → Contas → Enviar e-mail como → editar informações.
         A Redação não deixa ninguém editar assinatura na hora de enviar.
       </p>
     </Card>
