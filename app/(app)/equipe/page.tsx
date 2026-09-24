@@ -13,6 +13,9 @@ import {
 import { NivelDeAcesso, TrazerLista } from '@/components/app/equipe/acoes'
 import { Situacao, nomeDe } from '@/components/app/equipe/comum'
 import { Organograma } from '@/components/app/equipe/organograma'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/equipe') }
 
 export const dynamic = 'force-dynamic'
 
@@ -30,11 +33,11 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
   if (nivel < 1) {
     return (
       <div>
-        <PageHeader title="Gestão da equipe" description="Funcionários, coordenadores, administrativo e diretoria." />
+        <PageHeader title="Recursos humanos" description="Funcionários, coordenadores, administrativo e diretoria." />
         <Card className="flex items-start gap-3 p-6">
           <Lock className="mt-0.5 size-5 text-muted-foreground" />
           <div>
-            <p className="font-medium">Você ainda não tem acesso à Equipe.</p>
+            <p className="font-medium">Você ainda não tem acesso a Recursos humanos.</p>
             <p className="mt-1 text-sm text-muted-foreground">Ela guarda dados de contrato, documentos e remuneração, e é liberada pessoa a pessoa. Peça a um administrador.</p>
           </div>
         </Card>
@@ -77,8 +80,8 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Gestão da equipe"
-        description="Funcionários, coordenadores, administrativo e diretoria: contrato e cargo, histórico, documentos e remuneração. Voluntários ficam em Voluntariado."
+        title="Recursos humanos"
+        description="Funcionários, coordenadores, administrativo e diretoria: contrato e cargo, histórico, documentos e remuneração. Voluntários ficam em Voluntários."
         actions={nivel >= 2 ? <div className="flex flex-wrap items-start gap-2">
           <TrazerLista faltam={faltam} />
           <Button variant="outline" render={<a href={exportar} />}><Download className="size-4" />Exportar</Button>

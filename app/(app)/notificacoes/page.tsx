@@ -5,6 +5,9 @@ import { ListaDeNotificacoes } from '@/components/app/lista-de-notificacoes'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/notificacoes') }
 
 export const dynamic = 'force-dynamic'
 

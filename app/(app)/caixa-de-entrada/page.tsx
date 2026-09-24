@@ -4,9 +4,12 @@ import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { CaixaDeAtendimento, type ItemInterno } from '@/components/app/atendimento/caixa'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/caixa-de-entrada') }
 
 /**
- * A Caixa de Entrada: três pastas, e só elas.
+ * A Caixa de entrada: três pastas, e só elas.
  *
  * Mensagens, Comentários e E-mail e materiais — o que chega de fora, separado
  * pelo jeito de ler cada coisa. Rascunhos e aprovações moram nas telas deles;
@@ -36,7 +39,7 @@ export default async function CaixaEntradaPage() {
   return (
     <div>
       <PageHeader
-        title="Caixa de Entrada"
+        title="Caixa de entrada"
         description="O que o público escreveu nas redes e o que chegou por dentro, em pastas."
         actions={<Button variant="outline" size="lg" render={<Link href="/registrar" />}>Registrar atividade</Button>}
       />

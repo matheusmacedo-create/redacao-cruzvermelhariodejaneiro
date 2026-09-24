@@ -13,6 +13,9 @@ import { createClient } from '@/lib/supabase/server'
 import { AvatarUpload } from './avatar-upload'
 import { PreferenciasDeNotificacao } from '@/components/app/preferencias-de-notificacao'
 import { lerModos } from '@/lib/notificacoes/regras'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/perfil') }
 
 const inputClass = 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 

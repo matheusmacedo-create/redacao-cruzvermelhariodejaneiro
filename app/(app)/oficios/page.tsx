@@ -8,6 +8,9 @@ import { createClient } from '@/lib/supabase/server'
 import { criarOficio } from '@/app/actions/oficios'
 import { ESTADOS, ehEstado, lerCanonico, type EstadoDoOficio } from '@/lib/oficios/documento'
 import { SeloDoCarimbo } from '@/components/app/oficios/painel'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/oficios') }
 
 export const dynamic = 'force-dynamic'
 

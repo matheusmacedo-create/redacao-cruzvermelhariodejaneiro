@@ -82,8 +82,8 @@
   --info: oklch(0.55 0.13 250);
   --info-foreground: oklch(1 0 0);
 
-  --border: oklch(0.918 0 0);
-  --input: oklch(0.918 0 0);
+  --border: oklch(0.92 0.003 20);
+  --input: oklch(0.9 0.003 20);
   --ring: rgb(227 34 25);
 
   --chart-1: rgb(227 34 25);
@@ -92,14 +92,16 @@
   --chart-4: oklch(0.55 0.13 250);
   --chart-5: oklch(0.52 0 0);
 
-  /* Sidebar */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.32 0 0);
+  /* Sidebar — é também a moldura do app: o conteúdo fica num painel branco
+     por cima dela. O item ativo é um "cartão" branco, e o vermelho fica só
+     no ícone: cor reservada para ação e estado. */
+  --sidebar: oklch(0.967 0.003 20);
+  --sidebar-foreground: oklch(0.3 0 0);
   --sidebar-primary: rgb(227 34 25);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.955 0.012 20);
-  --sidebar-accent-foreground: rgb(227 34 25);
-  --sidebar-border: oklch(0.918 0 0);
+  --sidebar-accent: oklch(1 0 0);
+  --sidebar-accent-foreground: oklch(0.22 0 0);
+  --sidebar-border: oklch(0.91 0.004 20);
   --sidebar-ring: rgb(227 34 25);
 }
 

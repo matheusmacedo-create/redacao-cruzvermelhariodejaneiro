@@ -8,6 +8,9 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/aprovacoes') }
 
 const statusMeta = {
   pending: { label: 'Pendente', icon: Clock, className: 'bg-warning/15 text-warning-foreground' },

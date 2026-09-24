@@ -102,7 +102,7 @@ export async function tokenDeAcesso(workspaceId: string): Promise<string> {
   if (guardado && guardado.expira > Date.now() + 60_000) return guardado.token
 
   const refresh = await obterChave(workspaceId, 'google_gmail')
-  if (!refresh) throw new GmailError('A conta do Google ainda não foi conectada. Um administrador conecta em Configurações → Correio dos setores.', 0, true)
+  if (!refresh) throw new GmailError('A conta do Google ainda não foi conectada. Um administrador conecta em Configurações → E-mail do setor.', 0, true)
   const { clientId, clientSecret } = await clienteOAuth(workspaceId)
   try {
     const dados = await chamarToken({ refresh_token: refresh, client_id: clientId, client_secret: clientSecret, grant_type: 'refresh_token' })

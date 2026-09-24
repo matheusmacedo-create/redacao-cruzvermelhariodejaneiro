@@ -2,6 +2,9 @@ import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { CalendarView } from './calendar-view'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/calendario') }
 
 /** De quando o calendário carrega: seis meses para trás cobre a consulta ao
  *  que já passou sem trazer o histórico inteiro a cada abertura. */

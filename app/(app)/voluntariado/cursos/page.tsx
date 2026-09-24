@@ -9,6 +9,8 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { NovoCurso } from '@/components/app/cursos/novo'
 import { Apostilas, CancelarCertificado, type ApostilaDaEquipe } from '@/components/app/cursos/apostilas'
 
+export const metadata = { title: 'Cursos e apostilas' }
+
 export const dynamic = 'force-dynamic'
 
 /**
@@ -40,7 +42,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
+      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntários</Link>
       <PageHeader title="Cursos e apostilas" description={`O que o voluntário encontra na Área do Voluntário (${urlBase()}/membro). Vídeos do YouTube não listado; certificado automático ao concluir.`}
         actions={nivel >= 2 && aba === 'cursos' ? <NovoCurso /> : undefined} />
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">

@@ -9,7 +9,7 @@ export default async function NovoParticipante() {
   if (nivel < 2) redirect('/voluntariado')
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
+      <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntários</Link>
       <h1 className="text-2xl font-bold tracking-tight">Novo voluntário</h1>
       <FormularioDeParticipante p={null} />
     </div>

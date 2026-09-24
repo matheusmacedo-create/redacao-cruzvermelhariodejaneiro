@@ -4,6 +4,9 @@ import { TabelaDoRegistro, type LinhaDoRegistro } from '@/components/app/registr
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/registro') }
 
 export const dynamic = 'force-dynamic'
 
@@ -92,7 +95,7 @@ export default async function RegistroPage() {
   return (
     <div>
       <PageHeader
-        title="Registro"
+        title="Histórico de publicações"
         description="Tudo o que foi publicado: quando saiu, em qual canal e em qual endereço. Inclui o que falhou."
       />
       {linhas.length === 0 ? (

@@ -8,6 +8,9 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { NIVEIS, NOMES_DOS_SETORES, SITUACOES, VINCULOS, ehSituacao, ehVinculo, idade, situacaoDaFormacao, type NomeDoNivel } from '@/lib/participantes/regras'
 import { CopiarLink, DecidirInscricao, NivelDeAcesso } from '@/components/app/participantes/acoes'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/voluntariado') }
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +37,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   if (nivel < 1) {
     return (
       <div>
-        <PageHeader title="Voluntariado" description="Cadastro de voluntários, juventude e instrutores voluntários." />
+        <PageHeader title="Voluntários" description="Cadastro de voluntários, juventude e instrutores voluntários." />
         <Card className="flex items-start gap-3 p-6">
           <Lock className="mt-0.5 size-5 text-muted-foreground" />
           <div>
@@ -85,8 +88,8 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Voluntariado"
-        description="Voluntários, juventude e instrutores voluntários. CPF e saúde ficam cifrados; cada abertura é registrada. A equipe contratada fica em Gestão da equipe."
+        title="Voluntários"
+        description="Voluntários, juventude e instrutores voluntários. CPF e saúde ficam cifrados; cada abertura é registrada. A equipe contratada fica em Recursos humanos."
         actions={nivel >= 2 ? <div className="flex flex-wrap gap-2">
           <Button variant="outline" render={<Link href="/voluntariado/oportunidades" />}><CalendarHeart className="size-4" />Oportunidades</Button>
           <Button variant="outline" render={<Link href="/voluntariado/cursos" />}><GraduationCap className="size-4" />Cursos e apostilas</Button>

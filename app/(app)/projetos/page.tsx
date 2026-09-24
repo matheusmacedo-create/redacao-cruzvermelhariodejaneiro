@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { progresso, situacaoDoProjeto } from '@/lib/projetos/cronograma'
 import { Carteira, type ProjetoNaCarteira } from '@/components/app/projetos/carteira'
 import { hojeEmSaoPaulo, type PessoaDoProjeto } from '@/components/app/projetos/comum'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/projetos') }
 
 export const dynamic = 'force-dynamic'
 

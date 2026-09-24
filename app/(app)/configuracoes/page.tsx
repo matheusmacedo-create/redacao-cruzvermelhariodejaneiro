@@ -10,6 +10,9 @@ import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { obterCampos, SERVICOS, situacaoDasChaves } from '@/lib/integracoes/chaves'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/configuracoes') }
 
 export default async function ConfiguracoesPage({
   searchParams,

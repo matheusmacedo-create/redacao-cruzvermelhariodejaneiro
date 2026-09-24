@@ -510,7 +510,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Link href="/redes" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="size-3.5" />Redes Sociais
+            <ArrowLeft className="size-3.5" />Publicações
           </Link>
           <span className="text-xs text-muted-foreground">/</span>
           <input
@@ -963,7 +963,7 @@ function PopoverDestinos({ ancora, conectadas, jaExistem, onEscolher, onFechar }
                     type="button"
                     disabled={!conectado || existe}
                     onClick={() => onEscolher(canal.id, f.id)}
-                    title={existe ? 'Já está neste pacote' : !conectado ? 'Conecte a conta em Redes Sociais' : `Adicionar ${canal.nome} · ${f.rotulo}`}
+                    title={existe ? 'Já está neste pacote' : !conectado ? 'Conta ainda não conectada — fale com um administrador' : `Adicionar ${canal.nome} · ${f.rotulo}`}
                     className="rounded-full border border-border px-2.5 py-1 text-xs transition-colors hover:border-primary hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border"
                   >
                     {f.rotulo}{existe && ' ✓'}
