@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { contextoDoFinanceiro } from '@/lib/financeiro/acesso'
+import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { conteudoConfere } from '@/lib/rh/regras'
@@ -424,5 +425,64 @@ export async function excluirImportacao(importacaoId: string): Promise<Resultado
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível excluir.') }
+  }
+}
+
+// ---------------------------------------------------------------- fechamento do mês
+
+/**
+ * Fecha o mês. O resumo e os avisos são recalculados aqui, no servidor — o
+ * que a tela mostrou não entra no retrato. Aviso não impede; exige
+ * observação (o banco confere de novo).
+ */
+export async function fecharMes(mes: string, observacao: string): Promise<Resultado> {
+  try {
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) throw new Error('Mês inválido.')
+    const d = await dadosDoMes(mes)
+    if (d.nivel < 4) throw new Error('Só a gestão do Financeiro fecha o mês.')
+    const bloqueio = d.itens.find((i) => i.bloqueia && !i.ok)
+    if (bloqueio) throw new Error(`${bloqueio.rotulo}: ${bloqueio.detalhe ?? 'pendente'}`)
+    const avisos = d.itens.filter((i) => !i.ok).map((i) => ({ id: i.id, rotulo: i.rotulo, detalhe: i.detalhe }))
+    const { error } = await d.supabase.rpc('financeiro_fechar_mes', {
+      p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`, p_resumo: d.resumo, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
+    })
+    if (error) erroDoBanco(error, 'Não foi possível fechar o mês.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível fechar o mês.') }
+  }
+}
+
+export async function reabrirMes(motivo: string): Promise<Resultado> {
+  try {
+    const { context, supabase } = await contextoDoFinanceiro()
+    const { data: mes, error } = await supabase.rpc('financeiro_reabrir_mes', { p_workspace_id: context.workspace.id, p_motivo: motivo.trim().slice(0, 1000) })
+    if (error) erroDoBanco(error, 'Não foi possível reabrir.')
+    // Reabrir mês fechado é exceção: os administradores ficam sabendo.
+    const { data: admins } = await createAdminClient().from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('role', 'admin')
+    const rotulo = typeof mes === 'string' ? `${mes.slice(5, 7)}/${mes.slice(0, 4)}` : 'o último mês'
+    await notificar(createAdminClient(), {
+      workspaceId: context.workspace.id, para: (admins ?? []).map((a) => a.user_id as string), atorId: context.user.id, categoria: 'financeiro',
+      titulo: `Mês ${rotulo} reaberto no Financeiro`, mensagem: motivo.trim().slice(0, 200), link: '/financeiro/fechamento', citacao: motivo.trim(),
+    })
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível reabrir.') }
+  }
+}
+
+export async function salvarValorHora(valor: string): Promise<Resultado> {
+  try {
+    const { context, supabase } = await contextoDoFinanceiro()
+    const v = valor.trim() ? lerValor(valor) : null
+    if (valor.trim() && v === null) throw new Error('Valor inválido.')
+    const { error } = await supabase.rpc('financeiro_salvar_valor_hora', { p_workspace_id: context.workspace.id, p_valor: v })
+    if (error) erroDoBanco(error, 'Não foi possível salvar.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar.') }
   }
 }

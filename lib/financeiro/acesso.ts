@@ -27,7 +27,7 @@ export type Cadastros = {
   categorias: { id: string; tipo: 'despesa' | 'receita'; nome: string; grupo: string | null; codigo_contabil: string | null; fixa: boolean; ativa: boolean; ordem: number }[]
   favorecidos: { id: string; nome: string; tipo_pessoa: string; documento: string | null; chave_pix: string | null; email: string | null; telefone: string | null; observacao: string | null }[]
   projetos: { id: string; name: string }[]
-  config: { aprovacao_ativa: boolean; aprovacao_acima: number | null; fechado_ate: string | null; reserva_minima_meses: number }
+  config: { aprovacao_ativa: boolean; aprovacao_acima: number | null; fechado_ate: string | null; reserva_minima_meses: number; valor_hora_voluntario: number | null }
 }
 
 /** Tudo o que os formulários e as listas precisam para dar nome aos ids. Prepara o espaço na primeira vez. */
@@ -40,7 +40,7 @@ export async function cadastrosDoFinanceiro(): Promise<Cadastros> {
     supabase.from('fin_categorias').select('id,tipo,nome,grupo,codigo_contabil,fixa,ativa,ordem').eq('workspace_id', ws).order('ordem').order('nome'),
     supabase.from('fin_favorecidos').select('id,nome,tipo_pessoa,documento,chave_pix,email,telefone,observacao').eq('workspace_id', ws).order('nome').limit(5000),
     supabase.from('projects').select('id,name').eq('workspace_id', ws).order('name'),
-    supabase.from('fin_config').select('aprovacao_ativa,aprovacao_acima,fechado_ate,reserva_minima_meses').eq('workspace_id', ws).maybeSingle(),
+    supabase.from('fin_config').select('aprovacao_ativa,aprovacao_acima,fechado_ate,reserva_minima_meses,valor_hora_voluntario').eq('workspace_id', ws).maybeSingle(),
   ])
   let r = await ler()
   if (!r[1].data?.length) {
@@ -58,6 +58,7 @@ export async function cadastrosDoFinanceiro(): Promise<Cadastros> {
     config: {
       aprovacao_ativa: Boolean(config.data?.aprovacao_ativa), aprovacao_acima: numero(config.data?.aprovacao_acima),
       fechado_ate: (config.data?.fechado_ate as string | null) ?? null, reserva_minima_meses: Number(config.data?.reserva_minima_meses ?? 3),
+      valor_hora_voluntario: numero(config.data?.valor_hora_voluntario),
     },
   }
 }

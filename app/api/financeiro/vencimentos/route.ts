@@ -43,5 +43,26 @@ export async function GET(request: Request) {
     await notificar(admin, { workspaceId, para, atorId: null, categoria: 'financeiro', titulo: aviso.titulo, mensagem: aviso.mensagem, link: '/financeiro', botao: 'Ver as contas' })
     avisados += para.length
   }
-  return Response.json({ ok: true, espacos: porEspaco.size, avisados })
+  // Dia 5: lembra a gestão de fechar o mês passado, se ainda estiver aberto.
+  let lembretes = 0
+  if (hoje.slice(8, 10) === '05') {
+    const fimDoMesPassado = somarDias(`${hoje.slice(0, 7)}-01`, -1)
+    const { data: configs } = await admin.from('fin_config').select('workspace_id,fechado_ate')
+    const { data: comMovimento } = await admin.from('fin_lancamentos').select('workspace_id').lte('pago_em', fimDoMesPassado).limit(1000)
+    const ativos = new Set((comMovimento ?? []).map((x) => x.workspace_id as string))
+    for (const c of configs ?? []) {
+      if (!ativos.has(c.workspace_id as string) || (c.fechado_ate && c.fechado_ate >= fimDoMesPassado)) continue
+      const [{ data: admins }, { data: gestao }] = await Promise.all([
+        admin.from('workspace_members').select('user_id').eq('workspace_id', c.workspace_id).eq('role', 'admin'),
+        admin.from('fin_acesso').select('user_id').eq('workspace_id', c.workspace_id).eq('nivel', 'gestao'),
+      ])
+      const para = [...new Set([...(admins ?? []), ...(gestao ?? [])].map((x) => x.user_id as string))]
+      await notificar(admin, {
+        workspaceId: c.workspace_id as string, para, atorId: null, categoria: 'financeiro', titulo: 'Fechamento do mês pendente',
+        mensagem: `${fimDoMesPassado.slice(5, 7)}/${fimDoMesPassado.slice(0, 4)} ainda não foi fechado no Financeiro.`, link: '/financeiro/fechamento', botao: 'Ir ao fechamento',
+      })
+      lembretes++
+    }
+  }
+  return Response.json({ ok: true, espacos: porEspaco.size, avisados, lembretes })
 }
