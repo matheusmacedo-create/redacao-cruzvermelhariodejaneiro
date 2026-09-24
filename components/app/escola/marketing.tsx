@@ -84,25 +84,31 @@ export function EditarCampanha({ c, contas, podeExcluir }: { c: Campanha; contas
 export function FormularioDaPeca({ p, campanhas, campanhaId, referencia, onFim }: { p: Peca | null; campanhas: Opcao[]; campanhaId?: string | null; referencia?: boolean; onFim: () => void }) {
   const [estado, enviar, enviando] = useActionState(salvarPeca.bind(null, p?.id ?? null), {})
   const ehRef = p ? p.referencia : Boolean(referencia)
+  const meta = p?.origem === 'meta'
   useEffect(() => { if (estado.ok && !estado.erro) onFim() }, [estado.ok, estado.erro, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-peca-form>
       {ehRef && <input type="hidden" name="referencia" value="sim" />}
       <div className="grid gap-3 sm:grid-cols-2">
         <Campo rotulo="Título" className="sm:col-span-2"><input name="titulo" required maxLength={160} defaultValue={p?.titulo} placeholder={ehRef ? 'Anúncio do curso X (concorrente)' : 'Anúncio: vaga garantida por R$ 99'} className={inputClass} /></Campo>
+        {meta ? <><input type="hidden" name="tipo" value={p!.tipo} /><input type="hidden" name="canal" value={p!.canal} /></> : <>
         <Campo rotulo="Tipo"><select name="tipo" defaultValue={p?.tipo ?? 'anuncio'} className={inputClass}>{Object.entries(TIPOS_DE_PECA).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
         <Campo rotulo="Canal"><select name="canal" defaultValue={p?.canal ?? 'meta_ads'} className={inputClass}>{Object.entries(CANAIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
+        </>}
         {ehRef ? <Campo rotulo="De onde veio" ajuda="Concorrente, outra filial, inspiração…"><input name="fonte" maxLength={120} defaultValue={p?.fonte ?? ''} className={inputClass} /></Campo>
           : <Campo rotulo="Campanha"><select name="campanha_id" defaultValue={p?.campanha_id ?? campanhaId ?? ''} className={inputClass}><option value="">— sem campanha</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>}
-        <Campo rotulo="Situação"><select name="status" defaultValue={p?.status ?? (ehRef ? 'no_ar' : 'rascunho')} className={inputClass}>{Object.entries(SITUACOES_DA_PECA).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}</select></Campo>
+        {!meta && <Campo rotulo="Situação"><select name="status" defaultValue={p?.status ?? (ehRef ? 'no_ar' : 'rascunho')} className={inputClass}>{Object.entries(SITUACOES_DA_PECA).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}</select></Campo>}
         <Campo rotulo="Link" className="sm:col-span-2" ajuda={ehRef ? 'Onde ver a peça (Biblioteca de Anúncios do Meta, site…).' : 'A página no ar, o anúncio ou o post.'}><input name="url" type="url" maxLength={500} defaultValue={p?.url ?? ''} placeholder="https://" className={inputClass} /></Campo>
         <Campo rotulo="Ângulo" ajuda="A ideia que vende: preço, prova, urgência, carreira…"><input name="angulo" maxLength={60} defaultValue={p?.angulo ?? ''} list="angulos" className={inputClass} /></Campo>
         <Campo rotulo="Formato" ajuda="Imagem 1:1, carrossel, vídeo 9:16…"><input name="formato" maxLength={60} defaultValue={p?.formato ?? ''} list="formatos" className={inputClass} /></Campo>
+        {!meta && <>
         <Campo rotulo="Publicada em"><input name="publicada_em" type="date" defaultValue={p?.publicada_em ?? ''} className={inputClass} /></Campo>
         <Campo rotulo="Saiu do ar em"><input name="encerrada_em" type="date" defaultValue={p?.encerrada_em ?? ''} className={inputClass} /></Campo>
+        </>}
         <Campo rotulo="Texto da peça" className="sm:col-span-2"><textarea name="texto" maxLength={5000} rows={3} defaultValue={p?.texto ?? ''} placeholder="A copy: título, texto e chamada" className={inputClass} /></Campo>
       </div>
-      {!ehRef && (
+      {p?.origem === 'meta' && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Anúncio lido do Meta: investimento, impressões, cliques, contatos, matrículas, situação e datas vêm de lá todo dia. Aqui ficam o título, o ângulo, o formato, a nota e a marca de vencedora.</p>}
+      {!ehRef && p?.origem !== 'meta' && (
         <fieldset className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-3">
           <legend className="px-1 text-sm font-medium">Resultados</legend>
           <Campo rotulo="Investimento (R$)"><input name="investimento" inputMode="decimal" maxLength={20} defaultValue={valorNoCampo(p?.investimento ?? null)} className={inputClass} /></Campo>
@@ -114,6 +120,7 @@ export function FormularioDaPeca({ p, campanhas, campanhaId, referencia, onFim }
           <label className="flex items-center gap-2 text-sm sm:col-span-3"><input type="checkbox" name="vencedora" value="sim" defaultChecked={p?.vencedora} className="size-4" />Peça vencedora (a que mais trouxe resultado; vale repetir o que ela fez)</label>
         </fieldset>
       )}
+      {p?.origem === 'meta' && <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="vencedora" value="sim" defaultChecked={p.vencedora} className="size-4" />Peça vencedora</label>}
       <Campo rotulo={ehRef ? 'Por que guardar' : 'Nota'}><textarea name="nota" maxLength={2000} rows={2} defaultValue={p?.nota ?? ''} placeholder={ehRef ? 'O que tem de bom aqui para copiar ou evitar' : 'O que aprendemos com esta peça'} className={inputClass} /></Campo>
       <datalist id="angulos">{['Preço', 'Prova social', 'Urgência / últimas vagas', 'Carreira e emprego', 'Certificado', 'Autoridade da Cruz Vermelha', 'Prática com instrutor'].map((a) => <option key={a} value={a} />)}</datalist>
       <datalist id="formatos">{['Imagem 1:1', 'Imagem 4:5', 'Carrossel', 'Vídeo 9:16', 'Vídeo 16:9', 'Stories', 'Página longa', 'Página curta'].map((a) => <option key={a} value={a} />)}</datalist>
@@ -190,7 +197,7 @@ export function CartaoDaPeca({ p, imagem, campanhas, nomeDaCampanha, podeEditar,
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1 font-medium leading-snug">{p.vencedora && <Star className="size-3.5 shrink-0 fill-current text-warning-foreground" aria-label="Vencedora" />}{p.titulo}</p>
-            <p className="text-xs text-muted-foreground">{[TIPOS_DE_PECA[p.tipo], CANAIS[p.canal], p.formato, p.referencia ? p.fonte : nomeDaCampanha].filter(Boolean).join(' · ')}</p>
+            <p className="text-xs text-muted-foreground">{p.origem === 'meta' && <span className="mr-1 rounded bg-[var(--chart-4)]/15 px-1 py-0.5 font-medium text-foreground" title="Lido do Meta Ads">Meta</span>}{[TIPOS_DE_PECA[p.tipo], CANAIS[p.canal], p.formato, p.referencia ? p.fonte : nomeDaCampanha].filter(Boolean).join(' · ')}</p>
           </div>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${SITUACOES_DA_PECA[p.status].classe}`}>{SITUACOES_DA_PECA[p.status].rotulo}</span>
         </div>
