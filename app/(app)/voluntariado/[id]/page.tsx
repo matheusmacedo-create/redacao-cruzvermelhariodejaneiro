@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AlertTriangle, ChevronLeft, Pencil } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, Eye, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
@@ -130,7 +130,13 @@ export default async function Participante({ params }: { params: Promise<{ id: s
                   ? <>Último acesso em {new Date(p.membro_ultimo_acesso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}.</>
                   : <span className="text-muted-foreground">Ainda não entrou. Ele entra com o e-mail do cadastro e um código.</span>}
               </p>
-              {nivel >= 2 && <ConvidarAreaDoMembro id={id} temEmail={Boolean(p.email)} />}
+              {nivel >= 2 && (
+                <div className="flex flex-col gap-2">
+                  <ConvidarAreaDoMembro id={id} temEmail={Boolean(p.email)} />
+                  <Button size="sm" variant="ghost" className="self-start" render={<a href={`/membro/previa?como=${id}`} target="_blank" rel="noopener" />}><Eye className="size-3.5" />Ver como este voluntário</Button>
+                  <p className="text-xs text-muted-foreground">Abre a área dele só para leitura; a visualização fica registrada.</p>
+                </div>
+              )}
             </Card>
           )}
           <Card className="p-5">

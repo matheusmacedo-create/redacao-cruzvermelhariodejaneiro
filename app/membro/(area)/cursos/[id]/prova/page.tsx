@@ -12,7 +12,8 @@ export default async function ProvaDoCurso({ params }: { params: Promise<{ id: s
   const m = await exigirMembro()
   const d = await cursoDoMembro(m, id)
   if (!d || !d.temProva) notFound()
-  if (d.certificado || !d.progresso.concluido) redirect(`/membro/cursos/${id}`)
+  // Na visualização, a equipe confere a prova sem precisar concluir as aulas.
+  if (!m.previa && (d.certificado || !d.progresso.concluido)) redirect(`/membro/cursos/${id}`)
   const questoes = await questoesDaProva(id)
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">

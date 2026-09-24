@@ -17,7 +17,7 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
   const d = await conversaDoMembro(m, id)
   if (!d) notFound()
   // Abrir a conversa conta como leitura da resposta.
-  if (d.conversa.situacao === 'respondida' && !d.conversa.lida_pelo_membro_em) {
+  if (!m.previa && d.conversa.situacao === 'respondida' && !d.conversa.lida_pelo_membro_em) {
     await createAdminClient().rpc('membro_ler_conversa', { p_participante_id: m.participanteId, p_conversa_id: id })
   }
   return (
