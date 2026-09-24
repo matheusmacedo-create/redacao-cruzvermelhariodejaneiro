@@ -1,6 +1,8 @@
 import Link from 'next/link'
-import { Award, CalendarCheck2, Clock, UserRound } from 'lucide-react'
+import { Award, CalendarCheck2, ChevronRight, Clock, GraduationCap, UserRound } from 'lucide-react'
 import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
+import type { CursoNoCatalogo } from '@/lib/membro/cursos'
+import { BarraDeProgresso } from './cursos'
 import { horasLegiveis, mesEAno, primeiroNome, resumoDeHoras, saudacao } from '@/lib/membro/regras'
 import { situacaoDaFormacao, VINCULOS } from '@/lib/participantes/regras'
 
@@ -20,8 +22,8 @@ function Numero({ icone: Icone, valor, rotulo }: { icone: typeof Clock; valor: s
  * A vista do início: quem ele é na filial, as horas, os
  * certificados e o que fez por último.
  */
-export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora }: {
-  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number
+export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, continuar = null }: {
+  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number; continuar?: CursoNoCatalogo | null
 }) {
   const horas = resumoDeHoras(atividades, hoje)
   const validas = formacoes.filter((f) => situacaoDaFormacao(f.valido_ate, hoje) !== 'vencida').length
@@ -38,6 +40,18 @@ export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora }: 
         <p className="mt-1 text-xs text-neutral-400">Voluntário da Cruz Vermelha RJ desde {mesEAno(desde)}</p>
       </section>
 
+      {continuar && (
+        <Link href={`/membro/cursos/${continuar.id}`} className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-4 hover:border-neutral-300" id="continuar">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-red-50"><GraduationCap className="size-6 text-[#e32219]" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-medium uppercase tracking-wide text-neutral-500">{continuar.progresso.feitas ? 'Continue de onde parou' : 'Comece um curso'}</span>
+            <span className="block truncate font-semibold">{continuar.titulo}</span>
+            {continuar.progresso.feitas > 0 && <BarraDeProgresso pct={continuar.progresso.pct} />}
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-neutral-400" />
+        </Link>
+      )}
+
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Seus números">
         <Numero icone={Clock} valor={horasLegiveis(horas.noAno)} rotulo={`de voluntariado em ${hoje.slice(0, 4)}`} />
         <Numero icone={CalendarCheck2} valor={horas.acoesNoAno} rotulo={`${horas.acoesNoAno === 1 ? 'ação' : 'ações'} em ${hoje.slice(0, 4)}`} />
@@ -47,7 +61,7 @@ export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora }: 
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-neutral-200 bg-white p-5" id="certificados">
-          <h2 className="mb-3 font-semibold">Meus certificados e formações</h2>
+          <h2 className="mb-3 flex items-center justify-between font-semibold">Meus certificados e formações<Link href="/membro/certificados" className="text-xs font-medium text-[#e32219] hover:underline">Ver todos</Link></h2>
           {formacoes.length ? (
             <ul className="flex flex-col gap-2">
               {formacoes.map((f) => {
