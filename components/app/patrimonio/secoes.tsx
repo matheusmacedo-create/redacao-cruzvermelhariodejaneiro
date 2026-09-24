@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { Boxes, ClipboardCheck, HeartHandshake, Package, Settings2, UserRoundCheck } from 'lucide-react'
+import { Ambulance, Boxes, ClipboardCheck, HeartHandshake, Package, Settings2, UserRoundCheck } from 'lucide-react'
 
 const SECOES = [
   { href: '/patrimonio', rotulo: 'Bens', icone: Package },
   { href: '/patrimonio/estoque', rotulo: 'Estoque', icone: Boxes },
   { href: '/patrimonio/doacoes', rotulo: 'Doações', icone: HeartHandshake },
+  { href: '/patrimonio/frota', rotulo: 'Frota', icone: Ambulance },
   { href: '/patrimonio/comigo', rotulo: 'Comigo', icone: UserRoundCheck },
   { href: '/patrimonio/inventario', rotulo: 'Inventário', icone: ClipboardCheck },
   { href: '/patrimonio/cadastros', rotulo: 'Cadastros', icone: Settings2 },
