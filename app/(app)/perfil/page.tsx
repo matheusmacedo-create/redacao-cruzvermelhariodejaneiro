@@ -11,6 +11,8 @@ import { Card } from '@/components/ui/card'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { AvatarUpload } from './avatar-upload'
+import { PreferenciasDeNotificacao } from '@/components/app/preferencias-de-notificacao'
+import { lerModos } from '@/lib/notificacoes/regras'
 
 const inputClass = 'h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 
@@ -18,9 +20,10 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
   const { senha } = await searchParams
   const context = await requireWorkspace()
   const supabase = await createClient()
-  const [{ data: profile }, { data: activity }] = await Promise.all([
+  const [{ data: profile }, { data: activity }, { data: preferencias }] = await Promise.all([
     supabase.from('profiles').select('full_name,username,job_title,initials,color,avatar_path,email,email_confirmado_em').eq('id', context.user.id).single(),
     supabase.from('activity_log').select('id,action,entity_type,created_at').eq('workspace_id', context.workspace.id).eq('actor_id', context.user.id).order('created_at', { ascending: false }).limit(8),
+    supabase.from('notificacao_preferencias').select('modos').eq('user_id', context.user.id).maybeSingle(),
   ])
   // O e-mail de contato e um eventual pedido de troca ainda não confirmado.
   // Lido pelo service role: tokens_de_conta não é visível pela Data API.
@@ -35,6 +38,7 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
     <div className="flex flex-col gap-6">
       <Card className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-bold">{name}</h2><p className="text-sm text-muted-foreground">{profile?.job_title || context.role} · {coordination || 'Sem coordenação'}</p><p className="mt-1 text-sm text-primary">@{profile?.username}</p></div><AvatarUpload initials={profile?.initials || name.slice(0, 2).toUpperCase()} color={profile?.color} path={profile?.avatar_path} name={name} /></Card>
       <Card id="email-de-recuperacao" className={`scroll-mt-24 p-6 ${profile?.email_confirmado_em ? '' : 'border-warning/60 ring-2 ring-warning/20'}`}><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail de recuperação</h3><EmailDaConta email={profile?.email ?? null} confirmado={Boolean(profile?.email && profile?.email_confirmado_em)} pendente={pendente?.email ?? null} envioConfigurado={emailConfigurado()} /></Card>
+      <Card id="notificacoes" className="scroll-mt-24 p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mails de notificação</h3><PreferenciasDeNotificacao modos={lerModos(preferencias?.modos)} email={profile?.email && profile?.email_confirmado_em ? profile.email : null} /></Card>
       <Card className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Dados pessoais</h3><form action={updateProfile}><div className="grid gap-4 sm:grid-cols-2"><Field label="Nome completo" name="fullName" defaultValue={name} required /><Field label="Usuário" defaultValue={profile?.username || ''} disabled /><Field label="Cargo" name="jobTitle" defaultValue={profile?.job_title || ''} /><Field label="Coordenação" defaultValue={coordination || ''} disabled /></div><div className="mt-5 flex justify-end"><Button type="submit" size="lg">Salvar alterações</Button></div></form></Card>
       <Card className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Segurança</h3>{senha === 'trocada' && <p role="status" className="mb-4 rounded-lg bg-success/10 px-3 py-2 text-sm text-success">Senha trocada. As outras sessões abertas foram encerradas.</p>}<TrocarSenhaForm origem="perfil" usuario={profile?.username || ''} nome={name} /></Card>
       <Card className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Verificação em duas etapas</h3><VerificacaoNoPerfil fatores={context.fatores.map((f) => ({ id: f.id, nome: f.friendly_name || 'Aparelho', criadoEm: f.created_at }))} obrigatoria={context.verificacaoObrigatoria} /></Card>

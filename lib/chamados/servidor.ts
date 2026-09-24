@@ -3,8 +3,7 @@ import { head } from '@vercel/blob'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pode, type Papel } from '@/lib/permissoes'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { montar } from '@/lib/contas/emails'
-import { enviarComSeguranca } from '@/lib/contas/servidor'
+import { notificar } from '@/lib/notificacoes/servidor'
 import { slaDaFila, type Quem, type Sla, type Status } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -124,31 +123,17 @@ export async function avisarSobreChamado(admin: Admin, p: {
   workspaceId: string; chamado: { id: string; codigo: string; titulo: string }; para: (string | null | undefined)[]; atorId: string
   titulo: string; mensagem: string; citacao?: string | null; botao?: string
 }) {
-  const destinos = [...new Set(p.para.filter((u): u is string => Boolean(u) && u !== p.atorId))]
-  if (!destinos.length) return
-  const link = `/chamados/${p.chamado.id}`
-  try {
-    await admin.from('notifications').insert(destinos.map((user_id) => ({
-      workspace_id: p.workspaceId, user_id, title: `${p.chamado.codigo} · ${p.titulo}`, message: p.mensagem.slice(0, 280), link,
-    })))
-  } catch (causa) {
-    console.error('[chamados] notificação não gravada:', causa instanceof Error ? causa.message : causa)
-  }
-
-  const { data: pessoas } = await admin.from('profiles').select('id, full_name, email, email_confirmado_em, active').in('id', destinos)
-  for (const pessoa of pessoas ?? []) {
-    if (!pessoa.active || !pessoa.email || !pessoa.email_confirmado_em) continue
-    const email = montar({
-      assunto: `[${p.chamado.codigo}] ${p.titulo} — ${p.chamado.titulo}`.slice(0, 180),
-      preheader: p.mensagem.slice(0, 120),
-      titulo: `${p.chamado.codigo} · ${p.chamado.titulo}`,
-      blocos: [
-        { tipo: 'p', texto: `Olá, ${String(pessoa.full_name).split(' ')[0]}. ${p.mensagem}` },
-        ...(p.citacao ? [{ tipo: 'destaque' as const, texto: p.citacao.slice(0, 1500) }] : []),
-        { tipo: 'botao', rotulo: p.botao ?? 'Abrir o chamado', url: urlDoChamado(p.chamado.id) },
-        { tipo: 'nota', texto: 'Responda pela Redação, no próprio chamado: respostas a este e-mail não entram no atendimento.' },
-      ],
-    })
-    await enviarComSeguranca(pessoa.email, email)
-  }
+  await notificar(admin, {
+    workspaceId: p.workspaceId,
+    para: p.para,
+    atorId: p.atorId,
+    categoria: 'chamados',
+    titulo: `${p.chamado.codigo} · ${p.titulo}`,
+    mensagem: p.mensagem,
+    textoDoEmail: `${p.mensagem} (${p.chamado.codigo} — ${p.chamado.titulo})`,
+    citacao: p.citacao,
+    link: `/chamados/${p.chamado.id}`,
+    botao: p.botao ?? 'Abrir o chamado',
+    nota: 'Responda pela Redação, no próprio chamado: respostas a este e-mail não entram no atendimento.',
+  })
 }
