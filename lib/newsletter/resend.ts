@@ -226,14 +226,14 @@ export async function dominiosVerificados(): Promise<{ nome: string; estado: str
  * mesmo subdomínio verificado da newsletter — assim uma remessa mal recebida
  * não leva junto a reputação do endereço que entrega o link de senha.
  */
-export type MensagemDeConta = { para: string; assunto: string; html: string; texto: string }
+export type MensagemDeConta = { para: string; assunto: string; html: string; texto: string; /** Remetente próprio no mesmo domínio verificado (ex.: o do Voluntariado). */ de?: string }
 
 export const REMETENTE_DE_CONTA = 'Redação CVB-RJ <acesso@noticias.cruzvermelhariodejaneiro.org>'
 
 export async function enviarEmailDeConta(m: MensagemDeConta): Promise<{ id: string }> {
   const resposta = process.env.CONTA_RESPONDER_PARA?.trim() || respostaPara()
   const dados = await chamar<{ id?: string }>('/emails', {
-    from: process.env.CONTA_REMETENTE?.trim() || REMETENTE_DE_CONTA,
+    from: m.de || process.env.CONTA_REMETENTE?.trim() || REMETENTE_DE_CONTA,
     to: [m.para],
     subject: m.assunto,
     html: m.html,

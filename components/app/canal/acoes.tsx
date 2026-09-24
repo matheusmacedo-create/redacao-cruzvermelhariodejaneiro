@@ -35,12 +35,12 @@ export function SituacaoDaConversa({ conversaId, situacao }: { conversaId: strin
   )
 }
 
-export type AvisoNaEquipe = { id: string; titulo: string; texto: string; fixado: boolean; expira_em: string | null; created_at: string; vistos: number }
+export type AvisoNaEquipe = { id: string; titulo: string; texto: string; fixado: boolean; expira_em: string | null; created_at: string; vistos: number; enviado_por_email_em?: string | null; enviados?: number | null }
 
 function FormularioDeAviso({ a, onFim }: { a: AvisoNaEquipe | null; onFim?: () => void }) {
   const [estado, enviar, enviando] = useActionState(salvarAviso.bind(null, a?.id ?? null), {})
   const form = useRef<HTMLFormElement>(null)
-  useEffect(() => { if (estado.ok) { if (a) onFim?.(); else form.current?.reset() } }, [estado.ok, a, onFim])
+  useEffect(() => { if (estado.ok) { if (a && !estado.erro) onFim?.(); else if (!a) form.current?.reset() } }, [estado.ok, estado.erro, a, onFim])
   return (
     <form ref={form} action={enviar} className="flex flex-col gap-2 rounded-lg border border-border p-4" data-form-aviso>
       <input name="titulo" required minLength={3} maxLength={160} defaultValue={a?.titulo ?? ''} placeholder="Título do aviso" aria-label="Título" className={inputClass} />
@@ -48,8 +48,14 @@ function FormularioDeAviso({ a, onFim }: { a: AvisoNaEquipe | null; onFim?: () =
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <label className="flex items-center gap-2"><input type="checkbox" name="fixado" value="sim" defaultChecked={a?.fixado} />Fixar no alto</label>
         <label className="flex items-center gap-2">Sai do mural em<input type="date" name="expira_em" defaultValue={a?.expira_em ?? ''} className={`${inputClass} !w-40 py-1`} /></label>
+        {!a?.enviado_por_email_em && (
+          <label className="flex items-center gap-2" title="Vai uma vez para todos os voluntários ativos com e-mail que não saíram da lista">
+            <input type="checkbox" name="enviar_email" value="sim" />Enviar também por e-mail
+          </label>
+        )}
       </div>
       {estado.erro && <p className="text-xs text-destructive" role="alert">{estado.erro}</p>}
+      {!a && !estado.erro && estado.enviados !== undefined && <p className="text-xs text-success" role="status">Aviso publicado e enviado por e-mail para {estado.enviados} {estado.enviados === 1 ? 'voluntário' : 'voluntários'}.</p>}
       <div className="flex justify-end gap-2">
         {a && <Button type="button" size="sm" variant="ghost" onClick={onFim}>Cancelar</Button>}
         <Button type="submit" size="sm" disabled={enviando}>{enviando && <Loader2 className="size-3.5 animate-spin" />}{a ? 'Salvar' : 'Publicar aviso'}</Button>
@@ -76,6 +82,7 @@ export function Mural({ avisos, total, hoje }: { avisos: AvisoNaEquipe[]; total:
                   <p className="mt-2 text-xs text-muted-foreground">
                     {new Date(a.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · visto por {a.vistos} de {total} voluntários ativos
                     {a.expira_em ? (a.expira_em < hoje ? ' · fora do mural' : ` · sai em ${new Date(`${a.expira_em}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`) : ''}
+                    {a.enviado_por_email_em ? ` · enviado por e-mail a ${a.enviados ?? 0}` : ''}
                   </p>
                 </div>
                 <button type="button" title="Editar" aria-label="Editar" onClick={() => setEditando(a.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>

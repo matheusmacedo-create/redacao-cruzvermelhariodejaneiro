@@ -19,26 +19,26 @@ export function Prova({ cursoId, questoes, minima }: { cursoId: string; questoes
 
   if (resultado?.aprovado) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900" role="status" id="resultado">
+      <div className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success/10 p-6 text-success" role="status" id="resultado">
         <p className="flex items-center gap-2 text-xl font-semibold"><Award className="size-6" />Aprovado!</p>
         {resultado.nota !== undefined && <p>{resultadoLegivel({ nota: resultado.nota, acertos: resultado.acertos ?? 0, total: resultado.total ?? 0 })}.</p>}
         <p className="text-sm">Seu certificado está pronto e já entrou no seu cadastro de formações.</p>
         <div className="flex flex-wrap gap-2">
           <a href={`/membro/certificados/${resultado.certificado}/pdf`} className={botaoDoMembro}>Baixar certificado</a>
-          <Link href="/membro/certificados" className="rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-emerald-100">Meus certificados</Link>
+          <Link href="/membro/certificados" className="rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-success/15">Meus certificados</Link>
         </div>
       </div>
     )
   }
   if (resultado) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950" role="status" id="resultado">
+      <div className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/15 p-6 text-warning-foreground" role="status" id="resultado">
         <p className="flex items-center gap-2 text-xl font-semibold"><XCircle className="size-6" />Ainda não foi desta vez</p>
         <p>{resultadoLegivel({ nota: resultado.nota ?? 0, acertos: resultado.acertos ?? 0, total: resultado.total ?? 0 })}. A nota mínima é {resultado.minima ?? minima}.</p>
         <p className="text-sm">Revise as aulas e tente de novo — são até 3 tentativas a cada 24 horas.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => { setResultado(null); setRespostas(questoes.map(() => null)) }} className={botaoDoMembro}><RotateCcw className="size-4" />Tentar de novo</button>
-          <Link href={`/membro/cursos/${cursoId}`} className="rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-amber-100">Rever as aulas</Link>
+          <Link href={`/membro/cursos/${cursoId}`} className="rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-warning/25">Rever as aulas</Link>
         </div>
       </div>
     )
@@ -56,22 +56,22 @@ export function Prova({ cursoId, questoes, minima }: { cursoId: string; questoes
       })
     }}>
       {questoes.map((q, i) => (
-        <fieldset key={q.id} className="rounded-2xl border border-neutral-200 bg-white p-5">
+        <fieldset key={q.id} className="rounded-xl border border-border bg-card p-5">
           <legend className="sr-only">Questão {i + 1}</legend>
-          <p className="mb-3 font-medium"><span className="mr-1 text-neutral-400">{i + 1}.</span>{q.enunciado}</p>
+          <p className="mb-3 font-medium"><span className="mr-1 text-muted-foreground/70">{i + 1}.</span>{q.enunciado}</p>
           <div className="flex flex-col gap-2">
             {q.alternativas.map((alt, j) => (
-              <label key={j} className="flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-200 px-3 py-2.5 text-sm has-[:checked]:border-[#e32219] has-[:checked]:bg-red-50">
-                <input type="radio" name={`q${i}`} value={j} checked={respostas[i] === j} onChange={() => { setErro(''); setRespostas((r) => r.map((x, k) => (k === i ? j : x))) }} className="mt-0.5 accent-[#e32219]" />
+              <label key={j} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border px-3 py-2.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-destructive/10">
+                <input type="radio" name={`q${i}`} value={j} checked={respostas[i] === j} onChange={() => { setErro(''); setRespostas((r) => r.map((x, k) => (k === i ? j : x))) }} className="mt-0.5 accent-primary" />
                 {alt}
               </label>
             ))}
           </div>
         </fieldset>
       ))}
-      {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{erro}</p>}
+      {erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{erro}</p>}
       <div className="flex items-center justify-end gap-3">
-        <span className="text-sm text-neutral-500">{questoes.length - faltam} de {questoes.length} respondidas</span>
+        <span className="text-sm text-muted-foreground">{questoes.length - faltam} de {questoes.length} respondidas</span>
         <button type="submit" disabled={ocupado} className={botaoDoMembro}>{ocupado && <Loader2 className="size-4 animate-spin" />}Enviar respostas</button>
       </div>
     </form>

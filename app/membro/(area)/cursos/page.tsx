@@ -16,15 +16,15 @@ export default async function Cursos() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Cursos</h1>
-          <p className="text-sm text-neutral-600">Formação da Cruz Vermelha RJ para voluntários. Concluiu, o certificado sai na hora.</p>
+          <p className="text-sm text-muted-foreground">Formação da Cruz Vermelha RJ para voluntários. Concluiu, o certificado sai na hora.</p>
         </div>
-        <Link href="/membro/apostilas" className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium hover:border-neutral-300"><BookOpen className="size-4 text-[#e32219]" />Apostilas</Link>
+        <Link href="/membro/apostilas" className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:border-primary/40"><BookOpen className="size-4 text-primary" />Apostilas</Link>
       </div>
       {!cursos.length && (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-          <GraduationCap className="size-8 text-neutral-400" />
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center">
+          <GraduationCap className="size-8 text-muted-foreground/70" />
           <p className="font-medium">Os cursos estão sendo preparados.</p>
-          <p className="text-sm text-neutral-500">Assim que a coordenação publicar, eles aparecem aqui.</p>
+          <p className="text-sm text-muted-foreground">Assim que a coordenação publicar, eles aparecem aqui.</p>
         </div>
       )}
       {andamento.length > 0 && (

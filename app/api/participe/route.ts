@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lerFormulario, TERMO_VERSAO } from '@/lib/participantes/regras'
+import { notificar } from '@/lib/notificacoes/servidor'
+import { gerentesDoVoluntariado } from '@/lib/membro/comunicacao'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,5 +35,11 @@ export async function POST(request: Request) {
   const ipHash = createHash('sha256').update(`participe:${ip}`).digest('hex')
   const { error } = await admin.rpc('inscrever_participante', { p_workspace_id: ws.id, p: dados, p_ip_hash: ipHash, p_versao_termo: TERMO_VERSAO })
   if (error) return responder(error.code === 'P0001' ? 422 : 500, { erro: error.code === 'P0001' ? error.message : 'Não foi possível enviar a inscrição agora. Tente de novo em instantes.' })
+  // Quem gerencia o Voluntariado fica sabendo (sino e, conforme a preferência, e-mail).
+  await notificar(admin, {
+    workspaceId: ws.id, para: await gerentesDoVoluntariado(ws.id), atorId: null, categoria: 'aprovacoes',
+    titulo: 'Nova inscrição de voluntário', mensagem: `${String(dados.nome ?? '').slice(0, 120)} se inscreveu pelo formulário público.`,
+    link: '/voluntariado?aba=inscricoes', botao: 'Ver inscrições', nota: 'Aprove ou recuse em Voluntários → Inscrições pendentes.',
+  })
   return responder(200, { ok: true })
 }

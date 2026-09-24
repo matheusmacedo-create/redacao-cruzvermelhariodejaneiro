@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
-import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
+import { avisarPromovidos, enviarAoVoluntario, naEspera } from '@/lib/membro/comunicacao'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeCancelamento } from '@/lib/membro/emails'
 import { lerOportunidade, quando } from '@/lib/oportunidades/regras'
@@ -42,8 +42,10 @@ export async function salvarOportunidade(id: string | null, _anterior: Resultado
     const { dados, erros } = lerOportunidade(formData)
     if (!dados) throw new Error(erros.join(' '))
     if (id) {
+      const antes = await naEspera(id)
       const { error } = await supabase.from('oportunidades').update({ ...dados, updated_at: new Date().toISOString() }).eq('id', id)
       if (error) erroDoBanco(error, 'Não foi possível salvar.')
+      await avisarPromovidos(id, antes)
       revalidar(id)
       return { ok: true }
     }
@@ -79,13 +81,13 @@ export async function cancelarOportunidade(id: string, motivo: string): Promise<
       .eq('id', id).is('cancelada_em', null).select('titulo,inicio,fim,publicado').single()
     if (error || !o) erroDoBanco(error, 'Não foi possível cancelar.')
     let avisados = 0
-    if (o.publicado && emailConfigurado()) {
+    if (o.publicado) {
       const { data: inscritos } = await supabase.from('oportunidade_inscricoes').select('participantes(nome,nome_social,email)').eq('oportunidade_id', id).in('situacao', ['inscrito', 'espera'])
       for (const i of inscritos ?? []) {
         const p = (Array.isArray(i.participantes) ? i.participantes[0] : i.participantes) as { nome: string; nome_social: string | null; email: string | null } | null
         if (!p?.email) continue
         const e = emailDeCancelamento({ nome: p.nome_social || p.nome, titulo: o.titulo, quando: quando(o.inicio, o.fim), motivo: m, url: `${urlBase()}/membro/oportunidades` })
-        await enviarEmailDeConta({ para: p.email, assunto: e.assunto, html: e.html, texto: e.texto }).then(() => { avisados++ }).catch(() => undefined)
+        if (await enviarAoVoluntario(p.email, e)) avisados++
       }
     }
     revalidar(id)

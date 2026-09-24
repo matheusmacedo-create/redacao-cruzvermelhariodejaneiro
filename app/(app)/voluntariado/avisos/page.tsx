@@ -16,7 +16,7 @@ export default async function AvisosAosVoluntarios() {
   if (nivel < 2) notFound()
   const ws = context.workspace.id
   const [{ data: avisos }, { count: ativos }] = await Promise.all([
-    supabase.from('membro_avisos').select('id,titulo,texto,fixado,expira_em,created_at').eq('workspace_id', ws).order('created_at', { ascending: false }).limit(200),
+    supabase.from('membro_avisos').select('id,titulo,texto,fixado,expira_em,created_at,enviado_por_email_em,enviados').eq('workspace_id', ws).order('created_at', { ascending: false }).limit(200),
     supabase.from('participantes').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('situacao', 'ativo').is('anonimizado_em', null),
   ])
   const ids = (avisos ?? []).map((a) => a.id as string)
@@ -25,7 +25,7 @@ export default async function AvisosAosVoluntarios() {
   return (
     <div className="flex flex-col gap-6">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
-      <PageHeader title="Avisos aos voluntários" description="Aparecem no início da Área do Voluntário, com a marca de novo até cada um ver. Fixe o que for importante; programe a saída do mural." />
+      <PageHeader title="Avisos aos voluntários" description="Aparecem no início da Área do Voluntário, com a marca de novo até cada um ver. Fixe o que for importante; programe a saída do mural. Se precisar que todos saibam, mande também por e-mail." />
       <Card className="p-5">
         <Mural hoje={hojeEmSaoPaulo()} total={ativos ?? 0}
           avisos={ordenarAvisos((avisos ?? []).map((a) => ({ ...(a as Omit<AvisoNaEquipe, 'vistos'>), vistos: porAviso.get(a.id as string) ?? 0 })))} />

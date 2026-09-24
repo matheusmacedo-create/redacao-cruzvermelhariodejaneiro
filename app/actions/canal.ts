@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
-import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
+import { enviarAoVoluntario, enviarAvisoPorEmail } from '@/lib/membro/comunicacao'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeResposta } from '@/lib/membro/emails'
 
@@ -34,13 +34,13 @@ export async function responderMembro(conversaId: string, _anterior: Resultado &
     if (!texto) throw new Error('Escreva a resposta.')
     const { error } = await supabase.rpc('equipe_responder_membro', { p_conversa_id: conversaId, p_texto: texto })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível responder.')
-    if (emailConfigurado()) {
+    {
       const { data: c } = await supabase.from('membro_conversas').select('assunto,participantes(nome,nome_social,email)').eq('id', conversaId).single()
       const p = (Array.isArray(c?.participantes) ? c?.participantes[0] : c?.participantes) as { nome: string; nome_social: string | null; email: string | null } | null
       if (c && p?.email) {
         const primeiro = (context.profile?.full_name as string | undefined)?.trim().split(/\s+/)[0] ?? 'A coordenação'
         const e = emailDeResposta({ nome: p.nome_social || p.nome, assunto: c.assunto, resposta: texto, respondidoPor: `${primeiro}, da coordenação do Voluntariado,`, url: `${urlBase()}/membro/mensagens/${conversaId}` })
-        await enviarEmailDeConta({ para: p.email, assunto: e.assunto, html: e.html, texto: e.texto }).catch(() => undefined)
+        await enviarAoVoluntario(p.email, e)
       }
     }
     revalidar(conversaId)
@@ -62,7 +62,7 @@ export async function marcarConversa(conversaId: string, acao: 'lida' | 'encerra
   }
 }
 
-export async function salvarAviso(id: string | null, _anterior: Resultado & { ok?: number }, formData: FormData): Promise<Resultado & { ok?: number }> {
+export async function salvarAviso(id: string | null, _anterior: Resultado & { ok?: number; enviados?: number }, formData: FormData): Promise<Resultado & { ok?: number; enviados?: number }> {
   try {
     const { context, supabase } = await gerente()
     const titulo = String(formData.get('titulo') ?? '').trim().slice(0, 160)
@@ -72,11 +72,24 @@ export async function salvarAviso(id: string | null, _anterior: Resultado & { ok
     if (texto.length < 3) throw new Error('Escreva o aviso.')
     if (expira && !/^\d{4}-\d{2}-\d{2}$/.test(expira)) throw new Error('Data inválida.')
     const dados = { titulo, texto, fixado: formData.get('fixado') === 'sim', expira_em: expira || null, updated_at: new Date().toISOString() }
-    const { error } = id
-      ? await supabase.from('membro_avisos').update(dados).eq('id', id)
-      : await supabase.from('membro_avisos').insert({ ...dados, workspace_id: context.workspace.id, criado_por: context.user.id })
-    if (error) throw new Error('Não foi possível salvar o aviso.')
+    const { data: salvo, error } = id
+      ? await supabase.from('membro_avisos').update(dados).eq('id', id).select('id,enviado_por_email_em').single()
+      : await supabase.from('membro_avisos').insert({ ...dados, workspace_id: context.workspace.id, criado_por: context.user.id }).select('id,enviado_por_email_em').single()
+    if (error || !salvo) throw new Error('Não foi possível salvar o aviso.')
     revalidar()
+    // Por e-mail só uma vez: editar um aviso já enviado não dispara de novo.
+    if (formData.get('enviar_email') === 'sim' && !salvo.enviado_por_email_em) {
+      let enviados = 0
+      try {
+        enviados = await enviarAvisoPorEmail(context.workspace.id, { titulo, texto })
+      } catch (causa) {
+        console.error('[voluntariado] aviso por e-mail não saiu:', causa instanceof Error ? causa.message : causa)
+        return { ok: Date.now(), erro: 'O aviso foi publicado no mural, mas o e-mail não saiu. Tente de novo pela edição do aviso.' }
+      }
+      await supabase.from('membro_avisos').update({ enviado_por_email_em: new Date().toISOString(), enviados }).eq('id', salvo.id)
+      revalidar()
+      return { ok: Date.now(), enviados }
+    }
     return { ok: Date.now() }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar o aviso.') }

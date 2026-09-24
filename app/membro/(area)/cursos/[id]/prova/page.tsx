@@ -17,10 +17,10 @@ export default async function ProvaDoCurso({ params }: { params: Promise<{ id: s
   const questoes = await questoesDaProva(id)
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">
-      <Link href={`/membro/cursos/${id}`} className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900"><ChevronLeft className="size-4" />{d.curso.titulo}</Link>
+      <Link href={`/membro/cursos/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />{d.curso.titulo}</Link>
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Prova final</h1>
-        <p className="text-sm text-neutral-600">{questoes.length} questões · nota mínima {d.curso.nota_minima} · até 3 tentativas a cada 24 horas.</p>
+        <p className="text-sm text-muted-foreground">{questoes.length} questões · nota mínima {d.curso.nota_minima} · até 3 tentativas a cada 24 horas.</p>
       </div>
       <Prova cursoId={id} questoes={questoes} minima={d.curso.nota_minima ?? 0} />
     </div>
