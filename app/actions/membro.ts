@@ -11,7 +11,9 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario } from '@/lib/participantes/regras'
 import { COOKIE_DO_MEMBRO, DIAS_DE_SESSAO, exigirMembro, hashDoToken, novoToken, sessaoDoMembro } from '@/lib/membro/sessao'
-import { emailDoCodigo } from '@/lib/membro/emails'
+import { emailDeInscricao, emailDoCodigo } from '@/lib/membro/emails'
+import { oportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import { quando as quandoDaOportunidade } from '@/lib/oportunidades/regras'
 
 /**
  * A área do membro do lado do servidor. Tudo usa o cliente de serviço, mas
@@ -123,5 +125,43 @@ export async function responderProva(cursoId: string, respostas: number[]): Prom
     return data as ResultadoDaProva
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível corrigir a prova.') }
+  }
+}
+
+// ---------------------------------------------------------------- oportunidades
+
+export async function inscrever(oportunidadeId: string): Promise<{ erro?: string; situacao?: string }> {
+  try {
+    const m = await exigirMembro()
+    if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
+    const admin = createAdminClient()
+    const { data, error } = await admin.rpc('membro_inscrever', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível fazer a inscrição.')
+    const situacao = (data as { situacao: string }).situacao
+    // Confirmação por e-mail: melhor esforço, não desfaz a inscrição se falhar.
+    if (m.email && emailConfigurado()) {
+      const o = await oportunidadeDoMembro(m, oportunidadeId)
+      if (o) {
+        const e = emailDeInscricao({ nome: m.nome, titulo: o.titulo, quando: quandoDaOportunidade(o.inicio, o.fim), local: o.local, espera: situacao === 'espera', url: `${urlBase()}/membro/oportunidades` })
+        await enviarEmailDeConta({ para: m.email, assunto: e.assunto, html: e.html, texto: e.texto }).catch(() => undefined)
+      }
+    }
+    revalidatePath('/membro', 'layout')
+    return { situacao }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível fazer a inscrição.') }
+  }
+}
+
+export async function cancelarInscricao(oportunidadeId: string): Promise<{ erro?: string }> {
+  try {
+    const m = await exigirMembro()
+    if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
+    const { error } = await createAdminClient().rpc('membro_cancelar_inscricao', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível cancelar.')
+    revalidatePath('/membro', 'layout')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível cancelar.') }
   }
 }

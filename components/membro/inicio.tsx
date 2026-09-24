@@ -1,7 +1,9 @@
 import Link from 'next/link'
-import { Award, CalendarCheck2, ChevronRight, Clock, GraduationCap, UserRound } from 'lucide-react'
+import { Award, CalendarCheck2, CalendarHeart, ChevronRight, Clock, GraduationCap, UserRound } from 'lucide-react'
 import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
 import type { CursoNoCatalogo } from '@/lib/membro/cursos'
+import type { OportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import { quando } from '@/lib/oportunidades/regras'
 import { BarraDeProgresso } from './cursos'
 import { horasLegiveis, mesEAno, primeiroNome, resumoDeHoras, saudacao } from '@/lib/membro/regras'
 import { situacaoDaFormacao, VINCULOS } from '@/lib/participantes/regras'
@@ -22,8 +24,8 @@ function Numero({ icone: Icone, valor, rotulo }: { icone: typeof Clock; valor: s
  * A vista do início: quem ele é na filial, as horas, os
  * certificados e o que fez por último.
  */
-export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, continuar = null }: {
-  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number; continuar?: CursoNoCatalogo | null
+export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, continuar = null, proxima = null }: {
+  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number; continuar?: CursoNoCatalogo | null; proxima?: OportunidadeDoMembro | null
 }) {
   const horas = resumoDeHoras(atividades, hoje)
   const validas = formacoes.filter((f) => situacaoDaFormacao(f.valido_ate, hoje) !== 'vencida').length
@@ -39,6 +41,18 @@ export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, co
         </p>
         <p className="mt-1 text-xs text-neutral-400">Voluntário da Cruz Vermelha RJ desde {mesEAno(desde)}</p>
       </section>
+
+      {proxima && (
+        <Link href="/membro/oportunidades" className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 hover:border-emerald-300" id="proxima-atividade">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white"><CalendarHeart className="size-6 text-emerald-700" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-medium uppercase tracking-wide text-emerald-800">{proxima.minha === 'espera' ? 'Na lista de espera' : 'Sua próxima atividade'}</span>
+            <span className="block truncate font-semibold">{proxima.titulo}</span>
+            <span className="block text-xs text-emerald-900/80">{quando(proxima.inicio, proxima.fim)}{proxima.local ? ` · ${proxima.local}` : ''}</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-emerald-700/60" />
+        </Link>
+      )}
 
       {continuar && (
         <Link href={`/membro/cursos/${continuar.id}`} className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-4 hover:border-neutral-300" id="continuar">
