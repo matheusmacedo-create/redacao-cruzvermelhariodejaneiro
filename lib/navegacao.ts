@@ -115,7 +115,7 @@ export const GRUPOS: Grupo[] = [
     rotulo: 'Escola',
     areas: [
       { href: '/escola', rotulo: 'Escola de Educação e Saúde', resumo: 'O que entra pelas contas da Únicopag da escola, por curso, forma de pagamento e origem', icone: GraduationCap, termos: ['escola', 'cursos', 'punção venosa', 'matrículas', 'únicopag', 'unicopag', 'mensalidades', 'alunos', 'pix', 'cartão'] },
-      { href: '/escola/marketing', rotulo: 'Marketing da escola', resumo: 'Campanhas, páginas, anúncios e posts da escola, com o que custaram e o que trouxeram', icone: Megaphone, termos: ['anúncios', 'campanhas', 'página de venda', 'criativos', 'utm', 'meta ads', 'referências', 'swipe file'] },
+      { href: '/escola/marketing', rotulo: 'Marketing da escola', resumo: 'Campanhas, páginas, anúncios e posts da escola, com o que custaram e o que trouxeram', icone: Megaphone, termos: ['anúncios', 'campanhas', 'página de venda', 'criativos', 'utm', 'meta ads', 'referências', 'swipe file', 'advertorial', 'advertoriais', 'matéria patrocinada'] },
     ],
   },
   {

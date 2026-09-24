@@ -6,7 +6,7 @@
  */
 
 export const TIPOS_DE_PECA = {
-  pagina: 'Página de venda', anuncio: 'Anúncio', post: 'Post', video: 'Vídeo / Reels', email: 'E-mail', whatsapp: 'WhatsApp', impresso: 'Impresso', outro: 'Outro',
+  pagina: 'Página de venda', advertorial: 'Advertorial', anuncio: 'Anúncio', post: 'Post', video: 'Vídeo / Reels', email: 'E-mail', whatsapp: 'WhatsApp', impresso: 'Impresso', outro: 'Outro',
 } as const
 export type TipoDePeca = keyof typeof TIPOS_DE_PECA
 
@@ -57,11 +57,13 @@ export type Peca = {
   vencedora: boolean; nota: string | null; criado_por: string | null; created_at: string
   /** 'meta': lida da Marketing API (os números vêm de lá); 'manual': cadastrada pela equipe. */
   origem: 'manual' | 'meta'; meta_status: string | null
+  /** Advertorial: a matéria da Redação (publicada como notícia) e o destino do botão de matrícula. */
+  content_id: string | null; destino_url: string | null
 }
 export type ReceitaDaCampanha = { campanha: string; recebido: number; pagamentos: number; primeira: string | null; ultima: string | null }
 
 export const COLUNAS_DA_CAMPANHA = 'id,nome,conta_id,curso,objetivo,status,inicio,fim,orcamento,utm_campaign,resumo,aprendizados,criado_por,created_at,meta_campaign_id'
-export const COLUNAS_DA_PECA = 'id,campanha_id,referencia,fonte,tipo,canal,titulo,url,texto,angulo,formato,status,publicada_em,encerrada_em,imagem_path,investimento,impressoes,cliques,leads,matriculas,resultado_em,vencedora,nota,criado_por,created_at,origem,meta_status'
+export const COLUNAS_DA_PECA = 'id,campanha_id,referencia,fonte,tipo,canal,titulo,url,texto,angulo,formato,status,publicada_em,encerrada_em,imagem_path,investimento,impressoes,cliques,leads,matriculas,resultado_em,vencedora,nota,criado_por,created_at,origem,meta_status,content_id,destino_url'
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
 export const lerCampanhaDoBanco = (c: Record<string, unknown>) => ({ ...c, orcamento: num(c.orcamento) }) as Campanha
