@@ -23,6 +23,35 @@ export type Resumo = {
   voluntariado: { horas: number; pessoas: number; valorHora: number | null; valor: number | null }
   /** Do Patrimônio: depreciação do mês e bens recebidos em doação (valor de mercado). */
   patrimonio?: ResumoDoPatrimonio
+  /** Do Estoque de materiais: movimento do mês pelo custo médio. */
+  estoque?: ResumoDoEstoque
+}
+
+/** Uma linha de financeiro_estoque_do_mes (valores já com sinal: consumo e perdas positivos = saíram). */
+export type LinhaDoEstoque = {
+  codigo: string; nome: string; categoria: string; conta_contabil: string | null; unidade: string
+  qtd_inicio: number; valor_inicio: number; compras: number; doacoes: number; outras_entradas: number; consumo: number; perdas: number; ajustes: number
+  kits: number; qtd_fim: number; valor_fim: number
+}
+export type ResumoDoEstoque = {
+  valorInicio: number; compras: number; doacoes: number; outrasEntradas: number; consumo: number; perdas: number; ajustes: number; valorFim: number
+  linhas: LinhaDoEstoque[]
+}
+
+/**
+ * O estoque no mês: saldo inicial + entradas − consumo − perdas ± ajustes =
+ * saldo final. Montagem de kit só troca componente por kit (soma zero no
+ * total). Itens sem saldo nem movimento no mês ficam de fora.
+ */
+export function resumoDoEstoque(linhas: LinhaDoEstoque[]): ResumoDoEstoque | undefined {
+  const com = linhas.filter((l) => l.valor_inicio || l.qtd_inicio || l.compras || l.doacoes || l.outras_entradas || l.consumo || l.perdas || l.ajustes || l.kits || l.qtd_fim || l.valor_fim)
+  if (!com.length) return undefined
+  const soma = (f: (l: LinhaDoEstoque) => number) => Math.round(com.reduce((s, l) => s + Math.round(f(l) * 100), 0)) / 100
+  return {
+    valorInicio: soma((l) => l.valor_inicio), compras: soma((l) => l.compras), doacoes: soma((l) => l.doacoes), outrasEntradas: soma((l) => l.outras_entradas),
+    consumo: soma((l) => l.consumo), perdas: soma((l) => l.perdas), ajustes: soma((l) => l.ajustes), valorFim: soma((l) => l.valor_fim),
+    linhas: com,
+  }
 }
 
 export type BemDoFechamento = {

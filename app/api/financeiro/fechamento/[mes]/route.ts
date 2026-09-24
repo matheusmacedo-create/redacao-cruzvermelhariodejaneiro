@@ -46,6 +46,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
       ['Depreciação do mês (patrimônio)', r.patrimonio.depreciacaoDoMes], ['Valor contábil do patrimônio no fim do mês', r.patrimonio.contabil],
       ['Bens recebidos em doação no mês (valor de mercado)', r.patrimonio.doadosNoMes.reduce((s, b) => s + b.valor, 0)],
     ] as [string, number][] : []),
+    ...(r.estoque ? [
+      ['Estoque de materiais no início do mês', r.estoque.valorInicio], ['Materiais comprados', r.estoque.compras], ['Materiais recebidos em doação (valor de mercado)', r.estoque.doacoes],
+      ['Outras entradas de materiais', r.estoque.outrasEntradas], ['Consumo de materiais', r.estoque.consumo], ['Perdas de materiais', r.estoque.perdas],
+      ['Ajustes de contagem', r.estoque.ajustes], ['Estoque de materiais no fim do mês', r.estoque.valorFim],
+    ] as [string, number][] : []),
   ]))
   arquivos['2-por-categoria.csv'] = strToU8(csv(['Código contábil', 'Grupo', 'Categoria', 'Tipo', 'Realizado no mês (caixa)', 'Competência do mês'],
     r.porCategoria.map((k) => [k.codigo, k.grupo, k.nome, k.tipo === 'receita' ? 'Receita' : 'Despesa', k.caixa, k.competencia])))
@@ -74,6 +79,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     arquivos['7-patrimonio.csv'] = strToU8(csv(['Plaqueta', 'Bem', 'Categoria', 'Conta contábil', 'Origem', 'Aquisição', 'Valor', 'Depreciação do mês', 'Depreciação acumulada', 'Valor contábil', 'Baixado em'],
       r.patrimonio.linhas.map((l) => [l.plaqueta, l.nome, l.categoria, l.conta, l.origem === 'doacao' ? 'Doação' : l.origem === 'compra' ? 'Compra' : l.origem, l.aquisicao, l.valor, l.noMes, l.acumulada, l.contabil, l.baixado])))
   }
+  if (r.estoque) {
+    // Quantidade como texto: até 3 casas (kg, litro), sem separador de milhar.
+    const qtd = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false })
+    arquivos['8-estoque.csv'] = strToU8(csv(['Código', 'Material', 'Categoria', 'Conta contábil', 'Unidade', 'Quantidade no início', 'Valor no início', 'Compras', 'Doações', 'Outras entradas',
+      'Consumo', 'Perdas', 'Ajustes', 'Montagem de kits', 'Quantidade no fim', 'Valor no fim'],
+      r.estoque.linhas.map((l) => [l.codigo, l.nome, l.categoria, l.conta_contabil, l.unidade, qtd(l.qtd_inicio), l.valor_inicio, l.compras, l.doacoes, l.outras_entradas,
+        l.consumo, l.perdas, l.ajustes, l.kits, qtd(l.qtd_fim), l.valor_fim])))
+  }
   const aviso = d.itens.filter((i) => !i.ok)
   const fechamento = d.fechamentos.find((f) => f.mes === inicio && f.situacao === 'fechado')
   arquivos['LEIAME.txt'] = strToU8([
@@ -88,6 +101,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     '  5-lancamentos: cada lançamento do mês, com favorecido, categoria, fonte, projeto e se foi conciliado.',
     '  6-extrato: as linhas do banco no mês e o que foi feito com cada uma.',
     '  7-patrimonio: os bens com valor, a depreciação do mês e a acumulada, e o valor contábil (se houver bens cadastrados).',
+    '  8-estoque: cada material com saldo inicial, compras, doações, consumo, perdas e saldo final, pelo custo médio (se houver materiais).',
     '  comprovantes/: os arquivos anexados aos lançamentos (nome: data_descrição_tipo).',
     '',
     aviso.length ? 'Avisos na conferência:' : 'Conferência sem avisos.',

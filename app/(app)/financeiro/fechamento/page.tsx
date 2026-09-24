@@ -150,6 +150,20 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
         </Card>
       )}
 
+      {r.estoque && (
+        <Card className="p-5" id="estoque-do-mes">
+          <h2 className="mb-1 font-semibold">Estoque de materiais</h2>
+          <p className="mb-3 text-xs text-muted-foreground">Pelo custo médio. Doações entram pelo valor de mercado (ITG 2002). A lista material a material vai no pacote do contador.</p>
+          <Tabela cabecalho={['', 'Valor']} linhas={[
+            ['Estoque no início do mês', r.estoque.valorInicio], ['Compras', r.estoque.compras], ['Doações recebidas', r.estoque.doacoes],
+            ...(r.estoque.outrasEntradas ? [['Outras entradas', r.estoque.outrasEntradas] as [string, number]] : []),
+            ['Consumo (saídas para uso)', r.estoque.consumo], ['Perdas (vencidos, avariados, extravio)', r.estoque.perdas],
+            ...(r.estoque.ajustes ? [['Ajustes de contagem', r.estoque.ajustes] as [string, number]] : []),
+            ['Estoque no fim do mês', r.estoque.valorFim],
+          ]} />
+        </Card>
+      )}
+
       <Card className="flex flex-col gap-3 p-5" id="voluntariado">
         <h2 className="font-semibold">Trabalho voluntário (ITG 2002)</h2>
         <p className="text-sm text-muted-foreground">

@@ -2,7 +2,7 @@ import 'server-only'
 
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from './acesso'
-import { conferencia, resumoDoMes, resumoDoPatrimonio, type BemDoFechamento, type Item, type LinhaDoExtratoDoMes, type Resumo } from './fechamento'
+import { conferencia, resumoDoEstoque, resumoDoMes, resumoDoPatrimonio, type BemDoFechamento, type Item, type LinhaDoEstoque, type LinhaDoExtratoDoMes, type Resumo } from './fechamento'
 import { COLUNAS_DO_LANCAMENTO, primeiroDia, ultimoDia, type Lancamento } from './regras'
 
 export type Fechamento = {
@@ -49,10 +49,17 @@ export async function dadosDoMes(mes: string) {
     saldosDoBanco: (importacoes ?? []).map((i) => ({ conta_id: i.conta_id as string, saldo: Number(i.saldo_banco), em: i.saldo_em as string })),
     horas: { horas: Number(h?.horas ?? 0), pessoas: Number(h?.pessoas ?? 0) }, valorHora: c.config.valor_hora_voluntario,
   })
-  // Depreciação do Patrimônio (sem o módulo ou sem bens com valor: fica de fora).
-  const { data: bens, error: semPatrimonio } = await supabase.rpc('financeiro_bens_para_depreciacao', { p_workspace_id: ws })
+  // Depreciação do Patrimônio e movimento do Estoque (sem o módulo, sem bens ou sem materiais: fica de fora).
+  const [{ data: bens, error: semPatrimonio }, { data: materiais, error: semEstoque }] = await Promise.all([
+    supabase.rpc('financeiro_bens_para_depreciacao', { p_workspace_id: ws }),
+    supabase.rpc('financeiro_estoque_do_mes', { p_workspace_id: ws, p_inicio: inicio, p_fim: fim }),
+  ])
   if (!semPatrimonio && Array.isArray(bens) && bens.length) {
     resumo.patrimonio = resumoDoPatrimonio((bens as BemDoFechamento[]).map((b) => ({ ...b, valor: b.valor === null ? null : Number(b.valor), residual_pct: Number(b.residual_pct) })), mes)
+  }
+  if (!semEstoque && Array.isArray(materiais) && materiais.length) {
+    const numeros = ['qtd_inicio', 'valor_inicio', 'compras', 'doacoes', 'outras_entradas', 'consumo', 'perdas', 'ajustes', 'kits', 'qtd_fim', 'valor_fim'] as const
+    resumo.estoque = resumoDoEstoque((materiais as Record<string, unknown>[]).map((l) => ({ ...l, ...Object.fromEntries(numeros.map((k) => [k, Number(l[k])])) }) as LinhaDoEstoque))
   }
   const itens: Item[] = conferencia({
     mes, hoje: hojeEmSaoPaulo(), fechadoAte: c.config.fechado_ate, resumo, contas: c.contas, lancamentos,

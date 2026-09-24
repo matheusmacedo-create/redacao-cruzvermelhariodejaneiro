@@ -6,6 +6,7 @@ import { Loader2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarCadastroDoPatrimonio } from '@/app/actions/patrimonio'
+import { salvarCategoriaDoEstoque } from '@/app/actions/estoque'
 import type { CadastrosDoPatrimonio } from '@/lib/patrimonio/acesso'
 
 function Campo({ rotulo, children, largo, ajuda }: { rotulo: string; children: React.ReactNode; largo?: boolean; ajuda?: string }) {
@@ -104,5 +105,32 @@ export function Numeracao({ c, pode }: { c: CadastrosDoPatrimonio; pode: boolean
         <textarea name="termo_padrao" required rows={5} maxLength={4000} defaultValue={c.config.termo_padrao} className={inputClass} />
       </Campo>
     </Formulario>
+  )
+}
+
+function FormularioDaCategoriaDoEstoque({ x, onFim }: { x: CadastrosDoPatrimonio['estCategorias'][number] | null; onFim: () => void }) {
+  const [estado, enviar, enviando] = useActionState(salvarCategoriaDoEstoque.bind(null, x?.id ?? null), {})
+  useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
+  return (
+    <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-cadastro="categoria_estoque">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Campo rotulo="Nome"><input name="nome" required maxLength={80} defaultValue={x?.nome} placeholder="Ex.: Material de resgate" className={inputClass} /></Campo>
+        <Campo rotulo="Conta contábil" ajuda="Do plano de contas do contador (estoque)."><input name="conta_contabil" maxLength={40} defaultValue={x?.conta_contabil ?? ''} className={inputClass} /></Campo>
+        {x && <Situacao ativa={x.ativa} />}
+      </div>
+      {estado.erro && <p className="text-xs text-destructive" role="alert">{estado.erro}</p>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onFim}>Cancelar</Button>
+        <Button type="submit" size="sm" disabled={enviando}>{enviando && <Loader2 className="size-3.5 animate-spin" />}Salvar</Button>
+      </div>
+    </form>
+  )
+}
+
+export function CategoriasDoEstoque({ c, pode }: { c: CadastrosDoPatrimonio; pode: boolean }) {
+  return (
+    <Lista itens={c.estCategorias} novo="Nova categoria" pode={pode}
+      linha={(x) => <span><span className={`font-medium ${x.ativa ? '' : 'text-muted-foreground line-through'}`}>{x.nome}</span>{x.conta_contabil && <span className="block text-xs text-muted-foreground">conta {x.conta_contabil}</span>}</span>}
+      formulario={(x, fim) => <FormularioDaCategoriaDoEstoque x={x} onFim={fim} />} />
   )
 }

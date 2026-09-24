@@ -34,6 +34,8 @@ export type CadastrosDoPatrimonio = {
   locais: { id: string; nome: string; descricao: string | null; ativo: boolean }[]
   fontes: { id: string; nome: string; restrita: boolean }[]
   projetos: { id: string; name: string }[]
+  /** Categorias do Estoque de materiais (outras que as dos bens). */
+  estCategorias: { id: string; nome: string; conta_contabil: string | null; ativa: boolean }[]
 }
 
 /** Categorias, locais e o que o formulário precisa. Prepara o espaço na primeira vez. */
@@ -47,18 +49,31 @@ export async function cadastrosDoPatrimonio(): Promise<CadastrosDoPatrimonio> {
     // As fontes são do Financeiro: quem não tem nível lá simplesmente não vê nenhuma.
     supabase.from('fin_fontes').select('id,nome,restrita').eq('workspace_id', ws).order('nome'),
     supabase.from('projects').select('id,name').eq('workspace_id', ws).order('name'),
+    supabase.from('est_categorias').select('id,nome,conta_contabil,ativa').eq('workspace_id', ws).order('nome'),
   ])
   let r = await ler()
   if (!r[0].data) {
     await supabase.rpc('patrimonio_preparar', { p_workspace_id: ws })
     r = await ler()
   }
-  const [config, categorias, locais, fontes, projetos] = r
+  const [config, categorias, locais, fontes, projetos, estCategorias] = r
   return {
     config: { prefixo: config.data?.prefixo ?? 'CVRJ', proximo_numero: Number(config.data?.proximo_numero ?? 1), termo_padrao: config.data?.termo_padrao ?? '' },
     categorias: (categorias.data ?? []).map((c) => ({ ...c, residual_pct: Number(c.residual_pct) })) as CadastrosDoPatrimonio['categorias'],
     locais: (locais.data ?? []) as CadastrosDoPatrimonio['locais'],
     fontes: (fontes.data ?? []) as CadastrosDoPatrimonio['fontes'],
     projetos: (projetos.data ?? []) as CadastrosDoPatrimonio['projetos'],
+    estCategorias: (estCategorias.data ?? []) as CadastrosDoPatrimonio['estCategorias'],
   }
 }
+
+// ---------------------------------------------------------------- estoque
+
+export const COLUNAS_DO_ITEM = 'id,numero,codigo,nome,descricao,categoria_id,unidade,estoque_minimo,controla_validade,aviso_validade_dias,eh_kit,saldo,valor_estoque,ativo,created_at,updated_at'
+
+export type ItemDoEstoque = {
+  id: string; numero: number; codigo: string; nome: string; descricao: string | null; categoria_id: string; unidade: string; estoque_minimo: number
+  controla_validade: boolean; aviso_validade_dias: number; eh_kit: boolean; saldo: number; valor_estoque: number; ativo: boolean; created_at: string; updated_at: string
+}
+export const lerItemDoBanco = (i: Record<string, unknown>) =>
+  ({ ...i, estoque_minimo: Number(i.estoque_minimo), saldo: Number(i.saldo), valor_estoque: Number(i.valor_estoque) }) as ItemDoEstoque
