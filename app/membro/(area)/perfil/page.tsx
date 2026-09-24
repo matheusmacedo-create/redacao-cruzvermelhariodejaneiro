@@ -3,6 +3,8 @@ import { exigirMembro } from '@/lib/membro/sessao'
 import { perfilDoMembro } from '@/lib/membro/dados'
 import { VINCULOS } from '@/lib/participantes/regras'
 import { FormularioDoPerfil, PreferenciaDeAvisos } from '@/components/membro/perfil'
+import { BensComigo } from '@/components/membro/bens'
+import { bensDoMembro } from '@/lib/membro/bens'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +12,7 @@ const DATA = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateS
 
 export default async function PerfilDoMembro() {
   const m = await exigirMembro()
-  const p = await perfilDoMembro(m)
+  const [p, bens] = await Promise.all([perfilDoMembro(m), bensDoMembro(m)])
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -29,6 +31,7 @@ export default async function PerfilDoMembro() {
         </dl>
         <p className="mt-3 text-xs text-muted-foreground">Para corrigir estes dados, fale com a coordenação do Voluntariado.</p>
       </section>
+      <BensComigo bens={bens} />
       <FormularioDoPerfil p={p} />
       <PreferenciaDeAvisos inicial={p.avisos_por_email} />
     </div>

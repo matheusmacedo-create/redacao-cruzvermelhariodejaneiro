@@ -444,7 +444,9 @@ export async function fecharMes(mes: string, observacao: string): Promise<Result
     if (bloqueio) throw new Error(`${bloqueio.rotulo}: ${bloqueio.detalhe ?? 'pendente'}`)
     const avisos = d.itens.filter((i) => !i.ok).map((i) => ({ id: i.id, rotulo: i.rotulo, detalhe: i.detalhe }))
     const { error } = await d.supabase.rpc('financeiro_fechar_mes', {
-      p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`, p_resumo: d.resumo, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
+      p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`,
+      // O retrato guarda os totais do patrimônio; a lista bem a bem fica no pacote do contador.
+      p_resumo: { ...d.resumo, patrimonio: d.resumo.patrimonio ? { ...d.resumo.patrimonio, linhas: undefined } : undefined }, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
     })
     if (error) erroDoBanco(error, 'Não foi possível fechar o mês.')
     revalidar()

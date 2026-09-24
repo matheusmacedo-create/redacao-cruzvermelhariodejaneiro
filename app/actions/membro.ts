@@ -231,3 +231,19 @@ export async function responderConversa(conversaId: string, _anterior: { erro?: 
     return { erro: mensagemDoErro(causa, 'Não foi possível enviar.') }
   }
 }
+
+// ---------------------------------------------------------------- bens sob responsabilidade
+
+/** O voluntário aceita o termo de responsabilidade de um bem que está com ele. */
+export async function aceitarTermoDoBem(cautelaId: string): Promise<{ erro?: string }> {
+  try {
+    const m = await exigirMembroQueEscreve()
+    if (!/^[0-9a-f-]{36}$/.test(cautelaId)) throw new Error('Termo não encontrado.')
+    const { data, error } = await createAdminClient().rpc('patrimonio_voluntario_aceitar', { p_participante_id: m.participanteId, p_cautela_id: cautelaId })
+    if (error || !data) throw new Error('Termo não encontrado.')
+    revalidatePath('/membro', 'layout')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível aceitar o termo.') }
+  }
+}

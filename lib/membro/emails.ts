@@ -147,3 +147,16 @@ export function emailDeAvisoGeral(p: { nome: string; titulo: string; texto: stri
     ],
   })
 }
+
+export function emailDeBemEntregue(p: { nome: string; bem: string; plaqueta: string; url: string }): EmailPronto {
+  return montar({
+    assunto: `Termo de responsabilidade: ${p.bem}`,
+    preheader: 'Um bem da filial foi entregue a você. Confira e aceite o termo.',
+    titulo: 'Um bem da filial está com você',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. A coordenação registrou a entrega de ${p.bem} (patrimônio ${p.plaqueta}) sob a sua responsabilidade.` },
+      { tipo: 'p', texto: 'Confira os dados e aceite o termo de responsabilidade na sua Área do Voluntário. Se não recebeu este bem, responda a coordenação pelo canal direto.' },
+      { tipo: 'botao', rotulo: 'Ver e aceitar o termo', url: p.url },
+    ],
+  })
+}

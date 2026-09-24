@@ -42,6 +42,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     ['Mês', nomeDoMes(mes)], ['Entradas (caixa)', r.caixa.entradas], ['Saídas (caixa)', r.caixa.saidas], ['Resultado do mês (caixa)', r.caixa.resultado],
     ['Horas de trabalho voluntário', r.voluntariado.horas], ['Voluntários com horas no mês', r.voluntariado.pessoas],
     ['Valor da hora voluntária (referência)', r.voluntariado.valorHora], ['Trabalho voluntário a valor justo (ITG 2002)', r.voluntariado.valor],
+    ...(r.patrimonio ? [
+      ['Depreciação do mês (patrimônio)', r.patrimonio.depreciacaoDoMes], ['Valor contábil do patrimônio no fim do mês', r.patrimonio.contabil],
+      ['Bens recebidos em doação no mês (valor de mercado)', r.patrimonio.doadosNoMes.reduce((s, b) => s + b.valor, 0)],
+    ] as [string, number][] : []),
   ]))
   arquivos['2-por-categoria.csv'] = strToU8(csv(['Código contábil', 'Grupo', 'Categoria', 'Tipo', 'Realizado no mês (caixa)', 'Competência do mês'],
     r.porCategoria.map((k) => [k.codigo, k.grupo, k.nome, k.tipo === 'receita' ? 'Receita' : 'Despesa', k.caixa, k.competencia])))
@@ -66,6 +70,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     })))
   arquivos['6-extrato.csv'] = strToU8(csv(['Conta', 'Data', 'Descrição no banco', 'Documento', 'Valor', 'Situação', 'Motivo (se ignorada)'],
     d.extrato.map((e) => [nome.conta.get(e.conta_id) ?? null, e.data, e.descricao, e.documento, e.valor, e.situacao === 'conciliado' ? 'Conciliada' : e.situacao === 'ignorado' ? 'Ignorada' : 'Pendente', e.motivo])))
+  if (r.patrimonio) {
+    arquivos['7-patrimonio.csv'] = strToU8(csv(['Plaqueta', 'Bem', 'Categoria', 'Conta contábil', 'Origem', 'Aquisição', 'Valor', 'Depreciação do mês', 'Depreciação acumulada', 'Valor contábil', 'Baixado em'],
+      r.patrimonio.linhas.map((l) => [l.plaqueta, l.nome, l.categoria, l.conta, l.origem === 'doacao' ? 'Doação' : l.origem === 'compra' ? 'Compra' : l.origem, l.aquisicao, l.valor, l.noMes, l.acumulada, l.contabil, l.baixado])))
+  }
   const aviso = d.itens.filter((i) => !i.ok)
   const fechamento = d.fechamentos.find((f) => f.mes === inicio && f.situacao === 'fechado')
   arquivos['LEIAME.txt'] = strToU8([
@@ -79,6 +87,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     '  3-saldos-por-conta e 4-saldos-por-fonte: início, entradas, saídas e fim do mês; fontes com destino separadas.',
     '  5-lancamentos: cada lançamento do mês, com favorecido, categoria, fonte, projeto e se foi conciliado.',
     '  6-extrato: as linhas do banco no mês e o que foi feito com cada uma.',
+    '  7-patrimonio: os bens com valor, a depreciação do mês e a acumulada, e o valor contábil (se houver bens cadastrados).',
     '  comprovantes/: os arquivos anexados aos lançamentos (nome: data_descrição_tipo).',
     '',
     aviso.length ? 'Avisos na conferência:' : 'Conferência sem avisos.',
