@@ -23,7 +23,7 @@ import type { Permissao } from './permissoes'
  * Módulo puro (sem banco, sem `server-only`): dá para conferir com um script.
  */
 
-export type Contador = 'aprovacoes'
+export type Contador = 'aprovacoes' | 'chat'
 
 export type Area = {
   href: string
@@ -51,9 +51,20 @@ export const GRUPOS: Grupo[] = [
     areas: [
       { href: '/dashboard', rotulo: 'Início', resumo: 'O seu dia, a semana da operação e os indicadores', icone: House, termos: ['visão geral', 'dashboard', 'painel'] },
       { href: '/aprovacoes', rotulo: 'Aprovações', resumo: 'O que espera o seu voto e quem ainda falta decidir', icone: SquareCheckBig, termos: ['votar', 'revisão', 'aprovar'], contador: 'aprovacoes' },
-      { href: '/mensagens', rotulo: 'Conversas', resumo: 'Recados entre a equipe e conversas de cada matéria', icone: MessagesSquare, termos: ['mensagens', 'chat', 'recados'] },
       // O sino do topo leva aqui ("Ver todas"); uma linha na sidebar repetiria o sino.
       { href: '/notificacoes', rotulo: 'Notificações', resumo: 'Tudo o que aconteceu com você, lido e não lido', icone: Bell, termos: ['avisos', 'sino', 'alertas'], foraDoMenu: true },
+    ],
+  },
+  {
+    // Tudo o que é conversa, num lugar só: a equipe entre si (Chat), o público
+    // nas redes, o e-mail oficial dos setores e os voluntários.
+    id: 'comunicacao',
+    rotulo: 'Comunicação',
+    areas: [
+      { href: '/chat', rotulo: 'Chat', resumo: 'Canais e mensagens diretas da equipe, ao vivo e guardados', icone: MessagesSquare, termos: ['conversas', 'mensagens', 'recados', 'slack', 'canal', 'direct', 'equipe'], contador: 'chat' },
+      { href: '/caixa-de-entrada', rotulo: 'Caixa de entrada', resumo: 'Mensagens e comentários do público nas redes', icone: Inbox, termos: ['atendimento', 'comentários', 'dm', 'direct'] },
+      { href: '/correio', rotulo: 'E-mail do setor', resumo: 'Envie pelo endereço do setor, com a assinatura oficial', icone: AtSign, termos: ['correio', 'alias', 'assinatura', 'e-mail'] },
+      { href: '/voluntariado/mensagens', rotulo: 'Voluntários', resumo: 'O canal direto com voluntários e membros da área do membro', icone: HeartHandshake, termos: ['mensagens dos voluntários', 'canal do membro', 'área do membro'] },
     ],
   },
   {
@@ -82,7 +93,6 @@ export const GRUPOS: Grupo[] = [
     id: 'relacionamento',
     rotulo: 'Relacionamento',
     areas: [
-      { href: '/caixa-de-entrada', rotulo: 'Caixa de entrada', resumo: 'Mensagens e comentários do público nas redes', icone: Inbox, termos: ['atendimento', 'comentários', 'dm', 'direct'] },
       { href: '/newsletter', rotulo: 'Newsletter', resumo: 'Inscritos, crescimento da lista e edições enviadas', icone: Mail, termos: ['central de e-mail', 'e-mail marketing', 'inscritos'] },
       { href: '/imprensa', rotulo: 'Imprensa e contatos', resumo: 'Contatos verificados, campanhas e quem leu', icone: Newspaper, termos: ['imprensa', 'jornalistas', 'contatos', 'release', 'hunter'] },
     ],
@@ -103,7 +113,6 @@ export const GRUPOS: Grupo[] = [
     rotulo: 'Institucional',
     areas: [
       { href: '/oficios', rotulo: 'Ofícios', resumo: 'Numerados por ano, assinados e registrados', icone: FileSignature, termos: ['documento oficial', 'carta'] },
-      { href: '/correio', rotulo: 'E-mail do setor', resumo: 'Envie pelo endereço do setor, com a assinatura oficial', icone: AtSign, termos: ['correio', 'alias', 'assinatura'] },
       { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos para TI, Manutenção e outras equipes', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk'] },
       { href: '/patrimonio', rotulo: 'Patrimônio', resumo: 'Bens com plaqueta e QR, estoque com lote e validade, doações, frota, manutenção e inventário', icone: Package, termos: ['inventário', 'bens', 'plaqueta', 'cautela', 'termo de responsabilidade', 'almoxarifado', 'estoque', 'materiais', 'validade', 'kits', 'doações', 'doador', 'recibo', 'campanha', 'distribuição', 'frota', 'veículos', 'ambulância', 'combustível', 'CNH'] },
       { href: '/financeiro', rotulo: 'Financeiro', resumo: 'Despesas, receitas, contas a pagar e o caixa da filial', icone: Wallet, termos: ['contas a pagar', 'despesas', 'receitas', 'caixa', 'lançamentos', 'fluxo de caixa'] },
@@ -168,7 +177,7 @@ export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] 
  */
 export function gruposDaEquipeDaEscola(comFinanceiro: boolean, grupos: Grupo[] = TODOS_OS_GRUPOS): Grupo[] {
   const escola = grupos.find((g) => g.id === 'escola')
-  const notificacoes = grupos.flatMap((g) => g.areas).filter((a) => a.href === '/notificacoes')
+  const notificacoes = grupos.flatMap((g) => g.areas).filter((a) => a.href === '/notificacoes' || a.href === '/chat')
   const perfil = ADMINISTRACAO.areas.filter((a) => a.href === '/perfil')
   return [
     ...(escola ? [{ ...escola, areas: escola.areas.filter((a) => comFinanceiro || a.href !== '/escola/financeiro') }] : []),
@@ -187,6 +196,8 @@ const MORADAS: Record<string, string> = {
   '/registrar': '/pautas',
   '/conteudos': '/pautas',
   '/participantes': '/voluntariado',
+  // As conversas de cada aprovação continuam em /mensagens/<id>.
+  '/mensagens': '/aprovacoes',
 }
 
 export function areaDoCaminho(pathname: string, grupos: Grupo[] = TODOS_OS_GRUPOS): { grupo: Grupo; area: Area } | null {

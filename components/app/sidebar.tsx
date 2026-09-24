@@ -9,6 +9,7 @@ import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-re
 import { cn } from '@/lib/utils'
 import { ADMINISTRACAO, areaDoCaminho, ehDaArea, type Area, type Contador, type Grupo } from '@/lib/navegacao'
 import { useShell } from './app-shell'
+import { useChatAoVivo } from '@/components/app/chat/ao-vivo'
 
 /** Os grupos que a pessoa fechou. Cookie, para o servidor desenhar igual. */
 export const COOKIE_DOS_GRUPOS = 'sidebar_grupos_fechados'
@@ -159,13 +160,16 @@ function BotaoDeBusca({ recolhida }: { recolhida: boolean }) {
   )
 }
 
-export function Sidebar({ contadores, fechadosIniciais, profile, buildInfo }: {
+export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, buildInfo }: {
   contadores: Contadores
   fechadosIniciais: string[]
   profile: { username?: string | null } | null
   buildInfo?: BuildInfo
 }) {
   const { grupos, open, close, recolhida, alternarRecolhida } = useShell()
+  // O número do Chat muda ao vivo (mensagem chegando, conversa lida), sem esperar a página recarregar.
+  const chat = useChatAoVivo()
+  const contadores = chat ? { ...doServidor, chat: chat.naoLidas } : doServidor
   const pathname = usePathname()
   // A administração sai do meio do trabalho: no pé fica só Configurações; Usuários
   // e permissões e Meu perfil estão no menu da conta (topo) e na busca. No

@@ -14,6 +14,10 @@ export const maxDuration = 60
  * escolheu "Resumo diário" e os que não saíram na hora porque ela estava
  * com a Redação aberta. Assuntos marcados "Só no sino" ficam de fora.
  *
+ * Entram também as mensagens de canal do chat que a pessoa não leu (as que
+ * não viram aviso na hora: sem menção, em canal "só menções"), contadas por
+ * canal — "#geral: 8 mensagens novas".
+ *
  * Protegida por CRON_SECRET, como /api/chamados/rotina.
  */
 export async function GET(request: Request) {
@@ -36,7 +40,11 @@ export async function GET(request: Request) {
 
   const porPessoa = new Map<string, NonNullable<typeof avisos>>()
   for (const a of avisos ?? []) porPessoa.set(a.user_id, [...(porPessoa.get(a.user_id) ?? []), a])
-  const ids = [...porPessoa.keys()]
+  // Chat: marca até onde contou, para amanhã não repetir.
+  const { data: doChat } = await admin.rpc('chat_resumo_do_dia')
+  const chatDe = new Map<string, { canal_id: string; nome: string; novas: number }[]>()
+  for (const c of (doChat ?? []) as { user_id: string; canal_id: string; nome: string; novas: number }[]) chatDe.set(c.user_id, [...(chatDe.get(c.user_id) ?? []), c])
+  const ids = [...new Set([...porPessoa.keys(), ...chatDe.keys()])]
   if (!ids.length) return Response.json({ ok: true, enviados: 0 })
 
   const [{ data: pessoas }, { data: preferencias }] = await Promise.all([
@@ -50,14 +58,16 @@ export async function GET(request: Request) {
     if (!pessoa.active || !pessoa.email || !pessoa.email_confirmado_em) continue
     const escolhas = modos.get(pessoa.id) ?? lerModos(null)
     const itens = (porPessoa.get(pessoa.id) ?? []).filter((a) => !ehCategoria(a.categoria) || escolhas[a.categoria] !== 'nunca')
-    if (!itens.length) continue
+    const doChatDela = escolhas.chat === 'nunca' ? [] : (chatDe.get(pessoa.id) ?? []).sort((a, b) => b.novas - a.novas)
+    if (!itens.length && !doChatDela.length) continue
+    const itensDoChat = doChatDela.map((c) => ({ titulo: `#${c.nome}: ${c.novas} ${c.novas === 1 ? 'mensagem nova' : 'mensagens novas'}`, mensagem: 'No chat da Redação.', link: `/chat/${c.canal_id}` }))
     const enviado = await enviarComSeguranca(pessoa.email, emailDeResumo({
-      urlBase: urlBase(), nome: pessoa.full_name, total: itens.length,
-      itens: itens.map((a) => ({ titulo: a.title, mensagem: a.message, link: a.link })),
+      urlBase: urlBase(), nome: pessoa.full_name, total: itens.length + itensDoChat.length,
+      itens: [...itensDoChat, ...itens.map((a) => ({ titulo: a.title, mensagem: a.message, link: a.link }))],
     }))
     if (!enviado) continue
     enviados += 1
-    await admin.from('notifications').update({ email_em: new Date().toISOString() }).in('id', itens.map((a) => a.id))
+    if (itens.length) await admin.from('notifications').update({ email_em: new Date().toISOString() }).in('id', itens.map((a) => a.id))
   }
   return Response.json({ ok: true, enviados })
 }
