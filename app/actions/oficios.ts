@@ -9,6 +9,8 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { publicSupabaseEnv } from '@/lib/supabase/env'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { notificar } from '@/lib/notificacoes/servidor'
 import { lerCanonico } from '@/lib/oficios/documento'
 import { processarCarimbo, processarFila } from '@/lib/oficios/carimbo'
 
@@ -93,6 +95,30 @@ export async function excluirRascunho(id: string): Promise<Resultado> {
   redirect('/oficios')
 }
 
+/**
+ * Avisa sobre um ofício quem precisa saber: o nome do documento (número e
+ * assunto) vem do banco, para o aviso não depender do que a tela mandou.
+ */
+async function avisarSobreOficio(p: {
+  workspaceId: string; oficioId: string; atorId: string; quem: 'assinantes_pendentes' | 'assinantes' | 'autor' | 'todos'
+  titulo: (o: { numero: string; assunto: string }) => string; mensagem: string; citacao?: string | null; botao?: string
+}) {
+  const admin = createAdminClient()
+  const [{ data: o }, { data: assinantes }] = await Promise.all([
+    admin.from('oficios').select('ano, numero, assunto, criado_por').eq('id', p.oficioId).eq('workspace_id', p.workspaceId).maybeSingle(),
+    admin.from('oficio_assinantes').select('user_id, estado').eq('oficio_id', p.oficioId),
+  ])
+  if (!o) return
+  const doc = { numero: o.numero ? `${String(o.numero).padStart(3, '0')}/${o.ano}` : '', assunto: o.assunto ?? '' }
+  const pendentes = (assinantes ?? []).filter((a) => a.estado === 'pendente').map((a) => a.user_id)
+  const todos = (assinantes ?? []).map((a) => a.user_id)
+  const para = p.quem === 'autor' ? [o.criado_por] : p.quem === 'assinantes_pendentes' ? pendentes : p.quem === 'assinantes' ? todos : [o.criado_por, ...todos]
+  await notificar(admin, {
+    workspaceId: p.workspaceId, para, atorId: p.atorId, categoria: 'oficios',
+    titulo: p.titulo(doc), mensagem: p.mensagem, citacao: p.citacao, link: `/oficios/${p.oficioId}`, botao: p.botao ?? 'Abrir o ofício',
+  })
+}
+
 export async function emitirOficio(id: string, assinantes: { userId: string; cargo: string }[], modo: 'senha' | 'govbr' = 'senha'): Promise<Resultado & { numero?: string }> {
   try {
     const context = await requireWorkspace()
@@ -102,6 +128,13 @@ export async function emitirOficio(id: string, assinantes: { userId: string; car
     if (error) erroDoBanco(error, 'Não foi possível emitir o ofício.')
     const { data: o } = await supabase.from('oficios').select('assunto').eq('id', id).maybeSingle()
     await registrar(context.workspace.id, context.user.id, 'oficio_emitido', id, { numero: data, assunto: o?.assunto ?? '' })
+    const quem = context.profile?.full_name || 'Um colega'
+    await avisarSobreOficio({
+      workspaceId: context.workspace.id, oficioId: id, atorId: context.user.id, quem: 'assinantes_pendentes',
+      titulo: (d) => `${quem} pediu sua assinatura no ofício ${d.numero}`,
+      mensagem: `Assunto: ${o?.assunto ?? ''}. Leia o documento e assine (ou recuse, dizendo o motivo).`,
+      botao: 'Ler e assinar',
+    })
     revalidar(id)
     return { numero: String(data) }
   } catch (causa) {
@@ -143,6 +176,12 @@ export async function assinarOficio(id: string, hash: string, senha: string, con
     const { data: o } = await supabase.from('oficios').select('ano,numero,assunto').eq('id', id).maybeSingle()
     const numero = o?.numero ? `${String(o.numero).padStart(3, '0')}/${o.ano}` : ''
     await registrar(context.workspace.id, context.user.id, 'oficio_assinado', id, { numero, assunto: o?.assunto ?? '', concluido: Boolean(concluido) })
+    const quem = context.profile?.full_name || 'Um colega'
+    await avisarSobreOficio(concluido
+      ? { workspaceId: context.workspace.id, oficioId: id, atorId: context.user.id, quem: 'todos',
+          titulo: (d) => `Ofício ${d.numero} assinado por todos`, mensagem: `${quem} deu a última assinatura em "${o?.assunto ?? ''}". O documento está concluído.` }
+      : { workspaceId: context.workspace.id, oficioId: id, atorId: context.user.id, quem: 'autor',
+          titulo: (d) => `${quem} assinou o ofício ${d.numero}`, mensagem: `"${o?.assunto ?? ''}" ainda aguarda outras assinaturas.` })
     // Última assinatura: o carimbo no Bitcoin sai depois da resposta, sem
     // fazer a pessoa esperar os calendários.
     if (concluido) after(async () => { await processarFila(1, id).catch(() => undefined) })
@@ -160,6 +199,13 @@ export async function recusarAssinatura(id: string, motivo: string): Promise<Res
     const { error } = await supabase.rpc('recusar_assinatura_de_oficio', { p_oficio_id: id, p_motivo: String(motivo ?? '').slice(0, 600) })
     if (error) erroDoBanco(error, 'Não foi possível registrar a recusa.')
     await registrar(context.workspace.id, context.user.id, 'oficio_recusado', id, {})
+    const quem = context.profile?.full_name || 'Um colega'
+    await avisarSobreOficio({
+      workspaceId: context.workspace.id, oficioId: id, atorId: context.user.id, quem: 'autor',
+      titulo: (d) => `${quem} recusou assinar o ofício ${d.numero}`,
+      mensagem: String(motivo ?? '').trim() ? 'Veja o motivo e decida se o ofício precisa ser refeito.' : 'Veja o ofício e decida se ele precisa ser refeito.',
+      citacao: String(motivo ?? '').trim().slice(0, 600) || null,
+    })
     revalidar(id)
     return {}
   } catch (causa) {
@@ -174,6 +220,13 @@ export async function cancelarOficio(id: string, motivo: string): Promise<Result
     const { error } = await supabase.rpc('cancelar_oficio', { p_oficio_id: id, p_motivo: String(motivo ?? '').slice(0, 600) })
     if (error) erroDoBanco(error, 'Não foi possível cancelar o ofício.')
     await registrar(context.workspace.id, context.user.id, 'oficio_cancelado', id, {})
+    const quem = context.profile?.full_name || 'Um colega'
+    await avisarSobreOficio({
+      workspaceId: context.workspace.id, oficioId: id, atorId: context.user.id, quem: 'assinantes',
+      titulo: (d) => `Ofício ${d.numero} cancelado`,
+      mensagem: `${quem} cancelou o ofício: ele não tem mais validade e não recebe assinaturas.`,
+      citacao: String(motivo ?? '').trim().slice(0, 600) || null,
+    })
     revalidar(id)
     return {}
   } catch (causa) {

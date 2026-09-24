@@ -4,8 +4,7 @@ import { useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu as MenuDaBase } from '@base-ui/react/menu'
-import { Popover } from '@base-ui/react/popover'
-import { Bell, ChevronDown, ChevronRight, Loader2, LogOut, Menu, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, LogOut, Menu, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/ui/avatar'
@@ -15,8 +14,8 @@ import { ehPapel, PAPEL } from '@/lib/permissoes'
 import type { WorkspaceRole } from '@/lib/session'
 import { ACOES_DE_CRIAR, useCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
+import { Sino, type Notificacao } from './sino'
 
-type Notification = { id: string; title: string; message: string; link: string | null; read_at: string | null; created_at: string }
 type Perfil = { full_name?: string | null; job_title?: string | null; initials?: string | null; color?: string | null; avatar_path?: string | null } | null
 
 const popup = 'origin-[var(--transform-origin)] rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0'
@@ -76,45 +75,6 @@ function MenuCriar() {
   )
 }
 
-function Notificacoes({ notifications }: { notifications: Notification[] }) {
-  const unread = notifications.filter((notification) => !notification.read_at).length
-  const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-  return (
-    <Popover.Root>
-      <Popover.Trigger className={botaoIcone} aria-label={`Notificações${unread ? `, ${unread} não lidas` : ''}`}>
-        <Bell className="size-[18px]" />
-        {unread > 0 && <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background">{unread}</span>}
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8} collisionPadding={8} className="z-50">
-          <Popover.Popup className={cn(popup, 'w-[min(22rem,calc(100vw-1rem))] overflow-hidden')}>
-            <Popover.Title className="flex items-center justify-between border-b border-border px-4 py-3 text-sm font-semibold">
-              Notificações
-              {unread > 0 && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{unread} não lida{unread === 1 ? '' : 's'}</span>}
-            </Popover.Title>
-            {notifications.length ? (
-              <ul className="max-h-[min(70vh,28rem)] overflow-y-auto">
-                {notifications.map((notification) => (
-                  <li key={notification.id} className="border-b border-border text-sm last:border-0">
-                    <Popover.Close nativeButton={false} render={<Link href={notification.link || '/aprovacoes'} />} className="flex gap-3 px-4 py-3 text-left hover:bg-muted">
-                      <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', notification.read_at ? 'bg-transparent' : 'bg-primary')} aria-hidden="true" />
-                      <span className="min-w-0">
-                        <span className="block font-medium">{notification.title}</span>
-                        <span className="mt-0.5 block text-muted-foreground">{notification.message}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">{quando.format(new Date(notification.created_at))}</span>
-                      </span>
-                    </Popover.Close>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhuma notificação.</p>}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
-  )
-}
-
 function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile: Perfil; grupos: Grupo[] }) {
   const sair = useRef<HTMLFormElement>(null)
   const nome = profile?.full_name || 'Usuário'
@@ -154,7 +114,7 @@ function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile:
   )
 }
 
-export function Topbar({ role, profile, notifications }: { role: WorkspaceRole; profile: Perfil; notifications: Notification[] }) {
+export function Topbar({ role, profile, notifications, naoLidas }: { role: WorkspaceRole; profile: Perfil; notifications: Notificacao[]; naoLidas: number }) {
   const { grupos, toggle, setBuscaAberta } = useShell()
   return (
     <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-2 backdrop-blur-md [padding-top:env(safe-area-inset-top)] sm:gap-3 sm:px-5">
@@ -167,7 +127,7 @@ export function Topbar({ role, profile, notifications }: { role: WorkspaceRole; 
           <Search className="size-[18px]" />
         </button>
         <MenuCriar />
-        <Notificacoes notifications={notifications} />
+        <Sino notificacoes={notifications} naoLidas={naoLidas} />
         <MenuDaPessoa role={role} profile={profile} grupos={grupos} />
       </div>
     </header>

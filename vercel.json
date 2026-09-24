@@ -7,6 +7,10 @@
     {
       "path": "/api/chamados/rotina",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/notificacoes/resumo",
+      "schedule": "30 11 * * *"
     }
   ]
 }

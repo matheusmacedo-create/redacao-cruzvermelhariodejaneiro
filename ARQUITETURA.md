@@ -489,6 +489,58 @@ GLPI, Freshservice e Zendesk). Peças:
 - Configuração (filas, equipe, catálogo, SLA) em `/chamados/configurar`,
   permissão `chamados.configurar`.
 
+### 7.8 Notificações (sino e e-mail)
+
+Todo aviso passa por `notificar()` (`lib/notificacoes/servidor.ts`); ninguém
+mais insere em `notifications` direto. Ela grava no sino e, conforme a
+preferência da pessoa, manda e-mail para o **e-mail de recuperação
+confirmado** (`profiles.email` + `email_confirmado_em`). Nunca avisa quem fez
+a ação e nunca lança. O e-mail sai em `after()`, sem atrasar a resposta.
+
+Quando o e-mail sai (`decidirEmail` em `lib/notificacoes/regras.ts`, puro):
+
+- preferência por assunto (`notificacao_preferencias.modos`): **Na hora**,
+  **Resumo diário** ou **Só no sino**. O padrão é "na hora". Os assuntos são
+  aprovações, mensagens, pautas e conteúdos, chamados e ofícios;
+- quem abriu a Redação há menos de 3 min (`profiles.visto_em`, atualizado
+  pelo layout e pelo sino) não recebe e-mail na hora;
+- no mesmo link, no máximo um e-mail a cada 15 min;
+- o que não saiu na hora e continua não lido vai no **resumo diário**
+  (`/api/notificacoes/resumo`, cron 11h30 UTC, protegido por `CRON_SECRET`).
+  `notifications.email_em` marca o que já saiu, para nada ir duas vezes.
+
+Avisos de segurança da conta (senha, 2FA, e-mail trocado) não passam por aqui
+e saem sempre (`avisar()` em `lib/contas/servidor.ts`).
+
+O sino (`components/app/sino.tsx`) mostra a contagem real de não lidas, e não
+só as 10 carregadas. Ele marca como lido ao clicar, ao abrir a página do link
+e com "Marcar todas". Como o layout não é refeito a cada navegação, o sino
+busca `/api/notificacoes` a cada 60 s com a aba visível, ao voltar para a aba
+e ao ser aberto. Tudo fica em `/notificacoes`, e as preferências ficam em
+`/perfil#notificacoes`. O `authenticated` só pode atualizar `read_at`: o
+título e o link vêm sempre do servidor.
+
+Eventos que avisam hoje:
+
+| Evento | Quem recebe |
+|---|---|
+| Pedido de aprovação (editorial e pacotes de redes) | Quem foi convidado a votar |
+| Voto ou pedido de ajustes numa aprovação | Quem pediu a aprovação |
+| Mensagem direta | O destinatário |
+| Mensagem na conversa de uma pauta | O responsável e os participantes |
+| Pessoa adicionada a uma pauta | Essa pessoa |
+| Novo responsável por um cartão do quadro | O novo responsável |
+| Comentário num conteúdo | Quem criou o conteúdo e quem já comentou nele |
+| Chamados (abertura, resposta, situação, atribuição) | Veja 7.7 |
+| Ofício emitido | Os assinantes |
+| Ofício assinado | Quem criou o ofício; na última assinatura, todos |
+| Ofício recusado | Quem criou o ofício |
+| Ofício cancelado | Os assinantes |
+
+Para um evento novo, chame `notificar()` depois de salvar, com uma das
+categorias. Se precisar de outra categoria, acrescente-a em `CATEGORIAS` e no
+`check` de `notifications.categoria`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

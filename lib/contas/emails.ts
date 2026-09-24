@@ -45,11 +45,22 @@ export type Bloco =
   | { tipo: 'botao'; rotulo: string; url: string }
   | { tipo: 'destaque'; texto: string }
   | { tipo: 'nota'; texto: string }
+  | { tipo: 'item'; titulo: string; texto: string; url?: string }
+  | { tipo: 'citacao'; texto: string }
 
-export function montar(opcoes: { assunto: string; preheader: string; titulo: string; blocos: Bloco[] }): EmailPronto {
+/**
+ * `rodape`, quando vem, entra no fim do e-mail — é onde as notificações
+ * põem o link para a pessoa escolher o que recebe.
+ */
+export function montar(opcoes: { assunto: string; preheader: string; titulo: string; blocos: Bloco[]; rodape?: { texto: string; rotulo: string; url: string } }): EmailPronto {
   const miolo = opcoes.blocos.map((b) => {
     if (b.tipo === 'p') return `<p style="margin:0 0 16px;">${escapar(b.texto)}</p>`
     if (b.tipo === 'destaque') return `<p style="margin:0 0 16px;padding:12px 16px;background:#f7f8fa;border-left:3px solid ${VERMELHO};font-family:Consolas,Menlo,monospace;font-size:15px;">${escapar(b.texto)}</p>`
+    if (b.tipo === 'citacao') return `<p style="margin:0 0 16px;padding:12px 16px;background:#f7f8fa;border-left:3px solid ${VERMELHO};white-space:pre-line;">${escapar(b.texto)}</p>`
+    if (b.tipo === 'item') {
+      const titulo = b.url ? `<a href="${escapar(b.url)}" style="color:${TINTA};font-weight:bold;text-decoration:none;">${escapar(b.titulo)}</a>` : `<strong>${escapar(b.titulo)}</strong>`
+      return `<p style="margin:0 0 12px;padding:10px 14px;border:1px solid ${LINHA};border-radius:6px;font-size:15px;">${titulo}<br><span style="color:${SUAVE};font-size:14px;">${escapar(b.texto)}</span></p>`
+    }
     if (b.tipo === 'nota') return `<p style="margin:0 0 16px;color:${SUAVE};font-size:14px;">${escapar(b.texto)}</p>`
     return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 20px;"><tr><td style="background:${VERMELHO};border-radius:6px;">
 <a href="${escapar(b.url)}" style="display:inline-block;padding:12px 22px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">${escapar(b.rotulo)}</a>
@@ -69,13 +80,16 @@ export function montar(opcoes: { assunto: string; preheader: string; titulo: str
 ${miolo}
 </td></tr>
 <tr><td style="padding:20px 32px 28px;border-top:1px solid ${LINHA};font-family:Arial,Helvetica,sans-serif;color:${SUAVE};font-size:12px;line-height:1.6;">
-Mensagem automática da Redação — sistema interno da Cruz Vermelha Brasileira, filial do Rio de Janeiro. A equipe nunca pede sua senha nem o código do app autenticador, por e-mail ou por telefone.
+${opcoes.rodape ? `${escapar(opcoes.rodape.texto)} <a href="${escapar(opcoes.rodape.url)}" style="color:${SUAVE};text-decoration:underline;">${escapar(opcoes.rodape.rotulo)}</a><br><br>` : ''}Mensagem automática da Redação — sistema interno da Cruz Vermelha Brasileira, filial do Rio de Janeiro. A equipe nunca pede sua senha nem o código do app autenticador, por e-mail ou por telefone.
 </td></tr></table></td></tr></table></body></html>`
 
   const texto = [
     opcoes.titulo, '',
-    ...opcoes.blocos.flatMap((b) => b.tipo === 'botao' ? [`${b.rotulo}: ${b.url}`, ''] : [b.texto, '']),
+    ...opcoes.blocos.flatMap((b) => b.tipo === 'botao' ? [`${b.rotulo}: ${b.url}`, '']
+      : b.tipo === 'item' ? [`• ${b.titulo}`, `  ${b.texto}`, ...(b.url ? [`  ${b.url}`] : []), '']
+      : [b.texto, '']),
     '—',
+    ...(opcoes.rodape ? [`${opcoes.rodape.texto} ${opcoes.rodape.rotulo}: ${opcoes.rodape.url}`, ''] : []),
     'Mensagem automática da Redação — Cruz Vermelha Brasileira, filial do Rio de Janeiro.',
     'A equipe nunca pede sua senha nem o código do app autenticador.',
   ].join('\n')

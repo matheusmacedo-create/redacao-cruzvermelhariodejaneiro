@@ -113,7 +113,9 @@ itens, como no benchmark.
   o grupo da tela aberta nunca fecha.
 - **Barra do topo**: onde você está (grupo › área), **Criar** (registrar
   atividade, nova publicação, novo ofício, abrir chamado), notificações e o
-  **menu da conta** (papel, Meu perfil, Configurações, Sair).
+  **menu da conta** (papel, Meu perfil, Configurações, Sair). O sino é o de
+  `components/app/sino.tsx`; a tela `/notificacoes` ("Ver todas") está na
+  busca e nas migalhas, mas não ocupa linha na sidebar (`foraDoMenu`).
 - **Busca rápida ⌘K / Ctrl K**, de qualquer tela: vai a qualquer área ou
   começa qualquer coisa; acha também pelos nomes antigos e por sinônimos
   ("cérebro", "impacto", "rh", "post").

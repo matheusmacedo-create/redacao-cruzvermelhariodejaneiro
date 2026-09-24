@@ -110,7 +110,7 @@ function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate
 
   return (
     <nav className={cn('flex flex-col', recolhida ? 'items-center gap-1' : '', className)} aria-label={rotulo} onClick={onNavigate}>
-      {grupos.map((grupo, i) => {
+      {grupos.map((g) => ({ ...g, areas: g.areas.filter((a) => !a.foraDoMenu) })).filter((g) => g.areas.length).map((grupo, i) => {
         // O grupo da tela aberta nunca fica fechado: senão a pessoa perde onde está.
         const temAtivo = grupo.areas.some((a) => a.href === ativo)
         const aberto = recolhida || !grupo.rotulo || temAtivo || !fechados.includes(grupo.id)

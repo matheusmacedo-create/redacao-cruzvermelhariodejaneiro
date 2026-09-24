@@ -89,3 +89,39 @@ export async function salvarPerfil(_anterior: { erro?: string; ok?: boolean }, f
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar.') }
   }
 }
+
+// ---------------------------------------------------------------- cursos
+
+export type ResultadoDaAula = { erro?: string; faltam?: number; prova?: boolean; certificado?: string | null }
+
+/** Marca a aula como vista (só para o voluntário da sessão). */
+export async function concluirAula(cursoId: string, aulaId: string): Promise<ResultadoDaAula> {
+  try {
+    const m = await exigirMembro()
+    if (!/^[0-9a-f-]{36}$/.test(aulaId)) throw new Error('Aula inválida.')
+    const { data, error } = await createAdminClient().rpc('membro_concluir_aula', { p_participante_id: m.participanteId, p_aula_id: aulaId })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível marcar a aula.')
+    revalidatePath(`/membro/cursos/${cursoId}`, 'layout')
+    revalidatePath('/membro')
+    return data as ResultadoDaAula
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível marcar a aula.') }
+  }
+}
+
+export type ResultadoDaProva = { erro?: string; aprovado?: boolean; nota?: number; acertos?: number; total?: number; minima?: number; certificado?: string | null; ja_aprovado?: boolean }
+
+export async function responderProva(cursoId: string, respostas: number[]): Promise<ResultadoDaProva> {
+  try {
+    const m = await exigirMembro()
+    if (!/^[0-9a-f-]{36}$/.test(cursoId)) throw new Error('Curso inválido.')
+    if (!Array.isArray(respostas) || respostas.length > 200 || respostas.some((r) => !Number.isInteger(r) || r < 0 || r > 5)) throw new Error('Responda todas as questões.')
+    const { data, error } = await createAdminClient().rpc('membro_responder_prova', { p_participante_id: m.participanteId, p_curso_id: cursoId, p_respostas: respostas })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível corrigir a prova.')
+    revalidatePath(`/membro/cursos/${cursoId}`, 'layout')
+    revalidatePath('/membro')
+    return data as ResultadoDaProva
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível corrigir a prova.') }
+  }
+}

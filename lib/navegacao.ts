@@ -1,5 +1,5 @@
 import {
-  AtSign, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
+  AtSign, Bell, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
   type LucideIcon,
 } from 'lucide-react'
@@ -37,6 +37,8 @@ export type Area = {
   permissao?: Permissao
   /** Número ao lado do nome, vindo do layout. */
   contador?: Contador
+  /** Tem endereço, busca, migalhas e aba, mas não ocupa linha na sidebar (já tem atalho no topo). */
+  foraDoMenu?: boolean
 }
 
 export type Grupo = { id: string; rotulo: string | null; areas: Area[] }
@@ -50,6 +52,8 @@ export const GRUPOS: Grupo[] = [
       { href: '/dashboard', rotulo: 'Início', resumo: 'O seu dia, a semana da operação e os indicadores', icone: House, termos: ['visão geral', 'dashboard', 'painel'] },
       { href: '/aprovacoes', rotulo: 'Aprovações', resumo: 'O que espera o seu voto e quem ainda falta decidir', icone: SquareCheckBig, termos: ['votar', 'revisão', 'aprovar'], contador: 'aprovacoes' },
       { href: '/mensagens', rotulo: 'Conversas', resumo: 'Recados entre a equipe e conversas de cada matéria', icone: MessagesSquare, termos: ['mensagens', 'chat', 'recados'] },
+      // O sino do topo leva aqui ("Ver todas"); uma linha na sidebar repetiria o sino.
+      { href: '/notificacoes', rotulo: 'Notificações', resumo: 'Tudo o que aconteceu com você, lido e não lido', icone: Bell, termos: ['avisos', 'sino', 'alertas'], foraDoMenu: true },
     ],
   },
   {
