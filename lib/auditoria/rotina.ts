@@ -7,6 +7,7 @@ import { enviarArquivoDeVerificacao, withFtp } from '@/lib/publicacao/ftp'
 import { descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { assinarManifesto, chaveDaTrilha, type ChaveDaTrilha } from './assinatura'
+import { arquivosDoLote, espelharChave, espelharIndice, espelharLote, espelhoConfigurado, type LoteParaEspelhar } from './espelho'
 import { carimbarTempo } from './tsa'
 
 /**
@@ -18,6 +19,9 @@ import { carimbarTempo } from './tsa'
  *
  *   provas (tarde): pergunta aos calendários se os lotes já entraram num
  *   bloco do Bitcoin e republica o .ots confirmado.
+ *
+ *   As duas terminam copiando para o espelho no R2 (lib/auditoria/espelho.ts)
+ *   o que mudou nos lotes, independente de o site ter respondido.
  *
  * Cada passo falha sozinho: erro de um lote fica gravado nele e o resto segue.
  */
@@ -53,6 +57,10 @@ export type ResumoDaRotina = {
   lote?: { dia: string; itens: number; compromisso: string } | null
   lotes: { dia: string; passos: string[]; erros: string[] }[]
   publicados: string[]
+  /** Lotes copiados para o espelho no R2 nesta rodada. */
+  espelhados: string[]
+  /** Arquivos cujo registro permanente no R2 difere do banco. */
+  divergencias: string[]
   avisos: string[]
 }
 
@@ -66,7 +74,6 @@ const diaAnterior = (dia: string) => {
 }
 const daquiA = (horas: number) => new Date(Date.now() + horas * 3_600_000).toISOString()
 const mensagem = (causa: unknown) => (causa instanceof Error ? causa.message : typeof causa === 'object' && causa && 'message' in causa ? String((causa as { message: unknown }).message) : String(causa)).slice(0, 400)
-const hex = (h: string) => Buffer.from(h, 'hex')
 
 function lerChave(resumo: ResumoDaRotina): ChaveDaTrilha | null {
   try {
@@ -166,13 +173,7 @@ async function publicarLotes(admin: Admin, lotes: LotePendente[], chave: ChaveDa
         await enviar(`chaves/${chave.id}.pem`, chave.publicaPem)
       }
       for (const l of lotes) {
-        const m = JSON.parse(l.manifesto) as { raiz: string; cabecas: string; anterior: string }
-        const pasta = `lotes/${l.dia}`
-        await enviar(`${pasta}/manifesto.json`, l.manifesto)
-        await enviar(`${pasta}/compromisso.bin`, Buffer.concat([hex(m.raiz), hex(m.cabecas), hex(m.anterior)]))
-        if (l.assinatura) await enviar(`${pasta}/manifesto.json.sig`, Buffer.from(l.assinatura, 'base64'))
-        if (l.tsr) await enviar(`${pasta}/manifesto.json.tsr`, Buffer.from(l.tsr, 'base64'))
-        if (l.ots) await enviar(`${pasta}/compromisso.bin.ots`, Buffer.from(l.ots, 'base64'))
+        for (const a of arquivosDoLote(l)) await enviar(`lotes/${l.dia}/${a.nome}`, a.conteudo)
         const { error: e } = await admin.rpc('auditoria_marcar_publicado', { p_dia: l.dia })
         if (e) throw e
         resumo.publicados.push(l.dia)
@@ -188,6 +189,47 @@ async function publicarLotes(admin: Admin, lotes: LotePendente[], chave: ChaveDa
   }
 }
 
+/**
+ * Espelho no R2: os lotes cujos arquivos mudaram desde a última cópia, a chave
+ * e o índice. Sem as variáveis do R2, não faz nada. Lote com divergência no
+ * registro permanente não é marcado: volta toda rodada, e o aviso também.
+ */
+async function espelharNoR2(admin: Admin, resumo: ResumoDaRotina, inicio: number) {
+  let espelho: ReturnType<typeof espelhoConfigurado>
+  try {
+    espelho = espelhoConfigurado()
+  } catch (causa) {
+    resumo.avisos.push(`espelho no R2: ${mensagem(causa)}`)
+    return
+  }
+  if (!espelho) return
+  if (Date.now() - inicio > 50_000) { resumo.avisos.push('Sem tempo para o espelho no R2 nesta rodada; fica para a próxima.'); return }
+  try {
+    const { data, error } = await admin.rpc('auditoria_lotes_para_espelhar', { p_limite: 8 })
+    if (error) throw error
+    const lotes = (data ?? []) as LoteParaEspelhar[]
+    if (!lotes.length) return
+    const chave = lerChaveSilenciosa()
+    if (chave) resumo.divergencias.push(...await espelharChave(espelho, chave))
+    for (const l of lotes) {
+      const divergencias = await espelharLote(espelho, l)
+      if (divergencias.length) {
+        resumo.divergencias.push(...divergencias)
+        await admin.rpc('auditoria_registrar_erro_lote', { p_dia: l.dia, p_erro: `espelho no R2: ${divergencias[0]}` })
+        continue
+      }
+      const { error: e } = await admin.rpc('auditoria_marcar_espelhado', { p_dia: l.dia, p_versao: l.versao })
+      if (e) throw e
+      resumo.espelhados.push(l.dia)
+    }
+    const { data: indice, error: e2 } = await admin.rpc('auditoria_indice_lotes')
+    if (e2) throw e2
+    await espelharIndice(espelho, indice)
+  } catch (causa) {
+    resumo.avisos.push(`espelho no R2: ${mensagem(causa)}`)
+  }
+}
+
 /** Aviso à administração (sino e, conforme a preferência, e-mail) quando algo pede atenção. Um por rodada, no máximo. */
 async function avisarAdministracao(admin: Admin, resumo: ResumoDaRotina) {
   const problemas: string[] = []
@@ -196,6 +238,7 @@ async function avisarAdministracao(admin: Admin, resumo: ResumoDaRotina) {
   if (falhas > 0) problemas.push(`${falhas} registro(s) não entraram na trilha nas últimas 24 horas`)
   const comErro = resumo.lotes.filter((l) => l.erros.length).map((l) => l.dia)
   if (comErro.length) problemas.push(`lote(s) com erro: ${comErro.join(', ')}`)
+  if (resumo.divergencias.length) problemas.push(`o registro permanente no R2 difere do banco em ${resumo.divergencias.length} arquivo(s)`)
   if (!problemas.length) return
   try {
     const { data: ws } = await admin.from('workspaces').select('id').eq('kind', 'production').order('created_at').limit(1).maybeSingle()
@@ -220,7 +263,7 @@ async function avisarAdministracao(admin: Admin, resumo: ResumoDaRotina) {
 export async function rotinaDiaria(): Promise<ResumoDaRotina> {
   const admin = createAdminClient()
   const inicio = Date.now()
-  const resumo: ResumoDaRotina = { lotes: [], publicados: [], avisos: [] }
+  const resumo: ResumoDaRotina = { lotes: [], publicados: [], espelhados: [], divergencias: [], avisos: [] }
 
   const sinc = await admin.rpc('auditoria_sincronizar')
   if (sinc.error) resumo.avisos.push(`sincronização: ${mensagem(sinc.error)}`)
@@ -242,13 +285,17 @@ export async function rotinaDiaria(): Promise<ResumoDaRotina> {
   }
 
   await processarPendentes(admin, resumo, inicio, true)
+  await espelharNoR2(admin, resumo, inicio)
   await avisarAdministracao(admin, resumo)
   return resumo
 }
 
 export async function rotinaDasProvas(): Promise<ResumoDaRotina> {
   const admin = createAdminClient()
-  const resumo: ResumoDaRotina = { lotes: [], publicados: [], avisos: [] }
-  await processarPendentes(admin, resumo, Date.now(), true)
+  const resumo: ResumoDaRotina = { lotes: [], publicados: [], espelhados: [], divergencias: [], avisos: [] }
+  const inicio = Date.now()
+  await processarPendentes(admin, resumo, inicio, true)
+  await espelharNoR2(admin, resumo, inicio)
+  if (resumo.divergencias.length) await avisarAdministracao(admin, resumo)
   return resumo
 }

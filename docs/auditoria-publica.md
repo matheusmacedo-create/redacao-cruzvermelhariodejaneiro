@@ -36,8 +36,9 @@ dia, motivo em texto livre, nonce, id de origem.
 
 ### 2.2 Camadas de prova
 
-0. **Backup fora do Supabase** (o plano gratuito não tem backup): dump diário cifrado com `age`,
-   fora do provedor (§8). Hash encadeado detecta adulteração; só backup recupera.
+0. **Backup fora do Supabase** (o plano gratuito não tem backup): dump diário e arquivos do
+   Storage, cifrados com `age`, no Cloudflare R2 com trava (§8). Hash encadeado detecta
+   adulteração; só backup recupera.
 1. **Cadeia de hashes por fluxo** em `auditoria.eventos`, só de acréscimo, conferida todo dia.
 2. **Lote diário**: árvore de Merkle das folhas dos itens, **hash das cabeças das cadeias** e
    compromisso encadeado ao lote anterior. O manifesto é assinado com Ed25519 e carimbado por uma
@@ -46,14 +47,17 @@ dia, motivo em texto livre, nonce, id de origem.
    (`.ots` com o caminho de Merkle), conferível no cliente oficial do OpenTimestamps sem depender da
    filial. Como o lote ancora também as cabeças das cadeias, reescrever a história de forma coerente
    ainda é pego (teste "cadeia reescrita com coerência" em `supabase/tests/auditoria.test.sql`).
+   Os arquivos de cada lote também vão para o **espelho no Cloudflare R2** (§4): uma cópia igual à
+   do site e um **registro permanente com trava**, que nem a filial apaga ou troca.
 3. **Terceiros** (na abertura): captura no Internet Archive das páginas públicas.
 4. **Assinatura gov.br e ata notarial**: sob demanda, fora deste escopo.
 
 ## 3. Banco
 
 Migrações (só acréscimos): `supabase/migrations/20260925203000_cvrj_auditoria.sql` (a trilha e os
-ganchos de matérias, comunicados, ofícios e certificados) e `20260925203100_cvrj_transparencia.sql`
-(portal e canais, §5). Testes pgTAP em `supabase/tests/`, rodados só em banco local (§10).
+ganchos de matérias, comunicados, ofícios e certificados), `20260925203100_cvrj_transparencia.sql`
+(portal e canais, §5) e `20260925203200_cvrj_auditoria_espelho.sql` (a fila do espelho no R2, §4).
+Testes pgTAP em `supabase/tests/`, rodados só em banco local (§10).
 
 ### 3.1 Schema e privilégios
 
@@ -119,7 +123,7 @@ cada cadeia no fechamento; interno), `compromisso_anterior`, `compromisso`, `man
 `hash_manifesto`; assinatura (`assinatura`, `chave_id`, `assinado_em`) e carimbo RFC 3161 (`tsr`,
 `tsr_em`) só passam de vazio a preenchido; OpenTimestamps (`ots`, `ots_estado` pendente → enviado →
 confirmado, `ots_enviado_em`, `bloco`, `ots_confirmado_em`) só evolui até a confirmação; fila e
-publicação (`tentativas`, `ultimo_erro`, `proxima_tentativa_em`, `publicado_em`) mudam à vontade.
+publicação (`tentativas`, `ultimo_erro`, `proxima_tentativa_em`, `publicado_em`, `espelhado_em`) mudam à vontade.
 
 **`auditoria.lote_itens`** (imutável), **`auditoria.consultas_limite`** (HMAC de rota e IP por hora;
 fora da trilha) e **`auditoria.falhas`** (o que um gancho não conseguiu registrar).
@@ -176,7 +180,7 @@ Públicas (`service_role`, salvo indicação):
 | `auditoria_sincronizar()` | registra o que os ganchos perderam e o que já existia antes da trilha (matéria só se `updated_at = site_published_at`); devolve contagens e `falhas_24h` |
 | `auditoria_verificar_cadeia(origem)` | confere cada fluxo e cada lote (folhas, raiz, cabeças contra a cadeia, compromisso, manifesto) e grava o resultado |
 | `auditoria_fechar_lote(dia)` | fecha o dia de São Paulo (recusa dia não terminado; repetir não faz nada) |
-| `auditoria_assinar_lote`, `auditoria_gravar_ots`, `auditoria_gravar_tsr`, `auditoria_registrar_erro_lote`, `auditoria_marcar_publicado`, `auditoria_lotes_pendentes`, `auditoria_indice_lotes` | a fila dos lotes |
+| `auditoria_assinar_lote`, `auditoria_gravar_ots`, `auditoria_gravar_tsr`, `auditoria_registrar_erro_lote`, `auditoria_marcar_publicado`, `auditoria_lotes_pendentes`, `auditoria_indice_lotes`, `auditoria_lotes_para_espelhar`, `auditoria_marcar_espelhado` | a fila dos lotes e a do espelho no R2 |
 | `auditoria_codigos_das_origens(tipo, ids)` | códigos para as páginas do portal |
 | `auditoria_painel(workspace)`, `auditoria_item_interno(workspace, codigo)` | `authenticated`, só admin |
 
@@ -227,17 +231,31 @@ AFTER, por linha; falha vira linha em `auditoria.falhas` e a operação principa
   `verificar/lotes/indice.json` e `verificar/lotes/AAAA-MM-DD/{manifesto.json, manifesto.json.sig
   (64 bytes), manifesto.json.tsr, compromisso.bin, compromisso.bin.ots}`. A Redação nunca escreve a
   página `verificar/index.html` nem o `.htaccess` dela (são do repositório do site).
+- **Espelho no Cloudflare R2** (`lib/auditoria/espelho.ts`, bucket `cvrj-trilha`, privado até a
+  abertura; docs/armazenamento-r2.md): as duas rotinas terminam copiando o que mudou nos lotes,
+  independente de o site ter respondido. Em `verificar/`, o mesmo que o site tem em `/verificar/`,
+  com os mesmos nomes (substituído a cada mudança). Em `registro/`, cada arquivo que não muda mais
+  (manifesto, assinatura, carimbo RFC 3161, `compromisso.bin`, o `.ots` só depois de confirmado e a
+  chave pública), **enviado uma vez só**: o bucket tem **trava permanente** nesse prefixo. Se o
+  registro já tem um arquivo com outro conteúdo (MD5 diferente), é divergência — o banco mudou algo
+  já registrado —: o lote não é dado como espelhado, o erro fica no lote e a administração é
+  avisada a cada rodada. O controle é `espelhado_em` (a versão dos arquivos já copiada; uma mudança
+  no meio da cópia volta para a fila). Sem as variáveis do R2, o espelho fica desligado.
 - **Área interna "Trilha pública"** (`/trilha-publica`, permissão `trilha.ver`, só admin): última
   conferência, lotes e provas, falhas, itens recentes, busca por código com a história do item, e os
   botões de conferir, sincronizar e fechar o lote agora.
 - **Variáveis novas:** `AUDITORIA_CHAVE_PRIVADA` (Ed25519 PKCS#8 PEM; sem ela, os lotes ficam sem
   assinatura até ela chegar), `AUDITORIA_SEGREDO` (HMAC do limite; na falta, derivado da chave de
   serviço), `AUDITORIA_ABERTA` (`1` na abertura) e `AUDITORIA_TSA_URL` (opcional; padrão FreeTSA).
+  Espelho: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (token só com leitura e
+  escrita de objetos no bucket da trilha) e `R2_BUCKET_TRILHA` (`cvrj-trilha`).
 
 Testado de ponta a ponta em 24/09/2026 com PostgREST e FTPS locais: rotina diária (sincronização,
 conferência, lote, assinatura, FreeTSA e calendários reais), arquivos publicados conferidos com
 `openssl pkeyutl`, `openssl ts -verify` e `ots verify`, consulta, prova, conteúdo, CORS, limite e
-idempotência.
+idempotência. O espelho foi testado no R2 de verdade (bucket de testes): bytes iguais aos do site,
+`.ots` pendente fora do registro, divergência acusada sem sobrescrever e aviso à administração; a
+trava responde HTTP 409 `ObjectLockedByBucketPolicy` a quem tenta apagar ou trocar.
 
 ## 5. Transparência e canais oficiais
 
@@ -292,13 +310,17 @@ Alimentar a trilha a partir do `activity_log` (editável e forjável); gravar da
 `eventos` (nome, e-mail, CPF, IP em claro ou hash puro de IP, texto livre); dar grant de UPDATE,
 DELETE ou TRUNCATE em tabela da trilha; expor o schema `auditoria` na Data API; rodar teste em
 produção; publicar só o `.ots` do lote sem a prova por item; oferecer busca por nome; citar canais
-antigos na página de canais oficiais; aceitar troca da URL da API na página pública.
+antigos na página de canais oficiais; aceitar troca da URL da API na página pública; tirar a trava
+de `registro/` do bucket da trilha ou "corrigir" uma divergência regravando o registro (divergência
+se investiga: é o registro permanente acusando o banco).
 
 ## 8. Backup (camada 0)
 
 `docs/backup.md`: dump diário cifrado com `age` (inclui os segredos do Vault, sem os quais os dados
-cifrados não voltam), enviado por FTPS a uma pasta fora do site, 30 mais recentes. Restauração
-testada: mesmos hashes da cadeia e conferência íntegra no banco restaurado.
+cifrados não voltam) e os arquivos do Storage, cada versão uma vez, cifrada, no bucket
+`cvrj-backups` do Cloudflare R2, com trava de 30 dias (FTPS fora do site fica como destino extra
+opcional). Restauração testada: mesmos hashes da cadeia e conferência íntegra no banco restaurado;
+arquivos de volta idênticos aos originais.
 
 ## 9. Checklist de abertura (quando o Matheus decidir)
 
@@ -310,7 +332,10 @@ testada: mesmos hashes da cadeia e conferência íntegra no banco restaurado.
 3. Publicar a impressão digital da chave (`chave_id`) na página de canais oficiais (já sai lá quando a
    chave está configurada) e num PDF assinado via gov.br pela presidência.
 4. Ligar a captura no Internet Archive das páginas públicas.
-5. Selo "Confira a autenticidade" nas matérias, comunicados e certificados.
+5. Abrir o espelho: no Cloudflare, R2 → `cvrj-trilha` → Settings → Public access (endereço
+   `r2.dev`) e citar esse endereço na página `/verificar/` como segunda fonte dos arquivos dos lotes
+   (os mesmos nomes de `/verificar/`, dentro de `verificar/`; o registro permanente em `registro/`).
+6. Selo "Confira a autenticidade" nas matérias, comunicados e certificados.
 
 ## 10. Testar localmente
 
@@ -318,6 +343,6 @@ Nunca em produção. Com PostgreSQL 16 ou 17, pgcrypto e pgTAP:
 
 ```bash
 sudo supabase/tests/montar-banco-local.sh     # 61 migrações sobre a simulação do Supabase
-sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/auditoria.test.sql       # 159 testes
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/auditoria.test.sql       # 168 testes
 sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/transparencia.test.sql   # 55 testes
 ```

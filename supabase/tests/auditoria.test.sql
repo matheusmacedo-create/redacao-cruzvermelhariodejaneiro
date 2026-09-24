@@ -310,6 +310,29 @@ select ok(not exists (select 1 from jsonb_array_elements(public.auditoria_lotes_
           'lote assinado, carimbado, confirmado e publicado sai da fila');
 select is(jsonb_array_length(public.auditoria_indice_lotes()), 2, 'índice público com os 2 lotes');
 
+-- Espelho no R2 (lib/auditoria/espelho.ts).
+select is(jsonb_array_length(public.auditoria_lotes_para_espelhar(10)), 2, 'espelho: os 2 lotes ainda não copiados');
+select x ->> 'versao' as versao_espelho from jsonb_array_elements(public.auditoria_lotes_para_espelhar(10)) x
+ where (x ->> 'dia')::date = :'hoje'::date - 1 \gset
+select is(:'versao_espelho'::timestamptz,
+          (select greatest(fechado_em, assinado_em, tsr_em, ots_enviado_em, ots_confirmado_em) from auditoria.lotes where dia = :'hoje'::date - 1),
+          'a versão do espelho é a última mudança nos arquivos do lote');
+select ok(public.auditoria_marcar_espelhado(:'hoje'::date - 1, :'versao_espelho'::timestamptz), 'marcar espelhado com a versão lida');
+select ok(not exists (select 1 from jsonb_array_elements(public.auditoria_lotes_para_espelhar(10)) x where (x ->> 'dia')::date = :'hoje'::date - 1),
+          'lote espelhado sai da fila do espelho');
+select ok(not public.auditoria_marcar_espelhado(:'hoje'::date - 1, :'versao_espelho'::timestamptz - interval '1 hour'), 'versão mais velha não desfaz a marca');
+select x ->> 'versao' as versao_lote1 from jsonb_array_elements(public.auditoria_lotes_para_espelhar(10)) x
+ where (x ->> 'dia')::date = :'hoje'::date - 3 \gset
+select ok(public.auditoria_marcar_espelhado(:'hoje'::date - 3, :'versao_lote1'::timestamptz), 'o outro lote também espelhado');
+select is(jsonb_array_length(public.auditoria_lotes_para_espelhar(10)), 0, 'fila do espelho vazia');
+savepoint espelho;
+select public.auditoria_assinar_lote(:'hoje'::date - 3, repeat('D', 86) || '==', '0123456789abcdef') as espelho_assinou \gset
+select exists (select 1 from jsonb_array_elements(public.auditoria_lotes_para_espelhar(10)) x
+                where (x ->> 'dia')::date = :'hoje'::date - 3 and x ->> 'assinatura' is not null) as espelho_volta \gset
+rollback to savepoint espelho;
+select ok(:'espelho_assinou'::boolean and :'espelho_volta'::boolean, 'arquivo novo no lote (a assinatura que chegou depois) o devolve à fila do espelho');
+select lives_ok(format('update auditoria.lotes set espelhado_em = clock_timestamp() where dia = %L', :'hoje'::date - 1), 'a guarda do lote deixa gravar a marca do espelho');
+
 -- ================================================================ consulta pública
 
 select public.auditoria_consultar(:'v3_codigo') as c3 \gset
