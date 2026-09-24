@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Images, Megaphone } from 'lucide-react'
+import { Images, Megaphone, Newspaper } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -65,6 +65,7 @@ export default async function MarketingDaEscolaPage() {
         title="Marketing da escola"
         description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. Os anúncios vêm sozinhos do Meta, e a receita, da Únicopag pelo utm_campaign."
         actions={<div className="flex flex-wrap items-start gap-2">
+          <Button variant="outline" render={<Link href="/escola/marketing/advertoriais" />}><Newspaper className="size-4" />Advertoriais</Button>
           <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />}><Images className="size-4" />Biblioteca de peças</Button>
           <NovaCampanha contas={(contas ?? []) as { id: string; nome: string }[]} />
         </div>}

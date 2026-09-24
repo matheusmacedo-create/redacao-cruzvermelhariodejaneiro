@@ -9,6 +9,8 @@ import { conteudoConfere } from '@/lib/rh/regras'
 import { BUCKET_DO_MARKETING, contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { lerFormularioDaCampanha, lerFormularioDaPeca } from '@/lib/escola/marketing'
 import { lerActId } from '@/lib/escola/meta'
+import { linkDoBotao, modeloDoTexto } from '@/lib/escola/advertoriais'
+import { urlBase } from '@/lib/newsletter/contexto'
 import { sincronizarMetaDoEspaco, testarMeta } from '@/lib/escola/meta-servidor'
 import { obterChave } from '@/lib/integracoes/chaves'
 
@@ -27,7 +29,7 @@ const erroDoBanco = (error: { code?: string; message?: string } | null, padrao: 
   throw new Error(error?.code === 'P0001' && error.message ? error.message : padrao)
 }
 const revalidar = (campanhaId?: string | null) => {
-  for (const c of ['/escola/marketing', '/escola/marketing/biblioteca']) revalidatePath(c)
+  for (const c of ['/escola/marketing', '/escola/marketing/biblioteca', '/escola/marketing/advertoriais']) revalidatePath(c)
   if (campanhaId) revalidatePath(`/escola/marketing/${campanhaId}`)
 }
 
@@ -196,5 +198,58 @@ export async function atualizarMetaAgora(): Promise<{ erro?: string; recado?: st
     return { recado: r.map((x) => x.mensagem).join(' ') }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível ler o Meta.') }
+  }
+}
+
+// ---------------------------------------------------------------- advertoriais
+
+/**
+ * Novo advertorial: a matéria nasce em rascunho, já com a estrutura do texto
+ * e o botão de matrícula rastreado no lugar, e a pessoa segue para o editor
+ * de sempre — de lá, publica como qualquer notícia.
+ */
+export async function criarAdvertorial(_anterior: Estado, formData: FormData): Promise<Estado & { contentId?: string }> {
+  try {
+    const { context, supabase, nivel } = await contextoDoMarketing()
+    if (nivel < 2) throw new Error('Você não tem acesso ao marketing da escola.')
+    const t = (k: string, max: number) => String(formData.get(k) ?? '').trim().slice(0, max)
+    const titulo = t('titulo', 160), destino = t('destino_url', 800), campanha = t('campanha_id', 40)
+    if (titulo.length < 5) throw new Error('Dê um título ao advertorial (a manchete da matéria).')
+    if (!/^https:\/\/\S+$/.test(destino)) throw new Error('Informe para onde o botão de matrícula leva (endereço com https://).')
+    const { data, error } = await supabase.rpc('escola_adv_criar', {
+      p_workspace_id: context.workspace.id,
+      p: { titulo, destino_url: destino, angulo: t('angulo', 60), campanha_id: /^[0-9a-f-]{36}$/.test(campanha) ? campanha : '' },
+    })
+    if (error || !data) erroDoBanco(error, 'Não foi possível criar o advertorial.')
+    const { peca_id: pecaId, content_id: contentId } = data as { peca_id: string; content_id: string }
+    const curso = campanha ? ((await supabase.from('escola_campanhas').select('curso').eq('id', campanha).maybeSingle()).data?.curso as string | null) : null
+    await createAdminClient().from('content_pieces').update({ body: modeloDoTexto(linkDoBotao(urlBase(), pecaId), curso ?? null) })
+      .eq('id', contentId).eq('workspace_id', context.workspace.id)
+    revalidar()
+    revalidatePath('/escola/marketing/advertoriais')
+    return { ok: Date.now(), id: pecaId, contentId }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível criar o advertorial.') }
+  }
+}
+
+export async function salvarAdvertorial(pecaId: string, _anterior: Estado, formData: FormData): Promise<Estado> {
+  try {
+    const { context, supabase, nivel } = await contextoDoMarketing()
+    if (nivel < 2) throw new Error('Você não tem acesso ao marketing da escola.')
+    const t = (k: string, max: number) => String(formData.get(k) ?? '').trim().slice(0, max)
+    const destino = t('destino_url', 800), campanha = t('campanha_id', 40), status = t('status', 20)
+    if (!/^https:\/\/\S+$/.test(destino)) throw new Error('Informe para onde o botão de matrícula leva (endereço com https://).')
+    const { error } = await supabase.rpc('escola_adv_salvar', {
+      p_workspace_id: context.workspace.id, p_peca_id: pecaId,
+      p: { destino_url: destino, campanha_id: /^[0-9a-f-]{36}$/.test(campanha) ? campanha : '', angulo: t('angulo', 60), nota: t('nota', 2000),
+        status: ['rascunho', 'no_ar', 'pausada', 'encerrada'].includes(status) ? status : '', vencedora: formData.get('vencedora') === 'sim' },
+    })
+    if (error) erroDoBanco(error, 'Não foi possível salvar o advertorial.')
+    revalidar()
+    revalidatePath('/escola/marketing/advertoriais')
+    return { ok: Date.now() }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar o advertorial.') }
   }
 }

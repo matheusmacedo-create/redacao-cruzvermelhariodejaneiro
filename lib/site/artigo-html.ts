@@ -88,9 +88,15 @@ function renderMidia(bloco: BlocoDeMidia, local: ArquivoLocal, classe = '', eage
   return `<figure${classe ? ` class="${classe}"` : ''}>${corpo}${legenda}</figure>`
 }
 
-function renderBlocos(blocos: ContentBlock[], arquivos: Map<string, ArquivoLocal>): string {
+function renderBlocos(blocos: ContentBlock[], arquivos: Map<string, ArquivoLocal>, botao?: string): string {
   const partes: string[] = []
   for (const bloco of blocos) {
+    // O botão de matrícula do advertorial: um parágrafo que é só o link rastreado.
+    const soLink = bloco.type === 'text' ? bloco.inline.filter((t) => t.type !== 'text' || t.text.trim()) : []
+    if (botao && soLink.length === 1 && soLink[0].type === 'link' && soLink[0].href.startsWith(botao)) {
+      partes.push(`<p class="news-cta"><a class="news-cta-botao" href="${escapar(soLink[0].href)}" rel="nofollow">${escapar(soLink[0].text)}</a></p>`)
+      continue
+    }
     if (bloco.type === 'image' || bloco.type === 'video' || bloco.type === 'audio') {
       const local = arquivos.get(bloco.url)
       if (!local) continue
@@ -154,6 +160,12 @@ export type DadosDoArtigo = {
   kicker?: string
   /** As outras matérias publicadas — alimentam o rail e a faixa final. */
   relacionadas?: NoticiaRelacionada[]
+  /**
+   * Advertorial da escola: o pixel de visita e o endereço do botão de
+   * matrícula (a linha que é só um link para ele vira botão, e o link leva
+   * junto as UTMs do anúncio que trouxe a pessoa).
+   */
+  rastreio?: { pixel: string; botao: string }
 }
 
 export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
@@ -323,7 +335,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   <head>
     ${meta}
     ${blocoDoAnalytics()}
-    <style>${CSS}</style>
+    <style>${CSS}${dados.rastreio ? CSS_DO_BOTAO : ''}</style>
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
   </head>
   <body class="single-noticia">
@@ -344,7 +356,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
           </header>
           ${htmlDaCapa}
           <div class="news-body">
-      ${renderBlocos(corpoBlocos, arquivos)}
+      ${renderBlocos(corpoBlocos, arquivos, dados.rastreio?.botao)}
           </div>
           <footer class="news-source">Publicado por ${escapar(org)}. <a href="${escapar(home)}">Ver mais do nosso trabalho</a>.</footer>
         </article>
@@ -355,6 +367,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 
     ${rodapeDoSite(origem, ano)}
     ${scriptDoMenu()}
+    ${dados.rastreio ? blocoDeRastreio(dados.rastreio) : ''}
     <script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
@@ -365,4 +378,25 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   </body>
 </html>
 `
+}
+
+/** O botão de matrícula do advertorial, na cor da marca. */
+const CSS_DO_BOTAO = `.news-cta{margin:2rem 0;text-align:center}.news-body a.news-cta-botao{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;font-weight:700;padding:.95rem 1.6rem;border-radius:.6rem;font-size:1.05rem;line-height:1.3;max-width:100%}.news-body a.news-cta-botao:hover{background:var(--brand-dark);color:#fff}`
+
+/**
+ * O pixel de visita (sem cookie, só conta) e o repasse das UTMs do anúncio
+ * para o botão de matrícula: quem chegou por ?utm_source=facebook&… leva
+ * isso até a página de inscrição, e a matrícula volta atribuída ao anúncio e
+ * ao advertorial.
+ */
+function blocoDeRastreio(r: { pixel: string; botao: string }): string {
+  return `<img src="${escapar(r.pixel)}" alt="" width="1" height="1" style="position:absolute;left:-9999px;width:1px;height:1px" referrerpolicy="no-referrer-when-downgrade">
+    <script>
+      (function(){
+        var q = new URLSearchParams(location.search), ks = ['utm_source','utm_medium','utm_campaign','utm_term','fbclid','gclid'];
+        document.querySelectorAll('a[href^=${JSON.stringify(r.botao).replace(/</g, '\\u003c')}]').forEach(function(a){
+          try { var u = new URL(a.href); ks.forEach(function(k){ var v = q.get(k); if (v) u.searchParams.set(k, v); }); a.href = u.toString(); } catch (e) {}
+        });
+      })();
+    </script>`
 }
