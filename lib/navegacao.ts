@@ -1,5 +1,5 @@
 import {
-  AtSign, Bell, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
+  AtSign, Bell, GraduationCap, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
   type LucideIcon,
 } from 'lucide-react'
@@ -107,6 +107,14 @@ export const GRUPOS: Grupo[] = [
       { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos para TI, Manutenção e outras equipes', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk'] },
       { href: '/patrimonio', rotulo: 'Patrimônio', resumo: 'Bens com plaqueta e QR, estoque com lote e validade, doações, frota, manutenção e inventário', icone: Package, termos: ['inventário', 'bens', 'plaqueta', 'cautela', 'termo de responsabilidade', 'almoxarifado', 'estoque', 'materiais', 'validade', 'kits', 'doações', 'doador', 'recibo', 'campanha', 'distribuição', 'frota', 'veículos', 'ambulância', 'combustível', 'CNH'] },
       { href: '/financeiro', rotulo: 'Financeiro', resumo: 'Despesas, receitas, contas a pagar e o caixa da filial', icone: Wallet, termos: ['contas a pagar', 'despesas', 'receitas', 'caixa', 'lançamentos', 'fluxo de caixa'] },
+    ],
+  },
+  {
+    // A escola é outra casa dentro da filial: a administração dela (dinheiro, contas) mora aqui; aluno e turma, no sistema da escola.
+    id: 'escola',
+    rotulo: 'Escola',
+    areas: [
+      { href: '/escola', rotulo: 'Escola de Educação e Saúde', resumo: 'O que entra pelas contas da Únicopag da escola, por curso, forma de pagamento e origem', icone: GraduationCap, termos: ['escola', 'cursos', 'punção venosa', 'matrículas', 'únicopag', 'unicopag', 'mensalidades', 'alunos', 'pix', 'cartão'] },
     ],
   },
   {
