@@ -25,6 +25,7 @@ const DATA = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', d
 type Linha = {
   id: string
   estado: string
+  modo_assinatura: 'senha' | 'govbr'
   ano: number | null
   numero: number | null
   assunto: string
@@ -50,7 +51,7 @@ export default async function OficiosPage({ searchParams }: { searchParams: Prom
   const linhas: Linha[] = []
   for (let de = 0; de < TETO; de += 1000) {
     const { data } = await supabase.from('oficios')
-      .select('id,estado,ano,numero,assunto,destinatario_nome,destinatario_orgao,conteudo_canonico,data_do_documento,updated_at,oficio_assinantes(user_id,estado),oficio_carimbos(estado)')
+      .select('id,estado,modo_assinatura,ano,numero,assunto,destinatario_nome,destinatario_orgao,conteudo_canonico,data_do_documento,updated_at,oficio_assinantes(user_id,estado),oficio_carimbos(estado)')
       .eq('workspace_id', context.workspace.id)
       .order('ano', { ascending: false, nullsFirst: true }).order('numero', { ascending: false, nullsFirst: true }).order('updated_at', { ascending: false })
       .range(de, de + 999)
@@ -145,7 +146,10 @@ export default async function OficiosPage({ searchParams }: { searchParams: Prom
                         {v.destinatario && <span className="block truncate text-xs text-muted-foreground">{v.destinatario}</span>}
                       </td>
                       <td className="px-3 py-3"><span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${CLASSE_DO_ESTADO[e]}`}>{ESTADOS[e].rotulo}</span></td>
-                      <td className="px-3 py-3 text-xs tabular-nums text-muted-foreground">{l.oficio_assinantes.length ? `${assinadas} de ${l.oficio_assinantes.length}` : '—'}</td>
+                      <td className="px-3 py-3 text-xs tabular-nums text-muted-foreground">
+                        {l.oficio_assinantes.length ? `${assinadas} de ${l.oficio_assinantes.length}` : '—'}
+                        {l.estado !== 'rascunho' && l.modo_assinatura === 'govbr' && <span className="ml-1.5 rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-semibold text-info">gov.br</span>}
+                      </td>
                       <td className="px-3 py-3">{carimbo ? <SeloDoCarimbo estado={carimbo.estado} /> : <span className="text-xs text-muted-foreground">—</span>}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-xs tabular-nums text-muted-foreground">
                         {l.data_do_documento ? DATA.format(new Date(`${l.data_do_documento}T12:00:00Z`)) : `editado ${DATA.format(new Date(l.updated_at))}`}
