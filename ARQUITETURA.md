@@ -447,6 +447,37 @@ devolve 404. O gerador de HTML ainda não existe.
 
 ---
 
+### 7.7 Chamados (TI, Manutenção e outras filas)
+
+`/chamados`. Pedidos entre setores, no modelo descrito em
+[`docs/CHAMADOS.md`](docs/CHAMADOS.md) (benchmark de Jira Service Management,
+GLPI, Freshservice e Zendesk). Peças:
+
+- **Regras puras** em `lib/chamados/regras.ts`: status e transições por papel
+  (equipe × quem abriu), prioridade pela matriz urgência × impacto, SLA em
+  horário de atendimento (seg–sex 8h–18h, UTC−3 fixo) com pausa em
+  "aguardando", e `efeitosDaMudanca` (o que cada troca de status faz no
+  relógio). Conferidas por script — mudou regra, rode de novo.
+- **Escrita só pelo servidor** (`app/actions/chamados.ts`, service role): o
+  banco não aceita insert/update dessas tabelas pela Data API. Cada action
+  descobre o papel da pessoa no chamado (`papeisNoChamado`) antes de agir.
+  **Leitura por RLS** (`private.atende_fila`, `ve_chamado`): quem abriu vê o
+  seu; a equipe da fila (e admin) vê os da fila; nota interna e anexo interno,
+  só a equipe.
+- **Numeração por fila** (`TI-0042`) por gatilho, atômica; transferir de fila
+  renumera no destino (o código antigo fica no histórico).
+- **Prazos** são sempre `abertura + SLA + minutos_pausados`: mudar impacto ou
+  transferir recalcula sem perder as pausas.
+- **Anexos** sobem direto ao Blob (`/api/chamados/anexos/upload-token`, prefixo
+  `workspaces/<id>/chamados/`); a action confere com `head()` o tamanho e o
+  tipo gravados. Download por `/api/chamados/anexos/[id]`, autorizado pelo RLS.
+- **Avisos** (`avisarSobreChamado`): sino + e-mail de recuperação confirmado;
+  nunca para quem fez a ação.
+- **Rotina diária** (`/api/chamados/rotina`, `vercel.json`, `CRON_SECRET`):
+  fecha resolvidos há mais de 5 dias.
+- Configuração (filas, equipe, catálogo, SLA) em `/chamados/configurar`,
+  permissão `chamados.configurar`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

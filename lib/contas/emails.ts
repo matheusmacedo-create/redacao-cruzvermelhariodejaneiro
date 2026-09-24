@@ -40,13 +40,13 @@ const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] || nome
 const quando = (data: Date) =>
   new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(data)
 
-type Bloco =
+export type Bloco =
   | { tipo: 'p'; texto: string }
   | { tipo: 'botao'; rotulo: string; url: string }
   | { tipo: 'destaque'; texto: string }
   | { tipo: 'nota'; texto: string }
 
-function montar(opcoes: { assunto: string; preheader: string; titulo: string; blocos: Bloco[] }): EmailPronto {
+export function montar(opcoes: { assunto: string; preheader: string; titulo: string; blocos: Bloco[] }): EmailPronto {
   const miolo = opcoes.blocos.map((b) => {
     if (b.tipo === 'p') return `<p style="margin:0 0 16px;">${escapar(b.texto)}</p>`
     if (b.tipo === 'destaque') return `<p style="margin:0 0 16px;padding:12px 16px;background:#f7f8fa;border-left:3px solid ${VERMELHO};font-family:Consolas,Menlo,monospace;font-size:15px;">${escapar(b.texto)}</p>`
