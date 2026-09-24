@@ -5,6 +5,7 @@ import { obterWorkspace, requirePermissao } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { ehPapel, PAPEIS, PAPEL } from '@/lib/permissoes'
+import { avisar } from '@/lib/contas/servidor'
 
 /**
  * Verificação em duas etapas (app autenticador).
@@ -42,6 +43,8 @@ export async function registrarMudancaNaVerificacao(acao: 'ativada' | 'removida'
       detalhes: { aparelhos: fatores.length },
     })
     if (error) console.error('[verificacao] auditoria não gravada:', error.message)
+    // O aviso vai para o e-mail: se não foi a pessoa, é por ele que ela descobre.
+    await avisar(admin, context.user.id, acao === 'ativada' ? { tipo: 'verificacao_ativada' } : { tipo: 'verificacao_removida' })
     revalidatePath('/perfil')
     revalidatePath('/usuarios')
     return {}
@@ -83,6 +86,7 @@ export async function removerVerificacaoDoUsuario(formData: FormData): Promise<R
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: userId,
       acao: 'verificacao_removida_pelo_admin', detalhes: { aparelhos: fatores.length, sessoes_encerradas: !erroSessoes },
     })
+    await avisar(admin, userId, { tipo: 'verificacao_removida', porAdmin: context.profile?.full_name ?? 'Um administrador' })
     revalidatePath('/usuarios')
     return { recado: `Verificação em duas etapas de ${nome} removida. As sessões abertas foram encerradas; no próximo acesso, a pessoa cadastra o app no aparelho novo.` }
   } catch (causa) {

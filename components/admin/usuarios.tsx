@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, ChevronDown, Copy, KeyRound, Loader2, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
+  Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils'
 import { matrizDePermissoes, PAPEIS, PAPEL, type Papel } from '@/lib/permissoes'
 import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
 import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
+import { emailValido } from '@/lib/contas/emails'
 import { atualizarUsuario, criarUsuario, desativarUsuario, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
 import { definirVerificacaoObrigatoria, removerVerificacaoDoUsuario } from '@/app/actions/verificacao'
 
@@ -22,6 +23,9 @@ export type UsuarioNaTela = {
   criadoEm: string; ultimoAcesso: string | null; souEu: boolean
   /** Aparelhos com o app autenticador confirmado. 0 = verificação desligada. */
   aparelhos: number
+  /** E-mail de contato (links de senha e avisos). Só vale confirmado. */
+  email: string | null
+  emailConfirmado: boolean
 }
 export type PessoaSemAcesso = { nome: string; cargo: string; setor: string; papel: Papel; usuario: string }
 export type EventoNaTela = { id: string; acao: string; detalhes: Record<string, unknown>; quando: string; ator: string; alvo: string | null }
@@ -39,11 +43,14 @@ const TOM_DO_PAPEL: Record<Papel, string> = {
   colaborador: 'bg-muted text-muted-foreground',
 }
 
-export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara }: {
+export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara, envioConfigurado }: {
   usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean; verificacaoObrigatoriaPara: string[]
+  /** RESEND_API_KEY presente: dá para mandar convite e links por e-mail. */
+  envioConfigurado: boolean
 }) {
   const [criando, setCriando] = useState<Partial<PessoaSemAcesso> | null>(null)
   const [senhaNova, setSenhaNova] = useState<{ usuario: string; senha: string } | null>(null)
+  const [recadoDaCriacao, setRecadoDaCriacao] = useState<string | null>(null)
 
   const ativos = usuarios.filter((u) => u.ativo)
   const numeros = [
@@ -51,29 +58,33 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
     { rotulo: 'Administradores', valor: ativos.filter((u) => u.papel === 'admin').length },
     { rotulo: 'Aguardando 1º acesso', valor: ativos.filter((u) => u.trocarSenha).length },
     { rotulo: 'Com verificação em 2 etapas', valor: ativos.filter((u) => u.aparelhos > 0).length },
+    { rotulo: 'Sem e-mail confirmado', valor: ativos.filter((u) => !u.emailConfirmado).length },
     { rotulo: 'Desativados', valor: usuarios.length - ativos.length },
   ]
 
   function aoCriar(r: Resultado) {
     if (r.senhaTemporaria && r.usuario) setSenhaNova({ usuario: r.usuario, senha: r.senhaTemporaria })
+    setRecadoDaCriacao(r.recado ?? null)
     setCriando(null)
   }
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className="text-2xl font-bold tabular-nums">{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p></Card>)}
       </div>
 
       {senhaNova && <SenhaTemporaria {...senhaNova} fechar={() => setSenhaNova(null)} />}
+      {recadoDaCriacao && <div role="status" className={cn('flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm', recadoDaCriacao.startsWith('Atenção') ? 'bg-warning/15' : 'bg-success/10 text-success')}><span>{recadoDaCriacao}</span><button type="button" onClick={() => setRecadoDaCriacao(null)} aria-label="Fechar" className="shrink-0 rounded p-0.5 hover:bg-muted"><X className="size-4" /></button></div>}
+      {!envioConfigurado && <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><MailWarning className="mt-0.5 size-4 shrink-0" /><span>O envio de e-mail não está configurado (falta a variável <code className="font-mono">RESEND_API_KEY</code> na Vercel). Sem ela, convites, links de senha e avisos de segurança não saem — só a senha temporária funciona.</span></div>}
 
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-muted-foreground">Login por usuário e senha. Senha criada aqui é provisória: a pessoa troca no primeiro acesso.</p></div>
+          <div><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-muted-foreground">Login por usuário (ou e-mail confirmado) e senha. O jeito mais seguro de dar acesso é o convite por e-mail: a pessoa escolhe a própria senha pelo link, e ninguém mais a conhece.</p></div>
           <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
         </div>
-        {criando && <FormularioDeCriacao inicial={criando} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
-        <ListaDeUsuarios usuarios={usuarios} aoGerarSenha={setSenhaNova} />
+        {criando && <FormularioDeCriacao inicial={criando} envioConfigurado={envioConfigurado} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
+        <ListaDeUsuarios usuarios={usuarios} envioConfigurado={envioConfigurado} aoGerarSenha={setSenhaNova} />
       </section>
 
       {semAcesso.length > 0 && (
@@ -140,14 +151,34 @@ function SeletorDePapel({ valor, onChange, desabilitado }: { valor: Papel; onCha
   )
 }
 
-function CampoDeSenha({ modo, setModo, senha, setSenha, usuario, nome }: { modo: 'gerar' | 'definir'; setModo: (m: 'gerar' | 'definir') => void; senha: string; setSenha: (s: string) => void; usuario: string; nome: string }) {
+type ModoDeSenha = 'convite' | 'link' | 'gerar' | 'definir'
+
+const ROTULO_DO_MODO: Record<ModoDeSenha, string> = {
+  convite: 'Enviar convite por e-mail (recomendado)',
+  link: 'Enviar link por e-mail (recomendado)',
+  gerar: 'Gerar senha temporária',
+  definir: 'Definir uma senha',
+}
+
+const AJUDA_DO_MODO: Partial<Record<ModoDeSenha, string>> = {
+  convite: 'A pessoa recebe o usuário e um link para criar a própria senha. Ninguém mais conhece a senha, e o e-mail fica confirmado.',
+  link: 'A pessoa recebe um link para escolher a senha nova. A senha atual continua valendo até ela usar o link.',
+  gerar: 'A senha aparece uma vez aqui, para você repassar pessoalmente. A pessoa troca no primeiro acesso.',
+}
+
+function CampoDeSenha({ opcoes, modo, setModo, senha, setSenha, usuario, nome, motivoSemEmail }: {
+  opcoes: ModoDeSenha[]; modo: ModoDeSenha; setModo: (m: ModoDeSenha) => void; senha: string; setSenha: (s: string) => void; usuario: string; nome: string
+  /** Por que as opções por e-mail não aparecem, quando não aparecem. */
+  motivoSemEmail?: string | null
+}) {
   const problema = modo === 'definir' && senha ? problemaDaSenha(senha, { usuario, nome }) : null
   return (
     <div className="flex flex-col gap-2 text-sm">
-      <div className="flex flex-wrap gap-4">
-        <label className="flex items-center gap-2"><input type="radio" checked={modo === 'gerar'} onChange={() => setModo('gerar')} />Gerar senha temporária (recomendado)</label>
-        <label className="flex items-center gap-2"><input type="radio" checked={modo === 'definir'} onChange={() => setModo('definir')} />Definir uma senha</label>
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {opcoes.map((o) => <label key={o} className="flex items-center gap-2"><input type="radio" checked={modo === o} onChange={() => setModo(o)} />{ROTULO_DO_MODO[o]}</label>)}
       </div>
+      {AJUDA_DO_MODO[modo] && <p className="text-xs text-muted-foreground">{AJUDA_DO_MODO[modo]}</p>}
+      {motivoSemEmail && <p className="text-xs text-muted-foreground">{motivoSemEmail}</p>}
       {modo === 'definir' && <>
         <input type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} placeholder={`Mínimo de ${SENHA_MINIMO} caracteres, letras e números`} className={campo} aria-invalid={Boolean(problema)} />
         {problema && <p className="text-xs text-destructive">{problema}</p>}
@@ -156,7 +187,7 @@ function CampoDeSenha({ modo, setModo, senha, setSenha, usuario, nome }: { modo:
   )
 }
 
-function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Partial<PessoaSemAcesso>; aoConcluir: (r: Resultado) => void; cancelar: () => void }) {
+function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }: { inicial: Partial<PessoaSemAcesso>; envioConfigurado: boolean; aoConcluir: (r: Resultado) => void; cancelar: () => void }) {
   const router = useRouter()
   const [nome, setNome] = useState(inicial.nome ?? '')
   const [usuario, setUsuario] = useState(inicial.usuario ?? '')
@@ -164,17 +195,23 @@ function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Parti
   const [cargo, setCargo] = useState(inicial.cargo ?? '')
   const [coordenacao, setCoordenacao] = useState(inicial.setor ?? '')
   const [papel, setPapel] = useState<Papel>(inicial.papel ?? 'colaborador')
-  const [modo, setModo] = useState<'gerar' | 'definir'>('gerar')
+  const [email, setEmail] = useState('')
+  const [modoEscolhido, setModo] = useState<ModoDeSenha>(envioConfigurado ? 'convite' : 'gerar')
   const [senha, setSenha] = useState('')
   const [aviso, setAviso] = useState<Aviso>(null)
   const [ocupado, rodar] = useTransition()
+  const temEmail = Boolean(emailValido(email))
+  const podeConvidar = envioConfigurado && temEmail
+  // Sem e-mail válido, o convite some da lista e o modo cai para a temporária.
+  const modo: ModoDeSenha = modoEscolhido === 'convite' && !podeConvidar ? 'gerar' : modoEscolhido
+  const opcoes: ModoDeSenha[] = podeConvidar ? ['convite', 'gerar', 'definir'] : ['gerar', 'definir']
 
   function enviar(event: React.FormEvent) {
     event.preventDefault()
     setAviso(null)
     rodar(async () => {
       const form = new FormData()
-      Object.entries({ nome, usuario, cargo, coordenacao, papel, modoSenha: modo, senha }).forEach(([k, v]) => form.set(k, v))
+      Object.entries({ nome, usuario, cargo, coordenacao, papel, email, modoSenha: modo, senha }).forEach(([k, v]) => form.set(k, v))
       const r = await criarUsuario(form)
       if (r.erro) return setAviso({ tom: 'erro', texto: r.erro })
       aoConcluir(r)
@@ -192,10 +229,13 @@ function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Parti
           <label className="flex flex-col gap-1.5 text-sm font-medium">Usuário (para o login)
             <input required pattern="[a-z0-9._\-]{3,40}" value={usuario} className={campo} placeholder="nome.sobrenome" onChange={(e) => { setUsuario(e.target.value.toLowerCase()); setUsuarioEditado(true) }} />
           </label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">E-mail
+            <input type="email" value={email} maxLength={254} className={campo} placeholder="pessoa@email.com" onChange={(e) => setEmail(e.target.value)} aria-invalid={email.length > 0 && !temEmail} />
+          </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium">Cargo ou função
             <input value={cargo} maxLength={120} className={campo} onChange={(e) => setCargo(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium">Coordenação
+          <label className="flex flex-col gap-1.5 text-sm font-medium md:col-span-2">Coordenação
             <select value={coordenacao} className={campo} onChange={(e) => setCoordenacao(e.target.value)}>
               <option value="">Sem coordenação</option>
               {NOMES_DOS_SETORES.map((s) => <option key={s}>{s}</option>)}
@@ -203,7 +243,8 @@ function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Parti
           </label>
         </div>
         <SeletorDePapel valor={papel} onChange={setPapel} />
-        <CampoDeSenha modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={usuario} nome={nome} />
+        <CampoDeSenha opcoes={opcoes} modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={usuario} nome={nome}
+          motivoSemEmail={!envioConfigurado ? 'Convite por e-mail indisponível: o envio de e-mail não está configurado.' : !temEmail ? 'Informe o e-mail para poder enviar o convite.' : null} />
         {aviso && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{aviso.texto}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="lg" onClick={cancelar}>Cancelar</Button>
@@ -216,7 +257,7 @@ function FormularioDeCriacao({ inicial, aoConcluir, cancelar }: { inicial: Parti
 
 // ------------------------------------------------------------------ lista
 
-function ListaDeUsuarios({ usuarios, aoGerarSenha }: { usuarios: UsuarioNaTela[]; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function ListaDeUsuarios({ usuarios, envioConfigurado, aoGerarSenha }: { usuarios: UsuarioNaTela[]; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<'todos' | Papel | 'desativados'>('todos')
   const [aberto, setAberto] = useState<string | null>(null)
@@ -226,7 +267,7 @@ function ListaDeUsuarios({ usuarios, aoGerarSenha }: { usuarios: UsuarioNaTela[]
     return usuarios.filter((u) => {
       if (filtro === 'desativados' ? u.ativo : filtro !== 'todos' && (u.papel !== filtro || !u.ativo)) return false
       if (!termo) return true
-      return `${u.nome} ${u.usuario} ${u.coordenacao} ${u.cargo}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(termo)
+      return `${u.nome} ${u.usuario} ${u.coordenacao} ${u.cargo} ${u.email ?? ''}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().includes(termo)
     })
   }, [usuarios, busca, filtro])
 
@@ -241,14 +282,14 @@ function ListaDeUsuarios({ usuarios, aoGerarSenha }: { usuarios: UsuarioNaTela[]
         <div className="flex flex-wrap gap-1.5">{filtros.map((f) => <button key={f.id} type="button" onClick={() => setFiltro(f.id)} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f.id ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{f.rotulo}</button>)}</div>
       </div>
       <ul className="divide-y divide-border">
-        {lista.map((u) => <LinhaDoUsuario key={u.id} usuario={u} aberto={aberto === u.id} alternar={() => setAberto(aberto === u.id ? null : u.id)} aoGerarSenha={aoGerarSenha} />)}
+        {lista.map((u) => <LinhaDoUsuario key={u.id} usuario={u} aberto={aberto === u.id} alternar={() => setAberto(aberto === u.id ? null : u.id)} envioConfigurado={envioConfigurado} aoGerarSenha={aoGerarSenha} />)}
         {!lista.length && <li className="px-5 py-10 text-center text-sm text-muted-foreground"><Users className="mx-auto mb-2 size-5" />Ninguém encontrado com esse filtro.</li>}
       </ul>
     </Card>
   )
 }
 
-function LinhaDoUsuario({ usuario: u, aberto, alternar, aoGerarSenha }: { usuario: UsuarioNaTela; aberto: boolean; alternar: () => void; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function LinhaDoUsuario({ usuario: u, aberto, alternar, envioConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; aberto: boolean; alternar: () => void; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   return (
     <li className={cn(!u.ativo && 'bg-muted/30')}>
       <button type="button" onClick={alternar} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-muted/40">
@@ -256,6 +297,7 @@ function LinhaDoUsuario({ usuario: u, aberto, alternar, aoGerarSenha }: { usuari
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{u.nome}{u.souEu && <span className="ml-2 text-xs font-normal text-muted-foreground">(você)</span>}</p>
           <p className="truncate text-xs text-muted-foreground">@{u.usuario} · {u.coordenacao || 'Sem coordenação'}{u.cargo && ` · ${u.cargo}`}</p>
+          <p className={cn('flex items-center gap-1 truncate text-xs', u.emailConfirmado ? 'text-muted-foreground' : 'text-warning-foreground')}>{u.emailConfirmado ? <Mail className="size-3 shrink-0" /> : <MailWarning className="size-3 shrink-0" />}{u.email ? `${u.email}${u.emailConfirmado ? '' : ' (não confirmado)'}` : 'Sem e-mail'}</p>
         </div>
         <div className="hidden flex-col items-end gap-1 text-xs text-muted-foreground sm:flex">
           <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
@@ -269,24 +311,31 @@ function LinhaDoUsuario({ usuario: u, aberto, alternar, aoGerarSenha }: { usuari
           : <span className="shrink-0 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Desativado</span>}
         <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
       </button>
-      {aberto && <PainelDoUsuario usuario={u} aoGerarSenha={aoGerarSenha} />}
+      {aberto && <PainelDoUsuario usuario={u} envioConfigurado={envioConfigurado} aoGerarSenha={aoGerarSenha} />}
     </li>
   )
 }
 
-function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   const router = useRouter()
   const [nome, setNome] = useState(u.nome)
   const [cargo, setCargo] = useState(u.cargo)
   const [coordenacao, setCoordenacao] = useState(u.coordenacao)
   const [papel, setPapel] = useState<Papel>(u.papel)
+  const [email, setEmail] = useState(u.email ?? '')
   const [redefinindo, setRedefinindo] = useState(false)
-  const [modo, setModo] = useState<'gerar' | 'definir'>('gerar')
+  // Link por e-mail só para quem tem e-mail CONFIRMADO: um endereço digitado
+  // errado não pode receber o link de senha de ninguém.
+  const podeLink = envioConfigurado && u.emailConfirmado
+  const [modo, setModo] = useState<ModoDeSenha>(podeLink ? 'link' : 'gerar')
   const [senha, setSenha] = useState('')
   const [aviso, setAviso] = useState<Aviso>(null)
   const [ocupado, rodar] = useTransition()
 
-  const mudou = nome !== u.nome || cargo !== u.cargo || coordenacao !== u.coordenacao || papel !== u.papel
+  const emailNovo = email.trim().toLowerCase()
+  const emailMudou = emailNovo !== (u.email ?? '') && emailNovo.length > 0
+  const emailInvalido = emailNovo.length > 0 && !emailValido(emailNovo)
+  const mudou = nome !== u.nome || cargo !== u.cargo || coordenacao !== u.coordenacao || papel !== u.papel || emailMudou
   // Coordenação antiga fora da lista oficial continua selecionável até alguém trocar.
   const opcoes = u.coordenacao && !NOMES_DOS_SETORES.includes(u.coordenacao) ? [u.coordenacao, ...NOMES_DOS_SETORES] : NOMES_DOS_SETORES
 
@@ -315,8 +364,12 @@ function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela;
       </div>
 
       {u.ativo && <>
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm font-medium">Nome completo<input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} /></label>
+          <label className="flex flex-col gap-1.5 text-sm font-medium">E-mail
+            <input type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} placeholder="pessoa@email.com" className={campo} aria-invalid={emailInvalido} />
+            <span className="text-xs font-normal text-muted-foreground">{emailMudou ? 'Ao salvar, enviamos um link de confirmação para o endereço novo. Ele só passa a valer quando for aberto.' : u.email && !u.emailConfirmado ? 'Ainda não confirmado. Salvar sem mudar reenvia a confirmação.' : 'Recebe os links de senha e os avisos de segurança.'}</span>
+          </label>
           <label className="flex flex-col gap-1.5 text-sm font-medium">Cargo ou função<input value={cargo} maxLength={120} onChange={(e) => setCargo(e.target.value)} className={campo} /></label>
           <label className="flex flex-col gap-1.5 text-sm font-medium">Coordenação
             <select value={coordenacao} onChange={(e) => setCoordenacao(e.target.value)} className={campo}><option value="">Sem coordenação</option>{opcoes.map((s) => <option key={s}>{s}</option>)}</select>
@@ -324,13 +377,14 @@ function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela;
         </div>
         <SeletorDePapel valor={papel} onChange={setPapel} desabilitado={u.souEu} />
         {u.souEu && <p className="text-xs text-muted-foreground">Você não pode mudar o seu próprio papel nem desativar a sua conta — outro administrador faz isso.</p>}
-        <div className="flex justify-end"><Button size="lg" disabled={!mudou || ocupado} onClick={() => executar(atualizarUsuario, { nome, cargo, coordenacao, papel })}>{ocupado && <Loader2 className="size-4 animate-spin" />}Salvar alterações</Button></div>
+        <div className="flex justify-end"><Button size="lg" disabled={(!mudou && !(u.email && !u.emailConfirmado)) || emailInvalido || ocupado} onClick={() => executar(atualizarUsuario, { nome, cargo, coordenacao, papel, email: emailNovo })}>{ocupado && <Loader2 className="size-4 animate-spin" />}Salvar alterações</Button></div>
       </>}
 
       {redefinindo && (
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
           <p className="text-sm font-medium">Redefinir a senha de {u.nome}</p>
-          <CampoDeSenha modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={u.usuario} nome={u.nome} />
+          <CampoDeSenha opcoes={podeLink ? ['link', 'gerar', 'definir'] : ['gerar', 'definir']} modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={u.usuario} nome={u.nome}
+            motivoSemEmail={podeLink ? null : !envioConfigurado ? 'Link por e-mail indisponível: o envio de e-mail não está configurado.' : 'Link por e-mail indisponível: esta pessoa não tem e-mail confirmado.'} />
           <p className="text-xs text-muted-foreground">As sessões abertas dessa pessoa são encerradas, e ela troca a senha no próximo acesso.</p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setRedefinindo(false)}>Cancelar</Button>
@@ -348,7 +402,7 @@ function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela;
             {!redefinindo && <Button variant="outline" onClick={() => setRedefinindo(true)}><KeyRound className="size-4" />Redefinir senha</Button>}
             <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
           </> : (
-            <Button disabled={ocupado} onClick={() => { if (confirm(`Reativar ${u.nome}? Uma senha temporária nova será gerada.`)) executar(reativarUsuario, {}) }}><UserCheck className="size-4" />Reativar com senha temporária</Button>
+            <Button disabled={ocupado} onClick={() => { if (confirm(podeLink ? `Reativar ${u.nome}? Enviaremos para ${u.email} um link para escolher uma senha nova.` : `Reativar ${u.nome}? Uma senha temporária nova será gerada.`)) executar(reativarUsuario, {}) }}><UserCheck className="size-4" />{podeLink ? 'Reativar e enviar link de senha' : 'Reativar com senha temporária'}</Button>
           )}
         </div>
       )}
@@ -400,10 +454,17 @@ const ROTULO_DA_ACAO: Record<string, string> = {
   verificacao_removida: 'removeu um aparelho da própria verificação em duas etapas',
   verificacao_removida_pelo_admin: 'removeu a verificação em duas etapas de',
   verificacao_exigencia_alterada: 'mudou quem é obrigado a usar a verificação em duas etapas',
+  link_de_senha_pedido: 'enviou o link de "Esqueci minha senha" para',
+  link_de_senha_enviado_pelo_admin: 'enviou um link de nova senha para',
+  senha_definida_pelo_convite: 'criou a própria senha pelo convite',
+  senha_redefinida_pelo_link: 'redefiniu a própria senha pelo link do e-mail',
+  confirmacao_de_email_enviada: 'pediu a confirmação de um e-mail novo',
+  email_confirmado: 'confirmou o e-mail da conta',
+  ajuda_com_verificacao_pedida: 'pediu ajuda: perdeu ou trocou o celular do app autenticador',
 }
 
 // Ações sobre a própria conta: o alvo é o próprio ator, não se repete o nome.
-const PROPRIAS = new Set(['senha_trocada', 'verificacao_ativada', 'verificacao_removida'])
+const PROPRIAS = new Set(['senha_trocada', 'verificacao_ativada', 'verificacao_removida', 'senha_definida_pelo_convite', 'senha_redefinida_pelo_link', 'confirmacao_de_email_enviada', 'email_confirmado', 'ajuda_com_verificacao_pedida'])
 
 function detalheDoEvento(e: EventoNaTela): string {
   const d = e.detalhes
