@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { SupabaseConfigError } from '@/lib/supabase/env'
+import { problemaDaSenha } from '@/lib/usuarios/senha'
 
 // Sem credenciais não dá para saber se a instalação já foi feita. Responder
 // 503 mantém a rota fechada, em vez de deixá-la criar um administrador.
@@ -49,9 +50,12 @@ export async function POST(request: Request) {
   const username = String(payload.username ?? '').trim().toLowerCase()
   const fullName = String(payload.fullName ?? '').trim()
   const password = String(payload.password ?? '')
-  if (!/^[a-z0-9._-]{3,40}$/.test(username) || fullName.length < 3 || password.length < 8) {
-    return NextResponse.json({ error: 'Informe nome, usuário válido e senha com pelo menos 8 caracteres.' }, { status: 400 })
+  if (!/^[a-z0-9._-]{3,40}$/.test(username) || fullName.length < 3) {
+    return NextResponse.json({ error: 'Informe o nome completo e um usuário válido (3 a 40 caracteres: letras minúsculas, números, ponto, hífen).' }, { status: 400 })
   }
+  // A conta mais poderosa do sistema segue a mesma política de todas as outras.
+  const problema = problemaDaSenha(password, { usuario: username, nome: fullName })
+  if (problema) return NextResponse.json({ error: problema }, { status: 400 })
 
   const { data: created, error: authError } = await admin.auth.admin.createUser({
     email: internalEmail(username), password, email_confirm: true,

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, remetente, respostaPara, dominiosVerificados, semChave } from '@/lib/newsletter/resend'
 import { urlBase, espacoDaNewsletter, origensPermitidas } from '@/lib/newsletter/contexto'
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic'
  * por definição — ele aparece no cabeçalho de toda mensagem enviada.
  */
 export async function GET() {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('diagnosticos.executar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   const configurado = emailConfigurado()
   const espaco = await espacoDaNewsletter()

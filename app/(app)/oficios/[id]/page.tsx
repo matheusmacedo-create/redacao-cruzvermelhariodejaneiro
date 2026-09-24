@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { after } from 'next/server'
 import { ChevronLeft } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { processarFila } from '@/lib/oficios/carimbo'
@@ -37,7 +38,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
       const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; job_title?: string | null; active?: boolean } | null
       return p && p.active !== false ? [{ id: m.user_id as string, nome: p.full_name || 'Colaborador', cargo: p.job_title ?? null }] : []
     })
-    const podeEditar = o.criado_por === context.user.id || context.role === 'admin'
+    const podeEditar = o.criado_por === context.user.id || pode(context.role, 'oficios.gerenciar_de_outros')
     return (
       <div className="flex flex-col gap-4">
         {voltar}
@@ -96,7 +97,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
           codigo={o.codigo_verificacao}
           urlPublica={urlPublica}
           eu={context.user.id}
-          podeCancelar={o.criado_por === context.user.id || context.role === 'admin'}
+          podeCancelar={o.criado_por === context.user.id || pode(context.role, 'oficios.gerenciar_de_outros')}
           assinantes={lista}
           carimbo={carimboNoPainel}
           motivoCancelamento={o.motivo_cancelamento}

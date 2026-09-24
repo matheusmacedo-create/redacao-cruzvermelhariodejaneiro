@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays, CheckSquare, ClipboardList, FileEdit, Link2 } 
 import { Card } from '@/components/ui/card'
 import { StatusBadge, ContentStatusBadge } from '@/components/ui/status-badge'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { pautaStatus, contentStatus } from '@/lib/status-maps'
 import { formatDate } from '@/lib/format'
@@ -59,11 +60,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   const pautaTitleById = new Map((pautas ?? []).map((p) => [p.id, p.title]))
   const pendingApprovals = (contents ?? []).filter((c) => c.status === 'review').length
-  const canDelete = context.role === 'admin' || project.created_by === context.user.id
+  const canDelete = pode(context.role, 'projetos.apagar_de_outros') || project.created_by === context.user.id
   const concluido = project.status === 'completed'
   const listaDeAtualizacoes: AtualizacaoNaTela[] = (atualizacoes ?? []).filter((a) => ehSituacao(a.situacao)).map((a) => ({
     id: a.id, situacao: a.situacao, texto: a.texto, autorId: a.autor_id, quando: a.created_at,
-    podeApagar: context.role === 'admin' || a.autor_id === context.user.id,
+    podeApagar: pode(context.role, 'projetos.apagar_de_outros') || a.autor_id === context.user.id,
   }))
 
   return (

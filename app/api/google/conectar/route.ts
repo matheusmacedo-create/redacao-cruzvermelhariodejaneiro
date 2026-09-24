@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { clienteOAuth, urlDeAutorizacao } from '@/lib/google/gmail'
 
 export const runtime = 'nodejs'
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   let workspaceId: string
-  try { workspaceId = (await requireAdmin()).workspace.id } catch {
+  try { workspaceId = (await requirePermissao('integracoes.configurar')).workspace.id } catch {
     return NextResponse.redirect(new URL('/configuracoes?google=restrito', request.nextUrl.origin))
   }
   try {

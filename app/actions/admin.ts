@@ -3,13 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 
 export async function resetWorkspaceData(formData: FormData) {
   const context = await requireWorkspace()
-  if (context.role !== 'admin') throw new Error('Somente administradores podem reiniciar os dados do espaço.')
+  if (!pode(context.role, 'espaco.reiniciar')) throw new Error('Somente administradores podem reiniciar os dados do espaço.')
 
   const workspaceId = text(formData, 'workspaceId')
   if (workspaceId !== context.workspace.id) throw new Error('Espaço inválido.')

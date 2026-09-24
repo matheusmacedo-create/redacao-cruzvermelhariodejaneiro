@@ -2,8 +2,9 @@ import 'server-only'
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { PERMISSOES, pode, type Papel, type Permissao } from '@/lib/permissoes'
 
-export type WorkspaceRole = 'admin' | 'editor' | 'colaborador'
+export type WorkspaceRole = Papel
 
 export const getSessionContext = cache(async () => {
   const supabase = await createClient()
@@ -36,6 +37,10 @@ const workspaceOf = (membership: any) =>
 export async function obterWorkspace() {
   const context = await getSessionContext()
   if (!context) return null
+  // Conta desativada não entra, mesmo com o token ainda válido. O RLS já
+  // nega os dados (private.is_workspace_member exige perfil ativo); barrar
+  // aqui evita que ela veja telas vazias em vez de um "sem acesso".
+  if (!context.profile || context.profile.active === false) return null
   // Espaço único: não há mais tela de seleção nem cookie. Prefere a Produção e
   // cai no primeiro vínculo, caso um outro espaço volte a existir um dia.
   const membership =
@@ -49,11 +54,25 @@ export async function obterWorkspace() {
 export async function requireWorkspace() {
   const contexto = await obterWorkspace()
   if (!contexto) redirect('/')
+  // Senha definida pelo administrador é provisória: nada no sistema funciona
+  // antes de a pessoa escolher a própria. /trocar-senha fica fora deste
+  // portão justamente para não entrar em laço.
+  if (contexto.profile?.trocar_senha) redirect('/trocar-senha')
   return contexto
 }
 
 export async function requireAdmin() {
   const context = await requireWorkspace()
   if (context.role !== 'admin') throw new Error('Acesso restrito a administradores.')
+  return context
+}
+
+/**
+ * Exige uma permissão do catálogo (lib/permissoes.ts). É o portão das
+ * actions: a tela esconder o botão não impede ninguém de chamar a action.
+ */
+export async function requirePermissao(permissao: Permissao) {
+  const context = await requireWorkspace()
+  if (!pode(context.role, permissao)) throw new Error(`Sem permissão: ${PERMISSOES[permissao].rotulo.toLowerCase()}.`)
   return context
 }

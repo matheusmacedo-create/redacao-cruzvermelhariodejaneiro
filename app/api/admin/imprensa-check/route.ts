@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { obterChave } from '@/lib/integracoes/chaves'
 import { contaHunter, explicarErroDaHunter } from '@/lib/imprensa/hunter'
 
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
   let workspaceId: string
-  try { workspaceId = (await requireAdmin()).workspace.id } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { workspaceId = (await requirePermissao('diagnosticos.executar')).workspace.id } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   const chave = await obterChave(workspaceId, 'hunter')
   if (!chave) {

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { publicarMateria, tirarMateriaDoAr } from '@/lib/site/publicar-materia'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -50,7 +51,7 @@ const PASTAS_IGNORADAS = new Set(['assets', 'css', 'js', 'img', 'images', 'fonts
 export async function ligarAnalyticsDoSite(): Promise<ResultadoDoAnalytics> {
   try {
     const context = await requireWorkspace()
-    if (context.role !== 'admin') throw new Error('Só um administrador pode alterar as páginas do site.')
+    if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode alterar as páginas do site.')
 
     const resultado = await withFtp(async (client, config) => {
       // Descobre a pasta do site pela home — mesma técnica do enxerto da
@@ -188,7 +189,7 @@ export type ResultadoDasPaginas = {
 export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
   try {
     const context = await requireWorkspace()
-    if (context.role !== 'admin') throw new Error('Só um administrador pode alterar as páginas do site.')
+    if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode alterar as páginas do site.')
 
     const detalhes: string[] = []
 
@@ -330,7 +331,7 @@ export async function materiasArquivadas(): Promise<{ erro?: string; materias?: 
 export async function republicarMateriaAction(formData: FormData): Promise<{ erro?: string; recado?: string }> {
   try {
     const context = await requireWorkspace()
-    if (!['admin', 'editor'].includes(context.role)) {
+    if (!pode(context.role, 'site.republicar')) {
       throw new Error('Só administradores e editores podem republicar uma matéria.')
     }
     const contentId = String(formData.get('contentId') ?? '').trim()
@@ -361,7 +362,7 @@ export async function republicarMateriaAction(formData: FormData): Promise<{ err
 export async function tirarMateriaDoArAction(formData: FormData): Promise<{ erro?: string; recado?: string }> {
   try {
     const context = await requireWorkspace()
-    if (!['admin', 'editor'].includes(context.role)) {
+    if (!pode(context.role, 'site.republicar')) {
       throw new Error('Só administradores e editores podem tirar uma matéria do ar.')
     }
     const contentId = String(formData.get('contentId') ?? '').trim()

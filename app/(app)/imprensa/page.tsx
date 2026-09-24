@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { obterChave } from '@/lib/integracoes/chaves'
 import { emailConfigurado } from '@/lib/newsletter/resend'
@@ -116,7 +117,7 @@ export default async function ImprensaPage() {
         envioNoMes={{ enviados: enviadosNoMes, limite: limiteMensal }}
         hunterDisponivel={Boolean(chaveHunter)}
         envioDisponivel={emailConfigurado()}
-        podeDisparar={context.role !== 'colaborador'}
+        podeDisparar={pode(context.role, 'imprensa.campanhas')}
         ehAdmin={context.role === 'admin'}
       />
     </div>
