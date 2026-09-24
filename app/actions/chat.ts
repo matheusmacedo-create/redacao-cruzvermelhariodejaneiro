@@ -1,12 +1,16 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { contextoDoChat } from '@/lib/chat/servidor'
-import { chamaTodos, COLUNAS_DA_MENSAGEM, POR_PAGINA, resumoDaMensagem, TAMANHO_MAXIMO, type MensagemDoChat } from '@/lib/chat/regras'
+import {
+  ARQUIVOS_POR_MENSAGEM, chamaTodos, COLUNAS_DA_MENSAGEM, nomeParaCaminho, POR_PAGINA, REACOES, TAMANHO_MAXIMO, TAMANHO_MAXIMO_DO_ARQUIVO, textoDoAviso,
+  type MensagemDoChat,
+} from '@/lib/chat/regras'
 
 /**
  * O chat. Toda escrita passa pelas funções do banco (chat_*), que conferem
@@ -15,7 +19,9 @@ import { chamaTodos, COLUNAS_DA_MENSAGEM, POR_PAGINA, resumoDaMensagem, TAMANHO_
  * Aviso (sino + e-mail pelas preferências de cada um, via notificar):
  *  - conversa direta: todo mundo dela, a cada mensagem;
  *  - canal: quem foi mencionado (ou todos, com @canal) e quem escolheu
- *    "toda mensagem" naquele canal. O resto entra no resumo diário.
+ *    "toda mensagem" naquele canal. O resto entra no resumo diário;
+ *  - resposta em fio: quem escreveu a principal, quem já respondeu e quem
+ *    foi mencionado (numa direta, todo mundo dela).
  * O notificar já segura a enxurrada: quem está com a Redação aberta não
  * recebe e-mail, e a mesma conversa manda no máximo um e-mail a cada 15 min.
  */
@@ -28,7 +34,7 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
   throw new Error(padrao)
 }
 
-async function avisarSobreMensagem(workspaceId: string, canalId: string, autorId: string, m: { id: string; corpo: string; mencoes: string[]; menciona_todos: boolean }) {
+async function avisarSobreMensagem(workspaceId: string, canalId: string, autorId: string, m: MensagemDoChat) {
   const admin = createAdminClient()
   const [{ data: canal }, { data: membros }, { data: autor }] = await Promise.all([
     admin.from('chat_canais').select('tipo, nome').eq('id', canalId).single(),
@@ -38,7 +44,19 @@ async function avisarSobreMensagem(workspaceId: string, canalId: string, autorId
   if (!canal) return
   const quem = autor?.full_name || autor?.username || 'Alguém'
   const outros = (membros ?? []).filter((x) => x.user_id !== autorId && x.avisar !== 'nada')
-  const base = { workspaceId, atorId: autorId, categoria: 'chat' as const, link: `/chat/${canalId}`, citacao: resumoDaMensagem(m.corpo, 400), botao: 'Abrir a conversa', mensagem: resumoDaMensagem(m.corpo) }
+  const base = { workspaceId, atorId: autorId, categoria: 'chat' as const, link: `/chat/${canalId}`, citacao: textoDoAviso(m, 400), botao: 'Abrir a conversa', mensagem: textoDoAviso(m) }
+  if (m.resposta_de) {
+    const { data: pai } = await admin.from('chat_mensagens').select('autor_id, respondentes').eq('id', m.resposta_de).single()
+    const noFio = new Set<string>([pai?.autor_id as string, ...((pai?.respondentes as string[]) ?? []), ...m.mencoes].filter(Boolean))
+    const para = outros.filter((x) => canal.tipo === 'direta' || m.menciona_todos || noFio.has(x.user_id as string)).map((x) => x.user_id as string)
+    if (para.length) {
+      await notificar(admin, {
+        ...base, link: `/chat/${canalId}?fio=${m.resposta_de}`, botao: 'Abrir o fio', para,
+        titulo: canal.tipo === 'canal' ? `${quem} respondeu no fio em #${canal.nome}` : `${quem} respondeu no fio da conversa`,
+      })
+    }
+    return
+  }
   if (canal.tipo === 'direta') {
     const grupo = (membros ?? []).length > 2
     await notificar(admin, { ...base, para: outros.map((x) => x.user_id as string), titulo: grupo ? `${quem} escreveu na conversa em grupo` : `Mensagem de ${quem}` })
@@ -50,15 +68,21 @@ async function avisarSobreMensagem(workspaceId: string, canalId: string, autorId
   if (todas.length) await notificar(admin, { ...base, para: todas, titulo: `Nova mensagem de ${quem} em #${canal.nome}` })
 }
 
-export async function enviarMensagem(canalId: string, corpo: string, mencoes: string[]): Promise<Resultado<{ mensagem?: MensagemDoChat }>> {
+export type ArquivoEnviado = { caminho: string; nome: string; duracao?: number | null }
+
+export async function enviarMensagem(canalId: string, corpo: string, mencoes: string[], opcoes: { respostaDe?: string | null; anexos?: ArquivoEnviado[] } = {}): Promise<Resultado<{ mensagem?: MensagemDoChat }>> {
   try {
-    if (!uuid(canalId)) throw new Error('Conversa inválida.')
+    if (!uuid(canalId) || (opcoes.respostaDe && !uuid(opcoes.respostaDe))) throw new Error('Conversa inválida.')
     const texto = String(corpo ?? '').trim()
-    if (!texto) throw new Error('Escreva a mensagem.')
+    const anexos = (opcoes.anexos ?? []).slice(0, ARQUIVOS_POR_MENSAGEM + 1).map((a) => ({
+      caminho: String(a.caminho ?? ''), nome: String(a.nome ?? '').slice(0, 200), duracao: Number.isFinite(a.duracao) ? Number(a.duracao) : null,
+    }))
+    if (!texto && !anexos.length) throw new Error('Escreva a mensagem.')
     if (texto.length > TAMANHO_MAXIMO) throw new Error('A mensagem pode ter até 8.000 caracteres.')
     const { context, supabase } = await contextoDoChat()
     const { data, error } = await supabase.rpc('chat_enviar', {
       p_canal_id: canalId, p_corpo: texto, p_mencoes: (mencoes ?? []).filter(uuid).slice(0, 50), p_todos: chamaTodos(texto),
+      p_resposta_de: opcoes.respostaDe ?? null, p_anexos: anexos,
     })
     if (error || !data) erroDoBanco(error, 'Não foi possível enviar.')
     const { data: mensagem } = await supabase.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('id', (data as { id: string }).id).single()
@@ -101,7 +125,7 @@ export async function carregarAnteriores(canalId: string, antesDe: string): Prom
   try {
     if (!uuid(canalId) || Number.isNaN(Date.parse(antesDe))) throw new Error('Pedido inválido.')
     const { supabase } = await contextoDoChat()
-    const { data } = await supabase.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('canal_id', canalId).lt('created_at', antesDe)
+    const { data } = await supabase.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('canal_id', canalId).is('resposta_de', null).lt('created_at', antesDe)
       .order('created_at', { ascending: false }).limit(POR_PAGINA + 1)
     const lista = (data ?? []) as MensagemDoChat[]
     return { mensagens: lista.slice(0, POR_PAGINA).reverse(), temMais: lista.length > POR_PAGINA }
@@ -189,4 +213,104 @@ export async function infoDoCanal(canalId: string): Promise<{ tipo?: string; nom
     supabase.from('chat_membros').select('avisar').eq('canal_id', canalId).eq('user_id', context.user.id).maybeSingle(),
   ])
   return canal ? { tipo: canal.tipo, nome: canal.nome, avisar: eu?.avisar ?? 'mencoes', membro: Boolean(eu) } : {}
+}
+
+// ---------------------------------------------------------------- arquivos
+
+/**
+ * Primeiro passo do envio de arquivos: um link de uso único para cada um,
+ * direto do navegador ao Storage. O caminho leva espaço, conversa e quem
+ * envia; o banco confere tudo de novo ao registrar a mensagem.
+ */
+export async function prepararArquivos(canalId: string, arquivos: { nome: string; tipo: string; tamanho: number }[]): Promise<Resultado<{ envios?: { caminho: string; token: string }[] }>> {
+  try {
+    if (!uuid(canalId)) throw new Error('Conversa inválida.')
+    const lista = arquivos ?? []
+    if (!lista.length) throw new Error('Escolha um arquivo.')
+    if (lista.length > ARQUIVOS_POR_MENSAGEM) throw new Error(`Até ${ARQUIVOS_POR_MENSAGEM} arquivos por mensagem.`)
+    for (const a of lista) {
+      if (!Number.isFinite(a.tamanho) || a.tamanho <= 0) throw new Error(`O arquivo ${String(a.nome).slice(0, 60)} está vazio.`)
+      if (a.tamanho > TAMANHO_MAXIMO_DO_ARQUIVO) throw new Error(`${String(a.nome).slice(0, 60)} passa de 50 MB.`)
+    }
+    const { context, supabase } = await contextoDoChat()
+    // O RLS só mostra a conversa a quem pode vê-la.
+    const { data: canal } = await supabase.from('chat_canais').select('id, arquivado').eq('id', canalId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!canal) throw new Error('Conversa não encontrada.')
+    if (canal.arquivado) throw new Error('Este canal foi arquivado: dá para ler, não para escrever.')
+    const admin = createAdminClient()
+    const envios = await Promise.all(lista.map(async (a) => {
+      const caminho = `${context.workspace.id}/${canalId}/${context.user.id}/${randomUUID()}-${nomeParaCaminho(String(a.nome ?? ''))}`
+      const { data, error } = await admin.storage.from('chat-arquivos').createSignedUploadUrl(caminho)
+      if (error || !data) throw new Error('Não foi possível preparar o envio.')
+      return { caminho, token: data.token }
+    }))
+    return { envios }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível preparar o envio.') }
+  }
+}
+
+// ---------------------------------------------------------------- reações, fio, busca e histórico
+
+export async function reagir(mensagemId: string, emoji: string): Promise<Resultado<{ reacoes?: MensagemDoChat['reacoes'] }>> {
+  try {
+    if (!uuid(mensagemId)) throw new Error('Mensagem inválida.')
+    if (!REACOES.includes(emoji)) throw new Error('Reação inválida.')
+    const { supabase } = await contextoDoChat()
+    const { data, error } = await supabase.rpc('chat_reagir', { p_id: mensagemId, p_emoji: emoji })
+    if (error) erroDoBanco(error, 'Não foi possível reagir.')
+    return { reacoes: (data ?? []) as MensagemDoChat['reacoes'] }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível reagir.') }
+  }
+}
+
+/** Um fio: a mensagem principal e as respostas, em ordem. */
+export async function carregarFio(paiId: string): Promise<Resultado<{ pai?: MensagemDoChat; respostas?: MensagemDoChat[] }>> {
+  try {
+    if (!uuid(paiId)) throw new Error('Mensagem inválida.')
+    const { supabase } = await contextoDoChat()
+    const [{ data: pai }, { data: respostas }] = await Promise.all([
+      supabase.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('id', paiId).maybeSingle(),
+      supabase.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('resposta_de', paiId).order('created_at').limit(500),
+    ])
+    if (!pai) throw new Error('Mensagem não encontrada.')
+    return { pai: pai as MensagemDoChat, respostas: (respostas ?? []) as MensagemDoChat[] }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível abrir o fio.') }
+  }
+}
+
+export type ResultadoDaBusca = Pick<MensagemDoChat, 'id' | 'canal_id' | 'autor_id' | 'corpo' | 'created_at' | 'resposta_de' | 'anexos'> & {
+  canal_tipo: 'canal' | 'direta'; canal_nome: string | null; pessoas: string[] | null
+}
+
+export async function buscarNoChat(f: { texto: string; canalId?: string | null; autorId?: string | null; soMencoes?: boolean; comArquivos?: boolean }): Promise<Resultado<{ resultados?: ResultadoDaBusca[] }>> {
+  try {
+    if ((f.canalId && !uuid(f.canalId)) || (f.autorId && !uuid(f.autorId))) throw new Error('Filtro inválido.')
+    const { context, supabase } = await contextoDoChat()
+    const { data, error } = await supabase.rpc('chat_buscar', {
+      p_workspace_id: context.workspace.id, p_texto: String(f.texto ?? '').slice(0, 200), p_canal_id: f.canalId || null, p_autor_id: f.autorId || null,
+      p_so_mencoes: Boolean(f.soMencoes), p_com_arquivos: Boolean(f.comArquivos), p_limite: 60,
+    })
+    if (error) erroDoBanco(error, 'Não foi possível buscar.')
+    return { resultados: (data ?? []) as ResultadoDaBusca[] }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível buscar.') }
+  }
+}
+
+export type VersaoDaMensagem = { acao: 'edicao' | 'apagada'; corpo: string; por: string | null; created_at: string; anexos: MensagemDoChat['anexos'] | null }
+
+/** O que a mensagem já foi (só administrador: o RLS devolve vazio para os outros). */
+export async function historicoDaMensagem(id: string): Promise<Resultado<{ versoes?: VersaoDaMensagem[] }>> {
+  try {
+    if (!uuid(id)) throw new Error('Mensagem inválida.')
+    const { context, supabase } = await contextoDoChat()
+    if (context.role !== 'admin') throw new Error('Só a administração vê o histórico.')
+    const { data } = await supabase.from('chat_versoes').select('acao, corpo, por, created_at, anexos').eq('mensagem_id', id).order('created_at')
+    return { versoes: (data ?? []) as VersaoDaMensagem[] }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível abrir o histórico.') }
+  }
 }

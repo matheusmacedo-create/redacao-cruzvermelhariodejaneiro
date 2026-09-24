@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { MessagesSquare, X } from 'lucide-react'
 import { createClient as clienteDoNavegador } from '@/lib/supabase/client'
 import { infoDoCanal } from '@/app/actions/chat'
-import { resumoDaMensagem } from '@/lib/chat/regras'
+import { textoDoAviso, type AnexoDoChat } from '@/lib/chat/regras'
 
 /**
  * O chat ao vivo em qualquer tela da Redação: o número ao lado de "Chat" no
@@ -50,7 +50,7 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
     const supabase = clienteDoNavegador()
     const canal = supabase.channel(`chat-ao-vivo-${eu}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensagens', filter: `workspace_id=eq.${workspaceId}` }, async (p: { new: Record<string, unknown> }) => {
-        const m = p.new as { id: string; canal_id: string; autor_id: string | null; corpo: string; mencoes: string[] | null; menciona_todos: boolean }
+        const m = p.new as { id: string; canal_id: string; autor_id: string | null; corpo: string; mencoes: string[] | null; menciona_todos: boolean; resposta_de: string | null; anexos: AnexoDoChat[] | null }
         if (!m || m.autor_id === eu) return
         let info = conhecidas.current[m.canal_id]
         if (!info) {
@@ -60,7 +60,8 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
           conhecidas.current = { ...conhecidas.current, [m.canal_id]: info }
         }
         const paraMim = (m.mencoes ?? []).includes(eu) || m.menciona_todos
-        const importa = info.membro && info.avisar !== 'nada' && (info.tipo === 'direta' || info.avisar === 'tudo' || paraMim)
+        // Resposta em fio só avisa aqui quando menciona (quem está no fio recebe o aviso no sino).
+        const importa = info.membro && info.avisar !== 'nada' && (m.resposta_de ? paraMim : info.tipo === 'direta' || info.avisar === 'tudo' || paraMim)
         if (!importa) return
         // Quem já está com esta conversa aberta e olhando não precisa de aviso.
         const olhando = aberta.current === m.canal_id && rota.current.startsWith('/chat') && !document.hidden
@@ -68,13 +69,13 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
         setNaoLidas((n) => n + 1)
         const quem = (m.autor_id && nomes[m.autor_id]) || 'Alguém'
         const titulo = info.tipo === 'direta' ? quem : paraMim ? `${quem} mencionou você em #${info.nome}` : `${quem} em #${info.nome}`
-        const texto = resumoDaMensagem(m.corpo, 120)
-        setAvisos((a) => [...a.slice(-2), { id: m.id, canal: m.canal_id, titulo, texto }])
+        const texto = textoDoAviso(m, 120)
+        setAvisos((a) => [...a.slice(-2), { id: m.id, canal: m.resposta_de ? `${m.canal_id}?fio=${m.resposta_de}` : m.canal_id, titulo, texto }])
         setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== m.id)), 8000)
         if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           try {
             const n = new Notification(titulo, { body: texto, tag: m.canal_id, icon: '/images/logo-cvrj.png' })
-            n.onclick = () => { window.focus(); router.push(`/chat/${m.canal_id}`); n.close() }
+            n.onclick = () => { window.focus(); router.push(`/chat/${m.resposta_de ? `${m.canal_id}?fio=${m.resposta_de}` : m.canal_id}`); n.close() }
           } catch { /* navegador sem suporte a Notification no contexto atual */ }
         }
       })
