@@ -183,7 +183,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       const href = l.entity_type === 'pauta' && l.entity_id && l.action !== 'archived'
         ? `/pautas/${l.entity_id}`
         : l.entity_type === 'project' && l.entity_id && l.action !== 'deleted' ? `/projetos/${l.entity_id}`
-          : l.action === 'campanha_enviada' || l.action === 'contatos_importados' ? '/imprensa' : null
+          : l.entity_type === 'oficio' && l.entity_id ? `/oficios/${l.entity_id}`
+            : l.action === 'campanha_enviada' || l.action === 'contatos_importados' ? '/imprensa' : null
       return [{ id: `a:${l.id}`, quem: pessoa(l.actor_id), frase, quando: l.created_at as string, dia: diaEmSaoPaulo(l.created_at as string), href }]
     }),
     ...(atualizacoes ?? []).flatMap((u) => {
