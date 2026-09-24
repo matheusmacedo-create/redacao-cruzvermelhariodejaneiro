@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { Award, CalendarCheck2, CalendarHeart, ChevronRight, Clock, GraduationCap, UserRound } from 'lucide-react'
+import { Award, CalendarCheck2, CalendarHeart, ChevronRight, Clock, GraduationCap, Megaphone, Pin, UserRound } from 'lucide-react'
 import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
 import type { CursoNoCatalogo } from '@/lib/membro/cursos'
 import type { OportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import type { AvisoDoMembro } from '@/lib/membro/canal'
 import { quando } from '@/lib/oportunidades/regras'
 import { BarraDeProgresso } from './cursos'
 import { horasLegiveis, mesEAno, primeiroNome, resumoDeHoras, saudacao } from '@/lib/membro/regras'
@@ -24,8 +25,8 @@ function Numero({ icone: Icone, valor, rotulo }: { icone: typeof Clock; valor: s
  * A vista do início: quem ele é na filial, as horas, os
  * certificados e o que fez por último.
  */
-export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, continuar = null, proxima = null }: {
-  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number; continuar?: CursoNoCatalogo | null; proxima?: OportunidadeDoMembro | null
+export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, continuar = null, proxima = null, avisos = [] }: {
+  nome: string; perfil: Perfil; formacoes: Formacao[]; atividades: Atividade[]; hoje: string; hora: number; continuar?: CursoNoCatalogo | null; proxima?: OportunidadeDoMembro | null; avisos?: AvisoDoMembro[]
 }) {
   const horas = resumoDeHoras(atividades, hoje)
   const validas = formacoes.filter((f) => situacaoDaFormacao(f.valido_ate, hoje) !== 'vencida').length
@@ -41,6 +42,23 @@ export function InicioView({ nome, perfil, formacoes, atividades, hoje, hora, co
         </p>
         <p className="mt-1 text-xs text-neutral-400">Voluntário da Cruz Vermelha RJ desde {mesEAno(desde)}</p>
       </section>
+
+      {avisos.length > 0 && (
+        <section className="rounded-2xl border border-neutral-200 bg-white p-5" id="mural">
+          <h2 className="mb-3 flex items-center justify-between font-semibold"><span className="flex items-center gap-2"><Megaphone className="size-4 text-[#e32219]" />Avisos</span><Link href="/membro/avisos" className="text-xs font-medium text-[#e32219] hover:underline">Ver todos</Link></h2>
+          <ul className="flex flex-col gap-2">
+            {avisos.slice(0, 3).map((a) => (
+              <li key={a.id} className="rounded-xl bg-neutral-50 px-3 py-2.5">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  {a.fixado && <Pin className="size-3.5 shrink-0 text-[#e32219]" aria-label="Fixado" />}{a.titulo}
+                  {!a.visto && <span className="rounded-full bg-[#e32219] px-1.5 py-0.5 text-[10px] font-semibold text-white">Novo</span>}
+                </p>
+                <p className="line-clamp-2 text-xs text-neutral-600">{a.texto}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {proxima && (
         <Link href="/membro/oportunidades" className="flex items-center gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 hover:border-emerald-300" id="proxima-atividade">

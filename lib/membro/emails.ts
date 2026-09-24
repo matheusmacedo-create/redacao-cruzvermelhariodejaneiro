@@ -62,3 +62,17 @@ export function emailDeCancelamento(p: { nome: string; titulo: string; quando: s
     ],
   })
 }
+
+export function emailDeResposta(p: { nome: string; assunto: string; resposta: string; respondidoPor: string; url: string }): EmailPronto {
+  return montar({
+    assunto: `Resposta: ${p.assunto}`,
+    preheader: p.resposta.slice(0, 120),
+    titulo: 'A coordenação respondeu',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. ${p.respondidoPor} respondeu à sua mensagem "${p.assunto}":` },
+      { tipo: 'destaque', texto: p.resposta.length > 600 ? `${p.resposta.slice(0, 600)}…` : p.resposta },
+      { tipo: 'botao', rotulo: 'Ver a conversa', url: p.url },
+      { tipo: 'nota', texto: 'Para responder, use a Área do Voluntário — respostas a este e-mail não chegam à conversa.' },
+    ],
+  })
+}

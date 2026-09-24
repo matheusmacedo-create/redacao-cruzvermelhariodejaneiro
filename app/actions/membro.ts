@@ -12,6 +12,8 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario } from '@/lib/participantes/regras'
 import { COOKIE_DO_MEMBRO, DIAS_DE_SESSAO, exigirMembro, hashDoToken, novoToken, sessaoDoMembro } from '@/lib/membro/sessao'
 import { emailDeInscricao, emailDoCodigo } from '@/lib/membro/emails'
+import { notificar } from '@/lib/notificacoes/servidor'
+import { lerMensagem } from '@/lib/canal/regras'
 import { oportunidadeDoMembro } from '@/lib/membro/oportunidades'
 import { quando as quandoDaOportunidade } from '@/lib/oportunidades/regras'
 
@@ -163,5 +165,60 @@ export async function cancelarInscricao(oportunidadeId: string): Promise<{ erro?
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível cancelar.') }
+  }
+}
+
+// ---------------------------------------------------------------- canal direto
+
+/** Quem gerencia o Voluntariado recebe o aviso de mensagem nova (sino e e-mail). */
+async function gerentesDoVoluntariado(workspaceId: string) {
+  const admin = createAdminClient()
+  const [{ data: admins }, { data: acessos }] = await Promise.all([
+    admin.from('workspace_members').select('user_id').eq('workspace_id', workspaceId).eq('role', 'admin'),
+    admin.from('participantes_acesso').select('user_id').eq('workspace_id', workspaceId).in('nivel', ['gerenciar', 'sensiveis']),
+  ])
+  return [...(admins ?? []), ...(acessos ?? [])].map((x) => x.user_id as string)
+}
+
+async function avisarEquipe(m: { workspaceId: string; nome: string }, conversaId: string, assunto: string, texto: string, nova: boolean) {
+  await notificar(createAdminClient(), {
+    workspaceId: m.workspaceId, para: await gerentesDoVoluntariado(m.workspaceId), atorId: null, categoria: 'mensagens',
+    titulo: nova ? `${m.nome} mandou uma mensagem` : `${m.nome} respondeu`, mensagem: assunto,
+    link: `/voluntariado/mensagens/${conversaId}`, citacao: texto.slice(0, 600), botao: 'Responder',
+    nota: 'Mensagem da Área do Voluntário.',
+  })
+}
+
+export async function abrirConversa(_anterior: { erro?: string }, formData: FormData): Promise<{ erro?: string }> {
+  let id = ''
+  try {
+    const m = await exigirMembro()
+    const { assunto, categoria, texto, erros } = lerMensagem(formData, true)
+    if (erros.length) throw new Error(erros.join(' '))
+    const { data, error } = await createAdminClient().rpc('membro_abrir_conversa', { p_participante_id: m.participanteId, p_assunto: assunto, p_categoria: categoria, p_texto: texto })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar.')
+    id = String(data)
+    await avisarEquipe(m, id, assunto, texto, true)
+    revalidatePath('/membro', 'layout')
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar.') }
+  }
+  redirect(`/membro/mensagens/${id}`)
+}
+
+export async function responderConversa(conversaId: string, _anterior: { erro?: string; ok?: number }, formData: FormData): Promise<{ erro?: string; ok?: number }> {
+  try {
+    const m = await exigirMembro()
+    const { texto, erros } = lerMensagem(formData, false)
+    if (erros.length) throw new Error(erros.join(' '))
+    const admin = createAdminClient()
+    const { error } = await admin.rpc('membro_responder', { p_participante_id: m.participanteId, p_conversa_id: conversaId, p_texto: texto })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar.')
+    const { data: c } = await admin.from('membro_conversas').select('assunto').eq('id', conversaId).single()
+    await avisarEquipe(m, conversaId, c?.assunto ?? 'Conversa', texto, false)
+    revalidatePath(`/membro/mensagens/${conversaId}`)
+    return { ok: Date.now() }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar.') }
   }
 }

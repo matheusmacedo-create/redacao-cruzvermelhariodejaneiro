@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarHeart, Download, GraduationCap, Lock, Plus, Search } from 'lucide-react'
+import { CalendarHeart, Download, GraduationCap, Lock, Megaphone, MessageCircle, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -66,6 +66,10 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
     supabase.from('participante_formacoes').select('valido_ate').eq('workspace_id', ws).not('valido_ate', 'is', null).limit(10000),
   ])
 
+  const { count: abertas } = nivel >= 2
+    ? await supabase.from('membro_conversas').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('situacao', 'aberta')
+    : { count: 0 }
+  const conversasAbertas = abertas ?? 0
   const ativos = linhas.filter((l) => l.situacao === 'ativo')
   const pendentes = linhas.filter((l) => l.situacao === 'candidato')
   const totalHoras = (horasDoMes ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -91,13 +95,25 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
         title="Voluntários"
         description="Voluntários, juventude e instrutores voluntários. CPF e saúde ficam cifrados; cada abertura é registrada. A equipe contratada fica em Recursos humanos."
         actions={nivel >= 2 ? <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link href="/voluntariado/oportunidades" />}><CalendarHeart className="size-4" />Oportunidades</Button>
-          <Button variant="outline" render={<Link href="/voluntariado/cursos" />}><GraduationCap className="size-4" />Cursos e apostilas</Button>
           <CopiarLink url={`${urlBase()}/participe`} />
           <Button variant="outline" render={<a href={exportar} />}><Download className="size-4" />Exportar</Button>
           <Button render={<Link href="/voluntariado/novo" />}><Plus className="size-4" />Novo voluntário</Button>
         </div> : undefined}
       />
+
+      <nav className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Área do Voluntário" id="area-do-voluntario">
+        {[
+          ...(nivel >= 2 ? [{ href: '/voluntariado/mensagens', rotulo: 'Mensagens', dica: conversasAbertas ? `${conversasAbertas} aguardando resposta` : 'Canal direto', icone: MessageCircle, alerta: conversasAbertas > 0 }] : []),
+          ...(nivel >= 2 ? [{ href: '/voluntariado/avisos', rotulo: 'Avisos', dica: 'Mural dos voluntários', icone: Megaphone, alerta: false }] : []),
+          { href: '/voluntariado/oportunidades', rotulo: 'Oportunidades', dica: 'Ações, plantões e eventos', icone: CalendarHeart, alerta: false },
+          { href: '/voluntariado/cursos', rotulo: 'Cursos e apostilas', dica: 'Formação e certificados', icone: GraduationCap, alerta: false },
+        ].map((x) => (
+          <Link key={x.href} href={x.href} className={`flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 hover:border-primary/50 ${x.alerta ? 'border-primary/60' : 'border-border'}`}>
+            <x.icone className={`size-5 shrink-0 ${x.alerta ? 'text-primary' : 'text-muted-foreground'}`} />
+            <span className="min-w-0"><span className="block text-sm font-medium">{x.rotulo}</span><span className="block truncate text-xs text-muted-foreground">{x.dica}</span></span>
+          </Link>
+        ))}
+      </nav>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
