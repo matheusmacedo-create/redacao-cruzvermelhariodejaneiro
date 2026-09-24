@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient as criarClienteAvulso } from '@supabase/supabase-js'
-import { obterWorkspace, requirePermissao } from '@/lib/session'
+import { obterWorkspaceSemVerificacao, requirePermissao } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { publicSupabaseEnv } from '@/lib/supabase/env'
@@ -336,9 +336,9 @@ export async function trocarMinhaSenha(formData: FormData): Promise<{ erro?: str
   // redirecionamento aberto para qualquer endereço.
   const destino = texto(formData, 'origem') === 'perfil' ? '/perfil?senha=trocada' : '/dashboard'
   try {
-    // obterWorkspace, e não requireWorkspace: este é justamente o caminho de
-    // quem está preso na troca obrigatória.
-    const context = await obterWorkspace()
+    // Sem requireWorkspace: este é justamente o caminho de quem está preso na
+    // troca obrigatória — e ela vem antes do código do app autenticador.
+    const context = await obterWorkspaceSemVerificacao()
     if (!context) redirect('/')
     const usuario = String(context.profile?.username ?? '')
     const atual = String(formData.get('senhaAtual') ?? '')

@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Check, ChevronDown, Copy, KeyRound, Loader2, Minus, Search, ShieldCheck, UserCheck, UserPlus, UserX, Users, X,
+  Check, ChevronDown, Copy, KeyRound, Loader2, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -14,11 +14,14 @@ import { matrizDePermissoes, PAPEIS, PAPEL, type Papel } from '@/lib/permissoes'
 import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
 import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
 import { atualizarUsuario, criarUsuario, desativarUsuario, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
+import { definirVerificacaoObrigatoria, removerVerificacaoDoUsuario } from '@/app/actions/verificacao'
 
 export type UsuarioNaTela = {
   id: string; usuario: string; nome: string; cargo: string; iniciais: string; cor: string | null; avatar: string | null
   papel: Papel; coordenacao: string; ativo: boolean; trocarSenha: boolean; desativadoEm: string | null
   criadoEm: string; ultimoAcesso: string | null; souEu: boolean
+  /** Aparelhos com o app autenticador confirmado. 0 = verificação desligada. */
+  aparelhos: number
 }
 export type PessoaSemAcesso = { nome: string; cargo: string; setor: string; papel: Papel; usuario: string }
 export type EventoNaTela = { id: string; acao: string; detalhes: Record<string, unknown>; quando: string; ator: string; alvo: string | null }
@@ -36,8 +39,8 @@ const TOM_DO_PAPEL: Record<Papel, string> = {
   colaborador: 'bg-muted text-muted-foreground',
 }
 
-export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel }: {
-  usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean
+export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara }: {
+  usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean; verificacaoObrigatoriaPara: string[]
 }) {
   const [criando, setCriando] = useState<Partial<PessoaSemAcesso> | null>(null)
   const [senhaNova, setSenhaNova] = useState<{ usuario: string; senha: string } | null>(null)
@@ -47,6 +50,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
     { rotulo: 'Ativos', valor: ativos.length },
     { rotulo: 'Administradores', valor: ativos.filter((u) => u.papel === 'admin').length },
     { rotulo: 'Aguardando 1º acesso', valor: ativos.filter((u) => u.trocarSenha).length },
+    { rotulo: 'Com verificação em 2 etapas', valor: ativos.filter((u) => u.aparelhos > 0).length },
     { rotulo: 'Desativados', valor: usuarios.length - ativos.length },
   ]
 
@@ -57,7 +61,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className="text-2xl font-bold tabular-nums">{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p></Card>)}
       </div>
 
@@ -85,6 +89,8 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
           </Card>
         </section>
       )}
+
+      <ExigenciaDeVerificacao usuarios={ativos} obrigatorioPara={verificacaoObrigatoriaPara} />
 
       <MatrizDePermissoes />
 
@@ -255,6 +261,9 @@ function LinhaDoUsuario({ usuario: u, aberto, alternar, aoGerarSenha }: { usuari
           <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
           {u.trocarSenha && u.ativo && <span className="text-warning-foreground">Aguardando troca de senha</span>}
         </div>
+        {u.ativo && (u.aparelhos > 0
+          ? <span title="Verificação em duas etapas ativada" className="shrink-0 text-success"><ShieldCheck className="size-4" aria-label="Verificação em duas etapas ativada" /></span>
+          : <span title="Sem verificação em duas etapas" className="shrink-0 text-muted-foreground/50"><ShieldOff className="size-4" aria-label="Sem verificação em duas etapas" /></span>)}
         {u.ativo
           ? <span className={cn('shrink-0 rounded-md px-2 py-1 text-xs font-medium', TOM_DO_PAPEL[u.papel])}>{PAPEL[u.papel].rotulo}</span>
           : <span className="shrink-0 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Desativado</span>}
@@ -302,6 +311,7 @@ function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela;
         <span>Acesso criado em {data.format(new Date(u.criadoEm))}</span>
         <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
         {u.desativadoEm && <span>Desativado em {data.format(new Date(u.desativadoEm))}</span>}
+        <span className="flex items-center gap-1"><Smartphone className="size-3.5" />{u.aparelhos ? `Verificação em duas etapas: ${u.aparelhos} ${u.aparelhos === 1 ? 'aparelho' : 'aparelhos'}` : 'Sem verificação em duas etapas'}</span>
       </div>
 
       {u.ativo && <>
@@ -334,6 +344,7 @@ function PainelDoUsuario({ usuario: u, aoGerarSenha }: { usuario: UsuarioNaTela;
       {!u.souEu && (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           {u.ativo ? <>
+            {u.aparelhos > 0 && <Button variant="outline" disabled={ocupado} onClick={() => { if (confirm(`Remover a verificação em duas etapas de ${u.nome}? Use quando a pessoa perdeu ou trocou de celular. As sessões abertas dela são encerradas.`)) executar(removerVerificacaoDoUsuario, {}) }}><ShieldOff className="size-4" />Remover verificação em 2 etapas</Button>}
             {!redefinindo && <Button variant="outline" onClick={() => setRedefinindo(true)}><KeyRound className="size-4" />Redefinir senha</Button>}
             <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
           </> : (
@@ -385,7 +396,14 @@ const ROTULO_DA_ACAO: Record<string, string> = {
   senha_trocada: 'trocou a própria senha',
   usuario_desativado: 'desativou',
   usuario_reativado: 'reativou',
+  verificacao_ativada: 'ativou a verificação em duas etapas',
+  verificacao_removida: 'removeu um aparelho da própria verificação em duas etapas',
+  verificacao_removida_pelo_admin: 'removeu a verificação em duas etapas de',
+  verificacao_exigencia_alterada: 'mudou quem é obrigado a usar a verificação em duas etapas',
 }
+
+// Ações sobre a própria conta: o alvo é o próprio ator, não se repete o nome.
+const PROPRIAS = new Set(['senha_trocada', 'verificacao_ativada', 'verificacao_removida'])
 
 function detalheDoEvento(e: EventoNaTela): string {
   const d = e.detalhes
@@ -394,6 +412,10 @@ function detalheDoEvento(e: EventoNaTela): string {
   if (e.acao === 'coordenacao_alterada') return `${d.de || 'sem coordenação'} → ${d.para || 'sem coordenação'}`
   if (e.acao === 'usuario_criado' || e.acao === 'vinculo_criado') return papel(d.papel)
   if (e.acao === 'dados_alterados') return `nome: ${d.nome_anterior} → ${d.nome_novo}`
+  if (e.acao === 'verificacao_exigencia_alterada') {
+    const lista = (v: unknown) => (Array.isArray(v) && v.length ? v.map(papel).join(', ') : 'ninguém')
+    return `${lista(d.de)} → ${lista(d.para)}`
+  }
   return ''
 }
 
@@ -409,13 +431,66 @@ function Auditoria({ eventos, disponivel }: { eventos: EventoNaTela[]; disponive
                 const detalhe = detalheDoEvento(e)
                 return (
                   <li key={e.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-2.5 text-sm">
-                    <span><strong className="font-medium">{e.ator}</strong> {ROTULO_DA_ACAO[e.acao] ?? e.acao.replaceAll('_', ' ')}{e.alvo && e.acao !== 'senha_trocada' && <strong className="font-medium"> {e.alvo}</strong>}{detalhe && <span className="text-muted-foreground"> · {detalhe}</span>}</span>
+                    <span><strong className="font-medium">{e.ator}</strong> {ROTULO_DA_ACAO[e.acao] ?? e.acao.replaceAll('_', ' ')}{e.alvo && !PROPRIAS.has(e.acao) && <strong className="font-medium"> {e.alvo}</strong>}{detalhe && <span className="text-muted-foreground"> · {detalhe}</span>}</span>
                     <time className="text-xs text-muted-foreground">{dataHora.format(new Date(e.quando))}</time>
                   </li>
                 )
               })}
             </ul>
           ) : <p className="px-5 py-6 text-sm text-muted-foreground">Nada registrado ainda.</p>}
+      </Card>
+    </section>
+  )
+}
+
+// ------------------------------------------------------------------ exigência da verificação
+
+function ExigenciaDeVerificacao({ usuarios, obrigatorioPara }: { usuarios: UsuarioNaTela[]; obrigatorioPara: string[] }) {
+  const router = useRouter()
+  const [marcados, setMarcados] = useState<Papel[]>(PAPEIS.filter((p) => obrigatorioPara.includes(p)))
+  const [aviso, setAviso] = useState<Aviso>(null)
+  const [ocupado, rodar] = useTransition()
+  const mudou = PAPEIS.some((p) => marcados.includes(p) !== obrigatorioPara.includes(p))
+  const semApp = (p: Papel) => usuarios.filter((u) => u.papel === p && u.aparelhos === 0)
+  const eu = usuarios.find((u) => u.souEu)
+
+  function salvar() {
+    const novos = marcados.filter((p) => !obrigatorioPara.includes(p))
+    const afetados = novos.flatMap(semApp)
+    const euAfetado = eu && novos.includes(eu.papel) && eu.aparelhos === 0
+    const partes = [
+      afetados.length ? `${afetados.length} ${afetados.length === 1 ? 'pessoa ainda não tem' : 'pessoas ainda não têm'} o app e ${afetados.length === 1 ? 'será levada' : 'serão levadas'} a cadastrar no próximo acesso.` : '',
+      euAfetado ? 'Isso inclui a sua conta: ao salvar, você cadastra o app em seguida.' : '',
+    ].filter(Boolean)
+    if (partes.length && !confirm(partes.join(' ') + ' Continuar?')) return
+    setAviso(null)
+    rodar(async () => {
+      const form = new FormData()
+      marcados.forEach((p) => form.append('papeis', p))
+      const r = await definirVerificacaoObrigatoria(form)
+      setAviso(r.erro ? { tom: 'erro', texto: r.erro } : { tom: 'ok', texto: r.recado ?? 'Pronto.' })
+      if (!r.erro) router.refresh()
+    })
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-start gap-2"><Smartphone className="mt-0.5 size-4 text-muted-foreground" /><div><h2 className="font-semibold">Verificação em duas etapas</h2><p className="text-sm text-muted-foreground">Qualquer pessoa pode ativar em Meu perfil → Segurança. Aqui você decide se algum papel é <strong className="font-medium text-foreground">obrigado</strong> a usar — quem ainda não tiver o app é levado a cadastrar no próximo acesso. Hoje: {obrigatorioPara.length ? 'obrigatória para ' + PAPEIS.filter((p) => obrigatorioPara.includes(p)).map((p) => PAPEL[p].rotulo.toLowerCase()).join(', ') : 'opcional para todos'}.</p></div></div>
+      <Card className="flex flex-col gap-4 p-5">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {PAPEIS.map((p) => {
+            const faltam = semApp(p).length
+            const total = usuarios.filter((u) => u.papel === p).length
+            return (
+              <label key={p} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3', marcados.includes(p) ? 'border-primary bg-primary/5' : 'border-border')}>
+                <input type="checkbox" className="mt-1" checked={marcados.includes(p)} onChange={(e) => setMarcados(e.target.checked ? [...marcados, p] : marcados.filter((x) => x !== p))} />
+                <span><span className="block text-sm font-medium">Exigir de {PAPEL[p].rotulo.toLowerCase()}es</span><span className="block text-xs text-muted-foreground">{total ? `${total - faltam} de ${total} já usam` : 'Ninguém com este papel'}</span></span>
+              </label>
+            )
+          })}
+        </div>
+        {aviso && <p role={aviso.tom === 'erro' ? 'alert' : 'status'} className={cn('rounded-lg px-3 py-2 text-sm', aviso.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success')}>{aviso.texto}</p>}
+        <div className="flex justify-end"><Button size="lg" disabled={!mudou || ocupado} onClick={salvar}>{ocupado && <Loader2 className="size-4 animate-spin" />}Salvar exigência</Button></div>
       </Card>
     </section>
   )

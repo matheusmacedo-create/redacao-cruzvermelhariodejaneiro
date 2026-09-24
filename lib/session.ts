@@ -3,6 +3,7 @@ import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PERMISSOES, pode, type Papel, type Permissao } from '@/lib/permissoes'
+import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 
 export type WorkspaceRole = Papel
 
@@ -13,9 +14,13 @@ export const getSessionContext = cache(async () => {
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   const { data: memberships } = await supabase
     .from('workspace_members')
-    .select('role, coordination, workspaces(id,name,slug,kind)')
+    .select('role, coordination, workspaces(id,name,slug,kind,mfa_obrigatorio_para)')
     .eq('user_id', user.id)
-  return { user, profile, memberships: memberships ?? [] }
+  // O nível da sessão vem do mesmo token que getUser() acabou de validar no
+  // servidor do Auth; ler daqui não custa rede. Os fatores vêm do usuário.
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  const fatores = (user.factors ?? []).filter((f) => f.status === 'verified' && f.factor_type === 'totp')
+  return { user, profile, memberships: memberships ?? [], nivel: aal?.currentLevel ?? 'aal1', fatores }
 })
 
 export async function requireSession() {
@@ -28,13 +33,13 @@ const workspaceOf = (membership: any) =>
   Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces
 
 /**
- * O espaço de quem está logado, ou null.
+ * O espaço de quem está logado, sem conferir a verificação em duas etapas.
  *
- * Existe separado de requireWorkspace porque `redirect()` funciona lançando um
- * erro de controle: numa página isso leva ao login, mas numa rota de API vira
- * exceção não tratada e a resposta sai 500. Rota de API responde 401.
+ * Só para as telas que existem justamente para quem ainda não cumpriu uma
+ * etapa: /trocar-senha e /verificacao (e a home, para decidir para onde
+ * mandar). Todo o resto usa obterWorkspace/requireWorkspace.
  */
-export async function obterWorkspace() {
+export async function obterWorkspaceSemVerificacao() {
   const context = await getSessionContext()
   if (!context) return null
   // Conta desativada não entra, mesmo com o token ainda válido. O RLS já
@@ -47,17 +52,39 @@ export async function obterWorkspace() {
     context.memberships.find((item: any) => workspaceOf(item)?.kind === 'production') ??
     context.memberships[0]
   if (!membership) return null
-  const workspace = workspaceOf(membership) as unknown as { id: string; name: string; slug: string; kind: 'demo' | 'production' }
-  return { ...context, workspace, role: membership.role as WorkspaceRole }
+  const { mfa_obrigatorio_para: obrigatorioPara, ...workspace } = workspaceOf(membership) as unknown as {
+    id: string; name: string; slug: string; kind: 'demo' | 'production'; mfa_obrigatorio_para?: string[] | null
+  }
+  const role = membership.role as WorkspaceRole
+  const verificacao = situacaoDaVerificacao({ nivel: context.nivel, temFatorVerificado: context.fatores.length > 0, papel: role, obrigatorioPara })
+  return { ...context, workspace, role, verificacao, verificacaoObrigatoriaPara: obrigatorioPara ?? [], verificacaoObrigatoria: (obrigatorioPara ?? []).includes(role) }
+}
+
+/**
+ * O espaço de quem está logado, ou null.
+ *
+ * Existe separado de requireWorkspace porque `redirect()` funciona lançando um
+ * erro de controle: numa página isso leva ao login, mas numa rota de API vira
+ * exceção não tratada e a resposta sai 500. Rota de API responde 401.
+ *
+ * Sessão que ainda deve o código do app autenticador também é null: várias
+ * rotas usam o service role depois desta checagem, e o RLS não as protegeria.
+ */
+export async function obterWorkspace() {
+  const contexto = await obterWorkspaceSemVerificacao()
+  if (!contexto || contexto.verificacao !== 'em_dia') return null
+  return contexto
 }
 
 export async function requireWorkspace() {
-  const contexto = await obterWorkspace()
+  const contexto = await obterWorkspaceSemVerificacao()
   if (!contexto) redirect('/')
   // Senha definida pelo administrador é provisória: nada no sistema funciona
   // antes de a pessoa escolher a própria. /trocar-senha fica fora deste
   // portão justamente para não entrar em laço.
   if (contexto.profile?.trocar_senha) redirect('/trocar-senha')
+  // Depois da senha, o código do app — quando cadastrado ou exigido pelo papel.
+  if (contexto.verificacao !== 'em_dia') redirect('/verificacao')
   return contexto
 }
 

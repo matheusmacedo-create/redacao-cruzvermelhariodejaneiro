@@ -34,6 +34,7 @@ export default async function UsuariosPage() {
   ])
 
   const ultimoAcesso = new Map((contas.data?.users ?? []).map((u) => [u.id, u.last_sign_in_at ?? null]))
+  const aparelhos = new Map((contas.data?.users ?? []).map((u) => [u.id, (u.factors ?? []).filter((f) => f.status === 'verified').length]))
 
   const usuarios: UsuarioNaTela[] = (membros ?? []).flatMap((m) => {
     const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as Perfil | null
@@ -42,6 +43,7 @@ export default async function UsuariosPage() {
       id: p.id, usuario: p.username, nome: p.full_name, cargo: p.job_title ?? '', iniciais: p.initials ?? '', cor: p.color, avatar: p.avatar_path,
       papel: m.role, coordenacao: m.coordination ?? '', ativo: p.active !== false, trocarSenha: Boolean(p.trocar_senha),
       desativadoEm: p.desativado_em ?? null, criadoEm: m.created_at, ultimoAcesso: ultimoAcesso.get(p.id) ?? null, souEu: p.id === context.user.id,
+      aparelhos: aparelhos.get(p.id) ?? 0,
     }]
   }).sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'))
 
@@ -60,7 +62,7 @@ export default async function UsuariosPage() {
   return (
     <div>
       <PageHeader title="Usuários e permissões" description={`Quem acessa o espaço ${context.workspace.name}, com qual papel, e o que cada papel pode fazer.`} />
-      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} />
+      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} verificacaoObrigatoriaPara={context.verificacaoObrigatoriaPara} />
     </div>
   )
 }
