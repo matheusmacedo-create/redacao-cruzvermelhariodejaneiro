@@ -3,38 +3,41 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Bell, BellOff, Hash, Loader2, Lock, MoreHorizontal, Pencil, Plus, Search, SendHorizontal, Trash2, UserPlus, Users, X } from 'lucide-react'
+import { ArrowLeft, AtSign, Bell, BellOff, Hash, Loader2, Lock, MoreHorizontal, Paperclip, Plus, Search, UserPlus, Users, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 import { createClient as clienteDoNavegador } from '@/lib/supabase/client'
 import {
-  abrirDireta, adicionarAoCanal, apagarMensagem, carregarAnteriores, criarCanal, editarCanal, editarMensagem, entrarNoCanal,
-  enviarMensagem, marcarLido, mudarAvisos, sairDoCanal,
+  abrirDireta, adicionarAoCanal, carregarAnteriores, carregarFio, criarCanal, editarCanal, entrarNoCanal, marcarLido, mudarAvisos, sairDoCanal,
 } from '@/app/actions/chat'
-import {
-  agrupar, juntar, mencaoEmAndamento, mencoesNoTexto, pessoasParaMencionar, rotuloDoDia, TAMANHO_MAXIMO, tituloDaConversa, trechos,
-  type MensagemDoChat, type PessoaDoChat,
-} from '@/lib/chat/regras'
+import { juntar, pessoasParaMencionar, substituir, tituloDaConversa, type MensagemDoChat, type PessoaDoChat } from '@/lib/chat/regras'
 import type { ConversaNoPainel } from '@/lib/chat/servidor'
 import { useChatAoVivo } from './ao-vivo'
+import { Busca, buscaVazia, type FiltrosDaBusca } from './busca'
+import { Escrever, type EntradaDeArquivos } from './escrever'
+import { Fio, type FioAberto } from './fio'
+import { campo, Mensagens, type Contexto } from './mensagem'
 
-const campo = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
-const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
-const hojeEmSP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 const importa = (c: ConversaNoPainel) => c.membro && c.avisar !== 'nada' && (c.tipo === 'direta' || c.avisar === 'tudo' ? c.nao_lidas > 0 : c.mencoes > 0)
 
-export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagens: primeiras, temMais: haMais, membros: membrosIniciais, pessoas }: {
+type Lado = { tipo: 'nada' } | { tipo: 'fio'; fio: FioAberto } | { tipo: 'busca'; filtros: FiltrosDaBusca; vez: number }
+
+export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagens: primeiras, temMais: haMais, membros: membrosIniciais, pessoas, fioInicial, destaque: destaqueInicial }: {
   eu: string
   ehAdmin: boolean
   /** Membro da Redação (cria canais, vê os abertos). A equipe da escola só conversa onde foi chamada. */
   redacao: boolean
   conversas: ConversaNoPainel[]
   atual: ConversaNoPainel
+  /** As principais (respostas em fio ficam no fio). */
   mensagens: MensagemDoChat[]
   temMais: boolean
   membros: string[]
   pessoas: PessoaDoChat[]
+  /** Aberta por link: o fio já carregado e a mensagem para destacar. */
+  fioInicial?: { pai: MensagemDoChat; respostas: MensagemDoChat[] } | null
+  destaque?: string | null
 }) {
   const router = useRouter()
   const aoVivo = useChatAoVivo()
@@ -43,14 +46,19 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
   const [temMais, setTemMais] = useState(haMais)
   const [membros, setMembros] = useState(membrosIniciais)
   const [painel, setPainel] = useState<'nada' | 'canal' | 'direta' | 'membros'>('nada')
+  const [lado, setLado] = useState<Lado>(fioInicial ? { tipo: 'fio', fio: { ...fioInicial, carregando: false } } : { tipo: 'nada' })
   const [verLista, setVerLista] = useState(false)
   const [erro, setErro] = useState('')
+  const [fora, setFora] = useState<string[]>([])
+  const [destaque, setDestaque] = useState(destaqueInicial ?? null)
+  const [arrastando, setArrastando] = useState(false)
   const [pendente, iniciar] = useTransition()
   const lista = useRef<HTMLDivElement>(null)
-  const noFim = useRef(true)
+  const noFim = useRef(!destaqueInicial)
+  const entrada = useRef<EntradaDeArquivos>(null)
 
   // Quando o servidor manda a página de novo (router.refresh), a lista e as pessoas acompanham.
-  // (Cada conversa é um componente novo: a página usa key={atual.id}.)
+  // (Cada conversa — e cada mensagem aberta por link — é um componente novo: a página usa key.)
   const [vindoDoServidor, setVindoDoServidor] = useState({ inicial, primeiras, membrosIniciais })
   if (vindoDoServidor.inicial !== inicial || vindoDoServidor.primeiras !== primeiras || vindoDoServidor.membrosIniciais !== membrosIniciais) {
     setVindoDoServidor({ inicial, primeiras, membrosIniciais })
@@ -63,6 +71,9 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
   const nomeDe = useCallback((id: string) => pessoaDe.get(id)?.nome ?? 'Alguém', [pessoaDe])
   const conversaAtual = conversas.find((c) => c.id === atual.id) ?? atual
   const titulo = tituloDaConversa(conversaAtual, nomeDe)
+  const fioAberto = lado.tipo === 'fio' ? lado.fio.pai.id : null
+  const fioRef = useRef(fioAberto)
+  useEffect(() => { fioRef.current = fioAberto }, [fioAberto])
 
   // Diz ao aviso ao vivo qual conversa está aberta, e o número do menu acompanha o que falta ler.
   useEffect(() => { aoVivo?.abrir(atual.id); return () => aoVivo?.abrir(null) }, [atual.id, aoVivo])
@@ -70,7 +81,40 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
     aoVivo?.definir(conversas.filter((c) => c.id !== atual.id).reduce((s, c) => s + (importa(c) ? (c.tipo === 'direta' || c.avisar === 'tudo' ? c.nao_lidas : c.mencoes) : 0), 0))
   }, [conversas, atual.id, aoVivo])
 
-  // Ao vivo: mensagens novas e editadas desta conversa; nas outras, só o contador.
+  // A mensagem aberta por link aparece no meio da tela e fica marcada por uns segundos.
+  useEffect(() => {
+    if (!destaqueInicial) return
+    const el = document.querySelector(`[data-mensagem="${destaqueInicial}"]`)
+    el?.scrollIntoView({ block: 'center' })
+    const t = setTimeout(() => setDestaque(null), 4000)
+    return () => clearTimeout(t)
+  }, [destaqueInicial])
+
+  // Mensagem que mudou (editada, apagada, reação, resposta nova): na lista e no fio.
+  const mudar = useCallback((m: MensagemDoChat) => {
+    if (!m.resposta_de) setMensagens((l) => substituir(l, m))
+    setLado((l) => {
+      if (l.tipo !== 'fio') return l
+      if (l.fio.pai.id === m.id) return { ...l, fio: { ...l.fio, pai: { ...l.fio.pai, ...m } } }
+      if (m.resposta_de === l.fio.pai.id) return { ...l, fio: { ...l.fio, respostas: substituir(l.fio.respostas, m) } }
+      return l
+    })
+  }, [])
+  // Respostas já contadas na principal (a mesma resposta chega pelo envio e pelo tempo real).
+  const contadas = useRef(new Set<string>())
+  const chegou = useCallback((m: MensagemDoChat) => {
+    if (!m.resposta_de) { setMensagens((l) => juntar(l, m)); return }
+    if (!contadas.current.has(m.id)) {
+      contadas.current.add(m.id)
+      // O número de respostas sobe na hora; o UPDATE da principal, pelo tempo real, confirma o valor do banco.
+      setMensagens((l) => l.map((x) => x.id === m.resposta_de
+        ? { ...x, respostas: x.respostas + 1, ultima_resposta_em: m.created_at, respondentes: x.respondentes.includes(m.autor_id ?? '') || !m.autor_id ? x.respondentes : [...x.respondentes, m.autor_id].slice(0, 10) }
+        : x))
+    }
+    setLado((l) => (l.tipo === 'fio' && l.fio.pai.id === m.resposta_de ? { ...l, fio: { ...l.fio, respostas: juntar(l.fio.respostas, m) } } : l))
+  }, [])
+
+  // Ao vivo: mensagens novas e mudanças desta conversa; nas outras, só o contador.
   const lerDepois = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     const supabase = clienteDoNavegador()
@@ -78,20 +122,22 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensagens' }, (p: { new: Record<string, unknown> }) => {
         const m = p.new as unknown as MensagemDoChat
         if (m.canal_id === atual.id) {
-          setMensagens((l) => juntar(l, m))
-          if (conversaAtual.membro) {
+          chegou(m)
+          if (conversaAtual.membro && !m.resposta_de) {
             if (lerDepois.current) clearTimeout(lerDepois.current)
             lerDepois.current = setTimeout(() => { void marcarLido(atual.id) }, 1500)
           }
         } else if (m.autor_id !== eu) {
+          const paraMim = (m.mencoes ?? []).includes(eu) || m.menciona_todos
+          if (m.resposta_de && !paraMim) return
           setConversas((cs) => cs.map((c) => c.id === m.canal_id && c.membro
-            ? { ...c, nao_lidas: c.nao_lidas + 1, mencoes: c.mencoes + ((m.mencoes ?? []).includes(eu) || m.menciona_todos ? 1 : 0), ultima_mensagem_em: m.created_at }
+            ? { ...c, nao_lidas: c.nao_lidas + (m.resposta_de ? 0 : 1), mencoes: c.mencoes + (paraMim ? 1 : 0), ultima_mensagem_em: m.created_at }
             : c))
           if (!conversas.some((c) => c.id === m.canal_id)) router.refresh()
         }
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_mensagens', filter: `canal_id=eq.${atual.id}` }, (p: { new: Record<string, unknown> }) => {
-        setMensagens((l) => juntar(l, p.new as unknown as MensagemDoChat))
+        mudar(p.new as unknown as MensagemDoChat)
       })
       .subscribe()
     return () => { void supabase.removeChannel(canal); if (lerDepois.current) clearTimeout(lerDepois.current) }
@@ -121,11 +167,35 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
     requestAnimationFrame(() => { if (el) el.scrollTop = el.scrollHeight - altura })
   })
 
+  // O endereço acompanha o fio aberto (dá para recarregar ou mandar o link).
+  const marcarEndereco = (fio: string | null) => {
+    try {
+      const url = new URL(window.location.href)
+      if (fio) url.searchParams.set('fio', fio); else url.searchParams.delete('fio')
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`)
+    } catch { /* sem history */ }
+  }
+  const abrirFio = (m: MensagemDoChat) => {
+    setLado({ tipo: 'fio', fio: { pai: m, respostas: [], carregando: true } })
+    marcarEndereco(m.id)
+    void carregarFio(m.id).then((r) => {
+      if (fioRef.current !== m.id) return
+      if (r.erro || !r.pai) { setErro(r.erro ?? 'Não foi possível abrir o fio.'); setLado({ tipo: 'nada' }); return }
+      setLado({ tipo: 'fio', fio: { pai: r.pai, respostas: r.respostas ?? [], carregando: false } })
+    })
+  }
+  const fecharLado = () => { if (lado.tipo === 'fio') marcarEndereco(null); setLado({ tipo: 'nada' }) }
+  const abrirBusca = (filtros: FiltrosDaBusca) => { if (lado.tipo === 'fio') marcarEndereco(null); setLado({ tipo: 'busca', filtros, vez: Date.now() }); setVerLista(false) }
+
   const canais = conversas.filter((c) => c.tipo === 'canal' && c.membro)
   const abertos = conversas.filter((c) => c.tipo === 'canal' && !c.membro)
   const diretas = conversas.filter((c) => c.tipo === 'direta')
   const naCoversa = membros.map((id) => pessoaDe.get(id)).filter(Boolean) as PessoaDoChat[]
-  const podeAdministrar = ehAdmin
+  const podeEscrever = !conversaAtual.arquivado
+  // No canal dá para mencionar quem ainda não está (e chamar depois); na direta, só quem está nela.
+  const mencionaveis = (conversaAtual.tipo === 'canal' && redacao ? pessoas.filter((p) => p.ativo) : naCoversa).filter((p) => p.id !== eu)
+  const ctx: Contexto = { eu, ehAdmin, pessoaDe, nomes: pessoas.map((p) => p.nome), podeEscrever, onErro: setErro, onMudar: mudar, onAbrirFio: abrirFio, destaque }
+  const quemFicouDeFora = fora.map(nomeDe)
 
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] min-h-[28rem] overflow-hidden rounded-xl border border-border bg-card" data-chat>
@@ -134,12 +204,17 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <p className="font-semibold">Chat</p>
           <div className="flex gap-1">
+            <button type="button" onClick={() => abrirBusca(buscaVazia)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Buscar no chat" title="Buscar no chat"><Search className="size-4" /></button>
             {redacao && <button type="button" onClick={() => setPainel(painel === 'canal' ? 'nada' : 'canal')} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Novo canal" title="Novo canal"><Hash className="size-4" /></button>}
             <button type="button" onClick={() => setPainel(painel === 'direta' ? 'nada' : 'direta')} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Nova conversa" title="Nova conversa"><Plus className="size-4" /></button>
           </div>
         </div>
         <AlertasDoComputador />
         <nav className="flex-1 overflow-y-auto px-2 py-2 text-sm">
+          <ul className="mb-3 flex flex-col gap-0.5">
+            <li><button type="button" onClick={() => abrirBusca({ ...buscaVazia, soMencoes: true })} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"><AtSign className="size-3.5 opacity-70" />Menções a mim</button></li>
+            <li><button type="button" onClick={() => abrirBusca({ ...buscaVazia, comArquivos: true, aqui: true })} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted"><Paperclip className="size-3.5 opacity-70" />Arquivos desta conversa</button></li>
+          </ul>
           <Secao titulo="Canais">
             {canais.map((c) => <ItemDaLista key={c.id} c={c} atual={c.id === atual.id} rotulo={c.nome ?? ''} icone={c.privado ? Lock : Hash} />)}
           </Secao>
@@ -160,7 +235,10 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
       </aside>
 
       {/* Conversa */}
-      <section className={`${verLista ? 'hidden' : 'flex'} min-w-0 flex-1 flex-col md:flex`} aria-label={titulo}>
+      <section className={`${verLista || lado.tipo !== 'nada' ? 'hidden' : 'flex'} relative min-w-0 flex-1 flex-col ${lado.tipo !== 'nada' ? 'lg:flex' : 'md:flex'}`} aria-label={titulo}
+        onDragOver={(e) => { if (podeEscrever && e.dataTransfer.types.includes('Files')) { e.preventDefault(); setArrastando(true) } }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setArrastando(false) }}
+        onDrop={(e) => { e.preventDefault(); setArrastando(false); if (podeEscrever) entrada.current?.adicionar([...e.dataTransfer.files]) }}>
         <header className="flex items-center gap-2 border-b border-border px-3 py-2.5">
           <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted md:hidden" onClick={() => setVerLista(true)} aria-label="Ver conversas"><ArrowLeft className="size-4" /></button>
           <div className="min-w-0 flex-1">
@@ -170,6 +248,7 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
             </p>
             {conversaAtual.descricao && <p className="truncate text-xs text-muted-foreground">{conversaAtual.descricao}</p>}
           </div>
+          <button type="button" onClick={() => abrirBusca({ ...buscaVazia, aqui: true })} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden" aria-label="Buscar"><Search className="size-4" /></button>
           <button type="button" onClick={() => setPainel(painel === 'membros' ? 'nada' : 'membros')} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Pessoas nesta conversa">
             <Users className="size-3.5" />{membros.length}
           </button>
@@ -179,7 +258,7 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
         {painel === 'canal' && <NovoCanal pessoas={pessoas.filter((p) => p.id !== eu && p.ativo)} onFechar={() => setPainel('nada')} />}
         {painel === 'direta' && <NovaDireta pessoas={pessoas.filter((p) => p.id !== eu && p.ativo)} onFechar={() => setPainel('nada')} />}
         {painel === 'membros' && (
-          <Membros c={conversaAtual} pessoas={naCoversa} todas={pessoas} eu={eu} redacao={redacao} podeAdministrar={podeAdministrar} ocupado={pendente}
+          <Membros c={conversaAtual} pessoas={naCoversa} todas={pessoas} eu={eu} redacao={redacao} podeAdministrar={ehAdmin} ocupado={pendente}
             onAdicionar={(ids) => agir(() => adicionarAoCanal(atual.id, ids), () => setMembros((m) => [...new Set([...m, ...ids])]))}
             onSair={() => agir(() => sairDoCanal(atual.id), () => router.push('/chat'))}
             onArquivar={(a) => agir(() => editarCanal(atual.id, conversaAtual.descricao, a))}
@@ -199,10 +278,17 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
               <p>{conversaAtual.tipo === 'canal' ? `Esta é a primeira página de ${titulo}.` : 'Mande a primeira mensagem.'}</p>
             </div>
           )}
-          <Mensagens mensagens={mensagens} pessoaDe={pessoaDe} eu={eu} ehAdmin={ehAdmin} nomes={pessoas.map((p) => p.nome)} onErro={setErro} />
+          <Mensagens mensagens={mensagens} ctx={ctx} />
         </div>
 
         {erro && <p className="mx-3 mb-1 rounded-md bg-destructive/10 px-3 py-1.5 text-xs text-destructive" role="alert">{erro}</p>}
+        {fora.length > 0 && (
+          <div className="mx-3 mb-1 flex flex-wrap items-center gap-2 rounded-lg bg-warning/15 px-3 py-2 text-sm" role="status" data-fora-do-canal>
+            <span className="flex-1">{quemFicouDeFora.join(', ')} {fora.length === 1 ? 'não está' : 'não estão'} em {titulo} e não {fora.length === 1 ? 'foi avisada' : 'foram avisadas'}.</span>
+            <Button size="sm" disabled={pendente} onClick={() => { const ids = fora; setFora([]); agir(() => adicionarAoCanal(atual.id, ids), () => setMembros((m) => [...new Set([...m, ...ids])])) }}>Chamar para o canal</Button>
+            <Button size="sm" variant="ghost" onClick={() => setFora([])}>Deixar</Button>
+          </div>
+        )}
         {!conversaAtual.membro && conversaAtual.tipo === 'canal' && (
           <div className="mx-3 mb-1 flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Você está vendo {titulo} sem participar.</span>
@@ -211,8 +297,22 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
         )}
         {conversaAtual.arquivado
           ? <p className="border-t border-border px-3 py-3 text-center text-sm text-muted-foreground">Canal arquivado: dá para ler, não para escrever.</p>
-          : <Escrever canalId={atual.id} tipo={conversaAtual.tipo} titulo={titulo} pessoas={naCoversa.filter((p) => p.id !== eu)} onEnviada={(m) => { noFim.current = true; setMensagens((l) => juntar(l, m)) }} onErro={setErro} />}
+          : <Escrever ref={entrada} canalId={atual.id} tipo={conversaAtual.tipo} titulo={titulo} pessoas={mencionaveis} membros={membros}
+              onEnviada={(m) => { noFim.current = true; chegou(m) }} onErro={setErro} onForaDaConversa={redacao && conversaAtual.tipo === 'canal' ? setFora : undefined} />}
+        {arrastando && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 text-sm font-medium text-primary">
+            <Paperclip className="mr-2 size-4" />Solte para anexar à mensagem
+          </div>
+        )}
       </section>
+
+      {lado.tipo === 'fio' && (
+        <Fio fio={lado.fio} titulo={titulo} tipo={conversaAtual.tipo} ctx={ctx} pessoas={mencionaveis} membros={membros}
+          onEnviada={chegou} onForaDaConversa={redacao && conversaAtual.tipo === 'canal' ? setFora : undefined} onFechar={fecharLado} />
+      )}
+      {lado.tipo === 'busca' && (
+        <Busca key={lado.vez} inicial={lado.filtros} canalId={atual.id} tituloAqui={titulo} pessoas={pessoas} nomeDe={nomeDe} onFechar={fecharLado} />
+      )}
     </div>
   )
 }
@@ -253,160 +353,10 @@ function Avisos({ c, onMudar }: { c: ConversaNoPainel; onMudar: (v: 'tudo' | 'me
   return (
     <label className="flex items-center gap-1 text-xs text-muted-foreground" title="Quando esta conversa avisa você (sino, e-mail e alerta)">
       {c.avisar === 'nada' ? <BellOff className="size-3.5" /> : <Bell className="size-3.5" />}
-      <select value={c.avisar} onChange={(e) => onMudar(e.target.value as 'tudo' | 'mencoes' | 'nada')} className="max-w-36 rounded border-0 bg-transparent py-1 text-xs outline-none hover:bg-muted" aria-label="Avisos desta conversa">
+      <select value={c.avisar} onChange={(e) => onMudar(e.target.value as 'tudo' | 'mencoes' | 'nada')} className="max-w-20 rounded border-0 bg-transparent py-1 text-xs outline-none hover:bg-muted sm:max-w-36" aria-label="Avisos desta conversa">
         {opcoes.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
       </select>
     </label>
-  )
-}
-
-function Mensagens({ mensagens, pessoaDe, eu, ehAdmin, nomes, onErro }: {
-  mensagens: MensagemDoChat[]; pessoaDe: Map<string, PessoaDoChat>; eu: string; ehAdmin: boolean; nomes: string[]; onErro: (e: string) => void
-}) {
-  const hoje = hojeEmSP()
-  const dias = useMemo(() => agrupar(mensagens), [mensagens])
-  return (
-    <div className="flex flex-col gap-3">
-      {dias.map((d) => (
-        <div key={d.dia}>
-          <div className="relative my-2 flex items-center justify-center" role="separator">
-            <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
-            <span className="relative rounded-full border border-border bg-card px-3 py-0.5 text-[11px] font-medium text-muted-foreground">{rotuloDoDia(d.dia, hoje)}</span>
-          </div>
-          {d.grupos.map((g) => {
-            const p = g.autor_id ? pessoaDe.get(g.autor_id) : undefined
-            return (
-              <div key={g.mensagens[0].id} className="flex gap-2.5 py-1">
-                <Avatar initials={p?.iniciais ?? '?'} color={p?.cor ?? undefined} src={privateAvatarUrl(p?.avatar)} size="sm" className="mt-0.5" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm"><span className="font-semibold">{p?.nome ?? 'Alguém'}</span> <span className="text-[11px] text-muted-foreground">{hora(g.mensagens[0].created_at)}</span></p>
-                  {g.mensagens.map((m) => <UmaMensagem key={m.id} m={m} minha={m.autor_id === eu} podeApagar={m.autor_id === eu || ehAdmin} nomes={nomes} eu={pessoaDe.get(eu)?.nome} onErro={onErro} />)}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function UmaMensagem({ m, minha, podeApagar, nomes, eu, onErro }: { m: MensagemDoChat; minha: boolean; podeApagar: boolean; nomes: string[]; eu?: string; onErro: (e: string) => void }) {
-  const [editando, setEditando] = useState(false)
-  const [texto, setTexto] = useState(m.corpo)
-  const [ocupado, iniciar] = useTransition()
-  if (m.apagada_em) return <p className="text-sm italic text-muted-foreground" data-mensagem={m.id}>mensagem apagada</p>
-  const salvar = () => iniciar(async () => { const r = await editarMensagem(m.id, texto); if (r.erro) onErro(r.erro); else setEditando(false) })
-  return (
-    <div className="group relative -mx-1 rounded px-1 hover:bg-muted/40" data-mensagem={m.id}>
-      {editando ? (
-        <div className="flex flex-col gap-1 py-1">
-          <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={2} maxLength={TAMANHO_MAXIMO} className={campo} autoFocus
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); salvar() } if (e.key === 'Escape') setEditando(false) }} />
-          <div className="flex gap-2 text-xs"><Button size="sm" disabled={ocupado} onClick={salvar}>Salvar</Button><Button size="sm" variant="ghost" onClick={() => { setEditando(false); setTexto(m.corpo) }}>Cancelar</Button></div>
-        </div>
-      ) : (
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-          {trechos(m.corpo, nomes).map((t, i) => t.tipo === 'link'
-            ? <a key={i} href={t.valor} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">{t.valor}</a>
-            : t.tipo === 'mencao'
-              ? <span key={i} className={`rounded px-0.5 font-medium ${t.valor === `@${eu}` || t.valor === '@canal' || t.valor === '@todos' ? 'bg-warning/25 text-foreground' : 'bg-primary/10 text-primary'}`}>{t.valor}</span>
-              : <span key={i}>{t.valor}</span>)}
-          {m.editada_em && <span className="ml-1 text-[11px] text-muted-foreground">(editada)</span>}
-        </p>
-      )}
-      {!editando && (minha || podeApagar) && (
-        <div className="absolute -top-3 right-1 hidden gap-0.5 rounded-md border border-border bg-card p-0.5 shadow-sm group-hover:flex group-focus-within:flex">
-          {minha && <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted" aria-label="Editar mensagem" onClick={() => setEditando(true)}><Pencil className="size-3.5" /></button>}
-          {podeApagar && <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive" aria-label="Apagar mensagem" disabled={ocupado}
-            onClick={() => { if (confirm('Apagar esta mensagem? Ela some da conversa (o registro fica guardado para a administração).')) iniciar(async () => { const r = await apagarMensagem(m.id); if (r.erro) onErro(r.erro) }) }}><Trash2 className="size-3.5" /></button>}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Escrever({ canalId, tipo, titulo, pessoas, onEnviada, onErro }: {
-  canalId: string; tipo: string; titulo: string; pessoas: PessoaDoChat[]; onEnviada: (m: MensagemDoChat) => void; onErro: (e: string) => void
-}) {
-  const chave = `chat-rascunho-${canalId}`
-  const [texto, setTexto] = useState('')
-  const [escolhidas, setEscolhidas] = useState<{ id: string; nome: string }[]>([])
-  const [mencao, setMencao] = useState<{ inicio: number; busca: string } | null>(null)
-  const [indice, setIndice] = useState(0)
-  const [enviando, iniciar] = useTransition()
-  const caixa = useRef<HTMLTextAreaElement>(null)
-
-  // O rascunho não se perde ao trocar de conversa.
-  // O rascunho guardado só existe no navegador: lido depois de montar, para o HTML do servidor bater.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { try { setTexto(localStorage.getItem(chave) ?? '') } catch { setTexto('') } }, [chave])
-  useEffect(() => { try { if (texto) localStorage.setItem(chave, texto); else localStorage.removeItem(chave) } catch { /* sem armazenamento local */ } }, [chave, texto])
-  useEffect(() => { const el = caixa.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 200)}px` } }, [texto])
-
-  const opcoes = useMemo(() => {
-    if (!mencao) return []
-    const lista: { id: string; nome: string; sub?: string }[] = pessoasParaMencionar(pessoas, mencao.busca).map((p) => ({ id: p.id, nome: p.nome }))
-    if (tipo === 'canal' && 'canal'.startsWith(mencao.busca.toLowerCase())) lista.push({ id: 'canal', nome: 'canal', sub: 'avisa todo mundo do canal' })
-    return lista
-  }, [mencao, pessoas, tipo])
-
-  const escolher = (o: { id: string; nome: string }) => {
-    if (!mencao) return
-    const antes = texto.slice(0, mencao.inicio)
-    const depois = texto.slice(mencao.inicio + 1 + mencao.busca.length)
-    const novo = `${antes}@${o.nome} ${depois}`
-    setTexto(novo)
-    if (o.id !== 'canal') setEscolhidas((e) => [...e.filter((x) => x.id !== o.id), { id: o.id, nome: o.nome }])
-    setMencao(null)
-    requestAnimationFrame(() => { const el = caixa.current; if (el) { const pos = antes.length + o.nome.length + 2; el.focus(); el.setSelectionRange(pos, pos) } })
-  }
-
-  const enviar = () => {
-    const corpo = texto.trim()
-    if (!corpo || enviando) return
-    iniciar(async () => {
-      const r = await enviarMensagem(canalId, corpo, mencoesNoTexto(corpo, escolhidas))
-      if (r.erro) { onErro(r.erro); return }
-      onErro('')
-      setTexto(''); setEscolhidas([])
-      if (r.mensagem) onEnviada(r.mensagem)
-    })
-  }
-
-  return (
-    <div className="relative border-t border-border p-3">
-      {mencao && opcoes.length > 0 && (
-        <ul className="absolute bottom-full left-3 z-10 mb-1 w-64 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg" role="listbox" aria-label="Mencionar">
-          {opcoes.map((o, i) => (
-            <li key={o.id}>
-              <button type="button" role="option" aria-selected={i === indice} onMouseDown={(e) => { e.preventDefault(); escolher(o) }}
-                className={`flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm ${i === indice ? 'bg-muted' : ''}`}>
-                <span className="font-medium">@{o.nome}</span>{o.sub && <span className="text-xs text-muted-foreground">{o.sub}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex items-end gap-2 rounded-xl border border-border bg-background px-3 py-2 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-        <textarea ref={caixa} value={texto} rows={1} maxLength={TAMANHO_MAXIMO} placeholder={`Mensagem para ${titulo}`} aria-label={`Mensagem para ${titulo}`}
-          className="max-h-[200px] min-h-6 flex-1 resize-none bg-transparent text-sm outline-none"
-          onChange={(e) => { setTexto(e.target.value); setMencao(mencaoEmAndamento(e.target.value, e.target.selectionStart ?? e.target.value.length)); setIndice(0) }}
-          onKeyDown={(e) => {
-            if (mencao && opcoes.length) {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setIndice((i) => (i + 1) % opcoes.length); return }
-              if (e.key === 'ArrowUp') { e.preventDefault(); setIndice((i) => (i - 1 + opcoes.length) % opcoes.length); return }
-              if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); escolher(opcoes[indice]); return }
-              if (e.key === 'Escape') { setMencao(null); return }
-            }
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviar() }
-          }} />
-        <Button size="icon" className="size-8 shrink-0" disabled={enviando || !texto.trim()} onClick={enviar} aria-label="Enviar">
-          {enviando ? <Loader2 className="size-4 animate-spin" /> : <SendHorizontal className="size-4" />}
-        </Button>
-      </div>
-      <p className="mt-1 px-1 text-[11px] text-muted-foreground">Enter envia · Shift+Enter quebra linha · @ menciona{tipo === 'canal' ? ' · @canal avisa todos' : ''}</p>
-    </div>
   )
 }
 
