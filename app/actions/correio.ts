@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { enviarPeloGmail, esquecerToken, GmailError } from '@/lib/google/gmail'
-import { sincronizarCaixas } from '@/lib/correio/sincronizar'
+import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 import { corpoComAssinatura, lerDestinatarios, montarMensagem } from '@/lib/correio/mensagem'
 
 /**
@@ -37,9 +37,28 @@ export async function sincronizarCaixasAgora(): Promise<Resultado> {
     const context = await exigirAdmin()
     const r = await sincronizarCaixas(context.workspace.id)
     revalidar()
-    return { recado: `${r.total} endereço(s) no Gmail.${r.novas ? ` ${r.novas} novo(s): atribua a um setor e ative.` : ''}${r.fora ? ` ${r.fora} sumiram do Gmail e não enviam mais.` : ''}` }
+    return { recado: resumoDaSincronizacao(r) }
   } catch (causa) {
     return comoErro(causa, 'Não foi possível sincronizar com o Gmail.')
+  }
+}
+
+/** Ativa de uma vez as caixas que já têm setor (as sugeridas pela sincronização e as atribuídas à mão). */
+export async function ativarCaixasComSetor(): Promise<Resultado> {
+  try {
+    const context = await exigirAdmin()
+    const admin = createAdminClient()
+    const { data, error } = await admin.from('caixas_de_email').update({ ativa: true })
+      .eq('workspace_id', context.workspace.id).eq('ativa', false).eq('no_gmail', true).not('setor_id', 'is', null).select('id')
+    if (error) throw new Error('Não foi possível ativar as caixas.')
+    await admin.from('activity_log').insert({
+      workspace_id: context.workspace.id, actor_id: context.user.id, action: 'caixas_ativadas',
+      entity_type: 'caixa_de_email', metadata: { quantas: data?.length ?? 0 },
+    })
+    revalidar()
+    return { recado: `${data?.length ?? 0} endereço(s) ativado(s). Só envia por cada um quem é do setor dele.` }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível ativar as caixas.')
   }
 }
 

@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, Link2, Loader2, Mail, Plus, RefreshCw, Tra
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
-  configurarCaixa, criarSetor, definirMembros, desconectarGoogle, excluirSetor, sincronizarCaixasAgora,
+  ativarCaixasComSetor, configurarCaixa, criarSetor, definirMembros, desconectarGoogle, excluirSetor, sincronizarCaixasAgora,
 } from '@/app/actions/correio'
 
 export type SetorNaTela = { id: string; nome: string; membros: string[] }
@@ -34,9 +34,11 @@ const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle:
  * setor é cada endereço e ativá-lo. Endereço novo chega inativo — ninguém
  * envia por ele até esta tela decidir de quem ele é.
  */
-export function CorreioDosSetores({ conexao, clienteConfigurado, setores, pessoas, caixas, aviso }: {
+export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setores, pessoas, caixas, aviso }: {
   conexao: ConexaoNaTela
   clienteConfigurado: boolean
+  /** O endereço de volta do Google, que precisa estar cadastrado no cliente OAuth. */
+  retorno: string
   setores: SetorNaTela[]
   pessoas: PessoaNaTela[]
   caixas: CaixaNaTela[]
@@ -102,11 +104,43 @@ export function CorreioDosSetores({ conexao, clienteConfigurado, setores, pessoa
             )}
           </div>
         </div>
+        {(!clienteConfigurado || !conexao) && <PassoAPassoDoGoogle retorno={retorno} clienteConfigurado={clienteConfigurado} />}
       </Card>
 
       <Setores setores={setores} pessoas={pessoas} ocupado={ocupado} executar={executar} />
       <Caixas caixas={caixas} setores={setores} ocupado={ocupado} executar={executar} conectada={Boolean(conexao)} />
     </div>
+  )
+}
+
+/** O que fazer no Google Cloud uma vez, para a Redação poder conectar a conta dona dos endereços. */
+function PassoAPassoDoGoogle({ retorno, clienteConfigurado }: { retorno: string; clienteConfigurado: boolean }) {
+  const [copiado, setCopiado] = useState(false)
+  return (
+    <ol className="flex list-decimal flex-col gap-1.5 rounded-lg bg-muted/40 py-3 pl-8 pr-4 text-sm text-muted-foreground" data-passo-a-passo>
+      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>
+        No <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud</a>,
+        {' '}num projeto da conta do Workspace da filial, ative a <strong className="font-medium text-foreground">Gmail API</strong>.
+      </li>
+      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>
+        Em “Tela de consentimento OAuth”, escolha o tipo <strong className="font-medium text-foreground">Interno</strong> (só contas @cruzvermelhariodejaneiro.org).
+      </li>
+      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>
+        Em “Credenciais”, crie um <strong className="font-medium text-foreground">ID do cliente OAuth</strong> do tipo “Aplicativo da Web”, com este URI de redirecionamento autorizado:
+        <span className="mt-1 flex flex-wrap items-center gap-2">
+          <code className="rounded bg-background px-2 py-1 font-mono text-xs text-foreground" data-retorno>{retorno}</code>
+          <button type="button" className="text-xs text-primary hover:underline"
+            onClick={async () => { await navigator.clipboard?.writeText(retorno).catch(() => undefined); setCopiado(true); setTimeout(() => setCopiado(false), 1500) }}>
+            {copiado ? 'Copiado' : 'Copiar'}
+          </button>
+        </span>
+      </li>
+      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>Cole o ID e a chave secreta em Integrações (acima). A chave vai direto para o cofre.</li>
+      <li>
+        Clique em “Conectar conta Google” e entre com a conta <strong className="font-medium text-foreground">dona dos endereços</strong> — a que tem a lista “Enviar e-mail como” (hoje, a do contato@).
+        Os endereços e as assinaturas vêm de lá.
+      </li>
+    </ol>
   )
 }
 
@@ -199,9 +233,31 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
     executar(() => configurarCaixa(f))
   }
 
+  const prontasParaAtivar = caixas.filter((c) => !c.ativa && c.setorId && c.noGmail).length
+  const ativas = caixas.filter((c) => c.ativa && c.noGmail)
+  const semMembros = new Set(setores.filter((s) => !s.membros.length).map((s) => s.id))
+  const localDe = (email: string) => email.split('@')[0] ?? ''
+  // Nome de exibição igual ao endereço ("comunicacao") é o que o destinatário vê como remetente: vale ajustar no Gmail.
+  const nomeGenerico = (c: CaixaNaTela) => !c.nome.trim() || c.nome.trim().toLowerCase() === localDe(c.email).toLowerCase()
   return (
     <Card className="flex flex-col gap-3 p-5">
-      <p className="font-medium">3. Endereços (aliases do Gmail)</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-medium">3. Endereços (aliases do Gmail)</p>
+          {caixas.length > 0 && (
+            <p className="mt-0.5 text-sm text-muted-foreground" data-resumo-caixas>
+              {ativas.length} de {caixas.length} ativos
+              {ativas.some((c) => !c.assinatura) ? ` · ${ativas.filter((c) => !c.assinatura).length} sem assinatura no Gmail` : ''}
+              {ativas.some((c) => c.setorId && semMembros.has(c.setorId)) ? ` · ${ativas.filter((c) => c.setorId && semMembros.has(c.setorId)).length} de setor sem membros` : ''}
+            </p>
+          )}
+        </div>
+        {prontasParaAtivar > 0 && (
+          <Button disabled={ocupado} onClick={() => executar(ativarCaixasComSetor)} id="ativar-com-setor">
+            <CheckCircle2 className="size-4" />Ativar {prontasParaAtivar === 1 ? 'o endereço' : `os ${prontasParaAtivar} endereços`} com setor
+          </Button>
+        )}
+      </div>
       {!caixas.length ? (
         <p className="text-sm text-muted-foreground">
           {conectada ? 'Nenhum endereço ainda. Use "Sincronizar endereços".' : 'Os endereços aparecem aqui depois de conectar a conta Google.'}
@@ -217,7 +273,10 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
                   <p className="text-xs text-muted-foreground">
                     Sai como “{c.nome || c.email}”
                     {!c.noGmail && <span className="text-destructive"> · não está mais no Gmail — não envia</span>}
-                    {!c.assinatura && c.noGmail && <span> · sem assinatura no Gmail</span>}
+                    {!c.assinatura && c.noGmail && <span className="text-warning-foreground"> · sem assinatura no Gmail</span>}
+                    {c.noGmail && nomeGenerico(c) && <span className="text-warning-foreground"> · nome de remetente genérico (ajuste em “editar informações” no Gmail)</span>}
+                    {c.ativa && c.setorId && semMembros.has(c.setorId) && <span className="text-warning-foreground"> · o setor não tem membros: ninguém envia por aqui</span>}
+                    {!c.ativa && c.setorId && c.noGmail && <span> · setor sugerido, falta ativar</span>}
                   </p>
                 </div>
                 <select value={c.setorId ?? ''} disabled={ocupado} aria-label={`Setor de ${c.email}`}
@@ -247,7 +306,8 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        Para mudar a assinatura, altere no Gmail (Configurações → Contas → Enviar e-mail como) e clique em “Sincronizar endereços”.
+        Assinatura de cada endereço: no Gmail, Configurações → Geral → Assinatura — crie uma por setor e escolha-a em “Padrões de assinatura” para o endereço dele.
+        Nome do remetente: Configurações → Contas → Enviar e-mail como → editar informações. Depois, “Sincronizar endereços”.
         A Redação não deixa ninguém editar assinatura na hora de enviar.
       </p>
     </Card>

@@ -4,7 +4,7 @@ import { requirePermissao } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { esquecerToken, trocarCodigo } from '@/lib/google/gmail'
-import { sincronizarCaixas } from '@/lib/correio/sincronizar'
+import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     })
 
     const r = await sincronizarCaixas(workspaceId)
-    return voltar('ok', `Conta ${email} conectada. ${r.total} endereço(s) encontrados no Gmail${r.novas ? `, ${r.novas} novo(s) — atribua cada um a um setor e ative` : ''}.`)
+    return voltar('ok', `Conta ${email} conectada. ${resumoDaSincronizacao(r)}`)
   } catch (causa) {
     return voltar('erro', causa instanceof Error ? causa.message : 'Não foi possível concluir a conexão.')
   }

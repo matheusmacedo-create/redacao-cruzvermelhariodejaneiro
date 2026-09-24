@@ -11,6 +11,7 @@ import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { obterCampos, SERVICOS, situacaoDasChaves } from '@/lib/integracoes/chaves'
 import { tituloDaArea } from '@/lib/navegacao'
+import { urlDeRetorno } from '@/lib/google/gmail'
 
 export const metadata = { title: tituloDaArea('/configuracoes') }
 
@@ -53,6 +54,7 @@ export default async function ConfiguracoesPage({
       <CorreioDosSetores
         aviso={aviso}
         clienteConfigurado={Boolean(clienteGoogle)}
+        retorno={urlDeRetorno()}
         conexao={conexao?.data ? { email: conexao.data.email_conta, estado: conexao.data.estado, sincronizadaEm: conexao.data.sincronizada_em } : null}
         setores={(setores?.data ?? []).map((s) => ({
           id: s.id, nome: s.nome,
