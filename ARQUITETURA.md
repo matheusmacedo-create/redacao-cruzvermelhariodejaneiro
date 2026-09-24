@@ -389,7 +389,15 @@ Esse é o padrão a seguir quando houver validação não trivial.
 pauta, **excluindo** quem escreveu, quem é responsável e quem está enviando —
 ninguém aprova o próprio texto.
 
-`/aprovacoes` lista o que espera decisão; `decideApproval` registra o voto.
+`/aprovacoes` é uma fila por setor: abre em "Esperando meu voto", marca cada
+rodada com o setor da pauta (`pautas.coordination`), o prazo do setor e o
+atraso. Na hora de votar aparece a conferência do setor (e a do setor de quem
+vota); **aprovar exige a lista inteira marcada, conferida de novo em
+`decideApproval`**, e o que foi conferido vai no comentário do voto. Perfis,
+prazos e listas em `lib/aprovacoes/setores.ts`; regras da fila em
+`lib/aprovacoes/fila.ts` (puros). Benchmark e fontes em
+[`docs/APROVACOES.md`](docs/APROVACOES.md). Setor novo sem perfil usa o
+padrão. Mudar uma lista é mudar esse arquivo — peça ao setor para validar.
 
 ### 7.4 Biblioteca de arquivos
 
