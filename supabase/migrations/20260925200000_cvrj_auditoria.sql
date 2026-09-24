@@ -1298,7 +1298,9 @@ begin
          tentativas = case when p_erro is not null then tentativas + 1 else tentativas end,
          ultimo_erro = left(p_erro, 500),
          proxima_tentativa_em = p_proxima
-   where dia = p_dia and ots_estado <> 'confirmado';
+   where dia = p_dia and ots_estado <> 'confirmado'
+     -- Um envio só: se duas rodadas mandarem o mesmo lote ao mesmo tempo, vale a primeira.
+     and (p_estado is distinct from 'enviado' or ots_estado = 'pendente');
   return found;
 end $$;
 
