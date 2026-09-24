@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
@@ -21,7 +22,7 @@ type Resultado = { erro?: string; recado?: string }
 export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resultado> {
   try {
     const context = await requireWorkspace()
-    if (context.role !== 'admin') throw new Error('Só administradores podem configurar chaves de integração.')
+    if (!pode(context.role, 'integracoes.configurar')) throw new Error('Só administradores podem configurar chaves de integração.')
 
     const servico = String(formData.get('servico') ?? '')
     if (!ehServico(servico) || 'oculto' in SERVICOS[servico]) throw new Error('Serviço desconhecido.')
@@ -64,7 +65,7 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
 export async function removerChaveDeIntegracao(formData: FormData): Promise<Resultado> {
   try {
     const context = await requireWorkspace()
-    if (context.role !== 'admin') throw new Error('Só administradores podem remover chaves de integração.')
+    if (!pode(context.role, 'integracoes.configurar')) throw new Error('Só administradores podem remover chaves de integração.')
 
     const servico = String(formData.get('servico') ?? '')
     if (!ehServico(servico) || 'oculto' in SERVICOS[servico]) throw new Error('Serviço desconhecido.')

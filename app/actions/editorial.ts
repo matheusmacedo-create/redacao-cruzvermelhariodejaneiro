@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { STATUS_DA_PAUTA } from '@/lib/editorial/status'
 import { createClient } from '@/lib/supabase/server'
@@ -231,7 +232,7 @@ export async function deletePauta(formData: FormData) {
 
   const { data: pauta } = await supabase.from('pautas').select('id,title,created_by,owner_id').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!pauta) throw new Error('Pauta não encontrada.')
-  if (context.role !== 'admin' && pauta.created_by !== context.user.id && pauta.owner_id !== context.user.id) {
+  if (!pode(context.role, 'pautas.apagar_de_outros') && pauta.created_by !== context.user.id && pauta.owner_id !== context.user.id) {
     throw new Error('Somente quem criou a pauta, o responsável ou um administrador pode excluí-la.')
   }
 
@@ -605,7 +606,7 @@ export async function adicionarRevisores(formData: FormData): Promise<{ erro?: s
     .eq('id', approvalId).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!approval) throw new Error('Aprovação não encontrada.')
   if (approval.status !== 'pending') throw new Error('Esta rodada já foi encerrada.')
-  if (approval.requested_by !== context.user.id && context.role !== 'admin') {
+  if (approval.requested_by !== context.user.id && !pode(context.role, 'aprovacoes.gerenciar')) {
     throw new Error('Só quem pediu a aprovação pode convidar mais pessoas.')
   }
 
@@ -889,7 +890,7 @@ export async function deleteProject(formData: FormData) {
 
   const { data: project } = await supabase.from('projects').select('id,name,created_by').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!project) throw new Error('Projeto não encontrado.')
-  if (context.role !== 'admin' && project.created_by !== context.user.id) {
+  if (!pode(context.role, 'projetos.apagar_de_outros') && project.created_by !== context.user.id) {
     throw new Error('Somente quem criou o projeto ou um administrador pode excluí-lo.')
   }
 
@@ -918,17 +919,6 @@ export async function updateProfile(formData: FormData) {
   }).eq('id', context.user.id).select('id').single()
   if (error || !data) throw new Error('Não foi possível atualizar o perfil. Tente novamente.')
   revalidatePath('/perfil')
-}
-
-export async function updatePassword(formData: FormData) {
-  await requireWorkspace()
-  const supabase = await createClient()
-  const password = text(formData, 'password')
-  const confirmation = text(formData, 'confirmation')
-  if (password.length < 8) throw new Error('A senha deve ter pelo menos 8 caracteres.')
-  if (password !== confirmation) throw new Error('As senhas não coincidem.')
-  const { error } = await supabase.auth.updateUser({ password })
-  if (error) throw new Error('Não foi possível atualizar a senha.')
 }
 
 export async function decideApproval(formData: FormData) {

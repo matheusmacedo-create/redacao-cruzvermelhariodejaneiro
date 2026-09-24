@@ -5,6 +5,8 @@ import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError, type InvalidKey } from '@/lib/supabase/env'
+import { obterWorkspace } from '@/lib/session'
+import { Button } from '@/components/ui/button'
 
 // Só nomes de variáveis, nunca valores: a página é pública.
 function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid: InvalidKey[] }) {
@@ -70,7 +72,12 @@ export default async function LoginPage() {
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) redirect('/dashboard')
+  // Logado mas sem espaço (conta desativada, vínculo removido): mandar para
+  // o dashboard devolveria para cá, em laço. Explica e oferece sair.
+  if (user) {
+    if (await obterWorkspace()) redirect('/dashboard')
+    return <SemAcesso />
+  }
 
   const admin = createAdminClient()
   const { count, error } = await admin.from('profiles').select('*', { count: 'exact', head: true })
@@ -101,6 +108,20 @@ export default async function LoginPage() {
         </div>
         <p className="text-sm text-primary-foreground/70">Cruz Vermelha Brasileira · Rio de Janeiro</p>
       </section>
+    </main>
+  )
+}
+
+function SemAcesso() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+      <div className="w-full max-w-md">
+        <BrandMark className="w-72 items-start" />
+        <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive"><TriangleAlert className="size-6" /></div>
+        <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Sem acesso à Redação</h1>
+        <p className="mt-3 leading-relaxed text-muted-foreground">Sua conta está desativada ou não está vinculada a nenhum espaço. Se isso não era esperado, fale com um administrador.</p>
+        <form action="/auth/signout" method="post" className="mt-6"><Button type="submit" size="lg">Sair e entrar com outra conta</Button></form>
+      </div>
     </main>
   )
 }

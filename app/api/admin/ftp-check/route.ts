@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { ftpConfig, withFtp, nomesDoCertificado, FtpConfigError, type TlsMode } from '@/lib/publicacao/ftp'
 
 export const runtime = 'nodejs'
@@ -27,7 +27,7 @@ function seguro(erro: unknown, password: string): string {
 }
 
 export async function GET() {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('diagnosticos.executar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   let config
   try {

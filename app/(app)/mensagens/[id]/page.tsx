@@ -6,6 +6,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 import { cn } from '@/lib/utils'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/format'
 import { addContentComment } from '@/app/actions/editorial'
@@ -28,7 +29,7 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
 
   const { data: voterRows } = approval ? await supabase.from('approval_voters').select('user_id,decision,decided_at').eq('approval_id', approval.id) : { data: [] as any[] }
 
-  const isParticipant = context.role === 'admin' || approval?.requested_by === context.user.id || (voterRows ?? []).some((v) => v.user_id === context.user.id)
+  const isParticipant = pode(context.role, 'aprovacoes.gerenciar') || approval?.requested_by === context.user.id || (voterRows ?? []).some((v) => v.user_id === context.user.id)
   if (!isParticipant) notFound()
 
   const profileIds = new Set<string>()

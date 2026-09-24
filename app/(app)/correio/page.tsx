@@ -1,5 +1,6 @@
 import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { Correio, type CaixaDoSetor, type EnvioNaTela } from '@/components/app/correio/correio'
 
@@ -16,7 +17,7 @@ export default async function CorreioPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const workspaceId = context.workspace.id
-  const admin = context.role === 'admin'
+  const admin = pode(context.role, 'correio.todas_as_caixas')
 
   const [{ data: meus }, { data: setores }, { data: caixas }, { data: envios }, { data: conexao }] = await Promise.all([
     supabase.from('setor_membros').select('setor_id').eq('workspace_id', workspaceId).eq('user_id', context.user.id),

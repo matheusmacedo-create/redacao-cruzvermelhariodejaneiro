@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, History, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -59,6 +59,8 @@ const sections = [
 ]
 
 const admin = [
+  // Só aparece para quem pode gerenciar; a página confere de novo no servidor.
+  { href: '/usuarios', label: 'Usuários e permissões', icon: KeyRound, restrito: true },
   { href: '/configuracoes', label: 'Configurações', icon: Settings },
   { href: '/perfil', label: 'Perfil', icon: UserCircle },
 ]
@@ -82,7 +84,7 @@ function NavItem({ href, label, icon: Icon, active }: { href: string; label: str
 
 type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
 
-function SidebarContent({ profile, buildInfo, onNavigate }: { profile: any; buildInfo?: BuildInfo; onNavigate?: () => void }) {
+function SidebarContent({ profile, buildInfo, onNavigate, gerenciaUsuarios }: { profile: any; buildInfo?: BuildInfo; onNavigate?: () => void; gerenciaUsuarios?: boolean }) {
   const pathname = usePathname()
   const displayName = profile?.full_name || profile?.username || 'Usuário'
   const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -106,7 +108,7 @@ function SidebarContent({ profile, buildInfo, onNavigate }: { profile: any; buil
         <div className="mt-5">
           <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Administração</p>
           <div className="flex flex-col gap-1">
-            {admin.map((item) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
+            {admin.filter((item) => !item.restrito || gerenciaUsuarios).map(({ restrito: _, ...item }) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
           </div>
         </div>
       </nav>
@@ -130,7 +132,7 @@ function SidebarContent({ profile, buildInfo, onNavigate }: { profile: any; buil
   )
 }
 
-export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: BuildInfo }) {
+export function Sidebar({ profile, buildInfo, gerenciaUsuarios }: { profile: any; buildInfo?: BuildInfo; gerenciaUsuarios?: boolean }) {
   const { open, close } = useMobileNav()
 
   return (
@@ -139,7 +141,7 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
         <div className="border-b border-sidebar-border bg-white px-5 py-5">
           <BrandMark className="w-full" compact />
         </div>
-        <SidebarContent profile={profile} buildInfo={buildInfo} />
+        <SidebarContent profile={profile} buildInfo={buildInfo} gerenciaUsuarios={gerenciaUsuarios} />
       </aside>
 
       {open && (
@@ -152,7 +154,7 @@ export function Sidebar({ profile, buildInfo }: { profile: any; buildInfo?: Buil
                 <X className="size-5" />
               </button>
             </div>
-            <SidebarContent profile={profile} buildInfo={buildInfo} onNavigate={close} />
+            <SidebarContent profile={profile} buildInfo={buildInfo} gerenciaUsuarios={gerenciaUsuarios} onNavigate={close} />
           </aside>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { normalizarEmail, normalizarNome, novoToken, prazoDeConfirmacao, TEXTO_DO_CONSENTIMENTO } from '@/lib/newsletter/inscricao'
@@ -29,7 +30,7 @@ export type Resultado = { erro?: string; recado?: string }
 /** Garante que quem chamou é do espaço e devolve o id dele. */
 async function espacoAutorizado() {
   const context = await requireWorkspace()
-  return { workspaceId: context.workspace.id, userId: context.user.id }
+  return { workspaceId: context.workspace.id, userId: context.user.id, role: context.role }
 }
 
 /**
@@ -176,7 +177,10 @@ export async function reenviarConvitesPendentes(): Promise<Resultado> {
  */
 export async function apagarInscrito(formData: FormData): Promise<Resultado> {
   try {
-    const { workspaceId, userId } = await espacoAutorizado()
+    const { workspaceId, userId, role } = await espacoAutorizado()
+    // A tela já esconde o botão de quem não é admin, mas a action é um
+    // endpoint público para qualquer membro logado: a regra tem de estar aqui.
+    if (!pode(role, 'newsletter.apagar')) throw new Error('Só um administrador pode apagar inscritos.')
     const id = String(formData.get('id') ?? '')
     if (!id) throw new Error('Inscrito não informado.')
 
@@ -309,7 +313,7 @@ export async function adicionarInscrito(formData: FormData): Promise<Resultado> 
 export async function ligarFormularioDoSite(): Promise<Resultado> {
   try {
     const context = await requireWorkspace()
-    if (context.role !== 'admin') throw new Error('Só um administrador pode alterar a página inicial do site.')
+    if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode alterar a página inicial do site.')
 
     const rota = `${urlBase()}/api/newsletter/inscrever`
 

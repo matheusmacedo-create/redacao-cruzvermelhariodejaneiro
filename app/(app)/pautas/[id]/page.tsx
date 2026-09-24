@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { type Pauta } from '@/lib/data'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { pautaStatus, PRIORITY_DB } from '@/lib/status-maps'
 import { PautaRoom } from './pauta-room'
@@ -94,7 +95,7 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
     summary: data.description || '',
   }
 
-  const canDelete = context.role === 'admin' || data.owner_id === context.user.id
+  const canDelete = pode(context.role, 'pautas.apagar_de_outros') || data.owner_id === context.user.id
 
   return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} canDelete={canDelete} />
 }

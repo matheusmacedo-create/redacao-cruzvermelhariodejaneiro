@@ -28,7 +28,7 @@ export function LoginForm({ needsBootstrap }: { needsBootstrap: boolean }) {
       }
       const supabase = createClient()
       const { error: signInError } = await supabase.auth.signInWithPassword({ email: internalEmail(username.trim()), password })
-      if (signInError) throw new Error('Usuário ou senha inválidos.')
+      if (signInError) throw new Error(signInError.code === 'user_banned' ? 'Esta conta está desativada. Fale com um administrador.' : 'Usuário ou senha inválidos.')
       router.push('/dashboard'); router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.')

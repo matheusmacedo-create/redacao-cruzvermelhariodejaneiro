@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -415,7 +416,7 @@ function lerRascunho(formData: FormData): Rascunho {
 export async function salvarRascunho(formData: FormData): Promise<{ erro?: string; id?: string }> {
   try {
     const context = await requireWorkspace()
-    if (context.role === 'colaborador') throw new Error('Campanhas são para administradores e editores.')
+    if (!pode(context.role, 'imprensa.campanhas')) throw new Error('Campanhas são para administradores e editores.')
     const r = lerRascunho(formData)
     if (!r.assunto && !r.corpo) throw new Error('Escreva ao menos o assunto ou o texto.')
     const id = texto(formData, 'campanhaId')
@@ -445,7 +446,7 @@ export async function salvarRascunho(formData: FormData): Promise<{ erro?: strin
 export async function excluirRascunho(formData: FormData): Promise<{ erro?: string }> {
   try {
     const context = await requireWorkspace()
-    if (context.role === 'colaborador') throw new Error('Campanhas são para administradores e editores.')
+    if (!pode(context.role, 'imprensa.campanhas')) throw new Error('Campanhas são para administradores e editores.')
     const { error } = await createAdminClient().from('press_campanhas').delete()
       .eq('id', texto(formData, 'id')).eq('workspace_id', context.workspace.id).eq('estado', 'rascunho')
     if (error) throw new Error('Não foi possível apagar o rascunho.')
@@ -493,7 +494,7 @@ export async function naoAbriramDaCampanha(formData: FormData): Promise<{ erro?:
 export async function enviarCampanha(formData: FormData): Promise<{ erro?: string; recado?: string }> {
   try {
     const context = await requireWorkspace()
-    if (context.role === 'colaborador') throw new Error('Disparar campanha é para administradores e editores.')
+    if (!pode(context.role, 'imprensa.campanhas')) throw new Error('Disparar campanha é para administradores e editores.')
     if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado: falta RESEND_API_KEY.')
 
     const { assunto, corpo, linkUrl, linkRotulo } = lerRascunho(formData)

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import {
   adaptarTexto, esforcoDeEscrita, esforcoDeRaciocinio, iaConfigurada, modeloDeEscrita, modeloDeImagem,
   modeloDeTexto, modelosDisponiveis, semChave, tetoMensalDeImagens,
@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic'
  * Nunca devolve a chave — nem inteira, nem em pedaço.
  */
 export async function GET(request: NextRequest) {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('diagnosticos.executar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   // O lado do Claude é independente do da OpenAI: cada provedor responde por
   // si, e um sem chave não esconde o diagnóstico do outro.

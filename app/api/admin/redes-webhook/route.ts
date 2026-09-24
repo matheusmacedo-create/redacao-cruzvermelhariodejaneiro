@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { semSegredo, UploadPostConfigError } from '@/lib/publicacao/upload-post'
 import { garantirWebhookRegistrado, lerConfiguracao, segredoDoWebhook, urlDoWebhook } from '@/lib/publicacao/webhook-do-conector'
 
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
  * aparece na resposta, porque ninguém mais precisa copiá-lo.
  */
 export async function GET(req: Request) {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('integracoes.configurar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   const ativar = new URL(req.url).searchParams.get('ativar') === '1'
   const destino = urlDoWebhook()

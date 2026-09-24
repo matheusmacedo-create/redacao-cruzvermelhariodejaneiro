@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/app/sidebar'
 import { Topbar } from '@/components/app/topbar'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { pode } from '@/lib/permissoes'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const context = await requireWorkspace()
@@ -22,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AppShellProvider>
       <div className="flex h-[100dvh] overflow-hidden bg-background">
-        <Sidebar profile={context.profile} buildInfo={buildInfo} />
+        <Sidebar profile={context.profile} buildInfo={buildInfo} gerenciaUsuarios={pode(context.role, 'usuarios.gerenciar')} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} />
           <main className="flex-1 overflow-y-auto overflow-x-hidden">

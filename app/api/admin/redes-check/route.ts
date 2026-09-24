@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import {
   conta,
@@ -32,7 +32,7 @@ type Etapa = { etapa: string; ok: boolean; detalhe: string }
  * A chave nunca aparece na resposta, nem em mensagem de erro do servidor.
  */
 export async function GET() {
-  try { await requireAdmin() } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
+  try { await requirePermissao('diagnosticos.executar') } catch { return NextResponse.json({ error: 'Acesso negado.' }, { status: 403 }) }
 
   const perfil = perfilPadrao()
   const etapas: Etapa[] = []

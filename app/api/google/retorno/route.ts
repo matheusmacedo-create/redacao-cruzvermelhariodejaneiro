@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/session'
+import { requirePermissao } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { esquecerToken, trocarCodigo } from '@/lib/google/gmail'
@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
     return res
   }
 
-  let contexto: Awaited<ReturnType<typeof requireAdmin>>
-  try { contexto = await requireAdmin() } catch { return voltar('restrito') }
+  let contexto: Awaited<ReturnType<typeof requirePermissao>>
+  try { contexto = await requirePermissao('integracoes.configurar') } catch { return voltar('restrito') }
 
   const q = request.nextUrl.searchParams
   if (q.get('error')) return voltar('erro', q.get('error') === 'access_denied' ? 'A autorização foi cancelada no Google.' : `O Google devolveu: ${q.get('error')}`)

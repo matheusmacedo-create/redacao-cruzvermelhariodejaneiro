@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireAdmin, requireWorkspace } from '@/lib/session'
+import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 
@@ -63,7 +63,7 @@ export async function autorizarUsoDeImagem(formData: FormData): Promise<{ erro?:
  */
 export async function liberarMidiaDeTerceiro(formData: FormData): Promise<{ erro?: string; ok?: boolean }> {
   try {
-    const context = await requireAdmin()
+    const context = await requirePermissao('biblioteca.liberar_terceiros')
     const supabase = await createClient()
     const id = String(formData.get('fileId') ?? '').trim()
     if (!id) throw new Error('Arquivo não identificado.')
