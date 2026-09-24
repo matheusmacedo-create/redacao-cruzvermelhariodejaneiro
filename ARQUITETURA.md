@@ -198,6 +198,29 @@ desativa/reativa. As actions estão em `app/actions/usuarios.ts`. Regras:
   insert pela Data API. Mudança de vínculo é registrada por gatilho (com o
   autor, porque a action faz pelo cliente do admin); o resto, pela action.
 
+**Verificação em duas etapas (app autenticador, TOTP)**, pelo MFA do próprio
+Supabase Auth. Qualquer pessoa ativa em Meu perfil → Segurança; o admin pode
+torná-la obrigatória por papel em `/usuarios` (`workspaces.mfa_obrigatorio_para`,
+nasce vazio = opcional para todos). Regras:
+
+- **Quem tem o app cadastrado sempre digita o código**, obrigatório ou não —
+  senão cadastrar não protegeria nada. A regra está em
+  `lib/usuarios/verificacao.ts` (para o app saber para onde mandar) e em
+  `private.verificacao_em_dia` (para o banco negar). Mudar uma exige mudar a outra.
+- **O banco é a cerca**: os helpers de RLS exigem sessão `aal2` de quem tem o
+  app ou é de papel obrigado. Uma sessão só com senha continua lendo o próprio
+  vínculo e o próprio espaço (policies `*_self`/`*_vinculo`), e nada mais — é o
+  que deixa o app levar a pessoa a `/verificacao` em vez de "sem acesso".
+- `obterWorkspace()` devolve null para quem deve o código (rotas de API usam o
+  service role depois dela). `/trocar-senha`, `/verificacao` e a home usam
+  `obterWorkspaceSemVerificacao()`. Ordem: senha provisória → código → app.
+- Cadastrar, confirmar e remover o próprio app é feito no navegador direto com
+  o Auth: o segredo do QR Code não passa pelo servidor. O servidor só registra
+  na auditoria, conferindo no Auth quantos aparelhos existem de fato.
+- **Não há códigos de recuperação** no Supabase. Quem perde o celular pede a um
+  admin, que remove o app da conta em `/usuarios` (as sessões caem junto). Por
+  isso o perfil sugere cadastrar um segundo aparelho.
+
 A equipe oficial e os setores ficam em `lib/equipe.ts`. É a fonte do campo
 Coordenação e da lista "da equipe, ainda sem acesso" em `/usuarios` — estar lá
 não cria conta. Mudar a coordenação de alguém sincroniza o `setor_membros` do
