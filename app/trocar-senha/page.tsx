@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { KeyRound } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { TrocarSenhaForm } from '@/components/auth/trocar-senha-form'
-import { obterWorkspace } from '@/lib/session'
+import { obterWorkspaceSemVerificacao } from '@/lib/session'
 
 /**
  * Troca obrigatória de senha.
@@ -12,7 +12,7 @@ import { obterWorkspace } from '@/lib/session'
  * grupo seria um laço.
  */
 export default async function TrocarSenhaPage() {
-  const context = await obterWorkspace()
+  const context = await obterWorkspaceSemVerificacao()
   if (!context) redirect('/')
   if (!context.profile?.trocar_senha) redirect('/dashboard')
 

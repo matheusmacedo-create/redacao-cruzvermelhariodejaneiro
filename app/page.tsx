@@ -5,7 +5,7 @@ import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError, type InvalidKey } from '@/lib/supabase/env'
-import { obterWorkspace } from '@/lib/session'
+import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 
 // Só nomes de variáveis, nunca valores: a página é pública.
@@ -75,7 +75,7 @@ export default async function LoginPage() {
   // Logado mas sem espaço (conta desativada, vínculo removido): mandar para
   // o dashboard devolveria para cá, em laço. Explica e oferece sair.
   if (user) {
-    if (await obterWorkspace()) redirect('/dashboard')
+    if (await obterWorkspaceSemVerificacao()) redirect('/dashboard')
     return <SemAcesso />
   }
 
