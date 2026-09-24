@@ -6,8 +6,8 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { requirePermissao } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { origemDoSite } from '@/lib/auditoria/consulta'
-import { lerCanais, lerDocumento, lerParceria, ehPdf, nomeDoArquivoPublico, TAMANHO_MAXIMO } from '@/lib/transparencia/regras'
-import { regerarCanais, regerarPortal, subirPdfDoPortal } from '@/lib/transparencia/publicacao'
+import { lerCanais, lerDocumento, lerParceria, ehPdf, nomeDoArquivoPublico, NOME_DO_ARQUIVO_PUBLICO, TAMANHO_MAXIMO } from '@/lib/transparencia/regras'
+import { regerarCanais, regerarPortal, retirarPdfsDoPortal, subirPdfDoPortal } from '@/lib/transparencia/publicacao'
 
 /**
  * Portal de transparência e canais oficiais (docs/auditoria-publica.md §5).
@@ -18,6 +18,7 @@ import { regerarCanais, regerarPortal, subirPdfDoPortal } from '@/lib/transparen
  */
 
 type Resultado = { erro?: string; aviso?: string }
+type Admin = ReturnType<typeof createAdminClient>
 const BUCKET = 'transparencia'
 
 function erroDoBanco(error: { message?: string; code?: string } | null, padrao: string): never {
@@ -29,6 +30,32 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
 const contexto = async () => {
   const c = await requirePermissao('transparencia.gerenciar')
   return { workspaceId: c.workspace.id as string, ator: c.user.id as string, admin: createAdminClient() }
+}
+
+/**
+ * Algumas funções do banco recebem só o id: antes de chamá-las, confere que o
+ * documento ou a parceria é deste espaço (o espaço de um registro não muda).
+ */
+async function doEspaco(admin: Admin, tabela: 'transparencia_documentos' | 'transparencia_parcerias', id: string, workspaceId: string) {
+  const { data, error } = await admin.from(tabela).select('id,retirado_em').eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
+  if (error) throw new Error('Não foi possível ler o registro.')
+  if (!data) throw new Error(tabela === 'transparencia_documentos' ? 'Documento não encontrado.' : 'Parceria não encontrada.')
+  return data as { id: string; retirado_em: string | null }
+}
+
+/**
+ * Documento retirado: apaga do site os PDFs publicados que ainda estão lá,
+ * regera a página e só então registra no banco. Lança se o site não responder
+ * (o banco não marca, e a tela oferece tentar de novo).
+ */
+async function tirarPdfsDoSite(admin: Admin, workspaceId: string, documentoId: string): Promise<void> {
+  const { data: versoes, error } = await admin.from('transparencia_versoes').select('arquivo_publico')
+    .eq('documento_id', documentoId).eq('workspace_id', workspaceId).not('publicado_em', 'is', null).is('removido_do_site_em', null)
+  if (error) throw new Error('Não foi possível ler as versões do documento.')
+  const nomes = (versoes ?? []).map((v) => String(v.arquivo_publico ?? '').split('/').pop() ?? '').filter((n) => NOME_DO_ARQUIVO_PUBLICO.test(n))
+  await retirarPdfsDoPortal(workspaceId, nomes)
+  const { error: e2 } = await admin.rpc('transparencia_marcar_removidos', { p_documento_id: documentoId })
+  if (e2) console.error('[transparencia] remoção dos arquivos não registrada:', e2.message)
 }
 
 /** Publica a mudança no site; se o site não responder, o banco já registrou e a tela avisa. */
@@ -153,12 +180,23 @@ export async function descartarVersao(versaoId: string): Promise<Resultado> {
   }
 }
 
+/**
+ * Retira o documento do portal: a trilha registra a retirada, os PDFs dele saem
+ * do servidor do site (publicado por engano pode ter dado pessoal) e a página é
+ * refeita. O registro do que foi publicado continua na trilha.
+ */
 export async function retirarDocumento(documentoId: string, motivo: string): Promise<Resultado> {
   try {
     const { workspaceId, ator, admin } = await contexto()
+    await doEspaco(admin, 'transparencia_documentos', documentoId, workspaceId)
     const { error } = await admin.rpc('transparencia_retirar_documento', { p_documento_id: documentoId, p_motivo: motivo, p_ator: ator })
     if (error) erroDoBanco(error, 'Não foi possível retirar o documento.')
-    const aviso = await atualizarSite(() => regerarPortal(workspaceId), 'a página do portal')
+    let aviso: string | undefined
+    try {
+      await tirarPdfsDoSite(admin, workspaceId, documentoId)
+    } catch (causa) {
+      aviso = `Retirado do portal, mas o site não respondeu agora (${mensagemDoErro(causa, 'o FTP não respondeu')}): o PDF ainda pode estar no endereço público. Use "Apagar os PDFs do site", no cartão do documento, para tentar de novo.`
+    }
     revalidatePath('/transparencia')
     return { aviso }
   } catch (causa) {
@@ -166,10 +204,29 @@ export async function retirarDocumento(documentoId: string, motivo: string): Pro
   }
 }
 
+/** Documento retirado cujo PDF ficou no site (o site não respondeu na retirada): tenta apagar de novo. */
+export async function apagarPdfsDoSite(documentoId: string): Promise<Resultado> {
+  try {
+    const { workspaceId, admin } = await contexto()
+    const doc = await doEspaco(admin, 'transparencia_documentos', documentoId, workspaceId)
+    if (!doc.retirado_em) throw new Error('O documento está no ar: para tirar o PDF do site, retire o documento do portal.')
+    try {
+      await tirarPdfsDoSite(admin, workspaceId, documentoId)
+    } catch (causa) {
+      throw new Error(`O site não respondeu agora (${mensagemDoErro(causa, 'o FTP não respondeu')}). Tente de novo em alguns minutos.`)
+    }
+    revalidatePath('/transparencia')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível apagar os PDFs do site.') }
+  }
+}
+
 /** Rascunho (nada publicado): apaga o documento e os arquivos enviados. */
 export async function excluirRascunhoDeDocumento(documentoId: string): Promise<Resultado> {
   try {
     const { workspaceId, admin } = await contexto()
+    await doEspaco(admin, 'transparencia_documentos', documentoId, workspaceId)
     const { data: versoes } = await admin.from('transparencia_versoes').select('caminho,publicado_em').eq('documento_id', documentoId).eq('workspace_id', workspaceId)
     if ((versoes ?? []).some((v) => v.publicado_em)) throw new Error('Documento com versão publicada não se apaga: retire-o do portal com um motivo.')
     const { error } = await admin.rpc('transparencia_excluir_rascunho', { p_documento_id: documentoId, p_parceria_id: null })
@@ -208,7 +265,7 @@ export async function salvarParceria(id: string | null, formData: FormData): Pro
     if (error) erroDoBanco(error, 'Não foi possível salvar a parceria.')
     let aviso: string | undefined
     if (id) {
-      const { data: p } = await admin.from('transparencia_parcerias').select('publicado_em').eq('id', id).maybeSingle()
+      const { data: p } = await admin.from('transparencia_parcerias').select('publicado_em').eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
       if (p?.publicado_em) aviso = await atualizarSite(() => regerarPortal(workspaceId), 'a página do portal')
     }
     revalidatePath('/transparencia')
@@ -221,6 +278,7 @@ export async function salvarParceria(id: string | null, formData: FormData): Pro
 export async function publicarParceria(id: string): Promise<Resultado> {
   try {
     const { workspaceId, ator, admin } = await contexto()
+    await doEspaco(admin, 'transparencia_parcerias', id, workspaceId)
     const { error } = await admin.rpc('transparencia_publicar_parceria', { p_id: id, p_ator: ator })
     if (error) erroDoBanco(error, 'Não foi possível publicar a parceria.')
     const aviso = await atualizarSite(() => regerarPortal(workspaceId), 'a página do portal')
@@ -234,6 +292,7 @@ export async function publicarParceria(id: string): Promise<Resultado> {
 export async function retirarParceria(id: string, motivo: string): Promise<Resultado> {
   try {
     const { workspaceId, ator, admin } = await contexto()
+    await doEspaco(admin, 'transparencia_parcerias', id, workspaceId)
     const { error } = await admin.rpc('transparencia_retirar_parceria', { p_id: id, p_motivo: motivo, p_ator: ator })
     if (error) erroDoBanco(error, 'Não foi possível retirar a parceria.')
     const aviso = await atualizarSite(() => regerarPortal(workspaceId), 'a página do portal')
@@ -246,7 +305,8 @@ export async function retirarParceria(id: string, motivo: string): Promise<Resul
 
 export async function excluirRascunhoDeParceria(id: string): Promise<Resultado> {
   try {
-    const { admin } = await contexto()
+    const { workspaceId, admin } = await contexto()
+    await doEspaco(admin, 'transparencia_parcerias', id, workspaceId)
     const { error } = await admin.rpc('transparencia_excluir_rascunho', { p_documento_id: null, p_parceria_id: id })
     if (error) erroDoBanco(error, 'Não foi possível excluir o rascunho.')
     revalidatePath('/transparencia')

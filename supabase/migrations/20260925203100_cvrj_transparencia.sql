@@ -50,8 +50,11 @@ create table if not exists public.transparencia_versoes (
   publicado_em    timestamptz,
   publicado_por   uuid references public.profiles (id) on delete set null,
   enviado_por     uuid references public.profiles (id) on delete set null,
+  -- O PDF saiu do servidor do site (documento retirado do portal). O registro e a trilha ficam.
+  removido_do_site_em timestamptz,
   created_at      timestamptz not null default now(),
-  check ((publicado_em is null) = (arquivo_publico is null))
+  check ((publicado_em is null) = (arquivo_publico is null)),
+  check (removido_do_site_em is null or publicado_em is not null)
 );
 create index if not exists transparencia_versoes_doc_idx on public.transparencia_versoes (documento_id, publicado_em desc nulls first);
 
@@ -117,6 +120,10 @@ begin
   if old.publicado_em is not null and (new.publicado_em is distinct from old.publicado_em
      or new.arquivo_publico is distinct from old.arquivo_publico or new.publicado_por is distinct from old.publicado_por) then
     raise exception 'Versão publicada não muda.' using errcode = 'P0001';
+  end if;
+  -- A única mudança de uma versão publicada: o PDF sair do site, uma vez.
+  if old.removido_do_site_em is not null and new.removido_do_site_em is distinct from old.removido_do_site_em then
+    raise exception 'A remoção do arquivo do site já foi registrada.' using errcode = 'P0001';
   end if;
   return new;
 end $$;
@@ -529,6 +536,22 @@ begin
   if not found then raise exception 'Parceria não encontrada ou já retirada.' using errcode = 'P0001'; end if;
 end $$;
 
+-- Registra que os PDFs publicados de um documento retirado saíram do servidor do site (o servidor
+-- apagou por FTP antes). Só de documento retirado: documento no ar mantém os arquivos.
+create or replace function public.transparencia_marcar_removidos(p_documento_id uuid)
+returns integer language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_n integer;
+begin
+  if not exists (select 1 from public.transparencia_documentos d where d.id = p_documento_id and d.retirado_em is not null) then
+    raise exception 'Só os arquivos de documento retirado do portal saem do site.' using errcode = 'P0001';
+  end if;
+  update public.transparencia_versoes set removido_do_site_em = clock_timestamp()
+   where documento_id = p_documento_id and publicado_em is not null and removido_do_site_em is null;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+
 create or replace function public.transparencia_excluir_rascunho(p_documento_id uuid, p_parceria_id uuid)
 returns void language plpgsql volatile security definer set search_path = '' as $$
 begin
@@ -559,7 +582,9 @@ end $$;
 create or replace function public.auditoria_codigos_das_origens(p_tipo text, p_referencias uuid[])
 returns jsonb language sql stable security definer set search_path = '' as $$
   select coalesce(jsonb_agg(jsonb_build_object('referencia_id', i.referencia_id, 'versao', i.versao, 'codigo', i.codigo,
-                                               'hash', i.hash_conteudo, 'hash_arquivo', i.hash_arquivo, 'registrado_em', i.registrado_em)
+                                               'hash', i.hash_conteudo, 'hash_arquivo', i.hash_arquivo, 'registrado_em', i.registrado_em,
+                                               -- Canais: de que versão da lista é o registro (a origem é o espaço, a mesma em todas).
+                                               'versao_origem', case when i.tipo = 'canais' then (i.conteudo_canonico::jsonb ->> 'versao')::integer end)
                             order by i.referencia_id, i.versao), '[]'::jsonb)
     from auditoria.itens i
    where i.tipo = p_tipo and i.referencia_id = any (p_referencias)
@@ -575,6 +600,7 @@ begin
     'public.transparencia_publicar_versao(uuid, text, uuid)',
     'public.transparencia_descartar_versao(uuid)',
     'public.transparencia_retirar_documento(uuid, text, uuid)',
+    'public.transparencia_marcar_removidos(uuid)',
     'public.transparencia_salvar_parceria(uuid, uuid, jsonb, uuid)',
     'public.transparencia_publicar_parceria(uuid, uuid)',
     'public.transparencia_retirar_parceria(uuid, text, uuid)',

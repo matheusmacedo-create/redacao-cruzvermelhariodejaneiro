@@ -51,8 +51,8 @@ dia, motivo em texto livre, nonce, id de origem.
 
 ## 3. Banco
 
-Migrações (só acréscimos): `supabase/migrations/20260925200000_cvrj_auditoria.sql` (a trilha e os
-ganchos de matérias, comunicados, ofícios e certificados) e `20260925201000_cvrj_transparencia.sql`
+Migrações (só acréscimos): `supabase/migrations/20260925203000_cvrj_auditoria.sql` (a trilha e os
+ganchos de matérias, comunicados, ofícios e certificados) e `20260925203100_cvrj_transparencia.sql`
 (portal e canais, §5). Testes pgTAP em `supabase/tests/`, rodados só em banco local (§10).
 
 ### 3.1 Schema e privilégios
@@ -241,7 +241,7 @@ idempotência.
 
 ## 5. Transparência e canais oficiais
 
-Migração `20260925201000_cvrj_transparencia.sql`:
+Migração `20260925203100_cvrj_transparencia.sql`:
 
 - `transparencia_documentos` (o lugar no portal: categoria, título, descrição, período, ordem,
   retirada com motivo) e `transparencia_versoes` (os PDFs: caminho no bucket privado
@@ -256,9 +256,20 @@ Migração `20260925201000_cvrj_transparencia.sql`:
 - Leitura: só admin (RLS). Escrita: funções `transparencia_*` e `canais_publicar_versao`, só da
   chave de serviço, chamadas pelas actions (`app/actions/transparencia.ts`) depois de
   `requirePermissao('transparencia.gerenciar')`, informando quem agiu (a trilha registra o autor).
+  Antes das funções que recebem só o id, a action confere que o registro é do espaço da pessoa.
 - Telas `/transparencia` e `/canais-oficiais` (só admin). O PDF vai do navegador ao Storage por link
   de uso único; o servidor confere que é PDF, calcula o SHA-256 e, ao publicar, sobe para
   `transparencia/arquivos/<título>-<12 hex do SHA-256>.pdf` e regera a página.
+- Retirar um documento (com motivo) apaga do site os PDFs de todas as versões dele e regera a
+  página; `transparencia_marcar_removidos` grava `removido_do_site_em` nas versões (uma vez só: a
+  guarda não deixa desfazer). O arquivo continua no bucket privado e a trilha continua respondendo
+  pelo código (estado "retirado"). Se o site não responder, o banco não marca, e o cartão do
+  documento mostra o aviso com o botão "Apagar os PDFs do site" para tentar de novo.
+  Se o documento voltar ao portal (versão nova publicada depois da retirada), as versões cujo PDF
+  saiu do site aparecem com o SHA-256 e sem link.
+- A página de canais usa o registro da trilha da própria versão publicada:
+  `auditoria_codigos_das_origens` devolve `versao_origem` (o número da versão da lista gravado no
+  conteúdo canônico), então o código mostrado é sempre o daquela lista.
 - Páginas públicas geradas (`lib/transparencia/paginas.ts`) com o esqueleto do site:
   `transparencia/index.html` e `canais-oficiais/index.html`, cada documento, parceria e versão com
   SHA-256 e código de verificação. Enquanto `AUDITORIA_ABERTA` não for `1`: `noindex` na página e
@@ -307,6 +318,6 @@ Nunca em produção. Com PostgreSQL 16 ou 17, pgcrypto e pgTAP:
 
 ```bash
 sudo supabase/tests/montar-banco-local.sh     # 61 migrações sobre a simulação do Supabase
-sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/auditoria.test.sql       # 157 testes
-sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/transparencia.test.sql   # 50 testes
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/auditoria.test.sql       # 159 testes
+sudo -u postgres psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/transparencia.test.sql   # 55 testes
 ```

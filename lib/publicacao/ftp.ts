@@ -413,3 +413,18 @@ export async function enviarArquivoDoPortal(
   await client.cd('/')
   return destino
 }
+
+/**
+ * Apaga um PDF do portal de transparência (documento retirado). Só nome no
+ * padrão dos PDFs do portal, sem caminho; arquivo que já não existe não é falha.
+ */
+export async function removerArquivoDoPortal(client: Client, raiz: string, nome: string): Promise<void> {
+  if (!/^[a-z0-9][a-z0-9-]{0,60}-[0-9a-f]{12}\.pdf$/.test(nome)) throw new FtpEscopoError(`transparencia/arquivos/${nome}`)
+  try {
+    await client.remove(`${raiz.replace(/\/$/, '')}/transparencia/arquivos/${nome}`)
+  } catch (causa) {
+    const texto = causa instanceof Error ? causa.message : String(causa)
+    if (!/550|not found|no such/i.test(texto)) throw causa
+  }
+  await client.cd('/')
+}

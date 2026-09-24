@@ -994,7 +994,7 @@ create trigger press_campanhas_trilha after update of estado on public.press_cam
 -- ---------------------------------------------------------------- sincronização (rede de segurança)
 
 -- O portal de transparência e os canais oficiais têm a sua parte da sincronização; a migração
--- deles (20260925201000_cvrj_transparencia.sql) substitui esta função. Só se cria a vazia se
+-- deles (20260925203100_cvrj_transparencia.sql) substitui esta função. Só se cria a vazia se
 -- ainda não existir, para esta migração, reaplicada, não apagar a do portal.
 do $$
 begin
@@ -1298,7 +1298,9 @@ begin
          tentativas = case when p_erro is not null then tentativas + 1 else tentativas end,
          ultimo_erro = left(p_erro, 500),
          proxima_tentativa_em = p_proxima
-   where dia = p_dia and ots_estado <> 'confirmado';
+   where dia = p_dia and ots_estado <> 'confirmado'
+     -- Um envio só: se duas rodadas mandarem o mesmo lote ao mesmo tempo, vale a primeira.
+     and (p_estado is distinct from 'enviado' or ots_estado = 'pendente');
   return found;
 end $$;
 

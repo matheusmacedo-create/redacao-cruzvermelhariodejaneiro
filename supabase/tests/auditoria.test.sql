@@ -1,4 +1,4 @@
--- Testes da trilha de auditoria (supabase/migrations/20260925200000_cvrj_auditoria.sql).
+-- Testes da trilha de auditoria (supabase/migrations/20260925203000_cvrj_auditoria.sql).
 --
 -- Rodar só num banco local com todas as migrações aplicadas, NUNCA em produção: a trilha só
 -- aceita acréscimos e o teste desliga guardas para simular adulteração. Tudo corre numa
@@ -293,6 +293,8 @@ select throws_ok(format('update auditoria.lotes set assinatura = %L where dia = 
 select throws_ok(format('update auditoria.lotes set manifesto = ''{}'' where dia = %L', :'hoje'::date - 1), 'P0001', null, 'manifesto não muda');
 select throws_ok(format('delete from auditoria.lotes where dia = %L', :'hoje'::date - 1), 'P0001', null, 'lote não se apaga');
 select ok(public.auditoria_gravar_ots(:'hoje'::date - 1, encode('prova-pendente'::bytea, 'base64'), 'enviado'), 'gravar o .ots enviado');
+select ok(not public.auditoria_gravar_ots(:'hoje'::date - 1, encode('outra-rodada'::bytea, 'base64'), 'enviado'), 'segundo envio do mesmo lote não entra');
+select is((select convert_from(ots, 'UTF8') from auditoria.lotes where dia = :'hoje'::date - 1), 'prova-pendente', 'fica a prova do primeiro envio');
 select ok(public.auditoria_gravar_ots(:'hoje'::date - 1, null, null, null, 'calendário fora do ar', now() + interval '6 hours'), 'registrar tentativa sem progresso');
 select is((select ots_estado || '|' || tentativas || '|' || ultimo_erro from auditoria.lotes where dia = :'hoje'::date - 1),
           'enviado|1|calendário fora do ar', 'a tentativa fica registrada');

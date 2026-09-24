@@ -56,7 +56,8 @@ export type ResumoDaRotina = {
   avisos: string[]
 }
 
-const TEMPO_MAXIMO_MS = 45_000
+// Os crons têm 60 s; o FTP da publicação vem depois do laço e precisa de folga.
+const TEMPO_MAXIMO_MS = 35_000
 const hojeEmSaoPaulo = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 const diaAnterior = (dia: string) => {
   const d = new Date(`${dia}T12:00:00Z`)
@@ -108,33 +109,32 @@ async function processarPendentes(admin: Admin, resumo: ResumoDaRotina, inicio: 
       try {
         const c = await carimbarTempo(createHash('sha256').update(l.manifesto, 'utf8').digest())
         const tsr = c.tsr.toString('base64')
-        const { error: e } = await admin.rpc('auditoria_gravar_tsr', { p_dia: l.dia, p_tsr: tsr })
+        const { data: gravou, error: e } = await admin.rpc('auditoria_gravar_tsr', { p_dia: l.dia, p_tsr: tsr })
         if (e) throw e
-        l.tsr = tsr
-        r.passos.push(`carimbo de tempo (${c.horario.toISOString()})`)
+        // Outra rodada (o botão manual junto do cron) carimbou antes: vale o que está no banco,
+        // que a próxima publicação leva. Este aqui não é publicado.
+        if (gravou) { l.tsr = tsr; r.passos.push(`carimbo de tempo (${c.horario.toISOString()})`) }
       } catch (causa) { await falhou('carimbo de tempo', causa) }
     }
 
     if (l.precisa_ots) {
       try {
         const { prova } = await carimbar(l.compromisso)
-        const { error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: prova, p_estado: 'enviado', p_proxima: daquiA(4) })
+        const { data: gravou, error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: prova, p_estado: 'enviado', p_proxima: daquiA(4) })
         if (e) throw e
-        l.ots = prova
-        r.passos.push('enviado aos calendários do OpenTimestamps')
+        if (gravou) { l.ots = prova; r.passos.push('enviado aos calendários do OpenTimestamps') }
       } catch (causa) { await falhou('OpenTimestamps', causa) }
     } else if (atualizarOts && l.precisa_atualizar_ots && l.ots) {
       try {
         const a = await atualizar(l.ots)
         if (a.confirmada) {
-          const { error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: a.prova, p_estado: 'confirmado', p_bloco: a.bloco })
+          const { data: gravou, error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: a.prova, p_estado: 'confirmado', p_bloco: a.bloco })
           if (e) throw e
-          l.ots = a.prova
-          l.bloco = a.bloco
-          r.passos.push(`confirmado no bloco ${a.bloco} do Bitcoin`)
+          if (gravou) { l.ots = a.prova; l.bloco = a.bloco; r.passos.push(`confirmado no bloco ${a.bloco} do Bitcoin`) }
         } else {
-          const { error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: a.prova, p_estado: null, p_proxima: daquiA(6) })
+          const { data: gravou, error: e } = await admin.rpc('auditoria_gravar_ots', { p_dia: l.dia, p_ots: a.prova, p_estado: null, p_proxima: daquiA(6) })
           if (e) throw e
+          if (gravou) l.ots = a.prova
           r.passos.push('ainda sem bloco do Bitcoin')
         }
       } catch (causa) { await falhou('atualização do OpenTimestamps', causa) }
