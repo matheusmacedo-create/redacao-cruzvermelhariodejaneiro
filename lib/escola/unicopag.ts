@@ -91,6 +91,8 @@ const inteiro = (v: unknown): number | null => {
 export type TransacaoLida = {
   hash: string; metodo: Metodo; status: string; situacao: Situacao; valor: number; parcelas: number | null
   cliente: string | null; documento: string | null; produto: string | null; origem: string | null
+  /** O utm_campaign da venda: é por ele que a receita chega à campanha do marketing. */
+  campanha: string | null
   criada_em: string; paga_em: string | null; atualizada_em: string | null
 }
 
@@ -114,6 +116,7 @@ export function lerTransacao(bruta: unknown): TransacaoLida | null {
     cliente: texto(cliente.name, 200), documento: mascararDocumento(texto(cliente.document, 30)),
     produto: titulos.length ? titulos.join(' + ').slice(0, 300) : null,
     origem: texto(t.utm_source, 100) ?? texto(t.src, 100) ?? texto(cliente.utm_source, 100),
+    campanha: (texto(t.utm_campaign, 100) ?? texto(cliente.utm_campaign, 100))?.toLowerCase() ?? null,
     criada_em: criada,
     // Pago sem paid_at (acontece em importações antigas): usa a última atualização.
     paga_em: lerData(t.paid_at) ?? (contaComoRecebido(situacao) ? lerData(t.updated_at) ?? criada : null),
