@@ -14,13 +14,14 @@
  * aqui: esses saem sempre (lib/contas/servidor.ts).
  */
 
-export const CATEGORIAS = ['aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro', 'patrimonio', 'auditoria'] as const
+export const CATEGORIAS = ['chat', 'aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro', 'patrimonio', 'auditoria'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const MODOS = ['imediato', 'resumo', 'nunca'] as const
 export type Modo = (typeof MODOS)[number]
 
 export const ROTULO_DA_CATEGORIA: Record<Categoria, { nome: string; exemplos: string }> = {
+  chat: { nome: 'Chat', exemplos: 'Mensagens diretas, quando mencionam você (ou o canal) e os canais em que você escolheu “toda mensagem”. O resto dos canais vem no resumo diário.' },
   aprovacoes: { nome: 'Aprovações', exemplos: 'Pedidos para você aprovar e as decisões sobre o que você enviou.' },
   mensagens: { nome: 'Mensagens', exemplos: 'Mensagens diretas e conversas nas pautas de que você participa.' },
   pautas: { nome: 'Pautas e conteúdos', exemplos: 'Quando você entra numa pauta, vira responsável por um cartão ou recebe comentário num conteúdo.' },

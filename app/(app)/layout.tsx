@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/server'
 import { PERMISSOES, ehEquipeDaEscola, pode, type Permissao } from '@/lib/permissoes'
 import { after } from 'next/server'
 import { marcarVisto } from '@/lib/notificacoes/servidor'
+import { ChatAoVivo, type ConversaAoVivo } from '@/components/app/chat/ao-vivo'
+import { pessoasDoChat, type ConversaNoPainel } from '@/lib/chat/servidor'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Redação', default: 'Redação — Cruz Vermelha RJ' } }
@@ -17,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   const ws = context.workspace.id
-  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas] = await Promise.all([
+  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas] = await Promise.all([
     supabase
       .from('notifications')
       .select('id,title,message,link,read_at,created_at')
@@ -41,7 +43,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       .eq('decision', 'pending')
       .eq('approvals.status', 'pending'),
     cookies(),
+    // O chat ao vivo: o que falta ler e o que cada conversa é para esta pessoa (para o aviso decidir).
+    supabase.rpc('chat_painel', { p_workspace_id: ws }),
+    pessoasDoChat(ws, context.user.id, context.role === 'escola'),
   ])
+  const conversasDoChat = (painelDoChat ?? []) as ConversaNoPainel[]
+  const chatNaoLidas = conversasDoChat.filter((c) => c.membro && c.avisar !== 'nada')
+    .reduce((soma, c) => soma + (c.tipo === 'direta' || c.avisar === 'tudo' ? c.nao_lidas : c.mencoes), 0)
+  const conversasAoVivo: Record<string, ConversaAoVivo> = Object.fromEntries(conversasDoChat.map((c) => [c.id, { tipo: c.tipo, nome: c.nome, avisar: c.avisar, membro: c.membro }]))
+  const nomes = Object.fromEntries(pessoas.map((p) => [p.id, p.nome]))
   // Quem está navegando não recebe e-mail do que vê no sino.
   after(() => marcarVisto(context.user.id, context.profile?.visto_em))
   const permitidas = (Object.keys(PERMISSOES) as Permissao[]).filter((p) => pode(context.role, p))
@@ -57,10 +67,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     renderedAt: new Date().toISOString(),
   }
   return (
+    <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
     <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
-        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0 }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
+        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-xl md:border md:border-sidebar-border md:shadow-sm">
             <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} naoLidas={naoLidas ?? 0} />
@@ -73,5 +84,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
       <BuscaRapida />
     </AppShellProvider>
+    </ChatAoVivo>
   )
 }
