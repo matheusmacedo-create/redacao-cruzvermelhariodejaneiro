@@ -24,6 +24,8 @@ export type DadosDoCertificado = {
   validoAte: string | null
   codigo: string
   urlDeVerificacao: string
+  /** PNG da logo oficial. Sem ela, desenha a cruz e o nome (o certificado sai do mesmo jeito). */
+  logo?: Uint8Array | null
 }
 
 function limpar(fonte: PDFFont, texto: string): string {
@@ -74,12 +76,24 @@ export async function gerarPdfDoCertificado(d: DadosDoCertificado): Promise<Uint
   p.drawRectangle({ x: 0, y: 0, width: 18, height: A, color: VERMELHO })
   p.drawRectangle({ x: 36, y: 28, width: L - 64, height: A - 56, borderColor: rgb(0.85, 0.86, 0.88), borderWidth: 0.8 })
 
-  // A cruz.
-  const cx = L / 2, cy = A - 92, t = 34, b = t * 0.34
-  p.drawRectangle({ x: cx - b / 2, y: cy - t / 2, width: b, height: t, color: VERMELHO })
-  p.drawRectangle({ x: cx - t / 2, y: cy - b / 2, width: t, height: b, color: VERMELHO })
-  centro(p, sansB, 'CRUZ VERMELHA BRASILEIRA', A - 134, 10.5, CINZA)
-  centro(p, sans, 'Filial do Estado do Rio de Janeiro', A - 148, 9.5, CINZA)
+  // A logo oficial; sem ela, a cruz e o nome.
+  let logoOk = false
+  if (d.logo) {
+    try {
+      const img = await pdf.embedPng(d.logo)
+      const largura = 190
+      const altura = (img.height / img.width) * largura
+      p.drawImage(img, { x: (L - largura) / 2, y: A - 60 - altura, width: largura, height: altura })
+      logoOk = true
+    } catch { /* PNG inválido: segue com o desenho */ }
+  }
+  if (!logoOk) {
+    const cx = L / 2, cy = A - 92, t = 34, b = t * 0.34
+    p.drawRectangle({ x: cx - b / 2, y: cy - t / 2, width: b, height: t, color: VERMELHO })
+    p.drawRectangle({ x: cx - t / 2, y: cy - b / 2, width: t, height: b, color: VERMELHO })
+    centro(p, sansB, 'CRUZ VERMELHA BRASILEIRA', A - 134, 10.5, CINZA)
+    centro(p, sans, 'Filial do Estado do Rio de Janeiro', A - 148, 9.5, CINZA)
+  }
 
   centro(p, serifB, 'Certificado de Conclusão', A - 200, 30)
   centro(p, serif, 'Certificamos que', A - 240, 14, CINZA)

@@ -13,6 +13,7 @@ import { lerFormulario } from '@/lib/participantes/regras'
 import { COOKIE_DA_PREVIA, COOKIE_DO_MEMBRO, DIAS_DE_SESSAO, exigirMembroQueEscreve, hashDoToken, novoToken, sessaoDoMembro } from '@/lib/membro/sessao'
 import { emailDeInscricao, emailDoCodigo } from '@/lib/membro/emails'
 import { notificar } from '@/lib/notificacoes/servidor'
+import { REMETENTE_DO_VOLUNTARIADO, avisarCertificado, avisarPromovidos, enviarAoVoluntario, gerentesDoVoluntariado, naEspera } from '@/lib/membro/comunicacao'
 import { lerMensagem } from '@/lib/canal/regras'
 import { oportunidadeDoMembro } from '@/lib/membro/oportunidades'
 import { quando as quandoDaOportunidade } from '@/lib/oportunidades/regras'
@@ -45,7 +46,7 @@ export async function pedirCodigo(_anterior: EstadoDeEntrada, formData: FormData
     const linha = (Array.isArray(data) ? data[0] : data) as { nome: string; email: string; codigo: string } | undefined
     if (linha?.codigo) {
       const m = emailDoCodigo({ nome: linha.nome, codigo: linha.codigo, minutos: MINUTOS_DO_CODIGO, url: `${urlBase()}/membro` })
-      await enviarEmailDeConta({ para: linha.email, assunto: m.assunto, html: m.html, texto: m.texto })
+      await enviarEmailDeConta({ para: linha.email, assunto: m.assunto, html: m.html, texto: m.texto, de: process.env.VOLUNTARIADO_REMETENTE?.trim() || REMETENTE_DO_VOLUNTARIADO })
     }
     return { etapa: 'codigo', email, aviso: `Se ${email} for o e-mail de um voluntário ativo, o código chega em instantes. Confira também o spam.` }
   } catch (causa) {
@@ -98,6 +99,19 @@ export async function salvarPerfil(_anterior: { erro?: string; ok?: boolean }, f
   }
 }
 
+/** Liga ou desliga os avisos da coordenação por e-mail (o mural continua). */
+export async function preferirAvisos(receber: boolean): Promise<{ erro?: string }> {
+  try {
+    const m = await exigirMembroQueEscreve()
+    const { data, error } = await createAdminClient().rpc('membro_preferir_avisos', { p_participante_id: m.participanteId, p_receber: receber })
+    if (error || !data) throw new Error('Não foi possível salvar.')
+    revalidatePath('/membro/perfil')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar.') }
+  }
+}
+
 // ---------------------------------------------------------------- cursos
 
 export type ResultadoDaAula = { erro?: string; faltam?: number; prova?: boolean; certificado?: string | null }
@@ -109,9 +123,11 @@ export async function concluirAula(cursoId: string, aulaId: string): Promise<Res
     if (!/^[0-9a-f-]{36}$/.test(aulaId)) throw new Error('Aula inválida.')
     const { data, error } = await createAdminClient().rpc('membro_concluir_aula', { p_participante_id: m.participanteId, p_aula_id: aulaId })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível marcar a aula.')
+    const r = data as ResultadoDaAula
+    if (r.certificado) await avisarCertificado(m.participanteId, r.certificado)
     revalidatePath(`/membro/cursos/${cursoId}`, 'layout')
     revalidatePath('/membro')
-    return data as ResultadoDaAula
+    return r
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível marcar a aula.') }
   }
@@ -126,9 +142,11 @@ export async function responderProva(cursoId: string, respostas: number[]): Prom
     if (!Array.isArray(respostas) || respostas.length > 200 || respostas.some((r) => !Number.isInteger(r) || r < 0 || r > 5)) throw new Error('Responda todas as questões.')
     const { data, error } = await createAdminClient().rpc('membro_responder_prova', { p_participante_id: m.participanteId, p_curso_id: cursoId, p_respostas: respostas })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível corrigir a prova.')
+    const r = data as ResultadoDaProva
+    if (r.certificado && !r.ja_aprovado) await avisarCertificado(m.participanteId, r.certificado)
     revalidatePath(`/membro/cursos/${cursoId}`, 'layout')
     revalidatePath('/membro')
-    return data as ResultadoDaProva
+    return r
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível corrigir a prova.') }
   }
@@ -145,13 +163,8 @@ export async function inscrever(oportunidadeId: string): Promise<{ erro?: string
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível fazer a inscrição.')
     const situacao = (data as { situacao: string }).situacao
     // Confirmação por e-mail: melhor esforço, não desfaz a inscrição se falhar.
-    if (m.email && emailConfigurado()) {
-      const o = await oportunidadeDoMembro(m, oportunidadeId)
-      if (o) {
-        const e = emailDeInscricao({ nome: m.nome, titulo: o.titulo, quando: quandoDaOportunidade(o.inicio, o.fim), local: o.local, espera: situacao === 'espera', url: `${urlBase()}/membro/oportunidades` })
-        await enviarEmailDeConta({ para: m.email, assunto: e.assunto, html: e.html, texto: e.texto }).catch(() => undefined)
-      }
-    }
+    const o = await oportunidadeDoMembro(m, oportunidadeId)
+    if (o) await enviarAoVoluntario(m.email, emailDeInscricao({ nome: m.nome, titulo: o.titulo, quando: quandoDaOportunidade(o.inicio, o.fim), local: o.local, espera: situacao === 'espera', url: `${urlBase()}/membro/oportunidades` }))
     revalidatePath('/membro', 'layout')
     return { situacao }
   } catch (causa) {
@@ -163,8 +176,10 @@ export async function cancelarInscricao(oportunidadeId: string): Promise<{ erro?
   try {
     const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
+    const antes = await naEspera(oportunidadeId)
     const { error } = await createAdminClient().rpc('membro_cancelar_inscricao', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível cancelar.')
+    await avisarPromovidos(oportunidadeId, antes)
     revalidatePath('/membro', 'layout')
     return {}
   } catch (causa) {
@@ -173,16 +188,6 @@ export async function cancelarInscricao(oportunidadeId: string): Promise<{ erro?
 }
 
 // ---------------------------------------------------------------- canal direto
-
-/** Quem gerencia o Voluntariado recebe o aviso de mensagem nova (sino e e-mail). */
-async function gerentesDoVoluntariado(workspaceId: string) {
-  const admin = createAdminClient()
-  const [{ data: admins }, { data: acessos }] = await Promise.all([
-    admin.from('workspace_members').select('user_id').eq('workspace_id', workspaceId).eq('role', 'admin'),
-    admin.from('participantes_acesso').select('user_id').eq('workspace_id', workspaceId).in('nivel', ['gerenciar', 'sensiveis']),
-  ])
-  return [...(admins ?? []), ...(acessos ?? [])].map((x) => x.user_id as string)
-}
 
 async function avisarEquipe(m: { workspaceId: string; nome: string }, conversaId: string, assunto: string, texto: string, nova: boolean) {
   await notificar(createAdminClient(), {

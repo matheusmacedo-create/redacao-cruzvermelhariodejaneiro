@@ -22,16 +22,16 @@ export default async function Conversa({ params }: { params: Promise<{ id: strin
   }
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
-      <Link href="/membro/mensagens" className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900"><ChevronLeft className="size-4" />Mensagens</Link>
+      <Link href="/membro/mensagens" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Mensagens</Link>
       <div>
         <h1 className="text-xl font-bold tracking-tight">{d.conversa.assunto}</h1>
-        <p className="text-xs text-neutral-500">{CATEGORIAS_DA_CONVERSA[d.conversa.categoria as keyof typeof CATEGORIAS_DA_CONVERSA]} · {SITUACOES_DA_CONVERSA[d.conversa.situacao as keyof typeof SITUACOES_DA_CONVERSA]}</p>
+        <p className="text-xs text-muted-foreground">{CATEGORIAS_DA_CONVERSA[d.conversa.categoria as keyof typeof CATEGORIAS_DA_CONVERSA]} · {SITUACOES_DA_CONVERSA[d.conversa.situacao as keyof typeof SITUACOES_DA_CONVERSA]}</p>
       </div>
       <ol className="flex flex-col gap-3" id="mensagens">
         {d.mensagens.map((x) => (
           <li key={x.id} className={`flex flex-col ${x.autor === 'membro' ? 'items-end' : 'items-start'}`}>
-            <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm ${x.autor === 'membro' ? 'rounded-br-md bg-neutral-900 text-white' : 'rounded-bl-md border border-neutral-200 bg-white'}`}>{x.texto}</div>
-            <span className="mt-1 px-1 text-[11px] text-neutral-500">{x.autor === 'membro' ? 'Você' : `${x.nome ?? 'Coordenação'} · Cruz Vermelha RJ`} · {QUANDO(x.created_at)}</span>
+            <div className={`max-w-[85%] whitespace-pre-line rounded-xl px-4 py-2.5 text-sm ${x.autor === 'membro' ? 'rounded-br-md bg-primary text-primary-foreground' : 'rounded-bl-md border border-border bg-card'}`}>{x.texto}</div>
+            <span className="mt-1 px-1 text-[11px] text-muted-foreground">{x.autor === 'membro' ? 'Você' : `${x.nome ?? 'Coordenação'} · Cruz Vermelha RJ`} · {QUANDO(x.created_at)}</span>
           </li>
         ))}
       </ol>

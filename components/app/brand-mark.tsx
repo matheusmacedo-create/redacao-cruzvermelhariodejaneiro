@@ -6,6 +6,8 @@ type BrandMarkProps = {
   imageClassName?: string
   inverted?: boolean
   compact?: boolean
+  /** O nome do sistema sob a logo. A Área do Voluntário usa o seu. */
+  rotulo?: string
 }
 
 export function BrandMark({
@@ -13,6 +15,7 @@ export function BrandMark({
   imageClassName,
   inverted = false,
   compact = false,
+  rotulo = 'Redação - Central de Comunicação',
 }: BrandMarkProps) {
   return (
     <div className={cn('flex min-w-0 flex-col items-start', className)}>
@@ -56,7 +59,7 @@ export function BrandMark({
             inverted ? 'text-white' : 'text-muted-foreground',
           )}
         >
-          Redação - Central de Comunicação
+          {rotulo}
         </p>
       </div>
     </div>

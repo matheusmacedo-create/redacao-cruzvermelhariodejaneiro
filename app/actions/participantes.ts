@@ -6,6 +6,7 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeConvite as emailDeConviteDoMembro } from '@/lib/membro/emails'
+import { REMETENTE_DO_VOLUNTARIADO, boasVindas } from '@/lib/membro/comunicacao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario, formatarCpf, type NomeDoNivel } from '@/lib/participantes/regras'
@@ -49,8 +50,11 @@ export async function salvarParticipante(id: string | null, _anterior: Resultado
 export async function mudarSituacao(id: string, situacao: 'ativo' | 'inativo' | 'desligado', motivo?: string): Promise<Resultado> {
   try {
     const { supabase } = await contextoDeParticipantes()
+    const { data: antes } = await supabase.from('participantes').select('situacao').eq('id', id).maybeSingle()
     const { error } = await supabase.rpc('mudar_situacao_participante', { p_id: id, p_situacao: situacao, p_motivo: motivo ?? null })
     if (error) erroDoBanco(error, 'Não foi possível mudar a situação.')
+    // Inscrição aprovada: a pessoa fica sabendo e já recebe o caminho da Área do Voluntário.
+    if (situacao === 'ativo' && antes?.situacao === 'candidato') await boasVindas(id)
     revalidar(id)
     return {}
   } catch (causa) {
@@ -178,7 +182,7 @@ export async function convidarParaAreaDoMembro(id: string): Promise<Resultado & 
     if (p.situacao !== 'ativo') throw new Error('Só voluntários ativos entram na área do membro.')
     if (!p.email) throw new Error('Cadastre um e-mail antes de convidar: é ele que a pessoa usa para entrar.')
     const m = emailDeConviteDoMembro({ nome: p.nome_social || p.nome, url: `${urlBase()}/membro/entrar?email=${encodeURIComponent(p.email)}`, convidadoPor: context.profile?.full_name ?? 'A coordenação do Voluntariado' })
-    await enviarEmailDeConta({ para: p.email, assunto: m.assunto, html: m.html, texto: m.texto })
+    await enviarEmailDeConta({ para: p.email, assunto: m.assunto, html: m.html, texto: m.texto, de: process.env.VOLUNTARIADO_REMETENTE?.trim() || REMETENTE_DO_VOLUNTARIADO })
     await supabase.rpc('auditar_convite_area_do_membro', { p_id: id })
     return { email: p.email }
   } catch (causa) {

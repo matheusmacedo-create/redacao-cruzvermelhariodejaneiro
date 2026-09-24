@@ -17,26 +17,26 @@ export function Entrar({ emailInicial }: { emailInicial: string }) {
   if (!naEtapaDoCodigo) {
     return (
       <form action={(f) => { setTrocar(false); pedir(f) }} className="flex flex-col gap-4" id="form-email">
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-800">E-mail do seu cadastro de voluntário
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-foreground">E-mail do seu cadastro de voluntário
           <input id="m-email" name="email" type="email" required autoComplete="email" inputMode="email" defaultValue={pedido.email ?? emailInicial} className={campoDoMembro} />
         </label>
-        {pedido.erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{pedido.erro}</p>}
+        {pedido.erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{pedido.erro}</p>}
         <button type="submit" disabled={pedindo} className={botaoDoMembro}>{pedindo ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}Receber código por e-mail</button>
-        <p className="text-xs text-neutral-500">Não tem senha: a cada acesso você recebe um código no e-mail cadastrado no Voluntariado.</p>
+        <p className="text-xs text-muted-foreground">Não tem senha: a cada acesso você recebe um código no e-mail cadastrado no Voluntariado.</p>
       </form>
     )
   }
   return (
     <form action={tentar} className="flex flex-col gap-4" id="form-codigo">
-      <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm text-neutral-700">{pedido.aviso}</p>
+      <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-foreground/85">{pedido.aviso}</p>
       <input type="hidden" name="email" value={pedido.email ?? ''} />
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-neutral-800">Código de 6 dígitos
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-foreground">Código de 6 dígitos
         <input id="m-codigo" name="codigo" required inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} autoFocus
           className={`${campoDoMembro} text-center font-mono text-2xl tracking-[0.5em]`} />
       </label>
-      {tentativa.erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{tentativa.erro}</p>}
+      {tentativa.erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{tentativa.erro}</p>}
       <button type="submit" disabled={entrando} className={botaoDoMembro}>{entrando && <Loader2 className="size-4 animate-spin" />}Entrar</button>
-      <button type="button" onClick={() => setTrocar(true)} className="text-sm font-medium text-neutral-600 hover:text-neutral-900">Usar outro e-mail ou pedir novo código</button>
+      <button type="button" onClick={() => setTrocar(true)} className="text-sm font-medium text-muted-foreground hover:text-foreground">Usar outro e-mail ou pedir novo código</button>
     </form>
   )
 }

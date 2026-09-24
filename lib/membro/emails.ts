@@ -76,3 +76,74 @@ export function emailDeResposta(p: { nome: string; assunto: string; resposta: st
     ],
   })
 }
+
+export function emailDeBoasVindas(p: { nome: string; url: string }): EmailPronto {
+  return montar({
+    assunto: 'Sua inscrição de voluntário foi aprovada',
+    preheader: 'Bem-vindo à Cruz Vermelha RJ. Sua Área do Voluntário já está liberada.',
+    titulo: 'Bem-vindo ao Voluntariado',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. A coordenação aprovou sua inscrição: agora você faz parte do Voluntariado da Cruz Vermelha Brasileira no Rio de Janeiro.` },
+      { tipo: 'p', texto: 'Na sua Área do Voluntário você encontra cursos e apostilas, certificados, as próximas ações para se inscrever e um canal direto com a coordenação.' },
+      { tipo: 'botao', rotulo: 'Entrar na Área do Voluntário', url: p.url },
+      { tipo: 'nota', texto: 'Não tem senha: na hora de entrar, você informa este e-mail e recebe um código.' },
+    ],
+  })
+}
+
+export function emailDeVagaLiberada(p: { nome: string; titulo: string; quando: string; local: string | null; url: string }): EmailPronto {
+  return montar({
+    assunto: `Abriu uma vaga: ${p.titulo}`,
+    preheader: `Você saiu da lista de espera e está inscrito. ${p.quando}`,
+    titulo: 'Você conseguiu a vaga',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. Uma vaga abriu em "${p.titulo}" e você, que estava na lista de espera, agora está inscrito.` },
+      { tipo: 'destaque', texto: [p.quando, p.local].filter(Boolean).join(' · ') },
+      { tipo: 'botao', rotulo: 'Ver na Área do Voluntário', url: p.url },
+      { tipo: 'nota', texto: 'Não vai poder ir? Cancele pela Área do Voluntário para a vaga seguir para a próxima pessoa.' },
+    ],
+  })
+}
+
+export function emailDeCertificado(p: { nome: string; curso: string; codigo: string; urlPdf: string; urlVerificacao: string }): EmailPronto {
+  return montar({
+    assunto: `Seu certificado: ${p.curso}`,
+    preheader: 'Parabéns pela conclusão! O certificado já está na sua Área do Voluntário.',
+    titulo: 'Parabéns pela conclusão',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. Você concluiu "${p.curso}" e o seu certificado já está pronto — e registrado nas suas formações.` },
+      { tipo: 'destaque', texto: `Código de verificação: ${p.codigo}` },
+      { tipo: 'botao', rotulo: 'Baixar o certificado', url: p.urlPdf },
+      { tipo: 'nota', texto: `Qualquer pessoa pode conferir a autenticidade em ${p.urlVerificacao}` },
+    ],
+  })
+}
+
+export function emailDeLembrete(p: { nome: string; titulo: string; quando: string; local: string | null; descricao: string | null; url: string }): EmailPronto {
+  return montar({
+    assunto: `Amanhã: ${p.titulo}`,
+    preheader: `${p.quando}${p.local ? ` · ${p.local}` : ''}`,
+    titulo: 'Lembrete: é amanhã',
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. Passando para lembrar da sua inscrição em "${p.titulo}".` },
+      { tipo: 'destaque', texto: [p.quando, p.local].filter(Boolean).join(' · ') },
+      ...(p.descricao ? [{ tipo: 'p' as const, texto: p.descricao.length > 500 ? `${p.descricao.slice(0, 500)}…` : p.descricao }] : []),
+      { tipo: 'botao', rotulo: 'Ver detalhes', url: p.url },
+      { tipo: 'nota', texto: 'Imprevisto? Cancele pela Área do Voluntário para liberar a vaga.' },
+    ],
+  })
+}
+
+export function emailDeAvisoGeral(p: { nome: string; titulo: string; texto: string; url: string; urlSair: string }): EmailPronto {
+  return montar({
+    assunto: p.titulo,
+    preheader: p.texto.slice(0, 120),
+    titulo: p.titulo,
+    blocos: [
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}.` },
+      ...p.texto.split(/\n{2,}/).map((t) => ({ tipo: 'p' as const, texto: t.trim() })).filter((b) => b.texto),
+      { tipo: 'botao', rotulo: 'Abrir a Área do Voluntário', url: p.url },
+      { tipo: 'nota', texto: `Você recebe os avisos da coordenação do Voluntariado da Cruz Vermelha RJ. Para não receber mais por e-mail: ${p.urlSair}` },
+    ],
+  })
+}

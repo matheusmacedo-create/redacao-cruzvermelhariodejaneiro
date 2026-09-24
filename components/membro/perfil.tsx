@@ -1,19 +1,19 @@
 'use client'
 
-import { useActionState } from 'react'
-import { CheckCircle2, Loader2 } from 'lucide-react'
-import { salvarPerfil } from '@/app/actions/membro'
+import { useActionState, useState, useTransition } from 'react'
+import { BellRing, CheckCircle2, Loader2 } from 'lucide-react'
+import { preferirAvisos, salvarPerfil } from '@/app/actions/membro'
 import { DISPONIBILIDADES, UFS } from '@/lib/participantes/regras'
 import type { Perfil } from '@/lib/membro/dados'
 import { botaoDoMembro, campoDoMembro } from './marca'
 
 function Campo({ rotulo, children, largo }: { rotulo: string; children: React.ReactNode; largo?: boolean }) {
-  return <label className={`flex flex-col gap-1 text-sm font-medium text-neutral-800 ${largo ? 'sm:col-span-2' : ''}`}>{rotulo}{children}</label>
+  return <label className={`flex flex-col gap-1 text-sm font-medium text-foreground ${largo ? 'sm:col-span-2' : ''}`}>{rotulo}{children}</label>
 }
 
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-5">
+    <section className="rounded-xl border border-border bg-card p-5">
       <h2 className="mb-4 font-semibold">{titulo}</h2>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </section>
@@ -50,10 +50,10 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
         <Campo rotulo="Habilidades (separadas por vírgula)" largo><input id="m-habilidades" name="habilidades" defaultValue={p.habilidades.join(', ')} className={campoDoMembro} /></Campo>
         <Campo rotulo="Idiomas (separados por vírgula)" largo><input id="m-idiomas" name="idiomas" defaultValue={p.idiomas.join(', ')} className={campoDoMembro} /></Campo>
         <fieldset className="sm:col-span-2">
-          <legend className="mb-1.5 text-sm font-medium text-neutral-800">Quando posso atuar</legend>
+          <legend className="mb-1.5 text-sm font-medium text-foreground">Quando posso atuar</legend>
           <div className="flex flex-wrap gap-2">
             {DISPONIBILIDADES.map((d) => (
-              <label key={d} className="flex cursor-pointer items-center rounded-full border border-neutral-300 px-3 py-1.5 text-xs has-[:checked]:border-[#e32219] has-[:checked]:bg-red-50 has-[:checked]:text-[#e32219]">
+              <label key={d} className="flex cursor-pointer items-center rounded-full border border-input px-3 py-1.5 text-xs has-[:checked]:border-primary has-[:checked]:bg-destructive/10 has-[:checked]:text-primary">
                 <input type="checkbox" name="disponibilidade" value={d} defaultChecked={p.disponibilidade.includes(d)} className="sr-only" />{d}
               </label>
             ))}
@@ -61,9 +61,36 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
           <input type="hidden" name="disponibilidade" value="" />
         </fieldset>
       </Bloco>
-      {estado.erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{estado.erro}</p>}
-      {estado.ok && <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status"><CheckCircle2 className="size-4" />Cadastro atualizado.</p>}
+      {estado.erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{estado.erro}</p>}
+      {estado.ok && <p className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success" role="status"><CheckCircle2 className="size-4" />Cadastro atualizado.</p>}
       <div className="flex justify-end"><button type="submit" disabled={enviando} className={botaoDoMembro}>{enviando && <Loader2 className="size-4 animate-spin" />}Salvar</button></div>
     </form>
+  )
+}
+
+/** Avisos da coordenação por e-mail: liga e desliga na hora. */
+export function PreferenciaDeAvisos({ inicial }: { inicial: boolean }) {
+  const [ligado, setLigado] = useState(inicial)
+  const [erro, setErro] = useState('')
+  const [ocupado, iniciar] = useTransition()
+  const mudar = (v: boolean) => iniciar(async () => {
+    setErro('')
+    const r = await preferirAvisos(v)
+    if (r.erro) setErro(r.erro)
+    else setLigado(v)
+  })
+  return (
+    <section className="rounded-xl border border-border bg-card p-5" id="avisos-por-email">
+      <h2 className="mb-3 flex items-center gap-2 font-semibold"><BellRing className="size-4 text-primary" />E-mails da coordenação</h2>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 accent-primary" checked={ligado} disabled={ocupado} onChange={(e) => mudar(e.target.checked)} />
+        <span>
+          <span className="font-medium">Receber os avisos do mural também por e-mail</span>
+          <span className="block text-xs text-muted-foreground">E-mails sobre as suas inscrições, certificados e respostas às suas mensagens chegam sempre.</span>
+        </span>
+        {ocupado && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+      </label>
+      {erro && <p className="mt-2 text-sm text-destructive" role="alert">{erro}</p>}
+    </section>
   )
 }

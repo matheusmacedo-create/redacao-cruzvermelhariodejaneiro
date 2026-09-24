@@ -18,7 +18,7 @@ export default async function Oportunidades() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Oportunidades</h1>
-        <p className="text-sm text-neutral-600">Ações, plantões e eventos em que você pode atuar. Inscreva-se; com a presença confirmada, as horas entram no seu cadastro.</p>
+        <p className="text-sm text-muted-foreground">Ações, plantões e eventos em que você pode atuar. Inscreva-se; com a presença confirmada, as horas entram no seu cadastro.</p>
       </div>
       {minhas.length > 0 && (
         <section className="flex flex-col gap-3" id="minhas">
@@ -30,10 +30,10 @@ export default async function Oportunidades() {
         {minhas.length > 0 && <h2 className="font-semibold">Outras oportunidades</h2>}
         {outras.map((o) => <CartaoDeOportunidade key={o.id} o={o} agora={agora} />)}
         {!outras.length && (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-            <CalendarHeart className="size-8 text-neutral-400" />
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center">
+            <CalendarHeart className="size-8 text-muted-foreground/70" />
             <p className="font-medium">{minhas.length ? 'Nenhuma outra oportunidade aberta agora.' : 'Nenhuma oportunidade aberta agora.'}</p>
-            <p className="text-sm text-neutral-500">Assim que a coordenação publicar uma ação, ela aparece aqui.</p>
+            <p className="text-sm text-muted-foreground">Assim que a coordenação publicar uma ação, ela aparece aqui.</p>
           </div>
         )}
       </section>
