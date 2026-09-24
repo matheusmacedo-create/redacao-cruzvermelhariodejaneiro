@@ -632,6 +632,7 @@ export async function arquivarPacote(formData: FormData): Promise<ResultadoDoHub
 // ---------------------------------------------------------------- disparo
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notificar } from '@/lib/notificacoes/servidor'
 import { obterPerfil, perfilPadrao, publicarFotos, publicarTexto, publicarVideo, redesConectadas, semSegredo, statusDoEnvio, type Formato as FormatoConector, type RespostaDeEnvio } from '@/lib/publicacao/upload-post'
 import { explicarRecusaDaRede, motivoDaRecusa, traduzirSeConhecida } from '@/lib/publicacao/recusa'
 import { conformarImagem } from '@/lib/publicacao/imagem-para-redes'
@@ -1511,15 +1512,17 @@ export async function enviarPacoteParaAprovacao(formData: FormData): Promise<Res
       await admin.from('approval_voters').insert(
         novos.map((user_id) => ({ approval_id: approvalId as string, workspace_id: context.workspace.id, user_id })),
       )
-      await admin.from('notifications').insert(
-        novos.map((user_id) => ({
-          workspace_id: context.workspace.id,
-          user_id,
-          title: `${context.profile?.full_name || 'Um colega'} pediu sua aprovação`,
-          message: titulo,
-          link: `/aprovacoes/${approvalId}`,
-        })),
-      )
+      const quem = context.profile?.full_name || 'Um colega'
+      await notificar(admin, {
+        workspaceId: context.workspace.id,
+        para: novos,
+        atorId: context.user.id,
+        categoria: 'aprovacoes',
+        titulo: `${quem} pediu sua aprovação`,
+        mensagem: `${quem} enviou "${titulo}" e precisa do seu voto.`,
+        link: `/aprovacoes/${approvalId}`,
+        botao: 'Abrir a aprovação',
+      })
     }
 
     await supabase.from('social_packages')

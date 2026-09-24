@@ -8,6 +8,7 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { STATUS_DA_PAUTA } from '@/lib/editorial/status'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notificar } from '@/lib/notificacoes/servidor'
 import { contextoParaComunicacao, publicacoesPrevistas } from '@/lib/editorial/publicacoes-previstas'
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
@@ -83,16 +84,45 @@ async function syncApprovalVoters(params: { approvalId: string; workspaceId: str
 }
 
 /** Avisa quem acabou de ser convidado a aprovar. Sem isso o convite fica só na tela de quem pediu. */
-async function avisarRevisores(params: { userIds: string[]; workspaceId: string; approvalId: string; titulo: string; quem: string }) {
+async function avisarRevisores(params: { userIds: string[]; workspaceId: string; approvalId: string; titulo: string; quem: string; atorId: string }) {
   if (!params.userIds.length) return
-  const admin = createAdminClient()
-  await admin.from('notifications').insert(params.userIds.map((user_id) => ({
-    workspace_id: params.workspaceId,
-    user_id,
-    title: `${params.quem} pediu sua aprovação`,
-    message: params.titulo,
+  await notificar(createAdminClient(), {
+    workspaceId: params.workspaceId,
+    para: params.userIds,
+    atorId: params.atorId,
+    categoria: 'aprovacoes',
+    titulo: `${params.quem} pediu sua aprovação`,
+    mensagem: `${params.quem} enviou "${params.titulo}" e precisa do seu voto.`,
     link: `/aprovacoes/${params.approvalId}`,
-  })))
+    botao: 'Abrir a aprovação',
+  })
+}
+
+/**
+ * Quem pediu a aprovação fica sabendo de cada voto — e, quando o último voto
+ * fecha a rodada, de que o conteúdo está aprovado.
+ */
+async function avisarQuemPediu(params: { approvalId: string; workspaceId: string; atorId: string; quem: string; decisao: 'approved' | 'changes_requested'; nota: string }) {
+  const admin = createAdminClient()
+  const { data: aprovacao } = await admin.from('approvals').select('requested_by, status, content_pieces(title)')
+    .eq('id', params.approvalId).eq('workspace_id', params.workspaceId).maybeSingle()
+  if (!aprovacao?.requested_by) return
+  const peca = (Array.isArray(aprovacao.content_pieces) ? aprovacao.content_pieces[0] : aprovacao.content_pieces) as { title: string } | null
+  const titulo = peca?.title || 'Conteúdo editorial'
+  const ajustes = params.decisao === 'changes_requested'
+  const fechou = aprovacao.status === 'approved'
+  await notificar(admin, {
+    workspaceId: params.workspaceId,
+    para: [aprovacao.requested_by],
+    atorId: params.atorId,
+    categoria: 'aprovacoes',
+    titulo: ajustes ? `${params.quem} pediu ajustes em "${titulo}"` : fechou ? `"${titulo}" foi aprovado` : `${params.quem} aprovou "${titulo}"`,
+    mensagem: ajustes ? (params.nota || 'Veja o que precisa mudar.') : fechou ? `${params.quem} deu o último voto: está liberado.` : 'Ainda faltam votos de outras pessoas.',
+    textoDoEmail: ajustes ? `${params.quem} pediu ajustes em "${titulo}":` : undefined,
+    citacao: ajustes ? params.nota : null,
+    link: `/aprovacoes/${params.approvalId}`,
+    botao: 'Abrir a aprovação',
+  })
 }
 
 const PRIORIDADES_VALIDAS = ['low', 'medium', 'high', 'critical']
@@ -379,7 +409,7 @@ export async function addPautaParticipant(formData: FormData) {
 
   const { data: pauta } = await supabase
     .from('pautas')
-    .select('id')
+    .select('id, title')
     .eq('id', pautaId)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
@@ -405,6 +435,19 @@ export async function addPautaParticipant(formData: FormData) {
     entity_type: 'pauta',
     entity_id: pautaId,
     metadata: { user_id: userId },
+  })
+
+  const nome = context.profile?.full_name || 'Um colega'
+  await notificar(createAdminClient(), {
+    workspaceId: context.workspace.id,
+    para: [userId],
+    atorId: context.user.id,
+    categoria: 'pautas',
+    titulo: `${nome} adicionou você a uma pauta`,
+    mensagem: pauta.title,
+    textoDoEmail: `${nome} adicionou você à pauta "${pauta.title}". Você passa a acompanhar a conversa e as entregas dela.`,
+    link: `/pautas/${pautaId}`,
+    botao: 'Abrir a pauta',
   })
 
   revalidatePath(`/pautas/${pautaId}`)
@@ -457,7 +500,7 @@ export async function sendPautaMessage(formData: FormData) {
 
   const { data: pauta } = await supabase
     .from('pautas')
-    .select('id')
+    .select('id, title, owner_id')
     .eq('id', pautaId)
     .eq('workspace_id', context.workspace.id)
     .maybeSingle()
@@ -489,6 +532,23 @@ export async function sendPautaMessage(formData: FormData) {
     entity_type: 'pauta',
     entity_id: pautaId,
     metadata: {},
+  })
+
+  // Quem participa da pauta (e o responsável) fica sabendo da conversa.
+  const admin = createAdminClient()
+  const { data: participantes } = await admin.from('pauta_participants').select('user_id').eq('pauta_id', pautaId)
+  const nome = context.profile?.full_name || 'Um colega'
+  await notificar(admin, {
+    workspaceId: context.workspace.id,
+    para: [pauta.owner_id, ...(participantes ?? []).map((p) => p.user_id)],
+    atorId: context.user.id,
+    categoria: 'mensagens',
+    titulo: `${nome} escreveu em "${pauta.title}"`,
+    mensagem: body,
+    textoDoEmail: `${nome} escreveu na conversa da pauta "${pauta.title}":`,
+    citacao: body,
+    link: `/pautas/${pautaId}`,
+    botao: 'Responder na pauta',
   })
 
   revalidatePath(`/pautas/${pautaId}`)
@@ -576,6 +636,7 @@ export async function submitContentForApproval(formData: FormData): Promise<{ ap
     approvalId,
     titulo: title,
     quem: context.profile?.full_name || 'Um colega',
+    atorId: context.user.id,
   })
 
   revalidatePath('/aprovacoes')
@@ -641,6 +702,7 @@ export async function adicionarRevisores(formData: FormData): Promise<{ erro?: s
     approvalId,
     titulo: peca?.title || 'Conteúdo editorial',
     quem: context.profile?.full_name || 'Um colega',
+    atorId: context.user.id,
   })
 
   revalidatePath('/aprovacoes')
@@ -800,6 +862,7 @@ export async function createPautaApproval(formData: FormData) {
     approvalId,
     titulo: peca?.title || 'Conteúdo editorial',
     quem: context.profile?.full_name || 'Um colega',
+    atorId: context.user.id,
   })
 
   revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
@@ -860,6 +923,28 @@ export async function addContentComment(formData: FormData) {
     body,
   })
   if (error) throw new Error('Não foi possível adicionar o comentário.')
+
+  // Avisa quem criou o conteúdo e quem já comentou nele.
+  const admin = createAdminClient()
+  const [{ data: peca }, { data: comentaristas }] = await Promise.all([
+    admin.from('content_pieces').select('title, created_by').eq('id', contentId).eq('workspace_id', context.workspace.id).maybeSingle(),
+    admin.from('content_comments').select('author_id').eq('content_id', contentId).eq('workspace_id', context.workspace.id).limit(200),
+  ])
+  if (peca) {
+    const nome = context.profile?.full_name || 'Um colega'
+    await notificar(admin, {
+      workspaceId: context.workspace.id,
+      para: [peca.created_by, ...(comentaristas ?? []).map((c) => c.author_id)],
+      atorId: context.user.id,
+      categoria: 'pautas',
+      titulo: `${nome} comentou em "${peca.title}"`,
+      mensagem: body,
+      textoDoEmail: `${nome} comentou no conteúdo "${peca.title}":`,
+      citacao: body,
+      link: `/conteudos/${contentId}`,
+      botao: 'Ver o comentário',
+    })
+  }
 
   revalidatePath(`/conteudos/${contentId}`)
   revalidatePath(`/mensagens/${contentId}`)
@@ -934,6 +1019,7 @@ export async function decideApproval(formData: FormData) {
   const { error: voteError } = await supabase.rpc('vote_on_approval', { p_approval_id: id, p_decision: decision, p_comment: note || null })
   if (voteError) throw new Error(voteError.message)
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note } })
+  await avisarQuemPediu({ approvalId: id, workspaceId: context.workspace.id, atorId: context.user.id, quem: context.profile?.full_name || 'Um colega', decisao: decision as 'approved' | 'changes_requested', nota: note })
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${id}`)
   redirect('/aprovacoes')
@@ -972,16 +1058,20 @@ export async function sendDirectMessage(formData: FormData) {
   })
   if (error) throw new Error('Não foi possível enviar a mensagem.')
 
-  const admin = createAdminClient()
-  const { error: notifyError } = await admin.from('notifications').insert({
-    workspace_id: context.workspace.id,
-    user_id: recipientId,
-    title: `Mensagem de ${context.profile?.full_name || 'um colega'}`,
-    message: body,
+  // Falhar o aviso não pode apagar a mensagem, que já está salva (notificar não lança).
+  const nome = context.profile?.full_name || 'Um colega'
+  await notificar(createAdminClient(), {
+    workspaceId: context.workspace.id,
+    para: [recipientId],
+    atorId: context.user.id,
+    categoria: 'mensagens',
+    titulo: `Mensagem de ${nome}`,
+    mensagem: body,
+    textoDoEmail: `${nome} mandou uma mensagem para você na Redação:`,
+    citacao: body,
     link: `/mensagens/pessoa/${context.user.id}`,
+    botao: 'Responder',
   })
-  // Falhar o aviso não pode apagar a mensagem, que já está salva.
-  if (notifyError) console.error('[sendDirectMessage] notificação não enviada:', notifyError.message)
 
   revalidatePath('/mensagens')
   revalidatePath(`/mensagens/pessoa/${recipientId}`)

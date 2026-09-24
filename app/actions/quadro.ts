@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { notificar } from '@/lib/notificacoes/servidor'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { COLUNAS, COLUNAS_COM_CRIACAO, ehCorDeEtiqueta, PASSO, PRIORIDADES, type CorDeEtiqueta, type StatusDoQuadro } from '@/lib/pautas/quadro'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -139,11 +141,27 @@ export async function atualizarCartao(formData: FormData): Promise<Resultado> {
       if (!data) throw new Error('Responsável precisa ser alguém do espaço.')
     }
 
+    const { data: antes } = await supabase.from('pautas').select('owner_id').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
     const { error } = await supabase.from('pautas').update({
       title: titulo, due_date: prazo || null, data_inicio: inicio || null, priority: prioridade, owner_id: responsavel || null,
       updated_at: new Date().toISOString(),
     }).eq('id', id).eq('workspace_id', context.workspace.id)
     if (error) throw new Error('Não foi possível salvar o cartão.')
+
+    // Virou responsável agora: fica sabendo.
+    if (responsavel && antes && antes.owner_id !== responsavel) {
+      const nome = context.profile?.full_name || 'Um colega'
+      await notificar(createAdminClient(), {
+        workspaceId: context.workspace.id,
+        para: [responsavel],
+        atorId: context.user.id,
+        categoria: 'pautas',
+        titulo: `${nome} passou "${titulo}" para você`,
+        mensagem: prazo ? `Você é o responsável. Prazo: ${prazo.split('-').reverse().join('/')}.` : 'Você é o responsável por este cartão.',
+        link: `/pautas/${id}`,
+        botao: 'Abrir a pauta',
+      })
+    }
 
     await supabase.from('activity_log').insert({
       workspace_id: context.workspace.id, actor_id: context.user.id, action: 'card_updated',
