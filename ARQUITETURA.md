@@ -604,6 +604,38 @@ Especificação: `docs/acervo.md`. Os arquivos ficam no bucket `cvrj-acervo` do 
   (admin, editor) envia, cataloga, publica e exclui.
 - **Testes**: `supabase/tests/acervo.test.sql` (pgTAP).
 
+### 7.11 Perfil de cada pessoa (`/pessoas/[id]`)
+
+É a página de cada pessoa, no jeito de uma rede social. Tem capa, foto,
+apresentação, pronomes, disponibilidade, "pode ajudar com", métricas e
+contatos. Chega-se a ela pelo nome ou pela foto no Diretório, e pelo link em
+Meu perfil. **Só a própria pessoa edita** (`/pessoas/[id]/editar`), nem
+administrador.
+
+- **Dados:** `perfil_social`, uma linha por pessoa. A escrita passa por
+  `salvarPerfilSocial` (service role, sempre o `user.id` da sessão). O RLS só
+  deixa ler o próprio perfil.
+- **Contatos** são institucionais ou pessoais. Cada um tem visibilidade
+  `equipe`, `setor` ou `admins`, e o pessoal nasce `admins`. Quem aplica a
+  visibilidade é `carregarPerfil` (`lib/pessoas/perfil-servidor.ts`), no
+  servidor: o que o leitor não pode ver nem chega ao navegador. O e-mail e o
+  telefone de trabalho da ficha da Equipe e o e-mail do setor entram sozinhos
+  como institucionais. Regras e validação estão em `lib/pessoas/perfil.ts`,
+  módulo puro.
+- **Métricas:** `metricas_da_pessoa()` calcula sobre os últimos 90 dias, em
+  tempo corrido, com mediana:
+  - tempo de resposta no chat, em diretas (a primeira mensagem de cada vez que
+    a outra pessoa puxa assunto) e em menções nos canais;
+  - tempo para decidir aprovações;
+  - primeira resposta e nota nos chamados;
+  - pautas em andamento e conteúdos criados.
+
+  Quem desliga "mostrar métricas" recebe `null` para os outros; ela mesma e
+  os administradores continuam vendo. O selo "Costuma responder em X" só
+  aparece com pelo menos 3 respostas.
+- "Visto em" e o ponto de online só aparecem para a própria pessoa e para
+  administradores, a mesma regra do Diretório.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

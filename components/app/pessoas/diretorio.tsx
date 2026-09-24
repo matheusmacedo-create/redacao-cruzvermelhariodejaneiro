@@ -32,9 +32,11 @@ function CartaoDaPessoa({ p, ehAdmin }: { p: PessoaDoDiretorio; ehAdmin: boolean
   return (
     <Card className={cn('flex flex-col gap-3 p-4', p.acesso === 'desativado' && 'opacity-60')} data-pessoa={nome}>
       <div className="flex items-start gap-3">
-        <Avatar initials={p.iniciais || iniciaisDe(p.nome)} color={p.cor ?? '#9ca3af'} src={privateAvatarUrl(p.avatar_path)} alt={nome} size="lg" />
+        {p.user_id
+          ? <Link href={`/pessoas/${p.user_id}`} aria-label={`Perfil de ${nome}`} className="rounded-full focus-visible:ring-2 focus-visible:ring-ring"><Avatar initials={p.iniciais || iniciaisDe(p.nome)} color={p.cor ?? '#9ca3af'} src={privateAvatarUrl(p.avatar_path)} alt={nome} size="lg" /></Link>
+          : <Avatar initials={p.iniciais || iniciaisDe(p.nome)} color={p.cor ?? '#9ca3af'} src={privateAvatarUrl(p.avatar_path)} alt={nome} size="lg" />}
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-semibold">{nome}</h3>
+          <h3 className="truncate font-semibold">{p.user_id ? <Link href={`/pessoas/${p.user_id}`} className="hover:text-primary hover:underline">{nome}</Link> : nome}</h3>
           <p className={cn('truncate text-sm', p.cargo ? 'text-muted-foreground' : 'italic text-muted-foreground/70')}>{p.cargo || 'Cargo não informado'}</p>
           {p.gestor && <p className="truncate text-xs text-muted-foreground">Responde a {nomeExibido(p.gestor)}</p>}
         </div>
