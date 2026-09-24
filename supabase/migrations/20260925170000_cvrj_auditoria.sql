@@ -994,11 +994,15 @@ create trigger press_campanhas_trilha after update of estado on public.press_cam
 -- ---------------------------------------------------------------- sincronização (rede de segurança)
 
 -- O portal de transparência e os canais oficiais têm a sua parte da sincronização; a migração
--- deles (20260925171000_cvrj_transparencia.sql) substitui esta função.
-create or replace function auditoria.sincronizar_portal()
-returns jsonb language sql stable set search_path = '' as $$
-  select '{}'::jsonb
-$$;
+-- deles (20260925171000_cvrj_transparencia.sql) substitui esta função. Só se cria a vazia se
+-- ainda não existir, para esta migração, reaplicada, não apagar a do portal.
+do $$
+begin
+  if to_regprocedure('auditoria.sincronizar_portal()') is null then
+    create function auditoria.sincronizar_portal()
+    returns jsonb language sql stable set search_path = '' as $f$ select '{}'::jsonb $f$;
+  end if;
+end $$;
 
 -- Registra o que os ganchos não registraram, inclusive o que já existia antes da trilha. Um
 -- item registrado aqui tem a data do registro, não a da publicação original. Matéria só entra se
@@ -1407,10 +1411,23 @@ end $$;
 -- ---------------------------------------------------------------- avisos
 
 -- Falha na conferência diária, num registro ou num lote vira aviso para a administração
--- (categoria própria, com preferência de e-mail como as outras).
-alter table public.notifications drop constraint if exists notifications_categoria_valida;
-alter table public.notifications add constraint notifications_categoria_valida
-  check (categoria = any (array['geral', 'aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro', 'patrimonio', 'auditoria']));
+-- (categoria própria, com preferência de e-mail como as outras). A lista é lida da restrição
+-- em vigor e só ganha "auditoria": outra migração aplicada antes desta pode ter acrescentado
+-- categorias, e reescrever a lista inteira as apagaria.
+do $$
+declare
+  v_def text;
+  v_lista text[];
+begin
+  select pg_get_constraintdef(c.oid) into v_def from pg_constraint c
+   where c.conrelid = 'public.notifications'::regclass and c.conname = 'notifications_categoria_valida';
+  if v_def is null then return; end if;
+  select array_agg(distinct m[1] order by m[1]) into v_lista from regexp_matches(v_def, '''([a-z_]+)''', 'g') as m;
+  if 'auditoria' = any (v_lista) then return; end if;
+  v_lista := v_lista || array['auditoria'];
+  alter table public.notifications drop constraint notifications_categoria_valida;
+  execute format('alter table public.notifications add constraint notifications_categoria_valida check (categoria = any (%L::text[]))', v_lista);
+end $$;
 
 -- ---------------------------------------------------------------- privilégios
 
