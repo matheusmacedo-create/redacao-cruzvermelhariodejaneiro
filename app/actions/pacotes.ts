@@ -96,10 +96,13 @@ export async function garantirBaseNoSite(pacoteId: string, workspaceId: string):
 
   const supabase = await createClient()
   const { data: jaTem } = await supabase
-    .from('package_destinations').select('id')
+    .from('package_destinations').select('id,estado,descolada,formato,extras')
     .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('canal', 'site_web')
     .limit(1)
-  if (jaTem?.length) return
+  if (jaTem?.length) {
+    await reabrirSeSaiuDoAr(jaTem[0], pacoteId, workspaceId)
+    return
+  }
 
   const { data: pacote } = await supabase
     .from('social_packages').select('mestre,mestre_file_ids')
@@ -121,6 +124,60 @@ export async function garantirBaseNoSite(pacoteId: string, workspaceId: string):
     // vermelha seria alarme por estar em branco.
     estado: 'gerada',
   })
+}
+
+/**
+ * A página do site foi tirada do ar (Configurações → Site, "Tirar do ar"):
+ * o destino volta a ser rascunho.
+ *
+ * Sem isto o destino ficava "publicada" para sempre, apontando para uma
+ * página que não existe mais. Publicado é travado — o mestre não chega nele
+ * e a publicação o pula —, então as correções feitas depois de tirar a
+ * página do ar não entravam, e publicar de novo dava "Nenhum destino pronto
+ * para publicar". Foi o primeiro teste real de tirar do ar e republicar.
+ *
+ * O sinal é a peça de conteúdo sem site_url: é exatamente o que
+ * tirarMateriaDoAr grava. O slug fica nos extras, e a página volta ao mesmo
+ * endereço.
+ */
+async function reabrirSeSaiuDoAr(
+  destino: { id: string; estado: string; descolada: boolean | null; formato: string; extras: unknown },
+  pacoteId: string,
+  workspaceId: string,
+) {
+  if (destino.estado !== 'publicada') return
+  const guardados = (destino.extras ?? {}) as Record<string, string>
+  if (!guardados.contentId) return
+
+  const supabase = await createClient()
+  const { data: peca } = await supabase
+    .from('content_pieces').select('site_url')
+    .eq('id', guardados.contentId).eq('workspace_id', workspaceId).maybeSingle()
+  if (!peca || peca.site_url) return
+
+  const campos: Record<string, unknown> = { estado: 'gerada', external_url: null, erro: null }
+  // O texto volta a acompanhar o mestre, que é onde as correções foram
+  // feitas. Destino descolado tem texto próprio, e esse fica como está.
+  if (!destino.descolada) {
+    const { data: pacote } = await supabase
+      .from('social_packages').select('mestre,mestre_file_ids')
+      .eq('id', pacoteId).eq('workspace_id', workspaceId).maybeSingle()
+    if (pacote) {
+      const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
+      const { variante } = gerarVariante(mestre, 'site_web', destino.formato || FORMATO_BASE_DO_SITE)
+      campos.corpo = variante.corpo
+      campos.file_ids = variante.fileIds
+      campos.extras = {
+        ...variante.extras,
+        contentId: guardados.contentId,
+        // Mesmo endereço de antes: links compartilhados voltam a funcionar.
+        ...(guardados.slug ? { slug: guardados.slug } : {}),
+      }
+    }
+  }
+  const { error } = await supabase.from('package_destinations').update(campos)
+    .eq('id', destino.id).eq('workspace_id', workspaceId).eq('estado', 'publicada')
+  if (error) console.error('[pacotes] não foi possível reabrir o destino do site', destino.id, error.message)
 }
 
 async function pacoteDoEspaco(id: string, workspaceId: string) {
