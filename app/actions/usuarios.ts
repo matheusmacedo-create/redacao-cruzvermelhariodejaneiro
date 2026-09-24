@@ -11,6 +11,10 @@ import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { ehPapel, PAPEL, type Papel } from '@/lib/permissoes'
 import { NOMES_DOS_SETORES } from '@/lib/equipe'
 import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
+import { randomBytes } from 'node:crypto'
+import { emailConfigurado } from '@/lib/newsletter/resend'
+import { emailDeConfirmacao, emailDeConvite, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
+import { avisar, emitirToken, enviarComSeguranca, revogarLinksDeSenha, urlDoLink, VALIDADE_MIN } from '@/lib/contas/servidor'
 
 /**
  * Gestão de usuários e acessos.
@@ -27,8 +31,11 @@ import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
  * O service role só entra no que o RLS não alcança por desenho: criar a conta
  * no Auth, trocar senha de terceiro, desativar e escrever a auditoria.
  *
- * Senha nunca vai para log, auditoria ou mensagem de erro. A temporária volta
- * UMA vez na resposta, para o administrador repassar, e não é guardada.
+ * Senha nunca vai para log, auditoria, mensagem de erro nem e-mail. Com e-mail
+ * confirmado, o caminho preferido é o LINK de uso único (convite, redefinição,
+ * reativação); a senha temporária mostrada uma vez na tela fica para quem não
+ * tem e-mail. Toda mudança sensível avisa a pessoa por e-mail
+ * (lib/contas/servidor.ts → avisar), sem nunca desfazer a ação se o envio falhar.
  */
 
 type Resultado = { erro?: string; recado?: string; senhaTemporaria?: string; usuario?: string }
@@ -50,6 +57,30 @@ function lerPapel(f: FormData): Papel {
   const papel = texto(f, 'papel')
   if (!ehPapel(papel)) throw new Error('Escolha um papel válido.')
   return papel
+}
+
+function lerEmail(f: FormData): string | null {
+  const bruto = texto(f, 'email')
+  if (!bruto) return null
+  const email = emailValido(bruto)
+  if (!email) throw new Error('O e-mail informado não é válido.')
+  return email
+}
+
+/** Senha que ninguém conhece: a conta existe, mas só entra quem abrir o link. */
+const senhaInacessivel = () => `${randomBytes(24).toString('base64url')}A1`
+
+async function emailEmUso(admin: Admin, email: string, excetoId?: string) {
+  let q = admin.from('profiles').select('id').eq('email', email)
+  if (excetoId) q = q.neq('id', excetoId)
+  const { data } = await q.maybeSingle()
+  return Boolean(data)
+}
+
+/** Manda o link de confirmação para um endereço novo. Nada muda até ele ser aberto. */
+async function pedirConfirmacao(admin: Admin, p: { userId: string; nome: string; email: string; adminId: string }) {
+  const token = await emitirToken(admin, { userId: p.userId, finalidade: 'confirmar_email', validadeMin: VALIDADE_MIN.confirmar_email, email: p.email, criadoPor: p.adminId })
+  return enviarComSeguranca(p.email, emailDeConfirmacao({ nome: p.nome, email: p.email, url: urlDoLink('/confirmar-email', token), horas: VALIDADE_MIN.confirmar_email / 60 }))
 }
 
 function lerNome(f: FormData): string {
@@ -76,9 +107,9 @@ async function auditar(admin: Admin, linha: { workspace_id: string; ator_id: str
 async function carregarAlvo(admin: Admin, workspaceId: string, userId: string) {
   if (!/^[0-9a-f-]{36}$/i.test(userId)) throw new Error('Usuário não encontrado.')
   const { data } = await admin.from('workspace_members')
-    .select('user_id, role, coordination, profiles(id, username, full_name, active)')
+    .select('user_id, role, coordination, profiles(id, username, full_name, active, email, email_confirmado_em)')
     .eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
-  const perfil = data && (Array.isArray(data.profiles) ? data.profiles[0] : data.profiles) as { id: string; username: string; full_name: string; active: boolean } | null
+  const perfil = data && (Array.isArray(data.profiles) ? data.profiles[0] : data.profiles) as { id: string; username: string; full_name: string; active: boolean; email: string | null; email_confirmado_em: string | null } | null
   if (!data || !perfil) throw new Error('Usuário não encontrado neste espaço.')
   return { papel: data.role as Papel, coordenacao: (data.coordination as string | null) ?? '', ...perfil }
 }
@@ -121,10 +152,15 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     const papel = lerPapel(formData)
     const coordenacao = lerCoordenacao(formData)
     const cargo = texto(formData, 'cargo').slice(0, 120)
+    const email = lerEmail(formData)
 
-    const gerar = texto(formData, 'modoSenha') !== 'definir'
-    const senha = gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
-    if (!gerar) {
+    const modo = texto(formData, 'modoSenha')
+    const convite = modo === 'convite'
+    const gerar = modo === 'gerar'
+    if (convite && !email) throw new Error('Para enviar o convite por e-mail, informe o e-mail da pessoa.')
+    if (convite && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Use a senha temporária.')
+    const senha = convite ? senhaInacessivel() : gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
+    if (!convite && !gerar) {
       const problema = problemaDaSenha(senha, { usuario, nome })
       if (problema) throw new Error(problema)
     }
@@ -132,6 +168,7 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     const admin = createAdminClient()
     const { data: existente } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
     if (existente) throw new Error(`O usuário @${usuario} já existe.`)
+    if (email && await emailEmUso(admin, email)) throw new Error('Este e-mail já está em uso por outra conta.')
 
     const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
       email: emailInterno(usuario), password: senha, email_confirm: true,
@@ -143,7 +180,9 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     // Daqui em diante, qualquer falha desfaz a conta: conta sem perfil ou sem
     // vínculo existe no Auth e não entra em lugar nenhum.
     const { error: erroPerfil } = await admin.from('profiles').insert({
-      id: userId, username: usuario, full_name: nome, job_title: cargo, initials: iniciais(nome), trocar_senha: true,
+      id: userId, username: usuario, full_name: nome, job_title: cargo, initials: iniciais(nome),
+      // Convite: a pessoa escolhe a senha no link, não há provisória a trocar.
+      trocar_senha: !convite, email,
     })
     if (erroPerfil) {
       await admin.auth.admin.deleteUser(userId)
@@ -160,14 +199,33 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     }
 
     await sincronizarSetor(admin, context.workspace.id, userId, '', coordenacao)
+
+    // O convite prova o e-mail (só quem recebe consegue definir a senha). Nos
+    // outros modos, um e-mail informado ainda precisa ser confirmado.
+    let enviado = false
+    if (convite && email) {
+      const token = await emitirToken(admin, { userId, finalidade: 'definir_senha', validadeMin: VALIDADE_MIN.definir_senha, criadoPor: context.user.id })
+      enviado = await enviarComSeguranca(email, emailDeConvite({
+        nome, usuario, url: urlDoLink('/redefinir-senha', token), horas: VALIDADE_MIN.definir_senha / 60, convidadoPor: context.profile?.full_name ?? 'Um administrador',
+      }))
+    } else if (email) {
+      enviado = await pedirConfirmacao(admin, { userId, nome, email, adminId: context.user.id })
+    }
+
     await auditar(admin, {
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: userId, acao: 'usuario_criado',
-      detalhes: { usuario, papel, coordenacao, senha: gerar ? 'temporaria_gerada' : 'definida_pelo_admin' },
+      detalhes: { usuario, papel, coordenacao, senha: convite ? 'convite_por_email' : gerar ? 'temporaria_gerada' : 'definida_pelo_admin', email_enviado: enviado },
     })
 
     revalidar()
+    const papelTexto = PAPEL[papel].rotulo.toLowerCase()
+    if (convite) {
+      return enviado
+        ? { recado: `Acesso de ${nome} criado como ${papelTexto}. O convite foi enviado para ${email}: a pessoa define a senha pelo link (vale por 72 horas).` }
+        : { recado: `Atenção: o acesso de ${nome} foi criado, mas o convite NÃO saiu (falha no envio de e-mail). Abra a pessoa na lista e use "Redefinir senha" para gerar uma senha temporária.` }
+    }
     return {
-      recado: `Acesso de ${nome} criado como ${PAPEL[papel].rotulo.toLowerCase()}. No primeiro login, a pessoa troca a senha.`,
+      recado: `Acesso de ${nome} criado como ${papelTexto}. No primeiro login, a pessoa troca a senha.${email ? (enviado ? ` Enviamos a confirmação de e-mail para ${email}.` : ' A confirmação de e-mail não saiu.') : ''}`,
       usuario,
       senhaTemporaria: gerar ? senha : undefined,
     }
@@ -187,6 +245,7 @@ export async function atualizarUsuario(formData: FormData): Promise<Resultado> {
     const cargo = texto(formData, 'cargo').slice(0, 120)
     const coordenacao = lerCoordenacao(formData)
     const papel = lerPapel(formData)
+    const email = lerEmail(formData)
 
     // Tirar o próprio papel de admin por engano tranca a pessoa fora desta
     // tela no mesmo clique. Outro admin faz, se for o caso.
@@ -210,10 +269,27 @@ export async function atualizarUsuario(formData: FormData): Promise<Resultado> {
       if (error) throw erroDoBanco(error, 'Não foi possível alterar o acesso.')
       if (!data) throw new Error('Não foi possível alterar o acesso.')
       await sincronizarSetor(admin, context.workspace.id, alvo.id, alvo.coordenacao, coordenacao)
+      if (papel !== alvo.papel) {
+        await avisar(admin, alvo.id, { tipo: 'papel_alterado', de: PAPEL[alvo.papel].rotulo, para: PAPEL[papel].rotulo, adminNome: context.profile?.full_name ?? 'Um administrador' })
+      }
+    }
+
+    // E-mail novo não troca na hora: vai um link para o endereço novo, e só
+    // vale quando alguém com acesso àquela caixa abrir. Evita erro de digitação
+    // desviar os links de senha de alguém.
+    let recadoDoEmail = ''
+    if (email && email !== alvo.email) {
+      if (await emailEmUso(admin, email, alvo.id)) throw new Error('Este e-mail já está em uso por outra conta.')
+      if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY).')
+      const enviado = await pedirConfirmacao(admin, { userId: alvo.id, nome, email, adminId: context.user.id })
+      recadoDoEmail = enviado ? ` Enviamos a confirmação para ${email}; o e-mail passa a valer quando a pessoa abrir o link.` : ' A confirmação do novo e-mail não saiu; tente de novo.'
+    } else if (email && email === alvo.email && !alvo.email_confirmado_em) {
+      const enviado = await pedirConfirmacao(admin, { userId: alvo.id, nome, email, adminId: context.user.id })
+      recadoDoEmail = enviado ? ` Reenviamos a confirmação para ${email}.` : ''
     }
 
     revalidar()
-    return { recado: `Dados de ${nome} salvos.` }
+    return { recado: `Dados de ${nome} salvos.${recadoDoEmail}` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar.') }
   }
@@ -229,6 +305,21 @@ export async function redefinirSenha(formData: FormData): Promise<Resultado> {
     if (alvo.id === context.user.id) throw new Error('Para a sua própria senha, use Meu perfil → Segurança.')
     if (!alvo.active) throw new Error('Reative a conta antes de redefinir a senha.')
 
+    // Link por e-mail: a senha atual continua valendo até a pessoa escolher
+    // a nova — se o e-mail atrasar, ninguém fica trancado do lado de fora.
+    if (texto(formData, 'modoSenha') === 'link') {
+      if (!alvo.email || !alvo.email_confirmado_em) throw new Error('Esta pessoa ainda não tem e-mail confirmado. Gere uma senha temporária.')
+      if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY).')
+      const token = await emitirToken(admin, { userId: alvo.id, finalidade: 'redefinir_senha', validadeMin: VALIDADE_MIN.redefinir_pelo_admin, criadoPor: context.user.id })
+      const enviado = await enviarComSeguranca(alvo.email, emailDeRedefinicao({
+        nome: alvo.full_name, usuario: alvo.username, url: urlDoLink('/redefinir-senha', token), minutos: VALIDADE_MIN.redefinir_pelo_admin, pedidoPor: 'admin', adminNome: context.profile?.full_name,
+      }))
+      if (!enviado) throw new Error('O e-mail não saiu. Tente de novo ou gere uma senha temporária.')
+      await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'link_de_senha_enviado_pelo_admin' })
+      revalidar()
+      return { recado: `Link de nova senha enviado para ${alvo.email} (vale por 24 horas). A senha atual continua valendo até a pessoa escolher a nova.` }
+    }
+
     const gerar = texto(formData, 'modoSenha') !== 'definir'
     const senha = gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
     if (!gerar) {
@@ -241,6 +332,8 @@ export async function redefinirSenha(formData: FormData): Promise<Resultado> {
     await admin.from('profiles').update({ trocar_senha: true, updated_at: new Date().toISOString() }).eq('id', alvo.id)
     // Quem estava logado com a senha antiga — inclusive quem a roubou — sai.
     const encerradas = await encerrarSessoes(admin, alvo.id)
+    await revogarLinksDeSenha(admin, alvo.id)
+    await avisar(admin, alvo.id, { tipo: 'senha_alterada', como: 'admin', adminNome: context.profile?.full_name ?? undefined })
 
     await auditar(admin, {
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'senha_redefinida',
@@ -283,6 +376,8 @@ export async function desativarUsuario(formData: FormData): Promise<Resultado> {
     const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.id, { ban_duration: BAN_PERMANENTE })
     if (erroBan) console.error('[usuarios] ban não aplicado:', erroBan.message)
     const encerradas = await encerrarSessoes(admin, alvo.id)
+    await revogarLinksDeSenha(admin, alvo.id)
+    await avisar(admin, alvo.id, { tipo: 'conta_desativada', adminNome: context.profile?.full_name ?? 'Um administrador' })
 
     await auditar(admin, {
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'usuario_desativado',
@@ -304,18 +399,35 @@ export async function reativarUsuario(formData: FormData): Promise<Resultado> {
 
     const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.id, { ban_duration: 'none' })
     if (erroBan) throw new Error('Não foi possível liberar o login.')
-    // Volta com senha nova obrigatória: quem ficou fora pode ter perdido o
-    // controle da antiga, e ninguém lembra de trocar depois.
-    const senha = gerarSenhaTemporaria()
+    // Volta com senha nova: quem ficou fora pode ter perdido o controle da
+    // antiga. Com e-mail confirmado, a pessoa escolhe a nova por um link; sem,
+    // sai uma temporária para o admin repassar, com troca obrigatória.
+    const porLink = Boolean(alvo.email && alvo.email_confirmado_em && emailConfigurado())
+    const senha = porLink ? senhaInacessivel() : gerarSenhaTemporaria()
     const { error: erroSenha } = await admin.auth.admin.updateUserById(alvo.id, { password: senha })
-    if (erroSenha) throw new Error('Não foi possível gerar a senha temporária.')
+    if (erroSenha) throw new Error('Não foi possível gerar a senha nova.')
     const { error } = await admin.from('profiles')
-      .update({ active: true, desativado_em: null, trocar_senha: true, updated_at: new Date().toISOString() })
+      .update({ active: true, desativado_em: null, trocar_senha: !porLink, updated_at: new Date().toISOString() })
       .eq('id', alvo.id)
     if (error) throw new Error('Não foi possível reativar a conta.')
 
-    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'usuario_reativado', detalhes: { senha: 'temporaria_gerada' } })
+    const adminNome = context.profile?.full_name ?? 'Um administrador'
+    await avisar(admin, alvo.id, { tipo: 'conta_reativada', adminNome })
+    let enviado = false
+    if (porLink && alvo.email) {
+      const token = await emitirToken(admin, { userId: alvo.id, finalidade: 'redefinir_senha', validadeMin: VALIDADE_MIN.redefinir_pelo_admin, criadoPor: context.user.id })
+      enviado = await enviarComSeguranca(alvo.email, emailDeRedefinicao({
+        nome: alvo.full_name, usuario: alvo.username, url: urlDoLink('/redefinir-senha', token), minutos: VALIDADE_MIN.redefinir_pelo_admin, pedidoPor: 'admin', adminNome,
+      }))
+    }
+
+    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'usuario_reativado', detalhes: { senha: porLink ? 'link_por_email' : 'temporaria_gerada', email_enviado: enviado } })
     revalidar()
+    if (porLink) {
+      return enviado
+        ? { recado: `${alvo.full_name} foi reativado. Enviamos para ${alvo.email} um link para escolher a senha nova (vale por 24 horas).` }
+        : { recado: `Atenção: ${alvo.full_name} foi reativado, mas o link de senha NÃO saiu. Use "Redefinir senha" para reenviar ou gerar uma temporária.` }
+    }
     return { recado: `${alvo.full_name} foi reativado com uma senha temporária.`, usuario: alvo.username, senhaTemporaria: senha }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível reativar a conta.') }
@@ -361,7 +473,9 @@ export async function trocarMinhaSenha(formData: FormData): Promise<{ erro?: str
     if (error) throw new Error('Não foi possível trocar a senha.')
     await admin.from('profiles').update({ trocar_senha: false, updated_at: new Date().toISOString() }).eq('id', context.user.id)
     await encerrarSessoes(admin, context.user.id)
+    await revogarLinksDeSenha(admin, context.user.id)
     await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: context.user.id, acao: 'senha_trocada' })
+    await avisar(admin, context.user.id, { tipo: 'senha_alterada', como: 'propria' })
 
     // Todas as sessões caíram, inclusive esta: entra de novo com a nova.
     const supabase = await createClient()

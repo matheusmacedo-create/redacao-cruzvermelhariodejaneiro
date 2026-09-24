@@ -7,10 +7,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pode, ehPapel } from '@/lib/permissoes'
 import { chaveDoNome, PESSOAS_DA_EQUIPE } from '@/lib/equipe'
+import { emailConfigurado } from '@/lib/newsletter/resend'
 
 type Perfil = {
   id: string; username: string; full_name: string; job_title: string | null; initials: string | null
   color: string | null; avatar_path: string | null; active: boolean; trocar_senha?: boolean; desativado_em?: string | null
+  email?: string | null; email_confirmado_em?: string | null
 }
 
 export default async function UsuariosPage() {
@@ -44,6 +46,7 @@ export default async function UsuariosPage() {
       papel: m.role, coordenacao: m.coordination ?? '', ativo: p.active !== false, trocarSenha: Boolean(p.trocar_senha),
       desativadoEm: p.desativado_em ?? null, criadoEm: m.created_at, ultimoAcesso: ultimoAcesso.get(p.id) ?? null, souEu: p.id === context.user.id,
       aparelhos: aparelhos.get(p.id) ?? 0,
+      email: p.email ?? null, emailConfirmado: Boolean(p.email && p.email_confirmado_em),
     }]
   }).sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'))
 
@@ -62,7 +65,7 @@ export default async function UsuariosPage() {
   return (
     <div>
       <PageHeader title="Usuários e permissões" description={`Quem acessa o espaço ${context.workspace.name}, com qual papel, e o que cada papel pode fazer.`} />
-      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} verificacaoObrigatoriaPara={context.verificacaoObrigatoriaPara} />
+      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} verificacaoObrigatoriaPara={context.verificacaoObrigatoriaPara} envioConfigurado={emailConfigurado()} />
     </div>
   )
 }

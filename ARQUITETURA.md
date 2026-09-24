@@ -221,6 +221,39 @@ nasce vazio = opcional para todos). Regras:
   admin, que remove o app da conta em `/usuarios` (as sessões caem junto). Por
   isso o perfil sugere cadastrar um segundo aparelho.
 
+**Conta por e-mail** (convite, senha, avisos). O login continua por usuário
+(o e-mail do Auth é o interno `usuario@usuarios.cvrj.local`); cada perfil ganha
+um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
+(`email_confirmado_em`). Tudo sai pelo Resend (`enviarEmailDeConta`, remetente
+`CONTA_REMETENTE`), com modelos em `lib/contas/emails.ts` (puro) e a mecânica em
+`lib/contas/servidor.ts`. Regras:
+
+- **Links de uso único, nunca senha por e-mail.** `tokens_de_conta` guarda só o
+  sha-256 do código; consumir é um UPDATE condicional (dois cliques não usam o
+  mesmo link). Emitir um link novo invalida os pendentes da mesma finalidade;
+  trocar a senha invalida todos os de senha. Validades em `VALIDADE_MIN`.
+- **Abrir o link não consome.** `/redefinir-senha` e `/confirmar-email` só
+  leem no GET; consome o POST do formulário — robô de segurança corporativo
+  abre todo link de e-mail antes da pessoa. As páginas mandam `no-referrer`.
+- **"Esqueci minha senha" (`/esqueci-senha`) não revela contas**: resposta
+  igual para tudo, só envia para e-mail confirmado, limite de 5 pedidos por IP
+  a cada 15 min (`pedidos_de_recuperacao`, hash do IP) e 3 links por pessoa por
+  hora. Redefinir a senha **não** desliga a verificação em duas etapas.
+- **Login por e-mail**: `resolverLogin` traduz e-mail confirmado para o usuário;
+  e-mail desconhecido vira um endereço interno inexistente e falha igual a
+  senha errada.
+- **Trocar e-mail exige abrir o link no endereço novo** (a pessoa ou o admin
+  pedem; nada muda antes) e o endereço antigo recebe aviso. `profiles.email`
+  não está no grant de update por coluna: a Data API não troca.
+- **Admin**: criação por **convite** (a pessoa define a senha pelo link, que
+  também confirma o e-mail), redefinição e reativação por **link** quando há
+  e-mail confirmado; senha temporária na tela continua para quem não tem.
+- **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
+  papel alterado, conta desativada/reativada e e-mail trocado. São
+  best-effort: nunca desfazem a ação; a falha vai para o log.
+- **Perdi o celular** (`/verificacao`): avisa os admins por e-mail, 1 vez por
+  hora. Não remove nada sozinho — senão a 2ª etapa valeria o mesmo que a senha.
+
 A equipe oficial e os setores ficam em `lib/equipe.ts`. É a fonte do campo
 Coordenação e da lista "da equipe, ainda sem acesso" em `/usuarios` — estar lá
 não cria conta. Mudar a coordenação de alguém sincroniza o `setor_membros` do

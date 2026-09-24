@@ -60,7 +60,13 @@ function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid:
   )
 }
 
-export default async function LoginPage() {
+const AVISOS: Record<string, string> = {
+  definida: 'Senha criada. Entre com seu usuário e a senha nova.',
+  redefinida: 'Senha redefinida. Entre com a senha nova.',
+}
+
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ senha?: string }> }) {
+  const { senha } = await searchParams
   const publicEnv = publicSupabaseEnv()
   const adminEnv = adminSupabaseEnv()
   const missingConfig = [...new Set([...publicEnv.missing, ...adminEnv.missing])]
@@ -96,7 +102,7 @@ export default async function LoginPage() {
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse a Redação Cruz Vermelha Brasileira Rio de Janeiro'}</h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
-          <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} /></div>
+          <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} /></div>
         </div>
       </section>
       <section className="hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">

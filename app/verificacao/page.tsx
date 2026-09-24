@@ -3,6 +3,7 @@ import { ShieldCheck } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import { EtapaDeVerificacao } from './etapa'
+import { PedirAjudaBotao } from '@/components/auth/contas'
 
 /**
  * Segunda etapa do login: digitar o código do app autenticador, ou
@@ -37,7 +38,7 @@ export default async function VerificacaoPage() {
             fatores={context.fatores.map((f) => ({ id: f.id, nome: f.friendly_name || 'Aparelho' }))}
           />
         </div>
-        {!cadastrar && <p className="mt-4 text-center text-sm text-muted-foreground">Perdeu ou trocou de celular? Um administrador pode remover a verificação da sua conta.</p>}
+        {!cadastrar && <div className="mt-4"><PedirAjudaBotao /></div>}
         <form action="/auth/signout" method="post" className="mt-2 text-center"><button type="submit" className="text-sm text-muted-foreground underline-offset-4 hover:underline">Sair</button></form>
       </div>
     </main>
