@@ -8,8 +8,10 @@ import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
 import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
 import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
-import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE } from '@/lib/site/sitemap'
+import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE, type EntradaDoMapa } from '@/lib/site/sitemap'
 import { HTACCESS_DAS_NOTICIAS } from '@/lib/site/cache-do-site'
+import { itensPublicosDoAcervo } from '@/lib/acervo/dados'
+import { entradasDoAcervoNoMapa } from '@/lib/acervo/paginas'
 
 /**
  * A vitrine do site: o índice de notícias, o sitemap e o robots.
@@ -215,13 +217,8 @@ export async function atualizarVitrine(
   try {
     const raiz = await descobrirRaizDoSite(client, config)
     if (!raiz) throw new Error('raiz não encontrada')
-    const entradas = [
-      ...paginasFixas(),
-      ...noticias.map((n) => ({ url: n.url, modificadaEm: n.atualizadaEm })),
-    ]
-    await enviarNaRaizDoSite(client, raiz, 'sitemap.xml', gerarSitemap(entradas))
+    await regerarMapaDoSite(client, raiz, workspaceId, noticias)
     resultado.sitemap = true
-    await enviarNaRaizDoSite(client, raiz, 'robots.txt', gerarRobots())
     resultado.robots = true
   } catch {
     problemas.push('sitemap/robots não subiram (a pasta do site não respondeu)')
@@ -229,4 +226,28 @@ export async function atualizarVitrine(
 
   if (problemas.length) resultado.aviso = problemas.join('; ')
   return resultado
+}
+
+/**
+ * O sitemap.xml e o robots.txt da raiz do site: as páginas fixas, as notícias e o acervo público
+ * (coleções e itens, com a imagem de cada um). Chamada pela vitrine, a cada matéria, e pela
+ * publicação do acervo — assim uma nunca apaga do mapa o que a outra pôs.
+ */
+export async function regerarMapaDoSite(
+  client: Client,
+  raiz: string,
+  workspaceId: string,
+  noticias?: (NoticiaDoIndice & { atualizadaEm: Date })[],
+): Promise<void> {
+  // Sem a lista de matérias, o mapa sairia sem as notícias: melhor não mexer nele.
+  const lista = noticias ?? await noticiasPublicadas(workspaceId)
+  let acervo: EntradaDoMapa[] = []
+  try { acervo = entradasDoAcervoNoMapa(await itensPublicosDoAcervo(workspaceId)) } catch { /* o /acervo/ fixo continua no mapa */ }
+  const entradas: EntradaDoMapa[] = [
+    ...paginasFixas(),
+    ...lista.map((n) => ({ url: n.url, modificadaEm: n.atualizadaEm })),
+    ...acervo,
+  ]
+  await enviarNaRaizDoSite(client, raiz, 'sitemap.xml', gerarSitemap(entradas))
+  await enviarNaRaizDoSite(client, raiz, 'robots.txt', gerarRobots())
 }

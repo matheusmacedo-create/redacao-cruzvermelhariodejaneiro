@@ -73,6 +73,8 @@ export const PERMISSOES = {
   'imprensa.campanhas': { grupo: 'Site e publicação', rotulo: 'Criar e disparar campanhas de imprensa', papeis: ['admin', 'editor'] },
   'newsletter.apagar': { grupo: 'Site e publicação', rotulo: 'Apagar edições e inscritos da newsletter', papeis: ['admin'] },
   'biblioteca.liberar_terceiros': { grupo: 'Site e publicação', rotulo: 'Liberar mídia de terceiros para publicação', papeis: ['admin'] },
+  'acervo.ver': { grupo: 'Site e publicação', rotulo: 'Ver o acervo da filial, inclusive o material de uso interno, e baixar os arquivos', papeis: ['admin', 'editor', 'colaborador'] },
+  'acervo.gerenciar': { grupo: 'Site e publicação', rotulo: 'Enviar arquivos ao acervo, catalogar e publicar em cruzvermelhariodejaneiro.org/acervo', papeis: ['admin', 'editor'] },
 
   // Conteúdo de outras pessoas
   'biblioteca.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar arquivos da Biblioteca enviados por outras pessoas', papeis: ['admin', 'editor'] },

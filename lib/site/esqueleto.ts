@@ -238,7 +238,7 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
 
 /** O cabeçalho com o menu — o mesmo da home, com o atalho de Notícias.
  * `ativo` marca a página atual no menu (aria-current + filete). */
-export function cabecalhoDoSite(origem: string, ativo?: 'noticias'): string {
+export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): string {
   const o = escapar(origem)
   const atual = ativo === 'noticias' ? ' aria-current="page"' : ''
   return `<header class="main-header">
@@ -303,6 +303,8 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <span class="sep">|</span>
           <a href="${o}/noticias/">Notícias</a>
           <span class="sep">|</span>
+          <a href="${o}/acervo/">Acervo</a>
+          <span class="sep">|</span>
           <a href="${o}/privacidade/">Política de Privacidade</a>
           <span class="sep">|</span>
           <a href="${o}/termos/">Termos de Uso</a>
@@ -341,9 +343,18 @@ export type DadosDaPagina = {
   jsonLd?: object
   agora?: Date
   /** Item do menu a marcar como página atual. */
-  ativo?: 'noticias'
+  ativo?: 'noticias' | 'acervo'
   /** false: a página sai com noindex (lançamento oculto; o sitemap também não a lista). */
   indexar?: boolean
+  /** Imagem de compartilhamento (og:image e cartão grande do X/Twitter). */
+  imagem?: { url: string; largura?: number; altura?: number; alt?: string }
+  /** As versões da página em outros idiomas (hreflang), a própria incluída. */
+  alternativas?: { hreflang: string; url: string }[]
+  /** og:type (padrão "website"). */
+  tipoOg?: 'website' | 'article'
+  /** Datas de artigo (article:published_time / modified_time), quando fizer sentido. */
+  publicadoEm?: Date
+  modificadoEm?: Date
 }
 
 /** As fontes das páginas: Inter no chrome/UI, Source Serif 4 na leitura —
@@ -394,13 +405,25 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
     `<link rel="canonical" href="${escapar(canonica)}">`,
     `<link rel="icon" href="${escapar(origem)}/assets/logo-cvb-rj.png">`,
     `<meta name="theme-color" content="#cc0000">`,
-    `<meta name="robots" content="${dados.indexar === false ? 'noindex, nofollow, noarchive' : 'index, follow'}">`,
-    `<meta property="og:type" content="website">`,
+    `<meta name="robots" content="${dados.indexar === false ? 'noindex, nofollow, noarchive' : 'index, follow, max-image-preview:large'}">`,
+    ...(dados.alternativas ?? []).map((a) => `<link rel="alternate" hreflang="${escapar(a.hreflang)}" href="${escapar(a.url)}">`),
+    `<meta property="og:type" content="${dados.tipoOg ?? 'website'}">`,
     `<meta property="og:site_name" content="Cruz Vermelha Brasileira — Rio de Janeiro">`,
     `<meta property="og:locale" content="pt_BR">`,
     `<meta property="og:title" content="${escapar(dados.titulo)}">`,
     `<meta property="og:description" content="${escapar(dados.descricao.slice(0, 300))}">`,
     `<meta property="og:url" content="${escapar(canonica)}">`,
+    ...(dados.imagem ? [
+      `<meta property="og:image" content="${escapar(dados.imagem.url)}">`,
+      ...(dados.imagem.largura && dados.imagem.altura ? [`<meta property="og:image:width" content="${dados.imagem.largura}">`, `<meta property="og:image:height" content="${dados.imagem.altura}">`] : []),
+      ...(dados.imagem.alt ? [`<meta property="og:image:alt" content="${escapar(dados.imagem.alt.slice(0, 300))}">`] : []),
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:image" content="${escapar(dados.imagem.url)}">`,
+    ] : [`<meta name="twitter:card" content="summary">`]),
+    `<meta name="twitter:title" content="${escapar(dados.titulo)}">`,
+    `<meta name="twitter:description" content="${escapar(dados.descricao.slice(0, 200))}">`,
+    ...(dados.publicadoEm ? [`<meta property="article:published_time" content="${dados.publicadoEm.toISOString()}">`] : []),
+    ...(dados.modificadoEm ? [`<meta property="article:modified_time" content="${dados.modificadoEm.toISOString()}">`] : []),
     `<link rel="preconnect" href="https://fonts.googleapis.com">`,
     `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
     LINK_DAS_FONTES,

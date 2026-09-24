@@ -73,8 +73,9 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `AUDITORIA_SEGREDO` | server | **segredo**, opcional — HMAC do limite da consulta pública; na falta, derivado da chave de serviço |
 | `AUDITORIA_ABERTA` | server | `1` só na abertura da trilha: tira o `noindex` das páginas de transparência e canais oficiais |
 | `AUDITORIA_TSA_URL` | server | opcional — autoridade de carimbo de tempo RFC 3161 (padrão: FreeTSA) |
-| `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos no bucket da trilha; sem elas, o espelho da trilha fica desligado (§7.9, `docs/armazenamento-r2.md`) |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos nos buckets da trilha e do acervo; sem elas, o espelho da trilha e o acervo ficam desligados (§7.9, §7.10, `docs/armazenamento-r2.md`) |
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
+| `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -115,12 +116,13 @@ app/
   (app)/              rotas autenticadas — o grupo tem o layout com sidebar
     dashboard/  caixa-de-entrada/  registrar/  pautas/  projetos/
     conteudos/[id]/   aprovacoes/  calendario/  biblioteca/  redes/
-    mensagens/  pessoas/  perfil/  configuracoes/
+    mensagens/  pessoas/  perfil/  configuracoes/  acervo/
   actions/            server actions — TODA escrita passa por aqui
     editorial.ts      pautas, conteúdos, aprovações, calendário, projetos, perfil
     redes.ts          publicação em redes sociais
     admin.ts          reset de dados do espaço
     usuarios.ts       criar, editar, redefinir senha, desativar/reativar
+    acervo.ts         envio ao R2, ficha, publicação no site (§7.10)
   api/                só o que precisa ser HTTP de verdade
     bootstrap/        primeiro administrador, quando o banco está vazio
     files/            upload-token, register, download, delete
@@ -134,6 +136,8 @@ components/
 lib/
   supabase/           client.ts (browser) · server.ts (SSR) · admin.ts (service role) · env.ts
   publicacao/         upload-post.ts · requisitos.ts · ftp.ts
+  armazenamento/      r2.ts (cliente do Cloudflare R2, SigV4 sem SDK)
+  acervo/             regras · dados · paginas (HTML público) · publicacao · imagens · video
   editorial/          publicacoes-previstas.ts
   session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
   permissoes.ts       quem pode o quê (catálogo único de permissões)
@@ -579,6 +583,26 @@ onde ele veio). **Lançamento oculto**: tudo funciona, nada é linkado nem index
 - **Backup**: `docs/backup.md` (workflow diário: banco e arquivos do Storage cifrados com age, no
   bucket `cvrj-backups` do R2, com trava). O R2 também guarda o acervo da filial
   (`docs/armazenamento-r2.md`).
+
+### 7.10 Acervo
+
+Especificação: `docs/acervo.md`. Os arquivos ficam no bucket `cvrj-acervo` do R2; a ficha fica em
+`acervo_itens`; o público fica em `cruzvermelhariodejaneiro.org/acervo/`.
+
+- **Envio**: o navegador manda o arquivo direto ao R2 por link assinado de uso único
+  (`prepararEnvioAoAcervo`), sem passar pela Vercel; o bucket tem CORS só para a origem da Redação.
+  O arquivo cai em `entrada/redacao/` e vai para `<coleção>/<ano>/` (com trava de 30 dias) ao ser
+  guardado ou publicado.
+- **Banco**: `acervo_itens`, lida pela equipe do espaço (RLS) e escrita só pelas ações do
+  servidor. O gatilho `acervo_guardar_item` torna coleção e endereço permanentes depois da primeira
+  publicação e recusa apagar item público.
+- **Publicação** (`lib/acervo/publicacao.ts`): gera as versões WebP sem metadados (sharp) ou copia o
+  PDF, e grava por FTP a página do item, as coleções (24 por página), a apresentação, o `.htaccess`
+  do acervo, o `sitemap.xml` e o `robots.txt`. O FTP só escreve nos caminhos de `ARQUIVO_DO_ACERVO`
+  (`lib/publicacao/ftp.ts`).
+- **Permissões**: `acervo.ver` (admin, editor, colaborador) navega e baixa; `acervo.gerenciar`
+  (admin, editor) envia, cataloga, publica e exclui.
+- **Testes**: `supabase/tests/acervo.test.sql` (pgTAP).
 
 ## 8. Integrações externas
 
