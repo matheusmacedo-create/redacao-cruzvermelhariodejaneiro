@@ -55,11 +55,14 @@ export const ehSituacao = ehDe(SITUACOES_DA_PRESTACAO)
 const texto = (f: FormData, nome: string) => String(f.get(nome) ?? '').trim()
 const DATA = /^\d{4}-\d{2}-\d{2}$/
 
-/** "1.234,56", "1234.56" ou "1234,5" → "1234.56"; vazio → null; inválido → undefined. */
+/** "1.234,56", "80.000", "1234.56" ou "1234,5" → "1234.56"; vazio → null; inválido → undefined. */
 export function lerValor(bruto: string): string | null | undefined {
   const v = bruto.replace(/\s|R\$/g, '')
   if (!v) return null
-  const normal = /,\d{1,2}$/.test(v) ? v.replace(/\./g, '').replace(',', '.') : v.replace(/,/g, '')
+  let normal: string
+  if (v.includes(',')) normal = /^\d{1,3}(\.\d{3})*,\d{1,2}$|^\d+,\d{1,2}$/.test(v) ? v.replace(/\./g, '').replace(',', '.') : ''
+  else if (/^\d{1,3}(\.\d{3})+$/.test(v)) normal = v.replace(/\./g, '') // ponto de milhar: 80.000
+  else normal = v
   if (!/^\d{1,12}(\.\d{1,2})?$/.test(normal)) return undefined
   return Number(normal).toFixed(2)
 }

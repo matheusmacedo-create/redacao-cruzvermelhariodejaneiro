@@ -2,14 +2,14 @@ import 'server-only'
 
 import type { Client } from 'basic-ftp'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { enviarArquivoDoPortal, enviarPastaFixaNaRaiz, withFtp } from '@/lib/publicacao/ftp'
+import { enviarArquivoDoPortal, enviarPastaFixaNaRaiz, removerArquivoDoPortal, withFtp } from '@/lib/publicacao/ftp'
 import { descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { chaveDaTrilha } from '@/lib/auditoria/assinatura'
 import { htaccessDoPortal, paginaDaTransparencia, paginaDosCanais, portalAberto, type DocumentoNoPortal, type ParceriaNoPortal, type VersaoNoPortal } from './paginas'
 import type { Canal, Categoria, Instrumento, SituacaoDaPrestacao } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
-type CodigoDaTrilha = { referencia_id: string; versao: number; codigo: string; hash: string; hash_arquivo: string | null }
+type CodigoDaTrilha = { referencia_id: string; versao: number; codigo: string; hash: string; hash_arquivo: string | null; versao_origem?: number | null }
 
 async function codigosDaTrilha(admin: Admin, tipo: string, ids: string[]): Promise<CodigoDaTrilha[]> {
   if (!ids.length) return []
@@ -22,14 +22,14 @@ async function codigosDaTrilha(admin: Admin, tipo: string, ids: string[]): Promi
 export async function dadosDoPortal(admin: Admin, workspaceId: string): Promise<{ documentos: DocumentoNoPortal[]; parcerias: ParceriaNoPortal[] }> {
   const [{ data: docs, error: e1 }, { data: parcs, error: e2 }] = await Promise.all([
     admin.from('transparencia_documentos')
-      .select('id,categoria,titulo,descricao,periodo,ordem,transparencia_versoes(nome_original,tamanho,sha256,arquivo_publico,publicado_em)')
+      .select('id,categoria,titulo,descricao,periodo,ordem,transparencia_versoes(nome_original,tamanho,sha256,arquivo_publico,publicado_em,removido_do_site_em)')
       .eq('workspace_id', workspaceId).is('retirado_em', null).order('ordem').order('created_at'),
     admin.from('transparencia_parcerias').select('*').eq('workspace_id', workspaceId)
       .not('publicado_em', 'is', null).is('retirado_em', null).order('data_assinatura', { ascending: false, nullsFirst: false }),
   ])
   if (e1 || e2) throw new Error('Não foi possível ler o portal.')
 
-  type Versao = { nome_original: string; tamanho: number; sha256: string; arquivo_publico: string | null; publicado_em: string | null }
+  type Versao = { nome_original: string; tamanho: number; sha256: string; arquivo_publico: string | null; publicado_em: string | null; removido_do_site_em: string | null }
   const linhas = (docs ?? []) as { id: string; categoria: Categoria; titulo: string; descricao: string | null; periodo: string | null; transparencia_versoes: Versao[] }[]
   const codigosDocs = await codigosDaTrilha(admin, 'documento', linhas.map((d) => d.id))
   // Para cada arquivo, o registro mais novo com aquele SHA-256 (a ficha editada gera versão nova na trilha com o mesmo arquivo).
@@ -41,7 +41,7 @@ export async function dadosDoPortal(admin: Admin, workspaceId: string): Promise<
     const publicadas: VersaoNoPortal[] = d.transparencia_versoes
       .filter((v) => v.publicado_em && v.arquivo_publico)
       .sort((a, b) => (b.publicado_em ?? '').localeCompare(a.publicado_em ?? ''))
-      .map((v) => ({ nome: v.nome_original, tamanho: v.tamanho, sha256: v.sha256, url: v.arquivo_publico!, publicadoEm: v.publicado_em!, codigo: codigoDoArquivo(d.id, v.sha256) }))
+      .map((v) => ({ nome: v.nome_original, tamanho: v.tamanho, sha256: v.sha256, url: v.arquivo_publico!, publicadoEm: v.publicado_em!, codigo: codigoDoArquivo(d.id, v.sha256), removida: Boolean(v.removido_do_site_em) }))
     if (!publicadas.length) continue
     documentos.push({ id: d.id, categoria: d.categoria, titulo: d.titulo, descricao: d.descricao, periodo: d.periodo, atual: publicadas[0], anteriores: publicadas.slice(1) })
   }
@@ -100,6 +100,19 @@ export async function subirPdfDoPortal(nome: string, bytes: Buffer): Promise<voi
   })
 }
 
+/**
+ * Documento retirado: apaga do site os PDFs dele (nomes já validados pela porta
+ * do FTP) e regera a página, numa sessão. Quem chama registra no banco depois.
+ */
+export async function retirarPdfsDoPortal(workspaceId: string, nomes: string[]): Promise<void> {
+  const admin = createAdminClient()
+  await withFtp(async (client, config) => {
+    const raiz = await raizDoSite(client, config)
+    for (const nome of nomes) await removerArquivoDoPortal(client, raiz, nome)
+    await subirPortal(client, raiz, admin, workspaceId)
+  })
+}
+
 /** Regera /canais-oficiais/ com a versão mais nova. */
 export async function regerarCanais(workspaceId: string): Promise<void> {
   const admin = createAdminClient()
@@ -108,7 +121,8 @@ export async function regerarCanais(workspaceId: string): Promise<void> {
   if (error) throw new Error('Não foi possível ler a lista de canais.')
   if (!v) return
   const codigos = await codigosDaTrilha(admin, 'canais', [workspaceId])
-  const registro = codigos.sort((a, b) => b.versao - a.versao)[0]
+  // O registro desta versão da lista (o banco diz de qual versão cada registro é).
+  const registro = codigos.filter((c) => c.versao_origem === v.versao).sort((a, b) => b.versao - a.versao)[0]
   let chaveId: string | null = null
   try { chaveId = chaveDaTrilha()?.id ?? null } catch { chaveId = null }
   const html = paginaDosCanais({

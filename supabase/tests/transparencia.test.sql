@@ -90,6 +90,9 @@ select is(pg_temp.estado((select id from auditoria.itens where referencia_id = :
 select is((select depois ->> 'motivo' from auditoria.eventos e join auditoria.itens i on i.id = e.item_id
             where i.referencia_id = :'doc' and e.acao = 'item.retirado'), 'retirado_do_ar', 'o motivo em texto fica na ficha; na trilha, o código');
 
+select is(public.transparencia_marcar_removidos(:'doc'), 2, 'os 2 PDFs publicados do documento retirado saem do site');
+select is(public.transparencia_marcar_removidos(:'doc'), 0, 'marcar de novo não muda nada');
+select throws_ok(format('update public.transparencia_versoes set removido_do_site_em = null where id = %L', :'v1'), 'P0001', null, 'a remoção registrada não se desfaz');
 select public.transparencia_registrar_versao(:'doc', pg_temp.arquivo(:'ws', :'doc'), 'balanco-2025-v3.pdf', 3456, repeat('d', 64), :'admin') as v3 \gset
 select public.transparencia_publicar_versao(:'v3', 'https://cruzvermelhariodejaneiro.org/transparencia/arquivos/balanco-patrimonial-dddddddddddd.pdf', :'admin');
 select is((select retirado_em from public.transparencia_documentos where id = :'doc'), null, 'publicar versão nova devolve o documento ao portal');
@@ -99,6 +102,7 @@ select is(pg_temp.estado((select id from auditoria.itens where referencia_id = :
 select public.transparencia_salvar_documento(:'ws', null, '{"categoria":"atas","titulo":"Ata de teste"}', :'admin') as rasc \gset
 select public.transparencia_registrar_versao(:'rasc', pg_temp.arquivo(:'ws', :'rasc'), 'ata.pdf', 100, repeat('e', 64), :'admin') as vrasc \gset
 select lives_ok(format('select public.transparencia_excluir_rascunho(%L, null)', :'rasc'), 'rascunho se apaga');
+select throws_ok(format('select public.transparencia_marcar_removidos(%L)', :'doc'), 'P0001', null, 'documento no ar não perde os arquivos');
 
 -- ================================================================ parcerias
 
@@ -153,6 +157,9 @@ select is((public.auditoria_sincronizar() ->> 'documentos')::integer, 0, 'sincro
 -- ================================================================ leitura e códigos
 
 select is(jsonb_array_length(public.auditoria_codigos_das_origens('documento', array[:'doc'::uuid])), 4, 'códigos das 4 versões do documento na trilha');
+select is((select array_agg((c ->> 'versao_origem')::integer order by (c ->> 'versao')::integer)
+             from jsonb_array_elements(public.auditoria_codigos_das_origens('canais', array[:'ws'::uuid])) c), array[1, 2, 3],
+          'cada registro dos canais diz de que versão da lista ele é');
 
 select pg_temp.como(:'admin');
 set local role authenticated;

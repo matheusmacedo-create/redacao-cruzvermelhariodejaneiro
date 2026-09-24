@@ -20,7 +20,7 @@ import {
 
 export const portalAberto = () => process.env.AUDITORIA_ABERTA?.trim() === '1'
 
-export type VersaoNoPortal = { nome: string; tamanho: number; sha256: string; url: string; publicadoEm: string; codigo: string | null }
+export type VersaoNoPortal = { nome: string; tamanho: number; sha256: string; url: string; publicadoEm: string; codigo: string | null; removida?: boolean }
 export type DocumentoNoPortal = {
   id: string; categoria: Categoria; titulo: string; descricao: string | null; periodo: string | null
   atual: VersaoNoPortal; anteriores: VersaoNoPortal[]
@@ -101,7 +101,7 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
             ${d.descricao ? `<p class="meta">${escapar(d.descricao)}</p>` : ''}
             ${selo(d.atual.codigo, d.atual.sha256, 'SHA-256 do arquivo')}
             ${d.anteriores.length ? `<details class="conferir"><summary>Versões anteriores (${d.anteriores.length})</summary>${d.anteriores.map((v) => `
-              <p><a href="${escapar(v.url)}">Versão publicada em ${escapar(dia(v.publicadoEm))}</a> — substituída.
+              <p>${v.removida ? `Versão publicada em ${escapar(dia(v.publicadoEm))} — substituída; o arquivo foi retirado do site.` : `<a href="${escapar(v.url)}">Versão publicada em ${escapar(dia(v.publicadoEm))}</a> — substituída.`}
               SHA-256 <code class="hash">${escapar(v.sha256)}</code>${v.codigo ? ` · código <a href="/verificar/?c=${escapar(v.codigo)}"><code class="hash">${escapar(codigoEmGrupos(v.codigo))}</code></a>` : ''}</p>`).join('')}
             </details>` : ''}
           </li>`).join('')}
