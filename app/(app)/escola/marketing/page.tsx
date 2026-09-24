@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { NovaCampanha } from '@/components/app/escola/marketing'
-import { MetaAds, type ContaMeta } from '@/components/app/escola/meta'
+import { StatusDoMeta, type ContaMeta } from '@/components/app/escola/meta'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { mesPorExtenso } from '@/lib/escola/painel'
 import {
@@ -78,7 +78,7 @@ export default async function MarketingDaEscolaPage() {
         <Indicador rotulo="Receita das campanhas" valor={reais(receitaTotal)} detalhe={geral.investimento > 0 ? `Retorno de ${(receitaTotal / geral.investimento).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}× o investido` : 'Pelas vendas com utm_campaign na Únicopag'} />
       </div>
 
-      <MetaAds contas={(metaContas ?? []) as ContaMeta[]} ehAdmin={nivel >= 3} temToken={temToken} />
+      <StatusDoMeta contas={(metaContas ?? []) as ContaMeta[]} temToken={temToken} />
 
       <section className="flex flex-col gap-3" id="campanhas">
         <h2 className="text-base font-medium">Campanhas</h2>

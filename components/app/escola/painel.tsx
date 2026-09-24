@@ -74,7 +74,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDaEscola atual="/escola" />
+      <SecoesDaEscola atual="/escola/vendas" />
       <PageHeader
         title="Escola de Educação e Saúde"
         description="A administração da escola: o que entra pelas contas da Únicopag, o que está pendente e o que voltou. Alunos e turmas continuam no sistema da escola."
@@ -86,7 +86,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
           <GraduationCap className="size-8 text-muted-foreground" />
           <p className="font-medium">Nenhuma conta da Únicopag ligada ainda</p>
           <p className="max-w-md text-sm text-muted-foreground">Ligue as contas por onde a escola recebe (matrícula e curso) para ver aqui o dinheiro de cada mês, por curso e por forma de pagamento.</p>
-          {nivel >= 3 ? <Button render={<Link href="/escola/contas" />}>Ligar uma conta</Button> : <p className="text-sm text-muted-foreground">Peça a um admin para ligar as contas.</p>}
+          {nivel >= 3 ? <Button render={<Link href="/escola/configuracoes" />}>Ligar uma conta</Button> : <p className="text-sm text-muted-foreground">Peça a um admin para ligar as contas.</p>}
         </Card>
       ) : (
         <>
@@ -97,14 +97,14 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
                 {semChave.map((c) => <li key={`k${c.id}`}>{c.nome}: sem chave de API — os números dela não estão sendo lidos.</li>)}
                 {comErro.map((c) => <li key={`e${c.id}`}>{c.nome}: {c.sincronizacao_erro}</li>)}
               </ul>
-              {nivel >= 3 && <Link href="/escola/contas" className="mt-2 inline-block text-primary hover:underline">Abrir as contas</Link>}
+              {nivel >= 3 && <Link href="/escola/configuracoes" className="mt-2 inline-block text-primary hover:underline">Abrir as contas</Link>}
             </Card>
           )}
 
           <div className="flex items-center justify-between gap-3">
-            <Button variant="ghost" size="sm" render={<Link href={`/escola?mes=${somarMeses(mes, -1)}`} aria-label="Mês anterior" />}><ChevronLeft className="size-4" /></Button>
+            <Button variant="ghost" size="sm" render={<Link href={`/escola/vendas?mes=${somarMeses(mes, -1)}`} aria-label="Mês anterior" />}><ChevronLeft className="size-4" /></Button>
             <h2 className="text-base font-medium" id="mes-do-painel">{mesPorExtenso(mes).replace(/^./, (l) => l.toUpperCase())}</h2>
-            {mes < hoje ? <Button variant="ghost" size="sm" render={<Link href={`/escola?mes=${somarMeses(mes, 1)}`} aria-label="Próximo mês" />}><ChevronRight className="size-4" /></Button> : <span className="w-9" />}
+            {mes < hoje ? <Button variant="ghost" size="sm" render={<Link href={`/escola/vendas?mes=${somarMeses(mes, 1)}`} aria-label="Próximo mês" />}><ChevronRight className="size-4" /></Button> : <span className="w-9" />}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores">
@@ -129,7 +129,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
             {contas.length > 1 && <Divisao id="por-conta" titulo="Por conta" fatias={r.porConta} total={r.recebido} nome={(k) => nomeDaConta.get(k) ?? 'Conta removida'} />}
           </div>
 
-          <div className="flex justify-end"><Button variant="outline" render={<Link href={`/escola/transacoes?mes=${mes}`} />}>Ver as transações de {mesPorExtenso(mes)}</Button></div>
+          <div className="flex justify-end"><Button variant="outline" render={<Link href={`/escola/vendas/transacoes?mes=${mes}`} />}>Ver as transações de {mesPorExtenso(mes)}</Button></div>
         </>
       )}
 
@@ -140,7 +140,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
           <div className="mt-3 flex flex-wrap gap-2">
             {sistemas.map((c) => <Button key={c.id} variant="outline" size="sm" render={<a href={c.sistema_url!} target="_blank" rel="noopener noreferrer" />}>{c.nome}<ExternalLink className="size-3.5" /></Button>)}
           </div>
-        ) : nivel >= 3 && contas.length > 0 ? <p className="mt-2 text-sm text-muted-foreground">Informe o endereço do sistema em <Link href="/escola/contas" className="text-primary hover:underline">Contas Únicopag</Link> para o atalho aparecer aqui.</p> : null}
+        ) : nivel >= 3 && contas.length > 0 ? <p className="mt-2 text-sm text-muted-foreground">Informe o endereço do sistema em <Link href="/escola/configuracoes" className="text-primary hover:underline">Contas e integrações</Link> para o atalho aparecer aqui.</p> : null}
       </Card>
     </div>
   )
