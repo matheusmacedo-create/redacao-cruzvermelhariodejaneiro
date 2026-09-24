@@ -1,5 +1,5 @@
 import {
-  AtSign, BadgeCheck, Bell, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
+  Archive, AtSign, BadgeCheck, Bell, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
   ReceiptText, type LucideIcon,
 } from 'lucide-react'
@@ -86,6 +86,7 @@ export const GRUPOS: Grupo[] = [
     areas: [
       { href: '/redes', rotulo: 'Publicações', resumo: 'Monte o pacote e publique nas redes, no site e na newsletter', icone: Send, termos: ['redes sociais', 'instagram', 'facebook', 'post', 'pacote'] },
       { href: '/biblioteca', rotulo: 'Biblioteca de mídia', resumo: 'Fotos, vídeos e documentos, com direito de uso', icone: Images, termos: ['biblioteca', 'arquivos', 'fotos', 'vídeos', 'imagens'] },
+      { href: '/acervo', rotulo: 'Acervo', resumo: 'A memória da filial no R2, e o que vai para cruzvermelhariodejaneiro.org/acervo', icone: Archive, termos: ['acervo', 'memória', 'história', 'documentos', 'fotos antigas', 'arquivo', 'r2'], permissao: 'acervo.ver' },
     ],
   },
   {

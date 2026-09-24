@@ -428,3 +428,81 @@ export async function removerArquivoDoPortal(client: Client, raiz: string, nome:
   }
   await client.cd('/')
 }
+
+/**
+ * Os arquivos de /acervo/ no site (lib/acervo/publicacao.ts): as páginas (início, coleção,
+ * paginação e item), o .htaccess e as versões para a web em arquivos/. Lista fechada: coleção
+ * da lista, slug e nome de arquivo nos formatos de lib/acervo/regras.ts, nada montado com texto
+ * livre. A página de item e a de paginação ficam cada uma na sua pasta.
+ */
+const COLECAO_DO_ACERVO = '(documentos|fotos|videos|imprensa|historia)'
+const SLUG_DO_ACERVO = '[a-z0-9]+(-[a-z0-9]+)*'
+const ARQUIVO_DO_ACERVO = new RegExp(
+  `^(index\\.html|\\.htaccess|${COLECAO_DO_ACERVO}/index\\.html|${COLECAO_DO_ACERVO}/pagina/[2-9]\\d{0,3}/index\\.html|` +
+  `${COLECAO_DO_ACERVO}/${SLUG_DO_ACERVO}/index\\.html|arquivos/${SLUG_DO_ACERVO}-[0-9a-f]{12}(-\\d{2,4})?\\.(webp|pdf))$`,
+)
+const PASTA_DO_ACERVO = new RegExp(`^(${COLECAO_DO_ACERVO}/pagina/[2-9]\\d{0,3}|${COLECAO_DO_ACERVO}/${SLUG_DO_ACERVO})$`)
+
+function destinoNoAcervo(raiz: string, relativo: string, padrao: RegExp): string {
+  if (relativo.length > 200 || !padrao.test(relativo) || /(^|\/)pagina\/index\.html$/.test(relativo)) throw new FtpEscopoError(`acervo/${relativo}`)
+  return `${raiz.replace(/\/$/, '')}/acervo/${relativo}`
+}
+
+export async function enviarArquivoDoAcervo(client: Client, raiz: string, relativo: string, conteudo: Buffer | string): Promise<string> {
+  const destino = destinoNoAcervo(raiz, relativo, ARQUIVO_DO_ACERVO)
+  await client.ensureDir(destino.slice(0, destino.lastIndexOf('/')))
+  const bytes = typeof conteudo === 'string' ? Buffer.from(conteudo, 'utf8') : conteudo
+  await client.uploadFrom(Readable.from(bytes), destino.slice(destino.lastIndexOf('/') + 1))
+  await client.cd('/')
+  return destino
+}
+
+const naoExiste = (causa: unknown) => /550|not found|no such/i.test(causa instanceof Error ? causa.message : String(causa))
+
+/** Apaga um arquivo de /acervo/ (lista fechada); o que já não existe não é falha. */
+export async function removerArquivoDoAcervo(client: Client, raiz: string, relativo: string): Promise<void> {
+  const destino = destinoNoAcervo(raiz, relativo, ARQUIVO_DO_ACERVO)
+  try {
+    await client.remove(destino)
+  } catch (causa) {
+    if (!naoExiste(causa)) throw causa
+  }
+  await client.cd('/')
+}
+
+/**
+ * Tira do ar a página de um item ou de uma paginação: apaga o index.html e a pasta, que só
+ * pode estar vazia — nunca uma remoção recursiva a partir de um caminho montado.
+ */
+export async function removerPaginaDoAcervo(client: Client, raiz: string, pasta: string): Promise<void> {
+  const destino = destinoNoAcervo(raiz, pasta, PASTA_DO_ACERVO)
+  for (const passo of [() => client.remove(`${destino}/index.html`), () => client.removeEmptyDir(destino)]) {
+    try {
+      await passo()
+    } catch (causa) {
+      if (!naoExiste(causa)) throw causa
+    }
+  }
+  await client.cd('/')
+}
+
+/** As páginas de paginação que existem hoje numa coleção (para apagar as que sobraram). */
+export async function paginasDaColecaoNoSite(client: Client, raiz: string, colecao: string): Promise<number[]> {
+  if (!new RegExp(`^${COLECAO_DO_ACERVO}$`).test(colecao)) throw new FtpEscopoError(`acervo/${colecao}`)
+  // Entra na pasta antes de listar: LIST de pasta que não existe abre conexão de dados à toa, e
+  // o 550 que volta desencontrou o diálogo do FTP num teste (o comando seguinte recebeu a resposta
+  // errada). O CWD falha limpo, numa resposta só.
+  try {
+    await client.cd(`${raiz.replace(/\/$/, '')}/acervo/${colecao}/pagina`)
+  } catch (causa) {
+    await client.cd('/')
+    if (naoExiste(causa)) return []
+    throw causa
+  }
+  try {
+    const lista = await client.list()
+    return lista.filter((f) => f.isDirectory && /^[2-9]\d{0,3}$/.test(f.name)).map((f) => Number(f.name))
+  } finally {
+    await client.cd('/')
+  }
+}
