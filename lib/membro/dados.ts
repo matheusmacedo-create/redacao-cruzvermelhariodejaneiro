@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { Membro } from './sessao'
+import { NINGUEM, type Membro } from './sessao'
 
 /**
  * As leituras da área do membro. Cada função recebe a sessão e filtra pelo
@@ -17,7 +17,15 @@ export type Perfil = {
   emergencia_parentesco: string | null; habilidades: string[]; idiomas: string[]; disponibilidade: string[]; aprovado_em: string | null; created_at: string
 }
 
+/** O perfil de mentira da prévia geral: nenhum dado de pessoa real. */
+const PERFIL_DA_PREVIA: Perfil = {
+  nome: 'Voluntário', nome_social: null, email: 'voluntario@exemplo', telefone: null, vinculo: 'voluntario', funcao: null, setores: [], cpf_mascara: null,
+  data_nascimento: null, cep: null, logradouro: null, numero: null, complemento: null, bairro: null, cidade: null, uf: null, emergencia_nome: null,
+  emergencia_telefone: null, emergencia_parentesco: null, habilidades: [], idiomas: [], disponibilidade: [], aprovado_em: null, created_at: new Date().toISOString(),
+}
+
 export async function perfilDoMembro(m: Membro): Promise<Perfil> {
+  if (m.participanteId === NINGUEM) return PERFIL_DA_PREVIA
   const { data, error } = await createAdminClient().from('participantes').select(COLUNAS_DO_PERFIL).eq('id', m.participanteId).single()
   if (error || !data) throw new Error('Não foi possível carregar o seu cadastro.')
   return data as Perfil

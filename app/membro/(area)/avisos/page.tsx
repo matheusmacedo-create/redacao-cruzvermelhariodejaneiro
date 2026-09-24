@@ -11,7 +11,7 @@ export default async function Avisos() {
   const m = await exigirMembro()
   const avisos = await avisosDoMembro(m, hojeEmSaoPaulo())
   const novos = avisos.filter((a) => !a.visto).map((a) => a.id)
-  if (novos.length) await createAdminClient().rpc('membro_ver_avisos', { p_participante_id: m.participanteId, p_avisos: novos })
+  if (novos.length && !m.previa) await createAdminClient().rpc('membro_ver_avisos', { p_participante_id: m.participanteId, p_avisos: novos })
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">
       <div>

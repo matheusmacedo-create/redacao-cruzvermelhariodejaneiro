@@ -10,7 +10,7 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario } from '@/lib/participantes/regras'
-import { COOKIE_DO_MEMBRO, DIAS_DE_SESSAO, exigirMembro, hashDoToken, novoToken, sessaoDoMembro } from '@/lib/membro/sessao'
+import { COOKIE_DA_PREVIA, COOKIE_DO_MEMBRO, DIAS_DE_SESSAO, exigirMembroQueEscreve, hashDoToken, novoToken, sessaoDoMembro } from '@/lib/membro/sessao'
 import { emailDeInscricao, emailDoCodigo } from '@/lib/membro/emails'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { lerMensagem } from '@/lib/canal/regras'
@@ -75,6 +75,10 @@ export async function entrar(_anterior: EstadoDeEntrada, formData: FormData): Pr
 
 export async function sair() {
   const m = await sessaoDoMembro()
+  if (m?.previa) {
+    ;(await cookies()).delete(COOKIE_DA_PREVIA)
+    redirect(m.previa.voltar)
+  }
   if (m) await createAdminClient().rpc('membro_sair', { p_token_hash: m.tokenHash })
   ;(await cookies()).delete(COOKIE_DO_MEMBRO)
   redirect('/membro/entrar')
@@ -82,7 +86,7 @@ export async function sair() {
 
 export async function salvarPerfil(_anterior: { erro?: string; ok?: boolean }, formData: FormData): Promise<{ erro?: string; ok?: boolean }> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo())
     if (erros.length) return { erro: erros.join(' ') }
     const { error } = await createAdminClient().rpc('membro_atualizar_perfil', { p_participante_id: m.participanteId, p: dados })
@@ -101,7 +105,7 @@ export type ResultadoDaAula = { erro?: string; faltam?: number; prova?: boolean;
 /** Marca a aula como vista (só para o voluntário da sessão). */
 export async function concluirAula(cursoId: string, aulaId: string): Promise<ResultadoDaAula> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(aulaId)) throw new Error('Aula inválida.')
     const { data, error } = await createAdminClient().rpc('membro_concluir_aula', { p_participante_id: m.participanteId, p_aula_id: aulaId })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível marcar a aula.')
@@ -117,7 +121,7 @@ export type ResultadoDaProva = { erro?: string; aprovado?: boolean; nota?: numbe
 
 export async function responderProva(cursoId: string, respostas: number[]): Promise<ResultadoDaProva> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(cursoId)) throw new Error('Curso inválido.')
     if (!Array.isArray(respostas) || respostas.length > 200 || respostas.some((r) => !Number.isInteger(r) || r < 0 || r > 5)) throw new Error('Responda todas as questões.')
     const { data, error } = await createAdminClient().rpc('membro_responder_prova', { p_participante_id: m.participanteId, p_curso_id: cursoId, p_respostas: respostas })
@@ -134,7 +138,7 @@ export async function responderProva(cursoId: string, respostas: number[]): Prom
 
 export async function inscrever(oportunidadeId: string): Promise<{ erro?: string; situacao?: string }> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
     const admin = createAdminClient()
     const { data, error } = await admin.rpc('membro_inscrever', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
@@ -157,7 +161,7 @@ export async function inscrever(oportunidadeId: string): Promise<{ erro?: string
 
 export async function cancelarInscricao(oportunidadeId: string): Promise<{ erro?: string }> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
     const { error } = await createAdminClient().rpc('membro_cancelar_inscricao', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível cancelar.')
@@ -192,7 +196,7 @@ async function avisarEquipe(m: { workspaceId: string; nome: string }, conversaId
 export async function abrirConversa(_anterior: { erro?: string }, formData: FormData): Promise<{ erro?: string }> {
   let id = ''
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     const { assunto, categoria, texto, erros } = lerMensagem(formData, true)
     if (erros.length) throw new Error(erros.join(' '))
     const { data, error } = await createAdminClient().rpc('membro_abrir_conversa', { p_participante_id: m.participanteId, p_assunto: assunto, p_categoria: categoria, p_texto: texto })
@@ -208,7 +212,7 @@ export async function abrirConversa(_anterior: { erro?: string }, formData: Form
 
 export async function responderConversa(conversaId: string, _anterior: { erro?: string; ok?: number }, formData: FormData): Promise<{ erro?: string; ok?: number }> {
   try {
-    const m = await exigirMembro()
+    const m = await exigirMembroQueEscreve()
     const { texto, erros } = lerMensagem(formData, false)
     if (erros.length) throw new Error(erros.join(' '))
     const admin = createAdminClient()
