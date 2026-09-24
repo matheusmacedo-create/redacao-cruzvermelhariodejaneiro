@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { KeyRound, LayoutDashboard, Megaphone, Newspaper, ReceiptText } from 'lucide-react'
+import { KeyRound, LayoutDashboard, Megaphone, Newspaper, ReceiptText, Wallet } from 'lucide-react'
 
 type Acesso = 'vendas' | 'marketing' | 'qualquer'
 
 const SECOES = [
   { href: '/escola', rotulo: 'Visão geral', icone: LayoutDashboard, acesso: 'qualquer' as Acesso },
   { href: '/escola/vendas', rotulo: 'Vendas', icone: ReceiptText, acesso: 'vendas' as Acesso },
+  { href: '/escola/financeiro', rotulo: 'Financeiro', icone: Wallet, acesso: 'vendas' as Acesso },
   { href: '/escola/marketing', rotulo: 'Marketing', icone: Megaphone, acesso: 'marketing' as Acesso },
   { href: '/escola/marketing/advertoriais', rotulo: 'Advertoriais', icone: Newspaper, acesso: 'marketing' as Acesso },
   { href: '/escola/configuracoes', rotulo: 'Contas e integrações', icone: KeyRound, acesso: 'qualquer' as Acesso },

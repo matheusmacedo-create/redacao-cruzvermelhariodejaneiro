@@ -31,7 +31,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
   if (!conta) {
     return (
       <div className="flex flex-col gap-6">
-        <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
+        <SecoesDoFinanceiro atual="/financeiro/conciliacao" empresas={c.empresas} empresa={c.empresa} />
         <PageHeader title="Conciliação bancária" />
         <Card className="p-6 text-sm text-muted-foreground">Cadastre antes uma conta em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
       </div>
@@ -119,7 +119,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
+      <SecoesDoFinanceiro atual="/financeiro/conciliacao" empresas={c.empresas} empresa={c.empresa} />
       <PageHeader title="Conciliação bancária" description="Importe o extrato do banco e confirme, linha a linha, qual lançamento é cada movimento. O que o banco diz (data e valor) passa a valer no lançamento." />
 
       {contas.length > 1 && (

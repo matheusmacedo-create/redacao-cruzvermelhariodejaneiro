@@ -2,9 +2,11 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { contextoDoFinanceiro } from '@/lib/financeiro/acesso'
+import { COOKIE_DA_EMPRESA, contextoDoFinanceiro } from '@/lib/financeiro/acesso'
+import { documentoValido } from '@/lib/patrimonio/doacoes'
 import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
@@ -203,8 +205,9 @@ function lerCadastro(tabela: Tabela, f: FormData): Record<string, unknown> {
 
 export async function salvarCadastro(tabela: Tabela, id: string | null, _anterior: Resultado & { ok?: number; id?: string }, formData: FormData): Promise<Resultado & { ok?: number; id?: string }> {
   try {
-    const { context, supabase } = await contextoDoFinanceiro()
-    const p = { ...lerCadastro(tabela, formData), ...(id ? { id } : {}) }
+    const { context, supabase, empresa } = await contextoDoFinanceiro()
+    // Conta e fonte nascem na empresa aberta (a de uma conta existente não muda).
+    const p = { ...lerCadastro(tabela, formData), ...(id ? { id } : {}), ...((tabela === 'conta' || tabela === 'fonte') && empresa ? { entidade_id: empresa.id } : {}) }
     const { data, error } = await supabase.rpc('financeiro_salvar_cadastro', { p_workspace_id: context.workspace.id, p_tabela: tabela, p })
     if (error) erroDoBanco(error, 'Não foi possível salvar.')
     revalidar()
@@ -444,7 +447,7 @@ export async function fecharMes(mes: string, observacao: string): Promise<Result
     if (bloqueio) throw new Error(`${bloqueio.rotulo}: ${bloqueio.detalhe ?? 'pendente'}`)
     const avisos = d.itens.filter((i) => !i.ok).map((i) => ({ id: i.id, rotulo: i.rotulo, detalhe: i.detalhe }))
     const { error } = await d.supabase.rpc('financeiro_fechar_mes', {
-      p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`,
+      p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`, p_entidade_id: d.empresa?.id ?? null,
       // O retrato guarda os totais do patrimônio; a lista bem a bem fica no pacote do contador.
       p_resumo: { ...d.resumo, patrimonio: d.resumo.patrimonio ? { ...d.resumo.patrimonio, linhas: undefined } : undefined, estoque: d.resumo.estoque ? { ...d.resumo.estoque, linhas: undefined } : undefined }, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
     })
@@ -458,8 +461,8 @@ export async function fecharMes(mes: string, observacao: string): Promise<Result
 
 export async function reabrirMes(motivo: string): Promise<Resultado> {
   try {
-    const { context, supabase } = await contextoDoFinanceiro()
-    const { data: mes, error } = await supabase.rpc('financeiro_reabrir_mes', { p_workspace_id: context.workspace.id, p_motivo: motivo.trim().slice(0, 1000) })
+    const { context, supabase, empresa } = await contextoDoFinanceiro()
+    const { data: mes, error } = await supabase.rpc('financeiro_reabrir_mes', { p_workspace_id: context.workspace.id, p_motivo: motivo.trim().slice(0, 1000), p_entidade_id: empresa?.id ?? null })
     if (error) erroDoBanco(error, 'Não foi possível reabrir.')
     // Reabrir mês fechado é exceção: os administradores ficam sabendo.
     const { data: admins } = await createAdminClient().from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('role', 'admin')
@@ -493,7 +496,7 @@ export async function salvarValorHora(valor: string): Promise<Resultado> {
 
 export async function salvarOrcamento(ano: number, itens: { categoria_id: string; valor: string }[]): Promise<Resultado & { ok?: number }> {
   try {
-    const { context, supabase } = await contextoDoFinanceiro()
+    const { context, supabase, empresa } = await contextoDoFinanceiro()
     if (!Number.isInteger(ano) || ano < 2020 || ano > 2100) throw new Error('Ano inválido.')
     const limpos = itens.slice(0, 500).map((i) => {
       const texto = i.valor.trim()
@@ -501,11 +504,43 @@ export async function salvarOrcamento(ano: number, itens: { categoria_id: string
       if (texto && valor === null) throw new Error(`Valor inválido: "${texto}".`)
       return { categoria_id: i.categoria_id, valor_mensal: valor ?? '' }
     })
-    const { error } = await supabase.rpc('financeiro_salvar_orcamento', { p_workspace_id: context.workspace.id, p_ano: ano, p_itens: limpos })
+    const { error } = await supabase.rpc('financeiro_salvar_orcamento', { p_workspace_id: context.workspace.id, p_ano: ano, p_itens: limpos, p_entidade_id: empresa?.id ?? null })
     if (error) erroDoBanco(error, 'Não foi possível salvar o orçamento.')
     revalidar()
     return { ok: Date.now() }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar o orçamento.') }
+  }
+}
+
+// ---------------------------------------------------------------- empresas
+
+/** Abre o Financeiro de outra empresa (a filial ou a Escola). */
+export async function escolherEmpresa(id: string): Promise<Resultado> {
+  try {
+    const { empresas } = await contextoDoFinanceiro()
+    if (!empresas.some((e) => e.id === id)) throw new Error('Empresa não encontrada.')
+    ;(await cookies()).set(COOKIE_DA_EMPRESA, id, { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 24 * 365 })
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível trocar de empresa.') }
+  }
+}
+
+/** Nome, razão social e CNPJ de uma empresa (gestão do Financeiro). */
+export async function salvarEmpresa(id: string, _anterior: Resultado & { ok?: number }, formData: FormData): Promise<Resultado & { ok?: number }> {
+  try {
+    const { context, supabase, nivel } = await contextoDoFinanceiro()
+    if (nivel < 4) throw new Error('Só a gestão do Financeiro muda os dados da empresa.')
+    const t = (k: string, max: number) => String(formData.get(k) ?? '').trim().slice(0, max)
+    const cnpj = t('cnpj', 20).replace(/\D/g, '')
+    if (cnpj && (cnpj.length !== 14 || !documentoValido(cnpj))) throw new Error('CNPJ inválido: confira os dígitos.')
+    const { error } = await supabase.rpc('financeiro_salvar_entidade', { p_workspace_id: context.workspace.id, p_id: id, p: { nome: t('nome', 80), razao_social: t('razao_social', 200), cnpj } })
+    if (error) erroDoBanco(error, 'Não foi possível salvar a empresa.')
+    revalidar()
+    return { ok: Date.now() }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar a empresa.') }
   }
 }

@@ -47,7 +47,8 @@ export async function cadastrosDoPatrimonio(): Promise<CadastrosDoPatrimonio> {
     supabase.from('pat_categorias').select('id,nome,vida_util_meses,residual_pct,conta_contabil,manutencao_meses,ativa').eq('workspace_id', ws).order('nome'),
     supabase.from('pat_locais').select('id,nome,descricao,ativo').eq('workspace_id', ws).order('nome'),
     // As fontes são do Financeiro: quem não tem nível lá simplesmente não vê nenhuma.
-    supabase.from('fin_fontes').select('id,nome,restrita').eq('workspace_id', ws).order('nome'),
+    // Da filial (a empresa principal): o patrimônio e o estoque são dela, não da Escola.
+    supabase.from('fin_fontes').select('id,nome,restrita,fin_entidades!inner(principal)').eq('workspace_id', ws).eq('fin_entidades.principal', true).order('nome'),
     supabase.from('projects').select('id,name').eq('workspace_id', ws).order('name'),
     supabase.from('est_categorias').select('id,nome,conta_contabil,ativa').eq('workspace_id', ws).order('nome'),
   ])

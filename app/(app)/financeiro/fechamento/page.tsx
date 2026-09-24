@@ -45,7 +45,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
   if (nivel < 1) notFound()
   const hoje = hojeEmSaoPaulo()
   // Sem mês na URL: o próximo a fechar (ou o mês passado, se nada foi fechado ainda).
-  const { config } = await cadastrosDoFinanceiro()
+  const { config, empresas, empresa } = await cadastrosDoFinanceiro()
   const mes = ehMes(sp.mes) ? sp.mes : config.fechado_ate ? somarDias(config.fechado_ate, 1).slice(0, 7) : mesAnterior(mesDe(hoje))
   const d = await dadosDoMes(mes)
   const r = d.resumo
@@ -64,7 +64,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/fechamento" />
+      <SecoesDoFinanceiro atual="/financeiro/fechamento" empresas={empresas} empresa={empresa} />
       <PageHeader
         title={`Fechamento de ${nomeDoMes(mes)}`}
         description="Conferir, fechar e mandar ao contador. Fechado, o que foi pago no mês não muda mais."

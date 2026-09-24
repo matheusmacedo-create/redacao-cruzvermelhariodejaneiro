@@ -89,7 +89,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
         l.consumo, l.perdas, l.ajustes, l.kits, qtd(l.qtd_fim), l.valor_fim])))
   }
   // Doações em espécie do mês, recibo a recibo, com o doador (receita pelo valor de mercado — ITG 2002).
-  const { data: doacoes, error: semDoacoes } = await d.supabase.rpc('financeiro_doacoes_do_periodo', { p_workspace_id: ws, p_inicio: inicio, p_fim: fim })
+  // Doações em espécie são da filial: só no pacote da empresa principal.
+  const { data: doacoes, error: semDoacoes } = d.principal ? await d.supabase.rpc('financeiro_doacoes_do_periodo', { p_workspace_id: ws, p_inicio: inicio, p_fim: fim }) : { data: null, error: null }
   if (!semDoacoes && Array.isArray(doacoes) && doacoes.length) {
     arquivos['9-doacoes-recebidas.csv'] = strToU8(csv(['Recibo', 'Data', 'Doador', 'CPF/CNPJ', 'Campanha', 'Vai para', 'Item', 'Quantidade', 'Unidade', 'Valor unitário (mercado)', 'Valor total'],
       (doacoes as Record<string, unknown>[]).map((x) => [x.codigo as string, x.data as string, x.doador as string, documentoCompleto(x.documento as string | null), x.campanha as string | null,
@@ -100,6 +101,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
   const fechamento = d.fechamentos.find((f) => f.mes === inicio && f.situacao === 'fechado')
   arquivos['LEIAME.txt'] = strToU8([
     `Financeiro — ${nomeDoMes(mes)}`,
+    d.empresa ? `Empresa: ${d.empresa.razao_social ?? d.empresa.nome}${d.empresa.cnpj ? ` — CNPJ ${d.empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}` : ''}` : '',
     fechamento ? `Mês fechado em ${new Date(fechamento.fechado_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.` : 'Mês AINDA NÃO FECHADO: os números podem mudar.',
     fechamento?.observacao ? `Observação de quem fechou: ${fechamento.observacao}` : '',
     '',
@@ -147,7 +149,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
   const { error } = await admin.storage.from(BUCKET).upload(caminho, zip, { contentType: 'application/zip' })
   if (error) return new Response('Não foi possível montar o pacote.', { status: 502 })
   await d.supabase.rpc('financeiro_auditar_pacote', { p_workspace_id: ws, p_mes: inicio, p_arquivos: Object.keys(arquivos).length })
-  const { data: assinado } = await admin.storage.from(BUCKET).createSignedUrl(caminho, 60, { download: `financeiro-${mes}.zip` })
+  const { data: assinado } = await admin.storage.from(BUCKET).createSignedUrl(caminho, 60, { download: `financeiro-${d.empresa && !d.empresa.principal ? `${nomeDeArquivo(d.empresa.nome, 30)}-` : ''}${mes}.zip` })
   if (!assinado?.signedUrl) return new Response('Não foi possível gerar o link.', { status: 502 })
   return new Response(null, { status: 302, headers: { Location: assinado.signedUrl, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } })
 }

@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
-import { Categorias, Contas, Favorecidos, Fontes, NivelDeAcesso, Regras } from '@/components/app/financeiro/cadastros'
+import { Categorias, Contas, DadosDaEmpresa, Favorecidos, Fontes, NivelDeAcesso, Regras } from '@/components/app/financeiro/cadastros'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
 import { NIVEIS, saldos, type Lancamento, type NomeDoNivel } from '@/lib/financeiro/regras'
 
@@ -12,6 +12,7 @@ export const metadata = { title: 'Cadastros do Financeiro' }
 export const dynamic = 'force-dynamic'
 
 const ABAS = [
+  { id: 'empresa', rotulo: 'Empresa', ajuda: 'Os dados da empresa destes livros. A filial e a Escola têm CNPJ, contas, lançamentos e fechamento próprios; categorias e favorecidos são comuns.' },
   { id: 'contas', rotulo: 'Contas', ajuda: 'Bancos, aplicações e o caixa em dinheiro. O saldo de hoje sai do saldo inicial mais o que foi pago e recebido.' },
   { id: 'fontes', rotulo: 'Fontes de recurso', ajuda: 'De onde vem o dinheiro. "Com destino" é o que só pode ser gasto num convênio, termo de fomento ou doação carimbada — a norma das entidades sem fins lucrativos (ITG 2002) pede essa separação.' },
   { id: 'categorias', rotulo: 'Categorias', ajuda: 'Para que é cada despesa e de onde vem cada receita. O contador liga cada uma a uma conta do plano de contas dele.' },
@@ -34,13 +35,13 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
   let saldosHoje: Record<string, number> = {}
   if (aba === 'contas') {
     const hoje = hojeEmSaoPaulo()
-    const { data } = await supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', context.workspace.id).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000)
+    const { data } = await supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', context.workspace.id).eq('entidade_id', c.empresa?.id ?? '').not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000)
     saldosHoje = Object.fromEntries(saldos(c.contas, (data ?? []).map(lerLinha) as Lancamento[], hoje))
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/cadastros" />
+      <SecoesDoFinanceiro atual="/financeiro/cadastros" empresas={c.empresas} empresa={c.empresa} />
       <PageHeader title="Cadastros do Financeiro" description={visiveis.find((a) => a.id === aba)?.ajuda} />
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
         {visiveis.map((a) => (
@@ -50,6 +51,7 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
       </nav>
       {!gestao && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
       <Card className="p-5">
+        {aba === 'empresa' && c.empresa && <DadosDaEmpresa empresa={c.empresa} pode={gestao} />}
         {aba === 'contas' && <Contas c={c} saldos={saldosHoje} pode={gestao} />}
         {aba === 'fontes' && <Fontes c={c} pode={gestao} />}
         {aba === 'categorias' && <Categorias c={c} pode={gestao} />}

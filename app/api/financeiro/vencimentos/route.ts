@@ -47,19 +47,22 @@ export async function GET(request: Request) {
   let lembretes = 0
   if (hoje.slice(8, 10) === '05') {
     const fimDoMesPassado = somarDias(`${hoje.slice(0, 7)}-01`, -1)
-    const { data: configs } = await admin.from('fin_config').select('workspace_id,fechado_ate')
-    const { data: comMovimento } = await admin.from('fin_lancamentos').select('workspace_id').lte('pago_em', fimDoMesPassado).limit(1000)
-    const ativos = new Set((comMovimento ?? []).map((x) => x.workspace_id as string))
-    for (const c of configs ?? []) {
-      if (!ativos.has(c.workspace_id as string) || (c.fechado_ate && c.fechado_ate >= fimDoMesPassado)) continue
+    // Cada empresa (a filial e a Escola) fecha o seu mês: lembra das que têm movimento e estão abertas.
+    const { data: empresas } = await admin.from('fin_entidades').select('id,workspace_id,nome,principal,fechado_ate').eq('ativa', true)
+    const { data: comMovimento } = await admin.from('fin_lancamentos').select('entidade_id').lte('pago_em', fimDoMesPassado).limit(5000)
+    const ativas = new Set((comMovimento ?? []).map((x) => x.entidade_id as string))
+    const multiplas = new Set((empresas ?? []).filter((e) => !e.principal && ativas.has(e.id as string)).map((e) => e.workspace_id as string))
+    for (const c of empresas ?? []) {
+      if (!ativas.has(c.id as string) || (c.fechado_ate && c.fechado_ate >= fimDoMesPassado)) continue
       const [{ data: admins }, { data: gestao }] = await Promise.all([
         admin.from('workspace_members').select('user_id').eq('workspace_id', c.workspace_id).eq('role', 'admin'),
         admin.from('fin_acesso').select('user_id').eq('workspace_id', c.workspace_id).eq('nivel', 'gestao'),
       ])
       const para = [...new Set([...(admins ?? []), ...(gestao ?? [])].map((x) => x.user_id as string))]
+      const deQuem = multiplas.has(c.workspace_id as string) ? ` (${c.nome as string})` : ''
       await notificar(admin, {
-        workspaceId: c.workspace_id as string, para, atorId: null, categoria: 'financeiro', titulo: 'Fechamento do mês pendente',
-        mensagem: `${fimDoMesPassado.slice(5, 7)}/${fimDoMesPassado.slice(0, 4)} ainda não foi fechado no Financeiro.`, link: '/financeiro/fechamento', botao: 'Ir ao fechamento',
+        workspaceId: c.workspace_id as string, para, atorId: null, categoria: 'financeiro', titulo: `Fechamento do mês pendente${deQuem}`,
+        mensagem: `${fimDoMesPassado.slice(5, 7)}/${fimDoMesPassado.slice(0, 4)} ainda não foi fechado no Financeiro${deQuem}.`, link: c.principal ? '/financeiro/fechamento' : '/escola/financeiro', botao: 'Ir ao fechamento',
       })
       lembretes++
     }

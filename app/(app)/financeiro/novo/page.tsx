@@ -19,7 +19,7 @@ export default async function NovoLancamento({ searchParams }: { searchParams: P
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
-      <PageHeader title="Novo lançamento" description="Uma despesa, uma receita ou uma transferência entre contas. Parcelas e contas mensais são criadas de uma vez." />
+      <PageHeader title={`Novo lançamento${cadastros.empresa && !cadastros.empresa.principal ? ` · ${cadastros.empresa.nome}` : ''}`} description="Uma despesa, uma receita ou uma transferência entre contas. Parcelas e contas mensais são criadas de uma vez." />
       <Card className="p-5 sm:p-6"><FormularioDeLancamento cadastros={cadastros} hoje={hojeEmSaoPaulo()} tipoInicial={ehTipo(tipo) ? tipo : 'despesa'} /></Card>
     </div>
   )

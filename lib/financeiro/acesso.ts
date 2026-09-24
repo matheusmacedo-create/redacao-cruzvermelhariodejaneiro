@@ -1,8 +1,14 @@
 import 'server-only'
 
+import { cookies } from 'next/headers'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { nivelDoNome, type Nivel } from './regras'
+
+/** A empresa aberta no Financeiro (cookie): a filial ou a Escola, cada uma com os seus livros. */
+export const COOKIE_DA_EMPRESA = 'fin_empresa'
+
+export type Empresa = { id: string; nome: string; razao_social: string | null; cnpj: string | null; tipo: 'filial' | 'escola' | 'outra'; principal: boolean; fechado_ate: string | null }
 
 /**
  * O nível de quem está logado no Financeiro: admin tem tudo; os demais, o
@@ -18,7 +24,16 @@ export async function contextoDoFinanceiro() {
     const { data } = await supabase.from('fin_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
     nivel = nivelDoNome(data?.nivel)
   }
-  return { context, supabase, nivel }
+  // As empresas do espaço (a filial, principal, e a Escola). Sem acesso ao Financeiro, a lista vem vazia.
+  let { data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem')
+  if (!empresas?.length && nivel >= 1) {
+    await supabase.rpc('financeiro_preparar', { p_workspace_id: context.workspace.id })
+    ;({ data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem'))
+  }
+  const lista = (empresas ?? []) as Empresa[]
+  const escolhida = (await cookies()).get(COOKIE_DA_EMPRESA)?.value
+  const empresa = lista.find((e) => e.id === escolhida) ?? lista.find((e) => e.principal) ?? lista[0] ?? null
+  return { context, supabase, nivel, empresas: lista, empresa }
 }
 
 export type Cadastros = {
@@ -27,23 +42,33 @@ export type Cadastros = {
   categorias: { id: string; tipo: 'despesa' | 'receita'; nome: string; grupo: string | null; codigo_contabil: string | null; fixa: boolean; ativa: boolean; ordem: number }[]
   favorecidos: { id: string; nome: string; tipo_pessoa: string; documento: string | null; chave_pix: string | null; email: string | null; telefone: string | null; observacao: string | null }[]
   projetos: { id: string; name: string }[]
+  /** A empresa destes cadastros (contas, fontes e o mês fechado são dela). */
+  empresa: Empresa | null
+  empresas: Empresa[]
   config: { aprovacao_ativa: boolean; aprovacao_acima: number | null; fechado_ate: string | null; reserva_minima_meses: number; valor_hora_voluntario: number | null }
 }
 
-/** Tudo o que os formulários e as listas precisam para dar nome aos ids. Prepara o espaço na primeira vez. */
-export async function cadastrosDoFinanceiro(): Promise<Cadastros> {
-  const { context, supabase } = await contextoDoFinanceiro()
+/**
+ * Tudo o que os formulários e as listas precisam para dar nome aos ids, da
+ * empresa aberta (ou da pedida — um lançamento abre na empresa dele).
+ * Contas, fontes e o mês fechado são da empresa; categorias e favorecidos,
+ * comuns. Prepara o espaço na primeira vez.
+ */
+export async function cadastrosDoFinanceiro(empresaId?: string | null): Promise<Cadastros> {
+  const { context, supabase, empresas, empresa: aberta } = await contextoDoFinanceiro()
   const ws = context.workspace.id
+  const empresa = (empresaId && empresas.find((e) => e.id === empresaId)) || aberta
+  const ent = empresa?.id ?? '00000000-0000-0000-0000-000000000000'
   const ler = () => Promise.all([
-    supabase.from('fin_contas').select('id,nome,tipo,banco,agencia,numero,fonte_id,saldo_inicial,saldo_inicial_em,ativa').eq('workspace_id', ws).order('nome'),
-    supabase.from('fin_fontes').select('id,nome,restrita,projeto_id,financiador,descricao,inicio,fim,valor_previsto,ativa').eq('workspace_id', ws).order('restrita').order('nome'),
+    supabase.from('fin_contas').select('id,nome,tipo,banco,agencia,numero,fonte_id,saldo_inicial,saldo_inicial_em,ativa').eq('workspace_id', ws).eq('entidade_id', ent).order('nome'),
+    supabase.from('fin_fontes').select('id,nome,restrita,projeto_id,financiador,descricao,inicio,fim,valor_previsto,ativa').eq('workspace_id', ws).eq('entidade_id', ent).order('restrita').order('nome'),
     supabase.from('fin_categorias').select('id,tipo,nome,grupo,codigo_contabil,fixa,ativa,ordem').eq('workspace_id', ws).order('ordem').order('nome'),
     supabase.from('fin_favorecidos').select('id,nome,tipo_pessoa,documento,chave_pix,email,telefone,observacao').eq('workspace_id', ws).order('nome').limit(5000),
     supabase.from('projects').select('id,name').eq('workspace_id', ws).order('name'),
     supabase.from('fin_config').select('aprovacao_ativa,aprovacao_acima,fechado_ate,reserva_minima_meses,valor_hora_voluntario').eq('workspace_id', ws).maybeSingle(),
   ])
   let r = await ler()
-  if (!r[1].data?.length) {
+  if (!r[1].data?.length && empresa) {
     await supabase.rpc('financeiro_preparar', { p_workspace_id: ws })
     r = await ler()
   }
@@ -55,9 +80,11 @@ export async function cadastrosDoFinanceiro(): Promise<Cadastros> {
     categorias: (categorias.data ?? []) as Cadastros['categorias'],
     favorecidos: (favorecidos.data ?? []) as Cadastros['favorecidos'],
     projetos: (projetos.data ?? []) as Cadastros['projetos'],
+    empresa, empresas,
     config: {
       aprovacao_ativa: Boolean(config.data?.aprovacao_ativa), aprovacao_acima: numero(config.data?.aprovacao_acima),
-      fechado_ate: (config.data?.fechado_ate as string | null) ?? null, reserva_minima_meses: Number(config.data?.reserva_minima_meses ?? 3),
+      // O mês fechado é o da empresa (cada uma fecha o seu).
+      fechado_ate: empresa?.fechado_ate ?? null, reserva_minima_meses: Number(config.data?.reserva_minima_meses ?? 3),
       valor_hora_voluntario: numero(config.data?.valor_hora_voluntario),
     },
   }

@@ -19,7 +19,7 @@ export default async function EditarLancamento({ params }: { params: Promise<{ i
   const { data } = await supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!data) notFound()
   const l = lerLinha(data) as Lancamento
-  const cadastros = await cadastrosDoFinanceiro()
+  const cadastros = await cadastrosDoFinanceiro(l.entidade_id)
   const fechado = Boolean(l.pago_em && cadastros.config.fechado_ate && l.pago_em <= cadastros.config.fechado_ate)
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
