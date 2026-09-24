@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
+import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Categorias, Contas, Favorecidos, Fontes, NivelDeAcesso, Regras } from '@/components/app/financeiro/cadastros'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
@@ -40,7 +40,7 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
+      <SecoesDoFinanceiro atual="/financeiro/cadastros" />
       <PageHeader title="Cadastros do Financeiro" description={visiveis.find((a) => a.id === aba)?.ajuda} />
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
         {visiveis.map((a) => (
