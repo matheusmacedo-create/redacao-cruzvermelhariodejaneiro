@@ -37,6 +37,8 @@ export const SERVICOS = {
     ],
   },
   google_gmail: { nome: 'Autorização da conta Google', variavel: 'GOOGLE_GMAIL_REFRESH', painel: '', oculto: true },
+  // Token de um usuário do sistema (Business Manager) com ads_read: o marketing da escola lê os anúncios por ele.
+  meta_ads: { nome: 'Meta Ads (token do usuário do sistema)', variavel: 'META_ADS_TOKEN', painel: 'https://business.facebook.com/settings/system-users' },
 } as const satisfies Record<string, DefinicaoDeServico>
 
 export type Servico = keyof typeof SERVICOS
