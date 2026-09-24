@@ -23,6 +23,10 @@
     {
       "path": "/api/patrimonio/rotina",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/escola/sincronizar",
+      "schedule": "0 9 * * *"
     }
   ]
 }
