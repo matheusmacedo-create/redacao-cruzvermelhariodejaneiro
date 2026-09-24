@@ -2,7 +2,7 @@ import 'server-only'
 
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from './acesso'
-import { conferencia, resumoDoMes, type Item, type LinhaDoExtratoDoMes, type Resumo } from './fechamento'
+import { conferencia, resumoDoMes, resumoDoPatrimonio, type BemDoFechamento, type Item, type LinhaDoExtratoDoMes, type Resumo } from './fechamento'
 import { COLUNAS_DO_LANCAMENTO, primeiroDia, ultimoDia, type Lancamento } from './regras'
 
 export type Fechamento = {
@@ -49,6 +49,11 @@ export async function dadosDoMes(mes: string) {
     saldosDoBanco: (importacoes ?? []).map((i) => ({ conta_id: i.conta_id as string, saldo: Number(i.saldo_banco), em: i.saldo_em as string })),
     horas: { horas: Number(h?.horas ?? 0), pessoas: Number(h?.pessoas ?? 0) }, valorHora: c.config.valor_hora_voluntario,
   })
+  // Depreciação do Patrimônio (sem o módulo ou sem bens com valor: fica de fora).
+  const { data: bens, error: semPatrimonio } = await supabase.rpc('financeiro_bens_para_depreciacao', { p_workspace_id: ws })
+  if (!semPatrimonio && Array.isArray(bens) && bens.length) {
+    resumo.patrimonio = resumoDoPatrimonio((bens as BemDoFechamento[]).map((b) => ({ ...b, valor: b.valor === null ? null : Number(b.valor), residual_pct: Number(b.residual_pct) })), mes)
+  }
   const itens: Item[] = conferencia({
     mes, hoje: hojeEmSaoPaulo(), fechadoAte: c.config.fechado_ate, resumo, contas: c.contas, lancamentos,
     extrato: (extrato ?? []) as LinhaDoExtratoDoMes[], comComprovante,

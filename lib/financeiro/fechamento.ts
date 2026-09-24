@@ -6,6 +6,7 @@
 
 import { efeitoNaConta, nomeDoMes, primeiroDia, somar, ultimoDia, type Lancamento } from './regras'
 import { somarDias } from './avisos'
+import { depreciacao } from '@/lib/patrimonio/regras'
 
 export type ContaDoMes = { id: string; nome: string; tipo: string; fonte_id: string | null; saldo_inicial: number; saldo_inicial_em: string; ativa: boolean }
 export type FonteDoMes = { id: string; nome: string; restrita: boolean }
@@ -20,6 +21,41 @@ export type Resumo = {
   porConta: { id: string; nome: string; inicio: number; entradas: number; saidas: number; fim: number; banco: { saldo: number; em: string; redacao: number } | null }[]
   porFonte: { id: string; nome: string; restrita: boolean; inicio: number; entradas: number; saidas: number; fim: number }[]
   voluntariado: { horas: number; pessoas: number; valorHora: number | null; valor: number | null }
+  /** Do Patrimônio: depreciação do mês e bens recebidos em doação (valor de mercado). */
+  patrimonio?: ResumoDoPatrimonio
+}
+
+export type BemDoFechamento = {
+  id: string; plaqueta: string; nome: string; categoria: string; conta_contabil: string | null; origem: string; aquisicao_em: string | null
+  valor: number | null; vida_util_meses: number | null; residual_pct: number; baixado_em: string | null
+}
+export type ResumoDoPatrimonio = {
+  bens: number; valor: number; depreciacaoDoMes: number; acumulada: number; contabil: number
+  doadosNoMes: { plaqueta: string; nome: string; valor: number }[]; baixadosNoMes: { plaqueta: string; nome: string; contabil: number }[]
+  linhas: { plaqueta: string; nome: string; categoria: string; conta: string | null; origem: string; aquisicao: string | null; valor: number; noMes: number; acumulada: number; contabil: number; baixado: string | null }[]
+}
+
+/** A depreciação do mês por bem e no total, e as entradas e saídas de bens do mês. */
+export function resumoDoPatrimonio(bens: BemDoFechamento[], mes: string): ResumoDoPatrimonio {
+  const linhas: ResumoDoPatrimonio['linhas'] = []
+  const noMesDe = (d: string | null) => Boolean(d && d.slice(0, 7) === mes)
+  for (const b of bens) {
+    if (b.aquisicao_em && b.aquisicao_em.slice(0, 7) > mes) continue
+    if (b.baixado_em && b.baixado_em.slice(0, 7) < mes) continue
+    const d = depreciacao({ valor: b.valor, aquisicao_em: b.aquisicao_em, vida_util_meses: b.vida_util_meses, residual_pct: b.residual_pct, baixado_em: b.baixado_em, origem: b.origem }, mes)
+    const valor = b.valor ?? 0
+    linhas.push({ plaqueta: b.plaqueta, nome: b.nome, categoria: b.categoria, conta: b.conta_contabil, origem: b.origem, aquisicao: b.aquisicao_em, valor,
+      noMes: d?.noMes ?? 0, acumulada: d?.acumulada ?? 0, contabil: d?.contabil ?? valor, baixado: b.baixado_em })
+  }
+  const ativos = linhas.filter((l) => !l.baixado || noMesDe(l.baixado))
+  const soma = (f: (l: (typeof linhas)[number]) => number) => Math.round(ativos.reduce((s, l) => s + Math.round(f(l) * 100), 0)) / 100
+  return {
+    bens: ativos.filter((l) => !l.baixado).length, valor: soma((l) => (l.baixado ? 0 : l.valor)), depreciacaoDoMes: soma((l) => l.noMes),
+    acumulada: soma((l) => (l.baixado ? 0 : l.acumulada)), contabil: soma((l) => (l.baixado ? 0 : l.contabil)),
+    doadosNoMes: bens.filter((b) => b.origem === 'doacao' && noMesDe(b.aquisicao_em)).map((b) => ({ plaqueta: b.plaqueta, nome: b.nome, valor: b.valor ?? 0 })),
+    baixadosNoMes: linhas.filter((l) => noMesDe(l.baixado)).map((l) => ({ plaqueta: l.plaqueta, nome: l.nome, contabil: l.contabil })),
+    linhas,
+  }
 }
 
 const c = (n: number) => Math.round(n * 100)

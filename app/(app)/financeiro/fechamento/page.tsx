@@ -137,6 +137,19 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
         </Card>
       </div>
 
+      {r.patrimonio && (
+        <Card className="p-5" id="patrimonio-do-mes">
+          <h2 className="mb-1 font-semibold">Patrimônio</h2>
+          <p className="mb-3 text-xs text-muted-foreground">Depreciação linear dos bens (vida útil por categoria, em Patrimônio → Cadastros). O contador lança a depreciação do mês; a lista bem a bem vai no pacote.</p>
+          <Tabela cabecalho={['', 'Valor']} linhas={[
+            ['Bens no patrimônio (valor de aquisição)', r.patrimonio.valor], ['Depreciação do mês', r.patrimonio.depreciacaoDoMes],
+            ['Depreciação acumulada', r.patrimonio.acumulada], ['Valor contábil no fim do mês', r.patrimonio.contabil],
+          ]} />
+          {r.patrimonio.doadosNoMes.length > 0 && <p className="mt-3 text-sm">Bens recebidos em doação no mês (valor de mercado, ITG 2002): {r.patrimonio.doadosNoMes.map((b) => `${b.plaqueta} ${b.nome} (${reais(b.valor)})`).join('; ')}.</p>}
+          {r.patrimonio.baixadosNoMes.length > 0 && <p className="mt-2 text-sm">Baixados no mês: {r.patrimonio.baixadosNoMes.map((b) => `${b.plaqueta} ${b.nome} (valor contábil ${reais(b.contabil)})`).join('; ')}.</p>}
+        </Card>
+      )}
+
       <Card className="flex flex-col gap-3 p-5" id="voluntariado">
         <h2 className="font-semibold">Trabalho voluntário (ITG 2002)</h2>
         <p className="text-sm text-muted-foreground">
