@@ -156,9 +156,9 @@ export function EmailDaConta({ email, confirmado, pendente, envioConfigurado }: 
       <div className="flex items-start gap-3">
         <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${confirmado ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning-foreground'}`}>{confirmado ? <MailCheck className="size-4" /> : <MailWarning className="size-4" />}</span>
         <div className="min-w-0">
-          <p className="font-medium break-all">{email ?? 'Nenhum e-mail cadastrado'}{email && <span className={`ml-2 text-xs font-normal ${confirmado ? 'text-success' : 'text-warning-foreground'}`}>{confirmado ? 'confirmado' : 'não confirmado'}</span>}</p>
+          <p className="font-medium break-all">{email ?? 'Nenhum e-mail de recuperação cadastrado'}{email && <span className={`ml-2 text-xs font-normal ${confirmado ? 'text-success' : 'text-warning-foreground'}`}>{confirmado ? 'confirmado' : 'não confirmado'}</span>}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            É para ele que vão os links de senha e os avisos de segurança da sua conta. {!confirmado && 'Sem um e-mail confirmado, você não consegue usar "Esqueci minha senha".'}
+            Se você esquecer a senha, é para este endereço que mandamos o link para criar uma nova. Ele também recebe os avisos de segurança da sua conta. {!confirmado && 'Enquanto não houver um e-mail confirmado aqui, "Esqueci minha senha" não tem para onde enviar o link.'}
           </p>
           {pendente && pendente !== email && <p className="mt-1 text-sm text-warning-foreground">Aguardando confirmação de {pendente}. Abra o link que enviamos para esse endereço.</p>}
         </div>
@@ -176,7 +176,7 @@ export function EmailDaConta({ email, confirmado, pendente, envioConfigurado }: 
       ) : (
         <div className="flex flex-wrap justify-end gap-2">
           {email && !confirmado && <Button variant="outline" size="lg" disabled={ocupado} onClick={() => enviar(undefined, email)}>{ocupado && <Loader2 className="size-4 animate-spin" />}Reenviar confirmação</Button>}
-          <Button variant="outline" size="lg" onClick={() => setEditando(true)}><Mail className="size-4" />{email ? 'Trocar e-mail' : 'Cadastrar e-mail'}</Button>
+          <Button variant="outline" size="lg" onClick={() => setEditando(true)}><Mail className="size-4" />{email ? 'Trocar e-mail' : 'Cadastrar e-mail de recuperação'}</Button>
         </div>
       ))}
     </div>

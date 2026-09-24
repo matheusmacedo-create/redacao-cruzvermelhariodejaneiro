@@ -39,7 +39,7 @@ async function ipDaRequisicao(): Promise<string> {
 
 // ------------------------------------------------------------------ esqueci minha senha
 
-const RESPOSTA_NEUTRA = 'Se existir uma conta com esse usuário ou e-mail, e ela tiver um e-mail confirmado, enviamos um link para redefinir a senha. Confira também a caixa de spam. O link vale por 1 hora.'
+const RESPOSTA_NEUTRA = 'Se existir uma conta com esse usuário ou e-mail e ela tiver um e-mail de recuperação confirmado, enviamos um link para redefinir a senha (vale por 1 hora; confira também o spam). Não chegou nada em alguns minutos? Provavelmente a conta ainda não tem e-mail de recuperação: peça a um administrador uma senha temporária e, ao entrar, cadastre o e-mail em Meu perfil.'
 
 export async function pedirRedefinicaoDeSenha(formData: FormData): Promise<Resultado> {
   try {
