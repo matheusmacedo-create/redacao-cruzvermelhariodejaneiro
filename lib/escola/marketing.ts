@@ -48,18 +48,20 @@ export const ehSituacaoDaPeca = tem(SITUACOES_DA_PECA)
 export type Campanha = {
   id: string; nome: string; conta_id: string | null; curso: string | null; objetivo: Objetivo; status: SituacaoDaCampanha
   inicio: string | null; fim: string | null; orcamento: number | null; utm_campaign: string | null; resumo: string | null; aprendizados: string | null
-  criado_por: string | null; created_at: string
+  criado_por: string | null; created_at: string; meta_campaign_id: string | null
 }
 export type Peca = {
   id: string; campanha_id: string | null; referencia: boolean; fonte: string | null; tipo: TipoDePeca; canal: Canal; titulo: string; url: string | null; texto: string | null
   angulo: string | null; formato: string | null; status: SituacaoDaPeca; publicada_em: string | null; encerrada_em: string | null; imagem_path: string | null
   investimento: number | null; impressoes: number | null; cliques: number | null; leads: number | null; matriculas: number | null; resultado_em: string | null
   vencedora: boolean; nota: string | null; criado_por: string | null; created_at: string
+  /** 'meta': lida da Marketing API (os números vêm de lá); 'manual': cadastrada pela equipe. */
+  origem: 'manual' | 'meta'; meta_status: string | null
 }
 export type ReceitaDaCampanha = { campanha: string; recebido: number; pagamentos: number; primeira: string | null; ultima: string | null }
 
-export const COLUNAS_DA_CAMPANHA = 'id,nome,conta_id,curso,objetivo,status,inicio,fim,orcamento,utm_campaign,resumo,aprendizados,criado_por,created_at'
-export const COLUNAS_DA_PECA = 'id,campanha_id,referencia,fonte,tipo,canal,titulo,url,texto,angulo,formato,status,publicada_em,encerrada_em,imagem_path,investimento,impressoes,cliques,leads,matriculas,resultado_em,vencedora,nota,criado_por,created_at'
+export const COLUNAS_DA_CAMPANHA = 'id,nome,conta_id,curso,objetivo,status,inicio,fim,orcamento,utm_campaign,resumo,aprendizados,criado_por,created_at,meta_campaign_id'
+export const COLUNAS_DA_PECA = 'id,campanha_id,referencia,fonte,tipo,canal,titulo,url,texto,angulo,formato,status,publicada_em,encerrada_em,imagem_path,investimento,impressoes,cliques,leads,matriculas,resultado_em,vencedora,nota,criado_por,created_at,origem,meta_status'
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
 export const lerCampanhaDoBanco = (c: Record<string, unknown>) => ({ ...c, orcamento: num(c.orcamento) }) as Campanha

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { NovaCampanha } from '@/components/app/escola/marketing'
+import { MetaAds, type ContaMeta } from '@/components/app/escola/meta'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { mesPorExtenso } from '@/lib/escola/painel'
 import {
@@ -38,12 +39,15 @@ export default async function MarketingDaEscolaPage() {
   const { context, supabase, nivel, nivelEscola } = await contextoDoMarketing()
   if (nivel < 2) notFound()
   const ws = context.workspace.id
-  const [{ data: cs }, { data: ps }, { data: rs }, { data: contas }] = await Promise.all([
+  const [{ data: cs }, { data: ps }, { data: rs }, { data: contas }, { data: metaContas }, { data: chaveMeta }] = await Promise.all([
     supabase.from('escola_campanhas').select(COLUNAS_DA_CAMPANHA).eq('workspace_id', ws).order('inicio', { ascending: false, nullsFirst: false }).limit(2000),
     supabase.from('escola_pecas').select(COLUNAS_DA_PECA).eq('workspace_id', ws).eq('referencia', false).order('publicada_em', { ascending: false, nullsFirst: false }).limit(5000),
     supabase.rpc('escola_receita_por_campanha', { p_workspace_id: ws }),
     supabase.from('escola_contas').select('id,nome').eq('workspace_id', ws).order('nome'),
+    supabase.from('escola_meta_contas').select('id,act_id,nome,filtro,ativa,sincronizada_em,sincronizacao_erro').eq('workspace_id', ws).order('created_at'),
+    supabase.from('integracoes_chaves').select('servico').eq('workspace_id', ws).eq('servico', 'meta_ads').maybeSingle(),
   ])
+  const temToken = Boolean(chaveMeta) || Boolean(process.env.META_ADS_TOKEN?.trim())
   const campanhas = (cs ?? []).map((c) => lerCampanhaDoBanco(c))
   const pecas = (ps ?? []).map((p) => lerPecaDoBanco(p))
   const receitas = ((rs ?? []) as ReceitaDaCampanha[]).map((r) => ({ ...r, recebido: Number(r.recebido), pagamentos: Number(r.pagamentos) }))
@@ -59,7 +63,7 @@ export default async function MarketingDaEscolaPage() {
       <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
       <PageHeader
         title="Marketing da escola"
-        description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. A receita vem sozinha da Únicopag pelo utm_campaign."
+        description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. Os anúncios vêm sozinhos do Meta, e a receita, da Únicopag pelo utm_campaign."
         actions={<div className="flex flex-wrap items-start gap-2">
           <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />}><Images className="size-4" />Biblioteca de peças</Button>
           <NovaCampanha contas={(contas ?? []) as { id: string; nome: string }[]} />
@@ -72,6 +76,8 @@ export default async function MarketingDaEscolaPage() {
         <Indicador rotulo="Investido em anúncios" valor={reais(geral.investimento)} detalhe={`${milhar(geral.matriculas)} matrículas · ${reais(geral.cpa)} por matrícula`} />
         <Indicador rotulo="Receita das campanhas" valor={reais(receitaTotal)} detalhe={geral.investimento > 0 ? `Retorno de ${(receitaTotal / geral.investimento).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}× o investido` : 'Pelas vendas com utm_campaign na Únicopag'} />
       </div>
+
+      <MetaAds contas={(metaContas ?? []) as ContaMeta[]} ehAdmin={nivel >= 3} temToken={temToken} />
 
       <section className="flex flex-col gap-3" id="campanhas">
         <h2 className="text-base font-medium">Campanhas</h2>

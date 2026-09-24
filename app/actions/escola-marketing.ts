@@ -1,12 +1,16 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
+import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { conteudoConfere } from '@/lib/rh/regras'
 import { BUCKET_DO_MARKETING, contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { lerFormularioDaCampanha, lerFormularioDaPeca } from '@/lib/escola/marketing'
+import { lerActId } from '@/lib/escola/meta'
+import { sincronizarMetaDoEspaco, testarMeta } from '@/lib/escola/meta-servidor'
+import { obterChave } from '@/lib/integracoes/chaves'
 
 /**
  * Marketing da escola: campanhas, peças (e referências) e a imagem de cada
@@ -125,5 +129,72 @@ export async function removerImagem(pecaId: string): Promise<Estado> {
     return { ok: Date.now() }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível tirar a imagem.') }
+  }
+}
+
+// ---------------------------------------------------------------- Meta Ads
+
+/**
+ * Liga (ou muda) a conta de anúncios do Meta. O token do usuário do sistema
+ * é testado contra a conta antes de ir para o cofre; sem token novo, testa
+ * com o que já está guardado.
+ */
+export async function ligarMeta(id: string | null, _anterior: Estado & { recado?: string }, formData: FormData): Promise<Estado & { recado?: string }> {
+  try {
+    const { context, supabase, nivel } = await contextoDoMarketing()
+    if (nivel < 3) throw new Error('Só um admin liga a conta de anúncios.')
+    const act = lerActId(String(formData.get('act_id') ?? ''))
+    if (!act) throw new Error('O ID da conta de anúncios é um número (ex.: act_1234567890). Ele aparece no Gerenciador de Anúncios, ao lado do nome da conta.')
+    const token = String(formData.get('token') ?? '').trim()
+    if (token && (token.length < 40 || /\s/.test(token))) throw new Error('O token parece incompleto. Cole o token inteiro, sem espaços.')
+    const usar = token || (await obterChave(context.workspace.id, 'meta_ads'))
+    if (!usar) throw new Error('Cole o token do usuário do sistema (com a permissão ads_read).')
+    const teste = await testarMeta(usar, act)
+    if ('erro' in teste) throw new Error(teste.erro)
+    const filtro = String(formData.get('filtro') ?? '').trim().slice(0, 80)
+    const p: Record<string, unknown> = { act_id: act, nome: teste.nome, filtro }
+    if (id) { p.id = id; p.ativa = formData.get('ativa') !== 'nao' }
+    const { data: contaId, error } = await supabase.rpc('escola_meta_salvar_conta', { p_workspace_id: context.workspace.id, p })
+    if (error || !contaId) erroDoBanco(error, 'Não foi possível ligar a conta.')
+    if (token) {
+      const { error: e2 } = await supabase.rpc('definir_chave_de_integracao', { p_workspace_id: context.workspace.id, p_servico: 'meta_ads', p_valor: token })
+      if (e2) throw new Error('A conta foi ligada, mas não foi possível guardar o token no cofre. Tente de novo.')
+      await createAdminClient().from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'integracao_chave_definida', entity_type: 'integracao', metadata: { servico: 'meta_ads' } })
+    }
+    after(() => sincronizarMetaDoEspaco(context.workspace.id, contaId as string).then(() => undefined))
+    revalidar()
+    revalidatePath('/configuracoes')
+    return { ok: Date.now(), recado: `Conta "${teste.nome}" ligada. Os anúncios estão sendo lidos — atualize a página em um minuto.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível ligar a conta de anúncios.') }
+  }
+}
+
+export async function desligarMeta(id: string): Promise<Estado> {
+  try {
+    const { context, supabase, nivel } = await contextoDoMarketing()
+    if (nivel < 3) throw new Error('Só um admin desliga a conta de anúncios.')
+    const { error } = await supabase.rpc('escola_meta_excluir_conta', { p_workspace_id: context.workspace.id, p_id: id })
+    if (error) erroDoBanco(error, 'Não foi possível desligar.')
+    revalidar()
+    return { ok: Date.now() }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível desligar.') }
+  }
+}
+
+/** "Atualizar do Meta": relê campanhas, anúncios e números agora (o cron faz isso uma vez por dia). */
+export async function atualizarMetaAgora(): Promise<{ erro?: string; recado?: string }> {
+  try {
+    const { context, nivel } = await contextoDoMarketing()
+    if (nivel < 2) throw new Error('Você não tem acesso ao marketing da escola.')
+    const r = await sincronizarMetaDoEspaco(context.workspace.id)
+    revalidar()
+    if (!r.length) return { recado: 'Nenhuma conta de anúncios ligada.' }
+    const falhas = r.filter((x) => !x.ok)
+    if (falhas.length) return { erro: falhas.map((f) => `${f.conta}: ${f.mensagem}`).join(' ') }
+    return { recado: r.map((x) => x.mensagem).join(' ') }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível ler o Meta.') }
   }
 }
