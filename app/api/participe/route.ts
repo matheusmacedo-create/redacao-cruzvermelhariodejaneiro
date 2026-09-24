@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { lerFormulario, TERMO_VERSAO } from '@/lib/participantes/regras'
+import { nomesDosSetores } from '@/lib/setores'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { gerentesDoVoluntariado } from '@/lib/membro/comunicacao'
 
@@ -24,13 +25,13 @@ export async function POST(request: Request) {
   const inicio = Number(f.get('_inicio') ?? 0)
   if (String(f.get('site') ?? '') || !inicio || Date.now() - inicio < 4000) return responder(200, { ok: true })
 
-  const { dados, erros } = lerFormulario(f, hoje(), { publico: true })
-  if (erros.length) return responder(422, { erro: erros.join(' ') })
-  dados.vinculo = f.get('vinculo') === 'jovem' ? 'jovem' : 'voluntario'
-
   const admin = createAdminClient()
   const { data: ws } = await admin.from('workspaces').select('id').eq('kind', 'production').order('created_at').limit(1).maybeSingle()
   if (!ws) return responder(503, { erro: 'Inscrições indisponíveis no momento.' })
+
+  const { dados, erros } = lerFormulario(f, hoje(), { publico: true, setores: await nomesDosSetores(admin, ws.id as string) })
+  if (erros.length) return responder(422, { erro: erros.join(' ') })
+  dados.vinculo = f.get('vinculo') === 'jovem' ? 'jovem' : 'voluntario'
   const ip = (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || request.headers.get('x-real-ip') || 'desconhecido'
   const ipHash = createHash('sha256').update(`participe:${ip}`).digest('hex')
   const { error } = await admin.rpc('inscrever_participante', { p_workspace_id: ws.id, p: dados, p_ip_hash: ipHash, p_versao_termo: TERMO_VERSAO })

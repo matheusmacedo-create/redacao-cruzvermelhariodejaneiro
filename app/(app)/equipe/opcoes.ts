@@ -2,17 +2,20 @@ import 'server-only'
 
 import type { createClient } from '@/lib/supabase/server'
 import type { Opcao } from '@/components/app/equipe/formulario'
+import { nomesDosSetores } from '@/lib/setores'
 
 type Cliente = Awaited<ReturnType<typeof createClient>>
 
 /**
  * As listas da ficha: quem pode ser gestor (fichas não desligadas, menos a
- * própria) e os logins do espaço ainda não ligados a outra ficha.
+ * própria), os logins do espaço ainda não ligados a outra ficha e os
+ * setores do espaço (Pessoas → Setores).
  */
 export async function opcoesDaFicha(supabase: Cliente, workspaceId: string, membroId: string | null) {
-  const [{ data: fichas }, { data: membros }] = await Promise.all([
+  const [{ data: fichas }, { data: membros }, setores] = await Promise.all([
     supabase.from('equipe_membros').select('id,nome,nome_social,situacao,user_id,cargo').eq('workspace_id', workspaceId).order('nome').limit(5000),
     supabase.from('workspace_members').select('user_id,profiles(full_name,active)').eq('workspace_id', workspaceId),
+    nomesDosSetores(supabase, workspaceId),
   ])
   const gestores: Opcao[] = (fichas ?? []).filter((f) => f.id !== membroId && f.situacao !== 'desligado')
     .map((f) => ({ id: f.id as string, nome: `${f.nome_social || f.nome}${f.cargo ? ` — ${f.cargo}` : ''}` }))
@@ -21,5 +24,5 @@ export async function opcoesDaFicha(supabase: Cliente, workspaceId: string, memb
     .filter((m) => !ocupados.has(m.id) && m.p?.active !== false)
     .map((m) => ({ id: m.id, nome: m.p?.full_name ?? 'Sem nome' }))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-  return { gestores, logins }
+  return { gestores, logins, setores }
 }

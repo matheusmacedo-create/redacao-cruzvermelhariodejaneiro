@@ -100,7 +100,7 @@ export type DadosDoMembro = Record<string, string | Record<string, string>>
  * `banco_aberto` marca isso) — assim, salvar a ficha não apaga o que está
  * guardado e que a pessoa nem viu.
  */
-export function lerFormulario(f: FormData, hoje: string): { dados: DadosDoMembro; erros: string[] } {
+export function lerFormulario(f: FormData, hoje: string, setores: readonly string[] = NOMES_DOS_SETORES): { dados: DadosDoMembro; erros: string[] } {
   const erros: string[] = []
   const dados: DadosDoMembro = {}
   const texto = (k: string, max: number) => {
@@ -121,7 +121,7 @@ export function lerFormulario(f: FormData, hoje: string): { dados: DadosDoMembro
   }
   if (f.has('setor')) {
     const s = String(f.get('setor') ?? '').trim()
-    if (s && !NOMES_DOS_SETORES.includes(s)) erros.push('Setor inválido.')
+    if (s && !setores.includes(s)) erros.push('Setor inválido.')
     dados.setor = s
   }
   if (f.has('uf')) {

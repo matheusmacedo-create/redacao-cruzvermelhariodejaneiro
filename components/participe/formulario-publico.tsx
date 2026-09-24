@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CheckCircle2, Loader2 } from 'lucide-react'
-import { DISPONIBILIDADES, NOMES_DOS_SETORES, TIPOS_SANGUINEOS, UFS, ehMenor } from '@/lib/participantes/regras'
+import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, ehMenor } from '@/lib/participantes/regras'
 
 const campo = 'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-[#e32219] focus:ring-2 focus:ring-[#e32219]/20'
 
@@ -14,7 +14,7 @@ function Campo({ rotulo, dica, children, largo }: { rotulo: string; dica?: strin
  * A inscrição de voluntários. Envia para /api/participe; a inscrição chega à
  * coordenação do Voluntariado como pendente.
  */
-export function FormularioPublico({ hoje }: { hoje: string }) {
+export function FormularioPublico({ hoje, setores }: { hoje: string; setores: string[] }) {
   const [inicio] = useState(() => Date.now())
   const [nascimento, setNascimento] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -87,7 +87,7 @@ export function FormularioPublico({ hoje }: { hoje: string }) {
       <fieldset>
         <legend className="mb-2 text-base font-semibold text-neutral-900">Áreas de interesse</legend>
         <div className="flex flex-wrap gap-2">
-          {NOMES_DOS_SETORES.filter((s) => !['Diretoria', 'Jurídico', 'Tecnologia da Informação'].includes(s)).map((s) => (
+          {setores.filter((s) => !['Diretoria', 'Jurídico', 'Tecnologia da Informação'].includes(s)).map((s) => (
             <label key={s} className="flex cursor-pointer items-center rounded-full border border-neutral-300 px-3 py-1.5 text-sm has-[:checked]:border-[#e32219] has-[:checked]:bg-red-50 has-[:checked]:text-[#b3170f]">
               <input type="checkbox" name="setores" value={s} className="sr-only" />{s}
             </label>

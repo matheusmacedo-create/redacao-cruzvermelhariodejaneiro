@@ -10,6 +10,7 @@ import { REMETENTE_DO_VOLUNTARIADO, boasVindas } from '@/lib/membro/comunicacao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario, formatarCpf, type NomeDoNivel } from '@/lib/participantes/regras'
+import { nomesDosSetores } from '@/lib/setores'
 
 /**
  * Participantes. Tudo o que grava dado pessoal passa por funções do banco,
@@ -35,7 +36,7 @@ export async function salvarParticipante(id: string | null, _anterior: Resultado
   try {
     const { context, supabase, nivel } = await contextoDeParticipantes()
     if (nivel < 2) throw new Error('Você não tem acesso para editar participantes.')
-    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo())
+    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo(), { setores: await nomesDosSetores(supabase, context.workspace.id) })
     if (erros.length) return { erro: erros.join(' ') }
     const { data, error } = await supabase.rpc('salvar_participante', { p_workspace_id: context.workspace.id, p_id: id, p: dados })
     if (error) erroDoBanco(error, 'Não foi possível salvar o cadastro.')

@@ -2,6 +2,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { RegistrarForm } from './registrar-form'
 import type { Etiqueta } from '@/app/actions/quadro'
+import { nomesDosSetores } from '@/lib/setores'
 
 export const metadata = { title: 'Registrar atividade' }
 
@@ -9,10 +10,11 @@ export default async function RegistrarPage({ searchParams }: { searchParams: Pr
   const { projeto } = await searchParams
   const context = await requireWorkspace()
   const supabase = await createClient()
-  const [{ data: projects }, { data: membros }, { data: etiquetas }] = await Promise.all([
+  const [{ data: projects }, { data: membros }, { data: etiquetas }, coordenacoes] = await Promise.all([
     supabase.from('projects').select('id,name,status').eq('workspace_id', context.workspace.id).order('name'),
-    supabase.from('workspace_members').select('user_id,profiles(full_name,active)').eq('workspace_id', context.workspace.id),
+    supabase.from('workspace_members').select('user_id,coordination,profiles(full_name,active)').eq('workspace_id', context.workspace.id),
     supabase.from('etiquetas').select('id,nome,cor').eq('workspace_id', context.workspace.id).order('nome'),
+    nomesDosSetores(supabase, context.workspace.id),
   ])
 
   const pessoas = (membros ?? []).flatMap((m) => {
@@ -33,6 +35,8 @@ export default async function RegistrarPage({ searchParams }: { searchParams: Pr
       pessoas={pessoas}
       etiquetas={(etiquetas ?? []) as Etiqueta[]}
       eu={context.user.id}
+      coordenacoes={coordenacoes}
+      minhaCoordenacao={((membros ?? []).find((m) => m.user_id === context.user.id)?.coordination as string | null) ?? undefined}
     />
   )
 }

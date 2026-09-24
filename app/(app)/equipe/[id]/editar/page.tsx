@@ -24,7 +24,7 @@ export default async function EditarFicha({ params }: { params: Promise<{ id: st
     <div className="flex flex-col gap-5">
       <Link href={`/equipe/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />{nomeDe(m as Membro)}</Link>
       <PageHeader title="Editar ficha" />
-      <FormularioDeMembro m={m as Membro} pessoais={pessoais as Pessoais | null} nivel={nivel} gestores={opcoes.gestores} logins={opcoes.logins} />
+      <FormularioDeMembro m={m as Membro} pessoais={pessoais as Pessoais | null} nivel={nivel} gestores={opcoes.gestores} logins={opcoes.logins} setores={opcoes.setores} />
     </div>
   )
 }

@@ -8,7 +8,7 @@ import type { Etiqueta } from '@/app/actions/quadro'
 import { PageHeader } from '@/components/app/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { canaisDePublicacao, coordenacoes } from '@/lib/data'
+import { canaisDePublicacao } from '@/lib/data'
 import { LIMITE_DE_PUBLICACOES } from '@/lib/editorial/publicacoes-previstas'
 import { CORES_DE_ETIQUETA, PRIORIDADES } from '@/lib/pautas/quadro'
 import { cn } from '@/lib/utils'
@@ -42,8 +42,12 @@ function Secao({ icone: Icone, titulo, descricao, children }: { icone: typeof Cl
   )
 }
 
-export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu }: {
+export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coordenacoes, minhaCoordenacao }: {
   projectId?: string
+  /** Os setores do espaço (Pessoas → Setores). */
+  coordenacoes: string[]
+  /** O setor de quem registra: vem escolhido. */
+  minhaCoordenacao?: string
   projects: { id: string; name: string }[]
   pessoas: { id: string; nome: string }[]
   etiquetas: Etiqueta[]
@@ -109,7 +113,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu }: {
           <Field label={nomeDoTitulo}><input required minLength={3} name="title" className={inputClass} /></Field>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Coordenação responsável">
-              <select required name="coordination" className={inputClass} defaultValue="">
+              <select required name="coordination" className={inputClass} defaultValue={minhaCoordenacao && coordenacoes.includes(minhaCoordenacao) ? minhaCoordenacao : ''}>
                 <option value="" disabled>Selecione…</option>
                 {coordenacoes.map((item) => <option key={item}>{item}</option>)}
               </select>
