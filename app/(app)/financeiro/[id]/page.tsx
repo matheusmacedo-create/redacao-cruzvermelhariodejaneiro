@@ -1,13 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft, Landmark, Lock, Pencil } from 'lucide-react'
+import { ChevronLeft, Landmark, Lock, Pencil, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Anexos, Decisao, DesfazerPagamento, Excluir, Pagar, type Anexo } from '@/components/app/financeiro/acoes'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
-import { COLUNAS_DO_LANCAMENTO, FORMAS, SITUACOES, TIPOS, dataCurta, documentoLegivel, nomeDoMes, reais, situacao, type Lancamento } from '@/lib/financeiro/regras'
+import { COLUNAS_DO_LANCAMENTO, FORMAS, SITUACOES, TIPOS, dataCurta, documentoLegivel, ehAutomatico, nomeDoMes, reais, situacao, type Lancamento } from '@/lib/financeiro/regras'
 
 export const metadata = { title: 'Lançamento' }
 export const dynamic = 'force-dynamic'
@@ -47,6 +47,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
   const fonte = c.fontes.find((f) => f.id === l.fonte_id)
   const favorecido = c.favorecidos.find((f) => f.id === l.favorecido_id)
   const ehQuemLancou = l.criado_por === context.user.id
+  const automatico = ehAutomatico(l)
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -59,7 +60,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
             {!l.pago_em && l.aprovacao !== 'pendente' && l.aprovacao !== 'recusada' && (
               <Pagar id={l.id} tipo={l.tipo} valor={l.valor} contaId={l.conta_id} forma={l.forma} contas={c.contas.filter((x) => x.ativa && x.id !== l.conta_destino_id)} hoje={hoje} />
             )}
-            {l.pago_em && <DesfazerPagamento id={l.id} />}
+            {l.pago_em && !automatico && <DesfazerPagamento id={l.id} />}
             <Button variant="outline" render={<Link href={`/financeiro/${l.id}/editar`} />}><Pencil className="size-4" />Editar</Button>
             {!l.pago_em && <Excluir id={l.id} emGrupo={Boolean(l.grupo_id)} />}
           </div>
@@ -67,6 +68,12 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
       />
 
       {fechado && <p className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground"><Lock className="size-4" />Pago num mês já fechado: não muda mais.</p>}
+      {automatico && (
+        <p className="flex items-start gap-2 rounded-lg bg-primary/5 px-3 py-2 text-sm text-muted-foreground" data-automatico>
+          <Zap className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>{l.origem_ref?.endsWith(':estorno') ? 'Estorno lançado sozinho: a Únicopag devolveu esta venda.' : 'Venda lançada sozinha a partir da Únicopag.'} Categoria, descrição e fonte podem ser corrigidas; o valor recebido acompanha a transação{l.documento ? ` ${l.documento}` : ''}, e um estorno entra sozinho na próxima leitura.</span>
+        </p>
+      )}
 
       {l.aprovacao !== 'nao_exige' && (
         <Card className={`p-5 ${l.aprovacao === 'pendente' ? 'border-warning/60' : l.aprovacao === 'recusada' ? 'border-destructive/40' : ''}`} id="aprovacao">
@@ -115,7 +122,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
           ))}
           {l.observacao && <p className="mt-4 whitespace-pre-line border-t border-border pt-4 text-sm text-muted-foreground">{l.observacao}</p>}
           <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
-            Lançado{l.criado_por ? ` por ${nomes[l.criado_por] ?? 'alguém'}` : ''} em {new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}
+            Lançado{l.criado_por ? ` por ${nomes[l.criado_por] ?? 'alguém'}` : automatico ? ' pela leitura da Únicopag' : ''} em {new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}
           </p>
         </Card>
 

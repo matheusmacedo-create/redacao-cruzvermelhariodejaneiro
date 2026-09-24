@@ -211,8 +211,13 @@ export type Lancamento = {
   valor_pago: number | null; forma: string | null; documento: string | null; observacao: string | null; grupo_id: string | null
   parcela: number | null; parcelas: number | null; recorrente: boolean; aprovacao: 'nao_exige' | 'pendente' | 'aprovada' | 'recusada'
   aprovado_por: string | null; aprovado_em: string | null; motivo_recusa: string | null; criado_por: string | null; created_at: string; updated_at: string
+  /** Lançado sozinho: 'unicopag:<hash>' (venda) ou 'unicopag:<hash>:estorno'. */
+  origem_ref?: string | null
 }
-export const COLUNAS_DO_LANCAMENTO = 'id,entidade_id,tipo,descricao,valor,conta_id,conta_destino_id,categoria_id,fonte_id,projeto_id,favorecido_id,competencia,vencimento,pago_em,valor_pago,forma,documento,observacao,grupo_id,parcela,parcelas,recorrente,aprovacao,aprovado_por,aprovado_em,motivo_recusa,criado_por,created_at,updated_at'
+/** Veio da leitura da Únicopag (não se desfaz na mão). */
+export const ehAutomatico = (l: Pick<Lancamento, 'origem_ref'>) => Boolean(l.origem_ref?.startsWith('unicopag:'))
+
+export const COLUNAS_DO_LANCAMENTO = 'id,entidade_id,tipo,descricao,valor,conta_id,conta_destino_id,categoria_id,fonte_id,projeto_id,favorecido_id,competencia,vencimento,pago_em,valor_pago,forma,documento,observacao,grupo_id,parcela,parcelas,recorrente,aprovacao,aprovado_por,aprovado_em,motivo_recusa,criado_por,created_at,updated_at,origem_ref'
 
 export type Situacao = 'pago' | 'recebido' | 'atrasado' | 'vence_hoje' | 'aberto' | 'aprovacao' | 'recusado'
 
