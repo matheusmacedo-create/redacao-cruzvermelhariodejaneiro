@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { publicSupabaseEnv } from '@/lib/supabase/env'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { ehPapel, PAPEL, type Papel } from '@/lib/permissoes'
-import { NOMES_DOS_SETORES } from '@/lib/equipe'
+import { nomesDosSetores } from '@/lib/setores'
 import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
 import { randomBytes } from 'node:crypto'
 import { emailConfigurado } from '@/lib/newsletter/resend'
@@ -53,9 +53,9 @@ const BAN_PERMANENTE = '876000h'
  * como opção, e recusá-la impedia salvar qualquer outra mudança — trocar o
  * e-mail, por exemplo — sem antes mexer no setor.
  */
-function lerCoordenacao(f: FormData, atual = ''): string {
+function lerCoordenacao(f: FormData, setores: string[], atual = ''): string {
   const valor = texto(f, 'coordenacao')
-  if (valor && valor !== atual && !NOMES_DOS_SETORES.includes(valor)) throw new Error('Escolha uma coordenação da lista.')
+  if (valor && valor !== atual && !setores.includes(valor)) throw new Error('Escolha uma coordenação da lista.')
   return valor
 }
 
@@ -156,7 +156,7 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     const usuario = texto(formData, 'usuario').toLowerCase()
     if (!USUARIO_VALIDO.test(usuario)) throw new Error('O usuário deve ter de 3 a 40 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado.')
     const papel = lerPapel(formData)
-    const coordenacao = lerCoordenacao(formData)
+    const coordenacao = lerCoordenacao(formData, await nomesDosSetores(createAdminClient(), context.workspace.id))
     const cargo = texto(formData, 'cargo').slice(0, 120)
     const email = lerEmail(formData)
 
@@ -249,7 +249,7 @@ export async function atualizarUsuario(formData: FormData): Promise<Resultado> {
     const alvo = await carregarAlvo(admin, context.workspace.id, texto(formData, 'userId'))
     const nome = lerNome(formData)
     const cargo = texto(formData, 'cargo').slice(0, 120)
-    const coordenacao = lerCoordenacao(formData, alvo.coordenacao)
+    const coordenacao = lerCoordenacao(formData, await nomesDosSetores(admin, context.workspace.id), alvo.coordenacao)
     const papel = lerPapel(formData)
     const email = lerEmail(formData)
 

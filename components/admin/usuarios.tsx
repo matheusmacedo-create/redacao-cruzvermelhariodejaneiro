@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { createContext, useContext, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
@@ -12,6 +12,9 @@ import { privateAvatarUrl } from '@/lib/avatar-url'
 import { cn } from '@/lib/utils'
 import { matrizDePermissoes, PAPEIS, PAPEL, type Papel } from '@/lib/permissoes'
 import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
+
+/** Os setores do espaço (cadastro em Pessoas → Setores), para os campos de coordenação. */
+const Setores = createContext<string[]>(NOMES_DOS_SETORES)
 import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
 import { emailValido } from '@/lib/contas/emails'
 import { atualizarUsuario, criarUsuario, desativarUsuario, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
@@ -43,8 +46,8 @@ const TOM_DO_PAPEL: Record<Papel, string> = {
   colaborador: 'bg-muted text-muted-foreground',
 }
 
-export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara, envioConfigurado }: {
-  usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean; verificacaoObrigatoriaPara: string[]
+export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara, envioConfigurado, setores }: {
+  setores: string[]; usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean; verificacaoObrigatoriaPara: string[]
   /** RESEND_API_KEY presente: dá para mandar convite e links por e-mail. */
   envioConfigurado: boolean
 }) {
@@ -69,6 +72,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
   }
 
   return (
+    <Setores.Provider value={setores}>
     <div className="flex flex-col gap-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className="text-2xl font-bold tabular-nums">{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p></Card>)}
@@ -107,6 +111,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
 
       <Auditoria eventos={eventos} disponivel={auditoriaDisponivel} />
     </div>
+    </Setores.Provider>
   )
 }
 
@@ -193,6 +198,7 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
   const [usuario, setUsuario] = useState(inicial.usuario ?? '')
   const [usuarioEditado, setUsuarioEditado] = useState(Boolean(inicial.usuario))
   const [cargo, setCargo] = useState(inicial.cargo ?? '')
+  const setores = useContext(Setores)
   const [coordenacao, setCoordenacao] = useState(inicial.setor ?? '')
   const [papel, setPapel] = useState<Papel>(inicial.papel ?? 'colaborador')
   const [email, setEmail] = useState('')
@@ -238,7 +244,7 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
           <label className="flex flex-col gap-1.5 text-sm font-medium md:col-span-2">Coordenação
             <select value={coordenacao} className={campo} onChange={(e) => setCoordenacao(e.target.value)}>
               <option value="">Sem coordenação</option>
-              {NOMES_DOS_SETORES.map((s) => <option key={s}>{s}</option>)}
+              {setores.map((s) => <option key={s}>{s}</option>)}
             </select>
           </label>
         </div>
@@ -337,7 +343,8 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
   const emailInvalido = emailNovo.length > 0 && !emailValido(emailNovo)
   const mudou = nome !== u.nome || cargo !== u.cargo || coordenacao !== u.coordenacao || papel !== u.papel || emailMudou
   // Coordenação antiga fora da lista oficial continua selecionável até alguém trocar.
-  const opcoes = u.coordenacao && !NOMES_DOS_SETORES.includes(u.coordenacao) ? [u.coordenacao, ...NOMES_DOS_SETORES] : NOMES_DOS_SETORES
+  const setores = useContext(Setores)
+  const opcoes = u.coordenacao && !setores.includes(u.coordenacao) ? [u.coordenacao, ...setores] : setores
 
   function executar(acao: (f: FormData) => Promise<Resultado>, campos: Record<string, string>) {
     setAviso(null)

@@ -100,7 +100,7 @@ export type DadosDoParticipante = Record<string, string | string[] | boolean | n
  * Só entra no objeto o campo que veio no formulário — o banco só mexe no
  * que recebe. Devolve os erros que dá para apontar antes de ir ao banco.
  */
-export function lerFormulario(f: FormData, hoje: string, o: { publico?: boolean } = {}): { dados: DadosDoParticipante; erros: string[] } {
+export function lerFormulario(f: FormData, hoje: string, o: { publico?: boolean; setores?: readonly string[] } = {}): { dados: DadosDoParticipante; erros: string[] } {
   const erros: string[] = []
   const dados: DadosDoParticipante = {}
   const texto = (k: string, max: number) => {
@@ -145,7 +145,7 @@ export function lerFormulario(f: FormData, hoje: string, o: { publico?: boolean 
     dados.tipo_sanguineo = t
     dados.restricoes_saude = String(f.get('restricoes_saude') ?? '').trim().slice(0, 2000)
   }
-  if (f.has('setores')) dados.setores = f.getAll('setores').map(String).filter((s) => NOMES_DOS_SETORES.includes(s))
+  if (f.has('setores')) { const validos = o.setores ?? NOMES_DOS_SETORES; dados.setores = f.getAll('setores').map(String).filter((s) => validos.includes(s)) }
   if (f.has('disponibilidade')) dados.disponibilidade = f.getAll('disponibilidade').map(String).filter((s) => (DISPONIBILIDADES as readonly string[]).includes(s))
   if (f.has('habilidades')) dados.habilidades = lerLista(String(f.get('habilidades') ?? ''))
   if (f.has('idiomas')) dados.idiomas = lerLista(String(f.get('idiomas') ?? ''), 10)

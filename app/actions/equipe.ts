@@ -12,6 +12,7 @@ import {
   CATEGORIAS_DE_ARQUIVO, TAMANHO_MAXIMO, TIPOS_DE_ARQUIVO, conteudoConfere, ehCategoria, ehMotivo, ehTipoAceito, faltamNaEquipe, formatarCpf, lerArquivo,
   lerBeneficios, lerFormulario, lerValor, type NomeDoNivel,
 } from '@/lib/rh/regras'
+import { nomesDosSetores } from '@/lib/setores'
 
 /**
  * Equipe. Tudo passa por funções do banco, que conferem o nível de acesso,
@@ -37,7 +38,13 @@ export async function salvarMembro(id: string | null, _anterior: Resultado, form
   try {
     const { context, supabase, nivel } = await contextoDaEquipe()
     if (nivel < 2) throw new Error('Você não tem acesso para editar a equipe.')
-    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo())
+    // O setor que a ficha já tem vale, mesmo que tenha saído da lista.
+    const setores = await nomesDosSetores(supabase, context.workspace.id)
+    if (id) {
+      const { data: atual } = await supabase.from('equipe_membros').select('setor').eq('id', id).maybeSingle()
+      if (atual?.setor) setores.push(atual.setor as string)
+    }
+    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo(), setores)
     if (erros.length) return { erro: erros.join(' ') }
     const { data, error } = await supabase.rpc('salvar_membro_equipe', { p_workspace_id: context.workspace.id, p_id: id, p: dados })
     if (error) erroDoBanco(error, 'Não foi possível salvar a ficha.')

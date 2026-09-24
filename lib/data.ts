@@ -1,4 +1,3 @@
-import { NOMES_DOS_SETORES } from './equipe'
 
 /**
  * Vocabulário compartilhado das telas editoriais.
@@ -85,7 +84,6 @@ export type ContentPiece = {
 }
 
 // Os setores da filial moram em lib/equipe.ts, junto com quem é de cada um.
-export const coordenacoes = NOMES_DOS_SETORES
 
 // Onde uma publicação pode sair. Serve tanto para o canal previsto no
 // calendário quanto para o formato da peça que a Comunicação vai produzir.

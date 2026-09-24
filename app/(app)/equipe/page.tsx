@@ -6,8 +6,9 @@ import { PageHeader } from '@/components/app/page-header'
 import { contextoDaEquipe, COLUNAS_DO_MEMBRO, type Membro } from '@/lib/rh/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { PESSOAS_DA_EQUIPE } from '@/lib/equipe'
+import { nomesDosSetores } from '@/lib/setores'
 import {
-  NIVEIS, NOMES_DOS_SETORES, SITUACOES, VINCULOS, ehSituacao, ehVinculo, faltamNaEquipe, organograma, rotuloDoVinculo, situacaoDaValidade, tempoDeCasa,
+  NIVEIS, SITUACOES, VINCULOS, ehSituacao, ehVinculo, faltamNaEquipe, organograma, rotuloDoVinculo, situacaoDaValidade, tempoDeCasa,
   type NomeDoNivel,
 } from '@/lib/rh/regras'
 import { NivelDeAcesso, TrazerLista } from '@/components/app/equipe/acoes'
@@ -49,7 +50,10 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
   const aba = sp.aba === 'organograma' ? 'organograma' : sp.aba === 'acessos' && ehAdmin ? 'acessos' : 'lista'
   const hoje = hojeEmSaoPaulo()
 
-  const { data } = await supabase.from('equipe_membros').select(COLUNAS_DO_MEMBRO).eq('workspace_id', ws).order('nome').limit(5000)
+  const [{ data }, setores] = await Promise.all([
+    supabase.from('equipe_membros').select(COLUNAS_DO_MEMBRO).eq('workspace_id', ws).order('nome').limit(5000),
+    nomesDosSetores(supabase, ws),
+  ])
   const membros = (data ?? []) as Membro[]
   const porId = new Map(membros.map((m) => [m.id, m]))
   const atuais = membros.filter((m) => m.situacao !== 'desligado')
@@ -124,7 +128,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
               <option value="todas">Todas</option>
             </select>
             <select name="setor" defaultValue={sp.setor ?? ''} aria-label="Setor" className={selectClass}>
-              <option value="">Todos os setores</option>{NOMES_DOS_SETORES.map((s) => <option key={s} value={s}>{s}</option>)}
+              <option value="">Todos os setores</option>{setores.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <Button type="submit" variant="outline">Filtrar</Button>
           </form>

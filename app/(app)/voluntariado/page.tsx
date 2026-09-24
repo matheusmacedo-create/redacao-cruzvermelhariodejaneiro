@@ -6,8 +6,9 @@ import { PageHeader } from '@/components/app/page-header'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { NIVEIS, NOMES_DOS_SETORES, SITUACOES, VINCULOS, ehSituacao, ehVinculo, idade, situacaoDaFormacao, type NomeDoNivel } from '@/lib/participantes/regras'
+import { NIVEIS, SITUACOES, VINCULOS, ehSituacao, ehVinculo, idade, situacaoDaFormacao, type NomeDoNivel } from '@/lib/participantes/regras'
 import { CopiarLink, DecidirInscricao, NivelDeAcesso } from '@/components/app/participantes/acoes'
+import { nomesDosSetores } from '@/lib/setores'
 import { tituloDaArea } from '@/lib/navegacao'
 
 export const metadata = { title: tituloDaArea('/voluntariado') }
@@ -149,7 +150,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
               <option value="">Todas as situações</option>{(['ativo', 'inativo', 'desligado'] as const).map((k) => <option key={k} value={k}>{SITUACOES[k].rotulo}</option>)}
             </select>
             <select name="setor" defaultValue={sp.setor ?? ''} aria-label="Setor" className={selectClass}>
-              <option value="">Todos os setores</option>{NOMES_DOS_SETORES.map((s) => <option key={s} value={s}>{s}</option>)}
+              <option value="">Todos os setores</option>{(await nomesDosSetores(supabase, context.workspace.id)).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
             <Button type="submit" variant="outline">Filtrar</Button>
           </form>

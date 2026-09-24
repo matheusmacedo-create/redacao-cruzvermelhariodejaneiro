@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarMembro, verDadosRestritos } from '@/app/actions/equipe'
-import { BANCO, DOCUMENTOS, NOMES_DOS_SETORES, UFS, VINCULOS, type Nivel } from '@/lib/rh/regras'
+import { BANCO, DOCUMENTOS, UFS, VINCULOS, type Nivel } from '@/lib/rh/regras'
 import type { Membro, Pessoais } from '@/lib/rh/acesso'
 
 export type Opcao = { id: string; nome: string }
@@ -71,8 +71,10 @@ function Restritos({ tipo, membroId, guardado, prefixo, campos }: {
   )
 }
 
-export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins }: {
+export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setores }: {
   m: Membro | null; pessoais: Pessoais | null; nivel: Nivel; gestores: Opcao[]; logins: Opcao[]
+  /** Os setores do espaço (Pessoas → Setores). */
+  setores: string[]
 }) {
   const [estado, enviar, enviando] = useActionState(salvarMembro.bind(null, m?.id ?? null), {})
   const v = (k: keyof Membro) => (m ? String(m[k] ?? '') : '')
@@ -101,7 +103,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins }: {
         <Campo rotulo="Cargo"><input id="e-cargo" name="cargo" maxLength={120} defaultValue={v('cargo')} className={inputClass} /></Campo>
         <Campo rotulo="Setor">
           <select id="e-setor" name="setor" defaultValue={v('setor')} className={inputClass}>
-            <option value="">—</option>{NOMES_DOS_SETORES.map((s) => <option key={s} value={s}>{s}</option>)}
+            <option value="">—</option>{(v('setor') && !setores.includes(v('setor')) ? [v('setor'), ...setores] : setores).map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </Campo>
         <Campo rotulo="Gestor direto">

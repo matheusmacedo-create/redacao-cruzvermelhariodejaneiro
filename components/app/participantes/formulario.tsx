@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarParticipante } from '@/app/actions/participantes'
-import { DISPONIBILIDADES, NOMES_DOS_SETORES, TIPOS_SANGUINEOS, UFS, VINCULOS } from '@/lib/participantes/regras'
+import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, VINCULOS } from '@/lib/participantes/regras'
 
 export type ParticipanteNoFormulario = {
   id: string
@@ -65,7 +65,7 @@ function Secao({ titulo, descricao, children }: { titulo: string; descricao?: st
  * o campo fica vazio e só troca o valor guardado se alguém escrever nele
  * (ou marcar para apagar).
  */
-export function FormularioDeParticipante({ p }: { p: ParticipanteNoFormulario | null }) {
+export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoFormulario | null; setores: string[] }) {
   const [estado, enviar, enviando] = useActionState(salvarParticipante.bind(null, p?.id ?? null), {})
   const [trocarSaude, setTrocarSaude] = useState(!p?.tem_dados_de_saude)
   const [cpf, setCpf] = useState('')
@@ -94,7 +94,7 @@ export function FormularioDeParticipante({ p }: { p: ParticipanteNoFormulario | 
         <fieldset className="sm:col-span-2">
           <legend className="mb-1.5 text-sm font-medium">Setores</legend>
           <div className="flex flex-wrap gap-2">
-            {NOMES_DOS_SETORES.map((s) => (
+            {[...setores, ...(p?.setores ?? []).filter((s) => !setores.includes(s))].map((s) => (
               <label key={s} className="flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary">
                 <input type="checkbox" name="setores" value={s} defaultChecked={p?.setores.includes(s)} className="sr-only" />{s}
               </label>
