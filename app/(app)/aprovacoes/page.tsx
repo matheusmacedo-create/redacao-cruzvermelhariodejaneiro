@@ -29,46 +29,52 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
   const context = await requireWorkspace()
   const supabase = await createClient()
 
+  // Aprovadas e com ajustes só crescem: a lista mostra as mais recentes.
+  const LIMITE = 200
   let query = supabase
     .from('approvals')
     .select('id,status,created_at,requested_by,content_id')
     .eq('workspace_id', context.workspace.id)
     .order('created_at', { ascending: false })
+    .limit(LIMITE)
   if (['pending', 'approved', 'changes_requested'].includes(status)) query = query.eq('status', status)
   const { data: approvals } = await query
 
+  // O que não depende um do outro sai junto: 4 idas ao banco em vez de 6.
   const contentIds = [...new Set((approvals ?? []).map((a) => a.content_id).filter(Boolean))]
-  const { data: contents } = contentIds.length
-    ? await supabase.from('content_pieces').select('id,title,format,pauta_id').in('id', contentIds)
-    : { data: [] as any[] }
+  const approvalIds = (approvals ?? []).map((a) => a.id)
+  const [{ data: contents }, { data: voterRows }] = await Promise.all([
+    contentIds.length
+      ? supabase.from('content_pieces').select('id,title,format,pauta_id').in('id', contentIds)
+      : Promise.resolve({ data: [] as any[] }),
+    approvalIds.length
+      ? supabase.from('approval_voters').select('approval_id,user_id,decision,decided_at').in('approval_id', approvalIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
   const contentById = new Map((contents ?? []).map((c) => [c.id, c]))
+  const votersByApproval = new Map<string, typeof voterRows>()
+  for (const v of voterRows ?? []) votersByApproval.set(v.approval_id, [...(votersByApproval.get(v.approval_id) ?? []), v])
 
   const pautaIds = [...new Set((contents ?? []).map((c) => c.pauta_id).filter(Boolean))]
-  const { data: pautas } = pautaIds.length
-    ? await supabase.from('pautas').select('id,title,project_id').in('id', pautaIds)
-    : { data: [] as any[] }
+  const profileIds = new Set<string>()
+  for (const a of approvals ?? []) if (a.requested_by) profileIds.add(a.requested_by)
+  for (const v of voterRows ?? []) profileIds.add(v.user_id)
+  const [{ data: pautas }, { data: profiles }] = await Promise.all([
+    pautaIds.length
+      ? supabase.from('pautas').select('id,title,project_id').in('id', pautaIds)
+      : Promise.resolve({ data: [] as any[] }),
+    profileIds.size
+      ? supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', [...profileIds])
+      : Promise.resolve({ data: [] as any[] }),
+  ])
   const pautaById = new Map((pautas ?? []).map((p) => [p.id, p]))
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
 
   const projectIds = [...new Set((pautas ?? []).map((p) => p.project_id).filter(Boolean))]
   const { data: projects } = projectIds.length
     ? await supabase.from('projects').select('id,name').in('id', projectIds)
     : { data: [] as any[] }
   const projectById = new Map((projects ?? []).map((p) => [p.id, p]))
-
-  const approvalIds = (approvals ?? []).map((a) => a.id)
-  const { data: voterRows } = approvalIds.length
-    ? await supabase.from('approval_voters').select('approval_id,user_id,decision,decided_at').in('approval_id', approvalIds)
-    : { data: [] as any[] }
-  const votersByApproval = new Map<string, typeof voterRows>()
-  for (const v of voterRows ?? []) votersByApproval.set(v.approval_id, [...(votersByApproval.get(v.approval_id) ?? []), v])
-
-  const profileIds = new Set<string>()
-  for (const a of approvals ?? []) if (a.requested_by) profileIds.add(a.requested_by)
-  for (const v of voterRows ?? []) profileIds.add(v.user_id)
-  const { data: profiles } = profileIds.size
-    ? await supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', [...profileIds])
-    : { data: [] as any[] }
-  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
 
   const filters = [['pending', 'Pendentes'], ['approved', 'Aprovadas'], ['changes_requested', 'Ajustes'], ['all', 'Todas']] as const
 
@@ -165,6 +171,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
             </Card>
           )
         })}
+        {(approvals?.length ?? 0) >= LIMITE && <p className="text-center text-xs text-muted-foreground">Mostrando as {LIMITE} mais recentes.</p>}
         {!approvals?.length && (
           <Card className="p-10 text-center">
             <p className="font-medium">Nenhuma aprovação neste filtro.</p>

@@ -31,13 +31,18 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
   // A base é a notícia no site. Garantir aqui, e não só na criação, é o que
   // dá a base aos pacotes que nasceram antes desta mudança — sem migração de
   // dados e sem ninguém precisar recriá-los.
-  await garantirBaseNoSite(id, context.workspace.id)
-
-  const { data: destinosLinhas } = await supabase
-    .from('package_destinations')
-    .select('id,canal,formato,corpo,extras,file_ids,crops,descolada,estado,agendar_para,erro,external_url')
-    .eq('package_id', id).eq('workspace_id', context.workspace.id)
-    .order('created_at')
+  // Os destinos só depois de garantir a base; as pessoas, em paralelo.
+  const [{ data: destinosLinhas }, { data: memberRows }] = await Promise.all([
+    garantirBaseNoSite(id, context.workspace.id).then(() => supabase
+      .from('package_destinations')
+      .select('id,canal,formato,corpo,extras,file_ids,crops,descolada,estado,agendar_para,erro,external_url')
+      .eq('package_id', id).eq('workspace_id', context.workspace.id)
+      .order('created_at')),
+    supabase
+      .from('workspace_members')
+      .select('user_id,profiles(id,full_name,initials,color,active)')
+      .eq('workspace_id', context.workspace.id),
+  ])
 
   const m = (linha.mestre ?? {}) as Record<string, string>
   // A orientação estruturada do Cérebro, quando o pacote veio de uma pauta
@@ -78,10 +83,6 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
     externalUrl: d.external_url,
   }))
 
-  const { data: memberRows } = await supabase
-    .from('workspace_members')
-    .select('user_id,profiles(id,full_name,initials,color,active)')
-    .eq('workspace_id', context.workspace.id)
   const pessoas = (memberRows ?? [])
     .map((m: any) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles))
     .filter((p: any) => p && p.active !== false && p.id !== context.user.id)

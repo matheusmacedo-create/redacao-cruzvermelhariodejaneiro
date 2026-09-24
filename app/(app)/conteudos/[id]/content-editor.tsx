@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -29,13 +30,15 @@ import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 import { ContentStatusBadge } from '@/components/ui/status-badge'
-import { EmojiPicker } from '@/components/app/emoji-picker'
 import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
+
+// A lista de emojis pesa ~160 KB: só baixa quando alguém abre o seletor.
+const EmojiPicker = dynamic(() => import('@/components/app/emoji-picker').then((m) => m.EmojiPicker), { ssr: false })
 
 
 const mediaKinds = [
