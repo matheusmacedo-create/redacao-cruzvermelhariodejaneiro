@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Ban, Bitcoin, Check, Clock, Copy, Download, ExternalLink, Files, Loader2, RefreshCw, ShieldCheck, Signature, X } from 'lucide-react'
+import { Ban, Bitcoin, Check, Clock, Copy, Download, ExternalLink, FileUp, Files, Loader2, RefreshCw, ShieldCheck, Signature, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Dialog, inputClass } from '@/components/app/imprensa/comum'
@@ -18,7 +18,18 @@ export type CarimboNoPainel = {
   calendarios: string[]
 } | null
 
-export type AssinanteNoPainel = { userId: string | null; nome: string; cargo: string | null; estado: 'pendente' | 'assinado' | 'recusado'; assinadoEm: string | null; motivo: string | null }
+export type CertificadoNoPainel = { titular: string | null; cpf: string | null; emissor: string | null; infraestrutura: string | null } | null
+
+export type AssinanteNoPainel = {
+  userId: string | null
+  nome: string
+  cargo: string | null
+  estado: 'pendente' | 'assinado' | 'recusado'
+  assinadoEm: string | null
+  motivo: string | null
+  metodo?: 'senha' | 'govbr' | null
+  certificado?: CertificadoNoPainel
+}
 
 function Copiar({ valor, rotulo }: { valor: string; rotulo: string }) {
   const [ok, setOk] = useState(false)
@@ -37,6 +48,9 @@ function Copiar({ valor, rotulo }: { valor: string; rotulo: string }) {
 export function PainelDoOficio(props: {
   id: string
   estado: 'em_assinatura' | 'assinado' | 'cancelado'
+  modo: 'senha' | 'govbr'
+  /** Quantas assinaturas gov.br o PDF da vez já tem (0 = o original). */
+  versaoDoPdf: number
   hashDocumento: string
   hashManifesto: string | null
   codigo: string
@@ -72,7 +86,10 @@ export function PainelDoOficio(props: {
   const c = props.carimbo
   return (
     <div className="flex flex-col gap-4">
-      {devoAssinar && (
+      {devoAssinar && props.modo === 'govbr' && (
+        <AssinarNoGovbr id={props.id} versao={props.versaoDoPdf} aoConcluir={(m) => { setAviso(m); router.refresh() }} />
+      )}
+      {devoAssinar && props.modo === 'senha' && (
         <Card className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
           <p className="text-sm font-semibold">Este ofício espera a sua assinatura.</p>
           <p className="text-xs text-muted-foreground">Leia a folha ao lado. Ao assinar, você confirma este texto — identificado pelo código abaixo — com a sua senha do Redação.</p>
@@ -98,8 +115,13 @@ export function PainelDoOficio(props: {
               <div className="min-w-0">
                 <p className="font-medium">{a.nome}{a.userId === props.eu ? ' (você)' : ''}</p>
                 <p className="text-xs text-muted-foreground">
-                  {a.estado === 'assinado' && a.assinadoEm ? `Assinou em ${momento(a.assinadoEm)}` : a.estado === 'recusado' ? `Recusou${a.motivo ? `: ${a.motivo}` : ''}` : props.estado === 'cancelado' ? 'Não assinou' : 'Aguardando'}
+                  {a.estado === 'assinado' && a.assinadoEm ? `Assinou${a.metodo === 'govbr' ? ' com gov.br' : ''} em ${momento(a.assinadoEm)}` : a.estado === 'recusado' ? `Recusou${a.motivo ? `: ${a.motivo}` : ''}` : props.estado === 'cancelado' ? 'Não assinou' : 'Aguardando'}
                 </p>
+                {a.certificado?.titular && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Certificado: {a.certificado.titular}{a.certificado.cpf ? ` · CPF ${a.certificado.cpf}` : ''}{a.certificado.infraestrutura ? ` · ${a.certificado.infraestrutura}` : ''}
+                  </p>
+                )}
               </div>
             </li>
           ))}
@@ -121,6 +143,9 @@ export function PainelDoOficio(props: {
             <p className="break-all font-mono text-[11px] text-muted-foreground">{hashLegivel(props.hashManifesto)}</p>
           </div>
         )}
+        <a href={`/api/oficios/${props.id}/pdf`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <Download className="size-3.5" />{props.modo === 'govbr' && props.versaoDoPdf ? `Baixar PDF assinado (${props.versaoDoPdf} ${props.versaoDoPdf === 1 ? 'assinatura' : 'assinaturas'} gov.br)` : 'Baixar PDF do ofício'}
+        </a>
         <a href={props.urlPublica} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
           <ExternalLink className="size-3.5" />Página pública de conferência (e versão para imprimir)
         </a>
@@ -224,4 +249,60 @@ export function SeloDoCarimbo({ estado }: { estado: 'pendente' | 'enviado' | 'co
     pendente: { rotulo: 'Na fila', classe: 'bg-muted text-muted-foreground' },
   }[estado]
   return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.classe}`}>{m.rotulo}</span>
+}
+
+/**
+ * O passo a passo do gov.br: baixar o PDF da vez, assinar no assinador do
+ * governo e mandar o arquivo assinado de volta. O servidor confere tudo
+ * antes de registrar; o erro dele aparece aqui como veio.
+ */
+function AssinarNoGovbr({ id, versao, aoConcluir }: { id: string; versao: number; aoConcluir: (mensagem: string) => void }) {
+  const [arquivo, setArquivo] = useState<File | null>(null)
+  const [erro, setErro] = useState('')
+  const [enviando, setEnviando] = useState(false)
+
+  async function enviar() {
+    if (!arquivo) return
+    setErro('')
+    setEnviando(true)
+    try {
+      const f = new FormData()
+      f.set('pdf', arquivo)
+      const r = await fetch(`/api/oficios/${id}/assinatura-govbr`, { method: 'POST', body: f })
+      const j = await r.json().catch(() => ({ erro: 'Resposta inesperada do servidor.' })) as { ok?: boolean; concluido?: boolean; titular?: string; erro?: string }
+      if (!r.ok || !j.ok) { setErro(j.erro ?? 'Não foi possível registrar a assinatura.'); return }
+      setArquivo(null)
+      aoConcluir(j.concluido ? 'Assinatura gov.br registrada. O ofício está completo e vai ao Bitcoin.' : `Assinatura gov.br de ${j.titular ?? 'você'} registrada.`)
+    } catch {
+      setErro('Não foi possível enviar. Confira a conexão e tente de novo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <Card className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
+      <p className="text-sm font-semibold">Este ofício espera a sua assinatura gov.br.</p>
+      <ol className="flex flex-col gap-3 text-sm">
+        <li className="flex flex-col gap-1.5">
+          <span><span className="font-semibold">1.</span> Baixe o PDF{versao ? ', que já tem as assinaturas anteriores' : ''}.</span>
+          <Button size="sm" variant="outline" className="self-start" render={<a href={`/api/oficios/${id}/pdf`} />}><Download className="size-3.5" />Baixar PDF para assinar</Button>
+        </li>
+        <li className="flex flex-col gap-1.5">
+          <span><span className="font-semibold">2.</span> Assine no gov.br com a sua conta (prata ou ouro). Não edite nem salve o PDF por outro programa.</span>
+          <Button size="sm" variant="outline" className="self-start" render={<a href="https://assinador.iti.br" target="_blank" rel="noreferrer" />}><ExternalLink className="size-3.5" />Abrir o assinador gov.br</Button>
+        </li>
+        <li className="flex flex-col gap-1.5">
+          <span><span className="font-semibold">3.</span> Envie aqui o PDF assinado.</span>
+          <input id="oficio-pdf-assinado" type="file" accept="application/pdf,.pdf" onChange={(e) => { setArquivo(e.target.files?.[0] ?? null); setErro('') }}
+            className="text-xs file:mr-3 file:rounded-md file:border file:border-border file:bg-background file:px-2.5 file:py-1 file:text-xs file:font-medium" />
+          <Button size="sm" className="self-start" disabled={!arquivo || enviando} onClick={enviar}>
+            {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <FileUp className="size-3.5" />}{enviando ? 'Conferindo a assinatura…' : 'Enviar PDF assinado'}
+          </Button>
+        </li>
+      </ol>
+      {erro && <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{erro}</p>}
+      <p className="text-[11px] text-muted-foreground">O Redação confere se o PDF é este ofício, se a assinatura é íntegra, se o certificado é do gov.br ou da ICP-Brasil e se está no seu nome.</p>
+    </Card>
+  )
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { AlertTriangle, Bitcoin, CheckCircle2, Clock, Download } from 'lucide-react'
+import { AlertTriangle, Bitcoin, CheckCircle2, Clock, Download, ShieldCheck } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hashLegivel, lerCanonico, momento, tituloDoOficio } from '@/lib/oficios/documento'
 import { FolhaDoOficio } from '@/components/app/oficios/documento'
@@ -20,13 +20,13 @@ export default async function VerificarOficio({ params }: { params: Promise<{ co
   if (!/^[0-9a-f]{32}$/.test(codigo)) notFound()
   const admin = createAdminClient()
   const { data: o } = await admin.from('oficios')
-    .select('id,estado,conteudo_canonico,hash_documento,manifesto,hash_manifesto,assinado_em,motivo_cancelamento,cancelado_em')
+    .select('id,estado,modo_assinatura,pdf_versao,conteudo_canonico,hash_documento,manifesto,hash_manifesto,assinado_em,motivo_cancelamento,cancelado_em')
     .eq('codigo_verificacao', codigo).neq('estado', 'rascunho').maybeSingle()
   if (!o) notFound()
   const doc = lerCanonico(o.conteudo_canonico)
   if (!doc) notFound()
   const [{ data: assinantes }, { data: carimbos }] = await Promise.all([
-    admin.from('oficio_assinantes').select('nome,cargo,ordem,estado,assinado_em').eq('oficio_id', o.id).order('ordem'),
+    admin.from('oficio_assinantes').select('nome,cargo,ordem,estado,assinado_em,metodo,certificado').eq('oficio_id', o.id).order('ordem'),
     admin.from('oficio_carimbos').select('estado,bloco,confirmado_em,enviado_em').eq('oficio_id', o.id).order('created_at', { ascending: false }).limit(1),
   ])
   const carimbo = carimbos?.[0]
@@ -56,15 +56,38 @@ export default async function VerificarOficio({ params }: { params: Promise<{ co
         <FolhaDoOficio
           doc={doc}
           marcaDagua={o.estado === 'cancelado' ? 'Cancelado' : undefined}
-          assinaturas={(assinantes ?? []).map((a) => ({ ordem: a.ordem, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinado_em }))}
+          assinaturas={(assinantes ?? []).map((a) => ({ ordem: a.ordem, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinado_em, metodo: a.metodo, titularDoCertificado: (a.certificado as { titular?: string } | null)?.titular ?? null }))}
           rodape={
             <div className="flex flex-col gap-1">
-              <p>Documento assinado eletronicamente no sistema Redação da {doc.emitente}. Confira a autenticidade em redacao.cruzvermelhariodejaneiro.org/verificar/{codigo}</p>
+              <p>Documento assinado eletronicamente {o.modo_assinatura === 'govbr' ? 'por meio da plataforma gov.br' : 'no sistema Redação'} da {doc.emitente}. Confira a autenticidade em redacao.cruzvermelhariodejaneiro.org/verificar/{codigo}</p>
               <p>Código do documento (SHA-256): <span className="break-all font-mono">{o.hash_documento}</span></p>
               {o.hash_manifesto && <p>Manifesto de assinaturas (SHA-256): <span className="break-all font-mono">{o.hash_manifesto}</span>{carimbo?.estado === 'confirmado' && carimbo.bloco ? ` — registrado no bloco ${carimbo.bloco.toLocaleString('pt-BR')} do Bitcoin` : ''}</p>}
             </div>
           }
         />
+
+        {o.modo_assinatura === 'govbr' && (
+          <section className="flex flex-col gap-3 rounded-lg border border-neutral-300 bg-white p-5 text-sm print:hidden">
+            <h2 className="flex items-center gap-2 text-base font-semibold"><ShieldCheck className="size-5" />Assinaturas gov.br</h2>
+            <ul className="flex flex-col gap-2">
+              {(assinantes ?? []).map((a) => {
+                const c = (a.certificado ?? null) as { titular?: string; cpf?: string; emissor?: string; infraestrutura?: string } | null
+                return (
+                  <li key={a.ordem} className="flex flex-col">
+                    <span className="font-medium">{a.nome}{a.estado === 'assinado' && a.assinado_em ? ` — assinou em ${momento(a.assinado_em)}` : a.estado === 'recusado' ? ' — recusou' : ' — aguardando'}</span>
+                    {c?.titular && <span className="text-xs text-neutral-600">Certificado de {c.titular}{c.cpf ? ` (CPF ${c.cpf})` : ''}, emitido por {c.emissor ?? '—'}{c.infraestrutura ? ` · ${c.infraestrutura}` : ''}</span>}
+                  </li>
+                )
+              })}
+            </ul>
+            {(o.pdf_versao ?? 0) > 0 && (
+              <>
+                <a href={`/api/verificar/${codigo}/pdf`} className="inline-flex items-center gap-1.5 self-start rounded-lg border border-neutral-300 px-3 py-1.5 font-medium hover:bg-neutral-50"><Download className="size-4" />PDF assinado</a>
+                <p className="text-neutral-700">Para a conferência oficial do governo, baixe o PDF assinado e envie em <a className="underline" href="https://validar.iti.gov.br" target="_blank" rel="noreferrer">validar.iti.gov.br</a>. O validador do ITI mostra quem assinou e se o certificado continua válido.</p>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="flex flex-col gap-4 rounded-lg border border-neutral-300 bg-white p-5 text-sm print:hidden">
           <h2 className="flex items-center gap-2 text-base font-semibold"><Bitcoin className="size-5" />Registro no Bitcoin</h2>

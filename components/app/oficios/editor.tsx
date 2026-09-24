@@ -147,10 +147,10 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
           falta={falta}
           ocupado={ocupado}
           aoFechar={() => setEmitindo(false)}
-          aoEmitir={(assinantes, aoErrar) => iniciar(async () => {
+          aoEmitir={(assinantes, modo, aoErrar) => iniciar(async () => {
             if (temporizador.current) clearTimeout(temporizador.current)
             if (!(await salvarAgora(campos))) { aoErrar('Não foi possível salvar o rascunho antes de emitir.'); return }
-            const r = await emitirOficio(rascunho.id, assinantes)
+            const r = await emitirOficio(rascunho.id, assinantes, modo)
             if (r.erro) { aoErrar(r.erro); return }
             setEmitindo(false)
             router.refresh()
@@ -179,9 +179,10 @@ function DialogEmitir({ pessoas, eu, falta, ocupado, aoFechar, aoEmitir }: {
   falta: string[]
   ocupado: boolean
   aoFechar: () => void
-  aoEmitir: (assinantes: { userId: string; cargo: string }[], aoErrar: (m: string) => void) => void
+  aoEmitir: (assinantes: { userId: string; cargo: string }[], modo: 'senha' | 'govbr', aoErrar: (m: string) => void) => void
 }) {
   const [escolhidos, setEscolhidos] = useState<{ userId: string; cargo: string }[]>([])
+  const [modo, setModo] = useState<'senha' | 'govbr'>('senha')
   const [erro, setErro] = useState('')
   const porId = new Map(pessoas.map((p) => [p.id, p]))
   const restantes = pessoas.filter((p) => !escolhidos.some((e) => e.userId === p.id))
@@ -196,13 +197,25 @@ function DialogEmitir({ pessoas, eu, falta, ocupado, aoFechar, aoEmitir }: {
   }
 
   return (
-    <Dialog titulo="Emitir para assinatura" descricao="O ofício recebe o próximo número do ano e o texto fica congelado. Cada pessoa assina com a própria senha." largura="max-w-xl" onFechar={aoFechar} podeFechar={!ocupado}>
+    <Dialog titulo="Emitir para assinatura" descricao="O ofício recebe o próximo número do ano e o texto fica congelado." largura="max-w-xl" onFechar={aoFechar} podeFechar={!ocupado}>
       <div className="flex flex-col gap-4 px-6 py-5">
         {falta.length > 0 && (
           <p className="flex items-start gap-2 rounded-lg border border-warning/50 bg-warning/10 px-3 py-2 text-sm">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />Antes de emitir, preencha {falta.join(', ')}.
           </p>
         )}
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-sm font-medium">Como vão assinar</legend>
+          {([
+            ['senha', 'Senha do Redação', 'Cada pessoa confirma com a própria senha, aqui mesmo. Mais rápido.'],
+            ['govbr', 'Assinatura gov.br', 'Cada pessoa baixa o PDF, assina no gov.br (conta prata ou ouro) e envia de volta. É a assinatura avançada do governo, que qualquer pessoa confere no validar.iti.gov.br.'],
+          ] as const).map(([valor, rotulo, texto]) => (
+            <label key={valor} className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm ${modo === valor ? 'border-primary bg-primary/5' : 'border-border'}`}>
+              <input id={`oficio-modo-${valor}`} type="radio" name="modo" value={valor} checked={modo === valor} onChange={() => setModo(valor)} className="mt-1 accent-primary" />
+              <span><span className="block font-medium">{rotulo}</span><span className="text-xs text-muted-foreground">{texto}</span></span>
+            </label>
+          ))}
+        </fieldset>
         <div>
           <p className="mb-2 text-sm font-medium">Quem assina, na ordem da folha</p>
           {escolhidos.length ? (
@@ -239,7 +252,7 @@ function DialogEmitir({ pessoas, eu, falta, ocupado, aoFechar, aoEmitir }: {
       </div>
       <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
         <Button variant="outline" onClick={aoFechar} disabled={ocupado}>Voltar</Button>
-        <Button disabled={ocupado || !escolhidos.length || falta.length > 0} onClick={() => { setErro(''); aoEmitir(escolhidos, setErro) }}>
+        <Button disabled={ocupado || !escolhidos.length || falta.length > 0} onClick={() => { setErro(''); aoEmitir(escolhidos, modo, setErro) }}>
           {ocupado && <Loader2 className="size-4 animate-spin" />}Emitir e enviar para assinatura
         </Button>
       </div>
