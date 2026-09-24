@@ -51,8 +51,8 @@ dia, motivo em texto livre, nonce, id de origem.
 
 ## 3. Banco
 
-Migrações (só acréscimos): `supabase/migrations/20260925200000_cvrj_auditoria.sql` (a trilha e os
-ganchos de matérias, comunicados, ofícios e certificados) e `20260925201000_cvrj_transparencia.sql`
+Migrações (só acréscimos): `supabase/migrations/20260925203000_cvrj_auditoria.sql` (a trilha e os
+ganchos de matérias, comunicados, ofícios e certificados) e `20260925203100_cvrj_transparencia.sql`
 (portal e canais, §5). Testes pgTAP em `supabase/tests/`, rodados só em banco local (§10).
 
 ### 3.1 Schema e privilégios
@@ -241,7 +241,7 @@ idempotência.
 
 ## 5. Transparência e canais oficiais
 
-Migração `20260925201000_cvrj_transparencia.sql`:
+Migração `20260925203100_cvrj_transparencia.sql`:
 
 - `transparencia_documentos` (o lugar no portal: categoria, título, descrição, período, ordem,
   retirada com motivo) e `transparencia_versoes` (os PDFs: caminho no bucket privado
