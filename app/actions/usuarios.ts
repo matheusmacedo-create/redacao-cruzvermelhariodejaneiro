@@ -10,6 +10,7 @@ import { publicSupabaseEnv } from '@/lib/supabase/env'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { ehPapel, PAPEL, type Papel } from '@/lib/permissoes'
 import { nomesDosSetores } from '@/lib/setores'
+import { usuarioSugerido } from '@/lib/equipe'
 import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
 import { randomBytes } from 'node:crypto'
 import { emailConfigurado } from '@/lib/newsletter/resend'
@@ -144,6 +145,7 @@ async function encerrarSessoes(admin: Admin, userId: string): Promise<boolean> {
 function revalidar() {
   revalidatePath('/usuarios')
   revalidatePath('/pessoas')
+  revalidatePath('/pessoas/adicionar')
   revalidatePath('/configuracoes')
 }
 
@@ -492,4 +494,111 @@ export async function trocarMinhaSenha(formData: FormData): Promise<{ erro?: str
   }
   revalidatePath('/', 'layout')
   redirect(destino)
+}
+
+// ------------------------------------------------------------------ convites (Pessoas → Adicionar)
+
+export type ConviteEmLote = { nome: string; email: string; papel: string; coordenacao: string; cargo: string; fichaId?: string }
+export type ResultadoDoConvite = { nome: string; ok: boolean; mensagem: string }
+
+/** Usuário livre a partir do nome: nome.sobrenome, e nome.sobrenome2, 3… se já existir. */
+async function usuarioLivre(admin: Admin, nome: string, reservados: Set<string>): Promise<string> {
+  const base = usuarioSugerido(nome).slice(0, 36) || 'pessoa'
+  const { data } = await admin.from('profiles').select('username').like('username', `${base}%`)
+  const usados = new Set([...(data ?? []).map((p) => p.username as string), ...reservados])
+  if (!usados.has(base) && base.length >= 3) return base
+  for (let i = 2; i < 100; i++) if (!usados.has(`${base}${i}`)) return `${base}${i}`
+  throw new Error(`Não há usuário livre para ${nome}.`)
+}
+
+/**
+ * Convida várias pessoas de uma vez, cada uma pelo mesmo caminho do
+ * convite individual (criarUsuario em modo convite): conta, vínculo, setor,
+ * link para definir a senha e auditoria. Uma falha não impede as outras.
+ * Quem veio de uma ficha da Equipe tem a ficha ligada ao login novo.
+ */
+export async function convidarEmLote(convites: ConviteEmLote[]): Promise<{ erro?: string; resultados?: ResultadoDoConvite[] }> {
+  try {
+    const context = await requirePermissao('usuarios.gerenciar')
+    if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Sem ele, dê acesso com senha temporária em Usuários.')
+    if (!Array.isArray(convites) || !convites.length) throw new Error('Escolha ao menos uma pessoa.')
+    if (convites.length > 30) throw new Error('No máximo 30 convites de uma vez.')
+    const admin = createAdminClient()
+    const reservados = new Set<string>()
+    const resultados: ResultadoDoConvite[] = []
+    for (const c of convites) {
+      const nome = String(c.nome ?? '').trim().replace(/\s+/g, ' ')
+      try {
+        if (!emailValido(String(c.email ?? ''))) throw new Error('e-mail inválido')
+        const usuario = await usuarioLivre(admin, nome, reservados)
+        reservados.add(usuario)
+        const f = new FormData()
+        for (const [k, v] of Object.entries({ nome, usuario, papel: c.papel, coordenacao: c.coordenacao, cargo: c.cargo ?? '', email: c.email, modoSenha: 'convite' })) f.set(k, String(v ?? ''))
+        const r = await criarUsuario(f)
+        if (r.erro) throw new Error(r.erro)
+        if (c.fichaId && /^[0-9a-f-]{36}$/.test(c.fichaId)) {
+          const { data: novo } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
+          if (novo) await admin.from('equipe_membros').update({ user_id: novo.id }).eq('id', c.fichaId).eq('workspace_id', context.workspace.id).is('user_id', null)
+        }
+        resultados.push({ nome, ok: !r.recado?.startsWith('Atenção'), mensagem: r.recado?.startsWith('Atenção') ? 'conta criada, mas o e-mail não saiu: reenvie o convite' : `convite enviado para ${c.email} (usuário @${usuario})` })
+      } catch (causa) {
+        resultados.push({ nome: nome || '(sem nome)', ok: false, mensagem: mensagemDoErro(causa, 'não foi possível convidar') })
+      }
+    }
+    revalidar()
+    return { resultados }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar os convites.') }
+  }
+}
+
+/** Conta que ainda não fez o primeiro acesso (só essa tem convite para reenviar ou cancelar). */
+async function convitePendente(admin: Admin, workspaceId: string, userId: string) {
+  const alvo = await carregarAlvo(admin, workspaceId, userId)
+  const { data } = await admin.auth.admin.getUserById(alvo.id)
+  if (data.user?.last_sign_in_at) throw new Error(`${alvo.full_name} já entrou na Redação: não há convite pendente.`)
+  return alvo
+}
+
+/** Novo link para definir a senha (o anterior deixa de valer). */
+export async function reenviarConvite(userId: string): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('usuarios.gerenciar')
+    if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY).')
+    const admin = createAdminClient()
+    const alvo = await convitePendente(admin, context.workspace.id, userId)
+    if (!alvo.active) throw new Error(`${alvo.full_name} está desativado: reative em Usuários.`)
+    if (!alvo.email) throw new Error(`${alvo.full_name} não tem e-mail. Cadastre o e-mail em Usuários ou use a senha temporária.`)
+    await revogarLinksDeSenha(admin, alvo.id)
+    const token = await emitirToken(admin, { userId: alvo.id, finalidade: 'definir_senha', validadeMin: VALIDADE_MIN.definir_senha, criadoPor: context.user.id })
+    const enviado = await enviarComSeguranca(alvo.email, emailDeConvite({
+      nome: alvo.full_name, usuario: alvo.username, url: urlDoLink('/redefinir-senha', token), horas: VALIDADE_MIN.definir_senha / 60, convidadoPor: context.profile?.full_name ?? 'Um administrador',
+    }))
+    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_reenviado', detalhes: { email_enviado: enviado } })
+    revalidar()
+    if (!enviado) throw new Error('O convite não saiu (falha no envio de e-mail). Tente de novo em alguns minutos.')
+    return { recado: `Convite reenviado para ${alvo.email}. O link anterior deixou de valer.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível reenviar o convite.') }
+  }
+}
+
+/** Cancela um convite ainda não usado: o link deixa de valer e a conta fica desativada (dá para reativar depois). */
+export async function cancelarConvite(userId: string): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('usuarios.gerenciar')
+    const admin = createAdminClient()
+    const alvo = await convitePendente(admin, context.workspace.id, userId)
+    if (alvo.id === context.user.id) throw new Error('Você não pode cancelar o seu próprio acesso.')
+    const { error } = await admin.from('profiles').update({ active: false, desativado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', alvo.id)
+    if (error) throw erroDoBanco(error, 'Não foi possível cancelar o convite.')
+    const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.id, { ban_duration: BAN_PERMANENTE })
+    if (erroBan) console.error('[usuarios] ban não aplicado:', erroBan.message)
+    await revogarLinksDeSenha(admin, alvo.id)
+    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_cancelado', detalhes: { login_bloqueado: !erroBan } })
+    revalidar()
+    return { recado: `Convite de ${alvo.full_name} cancelado. O link não vale mais; se precisar, reative em Usuários.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível cancelar o convite.') }
+  }
 }

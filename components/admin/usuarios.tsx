@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useMemo, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
@@ -85,7 +86,10 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-muted-foreground">Login por usuário (ou e-mail confirmado) e senha. O jeito mais seguro de dar acesso é o convite por e-mail: a pessoa escolhe a própria senha pelo link, e ninguém mais a conhece.</p></div>
-          <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" variant="outline" render={<Link href="/pessoas/adicionar" />}>Convidar várias pessoas</Button>
+            <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
+          </div>
         </div>
         {criando && <FormularioDeCriacao inicial={criando} envioConfigurado={envioConfigurado} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
         <ListaDeUsuarios usuarios={usuarios} envioConfigurado={envioConfigurado} aoGerarSenha={setSenhaNova} />
@@ -456,6 +460,8 @@ const ROTULO_DA_ACAO: Record<string, string> = {
   senha_redefinida: 'redefiniu a senha de',
   senha_trocada: 'trocou a própria senha',
   usuario_desativado: 'desativou',
+  convite_reenviado: 'reenviou o convite de',
+  convite_cancelado: 'cancelou o convite de',
   usuario_reativado: 'reativou',
   verificacao_ativada: 'ativou a verificação em duas etapas',
   verificacao_removida: 'removeu um aparelho da própria verificação em duas etapas',
