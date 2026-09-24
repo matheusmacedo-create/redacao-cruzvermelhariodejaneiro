@@ -174,6 +174,32 @@ export async function configurarCaixa(formData: FormData): Promise<Resultado> {
   }
 }
 
+/**
+ * O nome que o destinatário vê como remetente (ex.: "CVB-RJ · Comunicação
+ * Social"). Com a lista toda: grava vários de uma vez ("usar as sugestões").
+ */
+export async function nomearCaixas(nomes: { id: string; nome: string }[]): Promise<Resultado> {
+  try {
+    const context = await exigirAdmin()
+    const workspaceId = context.workspace.id
+    const lista = (nomes ?? []).slice(0, 200).map((n) => ({ id: String(n.id ?? ''), nome: String(n.nome ?? '').replace(/[<>"\r\n]/g, '').replace(/\s+/g, ' ').trim() }))
+    if (lista.some((n) => n.nome.length > 80)) throw new Error('O nome do remetente pode ter até 80 caracteres.')
+    const admin = createAdminClient()
+    for (const n of lista) {
+      const { error } = await admin.from('caixas_de_email').update({ nome_remetente: n.nome }).eq('id', n.id).eq('workspace_id', workspaceId)
+      if (error) throw new Error('Não foi possível salvar o nome.')
+    }
+    await admin.from('activity_log').insert({
+      workspace_id: workspaceId, actor_id: context.user.id, action: 'caixa_nomeada',
+      entity_type: 'caixa_de_email', entity_id: lista.length === 1 ? lista[0].id : null, metadata: { nomes: lista },
+    })
+    revalidar()
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível salvar o nome.')
+  }
+}
+
 const TETO_DE_DESTINATARIOS = 50
 
 /**
@@ -192,7 +218,7 @@ export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado>
     const admin = createAdminClient()
 
     const { data: caixa } = await admin.from('caixas_de_email')
-      .select('id, setor_id, email, nome_exibicao, assinatura_html, responder_para, ativa, no_gmail')
+      .select('id, setor_id, email, nome_exibicao, nome_remetente, assinatura_html, responder_para, ativa, no_gmail')
       .eq('id', texto(formData, 'caixaId')).eq('workspace_id', workspaceId).maybeSingle()
     if (!caixa || !caixa.ativa || !caixa.no_gmail || !caixa.setor_id) throw new Error('Esta caixa não está disponível para envio.')
 
@@ -222,7 +248,8 @@ export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado>
 
     const conteudo = corpoComAssinatura(corpo, caixa.assinatura_html)
     const { raw } = montarMensagem({
-      de: { nome: caixa.nome_exibicao, email: caixa.email },
+      // O nome definido na Redação vale mais que o do Gmail (que por padrão é só o endereço).
+      de: { nome: caixa.nome_remetente || caixa.nome_exibicao, email: caixa.email },
       para: para.validos,
       cc: cc.validos,
       responderPara: caixa.responder_para,
