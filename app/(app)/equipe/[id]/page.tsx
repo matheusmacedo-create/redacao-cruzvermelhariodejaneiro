@@ -6,9 +6,10 @@ import { Card } from '@/components/ui/card'
 import { contextoDaEquipe, COLUNAS_DO_MEMBRO, COLUNAS_PESSOAIS, type Membro, type Pessoais } from '@/lib/rh/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { idade } from '@/lib/participantes/regras'
-import { MOVIMENTACOES, rotuloDoVinculo, tempoDeCasa } from '@/lib/rh/regras'
+import { MOVIMENTACOES, categoriasDoNivel, rotuloDoVinculo, tempoDeCasa } from '@/lib/rh/regras'
 import { AcoesDeSituacao, Remuneracoes, VerRestritos } from '@/components/app/equipe/acoes'
 import { Situacao, nomeDe } from '@/components/app/equipe/comum'
+import { ArquivosDaFicha, type ArquivoDaFicha } from '@/components/app/equipe/arquivos'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,13 +42,20 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
   const m = data as Membro | null
   if (!m) notFound()
 
-  const [{ data: gestor }, { data: diretos }, pessoaisR, movR, loginR] = await Promise.all([
+  const [{ data: gestor }, { data: diretos }, pessoaisR, movR, loginR, arquivosR, membrosR] = await Promise.all([
     m.gestor_id ? supabase.from('equipe_membros').select('id,nome,nome_social').eq('id', m.gestor_id).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('equipe_membros').select('id,nome,nome_social,cargo').eq('gestor_id', id).neq('situacao', 'desligado').order('nome'),
     nivel >= 2 ? supabase.from('equipe_pessoais').select(COLUNAS_PESSOAIS).eq('membro_id', id).maybeSingle() : Promise.resolve({ data: null }),
     nivel >= 2 ? supabase.from('equipe_movimentacoes').select('id,vigencia,tipo,de,para,observacao,registrado_por,created_at').eq('membro_id', id).order('vigencia', { ascending: false }).order('created_at', { ascending: false }).limit(200) : Promise.resolve({ data: null }),
     m.user_id ? supabase.from('profiles').select('full_name,username').eq('id', m.user_id).maybeSingle() : Promise.resolve({ data: null }),
+    nivel >= 2 ? supabase.from('equipe_arquivos')
+      .select('id,categoria,titulo,data_documento,validade,observacao,nome_original,tipo,tamanho,sha256,enviado_por,created_at,excluido_em,excluido_por,motivo_exclusao')
+      .eq('membro_id', id).order('created_at', { ascending: false }).limit(500) : Promise.resolve({ data: null }),
+    nivel >= 2 && sp.aba === 'arquivos' ? supabase.from('workspace_members').select('user_id,profiles(full_name)').eq('workspace_id', context.workspace.id) : Promise.resolve({ data: null }),
   ])
+  const arquivos = (arquivosR.data ?? []) as ArquivoDaFicha[]
+  const nomes = Object.fromEntries(((membrosR.data ?? []) as { user_id: string; profiles: unknown }[])
+    .map((x) => [x.user_id, ((Array.isArray(x.profiles) ? x.profiles[0] : x.profiles) as { full_name?: string } | null)?.full_name ?? 'Alguém']))
   const pessoais = pessoaisR.data as Pessoais | null
   const movimentacoes = (movR.data ?? []) as { id: string; vigencia: string; tipo: string; de: string | null; para: string | null; observacao: string | null }[]
   const login = loginR.data as { full_name: string; username: string } | null
@@ -57,6 +65,7 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
     { id: 'contrato', rotulo: 'Contrato e cargo', min: 1 },
     { id: 'pessoal', rotulo: 'Pessoal', min: 2 },
     { id: 'historico', rotulo: `Histórico (${movimentacoes.length})`, min: 2 },
+    { id: 'arquivos', rotulo: `Arquivos (${arquivos.filter((a) => !a.excluido_em).length})`, min: 2 },
     { id: 'documentos', rotulo: 'Documentos', min: 3 },
     { id: 'remuneracao', rotulo: 'Remuneração e banco', min: 4 },
   ].filter((a) => nivel >= a.min)
@@ -151,6 +160,12 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
               ))}
             </ol>
           ) : <p className="text-sm text-muted-foreground">Sem movimentações registradas.</p>}
+        </Bloco>
+      )}
+
+      {aba === 'arquivos' && (
+        <Bloco titulo="Arquivos">
+          <ArquivosDaFicha membroId={id} arquivos={arquivos} categorias={categoriasDoNivel(nivel)} hoje={hoje} nomes={nomes} />
         </Bloco>
       )}
 

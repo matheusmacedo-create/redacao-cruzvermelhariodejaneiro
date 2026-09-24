@@ -7,7 +7,7 @@ import { contextoDaEquipe, COLUNAS_DO_MEMBRO, type Membro } from '@/lib/rh/acess
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { PESSOAS_DA_EQUIPE } from '@/lib/equipe'
 import {
-  NIVEIS, NOMES_DOS_SETORES, SITUACOES, VINCULOS, ehSituacao, ehVinculo, faltamNaEquipe, organograma, rotuloDoVinculo, tempoDeCasa,
+  NIVEIS, NOMES_DOS_SETORES, SITUACOES, VINCULOS, ehSituacao, ehVinculo, faltamNaEquipe, organograma, rotuloDoVinculo, situacaoDaValidade, tempoDeCasa,
   type NomeDoNivel,
 } from '@/lib/rh/regras'
 import { NivelDeAcesso, TrazerLista } from '@/components/app/equipe/acoes'
@@ -67,6 +67,12 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
   ]
   const exportar = `/api/equipe/exportar?${new URLSearchParams(Object.entries({ vinculo: sp.vinculo ?? '', situacao: sp.situacao ?? '', setor: sp.setor ?? '' }).filter(([, v]) => v)).toString()}`
   const semAdmissao = atuais.filter((m) => !m.admissao || m.vinculo === 'outro').length
+  // ASO, certificados e documentos com validade: só os que o nível deixa ver.
+  const { data: comValidade } = nivel >= 2
+    ? await supabase.from('equipe_arquivos').select('membro_id,validade').eq('workspace_id', ws).is('excluido_em', null).not('validade', 'is', null).limit(5000)
+    : { data: [] }
+  const atuaisIds = new Set(atuais.map((m) => m.id))
+  const vencendo = (comValidade ?? []).filter((a) => atuaisIds.has(a.membro_id as string) && ['vencida', 'vence_logo'].includes(situacaoDaValidade(a.validade as string, hoje))).length
 
   return (
     <div className="flex flex-col gap-6">
@@ -80,12 +86,13 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
         </div> : undefined}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
           [atuais.filter((m) => m.situacao === 'ativo').length, 'ativos'],
           [atuais.filter((m) => m.situacao === 'afastado').length, 'afastados'],
           [new Set(atuais.map((m) => m.setor).filter(Boolean)).size, 'setores com gente'],
           [semAdmissao, 'fichas sem admissão ou vínculo', semAdmissao > 0],
+          ...(nivel >= 2 ? [[vencendo, 'arquivos vencidos ou vencendo (ASO, certificados)', vencendo > 0]] : []),
         ].map(([v, r, alerta], i) => (
           <Card key={i} className={`p-4 ${alerta ? 'border-warning/60' : ''}`}><p className="text-2xl font-bold tabular-nums">{v}</p><p className="text-xs text-muted-foreground">{r}</p></Card>
         ))}
@@ -173,6 +180,7 @@ async function Acessos({ workspaceId }: { workspaceId: string }) {
     criar: 'criou a ficha de', editar: 'editou a ficha de', situacao: 'mudou a situação de', ver_documentos: 'abriu os documentos de',
     ver_documentos_e_banco: 'abriu documentos e banco de', ver_remuneracao: 'abriu a remuneração de', registrar_remuneracao: 'registrou remuneração de',
     excluir_remuneracao: 'excluiu um registro de remuneração de', exportar: 'exportou a planilha', acesso: 'mudou um acesso',
+    enviar_arquivo: 'guardou um arquivo na ficha de', abrir_arquivo: 'abriu um arquivo de', excluir_arquivo: 'excluiu um arquivo de',
   }
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">

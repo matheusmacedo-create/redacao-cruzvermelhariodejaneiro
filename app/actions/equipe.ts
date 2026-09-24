@@ -1,12 +1,17 @@
 'use server'
 
+import { createHash, randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { contextoDaEquipe } from '@/lib/rh/acesso'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { PESSOAS_DA_EQUIPE, chaveDoNome } from '@/lib/equipe'
-import { ehMotivo, faltamNaEquipe, formatarCpf, lerBeneficios, lerFormulario, lerValor, type NomeDoNivel } from '@/lib/rh/regras'
+import {
+  CATEGORIAS_DE_ARQUIVO, TAMANHO_MAXIMO, TIPOS_DE_ARQUIVO, conteudoConfere, ehCategoria, ehMotivo, ehTipoAceito, faltamNaEquipe, formatarCpf, lerArquivo,
+  lerBeneficios, lerFormulario, lerValor, type NomeDoNivel,
+} from '@/lib/rh/regras'
 
 /**
  * Equipe. Tudo passa por funções do banco, que conferem o nível de acesso,
@@ -172,5 +177,80 @@ export async function trazerDaListaDeSetores(): Promise<Resultado & { criados?: 
     return { criados }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível trazer a lista.') }
+  }
+}
+
+// ---------------------------------------------------------------- arquivos
+
+const BUCKET_DE_ARQUIVOS = 'equipe-arquivos'
+
+/**
+ * Primeiro passo do envio: confere o nível para a categoria e devolve um link
+ * de envio de uso único. O arquivo vai do navegador direto ao Storage — sem
+ * passar pelo servidor, que limita o corpo da requisição a poucos MB.
+ */
+export async function prepararEnvioDeArquivo(membroId: string, categoria: string, tipo: string, tamanho: number): Promise<Resultado & { caminho?: string; token?: string }> {
+  try {
+    const { context, supabase, nivel } = await contextoDaEquipe()
+    if (!ehCategoria(categoria)) throw new Error('Escolha a categoria.')
+    if (nivel < CATEGORIAS_DE_ARQUIVO[categoria].nivel) throw new Error('Você não tem acesso para guardar este tipo de arquivo.')
+    if (!ehTipoAceito(tipo)) throw new Error('Envie PDF, JPG, PNG ou WEBP.')
+    if (!Number.isFinite(tamanho) || tamanho <= 0 || tamanho > TAMANHO_MAXIMO) throw new Error('O arquivo pode ter até 20 MB.')
+    const { data: m } = await supabase.from('equipe_membros').select('id').eq('id', membroId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!m) throw new Error('Pessoa não encontrada.')
+    const caminho = `${context.workspace.id}/${membroId}/${randomUUID()}.${TIPOS_DE_ARQUIVO[tipo]}`
+    const { data, error } = await createAdminClient().storage.from(BUCKET_DE_ARQUIVOS).createSignedUploadUrl(caminho)
+    if (error || !data) throw new Error('Não foi possível preparar o envio.')
+    return { caminho, token: data.token }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível preparar o envio.') }
+  }
+}
+
+/**
+ * Segundo passo: registra o arquivo já enviado. O banco confere nível,
+ * caminho e existência; aqui o servidor lê o arquivo, confere que o conteúdo
+ * é mesmo do tipo declarado e grava a impressão digital (SHA-256). Arquivo
+ * que não confere é apagado.
+ */
+export async function registrarArquivo(membroId: string, caminho: string, nomeOriginal: string, formData: FormData): Promise<Resultado> {
+  const admin = createAdminClient()
+  try {
+    const { supabase } = await contextoDaEquipe()
+    const { dados, erros } = lerArquivo(formData, hojeEmSaoPaulo())
+    // O caminho vem do navegador: só se apaga no Storage depois de o banco
+    // confirmar que ele é desta pessoa (abaixo). O formulário é conferido na
+    // tela antes do envio, então aqui um erro é raro e deixa só um órfão.
+    if (!dados) throw new Error(erros.join(' '))
+    const { data: id, error } = await supabase.rpc('registrar_arquivo_equipe', {
+      p_membro_id: membroId, p_caminho: caminho, p: { ...dados, nome_original: nomeOriginal.slice(0, 200) },
+    })
+    if (error) erroDoBanco(error, 'Não foi possível registrar o arquivo.')
+    const { data: blob, error: e2 } = await admin.storage.from(BUCKET_DE_ARQUIVOS).download(caminho)
+    const bytes = blob ? new Uint8Array(await blob.arrayBuffer()) : null
+    const tipo = blob?.type ?? ''
+    if (e2 || !bytes || !conteudoConfere(tipo, bytes)) {
+      await supabase.rpc('excluir_arquivo_equipe', { p_id: id, p_motivo: 'Conteúdo não confere com o tipo do arquivo (recusado no envio).' })
+      await admin.storage.from(BUCKET_DE_ARQUIVOS).remove([caminho]).catch(() => undefined)
+      throw new Error('O conteúdo do arquivo não confere com o tipo (PDF, JPG, PNG ou WEBP). Envie o arquivo original.')
+    }
+    await admin.rpc('selar_arquivo_equipe', { p_id: id, p_sha256: createHash('sha256').update(bytes).digest('hex') })
+    revalidar(membroId)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível registrar o arquivo.') }
+  }
+}
+
+export async function excluirArquivo(membroId: string, id: string, motivo: string): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDaEquipe()
+    const { data: caminho, error } = await supabase.rpc('excluir_arquivo_equipe', { p_id: id, p_motivo: motivo.trim().slice(0, 600) })
+    if (error) erroDoBanco(error, 'Não foi possível excluir.')
+    if (caminho) await createAdminClient().storage.from(BUCKET_DE_ARQUIVOS).remove([String(caminho)]).catch(() => undefined)
+    revalidar(membroId)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível excluir.') }
   }
 }

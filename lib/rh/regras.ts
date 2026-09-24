@@ -7,7 +7,7 @@
  */
 
 import { NOMES_DOS_SETORES, chaveDoNome } from '@/lib/equipe'
-import { cpfValido, somenteDigitos, UFS } from '@/lib/participantes/regras'
+import { cpfValido, situacaoDaFormacao, somenteDigitos, UFS, type SituacaoDaFormacao } from '@/lib/participantes/regras'
 
 export { NOMES_DOS_SETORES }
 export { cpfValido, formatarCpf, UFS } from '@/lib/participantes/regras'
@@ -36,8 +36,8 @@ export const ehSituacao = (s: unknown): s is Situacao => typeof s === 'string' &
 export type Nivel = 0 | 1 | 2 | 3 | 4
 export const NIVEIS = {
   ver: { valor: 1, rotulo: 'Ver a equipe', descricao: 'Nome, cargo, setor, gestor e contato de trabalho.' },
-  gerenciar: { valor: 2, rotulo: 'Gerenciar', descricao: 'Cadastrar e editar; ver dados pessoais, contrato e histórico.' },
-  documentos: { valor: 3, rotulo: 'Documentos', descricao: 'Tudo acima, mais abrir e alterar CPF, RG, PIS, CTPS e demais documentos.' },
+  gerenciar: { valor: 2, rotulo: 'Gerenciar', descricao: 'Cadastrar e editar; ver dados pessoais, contrato, histórico e arquivos (contratos, certificados, termos).' },
+  documentos: { valor: 3, rotulo: 'Documentos', descricao: 'Tudo acima, mais CPF, RG, PIS, CTPS e demais documentos, e os arquivos de saúde (ASO e atestados).' },
   remuneracao: { valor: 4, rotulo: 'Remuneração e banco', descricao: 'Tudo acima, mais salários, benefícios e dados bancários.' },
 } as const
 export type NomeDoNivel = keyof typeof NIVEIS
@@ -251,4 +251,59 @@ export function organograma<T extends { id: string; nome: string; gestor_id: str
 export function faltamNaEquipe<P extends { nome: string }>(lista: P[], fichas: { nome: string }[]): P[] {
   const tem = new Set(fichas.map((f) => chaveDoNome(f.nome)))
   return lista.filter((p) => !tem.has(chaveDoNome(p.nome)))
+}
+
+/**
+ * Arquivos da ficha. ASO, atestado e cópia de documento pessoal pedem o nível
+ * "documentos" (saúde é dado sensível); o resto, "gerenciar". O banco aplica
+ * a mesma regra (private.nivel_da_categoria).
+ */
+export const CATEGORIAS_DE_ARQUIVO = {
+  contrato: { rotulo: 'Contrato e aditivos', nivel: 2, validade: false },
+  aso: { rotulo: 'ASO (exame ocupacional)', nivel: 3, validade: true },
+  atestado: { rotulo: 'Atestado médico', nivel: 3, validade: false },
+  documento: { rotulo: 'Cópia de documento pessoal', nivel: 3, validade: true },
+  certificado: { rotulo: 'Certificado ou formação', nivel: 2, validade: true },
+  termo: { rotulo: 'Termo ou declaração assinada', nivel: 2, validade: false },
+  outro: { rotulo: 'Outro', nivel: 2, validade: true },
+} as const
+export type CategoriaDeArquivo = keyof typeof CATEGORIAS_DE_ARQUIVO
+export const ehCategoria = (s: unknown): s is CategoriaDeArquivo => typeof s === 'string' && Object.hasOwn(CATEGORIAS_DE_ARQUIVO, s)
+export const categoriasDoNivel = (nivel: Nivel) => (Object.keys(CATEGORIAS_DE_ARQUIVO) as CategoriaDeArquivo[]).filter((c) => nivel >= CATEGORIAS_DE_ARQUIVO[c].nivel)
+
+export const TIPOS_DE_ARQUIVO = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' } as const
+export const TAMANHO_MAXIMO = 20 * 1024 * 1024
+export const ehTipoAceito = (t: string): t is keyof typeof TIPOS_DE_ARQUIVO => Object.hasOwn(TIPOS_DE_ARQUIVO, t)
+
+/** O conteúdo bate com o tipo declarado? Olha os primeiros bytes. */
+export function conteudoConfere(tipo: string, b: Uint8Array): boolean {
+  const ascii = (i: number, n: number) => String.fromCharCode(...b.slice(i, i + n))
+  if (tipo === 'application/pdf') return ascii(0, 5) === '%PDF-'
+  if (tipo === 'image/jpeg') return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff
+  if (tipo === 'image/png') return b[0] === 0x89 && ascii(1, 3) === 'PNG'
+  if (tipo === 'image/webp') return ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WEBP'
+  return false
+}
+
+export const tamanhoLegivel = (n: number) =>
+  n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`
+
+/** Validade de ASO, certificado ou documento: vencida, vencendo em 60 dias, em dia. */
+export const situacaoDaValidade = (validade: string | null, hoje: string): SituacaoDaFormacao => situacaoDaFormacao(validade, hoje)
+
+export type DadosDoArquivo = { categoria: CategoriaDeArquivo; titulo: string; data_documento: string; validade: string; observacao: string }
+
+export function lerArquivo(f: FormData, hoje: string): { dados: DadosDoArquivo | null; erros: string[] } {
+  const erros: string[] = []
+  const categoria = String(f.get('categoria') ?? '')
+  const titulo = String(f.get('titulo') ?? '').trim().slice(0, 200)
+  const data = String(f.get('data_documento') ?? '').trim()
+  const validade = String(f.get('validade') ?? '').trim()
+  if (!ehCategoria(categoria)) erros.push('Escolha a categoria.')
+  if (titulo.length < 2) erros.push('Dê um título ao arquivo.')
+  if (data && (!DATA.test(data) || data > hoje || data < '1950-01-01')) erros.push('Data do documento inválida.')
+  if (validade && (!DATA.test(validade) || validade < '1950-01-01')) erros.push('Validade inválida.')
+  if (data && validade && validade < data) erros.push('A validade não pode ser antes da data do documento.')
+  if (erros.length) return { dados: null, erros }
+  return { dados: { categoria: categoria as CategoriaDeArquivo, titulo, data_documento: data, validade, observacao: String(f.get('observacao') ?? '').trim().slice(0, 600) }, erros }
 }
