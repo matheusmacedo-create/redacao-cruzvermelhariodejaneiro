@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  AtSign, Brain, CalendarDays, KeyRound, CheckSquare, FolderKanban, History, Images, Inbox, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, History, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -29,6 +29,8 @@ const sections = [
       { href: '/imprensa', label: 'Imprensa', icon: Newspaper },
       // O e-mail do dia a dia de cada setor: pelo alias e com a assinatura dele.
       { href: '/correio', label: 'Correio', icon: AtSign },
+      // Documento oficial: numerado, assinado e carimbado no Bitcoin.
+      { href: '/oficios', label: 'Ofícios', icon: FileSignature },
       { href: '/calendario', label: 'Calendário', icon: CalendarDays },
       { href: '/biblioteca', label: 'Biblioteca', icon: Images },
     ],

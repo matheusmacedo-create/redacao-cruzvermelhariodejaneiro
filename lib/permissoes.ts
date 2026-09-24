@@ -67,6 +67,7 @@ export const PERMISSOES = {
   'pautas.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar pautas criadas por outras pessoas', papeis: ['admin'] },
   'projetos.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar projetos e atualizações de outras pessoas', papeis: ['admin'] },
   'aprovacoes.gerenciar': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Convidar aprovadores e ver conversas de aprovações alheias', papeis: ['admin'] },
+  'oficios.gerenciar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Editar e cancelar ofícios criados por outras pessoas', papeis: ['admin'] },
   'correio.todas_as_caixas': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Enviar por qualquer caixa do Correio, mesmo fora do setor', papeis: ['admin'] },
 } as const satisfies Record<string, Definicao>
 

@@ -22,7 +22,7 @@ import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
  *     pessoa logada: o RLS confere de novo que ela é admin, e o gatilho de
  *     auditoria registra quem fez.
  *  3. O banco recusa deixar o espaço sem administrador ativo, venha o pedido
- *     de onde vier (gatilhos em 20260924140000_cvrj_usuarios_e_permissoes).
+ *     de onde vier (gatilhos em 20260924160000_cvrj_usuarios_e_permissoes).
  *
  * O service role só entra no que o RLS não alcança por desenho: criar a conta
  * no Auth, trocar senha de terceiro, desativar e escrever a auditoria.
