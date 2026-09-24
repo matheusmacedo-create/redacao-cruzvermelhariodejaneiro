@@ -14,7 +14,7 @@
  * aqui: esses saem sempre (lib/contas/servidor.ts).
  */
 
-export const CATEGORIAS = ['aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios'] as const
+export const CATEGORIAS = ['aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const MODOS = ['imediato', 'resumo', 'nunca'] as const
@@ -26,6 +26,7 @@ export const ROTULO_DA_CATEGORIA: Record<Categoria, { nome: string; exemplos: st
   pautas: { nome: 'Pautas e conteúdos', exemplos: 'Quando você entra numa pauta, vira responsável por um cartão ou recebe comentário num conteúdo.' },
   chamados: { nome: 'Chamados', exemplos: 'Respostas, mudanças de situação e atribuições nos chamados de TI e Manutenção.' },
   oficios: { nome: 'Ofícios', exemplos: 'Pedidos de assinatura, recusas, cancelamentos e ofícios concluídos.' },
+  financeiro: { nome: 'Financeiro', exemplos: 'Contas que vencem hoje ou estão atrasadas, e o fechamento do mês.' },
 }
 
 export const ROTULO_DO_MODO: Record<Modo, string> = {
