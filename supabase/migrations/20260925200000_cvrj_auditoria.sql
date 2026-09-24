@@ -994,7 +994,7 @@ create trigger press_campanhas_trilha after update of estado on public.press_cam
 -- ---------------------------------------------------------------- sincronização (rede de segurança)
 
 -- O portal de transparência e os canais oficiais têm a sua parte da sincronização; a migração
--- deles (20260925171000_cvrj_transparencia.sql) substitui esta função. Só se cria a vazia se
+-- deles (20260925201000_cvrj_transparencia.sql) substitui esta função. Só se cria a vazia se
 -- ainda não existir, para esta migração, reaplicada, não apagar a do portal.
 do $$
 begin

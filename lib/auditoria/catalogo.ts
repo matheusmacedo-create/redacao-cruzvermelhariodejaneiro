@@ -1,6 +1,6 @@
 /**
  * O vocabulário da trilha de auditoria pública (docs/auditoria-publica.md).
- * Espelho das listas fechadas da migração 20260925170000_cvrj_auditoria.sql:
+ * Espelho das listas fechadas da migração 20260925200000_cvrj_auditoria.sql:
  * mudou lá, muda aqui no mesmo commit.
  */
 

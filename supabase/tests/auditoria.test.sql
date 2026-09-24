@@ -1,4 +1,4 @@
--- Testes da trilha de auditoria (supabase/migrations/20260925170000_cvrj_auditoria.sql).
+-- Testes da trilha de auditoria (supabase/migrations/20260925200000_cvrj_auditoria.sql).
 --
 -- Rodar só num banco local com todas as migrações aplicadas, NUNCA em produção: a trilha só
 -- aceita acréscimos e o teste desliga guardas para simular adulteração. Tudo corre numa

@@ -1,5 +1,5 @@
 -- Testes do portal de transparência e dos canais oficiais
--- (supabase/migrations/20260925171000_cvrj_transparencia.sql). Mesmas regras de
+-- (supabase/migrations/20260925201000_cvrj_transparencia.sql). Mesmas regras de
 -- supabase/tests/auditoria.test.sql: só em banco local, numa transação desfeita no fim.
 --
 --   psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/transparencia.test.sql

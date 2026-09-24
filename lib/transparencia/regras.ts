@@ -2,7 +2,7 @@
  * Regras do portal de transparência e da página de canais oficiais
  * (docs/auditoria-publica.md §5). Módulo puro: a tela usa para conferir antes
  * de enviar, a action confere de novo, e o banco tem as mesmas listas em CHECK
- * (supabase/migrations/20260925171000_cvrj_transparencia.sql).
+ * (supabase/migrations/20260925201000_cvrj_transparencia.sql).
  */
 
 export const CATEGORIAS = [
