@@ -73,6 +73,8 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `AUDITORIA_SEGREDO` | server | **segredo**, opcional — HMAC do limite da consulta pública; na falta, derivado da chave de serviço |
 | `AUDITORIA_ABERTA` | server | `1` só na abertura da trilha: tira o `noindex` das páginas de transparência e canais oficiais |
 | `AUDITORIA_TSA_URL` | server | opcional — autoridade de carimbo de tempo RFC 3161 (padrão: FreeTSA) |
+| `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos no bucket da trilha; sem elas, o espelho da trilha fica desligado (§7.9, `docs/armazenamento-r2.md`) |
+| `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -571,7 +573,12 @@ onde ele veio). **Lançamento oculto**: tudo funciona, nada é linkado nem index
   esqueleto do site (`lib/transparencia/paginas.ts`), `noindex` enquanto `AUDITORIA_ABERTA` não for `1`.
 - **Testes**: pgTAP em `supabase/tests/` sobre um Postgres local (`montar-banco-local.sh`); nunca em
   produção — a trilha só aceita acréscimo.
-- **Backup**: `docs/backup.md` (workflow diário cifrado com age, fora do Supabase).
+- **Espelho no Cloudflare R2** (`lib/auditoria/espelho.ts`): as rotinas copiam os arquivos dos lotes
+  para o bucket `cvrj-trilha` — `verificar/` igual ao site e `registro/`, com trava permanente, em
+  que cada arquivo entra uma vez; conteúdo diferente no registro vira alerta, nunca substituição.
+- **Backup**: `docs/backup.md` (workflow diário: banco e arquivos do Storage cifrados com age, no
+  bucket `cvrj-backups` do R2, com trava). O R2 também guarda o acervo da filial
+  (`docs/armazenamento-r2.md`).
 
 ## 8. Integrações externas
 

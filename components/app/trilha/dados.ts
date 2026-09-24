@@ -46,6 +46,8 @@ export type LoteNoPainel = {
   bloco: number | null
   tsa: boolean
   publicado_em: string | null
+  /** Última cópia no espelho do R2 (null: espelho desligado ou ainda não copiado). */
+  espelhado_em: string | null
   tentativas: number
   ultimo_erro: string | null
 }
@@ -169,6 +171,7 @@ export function lerPainel(bruto: unknown): DadosDoPainel {
         bloco: numeroOuNulo(l.bloco),
         tsa: l.tsa === true,
         publicado_em: texto(l.publicado_em),
+        espelhado_em: texto(l.espelhado_em),
         tentativas: contagem(l.tentativas),
         ultimo_erro: texto(l.ultimo_erro),
       }]
@@ -480,9 +483,12 @@ export function resumoDaRodada(r: ResumoDaRotina): Resumo {
     if (l.passos.length) detalhes.push(`Lote de ${diaLegivel(l.dia)}: ${l.passos.join('; ')}.`)
   }
   if (r.publicados.length) detalhes.push(`Arquivos publicados no site: ${emLista(r.publicados.map((d) => `lote de ${diaLegivel(d)}`))}.`)
+  const espelhados = r.espelhados ?? []
+  if (espelhados.length) detalhes.push(`Copiados para o espelho no R2: ${emLista(espelhados.map((d) => `lote de ${diaLegivel(d)}`))}.`)
+  const divergencias = r.divergencias ?? []
   const erros = r.lotes.flatMap((l) => l.erros.map((e) => `Lote de ${diaLegivel(l.dia)} — ${e}`))
-  detalhes.push(...erros, ...r.avisos)
-  const pendencias = erros.length + r.avisos.length + (r.cadeia && !r.cadeia.ok ? 1 : 0)
+  detalhes.push(...erros, ...divergencias.map((d) => `Registro permanente no R2 diferente do banco — ${d}`), ...r.avisos)
+  const pendencias = erros.length + divergencias.length + r.avisos.length + (r.cadeia && !r.cadeia.ok ? 1 : 0)
   if (!detalhes.length) detalhes.push('Nada a fazer nesta rodada.')
   return pendencias
     ? { tom: 'atencao', titulo: 'Rodada concluída, com pontos de atenção.', detalhes }

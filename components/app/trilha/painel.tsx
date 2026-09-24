@@ -262,7 +262,7 @@ function Lotes({ lotes, verificacao, chave, geradoEm }: { lotes: LoteNoPainel[];
                   <th scope="col" className="px-3 py-2.5">Assinatura</th>
                   <th scope="col" className="px-3 py-2.5">Carimbo RFC 3161</th>
                   <th scope="col" className="px-3 py-2.5">OpenTimestamps (Bitcoin)</th>
-                  <th scope="col" className="px-3 py-2.5">Publicado no site</th>
+                  <th scope="col" className="px-3 py-2.5">Publicado no site<span className="block font-normal normal-case">e no espelho do R2</span></th>
                   <th scope="col" className="px-4 py-2.5">Último erro</th>
                 </tr>
               </thead>
@@ -280,7 +280,10 @@ function Lotes({ lotes, verificacao, chave, geradoEm }: { lotes: LoteNoPainel[];
                       <td className="px-3 py-3"><Assinatura lote={l} chave={chave} /></td>
                       <td className="px-3 py-3">{l.tsa ? <Selo tom="ok">Carimbado</Selo> : <Selo tom="neutro">Pendente</Selo>}</td>
                       <td className="px-3 py-3"><SeloDoBitcoin lote={l} /></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-xs tabular-nums">{l.publicado_em ? quando(l.publicado_em) : <Selo tom="aviso">Não publicado</Selo>}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs tabular-nums">
+                        {l.publicado_em ? quando(l.publicado_em) : <Selo tom="aviso">Não publicado</Selo>}
+                        {l.espelhado_em && <span className="mt-0.5 block text-muted-foreground">espelho: {quando(l.espelhado_em)}</span>}
+                      </td>
                       <td className="max-w-xs px-4 py-3 text-xs">
                         {l.ultimo_erro ? (
                           <>

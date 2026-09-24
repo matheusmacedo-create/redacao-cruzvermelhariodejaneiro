@@ -1,4 +1,4 @@
-# Backup diário do banco, cifrado, fora do Supabase (docs/backup.md).
+# Backup diário do banco e dos arquivos do Storage, cifrado, fora do Supabase (docs/backup.md).
 # Só roda com os segredos configurados em Settings → Secrets and variables → Actions.
 name: Backup do banco
 
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   backup:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +33,15 @@ jobs:
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           BACKUP_AGE_DESTINATARIO: ${{ secrets.BACKUP_AGE_DESTINATARIO }}
+          # Destino principal: Cloudflare R2 (bucket cvrj-backups, com trava).
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_BACKUP: ${{ secrets.R2_BUCKET_BACKUP }}
+          # Para copiar os arquivos do Storage (sem elas, só o banco).
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Destino extra, opcional: FTPS numa pasta fora do site.
           BACKUP_FTP_HOST: ${{ secrets.BACKUP_FTP_HOST }}
           BACKUP_FTP_USUARIO: ${{ secrets.BACKUP_FTP_USUARIO }}
           BACKUP_FTP_SENHA: ${{ secrets.BACKUP_FTP_SENHA }}
