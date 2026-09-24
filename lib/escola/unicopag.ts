@@ -81,6 +81,7 @@ export function lerData(v: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {})
 const texto = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().replace(/\s+/g, ' ').slice(0, max) : null)
 const inteiro = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : NaN
@@ -93,6 +94,8 @@ export type TransacaoLida = {
   cliente: string | null; documento: string | null; produto: string | null; origem: string | null
   /** O utm_campaign da venda: é por ele que a receita chega à campanha do marketing. */
   campanha: string | null
+  /** O utm_content da venda: com ele a matrícula chega ao advertorial que a trouxe. */
+  conteudo: string | null
   criada_em: string; paga_em: string | null; atualizada_em: string | null
 }
 
@@ -117,6 +120,7 @@ export function lerTransacao(bruta: unknown): TransacaoLida | null {
     produto: titulos.length ? titulos.join(' + ').slice(0, 300) : null,
     origem: texto(t.utm_source, 100) ?? texto(t.src, 100) ?? texto(cliente.utm_source, 100),
     campanha: (texto(t.utm_campaign, 100) ?? texto(cliente.utm_campaign, 100))?.toLowerCase() ?? null,
+    conteudo: (texto(t.utm_content, 100) ?? texto(cliente.utm_content, 100) ?? texto(obj(t.metadata).utm_content, 100))?.toLowerCase() ?? null,
     criada_em: criada,
     // Pago sem paid_at (acontece em importações antigas): usa a última atualização.
     paga_em: lerData(t.paid_at) ?? (contaComoRecebido(situacao) ? lerData(t.updated_at) ?? criada : null),

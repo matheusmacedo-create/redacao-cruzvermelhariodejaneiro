@@ -7,6 +7,9 @@ import { nomeSeoDaMidia } from '@/lib/site/nome-da-midia'
 import { montarPaginaDoArtigo, type ArquivoLocal, type NoticiaRelacionada } from '@/lib/site/artigo-html'
 import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
 import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { urlBase } from '@/lib/newsletter/contexto'
+import { linkDoBotao, linkDoPixel } from '@/lib/escola/advertoriais'
 
 export type ResultadoDoSite = {
   erro?: string
@@ -181,6 +184,16 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
         .map((n) => ({ titulo: n.titulo, url: n.url, publicadaEm: n.publicadaEm }))
     } catch { relacionadas = [] }
 
+    // Advertorial da escola: a página ganha o pixel de visita e o botão de
+    // matrícula rastreado. Lido com a service role porque quem publica pode
+    // não ter acesso ao marketing da escola — e a página sairia sem contagem.
+    let rastreio: { pixel: string; botao: string } | undefined
+    try {
+      const { data: adv } = await createAdminClient().from('escola_pecas').select('id')
+        .eq('content_id', pedido.contentId).eq('workspace_id', pedido.workspaceId).eq('tipo', 'advertorial').maybeSingle()
+      if (adv) rastreio = { pixel: linkDoPixel(urlBase(), adv.id as string), botao: linkDoBotao(urlBase(), adv.id as string) }
+    } catch { rastreio = undefined }
+
     const html = montarPaginaDoArtigo({
       titulo: peca.title,
       subtitulo: peca.subtitle,
@@ -190,6 +203,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       publicadoEm: agora,
       arquivos,
       relacionadas,
+      rastreio,
     })
 
     let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined
@@ -235,6 +249,11 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       updated_at: agora.toISOString(),
     }).eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId)
     if (error) throw new Error('A página subiu, mas não consegui registrar o endereço aqui.')
+    // O advertorial entra no ar no marketing da escola junto com a página.
+    if (rastreio) {
+      await Promise.resolve(createAdminClient().from('escola_pecas').update({ status: 'no_ar', url, publicada_em: agora.toISOString().slice(0, 10), updated_at: agora.toISOString() })
+        .eq('content_id', pedido.contentId).eq('workspace_id', pedido.workspaceId).eq('status', 'rascunho')).catch(() => undefined)
+    }
 
     await supabase.from('activity_log').insert({
       workspace_id: pedido.workspaceId,

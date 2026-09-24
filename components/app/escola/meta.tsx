@@ -98,3 +98,29 @@ export function MetaAds({ contas, ehAdmin, temToken }: { contas: ContaMeta[]; eh
     </Card>
   )
 }
+
+/**
+ * O Meta no alto do marketing: uma linha com a última leitura (ou o erro) e
+ * o botão de atualizar. Ligar e desligar a conta fica em Contas e integrações.
+ */
+export function StatusDoMeta({ contas, temToken }: { contas: ContaMeta[]; temToken: boolean }) {
+  const router = useRouter()
+  const [recado, setRecado] = useState<{ erro?: string; recado?: string }>({})
+  const [pendente, iniciar] = useTransition()
+  const ativas = contas.filter((c) => c.ativa)
+  const erro = ativas.find((c) => c.sincronizacao_erro)?.sincronizacao_erro
+  const ultima = ativas.map((c) => c.sincronizada_em).filter(Boolean).sort().pop() ?? null
+  return (
+    <Card className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-sm ${erro ? 'border-destructive/40' : ''}`} id="status-meta">
+      <span className="font-medium">Anúncios do Meta</span>
+      <span className={`min-w-0 flex-1 ${erro ? 'text-destructive' : 'text-muted-foreground'}`}>
+        {!ativas.length ? (temToken ? 'Nenhuma conta de anúncios ligada.' : 'Não ligados: os números dos anúncios não entram sozinhos.') : erro ? `Última leitura falhou: ${erro}` : `Lidos automaticamente${ultima ? ` · última leitura ${quando(ultima)}` : ''}.`}
+      </span>
+      {recado.recado && <span className="text-xs text-muted-foreground" role="status">{recado.recado}</span>}
+      {recado.erro && <span className="text-xs text-destructive" role="alert">{recado.erro}</span>}
+      {ativas.length > 0
+        ? <Button variant="outline" size="sm" disabled={pendente} id="atualizar-meta" onClick={() => iniciar(async () => { setRecado(await atualizarMetaAgora()); router.refresh() })}>{pendente ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}{pendente ? 'Lendo o Meta…' : 'Atualizar do Meta'}</Button>
+        : <Button variant="outline" size="sm" onClick={() => router.push('/escola/configuracoes#meta')}>Ligar em Contas e integrações</Button>}
+    </Card>
+  )
+}

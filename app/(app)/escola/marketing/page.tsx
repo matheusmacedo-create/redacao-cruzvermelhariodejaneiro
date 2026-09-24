@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Images, Megaphone } from 'lucide-react'
+import { Images, Megaphone, Newspaper } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { NovaCampanha } from '@/components/app/escola/marketing'
-import { MetaAds, type ContaMeta } from '@/components/app/escola/meta'
+import { StatusDoMeta, type ContaMeta } from '@/components/app/escola/meta'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { mesPorExtenso } from '@/lib/escola/painel'
 import {
@@ -65,6 +65,7 @@ export default async function MarketingDaEscolaPage() {
         title="Marketing da escola"
         description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. Os anúncios vêm sozinhos do Meta, e a receita, da Únicopag pelo utm_campaign."
         actions={<div className="flex flex-wrap items-start gap-2">
+          <Button variant="outline" render={<Link href="/escola/marketing/advertoriais" />}><Newspaper className="size-4" />Advertoriais</Button>
           <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />}><Images className="size-4" />Biblioteca de peças</Button>
           <NovaCampanha contas={(contas ?? []) as { id: string; nome: string }[]} />
         </div>}
@@ -77,7 +78,7 @@ export default async function MarketingDaEscolaPage() {
         <Indicador rotulo="Receita das campanhas" valor={reais(receitaTotal)} detalhe={geral.investimento > 0 ? `Retorno de ${(receitaTotal / geral.investimento).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}× o investido` : 'Pelas vendas com utm_campaign na Únicopag'} />
       </div>
 
-      <MetaAds contas={(metaContas ?? []) as ContaMeta[]} ehAdmin={nivel >= 3} temToken={temToken} />
+      <StatusDoMeta contas={(metaContas ?? []) as ContaMeta[]} temToken={temToken} />
 
       <section className="flex flex-col gap-3" id="campanhas">
         <h2 className="text-base font-medium">Campanhas</h2>
