@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { CalendarCheck, ChevronLeft, ChevronRight, Landmark, Lock, Plus, Search, Settings2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Lock, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
+import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
 import {
@@ -100,13 +101,11 @@ export default async function FinanceiroPage({ searchParams }: {
 
   return (
     <div className="flex flex-col gap-6">
+      <SecoesDoFinanceiro atual="/financeiro" />
       <PageHeader
         title="Financeiro"
         description="Despesas, receitas e contas a pagar da filial, com a fonte de cada recurso e os comprovantes."
         actions={<div className="flex flex-wrap items-start gap-2">
-          <Button variant="outline" render={<Link href="/financeiro/conciliacao" />}><Landmark className="size-4" />Conciliação</Button>
-          <Button variant="outline" render={<Link href="/financeiro/fechamento" />}><CalendarCheck className="size-4" />Fechamento</Button>
-          <Button variant="outline" render={<Link href="/financeiro/cadastros" />}><Settings2 className="size-4" />Cadastros</Button>
           {nivel >= 2 && <Button variant="outline" render={<Link href="/financeiro/novo?tipo=receita" />}><Plus className="size-4" />Receita</Button>}
           {nivel >= 2 && <Button render={<Link href="/financeiro/novo" />}><Plus className="size-4" />Despesa</Button>}
         </div>}

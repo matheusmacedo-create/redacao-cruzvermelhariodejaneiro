@@ -486,3 +486,24 @@ export async function salvarValorHora(valor: string): Promise<Resultado> {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar.') }
   }
 }
+
+// ---------------------------------------------------------------- orçamento
+
+export async function salvarOrcamento(ano: number, itens: { categoria_id: string; valor: string }[]): Promise<Resultado & { ok?: number }> {
+  try {
+    const { context, supabase } = await contextoDoFinanceiro()
+    if (!Number.isInteger(ano) || ano < 2020 || ano > 2100) throw new Error('Ano inválido.')
+    const limpos = itens.slice(0, 500).map((i) => {
+      const texto = i.valor.trim()
+      const valor = texto ? lerValor(texto) : null
+      if (texto && valor === null) throw new Error(`Valor inválido: "${texto}".`)
+      return { categoria_id: i.categoria_id, valor_mensal: valor ?? '' }
+    })
+    const { error } = await supabase.rpc('financeiro_salvar_orcamento', { p_workspace_id: context.workspace.id, p_ano: ano, p_itens: limpos })
+    if (error) erroDoBanco(error, 'Não foi possível salvar o orçamento.')
+    revalidar()
+    return { ok: Date.now() }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar o orçamento.') }
+  }
+}

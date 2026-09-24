@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
+import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { ConciliarSugestoes, Desconciliar, ExcluirImportacao, ImportarExtrato, LinhaPendente, type CandidatoNaTela } from '@/components/app/financeiro/conciliacao'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
 import { candidatos, normalizarDescricao, sugestoes, type Candidato } from '@/lib/financeiro/extrato'
@@ -31,7 +31,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
   if (!conta) {
     return (
       <div className="flex flex-col gap-6">
-        <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
+        <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
         <PageHeader title="Conciliação bancária" />
         <Card className="p-6 text-sm text-muted-foreground">Cadastre antes uma conta em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
       </div>
@@ -119,7 +119,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
+      <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
       <PageHeader title="Conciliação bancária" description="Importe o extrato do banco e confirme, linha a linha, qual lançamento é cada movimento. O que o banco diz (data e valor) passa a valer no lançamento." />
 
       {contas.length > 1 && (

@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Download, Lock,
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
+import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { FecharMes, ReabrirMes, ValorHora } from '@/components/app/financeiro/fechamento'
 import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
@@ -63,7 +64,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
+      <SecoesDoFinanceiro atual="/financeiro/fechamento" />
       <PageHeader
         title={`Fechamento de ${nomeDoMes(mes)}`}
         description="Conferir, fechar e mandar ao contador. Fechado, o que foi pago no mês não muda mais."
