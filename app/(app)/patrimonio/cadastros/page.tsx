@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
-import { Categorias, Locais, Numeracao } from '@/components/app/patrimonio/cadastros'
+import { Categorias, CategoriasDoEstoque, Locais, Numeracao } from '@/components/app/patrimonio/cadastros'
 import { NivelDeAcesso } from '@/components/app/patrimonio/acoes'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
 import { NIVEIS, type NomeDoNivel } from '@/lib/patrimonio/regras'
@@ -12,8 +12,9 @@ export const metadata = { title: 'Cadastros do Patrimônio' }
 export const dynamic = 'force-dynamic'
 
 const ABAS = [
-  { id: 'categorias', rotulo: 'Categorias', ajuda: 'Tipos de bem, com vida útil (depreciação), valor residual, manutenção periódica e conta contábil.' },
-  { id: 'locais', rotulo: 'Locais', ajuda: 'Onde os bens ficam: sede, bases, almoxarifado, viaturas.' },
+  { id: 'categorias', rotulo: 'Categorias de bens', ajuda: 'Tipos de bem, com vida útil (depreciação), valor residual, manutenção periódica e conta contábil.' },
+  { id: 'estoque', rotulo: 'Categorias do estoque', ajuda: 'Tipos de material de consumo (curativos, EPI, alimentos, kits), com a conta contábil do estoque.' },
+  { id: 'locais', rotulo: 'Locais', ajuda: 'Onde os bens e os materiais ficam: sede, bases, almoxarifado, viaturas.' },
   { id: 'numeracao', rotulo: 'Plaqueta e termo', ajuda: 'O prefixo das plaquetas e o texto do termo de responsabilidade.' },
   { id: 'acessos', rotulo: 'Quem acessa', ajuda: 'Só administradores mudam. Qualquer pessoa vê em "Comigo" o que está com ela.' },
 ] as const
@@ -39,6 +40,7 @@ export default async function CadastrosDoPatrimonio({ searchParams }: { searchPa
       </nav>
       <Card className="p-5">
         {aba === 'categorias' && <Categorias c={c} pode={gestao} />}
+        {aba === 'estoque' && <CategoriasDoEstoque c={c} pode={gestao} />}
         {aba === 'locais' && <Locais c={c} pode={gestao} />}
         {aba === 'numeracao' && <Numeracao c={c} pode={gestao} />}
         {aba === 'acessos' && ehAdmin && <Acessos workspaceId={context.workspace.id} supabase={supabase} />}

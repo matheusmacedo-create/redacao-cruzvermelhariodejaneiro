@@ -446,7 +446,7 @@ export async function fecharMes(mes: string, observacao: string): Promise<Result
     const { error } = await d.supabase.rpc('financeiro_fechar_mes', {
       p_workspace_id: d.context.workspace.id, p_mes: `${mes}-01`,
       // O retrato guarda os totais do patrimônio; a lista bem a bem fica no pacote do contador.
-      p_resumo: { ...d.resumo, patrimonio: d.resumo.patrimonio ? { ...d.resumo.patrimonio, linhas: undefined } : undefined }, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
+      p_resumo: { ...d.resumo, patrimonio: d.resumo.patrimonio ? { ...d.resumo.patrimonio, linhas: undefined } : undefined, estoque: d.resumo.estoque ? { ...d.resumo.estoque, linhas: undefined } : undefined }, p_avisos: avisos, p_observacao: observacao.trim().slice(0, 2000) || null,
     })
     if (error) erroDoBanco(error, 'Não foi possível fechar o mês.')
     revalidar()
