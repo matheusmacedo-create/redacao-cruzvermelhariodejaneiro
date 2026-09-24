@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Lock, Plus, Search, Settings2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Landmark, Lock, Plus, Search, Settings2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -104,6 +104,7 @@ export default async function FinanceiroPage({ searchParams }: {
         title="Financeiro"
         description="Despesas, receitas e contas a pagar da filial, com a fonte de cada recurso e os comprovantes."
         actions={<div className="flex flex-wrap items-start gap-2">
+          <Button variant="outline" render={<Link href="/financeiro/conciliacao" />}><Landmark className="size-4" />Conciliação</Button>
           <Button variant="outline" render={<Link href="/financeiro/cadastros" />}><Settings2 className="size-4" />Cadastros</Button>
           {nivel >= 2 && <Button variant="outline" render={<Link href="/financeiro/novo?tipo=receita" />}><Plus className="size-4" />Receita</Button>}
           {nivel >= 2 && <Button render={<Link href="/financeiro/novo" />}><Plus className="size-4" />Despesa</Button>}

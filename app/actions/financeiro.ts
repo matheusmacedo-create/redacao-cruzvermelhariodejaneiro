@@ -305,3 +305,124 @@ export async function excluirAnexo(lancamentoId: string, id: string): Promise<Re
   }
 }
 
+
+// ---------------------------------------------------------------- extrato e conciliação
+
+type LinhaRecebida = { identificador: string; data: string; valor: number; descricao: string; documento: string | null }
+
+/**
+ * O arquivo é lido no navegador (lib/financeiro/extrato, o mesmo código) e
+ * chegam só as linhas. Aqui se confere de novo o formato de cada uma: o que
+ * vem do navegador não é confiável.
+ */
+export async function importarExtrato(contaId: string, meta: { arquivo: string; formato: 'ofx' | 'csv'; saldo: number | null; saldoEm: string | null }, linhas: LinhaRecebida[]): Promise<Resultado & { novas?: number; linhas?: number }> {
+  try {
+    const { context, supabase } = await contextoDoFinanceiro()
+    if (!Array.isArray(linhas) || !linhas.length) throw new Error('O arquivo não tem movimentos.')
+    if (linhas.length > 3000) throw new Error('São mais de 3.000 movimentos: importe um período menor.')
+    const limpas = linhas.map((l) => {
+      if (!ehData(l.data) || typeof l.valor !== 'number' || !Number.isFinite(l.valor) || l.valor === 0 || Math.abs(l.valor) > 100_000_000) throw new Error('O arquivo tem um movimento inválido.')
+      return {
+        identificador: String(l.identificador ?? '').slice(0, 300), data: l.data, valor: Math.round(l.valor * 100) / 100,
+        descricao: String(l.descricao ?? '').slice(0, 300), documento: l.documento ? String(l.documento).slice(0, 80) : null,
+      }
+    })
+    if (limpas.some((l) => !l.identificador)) throw new Error('O arquivo tem um movimento sem identificador.')
+    const saldoValido = typeof meta.saldo === 'number' && Number.isFinite(meta.saldo) && ehData(meta.saldoEm ?? '')
+    const { data, error } = await supabase.rpc('financeiro_importar_extrato', {
+      p_workspace_id: context.workspace.id, p_conta_id: contaId,
+      p_meta: { arquivo: String(meta.arquivo ?? '').slice(0, 200), formato: meta.formato === 'ofx' ? 'ofx' : 'csv', saldo_banco: saldoValido ? meta.saldo : null, saldo_em: saldoValido ? meta.saldoEm : null },
+      p_linhas: limpas,
+    })
+    if (error) erroDoBanco(error, 'Não foi possível importar o extrato.')
+    revalidar()
+    const r = data as { novas: number; linhas: number }
+    return { novas: r.novas, linhas: r.linhas }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível importar o extrato.') }
+  }
+}
+
+export async function conciliar(extratoId: string, lancamentoId: string): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    const { error } = await supabase.rpc('financeiro_conciliar', { p_extrato_id: extratoId, p_lancamento_id: lancamentoId })
+    if (error) erroDoBanco(error, 'Não foi possível conciliar.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível conciliar.') }
+  }
+}
+
+/** Aceita as sugestões de uma vez. Para na primeira que o banco recusar e diz quantas foram. */
+export async function conciliarSugestoes(pares: { extrato: string; lancamento: string }[]): Promise<Resultado & { feitas?: number }> {
+  let feitas = 0
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    for (const p of pares.slice(0, 500)) {
+      const { error } = await supabase.rpc('financeiro_conciliar', { p_extrato_id: p.extrato, p_lancamento_id: p.lancamento })
+      if (error) erroDoBanco(error, 'Não foi possível conciliar.')
+      feitas++
+    }
+    revalidar()
+    return { feitas }
+  } catch (causa) {
+    revalidar()
+    return { feitas, erro: `${feitas ? `${feitas} conciliadas; ` : ''}${mensagemDoErro(causa, 'Não foi possível conciliar.')}` }
+  }
+}
+
+export async function criarDoExtrato(extratoId: string, p: { descricao: string; categoria_id: string; fonte_id: string; favorecido_id: string; projeto_id: string }): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    const uuid = (v: string) => (/^[0-9a-f-]{36}$/.test(v) ? v : '')
+    if (!uuid(p.categoria_id)) throw new Error('Escolha a categoria.')
+    if (!uuid(p.fonte_id)) throw new Error('Escolha a fonte.')
+    const { error } = await supabase.rpc('financeiro_criar_do_extrato', {
+      p_extrato_id: extratoId,
+      p: { descricao: p.descricao.trim().slice(0, 190), categoria_id: p.categoria_id, fonte_id: p.fonte_id, favorecido_id: uuid(p.favorecido_id), projeto_id: uuid(p.projeto_id) },
+    })
+    if (error) erroDoBanco(error, 'Não foi possível criar o lançamento.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível criar o lançamento.') }
+  }
+}
+
+export async function desconciliar(extratoId: string): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    const { error } = await supabase.rpc('financeiro_desconciliar', { p_extrato_id: extratoId })
+    if (error) erroDoBanco(error, 'Não foi possível desfazer.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível desfazer.') }
+  }
+}
+
+export async function ignorarLinha(extratoId: string, motivo: string): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    const { error } = await supabase.rpc('financeiro_ignorar_extrato', { p_extrato_id: extratoId, p_motivo: motivo.trim().slice(0, 300) })
+    if (error) erroDoBanco(error, 'Não foi possível ignorar.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível ignorar.') }
+  }
+}
+
+export async function excluirImportacao(importacaoId: string): Promise<Resultado> {
+  try {
+    const { supabase } = await contextoDoFinanceiro()
+    const { error } = await supabase.rpc('financeiro_excluir_importacao', { p_importacao_id: importacaoId })
+    if (error) erroDoBanco(error, 'Não foi possível excluir.')
+    revalidar()
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível excluir.') }
+  }
+}

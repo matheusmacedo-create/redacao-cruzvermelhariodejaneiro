@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft, Lock, Pencil } from 'lucide-react'
+import { ChevronLeft, Landmark, Lock, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -32,11 +32,12 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
   const c = await cadastrosDoFinanceiro()
   const hoje = hojeEmSaoPaulo()
 
-  const [{ data: anexos }, { data: grupo }, { data: historico }, { data: membros }] = await Promise.all([
+  const [{ data: anexos }, { data: grupo }, { data: historico }, { data: membros }, { data: noExtrato }] = await Promise.all([
     supabase.from('fin_anexos').select('id,nome_original,tipo_doc,mime,tamanho,sha256,created_at,enviado_por').eq('lancamento_id', id).order('created_at'),
     l.grupo_id ? supabase.from('fin_lancamentos').select('id,descricao,vencimento,valor,pago_em,valor_pago,tipo,aprovacao').eq('grupo_id', l.grupo_id).order('vencimento') : Promise.resolve({ data: [] }),
     nivel >= 4 ? supabase.from('fin_auditoria').select('acao,created_at,user_id,detalhe').eq('lancamento_id', id).order('created_at', { ascending: false }).limit(30) : Promise.resolve({ data: [] }),
     supabase.from('workspace_members').select('user_id,profiles(full_name)').eq('workspace_id', context.workspace.id),
+    supabase.from('fin_extrato').select('conta_id,data,descricao').eq('lancamento_id', id),
   ])
   const nomes: Record<string, string> = Object.fromEntries((membros ?? []).map((m) => [m.user_id as string, ((Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string } | null)?.full_name ?? 'Alguém']))
 
@@ -107,6 +108,11 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
             <Dado rotulo="Forma">{l.forma ? FORMAS[l.forma as keyof typeof FORMAS] : null}</Dado>
             <Dado rotulo="Nº do documento">{l.documento}</Dado>
           </dl>
+          {(noExtrato ?? []).map((x, i) => (
+            <p key={i} className="mt-3 flex items-center gap-1.5 text-xs text-success" data-conciliado>
+              <Landmark className="size-3.5" />Conciliado com o extrato de {conta(x.conta_id as string)}: {dataCurta(x.data as string)} · {x.descricao as string}
+            </p>
+          ))}
           {l.observacao && <p className="mt-4 whitespace-pre-line border-t border-border pt-4 text-sm text-muted-foreground">{l.observacao}</p>}
           <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
             Lançado{l.criado_por ? ` por ${nomes[l.criado_por] ?? 'alguém'}` : ''} em {new Date(l.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}
