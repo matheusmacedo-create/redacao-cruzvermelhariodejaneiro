@@ -56,6 +56,8 @@ export const PERMISSOES = {
   'chamados.configurar': { grupo: 'Administração', rotulo: 'Configurar filas de chamados, equipes de atendimento, categorias e SLA', papeis: ['admin'] },
   'chamados.ver_todos': { grupo: 'Administração', rotulo: 'Ver e atender chamados de todas as filas', papeis: ['admin'] },
   'espaco.reiniciar': { grupo: 'Administração', rotulo: 'Apagar todos os dados do espaço', papeis: ['admin'] },
+  'trilha.ver': { grupo: 'Administração', rotulo: 'Acompanhar a trilha pública: registros verificáveis, lotes diários e carimbos', papeis: ['admin'] },
+  'transparencia.gerenciar': { grupo: 'Administração', rotulo: 'Publicar documentos e parcerias no portal de transparência e a página de canais oficiais', papeis: ['admin'] },
 
   // Site e publicação
   'site.configurar': { grupo: 'Site e publicação', rotulo: 'Alterar páginas do site, analytics e formulário da newsletter', papeis: ['admin'] },

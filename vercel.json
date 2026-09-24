@@ -27,6 +27,14 @@
     {
       "path": "/api/escola/sincronizar",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/auditoria/diaria",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/auditoria/provas",
+      "schedule": "0 14 * * *"
     }
   ]
 }

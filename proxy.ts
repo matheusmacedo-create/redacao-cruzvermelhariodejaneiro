@@ -36,4 +36,6 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|images/).*)'] }
+// A consulta pública da trilha (/api/publico/) não tem sessão: fica fora, sem
+// uma ida ao Supabase Auth a cada verificação.
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|images/|api/publico/).*)'] }
