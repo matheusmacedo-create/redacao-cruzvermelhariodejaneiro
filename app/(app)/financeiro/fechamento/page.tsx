@@ -41,7 +41,7 @@ function Tabela({ cabecalho, linhas, id }: { cabecalho: string[]; linhas: (strin
  */
 export default async function FechamentoPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const sp = await searchParams
-  const { nivel } = await contextoDoFinanceiro()
+  const { nivel, nivelGeral } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
   const hoje = hojeEmSaoPaulo()
   // Sem mês na URL: o próximo a fechar (ou o mês passado, se nada foi fechado ainda).
@@ -170,7 +170,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
           A norma das entidades sem fins lucrativos pede que o trabalho voluntário seja reconhecido pelo valor de mercado, como se tivesse sido pago.
           As horas vêm de Voluntários ({r.voluntariado.horas.toLocaleString('pt-BR')} h em {nomeDoMes(mes)}); o valor da hora é o de referência que o contador definir.
         </p>
-        <ValorHora valor={r.voluntariado.valorHora} pode={nivel >= 4} />
+        <ValorHora valor={r.voluntariado.valorHora} pode={nivelGeral >= 4} />
       </Card>
 
       {d.fechamentos.length > 0 && (

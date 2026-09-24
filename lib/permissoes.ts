@@ -16,7 +16,7 @@
  * com esta mesma lista. Papel novo exige migração antes do deploy.
  */
 
-export const PAPEIS = ['admin', 'editor', 'colaborador'] as const
+export const PAPEIS = ['admin', 'editor', 'colaborador', 'escola'] as const
 export type Papel = (typeof PAPEIS)[number]
 
 export const ehPapel = (valor: unknown): valor is Papel =>
@@ -35,7 +35,15 @@ export const PAPEL: Record<Papel, { rotulo: string; descricao: string }> = {
     rotulo: 'Colaborador',
     descricao: 'Registra, escreve, comenta e vota nas aprovações para as quais foi convidado.',
   },
+  // A Escola é uma empresa à parte: a equipe dela entra só na área da Escola.
+  escola: {
+    rotulo: 'Equipe da escola',
+    descricao: 'Vê só a Escola de Educação e Saúde: vendas, marketing, advertoriais e, se um admin liberar, os livros da Escola no Financeiro. Nada do resto da Redação.',
+  },
 }
+
+/** A equipe da escola só entra na área da Escola (lib/session.ts barra o resto). */
+export const ehEquipeDaEscola = (papel: string | null | undefined) => papel === 'escola'
 
 type Definicao = { grupo: string; rotulo: string; papeis: readonly Papel[] }
 

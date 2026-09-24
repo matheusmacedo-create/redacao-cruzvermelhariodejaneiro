@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { gruposVisiveis, type Grupo } from '@/lib/navegacao'
+import { gruposDaEquipeDaEscola, gruposVisiveis, type Grupo } from '@/lib/navegacao'
 import type { Permissao } from '@/lib/permissoes'
 
 /** O cookie que lembra a sidebar recolhida. Lido no servidor para não piscar. */
@@ -31,11 +31,18 @@ export function useShell() {
   return ctx
 }
 
-export function AppShellProvider({ children, permitidas, recolhidaInicial = false }: { children: React.ReactNode; permitidas: Permissao[]; recolhidaInicial?: boolean }) {
+export function AppShellProvider({ children, permitidas, recolhidaInicial = false, equipeDaEscola = null }: {
+  children: React.ReactNode; permitidas: Permissao[]; recolhidaInicial?: boolean
+  /** Quem é só da equipe da escola: o menu mostra só a Escola (e o Financeiro dela, se liberado). */
+  equipeDaEscola?: { financeiro: boolean } | null
+}) {
   // Os grupos têm ícones (componentes), que não atravessam do servidor para o
   // cliente como props — por isso o servidor manda só as permissões e a lista
   // é montada aqui.
-  const grupos = useMemo(() => gruposVisiveis((p) => permitidas.includes(p)), [permitidas])
+  const grupos = useMemo(
+    () => (equipeDaEscola ? gruposDaEquipeDaEscola(equipeDaEscola.financeiro) : gruposVisiveis((p) => permitidas.includes(p))),
+    [permitidas, equipeDaEscola],
+  )
   const [open, setOpen] = useState(false)
   const [recolhida, setRecolhida] = useState(recolhidaInicial)
   const [buscaAberta, setBuscaAberta] = useState(false)

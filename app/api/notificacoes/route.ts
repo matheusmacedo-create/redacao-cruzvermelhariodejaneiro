@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * para não mandar e-mail do que ela está vendo.
  */
 export async function GET() {
-  const context = await obterWorkspace()
+  const context = await obterWorkspace({ escola: true })
   if (!context) return Response.json({ erro: 'Sessão expirada.' }, { status: 401 })
   const supabase = await createClient()
   const [{ count }, { data: recentes }] = await Promise.all([

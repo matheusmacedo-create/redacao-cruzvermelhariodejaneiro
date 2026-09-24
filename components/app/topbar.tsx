@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
 import { ADMINISTRACAO, areaDoCaminho, type Grupo } from '@/lib/navegacao'
-import { ehPapel, PAPEL } from '@/lib/permissoes'
+import { ehEquipeDaEscola, ehPapel, PAPEL } from '@/lib/permissoes'
 import type { WorkspaceRole } from '@/lib/session'
 import { ACOES_DE_CRIAR, useCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
@@ -126,7 +126,8 @@ export function Topbar({ role, profile, notifications, naoLidas }: { role: Works
         <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" className={cn(botaoIcone, 'md:hidden')}>
           <Search className="size-[18px]" />
         </button>
-        <MenuCriar />
+        {/* Criar registro, pauta, conteúdo… é da Redação: a equipe da escola não tem. */}
+        {!ehEquipeDaEscola(role) && <MenuCriar />}
         <Sino notificacoes={notifications} naoLidas={naoLidas} />
         <MenuDaPessoa role={role} profile={profile} grupos={grupos} />
       </div>

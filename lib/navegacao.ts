@@ -160,6 +160,23 @@ export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] 
     .filter((g) => g.areas.length > 0)
 }
 
+/**
+ * A equipe da escola vê só a Escola (o Financeiro dela quando um admin
+ * libera os livros da Escola), as notificações e o próprio perfil. O
+ * servidor barra o resto de qualquer jeito (lib/session.ts); aqui é para o
+ * menu e a busca não oferecerem porta fechada.
+ */
+export function gruposDaEquipeDaEscola(comFinanceiro: boolean, grupos: Grupo[] = TODOS_OS_GRUPOS): Grupo[] {
+  const escola = grupos.find((g) => g.id === 'escola')
+  const notificacoes = grupos.flatMap((g) => g.areas).filter((a) => a.href === '/notificacoes')
+  const perfil = ADMINISTRACAO.areas.filter((a) => a.href === '/perfil')
+  return [
+    ...(escola ? [{ ...escola, areas: escola.areas.filter((a) => comFinanceiro || a.href !== '/escola/financeiro') }] : []),
+    { id: 'meu-dia', rotulo: null, areas: notificacoes },
+    { ...ADMINISTRACAO, areas: perfil },
+  ].filter((g) => g.areas.length > 0)
+}
+
 /** `/pautas/123` é Pautas; `/pautas-antigas` não. O prefixo mais longo vence. */
 export function ehDaArea(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)

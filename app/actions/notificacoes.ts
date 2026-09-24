@@ -17,7 +17,7 @@ export async function marcarComoLidas(ids: string[]): Promise<Resultado> {
   try {
     const lista = [...new Set(ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 200)
     if (!lista.length) return {}
-    const context = await requireWorkspace()
+    const context = await requireWorkspace({ escola: true })
     const supabase = await createClient()
     const { error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() })
       .in('id', lista).eq('user_id', context.user.id).is('read_at', null)
@@ -32,7 +32,7 @@ export async function marcarComoLidas(ids: string[]): Promise<Resultado> {
 export async function marcarLidasDoLink(link: string): Promise<Resultado> {
   try {
     if (!link.startsWith('/') || link.length > 500) return {}
-    const context = await requireWorkspace()
+    const context = await requireWorkspace({ escola: true })
     const supabase = await createClient()
     await supabase.from('notifications').update({ read_at: new Date().toISOString() })
       .eq('user_id', context.user.id).eq('workspace_id', context.workspace.id).eq('link', link).is('read_at', null)
@@ -44,7 +44,7 @@ export async function marcarLidasDoLink(link: string): Promise<Resultado> {
 
 export async function marcarTodasComoLidas(): Promise<Resultado> {
   try {
-    const context = await requireWorkspace()
+    const context = await requireWorkspace({ escola: true })
     const supabase = await createClient()
     const { error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() })
       .eq('user_id', context.user.id).eq('workspace_id', context.workspace.id).is('read_at', null)
@@ -59,7 +59,7 @@ export async function marcarTodasComoLidas(): Promise<Resultado> {
 /** Grava, por assunto, como a pessoa quer receber os avisos por e-mail. */
 export async function salvarPreferenciasDeNotificacao(modos: Record<string, string>): Promise<Resultado> {
   try {
-    const context = await requireWorkspace()
+    const context = await requireWorkspace({ escola: true })
     const limpos = Object.fromEntries(CATEGORIAS.map((c) => [c, ehModo(modos?.[c]) ? modos[c] : 'imediato'])) as Record<Categoria, Modo>
     const { error } = await createAdminClient().from('notificacao_preferencias')
       .upsert({ user_id: context.user.id, modos: limpos, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' })

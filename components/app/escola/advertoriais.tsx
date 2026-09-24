@@ -73,7 +73,7 @@ function Copiar({ texto, rotulo }: { texto: string; rotulo: string }) {
 }
 
 /** O cartão do advertorial no banco: capa, manchete, onde está, e o funil da página (visita → clique → matrícula) com o custo. */
-export function CartaoDoAdvertorial({ l, campanhas, canal = 'meta_ads' }: { l: LinhaDoAdvertorial; campanhas: Opcao[]; canal?: Canal }) {
+export function CartaoDoAdvertorial({ l, campanhas, canal = 'meta_ads', podeEscrever = true }: { l: LinhaDoAdvertorial; campanhas: Opcao[]; canal?: Canal; podeEscrever?: boolean }) {
   const router = useRouter()
   const [editando, setEditando] = useState(false)
   const noAr = Boolean(l.site_url)
@@ -102,7 +102,7 @@ export function CartaoDoAdvertorial({ l, campanhas, canal = 'meta_ads' }: { l: L
         {l.anuncios > 0 && <p className="text-xs text-muted-foreground">{l.anuncios} {l.anuncios === 1 ? 'anúncio aponta' : 'anúncios apontam'} para esta página{l.retorno !== null ? ` · retorno ${l.retorno.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}×` : ''}</p>}
         {l.peca.nota && <p className="line-clamp-2 text-xs text-muted-foreground">{l.peca.nota}</p>}
         <div className="mt-auto flex flex-wrap items-center gap-1 pt-1">
-          {l.peca.content_id && <Button variant="outline" size="sm" onClick={() => router.push(`/conteudos/${l.peca.content_id}`)}><FilePenLine className="size-3.5" />{noAr ? 'Editar texto' : 'Escrever'}</Button>}
+          {l.peca.content_id && podeEscrever && <Button variant="outline" size="sm" onClick={() => router.push(`/conteudos/${l.peca.content_id}`)}><FilePenLine className="size-3.5" />{noAr ? 'Editar texto' : 'Escrever'}</Button>}
           {l.site_url && <a href={l.site_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"><ExternalLink className="size-3.5" />Ver no site</a>}
           {linkDoAnuncio && <Copiar texto={linkDoAnuncio} rotulo="Link para o anúncio" />}
           <button type="button" onClick={() => setEditando((v) => !v)} className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Dados de ${l.titulo}`}><Settings2 className="size-3.5" /></button>

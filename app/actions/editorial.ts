@@ -991,7 +991,7 @@ export async function deleteProject(formData: FormData) {
 }
 
 export async function updateProfile(formData: FormData) {
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   const fullName = text(formData, 'fullName')
   if (fullName.length < 3) throw new Error('Informe seu nome completo.')

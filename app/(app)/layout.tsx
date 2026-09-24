@@ -6,7 +6,7 @@ import { Topbar } from '@/components/app/topbar'
 import { AvisoEmailDeRecuperacao } from '@/components/app/aviso-email-de-recuperacao'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
-import { PERMISSOES, pode, type Permissao } from '@/lib/permissoes'
+import { PERMISSOES, ehEquipeDaEscola, pode, type Permissao } from '@/lib/permissoes'
 import { after } from 'next/server'
 import { marcarVisto } from '@/lib/notificacoes/servidor'
 
@@ -14,7 +14,7 @@ import { marcarVisto } from '@/lib/notificacoes/servidor'
 export const metadata = { title: { template: '%s — Redação', default: 'Redação — Cruz Vermelha RJ' } }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   const ws = context.workspace.id
   const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas] = await Promise.all([
@@ -45,6 +45,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Quem está navegando não recebe e-mail do que vê no sino.
   after(() => marcarVisto(context.user.id, context.profile?.visto_em))
   const permitidas = (Object.keys(PERMISSOES) as Permissao[]).filter((p) => pode(context.role, p))
+  // Equipe da escola: o menu é só a Escola; o Financeiro aparece se os livros da Escola foram liberados (o RLS decide).
+  const equipeDaEscola = ehEquipeDaEscola(context.role)
+    ? { financeiro: Boolean((await supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('tipo', 'escola')).count) }
+    : null
   const recolhida = lembrancas.get(COOKIE_DA_SIDEBAR)?.value === '1'
   const gruposFechados = (lembrancas.get(COOKIE_DOS_GRUPOS)?.value ?? '').split(',').filter(Boolean)
   const buildInfo = {
@@ -53,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     renderedAt: new Date().toISOString(),
   }
   return (
-    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida}>
+    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
         <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0 }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
