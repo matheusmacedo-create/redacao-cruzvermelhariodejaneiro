@@ -2,10 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, UserRound } from 'lucide-react'
+import { Award, BookOpen, GraduationCap, Home, UserRound } from 'lucide-react'
 
 export const SECOES = [
   { href: '/membro', rotulo: 'Início', icone: Home },
+  { href: '/membro/cursos', rotulo: 'Cursos', icone: GraduationCap },
+  { href: '/membro/apostilas', rotulo: 'Apostilas', icone: BookOpen },
+  { href: '/membro/certificados', rotulo: 'Certificados', icone: Award },
   { href: '/membro/perfil', rotulo: 'Perfil', icone: UserRound },
 ] as const
 
