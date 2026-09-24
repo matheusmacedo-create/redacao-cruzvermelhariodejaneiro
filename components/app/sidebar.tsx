@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, HeartHandshake, History, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
+  AtSign, Brain, LifeBuoy, CalendarDays, CheckSquare, FileSignature, FolderKanban, HeartHandshake, History, Images, Inbox, KeyRound, LayoutDashboard, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from './brand-mark'
@@ -38,6 +38,8 @@ const sections = [
   {
     label: 'Operação',
     items: [
+      // Pedidos entre setores (TI, Manutenção…): todo mundo abre, a equipe atende.
+      { href: '/chamados', label: 'Chamados', icon: LifeBuoy },
       { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
       { href: '/caixa-de-entrada', label: 'Caixa de entrada', icon: Inbox },
     ],

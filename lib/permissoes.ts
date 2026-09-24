@@ -53,6 +53,8 @@ export const PERMISSOES = {
   'integracoes.configurar': { grupo: 'Administração', rotulo: 'Configurar chaves de integração e a conta Google', papeis: ['admin'] },
   'correio.configurar': { grupo: 'Administração', rotulo: 'Configurar setores, caixas e assinaturas do Correio', papeis: ['admin'] },
   'diagnosticos.executar': { grupo: 'Administração', rotulo: 'Rodar os diagnósticos de FTP, redes, IA e e-mail', papeis: ['admin'] },
+  'chamados.configurar': { grupo: 'Administração', rotulo: 'Configurar filas de chamados, equipes de atendimento, categorias e SLA', papeis: ['admin'] },
+  'chamados.ver_todos': { grupo: 'Administração', rotulo: 'Ver e atender chamados de todas as filas', papeis: ['admin'] },
   'espaco.reiniciar': { grupo: 'Administração', rotulo: 'Apagar todos os dados do espaço', papeis: ['admin'] },
 
   // Site e publicação
