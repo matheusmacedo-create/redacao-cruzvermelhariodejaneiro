@@ -388,7 +388,7 @@ export type EstadoDoSite = {
 /**
  * Quando cada tarefa do site rodou pela última vez.
  *
- * Existe pelo mesmo motivo do cartão do formulário na Central de e-mail: um
+ * Existe pelo mesmo motivo do cartão do formulário na Newsletter: um
  * botão que se oferece para sempre como pendência, depois de já ter sido
  * clicado e concluído, ensina a ser ignorado. O Analytics é NATIVO em toda
  * página que a Redação gera; a varredura só existe para arquivos antigos —

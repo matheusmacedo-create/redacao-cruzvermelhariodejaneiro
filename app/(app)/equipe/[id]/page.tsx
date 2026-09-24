@@ -76,7 +76,7 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
 
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/equipe" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Gestão da equipe</Link>
+      <Link href="/equipe" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Recursos humanos</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{nomeDe(m)}</h1>

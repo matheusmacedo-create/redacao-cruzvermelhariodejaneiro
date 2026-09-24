@@ -13,7 +13,7 @@ import { emailDeConfirmacao } from '@/lib/newsletter/modelo'
 import { enviarEmail, emailConfigurado, semChave } from '@/lib/newsletter/resend'
 
 /**
- * As ações da Central de e-mail.
+ * As ações da Newsletter.
  *
  * Todas usam o cliente administrativo, e não o da sessão: a tabela de
  * inscritos tem política de LEITURA para membros do espaço e nenhuma de

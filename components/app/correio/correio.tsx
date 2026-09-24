@@ -38,7 +38,7 @@ export function Correio({ caixas, historico, situacao, ehAdmin }: {
           <MailX className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             {situacao === 'expirada' ? 'A autorização da conta Google expirou. ' : 'O correio ainda não foi ligado à conta Google. '}
-            {ehAdmin ? <>Resolva em <a href="/configuracoes#correio" className="text-primary hover:underline">Configurações → Correio dos setores</a>.</> : 'Avise um administrador.'}
+            {ehAdmin ? <>Resolva em <a href="/configuracoes#correio" className="text-primary hover:underline">Configurações → E-mail do setor</a>.</> : 'Avise um administrador.'}
           </p>
         </Card>
       ) : caixas.length === 0 ? (
@@ -46,7 +46,7 @@ export function Correio({ caixas, historico, situacao, ehAdmin }: {
           <MailX className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             Você ainda não faz parte de um setor com endereço ativo. {ehAdmin
-              ? <>Atribua endereços e membros em <a href="/configuracoes#correio" className="text-primary hover:underline">Configurações → Correio dos setores</a>.</>
+              ? <>Atribua endereços e membros em <a href="/configuracoes#correio" className="text-primary hover:underline">Configurações → E-mail do setor</a>.</>
               : 'Peça a um administrador para incluir você no seu setor.'}
           </p>
         </Card>

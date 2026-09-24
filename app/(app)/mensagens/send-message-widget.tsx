@@ -27,7 +27,7 @@ export function SendMessageWidget({ colleagues }: { colleagues: Colleague[] }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 id="send-message-title" className="text-lg font-semibold">Nova conversa</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Para recados que não são sobre uma matéria específica. A conversa fica salva aqui em Mensagens, e a pessoa também é avisada pelo sino no topo da tela.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Para recados que não são sobre uma matéria específica. A conversa fica salva aqui em Conversas, e a pessoa também é avisada pelo sino no topo da tela.</p>
               </div>
               <Button type="button" variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Fechar">
                 <X className="size-4" />

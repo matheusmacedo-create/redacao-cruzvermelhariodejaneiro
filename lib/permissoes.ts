@@ -51,7 +51,7 @@ export const PERMISSOES = {
   'usuarios.gerenciar': { grupo: 'Administração', rotulo: 'Criar usuários, mudar papéis, redefinir senhas e desativar contas', papeis: ['admin'] },
   'usuarios.auditoria': { grupo: 'Administração', rotulo: 'Ver o registro de acessos e mudanças de permissão', papeis: ['admin'] },
   'integracoes.configurar': { grupo: 'Administração', rotulo: 'Configurar chaves de integração e a conta Google', papeis: ['admin'] },
-  'correio.configurar': { grupo: 'Administração', rotulo: 'Configurar setores, caixas e assinaturas do Correio', papeis: ['admin'] },
+  'correio.configurar': { grupo: 'Administração', rotulo: 'Configurar o E-mail do setor: setores, caixas e assinaturas', papeis: ['admin'] },
   'diagnosticos.executar': { grupo: 'Administração', rotulo: 'Rodar os diagnósticos de FTP, redes, IA e e-mail', papeis: ['admin'] },
   'chamados.configurar': { grupo: 'Administração', rotulo: 'Configurar filas de chamados, equipes de atendimento, categorias e SLA', papeis: ['admin'] },
   'chamados.ver_todos': { grupo: 'Administração', rotulo: 'Ver e atender chamados de todas as filas', papeis: ['admin'] },
@@ -70,7 +70,7 @@ export const PERMISSOES = {
   'projetos.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar projetos e atualizações de outras pessoas', papeis: ['admin'] },
   'aprovacoes.gerenciar': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Convidar aprovadores e ver conversas de aprovações alheias', papeis: ['admin'] },
   'oficios.gerenciar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Editar e cancelar ofícios criados por outras pessoas', papeis: ['admin'] },
-  'correio.todas_as_caixas': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Enviar por qualquer caixa do Correio, mesmo fora do setor', papeis: ['admin'] },
+  'correio.todas_as_caixas': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Enviar pelo e-mail de qualquer setor, mesmo sem fazer parte dele', papeis: ['admin'] },
 } as const satisfies Record<string, Definicao>
 
 export type Permissao = keyof typeof PERMISSOES

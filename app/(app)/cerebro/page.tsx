@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/server'
 import { lerPautas, urlDoCerebro } from '@/lib/cerebro/cliente'
 import { claudeConfigurado } from '@/lib/ia/anthropic'
 import type { PautaDoCerebro } from '@/lib/cerebro/contrato'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/cerebro') }
 
 /**
  * O Cérebro, no estado-alvo: história em vez de post.
@@ -76,8 +79,8 @@ export default async function CerebroPage() {
   return (
     <div>
       <PageHeader
-        title="Cérebro"
-        description="Leitura das contas oficiais do Rio: fato, raciocínio, plano por canal e o que não pode. O Cérebro recomenda; quem produz e publica é a Redação."
+        title="Radar de pautas"
+        description="O que o Cérebro leu nas contas oficiais do Rio: fato, raciocínio, plano por canal e o que não pode. O Cérebro recomenda; quem produz e publica é a Redação."
         actions={
           <a
             href={urlDoCerebro()}

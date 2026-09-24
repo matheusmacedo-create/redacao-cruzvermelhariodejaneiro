@@ -6,6 +6,9 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { QuadroDePautas, type CartaoDaPauta, type PessoaDoQuadro } from '@/components/app/pautas/quadro'
 import type { Etiqueta } from '@/app/actions/quadro'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/pautas') }
 
 export const dynamic = 'force-dynamic'
 

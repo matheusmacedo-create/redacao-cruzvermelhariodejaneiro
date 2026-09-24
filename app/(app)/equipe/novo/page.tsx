@@ -14,7 +14,7 @@ export default async function NovaPessoa() {
   const { gestores, logins } = await opcoesDaFicha(supabase, context.workspace.id, null)
   return (
     <div className="flex flex-col gap-5">
-      <Link href="/equipe" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Gestão da equipe</Link>
+      <Link href="/equipe" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Recursos humanos</Link>
       <PageHeader title="Nova pessoa na equipe" description="Só o nome é obrigatório; o resto pode ser completado depois." />
       <FormularioDeMembro m={null} pessoais={null} nivel={nivel} gestores={gestores} logins={logins} />
     </div>

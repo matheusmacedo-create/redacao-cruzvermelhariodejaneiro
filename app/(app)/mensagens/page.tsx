@@ -8,6 +8,9 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { formatDate } from '@/lib/format'
 import { SendMessageWidget } from './send-message-widget'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/mensagens') }
 
 const statusLabel: Record<string, string> = { pending: 'Aguardando decisão', approved: 'Aprovada', changes_requested: 'Ajustes solicitados' }
 
@@ -148,7 +151,7 @@ export default async function MensagensPage() {
 
   return (
     <div>
-      <PageHeader title="Mensagens" description="Conversas ligadas às matérias e recados diretos entre a equipe." actions={<SendMessageWidget colleagues={colleagues} />} />
+      <PageHeader title="Conversas" description="Conversas ligadas às matérias e recados diretos entre a equipe." actions={<SendMessageWidget colleagues={colleagues} />} />
       <div className="flex flex-col gap-3">
         {items.map((item) => (
           <Link key={item.key} href={item.href}>

@@ -14,6 +14,9 @@ import {
 } from '@/lib/chamados/regras'
 import { filasQueAtendo } from '@/lib/chamados/servidor'
 import { EtiquetaDePrazo, EtiquetaDePrioridade, EtiquetaDeStatus, dataHora } from '@/components/app/chamados/comum'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/chamados') }
 
 export const dynamic = 'force-dynamic'
 

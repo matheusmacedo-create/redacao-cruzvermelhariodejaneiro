@@ -4,6 +4,8 @@ import { NovoChamado, type FilaParaAbrir } from '@/components/app/chamados/formu
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 
+export const metadata = { title: 'Abrir chamado' }
+
 export const dynamic = 'force-dynamic'
 
 export default async function NovoChamadoPage({ searchParams }: { searchParams: Promise<{ fila?: string }> }) {

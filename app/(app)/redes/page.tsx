@@ -8,6 +8,9 @@ import { adapter } from '@/lib/publicacao/canais'
 import { LogoDoCanal } from '@/components/ui/logo-do-canal'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
 import { PainelDoCerebro } from '@/components/app/cerebro/painel'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/redes') }
 
 export const dynamic = 'force-dynamic'
 
@@ -65,7 +68,7 @@ export default async function RedesPage() {
   return (
     <div>
       <PageHeader
-        title="Redes Sociais"
+        title="Publicações"
         description="O histórico das publicações. Abra qualquer uma para acrescentar outra rede — pacote publicado continua aberto."
         actions={<NovoPacoteBotao />}
       />

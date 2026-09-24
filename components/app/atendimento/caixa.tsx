@@ -14,7 +14,7 @@ import { archiveInboxItem, convertInboxToPauta } from '@/app/actions/editorial'
 import type { Fala, Mensagem } from '@/lib/atendimento/normalizar'
 
 /**
- * A Caixa de Entrada em pastas, como um atendimento de verdade.
+ * A Caixa de entrada em pastas, como um atendimento de verdade.
  *
  * Três pastas — Mensagens, Comentários, E-mail e materiais — porque três
  * coisas diferentes chegam aqui e cada uma se lê de um jeito. E cada uma abre

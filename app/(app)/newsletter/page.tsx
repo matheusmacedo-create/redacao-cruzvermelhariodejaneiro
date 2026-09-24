@@ -4,11 +4,14 @@ import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, remetente, respostaPara } from '@/lib/newsletter/resend'
 import { Central, type Inscrito, type Edicao } from './central'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/newsletter') }
 
 export const dynamic = 'force-dynamic'
 
 /**
- * A Central de e-mail: quem está na lista, como ela cresceu, e o que já saiu.
+ * A Newsletter: quem está na lista, como ela cresceu, e o que já saiu.
  *
  * Lê pelo cliente administrativo. A tabela tem política de leitura para
  * membros do espaço, então o cliente de sessão também funcionaria; o
@@ -90,7 +93,7 @@ export default async function NewsletterPage() {
   return (
     <div>
       <PageHeader
-        title="Central de e-mail"
+        title="Newsletter"
         description="Quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro, como a lista cresceu e o que já foi enviado."
       />
       <Central

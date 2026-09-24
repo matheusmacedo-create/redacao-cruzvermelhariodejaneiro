@@ -6,6 +6,9 @@ import { PageHeader } from '@/components/app/page-header'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/impacto') }
 
 export const dynamic = 'force-dynamic'
 
@@ -56,8 +59,8 @@ export default async function ImpactoPage() {
   return (
     <div>
       <PageHeader
-        title="Impacto"
-        description="Resultados da comunicação. A operação mostra o que precisa ser feito; aqui mostramos o que aconteceu depois da publicação."
+        title="Resultados"
+        description="O que aconteceu depois da publicação. O Início mostra o que precisa ser feito; aqui fica o efeito do que já saiu."
         actions={<Button variant="outline" render={<Link href="/redes" />}>Ver publicações<ArrowRight className="size-4" /></Button>}
       />
 

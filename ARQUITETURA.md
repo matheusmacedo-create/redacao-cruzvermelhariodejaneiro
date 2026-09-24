@@ -130,6 +130,7 @@ lib/
   editorial/          publicacoes-previstas.ts
   session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
   permissoes.ts       quem pode o quê (catálogo único de permissões)
+  navegacao.ts        nomes, grupos e ícones das áreas (sidebar, topo, busca ⌘K, aba)
   equipe.ts           setores e pessoas da filial
   storage.ts          limites, tipos MIME, caminho da Biblioteca
   status-maps.ts      tradução banco → interface
@@ -137,6 +138,16 @@ lib/
 supabase/migrations/  o schema, em ordem cronológica
 proxy.ts              middleware de sessão
 ```
+
+**Os nomes das áreas moram em `lib/navegacao.ts`, não nas rotas.** A tela
+`/redes` se chama Publicações, `/impacto` é Resultados, `/correio` é E-mail do
+setor, `/cerebro` é Radar de pautas, `/registro` é Histórico, `/equipe` é
+Recursos humanos, `/voluntariado` é Voluntários, `/pessoas` é Diretório,
+`/mensagens` é Conversas e `/newsletter` é Newsletter. Os endereços antigos
+ficaram porque há links gravados em notificações e e-mails. Área nova entra
+em `lib/navegacao.ts` — é o que a põe na sidebar, na busca e na aba (§10.3).
+O porquê de cada nome e o benchmark estão em
+[`docs/NAVEGACAO.md`](docs/NAVEGACAO.md).
 
 **`lib/data.ts` é meio verdade e meio fóssil.** As constantes do topo
 (`coordenacoes`, `canaisDePublicacao`) e os tipos são usados de verdade. Os
@@ -628,7 +639,8 @@ O painel de publicação foi construído dentro do editor de conteúdo, que não
 na sidebar. Foi entregue como pronto e ninguém conseguia chegar nele.
 
 **Antes de dizer que algo está no ar, percorra o caminho do usuário até a tela.**
-Compilar não é entregar.
+Compilar não é entregar. Tela nova com endereço próprio precisa de uma linha
+em `lib/navegacao.ts`; sem ela, não aparece na sidebar nem na busca.
 
 ### 10.4 Diagnóstico que cria recurso
 

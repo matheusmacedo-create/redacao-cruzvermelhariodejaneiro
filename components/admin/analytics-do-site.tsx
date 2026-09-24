@@ -29,7 +29,7 @@ export function AnalyticsDoSite() {
 
   // O cartão abre SABENDO o que já foi feito. Sem isto ele se oferecia para
   // sempre como pendência vermelha, mesmo depois de concluído — o mesmo
-  // defeito do cartão do formulário na Central de e-mail, e a mesma lição:
+  // defeito do cartão do formulário na Newsletter, e a mesma lição:
   // alarme que não confere ensina a ser ignorado.
   const jaLeu = useRef(false)
   useEffect(() => {

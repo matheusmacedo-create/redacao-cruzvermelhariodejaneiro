@@ -3,11 +3,14 @@ import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { Correio, type CaixaDoSetor, type EnvioNaTela } from '@/components/app/correio/correio'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/correio') }
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Correio dos setores: escrever e enviar pelo endereço do próprio setor, com
+ * E-mail do setor (/correio): escrever e enviar pelo endereço do próprio setor, com
  * a assinatura fixa dele, e ver o que o setor já enviou.
  *
  * A tela só oferece as caixas do setor de quem está logado (todas, para
@@ -52,7 +55,7 @@ export default async function CorreioPage() {
   return (
     <div>
       <PageHeader
-        title="Correio"
+        title="E-mail do setor"
         description="Envie pelo endereço do seu setor, com a assinatura oficial dele. Tudo o que sai fica registrado para o setor."
       />
       <Correio

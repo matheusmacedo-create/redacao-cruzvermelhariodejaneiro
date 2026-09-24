@@ -29,7 +29,7 @@ export default async function MapaPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <PageHeader
-        title="Cérebro · Mapa"
+        title="Radar de pautas · Mapa"
         description={`Todas as ligações: eixos, fontes, sinais, calendário e o que já virou pacote.${
           quando ? ` Atualizado ${quando}.` : ''
         }${origem === 'seed' ? ' Atenção: acervo semente, não dado vivo.' : ''}`}

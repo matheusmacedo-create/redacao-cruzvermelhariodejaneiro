@@ -17,6 +17,9 @@ import {
   ProjetosNoPainel, SaudeDosCanais, Secao,
   type CanalNoPainel, type Indicador, type ItemDoFeed, type MinhaPauta, type PedidoDeAprovacao, type ProjetoNoPainel,
 } from '@/components/app/dashboard/camadas'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/dashboard') }
 
 export const dynamic = 'force-dynamic'
 
@@ -409,7 +412,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       </div>
 
       <Camada nome="Indicadores" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
-        <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Impacto' }}>
+        <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {indicadores.map((i) => <CartaoDoIndicador key={i.nome} i={i} />)}
           </div>

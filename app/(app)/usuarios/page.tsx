@@ -8,6 +8,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { pode, ehPapel } from '@/lib/permissoes'
 import { chaveDoNome, PESSOAS_DA_EQUIPE } from '@/lib/equipe'
 import { emailConfigurado } from '@/lib/newsletter/resend'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/usuarios') }
 
 type Perfil = {
   id: string; username: string; full_name: string; job_title: string | null; initials: string | null

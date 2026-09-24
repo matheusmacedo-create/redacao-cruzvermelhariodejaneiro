@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { RegistrarForm } from './registrar-form'
 import type { Etiqueta } from '@/app/actions/quadro'
 
+export const metadata = { title: 'Registrar atividade' }
+
 export default async function RegistrarPage({ searchParams }: { searchParams: Promise<{ projeto?: string }> }) {
   const { projeto } = await searchParams
   const context = await requireWorkspace()

@@ -1,169 +1,232 @@
 'use client'
 
+import { useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  AtSign, Brain, CalendarDays, CheckSquare, FileSignature, FolderKanban, HeartHandshake, History, IdCard, Images, Inbox, KeyRound, LayoutDashboard, LifeBuoy, ListChecks, Mail, MessageCircle, Newspaper, Settings, Share2, TrendingUp, UserCircle, Users, X,
-} from 'lucide-react'
+import { Tooltip } from '@base-ui/react/tooltip'
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BrandMark } from './brand-mark'
-import { Avatar } from '@/components/ui/avatar'
-import { privateAvatarUrl } from '@/lib/avatar-url'
-import { useMobileNav } from './app-shell'
+import { ADMINISTRACAO, areaDoCaminho, ehDaArea, type Area, type Contador, type Grupo } from '@/lib/navegacao'
+import { useShell } from './app-shell'
 
-const sections = [
-  {
-    label: 'Trabalho',
-    items: [
-      // Antes de Pautas porque é de onde elas podem nascer: o Cérebro lê as
-      // contas oficiais e chega com o dever de casa feito. Ele não publica.
-      { href: '/cerebro', label: 'Cérebro', icon: Brain },
-      { href: '/pautas', label: 'Pautas', icon: ListChecks },
-      { href: '/projetos', label: 'Projetos', icon: FolderKanban },
-      { href: '/redes', label: 'Publicações', icon: Share2 },
-      // Logo depois de Publicações porque é de lá que a edição sai: a
-      // newsletter é um destino do pacote, não uma ferramenta à parte.
-      { href: '/newsletter', label: 'Central de e-mail', icon: Mail },
-      // Relações públicas: contatos de imprensa, encontrados e verificados
-      // pela Hunter.io — mesma vizinhança da newsletter, outro público.
-      { href: '/imprensa', label: 'Imprensa', icon: Newspaper },
-      // O e-mail do dia a dia de cada setor: pelo alias e com a assinatura dele.
-      { href: '/correio', label: 'Correio', icon: AtSign },
-      // Documento oficial: numerado, assinado e carimbado no Bitcoin.
-      { href: '/oficios', label: 'Ofícios', icon: FileSignature },
-      { href: '/calendario', label: 'Calendário', icon: CalendarDays },
-      { href: '/biblioteca', label: 'Biblioteca', icon: Images },
-    ],
-  },
-  {
-    label: 'Operação',
-    items: [
-      // Pedidos entre setores (TI, Manutenção…): todo mundo abre, a equipe atende.
-      { href: '/chamados', label: 'Chamados', icon: LifeBuoy },
-      { href: '/aprovacoes', label: 'Aprovações', icon: CheckSquare },
-      { href: '/caixa-de-entrada', label: 'Caixa de entrada', icon: Inbox },
-    ],
-  },
-  {
-    label: 'Análise',
-    items: [
-      { href: '/impacto', label: 'Impacto', icon: TrendingUp },
-      { href: '/registro', label: 'Registro', icon: History },
-    ],
-  },
-  {
-    label: 'Equipe',
-    items: [
-      { href: '/mensagens', label: 'Mensagens', icon: MessageCircle },
-      { href: '/pessoas', label: 'Pessoas', icon: Users },
-      // Funcionários, coordenadores, administrativo e diretoria: contrato, documentos e remuneração.
-      { href: '/equipe', label: 'Gestão da equipe', icon: IdCard },
-      // Voluntários, juventude e instrutores voluntários; a equipe contratada fica em Gestão da equipe.
-      { href: '/voluntariado', label: 'Voluntariado', icon: HeartHandshake },
-    ],
-  },
-]
+/** Os grupos que a pessoa fechou. Cookie, para o servidor desenhar igual. */
+export const COOKIE_DOS_GRUPOS = 'sidebar_grupos_fechados'
 
-const admin = [
-  // Só aparece para quem pode gerenciar; a página confere de novo no servidor.
-  { href: '/usuarios', label: 'Usuários e permissões', icon: KeyRound, restrito: true },
-  { href: '/configuracoes', label: 'Configurações', icon: Settings },
-  { href: '/perfil', label: 'Perfil', icon: UserCircle },
-]
+type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
+export type Contadores = Partial<Record<Contador, number>>
 
-function NavItem({ href, label, icon: Icon, active }: { href: string; label: string; icon: typeof LayoutDashboard; active: boolean }) {
+/** O emblema sozinho, para a sidebar recolhida. Mesmas proporções do logo. */
+function Emblema({ className }: { className?: string }) {
   return (
-    <Link
-      href={href}
-      className={cn(
-        'group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors md:min-h-0 md:py-2',
-        active
-          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-          : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
-      )}
-    >
-      <Icon className={cn('size-[18px] shrink-0', active && 'text-primary')} strokeWidth={2} />
-      <span className="flex-1 truncate">{label}</span>
+    <svg viewBox="0 0 30 30" className={className} aria-hidden="true">
+      <path d="M10 0h10v10h10v10H20v10H10V20H0V10h10z" fill="rgb(227 34 25)" />
+    </svg>
+  )
+}
+
+function Marca({ recolhida }: { recolhida: boolean }) {
+  if (recolhida) {
+    return (
+      <Link href="/dashboard" aria-label="Início — Redação Cruz Vermelha Brasileira Rio de Janeiro" className="flex size-9 items-center justify-center rounded-lg hover:bg-black/[0.04]">
+        <Emblema className="size-5" />
+      </Link>
+    )
+  }
+  return (
+    <Link href="/dashboard" className="block min-w-0 rounded-lg px-1 py-1" aria-label="Início — Redação Cruz Vermelha Brasileira Rio de Janeiro">
+      {/* O PNG tem fundo branco; o multiply deixa o branco com a cor da sidebar. */}
+      <Image src="/images/logo-cvrj.png" alt="" width={1844} height={752} priority sizes="150px" className="h-auto w-[150px] mix-blend-multiply" />
+      <span className="mt-1 block pl-[3px] text-[10.5px] font-semibold tracking-[0.02em] text-muted-foreground">Redação · Central de Comunicação</span>
     </Link>
   )
 }
 
-type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
+function Numero({ n }: { n?: number }) {
+  if (!n) return null
+  return <span className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground">{n > 99 ? '99+' : n}</span>
+}
 
-function SidebarContent({ profile, buildInfo, onNavigate, gerenciaUsuarios }: { profile: any; buildInfo?: BuildInfo; onNavigate?: () => void; gerenciaUsuarios?: boolean }) {
-  const pathname = usePathname()
-  const displayName = profile?.full_name || profile?.username || 'Usuário'
-  const initials = profile?.initials || displayName.split(' ').map((part: string) => part[0]).join('').slice(0, 2).toUpperCase()
-  const isActive = (href: string) => href === '/dashboard' ? pathname === href : pathname.startsWith(href)
-  const showBuildInfo = buildInfo && profile?.username === 'matheus.macedo'
-
-  return (
+function ItemDoMenu({ area, ativo, recolhida, contadores }: { area: Area; ativo: boolean; recolhida: boolean; contadores: Contadores }) {
+  const Icone = area.icone
+  const n = area.contador ? contadores[area.contador] : undefined
+  const classe = cn(
+    'group relative flex items-center rounded-lg text-[13.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50',
+    recolhida ? 'size-9 justify-center' : 'min-h-11 gap-2.5 px-2.5 md:min-h-8',
+    ativo
+      ? 'bg-sidebar-accent text-foreground shadow-xs ring-1 ring-black/[0.06]'
+      : 'text-sidebar-foreground/85 hover:bg-black/[0.045] hover:text-foreground',
+  )
+  const conteudo = (
     <>
-      <nav className="flex flex-1 flex-col overflow-y-auto px-3 py-4" onClick={onNavigate}>
-        <NavItem href="/dashboard" label="Visão geral" icon={LayoutDashboard} active={isActive('/dashboard')} />
-
-        {sections.map((section) => (
-          <div key={section.label} className="mt-5 first:mt-0">
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{section.label}</p>
-            <div className="flex flex-col gap-1">
-              {section.items.map((item) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
-            </div>
-          </div>
-        ))}
-
-        <div className="mt-5">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Administração</p>
-          <div className="flex flex-col gap-1">
-            {admin.filter((item) => !item.restrito || gerenciaUsuarios).map(({ restrito: _, ...item }) => <NavItem key={item.href} {...item} active={isActive(item.href)} />)}
-          </div>
-        </div>
-      </nav>
-
-      <div className="border-t border-sidebar-border p-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <Avatar initials={initials} color={profile?.color} src={privateAvatarUrl(profile?.avatar_path)} alt={displayName} size="sm" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-sidebar-foreground">{displayName}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>
-          </div>
-        </div>
-        {showBuildInfo && (
-          <div className="mt-2 rounded-lg bg-sidebar-accent/40 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
-            <p>Build {buildInfo!.sha || 'local'}{buildInfo!.message ? ` — ${buildInfo!.message}` : ''}</p>
-            <p>Visto em {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(buildInfo!.renderedAt))}</p>
-          </div>
-        )}
-      </div>
+      <Icone className={cn('size-[17px] shrink-0', ativo ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} strokeWidth={2} aria-hidden="true" />
+      {recolhida
+        ? n ? <span className="absolute right-1 top-1 size-2 rounded-full bg-primary ring-2 ring-sidebar" aria-hidden="true" /> : null
+        : <><span className="min-w-0 flex-1 truncate">{area.rotulo}</span><Numero n={n} /></>}
     </>
+  )
+  const rotuloAcessivel = n ? `${area.rotulo}, ${n} pendente${n === 1 ? '' : 's'}` : undefined
+
+  if (!recolhida) {
+    return <Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel} className={classe}>{conteudo}</Link>
+  }
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger delay={150} render={<Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel ?? area.rotulo} className={classe} />}>
+        {conteudo}
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Positioner side="right" sideOffset={10}>
+          <Tooltip.Popup className="rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0">
+            {area.rotulo}{n ? ` · ${n}` : ''}
+          </Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   )
 }
 
-export function Sidebar({ profile, buildInfo, gerenciaUsuarios }: { profile: any; buildInfo?: BuildInfo; gerenciaUsuarios?: boolean }) {
-  const { open, close } = useMobileNav()
+function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate, rotulo = 'Áreas', className }: {
+  grupos: Grupo[]
+  recolhida: boolean
+  contadores: Contadores
+  fechadosIniciais: string[]
+  onNavigate?: () => void
+  rotulo?: string
+  className?: string
+}) {
+  const pathname = usePathname()
+  const [fechados, setFechados] = useState<string[]>(fechadosIniciais)
+  // A mesma regra das migalhas: prefixo mais longo, e /registrar ou /conteudos acendem Pautas.
+  const ativo = areaDoCaminho(pathname, grupos)?.area.href
+
+  function alternar(id: string) {
+    setFechados((atual) => {
+      const novo = atual.includes(id) ? atual.filter((g) => g !== id) : [...atual, id]
+      document.cookie = `${COOKIE_DOS_GRUPOS}=${encodeURIComponent(novo.join(','))}; path=/; max-age=31536000; samesite=lax`
+      return novo
+    })
+  }
 
   return (
-    <>
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar md:flex" aria-label="Navegação principal">
-        <div className="border-b border-sidebar-border bg-white px-5 py-5">
-          <BrandMark className="w-full" compact />
+    <nav className={cn('flex flex-col', recolhida ? 'items-center gap-1' : '', className)} aria-label={rotulo} onClick={onNavigate}>
+      {grupos.map((grupo, i) => {
+        // O grupo da tela aberta nunca fica fechado: senão a pessoa perde onde está.
+        const temAtivo = grupo.areas.some((a) => a.href === ativo)
+        const aberto = recolhida || !grupo.rotulo || temAtivo || !fechados.includes(grupo.id)
+        return (
+          <div key={grupo.id} className={cn(recolhida ? 'flex flex-col items-center gap-1' : i > 0 && 'mt-4')}>
+            {recolhida
+              ? i > 0 && <span className="my-1.5 h-px w-6 bg-sidebar-border" aria-hidden="true" />
+              : grupo.rotulo && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); if (!temAtivo) alternar(grupo.id) }}
+                  aria-expanded={aberto}
+                  className="group/grupo mb-1 flex w-full items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                >
+                  {grupo.rotulo}
+                  <ChevronDown className={cn('size-3 opacity-0 transition-[transform,opacity] group-hover/grupo:opacity-100 group-focus-visible/grupo:opacity-100', !aberto && '-rotate-90 opacity-100')} aria-hidden="true" />
+                </button>
+              )}
+            {aberto && (
+              <div className={cn('flex flex-col', recolhida ? 'items-center gap-1' : 'gap-0.5')}>
+                {grupo.areas.map((area) => <ItemDoMenu key={area.href} area={area} ativo={area.href === ativo} recolhida={recolhida} contadores={contadores} />)}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </nav>
+  )
+}
+
+function BotaoDeBusca({ recolhida }: { recolhida: boolean }) {
+  const { setBuscaAberta } = useShell()
+  if (recolhida) {
+    return (
+      <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" title="Buscar (⌘K)" className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-black/[0.045] hover:text-foreground">
+        <Search className="size-[17px]" />
+      </button>
+    )
+  }
+  return (
+    <button type="button" onClick={() => setBuscaAberta(true)} className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/70 px-2.5 text-sm text-muted-foreground shadow-xs transition-colors hover:border-border hover:bg-background hover:text-foreground">
+      <Search className="size-4 shrink-0" aria-hidden="true" />
+      <span className="flex-1 text-left">Buscar…</span>
+      <kbd className="rounded border border-border bg-muted px-1.5 font-sans text-[10.5px] font-medium">⌘K</kbd>
+    </button>
+  )
+}
+
+export function Sidebar({ contadores, fechadosIniciais, profile, buildInfo }: {
+  contadores: Contadores
+  fechadosIniciais: string[]
+  profile: { username?: string | null } | null
+  buildInfo?: BuildInfo
+}) {
+  const { grupos, open, close, recolhida, alternarRecolhida } = useShell()
+  const pathname = usePathname()
+  // A administração sai do meio do trabalho: no pé fica só Configurações; Usuários
+  // e permissões e Meu perfil estão no menu da conta (topo) e na busca. No
+  // celular, a gaveta tem espaço e mostra o grupo inteiro.
+  const trabalho = grupos.filter((g) => g.id !== ADMINISTRACAO.id)
+  const admin = grupos.find((g) => g.id === ADMINISTRACAO.id)
+  const configuracoes = admin?.areas.find((a) => a.href === '/configuracoes')
+  const doCelular = [...trabalho, ...(admin ? [admin] : [])]
+  const mostrarBuild = buildInfo && profile?.username === 'matheus.macedo'
+
+  return (
+    <Tooltip.Provider>
+      <aside
+        className={cn('hidden shrink-0 flex-col transition-[width] duration-200 ease-out md:flex', recolhida ? 'w-[60px]' : 'w-[248px]')}
+        aria-label="Navegação principal"
+      >
+        <div className={cn('flex shrink-0 flex-col gap-3 pb-3 pt-4', recolhida ? 'items-center px-2' : 'px-3')}>
+          <Marca recolhida={recolhida} />
+          <BotaoDeBusca recolhida={recolhida} />
         </div>
-        <SidebarContent profile={profile} buildInfo={buildInfo} gerenciaUsuarios={gerenciaUsuarios} />
+        <Navegacao grupos={trabalho} recolhida={recolhida} contadores={contadores} fechadosIniciais={fechadosIniciais} className={cn('flex-1 overflow-y-auto overscroll-contain pb-3', recolhida ? 'px-2' : 'px-3')} />
+        <div className={cn('shrink-0 border-t border-sidebar-border py-2', recolhida ? 'flex flex-col items-center gap-1 px-2' : 'px-3')}>
+          <div className={cn('flex gap-1', recolhida ? 'flex-col items-center' : 'items-center')}>
+            {configuracoes && (
+              <div className={cn(!recolhida && 'min-w-0 flex-1')}>
+                <ItemDoMenu area={configuracoes} ativo={ehDaArea(pathname, configuracoes.href)} recolhida={recolhida} contadores={contadores} />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={alternarRecolhida}
+              aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
+              title={recolhida ? 'Expandir menu' : 'Recolher menu'}
+              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-black/[0.045] hover:text-foreground"
+            >
+              {recolhida ? <PanelLeftOpen className="size-[17px]" /> : <PanelLeftClose className="size-[17px]" />}
+            </button>
+          </div>
+          {mostrarBuild && !recolhida && (
+            <div className="mt-2 rounded-lg bg-black/[0.03] px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
+              <p>Build {buildInfo!.sha || 'local'}{buildInfo!.message ? ` — ${buildInfo!.message}` : ''}</p>
+              <p>Visto em {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(buildInfo!.renderedAt))}</p>
+            </div>
+          )}
+        </div>
       </aside>
 
       {open && (
         <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           <button type="button" className="absolute inset-0 bg-foreground/45 backdrop-blur-[2px]" aria-label="Fechar menu" onClick={close} />
-          <aside className="relative flex h-full w-80 max-w-[88vw] flex-col bg-sidebar shadow-2xl [padding-top:env(safe-area-inset-top)]">
-            <div className="flex items-start justify-between border-b border-sidebar-border bg-white px-5 py-4">
-              <BrandMark className="w-full" compact />
-              <button type="button" onClick={close} aria-label="Fechar menu" className="ml-2 flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent">
+          <aside className="relative flex h-full w-80 max-w-[88vw] flex-col bg-sidebar shadow-2xl [padding-bottom:env(safe-area-inset-bottom)] [padding-top:env(safe-area-inset-top)]">
+            <div className="flex items-start justify-between gap-2 px-3 pb-3 pt-4">
+              <Marca recolhida={false} />
+              <button type="button" onClick={close} aria-label="Fechar menu" className="flex size-11 shrink-0 items-center justify-center rounded-lg text-sidebar-foreground/70 hover:bg-black/[0.045]">
                 <X className="size-5" />
               </button>
             </div>
-            <SidebarContent profile={profile} buildInfo={buildInfo} gerenciaUsuarios={gerenciaUsuarios} onNavigate={close} />
+            <Navegacao grupos={doCelular} recolhida={false} contadores={contadores} fechadosIniciais={fechadosIniciais} onNavigate={close} className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4" />
           </aside>
         </div>
       )}
-    </>
+    </Tooltip.Provider>
   )
 }

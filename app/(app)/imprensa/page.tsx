@@ -7,6 +7,9 @@ import { emailConfigurado } from '@/lib/newsletter/resend'
 import { PainelDeImprensa } from '@/components/app/imprensa/painel'
 import type { CampanhaNaTela } from '@/components/app/imprensa/campanhas'
 import type { ContatoDeImprensa } from '@/app/actions/imprensa'
+import { tituloDaArea } from '@/lib/navegacao'
+
+export const metadata = { title: tituloDaArea('/imprensa') }
 
 export const dynamic = 'force-dynamic'
 // O disparo de campanha roda como server action desta página: até 1000
@@ -108,7 +111,7 @@ export default async function ImprensaPage() {
   return (
     <div>
       <PageHeader
-        title="Imprensa"
+        title="Imprensa e contatos"
         description="Banco de contatos — imprensa e todo contato relevante. Encontre e verifique pela Hunter.io, dispare campanhas e acompanhe quem lê."
       />
       <PainelDeImprensa
