@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { zipSync, strToU8 } from 'fflate'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
+import { documentoFormatado as documentoCompleto } from '@/lib/patrimonio/doacoes'
 import { csv, nomeDeArquivo } from '@/lib/financeiro/fechamento'
 import { FORMAS, SITUACOES, TIPOS, TIPOS_DE_ANEXO, documentoLegivel, nomeDoMes, situacao, ultimoDia } from '@/lib/financeiro/regras'
 
@@ -87,6 +88,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
       r.estoque.linhas.map((l) => [l.codigo, l.nome, l.categoria, l.conta_contabil, l.unidade, qtd(l.qtd_inicio), l.valor_inicio, l.compras, l.doacoes, l.outras_entradas,
         l.consumo, l.perdas, l.ajustes, l.kits, qtd(l.qtd_fim), l.valor_fim])))
   }
+  // Doações em espécie do mês, recibo a recibo, com o doador (receita pelo valor de mercado — ITG 2002).
+  const { data: doacoes, error: semDoacoes } = await d.supabase.rpc('financeiro_doacoes_do_periodo', { p_workspace_id: ws, p_inicio: inicio, p_fim: fim })
+  if (!semDoacoes && Array.isArray(doacoes) && doacoes.length) {
+    arquivos['9-doacoes-recebidas.csv'] = strToU8(csv(['Recibo', 'Data', 'Doador', 'CPF/CNPJ', 'Campanha', 'Vai para', 'Item', 'Quantidade', 'Unidade', 'Valor unitário (mercado)', 'Valor total'],
+      (doacoes as Record<string, unknown>[]).map((x) => [x.codigo as string, x.data as string, x.doador as string, documentoCompleto(x.documento as string | null), x.campanha as string | null,
+        x.tipo === 'bem' ? 'Patrimônio' : 'Estoque', x.descricao as string, Number(x.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 3, useGrouping: false }), x.unidade as string,
+        Number(x.valor_unitario), Number(x.valor_total)])))
+  }
   const aviso = d.itens.filter((i) => !i.ok)
   const fechamento = d.fechamentos.find((f) => f.mes === inicio && f.situacao === 'fechado')
   arquivos['LEIAME.txt'] = strToU8([
@@ -102,6 +111,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     '  6-extrato: as linhas do banco no mês e o que foi feito com cada uma.',
     '  7-patrimonio: os bens com valor, a depreciação do mês e a acumulada, e o valor contábil (se houver bens cadastrados).',
     '  8-estoque: cada material com saldo inicial, compras, doações, consumo, perdas e saldo final, pelo custo médio (se houver materiais).',
+    '  9-doacoes-recebidas: cada item doado no mês (recibo DOA-…), com o doador e o valor de mercado — base da receita de doação em espécie.',
     '  comprovantes/: os arquivos anexados aos lançamentos (nome: data_descrição_tipo).',
     '',
     aviso.length ? 'Avisos na conferência:' : 'Conferência sem avisos.',

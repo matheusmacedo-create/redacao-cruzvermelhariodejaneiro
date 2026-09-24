@@ -31,6 +31,8 @@ type Opcao = { id: string; nome: string }
 export type ItemParaMovimento = { id: string; codigo: string; nome: string; unidade: string; controla_validade: boolean; eh_kit: boolean }
 const dataBr = (d: string | null) => (d ? d.split('-').reverse().join('/') : 'sem validade')
 const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+/** Campo estreito numa linha com outros (o inputClass ocupa a largura toda). */
+const campoCurto = inputClass.replace('w-full', 'w-24 shrink-0')
 
 // ---------------------------------------------------------------- cadastro do item
 
@@ -83,10 +85,10 @@ export function FormularioDoItem({ categorias, itens, i, componentes: iniciais, 
                 const it = candidatos.find((x) => x.id === c.item_id)
                 return (
                   <li key={k} className="flex items-center gap-2">
-                    <select aria-label="Componente" value={c.item_id} onChange={(e) => setComp(comp.map((x, j) => (j === k ? { ...x, item_id: e.target.value } : x)))} className={`${inputClass} flex-1`}>
+                    <select aria-label="Componente" value={c.item_id} onChange={(e) => setComp(comp.map((x, j) => (j === k ? { ...x, item_id: e.target.value } : x)))} className={`${inputClass.replace('w-full', 'min-w-0')} flex-1`}>
                       <option value="">Escolha o material…</option>{candidatos.map((x) => <option key={x.id} value={x.id}>{x.codigo} · {x.nome}</option>)}
                     </select>
-                    <input aria-label="Quantidade por kit" inputMode="decimal" value={c.quantidade} onChange={(e) => setComp(comp.map((x, j) => (j === k ? { ...x, quantidade: e.target.value } : x)))} className={`${inputClass} w-24`} />
+                    <input aria-label="Quantidade por kit" inputMode="decimal" value={c.quantidade} onChange={(e) => setComp(comp.map((x, j) => (j === k ? { ...x, quantidade: e.target.value } : x)))} className={campoCurto} />
                     <span className="w-14 text-xs text-muted-foreground">{it ? UNIDADES[it.unidade as keyof typeof UNIDADES] ?? it.unidade : ''}</span>
                     <button type="button" aria-label="Tirar" onClick={() => setComp(comp.filter((_, j) => j !== k))} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"><Trash2 className="size-4" /></button>
                   </li>
