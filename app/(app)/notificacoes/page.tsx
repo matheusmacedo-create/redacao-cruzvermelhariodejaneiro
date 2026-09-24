@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic'
 const POR_PAGINA = 30
 
 export default async function NotificacoesPage({ searchParams }: { searchParams: Promise<{ pagina?: string; filtro?: string }> }) {
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const sp = await searchParams
   const soNaoLidas = sp.filtro === 'nao-lidas'
   const pagina = Math.max(1, Math.min(1000, Number.parseInt(sp.pagina ?? '1', 10) || 1))

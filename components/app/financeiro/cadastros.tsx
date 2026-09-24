@@ -246,18 +246,39 @@ export function Regras({ config, pode }: { config: Cadastros['config']; pode: bo
   )
 }
 
-export function NivelDeAcesso({ userId, nivel }: { userId: string; nivel: NomeDoNivel | null }) {
+/**
+ * Nível e alcance de uma pessoa no Financeiro: todas as empresas ou só uma
+ * (ex.: só os livros da Escola). A equipe da escola só pode ter a Escola.
+ */
+export function NivelDeAcesso({ userId, nivel, empresaId, empresas, soEscola = false }: {
+  userId: string; nivel: NomeDoNivel | null; empresaId: string | null
+  empresas: { id: string; nome: string; tipo: string }[]; soEscola?: boolean
+}) {
   const router = useRouter()
   const [erro, setErro] = useState('')
   const [ocupado, iniciar] = useTransition()
+  const escola = empresas.find((e) => e.tipo === 'escola')
+  const alcance = soEscola ? escola?.id ?? '' : empresaId ?? ''
+  const mudar = (n: NomeDoNivel | null, e: string) => iniciar(async () => {
+    setErro('')
+    const r = await definirAcessoDoFinanceiro(userId, n, soEscola ? escola?.id ?? null : e || null)
+    if (r.erro) setErro(r.erro); else router.refresh()
+  })
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex flex-wrap items-center justify-end gap-2" data-acesso={userId}>
       {ocupado && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
       <select value={nivel ?? ''} disabled={ocupado} aria-label="Nível no Financeiro" className={`${inputClass} !w-auto py-1`}
-        onChange={(e) => iniciar(async () => { setErro(''); const r = await definirAcessoDoFinanceiro(userId, (e.target.value || null) as NomeDoNivel | null); if (r.erro) setErro(r.erro); else router.refresh() })}>
+        onChange={(e) => mudar((e.target.value || null) as NomeDoNivel | null, alcance)}>
         <option value="">Sem acesso</option>{Object.entries(NIVEIS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
       </select>
-      {erro && <span className="text-xs text-destructive">{erro}</span>}
+      {nivel && empresas.length > 1 && (
+        <select value={alcance} disabled={ocupado || soEscola} aria-label="De qual empresa" className={`${inputClass} !w-auto py-1`}
+          onChange={(e) => mudar(nivel, e.target.value)}>
+          {!soEscola && <option value="">Todas as empresas</option>}
+          {empresas.filter((e) => !soEscola || e.tipo === 'escola').map((e) => <option key={e.id} value={e.id}>Só {e.nome}</option>)}
+        </select>
+      )}
+      {erro && <span className="w-full text-right text-xs text-destructive">{erro}</span>}
     </span>
   )
 }

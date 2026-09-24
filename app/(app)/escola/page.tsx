@@ -35,7 +35,8 @@ function Numero({ rotulo, valor, detalhe }: { rotulo: string; valor: string; det
  * advertoriais e o que pede atenção —, cada bloco levando à sua área. Aluno,
  * turma e secretaria continuam no sistema da escola; daqui só o atalho.
  */
-export default async function EscolaPage() {
+export default async function EscolaPage({ searchParams }: { searchParams: Promise<{ livros?: string }> }) {
+  const semLivros = (await searchParams).livros === 'sem-acesso'
   const { context, supabase, nivel: nivelMkt, nivelEscola } = await contextoDoMarketing()
   if (nivelMkt < 2 && nivelEscola < 2) notFound()
   const ws = context.workspace.id
@@ -100,6 +101,11 @@ export default async function EscolaPage() {
         title="Escola de Educação e Saúde"
         description="Uma empresa da Cruz Vermelha RJ, com receita e gestão próprias. A administração dela mora aqui: vendas, marketing e advertoriais. Alunos, turmas e secretaria ficam no sistema da escola."
       />
+      {semLivros && (
+        <p className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground" role="status" id="sem-livros">
+          Os livros da Escola no Financeiro ainda não foram liberados para você. Peça a um administrador: Financeiro → Cadastros → Quem acessa.
+        </p>
+      )}
 
       {atencao.length > 0 && (
         <Card className="border-warning/60 p-4 text-sm" id="pede-atencao">

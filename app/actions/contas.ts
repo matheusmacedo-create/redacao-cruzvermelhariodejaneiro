@@ -131,7 +131,7 @@ export async function definirSenhaPeloLink(formData: FormData): Promise<Resultad
  */
 export async function pedirTrocaDeEmail(formData: FormData): Promise<Resultado> {
   try {
-    const context = await requireWorkspace()
+    const context = await requireWorkspace({ escola: true })
     const email = emailValido(texto(formData, 'email'))
     if (!email) throw new Error('Informe um e-mail válido.')
     if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Fale com um administrador.')

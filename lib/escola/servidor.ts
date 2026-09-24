@@ -14,21 +14,24 @@ export const servicoDaConta = (contaId: string) => `unicopag:${contaId}`
 
 /**
  * O nível de quem está logado na Escola — a mesma regra de
- * private.nivel_escola: admin 3 (cadastra as contas e as chaves); quem tem
- * acesso ao Financeiro e quem é do setor Educação e Saúde, 2 (vê e atualiza).
+ * private.nivel_escola: admin 3 (cadastra as contas e as chaves); a equipe
+ * da escola, quem tem acesso aos livros da Escola no Financeiro e quem é do
+ * setor Educação e Saúde, 2 (vê e atualiza).
  */
 export async function contextoDaEscola() {
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   let nivel = 0
   if (context.role === 'admin') nivel = 3
+  else if (context.role === 'escola') nivel = 2
   else {
     const ws = context.workspace.id
     const coordenacao = (context.memberships as { coordination?: string | null }[]).map((m) => m.coordination).find(Boolean) ?? ''
     if (chaveDoNome(coordenacao) === 'educacao e saude') nivel = 2
     else {
+      // A empresa Escola só aparece (RLS) para quem tem acesso aos livros dela — ou aos de todas as empresas.
       const [{ data: fin }, { data: setores }] = await Promise.all([
-        supabase.from('fin_acesso').select('nivel').eq('workspace_id', ws).eq('user_id', context.user.id).maybeSingle(),
+        supabase.from('fin_entidades').select('id').eq('workspace_id', ws).eq('tipo', 'escola').maybeSingle(),
         supabase.from('setor_membros').select('setores(nome)').eq('workspace_id', ws).eq('user_id', context.user.id),
       ])
       const nomes = (setores ?? []).map((s) => (Array.isArray(s.setores) ? s.setores[0] : s.setores) as { nome?: string } | null).map((s) => chaveDoNome(s?.nome ?? ''))

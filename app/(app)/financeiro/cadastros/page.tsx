@@ -24,13 +24,15 @@ type Aba = (typeof ABAS)[number]['id']
 
 export default async function CadastrosDoFinanceiro({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   const sp = await searchParams
-  const { context, supabase, nivel } = await contextoDoFinanceiro()
+  const { context, supabase, nivel, nivelGeral } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
   const ehAdmin = context.role === 'admin'
   const visiveis = ABAS.filter((a) => a.id !== 'acessos' || ehAdmin)
   const aba: Aba = visiveis.some((a) => a.id === sp.aba) ? sp.aba as Aba : 'contas'
   const c = await cadastrosDoFinanceiro()
   const gestao = nivel >= 4
+  // Categorias e regras valem para todas as empresas: só a gestão de todas muda.
+  const gestaoGeral = nivelGeral >= 4
 
   let saldosHoje: Record<string, number> = {}
   if (aba === 'contas') {
@@ -49,27 +51,27 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>
-      {!gestao && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
+      {(aba === 'categorias' || aba === 'regras' ? !gestaoGeral : !gestao) && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
       <Card className="p-5">
         {aba === 'empresa' && c.empresa && <DadosDaEmpresa empresa={c.empresa} pode={gestao} />}
         {aba === 'contas' && <Contas c={c} saldos={saldosHoje} pode={gestao} />}
         {aba === 'fontes' && <Fontes c={c} pode={gestao} />}
-        {aba === 'categorias' && <Categorias c={c} pode={gestao} />}
+        {aba === 'categorias' && <Categorias c={c} pode={gestaoGeral} />}
         {aba === 'favorecidos' && <Favorecidos c={c} pode={nivel >= 2} />}
-        {aba === 'regras' && <Regras config={c.config} pode={gestao} />}
-        {aba === 'acessos' && ehAdmin && <Acessos workspaceId={context.workspace.id} />}
+        {aba === 'regras' && <Regras config={c.config} pode={gestaoGeral} />}
+        {aba === 'acessos' && ehAdmin && <Acessos workspaceId={context.workspace.id} empresas={c.empresas} />}
       </Card>
     </div>
   )
 }
 
-async function Acessos({ workspaceId }: { workspaceId: string }) {
+async function Acessos({ workspaceId, empresas }: { workspaceId: string; empresas: { id: string; nome: string; tipo: string }[] }) {
   const { supabase } = await contextoDoFinanceiro()
   const [{ data: membros }, { data: acessos }] = await Promise.all([
     supabase.from('workspace_members').select('user_id,role,profiles(full_name,active)').eq('workspace_id', workspaceId),
-    supabase.from('fin_acesso').select('user_id,nivel').eq('workspace_id', workspaceId),
+    supabase.from('fin_acesso').select('user_id,nivel,entidade_id').eq('workspace_id', workspaceId),
   ])
-  const nivelDe = new Map((acessos ?? []).map((a) => [a.user_id as string, a.nivel as NomeDoNivel]))
+  const acessoDe = new Map((acessos ?? []).map((a) => [a.user_id as string, { nivel: a.nivel as NomeDoNivel, empresa: (a.entidade_id as string | null) ?? null }]))
   const perfil = (m: { profiles: unknown }) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; active?: boolean } | null
   const pessoas = (membros ?? []).filter((m) => perfil(m)?.active !== false)
     .sort((a, b) => (perfil(a)?.full_name ?? '').localeCompare(perfil(b)?.full_name ?? '', 'pt-BR'))
@@ -81,8 +83,9 @@ async function Acessos({ workspaceId }: { workspaceId: string }) {
       <ul className="divide-y divide-border rounded-lg border border-border">
         {pessoas.map((m) => (
           <li key={m.user_id as string} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-            <span>{perfil(m)?.full_name ?? 'Alguém'}</span>
-            {m.role === 'admin' ? <span className="text-xs text-muted-foreground">Administrador: acesso total</span> : <NivelDeAcesso userId={m.user_id as string} nivel={nivelDe.get(m.user_id as string) ?? null} />}
+            <span>{perfil(m)?.full_name ?? 'Alguém'}{m.role === 'escola' && <span className="ml-1.5 text-xs text-muted-foreground">(equipe da escola)</span>}</span>
+            {m.role === 'admin' ? <span className="text-xs text-muted-foreground">Administrador: acesso total</span>
+              : <NivelDeAcesso userId={m.user_id as string} nivel={acessoDe.get(m.user_id as string)?.nivel ?? null} empresaId={acessoDe.get(m.user_id as string)?.empresa ?? null} empresas={empresas} soEscola={m.role === 'escola'} />}
           </li>
         ))}
       </ul>

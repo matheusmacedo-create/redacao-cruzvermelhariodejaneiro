@@ -33,7 +33,7 @@ async function fatoresVerificados(admin: ReturnType<typeof createAdminClient>, u
 export async function registrarMudancaNaVerificacao(acao: 'ativada' | 'removida'): Promise<Resultado> {
   try {
     if (acao !== 'ativada' && acao !== 'removida') throw new Error('Ação desconhecida.')
-    const context = await obterWorkspace()
+    const context = await obterWorkspace({ escola: true })
     if (!context) throw new Error('Sessão expirada. Entre de novo.')
     const admin = createAdminClient()
     const fatores = await fatoresVerificados(admin, context.user.id)

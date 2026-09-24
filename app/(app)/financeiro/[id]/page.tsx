@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Anexos, Decisao, DesfazerPagamento, Excluir, Pagar, type Anexo } from '@/components/app/financeiro/acoes'
-import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
+import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha, nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { COLUNAS_DO_LANCAMENTO, FORMAS, SITUACOES, TIPOS, dataCurta, documentoLegivel, ehAutomatico, nomeDoMes, reais, situacao, type Lancamento } from '@/lib/financeiro/regras'
 
 export const metadata = { title: 'Lançamento' }
@@ -24,11 +24,14 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 export default async function LancamentoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
-  const { context, supabase, nivel } = await contextoDoFinanceiro()
-  if (nivel < 1) notFound()
+  const ctx = await contextoDoFinanceiro()
+  const { context, supabase } = ctx
   const { data } = await supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!data) notFound()
   const l = lerLinha(data) as Lancamento
+  // O nível que vale é o da empresa do lançamento (pode não ser a aberta no seletor).
+  const nivel = nivelNaEmpresa(ctx, l.entidade_id)
+  if (nivel < 1) notFound()
   const c = await cadastrosDoFinanceiro(l.entidade_id)
   const hoje = hojeEmSaoPaulo()
 

@@ -21,7 +21,7 @@ const inputClass = 'h-10 w-full rounded-lg border border-border bg-background px
 
 export default async function PerfilPage({ searchParams }: { searchParams: Promise<{ senha?: string }> }) {
   const { senha } = await searchParams
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   const [{ data: profile }, { data: activity }, { data: preferencias }] = await Promise.all([
     supabase.from('profiles').select('full_name,username,job_title,initials,color,avatar_path,email,email_confirmado_em').eq('id', context.user.id).single(),

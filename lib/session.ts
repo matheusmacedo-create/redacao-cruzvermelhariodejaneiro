@@ -2,7 +2,7 @@ import 'server-only'
 import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PERMISSOES, pode, type Papel, type Permissao } from '@/lib/permissoes'
+import { PERMISSOES, ehEquipeDaEscola, pode, type Papel, type Permissao } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 
 export type WorkspaceRole = Papel
@@ -70,13 +70,26 @@ export async function obterWorkspaceSemVerificacao() {
  * Sessão que ainda deve o código do app autenticador também é null: várias
  * rotas usam o service role depois desta checagem, e o RLS não as protegeria.
  */
-export async function obterWorkspace() {
+/**
+ * A equipe da escola (papel "escola") só entra onde a página ou a rota diz
+ * que ela pode — a área da Escola, os livros da Escola no Financeiro e o
+ * próprio perfil —, passando `{ escola: true }`. Em todo o resto o portão
+ * fecha: a página manda para /escola e a rota de API responde como se não
+ * houvesse sessão. É falha fechada de propósito: muitas telas usam o service
+ * role depois desta checagem, e uma tela nova esquecida não pode abrir a
+ * Redação para quem é só da Escola. O banco nega também
+ * (private.is_workspace_member não vale para o papel "escola").
+ */
+type Portao = { escola?: boolean }
+
+export async function obterWorkspace(portao: Portao = {}) {
   const contexto = await obterWorkspaceSemVerificacao()
   if (!contexto || contexto.verificacao !== 'em_dia') return null
+  if (ehEquipeDaEscola(contexto.role) && !portao.escola) return null
   return contexto
 }
 
-export async function requireWorkspace() {
+export async function requireWorkspace(portao: Portao = {}) {
   const contexto = await obterWorkspaceSemVerificacao()
   if (!contexto) redirect('/')
   // Senha definida pelo administrador é provisória: nada no sistema funciona
@@ -85,6 +98,7 @@ export async function requireWorkspace() {
   if (contexto.profile?.trocar_senha) redirect('/trocar-senha')
   // Depois da senha, o código do app — quando cadastrado ou exigido pelo papel.
   if (contexto.verificacao !== 'em_dia') redirect('/verificacao')
+  if (ehEquipeDaEscola(contexto.role) && !portao.escola) redirect('/escola')
   return contexto
 }
 

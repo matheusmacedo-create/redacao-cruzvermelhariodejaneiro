@@ -148,7 +148,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
   const caminho = `${ws}/pacotes/${mes}/${randomUUID()}.zip`
   const { error } = await admin.storage.from(BUCKET).upload(caminho, zip, { contentType: 'application/zip' })
   if (error) return new Response('Não foi possível montar o pacote.', { status: 502 })
-  await d.supabase.rpc('financeiro_auditar_pacote', { p_workspace_id: ws, p_mes: inicio, p_arquivos: Object.keys(arquivos).length })
+  const { error: semPermissao } = await d.supabase.rpc('financeiro_auditar_pacote', { p_workspace_id: ws, p_mes: inicio, p_arquivos: Object.keys(arquivos).length, p_entidade_id: d.empresa?.id ?? null })
+  if (semPermissao) return new Response('Só a gestão do Financeiro baixa o pacote do mês.', { status: 403 })
   const { data: assinado } = await admin.storage.from(BUCKET).createSignedUrl(caminho, 60, { download: `financeiro-${d.empresa && !d.empresa.principal ? `${nomeDeArquivo(d.empresa.nome, 30)}-` : ''}${mes}.zip` })
   if (!assinado?.signedUrl) return new Response('Não foi possível gerar o link.', { status: 502 })
   return new Response(null, { status: 302, headers: { Location: assinado.signedUrl, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } })

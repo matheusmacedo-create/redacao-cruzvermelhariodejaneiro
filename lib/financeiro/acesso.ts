@@ -11,29 +11,39 @@ export const COOKIE_DA_EMPRESA = 'fin_empresa'
 export type Empresa = { id: string; nome: string; razao_social: string | null; cnpj: string | null; tipo: 'filial' | 'escola' | 'outra'; principal: boolean; fechado_ate: string | null }
 
 /**
- * O nível de quem está logado no Financeiro: admin tem tudo; os demais, o
- * que um admin concedeu. O banco aplica a mesma regra
- * (private.nivel_financeiro); aqui é para a tela e as actions.
+ * O nível de quem está logado no Financeiro, na empresa aberta: admin tem
+ * tudo; os demais, o que um admin concedeu — para todas as empresas ou só
+ * para uma (a equipe da escola só pode ter os livros da Escola). `nivelGeral`
+ * é o de todas as empresas: categorias, regras, valor da hora e quem acessa.
+ * O banco aplica a mesma regra (private.nivel_fin e private.nivel_financeiro);
+ * aqui é para a tela e as actions.
  */
 export async function contextoDoFinanceiro() {
-  const context = await requireWorkspace()
+  const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
-  let nivel: Nivel = 0
-  if (context.role === 'admin') nivel = 4
-  else {
-    const { data } = await supabase.from('fin_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
-    nivel = nivelDoNome(data?.nivel)
-  }
-  // As empresas do espaço (a filial, principal, e a Escola). Sem acesso ao Financeiro, a lista vem vazia.
+  const ehAdmin = context.role === 'admin'
+  const { data: acesso } = ehAdmin ? { data: null } : await supabase.from('fin_acesso').select('nivel,entidade_id').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
+  const concedido: Nivel = ehAdmin ? 4 : nivelDoNome(acesso?.nivel)
+  // As empresas que esta pessoa enxerga (o RLS filtra pelo acesso). Sem acesso ao Financeiro, a lista vem vazia.
   let { data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem')
-  if (!empresas?.length && nivel >= 1) {
+  if (!empresas?.length && concedido >= 1) {
     await supabase.rpc('financeiro_preparar', { p_workspace_id: context.workspace.id })
     ;({ data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem'))
   }
   const lista = (empresas ?? []) as Empresa[]
   const escolhida = (await cookies()).get(COOKIE_DA_EMPRESA)?.value
   const empresa = lista.find((e) => e.id === escolhida) ?? lista.find((e) => e.principal) ?? lista[0] ?? null
-  return { context, supabase, nivel, empresas: lista, empresa }
+  const soDeUma = !ehAdmin && Boolean(acesso?.entidade_id)
+  const nivel: Nivel = !empresa ? 0 : soDeUma && acesso?.entidade_id !== empresa.id ? 0 : concedido
+  const nivelGeral: Nivel = soDeUma || context.role === 'escola' ? 0 : concedido
+  return { context, supabase, nivel, nivelGeral, empresas: lista, empresa }
+}
+
+/** O nível numa empresa qualquer (a de um lançamento que não é o da empresa aberta). */
+export function nivelNaEmpresa(ctx: { nivel: Nivel; nivelGeral: Nivel; empresa: Empresa | null; empresas: Empresa[] }, empresaId: string | null | undefined): Nivel {
+  if (!empresaId || !ctx.empresas.some((e) => e.id === empresaId)) return 0
+  if (ctx.empresa?.id === empresaId) return ctx.nivel
+  return ctx.nivelGeral
 }
 
 export type Cadastros = {
@@ -51,7 +61,7 @@ export type Cadastros = {
 /**
  * Tudo o que os formulários e as listas precisam para dar nome aos ids, da
  * empresa aberta (ou da pedida — um lançamento abre na empresa dele).
- * Contas, fontes e o mês fechado são da empresa; categorias e favorecidos,
+ * Contas, fontes, favorecidos e o mês fechado são da empresa; categorias,
  * comuns. Prepara o espaço na primeira vez.
  */
 export async function cadastrosDoFinanceiro(empresaId?: string | null): Promise<Cadastros> {
@@ -63,7 +73,7 @@ export async function cadastrosDoFinanceiro(empresaId?: string | null): Promise<
     supabase.from('fin_contas').select('id,nome,tipo,banco,agencia,numero,fonte_id,saldo_inicial,saldo_inicial_em,ativa').eq('workspace_id', ws).eq('entidade_id', ent).order('nome'),
     supabase.from('fin_fontes').select('id,nome,restrita,projeto_id,financiador,descricao,inicio,fim,valor_previsto,ativa').eq('workspace_id', ws).eq('entidade_id', ent).order('restrita').order('nome'),
     supabase.from('fin_categorias').select('id,tipo,nome,grupo,codigo_contabil,fixa,ativa,ordem').eq('workspace_id', ws).order('ordem').order('nome'),
-    supabase.from('fin_favorecidos').select('id,nome,tipo_pessoa,documento,chave_pix,email,telefone,observacao').eq('workspace_id', ws).order('nome').limit(5000),
+    supabase.from('fin_favorecidos').select('id,nome,tipo_pessoa,documento,chave_pix,email,telefone,observacao').eq('workspace_id', ws).eq('entidade_id', ent).order('nome').limit(5000),
     supabase.from('projects').select('id,name').eq('workspace_id', ws).order('name'),
     supabase.from('fin_config').select('aprovacao_ativa,aprovacao_acima,fechado_ate,reserva_minima_meses,valor_hora_voluntario').eq('workspace_id', ws).maybeSingle(),
   ])

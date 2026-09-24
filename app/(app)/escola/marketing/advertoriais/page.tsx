@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { selectClass } from '@/components/app/imprensa/comum'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { CartaoDoAdvertorial, NovoAdvertorial } from '@/components/app/escola/advertoriais'
+import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { COLUNAS_DA_PECA, lerPecaDoBanco, milhar, pct, reais } from '@/lib/escola/marketing'
 import { ORDENS, linhasDosAdvertoriais, ordenar, type Advertorial, type OrdemDosAdvertoriais } from '@/lib/escola/advertoriais'
@@ -32,6 +33,8 @@ function Indicador({ rotulo, valor, detalhe }: { rotulo: string; valor: string; 
  */
 export default async function AdvertoriaisPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const { context, supabase, nivel, nivelEscola } = await contextoDoMarketing()
+  // O texto é escrito no editor da Redação: a equipe da escola acompanha e anota, a Comunicação escreve.
+  const podeEscrever = !ehEquipeDaEscola(context.role)
   if (nivel < 2) notFound()
   const ws = context.workspace.id
   const f = await searchParams
@@ -69,7 +72,7 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
       <SecoesDaEscola atual="/escola/marketing/advertoriais" financeiro={nivelEscola >= 2} />
       <PageHeader title="Advertoriais" breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: 'Advertoriais' }]}
         description="Matérias publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão, matrículas e o que custou."
-        actions={<NovoAdvertorial campanhas={campanhas} destinoSugerido={destinoSugerido} />} />
+        actions={podeEscrever ? <NovoAdvertorial campanhas={campanhas} destinoSugerido={destinoSugerido} /> : undefined} />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-adv">
         <Indicador rotulo="Advertoriais" valor={milhar(todas.length)} detalhe={`${publicados} no site`} />
@@ -92,7 +95,7 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="banco-adv">
-          {linhas.map((l) => <CartaoDoAdvertorial key={l.peca.id} l={l} campanhas={campanhas} />)}
+          {linhas.map((l) => <CartaoDoAdvertorial key={l.peca.id} l={l} campanhas={campanhas} podeEscrever={podeEscrever} />)}
         </div>
       )}
 

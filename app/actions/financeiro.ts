@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { COOKIE_DA_EMPRESA, contextoDoFinanceiro } from '@/lib/financeiro/acesso'
+import { COOKIE_DA_EMPRESA, contextoDoFinanceiro, nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { documentoValido } from '@/lib/patrimonio/doacoes'
 import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
 import { notificar } from '@/lib/notificacoes/servidor'
@@ -36,19 +36,20 @@ function revalidar(id?: string) {
   if (id) revalidatePath(`/financeiro/${id}`)
 }
 
-/** Quem pode aprovar despesas: admins e quem tem nível aprovar ou gestão. */
-async function aprovadores(workspaceId: string): Promise<string[]> {
+/** Quem pode aprovar despesas desta empresa: admins e quem tem nível aprovar ou gestão nela (ou em todas). */
+async function aprovadores(workspaceId: string, empresaId: string | null): Promise<string[]> {
   const admin = createAdminClient()
-  const [{ data: admins }, { data: acessos }] = await Promise.all([
+  const acessos = admin.from('fin_acesso').select('user_id').eq('workspace_id', workspaceId).in('nivel', ['aprovar', 'gestao'])
+  const [{ data: admins }, { data: daEmpresa }] = await Promise.all([
     admin.from('workspace_members').select('user_id').eq('workspace_id', workspaceId).eq('role', 'admin'),
-    admin.from('fin_acesso').select('user_id').eq('workspace_id', workspaceId).in('nivel', ['aprovar', 'gestao']),
+    empresaId ? acessos.or(`entidade_id.is.null,entidade_id.eq.${empresaId}`) : acessos.is('entidade_id', null),
   ])
-  return [...new Set([...(admins ?? []), ...(acessos ?? [])].map((x) => x.user_id as string))]
+  return [...new Set([...(admins ?? []), ...(daEmpresa ?? [])].map((x) => x.user_id as string))]
 }
 
-async function avisarAprovacao(workspaceId: string, atorId: string, id: string, descricao: string, valor: number) {
+async function avisarAprovacao(workspaceId: string, empresaId: string | null, atorId: string, id: string, descricao: string, valor: number) {
   await notificar(createAdminClient(), {
-    workspaceId, para: await aprovadores(workspaceId), atorId, categoria: 'aprovacoes',
+    workspaceId, para: await aprovadores(workspaceId, empresaId), atorId, categoria: 'aprovacoes',
     titulo: 'Despesa esperando aprovação', mensagem: `${descricao} — ${reais(valor)}`, link: `/financeiro/${id}`,
     botao: 'Ver a despesa', nota: 'Quem lançou a despesa não pode aprová-la.',
   })
@@ -66,8 +67,8 @@ export async function criarLancamento(_anterior: Resultado & { id?: string }, fo
     const { data, error } = await supabase.rpc('financeiro_criar_lancamentos', { p_workspace_id: context.workspace.id, p_itens: itens })
     if (error) erroDoBanco(error, 'Não foi possível salvar o lançamento.')
     const ids = (data ?? []) as string[]
-    const { data: primeiro } = await supabase.from('fin_lancamentos').select('id,aprovacao').eq('id', ids[0]).single()
-    if (primeiro?.aprovacao === 'pendente') await avisarAprovacao(context.workspace.id, context.user.id, ids[0], dados.descricao, dados.valor)
+    const { data: primeiro } = await supabase.from('fin_lancamentos').select('id,aprovacao,entidade_id').eq('id', ids[0]).single()
+    if (primeiro?.aprovacao === 'pendente') await avisarAprovacao(context.workspace.id, primeiro.entidade_id as string, context.user.id, ids[0], dados.descricao, dados.valor)
     revalidar()
     return { id: ids[0] }
   } catch (causa) {
@@ -89,8 +90,8 @@ export async function atualizarLancamento(id: string, _anterior: Resultado & { i
     const { pago_em: _p, valor_pago: _v, ...campos } = dados
     const { error } = await supabase.rpc('financeiro_atualizar_lancamento', { p_id: id, p: campos, p_escopo: escopo })
     if (error) erroDoBanco(error, 'Não foi possível salvar.')
-    const { data: depois } = await supabase.from('fin_lancamentos').select('aprovacao').eq('id', id).single()
-    if (depois?.aprovacao === 'pendente' && antes.aprovacao !== 'pendente') await avisarAprovacao(context.workspace.id, context.user.id, id, dados.descricao, dados.valor)
+    const { data: depois } = await supabase.from('fin_lancamentos').select('aprovacao,entidade_id').eq('id', id).single()
+    if (depois?.aprovacao === 'pendente' && antes.aprovacao !== 'pendente') await avisarAprovacao(context.workspace.id, depois.entidade_id as string, context.user.id, id, dados.descricao, dados.valor)
     revalidar(id)
     return { id }
   } catch (causa) {
@@ -206,8 +207,8 @@ function lerCadastro(tabela: Tabela, f: FormData): Record<string, unknown> {
 export async function salvarCadastro(tabela: Tabela, id: string | null, _anterior: Resultado & { ok?: number; id?: string }, formData: FormData): Promise<Resultado & { ok?: number; id?: string }> {
   try {
     const { context, supabase, empresa } = await contextoDoFinanceiro()
-    // Conta e fonte nascem na empresa aberta (a de uma conta existente não muda).
-    const p = { ...lerCadastro(tabela, formData), ...(id ? { id } : {}), ...((tabela === 'conta' || tabela === 'fonte') && empresa ? { entidade_id: empresa.id } : {}) }
+    // Conta, fonte e favorecido nascem na empresa aberta (a de um cadastro existente não muda). Categoria é comum.
+    const p = { ...lerCadastro(tabela, formData), ...(id ? { id } : {}), ...(tabela !== 'categoria' && empresa ? { entidade_id: empresa.id } : {}) }
     const { data, error } = await supabase.rpc('financeiro_salvar_cadastro', { p_workspace_id: context.workspace.id, p_tabela: tabela, p })
     if (error) erroDoBanco(error, 'Não foi possível salvar.')
     revalidar()
@@ -238,11 +239,13 @@ export async function salvarRegras(_anterior: Resultado & { ok?: number }, formD
   }
 }
 
-export async function definirAcessoDoFinanceiro(userId: string, nivel: NomeDoNivel | null): Promise<Resultado> {
+/** Nível e alcance (todas as empresas, ou só uma) de quem acessa o Financeiro. Só admin; o banco confere de novo. */
+export async function definirAcessoDoFinanceiro(userId: string, nivel: NomeDoNivel | null, empresaId: string | null = null): Promise<Resultado> {
   try {
     const { context, supabase } = await contextoDoFinanceiro()
     if (nivel !== null && !ehNomeDoNivel(nivel)) throw new Error('Nível inválido.')
-    const { error } = await supabase.rpc('definir_acesso_financeiro', { p_workspace_id: context.workspace.id, p_user_id: userId, p_nivel: nivel })
+    if (empresaId !== null && !/^[0-9a-f-]{36}$/.test(empresaId)) throw new Error('Empresa inválida.')
+    const { error } = await supabase.rpc('definir_acesso_financeiro', { p_workspace_id: context.workspace.id, p_user_id: userId, p_nivel: nivel, p_entidade_id: empresaId })
     if (error) erroDoBanco(error, 'Não foi possível mudar o acesso.')
     revalidar()
     return {}
@@ -256,12 +259,14 @@ export async function definirAcessoDoFinanceiro(userId: string, nivel: NomeDoNiv
 /** Primeiro passo: link de envio de uso único, direto do navegador ao Storage. */
 export async function prepararAnexo(lancamentoId: string, tipo: string, tamanho: number): Promise<Resultado & { caminho?: string; token?: string }> {
   try {
-    const { context, supabase, nivel } = await contextoDoFinanceiro()
-    if (nivel < 2) throw new Error('Você não tem acesso para juntar comprovantes.')
+    const ctx = await contextoDoFinanceiro()
+    const { context, supabase } = ctx
     if (!ehArquivoAceito(tipo)) throw new Error('Envie PDF, JPG, PNG ou WEBP.')
     if (!Number.isFinite(tamanho) || tamanho <= 0 || tamanho > TAMANHO_MAXIMO) throw new Error('O arquivo pode ter até 20 MB.')
-    const { data: l } = await supabase.from('fin_lancamentos').select('id').eq('id', lancamentoId).eq('workspace_id', context.workspace.id).maybeSingle()
+    const { data: l } = await supabase.from('fin_lancamentos').select('id,entidade_id').eq('id', lancamentoId).eq('workspace_id', context.workspace.id).maybeSingle()
     if (!l) throw new Error('Lançamento não encontrado.')
+    // O nível que vale é o da empresa do lançamento, não o da empresa aberta na tela.
+    if (nivelNaEmpresa(ctx, l.entidade_id as string) < 2) throw new Error('Você não tem acesso para juntar comprovantes.')
     const caminho = `${context.workspace.id}/${lancamentoId}/${randomUUID()}.${TIPOS_DE_ARQUIVO[tipo]}`
     const { data, error } = await createAdminClient().storage.from(BUCKET).createSignedUploadUrl(caminho)
     if (error || !data) throw new Error('Não foi possível preparar o envio.')
@@ -531,8 +536,9 @@ export async function escolherEmpresa(id: string): Promise<Resultado> {
 /** Nome, razão social e CNPJ de uma empresa (gestão do Financeiro). */
 export async function salvarEmpresa(id: string, _anterior: Resultado & { ok?: number }, formData: FormData): Promise<Resultado & { ok?: number }> {
   try {
-    const { context, supabase, nivel } = await contextoDoFinanceiro()
-    if (nivel < 4) throw new Error('Só a gestão do Financeiro muda os dados da empresa.')
+    const ctx = await contextoDoFinanceiro()
+    const { context, supabase } = ctx
+    if (nivelNaEmpresa(ctx, id) < 4) throw new Error('Só a gestão do Financeiro muda os dados da empresa.')
     const t = (k: string, max: number) => String(formData.get(k) ?? '').trim().slice(0, max)
     const cnpj = t('cnpj', 20).replace(/\D/g, '')
     if (cnpj && (cnpj.length !== 14 || !documentoValido(cnpj))) throw new Error('CNPJ inválido: confira os dígitos.')
