@@ -1,6 +1,7 @@
 import {
   AtSign, Bell, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
-  KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
+  KeyRound, Landmark, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, ShieldCheck, SquareCheckBig, UserRound, Contact,
+  BadgeCheck,
   type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
@@ -129,6 +130,10 @@ export const ADMINISTRACAO: Grupo = {
   areas: [
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
+    // Lançamento oculto: as páginas públicas destas áreas saem com noindex e sem link no site até a abertura (docs/auditoria-publica.md §9).
+    { href: '/transparencia', rotulo: 'Transparência', resumo: 'Estatuto, balanços, relatórios e parcerias publicados no portal', icone: Landmark, termos: ['portal da transparência', 'balanço', 'estatuto', 'mrosc', 'parcerias', 'prestação de contas'], permissao: 'transparencia.gerenciar' },
+    { href: '/canais-oficiais', rotulo: 'Canais oficiais', resumo: 'A lista pública dos endereços e perfis que são mesmo da filial', icone: BadgeCheck, termos: ['canais', 'redes sociais', 'golpe', 'perfis oficiais', 'telefones'], permissao: 'transparencia.gerenciar' },
+    { href: '/trilha-publica', rotulo: 'Trilha pública', resumo: 'Registros verificáveis, lotes diários e carimbos no Bitcoin', icone: ShieldCheck, termos: ['auditoria', 'verificação', 'carimbo', 'blockchain', 'autenticidade', 'lotes'], permissao: 'trilha.ver' },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
   ],
 }

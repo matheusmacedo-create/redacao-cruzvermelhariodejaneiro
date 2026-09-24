@@ -320,7 +320,7 @@ export async function regravarPaginaListada(
 }
 
 /** Pastas de página fixa que o app pode criar na raiz do site. Lista fechada. */
-const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['privacidade', 'termos'])
+const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['privacidade', 'termos', 'transparencia', 'canais-oficiais'])
 
 /**
  * Grava a index.html de uma pasta fixa na raiz do site (ex.: /privacidade/).
@@ -359,4 +359,57 @@ export async function removerPastaDeMateria(
   const destino = caminhoSeguro(config.baseDir, slug)
   await client.removeDir(destino)
   await client.cd('/')
+}
+
+/**
+ * Os arquivos públicos da trilha de auditoria, dentro de /verificar/ no site.
+ *
+ * A página /verificar/ em si (e o .htaccess que a mantém fora dos buscadores)
+ * é do repositório do site, nunca desta função. Aqui entram só as provas: a
+ * chave pública (a atual e uma cópia permanente por impressão digital, para
+ * conferir lotes antigos depois de uma troca de chave), o índice dos lotes e os
+ * cinco arquivos de cada dia — nomes literais, data e impressão validadas, nada
+ * montado a partir de texto de ninguém.
+ */
+const ARQUIVO_DE_VERIFICACAO =
+  /^(chave-publica\.pem|chaves\/[0-9a-f]{16}\.pem|lotes\/indice\.json|lotes\/\d{4}-\d{2}-\d{2}\/(manifesto\.json|manifesto\.json\.sig|manifesto\.json\.tsr|compromisso\.bin|compromisso\.bin\.ots))$/
+
+export async function enviarArquivoDeVerificacao(
+  client: Client,
+  raiz: string,
+  relativo: string,
+  conteudo: Buffer | string,
+): Promise<string> {
+  if (!ARQUIVO_DE_VERIFICACAO.test(relativo)) throw new FtpEscopoError(relativo)
+  const destino = `${raiz.replace(/\/$/, '')}/verificar/${relativo}`
+  const pasta = destino.slice(0, destino.lastIndexOf('/'))
+  await client.ensureDir(pasta)
+  const bytes = typeof conteudo === 'string' ? Buffer.from(conteudo, 'utf8') : conteudo
+  await client.uploadFrom(Readable.from(bytes), destino.slice(destino.lastIndexOf('/') + 1))
+  await client.cd('/')
+  return destino
+}
+
+/**
+ * Os outros arquivos das pastas do portal de transparência e dos canais
+ * oficiais: o .htaccess de cada pasta e os PDFs do portal, com o nome que
+ * lib/transparencia/regras.ts monta (título + 12 hex do SHA-256). Nome fora do
+ * padrão é recusado; o index.html de cada pasta sobe por enviarPastaFixaNaRaiz.
+ */
+const ARQUIVO_DO_PORTAL = /^(\.htaccess|arquivos\/[a-z0-9][a-z0-9-]{0,60}-[0-9a-f]{12}\.pdf)$/
+
+export async function enviarArquivoDoPortal(
+  client: Client,
+  raiz: string,
+  pasta: 'transparencia' | 'canais-oficiais',
+  relativo: string,
+  conteudo: Buffer | string,
+): Promise<string> {
+  if (!ARQUIVO_DO_PORTAL.test(relativo) || (pasta === 'canais-oficiais' && relativo !== '.htaccess')) throw new FtpEscopoError(`${pasta}/${relativo}`)
+  const destino = `${raiz.replace(/\/$/, '')}/${pasta}/${relativo}`
+  await client.ensureDir(destino.slice(0, destino.lastIndexOf('/')))
+  const bytes = typeof conteudo === 'string' ? Buffer.from(conteudo, 'utf8') : conteudo
+  await client.uploadFrom(Readable.from(bytes), destino.slice(destino.lastIndexOf('/') + 1))
+  await client.cd('/')
+  return destino
 }

@@ -342,6 +342,8 @@ export type DadosDaPagina = {
   agora?: Date
   /** Item do menu a marcar como página atual. */
   ativo?: 'noticias'
+  /** false: a página sai com noindex (lançamento oculto; o sitemap também não a lista). */
+  indexar?: boolean
 }
 
 /** As fontes das páginas: Inter no chrome/UI, Source Serif 4 na leitura —
@@ -392,7 +394,7 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
     `<link rel="canonical" href="${escapar(canonica)}">`,
     `<link rel="icon" href="${escapar(origem)}/assets/logo-cvb-rj.png">`,
     `<meta name="theme-color" content="#cc0000">`,
-    `<meta name="robots" content="index, follow">`,
+    `<meta name="robots" content="${dados.indexar === false ? 'noindex, nofollow, noarchive' : 'index, follow'}">`,
     `<meta property="og:type" content="website">`,
     `<meta property="og:site_name" content="Cruz Vermelha Brasileira — Rio de Janeiro">`,
     `<meta property="og:locale" content="pt_BR">`,

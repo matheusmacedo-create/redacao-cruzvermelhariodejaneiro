@@ -1,0 +1,42 @@
+# Backup diário do banco, cifrado, fora do Supabase (docs/backup.md).
+# Só roda com os segredos configurados em Settings → Secrets and variables → Actions.
+name: Backup do banco
+
+on:
+  schedule:
+    - cron: '30 6 * * *' # 03h30 em São Paulo, antes das rotinas da trilha pública
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-banco
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar pg_dump 17, age e lftp
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17 age lftp
+
+      - name: Gerar, cifrar e enviar
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_AGE_DESTINATARIO: ${{ secrets.BACKUP_AGE_DESTINATARIO }}
+          BACKUP_FTP_HOST: ${{ secrets.BACKUP_FTP_HOST }}
+          BACKUP_FTP_USUARIO: ${{ secrets.BACKUP_FTP_USUARIO }}
+          BACKUP_FTP_SENHA: ${{ secrets.BACKUP_FTP_SENHA }}
+          BACKUP_FTP_PASTA: ${{ secrets.BACKUP_FTP_PASTA }}
+          PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+          PSQL: /usr/lib/postgresql/17/bin/psql
+        run: bash scripts/backup-banco.sh

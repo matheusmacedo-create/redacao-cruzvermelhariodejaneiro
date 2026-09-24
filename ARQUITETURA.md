@@ -68,6 +68,11 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `UPLOAD_POST_FACEBOOK_PAGE_ID` | server | **obrigatória** — ver §8.1 |
 | `FTP_HOST` `FTP_USER` `FTP_PASSWORD` `FTP_BASE_DIR` | server | publicação no site |
 | `SITE_PUBLIC_BASE_URL` | server | opcional; sem ela o `ftp-check` não confere se a pasta é publicada |
+| `CRON_SECRET` | server | **segredo** — a Vercel manda nos crons de `vercel.json`; sem ela as rotas de cron ficam fechadas |
+| `AUDITORIA_CHAVE_PRIVADA` | server | **segredo** — Ed25519 (PKCS#8 PEM) que assina os lotes da trilha pública; sem ela os lotes ficam sem assinatura até ela chegar (§7.9) |
+| `AUDITORIA_SEGREDO` | server | **segredo**, opcional — HMAC do limite da consulta pública; na falta, derivado da chave de serviço |
+| `AUDITORIA_ABERTA` | server | `1` só na abertura da trilha: tira o `noindex` das páginas de transparência e canais oficiais |
+| `AUDITORIA_TSA_URL` | server | opcional — autoridade de carimbo de tempo RFC 3161 (padrão: FreeTSA) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -540,6 +545,33 @@ Eventos que avisam hoje:
 Para um evento novo, chame `notificar()` depois de salvar, com uma das
 categorias. Se precisar de outra categoria, acrescente-a em `CATEGORIAS` e no
 `check` de `notifications.categoria`.
+
+### 7.9 Trilha pública, portal de transparência e canais oficiais
+
+Especificação: `docs/auditoria-publica.md` (o modelo) e `docs/auditoria-publica-benchmark.md` (de
+onde ele veio). **Lançamento oculto**: tudo funciona, nada é linkado nem indexado até a abertura
+(checklist na §9 da especificação).
+
+- **Banco**: schema `auditoria`, fora da Data API. Itens verificáveis (matérias no site,
+  comunicados, ofícios, certificados, documentos e parcerias do portal, versões dos canais) com
+  código de 26 caracteres; eventos encadeados por hash em cada fluxo; lote diário com Merkle,
+  cabeças das cadeias e compromisso encadeado. Entram pelos **gatilhos nas tabelas de origem**
+  (nada na aplicação precisa lembrar de registrar) e por `auditoria_sincronizar()`, a rede de
+  segurança diária. Falha de registro nunca derruba a operação principal: vira linha em
+  `auditoria.falhas` e aviso à administração.
+- **Rotinas** (`vercel.json`): `/api/auditoria/diaria` (confere a cadeia, fecha, assina, carimba na
+  FreeTSA e no OpenTimestamps, publica em `/verificar/lotes/` no site) e `/api/auditoria/provas`
+  (confirmação no Bitcoin). Lógica em `lib/auditoria/rotina.ts`.
+- **Consulta pública**: `/api/publico/verificar` (+ `/prova`, `/conteudo`), com CORS só para o
+  site, limite por hora com HMAC do IP e fora do `proxy`. Consumida pela página
+  `cruzvermelhariodejaneiro.org/verificar/`, que é do repositório do site.
+- **Telas** (só admin): `/trilha-publica` (conferência, lotes, falhas, busca por código),
+  `/transparencia` (documentos com versões imutáveis e parcerias da Lei 13.019/2014) e
+  `/canais-oficiais` (versões da lista). O portal e os canais geram as páginas públicas com o
+  esqueleto do site (`lib/transparencia/paginas.ts`), `noindex` enquanto `AUDITORIA_ABERTA` não for `1`.
+- **Testes**: pgTAP em `supabase/tests/` sobre um Postgres local (`montar-banco-local.sh`); nunca em
+  produção — a trilha só aceita acréscimo.
+- **Backup**: `docs/backup.md` (workflow diário cifrado com age, fora do Supabase).
 
 ## 8. Integrações externas
 
