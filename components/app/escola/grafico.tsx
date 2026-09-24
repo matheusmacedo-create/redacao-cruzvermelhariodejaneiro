@@ -71,7 +71,7 @@ export function GraficoMensal({ pontos, atual }: { pontos: Ponto[]; atual: strin
             const x0 = x(i) - largura / 2, y0 = y(0) - h
             const faixa = (L - esq - dir) / pontos.length
             return (
-              <g key={p.mes} onPointerEnter={() => setFoco(i)} onPointerDown={() => setFoco(i)} onClick={() => router.push(`/escola?mes=${p.mes}`)} className="cursor-pointer">
+              <g key={p.mes} onPointerEnter={() => setFoco(i)} onPointerDown={() => setFoco(i)} onClick={() => router.push(`/escola/vendas?mes=${p.mes}`)} className="cursor-pointer">
                 <rect x={esq + faixa * i} y={topo} width={faixa} height={A - topo - base} fill="transparent" />
                 {h > 0 && (
                   <path d={`M${x0},${y(0)} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + largura - r} Q${x0 + largura},${y0} ${x0 + largura},${y0 + r} V${y(0)} Z`}

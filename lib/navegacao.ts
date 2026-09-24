@@ -1,7 +1,7 @@
 import {
   AtSign, BadgeCheck, Bell, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
-  type LucideIcon,
+  ReceiptText, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -110,12 +110,16 @@ export const GRUPOS: Grupo[] = [
     ],
   },
   {
-    // A escola é outra casa dentro da filial: a administração dela (dinheiro, contas) mora aqui; aluno e turma, no sistema da escola.
+    // A escola é uma empresa à parte dentro da filial (receita e gestão próprias):
+    // a administração dela mora aqui; aluno e turma, no sistema da escola.
     id: 'escola',
-    rotulo: 'Escola',
+    rotulo: 'Escola de Educação e Saúde',
     areas: [
-      { href: '/escola', rotulo: 'Escola de Educação e Saúde', resumo: 'O que entra pelas contas da Únicopag da escola, por curso, forma de pagamento e origem', icone: GraduationCap, termos: ['escola', 'cursos', 'punção venosa', 'matrículas', 'únicopag', 'unicopag', 'mensalidades', 'alunos', 'pix', 'cartão'] },
-      { href: '/escola/marketing', rotulo: 'Marketing da escola', resumo: 'Campanhas, páginas, anúncios e posts da escola, com o que custaram e o que trouxeram', icone: Megaphone, termos: ['anúncios', 'campanhas', 'página de venda', 'criativos', 'utm', 'meta ads', 'referências', 'swipe file', 'advertorial', 'advertoriais', 'matéria patrocinada'] },
+      { href: '/escola', rotulo: 'Visão geral', resumo: 'A escola como empresa: vendas do mês, marketing, advertoriais e o que pede atenção', icone: GraduationCap, termos: ['escola', 'escola de educação e saúde', 'cursos', 'punção venosa', 'alunos', 'turmas'] },
+      { href: '/escola/vendas', rotulo: 'Vendas', resumo: 'O que entra pelas contas da Únicopag da escola, por curso, forma de pagamento e origem', icone: ReceiptText, termos: ['matrículas', 'únicopag', 'unicopag', 'mensalidades', 'pix', 'cartão', 'transações', 'receita da escola'] },
+      { href: '/escola/marketing', rotulo: 'Marketing', resumo: 'Campanhas, anúncios e posts da escola, com o que custaram e o que trouxeram', icone: Megaphone, termos: ['marketing da escola', 'anúncios', 'campanhas', 'criativos', 'utm', 'meta ads', 'referências', 'swipe file'] },
+      { href: '/escola/marketing/advertoriais', rotulo: 'Advertoriais', resumo: 'Matérias-anúncio da escola publicadas como notícia, com visitas, cliques e matrículas', icone: Newspaper, termos: ['advertorial', 'advertoriais', 'matéria patrocinada', 'página de venda', 'landing'] },
+      { href: '/escola/configuracoes', rotulo: 'Contas e integrações', resumo: 'As contas da Únicopag e a conta de anúncios do Meta da escola', icone: KeyRound, termos: ['configurações da escola', 'chave únicopag', 'token meta', 'integrações da escola'] },
     ],
   },
   {

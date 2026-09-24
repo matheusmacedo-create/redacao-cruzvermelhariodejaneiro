@@ -16,7 +16,7 @@ import { finalDaChave } from '@/lib/escola/unicopag'
 
 type Estado = { erro?: string; recado?: string; ok?: number }
 
-const revalidar = () => { for (const c of ['/escola', '/escola/transacoes', '/escola/contas']) revalidatePath(c) }
+const revalidar = () => { for (const c of ['/escola', '/escola/vendas', '/escola/vendas/transacoes', '/escola/configuracoes']) revalidatePath(c) }
 
 async function registrar(workspaceId: string, actorId: string, action: string, contaId: string) {
   await createAdminClient().from('activity_log').insert({ workspace_id: workspaceId, actor_id: actorId, action, entity_type: 'escola_conta', entity_id: contaId, metadata: {} })

@@ -66,7 +66,7 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
+      <SecoesDaEscola atual="/escola/marketing/advertoriais" financeiro={nivelEscola >= 2} />
       <PageHeader title="Advertoriais" breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: 'Advertoriais' }]}
         description="Matérias publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão, matrículas e o que custou."
         actions={<NovoAdvertorial campanhas={campanhas} destinoSugerido={destinoSugerido} />} />
