@@ -16,7 +16,7 @@ import { finalDaChave } from '@/lib/escola/unicopag'
 
 type Estado = { erro?: string; recado?: string; ok?: number }
 
-const revalidar = () => { for (const c of ['/escola', '/escola/vendas', '/escola/vendas/transacoes', '/escola/configuracoes']) revalidatePath(c) }
+const revalidar = () => { for (const c of ['/escola', '/escola/vendas', '/escola/vendas/transacoes', '/escola/configuracoes', '/financeiro']) revalidatePath(c) }
 
 async function registrar(workspaceId: string, actorId: string, action: string, contaId: string) {
   await createAdminClient().from('activity_log').insert({ workspace_id: workspaceId, actor_id: actorId, action, entity_type: 'escola_conta', entity_id: contaId, metadata: {} })
@@ -38,11 +38,15 @@ export async function salvarContaDaEscola(id: string | null, _anterior: Estado, 
       const teste = await testarChave(chave)
       if ('erro' in teste) throw new Error(teste.erro)
     }
-    const p: Record<string, unknown> = { nome, descricao: t('descricao', 300), sistema_url: url }
+    const desde = t('lancar_desde', 10)
+    if (desde && !/^\d{4}-\d{2}-\d{2}$/.test(desde)) throw new Error('Data de início dos lançamentos inválida.')
+    const p: Record<string, unknown> = { nome, descricao: t('descricao', 300), sistema_url: url, lancar_desde: desde }
     if (id) { p.id = id; p.ativa = formData.get('ativa') !== 'nao' }
     const { data: contaId, error } = await supabase.rpc('escola_salvar_conta', { p_workspace_id: context.workspace.id, p })
     if (error || !contaId) throw new Error(error?.code === 'P0001' && error.message ? error.message : 'Não foi possível salvar a conta.')
     let recado = id ? 'Conta atualizada.' : 'Conta cadastrada.'
+    // Mudou a data de início: leva ao Financeiro o que já foi lido, sem esperar a próxima leitura.
+    if (id && desde && !chave) after(async () => { await createAdminClient().rpc('escola_lancar_no_financeiro', { p_conta_id: id }) })
     if (chave) {
       const { error: e2 } = await supabase.rpc('definir_chave_de_integracao', { p_workspace_id: context.workspace.id, p_servico: servicoDaConta(contaId as string), p_valor: chave })
       if (e2) throw new Error('A conta foi salva, mas não foi possível guardar a chave no cofre. Tente de novo.')

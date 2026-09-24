@@ -42,8 +42,10 @@ export type ContaDaEscola = {
   id: string; nome: string; descricao: string | null; sistema_url: string | null; ativa: boolean
   chave_final: string | null; chave_em: string | null; sincronizada_em: string | null; sincronizacao_erro: string | null
   saldo_disponivel: number | null; saldo_a_liberar: number | null; saldo_lido_em: string | null
+  /** A conta desta Únicopag nos livros da Escola (criada na primeira leitura) e desde quando as vendas entram lá. */
+  fin_conta_id: string | null; lancar_desde: string | null
 }
-export const COLUNAS_DA_CONTA = 'id,nome,descricao,sistema_url,ativa,chave_final,chave_em,sincronizada_em,sincronizacao_erro,saldo_disponivel,saldo_a_liberar,saldo_lido_em'
+export const COLUNAS_DA_CONTA = 'id,nome,descricao,sistema_url,ativa,chave_final,chave_em,sincronizada_em,sincronizacao_erro,saldo_disponivel,saldo_a_liberar,saldo_lido_em,fin_conta_id,lancar_desde'
 export const lerConta = (c: Record<string, unknown>) => ({
   ...c,
   saldo_disponivel: c.saldo_disponivel === null || c.saldo_disponivel === undefined ? null : Number(c.saldo_disponivel),
@@ -134,12 +136,26 @@ export async function sincronizarConta(admin: SupabaseClient, workspaceId: strin
       if (error) throw new ErroDaApi(null, 'Não foi possível gravar as transações lidas.')
       gravadas += Number(data ?? 0)
     }
-    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.`, gravadas }
+    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.${await lancarNoFinanceiro(admin, conta.id)}`, gravadas }
   } catch (e) {
     const mensagem = e instanceof ErroDaApi ? e.message : 'Falha inesperada ao sincronizar.'
     await admin.rpc('escola_gravar_sincronizacao', { p_conta_id: conta.id, p_transacoes: null, p_saldo: null, p_erro: mensagem })
     return { conta: conta.nome, ok: false, mensagem, gravadas: 0 }
   }
+}
+
+/**
+ * Leva as vendas pagas (e os estornos) para os livros da Escola no
+ * Financeiro. Falhar aqui não derruba a leitura: as transações já estão
+ * gravadas e a próxima leitura tenta de novo. Devolve o trecho da mensagem.
+ */
+async function lancarNoFinanceiro(admin: SupabaseClient, contaId: string): Promise<string> {
+  const { data, error } = await admin.rpc('escola_lancar_no_financeiro', { p_conta_id: contaId })
+  if (error) return ' Não foi possível lançar no Financeiro da escola agora; a próxima leitura tenta de novo.'
+  const r = (data ?? {}) as { receitas?: number; estornos?: number; aviso?: string }
+  if (r.aviso) return ` ${r.aviso}`
+  const partes = [r.receitas ? `${r.receitas} ${r.receitas === 1 ? 'venda lançada' : 'vendas lançadas'}` : '', r.estornos ? `${r.estornos} ${r.estornos === 1 ? 'estorno' : 'estornos'}` : ''].filter(Boolean)
+  return partes.length ? ` No Financeiro da escola: ${partes.join(' e ')}.` : ''
 }
 
 /** Sincroniza todas as contas ativas de um espaço. */

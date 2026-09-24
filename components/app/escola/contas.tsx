@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState, useEffect, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ExternalLink, KeyRound, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,9 @@ import { inputClass } from '@/components/app/imprensa/comum'
 import { excluirContaDaEscola, removerChaveDaEscola, salvarContaDaEscola } from '@/app/actions/escola'
 import { reaisDeCentavos } from '@/lib/escola/painel'
 import type { ContaDaEscola } from '@/lib/escola/servidor'
+
+const diaCurto = (d: string) => d.split('-').reverse().join('/')
+const primeiroDoMes = () => `${new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)}-01`
 
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null)
 
@@ -29,6 +33,10 @@ function Formulario({ c, onFim }: { c: ContaDaEscola | null; onFim: () => void }
         <Campo rotulo={c?.chave_final ? 'Trocar a chave de API' : 'Chave de API da Únicopag'} className="sm:col-span-2"
           ajuda={<>No painel da Únicopag desta conta, em Integrações → API. A chave é testada antes de guardar, vai direto para o cofre e nunca mais aparece aqui (só os 4 últimos caracteres). {c?.chave_final ? 'Deixe em branco para manter a atual.' : ''}</>}>
           <input name="chave" type="password" maxLength={300} autoComplete="new-password" spellCheck={false} placeholder={c?.chave_final ? `•••• ${c.chave_final} (guardada)` : 'Cole a chave aqui'} className={`${inputClass} font-mono`} />
+        </Campo>
+        <Campo rotulo="Lançar no Financeiro da escola a partir de"
+          ajuda="Cada venda paga desde esta data entra sozinha como receita nos livros da Escola (e o estorno, como despesa). O que foi pago antes fica só no painel de vendas.">
+          <input name="lancar_desde" type="date" required min="2020-01-01" defaultValue={c?.lancar_desde ?? primeiroDoMes()} className={inputClass} />
         </Campo>
         {c && (
           <Campo rotulo="Situação" ajuda="Conta pausada não é mais lida; o que já foi lido continua no painel.">
@@ -76,13 +84,16 @@ export function ContasDaEscola({ contas, ehAdmin }: { contas: ContaDaEscola[]; e
                   <div className="flex gap-2"><dt className="text-muted-foreground">Chave</dt><dd className="flex items-center gap-1">{c.chave_final ? <><KeyRound className="size-3.5 text-success" />•••• {c.chave_final} <span className="text-xs text-muted-foreground">desde {quando(c.chave_em)}</span></> : <span className="text-warning-foreground">sem chave</span>}</dd></div>
                   <div className="flex gap-2"><dt className="text-muted-foreground">Lida em</dt><dd>{quando(c.sincronizada_em) ?? 'nunca'}</dd></div>
                   <div className="flex gap-2"><dt className="text-muted-foreground">Saldo</dt><dd className="tabular-nums">{c.saldo_disponivel === null ? '—' : `${reaisDeCentavos(c.saldo_disponivel)} disponível · ${reaisDeCentavos(c.saldo_a_liberar ?? 0)} a liberar`}</dd></div>
+                  <div className="flex gap-2"><dt className="text-muted-foreground">Financeiro</dt><dd>{c.fin_conta_id
+                    ? <Link href="/escola/financeiro" className="text-primary hover:underline">vendas lançadas desde {diaCurto(c.lancar_desde ?? '')}</Link>
+                    : <span className="text-muted-foreground">vendas desde {diaCurto(c.lancar_desde ?? primeiroDoMes())} entram na próxima leitura</span>}</dd></div>
                   {c.sistema_url && <div className="flex gap-2"><dt className="text-muted-foreground">Sistema</dt><dd className="min-w-0"><a href={c.sistema_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline"><span className="truncate">{c.sistema_url.replace(/^https:\/\//, '')}</span><ExternalLink className="size-3 shrink-0" /></a></dd></div>}
                 </dl>
                 {c.sincronizacao_erro && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">Última leitura falhou: {c.sincronizacao_erro}</p>}
                 {ehAdmin && (
                   <div className="flex flex-wrap justify-end gap-2">
                     {c.chave_final && <Button size="sm" variant="ghost" disabled={pendente} onClick={() => agir(() => removerChaveDaEscola(c.id), `Tirar a chave da conta ${c.nome} do cofre? A Redação deixa de ler esta conta até uma chave nova ser guardada.`)}>Tirar a chave</Button>}
-                    <Button size="sm" variant="ghost" className="text-destructive" disabled={pendente} onClick={() => agir(() => excluirContaDaEscola(c.id), `Tirar a conta ${c.nome} da Redação? A chave e a cópia das transações somem daqui; na Únicopag nada muda.`)}><Trash2 className="size-3.5" />Tirar conta</Button>
+                    <Button size="sm" variant="ghost" className="text-destructive" disabled={pendente} onClick={() => agir(() => excluirContaDaEscola(c.id), `Tirar a conta ${c.nome} da Redação? A chave e a cópia das transações somem daqui; os lançamentos já feitos no Financeiro da escola continuam, e na Únicopag nada muda.`)}><Trash2 className="size-3.5" />Tirar conta</Button>
                   </div>
                 )}
               </div>
