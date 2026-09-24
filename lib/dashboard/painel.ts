@@ -121,6 +121,15 @@ export function fraseDaAtividade(l: LinhaDeAtividade, tituloDaPauta: (id: string
     if (l.action === 'deleted') return `excluiu o projeto "${nome}"`
     return null
   }
+  if (l.entity_type === 'oficio') {
+    const numero = texto(m.numero)
+    const oficio = numero ? `o ofício ${numero}` : 'um ofício'
+    if (l.action === 'oficio_emitido') return `emitiu ${oficio}${texto(m.assunto) ? ` ("${texto(m.assunto)}")` : ''} para assinatura`
+    if (l.action === 'oficio_assinado') return m.concluido ? `assinou ${oficio}, que ficou com todas as assinaturas` : `assinou ${oficio}`
+    if (l.action === 'oficio_recusado') return 'recusou assinar um ofício'
+    if (l.action === 'oficio_cancelado') return 'cancelou um ofício'
+    return null
+  }
   if (l.action === 'campanha_enviada') {
     const assunto = texto(m.assunto)
     const enviados = numero(m.enviados)
