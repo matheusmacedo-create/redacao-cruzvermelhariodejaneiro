@@ -1,6 +1,7 @@
 import { AppShellProvider } from '@/components/app/app-shell'
 import { Sidebar } from '@/components/app/sidebar'
 import { Topbar } from '@/components/app/topbar'
+import { AvisoEmailDeRecuperacao } from '@/components/app/aviso-email-de-recuperacao'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { pode } from '@/lib/permissoes'
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <Sidebar profile={context.profile} buildInfo={buildInfo} gerenciaUsuarios={pode(context.role, 'usuarios.gerenciar')} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} />
+          {!context.profile?.email_confirmado_em && <AvisoEmailDeRecuperacao email={context.profile?.email ?? null} />}
           <main className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="mx-auto w-full max-w-[1400px] px-4 py-4 [padding-bottom:max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6">{children}</div>
           </main>

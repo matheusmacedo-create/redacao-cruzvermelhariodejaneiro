@@ -47,9 +47,15 @@ const USUARIO_VALIDO = /^[a-z0-9._-]{3,40}$/
 // "Para sempre" no Auth: o ban só termina quando um admin reativa.
 const BAN_PERMANENTE = '876000h'
 
-function lerCoordenacao(f: FormData): string {
+/**
+ * Coordenação da lista oficial de setores. A que a pessoa JÁ tem vale mesmo
+ * fora da lista (cadastros anteriores, como "Comunicação"): a tela a mostra
+ * como opção, e recusá-la impedia salvar qualquer outra mudança — trocar o
+ * e-mail, por exemplo — sem antes mexer no setor.
+ */
+function lerCoordenacao(f: FormData, atual = ''): string {
   const valor = texto(f, 'coordenacao')
-  if (valor && !NOMES_DOS_SETORES.includes(valor)) throw new Error('Escolha uma coordenação da lista.')
+  if (valor && valor !== atual && !NOMES_DOS_SETORES.includes(valor)) throw new Error('Escolha uma coordenação da lista.')
   return valor
 }
 
@@ -243,7 +249,7 @@ export async function atualizarUsuario(formData: FormData): Promise<Resultado> {
     const alvo = await carregarAlvo(admin, context.workspace.id, texto(formData, 'userId'))
     const nome = lerNome(formData)
     const cargo = texto(formData, 'cargo').slice(0, 120)
-    const coordenacao = lerCoordenacao(formData)
+    const coordenacao = lerCoordenacao(formData, alvo.coordenacao)
     const papel = lerPapel(formData)
     const email = lerEmail(formData)
 
