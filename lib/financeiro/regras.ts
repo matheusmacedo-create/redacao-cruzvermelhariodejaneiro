@@ -31,7 +31,7 @@ export type Forma = keyof typeof FORMAS
 export const ehForma = (f: unknown): f is Forma => typeof f === 'string' && Object.hasOwn(FORMAS, f)
 
 export const TIPOS_DE_CONTA = {
-  corrente: 'Conta corrente', poupanca: 'Poupança', aplicacao: 'Aplicação', caixa: 'Caixa (dinheiro)', cartao: 'Cartão',
+  corrente: 'Conta corrente', poupanca: 'Poupança', aplicacao: 'Aplicação', caixa: 'Caixa (dinheiro)', cartao: 'Cartão', gateway: 'Conta de pagamento (Únicopag)',
 } as const
 export type TipoDeConta = keyof typeof TIPOS_DE_CONTA
 export const ehTipoDeConta = (t: unknown): t is TipoDeConta => typeof t === 'string' && Object.hasOwn(TIPOS_DE_CONTA, t)
@@ -206,13 +206,13 @@ export function lerLancamento(f: FormData, hoje: string): { dados: DadosDoLancam
 // ---------------------------------------------------------------- situação
 
 export type Lancamento = {
-  id: string; tipo: Tipo; descricao: string; valor: number; conta_id: string; conta_destino_id: string | null; categoria_id: string | null
+  id: string; entidade_id?: string; tipo: Tipo; descricao: string; valor: number; conta_id: string; conta_destino_id: string | null; categoria_id: string | null
   fonte_id: string; projeto_id: string | null; favorecido_id: string | null; competencia: string; vencimento: string; pago_em: string | null
   valor_pago: number | null; forma: string | null; documento: string | null; observacao: string | null; grupo_id: string | null
   parcela: number | null; parcelas: number | null; recorrente: boolean; aprovacao: 'nao_exige' | 'pendente' | 'aprovada' | 'recusada'
   aprovado_por: string | null; aprovado_em: string | null; motivo_recusa: string | null; criado_por: string | null; created_at: string; updated_at: string
 }
-export const COLUNAS_DO_LANCAMENTO = 'id,tipo,descricao,valor,conta_id,conta_destino_id,categoria_id,fonte_id,projeto_id,favorecido_id,competencia,vencimento,pago_em,valor_pago,forma,documento,observacao,grupo_id,parcela,parcelas,recorrente,aprovacao,aprovado_por,aprovado_em,motivo_recusa,criado_por,created_at,updated_at'
+export const COLUNAS_DO_LANCAMENTO = 'id,entidade_id,tipo,descricao,valor,conta_id,conta_destino_id,categoria_id,fonte_id,projeto_id,favorecido_id,competencia,vencimento,pago_em,valor_pago,forma,documento,observacao,grupo_id,parcela,parcelas,recorrente,aprovacao,aprovado_por,aprovado_em,motivo_recusa,criado_por,created_at,updated_at'
 
 export type Situacao = 'pago' | 'recebido' | 'atrasado' | 'vence_hoje' | 'aberto' | 'aprovacao' | 'recusado'
 

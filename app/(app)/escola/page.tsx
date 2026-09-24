@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { AlertTriangle, ArrowRight, ExternalLink, Megaphone, Newspaper, ReceiptText } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ExternalLink, Megaphone, Newspaper, ReceiptText, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -55,6 +55,13 @@ export default async function EscolaPage() {
     nivelMkt >= 2 ? supabase.from('escola_meta_contas').select('act_id,nome,ativa,sincronizacao_erro').eq('workspace_id', ws) : vazio,
   ])
 
+  // Os livros da escola (empresa própria no Financeiro): só para quem vê o Financeiro.
+  const { data: empresaEscola } = await supabase.from('fin_entidades').select('id,cnpj,fechado_ate').eq('workspace_id', ws).eq('tipo', 'escola').maybeSingle()
+  const { data: movimento } = empresaEscola
+    ? await supabase.from('fin_lancamentos').select('tipo,valor_pago').eq('entidade_id', empresaEscola.id).gte('pago_em', `${mes}-01`).lte('pago_em', hoje).limit(20000)
+    : { data: null }
+  const receitasDoMes = (movimento ?? []).filter((m) => m.tipo === 'receita').reduce((s, m) => s + Number(m.valor_pago ?? 0), 0)
+  const despesasDoMes = (movimento ?? []).filter((m) => m.tipo === 'despesa').reduce((s, m) => s + Number(m.valor_pago ?? 0), 0)
   const contas = ((contasBrutas ?? []) as Record<string, unknown>[]).map((c) => lerConta(c))
   const r = resumoDoMes(ts, mes), anterior = resumoDoMes(ts, somarMeses(mes, -1))
   const delta = variacao(r.recebido, anterior.recebido)
@@ -114,6 +121,16 @@ export default async function EscolaPage() {
                 <Numero rotulo="Ticket médio" valor={r.pagamentos ? reaisDeCentavos(r.ticketMedio) : '—'} />
               </div>
             )}
+          </Bloco>
+        )}
+        {empresaEscola && (
+          <Bloco id="bloco-financeiro" titulo="Financeiro da escola" icone={Wallet} href="/escola/financeiro" rotuloDoLink="Abrir os livros da escola">
+            <div className="grid grid-cols-2 gap-3">
+              <Numero rotulo="Receitas pagas no mês" valor={reais(receitasDoMes)} />
+              <Numero rotulo="Despesas pagas no mês" valor={reais(despesasDoMes)} />
+              <Numero rotulo="Resultado do mês" valor={reais(receitasDoMes - despesasDoMes)} detalhe="regime de caixa" />
+              <Numero rotulo="Mês fechado até" valor={empresaEscola.fechado_ate ? new Date(`${empresaEscola.fechado_ate}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '—'} detalhe={empresaEscola.cnpj ? undefined : 'CNPJ não informado'} />
+            </div>
           </Bloco>
         )}
         {nivelMkt >= 2 && (

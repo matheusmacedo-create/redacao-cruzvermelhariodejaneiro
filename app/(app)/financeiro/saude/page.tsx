@@ -41,11 +41,12 @@ export default async function SaudePage() {
   const mes = mesDe(hoje)
   const ano = Number(hoje.slice(0, 4))
   const c = await cadastrosDoFinanceiro()
+  const ent = c.empresa?.id ?? ''
   const [{ data: pagosBrutos }, { data: abertosBrutos }, { data: doMesBrutos }, { data: orcamentos }] = await Promise.all([
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).is('pago_em', null).neq('aprovacao', 'recusada').lte('vencimento', somarDias(hoje, 90)).limit(10000),
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('competencia', `${mes}-01`).limit(10000),
-    supabase.from('fin_orcamentos').select('categoria_id,valor_mensal').eq('workspace_id', ws).eq('ano', ano),
+    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
+    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).neq('aprovacao', 'recusada').lte('vencimento', somarDias(hoje, 90)).limit(10000),
+    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).eq('competencia', `${mes}-01`).limit(10000),
+    supabase.from('fin_orcamentos').select('categoria_id,valor_mensal').eq('workspace_id', ws).eq('entidade_id', ent).eq('ano', ano),
   ])
   const pagos = (pagosBrutos ?? []).map(lerLinha) as Lancamento[]
   const abertos = (abertosBrutos ?? []).map(lerLinha) as Lancamento[]
@@ -81,7 +82,7 @@ export default async function SaudePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/saude" />
+      <SecoesDoFinanceiro atual="/financeiro/saude" empresas={c.empresas} empresa={c.empresa} />
       <PageHeader title="Saúde do caixa" description="Estamos bem? O dinheiro livre separado do que tem destino, quanto tempo ele aguenta e o que vem pela frente." />
 
       {semHistorico ? (

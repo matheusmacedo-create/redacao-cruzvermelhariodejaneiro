@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { inputClass } from '@/components/app/imprensa/comum'
-import { definirAcessoDoFinanceiro, salvarCadastro, salvarRegras } from '@/app/actions/financeiro'
+import { definirAcessoDoFinanceiro, salvarCadastro, salvarEmpresa, salvarRegras } from '@/app/actions/financeiro'
 import { NIVEIS, TIPOS_DE_CONTA, dataCurta, documentoLegivel, reais, valorNoCampo, type NomeDoNivel } from '@/lib/financeiro/regras'
 import type { Cadastros } from '@/lib/financeiro/acesso'
 
@@ -191,6 +191,25 @@ export function Favorecidos({ c, pode }: { c: Cadastros; pode: boolean }) {
           </Formulario>
         )} />
     </div>
+  )
+}
+
+/** Nome, razão social e CNPJ da empresa destes livros (sai no pacote do contador). */
+export function DadosDaEmpresa({ empresa, pode }: { empresa: NonNullable<Cadastros['empresa']>; pode: boolean }) {
+  const [estado, enviar, enviando] = useActionState(salvarEmpresa.bind(null, empresa.id), {})
+  const cnpj = empresa.cnpj ? empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : ''
+  return (
+    <form action={enviar} className="flex flex-col gap-4" id="dados-da-empresa">
+      <fieldset disabled={!pode} className="grid gap-3 sm:grid-cols-2">
+        <Campo rotulo="Nome curto" ajuda="Como aparece no seletor do Financeiro."><input name="nome" required maxLength={80} defaultValue={empresa.nome} className={inputClass} /></Campo>
+        <Campo rotulo="CNPJ"><input name="cnpj" inputMode="numeric" maxLength={20} defaultValue={cnpj} placeholder="00.000.000/0000-00" className={inputClass} /></Campo>
+        <Campo rotulo="Razão social" largo ajuda="Sai no cabeçalho do pacote do contador."><input name="razao_social" maxLength={200} defaultValue={empresa.razao_social ?? ''} className={inputClass} /></Campo>
+      </fieldset>
+      <p className="text-xs text-muted-foreground">{empresa.principal ? 'Empresa principal: patrimônio, estoque, doações e trabalho voluntário entram no fechamento dela.' : 'Empresa à parte: contas, fontes, lançamentos, orçamento e fechamento do mês próprios.'}{empresa.fechado_ate ? ` Mês fechado até ${dataCurta(empresa.fechado_ate)}.` : ''}</p>
+      {estado.erro && <p className="text-sm text-destructive" role="alert">{estado.erro}</p>}
+      {estado.ok && !estado.erro && <p className="text-sm text-success" role="status">Dados da empresa salvos.</p>}
+      {pode && <div><Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}Salvar</Button></div>}
+    </form>
   )
 }
 

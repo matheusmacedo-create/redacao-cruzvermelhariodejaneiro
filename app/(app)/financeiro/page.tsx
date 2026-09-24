@@ -50,13 +50,14 @@ export default async function FinanceiroPage({ searchParams }: {
   const inicio = primeiroDia(mes)
   const fim = ultimoDia(mes)
   const c = await cadastrosDoFinanceiro()
+  const ent = c.empresa?.id ?? ''
 
   const [{ data: abertosBrutos }, { data: doMesBrutos }, { data: pagosBrutos }] = await Promise.all([
     // Em aberto até o fim do mês escolhido (atrasados de meses antes entram).
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).is('pago_em', null).lte('vencimento', fim).order('vencimento').limit(3000),
+    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).lte('vencimento', fim).order('vencimento').limit(3000),
     // Tudo o que vence ou foi pago no mês.
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).or(`and(vencimento.gte.${inicio},vencimento.lte.${fim}),and(pago_em.gte.${inicio},pago_em.lte.${fim})`).order('vencimento').limit(3000),
-    supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
+    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).or(`and(vencimento.gte.${inicio},vencimento.lte.${fim}),and(pago_em.gte.${inicio},pago_em.lte.${fim})`).order('vencimento').limit(3000),
+    supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
   ])
   const abertos = (abertosBrutos ?? []).map(lerLinha) as Lancamento[]
   const doMes = (doMesBrutos ?? []).map(lerLinha) as Lancamento[]
@@ -101,7 +102,7 @@ export default async function FinanceiroPage({ searchParams }: {
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro" />
+      <SecoesDoFinanceiro atual="/financeiro" empresas={c.empresas} empresa={c.empresa} />
       <PageHeader
         title="Financeiro"
         description="Despesas, receitas e contas a pagar da filial, com a fonte de cada recurso e os comprovantes."
