@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { apagarObjeto, infoDoObjeto, listarPasta, sha256DoObjeto, urlAssinada, type PastaDoR2 } from '@/lib/armazenamento/r2'
 import { bucketDoAcervo } from '@/lib/acervo/dados'
 import { guardarNaColecao, lerItemDoAcervo, publicarNoSite, refazerPaginasDoItem, regerarAcervo, tirarDoSite } from '@/lib/acervo/publicacao'
-import { ehColecao, lerItem, nomeSeguro, TAMANHO_MAXIMO, TAMANHO_PARA_SHA256, type Colecao } from '@/lib/acervo/regras'
+import { caracteres, cortar, ehColecao, lerItem, nomeSeguro, TAMANHO_MAXIMO, TAMANHO_PARA_SHA256, type Colecao } from '@/lib/acervo/regras'
 
 /**
  * O acervo da filial (docs/acervo.md). Os arquivos vão do navegador direto ao bucket do acervo no
@@ -44,7 +44,7 @@ function chaveValida(chave: unknown): string {
 function tituloDoNome(nome: string): string {
   const base = nome.replace(/\.[a-z0-9]{1,10}$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
   const titulo = base ? base[0].toUpperCase() + base.slice(1) : 'Arquivo sem título'
-  return (titulo.length < 3 ? `Arquivo ${titulo}` : titulo).slice(0, 160)
+  return cortar(caracteres(titulo) < 3 ? `Arquivo ${titulo}` : titulo, 160)
 }
 
 async function criarFicha(admin: ReturnType<typeof createAdminClient>, workspaceId: string, ator: string, chave: string, nome: string, tipoInformado: string, colecao: Colecao) {
@@ -54,8 +54,8 @@ async function criarFicha(admin: ReturnType<typeof createAdminClient>, workspace
   const hash = info.tamanho <= TAMANHO_PARA_SHA256 ? await sha256DoObjeto(config, bucket, chave) : null
   const tipo = (info.tipo && info.tipo !== 'application/octet-stream' ? info.tipo : tipoInformado) || 'application/octet-stream'
   const { data, error } = await admin.from('acervo_itens').insert({
-    workspace_id: workspaceId, colecao, titulo: tituloDoNome(nome), chave_r2: chave, nome_original: nome.slice(0, 255),
-    tipo_mime: tipo.slice(0, 120), tamanho: info.tamanho, sha256: hash?.sha256 ?? null, criado_por: ator, atualizado_por: ator,
+    workspace_id: workspaceId, colecao, titulo: tituloDoNome(nome), chave_r2: chave, nome_original: cortar(nome, 255),
+    tipo_mime: cortar(tipo, 120), tamanho: info.tamanho, sha256: hash?.sha256 ?? null, criado_por: ator, atualizado_por: ator,
   }).select('id').single()
   if (error?.code === '23505') throw new Error('Este arquivo já está no catálogo.')
   if (error || !data) throw new Error('Não foi possível criar a ficha do arquivo.')
@@ -199,6 +199,8 @@ export async function excluirItemDoAcervo(id: string): Promise<Resultado> {
     const { workspaceId, admin } = await contexto('acervo.gerenciar')
     const item = await lerItemDoAcervo(admin, workspaceId, id)
     if (item.visibilidade === 'publico') throw new Error('Item no site não se apaga: tire do site antes.')
+    // Retirada que o FTP não terminou: a página ainda pode estar no ar, e sem a ficha nada a tiraria de lá.
+    if (item.arquivos_no_site) throw new Error('A retirada do site ainda não terminou: use "Atualizar as páginas do acervo" e depois exclua.')
     const { error } = await admin.from('acervo_itens').delete().eq('id', id).eq('workspace_id', workspaceId)
     if (error?.code === 'P0001' && error.message) throw new Error(error.message)
     if (error) throw new Error('Não foi possível excluir o item.')

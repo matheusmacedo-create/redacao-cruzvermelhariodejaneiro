@@ -91,7 +91,13 @@ select throws_ok(format('insert into public.acervo_itens (workspace_id, colecao,
                  '23505', null, 'endereço repetido na mesma coleção é recusado');
 update public.acervo_itens set visibilidade = 'privado' where id = :'foto';
 select is((select slug from public.acervo_itens where id = :'foto'), 'curso-de-primeiros-socorros-na-sede', 'fora do site, guarda o endereço para voltar igual');
+update public.acervo_itens set arquivos_no_site = '{"imagens": [{"arquivo": "curso-0123456789ab-480.webp", "largura": 480, "altura": 320}]}' where id = :'foto';
+select throws_ok(format('delete from public.acervo_itens where id = %L', :'foto'), 'P0001', null, 'retirada do site por terminar (arquivos ainda no site) não deixa apagar');
+update public.acervo_itens set arquivos_no_site = null where id = :'foto';
 select lives_ok(format('delete from public.acervo_itens where id = %L', :'foto'), 'privado pode ser apagado do catálogo');
+select ok(exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'acervo_itens' and indexdef like '%(criado_por)%')
+          and exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'acervo_itens' and indexdef like '%(atualizado_por)%'),
+          'as chaves para auth.users têm índice');
 
 select * from finish();
 rollback;

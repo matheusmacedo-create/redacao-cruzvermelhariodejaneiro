@@ -34,7 +34,7 @@ ficha precisa estar completa para isso.
    permanente.
 5. **Tirar do site.** O banco volta para privado primeiro; depois saem a página e os arquivos
    públicos do item, e a apresentação e as coleções são refeitas. O original continua no R2.
-6. **Excluir a ficha.** Só de item privado. Se o arquivo ainda está em `entrada/`, sai junto; se
+6. **Excluir a ficha.** Só de item privado, e com a retirada do site terminada. Se o arquivo ainda está em `entrada/`, sai junto; se
    já está numa coleção, fica lá (a trava não deixa apagar antes de 30 dias).
 
 ### O que a ficha precisa para ir ao site
@@ -102,7 +102,7 @@ O que cada página leva, gerado em `lib/acervo/paginas.ts` sobre o esqueleto do 
 O token da Vercel precisa de **Object Read & Write** em `cvrj-trilha` e `cvrj-acervo`. Sem
 `R2_BUCKET_ACERVO` a tela abre e avisa que o acervo não está configurado.
 
-A tabela só é lida pela equipe do workspace (RLS com `private.workspace_role`) e só é escrita
+A tabela só é lida pela equipe do workspace (RLS com `private.is_workspace_member`, que deixa de fora a equipe da escola, perfil desativado e verificação em duas etapas vencida) e só é escrita
 pelas ações do servidor, com a chave de serviço, depois de conferir a permissão.
 
 ## Operação

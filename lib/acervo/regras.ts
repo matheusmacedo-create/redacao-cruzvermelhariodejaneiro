@@ -121,13 +121,41 @@ export function slugDoItem(titulo: string): string {
 }
 
 export const SLUG_VALIDO = /^[a-z0-9]+(-[a-z0-9]+)*$/
+/** O endereço tem até 80 caracteres (CHECK da tabela). */
+export const TAMANHO_DO_SLUG = 80
+
+export const slugDoAcervoValido = (s: string) => SLUG_VALIDO.test(s) && s.length <= TAMANHO_DO_SLUG && s !== 'pagina'
+
+/**
+ * Endereço livre na coleção. Repetido ganha -2, -3…, e a base encurta para o sufixo caber nos 80
+ * caracteres: "relatorio-anual-…-rio-de-janeiro" (79) vira "relatorio-anual-…-rio-de-janeir-2" (80), não 81.
+ */
+export function slugLivre(desejado: string, jaUsados: Iterable<string>): string {
+  const usados = new Set(jaUsados)
+  if (!usados.has(desejado)) return desejado
+  for (let n = 2; n < 10_000; n++) {
+    const sufixo = `-${n}`
+    const tentativa = `${desejado.slice(0, TAMANHO_DO_SLUG - sufixo.length).replace(/-+$/, '')}${sufixo}`
+    if (!usados.has(tentativa)) return tentativa
+  }
+  throw new Error('Não foi possível achar um endereço livre para este item: mude o título.')
+}
+
+/** Tamanho como o Postgres conta (char_length): um emoji é um caractere, não dois. */
+export const caracteres = (s: string) => [...s].length
+
+/** Corta em caracteres, sem partir um emoji ao meio (o pedaço solto não é UTF-16 válido). */
+export function cortar(s: string, max: number): string {
+  const c = [...s]
+  return c.length > max ? c.slice(0, max).join('') : s
+}
 
 /** Nome de arquivo seguro para a chave no R2: sem barra, sem controle, até 120 caracteres. */
 export function nomeSeguro(nome: string): string {
   const limpo = nome.normalize('NFC').replace(/[\\/\u0000-\u001f\u007f]+/g, '-').replace(/\s+/g, ' ').trim()
   const ponto = limpo.lastIndexOf('.')
   const ext = ponto > 0 ? limpo.slice(ponto).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10) : ''
-  const base = (ponto > 0 ? limpo.slice(0, ponto) : limpo).slice(0, 120 - ext.length).trim()
+  const base = cortar(ponto > 0 ? limpo.slice(0, ponto) : limpo, 120 - ext.length).trim()
   return `${base || 'arquivo'}${ext}`
 }
 
@@ -149,7 +177,7 @@ export type DadosDoItem = {
 const texto = (v: unknown) => String(v ?? '').trim()
 const opcional = (v: unknown, max: number) => {
   const t = texto(v).replace(/\s+/g, ' ')
-  return t ? t.slice(0, max) : null
+  return t ? cortar(t, max) : null
 }
 const VIDEO = /^https:\/\/(www\.)?(youtube\.com\/watch\?v=[\w-]{6,20}|youtu\.be\/[\w-]{6,20}|vimeo\.com\/\d{5,12})(\S*)?$/
 
@@ -160,8 +188,8 @@ export function lerItem(f: FormData | Record<string, unknown>): { dados?: DadosD
   const colecao = texto(get('colecao'))
   if (!ehColecao(colecao)) erros.push('Escolha a coleção.')
   const titulo = texto(get('titulo')).replace(/\s+/g, ' ')
-  if (titulo.length < 3 || titulo.length > 160) erros.push('O título precisa ter de 3 a 160 caracteres.')
-  const descricao = texto(get('descricao')).slice(0, 5000) || null
+  if (caracteres(titulo) < 3 || caracteres(titulo) > 160) erros.push('O título precisa ter de 3 a 160 caracteres.')
+  const descricao = cortar(texto(get('descricao')), 5000) || null
   const precisao = texto(get('data_precisao')) || 'dia'
   if (!ehPrecisao(precisao)) erros.push('Precisão da data inválida.')
   let data = texto(get('data_item')) || null

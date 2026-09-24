@@ -50,19 +50,27 @@ create table if not exists public.acervo_itens (
 create unique index if not exists acervo_itens_arquivo_unico on public.acervo_itens (workspace_id, chave_r2) where chave_r2 is not null;
 create index if not exists acervo_itens_publicos on public.acervo_itens (workspace_id, colecao, publicado_em desc) where visibilidade = 'publico';
 create index if not exists acervo_itens_recentes on public.acervo_itens (workspace_id, created_at desc);
+-- As chaves estrangeiras para auth.users também indexadas (apagar uma conta não varre a tabela).
+create index if not exists acervo_itens_criado_por on public.acervo_itens (criado_por);
+create index if not exists acervo_itens_atualizado_por on public.acervo_itens (atualizado_por);
 
 comment on table public.acervo_itens is
   'Catálogo do acervo (docs/acervo.md). O arquivo mora no bucket do acervo no R2; o público vai para cruzvermelhariodejaneiro.org/acervo/.';
 
 -- Endereço público é para sempre: depois da primeira publicação, coleção e slug não mudam (links
 -- de fora e o Google continuam achando o item), e a data da primeira publicação também não.
--- Item no ar não se apaga: primeiro sai do site.
+-- Item no ar não se apaga: primeiro sai do site. E a saída precisa ter terminado: com
+-- arquivos_no_site preenchido, página e arquivos ainda podem estar no site (FTP que falhou), e sem a
+-- ficha nada mais os tiraria de lá.
 create or replace function public.acervo_guardar_item()
 returns trigger language plpgsql set search_path = '' as $$
 begin
   if tg_op = 'DELETE' then
     if old.visibilidade = 'publico' then
       raise exception 'Item no ar não se apaga: tire do site antes.' using errcode = 'P0001';
+    end if;
+    if old.arquivos_no_site is not null then
+      raise exception 'A retirada do site ainda não terminou: use "Atualizar as páginas do acervo" e depois exclua.' using errcode = 'P0001';
     end if;
     return old;
   end if;
