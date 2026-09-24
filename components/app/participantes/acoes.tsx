@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, Eye, Loader2, Trash2, UserX, X } from 'lucide-react'
+import { Check, Copy, Eye, Loader2, Send, Trash2, UserX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, inputClass } from '@/components/app/imprensa/comum'
 import {
-  adicionarFormacao, anonimizarParticipante, definirAcesso, mudarSituacao, recusarCandidato, registrarHoras, removerRegistro, verDadosSensiveis,
+  adicionarFormacao, anonimizarParticipante, convidarParaAreaDoMembro, definirAcesso, mudarSituacao, recusarCandidato, registrarHoras, removerRegistro, verDadosSensiveis,
 } from '@/app/actions/participantes'
 import { NIVEIS, type NomeDoNivel } from '@/lib/participantes/regras'
 
@@ -172,5 +172,25 @@ export function RemoverRegistro({ tabela, id, participanteId }: { tabela: 'parti
       className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40">
       {ocupado ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
     </button>
+  )
+}
+
+/** Manda o convite da Área do Voluntário para o e-mail do cadastro. */
+export function ConvidarAreaDoMembro({ id, temEmail }: { id: string; temEmail: boolean }) {
+  const [erro, setErro] = useState('')
+  const [enviado, setEnviado] = useState('')
+  const [ocupado, iniciar] = useTransition()
+  if (!temEmail) return <p className="text-xs text-muted-foreground">Cadastre um e-mail para poder convidar.</p>
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Button size="sm" variant="outline" className="self-start" disabled={ocupado} onClick={() => iniciar(async () => {
+        setErro(''); setEnviado('')
+        const r = await convidarParaAreaDoMembro(id)
+        if (r.erro) setErro(r.erro)
+        else setEnviado(r.email ?? '')
+      })}>{ocupado ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}Enviar convite por e-mail</Button>
+      {enviado && <p className="text-xs text-success">Convite enviado para {enviado}.</p>}
+      <Erro texto={erro} />
+    </div>
   )
 }

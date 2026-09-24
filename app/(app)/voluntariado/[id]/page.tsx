@@ -6,12 +6,12 @@ import { Card } from '@/components/ui/card'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { SITUACOES, VINCULOS, idade, situacaoDaFormacao } from '@/lib/participantes/regras'
-import { AcoesDeSituacao, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
+import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
 
 export const dynamic = 'force-dynamic'
 
 // As colunas cifradas não são liberadas para a API: a lista é explícita.
-const COLUNAS = 'id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,origem,consentimento_em,consentimento_versao,desligado_em,motivo_desligamento,anonimizado_em,created_at'
+const COLUNAS = 'id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,origem,consentimento_em,consentimento_versao,desligado_em,motivo_desligamento,anonimizado_em,created_at,membro_ultimo_acesso'
 
 const DATA = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—')
 
@@ -122,6 +122,17 @@ export default async function Participante({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="flex flex-col gap-5">
+          {p.situacao === 'ativo' && !p.anonimizado_em && (
+            <Card className="p-5" id="area-do-membro">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Área do Voluntário</h2>
+              <p className="mb-3 text-sm">
+                {p.membro_ultimo_acesso
+                  ? <>Último acesso em {new Date(p.membro_ultimo_acesso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })}.</>
+                  : <span className="text-muted-foreground">Ainda não entrou. Ele entra com o e-mail do cadastro e um código.</span>}
+              </p>
+              {nivel >= 2 && <ConvidarAreaDoMembro id={id} temEmail={Boolean(p.email)} />}
+            </Card>
+          )}
           <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Dados sensíveis</h2>
             {nivel >= 3 ? <DadosSensiveis id={id} temCpf={Boolean(p.cpf_mascara)} temSaude={p.tem_dados_de_saude} />
