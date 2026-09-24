@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
+import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
+import { urlBase } from '@/lib/newsletter/contexto'
+import { emailDeConvite as emailDeConviteDoMembro } from '@/lib/membro/emails'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario, formatarCpf, type NomeDoNivel } from '@/lib/participantes/regras'
@@ -161,5 +164,24 @@ export async function removerRegistro(tabela: 'participante_horas' | 'participan
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível remover.') }
+  }
+}
+
+/** Manda ao voluntário o convite para a Área do Voluntário. */
+export async function convidarParaAreaDoMembro(id: string): Promise<Resultado & { email?: string }> {
+  try {
+    const { context, supabase, nivel } = await contextoDeParticipantes()
+    if (nivel < 2) throw new Error('Você não tem acesso para convidar.')
+    if (!emailConfigurado()) throw new Error('O envio de e-mails não está configurado (Configurações → Integrações).')
+    const { data: p } = await supabase.from('participantes').select('nome,nome_social,email,situacao,anonimizado_em').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!p || p.anonimizado_em) throw new Error('Cadastro não encontrado.')
+    if (p.situacao !== 'ativo') throw new Error('Só voluntários ativos entram na área do membro.')
+    if (!p.email) throw new Error('Cadastre um e-mail antes de convidar: é ele que a pessoa usa para entrar.')
+    const m = emailDeConviteDoMembro({ nome: p.nome_social || p.nome, url: `${urlBase()}/membro/entrar?email=${encodeURIComponent(p.email)}`, convidadoPor: context.profile?.full_name ?? 'A coordenação do Voluntariado' })
+    await enviarEmailDeConta({ para: p.email, assunto: m.assunto, html: m.html, texto: m.texto })
+    await supabase.rpc('auditar_convite_area_do_membro', { p_id: id })
+    return { email: p.email }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar o convite.') }
   }
 }
