@@ -5,14 +5,13 @@ import type { Client } from 'basic-ftp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { apagarObjeto, copiarObjeto, infoDoObjeto, lerObjeto } from '@/lib/armazenamento/r2'
 import { enviarArquivoDoAcervo, paginasDaColecaoNoSite, removerArquivoDoAcervo, removerPaginaDoAcervo, withFtp, type FtpConfig } from '@/lib/publicacao/ftp'
-import { slugDisponivel } from '@/lib/site/slug'
 import { descobrirRaizDoSite, regerarMapaDoSite } from '@/lib/site/vitrine'
 import { bucketDoAcervo, COLUNAS_DO_ITEM, itensPublicosDoAcervo, type LinhaDoItem } from './dados'
 import { versoesDaImagem } from './imagens'
 import {
   caminhoDoItem, htaccessDoAcervo, paginaDoItem, paginaInicialDoAcervo, paginasDaColecao, ORIGEM_DO_ACERVO, type ArquivosNoSite, type ItemPublico,
 } from './paginas'
-import { COLECOES, faltaParaPublicar, nomeSeguro, slugDoItem, tipoDoArquivo, TAMANHO_MAXIMO_NO_SITE } from './regras'
+import { COLECOES, faltaParaPublicar, nomeSeguro, slugDoAcervoValido, slugDoItem, slugLivre, tipoDoArquivo, TAMANHO_MAXIMO_NO_SITE } from './regras'
 import { dadosDoVideo } from './video'
 
 /**
@@ -138,8 +137,10 @@ export async function publicarNoSite(workspaceId: string, itemId: string, ator: 
   if (!slug) {
     const { data: usados, error } = await admin.from('acervo_itens').select('slug').eq('workspace_id', workspaceId).eq('colecao', item.colecao).not('slug', 'is', null)
     if (error) throw new Error('Não foi possível conferir os endereços da coleção.')
-    slug = slugDisponivel(slugDoItem(item.titulo), (usados ?? []).map((u) => u.slug as string))
+    slug = slugLivre(slugDoItem(item.titulo), (usados ?? []).map((u) => u.slug as string))
   }
+  // Antes de mexer no R2 e no FTP: um endereço que o banco recusaria deixaria arquivos soltos no site.
+  if (!slugDoAcervoValido(slug)) throw new Error('Não foi possível montar o endereço do item. Mude o título e tente de novo.')
   if (item.chave_r2 && item.colecao !== 'videos') item = { ...item, chave_r2: await guardarNaColecao(admin, item) }
   const preparado = await prepararArquivos(item, slug)
   const novos = nomesDosArquivos(preparado.arquivos)

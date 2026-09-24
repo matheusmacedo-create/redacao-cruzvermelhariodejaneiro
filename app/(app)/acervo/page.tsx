@@ -32,7 +32,7 @@ type Bucket = NonNullable<ReturnType<typeof bucketDoAcervo>>
 /**
  * A imagem do cartão e a da ficha completa. Item no site: as versões WebP que
  * já estão lá (480 e 960 px). Privado: um link assinado de 1 hora do original,
- * gerado aqui — a chave do R2 nunca vai para o navegador.
+ * gerado aqui — a credencial do R2 nunca vai para o navegador, só o link, que vence.
  */
 function previas(l: LinhaDoItem, r2: Bucket | null): { pequena: string | null; grande: string | null; reserva: string | null } {
   const publico = l.visibilidade === 'publico'
