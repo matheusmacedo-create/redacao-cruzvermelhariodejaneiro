@@ -22,7 +22,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
 
   const [{ data: o }, { data: assinantes }, { data: carimbos }] = await Promise.all([
     supabase.from('oficios').select('*').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
-    supabase.from('oficio_assinantes').select('user_id,nome,cargo,ordem,estado,assinado_em,motivo_recusa').eq('oficio_id', id).order('ordem'),
+    supabase.from('oficio_assinantes').select('user_id,nome,cargo,ordem,estado,assinado_em,motivo_recusa,metodo,certificado').eq('oficio_id', id).order('ordem'),
     supabase.from('oficio_carimbos').select('estado,bloco,enviado_em,confirmado_em,ultimo_erro,calendarios').eq('oficio_id', id).order('created_at', { ascending: false }).limit(1),
   ])
   if (!o || !ehEstado(o.estado)) notFound()
@@ -67,6 +67,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
 
   const lista: AssinanteNoPainel[] = (assinantes ?? []).map((a) => ({
     userId: a.user_id, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinado_em, motivo: a.motivo_recusa,
+    metodo: a.metodo, certificado: a.certificado ?? null,
   }))
   const carimboNoPainel: CarimboNoPainel = carimbo
     ? { estado: carimbo.estado, bloco: carimbo.bloco, enviadoEm: carimbo.enviado_em, confirmadoEm: carimbo.confirmado_em, ultimoErro: carimbo.ultimo_erro, calendarios: carimbo.calendarios ?? [] }
@@ -85,12 +86,14 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
         <FolhaDoOficio
           doc={doc}
           marcaDagua={o.estado === 'cancelado' ? 'Cancelado' : undefined}
-          assinaturas={lista.map((a, i) => ({ ordem: i + 1, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinadoEm }))}
+          assinaturas={lista.map((a, i) => ({ ordem: i + 1, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinadoEm, metodo: a.metodo, titularDoCertificado: a.certificado?.titular ?? null }))}
           rodape={<>Conferência: <span className="break-all">{urlPublica}</span></>}
         />
         <PainelDoOficio
           id={o.id}
           estado={o.estado as 'em_assinatura' | 'assinado' | 'cancelado'}
+          modo={o.modo_assinatura === 'govbr' ? 'govbr' : 'senha'}
+          versaoDoPdf={o.pdf_versao ?? 0}
           hashDocumento={o.hash_documento}
           hashManifesto={o.hash_manifesto}
           codigo={o.codigo_verificacao}

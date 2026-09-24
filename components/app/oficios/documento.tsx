@@ -6,6 +6,9 @@ export type AssinaturaNaFolha = {
   cargo: string | null
   estado: 'pendente' | 'assinado' | 'recusado'
   assinadoEm: string | null
+  metodo?: 'senha' | 'govbr' | null
+  /** Nome no certificado do gov.br/ICP-Brasil, quando assinou por lá. */
+  titularDoCertificado?: string | null
 }
 
 /**
@@ -68,7 +71,7 @@ export function FolhaDoOficio({ doc, assinaturas, rodape, marcaDagua }: {
           <div key={a.ordem} className="break-inside-avoid text-center text-sm">
             <div className={`mx-auto mb-2 min-h-12 max-w-64 border-b ${a.estado === 'assinado' ? 'border-neutral-900' : 'border-dashed border-neutral-400'} flex items-end justify-center pb-1 font-sans text-[11px]`}>
               {a.estado === 'assinado' && a.assinadoEm
-                ? <span className="text-emerald-800">Assinado eletronicamente em {momento(a.assinadoEm)}</span>
+                ? <span className="text-emerald-800">{a.metodo === 'govbr' ? `Assinado com gov.br${a.titularDoCertificado ? ` (${a.titularDoCertificado})` : ''} em ${momento(a.assinadoEm)}` : `Assinado eletronicamente em ${momento(a.assinadoEm)}`}</span>
                 : a.estado === 'recusado' ? <span className="text-red-700">Assinatura recusada</span> : <span className="text-neutral-400">Aguardando assinatura</span>}
             </div>
             <p className="font-bold">{a.nome}</p>

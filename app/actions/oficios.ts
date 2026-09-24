@@ -93,12 +93,12 @@ export async function excluirRascunho(id: string): Promise<Resultado> {
   redirect('/oficios')
 }
 
-export async function emitirOficio(id: string, assinantes: { userId: string; cargo: string }[]): Promise<Resultado & { numero?: string }> {
+export async function emitirOficio(id: string, assinantes: { userId: string; cargo: string }[], modo: 'senha' | 'govbr' = 'senha'): Promise<Resultado & { numero?: string }> {
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
     const lista = assinantes.map((a) => ({ user_id: String(a.userId), cargo: String(a.cargo ?? '').trim().slice(0, 120) }))
-    const { data, error } = await supabase.rpc('emitir_oficio', { p_oficio_id: id, p_assinantes: lista })
+    const { data, error } = await supabase.rpc('emitir_oficio', { p_oficio_id: id, p_assinantes: lista, p_modo: modo === 'govbr' ? 'govbr' : 'senha' })
     if (error) erroDoBanco(error, 'Não foi possível emitir o ofício.')
     const { data: o } = await supabase.from('oficios').select('assunto').eq('id', id).maybeSingle()
     await registrar(context.workspace.id, context.user.id, 'oficio_emitido', id, { numero: data, assunto: o?.assunto ?? '' })
