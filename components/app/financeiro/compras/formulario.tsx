@@ -28,7 +28,7 @@ const novoItem = (): ItemNaTela => ({ chave: `n${++seq}`, id: null, descricao: '
  * como pede o manual de compras da Cruz Vermelha. Quem é do Financeiro também
  * classifica (categoria e fonte do dinheiro).
  */
-export function FormularioDoPedido({ inicial, setores, projetos, classificar, categorias, fontes, setorPadrao }: {
+export function FormularioDoPedido({ inicial, setores, projetos, classificar, categorias, fontes, setorPadrao, empresa }: {
   inicial?: PedidoInicial
   setores: Opcao[]
   projetos: Opcao[]
@@ -36,6 +36,8 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
   categorias: Opcao[]
   fontes: Opcao[]
   setorPadrao?: string | null
+  /** Pedido novo: a empresa das listas acima (fontes são de cada empresa). O pedido é aberto nela. */
+  empresa?: { id: string; nome: string; varias: boolean } | null
 }) {
   const router = useRouter()
   const [titulo, setTitulo] = useState(inicial?.titulo ?? '')
@@ -62,6 +64,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
     e.preventDefault()
     setErro('')
     const dados: PedidoNoFormulario = {
+      entidade_id: inicial ? undefined : empresa?.id ?? null,
       titulo, justificativa, setor_id: setor || null, projeto_id: projeto || null, necessario_ate: ate || null, local_entrega: local,
       categoria_id: classificar ? categoria || null : undefined, fonte_id: classificar ? fonte || null : undefined,
       itens: itens.filter((i) => i.descricao.trim()).map((i) => ({ id: i.id, descricao: i.descricao, especificacao: i.especificacao, quantidade: i.quantidade, unidade: i.unidade, valor_estimado_unit: i.valor })),
@@ -102,6 +105,11 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
         </Rotulo>
         {classificar && (
           <>
+            {!inicial && empresa?.varias && (
+              <p className="text-xs text-muted-foreground sm:col-span-2" data-empresa-do-pedido>
+                Pedido da empresa <span className="font-medium text-foreground">{empresa.nome}</span> — a aberta no Financeiro. Para pedir por outra, troque a empresa no Financeiro antes.
+              </p>
+            )}
             <Rotulo texto="Categoria (Financeiro)" ajuda="Obrigatória para mandar para aprovação.">
               <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className={campo}>
                 <option value="">—</option>{categorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}

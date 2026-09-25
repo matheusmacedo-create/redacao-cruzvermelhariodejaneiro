@@ -23,7 +23,8 @@ export default async function NovoPedidoPage() {
       {voltar}
       <PageHeader title="Novo pedido de compra"
         description={`O Financeiro cota com os fornecedores e manda para aprovação. Até ${reais(ctx.regras.limite_simples)} basta uma proposta; acima, ${ctx.regras.cotacoes_minimas}; acima de ${reais(ctx.regras.limite_diretoria)}, também a Diretoria aprova.`} />
-      <FormularioDoPedido setores={o.setores} projetos={o.projetos} setorPadrao={o.setorPadrao} classificar={classificar} categorias={o.categorias} fontes={o.fontes} />
+      <FormularioDoPedido setores={o.setores} projetos={o.projetos} setorPadrao={o.setorPadrao} classificar={classificar} categorias={o.categorias} fontes={o.fontes}
+        empresa={classificar && ctx.empresa ? { id: ctx.empresa.id, nome: ctx.empresa.nome, varias: ctx.empresas.length > 1 } : null} />
     </div>
   )
 }
