@@ -25,8 +25,12 @@ export async function proxy(request: NextRequest) {
     },
   })
 
+  // getClaims, não getUser: renova a sessão vencida do mesmo jeito, mas confere
+  // o token aqui mesmo com a chave pública do projeto (ES256), sem uma ida ao
+  // servidor do Auth a cada requisição. A página ainda chama getUser() — é lá
+  // que vale a checagem forte (conta desativada, sessão revogada).
   try {
-    await supabase.auth.getUser()
+    await supabase.auth.getClaims()
   } catch (cause) {
     // Supabase fora do ar não pode derrubar o site inteiro: as páginas já
     // tratam a ausência de sessão redirecionando para o login.

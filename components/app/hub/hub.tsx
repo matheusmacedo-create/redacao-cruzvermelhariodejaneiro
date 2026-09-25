@@ -35,7 +35,7 @@ import { tamanhoParaProporcao, medidaComoTexto } from '@/lib/ia/tamanho'
 import { montarPaginaDoArtigo } from '@/lib/site/artigo-html'
 import { corpoComMidias } from '@/lib/publicacao/legendas'
 import { gerarSlug } from '@/lib/site/slug'
-import { mediaToken, normalizarQuebras, parseMediaLine } from '@/lib/content-blocks'
+import { mediaToken, normalizarQuebras, parseContentBlocks, parseMediaLine } from '@/lib/content-blocks'
 import { janelaDeRecorte, type CaixaDeRecorte } from '@/lib/publicacao/janela-de-recorte'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
@@ -3756,9 +3756,12 @@ function PreviaSite({ destino, mestre, arquivoPorId }: {
     )
     // Fotos escritas no meio do texto: o gerador só desenha a mídia que
     // conhece, então cada uma precisa entrar no mapa antes de montar a página.
-    for (const paragrafo of corpo.split(/\n\n+/)) {
-      const midia = parseMediaLine(paragrafo)
-      if (midia && !arquivos.has(midia.url)) arquivos.set(midia.url, { nome: midia.url, alt: midia.alt })
+    // Pelo mesmo leitor de blocos da publicação: foto colada logo depois de
+    // uma frase, sem linha em branco, também é foto.
+    for (const bloco of parseContentBlocks(corpo)) {
+      if ((bloco.type === 'image' || bloco.type === 'video' || bloco.type === 'audio') && !arquivos.has(bloco.url)) {
+        arquivos.set(bloco.url, { nome: bloco.url, alt: bloco.alt })
+      }
     }
     return montarPaginaDoArtigo({
       titulo: destino.extras.titulo || mestre.titulo || 'Sem título',

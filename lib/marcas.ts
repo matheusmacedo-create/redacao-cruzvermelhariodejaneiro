@@ -60,5 +60,5 @@ export const marcaDoCanal = (canal: string): MarcaDoCanal | undefined => MARCAS[
 export function svgDaMarca(canal: string, tamanho = 16, cor?: string): string {
   const marca = MARCAS[canal]
   if (!marca) return ''
-  return `<svg width="${tamanho}" height="${tamanho}" viewBox="${marca.viewBox}" fill="${cor ?? marca.cor}" aria-hidden="true" style="flex:none"><path d="${marca.path}"/></svg>`
+  return `<svg width="${tamanho}" height="${tamanho}" viewBox="${marca.viewBox}" fill="${cor ?? marca.cor}" aria-hidden="true" focusable="false" style="flex:none"><path d="${marca.path}"/></svg>`
 }

@@ -1,9 +1,9 @@
 /**
  * Liga o formulário de newsletter da home do site institucional.
  *
- * A home promete "Receba novidades da Cruz Vermelha RJ" num formulário com
- * action="#" e campos sem atributo name: ao enviar, a página recarrega, os
- * campos limpam — parece que funcionou — e o endereço se perde.
+ * A home prometia "Receba novidades" num formulário com action="#" e campos
+ * sem atributo name: ao enviar, a página recarregava, os campos limpavam —
+ * parecia que tinha funcionado — e o endereço se perdia.
  *
  * Este módulo é PURO de propósito. Ele reescreve o HTML da página inicial de
  * uma instituição, no ar, em produção. Uma expressão regular gulosa aqui não
@@ -60,7 +60,7 @@ export function blocoLigado(urlDaRota: string): string {
       </style>
       <div class="wrap">
         <p class="eyebrow">Fique por dentro</p>
-        <h2>Receba novidades da Cruz Vermelha RJ</h2>
+        <h2>Receba novidades da Cruz Vermelha Brasileira Rio de Janeiro</h2>
         <p class="lead">Cursos, campanhas e o impacto da sua doação, direto no seu e-mail.</p>
         <form class="newsletter-form" id="newsletter-form" action="${urlDaRota}" method="post">
           <label class="newsletter-armadilha" aria-hidden="true">Não preencha este campo

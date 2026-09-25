@@ -177,7 +177,7 @@ Públicas (`service_role`, salvo indicação):
 | `auditoria_dados_prova(codigo)` | operações do item até o compromisso e o `.ots` do lote |
 | `auditoria_permitir(chave, limite)` | limite por hora |
 | `auditoria_registrar_item(...)`, `auditoria_registrar_evento_item(...)` | registro pela aplicação |
-| `auditoria_sincronizar()` | registra o que os ganchos perderam e o que já existia antes da trilha (matéria só se `updated_at = site_published_at`); devolve contagens e `falhas_24h` |
+| `auditoria_sincronizar()` | registra o que os ganchos perderam e o que já existia antes da trilha (matéria só se `updated_at = site_published_at`, o que vale só para a primeira publicação — a republicação é registrada pela aplicação e, se falhar, só aparece como aviso na tela); devolve contagens e `falhas_24h` |
 | `auditoria_verificar_cadeia(origem)` | confere cada fluxo e cada lote (folhas, raiz, cabeças contra a cadeia, compromisso, manifesto) e grava o resultado |
 | `auditoria_fechar_lote(dia)` | fecha o dia de São Paulo (recusa dia não terminado; repetir não faz nada) |
 | `auditoria_assinar_lote`, `auditoria_gravar_ots`, `auditoria_gravar_tsr`, `auditoria_registrar_erro_lote`, `auditoria_marcar_publicado`, `auditoria_lotes_pendentes`, `auditoria_indice_lotes`, `auditoria_lotes_para_espelhar`, `auditoria_marcar_espelhado` | a fila dos lotes e a do espelho no R2 |
@@ -201,6 +201,7 @@ AFTER, por linha; falha vira linha em `auditoria.falhas` e a operação principa
 | `oficios` | vira `cancelado` | `item.revogado` |
 | `certificados` | INSERT / `revogado_em` preenchido / DELETE | C / `item.revogado` / `item.retirado` |
 | `content_pieces` | `site_url` e `site_published_at` preenchidos ou mudados / `site_url` limpo | P / `item.retirado` |
+| aplicação | republicar no mesmo endereço (`site_published_at` fica — é a primeira publicação — e o gancho não dispara) | P, pela RPC `auditoria_registrar_item`; conteúdo igual não gera versão |
 | `press_campanhas` | vira `enviada` ou `parcial` | P (ator: quem mandou enviar) |
 | portal e canais | ver §5 | P |
 

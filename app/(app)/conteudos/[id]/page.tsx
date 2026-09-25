@@ -12,11 +12,27 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
   // protótipo — e abria um editor de matéria real por cima de dado inventado.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) notFound()
 
-  const { data: rows, error } = await supabase
-    .from('content_pieces')
-    .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,slug,site_url,site_published_at,pautas(id,title,coordination,owner_id)')
-    .eq('workspace_id', context.workspace.id)
-    .eq('id', id)
+  // O conteúdo, os comentários e as pessoas do espaço saem juntos (uma ida ao
+  // banco, não três); só o responsável depende do conteúdo.
+  const [{ data: rows, error }, { data: commentRows }, { data: memberRows }] = await Promise.all([
+    supabase
+      .from('content_pieces')
+      .select('id,title,subtitle,body,format,status,version,updated_at,responsible_id,pauta_id,slug,site_url,site_published_at,pautas(id,title,coordination,owner_id)')
+      .eq('workspace_id', context.workspace.id)
+      .eq('id', id),
+    supabase
+      .from('content_comments')
+      .select('id,body,created_at,profiles!content_comments_author_id_fkey(id,full_name,initials,color,avatar_path)')
+      .eq('content_id', id)
+      .eq('workspace_id', context.workspace.id)
+      .order('created_at', { ascending: true }),
+    // Quem pode ser convidado a revisar: qualquer membro ativo do espaço, menos
+    // quem está olhando a tela.
+    supabase
+      .from('workspace_members')
+      .select('user_id,profiles(id,full_name,initials,color,active)')
+      .eq('workspace_id', context.workspace.id),
+  ])
   const row: any = Array.isArray(rows) ? rows[0] : rows
   if (error || !row) notFound()
 
@@ -42,13 +58,6 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
       ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(row.site_published_at))
       : null,
   }
-  const { data: commentRows } = await supabase
-    .from('content_comments')
-    .select('id,body,created_at,profiles!content_comments_author_id_fkey(id,full_name,initials,color,avatar_path)')
-    .eq('content_id', row.id)
-    .eq('workspace_id', context.workspace.id)
-    .order('created_at', { ascending: true })
-
   const comments = (commentRows ?? []).map((comment: any) => {
     const author = Array.isArray(comment.profiles) ? comment.profiles[0] : comment.profiles
     return {
@@ -73,13 +82,6 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
     avatarPath: profile.avatar_path,
     role: profile.job_title,
   } : undefined
-
-  // Quem pode ser convidado a revisar: qualquer membro ativo do espaço, menos
-  // quem está olhando a tela.
-  const { data: memberRows } = await supabase
-    .from('workspace_members')
-    .select('user_id,profiles(id,full_name,initials,color,active)')
-    .eq('workspace_id', context.workspace.id)
 
   const pessoas = (memberRows ?? [])
     .map((m: any) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles))

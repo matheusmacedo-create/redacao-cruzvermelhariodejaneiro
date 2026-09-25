@@ -11,14 +11,18 @@ export const getSessionContext = cache(async () => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  const { data: memberships } = await supabase
-    .from('workspace_members')
-    .select('role, coordination, workspaces(id,name,slug,kind,mfa_obrigatorio_para)')
-    .eq('user_id', user.id)
+  // As três leituras não dependem uma da outra: juntas, custam uma ida ao
+  // banco em vez de três — e isto roda em toda página.
   // O nível da sessão vem do mesmo token que getUser() acabou de validar no
   // servidor do Auth; ler daqui não custa rede. Os fatores vêm do usuário.
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+  const [{ data: profile }, { data: memberships }, { data: aal }] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase
+      .from('workspace_members')
+      .select('role, coordination, workspaces(id,name,slug,kind,mfa_obrigatorio_para)')
+      .eq('user_id', user.id),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+  ])
   const fatores = (user.factors ?? []).filter((f) => f.status === 'verified' && f.factor_type === 'totp')
   return { user, profile, memberships: memberships ?? [], nivel: aal?.currentLevel ?? 'aal1', fatores }
 })

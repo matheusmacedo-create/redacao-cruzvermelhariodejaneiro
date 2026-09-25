@@ -57,44 +57,46 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
   const eu = context.user.id
   const ws = context.workspace.id
 
-  const [{ data: approvals }, { data: vinculo }] = await Promise.all([
-    supabase.from('approvals').select('id,status,created_at,requested_by,content_id').eq('workspace_id', ws).order('created_at', { ascending: false }).limit(500),
+  // Em aberto vêm todas (a fila e os números dependem delas); aprovadas e com
+  // ajustes só crescem, então delas vêm as mais recentes. Consultas que não
+  // dependem uma da outra saem juntas: 4 idas ao banco.
+  const LIMITE = 200
+  const [{ data: abertas }, { data: encerradas }, { data: vinculo }] = await Promise.all([
+    supabase.from('approvals').select('id,status,created_at,requested_by,content_id').eq('workspace_id', ws).eq('status', 'pending').order('created_at', { ascending: false }),
+    supabase.from('approvals').select('id,status,created_at,requested_by,content_id').eq('workspace_id', ws).neq('status', 'pending').order('created_at', { ascending: false }).limit(LIMITE),
     supabase.from('workspace_members').select('coordination').eq('workspace_id', ws).eq('user_id', eu).maybeSingle(),
   ])
+  const approvals = [...(abertas ?? []), ...(encerradas ?? [])]
+  const cortouEncerradas = (encerradas?.length ?? 0) >= LIMITE
   const meuSetor = (vinculo?.coordination as string | null) ?? null
 
-  const contentIds = [...new Set((approvals ?? []).map((a) => a.content_id).filter(Boolean))]
-  const { data: contents } = contentIds.length
-    ? await supabase.from('content_pieces').select('id,title,format,pauta_id').in('id', contentIds)
-    : { data: [] as any[] }
-  const contentById = new Map((contents ?? []).map((c) => [c.id, c]))
-
-  const pautaIds = [...new Set((contents ?? []).map((c) => c.pauta_id).filter(Boolean))]
-  const { data: pautas } = pautaIds.length
-    ? await supabase.from('pautas').select('id,title,project_id,coordination').in('id', pautaIds)
-    : { data: [] as any[] }
-  const pautaById = new Map((pautas ?? []).map((p) => [p.id, p]))
-
-  const projectIds = [...new Set((pautas ?? []).map((p) => p.project_id).filter(Boolean))]
-  const approvalIds = (approvals ?? []).map((a) => a.id)
-  const [{ data: projects }, { data: voterRows }] = await Promise.all([
-    projectIds.length ? supabase.from('projects').select('id,name').in('id', projectIds) : Promise.resolve({ data: [] as any[] }),
+  const contentIds = [...new Set(approvals.map((a) => a.content_id).filter(Boolean))]
+  const approvalIds = approvals.map((a) => a.id)
+  const [{ data: contents }, { data: voterRows }] = await Promise.all([
+    contentIds.length ? supabase.from('content_pieces').select('id,title,format,pauta_id').in('id', contentIds) : Promise.resolve({ data: [] as any[] }),
     approvalIds.length ? supabase.from('approval_voters').select('approval_id,user_id,decision,decided_at').in('approval_id', approvalIds) : Promise.resolve({ data: [] as any[] }),
   ])
-  const projectById = new Map((projects ?? []).map((p) => [p.id, p]))
+  const contentById = new Map((contents ?? []).map((c) => [c.id, c]))
   const votersByApproval = new Map<string, any[]>()
   for (const v of voterRows ?? []) votersByApproval.set(v.approval_id, [...(votersByApproval.get(v.approval_id) ?? []), v])
 
+  const pautaIds = [...new Set((contents ?? []).map((c) => c.pauta_id).filter(Boolean))]
   const profileIds = new Set<string>()
-  for (const a of approvals ?? []) if (a.requested_by) profileIds.add(a.requested_by)
+  for (const a of approvals) if (a.requested_by) profileIds.add(a.requested_by)
   for (const v of voterRows ?? []) profileIds.add(v.user_id)
-  const { data: profiles } = profileIds.size
-    ? await supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', [...profileIds])
-    : { data: [] as any[] }
+  const [{ data: pautas }, { data: profiles }] = await Promise.all([
+    pautaIds.length ? supabase.from('pautas').select('id,title,project_id,coordination').in('id', pautaIds) : Promise.resolve({ data: [] as any[] }),
+    profileIds.size ? supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', [...profileIds]) : Promise.resolve({ data: [] as any[] }),
+  ])
+  const pautaById = new Map((pautas ?? []).map((p) => [p.id, p]))
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]))
 
+  const projectIds = [...new Set((pautas ?? []).map((p) => p.project_id).filter(Boolean))]
+  const { data: projects } = projectIds.length ? await supabase.from('projects').select('id,name').in('id', projectIds) : { data: [] as any[] }
+  const projectById = new Map((projects ?? []).map((p) => [p.id, p]))
+
   const agora = agoraEmMs()
-  const itens: (ItemDaFila & { contentId: string })[] = (approvals ?? []).map((a) => {
+  const itens: (ItemDaFila & { contentId: string })[] = approvals.map((a) => {
     const content = contentById.get(a.content_id)
     const pauta = content ? pautaById.get(content.pauta_id) : undefined
     return {
@@ -260,6 +262,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
             </Card>
           )
         })}
+        {cortouEncerradas && filtros.situacao !== 'pending' && <p className="text-center text-xs text-muted-foreground">Das encerradas, mostrando as {LIMITE} mais recentes.</p>}
         {!visiveis.length && (
           <Card className="p-10 text-center">
             <p className="font-medium">{filtros.aba === 'minhas' && filtros.situacao === 'pending' ? 'Nada esperando o seu voto. 🎉' : 'Nenhuma aprovação neste filtro.'}</p>

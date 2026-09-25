@@ -22,10 +22,14 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
   const context = await requireWorkspace()
   const supabase = await createClient()
 
-  const { data: content } = await supabase.from('content_pieces').select('id,title,format,pauta_id,pautas(title)').eq('id', contentId).eq('workspace_id', context.workspace.id).maybeSingle()
+  // Conteúdo, aprovação e comentários saem juntos; os comentários só aparecem
+  // depois da conferência de quem participa, mais abaixo.
+  const [{ data: content }, { data: approval }, { data: commentRows }] = await Promise.all([
+    supabase.from('content_pieces').select('id,title,format,pauta_id,pautas(title)').eq('id', contentId).eq('workspace_id', context.workspace.id).maybeSingle(),
+    supabase.from('approvals').select('id,requested_by,status,created_at').eq('content_id', contentId).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabase.from('content_comments').select('id,body,author_id,created_at').eq('content_id', contentId).eq('workspace_id', context.workspace.id).order('created_at', { ascending: true }),
+  ])
   if (!content) notFound()
-
-  const { data: approval } = await supabase.from('approvals').select('id,requested_by,status,created_at').eq('content_id', contentId).eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
 
   const { data: voterRows } = approval ? await supabase.from('approval_voters').select('user_id,decision,decided_at').eq('approval_id', approval.id) : { data: [] as any[] }
 
@@ -36,7 +40,6 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
   if (approval?.requested_by) profileIds.add(approval.requested_by)
   for (const v of voterRows ?? []) profileIds.add(v.user_id)
 
-  const { data: commentRows } = await supabase.from('content_comments').select('id,body,author_id,created_at').eq('content_id', contentId).eq('workspace_id', context.workspace.id).order('created_at', { ascending: true })
   for (const c of commentRows ?? []) profileIds.add(c.author_id)
 
   const { data: profiles } = profileIds.size ? await supabase.from('profiles').select('id,full_name,initials,color,avatar_path').in('id', [...profileIds]) : { data: [] as any[] }

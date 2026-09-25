@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { CalendarCheck, HeartPulse, Landmark, ListOrdered, Settings2 } from 'lucide-react'
+import { CalendarCheck, HeartPulse, Landmark, ListOrdered, Settings2, ShoppingCart } from 'lucide-react'
 import { EscolhaDaEmpresa } from './empresa'
 
 const SECOES = [
   { href: '/financeiro', rotulo: 'Lançamentos', icone: ListOrdered },
   { href: '/financeiro/saude', rotulo: 'Saúde do caixa', icone: HeartPulse },
+  { href: '/financeiro/compras', rotulo: 'Compras', icone: ShoppingCart },
   { href: '/financeiro/conciliacao', rotulo: 'Conciliação', icone: Landmark },
   { href: '/financeiro/fechamento', rotulo: 'Fechamento', icone: CalendarCheck },
   { href: '/financeiro/cadastros', rotulo: 'Cadastros', icone: Settings2 },

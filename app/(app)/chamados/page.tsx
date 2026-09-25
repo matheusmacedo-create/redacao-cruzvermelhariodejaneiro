@@ -38,11 +38,13 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
   const supabase = await createClient()
   const admin = createAdminClient()
   const ws = context.workspace.id
-  const atendo = await filasQueAtendo(admin, ws, context.user.id, context.role)
+  const [atendo, { data: filas }] = await Promise.all([
+    filasQueAtendo(admin, ws, context.user.id, context.role),
+    supabase.from('chamado_filas').select('id, nome, atendimento_24h').eq('workspace_id', ws).order('ordem'),
+  ])
   const atende = atendo.size > 0
   const aba = sp.aba === 'atendimento' && atende ? 'atendimento' : sp.aba === 'indicadores' && atende ? 'indicadores' : 'meus'
 
-  const { data: filas } = await supabase.from('chamado_filas').select('id, nome, atendimento_24h').eq('workspace_id', ws).order('ordem')
   const filaPorId = new Map((filas ?? []).map((f) => [f.id, f]))
   const minhasFilas = (filas ?? []).filter((f) => atendo.has(f.id))
 
@@ -126,9 +128,11 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
 
   async function Indicadores() {
     const desde = new Date(Date.now() - 90 * 86_400_000).toISOString()
-    const { data } = await supabase.from('chamados').select(COLUNAS).eq('workspace_id', ws).in('fila_id', [...atendo]).gte('criado_em', desde).limit(5000)
+    const [{ data }, { data: cats }] = await Promise.all([
+      supabase.from('chamados').select(COLUNAS).eq('workspace_id', ws).in('fila_id', [...atendo]).gte('criado_em', desde).limit(5000),
+      supabase.from('chamado_categorias').select('id, nome').eq('workspace_id', ws),
+    ])
     const lista = (data ?? []) as Linha[]
-    const { data: cats } = await supabase.from('chamado_categorias').select('id, nome').eq('workspace_id', ws)
     const nomeCat = new Map((cats ?? []).map((c) => [c.id, c.nome as string]))
     const agora = new Date()
     const h24 = (c: Linha) => Boolean(filaPorId.get(c.fila_id)?.atendimento_24h)

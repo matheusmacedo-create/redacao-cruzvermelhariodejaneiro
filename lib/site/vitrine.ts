@@ -2,7 +2,7 @@ import 'server-only'
 import type { Client } from 'basic-ftp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  baixarTexto, enviarArquivo, enviarNaRaizDoSite, type FtpConfig,
+  baixarTexto, enviarArquivo, enviarNaRaizDoSite, enviarPastaFixaNaRaiz, type FtpConfig,
 } from '@/lib/publicacao/ftp'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
@@ -10,6 +10,9 @@ import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-notici
 import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE, type EntradaDoMapa } from '@/lib/site/sitemap'
 import { HTACCESS_DAS_NOTICIAS } from '@/lib/site/cache-do-site'
+import { paginaDePrivacidade, paginaDeTermos } from '@/lib/site/juridico'
+import { prepararChatDoSite } from '@/lib/site/chat-do-site'
+import { medidasDoCabecalho } from '@/lib/site/medidas-da-imagem'
 import { itensPublicosDoAcervo } from '@/lib/acervo/dados'
 import { entradasDoAcervoNoMapa } from '@/lib/acervo/paginas'
 
@@ -31,29 +34,89 @@ export type ResultadoDaVitrine = {
   aviso?: string
 }
 
-/** As matérias publicadas deste espaço — é a matéria-prima do índice e do mapa. */
-export async function noticiasPublicadas(workspaceId: string): Promise<(NoticiaDoIndice & { atualizadaEm: Date })[]> {
+/** Uma matéria no ar: o que o índice mostra, mais o que o sitemap precisa. */
+export type NoticiaPublicada = NoticiaDoIndice & {
+  id?: string
+  /** A última mudança de conteúdo (dateModified): o <lastmod> do sitemap. */
+  atualizadaEm: Date
+}
+
+const POR_LEITURA = 1000
+const TETO_DE_LEITURAS = 20
+
+/** O endereço da matéria no domínio do site, sem www (o www responde 301 para ele). Nulo se for de outro lugar. */
+function enderecoNoSite(url: unknown): string | null {
+  if (typeof url !== 'string') return null
+  const m = /^https?:\/\/(?:www\.)?cruzvermelhariodejaneiro\.org(\/.*)$/i.exec(url.trim())
+  return m ? `${ORIGEM_DO_SITE}${m[1]}` : null
+}
+
+/**
+ * As matérias publicadas deste espaço — a matéria-prima do índice e do mapa.
+ * Todas: a leitura vem em páginas (o Supabase devolve no máximo mil linhas por
+ * pedido). Se a leitura falhar, LANÇA — lista vazia por erro de banco
+ * publicaria um índice sem notícia nenhuma.
+ */
+export async function noticiasPublicadas(workspaceId: string): Promise<NoticiaPublicada[]> {
   const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('content_pieces')
-    .select('title,subtitle,site_url,site_cover_url,site_published_at,updated_at,created_at')
-    .eq('workspace_id', workspaceId)
-    .not('site_url', 'is', null)
-    .order('site_published_at', { ascending: false, nullsFirst: false })
-    .limit(500)
-  return (data ?? [])
-    .filter((p) => typeof p.site_url === 'string' && p.site_url.startsWith(ORIGEM_DO_SITE))
-    .map((p) => {
-      const publicada = new Date(p.site_published_at ?? p.updated_at ?? p.created_at ?? Date.now())
-      return {
-        titulo: String(p.title ?? 'Sem título'),
-        descricao: (p.subtitle as string | null) ?? undefined,
-        url: p.site_url as string,
-        capa: (p.site_cover_url as string | null) ?? undefined,
-        publicadaEm: publicada,
-        atualizadaEm: new Date(p.updated_at ?? publicada),
-      }
+  const linhas: Record<string, unknown>[] = []
+  for (let n = 0; n < TETO_DE_LEITURAS; n++) {
+    const { data, error } = await supabase
+      .from('content_pieces')
+      .select('id,title,subtitle,site_url,site_cover_url,site_published_at,updated_at,created_at')
+      .eq('workspace_id', workspaceId)
+      .not('site_url', 'is', null)
+      .order('site_published_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(n * POR_LEITURA, (n + 1) * POR_LEITURA - 1)
+    if (error) throw new Error('Não foi possível ler as matérias publicadas.')
+    linhas.push(...(data ?? []))
+    if ((data ?? []).length < POR_LEITURA) break
+  }
+  const saida: NoticiaPublicada[] = []
+  for (const p of linhas) {
+    const url = enderecoNoSite(p.site_url)
+    if (!url) continue
+    const publicada = new Date((p.site_published_at ?? p.updated_at ?? p.created_at ?? Date.now()) as string)
+    const editada = p.updated_at ? new Date(p.updated_at as string) : publicada
+    saida.push({
+      id: p.id as string,
+      titulo: String(p.title ?? 'Sem título'),
+      descricao: (p.subtitle as string | null) ?? undefined,
+      url,
+      capa: (p.site_cover_url as string | null) ?? undefined,
+      publicadaEm: publicada,
+      atualizadaEm: editada.getTime() > publicada.getTime() ? editada : publicada,
     })
+  }
+  return saida
+}
+
+/**
+ * As medidas de uma imagem publicada, lidas dos primeiros 64 KB dela.
+ * Nulo quando o site não responde a tempo ou o formato não é reconhecido.
+ */
+export async function medidasDaImagemRemota(url: string, tempoLimiteMs = 3000): Promise<{ largura: number; altura: number } | null> {
+  try {
+    const resposta = await fetch(url, { headers: { Range: 'bytes=0-65535' }, cache: 'no-store', signal: AbortSignal.timeout(tempoLimiteMs) })
+    if (!resposta.ok || !resposta.body) return null
+    const leitor = resposta.body.getReader()
+    const pedacos: Uint8Array[] = []
+    let total = 0
+    while (total < 65536) {
+      const { done, value } = await leitor.read()
+      if (done || !value) break
+      pedacos.push(value)
+      total += value.length
+    }
+    await leitor.cancel().catch(() => undefined)
+    const bytes = new Uint8Array(total)
+    let i = 0
+    for (const p of pedacos) { bytes.set(p, i); i += p.length }
+    return medidasDoCabecalho(bytes)
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -159,6 +222,13 @@ export async function descobrirRaizDoSite(client: Client, config: FtpConfig): Pr
   return null
 }
 
+/** /privacidade/ e /termos/, na raiz do site, na sessão dada. */
+export async function publicarPaginasJuridicas(client: Client, raiz: string, agora: Date = new Date()): Promise<void> {
+  const chat = await prepararChatDoSite()
+  await enviarPastaFixaNaRaiz(client, raiz, 'privacidade', paginaDePrivacidade(agora, chat))
+  await enviarPastaFixaNaRaiz(client, raiz, 'termos', paginaDeTermos(agora, chat))
+}
+
 /**
  * Regera e sobe o índice de notícias, o sitemap e o robots — na sessão dada.
  * Chamada ao fim de toda publicação de matéria e pelo botão de Configurações.
@@ -173,35 +243,45 @@ export async function atualizarVitrine(
    * publicação: o registro dela no banco só acontece depois, então sem isto a
    * primeira edição de cada matéria ficaria de fora do próprio índice.
    */
-  recemPublicada?: NoticiaDoIndice,
+  recemPublicada?: NoticiaPublicada,
 ): Promise<ResultadoDaVitrine> {
   const resultado: ResultadoDaVitrine = { indice: false, sitemap: false, robots: false, noticias: 0 }
   const problemas: string[] = []
+  const chat = await prepararChatDoSite()
 
-  let noticias: (NoticiaDoIndice & { atualizadaEm: Date })[] = []
+  // Sem a lista, o índice e o sitemap ficam como estão: regerar com a lista
+  // vazia tiraria do ar a vitrine inteira por causa de uma leitura que falhou.
+  let noticias: NoticiaPublicada[] | null = null
   try {
     noticias = await noticiasPublicadas(workspaceId)
   } catch {
-    problemas.push('não consegui ler a lista de matérias publicadas')
+    problemas.push('não consegui ler a lista de matérias publicadas — o índice e o sitemap ficaram como estavam')
   }
-  if (recemPublicada) {
-    noticias = [
-      { ...recemPublicada, atualizadaEm: recemPublicada.publicadaEm },
-      ...noticias.filter((n) => n.url !== recemPublicada.url),
-    ]
+  if (noticias && recemPublicada) {
+    noticias = [recemPublicada, ...noticias.filter((n) => n.url !== recemPublicada.url)]
   }
-  resultado.noticias = noticias.length
+  resultado.noticias = noticias?.length ?? 0
 
-  // A linha do tempo dos outros canais entra no mesmo jornal.
-  let linhaDoTempo: ItemDaLinha[] = []
-  try { linhaDoTempo = await publicacoesDaLinhaDoTempo(workspaceId) } catch { /* jornal sai sem a linha */ }
+  if (noticias) {
+    // A linha do tempo dos outros canais entra no mesmo jornal.
+    let linhaDoTempo: ItemDaLinha[] = []
+    try { linhaDoTempo = await publicacoesDaLinhaDoTempo(workspaceId) } catch { /* jornal sai sem a linha */ }
 
-  // O índice mora na própria pasta de notícias (FTP_BASE_DIR).
-  try {
-    await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora, linhaDoTempo), 'utf8'))
-    resultado.indice = true
-  } catch {
-    problemas.push('o índice de notícias não subiu')
+    // O og:image do índice é a capa da matéria mais nova, com as medidas: as
+    // da publicação que acabou de acontecer ou, na falta, lidas do arquivo.
+    const mancheteAtual = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())[0]
+    if (mancheteAtual?.capa && !(mancheteAtual.capaLargura && mancheteAtual.capaAltura)) {
+      const medidas = await medidasDaImagemRemota(mancheteAtual.capa)
+      if (medidas) noticias = noticias.map((n) => (n === mancheteAtual ? { ...n, capaLargura: medidas.largura, capaAltura: medidas.altura } : n))
+    }
+
+    // O índice mora na própria pasta de notícias (FTP_BASE_DIR).
+    try {
+      await enviarArquivo(client, config, 'index.html', Buffer.from(paginaDeNoticias(noticias, agora, linhaDoTempo, chat), 'utf8'))
+      resultado.indice = true
+    } catch {
+      problemas.push('o índice de notícias não subiu')
+    }
   }
 
   // As regras de cache da pasta: sem elas o navegador guarda a página velha
@@ -214,14 +294,16 @@ export async function atualizarVitrine(
   }
 
   // Sitemap e robots moram na raiz do site.
-  try {
-    const raiz = await descobrirRaizDoSite(client, config)
-    if (!raiz) throw new Error('raiz não encontrada')
-    await regerarMapaDoSite(client, raiz, workspaceId, noticias)
-    resultado.sitemap = true
-    resultado.robots = true
-  } catch {
-    problemas.push('sitemap/robots não subiram (a pasta do site não respondeu)')
+  if (noticias) {
+    try {
+      const raiz = await descobrirRaizDoSite(client, config)
+      if (!raiz) throw new Error('raiz não encontrada')
+      await regerarMapaDoSite(client, raiz, workspaceId, noticias)
+      resultado.sitemap = true
+      resultado.robots = true
+    } catch {
+      problemas.push('sitemap/robots não subiram (a pasta do site não respondeu)')
+    }
   }
 
   if (problemas.length) resultado.aviso = problemas.join('; ')
@@ -232,12 +314,16 @@ export async function atualizarVitrine(
  * O sitemap.xml e o robots.txt da raiz do site: as páginas fixas, as notícias e o acervo público
  * (coleções e itens, com a imagem de cada um). Chamada pela vitrine, a cada matéria, e pela
  * publicação do acervo — assim uma nunca apaga do mapa o que a outra pôs.
+ *
+ * O <lastmod> de cada notícia é a última mudança de CONTEÚDO dela (dateModified), não a hora em
+ * que a página foi regravada: regerar todas as páginas com um molde novo não é notícia nova, e o
+ * Google para de confiar no lastmod de quem o muda sem motivo.
  */
 export async function regerarMapaDoSite(
   client: Client,
   raiz: string,
   workspaceId: string,
-  noticias?: (NoticiaDoIndice & { atualizadaEm: Date })[],
+  noticias?: NoticiaPublicada[],
 ): Promise<void> {
   // Sem a lista de matérias, o mapa sairia sem as notícias: melhor não mexer nele.
   const lista = noticias ?? await noticiasPublicadas(workspaceId)
