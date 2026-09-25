@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { contextoDoFinanceiro } from '@/lib/financeiro/acesso'
 import { nivelDoNome } from '@/lib/financeiro/regras'
 import { chaveDoNome } from '@/lib/equipe'
-import { REGRAS_PADRAO, type RegrasDeCompra } from './regras'
+import { JANELA_DE_FRACIONAMENTO_DIAS, REGRAS_PADRAO, numeroDaOrdem, numeroDoPedido, type CompraParecida, type RegrasDeCompra } from './regras'
 
 /**
  * Compras abre para a Redação inteira (qualquer pessoa pede), mas o que cada
@@ -18,11 +18,14 @@ export async function contextoDeCompras() {
     fin.supabase.rpc('compras_meu_papel', { p_workspace_id: ws }),
     fin.supabase.from('compras_config').select('limite_simples,limite_diretoria,cotacoes_minimas,diretoria_setor_id').eq('workspace_id', ws).maybeSingle(),
   ])
-  const p = (papel ?? {}) as { pede?: boolean; diretoria?: boolean; gestao?: boolean }
+  const p = (papel ?? {}) as { pede?: boolean; diretoria?: boolean; gestao?: boolean; patrimonio?: boolean }
   const regras: RegrasDeCompra = config
     ? { limite_simples: Number(config.limite_simples), limite_diretoria: Number(config.limite_diretoria), cotacoes_minimas: Number(config.cotacoes_minimas) }
     : REGRAS_PADRAO
-  return { ...fin, pede: Boolean(p.pede), diretoria: Boolean(p.diretoria), gestao: Boolean(p.gestao), regras, diretoriaSetorId: (config?.diretoria_setor_id as string | null) ?? null }
+  return {
+    ...fin, pede: Boolean(p.pede), diretoria: Boolean(p.diretoria), gestao: Boolean(p.gestao), patrimonio: Boolean(p.patrimonio), regras,
+    diretoriaSetorId: (config?.diretoria_setor_id as string | null) ?? null,
+  }
 }
 
 type Admin = SupabaseClient
@@ -96,4 +99,32 @@ export async function opcoesDoFormulario(ctx: Awaited<ReturnType<typeof contexto
     categorias: (categorias ?? []).map((c) => ({ id: c.id as string, nome: c.nome as string })),
     fontes: (fontes ?? []).map((f) => ({ id: f.id as string, nome: f.nome as string })),
   }
+}
+
+/**
+ * As compras parecidas com esta (mesma categoria ou mesmo fornecedor) que
+ * foram para aprovação nos últimos 90 dias, na mesma empresa — a base do alerta
+ * de fracionamento. Pelo serviço: quem vê o alerta (quem cota e quem aprova)
+ * precisa do total, mesmo que não enxergue cada pedido.
+ */
+export async function comprasParecidas(admin: Admin, p: { id: string; workspace_id: string; entidade_id: string; categoria_id: string | null }, fornecedorId: string | null): Promise<CompraParecida[]> {
+  if (!p.categoria_id && !fornecedorId) return []
+  const desde = new Date(Date.now() - JANELA_DE_FRACIONAMENTO_DIAS * 86_400_000).toISOString()
+  const { data: outros } = await admin.from('compras_pedidos')
+    .select('id,ano,numero,oc_ano,oc_numero,titulo,categoria_id,proposta_id,valor_aprovado')
+    .eq('workspace_id', p.workspace_id).eq('entidade_id', p.entidade_id).neq('id', p.id)
+    .in('estado', ['em_aprovacao', 'aprovado', 'emitido', 'recebido_parcial', 'recebido']).gte('enviado_aprovacao_em', desde).limit(500)
+  const lista = outros ?? []
+  const propostas = fornecedorId ? lista.map((x) => x.proposta_id).filter(Boolean) as string[] : []
+  const { data: favs } = propostas.length ? await admin.from('compras_propostas').select('id,favorecido_id').in('id', propostas) : { data: [] }
+  const fornecedorDe = new Map((favs ?? []).map((x) => [x.id as string, x.favorecido_id as string]))
+  return lista
+    .map((x) => ({
+      id: x.id as string,
+      codigo: x.oc_numero ? numeroDaOrdem(x.oc_ano, x.oc_numero) : numeroDoPedido(x.ano, x.numero),
+      titulo: x.titulo as string, valor: Number(x.valor_aprovado ?? 0),
+      mesmaCategoria: Boolean(p.categoria_id) && x.categoria_id === p.categoria_id,
+      mesmoFornecedor: Boolean(fornecedorId) && fornecedorDe.get(x.proposta_id) === fornecedorId,
+    }))
+    .filter((x) => x.mesmaCategoria || x.mesmoFornecedor)
 }
