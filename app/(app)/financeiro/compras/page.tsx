@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, ShoppingCart } from 'lucide-react'
+import { FileText, Plus, ShoppingCart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -14,8 +14,15 @@ import { cn } from '@/lib/utils'
 export const metadata = { title: tituloDaArea('/financeiro/compras') }
 export const dynamic = 'force-dynamic'
 
-type Aba = 'meus' | 'cotar' | 'aprovar' | 'andamento' | 'todos'
+type Aba = 'meus' | 'cotar' | 'aprovar' | 'andamento' | 'entrada' | 'todos'
 const COLUNAS = 'id,entidade_id,ano,numero,titulo,estado,valor_estimado,valor_aprovado,necessario_ate,created_at,solicitante_id,setor_id,exige_diretoria,aprovado_fin_em,aprovado_dir_em,oc_ano,oc_numero,oc_enviada_em,lancamento_id'
+const mesesAtras = (n: number) => {
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1 - i, 15))
+    return { valor: d.toISOString().slice(0, 7), rotulo: d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }) }
+  })
+}
 type Linha = {
   id: string; entidade_id: string; ano: number; numero: number; titulo: string; estado: Estado; valor_estimado: number; valor_aprovado: number | null
   necessario_ate: string | null; created_at: string; solicitante_id: string | null; setor_id: string | null; exige_diretoria: boolean; aprovado_fin_em: string | null; aprovado_dir_em: string | null
@@ -36,16 +43,17 @@ function proximoPasso(p: Linha): string | null {
  * Pedidos de compra. Qualquer pessoa da Redação pede e acompanha os seus; quem
  * cota (Financeiro, nível "lançar") vê o que espera cotação; quem aprova
  * (nível "aprovar", e a Diretoria acima do limite) vê o que espera decisão; e
- * "Em andamento" junta as compras aprovadas até a conta a pagar ser lançada.
+ * "Em andamento" junta as compras aprovadas até a conta a pagar ser lançada;
+ * quem opera o Patrimônio vê o que chegou e ainda espera entrada.
  */
 export default async function ComprasPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   const sp = await searchParams
-  const { context, supabase, nivel, empresa, empresas, pede, diretoria, regras } = await contextoDeCompras()
+  const { context, supabase, nivel, empresa, empresas, pede, diretoria, patrimonio, regras } = await contextoDeCompras()
   const ws = context.workspace.id
   const eu = context.user.id
   const ent = empresa?.id ?? '00000000-0000-0000-0000-000000000000'
 
-  const [{ data: meus }, { data: daEmpresa }, { data: emAprovacao }] = await Promise.all([
+  const [{ data: meus }, { data: daEmpresa }, { data: emAprovacao }, { data: paraEntrada }] = await Promise.all([
     supabase.from('compras_pedidos').select(COLUNAS).eq('workspace_id', ws).eq('solicitante_id', eu).order('created_at', { ascending: false }).limit(200),
     nivel >= 1
       ? supabase.from('compras_pedidos').select(COLUNAS).eq('workspace_id', ws).eq('entidade_id', ent).order('created_at', { ascending: false }).limit(300)
@@ -53,6 +61,10 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
     // A Diretoria pode não ter nível no Financeiro: o RLS mostra a ela o que passa por ela.
     nivel >= 3 || diretoria
       ? supabase.from('compras_pedidos').select(COLUNAS).eq('workspace_id', ws).eq('estado', 'em_aprovacao').order('enviado_aprovacao_em').limit(200)
+      : Promise.resolve({ data: [] as Linha[] }),
+    // O Patrimônio enxerga as compras com ordem emitida, de todas as empresas (o estoque é um só).
+    patrimonio
+      ? supabase.from('compras_pedidos').select(COLUNAS).eq('workspace_id', ws).in('estado', ['recebido_parcial', 'recebido']).is('entrada_concluida_em', null).order('updated_at').limit(200)
       : Promise.resolve({ data: [] as Linha[] }),
   ])
   const ler = (l: Linha[] | null) => (l ?? []).map((x) => ({ ...x, valor_estimado: Number(x.valor_estimado), valor_aprovado: x.valor_aprovado === null ? null : Number(x.valor_aprovado) })) as Linha[]
@@ -62,18 +74,20 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
     // Para aprovar: o que ainda espera a MINHA parte (o Financeiro, ou a Diretoria).
     aprovar: ler(emAprovacao as Linha[]).filter((p) => (nivel >= 3 && !p.aprovado_fin_em) || (diretoria && p.exige_diretoria && !p.aprovado_dir_em)).filter((p) => p.solicitante_id !== eu),
     andamento: nivel >= 2 ? ler(daEmpresa as Linha[]).filter((p) => proximoPasso(p) !== null) : [],
+    entrada: ler(paraEntrada as Linha[]),
     todos: ler(daEmpresa as Linha[]),
   }
   const abas: { id: Aba; rotulo: string; mostra: boolean }[] = [
     { id: 'aprovar', rotulo: 'Para aprovar', mostra: nivel >= 3 || diretoria },
     { id: 'cotar', rotulo: 'Para cotar', mostra: nivel >= 2 },
     { id: 'andamento', rotulo: 'Em andamento', mostra: nivel >= 2 },
+    { id: 'entrada', rotulo: 'Dar entrada', mostra: patrimonio },
     { id: 'meus', rotulo: 'Meus pedidos', mostra: true },
     { id: 'todos', rotulo: 'Todos', mostra: nivel >= 1 },
   ]
   const visiveis = abas.filter((a) => a.mostra)
   const pedida = visiveis.find((a) => a.id === sp.aba)?.id
-  const aba: Aba = pedida ?? (listas.aprovar.length ? 'aprovar' : listas.cotar.length ? 'cotar' : listas.andamento.length ? 'andamento' : 'meus')
+  const aba: Aba = pedida ?? (listas.aprovar.length ? 'aprovar' : listas.cotar.length ? 'cotar' : listas.andamento.length ? 'andamento' : listas.entrada.length ? 'entrada' : 'meus')
   const lista = listas[aba]
 
   const pessoas = [...new Set(lista.map((p) => p.solicitante_id).filter(Boolean))] as string[]
@@ -111,7 +125,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       {lista.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ShoppingCart className="size-8 text-muted-foreground" />
-          <p className="font-medium">{aba === 'meus' ? 'Você ainda não pediu nenhuma compra.' : aba === 'aprovar' ? 'Nada esperando a sua aprovação.' : aba === 'cotar' ? 'Nenhum pedido esperando cotação.' : aba === 'andamento' ? 'Nenhuma compra aprovada esperando ordem, entrega ou conta a pagar.' : 'Nenhum pedido ainda.'}</p>
+          <p className="font-medium">{aba === 'meus' ? 'Você ainda não pediu nenhuma compra.' : aba === 'aprovar' ? 'Nada esperando a sua aprovação.' : aba === 'cotar' ? 'Nenhum pedido esperando cotação.' : aba === 'andamento' ? 'Nenhuma compra aprovada esperando ordem, entrega ou conta a pagar.' : aba === 'entrada' ? 'Nada chegou esperando entrada no estoque ou patrimônio.' : 'Nenhum pedido ainda.'}</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Até {reais(regras.limite_simples)} basta uma proposta; acima disso, {regras.cotacoes_minimas} propostas; acima de {reais(regras.limite_diretoria)}, também a aprovação da Diretoria.
           </p>
@@ -132,6 +146,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
                     {p.necessario_ate && ` · precisa até ${dataCurta(p.necessario_ate)}`}
                   </p>
                   {aba === 'andamento' && <p className="mt-0.5 text-xs font-medium text-warning-foreground">Próximo passo: {proximoPasso(p)}</p>}
+                  {aba === 'entrada' && <p className="mt-0.5 text-xs font-medium text-warning-foreground">Chegou: dê a entrada no estoque ou no patrimônio</p>}
                 </div>
                 <span className="text-sm font-medium tabular-nums">{p.valor_aprovado !== null ? reais(p.valor_aprovado) : p.valor_estimado ? `~ ${reais(p.valor_estimado)}` : '—'}</span>
                 <EstadoDoPedido estado={p.estado} />
@@ -139,6 +154,25 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
             </li>
           ))}
         </ul>
+      )}
+
+      {nivel >= 1 && empresa && (
+        <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between" data-relatorio>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 font-medium"><FileText className="size-4" />Relatório de compras para a transparência</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              As compras aprovadas no mês, com todas as propostas recebidas e a justificativa quando houve. Fornecedor pessoa física sai sem identificação.
+              Para publicar, envie o PDF em Transparência → Documentos.
+            </p>
+          </div>
+          <form action="/api/compras/relatorio" target="_blank" className="flex shrink-0 gap-2">
+            <input type="hidden" name="empresa" value={empresa.id} />
+            <select name="mes" className="rounded-lg border border-border bg-background px-3 py-2 text-sm" aria-label="Mês do relatório">
+              {mesesAtras(12).map((m) => <option key={m.valor} value={m.valor}>{m.rotulo}</option>)}
+            </select>
+            <Button type="submit" variant="outline"><FileText className="size-4" />Gerar PDF</Button>
+          </form>
+        </Card>
       )}
     </div>
   )

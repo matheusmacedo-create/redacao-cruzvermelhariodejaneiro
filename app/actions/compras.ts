@@ -14,6 +14,7 @@ import { dadosDaOrdem } from '@/lib/compras/ordem'
 import { ordemDeCompra } from '@/lib/compras/ordem-pdf'
 import { enviarPelaCaixa } from '@/lib/correio/enviar'
 import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
+import { quemOperaOPatrimonio } from '@/lib/patrimonio/destinatarios'
 
 /**
  * Compras — escrita. Toda regra que importa (quem pode, faixas, justificativa,
@@ -336,16 +337,58 @@ export async function receberPedido(pedidoId: string, dados: RecebimentoNoFormul
       // O Financeiro fica sabendo (é a deixa para lançar a conta); quem pediu, se foi outra pessoa que recebeu.
       const para = new Set([...(await pessoasDoFinanceiro(admin, p.workspace_id, p.entidade_id, 2)), ...(p.solicitante_id ? [p.solicitante_id] : [])])
       para.delete(context.user.id)
+      const titulo = `Compra ${numeroDoPedido(p.ano, p.numero)}: ${estado === 'recebido' ? 'tudo recebido' : 'parte recebida'}`
       await notificar(admin, {
-        workspaceId: p.workspace_id, para: [...para], atorId: context.user.id, categoria: 'financeiro',
-        titulo: `Compra ${numeroDoPedido(p.ano, p.numero)}: ${estado === 'recebido' ? 'tudo recebido' : 'parte recebida'}`,
+        workspaceId: p.workspace_id, para: [...para], atorId: context.user.id, categoria: 'financeiro', titulo,
         mensagem: `${p.titulo}.${dados.nota_fiscal ? ` Nota fiscal ${dados.nota_fiscal}.` : ''}`, link: `/financeiro/compras/${pedidoId}`, botao: 'Ver o pedido',
+      })
+      // Quem opera o Patrimônio dá a entrada no estoque ou no patrimônio.
+      const patrimonio = (await quemOperaOPatrimonio(admin, p.workspace_id)).filter((u) => u !== context.user.id && !para.has(u))
+      await notificar(admin, {
+        workspaceId: p.workspace_id, para: patrimonio, atorId: context.user.id, categoria: 'patrimonio', titulo,
+        mensagem: `${p.titulo}. Dê a entrada do que chegou no estoque ou no patrimônio.`, link: `/financeiro/compras/${pedidoId}`, botao: 'Dar entrada',
       })
     })
     revalidar(pedidoId)
     return { estado: estado as string }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível registrar o recebimento.') }
+  }
+}
+
+// ---------------------------------------------------------------- entrada no estoque ou patrimônio
+
+export type EntradaNoFormulario = {
+  tipo: string; quantidade: string; data?: string; observacao?: string
+  est_item_id?: string; est_quantidade?: string; local_id?: string; lote?: string; validade?: string
+  categoria_id?: string; nome?: string; marca?: string; modelo?: string
+}
+
+export async function darEntrada(pedidoId: string, itemId: string, dados: EntradaNoFormulario): Promise<Resultado> {
+  try {
+    if (!UUID.test(pedidoId) || !UUID.test(itemId)) throw new Error('Item inválido.')
+    if (!['estoque', 'patrimonio', 'consumo'].includes(dados.tipo)) throw new Error('Escolha o destino.')
+    const { supabase } = await contextoDeCompras()
+    const quantidade = lerValor(dados.quantidade)
+    if (quantidade === null || quantidade <= 0) throw new Error('Informe a quantidade.')
+    const noEstoque = String(dados.est_quantidade ?? '').trim() ? lerValor(dados.est_quantidade) : null
+    if (noEstoque !== null && noEstoque <= 0) throw new Error('Informe a quantidade no estoque.')
+    const id = (v?: string) => (v && UUID.test(v) ? v : null)
+    const texto = (v: string | undefined, max: number) => String(v ?? '').trim().slice(0, max)
+    const { error } = await supabase.rpc('compras_dar_entrada', {
+      p_item_id: itemId,
+      p: {
+        tipo: dados.tipo, quantidade, data: dados.data || null, observacao: texto(dados.observacao, 600),
+        est_item_id: id(dados.est_item_id), est_quantidade: noEstoque, local_id: id(dados.local_id), lote: texto(dados.lote, 60), validade: dados.validade || null,
+        categoria_id: id(dados.categoria_id), nome: texto(dados.nome, 160), marca: texto(dados.marca, 80), modelo: texto(dados.modelo, 80),
+      },
+    })
+    if (error) erroDoBanco(error, 'Não foi possível dar a entrada.')
+    revalidar(pedidoId)
+    revalidatePath('/patrimonio')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível dar a entrada.') }
   }
 }
 

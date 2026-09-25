@@ -144,6 +144,61 @@ export function aprovacoesQueFaltam(p: { exige_diretoria: boolean; aprovado_fin_
   return [...(p.aprovado_fin_em ? [] : ['financeiro' as const]), ...(p.exige_diretoria && !p.aprovado_dir_em ? ['diretoria' as const] : [])]
 }
 
+// ---------------------------------------------------------------- depois que chega
+
+export type Destino = 'estoque' | 'patrimonio' | 'consumo'
+export const DESTINOS: Record<Destino, { rotulo: string; ajuda: string }> = {
+  estoque: { rotulo: 'Estoque', ajuda: 'Material de consumo que fica guardado (luvas, gaze, água): entra com local, lote e validade.' },
+  patrimonio: { rotulo: 'Patrimônio', ajuda: 'Bem durável (equipamento, móvel, rádio): cada unidade vira um bem com plaqueta.' },
+  consumo: { rotulo: 'Sem entrada', ajuda: 'Serviço ou material usado na hora: fica registrado, sem ir ao estoque.' },
+}
+
+/**
+ * O custo de uma unidade com a parte do frete, rateado pelo valor dos itens
+ * (o frete integra o custo de aquisição). Espelho de private.compras_custo_unitario.
+ */
+export function custoComFrete(itens: Pick<ItemDoPedido, 'id' | 'quantidade'>[], p: Pick<Proposta, 'precos' | 'frete'>): Map<string, number> {
+  const preco = new Map(p.precos.map((x) => [x.item_id, x.valor_unitario]))
+  const sub = itens.reduce((s, i) => { const u = preco.get(i.id); return u === null || u === undefined ? s : s + centavos(totalDaLinha(i.quantidade, u)) }, 0) / 100
+  const fator = sub > 0 ? (sub + (p.frete || 0)) / sub : 1
+  const r = new Map<string, number>()
+  for (const i of itens) { const u = preco.get(i.id); if (u !== null && u !== undefined) r.set(i.id, Math.round(u * fator * 10000) / 10000) }
+  return r
+}
+
+/** Quanto de cada item chegou e ainda não tem destino. */
+export function semDestino(recebidos: { item_id: string; quantidade: number }[], destinos: { item_id: string; quantidade: number }[]): Map<string, number> {
+  const r = new Map<string, number>()
+  for (const x of recebidos) r.set(x.item_id, (r.get(x.item_id) ?? 0) + x.quantidade)
+  for (const d of destinos) r.set(d.item_id, (r.get(d.item_id) ?? 0) - d.quantidade)
+  for (const [k, v] of r) r.set(k, Math.max(0, Math.round(v * 1000) / 1000))
+  return r
+}
+
+// ---------------------------------------------------------------- fracionamento
+
+/** Janela em que compras parecidas se somam para o alerta. */
+export const JANELA_DE_FRACIONAMENTO_DIAS = 90
+export type CompraParecida = { id: string; codigo: string; titulo: string; valor: number; mesmaCategoria: boolean; mesmoFornecedor: boolean }
+const PESO_DA_FAIXA = { simples: 0, cotacao: 1, diretoria: 2 } as const
+
+/**
+ * Fracionamento: dividir uma necessidade em compras menores para caber numa
+ * faixa mais simples (menos propostas, sem a Diretoria). O alerta aparece quando
+ * esta compra, somada às parecidas (mesma categoria ou mesmo fornecedor) dos
+ * últimos 90 dias, cai numa faixa mais exigente do que cairia sozinha. É aviso,
+ * não bloqueio: necessidades independentes podem, sim, ser compradas em separado.
+ */
+export function fracionamento(valor: number, parecidas: CompraParecida[], r: RegrasDeCompra): null | {
+  soma: number; sozinha: ReturnType<typeof exigencias>; juntas: ReturnType<typeof exigencias>; parecidas: CompraParecida[]
+} {
+  if (!parecidas.length || valor <= 0) return null
+  const soma = reaisDe(parecidas.reduce((s, p) => s + centavos(p.valor), centavos(valor)))
+  const sozinha = exigencias(valor, r)
+  const juntas = exigencias(soma, r)
+  return PESO_DA_FAIXA[juntas.faixa] > PESO_DA_FAIXA[sozinha.faixa] ? { soma, sozinha, juntas, parecidas } : null
+}
+
 /** Lê número que veio do formulário ("1.234,56", "1234.56", "12"). */
 export function lerValor(bruto: unknown): number | null {
   if (typeof bruto === 'number') return Number.isFinite(bruto) ? bruto : null

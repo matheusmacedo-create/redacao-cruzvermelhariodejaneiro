@@ -689,6 +689,25 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
   `compras:<pedido>:<n>`, e o valor não passa do aprovado.
 - **Cancelamento:** depois que algo chegou ou a conta foi lançada, a compra
   não se cancela mais.
+- **Entrada no Estoque ou no Patrimônio:** quem opera o Patrimônio dá o
+  destino do que chegou (`compras_dar_entrada`, registro em
+  `compras_destinos`). Esse grupo vê as compras a partir da ordem emitida.
+  - Estoque: entra por `estoque_entrada`, e a unidade pode ser outra (5 caixas
+    = 500 un).
+  - Patrimônio: um bem por unidade, por `patrimonio_salvar_bem`.
+  - Sem entrada: serviço ou consumo imediato.
+
+  O custo é o preço com a parte do frete, rateado pelo valor dos itens, e
+  nunca entra mais do que chegou.
+- **Fracionamento:** `fracionamento()` em `lib/compras/regras.ts` soma as
+  compras da mesma categoria ou do mesmo fornecedor dos últimos 90 dias. Se a
+  soma cai numa faixa mais exigente, quem cota e quem aprova veem o alerta. É
+  só aviso, não bloqueio.
+- **Transparência:** `/api/compras/relatorio?mes=AAAA-MM&empresa=…` gera o
+  relatório público do mês em PDF, com todas as propostas e a justificativa.
+  Fornecedor pessoa física sai sem identificação. A publicação no portal é
+  manual, em Transparência → Documentos, porque as tabelas do portal
+  (`cvrj_transparencia`) ainda não foram aplicadas em produção.
 
 ## 8. Integrações externas
 

@@ -7,8 +7,12 @@ import { EstadoDoPedido } from '@/components/app/financeiro/compras/comum'
 import { Cotacao, type PropostaNaTela } from '@/components/app/financeiro/compras/cotacao'
 import { Aprovacao, CancelarPedido } from '@/components/app/financeiro/compras/decisao'
 import { ContaAPagar, OrdemDeCompra, Recebimento } from '@/components/app/financeiro/compras/ordem'
-import { contextoDeCompras, verbaDaCategoria } from '@/lib/compras/servidor'
-import { faltaReceber, numeroDaOrdem, numeroDoPedido, totalEstimado, type EstadoDoPedido as Estado, type ItemDoPedido } from '@/lib/compras/regras'
+import { EntradaDoQueChegou } from '@/components/app/financeiro/compras/entrada'
+import { comprasParecidas, contextoDeCompras, verbaDaCategoria } from '@/lib/compras/servidor'
+import {
+  JANELA_DE_FRACIONAMENTO_DIAS, custoComFrete, faltaReceber, fracionamento, mapaComparativo, numeroDaOrdem, numeroDoPedido, semDestino, totalEstimado,
+  type Destino, type EstadoDoPedido as Estado, type ItemDoPedido,
+} from '@/lib/compras/regras'
 import { caixasQuePodeUsar } from '@/lib/correio/enviar'
 import { quantidade } from '@/lib/patrimonio/estoque'
 import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
@@ -25,6 +29,7 @@ const ACOES: Record<string, string> = {
   aprovado_financeiro: 'aprovou pelo Financeiro', aprovado_diretoria: 'aprovou pela Diretoria', devolvido: 'devolveu para a cotação',
   recusado: 'recusou', cancelado: 'cancelou', ordem_emitida: 'emitiu a ordem de compra', ordem_enviada: 'enviou a ordem ao fornecedor',
   recebido: 'registrou o recebimento', conta_lancada: 'lançou a conta a pagar',
+  entrada_estoque: 'deu entrada no estoque', entrada_patrimonio: 'cadastrou no patrimônio', entrada_consumo: 'registrou sem entrada (consumo)',
 }
 const DEPOIS_DA_ORDEM: Estado[] = ['emitido', 'recebido_parcial', 'recebido']
 const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
@@ -39,7 +44,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const ctx = await contextoDeCompras()
-  const { context, supabase, diretoria, regras } = ctx
+  const { context, supabase, diretoria, regras, patrimonio } = ctx
   const eu = context.user.id
   const [{ data: p }, { data: itensBrutos }, { data: propostasBrutas }, { data: historico }] = await Promise.all([
     supabase.from('compras_pedidos').select('*').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
@@ -57,14 +62,27 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   // vêm pelo serviço porque quem pediu (sem acesso ao Financeiro) não lê esses cadastros.
   const admin = createAdminClient()
   const favIds = [...new Set((propostasBrutas ?? []).map((x) => x.favorecido_id as string))]
-  const { data: recebimentos } = depoisDaOrdem
-    ? await supabase.from('compras_recebimentos').select('id,recebido_em,nota_fiscal,observacao,por,compras_recebimento_itens(item_id,quantidade)').eq('pedido_id', id).order('recebido_em').order('created_at')
-    : { data: [] }
-  const pessoasIds = [...new Set([p.solicitante_id, p.aprovado_fin_por, p.aprovado_dir_por, p.encerrado_por, p.oc_emitida_por, p.oc_enviada_por, ...(historico ?? []).map((h) => h.por), ...(recebimentos ?? []).map((r) => r.por)].filter(Boolean))] as string[]
+  const chegou = estado === 'recebido_parcial' || estado === 'recebido'
+  const [{ data: recebimentos }, { data: destinos }] = await Promise.all([
+    depoisDaOrdem
+      ? supabase.from('compras_recebimentos').select('id,recebido_em,nota_fiscal,observacao,por,compras_recebimento_itens(item_id,quantidade)').eq('pedido_id', id).order('recebido_em').order('created_at')
+      : Promise.resolve({ data: [] as { id: string; recebido_em: string; nota_fiscal: string | null; observacao: string | null; por: string | null; compras_recebimento_itens: { item_id: string; quantidade: number }[] }[] }),
+    chegou
+      ? supabase.from('compras_destinos').select('id,item_id,tipo,quantidade,est_item_id,est_quantidade,bens,observacao,por,created_at').eq('pedido_id', id).order('created_at')
+      : Promise.resolve({ data: [] as { id: string; item_id: string; tipo: Destino; quantidade: number; est_item_id: string | null; est_quantidade: number | null; bens: string[]; observacao: string | null; por: string | null; created_at: string }[] }),
+  ])
+  const pessoasIds = [...new Set([p.solicitante_id, p.aprovado_fin_por, p.aprovado_dir_por, p.encerrado_por, p.oc_emitida_por, p.oc_enviada_por,
+    ...(historico ?? []).map((h) => h.por), ...(recebimentos ?? []).map((r) => r.por), ...(destinos ?? []).map((d) => d.por)].filter(Boolean))] as string[]
+  const darEntrada = patrimonio && chegou && !p.entrada_concluida_em
+  const bensIds = (destinos ?? []).flatMap((d) => (d.bens ?? []) as string[])
+  const estIds = [...new Set((destinos ?? []).map((d) => d.est_item_id).filter(Boolean))] as string[]
   const podeCotar = nivel >= 2 && (estado === 'aberto' || estado === 'em_cotacao')
   const podeEnviar = nivel >= 2 && p.oc_numero !== null && depoisDaOrdem
   const podeLancar = nivel >= 2 && depoisDaOrdem && !p.lancamento_id
-  const [{ data: favs }, { data: perfis }, { data: setor }, { data: projeto }, { data: categoria }, { data: fonte }, { data: fornecedores }, verba, caixas, { data: contas }, { data: lancamento }] = await Promise.all([
+  const [
+    { data: favs }, { data: perfis }, { data: setor }, { data: projeto }, { data: categoria }, { data: fonte }, { data: fornecedores }, verba, caixas, { data: contas }, { data: lancamento },
+    { data: bens }, { data: estNomes }, { data: estOpcoes }, { data: locais }, { data: patCategorias },
+  ] = await Promise.all([
     favIds.length ? admin.from('fin_favorecidos').select('id,nome,email').in('id', favIds) : Promise.resolve({ data: [] as { id: string; nome: string; email: string | null }[] }),
     pessoasIds.length ? admin.from('profiles').select('id,full_name').in('id', pessoasIds) : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
     p.setor_id ? supabase.from('setores').select('nome').eq('id', p.setor_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -76,6 +94,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     podeEnviar ? caixasQuePodeUsar(context) : Promise.resolve([]),
     podeLancar ? supabase.from('fin_contas').select('id,nome').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).eq('ativa', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
     p.lancamento_id ? supabase.from('fin_lancamentos').select('id,descricao').eq('id', p.lancamento_id).maybeSingle() : Promise.resolve({ data: null }),
+    // Plaquetas e nomes do estoque: quem pediu não lê o Patrimônio, mas vê para onde foi o que comprou.
+    bensIds.length ? admin.from('pat_bens').select('id,plaqueta').in('id', bensIds) : Promise.resolve({ data: [] as { id: string; plaqueta: string }[] }),
+    estIds.length ? admin.from('est_itens').select('id,nome,unidade').in('id', estIds) : Promise.resolve({ data: [] as { id: string; nome: string; unidade: string }[] }),
+    darEntrada ? supabase.from('est_itens').select('id,nome,unidade,controla_validade').eq('workspace_id', context.workspace.id).eq('ativo', true).eq('eh_kit', false).order('nome').limit(2000) : Promise.resolve({ data: [] as { id: string; nome: string; unidade: string; controla_validade: boolean }[] }),
+    darEntrada ? supabase.from('pat_locais').select('id,nome').eq('workspace_id', context.workspace.id).eq('ativo', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    darEntrada ? supabase.from('pat_categorias').select('id,nome').eq('workspace_id', context.workspace.id).eq('ativa', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ])
   const fornecedorDe = new Map((favs ?? []).map((f) => [f.id, f.nome as string]))
   const nomeDe = new Map((perfis ?? []).map((x) => [x.id, x.full_name as string]))
@@ -104,6 +128,28 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const falta = faltaReceber(itens, recebidos)
   const podeReceber = (ehSolicitante || nivel >= 2) && (estado === 'emitido' || estado === 'recebido_parcial')
   const itemDe = new Map(itens.map((i) => [i.id, i]))
+  const custo = escolhida ? custoComFrete(itens, escolhida) : new Map<string, number>()
+  const livre = semDestino(recebidos, (destinos ?? []).map((d) => ({ item_id: d.item_id, quantidade: Number(d.quantidade) })))
+  const plaqueta = new Map((bens ?? []).map((b) => [b.id, b.plaqueta as string]))
+  const estDe = new Map((estNomes ?? []).map((e) => [e.id, e as { id: string; nome: string; unidade: string }]))
+  const registros = (destinos ?? []).map((d) => {
+    const item = itemDe.get(d.item_id)
+    const q = quantidade(Number(d.quantidade), item?.unidade)
+    const est = d.est_item_id ? estDe.get(d.est_item_id) : undefined
+    const detalhe = d.tipo === 'estoque'
+      ? `${q} de ${item?.descricao ?? 'item'}${est ? ` → ${quantidade(Number(d.est_quantidade ?? d.quantidade), est.unidade)} em “${est.nome}”` : ''}`
+      : d.tipo === 'patrimonio'
+        ? `${q} de ${item?.descricao ?? 'item'} → ${((d.bens ?? []) as string[]).map((b) => plaqueta.get(b) ?? 'bem').join(', ')}`
+        : `${q} de ${item?.descricao ?? 'item'}${d.observacao ? ` — ${d.observacao}` : ''}`
+    return { id: d.id, item_id: d.item_id, tipo: d.tipo as Destino, quantidade: Number(d.quantidade), detalhe, por: nomeDe.get(d.por ?? '') ?? 'alguém', em: quando(d.created_at) }
+  })
+
+  // Fracionamento: só enquanto a compra está sendo cotada ou decidida, para quem cota ou aprova.
+  const mapa = mapaComparativo(itens, propostas)
+  const valorDaCompra = p.valor_aprovado !== null ? Number(p.valor_aprovado) : mapa.maisBarata ? (mapa.totais.get(mapa.maisBarata)?.total ?? 0) : estimado
+  const alerta = ['aberto', 'em_cotacao', 'em_aprovacao'].includes(estado) && (nivel >= 2 || diretoria)
+    ? fracionamento(valorDaCompra, await comprasParecidas(admin, p, escolhida?.favorecido_id ?? null), regras)
+    : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -172,6 +218,26 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </ol>
       </section>
 
+      {alerta && (
+        <Card className="border-warning/40 bg-warning/10 p-4 text-sm" data-fracionamento role="note">
+          <p className="font-medium">Atenção: possível fracionamento</p>
+          <p className="mt-1">
+            Somada a {alerta.parecidas.length === 1 ? 'outra compra parecida' : `${alerta.parecidas.length} compras parecidas`} dos últimos {JANELA_DE_FRACIONAMENTO_DIAS} dias
+            (mesma categoria ou mesmo fornecedor), esta compra chega a <span className="font-semibold">{reais(alerta.soma)}</span>, faixa que pede {alerta.juntas.propostas} {alerta.juntas.propostas === 1 ? 'proposta' : 'propostas'}
+            {alerta.juntas.diretoria && ' e a aprovação da Diretoria'}. Sozinha, pediria {alerta.sozinha.propostas} {alerta.sozinha.propostas === 1 ? 'proposta' : 'propostas'}{alerta.sozinha.diretoria && ' e a Diretoria'}.
+          </p>
+          <ul className="mt-2 flex flex-col gap-0.5 text-xs">
+            {alerta.parecidas.map((c) => (
+              <li key={c.id}>
+                <Link href={`/financeiro/compras/${c.id}`} className="font-mono underline underline-offset-2">{c.codigo}</Link> {c.titulo} — {reais(c.valor)}
+                <span className="text-muted-foreground"> ({[c.mesmaCategoria && 'mesma categoria', c.mesmoFornecedor && 'mesmo fornecedor'].filter(Boolean).join(', ')})</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">Se forem necessidades independentes, pode seguir. Se for a mesma necessidade dividida, junte num pedido só: as regras de compra valem pelo total.</p>
+        </Card>
+      )}
+
       {(propostas.length > 0 || podeCotar) && (
         <Cotacao pedidoId={id} itens={itens} propostas={propostas} fornecedores={fornecedores ?? []} regras={regras} podeCotar={podeCotar}
           escolhida={p.proposta_id} justificativa={p.justificativa_escolha} emCotacao={podeCotar} />
@@ -223,6 +289,12 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </section>
       )}
 
+      {chegou && (
+        <EntradaDoQueChegou pedidoId={id} registros={registros} pode={patrimonio} concluida={Boolean(p.entrada_concluida_em)}
+          opcoes={{ estoque: estOpcoes ?? [], locais: locais ?? [], categorias: patCategorias ?? [] }}
+          itens={itens.map((i) => ({ id: i.id, descricao: i.descricao, unidade: i.unidade, semDestino: livre.get(i.id) ?? 0, custo: custo.get(i.id) ?? null }))} />
+      )}
+
       {depoisDaOrdem && (nivel >= 2 || p.lancamento_id) && (
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Conta a pagar">
           <p className="font-medium">Conta a pagar</p>
@@ -256,6 +328,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
                   {h.acao === 'recebido' && d.completo === false && ' (em parte)'}
                   {typeof d.nota_fiscal === 'string' && d.nota_fiscal && ` — NF ${d.nota_fiscal}`}
                   {typeof d.parcelas === 'number' && d.parcelas > 1 && ` em ${d.parcelas} parcelas`}
+                  {typeof d.item === 'string' && typeof d.quantidade === 'number' && `: ${quantidade(d.quantidade)} de ${d.item}`}
                 </span>
               </li>
             )
