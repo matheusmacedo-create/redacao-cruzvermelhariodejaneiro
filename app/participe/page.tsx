@@ -1,9 +1,14 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { FormularioPublico } from '@/components/participe/formulario-publico'
+import { Logo } from '@/components/membro/marca'
+import { CabecalhoDaPagina } from '@/components/membro/pecas'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { nomesDosSetores } from '@/lib/setores'
 import { NOMES_DOS_SETORES } from '@/lib/equipe'
 
+// Título inteiro: esta página fica fora de app/membro, então o modelo
+// "%s · Área do Voluntário" não se aplica aqui.
 export const metadata: Metadata = { title: 'Seja voluntário — Cruz Vermelha RJ', description: 'Inscrição de voluntários da Cruz Vermelha Brasileira – Filial do Rio de Janeiro.' }
 
 const hoje = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
@@ -22,26 +27,37 @@ async function setoresPublicos(): Promise<string[]> {
   }
 }
 
+/*
+ * O mesmo produto da Área do Voluntário: mesmos tokens de escopo do
+ * contêiner de app/membro/layout.tsx (vermelho de erro mais escuro que o da
+ * marca, verde legível em texto), mesma logo e mesmas peças. O emblema só
+ * aparece na logo oficial.
+ */
 export default async function Participe() {
   const setores = await setoresPublicos()
   return (
-    <main className="min-h-screen bg-neutral-100 px-4 py-10 text-neutral-900">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <header className="flex items-center gap-4">
-          <span aria-hidden="true" className="relative inline-block size-11 shrink-0">
-            <span className="absolute left-1/2 top-0 h-full w-[34%] -translate-x-1/2 bg-[#e32219]" />
-            <span className="absolute left-0 top-1/2 h-[34%] w-full -translate-y-1/2 bg-[#e32219]" />
-          </span>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Cruz Vermelha Brasileira – Rio de Janeiro</p>
-            <h1 className="text-2xl font-bold tracking-tight">Seja voluntário</h1>
-          </div>
-        </header>
-        <p className="text-sm text-neutral-700">Preencha a inscrição. A coordenação do Voluntariado analisa e entra em contato para a formação inicial.</p>
-        <section className="relative rounded-xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-8">
+    <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)]">
+      {/* Faixa branca: a logo oficial é um PNG de fundo branco e, sobre o cinza, viraria uma caixa solta. */}
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-16">
+          <Logo className="w-28 sm:w-32" />
+          {/* No celular a pergunta some da tela (não cabe ao lado da logo em 320px), mas o leitor de tela continua lendo. */}
+          <p className="flex items-center gap-1 text-sm text-muted-foreground">
+            <span className="sr-only sm:not-sr-only">Já é voluntário?</span>
+            <Link href="/membro/entrar" className="-mr-2 inline-flex min-h-11 items-center rounded-lg px-2 font-semibold text-foreground underline-offset-4 hover:bg-muted hover:underline">
+              Entrar<span className="sr-only"> na Área do Voluntário</span>
+            </Link>
+          </p>
+        </div>
+      </header>
+      <main className="mx-auto flex max-w-2xl flex-col gap-6 px-4 pb-12 pt-6 sm:px-6 sm:pt-8">
+        {/* A descrição serve antes e depois do envio: a tela de sucesso aparece embaixo dela. */}
+        <CabecalhoDaPagina titulo="Seja voluntário" descricao="A coordenação do Voluntariado analisa cada inscrição e entra em contato para a formação inicial." />
+        {/* `relative`: prende a armadilha para robôs, que fica fora da tela. */}
+        <div className="relative rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
           <FormularioPublico hoje={hoje()} setores={setores} />
-        </section>
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   )
 }

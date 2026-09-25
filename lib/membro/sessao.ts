@@ -2,9 +2,11 @@ import 'server-only'
 
 import { cache } from 'react'
 import { createHash, randomBytes } from 'node:crypto'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { CABECALHO_DO_CAMINHO, COOKIE_DO_MEMBRO, tokenNoFormato } from './entrada'
+import { urlDaEntrada } from './regras'
 
 /**
  * A sessão do voluntário na área do membro. Não é o login da equipe: o
@@ -13,12 +15,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * aqui e usa só o participante da sessão — nunca um id vindo do navegador.
  */
 
-export const COOKIE_DO_MEMBRO = 'cvrj_membro'
-export const DIAS_DE_SESSAO = 30
+// O nome e o prazo do cookie moram em ./entrada, que o proxy também usa (sem 'server-only').
+export { COOKIE_DO_MEMBRO, DIAS_DE_SESSAO } from './entrada'
 
 export const hashDoToken = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex')
 export const novoToken = () => randomBytes(32).toString('base64url')
-const tokenNoFormato = (t: string) => /^[A-Za-z0-9_-]{43}$/.test(t)
 
 export const COOKIE_DA_PREVIA = 'cvrj_membro_previa'
 /** Participante que não existe: a prévia geral vê o conteúdo publicado e nenhum dado pessoal. */
@@ -76,9 +77,15 @@ export const sessaoDoMembro = cache(async (): Promise<Membro | null> => {
   return { participanteId: linha.participante_id, workspaceId: linha.workspace_id, nome: linha.nome, email: linha.email, tokenHash }
 })
 
+/**
+ * Sem sessão, vai para a entrada levando o caminho pedido (`?voltar=`), para
+ * a pessoa cair de volta onde estava depois do código. O caminho vem do
+ * cabeçalho que o proxy põe em /membro; `urlDaEntrada` confere de novo que
+ * é da própria área. Sem o cabeçalho, é a entrada simples de antes.
+ */
 export async function exigirMembro(): Promise<Membro> {
   const m = await sessaoDoMembro()
-  if (!m) redirect('/membro/entrar')
+  if (!m) redirect(urlDaEntrada((await headers()).get(CABECALHO_DO_CAMINHO)))
   return m
 }
 

@@ -65,12 +65,12 @@ export async function avisarPromovidos(oportunidadeId: string, antes: string[]) 
     admin.from('oportunidade_inscricoes').select('participantes(nome,nome_social,email)').eq('oportunidade_id', oportunidadeId).eq('situacao', 'inscrito').in('participante_id', antes),
   ])
   if (!o || o.cancelada_em) return 0
-  let n = 0
-  for (const i of subiram ?? []) {
+  // Em paralelo: um aviso não espera o outro (enviarAoVoluntario nunca lança).
+  const enviados = await Promise.all((subiram ?? []).map((i) => {
     const p = (Array.isArray(i.participantes) ? i.participantes[0] : i.participantes) as { nome: string; nome_social: string | null; email: string | null } | null
-    if (await enviarAoVoluntario(p?.email, emailDeVagaLiberada({ nome: p?.nome_social || p?.nome || '', titulo: o.titulo, quando: quando(o.inicio, o.fim), local: o.local, url: `${urlBase()}/membro/oportunidades` }))) n++
-  }
-  return n
+    return enviarAoVoluntario(p?.email, emailDeVagaLiberada({ nome: p?.nome_social || p?.nome || '', titulo: o.titulo, quando: quando(o.inicio, o.fim), local: o.local, url: `${urlBase()}/membro/oportunidades` }))
+  }))
+  return enviados.filter(Boolean).length
 }
 
 /** Certificado recém-emitido (há menos de 2 minutos): parabéns por e-mail. */

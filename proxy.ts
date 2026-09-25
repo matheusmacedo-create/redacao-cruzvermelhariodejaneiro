@@ -1,8 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { publicSupabaseEnv, SupabaseConfigError } from '@/lib/supabase/env'
+import {
+  CABECALHO_DO_CAMINHO, COOKIE_DA_RENOVACAO, COOKIE_DO_MEMBRO, caminhoParaVoltar, diaDaRenovacao, naAreaDoMembro, opcoesDoCookieDoMembro, renovaCookieDoMembro,
+} from '@/lib/membro/entrada'
 
 export async function proxy(request: NextRequest) {
+  // Antes de qualquer NextResponse.next({ request }): o cabeçalho da área do
+  // voluntário tem de ir junto nos dois retornos abaixo.
+  const naArea = prepararAreaDoMembro(request)
   const { url, key, missing, invalid } = publicSupabaseEnv()
 
   // O proxy roda em toda requisição. Se ele lançar por falta de variável, o
@@ -10,7 +16,7 @@ export async function proxy(request: NextRequest) {
   // explicaria o problema. Sem credenciais, segue sem renovar a sessão.
   if (missing.length || invalid.length) {
     console.error('[proxy] Supabase não configurado.', new SupabaseConfigError(missing, invalid).message)
-    return NextResponse.next({ request })
+    return renovarSessaoDoMembro(request, naArea, NextResponse.next({ request }))
   }
 
   let response = NextResponse.next({ request })
@@ -37,6 +43,43 @@ export async function proxy(request: NextRequest) {
     console.error('[proxy] falha ao renovar a sessão:', cause instanceof Error ? cause.message : cause)
   }
 
+  return renovarSessaoDoMembro(request, naArea, response)
+}
+
+// ---------------------------------------------------------------- Área do Voluntário
+//
+// Bloco isolado: a área do voluntário tem sessão própria (cookie cvrj_membro,
+// ver lib/membro/sessao), fora do Supabase Auth, e nada daqui toca na sessão
+// da equipe acima. Só age em /membro.
+
+/**
+ * Põe o caminho pedido num cabeçalho da requisição, para `exigirMembro()`
+ * mandar à entrada com `?voltar=` quando a sessão acabou. O valor que o
+ * navegador tenha mandado nesse cabeçalho é sempre sobrescrito (ou apagado).
+ */
+function prepararAreaDoMembro(request: NextRequest): boolean {
+  const { pathname, search } = request.nextUrl
+  if (!naAreaDoMembro(pathname)) return false
+  const caminho = caminhoParaVoltar(pathname, search)
+  if (caminho) request.headers.set(CABECALHO_DO_CAMINHO, caminho)
+  else request.headers.delete(CABECALHO_DO_CAMINHO)
+  return true
+}
+
+/**
+ * Regrava o cookie da sessão do voluntário no máximo uma vez por dia (regras
+ * em `renovaCookieDoMembro`). O banco já estende a sessão a cada acesso; sem
+ * isto, o cookie vencia 30 dias depois do login mesmo com uso diário.
+ */
+function renovarSessaoDoMembro(request: NextRequest, naArea: boolean, response: NextResponse): NextResponse {
+  if (!naArea) return response
+  const token = request.cookies.get(COOKIE_DO_MEMBRO)?.value
+  const hoje = diaDaRenovacao(Date.now())
+  const renova = renovaCookieDoMembro({ metodo: request.method, caminho: request.nextUrl.pathname, token, renovadoEm: request.cookies.get(COOKIE_DA_RENOVACAO)?.value, hoje })
+  if (!renova || !token) return response
+  const opcoes = opcoesDoCookieDoMembro(process.env.NODE_ENV === 'production')
+  response.cookies.set(COOKIE_DO_MEMBRO, token, opcoes)
+  response.cookies.set(COOKIE_DA_RENOVACAO, hoje, opcoes)
   return response
 }
 

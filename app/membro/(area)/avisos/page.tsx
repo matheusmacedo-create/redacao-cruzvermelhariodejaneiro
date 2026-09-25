@@ -1,35 +1,53 @@
+import type { Metadata } from 'next'
 import { Megaphone, Pin } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
 import { avisosDoMembro } from '@/lib/membro/canal'
+import { dataCurta } from '@/lib/membro/regras'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
+import { AtualizarNovidades, SeloDeNovo } from '@/components/membro/canal'
+import { CabecalhoDaPagina, EstadoVazio, Selo } from '@/components/membro/pecas'
 
 export const dynamic = 'force-dynamic'
 
-/** O mural completo. Abrir aqui marca todos como vistos. */
+// O template do layout completa: "Avisos · Área do Voluntário".
+export const metadata: Metadata = { title: 'Avisos' }
+
+/**
+ * O mural completo. Abrir aqui marca todos como vistos. Cada cartão tem
+ * `id="aviso-{id}"`: o Início leva direto a um aviso.
+ */
 export default async function Avisos() {
   const m = await exigirMembro()
   const avisos = await avisosDoMembro(m, hojeEmSaoPaulo())
   const novos = avisos.filter((a) => !a.visto).map((a) => a.id)
-  if (novos.length && !m.previa) await createAdminClient().rpc('membro_ver_avisos', { p_participante_id: m.participanteId, p_avisos: novos })
+  // Se marcou, o número de novidades do layout (calculado na mesma requisição) já está velho.
+  let marcou = false
+  if (novos.length && !m.previa) {
+    const { error } = await createAdminClient().rpc('membro_ver_avisos', { p_participante_id: m.participanteId, p_avisos: novos })
+    marcou = !error
+  }
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Avisos</h1>
-        <p className="text-sm text-muted-foreground">Recados da coordenação para todos os voluntários.</p>
-      </div>
-      {avisos.map((a) => (
-        <article key={a.id} className="rounded-xl border border-border bg-card p-5">
-          <p className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-            {a.fixado && <span className="flex items-center gap-1 font-medium text-primary"><Pin className="size-3" />Fixado</span>}
-            {!a.visto && <span className="rounded-full bg-primary px-2 py-0.5 font-semibold text-white">Novo</span>}
-            {new Date(a.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-          </p>
-          <h2 className="font-semibold">{a.titulo}</h2>
-          <p className="mt-1 whitespace-pre-line text-sm text-foreground/85">{a.texto}</p>
-        </article>
-      ))}
-      {!avisos.length && <p className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center text-sm text-muted-foreground"><Megaphone className="size-8 text-muted-foreground/70" />Nenhum aviso no momento.</p>}
+    <div className="flex max-w-2xl flex-col gap-6">
+      <CabecalhoDaPagina titulo="Avisos" descricao="Recados da coordenação para todos os voluntários." />
+      {avisos.length ? (
+        <div className="flex flex-col gap-3">
+          {avisos.map((a) => (
+            <article key={a.id} id={`aviso-${a.id}`} aria-labelledby={`aviso-${a.id}-titulo`} className="rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                {a.fixado && <Selo icone={Pin}>Fixado</Selo>}
+                <SeloDeNovo novo={!a.visto} />
+                <time dateTime={a.created_at}>{dataCurta(a.created_at)}</time>
+              </div>
+              <h2 id={`aviso-${a.id}-titulo`} className="mt-2 text-base font-semibold wrap-anywhere">{a.titulo}</h2>
+              <p className="mt-1 whitespace-pre-line text-sm wrap-anywhere">{a.texto}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EstadoVazio icone={Megaphone} titulo="Nenhum aviso no momento." texto="Quando a coordenação publicar um recado para os voluntários, ele aparece aqui." />
+      )}
+      {marcou && <AtualizarNovidades />}
     </div>
   )
 }

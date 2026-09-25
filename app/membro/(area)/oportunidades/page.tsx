@@ -1,48 +1,43 @@
-import { CalendarHeart } from 'lucide-react'
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { CalendarCheck, CalendarDays, History } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
-import { oportunidadesDoMembro } from '@/lib/membro/oportunidades'
-import { CartaoDeOportunidade } from '@/components/membro/oportunidades'
+import { agruparOportunidades, cartaoDaOportunidade, oportunidadesDoMembro, type OportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import { CartaoDeOportunidade, ListaDeOportunidades } from '@/components/membro/oportunidades'
+import { CabecalhoDaPagina, EstadoVazio, Secao } from '@/components/membro/pecas'
+import { botaoSecundario } from '@/components/membro/marca'
 
 export const dynamic = 'force-dynamic'
 
-/** Ações, plantões e eventos: próximas primeiro, depois o que já passou. */
+// O template do layout completa: "Oportunidades · Área do Voluntário".
+export const metadata: Metadata = { title: 'Oportunidades' }
+
+/** Ações, plantões e eventos: as minhas, as abertas e o que já passou. */
 export default async function Oportunidades() {
   const m = await exigirMembro()
   const lista = await oportunidadesDoMembro(m)
-  const agora = new Date().toISOString()
-  const proximas = lista.filter((o) => o.fim > agora)
-  const minhas = proximas.filter((o) => o.minha === 'inscrito' || o.minha === 'espera')
-  const outras = proximas.filter((o) => !minhas.includes(o))
-  const passadas = lista.filter((o) => o.fim <= agora && o.minha && o.minha !== 'cancelado').reverse()
+  // Um `agora` só para a página inteira: seção e cartão nunca discordam sobre o que já começou.
+  const agora = new Date()
+  const { minhas, abertas, passadas } = agruparOportunidades(lista, agora)
+  const cartoes = (l: OportunidadeDoMembro[]) => l.map((o) => <CartaoDeOportunidade key={o.id} c={cartaoDaOportunidade(o, agora)} />)
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Oportunidades</h1>
-        <p className="text-sm text-muted-foreground">Ações, plantões e eventos em que você pode atuar. Inscreva-se; com a presença confirmada, as horas entram no seu cadastro.</p>
-      </div>
-      {minhas.length > 0 && (
-        <section className="flex flex-col gap-3" id="minhas">
-          <h2 className="font-semibold">Minhas inscrições</h2>
-          {minhas.map((o) => <CartaoDeOportunidade key={o.id} o={o} agora={agora} />)}
-        </section>
-      )}
-      <section className="flex flex-col gap-3" id="proximas">
-        {minhas.length > 0 && <h2 className="font-semibold">Outras oportunidades</h2>}
-        {outras.map((o) => <CartaoDeOportunidade key={o.id} o={o} agora={agora} />)}
-        {!outras.length && (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center">
-            <CalendarHeart className="size-8 text-muted-foreground/70" />
-            <p className="font-medium">{minhas.length ? 'Nenhuma outra oportunidade aberta agora.' : 'Nenhuma oportunidade aberta agora.'}</p>
-            <p className="text-sm text-muted-foreground">Assim que a coordenação publicar uma ação, ela aparece aqui.</p>
-          </div>
+    <div className="flex flex-col gap-6">
+      <CabecalhoDaPagina titulo="Oportunidades" descricao="Ações, plantões e eventos da filial. Com a presença confirmada, as horas entram no seu cadastro." />
+      <ListaDeOportunidades visiveis={[...minhas, ...abertas, ...passadas].map((o) => o.id)}>
+        {minhas.length > 0 && (
+          <Secao titulo="Minhas inscrições" icone={CalendarCheck} id="minhas">{cartoes(minhas)}</Secao>
         )}
-      </section>
-      {passadas.length > 0 && (
-        <section className="flex flex-col gap-3" id="historico">
-          <h2 className="font-semibold">Onde você já esteve</h2>
-          {passadas.map((o) => <CartaoDeOportunidade key={o.id} o={o} agora={agora} />)}
-        </section>
-      )}
+        <Secao titulo="Abertas para inscrição" icone={CalendarDays} id="proximas">
+          {abertas.length ? cartoes(abertas) : (
+            <EstadoVazio icone={CalendarDays} titulo={minhas.length ? 'Nenhuma outra oportunidade aberta agora' : 'Nenhuma oportunidade aberta agora'}
+              texto="Assim que a coordenação publicar uma ação, um plantão ou um evento, ele aparece aqui. Enquanto isso, dá para avançar na sua formação."
+              acao={<Link href="/membro/cursos" className={botaoSecundario}>Ver cursos</Link>} />
+          )}
+        </Secao>
+        {passadas.length > 0 && (
+          <Secao titulo="Onde você já esteve" icone={History} id="historico">{cartoes(passadas)}</Secao>
+        )}
+      </ListaDeOportunidades>
     </div>
   )
 }

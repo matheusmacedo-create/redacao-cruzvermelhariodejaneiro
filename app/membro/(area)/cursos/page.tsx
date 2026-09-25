@@ -1,43 +1,52 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { BookOpen, GraduationCap } from 'lucide-react'
+import { Award, BookOpen, GraduationCap, PlayCircle } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
-import { catalogoDoMembro } from '@/lib/membro/cursos'
-import { CartaoDeCurso } from '@/components/membro/cursos'
+import { apostilasDoMembro, catalogoDoMembro } from '@/lib/membro/cursos'
+import { etapaDoCurso, type EtapaDoCurso } from '@/lib/membro/inicio'
+import { GradeDeCursos } from '@/components/membro/cursos'
+import { CabecalhoDaPagina, EstadoVazio, Secao } from '@/components/membro/pecas'
+import { botaoSecundario } from '@/components/membro/marca'
 
 export const dynamic = 'force-dynamic'
 
+// O template do layout completa: "Cursos · Área do Voluntário".
+export const metadata: Metadata = { title: 'Cursos' }
+
+/**
+ * O catálogo em três grupos: o que a pessoa já começou (prova pendente
+ * primeiro — é o que está mais perto de virar certificado), o que ainda não
+ * começou e o que já concluiu. Agrupa pela mesma regra do Início
+ * (`etapaDoCurso`). As sub-abas (Cursos · Apostilas · Certificados) vêm do
+ * layout.
+ */
 export default async function Cursos() {
   const m = await exigirMembro()
   const cursos = await catalogoDoMembro(m)
-  const andamento = cursos.filter((c) => c.progresso.feitas > 0 && !c.certificado)
-  const resto = cursos.filter((c) => !andamento.includes(c))
+  // Só no catálogo vazio: aponta para as apostilas apenas se houver alguma.
+  const temApostilas = !cursos.length && (await apostilasDoMembro(m)).length > 0
+  const de = (e: EtapaDoCurso) => cursos.filter((c) => etapaDoCurso(c) === e)
+  const continuar = [...de('prova'), ...de('andamento')]
+  const novos = de('novo')
+  const concluidos = de('concluido')
+  // O formato do cartão vale para a página toda: sem nenhuma capa, cartões horizontais (sem blocos cinza vazios).
+  const comCapa = cursos.some((c) => c.capa)
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Cursos</h1>
-          <p className="text-sm text-muted-foreground">Formação da Cruz Vermelha RJ para voluntários. Concluiu, o certificado sai na hora.</p>
-        </div>
-        <Link href="/membro/apostilas" className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:border-primary/40"><BookOpen className="size-4 text-primary" />Apostilas</Link>
-      </div>
+    <div className="flex flex-col gap-6">
+      <CabecalhoDaPagina titulo="Cursos" descricao="Formação da Cruz Vermelha RJ para voluntários. Concluiu, o certificado sai na hora." />
       {!cursos.length && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center">
-          <GraduationCap className="size-8 text-muted-foreground/70" />
-          <p className="font-medium">Os cursos estão sendo preparados.</p>
-          <p className="text-sm text-muted-foreground">Assim que a coordenação publicar, eles aparecem aqui.</p>
-        </div>
+        <EstadoVazio icone={GraduationCap} titulo="Os cursos estão sendo preparados."
+          texto={temApostilas ? 'Assim que a coordenação publicar, eles aparecem aqui. Enquanto isso, as apostilas já estão disponíveis.' : 'Assim que a coordenação publicar, eles aparecem aqui.'}
+          acao={temApostilas ? <Link href="/membro/apostilas" className={botaoSecundario}><BookOpen className="size-4" aria-hidden="true" />Ver apostilas</Link> : undefined} />
       )}
-      {andamento.length > 0 && (
-        <section>
-          <h2 className="mb-3 font-semibold">Continuar</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{andamento.map((c) => <CartaoDeCurso key={c.id} c={c} />)}</div>
-        </section>
+      {continuar.length > 0 && (
+        <Secao titulo="Continuar" icone={PlayCircle} id="continuar"><GradeDeCursos cursos={continuar} vertical={comCapa} /></Secao>
       )}
-      {resto.length > 0 && (
-        <section>
-          {andamento.length > 0 && <h2 className="mb-3 font-semibold">Todos os cursos</h2>}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{resto.map((c) => <CartaoDeCurso key={c.id} c={c} />)}</div>
-        </section>
+      {novos.length > 0 && (
+        <Secao titulo={continuar.length || concluidos.length ? 'Outros cursos' : 'Cursos disponíveis'} icone={GraduationCap} id="outros"><GradeDeCursos cursos={novos} vertical={comCapa} /></Secao>
+      )}
+      {concluidos.length > 0 && (
+        <Secao titulo="Concluídos" icone={Award} id="concluidos" verTodos={{ href: '/membro/certificados', rotulo: 'Ver certificados' }}><GradeDeCursos cursos={concluidos} vertical={comCapa} /></Secao>
       )}
     </div>
   )

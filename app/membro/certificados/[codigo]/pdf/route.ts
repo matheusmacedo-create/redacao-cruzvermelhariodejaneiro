@@ -1,4 +1,5 @@
 import { sessaoDoMembro } from '@/lib/membro/sessao'
+import { urlDaEntrada } from '@/lib/membro/regras'
 import { certificadosDoMembro } from '@/lib/membro/cursos'
 import { gerarPdfDoCertificado } from '@/lib/cursos/certificado-pdf'
 import { CODIGO_DE_CERTIFICADO } from '@/lib/cursos/regras'
@@ -16,7 +17,9 @@ function logoOficial(origem: string) {
 /** /membro/certificados/ABCD-2345/pdf — o PDF do certificado, só para o dono. */
 export async function GET(request: Request, { params }: { params: Promise<{ codigo: string }> }) {
   const m = await sessaoDoMembro()
-  if (!m) return Response.redirect(new URL('/membro/entrar', request.url), 303)
+  // Sem sessão, volta depois para a lista (e não para o PDF): no Android o PDF
+  // baixa em vez de abrir, e a tela de entrada ficaria parada em "Entrando…".
+  if (!m) return Response.redirect(new URL(urlDaEntrada('/membro/certificados'), request.url), 303)
   const { codigo } = await params
   if (!CODIGO_DE_CERTIFICADO.test(codigo)) return new Response('Certificado não encontrado.', { status: 404 })
   const c = (await certificadosDoMembro(m)).find((x) => x.codigo === codigo)
