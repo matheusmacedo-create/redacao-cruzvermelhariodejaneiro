@@ -6,7 +6,8 @@ import { atualizar, carimbar } from '@/lib/oficios/carimbo'
 import { enviarArquivoDeVerificacao, withFtp } from '@/lib/publicacao/ftp'
 import { descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { notificar } from '@/lib/notificacoes/servidor'
-import { assinarManifesto, chaveDaTrilha, type ChaveDaTrilha } from './assinatura'
+import { assinarManifesto, type ChaveDaTrilha } from './assinatura'
+import { obterChaveDaTrilha } from './chave'
 import { arquivosDoLote, espelharChave, espelharIndice, espelharLote, espelhoConfigurado, type LoteParaEspelhar } from './espelho'
 import { carimbarTempo } from './tsa'
 
@@ -75,13 +76,13 @@ const diaAnterior = (dia: string) => {
 const daquiA = (horas: number) => new Date(Date.now() + horas * 3_600_000).toISOString()
 const mensagem = (causa: unknown) => (causa instanceof Error ? causa.message : typeof causa === 'object' && causa && 'message' in causa ? String((causa as { message: unknown }).message) : String(causa)).slice(0, 400)
 
-function lerChave(resumo: ResumoDaRotina): ChaveDaTrilha | null {
+async function lerChave(resumo: ResumoDaRotina): Promise<ChaveDaTrilha | null> {
   try {
-    const chave = chaveDaTrilha()
-    if (!chave) resumo.avisos.push('AUDITORIA_CHAVE_PRIVADA não configurada: os lotes ficam sem assinatura até ela chegar.')
-    return chave
+    const achada = await obterChaveDaTrilha()
+    if (!achada) resumo.avisos.push('Chave de assinatura não configurada (nem no cofre da Redação nem na Vercel): os lotes ficam sem assinatura até ela chegar.')
+    return achada?.chave ?? null
   } catch (causa) {
-    resumo.avisos.push(`AUDITORIA_CHAVE_PRIVADA inválida: ${mensagem(causa)}`)
+    resumo.avisos.push(`Chave de assinatura inválida: ${mensagem(causa)}`)
     return null
   }
 }
@@ -91,7 +92,7 @@ async function processarPendentes(admin: Admin, resumo: ResumoDaRotina, inicio: 
   if (error) { resumo.avisos.push(`fila de lotes: ${mensagem(error)}`); return }
   const lotes = (data ?? []) as LotePendente[]
   if (!lotes.length) return
-  const chave = lotes.some((l) => l.precisa_assinar) ? lerChave(resumo) : null
+  const chave = lotes.some((l) => l.precisa_assinar) ? await lerChave(resumo) : null
   const paraPublicar: LotePendente[] = []
 
   for (const l of lotes) {
@@ -152,11 +153,11 @@ async function processarPendentes(admin: Admin, resumo: ResumoDaRotina, inicio: 
     resumo.lotes.push(r)
   }
 
-  if (paraPublicar.length) await publicarLotes(admin, paraPublicar, chave ?? lerChaveSilenciosa(), resumo)
+  if (paraPublicar.length) await publicarLotes(admin, paraPublicar, chave ?? await lerChaveSilenciosa(), resumo)
 }
 
-function lerChaveSilenciosa(): ChaveDaTrilha | null {
-  try { return chaveDaTrilha() } catch { return null }
+async function lerChaveSilenciosa(): Promise<ChaveDaTrilha | null> {
+  try { return (await obterChaveDaTrilha())?.chave ?? null } catch { return null }
 }
 
 /** Sobe os arquivos de cada lote, a chave pública e o índice, numa sessão de FTP. */
@@ -209,7 +210,7 @@ async function espelharNoR2(admin: Admin, resumo: ResumoDaRotina, inicio: number
     if (error) throw error
     const lotes = (data ?? []) as LoteParaEspelhar[]
     if (!lotes.length) return
-    const chave = lerChaveSilenciosa()
+    const chave = await lerChaveSilenciosa()
     if (chave) resumo.divergencias.push(...await espelharChave(espelho, chave))
     for (const l of lotes) {
       const divergencias = await espelharLote(espelho, l)

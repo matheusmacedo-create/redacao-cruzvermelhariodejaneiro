@@ -601,6 +601,10 @@ onde ele veio). **Ativo em produção desde 25/09/2026, em lançamento oculto**:
   (nada na aplicação precisa lembrar de registrar) e por `auditoria_sincronizar()`, a rede de
   segurança diária. Falha de registro nunca derruba a operação principal: vira linha em
   `auditoria.falhas` e aviso à administração.
+- **Chave de assinatura** (`lib/auditoria/chave.ts`): a variável `AUDITORIA_CHAVE_PRIVADA` da
+  Vercel, se existir; senão a do cofre (Vault, serviço `auditoria_trilha`), gerada pelo botão da tela
+  Trilha pública — nasce no servidor, vai direto ao cofre, só a impressão digital volta. Não se troca
+  pela tela.
 - **Rotinas** (`vercel.json`): `/api/auditoria/diaria` (confere a cadeia, fecha, assina, carimba na
   FreeTSA e no OpenTimestamps, publica em `/verificar/lotes/` no site) e `/api/auditoria/provas`
   (confirmação no Bitcoin). Lógica em `lib/auditoria/rotina.ts`.

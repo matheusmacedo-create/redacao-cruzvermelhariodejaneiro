@@ -7,6 +7,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { lerCodigo } from '@/lib/auditoria/catalogo'
 import { PAINEL_DA_TRILHA, rotinaDiaria, type ResumoDaRotina } from '@/lib/auditoria/rotina'
+import { lerChave } from '@/lib/auditoria/assinatura'
+import { novaChaveEmPem, obterChaveDaTrilha, SERVICO_DA_CHAVE } from '@/lib/auditoria/chave'
 import { lerConferencia, lerItemInterno, lerSincronizacao, type Conferencia, type ItemInterno, type Sincronizacao } from '@/components/app/trilha/dados'
 
 /**
@@ -19,7 +21,8 @@ import { lerConferencia, lerItemInterno, lerSincronizacao, type Conferencia, typ
  * registrar pendências e a rodada do lote são funções que o banco reserva ao
  * service role: ele só entra depois da checagem.
  *
- * Nada aqui lê ou devolve a chave de assinatura nem valor de variável.
+ * Nada aqui lê ou devolve a chave de assinatura nem valor de variável — nem
+ * gerarChaveDaTrilha, que devolve só a impressão digital.
  */
 
 type Resultado = { erro?: string }
@@ -89,5 +92,29 @@ export async function fecharLoteDeOntemAgora(): Promise<Resultado & { rodada?: R
     return { rodada }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'A rodada do lote não terminou. Recarregue a página para ver o que chegou a ser feito.') }
+  }
+}
+
+/**
+ * Gera a chave de assinatura da trilha no servidor e a guarda direto no cofre
+ * (Vault). Ninguém vê o valor. Só se ainda não houver chave: trocar a chave é
+ * um evento sério (a impressão digital é publicada e assinada pela
+ * presidência) e não pode acontecer por um clique.
+ */
+export async function gerarChaveDaTrilha(): Promise<Resultado & { id?: string }> {
+  try {
+    const context = await requirePermissao('trilha.ver')
+    let existente = null
+    try { existente = await obterChaveDaTrilha() } catch { throw new Error('Já existe uma chave configurada, mas inválida. Corrija a variável na Vercel antes.') }
+    if (existente) throw new Error(`Já existe uma chave de assinatura (${existente.chave.id}). Ela não se troca por aqui.`)
+    const pem = novaChaveEmPem()
+    const id = lerChave(pem).id
+    const supabase = await createClient()
+    const { error } = await supabase.rpc('definir_chave_de_integracao', { p_workspace_id: context.workspace.id, p_servico: SERVICO_DA_CHAVE, p_valor: pem })
+    if (error) erroDoBanco(error, 'Não foi possível guardar a chave no cofre.')
+    revalidatePath(PAINEL_DA_TRILHA)
+    return { id }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível gerar a chave.') }
   }
 }
