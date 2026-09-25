@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, LockKeyhole, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { resolverLogin } from '@/app/actions/contas'
+import { concluirEntrada, prepararEntrada } from '@/app/actions/entrada'
+import { impressaoDoNavegador, type Impressao } from './impressao'
 
 const internalEmail = (username: string) => `${username.toLowerCase()}@usuarios.cvrj.local`
 
@@ -19,6 +21,10 @@ export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // A impressão do aparelho começa a ser colhida quando a tela abre, para
+  // estar pronta no clique (docs/registro-de-acessos.md §3).
+  const impressao = useRef<Promise<Impressao | null> | null>(null)
+  useEffect(() => { impressao.current = impressaoDoNavegador() }, [])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setLoading(true); setError('')
@@ -32,13 +38,41 @@ export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; 
       // Usuário vai direto; e-mail é traduzido no servidor para o usuário da
       // conta (e, se não existir, para um endereço que só falha igual à senha errada).
       const identificador = username.trim()
-      const email = !setup && identificador.includes('@') ? await resolverLogin(identificador) : internalEmail(identificador)
+      let email = internalEmail(identificador)
+      if (!setup) {
+        // Antes da senha: o bloqueio por tentativas erradas. Se a conferência
+        // falhar por qualquer motivo, a entrada segue como era antes.
+        let bloqueado: string | undefined
+        try {
+          const preparo = await Promise.race([
+            prepararEntrada(identificador),
+            new Promise<never>((_, recusar) => setTimeout(() => recusar(new Error('lento')), 6000)),
+          ])
+          email = preparo.email
+          bloqueado = preparo.bloqueado
+        } catch {
+          if (identificador.includes('@')) email = await resolverLogin(identificador)
+        }
+        if (bloqueado) throw new Error(bloqueado)
+      }
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (!setup) await registrarResultado(identificador, !signInError, signInError?.code === 'user_banned' ? 'Conta desativada' : 'Senha errada')
       if (signInError) throw new Error(signInError.code === 'user_banned' ? 'Esta conta está desativada. Fale com um administrador.' : 'Usuário ou senha inválidos.')
       router.push('/dashboard'); router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.')
     } finally { setLoading(false) }
+  }
+
+  /** Registra o resultado sem nunca segurar a entrada por mais de 4 segundos. */
+  async function registrarResultado(identificador: string, ok: boolean, motivo: string) {
+    try {
+      const sinais = await (impressao.current ?? Promise.resolve(null))
+      await Promise.race([
+        concluirEntrada(identificador, ok, motivo, JSON.stringify(sinais ?? {})),
+        new Promise((resolver) => setTimeout(resolver, 4000)),
+      ])
+    } catch { /* o registro nunca impede a entrada */ }
   }
 
   return (
@@ -50,7 +84,7 @@ export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; 
       <label className="flex flex-col gap-2 text-sm font-medium">Senha<div className="relative"><LockKeyhole className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input required minLength={8} autoComplete={setup ? 'new-password' : 'current-password'} type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 w-full rounded-lg border border-border bg-background pl-10 pr-11 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder="Mínimo de 8 caracteres"/><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">{showPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}</button></div></label>
       {error && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       <Button type="submit" size="lg" className="h-12" disabled={loading}>{loading && <Loader2 className="size-4 animate-spin"/>}{setup ? 'Criar administrador e entrar' : 'Entrar'}</Button>
-      {!needsBootstrap && <div className="flex flex-col items-center gap-2 text-center text-xs text-muted-foreground"><Link href="/esqueci-senha" className="text-sm text-primary underline-offset-4 hover:underline">Esqueci minha senha</Link><p>Acesso exclusivo para colaboradores cadastrados.</p></div>}
+      {!needsBootstrap && <div className="flex flex-col items-center gap-2 text-center text-xs text-muted-foreground"><Link href="/esqueci-senha" className="text-sm text-primary underline-offset-4 hover:underline">Esqueci minha senha</Link><p>Acesso exclusivo para colaboradores cadastrados.</p><p className="max-w-xs text-[11px] leading-snug">Por segurança, registramos data, local aproximado e dados do aparelho de cada acesso.</p></div>}
     </form>
   )
 }

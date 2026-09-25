@@ -1,5 +1,5 @@
 import {
-  Archive, AtSign, BadgeCheck, Bell, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
+  Archive, AtSign, BadgeCheck, Bell, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
   ReceiptText, ShoppingCart, type LucideIcon,
 } from 'lucide-react'
@@ -39,6 +39,8 @@ export type Area = {
   contador?: Contador
   /** Tem endereço, busca, migalhas e aba, mas não ocupa linha na sidebar (já tem atalho no topo). */
   foraDoMenu?: boolean
+  /** Só para quem está em `acessos_leitores` (decisão por pessoa, não por papel). */
+  soLeitorDeAcessos?: boolean
 }
 
 export type Grupo = { id: string; rotulo: string | null; areas: Area[] }
@@ -158,6 +160,7 @@ export const ADMINISTRACAO: Grupo = {
   id: 'administracao',
   rotulo: 'Administração',
   areas: [
+    { href: '/acessos', rotulo: 'Acessos', resumo: 'Quem entrou, quando, de onde e com qual aparelho', icone: Fingerprint, termos: ['login', 'entradas', 'ip', 'aparelho', 'fingerprint', 'segurança'], soLeitorDeAcessos: true },
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
@@ -167,9 +170,9 @@ export const ADMINISTRACAO: Grupo = {
 export const TODOS_OS_GRUPOS: Grupo[] = [...GRUPOS, ADMINISTRACAO]
 
 /** Esconde o que a pessoa não pode abrir; grupo vazio some junto. */
-export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] = TODOS_OS_GRUPOS): Grupo[] {
+export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] = TODOS_OS_GRUPOS, opcoes: { leitorDeAcessos?: boolean } = {}): Grupo[] {
   return grupos
-    .map((g) => ({ ...g, areas: g.areas.filter((a) => !a.permissao || pode(a.permissao)) }))
+    .map((g) => ({ ...g, areas: g.areas.filter((a) => (!a.permissao || pode(a.permissao)) && (!a.soLeitorDeAcessos || opcoes.leitorDeAcessos)) }))
     .filter((g) => g.areas.length > 0)
 }
 

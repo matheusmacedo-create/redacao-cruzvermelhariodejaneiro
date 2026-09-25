@@ -20,6 +20,8 @@ import { REMETENTE_DO_VOLUNTARIADO, avisarCertificado, avisarPromovidos, enviarA
 import { lerMensagem } from '@/lib/canal/regras'
 import { oportunidadeDoMembro } from '@/lib/membro/oportunidades'
 import { quando as quandoDaOportunidade } from '@/lib/oportunidades/regras'
+import { dadosDaRequisicao } from '@/lib/acessos/agente'
+import { registrarEvento } from '@/lib/acessos/servidor'
 
 /**
  * A área do membro do lado do servidor. Tudo usa o cliente de serviço, mas
@@ -49,6 +51,21 @@ function depoisDaResposta(rotulo: string, tarefa: () => Promise<unknown>) {
   })
 }
 
+/**
+ * Registro de acessos dos voluntários (docs/registro-de-acessos.md): só o que
+ * a requisição já traz — IP, local aproximado e navegador. Sem cookie de
+ * aparelho e sem impressão digital, por decisão do Matheus (25/09/2026).
+ * Grava depois da resposta e nunca atrapalha a entrada.
+ */
+async function registrarAcessoDoVoluntario(evento: 'codigo_pedido' | 'entrada' | 'entrada_falhou' | 'saida', p: { email?: string; participanteId?: string | null; workspaceId?: string | null; motivo?: string | null }) {
+  const h = await headers()
+  const requisicao = dadosDaRequisicao((nome) => h.get(nome))
+  depoisDaResposta('registro de acesso', () => registrarEvento({
+    evento, tipoDeConta: 'voluntario', contaId: p.participanteId ?? null, workspaceId: p.workspaceId ?? null,
+    identificador: p.email || null, requisicao, motivo: p.motivo ?? null,
+  }))
+}
+
 async function hashDoIp() {
   const h = await headers()
   const ip = (h.get('x-forwarded-for') ?? '').split(',')[0].trim() || h.get('x-real-ip') || 'desconhecido'
@@ -66,6 +83,7 @@ export async function pedirCodigo(_anterior: EstadoDeEntrada, formData: FormData
       throw new Error('Não foi possível enviar o código agora. Tente de novo em instantes.')
     }
     const linha = (Array.isArray(data) ? data[0] : data) as { nome: string; email: string; codigo: string } | undefined
+    await registrarAcessoDoVoluntario('codigo_pedido', { email, motivo: linha?.codigo ? null : 'E-mail sem cadastro ativo' })
     if (linha?.codigo) {
       const m = emailDoCodigo({ nome: linha.nome, codigo: linha.codigo, minutos: MINUTOS_DO_CODIGO, url: `${urlBase()}/membro` })
       await enviarEmailDeConta({ para: linha.email, assunto: m.assunto, html: m.html, texto: m.texto, de: process.env.VOLUNTARIADO_REMETENTE?.trim() || REMETENTE_DO_VOLUNTARIADO })
@@ -94,8 +112,10 @@ export async function entrar(_anterior: EstadoDeEntrada, formData: FormData): Pr
     const r = (data ?? {}) as { erro?: string; participante_id?: string }
     if (r.erro || !r.participante_id) {
       const erro = r.erro ?? 'Código inválido.'
+      await registrarAcessoDoVoluntario('entrada_falhou', { email, motivo: erro })
       return { etapa: 'codigo', email, erro, novoCodigo: pedeNovoCodigo(erro) }
     }
+    await registrarAcessoDoVoluntario('entrada', { email, participanteId: r.participante_id })
     const jar = await cookies()
     const opcoes = opcoesDoCookieDoMembro(process.env.NODE_ENV === 'production')
     jar.set(COOKIE_DO_MEMBRO, token, opcoes)
@@ -113,7 +133,10 @@ export async function sair() {
     ;(await cookies()).delete(COOKIE_DA_PREVIA)
     redirect(m.previa.voltar)
   }
-  if (m) await createAdminClient().rpc('membro_sair', { p_token_hash: m.tokenHash })
+  if (m) {
+    await registrarAcessoDoVoluntario('saida', { participanteId: m.participanteId, workspaceId: m.workspaceId })
+    await createAdminClient().rpc('membro_sair', { p_token_hash: m.tokenHash })
+  }
   const jar = await cookies()
   jar.delete(COOKIE_DO_MEMBRO)
   jar.delete(COOKIE_DA_RENOVACAO)

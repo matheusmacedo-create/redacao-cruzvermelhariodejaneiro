@@ -31,8 +31,10 @@ export function useShell() {
   return ctx
 }
 
-export function AppShellProvider({ children, permitidas, recolhidaInicial = false, equipeDaEscola = null }: {
+export function AppShellProvider({ children, permitidas, recolhidaInicial = false, equipeDaEscola = null, leitorDeAcessos = false }: {
   children: React.ReactNode; permitidas: Permissao[]; recolhidaInicial?: boolean
+  /** Vê o registro de acessos (docs/registro-de-acessos.md): decisão por pessoa. */
+  leitorDeAcessos?: boolean
   /** Quem é só da equipe da escola: o menu mostra só a Escola (e o Financeiro dela, se liberado). */
   equipeDaEscola?: { financeiro: boolean } | null
 }) {
@@ -40,8 +42,8 @@ export function AppShellProvider({ children, permitidas, recolhidaInicial = fals
   // cliente como props — por isso o servidor manda só as permissões e a lista
   // é montada aqui.
   const grupos = useMemo(
-    () => (equipeDaEscola ? gruposDaEquipeDaEscola(equipeDaEscola.financeiro) : gruposVisiveis((p) => permitidas.includes(p))),
-    [permitidas, equipeDaEscola],
+    () => (equipeDaEscola ? gruposDaEquipeDaEscola(equipeDaEscola.financeiro) : gruposVisiveis((p) => permitidas.includes(p), undefined, { leitorDeAcessos })),
+    [permitidas, equipeDaEscola, leitorDeAcessos],
   )
   const [open, setOpen] = useState(false)
   const [recolhida, setRecolhida] = useState(recolhidaInicial)

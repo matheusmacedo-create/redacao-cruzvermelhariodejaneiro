@@ -11,6 +11,7 @@ import { after } from 'next/server'
 import { marcarVisto } from '@/lib/notificacoes/servidor'
 import { ChatAoVivo, type ConversaAoVivo } from '@/components/app/chat/ao-vivo'
 import { pessoasDoChat, type ConversaNoPainel } from '@/lib/chat/servidor'
+import { podeVerAcessos } from '@/lib/acessos/servidor'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Redação', default: 'Redação — Cruz Vermelha RJ' } }
@@ -59,6 +60,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const equipeDaEscola = ehEquipeDaEscola(context.role)
     ? { financeiro: Boolean((await supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('tipo', 'escola')).count) }
     : null
+  // O registro de acessos é por pessoa, não por papel: só quem está em acessos_leitores (e é admin).
+  const leitorDeAcessos = context.role === 'admin' && await podeVerAcessos(context.user.id, ws)
   const recolhida = lembrancas.get(COOKIE_DA_SIDEBAR)?.value === '1'
   const gruposFechados = (lembrancas.get(COOKIE_DOS_GRUPOS)?.value ?? '').split(',').filter(Boolean)
   const buildInfo = {
@@ -68,7 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   return (
     <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
-    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola}>
+    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola} leitorDeAcessos={leitorDeAcessos}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
         <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
