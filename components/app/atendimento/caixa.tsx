@@ -86,7 +86,6 @@ function Rosto({ nome, foto, classe, tamanho = 'size-9' }: {
   if (foto && !quebrou) {
     return (
       // A foto vem da CDN da rede, fora dos domínios do next/image.
-      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={foto}
         alt=""
@@ -168,7 +167,8 @@ export function CaixaDeAtendimento({
   const [lidas, setLidas] = useState<Set<string>>(new Set())
   const jaBuscou = useRef(false)
 
-  // Depois de montar, para não divergir do HTML do servidor.
+  // Depois de montar, para não divergir do HTML do servidor (o localStorage só existe no navegador).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setLidas(lerLidas()) }, [])
 
   const marcarLida = useCallback((id: string) => {
@@ -194,7 +194,7 @@ export function CaixaDeAtendimento({
     void buscar()
   }, [buscar])
 
-  const mensagens = fila?.mensagens ?? []
+  const mensagens = useMemo(() => fila?.mensagens ?? [], [fila])
   const dms = useMemo(() => mensagens.filter((m) => m.origem === 'dm'), [mensagens])
   const comentarios = useMemo(() => mensagens.filter((m) => m.origem === 'comentario'), [mensagens])
 

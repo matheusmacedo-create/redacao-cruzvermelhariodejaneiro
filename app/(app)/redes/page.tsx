@@ -34,13 +34,22 @@ export default async function RedesPage() {
   const context = await requireWorkspace()
   const supabase = await createClient()
 
-  const { data: pacotes } = await supabase
-    .from('social_packages')
-    .select('id,titulo_interno,status,updated_at,mestre')
-    .eq('workspace_id', context.workspace.id)
-    .neq('status', 'arquivado')
-    .order('updated_at', { ascending: false })
-    .limit(40)
+  const [{ data: pacotes }, { data: legado }] = await Promise.all([
+    supabase
+      .from('social_packages')
+      .select('id,titulo_interno,status,updated_at,mestre')
+      .eq('workspace_id', context.workspace.id)
+      .neq('status', 'arquivado')
+      .order('updated_at', { ascending: false })
+      .limit(40),
+    // Histórico da tela anterior: continua legível, ninguém perde rastro.
+    supabase
+      .from('social_publications')
+      .select('id,networks,body,status,created_at')
+      .eq('workspace_id', context.workspace.id)
+      .order('created_at', { ascending: false })
+      .limit(8),
+  ])
 
   const ids = (pacotes ?? []).map((p) => p.id)
   const { data: destinos } = ids.length
@@ -56,14 +65,6 @@ export default async function RedesPage() {
   }
 
   const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-
-  // Histórico da tela anterior: continua legível, ninguém perde rastro.
-  const { data: legado } = await supabase
-    .from('social_publications')
-    .select('id,networks,body,status,created_at')
-    .eq('workspace_id', context.workspace.id)
-    .order('created_at', { ascending: false })
-    .limit(8)
 
   return (
     <div>
