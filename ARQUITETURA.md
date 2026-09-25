@@ -906,6 +906,8 @@ variável; o valor vai direto no painel da Vercel, pelas mãos de quem é dono d
 - **Migração de limpeza do `file_id`** — depende do deploy do carrossel.
 - **`eslint.config.js`** — `pnpm lint` não roda.
 - **Suíte de testes** — hoje só `tsc`, `build` e scripts avulsos.
+- **Registro de acessos** (quem entrou, quando, de onde, com qual aparelho) — proposta em
+  `docs/registro-de-acessos.md`, aguardando as decisões da §10 de lá.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 
