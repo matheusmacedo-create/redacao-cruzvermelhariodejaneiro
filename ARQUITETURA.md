@@ -720,6 +720,39 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
   Fornecedor pessoa física sai sem identificação. Para publicar, envie o PDF
   em Transparência → Documentos, na seção "Outros documentos".
 
+### 7.13 Registro de acessos (`/acessos`)
+
+Quem entrou, quando, de onde e com qual aparelho. A especificação e as decisões estão em
+`docs/registro-de-acessos.md`. Em resumo:
+
+- **Tabelas:** `acessos_eventos` (cada entrada, tentativa errada, bloqueio, 2 etapas e saída),
+  `acessos_aparelhos` (cookie `cvrj_aparelho` em hash, assinatura e impressão digital) e
+  `acessos_leitores` (quem vê). Escrita só pelo servidor, com a chave de serviço; leitura só para
+  leitor, conferida no RLS.
+- **Captura:** `app/actions/entrada.ts` envolve o login da equipe (bloqueio antes, registro depois),
+  `components/auth/verificacao.tsx` avisa a 2ª etapa, `app/auth/signout` registra a saída e
+  `app/actions/membro.ts` registra os voluntários (sem fingerprint).
+- **Regras puras** em `lib/acessos/agente.ts` (cabeçalhos da Vercel, navegador e sistema) e
+  `lib/acessos/regras.ts` (bloqueio, sinais de risco, leitura dos sinais do navegador).
+- **Regra de ouro:** nada do registro pode impedir alguém de entrar. A exceção é o bloqueio por
+  tentativas, que é deliberado.
+- Toda consulta à tela grava `acessos.consultados` em `activity_log`.
+
+### 7.14 Envio de ações pela equipe (`/enviar` → `/envios`)
+
+Link público, sem login, para a equipe mandar o que aconteceu numa ação: relato, áudio gravado na
+hora, fotos, vídeos e documentos, até 2 GB por arquivo. O benchmark, as decisões e o caminho completo
+estão em `docs/envio-de-acoes.md`. Em resumo:
+
+- Os arquivos vão do navegador **direto ao R2** (`cvrj-acervo/entrada/envios/`), fora da cota da
+  Biblioteca. O banco só guarda a ficha (`envios`, `envio_arquivos`).
+- O link é aberto. As proteções são as de `/participe` (campo escondido, tempo mínimo), mais um
+  limite por origem (10 envios/hora e 5 GB/dia) e a conferência do tamanho de cada arquivo no R2.
+- Só quem está em `envios_avaliadores` vê a caixa. "Criar matéria e posts" gera pauta, peça e pacote
+  e copia para a Biblioteca só o que foi marcado.
+- Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
+  `publicarMateria`).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
@@ -906,8 +939,8 @@ variável; o valor vai direto no painel da Vercel, pelas mãos de quem é dono d
 - **Migração de limpeza do `file_id`** — depende do deploy do carrossel.
 - **`eslint.config.js`** — `pnpm lint` não roda.
 - **Suíte de testes** — hoje só `tsc`, `build` e scripts avulsos.
-- **Registro de acessos** (quem entrou, quando, de onde, com qual aparelho) — proposta em
-  `docs/registro-de-acessos.md`, aguardando as decisões da §10 de lá.
+- **Registro de acessos, fase 2** — sessões abertas, "visto por último", encerrar sessão e
+  retenção (`docs/registro-de-acessos.md` §0).
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

@@ -14,6 +14,7 @@ import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { linkDoBotao, linkDoPixel } from '@/lib/escola/advertoriais'
+import { avisarQuemEnviou } from '@/lib/envios/avaliacao'
 
 export type ResultadoDoSite = {
   erro?: string
@@ -420,6 +421,10 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       ...(primeiraPublicacao ? { site_published_at: agora.toISOString(), updated_at: agora.toISOString() } : {}),
     }).eq('id', pedido.contentId).eq('workspace_id', pedido.workspaceId)
     if (error) throw new Error('A página subiu, mas não consegui registrar o endereço aqui.')
+
+    // A ação veio de um envio da equipe? Quem mandou fica sabendo que virou
+    // matéria (docs/envio-de-acoes.md §5). Só na primeira publicação.
+    if (primeiraPublicacao) await avisarQuemEnviou(pedido.contentId, pedido.workspaceId, url)
 
     // A trilha pública registra cada versão publicada. O gancho do banco
     // dispara quando o endereço ou a data da primeira publicação mudam; numa

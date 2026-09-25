@@ -1,11 +1,31 @@
-# Registro de acessos — especificação (proposta, 25/09/2026)
+# Registro de acessos — especificação (v1 construída, 25/09/2026)
 
-Proposta de implementação da ferramenta que responde **quem entrou, quando, de onde e com qual
-aparelho** na Redação. Nada disto está construído ainda: este arquivo é o contrato a aprovar antes
-do código. Mudança de decisão muda este arquivo no mesmo commit.
+A ferramenta que responde **quem entrou, quando, de onde e com qual aparelho** na Redação e na
+Área do Voluntário. Mudança de decisão muda este arquivo no mesmo commit.
 
-As decisões que dependem do Matheus estão na §10. Até elas serem tomadas, vale o que está marcado
-como **recomendado**.
+## 0. Decisões do Matheus (25/09/2026) e o que a v1 entrega
+
+| Pergunta (§10) | Decisão | Onde está |
+| --- | --- | --- |
+| Nível de coleta | **níveis 1, 2 e 3** — inclusive o fingerprint invasivo, feito em casa (sem serviço de terceiros) | `components/auth/impressao.ts` |
+| Retenção | **guardar tudo por enquanto**; prazo a decidir | sem rotina de limpeza |
+| Quem vê | **só o Matheus** (tabela `acessos_leitores`, não um papel) | `/acessos` e o item no menu só aparecem para leitor |
+| Voluntários | **entram, mas sem fingerprint**: só IP, local e navegador | `app/actions/membro.ts` |
+| Aviso de aparelho novo | **sim, e-mail à própria pessoa** (também em país novo), fora das preferências | `lib/acessos/servidor.ts` |
+| Bloqueio | **sim**: 5 senhas erradas em 15 min bloqueiam a conta; 20 do mesmo IP bloqueiam o IP | `lib/acessos/regras.ts` |
+
+Como "só o Matheus vê", a parte "Seus acessos" em Meu perfil (§7) **não foi feita**: a pessoa
+recebe o e-mail de aparelho/país novo, mas não vê o registro.
+
+**Ficou para a próxima fase:** sessões abertas, "visto por último" e encerrar sessão (§4.3, §5.3,
+§5.4); eventos de troca/redefinição de senha e de acesso negado (§5.2); retenção (§8.3).
+
+**Como o login foi ligado (diferente do §5.1 original):** a entrada continua no navegador, e o
+servidor entra antes e depois dela (`app/actions/entrada.ts`). Antes da senha, `prepararEntrada`
+confere o bloqueio. Depois, `concluirEntrada` registra o resultado, e a entrada certa é conferida
+pelo cookie da sessão, não pela palavra do navegador. Se qualquer parte nova falhar, o login segue
+como antes. Quem chama a API do Supabase direto, sem a tela, continua limitado só pelos limites do
+próprio Supabase Auth (o mesmo aconteceria com o login no servidor).
 
 ## 1. O que a ferramenta responde
 

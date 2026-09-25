@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { registrarMudancaNaVerificacao } from '@/app/actions/verificacao'
 import { codigoValido, segredoLegivel } from '@/lib/usuarios/verificacao'
+import { registrarVerificacao } from '@/app/actions/entrada'
 
 /**
  * Verificação em duas etapas, lado do navegador.
@@ -51,6 +52,8 @@ export function DigitarCodigo({ fatores, aoConcluir }: { fatores: { id: string; 
     setErro('')
     rodar(async () => {
       const { error } = await createClient().auth.mfa.challengeAndVerify({ factorId: fatorId, code: valor })
+      // O registro de acessos anota a segunda etapa; nunca segura a entrada.
+      await registrarVerificacao(!error).catch(() => undefined)
       if (error) { setErro(mensagemDoAuth(error.message)); setCodigo(''); return }
       aoConcluir()
     })

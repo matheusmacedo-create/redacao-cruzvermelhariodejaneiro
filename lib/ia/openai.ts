@@ -528,3 +528,30 @@ export async function modelosDisponiveis(): Promise<string[]> {
     .filter(Boolean)
     .sort()
 }
+
+// ---------------------------------------------------------------- transcrição de áudio
+
+/** O modelo que transcreve; o nome vem do ambiente pelo mesmo motivo dos outros. */
+export const MODELO_DE_TRANSCRICAO_PADRAO = 'gpt-4o-mini-transcribe'
+export const modeloDeTranscricao = () => process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || MODELO_DE_TRANSCRICAO_PADRAO
+/** O teto da OpenAI para um arquivo de áudio. */
+export const TAMANHO_MAXIMO_DE_AUDIO = 25 * 1024 * 1024
+
+/**
+ * Transcreve um áudio em português (o relato gravado no envio de ações). A
+ * OpenAI decide o formato pela extensão do nome: .opus e .oga viram .ogg,
+ * que ela aceita, e o resto passa como veio.
+ */
+export async function transcreverAudio(bytes: Buffer, nome: string, tipo: string): Promise<string> {
+  if (bytes.length > TAMANHO_MAXIMO_DE_AUDIO) {
+    throw new IaError('O áudio passa de 25 MB, o limite da transcrição. Ouça e resuma à mão, ou corte o arquivo.', 413)
+  }
+  const nomeAceito = nome.replace(/\.(opus|oga)$/i, '.ogg')
+  const form = new FormData()
+  form.set('file', new Blob([new Uint8Array(bytes)], { type: tipo || 'application/octet-stream' }), nomeAceito)
+  form.set('model', modeloDeTranscricao())
+  form.set('language', 'pt')
+  form.set('response_format', 'json')
+  const r = await chamar<{ text?: string }>('/audio/transcriptions', form, 180_000)
+  return (r?.text ?? '').trim()
+}
