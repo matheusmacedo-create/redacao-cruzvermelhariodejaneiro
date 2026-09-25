@@ -69,6 +69,53 @@ export function paragrafos(corpo: string): string[] {
   return corpo.replace(/\r\n/g, '\n').split(/\n\s*\n/).map((p) => p.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean)
 }
 
+export type Bloco =
+  | { tipo: 'paragrafo'; texto: string }
+  | { tipo: 'titulo'; texto: string }
+  | { tipo: 'lista'; itens: { marcador: string | null; texto: string }[] }
+
+const MARCADOR = /^\s*(?:[-•*·▪–]|(\d{1,2}|[a-z])[).])\s+(.+)$/
+const TITULO = /^(?:\d{1,2}(?:\.\d{1,2})*[.)]?|[IVX]{1,5}\s*[.)–-])\s+\S/
+
+/**
+ * O corpo com a estrutura que quem escreve já usa: linha em branco separa
+ * parágrafos; linha que começa com "-", "•" ou "a)" / "1)" é item de lista
+ * (as seguintes sem marcador continuam o item); um parágrafo curto de uma
+ * linha que começa com "1." / "2.1" / "II -", ou todo em maiúsculas, é título
+ * de seção. Só muda o desenho: o texto assinado (e o hash) é o mesmo.
+ */
+export function blocosDoCorpo(corpo: string): Bloco[] {
+  const saida: Bloco[] = []
+  for (const grupo of corpo.replace(/\r\n/g, '\n').split(/\n\s*\n/)) {
+    const linhas = grupo.split('\n').map((l) => l.replace(/\s+$/, '')).filter((l) => l.trim())
+    if (!linhas.length) continue
+    const unica = linhas.length === 1 ? linhas[0].trim() : null
+    if (unica && unica.length <= 110 && !/[.:;]$/.test(unica)
+      && (TITULO.test(unica) || (/[A-ZÀ-Ý]/.test(unica) && unica === unica.toUpperCase() && unica.length <= 80))) {
+      saida.push({ tipo: 'titulo', texto: unica }); continue
+    }
+    let texto: string[] = []
+    let lista: { marcador: string | null; texto: string }[] | null = null
+    const fecharTexto = () => { if (texto.length) saida.push({ tipo: 'paragrafo', texto: texto.join(' ') }); texto = [] }
+    const fecharLista = () => { if (lista?.length) saida.push({ tipo: 'lista', itens: lista }); lista = null }
+    for (const l of linhas) {
+      const m = MARCADOR.exec(l)
+      if (m) {
+        fecharTexto()
+        lista ??= []
+        lista.push({ marcador: m[1] ? `${m[1]})` : null, texto: m[2].trim() })
+      } else if (lista && (/^\s/.test(l) || !/[.:!?]$/.test(lista[lista.length - 1].texto))) {
+        lista[lista.length - 1].texto += ` ${l.trim()}`
+      } else {
+        fecharLista()
+        texto.push(l.trim())
+      }
+    }
+    fecharTexto(); fecharLista()
+  }
+  return saida
+}
+
 export const tituloDoOficio = (numero: string | null, setor: string | null) =>
   numero ? `Ofício nº ${numero}${setor ? ` – ${setor}` : ''}` : `Ofício (sem número)${setor ? ` – ${setor}` : ''}`
 

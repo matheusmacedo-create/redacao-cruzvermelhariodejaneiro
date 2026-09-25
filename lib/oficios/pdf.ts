@@ -12,17 +12,25 @@
  * delas vira "?" em vez de quebrar a geração.
  */
 
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import { localEData, paragrafos, tituloDoOficio, type Documento } from './documento'
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
+import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
+import { blocosDoCorpo, localEData, tituloDoOficio, type Documento } from './documento'
+import { LOGO_PNG_BASE64 } from './logo'
 
+// Padrão da correspondência oficial (Manual de Redação da Presidência) com a
+// identidade da Cruz Vermelha: timbre com a logo da filial, fio vermelho,
+// Times 12 com entrelinha de 1,5, recuo de parágrafo e rodapé institucional.
 const A4 = { largura: 595.28, altura: 841.89 }
-const MARGEM = { esq: 70, dir: 56, topo: 60, base: 72 }
+const MARGEM = { esq: 71, dir: 57, topo: 36, base: 104 }
 const LARGURA_UTIL = A4.largura - MARGEM.esq - MARGEM.dir
-const CORPO = 11.5
-const ENTRELINHA = 16
-const RECUO = 40
-const VERMELHO = rgb(0.89, 0.13, 0.1)
-const CINZA = rgb(0.35, 0.35, 0.35)
+const CORPO = 12
+const ENTRELINHA = 17.5
+const RECUO = 56
+const VERMELHO = rgb(0.89, 0.133, 0.098)
+const TINTA = rgb(0.1, 0.1, 0.1)
+const CINZA = rgb(0.38, 0.38, 0.38)
+const CINZA_CLARO = rgb(0.55, 0.55, 0.55)
+const LOGO = { largura: 150, px: { l: 922, a: 376 }, inicioX: 0.045 }
 
 export type DadosDoPdf = {
   doc: Documento
@@ -74,13 +82,58 @@ function quebrar(fonte: PDFFont, tamanho: number, texto: string, largura: number
 }
 
 type Cursor = { pagina: PDFPage; y: number }
+type Fontes = { times: PDFFont; timesNegrito: PDFFont; helv: PDFFont; helvNegrito: PDFFont }
+
+/** Linha justificada: o espaço que sobra se divide entre as palavras. */
+function justificada(pagina: PDFPage, texto: string, x: number, y: number, largura: number, fonte: PDFFont, tamanho: number) {
+  const palavras = texto.split(' ')
+  if (palavras.length < 2) { pagina.drawText(texto, { x, y, size: tamanho, font: fonte, color: TINTA }); return }
+  const ocupado = palavras.reduce((s, w) => s + fonte.widthOfTextAtSize(w, tamanho), 0)
+  const vao = (largura - ocupado) / (palavras.length - 1)
+  let px = x
+  for (const w of palavras) { pagina.drawText(w, { x: px, y, size: tamanho, font: fonte, color: TINTA }); px += fonte.widthOfTextAtSize(w, tamanho) + vao }
+}
+
+/** Timbre: a logo da filial à esquerda, o setor e o site à direita, o fio vermelho embaixo. */
+function timbre(pagina: PDFPage, f: Fontes, logo: PDFImage, setor: string | null) {
+  const altura = LOGO.largura * LOGO.px.a / LOGO.px.l
+  const topo = A4.altura - MARGEM.topo
+  pagina.drawImage(logo, { x: MARGEM.esq - LOGO.largura * LOGO.inicioX, y: topo - altura, width: LOGO.largura, height: altura })
+  const direita = A4.largura - MARGEM.dir
+  const linhas: [string, PDFFont, number, ReturnType<typeof rgb>][] = [
+    ...(setor ? [[limpar(f.helvNegrito, setor.toUpperCase()), f.helvNegrito, 8.5, TINTA] as [string, PDFFont, number, ReturnType<typeof rgb>]] : []),
+    [limpar(f.helv, DADOS_DA_FILIAL.email), f.helv, 7.5, CINZA],
+    [limpar(f.helv, DADOS_DA_FILIAL.telefone), f.helv, 7.5, CINZA],
+  ]
+  let y = topo - altura / 2 + (linhas.length * 11) / 2 - 8
+  for (const [t, fonte, tam, cor] of linhas) {
+    pagina.drawText(t, { x: direita - fonte.widthOfTextAtSize(t, tam), y, size: tam, font: fonte, color: cor })
+    y -= 11
+  }
+  pagina.drawRectangle({ x: MARGEM.esq, y: topo - altura - 8, width: LARGURA_UTIL, height: 1.6, color: VERMELHO })
+  return topo - altura - 8
+}
+
+/** A cruz, bem clara, no canto de baixo: a marca d'água da identidade. */
+function cruzAoFundo(pagina: PDFPage) {
+  const lado = 170
+  const braco = lado * 0.34
+  const x = A4.largura - MARGEM.dir - lado + 20
+  const y = MARGEM.base + 6
+  pagina.drawRectangle({ x: x + (lado - braco) / 2, y, width: braco, height: lado, color: VERMELHO, opacity: 0.045 })
+  pagina.drawRectangle({ x, y: y + (lado - braco) / 2, width: lado, height: braco, color: VERMELHO, opacity: 0.045 })
+}
 
 export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   const pdf = await PDFDocument.create({ updateMetadata: false })
-  const times = await pdf.embedFont(StandardFonts.TimesRoman)
-  const timesNegrito = await pdf.embedFont(StandardFonts.TimesRomanBold)
-  const helv = await pdf.embedFont(StandardFonts.Helvetica)
-  const helvNegrito = await pdf.embedFont(StandardFonts.HelveticaBold)
+  const f: Fontes = {
+    times: await pdf.embedFont(StandardFonts.TimesRoman),
+    timesNegrito: await pdf.embedFont(StandardFonts.TimesRomanBold),
+    helv: await pdf.embedFont(StandardFonts.Helvetica),
+    helvNegrito: await pdf.embedFont(StandardFonts.HelveticaBold),
+  }
+  const { times, timesNegrito, helv, helvNegrito } = f
+  const logo = await pdf.embedPng(Buffer.from(LOGO_PNG_BASE64, 'base64'))
   const { doc } = d
   const titulo = tituloDoOficio(doc.numero, null)
 
@@ -88,106 +141,127 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   const novaPagina = (): Cursor => {
     const pagina = pdf.addPage([A4.largura, A4.altura])
     paginas.push(pagina)
-    // Timbre: a cruz e o nome do emitente, com o fio vermelho embaixo.
-    const topo = A4.altura - MARGEM.topo
-    pagina.drawRectangle({ x: MARGEM.esq + 7, y: topo - 26, width: 8, height: 24, color: VERMELHO })
-    pagina.drawRectangle({ x: MARGEM.esq, y: topo - 18, width: 22, height: 8, color: VERMELHO })
-    pagina.drawText(limpar(helvNegrito, (doc.emitente || 'Cruz Vermelha Brasileira').toUpperCase()), { x: MARGEM.esq + 32, y: topo - 12, size: 9.5, font: helvNegrito, maxWidth: LARGURA_UTIL - 32 })
-    if (doc.setor) pagina.drawText(limpar(helv, doc.setor), { x: MARGEM.esq + 32, y: topo - 24, size: 8.5, font: helv, color: CINZA })
-    pagina.drawLine({ start: { x: MARGEM.esq, y: topo - 34 }, end: { x: A4.largura - MARGEM.dir, y: topo - 34 }, thickness: 1.2, color: VERMELHO })
-    return { pagina, y: topo - 58 }
+    cruzAoFundo(pagina)
+    const fio = timbre(pagina, f, logo, doc.setor)
+    return { pagina, y: fio - 34 }
   }
 
   let c = novaPagina()
   const garantir = (altura: number) => { if (c.y - altura < MARGEM.base) c = novaPagina() }
-  const linha = (texto: string, o: { fonte?: PDFFont; tamanho?: number; x?: number; cor?: ReturnType<typeof rgb> } = {}) => {
-    const fonte = o.fonte ?? times
-    const tamanho = o.tamanho ?? CORPO
-    garantir(ENTRELINHA)
-    c.pagina.drawText(limpar(fonte, texto), { x: o.x ?? MARGEM.esq, y: c.y, size: tamanho, font: fonte, color: o.cor ?? rgb(0.08, 0.08, 0.08) })
-    c.y -= ENTRELINHA
-  }
   const espaco = (n: number) => { c.y -= n }
+  const texto = (t: string, x: number, o: { fonte?: PDFFont; tamanho?: number; cor?: ReturnType<typeof rgb> } = {}) =>
+    c.pagina.drawText(t, { x, y: c.y, size: o.tamanho ?? CORPO, font: o.fonte ?? times, color: o.cor ?? TINTA })
 
   // Número à esquerda, local e data à direita, na mesma linha.
-  const data = localEData(doc.local, doc.data)
-  c.pagina.drawText(limpar(helvNegrito, titulo), { x: MARGEM.esq, y: c.y, size: 11, font: helvNegrito })
-  const larguraData = times.widthOfTextAtSize(limpar(times, data), CORPO)
-  c.pagina.drawText(limpar(times, data), { x: A4.largura - MARGEM.dir - larguraData, y: c.y, size: CORPO, font: times })
-  c.y -= ENTRELINHA * 2
+  const data = limpar(times, localEData(doc.local, doc.data))
+  texto(limpar(helvNegrito, titulo.toUpperCase()), MARGEM.esq, { fonte: helvNegrito, tamanho: 11.5 })
+  texto(data, A4.largura - MARGEM.dir - times.widthOfTextAtSize(data, CORPO), {})
+  espaco(ENTRELINHA * 2.2)
 
+  // Destinatário: o nome em negrito, o resto como veio (cargo, órgão, endereço).
   const dest = doc.destinatario
-  for (const l of [dest.nome, dest.cargo, dest.orgao, ...(dest.endereco ?? '').split('\n')].filter((x): x is string => Boolean(x && x.trim()))) {
-    for (const q of quebrar(times, CORPO, limpar(times, l.trim()), LARGURA_UTIL)) linha(q)
+  const linhasDoDestino: [string, PDFFont][] = [
+    ...(dest.nome ? [[dest.nome, timesNegrito] as [string, PDFFont]] : []),
+    ...[dest.cargo, dest.orgao, ...(dest.endereco ?? '').split('\n')].filter((x): x is string => Boolean(x && x.trim())).map((x) => [x, times] as [string, PDFFont]),
+  ]
+  for (const [l, fonte] of linhasDoDestino) {
+    for (const q of quebrar(fonte, CORPO, limpar(fonte, l.trim()), LARGURA_UTIL)) { garantir(15); texto(q, MARGEM.esq, { fonte }); espaco(15) }
   }
-  espaco(ENTRELINHA * 0.8)
+  if (linhasDoDestino.length) espaco(ENTRELINHA * 0.9)
 
-  const assunto = quebrar(times, CORPO, limpar(times, doc.assunto), LARGURA_UTIL - timesNegrito.widthOfTextAtSize('Assunto: ', CORPO))
+  // Assunto em negrito, com recuo pendente depois do rótulo.
+  const rotulo = 'Assunto: '
+  const xAssunto = MARGEM.esq + timesNegrito.widthOfTextAtSize(rotulo, CORPO)
+  const assunto = quebrar(timesNegrito, CORPO, limpar(timesNegrito, doc.assunto), LARGURA_UTIL - (xAssunto - MARGEM.esq))
   garantir(ENTRELINHA)
-  c.pagina.drawText('Assunto: ', { x: MARGEM.esq, y: c.y, size: CORPO, font: timesNegrito })
-  const xAssunto = MARGEM.esq + timesNegrito.widthOfTextAtSize('Assunto: ', CORPO)
-  assunto.forEach((q, i) => { if (i) garantir(ENTRELINHA); c.pagina.drawText(q, { x: xAssunto, y: c.y, size: CORPO, font: times }); c.y -= ENTRELINHA })
-  espaco(ENTRELINHA * 0.8)
+  texto(rotulo, MARGEM.esq, { fonte: timesNegrito })
+  assunto.forEach((q, i) => { if (i) garantir(ENTRELINHA); texto(q, xAssunto, { fonte: timesNegrito }); espaco(ENTRELINHA) })
+  espaco(ENTRELINHA * 0.9)
 
-  if (doc.vocativo) { linha(doc.vocativo); espaco(ENTRELINHA * 0.4) }
+  if (doc.vocativo) { garantir(ENTRELINHA); texto(limpar(times, doc.vocativo), MARGEM.esq + RECUO); espaco(ENTRELINHA * 1.4) }
 
-  // Parágrafos justificados, com recuo na primeira linha.
-  for (const p of paragrafos(doc.corpo)) {
-    const linhas = quebrar(times, CORPO, limpar(times, p), LARGURA_UTIL, RECUO)
-    linhas.forEach((q, i) => {
-      garantir(ENTRELINHA)
-      const x = MARGEM.esq + (i === 0 ? RECUO : 0)
-      const disponivel = LARGURA_UTIL - (i === 0 ? RECUO : 0)
-      const palavras = q.split(' ')
-      const ultima = i === linhas.length - 1
-      if (ultima || palavras.length < 2) {
-        c.pagina.drawText(q, { x, y: c.y, size: CORPO, font: times })
-      } else {
-        const larguraPalavras = palavras.reduce((s, w) => s + times.widthOfTextAtSize(w, CORPO), 0)
-        const vao = (disponivel - larguraPalavras) / (palavras.length - 1)
-        let px = x
-        for (const w of palavras) { c.pagina.drawText(w, { x: px, y: c.y, size: CORPO, font: times }); px += times.widthOfTextAtSize(w, CORPO) + vao }
+  // O corpo: parágrafos justificados com recuo, títulos de seção e listas.
+  for (const b of blocosDoCorpo(doc.corpo)) {
+    if (b.tipo === 'titulo') {
+      espaco(ENTRELINHA * 0.35)
+      const linhas = quebrar(timesNegrito, CORPO, limpar(timesNegrito, b.texto), LARGURA_UTIL)
+      garantir(ENTRELINHA * (linhas.length + 2)) // o título não fica sozinho no pé da página
+      for (const q of linhas) { texto(q, MARGEM.esq, { fonte: timesNegrito }); espaco(ENTRELINHA) }
+      espaco(ENTRELINHA * 0.25)
+    } else if (b.tipo === 'paragrafo') {
+      const linhas = quebrar(times, CORPO, limpar(times, b.texto), LARGURA_UTIL, RECUO)
+      linhas.forEach((q, i) => {
+        garantir(ENTRELINHA)
+        const x = MARGEM.esq + (i === 0 ? RECUO : 0)
+        if (i === linhas.length - 1) texto(q, x)
+        else justificada(c.pagina, q, x, c.y, LARGURA_UTIL - (i === 0 ? RECUO : 0), times, CORPO)
+        espaco(ENTRELINHA)
+      })
+      espaco(ENTRELINHA * 0.45)
+    } else {
+      const xMarca = MARGEM.esq + 22
+      for (const item of b.itens) {
+        const marca = item.marcador ?? '•'
+        const xTexto = xMarca + Math.max(14, times.widthOfTextAtSize(marca, CORPO) + 6)
+        const linhas = quebrar(times, CORPO, limpar(times, item.texto), A4.largura - MARGEM.dir - xTexto)
+        linhas.forEach((q, i) => {
+          garantir(ENTRELINHA)
+          if (i === 0) texto(marca, xMarca, { cor: item.marcador ? TINTA : VERMELHO })
+          texto(q, xTexto)
+          espaco(ENTRELINHA)
+        })
+        espaco(2)
       }
-      c.y -= ENTRELINHA
-    })
-    espaco(ENTRELINHA * 0.45)
-  }
-  if (doc.fecho) { espaco(ENTRELINHA * 0.4); linha(doc.fecho) }
-
-  // Assinaturas: espaço em branco em cima de cada nome, onde o carimbo
-  // visual do gov.br pode ser posicionado. Duas por linha.
-  espaco(ENTRELINHA)
-  const col = LARGURA_UTIL / 2
-  for (let i = 0; i < doc.assinantes.length; i += 2) {
-    garantir(96)
-    const topoBloco = c.y
-    for (const [k, a] of doc.assinantes.slice(i, i + 2).entries()) {
-      const cx = MARGEM.esq + k * col + col / 2
-      const yLinha = topoBloco - 50
-      c.pagina.drawLine({ start: { x: cx - 100, y: yLinha }, end: { x: cx + 100, y: yLinha }, thickness: 0.6, color: rgb(0.2, 0.2, 0.2) })
-      const nome = limpar(timesNegrito, a.nome)
-      c.pagina.drawText(nome, { x: cx - timesNegrito.widthOfTextAtSize(nome, 10.5) / 2, y: yLinha - 13, size: 10.5, font: timesNegrito })
-      if (a.cargo) {
-        const cargo = limpar(times, a.cargo)
-        c.pagina.drawText(cargo, { x: cx - times.widthOfTextAtSize(cargo, 10) / 2, y: yLinha - 26, size: 10, font: times, color: CINZA })
-      }
+      espaco(ENTRELINHA * 0.4)
     }
-    c.y = topoBloco - 96
   }
-  garantir(ENTRELINHA)
-  linha(d.modo === 'govbr'
-    ? 'Documento assinado eletronicamente por meio da plataforma gov.br (Lei nº 14.063/2020).'
-    : 'Documento assinado eletronicamente no sistema Redação (Lei nº 14.063/2020).', { fonte: helv, tamanho: 8, cor: CINZA })
+  if (doc.fecho) { espaco(ENTRELINHA * 0.4); garantir(ENTRELINHA); texto(limpar(times, doc.fecho), MARGEM.esq + RECUO); espaco(ENTRELINHA) }
 
-  // Rodapé em todas as páginas: o código do documento e onde conferir.
+  // Assinaturas: espaço em branco em cima de cada nome, onde entra o selo
+  // visual do gov.br. Uma assinatura fica centrada; mais de uma, duas por linha.
+  espaco(ENTRELINHA * 0.6)
+  const porLinha = doc.assinantes.length === 1 ? 1 : 2
+  const col = LARGURA_UTIL / porLinha
+  for (let i = 0; i < doc.assinantes.length; i += porLinha) {
+    garantir(118)
+    const topoBloco = c.y
+    let fundo = topoBloco
+    for (const [k, a] of doc.assinantes.slice(i, i + porLinha).entries()) {
+      const cx = MARGEM.esq + k * col + col / 2
+      const yLinha = topoBloco - 62
+      const meia = Math.min(120, col / 2 - 10)
+      c.pagina.drawLine({ start: { x: cx - meia, y: yLinha }, end: { x: cx + meia, y: yLinha }, thickness: 0.6, color: TINTA })
+      const nome = limpar(timesNegrito, a.nome)
+      c.pagina.drawText(nome, { x: cx - timesNegrito.widthOfTextAtSize(nome, 11.5) / 2, y: yLinha - 14, size: 11.5, font: timesNegrito, color: TINTA })
+      let y = yLinha - 28
+      for (const q of a.cargo ? quebrar(times, 10.5, limpar(times, a.cargo), col - 16) : []) {
+        c.pagina.drawText(q, { x: cx - times.widthOfTextAtSize(q, 10.5) / 2, y, size: 10.5, font: times, color: CINZA })
+        y -= 13
+      }
+      fundo = Math.min(fundo, y)
+    }
+    c.y = fundo - 16
+  }
+  garantir(12)
+  const nota = limpar(helv, d.modo === 'govbr'
+    ? 'Documento assinado eletronicamente por meio da plataforma gov.br (Lei nº 14.063/2020).'
+    : 'Documento assinado eletronicamente no sistema Redação (Lei nº 14.063/2020).')
+  texto(nota, MARGEM.esq + (LARGURA_UTIL - helv.widthOfTextAtSize(nota, 7.5)) / 2, { fonte: helv, tamanho: 7.5, cor: CINZA })
+
+  // Rodapé em todas as páginas: a filial (razão social, CNPJ, endereço), o
+  // código do documento e onde conferir.
   const url = `${d.urlBase.replace(/\/+$/, '')}/verificar/${d.codigoVerificacao}`
+  const filial = limpar(helvNegrito, `${DADOS_DA_FILIAL.nome}  ·  CNPJ ${DADOS_DA_FILIAL.cnpj}`)
+  const endereco = limpar(helv, DADOS_DA_FILIAL.endereco)
   paginas.forEach((pagina, i) => {
-    const y = MARGEM.base - 30
-    pagina.drawLine({ start: { x: MARGEM.esq, y: y + 12 }, end: { x: A4.largura - MARGEM.dir, y: y + 12 }, thickness: 0.4, color: rgb(0.7, 0.7, 0.7) })
-    pagina.drawText(limpar(helv, `${titulo} · Código do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y, size: 6.5, font: helv, color: CINZA })
-    pagina.drawText(limpar(helv, `Confira a autenticidade em ${url}`), { x: MARGEM.esq, y: y - 9, size: 6.5, font: helv, color: CINZA })
+    const y = 74
+    pagina.drawRectangle({ x: MARGEM.esq, y: y + 12, width: LARGURA_UTIL, height: 0.8, color: VERMELHO })
+    pagina.drawText(filial, { x: MARGEM.esq, y, size: 7.5, font: helvNegrito, color: TINTA })
+    pagina.drawText(endereco, { x: MARGEM.esq, y: y - 10, size: 7.5, font: helv, color: CINZA })
+    pagina.drawText(limpar(helv, `${titulo} · Código do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y: y - 28, size: 6.3, font: helv, color: CINZA_CLARO })
+    pagina.drawText(limpar(helv, `Confira a autenticidade em ${url}`), { x: MARGEM.esq, y: y - 37, size: 6.3, font: helv, color: CINZA_CLARO })
     const pag = `Página ${i + 1} de ${paginas.length}`
-    pagina.drawText(pag, { x: A4.largura - MARGEM.dir - helv.widthOfTextAtSize(pag, 6.5), y: y - 9, size: 6.5, font: helv, color: CINZA })
+    pagina.drawText(pag, { x: A4.largura - MARGEM.dir - helv.widthOfTextAtSize(pag, 7), y: y - 37, size: 7, font: helv, color: CINZA })
   })
 
   // Metadados fixos: o mesmo ofício dá sempre o mesmo arquivo.
