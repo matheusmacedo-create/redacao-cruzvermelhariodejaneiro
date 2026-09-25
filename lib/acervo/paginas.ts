@@ -1,4 +1,4 @@
-import { escapar, montarPaginaDoSite, tituloDaAba } from '@/lib/site/esqueleto'
+import { escapar, montarPaginaDoSite, noDaOrganizacao, noDoSite, tituloDaAba } from '@/lib/site/esqueleto'
 import type { EntradaDoMapa } from '@/lib/site/sitemap'
 import { COLECAO, COLECOES, DIREITO, dataIso, dataLegivel, tipoDoArquivo, type Colecao, type Direitos, type Precisao } from './regras'
 
@@ -229,12 +229,12 @@ export function paginaInicialDoAcervo(p: { itens: ItemPublico[]; origem?: string
     '@graph': [
       {
         '@type': 'CollectionPage', '@id': `${url}#pagina`, url, name: 'Acervo', description: descricao, inLanguage: 'pt-BR',
-        isPartOf: { '@id': `${origem}/#site` }, about: { '@id': `${origem}/#organizacao` }, breadcrumb: { '@id': `${url}#trilha` },
+        isPartOf: noDoSite(), about: noDaOrganizacao(), breadcrumb: { '@id': `${url}#trilha` },
         mainEntity: { '@id': `${url}#acervo` },
       },
       {
         '@type': 'Collection', '@id': `${url}#acervo`, name: `Acervo da ${NOME_DA_FILIAL}`, description: descricao, url, inLanguage: 'pt-BR',
-        publisher: { '@id': `${origem}/#organizacao` }, collectionSize: p.itens.length,
+        publisher: noDaOrganizacao(), collectionSize: p.itens.length,
         hasPart: COLECOES.filter((c) => porColecao.get(c)!.length).map((c) => ({
           '@type': 'Collection', name: `${COLECAO[c].nome} — Acervo`, url: origem + caminhoDaColecao(c), collectionSize: porColecao.get(c)!.length,
         })),
@@ -291,7 +291,7 @@ export function paginasDaColecao(p: { colecao: Colecao; itens: ItemPublico[]; or
       '@graph': [
         {
           '@type': 'CollectionPage', '@id': `${url}#pagina`, url, name: `${c.nome} — Acervo${sufixo}`, description: c.descricao, inLanguage: 'pt-BR',
-          isPartOf: { '@id': `${origem}/acervo/#acervo` }, breadcrumb: { '@id': `${url}#trilha` }, mainEntity: { '@id': `${url}#lista` },
+          isPartOf: { '@type': 'Collection', '@id': `${origem}/acervo/#acervo`, name: `Acervo da ${NOME_DA_FILIAL}`, url: `${origem}/acervo/` }, breadcrumb: { '@id': `${url}#trilha` }, mainEntity: { '@id': `${url}#lista` },
         },
         {
           '@type': 'ItemList', '@id': `${url}#lista`, numberOfItems: daPagina.length,
@@ -411,11 +411,11 @@ export function paginaDoItem(p: { item: ItemPublico; origem?: string; agora?: Da
     <script>document.querySelectorAll('[data-hoje]').forEach(function (s) { s.textContent = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }); });</script>`
 
   const imagem = imagemDoItem(i, origem)
-  const criador = i.autoria ? { '@type': 'Person', name: i.autoria } : { '@id': `${origem}/#organizacao` }
+  const criador = i.autoria ? { '@type': 'Person', name: i.autoria } : noDaOrganizacao()
   const comum: Record<string, unknown> = {
     '@id': `${url}#item`, name: i.titulo, description: descricao, url, inLanguage: 'pt-BR',
     isPartOf: { '@type': 'Collection', name: `${c.nome} — Acervo`, url: origem + caminhoDaColecao(i.colecao) },
-    publisher: { '@id': `${origem}/#organizacao` }, creator: criador,
+    publisher: noDaOrganizacao(), creator: criador,
     ...(dataIso(i.data_item, i.data_precisao) ? { dateCreated: dataIso(i.data_item, i.data_precisao) } : {}),
     datePublished: i.publicado_em,
     ...(i.local ? { contentLocation: { '@type': 'Place', name: i.local } } : {}),
@@ -451,7 +451,7 @@ export function paginaDoItem(p: { item: ItemPublico; origem?: string; agora?: Da
     '@graph': [
       {
         '@type': 'ItemPage', '@id': `${url}#pagina`, url, name: i.titulo, description: descricao, inLanguage: 'pt-BR',
-        isPartOf: { '@id': `${origem}/#site` }, breadcrumb: { '@id': `${url}#trilha` }, mainEntity: { '@id': `${url}#item` },
+        isPartOf: noDoSite(), breadcrumb: { '@id': `${url}#trilha` }, mainEntity: { '@id': `${url}#item` },
         ...(maior ? { primaryImageOfPage: { '@id': `${url}#item` } } : {}),
         datePublished: i.publicado_em, ...(i.atualizado_no_site_em ? { dateModified: i.atualizado_no_site_em } : {}),
       },

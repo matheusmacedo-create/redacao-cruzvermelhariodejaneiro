@@ -1,4 +1,4 @@
-import { montarPaginaDoSite, escapar } from '@/lib/site/esqueleto'
+import { IMAGEM_PADRAO_DO_SITE, NOME_DO_SITE, montarPaginaDoSite, escapar, noDaOrganizacao, noDoSite } from '@/lib/site/esqueleto'
 import { NOME_DO_CANAL, resumoDoPost, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { svgDaMarca } from '@/lib/marcas'
 
@@ -29,6 +29,9 @@ export type NoticiaDoIndice = {
   publicadaEm: Date
   /** Capa publicada (a mesma do og:image). Falta nas matérias sem imagem. */
   capa?: string | null
+  /** Medidas da capa, quando conhecidas — vão no og:image do índice. */
+  capaLargura?: number
+  capaAltura?: number
 }
 
 const CSS_INDICE = `
@@ -91,6 +94,8 @@ export function paginaDeNoticias(
   agora: Date = new Date(),
   /** A vida nos outros canais — post de rede, edição de newsletter. */
   linhaDoTempo: ItemDaLinha[] = [],
+  /** As tags do chat do site (prepararChatDoSite). */
+  chat?: string,
 ): string {
   const ordenadas = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())
   const [manchete, ...fila] = ordenadas
@@ -142,11 +147,14 @@ export function paginaDeNoticias(
     const resumo = resumoDoPost(i.texto).trim()
     return resumo === '' || !lixoDeTeste.test(resumo)
   })
+  // Só os canais que aparecem de fato na linha (a filial não está em toda rede).
+  const canais = [...new Set(linhaLimpa.map((i) => NOME_DO_CANAL[i.canal] ?? i.canal))]
+  const listaDeCanais = canais.length > 1 ? `${canais.slice(0, -1).join(', ')} e ${canais[canais.length - 1]}` : canais[0] ?? ''
   const tempo = linhaLimpa.length
     ? `<section class="tempo">
         <div class="tempo-topo">
           <h2>Linha do tempo</h2>
-          <p>O que publicamos em cada canal — Instagram, Facebook, LinkedIn e além.</p>
+          <p>O que publicamos ${canais.length > 1 ? 'em cada canal' : 'nas redes'} — ${escapar(listaDeCanais)}.</p>
         </div>
         <ol>
           ${linhaLimpa.map((i) => {
@@ -169,29 +177,64 @@ export function paginaDeNoticias(
   const corpo = `<main class="jornal">
       <div class="jornal-topo">
         <h1>Notícias</h1>
-        <p>O trabalho da Cruz Vermelha Brasileira no Rio de Janeiro, contado por quem o faz.</p>
+        <p>O trabalho da ${NOME_DO_SITE}, contado por quem o faz.</p>
       </div>
       ${miolo}
       ${tempo}
     </main>`
 
+  const origem = 'https://cruzvermelhariodejaneiro.org'
+  const url = `${origem}/noticias/`
+  const descricao = `Notícias da ${NOME_DO_SITE}: voluntariado, cursos de primeiros socorros, campanhas humanitárias e ações da filial no estado do Rio.`
+  // O cartão de compartilhamento do índice é a capa da matéria mais nova;
+  // sem capa, a imagem da home.
+  const capaDaManchete = manchete?.capa?.trim()
+  const imagem = capaDaManchete
+    ? { url: capaDaManchete, largura: manchete.capaLargura, altura: manchete.capaAltura, alt: `Foto da matéria: ${manchete.titulo}` }
+    : IMAGEM_PADRAO_DO_SITE
+
   return montarPaginaDoSite({
     titulo: 'Notícias',
-    descricao: 'As notícias da Cruz Vermelha Brasileira — Rio de Janeiro: campanhas, atendimentos, cursos e parcerias.',
+    descricao,
     caminho: '/noticias/',
     corpo,
     cssExtra: CSS_INDICE,
     agora,
     ativo: 'noticias',
+    imagem,
+    chat,
+    // A página é uma coleção; a lista vai como ItemList de endereços e títulos
+    // (antes eram NewsArticle aninhados, incompletos, que o Google lia como
+    // matérias sem autor, sem imagem e sem data de alteração).
     jsonLd: {
       '@context': 'https://schema.org',
-      '@type': 'CollectionPage',
-      name: 'Notícias — Cruz Vermelha Brasileira — Rio de Janeiro',
-      url: 'https://cruzvermelhariodejaneiro.org/noticias/',
-      hasPart: ordenadas.slice(0, 20).map((n) => ({
-        '@type': 'NewsArticle', headline: n.titulo, url: n.url, datePublished: n.publicadaEm.toISOString(),
-        ...(n.capa?.trim() ? { image: n.capa.trim() } : {}),
-      })),
+      '@graph': [
+        {
+          '@type': 'CollectionPage',
+          '@id': `${url}#pagina`,
+          url,
+          name: `Notícias da ${NOME_DO_SITE}`,
+          description: descricao,
+          inLanguage: 'pt-BR',
+          isPartOf: noDoSite(),
+          publisher: noDaOrganizacao(),
+          breadcrumb: { '@id': `${url}#trilha` },
+          mainEntity: {
+            '@type': 'ItemList',
+            '@id': `${url}#lista`,
+            numberOfItems: ordenadas.length,
+            itemListElement: ordenadas.map((n, i) => ({ '@type': 'ListItem', position: i + 1, url: n.url, name: n.titulo })),
+          },
+        },
+        {
+          '@type': 'BreadcrumbList',
+          '@id': `${url}#trilha`,
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Início', item: `${origem}/` },
+            { '@type': 'ListItem', position: 2, name: 'Notícias', item: url },
+          ],
+        },
+      ],
     },
   })
 }
