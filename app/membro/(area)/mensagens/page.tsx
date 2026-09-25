@@ -1,51 +1,55 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MessageCircle } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
-import { conversasDoMembro } from '@/lib/membro/canal'
-import { CATEGORIAS_DA_CONVERSA, SITUACOES_DA_CONVERSA, haQuanto, novaParaOMembro } from '@/lib/canal/regras'
-import { NovaConversa } from '@/components/membro/canal'
+import { categoriaDaUrl, categoriaLegivel, conversasDoMembro, dataEHora, quandoFoi, situacaoDaConversa } from '@/lib/membro/canal'
+import { cn } from '@/lib/utils'
+import { CaixaDeMensagens, SeloDaConversa } from '@/components/membro/canal'
 
 export const dynamic = 'force-dynamic'
 
-/** O canal direto com a coordenação do Voluntariado. */
-export default async function Mensagens() {
+// O template do layout completa: "Mensagens · Área do Voluntário".
+export const metadata: Metadata = { title: 'Mensagens' }
+
+/**
+ * O canal direto com a coordenação do Voluntariado. As sub-abas (Conversas ·
+ * Avisos) vêm do layout. `?nova=<categoria>` abre a nova mensagem já com a
+ * categoria (o "Pedir correção" do Perfil usa `?nova=documentos`).
+ */
+export default async function Mensagens({ searchParams }: { searchParams: Promise<{ nova?: string | string[] }> }) {
   const m = await exigirMembro()
-  const conversas = await conversasDoMembro(m)
+  const [conversas, { nova }] = await Promise.all([conversasDoMembro(m), searchParams])
+  // Um `agora` só para a lista inteira: "há 5 min" e "ontem" contam do mesmo instante.
   const agora = new Date()
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Mensagens</h1>
-          <p className="text-sm text-muted-foreground">Fale direto com a coordenação do Voluntariado. A resposta chega aqui e no seu e-mail.</p>
-        </div>
-      </div>
-      <NovaConversa />
-      {conversas.length ? (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card" id="conversas">
-          {conversas.map((c) => {
-            const nova = novaParaOMembro(c)
-            return (
-              <li key={c.id}>
-                <Link href={`/membro/mensagens/${c.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/60">
-                  <span className={`size-2 shrink-0 rounded-full ${nova ? 'bg-primary' : 'bg-transparent'}`} aria-label={nova ? 'Resposta nova' : undefined} />
-                  <span className="min-w-0 flex-1">
-                    <span className={`block truncate ${nova ? 'font-semibold' : 'font-medium'}`}>{c.assunto}</span>
-                    <span className="block text-xs text-muted-foreground">{CATEGORIAS_DA_CONVERSA[c.categoria as keyof typeof CATEGORIAS_DA_CONVERSA] ?? c.categoria} · {SITUACOES_DA_CONVERSA[c.situacao as keyof typeof SITUACOES_DA_CONVERSA]}</span>
+    <CaixaDeMensagens categoria={categoriaDaUrl(nova)} vazia={!conversas.length}>
+      <ul id="conversas" aria-label="Conversas" className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        {conversas.map((c) => {
+          const situacao = situacaoDaConversa(c, { naLista: true })
+          const respostaNova = situacao.chave === 'nova'
+          return (
+            <li key={c.id}>
+              {/* Contorno do foco para dentro: a lista corta o que passa da borda. */}
+              <Link href={`/membro/mensagens/${c.id}`} className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-muted/60 focus-visible:-outline-offset-2">
+                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className={cn('min-w-0 truncate', respostaNova ? 'font-semibold' : 'font-medium')}>
+                      {/* O selo "Resposta nova" é visual; o leitor de tela ouve isto antes do assunto. */}
+                      {respostaNova && <span className="sr-only">Nova resposta: </span>}{c.assunto}
+                    </span>
+                    <time dateTime={c.atualizada_em} title={dataEHora(c.atualizada_em)} className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">{quandoFoi(c.atualizada_em, agora)}</time>
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{haQuanto(c.atualizada_em, agora)}</span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      ) : (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card p-10 text-center">
-          <MessageCircle className="size-8 text-muted-foreground/70" />
-          <p className="font-medium">Nenhuma conversa ainda.</p>
-          <p className="text-sm text-muted-foreground">Dúvidas sobre ações, disponibilidade, certificados, sugestões — é só escrever.</p>
-        </div>
-      )}
-    </div>
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span aria-hidden={respostaNova || undefined} className="inline-flex max-w-full"><SeloDaConversa {...situacao} /></span>
+                    <span>{categoriaLegivel(c.categoria)}</span>
+                  </span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </CaixaDeMensagens>
   )
 }

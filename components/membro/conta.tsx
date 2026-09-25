@@ -1,0 +1,60 @@
+'use client'
+
+import { useRef } from 'react'
+import Link from 'next/link'
+import { Menu } from '@base-ui/react/menu'
+import { LogOut, UserRound } from 'lucide-react'
+import { sair } from '@/app/actions/membro'
+import { iniciais } from '@/lib/membro/regras'
+import { cn } from '@/lib/utils'
+
+// Mesmo desenho do menu da pessoa no Redação (components/app/topbar.tsx).
+const popup = 'origin-[var(--transform-origin)] rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0'
+const itemDeMenu = 'flex min-h-11 cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-sm outline-none select-none data-[highlighted]:bg-muted data-[highlighted]:text-foreground'
+const avatar = 'flex shrink-0 items-center justify-center rounded-full border border-border bg-muted font-semibold text-foreground'
+
+/**
+ * O menu da conta no computador: avatar com as iniciais, nome, e-mail,
+ * "Meu perfil" e "Sair". No celular não aparece — o "Sair" fica no fim do
+ * Perfil. Na visualização da equipe, "Sair" é "Voltar ao Redação" (a mesma
+ * ação `sair`, que ali só desfaz a prévia).
+ */
+export function MenuDaConta({ nome, email, previa = false }: { nome: string; email: string | null; previa?: boolean }) {
+  const formulario = useRef<HTMLFormElement>(null)
+  const letras = iniciais(nome)
+  return (
+    <>
+      <Menu.Root>
+        <Menu.Trigger aria-label={`Conta de ${nome}`}
+          className="flex size-11 shrink-0 items-center justify-center rounded-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
+          <span aria-hidden="true" className={cn(avatar, 'size-9 text-sm')}>{letras}</span>
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50">
+            <Menu.Popup className={cn(popup, 'w-72 max-w-[calc(100vw-1rem)] p-1.5')}>
+              <Menu.Group>
+                <Menu.GroupLabel className="flex items-center gap-3 px-2.5 pb-2.5 pt-1.5">
+                  <span aria-hidden="true" className={cn(avatar, 'size-10 text-sm')}>{letras}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{nome}</span>
+                    {email && <span className="block truncate text-xs text-muted-foreground">{email}</span>}
+                  </span>
+                </Menu.GroupLabel>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                <Menu.LinkItem closeOnClick render={<Link href="/membro/perfil" />} className={itemDeMenu}>
+                  <UserRound className="size-4 text-muted-foreground" aria-hidden="true" />Meu perfil
+                </Menu.LinkItem>
+                <Menu.Separator className="my-1 h-px bg-border" />
+                <Menu.Item onClick={() => formulario.current?.requestSubmit()} className={itemDeMenu}>
+                  <LogOut className="size-4 text-muted-foreground" aria-hidden="true" />{previa ? 'Voltar ao Redação' : 'Sair'}
+                </Menu.Item>
+              </Menu.Group>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+      {/* Fora do menu: o popup vive num portal e some ao fechar, levando o form junto. */}
+      <form ref={formulario} action={sair} className="hidden" />
+    </>
+  )
+}

@@ -1,59 +1,112 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Loader2, Package } from 'lucide-react'
+import { ChevronRight, CircleCheck, FileSignature, Package, TriangleAlert } from 'lucide-react'
 import { aceitarTermoDoBem } from '@/app/actions/membro'
 import type { BemComOVoluntario } from '@/lib/membro/bens'
+import { dataCurta } from '@/lib/membro/regras'
+import { cn } from '@/lib/utils'
 import { botaoDoMembro } from './marca'
+import { Secao, Selo } from './pecas'
+import { RecadoEmFoco, RotuloDeEnvio } from './perfil'
 
-const DATA = (d: string) => new Date(d.length === 10 ? `${d}T12:00:00Z` : d).toLocaleDateString('pt-BR', { timeZone: d.length === 10 ? 'UTC' : 'America/Sao_Paulo' })
-
-function Aceitar({ id }: { id: string }) {
+function Aceitar({ id, aoAceitar }: { id: string; aoAceitar: () => void }) {
   const router = useRouter()
-  const [erro, setErro] = useState('')
+  const caixa = useRef<HTMLInputElement>(null)
+  const [erro, setErro] = useState<{ texto: string; vez: number } | null>(null)
   const [lido, setLido] = useState(false)
+  const [faltaMarcar, setFaltaMarcar] = useState(false)
   const [ocupado, iniciar] = useTransition()
+  const idDaCaixa = `aceite-${id}`
+
+  // O botão fica sempre ativo: desativado, não dizia o que faltava. Sem a
+  // caixa marcada, o aviso aparece logo abaixo dela e o foco vai para lá.
+  function aceitar() {
+    if (!lido) {
+      setFaltaMarcar(true)
+      caixa.current?.focus()
+      return
+    }
+    iniciar(async () => {
+      setErro(null)
+      const r = await aceitarTermoDoBem(id)
+      if (r.erro) setErro((e) => ({ texto: r.erro!, vez: (e?.vez ?? 0) + 1 }))
+      else { aoAceitar(); router.refresh() }
+    })
+  }
+
   return (
-    <div className="flex flex-col gap-2">
-      <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={lido} onChange={(e) => setLido(e.target.checked)} className="mt-0.5 size-4 accent-primary" />Li o termo, conferi o bem e o recebi.</label>
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
       <div>
-        <button type="button" disabled={!lido || ocupado} className={botaoDoMembro} onClick={() => iniciar(async () => { setErro(''); const r = await aceitarTermoDoBem(id); if (r.erro) setErro(r.erro); else router.refresh() })}>
-          {ocupado && <Loader2 className="size-4 animate-spin" />}Aceitar o termo
+        <label htmlFor={idDaCaixa} className="flex min-h-11 cursor-pointer items-start gap-3 py-2 text-sm">
+          <input ref={caixa} id={idDaCaixa} type="checkbox" checked={lido} className="mt-0.5 size-5 shrink-0 accent-primary"
+            aria-invalid={faltaMarcar || undefined} aria-describedby={faltaMarcar ? `${idDaCaixa}-erro` : undefined}
+            onChange={(e) => { setLido(e.target.checked); if (e.target.checked) setFaltaMarcar(false) }} />
+          Li o termo, conferi o bem e o recebi.
+        </label>
+        {faltaMarcar && (
+          <p id={`${idDaCaixa}-erro`} className="flex items-start gap-1.5 pl-8 text-sm text-destructive">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Marque a caixa acima para confirmar que leu o termo e recebeu o bem.
+          </p>
+        )}
+      </div>
+      <div>
+        <button type="button" disabled={ocupado} className={cn(botaoDoMembro, 'w-full sm:w-auto')} onClick={aceitar}>
+          <RotuloDeEnvio ocupado={ocupado} icone={FileSignature} rotulo="Aceitar o termo" andamento="Aceitando…" />
         </button>
       </div>
-      {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
+      {erro && <RecadoEmFoco key={erro.vez} tipo="erro">{erro.texto}</RecadoEmFoco>}
     </div>
   )
 }
 
-/** Os bens da filial que estão com o voluntário, com o termo de responsabilidade. */
+/**
+ * Os bens da filial que estão com o voluntário, com o termo de
+ * responsabilidade. Termo pendente primeiro: é o que pede ação (o Início e o
+ * e-mail de entrega trazem a pessoa para cá, em `#bens`).
+ */
 export function BensComigo({ bens }: { bens: BemComOVoluntario[] }) {
+  // O bem que a pessoa acabou de aceitar ganha um recado com foco: o botão
+  // some junto com o termo, e sem isto o foco caía no `<body>`.
+  const [recemAceito, setRecemAceito] = useState<string | null>(null)
   if (!bens.length) return null
+  // `sort` é estável: dentro de cada grupo fica a ordem que veio do banco.
+  const ordenados = [...bens].sort((a, b) => Number(!!a.termo_aceito_em) - Number(!!b.termo_aceito_em))
   return (
-    <section className="rounded-xl border border-border bg-card p-5" id="bens">
-      <h2 className="mb-3 flex items-center gap-2 font-semibold"><Package className="size-4 text-primary" />Bens da filial com você</h2>
-      <ul className="flex flex-col gap-4">
-        {bens.map((b) => (
-          <li key={b.cautela_id} className="flex flex-col gap-2 rounded-lg border border-border p-4" data-cautela={b.cautela_id}>
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium">{b.nome}</span>
-              <span className="font-mono text-xs text-muted-foreground">{b.plaqueta}</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {[b.marca, b.modelo, b.numero_serie && `série ${b.numero_serie}`].filter(Boolean).join(' · ')}{b.marca || b.modelo || b.numero_serie ? ' · ' : ''}recebido em {DATA(b.entregue_em)}
-              {b.prevista_devolucao ? ` · devolver até ${DATA(b.prevista_devolucao)}` : ''}
-            </p>
-            <details className="text-sm" open={!b.termo_aceito_em}>
-              <summary className="cursor-pointer text-xs font-medium text-muted-foreground">Termo de responsabilidade</summary>
-              <p className="mt-2 whitespace-pre-line rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">{b.termo}</p>
-            </details>
-            {b.termo_aceito_em
-              ? <p className="flex items-center gap-1.5 text-xs text-success"><CheckCircle2 className="size-3.5" />Termo aceito em {DATA(b.termo_aceito_em)}</p>
-              : <Aceitar id={b.cautela_id} />}
-          </li>
-        ))}
+    <Secao titulo="Bens da filial com você" icone={Package} id="bens">
+      <ul className="flex flex-col gap-3">
+        {ordenados.map((b) => {
+          const detalhes = [b.marca, b.modelo, b.numero_serie && `série ${b.numero_serie}`].filter(Boolean).join(' · ')
+          return (
+            <li key={b.cautela_id} data-cautela={b.cautela_id} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-semibold wrap-anywhere">{b.nome}</h3>
+                  <p className="text-sm text-muted-foreground">Plaqueta <span className="font-mono text-foreground">{b.plaqueta}</span></p>
+                </div>
+                {b.termo_aceito_em
+                  ? <Selo tom="sucesso" icone={CircleCheck}>Termo aceito em {dataCurta(b.termo_aceito_em)}</Selo>
+                  : <Selo tom="aviso" icone={FileSignature}>Termo pendente</Selo>}
+              </div>
+              <p className="text-sm text-muted-foreground wrap-anywhere">
+                {detalhes && <>{detalhes} · </>}Recebido em {dataCurta(b.entregue_em)}
+                {b.prevista_devolucao && <> · Devolver até {dataCurta(b.prevista_devolucao)}</>}
+              </p>
+              {/* Aberto enquanto falta aceitar: é para ler antes de marcar a caixa. */}
+              <details className="group" open={!b.termo_aceito_em}>
+                <summary className="-mx-2 flex min-h-11 w-fit cursor-pointer list-none items-center gap-1 rounded-lg px-2 text-sm font-medium hover:bg-muted [&::-webkit-details-marker]:hidden">
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" aria-hidden="true" />Termo de responsabilidade
+                </summary>
+                <p className="mt-1 whitespace-pre-line rounded-lg bg-muted/60 p-3 text-sm leading-relaxed wrap-anywhere">{b.termo}</p>
+              </details>
+              {b.termo_aceito_em
+                ? recemAceito === b.cautela_id && <RecadoEmFoco tipo="sucesso" titulo="Termo aceito.">O aceite ficou registrado com a data de hoje.</RecadoEmFoco>
+                : <Aceitar id={b.cautela_id} aoAceitar={() => setRecemAceito(b.cautela_id)} />}
+            </li>
+          )
+        })}
       </ul>
-    </section>
+    </Secao>
   )
 }
