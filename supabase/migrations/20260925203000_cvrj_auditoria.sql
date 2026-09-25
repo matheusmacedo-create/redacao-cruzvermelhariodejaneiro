@@ -1424,7 +1424,17 @@ begin
   select pg_get_constraintdef(c.oid) into v_def from pg_constraint c
    where c.conrelid = 'public.notifications'::regclass and c.conname = 'notifications_categoria_valida';
   if v_def is null then return; end if;
-  select array_agg(distinct m[1] order by m[1]) into v_lista from regexp_matches(v_def, '''([a-z_]+)''', 'g') as m;
+  -- Dois formatos: ARRAY['a'::text, 'b'::text] (lista escrita à mão) ou '{a,b}'::text[] (o que
+  -- fica depois de uma migração regravar a lista, como a do chat). Lista vazia aqui apagaria as
+  -- outras categorias: melhor parar.
+  if v_def ~ '''\{[a-z_,]*\}''' then
+    v_lista := string_to_array(substring(v_def from '''\{([a-z_,]*)\}'''), ',');
+  else
+    select array_agg(distinct m[1] order by m[1]) into v_lista from regexp_matches(v_def, '''([a-z_]+)''', 'g') as m;
+  end if;
+  if coalesce(cardinality(v_lista), 0) = 0 then
+    raise exception 'Não consegui ler as categorias de notifications_categoria_valida: %', v_def;
+  end if;
   if 'auditoria' = any (v_lista) then return; end if;
   v_lista := v_lista || array['auditoria'];
   alter table public.notifications drop constraint notifications_categoria_valida;
