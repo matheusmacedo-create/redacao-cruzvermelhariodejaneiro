@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { enviarArquivoDoPortal, enviarPastaFixaNaRaiz, removerArquivoDoPortal, withFtp } from '@/lib/publicacao/ftp'
 import { descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
-import { chaveDaTrilha } from '@/lib/auditoria/assinatura'
+import { obterChaveDaTrilha } from '@/lib/auditoria/chave'
 import { htaccessDoPortal, paginaDaTransparencia, paginaDosCanais, portalAberto, type DocumentoNoPortal, type ParceriaNoPortal, type VersaoNoPortal } from './paginas'
 import type { Canal, Categoria, Instrumento, SituacaoDaPrestacao } from './regras'
 
@@ -126,7 +126,7 @@ export async function regerarCanais(workspaceId: string): Promise<void> {
   // O registro desta versão da lista (o banco diz de qual versão cada registro é).
   const registro = codigos.filter((c) => c.versao_origem === v.versao).sort((a, b) => b.versao - a.versao)[0]
   let chaveId: string | null = null
-  try { chaveId = chaveDaTrilha()?.id ?? null } catch { chaveId = null }
+  try { chaveId = (await obterChaveDaTrilha())?.chave.id ?? null } catch { chaveId = null }
   await prepararChatDoSite()
   const html = paginaDosCanais({
     versao: v.versao as number, canais: v.canais as Canal[], observacao: v.observacao as string | null, publicadoEm: v.publicado_em as string,

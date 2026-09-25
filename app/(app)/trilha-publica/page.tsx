@@ -7,7 +7,7 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { pode } from '@/lib/permissoes'
 import { tituloDaArea } from '@/lib/navegacao'
-import { chaveDaTrilha } from '@/lib/auditoria/assinatura'
+import { obterChaveDaTrilha } from '@/lib/auditoria/chave'
 
 export const metadata = { title: tituloDaArea('/trilha-publica') }
 
@@ -24,10 +24,10 @@ const DESCRICAO = 'O registro verificável do que a filial publica e emite — m
  * máximo a impressão digital — nunca a chave, nunca a variável, nem a
  * mensagem do OpenSSL (que não precisa sair do servidor para dizer "inválida").
  */
-function situacaoDaChave(): SituacaoDaChave {
+async function situacaoDaChave(): Promise<SituacaoDaChave> {
   try {
-    const chave = chaveDaTrilha()
-    return chave ? { estado: 'configurada', id: chave.id } : { estado: 'ausente' }
+    const achada = await obterChaveDaTrilha()
+    return achada ? { estado: 'configurada', id: achada.chave.id, origem: achada.origem } : { estado: 'ausente' }
   } catch (causa) {
     return { estado: 'invalida', motivo: causa instanceof Error && causa.message.includes('Ed25519') ? 'tipo' : 'formato' }
   }
@@ -73,7 +73,7 @@ export default async function TrilhaPublicaPage() {
       <PageHeader title={TITULO} description={DESCRICAO} />
       <PainelDaTrilha
         painel={lerPainel(data)}
-        chave={situacaoDaChave()}
+        chave={await situacaoDaChave()}
         aberta={process.env.AUDITORIA_ABERTA?.trim() === '1'}
         geradoEm={new Date().toISOString()}
       />
