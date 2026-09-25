@@ -458,14 +458,42 @@ chama a RPC e guarda um `social_publications` em `draft` ligado a ele.
 `publicarRascunho` **reconfere a aprovação no servidor** antes de entregar — a
 tela não é a autoridade.
 
-### 7.6 Publicação no site (incompleta)
+### 7.6 Publicação no site
 
 `lib/publicacao/ftp.ts` fala FTPS explícito (AUTH TLS, porta 21). `caminhoSeguro()`
-impede escapar do diretório base — conferido contra 12 tentativas de escape.
+impede escapar do diretório base — conferido contra 12 tentativas de escape. Se a
+página sobe e o site devolve 404, a pasta da conta FTP não é `public_html/noticias`:
+confira em `/api/admin/ftp-check`.
 
-**Este fluxo não está terminado.** A conta FTP está presa em
-`/home/u448697994/noticias`, fora de `public_html`: os arquivos sobem e a web
-devolve 404. O gerador de HTML ainda não existe.
+`publicarMateria` (`lib/site/publicar-materia.ts`), em ordem:
+
+1. **Mídias da Biblioteca** (`imagens-da-materia.ts`): foto vira JPEG de até 1600 px
+   (mozjpeg, q82) — o arquivo canônico — mais WebP 480/960/1600, girada pelo EXIF e
+   sem metadados; GIF e SVG passam direto. Mesmo conteúdo, mesmo nome (subir de novo
+   sobrescreve, não duplica). Mídia apagada sai da página e fica no aviso.
+2. **Página** (`artigo-html.ts` sobre `esqueleto.ts`): o cabeçalho, o rodapé, o GA4, o
+   Pixel e o chat da home; JSON-LD `NewsArticle` + `BreadcrumbList`; `<title>` no padrão
+   "Assunto | Cruz Vermelha Brasileira Rio de Janeiro" (até 60 caracteres). Link para
+   arquivo interno vira texto; links antigos do site (`/cursos.html`, `/doacao.html`…)
+   viram os endereços atuais (`LINKS_ANTIGOS_DO_SITE`).
+3. **Guardas** (`guarda-da-pagina.ts`): a página é recusada, com mensagem, se levaria
+   endereço interno (`/api/private-blob`, Blob, workspace, localhost), Markdown que não
+   virou HTML (`![`, `**`, `](`) ou o domínio antigo.
+4. **Subida** por FTPS e, depois, índice, sitemap e `.htaccess` (`vitrine.ts`).
+
+**Datas.** `site_published_at` é a primeira publicação e não muda mais; o
+`dateModified` e o `lastmod` do sitemap são a última edição do texto (`updated_at`,
+nunca antes da publicação). Republicar não mexe em nenhuma das duas — por isso a nova
+versão entra na trilha pela RPC `auditoria_registrar_item` (§7.9), não pelo gancho.
+
+**Regerar tudo** (Configurações → site, só admin; `regerarPaginasDasNoticias`): refaz
+todas as matérias no ar com o modelo atual, em rodadas de até 40 s que continuam de
+onde pararam, e no fim privacidade, termos, índice e sitemap. Pula a matéria editada
+depois da última publicação (texto não revisado não vai ao ar sem querer).
+
+**Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
+(`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
+`REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).
 
 ---
 
@@ -817,8 +845,8 @@ variável; o valor vai direto no painel da Vercel, pelas mãos de quem é dono d
 
 ## 11. O que ainda não existe
 
-- **Gerador de HTML e publicação no site** — o objetivo original. Parado no
-  problema da pasta FTP (§7.6).
+- **Suíte de testes das páginas do site** — a conferência (render com exemplos,
+  `validar_jsonld.py` do repositório do site, capturas) ainda é manual (§7.6).
 - **Migração de limpeza do `file_id`** — depende do deploy do carrossel.
 - **`eslint.config.js`** — `pnpm lint` não roda.
 - **Suíte de testes** — hoje só `tsc`, `build` e scripts avulsos.

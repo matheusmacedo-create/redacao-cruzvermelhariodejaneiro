@@ -1,11 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Archive, BarChart3, Check, ExternalLink, FileText, Loader2, Trash2, Undo2 } from 'lucide-react'
+import { Archive, BarChart3, Check, ExternalLink, FileText, Loader2, RefreshCw, Trash2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   estadoDoSite, ligarAnalyticsDoSite, materiasArquivadas, materiasNoAr, publicarPaginasDoSite,
-  republicarMateriaAction, tirarMateriaDoArAction,
+  regerarPaginasDasNoticias, republicarMateriaAction, tirarMateriaDoArAction,
   type EstadoDoSite, type MateriaArquivada, type MateriaNoAr, type ResultadoDoAnalytics, type ResultadoDasPaginas,
 } from '@/app/actions/site'
 import { ID_DO_ANALYTICS } from '@/lib/site/analytics'
@@ -114,8 +114,124 @@ export function AnalyticsDoSite() {
           </div>
         )}
 
+      <RegerarNoticias />
       <SecaoNoAr />
       </div>
+    </div>
+  )
+}
+
+type Balanco = {
+  feitas: number
+  puladas: { titulo: string; motivo: string }[]
+  falhas: { titulo: string; erro: string }[]
+  avisos: { titulo: string; aviso: string }[]
+  detalhes: string[]
+}
+
+/**
+ * Regera todas as matérias no ar com o molde atual (cabeçalho, rodapé,
+ * dados estruturados, fotos otimizadas) e, no fim, o índice, as páginas de
+ * base, o sitemap e o robots.
+ *
+ * Cada página no site é um arquivo gravado no dia da publicação: corrigir o
+ * gerador não corrige o que já está no ar. O servidor trabalha em rodadas
+ * (até perto do limite de tempo da função) e diz de onde continuar; a tela
+ * chama de novo até acabar, como em "Atualizar as páginas do acervo".
+ */
+function RegerarNoticias() {
+  const [confirmando, setConfirmando] = useState(false)
+  const [rodando, iniciar] = useTransition()
+  const [progresso, setProgresso] = useState<{ vistas: number; total: number } | null>(null)
+  const [balanco, setBalanco] = useState<Balanco | null>(null)
+  const [erro, setErro] = useState('')
+
+  function regerar() {
+    setConfirmando(false); setErro(''); setBalanco(null); setProgresso(null)
+    iniciar(async () => {
+      const soma: Balanco = { feitas: 0, puladas: [], falhas: [], avisos: [], detalhes: [] }
+      let continuacao: { depoisDe: string | null; soVitrine: boolean } | null = null
+      let vistas = 0
+      let semAvanco = 0
+      try {
+        for (;;) {
+          const r = await regerarPaginasDasNoticias(continuacao)
+          if (r.erro) { setErro(r.erro); break }
+          soma.feitas += r.feitas ?? 0
+          soma.puladas.push(...(r.puladas ?? []))
+          soma.falhas.push(...(r.falhas ?? []))
+          soma.avisos.push(...(r.avisos ?? []))
+          if (r.vitrine) soma.detalhes.push(...r.vitrine.detalhes)
+          vistas += r.vistas ?? 0
+          setProgresso({ vistas, total: Math.max(r.total ?? 0, vistas) })
+          if (!r.proximo) break
+          // Rodada que não andou (uma matéria pesada demais para o tempo da
+          // função, ou o site sem responder): tenta mais duas vezes e para.
+          semAvanco = (r.vistas ?? 0) > 0 || r.vitrine ? 0 : semAvanco + 1
+          if (semAvanco >= 3) { setErro('A regeração parou de avançar. Tente de novo em alguns minutos.'); break }
+          continuacao = r.proximo
+        }
+      } catch {
+        setErro('A conexão caiu no meio da regeração. O que já foi feito está no ar; rode de novo para terminar.')
+      }
+      setBalanco(soma)
+      setProgresso(null)
+    })
+  }
+
+  return (
+    <div className="mt-6 border-t border-border pt-5">
+      <h3 className="flex items-center gap-2 text-sm font-semibold"><RefreshCw className="size-4" />Regerar as páginas das matérias</h3>
+      <p className="mt-1.5 text-sm text-muted-foreground">
+        Refaz no site todas as matérias publicadas com o molde atual — cabeçalho e rodapé do site, dados para o
+        Google, fotos otimizadas — e, no fim, a central de notícias, a privacidade, os termos, o sitemap e o
+        robots. Endereços e datas não mudam. Matéria com texto editado depois da última publicação fica de fora:
+        essa se revisa e republica pela própria tela.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {confirmando ? (
+          <>
+            <span className="text-sm text-muted-foreground">Regravar todas as matérias no site?</span>
+            <Button size="sm" disabled={rodando} onClick={regerar}><RefreshCw className="size-3.5" />Regerar agora</Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmando(false)}>Cancelar</Button>
+          </>
+        ) : (
+          <Button variant="outline" disabled={rodando} onClick={() => setConfirmando(true)}>
+            {rodando
+              ? <><Loader2 className="size-4 animate-spin" />{progresso ? `Regerando… ${progresso.vistas} de ${progresso.total}` : 'Regerando…'}</>
+              : 'Regerar as páginas das matérias'}
+          </Button>
+        )}
+      </div>
+      {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
+      {balanco && !rodando && (
+        <div className="mt-3 text-sm">
+          <p className="flex items-center gap-1.5 font-medium text-success">
+            <Check className="size-4" />
+            {balanco.feitas} matéria(s) regerada(s){balanco.puladas.length ? `, ${balanco.puladas.length} pulada(s)` : ''}{balanco.falhas.length ? `, ${balanco.falhas.length} com falha` : ''}.
+          </p>
+          {balanco.detalhes.length > 0 && (
+            <ul className="mt-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
+              {balanco.detalhes.map((d) => <li key={d}>{d}</li>)}
+            </ul>
+          )}
+          {balanco.falhas.length > 0 && (
+            <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-destructive/40 bg-destructive/5 p-2 text-xs">
+              {balanco.falhas.map((f, i) => <li key={`${f.titulo}-${i}`}><strong>{f.titulo}</strong>: {f.erro}</li>)}
+            </ul>
+          )}
+          {balanco.puladas.length > 0 && (
+            <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2 text-xs">
+              {balanco.puladas.map((p, i) => <li key={`${p.titulo}-${i}`}><strong>{p.titulo}</strong>: {p.motivo}</li>)}
+            </ul>
+          )}
+          {balanco.avisos.length > 0 && (
+            <ul className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2 text-xs">
+              {balanco.avisos.map((a, i) => <li key={`${a.titulo}-${i}`}><strong>{a.titulo}</strong>: ficou fora da página — {a.aviso}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   )
 }

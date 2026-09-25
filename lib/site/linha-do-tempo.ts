@@ -11,8 +11,8 @@ import { textoParaRede } from '@/lib/publicacao/texto-plano'
  *
  * Duas fontes contam a mesma história: os destinos publicados pelo hub e o
  * registro de disparos (que inclui o tempo de antes do hub). Um post pode
- * estar nos dois — por isso a fusão de-duplica pelo endereço do post e, na
- * falta dele, pelo par canal+começo do texto.
+ * estar nos dois — por isso a fusão de-duplica pelo par canal + começo do
+ * texto, e fica com a cópia que tem o endereço do post.
  */
 
 export type ItemDaLinha = {
@@ -36,25 +36,43 @@ export function resumoDoPost(corpo: string, limite = 200): string {
   return `${limpo.slice(0, limite).replace(/\s+\S*$/, '')}…`
 }
 
-const chave = (i: ItemDaLinha) =>
-  i.url?.trim() ? `url:${i.url.trim()}` : `txt:${i.canal}:${resumoDoPost(i.texto, 60).toLowerCase()}`
+/** O começo do texto sem acento, pontuação nem caixa: o mesmo post, vindo de duas fontes, dá a mesma chave. */
+export function textoComparavel(texto: string, limite = 60): string {
+  return textoParaRede(texto ?? '').texto
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .slice(0, limite)
+    .trim()
+}
+
+/**
+ * A chave do eco: canal + começo do texto. Antes a chave era o endereço
+ * quando havia um, e o texto quando não havia — e o mesmo post, com endereço
+ * numa fonte e sem na outra, aparecia duas vezes. Post só de imagem (sem
+ * texto) fica com o endereço, que é o que ele tem.
+ */
+const chave = (i: ItemDaLinha) => {
+  const texto = textoComparavel(i.texto)
+  return texto ? `txt:${i.canal}:${texto}` : `url:${i.url?.trim() ?? ''}`
+}
 
 /**
  * Funde as fontes, tira o eco e ordena do mais novo para o mais velho.
- * A primeira fonte ganha o desempate — quem chama põe a mais confiável antes.
+ * No eco fica a cópia que tem o endereço do post; entre duas iguais nisso, a
+ * primeira fonte ganha — quem chama põe a mais confiável antes.
  */
 export function fundirLinhaDoTempo(fontes: ItemDaLinha[][], teto = 80): ItemDaLinha[] {
-  const vistos = new Set<string>()
-  const saida: ItemDaLinha[] = []
+  const porChave = new Map<string, ItemDaLinha>()
   for (const fonte of fontes) {
     for (const item of fonte) {
-      if (!item.texto?.trim() && !item.url) continue
+      if (!item.texto?.trim() && !item.url?.trim()) continue
       if (Number.isNaN(item.quando.getTime())) continue
       const k = chave(item)
-      if (vistos.has(k)) continue
-      vistos.add(k)
-      saida.push(item)
+      const antes = porChave.get(k)
+      if (!antes || (!antes.url?.trim() && item.url?.trim())) porChave.set(k, item)
     }
   }
-  return saida.sort((a, b) => b.quando.getTime() - a.quando.getTime()).slice(0, teto)
+  return [...porChave.values()].sort((a, b) => b.quando.getTime() - a.quando.getTime()).slice(0, teto)
 }

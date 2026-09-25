@@ -1,10 +1,16 @@
-import { parseContentBlocks, type InlineToken } from '@/lib/content-blocks'
+import type { ReactNode } from 'react'
+import { hrefInterno, parseContentBlocks, type InlineToken } from '@/lib/content-blocks'
 
-function renderInline(tokens: InlineToken[]) {
+function renderInline(tokens: InlineToken[]): ReactNode[] {
   return tokens.map((token, index) => {
-    if (token.type === 'bold') return <strong key={index}>{token.text}</strong>
-    if (token.type === 'italic') return <em key={index}>{token.text}</em>
-    if (token.type === 'link') return <a key={index} href={token.href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{token.text}</a>
+    if (token.type === 'bold') return <strong key={index}>{renderInline(token.children)}</strong>
+    if (token.type === 'italic') return <em key={index}>{renderInline(token.children)}</em>
+    if (token.type === 'link') {
+      // Como na página publicada: link para rota interna ou arquivo privado
+      // não vira link para o leitor, fica só o texto.
+      if (hrefInterno(token.href)) return <span key={index} title="Endereço interno: na página publicada fica só o texto">{renderInline(token.children)}</span>
+      return <a key={index} href={token.href} target="_blank" rel="noreferrer" className="text-primary underline underline-offset-2">{renderInline(token.children)}</a>
+    }
     return token.text
   })
 }

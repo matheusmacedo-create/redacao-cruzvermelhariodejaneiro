@@ -1,4 +1,4 @@
-import { parseContentBlocks, type InlineToken } from '@/lib/content-blocks'
+import { hrefInterno, parseContentBlocks, type InlineToken } from '@/lib/content-blocks'
 
 /**
  * Converte o texto-mestre — que é escrito no formato da matéria — no texto
@@ -24,10 +24,16 @@ export type TextoDeRede = {
 function inlinePlano(tokens: InlineToken[]): string {
   return tokens
     .map((t) => {
+      // Negrito e itálico não existem na legenda: fica o texto de dentro — e
+      // o link que estiver lá dentro continua link.
+      if (t.type === 'bold' || t.type === 'italic') return inlinePlano(t.children)
       if (t.type !== 'link') return t.text
+      const rotulo = inlinePlano(t.children).trim()
+      // Endereço interno da Redação (arquivo da Biblioteca, rota /api) não abre
+      // para quem lê o post ou o e-mail: fica só o texto.
+      if (hrefInterno(t.href)) return rotulo
       // Endereço nu é clicável em toda rede; rótulo sem endereço não leva a
       // lugar nenhum, porque nenhuma delas aceita link em texto.
-      const rotulo = t.text.trim()
       return !rotulo || rotulo === t.href ? t.href : `${rotulo}: ${t.href}`
     })
     .join('')

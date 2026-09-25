@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { apagarObjeto, copiarObjeto, infoDoObjeto, lerObjeto } from '@/lib/armazenamento/r2'
 import { enviarArquivoDoAcervo, paginasDaColecaoNoSite, removerArquivoDoAcervo, removerPaginaDoAcervo, withFtp, type FtpConfig } from '@/lib/publicacao/ftp'
 import { descobrirRaizDoSite, regerarMapaDoSite } from '@/lib/site/vitrine'
+import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { bucketDoAcervo, COLUNAS_DO_ITEM, itensPublicosDoAcervo, type LinhaDoItem } from './dados'
 import { versoesDaImagem } from './imagens'
 import {
@@ -105,6 +106,7 @@ async function prepararArquivos(item: LinhaDoItem, slug: string): Promise<Prepar
 /** As páginas de itens dados, as das coleções, o início, o .htaccess e o mapa, na sessão aberta. */
 async function subirPaginas(client: Client, raiz: string, workspaceId: string, itens: ItemPublico[], paginasDeItem: ItemPublico[], inicio: number): Promise<number> {
   const agora = new Date()
+  await prepararChatDoSite()
   let feitas = 0
   for (const i of paginasDeItem) {
     if (Date.now() - inicio > TEMPO_MAXIMO_MS) break

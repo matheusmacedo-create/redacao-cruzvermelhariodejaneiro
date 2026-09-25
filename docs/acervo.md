@@ -81,7 +81,9 @@ O que cada página leva, gerado em `lib/acervo/paginas.ts` sobre o esqueleto do 
   `ItemList` em cada coleção (24 itens por página, título com "página N de M" a partir da
   segunda, `rel="prev"`/`"next"`); `ItemPage` em cada item com `ImageObject` (licença, crédito,
   autoria e aviso de direitos, que o Google Imagens mostra como "Detalhes da licença"),
-  `VideoObject` ou `DigitalDocument`; `BreadcrumbList` em todas;
+  `VideoObject` ou `DigitalDocument`; `BreadcrumbList` em todas. A organização e o site vão com
+  nome e logo em toda citação (`noDaOrganizacao()`/`noDoSite()` do esqueleto), porque o validador
+  do site e o Google não seguem um `@id` definido em outra página;
 - `hreflang` pt-BR, en, es e x-default na apresentação, casando com `/en/archive/` e
   `/es/acervo/` do repositório do site (o catálogo é em português, a língua do material);
 - `sitemap.xml` com a apresentação, as páginas das coleções e os itens, cada um com a data de

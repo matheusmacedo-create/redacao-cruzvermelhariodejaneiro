@@ -7,10 +7,10 @@ import { createClient } from '@/lib/supabase/server'
 import { publicarMateria, tirarMateriaDoAr } from '@/lib/site/publicar-materia'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite, enviarPastaFixaNaRaiz } from '@/lib/publicacao/ftp'
-import { paginaDePrivacidade, paginaDeTermos } from '@/lib/site/juridico'
+import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
 import { ligarAtalhosNaHome } from '@/lib/site/atalho-noticias'
-import { atualizarVitrine, descobrirRaizDoSite } from '@/lib/site/vitrine'
+import { atualizarVitrine, descobrirRaizDoSite, publicarPaginasJuridicas } from '@/lib/site/vitrine'
+import { regerarNoticias, type Continuacao, type ResultadoDaRegeracao } from '@/lib/site/regerar-noticias'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { ligarAnalyticsNaPagina, temAnalytics, ID_DO_ANALYTICS } from '@/lib/site/analytics'
 import type { Client } from 'basic-ftp'
@@ -199,10 +199,8 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
 
       // 1. Páginas jurídicas.
       const agora = new Date()
-      await enviarPastaFixaNaRaiz(client, raiz, 'privacidade', paginaDePrivacidade(agora))
-      detalhes.push('/privacidade/ publicada')
-      await enviarPastaFixaNaRaiz(client, raiz, 'termos', paginaDeTermos(agora))
-      detalhes.push('/termos/ publicada')
+      await publicarPaginasJuridicas(client, raiz, agora)
+      detalhes.push('/privacidade/ e /termos/ publicadas')
 
       // 2 e 3. Índice de notícias + sitemap + robots.
       const vitrine = await atualizarVitrine(client, config, context.workspace.id, agora)
@@ -256,6 +254,58 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
   }
 }
 
+
+export type ResultadoDaRegeracaoDasNoticias = { erro?: string } & Partial<ResultadoDaRegeracao>
+
+/**
+ * O tempo que uma rodada pode ocupar começando trabalho novo. A página de
+ * Configurações não declara maxDuration, e as rodadas do acervo trabalham com
+ * 45 s; aqui cada matéria baixa e converte fotos, então a rodada para mais
+ * cedo e deixa folga para a última matéria e para a resposta caberem mesmo
+ * num limite de 60 s.
+ */
+const TEMPO_DA_RODADA_MS = 40_000
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Regera todas as matérias publicadas com o molde atual e, no fim, o índice,
+ * a privacidade, os termos, o sitemap e o robots.
+ *
+ * Mesmo desenho de "Atualizar as páginas do acervo": a ação trabalha até
+ * perto do limite de tempo e devolve de onde continuar; a tela chama de novo
+ * até acabar. Endereços e datas ficam como estão — regerar não é republicar.
+ * Só administrador: escreve no site inteiro.
+ */
+export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null): Promise<ResultadoDaRegeracaoDasNoticias> {
+  try {
+    const context = await requireWorkspace()
+    if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode regerar as páginas do site.')
+    const depoisDe = continuacao?.depoisDe ?? null
+    if (depoisDe !== null && !UUID.test(depoisDe)) throw new Error('Continuação inválida. Comece de novo.')
+
+    const r = await regerarNoticias({
+      workspaceId: context.workspace.id,
+      userId: context.user.id,
+      continuacao: { depoisDe, soVitrine: Boolean(continuacao?.soVitrine) },
+      tempoMaximoMs: TEMPO_DA_RODADA_MS,
+    })
+
+    await createAdminClient().from('activity_log').insert({
+      workspace_id: context.workspace.id,
+      actor_id: context.user.id,
+      action: 'noticias_regeradas',
+      entity_type: 'site',
+      metadata: {
+        total: r.total, feitas: r.feitas, vistas: r.vistas, puladas: r.puladas.length, falhas: r.falhas.length,
+        vitrine: r.vitrine?.feita ?? false, continua: Boolean(r.proximo),
+      },
+    })
+    if (!r.proximo) revalidatePath('/configuracoes')
+    return r
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível regerar as páginas das notícias.') }
+  }
+}
 
 export type MateriaNoAr = { id: string; titulo: string; url: string; publicadaEm: string | null }
 export type MateriaArquivada = { id: string; titulo: string; slug: string; atualizadaEm: string | null }
