@@ -35,22 +35,27 @@ export default async function AreaDoMembro({ children }: { children: React.React
       )}
       {/* Sem backdrop-blur e sem a barra do celular aqui dentro: o filtro prendia o `fixed` da barra. */}
       <header className="border-b border-border bg-card lg:sticky lg:top-0 lg:z-30">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6 lg:h-16">
+        {/* `max(…, env(safe-area-inset-*))`: com o iPhone deitado, a logo não fica sob o entalhe. Em pé, as laterais valem 0. */}
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:h-16">
           <Link href="/membro" aria-label="Início da Área do Voluntário" className="flex min-h-11 shrink-0 items-center gap-3 rounded-lg">
             <Logo className="w-28 lg:w-32" />
             <span aria-hidden="true" className="hidden h-6 w-px bg-border sm:block" />
             <span className="hidden text-sm font-semibold sm:inline">Área do Voluntário</span>
           </Link>
           <NavegacaoTopo novidades={naoLidas + avisosNovos} />
-          <div className="hidden lg:block"><MenuDaConta nome={m.nome} email={m.email} previa={!!m.previa} /></div>
+          {/* Em todas as larguras: no celular, o "Sair" não fica só no fim do Perfil. */}
+          <div className="shrink-0"><MenuDaConta nome={m.nome} email={m.email} previa={!!m.previa} /></div>
         </div>
       </header>
       {/*
-        Embaixo, espaço para a barra do celular e a área segura do iPhone. No
-        computador o cabeçalho gruda no alto: `scroll-mt` evita que âncoras
-        como #bens e #o-{id} fiquem escondidas debaixo dele.
+        Embaixo, espaço para a barra do celular e a área segura do iPhone. O
+        `scroll-padding` vai no <html> (enquanto a área está na tela) e vale
+        para o foco do teclado, as âncoras (#bens, #o-{id}) e o
+        `scrollIntoView`: no celular desconta a barra de baixo; no computador,
+        o cabeçalho que gruda no alto. Sem ele, o Tab deixava o elemento
+        focado escondido atrás de uma das duas.
       */}
-      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-5xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 outline-none sm:px-6 lg:scroll-mt-16 lg:pb-12 lg:[&_[id]]:scroll-mt-24">
+      <main id="conteudo" tabIndex={-1} className="mx-auto max-w-5xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-6 outline-none sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] max-lg:[html:has(&)]:scroll-pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-12 lg:[html:has(&)]:scroll-pt-20">
         <SubAbas conversas={naoLidas} avisos={avisosNovos} />
         {children}
       </main>

@@ -24,11 +24,16 @@ function Completude({ pct, faltam }: ReturnType<typeof pendenciasDoPerfil>) {
       <div className="flex flex-wrap items-center gap-x-2 text-sm">
         <span id="perfil-falta" className="text-muted-foreground">Falta preencher:</span>
         <ul aria-labelledby="perfil-falta" className="-ml-2 flex flex-wrap">
+          {/*
+            <a> e não <Link>: navegação de fragmento nativa, sem recarregar. O
+            navegador rola e põe o foco no campo (o <Link> só rolava, e o foco
+            ficava no link), como no "Pular para o conteúdo".
+          */}
           {faltam.map((f) => (
             <li key={f.chave}>
-              <Link href={f.href} className="inline-flex min-h-11 items-center gap-0.5 rounded-lg px-2 font-medium text-foreground underline underline-offset-4 hover:bg-muted">
+              <a href={f.href} className="inline-flex min-h-11 items-center gap-0.5 rounded-lg px-2 font-medium text-foreground underline underline-offset-4 hover:bg-muted">
                 {f.rotulo}<ChevronRight className="size-4 shrink-0" aria-hidden="true" />
-              </Link>
+              </a>
             </li>
           ))}
         </ul>

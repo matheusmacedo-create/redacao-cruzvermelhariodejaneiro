@@ -17,12 +17,13 @@ export function Marca({ subtitulo = 'Área do Voluntário', inverted = false, cl
   return <BrandMark compact inverted={inverted} rotulo={subtitulo} className={className} />
 }
 
-// Campos com 16px no celular: abaixo disso o Safari do iPhone dá zoom ao tocar.
+// Campos com 16px em tela de toque (celular em pé ou deitado, iPad): abaixo disso
+// o Safari dá zoom ao tocar; só com mouse caem para 14px a partir de sm.
 // `min-h-11` (e não `h-11`): dá os mesmos 44px no input e no select, e não
 // esmaga um `<textarea>` que ainda use esta classe em vez de `areaDoMembro`.
-export const campoDoMembro = 'min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/20 disabled:opacity-60 aria-invalid:border-destructive aria-invalid:focus:ring-destructive/20 sm:text-sm'
+export const campoDoMembro = 'min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/20 disabled:opacity-60 aria-invalid:border-destructive aria-invalid:focus:ring-destructive/20 pointer-fine:sm:text-sm'
 /** Para `<textarea>`: o mesmo campo, sem altura fixa (quem manda é o `rows`). */
-export const areaDoMembro = 'w-full rounded-lg border border-input bg-background px-3 py-2.5 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/20 disabled:opacity-60 aria-invalid:border-destructive aria-invalid:focus:ring-destructive/20 sm:text-sm'
+export const areaDoMembro = 'w-full rounded-lg border border-input bg-background px-3 py-2.5 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/20 disabled:opacity-60 aria-invalid:border-destructive aria-invalid:focus:ring-destructive/20 pointer-fine:sm:text-sm'
 
 // Base comum: alvo de 44px, e o texto pode quebrar sem o botão encolher.
 const BOTAO = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-center text-sm font-semibold transition-colors disabled:pointer-events-none disabled:opacity-60'

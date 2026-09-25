@@ -6,8 +6,8 @@ import { CheckCircle2, ChevronDown, CircleHelp, Loader2, Mail, PenLine, RotateCw
 import { entrar, pedirCodigo, type EstadoDeEntrada } from '@/app/actions/membro'
 import { cn } from '@/lib/utils'
 import {
-  DIAS_DE_SESSAO, MINUTOS_DO_CODIGO, TAMANHO_DO_CODIGO, atalhoDoEmail, contagemLegivel, digitosDoCodigo, emailPlausivel, etapaAindaVale,
-  horaLegivel, lerEtapaSalva, normalizarEmail, segundosParaReenviar, type EtapaSalva,
+  CHAVE_DO_ULTIMO_EMAIL, DIAS_DE_SESSAO, MINUTOS_DO_CODIGO, TAMANHO_DO_CODIGO, atalhoDoEmail, contagemLegivel, digitosDoCodigo, emailPlausivel,
+  etapaAindaVale, horaLegivel, lerEtapaSalva, normalizarEmail, segundosParaReenviar, type EtapaSalva,
 } from '@/lib/membro/entrada'
 import { botaoDoMembro, botaoFantasma, botaoSecundario, campoDoMembro } from './marca'
 import { CabecalhoDaPagina, LinkExterno, Recado } from './pecas'
@@ -29,12 +29,12 @@ import { CampoDoCodigo } from './campo-do-codigo'
  * sessionStorage: a etapa do código (e-mail e horários, nunca o código), para
  * reabrir nela quando a pessoa volta do aplicativo de e-mail — o Safari do
  * iPhone costuma descartar a aba — ou recarrega a página. localStorage: só o
- * último e-mail usado, para já vir preenchido. O e-mail nunca vai para a URL.
+ * último e-mail usado, para já vir preenchido quando a sessão vence; o "Sair"
+ * apaga (`esquecerUltimoEmail`, em ./conta). O e-mail nunca vai para a URL.
  * Tudo com try/catch: em aba anônima ou com armazenamento bloqueado, a tela
  * funciona igual, só não lembra.
  */
 const CHAVE_DA_ETAPA = 'cvrj-membro-entrada'
-const CHAVE_DO_EMAIL = 'cvrj-membro-ultimo-email'
 
 function lerGuardado(onde: 'sessao' | 'local', chave: string): string | null {
   try {
@@ -62,7 +62,7 @@ const semAssinatura = () => () => {}
 const nadaNoServidor = () => null
 const etapaGuardada = () => lerGuardado('sessao', CHAVE_DA_ETAPA)
 const ultimoEmail = () => {
-  const e = normalizarEmail(lerGuardado('local', CHAVE_DO_EMAIL) ?? '')
+  const e = normalizarEmail(lerGuardado('local', CHAVE_DO_ULTIMO_EMAIL) ?? '')
   return emailPlausivel(e) ? e : null
 }
 
@@ -116,7 +116,7 @@ export function Entrar({ emailInicial, voltar, sessaoAnterior, noPassoDoEmail, c
     guardarEtapa({ email: para, enviadoEm, salvoEm: agora })
     setAnuncio(enviadoEm === null
       ? `Digite o código de 6 dígitos enviado para ${para}.`
-      : `Código enviado para ${para}. Se não chegar, você pode pedir outro em 1 minuto.`)
+      : `Código pedido para ${para}. Se não chegar, você pode pedir outro em 1 minuto.`)
   }
 
   return (
@@ -130,7 +130,7 @@ export function Entrar({ emailInicial, voltar, sessaoAnterior, noPassoDoEmail, c
           focar={focarEmail}
           sessao={voltar ? (sessaoAnterior ? 'terminou' : 'pedida') : null}
           aoEnviar={(para, agora) => {
-            guardar('local', CHAVE_DO_EMAIL, para)
+            guardar('local', CHAVE_DO_ULTIMO_EMAIL, para)
             irParaOCodigo(para, agora, agora)
           }}
           aoJaTerCodigo={(para) => irParaOCodigo(para, null, Date.now())}
@@ -152,7 +152,7 @@ export function Entrar({ emailInicial, voltar, sessaoAnterior, noPassoDoEmail, c
           aoReenviar={(para, agora) => {
             setEscolha({ etapa: 'codigo', email: para, enviadoEm: agora, reenviado: true })
             guardarEtapa({ email: para, enviadoEm: agora, salvoEm: agora })
-            setAnuncio(`Novo código enviado às ${horaLegivel(agora)}. Use o mais recente.`)
+            setAnuncio(`Novo código pedido às ${horaLegivel(agora)}. Se chegar mais de um, use o mais recente.`)
           }}
         />
       )}
@@ -221,6 +221,8 @@ function PassoDoEmail({ email, aoMudarEmail, focar, sessao, aoEnviar, aoJaTerCod
         id="form-email"
         noValidate
         action={(fd) => {
+          // Com o botão em `aria-disabled` (e não `disabled`), o Enter no campo ainda envia: a guarda barra o segundo pedido.
+          if (pedindo) return
           const c = conferir(String(fd.get('email') ?? ''), 'Digite seu e-mail.')
           if ('erro' in c) return recusar(c.erro)
           setErroLocal(null)
@@ -246,12 +248,13 @@ function PassoDoEmail({ email, aoMudarEmail, focar, sessao, aoEnviar, aoJaTerCod
             readOnly={pedindo}
             aria-invalid={erro ? true : undefined}
             aria-describedby={erro ? 'email-dica email-erro' : 'email-dica'}
-            className={cn(campoDoMembro, 'min-h-12 sm:text-base')}
+            className={cn(campoDoMembro, 'min-h-12 pointer-fine:sm:text-base')}
           />
           <p id="email-dica" className="text-xs text-muted-foreground">O mesmo e-mail que você usou na inscrição.</p>
           {erro && <ErroDoCampo id="email-erro">{erro}</ErroDoCampo>}
         </div>
-        <button type="submit" disabled={pedindo} className={cn(botaoDoMembro, 'min-h-12 w-full')}>
+        {/* `aria-disabled` e não `disabled`: desativar o botão focado jogaria o foco no `<body>`, e no erro nada o devolvia. */}
+        <button type="submit" aria-disabled={pedindo || undefined} className={cn(botaoDoMembro, 'min-h-12 w-full aria-disabled:opacity-60')}>
           {pedindo
             ? <><Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Enviando…</>
             : <><Mail className="size-4" aria-hidden="true" />Enviar código</>}
@@ -313,6 +316,7 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
     return r
   }, { etapa: 'codigo' })
   const pedirNovo = () => {
+    if (reenviando) return
     const fd = new FormData()
     fd.set('email', email)
     startTransition(() => reenviar(fd))
@@ -325,7 +329,8 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
       <CabecalhoDaPagina
         sobretitulo="Passo 2 de 2"
         titulo="Confira seu e-mail"
-        descricao={enviadoEm === null ? 'Digite o código de 6 dígitos que enviamos para:' : 'Enviamos um código de 6 dígitos para:'}
+        // Sem afirmar o envio: a resposta é a mesma com ou sem cadastro, e quem ainda não foi aprovado não recebe nada.
+        descricao={enviadoEm === null ? 'Digite o código de 6 dígitos que enviamos para:' : 'Se o e-mail abaixo tiver cadastro ativo, enviamos para ele um código de 6 dígitos:'}
       >
         {/* `-ml-2` no botão: ao lado do e-mail fica a 8px dele; quando um e-mail longo o empurra para a linha de baixo, o ícone alinha à esquerda. */}
         <div className="flex flex-wrap items-center gap-x-2">
@@ -340,10 +345,14 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
             ? `O código vale por ${MINUTOS_DO_CODIGO} minutos depois do envio. Se venceu, peça outro aqui embaixo.`
             : `Pode levar até 1 minuto. O código vale por ${MINUTOS_DO_CODIGO} minutos.`}
         </p>
+        {/* À vista, e não só no "Não chegou?": quem ainda espera a aprovação é quem mais precisa ler isto. Sem revelar se o e-mail tem cadastro. */}
+        {enviadoEm !== null && (
+          <p className="mt-2 text-sm text-muted-foreground">Inscreveu-se há pouco? O acesso é liberado quando a coordenação aprova sua inscrição, e você recebe um e-mail de boas-vindas.</p>
+        )}
         {reenviado && enviadoEm !== null && (
           <p className="mt-2 flex items-start gap-1.5 text-sm font-medium text-(--success-texto)">
             <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-            Novo código enviado às {horaLegivel(enviadoEm)}. Use o mais recente.
+            Novo código pedido às {horaLegivel(enviadoEm)}. Se chegar mais de um, use o mais recente.
           </p>
         )}
       </CabecalhoDaPagina>
@@ -354,9 +363,10 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
 
         <div className={cn('mt-5 grid gap-2 border-t border-border pt-5', atalho && 'sm:grid-cols-2')}>
           {atalho && <LinkExterno href={atalho.href} className={cn(botaoSecundario, 'w-full')}>{atalho.rotulo}</LinkExterno>}
-          <form action={reenviar}>
+          {/* Enquanto reenvia, `aria-disabled` (o botão focado não perde o foco se der erro); na contagem, `disabled` de verdade. */}
+          <form action={(fd) => { if (!reenviando) reenviar(fd) }}>
             <input type="hidden" name="email" value={email} />
-            <button type="submit" disabled={contando || reenviando} className={cn(botaoSecundario, 'w-full')}>
+            <button type="submit" disabled={contando} aria-disabled={reenviando || undefined} className={cn(botaoSecundario, 'w-full aria-disabled:opacity-60')}>
               {reenviando
                 ? <><Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Enviando…</>
                 : contando
@@ -370,17 +380,19 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
       </div>
 
       <details className="group mt-4 rounded-xl border border-border bg-card">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2"><CircleHelp className="size-4 text-muted-foreground" aria-hidden="true" />Não chegou?</span>
           <ChevronDown className="size-4 text-muted-foreground group-open:rotate-180 motion-safe:transition-transform" aria-hidden="true" />
         </summary>
         <ul className="flex list-disc flex-col gap-2 border-t border-border py-3 pl-9 pr-4 text-sm text-muted-foreground">
           <li>Procure por “código de acesso” no Spam, em Promoções ou no Lixo eletrônico e marque como “Não é spam”.</li>
           <li>Confira se o e-mail acima está certo.</li>
-          {/* Sem revelar se o e-mail tem cadastro: a explicação serve a todo mundo. */}
-          <li>Inscreveu-se há pouco? O acesso é liberado quando a coordenação aprova sua inscrição, e você recebe um e-mail de boas-vindas.</li>
-          {/* O contato (telefone ou e-mail) entra aqui quando o responsável confirmar qual é: não inventar. */}
-          <li>Ainda sem código? Fale com a coordenação do Voluntariado.</li>
+          {/* Mesmo número que a Política de Privacidade publica como o WhatsApp do Voluntariado (lib/site/juridico.ts). Mudou lá, muda aqui. */}
+          <li>
+            Ainda sem código? Fale com a coordenação do Voluntariado pelo WhatsApp{' '}
+            {/* nowrap: sem ele, o ponto final caía sozinho na linha de baixo. */}
+            <span className="whitespace-nowrap"><LinkExterno href="https://wa.me/5521970360264">(21) 97036-0264</LinkExterno>.</span>
+          </li>
         </ul>
       </details>
     </>
@@ -440,7 +452,7 @@ function FormDoCodigo({ email, voltar, pedirNovo, reenviando }: { email: string;
         {erro && <ErroDoCampo id="codigo-erro">{erro}</ErroDoCampo>}
       </div>
       {codigoMorreu ? (
-        <button type="button" onClick={pedirNovo} disabled={reenviando} className={cn(botaoDoMembro, 'min-h-12 w-full')}>
+        <button type="button" onClick={pedirNovo} aria-disabled={reenviando || undefined} className={cn(botaoDoMembro, 'min-h-12 w-full aria-disabled:opacity-60')}>
           {reenviando
             ? <><Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />Enviando…</>
             : <><RotateCw className="size-4" aria-hidden="true" />Enviar novo código</>}

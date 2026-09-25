@@ -27,7 +27,8 @@ function BeneficiosNoCelular() {
       <ul className="grid grid-cols-2 gap-3">
         {BENEFICIOS.map(({ icone: Icone, titulo, linha }) => (
           <li key={titulo} className="rounded-xl border border-border bg-card p-3">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icone className="size-5" aria-hidden="true" /></span>
+            {/* Ícone neutro: no celular os cartões ficam na primeira tela, junto do "Enviar código", e o vermelho competia com ele. */}
+            <span className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground"><Icone className="size-5" aria-hidden="true" /></span>
             <p className="mt-2 text-sm font-semibold">{titulo}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{linha}</p>
           </li>

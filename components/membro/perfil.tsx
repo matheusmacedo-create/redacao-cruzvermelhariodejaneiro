@@ -2,13 +2,14 @@
 
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react'
 import { useFormStatus } from 'react-dom'
-import { BellRing, Check, CircleCheck, LoaderCircle, LogOut, type LucideIcon } from 'lucide-react'
+import { BellRing, Check, CircleCheck, HandHeart, HeartPulse, LoaderCircle, LogOut, MapPin, Phone, type LucideIcon } from 'lucide-react'
 import { preferirAvisos, sair, salvarPerfil } from '@/app/actions/membro'
 import { DISPONIBILIDADES, UFS } from '@/lib/participantes/regras'
 import type { Perfil } from '@/lib/membro/dados'
 import { cn } from '@/lib/utils'
 import { barraFixa, botaoDoMembro, botaoSecundario, campoDoMembro } from './marca'
 import { Recado, Secao } from './pecas'
+import { esquecerUltimoEmail } from './conta'
 
 /*
  * O formulário do perfil envia por `onSubmit` + `startTransition`, e não por
@@ -31,18 +32,20 @@ export function RotuloDeEnvio({ ocupado, icone: Icone, rotulo, andamento }: { oc
 /**
  * Recado que recebe o foco ao aparecer (monte de novo com outra `key` a cada
  * resultado). Serve quando o botão que a pessoa tocou some junto com a ação:
- * sem isto o foco caía no `<body>` e o leitor de tela ficava sem rumo.
+ * sem isto o foco caía no `<body>` e o leitor de tela ficava sem rumo. Sem
+ * região viva (`vivo={false}`): o foco já faz o leitor ler o recado.
  */
 export function RecadoEmFoco({ className, ...props }: React.ComponentProps<typeof Recado>) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { ref.current?.focus() }, [])
-  return <Recado {...props} ref={ref} tabIndex={-1} className={cn('outline-none', className)} />
+  return <Recado {...props} vivo={false} ref={ref} tabIndex={-1} className={cn('outline-none', className)} />
 }
 
 const cartao = 'rounded-xl border border-border bg-card p-4 sm:p-5'
 // `scroll-mt-8`: os links de "Falta preencher" levam direto ao campo (#m-telefone,
-// #m-cep); sem a margem, o rótulo ficava cortado no alto da tela do celular. No
-// computador vale o `scroll-mt` maior do <main>, que desconta o cabeçalho fixo.
+// #m-cep, #m-emerg-nome); sem a margem, o rótulo ficava cortado no alto da tela
+// do celular. No computador soma-se o `scroll-padding` do layout, que desconta
+// o cabeçalho fixo.
 const campo = `${campoDoMembro} scroll-mt-8`
 
 function Rotulado({ id, rotulo, dica, largo, children }: { id: string; rotulo: string; dica?: string; largo?: boolean; children: React.ReactNode }) {
@@ -136,7 +139,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       )}
       {resultado?.ok && <RecadoEmFoco key={resultado.vez} id="perfil-resultado" tipo="sucesso" titulo="Cadastro atualizado." />}
 
-      <Secao titulo="Contato" className={cn(cartao, 'gap-4')}>
+      <Secao titulo="Contato" icone={Phone} className={cn(cartao, 'gap-4')}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo id="m-nome-social" name="nome_social" rotulo="Nome social" maxLength={200} defaultValue={v('nome_social')} autoComplete="off"
             dica="Opcional. Se preenchido, é por ele que chamamos você aqui e nos e-mails." largo />
@@ -144,7 +147,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
         </div>
       </Secao>
 
-      <Secao titulo="Endereço" className={cn(cartao, 'gap-4')}>
+      <Secao titulo="Endereço" icone={MapPin} className={cn(cartao, 'gap-4')}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo id="m-cep" name="cep" rotulo="CEP" inputMode="numeric" maxLength={12} defaultValue={v('cep')} autoComplete="postal-code" />
           <Campo id="m-logradouro" name="logradouro" rotulo="Logradouro" maxLength={200} defaultValue={v('logradouro')} autoComplete="address-line1" />
@@ -162,7 +165,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       </Secao>
 
       {/* `autoComplete="off"`: o navegador preenchia aqui o nome e o telefone da própria pessoa. */}
-      <Secao titulo="Contato de emergência" id="emergencia" className={cn(cartao, 'gap-4')}>
+      <Secao titulo="Contato de emergência" icone={HeartPulse} id="emergencia" className={cn(cartao, 'gap-4')}>
         <p className="-mt-2 text-sm text-muted-foreground">Quem a filial avisa se algo acontecer com você durante uma ação.</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo id="m-emerg-nome" name="emergencia_nome" rotulo="Nome" maxLength={200} defaultValue={v('emergencia_nome')} autoComplete="off" />
@@ -171,17 +174,24 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
         </div>
       </Secao>
 
-      <Secao titulo="Perfil de voluntariado" className={cn(cartao, 'gap-4')}>
+      <Secao titulo="Perfil de voluntariado" icone={HandHeart} className={cn(cartao, 'gap-4')}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo id="m-habilidades" name="habilidades" rotulo="Habilidades" defaultValue={p.habilidades.join(', ')} dica="Separe por vírgula. Ex.: primeiros socorros, fotografia." largo />
           <Campo id="m-idiomas" name="idiomas" rotulo="Idiomas" defaultValue={p.idiomas.join(', ')} dica="Separe por vírgula. Ex.: inglês, Libras." largo />
           <fieldset id="disponibilidade" className="min-w-0 sm:col-span-2">
             <legend className="mb-2 text-sm font-medium">Quando você pode atuar</legend>
+            {/*
+              Marcado como a alternativa escolhida da prova (borda, anel e fundo
+              claro, check vermelho), e não em vermelho sólido: não parece botão.
+              O primeiro chip leva o `id` do "Falta preencher": o link foca um
+              campo de verdade, e não o fieldset. `scroll-mt-16`: o input
+              invisível fica no meio do chip, e a margem deixa a legenda à vista.
+            */}
             <div className="flex flex-wrap gap-2">
-              {DISPONIBILIDADES.map((d) => (
-                <label key={d} className="relative inline-flex min-h-11 cursor-pointer select-none items-center gap-1.5 rounded-full border border-input bg-background px-4 text-sm hover:bg-muted has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:checked]:hover:bg-primary/90 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
-                  <input type="checkbox" name="disponibilidade" value={d} defaultChecked={p.disponibilidade.includes(d)} className="peer sr-only" />
-                  <Check className="hidden size-4 shrink-0 peer-checked:block" aria-hidden="true" />{d}
+              {DISPONIBILIDADES.map((d, i) => (
+                <label key={d} className="relative inline-flex min-h-11 cursor-pointer select-none items-center gap-1.5 rounded-full border border-input bg-background px-4 text-sm hover:bg-muted has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:ring-2 has-[:checked]:ring-primary/20 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
+                  <input type="checkbox" id={i === 0 ? 'm-disponibilidade' : undefined} name="disponibilidade" value={d} defaultChecked={p.disponibilidade.includes(d)} className="peer sr-only scroll-mt-16" />
+                  <Check className="hidden size-4 shrink-0 text-primary peer-checked:block" aria-hidden="true" />{d}
                 </label>
               ))}
             </div>
@@ -256,15 +266,15 @@ function BotaoDeSair() {
 }
 
 /**
- * O "Sair" no fim do Perfil. No celular é o único; no computador também está
- * no menu da conta. A página não o mostra na visualização da equipe (lá o
- * menu diz "Voltar ao Redação").
+ * O "Sair" no fim do Perfil: uma segunda saída, além do menu da conta no
+ * cabeçalho. A página não o mostra na visualização da equipe (lá o menu diz
+ * "Voltar ao Redação").
  */
 export function SairDaArea() {
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-6">
       <p className="text-sm text-muted-foreground">Seu acesso continua ativo neste aparelho. Se ele for compartilhado, saia ao terminar.</p>
-      <form action={sair}><BotaoDeSair /></form>
+      <form action={sair} onSubmit={esquecerUltimoEmail}><BotaoDeSair /></form>
     </div>
   )
 }

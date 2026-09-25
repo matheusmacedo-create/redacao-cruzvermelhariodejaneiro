@@ -106,6 +106,13 @@ export const normalizarEmail = (texto: string) => texto.trim().toLowerCase().sli
 /** A mesma conferência leve do banco (`membro_pedir_codigo`), para avisar antes de gastar um pedido. */
 export const emailPlausivel = (email: string) => email.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
 
+/**
+ * Chave do `localStorage` com o último e-mail usado na entrada (já vem
+ * preenchido quando a sessão vence). Quem sai da área pelo "Sair" apaga a
+ * chave: num aparelho compartilhado, o próximo não vê o e-mail de quem saiu.
+ */
+export const CHAVE_DO_ULTIMO_EMAIL = 'cvrj-membro-ultimo-email'
+
 export type AtalhoDoEmail = { rotulo: string; href: string }
 
 /*

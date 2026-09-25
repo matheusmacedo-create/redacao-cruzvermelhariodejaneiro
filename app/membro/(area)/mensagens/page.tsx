@@ -33,7 +33,8 @@ export default async function Mensagens({ searchParams }: { searchParams: Promis
               <Link href={`/membro/mensagens/${c.id}`} className="flex min-h-12 items-center gap-3 px-4 py-3 hover:bg-muted/60 focus-visible:-outline-offset-2">
                 <span className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <span className="flex items-baseline justify-between gap-3">
-                    <span className={cn('min-w-0 truncate', respostaNova ? 'font-semibold' : 'font-medium')}>
+                    {/* Até duas linhas, e não uma cortada: com assuntos parecidos, "Declaração de horas para o e…" não dizia qual conversa era. */}
+                    <span className={cn('min-w-0 line-clamp-2 wrap-break-word', respostaNova ? 'font-semibold' : 'font-medium')}>
                       {/* O selo "Resposta nova" é visual; o leitor de tela ouve isto antes do assunto. */}
                       {respostaNova && <span className="sr-only">Nova resposta: </span>}{c.assunto}
                     </span>

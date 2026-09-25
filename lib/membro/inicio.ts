@@ -22,8 +22,10 @@ export type EtapaDoCurso = 'novo' | 'andamento' | 'prova' | 'concluido'
 /**
  * Com certificado, está concluído mesmo que a equipe tenha acrescentado aulas
  * depois. Todas as aulas feitas e sem certificado: falta a prova (se o curso
- * tiver prova); sem prova, o certificado sai sozinho na última aula, então
- * não há o que fazer ali.
+ * tiver prova). Sem prova, o certificado normalmente sai na última aula, mas
+ * pode faltar se a equipe tirou a prova depois ou revogou o certificado:
+ * nesse caso o curso conta como concluído (aulas feitas) e não volta para
+ * "Continuar". A mesma regra no Início e no catálogo de Cursos.
  */
 export function etapaDoCurso(c: CursoResumido): EtapaDoCurso {
   if (c.certificado) return 'concluido'

@@ -79,6 +79,8 @@ function NovaConversa({ categoria, focar, aoCancelar }: { categoria: CategoriaDa
     <form id="nova-conversa" aria-labelledby="nova-conversa-titulo" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5"
       onSubmit={(e) => {
         e.preventDefault()
+        // O Enviar fica em `aria-disabled`, e não `disabled`, para não perder o foco: a guarda barra o envio repetido.
+        if (enviando) return
         const dados = new FormData(e.currentTarget)
         startTransition(() => enviar(dados))
       }}>
@@ -103,7 +105,7 @@ function NovaConversa({ categoria, focar, aoCancelar }: { categoria: CategoriaDa
       {/* No celular, os dois botões ocupam a largura, com Enviar em cima, perto do polegar. */}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" onClick={aoCancelar} disabled={enviando} className={botaoFantasma}>Cancelar</button>
-        <button type="submit" disabled={enviando} className={botaoDoMembro}>
+        <button type="submit" aria-disabled={enviando || undefined} className={cn(botaoDoMembro, 'aria-disabled:opacity-60')}>
           <RotuloDeEnvio ocupado={enviando} icone={Send} rotulo="Enviar" andamento="Enviando…" />
         </button>
       </div>
@@ -140,8 +142,10 @@ export function ListaDaConversa({ total, children }: { total: number; children: 
     const suave = !primeira.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     primeira.current = false
     const fundo = document.documentElement.scrollHeight - window.innerHeight
-    // O `scroll-margin-top` do item já desconta o cabeçalho que gruda no alto no computador.
-    const margem = parseFloat(getComputedStyle(ultima).scrollMarginTop) || 0
+    // `window.scrollTo` ignora o `scroll-padding` do <html> (que no computador
+    // desconta o cabeçalho que gruda no alto): soma-se aqui à margem do item.
+    const margem = (parseFloat(getComputedStyle(ultima).scrollMarginTop) || 0)
+      + (parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0)
     const inicioDaUltima = ultima.getBoundingClientRect().top + window.scrollY - margem
     window.scrollTo({ top: Math.max(0, Math.min(fundo, inicioDaUltima)), behavior: suave ? 'smooth' : 'instant' })
   }, [total])
@@ -174,6 +178,8 @@ export function Responder({ conversaId, encerrada }: { conversaId: string; encer
     <form id="responder" className={cn(barraFixa, 'flex flex-col gap-2')}
       onSubmit={(e) => {
         e.preventDefault()
+        // Botão em `aria-disabled` (o foco fica nele) e Ctrl+Enter (`requestSubmit` ignora o `disabled`): a guarda barra o envio repetido.
+        if (enviando) return
         const dados = new FormData(e.currentTarget)
         startTransition(() => enviar(dados))
       }}>
@@ -189,7 +195,7 @@ export function Responder({ conversaId, encerrada }: { conversaId: string; encer
               e.currentTarget.form?.requestSubmit()
             }
           }} />
-        <button type="submit" disabled={enviando} aria-label={enviando ? 'Enviando resposta' : 'Enviar resposta'} className={cn(botaoDoMembro, 'size-11 shrink-0 px-0')}>
+        <button type="submit" aria-disabled={enviando || undefined} aria-label={enviando ? 'Enviando resposta' : 'Enviar resposta'} className={cn(botaoDoMembro, 'size-11 shrink-0 px-0 aria-disabled:opacity-60')}>
           {enviando ? <LoaderCircle className="size-5 motion-safe:animate-spin" aria-hidden="true" /> : <Send className="size-5" aria-hidden="true" />}
         </button>
       </div>

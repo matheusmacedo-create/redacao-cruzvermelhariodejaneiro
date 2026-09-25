@@ -129,16 +129,18 @@ const preenchido = (s: string | null | undefined) => !!s && s.trim().length > 0
 
 /**
  * O que falta no cadastro, na ordem em que aparece no Perfil, e o percentual
- * completo (4 blocos, 25% cada). Cada pendência leva à âncora do campo:
- * `#m-telefone` e `#m-cep` já existem; `#emergencia` e `#disponibilidade` são
- * os ids combinados para os blocos do Perfil.
+ * completo (4 blocos, 25% cada). Cada pendência leva a um campo de verdade
+ * (`#m-telefone`, `#m-cep`, `#m-emerg-nome` e `#m-disponibilidade`, o primeiro
+ * chip), para o navegador rolar e pôr o foco nele. Só o hash: a lista só
+ * aparece no próprio Perfil, e um link só de hash é navegação de fragmento
+ * mesmo com `?` no endereço.
  */
 export function pendenciasDoPerfil(p: CamposDoCadastro): { pct: number; faltam: PendenciaDoPerfil[] } {
   const blocos: (PendenciaDoPerfil & { ok: boolean })[] = [
-    { chave: 'telefone', rotulo: 'Telefone ou WhatsApp', href: '/membro/perfil#m-telefone', ok: preenchido(p.telefone) },
-    { chave: 'endereco', rotulo: 'Endereço', href: '/membro/perfil#m-cep', ok: [p.cep, p.logradouro, p.cidade, p.uf].every(preenchido) },
-    { chave: 'emergencia', rotulo: 'Contato de emergência', href: '/membro/perfil#emergencia', ok: preenchido(p.emergencia_nome) && preenchido(p.emergencia_telefone) },
-    { chave: 'disponibilidade', rotulo: 'Quando você pode atuar', href: '/membro/perfil#disponibilidade', ok: (p.disponibilidade ?? []).some(preenchido) },
+    { chave: 'telefone', rotulo: 'Telefone ou WhatsApp', href: '#m-telefone', ok: preenchido(p.telefone) },
+    { chave: 'endereco', rotulo: 'Endereço', href: '#m-cep', ok: [p.cep, p.logradouro, p.cidade, p.uf].every(preenchido) },
+    { chave: 'emergencia', rotulo: 'Contato de emergência', href: '#m-emerg-nome', ok: preenchido(p.emergencia_nome) && preenchido(p.emergencia_telefone) },
+    { chave: 'disponibilidade', rotulo: 'Quando você pode atuar', href: '#m-disponibilidade', ok: (p.disponibilidade ?? []).some(preenchido) },
   ]
   const faltam = blocos.filter((b) => !b.ok).map(({ chave, rotulo, href }) => ({ chave, rotulo, href }))
   return { pct: Math.round((100 * (blocos.length - faltam.length)) / blocos.length), faltam }

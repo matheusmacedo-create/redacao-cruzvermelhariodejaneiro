@@ -8,7 +8,8 @@ export const metadata: Metadata = { title: 'Página não encontrada' }
 /**
  * Curso, aula ou conversa que não existe (ou não é desta pessoa): em
  * português e dentro da casca, com caminho de volta — no lugar do 404
- * padrão, em inglês.
+ * padrão, em inglês. Endereço sem rota não passa por aqui: vai para o 404
+ * da raiz.
  */
 export default function NaoEncontrada() {
   return (

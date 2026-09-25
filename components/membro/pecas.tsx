@@ -52,7 +52,8 @@ export function Secao({ titulo, icone: Icone, verTodos, id, acao, className, chi
   const idDoTitulo = id ? `${id}-titulo` : undefined
   return (
     <section id={id} aria-labelledby={idDoTitulo} className={cn('flex min-w-0 flex-col gap-3', className)}>
-      <div className="flex items-center justify-between gap-3">
+      {/* `min-h-7`: a mesma altura com ou sem o "Ver todos" (que ocupa 28px), para colunas vizinhas começarem juntas. */}
+      <div className="flex min-h-7 items-center justify-between gap-3">
         <h2 id={idDoTitulo} className="flex min-w-0 items-center gap-2 text-base font-semibold">
           {Icone && <Icone className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}{titulo}
         </h2>
@@ -130,15 +131,17 @@ const RECADOS: Record<TipoDoRecado, { icone: LucideIcon; caixa: string; corDoIco
 
 /**
  * Faixa de recado com ícone. Erro é `role="alert"` (o leitor de tela
- * interrompe); o resto, `role="status"`. `acao` vai à direita, e desce no
- * celular se não couber.
+ * interrompe); o resto, `role="status"`. Com `vivo={false}` fica sem papel de
+ * região viva, para quando o foco vai para o recado (o foco já faz o leitor
+ * ler; com os dois, lia duas vezes). `acao` vai à direita, e desce no celular
+ * se não couber.
  */
-export function Recado({ tipo, titulo, acao, children, className, ...resto }: {
-  tipo: TipoDoRecado; titulo?: React.ReactNode; acao?: React.ReactNode; children?: React.ReactNode
+export function Recado({ tipo, titulo, acao, vivo = true, children, className, ...resto }: {
+  tipo: TipoDoRecado; titulo?: React.ReactNode; acao?: React.ReactNode; vivo?: boolean; children?: React.ReactNode
 } & Omit<React.ComponentPropsWithRef<'div'>, 'title' | 'role' | 'children'>) {
   const { icone: Icone, caixa, corDoIcone } = RECADOS[tipo]
   return (
-    <div role={tipo === 'erro' ? 'alert' : 'status'} className={cn('flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border p-3 text-sm sm:p-4', caixa, className)} {...resto}>
+    <div role={vivo ? (tipo === 'erro' ? 'alert' : 'status') : undefined} className={cn('flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border p-3 text-sm sm:p-4', caixa, className)} {...resto}>
       <Icone className={cn('mt-0.5 size-4 shrink-0', corDoIcone)} aria-hidden="true" />
       <div className="min-w-0 flex-1 basis-48">
         {titulo && <p className="font-semibold">{titulo}</p>}

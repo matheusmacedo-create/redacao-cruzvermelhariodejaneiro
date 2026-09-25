@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Award, CheckCircle2, ChevronRight, ClipboardCheck, Clock, GraduationCap, Lock, PlayCircle } from 'lucide-react'
 import type { CursoNoCatalogo } from '@/lib/membro/cursos'
+import { etapaDoCurso } from '@/lib/membro/inicio'
 import { duracaoLegivel } from '@/lib/cursos/regras'
 import { cn } from '@/lib/utils'
 import { Selo } from './pecas'
@@ -28,29 +29,25 @@ export function Capa({ url, className = 'aspect-[2/1] w-full' }: { url: string |
   )
 }
 
-/** Onde o curso está para a pessoa, do jeito que o cartão e a lista agrupam. */
-export function etapaNoCatalogo(c: Pick<CursoNoCatalogo, 'certificado' | 'temProva' | 'progresso'>): 'concluido' | 'prova' | 'andamento' | 'novo' {
-  if (c.certificado) return 'concluido'
-  if (c.progresso.concluido && c.temProva) return 'prova'
-  return c.progresso.feitas > 0 ? 'andamento' : 'novo'
-}
-
 /**
  * Cartão do catálogo. No celular, horizontal (miniatura de 80px), para caber
- * mais de um curso na tela; a partir de sm, vertical com a capa em cima.
- * O estado fica sempre no mesmo lugar, embaixo: barra de progresso, "Falta a
- * prova final" (a 100% sem certificado, que antes parecia concluído) ou
- * "Concluído".
+ * mais de um curso na tela. A partir de sm, fica vertical com a capa em cima
+ * só quando algum curso do catálogo tem imagem (`vertical`, decidido pela
+ * página inteira); sem nenhuma capa, fica horizontal em todas as larguras, em
+ * vez de repetir blocos cinza vazios. O estado fica sempre no mesmo lugar,
+ * embaixo: barra de progresso, "Falta a prova final" (a 100% sem certificado,
+ * que antes parecia concluído) ou "Concluído". A etapa segue a mesma regra do
+ * Início (`etapaDoCurso`).
  */
-export function CartaoDeCurso({ c }: { c: CursoNoCatalogo }) {
-  const etapa = etapaNoCatalogo(c)
+export function CartaoDeCurso({ c, vertical }: { c: CursoNoCatalogo; vertical: boolean }) {
+  const etapa = etapaDoCurso(c)
   return (
     <Link href={`/membro/cursos/${c.id}`} data-curso={c.id}
-      className="group flex h-full gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-col sm:gap-0 sm:p-0">
-      <div className="size-20 shrink-0 overflow-hidden rounded-lg sm:size-auto sm:w-full sm:rounded-none">
-        <Capa url={c.capa} className="size-full sm:aspect-[2/1] sm:h-auto" />
+      className={cn('group flex h-full gap-3 overflow-hidden rounded-xl border border-border bg-card p-3 transition-colors hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', vertical && 'sm:flex-col sm:gap-0 sm:p-0')}>
+      <div className={cn('size-20 shrink-0 overflow-hidden rounded-lg', vertical && 'sm:size-auto sm:w-full sm:rounded-none')}>
+        <Capa url={c.capa} className={cn('size-full', vertical && 'sm:aspect-[2/1] sm:h-auto')} />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:gap-2 sm:p-4">
+      <div className={cn('flex min-w-0 flex-1 flex-col gap-1.5', vertical && 'sm:gap-2 sm:p-4')}>
         <h3 className="font-semibold leading-snug wrap-break-word">{c.titulo}</h3>
         {c.resumo && <p className="line-clamp-2 text-sm text-muted-foreground">{c.resumo}</p>}
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -102,11 +99,11 @@ export function ItemDaProva({ cursoId, estado, aulas, detalhe, compacto = false 
   )
 }
 
-/** A grade de cartões: uma coluna no celular, até três no computador. */
-export function GradeDeCursos({ cursos, className }: { cursos: CursoNoCatalogo[]; className?: string }) {
+/** A grade de cartões: uma coluna no celular, duas a partir de sm e, com capas (`vertical`), três no computador. */
+export function GradeDeCursos({ cursos, vertical, className }: { cursos: CursoNoCatalogo[]; vertical: boolean; className?: string }) {
   return (
-    <ul className={cn('grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3', className)}>
-      {cursos.map((c) => <li key={c.id} className="min-w-0"><CartaoDeCurso c={c} /></li>)}
+    <ul className={cn('grid gap-3 sm:grid-cols-2 sm:gap-4', vertical && 'lg:grid-cols-3', className)}>
+      {cursos.map((c) => <li key={c.id} className="min-w-0"><CartaoDeCurso c={c} vertical={vertical} /></li>)}
     </ul>
   )
 }

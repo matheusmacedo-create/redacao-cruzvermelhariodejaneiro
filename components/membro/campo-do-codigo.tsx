@@ -54,9 +54,11 @@ export function CampoDoCodigo({ valor, aoMudar, erro = false, somenteLeitura = f
               'flex h-14 items-center justify-center rounded-xl border-2 bg-background font-mono text-2xl font-semibold text-foreground motion-safe:transition-colors',
               erro ? 'border-destructive' : 'border-input',
               acesa(i) && (erro ? 'ring-3 ring-destructive/20' : 'border-primary ring-3 ring-ring/20'),
+              // Alto contraste (Windows): o anel some e a borda vira a de todas; a caixa atual ganha a cor de destaque do sistema.
+              acesa(i) && 'forced-colors:border-[Highlight]',
               somenteLeitura && 'bg-muted',
             )}>
-              {digito ?? (acesa(i) && !temSelecao && !somenteLeitura ? <span className="h-7 w-0.5 rounded-full bg-foreground motion-safe:animate-pulse" /> : null)}
+              {digito ?? (acesa(i) && !temSelecao && !somenteLeitura ? <span className="h-7 w-0.5 rounded-full bg-foreground motion-safe:animate-pulse forced-colors:bg-[CanvasText]" /> : null)}
             </div>
           )
         })}
@@ -94,7 +96,9 @@ export function CampoDoCodigo({ valor, aoMudar, erro = false, somenteLeitura = f
         }}
         // 16px (text-base): abaixo disso o Safari do iPhone dá zoom ao tocar.
         // Letras transparentes e cursor escondido: quem aparece são as caixas.
-        className="absolute inset-0 size-full cursor-text rounded-xl border-0 bg-transparent font-mono text-base tracking-[-0.5em] text-transparent caret-transparent outline-none selection:bg-transparent"
+        // `forced-color-adjust: none`: no alto contraste do Windows, o sistema
+        // pintaria as letras e os 6 dígitos apareceriam espremidos por cima das caixas.
+        className="absolute inset-0 size-full cursor-text rounded-xl border-0 bg-transparent font-mono text-base tracking-[-0.5em] text-transparent caret-transparent outline-none selection:bg-transparent forced-colors:[forced-color-adjust:none]"
       />
     </div>
   )

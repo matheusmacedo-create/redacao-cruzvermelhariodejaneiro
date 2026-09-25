@@ -5,18 +5,34 @@ import Link from 'next/link'
 import { Menu } from '@base-ui/react/menu'
 import { LogOut, UserRound } from 'lucide-react'
 import { sair } from '@/app/actions/membro'
+import { CHAVE_DO_ULTIMO_EMAIL } from '@/lib/membro/entrada'
 import { iniciais } from '@/lib/membro/regras'
 import { cn } from '@/lib/utils'
 
+/**
+ * Ao sair, esquece o e-mail que a tela de entrada preenche (aparelho
+ * compartilhado). Vai no `onSubmit` dos formulários de sair: roda antes da
+ * action, e sem `preventDefault` a action segue normalmente.
+ */
+export function esquecerUltimoEmail() {
+  try {
+    localStorage.removeItem(CHAVE_DO_ULTIMO_EMAIL)
+  } catch {
+    // Sem armazenamento: nada a esquecer.
+  }
+}
+
 // Mesmo desenho do menu da pessoa no Redação (components/app/topbar.tsx).
 const popup = 'origin-[var(--transform-origin)] rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0'
-const itemDeMenu = 'flex min-h-11 cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-sm outline-none select-none data-[highlighted]:bg-muted data-[highlighted]:text-foreground'
+// Sem `outline-none`: no teclado, o contorno do foco aparece por dentro do item
+// (o fundo `bg-muted` sozinho quase não se distingue do popup branco).
+const itemDeMenu = 'flex min-h-11 cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-sm -outline-offset-2 select-none focus-visible:outline-ring data-[highlighted]:bg-muted data-[highlighted]:text-foreground'
 const avatar = 'flex shrink-0 items-center justify-center rounded-full border border-border bg-muted font-semibold text-foreground'
 
 /**
- * O menu da conta no computador: avatar com as iniciais, nome, e-mail,
- * "Meu perfil" e "Sair". No celular não aparece — o "Sair" fica no fim do
- * Perfil. Na visualização da equipe, "Sair" é "Voltar ao Redação" (a mesma
+ * O menu da conta, em todas as larguras: avatar com as iniciais, nome,
+ * e-mail, "Meu perfil" e "Sair" (no celular, o "Sair" também fica no fim do
+ * Perfil). Na visualização da equipe, "Sair" é "Voltar ao Redação" (a mesma
  * ação `sair`, que ali só desfaz a prévia).
  */
 export function MenuDaConta({ nome, email, previa = false }: { nome: string; email: string | null; previa?: boolean }) {
@@ -26,7 +42,7 @@ export function MenuDaConta({ nome, email, previa = false }: { nome: string; ema
     <>
       <Menu.Root>
         <Menu.Trigger aria-label={`Conta de ${nome}`}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted">
+          className="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-muted">
           <span aria-hidden="true" className={cn(avatar, 'size-9 text-sm')}>{letras}</span>
         </Menu.Trigger>
         <Menu.Portal>
@@ -53,8 +69,11 @@ export function MenuDaConta({ nome, email, previa = false }: { nome: string; ema
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
-      {/* Fora do menu: o popup vive num portal e some ao fechar, levando o form junto. */}
-      <form ref={formulario} action={sair} className="hidden" />
+      {/*
+        Fora do menu: o popup vive num portal e some ao fechar, levando o form
+        junto. Na prévia, a ação só desfaz a visualização: não há e-mail a esquecer.
+      */}
+      <form ref={formulario} action={sair} onSubmit={previa ? undefined : esquecerUltimoEmail} className="hidden" />
     </>
   )
 }

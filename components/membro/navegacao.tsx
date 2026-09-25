@@ -103,9 +103,10 @@ export function NavegacaoCelular({ novidades = 0 }: { novidades?: number }) {
         const n = s.href === MENSAGENS ? novidades : 0
         return (
           <Link key={s.href} href={s.href} aria-current={acesa ? 'page' : undefined}
-            className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 py-1 text-xs active:bg-muted">
+            className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 py-1 text-xs active:bg-muted">
             <IconeDaAbaNoCelular icone={s.icone} acesa={acesa} novidades={n} />
-            <span className={cn('max-w-full truncate', acesa ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{s.rotuloCurto}</span>
+            {/* Sem padding na coluna e com `tracking-tight`, "Mensagens" cabe inteiro a partir de 360px; abaixo disso, 11px. O `truncate` fica para texto ampliado. */}
+            <span className={cn('max-w-full truncate tracking-tight max-[359px]:text-[11px]', acesa ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground')}>{s.rotuloCurto}</span>
             {n > 0 && <span className="sr-only">{novidadesParaLeitor(n)}</span>}
           </Link>
         )
@@ -128,7 +129,7 @@ const LEITOR: Record<Contagem, (n: number) => string> = {
 function MioloDaSubAba({ rotulo, acesa, n }: { rotulo: string; acesa: boolean; n: number }) {
   const { pending } = useLinkStatus()
   return (
-    <span className={cn('inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors',
+    <span className={cn('inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors',
       acesa ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground group-hover:text-foreground group-active:bg-card/60',
       pending && !acesa && 'motion-safe:animate-pulse')}>
       {rotulo}{n > 0 && <Contador n={n} />}

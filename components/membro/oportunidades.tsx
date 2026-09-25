@@ -55,7 +55,8 @@ function RecadoDoRetorno({ r, comTitulo = false }: { r: Retorno; comTitulo?: boo
     alvo.scrollIntoView({ block: 'nearest', behavior: suave ? 'smooth' : 'auto' })
     el.focus({ preventScroll: true })
   }, [])
-  return <Recado ref={ref} tabIndex={-1} tipo={r.tipo} titulo={comTitulo ? r.titulo : undefined} className="outline-none">{r.texto}</Recado>
+  // `vivo={false}`: o foco já faz o leitor de tela ler o recado; com a região viva, lia duas vezes.
+  return <Recado ref={ref} vivo={false} tabIndex={-1} tipo={r.tipo} titulo={comTitulo ? r.titulo : undefined} className="outline-none">{r.texto}</Recado>
 }
 
 const SELOS: Record<SeloDoCartao, { tom: TomDoSelo; icone: LucideIcon }> = {
@@ -78,8 +79,8 @@ export function CartaoDeOportunidade({ c }: { c: CartaoDaOportunidade }) {
   const idDoTitulo = `o-${c.id}-titulo`
   return (
     <article id={`o-${c.id}`} data-oportunidade={c.id} aria-labelledby={idDoTitulo}
-      // Margem de rolagem embaixo: no celular a barra de navegação cobre o pé da tela.
-      className="flex scroll-mb-[calc(5.5rem+env(safe-area-inset-bottom))] flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5 lg:scroll-mb-4">
+      // Um respiro embaixo ao rolar até o cartão; a barra de navegação do celular já é descontada pelo `scroll-padding` do layout.
+      className="flex scroll-mb-4 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex gap-3 sm:gap-4">
         {/* A data já vai por extenso logo abaixo; o bloco é só visual. */}
         <div aria-hidden="true" className="flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-muted py-2">

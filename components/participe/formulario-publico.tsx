@@ -30,12 +30,16 @@ function Campo({ id, rotulo, dica, erro, obrigatorio, largo, children }: {
   )
 }
 
-/** Chip de múltipla escolha: alvo de 44px, foco visível e check no marcado, como no Perfil da área. */
+/**
+ * Chip de múltipla escolha: alvo de 44px, foco visível e check no marcado, como
+ * no Perfil da área. O marcado segue a alternativa escolhida da prova (borda,
+ * anel e fundo claro), e não o vermelho sólido, que parecia botão.
+ */
 function Chip({ name, valor }: { name: string; valor: string }) {
   return (
-    <label className="group inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-background px-4 py-2 text-sm transition-colors hover:bg-muted has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground has-[:checked]:hover:bg-primary/90 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
+    <label className="group inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-background px-4 py-2 text-sm transition-colors hover:bg-muted has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:ring-2 has-[:checked]:ring-primary/20 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring">
       <input type="checkbox" name={name} value={valor} className="sr-only" />
-      <Check className="hidden size-4 shrink-0 group-has-[:checked]:block" aria-hidden="true" />{valor}
+      <Check className="hidden size-4 shrink-0 text-primary group-has-[:checked]:block" aria-hidden="true" />{valor}
     </label>
   )
 }
@@ -74,7 +78,8 @@ export function FormularioPublico({ hoje, setores }: { hoje: string; setores: st
     const email = <strong className="font-semibold text-foreground wrap-anywhere">{pronto.email}</strong>
     return (
       <div className="flex flex-col gap-6">
-        <Recado ref={refDoSucesso} tabIndex={-1} tipo="sucesso" titulo="Inscrição recebida. Obrigado!">
+        {/* `vivo={false}` aqui e no erro: o recado recebe o foco, e o foco já faz o leitor de tela ler (com a região viva, lia duas vezes). */}
+        <Recado ref={refDoSucesso} vivo={false} tabIndex={-1} tipo="sucesso" titulo="Inscrição recebida. Obrigado!">
           <p>A coordenação do Voluntariado já recebeu os seus dados.</p>
         </Recado>
         <section aria-labelledby="proximos-passos" className="flex flex-col gap-4">
@@ -221,7 +226,7 @@ export function FormularioPublico({ hoje, setores }: { hoje: string; setores: st
       </div>
 
       <div className="flex flex-col gap-3">
-        {erro && <Recado ref={refDoErro} tabIndex={-1} tipo="erro">{erro}</Recado>}
+        {erro && <Recado ref={refDoErro} vivo={false} tabIndex={-1} tipo="erro">{erro}</Recado>}
         {/* Os dois textos ocupam a mesma célula: o botão não muda de largura ao virar "Enviando…". */}
         <button type="submit" disabled={enviando} className={cn(botaoDoMembro, 'w-full sm:w-auto sm:self-start')}>
           <span className="grid">

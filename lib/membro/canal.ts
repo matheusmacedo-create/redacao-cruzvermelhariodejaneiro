@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATEGORIAS_DA_CONVERSA, SITUACOES_DA_CONVERSA, avisoAtivo, novaParaOMembro, ordenarAvisos, type CategoriaDaConversa } from '@/lib/canal/regras'
 import { dataCurta, diasEntre } from './regras'
@@ -43,7 +44,12 @@ export async function conversaDoMembro(m: Membro, id: string): Promise<{ convers
 
 export type AvisoDoMembro = { id: string; titulo: string; texto: string; fixado: boolean; created_at: string; visto: boolean }
 
-export async function avisosDoMembro(m: Membro, hoje: string): Promise<AvisoDoMembro[]> {
+/**
+ * Em `cache`: o layout (contador) e o Início ou a página Avisos pedem os
+ * mesmos avisos na mesma requisição; `m` vem da sessão em cache, então a
+ * chave bate.
+ */
+export const avisosDoMembro = cache(async (m: Membro, hoje: string): Promise<AvisoDoMembro[]> => {
   const admin = createAdminClient()
   const [{ data: avisos }, { data: vistos }] = await Promise.all([
     admin.from('membro_avisos').select('id,titulo,texto,fixado,created_at,expira_em').eq('workspace_id', m.workspaceId).order('created_at', { ascending: false }).limit(100),
@@ -53,7 +59,7 @@ export async function avisosDoMembro(m: Membro, hoje: string): Promise<AvisoDoMe
   return ordenarAvisos((avisos ?? []).filter((a) => avisoAtivo(a as { expira_em: string | null }, hoje)).map((a) => ({
     id: a.id as string, titulo: a.titulo as string, texto: a.texto as string, fixado: a.fixado as boolean, created_at: a.created_at as string, visto: ja.has(a.id as string),
   })))
-}
+})
 
 // ---------------------------------------------------------------- textos das telas (puro)
 //

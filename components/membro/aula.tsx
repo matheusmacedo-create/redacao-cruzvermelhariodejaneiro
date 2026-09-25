@@ -57,15 +57,19 @@ export function ConcluirAula({ cursoId, aulaId, feita, anterior, seguinte, fim }
         {anterior
           ? <Link href={`/membro/cursos/${cursoId}/aulas/${anterior}`} className={cn(botaoFantasma, 'px-3')} aria-label="Aula anterior"><ChevronLeft className="size-4" aria-hidden="true" />Anterior</Link>
           : <span />}
-        <button type="button" disabled={ocupado} className={cn(botaoDoMembro, 'flex-1 sm:flex-none')} id="concluir-aula" onClick={() => iniciar(async () => {
-          setErro('')
-          if (feita) { router.push(destino); return }
-          const r = await concluirAula(cursoId, aulaId)
-          if (r.erro) { setErro(r.erro); return }
-          if (r.certificado) { setCertificado(r.certificado); return }
-          if (r.prova) { router.push(`/membro/cursos/${cursoId}/prova`); return }
-          router.push(seguinte ? destino : `/membro/cursos/${cursoId}`)
-        })}>
+        {/* `aria-disabled` e não `disabled`: desativar o botão focado jogaria o foco no `<body>`, e no erro nada o devolvia. */}
+        <button type="button" aria-disabled={ocupado || undefined} className={cn(botaoDoMembro, 'flex-1 sm:flex-none aria-disabled:opacity-60')} id="concluir-aula" onClick={() => {
+          if (ocupado) return
+          iniciar(async () => {
+            setErro('')
+            if (feita) { router.push(destino); return }
+            const r = await concluirAula(cursoId, aulaId)
+            if (r.erro) { setErro(r.erro); return }
+            if (r.certificado) { setCertificado(r.certificado); return }
+            if (r.prova) { router.push(`/membro/cursos/${cursoId}/prova`); return }
+            router.push(seguinte ? destino : `/membro/cursos/${cursoId}`)
+          })
+        }}>
           {ocupado ? <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" /> : feita ? <ChevronRight className="size-4" aria-hidden="true" /> : <CheckCircle2 className="size-4" aria-hidden="true" />}
           {ocupado ? (feita ? 'Abrindo…' : 'Concluindo…') : rotulo}
         </button>

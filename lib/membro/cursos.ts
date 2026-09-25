@@ -25,23 +25,23 @@ type Aula = { id: string; curso_id: string; modulo_id: string; titulo: string; y
 
 async function carregar(m: Membro, cursoId?: string) {
   const admin = createAdminClient()
-  let qc = admin.from('cursos').select('id,titulo,resumo,descricao,capa_caminho,carga_horaria,nota_minima,validade_meses,ordem')
+  // `curso_questoes(count)`: a contagem das questões vem embutida, uma por
+  // curso, na mesma consulta. Trazer as linhas de todos os cursos esbarrava no
+  // teto de 1000 linhas do Supabase (um curso com prova parecia não ter prova),
+  // e uma contagem por curso era uma requisição a mais para cada curso publicado.
+  let qc = admin.from('cursos').select('id,titulo,resumo,descricao,capa_caminho,carga_horaria,nota_minima,validade_meses,ordem,curso_questoes(count)')
     .eq('workspace_id', m.workspaceId).eq('publicado', true)
   if (cursoId) qc = qc.eq('id', cursoId)
   const { data: cursos } = await qc.order('ordem').order('titulo')
   const ids = (cursos ?? []).map((c) => c.id as string)
   if (!ids.length) return { cursos: [] as Curso[], modulos: [] as Modulo[], aulas: [] as Aula[], feitas: new Set<string>(), questoes: new Map<string, number>(), certificados: new Map<string, string>() }
-  // Questões: só a contagem, curso a curso. Trazer as linhas de todos os
-  // cursos de uma vez esbarra no teto de 1000 linhas do Supabase, e aí um
-  // curso com prova parecia não ter prova.
-  const [{ data: modulos }, { data: aulas }, { data: feitas }, { data: certs }, ...contagens] = await Promise.all([
+  const [{ data: modulos }, { data: aulas }, { data: feitas }, { data: certs }] = await Promise.all([
     admin.from('curso_modulos').select('id,curso_id,titulo,ordem').in('curso_id', ids),
     admin.from('curso_aulas').select('id,curso_id,modulo_id,titulo,youtube_id,texto,material_id,duracao_min,ordem').in('curso_id', ids),
     admin.from('membro_aulas_concluidas').select('aula_id').eq('participante_id', m.participanteId).in('curso_id', ids),
     admin.from('certificados').select('curso_id,codigo').eq('participante_id', m.participanteId).is('revogado_em', null).in('curso_id', ids),
-    ...ids.map((id) => admin.from('curso_questoes').select('id', { count: 'exact', head: true }).eq('curso_id', id)),
   ])
-  const nQuestoes = new Map(ids.map((id, i) => [id, contagens[i]?.count ?? 0]))
+  const nQuestoes = new Map((cursos ?? []).map((c) => [c.id as string, (c.curso_questoes as { count: number }[] | null)?.[0]?.count ?? 0]))
   return {
     cursos: (cursos ?? []) as Curso[], modulos: (modulos ?? []) as Modulo[], aulas: (aulas ?? []) as Aula[],
     feitas: new Set((feitas ?? []).map((f) => f.aula_id as string)), questoes: nQuestoes,

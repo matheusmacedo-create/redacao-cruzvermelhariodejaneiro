@@ -23,8 +23,8 @@ import { CabecalhoDaPagina, EstadoVazio, Recado, Secao, Selo, SeloDeValidade } f
  * A vista do Início, na ordem do que a pessoa precisa fazer: pendências,
  * saudação, primeiros passos (só para quem acabou de chegar), próxima
  * atividade, curso, números, avisos, certificados e últimas atividades.
- * Vermelho sólido só no bloco da data da próxima atividade e num único botão
- * principal; o resto é neutro.
+ * Vermelho sólido só num único botão principal (e nos selos de "Novo"); o
+ * resto é neutro, inclusive o bloco da data, igual ao de Oportunidades.
  */
 export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, atividades, cursos, oportunidades, avisos, termosPendentes }: {
   nome: string; perfil: Perfil; hoje: string; hora: number; agora: Date; formacoes: Formacao[]; atividades: Atividade[]
@@ -40,8 +40,8 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
     emergencia: { nome: perfil.emergencia_nome, telefone: perfil.emergencia_telefone }, cursos,
   })
   // Um botão principal por tela: o do próximo passo, para quem está chegando;
-  // senão o do curso, a menos que a próxima atividade já leve o vermelho da data.
-  const cursoEhPrincipal = !passos && !proxima
+  // senão o do curso, a menos que haja pendência no alto (a faixa de aviso já chama a atenção).
+  const cursoEhPrincipal = !passos && termosPendentes === 0 && provas.length === 0
   const linha = linhaDoPerfil(perfil)
   const ano = hoje.slice(0, 4)
 
@@ -94,9 +94,10 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
               <li key={a.id}>
                 <Link href={`/membro/avisos#aviso-${a.id}`} className="flex min-h-12 items-start gap-3 px-4 py-3 hover:bg-muted">
                   <span className="min-w-0 flex-1">
+                    {/* Selos depois do título, na mesma ordem da página de Avisos (Fixado, Novo): o alfinete sozinho quebrava a linha. */}
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {a.fixado && <><Pin className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="sr-only">Fixado:</span></>}
                       <span className="font-medium wrap-break-word">{a.titulo}</span>
+                      {a.fixado && <Selo icone={Pin}>Fixado</Selo>}
                       {!a.visto && <Selo tom="destaque" icone={Sparkles}>Novo</Selo>}
                     </span>
                     <span className="block text-sm text-muted-foreground">{dataCurta(a.created_at)}</span>
@@ -189,7 +190,7 @@ function PrimeirosPassos({ passos }: { passos: PrimeiroPasso[] }) {
   )
 }
 
-/** A próxima atividade da pessoa: cartão neutro, com a data no único bloco vermelho da tela. */
+/** A próxima atividade da pessoa: cartão neutro, com o bloco da data igual ao de Oportunidades. */
 function ProximaAtividade({ o, agora }: { o: OportunidadeDoMembro; agora: Date }) {
   const { dia, mes } = diaEMes(o.inicio)
   const acontecendo = estado(o, o.ocupadas, agora) === 'andamento'
@@ -198,9 +199,9 @@ function ProximaAtividade({ o, agora }: { o: OportunidadeDoMembro; agora: Date }
       <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
         <div className="flex gap-4">
           {/* A data já vai por extenso no texto abaixo; o bloco é só visual. */}
-          <div aria-hidden="true" className="flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-primary py-2 text-primary-foreground">
+          <div aria-hidden="true" className="flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-muted py-2">
             <span className="text-2xl font-bold leading-none tabular-nums">{dia}</span>
-            <span className="mt-1 text-xs font-semibold tracking-wide">{mes}</span>
+            <span className="mt-1 text-xs font-semibold tracking-wide text-muted-foreground">{mes}</span>
           </div>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             {ehTipo(o.tipo) && <p className="text-sm text-muted-foreground">{TIPOS[o.tipo].rotulo}</p>}

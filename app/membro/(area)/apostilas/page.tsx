@@ -22,8 +22,10 @@ export default async function Apostilas({ searchParams }: { searchParams: Promis
   const m = await exigirMembro()
   const [lista, { erro }] = await Promise.all([apostilasDoMembro(m), searchParams])
   const grupos = agruparApostilas(lista)
+  // Largura de leitura e uma apostila por linha: com um item por grupo, a grade de 2 colunas deixava o cartão
+  // na metade esquerda e o "Ver curso" solto na direita, longe dele.
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <CabecalhoDaPagina titulo="Apostilas" descricao="Materiais de estudo e consulta da Cruz Vermelha RJ." />
       {erro === 'indisponivel' && (
         <Recado tipo="erro" acao={<Link href="/membro/mensagens?nova=outro" className={botaoSecundario}>Avisar a coordenação</Link>}>
@@ -33,7 +35,7 @@ export default async function Apostilas({ searchParams }: { searchParams: Promis
       {grupos.length ? grupos.map((g) => (
         <Secao key={g.cursoId ?? 'gerais'} titulo={g.titulo} icone={g.cursoId ? GraduationCap : BookOpen} id={g.cursoId ? `apostilas-${g.cursoId}` : 'apostilas-gerais'}
           verTodos={g.cursoId ? { href: `/membro/cursos/${g.cursoId}`, rotulo: 'Ver curso' } : undefined}>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-3">
             {g.itens.map((a) => (
               <li key={a.id} className="min-w-0">
                 <LinkExterno href={`/membro/apostilas/${a.id}`} className="flex h-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-foreground transition-colors hover:border-foreground/20">

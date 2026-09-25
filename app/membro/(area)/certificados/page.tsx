@@ -31,7 +31,7 @@ export default async function Certificados() {
   // O endereço público da Redação, o mesmo do e-mail do certificado (não o do deploy, que muda a cada publicação).
   const base = urlBase()
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <CabecalhoDaPagina titulo="Certificados" descricao="Tudo o que você concluiu. Cada certificado tem um código que qualquer pessoa pode conferir." />
       <Secao titulo="Certificados emitidos" icone={Award} id="emitidos">
         {certificados.length ? (
