@@ -58,7 +58,7 @@ export async function pessoasDaDiretoria(admin: Admin, ws: string, setorConfigur
 /**
  * A verba da categoria no mês (o Orçamento do Financeiro) e o que já pesa nela:
  * o que foi lançado e o que está em compras aprovadas ou em aprovação ainda
- * sem lançamento. É o "tem verba?" antes de aprovar (como no Procurify).
+ * sem conta a pagar (depois de lançada, ela já conta como lançamento). É o "tem verba?" antes de aprovar (como no Procurify).
  */
 export async function verbaDaCategoria(supabase: SupabaseClient, ws: string, entidadeId: string, categoriaId: string, mes: string, semEste: string) {
   const ano = Number(mes.slice(0, 4))
@@ -69,7 +69,7 @@ export async function verbaDaCategoria(supabase: SupabaseClient, ws: string, ent
     supabase.from('fin_lancamentos').select('valor').eq('workspace_id', ws).eq('entidade_id', entidadeId).eq('tipo', 'despesa').eq('categoria_id', categoriaId)
       .neq('aprovacao', 'recusada').gte('competencia', inicio).lte('competencia', fim).limit(5000),
     supabase.from('compras_pedidos').select('valor_aprovado').eq('workspace_id', ws).eq('entidade_id', entidadeId).eq('categoria_id', categoriaId)
-      .in('estado', ['em_aprovacao', 'aprovado']).neq('id', semEste).gte('enviado_aprovacao_em', `${inicio}T00:00:00-03:00`).lte('enviado_aprovacao_em', `${fim}T23:59:59-03:00`).limit(1000),
+      .in('estado', ['em_aprovacao', 'aprovado', 'emitido', 'recebido_parcial', 'recebido']).is('lancamento_id', null).neq('id', semEste).gte('enviado_aprovacao_em', `${inicio}T00:00:00-03:00`).lte('enviado_aprovacao_em', `${fim}T23:59:59-03:00`).limit(1000),
   ])
   const soma = (l: { valor?: unknown; valor_aprovado?: unknown }[] | null, campo: 'valor' | 'valor_aprovado') => (l ?? []).reduce((s, x) => s + Number(x[campo] ?? 0), 0)
   const verba = orc ? Number(orc.valor_mensal) : null

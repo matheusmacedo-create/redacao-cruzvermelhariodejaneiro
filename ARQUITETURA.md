@@ -664,6 +664,32 @@ administrador.
 - "Visto em" e o ponto de online só aparecem para a própria pessoa e para
   administradores, a mesma regra do Diretório.
 
+### 7.12 Compras (`/financeiro/compras`)
+
+O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotação
+→ aprovação → ordem de compra → recebimento → conta a pagar.
+
+- **Quem faz o quê:**
+  - qualquer pessoa da Redação pede;
+  - o Financeiro com nível "lançar" cota, emite e envia a ordem, e lança a
+    conta;
+  - o nível "aprovar" aprova, e a Diretoria também aprova acima do limite;
+  - quem pediu (ou o Financeiro) registra o que chegou.
+
+  As regras moram nas funções `compras_*` do banco, e `lib/compras/regras.ts`
+  é o espelho puro para a tela.
+- **Ordem de compra:** tem numeração própria (`OC-AAAA-NNNN`, só as compras
+  aprovadas). O PDF é montado na hora (`lib/compras/ordem-pdf.ts`, sobre
+  `lib/pdf/folha.ts`) e sai por um e-mail de setor com anexo. A regra de envio
+  é a mesma do E-mail do setor, em `lib/correio/enviar.ts`.
+- **Recebimento:** pode chegar em partes (`compras_recebimentos` e
+  `compras_recebimento_itens`), e ninguém recebe mais do que pediu.
+- **Conta a pagar:** vira lançamentos de despesa já aprovados, em até 12
+  parcelas, com os centavos que sobram na última. O `origem_ref` fica como
+  `compras:<pedido>:<n>`, e o valor não passa do aprovado.
+- **Cancelamento:** depois que algo chegou ou a conta foi lançada, a compra
+  não se cancela mais.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

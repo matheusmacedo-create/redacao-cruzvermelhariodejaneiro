@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { EstadoDoPedido } from '@/components/app/financeiro/compras/comum'
 import { contextoDeCompras } from '@/lib/compras/servidor'
-import { numeroDoPedido, type EstadoDoPedido as Estado } from '@/lib/compras/regras'
+import { numeroDaOrdem, numeroDoPedido, type EstadoDoPedido as Estado } from '@/lib/compras/regras'
 import { dataCurta, reais } from '@/lib/financeiro/regras'
 import { tituloDaArea } from '@/lib/navegacao'
 import { cn } from '@/lib/utils'
@@ -14,17 +14,29 @@ import { cn } from '@/lib/utils'
 export const metadata = { title: tituloDaArea('/financeiro/compras') }
 export const dynamic = 'force-dynamic'
 
-type Aba = 'meus' | 'cotar' | 'aprovar' | 'todos'
-const COLUNAS = 'id,entidade_id,ano,numero,titulo,estado,valor_estimado,valor_aprovado,necessario_ate,created_at,solicitante_id,setor_id,exige_diretoria,aprovado_fin_em,aprovado_dir_em'
+type Aba = 'meus' | 'cotar' | 'aprovar' | 'andamento' | 'todos'
+const COLUNAS = 'id,entidade_id,ano,numero,titulo,estado,valor_estimado,valor_aprovado,necessario_ate,created_at,solicitante_id,setor_id,exige_diretoria,aprovado_fin_em,aprovado_dir_em,oc_ano,oc_numero,oc_enviada_em,lancamento_id'
 type Linha = {
   id: string; entidade_id: string; ano: number; numero: number; titulo: string; estado: Estado; valor_estimado: number; valor_aprovado: number | null
   necessario_ate: string | null; created_at: string; solicitante_id: string | null; setor_id: string | null; exige_diretoria: boolean; aprovado_fin_em: string | null; aprovado_dir_em: string | null
+  oc_ano: number | null; oc_numero: number | null; oc_enviada_em: string | null; lancamento_id: string | null
+}
+
+/** Depois da aprovação, o que falta fazer com a compra (null: nada — a conta já foi lançada). */
+function proximoPasso(p: Linha): string | null {
+  if (p.lancamento_id) return null
+  if (p.estado === 'aprovado') return 'emitir a ordem de compra'
+  if (p.estado === 'emitido' && !p.oc_enviada_em) return 'enviar a ordem ao fornecedor'
+  if (p.estado === 'emitido' || p.estado === 'recebido_parcial') return 'aguardando a entrega'
+  if (p.estado === 'recebido') return 'lançar a conta a pagar'
+  return null
 }
 
 /**
  * Pedidos de compra. Qualquer pessoa da Redação pede e acompanha os seus; quem
  * cota (Financeiro, nível "lançar") vê o que espera cotação; quem aprova
- * (nível "aprovar", e a Diretoria acima do limite) vê o que espera decisão.
+ * (nível "aprovar", e a Diretoria acima do limite) vê o que espera decisão; e
+ * "Em andamento" junta as compras aprovadas até a conta a pagar ser lançada.
  */
 export default async function ComprasPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   const sp = await searchParams
@@ -49,17 +61,19 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
     cotar: nivel >= 2 ? ler(daEmpresa as Linha[]).filter((p) => p.estado === 'aberto' || p.estado === 'em_cotacao') : [],
     // Para aprovar: o que ainda espera a MINHA parte (o Financeiro, ou a Diretoria).
     aprovar: ler(emAprovacao as Linha[]).filter((p) => (nivel >= 3 && !p.aprovado_fin_em) || (diretoria && p.exige_diretoria && !p.aprovado_dir_em)).filter((p) => p.solicitante_id !== eu),
+    andamento: nivel >= 2 ? ler(daEmpresa as Linha[]).filter((p) => proximoPasso(p) !== null) : [],
     todos: ler(daEmpresa as Linha[]),
   }
   const abas: { id: Aba; rotulo: string; mostra: boolean }[] = [
     { id: 'aprovar', rotulo: 'Para aprovar', mostra: nivel >= 3 || diretoria },
     { id: 'cotar', rotulo: 'Para cotar', mostra: nivel >= 2 },
+    { id: 'andamento', rotulo: 'Em andamento', mostra: nivel >= 2 },
     { id: 'meus', rotulo: 'Meus pedidos', mostra: true },
     { id: 'todos', rotulo: 'Todos', mostra: nivel >= 1 },
   ]
   const visiveis = abas.filter((a) => a.mostra)
   const pedida = visiveis.find((a) => a.id === sp.aba)?.id
-  const aba: Aba = pedida ?? (listas.aprovar.length ? 'aprovar' : listas.cotar.length ? 'cotar' : 'meus')
+  const aba: Aba = pedida ?? (listas.aprovar.length ? 'aprovar' : listas.cotar.length ? 'cotar' : listas.andamento.length ? 'andamento' : 'meus')
   const lista = listas[aba]
 
   const pessoas = [...new Set(lista.map((p) => p.solicitante_id).filter(Boolean))] as string[]
@@ -97,7 +111,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       {lista.length === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-10 text-center">
           <ShoppingCart className="size-8 text-muted-foreground" />
-          <p className="font-medium">{aba === 'meus' ? 'Você ainda não pediu nenhuma compra.' : aba === 'aprovar' ? 'Nada esperando a sua aprovação.' : aba === 'cotar' ? 'Nenhum pedido esperando cotação.' : 'Nenhum pedido ainda.'}</p>
+          <p className="font-medium">{aba === 'meus' ? 'Você ainda não pediu nenhuma compra.' : aba === 'aprovar' ? 'Nada esperando a sua aprovação.' : aba === 'cotar' ? 'Nenhum pedido esperando cotação.' : aba === 'andamento' ? 'Nenhuma compra aprovada esperando ordem, entrega ou conta a pagar.' : 'Nenhum pedido ainda.'}</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Até {reais(regras.limite_simples)} basta uma proposta; acima disso, {regras.cotacoes_minimas} propostas; acima de {reais(regras.limite_diretoria)}, também a aprovação da Diretoria.
           </p>
@@ -110,12 +124,14 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{numeroDoPedido(p.ano, p.numero)}</span>
+                    {p.oc_numero !== null && p.oc_ano !== null && <span className="font-mono text-xs text-muted-foreground">· {numeroDaOrdem(p.oc_ano, p.oc_numero)}</span>}
                     <span className="truncate font-medium">{p.titulo}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {nomeDe.get(p.solicitante_id ?? '') ?? 'Alguém'}{p.setor_id && setorDe.get(p.setor_id) ? ` · ${setorDe.get(p.setor_id)}` : ''} · pedido em {dataCurta(p.created_at.slice(0, 10))}
                     {p.necessario_ate && ` · precisa até ${dataCurta(p.necessario_ate)}`}
                   </p>
+                  {aba === 'andamento' && <p className="mt-0.5 text-xs font-medium text-warning-foreground">Próximo passo: {proximoPasso(p)}</p>}
                 </div>
                 <span className="text-sm font-medium tabular-nums">{p.valor_aprovado !== null ? reais(p.valor_aprovado) : p.valor_estimado ? `~ ${reais(p.valor_estimado)}` : '—'}</span>
                 <EstadoDoPedido estado={p.estado} />

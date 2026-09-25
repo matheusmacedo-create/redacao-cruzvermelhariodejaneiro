@@ -6,9 +6,9 @@ import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { enviarPeloGmail, esquecerToken, GmailError } from '@/lib/google/gmail'
+import { esquecerToken } from '@/lib/google/gmail'
+import { enviarPelaCaixa } from '@/lib/correio/enviar'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
-import { corpoComAssinatura, lerDestinatarios, montarMensagem } from '@/lib/correio/mensagem'
 
 /**
  * O correio dos setores.
@@ -200,8 +200,6 @@ export async function nomearCaixas(nomes: { id: string; nome: string }[]): Promi
   }
 }
 
-const TETO_DE_DESTINATARIOS = 50
-
 /**
  * Envia um e-mail por uma caixa de setor.
  *
@@ -211,63 +209,16 @@ const TETO_DE_DESTINATARIOS = 50
  * pedido, porque a conferência é aqui, no servidor.
  */
 export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado> {
-  let registro: Record<string, unknown> | null = null
   try {
     const context = await requireWorkspace()
-    const workspaceId = context.workspace.id
-    const admin = createAdminClient()
-
-    const { data: caixa } = await admin.from('caixas_de_email')
-      .select('id, setor_id, email, nome_exibicao, nome_remetente, assinatura_html, responder_para, ativa, no_gmail')
-      .eq('id', texto(formData, 'caixaId')).eq('workspace_id', workspaceId).maybeSingle()
-    if (!caixa || !caixa.ativa || !caixa.no_gmail || !caixa.setor_id) throw new Error('Esta caixa não está disponível para envio.')
-
-    if (!pode(context.role, 'correio.todas_as_caixas')) {
-      const { data: membro } = await admin.from('setor_membros').select('user_id')
-        .eq('setor_id', caixa.setor_id).eq('user_id', context.user.id).maybeSingle()
-      if (!membro) throw new Error('Você não faz parte do setor desta caixa.')
-    }
-
-    const para = lerDestinatarios(texto(formData, 'para'))
-    const cc = lerDestinatarios(texto(formData, 'cc'))
-    const invalidos = [...para.invalidos, ...cc.invalidos]
-    if (invalidos.length) throw new Error(`Endereço inválido: ${invalidos.slice(0, 3).join(', ')}`)
-    if (!para.validos.length) throw new Error('Informe ao menos um destinatário.')
-    if (para.validos.length + cc.validos.length > TETO_DE_DESTINATARIOS) {
-      throw new Error(`No máximo ${TETO_DE_DESTINATARIOS} destinatários por mensagem. Para listas, use as campanhas da Imprensa.`)
-    }
-    const assunto = texto(formData, 'assunto')
-    const corpo = String(formData.get('corpo') ?? '').trim()
-    if (!assunto || assunto.length > 200) throw new Error('Escreva um assunto (até 200 caracteres).')
-    if (!corpo) throw new Error('Escreva a mensagem.')
-
-    registro = {
-      workspace_id: workspaceId, caixa_id: caixa.id, setor_id: caixa.setor_id, autor_id: context.user.id,
-      de: caixa.email, para: para.validos, cc: cc.validos, assunto, corpo,
-    }
-
-    const conteudo = corpoComAssinatura(corpo, caixa.assinatura_html)
-    const { raw } = montarMensagem({
-      // O nome definido na Redação vale mais que o do Gmail (que por padrão é só o endereço).
-      de: { nome: caixa.nome_remetente || caixa.nome_exibicao, email: caixa.email },
-      para: para.validos,
-      cc: cc.validos,
-      responderPara: caixa.responder_para,
-      assunto,
-      texto: conteudo.texto,
-      html: conteudo.html,
+    const { de, destinatarios } = await enviarPelaCaixa(context, texto(formData, 'caixaId'), {
+      para: texto(formData, 'para'), cc: texto(formData, 'cc'), assunto: texto(formData, 'assunto'), corpo: String(formData.get('corpo') ?? ''),
     })
-    const enviado = await enviarPeloGmail(workspaceId, raw)
-
-    await admin.from('emails_enviados').insert({ ...registro, estado: 'enviado', gmail_message_id: enviado.id, gmail_thread_id: enviado.threadId })
     revalidatePath('/correio')
-    return { recado: `Enviado de ${caixa.email} para ${para.validos.length + cc.validos.length} destinatário(s).` }
+    return { recado: `Enviado de ${de} para ${destinatarios.length} destinatário(s).` }
   } catch (causa) {
-    const mensagem = causa instanceof GmailError ? causa.message : mensagemDoErro(causa, 'Não foi possível enviar.')
-    if (registro) {
-      await createAdminClient().from('emails_enviados').insert({ ...registro, estado: 'falhou', erro: mensagem.slice(0, 500) })
-      revalidatePath('/correio')
-    }
-    return { erro: mensagem }
+    // enviarPelaCaixa já registrou a falha em emails_enviados (quando chegou a montar o envio).
+    revalidatePath('/correio')
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar.') }
   }
 }

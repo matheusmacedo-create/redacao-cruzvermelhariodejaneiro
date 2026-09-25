@@ -14,13 +14,16 @@
  * escolha de uma que não é a mais barata, pedem justificativa escrita.
  */
 
-export type EstadoDoPedido = 'aberto' | 'em_cotacao' | 'em_aprovacao' | 'aprovado' | 'recusado' | 'cancelado'
+export type EstadoDoPedido = 'aberto' | 'em_cotacao' | 'em_aprovacao' | 'aprovado' | 'emitido' | 'recebido_parcial' | 'recebido' | 'recusado' | 'cancelado'
 
 export const ESTADOS: Record<EstadoDoPedido, { rotulo: string; tom: 'neutro' | 'aviso' | 'ok' | 'erro' }> = {
   aberto: { rotulo: 'Aguardando cotação', tom: 'neutro' },
   em_cotacao: { rotulo: 'Em cotação', tom: 'aviso' },
   em_aprovacao: { rotulo: 'Em aprovação', tom: 'aviso' },
   aprovado: { rotulo: 'Aprovado', tom: 'ok' },
+  emitido: { rotulo: 'Ordem emitida', tom: 'ok' },
+  recebido_parcial: { rotulo: 'Recebido em parte', tom: 'aviso' },
+  recebido: { rotulo: 'Recebido', tom: 'ok' },
   recusado: { rotulo: 'Recusado', tom: 'erro' },
   cancelado: { rotulo: 'Cancelado', tom: 'neutro' },
 }
@@ -34,6 +37,21 @@ export type Proposta = { id: string; favorecido_id: string; frete: number; preco
 
 /** "PC-2026-0007". */
 export const numeroDoPedido = (ano: number, numero: number) => `PC-${ano}-${String(numero).padStart(4, '0')}`
+/** "OC-2026-0003" — a ordem de compra tem numeração própria (só as compras aprovadas). */
+export const numeroDaOrdem = (ano: number, numero: number) => `OC-${ano}-${String(numero).padStart(4, '0')}`
+
+/** Quanto falta chegar de cada item (pedido menos o que já foi recebido). */
+export function faltaReceber(itens: Pick<ItemDoPedido, 'id' | 'quantidade'>[], recebidos: { item_id: string; quantidade: number }[]): Map<string, number> {
+  const ja = new Map<string, number>()
+  for (const r of recebidos) ja.set(r.item_id, (ja.get(r.item_id) ?? 0) + r.quantidade)
+  return new Map(itens.map((i) => [i.id, Math.max(0, Math.round((i.quantidade - (ja.get(i.id) ?? 0)) * 1000) / 1000)]))
+}
+
+/** As parcelas da conta a pagar: iguais, e os centavos que sobram na última (como no banco). */
+export function parcelas(total: number, n: number): number[] {
+  const base = Math.floor((total * 100) / n) / 100
+  return Array.from({ length: n }, (_, i) => (i === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base))
+}
 
 const centavos = (n: number) => Math.round(n * 100)
 const reaisDe = (c: number) => c / 100
