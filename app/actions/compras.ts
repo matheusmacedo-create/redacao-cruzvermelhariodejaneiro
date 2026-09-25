@@ -10,6 +10,10 @@ import { conteudoConfere } from '@/lib/rh/regras'
 import { TAMANHO_MAXIMO, TIPOS_DE_ARQUIVO, ehArquivoAceito, reais } from '@/lib/financeiro/regras'
 import { lerValor, numeroDoPedido } from '@/lib/compras/regras'
 import { contextoDeCompras, pessoasDaDiretoria, pessoasDoFinanceiro } from '@/lib/compras/servidor'
+import { dadosDaOrdem } from '@/lib/compras/ordem'
+import { ordemDeCompra } from '@/lib/compras/ordem-pdf'
+import { enviarPelaCaixa } from '@/lib/correio/enviar'
+import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
 
 /**
  * Compras — escrita. Toda regra que importa (quem pode, faixas, justificativa,
@@ -255,6 +259,118 @@ export async function decidirPedido(pedidoId: string, decisao: 'aprovar' | 'recu
     return { estado: estado as string }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível registrar a decisão.') }
+  }
+}
+
+// ---------------------------------------------------------------- ordem de compra
+
+export async function emitirOrdem(pedidoId: string, observacao: string): Promise<Resultado<{ codigo?: string }>> {
+  try {
+    if (!UUID.test(pedidoId)) throw new Error('Pedido inválido.')
+    const { context, supabase } = await contextoDeCompras()
+    const { data: codigo, error } = await supabase.rpc('compras_emitir_ordem', { p_pedido_id: pedidoId, p_observacao: String(observacao ?? '').slice(0, 2000) })
+    if (error || !codigo) erroDoBanco(error, 'Não foi possível emitir a ordem de compra.')
+    after(async () => {
+      const { admin, p } = await dadosDoAviso(pedidoId)
+      if (!p?.solicitante_id || p.solicitante_id === context.user.id) return
+      await notificar(admin, {
+        workspaceId: p.workspace_id, para: [p.solicitante_id], atorId: context.user.id, categoria: 'financeiro',
+        titulo: `Compra ${numeroDoPedido(p.ano, p.numero)}: ordem ${codigo} emitida`, mensagem: `${p.titulo}. Quando o material chegar, registre o recebimento no pedido.`,
+        link: `/financeiro/compras/${pedidoId}`, botao: 'Ver o pedido',
+      })
+    })
+    revalidar(pedidoId)
+    return { codigo: codigo as string }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível emitir a ordem de compra.') }
+  }
+}
+
+/** Manda a ordem (PDF anexo) ao fornecedor pelo e-mail de um setor e registra o envio no pedido. */
+export async function enviarOrdem(pedidoId: string, dados: { caixaId: string; para: string; cc?: string; mensagem: string }): Promise<Resultado<{ destinatarios?: string[] }>> {
+  try {
+    if (!UUID.test(pedidoId)) throw new Error('Pedido inválido.')
+    if (!UUID.test(dados.caixaId ?? '')) throw new Error('Escolha o e-mail de onde a ordem sai.')
+    const ctx = await contextoDeCompras()
+    const { context, supabase } = ctx
+    const { data: p } = await supabase.from('compras_pedidos').select('id,entidade_id,titulo,oc_numero').eq('id', pedidoId).eq('workspace_id', context.workspace.id).maybeSingle()
+    // Mesma conferência do banco (compras_registrar_envio), antes de o e-mail sair.
+    if (!p || nivelNaEmpresa(ctx, p.entidade_id) < 2) throw new Error('Pedido não encontrado.')
+    const ordem = p.oc_numero ? await dadosDaOrdem(createAdminClient(), context.workspace.id, pedidoId) : null
+    if (!ordem) throw new Error('Emita a ordem de compra antes de enviar.')
+    const pdf = await ordemDeCompra(ordem.dados)
+    const envio = await enviarPelaCaixa(context, dados.caixaId, {
+      para: dados.para, cc: dados.cc, assunto: `Ordem de compra ${ordem.codigo} — ${p.titulo}`.slice(0, 200), corpo: String(dados.mensagem ?? ''),
+      anexos: [{ nome: `${ordem.codigo}.pdf`, tipo: 'application/pdf', conteudo: pdf }],
+    })
+    const { error } = await supabase.rpc('compras_registrar_envio', { p_pedido_id: pedidoId, p_para: envio.destinatarios.join(', ') })
+    if (error) erroDoBanco(error, 'A ordem foi enviada, mas não foi possível registrar o envio no pedido.')
+    revalidar(pedidoId)
+    return { destinatarios: envio.destinatarios }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar a ordem.') }
+  }
+}
+
+// ---------------------------------------------------------------- recebimento
+
+export type RecebimentoNoFormulario = { recebido_em: string; nota_fiscal?: string; observacao?: string; itens: { item_id: string; quantidade: string }[] }
+
+export async function receberPedido(pedidoId: string, dados: RecebimentoNoFormulario): Promise<Resultado<{ estado?: string }>> {
+  try {
+    if (!UUID.test(pedidoId)) throw new Error('Pedido inválido.')
+    const { context, supabase } = await contextoDeCompras()
+    const itens = (dados.itens ?? []).filter((i) => UUID.test(i.item_id) && String(i.quantidade ?? '').trim()).map((i) => {
+      const quantidade = lerValor(i.quantidade)
+      if (quantidade === null || quantidade < 0) throw new Error('Alguma quantidade está num formato inválido.')
+      return { item_id: i.item_id, quantidade }
+    })
+    const { data: estado, error } = await supabase.rpc('compras_receber', {
+      p_pedido_id: pedidoId,
+      p: { recebido_em: dados.recebido_em || null, nota_fiscal: String(dados.nota_fiscal ?? '').slice(0, 60), observacao: String(dados.observacao ?? '').slice(0, 1000), itens },
+    })
+    if (error || !estado) erroDoBanco(error, 'Não foi possível registrar o recebimento.')
+    after(async () => {
+      const { admin, p } = await dadosDoAviso(pedidoId)
+      if (!p) return
+      // O Financeiro fica sabendo (é a deixa para lançar a conta); quem pediu, se foi outra pessoa que recebeu.
+      const para = new Set([...(await pessoasDoFinanceiro(admin, p.workspace_id, p.entidade_id, 2)), ...(p.solicitante_id ? [p.solicitante_id] : [])])
+      para.delete(context.user.id)
+      await notificar(admin, {
+        workspaceId: p.workspace_id, para: [...para], atorId: context.user.id, categoria: 'financeiro',
+        titulo: `Compra ${numeroDoPedido(p.ano, p.numero)}: ${estado === 'recebido' ? 'tudo recebido' : 'parte recebida'}`,
+        mensagem: `${p.titulo}.${dados.nota_fiscal ? ` Nota fiscal ${dados.nota_fiscal}.` : ''}`, link: `/financeiro/compras/${pedidoId}`, botao: 'Ver o pedido',
+      })
+    })
+    revalidar(pedidoId)
+    return { estado: estado as string }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível registrar o recebimento.') }
+  }
+}
+
+// ---------------------------------------------------------------- conta a pagar
+
+export type ContaNoFormulario = { conta_id: string; vencimento: string; competencia?: string; valor: string; parcelas: string; documento?: string }
+
+export async function lancarContaDaCompra(pedidoId: string, dados: ContaNoFormulario): Promise<Resultado<{ id?: string }>> {
+  try {
+    if (!UUID.test(pedidoId)) throw new Error('Pedido inválido.')
+    const { supabase } = await contextoDeCompras()
+    const valor = String(dados.valor ?? '').trim() ? lerValor(dados.valor) : 0
+    if (valor === null || valor < 0) throw new Error('Valor inválido.')
+    const parcelas = Number(dados.parcelas || 1)
+    if (!Number.isInteger(parcelas) || parcelas < 1 || parcelas > 12) throw new Error('De 1 a 12 parcelas.')
+    const { data: id, error } = await supabase.rpc('compras_lancar_conta', {
+      p_pedido_id: pedidoId,
+      p: { conta_id: UUID.test(dados.conta_id ?? '') ? dados.conta_id : null, vencimento: dados.vencimento || null, competencia: dados.competencia || null, valor, parcelas, documento: String(dados.documento ?? '').slice(0, 80) },
+    })
+    if (error || !id) erroDoBanco(error, 'Não foi possível lançar a conta a pagar.')
+    revalidar(pedidoId)
+    revalidatePath('/financeiro')
+    return { id: id as string }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível lançar a conta a pagar.') }
   }
 }
 

@@ -103,8 +103,17 @@ export type MensagemDoCorreio = {
   assunto: string
   texto: string
   html: string
+  /** Arquivos anexados (a ordem de compra em PDF, por exemplo). */
+  anexos?: { nome: string; tipo: string; conteudo: Uint8Array }[]
   /** Fixo nos testes; aleatório no uso real. */
   fronteira?: string
+}
+
+/** Nome do anexo no cabeçalho: ASCII simples para os clientes antigos e UTF-8 (RFC 2231) para os demais. */
+function nomeDoAnexo(nome: string): string {
+  const limpo = semQuebra(nome).replace(/["\\]/g, '').slice(0, 150) || 'anexo'
+  const ascii = limpo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '_')
+  return ascii === limpo ? `filename="${ascii}"` : `filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(limpo)}`
 }
 
 /** A mensagem inteira, já em base64url — o campo `raw` da API do Gmail. */
@@ -117,11 +126,8 @@ export function montarMensagem(m: MensagemDoCorreio): { raw: string; bruto: stri
     ...(m.responderPara?.trim() ? [`Reply-To: ${semQuebra(m.responderPara)}`] : []),
     `Subject: ${codificarCabecalho(m.assunto)}`,
     'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${fronteira}"`,
   ]
-  const bruto = [
-    ...cabecalhos,
-    '',
+  const alternativa = [
     `--${fronteira}`,
     'Content-Type: text/plain; charset="UTF-8"',
     'Content-Transfer-Encoding: base64',
@@ -133,7 +139,28 @@ export function montarMensagem(m: MensagemDoCorreio): { raw: string; bruto: stri
     '',
     base64Quebrado(m.html),
     `--${fronteira}--`,
-    '',
-  ].join('\r\n')
+  ]
+  const anexos = m.anexos ?? []
+  // Sem anexo, a mensagem é a mesma de sempre (texto e HTML); com anexo, as duas versões vão dentro de um multipart/mixed.
+  const corpo = !anexos.length
+    ? [`Content-Type: multipart/alternative; boundary="${fronteira}"`, '', ...alternativa]
+    : [
+        `Content-Type: multipart/mixed; boundary="${fronteira}_m"`,
+        '',
+        `--${fronteira}_m`,
+        `Content-Type: multipart/alternative; boundary="${fronteira}"`,
+        '',
+        ...alternativa,
+        ...anexos.flatMap((a) => [
+          `--${fronteira}_m`,
+          `Content-Type: ${semQuebra(a.tipo) || 'application/octet-stream'}; name="${nomeDoAnexo(a.nome).match(/filename="([^"]*)"/)?.[1] ?? 'anexo'}"`,
+          `Content-Disposition: attachment; ${nomeDoAnexo(a.nome)}`,
+          'Content-Transfer-Encoding: base64',
+          '',
+          (Buffer.from(a.conteudo).toString('base64').match(/.{1,76}/g) ?? []).join('\r\n'),
+        ]),
+        `--${fronteira}_m--`,
+      ]
+  const bruto = [...cabecalhos, ...corpo, ''].join('\r\n')
   return { raw: Buffer.from(bruto, 'utf8').toString('base64url'), bruto }
 }
