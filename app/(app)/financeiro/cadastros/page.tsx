@@ -5,7 +5,9 @@ import { PageHeader } from '@/components/app/page-header'
 import { SecoesDoFinanceiro } from '@/components/app/financeiro/secoes'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Categorias, Contas, DadosDaEmpresa, Favorecidos, Fontes, NivelDeAcesso, Regras } from '@/components/app/financeiro/cadastros'
+import { RegrasDeCompra } from '@/components/app/financeiro/compras/regras'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
+import { REGRAS_PADRAO } from '@/lib/compras/regras'
 import { NIVEIS, saldos, type Lancamento, type NomeDoNivel } from '@/lib/financeiro/regras'
 
 export const metadata = { title: 'Cadastros do Financeiro' }
@@ -18,6 +20,7 @@ const ABAS = [
   { id: 'categorias', rotulo: 'Categorias', ajuda: 'Para que é cada despesa e de onde vem cada receita. O contador liga cada uma a uma conta do plano de contas dele.' },
   { id: 'favorecidos', rotulo: 'Favorecidos', ajuda: 'Fornecedores, prestadores, doadores e quem mais recebe ou paga.' },
   { id: 'regras', rotulo: 'Regras', ajuda: 'Aprovação de despesas (opcional) e reserva mínima do caixa.' },
+  { id: 'compras', rotulo: 'Regras de compra', ajuda: 'Quantas propostas cada compra precisa e quando a Diretoria também aprova (Financeiro → Compras).' },
   { id: 'acessos', rotulo: 'Quem acessa', ajuda: 'Só administradores mudam. Administradores têm acesso total.' },
 ] as const
 type Aba = (typeof ABAS)[number]['id']
@@ -33,6 +36,13 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
   const gestao = nivel >= 4
   // Categorias e regras valem para todas as empresas: só a gestão de todas muda.
   const gestaoGeral = nivelGeral >= 4
+
+  const regrasDeCompra = aba === 'compras'
+    ? await Promise.all([
+        supabase.from('compras_config').select('limite_simples,limite_diretoria,cotacoes_minimas,diretoria_setor_id').eq('workspace_id', context.workspace.id).maybeSingle(),
+        supabase.from('setores').select('id,nome').eq('workspace_id', context.workspace.id).order('nome'),
+      ])
+    : null
 
   let saldosHoje: Record<string, number> = {}
   if (aba === 'contas') {
@@ -51,7 +61,7 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>
-      {(aba === 'categorias' || aba === 'regras' ? !gestaoGeral : !gestao) && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
+      {(aba === 'categorias' || aba === 'regras' || aba === 'compras' ? !gestaoGeral : !gestao) && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
       <Card className="p-5">
         {aba === 'empresa' && c.empresa && <DadosDaEmpresa empresa={c.empresa} pode={gestao} />}
         {aba === 'contas' && <Contas c={c} saldos={saldosHoje} pode={gestao} />}
@@ -59,6 +69,12 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
         {aba === 'categorias' && <Categorias c={c} pode={gestaoGeral} />}
         {aba === 'favorecidos' && <Favorecidos c={c} pode={nivel >= 2} />}
         {aba === 'regras' && <Regras config={c.config} pode={gestaoGeral} />}
+        {aba === 'compras' && regrasDeCompra && (
+          <RegrasDeCompra pode={gestaoGeral} setores={(regrasDeCompra[1].data ?? []) as { id: string; nome: string }[]}
+            inicial={regrasDeCompra[0].data
+              ? { limite_simples: Number(regrasDeCompra[0].data.limite_simples), limite_diretoria: Number(regrasDeCompra[0].data.limite_diretoria), cotacoes_minimas: Number(regrasDeCompra[0].data.cotacoes_minimas), diretoria_setor_id: regrasDeCompra[0].data.diretoria_setor_id as string | null }
+              : { ...REGRAS_PADRAO, diretoria_setor_id: null }} />
+        )}
         {aba === 'acessos' && ehAdmin && <Acessos workspaceId={context.workspace.id} empresas={c.empresas} />}
       </Card>
     </div>
