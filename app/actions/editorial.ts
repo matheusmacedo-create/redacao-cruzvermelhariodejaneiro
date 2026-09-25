@@ -1,5 +1,6 @@
 'use server'
 
+import { conferenciaDaRodada, registroDaConferencia } from '@/lib/aprovacoes/setores'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
@@ -1014,11 +1015,26 @@ export async function decideApproval(formData: FormData) {
   const note = text(formData, 'note')
   if (!['approved', 'changes_requested'].includes(decision)) throw new Error('Selecione uma decisão.')
   if (decision === 'changes_requested' && !note) throw new Error('Explique quais ajustes são necessários.')
-  const { data: approval } = await supabase.from('approvals').select('id').eq('id', id).eq('workspace_id', context.workspace.id).single()
+  const { data: approval } = await supabase.from('approvals').select('id,content_id').eq('id', id).eq('workspace_id', context.workspace.id).single()
   if (!approval) throw new Error('Aprovação não encontrada.')
-  const { error: voteError } = await supabase.rpc('vote_on_approval', { p_approval_id: id, p_decision: decision, p_comment: note || null })
+  // Aprovar exige a conferência do setor inteira marcada (lib/aprovacoes/setores.ts).
+  // A tela já trava o botão; aqui é a autoridade. O que foi conferido vai junto do voto.
+  let comentario = note
+  if (decision === 'approved') {
+    const [{ data: peca }, { data: vinculo }] = await Promise.all([
+      supabase.from('content_pieces').select('pauta_id').eq('id', approval.content_id).eq('workspace_id', context.workspace.id).maybeSingle(),
+      supabase.from('workspace_members').select('coordination').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle(),
+    ])
+    const { data: pauta } = peca?.pauta_id ? await supabase.from('pautas').select('coordination').eq('id', peca.pauta_id).maybeSingle() : { data: null }
+    const blocos = conferenciaDaRodada(pauta?.coordination ?? null, vinculo?.coordination ?? null)
+    const marcados = new Set(formData.getAll('conferido').map(String))
+    const faltam = blocos.flatMap((b) => b.itens).filter((i) => !marcados.has(i))
+    if (faltam.length) throw new Error(`Confira antes de aprovar: ${faltam.join('; ')}.`)
+    comentario = [note, registroDaConferencia(blocos)].filter(Boolean).join('\n\n')
+  }
+  const { error: voteError } = await supabase.rpc('vote_on_approval', { p_approval_id: id, p_decision: decision, p_comment: comentario || null })
   if (voteError) throw new Error(voteError.message)
-  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note } })
+  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note: comentario } })
   await avisarQuemPediu({ approvalId: id, workspaceId: context.workspace.id, atorId: context.user.id, quem: context.profile?.full_name || 'Um colega', decisao: decision as 'approved' | 'changes_requested', nota: note })
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${id}`)
