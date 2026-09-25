@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { gruposDaEquipeDaEscola, gruposVisiveis, type Grupo } from '@/lib/navegacao'
+import { gruposDaEquipeDaEscola, gruposVisiveis, type Escolhido, type Grupo } from '@/lib/navegacao'
 import type { Permissao } from '@/lib/permissoes'
 
 /** O cookie que lembra a sidebar recolhida. Lido no servidor para não piscar. */
@@ -31,10 +31,10 @@ export function useShell() {
   return ctx
 }
 
-export function AppShellProvider({ children, permitidas, recolhidaInicial = false, equipeDaEscola = null, leitorDeAcessos = false }: {
+export function AppShellProvider({ children, permitidas, recolhidaInicial = false, equipeDaEscola = null, escolhidos = {} }: {
   children: React.ReactNode; permitidas: Permissao[]; recolhidaInicial?: boolean
-  /** Vê o registro de acessos (docs/registro-de-acessos.md): decisão por pessoa. */
-  leitorDeAcessos?: boolean
+  /** Áreas liberadas por pessoa: registro de acessos, envios da equipe. */
+  escolhidos?: Partial<Record<Escolhido, boolean>>
   /** Quem é só da equipe da escola: o menu mostra só a Escola (e o Financeiro dela, se liberado). */
   equipeDaEscola?: { financeiro: boolean } | null
 }) {
@@ -42,8 +42,9 @@ export function AppShellProvider({ children, permitidas, recolhidaInicial = fals
   // cliente como props — por isso o servidor manda só as permissões e a lista
   // é montada aqui.
   const grupos = useMemo(
-    () => (equipeDaEscola ? gruposDaEquipeDaEscola(equipeDaEscola.financeiro) : gruposVisiveis((p) => permitidas.includes(p), undefined, { leitorDeAcessos })),
-    [permitidas, equipeDaEscola, leitorDeAcessos],
+    () => (equipeDaEscola ? gruposDaEquipeDaEscola(equipeDaEscola.financeiro) : gruposVisiveis((p) => permitidas.includes(p), undefined, escolhidos)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [permitidas, equipeDaEscola, escolhidos.leitorDeAcessos, escolhidos.avaliadorDeEnvios],
   )
   const [open, setOpen] = useState(false)
   const [recolhida, setRecolhida] = useState(recolhidaInicial)

@@ -39,9 +39,12 @@ export type Area = {
   contador?: Contador
   /** Tem endereço, busca, migalhas e aba, mas não ocupa linha na sidebar (já tem atalho no topo). */
   foraDoMenu?: boolean
-  /** Só para quem está em `acessos_leitores` (decisão por pessoa, não por papel). */
-  soLeitorDeAcessos?: boolean
+  /** Só para quem foi escolhido por pessoa, não por papel: `acessos_leitores` ou `envios_avaliadores`. */
+  soPara?: Escolhido
 }
+
+/** Áreas liberadas pessoa a pessoa (tabelas próprias), e não pelo papel. */
+export type Escolhido = 'leitorDeAcessos' | 'avaliadorDeEnvios'
 
 export type Grupo = { id: string; rotulo: string | null; areas: Area[] }
 
@@ -66,6 +69,7 @@ export const GRUPOS: Grupo[] = [
       { href: '/chat', rotulo: 'Chat', resumo: 'Canais e mensagens diretas da equipe, ao vivo e guardados', icone: MessagesSquare, termos: ['conversas', 'mensagens', 'recados', 'slack', 'canal', 'direct', 'equipe'], contador: 'chat' },
       { href: '/caixa-de-entrada', rotulo: 'Caixa de entrada', resumo: 'Mensagens e comentários do público nas redes', icone: Inbox, termos: ['atendimento', 'comentários', 'dm', 'direct'] },
       { href: '/correio', rotulo: 'E-mail do setor', resumo: 'Envie pelo endereço do setor, com a assinatura oficial', icone: AtSign, termos: ['correio', 'alias', 'assinatura', 'e-mail'] },
+      { href: '/envios', rotulo: 'Envios da equipe', resumo: 'Ações que a equipe mandou pelo link: fotos, vídeos, áudios e relatos', icone: Send, termos: ['envios', 'mandar ação', 'fotos da equipe', 'relatos', 'link de envio'], soPara: 'avaliadorDeEnvios' },
       { href: '/voluntariado/mensagens', rotulo: 'Voluntários', resumo: 'O canal direto com voluntários e membros da área do membro', icone: HeartHandshake, termos: ['mensagens dos voluntários', 'canal do membro', 'área do membro'] },
     ],
   },
@@ -160,7 +164,7 @@ export const ADMINISTRACAO: Grupo = {
   id: 'administracao',
   rotulo: 'Administração',
   areas: [
-    { href: '/acessos', rotulo: 'Acessos', resumo: 'Quem entrou, quando, de onde e com qual aparelho', icone: Fingerprint, termos: ['login', 'entradas', 'ip', 'aparelho', 'fingerprint', 'segurança'], soLeitorDeAcessos: true },
+    { href: '/acessos', rotulo: 'Acessos', resumo: 'Quem entrou, quando, de onde e com qual aparelho', icone: Fingerprint, termos: ['login', 'entradas', 'ip', 'aparelho', 'fingerprint', 'segurança'], soPara: 'leitorDeAcessos' },
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
@@ -170,9 +174,9 @@ export const ADMINISTRACAO: Grupo = {
 export const TODOS_OS_GRUPOS: Grupo[] = [...GRUPOS, ADMINISTRACAO]
 
 /** Esconde o que a pessoa não pode abrir; grupo vazio some junto. */
-export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] = TODOS_OS_GRUPOS, opcoes: { leitorDeAcessos?: boolean } = {}): Grupo[] {
+export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] = TODOS_OS_GRUPOS, escolhidos: Partial<Record<Escolhido, boolean>> = {}): Grupo[] {
   return grupos
-    .map((g) => ({ ...g, areas: g.areas.filter((a) => (!a.permissao || pode(a.permissao)) && (!a.soLeitorDeAcessos || opcoes.leitorDeAcessos)) }))
+    .map((g) => ({ ...g, areas: g.areas.filter((a) => (!a.permissao || pode(a.permissao)) && (!a.soPara || escolhidos[a.soPara])) }))
     .filter((g) => g.areas.length > 0)
 }
 

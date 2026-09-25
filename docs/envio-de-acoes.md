@@ -1,9 +1,57 @@
-# Envio de ações pela equipe — benchmark e proposta (25/09/2026)
+# Envio de ações pela equipe — benchmark, proposta e v1 (25/09/2026)
 
 O pedido: um **link separado, que qualquer pessoa da equipe abre no celular**, para mandar o que
 aconteceu numa ação (evento de rua, atendimento, curso, visita) com **fotos, vídeos, áudio,
-arquivos e informações**. Tudo chega para o Matheus avaliar e virar post ou matéria. Nada disto
-está construído: este arquivo é o benchmark e a proposta a aprovar antes do código.
+arquivos e informações**. Tudo chega para o Matheus avaliar e virar post ou matéria.
+
+## 0. Decisões do Matheus (25/09/2026) e o que a v1 entrega
+
+| Pergunta (§7) | Decisão |
+| --- | --- |
+| Aberto ou com código? | **aberto**, com as proteções contra robô (§6) |
+| Quem recebe o aviso | **só o Matheus** (tabela `envios_avaliadores`) |
+| Transcrição do áudio por IA | **sim**, com botão, quando ele pedir (OpenAI, `OPENAI_TRANSCRIBE_MODEL`, padrão `gpt-4o-mini-transcribe`) |
+| Avisar quem enviou quando virar matéria | **sim** |
+| WhatsApp como segunda porta | **depois** |
+
+**Onde está:**
+
+| Parte | Arquivos |
+| --- | --- |
+| Tabelas e RLS | `supabase/migrations/20260928010000_cvrj_envios.sql` (`envios`, `envio_arquivos`, `envios_avaliadores`) |
+| Regras puras | `lib/envios/regras.ts` (tipos aceitos, limites, leitura do formulário, chave no R2) |
+| Página pública | `/enviar` — `app/enviar/page.tsx`, `components/enviar/` (formulário em 4 passos, gravador, envio com progresso e novas tentativas) |
+| Rotas públicas | `POST /api/enviar` (cria e devolve os links de envio) e `POST /api/enviar/[id]` (`recebido`, `arquivos`, `concluir`, sempre com o token de quem enviou) |
+| Caixa | `/envios` e `/envios/[id]` (grupo Comunicação, só para avaliador), `app/actions/envios.ts` |
+| Cópia para a Biblioteca e aviso de publicação | `lib/envios/avaliacao.ts`; o aviso é chamado por `publicarMateria` na primeira publicação |
+
+**Como funciona o caminho de um arquivo:** o navegador pede o envio (`/api/enviar`), recebe um link
+assinado de 2 horas por arquivo e manda **direto ao R2** (`cvrj-acervo/entrada/envios/AAAA-MM/<envio>/…`,
+até 2 GB), dois de cada vez, com até 4 tentativas. Depois de cada um, `recebido` confere no R2 que o
+arquivo chegou **com o tamanho anunciado**; diferente, é apagado. No fim, `concluir` passa o envio
+para "novo" e avisa quem avalia.
+
+**"Criar matéria e posts"** cria a pauta (tipo Ação), a peça "Matéria editorial" ligada a ela e o
+pacote multicanal com o relato e a transcrição como rascunho. Também copia **para a Biblioteca só
+os arquivos marcados**, em fluxo, até 300 MB cada e dentro da cota de 1 GB, com o crédito "Nome/CVB-RJ".
+A autorização vai para a Biblioteca como `authorized` se a pessoa declarou "todos autorizaram" ou
+"não aparece ninguém de frente"; caso contrário, fica `pending`. "Só criar a pauta" não copia nada.
+
+**Aviso de publicação:** na primeira publicação da matéria no site, quem enviou e deixou e-mail
+recebe o link. Quem só deixou WhatsApp gera um lembrete no sino do avaliador, e o botão "Avisar pelo
+WhatsApp" do envio abre a conversa com a mensagem pronta.
+
+**Pendências e limites da v1:**
+- Arquivo que começou a subir e nunca foi confirmado fica em `entrada/envios/` sem uso: falta uma
+  rotina de limpeza.
+- O envio vai numa única requisição PUT por arquivo (sem multipart). Se a rede cair, o arquivo
+  recomeça do zero, com até 4 tentativas.
+- Precisa das variáveis do R2 do acervo na Vercel (`R2_BUCKET_ACERVO` e as chaves), as mesmas da
+  tela Acervo. Sem elas, envio só de texto funciona e o de arquivos avisa que está fora do ar.
+
+---
+
+## Benchmark e proposta (o que embasou a v1)
 
 ## 1. O que a solução precisa fazer
 

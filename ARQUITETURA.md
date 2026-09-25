@@ -738,6 +738,21 @@ Quem entrou, quando, de onde e com qual aparelho. A especificação e as decisõ
   tentativas, que é deliberado.
 - Toda consulta à tela grava `acessos.consultados` em `activity_log`.
 
+### 7.14 Envio de ações pela equipe (`/enviar` → `/envios`)
+
+Link público, sem login, para a equipe mandar o que aconteceu numa ação: relato, áudio gravado na
+hora, fotos, vídeos e documentos, até 2 GB por arquivo. O benchmark, as decisões e o caminho completo
+estão em `docs/envio-de-acoes.md`. Em resumo:
+
+- Os arquivos vão do navegador **direto ao R2** (`cvrj-acervo/entrada/envios/`), fora da cota da
+  Biblioteca. O banco só guarda a ficha (`envios`, `envio_arquivos`).
+- O link é aberto. As proteções são as de `/participe` (campo escondido, tempo mínimo), mais um
+  limite por origem (10 envios/hora e 5 GB/dia) e a conferência do tamanho de cada arquivo no R2.
+- Só quem está em `envios_avaliadores` vê a caixa. "Criar matéria e posts" gera pauta, peça e pacote
+  e copia para a Biblioteca só o que foi marcado.
+- Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
+  `publicarMateria`).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
