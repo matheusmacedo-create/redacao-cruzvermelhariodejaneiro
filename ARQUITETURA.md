@@ -591,7 +591,7 @@ categorias. Se precisar de outra categoria, acrescente-a em `CATEGORIAS` e no
 ### 7.9 Trilha pública, portal de transparência e canais oficiais
 
 Especificação: `docs/auditoria-publica.md` (o modelo) e `docs/auditoria-publica-benchmark.md` (de
-onde ele veio). **Lançamento oculto**: tudo funciona, nada é linkado nem indexado até a abertura
+onde ele veio). **Ativo em produção desde 25/09/2026, em lançamento oculto**: tudo funciona, nada é linkado nem indexado até a abertura
 (checklist na §9 da especificação).
 
 - **Banco**: schema `auditoria`, fora da Data API. Itens verificáveis (matérias no site,
@@ -601,6 +601,10 @@ onde ele veio). **Lançamento oculto**: tudo funciona, nada é linkado nem index
   (nada na aplicação precisa lembrar de registrar) e por `auditoria_sincronizar()`, a rede de
   segurança diária. Falha de registro nunca derruba a operação principal: vira linha em
   `auditoria.falhas` e aviso à administração.
+- **Chave de assinatura** (`lib/auditoria/chave.ts`): a variável `AUDITORIA_CHAVE_PRIVADA` da
+  Vercel, se existir; senão a do cofre (Vault, serviço `auditoria_trilha`), gerada pelo botão da tela
+  Trilha pública — nasce no servidor, vai direto ao cofre, só a impressão digital volta. Não se troca
+  pela tela.
 - **Rotinas** (`vercel.json`): `/api/auditoria/diaria` (confere a cadeia, fecha, assina, carimba na
   FreeTSA e no OpenTimestamps, publica em `/verificar/lotes/` no site) e `/api/auditoria/provas`
   (confirmação no Bitcoin). Lógica em `lib/auditoria/rotina.ts`.
@@ -713,9 +717,8 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
   só aviso, não bloqueio.
 - **Transparência:** `/api/compras/relatorio?mes=AAAA-MM&empresa=…` gera o
   relatório público do mês em PDF, com todas as propostas e a justificativa.
-  Fornecedor pessoa física sai sem identificação. A publicação no portal é
-  manual, em Transparência → Documentos, porque as tabelas do portal
-  (`cvrj_transparencia`) ainda não foram aplicadas em produção.
+  Fornecedor pessoa física sai sem identificação. Para publicar, envie o PDF
+  em Transparência → Documentos, na seção "Outros documentos".
 
 ## 8. Integrações externas
 

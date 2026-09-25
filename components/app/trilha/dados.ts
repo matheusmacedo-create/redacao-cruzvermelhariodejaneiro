@@ -110,7 +110,7 @@ export type Sincronizacao = Record<string, number>
  * no máximo a impressão digital (os 16 hex que já vão públicos em cada lote).
  */
 export type SituacaoDaChave =
-  | { estado: 'configurada'; id: string }
+  | { estado: 'configurada'; id: string; origem: 'ambiente' | 'cofre' }
   | { estado: 'ausente' }
   | { estado: 'invalida'; motivo: 'tipo' | 'formato' }
 

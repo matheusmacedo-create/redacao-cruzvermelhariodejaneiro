@@ -50,7 +50,7 @@ async function dadosDoAviso(pedidoId: string) {
 
 export type ItemNoFormulario = { id?: string | null; descricao: string; especificacao?: string; quantidade: string | number; unidade?: string; valor_estimado_unit?: string | number | null }
 export type PedidoNoFormulario = {
-  titulo: string; justificativa: string; setor_id?: string | null; projeto_id?: string | null; necessario_ate?: string | null; local_entrega?: string
+  entidade_id?: string | null; titulo: string; justificativa: string; setor_id?: string | null; projeto_id?: string | null; necessario_ate?: string | null; local_entrega?: string
   categoria_id?: string | null; fonte_id?: string | null; itens: ItemNoFormulario[]
 }
 
@@ -68,6 +68,7 @@ export async function salvarPedido(id: string | null, dados: PedidoNoFormulario)
     const { data, error } = await supabase.rpc('compras_salvar_pedido', {
       p_workspace_id: context.workspace.id, p_id: id,
       p: {
+        entidade_id: !id && dados.entidade_id && UUID.test(dados.entidade_id) ? dados.entidade_id : null,
         titulo: String(dados.titulo ?? '').trim(), justificativa: String(dados.justificativa ?? '').trim(),
         setor_id: dados.setor_id || null, projeto_id: dados.projeto_id || null, necessario_ate: dados.necessario_ate || null,
         local_entrega: String(dados.local_entrega ?? '').trim(), categoria_id: dados.categoria_id || null, fonte_id: dados.fonte_id || null, itens,

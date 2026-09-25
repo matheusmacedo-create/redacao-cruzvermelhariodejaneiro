@@ -13,6 +13,10 @@ export const dynamic = 'force-dynamic'
  * geral, com o aviso de como pedir.
  */
 export async function GET(request: Request) {
+  // O Next pré-carrega sozinho os links que aparecem na tela (o menu da Escola
+  // tem este). Pré-carregamento não é clique: sem isto, só ver o menu trocava os
+  // livros abertos para a Escola, e o Financeiro "mudava de empresa sozinho".
+  if (ehPrefetch(request)) return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } })
   const destino = new URL('/financeiro', request.url)
   const context = await obterWorkspace({ escola: true })
   if (!context) return NextResponse.redirect(new URL('/', request.url))
@@ -21,4 +25,10 @@ export async function GET(request: Request) {
   if (!data?.id) return NextResponse.redirect(new URL('/escola?livros=sem-acesso', request.url))
   ;(await cookies()).set(COOKIE_DA_EMPRESA, data.id as string, { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 24 * 365 })
   return NextResponse.redirect(destino)
+}
+
+function ehPrefetch(request: Request): boolean {
+  const h = request.headers
+  return h.has('next-router-prefetch') || h.has('next-router-segment-prefetch')
+    || /prefetch/i.test(h.get('sec-purpose') ?? '') || /prefetch/i.test(h.get('purpose') ?? '')
 }
