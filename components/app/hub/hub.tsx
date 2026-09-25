@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
-  AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, CircleAlert, Clock, Copy, Eraser, ExternalLink, Globe, Heading2,
+  AlertTriangle, ArrowLeft, Bold, Check, ChevronDown, ChevronUp, CircleAlert, Clock, Copy, Eraser, ExternalLink, Globe, Heading2,
   ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, RefreshCw, Rocket, ShieldAlert,
   Sparkles, Trash2, UploadCloud, Wand2, X,
 } from 'lucide-react'
@@ -41,7 +41,7 @@ import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
   adicionarDestino, alternarPublicacao, arquivarPacote, atualizarStatusDoPacote,
   enviarPacoteParaAprovacao, estimarCota, marcarPronta, publicarPacote, realimentarDestino,
-  removerDestino, reprocessarDestino, salvarMestre, salvarVariante,
+  removerDestino, reprocessarDestino, salvarMestre, salvarVariante, atualizarPaginaDoSite,
 } from '@/app/actions/pacotes'
 import { autorizarUsoDeImagem, liberarMidiaDeTerceiro } from '@/app/actions/arquivos'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
@@ -219,9 +219,14 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
    *
    * Descolada não entra: alguém escreveu aquele texto à mão, e sobrescrevê-lo
    * na tela seria apagar o trabalho sem avisar.
+   *
+   * O site publicado continua acompanhando: é a prévia do que "Atualizar a
+   * página no site" vai subir. Post que já saiu numa rede não se edita, então
+   * esses mostram o que foi.
    */
   const destinosAoVivo = useMemo(() => destinos.map((d) => {
-    if (d.descolada || ['publicada', 'publicando', 'na_fila'].includes(d.estado)) return d
+    const siteNoAr = d.canal === 'site_web' && d.estado === 'publicada'
+    if (d.descolada || (!siteNoAr && ['publicada', 'publicando', 'na_fila'].includes(d.estado))) return d
     try {
       const { variante } = gerarVariante({ ...mestre, fileIds }, d.canal, d.formato)
       return { ...d, corpo: variante.corpo, extras: { ...d.extras, ...variante.extras }, fileIds: variante.fileIds }
@@ -417,6 +422,20 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
     router.refresh()
   }
 
+  /** Republica a página que já está no ar com o que está na tela agora. */
+  function atualizarSite() {
+    setErro(''); setAviso('')
+    iniciar(async () => {
+      await salvarAgora()
+      const form = new FormData()
+      form.set('pacoteId', inicial.id)
+      const r = await atualizarPaginaDoSite(form)
+      if (r.erro) { setErro(r.erro); return }
+      setAviso(r.estado ?? 'Página atualizada no site.')
+      router.refresh()
+    })
+  }
+
   async function reprocessar(d: DestinoRegistro) {
     setErro('')
     const form = new FormData()
@@ -610,6 +629,8 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
               onAgendarPara={setAgendarPara}
               onPronta={() => destinoAtivo && pronta(destinoAtivo)}
               onReprocessar={() => destinoAtivo && reprocessar(destinoAtivo)}
+              onAtualizarSite={atualizarSite}
+              atualizandoSite={enviando}
               onAlternarSaida={(ignorar) => destinoAtivo && alternarSaida(destinoAtivo, ignorar)}
               quantasRedes={destinos.filter((d) => d.canal !== 'site_web').length}
               encerrado={encerrado}
@@ -1039,7 +1060,7 @@ function colagemNoFormato(
  * para o pacote inteiro — cada destino escolhe entre as mídias e pode ter o
  * seu horário, mas o conjunto é um só.
  */
-function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onLiberarMidia, onRecarregarBiblioteca }: {
+function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca, agendarPara, onAgendarPara, onPronta, onReprocessar, onAtualizarSite, atualizandoSite, onAlternarSaida, quantasRedes, encerrado, workspaceId, melhoria, onNovaMidia, onAutorizarMidia, onLiberarMidia, onRecarregarBiblioteca }: {
   /** A página do site. Nula só no instante entre criar o pacote e a base existir. */
   base: DestinoRegistro | null
   mestre: MestreRegistro
@@ -1051,6 +1072,8 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
   onAgendarPara: (v: string) => void
   onPronta: () => void
   onReprocessar: () => void
+  onAtualizarSite: () => void
+  atualizandoSite: boolean
   onAlternarSaida: (ignorar: boolean) => void
   quantasRedes: number
   encerrado: boolean
@@ -1102,7 +1125,10 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
 
   const naoSaiNoSite = base?.estado === 'ignorada'
   const publicada = base?.estado === 'publicada'
-  const congelado = encerrado || publicada || base?.estado === 'publicando'
+  // Publicada NÃO trava a notícia: foto no lugar errado, legenda com erro ou
+  // parágrafo a corrigir se consertam aqui e sobem com "Atualizar a página".
+  // Só o endereço fica fixo — trocá-lo quebraria os links já compartilhados.
+  const congelado = encerrado || base?.estado === 'publicando'
   const formato = base ? formatoDoAdapter(adapter('site_web')!, base.formato) : undefined
   const max = formato?.texto.max ?? 20_000
   const tamanho = contar(mestre.corpo, 'caracteres')
@@ -1136,7 +1162,13 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           {base?.estado === 'falhou' && (
             <Button size="sm" variant="outline" onClick={onReprocessar}><RefreshCw className="size-3.5" />Reprocessar</Button>
           )}
-          {base && !congelado && !naoSaiNoSite && base.estado !== 'pronta' && (
+          {publicada && !encerrado && (
+            <Button size="sm" variant="outline" onClick={onAtualizarSite} disabled={atualizandoSite} title="Sobe a página de novo, no mesmo endereço, com o texto, as fotos e as legendas que estão aqui">
+              {atualizandoSite ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+              {atualizandoSite ? 'Atualizando…' : 'Atualizar a página no site'}
+            </Button>
+          )}
+          {base && !congelado && !publicada && !naoSaiNoSite && base.estado !== 'pronta' && (
             <Button size="sm" onClick={onPronta}><Check className="size-3.5" />Marcar como pronta</Button>
           )}
           {base?.estado === 'pronta' && (
@@ -1144,6 +1176,14 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
           )}
         </div>
       </div>
+
+      {publicada && !encerrado && (
+        <p className="-mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+          Esta notícia já está no site. Você pode corrigir o texto, trocar fotos, legendas e a posição delas;
+          as mudanças só entram na página quando você clicar em <strong>Atualizar a página no site</strong>.
+          O endereço e a data de publicação continuam os mesmos, e o que já saiu nas redes não muda.
+        </p>
+      )}
 
       <p className="-mt-2 text-xs text-muted-foreground">
         Escreva a matéria inteira, do jeito que ela vai aparecer no site.
@@ -1279,11 +1319,35 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
               const posicao = atual.posicao ?? (i === 0 ? 'inicio' : 'meio')
               const mudarLegenda = (campos: Partial<LegendaDaMidia>) =>
                 onMudar({ ...mestre, legendas: { ...(mestre.legendas ?? {}), [a.id]: { ...atual, ...campos } } })
+              // A ordem da lista é a ordem na página: entre as fotos do meio,
+              // a de cima aparece antes no texto.
+              const mover = (passo: -1 | 1) => {
+                const outra = escolhidas[i + passo]
+                if (!outra) return
+                const ids = [...fileIds]
+                const x = ids.indexOf(a.id), y = ids.indexOf(outra.id)
+                ;[ids[x], ids[y]] = [ids[y], ids[x]]
+                onFileIds(ids)
+              }
               return (
                 <div key={a.id} className="flex items-start gap-3 rounded-lg border border-border p-2">
-                  {a.tipo === 'video'
-                    ? <video src={a.previa} muted playsInline preload="metadata" className="size-16 shrink-0 rounded object-cover" />
-                    : <img src={a.previa} alt="" className="size-16 shrink-0 rounded object-cover" />}
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    {a.tipo === 'video'
+                      ? <video src={a.previa} muted playsInline preload="metadata" className="size-16 rounded object-cover" />
+                      : <img src={a.previa} alt="" className="size-16 rounded object-cover" />}
+                    {escolhidas.length > 1 && !congelado && (
+                      <span className="flex gap-1">
+                        <button type="button" onClick={() => mover(-1)} disabled={i === 0} aria-label="Subir a foto na ordem" title="Subir na ordem"
+                          className="rounded border border-border p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30">
+                          <ChevronUp className="size-3.5" />
+                        </button>
+                        <button type="button" onClick={() => mover(1)} disabled={i === escolhidas.length - 1} aria-label="Descer a foto na ordem" title="Descer na ordem"
+                          className="rounded border border-border p-0.5 text-muted-foreground hover:bg-muted disabled:opacity-30">
+                          <ChevronDown className="size-3.5" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <input
                       value={atual.legenda}
@@ -1344,7 +1408,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
               <input
                 value={mestre.slug}
                 onChange={muda('slug')}
-                disabled={congelado}
+                disabled={congelado || publicada}
                 placeholder={mestre.titulo ? gerarSlug(mestre.titulo) : 'nasce-do-titulo'}
                 className={`mt-1 ${inputClass}`}
               />

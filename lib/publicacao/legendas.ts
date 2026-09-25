@@ -1,4 +1,4 @@
-import { mediaToken } from '@/lib/content-blocks'
+import { mediaToken, normalizarQuebras } from '@/lib/content-blocks'
 
 /**
  * O rodapé das fotos anexadas ao pacote.
@@ -81,22 +81,32 @@ export function corpoComMidias(
   const meio = comPosicao.filter((t) => t.posicao === 'meio').map((t) => t.token)
   const fim = comPosicao.filter((t) => t.posicao === 'fim').map((t) => t.token)
 
-  const paragrafos = corpo.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+  // Texto colado do Word ou do Windows chega com \r\n: sem normalizar, a
+  // matéria inteira contava como UM parágrafo e as fotos do meio caíam todas
+  // empilhadas no fim da página.
+  const paragrafos = normalizarQuebras(corpo).split(/\n[ \t]*\n+/).map((p) => p.trim()).filter(Boolean)
 
   // Sem texto não há meio: tudo empilha na ordem início → meio → fim.
   if (!paragrafos.length) {
     return [...inicio, ...meio, ...fim].join('\n\n')
   }
 
-  // As do meio entram em pontos espalhados por igual: com 3 parágrafos e uma
-  // foto, ela cai depois do 2º — nunca colada no fim nem antes do 1º.
+  // As do meio entram em pontos espalhados por igual — nunca antes do 1º
+  // parágrafo nem depois do último, e só onde a foto não separa o que vai
+  // junto: depois de um intertítulo ("## …") ou de uma frase que anuncia uma
+  // lista ("incluindo:") a foto cortaria o texto do que ele apresenta.
+  const pontosPossiveis = paragrafos
+    .map((_, i) => i)
+    .filter((i) => i < paragrafos.length - 1 && !/^#{1,6}\s/.test(paragrafos[i]) && !/:\s*$/.test(paragrafos[i]))
+  const pontos = meio.map((_, j) => {
+    if (!pontosPossiveis.length) return paragrafos.length - 1
+    const k = Math.round(((j + 1) * (pontosPossiveis.length + 1)) / (meio.length + 1)) - 1
+    return pontosPossiveis[Math.min(pontosPossiveis.length - 1, Math.max(0, k))]
+  })
   const saida: string[] = [...inicio]
-  const pontos = meio.map((_, j) =>
-    Math.min(paragrafos.length, Math.max(1, Math.round(((j + 1) * paragrafos.length) / (meio.length + 1)))),
-  )
   paragrafos.forEach((paragrafo, i) => {
     saida.push(paragrafo)
-    pontos.forEach((ponto, j) => { if (ponto === i + 1) saida.push(meio[j]) })
+    pontos.forEach((ponto, j) => { if (ponto === i) saida.push(meio[j]) })
   })
   saida.push(...fim)
   return saida.join('\n\n')
