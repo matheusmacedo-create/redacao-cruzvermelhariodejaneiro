@@ -437,7 +437,13 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
           p_conteudo: conteudoCanonicoDaMateria({ titulo: peca.title, subtitulo: peca.subtitle, corpo: peca.body, url }),
           p_ator_id: pedido.userId,
         })
-        if (erroDaTrilha) throw new Error(erroDaTrilha.message)
+        // Banco ainda sem a migração da trilha (a RPC não existe): não há onde
+        // registrar, e um aviso de falha a cada republicação só assustaria quem publica.
+        if (erroDaTrilha && (erroDaTrilha.code === 'PGRST202' || erroDaTrilha.code === '42883')) {
+          console.info('[site] trilha de auditoria ausente neste banco; a versão republicada não foi registrada.')
+        } else if (erroDaTrilha) {
+          throw new Error(erroDaTrilha.message)
+        }
       } catch (causa) {
         console.error('[site] registro da versão na trilha falhou:', causa instanceof Error ? causa.message : causa)
         avisos.push('A nova versão não entrou na trilha de auditoria agora; a conferência diária não a pega sozinha — avise a administração.')

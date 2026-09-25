@@ -20,10 +20,16 @@
  * `de` é o slug antigo (a pasta dentro de /noticias/); `para` é o caminho
  * absoluto do destino, ex.: '/noticias/slug-que-ficou/'.
  *
- * Vazia de propósito: quem decide o que sai do ar é a responsável pelo site,
- * depois de aprovar a lista das duplicatas.
+ * Quem decide o que sai do ar é a responsável pelo site, depois de aprovar a
+ * lista das duplicatas. A regra cobre a pasta inteira (a página e as fotos que
+ * ficaram nela), então a pasta velha pode continuar no servidor sem aparecer.
  */
-export const REDIRECIONAMENTOS_DAS_NOTICIAS: { de: string; para: string }[] = []
+export const REDIRECIONAMENTOS_DAS_NOTICIAS: { de: string; para: string }[] = [
+  // 25/09/2026: três matérias repetiam o chamado de voluntários para o desfile de
+  // 7 de Setembro (evento já passado). Fica /noticias/7-de-setembro/.
+  { de: 'desfile-de-7-de-setembro-cruz-vermelha-rj-abre-cadastro-para-voluntarios', para: '/noticias/7-de-setembro/' },
+  { de: 'o-7-de-setembro-esta-chegando', para: '/noticias/7-de-setembro/' },
+]
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
 // Caminho absoluto no próprio site, só com caracteres de URL: nada de espaço,
@@ -44,7 +50,7 @@ export function regrasDeRedirecionamento(lista: { de: string; para: string }[] =
     if (!SLUG.test(slug) || !CAMINHO.test(destino) || vistos.has(slug)) continue
     if (destino.replace(/\/+$/, '') === `/noticias/${slug}`) continue
     vistos.add(slug)
-    regras.push(`RewriteRule ^${escaparPadrao(slug)}/?$ ${escaparDestino(destino)} [R=301,L]`)
+    regras.push(`RewriteRule ^${escaparPadrao(slug)}(/.*)?$ ${escaparDestino(destino)} [R=301,L]`)
   }
   return regras
 }
