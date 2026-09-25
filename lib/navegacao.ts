@@ -119,6 +119,11 @@ export const GRUPOS: Grupo[] = [
       { href: '/financeiro/compras', rotulo: 'Pedidos de compra', resumo: 'Peça o que o setor precisa e acompanhe a cotação e a aprovação', icone: ShoppingCart, termos: ['compras', 'comprar', 'cotação', 'orçamento de fornecedor', 'proposta', 'fornecedor', 'ordem de compra', 'requisição', 'mapa comparativo'] },
       { href: '/patrimonio', rotulo: 'Patrimônio', resumo: 'Bens com plaqueta e QR, estoque com lote e validade, doações, frota, manutenção e inventário', icone: Package, termos: ['inventário', 'bens', 'plaqueta', 'cautela', 'termo de responsabilidade', 'almoxarifado', 'estoque', 'materiais', 'validade', 'kits', 'doações', 'doador', 'recibo', 'campanha', 'distribuição', 'frota', 'veículos', 'ambulância', 'combustível', 'CNH'] },
       { href: '/financeiro', rotulo: 'Financeiro', resumo: 'Despesas, receitas, contas a pagar e o caixa da filial', icone: Wallet, termos: ['contas a pagar', 'despesas', 'receitas', 'caixa', 'lançamentos', 'fluxo de caixa'] },
+      // Na barra lateral (antes ficavam só no menu da conta, e ninguém achava). Só quem tem a permissão vê.
+      // Lançamento oculto: as páginas públicas destas áreas saem com noindex e sem link no site até a abertura (docs/auditoria-publica.md §9).
+      { href: '/transparencia', rotulo: 'Transparência', resumo: 'Estatuto, balanços, relatórios e parcerias publicados no portal', icone: Landmark, termos: ['portal da transparência', 'balanço', 'estatuto', 'mrosc', 'parcerias', 'prestação de contas'], permissao: 'transparencia.gerenciar' },
+      { href: '/canais-oficiais', rotulo: 'Canais oficiais', resumo: 'A lista pública dos endereços e perfis que são mesmo da filial', icone: BadgeCheck, termos: ['canais', 'redes sociais', 'golpe', 'perfis oficiais', 'telefones'], permissao: 'transparencia.gerenciar' },
+      { href: '/trilha-publica', rotulo: 'Trilha pública', resumo: 'Registros verificáveis, lotes diários e carimbos no Bitcoin', icone: ShieldCheck, termos: ['auditoria', 'verificação', 'carimbo', 'blockchain', 'autenticidade', 'lotes'], permissao: 'trilha.ver' },
     ],
   },
   {
@@ -155,10 +160,6 @@ export const ADMINISTRACAO: Grupo = {
   areas: [
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
-    // Lançamento oculto: as páginas públicas destas áreas saem com noindex e sem link no site até a abertura (docs/auditoria-publica.md §9).
-    { href: '/transparencia', rotulo: 'Transparência', resumo: 'Estatuto, balanços, relatórios e parcerias publicados no portal', icone: Landmark, termos: ['portal da transparência', 'balanço', 'estatuto', 'mrosc', 'parcerias', 'prestação de contas'], permissao: 'transparencia.gerenciar' },
-    { href: '/canais-oficiais', rotulo: 'Canais oficiais', resumo: 'A lista pública dos endereços e perfis que são mesmo da filial', icone: BadgeCheck, termos: ['canais', 'redes sociais', 'golpe', 'perfis oficiais', 'telefones'], permissao: 'transparencia.gerenciar' },
-    { href: '/trilha-publica', rotulo: 'Trilha pública', resumo: 'Registros verificáveis, lotes diários e carimbos no Bitcoin', icone: ShieldCheck, termos: ['auditoria', 'verificação', 'carimbo', 'blockchain', 'autenticidade', 'lotes'], permissao: 'trilha.ver' },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
   ],
 }
