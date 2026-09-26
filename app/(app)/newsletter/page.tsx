@@ -109,6 +109,7 @@ export default async function NewsletterPage() {
           responderPara: respostaPara() ?? '',
         }}
         podeApagar={pode(context.role, 'newsletter.apagar')}
+        podeExportar={pode(context.role, 'newsletter.exportar')}
       />
     </div>
   )

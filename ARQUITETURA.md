@@ -1242,6 +1242,20 @@ minutos**, até a migração ser aplicada.
 **antes** do merge. Quem mescla confere na lista de migrações do Supabase
 (`supabase_migrations.schema_migrations`) que a do PR já está lá.
 
+### 10.8 Consulta que "traz tudo" e traz só mil linhas
+
+A API do Supabase devolve **no máximo 1000 linhas por pedido**, e
+`.limit(50000)` não muda isso: o resto some sem erro. Já fez um curso com prova
+parecer sem prova (`lib/membro/cursos.ts`), e a varredura de 09/2026 achou o
+mesmo desenho no saldo das contas, na Saúde e no fechamento do mês do
+Financeiro, nos totais de doações e no estoque — somas que ficariam erradas,
+caladas, a partir do milésimo lançamento.
+
+**A regra:** consulta cujas linhas vão ser **somadas ou contadas** passa por
+`todasAsLinhas()` (`lib/supabase/paginar.ts`, com `.order('id').range(de, ate)`),
+ou vira uma contagem (`count: 'exact', head: true`) ou uma soma no SQL. Listas
+para a tela podem ter teto, desde que a tela diga que cortou.
+
 ## 11. O que ainda não existe
 
 - **Suíte de testes das páginas do site** — a conferência (render com exemplos,

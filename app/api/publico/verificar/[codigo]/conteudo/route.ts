@@ -2,6 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { lerCodigo } from '@/lib/auditoria/catalogo'
 import { cabecalhos, chaveDoLimite, LIMITE_POR_HORA, segundosAteAProximaHora } from '@/lib/auditoria/consulta'
 
+/** Código com % malformado vira texto vazio (e "não encontrado"), não erro 500. */
+const decodificar = (bruto: string) => { try { return decodeURIComponent(bruto) } catch { return '' } }
+
 export const dynamic = 'force-dynamic'
 
 export function OPTIONS(request: Request) {
@@ -15,7 +18,7 @@ export function OPTIONS(request: Request) {
 export async function GET(request: Request, { params }: { params: Promise<{ codigo: string }> }) {
   const h = cabecalhos(request)
   const responder = (status: number, corpo: object, extra: Record<string, string> = {}) => Response.json(corpo, { status, headers: { ...h, ...extra } })
-  const lido = lerCodigo(decodeURIComponent((await params).codigo))
+  const lido = lerCodigo(decodificar((await params).codigo))
   if (!lido || lido.tipo !== 'trilha') return responder(400, { erro: 'entrada_invalida' })
 
   try {

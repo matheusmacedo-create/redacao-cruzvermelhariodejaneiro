@@ -8,6 +8,7 @@ import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { EditarDoador } from '@/components/app/patrimonio/doacoes'
 import { contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
 import { documentoFormatado } from '@/lib/patrimonio/doacoes'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Doadores' }
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export default async function DoadoresPage({ searchParams }: { searchParams: Pro
   const ws = context.workspace.id
   const [{ data: doadores }, { data: recebidas }] = await Promise.all([
     supabase.from('doa_doadores').select('id,tipo,nome,documento,email,telefone,observacao').eq('workspace_id', ws).order('nome').limit(5000),
-    supabase.from('doa_recebimentos').select('doador_id,data,valor_total').eq('workspace_id', ws).not('doador_id', 'is', null).limit(50000),
+    todasAsLinhas((de, ate) => supabase.from('doa_recebimentos').select('doador_id,data,valor_total').eq('workspace_id', ws).not('doador_id', 'is', null).order('id').range(de, ate)),
   ])
   const total = new Map<string, { valor: number; vezes: number; ultima: string }>()
   for (const r of recebidas ?? []) {

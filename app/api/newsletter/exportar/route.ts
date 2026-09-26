@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { obterWorkspace } from '@/lib/session'
+import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { montarCsv, nomeDoArquivo, type LinhaExportada } from '@/lib/newsletter/csv'
 
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * arquivo com nome — uma action devolveria texto para o JavaScript montar o
  * download, o que quebra sem script e complica sem ganho.
  *
- * Exige sessão do espaço. A lista de quem apoia uma instituição humanitária é
+ * Exige sessão do espaço e a permissão newsletter.exportar. A lista de quem apoia uma instituição humanitária é
  * o dado mais sensível que este sistema guarda: um endereço vazado vira spam,
  * e o conjunto vira um mapa de quem se relaciona com a Cruz Vermelha.
  *
@@ -24,6 +25,7 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const context = await obterWorkspace()
   if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
+  if (!pode(context.role, 'newsletter.exportar')) return NextResponse.json({ error: 'Só administradores e editores baixam a lista de inscritos.' }, { status: 403 })
 
   const admin = createAdminClient()
   const { data, error } = await admin

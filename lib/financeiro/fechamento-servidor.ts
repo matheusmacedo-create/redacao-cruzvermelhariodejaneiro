@@ -4,6 +4,7 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from './acesso'
 import { conferencia, resumoDoEstoque, resumoDoMes, resumoDoPatrimonio, type BemDoFechamento, type Item, type LinhaDoEstoque, type LinhaDoExtratoDoMes, type Resumo } from './fechamento'
 import { COLUNAS_DO_LANCAMENTO, primeiroDia, ultimoDia, type Lancamento } from './regras'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export type Fechamento = {
   id: string; mes: string; situacao: 'fechado' | 'reaberto'; resumo: Resumo | Record<string, never>; avisos: { id: string; rotulo: string; detalhe?: string }[]
@@ -26,10 +27,10 @@ export async function dadosDoMes(mes: string) {
   const principal = Boolean(c.empresa?.principal)
   const dasContas = new Set(c.contas.map((x) => x.id))
   const [{ data: pagos }, { data: doMes }, { data: extrato }, { data: importacoes }, { data: horas }, { data: fechamentos }] = await Promise.all([
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', fim).limit(50000),
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent)
-      .or(`and(competencia.gte.${inicio},competencia.lte.${fim}),and(vencimento.gte.${inicio},vencimento.lte.${fim})`).limit(20000),
-    supabase.from('fin_extrato').select('conta_id,data,situacao,lancamento_id,valor,descricao,documento,motivo').eq('workspace_id', ws).gte('data', inicio).lte('data', fim).order('data').limit(20000),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', fim).order('id').range(de, ate)),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent)
+      .or(`and(competencia.gte.${inicio},competencia.lte.${fim}),and(vencimento.gte.${inicio},vencimento.lte.${fim})`).order('id').range(de, ate)),
+    todasAsLinhas((de, ate) => supabase.from('fin_extrato').select('conta_id,data,situacao,lancamento_id,valor,descricao,documento,motivo').eq('workspace_id', ws).gte('data', inicio).lte('data', fim).order('data').order('id').range(de, ate)),
     supabase.from('fin_importacoes').select('conta_id,saldo_banco,saldo_em').eq('workspace_id', ws).not('saldo_banco', 'is', null).gte('saldo_em', inicio).lte('saldo_em', fim),
     principal ? supabase.rpc('financeiro_horas_voluntarias', { p_workspace_id: ws, p_de: inicio, p_ate: fim }) : Promise.resolve({ data: null }),
     supabase.from('fin_fechamentos').select('id,mes,situacao,resumo,avisos,observacao,fechado_por,fechado_em,reaberto_por,reaberto_em,motivo_reabertura').eq('workspace_id', ws).eq('entidade_id', ent).order('fechado_em', { ascending: false }).limit(60),

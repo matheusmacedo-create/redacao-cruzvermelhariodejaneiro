@@ -11,6 +11,7 @@ import {
   type Lancamento,
 } from '@/lib/financeiro/regras'
 import { tituloDaArea } from '@/lib/navegacao'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: tituloDaArea('/financeiro') }
 export const dynamic = 'force-dynamic'
@@ -57,7 +58,7 @@ export default async function FinanceiroPage({ searchParams }: {
     supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).lte('vencimento', fim).order('vencimento').limit(3000),
     // Tudo o que vence ou foi pago no mês.
     supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).or(`and(vencimento.gte.${inicio},vencimento.lte.${fim}),and(pago_em.gte.${inicio},pago_em.lte.${fim})`).order('vencimento').limit(3000),
-    supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).order('id').range(de, ate)),
   ])
   const abertos = (abertosBrutos ?? []).map(lerLinha) as Lancamento[]
   const doMes = (doMesBrutos ?? []).map(lerLinha) as Lancamento[]

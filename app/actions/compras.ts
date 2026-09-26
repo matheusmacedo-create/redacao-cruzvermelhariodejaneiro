@@ -191,7 +191,19 @@ export async function registrarArquivoDaProposta(pedidoId: string, propostaId: s
   const admin = createAdminClient()
   try {
     if (!UUID.test(propostaId) || !UUID.test(pedidoId)) throw new Error('Proposta inválida.')
-    const { supabase } = await contextoDeCompras()
+    const { context, supabase } = await contextoDeCompras()
+    // O caminho vem do navegador. Antes de ler ou apagar qualquer coisa no
+    // Storage (com a chave de serviço): tem de ser um arquivo novo desta
+    // proposta, no formato que prepararArquivoDaProposta gera — nunca o PDF
+    // já anexado a outra proposta, que seria apagado se o "conteúdo não conferir".
+    const padrao = new RegExp(`^${context.workspace.id}/${pedidoId}/[0-9a-f-]{36}\\.(pdf|jpg|png|webp)$`)
+    if (typeof caminho !== 'string' || !padrao.test(caminho)) throw new Error('Arquivo inválido.')
+    const [{ data: pr }, { data: emUso }] = await Promise.all([
+      supabase.from('compras_propostas').select('id').eq('id', propostaId).eq('pedido_id', pedidoId).eq('workspace_id', context.workspace.id).maybeSingle(),
+      admin.from('compras_propostas').select('id').eq('workspace_id', context.workspace.id).eq('arquivo_caminho', caminho).limit(1).maybeSingle(),
+    ])
+    if (!pr) throw new Error('Proposta não encontrada.')
+    if (emUso) throw new Error('Arquivo inválido.')
     const { data: blob, error: e1 } = await admin.storage.from(BUCKET).download(caminho)
     const bytes = blob ? new Uint8Array(await blob.arrayBuffer()) : null
     if (e1 || !bytes || !conteudoConfere(p.mime, bytes)) {

@@ -745,7 +745,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       alvo: 'voluntarios.abas',
       titulo: 'Cadastro e inscrições',
-      texto: '“Voluntários” é o cadastro. “Inscrições pendentes” são as que chegaram pelo formulário público e esperam aprovação. “Quem acessa” aparece para quem tem “Dados sensíveis”.',
+      texto: '“Voluntários” é o cadastro. “Inscrições pendentes” são as que chegaram pelo formulário público e esperam aprovação. “Quem acessa” aparece só para administradores.',
       lado: 'bottom',
       seAusente: 'pular',
     },

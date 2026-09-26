@@ -199,12 +199,16 @@ export function fracionamento(valor: number, parecidas: CompraParecida[], r: Reg
   return PESO_DA_FAIXA[juntas.faixa] > PESO_DA_FAIXA[sozinha.faixa] ? { soma, sozinha, juntas, parecidas } : null
 }
 
-/** Lê número que veio do formulário ("1.234,56", "1234.56", "12"). */
+/**
+ * Lê número que veio do formulário ("1.234,56", "1234.56", "12"). Ponto com
+ * três dígitos depois é milhar, como no Financeiro: "1.500" é mil e quinhentos
+ * (e não 1,50); "1.5" continua um e meio.
+ */
 export function lerValor(bruto: unknown): number | null {
   if (typeof bruto === 'number') return Number.isFinite(bruto) ? bruto : null
   const t = String(bruto ?? '').trim().replace(/\s|R\$/g, '')
   if (!t) return null
-  const normal = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t
+  const normal = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t
   const n = Number(normal)
   return Number.isFinite(n) ? n : null
 }

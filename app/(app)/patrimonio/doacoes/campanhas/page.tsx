@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { NovaCampanha } from '@/components/app/patrimonio/doacoes'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Campanhas de doação' }
 export const dynamic = 'force-dynamic'
@@ -20,8 +21,8 @@ export default async function CampanhasPage() {
   const c = await cadastrosDoPatrimonio()
   const [{ data: campanhas }, { data: rec }, { data: ent }] = await Promise.all([
     supabase.from('doa_campanhas').select('id,nome,descricao,inicio,fim,ativa').eq('workspace_id', ws).order('ativa', { ascending: false }).order('inicio', { ascending: false, nullsFirst: false }),
-    supabase.from('doa_recebimentos').select('campanha_id,valor_total').eq('workspace_id', ws).not('campanha_id', 'is', null).limit(50000),
-    supabase.from('doa_entregas').select('campanha_id,valor_total,pessoas').eq('workspace_id', ws).not('campanha_id', 'is', null).limit(50000),
+    todasAsLinhas((de, ate) => supabase.from('doa_recebimentos').select('campanha_id,valor_total').eq('workspace_id', ws).not('campanha_id', 'is', null).order('id').range(de, ate)),
+    todasAsLinhas((de, ate) => supabase.from('doa_entregas').select('campanha_id,valor_total,pessoas').eq('workspace_id', ws).not('campanha_id', 'is', null).order('id').range(de, ate)),
   ])
   const soma = (lista: { campanha_id: unknown; valor_total: unknown }[] | null, id: string) => (lista ?? []).filter((x) => x.campanha_id === id).reduce((s, x) => s + Number(x.valor_total), 0)
   return (

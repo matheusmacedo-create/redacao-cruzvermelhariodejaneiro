@@ -9,6 +9,7 @@ import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { NovaEntrada, NovaSaida } from '@/components/app/patrimonio/estoque'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio, COLUNAS_DO_ITEM, lerItemDoBanco } from '@/lib/patrimonio/acesso'
 import { quantidade, situacaoDaValidade, situacaoDoSaldo, type Lote } from '@/lib/patrimonio/estoque'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Estoque de materiais' }
 export const dynamic = 'force-dynamic'
@@ -31,7 +32,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
   const c = await cadastrosDoPatrimonio()
   const [{ data: brutos }, { data: saldos }] = await Promise.all([
     supabase.from('est_itens').select(COLUNAS_DO_ITEM).eq('workspace_id', ws).order('nome').limit(5000),
-    supabase.from('est_saldos').select('id,item_id,local_id,lote,validade,quantidade').eq('workspace_id', ws).gt('quantidade', 0).limit(20000),
+    todasAsLinhas((de, ate) => supabase.from('est_saldos').select('id,item_id,local_id,lote,validade,quantidade').eq('workspace_id', ws).gt('quantidade', 0).order('id').range(de, ate)),
   ])
   const itens = (brutos ?? []).map(lerItemDoBanco)
   const lotes = (saldos ?? []).map((l) => ({ ...l, quantidade: Number(l.quantidade) })) as (Lote & { item_id: string })[]

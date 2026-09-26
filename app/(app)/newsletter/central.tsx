@@ -66,7 +66,7 @@ function dataCurta(iso: string | null): string {
 }
 
 export function Central({
-  contagens, inscritos, truncada, limiteDaTela, meses, historico, envio, podeApagar,
+  contagens, inscritos, truncada, limiteDaTela, meses, historico, envio, podeApagar, podeExportar,
 }: {
   contagens: Contagens
   inscritos: Inscrito[]
@@ -76,6 +76,7 @@ export function Central({
   historico: Edicao[]
   envio: { configurado: boolean; remetente: string; responderPara: string }
   podeApagar: boolean
+  podeExportar: boolean
 }) {
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]['id']>('todos')
   const [busca, setBusca] = useState('')
@@ -146,9 +147,9 @@ export function Central({
             <Button variant="outline" size="sm" onClick={() => setAbrindoForm((v) => !v)}>
               <Plus className="size-4" />Acrescentar
             </Button>
-            <Button variant="outline" size="sm" render={<a href="/api/newsletter/exportar" />}>
+            {podeExportar && <Button variant="outline" size="sm" render={<a href="/api/newsletter/exportar" />}>
               <Download className="size-4" />Exportar
-            </Button>
+            </Button>}
           </div>
         </div>
 

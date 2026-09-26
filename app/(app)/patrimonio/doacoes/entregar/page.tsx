@@ -5,6 +5,7 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { FormularioDeEntrega, type MaterialDaDoacao } from '@/components/app/patrimonio/doacoes'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Entregar doação' }
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,7 @@ export default async function EntregarDoacao({ searchParams }: { searchParams: P
   const [{ data: campanhas }, { data: materiais }, { data: saldos }] = await Promise.all([
     supabase.from('doa_campanhas').select('id,nome').eq('workspace_id', ws).eq('ativa', true).order('nome'),
     supabase.from('est_itens').select('id,codigo,nome,unidade,controla_validade,eh_kit').eq('workspace_id', ws).eq('ativo', true).gt('saldo', 0).order('nome').limit(5000),
-    supabase.from('est_saldos').select('item_id,local_id,validade,quantidade').eq('workspace_id', ws).gt('quantidade', 0).limit(20000),
+    todasAsLinhas((de, ate) => supabase.from('est_saldos').select('item_id,local_id,validade,quantidade').eq('workspace_id', ws).gt('quantidade', 0).order('id').range(de, ate)),
   ])
   // O que dá para entregar (vencido não sai), por local e material.
   const disponivel: Record<string, Record<string, number>> = {}
