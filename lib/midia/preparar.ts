@@ -1,6 +1,7 @@
 'use client'
 
-import { FOTO, VIDEO, caber, decidirVideo, farejarTipo, jpegTemExif, pngInfo, trocarExtensao, webpInfo, type PerfilDeFoto, type TipoFarejado } from './regras'
+import { LIBRARY_FILE_LIMIT } from '@/lib/storage'
+import { FOTO, VIDEO, caber, decidirVideo, farejarTipo, jpegTemMetadados, pngInfo, tamanhoLegivel, trocarExtensao, webpInfo, type PerfilDeFoto, type TipoFarejado } from './regras'
 
 /**
  * Prepara, no navegador, o arquivo que vai para a Biblioteca: é aqui que ele
@@ -21,6 +22,12 @@ export type Preparado = {
   arquivo: File
   original: { nome: string; tamanho: number; tipo: string }
   otimizado: boolean
+  /**
+   * O preparo olhou o arquivo e decidiu (converteu, ou viu que já estava bom).
+   * false só quando falhou e o original vai sem conferência — aí o servidor
+   * confere a foto e ela continua na fila do "Otimizar fotos antigas".
+   */
+  conferido: boolean
   /** O que foi feito (ou por que não), em português, para a tela. */
   motivo: string
 }
@@ -33,13 +40,16 @@ export type OpcoesDePreparo = {
   sinal?: AbortSignal
 }
 
+/** Erro com mensagem para a pessoa (não vira "vai o original"). */
+class ErroDoUsuario extends Error {}
+
 const TIPO_DO_ARQUIVO: Partial<Record<TipoFarejado, string>> = {
   jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', avif: 'image/avif', mov: 'video/quicktime', mp4: 'video/mp4',
 }
 
 export async function prepararParaBiblioteca(file: File, opcoes: OpcoesDePreparo = {}): Promise<Preparado> {
   const original = { nome: file.name, tamanho: file.size, tipo: file.type }
-  const manter = (motivo: string): Preparado => ({ arquivo: file, original, otimizado: false, motivo })
+  const manter = (motivo: string): Preparado => ({ arquivo: file, original, otimizado: false, conferido: true, motivo })
   const cabeca = new Uint8Array(await file.slice(0, 512 * 1024).arrayBuffer())
   const tipo = farejarTipo(cabeca)
   try {
@@ -53,11 +63,11 @@ export async function prepararParaBiblioteca(file: File, opcoes: OpcoesDePreparo
     }
     return manter('Documento ou áudio: vai como está.')
   } catch (erro) {
-    if (opcoes.sinal?.aborted) throw erro
+    if (opcoes.sinal?.aborted || erro instanceof ErroDoUsuario) throw erro
     if (tipo === 'heic') throw new Error('Este navegador não abre fotos HEIC do iPhone. Envie pelo próprio iPhone ou exporte a foto como JPEG.')
     console.warn('[midia] preparo falhou, vai o original:', erro)
-    // Arquivo com o tipo que a Biblioteca aceita segue como veio; o servidor recomprime foto grande.
-    return manter('Não foi possível otimizar aqui; vai o original.')
+    // Arquivo com o tipo que a Biblioteca aceita segue como veio; o servidor confere a foto.
+    return { ...manter('Não foi possível otimizar aqui; vai o original.'), conferido: false }
   }
 }
 
@@ -88,27 +98,30 @@ async function prepararFoto(
     // PNG e não WebP: Instagram, Threads e LinkedIn não aceitam WebP.
     saida = await exportar(canvas, 'image/png')
   } else {
-    // Fundo branco sob o que era "transparente" mas opaco na prática (captura de tela RGBA).
-    if (png || webp) {
-      ctx.globalCompositeOperation = 'destination-over'
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, medida.largura, medida.altura)
-    }
+    // Fundo branco sob o que for transparente (captura de tela RGBA, AVIF ou HEIC com alfa): JPEG não tem alfa.
+    ctx.globalCompositeOperation = 'destination-over'
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, medida.largura, medida.altura)
     saida = await exportar(canvas, 'image/jpeg', tipo === 'png' ? Math.max(qualidade, 0.9) : qualidade)
   }
 
-  // Nunca piorar: se não reduziu, não havia metadado a tirar e o formato já
-  // serve, o original (menor) fica. Com EXIF, a versão nova vale mesmo maior —
-  // é o GPS que sai.
-  const temExif = tipo === 'jpeg' && jpegTemExif(cabeca)
-  const formatoServe = tipo === 'jpeg' || (tipo === 'png' && transparente)
-  if (!medida.reduziu && !temExif && formatoServe && saida.size >= file.size * 0.95) return manter('A foto já estava leve.')
+  // Nunca piorar (a mesma regra do servidor, lib/midia/otimizar-imagem.ts).
+  // Com metadado a tirar (GPS), a versão nova vale mesmo maior. Sem isso:
+  //  - JPEG ou PNG que sairia maior fica como veio, mesmo mudando de formato
+  //    (arte chapada em PNG pode virar JPEG mais pesado);
+  //  - sem reduzir e no mesmo formato, ganho de menos de 5% não compensa.
+  //  WebP, AVIF e HEIC sempre saem (as redes não aceitam).
+  const temMetadado = tipo === 'jpeg' && jpegTemMetadados(cabeca)
+  const formatoServe = tipo === 'jpeg' || tipo === 'png'
+  const mesmoFormato = (tipo === 'jpeg' && saida.type === 'image/jpeg') || (tipo === 'png' && saida.type === 'image/png')
+  if (!temMetadado && formatoServe && saida.size >= file.size) return manter('A foto já estava leve.')
+  if (!temMetadado && mesmoFormato && !medida.reduziu && saida.size >= file.size * 0.95) return manter('A foto já estava leve.')
 
   const extensao = saida.type === 'image/png' ? '.png' : '.jpg'
   const arquivo = new File([saida], trocarExtensao(file.name, extensao), { type: saida.type, lastModified: file.lastModified })
   const partes = [`${medida.largura}×${medida.altura}`, saida.type === 'image/png' ? 'PNG' : 'JPEG']
-  if (temExif) partes.push('sem localização')
-  return { arquivo, original, otimizado: true, motivo: partes.join(', ') }
+  if (temMetadado) partes.push('sem localização')
+  return { arquivo, original, otimizado: true, conferido: true, motivo: partes.join(', ') }
 }
 
 async function decodificar(file: Blob): Promise<ImageBitmap> {
@@ -151,6 +164,16 @@ async function prepararVideo(file: File, opcoes: OpcoesDePreparo, original: Prep
     const [largura, altura, codec, stats] = await Promise.all([video.getDisplayWidth(), video.getDisplayHeight(), video.getCodec(), video.computePacketStats(240)])
     const decisao = decidirVideo({ largura, altura, codec, fps: stats.averagePacketRate, bitrate: stats.averageBitrate })
 
+    // A conversão guarda o resultado inteiro na memória e a Biblioteca aceita
+    // até LIBRARY_FILE_LIMIT: vídeo longo demais nem começa (minutos de espera
+    // para ser recusado no fim, ou a aba caindo). ~160 kbps de áudio + margem.
+    const duracao = await input.computeDuration()
+    const estimado = (duracao * (VIDEO.bitrate + 160_000)) / 8 * 1.1
+    if (estimado > LIBRARY_FILE_LIMIT) {
+      if (file.size <= LIBRARY_FILE_LIMIT) return manter('Vídeo longo: vai como veio.')
+      throw new ErroDoUsuario(`Vídeo longo demais para a Biblioteca (até ${tamanhoLegivel(LIBRARY_FILE_LIMIT)}, uns ${Math.floor((LIBRARY_FILE_LIMIT * 8) / (VIDEO.bitrate + 160_000) / 60)} minutos). Corte o vídeo antes de enviar.`)
+    }
+
     const podeConverter = decisao.converter && typeof VideoEncoder !== 'undefined'
       && await video.canDecode()
       && await mb.canEncodeVideo('avc', { width: decisao.largura, height: decisao.altura, bitrate: VIDEO.bitrate })
@@ -185,9 +208,10 @@ async function prepararVideo(file: File, opcoes: OpcoesDePreparo, original: Prep
     if (!bytes) return manter('A conversão não gerou arquivo; vai o original.')
     // Trocar só o contêiner às vezes cresce um pouco; se crescer muito, fica o original.
     if (!podeConverter && bytes.byteLength > file.size * 1.05) return manter('Vai o original (o navegador não reduz este vídeo).')
+    if (bytes.byteLength > LIBRARY_FILE_LIMIT && file.size <= LIBRARY_FILE_LIMIT) return manter('Vídeo longo: vai como veio.')
     const arquivo = new File([bytes], trocarExtensao(file.name, '.mp4'), { type: 'video/mp4', lastModified: file.lastModified })
     return {
-      arquivo, original, otimizado: true,
+      arquivo, original, otimizado: true, conferido: true,
       motivo: podeConverter ? `MP4 H.264 ${decisao.largura}×${decisao.altura}` : decisao.converter ? 'MP4, sem localização (o navegador não reduz este vídeo)' : 'MP4, sem localização',
     }
   } finally {

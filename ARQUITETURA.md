@@ -446,6 +446,37 @@ Os arquivos são `access: 'private'`. Quem lê é `/api/private-blob`, autentica
 Cada arquivo tem `authorization_status` — direito de uso de imagem. **Publicar
 exige `authorized`**, conferido no servidor em `carregarArquivo()`.
 
+**Tudo entra leve** (`lib/midia/`; regras puras em `regras.ts`, conferidas por
+`npx tsx scripts/conferir-midia.ts`):
+
+- **Foto:** JPEG sRGB, girada pelo EXIF, **sem metadados** (o GPS sai), lado
+  maior de **2048 px** — o mesmo teto do envio às redes, que então não
+  recomprime. PNG com transparência de verdade continua PNG (sem perda). GIF,
+  imagem animada e HEIC que o navegador não abre ficam como estão (HEIC dá
+  mensagem). JPEG ou PNG que sairia maior fica como veio. **"Alta qualidade"**
+  (caixa na Biblioteca): até 4096 px, e o vídeo vai como veio.
+- **Vídeo:** MP4 H.264 + AAC, até 1920 px, 30 fps, ~5 Mbps, só a data nos
+  metadados (a localização sai), pela `mediabunny` (WebCodecs), carregada só
+  quando o arquivo é vídeo. Sem codificador H.264 no navegador, só troca o
+  contêiner; vídeo que passaria de 300 MB nem começa a converter.
+- **Onde:** no **navegador**, antes de subir (`preparar.ts`, chamado por
+  `enviarParaBiblioteca` — o único caminho do navegador: Biblioteca, hub e
+  editor de conteúdo); no **servidor** com o sharp (`otimizar-imagem.ts`) para
+  o que não passa pelo navegador — imagens da IA (perfil `arte`: q88, 4:4:4,
+  para o texto vermelho não borrar), capas do Cérebro e fotos dos envios — e,
+  no `/api/files/register`, como rede de segurança: foto não conferida pelo
+  navegador é conferida em qualquer tamanho; conferida, só acima de 1,5 MB
+  (12 MB em alta). O servidor grava num caminho novo e apaga o antigo.
+- **`files.otimizado_em` / `tamanho_original`:** o que já passou por um
+  otimizador (mudando ou não) e o tamanho de antes. Foto com `otimizado_em`
+  nulo é candidata do **"Otimizar fotos antigas"** (admin/editor), que regrava
+  **no mesmo `storage_path`** — o corpo das matérias guarda
+  `/api/private-blob?pathname=…` — sem guardar o original. Por isso "Alta
+  qualidade" é sempre marcada no registro: o botão não pode rebaixá-la.
+- **Ordem de publicação:** os inserts em `files` gravam as duas colunas; a
+  migração (`20260928090000`) tem de estar aplicada antes do deploy — em
+  26/09/2026 o código entrou antes e os envios à Biblioteca falharam por 14 min.
+
 ### 7.5 Publicação nas redes sociais
 
 Tela `/redes` (`components/app/publicador-redes.tsx`) e actions em
@@ -1144,6 +1175,19 @@ do projeto. Todas devem ser consideradas queimadas e rotacionadas.
 variável; o valor vai direto no painel da Vercel, pelas mãos de quem é dono dele.
 
 ---
+
+### 10.7 Código que grava coluna nova no ar antes da migração
+
+Em 26/09/2026 o PR da Biblioteca leve foi mesclado com a migração
+`20260928090000_cvrj_biblioteca_otimizacao` ainda não aplicada. Os inserts em
+`files` passaram a mandar `otimizado_em` e `tamanho_original`; o PostgREST
+recusa coluna que não existe (mesmo com valor nulo), o registro falhava e o
+arquivo recém-enviado era apagado. **Todo envio à Biblioteca falhou por 14
+minutos**, até a migração ser aplicada.
+
+**A regra (a mesma de §10.1, do outro lado):** migração que acrescenta vai
+**antes** do merge. Quem mescla confere na lista de migrações do Supabase
+(`supabase_migrations.schema_migrations`) que a do PR já está lá.
 
 ## 11. O que ainda não existe
 

@@ -61,10 +61,16 @@ export async function POST(request: Request) {
     ? Math.min(Math.trunc(corpo.originalSize), Number.MAX_SAFE_INTEGER)
     : null
   const otimizadoNoNavegador = corpo?.optimized === true
+  // O preparo do navegador olhou o arquivo (mudando ou não). Sem isso (cliente
+  // antigo, preparo que falhou, envio fora da tela), a foto é conferida aqui
+  // qualquer que seja o tamanho — é o que garante que o GPS não entra.
+  const conferidoNoNavegador = otimizadoNoNavegador || corpo?.prepared === true
   const perfil: PerfilDeFoto = corpo?.profile === 'alta' ? 'alta' : 'padrao'
 
   const prefixo = `workspaces/${context.workspace.id}/library/`
-  if (!pathname.startsWith(prefixo) || pathname.includes('..')) {
+  // '..' também codificado (%2e%2e) ou com barra invertida: o get() do Blob
+  // monta uma URL, e a URL resolve esses segmentos.
+  if (!pathname.startsWith(prefixo) || pathname.includes('..') || /%2e|%2f|%5c|\\/i.test(pathname)) {
     return NextResponse.json({ error: 'Caminho inválido.' }, { status: 400 })
   }
 
@@ -109,7 +115,9 @@ export async function POST(request: Request) {
   /** Passou pelo otimizador daqui, mudando ou não (sem nada a tirar, também conta). */
   let passouNoServidor = false
   let otimizadoNoServidor = false
-  if (TIPOS_OTIMIZAVEIS.has(blob.contentType) && blob.size > LIMIAR_DO_SERVIDOR[perfil] && blob.size <= TETO_PARA_OTIMIZAR) {
+  const conferir = TIPOS_OTIMIZAVEIS.has(blob.contentType) && blob.size <= TETO_PARA_OTIMIZAR
+    && (!conferidoNoNavegador || blob.size > LIMIAR_DO_SERVIDOR[perfil])
+  if (conferir) {
     let novo: string | null = null
     try {
       const lido = await get(pathname, { access: 'private' })
@@ -159,7 +167,10 @@ export async function POST(request: Request) {
 
   // otimizado_em marca o que já passou por um otimizador (no navegador ou
   // aqui, mesmo sem nada a tirar), para não voltar a ser candidato do
-  // "Otimizar arquivos antigos"; tamanho_original é o maior tamanho de antes.
+  // "Otimizar fotos antigas". "Alta qualidade" também marca sempre: aquele
+  // botão reduz a 2048 px e não pode rebaixar o que foi pedido para impressão.
+  // tamanho_original é o maior tamanho de antes (ou o atual, se nada mudou).
+  const marcado = conferidoNoNavegador || passouNoServidor || perfil === 'alta'
   const antes = [
     ...(otimizadoNoNavegador && tamanhoDeclarado !== null ? [tamanhoDeclarado] : []),
     ...(passouNoServidor ? [blob.size] : []),
@@ -177,8 +188,8 @@ export async function POST(request: Request) {
     authorization_status: authorization,
     tags,
     uploaded_by: context.user.id,
-    otimizado_em: otimizadoNoNavegador || passouNoServidor ? new Date().toISOString() : null,
-    tamanho_original: antes.length ? Math.max(...antes) : null,
+    otimizado_em: marcado ? new Date().toISOString() : null,
+    tamanho_original: antes.length ? Math.max(...antes) : marcado ? tamanho : null,
   }).select('id').single()
 
   if (error || !data) {

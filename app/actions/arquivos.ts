@@ -6,7 +6,9 @@ import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createClient } from '@/lib/supabase/server'
 import { pode } from '@/lib/permissoes'
-import { nomeFinal, otimizarImagem, TIPOS_OTIMIZAVEIS } from '@/lib/midia/otimizar-imagem'
+import { nomeFinal, otimizarImagem } from '@/lib/midia/otimizar-imagem'
+import { EXTENSAO_DO_TIPO, TETO_PARA_OTIMIZAR, TIPOS_OTIMIZAVEIS, trocarExtensao } from '@/lib/midia/regras'
+import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
 
 /**
  * Autorização de uso de imagem de um arquivo que já está na Biblioteca.
@@ -154,15 +156,15 @@ export async function otimizarFotosAntigas(pular: string[] = []): Promise<Result
         .from('files').select(colunas, contar ? { count: 'exact', head: true } : undefined)
         .eq('workspace_id', workspaceId).neq('status', 'deleted').eq('file_type', 'foto')
         .is('otimizado_em', null).not('storage_path', 'is', null)
-        .in('content_type', [...TIPOS_OTIMIZAVEIS])
+        .in('content_type', [...TIPOS_OTIMIZAVEIS]).lte('size_bytes', TETO_PARA_OTIMIZAR)
       if (ignorar.length) consulta = consulta.not('id', 'in', `(${ignorar.join(',')})`)
       return consulta
     }
 
-    const { data, error } = await candidatas('id,name,content_type,storage_path,size_bytes')
+    const { data, error } = await candidatas('id,name,content_type,storage_path,size_bytes,tags')
       .order('size_bytes', { ascending: false }).limit(FOTOS_POR_RODADA)
     if (error) throw new Error('Não foi possível listar as fotos a otimizar.')
-    const lista = (data ?? []) as unknown as { id: string; name: string; content_type: string; storage_path: string; size_bytes: number | null }[]
+    const lista = (data ?? []) as unknown as { id: string; name: string; content_type: string; storage_path: string; size_bytes: number | null; tags: string[] | null }[]
 
     const inicio = Date.now()
     const falhas: string[] = []
@@ -177,7 +179,10 @@ export async function otimizarFotosAntigas(pular: string[] = []): Promise<Result
         const baixado = await get(caminho, { access: 'private' })
         if (!baixado || baixado.statusCode !== 200) throw new Error('não está no armazenamento')
         const entrada = Buffer.from(await new Response(baixado.stream).arrayBuffer())
-        const imagem = await otimizarImagem(entrada, baixado.blob.contentType || arquivo.content_type, 'padrao')
+        const tipoNoBlob = baixado.blob.contentType || arquivo.content_type
+        // Imagem da IA e PNG costumam ser arte com texto: qualidade maior, sem borrar o vermelho.
+        const arte = (arquivo.tags ?? []).includes(ETIQUETA_DE_IA) || tipoNoBlob === 'image/png'
+        const imagem = await otimizarImagem(entrada, tipoNoBlob, arte ? 'arte' : 'padrao')
         const agora = new Date().toISOString()
 
         if (imagem.mudou) {
@@ -198,9 +203,14 @@ export async function otimizarFotosAntigas(pular: string[] = []): Promise<Result
         } else {
           // Já estava leve (ou é animada): marca para não voltar à fila. Linha
           // nenhuma atualizada sem erro (RLS) a deixaria na fila para sempre: vira falha.
-          const tamanho = Number(arquivo.size_bytes ?? entrada.length)
+          // O registro passa a dizer o que o Blob tem de fato — corrige uma
+          // rodada anterior que regravou o arquivo e não conseguiu atualizar a linha.
+          const tamanho = entrada.length
           const { data: marcada, error: erroNoBanco } = await supabase.from('files')
-            .update({ otimizado_em: agora, tamanho_original: tamanho })
+            .update({
+              otimizado_em: agora, tamanho_original: tamanho, size_bytes: tamanho, content_type: tipoNoBlob,
+              ...(tipoNoBlob !== arquivo.content_type && EXTENSAO_DO_TIPO[tipoNoBlob] ? { name: trocarExtensao(arquivo.name, EXTENSAO_DO_TIPO[tipoNoBlob]) } : {}),
+            })
             .eq('id', arquivo.id).eq('workspace_id', workspaceId).select('id')
           if (erroNoBanco || !marcada?.length) throw new Error(erroNoBanco?.message ?? 'nenhuma linha atualizada')
           antes += tamanho

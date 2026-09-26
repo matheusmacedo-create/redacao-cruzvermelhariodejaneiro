@@ -1,7 +1,7 @@
 import 'server-only'
 
 import sharp from 'sharp'
-import { FOTO, TIPOS_OTIMIZAVEIS, trocarExtensao, type PerfilDeFoto } from './regras'
+import { EXTENSAO_DO_TIPO as EXTENSAO, FOTO, TIPOS_OTIMIZAVEIS, trocarExtensao, type PerfilDeFoto } from './regras'
 
 export { TIPOS_OTIMIZAVEIS }
 
@@ -13,7 +13,7 @@ export { TIPOS_OTIMIZAVEIS }
  *
  * JPEG sRGB (mozjpeg), girado pelo EXIF, sem metadados (o GPS sai), lado
  * maior do perfil sem aumentar. PNG com transparência de verdade continua
- * PNG (paleta). GIF, imagem animada e HEIC (o sharp daqui não decodifica
+ * PNG, sem perda. GIF, imagem animada e HEIC (o sharp daqui não decodifica
  * HEVC) voltam como estão, com `mudou: false`.
  */
 
@@ -32,7 +32,6 @@ export type ImagemOtimizada = {
 
 const LIMITE_DE_PIXELS = 120_000_000
 
-const EXTENSAO: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif', 'image/tiff': '.tif' }
 
 /**
  * `arte`: imagem com texto (as da IA, cards com o vermelho da marca):
@@ -54,7 +53,8 @@ export async function otimizarImagem(entrada: Buffer, tipo: string, perfil: Perf
   // Transparência de verdade (não só o canal alfa de uma captura de tela opaca).
   const transparente = Boolean(meta.hasAlpha) && !(await sharp(entrada, { limitInputPixels: LIMITE_DE_PIXELS }).stats()).isOpaque
   const saida = transparente
-    ? await base().png({ palette: true, quality: 90, compressionLevel: 9, effort: 7 }).toBuffer({ resolveWithObject: true })
+    // Sem paleta: 256 cores estragam degradê de logo e arte (e não há volta).
+    ? await base().png({ compressionLevel: 9, adaptiveFiltering: true }).toBuffer({ resolveWithObject: true })
     : await base().flatten({ background: '#ffffff' }).jpeg(
       perfil === 'arte' ? { quality: 88, mozjpeg: true, chromaSubsampling: '4:4:4' }
         : perfil === 'alta' ? { quality: 90, mozjpeg: true }
