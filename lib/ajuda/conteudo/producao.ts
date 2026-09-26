@@ -356,21 +356,28 @@ const PUBLICACOES: GuiaDaArea = {
 const BIBLIOTECA: GuiaDaArea = {
   href: '/biblioteca',
   paraQueServe: 'A Biblioteca guarda as fotos, os vídeos, os áudios e os documentos de trabalho da equipe, com a autorização de uso de imagem de cada um. É dela que saem as mídias dos pacotes de Publicações. Os arquivos são privados: só quem entra no Palácio Virtual vê.',
-  quemUsa: 'Toda a equipe envia, baixa e usa os arquivos. Cada pessoa exclui o que enviou; administradores e editores excluem de qualquer pessoa.',
+  quemUsa: 'Toda a equipe envia, baixa e usa os arquivos. Cada pessoa exclui o que enviou; administradores e editores excluem de qualquer pessoa e otimizam as fotos antigas.',
   tour: [
-    {
-      titulo: 'Biblioteca de mídia',
-      texto: 'Aqui ficam os arquivos da equipe: fotos, vídeos, áudios e documentos. São privados e servem de fonte para os pacotes de Publicações.',
-    },
     {
       alvo: 'biblioteca.envio',
       titulo: 'Enviar um arquivo',
-      texto: 'Escolha o arquivo, dê uma pasta e tags se quiser, e toque em “Enviar”. Vale PDF, Office, imagem, áudio ou vídeo, até 300 MB.',
+      texto: 'Aqui entram fotos, vídeos, áudios e documentos, até 300 MB. Escolha o arquivo, dê pasta e tags se quiser e toque em “Enviar”: fotos e vídeos ficam mais leves no envio.',
+    },
+    {
+      alvo: 'biblioteca.alta-qualidade',
+      titulo: 'Alta qualidade',
+      texto: 'Foto para impressão ou edição? Marque “Alta qualidade (para impressão ou edição)”: a foto fica com até 4096 px e o vídeo vai como veio. Ocupa mais espaço.',
     },
     {
       alvo: 'biblioteca.uso-de-imagem',
       titulo: 'Uso de imagem',
       texto: 'Diga se há autorização de quem aparece: “Tem autorização”, “Não informado” ou “Uso interno apenas”. Só arquivo com autorização vai para as redes ou para o site.',
+    },
+    {
+      alvo: 'biblioteca.otimizar-antigas',
+      titulo: 'Fotos antigas',
+      texto: 'As fotos enviadas antes da otimização ainda ocupam o tamanho cheio. “Otimizar agora” deixa todas leves no mesmo endereço: as matérias que as usam continuam funcionando.',
+      seAusente: 'pular',
     },
     {
       alvo: 'biblioteca.busca',
@@ -429,9 +436,10 @@ const BIBLIOTECA: GuiaDaArea = {
         'Em “Pasta”, escolha uma pasta que já existe ou escreva o nome de uma nova (opcional).',
         'Em “Tags”, escreva palavras separadas por vírgula (opcional).',
         'Em “Uso de imagem”, escolha “Tem autorização”, “Não informado” ou “Uso interno apenas”.',
-        'Toque em “Enviar” e espere a porcentagem chegar ao fim.',
+        'Se a foto vai para impressão ou edição, marque “Alta qualidade (para impressão ou edição)”.',
+        'Toque em “Enviar” e espere terminar: primeiro aparece “Otimizando…”, depois “Enviando…” com a porcentagem.',
       ],
-      dica: 'Pasta e tags só são escolhidas no envio: a tela não muda isso depois. Vale caprichar para achar o arquivo mais tarde.',
+      dica: 'Pasta e tags só são escolhidas no envio: a tela não muda isso depois. Vale caprichar para achar o arquivo mais tarde. Com vídeo, deixe a aba aberta até o fim.',
     },
     {
       id: 'autorizar-uso',
@@ -495,7 +503,7 @@ const BIBLIOTECA: GuiaDaArea = {
       passos: [
         'Ache o arquivo na lista (a busca e os filtros ajudam).',
         'Toque em “Baixar”, no cartão dele.',
-        'O arquivo desce com o nome com que foi enviado.',
+        'O arquivo desce com o nome que aparece no cartão.',
       ],
     },
     {
@@ -531,14 +539,38 @@ const BIBLIOTECA: GuiaDaArea = {
     {
       id: 'que-arquivos',
       pergunta: 'Que arquivos posso enviar?',
-      resposta: 'Imagem (JPG, PNG, WebP e GIF), vídeo (MP4, WebM e MOV), áudio (MP3, WAV e OGG), PDF, texto, CSV e arquivos do Word, do Excel e do PowerPoint, até 300 MB cada. Outro formato é recusado; foto do iPhone em HEIC, por exemplo, precisa ser exportada como JPEG.',
+      resposta: 'Imagem (JPG, PNG, WebP e GIF), vídeo (MP4, WebM e MOV), áudio (MP3, WAV e OGG), PDF, texto, CSV e arquivos do Word, do Excel e do PowerPoint, até 300 MB cada. Outro formato é recusado. A foto do iPhone (HEIC) vira JPEG quando é enviada pelo próprio iPhone.',
       termos: ['formato', 'tamanho máximo', '300 MB', 'Este tipo de arquivo não é permitido', 'HEIC', 'extensão'],
     },
     {
       id: 'espaco-atingido',
       pergunta: 'O envio foi recusado porque o espaço acabou. E agora?',
-      resposta: 'A equipe tem um espaço total, e a barra “Espaço usado” mostra quanto já foi. Quando ele enche, o envio é recusado. Exclua o que não serve mais ou fale com um administrador.',
+      resposta: 'A equipe tem um espaço total, e a barra “Espaço usado” mostra quanto já foi. Quando ele enche, o envio é recusado. Exclua o que não serve mais ou fale com um administrador.\n\nSe aparecer “Otimizar agora” embaixo da barra, há fotos antigas ocupando o tamanho cheio: um administrador ou editor pode liberar espaço com ele.',
       termos: ['O espaço de armazenamento do espaço foi atingido', 'O espaço de armazenamento foi atingido', 'cheio', 'cota', 'armazenamento'],
+    },
+    {
+      id: 'foto-menor-jpeg',
+      pergunta: 'Por que a foto ficou menor ou virou JPEG?',
+      resposta: 'No envio, a foto é reduzida para no máximo 2048 px no lado maior e salva em JPEG, sem a localização (GPS) e os outros dados da câmera. Esse tamanho basta para o site e para as redes, e o arquivo fica bem mais leve. Imagem com fundo transparente fica em PNG; GIF e imagem animada ficam como estão.\n\nSe a foto vai para impressão ou edição, marque “Alta qualidade (para impressão ou edição)” antes de enviar: ela fica com até 4096 px.',
+      termos: ['reduziu', 'resolução', 'qualidade', 'comprimiu', 'PNG virou JPG', 'extensão mudou', 'localização', 'GPS', 'metadados', 'impressão'],
+    },
+    {
+      id: 'foto-heic',
+      pergunta: 'Enviei uma foto do iPhone (HEIC) pelo computador e deu erro. O que faço?',
+      resposta: 'HEIC é o formato de foto do iPhone. Enviada pelo próprio iPhone, a foto vira JPEG no envio e entra normalmente. No computador, a maioria dos navegadores não abre HEIC e aparece “Este navegador não abre fotos HEIC do iPhone.”\n\nEnvie pelo iPhone ou exporte a foto como JPEG antes de enviar.',
+      termos: ['HEIC', 'HEIF', 'iPhone', 'Este navegador não abre fotos HEIC do iPhone', 'foto não abre', 'formato da Apple'],
+    },
+    {
+      id: 'video-demora',
+      pergunta: 'O vídeo está demorando em “Otimizando…”. É normal?',
+      resposta: 'É. O vídeo é convertido para MP4 de até 1920 px no seu próprio navegador antes de subir, o formato que o site e as redes aceitam, e isso pode levar alguns minutos. Deixe a aba aberta até o envio terminar: fechar ou recarregar a página cancela o envio.\n\nSe o navegador não consegue converter aquele vídeo, ele vai como veio e só ocupa mais espaço. Com “Alta qualidade (para impressão ou edição)” marcada, o vídeo também vai como veio.',
+      termos: ['vídeo lento', 'demorando', 'Otimizando', 'converter vídeo', 'MP4', 'MOV', 'travou', 'aba aberta'],
+    },
+    {
+      id: 'otimizar-fotos-antigas',
+      pergunta: 'O que faz o “Otimizar agora” das fotos antigas?',
+      resposta: 'Aplica a regra do envio às fotos que entraram antes dela: cada uma fica com até 2048 px, sem localização, em JPEG (a de fundo transparente continua PNG). Foto que já estava leve fica como está. Só administradores e editores veem o botão.\n\nA foto continua no mesmo endereço, então as matérias e os pacotes que já a usam seguem funcionando. A versão original não fica guardada: se alguma foto antiga precisa da resolução cheia para impressão, baixe antes.',
+      termos: ['otimizar fotos antigas', 'fotos antigas', 'liberar espaço', 'diminuir fotos', 'comprimir', 'Espaço usado'],
     },
     {
       id: 'selos-de-uso',

@@ -1,7 +1,9 @@
 import 'server-only'
 
 import sharp from 'sharp'
-import { FOTO, trocarExtensao, type PerfilDeFoto } from './regras'
+import { FOTO, TIPOS_OTIMIZAVEIS, trocarExtensao, type PerfilDeFoto } from './regras'
+
+export { TIPOS_OTIMIZAVEIS }
 
 /**
  * A mesma otimização de foto do navegador (lib/midia/preparar.ts), no
@@ -29,8 +31,6 @@ export type ImagemOtimizada = {
 }
 
 const LIMITE_DE_PIXELS = 120_000_000
-/** Tipos que o sharp daqui abre e que valem a pena otimizar. */
-export const TIPOS_OTIMIZAVEIS = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/tiff'])
 
 const EXTENSAO: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif', 'image/tiff': '.tif' }
 
@@ -62,10 +62,16 @@ export async function otimizarImagem(entrada: Buffer, tipo: string, perfil: Perf
     ).toBuffer({ resolveWithObject: true })
   const tipoFinal = transparente ? 'image/png' : 'image/jpeg'
 
-  // Nunca piorar: sem redução, sem metadado a tirar, no mesmo formato e sem
-  // ganho, fica o original. Com metadado (GPS), a versão nova vale mesmo maior.
+  // Nunca piorar. Com metadado (GPS) ou orientação a aplicar, a versão nova
+  // vale mesmo maior — é a privacidade (e a foto em pé). Sem isso:
+  //  - JPEG ou PNG que sairia maior fica como veio, mesmo mudando de formato
+  //    (um PNG de arte chapada pode virar JPEG mais pesado);
+  //  - no mesmo formato e sem reduzir, ganho de menos de 5% não compensa
+  //    recomprimir. WebP, AVIF e TIFF sempre saem (as redes não aceitam).
   const reduziu = saida.info.width < (meta.autoOrient?.width ?? meta.width) || saida.info.height < (meta.autoOrient?.height ?? meta.height)
   const temMetadado = Boolean(meta.exif || meta.xmp || meta.iptc) || (meta.orientation ?? 1) > 1
+  const formatoServe = tipo === 'image/jpeg' || tipo === 'image/png'
+  if (!temMetadado && formatoServe && saida.data.length >= entrada.length) return manter('já estava leve')
   if (!reduziu && !temMetadado && tipoFinal === tipo && saida.data.length >= entrada.length * 0.95) return manter('já estava leve')
 
   return {

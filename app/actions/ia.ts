@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
-import { adaptarTexto, gerarImagem, gerarImagemComBase, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt } from '@/lib/ia/openai'
+import { adaptarTexto, gerarImagem, gerarImagemComBase, iaConfigurada, reescreverComGpt, semChave, sugerirBriefings, tetoMensalDeImagens, verImagensComGpt, type ImagemGerada } from '@/lib/ia/openai'
 import { carregarArquivo } from '@/lib/publicacao/arquivos'
 import { claudeConfigurado, reescreverComClaude, semChaveDoClaude, verImagensComClaude, type ImagemParaVer } from '@/lib/ia/anthropic'
 import { TETO_DE_FOTOS, montarPedidoDeLegendas, parsearLegendas } from '@/lib/ia/fotos'
@@ -19,6 +19,7 @@ import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 import { REGRAS_FIXAS, assuntoDaMateria, completarPromptDeImagem } from '@/lib/ia/sugestoes'
 import { WORKSPACE_STORAGE_LIMIT } from '@/lib/storage'
 import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
+import { otimizarImagem } from '@/lib/midia/otimizar-imagem'
 
 /**
  * O módulo de IA da Redação: gerar imagem no formato do canal e adaptar a
@@ -40,6 +41,8 @@ export type ResultadoDaLegenda = ResultadoDaIa & { texto?: string }
 export type ResultadoDaImagem = ResultadoDaIa & {
   fileId?: string
   nome?: string
+  /** O tipo gravado na Biblioteca (a arte da IA vira JPEG ao gravar). */
+  contentType?: string
   previa?: string
   /** Quantas ainda cabem no teto do mês, depois desta. */
   restantesNoMes?: number
@@ -59,6 +62,8 @@ export type ResultadoDasLegendas = ResultadoDaIa & { legendas?: Record<string, s
 export type ImagemDaMateria = {
   fileId: string
   nome: string
+  /** O tipo gravado na Biblioteca (a arte da IA vira JPEG ao gravar). */
+  contentType: string
   tamanho: number
   previa: string
   formato: string
@@ -99,11 +104,37 @@ async function baseParaGeracao(fileId: string, workspaceId: string) {
     throw new Error('A imagem de base precisa ser uma foto — vídeo não serve de base para gerar imagem.')
   }
   const bytes = Buffer.from(await arquivo.blob.arrayBuffer())
+  // rotate() aplica a orientação do EXIF: sem ele a foto de celular ia
+  // deitada para o modelo, e a imagem gerada saía de lado.
   const reduzida = await sharp(bytes, { failOn: 'none' })
+    .rotate()
     .resize({ width: 1536, height: 1536, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 88 })
     .toBuffer()
   return { bytes: reduzida, contentType: 'image/jpeg' as const, nome: 'base.jpg' }
+}
+
+/** "image/jpeg" → ".jpg"; "image/png" → ".png". */
+const extensaoDoTipo = (tipo: string) => `.${(tipo.split('/')[1] || 'png').replace('jpeg', 'jpg')}`
+
+/**
+ * A OpenAI devolve PNG (~1,3 MP, 2–3 MB); na Biblioteca a arte fica JPEG com
+ * qualidade de imagem com texto (perfil 'arte' de lib/midia/otimizar-imagem.ts).
+ * Se a conversão falhar, grava o PNG como veio — a imagem já foi paga — e
+ * `otimizadoEm` fica nulo, para ela continuar candidata a otimizar depois.
+ */
+async function arteParaGravar(imagem: ImagemGerada): Promise<{
+  bytes: Buffer; tipo: string; extensao: string; otimizadoEm: string | null; tamanhoOriginal: number | null
+}> {
+  const tipoRecebido = imagem.contentType || 'image/png'
+  try {
+    const r = await otimizarImagem(imagem.bytes, tipoRecebido, 'arte')
+    // Mesmo sem mudar (mudou=false), passou pelo otimizador: marca, para não voltar a ser candidata.
+    return { bytes: r.bytes, tipo: r.tipo, extensao: r.extensao || extensaoDoTipo(r.tipo), otimizadoEm: new Date().toISOString(), tamanhoOriginal: imagem.bytes.length }
+  } catch (causa) {
+    console.error('[ia] a arte não pôde ser otimizada, fica o PNG:', causa instanceof Error ? causa.message : causa)
+    return { bytes: imagem.bytes, tipo: tipoRecebido, extensao: extensaoDoTipo(tipoRecebido), otimizadoEm: null, tamanhoOriginal: null }
+  }
 }
 
 /**
@@ -171,17 +202,19 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
         })
       : await gerarImagem({ prompt: promptCompleto, proporcao: formato.midia.proporcaoPreferida, qualidade })
 
+    // A cota conta o arquivo que vai ser gravado (o JPEG), não o PNG da OpenAI.
+    const arte = await arteParaGravar(imagem)
     const { data: usoAtual } = await supabase
       .from('files').select('size_bytes').eq('workspace_id', context.workspace.id).neq('status', 'deleted')
     const usado = (usoAtual ?? []).reduce((total, linha) => total + Number(linha.size_bytes ?? 0), 0)
-    if (usado + imagem.bytes.length > WORKSPACE_STORAGE_LIMIT) {
+    if (usado + arte.bytes.length > WORKSPACE_STORAGE_LIMIT) {
       throw new Error('O espaço de armazenamento acabou. Apague arquivos na Biblioteca antes de gerar mais.')
     }
 
-    const nome = `ia-${new Date().toISOString().slice(0, 10)}-${imagem.largura}x${imagem.altura}.png`
-    const caminho = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}.png`
-    const blob = await put(caminho, imagem.bytes, {
-      access: 'private', addRandomSuffix: false, contentType: imagem.contentType,
+    const nome = `ia-${new Date().toISOString().slice(0, 10)}-${imagem.largura}x${imagem.altura}${arte.extensao}`
+    const caminho = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}${arte.extensao}`
+    const blob = await put(caminho, arte.bytes, {
+      access: 'private', addRandomSuffix: false, contentType: arte.tipo,
     })
 
     const { data: linha, error } = await supabase.from('files').insert({
@@ -189,15 +222,17 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
       name: nome,
       original_name: nome,
       file_type: 'foto',
-      content_type: imagem.contentType,
+      content_type: arte.tipo,
       storage_path: blob.pathname,
-      size_bytes: imagem.bytes.length,
+      size_bytes: arte.bytes.length,
       status: 'available',
       // Não há pessoa real retratada para autorizar — o que esta imagem exige
       // é divulgação, não consentimento. A etiqueta abaixo é essa divulgação.
       authorization_status: 'authorized',
       tags: [ETIQUETA_DE_IA, 'redes'],
       uploaded_by: context.user.id,
+      otimizado_em: arte.otimizadoEm,
+      tamanho_original: arte.tamanhoOriginal,
     }).select('id').single()
 
     if (error || !linha) {
@@ -211,6 +246,7 @@ export async function gerarImagemDoDestino(formData: FormData): Promise<Resultad
     return {
       fileId: linha.id,
       nome,
+      contentType: arte.tipo,
       previa: `/api/private-blob?pathname=${encodeURIComponent(blob.pathname)}`,
       restantesNoMes: Math.max(0, teto - jaGeradas - 1),
     }
@@ -484,41 +520,45 @@ export async function gerarImagensDaMateria(formData: FormData): Promise<Resulta
         continue
       }
       const imagem = resultado.value
-      if (usado + imagem.bytes.length > WORKSPACE_STORAGE_LIMIT) {
+      const arte = await arteParaGravar(imagem)
+      if (usado + arte.bytes.length > WORKSPACE_STORAGE_LIMIT) {
         problemas.push(`${formato.rotulo}: o espaço de armazenamento acabou antes desta.`)
         continue
       }
 
-      const nome = `ia-${formato.id}-${new Date().toISOString().slice(0, 10)}-${imagem.largura}x${imagem.altura}.png`
-      const caminho = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}.png`
-      const blob = await put(caminho, imagem.bytes, {
-        access: 'private', addRandomSuffix: false, contentType: imagem.contentType,
+      const nome = `ia-${formato.id}-${new Date().toISOString().slice(0, 10)}-${imagem.largura}x${imagem.altura}${arte.extensao}`
+      const caminho = `workspaces/${context.workspace.id}/library/${crypto.randomUUID()}${arte.extensao}`
+      const blob = await put(caminho, arte.bytes, {
+        access: 'private', addRandomSuffix: false, contentType: arte.tipo,
       })
       const { data: linha, error } = await supabase.from('files').insert({
         workspace_id: context.workspace.id,
         name: nome,
         original_name: nome,
         file_type: 'foto',
-        content_type: imagem.contentType,
+        content_type: arte.tipo,
         storage_path: blob.pathname,
-        size_bytes: imagem.bytes.length,
+        size_bytes: arte.bytes.length,
         status: 'available',
         // Não há pessoa real retratada; o que esta imagem exige é divulgação,
         // e a etiqueta abaixo é essa divulgação.
         authorization_status: 'authorized',
         tags: [ETIQUETA_DE_IA, 'materia'],
         uploaded_by: context.user.id,
+        otimizado_em: arte.otimizadoEm,
+        tamanho_original: arte.tamanhoOriginal,
       }).select('id').single()
       if (error || !linha) {
         await del(blob.pathname)
         problemas.push(`${formato.rotulo}: não foi possível registrar na Biblioteca.`)
         continue
       }
-      usado += imagem.bytes.length
+      usado += arte.bytes.length
       imagens.push({
         fileId: linha.id,
         nome,
-        tamanho: imagem.bytes.length,
+        contentType: arte.tipo,
+        tamanho: arte.bytes.length,
         previa: `/api/private-blob?pathname=${encodeURIComponent(blob.pathname)}`,
         formato: formato.id,
       })

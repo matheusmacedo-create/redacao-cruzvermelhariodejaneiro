@@ -189,7 +189,9 @@ type RespostaDeImagem = { data?: { b64_json?: string }[] }
  * Gera uma imagem no enquadramento que o canal pede.
  *
  * O modelo devolve sempre base64 — não existe resposta por URL para esta
- * família — e sempre PNG, mesmo quando outro formato é pedido.
+ * família — e aqui em PNG, porque não pedimos outro formato. O PNG não vai
+ * assim para a Biblioteca: app/actions/ia.ts o converte ao gravar
+ * (lib/midia/otimizar-imagem.ts, perfil 'arte').
  */
 export async function gerarImagem(pedido: {
   prompt: string

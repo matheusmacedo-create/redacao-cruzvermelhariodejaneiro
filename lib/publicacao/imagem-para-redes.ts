@@ -47,6 +47,8 @@ export async function conformarImagem(arquivo: File, redes: string[]): Promise<F
     const saida = await sharp(bytes, { failOn: 'none' })
       .rotate()
       .resize({ width: maxLado, height: maxLado, fit: 'inside', withoutEnlargement: true })
+      // JPEG não tem canal alfa: sem isto, a transparência do PNG vira preto.
+      .flatten({ background: '#ffffff' })
       .jpeg({ quality: qualidade, mozjpeg: true })
       .toBuffer()
     if (saida.length <= maxBytes) {
@@ -58,6 +60,7 @@ export async function conformarImagem(arquivo: File, redes: string[]): Promise<F
   const minima = await sharp(bytes, { failOn: 'none' })
     .rotate()
     .resize({ width: 1080, height: 1080, fit: 'inside', withoutEnlargement: true })
+    .flatten({ background: '#ffffff' })
     .jpeg({ quality: 60, mozjpeg: true })
     .toBuffer()
   return new File([new Uint8Array(minima)], nomeJpeg(arquivo.name), { type: 'image/jpeg' })

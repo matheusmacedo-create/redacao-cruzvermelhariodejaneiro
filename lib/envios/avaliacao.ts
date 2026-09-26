@@ -1,8 +1,10 @@
 import 'server-only'
-import { put } from '@vercel/blob'
+import { put, del } from '@vercel/blob'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlAssinada } from '@/lib/armazenamento/r2'
 import { LIBRARY_FILE_LIMIT, LIBRARY_MIME_TYPES, WORKSPACE_STORAGE_LIMIT, fileKind, safeExtension } from '@/lib/storage'
+import { TIPOS_OTIMIZAVEIS, nomeFinal, otimizarImagem } from '@/lib/midia/otimizar-imagem'
+import { TETO_PARA_OTIMIZAR, farejarTipo, type TipoFarejado } from '@/lib/midia/regras'
 import { montar } from '@/lib/contas/emails'
 import { enviarComSeguranca } from '@/lib/contas/servidor'
 import { AUTORIZACOES, mensagemDePublicacao, tamanhoLegivel, type Autorizacao } from './regras'
@@ -18,10 +20,16 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export type ArquivoDoEnvio = { id: string; chave: string; nome: string; tipo_mime: string | null; tamanho: number; categoria: string; file_id: string | null }
 
+/** O tipo pelo conteúdo: o declarado no envio é só o que o aparelho disse. */
+const PELO_CONTEUDO: Partial<Record<TipoFarejado, string>> = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }
+
 /**
- * Copia um arquivo do R2 para a Biblioteca (Vercel Blob), em fluxo — o vídeo
- * não passa inteiro pela memória. Devolve o id do arquivo na Biblioteca ou o
- * motivo de ter ficado de fora (tipo, tamanho ou cota).
+ * Copia um arquivo do R2 para a Biblioteca (Vercel Blob). Foto é lida
+ * inteira e gravada leve (lib/midia/otimizar-imagem.ts: JPEG girado, sem
+ * metadados — o GPS do celular sai —, lado maior de 2048 px); vídeo e o
+ * resto vão em fluxo, sem passar inteiros pela memória. O original continua
+ * no acervo (R2). Devolve o id do arquivo na Biblioteca ou o motivo de ter
+ * ficado de fora (tipo, tamanho ou cota).
  */
 export async function copiarParaBiblioteca(admin: Admin, p: {
   arquivo: ArquivoDoEnvio; workspaceId: string; usuarioId: string; autorizacao: Autorizacao; credito: string; usado: { bytes: number }
@@ -37,22 +45,60 @@ export async function copiarParaBiblioteca(admin: Admin, p: {
 
   const resposta = await fetch(urlAssinada(r2.config, r2.bucket, arquivo.chave, 'GET', 600), { cache: 'no-store' })
   if (!resposta.ok || !resposta.body) return { motivo: `${arquivo.nome}: não foi possível ler do acervo (${resposta.status}).` }
-  const caminho = `workspaces/${p.workspaceId}/library/${crypto.randomUUID()}${safeExtension(arquivo.nome)}`
-  const blob = await put(caminho, resposta.body, {
-    access: 'private', addRandomSuffix: false, contentType: tipo, multipart: arquivo.tamanho > 50 * 1024 * 1024,
+
+  let corpo: ReadableStream<Uint8Array> | Buffer = resposta.body
+  let tipoFinal = tipo
+  let nome = arquivo.nome
+  let tamanho = arquivo.tamanho
+  let otimizadoEm: string | null = null
+  let tamanhoOriginal: number | null = null
+  if (TIPOS_OTIMIZAVEIS.has(tipo) && arquivo.tamanho <= TETO_PARA_OTIMIZAR) {
+    const bytes = Buffer.from(await resposta.arrayBuffer())
+    corpo = bytes
+    tamanho = bytes.length
+    // O sharp só abre o que o conteúdo confirma ser foto; o resto vai como veio.
+    const real = PELO_CONTEUDO[farejarTipo(bytes)]
+    if (real) {
+      try {
+        const foto = await otimizarImagem(bytes, real, 'padrao')
+        corpo = foto.bytes
+        tipoFinal = foto.tipo
+        nome = nomeFinal(arquivo.nome, foto)
+        tamanho = foto.bytes.length
+        // Mesmo sem mudar (mudou=false), passou pelo otimizador: não volta a ser candidata.
+        otimizadoEm = new Date().toISOString()
+        tamanhoOriginal = bytes.length
+      } catch (causa) {
+        console.error('[envios] a foto não pôde ser otimizada, vai como veio:', arquivo.nome, causa instanceof Error ? causa.message : causa)
+      }
+    }
+    // A conferência de cima usou o tamanho do original; a versão com
+    // metadados tirados pode, raramente, sair maior.
+    if (p.usado.bytes + tamanho > WORKSPACE_STORAGE_LIMIT) return { motivo: `${arquivo.nome}: a Biblioteca está cheia (${tamanhoLegivel(WORKSPACE_STORAGE_LIMIT)}).` }
+  }
+
+  const caminho = `workspaces/${p.workspaceId}/library/${crypto.randomUUID()}${safeExtension(nome)}`
+  const blob = await put(caminho, corpo, {
+    access: 'private', addRandomSuffix: false, contentType: tipoFinal, multipart: !Buffer.isBuffer(corpo) && arquivo.tamanho > 50 * 1024 * 1024,
   })
   const { data, error } = await admin.from('files').insert({
     workspace_id: p.workspaceId,
-    name: arquivo.nome, original_name: arquivo.nome,
-    file_type: fileKind(tipo), content_type: tipo,
-    storage_path: blob.pathname, size_bytes: arquivo.tamanho, status: 'available',
+    name: nome, original_name: arquivo.nome,
+    file_type: fileKind(tipoFinal), content_type: tipoFinal,
+    storage_path: blob.pathname, size_bytes: tamanho, status: 'available',
     // O que a pessoa declarou no envio: "todos autorizaram" libera; o resto a comunicação confere.
     authorization_status: AUTORIZACOES[p.autorizacao].podePublicar ? 'authorized' : 'pending',
     tags: ['envio-da-equipe', `credito:${p.credito}`.slice(0, 60)],
     uploaded_by: p.usuarioId,
+    otimizado_em: otimizadoEm,
+    tamanho_original: tamanhoOriginal,
   }).select('id').single()
-  if (error || !data) return { motivo: `${arquivo.nome}: não foi possível registrar na Biblioteca.` }
-  p.usado.bytes += arquivo.tamanho
+  if (error || !data) {
+    // Blob sem linha no banco é arquivo invisível ocupando espaço para sempre.
+    await del(blob.pathname).catch(() => {})
+    return { motivo: `${arquivo.nome}: não foi possível registrar na Biblioteca.` }
+  }
+  p.usado.bytes += tamanho
   await admin.from('envio_arquivos').update({ file_id: data.id }).eq('id', arquivo.id)
   return { fileId: data.id as string }
 }

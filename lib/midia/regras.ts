@@ -33,6 +33,12 @@ export const LIMIAR_DO_SERVIDOR: Record<PerfilDeFoto, number> = {
   alta: 12 * 1024 * 1024,
 }
 
+/** Tipos de foto que o servidor abre e otimiza (sharp). GIF, SVG e HEIC ficam de fora. */
+export const TIPOS_OTIMIZAVEIS = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/tiff'])
+
+/** Acima disto o servidor não lê a foto inteira para otimizar: estouro de memória não se pega com try/catch. */
+export const TETO_PARA_OTIMIZAR = 100 * 1024 * 1024
+
 export type TipoFarejado = 'jpeg' | 'png' | 'gif' | 'webp' | 'heic' | 'avif' | 'mov' | 'mp4' | 'outro'
 
 const ascii = (b: Uint8Array, i: number, n: number) => String.fromCharCode(...b.subarray(i, i + n))
