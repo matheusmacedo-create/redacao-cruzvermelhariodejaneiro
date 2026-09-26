@@ -24,7 +24,7 @@ import type { GuiaDaArea } from '../tipos'
 const NEWSLETTER: GuiaDaArea = {
   href: '/newsletter',
   paraQueServe: 'A Newsletter guarda a lista de quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro: quem confirmou, quem ainda não confirmou e quem saiu. Mostra também como a lista cresceu e as últimas edições enviadas. A edição em si é escrita e enviada em “Publicações”, como mais um destino do pacote.',
-  quemUsa: 'Toda a equipe da Redação vê a lista, acrescenta endereços, reenvia convites e exporta. Apagar alguém da lista, ver a situação do formulário do site, ligá-lo e ver o diagnóstico completo do envio são só para administradores.',
+  quemUsa: 'Toda a equipe do Palácio Virtual vê a lista, acrescenta endereços, reenvia convites e exporta. Apagar alguém da lista, ver a situação do formulário do site, ligá-lo e ver o diagnóstico completo do envio são só para administradores.',
   tour: [
     {
       titulo: 'A Newsletter',
@@ -513,13 +513,13 @@ const IMPRENSA: GuiaDaArea = {
 
 const RESULTADOS: GuiaDaArea = {
   href: '/impacto',
-  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que a Redação registra; alcance, engajamento e dados do site entram quando as ferramentas de medição (analytics) forem conectadas, sem números estimados.',
+  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que o Palácio Virtual registra; alcance, engajamento e dados do site entram quando as ferramentas de medição (analytics) forem conectadas, sem números estimados.',
   quemUsa: 'Toda a equipe vê os mesmos números, da filial inteira. É uma tela só de leitura: nada se edita aqui.',
   tour: [
     {
       alvo: 'resultados.aviso',
       titulo: 'O que esta tela mostra',
-      texto: 'O efeito do que já saiu, nos últimos 30 dias. Por enquanto, só dados que a Redação registra; alcance e engajamento chegam quando as ferramentas de medição (analytics) forem conectadas.',
+      texto: 'O efeito do que já saiu, nos últimos 30 dias. Por enquanto, só dados que o Palácio Virtual registra; alcance e engajamento chegam quando as ferramentas de medição (analytics) forem conectadas.',
       lado: 'bottom',
     },
     {
@@ -579,7 +579,7 @@ const RESULTADOS: GuiaDaArea = {
     {
       id: 'sem-alcance',
       pergunta: 'Por que não vejo alcance, curtidas nem visitas do site?',
-      resposta: 'Porque essas fontes ainda não estão conectadas. Esta primeira versão usa só o que a Redação já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site vão aparecer quando as ferramentas de medição (analytics) forem ligadas, sem números estimados ou inventados.',
+      resposta: 'Porque essas fontes ainda não estão conectadas. Esta primeira versão usa só o que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site vão aparecer quando as ferramentas de medição (analytics) forem ligadas, sem números estimados ou inventados.',
       termos: ['analytics', 'alcance', 'curtidas', 'engajamento', 'seguidores', 'google', 'visualizações'],
     },
     {
@@ -620,7 +620,7 @@ const RESULTADOS: GuiaDaArea = {
 
 const HISTORICO: GuiaDaArea = {
   href: '/registro',
-  paraQueServe: 'O Histórico é o registro de tudo o que a Redação colocou no ar: uma linha para cada destino de um pacote que foi publicado ou que falhou, com a data, o canal e o endereço. Serve para conferir o que saiu, achar o que ficou pelo caminho e prestar contas.',
+  paraQueServe: 'O Histórico é o registro de tudo o que o Palácio Virtual colocou no ar: uma linha para cada destino de um pacote que foi publicado ou que falhou, com a data, o canal e o endereço. Serve para conferir o que saiu, achar o que ficou pelo caminho e prestar contas.',
   quemUsa: 'Toda a equipe vê o mesmo Histórico e pode filtrar, baixar o CSV e usar “Conferir situação”. Tentar de novo o que falhou é feito no pacote, em “Publicações”.',
   tour: [
     {

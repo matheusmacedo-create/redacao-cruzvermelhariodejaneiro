@@ -22,7 +22,7 @@ export function GerarChave() {
   return (
     <div className="mt-3 flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3" data-confirmar-chave>
       <p>
-        A Redação cria agora uma chave Ed25519 no servidor e a guarda no cofre do Supabase. Ninguém vê a chave — só a impressão digital,
+        O Palácio Virtual cria agora uma chave Ed25519 no servidor e a guarda no cofre do Supabase. Ninguém vê a chave — só a impressão digital,
         que depois vai à página de canais oficiais e ao PDF assinado pela presidência. Ela passa a assinar os lotes na próxima rotina diária.
         <strong className="font-medium"> Não se troca por aqui</strong>: trocar a chave é um evento que precisa ser anunciado.
       </p>

@@ -98,14 +98,14 @@ export const guias: GuiaDaArea[] = [
     perguntas: [
       {
         id: 'o-que-e-a-escola',
-        pergunta: 'O que é a Escola na Redação?',
-        resposta: 'A Escola de Educação e Saúde é uma empresa da Cruz Vermelha RJ com receita e gestão próprias. Na Redação fica a administração dela: vendas, financeiro, marketing e advertoriais. Alunos, turmas e secretaria ficam no sistema da escola.',
+        pergunta: 'O que é a Escola no Palácio Virtual?',
+        resposta: 'A Escola de Educação e Saúde é uma empresa da Cruz Vermelha RJ com receita e gestão próprias. No Palácio Virtual fica a administração dela: vendas, financeiro, marketing e advertoriais. Alunos, turmas e secretaria ficam no sistema da escola.',
         termos: ['escola de educação e saúde', 'empresa', 'cursos', 'punção venosa'],
       },
       {
         id: 'onde-ficam-os-alunos',
         pergunta: 'Onde vejo alunos, turmas e presença?',
-        resposta: 'No sistema da escola, não na Redação. Na Redação, a venda guarda só o nome de quem pagou, com o CPF mascarado. O quadro “Alunos, turmas e secretaria” tem o botão que abre o sistema da escola, quando o endereço dele está cadastrado.',
+        resposta: 'No sistema da escola, não no Palácio Virtual. No Palácio Virtual, a venda guarda só o nome de quem pagou, com o CPF mascarado. O quadro “Alunos, turmas e secretaria” tem o botão que abre o sistema da escola, quando o endereço dele está cadastrado.',
         termos: ['aluno', 'turma', 'secretaria', 'triagem', 'presença', 'ficha do aluno', 'inscrição'],
       },
       {
@@ -123,7 +123,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'pagina-nao-abre',
         pergunta: 'Por que uma tela da Escola dá erro 404 para mim?',
-        resposta: 'As telas da Escola só abrem para quem tem acesso a elas; para os demais, a Redação responde como se a página não existisse. Peça o acesso a um administrador, dizendo se você precisa das vendas ou do marketing.',
+        resposta: 'As telas da Escola só abrem para quem tem acesso a elas; para os demais, o Palácio Virtual responde como se a página não existisse. Peça o acesso a um administrador, dizendo se você precisa das vendas ou do marketing.',
         termos: ['404', 'página não encontrada', 'não abre', 'this page could not be found', 'acesso'],
       },
       {
@@ -173,7 +173,7 @@ export const guias: GuiaDaArea[] = [
       {
         alvo: 'escola-vendas.atualizar',
         titulo: 'Atualizar agora',
-        texto: 'A Redação lê a Únicopag uma vez por dia. “Atualizar agora” lê de novo na hora; embaixo do botão aparece quando foi a última leitura.',
+        texto: 'O Palácio Virtual lê a Únicopag uma vez por dia. “Atualizar agora” lê de novo na hora; embaixo do botão aparece quando foi a última leitura.',
         lado: 'bottom',
         seAusente: 'pular',
       },
@@ -281,7 +281,7 @@ export const guias: GuiaDaArea[] = [
           'Abra “Transações”, ou toque na linha de pagamentos em disputa em “Pede atenção”, na “Visão geral”.',
           'No filtro “Todas as situações”, escolha “Em disputa” e use “Filtrar”.',
           'A lista mostra só as cobranças criadas ou pagas no mês escolhido. Se a disputa não aparecer, troque o mês e use “Filtrar” de novo.',
-          'Confira o pagador, o curso e o valor de cada um. A disputa em si se resolve na Únicopag: a Redação só lê.',
+          'Confira o pagador, o curso e o valor de cada um. A disputa em si se resolve na Únicopag: o Palácio Virtual só lê.',
         ],
       },
     ],
@@ -337,7 +337,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'cpf-mascarado',
         pergunta: 'Por que o CPF aparece com asteriscos?',
-        resposta: 'Por privacidade: a Redação guarda só o CPF mascarado e o nome do pagador. A ficha completa de quem estuda fica no sistema da escola.',
+        resposta: 'Por privacidade: o Palácio Virtual guarda só o CPF mascarado e o nome do pagador. A ficha completa de quem estuda fica no sistema da escola.',
         termos: ['cpf', 'documento', 'lgpd', 'dados do aluno', 'privacidade'],
       },
       {
@@ -355,13 +355,13 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'venda-nao-aparece',
         pergunta: 'Uma venda que acabou de acontecer não aparece. Por quê?',
-        resposta: 'A Redação lê a Únicopag uma vez por dia. Use “Atualizar agora” para ler na hora. Confira também se está no mês certo e se nenhum filtro de “Transações” está escondendo a venda.',
+        resposta: 'O Palácio Virtual lê a Únicopag uma vez por dia. Use “Atualizar agora” para ler na hora. Confira também se está no mês certo e se nenhum filtro de “Transações” está escondendo a venda.',
         termos: ['sumiu', 'falta venda', 'não apareceu', 'atraso'],
       },
       {
         id: 'estornar-pela-redacao',
-        pergunta: 'Dá para estornar ou cancelar uma cobrança pela Redação?',
-        resposta: 'Não. A Redação só lê a Únicopag: não cria cobrança, não estorna e não cancela. Feito isso na Únicopag, a situação muda na Redação na leitura seguinte.',
+        pergunta: 'Dá para estornar ou cancelar uma cobrança pelo Palácio Virtual?',
+        resposta: 'Não. O Palácio Virtual só lê a Únicopag: não cria cobrança, não estorna e não cancela. Feito isso na Únicopag, a situação muda no Palácio Virtual na leitura seguinte.',
         termos: ['estornar', 'cancelar', 'reembolsar', 'devolver'],
       },
       {
@@ -711,7 +711,7 @@ export const guias: GuiaDaArea[] = [
           'Na campanha, use “Excluir”, ao lado de “Editar e aprendizados”; na peça, a lixeira do cartão.',
           'Confirme na pergunta que aparece.',
         ],
-        dica: 'Excluir a campanha não apaga as peças: elas continuam na biblioteca, sem campanha. Excluir na Redação não mexe no Meta: campanha ou anúncio lido de lá pode voltar na leitura seguinte.',
+        dica: 'Excluir a campanha não apaga as peças: elas continuam na biblioteca, sem campanha. Excluir no Palácio Virtual não mexe no Meta: campanha ou anúncio lido de lá pode voltar na leitura seguinte.',
         quem: 'Quem criou e administradores',
       },
     ],
@@ -749,7 +749,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'quem-exclui',
         pergunta: 'Quem pode excluir uma campanha ou uma peça?',
-        resposta: 'Quem a criou e os administradores. Campanha ou peça que veio do Meta não foi criada por ninguém na Redação, então só um administrador exclui, e ela pode voltar na leitura seguinte, porque excluir na Redação não mexe no Meta. Excluir a campanha não apaga as peças: elas continuam na biblioteca, sem campanha.',
+        resposta: 'Quem a criou e os administradores. Campanha ou peça que veio do Meta não foi criada por ninguém no Palácio Virtual, então só um administrador exclui, e ela pode voltar na leitura seguinte, porque excluir no Palácio Virtual não mexe no Meta. Excluir a campanha não apaga as peças: elas continuam na biblioteca, sem campanha.',
         termos: ['excluir', 'apagar', 'lixeira', 'permissão'],
       },
       {
@@ -773,7 +773,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'imagem-da-peca',
         pergunta: 'Que imagem posso pôr numa peça?',
-        resposta: 'JPG, PNG ou WEBP, com até 10 MB. A Redação confere se o arquivo é mesmo uma imagem. Trocar a imagem apaga a anterior.',
+        resposta: 'JPG, PNG ou WEBP, com até 10 MB. O Palácio Virtual confere se o arquivo é mesmo uma imagem. Trocar a imagem apaga a anterior.',
         termos: ['imagem', 'arte', 'criativo', 'upload', 'foto'],
       },
       {
@@ -808,7 +808,7 @@ export const guias: GuiaDaArea[] = [
   {
     href: '/escola/marketing/advertoriais',
     paraQueServe: 'O banco de advertoriais da escola: matérias-anúncio publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão de matrícula, matrículas, receita e o que custaram os anúncios que apontam para ela.',
-    quemUsa: 'Quem trabalha no marketing da escola: administradores, a equipe da escola, quem é de Educação e Saúde ou tem acesso aos livros da Escola, editores e a Comunicação Social. Todas essas pessoas acompanham os números e mudam os dados de cada advertorial. Criar e escrever o texto, no editor de matérias da Redação, fica com quem não é da equipe da escola.',
+    quemUsa: 'Quem trabalha no marketing da escola: administradores, a equipe da escola, quem é de Educação e Saúde ou tem acesso aos livros da Escola, editores e a Comunicação Social. Todas essas pessoas acompanham os números e mudam os dados de cada advertorial. Criar e escrever o texto, no editor de matérias do Palácio Virtual, fica com quem não é da equipe da escola.',
     tour: [
       {
         titulo: 'Advertoriais',
@@ -920,7 +920,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'como-conta-clique',
         pergunta: 'Como o clique no botão é contado?',
-        resposta: 'A linha do texto que é só o link de matrícula vira botão. O clique passa pela Redação, que conta e segue para a página de inscrição com as UTMs do anúncio e a marca do advertorial.',
+        resposta: 'A linha do texto que é só o link de matrícula vira botão. O clique passa pelo Palácio Virtual, que conta e segue para a página de inscrição com as UTMs do anúncio e a marca do advertorial.',
         termos: ['clique', 'botão', 'garantir vaga', 'cta'],
       },
       {
@@ -938,7 +938,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'nao-vejo-escrever',
         pergunta: 'Por que não vejo “Novo advertorial” nem “Escrever” (ou “Editar texto”)?',
-        resposta: 'O texto é escrito no editor de matérias da Redação, que a equipe da escola não abre. Quem é da equipe da escola acompanha os números e muda os dados do cartão; o texto fica com quem trabalha no editor, como a Comunicação.',
+        resposta: 'O texto é escrito no editor de matérias do Palácio Virtual, que a equipe da escola não abre. Quem é da equipe da escola acompanha os números e muda os dados do cartão; o texto fica com quem trabalha no editor, como a Comunicação.',
         termos: ['criar', 'escrever', 'editar texto', 'equipe da escola', 'permissão'],
       },
       {
@@ -972,12 +972,12 @@ export const guias: GuiaDaArea[] = [
   // ------------------------------------------------------------ Contas e integrações
   {
     href: '/escola/configuracoes',
-    paraQueServe: 'Onde a escola se liga ao mundo de fora: as contas da Únicopag por onde ela recebe e a conta de anúncios do Meta (Facebook e Instagram). A Redação só lê: não cria cobrança, não estorna e não mexe em anúncio. Daqui saem os números de “Vendas” e do “Marketing” e as vendas lançadas no Financeiro da escola.',
+    paraQueServe: 'Onde a escola se liga ao mundo de fora: as contas da Únicopag por onde ela recebe e a conta de anúncios do Meta (Facebook e Instagram). O Palácio Virtual só lê: não cria cobrança, não estorna e não mexe em anúncio. Daqui saem os números de “Vendas” e do “Marketing” e as vendas lançadas no Financeiro da escola.',
     quemUsa: 'Quem vê as vendas da escola enxerga as contas da Únicopag; quem trabalha no marketing, a conta do Meta. Só administradores cadastram, editam, pausam e tiram contas e guardam chaves e tokens.',
     tour: [
       {
         titulo: 'Contas e integrações',
-        texto: 'As contas da Únicopag e a conta de anúncios do Meta da escola. A Redação só lê: não cria cobrança, não estorna e não mexe em anúncio.',
+        texto: 'As contas da Únicopag e a conta de anúncios do Meta da escola. O Palácio Virtual só lê: não cria cobrança, não estorna e não mexe em anúncio.',
       },
       {
         alvo: 'escola-contas.unicopag',
@@ -1008,7 +1008,7 @@ export const guias: GuiaDaArea[] = [
       {
         alvo: 'escola-contas.como-funciona',
         titulo: 'Como a leitura funciona',
-        texto: 'Uma vez por dia a Redação lê as contas. Da venda ficam valor, forma, curso, origem e pagador com CPF mascarado. Ninguém vê a chave de novo, nem administradores.',
+        texto: 'Uma vez por dia o Palácio Virtual lê as contas. Da venda ficam valor, forma, curso, origem e pagador com CPF mascarado. Ninguém vê a chave de novo, nem administradores.',
         lado: 'top',
       },
     ],
@@ -1044,9 +1044,9 @@ export const guias: GuiaDaArea[] = [
         passos: [
           'Para pausar: use o lápis da conta, mude “Situação” para “Pausada” e use “Salvar”. A conta deixa de ser lida; o que já foi lido continua no painel.',
           'Para parar de ler sem apagar nada: use “Tirar a chave” e confirme. As transações já lidas continuam.',
-          'Para tirar a conta da Redação: use “Tirar conta” e confirme.',
+          'Para tirar a conta do Palácio Virtual: use “Tirar conta” e confirme.',
         ],
-        dica: '“Tirar conta” apaga da Redação a chave e a cópia das transações. Os lançamentos já feitos no Financeiro da escola continuam, e na Únicopag nada muda.',
+        dica: '“Tirar conta” apaga do Palácio Virtual a chave e a cópia das transações. Os lançamentos já feitos no Financeiro da escola continuam, e na Únicopag nada muda.',
         quem: 'Só administradores',
       },
       {
@@ -1086,19 +1086,19 @@ export const guias: GuiaDaArea[] = [
     perguntas: [
       {
         id: 'o-que-fica-de-cada-venda',
-        pergunta: 'O que a Redação guarda de cada venda?',
+        pergunta: 'O que o Palácio Virtual guarda de cada venda?',
         resposta: 'O valor, a forma de pagamento, o curso, a origem e o nome do pagador com o CPF mascarado. A ficha de quem estuda continua só no sistema da escola.',
         termos: ['dados', 'privacidade', 'lgpd', 'aluno', 'cpf'],
       },
       {
         id: 'chave-segura',
         pergunta: 'Onde a chave fica guardada? Alguém consegue vê-la?',
-        resposta: 'No cofre criptografado da Redação. Depois de guardada, ninguém vê a chave de novo, nem administradores: a tela mostra só os 4 últimos caracteres. Ela também não aparece nas mensagens de erro.',
+        resposta: 'No cofre criptografado do Palácio Virtual. Depois de guardada, ninguém vê a chave de novo, nem administradores: a tela mostra só os 4 últimos caracteres. Ela também não aparece nas mensagens de erro.',
         termos: ['segurança', 'cofre', 'chave de api', 'token', 'senha'],
       },
       {
         id: 'redacao-so-le',
-        pergunta: 'A Redação cria cobrança, estorna ou mexe nos anúncios?',
+        pergunta: 'O Palácio Virtual cria cobrança, estorna ou mexe nos anúncios?',
         resposta: 'Não. Ela só lê: saldo e transações da Únicopag; campanhas, anúncios e números do Meta.',
         termos: ['cobrar', 'estornar', 'pausar anúncio', 'somente leitura'],
       },
@@ -1135,7 +1135,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'pausar-tirar-chave-tirar-conta',
         pergunta: 'Qual a diferença entre pausar, “Tirar a chave” e “Tirar conta”?',
-        resposta: 'Pausada, a conta não é lida, mas guarda a chave e o que já foi lido. “Tirar a chave” tira a chave do cofre: a conta para de ser lida até uma chave nova ser guardada. “Tirar conta” apaga da Redação a chave e a cópia das transações; os lançamentos no Financeiro da escola continuam e, na Únicopag, nada muda.',
+        resposta: 'Pausada, a conta não é lida, mas guarda a chave e o que já foi lido. “Tirar a chave” tira a chave do cofre: a conta para de ser lida até uma chave nova ser guardada. “Tirar conta” apaga do Palácio Virtual a chave e a cópia das transações; os lançamentos no Financeiro da escola continuam e, na Únicopag, nada muda.',
         termos: ['pausar', 'excluir conta', 'remover chave', 'desligar'],
       },
       {

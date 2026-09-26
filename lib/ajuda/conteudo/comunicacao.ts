@@ -32,7 +32,7 @@ import type { GuiaDaArea } from '../tipos'
 const CHAT: GuiaDaArea = {
   href: '/chat',
   paraQueServe: 'O Chat é a conversa da equipe: canais por assunto ou por setor e mensagens diretas, ao vivo e guardados. Dá para responder em fio, reagir, mandar arquivo e mensagem de voz e buscar tudo o que você pode ver.',
-  quemUsa: 'Toda a equipe da Redação e a equipe da escola. Cada pessoa edita e apaga as próprias mensagens; só administradores apagam as dos outros, arquivam canais e veem o que foi editado ou apagado. A equipe da escola vê só os canais para que foi chamada e as mensagens diretas dela.',
+  quemUsa: 'Toda a equipe do Palácio Virtual e a equipe da escola. Cada pessoa edita e apaga as próprias mensagens; só administradores apagam as dos outros, arquivam canais e veem o que foi editado ou apagado. A equipe da escola vê só os canais para que foi chamada e as mensagens diretas dela.',
   // /chat abre direto a última conversa com novidade: o tour fica na tela da conversa.
   tour: [],
   telas: [
@@ -53,7 +53,7 @@ const CHAT: GuiaDaArea = {
         {
           alvo: 'chat.criar',
           titulo: 'Buscar e começar conversas',
-          texto: 'A lupa busca em todo o chat. O “#” cria um canal (só a equipe da Redação) e o “+” abre uma conversa direta. Na lista, “Menções a mim” junta o que chamou você.',
+          texto: 'A lupa busca em todo o chat. O “#” cria um canal (só a equipe do Palácio Virtual) e o “+” abre uma conversa direta. Na lista, “Menções a mim” junta o que chamou você.',
           lado: 'bottom',
         },
         {
@@ -99,11 +99,11 @@ const CHAT: GuiaDaArea = {
     {
       id: 'criar-canal',
       titulo: 'Criar um canal',
-      quem: 'Equipe da Redação',
+      quem: 'Equipe do Palácio Virtual',
       passos: [
         'Na lista do Chat, toque em “#” (“Novo canal”).',
         'Escreva o nome (por exemplo, campanha-natal) e, se quiser, “Para que serve”.',
-        'Marque “Privado” se só quem for chamado pode ver. Sem marcar, o canal é aberto: qualquer pessoa da Redação lê e entra.',
+        'Marque “Privado” se só quem for chamado pode ver. Sem marcar, o canal é aberto: qualquer pessoa do Palácio Virtual lê e entra.',
         'Em “Chamar pessoas”, marque quem já entra no canal.',
         'Toque em “Criar canal”.',
       ],
@@ -196,7 +196,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'chamar-pessoas',
       titulo: 'Chamar pessoas para um canal',
-      quem: 'Equipe da Redação',
+      quem: 'Equipe do Palácio Virtual',
       passos: [
         'Abra o canal.',
         'Toque no número de pessoas, no alto.',
@@ -215,13 +215,13 @@ const CHAT: GuiaDaArea = {
     {
       id: 'quem-ve-o-canal',
       pergunta: 'Quem vê um canal aberto? E um privado?',
-      resposta: 'Canal aberto: qualquer pessoa da equipe da Redação lê e entra quando quiser. Canal privado (com cadeado) e mensagem direta: só quem está neles.\n\nA equipe da escola vê só os canais para que foi chamada e as mensagens diretas dela.',
+      resposta: 'Canal aberto: qualquer pessoa da equipe do Palácio Virtual lê e entra quando quiser. Canal privado (com cadeado) e mensagem direta: só quem está neles.\n\nA equipe da escola vê só os canais para que foi chamada e as mensagens diretas dela.',
       termos: ['cadeado', 'privacidade', 'aberto', 'fechado', 'quem lê'],
     },
     {
       id: 'geral-e-setores',
       pergunta: 'O que são o #geral e os canais dos setores?',
-      resposta: 'O #geral reúne toda a equipe da Redação. Cada setor tem um canal privado com quem é do setor: quem entra no setor passa a fazer parte do canal. Não dá para sair do #geral nem do canal do seu setor, mas dá para silenciar.',
+      resposta: 'O #geral reúne toda a equipe do Palácio Virtual. Cada setor tem um canal privado com quem é do setor: quem entra no setor passa a fazer parte do canal. Não dá para sair do #geral nem do canal do seu setor, mas dá para silenciar.',
       termos: ['setor', 'coordenação', 'canal automático', 'sair do geral'],
     },
     {
@@ -257,7 +257,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'alertas-no-computador',
       pergunta: 'Como recebo alerta no computador quando estou em outra aba?',
-      resposta: 'Na lista do Chat, toque em “Ativar alertas no computador para mensagens novas” e permita no navegador. O alerta vale para o que é seu: mensagens diretas, menções e canais em “Avisar toda mensagem”.\n\nSe o botão não aparece, o navegador já guardou uma resposta; para mudar, use as permissões do site no próprio navegador. Com a Redação aberta em outra tela, o aviso aparece no canto de baixo, à direita.',
+      resposta: 'Na lista do Chat, toque em “Ativar alertas no computador para mensagens novas” e permita no navegador. O alerta vale para o que é seu: mensagens diretas, menções e canais em “Avisar toda mensagem”.\n\nSe o botão não aparece, o navegador já guardou uma resposta; para mudar, use as permissões do site no próprio navegador. Com o Palácio Virtual aberto em outra tela, o aviso aparece no canto de baixo, à direita.',
       termos: ['notificação do navegador', 'alerta', 'segundo plano', 'popup'],
     },
     {
@@ -281,7 +281,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'equipe-da-escola-no-chat',
       pergunta: 'A equipe da escola usa o Chat?',
-      resposta: 'Usa. Ela vê só os canais para que foi chamada e as mensagens diretas dela. Não cria canais nem chama pessoas: quem é da Redação chama a equipe da escola para um canal.',
+      resposta: 'Usa. Ela vê só os canais para que foi chamada e as mensagens diretas dela. Não cria canais nem chama pessoas: quem é do Palácio Virtual chama a equipe da escola para um canal.',
       termos: ['escola', 'professores', 'instrutores'],
     },
   ],
@@ -293,7 +293,7 @@ const CHAT: GuiaDaArea = {
 const CAIXA_DE_ENTRADA: GuiaDaArea = {
   href: '/caixa-de-entrada',
   paraQueServe: 'A Caixa de entrada é o atendimento ao público nas redes: as mensagens do Direct do Instagram e os comentários nas publicações recentes, para ler e responder sem abrir cada aplicativo. A pasta “E-mail e materiais” guarda o que chegou por dentro, e um material pode virar pauta.',
-  quemUsa: 'Toda a equipe da Redação. As respostas saem pela conta da filial em cada rede, não no seu nome. O que você abre fica marcado como lido só no seu aparelho.',
+  quemUsa: 'Toda a equipe do Palácio Virtual. As respostas saem pela conta da filial em cada rede, não no seu nome. O que você abre fica marcado como lido só no seu aparelho.',
   tour: [
     {
       titulo: 'A Caixa de entrada',
@@ -465,7 +465,7 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
     {
       id: 'em-nome-de-quem',
       pergunta: 'A resposta sai no meu nome?',
-      resposta: 'Não. A resposta sai pela conta da filial na rede, e não pelo seu perfil. Qualquer pessoa da equipe da Redação pode responder por aqui.',
+      resposta: 'Não. A resposta sai pela conta da filial na rede, e não pelo seu perfil. Qualquer pessoa da equipe do Palácio Virtual pode responder por aqui.',
       termos: ['perfil', 'assinatura', 'quem respondeu'],
     },
   ],
@@ -476,7 +476,7 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
 
 const EMAIL_DO_SETOR: GuiaDaArea = {
   href: '/correio',
-  paraQueServe: 'O E-mail do setor envia e-mails pelo endereço oficial do seu setor, com a assinatura fixa dele, sem sair da Redação. Tudo o que sai, e o que falha, fica registrado para o setor.',
+  paraQueServe: 'O E-mail do setor envia e-mails pelo endereço oficial do seu setor, com a assinatura fixa dele, sem sair do Palácio Virtual. Tudo o que sai, e o que falha, fica registrado para o setor.',
   quemUsa: 'Quem faz parte de um setor com endereço ativo envia por ele e vê o que o setor enviou. Administradores enviam por qualquer endereço ativo, veem todos os envios e ligam endereços e setores em Configurações.',
   tour: [
     {
@@ -583,19 +583,19 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
     {
       id: 'conta-google',
       pergunta: 'O que quer dizer “A autorização da conta Google expirou”?',
-      resposta: 'Os e-mails saem pelo Gmail da filial, e a Redação precisa de uma autorização para usá-lo. Quando ela vence, ou quando o correio ainda não foi ligado à conta Google, ninguém envia até um administrador usar “Reconectar” (ou “Conectar conta Google”) em Configurações, na parte “E-mail do setor”.',
+      resposta: 'Os e-mails saem pelo Gmail da filial, e o Palácio Virtual precisa de uma autorização para usá-lo. Quando ela vence, ou quando o correio ainda não foi ligado à conta Google, ninguém envia até um administrador usar “Reconectar” (ou “Conectar conta Google”) em Configurações, na parte “E-mail do setor”.',
       termos: ['gmail', 'google', 'desconectado', 'expirou', 'não foi ligado'],
     },
     {
       id: 'mudar-assinatura',
       pergunta: 'Posso mudar a assinatura?',
-      resposta: 'Aqui não. A assinatura vem do Gmail do setor e entra sozinha no fim de todo e-mail, para que cada setor saia sempre com a assinatura oficial. A mudança é feita no Gmail, e a Redação passa a usá-la depois que um administrador toca em “Sincronizar endereços”, em Configurações.',
+      resposta: 'Aqui não. A assinatura vem do Gmail do setor e entra sozinha no fim de todo e-mail, para que cada setor saia sempre com a assinatura oficial. A mudança é feita no Gmail, e o Palácio Virtual passa a usá-la depois que um administrador toca em “Sincronizar endereços”, em Configurações.',
       termos: ['rodapé', 'logo', 'cargo', 'telefone'],
     },
     {
       id: 'onde-chegam-respostas',
       pergunta: 'Onde chegam as respostas dos e-mails?',
-      resposta: 'Não aqui: esta tela só envia e guarda o que saiu. A resposta vai para o endereço do setor (ou para o endereço de resposta definido no Gmail) e é lida no Gmail, fora da Redação.',
+      resposta: 'Não aqui: esta tela só envia e guarda o que saiu. A resposta vai para o endereço do setor (ou para o endereço de resposta definido no Gmail) e é lida no Gmail, fora do Palácio Virtual.',
       termos: ['caixa de entrada', 'resposta', 'receber e-mail'],
     },
     {
@@ -746,7 +746,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
         'Abra o envio.',
         'Em “Fotos e vídeos”, marque o que vai para a matéria e os posts. Já vêm marcados as fotos e os vídeos de até 300 MB.',
         'Toque em “Criar matéria e posts”. O botão mostra quantos arquivos estão marcados.',
-        'A Redação cria a pauta, a matéria em rascunho (com o relato e a transcrição) e o pacote de publicação, e copia para a Biblioteca os arquivos marcados, com o crédito de quem mandou.',
+        'O Palácio Virtual cria a pauta, a matéria em rascunho (com o relato e a transcrição) e o pacote de publicação, e copia para a Biblioteca os arquivos marcados, com o crédito de quem mandou.',
         'Se tudo entrou, o pacote abre em seguida. Se algum arquivo ficou fora da Biblioteca, a tela fica no envio com um aviso amarelo, que diz o motivo e traz “Abrir o pacote (matéria e posts)”.',
       ],
       dica: 'Vão no máximo 30 arquivos para a Biblioteca; o que passar disso fica de fora, sem aviso. Transcreva o áudio antes de criar: a transcrição só entra na pauta e na matéria se já existir nessa hora.',
@@ -806,7 +806,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       id: 'nao-vejo-a-area',
       pergunta: 'Por que não vejo “Envios da equipe” no menu?',
-      resposta: 'A área só aparece para quem foi escolhido para avaliar os envios; para as outras pessoas, o endereço também não abre (aparece um erro 404). Essa escolha não fica em “Usuários e permissões”, e não há botão para ela na Redação: fale com quem cuida da ferramenta.',
+      resposta: 'A área só aparece para quem foi escolhido para avaliar os envios; para as outras pessoas, o endereço também não abre (aparece um erro 404). Essa escolha não fica em “Usuários e permissões”, e não há botão para ela no Palácio Virtual: fale com quem cuida da ferramenta.',
       termos: ['404', 'sumiu do menu', 'sem acesso', 'não aparece', 'não abre'],
     },
     {

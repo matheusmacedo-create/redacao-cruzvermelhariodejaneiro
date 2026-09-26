@@ -161,7 +161,7 @@ export const ATIVAR_A_VERIFICACAO: Omit<Tarefa, 'id'> = {
     'Em “Meu perfil”, na parte “Verificação em duas etapas”, toque em “Ativar verificação em duas etapas”.',
     'Em “Nome deste aparelho”, dê um nome que você reconheça (por exemplo, “Celular pessoal”) e toque em “Gerar QR Code”.',
     'No app, adicione uma conta e leia o QR Code. Se não der, digite o código que aparece em “Não dá para ler? Digite este código no app”.',
-    'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”. Do próximo login em diante, a Redação pede também o código do app.',
+    'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”. Do próximo login em diante, o Palácio Virtual pede também o código do app.',
   ],
   dica: 'Cadastre também um segundo aparelho com “Adicionar outro aparelho”: se perder o celular, você continua entrando pelo outro. O código do QR Code fica só no app, porque quem tiver esse código consegue gerar os seus números.',
 }
@@ -198,7 +198,7 @@ export const ESCOLHER_OS_EMAILS: Omit<Tarefa, 'id'> = {
 
 export const EMAIL_DE_AVISO_NAO_CHEGOU: Omit<Pergunta, 'id'> = {
   pergunta: 'Por que não recebi o e-mail de uma notificação?',
-  resposta: 'Alguns motivos: o seu e-mail de recuperação não está confirmado; o assunto está em “Só no sino” ou “Resumo diário”; ou você estava com a Redação aberta, e aí o aviso não sai na hora: se você não abrir, ele vai no resumo do dia.\n\nSobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos. Vale olhar também a caixa de spam.',
+  resposta: 'Alguns motivos: o seu e-mail de recuperação não está confirmado; o assunto está em “Só no sino” ou “Resumo diário”; ou você estava com o Palácio Virtual aberto, e aí o aviso não sai na hora: se você não abrir, ele vai no resumo do dia.\n\nSobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos. Vale olhar também a caixa de spam.',
   termos: ['e-mail de aviso', 'não chegou', 'notificação por e-mail', 'spam'],
 }
 
@@ -210,9 +210,9 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
     tarefas: [
       {
         id: 'entrar',
-        titulo: 'Entrar na Redação',
+        titulo: 'Entrar no Palácio Virtual',
         passos: [
-          'Abra a página inicial da Redação.',
+          'Abra a página inicial do Palácio Virtual.',
           'Em “Usuário ou e-mail”, digite o seu usuário (nome.sobrenome) ou o seu e-mail de recuperação.',
           'Digite a sua senha e toque em “Entrar”.',
           'Se você usa a verificação em duas etapas, digite o código de 6 dígitos que o app autenticador mostra.',
@@ -240,7 +240,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'senha-provisoria',
         pergunta: 'Recebi uma senha provisória. E agora?',
-        resposta: 'A senha que um administrador definiu só vale para o primeiro acesso. Logo depois de entrar, a Redação pede que você crie uma senha só sua: repita a temporária em “Senha temporária (a que você acabou de usar)” e escolha a nova. Nada funciona antes disso.',
+        resposta: 'A senha que um administrador definiu só vale para o primeiro acesso. Logo depois de entrar, o Palácio Virtual pede que você crie uma senha só sua: repita a temporária em “Senha temporária (a que você acabou de usar)” e escolha a nova. Nada funciona antes disso.',
         termos: ['senha temporária', 'primeiro acesso', 'criar a sua senha', 'crie a sua senha'],
       },
       {
@@ -265,7 +265,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'verificacao-obrigatoria',
         pergunta: 'A verificação em duas etapas é obrigatória?',
-        resposta: 'Depende do seu papel: um administrador pode torná-la obrigatória para alguns papéis, e aí a Redação pede o cadastro logo depois do login. Para os outros, é opcional — mas quem cadastrou o app passa a digitar o código sempre.',
+        resposta: 'Depende do seu papel: um administrador pode torná-la obrigatória para alguns papéis, e aí o Palácio Virtual pede o cadastro logo depois do login. Para os outros, é opcional — mas quem cadastrou o app passa a digitar o código sempre.',
         termos: ['2fa', 'código', 'autenticador', 'segurança'],
       },
       {
@@ -305,7 +305,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
           'O menu fica só com os ícones; pare o mouse sobre um deles para ver o nome.',
           'Para abrir de novo, toque em “Expandir menu”, no mesmo lugar.',
         ],
-        dica: 'A Redação lembra a sua escolha neste navegador. No celular o menu não recolhe: ele abre e fecha pelo botão de menu.',
+        dica: 'O Palácio Virtual lembra a sua escolha neste navegador. No celular o menu não recolhe: ele abre e fecha pelo botão de menu.',
       },
       {
         id: 'usar-o-criar',
@@ -315,7 +315,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
           'Escolha “Registrar atividade”, “Nova publicação”, “Novo ofício” ou “Abrir chamado”.',
           '“Nova publicação” já cria o pacote e abre a tela dele; “Novo ofício” cria o rascunho do ofício e abre.',
         ],
-        quem: 'Equipe da Redação',
+        quem: 'Equipe do Palácio Virtual',
       },
       { id: 'avisos-por-email', ...ESCOLHER_OS_EMAILS },
     ],
@@ -329,7 +329,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'grupos-do-menu',
         pergunta: 'Como fecho um grupo do menu?',
-        resposta: 'Toque no nome do grupo (por exemplo, “Planejamento”) para fechar ou abrir a lista. O grupo da tela em que você está fica sempre aberto, para você não perder onde está. A Redação lembra neste navegador os grupos que você fechou.',
+        resposta: 'Toque no nome do grupo (por exemplo, “Planejamento”) para fechar ou abrir a lista. O grupo da tela em que você está fica sempre aberto, para você não perder onde está. O Palácio Virtual lembra neste navegador os grupos que você fechou.',
         termos: ['esconder', 'sidebar', 'barra lateral'],
       },
       {
@@ -367,7 +367,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
           'Para outra dúvida, use a busca no alto do painel.',
           'Feche com o X ou com Esc.',
         ],
-        dica: 'Numa tela que ainda não tem guia próprio, o painel mostra o que vale em toda a Redação: conta e acesso, como se achar e como pedir ajuda.',
+        dica: 'Numa tela que ainda não tem guia próprio, o painel mostra o que vale em todo o Palácio Virtual: conta e acesso, como se achar e como pedir ajuda.',
       },
       {
         id: 'fazer-um-tour',
@@ -392,7 +392,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
           'Se ajudar, anexe um print da tela em “Anexar foto, print ou arquivo”.',
           'Toque em “Abrir chamado”. As respostas chegam no sino e ficam em “Chamados”.',
         ],
-        quem: 'Equipe da Redação',
+        quem: 'Equipe do Palácio Virtual',
       },
       {
         id: 'recomecar-os-tours',

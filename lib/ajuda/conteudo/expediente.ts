@@ -32,7 +32,7 @@ import type { GuiaDaArea } from '../tipos'
 const OFICIOS: GuiaDaArea = {
   href: '/oficios',
   paraQueServe: 'O livro de ofícios da filial. Você escreve o ofício, escolhe quem assina e emite: na emissão ele ganha o número do ano e o texto congela. Depois de todas as assinaturas, a prova vai ao Bitcoin, e quem recebe o documento confere tudo numa página pública.',
-  quemUsa: 'Toda a equipe da Redação vê o livro e pode criar ofícios. Editar, emitir, apagar o rascunho e cancelar é de quem criou o ofício ou de um administrador; assinar é de quem foi escolhido na emissão.',
+  quemUsa: 'Toda a equipe do Palácio Virtual vê o livro e pode criar ofícios. Editar, emitir, apagar o rascunho e cancelar é de quem criou o ofício ou de um administrador; assinar é de quem foi escolhido na emissão.',
   tour: [
     {
       titulo: 'O livro de ofícios',
@@ -80,7 +80,7 @@ const OFICIOS: GuiaDaArea = {
         {
           alvo: 'oficios.emitir',
           titulo: 'Emitir para assinatura',
-          texto: 'O botão “Emitir para assinatura” pede quem assina e como (“Senha do Redação” ou gov.br). Na emissão o ofício ganha o número do ano e o texto congela.',
+          texto: 'O botão “Emitir para assinatura” pede quem assina e como (“Senha do Palácio Virtual” ou gov.br). Na emissão o ofício ganha o número do ano e o texto congela.',
           lado: 'bottom',
           seAusente: 'pular',
         },
@@ -131,7 +131,7 @@ const OFICIOS: GuiaDaArea = {
       quem: 'Quem criou o rascunho, ou um administrador',
       passos: [
         'Abra o rascunho e toque em “Emitir para assinatura”.',
-        'Em “Como vão assinar”, escolha “Senha do Redação” ou “Assinatura gov.br”.',
+        'Em “Como vão assinar”, escolha “Senha do Palácio Virtual” ou “Assinatura gov.br”.',
         'Em “Adicionar pessoa”, escolha quem assina, até 10 pessoas. A ordem da lista é a ordem dos nomes na folha; use as setas para mudar e “Tirar” para remover.',
         'Confira o cargo de cada pessoa: é o que sai embaixo da assinatura.',
         'Toque em “Emitir e enviar para assinatura”. Quem assina recebe um aviso.',
@@ -146,7 +146,7 @@ const OFICIOS: GuiaDaArea = {
         'Leia a folha inteira.',
         'Toque em “Assinar”.',
         'Marque “Li o ofício e concordo com o texto identificado pelo código acima.”',
-        'Digite “Sua senha do Redação” e toque em “Assinar”.',
+        'Digite “Sua senha do Palácio Virtual” e toque em “Assinar”.',
       ],
       dica: 'A assinatura fica registrada com data, hora, o código do documento e o seu acesso.',
     },
@@ -159,7 +159,7 @@ const OFICIOS: GuiaDaArea = {
         'Toque em “Abrir o assinador gov.br” e assine o PDF com a sua conta gov.br (prata ou ouro). Não edite nem salve o PDF por outro programa.',
         'De volta ao ofício, escolha o arquivo assinado e toque em “Enviar PDF assinado”.',
       ],
-      dica: 'A Redação confere se o PDF é este ofício, se a assinatura está íntegra e se o certificado está no seu nome. Se outra pessoa assinou enquanto isso, baixe o PDF de novo e assine outra vez.',
+      dica: 'O Palácio Virtual confere se o PDF é este ofício, se a assinatura está íntegra e se o certificado está no seu nome. Se outra pessoa assinou enquanto isso, baixe o PDF de novo e assine outra vez.',
     },
     {
       id: 'recusar-assinatura',
@@ -169,7 +169,7 @@ const OFICIOS: GuiaDaArea = {
         'Em “Motivo”, explique por que não vai assinar.',
         'Toque em “Recusar e cancelar”.',
       ],
-      dica: 'Recusar cancela o ofício: o número fica registrado como cancelado, e quem criou recebe o aviso com o seu motivo. O botão “Recusar” só aparece nos ofícios assinados com a “Senha do Redação”; no gov.br, peça a quem criou o ofício que o cancele.',
+      dica: 'Recusar cancela o ofício: o número fica registrado como cancelado, e quem criou recebe o aviso com o seu motivo. O botão “Recusar” só aparece nos ofícios assinados com a “Senha do Palácio Virtual”; no gov.br, peça a quem criou o ofício que o cancele.',
     },
     {
       id: 'baixar-pdf',
@@ -259,14 +259,14 @@ const OFICIOS: GuiaDaArea = {
     },
     {
       id: 'senha-ou-govbr',
-      pergunta: 'Qual a diferença entre “Senha do Redação” e “Assinatura gov.br”?',
+      pergunta: 'Qual a diferença entre “Senha do Palácio Virtual” e “Assinatura gov.br”?',
       resposta: 'Com a senha, cada pessoa confirma aqui mesmo, com a própria senha: é o mais rápido. Com o gov.br, cada pessoa baixa o PDF, assina no gov.br (conta prata ou ouro) e envia de volta; é a assinatura avançada do governo, que qualquer pessoa confere no validar.iti.gov.br.\n\nA escolha é feita na emissão e vale para todas as pessoas daquele ofício.',
       termos: ['assinatura eletrônica', 'certificado', 'icp-brasil', 'assinador'],
     },
     {
       id: 'qual-senha',
       pergunta: 'Qual senha eu uso para assinar?',
-      resposta: 'A mesma com que você entra na Redação. Se errar, aparece “Senha incorreta. A assinatura não foi registrada.” e nada muda.',
+      resposta: 'A mesma com que você entra no Palácio Virtual. Se errar, aparece “Senha incorreta. A assinatura não foi registrada.” e nada muda.',
       termos: ['senha incorreta', 'senha errada'],
     },
     {
@@ -290,13 +290,13 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'registro-no-bitcoin',
       pergunta: 'O que é o registro no Bitcoin?',
-      resposta: 'Quando a última pessoa assina, a Redação monta o manifesto, um resumo do ofício assinado (o código do documento, quem assinou e quando), e registra o código desse manifesto no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem a Redação no ar.',
+      resposta: 'Quando a última pessoa assina, o Palácio Virtual monta o manifesto, um resumo do ofício assinado (o código do documento, quem assinou e quando), e registra o código desse manifesto no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem o Palácio Virtual no ar.',
       termos: ['blockchain', 'carimbo', 'opentimestamps', 'ots', 'manifesto'],
     },
     {
       id: 'selo-do-bitcoin',
       pergunta: 'O que querem dizer “Na fila”, “Aguardando bloco” e “Confirmado”?',
-      resposta: '“Na fila”: o registro ainda vai ser enviado aos servidores do OpenTimestamps, que a tela chama de “calendários”. “Aguardando bloco”: já foi enviado e espera entrar num bloco do Bitcoin, o que leva algumas horas. “Confirmado”: está gravado num bloco.\n\nA Redação confere sozinha; “Verificar agora” força uma conferência, no máximo a cada 2 minutos.',
+      resposta: '“Na fila”: o registro ainda vai ser enviado aos servidores do OpenTimestamps, que a tela chama de “calendários”. “Aguardando bloco”: já foi enviado e espera entrar num bloco do Bitcoin, o que leva algumas horas. “Confirmado”: está gravado num bloco.\n\nO Palácio Virtual confere sozinha; “Verificar agora” força uma conferência, no máximo a cada 2 minutos.',
       termos: ['verificar agora', 'Verificado há pouco', 'carimbo pendente'],
     },
     {
@@ -308,7 +308,7 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'quem-ve-oficios',
       pergunta: 'Quem vê os ofícios?',
-      resposta: 'Toda a equipe da Redação vê o livro de ofícios, inclusive os rascunhos. Fora da Redação, só quem tem o endereço de conferência de um ofício emitido vê aquele ofício.',
+      resposta: 'Toda a equipe do Palácio Virtual vê o livro de ofícios, inclusive os rascunhos. Fora do Palácio Virtual, só quem tem o endereço de conferência de um ofício emitido vê aquele ofício.',
       termos: ['privacidade', 'acesso', 'visibilidade'],
     },
   ],
@@ -618,7 +618,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'responder-por-email',
       pergunta: 'Posso responder pelo e-mail do aviso?',
-      resposta: 'Não. Os avisos chegam no sino e por e-mail, mas a resposta tem de ser escrita no próprio chamado, na Redação: respostas ao e-mail não entram no atendimento.',
+      resposta: 'Não. Os avisos chegam no sino e por e-mail, mas a resposta tem de ser escrita no próprio chamado, no Palácio Virtual: respostas ao e-mail não entram no atendimento.',
       termos: ['responder e-mail', 'notificação', 'aviso'],
     },
     {

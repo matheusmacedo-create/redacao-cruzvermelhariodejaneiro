@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       redirect_url: new URL('/configuracoes', request.nextUrl.origin).toString(),
       connect_title: 'Conectar as redes da Cruz Vermelha',
       connect_description:
-        'Autorize as contas oficiais para que a Redação possa publicar direto daqui.',
+        'Autorize as contas oficiais para que o Palácio Virtual possa publicar direto daqui.',
       platforms: ['facebook', 'instagram', 'linkedin', 'x', 'threads'],
       show_calendar: false,
     })

@@ -20,7 +20,7 @@ import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
   paraQueServe: 'O Início é o resumo do dia. Em cima, o que é seu: as suas pautas por prazo e o que espera o seu voto. No meio, a semana da operação (o que vai ao ar, o que saiu e o que falhou) e, embaixo, quatro indicadores dos últimos 30 dias.',
-  quemUsa: 'Toda a equipe da Redação. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
+  quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   tour: [
     {
       titulo: 'O seu Início',
@@ -507,13 +507,13 @@ const APROVACOES: GuiaDaArea = {
 // um só, então o texto é um só (o porquê está em geral.ts, antes de TOPICOS_GERAIS).
 export const RESUMO_DIARIO: Omit<Pergunta, 'id'> = {
   pergunta: 'O que é o “Resumo diário”?',
-  resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com a Redação aberta. Ficam de fora o que você já leu, os assuntos em “Só no sino” e os avisos de mais de 3 dias.',
+  resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com o Palácio Virtual aberto. Ficam de fora o que você já leu, os assuntos em “Só no sino” e os avisos de mais de 3 dias.',
   termos: ['resumo', 'um e-mail por dia', 'e-mail diário', 'digest'],
 }
 
 const NOTIFICACOES: GuiaDaArea = {
   href: '/notificacoes',
-  paraQueServe: 'Tudo o que aconteceu com você na Redação, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
+  paraQueServe: 'Tudo o que aconteceu com você no Palácio Virtual, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
   quemUsa: 'Cada pessoa vê só as próprias notificações. Vale para toda a equipe, inclusive a da escola.',
   tour: [
     {

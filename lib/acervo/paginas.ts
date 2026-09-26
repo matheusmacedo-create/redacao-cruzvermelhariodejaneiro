@@ -479,7 +479,7 @@ export function htaccessDoAcervo(p: { pdfs: { arquivo: string; pagina: string }[
   const canonicos = p.pdfs
     .filter((d) => /^[a-z0-9][a-z0-9-]*-[0-9a-f]{12}\.pdf$/.test(d.arquivo))
     .map((d) => `  <Files "${d.arquivo}">\n    Header set Link "<${d.pagina}>; rel=\\"canonical\\""\n  </Files>`)
-  return `# Gerado pela Redação (lib/acervo/paginas.ts). Editar lá, não aqui.
+  return `# Gerado pelo Palácio Virtual (lib/acervo/paginas.ts). Editar lá, não aqui.
 Options -Indexes
 RedirectMatch 302 ^/acervo/equipe/?$ ${ENDERECO_DA_EQUIPE}
 <IfModule mod_headers.c>

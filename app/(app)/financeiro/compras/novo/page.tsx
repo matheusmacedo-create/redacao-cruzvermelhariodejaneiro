@@ -14,7 +14,7 @@ export default async function NovoPedidoPage() {
   const ctx = await contextoDeCompras()
   const voltar = <Link href="/financeiro/compras" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
   if (!ctx.pede) {
-    return <div>{voltar}<Card className="p-6 text-sm">Pedidos de compra são abertos pela equipe da Redação.</Card></div>
+    return <div>{voltar}<Card className="p-6 text-sm">Pedidos de compra são abertos pela equipe do Palácio Virtual.</Card></div>
   }
   const classificar = ctx.nivel >= 2
   const o = await opcoesDoFormulario(ctx, null, classificar)

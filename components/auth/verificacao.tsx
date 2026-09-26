@@ -18,7 +18,7 @@ import { registrarVerificacao } from '@/app/actions/entrada'
  * servidor e o RLS leem em seguida.
  */
 
-const EMISSOR = 'Redação CVB-RJ'
+const EMISSOR = 'Palácio Virtual CVB-RJ'
 
 function CampoDoCodigo({ valor, onChange, autoFocus }: { valor: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   return (

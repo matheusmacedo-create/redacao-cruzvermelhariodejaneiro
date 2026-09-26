@@ -34,7 +34,7 @@ export async function reciboDeDoacao(d: DadosDoRecibo): Promise<Uint8Array> {
   folha.paragrafo('Valor de mercado conforme a ITG 2002 (R1) — Entidade sem Finalidade de Lucros. Este recibo não se refere a doação em dinheiro.', 8, false, 6)
   folha.paragrafo(`Rio de Janeiro, ${dataPorExtenso(d.data)}.`, 10, false, 0)
   folha.assinaturas([{ linha1: d.recebidoPor, linha2: `Pela ${DADOS_DA_FILIAL.nome}` }])
-  folha.rodapes(`${d.codigo} · emitido pelo Redação em ${d.geradoEm}`)
+  folha.rodapes(`${d.codigo} · emitido pelo Palácio Virtual em ${d.geradoEm}`)
   return pdf.save()
 }
 
@@ -62,6 +62,6 @@ export async function termoDeEntrega(d: DadosDoTermo): Promise<Uint8Array> {
     { linha1: d.responsavel || d.beneficiario, linha2: 'Quem recebeu (nome e assinatura)' },
     { linha1: d.entreguePor, linha2: `Pela ${DADOS_DA_FILIAL.nome}` },
   ])
-  folha.rodapes(`${d.codigo} · emitido pelo Redação em ${d.geradoEm}`)
+  folha.rodapes(`${d.codigo} · emitido pelo Palácio Virtual em ${d.geradoEm}`)
   return pdf.save()
 }

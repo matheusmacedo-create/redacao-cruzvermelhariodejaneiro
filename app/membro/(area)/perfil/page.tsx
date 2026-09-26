@@ -84,7 +84,7 @@ export default async function PerfilDoMembro() {
 
       <PreferenciaDeAvisos inicial={p.avisos_por_email} />
 
-      {/* Na visualização da equipe não há o que "sair": a faixa do alto já tem o "Voltar ao Redação". */}
+      {/* Na visualização da equipe não há o que "sair": a faixa do alto já tem o "Voltar ao Palácio Virtual". */}
       {!m.previa && <SairDaArea />}
     </div>
   )

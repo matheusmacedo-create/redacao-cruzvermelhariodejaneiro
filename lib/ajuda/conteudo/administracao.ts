@@ -31,12 +31,12 @@ import { RESUMO_DIARIO } from './meu-dia'
 
 const ACESSOS: GuiaDaArea = {
   href: '/acessos',
-  paraQueServe: 'Acessos é o registro de quem entrou na Redação e na Área do Voluntário: quando, de onde e com qual aparelho, inclusive as tentativas erradas, os bloqueios e as saídas. Serve para cuidar da segurança das contas.',
+  paraQueServe: 'Acessos é o registro de quem entrou no Palácio Virtual e na Área do Voluntário: quando, de onde e com qual aparelho, inclusive as tentativas erradas, os bloqueios e as saídas. Serve para cuidar da segurança das contas.',
   quemUsa: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”: o papel sozinho não basta. Para as outras pessoas, a área não aparece no menu e o endereço não abre. Cada consulta a esta tela também fica registrada.',
   tour: [
     {
       titulo: 'O registro de acessos',
-      texto: 'Quem entrou na Redação e na Área do Voluntário, quando, de onde e com qual aparelho, inclusive tentativas erradas e bloqueios. Cada consulta a esta tela também fica registrada.',
+      texto: 'Quem entrou no Palácio Virtual e na Área do Voluntário, quando, de onde e com qual aparelho, inclusive tentativas erradas e bloqueios. Cada consulta a esta tela também fica registrada.',
     },
     {
       alvo: 'acessos.numeros',
@@ -136,7 +136,7 @@ const ACESSOS: GuiaDaArea = {
     {
       id: 'nao-vejo-acessos',
       pergunta: 'Tenho o papel “Administrador” e não vejo “Acessos”. Por quê?',
-      resposta: 'Porque o registro não se abre pelo papel, só para quem foi escolhido para lê-lo. Essa escolha não fica em “Usuários e permissões”, e não há botão para ela na Redação: fale com quem cuida da ferramenta.',
+      resposta: 'Porque o registro não se abre pelo papel, só para quem foi escolhido para lê-lo. Essa escolha não fica em “Usuários e permissões”, e não há botão para ela no Palácio Virtual: fale com quem cuida da ferramenta.',
       termos: ['404', 'sumiu do menu', 'sem acesso', 'não aparece', 'admin'],
     },
     {
@@ -163,12 +163,12 @@ const ACESSOS: GuiaDaArea = {
       id: 'quem-e-avisado',
       pergunta: 'Quem é avisado quando aparece algo estranho?',
       resposta: 'Com aparelho novo ou país novo, a própria pessoa recebe um e-mail de segurança, mesmo que tenha desligado os e-mails de aviso, desde que tenha e-mail confirmado. Com país novo e com conta bloqueada, quem lê o registro recebe um aviso no sino.\n\nSe esse aviso do sino vai também por e-mail, quem lê escolhe em Meu perfil, no assunto “Trilha pública”.',
-      termos: ['notificação', 'e-mail', 'Novo acesso à sua conta da Redação', 'Acesso de um país novo', 'sino'],
+      termos: ['notificação', 'e-mail', 'Novo acesso à sua conta do Palácio Virtual', 'Acesso de um país novo', 'sino'],
     },
     {
       id: 'como-reconhece-o-aparelho',
       pergunta: 'Como o registro reconhece um aparelho?',
-      resposta: 'Na primeira entrada de alguém da equipe num navegador, a Redação deixa nele uma marca para reconhecê-lo depois. Se ela foi apagada (aba anônima, limpeza do navegador), o registro ainda tenta reconhecer o aparelho por características do próprio navegador (a “impressão digital” que a linha mostra).',
+      resposta: 'Na primeira entrada de alguém da equipe num navegador, o Palácio Virtual deixa nele uma marca para reconhecê-lo depois. Se ela foi apagada (aba anônima, limpeza do navegador), o registro ainda tenta reconhecer o aparelho por características do próprio navegador (a “impressão digital” que a linha mostra).',
       termos: ['impressão digital', 'aparelho', 'navegador', 'reconhecer', 'fingerprint'],
     },
     {
@@ -192,7 +192,7 @@ const ACESSOS: GuiaDaArea = {
     {
       id: 'quanto-tempo-fica-guardado',
       pergunta: 'Por quanto tempo o registro fica guardado?',
-      resposta: 'Por enquanto, tudo fica guardado: não há rotina que apague acessos antigos. E ninguém apaga nem muda uma linha do registro pela Redação.',
+      resposta: 'Por enquanto, tudo fica guardado: não há rotina que apague acessos antigos. E ninguém apaga nem muda uma linha do registro pelo Palácio Virtual.',
       termos: ['retenção', 'LGPD', 'apagar', 'histórico', 'prazo'],
     },
     {
@@ -209,12 +209,12 @@ const ACESSOS: GuiaDaArea = {
 
 const USUARIOS: GuiaDaArea = {
   href: '/usuarios',
-  paraQueServe: 'Aqui a administração decide quem entra na Redação e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
-  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e a Redação nunca fica sem pelo menos um administrador ativo.',
+  paraQueServe: 'Aqui a administração decide quem entra no Palácio Virtual e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
+  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o Palácio Virtual nunca fica sem pelo menos um administrador ativo.',
   tour: [
     {
       titulo: 'Usuários e permissões',
-      texto: 'Aqui você decide quem entra na Redação e com qual papel: cria acessos, redefine senhas, desativa contas e escolhe quem é obrigado a usar a verificação em duas etapas.',
+      texto: 'Aqui você decide quem entra no Palácio Virtual e com qual papel: cria acessos, redefine senhas, desativa contas e escolhe quem é obrigado a usar a verificação em duas etapas.',
     },
     {
       alvo: 'usuarios.numeros',
@@ -271,7 +271,7 @@ const USUARIOS: GuiaDaArea = {
         'Marque “Gerar senha temporária” e toque em “Criar acesso”.',
         'A senha aparece uma única vez, no quadro “Senha temporária de @…”. Toque em “Copiar usuário e senha”.',
         'Repasse pessoalmente ou por um canal privado, nunca num grupo.',
-        'No primeiro login, a Redação pede que a pessoa crie uma senha só dela.',
+        'No primeiro login, o Palácio Virtual pede que a pessoa crie uma senha só dela.',
       ],
       dica: 'A senha temporária não fica guardada em lugar nenhum. Se o quadro fechar antes de você anotar, abra a pessoa na lista e gere outra em “Redefinir senha”.',
     },
@@ -360,8 +360,8 @@ const USUARIOS: GuiaDaArea = {
         'Em “Verificação em duas etapas”, veja em cada papel quantas pessoas já usam o app.',
         'Marque o papel que deve ser obrigado, como “Exigir de administradores”.',
         'Toque em “Salvar exigência”.',
-        'Se alguém desse papel ainda não tem o app, a Redação diz quantas pessoas serão levadas a cadastrar e pede confirmação.',
-        'Quem ainda não tem o app cadastra no próximo acesso, antes de conseguir usar a Redação.',
+        'Se alguém desse papel ainda não tem o app, o Palácio Virtual diz quantas pessoas serão levadas a cadastrar e pede confirmação.',
+        'Quem ainda não tem o app cadastra no próximo acesso, antes de conseguir usar o Palácio Virtual.',
       ],
       dica: 'Peça que cada pessoa cadastre também um segundo aparelho: não há códigos de recuperação, e quem perde o celular depende da administração para voltar.',
     },
@@ -370,7 +370,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'diferenca-entre-papeis',
       pergunta: 'Qual a diferença entre os papéis?',
-      resposta: '“Administrador” controla a Redação inteira: pessoas, acessos, integrações, site e dados; “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite; “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
+      resposta: '“Administrador” controla o Palácio Virtual inteiro: pessoas, acessos, integrações, site e dados; “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite; “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
       termos: ['admin', 'editor', 'colaborador', 'escola', 'permissão', 'nível de acesso'],
     },
     {
@@ -388,7 +388,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'convite-nao-aparece',
       pergunta: 'Por que a opção de convite por e-mail não aparece?',
-      resposta: 'Ela só aparece com um e-mail válido no campo “E-mail” e com o envio de e-mail da Redação configurado. Sem o envio configurado, a tela mostra um aviso amarelo no alto, e só a senha temporária (ou uma senha definida por você) funciona.',
+      resposta: 'Ela só aparece com um e-mail válido no campo “E-mail” e com o envio de e-mail do Palácio Virtual configurado. Sem o envio configurado, a tela mostra um aviso amarelo no alto, e só a senha temporária (ou uma senha definida por você) funciona.',
       termos: ['Convite por e-mail indisponível', 'Informe o e-mail para poder enviar o convite', 'envio de e-mail não está configurado', 'RESEND_API_KEY'],
     },
     {
@@ -400,7 +400,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'aguardando-troca-de-senha',
       pergunta: 'O que significa “Aguardando troca de senha”?',
-      resposta: 'A pessoa está com uma senha provisória (gerada ou definida pela administração) e ainda não criou a dela. No próximo login, a Redação pede a troca antes de qualquer outra coisa. O número “Aguardando 1º acesso”, no alto, conta essas pessoas.\n\nQuem recebeu convite por e-mail e ainda não entrou aparece como “Nunca entrou”.',
+      resposta: 'A pessoa está com uma senha provisória (gerada ou definida pela administração) e ainda não criou a dela. No próximo login, o Palácio Virtual pede a troca antes de qualquer outra coisa. O número “Aguardando 1º acesso”, no alto, conta essas pessoas.\n\nQuem recebeu convite por e-mail e ainda não entrou aparece como “Nunca entrou”.',
       termos: ['senha provisória', 'aguardando 1º acesso', 'primeiro acesso', 'nunca entrou'],
     },
     {
@@ -442,13 +442,13 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'a-pessoa-e-avisada',
       pergunta: 'A pessoa fica sabendo quando mudo o papel ou a senha dela?',
-      resposta: 'Fica, se tiver e-mail confirmado: a Redação manda um aviso de segurança quando o papel muda, quando a senha é redefinida, quando a conta é desativada ou reativada e quando a verificação em duas etapas é removida.',
+      resposta: 'Fica, se tiver e-mail confirmado: o Palácio Virtual manda um aviso de segurança quando o papel muda, quando a senha é redefinida, quando a conta é desativada ou reativada e quando a verificação em duas etapas é removida.',
       termos: ['aviso de segurança', 'e-mail de aviso', 'notificação'],
     },
     {
       id: 'convidar-varias-pessoas',
       pergunta: 'Dá para dar acesso a várias pessoas de uma vez?',
-      resposta: 'Dá, por convite: toque em “Convidar várias pessoas”. Na tela “Adicionar pessoas à Redação”, você marca quem vai receber acesso, confere e-mail, setor e papel e envia os convites, até 30 de uma vez. Quem não tem e-mail entra por aqui, com senha temporária.',
+      resposta: 'Dá, por convite: toque em “Convidar várias pessoas”. Na tela “Adicionar pessoas ao Palácio Virtual”, você marca quem vai receber acesso, confere e-mail, setor e papel e envia os convites, até 30 de uma vez. Quem não tem e-mail entra por aqui, com senha temporária.',
       termos: ['em lote', 'vários convites', 'adicionar pessoas'],
     },
     {
@@ -471,12 +471,12 @@ const USUARIOS: GuiaDaArea = {
 
 const CONFIGURACOES: GuiaDaArea = {
   href: '/configuracoes',
-  paraQueServe: 'Configurações é onde a administração liga a Redação às ferramentas de fora e cuida do site: as chaves de integração, o E-mail do setor (a conta Google, os setores e os endereços), o Google Analytics, as páginas do site, o que está no ar em /noticias/ e a zona de risco.',
+  paraQueServe: 'Configurações é onde a administração liga o Palácio Virtual às ferramentas de fora e cuida do site: as chaves de integração, o E-mail do setor (a conta Google, os setores e os endereços), o Google Analytics, as páginas do site, o que está no ar em /noticias/ e a zona de risco.',
   quemUsa: 'Editores e colaboradores também abrem esta área, mas veem só um aviso: as seções são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”.',
   tour: [
     {
-      titulo: 'Configurações da Redação',
-      texto: 'Aqui a administração liga a Redação às ferramentas de fora e cuida do site. Quem não é administrador vê só um aviso: estas seções são restritas.',
+      titulo: 'Configurações do Palácio Virtual',
+      texto: 'Aqui a administração liga o Palácio Virtual às ferramentas de fora e cuida do site. Quem não é administrador vê só um aviso: estas seções são restritas.',
     },
     {
       alvo: 'configuracoes.restrito',
@@ -511,7 +511,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.zona-de-risco',
       titulo: 'Zona de risco',
-      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos da Redação. Não tem volta: é só para começar do zero.',
+      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos do Palácio Virtual. Não tem volta: é só para começar do zero.',
       seAusente: 'pular',
     },
   ],
@@ -537,7 +537,7 @@ const CONFIGURACOES: GuiaDaArea = {
         'Em “1. Conta do Google”, siga uma vez o passo a passo do Google Cloud que aparece ali. O endereço de retorno que ele pede está na tela, com o botão “Copiar”.',
         'Cole o ID e a chave secreta no cartão “Google (cliente OAuth do Gmail)”, em Integrações, e toque em “Salvar no cofre”.',
         'Toque em “Conectar conta Google” e entre com a conta dona dos endereços dos setores, a que tem a lista “Enviar e-mail como” no Gmail.',
-        'De volta à Redação, o cartão mostra “Conectada:” com a conta, e os endereços do Gmail já aparecem em “3. Endereços (aliases do Gmail)”.',
+        'De volta ao Palácio Virtual, o cartão mostra “Conectada:” com a conta, e os endereços do Gmail já aparecem em “3. Endereços (aliases do Gmail)”.',
       ],
       dica: 'Se a autorização vencer ou for revogada, o cartão avisa, e nenhum setor envia até alguém tocar em “Reconectar”.',
     },
@@ -572,7 +572,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'No Gmail da conta dona dos endereços, abra Configurações → Geral → Assinatura e crie ou edite a assinatura do setor.',
         'Em “Padrões de assinatura”, escolha essa assinatura para o endereço do setor e salve no Gmail.',
-        'De volta à Redação, toque em “Sincronizar endereços”.',
+        'De volta ao Palácio Virtual, toque em “Sincronizar endereços”.',
         'Na linha do endereço, toque em “Assinatura” para conferir como ficou.',
       ],
       dica: 'Ninguém edita a assinatura na hora de enviar: vale sempre a que está no Gmail.',
@@ -628,13 +628,13 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'variavel-de-ambiente',
       pergunta: 'O que quer dizer “Usando a variável de ambiente da Vercel”?',
-      resposta: 'A chave foi configurada por fora, direto na hospedagem da Redação, e está valendo. Se você salvar uma chave aqui, a daqui passa a valer no lugar dela.',
+      resposta: 'A chave foi configurada por fora, direto na hospedagem do Palácio Virtual, e está valendo. Se você salvar uma chave aqui, a daqui passa a valer no lugar dela.',
       termos: ['vercel', 'variável de ambiente', 'chave configurada'],
     },
     {
       id: 'remover-chave',
       pergunta: 'O que acontece se eu remover uma chave?',
-      resposta: '“Remover” (só aparece quando a chave está no cofre) tira a chave de lá. Se houver uma chave configurada direto na hospedagem, ela volta a valer; se não, a ferramenta para de funcionar na Redação até alguém colar uma chave nova.',
+      resposta: '“Remover” (só aparece quando a chave está no cofre) tira a chave de lá. Se houver uma chave configurada direto na hospedagem, ela volta a valer; se não, a ferramenta para de funcionar no Palácio Virtual até alguém colar uma chave nova.',
       termos: ['apagar chave', 'desligar integração'],
     },
     {
@@ -664,7 +664,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'nome-de-remetente-generico',
       pergunta: 'O que é “nome de remetente genérico”?',
-      resposta: 'O nome que sai no e-mail está vazio ou é igual ao começo do endereço (por exemplo, “comunicacao”). É o que quem recebe vê como remetente, então vale dar um nome de verdade em “Nome do remetente”.\n\nEsse nome vale para o que sai pela Redação. Para o que a equipe envia direto pelo Gmail, use o mesmo nome no Gmail, em Configurações → Contas → Enviar e-mail como.',
+      resposta: 'O nome que sai no e-mail está vazio ou é igual ao começo do endereço (por exemplo, “comunicacao”). É o que quem recebe vê como remetente, então vale dar um nome de verdade em “Nome do remetente”.\n\nEsse nome vale para o que sai pelo Palácio Virtual. Para o que a equipe envia direto pelo Gmail, use o mesmo nome no Gmail, em Configurações → Contas → Enviar e-mail como.',
       termos: ['nome do remetente', 'de quem vem o e-mail'],
     },
     {
@@ -676,7 +676,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'tirar-do-ar-apaga',
       pergunta: '“Tirar do ar” apaga a matéria?',
-      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do mapa do site para os buscadores (sitemap), mas o texto continua guardado na Redação. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
+      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do mapa do site para os buscadores (sitemap), mas o texto continua guardado no Palácio Virtual. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
       termos: ['despublicar', 'remover do site', 'matéria de teste'],
     },
     {
@@ -694,7 +694,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'analytics-em-cada-materia',
       pergunta: 'Preciso ligar o Analytics a cada matéria nova?',
-      resposta: 'Não. Toda página que a Redação cria já nasce com o Analytics. “Ligar o Analytics nas páginas do site” só serve para páginas antigas ou colocadas no servidor por fora, e pula as que já têm.',
+      resposta: 'Não. Toda página que o Palácio Virtual cria já nasce com o Analytics. “Ligar o Analytics nas páginas do site” só serve para páginas antigas ou colocadas no servidor por fora, e pula as que já têm.',
       termos: ['google analytics', 'estatísticas do site', 'varredura'],
     },
     {
@@ -841,7 +841,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'preferencia-padrao',
       pergunta: 'Nunca mexi nas preferências. O que está valendo?',
-      resposta: '“Na hora”, em todos os assuntos. Mas o e-mail só sai se o seu e-mail de recuperação estiver confirmado, e, se você estiver com a Redação aberta, o aviso que você não abrir vai para o resumo do dia em vez de sair na hora.',
+      resposta: '“Na hora”, em todos os assuntos. Mas o e-mail só sai se o seu e-mail de recuperação estiver confirmado, e, se você estiver com o Palácio Virtual aberto, o aviso que você não abrir vai para o resumo do dia em vez de sair na hora.',
       termos: ['padrão', 'e-mail não chegou', 'na hora'],
     },
     {

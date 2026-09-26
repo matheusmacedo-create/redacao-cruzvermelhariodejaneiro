@@ -23,12 +23,12 @@ import type { GuiaDaArea } from '../tipos'
 
 const RADAR: GuiaDaArea = {
   href: '/cerebro',
-  paraQueServe: 'O Radar mostra o que o Cérebro leu nas contas oficiais do Rio e acha que pode virar pauta: o fato, por que apareceu, o que não pode e o plano por canal. O Cérebro recomenda; quem decide, produz e publica é a Redação. A sugestão que a equipe leva adiante vira um pacote em rascunho em “Publicações”.',
-  quemUsa: 'Toda a equipe da Redação vê o Radar, leva sugestões adiante e recusa as que não servem. A recusa vale para a equipe inteira: a sugestão some daqui e do painel do Cérebro em “Publicações”.',
+  paraQueServe: 'O Radar mostra o que o Cérebro leu nas contas oficiais do Rio e acha que pode virar pauta: o fato, por que apareceu, o que não pode e o plano por canal. O Cérebro recomenda; quem decide, produz e publica é o Palácio Virtual. A sugestão que a equipe leva adiante vira um pacote em rascunho em “Publicações”.',
+  quemUsa: 'Toda a equipe do Palácio Virtual vê o Radar, leva sugestões adiante e recusa as que não servem. A recusa vale para a equipe inteira: a sugestão some daqui e do painel do Cérebro em “Publicações”.',
   tour: [
     {
       titulo: 'O Radar de pautas',
-      texto: 'O Cérebro lê as contas oficiais do Rio e sugere o que pode virar pauta, com uma nota de 0 a 100. Ele recomenda; quem decide e publica é a Redação.',
+      texto: 'O Cérebro lê as contas oficiais do Rio e sugere o que pode virar pauta, com uma nota de 0 a 100. Ele recomenda; quem decide e publica é o Palácio Virtual.',
     },
     {
       alvo: 'cerebro.briefing',
@@ -65,7 +65,7 @@ const RADAR: GuiaDaArea = {
       tour: [
         {
           titulo: 'O mapa do Cérebro',
-          texto: 'Tudo ligado numa tela: eixos, contas observadas, sinais, datas do calendário e propostas, e o que a Redação já fez com isso, do pacote ao canal publicado.',
+          texto: 'Tudo ligado numa tela: eixos, contas observadas, sinais, datas do calendário e propostas, e o que o Palácio Virtual já fez com isso, do pacote ao canal publicado.',
         },
         {
           alvo: 'cerebro.mapa-filtros',
@@ -154,7 +154,7 @@ const RADAR: GuiaDaArea = {
     {
       id: 'o-que-e-o-cerebro',
       pergunta: 'O que é o Cérebro?',
-      resposta: 'Um serviço à parte que observa uma lista fechada de contas oficiais do Rio, avalia cada publicação por seis perguntas e decide o que merece virar pauta. Ele não publica nada: o Radar é onde a Redação vê as sugestões e decide.\n\n“Abrir o Cérebro”, no alto da tela, leva ao próprio Cérebro.',
+      resposta: 'Um serviço à parte que observa uma lista fechada de contas oficiais do Rio, avalia cada publicação por seis perguntas e decide o que merece virar pauta. Ele não publica nada: o Radar é onde o Palácio Virtual vê as sugestões e decide.\n\n“Abrir o Cérebro”, no alto da tela, leva ao próprio Cérebro.',
       termos: ['ia', 'inteligência artificial', 'sugestões', 'robô', 'radar'],
     },
     {
@@ -172,7 +172,7 @@ const RADAR: GuiaDaArea = {
     {
       id: 'selos-da-linha',
       pergunta: 'O que são os selos embaixo de cada história?',
-      resposta: 'Até três, do mais importante para a decisão: o que a Casa já fez (“Pacote · …”, com a situação do pacote, “Publicado pela Casa” ou “Em pauta na Redação”); “+… boletins juntos”, quando o Cérebro juntou publicações parecidas; a situação da mídia (“Mídia autorizada”, “Foto da Casa · confirmar termo” ou “Mídia: …”, com o tipo de direito); e “Fonte confiável” ou “Conferir fonte”.',
+      resposta: 'Até três, do mais importante para a decisão: o que a Casa já fez (“Pacote · …”, com a situação do pacote, “Publicado pela Casa” ou “Em pauta no Palácio Virtual”); “+… boletins juntos”, quando o Cérebro juntou publicações parecidas; a situação da mídia (“Mídia autorizada”, “Foto da Casa · confirmar termo” ou “Mídia: …”, com o tipo de direito); e “Fonte confiável” ou “Conferir fonte”.',
       termos: ['etiquetas', 'marcadores', 'boletins', 'flags'],
     },
     {
@@ -208,7 +208,7 @@ const RADAR: GuiaDaArea = {
     {
       id: 'cerebro-indisponivel',
       pergunta: 'Apareceu “Cérebro indisponível”. E agora?',
-      resposta: 'O Cérebro não respondeu: está fora do ar ou demorando. O resto da Redação continua funcionando; recarregue a página em instantes.',
+      resposta: 'O Cérebro não respondeu: está fora do ar ou demorando. O resto do Palácio Virtual continua funcionando; recarregue a página em instantes.',
       termos: ['erro', 'fora do ar', 'não carrega', 'O Cérebro demorou para responder', 'Não foi possível falar com o Cérebro'],
     },
     {

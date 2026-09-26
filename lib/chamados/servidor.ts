@@ -134,6 +134,6 @@ export async function avisarSobreChamado(admin: Admin, p: {
     citacao: p.citacao,
     link: `/chamados/${p.chamado.id}`,
     botao: p.botao ?? 'Abrir o chamado',
-    nota: 'Responda pela Redação, no próprio chamado: respostas a este e-mail não entram no atendimento.',
+    nota: 'Responda pelo Palácio Virtual, no próprio chamado: respostas a este e-mail não entram no atendimento.',
   })
 }

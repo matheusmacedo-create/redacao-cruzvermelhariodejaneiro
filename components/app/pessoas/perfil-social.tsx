@@ -39,7 +39,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
             <div className="relative">
               <Avatar initials={p.iniciais || iniciaisDe(p.nome)} color={p.cor ?? '#9ca3af'} src={privateAvatarUrl(p.avatarPath)} alt={p.nome}
                 size="xl" className="size-24 text-3xl ring-4 ring-card sm:size-28" />
-              {online && <span className="absolute bottom-2 right-2 size-4 rounded-full bg-success ring-4 ring-card" title="Com a Redação aberta agora" />}
+              {online && <span className="absolute bottom-2 right-2 size-4 rounded-full bg-success ring-4 ring-card" title="Com o Palácio Virtual aberto agora" />}
             </div>
             <div className="flex flex-wrap gap-2" data-ajuda="diretorio.perfil-acoes">
               {p.leitor.ehDono
@@ -61,7 +61,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
               {selinho && <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-success"><Zap className="size-3.5" />{selinho}</span>}
               {papel && <span className={cn('rounded-full border px-2.5 py-1', p.papel === 'admin' ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground')} title={papel.descricao}>{papel.rotulo}</span>}
               {!p.ativo && <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">Conta desativada</span>}
-              {p.membroDesde && <span className="inline-flex items-center gap-1 text-muted-foreground"><CalendarDays className="size-3.5" />Na Redação desde {data(p.membroDesde)}</span>}
+              {p.membroDesde && <span className="inline-flex items-center gap-1 text-muted-foreground"><CalendarDays className="size-3.5" />No Palácio Virtual desde {data(p.membroDesde)}</span>}
               {p.vistoEm && !online && <span className="text-muted-foreground" title="Só você e administradores veem isto">Visto em {quando(p.vistoEm)}</span>}
             </div>
             {p.bio

@@ -91,7 +91,7 @@ export function MenuDaConta({ nome, email, previa = false }: { nome: string; ema
                 )}
                 <Menu.Separator className="my-1 h-px bg-border" />
                 <Menu.Item onClick={() => formulario.current?.requestSubmit()} className={itemDeMenu}>
-                  <LogOut className="size-4 text-muted-foreground" aria-hidden="true" />{previa ? 'Voltar ao Redação' : 'Sair'}
+                  <LogOut className="size-4 text-muted-foreground" aria-hidden="true" />{previa ? 'Voltar ao Palácio Virtual' : 'Sair'}
                 </Menu.Item>
               </Menu.Group>
             </Menu.Popup>

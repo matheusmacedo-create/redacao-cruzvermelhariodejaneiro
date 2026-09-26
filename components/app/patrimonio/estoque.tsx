@@ -96,7 +96,7 @@ export function FormularioDoItem({ categorias, itens, i, componentes: iniciais, 
               })}
             </ul>
             <div><Button type="button" size="sm" variant="outline" onClick={() => setComp([...comp, { item_id: '', quantidade: '1' }])}><Plus className="size-3.5" />Componente</Button></div>
-            <p className="text-xs text-muted-foreground">Quantidade de cada material em <em>um</em> kit. Ao montar, o Redação tira os componentes do estoque (o que vence primeiro) e põe os kits prontos.</p>
+            <p className="text-xs text-muted-foreground">Quantidade de cada material em <em>um</em> kit. Ao montar, o Palácio Virtual tira os componentes do estoque (o que vence primeiro) e põe os kits prontos.</p>
           </>
         )}
       </fieldset>

@@ -44,7 +44,7 @@ export default async function InventarioPage() {
   return (
     <div className="flex flex-col gap-6">
       <SecoesDoPatrimonio atual="/patrimonio/inventario" nivel={nivel} />
-      <PageHeader title="Inventário físico" description="Conferir, bem a bem, que tudo está onde o Redação diz. Leia o QR da etiqueta com o celular e marque “Está aqui”." />
+      <PageHeader title="Inventário físico" description="Conferir, bem a bem, que tudo está onde o Palácio Virtual diz. Leia o QR da etiqueta com o celular e marque “Está aqui”." />
 
       {aberto ? (
         <>

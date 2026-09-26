@@ -45,7 +45,7 @@ export default async function AreaDoMembro({ children }: { children: React.React
             <span className="flex items-center gap-2 font-medium"><Eye className="size-4 shrink-0" />
               {m.previa.como === 'geral' ? 'Visualização: é isto que um voluntário vê. Nada é gravado.' : `Visualização como ${m.nome}. Só leitura — nada é gravado em nome dele.`}
             </span>
-            <form action={sair}><button type="submit" className="rounded-md bg-warning-foreground px-3 py-1 text-xs font-semibold text-warning hover:opacity-90">Voltar ao Redação</button></form>
+            <form action={sair}><button type="submit" className="rounded-md bg-warning-foreground px-3 py-1 text-xs font-semibold text-warning hover:opacity-90">Voltar ao Palácio Virtual</button></form>
           </div>
         </div>
       )}

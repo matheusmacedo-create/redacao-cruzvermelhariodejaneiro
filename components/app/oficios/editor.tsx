@@ -207,7 +207,7 @@ function DialogEmitir({ pessoas, eu, falta, ocupado, aoFechar, aoEmitir }: {
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-medium">Como vão assinar</legend>
           {([
-            ['senha', 'Senha do Redação', 'Cada pessoa confirma com a própria senha, aqui mesmo. Mais rápido.'],
+            ['senha', 'Senha do Palácio Virtual', 'Cada pessoa confirma com a própria senha, aqui mesmo. Mais rápido.'],
             ['govbr', 'Assinatura gov.br', 'Cada pessoa baixa o PDF, assina no gov.br (conta prata ou ouro) e envia de volta. É a assinatura avançada do governo, que qualquer pessoa confere no validar.iti.gov.br.'],
           ] as const).map(([valor, rotulo, texto]) => (
             <label key={valor} className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm ${modo === valor ? 'border-primary bg-primary/5' : 'border-border'}`}>

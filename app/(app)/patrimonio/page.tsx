@@ -153,7 +153,7 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
           </form>
         )}
       </Card>
-      <p className="text-xs text-muted-foreground">Marque os bens e use “Etiquetas dos marcados” para imprimir as plaquetas com QR (folha A4, 3 × 8). Ao ler o QR com o celular, o bem abre no Redação.</p>
+      <p className="text-xs text-muted-foreground">Marque os bens e use “Etiquetas dos marcados” para imprimir as plaquetas com QR (folha A4, 3 × 8). Ao ler o QR com o celular, o bem abre no Palácio Virtual.</p>
     </div>
   )
 }

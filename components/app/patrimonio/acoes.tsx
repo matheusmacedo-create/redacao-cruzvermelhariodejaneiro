@@ -39,12 +39,12 @@ export function Entregar({ bemId, equipe, voluntarios }: { bemId: string; equipe
     <>
       <Button onClick={() => setAberto(true)} id="botao-entregar"><HandHelping className="size-4" />Entregar a alguém</Button>
       {aberto && (
-        <Dialog titulo="Entregar o bem" descricao="A pessoa recebe o termo de responsabilidade para aceitar: a equipe no Redação, o voluntário na Área do Voluntário (e por e-mail)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
+        <Dialog titulo="Entregar o bem" descricao="A pessoa recebe o termo de responsabilidade para aceitar: a equipe no Palácio Virtual, o voluntário na Área do Voluntário (e por e-mail)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
           <div className="flex flex-col gap-3">
             <div className="flex gap-2" role="radiogroup">
               {(['equipe', 'voluntario'] as const).map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={tipo === t} onClick={() => { setTipo(t); setP({ ...p, pessoa: '' }) }}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-sm ${tipo === t ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>{t === 'equipe' ? 'Equipe (login do Redação)' : 'Voluntário'}</button>
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm ${tipo === t ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>{t === 'equipe' ? 'Equipe (login do Palácio Virtual)' : 'Voluntário'}</button>
               ))}
             </div>
             <Campo rotulo="Quem recebe">

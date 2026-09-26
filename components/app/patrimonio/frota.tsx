@@ -159,7 +159,7 @@ export function Abastecer({ veiculoId, combustivel, kmAtual, condutores, hoje }:
     <>
       <Button variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="botao-abastecer"><Fuel className="size-4" />Abastecer</Button>
       {aberto && (
-        <Dialog titulo="Abastecimento" descricao="Com o tanque cheio, o Redação calcula o consumo (km por litro)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
+        <Dialog titulo="Abastecimento" descricao="Com o tanque cheio, o Palácio Virtual calcula o consumo (km por litro)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo rotulo="Data"><input type="date" value={p.data} max={hoje} onChange={set('data')} className={inputClass} /></Campo>
             <Campo rotulo="Hodômetro"><input value={p.km} onChange={set('km')} inputMode="numeric" className={inputClass} /></Campo>
@@ -263,7 +263,7 @@ export function DocumentoDoVeiculoDialog({ veiculoId, doc }: { veiculoId: string
         ? <button type="button" title="Editar documento" aria-label="Editar documento" onClick={() => { setP(vazio); setAberto(true) }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>
         : <Button size="sm" variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="novo-documento"><Plus className="size-3.5" />Documento</Button>}
       {aberto && (
-        <Dialog titulo={doc ? 'Documento' : 'Novo documento'} descricao="Com vencimento, o Redação avisa 30 e 7 dias antes." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
+        <Dialog titulo={doc ? 'Documento' : 'Novo documento'} descricao="Com vencimento, o Palácio Virtual avisa 30 e 7 dias antes." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Campo rotulo="Tipo"><select value={p.tipo} onChange={set('tipo')} className={inputClass}>{Object.entries(TIPOS_DE_DOCUMENTO).map(([k, x]) => <option key={k} value={k}>{x}</option>)}</select></Campo>
             <Campo rotulo="Vencimento"><input type="date" value={p.vencimento} onChange={set('vencimento')} className={inputClass} /></Campo>
@@ -315,7 +315,7 @@ export function CondutorDialog({ c, equipe, voluntarios }: { c?: CondutorCadastr
         ? <button type="button" title="Editar condutor" aria-label="Editar condutor" onClick={() => { setP(vazio); setAberto(true) }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>
         : <Button onClick={() => { setP(vazio); setAberto(true) }} id="novo-condutor" data-ajuda="patrimonio.condutores-novo"><Plus className="size-4" />Novo condutor</Button>}
       {aberto && (
-        <Dialog titulo={c ? 'Condutor' : 'Novo condutor'} descricao="Ambulância exige o curso de condutor de veículo de emergência (CTB, art. 145-A). O Redação avisa quando a CNH ou o curso vão vencer." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
+        <Dialog titulo={c ? 'Condutor' : 'Novo condutor'} descricao="Ambulância exige o curso de condutor de veículo de emergência (CTB, art. 145-A). O Palácio Virtual avisa quando a CNH ou o curso vão vencer." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex gap-2 sm:col-span-2" role="radiogroup">
               {(['equipe', 'voluntario', 'outro'] as const).map((t) => (

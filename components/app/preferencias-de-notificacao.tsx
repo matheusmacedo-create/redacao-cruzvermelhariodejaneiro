@@ -32,7 +32,7 @@ export function PreferenciasDeNotificacao({ modos, email }: { modos: Record<Cate
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         Tudo aparece no sino. Por e-mail, os avisos vão para {email ? <strong className="text-foreground">{email}</strong> : 'o seu e-mail de recuperação (confirme um acima)'}.
-        Se você estiver com a Redação aberta, o e-mail não sai na hora: o que você não abrir entra no resumo do dia.
+        Se você estiver com o Palácio Virtual aberto, o e-mail não sai na hora: o que você não abrir entra no resumo do dia.
         Avisos de segurança da conta (senha, verificação em duas etapas) chegam sempre.
       </p>
       <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">

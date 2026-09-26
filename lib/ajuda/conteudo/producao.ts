@@ -25,8 +25,8 @@ import type { GuiaDaArea } from '../tipos'
 
 const PUBLICACOES: GuiaDaArea = {
   href: '/redes',
-  paraQueServe: 'Publicações é onde a notícia sai da Redação. Cada pacote é uma notícia com vários destinos: a página no site, a newsletter e as redes (Instagram, Facebook, LinkedIn e outras). Você escreve a notícia uma vez, e cada destino recebe uma versão adaptada ao limite dele.',
-  quemUsa: 'Toda a equipe da Redação vê os pacotes, monta, pede aprovação e publica. Liberar para publicação uma mídia marcada como “uso interno” (material de terceiro) é só de administradores.',
+  paraQueServe: 'Publicações é onde a notícia sai do Palácio Virtual. Cada pacote é uma notícia com vários destinos: a página no site, a newsletter e as redes (Instagram, Facebook, LinkedIn e outras). Você escreve a notícia uma vez, e cada destino recebe uma versão adaptada ao limite dele.',
+  quemUsa: 'Toda a equipe do Palácio Virtual vê os pacotes, monta, pede aprovação e publica. Liberar para publicação uma mídia marcada como “uso interno” (material de terceiro) é só de administradores.',
   tour: [
     {
       titulo: 'Publicações',
@@ -199,7 +199,7 @@ const PUBLICACOES: GuiaDaArea = {
         'Se nada precisa mudar no destino (a conta já foi conectada, a rede voltou), toque em “Reprocessar”: só esse destino sai de novo.',
         'Se precisa corrigir a legenda ou a mídia, corrija: o destino deixa de contar como falho e sai pelo “Publicar prontos”, como os outros.',
       ],
-      dica: 'Antes de tentar de novo, a Redação confere se o post não saiu mesmo, para não publicar duas vezes.',
+      dica: 'Antes de tentar de novo, o Palácio Virtual confere se o post não saiu mesmo, para não publicar duas vezes.',
     },
     {
       id: 'melhorar-texto-com-ia',
@@ -284,7 +284,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'conta-nao-conectada',
       pergunta: 'Uma rede aparece como “conta não conectada”. O que faço?',
-      resposta: 'A conta dessa rede ainda não está ligada à Redação, então ela não pode ser escolhida. Fale com um administrador.',
+      resposta: 'A conta dessa rede ainda não está ligada ao Palácio Virtual, então ela não pode ser escolhida. Fale com um administrador.',
       termos: ['conectar rede', 'rede apagada', 'não conectada', 'upload-post'],
     },
     {
@@ -314,7 +314,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'editar-post-publicado',
       pergunta: 'Dá para editar um post que já saiu numa rede?',
-      resposta: 'Não. Destino publicado fica congelado como registro, e o post na rede não muda pela Redação. A página do site é a exceção: corrija em “A notícia” e toque em “Atualizar a página no site”. Newsletter enviada também não volta.',
+      resposta: 'Não. Destino publicado fica congelado como registro, e o post na rede não muda pelo Palácio Virtual. A página do site é a exceção: corrija em “A notícia” e toque em “Atualizar a página no site”. Newsletter enviada também não volta.',
       termos: ['corrigir post', 'editar publicação', 'congelado'],
     },
     {
@@ -355,7 +355,7 @@ const PUBLICACOES: GuiaDaArea = {
 
 const BIBLIOTECA: GuiaDaArea = {
   href: '/biblioteca',
-  paraQueServe: 'A Biblioteca guarda as fotos, os vídeos, os áudios e os documentos de trabalho da equipe, com a autorização de uso de imagem de cada um. É dela que saem as mídias dos pacotes de Publicações. Os arquivos são privados: só quem entra na Redação vê.',
+  paraQueServe: 'A Biblioteca guarda as fotos, os vídeos, os áudios e os documentos de trabalho da equipe, com a autorização de uso de imagem de cada um. É dela que saem as mídias dos pacotes de Publicações. Os arquivos são privados: só quem entra no Palácio Virtual vê.',
   quemUsa: 'Toda a equipe envia, baixa e usa os arquivos. Cada pessoa exclui o que enviou; administradores e editores excluem de qualquer pessoa.',
   tour: [
     {
@@ -460,7 +460,7 @@ const BIBLIOTECA: GuiaDaArea = {
     {
       id: 'quem-ve-biblioteca',
       pergunta: 'Quem vê os arquivos da Biblioteca?',
-      resposta: 'Toda a equipe que entra na Redação. Os arquivos são privados: não têm link público, e baixar exige estar dentro da Redação. A exceção é a cópia de uma foto que sai numa página do site: essa fica pública. Para mandar um arquivo a alguém de fora, baixe e envie o arquivo.',
+      resposta: 'Toda a equipe que entra no Palácio Virtual. Os arquivos são privados: não têm link público, e baixar exige estar dentro do Palácio Virtual. A exceção é a cópia de uma foto que sai numa página do site: essa fica pública. Para mandar um arquivo a alguém de fora, baixe e envie o arquivo.',
       termos: ['privado', 'link público', 'compartilhar', 'quem acessa'],
     },
     {
@@ -678,7 +678,7 @@ const ACERVO: GuiaDaArea = {
     {
       id: 'quem-ve-acervo',
       pergunta: 'Quem vê o que está no acervo?',
-      resposta: 'Item com o selo “Privado”: só a equipe da Redação (administradores, editores e colaboradores). Item com o selo “No site”: qualquer pessoa, em cruzvermelhariodejaneiro.org/acervo, e o Google também encontra.',
+      resposta: 'Item com o selo “Privado”: só a equipe do Palácio Virtual (administradores, editores e colaboradores). Item com o selo “No site”: qualquer pessoa, em cruzvermelhariodejaneiro.org/acervo, e o Google também encontra.',
       termos: ['privado', 'público', 'site', 'quem acessa'],
     },
     {
@@ -714,7 +714,7 @@ const ACERVO: GuiaDaArea = {
     {
       id: 'foto-do-iphone',
       pergunta: 'Minha foto do iPhone não vai para o site. Por quê?',
-      resposta: 'A foto está em HEIC, o formato do iPhone, que a Redação não consegue converter para o site. Exporte a foto como JPEG e envie de novo; o HEIC continua guardado no acervo.',
+      resposta: 'A foto está em HEIC, o formato do iPhone, que o Palácio Virtual não consegue converter para o site. Exporte a foto como JPEG e envie de novo; o HEIC continua guardado no acervo.',
       termos: ['HEIC', 'iPhone', 'JPEG', 'foto não publica'],
     },
     {

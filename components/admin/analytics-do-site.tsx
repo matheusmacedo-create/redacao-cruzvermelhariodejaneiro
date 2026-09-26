@@ -45,7 +45,7 @@ export function AnalyticsDoSite() {
     <div data-ajuda="configuracoes.site" className="mt-6 rounded-xl border border-border bg-card p-6">
       <h2 className="flex items-center gap-2 font-semibold"><BarChart3 className="size-4" />Google Analytics no site</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        O Analytics ({ID_DO_ANALYTICS}) é nativo: toda página que a Redação cria — matéria, central de notícias,
+        O Analytics ({ID_DO_ANALYTICS}) é nativo: toda página que o Palácio Virtual cria — matéria, central de notícias,
         privacidade, termos — já nasce com ele, sem precisar de botão. A varredura abaixo só existe para arquivos
         antigos ou colocados no servidor por fora, e pula o que já tem o rastreador.
       </p>

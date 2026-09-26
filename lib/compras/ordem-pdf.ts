@@ -50,6 +50,6 @@ export async function ordemDeCompra(d: DadosDaOrdem): Promise<Uint8Array> {
     { linha1: d.emitidaPor, linha2: 'Emitida por' },
     ...(d.aprovadaPor ? [{ linha1: d.aprovadaPor, linha2: 'Aprovada por' }] : []),
   ])
-  folha.rodapes(`${d.codigo} · emitida pela Redação em ${d.geradoEm}`)
+  folha.rodapes(`${d.codigo} · emitida pelo Palácio Virtual em ${d.geradoEm}`)
   return pdf.save()
 }

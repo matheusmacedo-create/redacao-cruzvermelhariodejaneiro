@@ -89,7 +89,7 @@ export function ehChaveDeTour(chave: string): boolean {
  * de volta para a Escola): a ajuda dela não pode mandar fazer isso. O
  * conferir-ajuda acusa tarefa geral que cita o "Criar" ou chamado sem o selo.
  */
-export const SO_DA_REDACAO = 'Equipe da Redação'
+export const SO_DA_REDACAO = 'Equipe do Palácio Virtual'
 
 const GERAIS_DA_ESCOLA: TopicoGeral[] = TOPICOS_GERAIS.map((t) => ({ ...t, tarefas: t.tarefas.filter((x) => x.quem !== SO_DA_REDACAO) }))
 

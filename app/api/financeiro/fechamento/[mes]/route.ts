@@ -55,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
   ]))
   arquivos['2-por-categoria.csv'] = strToU8(csv(['Código contábil', 'Grupo', 'Categoria', 'Tipo', 'Realizado no mês (caixa)', 'Competência do mês'],
     r.porCategoria.map((k) => [k.codigo, k.grupo, k.nome, k.tipo === 'receita' ? 'Receita' : 'Despesa', k.caixa, k.competencia])))
-  arquivos['3-saldos-por-conta.csv'] = strToU8(csv(['Conta', 'Saldo no início', 'Entradas', 'Saídas', 'Saldo no fim', 'Saldo no banco', 'Data do saldo do banco', 'Redação na mesma data'],
+  arquivos['3-saldos-por-conta.csv'] = strToU8(csv(['Conta', 'Saldo no início', 'Entradas', 'Saídas', 'Saldo no fim', 'Saldo no banco', 'Data do saldo do banco', 'Palácio Virtual na mesma data'],
     r.porConta.map((k) => [k.nome, k.inicio, k.entradas, k.saidas, k.fim, k.banco?.saldo ?? null, k.banco?.em ?? null, k.banco?.redacao ?? null])))
   arquivos['4-saldos-por-fonte.csv'] = strToU8(csv(['Fonte do recurso', 'Com destino (restrita)', 'Saldo no início', 'Entradas', 'Saídas', 'Saldo no fim'],
     r.porFonte.map((f) => [f.nome, f.restrita ? 'Sim' : 'Não', f.inicio, f.entradas, f.saidas, f.fim])))
@@ -142,7 +142,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ mes
     usados.add(nomeArq)
     arquivos[nomeArq] = bytes
   }
-  if (deFora.length) arquivos['comprovantes/FORA-DO-PACOTE.txt'] = strToU8(`Ficaram de fora (limite de tamanho do pacote); baixe pelo Redação:\r\n${deFora.join('\r\n')}`)
+  if (deFora.length) arquivos['comprovantes/FORA-DO-PACOTE.txt'] = strToU8(`Ficaram de fora (limite de tamanho do pacote); baixe pelo Palácio Virtual:\r\n${deFora.join('\r\n')}`)
 
   const zip = zipSync(arquivos, { level: 6 })
   const caminho = `${ws}/pacotes/${mes}/${randomUUID()}.zip`

@@ -58,7 +58,7 @@ export default async function MapaPage() {
       {erro ? (
         <Card className="border-dashed p-6 text-sm text-muted-foreground">
           <span className="font-medium text-foreground">Cérebro indisponível.</span> {erro} O resto
-          da Redação não é afetado — tente de novo em instantes.
+          do Palácio Virtual não é afetado — tente de novo em instantes.
         </Card>
       ) : nos.length === 0 ? (
         <Card className="border-dashed p-6 text-sm text-muted-foreground">

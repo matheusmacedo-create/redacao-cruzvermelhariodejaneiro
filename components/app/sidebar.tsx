@@ -28,16 +28,16 @@ function Emblema({ className }: { className?: string }) {
 function Marca({ recolhida }: { recolhida: boolean }) {
   if (recolhida) {
     return (
-      <Link href="/dashboard" aria-label="Início — Redação Cruz Vermelha Brasileira Rio de Janeiro" className="flex size-9 items-center justify-center rounded-lg hover:bg-black/[0.04]">
+      <Link href="/dashboard" aria-label="Início — Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro" className="flex size-9 items-center justify-center rounded-lg hover:bg-black/[0.04]">
         <Emblema className="size-5" />
       </Link>
     )
   }
   return (
-    <Link href="/dashboard" className="block min-w-0 rounded-lg px-1 py-1" aria-label="Início — Redação Cruz Vermelha Brasileira Rio de Janeiro">
+    <Link href="/dashboard" className="block min-w-0 rounded-lg px-1 py-1" aria-label="Início — Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro">
       {/* O PNG tem fundo branco; o multiply deixa o branco com a cor da sidebar. */}
       <Image src="/images/logo-cvrj.png" alt="" width={1844} height={752} priority sizes="150px" className="h-auto w-[150px] mix-blend-multiply" />
-      <span className="mt-1 block pl-[3px] text-[10.5px] font-semibold tracking-[0.02em] text-muted-foreground">Redação · Central de Comunicação</span>
+      <span className="mt-1 block pl-[3px] text-[10.5px] font-semibold tracking-[0.02em] text-muted-foreground">Palácio Virtual · Central de Comunicação</span>
     </Link>
   )
 }

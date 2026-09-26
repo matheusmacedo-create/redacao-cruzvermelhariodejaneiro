@@ -17,7 +17,7 @@ export const metadata = { title: tituloDaArea('/trilha-publica') }
 export const maxDuration = 60
 
 const TITULO = 'Trilha pública'
-const DESCRICAO = 'O registro verificável do que a filial publica e emite — matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e um hash; todo dia um lote é fechado, assinado e ancorado no Bitcoin, para qualquer pessoa conferir sem depender da Redação.'
+const DESCRICAO = 'O registro verificável do que a filial publica e emite — matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e um hash; todo dia um lote é fechado, assinado e ancorado no Bitcoin, para qualquer pessoa conferir sem depender do Palácio Virtual.'
 
 /**
  * A situação da chave de assinatura, lida aqui no servidor. Para a tela vai no

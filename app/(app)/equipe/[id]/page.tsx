@@ -108,7 +108,7 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
               <Item rotulo="Local de trabalho">{m.local_trabalho}</Item>
               <Item rotulo="E-mail de trabalho">{m.email_trabalho}</Item>
               <Item rotulo="Telefone de trabalho">{m.telefone_trabalho}</Item>
-              <Item rotulo="Login no Redação">{login ? `${login.full_name} (${login.username})` : null}</Item>
+              <Item rotulo="Login no Palácio Virtual">{login ? `${login.full_name} (${login.username})` : null}</Item>
             </dl>
             {m.observacoes && nivel >= 2 && <p className="mt-3 whitespace-pre-line border-t border-border pt-3 text-sm">{m.observacoes}</p>}
           </Bloco>

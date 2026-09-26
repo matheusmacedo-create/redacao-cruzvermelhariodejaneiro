@@ -8,10 +8,10 @@ import { chaveDoNome } from '@/lib/equipe'
 
 export type Acesso = 'ativo' | 'convite' | 'desativado' | 'sem_acesso'
 export const ACESSOS: Record<Acesso, { rotulo: string; classe: string; ajuda: string }> = {
-  ativo: { rotulo: 'Com acesso', classe: 'bg-success/15 text-success', ajuda: 'Já entrou na Redação.' },
+  ativo: { rotulo: 'Com acesso', classe: 'bg-success/15 text-success', ajuda: 'Já entrou no Palácio Virtual.' },
   convite: { rotulo: 'Convite pendente', classe: 'bg-warning/20 text-warning-foreground', ajuda: 'Tem conta, mas ainda não fez o primeiro acesso.' },
   desativado: { rotulo: 'Desativado', classe: 'bg-muted text-muted-foreground', ajuda: 'A conta foi desativada.' },
-  sem_acesso: { rotulo: 'Sem acesso', classe: 'bg-muted text-muted-foreground', ajuda: 'Está na equipe, mas não tem login na Redação.' },
+  sem_acesso: { rotulo: 'Sem acesso', classe: 'bg-muted text-muted-foreground', ajuda: 'Está na equipe, mas não tem login no Palácio Virtual.' },
 }
 
 /** Uma linha de public.diretorio (conta ou ficha da Equipe sem conta). */

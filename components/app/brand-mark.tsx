@@ -15,7 +15,7 @@ export function BrandMark({
   imageClassName,
   inverted = false,
   compact = false,
-  rotulo = 'Redação - Central de Comunicação',
+  rotulo = 'Palácio Virtual - Central de Comunicação',
 }: BrandMarkProps) {
   return (
     <div className={cn('flex min-w-0 flex-col items-start', className)}>

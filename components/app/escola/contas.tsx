@@ -92,8 +92,8 @@ export function ContasDaEscola({ contas, ehAdmin }: { contas: ContaDaEscola[]; e
                 {c.sincronizacao_erro && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">Última leitura falhou: {c.sincronizacao_erro}</p>}
                 {ehAdmin && (
                   <div className="flex flex-wrap justify-end gap-2">
-                    {c.chave_final && <Button size="sm" variant="ghost" disabled={pendente} onClick={() => agir(() => removerChaveDaEscola(c.id), `Tirar a chave da conta ${c.nome} do cofre? A Redação deixa de ler esta conta até uma chave nova ser guardada.`)}>Tirar a chave</Button>}
-                    <Button size="sm" variant="ghost" className="text-destructive" disabled={pendente} onClick={() => agir(() => excluirContaDaEscola(c.id), `Tirar a conta ${c.nome} da Redação? A chave e a cópia das transações somem daqui; os lançamentos já feitos no Financeiro da escola continuam, e na Únicopag nada muda.`)}><Trash2 className="size-3.5" />Tirar conta</Button>
+                    {c.chave_final && <Button size="sm" variant="ghost" disabled={pendente} onClick={() => agir(() => removerChaveDaEscola(c.id), `Tirar a chave da conta ${c.nome} do cofre? O Palácio Virtual deixa de ler esta conta até uma chave nova ser guardada.`)}>Tirar a chave</Button>}
+                    <Button size="sm" variant="ghost" className="text-destructive" disabled={pendente} onClick={() => agir(() => excluirContaDaEscola(c.id), `Tirar a conta ${c.nome} do Palácio Virtual? A chave e a cópia das transações somem daqui; os lançamentos já feitos no Financeiro da escola continuam, e na Únicopag nada muda.`)}><Trash2 className="size-3.5" />Tirar conta</Button>
                   </div>
                 )}
               </div>

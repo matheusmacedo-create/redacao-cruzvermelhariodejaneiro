@@ -245,7 +245,7 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   garantir(12)
   const nota = limpar(helv, d.modo === 'govbr'
     ? 'Documento assinado eletronicamente por meio da plataforma gov.br (Lei nº 14.063/2020).'
-    : 'Documento assinado eletronicamente no sistema Redação (Lei nº 14.063/2020).')
+    : 'Documento assinado eletronicamente no sistema Palácio Virtual (Lei nº 14.063/2020).')
   texto(nota, MARGEM.esq + (LARGURA_UTIL - helv.widthOfTextAtSize(nota, 7.5)) / 2, { fonte: helv, tamanho: 7.5, cor: CINZA })
 
   // Rodapé em todas as páginas: a filial (razão social, CNPJ, endereço), o
@@ -270,8 +270,8 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   pdf.setAuthor(limpar(helv, doc.emitente || 'Cruz Vermelha Brasileira'))
   pdf.setSubject(`SHA-256 do documento: ${d.hashDocumento}`)
   pdf.setKeywords([`oficio:${doc.numero ?? ''}`, `sha256:${d.hashDocumento}`, `verificacao:${d.codigoVerificacao}`])
-  pdf.setProducer('Redação – Cruz Vermelha RJ')
-  pdf.setCreator('Redação – Cruz Vermelha RJ')
+  pdf.setProducer('Palácio Virtual – Cruz Vermelha RJ')
+  pdf.setCreator('Palácio Virtual – Cruz Vermelha RJ')
   pdf.setCreationDate(quando)
   pdf.setModificationDate(quando)
   pdf.setLanguage('pt-BR')
