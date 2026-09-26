@@ -2,16 +2,18 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Loader2, Plus } from 'lucide-react'
+import { ChevronDown, Layers, Loader2, Plus, UserRoundX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { PRIORIDADES, ROTULO_DA_PRIORIDADE, SLA_PADRAO, type Sla } from '@/lib/chamados/regras'
-import { definirEquipeDaFila, salvarCategoria, salvarFila } from '@/app/actions/chamados'
+import { ICONES_DE_FILA, type FilaProposta } from '@/lib/chamados/setores'
+import { criarFilasDosSetores, definirEquipeDaFila, salvarCategoria, salvarFila } from '@/app/actions/chamados'
 import { campo } from './comum'
+import { ICONES_DAS_FILAS, iconeDaFila } from './icones'
 
 export type FilaNaConfiguracao = {
-  id: string; nome: string; prefixo: string; descricao: string | null; ativa: boolean; atendimento24h: boolean; sla: Sla
+  id: string; nome: string; prefixo: string; descricao: string | null; icone: string; ativa: boolean; atendimento24h: boolean; sla: Sla
   membros: string[]; categorias: { id: string; nome: string; descricao: string | null; tipo: 'incidente' | 'solicitacao'; pedeLocal: boolean; ativa: boolean }[]
   abertos: number
 }
@@ -38,16 +40,22 @@ function useAcao() {
   return { aviso, ocupado, executar }
 }
 
-export function ConfigurarChamados({ filas, pessoas }: { filas: FilaNaConfiguracao[]; pessoas: { id: string; nome: string; papel: string }[] }) {
+export function ConfigurarChamados({ filas, pessoas, semFila }: { filas: FilaNaConfiguracao[]; pessoas: { id: string; nome: string; papel: string }[]; semFila: FilaProposta[] }) {
   const [aberta, setAberta] = useState<string | null>(filas[0]?.id ?? null)
   const [criando, setCriando] = useState(false)
   return (
     <div data-ajuda="chamados.filas" className="flex flex-col gap-4">
-      {filas.map((f) => (
+      {semFila.length > 0 && <SetoresSemFila propostas={semFila} />}
+      {filas.map((f) => {
+        const Icone = iconeDaFila(f.icone)
+        return (
         <Card key={f.id} className="overflow-hidden">
-          <button type="button" onClick={() => setAberta(aberta === f.id ? null : f.id)} aria-expanded={aberta === f.id} className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/40">
+          <button type="button" onClick={() => setAberta(aberta === f.id ? null : f.id)} aria-expanded={aberta === f.id} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-5 py-4 text-left hover:bg-muted/40">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icone className="size-4" aria-hidden="true" /></span>
             <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-xs">{f.prefixo}</span>
-            <span className="flex-1 font-medium">{f.nome}{!f.ativa && <span className="ml-2 text-xs font-normal text-muted-foreground">(desativada)</span>}</span>
+            <span className="min-w-0 flex-1 font-medium">{f.nome}{!f.ativa && <span className="ml-2 text-xs font-normal text-muted-foreground">(desativada)</span>}</span>
+            {/* Sem atendentes, os avisos de chamado novo vão para os administradores (lib/chamados/servidor.ts, equipeDaFila). */}
+            {f.membros.length === 0 && <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-foreground"><UserRoundX className="size-3" aria-hidden="true" />Sem atendentes: avisos vão aos admins</span>}
             <span className="text-xs text-muted-foreground">{f.membros.length} {f.membros.length === 1 ? 'atendente' : 'atendentes'} · {f.categorias.filter((c) => c.ativa).length} assuntos · {f.abertos} em aberto</span>
             <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', aberta === f.id && 'rotate-180')} />
           </button>
@@ -59,10 +67,64 @@ export function ConfigurarChamados({ filas, pessoas }: { filas: FilaNaConfigurac
             </div>
           )}
         </Card>
-      ))}
+        )
+      })}
       {criando ? <Card className="p-5"><FormularioDaFila aoConcluir={() => setCriando(false)} /></Card>
         : <Button data-ajuda="chamados.nova-fila" variant="outline" size="lg" className="self-start" onClick={() => setCriando(true)}><Plus className="size-4" />Nova fila</Button>}
     </div>
+  )
+}
+
+/**
+ * Chamados para todos os setores: os setores de Pessoas → Setores que ainda
+ * não têm fila, cada um com a fila que ganharia (prefixo, ícone, assuntos).
+ * Um clique cria as marcadas; o responsável do setor já entra como atendente.
+ */
+function SetoresSemFila({ propostas }: { propostas: FilaProposta[] }) {
+  const { aviso, ocupado, executar } = useAcao()
+  const possiveis = propostas.filter((p) => p.prefixo)
+  const [marcados, setMarcados] = useState<string[]>(possiveis.map((p) => p.setorId))
+  const [aberto, setAberto] = useState(true)
+  return (
+    <Card data-ajuda="chamados.setores" className="overflow-hidden border-primary/30">
+      <button type="button" onClick={() => setAberto(!aberto)} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/40">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Layers className="size-4" aria-hidden="true" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium">{propostas.length === 1 ? 'Um setor ainda não recebe chamados' : `${propostas.length} setores ainda não recebem chamados`}</span>
+          <span className="block text-xs text-muted-foreground">Crie a fila de cada um com um clique: prefixo, ícone e assuntos já sugeridos, e o responsável do setor como atendente. Dá para ajustar tudo depois.</span>
+        </span>
+        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
+      </button>
+      {aberto && (
+        <div className="flex flex-col gap-3 border-t border-border bg-muted/20 p-5">
+          <ul className="grid gap-2 md:grid-cols-2">
+            {propostas.map((p) => {
+              const Icone = iconeDaFila(p.icone)
+              const marcado = marcados.includes(p.setorId)
+              return (
+                <li key={p.setorId}>
+                  <label className={cn('flex h-full cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 text-sm', marcado ? 'border-primary/50' : 'border-border', !p.prefixo && 'cursor-not-allowed opacity-60')}>
+                    <input type="checkbox" className="mt-1" disabled={!p.prefixo} checked={marcado} onChange={(e) => setMarcados(e.target.checked ? [...marcados, p.setorId] : marcados.filter((m) => m !== p.setorId))} />
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icone className="size-4" aria-hidden="true" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2 font-medium">{p.nome}{p.prefixo && <span className="rounded bg-muted px-1.5 py-px font-mono text-[11px] font-normal">{p.prefixo}-0001</span>}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{p.prefixo ? p.assuntos.map((a) => a.nome).join(' · ') : 'Sem prefixo livre: crie esta fila em “Nova fila”.'}</span>
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+          <Recado aviso={aviso} />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMarcados(marcados.length === possiveis.length ? [] : possiveis.map((p) => p.setorId))}>{marcados.length === possiveis.length ? 'Desmarcar todos' : 'Marcar todos'}</Button>
+            <Button type="button" disabled={!marcados.length || ocupado} onClick={() => { const f = new FormData(); marcados.forEach((m) => f.append('setores', m)); executar(criarFilasDosSetores, f) }}>
+              {ocupado && <Loader2 className="size-4 animate-spin" />}{marcados.length === 1 ? 'Criar 1 fila' : `Criar ${marcados.length} filas`}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -85,6 +147,20 @@ function FormularioDaFila({ fila, aoConcluir }: { fila?: FilaNaConfiguracao; aoC
         <label className="flex flex-col gap-1.5 text-sm font-medium">Prefixo<input name="prefixo" defaultValue={fila?.prefixo} required maxLength={6} pattern="[A-Za-z]{2,6}" className={cn(campo, 'uppercase')} placeholder="COM" /></label>
       </div>
       <label className="flex flex-col gap-1.5 text-sm font-medium">O que esta equipe atende<input name="descricao" defaultValue={fila?.descricao ?? ''} maxLength={300} className={campo} /></label>
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="mb-1.5 text-sm font-medium">Ícone</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {ICONES_DE_FILA.map((chave) => {
+            const { Icone, rotulo } = ICONES_DAS_FILAS[chave]
+            return (
+              <label key={chave} title={rotulo} className="cursor-pointer">
+                <input type="radio" name="icone" value={chave} defaultChecked={(fila?.icone ?? 'ticket') === chave} className="peer sr-only" />
+                <span className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ring/40 hover:bg-muted"><Icone className="size-4" aria-hidden="true" /><span className="sr-only">{rotulo}</span></span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
       <div className="flex flex-wrap gap-6 text-sm">
         <label className="flex items-center gap-2"><input type="checkbox" name="ativa" defaultChecked={fila?.ativa ?? true} />Recebendo chamados</label>
         <label className="flex items-center gap-2"><input type="checkbox" name="atendimento24h" defaultChecked={fila?.atendimento24h ?? false} />Atende 24h (prazos em horas corridas)</label>

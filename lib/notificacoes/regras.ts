@@ -25,7 +25,7 @@ export const ROTULO_DA_CATEGORIA: Record<Categoria, { nome: string; exemplos: st
   aprovacoes: { nome: 'Aprovações', exemplos: 'Pedidos para você aprovar e as decisões sobre o que você enviou.' },
   mensagens: { nome: 'Mensagens', exemplos: 'Mensagens diretas e conversas nas pautas de que você participa.' },
   pautas: { nome: 'Pautas e conteúdos', exemplos: 'Quando você entra numa pauta, vira responsável por um cartão ou recebe comentário num conteúdo.' },
-  chamados: { nome: 'Chamados', exemplos: 'Respostas, mudanças de situação e atribuições nos chamados de TI e Manutenção.' },
+  chamados: { nome: 'Chamados', exemplos: 'Respostas, mudanças de situação e atribuições nos seus chamados e nos dos setores que você atende.' },
   oficios: { nome: 'Ofícios', exemplos: 'Pedidos de assinatura, recusas, cancelamentos e ofícios concluídos.' },
   financeiro: { nome: 'Financeiro', exemplos: 'Contas que vencem hoje ou estão atrasadas, e o fechamento do mês.' },
   patrimonio: { nome: 'Patrimônio e estoque', exemplos: 'Bens entregues a você, termos para aceitar, manutenções vencendo e estoque baixo.' },
