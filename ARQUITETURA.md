@@ -820,6 +820,33 @@ Benchmark, decisões e o que foi entregue: [`docs/calendario-inteligente.md`](do
   o arquivo RFC 5545. Conferência:
   `npx tsx scripts/conferir-agenda.ts`.
 
+### 7.17 Autorização de uso de imagem por link (`/biblioteca/autorizacoes` → `/autorizacao/[token]`)
+
+- **Fluxo.** Na Biblioteca, a equipe seleciona as fotos de uma ação e gera um link
+  (`imagem_coletas`: título, `file_ids`, token de 43 caracteres, validade opcional). Quem aparece
+  nas fotos abre o link no celular, sem login: vê as fotos (servidas por
+  `/api/publico/autorizacao/[token]/foto/[fileId]`, que confere se a foto é da coleta), lê o termo,
+  marca os usos e assina com o dedo num `<canvas>`. A página da ação mostra QR, WhatsApp, quem
+  assinou e o botão que passa as fotos a `authorization_status = 'authorized'`.
+- **O que prova a assinatura** (`imagem_autorizacoes`): os traços da assinatura (coordenadas 0–1000,
+  sem imagem), IP, User-Agent, o aparelho descrito (`descreverAparelho`; o modelo do Android vem de
+  `navigator.userAgentData.getHighEntropyValues`), data e hora, a versão do termo e o SHA-256 do
+  texto dele, e o SHA-256 do documento canônico (tudo o que foi preenchido e registrado). O texto
+  de cada versão do termo fica em `imagem_termo_versoes` na primeira assinatura e não muda
+  (trigger). **Mudou o texto do termo, mude `TERMO_VERSAO`** em `lib/imagem/termo.ts`.
+  Não há selfie de propósito: rosto para identificar é dado biométrico (sensível na LGPD).
+- **Imutável.** Trigger `private.imagem_autorizacao_imutavel`: não apaga, não altera o assinado e
+  só aceita uma revogação (campos `revogada_*`). Revoga quem assinou, pelo comprovante
+  (`/autorizacao/comprovante/[codigo]?c=`; o banco guarda só o SHA-256 da chave), ou a equipe,
+  com motivo. Quem criou o link recebe aviso (`notificar`, categoria `aprovacoes`).
+- **Escrita só pelo servidor.** As três tabelas têm RLS de leitura para membros do espaço e nenhuma
+  escrita para `authenticated`/`anon`: a página pública grava por `lib/imagem/servidor.ts` (cliente
+  de serviço, limite de 60 assinaturas por IP por hora e 500 por link), a equipe por
+  `app/actions/autorizacoes-de-imagem.ts`. Busca e planilha: `lib/imagem/consulta.ts` e
+  `/api/biblioteca/autorizacoes/csv`.
+- **Regras puras** em `lib/imagem/regras.ts` (validação, traços, aparelho, código `IMG-XXXX-XXXX`,
+  documento canônico). O termo é **minuta** — revisão do Jurídico pendente.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
