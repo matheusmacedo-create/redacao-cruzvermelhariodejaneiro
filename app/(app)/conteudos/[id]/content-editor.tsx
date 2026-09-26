@@ -34,7 +34,7 @@ import type { ContentPiece, Pauta, Person } from '@/lib/data'
 import { addContentComment, archiveContentDraft, saveContent, submitContentForApproval } from '@/app/actions/editorial'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import { mediaToken, parseContentBlocks } from '@/lib/content-blocks'
-import { enviarParaBiblioteca } from '@/lib/upload-cliente'
+import { enviarParaBiblioteca, type EtapaDoEnvio } from '@/lib/upload-cliente'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
 
 // A lista de emojis pesa ~160 KB: só baixa quando alguém abre o seletor.
@@ -84,6 +84,7 @@ export function ContentEditor({
   const [revisores, setRevisores] = useState<string[]>([])
   const [concludeError, setConcludeError] = useState('')
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | 'audio' | null>(null)
+  const [etapaDoEnvio, setEtapaDoEnvio] = useState<{ etapa: EtapaDoEnvio; porcentagem: number } | null>(null)
   const [mediaError, setMediaError] = useState('')
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -103,18 +104,26 @@ export function ContentEditor({
   async function uploadMedia(kind: 'image' | 'video' | 'audio', file: File) {
     setMediaError('')
     setUploadingKind(kind)
+    setEtapaDoEnvio(null)
     try {
       // Direto do navegador ao armazenamento. Pela função serverless, a Vercel
       // corta o corpo da requisição em 4,5 MB: vídeo nenhum passava, e o botão
       // de vídeo aqui existia sem nunca poder funcionar em produção.
-      const salvo = await enviarParaBiblioteca(file, { workspaceId, tags: ['conteudo'] })
-      const token = mediaToken(kind, salvo.previa, file.name)
+      // Antes de subir, foto e vídeo são otimizados — vídeo pode levar um tempo.
+      const salvo = await enviarParaBiblioteca(file, {
+        workspaceId,
+        tags: ['conteudo'],
+        onEtapa: (etapa, porcentagem) => setEtapaDoEnvio({ etapa, porcentagem }),
+      })
+      // O nome guardado, não o escolhido: "IMG_2043.MOV" pode ter virado .mp4.
+      const token = mediaToken(kind, salvo.previa, salvo.nome)
       setBody((current) => `${current}${current.trim() ? '\n\n' : ''}${token}\n\n`)
       setSaved(false)
     } catch (error) {
       setMediaError(error instanceof Error ? error.message : 'Não foi possível enviar o arquivo.')
     } finally {
       setUploadingKind(null)
+      setEtapaDoEnvio(null)
     }
   }
 
@@ -334,6 +343,13 @@ export function ContentEditor({
               />
             ))}
           </div>
+          {uploadingKind === 'video' && (
+            <p className="px-6 pt-2 text-xs text-muted-foreground lg:px-8">
+              {etapaDoEnvio?.etapa === 'enviando'
+                ? `Enviando o vídeo… ${etapaDoEnvio.porcentagem}%`
+                : `Otimizando o vídeo…${etapaDoEnvio?.porcentagem ? ` ${etapaDoEnvio.porcentagem}%` : ''}`}
+            </p>
+          )}
           {mediaError && <p className="px-6 pt-2 text-xs text-destructive lg:px-8">{mediaError}</p>}
 
           <div data-ajuda="conteudo.texto" className="mx-auto max-w-3xl px-6 py-8 lg:px-12">

@@ -17,7 +17,8 @@ import { emailDaNewsletter } from '@/lib/newsletter/modelo'
 import { contar } from '@/lib/publicacao/contagem'
 import { gerarVariante, validarVariante, temErro, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { temMarcacaoVisivel, textoParaRede } from '@/lib/publicacao/texto-plano'
-import { enviarParaBiblioteca } from '@/lib/upload-cliente'
+import { enviarParaBiblioteca, type EtapaDoEnvio } from '@/lib/upload-cliente'
+import { tamanhoLegivel, textoDaEconomia } from '@/lib/midia/regras'
 import { cn } from '@/lib/utils'
 import { LogoDoCanal } from '@/components/ui/logo-do-canal'
 import {
@@ -1814,12 +1815,14 @@ function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDesc
       setRestantes(r.restantesNoMes ?? null)
       setAviso(r.aviso ?? '')
       // Entram na grade de mídias na hora — selecionar é decisão de gente.
-      for (const img of novas) {
+      // Tipo e nome vêm do servidor, que guarda a arte da IA como JPEG; o
+      // padrão só cobre uma resposta que ainda não diga o tipo.
+      for (const img of novas as Array<ImagemDaMateria & { contentType?: string }>) {
         onNovaMidia({
           id: img.fileId,
           nome: img.nome,
           tipo: 'foto',
-          contentType: 'image/png',
+          contentType: img.contentType ?? 'image/jpeg',
           tamanho: img.tamanho,
           previa: img.previa,
           autorizacao: 'authorized',
@@ -2503,13 +2506,17 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
   const entrada = useRef<HTMLInputElement>(null)
   const [escolhido, setEscolhido] = useState<File | null>(null)
   const [autorizado, setAutorizado] = useState(false)
+  const [etapa, setEtapa] = useState<EtapaDoEnvio>('otimizando')
   const [progresso, setProgresso] = useState(0)
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
+  // "11,8 MB → 1,1 MB (−91%)" do último envio, quando o preparo valeu a pena.
+  const [economia, setEconomia] = useState('')
 
   function limpar() {
     setEscolhido(null)
     setAutorizado(false)
+    setEtapa('otimizando')
     setProgresso(0)
     if (entrada.current) entrada.current.value = ''
   }
@@ -2517,26 +2524,33 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
   async function enviar() {
     if (!escolhido || !autorizado) return
     setErro('')
+    setEconomia('')
+    setEtapa('otimizando')
+    setProgresso(0)
     setEnviando(true)
     try {
+      // Antes de subir, a foto vira JPEG leve e o vídeo vira MP4 H.264 — o
+      // que volta (nome, tipo, tamanho) é o arquivo que ficou guardado, não o
+      // escolhido: o .MOV do iPhone costuma voltar como .mp4.
       const salvo = await enviarParaBiblioteca(escolhido, {
         workspaceId,
         tags: ['redes'],
         autorizacao: 'authorized',
-        onProgresso: setProgresso,
+        onEtapa: (agora, porcentagem) => { setEtapa(agora); setProgresso(porcentagem) },
       })
       onEnviada({
         id: salvo.id,
-        nome: escolhido.name,
-        tipo: escolhido.type.startsWith('video/') ? 'video' : 'foto',
-        contentType: escolhido.type,
-        tamanho: escolhido.size,
+        nome: salvo.nome,
+        tipo: salvo.tipo.startsWith('video/') ? 'video' : 'foto',
+        contentType: salvo.tipo,
+        tamanho: salvo.tamanho,
         previa: salvo.previa,
         // Enviado daqui já vai autorizado: a caixa de confirmação acima é
         // exatamente essa declaração.
         autorizacao: 'authorized',
       })
       limpar()
+      setEconomia(textoDaEconomia(salvo.tamanhoOriginal, salvo.tamanho) ?? '')
     } catch (causa) {
       setErro(causa instanceof Error ? causa.message : 'Não foi possível enviar o arquivo.')
     } finally {
@@ -2559,25 +2573,34 @@ function BotaoEnviarMidia({ workspaceId, somenteFoto, onEnviada }: {
         type="file"
         accept={somenteFoto ? 'image/*' : 'image/*,video/*'}
         className="hidden"
-        onChange={(e) => { setEscolhido(e.target.files?.[0] ?? null); setErro('') }}
+        onChange={(e) => { setEscolhido(e.target.files?.[0] ?? null); setErro(''); setEconomia('') }}
       />
 
       {escolhido && (
         <div className="w-full rounded-lg border border-border bg-muted/40 p-3">
           <p className="truncate text-xs font-medium">{escolhido.name}</p>
-          <p className="text-[11px] text-muted-foreground">{(escolhido.size / 1024 / 1024).toFixed(1)} MB</p>
+          <p className="text-[11px] text-muted-foreground">{tamanhoLegivel(escolhido.size)}</p>
           <label className="mt-2 flex items-start gap-2 text-[11px] leading-snug">
             <input type="checkbox" checked={autorizado} onChange={(e) => setAutorizado(e.target.checked)} className="mt-0.5" />
             <span>Confirmo que há autorização de uso de imagem para publicar esta mídia.</span>
           </label>
           <div className="mt-2 flex items-center gap-2">
             <Button size="sm" onClick={enviar} disabled={!autorizado || enviando}>
-              {enviando ? <><Loader2 className="size-3.5 animate-spin" />{progresso}%</> : <>Enviar</>}
+              {enviando ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {/* Vídeo pode passar um bom tempo sendo convertido antes de subir. */}
+                  {etapa === 'otimizando'
+                    ? `Otimizando…${progresso > 0 ? ` ${progresso}%` : ''}`
+                    : `Enviando… ${progresso}%`}
+                </>
+              ) : <>Enviar</>}
             </Button>
             <Button size="sm" variant="ghost" onClick={limpar} disabled={enviando}>Cancelar</Button>
           </div>
         </div>
       )}
+      {economia && <p className="w-full text-[11px] text-muted-foreground">Arquivo otimizado: {economia}</p>}
       {erro && <p className="w-full text-[11px] text-destructive">{erro}</p>}
     </div>
   )
@@ -3300,6 +3323,7 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const arquivoRef = useRef<HTMLInputElement>(null)
   const [enviando, setEnviando] = useState(false)
+  const [etapaDoEnvio, setEtapaDoEnvio] = useState<EtapaDoEnvio>('otimizando')
   const [erro, setErro] = useState('')
 
   // Parágrafo é a unidade do formato: a linha de mídia mora sozinha em um.
@@ -3383,11 +3407,16 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
 
   async function subirFoto(arquivo: File) {
     setErro('')
+    setEtapaDoEnvio('otimizando')
     setEnviando(true)
     try {
       // Direto do navegador ao armazenamento: pela função serverless, a Vercel
       // corta o corpo em 4,5 MB e foto de celular já batia nesse teto.
-      const salvo = await enviarParaBiblioteca(arquivo, { workspaceId, tags: ['materia'] })
+      const salvo = await enviarParaBiblioteca(arquivo, {
+        workspaceId,
+        tags: ['materia'],
+        onEtapa: (etapa) => setEtapaDoEnvio(etapa),
+      })
       // A foto entra sem legenda de propósito: o nome do arquivo ("IMG_2043")
       // viraria legenda na página. O painel abaixo pede o texto de verdade.
       inserirBloco(mediaToken('image', salvo.previa, ''))
@@ -3417,7 +3446,7 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
         <button type="button" className={botao} disabled={desabilitado || enviando} onClick={() => arquivoRef.current?.click()}>
           {enviando ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
-          {enviando ? 'Enviando…' : 'Foto'}
+          {enviando ? (etapaDoEnvio === 'otimizando' ? 'Otimizando…' : 'Enviando…') : 'Foto'}
         </button>
         <span className="mx-1 h-4 w-px bg-border" />
         <button type="button" className={botao} disabled={desabilitado} onClick={() => prefixarLinhas('## ')}><Heading2 className="size-3.5" />Intertítulo</button>

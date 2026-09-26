@@ -1,25 +1,33 @@
 'use client'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { upload as uploadToBlob } from '@vercel/blob/client'
-import { caminhoDaBiblioteca } from '@/lib/storage'
-import { AlertTriangle, CheckCircle2, Download, FileText, Folder, ImageIcon, Lock, Music, PenLine, Search, ShieldCheck, Trash2, UploadCloud, Video } from 'lucide-react'
+import { enviarParaBiblioteca, type EtapaDoEnvio } from '@/lib/upload-cliente'
+import { tamanhoLegivel, textoDaEconomia } from '@/lib/midia/regras'
+import { AlertTriangle, CheckCircle2, Download, FileText, Folder, ImageIcon, Lock, Music, PenLine, Search, ShieldCheck, Sparkles, Trash2, UploadCloud, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { autorizarUsoDeImagem } from '@/app/actions/arquivos'
+import { autorizarUsoDeImagem, otimizarFotosAntigas } from '@/app/actions/arquivos'
 
 type Item = { id: string; name: string; kind: string; contentType: string | null; size: number; status: string; tags: string[]; createdAt: string; storagePath: string | null; author: { name: string; initials: string; color?: string }; canDelete: boolean }
 const icons: Record<string, typeof FileText> = { foto: ImageIcon, video: Video, audio: Music, documento: FileText }
 const kinds = [['todos', 'Todos'], ['foto', 'Fotos'], ['video', 'Vídeos'], ['audio', 'Áudios'], ['documento', 'Documentos']]
-const format = (n: number) => (n <= 0 ? '0 KB' : n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`)
+const format = (n: number) => (n <= 0 ? '0 KB' : tamanhoLegivel(n))
 
 const FOLDER_PREFIX = 'pasta:'
 const folderOf = (tags: string[]) => tags.find((t) => t.startsWith(FOLDER_PREFIX))?.slice(FOLDER_PREFIX.length) || null
 const visibleTags = (tags: string[]) => tags.filter((t) => !t.startsWith(FOLDER_PREFIX))
 
-export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }: { initialFiles: Item[]; usedBytes: number; limitBytes: number; workspaceId: string }) {
+/** O que o input de arquivo oferece: o que a Biblioteca aceita (lib/storage.ts), mais a foto HEIC, que o preparo converte. */
+const ACEITOS = 'image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv'
+
+export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId, fotosAntigas, podeOtimizar }: {
+  initialFiles: Item[]; usedBytes: number; limitBytes: number; workspaceId: string
+  /** Fotos enviadas antes da otimização na entrada (só calculado para quem pode otimizar). */
+  fotosAntigas: { quantidade: number; bytes: number }
+  podeOtimizar: boolean
+}) {
   const router = useRouter()
   const input = useRef<HTMLInputElement>(null)
   const [kind, setKind] = useState('todos')
@@ -29,7 +37,12 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
   const [newFolder, setNewFolder] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const [etapa, setEtapa] = useState<{ nome: EtapaDoEnvio; porcentagem: number } | null>(null)
+  /** "Alta qualidade": foto até 4096 px e vídeo como veio. Vale só para o próximo envio. */
+  const [altaQualidade, setAltaQualidade] = useState(false)
+  /** "Otimizar fotos antigas": quantas já foram de quantas, e o resumo no fim. */
+  const [otimizando, setOtimizando] = useState<{ feitas: number; total: number } | null>(null)
+  const [avisoDaOtimizacao, setAvisoDaOtimizacao] = useState('')
   const [authorization, setAuthorization] = useState<'pending' | 'authorized' | 'internal'>('pending')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -64,42 +77,91 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
     return `${f.name} ${f.tags.join(' ')}`.toLowerCase().includes(query.toLowerCase())
   })
 
+  // Vídeo é convertido no navegador antes de subir: fechar a aba no meio perde o envio.
+  useEffect(() => {
+    if (!busy) return
+    const segurar = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', segurar)
+    return () => window.removeEventListener('beforeunload', segurar)
+  }, [busy])
+
   async function upload() {
     const file = selectedFile ?? input.current?.files?.[0]
     if (!file) { setError('Escolha um arquivo antes de enviar.'); return }
-    setBusy(true); setError(''); setSuccess(''); setProgress(0)
+    setBusy(true); setError(''); setSuccess(''); setEtapa(null)
     const folderTag = newFolder.trim() ? `${FOLDER_PREFIX}${newFolder.trim()}` : ''
     const allTags = [folderTag, ...tags.split(',').map((t) => t.trim())].filter(Boolean)
 
     try {
-      // O arquivo vai direto do navegador para o armazenamento. Passar pela
-      // função serverless limitaria tudo a 4,5 MB — vídeo nenhum caberia.
-      const blob = await uploadToBlob(caminhoDaBiblioteca(workspaceId, file.name), file, {
-        access: 'private',
-        handleUploadUrl: '/api/files/upload-token',
-        clientPayload: String(file.size),
-        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      // O mesmo caminho do hub e do editor (lib/upload-cliente.ts): prepara
+      // (foto leve, vídeo MP4), sobe direto ao armazenamento e registra.
+      const salvo = await enviarParaBiblioteca(file, {
+        workspaceId,
+        tags: allTags,
+        autorizacao: authorization,
+        perfil: altaQualidade ? 'alta' : 'padrao',
+        onEtapa: (nome, porcentagem) => setEtapa({ nome, porcentagem }),
       })
 
-      const res = await fetch('/api/files/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pathname: blob.pathname, name: file.name, tags: allTags, authorization }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Não foi possível registrar o arquivo.')
-
-      setSuccess(`“${file.name}” enviado com sucesso.`)
+      const economia = textoDaEconomia(salvo.tamanhoOriginal, salvo.tamanho)
+      setSuccess(economia ? `“${salvo.nome}” enviado — ${economia}.` : `“${salvo.nome}” enviado com sucesso.`)
       router.refresh()
       if (input.current) input.current.value = ''
       setSelectedFile(null)
       setTags('')
       setNewFolder('')
       setAuthorization('pending')
+      setAltaQualidade(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível enviar o arquivo.')
     } finally {
-      setBusy(false); setProgress(0)
+      setBusy(false); setEtapa(null)
+    }
+  }
+
+  const rotuloDoEnvio = !etapa ? 'Preparando…'
+    : etapa.nome === 'otimizando' ? (etapa.porcentagem > 0 ? `Otimizando… ${etapa.porcentagem}%` : 'Otimizando…')
+      : `Enviando… ${etapa.porcentagem}%`
+
+  /**
+   * "Otimizar fotos antigas": rodadas curtas da action até não sobrar foto.
+   * As que falham voltam em `pular`, para a rodada seguinte não tropeçar
+   * sempre na mesma; a tela para quando uma rodada não consegue nada.
+   */
+  async function otimizarAntigas() {
+    const n = fotosAntigas.quantidade
+    if (!confirm(`Otimizar ${n} foto(s)? Cada uma vira JPEG de até 2048 px, sem localização, no mesmo endereço. A versão original não fica guardada.`)) return
+    setError(''); setAvisoDaOtimizacao('')
+    setOtimizando({ feitas: 0, total: n })
+    let pular: string[] = []
+    let feitas = 0
+    let processados = 0
+    let antes = 0
+    let depois = 0
+    let parou = false
+    try {
+      for (;;) {
+        const r = await otimizarFotosAntigas(pular)
+        if (r.erro) { setError(r.erro); parou = true; break }
+        processados += r.processados
+        antes += r.antes
+        depois += r.depois
+        pular = [...pular, ...r.falhas]
+        feitas += r.processados + r.falhas.length
+        setOtimizando({ feitas, total: feitas + r.restantes })
+        if (!r.restantes || (!r.processados && !r.falhas.length) || pular.length >= 100) break
+      }
+      const economia = textoDaEconomia(antes, depois)
+      const partes = [
+        economia ? `${parou ? 'Até aqui' : 'Pronto'}: ${economia}.` : processados ? `${processados} foto(s) conferida(s); já estavam leves.` : '',
+        pular.length ? `${pular.length} foto(s) não puderam ser otimizadas agora.` : '',
+      ]
+      setAvisoDaOtimizacao(partes.filter(Boolean).join(' '))
+    } catch {
+      setError('A otimização parou no meio. Toque em “Otimizar agora” para continuar.')
+    } finally {
+      setOtimizando(null)
+      router.refresh()
     }
   }
 
@@ -117,16 +179,24 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1">
             <p className="text-sm font-semibold">Enviar arquivo</p>
-            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · até 300 MB. Só arquivos com autorização de uso podem ir para as redes ou para o site.</p>
+            <p className="mt-1 text-xs text-muted-foreground">PDF, Office, imagens, áudio ou vídeo · até 300 MB. Fotos e vídeos ficam mais leves no envio. Só arquivos com autorização de uso podem ir para as redes ou para o site.</p>
             <input
               ref={input}
               type="file"
+              accept={ACEITOS}
               onChange={(e) => { setSelectedFile(e.target.files?.[0] ?? null); setError(''); setSuccess('') }}
               className="mt-3 block w-full text-sm"
             />
             <p className="mt-1.5 text-xs font-medium text-muted-foreground">
               {selectedFile ? `Selecionado: ${selectedFile.name} (${format(selectedFile.size)})` : 'Nenhum arquivo selecionado ainda.'}
             </p>
+            <label data-ajuda="biblioteca.alta-qualidade" className="mt-3 flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={altaQualidade} onChange={(e) => setAltaQualidade(e.target.checked)} disabled={busy} className="mt-0.5 size-4 accent-[var(--primary)]" />
+              <span>
+                <span className="font-medium">Alta qualidade (para impressão ou edição)</span>
+                <span className="block text-xs text-muted-foreground">Fotos até 4096 px e vídeo como veio. Ocupa mais espaço.</span>
+              </span>
+            </label>
           </div>
           <label className="text-sm font-medium">
             Pasta
@@ -157,13 +227,27 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
               <option value="internal">Uso interno apenas</option>
             </select>
           </label>
-          <Button onClick={upload} disabled={busy || !selectedFile}>{busy ? `${progress}%` : <><UploadCloud className="size-4" />Enviar</>}</Button>
+          <Button onClick={upload} disabled={busy || !selectedFile}>{busy ? rotuloDoEnvio : <><UploadCloud className="size-4" />Enviar</>}</Button>
         </div>
+        {busy && etapa?.nome === 'otimizando' && etapa.porcentagem > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground" aria-live="polite">O vídeo está sendo convertido neste navegador antes de subir. Deixe esta aba aberta até terminar.</p>
+        )}
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         {success && <p className="mt-3 flex items-center gap-1.5 text-sm text-success"><CheckCircle2 className="size-4" />{success}</p>}
         <div className="mt-4">
           <div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Espaço usado</span><span>{format(usedBytes)} de {format(limitBytes)}</span></div>
           <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full bg-primary" style={{ width: `${Math.min(100, (usedBytes / limitBytes) * 100)}%` }} /></div>
+          {podeOtimizar && (fotosAntigas.quantidade > 0 || otimizando || avisoDaOtimizacao) && (
+            <div data-ajuda="biblioteca.otimizar-antigas" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+              <p className="text-muted-foreground" aria-live="polite">
+                {otimizando ? `Otimizando… ${Math.min(otimizando.feitas, otimizando.total)} de ${otimizando.total}`
+                  : avisoDaOtimizacao || `${fotosAntigas.quantidade} ${fotosAntigas.quantidade === 1 ? 'foto enviada' : 'fotos enviadas'} antes da otimização ${fotosAntigas.quantidade === 1 ? 'ocupa' : 'ocupam'} ${tamanhoLegivel(fotosAntigas.bytes)}.`}
+              </p>
+              {!otimizando && fotosAntigas.quantidade > 0 && (
+                <Button size="sm" variant="outline" onClick={otimizarAntigas}><Sparkles className="size-4" />Otimizar agora</Button>
+              )}
+            </div>
+          )}
         </div>
       </Card>
 
