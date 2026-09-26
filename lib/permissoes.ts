@@ -75,6 +75,7 @@ export const PERMISSOES = {
   'biblioteca.liberar_terceiros': { grupo: 'Site e publicação', rotulo: 'Liberar mídia de terceiros para publicação', papeis: ['admin'] },
   'acervo.ver': { grupo: 'Site e publicação', rotulo: 'Ver o acervo da filial, inclusive o material de uso interno, e baixar os arquivos', papeis: ['admin', 'editor', 'colaborador'] },
   'acervo.gerenciar': { grupo: 'Site e publicação', rotulo: 'Enviar arquivos ao acervo, catalogar e publicar em cruzvermelhariodejaneiro.org/acervo', papeis: ['admin', 'editor'] },
+  'agenda.datas': { grupo: 'Site e publicação', rotulo: 'Cadastrar e editar as datas comemorativas da Agenda', papeis: ['admin', 'editor'] },
 
   // Conteúdo de outras pessoas
   'biblioteca.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar arquivos da Biblioteca enviados por outras pessoas', papeis: ['admin', 'editor'] },

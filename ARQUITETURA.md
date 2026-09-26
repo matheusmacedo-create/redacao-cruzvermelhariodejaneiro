@@ -847,6 +847,29 @@ Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
   “Equipe da Redação”, e avisa sobre área sem ajuda. Tela nova ou que mudou
   atualiza a ajuda no mesmo PR (§10.3).
 
+### 7.16 Agenda (`/calendario`)
+
+Benchmark, decisões e o que foi entregue: [`docs/calendario-inteligente.md`](docs/calendario-inteligente.md) §0.
+
+- **Camadas, não cópias.** Cada área com data (pautas, publicações, voluntariado, escola, doações,
+  financeiro, frota, chamados, parcerias, aniversários, datas comemorativas e feriados) é lida na
+  hora, só na janela visível, por `lib/agenda/fontes.ts`. `calendar_events` continua sendo a tabela
+  dos agendamentos avulsos e das publicações previstas (§7.2).
+- **Na tela, o RLS decide:** as fontes usam o cliente da pessoa. `camadasDisponiveis` só esconde
+  do painel as camadas das áreas a que ela não tem acesso.
+- **Sem sessão, confere de novo:** o link de assinatura (`/api/agenda/ics/[token]`) e o resumo
+  semanal (`/api/agenda/resumo`, segunda 9h43 UTC) usam o cliente de serviço. Por isso passam
+  `semSessao: true` (o Financeiro só entra para quem vê os livros de todas as empresas), e o ICS
+  só leva as camadas marcadas `ics: true` em `lib/agenda/camadas.ts`. O token do ICS só existe na
+  tela de quem o gerou; o banco guarda o SHA-256.
+- **Preferências por pessoa** em `agenda_preferencias`: camadas desligadas, resumo semanal e o
+  link. Nem esta tabela nem `datas_comemorativas` aceitam escrita direta (RLS). Tudo passa por
+  `app/actions/agenda.ts`.
+- **Regras puras** em `lib/agenda/{datas,regras,ics,visao}.ts`: feriados calculados (Páscoa de
+  Meeus; a camada soma o que a BrasilAPI da §8.4 trouxer a mais), datas comemorativas, alertas e
+  o arquivo RFC 5545. Conferência:
+  `npx tsx scripts/conferir-agenda.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
