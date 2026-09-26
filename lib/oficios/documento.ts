@@ -25,7 +25,8 @@ export type Documento = {
   assunto: string
   corpo: string
   fecho: string
-  assinantes: { ordem: number; nome: string; cargo: string | null }[]
+  /** Nome, CPF mascarado, cargo e setor vêm do cadastro da Equipe (ofícios emitidos a partir de 26/09/2026). */
+  assinantes: { ordem: number; nome: string; cpf: string | null; cargo: string | null; setor: string | null }[]
 }
 
 const txt = (v: unknown) => (typeof v === 'string' ? v : null)
@@ -49,7 +50,7 @@ export function lerCanonico(canonico: string | null): Documento | null {
     corpo: txt(j.corpo) ?? '',
     fecho: txt(j.fecho) ?? '',
     assinantes: Array.isArray(j.assinantes)
-      ? (j.assinantes as Record<string, unknown>[]).map((a) => ({ ordem: Number(a.ordem) || 0, nome: txt(a.nome) ?? '', cargo: txt(a.cargo) })).sort((a, b) => a.ordem - b.ordem)
+      ? (j.assinantes as Record<string, unknown>[]).map((a) => ({ ordem: Number(a.ordem) || 0, nome: txt(a.nome) ?? '', cpf: txt(a.cpf), cargo: txt(a.cargo), setor: txt(a.setor) })).sort((a, b) => a.ordem - b.ordem)
       : [],
   }
 }
@@ -145,7 +146,7 @@ export function documentoDoRascunho(o: {
   assunto: string
   corpo: string
   fecho: string
-}, assinantes: { nome: string; cargo: string | null }[] = []): Documento {
+}, assinantes: { nome: string; cpf?: string | null; cargo: string | null; setor?: string | null }[] = []): Documento {
   return {
     emitente: o.emitente,
     numero: null,
@@ -157,6 +158,6 @@ export function documentoDoRascunho(o: {
     assunto: o.assunto,
     corpo: o.corpo,
     fecho: o.fecho,
-    assinantes: assinantes.map((a, i) => ({ ordem: i + 1, ...a })),
+    assinantes: assinantes.map((a, i) => ({ ordem: i + 1, nome: a.nome, cpf: a.cpf ?? null, cargo: a.cargo, setor: a.setor ?? null })),
   }
 }

@@ -223,7 +223,7 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   const porLinha = doc.assinantes.length === 1 ? 1 : 2
   const col = LARGURA_UTIL / porLinha
   for (let i = 0; i < doc.assinantes.length; i += porLinha) {
-    garantir(118)
+    garantir(130)
     const topoBloco = c.y
     let fundo = topoBloco
     for (const [k, a] of doc.assinantes.slice(i, i + porLinha).entries()) {
@@ -234,7 +234,14 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
       const nome = limpar(timesNegrito, a.nome)
       c.pagina.drawText(nome, { x: cx - timesNegrito.widthOfTextAtSize(nome, 11.5) / 2, y: yLinha - 14, size: 11.5, font: timesNegrito, color: TINTA })
       let y = yLinha - 28
-      for (const q of a.cargo ? quebrar(times, 10.5, limpar(times, a.cargo), col - 16) : []) {
+      // CPF mascarado do cadastro da Equipe: identifica quem assina sem expor o número inteiro.
+      if (a.cpf) {
+        const cpf = limpar(helv, `CPF ${a.cpf}`)
+        c.pagina.drawText(cpf, { x: cx - helv.widthOfTextAtSize(cpf, 8.5) / 2, y, size: 8.5, font: helv, color: CINZA })
+        y -= 12
+      }
+      const funcao = [a.cargo, a.setor].filter(Boolean).join(' · ')
+      for (const q of funcao ? quebrar(times, 10.5, limpar(times, funcao), col - 16) : []) {
         c.pagina.drawText(q, { x: cx - times.widthOfTextAtSize(q, 10.5) / 2, y, size: 10.5, font: times, color: CINZA })
         y -= 13
       }

@@ -957,6 +957,38 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - A pasta "E-mail e materiais" (`inbox_items`) saiu: nenhum código gravava nela e a tabela estava
   vazia. A tabela continua no banco (migração só acrescenta).
 
+### 7.19 Ofícios: quem assina e o selo digital (`/oficios`, `/verificar/[codigo]`)
+
+- **Quem assina assina com o cadastro da Equipe.** Na emissão, `emitir_oficio` copia de
+  `equipe_membros` (pelo `user_id`, não desligado) o nome completo, o **CPF mascarado**, o cargo
+  (o da tela vale mais) e o setor para `oficio_assinantes`; o canônico e o manifesto levam `cpf`
+  e `setor`. Sem nome e CPF na Equipe, a emissão recusa dizendo quem falta completar, e o
+  seletor mostra a pessoa como “falta nome e CPF na Equipe”. Folha, PDF e página de conferência
+  mostram nome, CPF, cargo · setor. Ofícios emitidos antes (sem `cpf`) continuam iguais.
+- **Selo digital da filial** (`lib/oficios/selo.ts`, tabela `oficio_selos`, um por ofício,
+  imutável): quando o ofício termina de ser assinado, um texto legível com número, código de
+  verificação e os dois SHA-256 é assinado com a **chave Ed25519 da filial** — a mesma da trilha
+  pública (`lib/auditoria/chave.ts`, no cofre; pública em `/verificar/chave-publica.pem` do
+  site). O Bitcoin prova *quando*; o selo prova *quem*. Sela no fim da assinatura (action e
+  rota do gov.br), na primeira abertura do ofício e no agendador (`/api/oficios/carimbos`,
+  `selarPendentes`). A página pública confere o selo a cada abertura e oferece `.txt`, `.sig` e
+  `.pem` (`/api/verificar/[codigo]/selo`) para conferir com
+  `openssl pkeyutl -verify -pubin -inkey … -rawin -in selo.txt -sigfile selo.sig`.
+- **Selo visual** (`components/app/oficios/selo-visual.tsx`, SVG): carimbo redondo com a cruz,
+  número, data e impressão digital da chave, com QR code da conferência; riscado se não
+  conferir. Aparece no rodapé da folha na conferência (que é a versão para imprimir) e na
+  tela interna.
+
+### 7.20 Foto do voluntário (`/membro/perfil`, `/voluntariado/[id]`)
+
+- `participantes.foto_path` (Blob privado, `voluntarios/<espaço>/<participante>/<uuid>.jpg`).
+  O navegador recorta ao centro e reduz para 512×512 JPEG antes de subir
+  (`lib/membro/preparar-foto.ts`); o servidor confere pelo conteúdo, tira EXIF/XMP/IPTC e aceita
+  até 600 KB (`lib/membro/foto.ts`, `foto-servidor.ts`).
+- O voluntário troca pela própria sessão (`/api/membro/foto`, RPC `membro_definir_foto`, só
+  service role); a equipe vê com nível ≥ 1 e troca com ≥ 2 (`/api/voluntariado/[id]/foto`, RPC
+  `definir_foto_participante`). Anonimizar ou recusar o cadastro apaga a foto.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

@@ -1,7 +1,9 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { cache } from 'react'
 import { NINGUEM, type Membro } from './sessao'
+import { urlDaFotoDoMembro } from './foto'
 
 /**
  * As leituras da área do membro. Cada função recebe a sessão e filtra pelo
@@ -31,6 +33,18 @@ export async function perfilDoMembro(m: Membro): Promise<Perfil> {
   if (error || !data) throw new Error('Não foi possível carregar o seu cadastro.')
   return data as Perfil
 }
+
+/**
+ * O endereço da foto de perfil do voluntário da sessão, ou null. Uma consulta
+ * por requisição (o cabeçalho e o perfil pedem a mesma). A foto é enfeite: se
+ * a leitura falhar, a área abre com as iniciais.
+ */
+export const fotoDoMembro = cache(async (participanteId: string): Promise<string | null> => {
+  if (participanteId === NINGUEM) return null
+  const { data, error } = await createAdminClient().from('participantes').select('foto_path').eq('id', participanteId).maybeSingle()
+  if (error) return null
+  return urlDaFotoDoMembro(data?.foto_path as string | null | undefined)
+})
 
 export type Formacao = { id: string; titulo: string; instituicao: string | null; concluido_em: string | null; valido_ate: string | null }
 export type Atividade = { id: string; data: string; horas: number; atividade: string }
