@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import QRCode from 'qrcode'
-import { FileText, Image as ImageIcon, Mic, Video } from 'lucide-react'
+import { FileText, Image as ImageIcon, Images, Mic, Plus, Video } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { LinkDaEquipe } from '@/components/app/envios/link-da-equipe'
@@ -56,6 +56,9 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
     Promise.all((Object.keys(ABAS) as Aba[]).map((a) =>
       supabase.from('envios').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).in('estado', [...ABAS[a].estados]))),
   ])
+  // Os eventos mais recentes, para a faixa do alto (sem a migração dos álbuns, a faixa só não aparece).
+  const { data: eventos } = await supabase.from('envio_eventos').select('id, nome, data_do_evento, envio_aberto')
+    .eq('workspace_id', ws).order('criado_em', { ascending: false }).limit(4)
   const link = `${urlBase()}/enviar`
   const qr = await QRCode.toDataURL(link, { errorCorrectionLevel: 'M', margin: 1, width: 480, color: { dark: '#1a1a1a', light: '#ffffff' } })
 
@@ -80,6 +83,26 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
     <div className="flex flex-col gap-6">
       <PageHeader title="Envios da equipe" description="O que a equipe mandou pelo link: relatos, áudios, fotos e vídeos das ações. Avalie, escolha o material e transforme em pauta, matéria e posts." />
       <LinkDaEquipe url={link} qr={qr} />
+
+      <section className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4" data-ajuda="envios.eventos">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="flex items-center gap-2 text-sm font-semibold"><Images className="size-4 text-primary" aria-hidden="true" />Eventos e álbuns</h2>
+          <Link href="/envios/eventos" className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"><Plus className="size-3.5" aria-hidden="true" />Novo evento</Link>
+        </div>
+        <p className="text-sm text-muted-foreground">Vai ter evento com várias pessoas fotografando? Crie o evento: ele ganha um link de envio próprio e um álbum que todo mundo vê e baixa.</p>
+        {eventos && eventos.length > 0 && (
+          <ul className="flex flex-wrap gap-2">
+            {eventos.map((ev) => (
+              <li key={ev.id}>
+                <Link href={`/envios/eventos/${ev.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-sm hover:bg-muted">
+                  {ev.nome}{ev.data_do_evento ? <span className="text-xs text-muted-foreground">{ev.data_do_evento.split('-').reverse().slice(0, 2).join('/')}</span> : null}
+                </Link>
+              </li>
+            ))}
+            <li><Link href="/envios/eventos" className="inline-flex h-8 items-center px-2 text-sm text-primary hover:underline">Ver todos</Link></li>
+          </ul>
+        )}
+      </section>
 
       <nav aria-label="Filtro dos envios" className="flex flex-wrap gap-1.5" data-ajuda="envios.abas">
         {(Object.keys(ABAS) as Aba[]).map((a, i) => (

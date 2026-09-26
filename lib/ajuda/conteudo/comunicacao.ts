@@ -649,6 +649,12 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       lado: 'bottom',
     },
     {
+      alvo: 'envios.eventos',
+      titulo: 'Eventos e álbuns',
+      texto: 'Evento com várias pessoas fotografando? Crie o evento aqui: ele ganha um link de envio próprio e um álbum com as fotos de todo mundo, para ver e baixar sem login.',
+      lado: 'bottom',
+    },
+    {
       alvo: 'envios.abas',
       titulo: 'Para avaliar e o resto',
       texto: '“Para avaliar” junta os envios novos e os já abertos. “Viraram pauta”, “Arquivados” e “Ainda chegando” guardam o resto. O número mostra quantos há em cada um.',
@@ -691,6 +697,13 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'envios.evento',
+          titulo: 'O evento do envio',
+          texto: 'Quem mandou pelo link do evento já chega com o evento escolhido. Mudando aqui, as fotos e os vídeos do envio entram (ou saem) do álbum daquele evento.',
+          lado: 'left',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'envios.acoes',
           titulo: 'O que fazer com o envio',
           texto: '“Criar matéria e posts” cria a pauta, a matéria e o pacote de publicação, e copia os arquivos marcados para a Biblioteca. “Só criar a pauta” não copia nada. “Arquivar” tira da fila.',
@@ -702,6 +715,50 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
           titulo: 'Virou trabalho',
           texto: 'Os links para o pacote e a pauta. Com a matéria no site, aparece “Ver a matéria no site” e, se a pessoa pediu aviso e deixou WhatsApp, “Avisar pelo WhatsApp”.',
           lado: 'left',
+          seAusente: 'pular',
+        },
+      ],
+    },
+    {
+      caminho: '/envios/eventos',
+      rotulo: 'Eventos e álbuns',
+      tour: [
+        {
+          alvo: 'eventos.novo',
+          titulo: 'Criar um evento',
+          texto: 'Nome, data e local. O nome e a data vão no nome de cada foto guardada e já preenchem o formulário de quem manda pelo link do evento.',
+          lado: 'bottom',
+        },
+        {
+          alvo: 'eventos.lista',
+          titulo: 'Os eventos',
+          texto: 'Cada evento mostra quantas fotos e vídeos chegaram e se o envio e o álbum estão ligados. Toque para abrir.',
+          lado: 'top',
+          seAusente: 'pular',
+        },
+      ],
+    },
+    {
+      caminho: '/envios/eventos/[id]',
+      rotulo: 'Evento',
+      tour: [
+        {
+          alvo: 'eventos.link-de-envio',
+          titulo: 'O link de envio do evento',
+          texto: 'Mande este link (ou o QR code) para quem vai estar no evento. Quem manda por ele já chega com o nome, a data e o local preenchidos, e o envio entra no álbum. Desligue quando o evento acabar.',
+          lado: 'bottom',
+        },
+        {
+          alvo: 'eventos.link-do-album',
+          titulo: 'O álbum',
+          texto: 'O link secreto do álbum: quem tem o link vê e baixa as fotos, uma a uma ou tudo num .zip, sem login. Desligar e ligar de novo cria um link novo, e o antigo para de abrir.',
+          lado: 'bottom',
+        },
+        {
+          alvo: 'eventos.fotos',
+          titulo: 'Esconder do álbum',
+          texto: 'As fotos entram no álbum na hora. Se alguma não deve aparecer, toque em “Esconder”: ela sai do álbum e do .zip, mas continua no envio.',
+          lado: 'top',
           seAusente: 'pular',
         },
       ],
@@ -788,8 +845,34 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       ],
       dica: 'Só é avisado quem marcou “Me avise quando a ação virar post ou matéria”. O aviso sai com a matéria no site: post nas redes não gera aviso.',
     },
+    {
+      id: 'album-do-evento',
+      titulo: 'Juntar as fotos de um evento num álbum',
+      passos: [
+        'Abra “Envios da equipe” e, em “Eventos e álbuns”, toque em “Novo evento”.',
+        'Dê o nome, a data e o local e toque em “Criar evento”.',
+        'No evento, copie o “Link de envio do evento” (ou baixe o QR code) e mande para quem vai estar lá.',
+        'Cada pessoa manda as fotos pelo link, sem login. Elas aparecem no evento e no álbum assim que chegam.',
+        'O álbum já nasce ligado: copie o “Link do álbum” e mande para quem quer ver. Dá para ver cada foto, baixar uma a uma ou “Baixar tudo” num .zip.',
+        'Se alguma foto não deve aparecer, toque em “Esconder” sobre ela.',
+        'Quando o evento acabar, toque em “Encerrar o envio”: o link de envio para de aceitar fotos, e o álbum continua.',
+      ],
+      dica: 'Quem pediu aviso de publicação recebe, junto com o link da matéria, o link do álbum (se ele estiver ligado). Envio que chegou pelo link geral pode ser juntado ao evento no quadro “Evento (álbum)” do envio.',
+    },
   ],
   perguntas: [
+    {
+      id: 'album-e-seguro',
+      pergunta: 'Quem consegue ver o álbum do evento?',
+      resposta: 'Quem tem o link do álbum. Ele é secreto e comprido, não aparece no Google e não dá para adivinhar. Se o link vazou para quem não devia, toque em “Desligar o álbum” e depois em “Ligar o álbum (link novo)”: o antigo para de abrir.\n\nFoto escondida não aparece no álbum nem no .zip.',
+      termos: ['álbum', 'link secreto', 'privacidade', 'compartilhar fotos', 'galeria'],
+    },
+    {
+      id: 'nome-dos-arquivos',
+      pergunta: 'Por que as fotos chegam com outro nome?',
+      resposta: 'Cada arquivo é guardado com um nome que diz o que ele é: a data, o assunto, quem mandou e o número, como “2026-09-26-acao-de-prevencao-na-central-ana-souza-003.jpg”. É o nome que sai no download, no .zip e na Biblioteca, e ajuda a achar a foto daqui a anos e o Google a entender a imagem.\n\nO nome que o arquivo tinha no celular fica guardado como “original”.',
+      termos: ['nome do arquivo', 'IMG', 'renomear', 'SEO', 'download'],
+    },
     {
       id: 'quem-ve-os-envios',
       pergunta: 'Quem vê os envios da equipe?',
