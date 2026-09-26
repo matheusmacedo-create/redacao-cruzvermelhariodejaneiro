@@ -13,6 +13,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { lerCanonico } from '@/lib/oficios/documento'
 import { processarCarimbo, processarFila } from '@/lib/oficios/carimbo'
+import { garantirSelo } from '@/lib/oficios/selo'
 
 /**
  * Ofícios. O rascunho é editado direto na tabela (as políticas só deixam
@@ -184,7 +185,7 @@ export async function assinarOficio(id: string, hash: string, senha: string, con
           titulo: (d) => `${quem} assinou o ofício ${d.numero}`, mensagem: `"${o?.assunto ?? ''}" ainda aguarda outras assinaturas.` })
     // Última assinatura: o carimbo no Bitcoin sai depois da resposta, sem
     // fazer a pessoa esperar os calendários.
-    if (concluido) after(async () => { await processarFila(1, id).catch(() => undefined) })
+    if (concluido) after(async () => { await garantirSelo(id); await processarFila(1, id).catch(() => undefined) })
     revalidar(id)
     return { concluido: Boolean(concluido) }
   } catch (causa) {

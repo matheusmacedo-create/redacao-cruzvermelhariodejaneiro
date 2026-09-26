@@ -5,7 +5,10 @@ import { blocosDoCorpo, localEData, momento, tituloDoOficio, type Documento } fr
 export type AssinaturaNaFolha = {
   ordem: number
   nome: string
+  /** CPF mascarado do cadastro da Equipe (***.456.789-**). */
+  cpf?: string | null
   cargo: string | null
+  setor?: string | null
   estado: 'pendente' | 'assinado' | 'recusado'
   assinadoEm: string | null
   metodo?: 'senha' | 'govbr' | null
@@ -93,7 +96,8 @@ export function FolhaDoOficio({ doc, assinaturas, rodape, marcaDagua }: {
                 : a.estado === 'recusado' ? <span className="text-red-700">Assinatura recusada</span> : <span className="text-neutral-400">Aguardando assinatura</span>}
             </div>
             <p className="font-bold">{a.nome}</p>
-            {a.cargo && <p className="text-neutral-700">{a.cargo}</p>}
+            {a.cpf && <p className="font-sans text-xs text-neutral-600">CPF {a.cpf}</p>}
+            {(a.cargo || a.setor) && <p className="text-neutral-700">{[a.cargo, a.setor].filter(Boolean).join(' · ')}</p>}
           </div>
         ))}
       </div>

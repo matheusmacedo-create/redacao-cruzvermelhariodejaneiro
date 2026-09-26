@@ -133,10 +133,10 @@ const OFICIOS: GuiaDaArea = {
         'Abra o rascunho e toque em “Emitir para assinatura”.',
         'Em “Como vão assinar”, escolha “Senha do Palácio Virtual” ou “Assinatura gov.br”.',
         'Em “Adicionar pessoa”, escolha quem assina, até 10 pessoas. A ordem da lista é a ordem dos nomes na folha; use as setas para mudar e “Tirar” para remover.',
-        'Confira o cargo de cada pessoa: é o que sai embaixo da assinatura.',
+        'Confira o cargo de cada pessoa. Embaixo da assinatura saem o nome completo, o CPF (mascarado), o cargo e o setor do cadastro da Equipe.',
         'Toque em “Emitir e enviar para assinatura”. Quem assina recebe um aviso.',
       ],
-      dica: 'Confira o texto antes: depois da emissão ele não muda mais. Para corrigir, só cancelando e fazendo outro com “Duplicar como rascunho”.',
+      dica: 'Confira o texto antes: depois da emissão ele não muda mais. Para corrigir, só cancelando e fazendo outro com “Duplicar como rascunho”. Quem aparece com “falta nome e CPF na Equipe” só pode assinar depois de completar o cadastro em Recursos humanos.',
     },
     {
       id: 'assinar-com-senha',
@@ -258,6 +258,12 @@ const OFICIOS: GuiaDaArea = {
       termos: ['não emite', 'botão cinza', 'Antes de emitir, preencha'],
     },
     {
+      id: 'nome-e-cpf-de-quem-assina',
+      pergunta: 'Por que não consigo escolher uma pessoa para assinar?',
+      resposta: 'A assinatura sai com os dados do cadastro da Equipe (Recursos humanos): nome completo, CPF mascarado (***.456.789-**), cargo e setor. Quem não tem nome e CPF lá aparece como “falta nome e CPF na Equipe” e não pode ser escolhido. Peça a quem cuida do RH para completar a ficha e tente de novo.\n\nSe alguém sem a ficha completa for enviado mesmo assim, a emissão avisa: “Para assinar, a pessoa precisa ter nome completo e CPF no cadastro da Equipe”.',
+      termos: ['falta nome e CPF na Equipe', 'nome de cadastro', 'CPF', 'dados de quem assina', 'Falta completar'],
+    },
+    {
       id: 'senha-ou-govbr',
       pergunta: 'Qual a diferença entre “Senha do Palácio Virtual” e “Assinatura gov.br”?',
       resposta: 'Com a senha, cada pessoa confirma aqui mesmo, com a própria senha: é o mais rápido. Com o gov.br, cada pessoa baixa o PDF, assina no gov.br (conta prata ou ouro) e envia de volta; é a assinatura avançada do governo, que qualquer pessoa confere no validar.iti.gov.br.\n\nA escolha é feita na emissão e vale para todas as pessoas daquele ofício.',
@@ -298,6 +304,12 @@ const OFICIOS: GuiaDaArea = {
       pergunta: 'O que querem dizer “Na fila”, “Aguardando bloco” e “Confirmado”?',
       resposta: '“Na fila”: o registro ainda vai ser enviado aos servidores do OpenTimestamps, que a tela chama de “calendários”. “Aguardando bloco”: já foi enviado e espera entrar num bloco do Bitcoin, o que leva algumas horas. “Confirmado”: está gravado num bloco.\n\nO Palácio Virtual confere sozinha; “Verificar agora” força uma conferência, no máximo a cada 2 minutos.',
       termos: ['verificar agora', 'Verificado há pouco', 'carimbo pendente'],
+    },
+    {
+      id: 'selo-digital',
+      pergunta: 'O que é o selo digital da Cruz Vermelha RJ?',
+      resposta: 'Quando a última pessoa assina, o Palácio Virtual sela o ofício com a chave digital da própria filial: aparece o carimbo redondo com a cruz, o número do ofício, a data e a impressão digital da chave, ao lado de um QR code da página de conferência. O Bitcoin prova quando as assinaturas existiam; o selo prova que foi a filial que emitiu, porque só ela tem a chave.\n\nNa página pública, “Selo digital da Cruz Vermelha RJ” diz se o selo confere e oferece os arquivos para conferir com o OpenSSL, sem o Palácio Virtual.',
+      termos: ['carimbo digital', 'selo', 'chave da filial', 'assinatura digital', 'QR code', 'Ed25519'],
     },
     {
       id: 'conferir-autenticidade',

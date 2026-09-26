@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, ArrowDown, ArrowUp, Check, FileSignature, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -26,7 +27,12 @@ export type Rascunho = {
   updated_at: string
 }
 
-export type PessoaQueAssina = { id: string; nome: string; cargo: string | null }
+/**
+ * Quem pode assinar. O nome, o cargo e o setor vêm do cadastro da Equipe; sem
+ * nome e CPF lá (`fichaCompleta` falso), a pessoa aparece mas não pode ser
+ * escolhida — a emissão também recusa, no banco.
+ */
+export type PessoaQueAssina = { id: string; nome: string; cargo: string | null; setor: string | null; fichaCompleta: boolean }
 
 type Campos = Omit<Rascunho, 'id' | 'emitente' | 'updated_at'>
 const CAMPOS: (keyof Campos)[] = ['setor', 'local', 'destinatario_nome', 'destinatario_cargo', 'destinatario_orgao', 'destinatario_endereco', 'vocativo', 'assunto', 'corpo', 'fecho']
@@ -241,13 +247,20 @@ function DialogEmitir({ pessoas, eu, falta, ocupado, aoFechar, aoEmitir }: {
           <label className="flex flex-col gap-1 text-sm font-medium">Adicionar pessoa
             <select value="" onChange={(e) => {
               const p = porId.get(e.target.value)
-              if (p) setEscolhidos([...escolhidos, { userId: p.id, cargo: p.cargo ?? '' }])
+              if (p?.fichaCompleta) setEscolhidos([...escolhidos, { userId: p.id, cargo: p.cargo ?? '' }])
             }} className={inputClass}>
               <option value="">Escolha…</option>
-              {restantes.map((p) => <option key={p.id} value={p.id}>{p.nome}{p.id === eu ? ' (você)' : ''}{p.cargo ? ` — ${p.cargo}` : ''}</option>)}
+              {restantes.map((p) => (
+                <option key={p.id} value={p.id} disabled={!p.fichaCompleta}>
+                  {p.nome}{p.id === eu ? ' (você)' : ''}{p.fichaCompleta ? (p.cargo ? ` — ${p.cargo}` : '') : ' — falta nome e CPF na Equipe'}
+                </option>
+              ))}
             </select>
           </label>
         )}
+        <p className="text-xs text-muted-foreground">
+          A folha leva o nome completo, o CPF (mascarado), o cargo e o setor do cadastro da <Link href="/equipe" className="underline">Equipe</Link>. Quem não tem nome e CPF lá não pode assinar até completar.
+        </p>
         {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
       </div>
       <div className="flex justify-end gap-2 border-t border-border px-6 py-4">

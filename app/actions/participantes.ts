@@ -11,6 +11,7 @@ import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { lerFormulario, formatarCpf, type NomeDoNivel } from '@/lib/participantes/regras'
 import { nomesDosSetores } from '@/lib/setores'
+import { apagarFoto } from '@/lib/membro/foto-servidor'
 
 /**
  * Participantes. Tudo o que grava dado pessoal passa por funções do banco,
@@ -66,8 +67,11 @@ export async function mudarSituacao(id: string, situacao: 'ativo' | 'inativo' | 
 export async function recusarCandidato(id: string): Promise<Resultado> {
   try {
     const { supabase } = await contextoDeParticipantes()
+    const { data: antes } = await supabase.from('participantes').select('foto_path').eq('id', id).maybeSingle()
     const { error } = await supabase.rpc('recusar_candidato', { p_id: id })
     if (error) erroDoBanco(error, 'Não foi possível recusar a inscrição.')
+    // A linha saiu do banco; a foto, se a equipe tinha posto uma, sai do Blob.
+    await apagarFoto(antes?.foto_path as string | null | undefined)
     revalidar()
     return {}
   } catch (causa) {
@@ -92,8 +96,11 @@ export async function verDadosSensiveis(id: string): Promise<Resultado & { cpf?:
 export async function anonimizarParticipante(id: string, motivo: string): Promise<Resultado> {
   try {
     const { supabase } = await contextoDeParticipantes()
+    const { data: antes } = await supabase.from('participantes').select('foto_path').eq('id', id).maybeSingle()
     const { error } = await supabase.rpc('anonimizar_participante', { p_id: id, p_motivo: motivo })
     if (error) erroDoBanco(error, 'Não foi possível anonimizar.')
+    // O banco já tirou foto_path (gatilho participantes_sem_foto_ao_anonimizar); o arquivo sai do Blob.
+    await apagarFoto(antes?.foto_path as string | null | undefined)
     revalidar(id)
     return {}
   } catch (causa) {

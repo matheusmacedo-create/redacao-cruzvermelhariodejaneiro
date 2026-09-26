@@ -23,7 +23,9 @@ export type CertificadoNoPainel = { titular: string | null; cpf: string | null; 
 export type AssinanteNoPainel = {
   userId: string | null
   nome: string
+  cpf?: string | null
   cargo: string | null
+  setor?: string | null
   estado: 'pendente' | 'assinado' | 'recusado'
   assinadoEm: string | null
   motivo: string | null
