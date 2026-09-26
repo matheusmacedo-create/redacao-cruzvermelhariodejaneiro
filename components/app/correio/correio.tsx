@@ -58,6 +58,15 @@ export function Correio({ caixas, historico, situacao, ehAdmin }: {
   )
 }
 
+/** O quadro da assinatura cresce até o tamanho dela (imagem do Gmail chega depois: mede de novo quando carrega). */
+function ajustarAltura(quadro: HTMLIFrameElement) {
+  const doc = quadro.contentDocument
+  if (!doc) return
+  const medir = () => { quadro.style.height = `${Math.min(Math.max(doc.documentElement.scrollHeight, 48), 480)}px` }
+  medir()
+  doc.querySelectorAll('img').forEach((img) => { if (!img.complete) img.addEventListener('load', medir, { once: true }) })
+}
+
 function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
   const router = useRouter()
   const [caixaId, setCaixaId] = useState(caixas[0].id)
@@ -120,8 +129,10 @@ function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
           <Lock className="size-3.5" />Assinatura do setor — entra automaticamente e não pode ser alterada aqui
         </p>
         {caixa.assinatura
-          // A assinatura vem do Gmail; mostrada num quadro sem script.
-          ? <iframe title="Assinatura" sandbox="" srcDoc={caixa.assinatura} className="h-32 w-full rounded-md border border-border bg-white" />
+          // A assinatura vem do Gmail; mostrada num quadro sem script. `allow-same-origin` sem
+          // `allow-scripts` não deixa nada rodar lá dentro, e permite medir a altura para não cortar.
+          ? <iframe key={caixa.id} title="Assinatura" sandbox="allow-same-origin" srcDoc={`<body style="margin:8px">${caixa.assinatura}</body>`}
+              onLoad={(e) => ajustarAltura(e.currentTarget)} className="h-32 w-full rounded-md border border-border bg-white" />
           : <p className="text-xs text-muted-foreground">Este endereço não tem assinatura no Gmail.</p>}
       </div>
 
