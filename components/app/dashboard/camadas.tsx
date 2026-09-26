@@ -63,7 +63,7 @@ export function MinhasPautas({ grupos, total, hoje }: { grupos: { grupo: GrupoDe
   const cortados = cortarGrupos(grupos, 9)
   return (
     <Secao titulo="Minhas pautas" id="minhas-pautas" acao={{ href: '/pautas', rotulo: 'Abrir o quadro' }}>
-      <Card className="overflow-hidden p-0">
+      <Card data-ajuda="inicio.minhas-pautas" className="overflow-hidden p-0">
         {!total ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma pauta sua em aberto. As pautas em que você é responsável aparecem aqui, separadas por prazo.</p>
         ) : cortados.map((g) => (
@@ -101,7 +101,7 @@ export type PedidoDeAprovacao = { id: string; titulo: string; pedidoEm: string; 
 export function EsperandoVoce({ pedidos, hoje }: { pedidos: PedidoDeAprovacao[]; hoje: string }) {
   return (
     <Secao titulo="Esperando você" id="esperando-voce" acao={{ href: '/aprovacoes', rotulo: 'Aprovações' }}>
-      <Card className="divide-y divide-border overflow-hidden p-0">
+      <Card data-ajuda="inicio.esperando-voce" className="divide-y divide-border overflow-hidden p-0">
         {pedidos.map((a) => (
           <Link key={a.id} href={`/aprovacoes/${a.id}`} className="flex min-w-0 items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/40">
             <Pessoa p={a.quem} />
@@ -239,7 +239,7 @@ export function GradeDaSemana({ dias, semana, hoje }: { dias: string[]; semana: 
   return (
     <>
       <ListaDaSemana dias={dias} semana={semana} hoje={hoje} />
-      <Card className="hidden overflow-x-auto p-0 md:block">
+      <Card data-ajuda="inicio.semana" className="hidden overflow-x-auto p-0 md:block">
       <div className="grid min-w-[46rem] grid-cols-7">
         {dias.map((dia, idx) => {
           const itens = semana.get(dia) ?? []
@@ -270,7 +270,7 @@ export function GradeDaSemana({ dias, semana, hoje }: { dias: string[]; semana: 
 /** No celular, sete colunas não cabem: os dias viram uma lista, e dia vazio vira uma linha só. */
 function ListaDaSemana({ dias, semana, hoje }: { dias: string[]; semana: Map<string, ItemDaSemana[]>; hoje: string }) {
   return (
-    <Card className="divide-y divide-border overflow-hidden p-0 md:hidden">
+    <Card data-ajuda="inicio.semana" className="divide-y divide-border overflow-hidden p-0 md:hidden">
       {dias.map((dia, idx) => {
         const itens = semana.get(dia) ?? []
         const ehHoje = dia === hoje
@@ -304,7 +304,7 @@ export type CanalNoPainel = { id: string; nome: string; saude: SaudeDoCanal; det
 export function SaudeDosCanais({ canais }: { canais: CanalNoPainel[] }) {
   return (
     <Secao titulo="Saúde dos canais" id="saude-canais" acao={{ href: '/registro', rotulo: 'Registro' }}>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div data-ajuda="inicio.canais" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {canais.map((c) => (
           <Card key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">

@@ -45,7 +45,7 @@ export function EscolhaDaEmpresa({ empresas, atual }: { empresas: Empresa[]; atu
   }
 
   return (
-    <section id="empresa-do-financeiro" aria-label="Empresa do Financeiro" className="rounded-xl border border-border bg-card p-4 shadow-xs">
+    <section id="empresa-do-financeiro" aria-label="Empresa do Financeiro" data-ajuda="financeiro.empresa" className="rounded-xl border border-border bg-card p-4 shadow-xs">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><IconeDaEmpresa tipo={atual.tipo} className="size-5" /></span>

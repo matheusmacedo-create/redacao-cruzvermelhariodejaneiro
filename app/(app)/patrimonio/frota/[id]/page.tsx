@@ -69,7 +69,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
         title={`${v.apelido ? `${v.apelido} · ` : ''}${placaLegivel(v.placa as string)}`}
         description={[TIPOS_DE_VEICULO[v.tipo as TipoDeVeiculo], v.marca, v.modelo, v.ano_modelo, COMBUSTIVEIS[v.combustivel as Combustivel]].filter(Boolean).join(' · ')}
         actions={nivel >= 2 ? (
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-wrap items-start gap-2" data-ajuda="patrimonio.veiculo-acoes">
             {aberto ? <RetornarVeiculo veiculoId={id} usoId={aberto.id as string} kmSaida={Number(aberto.km_saida)} />
               : v.situacao === 'ativo' && <SairComVeiculo veiculoId={id} tipo={v.tipo as string} kmAtual={kmAtual} condutores={(condutores ?? []) as CondutorParaUso[]} projetos={c.projetos.map((p) => ({ id: p.id, nome: p.name }))} hoje={hoje} />}
             <Abastecer veiculoId={id} combustivel={v.combustivel as string} kmAtual={kmAtual} condutores={(condutores ?? []).map((x) => ({ id: x.id as string, nome: x.nome as string }))} hoje={hoje} />
@@ -80,7 +80,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
       />
 
       <Card className="p-5">
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4" id="resumo-veiculo">
+        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4" id="resumo-veiculo" data-ajuda="patrimonio.veiculo-resumo">
           <Dado rotulo="Hodômetro" destaque>{km(kmAtual)}</Dado>
           <Dado rotulo="Consumo médio (12 meses)" destaque>{consumo ? `${consumo.kmPorLitro.toLocaleString('pt-BR')} km/L` : '—'}</Dado>
           <Dado rotulo="Custo por km (12 meses)" destaque>{cpk !== null ? reais(cpk) : '—'}</Dado>
@@ -97,7 +97,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="p-5" id="planos">
+        <Card className="p-5" id="planos" data-ajuda="patrimonio.veiculo-planos">
           <div className="mb-3 flex items-center justify-between gap-2"><h2 className="font-semibold">Manutenção programada</h2>{nivel >= 3 && <PlanoDeManutencao veiculoId={id} kmAtual={kmAtual} hoje={hoje} />}</div>
           {!listaPlanos.length ? <p className="text-sm text-muted-foreground">Nenhum plano. Sugestão: troca de óleo (10.000 km ou 6 meses), revisão geral (anual), pneus e freios.</p> : (
             <ul className="flex flex-col divide-y divide-border">
@@ -122,7 +122,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
           )}
         </Card>
 
-        <Card className="p-5" id="documentos">
+        <Card className="p-5" id="documentos" data-ajuda="patrimonio.veiculo-documentos">
           <div className="mb-3 flex items-center justify-between gap-2"><h2 className="font-semibold">Documentos</h2>{nivel >= 2 && <DocumentoDoVeiculoDialog veiculoId={id} />}</div>
           {!(docs ?? []).length ? <p className="text-sm text-muted-foreground">Cadastre CRLV, licenciamento, seguro e vistorias com o vencimento.</p> : (
             <ul className="flex flex-col divide-y divide-border">
@@ -146,7 +146,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
         </Card>
       </div>
 
-      <Card className="overflow-hidden p-0" id="diario">
+      <Card className="overflow-hidden p-0" id="diario" data-ajuda="patrimonio.veiculo-diario">
         <h2 className="px-5 pt-5 font-semibold">Diário de bordo</h2>
         {!(usos ?? []).length ? <p className="px-5 pb-5 pt-2 text-sm text-muted-foreground">Nenhuma viagem registrada.</p> : (
           <div className="overflow-x-auto">

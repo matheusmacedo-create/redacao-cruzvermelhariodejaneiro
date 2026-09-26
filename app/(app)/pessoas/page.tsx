@@ -37,8 +37,8 @@ export default async function PessoasPage() {
         title="Diretório"
         description={`A equipe da filial: ${pessoas.filter((p) => p.acesso !== 'desativado').length} pessoas em ${setores.filter((s) => s.ativo).length} setores, com contato e acesso à Redação.`}
         actions={<div className="flex flex-wrap items-start gap-2">
-          <Button variant="outline" render={<Link href="/pessoas/setores" />}><Building2 className="size-4" />Setores</Button>
-          {ehAdmin && <Button render={<Link href="/pessoas/adicionar" />}><UserPlus className="size-4" />Adicionar pessoas</Button>}
+          <Button variant="outline" render={<Link href="/pessoas/setores" />} data-ajuda="diretorio.setores"><Building2 className="size-4" />Setores</Button>
+          {ehAdmin && <Button render={<Link href="/pessoas/adicionar" />} data-ajuda="diretorio.adicionar"><UserPlus className="size-4" />Adicionar pessoas</Button>}
         </div>}
       />
       <Diretorio

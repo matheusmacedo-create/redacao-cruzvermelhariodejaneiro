@@ -372,7 +372,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div data-ajuda="inicio.resumo">
           <p className="text-sm font-medium text-primary">{maiuscula(DATA_LONGA.format(new Date()))}</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">{saudacao()}, {nome}.</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{maiuscula(resumo)}</p>
@@ -413,7 +413,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       <Camada nome="Indicadores" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
         <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div data-ajuda="inicio.indicadores" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {indicadores.map((i) => <CartaoDoIndicador key={i.nome} i={i} />)}
           </div>
         </Secao>

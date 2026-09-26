@@ -75,9 +75,9 @@ export function FormularioDoVeiculo({ v, locais, bens }: { v?: Veiculo; locais: 
           <input name="km_atual" inputMode="numeric" required={!v} defaultValue={v?.km_atual ?? ''} className={inputClass} />
         </Campo>
         <Campo rotulo="Base"><select name="local_id" defaultValue={v?.local_id ?? locais[0]?.id ?? ''} className={inputClass}><option value="">—</option>{locais.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select></Campo>
-        <Campo rotulo="Situação"><select name="situacao" defaultValue={v?.situacao ?? 'ativo'} className={inputClass}>{Object.entries(SITUACOES_DO_VEICULO).map(([k, x]) => <option key={k} value={k}>{x.rotulo}</option>)}</select></Campo>
+        <Campo rotulo="Situação"><select name="situacao" data-ajuda="patrimonio.veiculo-situacao" defaultValue={v?.situacao ?? 'ativo'} className={inputClass}>{Object.entries(SITUACOES_DO_VEICULO).map(([k, x]) => <option key={k} value={k}>{x.rotulo}</option>)}</select></Campo>
         <Campo rotulo="Bem no patrimônio" ajuda="Liga ao bem (plaqueta, valor e depreciação)." className="sm:col-span-2">
-          <select name="bem_id" defaultValue={v?.bem_id ?? ''} className={inputClass}><option value="">— sem vínculo —</option>{bens.map((b) => <option key={b.id} value={b.id}>{b.nome}</option>)}</select>
+          <select name="bem_id" data-ajuda="patrimonio.veiculo-bem" defaultValue={v?.bem_id ?? ''} className={inputClass}><option value="">— sem vínculo —</option>{bens.map((b) => <option key={b.id} value={b.id}>{b.nome}</option>)}</select>
         </Campo>
         <Campo rotulo="Observação" className="sm:col-span-3"><textarea name="observacao" rows={2} maxLength={2000} defaultValue={v?.observacao ?? ''} className={inputClass} /></Campo>
       </div>
@@ -313,7 +313,7 @@ export function CondutorDialog({ c, equipe, voluntarios }: { c?: CondutorCadastr
     <>
       {c
         ? <button type="button" title="Editar condutor" aria-label="Editar condutor" onClick={() => { setP(vazio); setAberto(true) }} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>
-        : <Button onClick={() => { setP(vazio); setAberto(true) }} id="novo-condutor"><Plus className="size-4" />Novo condutor</Button>}
+        : <Button onClick={() => { setP(vazio); setAberto(true) }} id="novo-condutor" data-ajuda="patrimonio.condutores-novo"><Plus className="size-4" />Novo condutor</Button>}
       {aberto && (
         <Dialog titulo={c ? 'Condutor' : 'Novo condutor'} descricao="Ambulância exige o curso de condutor de veículo de emergência (CTB, art. 145-A). O Redação avisa quando a CNH ou o curso vão vencer." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
           <div className="grid gap-3 sm:grid-cols-2">

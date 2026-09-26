@@ -71,7 +71,7 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="diretorio.editor-apresentacao">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Apresentação</h2>
         <div className="flex flex-col gap-4">
           <div>
@@ -109,7 +109,7 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
       </Card>
 
       {(['institucional', 'pessoal'] as TipoDeContato[]).map((tipo) => (
-        <Card key={tipo} className="p-5">
+        <Card key={tipo} className="p-5" data-ajuda={tipo === 'institucional' ? 'diretorio.editor-institucionais' : 'diretorio.editor-pessoais'}>
           <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               {tipo === 'institucional' ? <Building2 className="size-4" /> : <Users className="size-4" />}{TIPOS_DE_CONTATO[tipo]}
@@ -145,7 +145,7 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
         </Card>
       ))}
 
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="diretorio.editor-metricas">
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" checked={mostrar} onChange={(e) => setMostrar(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
           <span>
@@ -158,7 +158,7 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
       <div className="flex flex-wrap items-center justify-end gap-3">
         {erro && <p role="alert" className="mr-auto text-sm text-destructive">{erro}</p>}
         <Button variant="outline" render={<Link href={`/pessoas/${inicial.id}`} />}>Cancelar</Button>
-        <Button size="lg" disabled={salvando} onClick={salvar}>{salvando ? 'Salvando…' : 'Salvar perfil'}</Button>
+        <Button size="lg" disabled={salvando} onClick={salvar} data-ajuda="diretorio.editor-salvar">{salvando ? 'Salvando…' : 'Salvar perfil'}</Button>
       </div>
     </div>
   )

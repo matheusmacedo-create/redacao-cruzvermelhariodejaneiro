@@ -97,7 +97,7 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
             ))}
           </div>
           {podeEditar && <Button variant="ghost" onClick={() => setApagando(true)}><Trash2 className="size-4" />Apagar</Button>}
-          {podeEditar && <Button onClick={() => setEmitindo(true)}><FileSignature className="size-4" />Emitir para assinatura</Button>}
+          {podeEditar && <Button data-ajuda="oficios.emitir" onClick={() => setEmitindo(true)}><FileSignature className="size-4" />Emitir para assinatura</Button>}
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
       )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <Card className={`flex flex-col gap-4 p-5 ${aba === 'ver' ? 'hidden xl:flex' : ''}`}>
+        <Card data-ajuda="oficios.formulario" className={`flex flex-col gap-4 p-5 ${aba === 'ver' ? 'hidden xl:flex' : ''}`}>
           <fieldset className="grid gap-3 sm:grid-cols-2" disabled={!podeEditar}>
             <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Origem</legend>
             {campo('setor', 'Setor', { placeholder: 'Ex.: Comunicação', maxLength: 120 })}

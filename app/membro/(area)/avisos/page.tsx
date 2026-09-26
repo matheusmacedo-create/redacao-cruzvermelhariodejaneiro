@@ -31,7 +31,7 @@ export default async function Avisos() {
     <div className="flex max-w-2xl flex-col gap-6">
       <CabecalhoDaPagina titulo="Avisos" descricao="Recados da coordenação para todos os voluntários." />
       {avisos.length ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-ajuda="membro.avisos">
           {avisos.map((a) => (
             <article key={a.id} id={`aviso-${a.id}`} aria-labelledby={`aviso-${a.id}-titulo`} className="rounded-xl border border-border bg-card p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

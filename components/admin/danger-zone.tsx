@@ -8,7 +8,7 @@ import { resetWorkspaceData } from '@/app/actions/admin'
 
 export function DangerZone({ workspace }: { workspace: { id: string; name: string } }) {
   return (
-    <div className="mt-8 flex flex-col gap-4">
+    <div data-ajuda="configuracoes.zona-de-risco" className="mt-8 flex flex-col gap-4">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Zona de risco</h2>
         <p className="mt-1 text-sm text-muted-foreground">

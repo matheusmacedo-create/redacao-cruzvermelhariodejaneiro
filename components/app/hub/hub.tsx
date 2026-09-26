@@ -556,7 +556,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
           dela aparecia espremido na altura do trilho, com barra de rolagem
           própria. Do lado de fora ele abre inteiro — e ainda fica sempre à
           vista, em vez de sumir quando há muitos destinos. */}
-      <div className="flex items-stretch gap-2">
+      <div data-ajuda="publicacoes.trilho" className="flex items-stretch gap-2">
       <div className="flex min-w-0 flex-1 items-stretch gap-2 overflow-x-auto pb-1">
         {destinos.map((d) => {
           const sem = SEMAFORO[d.estado] ?? SEMAFORO.gerada
@@ -597,7 +597,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         })}
       </div>
         {!encerrado && (
-          <div className="relative shrink-0 pb-1" ref={blocoAdicionar}>
+          <div data-ajuda="publicacoes.adicionar-destino" className="relative shrink-0 pb-1" ref={blocoAdicionar}>
             <TrilhoCard ativo={adicionando} onClick={() => setAdicionando((v) => !v)}>
               <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Plus className="size-3.5" />Adicionar destino</span>
             </TrilhoCard>
@@ -616,7 +616,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
 
       {/* Região 2 — editor + preview */}
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <Card className="min-w-0 p-5">
+        <Card data-ajuda="publicacoes.editor" className="min-w-0 p-5">
           {!destinoAtivo || baseAtiva ? (
             <EditorDaNoticia
               base={destinoAtivo}
@@ -664,7 +664,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
           )}
         </Card>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <div data-ajuda="publicacoes.previa" className="flex min-w-0 flex-col gap-4">
           <PreviaDestino destino={destinoAtivo} arquivoPorId={arquivoPorId} mestre={mestre} />
           {destinoAtivo && <ValidacaoDoDestino destino={destinoAtivo} dadosPorArquivo={dadosPorArquivo} />}
           {destinos.length > 1 && (
@@ -687,7 +687,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
       {/* Região 3 — barra de ação. Erros e avisos moram aqui, colados nos
           botões que os causaram — no topo da página eles passavam batidos
           ou pareciam vir de outro lugar. */}
-      <div className="sticky bottom-0 z-40 -mx-1 rounded-t-lg border border-border bg-background/95 backdrop-blur">
+      <div data-ajuda="publicacoes.acoes" className="sticky bottom-0 z-40 -mx-1 rounded-t-lg border border-border bg-background/95 backdrop-blur">
         {erro && (
           <div className="flex items-start justify-between gap-3 border-b border-destructive/30 bg-destructive/5 px-4 py-2">
             <p className="text-sm text-destructive">{erro}</p>
@@ -1263,7 +1263,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
         </span>
       </label>
 
-      <div>
+      <div data-ajuda="publicacoes.midias">
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
           <p className="pt-1 text-sm font-medium">
             Mídias do pacote <span className="font-normal text-muted-foreground">(cada destino escolhe entre elas)</span>

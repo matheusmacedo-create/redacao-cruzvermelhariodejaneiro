@@ -19,7 +19,7 @@ export const metadata: Metadata = { title: 'Meu perfil' }
 function Completude({ pct, faltam }: ReturnType<typeof pendenciasDoPerfil>) {
   if (!faltam.length) return <Selo tom="sucesso" icone={CircleCheck}>Cadastro completo</Selo>
   return (
-    <div className="flex flex-col items-start gap-1">
+    <div className="flex flex-col items-start gap-1" data-ajuda="membro.completude">
       <Selo icone={ListTodo}>Cadastro {pct}% completo</Selo>
       <div className="flex flex-wrap items-center gap-x-2 text-sm">
         <span id="perfil-falta" className="text-muted-foreground">Falta preencher:</span>
@@ -65,7 +65,7 @@ export default async function PerfilDoMembro() {
 
       <Secao titulo="Dados do cadastro" icone={Lock} id="dados-do-cadastro" className="rounded-xl border border-border bg-card p-4 sm:p-5"
         acao={
-          <Link href="/membro/mensagens?nova=documentos" className="-my-2 -mr-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-foreground underline-offset-4 hover:underline">
+          <Link href="/membro/mensagens?nova=documentos" data-ajuda="membro.pedir-correcao" className="-my-2 -mr-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-foreground underline-offset-4 hover:underline">
             <MessageSquareText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />Pedir correção<span className="sr-only"> dos dados do cadastro</span>
           </Link>
         }>

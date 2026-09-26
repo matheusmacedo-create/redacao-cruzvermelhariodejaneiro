@@ -66,12 +66,12 @@ export default async function MarketingDaEscolaPage() {
         description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. Os anúncios vêm sozinhos do Meta, e a receita, da Únicopag pelo utm_campaign."
         actions={<div className="flex flex-wrap items-start gap-2">
           <Button variant="outline" render={<Link href="/escola/marketing/advertoriais" />}><Newspaper className="size-4" />Advertoriais</Button>
-          <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />}><Images className="size-4" />Biblioteca de peças</Button>
+          <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />} data-ajuda="escola-marketing.biblioteca"><Images className="size-4" />Biblioteca de peças</Button>
           <NovaCampanha contas={(contas ?? []) as { id: string; nome: string }[]} />
         </div>}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-marketing">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-marketing" data-ajuda="escola-marketing.indicadores">
         <Indicador rotulo="Campanhas" valor={milhar(campanhas.length)} detalhe={`${noAr} no ar agora`} />
         <Indicador rotulo="Peças criadas" valor={milhar(pecas.length)} detalhe={`${pecas.filter((p) => p.vencedora).length} vencedoras`} />
         <Indicador rotulo="Investido em anúncios" valor={reais(geral.investimento)} detalhe={`${milhar(geral.matriculas)} matrículas · ${reais(geral.cpa)} por matrícula`} />
@@ -80,7 +80,7 @@ export default async function MarketingDaEscolaPage() {
 
       <StatusDoMeta contas={(metaContas ?? []) as ContaMeta[]} temToken={temToken} />
 
-      <section className="flex flex-col gap-3" id="campanhas">
+      <section className="flex flex-col gap-3" id="campanhas" data-ajuda="escola-marketing.campanhas">
         <h2 className="text-base font-medium">Campanhas</h2>
         {!campanhas.length ? (
           <Card className="flex flex-col items-center gap-2 p-10 text-center">
@@ -118,7 +118,7 @@ export default async function MarketingDaEscolaPage() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3" id="linha-do-tempo">
+      <section className="flex flex-col gap-3" id="linha-do-tempo" data-ajuda="escola-marketing.linha-do-tempo">
         <h2 className="text-base font-medium">Linha do tempo</h2>
         {!linha.length ? <p className="text-sm text-muted-foreground">O que for criado aparece aqui, mês a mês.</p> : (
           <ol className="flex flex-col gap-5">

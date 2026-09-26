@@ -49,7 +49,7 @@ export function PainelDaTrilha({ painel, chave, aberta, geradoEm }: {
 function Avisos({ chave, aberta }: { chave: SituacaoDaChave; aberta: boolean }) {
   const problema = chave.estado !== 'configurada'
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid gap-3 lg:grid-cols-2" data-ajuda="trilha.avisos">
       <Card className="flex items-start gap-3 p-4">
         <EyeOff className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0 text-sm">
@@ -109,12 +109,12 @@ function Cadeia({ verificacao: v, geradoEm }: { verificacao: Conferencia | null;
       descricao="Cada evento guarda o hash do anterior, fluxo por fluxo, e cada lote guarda o compromisso do lote de antes. A conferência refaz essas contas desde o primeiro registro: qualquer linha alterada direto no banco aparece aqui."
     >
       {!v ? (
-        <Card className="flex items-start gap-3 p-5 text-sm">
+        <Card className="flex items-start gap-3 p-5 text-sm" data-ajuda="trilha.cadeia">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">A cadeia ainda não foi conferida. A rotina diária confere de madrugada; para não esperar, use “Conferir a cadeia agora”, em Rodar agora, mais abaixo.</p>
         </Card>
       ) : (
-        <Card className={cn('overflow-hidden p-0', !v.ok && 'border-destructive/60 ring-1 ring-destructive/30')}>
+        <Card className={cn('overflow-hidden p-0', !v.ok && 'border-destructive/60 ring-1 ring-destructive/30')} data-ajuda="trilha.cadeia">
           <div className={cn('flex items-start gap-3 p-5', v.ok ? 'bg-success/5' : 'bg-destructive/10')}>
             {v.ok
               ? <ShieldCheck className="mt-0.5 size-6 shrink-0 text-success" aria-hidden="true" />
@@ -251,7 +251,7 @@ function Lotes({ lotes, verificacao, chave, geradoEm }: { lotes: LoteNoPainel[];
           O lote mais recente é de {diaLegivel(lotes[0].dia)}. A rotina fecha o lote de ontem toda madrugada: veja se o cron /api/auditoria/diaria está rodando na Vercel, ou use “Fechar e carimbar o lote de ontem agora”.
         </p>
       )}
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="trilha.lotes">
         {!lotes.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">Nenhum lote fechado ainda. O primeiro sai na madrugada seguinte à primeira rodada da rotina.</p>
         ) : (
@@ -390,7 +390,7 @@ function Falhas({ falhas }: { falhas: FalhaNoPainel[] }) {
       titulo="Falhas de registro nos últimos 30 dias"
       descricao="Quando o registro na trilha falha, a operação principal (assinar, emitir, publicar, enviar) segue normalmente e a falha fica anotada aqui. A rotina diária tenta de novo, e “Registrar pendências agora” também. A lista guarda o histórico: uma falha já resolvida continua aparecendo."
     >
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="trilha.falhas">
         {!falhas.length ? (
           <p className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-success" aria-hidden="true" />Nenhuma falha nos últimos 30 dias.

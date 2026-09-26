@@ -99,11 +99,11 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
           <Button variant="outline" render={<a href="/membro/previa?como=geral" target="_blank" rel="noopener" />}><Eye className="size-4" />Ver Área do Voluntário</Button>
           <CopiarLink url={`${urlBase()}/participe`} />
           <Button variant="outline" render={<a href={exportar} />}><Download className="size-4" />Exportar</Button>
-          <Button render={<Link href="/voluntariado/novo" />}><Plus className="size-4" />Novo voluntário</Button>
+          <Button render={<Link href="/voluntariado/novo" />} data-ajuda="voluntarios.novo"><Plus className="size-4" />Novo voluntário</Button>
         </div> : undefined}
       />
 
-      <nav className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Área do Voluntário" id="area-do-voluntario">
+      <nav className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Área do Voluntário" id="area-do-voluntario" data-ajuda="voluntarios.atalhos">
         {[
           ...(nivel >= 2 ? [{ href: '/voluntariado/mensagens', rotulo: 'Mensagens', dica: conversasAbertas ? `${conversasAbertas} aguardando resposta` : 'Canal direto', icone: MessageCircle, alerta: conversasAbertas > 0 }] : []),
           ...(nivel >= 2 ? [{ href: '/voluntariado/avisos', rotulo: 'Avisos', dica: 'Mural dos voluntários', icone: Megaphone, alerta: false }] : []),
@@ -117,7 +117,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
         ))}
       </nav>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-ajuda="voluntarios.numeros">
         {[
           [ativos.length, 'ativos'],
           [ativos.filter((l) => l.vinculo === 'voluntario' || l.vinculo === 'jovem').length, 'voluntários ativos'],
@@ -129,7 +129,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
         ))}
       </div>
 
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="voluntarios.abas">
         {abas.map((a) => (
           <Link key={a.id} href={`/voluntariado${a.id === 'lista' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
@@ -138,7 +138,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
 
       {aba === 'lista' && (
         <>
-          <form className="flex flex-wrap items-center gap-2" role="search">
+          <form className="flex flex-wrap items-center gap-2" role="search" data-ajuda="voluntarios.filtros">
             <div className="relative min-w-52 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input name="q" defaultValue={sp.q ?? ''} placeholder="Nome, e-mail, telefone, função ou cidade" aria-label="Buscar" className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm" />

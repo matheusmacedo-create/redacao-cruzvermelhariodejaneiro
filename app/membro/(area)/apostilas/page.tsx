@@ -35,7 +35,7 @@ export default async function Apostilas({ searchParams }: { searchParams: Promis
       {grupos.length ? grupos.map((g) => (
         <Secao key={g.cursoId ?? 'gerais'} titulo={g.titulo} icone={g.cursoId ? GraduationCap : BookOpen} id={g.cursoId ? `apostilas-${g.cursoId}` : 'apostilas-gerais'}
           verTodos={g.cursoId ? { href: `/membro/cursos/${g.cursoId}`, rotulo: 'Ver curso' } : undefined}>
-          <ul className="grid gap-3">
+          <ul className="grid gap-3" data-ajuda="membro.apostilas">
             {g.itens.map((a) => (
               <li key={a.id} className="min-w-0">
                 <LinkExterno href={`/membro/apostilas/${a.id}`} className="flex h-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-foreground transition-colors hover:border-foreground/20">

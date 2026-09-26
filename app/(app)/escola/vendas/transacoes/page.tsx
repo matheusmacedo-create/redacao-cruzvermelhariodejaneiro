@@ -36,8 +36,8 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/vendas" />
       <PageHeader title="Transações" description="Cada cobrança das contas da escola na Únicopag: criada ou paga no mês escolhido. O CPF aparece mascarado; a ficha do aluno fica no sistema da escola."
-        actions={<Button variant="outline" render={<a href={`/api/escola/vendas/transacoes?${busca}`} />}><Download className="size-4" />Planilha (CSV)</Button>} />
-      <form className="flex flex-wrap items-end gap-2" id="filtros">
+        actions={<Button variant="outline" render={<a href={`/api/escola/vendas/transacoes?${busca}`} />} data-ajuda="escola-vendas.planilha"><Download className="size-4" />Planilha (CSV)</Button>} />
+      <form className="flex flex-wrap items-end gap-2" id="filtros" data-ajuda="escola-vendas.filtros">
         <select name="mes" defaultValue={f.mes} className={selectClass} aria-label="Mês">{mesesAte(hoje, 24).reverse().map((m) => <option key={m} value={m}>{mesPorExtenso(m)}</option>)}</select>
         {(contas ?? []).length > 1 && <select name="conta" defaultValue={f.conta} className={selectClass} aria-label="Conta"><option value="">Todas as contas</option>{(contas ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>}
         <select name="situacao" defaultValue={f.situacao} className={selectClass} aria-label="Situação"><option value="">Todas as situações</option>{(Object.keys(SITUACOES) as Situacao[]).map((s) => <option key={s} value={s}>{SITUACOES[s].rotulo}</option>)}</select>
@@ -45,9 +45,9 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
         <input name="q" defaultValue={f.q} placeholder="Pagador, curso, código…" className={inputClass.replace('w-full', 'w-56')} aria-label="Buscar" />
         <Button type="submit" variant="outline">Filtrar</Button>
       </form>
-      <p className="text-sm text-muted-foreground" id="total-transacoes">{lista.length} {lista.length === 1 ? 'transação' : 'transações'} · {reaisDeCentavos(recebido)} recebidos em {mesPorExtenso(f.mes)}{lista.length > LIMITE ? ` · mostrando as ${LIMITE} mais recentes (a planilha traz todas)` : ''}</p>
+      <p className="text-sm text-muted-foreground" id="total-transacoes" data-ajuda="escola-vendas.total">{lista.length} {lista.length === 1 ? 'transação' : 'transações'} · {reaisDeCentavos(recebido)} recebidos em {mesPorExtenso(f.mes)}{lista.length > LIMITE ? ` · mostrando as ${LIMITE} mais recentes (a planilha traz todas)` : ''}</p>
       {!lista.length ? <Card className="p-10 text-center text-sm text-muted-foreground">Nenhuma transação com estes filtros.</Card> : (
-        <Card className="overflow-x-auto p-0">
+        <Card className="overflow-x-auto p-0" data-ajuda="escola-vendas.tabela">
           <table className="w-full min-w-[760px] text-sm" id="tabela-transacoes">
             <thead className="border-b border-border text-left text-xs text-muted-foreground">
               <tr><th className="px-3 py-2 font-medium">Criada</th><th className="px-3 py-2 font-medium">Pagador</th><th className="px-3 py-2 font-medium">Curso</th><th className="px-3 py-2 font-medium">Forma</th><th className="px-3 py-2 font-medium">Situação</th><th className="px-3 py-2 text-right font-medium">Valor</th><th className="px-3 py-2 font-medium">Paga</th></tr>

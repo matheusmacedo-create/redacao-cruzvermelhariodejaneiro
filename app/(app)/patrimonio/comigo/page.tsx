@@ -20,7 +20,7 @@ export default async function Comigo() {
       <SecoesDoPatrimonio atual="/patrimonio/comigo" nivel={nivel} />
       <PageHeader title="Bens comigo" description="O que é da filial e está sob a sua responsabilidade. Confira e aceite o termo de cada um." />
       {!lista.length ? <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum bem da filial está com você.</Card> : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2" data-ajuda="patrimonio.comigo-lista">
           {lista.map((c) => (
             <Card key={c.id as string} className="flex flex-col gap-3 p-5" data-cautela={c.id as string}>
               <div className="flex items-baseline justify-between gap-2"><span className="font-medium">{c.bem?.nome}</span><span className="font-mono text-xs text-muted-foreground">{c.bem?.plaqueta}</span></div>

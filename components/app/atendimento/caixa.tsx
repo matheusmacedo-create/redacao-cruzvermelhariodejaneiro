@@ -241,7 +241,7 @@ export function CaixaDeAtendimento({
       <div className="md:grid md:grid-cols-[230px_1fr]">
         {/* ---- as pastas ---- */}
         <aside className="border-b border-border bg-muted/30 md:border-b-0 md:border-r">
-          <nav className="flex gap-1 overflow-x-auto p-2 md:flex-col md:p-3" aria-label="Pastas da caixa de entrada">
+          <nav className="flex gap-1 overflow-x-auto p-2 md:flex-col md:p-3" aria-label="Pastas da caixa de entrada" data-ajuda="caixa.pastas">
             {PASTAS.map(({ id, rotulo, icone: Icone, descricao }) => (
               <button
                 key={id}
@@ -269,6 +269,7 @@ export function CaixaDeAtendimento({
               onClick={() => void buscar()}
               disabled={carregando}
               aria-label="Atualizar"
+              data-ajuda="caixa.atualizar"
               className="ml-auto shrink-0 rounded-lg px-3 py-2.5 text-muted-foreground hover:text-foreground md:hidden"
             >
               {carregando ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
@@ -276,7 +277,7 @@ export function CaixaDeAtendimento({
           </nav>
 
           <div className="hidden border-t border-border p-3 md:block">
-            <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={() => void buscar()} disabled={carregando}>
+            <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={() => void buscar()} disabled={carregando} data-ajuda="caixa.atualizar">
               {carregando ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
               Atualizar
             </Button>
@@ -298,7 +299,7 @@ export function CaixaDeAtendimento({
         </aside>
 
         {/* ---- o conteúdo da pasta ---- */}
-        <section className="min-h-[420px]">
+        <section className="min-h-[420px]" data-ajuda="caixa.conteudo">
           {pasta !== 'internos' && carregando && !fila && (
             <div className="p-12 text-center text-sm text-muted-foreground">
               <Loader2 className="mx-auto mb-3 size-6 animate-spin" />
@@ -356,7 +357,7 @@ export function CaixaDeAtendimento({
 
       {/* ---- avisos, recolhidos: informação de rodapé não pode competir com a fila ---- */}
       {(avisos.length > 0 || foraDoAlcance.length > 0) && (
-        <div className="border-t border-border bg-muted/30">
+        <div className="border-t border-border bg-muted/30" data-ajuda="caixa.avisos">
           <button
             type="button"
             onClick={() => setAvisosAbertos((v) => !v)}

@@ -93,7 +93,7 @@ Relacionamento  Caixa de entrada · Newsletter · Imprensa e contatos
 Análise         Resultados · Histórico
 Institucional   Ofícios · E-mail do setor · Chamados
 Pessoas         Diretório · Recursos humanos · Voluntários
-(pé)            Usuários e permissões* · Configurações · Meu perfil
+(pé)            Usuários e permissões* · Configurações · Meu perfil · Ajuda
                                         * só para quem pode gerenciar
 ```
 
@@ -119,6 +119,11 @@ itens, como no benchmark.
 - **Busca rápida ⌘K / Ctrl K**, de qualquer tela: vai a qualquer área ou
   começa qualquer coisa; acha também pelos nomes antigos e por sinônimos
   ("cérebro", "impacto", "rh", "post").
+- **Ajuda** ([`AJUDA.md`](AJUDA.md)): o botão “?” do topo (e a tecla `?`)
+  abre o passo a passo e as perguntas frequentes da área aberta; a Central
+  fica em `/ajuda`, no pé da sidebar; e as perguntas da ajuda também
+  aparecem na busca ⌘K. A chave da ajuda é o `href` da área em
+  `lib/navegacao.ts`.
 - **Aba do navegador** com o nome da área ("Pautas — Redação").
 - No celular, a gaveta de antes, com os mesmos grupos, e a busca no topo.
 

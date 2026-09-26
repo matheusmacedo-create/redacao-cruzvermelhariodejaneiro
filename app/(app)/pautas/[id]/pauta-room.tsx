@@ -142,7 +142,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
               <input type="hidden" name="priority" value={pauta.priority} />
               <input type="hidden" name="coordination" value={pauta.coordenacao} />
               <input type="hidden" name="project" value={pauta.project} />
-              <label className="relative block">
+              <label data-ajuda="pautas.sala-status" className="relative block">
                 <span className="sr-only">Alterar status</span>
                 <select
                   name="status"
@@ -162,12 +162,13 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2" />
               </label>
             </form>
-            <Button variant="outline" size="lg" type="button" onClick={() => setParticipantsOpen(true)}>
+            <Button data-ajuda="pautas.sala-pessoas" variant="outline" size="lg" type="button" onClick={() => setParticipantsOpen(true)}>
               <UserPlus className="size-4" />
               Adicionar pessoas
             </Button>
             <div className="relative">
               <Button
+                data-ajuda="pautas.sala-mais"
                 variant="ghost"
                 size="icon-lg"
                 type="button"
@@ -251,7 +252,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-4 lg:grid-cols-6">
+        <dl data-ajuda="pautas.sala-resumo" className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-border bg-muted/30 p-4 sm:grid-cols-4 lg:grid-cols-6">
           <Meta label="Projeto" value={pauta.project} />
           <Meta label="Coordenação" value={pauta.coordenacao} />
           <Meta label="Prazo" value={pauta.deadline} />
@@ -283,7 +284,7 @@ export function PautaRoom({ pauta, details = {}, participants, availablePeople, 
       </div>
 
       {/* Tabs */}
-      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
+      <div data-ajuda="pautas.sala-abas" className="mb-5 flex gap-1 overflow-x-auto border-b border-border">
         {tabs.map((t) => (
           <button
             key={t.id}

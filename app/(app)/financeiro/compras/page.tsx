@@ -111,7 +111,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex flex-wrap gap-2" aria-label="Pedidos">
+        <nav data-ajuda="compras.abas" className="flex flex-wrap gap-2" aria-label="Pedidos">
           {visiveis.map((a) => (
             <Link key={a.id} href={`/financeiro/compras?aba=${a.id}`} aria-current={aba === a.id ? 'page' : undefined}
               className={cn('rounded-lg border px-3 py-2 text-sm font-medium', aba === a.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
@@ -119,7 +119,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
             </Link>
           ))}
         </nav>
-        {pede && <Button render={<Link href="/financeiro/compras/novo" />}><Plus className="size-4" />Novo pedido</Button>}
+        {pede && <Button data-ajuda="compras.novo" render={<Link href="/financeiro/compras/novo" />}><Plus className="size-4" />Novo pedido</Button>}
       </div>
 
       {lista.length === 0 ? (
@@ -131,7 +131,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
           </p>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-2" data-pedidos>
+        <ul data-ajuda="compras.lista" className="flex flex-col gap-2" data-pedidos>
           {lista.map((p) => (
             <li key={p.id}>
               <Link href={`/financeiro/compras/${p.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-card p-4 hover:border-primary/40">
@@ -157,7 +157,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       )}
 
       {nivel >= 1 && empresa && (
-        <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between" data-relatorio>
+        <Card data-ajuda="compras.relatorio" className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end sm:justify-between" data-relatorio>
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-medium"><FileText className="size-4" />Relatório de compras para a transparência</p>
             <p className="mt-1 text-sm text-muted-foreground">

@@ -18,6 +18,12 @@ export type Progresso = {
   boasVindas: string | null
   /** Tours concluídos ou dispensados: o href da área ou o caminho da tela ('/pautas/[id]'). */
   vistos: string[]
+  /**
+   * A tecla "?" desligada. Atalho de uma tecla só precisa poder ser desligado
+   * (WCAG 2.1.4): quem dita texto ou esbarra no teclado abriria a ajuda sem
+   * querer. Ausente = ligada; o botão "?" do topo vale sempre.
+   */
+  semAtalho?: true
 }
 
 export const PROGRESSO_VAZIO: Progresso = { boasVindas: null, vistos: [] }
@@ -28,12 +34,13 @@ export const MAXIMO_DE_VISTOS = 120
 /** Lê o que estiver gravado, desconfiando de tudo (o metadata é editável pela pessoa). */
 export function lerProgresso(bruto: unknown): Progresso {
   if (!bruto || typeof bruto !== 'object') return PROGRESSO_VAZIO
-  const { boasVindas, vistos } = bruto as Record<string, unknown>
+  const { boasVindas, vistos, semAtalho } = bruto as Record<string, unknown>
   return {
     boasVindas: typeof boasVindas === 'string' && boasVindas.length <= 40 ? boasVindas : null,
     vistos: Array.isArray(vistos)
       ? [...new Set(vistos.filter((v): v is string => typeof v === 'string' && v.startsWith('/') && v.length <= 120))].slice(-MAXIMO_DE_VISTOS)
       : [],
+    ...(semAtalho === true ? { semAtalho: true as const } : {}),
   }
 }
 
@@ -50,7 +57,13 @@ export function viuTour(p: Progresso, chave: string): boolean {
   return p.vistos.includes(chave)
 }
 
-/** Recomeçar do zero (botão "Rever as boas-vindas e os tours" na Central). */
+/** Recomeçar do zero (botão "Recomeçar as boas-vindas e os tours" na Central). */
 export function progressoZerado(): Progresso {
   return { boasVindas: null, vistos: [] }
+}
+
+/** Liga ou desliga a tecla "?". Recomeçar os tours não mexe nisto (é preferência, não progresso). */
+export function comAtalho(p: Progresso, ligado: boolean): Progresso {
+  const { semAtalho: _, ...resto } = p
+  return ligado ? resto : { ...resto, semAtalho: true }
 }

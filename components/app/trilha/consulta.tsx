@@ -78,7 +78,7 @@ export function ConsultaPorCodigo({ texto, setTexto, achado, buscando, consultar
           Mostra o que a consulta pública mostraria e, só aqui, a história inteira do registro: cada evento, o papel de quem agiu e o hash de cada linha da cadeia.
         </p>
       </div>
-      <Card className="flex flex-col gap-4 p-5">
+      <Card className="flex flex-col gap-4 p-5" data-ajuda="trilha.consulta">
         <form role="search" aria-label="Consultar um código na trilha" className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); consultar(texto) }}>
           <label htmlFor="trilha-codigo" className="text-sm font-medium">Código</label>
           <div className="flex flex-col gap-2 sm:flex-row">

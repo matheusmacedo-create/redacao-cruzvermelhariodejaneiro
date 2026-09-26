@@ -4,6 +4,7 @@
  * - todo alvo citado num tour tem um `data-ajuda="..."` em algum arquivo;
  * - toda ajuda é de uma área que existe em lib/navegacao.ts (e toda área tem ajuda);
  * - ids de tarefa e pergunta são únicos dentro da área (viram âncora na Central);
+ *   na Área do Voluntário, únicos na página inteira (/membro/ajuda junta tudo);
  * - telas internas moram dentro do endereço da área.
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
@@ -11,7 +12,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { GUIAS, TOPICOS_GERAIS, alvosCitados } from '../lib/ajuda'
-import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO } from '../lib/ajuda/membro'
+import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
 
 const raiz = join(__dirname, '..')
@@ -27,18 +28,21 @@ function arquivos(dir: string): string[] {
 }
 
 // data-ajuda="x" e data-ajuda={... 'x' ...} (inclusive condicional: {primeiro ? 'x' : undefined}).
+// Dentro das chaves só conta string com ponto (`<área>.<coisa>`): a condição
+// (`tipo === 'institucional'`) não é alvo.
 // Valor montado em tempo de execução (`${...}`) não conta: o conteúdo cita alvos fixos.
 const marcados = new Set<string>()
 for (const arquivo of [...arquivos(join(raiz, 'app')), ...arquivos(join(raiz, 'components'))]) {
   const texto = readFileSync(arquivo, 'utf8')
   for (const m of texto.matchAll(/data-ajuda="([^"$]+)"/g)) marcados.add(m[1])
-  for (const m of texto.matchAll(/data-ajuda=\{([^}]*)\}/g)) for (const v of m[1].matchAll(/'([a-z0-9.-]+)'/g)) marcados.add(v[1])
+  for (const m of texto.matchAll(/data-ajuda=\{([^}]*)\}/g)) for (const v of m[1].matchAll(/'([a-z0-9-]+\.[a-z0-9.-]+)'/g)) marcados.add(v[1])
 }
 
 const citados = [
   ...alvosCitados(),
   ...BOAS_VINDAS_DO_MEMBRO.flatMap((p) => (p.alvo ? [{ alvo: p.alvo, onde: 'boas-vindas do voluntário' }] : [])),
-  ...GUIAS_DO_MEMBRO.flatMap((g) => g.tour.flatMap((p) => (p.alvo ? [{ alvo: p.alvo, onde: `voluntário ${g.href}` }] : []))),
+  ...GUIAS_DO_MEMBRO.flatMap((g) => [{ onde: g.href, passos: g.tour }, ...(g.telas ?? []).map((t) => ({ onde: t.caminho, passos: t.tour }))])
+    .flatMap(({ onde, passos }) => passos.flatMap((p) => (p.alvo ? [{ alvo: p.alvo, onde: `voluntário ${onde}` }] : []))),
 ]
 for (const { alvo, onde } of citados) {
   if (!marcados.has(alvo)) erros.push(`alvo sem elemento: "${alvo}" (tour de ${onde})`)
@@ -69,6 +73,15 @@ for (const href of hrefs) if (!comAjuda.has(href) && href !== '/ajuda') avisos.p
 const idsGerais = TOPICOS_GERAIS.flatMap((t) => [t.id, ...t.tarefas.map((x) => x.id), ...t.perguntas.map((p) => p.id)])
 const repetidosGerais = idsGerais.filter((id, n) => idsGerais.indexOf(id) !== n)
 if (repetidosGerais.length) erros.push(`tópicos gerais: ids repetidos ${[...new Set(repetidosGerais)].join(', ')}`)
+
+// A Central do voluntário (/membro/ajuda) põe destinos e tópicos numa página só: o id é âncora da página inteira.
+const idsDoMembro = [
+  ...GUIAS_DO_MEMBRO.flatMap((g) => [...g.tarefas.map((t) => t.id), ...g.perguntas.map((p) => p.id)]),
+  ...TOPICOS_DO_MEMBRO.flatMap((t) => [...t.tarefas.map((x) => x.id), ...t.perguntas.map((p) => p.id)]),
+]
+const repetidosDoMembro = idsDoMembro.filter((id, n) => idsDoMembro.indexOf(id) !== n)
+if (repetidosDoMembro.length) erros.push(`voluntário: ids repetidos ${[...new Set(repetidosDoMembro)].join(', ')}`)
+for (const id of idsDoMembro) if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) erros.push(`voluntário: id fora do padrão "${id}"`)
 
 const usados = new Set(citados.map((c) => c.alvo))
 const soltos = [...marcados].filter((m) => !usados.has(m))

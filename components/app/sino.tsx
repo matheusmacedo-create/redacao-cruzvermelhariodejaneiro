@@ -77,7 +77,7 @@ export function Sino({ notificacoes, naoLidas }: { notificacoes: Notificacao[]; 
   const rotulo = contagem > 99 ? '99+' : String(contagem)
   return (
     <div className="relative">
-      <button type="button" onClick={() => { if (!aberto) void buscar(); setAberto((v) => !v) }} aria-expanded={aberto} className="relative inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Notificações${contagem ? `, ${contagem} não lidas` : ''}`}>
+      <button type="button" data-ajuda="shell.sino" onClick={() => { if (!aberto) void buscar(); setAberto((v) => !v) }} aria-expanded={aberto} className="relative inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={`Notificações${contagem ? `, ${contagem} não lidas` : ''}`}>
         <Bell className="size-[18px]" />
         {contagem > 0 && <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background">{rotulo}</span>}
       </button>

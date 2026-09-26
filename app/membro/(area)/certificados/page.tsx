@@ -35,7 +35,7 @@ export default async function Certificados() {
       <CabecalhoDaPagina titulo="Certificados" descricao="Tudo o que você concluiu. Cada certificado tem um código que qualquer pessoa pode conferir." />
       <Secao titulo="Certificados emitidos" icone={Award} id="emitidos">
         {certificados.length ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-ajuda="membro.certificados">
             {certificados.map((c) => <li key={c.codigo} className="min-w-0"><CartaoDoCertificado c={c} hoje={hoje} verificacao={`${base}/certificado/${c.codigo}`} /></li>)}
           </ul>
         ) : (
@@ -92,7 +92,7 @@ function CartaoDoCertificado({ c, hoje, verificacao }: { c: CertificadoDoMembro;
           {c.curso_id && <> ou <Link href={`/membro/cursos/${c.curso_id}`} className="font-medium underline underline-offset-4 hover:no-underline">reveja o curso</Link></>}.
         </p>
       )}
-      <div className="mt-auto flex flex-col gap-1 pt-1">
+      <div className="mt-auto flex flex-col gap-1 pt-1" data-ajuda="membro.acoes-do-certificado">
         <a href={`/membro/certificados/${c.codigo}/pdf`} className={cn(botaoSecundario, 'mb-1 w-full')}><Download className="size-4" aria-hidden="true" />Baixar PDF</a>
         <CopiarLink url={verificacao} className={acao} />
         <LinkExterno href={linkDoLinkedin(c, verificacao)} className={acao}><Share2 className="size-4 shrink-0" aria-hidden="true" />Adicionar ao LinkedIn</LinkExterno>

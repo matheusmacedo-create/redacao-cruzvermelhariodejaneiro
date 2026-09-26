@@ -52,8 +52,8 @@ export function Setores({ setores, contas, ehAdmin }: { setores: SetorNaTela[]; 
   const nomeDe = new Map(contas.map((c) => [c.id, c.nome]))
   return (
     <div className="flex flex-col gap-3" id="setores">
-      {ehAdmin && (editando === 'novo' ? <Formulario s={null} contas={contas} onFim={fim} /> : <div><Button size="sm" variant="outline" onClick={() => setEditando('novo')} id="novo-setor"><Plus className="size-3.5" />Novo setor</Button></div>)}
-      <ul className="divide-y divide-border rounded-lg border border-border">
+      {ehAdmin && (editando === 'novo' ? <Formulario s={null} contas={contas} onFim={fim} /> : <div><Button size="sm" variant="outline" onClick={() => setEditando('novo')} id="novo-setor" data-ajuda="diretorio.novo-setor"><Plus className="size-3.5" />Novo setor</Button></div>)}
+      <ul className="divide-y divide-border rounded-lg border border-border" data-ajuda="diretorio.lista-setores">
         {setores.map((s) => (
           <li key={s.id} className="px-4 py-3" data-setor={s.nome}>
             {editando === s.id ? <Formulario s={s} contas={contas} onFim={fim} /> : (

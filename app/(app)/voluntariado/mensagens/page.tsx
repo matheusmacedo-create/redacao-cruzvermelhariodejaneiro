@@ -26,13 +26,13 @@ export default async function MensagensDosVoluntarios({ searchParams }: { search
     <div className="flex flex-col gap-6">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
       <PageHeader title="Mensagens dos voluntários" description="O canal direto da Área do Voluntário. Quem gerencia o Voluntariado é avisado no sino a cada mensagem nova; o voluntário recebe a resposta por e-mail." />
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="canal-voluntarios.abas">
         {abas.map(([id, q, r]) => (
           <Link key={id} href={`/voluntariado/mensagens${q}`} aria-current={aba === id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{r}</Link>
         ))}
       </nav>
-      <Card className="divide-y divide-border p-0">
+      <Card className="divide-y divide-border p-0" data-ajuda="canal-voluntarios.lista">
         {(conversas ?? []).map((c) => {
           const p = (Array.isArray(c.participantes) ? c.participantes[0] : c.participantes) as { nome: string; nome_social: string | null } | null
           const nova = novaParaAEquipe(c as { situacao: string; lida_pelo_membro_em: string | null; lida_pela_equipe_em: string | null })

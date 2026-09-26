@@ -30,7 +30,7 @@ export function Aprovacao({ pedidoId, etapas, emAprovacao }: { pedidoId: string;
     })
   }
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Aprovação" data-aprovacao>
+    <section data-ajuda="compras.aprovacao" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Aprovação" data-aprovacao>
       <p className="font-medium">Aprovação</p>
       <ul className="flex flex-col gap-2 text-sm">
         {etapas.map((e) => (

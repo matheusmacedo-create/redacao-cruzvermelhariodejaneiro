@@ -82,7 +82,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
       />
 
       {!contas.length ? (
-        <Card className="flex flex-col items-center gap-3 p-10 text-center" id="escola-vazia">
+        <Card className="flex flex-col items-center gap-3 p-10 text-center" id="escola-vazia" data-ajuda="escola-vendas.vazio">
           <GraduationCap className="size-8 text-muted-foreground" />
           <p className="font-medium">Nenhuma conta da Únicopag ligada ainda</p>
           <p className="max-w-md text-sm text-muted-foreground">Ligue as contas por onde a escola recebe (matrícula e curso) para ver aqui o dinheiro de cada mês, por curso e por forma de pagamento.</p>
@@ -101,13 +101,13 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
             </Card>
           )}
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3" data-ajuda="escola-vendas.mes">
             <Button variant="ghost" size="sm" render={<Link href={`/escola/vendas?mes=${somarMeses(mes, -1)}`} aria-label="Mês anterior" />}><ChevronLeft className="size-4" /></Button>
             <h2 className="text-base font-medium" id="mes-do-painel">{mesPorExtenso(mes).replace(/^./, (l) => l.toUpperCase())}</h2>
             {mes < hoje ? <Button variant="ghost" size="sm" render={<Link href={`/escola/vendas?mes=${somarMeses(mes, 1)}`} aria-label="Próximo mês" />}><ChevronRight className="size-4" /></Button> : <span className="w-9" />}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores" data-ajuda="escola-vendas.indicadores">
             <Indicador id="ind-recebido" rotulo="Recebido no mês" valor={reaisDeCentavos(r.recebido)}
               detalhe={<>{r.pagamentos} {r.pagamentos === 1 ? 'pagamento' : 'pagamentos'}{r.pagamentos ? ` · ticket médio ${reaisDeCentavos(r.ticketMedio)}` : ''}{delta !== null ? <> · <span className={delta < 0 ? 'text-destructive' : 'text-success'}>{porcento(delta)}</span> sobre o mês anterior</> : ''}</>} />
             <Indicador id="ind-aguardando" rotulo="Aguardando pagamento" valor={reaisDeCentavos(r.aguardando)}
@@ -122,14 +122,14 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
             <GraficoMensal pontos={serie.map((p) => ({ mes: p.mes, recebido: p.recebido }))} atual={mes} />
           </Card>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-2" data-ajuda="escola-vendas.divisoes">
             <Divisao id="por-curso" titulo="Por curso" fatias={comOutros(r.porProduto, 8)} total={r.recebido} />
             <Divisao id="por-metodo" titulo="Por forma de pagamento" fatias={r.porMetodo} total={r.recebido} nome={(k) => (ehMetodo(k) ? METODOS[k] : k)} />
             <Divisao id="por-origem" titulo="Por origem da venda" fatias={comOutros(r.porOrigem, 6)} total={r.recebido} />
             {contas.length > 1 && <Divisao id="por-conta" titulo="Por conta" fatias={r.porConta} total={r.recebido} nome={(k) => nomeDaConta.get(k) ?? 'Conta removida'} />}
           </div>
 
-          <div className="flex justify-end"><Button variant="outline" render={<Link href={`/escola/vendas/transacoes?mes=${mes}`} />}>Ver as transações de {mesPorExtenso(mes)}</Button></div>
+          <div className="flex justify-end"><Button variant="outline" render={<Link href={`/escola/vendas/transacoes?mes=${mes}`} />} data-ajuda="escola-vendas.ver-transacoes">Ver as transações de {mesPorExtenso(mes)}</Button></div>
         </>
       )}
 

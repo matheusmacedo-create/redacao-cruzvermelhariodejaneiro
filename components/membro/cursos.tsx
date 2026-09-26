@@ -102,7 +102,7 @@ export function ItemDaProva({ cursoId, estado, aulas, detalhe, compacto = false 
 /** A grade de cartões: uma coluna no celular, duas a partir de sm e, com capas (`vertical`), três no computador. */
 export function GradeDeCursos({ cursos, vertical, className }: { cursos: CursoNoCatalogo[]; vertical: boolean; className?: string }) {
   return (
-    <ul className={cn('grid gap-3 sm:grid-cols-2 sm:gap-4', vertical && 'lg:grid-cols-3', className)}>
+    <ul className={cn('grid gap-3 sm:grid-cols-2 sm:gap-4', vertical && 'lg:grid-cols-3', className)} data-ajuda="membro.cursos">
       {cursos.map((c) => <li key={c.id} className="min-w-0"><CartaoDeCurso c={c} vertical={vertical} /></li>)}
     </ul>
   )

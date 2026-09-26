@@ -200,10 +200,10 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] min-h-[28rem] overflow-hidden rounded-xl border border-border bg-card" data-chat>
       {/* Lateral: canais e conversas diretas */}
-      <aside className={`${verLista ? 'flex' : 'hidden'} w-full flex-col border-r border-border bg-muted/30 md:flex md:w-64 md:shrink-0`} aria-label="Conversas">
+      <aside className={`${verLista ? 'flex' : 'hidden'} w-full flex-col border-r border-border bg-muted/30 md:flex md:w-64 md:shrink-0`} aria-label="Conversas" data-ajuda="chat.conversas">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
           <p className="font-semibold">Chat</p>
-          <div className="flex gap-1">
+          <div className="flex gap-1" data-ajuda="chat.criar">
             <button type="button" onClick={() => abrirBusca(buscaVazia)} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Buscar no chat" title="Buscar no chat"><Search className="size-4" /></button>
             {redacao && <button type="button" onClick={() => setPainel(painel === 'canal' ? 'nada' : 'canal')} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Novo canal" title="Novo canal"><Hash className="size-4" /></button>}
             <button type="button" onClick={() => setPainel(painel === 'direta' ? 'nada' : 'direta')} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Nova conversa" title="Nova conversa"><Plus className="size-4" /></button>
@@ -249,7 +249,7 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
             {conversaAtual.descricao && <p className="truncate text-xs text-muted-foreground">{conversaAtual.descricao}</p>}
           </div>
           <button type="button" onClick={() => abrirBusca({ ...buscaVazia, aqui: true })} className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden" aria-label="Buscar"><Search className="size-4" /></button>
-          <button type="button" onClick={() => setPainel(painel === 'membros' ? 'nada' : 'membros')} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Pessoas nesta conversa">
+          <button type="button" onClick={() => setPainel(painel === 'membros' ? 'nada' : 'membros')} className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Pessoas nesta conversa" data-ajuda="chat.pessoas">
             <Users className="size-3.5" />{membros.length}
           </button>
           {conversaAtual.membro && <Avisos c={conversaAtual} onMudar={(v) => agir(() => mudarAvisos(atual.id, v), () => setConversas((cs) => cs.map((c) => (c.id === atual.id ? { ...c, avisar: v } : c))))} />}
@@ -265,7 +265,7 @@ export function Chat({ eu, ehAdmin, redacao, conversas: inicial, atual, mensagen
             onFechar={() => setPainel('nada')} />
         )}
 
-        <div ref={lista} className="flex-1 overflow-y-auto px-3 py-3" data-mensagens
+        <div ref={lista} className="flex-1 overflow-y-auto px-3 py-3" data-mensagens data-ajuda="chat.mensagens"
           onScroll={(e) => { const el = e.currentTarget; noFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80 }}>
           {temMais && (
             <div className="mb-3 text-center">
@@ -351,7 +351,7 @@ function Avisos({ c, onMudar }: { c: ConversaNoPainel; onMudar: (v: 'tudo' | 'me
     ? [['tudo', 'Avisar toda mensagem'], ['nada', 'Silenciar']] as const
     : [['tudo', 'Avisar toda mensagem'], ['mencoes', 'Só quando me mencionarem'], ['nada', 'Silenciar']] as const
   return (
-    <label className="flex items-center gap-1 text-xs text-muted-foreground" title="Quando esta conversa avisa você (sino, e-mail e alerta)">
+    <label className="flex items-center gap-1 text-xs text-muted-foreground" title="Quando esta conversa avisa você (sino, e-mail e alerta)" data-ajuda="chat.avisos">
       {c.avisar === 'nada' ? <BellOff className="size-3.5" /> : <Bell className="size-3.5" />}
       <select value={c.avisar} onChange={(e) => onMudar(e.target.value as 'tudo' | 'mencoes' | 'nada')} className="max-w-20 rounded border-0 bg-transparent py-1 text-xs outline-none hover:bg-muted sm:max-w-36" aria-label="Avisos desta conversa">
         {opcoes.map(([v, r]) => <option key={v} value={v}>{r}</option>)}

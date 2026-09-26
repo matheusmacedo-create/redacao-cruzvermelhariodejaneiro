@@ -79,7 +79,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
         <Campo rotulo="Data de nascimento"><input id="p-nascimento" name="data_nascimento" type="date" defaultValue={v('data_nascimento')} className={inputClass} /></Campo>
         <Campo rotulo="CPF" dica={p?.cpf_mascara ? `Guardado: ${p.cpf_mascara}. Deixe em branco para manter.` : 'Guardado cifrado; aparece mascarado.'}>
           {/* Com CPF guardado, o campo só vai no formulário quando alguém digita: vazio não apaga. */}
-          <input id="p-cpf" name={cpf || !p?.cpf_mascara ? 'cpf' : 'cpf_novo'} value={cpf} onChange={(e) => setCpf(e.target.value)}
+          <input id="p-cpf" data-ajuda="voluntarios.cpf" name={cpf || !p?.cpf_mascara ? 'cpf' : 'cpf_novo'} value={cpf} onChange={(e) => setCpf(e.target.value)}
             inputMode="numeric" maxLength={14} placeholder="000.000.000-00" className={inputClass} />
         </Campo>
       </Secao>
@@ -91,7 +91,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
           </select>
         </Campo>
         <Campo rotulo="Função" dica="Ex.: socorrista, instrutor de primeiros socorros"><input id="p-funcao" name="funcao" maxLength={120} defaultValue={v('funcao')} className={inputClass} /></Campo>
-        <fieldset className="sm:col-span-2">
+        <fieldset className="sm:col-span-2" data-ajuda="voluntarios.setores">
           <legend className="mb-1.5 text-sm font-medium">Setores</legend>
           <div className="flex flex-wrap gap-2">
             {[...setores, ...(p?.setores ?? []).filter((s) => !setores.includes(s))].map((s) => (
@@ -125,7 +125,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
         <Campo rotulo="Telefone de emergência"><input id="p-emerg-tel" name="emergencia_telefone" type="tel" maxLength={40} defaultValue={v('emergencia_telefone')} className={inputClass} /></Campo>
         <Campo rotulo="Parentesco"><input id="p-emerg-par" name="emergencia_parentesco" maxLength={60} defaultValue={v('emergencia_parentesco')} className={inputClass} /></Campo>
         <span className="hidden sm:block" />
-        <Campo rotulo="Responsável legal"><input id="p-resp-nome" name="responsavel_nome" maxLength={200} defaultValue={v('responsavel_nome')} className={inputClass} /></Campo>
+        <Campo rotulo="Responsável legal"><input id="p-resp-nome" data-ajuda="voluntarios.responsavel" name="responsavel_nome" maxLength={200} defaultValue={v('responsavel_nome')} className={inputClass} /></Campo>
         <Campo rotulo="Telefone do responsável"><input id="p-resp-tel" name="responsavel_telefone" type="tel" maxLength={40} defaultValue={v('responsavel_telefone')} className={inputClass} /></Campo>
       </Secao>
 
@@ -133,7 +133,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
         {trocarSaude ? (
           <>
             <Campo rotulo="Tipo sanguíneo">
-              <select id="p-tipo" name="tipo_sanguineo" defaultValue="" className={inputClass}>
+              <select id="p-tipo" data-ajuda="voluntarios.saude" name="tipo_sanguineo" defaultValue="" className={inputClass}>
                 <option value="">Não informado</option>{TIPOS_SANGUINEOS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </Campo>
@@ -142,7 +142,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
             </Campo>
           </>
         ) : (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground sm:col-span-2" data-ajuda="voluntarios.saude">
             <Lock className="size-4" />Há dados de saúde guardados.
             <button type="button" onClick={() => setTrocarSaude(true)} className="font-medium text-primary hover:underline">Substituir</button>
           </p>
@@ -169,7 +169,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
       {estado.erro && <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{estado.erro}</p>}
       <div className="flex justify-end gap-2">
         <Button variant="outline" render={<Link href={p ? `/voluntariado/${p.id}` : '/voluntariado'} />}>Cancelar</Button>
-        <Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}{p ? 'Salvar alterações' : 'Cadastrar'}</Button>
+        <Button type="submit" disabled={enviando} data-ajuda="voluntarios.salvar">{enviando && <Loader2 className="size-4 animate-spin" />}{p ? 'Salvar alterações' : 'Cadastrar'}</Button>
       </div>
     </form>
   )

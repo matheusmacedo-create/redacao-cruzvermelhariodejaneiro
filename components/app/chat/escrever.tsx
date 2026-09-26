@@ -174,7 +174,7 @@ export function Escrever({ ref, canalId, respostaDe, tipo, titulo, pessoas, memb
   const parar = (jogarFora = false) => { descartar.current = jogarFora; gravador.current?.stop() }
 
   return (
-    <div className="relative border-t border-border p-3">
+    <div className="relative border-t border-border p-3" data-ajuda="chat.escrever">
       {mencao && opcoes.length > 0 && (
         <ul className="absolute bottom-full left-3 z-10 mb-1 w-72 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg" role="listbox" aria-label="Mencionar">
           {opcoes.map((o, i) => (

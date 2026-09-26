@@ -101,7 +101,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
 
         <Secao icone={ClipboardList} titulo="O que é">
           <Field label="Tipo do registro">
-            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Tipo do registro">
+            <div data-ajuda="registrar.tipo" className="flex flex-wrap gap-2" role="radiogroup" aria-label="Tipo do registro">
               {tipos.map((item) => (
                 <button key={item} type="button" role="radio" aria-checked={tipo === item} onClick={() => setTipo(item)}
                   className={cn('rounded-lg border px-3 py-1.5 text-sm font-medium', tipo === item ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
@@ -128,7 +128,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
         </Secao>
 
         <Secao icone={SlidersHorizontal} titulo="Planejamento" descricao="Como a pauta aparece no quadro e na linha do tempo do projeto.">
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div data-ajuda="registrar.planejamento" className="grid gap-5 sm:grid-cols-2">
             <Field label="Responsável">
               <select name="responsavel" defaultValue={eu} className={inputClass}>
                 {pessoas.map((p) => <option key={p.id} value={p.id}>{p.id === eu ? `${p.nome} (eu)` : p.nome}</option>)}
@@ -222,7 +222,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
           )}
 
           <div>
-            <Button type="button" variant="ghost" onClick={adicionarPublicacao} disabled={publicacoes.length >= LIMITE_DE_PUBLICACOES}>
+            <Button data-ajuda="registrar.publicacoes" type="button" variant="ghost" onClick={adicionarPublicacao} disabled={publicacoes.length >= LIMITE_DE_PUBLICACOES}>
               <Plus className="size-4" />Adicionar publicação
             </Button>
             {publicacoes.length >= LIMITE_DE_PUBLICACOES && (
@@ -241,7 +241,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="ghost" size="lg" render={<Link href="/pautas" />}>Cancelar</Button>
-          <Button size="lg" type="submit" disabled={enviando}>
+          <Button data-ajuda="registrar.enviar" size="lg" type="submit" disabled={enviando}>
             {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}Enviar para Comunicação
           </Button>
         </div>

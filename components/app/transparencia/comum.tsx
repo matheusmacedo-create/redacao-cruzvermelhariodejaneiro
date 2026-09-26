@@ -485,7 +485,7 @@ export function AvisoDeLancamento({ aberto, endereco, atualizando, onAtualizar }
   const legivel = endereco.replace(/^https?:\/\//, '')
   const link = <a href={endereco} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground underline underline-offset-2">{legivel}</a>
   return (
-    <Card className={cn('flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between', !aberto && 'border-warning/50 bg-warning/5')}>
+    <Card className={cn('flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between', !aberto && 'border-warning/50 bg-warning/5')} data-ajuda="transparencia.lancamento">
       <div className="flex min-w-0 items-start gap-3">
         <span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full', aberto ? 'bg-success/15 text-success' : 'bg-warning/25 text-warning-foreground')}>
           {aberto ? <Globe className="size-4" aria-hidden /> : <EyeOff className="size-4" aria-hidden />}

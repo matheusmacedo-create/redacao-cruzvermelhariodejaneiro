@@ -74,14 +74,14 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
         description="Matérias publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão, matrículas e o que custou."
         actions={podeEscrever ? <NovoAdvertorial campanhas={campanhas} destinoSugerido={destinoSugerido} /> : undefined} />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-adv">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-adv" data-ajuda="escola-advertoriais.indicadores">
         <Indicador rotulo="Advertoriais" valor={milhar(todas.length)} detalhe={`${publicados} no site`} />
         <Indicador rotulo="Visitas" valor={milhar(visitas)} detalhe={`${milhar(cliques)} cliques no botão (${pct(visitas ? cliques / visitas : null, 1)})`} />
         <Indicador rotulo="Matrículas" valor={milhar(matriculas)} detalhe={cliques ? `${pct(matriculas / cliques, 1)} de quem clicou` : 'pelo utm_content na Únicopag'} />
         <Indicador rotulo="Investido nos anúncios" valor={reais(investido)} detalhe={matriculas && investido ? `${reais(investido / matriculas)} por matrícula` : 'dos anúncios que apontam para as páginas'} />
       </div>
 
-      <form className="flex flex-wrap items-center gap-2" id="filtros-adv">
+      <form className="flex flex-wrap items-center gap-2" id="filtros-adv" data-ajuda="escola-advertoriais.filtros">
         <select name="ordem" defaultValue={ordem} className={selectClass} aria-label="Ordem">{Object.entries(ORDENS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         {campanhas.length > 0 && <select name="campanha" defaultValue={campanhaFiltro} className={selectClass} aria-label="Campanha"><option value="">Todas as campanhas</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>}
         <Button type="submit" variant="outline">Aplicar</Button>
@@ -94,12 +94,12 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
           <p className="max-w-md text-sm text-muted-foreground">Crie o primeiro: ele nasce no editor de matérias com a estrutura pronta e o botão de matrícula rastreado. Publicado como notícia, ele passa a contar visitas, cliques e matrículas sozinho.</p>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="banco-adv">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="banco-adv" data-ajuda="escola-advertoriais.banco">
           {linhas.map((l) => <CartaoDoAdvertorial key={l.peca.id} l={l} campanhas={campanhas} podeEscrever={podeEscrever} />)}
         </div>
       )}
 
-      <Card className="p-4 text-sm text-muted-foreground">
+      <Card className="p-4 text-sm text-muted-foreground" data-ajuda="escola-advertoriais.como-contam">
         <p className="font-medium text-foreground">Como os números chegam</p>
         <ul className="mt-1 list-disc space-y-1 pl-5">
           <li><b>Visitas</b>: a página publicada conta cada leitura (sem cookie, robôs não contam).</li>

@@ -106,7 +106,7 @@ export function TabelaDoRegistro({ linhas, temPendentes }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ajuda="historico.filtros" className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -125,6 +125,7 @@ export function TabelaDoRegistro({ linhas, temPendentes }: {
         </select>
         {temPendentes && (
           <Button
+            data-ajuda="historico.conferir"
             variant="outline"
             disabled={conferindo}
             onClick={() => conferir(async () => {
@@ -155,7 +156,7 @@ export function TabelaDoRegistro({ linhas, temPendentes }: {
       </p>
 
       {filtradas.length > 0 && (
-        <Card className="overflow-hidden p-0">
+        <Card data-ajuda="historico.tabela" className="overflow-hidden p-0">
           {/* A tabela rola sozinha no celular; a página nunca rola de lado. */}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[46rem] border-collapse text-sm">

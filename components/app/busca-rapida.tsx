@@ -3,9 +3,10 @@
 import { useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
-import { CornerDownLeft, Loader2, Search, type LucideIcon } from 'lucide-react'
+import { CircleHelp, CornerDownLeft, Loader2, Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { buscarAreas, type Grupo } from '@/lib/navegacao'
+import { buscarNaAjuda } from '@/lib/ajuda'
 import { ACOES_DE_CRIAR, useCriar, type AcaoDeCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
 
@@ -54,11 +55,15 @@ function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
   ], [grupos])
 
   // Buscando, as áreas vêm antes das ações: quem digita um nome quer ir lá.
+  // Por último, as respostas da ajuda (até 5), que abrem na Central de ajuda.
   const itens = useMemo(() => {
     if (!busca.trim()) return todos
     const achados = buscarAreas(busca, todos)
-    return [...achados.filter((i) => i.href).map((i) => ({ ...i, secao: 'Ir para' })), ...achados.filter((i) => i.acao)]
-  }, [busca, todos])
+    const ajuda = buscarNaAjuda(busca, grupos, 5).map<Item>((a) => ({
+      chave: `ajuda:${a.href}`, secao: 'Ajuda', rotulo: a.titulo, resumo: `${a.tipo === 'pergunta' ? 'Pergunta' : 'Passo a passo'} · ${a.onde}`, icone: CircleHelp, href: a.href,
+    }))
+    return [...achados.filter((i) => i.href).map((i) => ({ ...i, secao: 'Ir para' })), ...achados.filter((i) => i.acao), ...ajuda]
+  }, [busca, todos, grupos])
 
   const indice = Math.min(ativo, Math.max(itens.length - 1, 0))
 
@@ -90,12 +95,12 @@ function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
           value={busca}
           onChange={(e) => { setBusca(e.target.value); setAtivo(0) }}
           onKeyDown={onKeyDown}
-          placeholder="Buscar área ou ação…"
+          placeholder="Buscar área, ação ou dúvida…"
           role="combobox"
           aria-expanded="true"
           aria-controls={idDaLista}
           aria-activedescendant={itens[indice] ? `${idDaLista}-${indice}` : undefined}
-          aria-label="Buscar área ou ação"
+          aria-label="Buscar área, ação ou dúvida"
           className="h-14 min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
         />
         {pendente ? <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Criando" /> : <kbd className="hidden rounded border border-border bg-muted px-1.5 py-0.5 font-sans text-[11px] text-muted-foreground sm:inline">Esc</kbd>}

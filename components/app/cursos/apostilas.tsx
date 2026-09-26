@@ -50,7 +50,7 @@ export function Apostilas({ lista, cursos, podeEditar }: { lista: ApostilaDaEqui
   }, () => { setNovo(false); setArquivo(null) })
 
   return (
-    <div className="flex flex-col gap-4" id="apostilas">
+    <div className="flex flex-col gap-4" id="apostilas" data-ajuda="voluntarios.apostilas">
       {podeEditar && (novo ? (
         <form className="flex flex-col gap-3 rounded-lg border border-border p-4" id="nova-apostila" onSubmit={(e) => { e.preventDefault(); enviar(new FormData(e.currentTarget)) }}>
           <label className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed border-border px-4 py-5 text-center text-sm hover:border-primary/60">

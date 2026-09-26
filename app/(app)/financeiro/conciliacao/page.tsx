@@ -123,7 +123,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
       <PageHeader title="Conciliação bancária" description="Importe o extrato do banco e confirme, linha a linha, qual lançamento é cada movimento. O que o banco diz (data e valor) passa a valer no lançamento." />
 
       {contas.length > 1 && (
-        <nav className="flex flex-wrap gap-2" aria-label="Conta">
+        <nav className="flex flex-wrap gap-2" aria-label="Conta" data-ajuda="financeiro.conciliacao-contas">
           {contas.map((x) => (
             <Link key={x.id} href={`/financeiro/conciliacao?conta=${x.id}`} aria-current={x.id === conta.id ? 'page' : undefined}
               className={`rounded-lg border px-3 py-1.5 text-sm ${x.id === conta.id ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>{x.nome}</Link>
@@ -131,7 +131,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
         </nav>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-conciliacao">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-conciliacao" data-ajuda="financeiro.conciliacao-resumo">
         <Card className={`p-4 ${porSituacao('pendente') ? 'border-warning/60' : ''}`}><p className="text-2xl font-bold tabular-nums">{porSituacao('pendente')}</p><p className="text-xs text-muted-foreground">linhas para conciliar</p></Card>
         <Card className="p-4"><p className="text-2xl font-bold tabular-nums">{porSituacao('conciliado')}</p><p className="text-xs text-muted-foreground">conciliadas</p></Card>
         <Card className="p-4"><p className="text-2xl font-bold tabular-nums">{porSituacao('ignorado')}</p><p className="text-xs text-muted-foreground">ignoradas (com motivo)</p></Card>
@@ -160,7 +160,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
       </div>
 
       {aba === 'pendentes' && (
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-hidden p-0" data-ajuda="financeiro.conciliacao-linhas">
           {!linhas.length ? <p className="p-10 text-center text-sm text-muted-foreground">{porSituacao('conciliado') ? 'Tudo conciliado nesta conta.' : 'Nenhum extrato importado nesta conta ainda.'}</p> : (
             <ul className="divide-y divide-border" id="pendentes">
               {linhas.map((l) => (

@@ -74,7 +74,7 @@ export function Catalogo({ itens, podeGerenciar, configurado, truncado, abrir, b
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 text-sm text-muted-foreground">
+        <div data-ajuda="acervo.resumo" className="min-w-0 text-sm text-muted-foreground">
           <h2 className="sr-only">Catálogo</h2>
           <p>
             {itens.length
@@ -84,7 +84,7 @@ export function Catalogo({ itens, podeGerenciar, configurado, truncado, abrir, b
           {truncado && <p className="mt-0.5 text-xs">A tela mostra os 10.000 itens mais recentes.</p>}
           {!podeGerenciar && configurado && <p className="mt-0.5 text-xs">Você pode ver e baixar tudo. Para enviar, catalogar ou publicar, fale com um editor ou um administrador.</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-ajuda="acervo.acoes" className="flex flex-wrap items-center gap-2">
           {podeGerenciar && configurado && (
             <Button type="button" onClick={() => abrir({ tipo: 'envio', colecao: colecao === 'todas' ? undefined : colecao })}>
               <Upload aria-hidden />Enviar arquivos
@@ -98,7 +98,7 @@ export function Catalogo({ itens, podeGerenciar, configurado, truncado, abrir, b
       </div>
 
       {itens.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div data-ajuda="acervo.filtros" className="flex flex-col gap-1.5">
           <div className="flex flex-col gap-2 md:flex-row md:items-center">
             <div className="relative min-w-0 flex-1">
               <label htmlFor={`${id}-busca`} className="sr-only">Buscar no catálogo</label>
@@ -143,7 +143,7 @@ export function Catalogo({ itens, podeGerenciar, configurado, truncado, abrir, b
           <Button type="button" variant="outline" size="sm" onClick={limpar}><X aria-hidden />Limpar os filtros</Button>
         </Card>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <ul data-ajuda="acervo.lista" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {visiveis.map((i) => <li key={i.id}><CartaoDoItem item={i} abrir={abrir} /></li>)}
         </ul>
       )}

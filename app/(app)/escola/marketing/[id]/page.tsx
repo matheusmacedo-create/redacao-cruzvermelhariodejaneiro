@@ -53,7 +53,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
       />
       <EditarCampanha c={c} contas={(contas ?? []) as { id: string; nome: string }[]} podeExcluir={podeExcluir(c.criado_por)} />
 
-      <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 lg:grid-cols-6" id="numeros-da-campanha">
+      <Card className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 lg:grid-cols-6" id="numeros-da-campanha" data-ajuda="escola-marketing.numeros">
         <Numero rotulo="Investido" valor={reais(t.investimento)} detalhe={c.orcamento ? `${pct(t.usoDoOrcamento, 0)} de ${reais(c.orcamento)}` : undefined} />
         <Numero rotulo="Contatos" valor={milhar(t.leads)} detalhe={t.cpl !== null ? `${reais(t.cpl)} cada` : undefined} />
         <Numero rotulo="Matrículas" valor={milhar(t.matriculas)} detalhe={t.cpa !== null ? `${reais(t.cpa)} cada` : undefined} />
@@ -69,7 +69,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      <section className="flex flex-col gap-3" id="pecas-da-campanha">
+      <section className="flex flex-col gap-3" id="pecas-da-campanha" data-ajuda="escola-marketing.pecas">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-medium">Peças ({pecas.length})</h2>
           <NovaPeca campanhas={campanhas} campanhaId={c.id} />
@@ -82,7 +82,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
       </section>
 
       {c.utm_campaign && (
-        <Card className="p-4">
+        <Card className="p-4" data-ajuda="escola-marketing.utm">
           <h2 className="text-sm font-medium">Link com UTM</h2>
           <p className="mb-3 mt-1 text-sm text-muted-foreground">Use este link em cada anúncio e post desta campanha. A venda que vier por ele entra na receita acima (utm_campaign <code className="font-mono">{c.utm_campaign}</code>).</p>
           <ConstrutorDeUtm utm={c.utm_campaign} base={pagina} />

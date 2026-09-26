@@ -67,7 +67,7 @@ export default async function Aula(props: Props) {
         <ConcluirAula cursoId={id} aulaId={aula.id} feita={aula.feita} anterior={anterior} seguinte={seguinte} fim={fim} />
       </div>
 
-      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-20" aria-labelledby="aulas-do-curso">
+      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-20" aria-labelledby="aulas-do-curso" data-ajuda="membro.aulas-do-curso">
         <div className="flex flex-col gap-1.5">
           <h2 id="aulas-do-curso" className="text-base font-semibold">Aulas do curso</h2>
           <p className="text-sm text-muted-foreground">{d.progresso.feitas} de {total} {total === 1 ? 'aula concluída' : 'aulas concluídas'}</p>

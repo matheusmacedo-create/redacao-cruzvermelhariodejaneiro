@@ -57,9 +57,9 @@ export function FormularioDoItem({ categorias, itens, i, componentes: iniciais, 
           <select name="unidade" defaultValue={i?.unidade ?? 'un'} className={inputClass}>{Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         </Campo>
         <Campo rotulo="Estoque mínimo" ajuda="Somando todos os locais. Abaixo disso, quem opera o estoque recebe aviso. 0 = sem mínimo.">
-          <input name="estoque_minimo" inputMode="decimal" defaultValue={i ? String(i.estoque_minimo).replace('.', ',') : '0'} className={inputClass} />
+          <input name="estoque_minimo" data-ajuda="patrimonio.material-minimo" inputMode="decimal" defaultValue={i ? String(i.estoque_minimo).replace('.', ',') : '0'} className={inputClass} />
         </Campo>
-        <div className="flex flex-col gap-2 text-sm">
+        <div className="flex flex-col gap-2 text-sm" data-ajuda="patrimonio.material-validade">
           <label className="flex items-center gap-2 font-medium"><input type="checkbox" name="controla_validade" value="sim" checked={validade} onChange={(e) => setValidade(e.target.checked)} />Controla lote e validade</label>
           {validade && (
             <Campo rotulo="Avisar quantos dias antes de vencer"><input name="aviso_validade_dias" inputMode="numeric" maxLength={3} defaultValue={i?.aviso_validade_dias ?? 60} className={inputClass} /></Campo>
@@ -74,7 +74,7 @@ export function FormularioDoItem({ categorias, itens, i, componentes: iniciais, 
         )}
       </div>
 
-      <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4">
+      <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4" data-ajuda="patrimonio.material-kit">
         <legend className="px-1 text-sm font-semibold">Kit</legend>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="eh_kit" value="sim" checked={ehKit} onChange={(e) => setEhKit(e.target.checked)} />Este item é um kit montado com outros materiais (ex.: kit de higiene, kit de primeiros socorros)</label>
         {ehKit && (

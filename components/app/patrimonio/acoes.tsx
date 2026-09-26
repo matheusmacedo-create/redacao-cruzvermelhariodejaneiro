@@ -174,7 +174,7 @@ export function Conferir({ bemId, locais, localAtual, estadoAtual, conferido }: 
   const [p, setP] = useState({ local_id: localAtual ?? '', estado: estadoAtual, observacao: '' })
   const { erro, ocupado, executar } = useAcao()
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-4" id="conferir">
+    <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-4" id="conferir" data-ajuda="patrimonio.bem-conferir">
       <p className="flex items-center gap-2 text-sm font-semibold"><ClipboardCheck className="size-4 text-primary" />Inventário aberto{conferido ? ' — já conferido' : ''}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <select value={p.local_id} onChange={(e) => setP({ ...p, local_id: e.target.value })} aria-label="Onde foi encontrado" className={inputClass}><option value="">Sem local</option>{locais.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select>
@@ -191,7 +191,7 @@ export function AceitarTermo({ cautelaId }: { cautelaId: string }) {
   const [lido, setLido] = useState(false)
   const { erro, ocupado, executar } = useAcao()
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-ajuda="patrimonio.comigo-aceitar">
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={lido} onChange={(e) => setLido(e.target.checked)} className="mt-0.5" />Li o termo, conferi o bem e o recebi.</label>
       <div><Button size="sm" disabled={!lido || ocupado} onClick={() => executar(() => aceitarTermo(cautelaId))}>{ocupado && <Loader2 className="size-3.5 animate-spin" />}Aceitar o termo</Button></div>
       <Erro texto={erro} />
@@ -203,7 +203,7 @@ export function AbrirInventario() {
   const [nome, setNome] = useState(`Inventário ${new Date().getFullYear()}`)
   const { erro, ocupado, executar } = useAcao()
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2" data-ajuda="patrimonio.inventario-abrir">
       <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} aria-label="Nome do inventário" className={`${inputClass} !w-64`} />
       <Button disabled={ocupado} onClick={() => executar(() => iniciarInventario(nome))}>{ocupado && <Loader2 className="size-4 animate-spin" />}Abrir inventário</Button>
       <Erro texto={erro} />
@@ -214,7 +214,7 @@ export function AbrirInventario() {
 export function ConcluirInventario({ faltam }: { faltam: number }) {
   const { erro, ocupado, executar } = useAcao()
   return (
-    <span className="flex flex-col items-start gap-1">
+    <span className="flex flex-col items-start gap-1" data-ajuda="patrimonio.inventario-concluir">
       <Button variant="outline" disabled={ocupado} onClick={() => { if (confirm(faltam ? `${faltam} bens não foram conferidos e ficam como "não encontrados" no resultado. Concluir mesmo assim?` : 'Concluir o inventário?')) executar(() => concluirInventario()) }}>
         {ocupado && <Loader2 className="size-4 animate-spin" />}Concluir inventário</Button>
       <Erro texto={erro} />
@@ -225,7 +225,7 @@ export function ConcluirInventario({ faltam }: { faltam: number }) {
 /** Marca bens na lista e imprime as etiquetas (PDF A4, 3×8). */
 export function ImprimirEtiquetas({ formId }: { formId: string }) {
   return (
-    <Button variant="outline" type="submit" form={formId} formTarget="_blank"><Printer className="size-4" />Etiquetas dos marcados</Button>
+    <Button variant="outline" type="submit" form={formId} formTarget="_blank" data-ajuda="patrimonio.etiquetas"><Printer className="size-4" />Etiquetas dos marcados</Button>
   )
 }
 

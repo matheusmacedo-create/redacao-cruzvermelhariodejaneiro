@@ -55,14 +55,14 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
     <div className="flex flex-col gap-6">
       <SecoesDoFinanceiro atual="/financeiro/cadastros" empresas={c.empresas} empresa={c.empresa} />
       <PageHeader title="Cadastros do Financeiro" description={visiveis.find((a) => a.id === aba)?.ajuda} />
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="financeiro.cadastros-abas">
         {visiveis.map((a) => (
           <Link key={a.id} href={`/financeiro/cadastros${a.id === 'contas' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>
       {(aba === 'categorias' || aba === 'regras' || aba === 'compras' ? !gestaoGeral : !gestao) && aba !== 'favorecidos' && aba !== 'acessos' && <p className="text-sm text-muted-foreground">Só a gestão do Financeiro muda estes cadastros.</p>}
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="financeiro.cadastro">
         {aba === 'empresa' && c.empresa && <DadosDaEmpresa empresa={c.empresa} pode={gestao} />}
         {aba === 'contas' && <Contas c={c} saldos={saldosHoje} pode={gestao} />}
         {aba === 'fontes' && <Fontes c={c} pode={gestao} />}

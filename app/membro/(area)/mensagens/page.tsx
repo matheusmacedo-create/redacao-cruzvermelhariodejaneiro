@@ -23,7 +23,7 @@ export default async function Mensagens({ searchParams }: { searchParams: Promis
   const agora = new Date()
   return (
     <CaixaDeMensagens categoria={categoriaDaUrl(nova)} vazia={!conversas.length}>
-      <ul id="conversas" aria-label="Conversas" className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <ul id="conversas" aria-label="Conversas" className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card" data-ajuda="membro.conversas">
         {conversas.map((c) => {
           const situacao = situacaoDaConversa(c, { naLista: true })
           const respostaNova = situacao.chave === 'nova'

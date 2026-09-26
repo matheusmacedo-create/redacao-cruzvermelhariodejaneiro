@@ -91,7 +91,7 @@ export default async function PautasPage({ searchParams }: { searchParams: Promi
         actions={
           <div className="flex items-center gap-2">
             {project && <Button variant="outline" render={<Link href="/pautas" />}><X className="size-4" />Limpar filtro</Button>}
-            <Button size="lg" render={<Link href={projeto ? `/registrar?projeto=${projeto}` : '/registrar'} />}><Plus className="size-4" />Nova pauta completa</Button>
+            <Button data-ajuda="pautas.nova" size="lg" render={<Link href={projeto ? `/registrar?projeto=${projeto}` : '/registrar'} />}><Plus className="size-4" />Nova pauta completa</Button>
           </div>
         }
       />

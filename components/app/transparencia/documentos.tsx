@@ -166,7 +166,7 @@ export function Documentos({ documentos, trilhaDisponivel, aberto, aoRecado, pai
             ? [`${quantos('no_ar')} no ar`, `${quantos('rascunho')} ${quantos('rascunho') === 1 ? 'rascunho' : 'rascunhos'}`, quantos('retirado') ? `${quantos('retirado')} retirado${quantos('retirado') === 1 ? '' : 's'}` : null, aguardando ? `${aguardando} PDF${aguardando === 1 ? '' : 's'} aguardando publicação` : null].filter(Boolean).join(' · ')
             : 'Nenhum documento ainda.'}
         </p>
-        <Button className="self-start sm:self-auto" onClick={() => setDialogo({ tipo: 'ficha', documento: null })}><Plus className="size-4" aria-hidden />Novo documento</Button>
+        <Button className="self-start sm:self-auto" onClick={() => setDialogo({ tipo: 'ficha', documento: null })} data-ajuda="transparencia.novo-documento"><Plus className="size-4" aria-hidden />Novo documento</Button>
       </div>
 
       {!documentos.length && (
@@ -428,7 +428,7 @@ function CartaoDoDocumento({ d, trilhaDisponivel, abrindo, verPdf, apagando, apa
 /** Uma versão publicada: o arquivo no site, a impressão digital e o código da trilha. */
 function VersaoPublicada({ v, rotulo, trilhaDisponivel, compacta }: { v: VersaoNaTela; rotulo?: string; trilhaDisponivel: boolean; compacta?: boolean }) {
   return (
-    <div className={cn('text-sm', !compacta && 'rounded-lg border border-border bg-muted/30 px-3 py-2.5')}>
+    <div className={cn('text-sm', !compacta && 'rounded-lg border border-border bg-muted/30 px-3 py-2.5')} data-ajuda="transparencia.versao">
       {rotulo && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</p>}
       <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />

@@ -75,7 +75,7 @@ export function BensComigo({ bens }: { bens: BemComOVoluntario[] }) {
   const ordenados = [...bens].sort((a, b) => Number(!!a.termo_aceito_em) - Number(!!b.termo_aceito_em))
   return (
     <Secao titulo="Bens da filial com você" icone={Package} id="bens">
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-3" data-ajuda="membro.bens">
         {ordenados.map((b) => {
           const detalhes = [b.marca, b.modelo, b.numero_serie && `série ${b.numero_serie}`].filter(Boolean).join(' · ')
           return (

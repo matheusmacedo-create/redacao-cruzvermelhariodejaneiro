@@ -74,7 +74,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="Estoque de materiais"
         description="Curativos, EPI, higiene, alimentos e kits: quanto há em cada lugar, o que está acabando e o que vence logo."
-        actions={<div className="flex flex-wrap items-start gap-2">
+        actions={<div className="flex flex-wrap items-start gap-2" data-ajuda="patrimonio.estoque-acoes">
           {nivel >= 2 && <NovaEntrada itens={opcoes} locais={locaisAtivos} fontes={c.fontes.map((f) => ({ id: f.id, nome: f.nome }))} projetos={projetos} hoje={hoje} />}
           {nivel >= 2 && <NovaSaida itens={opcoes} locais={locaisAtivos} projetos={projetos} lotes={lotes} hoje={hoje} />}
           <Button variant="outline" render={<Link href="/patrimonio/estoque/movimentos" />}><History className="size-4" />Movimentos</Button>
@@ -82,7 +82,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
         </div>}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-estoque">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-estoque" data-ajuda="patrimonio.estoque-resumo">
         {[
           { v: String(ativos.length), r: 'materiais cadastrados' },
           { v: reais(valor), r: 'valor em estoque (custo médio)' },
@@ -96,7 +96,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
         })}
       </div>
 
-      <form className="flex flex-wrap items-center gap-2" role="search">
+      <form className="flex flex-wrap items-center gap-2" role="search" data-ajuda="patrimonio.estoque-filtros">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input name="q" defaultValue={sp.q ?? ''} placeholder="Código ou nome" aria-label="Buscar" className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm" />
@@ -110,7 +110,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
         <Button type="submit" variant="outline">Filtrar</Button>
       </form>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="patrimonio.estoque-lista">
         {!lista.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">{itens.length ? 'Nenhum material neste filtro.' : 'Nenhum material cadastrado. Comece pelo que mais sai: luvas, gaze, soro, água, kits de higiene.'}</p>
         ) : (

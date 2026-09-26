@@ -132,7 +132,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
     <div>
       <PageHeader title="Aprovações" description="O que espera o seu voto primeiro. Cada rodada traz o setor da pauta, o prazo dele e o que o setor confere antes de aprovar." />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div data-ajuda="aprovacoes.numeros" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {indicadores.map((k) => (
           <Link key={k.rotulo} href={k.href} className={cn('group rounded-xl border bg-card p-4 shadow-xs transition-colors hover:border-foreground/20', k.alerta ? 'border-destructive/40' : k.destaque ? 'border-primary/40' : 'border-border')}>
             <span className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
@@ -145,7 +145,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
       </div>
 
       {/* Abas: de quem é a fila. */}
-      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Filas de aprovação">
+      <nav data-ajuda="aprovacoes.abas" className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Filas de aprovação">
         {ABAS.map((a) => {
           const ativa = filtros.aba === a.id
           const n = a.id === 'minhas' ? numeros.minhas : null
@@ -162,7 +162,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
       </nav>
 
       {/* Filtros: situação e setor da pauta. */}
-      <div className="mt-4 flex flex-col gap-3">
+      <div data-ajuda="aprovacoes.filtros" className="mt-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-1.5" aria-label="Situação">
           {SITUACOES.map((s) => (
             <Link key={s.id} href={endereco(filtros, { situacao: s.id })} aria-current={filtros.situacao === s.id ? 'true' : undefined}
@@ -206,7 +206,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
           const meu = meuVoto(item, eu)
 
           return (
-            <Card key={item.id} className={cn('relative overflow-hidden p-5 pl-6', minha && 'ring-1 ring-primary/30')}>
+            <Card key={item.id} data-ajuda={item === visiveis[0] ? 'aprovacoes.rodada' : undefined} className={cn('relative overflow-hidden p-5 pl-6', minha && 'ring-1 ring-primary/30')}>
               <span className="absolute inset-y-0 left-0 w-1.5" style={{ backgroundColor: perfilDoSetor(item.setor).cor }} aria-hidden="true" />
               <div className="flex flex-wrap items-center gap-2">
                 <SeloDoSetor setor={item.setor} />
@@ -254,7 +254,7 @@ export default async function AprovacoesPage({ searchParams }: { searchParams: P
                     <p className="mt-1.5 text-xs text-muted-foreground">Falta: {pendingVoters.map((v) => profileById.get(v.user_id)?.full_name?.split(' ')[0] || 'alguém').join(', ')}</p>
                   )}
                 </div>
-                <Link href={`/aprovacoes/${item.id}`} className={cn('inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium', minha ? 'bg-primary text-primary-foreground' : 'border border-border hover:bg-muted')}>
+                <Link href={`/aprovacoes/${item.id}`} data-ajuda={item === visiveis[0] ? 'aprovacoes.abrir' : undefined} className={cn('inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium', minha ? 'bg-primary text-primary-foreground' : 'border border-border hover:bg-muted')}>
                   {minha ? 'Revisar agora' : meu === 'approved' ? 'Você aprovou · ver' : meu === 'changes_requested' ? 'Você pediu ajustes · ver' : 'Ver rodada'}
                   <ArrowRight className="size-4" />
                 </Link>

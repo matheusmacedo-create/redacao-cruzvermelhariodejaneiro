@@ -19,7 +19,7 @@ export function SecoesDoFinanceiro({ atual, empresas = [], empresa = null }: { a
     <div className="flex flex-col gap-4">
       <EscolhaDaEmpresa empresas={empresas} atual={empresa} />
       {/* Abas das seções: sublinhadas, para não se confundirem com a troca de empresa acima. */}
-      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Seções do Financeiro">
+      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Seções do Financeiro" data-ajuda="financeiro.secoes">
         {SECOES.map((s) => {
           const ativa = atual === s.href
           return (

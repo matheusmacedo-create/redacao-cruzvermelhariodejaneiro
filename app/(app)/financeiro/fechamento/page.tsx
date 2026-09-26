@@ -68,14 +68,14 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
       <PageHeader
         title={`Fechamento de ${nomeDoMes(mes)}`}
         description="Conferir, fechar e mandar ao contador. Fechado, o que foi pago no mês não muda mais."
-        actions={<div className="flex flex-wrap items-start gap-2">
+        actions={<div className="flex flex-wrap items-start gap-2" data-ajuda="financeiro.fechamento-acoes">
           {nivel >= 4 && <Button variant="outline" render={<a href={`/api/financeiro/fechamento/${mes}`} />}><Download className="size-4" />Pacote do contador</Button>}
           {nivel >= 4 && !estaFechado && <FecharMes mes={mes} nome={nomeDoMes(mes)} bloqueado={bloqueios.length > 0} avisos={avisos.map((i) => `${i.rotulo}${i.detalhe ? `: ${i.detalhe}` : ''}`)} />}
           {nivel >= 4 && ultimoFechado && <ReabrirMes nome={nomeDoMes(mes)} />}
         </div>}
       />
 
-      <div className="flex items-center gap-1 text-sm" aria-label="Mês">
+      <div className="flex items-center gap-1 text-sm" aria-label="Mês" data-ajuda="financeiro.fechamento-mes">
         <Button variant="ghost" size="icon" aria-label="Mês anterior" render={<Link href={`/financeiro/fechamento?mes=${mesAnterior(mes)}`} />}><ChevronLeft className="size-4" /></Button>
         <span className="min-w-36 text-center font-medium capitalize">{nomeDoMes(mes)}</span>
         <Button variant="ghost" size="icon" aria-label="Próximo mês" render={<Link href={`/financeiro/fechamento?mes=${mesSeguinte(mes)}`} />}><ChevronRight className="size-4" /></Button>
@@ -93,7 +93,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
       )}
 
       {!estaFechado && (
-        <Card className="p-5" id="conferencia">
+        <Card className="p-5" id="conferencia" data-ajuda="financeiro.fechamento-conferencia">
           <h2 className="mb-3 font-semibold">Conferência</h2>
           <ul className="flex flex-col gap-2">
             {d.itens.map((i) => (
@@ -110,7 +110,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
         </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="numeros-do-mes">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="numeros-do-mes" data-ajuda="financeiro.fechamento-numeros">
         <Card className="p-4"><p className="text-xl font-bold tabular-nums text-success">{reais(r.caixa.entradas)}</p><p className="text-xs text-muted-foreground">entrou no mês</p></Card>
         <Card className="p-4"><p className="text-xl font-bold tabular-nums">{reais(r.caixa.saidas)}</p><p className="text-xs text-muted-foreground">saiu no mês</p></Card>
         <Card className={`p-4 ${r.caixa.resultado < 0 ? 'border-destructive/40' : ''}`}><p className={`text-xl font-bold tabular-nums ${r.caixa.resultado < 0 ? 'text-destructive' : ''}`}>{reais(r.caixa.resultado)}</p><p className="text-xs text-muted-foreground">resultado (caixa)</p></Card>

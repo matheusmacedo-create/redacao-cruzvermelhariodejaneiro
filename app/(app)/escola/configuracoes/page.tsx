@@ -32,7 +32,7 @@ export default async function ConfiguracoesDaEscolaPage() {
       <SecoesDaEscola atual="/escola/configuracoes" financeiro={nivelEscola >= 2} marketing={nivel >= 2} />
       <PageHeader title="Contas e integrações" description="As contas da Únicopag por onde a escola recebe e a conta de anúncios do Meta. A Redação só lê: não cria cobrança, não estorna e não mexe em anúncio." />
       {nivelEscola >= 2 && (
-        <section className="flex flex-col gap-3" id="unicopag">
+        <section className="flex flex-col gap-3" id="unicopag" data-ajuda="escola-contas.unicopag">
           <div>
             <h2 className="text-base font-medium">Contas da Únicopag</h2>
             <p className="text-sm text-muted-foreground">Cada conta com a chave de API guardada no cofre. Saldo e transações são lidos todo dia e aparecem em Vendas.</p>
@@ -41,11 +41,11 @@ export default async function ConfiguracoesDaEscolaPage() {
         </section>
       )}
       {nivel >= 2 && (
-        <section className="flex flex-col gap-3" id="meta">
+        <section className="flex flex-col gap-3" id="meta" data-ajuda="escola-contas.meta">
           <MetaAds contas={(metaContas ?? []) as ContaMeta[]} ehAdmin={nivel >= 3} temToken={temToken} />
         </section>
       )}
-      <Card className="p-4 text-sm text-muted-foreground">
+      <Card className="p-4 text-sm text-muted-foreground" data-ajuda="escola-contas.como-funciona">
         <p className="font-medium text-foreground">Como a leitura funciona</p>
         <ul className="mt-1 list-disc space-y-1 pl-5">
           <li>Uma vez por dia (e pelos botões de atualizar), a Redação lê o saldo e as transações de cada conta da Únicopag e as campanhas e anúncios do Meta.</li>

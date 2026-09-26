@@ -83,11 +83,11 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
           <p className="text-sm text-muted-foreground">{[m.cargo, m.setor, rotuloDoVinculo(m.vinculo), tempoDeCasa(m.admissao, hoje) ? `${tempoDeCasa(m.admissao, hoje)} de casa` : null].filter(Boolean).join(' · ')}</p>
           <div className="mt-2"><Situacao s={m.situacao} /></div>
         </div>
-        {nivel >= 2 && <Button variant="outline" render={<Link href={`/equipe/${id}/editar`} />}><Pencil className="size-4" />Editar ficha</Button>}
+        {nivel >= 2 && <Button variant="outline" render={<Link href={`/equipe/${id}/editar`} />} data-ajuda="rh.editar"><Pencil className="size-4" />Editar ficha</Button>}
       </div>
       {m.situacao === 'desligado' && <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">Desligado em {DATA(m.desligamento)}{m.motivo_desligamento ? `: ${m.motivo_desligamento}` : ''}</p>}
 
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas da ficha">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas da ficha" data-ajuda="rh.ficha-abas">
         {abas.map((a) => (
           <Link key={a.id} href={`/equipe/${id}${a.id === 'contrato' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>

@@ -61,12 +61,12 @@ function MioloDaAbaNoTopo({ rotulo, acesa, novidades }: { rotulo: string; acesa:
 export function NavegacaoTopo({ novidades = 0 }: { novidades?: number }) {
   const caminho = usePathname()
   return (
-    <nav className="hidden h-full items-stretch lg:flex" aria-label="Seções">
+    <nav className="hidden h-full items-stretch lg:flex" aria-label="Seções" data-ajuda="membro.navegacao-topo">
       {SECOES.map((s) => {
         const acesa = ativa(s, caminho)
         const n = s.href === MENSAGENS ? novidades : 0
         return (
-          <Link key={s.href} href={s.href} aria-current={acesa ? 'page' : undefined} className="group relative flex items-center rounded-lg px-1">
+          <Link key={s.href} href={s.href} aria-current={acesa ? 'page' : undefined} className="group relative flex items-center rounded-lg px-1" data-ajuda={s.href === '/membro' ? 'membro.nav-inicio' : s.href === '/membro/cursos' ? 'membro.nav-formacao' : s.href === '/membro/oportunidades' ? 'membro.nav-oportunidades' : s.href === MENSAGENS ? 'membro.nav-mensagens' : undefined}>
             <MioloDaAbaNoTopo rotulo={s.rotulo} acesa={acesa} novidades={n} />
             {n > 0 && <span className="sr-only">{novidadesParaLeitor(n)}</span>}
             {acesa && <span aria-hidden="true" className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary" />}
@@ -97,12 +97,12 @@ function IconeDaAbaNoCelular({ icone: Icone, acesa, novidades }: { icone: Lucide
 export function NavegacaoCelular({ novidades = 0 }: { novidades?: number }) {
   const caminho = usePathname()
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden" aria-label="Seções">
+    <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] lg:hidden" aria-label="Seções" data-ajuda="membro.navegacao-celular">
       {SECOES.map((s) => {
         const acesa = ativa(s, caminho)
         const n = s.href === MENSAGENS ? novidades : 0
         return (
-          <Link key={s.href} href={s.href} aria-current={acesa ? 'page' : undefined}
+          <Link key={s.href} href={s.href} aria-current={acesa ? 'page' : undefined} data-ajuda={s.href === '/membro' ? 'membro.nav-inicio' : s.href === '/membro/cursos' ? 'membro.nav-formacao' : s.href === '/membro/oportunidades' ? 'membro.nav-oportunidades' : s.href === MENSAGENS ? 'membro.nav-mensagens' : undefined}
             className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 py-1 text-xs active:bg-muted">
             <IconeDaAbaNoCelular icone={s.icone} acesa={acesa} novidades={n} />
             {/* Sem padding na coluna e com `tracking-tight`, "Mensagens" cabe inteiro a partir de 360px; abaixo disso, 11px. O `truncate` fica para texto ampliado. */}
@@ -150,7 +150,7 @@ export function SubAbas({ conversas = 0, avisos = 0 }: { conversas?: number; avi
   return (
     <nav aria-label={grupo.rotulo} className="mb-5 max-w-full overflow-x-auto">
       {/* Borda no trilho: o cinza do fundo da página e o do trilho são quase iguais. */}
-      <div className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-1">
+      <div className="inline-flex gap-0.5 rounded-lg border border-border bg-muted p-1" data-ajuda={grupo.rotulo === 'Formação' ? 'membro.abas-formacao' : 'membro.abas-mensagens'}>
         {grupo.abas.map((a) => {
           const acesa = a.href === caminho
           const n = a.contagem ? contagem[a.contagem] : 0

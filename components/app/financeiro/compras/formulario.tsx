@@ -80,7 +80,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
 
   return (
     <form onSubmit={salvar} className="flex flex-col gap-5" data-formulario-do-pedido>
-      <section className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2">
+      <section data-ajuda="compras.dados" className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2">
         <Rotulo texto="O que você precisa comprar" className="sm:col-span-2">
           <input value={titulo} onChange={(e) => setTitulo(e.target.value)} required minLength={3} maxLength={160} placeholder="Ex.: Kits de primeiros socorros para o curso de outubro" className={campo} />
         </Rotulo>
@@ -124,7 +124,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
         )}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Itens">
+      <section data-ajuda="compras.itens" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Itens">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <p className="font-medium">Itens</p>
@@ -171,7 +171,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
       {erro && <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{erro}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-        <Button type="submit" disabled={salvando}>{salvando && <Loader2 className="size-4 animate-spin" />}{inicial ? 'Salvar alterações' : 'Enviar pedido'}</Button>
+        <Button data-ajuda="compras.enviar" type="submit" disabled={salvando}>{salvando && <Loader2 className="size-4 animate-spin" />}{inicial ? 'Salvar alterações' : 'Enviar pedido'}</Button>
       </div>
     </form>
   )

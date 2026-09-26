@@ -69,15 +69,15 @@ export function CalendarView({ events }: { events: Event[] }) {
 
   return <>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
+      <div data-ajuda="calendario.mes" className="flex items-center gap-2">
         <input aria-label="Mês do calendário" type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm" />
         <span className="text-sm font-medium capitalize text-muted-foreground">{label}</span>
       </div>
-      <Button size="lg" onClick={() => setOpen(true)}><Plus className="size-4" />Agendar</Button>
+      <Button data-ajuda="calendario.agendar" size="lg" onClick={() => setOpen(true)}><Plus className="size-4" />Agendar</Button>
     </div>
 
     {/* Agenda list — used on narrow screens where the 7-column grid can't fit event text */}
-    <Card className="divide-y divide-border sm:hidden">
+    <Card data-ajuda="calendario.grade" className="divide-y divide-border sm:hidden">
       {agendaDays.map(({ day, dayEvents }) => (
         <div key={day} className="px-4 py-3">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Dia {day}</p>
@@ -90,7 +90,7 @@ export function CalendarView({ events }: { events: Event[] }) {
     </Card>
 
     {/* Month grid — desktop and wider tablets */}
-    <Card className="hidden overflow-hidden sm:block">
+    <Card data-ajuda="calendario.grade" className="hidden overflow-hidden sm:block">
       <div className="grid grid-cols-7 border-b border-border bg-muted/40">{['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d => <div key={d} className="px-2 py-2.5 text-center text-xs font-semibold uppercase text-muted-foreground">{d}</div>)}</div>
       <div className="grid grid-cols-7">{cells.map((day, i) => {
         const key = day ? `${month}-${String(day).padStart(2,'0')}` : ''

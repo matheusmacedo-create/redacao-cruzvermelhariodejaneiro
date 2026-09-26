@@ -101,7 +101,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" data-ajuda="diretorio.busca">
         <div className="relative min-w-56 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, cargo, setor, e-mail ou telefone" aria-label="Buscar" className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm" />
@@ -114,7 +114,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-ajuda="diretorio.filtros">
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1" aria-label="Setores">
           <button type="button" onClick={() => setSetor('')} className={cn('shrink-0 rounded-full px-3 py-1 text-xs font-medium', !setor ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:text-foreground')}>Todos os setores · {visiveis.length}</button>
           {nomes.filter((s) => contagem(s) > 0).map((s) => (
@@ -132,7 +132,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
       </div>
 
       {!lista.length ? <Card className="p-10 text-center text-sm text-muted-foreground">Ninguém com esse filtro.</Card> : vista === 'cartoes' ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes">{lista.map((p) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes" data-ajuda="diretorio.cartoes">{lista.map((p) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} />)}</div>
       ) : (
         <div className="flex flex-col gap-6" id="por-setor">
           {grupos.map((g) => {

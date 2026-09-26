@@ -131,7 +131,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
   }
 
   return (
-    <form ref={formulario} id="form-perfil" className="flex flex-col gap-6" onChange={aoMudar} onSubmit={aoEnviar} onFocus={() => { if (alterado) mostrarCampoAtivo() }}>
+    <form ref={formulario} id="form-perfil" className="flex flex-col gap-6" onChange={aoMudar} onSubmit={aoEnviar} onFocus={() => { if (alterado) mostrarCampoAtivo() }} data-ajuda="membro.formulario-do-perfil">
       {resultado?.erro && (
         <RecadoEmFoco key={resultado.vez} id="perfil-resultado" tipo="erro" titulo={resultado.erro}>
           <p>O que você digitou continua aqui. Confira e tente salvar de novo.</p>
@@ -236,7 +236,7 @@ export function PreferenciaDeAvisos({ inicial }: { inicial: boolean }) {
     <Secao titulo={<>Preferências <span className="font-normal text-muted-foreground">· salva na hora</span></>} icone={BellRing} id="preferencias" className={cartao}>
       <div>
         {/* Sem `disabled` enquanto grava: desativar a caixa focada tirava o foco dela. */}
-        <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+        <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm" data-ajuda="membro.avisos-por-email">
           <input id="avisos-por-email" type="checkbox" className="mt-0.5 size-5 shrink-0 accent-primary" checked={mostrado}
             aria-describedby="avisos-por-email-dica" onChange={(e) => mudar(e.target.checked)} />
           <span className="min-w-0">
@@ -272,7 +272,7 @@ function BotaoDeSair() {
  */
 export function SairDaArea() {
   return (
-    <div className="flex flex-col gap-3 border-t border-border pt-6">
+    <div className="flex flex-col gap-3 border-t border-border pt-6" data-ajuda="membro.sair-da-area">
       <p className="text-sm text-muted-foreground">Seu acesso continua ativo neste aparelho. Se ele for compartilhado, saia ao terminar.</p>
       <form action={sair} onSubmit={esquecerUltimoEmail}><BotaoDeSair /></form>
     </div>
