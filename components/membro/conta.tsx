@@ -8,16 +8,19 @@ import { sair } from '@/app/actions/membro'
 import { CHAVE_DO_ULTIMO_EMAIL } from '@/lib/membro/entrada'
 import { iniciais } from '@/lib/membro/regras'
 import { cn } from '@/lib/utils'
-import { useAjudaDoMembro } from './ajuda'
+import { CHAVE_DA_AJUDA, useAjudaDoMembro } from './ajuda'
 
 /**
- * Ao sair, esquece o e-mail que a tela de entrada preenche (aparelho
- * compartilhado). Vai no `onSubmit` dos formulários de sair: roda antes da
- * action, e sem `preventDefault` a action segue normalmente.
+ * Ao sair, o aparelho esquece a pessoa (aparelho compartilhado): o e-mail que
+ * a tela de entrada preenche e o que ela já viu da ajuda — senão quem entrasse
+ * depois no mesmo aparelho não ganharia o convite de boas-vindas. Vai no
+ * `onSubmit` dos formulários de sair: roda antes da action, e sem
+ * `preventDefault` a action segue normalmente.
  */
-export function esquecerUltimoEmail() {
+export function esquecerAoSair() {
   try {
     localStorage.removeItem(CHAVE_DO_ULTIMO_EMAIL)
+    localStorage.removeItem(CHAVE_DA_AJUDA)
   } catch {
     // Sem armazenamento: nada a esquecer.
   }
@@ -39,19 +42,27 @@ const avatar = 'flex shrink-0 items-center justify-center rounded-full border bo
  */
 export function MenuDaConta({ nome, email, previa = false }: { nome: string; email: string | null; previa?: boolean }) {
   const formulario = useRef<HTMLFormElement>(null)
+  const gatilho = useRef<HTMLButtonElement>(null)
   const ajuda = useAjudaDoMembro()
-  // O tour espera o menu terminar de fechar: senão o foco, que volta para o
-  // avatar ao fechar, sairia do balão (e o leitor de tela não leria o passo).
+  // O tour espera o menu terminar de fechar: um foco que chegasse depois
+  // tiraria o foco do balão (e o leitor de tela não leria o passo).
   const tourAoFechar = useRef(false)
   const letras = iniciais(nome)
   return (
     <>
-      <Menu.Root onOpenChangeComplete={(aberto) => {
+      {/* Abrir o menu já baixa o texto do tour: o "Tour desta tela" está a um toque. */}
+      <Menu.Root onOpenChange={(aberto) => { if (aberto) ajuda?.adiantarTour() }} onOpenChangeComplete={(aberto) => {
         if (aberto || !tourAoFechar.current) return
         tourAoFechar.current = false
-        window.setTimeout(() => ajuda?.iniciarTourDaTela(), 50)
+        window.setTimeout(() => {
+          // Fechado pelo item, o menu deixa o foco no <body> (o item some com
+          // o popup): sem isto, o tour guardava o <body> como "onde estava" e,
+          // ao terminar, o foco não voltava ao avatar, de onde a pessoa pediu o tour.
+          gatilho.current?.focus({ preventScroll: true })
+          ajuda?.iniciarTourDaTela()
+        }, 50)
       }}>
-        <Menu.Trigger aria-label={`Conta de ${nome}`} data-ajuda="membro.conta"
+        <Menu.Trigger ref={gatilho} aria-label={`Conta de ${nome}`} data-ajuda="membro.conta"
           className="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-muted">
           <span aria-hidden="true" className={cn(avatar, 'size-9 text-sm')}>{letras}</span>
         </Menu.Trigger>
@@ -89,9 +100,10 @@ export function MenuDaConta({ nome, email, previa = false }: { nome: string; ema
       </Menu.Root>
       {/*
         Fora do menu: o popup vive num portal e some ao fechar, levando o form
-        junto. Na prévia, a ação só desfaz a visualização: não há e-mail a esquecer.
+        junto. Na prévia, a ação só desfaz a visualização: não há o que esquecer
+        (a prévia não grava o progresso da ajuda).
       */}
-      <form ref={formulario} action={sair} onSubmit={previa ? undefined : esquecerUltimoEmail} className="hidden" />
+      <form ref={formulario} action={sair} onSubmit={previa ? undefined : esquecerAoSair} className="hidden" />
     </>
   )
 }

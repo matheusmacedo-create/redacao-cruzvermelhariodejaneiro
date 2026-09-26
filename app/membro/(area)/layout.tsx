@@ -8,9 +8,22 @@ import { Logo } from '@/components/membro/marca'
 import { NavegacaoCelular, NavegacaoTopo, SubAbas } from '@/components/membro/navegacao'
 import { MenuDaConta } from '@/components/membro/conta'
 import { AjudaDoMembro } from '@/components/membro/ajuda'
+import { GUIAS_DO_MEMBRO } from '@/lib/ajuda/membro'
 import { primeiroNome } from '@/lib/membro/regras'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * As telas que têm tour (a raiz de cada destino e as telas internas), sem o
+ * texto: é o que a ajuda precisa em toda página, para mostrar ou não o "Tour
+ * desta tela". O texto (lib/ajuda/membro.ts) vai para o navegador só quando um
+ * tour começa. Montada aqui, no servidor, do mesmo texto: não há uma segunda
+ * lista a manter.
+ */
+const CAMINHOS_COM_TOUR = GUIAS_DO_MEMBRO.flatMap((g) => [
+  ...(g.tour.length ? [g.href] : []),
+  ...(g.telas ?? []).filter((t) => t.tour.length).map((t) => t.caminho),
+])
 
 /** O ambiente do voluntário: só entra com sessão da área do membro. */
 export default async function AreaDoMembro({ children }: { children: React.ReactNode }) {
@@ -23,7 +36,7 @@ export default async function AreaDoMembro({ children }: { children: React.React
   const avisosNovos = avisos.filter((a) => !a.visto).length
   return (
     // A ajuda (convite de boas-vindas, tours e o ?tour=1 da página Ajuda) envolve cabeçalho e conteúdo: o menu da conta abre o tour da tela.
-    <AjudaDoMembro previa={!!m.previa} nome={primeiroNome(m.nome)}>
+    <AjudaDoMembro previa={!!m.previa} nome={primeiroNome(m.nome)} caminhosComTour={CAMINHOS_COM_TOUR}>
       {/* Aparece só com o foco do teclado; leva direto ao conteúdo, pulando cabeçalho e abas. */}
       <a href="#conteudo" className="fixed left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-4 py-3 text-sm font-semibold text-foreground shadow-lg focus:translate-y-0">Pular para o conteúdo</a>
       {m.previa && (

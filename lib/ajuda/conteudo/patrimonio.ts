@@ -737,7 +737,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'niveis',
         pergunta: 'O que cada nível do Patrimônio pode fazer?',
-        resposta: '“Ver”: consulta bens, com quem estão, manutenções e histórico, além do estoque, das doações e da frota. “Operar”: também cadastra e edita bens e materiais, entrega e recebe de volta, registra manutenção, confere no inventário, movimenta o estoque, recebe e entrega doações e registra viagens, abastecimentos, serviços e documentos da frota. “Gestão”: também categorias, locais, prefixo da plaqueta e texto do termo, baixa de bens, abrir e concluir o inventário, campanhas, veículos, condutores, planos de manutenção e excluir lançamentos da frota.\n\nAdministradores têm acesso total.',
+        resposta: '“Ver”: consulta bens, com quem estão, manutenções e histórico, além do estoque, das doações e da frota.\n\n“Operar”: também cadastra e edita bens e materiais, entrega e recebe de volta, registra manutenção, confere no inventário, movimenta o estoque, recebe e entrega doações e registra viagens, abastecimentos, serviços e documentos da frota.\n\n“Gestão”: também categorias, locais, prefixo da plaqueta e texto do termo, baixa de bens, abrir e concluir o inventário, campanhas, veículos, condutores, planos de manutenção e excluir lançamentos da frota.\n\nAdministradores têm acesso total.',
         termos: ['nível', 'ver', 'operar', 'gestão', 'quem pode'],
       },
       {
@@ -761,7 +761,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'situacao-do-bem',
         pergunta: 'Qual a diferença entre “Em uso”, “Reserva”, “Em manutenção” e “Baixado”?',
-        resposta: '“Em uso”: o bem está em serviço (entregar a alguém põe nesta situação). “Reserva”: guardado; é para onde ele volta depois da devolução. “Em manutenção”: parado para conserto. “Baixado”: saiu do patrimônio e não volta.\n\nO “Estado”, de “Novo” a “Inservível”, é outra coisa: a conservação do bem.',
+        resposta: '“Em uso”: o bem está em serviço (entregar a alguém põe nesta situação); “Reserva”: guardado, e é para onde ele volta depois da devolução. “Em manutenção”: parado para conserto; “Baixado”: saiu do patrimônio e não volta.\n\nO “Estado”, de “Novo” a “Inservível”, é outra coisa: a conservação do bem.',
         termos: ['situação', 'status', 'estado', 'guardado'],
       },
       {

@@ -198,7 +198,7 @@ const FORMACAO: GuiaDaArea = {
     },
     {
       titulo: 'Como se conclui um curso',
-      texto: 'Em cada aula, toque em “Concluir e seguir”. No fim, faça a prova final, se houver. Com a aprovação, o certificado aparece em “Certificados”.',
+      texto: 'Em cada aula, toque em “Concluir e seguir”. No fim, faça a prova final, se houver. Concluído o curso, o certificado aparece em “Certificados”.',
     },
   ],
   telas: [
@@ -338,15 +338,6 @@ const FORMACAO: GuiaDaArea = {
       dica: 'São até 3 tentativas a cada 24 horas. Antes de tentar de novo, vale rever as aulas.',
     },
     {
-      id: 'baixar-certificado',
-      titulo: 'Baixar um certificado',
-      passos: [
-        'Abra “Formação” e toque na aba “Certificados”.',
-        'No cartão do certificado, toque em “Baixar PDF”.',
-      ],
-      dica: 'Quando o certificado sai, você também recebe um e-mail com o link.',
-    },
-    {
       id: 'mandar-certificado',
       titulo: 'Mandar o certificado para quem pediu comprovante',
       passos: [
@@ -355,14 +346,6 @@ const FORMACAO: GuiaDaArea = {
         'Cole o link na mensagem para a pessoa: ela confere ali se o certificado é autêntico e está válido.',
       ],
       dica: '“Adicionar ao LinkedIn” abre o LinkedIn com o nome do curso e a data já preenchidos.',
-    },
-    {
-      id: 'abrir-apostila',
-      titulo: 'Abrir uma apostila',
-      passos: [
-        'Abra “Formação” e toque na aba “Apostilas”.',
-        'Toque na apostila: o PDF abre numa nova aba.',
-      ],
     },
   ],
   perguntas: [
@@ -403,6 +386,12 @@ const FORMACAO: GuiaDaArea = {
       termos: ['gabarito', 'correção', 'errei'],
     },
     {
+      id: 'baixar-certificado',
+      pergunta: 'Onde baixo o meu certificado?',
+      resposta: 'Em “Formação”, na aba “Certificados”: toque em “Baixar PDF” no cartão do certificado. Quando ele sai, você também recebe um e-mail com o link.',
+      termos: ['baixar', 'pdf', 'certificado', 'download', 'imprimir'],
+    },
+    {
       id: 'certificado-vence',
       pergunta: 'O certificado vence?',
       resposta: 'Depende do curso: alguns têm validade (“Certificado válido por N meses”, em “Sobre o curso”) e outros não. Em “Certificados”, o selo mostra “Vale até …”, “Vence em … dias” ou “Venceu em …”.',
@@ -431,6 +420,12 @@ const FORMACAO: GuiaDaArea = {
       pergunta: 'O que são as “Outras formações no seu cadastro”?',
       resposta: 'São formações que a coordenação registrou no seu cadastro, sem certificado emitido aqui. Por isso não têm PDF nem link de verificação na área.',
       termos: ['formações', 'cursos externos', 'registro'],
+    },
+    {
+      id: 'abrir-apostila',
+      pergunta: 'Onde ficam as apostilas?',
+      resposta: 'Em “Formação”, na aba “Apostilas”: toque numa delas e o PDF abre numa nova aba. Dentro de uma aula, “Abrir a apostila desta aula” leva direto ao PDF daquela aula.',
+      termos: ['apostila', 'pdf', 'material', 'ler', 'abrir'],
     },
     {
       id: 'apostila-nao-abre',
@@ -678,15 +673,6 @@ const MENSAGENS: GuiaDaArea = {
         'Toque no botão de enviar, ao lado do campo.',
       ],
     },
-    {
-      id: 'ler-os-avisos',
-      titulo: 'Ler os avisos da coordenação',
-      passos: [
-        'Abra “Mensagens” e toque na aba “Avisos”.',
-        'Os fixados vêm primeiro; “Novo” marca os que você ainda não tinha visto.',
-      ],
-      dica: 'Abrir a aba “Avisos” conta como visto: o número em “Mensagens” diminui.',
-    },
   ],
   perguntas: [
     {
@@ -700,6 +686,12 @@ const MENSAGENS: GuiaDaArea = {
       pergunta: 'O que significam “Aguardando resposta”, “Respondida” e “Encerrada”?',
       resposta: '“Aguardando resposta”: a conversa está com a coordenação. “Respondida”: a coordenação respondeu. “Encerrada”: a coordenação deu o assunto por resolvido; se você escrever de novo, a conversa é reaberta.',
       termos: ['status', 'situação', 'fechada'],
+    },
+    {
+      id: 'ler-os-avisos',
+      pergunta: 'Onde leio os avisos da coordenação?',
+      resposta: 'Em “Mensagens”, na aba “Avisos”: os fixados vêm primeiro, e “Novo” marca o que você ainda não tinha visto. Abrir a aba conta como visto, e o número em “Mensagens” diminui.',
+      termos: ['avisos', 'mural', 'recados', 'comunicados', 'novo'],
     },
     {
       id: 'numero-em-mensagens',
@@ -903,15 +895,6 @@ const ENTRAR_E_SAIR: TopicoGeral = {
       ],
       dica: 'São até 5 pedidos por hora para o mesmo e-mail. Passou disso, espere alguns minutos.',
     },
-    {
-      id: 'sair-da-area',
-      titulo: 'Sair da área',
-      passos: [
-        'Toque nas suas iniciais, no alto da tela.',
-        'Toque em “Sair”.',
-      ],
-      dica: 'Também dá para sair no fim do “Perfil”, em “Sair da Área do Voluntário”. Ao sair, este aparelho esquece o e-mail que você usou para entrar.',
-    },
   ],
   perguntas: [
     {
@@ -951,9 +934,15 @@ const ENTRAR_E_SAIR: TopicoGeral = {
       termos: ['Sua sessão terminou. Entre de novo para continuar de onde parou.', 'expirou', 'desconectou'],
     },
     {
+      id: 'sair-da-area',
+      pergunta: 'Como saio da área?',
+      resposta: 'Toque nas suas iniciais, no alto da tela, e em “Sair”; no fim do “Perfil”, “Sair da Área do Voluntário” faz o mesmo. Ao sair, este aparelho esquece o e-mail que você usou para entrar e os tours que você já viu.',
+      termos: ['sair', 'deslogar', 'logout', 'encerrar'],
+    },
+    {
       id: 'aparelho-compartilhado',
       pergunta: 'Usei um aparelho de outra pessoa. Preciso sair?',
-      resposta: 'Sim. Toque nas suas iniciais, no alto, e em “Sair”. Assim o acesso daquele aparelho se encerra e ele esquece o seu e-mail.',
+      resposta: 'Sim. Toque nas suas iniciais, no alto, e em “Sair”. Assim o acesso daquele aparelho se encerra, e ele esquece o seu e-mail e os tours que você viu.',
       termos: ['computador público', 'celular emprestado', 'segurança'],
     },
     {
@@ -975,23 +964,19 @@ const EMAILS: TopicoGeral = {
   id: 'emails-da-area',
   titulo: 'E-mails da área',
   resumo: 'O que a Área do Voluntário manda para o seu e-mail, e quando.',
-  tarefas: [
-    {
-      id: 'parar-avisos-por-email',
-      titulo: 'Parar de receber os avisos do mural por e-mail',
-      passos: [
-        'Abra “Perfil” e vá até “Preferências”.',
-        'Desmarque “Receber os avisos do mural também por e-mail”.',
-      ],
-      dica: 'O link de saída no rodapé de cada aviso por e-mail faz o mesmo. Os avisos continuam em “Mensagens”, na aba “Avisos”.',
-    },
-  ],
+  tarefas: [],
   perguntas: [
     {
       id: 'que-emails-recebo',
       pergunta: 'Que e-mails a área manda?',
       resposta: 'As boas-vindas, quando a coordenação aprova a sua inscrição no Voluntariado; o código de acesso; a confirmação de cada inscrição numa atividade; o lembrete na véspera da atividade; o aviso de que a vaga é sua, quando você sai da lista de espera; o aviso quando a coordenação cancela uma atividade; o certificado emitido; as respostas da coordenação às suas mensagens; e o aviso de bem da filial entregue a você.\n\nOs avisos do mural chegam por e-mail só se essa opção estiver ligada no “Perfil”.',
       termos: ['notificações', 'e-mail', 'avisos', 'lembrete', 'confirmação'],
+    },
+    {
+      id: 'parar-avisos-por-email',
+      pergunta: 'Como paro de receber os avisos do mural por e-mail?',
+      resposta: 'Em “Perfil”, em “Preferências”, desmarque “Receber os avisos do mural também por e-mail”; o link de saída no rodapé de cada aviso por e-mail faz o mesmo. Os avisos continuam em “Mensagens”, na aba “Avisos”.',
+      termos: ['parar', 'descadastrar', 'sair da lista', 'desligar e-mail', 'mural'],
     },
     {
       id: 'emails-no-spam',
@@ -1006,18 +991,14 @@ const SOBRE_A_AJUDA: TopicoGeral = {
   id: 'tours-e-ajuda',
   titulo: 'Tours e ajuda',
   resumo: 'Como rever os tours e onde achar esta página.',
-  tarefas: [
+  tarefas: [],
+  perguntas: [
     {
       id: 'ver-tour-da-tela',
-      titulo: 'Ver o tour da tela em que você está',
-      passos: [
-        'Toque nas suas iniciais, no alto da tela.',
-        'Toque em “Tour desta tela” (aparece nas telas que têm tour).',
-      ],
-      dica: 'Nesta Ajuda, cada parte da área tem o botão “Fazer o tour”.',
+      pergunta: 'Como vejo o tour da tela em que estou?',
+      resposta: 'Toque nas suas iniciais, no alto da tela, e em “Tour desta tela” (aparece nas telas que têm tour). Nesta Ajuda, cada parte da área também tem o botão “Fazer o tour”.',
+      termos: ['tour', 'apresentação', 'rever', 'como usar'],
     },
-  ],
-  perguntas: [
     {
       id: 'rever-boas-vindas',
       pergunta: 'Como vejo o tour de boas-vindas de novo?',
@@ -1033,7 +1014,7 @@ const SOBRE_A_AJUDA: TopicoGeral = {
     {
       id: 'convite-de-novo',
       pergunta: 'O convite de boas-vindas apareceu de novo. Por quê?',
-      resposta: 'O que você já viu fica guardado neste aparelho. Em outro celular, em outro navegador ou depois de limpar os dados do navegador, o convite volta: é só tocar em “Agora não”.',
+      resposta: 'O que você já viu fica guardado neste aparelho até você sair da área. Depois de sair, em outro celular, em outro navegador ou depois de limpar os dados do navegador, o convite volta: é só tocar em “Agora não”.',
       termos: ['convite', 'boas-vindas', 'tour'],
     },
   ],
@@ -1077,7 +1058,7 @@ export function tourDoMembro(pathname: string): TourDoMembro | null {
 
 // ---------------------------------------------------------------- busca
 
-/** Sem acento e sem caixa. A mesma regra de `normalizar` (lib/navegacao.ts), sem trazer o mapa do Redação para o celular do voluntário. */
+/** Sem acento e sem caixa. A mesma regra de `normalizar` (lib/navegacao.ts), sem trazer o mapa da Redação para o celular do voluntário. */
 export function normalizarBusca(texto: string): string {
   return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }

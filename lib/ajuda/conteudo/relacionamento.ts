@@ -39,7 +39,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       alvo: 'newsletter.formulario',
       titulo: 'Formulário do site',
-      texto: 'Confere sozinho se o formulário da home do site manda as inscrições para cá (só administradores veem a situação). “Ligado” é o normal; “Não está ligado” quer dizer que quem se inscreve lá se perde.',
+      texto: 'Confere sozinho se o formulário da página inicial do site manda as inscrições para cá (só administradores veem a situação). “Ligado” é o normal; “Não está ligado” quer dizer que quem se inscreve lá se perde.',
     },
     {
       alvo: 'newsletter.envio',
@@ -66,7 +66,7 @@ const NEWSLETTER: GuiaDaArea = {
         'Toque em “Adicionar destino” e, em “Newsletter”, escolha “Edição”.',
         'Revise o texto da edição, que vem da notícia do pacote.',
         'Confira o “Assunto do e-mail” (até 90 caracteres; ele vem preenchido com o título), a “Chamada” e, se quiser, o “Texto do botão”.',
-        'Confira a “Prévia do e-mail”: ela é montada pelo mesmo gerador da mensagem que vai sair.',
+        'Confira a “Prévia do e-mail”: ela mostra a mensagem exatamente como vai sair.',
         'Toque em “Marcar como pronta”, depois em “Publicar prontos” (ou “Agendar prontos”, com horário marcado) e em “Confirmar”.',
         'Volte à Newsletter: a edição aparece em “Edições enviadas”.',
       ],
@@ -82,7 +82,7 @@ const NEWSLETTER: GuiaDaArea = {
         'Toque em “Acrescentar”.',
         'Leia o recado no alto da tela. A pessoa fica como “Aguardando confirmação” até clicar no link do convite.',
       ],
-      dica: 'Um endereço por vez, de propósito: não há como colar uma lista. Endereço de quem saiu da lista não pode ser acrescentado pela equipe; só a própria pessoa volta, pelo formulário do site. Com o cartão “Envio” em “Sem chave do Resend”, o endereço fica guardado sem convite, e nada o manda sozinho depois: quando o envio for configurado, use “Reenviar”.',
+      dica: 'Um endereço por vez, de propósito: não há como colar uma lista. Quem saiu da lista só volta pelo formulário do site, pela própria mão. Se o cartão “Envio” mostra “Sem chave do Resend” (o envio de e-mail não está configurado), o endereço fica guardado sem convite; depois de configurado o envio, use “Reenviar”.',
     },
     {
       id: 'reenviar-convite',
@@ -128,12 +128,12 @@ const NEWSLETTER: GuiaDaArea = {
     },
     {
       id: 'ligar-formulario',
-      titulo: 'Ligar o formulário da home do site',
+      titulo: 'Ligar o formulário da página inicial do site',
       quem: 'Só administradores',
       passos: [
         'Abra a Newsletter e espere o cartão “Formulário do site” terminar de conferir (“Conferindo…”).',
         'Se aparecer “Não está ligado”, toque em “Ligar o formulário”.',
-        'Leia o recado no alto da tela: ele diz se a home pública já está com o formulário ligado.',
+        'Leia o recado no alto da tela: ele diz se a página inicial do site já está com o formulário ligado.',
         'Para conferir de novo mais tarde, toque em “Ver situação”.',
       ],
       dica: 'Rodar de novo não duplica nada: se o formulário já estiver ligado, nada muda.',
@@ -154,7 +154,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'situacoes',
       pergunta: 'O que quer dizer cada situação da lista?',
-      resposta: '“Confirmado”: a pessoa clicou no link do convite e recebe as edições. “Aguardando confirmação”: pediu para entrar, mas ainda não clicou. “Saiu da lista”: pediu para não receber mais. “Endereço inválido”: o endereço devolveu a mensagem.\n\nSó quem está “Confirmado” recebe as edições.',
+      resposta: '“Confirmado”: a pessoa clicou no link do convite, e só quem está assim recebe as edições. “Aguardando confirmação”: pediu para entrar, mas ainda não clicou.\n\n“Saiu da lista”: pediu para não receber mais. “Endereço inválido”: o endereço devolveu a mensagem.',
       termos: ['status', 'confirmado', 'pendente', 'descadastrado', 'inválido', 'aguardando'],
     },
     {
@@ -166,7 +166,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'A pessoa se inscreveu, mas o convite não chegou. E agora?',
-      resposta: 'Peça que ela olhe a caixa de spam. Depois, na linha dela (filtro “Aguardando”), toque em “Reenviar”, que manda um link novo.\n\nSe o cartão “Envio” mostra “Sem chave do Resend”, nenhum e-mail sai, e o convite não sai sozinho depois. Quando um administrador configurar o envio, o botão “Reenviar … convites” do mesmo cartão manda o convite a todos que ficaram aguardando. Pelo site, quem tenta várias vezes seguidas não recebe um convite novo antes de 5 minutos.',
+      resposta: 'Peça que ela olhe o spam e, na linha dela (filtro “Aguardando”), toque em “Reenviar”, que manda um link novo. Quem se inscreve várias vezes seguidas pelo site só recebe um convite novo depois de 5 minutos.\n\nSe o cartão “Envio” mostra “Sem chave do Resend”, nenhum e-mail sai, e o convite não sai sozinho depois. Quando um administrador configurar o envio, o botão “Reenviar … convites” desse cartão manda o convite a quem ficou aguardando.',
       termos: ['não recebeu', 'convite', 'spam', 'confirmação', 'e-mail não chega'],
     },
     {
@@ -178,13 +178,13 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'lista-nao-cresce',
       pergunta: 'Ninguém novo entra na lista. O que conferir?',
-      resposta: 'Veja o cartão “Formulário do site” (só administradores veem a situação). “Não está ligado” quer dizer que a conferência não achou, na home, o formulário mandando as inscrições para cá: quem se inscreve lá pode estar tendo o endereço descartado sem saber. Um administrador resolve com “Ligar o formulário”.\n\n“Sem resposta agora” quer dizer que a conferência não respondeu naquele momento; toque em “Ver situação” daqui a pouco.',
+      resposta: 'Veja o cartão “Formulário do site” (só administradores veem a situação). “Não está ligado” quer dizer que a conferência não achou, na página inicial do site, o formulário mandando as inscrições para cá: quem se inscreve lá pode estar tendo o endereço descartado sem saber. Um administrador resolve com “Ligar o formulário”.\n\n“Sem resposta agora” quer dizer que a conferência não respondeu naquele momento; toque em “Ver situação” daqui a pouco.',
       termos: ['formulário', 'home', 'site', 'inscrições pararam', 'Não está ligado'],
     },
     {
       id: 'restrito-a-administrador',
       pergunta: 'Por que o formulário do site aparece como “Restrito a administrador”?',
-      resposta: 'A conferência do formulário da home é visível só para administradores. Para quem tem outro papel, o cartão mostra esse selo em vez de “Ligado” ou “Não está ligado”, e o mesmo vale para o diagnóstico de “Conferir envio”.',
+      resposta: 'A conferência do formulário da página inicial do site é visível só para administradores. Para quem tem outro papel, o cartão mostra esse selo em vez de “Ligado” ou “Não está ligado”, e o mesmo vale para o diagnóstico de “Conferir envio”.',
       termos: ['restrito', 'não consigo ver', 'permissão'],
     },
     {
@@ -208,7 +208,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'situacao-da-edicao',
       pergunta: 'O que significam “Enviada”, “Agendada” e “Falhou” em “Edições enviadas”?',
-      resposta: '“Enviada”: a edição saiu, e a linha mostra para quantas pessoas. “Agendada”: a remessa já foi entregue ao serviço de envio para sair no horário marcado no pacote; a linha continua como “Agendada” mesmo depois desse horário. “Falhou”: não saiu, ou saiu só em parte; o motivo aparece em vermelho, e a edição pode ser reprocessada no pacote, em “Publicações”.\n\nUma edição ainda em preparo no pacote também entra na lista, com a situação de lá (como “gerada” ou “pronta”). A lista mostra as 20 edições mais recentes.',
+      resposta: '“Enviada”: a edição saiu, e a linha mostra para quantas pessoas. “Agendada”: a remessa foi entregue ao serviço de envio para sair no horário do pacote, e a linha continua assim mesmo depois desse horário. “Falhou”: não saiu, ou saiu só em parte; o motivo aparece em vermelho, e dá para reprocessar no pacote, em “Publicações”.\n\nEdição ainda em preparo no pacote também aparece, com a situação de lá (como “gerada” ou “pronta”); a lista mostra as 20 mais recentes.',
       termos: ['edição', 'status', 'agendada', 'falhou', 'enviada', 'gerada', 'pronta'],
     },
     {
@@ -306,7 +306,7 @@ const IMPRENSA: GuiaDaArea = {
         'Dê um “Nome da lista”: ele vira etiqueta e serve para escolher esse grupo depois.',
         'Toque em “Importar” (o botão mostra quantos e-mails) e espere o resultado.',
       ],
-      dica: 'Até 20.000 e-mails por arquivo; acima disso, divida. E-mail repetido não duplica: quem já existe ganha a lista nova e só tem preenchidos os campos que estavam vazios, e quem saiu da lista continua fora. Antes do primeiro envio para uma lista comprada ou raspada, vale verificar os e-mails.',
+      dica: 'Até 20.000 e-mails por arquivo; acima disso, divida. E-mail repetido não duplica: quem já existe ganha a lista nova e só tem preenchidos os campos que estavam vazios, e quem saiu da lista continua fora. Antes do primeiro envio para uma lista de origem incerta (comprada ou copiada da internet), vale verificar os e-mails.',
     },
     {
       id: 'buscar-por-dominio',
@@ -430,7 +430,7 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'saiu-da-lista',
       pergunta: 'Um contato saiu da lista. Dá para pôr de volta?',
-      resposta: 'Não pela tela. A pessoa pediu para sair a partir de uma campanha (o link “Sair da lista” vai no rodapé de toda mensagem), e editar o contato ou importar a planilha de novo não muda isso. Ela continua no banco, marcada como “Saiu da lista”, e o filtro “Saíram da lista” mostra quem está nessa situação.\n\nPor isso, não remova quem saiu: o contato é o registro da saída. Removido, o mesmo e-mail volta como contato novo, apto a receber, se alguém importar a planilha de novo.',
+      resposta: 'Não pela tela. A pessoa pediu para sair pelo link “Sair da lista”, que vai no rodapé de toda campanha, e nem editar o contato nem importar a planilha de novo mudam isso: ela continua no banco, marcada como “Saiu da lista” (o filtro “Saíram da lista” mostra quem está assim).\n\nPor isso, não remova quem saiu: o contato é o registro da saída. Removido, o mesmo e-mail volta como contato novo, apto a receber, se alguém importar a planilha de novo.',
       termos: ['descadastrou', 'descadastrado', 'reinscrever', 'voltar para a lista', 'remover quem saiu'],
     },
     {
@@ -513,13 +513,13 @@ const IMPRENSA: GuiaDaArea = {
 
 const RESULTADOS: GuiaDaArea = {
   href: '/impacto',
-  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que o Palácio Virtual registra; alcance, engajamento e dados do site entram quando as fontes de analytics forem conectadas, sem números estimados.',
+  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que o Palácio Virtual registra; alcance, engajamento e dados do site entram quando as ferramentas de medição (analytics) forem conectadas, sem números estimados.',
   quemUsa: 'Toda a equipe vê os mesmos números, da filial inteira. É uma tela só de leitura: nada se edita aqui.',
   tour: [
     {
       alvo: 'resultados.aviso',
       titulo: 'O que esta tela mostra',
-      texto: 'O efeito do que já saiu, nos últimos 30 dias. Por enquanto, só dados que o Palácio Virtual registra; alcance e engajamento chegam quando as fontes de analytics forem conectadas.',
+      texto: 'O efeito do que já saiu, nos últimos 30 dias. Por enquanto, só dados que o Palácio Virtual registra; alcance e engajamento chegam quando as ferramentas de medição (analytics) forem conectadas.',
       lado: 'bottom',
     },
     {
@@ -579,7 +579,7 @@ const RESULTADOS: GuiaDaArea = {
     {
       id: 'sem-alcance',
       pergunta: 'Por que não vejo alcance, curtidas nem visitas do site?',
-      resposta: 'Porque essas fontes ainda não estão conectadas. Esta primeira versão usa só o que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site vão aparecer quando as fontes de analytics forem ligadas, sem números estimados ou inventados.',
+      resposta: 'Porque essas fontes ainda não estão conectadas. Esta primeira versão usa só o que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site vão aparecer quando as ferramentas de medição (analytics) forem ligadas, sem números estimados ou inventados.',
       termos: ['analytics', 'alcance', 'curtidas', 'engajamento', 'seguidores', 'google', 'visualizações'],
     },
     {
@@ -608,7 +608,7 @@ const RESULTADOS: GuiaDaArea = {
     },
     {
       id: 'projetos-na-tela',
-      pergunta: 'Quais projetos aparecem em “Projetos em andamento”?',
+      pergunta: 'Quais projetos aparecem em “Projetos em andamento”, em Resultados?',
       resposta: 'Os projetos ativos (ainda não concluídos), dos atualizados mais recentemente para os mais antigos, até 8. O número em “Projetos ativos” vem da mesma lista, então também para em 8. Para ver todos, toque em “Abrir projetos”.',
       termos: ['projetos', 'demandas', 'concluídas', 'campanhas', 'eventos'],
     },
@@ -636,7 +636,7 @@ const HISTORICO: GuiaDaArea = {
     {
       alvo: 'historico.conferir',
       titulo: 'Conferir situação',
-      texto: 'Aparece quando há envio às redes cujo resultado ainda não voltou. O botão pergunta ao conector o que aconteceu e atualiza o endereço e a situação.',
+      texto: 'Aparece quando há envio às redes cujo resultado ainda não voltou. O botão pergunta de novo ao serviço que publica nas redes (o Upload-Post) e atualiza o endereço e a situação.',
       seAusente: 'pular',
     },
     {
@@ -666,7 +666,7 @@ const HISTORICO: GuiaDaArea = {
         'Toque no título para abrir o pacote em “Publicações”.',
         'No destino que falhou, toque em “Reprocessar”.',
       ],
-      dica: 'Num envio às redes, “Reprocessar” pergunta antes ao conector se o post já saiu, para não publicar duas vezes. Numa edição da newsletter, não: ela sai de novo para toda a lista confirmada, e quem recebeu antes da falha recebe outra vez.',
+      dica: 'Num envio às redes, “Reprocessar” confere antes se o post já saiu, para não publicar duas vezes. Numa edição da newsletter, não: ela sai de novo para toda a lista confirmada, e quem recebeu antes da falha recebe outra vez.',
     },
     {
       id: 'conferir-situacao',
@@ -709,7 +709,7 @@ const HISTORICO: GuiaDaArea = {
     {
       id: 'agendado-nao-aparece',
       pergunta: 'Agendei uma publicação e ela não aparece. Por quê?',
-      resposta: 'O Histórico só mostra o que consta como publicado ou que falhou. Enquanto espera o horário, a publicação está no pacote, em “Publicações”, e no “Calendário”. Nas redes, ela entra aqui quando a saída é confirmada. A edição da newsletter agendada é um caso à parte: continua como “Agendada” em “Edições enviadas”, na Newsletter, e não entra no Histórico.',
+      resposta: 'O Histórico só mostra o que consta como publicado ou que falhou. Enquanto espera o horário, a publicação está no pacote, em “Publicações”, e no “Calendário”. Nas redes, ela entra aqui quando a saída é confirmada.\n\nA edição da newsletter agendada é um caso à parte: continua como “Agendada” em “Edições enviadas”, na Newsletter, e não entra no Histórico.',
       termos: ['agendada', 'na fila', 'programada', 'sumiu'],
     },
     {

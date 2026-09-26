@@ -1,4 +1,4 @@
-import type { PassoDoTour, TopicoGeral } from '../tipos'
+import type { PassoDoTour, Pergunta, Tarefa, TopicoGeral } from '../tipos'
 
 /**
  * A ajuda que não é de uma área: o tour de boas-vindas (o da equipe e o da
@@ -14,10 +14,13 @@ import type { PassoDoTour, TopicoGeral } from '../tipos'
 // Menu e busca mudam de lugar com a largura: no computador, a sidebar; no
 // celular, o botão de menu e a lupa do topo. Os dois passos de menu são
 // 'pular': só o que está na tela aparece, e a contagem fica certa.
+// O menu do computador pode estar recolhido (a escolha fica guardada,
+// components/app/cookies-do-menu.ts): aí ele mostra só os ícones, sem o nome
+// dos grupos, e o texto precisa valer nos dois jeitos.
 const MENU_NO_COMPUTADOR: PassoDoTour = {
   alvo: 'shell.menu',
   titulo: 'As áreas, por tipo de trabalho',
-  texto: 'O menu junta as áreas em grupos, como “Planejamento”, “Produção” e “Institucional”. O nome de um grupo abre e fecha a lista, e você só vê o que o seu papel permite.',
+  texto: 'O menu junta as áreas em grupos, como “Planejamento”, “Produção” e “Institucional”, e só mostra o que o seu papel permite. O nome de um grupo abre e fecha a lista, e o botão no pé do menu deixa só os ícones ou volta a abrir tudo.',
   lado: 'right',
   seAusente: 'pular',
 }
@@ -29,10 +32,12 @@ const MENU_NO_CELULAR: PassoDoTour = {
   seAusente: 'pular',
 }
 
+// Busca e ajuda também estão no celular (a lupa e o "?" do topo), onde não há
+// teclado físico: o atalho de teclado é dito como coisa do computador.
 const BUSCA: PassoDoTour = {
   alvo: 'shell.busca',
   titulo: 'Busca rápida',
-  texto: 'Digite o nome de uma área, de uma ação ou uma dúvida. De qualquer tela, ⌘K (no Mac) ou Ctrl K abre a busca. Os nomes antigos das áreas também valem.',
+  texto: 'Digite o nome de uma área, de uma ação ou uma dúvida; os nomes antigos das áreas também valem. No computador, ⌘K (no Mac) ou Ctrl K também abrem a busca, de qualquer tela.',
   lado: 'right',
 }
 
@@ -48,7 +53,7 @@ const SINO: PassoDoTour = {
 const AJUDA: PassoDoTour = {
   alvo: 'shell.ajuda',
   titulo: 'Ajuda em qualquer tela',
-  texto: 'O “?” mostra o passo a passo e as perguntas frequentes da tela aberta e, quando ela tem tour, o botão para fazê-lo. A tecla ? também abre. Tudo junto fica na Central de ajuda.',
+  texto: 'O “?” mostra o passo a passo e as perguntas frequentes da tela aberta e, quando ela tem tour, o botão para fazê-lo. No computador, a tecla ? também abre. Tudo junto fica na Central de ajuda.',
   lado: 'bottom',
 }
 
@@ -109,7 +114,7 @@ export const BOAS_VINDAS_ESCOLA: PassoDoTour[] = [
   },
   {
     ...BUSCA,
-    texto: 'Digite o nome de uma área ou a sua dúvida. De qualquer tela, ⌘K (no Mac) ou Ctrl K abre a busca.',
+    texto: 'Digite o nome de uma área ou a sua dúvida. No computador, ⌘K (no Mac) ou Ctrl K também abrem a busca, de qualquer tela.',
   },
   SINO,
   AJUDA,
@@ -118,6 +123,84 @@ export const BOAS_VINDAS_ESCOLA: PassoDoTour[] = [
     texto: 'No menu da sua foto (ou iniciais) ficam “Meu perfil”, “Ajuda” (a Central de ajuda) e “Sair”. No perfil você troca a senha, confirma o e-mail de recuperação e ativa a verificação em duas etapas.',
   },
 ]
+
+// ------------------------------------------------ o que também mora numa área
+//
+// Estas tarefas e perguntas aparecem aqui e em Meu perfil ou Notificações
+// (administracao.ts, meu-dia.ts). A busca mostra uma vez só o que tem o mesmo
+// título (buscarNaAjuda, em lib/ajuda) — a daqui —, então o texto é um só: a
+// área importa daqui e troca apenas o id, que é a âncora de cada lugar. Por
+// isso o texto não supõe em que tela a pessoa está e diz o caminho até ela.
+
+export const TROCAR_A_SENHA: Omit<Tarefa, 'id'> = {
+  titulo: 'Trocar a sua senha',
+  passos: [
+    'Toque na sua foto (ou iniciais), no alto à direita, e abra “Meu perfil”.',
+    'Na parte “Segurança”, digite a “Senha atual”, a “Nova senha” e repita a nova em “Confirmar nova senha”. O ícone de olho mostra o que você digitou.',
+    'Siga o aviso embaixo dos campos até ele não apontar mais nenhum problema.',
+    'Toque em “Trocar senha”. Aparece “Senha trocada. As outras sessões abertas foram encerradas.”',
+  ],
+  dica: 'A senha nova precisa de pelo menos 10 caracteres, com letras e números, sem o seu nome nem o seu usuário, e diferente da atual.',
+}
+
+export const CONFIRMAR_O_EMAIL: Omit<Tarefa, 'id'> = {
+  titulo: 'Cadastrar e confirmar o e-mail de recuperação',
+  passos: [
+    'Em “Meu perfil”, na parte “E-mail de recuperação”, digite o endereço no campo. Se já houver um e-mail lá, toque antes em “Trocar e-mail”.',
+    'Toque em “Enviar confirmação”.',
+    'Abra o e-mail que chegou nesse endereço e toque no link. Ele vale por 48 horas.',
+    'Na página que abrir, toque em “Confirmar este e-mail”. De volta ao perfil, o endereço aparece como “confirmado”.',
+  ],
+  dica: 'Nada muda até você tocar em “Confirmar este e-mail”: só então o endereço passa a valer. Se o link não chegou ou venceu, peça outro do mesmo jeito (com o endereço “não confirmado”, também há “Reenviar confirmação”).',
+}
+
+export const ATIVAR_A_VERIFICACAO: Omit<Tarefa, 'id'> = {
+  titulo: 'Ativar a verificação em duas etapas',
+  passos: [
+    'Instale no celular um app autenticador, como Google Authenticator, Microsoft Authenticator ou Authy.',
+    'Em “Meu perfil”, na parte “Verificação em duas etapas”, toque em “Ativar verificação em duas etapas”.',
+    'Em “Nome deste aparelho”, dê um nome que você reconheça (por exemplo, “Celular pessoal”) e toque em “Gerar QR Code”.',
+    'No app, adicione uma conta e leia o QR Code. Se não der, digite o código que aparece em “Não dá para ler? Digite este código no app”.',
+    'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”. Do próximo login em diante, o Palácio Virtual pede também o código do app.',
+  ],
+  dica: 'Cadastre também um segundo aparelho com “Adicionar outro aparelho”: se perder o celular, você continua entrando pelo outro. O código do QR Code fica só no app, porque quem tiver esse código consegue gerar os seus números.',
+}
+
+export const SAIR_DA_CONTA: Omit<Tarefa, 'id'> = {
+  titulo: 'Sair da conta',
+  passos: [
+    'Toque na sua foto (ou iniciais), no alto à direita.',
+    'No fim do menu, escolha “Sair”.',
+    'Para voltar, entre de novo com o seu usuário (ou o e-mail confirmado) e a senha.',
+  ],
+  dica: 'Em “Meu perfil” também há o botão “Sair da conta”, no fim da página.',
+}
+
+export const PARA_QUE_SERVE_O_EMAIL: Omit<Pergunta, 'id'> = {
+  pergunta: 'Para que serve o e-mail de recuperação?',
+  resposta: 'É para ele que vão o link de “Esqueci minha senha”, os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Enquanto ele não estiver confirmado, nada disso tem para onde ir, e uma faixa amarela no alto das telas lembra você.\n\nConfirmado, ele também serve para entrar: digite-o em “Usuário ou e-mail”, na tela de entrada.',
+  termos: ['e-mail de contato', 'recuperar senha', 'confirmar e-mail', 'faixa amarela', 'aviso amarelo', 'cadastrar agora'],
+}
+
+// A lista de assuntos para nos três primeiros: com todos, entraria “Chamados”,
+// e o conferir-ajuda cobra o selo SO_DA_REDACAO de tarefa geral que cita
+// chamado — mas esta vale também para a equipe da escola.
+export const ESCOLHER_OS_EMAILS: Omit<Tarefa, 'id'> = {
+  titulo: 'Escolher o que chega por e-mail',
+  passos: [
+    'Abra as suas preferências: no sino, “E-mails de aviso”; em “Notificações”, “Escolher o que chega por e-mail”; ou, em “Meu perfil”, a parte “E-mails de notificação”.',
+    'Cada linha é um assunto, como “Chat”, “Aprovações” e “Mensagens”, com exemplos do que entra nele.',
+    'Em cada um, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
+    'Não há botão de salvar: ao tocar, a escolha já vale e aparece “Preferência salva.” embaixo da lista.',
+  ],
+  dica: 'Os e-mails vão para o seu e-mail de recuperação, e só depois que ele for confirmado. Os avisos de segurança da conta (senha, verificação em duas etapas) chegam sempre.',
+}
+
+export const EMAIL_DE_AVISO_NAO_CHEGOU: Omit<Pergunta, 'id'> = {
+  pergunta: 'Por que não recebi o e-mail de uma notificação?',
+  resposta: 'Alguns motivos: o seu e-mail de recuperação não está confirmado; o assunto está em “Só no sino” ou “Resumo diário”; ou você estava com o Palácio Virtual aberto, e aí o aviso não sai na hora: se você não abrir, ele vai no resumo do dia.\n\nSobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos. Vale olhar também a caixa de spam.',
+  termos: ['e-mail de aviso', 'não chegou', 'notificação por e-mail', 'spam'],
+}
 
 export const TOPICOS_GERAIS: TopicoGeral[] = [
   {
@@ -148,50 +231,10 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         ],
         dica: 'O link só vai para um e-mail de recuperação já confirmado. Sua senha antiga continua valendo até você salvar a nova; ao salvar, as sessões abertas em outros aparelhos são encerradas.',
       },
-      {
-        id: 'trocar-a-senha',
-        titulo: 'Trocar a sua senha',
-        passos: [
-          'Toque na sua foto (ou iniciais), no alto à direita, e abra “Meu perfil”.',
-          'Na parte “Segurança”, preencha “Senha atual”, “Nova senha” e “Confirmar nova senha”.',
-          'Toque em “Trocar senha”.',
-        ],
-        dica: 'A senha precisa de pelo menos 10 caracteres, com letras e números, sem o seu nome ou usuário. Ao trocar, as outras sessões abertas são encerradas.',
-      },
-      {
-        id: 'confirmar-o-email',
-        titulo: 'Cadastrar e confirmar o e-mail de recuperação',
-        passos: [
-          'Abra “Meu perfil”.',
-          'Em “E-mail de recuperação”, digite o endereço no campo. Se já houver um e-mail lá, toque antes em “Trocar e-mail”.',
-          'Toque em “Enviar confirmação”.',
-          'Abra o e-mail que chegou nesse endereço e toque no link.',
-          'Na página que abrir, toque em “Confirmar este e-mail”.',
-        ],
-        dica: 'O link de confirmação vale por 48 horas. Nada muda até você tocar em “Confirmar este e-mail”: só então o endereço passa a valer. Se o link não chegou ou venceu, peça outro do mesmo jeito.',
-      },
-      {
-        id: 'ativar-a-verificacao',
-        titulo: 'Ativar a verificação em duas etapas',
-        passos: [
-          'Instale no celular um app autenticador, como Google Authenticator, Microsoft Authenticator ou Authy.',
-          'Em “Meu perfil”, na parte “Verificação em duas etapas”, toque em “Ativar verificação em duas etapas”.',
-          'Em “Nome deste aparelho”, dê um nome que você reconheça (por exemplo, “Celular pessoal”) e toque em “Gerar QR Code”.',
-          'No app, adicione uma conta e leia o QR Code (ou digite o código que aparece embaixo dele).',
-          'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”.',
-        ],
-        dica: 'Cadastre também um segundo aparelho com “Adicionar outro aparelho”: se perder o celular, você continua entrando pelo outro.',
-      },
-      {
-        id: 'sair-da-conta',
-        titulo: 'Sair da conta',
-        passos: [
-          'Toque na sua foto (ou iniciais), no alto à direita.',
-          'No fim do menu, escolha “Sair”.',
-          'Para voltar, entre de novo com o seu usuário (ou o e-mail confirmado) e a senha.',
-        ],
-        dica: 'Em “Meu perfil” também há o botão “Sair da conta”, no fim da página.',
-      },
+      { id: 'trocar-a-senha', ...TROCAR_A_SENHA },
+      { id: 'confirmar-o-email', ...CONFIRMAR_O_EMAIL },
+      { id: 'ativar-a-verificacao', ...ATIVAR_A_VERIFICACAO },
+      { id: 'sair-da-conta', ...SAIR_DA_CONTA },
     ],
     perguntas: [
       {
@@ -212,12 +255,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         resposta: 'Peça a um administrador uma senha temporária para entrar. Depois, cadastre e confirme o seu e-mail de recuperação em “Meu perfil”, para da próxima vez resolver sozinho.',
         termos: ['não consigo entrar', 'bloqueado', 'recuperar acesso'],
       },
-      {
-        id: 'por-que-confirmar-o-email',
-        pergunta: 'Para que serve o e-mail de recuperação?',
-        resposta: 'É para ele que vão o link de “Esqueci minha senha”, os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Enquanto ele não estiver confirmado, nada disso tem para onde ir, e uma faixa amarela no alto das telas lembra você.\n\nConfirmado, ele também serve para entrar no lugar do usuário.',
-        termos: ['e-mail de contato', 'confirmar e-mail', 'faixa amarela', 'aviso amarelo', 'cadastrar agora'],
-      },
+      { id: 'por-que-confirmar-o-email', ...PARA_QUE_SERVE_O_EMAIL },
       {
         id: 'perdi-o-celular',
         pergunta: 'Perdi ou troquei de celular e não tenho o código. Como entro?',
@@ -279,16 +317,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         ],
         quem: 'Equipe do Palácio Virtual',
       },
-      {
-        id: 'avisos-por-email',
-        titulo: 'Escolher o que chega por e-mail',
-        passos: [
-          'Abra o sino e toque em “E-mails de aviso” (ou vá a “Meu perfil” → “E-mails de notificação”).',
-          'Para cada assunto, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
-          'Não há botão de salvar: ao tocar, a escolha já vale e aparece “Preferência salva.” embaixo da lista.',
-        ],
-        dica: 'Os e-mails vão para o seu e-mail de recuperação confirmado. Os avisos de segurança da conta (senha, verificação em duas etapas) chegam sempre.',
-      },
+      { id: 'avisos-por-email', ...ESCOLHER_OS_EMAILS },
     ],
     perguntas: [
       {
@@ -315,12 +344,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         resposta: 'É quanto você ainda não leu. Uma notificação conta como lida quando você toca nela, quando abre a página de que ela fala ou quando usa “Marcar todas como lidas”. Todas ficam em “Ver todas”.',
         termos: ['notificações', 'avisos', 'não lidas', 'alertas'],
       },
-      {
-        id: 'sem-email-de-aviso',
-        pergunta: 'Por que não recebi o e-mail de uma notificação?',
-        resposta: 'Alguns motivos: o seu e-mail de recuperação não está confirmado; o assunto está em “Só no sino” ou “Resumo diário”; ou você estava com o Palácio Virtual aberto, e aí o aviso fica para o resumo do dia se você não abrir.\n\nSobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos.',
-        termos: ['e-mail de aviso', 'não chegou', 'notificação por e-mail'],
-      },
+      { id: 'sem-email-de-aviso', ...EMAIL_DE_AVISO_NAO_CHEGOU },
       {
         id: 'nomes-antigos',
         pergunta: 'Os nomes das áreas mudaram. Os links antigos ainda funcionam?',
@@ -343,7 +367,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
           'Para outra dúvida, use a busca no alto do painel.',
           'Feche com o X ou com Esc.',
         ],
-        dica: 'Numa tela que ainda não tem guia próprio, o painel mostra o que vale em toda o Palácio Virtual: conta e acesso, como se achar e como pedir ajuda.',
+        dica: 'Numa tela que ainda não tem guia próprio, o painel mostra o que vale em todo o Palácio Virtual: conta e acesso, como se achar e como pedir ajuda.',
       },
       {
         id: 'fazer-um-tour',
@@ -408,7 +432,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'duvida-continua',
         pergunta: 'A ajuda não respondeu a minha dúvida. E agora?',
-        resposta: 'Se é sobre o trabalho, pergunte à equipe no Chat. Se algo não funciona, abra um chamado para a TI contando o que tentou fazer, em que tela e o que apareceu.\n\nQuem é da equipe da escola usa o Chat.',
+        resposta: 'Se é sobre o trabalho, pergunte à equipe no Chat. Se algo não funciona, abra um chamado para a TI contando o que tentou fazer, em que tela e o que apareceu.\n\nA equipe da escola não abre chamados: para ela, o caminho é o Chat.',
         termos: ['suporte', 'problema', 'erro', 'bug', 'ti'],
       },
     ],

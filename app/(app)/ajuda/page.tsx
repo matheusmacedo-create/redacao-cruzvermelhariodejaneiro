@@ -1,12 +1,15 @@
 import Link from 'next/link'
-import { BookOpen, CircleHelp, Keyboard, LifeBuoy, MessagesSquare, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, CircleHelp, Compass, Keyboard, LifeBuoy, MessagesSquare, Sparkles } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
-import { AreasDaCentral, AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
+import { AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
+import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
 import { PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
-import { TOPICOS_GERAIS } from '@/lib/ajuda'
+import { guiasVisiveis, hrefDaAjuda, topicosGerais } from '@/lib/ajuda'
+import type { Grupo } from '@/lib/navegacao'
 import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { requireWorkspace } from '@/lib/session'
+import { gruposDaPessoa } from './grupos-da-pessoa'
 
 export const metadata = { title: 'Central de ajuda' }
 
@@ -14,16 +17,20 @@ const tecla = 'inline-flex min-w-7 items-center justify-center rounded-md border
 
 /**
  * A Central de ajuda: tudo o que o painel "?" mostra tela a tela, junto e com
- * busca. O conteúdo é o de lib/ajuda; as áreas listadas são as que a pessoa
- * pode abrir (a mesma regra do menu). Os tópicos gerais têm âncora — é para
- * cá que a busca aponta (/ajuda#esqueci-a-senha).
+ * busca. O conteúdo é o de lib/ajuda, desenhado aqui no servidor (só a busca
+ * baixa o texto para o navegador, e só quando alguém busca); as áreas listadas
+ * são as que a pessoa pode abrir (a mesma regra do menu). Os tópicos gerais
+ * têm âncora — é para cá que a busca aponta (/ajuda#esqueci-a-senha).
  */
 export default async function CentralDeAjudaPage() {
   const context = await requireWorkspace({ escola: true })
   const escola = ehEquipeDaEscola(context.role)
+  const gerais = topicosGerais(escola)
+  const grupos = await gruposDaPessoa(context)
 
   return (
     <div className="mx-auto max-w-5xl">
+      <AncoraDaAjuda />
       <PageHeader
         title="Central de ajuda"
         description="O passo a passo e as perguntas frequentes de cada área que você pode abrir, os atalhos e o que fazer quando a dúvida continua. Em qualquer tela, o botão “?” no alto mostra só a ajuda daquela tela."
@@ -72,17 +79,17 @@ export default async function CentralDeAjudaPage() {
         </div>
       </section>
 
-      <AreasDaCentral />
+      <AreasDaCentral grupos={grupos} />
 
-      {TOPICOS_GERAIS.length > 0 && (
+      {gerais.length > 0 && (
         <section aria-labelledby="secao-ajuda-geral" className="mt-12">
           <h2 id="secao-ajuda-geral" className="text-lg font-semibold">Ajuda geral</h2>
-          <p className="mt-1 text-sm text-muted-foreground">O que vale em toda o Palácio Virtual, seja qual for a área.</p>
+          <p className="mt-1 text-sm text-muted-foreground">O que vale em todo o Palácio Virtual, seja qual for a área.</p>
           <nav aria-label="Tópicos da ajuda geral" className="mt-4 flex flex-wrap gap-2">
-            {TOPICOS_GERAIS.map((t) => <a key={t.id} href={`#${t.id}`} className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm hover:bg-muted">{t.titulo}</a>)}
+            {gerais.map((t) => <a key={t.id} href={`#${t.id}`} className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm hover:bg-muted sm:min-h-9">{t.titulo}</a>)}
           </nav>
           <div className="mt-6 flex max-w-3xl flex-col gap-12">
-            {TOPICOS_GERAIS.map((topico) => (
+            {gerais.map((topico) => (
               <section key={topico.id} id={topico.id} aria-labelledby={`secao-${topico.id}`} className="scroll-mt-6">
                 <h3 id={`secao-${topico.id}`} className="text-base font-semibold">{topico.titulo}</h3>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
@@ -104,5 +111,51 @@ export default async function CentralDeAjudaPage() {
         </section>
       )}
     </div>
+  )
+}
+
+/** As áreas com ajuda escrita que a pessoa pode abrir, agrupadas como no menu. */
+function AreasDaCentral({ grupos }: { grupos: Grupo[] }) {
+  const lista = guiasVisiveis(grupos)
+  const porGrupo = grupos
+    .map((grupo) => ({ grupo, itens: lista.filter((x) => x.grupo.id === grupo.id) }))
+    .filter((g) => g.itens.length)
+
+  return (
+    <section aria-labelledby="secao-ajuda-por-area" className="mt-12">
+      <h2 id="secao-ajuda-por-area" className="text-lg font-semibold">Ajuda por área</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Só aparecem as áreas que o seu acesso abre.</p>
+      {!porGrupo.length && <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">Os guias das áreas ainda estão sendo escritos. Enquanto isso, a ajuda geral está logo abaixo.</p>}
+      <div className="mt-5 flex flex-col gap-8">
+        {porGrupo.map(({ grupo, itens }) => (
+          <div key={grupo.id}>
+            {/* O grupo sem título no menu é o do dia de cada pessoa (Início, Aprovações…). */}
+            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{grupo.rotulo ?? 'Meu dia'}</h3>
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {itens.map(({ area, guia }) => {
+                const Icone = area.icone
+                const perguntas = guia.perguntas.length
+                return (
+                  <li key={area.href}>
+                    <Link href={hrefDaAjuda(area.href)} className="group flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-xs outline-none transition-colors hover:border-primary/40 hover:bg-primary/[0.02] focus-visible:ring-2 focus-visible:ring-ring/50">
+                      <span className="flex items-center gap-3">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/[0.08] text-primary" aria-hidden="true"><Icone className="size-[18px]" /></span>
+                        <span className="min-w-0 flex-1 font-semibold leading-snug">{area.rotulo}</span>
+                        <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+                      </span>
+                      <span className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{guia.paraQueServe}</span>
+                      <span className="mt-auto flex items-center gap-1.5 pt-3 text-xs text-muted-foreground">
+                        {guia.tour.length > 0 && <><Compass className="size-3.5" aria-hidden="true" />Tour ·</>}
+                        {' '}{perguntas} pergunta{perguntas === 1 ? '' : 's'}
+                      </span>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

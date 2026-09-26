@@ -1,3 +1,5 @@
+import { ehDominioDoPalacio } from './dominio'
+
 /**
  * Negrito e itálico carregam os filhos já lidos (`children`): é o que deixa
  * `**[texto](url)**` virar um link dentro do negrito, em vez de sair como
@@ -106,7 +108,8 @@ export function hrefInterno(href: string): boolean {
   if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.localhost')) return true
   if (host.endsWith('.blob.vercel-storage.com')) return true
   if (/^\/api\/private-blob/i.test(url.pathname)) return true
-  return (host === 'redacao.cruzvermelhariodejaneiro.org' || host.endsWith('.vercel.app')) && /^\/api(\/|$)/i.test(url.pathname)
+  // Os dois domínios: o conteúdo gravado antes da troca guarda links do antigo.
+  return (ehDominioDoPalacio(host) || host.endsWith('.vercel.app')) && /^\/api(\/|$)/i.test(url.pathname)
 }
 
 /**

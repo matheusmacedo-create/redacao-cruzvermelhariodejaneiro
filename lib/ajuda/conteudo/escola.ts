@@ -65,7 +65,7 @@ export const guias: GuiaDaArea[] = [
       {
         alvo: 'escola.sistema',
         titulo: 'Alunos e turmas ficam fora',
-        texto: 'Ficha do aluno, turma, triagem e presença ficam no sistema da escola. Os botões do quadro “Alunos, turmas e secretaria” abrem esse sistema em outra aba.',
+        texto: 'A ficha de cada estudante, as turmas, a triagem e a presença ficam no sistema da escola. Os botões do quadro “Alunos, turmas e secretaria” abrem esse sistema em outra aba.',
         seAusente: 'pular',
       },
     ],
@@ -94,15 +94,6 @@ export const guias: GuiaDaArea[] = [
         ],
         dica: 'Erro de leitura da Únicopag ou do Meta só some depois de uma leitura que dê certo: use “Atualizar agora” em “Vendas” ou “Atualizar do Meta” no “Marketing”.',
       },
-      {
-        id: 'abrir-sistema-da-escola',
-        titulo: 'Abrir o sistema da escola (alunos e turmas)',
-        passos: [
-          'Na “Visão geral” ou em “Vendas”, desça até o quadro “Alunos, turmas e secretaria”.',
-          'Toque no botão com o nome da conta: o sistema da escola abre em outra aba.',
-        ],
-        dica: 'O botão só aparece quando a conta da Únicopag tem o “Endereço do sistema da escola” preenchido em “Contas e integrações”. Quem preenche é um administrador.',
-      },
     ],
     perguntas: [
       {
@@ -118,9 +109,15 @@ export const guias: GuiaDaArea[] = [
         termos: ['aluno', 'turma', 'secretaria', 'triagem', 'presença', 'ficha do aluno', 'inscrição'],
       },
       {
+        id: 'abrir-sistema-da-escola',
+        pergunta: 'Como abro o sistema da escola?',
+        resposta: 'Na “Visão geral” ou em “Vendas”, desça até o quadro “Alunos, turmas e secretaria” e toque no botão com o nome da conta: o sistema abre em outra aba.\n\nO botão só aparece quando a conta da Únicopag tem o “Endereço do sistema da escola”, que um administrador preenche em “Contas e integrações”.',
+        termos: ['sistema da escola', 'alunos', 'turmas', 'secretaria', 'atalho', 'botão sumiu'],
+      },
+      {
         id: 'nao-vejo-bloco',
         pergunta: 'Por que não vejo algum bloco ou alguma seção?',
-        resposta: 'Cada bloco aparece só para quem pode abrir a área dele. Vendas: administradores, a equipe da escola, quem é de Educação e Saúde e quem tem acesso aos livros da Escola. Marketing e advertoriais: essas pessoas, mais editores e a Comunicação Social.\n\nO bloco “Financeiro da escola” depende do acesso aos livros da Escola, que um administrador dá no Financeiro. A seção “Financeiro” aparece para quem vê as vendas; sem os livros, ela volta à “Visão geral” com um aviso.',
+        resposta: 'Cada bloco aparece só para quem pode abrir a área dele: vendas, para administradores, equipe da escola, Educação e Saúde e quem tem os livros da Escola; marketing e advertoriais, para essas pessoas, editores e a Comunicação Social.\n\nO bloco “Financeiro da escola” depende do acesso aos livros da Escola, que um administrador dá no Financeiro. Sem esse acesso, a seção “Financeiro” aparece, mas volta à “Visão geral” com um aviso.',
         termos: ['acesso', 'permissão', 'sumiu', 'não aparece', 'escondido'],
       },
       {
@@ -214,7 +211,7 @@ export const guias: GuiaDaArea[] = [
         tour: [
           {
             titulo: 'Transações',
-            texto: 'Cada cobrança das contas da escola na Únicopag, criada ou paga no mês escolhido. O CPF aparece mascarado; a ficha do aluno fica no sistema da escola.',
+            texto: 'Cada cobrança das contas da escola na Únicopag, criada ou paga no mês escolhido. O CPF aparece mascarado; a ficha de quem estuda fica no sistema da escola.',
           },
           {
             alvo: 'escola-vendas.filtros',
@@ -233,6 +230,12 @@ export const guias: GuiaDaArea[] = [
             titulo: 'A situação de cada uma',
             texto: '“Pago”, “Aguardando”, “Recusado”, “Cancelado”, “Estornado”, “Em disputa” ou “Contestado”. Pare o mouse sobre a situação para ver o que ela quer dizer.',
             seAusente: 'pular',
+          },
+          {
+            alvo: 'escola-vendas.planilha',
+            titulo: 'A planilha',
+            texto: '“Planilha (CSV)” baixa todas as transações do filtro aplicado, mesmo quando passam de 500: conta, código, datas, situação, forma de pagamento, valor, curso e pagador. Serve para conferir com o repasse da Únicopag.',
+            lado: 'bottom',
           },
         ],
       },
@@ -334,7 +337,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'cpf-mascarado',
         pergunta: 'Por que o CPF aparece com asteriscos?',
-        resposta: 'Por privacidade: o Palácio Virtual guarda só o CPF mascarado e o nome do pagador. A ficha completa do aluno fica no sistema da escola.',
+        resposta: 'Por privacidade: o Palácio Virtual guarda só o CPF mascarado e o nome do pagador. A ficha completa de quem estuda fica no sistema da escola.',
         termos: ['cpf', 'documento', 'lgpd', 'dados do aluno', 'privacidade'],
       },
       {
@@ -346,7 +349,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'contas-com-problema',
         pergunta: 'O que fazer quando uma conta aparece em “Contas que precisam de atenção”?',
-        resposta: 'Se a linha diz “sem chave de API”, a conta não está sendo lida: um administrador guarda a chave em “Contas e integrações”. Se aparece outro texto, é o erro da última leitura: chave recusada (401) pede uma chave nova; muitas consultas seguidas (429) ou problema na Únicopag passam tentando de novo mais tarde.',
+        resposta: 'Se a linha diz “sem chave de API”, a conta não está sendo lida: um administrador guarda a chave em “Contas e integrações”. Se aparece outro texto, é o erro da última leitura: chave recusada (401) pede uma chave nova; muitas consultas seguidas (429) ou problema na Únicopag costumam se resolver tentando de novo mais tarde.',
         termos: ['erro', '401', '403', '429', 'chave', 'falhou', 'leitura'],
       },
       {
@@ -704,8 +707,9 @@ export const guias: GuiaDaArea[] = [
         id: 'excluir-campanha-ou-peca',
         titulo: 'Excluir uma campanha ou uma peça',
         passos: [
-          'Para a campanha: abra-a, use “Excluir”, ao lado de “Editar e aprendizados”, e confirme.',
-          'Para a peça: no cartão dela, use a lixeira e confirme.',
+          'Abra a campanha pelo nome dela, na lista de “Campanhas”. Para uma peça, ache o cartão dela na página da campanha ou na “Biblioteca de peças”.',
+          'Na campanha, use “Excluir”, ao lado de “Editar e aprendizados”; na peça, a lixeira do cartão.',
+          'Confirme na pergunta que aparece.',
         ],
         dica: 'Excluir a campanha não apaga as peças: elas continuam na biblioteca, sem campanha. Excluir no Palácio Virtual não mexe no Meta: campanha ou anúncio lido de lá pode voltar na leitura seguinte.',
         quem: 'Quem criou e administradores',
@@ -781,7 +785,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'erro-do-meta',
         pergunta: 'O que fazer quando a leitura do Meta falha?',
-        resposta: 'O quadro mostra a mensagem do erro. Limite de consultas ou problema no Meta passam tentando de novo mais tarde. Token vencido ou revogado pede um token novo, que um administrador guarda em “Contas e integrações”. Token sem permissão pede, no Meta, a permissão ads_read e o acesso à conta de anúncios para o usuário do sistema.',
+        resposta: 'O quadro mostra a mensagem do erro. Limite de consultas ou problema no Meta costumam se resolver tentando de novo mais tarde. Token vencido ou revogado pede um token novo, que um administrador guarda em “Contas e integrações”. Token sem permissão pede, no Meta, a permissão ads_read e o acesso à conta de anúncios para o usuário do sistema.',
         termos: ['erro', 'token', 'expirou', 'falhou', '190', 'permissão', 'ads_read'],
       },
       {
@@ -910,7 +914,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'como-contam-visitas',
         pergunta: 'Como as visitas são contadas?',
-        resposta: 'A página publicada conta cada leitura, sem cookie. Robôs e pré-visualizações de link (como as do WhatsApp e do Facebook) não contam.',
+        resposta: 'A página publicada conta cada leitura, sem guardar nada de quem lê. Robôs e pré-visualizações de link (como as do WhatsApp e do Facebook) não contam.',
         termos: ['visitas', 'pixel', 'acessos', 'pageviews'],
       },
       {
@@ -958,7 +962,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'marca-do-advertorial',
         pergunta: 'Qual é a marca do advertorial no link?',
-        resposta: 'É o utm_content: o endereço (slug) da matéria ou, enquanto ela não tem um, um código que começa com “adv-”. É por ele que a venda na Únicopag volta para o advertorial.',
+        resposta: 'É o utm_content: o final do endereço da matéria ou, enquanto ela não tem um, um código que começa com “adv-”. É por ele que a venda na Únicopag volta para o advertorial.',
         termos: ['utm_content', 'adv-', 'rastreio', 'marca'],
       },
     ],
@@ -1072,8 +1076,9 @@ export const guias: GuiaDaArea[] = [
         id: 'pausar-ou-desligar-meta',
         titulo: 'Pausar ou desligar a conta de anúncios',
         passos: [
-          'Para pausar: use o lápis da conta de anúncios, mude “Situação” para “Pausada” e use “Ligar” para gravar.',
-          'Para desligar: use “Desligar” e confirme. O que já foi lido continua no histórico.',
+          'Em “Contas e integrações”, ache a linha da conta de anúncios, no quadro do Meta.',
+          'Para pausar a leitura: toque no lápis, mude “Situação” para “Pausada” e use “Ligar” para gravar.',
+          'Para desligar a conta: toque em “Desligar”, na mesma linha, e confirme. O que já foi lido continua no histórico.',
         ],
         quem: 'Só administradores',
       },
@@ -1082,7 +1087,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'o-que-fica-de-cada-venda',
         pergunta: 'O que o Palácio Virtual guarda de cada venda?',
-        resposta: 'O valor, a forma de pagamento, o curso, a origem e o nome do pagador com o CPF mascarado. A ficha do aluno continua só no sistema da escola.',
+        resposta: 'O valor, a forma de pagamento, o curso, a origem e o nome do pagador com o CPF mascarado. A ficha de quem estuda continua só no sistema da escola.',
         termos: ['dados', 'privacidade', 'lgpd', 'aluno', 'cpf'],
       },
       {

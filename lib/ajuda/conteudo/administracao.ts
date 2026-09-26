@@ -1,9 +1,16 @@
 import type { GuiaDaArea } from '../tipos'
+import { ATIVAR_A_VERIFICACAO, CONFIRMAR_O_EMAIL, ESCOLHER_OS_EMAILS, PARA_QUE_SERVE_O_EMAIL, SAIR_DA_CONTA, TROCAR_A_SENHA } from './geral'
+import { RESUMO_DIARIO } from './meu-dia'
 
 /**
- * A ajuda do grupo Administração do menu: Usuários e permissões (/usuarios),
- * Configurações (/configuracoes) e Meu perfil (/perfil). A Central de ajuda
- * (/ajuda) é a própria ajuda e não tem guia.
+ * A ajuda do grupo Administração do menu: Acessos (/acessos), Usuários e
+ * permissões (/usuarios), Configurações (/configuracoes) e Meu perfil
+ * (/perfil). A Central de ajuda (/ajuda) é a própria ajuda e não tem guia.
+ *
+ * Acessos: app/(app)/acessos, lib/acessos/**, app/actions/entrada.ts, o
+ * registro dos voluntários em app/actions/membro.ts, app/auth/signout e a
+ * migração 20260928000000_cvrj_acessos (docs/registro-de-acessos.md traz
+ * também o que ainda não foi feito: aqui só entra o que está no código).
  *
  * Cada frase tem apoio no código: app/(app)/usuarios, components/admin/
  * usuarios.tsx, app/actions/usuarios.ts e verificacao.ts; app/(app)/
@@ -15,17 +22,195 @@ import type { GuiaDaArea } from '../tipos'
  * components/app/preferencias-de-notificacao.tsx, lib/notificacoes/regras.ts,
  * app/api/profile/avatar e app/actions/contas.ts. Regras de conta em
  * lib/usuarios/**, lib/contas/** e ARQUITETURA.md §5; permissões em
- * lib/permissoes.ts. Os alvos `usuarios.*`, `configuracoes.*` e `perfil.*`
- * são marcados com `data-ajuda` nessas telas. Mudou a tela ou a regra, muda
- * aqui no mesmo PR (docs/AJUDA.md).
+ * lib/permissoes.ts. Os alvos `acessos.*`, `usuarios.*`, `configuracoes.*` e
+ * `perfil.*` são marcados com `data-ajuda` nessas telas. Mudou a tela ou a
+ * regra, muda aqui no mesmo PR (docs/AJUDA.md).
  */
+
+// ------------------------------------------------------------------- Acessos
+
+const ACESSOS: GuiaDaArea = {
+  href: '/acessos',
+  paraQueServe: 'Acessos é o registro de quem entrou no Palácio Virtual e na Área do Voluntário: quando, de onde e com qual aparelho, inclusive as tentativas erradas, os bloqueios e as saídas. Serve para cuidar da segurança das contas.',
+  quemUsa: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”: o papel sozinho não basta. Para as outras pessoas, a área não aparece no menu e o endereço não abre. Cada consulta a esta tela também fica registrada.',
+  tour: [
+    {
+      titulo: 'O registro de acessos',
+      texto: 'Quem entrou no Palácio Virtual e na Área do Voluntário, quando, de onde e com qual aparelho, inclusive tentativas erradas e bloqueios. Cada consulta a esta tela também fica registrada.',
+    },
+    {
+      alvo: 'acessos.numeros',
+      titulo: 'O resumo',
+      texto: 'Entradas, tentativas erradas e bloqueios das últimas 24 horas, e os aparelhos vistos pela primeira vez nos últimos 7 dias.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'acessos.filtros',
+      titulo: 'Filtrar',
+      texto: 'Escolha “Pessoa”, “O que aconteceu” e “Período”, ou marque “Só com alerta”, e toque em “Filtrar”. A tela abre nos “Últimos 7 dias”.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'acessos.lista',
+      titulo: 'Cada acesso numa linha',
+      texto: 'Quem, o que aconteceu, quando e de onde, com os selos amarelos de alerta. Toque na linha para ver o IP, o mapa, o aparelho, os idiomas e a impressão digital.',
+      lado: 'top',
+    },
+    {
+      alvo: 'acessos.aparelhos',
+      titulo: 'Aparelhos da equipe',
+      texto: 'Cada aparelho reconhecido de cada pessoa da equipe, com a primeira e a última vez. Tocar no nome do aparelho mostra só os acessos dele.',
+      lado: 'top',
+    },
+    {
+      alvo: 'acessos.nota',
+      titulo: 'O local é aproximado',
+      texto: 'O local vem do IP: na rede de celular, a cidade pode sair errada. Dos voluntários, o registro guarda só IP, local e navegador, sem impressão digital.',
+      lado: 'top',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'ver-quem-entrou',
+      titulo: 'Ver quem entrou nas últimas 24 horas',
+      passos: [
+        'Abra “Acessos”, no grupo Administração do menu.',
+        'Em “O que aconteceu”, escolha “Entradas”.',
+        'Em “Período”, escolha “Últimas 24 horas”.',
+        'Toque em “Filtrar”.',
+        'Toque numa linha para ver o IP, o local no mapa e os dados do aparelho.',
+      ],
+      dica: 'A lista mostra até 300 acessos. Quando o título diz “Os 300 acessos mais recentes do filtro”, pode haver mais: escolha uma pessoa ou um período menor.',
+    },
+    {
+      id: 'investigar-tentativas-erradas',
+      titulo: 'Investigar tentativas erradas e bloqueios',
+      passos: [
+        'Em “O que aconteceu”, escolha “Erros e bloqueios” e toque em “Filtrar”.',
+        'Veja em cada linha quem tentou, quando e de onde.',
+        'Toque na linha: “Motivo” diz o que deu errado, e “Aparelho” mostra o navegador usado.',
+        'Toque no IP para ver tudo o que veio dele, desde o começo.',
+      ],
+      dica: '“Erros e bloqueios” junta “Tentativa errada”, “Bloqueado” e “Código errado (2 etapas)”.',
+    },
+    {
+      id: 'ver-acessos-de-uma-pessoa',
+      titulo: 'Ver os acessos de uma pessoa',
+      passos: [
+        'Em “Pessoa”, escolha o nome. “Voluntários” junta todos os voluntários.',
+        'Em “Período”, escolha “Desde o começo” ou um período menor.',
+        'Toque em “Filtrar”.',
+        'Para ver os aparelhos que ela usa, procure o nome dela na tabela “Aparelhos da equipe”.',
+      ],
+      dica: 'A lista “Pessoa” traz toda a equipe; quem é da escola vem com “(escola)” depois do nome. Voluntário não se filtra um por um.',
+    },
+    {
+      id: 'ver-um-aparelho-ou-ip',
+      titulo: 'Ver tudo o que veio de um aparelho ou de um IP',
+      passos: [
+        'Toque na linha de um acesso para abrir os detalhes.',
+        'Toque no IP ou, em “Aparelho”, no nome do aparelho, quando ele vier como link. Na tabela “Aparelhos da equipe”, o nome do aparelho também serve.',
+        'A lista passa a mostrar só o que veio dali, desde o começo.',
+        'Para voltar, toque em “Limpar aparelho ✕” ou “Limpar IP ✕”, ao lado de “Filtrar”.',
+      ],
+    },
+    {
+      id: 'conferir-alertas',
+      titulo: 'Conferir os acessos com alerta',
+      passos: [
+        'Marque “Só com alerta” e toque em “Filtrar”.',
+        'Leia o selo amarelo de cada linha: “Aparelho novo”, “País novo”, “Muitas tentativas” ou “Fuso diferente do IP”.',
+        'Toque na linha para ver o local, o aparelho e, em “Fuso: IP / navegador”, os dois fusos.',
+        'Toque no aparelho ou no IP para ver o que mais veio dali.',
+      ],
+      dica: 'A primeira entrada de cada pessoa no registro também aparece nesse filtro, sem selo: é só o começo do histórico dela.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'quem-ve-o-registro',
+      pergunta: 'Quem vê o registro de acessos?',
+      resposta: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”. A escolha é pessoa a pessoa: o papel sozinho não basta. Para as outras pessoas, “Acessos” não aparece no menu e o endereço não abre (aparece um erro 404).\n\nCada consulta a esta tela também fica registrada, com o filtro usado.',
+      termos: ['permissão', 'privacidade', 'quem vigia', 'quem pode ver'],
+    },
+    {
+      id: 'nao-vejo-acessos',
+      pergunta: 'Tenho o papel “Administrador” e não vejo “Acessos”. Por quê?',
+      resposta: 'Porque o registro não se abre pelo papel, só para quem foi escolhido para lê-lo. Essa escolha não fica em “Usuários e permissões”, e não há botão para ela no Palácio Virtual: fale com quem cuida da ferramenta.',
+      termos: ['404', 'sumiu do menu', 'sem acesso', 'não aparece', 'admin'],
+    },
+    {
+      id: 'o-que-entra-no-registro',
+      pergunta: 'O que entra no registro?',
+      resposta: 'Da equipe, inclusive a da escola: as entradas, as tentativas erradas, os bloqueios, o código da verificação em duas etapas (certo ou errado) e as saídas pelo botão de sair da conta. Da Área do Voluntário: os códigos pedidos por e-mail, as entradas, as tentativas erradas e as saídas.\n\nAs páginas que a pessoa abre e o que ela faz depois de entrar não entram aqui.',
+      termos: ['eventos', 'login', 'saída', 'verificação em duas etapas', 'código'],
+    },
+    // Sem os números do bloqueio nem os critérios dos alertas: o texto da ajuda vai ao navegador de
+    // qualquer pessoa logada (components/app/ajuda/carregar.ts), e não precisa ensinar a contorná-los.
+    {
+      id: 'bloqueio-por-tentativas',
+      pergunta: 'Como funciona o bloqueio por tentativas erradas?',
+      resposta: 'Na entrada da equipe, várias tentativas erradas seguidas com o mesmo usuário (ou e-mail) bloqueiam novas tentativas com ele por alguns minutos; muitas vindas do mesmo IP, somando todas as contas, bloqueiam o IP. O bloqueio acaba sozinho.\n\nEnquanto isso, a tela de entrada pede para esperar ou usar “Esqueci minha senha”, e quem lê o registro recebe um aviso no sino quando uma conta é bloqueada.',
+      termos: ['Muitas tentativas erradas', 'bloqueado', 'senha errada', 'travou', 'Conta bloqueada por tentativas erradas'],
+    },
+    {
+      id: 'selos-amarelos',
+      pergunta: 'O que significam os selos amarelos?',
+      resposta: '“Aparelho novo”: a pessoa entrou de um aparelho que o registro ainda não conhecia para ela. “País novo”: de um país diferente dos das entradas recentes dela. “Muitas tentativas”: houve várias tentativas erradas na conta pouco antes da entrada certa.\n\n“Fuso diferente do IP”: o fuso do navegador não combina com o lugar do IP. Esse e “Muitas tentativas” só marcam a linha, sem aviso a ninguém.',
+      termos: ['alerta', 'sinal', 'risco', 'aparelho novo', 'país novo', 'fuso'],
+    },
+    {
+      id: 'quem-e-avisado',
+      pergunta: 'Quem é avisado quando aparece algo estranho?',
+      resposta: 'Com aparelho novo ou país novo, a própria pessoa recebe um e-mail de segurança, mesmo que tenha desligado os e-mails de aviso, desde que tenha e-mail confirmado. Com país novo e com conta bloqueada, quem lê o registro recebe um aviso no sino.\n\nSe esse aviso do sino vai também por e-mail, quem lê escolhe em Meu perfil, no assunto “Trilha pública”.',
+      termos: ['notificação', 'e-mail', 'Novo acesso à sua conta do Palácio Virtual', 'Acesso de um país novo', 'sino'],
+    },
+    {
+      id: 'como-reconhece-o-aparelho',
+      pergunta: 'Como o registro reconhece um aparelho?',
+      resposta: 'Na primeira entrada de alguém da equipe num navegador, o Palácio Virtual deixa nele uma marca para reconhecê-lo depois. Se ela foi apagada (aba anônima, limpeza do navegador), o registro ainda tenta reconhecer o aparelho por características do próprio navegador (a “impressão digital” que a linha mostra).',
+      termos: ['impressão digital', 'aparelho', 'navegador', 'reconhecer', 'fingerprint'],
+    },
+    {
+      id: 'local-aproximado',
+      pergunta: 'O local do acesso está certo?',
+      resposta: 'É aproximado: vem do IP, e não do GPS. Na rede de celular, a cidade pode sair errada. O link “mapa”, nos detalhes do acesso, mostra o ponto aproximado.',
+      termos: ['cidade errada', 'localização', 'IP', 'mapa'],
+    },
+    {
+      id: 'voluntarios-no-registro',
+      pergunta: 'O que aparece dos voluntários?',
+      resposta: 'Só IP, local e navegador, sem impressão digital, e eles não entram em “Aparelhos da equipe”. A linha traz o selo “voluntário”; no filtro “Pessoa”, “Voluntários” junta todos.\n\nOs códigos pedidos e as tentativas erradas deles aparecem como “Usuário inexistente”: o registro não liga essas linhas a um cadastro.',
+      termos: ['área do voluntário', 'membro', 'código por e-mail'],
+    },
+    {
+      id: 'usuario-inexistente',
+      pergunta: 'O que quer dizer “Usuário inexistente”?',
+      resposta: 'Que a linha não está ligada a uma conta. Aparece quando alguém digitou um usuário que não existe, em toda linha “Bloqueado” e nos códigos pedidos e nas tentativas erradas da Área do Voluntário. Abra a linha: o “Motivo” ajuda a entender o caso.\n\n“Conta removida” é outra coisa: a conta da equipe daquela linha não existe mais.',
+      termos: ['desconhecido', 'sem nome', 'Conta removida', 'quem tentou'],
+    },
+    {
+      id: 'quanto-tempo-fica-guardado',
+      pergunta: 'Por quanto tempo o registro fica guardado?',
+      resposta: 'Por enquanto, tudo fica guardado: não há rotina que apague acessos antigos. E ninguém apaga nem muda uma linha do registro pelo Palácio Virtual.',
+      termos: ['retenção', 'LGPD', 'apagar', 'histórico', 'prazo'],
+    },
+    {
+      id: 'a-pessoa-sabe',
+      pergunta: 'A pessoa sabe que o acesso dela é registrado?',
+      resposta: 'A tela de entrada da equipe avisa: “Por segurança, registramos data, local aproximado e dados do aparelho de cada acesso.” A pessoa não vê o próprio registro: recebe só o e-mail de segurança quando entra de um aparelho novo ou de um país novo.\n\nA tela de entrada da Área do Voluntário não traz esse aviso, e os voluntários não recebem o e-mail de segurança.',
+      termos: ['LGPD', 'privacidade', 'transparência', 'meus acessos', 'aviso'],
+    },
+  ],
+  relacionadas: ['/usuarios', '/perfil'],
+}
 
 // ------------------------------------------------------ Usuários e permissões
 
 const USUARIOS: GuiaDaArea = {
   href: '/usuarios',
   paraQueServe: 'Aqui a administração decide quem entra no Palácio Virtual e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
-  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o espaço nunca fica sem pelo menos um administrador ativo.',
+  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o Palácio Virtual nunca fica sem pelo menos um administrador ativo.',
   tour: [
     {
       titulo: 'Usuários e permissões',
@@ -185,7 +370,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'diferenca-entre-papeis',
       pergunta: 'Qual a diferença entre os papéis?',
-      resposta: '“Administrador” controla o espaço inteiro: pessoas, acessos, integrações, site e dados. “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite. “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
+      resposta: '“Administrador” controla o Palácio Virtual inteiro: pessoas, acessos, integrações, site e dados; “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite; “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
       termos: ['admin', 'editor', 'colaborador', 'escola', 'permissão', 'nível de acesso'],
     },
     {
@@ -290,7 +475,7 @@ const CONFIGURACOES: GuiaDaArea = {
   quemUsa: 'Editores e colaboradores também abrem esta área, mas veem só um aviso: as seções são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”.',
   tour: [
     {
-      titulo: 'Configurações do espaço',
+      titulo: 'Configurações do Palácio Virtual',
       texto: 'Aqui a administração liga o Palácio Virtual às ferramentas de fora e cuida do site. Quem não é administrador vê só um aviso: estas seções são restritas.',
     },
     {
@@ -326,7 +511,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.zona-de-risco',
       titulo: 'Zona de risco',
-      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos do espaço. Não tem volta: é só para começar do zero.',
+      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos do Palácio Virtual. Não tem volta: é só para começar do zero.',
       seAusente: 'pular',
     },
   ],
@@ -399,7 +584,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em “No ar em /noticias/”, ache a matéria na lista.',
         'Toque em “Tirar do ar”. Na pergunta “Apagar do servidor?”, toque em “Tirar do ar” de novo.',
-        'A página sai do servidor, da central de notícias e do sitemap na mesma hora.',
+        'A página sai do servidor, da central de notícias e do mapa do site para os buscadores (sitemap) na mesma hora.',
         'A matéria passa para “Arquivadas — fora do ar”. Para trazê-la de volta, toque em “Republicar”: ela volta no mesmo endereço.',
       ],
     },
@@ -424,7 +609,7 @@ const CONFIGURACOES: GuiaDaArea = {
         'Toque em “Publicar páginas do site” (ou em “Publicar de novo (regrava tudo)”, se já foi feito).',
         'Espere o “Publicando…” terminar e leia o recado, com a lista do que foi publicado.',
       ],
-      dica: 'Depois disso, a central de notícias e o sitemap se atualizam sozinhos a cada matéria publicada.',
+      dica: 'Depois disso, a central de notícias e o mapa do site para os buscadores (sitemap) se atualizam sozinhos a cada matéria publicada.',
     },
   ],
   perguntas: [
@@ -455,7 +640,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'setores-do-diretorio',
       pergunta: 'Os setores daqui são os mesmos da tela “Setores”, no Diretório?',
-      resposta: 'São: a lista de setores da filial é uma só, usada também em Usuários, na Equipe, no Voluntariado e no Registrar. Aqui, em “Membros”, você decide quem envia pelo endereço de cada setor.',
+      resposta: 'São: a lista de setores da filial é uma só, usada também em Usuários e permissões, Recursos humanos, Voluntários e “Registrar atividade”. Aqui, em “Membros”, você decide quem envia pelo endereço de cada setor.',
       termos: ['coordenação', 'lista de setores', 'setor'],
     },
     {
@@ -491,7 +676,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'tirar-do-ar-apaga',
       pergunta: '“Tirar do ar” apaga a matéria?',
-      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do sitemap, mas o texto continua guardado no Palácio Virtual. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
+      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do mapa do site para os buscadores (sitemap), mas o texto continua guardado no Palácio Virtual. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
       termos: ['despublicar', 'remover do site', 'matéria de teste'],
     },
     {
@@ -515,7 +700,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'reiniciar-dados',
       pergunta: 'O que faz “Reiniciar dados”?',
-      resposta: 'Apaga de vez projetos, pautas, matérias, aprovações, agendamentos, mensagens e arquivos do espaço. As contas das pessoas continuam funcionando. Não dá para desfazer: para confirmar, é preciso digitar o nome do espaço e tocar em “Apagar tudo definitivamente”.\n\nAs páginas que já estão no site não saem do ar com isso. Se alguma precisa sair, use antes “Tirar do ar”, em “No ar em /noticias/”: depois de reiniciar, ela some dessa lista.',
+      resposta: 'Apaga de vez projetos, pautas, matérias, aprovações, agendamentos, mensagens e arquivos; as contas das pessoas continuam funcionando. Não dá para desfazer: para confirmar, é preciso digitar o nome que a tela pede e tocar em “Apagar tudo definitivamente”.\n\nAs páginas que já estão no site não saem do ar com isso: se alguma precisa sair, use antes “Tirar do ar”, em “No ar em /noticias/”, porque depois de reiniciar ela some dessa lista.',
       termos: ['zona de risco', 'apagar tudo', 'começar do zero', 'resetar'],
     },
   ],
@@ -548,7 +733,7 @@ const PERFIL: GuiaDaArea = {
     {
       alvo: 'perfil.dados',
       titulo: 'Dados pessoais',
-      texto: '“Nome completo” e “Cargo” você mesmo corrige, em “Salvar alterações”. “Usuário” e “Coordenação” ficam travados: a coordenação quem muda é a administração.',
+      texto: '“Nome completo” e “Cargo” você corrige aqui, em “Salvar alterações”. “Usuário” e “Coordenação” ficam travados: a coordenação quem muda é a administração.',
     },
     {
       alvo: 'perfil.senha',
@@ -582,53 +767,10 @@ const PERFIL: GuiaDaArea = {
       ],
       dica: '“Usuário” e “Coordenação” aparecem travados. Para mudar a coordenação, peça à administração.',
     },
-    {
-      id: 'confirmar-email',
-      titulo: 'Cadastrar e confirmar o e-mail de recuperação',
-      passos: [
-        'Em “E-mail de recuperação”, digite o endereço no campo. Se já houver um e-mail, toque antes em “Trocar e-mail”.',
-        'Toque em “Enviar confirmação”.',
-        'Abra o e-mail que chegou nesse endereço e toque no link. Ele vale por 48 horas.',
-        'Na página que abrir, toque em “Confirmar este e-mail”.',
-        'De volta ao perfil, o endereço aparece como “confirmado”.',
-      ],
-      dica: 'Se o endereço está como “não confirmado” e o link se perdeu, “Reenviar confirmação” manda outro.',
-    },
-    {
-      id: 'escolher-emails-de-aviso',
-      titulo: 'Escolher o que chega por e-mail',
-      passos: [
-        'Em “E-mails de notificação”, veja os assuntos: “Chat”, “Aprovações”, “Mensagens”, “Pautas e conteúdos”, “Chamados”, “Ofícios”, “Financeiro”, “Patrimônio e estoque” e “Trilha pública”.',
-        'Em cada um, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
-        'A escolha vale na hora: aparece “Preferência salva.”.',
-      ],
-      dica: 'Os e-mails vão para o seu e-mail de recuperação, e só se ele estiver confirmado.',
-    },
-    {
-      id: 'trocar-senha',
-      titulo: 'Trocar a sua senha',
-      passos: [
-        'Em “Segurança”, digite a “Senha atual”.',
-        'Digite a “Nova senha” e repita em “Confirmar nova senha”. O ícone de olho mostra o que você digitou.',
-        'Siga o aviso embaixo dos campos até ele não apontar mais nenhum problema.',
-        'Toque em “Trocar senha”.',
-        'Aparece “Senha trocada. As outras sessões abertas foram encerradas.”',
-      ],
-      dica: 'A senha nova precisa de pelo menos 10 caracteres, com letras e números, sem o seu nome nem o seu usuário, e diferente da atual.',
-    },
-    {
-      id: 'ativar-verificacao',
-      titulo: 'Ativar a verificação em duas etapas',
-      passos: [
-        'Instale no celular um app autenticador, como Google Authenticator, Microsoft Authenticator ou Authy.',
-        'Em “Verificação em duas etapas”, toque em “Ativar verificação em duas etapas”.',
-        'Em “Nome deste aparelho”, dê um nome e toque em “Gerar QR Code”.',
-        'No app, adicione uma conta e leia o QR Code. Se não der, digite o código que aparece em “Não dá para ler? Digite este código no app”.',
-        'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”.',
-        'Do próximo login em diante, o Palácio Virtual pede também o código do app.',
-      ],
-      dica: 'Guarde o código do QR Code só no app: quem tiver esse código consegue gerar os seus números.',
-    },
+    { id: 'confirmar-email', ...CONFIRMAR_O_EMAIL },
+    { id: 'escolher-emails-de-aviso', ...ESCOLHER_OS_EMAILS },
+    { id: 'trocar-senha', ...TROCAR_A_SENHA },
+    { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
     {
       id: 'segundo-aparelho',
       titulo: 'Cadastrar um segundo aparelho',
@@ -649,23 +791,10 @@ const PERFIL: GuiaDaArea = {
       ],
       dica: 'Se o seu papel é obrigado a usar a verificação, cadastre outro aparelho antes de remover o último.',
     },
-    {
-      id: 'sair-da-conta',
-      titulo: 'Sair da conta',
-      passos: [
-        'Desça até o fim da página.',
-        'Toque em “Sair da conta”.',
-        'Para voltar, entre com o seu usuário (ou o e-mail confirmado) e a senha.',
-      ],
-    },
+    { id: 'sair-da-conta', ...SAIR_DA_CONTA },
   ],
   perguntas: [
-    {
-      id: 'para-que-serve-o-email',
-      pergunta: 'Para que serve o e-mail de recuperação?',
-      resposta: 'Para ele vão o link de “Esqueci minha senha”, os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Confirmado, ele também serve para entrar: digite-o em “Usuário ou e-mail”, na tela de entrada.',
-      termos: ['e-mail de contato', 'recuperar senha', 'confirmar e-mail'],
-    },
+    { id: 'para-que-serve-o-email', ...PARA_QUE_SERVE_O_EMAIL },
     {
       id: 'borda-amarela',
       pergunta: 'Por que o quadro do e-mail está com a borda amarela?',
@@ -675,7 +804,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'email-antigo-continua',
       pergunta: 'Troquei o e-mail, mas o antigo continua aparecendo. Por quê?',
-      resposta: 'O endereço novo só passa a valer quando você abre o link que enviamos para ele e toca em “Confirmar este e-mail” (o link vale por 48 horas). Até lá aparece “Aguardando confirmação de …”, e o anterior continua valendo. Depois da troca, o endereço antigo, se estava confirmado, recebe um aviso.',
+      resposta: 'O endereço novo só passa a valer quando você abre o link que chegou nele e toca em “Confirmar este e-mail” (o link vale por 48 horas). Até lá aparece “Aguardando confirmação de …”, e o anterior continua valendo. Depois da troca, o endereço antigo, se estava confirmado, recebe um aviso.',
       termos: ['trocar e-mail', 'Aguardando confirmação', 'e-mail novo'],
     },
     {
@@ -702,12 +831,7 @@ const PERFIL: GuiaDaArea = {
       resposta: 'É. Ao trocar a senha, todas as outras sessões abertas são encerradas, para que quem tivesse a senha antiga saia também. Entre de novo com a senha nova.',
       termos: ['sessão encerrada', 'deslogado', 'saiu sozinho'],
     },
-    {
-      id: 'resumo-diario',
-      pergunta: 'O que é o “Resumo diário”?',
-      resposta: 'Um único e-mail por dia, que junta os avisos que você ainda não abriu e que não saíram por e-mail na hora, de todos os assuntos marcados “Resumo diário” (e dos “Na hora” que ficaram para depois porque você estava com o Palácio Virtual aberto). O que você já abriu no sino não entra, e os assuntos em “Só no sino” ficam de fora.',
-      termos: ['resumo', 'um e-mail por dia'],
-    },
+    { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',
       pergunta: 'Com “Só no sino” eu deixo de receber algum aviso?',
@@ -742,4 +866,4 @@ const PERFIL: GuiaDaArea = {
   relacionadas: ['/notificacoes', '/pessoas'],
 }
 
-export const guias: GuiaDaArea[] = [USUARIOS, CONFIGURACOES, PERFIL]
+export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, PERFIL]

@@ -99,7 +99,7 @@ O que cada página leva, gerado em `lib/acervo/paginas.ts` sobre o esqueleto do 
 | migração `20260926003000_cvrj_acervo.sql` (tabela `acervo_itens`, gatilho, RLS) | Supabase |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (as mesmas do espelho da trilha) e `R2_BUCKET_ACERVO=cvrj-acervo` | Vercel da Redação |
 | FTP do site (as mesmas variáveis da publicação de notícias) | Vercel da Redação |
-| CORS do bucket: `PUT`, `GET` e `HEAD` só de `https://redacao.cruzvermelhariodejaneiro.org` (e `http://localhost:3000`) | Cloudflare → R2 → `cvrj-acervo` → Settings → CORS |
+| CORS do bucket: `PUT`, `GET` e `HEAD` só de `https://palacio.cruzvermelhariodejaneiro.org` e `https://redacao.cruzvermelhariodejaneiro.org` (o antigo, enquanto redirecionar) (e `http://localhost:3000`) | Cloudflare → R2 → `cvrj-acervo` → Settings → CORS |
 
 O token da Vercel precisa de **Object Read & Write** em `cvrj-trilha` e `cvrj-acervo`. Sem
 `R2_BUCKET_ACERVO` a tela abre e avisa que o acervo não está configurado.

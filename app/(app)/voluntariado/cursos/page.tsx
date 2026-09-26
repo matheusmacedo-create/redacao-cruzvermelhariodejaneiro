@@ -46,8 +46,11 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
       <PageHeader title="Cursos e apostilas" description={`O que o voluntário encontra na Área do Voluntário (${urlBase()}/membro). Vídeos do YouTube não listado; certificado automático ao concluir.`}
         actions={nivel >= 2 && aba === 'cursos' ? <NovoCurso /> : undefined} />
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="voluntarios.cursos-abas">
+        {/* Os passos de cada aba no tour ("Os cursos", "Apostilas", "Certificados")
+            apontam o conteúdo da aba aberta; o das outras não existe, e o balão aponta o link delas. */}
         {abas.map((a) => (
           <Link key={a.id} href={`/voluntariado/cursos${a.id === 'cursos' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
+            data-ajuda={a.id === aba ? undefined : a.id === 'cursos' ? 'voluntarios.cursos-grade' : a.id === 'apostilas' ? 'voluntarios.apostilas' : 'voluntarios.certificados'}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>

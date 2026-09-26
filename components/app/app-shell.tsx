@@ -4,9 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname } from 'next/navigation'
 import { gruposDaEquipeDaEscola, gruposVisiveis, type Escolhido, type Grupo } from '@/lib/navegacao'
 import type { Permissao } from '@/lib/permissoes'
-
-/** O cookie que lembra a sidebar recolhida. Lido no servidor para não piscar. */
-export const COOKIE_DA_SIDEBAR = 'sidebar_recolhida'
+// O nome mora fora deste módulo do cliente: o layout lê o cookie no servidor para não piscar.
+import { COOKIE_DA_SIDEBAR } from './cookies-do-menu'
 
 type ShellState = {
   /** As áreas que esta pessoa pode abrir, já agrupadas. */
@@ -21,6 +20,8 @@ type ShellState = {
   /** Busca rápida (⌘K). */
   buscaAberta: boolean
   setBuscaAberta: (aberta: boolean) => void
+  /** Quem é só da equipe da escola: não tem o "Criar" nem abre chamados. */
+  equipeDaEscola: boolean
 }
 
 const ShellContext = createContext<ShellState | null>(null)
@@ -62,6 +63,9 @@ export function AppShellProvider({ children, permitidas, recolhidaInicial = fals
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
+        // Com o tour aberto, a busca abriria por baixo do balão e tiraria o
+        // foco dele (e as setas digitadas no campo andariam o tour).
+        if (document.querySelector('[data-tour-aberto]')) return
         setBuscaAberta((v) => !v)
       }
     }
@@ -88,7 +92,8 @@ export function AppShellProvider({ children, permitidas, recolhidaInicial = fals
     alternarRecolhida,
     buscaAberta,
     setBuscaAberta,
-  }), [grupos, open, recolhida, alternarRecolhida, buscaAberta])
+    equipeDaEscola: equipeDaEscola !== null,
+  }), [grupos, open, recolhida, alternarRecolhida, buscaAberta, equipeDaEscola])
 
   return <ShellContext.Provider value={valor}>{children}</ShellContext.Provider>
 }

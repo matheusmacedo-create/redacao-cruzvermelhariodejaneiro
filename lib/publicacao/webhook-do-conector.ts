@@ -1,5 +1,6 @@
 import 'server-only'
 import { apiKey, semSegredo } from '@/lib/publicacao/upload-post'
+import { ENDERECO_DO_PALACIO } from '../dominio'
 
 /**
  * O webhook do Upload-Post sem nenhuma variável nova.
@@ -70,7 +71,7 @@ export function esquecerSegredo() {
 
 export function urlDoWebhook(): string {
   const base = process.env.NEWSLETTER_URL_BASE?.trim().replace(/\/$/, '')
-    || 'https://redacao.cruzvermelhariodejaneiro.org'
+    || ENDERECO_DO_PALACIO
   return `${base}/api/webhooks/upload-post`
 }
 

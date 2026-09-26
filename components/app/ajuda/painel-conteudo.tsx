@@ -1,16 +1,17 @@
 'use client'
 
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
 import { ArrowRight, BookOpen, Check, CircleHelp, Compass, LifeBuoy, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, TOPICOS_GERAIS, type AjudaDaTela } from '@/lib/ajuda'
+import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela } from '@/lib/ajuda'
 import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
+import { avisarResposta } from './ancora'
 import { PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } from './blocos'
 
 /**
@@ -18,14 +19,18 @@ import { PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } 
  * o texto de toda a ajuda (lib/ajuda) — só é baixado quando o painel abre.
  */
 export function ConteudoDoPainel() {
-  const { grupos } = useShell()
+  const { grupos, equipeDaEscola } = useShell()
   const pathname = usePathname()
   const { fecharPainel, reverBoasVindas, pessoa } = useAjuda()
   const daTela = useMemo(() => ajudaDoCaminho(pathname, grupos), [pathname, grupos])
   const [busca, setBusca] = useState('')
   // A busca ignora palavras de uma letra; abaixo disso, o painel continua mostrando a tela.
   const buscando = normalizar(busca).split(/\s+/).some((p) => p.length > 1)
-  const achados = useMemo(() => (buscando ? buscarNaAjuda(busca, grupos, 15) : []), [buscando, busca, grupos])
+  const achados = useMemo(() => (buscando ? buscarNaAjuda(busca, grupos, { limite: 15, equipeDaEscola }) : []), [buscando, busca, grupos, equipeDaEscola])
+  // Resultado novo começa do topo: quem desceu pela ajuda da tela e depois
+  // digitou na busca caía no meio da lista, com as melhores respostas escondidas em cima.
+  const rolagem = useRef<HTMLDivElement>(null)
+  useEffect(() => { rolagem.current?.scrollTo({ top: 0 }) }, [busca])
   const ondeEstou = daTela ? (daTela.tela ? `${daTela.area.rotulo} › ${daTela.tela.rotulo}` : daTela.area.rotulo) : null
 
   return (
@@ -56,12 +61,11 @@ export function ConteudoDoPainel() {
         </label>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+      {/* Sempre no painel (vazia sem busca): região que entra já preenchida o leitor de tela não anuncia. */}
+      <p className="sr-only" role="status">{!buscando ? '' : achados.length ? `${achados.length} resultado${achados.length === 1 ? '' : 's'}` : 'Nenhum resultado'}</p>
+      <div ref={rolagem} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
         {buscando ? (
-          <>
-            <p className="sr-only" role="status">{achados.length ? `${achados.length} resultado${achados.length === 1 ? '' : 's'}` : 'Nenhum resultado'}</p>
-            <ResultadosDaAjuda achados={achados} busca={busca} aoEscolher={fecharPainel} />
-          </>
+          <ResultadosDaAjuda achados={achados} busca={busca} aoEscolher={(href) => { fecharPainel(); avisarResposta(href) }} />
         ) : (
           <div className="flex flex-col gap-7">
             <PrimeirosPassos />
@@ -114,9 +118,10 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
           </Button>
         ) : guia.tour.length > 0 && !naRaiz ? (
           // Numa tela interna sem tour próprio, o tour da área está a um clique (na tela dela).
-          <Button variant="outline" size="lg" className="h-11 self-start sm:h-10" render={<Link href={`${area.href}?tour=1`} onClick={fecharPainel} />}>
+          // <Link> com as classes do botão, e não <Button render>: continua sendo anunciado como link.
+          <Link href={`${area.href}?tour=1`} onClick={fecharPainel} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-11 self-start sm:h-10')}>
             <Compass aria-hidden="true" />Fazer o tour de {area.rotulo}
-          </Button>
+          </Link>
         ) : null}
       </section>
 
@@ -143,12 +148,13 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
 
 /** Numa tela sem guia (ou fora de qualquer área): a ajuda que vale em toda a Redação. */
 function AjudaGeral({ daTela }: { daTela: AjudaDaTela | null }) {
+  const { equipeDaEscola } = useShell()
   const id = useId()
   const semGuia = daTela && daTela.area.href !== '/ajuda' ? daTela.area.rotulo : null
   return (
     <>
-      {semGuia && <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em toda o Palácio Virtual.</p>}
-      {TOPICOS_GERAIS.map((topico) => (
+      {semGuia && <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em todo o Palácio Virtual.</p>}
+      {topicosGerais(equipeDaEscola).map((topico) => (
         <section key={topico.id} aria-labelledby={`${id}-${topico.id}`} className="flex flex-col gap-2">
           <h2 id={`${id}-${topico.id}`} className={tituloDeSecao}>{topico.titulo}</h2>
           <p className="mb-1 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
@@ -159,6 +165,9 @@ function AjudaGeral({ daTela }: { daTela: AjudaDaTela | null }) {
     </>
   )
 }
+
+// “Fazer” e “Ver agora”: 44 px de toque no celular, como a dica e o rodapé do painel.
+const acaoDoPasso = '-my-1 inline-flex min-h-11 shrink-0 items-center rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/[0.06] focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9'
 
 /** Os três primeiros passos de quem acabou de chegar. Some quando os três estão feitos. */
 function PrimeirosPassos() {
@@ -191,8 +200,8 @@ function PrimeirosPassos() {
               {!item.feito && <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.porque}</span>}
             </span>
             {!item.feito && (item.href
-              ? <Link href={item.href} onClick={fecharPainel} className="-my-1 inline-flex min-h-9 shrink-0 items-center rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/[0.06]">Fazer</Link>
-              : <button type="button" onClick={reverBoasVindas} className="-my-1 inline-flex min-h-9 shrink-0 items-center rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/[0.06]">Ver agora</button>)}
+              ? <Link href={item.href} onClick={fecharPainel} className={acaoDoPasso}>Fazer</Link>
+              : <button type="button" onClick={reverBoasVindas} className={acaoDoPasso}>Ver agora</button>)}
           </li>
         ))}
       </ul>

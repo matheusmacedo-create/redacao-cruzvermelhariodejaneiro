@@ -1,5 +1,6 @@
 'use client'
 
+import { ENDERECO_DO_PALACIO } from '@/lib/dominio'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -3876,7 +3877,7 @@ function PreviaNewsletter({ destino, mestre, arquivoPorId }: {
     urlDaMateria: 'https://cruzvermelhariodejaneiro.org/noticias/exemplo/',
     rotuloDoBotao: destino.extras.rotuloDoBotao,
     imagemUrl: capa?.previa,
-    urlDeSaida: 'https://redacao.cruzvermelhariodejaneiro.org/newsletter/sair?t=previa',
+    urlDeSaida: `${ENDERECO_DO_PALACIO}/newsletter/sair?t=previa`,
   }).html, [destino, mestre, capa])
 
   return (

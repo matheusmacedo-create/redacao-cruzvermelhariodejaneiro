@@ -62,7 +62,7 @@ const DIRETORIO: GuiaDaArea = {
       lado: 'bottom',
     },
     {
-      alvo: 'diretorio.cartoes',
+      alvo: 'diretorio.cartao',
       titulo: 'O cartão de cada pessoa',
       texto: 'Cargo, setor, papel no Palácio Virtual e os atalhos de contato: e-mail, o botão com o endereço (copia o e-mail), telefone e WhatsApp (quando o número é de celular).',
       seAusente: 'pular',
@@ -177,7 +177,7 @@ const DIRETORIO: GuiaDaArea = {
       tour: [
         {
           titulo: 'Os setores da filial',
-          texto: 'A lista que aparece em Usuários e permissões, Recursos humanos, Voluntários, Registrar e no E-mail do setor. Só administradores mudam esta lista.',
+          texto: 'A lista que aparece em Usuários e permissões, Recursos humanos, Voluntários, “Registrar atividade” e no E-mail do setor. Só administradores mudam esta lista.',
         },
         {
           alvo: 'diretorio.lista-setores',
@@ -322,7 +322,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'metricas-como',
       pergunta: 'Como são calculadas as métricas do perfil?',
-      resposta: 'Os tempos são dos últimos 90 dias, pela mediana e em tempo corrido. No chat, conta a primeira resposta quando a outra pessoa puxa assunto numa conversa direta e as respostas às menções nos canais. Também entram o tempo para decidir aprovações, os chamados atendidos (com a nota, quando há) e a produção: pautas em andamento hoje e conteúdos criados no período.',
+      resposta: 'Os tempos são dos últimos 90 dias, pela mediana e em tempo corrido. No chat, conta a primeira resposta quando a outra pessoa puxa assunto numa conversa direta e as respostas às menções nos canais.\n\nTambém entram o tempo para decidir aprovações, os chamados atendidos (com a nota, quando há) e a produção: pautas em andamento hoje e conteúdos criados no período.',
       termos: ['tempo de resposta', 'estatísticas', 'mediana', 'números'],
     },
     {
@@ -352,7 +352,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'alerta-admins',
       pergunta: 'Por que aparece um alerta de administradores demais?',
-      resposta: 'Administrador cria contas, muda papéis e vê tudo do espaço. O alerta aparece, só para administradores, quando há mais de 2 contas administradoras; o recomendado é 1 ou 2, um titular e um reserva. “Revisar papéis” leva a “Usuários e permissões”.',
+      resposta: 'Quem é administrador cria contas, muda papéis e vê tudo no Palácio Virtual. O alerta aparece, só para administradores, quando há mais de 2 contas administradoras; o recomendado é 1 ou 2, um titular e um reserva. “Revisar papéis” leva a “Usuários e permissões”.',
       termos: ['admin', 'papéis', 'segurança'],
     },
     {
@@ -381,7 +381,7 @@ const DIRETORIO: GuiaDaArea = {
 
 const RECURSOS_HUMANOS: GuiaDaArea = {
   href: '/equipe',
-  paraQueServe: 'As fichas da equipe contratada — funcionários, coordenadores, administrativo e diretoria: contrato e cargo, histórico de mudanças, arquivos, documentos e remuneração. Voluntários ficam em Voluntários; folha de pagamento, eSocial e ponto ficam com a contabilidade.',
+  paraQueServe: 'As fichas de toda a equipe contratada, inclusive coordenação, administrativo e diretoria: contrato e cargo, histórico de mudanças, arquivos, documentos e remuneração. O voluntariado fica em Voluntários; folha de pagamento, eSocial e ponto ficam com a contabilidade.',
   quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador, em quatro níveis — “Ver a equipe”, “Gerenciar”, “Documentos” e “Remuneração e banco” —, e cada um inclui o anterior. Administradores têm tudo. Abrir documentos, dados bancários, remuneração e arquivos fica registrado com o nome de quem abriu.',
   tour: [
     {
@@ -397,7 +397,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     {
       alvo: 'rh.abas',
       titulo: 'Lista, organograma e acessos',
-      texto: '“Pessoas” é a lista; “Organograma” monta a hierarquia pelo gestor direto de cada um. “Quem acessa” só administradores veem.',
+      texto: '“Pessoas” é a lista; “Organograma” monta a hierarquia pelo “Gestor direto” de cada ficha. A aba “Quem acessa” só administradores veem.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -452,7 +452,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
         },
         {
           titulo: 'Dados abertos sob demanda',
-          texto: 'Documentos, dados bancários e remuneração ficam cifrados e só aparecem quando você toca em “Ver…”. Cada abertura fica registrada com o seu nome.',
+          texto: 'Documentos, dados bancários e remuneração ficam guardados em sigilo e só aparecem quando você toca em “Ver…”. Cada abertura fica registrada com o seu nome.',
         },
       ],
     },
@@ -657,8 +657,8 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     },
     {
       id: 'voluntario-aqui',
-      pergunta: 'Voluntário entra em Recursos humanos?',
-      resposta: 'Não. Voluntários, juventude e instrutores voluntários ficam em Voluntários, com dados e acessos próprios. Aqui fica quem tem vínculo de trabalho com a filial: CLT, estágio, prestador, temporário, cedido e a diretoria eleita.',
+      pergunta: 'Quem é voluntário entra em Recursos humanos?',
+      resposta: 'Não. O voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”) fica em Voluntários, com dados e acessos próprios. Aqui fica quem tem vínculo de trabalho com a filial: CLT, estágio, prestador, temporário, cedido e a diretoria eleita.',
       termos: ['voluntariado', 'juventude', 'instrutor'],
     },
     {
@@ -723,12 +723,12 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
 
 const VOLUNTARIOS: GuiaDaArea = {
   href: '/voluntariado',
-  paraQueServe: 'O cadastro do Voluntariado — voluntários, juventude e instrutores voluntários —, com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, oportunidades, cursos, apostilas e certificados.',
+  paraQueServe: 'O cadastro do Voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”), com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, oportunidades, cursos, apostilas e certificados.',
   quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador: “Ver a lista”; “Gerenciar” (cadastrar, aprovar inscrições, registrar horas e formações, exportar, cuidar de avisos, oportunidades e cursos); e “Dados sensíveis” (abrir CPF e saúde e apagar dados a pedido do titular). Administradores têm tudo.',
   tour: [
     {
       titulo: 'O cadastro do Voluntariado',
-      texto: 'Voluntários, juventude e instrutores voluntários. CPF e saúde ficam cifrados, e cada abertura é registrada. A equipe contratada fica em Recursos humanos.',
+      texto: 'Todo o voluntariado, inclusive juventude e instrução voluntária. CPF e saúde ficam em sigilo, e cada abertura é registrada. A equipe contratada fica em Recursos humanos.',
     },
     {
       alvo: 'voluntarios.atalhos',
@@ -827,7 +827,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.cpf',
           titulo: 'CPF',
-          texto: 'Fica guardado cifrado e aparece mascarado. Depois de guardado, deixe o campo em branco para manter o que está lá.',
+          texto: 'Fica guardado em sigilo e aparece mascarado, com asteriscos. Depois de guardado, deixe o campo em branco para manter o que está lá.',
         },
         {
           alvo: 'voluntarios.setores',
@@ -842,7 +842,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.saude',
           titulo: 'Saúde',
-          texto: 'Tipo sanguíneo e restrições são dado sensível: ficam cifrados, e só quem tem “Dados sensíveis” vê.',
+          texto: 'Tipo sanguíneo e restrições são dado sensível: ficam em sigilo, e só quem tem “Dados sensíveis” vê.',
         },
         {
           alvo: 'voluntarios.salvar',
@@ -884,7 +884,7 @@ const VOLUNTARIOS: GuiaDaArea = {
       tour: [
         {
           titulo: 'O mural dos voluntários',
-          texto: 'Os avisos aparecem no início da Área do Voluntário, com a marca de novo até cada um ver. São recados para todos os voluntários ativos.',
+          texto: 'Os avisos aparecem no início da Área do Voluntário, com a marca de novo até cada pessoa ver. São recados para todo o voluntariado ativo.',
         },
         {
           alvo: 'voluntarios.mural',
@@ -903,7 +903,7 @@ const VOLUNTARIOS: GuiaDaArea = {
       tour: [
         {
           titulo: 'Oportunidades',
-          texto: 'Ações, plantões e eventos em que os voluntários se inscrevem pela Área do Voluntário. Presença confirmada vira horas no cadastro.',
+          texto: 'Ações, plantões e eventos em que o voluntariado se inscreve pela Área do Voluntário. Presença confirmada vira horas no cadastro.',
         },
         {
           alvo: 'voluntarios.oportunidades-abas',
@@ -919,7 +919,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.nova-oportunidade',
           titulo: 'Nova oportunidade',
-          texto: '“Nova oportunidade” cria uma atividade como rascunho: os voluntários só a veem depois de publicada.',
+          texto: '“Nova oportunidade” cria uma atividade como rascunho: ela só aparece na Área do Voluntário depois de publicada.',
           lado: 'bottom',
           seAusente: 'pular',
         },
@@ -1118,7 +1118,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Toque em “Marcar como inativo”, “Desligar” ou “Reativar”.',
         'Para desligar, escreva o “Motivo” e confirme em “Desligar”.',
       ],
-      dica: 'Desligado continua guardado, com o motivo, e pode ser reativado.',
+      dica: 'O cadastro desligado continua guardado, com o motivo, e pode ser reativado.',
     },
     {
       id: 'apagar-dados-lgpd',
@@ -1133,13 +1133,13 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'publicar-aviso',
-      titulo: 'Publicar um aviso para os voluntários',
+      titulo: 'Publicar um aviso para o voluntariado',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
         'Em Voluntários, toque em “Avisos”.',
         'Escreva o título e o recado.',
         'Marque “Fixar no alto”, se for importante, e escolha a data em “Sai do mural em”, se o aviso tiver prazo.',
-        'Marque “Enviar também por e-mail” se todos precisam saber logo.',
+        'Marque “Enviar também por e-mail” se todo mundo precisa saber logo.',
         'Toque em “Publicar aviso”.',
       ],
       dica: 'O e-mail sai uma vez só por aviso, para quem está ativo, tem e-mail e não saiu da lista de avisos por e-mail. Cada aviso mostra quantos já viram; o lápis edita e a lixeira exclui.',

@@ -1,27 +1,44 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
-import { ArrowRight, Compass, RotateCcw, Search, Sparkles } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Loader2, RotateCcw, Search, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { buscarNaAjuda, guiasVisiveis, hrefDaAjuda } from '@/lib/ajuda'
 import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
+import { avisarResposta } from './ancora'
 import { ResultadosDaAjuda } from './blocos'
+import { adiantarAjuda, carregarAjuda, type ModuloDaAjuda } from './carregar'
 
 /**
- * As partes da Central de ajuda (/ajuda) que dependem de quem está vendo: a
- * busca e a lista de áreas saem de useShell().grupos — as áreas que a pessoa
- * pode abrir, a mesma lista do menu —, e os botões mexem no progresso da
- * ajuda (./ajuda.tsx). O resto da página é do servidor.
+ * As partes da Central de ajuda (/ajuda) que rodam no navegador: a busca e
+ * os botões que mexem no progresso da ajuda (./ajuda.tsx). O resto da página,
+ * inclusive a lista de áreas e a ajuda geral, é desenhado no servidor.
+ *
+ * Nada aqui importa lib/ajuda de forma estática: o texto inteiro (~140 KB
+ * comprimidos) só vem quando a pessoa vai buscar (./carregar.ts), como no
+ * resto da Redação. Antes, ele chegava duas vezes: no HTML da página e no JS.
  */
 
 export function BuscaDaCentral() {
-  const { grupos } = useShell()
+  const { grupos, equipeDaEscola } = useShell()
   const [busca, setBusca] = useState('')
   const buscando = normalizar(busca).split(/\s+/).some((p) => p.length > 1)
-  const achados = useMemo(() => (buscando ? buscarNaAjuda(busca, grupos, 20) : []), [buscando, busca, grupos])
+  // A busca precisa do texto: baixado ao entrar no campo (quem entra vai digitar) e esperado na primeira letra.
+  const [buscarNaAjuda, setBuscarNaAjuda] = useState<ModuloDaAjuda['buscarNaAjuda'] | null>(null)
+  const [falhou, setFalhou] = useState(false)
+  const [tentativa, setTentativa] = useState(0)
+  useEffect(() => {
+    if (!buscando || buscarNaAjuda) return
+    let valendo = true
+    carregarAjuda()
+      .then((m) => { if (valendo) { setBuscarNaAjuda(() => m.buscarNaAjuda); setFalhou(false) } })
+      .catch(() => { if (valendo) setFalhou(true) })
+    return () => { valendo = false }
+  }, [buscando, buscarNaAjuda, tentativa])
+  const achados = useMemo(() => (buscando && buscarNaAjuda ? buscarNaAjuda(busca, grupos, { limite: 20, equipeDaEscola }) : []), [buscando, busca, grupos, equipeDaEscola, buscarNaAjuda])
+  const pronta = Boolean(buscarNaAjuda)
+  const contagem = !buscando || !pronta ? '' : achados.length ? `${achados.length} resultado${achados.length === 1 ? '' : 's'}` : 'Nenhum resultado'
   return (
     <div className="max-w-2xl">
       <label className="relative block">
@@ -31,15 +48,26 @@ export function BuscaDaCentral() {
           type="search"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
+          onFocus={adiantarAjuda}
           placeholder="Qual é a sua dúvida? Ex.: trocar a senha, pedir aprovação"
           enterKeyHint="search"
           className="h-12 w-full rounded-xl border border-border bg-background pl-11 pr-4 text-[15px] shadow-xs outline-none placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/30"
         />
       </label>
+      {/* Sempre na página (vazia sem busca): região que entra já preenchida o leitor de tela não anuncia. */}
+      <p className="sr-only" role="status">{falhou && buscando ? 'Não deu para carregar a busca' : contagem}</p>
       {buscando && (
         <div className="mt-3 rounded-xl border border-border bg-card p-2 shadow-xs">
-          <p className="sr-only" role="status">{achados.length ? `${achados.length} resultado${achados.length === 1 ? '' : 's'}` : 'Nenhum resultado'}</p>
-          <ResultadosDaAjuda achados={achados} busca={busca} />
+          {pronta ? (
+            <ResultadosDaAjuda achados={achados} busca={busca} aoEscolher={avisarResposta} />
+          ) : falhou ? (
+            <div className="flex flex-col items-center gap-3 px-1 py-6 text-center text-sm text-muted-foreground">
+              <p>Não deu para carregar a busca. Confira a conexão e tente de novo.</p>
+              <button type="button" onClick={() => { setFalhou(false); setTentativa((n) => n + 1) }} className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9">Tentar de novo</button>
+            </div>
+          ) : (
+            <p className="flex items-center justify-center gap-2 px-1 py-6 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />Buscando…</p>
+          )}
         </div>
       )}
     </div>
@@ -75,52 +103,5 @@ export function AtalhoDaAjuda() {
         <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Desligue se você dita texto ou aperta sem querer. O botão “?” no alto continua valendo.</span>
       </span>
     </label>
-  )
-}
-
-/** As áreas com ajuda escrita que a pessoa pode abrir, agrupadas como no menu. */
-export function AreasDaCentral() {
-  const { grupos } = useShell()
-  const lista = guiasVisiveis(grupos)
-  const porGrupo = grupos
-    .map((grupo) => ({ grupo, itens: lista.filter((x) => x.grupo.id === grupo.id) }))
-    .filter((g) => g.itens.length)
-
-  return (
-    <section aria-labelledby="secao-ajuda-por-area" className="mt-12">
-      <h2 id="secao-ajuda-por-area" className="text-lg font-semibold">Ajuda por área</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Só aparecem as áreas que o seu acesso abre.</p>
-      {!porGrupo.length && <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">Os guias das áreas ainda estão sendo escritos. Enquanto isso, a ajuda geral está logo abaixo.</p>}
-      <div className="mt-5 flex flex-col gap-8">
-        {porGrupo.map(({ grupo, itens }) => (
-          <div key={grupo.id}>
-            {/* O grupo sem título no menu é o do dia de cada pessoa (Início, Aprovações…). */}
-            <h3 className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{grupo.rotulo ?? 'Meu dia'}</h3>
-            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {itens.map(({ area, guia }) => {
-                const Icone = area.icone
-                const perguntas = guia.perguntas.length
-                return (
-                  <li key={area.href}>
-                    <Link href={hrefDaAjuda(area.href)} className="group flex h-full flex-col rounded-xl border border-border bg-card p-4 shadow-xs outline-none transition-colors hover:border-primary/40 hover:bg-primary/[0.02] focus-visible:ring-2 focus-visible:ring-ring/50">
-                      <span className="flex items-center gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/[0.08] text-primary" aria-hidden="true"><Icone className="size-[18px]" /></span>
-                        <span className="min-w-0 flex-1 font-semibold leading-snug">{area.rotulo}</span>
-                        <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
-                      </span>
-                      <span className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{guia.paraQueServe}</span>
-                      <span className="mt-auto flex items-center gap-1.5 pt-3 text-xs text-muted-foreground">
-                        {guia.tour.length > 0 && <><Compass className="size-3.5" aria-hidden="true" />Tour ·</>}
-                        {' '}{perguntas} pergunta{perguntas === 1 ? '' : 's'}
-                      </span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
   )
 }

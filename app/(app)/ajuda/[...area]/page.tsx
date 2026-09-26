@@ -3,14 +3,15 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ArrowRight, CircleHelp, Compass } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
+import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
 import { guiaDaArea, hrefDaAjuda } from '@/lib/ajuda'
-import { gruposDaEquipeDaEscola, gruposVisiveis, TODOS_OS_GRUPOS, type Grupo } from '@/lib/navegacao'
-import { ehEquipeDaEscola, pode } from '@/lib/permissoes'
+import { TODOS_OS_GRUPOS } from '@/lib/navegacao'
 import { requireWorkspace } from '@/lib/session'
-import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
+import { gruposDaPessoa } from '../grupos-da-pessoa'
 
 type Props = { params: Promise<{ area: string[] }> }
 
@@ -24,16 +25,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: achada && guiaDaArea(href) ? `Ajuda: ${achada.rotulo}` : 'Central de ajuda' }
 }
 
-/**
- * As áreas que esta pessoa pode abrir — a mesma regra do menu (layout do
- * (app)): a ajuda de uma área fechada para ela não abre, nem pelo endereço.
- */
-async function gruposDaPessoa(context: Awaited<ReturnType<typeof requireWorkspace>>): Promise<Grupo[]> {
-  if (!ehEquipeDaEscola(context.role)) return gruposVisiveis((p) => pode(context.role, p))
-  const supabase = await createClient()
-  const { count } = await supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', context.workspace.id).eq('tipo', 'escola')
-  return gruposDaEquipeDaEscola(Boolean(count))
-}
+// Os links com cara de botão são <Link> com as classes do botão, e não <Button render>:
+// este põe role="button" no <a>, e o leitor de tela anunciaria botão para o que navega.
+const botao = (variant: 'default' | 'outline', className?: string) => cn(buttonVariants({ variant, size: 'lg' }), 'h-11 sm:h-10', className)
 
 /**
  * A ajuda completa de uma área: para que serve, quem usa, o tour, o passo a
@@ -59,19 +53,20 @@ export default async function AjudaDaAreaPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-3xl">
+      <AncoraDaAjuda />
       <PageHeader
         title={area.rotulo}
         description={guia.paraQueServe}
         breadcrumbs={[{ label: 'Central de ajuda', href: '/ajuda' }, { label: grupo.rotulo ? `${grupo.rotulo} · ${area.rotulo}` : area.rotulo }]}
         actions={
           <>
-            <Button variant="outline" size="lg" className="h-10" render={<Link href={area.href} />}>
+            <Link href={area.href} className={botao('outline')}>
               Abrir {area.rotulo}<ArrowRight aria-hidden="true" />
-            </Button>
+            </Link>
             {guia.tour.length > 0 && (
-              <Button size="lg" className="h-10" render={<Link href={`${area.href}?tour=1`} />}>
+              <Link href={`${area.href}?tour=1`} className={botao('default')}>
                 <Compass aria-hidden="true" />Fazer o tour
-              </Button>
+              </Link>
             )}
           </>
         }
@@ -127,9 +122,9 @@ export default async function AjudaDaAreaPage({ params }: Props) {
                       {!fixa && <p className="mt-0.5 text-sm text-muted-foreground">Com essa tela aberta, toque em “?” no alto e depois em “Fazer o tour desta tela”.</p>}
                     </div>
                     {fixa && (
-                      <Button variant="outline" size="lg" className="h-10 self-start sm:self-auto" render={<Link href={`${tela.caminho}?tour=1`} />}>
+                      <Link href={`${tela.caminho}?tour=1`} className={botao('outline', 'self-start sm:self-auto')}>
                         <Compass aria-hidden="true" />Fazer o tour
-                      </Button>
+                      </Link>
                     )}
                   </Card>
                 </li>

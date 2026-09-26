@@ -150,12 +150,13 @@ export function Prova({ cursoId, questoes, minima, tentativas, certificado }: {
     // `scroll-padding-bottom` só na prova, enquanto ela está na tela: o Tab até a próxima questão
     // não deixa a alternativa focada atrás da barra "N de M respondidas / Enviar respostas".
     // `:root` (e não `html`) para vencer a regra do layout em qualquer ordem do CSS.
-    <form className="flex flex-col gap-4 [:root:has(&)]:scroll-pb-[calc(11rem+env(safe-area-inset-bottom))] lg:[:root:has(&)]:scroll-pb-32" id="prova" onSubmit={enviar} data-ajuda="membro.prova">
+    <form className="flex flex-col gap-4 [:root:has(&)]:scroll-pb-[calc(11rem+env(safe-area-inset-bottom))] lg:[:root:has(&)]:scroll-pb-32" id="prova" onSubmit={enviar}>
       {questoes.map((q, i) => {
         const numero = i + 1
         const falta = cobrar && respostas[i] === null
         return (
-          <div key={q.id} id={`questao-${numero}`} className={cn('rounded-xl border bg-card p-4 transition-colors sm:p-5', falta ? 'border-warning ring-2 ring-warning/30' : 'border-border')}>
+          // O tour aponta a primeira questão: a prova inteira passa da altura da tela.
+          <div key={q.id} id={`questao-${numero}`} data-ajuda={i === 0 ? 'membro.prova' : undefined} className={cn('rounded-xl border bg-card p-4 transition-colors sm:p-5', falta ? 'border-warning ring-2 ring-warning/30' : 'border-border')}>
             <fieldset className="min-w-0" disabled={ocupado} aria-describedby={falta ? `questao-${numero}-falta` : undefined}>
               <legend className="mb-3 w-full">
                 <span className="block text-sm text-muted-foreground">Questão {numero} de {questoes.length}<span className="sr-only">: </span></span>

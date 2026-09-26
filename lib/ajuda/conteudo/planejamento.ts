@@ -160,7 +160,7 @@ const RADAR: GuiaDaArea = {
     {
       id: 'filas-do-radar',
       pergunta: 'O que quer dizer cada fila?',
-      resposta: '“Agir agora”: algo em curso, em que cada hora custa relevância. “Produzir”: pauta boa, sem urgência de minutos. “Agendar”: tem data certa; o lugar dela é o calendário. “Conferir ação”: nota alta, mas o Cérebro não viu ação da filial; confirme com a operação antes de pautar. “Monitorar”: informa a equipe, mas não vira peça por ora.',
+      resposta: '“Agir agora”: algo em curso, em que cada hora custa relevância; “Produzir”: pauta boa, sem urgência de minutos; “Agendar”: tem data certa, e o lugar dela é o calendário.\n\n“Conferir ação”: nota alta, mas o Cérebro não viu ação da filial, então confirme com a operação antes de pautar. “Monitorar”: informa a equipe, mas não vira peça por ora.',
       termos: ['agir agora', 'produzir', 'agendar', 'monitorar', 'conferir ação', 'modo', 'decisão'],
     },
     {
@@ -273,7 +273,7 @@ const PAUTAS: GuiaDaArea = {
         {
           alvo: 'pautas.sala-resumo',
           titulo: 'O resumo da pauta',
-          texto: 'Projeto, coordenação, prazo, prioridade, responsável e arquivos. Em “Aprovadores” estão os participantes: são convidados a votar quando um conteúdo da pauta vai para aprovação.',
+          texto: 'Projeto, coordenação, prazo, prioridade, responsável e arquivos. Em “Aprovadores” estão as pessoas que participam da pauta, convidadas a votar quando um conteúdo dela vai para aprovação.',
         },
         {
           alvo: 'pautas.sala-status',
@@ -430,7 +430,7 @@ const PAUTAS: GuiaDaArea = {
         'Em “Etiquetas”, marque as que valem para a pauta, ou toque em “Nova etiqueta” (“Criar a primeira etiqueta”, se ainda não houver), escolha nome e cor e toque em “Criar”. A etiqueta nova já entra no cartão.',
         'Para renomear, trocar a cor ou apagar uma etiqueta, toque no lápis ao lado dela.',
       ],
-      dica: 'As etiquetas são do espaço inteiro: apagar uma tira ela de todos os cartões. No cartão fechado, o checklist aparece como feitos/total.',
+      dica: 'As etiquetas valem para toda a equipe: apagar uma tira ela de todos os cartões. No cartão fechado, o checklist aparece como feitos/total.',
     },
     {
       id: 'arquivar-e-restaurar',
@@ -450,7 +450,7 @@ const PAUTAS: GuiaDaArea = {
         'Toque em “Adicionar pessoas” e escolha quem participa.',
         'Na aba “Conversa”, escreva a mensagem e toque em “Enviar”.',
       ],
-      dica: 'O responsável e os participantes recebem cada mensagem nas notificações. Quem é adicionado também recebe um aviso.',
+      dica: 'Quem é responsável pela pauta e quem participa dela recebem cada mensagem nas notificações. Quem é adicionado também recebe um aviso.',
     },
     {
       id: 'escrever-descricao',
@@ -481,10 +481,10 @@ const PAUTAS: GuiaDaArea = {
       passos: [
         'Na sala da pauta, abra a aba “Aprovações”.',
         'Em “Conteúdo existente”, escolha o conteúdo. Sem conteúdo pronto, deixe “Criar caso rápido” e preencha “Título do caso” e “Texto ou link”.',
-        'Em “Quem precisa aprovar”, marque quem vota. Os participantes da pauta entram junto.',
+        'Em “Quem precisa aprovar”, marque quem vota. Quem participa da pauta entra junto.',
         'Toque em “Abrir aprovação”. A pauta vai para “Aprovação”, e a rodada abre com o convite para quem vota.',
       ],
-      dica: 'Quem criou o conteúdo, quem responde por ele e quem envia não votam nele. Quando todos aprovam, o cartão vai sozinho para “Pronto”; um pedido de ajuste o devolve para “Produção”.',
+      dica: 'Quem criou o conteúdo, quem responde por ele e quem envia não votam nele. Quando todas as pessoas convidadas aprovam, o cartão vai sozinho para “Pronto”; um pedido de ajuste o devolve para “Produção”.',
     },
     {
       id: 'excluir-pauta',
@@ -503,7 +503,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'etapas-do-quadro',
       pergunta: 'Como uma pauta anda pelas colunas?',
-      resposta: 'As colunas seguem o caminho da pauta: “Entrada”, “Coleta”, “Produção”, “Revisão”, “Aprovação” e “Pronto”. Toda pauta registrada nasce em “Entrada”, e você a leva adiante arrastando o cartão.\n\nEm “Aprovação”, a pauta espera os votos: quando todos aprovam, ela vai sozinha para “Pronto”; se alguém pede ajustes, volta para “Produção”.',
+      resposta: 'As colunas seguem o caminho da pauta: “Entrada”, “Coleta”, “Produção”, “Revisão”, “Aprovação” e “Pronto”. Toda pauta registrada nasce em “Entrada”, e você a leva adiante arrastando o cartão.\n\nEm “Aprovação”, a pauta espera os votos: quando todas as pessoas convidadas aprovam, ela vai sozinha para “Pronto”; se alguém pede ajustes, volta para “Produção”.',
       termos: ['etapas', 'status', 'colunas', 'kanban', 'entrada', 'coleta', 'produção', 'revisão', 'pronto'],
     },
     {
@@ -521,7 +521,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'arrastei-para-aprovacao',
       pergunta: 'Arrastei um cartão para “Aprovação” e ninguém recebeu o pedido. Por quê?',
-      resposta: 'Pelo quadro, a rodada abre com o conteúdo mais recente da pauta (ou com um novo, feito do título e da descrição), mas o arrasto não convida ninguém para votar. Em “Aprovações”, abra a aba “Pedidas por mim”, entre na rodada e, em “Convidar mais gente”, marque quem vota e toque em “Convidar”. Esse quadro aparece só para quem pediu a aprovação (quem arrastou o cartão) e para administradores.\n\nDa próxima vez, prefira “Abrir aprovação”, na aba “Aprovações” da sala: ali você escolhe quem vota.',
+      resposta: 'Pelo quadro, a rodada abre com o conteúdo mais recente da pauta (ou com um novo, feito do título e da descrição), mas o arrasto não convida ninguém para votar. Em “Aprovações”, abra a aba “Pedidas por mim”, entre na rodada e, em “Convidar mais gente”, marque quem vota e toque em “Convidar”; esse quadro aparece só para quem pediu a aprovação (quem arrastou o cartão) e para administradores.\n\nDa próxima vez, prefira “Abrir aprovação”, na aba “Aprovações” da sala: ali você escolhe quem vota.',
       termos: ['aprovação parada', 'ninguém convidado', 'votantes', 'arrastar'],
     },
     {
@@ -563,13 +563,13 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'quem-e-avisado',
       pergunta: 'Quem é avisado do que acontece numa pauta?',
-      resposta: 'Quem é adicionado à pauta recebe um aviso, e também quem passa a ser responsável quando o cartão é mudado no quadro. Cada mensagem da “Conversa” avisa o responsável e os participantes, e cada comentário num conteúdo avisa quem criou o conteúdo e quem já comentou nele. Quem fez a ação não recebe aviso dela. Os avisos chegam no sino e, conforme a preferência de cada pessoa, por e-mail.',
+      resposta: 'Quem é adicionado à pauta recebe um aviso, e também quem passa a ser responsável quando o cartão é mudado no quadro. Cada mensagem da “Conversa” avisa quem é responsável pela pauta e quem participa dela, e cada comentário num conteúdo avisa quem criou o conteúdo e quem já comentou nele.\n\nQuem fez a ação não recebe aviso dela. Os avisos chegam no sino e, conforme a preferência de cada pessoa, por e-mail.',
       termos: ['notificação', 'e-mail', 'aviso', 'sino'],
     },
     {
       id: 'aprovadores-da-sala',
       pergunta: 'O que é “Aprovadores”, no alto da sala?',
-      resposta: 'São os participantes da pauta. Eles são convidados a votar sempre que um conteúdo da pauta vai para aprovação por “Concluir matéria” ou por “Abrir aprovação”, menos quem criou o conteúdo, quem responde por ele e quem envia. Arrastar o cartão para “Aprovação” não convida ninguém.\n\nPara mudar a lista, use “Adicionar pessoas” ou o X ao lado do nome, em “Participantes”, na aba “Conversa”.',
+      resposta: 'São as pessoas que participam da pauta. Elas são convidadas a votar sempre que um conteúdo da pauta vai para aprovação por “Concluir matéria” ou por “Abrir aprovação”, menos quem criou o conteúdo, quem responde por ele e quem envia. Arrastar o cartão para “Aprovação” não convida ninguém.\n\nPara mudar a lista, use “Adicionar pessoas” ou o X ao lado do nome, em “Participantes”, na aba “Conversa”.',
       termos: ['participantes', 'revisores', 'quem aprova'],
     },
     {
@@ -587,7 +587,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'conteudo-salva-sozinho',
       pergunta: 'O conteúdo salva sozinho?',
-      resposta: 'Não. O texto só é gravado quando você toca em “Salvar”, “Enviar para aprovação” ou “Arquivar e continuar depois”. Enquanto aparecer “Alterações não salvas”, o que você escreveu ainda não foi gravado, e sair da tela antes perde essas mudanças.\n\nO aviso “Salvo automaticamente” só quer dizer que não há mudança pendente desde o último “Salvar”. Cada “Salvar” conta uma versão nova.',
+      resposta: 'Não. O texto só é gravado quando você toca em “Salvar”, “Enviar para aprovação” ou “Arquivar e continuar depois”, e cada “Salvar” conta uma versão nova. Enquanto aparecer “Alterações não salvas”, sair da tela perde o que você mudou.\n\nApesar do nome, o aviso “Salvo automaticamente” só quer dizer que não há mudança pendente desde o último “Salvar”.',
       termos: ['salvar', 'perdi o texto', 'salvamento automático', 'rascunho', 'salvo automaticamente'],
     },
     {

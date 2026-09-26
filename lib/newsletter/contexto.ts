@@ -1,5 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ENDERECO_DO_PALACIO } from '../dominio'
 
 /**
  * O que a inscrição pública precisa saber e não tem como perguntar.
@@ -19,7 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  */
 export function urlBase(): string {
   const configurado = process.env.NEWSLETTER_URL_BASE?.trim()
-  return (configurado || 'https://redacao.cruzvermelhariodejaneiro.org').replace(/\/+$/, '')
+  return (configurado || ENDERECO_DO_PALACIO).replace(/\/+$/, '')
 }
 
 export const urlDeConfirmacao = (token: string) => `${urlBase()}/newsletter/confirmar?t=${token}`

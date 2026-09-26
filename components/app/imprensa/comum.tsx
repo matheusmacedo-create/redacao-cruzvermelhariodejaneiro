@@ -9,10 +9,8 @@ import { motivoDeFora, naoLe } from '@/lib/imprensa/campanha'
 
 /** Peças comuns às abas de Contatos e de Campanhas. */
 
-export const inputClass = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
-
-/** O mesmo campo, com a largura do conteúdo — para selects numa linha de filtros. */
-export const selectClass = inputClass.replace('w-full ', 'w-auto ')
+// As classes dos campos moram em ./campos (sem 'use client'), para a página do servidor poder usá-las.
+export { inputClass, selectClass } from './campos'
 
 export const quandoLegivel = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',

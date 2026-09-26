@@ -45,7 +45,10 @@ export function CentralDeAjuda() {
   // Chegou com #id (link mandado numa conversa, "Ver resposta"): abre a resposta e rola até ela.
   useEffect(() => {
     function abrirDoEndereco() {
-      const id = decodeURIComponent(window.location.hash.slice(1))
+      // Um endereço malformado (#%E0, colado pela metade) faz o decode lançar
+      // e derrubaria a página inteira: ali só não há resposta a abrir.
+      let id = ''
+      try { id = decodeURIComponent(window.location.hash.slice(1)) } catch { return }
       if (!id) return
       const el = document.getElementById(id)
       if (!(el instanceof HTMLDetailsElement)) return

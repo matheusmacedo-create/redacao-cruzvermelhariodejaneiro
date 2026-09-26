@@ -143,7 +143,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
         description="Quem entrou no Palácio Virtual e na Área do Voluntário, quando, de onde e com qual aparelho — inclusive as tentativas erradas e os bloqueios. Só você vê esta página; cada consulta fica registrada."
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-ajuda="acessos.numeros">
         {[
           { rotulo: 'Entradas nas últimas 24 h', valor: entradas },
           { rotulo: 'Tentativas erradas (24 h)', valor: falhas },
@@ -157,7 +157,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
         ))}
       </div>
 
-      <form method="get" className="flex flex-wrap items-end gap-3">
+      <form method="get" className="flex flex-wrap items-end gap-3" data-ajuda="acessos.filtros">
         <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">Pessoa
           <select name="pessoa" defaultValue={pessoa} className={selectClass}>
             <option value="">Todas</option>
@@ -189,7 +189,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
         )}
       </form>
 
-      <section aria-labelledby="titulo-eventos" className="flex flex-col gap-2">
+      <section aria-labelledby="titulo-eventos" className="flex flex-col gap-2" data-ajuda="acessos.lista">
         <h2 id="titulo-eventos" className="text-sm font-semibold">
           {linhas.length === 300 ? 'Os 300 acessos mais recentes do filtro' : `${linhas.length} acesso${linhas.length === 1 ? '' : 's'}`}
         </h2>
@@ -254,7 +254,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
         </div>
       </section>
 
-      <section aria-labelledby="titulo-aparelhos" className="flex flex-col gap-2">
+      <section aria-labelledby="titulo-aparelhos" className="flex flex-col gap-2" data-ajuda="acessos.aparelhos">
         <h2 id="titulo-aparelhos" className="flex items-center gap-2 text-sm font-semibold"><Fingerprint className="size-4" aria-hidden="true" />Aparelhos da equipe</h2>
         {listaDeAparelhos.length === 0 ? (
           <Card className="p-6 text-sm text-muted-foreground">Nenhum aparelho reconhecido ainda.</Card>
@@ -288,7 +288,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
         )}
       </section>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-muted-foreground" data-ajuda="acessos.nota">
         Eventos registrados: {EVENTOS.map((e) => ROTULO_DO_EVENTO[e].nome.toLowerCase()).join(', ')}. O local vem do IP e é aproximado —
         em rede de celular a cidade pode sair errada. Voluntários: só IP, local e navegador, sem impressão digital.
       </p>

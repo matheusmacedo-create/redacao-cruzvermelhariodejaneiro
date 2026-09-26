@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { buscarAreas, type Grupo } from '@/lib/navegacao'
 import { ACOES_DE_CRIAR, useCriar, type AcaoDeCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
+import { avisarResposta } from './ajuda/ancora'
 import { carregarAjuda, type ModuloDaAjuda } from './ajuda/carregar'
 
 type Item = {
@@ -27,21 +28,21 @@ type Item = {
  * uma dessas ferramentas chega sabendo. Aceita os nomes antigos das áreas.
  */
 export function BuscaRapida() {
-  const { grupos, buscaAberta, setBuscaAberta } = useShell()
+  const { grupos, buscaAberta, setBuscaAberta, equipeDaEscola } = useShell()
   return (
     <Dialog.Root open={buscaAberta} onOpenChange={setBuscaAberta}>
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/30 backdrop-blur-[2px] transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup className="fixed left-1/2 top-[max(1rem,10vh)] z-50 flex max-h-[min(34rem,calc(100dvh-2rem))] w-[calc(100vw-1.5rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[opacity,transform] duration-150 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
           <Dialog.Title className="sr-only">Buscar no sistema</Dialog.Title>
-          <Conteudo grupos={grupos} fechar={() => setBuscaAberta(false)} />
+          <Conteudo grupos={grupos} equipeDaEscola={equipeDaEscola} fechar={() => setBuscaAberta(false)} />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
   )
 }
 
-function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
+function Conteudo({ grupos, equipeDaEscola, fechar }: { grupos: Grupo[]; equipeDaEscola: boolean; fechar: () => void }) {
   const router = useRouter()
   const { executar, pendente, erro } = useCriar()
   const [busca, setBusca] = useState('')
@@ -50,9 +51,11 @@ function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
   const idDaLista = useId()
 
   const todos = useMemo<Item[]>(() => [
-    ...ACOES_DE_CRIAR.map((a) => ({ chave: `criar:${a.id}`, secao: 'Criar', rotulo: a.rotulo, resumo: a.resumo, icone: a.icone, termos: a.termos, acao: a })),
+    // As ações do "Criar" são da Redação: a equipe da escola não tem o botão (topbar.tsx), e cada
+    // uma a mandaria de volta para a Escola (registrar, publicação, ofício, chamado).
+    ...(equipeDaEscola ? [] : ACOES_DE_CRIAR).map((a) => ({ chave: `criar:${a.id}`, secao: 'Criar', rotulo: a.rotulo, resumo: a.resumo, icone: a.icone, termos: a.termos, acao: a })),
     ...grupos.flatMap((g) => g.areas.map((a) => ({ chave: a.href, secao: g.rotulo ?? 'Ir para', rotulo: a.rotulo, resumo: a.resumo, icone: a.icone, termos: a.termos, href: a.href }))),
-  ], [grupos])
+  ], [grupos, equipeDaEscola])
 
   // As respostas da ajuda precisam do texto dela (lib/ajuda), que não vem em
   // toda página: é baixado na primeira letra digitada e aparece assim que chegar.
@@ -70,16 +73,22 @@ function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
   const itens = useMemo(() => {
     if (!busca.trim()) return todos
     const achados = buscarAreas(busca, todos)
-    const ajuda = (buscarNaAjuda ? buscarNaAjuda(busca, grupos, 5) : []).map<Item>((a) => ({
+    const ajuda = (buscarNaAjuda ? buscarNaAjuda(busca, grupos, { limite: 5, equipeDaEscola }) : []).map<Item>((a) => ({
       chave: `ajuda:${a.href}`, secao: 'Ajuda', rotulo: a.titulo, resumo: `${a.tipo === 'pergunta' ? 'Pergunta' : 'Passo a passo'} · ${a.onde}`, icone: CircleHelp, href: a.href,
     }))
     return [...achados.filter((i) => i.href).map((i) => ({ ...i, secao: 'Ir para' })), ...achados.filter((i) => i.acao), ...ajuda]
-  }, [busca, todos, grupos, buscarNaAjuda])
+  }, [busca, todos, grupos, equipeDaEscola, buscarNaAjuda])
 
   const indice = Math.min(ativo, Math.max(itens.length - 1, 0))
 
   function escolher(item: Item) {
-    if (item.href) { router.push(item.href); fechar(); return }
+    if (item.href) {
+      router.push(item.href)
+      fechar()
+      // Uma resposta da ajuda na própria página aberta: a Central acende e foca a resposta nova.
+      if (item.chave.startsWith('ajuda:')) avisarResposta(item.href)
+      return
+    }
     if (item.acao) executar(item.acao, fechar)
   }
 

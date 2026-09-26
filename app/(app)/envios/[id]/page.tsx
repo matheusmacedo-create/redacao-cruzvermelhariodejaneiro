@@ -83,7 +83,7 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <aside className="flex flex-col gap-4">
-          <Card className="p-4">
+          <Card className="p-4" data-ajuda="envios.ficha">
             <dl className="flex flex-col gap-3">
               <Linha rotulo="Enviado por">{envio.nome}{envio.setor ? ` · ${envio.setor}` : ''}</Linha>
               {envio.whatsapp && (
@@ -117,7 +117,7 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
           </Card>
 
           {(envio.pauta_id || envio.pacote_id) && (
-            <Card className="flex flex-col gap-2 p-4 text-sm">
+            <Card className="flex flex-col gap-2 p-4 text-sm" data-ajuda="envios.virou-trabalho">
               <p className="font-semibold">Virou trabalho</p>
               {envio.pacote_id && <Link href={`/redes/${envio.pacote_id}`} className="text-primary underline-offset-4 hover:underline">Abrir o pacote (matéria e posts)</Link>}
               {envio.pauta_id && <Link href={`/pautas/${envio.pauta_id}`} className="text-primary underline-offset-4 hover:underline">Abrir a pauta</Link>}

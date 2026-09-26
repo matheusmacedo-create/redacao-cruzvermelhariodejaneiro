@@ -1,5 +1,5 @@
 /**
- * O texto da ajuda (lib/ajuda, com o conteúdo das 38 áreas: ~140 KB
+ * O texto da ajuda (lib/ajuda, com o conteúdo das 40 áreas: ~145 KB
  * comprimidos) fica fora do pacote de toda página e só é baixado quando
  * alguém abre o painel "?", começa um tour ou busca uma dúvida no ⌘K. Uma
  * vez baixado, vale para o resto da visita (e o navegador guarda o arquivo).
