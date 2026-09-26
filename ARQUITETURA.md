@@ -123,7 +123,7 @@ app/
     admin.ts          reset de dados do espaço
     usuarios.ts       criar, editar, redefinir senha, desativar/reativar
     acervo.ts         envio ao R2, ficha, publicação no site (§7.10)
-    ajuda.ts          o que cada pessoa já viu da ajuda (§7.13)
+    ajuda.ts          o que cada pessoa já viu da ajuda (§7.15)
   api/                só o que precisa ser HTTP de verdade
     bootstrap/        primeiro administrador, quando o banco está vazio
     files/            upload-token, register, download, delete
@@ -132,8 +132,8 @@ app/
     admin/            diagnósticos (ftp-check, redes-check, ftp-descobrir)
 components/
   app/                componentes de tela (sidebar, publicador-redes, emoji-picker)
-    ajuda/            provedor, painel “?”, boas-vindas e dica do tour no shell (§7.13)
-  ajuda/              o motor do tour, da Redação e da Área do Voluntário (§7.13)
+    ajuda/            provedor, painel “?”, boas-vindas e dica do tour no shell (§7.15)
+  ajuda/              o motor do tour, da Redação e da Área do Voluntário (§7.15)
   ui/                 primitivos Base UI
   auth/  admin/
 lib/
@@ -143,7 +143,7 @@ lib/
   acervo/             regras · dados · paginas (HTML público) · publicacao · imagens · video
   editorial/          publicacoes-previstas.ts
   ajuda/              tipos · index (registro) · progresso · posicao · membro ·
-                      conteudo/<grupo>.ts, o texto de cada área (§7.13)
+                      conteudo/<grupo>.ts, o texto de cada área (§7.15)
   session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
   permissoes.ts       quem pode o quê (catálogo único de permissões)
   navegacao.ts        nomes, grupos e ícones das áreas (sidebar, topo, busca ⌘K, aba)
@@ -151,7 +151,7 @@ lib/
   storage.ts          limites, tipos MIME, caminho da Biblioteca
   status-maps.ts      tradução banco → interface
   data.ts             constantes (coordenações, canais) + mock antigo da Fase 1
-scripts/              conferir-ajuda.ts (npx tsx, §7.13) · backup-banco.sh ·
+scripts/              conferir-ajuda.ts (npx tsx, §7.15) · backup-banco.sh ·
                       restaurar-arquivos.sh (docs/backup.md)
 supabase/migrations/  o schema, em ordem cronológica
 proxy.ts              middleware de sessão
@@ -727,7 +727,40 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
   Fornecedor pessoa física sai sem identificação. Para publicar, envie o PDF
   em Transparência → Documentos, na seção "Outros documentos".
 
-### 7.13 Ajuda (boas-vindas, tours, painel e Central)
+### 7.13 Registro de acessos (`/acessos`)
+
+Quem entrou, quando, de onde e com qual aparelho. A especificação e as decisões estão em
+`docs/registro-de-acessos.md`. Em resumo:
+
+- **Tabelas:** `acessos_eventos` (cada entrada, tentativa errada, bloqueio, 2 etapas e saída),
+  `acessos_aparelhos` (cookie `cvrj_aparelho` em hash, assinatura e impressão digital) e
+  `acessos_leitores` (quem vê). Escrita só pelo servidor, com a chave de serviço; leitura só para
+  leitor, conferida no RLS.
+- **Captura:** `app/actions/entrada.ts` envolve o login da equipe (bloqueio antes, registro depois),
+  `components/auth/verificacao.tsx` avisa a 2ª etapa, `app/auth/signout` registra a saída e
+  `app/actions/membro.ts` registra os voluntários (sem fingerprint).
+- **Regras puras** em `lib/acessos/agente.ts` (cabeçalhos da Vercel, navegador e sistema) e
+  `lib/acessos/regras.ts` (bloqueio, sinais de risco, leitura dos sinais do navegador).
+- **Regra de ouro:** nada do registro pode impedir alguém de entrar. A exceção é o bloqueio por
+  tentativas, que é deliberado.
+- Toda consulta à tela grava `acessos.consultados` em `activity_log`.
+
+### 7.14 Envio de ações pela equipe (`/enviar` → `/envios`)
+
+Link público, sem login, para a equipe mandar o que aconteceu numa ação: relato, áudio gravado na
+hora, fotos, vídeos e documentos, até 2 GB por arquivo. O benchmark, as decisões e o caminho completo
+estão em `docs/envio-de-acoes.md`. Em resumo:
+
+- Os arquivos vão do navegador **direto ao R2** (`cvrj-acervo/entrada/envios/`), fora da cota da
+  Biblioteca. O banco só guarda a ficha (`envios`, `envio_arquivos`).
+- O link é aberto. As proteções são as de `/participe` (campo escondido, tempo mínimo), mais um
+  limite por origem (10 envios/hora e 5 GB/dia) e a conferência do tamanho de cada arquivo no R2.
+- Só quem está em `envios_avaliadores` vê a caixa. "Criar matéria e posts" gera pauta, peça e pacote
+  e copia para a Biblioteca só o que foi marcado.
+- Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
+  `publicarMateria`).
+
+### 7.15 Ajuda (boas-vindas, tours, painel e Central)
 
 Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
 [`docs/AJUDA.md`](docs/AJUDA.md).
@@ -910,7 +943,7 @@ na sidebar. Foi entregue como pronto e ninguém conseguia chegar nele.
 Compilar não é entregar. Tela nova com endereço próprio precisa de uma linha
 em `lib/navegacao.ts`; sem ela, não aparece na sidebar nem na busca. E
 precisa de ajuda: o guia da área em `lib/ajuda/conteudo/`, os `data-ajuda`
-que o tour cita e `npx tsx scripts/conferir-ajuda.ts` passando (§7.13).
+que o tour cita e `npx tsx scripts/conferir-ajuda.ts` passando (§7.15).
 
 ### 10.4 Diagnóstico que cria recurso
 
@@ -945,6 +978,8 @@ variável; o valor vai direto no painel da Vercel, pelas mãos de quem é dono d
 - **Migração de limpeza do `file_id`** — depende do deploy do carrossel.
 - **`eslint.config.js`** — `pnpm lint` não roda.
 - **Suíte de testes** — hoje só `tsc`, `build` e scripts avulsos.
+- **Registro de acessos, fase 2** — sessões abertas, "visto por último", encerrar sessão e
+  retenção (`docs/registro-de-acessos.md` §0).
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 
@@ -966,7 +1001,7 @@ Um roteiro que evita a maioria dos erros acima:
 7. **Atualize a ajuda junto com a tela.** Botão renomeado na tela e não na
    ajuda manda a pessoa procurar o que não existe. Guia em
    `lib/ajuda/conteudo/`, `data-ajuda` e `npx tsx scripts/conferir-ajuda.ts`.
-   §7.13 e `docs/AJUDA.md` §4–5.
+   §7.15 e `docs/AJUDA.md` §4–5.
 8. **Nunca toque no valor de uma credencial.** §10.6.
 9. **Relate o que aconteceu de verdade** — o que passou, o que não foi feito, o
    que ficou incerto. Um relatório otimista custa mais do que um problema

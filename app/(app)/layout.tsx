@@ -11,6 +11,8 @@ import { after } from 'next/server'
 import { marcarVisto } from '@/lib/notificacoes/servidor'
 import { ChatAoVivo, type ConversaAoVivo } from '@/components/app/chat/ao-vivo'
 import { pessoasDoChat, type ConversaNoPainel } from '@/lib/chat/servidor'
+import { podeVerAcessos } from '@/lib/acessos/servidor'
+import { avaliaEnvios } from '@/lib/envios/servidor'
 import { AjudaProvider } from '@/components/app/ajuda/ajuda'
 import { BoasVindas } from '@/components/app/ajuda/boas-vindas'
 import { DicaDaTela } from '@/components/app/ajuda/dica'
@@ -65,6 +67,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const equipeDaEscola = ehEquipeDaEscola(context.role)
     ? { financeiro: Boolean((await supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('tipo', 'escola')).count) }
     : null
+  // O registro de acessos é por pessoa, não por papel: só quem está em acessos_leitores (e é admin).
+  const [leitorDeAcessos, avaliadorDeEnvios] = context.role === 'escola'
+    ? [false, false]
+    : await Promise.all([context.role === 'admin' && podeVerAcessos(context.user.id, ws), avaliaEnvios(context.user.id, ws)])
   const recolhida = lembrancas.get(COOKIE_DA_SIDEBAR)?.value === '1'
   const gruposFechados = (lembrancas.get(COOKIE_DOS_GRUPOS)?.value ?? '').split(',').filter(Boolean)
   // A ajuda: o que a pessoa já viu (user_metadata, fresco do getUser) e o que o
@@ -82,7 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   return (
     <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
-    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola}>
+    <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola} escolhidos={{ leitorDeAcessos, avaliadorDeEnvios }}>
     {/* Só o índice leve vai ao navegador em toda página; o texto da ajuda é baixado quando alguém pede (components/app/ajuda/carregar.ts). */}
     <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda} indice={indiceDaAjuda()}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
