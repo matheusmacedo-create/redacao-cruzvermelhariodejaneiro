@@ -67,7 +67,7 @@ export const guias: GuiaDaArea[] = [
       {
         alvo: 'patrimonio.etiquetas',
         titulo: 'Etiquetas com QR',
-        texto: 'Marque os bens na lista e use “Etiquetas dos marcados” para imprimir as plaquetas com QR em folha A4. Lido pelo celular, o QR abre o bem no Redação.',
+        texto: 'Marque os bens na lista e use “Etiquetas dos marcados” para imprimir as plaquetas com QR em folha A4. Lido pelo celular, o QR abre o bem no Palácio Virtual.',
         lado: 'bottom',
         seAusente: 'pular',
       },
@@ -248,7 +248,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.material-validade',
             titulo: 'Lote e validade',
-            texto: 'Marque “Controla lote e validade” para medicamento, curativo, alimento e água. A saída segue o que vence primeiro, e o Redação avisa antes de vencer.',
+            texto: 'Marque “Controla lote e validade” para medicamento, curativo, alimento e água. A saída segue o que vence primeiro, e o Palácio Virtual avisa antes de vencer.',
           },
           {
             alvo: 'patrimonio.material-minimo',
@@ -338,7 +338,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.receber-registrar',
             titulo: 'Registrar e emitir recibo',
-            texto: 'O Redação numera o recibo (ex.: DOA-2026-0001; a numeração recomeça a cada ano) e abre a doação, com o botão “Recibo (PDF)”.',
+            texto: 'O Palácio Virtual numera o recibo (ex.: DOA-2026-0001; a numeração recomeça a cada ano) e abre a doação, com o botão “Recibo (PDF)”.',
             lado: 'top',
           },
         ],
@@ -349,7 +349,7 @@ export const guias: GuiaDaArea[] = [
         tour: [
           {
             titulo: 'Entregar doação',
-            texto: 'Registre o que foi entregue e para quem. Os itens saem do Estoque, o que vence primeiro antes, e o Redação gera o termo de entrega para assinar.',
+            texto: 'Registre o que foi entregue e para quem. Os itens saem do Estoque, o que vence primeiro antes, e o Palácio Virtual gera o termo de entrega para assinar.',
           },
           {
             alvo: 'patrimonio.entregar-quem',
@@ -364,7 +364,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.entregar-registrar',
             titulo: 'Registrar e emitir termo',
-            texto: 'O Redação numera a entrega (ex.: ENT-2026-0001) e abre a tela com “Termo para assinar (PDF)”. Imprima e colha a assinatura de quem recebeu.',
+            texto: 'O Palácio Virtual numera a entrega (ex.: ENT-2026-0001) e abre a tela com “Termo para assinar (PDF)”. Imprima e colha a assinatura de quem recebeu.',
             lado: 'top',
           },
         ],
@@ -453,7 +453,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.veiculo-documentos',
             titulo: 'Documentos',
-            texto: 'CRLV, licenciamento, seguro, vistorias. Com vencimento, o Redação avisa 30 e 7 dias antes e no dia seguinte ao vencimento. Quem opera cadastra pelo botão “Documento”.',
+            texto: 'CRLV, licenciamento, seguro, vistorias. Com vencimento, o Palácio Virtual avisa 30 e 7 dias antes e no dia seguinte ao vencimento. Quem opera cadastra pelo botão “Documento”.',
           },
           {
             alvo: 'patrimonio.veiculo-diario',
@@ -512,7 +512,7 @@ export const guias: GuiaDaArea[] = [
         tour: [
           {
             titulo: 'Inventário físico',
-            texto: 'Conferir, bem a bem, que tudo está onde o Redação diz. Com o inventário aberto, leia o QR da etiqueta com o celular e marque “Está aqui” na página do bem.',
+            texto: 'Conferir, bem a bem, que tudo está onde o Palácio Virtual diz. Com o inventário aberto, leia o QR da etiqueta com o celular e marque “Está aqui” na página do bem.',
           },
           {
             alvo: 'patrimonio.inventario-abrir',
@@ -585,7 +585,7 @@ export const guias: GuiaDaArea[] = [
         titulo: 'Entregar um bem a alguém e registrar a devolução',
         passos: [
           'Abra o bem, pela lista de “Bens” ou lendo o QR da etiqueta.',
-          'Use “Entregar a alguém” e escolha “Equipe (login do Redação)” ou “Voluntário”.',
+          'Use “Entregar a alguém” e escolha “Equipe (login do Palácio Virtual)” ou “Voluntário”.',
           'Em “Quem recebe”, escolha a pessoa. Se o bem tem de voltar numa data, preencha “Devolver até (opcional)”; em “Observação”, anote o que foi junto.',
           'Use “Registrar entrega”. A pessoa da equipe recebe um aviso para aceitar o termo em “Comigo”; quem é voluntário aceita na Área do Voluntário e, se tiver e-mail cadastrado, recebe o aviso por e-mail.',
           'Quando o bem voltar, abra a página dele e use “Registrar devolução”.',
@@ -696,7 +696,7 @@ export const guias: GuiaDaArea[] = [
           'Confira o “Hodômetro na saída”, escolha a “Finalidade”, escreva o “Destino” e use “Registrar saída”.',
           'Na volta, use “Retorno” e informe o “Hodômetro na chegada”.',
           'Anote em “Ocorrências” o que houve (luz acesa, pneu baixo) e use “Registrar retorno”.',
-          'Se abasteceu, use “Abastecer” e marque “Encheu o tanque” quando encher: é assim que o Redação calcula o consumo.',
+          'Se abasteceu, use “Abastecer” e marque “Encheu o tanque” quando encher: é assim que o Palácio Virtual calcula o consumo.',
         ],
         dica: 'Veículo “Em manutenção” ou “Fora de uso” não mostra “Saída”; em viagem, o botão vira “Retorno”. Se a viagem venceu um plano de manutenção por km, quem opera o Patrimônio recebe aviso.',
         quem: 'Nível “Operar” ou “Gestão”',
@@ -749,7 +749,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'ler-o-qr',
         pergunta: 'O que acontece quando alguém lê o QR da etiqueta?',
-        resposta: 'O celular abre a página do bem no Redação, pedindo login antes se preciso. Sem nível no Patrimônio, a pessoa só abre um bem que esteja com ela.',
+        resposta: 'O celular abre a página do bem no Palácio Virtual, pedindo login antes se preciso. Sem nível no Patrimônio, a pessoa só abre um bem que esteja com ela.',
         termos: ['qr code', 'celular', 'etiqueta', 'escanear'],
       },
       {
@@ -779,12 +779,12 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'material-vencido',
         pergunta: 'Por que o material vencido não sai do estoque?',
-        resposta: 'Material vencido não sai para uso nem para doação: a saída pega primeiro o que vence primeiro e pula o vencido. Abra o material e, na linha do lote vencido, use “Registrar perda” com “Venceu”.\n\nO Redação avisa quem opera o estoque quando um lote entra no prazo de aviso do material e no dia seguinte ao vencimento.',
+        resposta: 'Material vencido não sai para uso nem para doação: a saída pega primeiro o que vence primeiro e pula o vencido. Abra o material e, na linha do lote vencido, use “Registrar perda” com “Venceu”.\n\nO Palácio Virtual avisa quem opera o estoque quando um lote entra no prazo de aviso do material e no dia seguinte ao vencimento.',
         termos: ['validade', 'vencimento', 'lote vencido', 'Este lote está vencido: registre a perda.'],
       },
       {
         id: 'saldo-nao-bate',
-        pergunta: 'O saldo do Redação não bate com a prateleira. O que faço?',
+        pergunta: 'O saldo do Palácio Virtual não bate com a prateleira. O que faço?',
         resposta: 'Abra o material e, na linha do lote, use “Contar”. Informe “Quanto há de fato”; se der diferente, explique em “O que pode ter acontecido”, que aí é obrigatório, e use “Registrar contagem”. O acerto entra nos movimentos como “Ajuste de contagem”.',
         termos: ['contagem', 'ajuste', 'diferença', 'inventário do estoque', 'A contagem deu diferente: diga o que pode ter acontecido.'],
       },

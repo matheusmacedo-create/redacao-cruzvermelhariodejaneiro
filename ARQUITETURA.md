@@ -1,4 +1,4 @@
-# Redação — como este projeto funciona
+# Palácio Virtual (antiga Redação) — como este projeto funciona
 
 Documento de entrada para quem vai mexer aqui: pessoa ou agente. Descreve o que
 o sistema é, como as peças se encaixam, quais convenções valem e quais erros já
@@ -8,8 +8,14 @@ foram pagos caro. Leia inteiro antes da primeira alteração.
 
 ## 1. O que é
 
-**Redação** é o sistema editorial interno da **Cruz Vermelha Brasileira — Rio de
+**Palácio Virtual** é o sistema interno da **Cruz Vermelha Brasileira — Rio de
 Janeiro**, no ar em `redacao.cruzvermelhariodejaneiro.org`.
+
+> **Nome.** Até 26/09/2026 o produto se chamava **Redação**. Nas telas, e-mails e PDFs o nome
+> agora é **Palácio Virtual** (com artigo masculino: "o Palácio Virtual", "no Palácio Virtual").
+> O domínio, o repositório, as variáveis, as tabelas e os nomes no código continuam com
+> `redacao`, e os comentários e documentos antigos ainda dizem "Redação": é o mesmo sistema.
+> Texto novo para a tela usa "Palácio Virtual".
 
 Ele resolve um problema concreto: as coordenações da instituição (Humanitário,
 GRD, Saúde, Voluntariado, Primeiros Socorros, Diretoria) fazem coisas o tempo

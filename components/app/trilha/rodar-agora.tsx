@@ -27,7 +27,7 @@ const RODADAS: Record<Rodada, {
     rodando: 'Conferindo a cadeia…',
     ajuda: 'Refaz o hash de cada evento e as contas de cada lote, desde o primeiro registro. Leva alguns segundos.',
     pergunta: 'Conferir a cadeia agora?',
-    explicacao: 'A Redação refaz o hash de cada evento, fluxo por fluxo, e as contas de todos os lotes. Nenhum registro muda: o resultado só é acrescentado à própria trilha, como mais um evento de conferência.',
+    explicacao: 'O Palácio Virtual refaz o hash de cada evento, fluxo por fluxo, e as contas de todos os lotes. Nenhum registro muda: o resultado só é acrescentado à própria trilha, como mais um evento de conferência.',
     confirmar: 'Conferir agora',
     naoTerminou: 'A conferência não terminou.',
     Icone: ShieldCheck,

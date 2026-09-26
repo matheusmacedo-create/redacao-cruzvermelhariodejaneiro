@@ -29,8 +29,8 @@ export default async function VerificacaoPage() {
         <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">{cadastrar ? 'Ative a verificação em duas etapas' : 'Digite o código do app'}</h1>
         <p className="mt-3 leading-relaxed text-muted-foreground">
           {cadastrar
-            ? `Olá, ${primeiroNome}. Para o seu papel, a Redação exige, além da senha, um código gerado por um app no seu celular. Leva um minuto.`
-            : 'Abra o app autenticador no seu celular e digite o número de 6 dígitos da Redação CVB-RJ.'}
+            ? `Olá, ${primeiroNome}. Para o seu papel, o Palácio Virtual exige, além da senha, um código gerado por um app no seu celular. Leva um minuto.`
+            : 'Abra o app autenticador no seu celular e digite o número de 6 dígitos do Palácio Virtual CVB-RJ.'}
         </p>
         <div className="mt-8 rounded-xl border border-border bg-card p-6">
           <EtapaDeVerificacao

@@ -80,7 +80,7 @@ export default async function CerebroPage() {
     <div>
       <PageHeader
         title="Radar de pautas"
-        description="O que o Cérebro leu nas contas oficiais do Rio: fato, raciocínio, plano por canal e o que não pode. O Cérebro recomenda; quem produz e publica é a Redação."
+        description="O que o Cérebro leu nas contas oficiais do Rio: fato, raciocínio, plano por canal e o que não pode. O Cérebro recomenda; quem produz e publica é o Palácio Virtual."
         actions={
           <a
             href={urlDoCerebro()}

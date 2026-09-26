@@ -147,7 +147,7 @@ export function ligarFormularioNaHome(html: string, urlDaRota: string): Resultad
   return {
     estado: 'trocado',
     html: novo,
-    detalhe: 'O formulário da home passou a enviar para a Redação, com aceite de consentimento e proteção contra robô.',
+    detalhe: 'O formulário da home passou a enviar para o Palácio Virtual, com aceite de consentimento e proteção contra robô.',
   }
 }
 

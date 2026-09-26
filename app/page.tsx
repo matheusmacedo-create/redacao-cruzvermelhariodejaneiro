@@ -98,8 +98,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="w-full max-w-md">
           <BrandMark className="w-72 items-start" />
           <div className="mt-12">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Redação institucional</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse a Redação Cruz Vermelha Brasileira Rio de Janeiro'}</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Palácio Virtual</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse o Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro'}</h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
           <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} /></div>
@@ -124,7 +124,7 @@ function SemAcesso() {
       <div className="w-full max-w-md">
         <BrandMark className="w-72 items-start" />
         <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive"><TriangleAlert className="size-6" /></div>
-        <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Sem acesso à Redação</h1>
+        <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Sem acesso ao Palácio Virtual</h1>
         <p className="mt-3 leading-relaxed text-muted-foreground">Sua conta está desativada ou não está vinculada a nenhum espaço. Se isso não era esperado, fale com um administrador.</p>
         <form action="/auth/signout" method="post" className="mt-6"><Button type="submit" size="lg">Sair e entrar com outra conta</Button></form>
       </div>

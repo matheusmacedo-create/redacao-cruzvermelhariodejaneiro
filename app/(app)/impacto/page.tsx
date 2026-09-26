@@ -68,7 +68,7 @@ export default async function ImpactoPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><p className="text-sm font-semibold">Analytics em implantação</p></div>
-            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">Esta primeira versão usa somente dados que o Redação já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site aparecerão aqui quando as fontes analíticas forem conectadas — sem números estimados ou inventados.</p>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">Esta primeira versão usa somente dados que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site aparecerão aqui quando as fontes analíticas forem conectadas — sem números estimados ou inventados.</p>
           </div>
           <div className="shrink-0 rounded-lg bg-background px-4 py-3 text-xs text-muted-foreground shadow-sm ring-1 ring-border">Período atual: últimos 30 dias</div>
         </div>

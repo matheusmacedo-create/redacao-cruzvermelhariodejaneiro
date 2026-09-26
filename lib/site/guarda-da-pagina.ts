@@ -15,7 +15,7 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
 const VAZAMENTOS: { padrao: RegExp; motivo: string }[] = [
   { padrao: /\/api\/private-blob|%2Fapi%2Fprivate-blob/i, motivo: 'endereço de arquivo privado da Biblioteca (/api/private-blob)' },
-  { padrao: /blob\.vercel-storage\.com/i, motivo: 'endereço do armazenamento de arquivos da Redação (blob.vercel-storage.com)' },
+  { padrao: /blob\.vercel-storage\.com/i, motivo: 'endereço do armazenamento de arquivos do Palácio Virtual (blob.vercel-storage.com)' },
   { padrao: new RegExp(`workspaces(?:/|%2F)${UUID}`, 'i'), motivo: 'caminho interno de um espaço de trabalho (workspaces/…)' },
   { padrao: /\blocalhost\b|127\.0\.0\.1/i, motivo: 'endereço de máquina local (localhost)' },
   { padrao: /cruzvermelharj\.org\.br/i, motivo: 'o domínio antigo da filial, que não pode ser citado nem linkado' },

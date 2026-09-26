@@ -27,7 +27,7 @@ function NotaDaPasta({ prefixo }: { prefixo: string }) {
   if (!prefixo) {
     return (
       <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-        <li><span className="font-mono">entrada/</span> é a caixa de entrada, <strong className="text-foreground">sem trava</strong>: o que chegou e ainda não foi organizado. Os envios pela Redação caem em <span className="font-mono">entrada/redacao/</span>.</li>
+        <li><span className="font-mono">entrada/</span> é a caixa de entrada, <strong className="text-foreground">sem trava</strong>: o que chegou e ainda não foi organizado. Os envios pelo Palácio Virtual caem em <span className="font-mono">entrada/redacao/</span>.</li>
         <li><span className="font-mono">site/</span> guarda cópias do site no ar, uma pasta por dia. Não entram no catálogo.</li>
         <li>Nas outras pastas (<span className="font-mono">documentos/</span>, <span className="font-mono">fotos/</span>…) vale a <strong className="text-foreground">trava de 30 dias</strong>: nada se apaga nem se troca antes disso.</li>
       </ul>
@@ -183,7 +183,7 @@ export function PastasDoAcervo({ ativa, podeGerenciar, aoRecado, abrirFicha, pai
           </Button>
         </div>
         {podeGerenciar && !pasta.prefixo && (
-          <p className="text-xs text-pretty text-muted-foreground">Arquivo que entrou por fora da Redação (painel da Cloudflare, Cyberduck, rclone) aparece aqui: “Catalogar” dá a ele uma ficha no catálogo.</p>
+          <p className="text-xs text-pretty text-muted-foreground">Arquivo que entrou por fora do Palácio Virtual (painel da Cloudflare, Cyberduck, rclone) aparece aqui: “Catalogar” dá a ele uma ficha no catálogo.</p>
         )}
       </div>
 

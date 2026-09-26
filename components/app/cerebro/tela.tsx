@@ -128,7 +128,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
     return (
       <div className="mt-4 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">Cérebro indisponível.</span> {erro} O resto da
-        Redação não é afetado — tente de novo em instantes.
+        Palácio Virtual não é afetado — tente de novo em instantes.
       </div>
     )
   }
@@ -251,7 +251,7 @@ function flagsDe(p: PautaDoCerebro, pacote?: PacoteDoSinal): { texto: string; al
   // O que a Casa já fez vem primeiro: é o que muda a decisão de quem olha.
   if (pacote) f.push({ texto: `Pacote · ${STATUS_DO_PACOTE[pacote.status] ?? pacote.status}`, destaque: true })
   else if (p.naRedacao?.publicadoEm) f.push({ texto: 'Publicado pela Casa', destaque: true })
-  else if (p.naRedacao?.pautadoEm) f.push({ texto: 'Em pauta na Redação', destaque: true })
+  else if (p.naRedacao?.pautadoEm) f.push({ texto: 'Em pauta no Palácio Virtual', destaque: true })
   if (p.agrupados?.quantidade) f.push({ texto: `+${p.agrupados.quantidade} boletins juntos` })
   if (p.midia) {
     if (p.midia.podePublicar) f.push({ texto: 'Mídia autorizada' })
@@ -703,7 +703,7 @@ ${linhas(filas.monitorar)}
 NÃO PODE HOJE
 ${naoFalar.map((x) => `· ${x}`).join('\n') || '· —'}
 
-Fonte: leitura das contas oficiais e do acervo documental. O Cérebro recomenda; quem decide é a Redação.`
+Fonte: leitura das contas oficiais e do acervo documental. O Cérebro recomenda; quem decide é o Palácio Virtual.`
   const [copiado, setCopiado] = useState(false)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" onClick={fechar}>

@@ -77,7 +77,7 @@ export default async function CentralDeAjudaPage() {
       {TOPICOS_GERAIS.length > 0 && (
         <section aria-labelledby="secao-ajuda-geral" className="mt-12">
           <h2 id="secao-ajuda-geral" className="text-lg font-semibold">Ajuda geral</h2>
-          <p className="mt-1 text-sm text-muted-foreground">O que vale em toda a Redação, seja qual for a área.</p>
+          <p className="mt-1 text-sm text-muted-foreground">O que vale em toda o Palácio Virtual, seja qual for a área.</p>
           <nav aria-label="Tópicos da ajuda geral" className="mt-4 flex flex-wrap gap-2">
             {TOPICOS_GERAIS.map((t) => <a key={t.id} href={`#${t.id}`} className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm hover:bg-muted">{t.titulo}</a>)}
           </nav>

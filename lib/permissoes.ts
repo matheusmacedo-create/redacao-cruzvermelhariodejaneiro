@@ -38,7 +38,7 @@ export const PAPEL: Record<Papel, { rotulo: string; descricao: string }> = {
   // A Escola é uma empresa à parte: a equipe dela entra só na área da Escola.
   escola: {
     rotulo: 'Equipe da escola',
-    descricao: 'Vê só a Escola de Educação e Saúde: vendas, marketing, advertoriais e, se um admin liberar, os livros da Escola no Financeiro. Nada do resto da Redação.',
+    descricao: 'Vê só a Escola de Educação e Saúde: vendas, marketing, advertoriais e, se um admin liberar, os livros da Escola no Financeiro. Nada do resto do Palácio Virtual.',
   },
 }
 

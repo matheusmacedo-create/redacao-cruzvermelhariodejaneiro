@@ -135,7 +135,7 @@ export async function GET() {
 
       // Escrita e remoção: é o que o publicador vai fazer de verdade. Falhar
       // aqui com a conexão funcionando aponta para permissão da conta FTP.
-      const corpo = 'Arquivo temporário de diagnóstico da Redação. Pode ser apagado.\n'
+      const corpo = 'Arquivo temporário de diagnóstico do Palácio Virtual. Pode ser apagado.\n'
       await client.uploadFrom(Readable.from([corpo]), nomeTemp)
       probes.push({ etapa: 'gravar arquivo', ok: true, detalhe: `${nomeTemp} em ${pastaDePublicacao}` })
 

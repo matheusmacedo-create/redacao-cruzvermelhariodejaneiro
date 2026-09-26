@@ -77,7 +77,7 @@ ${regras.map((r) => `  ${r}`).join('\n')}
 </IfModule>
 `
     : ''
-  return `# Gerado pela Redação — cruzvermelhariodejaneiro.org
+  return `# Gerado pelo Palácio Virtual — cruzvermelhariodejaneiro.org
 # HTML sempre revalidado (o navegador confere o ETag antes de usar);
 # mídia com cache de uma semana.
 <IfModule mod_headers.c>

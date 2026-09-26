@@ -36,7 +36,7 @@ export default async function NotificacoesPage({ searchParams }: { searchParams:
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Notificações"
-        description="Tudo o que aconteceu com você na Redação. O que você não abrir aqui também chega no seu e-mail de recuperação, do jeito que você escolher no perfil."
+        description="Tudo o que aconteceu com você no Palácio Virtual. O que você não abrir aqui também chega no seu e-mail de recuperação, do jeito que você escolher no perfil."
       />
       <div data-ajuda="notificacoes.filtros" className="mb-4 flex flex-wrap items-center gap-2">
         <Link href={href(1, false)} className={cn('rounded-full border px-3 py-1.5 text-sm', !soNaoLidas ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>Todas</Link>

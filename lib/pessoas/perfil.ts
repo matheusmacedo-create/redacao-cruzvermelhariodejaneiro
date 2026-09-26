@@ -37,9 +37,9 @@ export const CANAIS = {
 export type Canal = keyof typeof CANAIS
 
 export const VISIBILIDADES = {
-  equipe: { rotulo: 'Toda a equipe', ajuda: 'Qualquer pessoa com acesso à Redação.' },
+  equipe: { rotulo: 'Toda a equipe', ajuda: 'Qualquer pessoa com acesso ao Palácio Virtual.' },
   setor: { rotulo: 'Só o meu setor', ajuda: 'Quem é do mesmo setor que você (e administradores).' },
-  admins: { rotulo: 'Só administradores', ajuda: 'Só quem administra a Redação.' },
+  admins: { rotulo: 'Só administradores', ajuda: 'Só quem administra o Palácio Virtual.' },
 } as const
 export type Visibilidade = keyof typeof VISIBILIDADES
 

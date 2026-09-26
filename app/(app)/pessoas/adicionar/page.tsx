@@ -38,7 +38,7 @@ export default async function AdicionarPage({ searchParams }: { searchParams: Pr
   return (
     <div className="flex flex-col gap-6">
       <Link href="/pessoas" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Diretório</Link>
-      <PageHeader title="Adicionar pessoas à Redação" description="Convite por e-mail: a pessoa recebe o usuário e cria a própria senha — ninguém mais a conhece. Para quem não tem e-mail, use a senha temporária em Usuários." />
+      <PageHeader title="Adicionar pessoas ao Palácio Virtual" description="Convite por e-mail: a pessoa recebe o usuário e cria a própria senha — ninguém mais a conhece. Para quem não tem e-mail, use a senha temporária em Usuários." />
       <AdicionarPessoas candidatos={candidatos} pendentes={pendentes} setores={setores} envioConfigurado={emailConfigurado()} inicial={sp.nome} />
     </div>
   )

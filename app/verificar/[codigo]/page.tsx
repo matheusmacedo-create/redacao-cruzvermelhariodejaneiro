@@ -59,7 +59,7 @@ export default async function VerificarOficio({ params }: { params: Promise<{ co
           assinaturas={(assinantes ?? []).map((a) => ({ ordem: a.ordem, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinado_em, metodo: a.metodo, titularDoCertificado: (a.certificado as { titular?: string } | null)?.titular ?? null }))}
           rodape={
             <div className="flex flex-col gap-1">
-              <p>Documento assinado eletronicamente {o.modo_assinatura === 'govbr' ? 'por meio da plataforma gov.br' : 'no sistema Redação'} da {doc.emitente}. Confira a autenticidade em redacao.cruzvermelhariodejaneiro.org/verificar/{codigo}</p>
+              <p>Documento assinado eletronicamente {o.modo_assinatura === 'govbr' ? 'por meio da plataforma gov.br' : 'no sistema Palácio Virtual'} da {doc.emitente}. Confira a autenticidade em redacao.cruzvermelhariodejaneiro.org/verificar/{codigo}</p>
               <p>Código do documento (SHA-256): <span className="break-all font-mono">{o.hash_documento}</span></p>
               {o.hash_manifesto && <p>Manifesto de assinaturas (SHA-256): <span className="break-all font-mono">{o.hash_manifesto}</span>{carimbo?.estado === 'confirmado' && carimbo.bloco ? ` — registrado no bloco ${carimbo.bloco.toLocaleString('pt-BR')} do Bitcoin` : ''}</p>}
             </div>

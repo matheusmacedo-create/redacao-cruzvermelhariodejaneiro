@@ -201,7 +201,7 @@ const FINANCEIRO: GuiaDaArea = {
         {
           alvo: 'financeiro.conciliacao-resumo',
           titulo: 'Como está a conta',
-          texto: 'Quantas linhas faltam conciliar, quantas já foram e quantas ficaram de fora. Com extrato em OFX, o último cartão compara o saldo do banco com o da Redação.',
+          texto: 'Quantas linhas faltam conciliar, quantas já foram e quantas ficaram de fora. Com extrato em OFX, o último cartão compara o saldo do banco com o do Palácio Virtual.',
           seAusente: 'pular',
         },
         {
@@ -213,7 +213,7 @@ const FINANCEIRO: GuiaDaArea = {
         {
           alvo: 'financeiro.conciliar-sugestoes',
           titulo: 'As sugestões de uma vez',
-          texto: 'Quando um único lançamento tem o mesmo valor e data próxima, a Redação sugere. O botão “Conciliar as … sugestões” aceita todas de uma vez.',
+          texto: 'Quando um único lançamento tem o mesmo valor e data próxima, o Palácio Virtual sugere. O botão “Conciliar as … sugestões” aceita todas de uma vez.',
           lado: 'bottom',
           seAusente: 'pular',
         },
@@ -526,7 +526,7 @@ const FINANCEIRO: GuiaDaArea = {
     },
     {
       id: 'aviso-de-vencimento',
-      pergunta: 'A Redação avisa das contas que vencem?',
+      pergunta: 'O Palácio Virtual avisa das contas que vencem?',
       resposta: 'Sim. Toda manhã, os administradores e quem tem nível Lançar, Aprovar ou Gestão recebem no sino o aviso das contas a pagar que vencem hoje, das atrasadas e das que vencem nos próximos 3 dias (despesa esperando aprovação ou recusada fica de fora). O e-mail segue a preferência de cada pessoa no assunto “Financeiro”. No dia 5, a gestão é lembrada de fechar o mês anterior, se ainda estiver aberto.',
       termos: ['lembrete', 'notificação', 'vencimento', 'e-mail', 'alerta', 'contas a pagar'],
     },
@@ -538,7 +538,7 @@ const FINANCEIRO: GuiaDaArea = {
     },
     {
       id: 'saldo-nao-bate',
-      pergunta: 'O saldo da Redação não bate com o do banco. E agora?',
+      pergunta: 'O saldo do Palácio Virtual não bate com o do banco. E agora?',
       resposta: 'Confira na “Conciliação” se todo o extrato da conta está conciliado e se nenhum pagamento foi lançado com data ou valor diferente. Confira também o “Saldo inicial” da conta em “Cadastros”: o saldo de hoje é ele mais tudo o que foi pago e recebido depois. A comparação automática com o banco só aparece quando o extrato vem em OFX.',
       termos: ['saldo errado', 'diferença', 'não bate', 'Saldo bate com o do banco'],
     },
@@ -828,7 +828,7 @@ const CANAIS: GuiaDaArea = {
 
 const TRILHA: GuiaDaArea = {
   href: '/trilha-publica',
-  paraQueServe: 'O registro verificável do que a filial publica e emite: matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e um hash, e todo dia um lote é fechado, assinado e ancorado no Bitcoin, para qualquer pessoa conferir sem depender da Redação. Esta tela acompanha a saúde disso tudo.',
+  paraQueServe: 'O registro verificável do que a filial publica e emite: matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e um hash, e todo dia um lote é fechado, assinado e ancorado no Bitcoin, para qualquer pessoa conferir sem depender do Palácio Virtual. Esta tela acompanha a saúde disso tudo.',
   quemUsa: 'Só administradores. A consulta pública, na página de verificação do site, mostra bem menos do que esta tela.',
   tour: [
     {

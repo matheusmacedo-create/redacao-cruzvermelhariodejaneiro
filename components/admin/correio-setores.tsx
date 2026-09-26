@@ -330,9 +330,9 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
       )}
       <p className="text-xs text-muted-foreground">
         Assinatura de cada endereço: no Gmail, Configurações → Geral → Assinatura — crie uma por setor e escolha-a em “Padrões de assinatura” para o endereço dele.
-        Nome do remetente: o daqui vale para tudo que sai pela Redação. Para o que a equipe envia direto pelo Gmail, use o mesmo nome em
+        Nome do remetente: o daqui vale para tudo que sai pelo Palácio Virtual. Para o que a equipe envia direto pelo Gmail, use o mesmo nome em
         Configurações → Contas → Enviar e-mail como → editar informações.
-        A Redação não deixa ninguém editar assinatura na hora de enviar.
+        O Palácio Virtual não deixa ninguém editar assinatura na hora de enviar.
       </p>
     </Card>
   )

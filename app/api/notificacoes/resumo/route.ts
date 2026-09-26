@@ -60,7 +60,7 @@ export async function GET(request: Request) {
     const itens = (porPessoa.get(pessoa.id) ?? []).filter((a) => !ehCategoria(a.categoria) || escolhas[a.categoria] !== 'nunca')
     const doChatDela = escolhas.chat === 'nunca' ? [] : (chatDe.get(pessoa.id) ?? []).sort((a, b) => b.novas - a.novas)
     if (!itens.length && !doChatDela.length) continue
-    const itensDoChat = doChatDela.map((c) => ({ titulo: `#${c.nome}: ${c.novas} ${c.novas === 1 ? 'mensagem nova' : 'mensagens novas'}`, mensagem: 'No chat da Redação.', link: `/chat/${c.canal_id}` }))
+    const itensDoChat = doChatDela.map((c) => ({ titulo: `#${c.nome}: ${c.novas} ${c.novas === 1 ? 'mensagem nova' : 'mensagens novas'}`, mensagem: 'No chat do Palácio Virtual.', link: `/chat/${c.canal_id}` }))
     const enviado = await enviarComSeguranca(pessoa.email, emailDeResumo({
       urlBase: urlBase(), nome: pessoa.full_name, total: itens.length + itensDoChat.length,
       itens: [...itensDoChat, ...itens.map((a) => ({ titulo: a.title, mensagem: a.message, link: a.link }))],

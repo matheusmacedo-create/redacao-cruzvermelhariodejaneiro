@@ -19,7 +19,7 @@ import type { GuiaDaArea } from '../tipos'
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
   paraQueServe: 'O Início é o resumo do dia. Em cima, o que é seu: as suas pautas por prazo e o que espera o seu voto. No meio, a semana da operação (o que vai ao ar, o que saiu e o que falhou) e, embaixo, quatro indicadores dos últimos 30 dias.',
-  quemUsa: 'Toda a equipe da Redação. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
+  quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   tour: [
     {
       titulo: 'O seu Início',
@@ -504,7 +504,7 @@ const APROVACOES: GuiaDaArea = {
 
 const NOTIFICACOES: GuiaDaArea = {
   href: '/notificacoes',
-  paraQueServe: 'Tudo o que aconteceu com você na Redação, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
+  paraQueServe: 'Tudo o que aconteceu com você no Palácio Virtual, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
   quemUsa: 'Cada pessoa vê só as próprias notificações. Vale para toda a equipe, inclusive a da escola.',
   tour: [
     {
@@ -610,13 +610,13 @@ const NOTIFICACOES: GuiaDaArea = {
     {
       id: 'email-nao-chegou',
       pergunta: 'Por que não recebi o e-mail de uma notificação?',
-      resposta: 'O e-mail só vai para um e-mail de recuperação confirmado e segue a sua escolha para aquele assunto. Se você estava com a Redação aberta, ele não sai na hora: se continuar sem ler, vai no resumo do dia. Sobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos.',
+      resposta: 'O e-mail só vai para um e-mail de recuperação confirmado e segue a sua escolha para aquele assunto. Se você estava com o Palácio Virtual aberto, ele não sai na hora: se continuar sem ler, vai no resumo do dia. Sobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos.',
       termos: ['e-mail', 'não chegou', 'spam'],
     },
     {
       id: 'resumo-diario',
       pergunta: 'O que é o “Resumo diário”?',
-      resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com a Redação aberta. O que você já leu não entra, nem aviso de mais de 3 dias.',
+      resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com o Palácio Virtual aberto. O que você já leu não entra, nem aviso de mais de 3 dias.',
       termos: ['resumo', 'e-mail diário', 'digest'],
     },
     {

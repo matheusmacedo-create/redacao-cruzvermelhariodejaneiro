@@ -140,7 +140,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Acessos"
-        description="Quem entrou na Redação e na Área do Voluntário, quando, de onde e com qual aparelho — inclusive as tentativas erradas e os bloqueios. Só você vê esta página; cada consulta fica registrada."
+        description="Quem entrou no Palácio Virtual e na Área do Voluntário, quando, de onde e com qual aparelho — inclusive as tentativas erradas e os bloqueios. Só você vê esta página; cada consulta fica registrada."
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

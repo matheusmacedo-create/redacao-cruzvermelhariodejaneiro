@@ -135,7 +135,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
 
       <Card className="p-4" id="sistema-da-escola">
         <h2 className="text-sm font-medium">Alunos, turmas e secretaria</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Ficha do aluno, turma, triagem e presença ficam no sistema da escola. A Redação guarda só a parte administrativa.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Ficha do aluno, turma, triagem e presença ficam no sistema da escola. O Palácio Virtual guarda só a parte administrativa.</p>
         {sistemas.length > 0 ? (
           <div className="mt-3 flex flex-wrap gap-2">
             {sistemas.map((c) => <Button key={c.id} variant="outline" size="sm" render={<a href={c.sistema_url!} target="_blank" rel="noopener noreferrer" />}>{c.nome}<ExternalLink className="size-3.5" /></Button>)}

@@ -92,7 +92,7 @@ export function PainelDoOficio(props: {
       {devoAssinar && props.modo === 'senha' && (
         <Card data-ajuda="oficios.assinar" className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
           <p className="text-sm font-semibold">Este ofício espera a sua assinatura.</p>
-          <p className="text-xs text-muted-foreground">Leia a folha ao lado. Ao assinar, você confirma este texto — identificado pelo código abaixo — com a sua senha do Redação.</p>
+          <p className="text-xs text-muted-foreground">Leia a folha ao lado. Ao assinar, você confirma este texto — identificado pelo código abaixo — com a sua senha do Palácio Virtual.</p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => setDialogo('assinar')}><Signature className="size-4" />Assinar</Button>
             <Button variant="outline" onClick={() => setDialogo('recusar')}>Recusar</Button>
@@ -162,9 +162,9 @@ export function PainelDoOficio(props: {
           <>
             <p className="text-xs text-muted-foreground">
               {c.estado === 'confirmado'
-                ? <>Gravado no bloco <a href={`https://mempool.space/block/${c.bloco}`} target="_blank" rel="noreferrer" className="font-semibold text-foreground underline">{c.bloco?.toLocaleString('pt-BR')}</a>{c.confirmadoEm ? `, conferido em ${momento(c.confirmadoEm)}` : ''}. A prova vale por si, mesmo sem o Redação.</>
+                ? <>Gravado no bloco <a href={`https://mempool.space/block/${c.bloco}`} target="_blank" rel="noreferrer" className="font-semibold text-foreground underline">{c.bloco?.toLocaleString('pt-BR')}</a>{c.confirmadoEm ? `, conferido em ${momento(c.confirmadoEm)}` : ''}. A prova vale por si, mesmo sem o Palácio Virtual.</>
                 : c.estado === 'enviado'
-                  ? <>Enviado aos calendários do OpenTimestamps{c.enviadoEm ? ` em ${momento(c.enviadoEm)}` : ''}. Entra num bloco do Bitcoin em algumas horas; o Redação confere sozinho.</>
+                  ? <>Enviado aos calendários do OpenTimestamps{c.enviadoEm ? ` em ${momento(c.enviadoEm)}` : ''}. Entra num bloco do Bitcoin em algumas horas; o Palácio Virtual confere sozinho.</>
                   : 'Na fila para ser enviado aos calendários.'}
             </p>
             {c.ultimoErro && c.estado !== 'confirmado' && <p className="text-xs text-destructive">Última tentativa: {c.ultimoErro}</p>}
@@ -203,7 +203,7 @@ export function PainelDoOficio(props: {
               <input id="oficio-concordo" type="checkbox" checked={concordo} onChange={(e) => setConcordo(e.target.checked)} className="mt-1 size-4 accent-primary" />
               <span>Li o ofício e concordo com o texto identificado pelo código acima.</span>
             </label>
-            <label className="flex flex-col gap-1 text-sm font-medium">Sua senha do Redação
+            <label className="flex flex-col gap-1 text-sm font-medium">Sua senha do Palácio Virtual
               <input id="oficio-senha" type="password" autoComplete="current-password" value={senha} onChange={(e) => setSenha(e.target.value)} className={inputClass} />
             </label>
             {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
@@ -302,7 +302,7 @@ function AssinarNoGovbr({ id, versao, aoConcluir }: { id: string; versao: number
         </li>
       </ol>
       {erro && <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{erro}</p>}
-      <p className="text-[11px] text-muted-foreground">O Redação confere se o PDF é este ofício, se a assinatura é íntegra, se o certificado é do gov.br ou da ICP-Brasil e se está no seu nome.</p>
+      <p className="text-[11px] text-muted-foreground">O Palácio Virtual confere se o PDF é este ofício, se a assinatura é íntegra, se o certificado é do gov.br ou da ICP-Brasil e se está no seu nome.</p>
     </Card>
   )
 }
