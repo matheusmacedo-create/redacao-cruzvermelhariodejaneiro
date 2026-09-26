@@ -556,7 +556,7 @@ export async function convidarEmLote(convites: ConviteEmLote[]): Promise<{ erro?
 async function convitePendente(admin: Admin, workspaceId: string, userId: string) {
   const alvo = await carregarAlvo(admin, workspaceId, userId)
   const { data } = await admin.auth.admin.getUserById(alvo.id)
-  if (data.user?.last_sign_in_at) throw new Error(`${alvo.full_name} já entrou na Redação: não há convite pendente.`)
+  if (data.user?.last_sign_in_at) throw new Error(`${alvo.full_name} já entrou no Palácio Virtual: não há convite pendente.`)
   return alvo
 }
 

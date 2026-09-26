@@ -85,7 +85,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
       <Secao titulo="Identificação">
         <Campo rotulo="Nome completo" largo><input id="e-nome" name="nome" required minLength={2} maxLength={200} defaultValue={v('nome')} className={inputClass} /></Campo>
         <Campo rotulo="Nome social" dica="Opcional. Aparece no lugar do nome."><input id="e-nome-social" name="nome_social" maxLength={200} defaultValue={v('nome_social')} className={inputClass} /></Campo>
-        <Campo rotulo="Login no Redação" dica="Liga a ficha à conta de acesso, se a pessoa tiver.">
+        <Campo rotulo="Login no Palácio Virtual" dica="Liga a ficha à conta de acesso, se a pessoa tiver.">
           <select id="e-login" data-ajuda="rh.login" name="user_id" defaultValue={v('user_id')} className={inputClass}>
             <option value="">Sem login</option>{logins.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>

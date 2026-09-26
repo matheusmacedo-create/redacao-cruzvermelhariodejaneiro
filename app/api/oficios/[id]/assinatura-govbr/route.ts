@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   ])
   if (!o) return erro('Ofício não encontrado.', 404)
   if (o.estado !== 'em_assinatura') return erro('Este ofício não está aguardando assinatura.', 409)
-  if (o.modo_assinatura !== 'govbr') return erro('Este ofício é assinado com a senha do Redação.', 409)
+  if (o.modo_assinatura !== 'govbr') return erro('Este ofício é assinado com a senha do Palácio Virtual.', 409)
   if (minha?.estado !== 'pendente') return erro('Você não está entre quem assina este ofício, ou já assinou.', 403)
 
   try {

@@ -464,7 +464,7 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
   return (
     <Dialog
       titulo={inicial.rascunho ? 'Rascunho de campanha' : inicial.origem ? 'Follow-up' : 'Nova campanha'}
-      descricao="Sai da Redação, fica registrada para toda a equipe e mostra quem abriu e clicou."
+      descricao="Sai do Palácio Virtual, fica registrada para toda a equipe e mostra quem abriu e clicou."
       largura="max-w-2xl"
       onFechar={onFechar}
       podeFechar={!ocupado}

@@ -8,7 +8,7 @@ import { lerToken } from '@/lib/contas/servidor'
 
 // O código do link está na URL: nenhum recurso externo da página pode
 // recebê-lo no cabeçalho Referer.
-export const metadata: Metadata = { title: 'Senha — Redação', referrer: 'no-referrer', robots: { index: false, follow: false } }
+export const metadata: Metadata = { title: 'Senha — Palácio Virtual', referrer: 'no-referrer', robots: { index: false, follow: false } }
 
 /**
  * Definir (convite) ou redefinir a senha pelo link do e-mail.

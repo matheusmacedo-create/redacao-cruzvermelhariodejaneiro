@@ -80,7 +80,7 @@ export function montar(opcoes: { assunto: string; preheader: string; titulo: str
 ${miolo}
 </td></tr>
 <tr><td style="padding:20px 32px 28px;border-top:1px solid ${LINHA};font-family:Arial,Helvetica,sans-serif;color:${SUAVE};font-size:12px;line-height:1.6;">
-${opcoes.rodape ? `${escapar(opcoes.rodape.texto)} <a href="${escapar(opcoes.rodape.url)}" style="color:${SUAVE};text-decoration:underline;">${escapar(opcoes.rodape.rotulo)}</a><br><br>` : ''}Mensagem automática da Redação — sistema interno da Cruz Vermelha Brasileira, filial do Rio de Janeiro. A equipe nunca pede sua senha nem o código do app autenticador, por e-mail ou por telefone.
+${opcoes.rodape ? `${escapar(opcoes.rodape.texto)} <a href="${escapar(opcoes.rodape.url)}" style="color:${SUAVE};text-decoration:underline;">${escapar(opcoes.rodape.rotulo)}</a><br><br>` : ''}Mensagem automática do Palácio Virtual — sistema interno da Cruz Vermelha Brasileira, filial do Rio de Janeiro. A equipe nunca pede sua senha nem o código do app autenticador, por e-mail ou por telefone.
 </td></tr></table></td></tr></table></body></html>`
 
   const texto = [
@@ -90,24 +90,24 @@ ${opcoes.rodape ? `${escapar(opcoes.rodape.texto)} <a href="${escapar(opcoes.rod
       : [b.texto, '']),
     '—',
     ...(opcoes.rodape ? [`${opcoes.rodape.texto} ${opcoes.rodape.rotulo}: ${opcoes.rodape.url}`, ''] : []),
-    'Mensagem automática da Redação — Cruz Vermelha Brasileira, filial do Rio de Janeiro.',
+    'Mensagem automática do Palácio Virtual — Cruz Vermelha Brasileira, filial do Rio de Janeiro.',
     'A equipe nunca pede sua senha nem o código do app autenticador.',
   ].join('\n')
 
   return { assunto: opcoes.assunto, html, texto }
 }
 
-const SE_NAO_FOI_VOCE = 'Se não foi você, redefina sua senha pela tela de login ("Esqueci minha senha") e avise um administrador da Redação.'
+const SE_NAO_FOI_VOCE = 'Se não foi você, redefina sua senha pela tela de login ("Esqueci minha senha") e avise um administrador do Palácio Virtual.'
 
 // ------------------------------------------------------------------ convite
 
 export function emailDeConvite(p: { nome: string; usuario: string; url: string; horas: number; convidadoPor: string }): EmailPronto {
   return montar({
-    assunto: 'Seu acesso à Redação da Cruz Vermelha RJ',
-    preheader: 'Defina sua senha para começar a usar a Redação.',
-    titulo: `Boas-vindas à Redação, ${primeiroNome(p.nome)}`,
+    assunto: 'Seu acesso ao Palácio Virtual da Cruz Vermelha RJ',
+    preheader: 'Defina sua senha para começar a usar o Palácio Virtual.',
+    titulo: `Boas-vindas ao Palácio Virtual, ${primeiroNome(p.nome)}`,
     blocos: [
-      { tipo: 'p', texto: `${p.convidadoPor} criou o seu acesso à Redação, o sistema de comunicação da Cruz Vermelha Brasileira no Rio de Janeiro. Seu usuário para entrar é:` },
+      { tipo: 'p', texto: `${p.convidadoPor} criou o seu acesso ao Palácio Virtual, o sistema de comunicação da Cruz Vermelha Brasileira no Rio de Janeiro. Seu usuário para entrar é:` },
       { tipo: 'destaque', texto: p.usuario },
       { tipo: 'p', texto: 'Para começar, escolha a sua senha:' },
       { tipo: 'botao', rotulo: 'Definir minha senha', url: p.url },
@@ -122,13 +122,13 @@ export function emailDeConvite(p: { nome: string; usuario: string; url: string; 
 export function emailDeRedefinicao(p: { nome: string; usuario: string; url: string; minutos: number; pedidoPor: 'pessoa' | 'admin'; adminNome?: string }): EmailPronto {
   const validade = p.minutos >= 120 ? `${Math.round(p.minutos / 60)} horas` : `${p.minutos} minutos`
   return montar({
-    assunto: 'Redefinição de senha da Redação',
+    assunto: 'Redefinição de senha do Palácio Virtual',
     preheader: 'Link para escolher uma nova senha.',
     titulo: 'Redefinir sua senha',
     blocos: [
       { tipo: 'p', texto: p.pedidoPor === 'admin'
-        ? `Olá, ${primeiroNome(p.nome)}. ${p.adminNome ?? 'Um administrador'} pediu uma nova senha para o seu acesso à Redação (usuário ${p.usuario}).`
-        : `Olá, ${primeiroNome(p.nome)}. Recebemos um pedido para redefinir a senha do seu acesso à Redação (usuário ${p.usuario}).` },
+        ? `Olá, ${primeiroNome(p.nome)}. ${p.adminNome ?? 'Um administrador'} pediu uma nova senha para o seu acesso ao Palácio Virtual (usuário ${p.usuario}).`
+        : `Olá, ${primeiroNome(p.nome)}. Recebemos um pedido para redefinir a senha do seu acesso ao Palácio Virtual (usuário ${p.usuario}).` },
       { tipo: 'botao', rotulo: 'Escolher nova senha', url: p.url },
       { tipo: 'nota', texto: `O link vale por ${validade} e funciona uma vez só. Sua senha atual continua valendo até você escolher a nova. Se você usa verificação em duas etapas, ela continua ativa.` },
       { tipo: 'nota', texto: p.pedidoPor === 'pessoa' ? 'Não foi você? Ignore esta mensagem: sem abrir o link, nada muda. Se receber outras sem ter pedido, avise um administrador.' : 'Não esperava? Fale com um administrador antes de usar o link.' },
@@ -140,11 +140,11 @@ export function emailDeRedefinicao(p: { nome: string; usuario: string; url: stri
 
 export function emailDeConfirmacao(p: { nome: string; email: string; url: string; horas: number }): EmailPronto {
   return montar({
-    assunto: 'Confirme seu e-mail na Redação',
+    assunto: 'Confirme seu e-mail no Palácio Virtual',
     preheader: 'Confirme o endereço que vai receber os avisos da sua conta.',
     titulo: 'Confirme seu e-mail',
     blocos: [
-      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. Este endereço (${p.email}) foi indicado para receber os avisos da sua conta na Redação: links de senha e alertas de segurança.` },
+      { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. Este endereço (${p.email}) foi indicado para receber os avisos da sua conta no Palácio Virtual: links de senha e alertas de segurança.` },
       { tipo: 'botao', rotulo: 'Confirmar este e-mail', url: p.url },
       { tipo: 'nota', texto: `O link vale por ${p.horas} horas. Enquanto não confirmar, os avisos continuam indo para o endereço anterior (se houver).` },
       { tipo: 'nota', texto: 'Não reconhece este pedido? Ignore esta mensagem: sem a confirmação, nada muda.' },
@@ -171,17 +171,17 @@ export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSegu
     senha_alterada: () => {
       const s = a as Extract<AvisoDeSeguranca, { tipo: 'senha_alterada' }>
       return {
-        assunto: 'Sua senha da Redação foi alterada',
+        assunto: 'Sua senha do Palácio Virtual foi alterada',
         titulo: 'Senha alterada',
         blocos: [
-          { tipo: 'p', texto: `${ola} A senha do seu acesso à Redação foi alterada${s.como === 'admin' ? ` por ${s.adminNome ?? 'um administrador'}` : s.como === 'link' ? ' pelo link enviado por e-mail' : ''}. ${data}` },
+          { tipo: 'p', texto: `${ola} A senha do seu acesso ao Palácio Virtual foi alterada${s.como === 'admin' ? ` por ${s.adminNome ?? 'um administrador'}` : s.como === 'link' ? ' pelo link enviado por e-mail' : ''}. ${data}` },
           { tipo: 'p', texto: 'Por segurança, as sessões abertas em outros aparelhos foram encerradas.' },
           { tipo: 'nota', texto: SE_NAO_FOI_VOCE },
         ],
       }
     },
     verificacao_ativada: () => ({
-      assunto: 'Verificação em duas etapas ativada na Redação',
+      assunto: 'Verificação em duas etapas ativada no Palácio Virtual',
       titulo: 'Verificação em duas etapas ativada',
       blocos: [
         { tipo: 'p', texto: `${ola} Um app autenticador foi cadastrado na sua conta. A partir de agora, o login pede o código de 6 dígitos do app além da senha. ${data}` },
@@ -191,48 +191,48 @@ export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSegu
     verificacao_removida: () => {
       const s = a as Extract<AvisoDeSeguranca, { tipo: 'verificacao_removida' }>
       return {
-        assunto: 'Verificação em duas etapas removida na Redação',
+        assunto: 'Verificação em duas etapas removida no Palácio Virtual',
         titulo: 'Verificação em duas etapas removida',
         blocos: [
           { tipo: 'p', texto: `${ola} ${s.porAdmin ? `${s.porAdmin} removeu o app autenticador da sua conta — o que se faz quando alguém perde ou troca de celular.` : 'Um app autenticador foi removido da sua conta.'} ${data}` },
           { tipo: 'p', texto: 'Para voltar a proteger a conta, cadastre o app de novo em Meu perfil → Verificação em duas etapas.' },
-          { tipo: 'botao', rotulo: 'Abrir a Redação', url: p.urlDeLogin },
+          { tipo: 'botao', rotulo: 'Abrir o Palácio Virtual', url: p.urlDeLogin },
           { tipo: 'nota', texto: SE_NAO_FOI_VOCE },
         ],
       }
     },
     conta_desativada: () => ({
-      assunto: 'Seu acesso à Redação foi desativado',
+      assunto: 'Seu acesso ao Palácio Virtual foi desativado',
       titulo: 'Acesso desativado',
       blocos: [
-        { tipo: 'p', texto: `${ola} ${(a as { adminNome: string }).adminNome} desativou o seu acesso à Redação. As sessões abertas foram encerradas e o login deixa de funcionar. ${data}` },
+        { tipo: 'p', texto: `${ola} ${(a as { adminNome: string }).adminNome} desativou o seu acesso ao Palácio Virtual. As sessões abertas foram encerradas e o login deixa de funcionar. ${data}` },
         { tipo: 'nota', texto: 'Se isso não era esperado, fale com a coordenação de Comunicação.' },
       ],
     }),
     conta_reativada: () => ({
-      assunto: 'Seu acesso à Redação foi reativado',
+      assunto: 'Seu acesso ao Palácio Virtual foi reativado',
       titulo: 'Acesso reativado',
       blocos: [
-        { tipo: 'p', texto: `${ola} ${(a as { adminNome: string }).adminNome} reativou o seu acesso à Redação. ${data}` },
+        { tipo: 'p', texto: `${ola} ${(a as { adminNome: string }).adminNome} reativou o seu acesso ao Palácio Virtual. ${data}` },
         { tipo: 'p', texto: 'Você vai receber em seguida um link para escolher uma senha nova, ou o administrador vai passar uma senha temporária pessoalmente.' },
       ],
     }),
     papel_alterado: () => {
       const s = a as Extract<AvisoDeSeguranca, { tipo: 'papel_alterado' }>
       return {
-        assunto: 'Seu papel na Redação mudou',
+        assunto: 'Seu papel no Palácio Virtual mudou',
         titulo: 'Seu acesso mudou',
         blocos: [
-          { tipo: 'p', texto: `${ola} ${s.adminNome} mudou o seu papel na Redação de ${s.de} para ${s.para}. O que você pode fazer no sistema mudou junto. ${data}` },
+          { tipo: 'p', texto: `${ola} ${s.adminNome} mudou o seu papel no Palácio Virtual de ${s.de} para ${s.para}. O que você pode fazer no sistema mudou junto. ${data}` },
           { tipo: 'nota', texto: 'Dúvidas sobre o que cada papel pode fazer? Fale com um administrador.' },
         ],
       }
     },
     email_alterado: () => ({
-      assunto: 'O e-mail da sua conta na Redação foi alterado',
+      assunto: 'O e-mail da sua conta no Palácio Virtual foi alterado',
       titulo: 'E-mail da conta alterado',
       blocos: [
-        { tipo: 'p', texto: `${ola} Os avisos da sua conta na Redação passam a ir para ${(a as { novo: string }).novo}. Esta é a última mensagem enviada a este endereço. ${data}` },
+        { tipo: 'p', texto: `${ola} Os avisos da sua conta no Palácio Virtual passam a ir para ${(a as { novo: string }).novo}. Esta é a última mensagem enviada a este endereço. ${data}` },
         { tipo: 'nota', texto: SE_NAO_FOI_VOCE },
       ],
     }),

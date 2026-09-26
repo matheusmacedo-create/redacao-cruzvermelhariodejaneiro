@@ -88,7 +88,7 @@ export async function excluirContaDaEscola(contaId: string): Promise<Estado> {
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível tirar a conta.')
     await registrar(context.workspace.id, context.user.id, 'escola_conta_excluida', contaId)
     revalidar()
-    return { recado: 'Conta tirada da Redação. Na Únicopag nada mudou.', ok: Date.now() }
+    return { recado: 'Conta tirada do Palácio Virtual. Na Únicopag nada mudou.', ok: Date.now() }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível tirar a conta.') }
   }

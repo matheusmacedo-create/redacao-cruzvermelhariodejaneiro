@@ -1083,7 +1083,7 @@ export async function sendDirectMessage(formData: FormData) {
     categoria: 'mensagens',
     titulo: `Mensagem de ${nome}`,
     mensagem: body,
-    textoDoEmail: `${nome} mandou uma mensagem para você na Redação:`,
+    textoDoEmail: `${nome} mandou uma mensagem para você no Palácio Virtual:`,
     citacao: body,
     link: `/mensagens/pessoa/${context.user.id}`,
     botao: 'Responder',

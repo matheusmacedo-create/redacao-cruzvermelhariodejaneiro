@@ -207,7 +207,7 @@ function renderLink(t: Extract<InlineToken, { type: 'link' }>, ctx: Contexto): s
     return conteudo
   }
   if (hrefInterno(t.href)) {
-    ctx.registro?.push(`link para endereço interno da Redação removido (ficou o texto "${t.text}")`)
+    ctx.registro?.push(`link para endereço interno do Palácio Virtual removido (ficou o texto "${t.text}")`)
     return conteudo
   }
   const href = hrefSeguro(t.href)

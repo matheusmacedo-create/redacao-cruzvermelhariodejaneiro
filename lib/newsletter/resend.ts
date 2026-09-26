@@ -228,7 +228,7 @@ export async function dominiosVerificados(): Promise<{ nome: string; estado: str
  */
 export type MensagemDeConta = { para: string; assunto: string; html: string; texto: string; /** Remetente próprio no mesmo domínio verificado (ex.: o do Voluntariado). */ de?: string }
 
-export const REMETENTE_DE_CONTA = 'Redação CVB-RJ <acesso@noticias.cruzvermelhariodejaneiro.org>'
+export const REMETENTE_DE_CONTA = 'Palácio Virtual CVB-RJ <acesso@noticias.cruzvermelhariodejaneiro.org>'
 
 export async function enviarEmailDeConta(m: MensagemDeConta): Promise<{ id: string }> {
   const resposta = process.env.CONTA_RESPONDER_PARA?.trim() || respostaPara()

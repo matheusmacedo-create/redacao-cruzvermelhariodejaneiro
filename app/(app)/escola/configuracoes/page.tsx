@@ -30,7 +30,7 @@ export default async function ConfiguracoesDaEscolaPage() {
   return (
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/configuracoes" financeiro={nivelEscola >= 2} marketing={nivel >= 2} />
-      <PageHeader title="Contas e integrações" description="As contas da Únicopag por onde a escola recebe e a conta de anúncios do Meta. A Redação só lê: não cria cobrança, não estorna e não mexe em anúncio." />
+      <PageHeader title="Contas e integrações" description="As contas da Únicopag por onde a escola recebe e a conta de anúncios do Meta. O Palácio Virtual só lê: não cria cobrança, não estorna e não mexe em anúncio." />
       {nivelEscola >= 2 && (
         <section className="flex flex-col gap-3" id="unicopag" data-ajuda="escola-contas.unicopag">
           <div>
@@ -48,7 +48,7 @@ export default async function ConfiguracoesDaEscolaPage() {
       <Card className="p-4 text-sm text-muted-foreground" data-ajuda="escola-contas.como-funciona">
         <p className="font-medium text-foreground">Como a leitura funciona</p>
         <ul className="mt-1 list-disc space-y-1 pl-5">
-          <li>Uma vez por dia (e pelos botões de atualizar), a Redação lê o saldo e as transações de cada conta da Únicopag e as campanhas e anúncios do Meta.</li>
+          <li>Uma vez por dia (e pelos botões de atualizar), o Palácio Virtual lê o saldo e as transações de cada conta da Únicopag e as campanhas e anúncios do Meta.</li>
           <li>Da transação ficam o valor, a forma de pagamento, o curso, a origem e o nome do pagador com o CPF mascarado. A ficha do aluno continua só no sistema da escola.</li>
           <li>As chaves são testadas antes de guardar e ficam no cofre criptografado; ninguém as vê de novo, nem o admin.</li>
         </ul>

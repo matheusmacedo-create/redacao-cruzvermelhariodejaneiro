@@ -35,7 +35,7 @@ export function VerificacaoNoPerfil({ fatores, obrigatoria }: { fatores: { id: s
 
   function concluido() {
     setCadastrando(false)
-    setAviso({ tom: 'ok', texto: 'Verificação em duas etapas ativada. No próximo login, a Redação vai pedir o código do app.' })
+    setAviso({ tom: 'ok', texto: 'Verificação em duas etapas ativada. No próximo login, o Palácio Virtual vai pedir o código do app.' })
     router.refresh()
   }
 

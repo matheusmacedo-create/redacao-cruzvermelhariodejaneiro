@@ -86,7 +86,7 @@ export async function trocarCodigo(workspaceId: string, codigo: string): Promise
     redirect_uri: urlDeRetorno(), grant_type: 'authorization_code',
   })
   const refreshToken = typeof dados.refresh_token === 'string' ? dados.refresh_token : ''
-  if (!refreshToken) throw new GmailError('O Google não devolveu autorização duradoura. Remova o acesso da Redação em myaccount.google.com/permissions e conecte de novo.')
+  if (!refreshToken) throw new GmailError('O Google não devolveu autorização duradoura. Remova o acesso do Palácio Virtual em myaccount.google.com/permissions e conecte de novo.')
   // O id_token veio direto do Google, pela conexão TLS da troca: basta ler.
   const idToken = typeof dados.id_token === 'string' ? dados.id_token : ''
   let email = ''

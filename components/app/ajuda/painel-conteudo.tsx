@@ -34,7 +34,7 @@ export function ConteudoDoPainel() {
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/[0.08] text-primary" aria-hidden="true"><CircleHelp className="size-[18px]" /></span>
         <div className="min-w-0 flex-1">
           <Dialog.Title className="text-base font-semibold leading-tight">Ajuda</Dialog.Title>
-          <Dialog.Description className="truncate text-xs text-muted-foreground">{ondeEstou ? `Você está em ${ondeEstou}` : 'Ajuda geral da Redação'}</Dialog.Description>
+          <Dialog.Description className="truncate text-xs text-muted-foreground">{ondeEstou ? `Você está em ${ondeEstou}` : 'Ajuda geral do Palácio Virtual'}</Dialog.Description>
         </div>
         <Dialog.Close aria-label="Fechar a ajuda" className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
           <X className="size-[18px]" aria-hidden="true" />
@@ -147,7 +147,7 @@ function AjudaGeral({ daTela }: { daTela: AjudaDaTela | null }) {
   const semGuia = daTela && daTela.area.href !== '/ajuda' ? daTela.area.rotulo : null
   return (
     <>
-      {semGuia && <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em toda a Redação.</p>}
+      {semGuia && <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em toda o Palácio Virtual.</p>}
       {TOPICOS_GERAIS.map((topico) => (
         <section key={topico.id} aria-labelledby={`${id}-${topico.id}`} className="flex flex-col gap-2">
           <h2 id={`${id}-${topico.id}`} className={tituloDeSecao}>{topico.titulo}</h2>

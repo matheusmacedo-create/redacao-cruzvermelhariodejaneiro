@@ -252,5 +252,5 @@ export function buscarAreas<T extends Pick<Area, 'rotulo' | 'resumo' | 'termos'>
 
 /** O título da aba do navegador: o mesmo nome do menu, de uma fonte só. */
 export function tituloDaArea(href: string): string {
-  return TODOS_OS_GRUPOS.flatMap((g) => g.areas).find((a) => a.href === href)?.rotulo ?? 'Redação'
+  return TODOS_OS_GRUPOS.flatMap((g) => g.areas).find((a) => a.href === href)?.rotulo ?? 'Palácio Virtual'
 }

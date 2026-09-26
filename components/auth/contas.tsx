@@ -123,7 +123,7 @@ export function ConfirmarEmailBotao({ token, email }: { token: string; email: st
       <p className="rounded-lg bg-muted/50 px-3 py-2 font-mono text-sm">{email}</p>
       <Recado aviso={aviso} />
       {feito
-        ? <Button size="lg" className="h-11" render={<Link href="/" />}>Ir para a Redação</Button>
+        ? <Button size="lg" className="h-11" render={<Link href="/" />}>Ir para o Palácio Virtual</Button>
         : <Button size="lg" className="h-11" disabled={ocupado} onClick={confirmar}>{ocupado && <Loader2 className="size-4 animate-spin" />}Confirmar este e-mail</Button>}
     </div>
   )
@@ -164,7 +164,7 @@ export function EmailDaConta({ email, confirmado, pendente, envioConfigurado }: 
         </div>
       </div>
       <Recado aviso={aviso} />
-      {!envioConfigurado && <p className="text-sm text-muted-foreground">O envio de e-mail da Redação ainda não está configurado. Fale com um administrador.</p>}
+      {!envioConfigurado && <p className="text-sm text-muted-foreground">O envio de e-mail do Palácio Virtual ainda não está configurado. Fale com um administrador.</p>}
       {envioConfigurado && (editando ? (
         <form onSubmit={enviar} className="flex flex-col gap-2 sm:flex-row">
           <input type="email" autoComplete="email" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="seu@email.com" className={`${campo} h-10`} />

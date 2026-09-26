@@ -141,7 +141,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
               <p className={`text-2xl font-bold tabular-nums ${Math.abs(conferencia.banco - conferencia.redacao) >= 0.01 ? 'text-destructive' : 'text-success'}`}>
                 {Math.abs(conferencia.banco - conferencia.redacao) < 0.01 ? 'Bate' : reais(conferencia.redacao - conferencia.banco)}
               </p>
-              <p className="text-xs text-muted-foreground">em {dataCurta(conferencia.em)}: banco {reais(conferencia.banco)}, Redação {reais(conferencia.redacao)}</p>
+              <p className="text-xs text-muted-foreground">em {dataCurta(conferencia.em)}: banco {reais(conferencia.banco)}, Palácio Virtual {reais(conferencia.redacao)}</p>
             </>
           ) : <p className="text-xs text-muted-foreground">O saldo do banco aparece aqui quando o extrato vem em OFX.</p>}
         </Card>

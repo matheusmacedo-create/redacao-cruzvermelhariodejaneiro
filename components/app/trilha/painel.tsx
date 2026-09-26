@@ -70,14 +70,14 @@ function Avisos({ chave, aberta }: { chave: SituacaoDaChave; aberta: boolean }) 
               <p className="mt-0.5 text-muted-foreground">
                 Impressão digital <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">{chave.id}</code>. É ela que assina o
                 manifesto de cada lote; a chave pública vai ao site em /verificar/chave-publica.pem.
-                {chave.origem === 'cofre' ? ' Guardada no cofre da Redação (gerada aqui; ninguém vê o valor).' : ' Vem da variável AUDITORIA_CHAVE_PRIVADA na Vercel.'}
+                {chave.origem === 'cofre' ? ' Guardada no cofre do Palácio Virtual (gerada aqui; ninguém vê o valor).' : ' Vem da variável AUDITORIA_CHAVE_PRIVADA na Vercel.'}
               </p>
             </>
           ) : chave.estado === 'ausente' ? (
             <>
               <h2 className="font-medium">Chave de assinatura não configurada</h2>
               <p className="mt-0.5">
-                Os lotes ficam sem assinatura até haver uma chave. Gere aqui (fica no cofre da Redação, sem ninguém ver o valor) ou defina a variável{' '}
+                Os lotes ficam sem assinatura até haver uma chave. Gere aqui (fica no cofre do Palácio Virtual, sem ninguém ver o valor) ou defina a variável{' '}
                 <code className="font-mono text-xs">AUDITORIA_CHAVE_PRIVADA</code> na Vercel. Quando ela chegar, a rotina assina os lotes que ficaram para trás.
               </p>
               <GerarChave />

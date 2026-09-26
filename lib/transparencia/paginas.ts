@@ -200,7 +200,7 @@ export function paginaDosCanais(p: {
 
 /** .htaccess das pastas do portal: HTML sempre revalidado e, até a abertura, fora dos buscadores (inclusive os PDFs). */
 export function htaccessDoPortal(indexar: boolean = portalAberto()): string {
-  return `# Gerado pela Redação — cruzvermelhariodejaneiro.org
+  return `# Gerado pelo Palácio Virtual — cruzvermelhariodejaneiro.org
 # HTML sempre revalidado.${indexar ? '' : '\n# Lançamento oculto: fora dos buscadores até a abertura (docs/auditoria-publica.md, §9).'}
 <IfModule mod_headers.c>
   <FilesMatch "\\.html$">

@@ -777,7 +777,7 @@ function Painel({
             href={no.url}
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
           >
-            Abrir na Redação
+            Abrir no Palácio Virtual
             <ExternalLink className="size-3" />
           </Link>
         ) : (

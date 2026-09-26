@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       if (data !== daqui30 && data !== ontem) continue
       avisar(c.workspace_id as string, {
         titulo: `${oque === 'CNH' ? 'CNH' : 'Curso de emergência'} de ${c.nome as string} ${data === ontem ? 'venceu' : 'vence em 30 dias'}`,
-        mensagem: data === ontem ? `Venceu ontem: o Redação não deixa ${c.nome as string} sair com ${oque === 'CNH' ? 'veículo' : 'ambulância'} até renovar.` : `Vence em ${br(data)}. Peça a renovação.`,
+        mensagem: data === ontem ? `Venceu ontem: o Palácio Virtual não deixa ${c.nome as string} sair com ${oque === 'CNH' ? 'veículo' : 'ambulância'} até renovar.` : `Vence em ${br(data)}. Peça a renovação.`,
         link: '/patrimonio/frota/condutores', botao: 'Ver condutores',
       })
     }

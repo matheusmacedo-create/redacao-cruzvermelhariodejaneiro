@@ -408,7 +408,7 @@ function NovoCanal({ pessoas, onFechar }: { pessoas: PessoaDoChat[]; onFechar: (
           <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Para que serve (opcional)" maxLength={300} className={campo} aria-label="Descrição" />
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4" checked={privado} onChange={(e) => setPrivado(e.target.checked)} />
-          Privado <span className="text-xs text-muted-foreground">(só quem for chamado vê; aberto, qualquer um da Redação lê e entra)</span></label>
+          Privado <span className="text-xs text-muted-foreground">(só quem for chamado vê; aberto, qualquer um do Palácio Virtual lê e entra)</span></label>
         <p className="text-xs font-medium text-muted-foreground">Chamar pessoas</p>
         <EscolherPessoas pessoas={pessoas} marcadas={marcadas} setMarcadas={setMarcadas} />
         {erro && <p className="text-xs text-destructive" role="alert">{erro}</p>}

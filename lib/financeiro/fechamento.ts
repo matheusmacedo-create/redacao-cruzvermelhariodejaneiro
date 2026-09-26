@@ -205,7 +205,7 @@ export function conferencia(p: {
   const naoConciliados = pagosNoMes.filter((l) => contasComExtrato.has(l.conta_id) && l.tipo !== 'transferencia' && !conciliados.has(l.id))
   itens.push({
     id: 'conciliados', bloqueia: false, ok: !naoConciliados.length, rotulo: 'Todo pagamento do mês aparece no extrato',
-    detalhe: naoConciliados.length ? `${naoConciliados.length} pago${naoConciliados.length === 1 ? '' : 's'} no Redação sem linha no extrato: ${naoConciliados.slice(0, 3).map((l) => l.descricao).join(', ')}${naoConciliados.length > 3 ? '…' : ''}` : undefined,
+    detalhe: naoConciliados.length ? `${naoConciliados.length} pago${naoConciliados.length === 1 ? '' : 's'} no Palácio Virtual sem linha no extrato: ${naoConciliados.slice(0, 3).map((l) => l.descricao).join(', ')}${naoConciliados.length > 3 ? '…' : ''}` : undefined,
   })
   const semComprovante = pagosNoMes.filter((l) => l.tipo !== 'transferencia' && !p.comComprovante.has(l.id))
   itens.push({
@@ -222,7 +222,7 @@ export function conferencia(p: {
   itens.push({
     id: 'saldo', bloqueia: false, ok: !bancoDiferente.length, rotulo: 'Saldo bate com o do banco',
     detalhe: bancoDiferente.length
-      ? bancoDiferente.map((k) => `${k.nome} em ${k.banco!.em.slice(8, 10)}/${k.banco!.em.slice(5, 7)}: banco ${k.banco!.saldo.toFixed(2).replace('.', ',')}, Redação ${k.banco!.redacao.toFixed(2).replace('.', ',')}`).join('; ')
+      ? bancoDiferente.map((k) => `${k.nome} em ${k.banco!.em.slice(8, 10)}/${k.banco!.em.slice(5, 7)}: banco ${k.banco!.saldo.toFixed(2).replace('.', ',')}, Palácio Virtual ${k.banco!.redacao.toFixed(2).replace('.', ',')}`).join('; ')
       : p.resumo.porConta.some((k) => k.banco) ? undefined : 'Sem saldo de banco no mês (vem do OFX) para comparar.',
   })
   const v = p.resumo.voluntariado

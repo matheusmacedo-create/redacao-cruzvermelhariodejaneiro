@@ -79,7 +79,7 @@ const mensagem = (causa: unknown) => (causa instanceof Error ? causa.message : t
 async function lerChave(resumo: ResumoDaRotina): Promise<ChaveDaTrilha | null> {
   try {
     const achada = await obterChaveDaTrilha()
-    if (!achada) resumo.avisos.push('Chave de assinatura não configurada (nem no cofre da Redação nem na Vercel): os lotes ficam sem assinatura até ela chegar.')
+    if (!achada) resumo.avisos.push('Chave de assinatura não configurada (nem no cofre do Palácio Virtual nem na Vercel): os lotes ficam sem assinatura até ela chegar.')
     return achada?.chave ?? null
   } catch (causa) {
     resumo.avisos.push(`Chave de assinatura inválida: ${mensagem(causa)}`)

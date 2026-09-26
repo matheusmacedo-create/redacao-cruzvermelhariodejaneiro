@@ -29,7 +29,7 @@ function canvas(): string | null {
   ctx.fillText('Cruz Vermelha RJ ✚ ação 😃', 2, 15)
   ctx.fillStyle = 'rgba(102, 204, 0, 0.7)'
   ctx.font = 'bold 16px serif'
-  ctx.fillText('Redação ÇÃÕ ẞ 🩺', 4, 45)
+  ctx.fillText('Palácio Virtual ÇÃÕ ẞ 🩺', 4, 45)
   ctx.globalCompositeOperation = 'multiply'
   ctx.fillStyle = 'rgb(255,0,255)'
   ctx.beginPath(); ctx.arc(50, 50, 30, 0, Math.PI * 2, true); ctx.closePath(); ctx.fill()

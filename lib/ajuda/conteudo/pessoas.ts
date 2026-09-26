@@ -42,12 +42,12 @@ import type { GuiaDaArea } from '../tipos'
 
 const DIRETORIO: GuiaDaArea = {
   href: '/pessoas',
-  paraQueServe: 'A equipe inteira da filial num lugar só: quem tem login na Redação, quem só tem ficha em Recursos humanos e quem está na lista oficial dos setores. Aqui você acha cargo, setor e contato de trabalho de cada pessoa, abre o perfil dela e manda mensagem.',
-  quemUsa: 'Toda a equipe vê o Diretório, os perfis e os setores. Dar acesso à Redação, mudar os setores e ver o que falta no cadastro de cada um é só de administradores. O perfil, só a própria pessoa edita — nem administrador edita o de outra.',
+  paraQueServe: 'A equipe inteira da filial num lugar só: quem tem login no Palácio Virtual, quem só tem ficha em Recursos humanos e quem está na lista oficial dos setores. Aqui você acha cargo, setor e contato de trabalho de cada pessoa, abre o perfil dela e manda mensagem.',
+  quemUsa: 'Toda a equipe vê o Diretório, os perfis e os setores. Dar acesso ao Palácio Virtual, mudar os setores e ver o que falta no cadastro de cada um é só de administradores. O perfil, só a própria pessoa edita — nem administrador edita o de outra.',
   tour: [
     {
       titulo: 'A equipe da filial',
-      texto: 'Toda a equipe da filial aparece aqui, com ou sem login na Redação: cargo, setor, papel, e-mail e telefone. O nome ou a foto de quem tem login abre o perfil.',
+      texto: 'Toda a equipe da filial aparece aqui, com ou sem login no Palácio Virtual: cargo, setor, papel, e-mail e telefone. O nome ou a foto de quem tem login abre o perfil.',
     },
     {
       alvo: 'diretorio.busca',
@@ -58,13 +58,13 @@ const DIRETORIO: GuiaDaArea = {
     {
       alvo: 'diretorio.filtros',
       titulo: 'Filtrar por setor e acesso',
-      texto: 'Toque num setor para ver só quem é dele. Embaixo, filtre por “Com acesso”, “Convite pendente” ou “Sem acesso” à Redação.',
+      texto: 'Toque num setor para ver só quem é dele. Embaixo, filtre por “Com acesso”, “Convite pendente” ou “Sem acesso” ao Palácio Virtual.',
       lado: 'bottom',
     },
     {
       alvo: 'diretorio.cartoes',
       titulo: 'O cartão de cada pessoa',
-      texto: 'Cargo, setor, papel na Redação e os atalhos de contato: e-mail, o botão com o endereço (copia o e-mail), telefone e WhatsApp (quando o número é de celular).',
+      texto: 'Cargo, setor, papel no Palácio Virtual e os atalhos de contato: e-mail, o botão com o endereço (copia o e-mail), telefone e WhatsApp (quando o número é de celular).',
       seAusente: 'pular',
     },
     {
@@ -75,7 +75,7 @@ const DIRETORIO: GuiaDaArea = {
     },
     {
       alvo: 'diretorio.adicionar',
-      titulo: 'Dar acesso à Redação',
+      titulo: 'Dar acesso ao Palácio Virtual',
       texto: 'Só administradores: “Adicionar pessoas” convida por e-mail quem ainda não tem login. Cada pessoa cria a própria senha pelo link.',
       lado: 'bottom',
       seAusente: 'pular',
@@ -93,7 +93,7 @@ const DIRETORIO: GuiaDaArea = {
         {
           alvo: 'diretorio.perfil-topo',
           titulo: 'Quem é',
-          texto: 'Foto, cargo, setor e papel na Redação. O selo “Costuma responder em…” aparece depois de pelo menos 3 respostas no chat nos últimos 90 dias.',
+          texto: 'Foto, cargo, setor e papel no Palácio Virtual. O selo “Costuma responder em…” aparece depois de pelo menos 3 respostas no chat nos últimos 90 dias.',
         },
         {
           alvo: 'diretorio.perfil-acoes',
@@ -251,7 +251,7 @@ const DIRETORIO: GuiaDaArea = {
     },
     {
       id: 'dar-acesso',
-      titulo: 'Dar acesso à Redação a alguém da equipe',
+      titulo: 'Dar acesso ao Palácio Virtual a alguém da equipe',
       quem: 'Só administradores',
       passos: [
         'No Diretório, toque em “Adicionar pessoas” (ou em “Dar acesso”, no cartão de quem está “Sem acesso”).',
@@ -292,19 +292,19 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'quem-aparece',
       pergunta: 'Quem aparece no Diretório?',
-      resposta: 'Toda a equipe da filial: quem tem login na Redação, quem só tem ficha em Recursos humanos e quem está na lista oficial dos setores e ainda não foi cadastrado. Ficha de quem foi desligado em Recursos humanos não entra. Contas desativadas só aparecem para administradores.',
+      resposta: 'Toda a equipe da filial: quem tem login no Palácio Virtual, quem só tem ficha em Recursos humanos e quem está na lista oficial dos setores e ainda não foi cadastrado. Ficha de quem foi desligado em Recursos humanos não entra. Contas desativadas só aparecem para administradores.',
       termos: ['lista', 'colaboradores', 'funcionários', 'desativado', 'equipe'],
     },
     {
       id: 'status-de-acesso',
       pergunta: 'O que significam “Com acesso”, “Convite pendente” e “Sem acesso”?',
-      resposta: '“Com acesso”: já entrou na Redação. “Convite pendente”: tem conta, mas ainda não fez o primeiro acesso. “Sem acesso”: está na equipe, mas não tem login.\n\n“Desativado”, que só administradores veem, é conta desativada.',
+      resposta: '“Com acesso”: já entrou no Palácio Virtual. “Convite pendente”: tem conta, mas ainda não fez o primeiro acesso. “Sem acesso”: está na equipe, mas não tem login.\n\n“Desativado”, que só administradores veem, é conta desativada.',
       termos: ['login', 'status', 'primeiro acesso', 'situação'],
     },
     {
       id: 'quem-edita-perfil',
       pergunta: 'Um administrador pode editar o meu perfil?',
-      resposta: 'Não. Só a própria pessoa edita o perfil, nem administrador. O setor e o papel na Redação, esses sim, quem muda é um administrador, em “Usuários e permissões”.',
+      resposta: 'Não. Só a própria pessoa edita o perfil, nem administrador. O setor e o papel no Palácio Virtual, esses sim, quem muda é um administrador, em “Usuários e permissões”.',
       termos: ['editar perfil de outra pessoa', 'bio', 'apresentação'],
     },
     {
@@ -334,7 +334,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'visto-em',
       pergunta: 'Quem vê o “Visto em” e o ponto verde de online?',
-      resposta: 'Só a própria pessoa e os administradores. Para o resto da equipe, o perfil não mostra quando a pessoa esteve na Redação.',
+      resposta: 'Só a própria pessoa e os administradores. Para o resto da equipe, o perfil não mostra quando a pessoa esteve no Palácio Virtual.',
       termos: ['online', 'último acesso', 'visto por último'],
     },
     {
@@ -346,7 +346,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'ficha-nao-ligada',
       pergunta: 'O que quer dizer “A ficha da Equipe desta pessoa não está ligada ao login — ligar”?',
-      resposta: 'Há uma ficha em Recursos humanos com o mesmo nome da conta, mas as duas não estão ligadas. Toque em “ligar”: abre a edição da ficha; em “Login no Redação”, escolha a conta e toque em “Salvar alterações”. Só administradores veem o aviso.',
+      resposta: 'Há uma ficha em Recursos humanos com o mesmo nome da conta, mas as duas não estão ligadas. Toque em “ligar”: abre a edição da ficha; em “Login no Palácio Virtual”, escolha a conta e toque em “Salvar alterações”. Só administradores veem o aviso.',
       termos: ['ficha duplicada', 'aparece duas vezes', 'ligar login'],
     },
     {
@@ -364,7 +364,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'nao-vejo-adicionar',
       pergunta: 'Por que não vejo “Adicionar pessoas”?',
-      resposta: 'Dar acesso à Redação é só de administradores. Se alguém precisa de login, peça a um administrador.',
+      resposta: 'Dar acesso ao Palácio Virtual é só de administradores. Se alguém precisa de login, peça a um administrador.',
       termos: ['convidar', 'criar usuário', 'novo login'],
     },
     {
@@ -467,7 +467,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
         {
           alvo: 'rh.login',
           titulo: 'Ligar ao login',
-          texto: '“Login no Redação” liga a ficha à conta da pessoa, se ela tiver. Assim o e-mail e o telefone de trabalho aparecem sozinhos no perfil dela.',
+          texto: '“Login no Palácio Virtual” liga a ficha à conta da pessoa, se ela tiver. Assim o e-mail e o telefone de trabalho aparecem sozinhos no perfil dela.',
         },
         {
           alvo: 'rh.vinculo',
@@ -503,7 +503,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
         {
           alvo: 'rh.login',
           titulo: 'Ligar ao login',
-          texto: '“Login no Redação” liga a ficha à conta da pessoa. A lista mostra só os logins que ainda não estão ligados a outra ficha.',
+          texto: '“Login no Palácio Virtual” liga a ficha à conta da pessoa. A lista mostra só os logins que ainda não estão ligados a outra ficha.',
         },
         {
           alvo: 'rh.salvar',
@@ -522,7 +522,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
       passos: [
         'Em Recursos humanos, toque em “Nova pessoa”.',
         'Preencha o “Nome completo” (o único campo obrigatório) e, se houver, o “Nome social”.',
-        'Em “Login no Redação”, escolha a conta da pessoa, se ela tiver.',
+        'Em “Login no Palácio Virtual”, escolha a conta da pessoa, se ela tiver.',
         'Em “Contrato e cargo”, escolha “Vínculo”, “Cargo”, “Setor”, “Gestor direto” e a data de “Admissão”.',
         'Complete os “Dados pessoais” que tiver à mão.',
         'Toque em “Cadastrar”.',
@@ -706,8 +706,8 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     {
       id: 'ficha-e-login',
       pergunta: 'Para que serve ligar a ficha ao login?',
-      resposta: 'Liga a ficha à conta da pessoa na Redação. Com isso, o e-mail e o telefone de trabalho da ficha aparecem sozinhos nos contatos institucionais do perfil dela, e o nome social e o cargo da ficha passam a valer no perfil.',
-      termos: ['login', 'conta', 'duplicado', 'Login no Redação'],
+      resposta: 'Liga a ficha à conta da pessoa no Palácio Virtual. Com isso, o e-mail e o telefone de trabalho da ficha aparecem sozinhos nos contatos institucionais do perfil dela, e o nome social e o cargo da ficha passam a valer no perfil.',
+      termos: ['login', 'conta', 'duplicado', 'Login no Palácio Virtual'],
     },
     {
       id: 'apagar-ficha',

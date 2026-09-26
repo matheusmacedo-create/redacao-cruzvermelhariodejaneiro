@@ -30,7 +30,7 @@ export function Integracoes({ chaves }: { chaves: ChaveNaTela[] }) {
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Integrações</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Chaves de API das ferramentas usadas pela Redação. Ficam guardadas criptografadas no cofre do banco e valem na hora, sem republicar.
+          Chaves de API das ferramentas usadas pelo Palácio Virtual. Ficam guardadas criptografadas no cofre do banco e valem na hora, sem republicar.
           Depois de salva, a chave não aparece mais para ninguém.
         </p>
       </div>

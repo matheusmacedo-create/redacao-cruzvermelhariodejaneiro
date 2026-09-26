@@ -15,7 +15,7 @@ export function BoasVindas() {
   const { boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, pessoa, passosDasBoasVindas } = useAjuda()
   // Uns 8 segundos por balão: o tour inteiro cabe em um minuto, e é isso que prometemos.
   const minutos = Math.max(1, Math.round((passosDasBoasVindas * 8) / 60))
-  const titulo = pessoa.primeiroNome ? `Boas-vindas à Redação, ${pessoa.primeiroNome}!` : 'Boas-vindas à Redação!'
+  const titulo = pessoa.primeiroNome ? `Boas-vindas ao Palácio Virtual, ${pessoa.primeiroNome}!` : 'Boas-vindas ao Palácio Virtual!'
 
   return (
     <Dialog.Root

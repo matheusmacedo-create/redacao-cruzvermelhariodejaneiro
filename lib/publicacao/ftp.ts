@@ -62,7 +62,7 @@ export function defaultTlsMode(): TlsMode {
 export function explicarErroDeConexao(causa: unknown): string | null {
   const texto = causa instanceof Error ? causa.message : String(causa)
   if (/certificate has expired|CERT_HAS_EXPIRED/i.test(texto)) {
-    return 'O certificado TLS do servidor de FTP da hospedagem está VENCIDO — o problema é do servidor da Hostinger, não da Redação. Confira a validade em /api/admin/ftp-check e acione a hospedagem para renovar. Se a publicação não puder esperar, FTP_TLS_INSECURE=1 na Vercel (com redeploy) publica com a conexão cifrada porém sem verificar o certificado — retire a variável assim que a hospedagem renovar.'
+    return 'O certificado TLS do servidor de FTP da hospedagem está VENCIDO — o problema é do servidor da Hostinger, não do Palácio Virtual. Confira a validade em /api/admin/ftp-check e acione a hospedagem para renovar. Se a publicação não puder esperar, FTP_TLS_INSECURE=1 na Vercel (com redeploy) publica com a conexão cifrada porém sem verificar o certificado — retire a variável assim que a hospedagem renovar.'
   }
   if (/hostname\/ip does not match|altnames|ERR_TLS_CERT_ALTNAME/i.test(texto)) {
     return 'O certificado do servidor não vale para o nome em FTP_HOST. /api/admin/ftp-check mostra para quais nomes ele vale — troque FTP_HOST por um deles.'
