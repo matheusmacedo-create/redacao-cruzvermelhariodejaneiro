@@ -296,8 +296,8 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'registro-no-bitcoin',
       pergunta: 'O que é o registro no Bitcoin?',
-      resposta: 'Quando a última pessoa assina, o Palácio Virtual monta o manifesto, um resumo do ofício assinado (o código do documento, quem assinou e quando), e registra o código desse manifesto no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem o Palácio Virtual no ar.',
-      termos: ['blockchain', 'carimbo', 'opentimestamps', 'ots', 'manifesto'],
+      resposta: 'Quando a última pessoa assina, o Palácio Virtual monta o protocolo de assinaturas, um resumo do ofício assinado (o hash do documento, quem assinou e quando), e registra o hash desse protocolo no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem o Palácio Virtual no ar.',
+      termos: ['blockchain', 'carimbo', 'opentimestamps', 'ots', 'manifesto', 'protocolo', 'hash'],
     },
     {
       id: 'selo-do-bitcoin',
@@ -314,7 +314,7 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'conferir-autenticidade',
       pergunta: 'Como quem recebe o ofício confere se ele é verdadeiro?',
-      resposta: 'O rodapé do PDF traz o endereço da página pública de conferência. Ela mostra o texto como foi assinado, quem assinou e quando, e se o ofício foi cancelado. Lá também dá para recalcular os códigos no próprio navegador e baixar o manifesto e a prova.',
+      resposta: 'O rodapé do PDF traz o endereço da página pública de conferência. Ela mostra o texto como foi assinado, quem assinou e quando, e se o ofício foi cancelado. Lá também dá para recalcular os hashes no próprio navegador e baixar o protocolo de assinaturas e a prova.',
       termos: ['autenticidade', 'validar', 'verificar', 'página pública', 'falsificação'],
     },
     {
