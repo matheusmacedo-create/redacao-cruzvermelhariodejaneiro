@@ -1,6 +1,5 @@
 'use server'
 
-import { createHash } from 'node:crypto'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
@@ -31,7 +30,6 @@ import {
 
 type Resultado = { erro?: string; recado?: string }
 const texto = (f: FormData, k: string) => String(f.get(k) ?? '').trim()
-const emailInterno = (usuario: string) => `${usuario}@usuarios.cvrj.local`
 
 async function ipDaRequisicao(): Promise<string> {
   const h = await headers()
@@ -179,29 +177,9 @@ export async function confirmarEmail(formData: FormData): Promise<Resultado> {
 
 // ------------------------------------------------------------------ login por e-mail
 
-/**
- * Traduz o que a pessoa digitou no login para o e-mail interno do Auth.
- *
- * Usuário vira `usuario@usuarios.cvrj.local` direto. E-mail é procurado entre
- * os CONFIRMADOS; se não existir, devolve um endereço interno que não existe
- * (derivado do que foi digitado), e o login falha com a mesma mensagem de
- * senha errada. A resposta tem sempre a mesma forma: a tela de login não vira
- * um jeito de descobrir quem tem conta.
- */
-export async function resolverLogin(identificador: string): Promise<string> {
-  const valor = String(identificador ?? '').trim().toLowerCase().slice(0, 254)
-  if (!valor.includes('@')) return emailInterno(valor)
-  const falso = `x${createHash('sha256').update(valor).digest('hex').slice(0, 24)}@usuarios.cvrj.local`
-  const email = emailValido(valor)
-  if (!email) return falso
-  try {
-    const { data } = await createAdminClient().from('profiles').select('username')
-      .eq('email', email).not('email_confirmado_em', 'is', null).eq('active', true).maybeSingle()
-    return data?.username ? emailInterno(data.username) : falso
-  } catch {
-    return falso
-  }
-}
+// A tradução do login (usuário ou e-mail → conta) mora em lib/contas/login.ts
+// e só a action de entrar (app/actions/entrada.ts) a usa: exportada daqui,
+// virava um endpoint público que dizia quem tem conta.
 
 // ------------------------------------------------------------------ perdi o celular (2FA)
 

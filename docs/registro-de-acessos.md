@@ -20,12 +20,21 @@ recebe o e-mail de aparelho/país novo, mas não vê o registro.
 **Ficou para a próxima fase:** sessões abertas, "visto por último" e encerrar sessão (§4.3, §5.3,
 §5.4); eventos de troca/redefinição de senha e de acesso negado (§5.2); retenção (§8.3).
 
-**Como o login foi ligado (diferente do §5.1 original):** a entrada continua no navegador, e o
-servidor entra antes e depois dela (`app/actions/entrada.ts`). Antes da senha, `prepararEntrada`
-confere o bloqueio. Depois, `concluirEntrada` registra o resultado, e a entrada certa é conferida
-pelo cookie da sessão, não pela palavra do navegador. Se qualquer parte nova falhar, o login segue
-como antes. Quem chama a API do Supabase direto, sem a tela, continua limitado só pelos limites do
-próprio Supabase Auth (o mesmo aconteceria com o login no servidor).
+**Como o login está ligado:** a entrada é inteira no servidor (`entrar`, em
+`app/actions/entrada.ts`): confere o bloqueio, entra com o cliente do servidor (que grava o cookie
+da sessão) e registra o resultado. A tela só recebe "entrou" ou a mensagem de erro.
+
+Até 09/2026 a senha ia do navegador direto ao Supabase, e o servidor só entrava antes
+(`prepararEntrada`) e depois (`concluirEntrada`), a pedido da tela. Isso deixava três furos:
+- a tela recebia o e-mail interno da conta, o que dizia quem tem conta e qual é o usuário;
+- o bloqueio valia só para quem usasse a tela;
+- qualquer um podia registrar "senha errada" em nome de outra conta e bloqueá-la.
+
+Quem chama a API do Supabase direto, sem a tela, continua limitado só pelos limites do próprio
+Supabase Auth. Como toda entrada agora sai dos servidores da Vercel, o limite de entradas por IP do
+Supabase Auth passa a valer para a equipe inteira junta. Para uma equipe pequena ele sobra, mas se
+aparecer "Não foi possível entrar agora", é o primeiro lugar a olhar (Supabase → Authentication →
+Rate Limits).
 
 ## 1. O que a ferramenta responde
 

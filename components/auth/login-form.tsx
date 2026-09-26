@@ -4,13 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2, LockKeyhole, UserRound } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { resolverLogin } from '@/app/actions/contas'
-import { concluirEntrada, prepararEntrada } from '@/app/actions/entrada'
+import { entrar } from '@/app/actions/entrada'
 import { impressaoDoNavegador, type Impressao } from './impressao'
-
-const internalEmail = (username: string) => `${username.toLowerCase()}@usuarios.cvrj.local`
 
 export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; aviso?: string }) {
   const router = useRouter()
@@ -34,45 +30,19 @@ export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; 
         const result = await response.json()
         if (!response.ok) throw new Error(result.error)
       }
-      const supabase = createClient()
-      // Usuário vai direto; e-mail é traduzido no servidor para o usuário da
-      // conta (e, se não existir, para um endereço que só falha igual à senha errada).
-      const identificador = username.trim()
-      let email = internalEmail(identificador)
-      if (!setup) {
-        // Antes da senha: o bloqueio por tentativas erradas. Se a conferência
-        // falhar por qualquer motivo, a entrada segue como era antes.
-        let bloqueado: string | undefined
-        try {
-          const preparo = await Promise.race([
-            prepararEntrada(identificador),
-            new Promise<never>((_, recusar) => setTimeout(() => recusar(new Error('lento')), 6000)),
-          ])
-          email = preparo.email
-          bloqueado = preparo.bloqueado
-        } catch {
-          if (identificador.includes('@')) email = await resolverLogin(identificador)
-        }
-        if (bloqueado) throw new Error(bloqueado)
-      }
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-      if (!setup) await registrarResultado(identificador, !signInError, signInError?.code === 'user_banned' ? 'Conta desativada' : 'Senha errada')
-      if (signInError) throw new Error(signInError.code === 'user_banned' ? 'Esta conta está desativada. Fale com um administrador.' : 'Usuário ou senha inválidos.')
+      // A senha vai ao servidor, que confere o bloqueio por tentativas erradas,
+      // entra (gravando o cookie da sessão) e registra o acesso. A tela só
+      // recebe "entrou" ou a mensagem (app/actions/entrada.ts).
+      const sinais = await Promise.race([
+        impressao.current ?? Promise.resolve(null),
+        new Promise<null>((resolver) => setTimeout(() => resolver(null), 3000)),
+      ]).catch(() => null)
+      const r = await entrar(username.trim(), password, JSON.stringify(sinais ?? {}))
+      if (r?.erro) throw new Error(r.erro)
       router.push('/dashboard'); router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.')
     } finally { setLoading(false) }
-  }
-
-  /** Registra o resultado sem nunca segurar a entrada por mais de 4 segundos. */
-  async function registrarResultado(identificador: string, ok: boolean, motivo: string) {
-    try {
-      const sinais = await (impressao.current ?? Promise.resolve(null))
-      await Promise.race([
-        concluirEntrada(identificador, ok, motivo, JSON.stringify(sinais ?? {})),
-        new Promise((resolver) => setTimeout(resolver, 4000)),
-      ])
-    } catch { /* o registro nunca impede a entrada */ }
   }
 
   return (

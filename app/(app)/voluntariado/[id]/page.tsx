@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
-import { SITUACOES, VINCULOS, idade, situacaoDaFormacao } from '@/lib/participantes/regras'
+import { SITUACOES, VINCULOS, ehVinculo, idade, situacaoDaFormacao } from '@/lib/participantes/regras'
 import { Retrato } from '@/components/membro/foto'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
@@ -60,6 +60,12 @@ export default async function Participante({ params }: { params: Promise<{ id: s
         </div>
         {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/voluntariado/${id}/editar`} />} data-ajuda="voluntarios.editar"><Pencil className="size-4" />Editar cadastro</Button>}
       </div>
+      {!ehVinculo(p.vinculo) && !p.anonimizado_em && (
+        <p role="status" className="rounded-lg border border-warning/50 bg-warning/10 px-4 py-3 text-sm">
+          Este cadastro tem o vínculo “{p.vinculo}”, que saiu do Voluntariado quando a equipe passou para Recursos humanos. Enquanto ele não mudar, nada neste cadastro pode ser salvo (situação, foto, dados pela Área do Voluntário).
+          {nivel >= 2 ? <> Em “Editar cadastro”, escolha Voluntário, Juventude ou Instrutor. Se a pessoa é da equipe, cadastre-a em Recursos humanos.</> : <> Peça a quem gerencia o Voluntariado para corrigir.</>}
+        </p>
+      )}
 
       {anos !== null && anos < 18 && !p.anonimizado_em && (
         <p className="flex items-center gap-2 rounded-lg border border-warning/50 bg-warning/10 px-4 py-2.5 text-sm"><AlertTriangle className="size-4" />Menor de idade. Responsável: {p.responsavel_nome ?? 'não informado'}{p.responsavel_telefone ? ` · ${p.responsavel_telefone}` : ''}</p>
