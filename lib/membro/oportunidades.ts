@@ -1,7 +1,8 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { TIPOS, ehTipo, estado, horasDaAtividade, quando, selo, vagasRestantes, type EstadoDaOportunidade } from '@/lib/oportunidades/regras'
+import { TIPOS, ehDeResposta, ehTipo, estado, estadoDoPedido, horasDaAtividade, quando, selo, vagasRestantes, type EstadoDaOportunidade } from '@/lib/oportunidades/regras'
+import { NOTA_MINIMA_PADRAO, TENTATIVAS_DO_QUIZ, lerRespostas, type Pergunta, type Resposta } from '@/lib/oportunidades/perguntas'
 import { horasLegiveis } from './regras'
 import type { Membro } from './sessao'
 
@@ -11,13 +12,20 @@ import type { Membro } from './sessao'
  * De outros voluntários, só a contagem — nunca quem são.
  */
 
+export type MinhaResposta = { nota: number | null; aprovado: boolean | null; tentativas: number; atualizado_em: string }
+
 export type OportunidadeDoMembro = {
   id: string; titulo: string; tipo: string; descricao: string | null; local: string | null; inicio: string; fim: string
   vagas: number | null; inscricoes_ate: string | null; horas: number | null; cancelada_em: string | null; motivo_cancelamento: string | null
+  nota_minima: number | null
   ocupadas: number; minha: string | null
+  /** Quantas perguntas a oportunidade tem (aviso, enquete, quiz ou perguntas da inscrição). */
+  perguntas: number
+  /** A resposta da pessoa, se já respondeu. */
+  resposta: MinhaResposta | null
 }
 
-const COLUNAS = 'id,titulo,tipo,descricao,local,inicio,fim,vagas,inscricoes_ate,horas,cancelada_em,motivo_cancelamento'
+const COLUNAS = 'id,titulo,tipo,descricao,local,inicio,fim,vagas,inscricoes_ate,horas,cancelada_em,motivo_cancelamento,nota_minima'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -62,6 +70,31 @@ async function vagasOcupadas(admin: Admin, ids: string[]): Promise<Map<string, n
   return contagem
 }
 
+/** A resposta da pessoa em cada oportunidade (uma por oportunidade). */
+async function minhasRespostas(admin: Admin, participanteId: string, ids: string[]): Promise<Map<string, MinhaResposta>> {
+  const mapa = new Map<string, MinhaResposta>()
+  await Promise.all(emLotes(ids, IDS_POR_CONSULTA).map(async (lote) => {
+    const { data, error } = await admin.from('oportunidade_respostas').select('oportunidade_id,nota,aprovado,tentativas,atualizado_em').eq('participante_id', participanteId).in('oportunidade_id', lote)
+    if (error) console.error('[membro] respostas da pessoa:', error.message)
+    for (const r of data ?? []) mapa.set(r.oportunidade_id as string, { nota: r.nota as number | null, aprovado: r.aprovado as boolean | null, tentativas: r.tentativas as number, atualizado_em: r.atualizado_em as string })
+  }))
+  return mapa
+}
+
+/** Quantas perguntas cada oportunidade tem (até 50 cada; paginado pelo teto de 1000 linhas). */
+async function contarPerguntas(admin: Admin, ids: string[]): Promise<Map<string, number>> {
+  const contagem = new Map<string, number>()
+  await Promise.all(emLotes(ids, IDS_POR_CONSULTA).map(async (lote) => {
+    for (let de = 0; de < 100_000; de += POR_PAGINA) {
+      const { data, error } = await admin.from('oportunidade_perguntas').select('oportunidade_id').in('oportunidade_id', lote).order('id').range(de, de + POR_PAGINA - 1)
+      if (error) console.error('[membro] perguntas:', error.message)
+      for (const p of data ?? []) contagem.set(p.oportunidade_id as string, (contagem.get(p.oportunidade_id as string) ?? 0) + 1)
+      if (error || !data || data.length < POR_PAGINA) break
+    }
+  }))
+  return contagem
+}
+
 export async function oportunidadesDoMembro(m: Membro): Promise<OportunidadeDoMembro[]> {
   const admin = createAdminClient()
   const desde = new Date(Date.now() - 60 * 86400_000).toISOString()
@@ -70,13 +103,46 @@ export async function oportunidadesDoMembro(m: Membro): Promise<OportunidadeDoMe
   if (error) console.error('[membro] oportunidades:', error.message)
   const ids = (lista ?? []).map((o) => o.id as string)
   if (!ids.length) return []
-  const [minhas, ocupadas] = await Promise.all([minhasInscricoes(admin, m.participanteId, ids), vagasOcupadas(admin, ids)])
+  const [minhas, ocupadas, respostas, perguntas] = await Promise.all([
+    minhasInscricoes(admin, m.participanteId, ids), vagasOcupadas(admin, ids), minhasRespostas(admin, m.participanteId, ids), contarPerguntas(admin, ids),
+  ])
   return (lista ?? []).map((o) => ({
-    ...(o as Omit<OportunidadeDoMembro, 'ocupadas' | 'minha'>),
+    ...(o as Omit<OportunidadeDoMembro, 'ocupadas' | 'minha' | 'perguntas' | 'resposta'>),
     vagas: o.vagas as number | null, horas: o.horas === null ? null : Number(o.horas),
     ocupadas: ocupadas.get(o.id as string) ?? 0,
     minha: minhas.get(o.id as string) ?? null,
+    perguntas: perguntas.get(o.id as string) ?? 0,
+    resposta: respostas.get(o.id as string) ?? null,
   }))
+}
+
+export type PerguntaDoMembro = Omit<Pergunta, 'corretas'> & { id: string }
+
+/**
+ * Uma oportunidade para responder (a página dela): as perguntas SEM o
+ * gabarito, a resposta da pessoa e a inscrição. Nula se não estiver publicada
+ * no espaço dela.
+ */
+export async function oportunidadeParaResponder(m: Membro, id: string) {
+  if (!/^[0-9a-f-]{36}$/.test(id)) return null
+  const admin = createAdminClient()
+  const { data: o } = await admin.from('oportunidades').select(COLUNAS).eq('id', id).eq('workspace_id', m.workspaceId).eq('publicado', true).maybeSingle()
+  if (!o) return null
+  const [{ data: perguntas }, { data: resposta }, { data: inscricao }] = await Promise.all([
+    // `corretas` fica de fora de propósito: o gabarito nunca vai ao navegador.
+    admin.from('oportunidade_perguntas').select('id,enunciado,tipo,alternativas,obrigatoria').eq('oportunidade_id', id).order('ordem').order('id'),
+    admin.from('oportunidade_respostas').select('respostas,nota,acertos,total,aprovado,tentativas,atualizado_em').eq('oportunidade_id', id).eq('participante_id', m.participanteId).maybeSingle(),
+    admin.from('oportunidade_inscricoes').select('situacao').eq('oportunidade_id', id).eq('participante_id', m.participanteId).maybeSingle(),
+  ])
+  return {
+    oportunidade: { ...(o as Omit<OportunidadeDoMembro, 'ocupadas' | 'minha' | 'perguntas' | 'resposta'>), vagas: o.vagas as number | null, horas: o.horas === null ? null : Number(o.horas) },
+    perguntas: (perguntas ?? []).map((p) => ({ ...p, alternativas: (p.alternativas ?? []) as string[] })) as PerguntaDoMembro[],
+    resposta: resposta ? {
+      respostas: lerRespostas(resposta.respostas) as Resposta[], nota: resposta.nota as number | null, acertos: resposta.acertos as number | null,
+      total: resposta.total as number | null, aprovado: resposta.aprovado as boolean | null, tentativas: resposta.tentativas as number, atualizado_em: resposta.atualizado_em as string,
+    } : null,
+    inscricao: (inscricao?.situacao as string | undefined) ?? null,
+  }
 }
 
 /** Uma oportunidade publicada do espaço do voluntário (para o .ics). */
@@ -114,8 +180,10 @@ const porInicio = (a: { inicio: string }, b: { inicio: string }) => Date.parse(a
  * - Onde você já esteve: as que terminaram e em que ela teve vaga, da mais
  *   recente para a mais antiga.
  */
-export function agruparOportunidades<O extends Resumo>(lista: O[], agora: Date): { minhas: O[]; abertas: O[]; passadas: O[] } {
+export function agruparOportunidades<O extends Resumo & { tipo: string }>(todas: O[], agora: Date): { minhas: O[]; abertas: O[]; passadas: O[] } {
   const t = agora.getTime()
+  // Aviso, enquete e quiz têm seção própria ("Para você responder").
+  const lista = todas.filter((o) => !ehDeResposta(o.tipo))
   const proximas = lista.filter((o) => Date.parse(o.fim) > t).sort(porInicio)
   const minhas = proximas.filter((o) => MINHAS.has(o.minha ?? ''))
   const abertas = proximas.filter((o) => !MINHAS.has(o.minha ?? '') && ['aberta', 'lotada'].includes(estado(o, o.ocupadas, agora)))
@@ -128,6 +196,8 @@ export type SeloDoCartao = 'confirmada' | 'espera' | 'andamento' | 'cancelada' |
 export type AcoesDoCartao = {
   /** "Quero participar" (vaga) ou "Entrar na lista de espera" (espera). */
   participar: 'vaga' | 'espera' | null
+  /** Tem perguntas: participar (e mudar as respostas) é na página da oportunidade. */
+  perguntas: boolean
   agenda: boolean
   /** "Cancelar inscrição" ou "Sair da lista de espera", sempre com confirmação. */
   sair: 'inscricao' | 'espera' | null
@@ -221,9 +291,66 @@ export function cartaoDaOportunidade(o: OportunidadeDoMembro, agora: Date): Cart
     selos,
     acoes: {
       participar: naLista ? null : e === 'aberta' ? 'vaga' : e === 'lotada' ? 'espera' : null,
+      perguntas: o.perguntas > 0 && aceita,
       agenda: (naLista && antesDoInicio) || (o.minha === 'inscrito' && e === 'andamento'),
       sair: naLista && antesDoInicio ? (o.minha === 'inscrito' ? 'inscricao' : 'espera') : null,
       semVolta: e === 'encerrada',
     },
+  }
+}
+
+// ---------------------------------------------------------------- pedidos de resposta (puro)
+
+/** Aviso, enquete ou quiz na seção "Para você responder". */
+export type CartaoDePedido = {
+  id: string; titulo: string; descricao: string | null
+  /** 'aviso' | 'enquete' | 'quiz' */
+  codigo: string
+  /** "Quiz", "Enquete / formulário". */
+  tipo: string
+  /** "Responda até 30/09 às 18h". */
+  prazo: string
+  /** Ainda não respondeu (ou o quiz ainda aceita tentativa): o cartão ganha destaque. */
+  pendente: boolean
+  selo: { tom: 'sucesso' | 'aviso' | 'neutro'; texto: string } | null
+  /** O texto do botão que leva à página da oportunidade. */
+  acao: string
+}
+
+/**
+ * Os pedidos abertos (entre a abertura e o prazo), os pendentes primeiro e,
+ * dentro de cada grupo, o prazo mais curto antes.
+ */
+export function pedidosDoMembro(lista: OportunidadeDoMembro[], agora: Date): CartaoDePedido[] {
+  const cartoes = lista
+    .filter((o) => ehDeResposta(o.tipo) && estadoDoPedido(o, agora) === 'aberto')
+    .map((o) => cartaoDoPedido(o, agora))
+  const fim = new Map(lista.map((o) => [o.id, Date.parse(o.fim)]))
+  return cartoes.sort((a, b) => Number(b.pendente) - Number(a.pendente) || (fim.get(a.id) ?? 0) - (fim.get(b.id) ?? 0))
+}
+
+export function cartaoDoPedido(o: OportunidadeDoMembro, agora: Date): CartaoDePedido {
+  const r = o.resposta
+  const minima = o.nota_minima ?? NOTA_MINIMA_PADRAO
+  let selo: CartaoDePedido['selo'] = null
+  let acao: string
+  let pendente = !r
+  if (o.tipo === 'aviso') {
+    if (r) selo = { tom: 'sucesso', texto: 'Você confirmou' }
+    acao = r ? 'Ver aviso' : 'Ler e confirmar'
+  } else if (o.tipo === 'quiz') {
+    if (!r) acao = 'Fazer o quiz'
+    else if (r.aprovado) { selo = { tom: 'sucesso', texto: `Aprovado · nota ${r.nota}` }; acao = 'Ver resultado' }
+    else if (r.tentativas >= TENTATIVAS_DO_QUIZ) { selo = { tom: 'neutro', texto: `Nota ${r.nota} · as tentativas acabaram` }; acao = 'Ver resultado' }
+    else { selo = { tom: 'aviso', texto: `Nota ${r.nota} · a mínima é ${minima}` }; acao = 'Tentar de novo'; pendente = true }
+  } else {
+    if (r) selo = { tom: 'sucesso', texto: 'Respondida' }
+    acao = r ? 'Ver ou mudar resposta' : 'Responder'
+  }
+  return {
+    id: o.id, titulo: o.titulo, descricao: o.descricao, codigo: o.tipo,
+    tipo: ehTipo(o.tipo) ? TIPOS[o.tipo].rotulo : o.tipo,
+    prazo: `Responda até ${prazoLegivel(o.fim, agora)}`,
+    pendente, selo, acao,
   }
 }

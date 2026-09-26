@@ -994,6 +994,11 @@ const VOLUNTARIOS: GuiaDaArea = {
           texto: 'Título, tipo, local, início e fim. Ela nasce como rascunho; publique quando estiver pronta.',
         },
         {
+          alvo: 'voluntarios.tipo-oportunidade',
+          titulo: 'Tipo',
+          texto: '“Para se inscrever”: ação, plantão, evento, formação. “Para responder”: aviso para confirmar, enquete / formulário e quiz. Nestes, somem vagas e horas e aparece o prazo para responder.',
+        },
+        {
           alvo: 'voluntarios.vagas',
           titulo: 'Vagas',
           texto: 'Em branco, sem limite. Quando lota, quem se inscreve vai para a lista de espera e sobe sozinho quando abre vaga.',
@@ -1002,6 +1007,11 @@ const VOLUNTARIOS: GuiaDaArea = {
           alvo: 'voluntarios.horas-presenca',
           titulo: 'Horas por presença',
           texto: 'As horas que vão para o cadastro de quem estiver presente. Em branco, vale a duração da atividade.',
+        },
+        {
+          alvo: 'voluntarios.perguntas',
+          titulo: 'Perguntas',
+          texto: 'Escolha única, várias escolhas, sim ou não, ou resposta curta. Numa ação, o voluntário responde ao se inscrever; no quiz, marque a resposta certa de cada uma.',
         },
         {
           alvo: 'voluntarios.salvar-oportunidade',
@@ -1026,8 +1036,15 @@ const VOLUNTARIOS: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'voluntarios.respostas',
+          titulo: 'Respostas',
+          texto: 'O resumo de cada pergunta (quantos votos e o percentual de cada opção) e a resposta de cada pessoa. No aviso, quantos confirmaram; no quiz, a nota. “Planilha (CSV)” baixa tudo.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'voluntarios.inscritos',
           titulo: 'Inscritos e presença',
+          seAusente: 'pular',
           texto: 'A partir do início da atividade, marque “Presente” ou “Ausente”. Presente lança as horas no cadastro; Ausente tira as que tinham sido lançadas.',
         },
         {
@@ -1245,6 +1262,30 @@ const VOLUNTARIOS: GuiaDaArea = {
       ],
     },
     {
+      id: 'criar-pedido',
+      titulo: 'Mandar um aviso para confirmar, uma enquete ou um quiz',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'Em Voluntários, toque em “Oportunidades” e depois em “Nova oportunidade”.',
+        'Em “Tipo”, escolha “Aviso para confirmar”, “Enquete / formulário” ou “Quiz”.',
+        'Preencha o título, o “Texto” e o “Prazo para responder”. “Abre em” vazio abre assim que publicar.',
+        'Em “Perguntas”, toque em “Pergunta” para cada uma e escolha o tipo. No quiz, marque a resposta certa e, se quiser, a “Nota mínima” (padrão 70).',
+        'Toque em “Criar (como rascunho)” e, na oportunidade, em “Publicar”.',
+      ],
+      dica: 'Depois da primeira resposta, as perguntas e o tipo não mudam mais: mudar embaralharia o que já foi respondido. Precisa de outras perguntas? Crie outra.',
+    },
+    {
+      id: 'perguntas-na-inscricao',
+      titulo: 'Fazer perguntas na inscrição de uma ação',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'Na ação (nova ou já criada), vá até “Perguntas na inscrição”.',
+        'Toque em “Pergunta” e escreva, por exemplo, “Tamanho da camiseta?”, com as alternativas.',
+        'Toque em “Salvar”.',
+      ],
+      dica: 'O voluntário responde antes de se inscrever. As respostas aparecem em “Respostas”, na própria oportunidade.',
+    },
+    {
       id: 'marcar-presenca',
       titulo: 'Marcar presença numa oportunidade',
       quem: 'Nível “Gerenciar” ou acima',
@@ -1388,6 +1429,24 @@ const VOLUNTARIOS: GuiaDaArea = {
       pergunta: 'Como funciona a lista de espera das oportunidades?',
       resposta: 'Quando as vagas acabam, quem se inscreve vai para a lista de espera. Se alguém cancela a inscrição (dá até o início da atividade) ou você aumenta as vagas, quem está na espera sobe, por ordem de chegada, e recebe um e-mail avisando.',
       termos: ['espera', 'vagas', 'lotado', 'fila'],
+    },
+    {
+      id: 'quiz-nota',
+      pergunta: 'Como o quiz dá a nota?',
+      resposta: 'Cada pergunta de escolha com resposta certa marcada vale um ponto; na de várias escolhas, só conta se a pessoa marcar exatamente as certas. A nota é a porcentagem de acertos. Resposta curta não vale nota.\n\nSão até 3 tentativas; aprovado, o resultado fica.',
+      termos: ['quiz', 'nota', 'gabarito', 'tentativas', 'nota mínima'],
+    },
+    {
+      id: 'perguntas-travadas',
+      pergunta: 'Por que não consigo mudar as perguntas?',
+      resposta: 'Porque alguém já respondeu. Mudar a pergunta depois embaralharia o que foi respondido, então as perguntas e o tipo ficam como estão. Se precisar, crie outra oportunidade.',
+      termos: ['editar pergunta', 'Já há respostas: as perguntas não mudam mais. Se precisar, crie outra.', 'Já há respostas: o tipo não muda mais.'],
+    },
+    {
+      id: 'quem-nao-confirmou',
+      pergunta: 'Como sei quem ainda não confirmou o aviso?',
+      resposta: 'Na oportunidade, “Confirmações” mostra quantos confirmaram de quantos voluntários ativos e, em “Quem confirmou”, a lista com o horário. Quem não aparece ali ainda não confirmou.',
+      termos: ['aviso', 'ciente', 'confirmou', 'confirmação'],
     },
     {
       id: 'lembrete-atividade',
