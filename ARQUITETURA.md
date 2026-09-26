@@ -997,6 +997,19 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
   service role); a equipe vê com nível ≥ 1 e troca com ≥ 2 (`/api/voluntariado/[id]/foto`, RPC
   `definir_foto_participante`). Anonimizar ou recusar o cadastro apaga a foto.
 
+### 7.21 Início modular (`/dashboard`)
+
+- O Início é uma lista de blocos (`lib/inicio/blocos.ts`): abertura, esperando você, minhas pautas,
+  projetos, hoje na comunicação, tempo no Rio, a equipe agora, a semana, os indicadores e todas as
+  áreas. Cada bloco tem uma largura natural: toda a largura, coluna larga ou coluna estreita. Largos
+  e estreitos em sequência formam as duas colunas do "Meu dia" (`faixas()`).
+- Cada pessoa escolhe o que aparece e em que ordem ("Personalizar o Início"), guardado em
+  `inicio_preferencias` (uma linha por pessoa e espaço, RLS só da própria). Sem linha, vale a
+  `ORDEM_PADRAO`. Um bloco que surgir depois entra visível, ao lado do vizinho na ordem padrão.
+- Bloco escondido não é consultado: a página só busca no banco o que vai mostrar.
+- Bloco novo: acrescente em `BLOCOS` e `ORDEM_PADRAO` e em `BLOCO` na página, e marque a busca dele
+  com `mostra('<id>')`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

@@ -19,7 +19,7 @@ import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
-  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, a saudação com o seu dia em uma frase, atalhos para começar algo e quatro números que levam direto ao que é seu. Depois, “Meu dia”: o que espera o seu voto e as suas pautas por prazo, com o que acontece hoje na comunicação, o tempo no Rio e a equipe ao lado. Mais abaixo, a semana da comunicação, quatro indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas.',
+  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, a saudação com o seu dia em uma frase, atalhos para começar algo e quatro números que levam direto ao que é seu. Depois, “Meu dia”: o que espera o seu voto e as suas pautas por prazo, com o que acontece hoje na comunicação, o tempo no Rio e a equipe ao lado. Mais abaixo, a semana da comunicação, quatro indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas. Essa é a arrumação padrão: em “Personalizar o Início”, cada pessoa escolhe o que aparece e em que ordem.',
   quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   tour: [
     {
@@ -27,20 +27,29 @@ const INICIO: GuiaDaArea = {
       texto: 'O Início é a entrada do Palácio Virtual: o seu dia primeiro, depois a semana da comunicação, os indicadores e o mapa de todas as áreas. O detalhe de cada coisa continua na tela dela.',
     },
     {
+      alvo: 'inicio.personalizar',
+      titulo: 'Do seu jeito',
+      texto: '“Personalizar o Início” escolhe o que aparece aqui e em que ordem: marque ou desmarque cada bloco e mude de lugar arrastando ou pelas setas. Vale só para você; “Voltar ao padrão” desfaz.',
+      lado: 'bottom',
+    },
+    {
       alvo: 'inicio.resumo',
       titulo: 'O dia em uma frase',
       texto: 'A frase abaixo da saudação conta o que pede a sua atenção agora. Os botões começam uma atividade, uma publicação, um ofício ou um chamado. Os quatro números levam ao que espera o seu voto, às pautas atrasadas, às que vencem em 7 dias e às suas em aberto; ficam vermelhos quando pedem ação.',
       lado: 'bottom',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.esperando-voce',
       titulo: 'Esperando você',
       texto: 'Os conteúdos em que pediram o seu voto e que ainda esperam a sua decisão, do pedido mais antigo para o mais novo. Cada linha abre a tela de aprovação.',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.minhas-pautas',
       titulo: 'Minhas pautas',
       texto: 'As pautas em aberto em que você é responsável, separadas por prazo, de “Atrasadas” a “Sem prazo”. Cada linha abre a pauta; “Abrir o quadro” leva a Pautas.',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.areas',
@@ -52,19 +61,33 @@ const INICIO: GuiaDaArea = {
       alvo: 'inicio.semana',
       titulo: 'A semana da operação',
       texto: 'Dia a dia, o que está no calendário, o que foi ao ar (com ✓) e o que falhou ao publicar. Os botões “Anterior” e “Próxima”, acima, trocam de semana.',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.canais',
       titulo: 'Saúde dos canais',
       texto: 'Cada canal em uso, com a última publicação. “Com falha”: a tentativa mais recente falhou. “Parado”: nada publicado há mais de 14 dias. O site aparece sempre.',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.indicadores',
       titulo: 'Indicadores',
       texto: 'Os últimos 30 dias comparados aos 30 anteriores, com a linha das últimas 8 semanas. Verde é melhora e vermelho é piora, conforme o indicador.',
+      seAusente: 'pular',
     },
   ],
   tarefas: [
+    {
+      id: 'personalizar-o-inicio',
+      titulo: 'Escolher o que aparece no Início',
+      passos: [
+        'No Início, toque em “Personalizar o Início”, no alto, ao lado da data.',
+        'Desmarque o que não quer ver e marque o que quer.',
+        'Para mudar a ordem, arraste o bloco pela alça (os seis pontinhos) ou use as setas para subir e descer.',
+        'Toque em “Salvar”. O Início já abre do seu jeito, em qualquer aparelho.',
+      ],
+      dica: 'Blocos de coluna larga e estreita em sequência ficam lado a lado, como o “Meu dia” de sempre. Para desfazer tudo, “Voltar ao padrão” e “Salvar”. Bloco escondido não é carregado: o Início fica mais leve.',
+    },
     {
       id: 'ver-o-que-e-meu',
       titulo: 'Ver o que precisa de você hoje',
