@@ -149,6 +149,9 @@ export async function salvarPerfil(_anterior: { erro?: string; ok?: boolean }, f
     const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo())
     if (erros.length) return { erro: erros.join(' ') }
     const { error } = await createAdminClient().rpc('membro_atualizar_perfil', { p_participante_id: m.participanteId, p: dados })
+    if (error?.code === '23514' && error.message?.includes('participantes_vinculo_check')) {
+      throw new Error('Seu cadastro precisa de um ajuste da equipe da filial antes de ser atualizado. Fale com quem cuida do Voluntariado.')
+    }
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível salvar.')
     revalidatePath('/membro', 'layout')
     return { ok: true }

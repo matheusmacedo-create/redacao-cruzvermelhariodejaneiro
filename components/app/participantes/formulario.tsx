@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarParticipante } from '@/app/actions/participantes'
-import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, VINCULOS } from '@/lib/participantes/regras'
+import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, VINCULOS, ehVinculo } from '@/lib/participantes/regras'
 import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 export type ParticipanteNoFormulario = {
@@ -87,7 +87,9 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
 
       <Secao titulo="Vínculo com a filial">
         <Campo rotulo="Vínculo">
-          <select id="p-vinculo" name="vinculo" defaultValue={p?.vinculo ?? 'voluntario'} className={inputClass}>
+          {/* Vínculo antigo (coordenador, colaborador…): nada de trocar calado pelo primeiro da lista. */}
+          <select id="p-vinculo" name="vinculo" required defaultValue={p?.vinculo && !ehVinculo(p.vinculo) ? '' : p?.vinculo ?? 'voluntario'} className={inputClass}>
+            {p?.vinculo && !ehVinculo(p.vinculo) && <option value="" disabled>Escolha — “{p.vinculo}” não existe mais aqui</option>}
             {Object.entries(VINCULOS).map(([k, x]) => <option key={k} value={k}>{x.rotulo}</option>)}
           </select>
         </Campo>

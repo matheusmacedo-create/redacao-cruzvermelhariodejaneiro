@@ -278,9 +278,13 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   igual para tudo, só envia para e-mail confirmado, limite de 5 pedidos por IP
   a cada 15 min (`pedidos_de_recuperacao`, hash do IP) e 3 links por pessoa por
   hora. Redefinir a senha **não** desliga a verificação em duas etapas.
-- **Login por e-mail**: `resolverLogin` traduz e-mail confirmado para o usuário;
-  e-mail desconhecido vira um endereço interno inexistente e falha igual a
-  senha errada.
+- **Login no servidor** (`entrar`, `app/actions/entrada.ts`): confere o
+  bloqueio por tentativas erradas, entra com o cliente do servidor (que grava o
+  cookie) e registra o acesso; a tela só recebe "entrou" ou a mensagem.
+  `emailDoLogin` (`lib/contas/login.ts`, fora de `'use server'`) traduz e-mail
+  confirmado para o usuário; e-mail desconhecido vira um endereço interno
+  inexistente e falha igual a senha errada. O e-mail interno nunca vai ao
+  navegador: antes ia, e dizia quem tem conta e qual é o usuário dela.
 - **Trocar e-mail exige abrir o link no endereço novo** (a pessoa ou o admin
   pedem; nada muda antes) e o endereço antigo recebe aviso. `profiles.email`
   não está no grant de update por coluna: a Data API não troca.
