@@ -39,6 +39,10 @@
     {
       "path": "/api/correio/sincronizar",
       "schedule": "47 9 * * *"
+    },
+    {
+      "path": "/api/agenda/resumo",
+      "schedule": "43 9 * * 1"
     }
   ]
 }
