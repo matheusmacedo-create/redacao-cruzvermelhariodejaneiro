@@ -23,14 +23,16 @@ function Contato({ href, icone: Icone, rotulo, externo }: { href: string; icone:
   )
 }
 
-function CartaoDaPessoa({ p, ehAdmin }: { p: PessoaDoDiretorio; ehAdmin: boolean }) {
+// `primeiro`: o tour de /pessoas aponta um cartão só, o primeiro da grade. A
+// grade inteira como alvo ocupava a tela, e no celular a folha do balão a cobria.
+function CartaoDaPessoa({ p, ehAdmin, primeiro = false }: { p: PessoaDoDiretorio; ehAdmin: boolean; primeiro?: boolean }) {
   const [copiado, setCopiado] = useState(false)
   const nome = nomeExibido(p.nome)
   const falta = ehAdmin && p.origem === 'conta' ? pendencias(p) : []
   const zap = whatsapp(p.telefone)
   const acesso = ACESSOS[p.acesso]
   return (
-    <Card className={cn('flex flex-col gap-3 p-4', p.acesso === 'desativado' && 'opacity-60')} data-pessoa={nome}>
+    <Card className={cn('flex flex-col gap-3 p-4', p.acesso === 'desativado' && 'opacity-60')} data-pessoa={nome} data-ajuda={primeiro ? 'diretorio.cartao' : undefined}>
       <div className="flex items-start gap-3">
         {p.user_id
           ? <Link href={`/pessoas/${p.user_id}`} aria-label={`Perfil de ${nome}`} className="rounded-full focus-visible:ring-2 focus-visible:ring-ring"><Avatar initials={p.iniciais || iniciaisDe(p.nome)} color={p.cor ?? '#9ca3af'} src={privateAvatarUrl(p.avatar_path)} alt={nome} size="lg" /></Link>
@@ -132,7 +134,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
       </div>
 
       {!lista.length ? <Card className="p-10 text-center text-sm text-muted-foreground">Ninguém com esse filtro.</Card> : vista === 'cartoes' ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes" data-ajuda="diretorio.cartoes">{lista.map((p) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes">{lista.map((p, i) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} primeiro={i === 0} />)}</div>
       ) : (
         <div className="flex flex-col gap-6" id="por-setor">
           {grupos.map((g) => {

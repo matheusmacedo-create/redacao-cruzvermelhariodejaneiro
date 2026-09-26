@@ -1,6 +1,6 @@
 'use server'
 
-import { requireWorkspace } from '@/lib/session'
+import { obterWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext } from '@/lib/erro-de-acao'
 import { ehChaveDeTour } from '@/lib/ajuda'
@@ -14,10 +14,14 @@ export type EventoDaAjuda = { tipo: 'boas-vindas' } | { tipo: 'tour'; chave: str
  * está ligada.
  *
  * A tela já mudou antes de chamar (otimista); isto só registra para valer em
- * outro aparelho e no próximo acesso. Por isso nunca lança: uma falha aqui só
- * faz a dica aparecer de novo, e não pode virar erro na frente de ninguém.
- * A exceção é a sessão vencida: o redirect para o login segue adiante, como
- * em toda action (lib/erro-de-acao.ts).
+ * outro aparelho e no próximo acesso. Por isso nunca lança nem redireciona:
+ * uma falha aqui só faz a dica aparecer de novo, e não pode virar erro na
+ * frente de ninguém. Daí obterWorkspace, e não requireWorkspace: com a
+ * sessão vencida (ou com a senha provisória, ou a verificação pendente), o
+ * requireWorkspace redirecionaria no meio do trabalho — a action roda por
+ * trás, ao fechar um tour ou tocar "Agora não" — e o que estava sendo
+ * digitado na página se perderia. Sem sessão válida, não grava; a próxima
+ * ação de verdade da página leva ao login.
  *
  * O servidor recalcula a partir do que está gravado e só aceita chave de tour
  * que existe no conteúdo: o metadata vai no token de toda requisição e não
@@ -25,12 +29,14 @@ export type EventoDaAjuda = { tipo: 'boas-vindas' } | { tipo: 'tour'; chave: str
  */
 export async function registrarAjuda(evento: EventoDaAjuda): Promise<{ ok: boolean }> {
   try {
-    const context = await requireWorkspace({ escola: true })
+    const context = await obterWorkspace({ escola: true })
+    // A senha provisória vem antes de tudo (requireWorkspace manda para /trocar-senha): nada a guardar ainda.
+    if (!context || context.profile?.trocar_senha) return { ok: false }
     const atual = lerProgresso(context.user.user_metadata?.ajuda)
     const novo = proximo(atual, evento)
     if (!novo) return { ok: false }
     if (mesmo(atual, novo)) return { ok: true }
-    // Pelo cliente admin, para o id que o requireWorkspace acabou de conferir
+    // Pelo cliente admin, para o id que o obterWorkspace acabou de conferir
     // (nunca um id vindo do navegador). O cliente da própria pessoa
     // (auth.updateUser) regravaria o cookie da sessão, e cookie gravado numa
     // action faz o Next refazer no servidor o layout e a página abertos — a

@@ -30,7 +30,7 @@ import { CampoDoCodigo } from './campo-do-codigo'
  * reabrir nela quando a pessoa volta do aplicativo de e-mail — o Safari do
  * iPhone costuma descartar a aba — ou recarrega a página. localStorage: só o
  * último e-mail usado, para já vir preenchido quando a sessão vence; o "Sair"
- * apaga (`esquecerUltimoEmail`, em ./conta). O e-mail nunca vai para a URL.
+ * apaga (`esquecerAoSair`, em ./conta). O e-mail nunca vai para a URL.
  * Tudo com try/catch: em aba anônima ou com armazenamento bloqueado, a tela
  * funciona igual, só não lembra.
  */

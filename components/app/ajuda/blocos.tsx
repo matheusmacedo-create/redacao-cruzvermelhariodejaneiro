@@ -81,15 +81,20 @@ export function PerguntaRecolhida({ pergunta }: { pergunta: Pergunta }) {
   )
 }
 
-// A âncora mira o próprio cartão; o scroll-margin deixa um respiro acima dele,
-// e o :target acende o cartão para quem chegou por um link da busca.
-const ancorado = 'scroll-mt-6 rounded-xl border border-border bg-card p-4 shadow-xs target:border-primary/50 target:ring-2 target:ring-primary/20 sm:p-5'
+// A âncora mira o próprio cartão; o scroll-margin deixa um respiro acima dele.
+// O cartão do link acende pelo :target (link aberto do zero) e pelo
+// data-ancora que AncoraDaAjuda (./ancora.tsx) põe quando se chega pelo
+// painel ou pelo ⌘K, que navegam sem recarregar e não mexem no :target.
+// tabIndex -1: chegando pelo link, o foco vai para a resposta (o Next e a
+// AncoraDaAjuda dão o foco ao alvo), e o teclado e o leitor de tela seguem
+// dali. Sem ele, o foco ficava no botão "?" que abriu o painel.
+const ancorado = 'scroll-mt-6 rounded-xl border border-border bg-card p-4 shadow-xs target:border-primary/50 target:ring-2 target:ring-primary/20 data-[ancora]:border-primary/50 data-[ancora]:ring-2 data-[ancora]:ring-primary/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-5'
 
 /** Uma tarefa aberta, com âncora (Central). */
 export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 | 5 }) {
   const Titulo = nivel === 3 ? 'h3' : 'h5'
   return (
-    <article id={tarefa.id} className={ancorado}>
+    <article id={tarefa.id} tabIndex={-1} className={ancorado}>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
         <Titulo className="min-w-0 text-[15px] font-semibold leading-snug">{tarefa.titulo}</Titulo>
         {tarefa.quem && <SeloQuem quem={tarefa.quem} />}
@@ -103,7 +108,7 @@ export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 
 export function PerguntaAberta({ pergunta, nivel = 3 }: { pergunta: Pergunta; nivel?: 3 | 5 }) {
   const Titulo = nivel === 3 ? 'h3' : 'h5'
   return (
-    <article id={pergunta.id} className={ancorado}>
+    <article id={pergunta.id} tabIndex={-1} className={ancorado}>
       <Titulo className="mb-2 text-[15px] font-semibold leading-snug">{pergunta.pergunta}</Titulo>
       <Resposta texto={pergunta.resposta} />
     </article>
@@ -111,7 +116,7 @@ export function PerguntaAberta({ pergunta, nivel = 3 }: { pergunta: Pergunta; ni
 }
 
 /** A lista de resultados da busca na ajuda (painel e Central). */
-export function ResultadosDaAjuda({ achados, busca, aoEscolher }: { achados: Achado[]; busca: string; aoEscolher?: () => void }) {
+export function ResultadosDaAjuda({ achados, busca, aoEscolher }: { achados: Achado[]; busca: string; aoEscolher?: (href: string) => void }) {
   if (!achados.length) {
     return <p className="px-1 py-6 text-center text-sm text-muted-foreground">Nada na ajuda com “{busca.trim()}”. Tente outra palavra.</p>
   }
@@ -121,7 +126,7 @@ export function ResultadosDaAjuda({ achados, busca, aoEscolher }: { achados: Ach
         const Icone = achado.tipo === 'pergunta' ? CircleHelp : ListOrdered
         return (
           <li key={achado.href}>
-            <Link href={achado.href} onClick={aoEscolher} className="flex min-h-11 gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm outline-none hover:border-border hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50">
+            <Link href={achado.href} onClick={() => aoEscolher?.(achado.href)} className="flex min-h-11 gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm outline-none hover:border-border hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50">
               <Icone className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium leading-snug">{achado.titulo}</span>

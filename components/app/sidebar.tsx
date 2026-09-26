@@ -10,9 +10,8 @@ import { cn } from '@/lib/utils'
 import { ADMINISTRACAO, areaDoCaminho, ehDaArea, type Area, type Contador, type Grupo } from '@/lib/navegacao'
 import { useShell } from './app-shell'
 import { useChatAoVivo } from '@/components/app/chat/ao-vivo'
-
-/** Os grupos que a pessoa fechou. Cookie, para o servidor desenhar igual. */
-export const COOKIE_DOS_GRUPOS = 'sidebar_grupos_fechados'
+// Os grupos que a pessoa fechou ficam num cookie, para o servidor desenhar igual (o nome mora fora deste módulo do cliente).
+import { COOKIE_DOS_GRUPOS } from './cookies-do-menu'
 
 type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
 export type Contadores = Partial<Record<Contador, number>>

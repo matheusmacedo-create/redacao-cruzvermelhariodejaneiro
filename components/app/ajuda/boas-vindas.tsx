@@ -1,9 +1,10 @@
 'use client'
 
+import { useRef } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Compass, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAjuda } from './ajuda'
+import { useAjuda, useFocoAoFecharDialogo } from './ajuda'
 
 /**
  * As boas-vindas do primeiro acesso: o que é a Redação, em duas frases, e o
@@ -13,9 +14,12 @@ import { useAjuda } from './ajuda'
  */
 export function BoasVindas() {
   const { boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, pessoa, passosDasBoasVindas } = useAjuda()
+  // Aberta sozinha no primeiro acesso, ou pelo painel "?" (que fecha antes), a janela não tem a quem devolver o foco: vai para o "?".
+  const focoAoFechar = useFocoAoFecharDialogo(boasVindasAberta)
   // Uns 8 segundos por balão: o tour inteiro cabe em um minuto, e é isso que prometemos.
   const minutos = Math.max(1, Math.round((passosDasBoasVindas * 8) / 60))
   const titulo = pessoa.primeiroNome ? `Boas-vindas à Redação, ${pessoa.primeiroNome}!` : 'Boas-vindas à Redação!'
+  const janela = useRef<HTMLDivElement>(null)
 
   return (
     <Dialog.Root
@@ -25,7 +29,9 @@ export function BoasVindas() {
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-[2px] transition-opacity duration-200 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none" />
-        <Dialog.Popup className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-2xl outline-none transition-[opacity,scale] duration-200 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-7">
+        {/* O foco vai para a própria janela, não para o primeiro botão (o X): o leitor de tela
+            lê o título e o texto, e um Enter por reflexo não fecha as boas-vindas para sempre. */}
+        <Dialog.Popup ref={janela} initialFocus={janela} finalFocus={focoAoFechar} className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-popover p-6 text-popover-foreground shadow-2xl outline-none transition-[opacity,scale] duration-200 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-7">
           <Dialog.Close aria-label="Fechar" className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
             <X className="size-4" aria-hidden="true" />
           </Dialog.Close>

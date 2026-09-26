@@ -121,9 +121,9 @@ itens, como no benchmark.
   ("cérebro", "impacto", "rh", "post").
 - **Ajuda** ([`AJUDA.md`](AJUDA.md)): o botão “?” do topo (e a tecla `?`)
   abre o passo a passo e as perguntas frequentes da área aberta; a Central
-  fica em `/ajuda`, no pé da sidebar; e as perguntas da ajuda também
-  aparecem na busca ⌘K. A chave da ajuda é o `href` da área em
-  `lib/navegacao.ts`.
+  fica em `/ajuda`, no menu da conta (no celular, na gaveta, em
+  Administração); e as perguntas da ajuda também aparecem na busca ⌘K. A
+  chave da ajuda é o `href` da área em `lib/navegacao.ts`.
 - **Aba do navegador** com o nome da área ("Pautas — Redação").
 - No celular, a gaveta de antes, com os mesmos grupos, e a busca no topo.
 

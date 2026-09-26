@@ -80,7 +80,7 @@ const OFICIOS: GuiaDaArea = {
         {
           alvo: 'oficios.emitir',
           titulo: 'Emitir para assinatura',
-          texto: 'O botão “Emitir para assinatura” pede quem assina e como (senha do Redação ou gov.br). Na emissão o ofício ganha o número do ano e o texto congela.',
+          texto: 'O botão “Emitir para assinatura” pede quem assina e como (“Senha do Redação” ou gov.br). Na emissão o ofício ganha o número do ano e o texto congela.',
           lado: 'bottom',
           seAusente: 'pular',
         },
@@ -105,7 +105,7 @@ const OFICIOS: GuiaDaArea = {
         {
           alvo: 'oficios.bitcoin',
           titulo: 'Registro no Bitcoin',
-          texto: 'Quando todos assinam, só o código do manifesto vai ao Bitcoin, sem texto nem nomes. O selo mostra “Na fila”, “Aguardando bloco” ou “Confirmado”.',
+          texto: 'Quando todas as pessoas assinam, só um código que identifica o ofício assinado vai ao Bitcoin, sem texto nem nomes. O selo mostra “Na fila”, “Aguardando bloco” ou “Confirmado”.',
           seAusente: 'pular',
         },
       ],
@@ -159,7 +159,7 @@ const OFICIOS: GuiaDaArea = {
         'Toque em “Abrir o assinador gov.br” e assine o PDF com a sua conta gov.br (prata ou ouro). Não edite nem salve o PDF por outro programa.',
         'De volta ao ofício, escolha o arquivo assinado e toque em “Enviar PDF assinado”.',
       ],
-      dica: 'O Redação confere se o PDF é este ofício, se a assinatura está íntegra e se o certificado está no seu nome. Se outra pessoa assinou enquanto isso, baixe o PDF de novo e assine outra vez.',
+      dica: 'A Redação confere se o PDF é este ofício, se a assinatura está íntegra e se o certificado está no seu nome. Se outra pessoa assinou enquanto isso, baixe o PDF de novo e assine outra vez.',
     },
     {
       id: 'recusar-assinatura',
@@ -169,7 +169,7 @@ const OFICIOS: GuiaDaArea = {
         'Em “Motivo”, explique por que não vai assinar.',
         'Toque em “Recusar e cancelar”.',
       ],
-      dica: 'Recusar cancela o ofício: o número fica registrado como cancelado, e quem criou recebe o aviso com o seu motivo. O botão “Recusar” só aparece nos ofícios assinados com a senha do Redação; no gov.br, peça a quem criou o ofício que o cancele.',
+      dica: 'Recusar cancela o ofício: o número fica registrado como cancelado, e quem criou recebe o aviso com o seu motivo. O botão “Recusar” só aparece nos ofícios assinados com a “Senha do Redação”; no gov.br, peça a quem criou o ofício que o cancele.',
     },
     {
       id: 'baixar-pdf',
@@ -266,7 +266,7 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'qual-senha',
       pergunta: 'Qual senha eu uso para assinar?',
-      resposta: 'A mesma com que você entra no Redação. Se errar, aparece “Senha incorreta. A assinatura não foi registrada.” e nada muda.',
+      resposta: 'A mesma com que você entra na Redação. Se errar, aparece “Senha incorreta. A assinatura não foi registrada.” e nada muda.',
       termos: ['senha incorreta', 'senha errada'],
     },
     {
@@ -290,13 +290,13 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'registro-no-bitcoin',
       pergunta: 'O que é o registro no Bitcoin?',
-      resposta: 'Quando a última pessoa assina, o Redação monta o manifesto (o código do documento, quem assinou e quando) e registra o código desse manifesto no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem o Redação no ar.',
+      resposta: 'Quando a última pessoa assina, a Redação monta o manifesto, um resumo do ofício assinado (o código do documento, quem assinou e quando), e registra o código desse manifesto no Bitcoin, pelo OpenTimestamps. Nenhum texto ou nome vai para lá. A prova (“Prova .ots”) vale por si, mesmo sem a Redação no ar.',
       termos: ['blockchain', 'carimbo', 'opentimestamps', 'ots', 'manifesto'],
     },
     {
       id: 'selo-do-bitcoin',
       pergunta: 'O que querem dizer “Na fila”, “Aguardando bloco” e “Confirmado”?',
-      resposta: '“Na fila”: o registro ainda vai ser enviado aos calendários do OpenTimestamps. “Aguardando bloco”: já foi enviado e espera entrar num bloco do Bitcoin, o que leva algumas horas. “Confirmado”: está gravado num bloco.\n\nO Redação confere sozinho; “Verificar agora” força uma conferência, no máximo a cada 2 minutos.',
+      resposta: '“Na fila”: o registro ainda vai ser enviado aos servidores do OpenTimestamps, que a tela chama de “calendários”. “Aguardando bloco”: já foi enviado e espera entrar num bloco do Bitcoin, o que leva algumas horas. “Confirmado”: está gravado num bloco.\n\nA Redação confere sozinha; “Verificar agora” força uma conferência, no máximo a cada 2 minutos.',
       termos: ['verificar agora', 'Verificado há pouco', 'carimbo pendente'],
     },
     {
@@ -341,7 +341,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       alvo: 'chamados.filtros',
       titulo: 'Filtros do atendimento',
-      texto: 'Filtre por fila, situação e responsável. Os atrasados vêm primeiro, depois a prioridade e o mais antigo.',
+      texto: 'Filtre por fila, situação e responsável. Os atrasados vêm primeiro; depois, os de prioridade mais alta e os mais antigos.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -582,7 +582,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'status-do-chamado',
       pergunta: 'O que significa cada status?',
-      resposta: '“Novo”: ninguém atendeu ainda. “Em atendimento”: a equipe está cuidando. “Aguardando você” (para a equipe, “Aguardando solicitante”): a equipe precisa de uma resposta sua; “Aguardando terceiro”: depende de fornecedor ou peça.\n\n“Resolvido”: a equipe deu a solução e espera a sua confirmação. “Fechado” e “Cancelado” encerram o chamado.',
+      resposta: '“Novo”: ninguém atendeu ainda; “Em atendimento”: a equipe está cuidando; “Aguardando você” (para a equipe, “Aguardando solicitante”): falta uma resposta sua; “Aguardando terceiro”: depende de fornecedor ou peça.\n\n“Resolvido”: a equipe deu a solução e espera a sua confirmação. “Fechado” e “Cancelado” encerram o chamado.',
       termos: ['situação', 'aguardando solicitante', 'aguardando terceiro'],
     },
     {
@@ -624,7 +624,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'quando-recebo-aviso',
       pergunta: 'Quando recebo aviso de um chamado?',
-      resposta: 'Quem abriu é avisado das respostas da equipe, dos pedidos de informação, da solução, do cancelamento feito pela equipe e da mudança de fila. A equipe da fila é avisada de chamado novo e de chamado transferido para ela; quem é o responsável é avisado da atribuição, das mensagens de quem abriu, da reabertura, do cancelamento e da avaliação (sem responsável, mensagens e reaberturas vão para a equipe da fila). Ninguém é avisado do que ele mesmo fez.',
+      resposta: 'Quem abriu é avisado das respostas da equipe, dos pedidos de informação, da solução, do cancelamento feito pela equipe e da mudança de fila.\n\nA equipe da fila é avisada de chamado novo e de chamado transferido para ela. Quem é responsável pelo chamado é avisado da atribuição, das mensagens de quem abriu, da reabertura, do cancelamento e da avaliação; sem responsável, mensagens e reaberturas vão para a equipe da fila. Ninguém é avisado do que fez.',
       termos: ['notificação', 'sino', 'e-mail'],
     },
     {
@@ -654,7 +654,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'indicadores',
       pergunta: 'O que mostram os “Indicadores”?',
-      resposta: 'Os chamados abertos nos últimos 90 dias nas filas que você atende: em aberto, atrasados, tempo médio de 1ª resposta e de solução, resolvidos no prazo, satisfação, os números por fila e por prioridade e os assuntos mais pedidos. Os tempos médios contam em horário de atendimento (em horas corridas nas filas 24h), da abertura até a resposta ou a solução. A satisfação (CSAT) é a parte das avaliações com nota 4 ou 5.',
+      resposta: 'Os chamados abertos nos últimos 90 dias nas filas que você atende: em aberto, atrasados, tempo médio de 1ª resposta e de solução, resolvidos no prazo, satisfação, os números por fila e por prioridade e os assuntos mais pedidos.\n\nOs tempos médios contam em horário de atendimento (em horas corridas nas filas 24h), da abertura até a resposta ou a solução. A satisfação (CSAT) é a parte das avaliações com nota 4 ou 5.',
       termos: ['csat', 'métricas', 'relatório', 'média'],
     },
     {
@@ -950,7 +950,7 @@ const COMPRAS: GuiaDaArea = {
     {
       id: 'situacoes-do-pedido',
       pergunta: 'O que significa cada situação do pedido?',
-      resposta: '“Aguardando cotação”: ninguém registrou proposta ainda. “Em cotação”: o Financeiro está juntando propostas. “Em aprovação”: espera o Financeiro e, se preciso, a Diretoria.\n\n“Aprovado”, “Ordem emitida”, “Recebido em parte” e “Recebido” acompanham a compra até a entrega. “Recusado” e “Cancelado” encerram o pedido.',
+      resposta: '“Aguardando cotação”: ninguém registrou proposta ainda; “Em cotação”: o Financeiro está juntando propostas; “Em aprovação”: espera o Financeiro e, se preciso, a Diretoria.\n\n“Aprovado”, “Ordem emitida”, “Recebido em parte” e “Recebido” acompanham a compra até a entrega. “Recusado” e “Cancelado” encerram o pedido.',
       termos: ['status', 'estado', 'em cotação', 'em aprovação'],
     },
     {

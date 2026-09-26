@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { CircleHelp, Loader2, X } from 'lucide-react'
-import { useAjuda } from './ajuda'
+import { useAjuda, useFocoAoFecharDialogo } from './ajuda'
 import { carregarAjuda } from './carregar'
 
 type Miolo = typeof import('./painel-conteudo')
@@ -22,6 +22,7 @@ type Miolo = typeof import('./painel-conteudo')
  */
 export function PainelDeAjuda() {
   const { painelAberto, abrirPainel, fecharPainel, aoFecharDialogo } = useAjuda()
+  const focoAoFechar = useFocoAoFecharDialogo(painelAberto)
   const popup = useRef<HTMLDivElement>(null)
   const [miolo, setMiolo] = useState<Miolo | null>(null)
   const [falhou, setFalhou] = useState(false)
@@ -50,6 +51,7 @@ export function PainelDeAjuda() {
         <Dialog.Popup
           ref={popup}
           initialFocus={popup}
+          finalFocus={focoAoFechar}
           data-painel-de-ajuda=""
           className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-background text-foreground shadow-2xl outline-none transition-transform duration-200 ease-out data-[ending-style]:translate-x-full data-[starting-style]:translate-x-full motion-reduce:transition-none sm:w-[420px] sm:border-l sm:border-border"
         >

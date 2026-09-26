@@ -1,4 +1,5 @@
-import type { GuiaDaArea } from '../tipos'
+import type { GuiaDaArea, Pergunta } from '../tipos'
+import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 
 /**
  * A ajuda do grupo sem título do menu — o que é do dia de cada pessoa:
@@ -145,13 +146,13 @@ const INICIO: GuiaDaArea = {
     {
       id: 'equipe-agora',
       pergunta: 'O que aparece em “A equipe agora”?',
-      resposta: 'Os 7 movimentos mais recentes da equipe: pautas criadas, movidas no quadro, comentadas, arquivadas ou restauradas; projetos criados, excluídos ou com a situação atualizada; ofícios emitidos, assinados, recusados ou cancelados; campanhas de imprensa enviadas, contatos importados e publicações no site. Tocar num item de pauta, projeto, ofício ou imprensa abre o assunto (menos pauta arquivada e projeto excluído).',
+      resposta: 'Os 7 movimentos mais recentes da equipe: pautas criadas, movidas no quadro, comentadas, arquivadas ou restauradas; projetos criados, excluídos ou com a situação atualizada; ofícios emitidos, assinados, recusados ou cancelados; campanhas de imprensa enviadas, contatos importados e publicações no site.\n\nTocar num item de pauta, projeto, ofício ou imprensa abre o assunto (menos pauta arquivada e projeto excluído).',
       termos: ['feed', 'atividade', 'movimento', 'últimas ações'],
     },
     {
       id: 'projetos-no-inicio',
-      pergunta: 'Quais projetos aparecem em “Projetos em andamento”?',
-      resposta: 'Até quatro projetos em andamento: primeiro os seus (com o selo “Meu”), depois os em pior situação e os de prazo mais perto. A barra mostra o progresso pelas pautas do projeto. Sem projeto em andamento, essa parte nem aparece; a lista completa fica em “Carteira”.',
+      pergunta: 'Quais projetos aparecem em “Projetos em andamento”, no Início?',
+      resposta: 'Até quatro projetos em andamento: primeiro os seus (com o selo “Meu”), depois os em pior situação e os de prazo mais perto. A barra mostra o progresso pelas pautas do projeto. Sem projeto em andamento, essa parte nem aparece; o link “Carteira” abre a lista completa, em Projetos.',
       termos: ['projetos', 'campanhas', 'progresso'],
     },
     {
@@ -169,7 +170,7 @@ const INICIO: GuiaDaArea = {
     {
       id: 'como-os-indicadores-contam',
       pergunta: 'Como cada indicador é calculado?',
-      resposta: '“Publicações no ar”: cada canal conta uma vez (um post no Instagram e no Facebook são duas). “Abertura da imprensa”: quem abriu sobre quem recebeu, nas campanhas do período. “Pautas entregues no prazo”: das pautas com prazo que chegaram a “Pronto”, quantas chegaram até o prazo. “Tempo até a decisão”: a média entre o pedido de aprovação e a decisão (aprovar ou pedir ajustes).',
+      resposta: '“Publicações no ar”: cada canal conta uma vez (um post no Instagram e no Facebook são duas). “Abertura da imprensa”: quem abriu sobre quem recebeu, nas campanhas do período.\n\n“Pautas entregues no prazo”: das pautas com prazo que chegaram a “Pronto”, quantas chegaram até o prazo. “Tempo até a decisão”: a média entre o pedido de aprovação e a decisão (aprovar ou pedir ajustes).',
       termos: ['métricas', 'indicadores', 'porcentagem', 'média'],
     },
     {
@@ -322,7 +323,7 @@ const APROVACOES: GuiaDaArea = {
         'Em “Quem precisa aprovar”, marque as pessoas que devem votar.',
         'Toque em “Enviar para aprovação”. Você vai para “Aprovações”, e cada pessoa convidada recebe o pedido.',
       ],
-      dica: 'Os participantes da pauta entram na rodada mesmo sem serem marcados. Quem escreveu, quem responde pelo conteúdo e quem envia ficam de fora: ninguém aprova o próprio texto.',
+      dica: 'Quem participa da pauta entra na rodada mesmo sem ser marcado. Quem escreveu, quem responde pelo conteúdo e quem envia ficam de fora: ninguém aprova o próprio texto.',
       quem: 'Responsável pelo conteúdo ou pela pauta, e administradores',
     },
     {
@@ -334,7 +335,7 @@ const APROVACOES: GuiaDaArea = {
         'Em “Quem precisa aprovar”, marque quem deve votar.',
         'Toque em “Abrir aprovação”. A pauta passa para a coluna “Aprovação” e a tela da rodada abre.',
       ],
-      dica: 'Também aqui os participantes da pauta entram na rodada, e quem escreveu o conteúdo fica de fora.',
+      dica: 'Também aqui quem participa da pauta entra na rodada, e quem escreveu o conteúdo fica de fora.',
     },
     {
       id: 'convidar-mais-gente',
@@ -368,7 +369,7 @@ const APROVACOES: GuiaDaArea = {
         'Em “Quem precisa aprovar”, marque de novo quem deve votar: a rodada nova não copia a lista da anterior.',
         'Toque em “Enviar para aprovação”. Começa uma rodada nova, e todo mundo vota de novo.',
       ],
-      dica: 'Os participantes da pauta entram sozinhos, como no primeiro envio. A rodada antiga continua na fila, em “Com ajustes”, como histórico.',
+      dica: 'Quem participa da pauta entra de novo sem precisar ser marcado, como no primeiro envio. A rodada antiga continua na fila, em “Com ajustes”, como histórico.',
       quem: 'Responsável pelo conteúdo ou pela pauta, e administradores',
     },
     {
@@ -397,7 +398,7 @@ const APROVACOES: GuiaDaArea = {
     {
       id: 'quem-vota',
       pergunta: 'Quem vota numa aprovação?',
-      resposta: 'Só quem recebeu o convite. No envio de um conteúdo, entram as pessoas marcadas e os participantes da pauta; quem escreveu, quem responde pelo conteúdo e quem envia ficam de fora, para ninguém aprovar o próprio texto. Num pacote de “Publicações”, entram só as pessoas marcadas.\n\nDepois, quem pediu (ou um administrador) pode chamar mais gente em “Convidar mais gente”.',
+      resposta: 'Só quem recebeu o convite. No envio de um conteúdo, entram as pessoas marcadas e quem participa da pauta; quem escreveu, quem responde pelo conteúdo e quem envia ficam de fora, para ninguém aprovar o próprio texto. Num pacote de “Publicações”, entram só as pessoas marcadas.\n\nDepois, quem pediu (ou um administrador) pode chamar mais gente em “Convidar mais gente”.',
       termos: ['aprovadores', 'revisores', 'votantes', 'convite'],
     },
     {
@@ -502,6 +503,14 @@ const APROVACOES: GuiaDaArea = {
 
 // ---------------------------------------------------------------- Notificações
 
+// Também em Meu perfil (administracao.ts), com o mesmo título: a busca mostra
+// um só, então o texto é um só (o porquê está em geral.ts, antes de TOPICOS_GERAIS).
+export const RESUMO_DIARIO: Omit<Pergunta, 'id'> = {
+  pergunta: 'O que é o “Resumo diário”?',
+  resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com a Redação aberta. Ficam de fora o que você já leu, os assuntos em “Só no sino” e os avisos de mais de 3 dias.',
+  termos: ['resumo', 'um e-mail por dia', 'e-mail diário', 'digest'],
+}
+
 const NOTIFICACOES: GuiaDaArea = {
   href: '/notificacoes',
   paraQueServe: 'Tudo o que aconteceu com você na Redação, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
@@ -554,17 +563,7 @@ const NOTIFICACOES: GuiaDaArea = {
       ],
       dica: 'Os botões só aparecem quando há alguma notificação não lida. O sino também tem “Marcar todas como lidas”.',
     },
-    {
-      id: 'escolher-os-emails',
-      titulo: 'Escolher o que chega por e-mail',
-      passos: [
-        'Em “Notificações”, toque em “Escolher o que chega por e-mail” (ou, no sino, em “E-mails de aviso”).',
-        'No seu perfil, em “E-mails de notificação”, veja os assuntos, como “Aprovações”, “Mensagens” e “Chamados”.',
-        'Para cada assunto, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
-        'Não há botão de salvar: cada escolha é gravada na hora, e aparece “Preferência salva.”',
-      ],
-      dica: 'Os e-mails vão para o seu e-mail de recuperação, e só depois que ele for confirmado.',
-    },
+    { id: 'escolher-os-emails', ...ESCOLHER_OS_EMAILS },
     {
       id: 'achar-uma-antiga',
       titulo: 'Achar uma notificação antiga',
@@ -607,18 +606,8 @@ const NOTIFICACOES: GuiaDaArea = {
       resposta: 'O sino se atualiza sozinho a cada minuto com a aba aberta, quando você volta para a aba e quando você o abre. Com pressa, abra o sino ou recarregue a página.',
       termos: ['atraso', 'contagem', 'número do sino'],
     },
-    {
-      id: 'email-nao-chegou',
-      pergunta: 'Por que não recebi o e-mail de uma notificação?',
-      resposta: 'O e-mail só vai para um e-mail de recuperação confirmado e segue a sua escolha para aquele assunto. Se você estava com a Redação aberta, ele não sai na hora: se continuar sem ler, vai no resumo do dia. Sobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos.',
-      termos: ['e-mail', 'não chegou', 'spam'],
-    },
-    {
-      id: 'resumo-diario',
-      pergunta: 'O que é o “Resumo diário”?',
-      resposta: 'Um só e-mail por dia, de manhã, com as notificações que você ainda não abriu e que não foram por e-mail na hora: as dos assuntos em “Resumo diário” e as que ficaram para depois porque você estava com a Redação aberta. O que você já leu não entra, nem aviso de mais de 3 dias.',
-      termos: ['resumo', 'e-mail diário', 'digest'],
-    },
+    { id: 'email-nao-chegou', ...EMAIL_DE_AVISO_NAO_CHEGOU },
+    { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',
       pergunta: 'Escolhi “Só no sino”. Ainda vejo a notificação?',

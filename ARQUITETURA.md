@@ -132,7 +132,7 @@ app/
     admin/            diagnósticos (ftp-check, redes-check, ftp-descobrir)
 components/
   app/                componentes de tela (sidebar, publicador-redes, emoji-picker)
-    ajuda/            provedor, painel “?”, boas-vindas e dica do tour no shell (§7.15)
+    ajuda/            provedor, painel “?”, boas-vindas, dica do tour e Central (§7.15)
   ajuda/              o motor do tour, da Redação e da Área do Voluntário (§7.15)
   ui/                 primitivos Base UI
   auth/  admin/
@@ -142,8 +142,9 @@ lib/
   armazenamento/      r2.ts (cliente do Cloudflare R2, SigV4 sem SDK)
   acervo/             regras · dados · paginas (HTML público) · publicacao · imagens · video
   editorial/          publicacoes-previstas.ts
-  ajuda/              tipos · index (registro) · progresso · posicao · membro ·
-                      conteudo/<grupo>.ts, o texto de cada área (§7.15)
+  ajuda/              tipos · indice (leve, vai a toda página) · index (registro) ·
+                      progresso · posicao · membro · conteudo/<grupo>.ts, o texto
+                      de cada área, baixado sob demanda (§7.15)
   session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
   permissoes.ts       quem pode o quê (catálogo único de permissões)
   navegacao.ts        nomes, grupos e ícones das áreas (sidebar, topo, busca ⌘K, aba)
@@ -766,29 +767,77 @@ Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
 [`docs/AJUDA.md`](docs/AJUDA.md).
 
 - **Conteúdo:** texto e dado puro, em `lib/ajuda/conteudo/<grupo>.ts` (um
-  arquivo por grupo do menu) e em `lib/ajuda/membro.ts` (Área do Voluntário),
-  no formato de `lib/ajuda/tipos.ts`. A chave de cada guia é o `href` da área
-  em `lib/navegacao.ts`, então a ajuda some junto com a área para quem não
-  pode abri-la. O mesmo conteúdo serve ao painel “?” (botão no topo e tecla
-  `?`), à Central (área "Ajuda", `/ajuda`, no pé da sidebar, com âncora em
-  cada tarefa e pergunta) e à busca ⌘K (`buscarNaAjuda`).
+  arquivo por grupo do menu; 38 áreas) e em `lib/ajuda/membro.ts` (Área do
+  Voluntário), no formato de `lib/ajuda/tipos.ts`. A chave de cada guia é o
+  `href` da área em `lib/navegacao.ts`, então a ajuda some junto com a área
+  para quem não pode abri-la. O mesmo conteúdo serve ao painel “?” (botão no
+  topo e tecla `?`), à Central (área "Ajuda", `/ajuda`, no menu da conta — no
+  celular, na gaveta do menu —, com âncora em cada tarefa e pergunta) e à
+  busca ⌘K (`buscarNaAjuda`).
+- **O texto não vai em toda página.** Com as 38 áreas, ele pesa cerca de
+  140 KB comprimidos; no pacote de cada página, custava isso a todo mundo,
+  mesmo a quem nunca abre a ajuda. Toda página leva só o índice leve
+  (`lib/ajuda/indice.ts`: que área tem guia, que tela tem tour e o nome
+  dela), montado no servidor por `indiceDaAjuda()` e passado como prop pelo
+  layout de `(app)`. O texto
+  vem por `carregarAjuda()` (`components/app/ajuda/carregar.ts`) quando
+  alguém abre o painel (o miolo, `painel-conteudo.tsx`, vem junto), começa um
+  tour ou busca uma dúvida. As páginas da Central são desenhadas no servidor.
+  "Que tela é esta" é `ondeNaAjuda()`, no índice; `ajudaDoCaminho()` usa as
+  mesmas regras. **Não importe valor de `@/lib/ajuda` em componente do
+  cliente que vai em toda página** (`import type` pode), nem `lib/ajuda` a
+  partir de `indice.ts`; e o que uma página da Central usa no navegador mora
+  num arquivo sem `lib/ajuda` — o Turbopack liga a referência do cliente ao
+  arquivo inteiro (daí `components/app/ajuda/ancora.tsx`). Nada disso dá erro
+  de compilação: o pacote só engorda. Detalhes em `docs/AJUDA.md` §5.
 - **Tour** (`components/ajuda/tour.tsx`): aponta para os elementos marcados
   com `data-ajuda="<área>.<coisa>"`. Sem o alvo na tela, o balão vai ao
   centro, ou o passo some (`seAusente: 'pular'`). Abaixo de 640 px, vira uma
   folha presa à borda. É um diálogo modal: foco preso, Esc fecha, as setas
   andam. O tour das boas-vindas usa o mesmo motor; o de cada tela é
-  oferecido numa dica na primeira visita, e não aberto à força.
-- **Progresso:** o que a pessoa já viu fica em `user_metadata.ajuda` do
-  Supabase Auth (`lib/ajuda/progresso.ts`), sem tabela e sem migração. É
-  estado de interface e **não decide acesso**, porque a própria pessoa pode
-  editar o metadata. Quem grava é `registrarAjuda()` (`app/actions/ajuda.ts`):
-  só aceita chave de tour que existe (`ehChaveDeTour`), porque o metadata vai
-  no token de toda requisição, e nunca lança. A Área do Voluntário não usa o
-  Supabase Auth: lá fica no `localStorage`.
+  oferecido numa dica na primeira visita, e não aberto à força. A dica e o
+  link `?tour=1` (o “Fazer o tour” da Central) esperam o esqueleto do
+  `loading.tsx` (`data-carregando`) sair: aberto sobre ele, o tour perderia
+  os passos. `loading.tsx` novo marca o esqueleto do mesmo jeito.
+- **Tecla `?`:** abre e fecha o painel, menos dentro de campo de texto.
+  Atalho de uma tecla precisa poder ser desligado (WCAG 2.1.4): a caixa
+  “Abrir a ajuda com a tecla ?” fica na Central, no cartão “Atalhos de
+  teclado”, e a escolha vale para a conta. O botão “?” continua valendo.
+- **Progresso:** o que a pessoa já viu (e a tecla `?` desligada) fica em
+  `user_metadata.ajuda` do Supabase Auth (`lib/ajuda/progresso.ts`), sem
+  tabela e sem migração. É estado de interface e **não decide acesso**,
+  porque a própria pessoa pode editar o metadata. Quem grava é
+  `registrarAjuda()` (`app/actions/ajuda.ts`), que foge de propósito das
+  convenções do §9:
+  - grava pelo cliente admin, `auth.admin.updateUserById()` no id que
+    `obterWorkspace()` acabou de conferir (nunca um id vindo do navegador).
+    O `auth.updateUser()` da própria pessoa regravaria o cookie da sessão, e
+    cookie gravado numa action faz o Next refazer o layout e a página abertos
+    — a cada “Agora não” e a cada fim de tour. O Auth mescla o metadata chave
+    a chave: só `ajuda` muda;
+  - confere a sessão com `obterWorkspace({ escola: true })`, e não com
+    `requireWorkspace()`, e não chama `revalidatePath()`: roda por trás,
+    depois de a tela já ter mudado, e um redirecionamento ali (sessão
+    vencida, senha provisória) perderia o que a pessoa estava digitando. Sem
+    sessão válida, não grava; nunca lança.
+
+  Só aceita chave de tour que existe (`ehChaveDeTour`) e guarda no máximo
+  120, porque o metadata vai no token de toda requisição. “Rever as
+  boas-vindas” fica no pé do painel “?” e na Central; “Recomeçar as
+  boas-vindas e os tours”, só na Central (não religa a tecla `?`).
+- **Área do Voluntário** (`components/membro/ajuda.tsx`): sem conta no Auth,
+  o progresso fica no `localStorage`, na chave `cvrj-membro-ajuda`, que sair
+  da área apaga (aparelho compartilhado); a prévia da equipe
+  (`/membro/previa`) não grava. No lugar da janela, um convite de
+  boas-vindas no Início; o tour de cada tela é pedido em “Tour desta tela”,
+  no menu da conta (não há dica por tela nem tecla `?`); e a página
+  `/membro/ajuda` fica no menu da conta e no fim do Início. O texto
+  (`lib/ajuda/membro.ts`) também só é baixado quando um tour começa.
 - **Conferência:** `npx tsx scripts/conferir-ajuda.ts` acusa alvo citado
-  sem `data-ajuda` no código, id repetido e tela fora da área, e avisa sobre
-  área sem ajuda. Tela nova ou que mudou atualiza a ajuda no mesmo PR
-  (§10.3).
+  sem `data-ajuda` no código, id repetido, tela fora da área e tarefa geral
+  que manda a equipe da escola ao “Criar” ou a um chamado sem o selo
+  “Equipe da Redação”, e avisa sobre área sem ajuda. Tela nova ou que mudou
+  atualiza a ajuda no mesmo PR (§10.3).
 
 ## 8. Integrações externas
 

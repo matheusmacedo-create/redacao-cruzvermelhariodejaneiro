@@ -5,13 +5,14 @@
  * - toda ajuda é de uma área que existe em lib/navegacao.ts (e toda área tem ajuda);
  * - ids de tarefa e pergunta são únicos dentro da área (viram âncora na Central);
  *   na Área do Voluntário, únicos na página inteira (/membro/ajuda junta tudo);
- * - telas internas moram dentro do endereço da área.
+ * - telas internas moram dentro do endereço da área;
+ * - a ajuda geral não manda a equipe da escola usar o "Criar" nem abrir chamado.
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { GUIAS, TOPICOS_GERAIS, alvosCitados } from '../lib/ajuda'
+import { GUIAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados } from '../lib/ajuda'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
 
@@ -73,6 +74,20 @@ for (const href of hrefs) if (!comAjuda.has(href) && href !== '/ajuda') avisos.p
 const idsGerais = TOPICOS_GERAIS.flatMap((t) => [t.id, ...t.tarefas.map((x) => x.id), ...t.perguntas.map((p) => p.id)])
 const repetidosGerais = idsGerais.filter((id, n) => idsGerais.indexOf(id) !== n)
 if (repetidosGerais.length) erros.push(`tópicos gerais: ids repetidos ${[...new Set(repetidosGerais)].join(', ')}`)
+
+// A ajuda geral também é da equipe da escola, que não tem o "Criar" nem abre
+// chamados: a tarefa que manda usar um dos dois leva o selo SO_DA_REDACAO
+// (e some para ela); a pergunta, que não tem selo, precisa dizer o caminho da escola.
+const soDaRedacao = /“Criar”|\bchamados?\b/i
+for (const topico of TOPICOS_GERAIS) {
+  for (const t of topico.tarefas) {
+    if (t.quem !== SO_DA_REDACAO && soDaRedacao.test([t.titulo, ...t.passos, t.dica ?? ''].join(' '))) erros.push(`tópicos gerais: a tarefa "${t.id}" cita o “Criar” ou chamado sem quem: '${SO_DA_REDACAO}'`)
+  }
+  for (const p of topico.perguntas) {
+    const texto = `${p.pergunta} ${p.resposta}`
+    if (soDaRedacao.test(texto) && !/escola/i.test(texto)) avisos.push(`tópicos gerais: a pergunta "${p.id}" cita o “Criar” ou chamado e não diz o que a equipe da escola faz`)
+  }
+}
 
 // A Central do voluntário (/membro/ajuda) põe destinos e tópicos numa página só: o id é âncora da página inteira.
 const idsDoMembro = [

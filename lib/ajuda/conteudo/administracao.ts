@@ -1,4 +1,6 @@
 import type { GuiaDaArea } from '../tipos'
+import { ATIVAR_A_VERIFICACAO, CONFIRMAR_O_EMAIL, ESCOLHER_OS_EMAILS, PARA_QUE_SERVE_O_EMAIL, SAIR_DA_CONTA, TROCAR_A_SENHA } from './geral'
+import { RESUMO_DIARIO } from './meu-dia'
 
 /**
  * A ajuda do grupo Administração do menu: Usuários e permissões (/usuarios),
@@ -25,7 +27,7 @@ import type { GuiaDaArea } from '../tipos'
 const USUARIOS: GuiaDaArea = {
   href: '/usuarios',
   paraQueServe: 'Aqui a administração decide quem entra na Redação e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
-  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o espaço nunca fica sem pelo menos um administrador ativo.',
+  quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e a Redação nunca fica sem pelo menos um administrador ativo.',
   tour: [
     {
       titulo: 'Usuários e permissões',
@@ -185,7 +187,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'diferenca-entre-papeis',
       pergunta: 'Qual a diferença entre os papéis?',
-      resposta: '“Administrador” controla o espaço inteiro: pessoas, acessos, integrações, site e dados. “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite. “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
+      resposta: '“Administrador” controla a Redação inteira: pessoas, acessos, integrações, site e dados; “Editor” toca a produção: publica, dispara campanhas e cuida da Biblioteca. “Colaborador” registra, escreve, comenta e vota nas aprovações para as quais recebe convite; “Equipe da escola” vê só a Escola de Educação e Saúde.\n\nO detalhe está na tabela “O que cada papel pode fazer”, mais abaixo nesta página.',
       termos: ['admin', 'editor', 'colaborador', 'escola', 'permissão', 'nível de acesso'],
     },
     {
@@ -290,7 +292,7 @@ const CONFIGURACOES: GuiaDaArea = {
   quemUsa: 'Editores e colaboradores também abrem esta área, mas veem só um aviso: as seções são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”.',
   tour: [
     {
-      titulo: 'Configurações do espaço',
+      titulo: 'Configurações da Redação',
       texto: 'Aqui a administração liga a Redação às ferramentas de fora e cuida do site. Quem não é administrador vê só um aviso: estas seções são restritas.',
     },
     {
@@ -326,7 +328,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.zona-de-risco',
       titulo: 'Zona de risco',
-      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos do espaço. Não tem volta: é só para começar do zero.',
+      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos da Redação. Não tem volta: é só para começar do zero.',
       seAusente: 'pular',
     },
   ],
@@ -399,7 +401,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em “No ar em /noticias/”, ache a matéria na lista.',
         'Toque em “Tirar do ar”. Na pergunta “Apagar do servidor?”, toque em “Tirar do ar” de novo.',
-        'A página sai do servidor, da central de notícias e do sitemap na mesma hora.',
+        'A página sai do servidor, da central de notícias e do mapa do site para os buscadores (sitemap) na mesma hora.',
         'A matéria passa para “Arquivadas — fora do ar”. Para trazê-la de volta, toque em “Republicar”: ela volta no mesmo endereço.',
       ],
     },
@@ -424,7 +426,7 @@ const CONFIGURACOES: GuiaDaArea = {
         'Toque em “Publicar páginas do site” (ou em “Publicar de novo (regrava tudo)”, se já foi feito).',
         'Espere o “Publicando…” terminar e leia o recado, com a lista do que foi publicado.',
       ],
-      dica: 'Depois disso, a central de notícias e o sitemap se atualizam sozinhos a cada matéria publicada.',
+      dica: 'Depois disso, a central de notícias e o mapa do site para os buscadores (sitemap) se atualizam sozinhos a cada matéria publicada.',
     },
   ],
   perguntas: [
@@ -455,7 +457,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'setores-do-diretorio',
       pergunta: 'Os setores daqui são os mesmos da tela “Setores”, no Diretório?',
-      resposta: 'São: a lista de setores da filial é uma só, usada também em Usuários, na Equipe, no Voluntariado e no Registrar. Aqui, em “Membros”, você decide quem envia pelo endereço de cada setor.',
+      resposta: 'São: a lista de setores da filial é uma só, usada também em Usuários e permissões, Recursos humanos, Voluntários e “Registrar atividade”. Aqui, em “Membros”, você decide quem envia pelo endereço de cada setor.',
       termos: ['coordenação', 'lista de setores', 'setor'],
     },
     {
@@ -491,7 +493,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'tirar-do-ar-apaga',
       pergunta: '“Tirar do ar” apaga a matéria?',
-      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do sitemap, mas o texto continua guardado na Redação. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
+      resposta: 'Apaga a página do servidor do site e a tira da central de notícias e do mapa do site para os buscadores (sitemap), mas o texto continua guardado na Redação. Ela vai para “Arquivadas — fora do ar”, e “Republicar” a põe de volta no mesmo endereço.',
       termos: ['despublicar', 'remover do site', 'matéria de teste'],
     },
     {
@@ -515,7 +517,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'reiniciar-dados',
       pergunta: 'O que faz “Reiniciar dados”?',
-      resposta: 'Apaga de vez projetos, pautas, matérias, aprovações, agendamentos, mensagens e arquivos do espaço. As contas das pessoas continuam funcionando. Não dá para desfazer: para confirmar, é preciso digitar o nome do espaço e tocar em “Apagar tudo definitivamente”.\n\nAs páginas que já estão no site não saem do ar com isso. Se alguma precisa sair, use antes “Tirar do ar”, em “No ar em /noticias/”: depois de reiniciar, ela some dessa lista.',
+      resposta: 'Apaga de vez projetos, pautas, matérias, aprovações, agendamentos, mensagens e arquivos; as contas das pessoas continuam funcionando. Não dá para desfazer: para confirmar, é preciso digitar o nome que a tela pede e tocar em “Apagar tudo definitivamente”.\n\nAs páginas que já estão no site não saem do ar com isso: se alguma precisa sair, use antes “Tirar do ar”, em “No ar em /noticias/”, porque depois de reiniciar ela some dessa lista.',
       termos: ['zona de risco', 'apagar tudo', 'começar do zero', 'resetar'],
     },
   ],
@@ -548,7 +550,7 @@ const PERFIL: GuiaDaArea = {
     {
       alvo: 'perfil.dados',
       titulo: 'Dados pessoais',
-      texto: '“Nome completo” e “Cargo” você mesmo corrige, em “Salvar alterações”. “Usuário” e “Coordenação” ficam travados: a coordenação quem muda é a administração.',
+      texto: '“Nome completo” e “Cargo” você corrige aqui, em “Salvar alterações”. “Usuário” e “Coordenação” ficam travados: a coordenação quem muda é a administração.',
     },
     {
       alvo: 'perfil.senha',
@@ -582,53 +584,10 @@ const PERFIL: GuiaDaArea = {
       ],
       dica: '“Usuário” e “Coordenação” aparecem travados. Para mudar a coordenação, peça à administração.',
     },
-    {
-      id: 'confirmar-email',
-      titulo: 'Cadastrar e confirmar o e-mail de recuperação',
-      passos: [
-        'Em “E-mail de recuperação”, digite o endereço no campo. Se já houver um e-mail, toque antes em “Trocar e-mail”.',
-        'Toque em “Enviar confirmação”.',
-        'Abra o e-mail que chegou nesse endereço e toque no link. Ele vale por 48 horas.',
-        'Na página que abrir, toque em “Confirmar este e-mail”.',
-        'De volta ao perfil, o endereço aparece como “confirmado”.',
-      ],
-      dica: 'Se o endereço está como “não confirmado” e o link se perdeu, “Reenviar confirmação” manda outro.',
-    },
-    {
-      id: 'escolher-emails-de-aviso',
-      titulo: 'Escolher o que chega por e-mail',
-      passos: [
-        'Em “E-mails de notificação”, veja os assuntos: “Chat”, “Aprovações”, “Mensagens”, “Pautas e conteúdos”, “Chamados”, “Ofícios”, “Financeiro”, “Patrimônio e estoque” e “Trilha pública”.',
-        'Em cada um, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
-        'A escolha vale na hora: aparece “Preferência salva.”.',
-      ],
-      dica: 'Os e-mails vão para o seu e-mail de recuperação, e só se ele estiver confirmado.',
-    },
-    {
-      id: 'trocar-senha',
-      titulo: 'Trocar a sua senha',
-      passos: [
-        'Em “Segurança”, digite a “Senha atual”.',
-        'Digite a “Nova senha” e repita em “Confirmar nova senha”. O ícone de olho mostra o que você digitou.',
-        'Siga o aviso embaixo dos campos até ele não apontar mais nenhum problema.',
-        'Toque em “Trocar senha”.',
-        'Aparece “Senha trocada. As outras sessões abertas foram encerradas.”',
-      ],
-      dica: 'A senha nova precisa de pelo menos 10 caracteres, com letras e números, sem o seu nome nem o seu usuário, e diferente da atual.',
-    },
-    {
-      id: 'ativar-verificacao',
-      titulo: 'Ativar a verificação em duas etapas',
-      passos: [
-        'Instale no celular um app autenticador, como Google Authenticator, Microsoft Authenticator ou Authy.',
-        'Em “Verificação em duas etapas”, toque em “Ativar verificação em duas etapas”.',
-        'Em “Nome deste aparelho”, dê um nome e toque em “Gerar QR Code”.',
-        'No app, adicione uma conta e leia o QR Code. Se não der, digite o código que aparece em “Não dá para ler? Digite este código no app”.',
-        'Digite o número de 6 dígitos que o app mostra e toque em “Ativar”.',
-        'Do próximo login em diante, a Redação pede também o código do app.',
-      ],
-      dica: 'Guarde o código do QR Code só no app: quem tiver esse código consegue gerar os seus números.',
-    },
+    { id: 'confirmar-email', ...CONFIRMAR_O_EMAIL },
+    { id: 'escolher-emails-de-aviso', ...ESCOLHER_OS_EMAILS },
+    { id: 'trocar-senha', ...TROCAR_A_SENHA },
+    { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
     {
       id: 'segundo-aparelho',
       titulo: 'Cadastrar um segundo aparelho',
@@ -649,23 +608,10 @@ const PERFIL: GuiaDaArea = {
       ],
       dica: 'Se o seu papel é obrigado a usar a verificação, cadastre outro aparelho antes de remover o último.',
     },
-    {
-      id: 'sair-da-conta',
-      titulo: 'Sair da conta',
-      passos: [
-        'Desça até o fim da página.',
-        'Toque em “Sair da conta”.',
-        'Para voltar, entre com o seu usuário (ou o e-mail confirmado) e a senha.',
-      ],
-    },
+    { id: 'sair-da-conta', ...SAIR_DA_CONTA },
   ],
   perguntas: [
-    {
-      id: 'para-que-serve-o-email',
-      pergunta: 'Para que serve o e-mail de recuperação?',
-      resposta: 'Para ele vão o link de “Esqueci minha senha”, os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Confirmado, ele também serve para entrar: digite-o em “Usuário ou e-mail”, na tela de entrada.',
-      termos: ['e-mail de contato', 'recuperar senha', 'confirmar e-mail'],
-    },
+    { id: 'para-que-serve-o-email', ...PARA_QUE_SERVE_O_EMAIL },
     {
       id: 'borda-amarela',
       pergunta: 'Por que o quadro do e-mail está com a borda amarela?',
@@ -675,7 +621,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'email-antigo-continua',
       pergunta: 'Troquei o e-mail, mas o antigo continua aparecendo. Por quê?',
-      resposta: 'O endereço novo só passa a valer quando você abre o link que enviamos para ele e toca em “Confirmar este e-mail” (o link vale por 48 horas). Até lá aparece “Aguardando confirmação de …”, e o anterior continua valendo. Depois da troca, o endereço antigo, se estava confirmado, recebe um aviso.',
+      resposta: 'O endereço novo só passa a valer quando você abre o link que chegou nele e toca em “Confirmar este e-mail” (o link vale por 48 horas). Até lá aparece “Aguardando confirmação de …”, e o anterior continua valendo. Depois da troca, o endereço antigo, se estava confirmado, recebe um aviso.',
       termos: ['trocar e-mail', 'Aguardando confirmação', 'e-mail novo'],
     },
     {
@@ -702,12 +648,7 @@ const PERFIL: GuiaDaArea = {
       resposta: 'É. Ao trocar a senha, todas as outras sessões abertas são encerradas, para que quem tivesse a senha antiga saia também. Entre de novo com a senha nova.',
       termos: ['sessão encerrada', 'deslogado', 'saiu sozinho'],
     },
-    {
-      id: 'resumo-diario',
-      pergunta: 'O que é o “Resumo diário”?',
-      resposta: 'Um único e-mail por dia, que junta os avisos que você ainda não abriu e que não saíram por e-mail na hora, de todos os assuntos marcados “Resumo diário” (e dos “Na hora” que ficaram para depois porque você estava com a Redação aberta). O que você já abriu no sino não entra, e os assuntos em “Só no sino” ficam de fora.',
-      termos: ['resumo', 'um e-mail por dia'],
-    },
+    { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',
       pergunta: 'Com “Só no sino” eu deixo de receber algum aviso?',

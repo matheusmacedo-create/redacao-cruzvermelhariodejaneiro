@@ -33,8 +33,16 @@ export function posicionarBalao({ alvo, balao, tela, preferido, margem = 12, dis
   distancia?: number
 }): Posicao {
   if (!alvo) return { modo: 'centro' }
-  const metadeDeBaixo = alvo.top + alvo.height / 2 > tela.height * 0.55
-  if (tela.width < LARGURA_DE_CELULAR) return { modo: metadeDeBaixo ? 'em-cima' : 'embaixo' }
+  // Conta só a parte do alvo que está na tela. E o alvo que passa do fim dela
+  // (a prova inteira, o formulário do perfil) conta pelo começo, que é do que
+  // o passo fala: a folha só vai para cima se couber acima dele. Pelo meio, ela
+  // subia e cobria justo o começo (com a faixa do e-mail no alto, até o meio da
+  // parte visível passava da metade da tela).
+  const topoVisivel = Math.max(alvo.top, 0)
+  const meioVisivel = (topoVisivel + Math.min(alvo.top + alvo.height, tela.height)) / 2
+  const passaDoFim = alvo.top + alvo.height > tela.height
+  const folhaEmCima = passaDoFim ? topoVisivel >= margem + balao.height + distancia : meioVisivel > tela.height * 0.55
+  if (tela.width < LARGURA_DE_CELULAR) return { modo: folhaEmCima ? 'em-cima' : 'embaixo' }
 
   const lados = preferido ? [preferido, ...ORDEM.filter((l) => l !== preferido)] : ORDEM
   for (const lado of lados) {
@@ -47,11 +55,11 @@ export function posicionarBalao({ alvo, balao, tela, preferido, margem = 12, dis
     } else {
       left = lado === 'right' ? alvo.left + alvo.width + distancia : alvo.left - distancia - balao.width
       if (left < margem || left + balao.width > tela.width - margem) continue
-      top = limitar(alvo.top + alvo.height / 2 - balao.height / 2, margem, tela.height - margem - balao.height)
+      top = limitar(meioVisivel - balao.height / 2, margem, tela.height - margem - balao.height)
     }
     return { modo: 'ancorado', lado, top, left }
   }
-  return { modo: metadeDeBaixo ? 'em-cima' : 'embaixo' }
+  return { modo: folhaEmCima ? 'em-cima' : 'embaixo' }
 }
 
 /**

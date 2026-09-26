@@ -46,7 +46,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       alvo: 'publicacoes.cerebro',
       titulo: 'Sugestões do Cérebro',
-      texto: '“Sugestões do Cérebro” fica recolhido abaixo da lista. Abra para ver pautas sugeridas; “Trazer para o hub” cria um pacote em rascunho, sem publicar nada.',
+      texto: '“Sugestões do Cérebro” fica recolhido abaixo da lista. Abra para ver pautas sugeridas; “Trazer para o hub” cria aqui um pacote em rascunho, sem publicar nada.',
     },
   ],
   telas: [
@@ -254,7 +254,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'bolinhas-do-trilho',
       pergunta: 'O que significam as bolinhas coloridas no trilho?',
-      resposta: 'Cinza: gerada, revise antes de publicar; amarela: em ajuste, há erro na variante; verde: pronta ou publicada; vermelha: bloqueada (falta algo essencial) ou falhou; azul: agendada ou publicando; bem clara: ignorada neste pacote.\n\nNo computador, pare o mouse sobre uma rede no trilho para ler a situação dela.',
+      resposta: 'Cinza: gerada, revise antes de publicar; amarela: em ajuste, há erro neste destino; verde: pronta ou publicada; vermelha: bloqueada (falta algo essencial) ou falhou; azul: agendada ou publicando; bem clara: ignorada neste pacote.\n\nNo computador, pare o mouse sobre uma rede no trilho para ler a situação dela.',
       termos: ['semáforo', 'cor', 'status do destino', 'estado'],
     },
     {
@@ -290,7 +290,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'cota-do-plano',
       pergunta: 'O que é o número de publicações do plano, na hora de publicar?',
-      resposta: 'As redes saem pelo Upload-Post, que tem um limite de publicações no plano. A janela “Confirmar publicação” mostra quanto o envio consome. Site e newsletter não contam, e destinos com o mesmo texto e a mesma mídia saem numa chamada só.',
+      resposta: 'As redes saem pelo Upload-Post, que tem um limite de publicações no plano. A janela “Confirmar publicação” mostra quanto o envio consome. Site e newsletter não contam, e destinos com o mesmo texto e a mesma mídia saem num envio só.',
       termos: ['cota', 'limite', 'upload-post', 'plano'],
     },
     {
@@ -514,7 +514,7 @@ const BIBLIOTECA: GuiaDaArea = {
     {
       id: 'arquivo-que-ninguem-enviou',
       pergunta: 'Apareceu um arquivo que ninguém enviou pela Biblioteca. De onde veio?',
-      resposta: 'O que sobe por outras telas também entra na Biblioteca: o enviado de dentro de um pacote (“Enviar foto ou vídeo” ou o botão “Foto” do texto), as mídias postas numa matéria, as imagens criadas com IA e as fotos trazidas do Cérebro. O que entra pelo texto (o botão “Foto” ou a matéria) chega com “Falta autorizar”; a foto do Cérebro que veio de outra conta chega como “Uso interno”.',
+      resposta: 'O que sobe por outras telas também entra na Biblioteca: o enviado de dentro de um pacote (“Enviar foto ou vídeo” ou o botão “Foto” do texto), as mídias postas numa matéria, as imagens criadas com IA e as fotos trazidas do Cérebro.\n\nO que entra pelo texto (o botão “Foto” ou a matéria) chega com “Falta autorizar”; a foto do Cérebro que veio de outra conta chega como “Uso interno”.',
       termos: ['origem', 'foto nova', 'IA', 'Cérebro'],
     },
     {
@@ -750,7 +750,7 @@ const ACERVO: GuiaDaArea = {
     {
       id: 'dado-pessoal',
       pergunta: 'Posso guardar documentos com dados pessoais no acervo?',
-      resposta: 'Dado pessoal (CPF, laudo, documento de aluno ou voluntário) só entra no acervo com motivo, e nunca vai ao site. Antes de publicar um PDF, confira se não há dado pessoal nele.',
+      resposta: 'Dado pessoal (CPF, laudo, ficha de estudante ou de pessoa voluntária) só entra no acervo com motivo, e nunca vai ao site. Antes de publicar um PDF, confira se não há dado pessoal nele.',
       termos: ['LGPD', 'CPF', 'privacidade', 'documento pessoal'],
     },
   ],

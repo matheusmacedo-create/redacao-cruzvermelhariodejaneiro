@@ -467,13 +467,13 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'sem-acesso',
       pergunta: 'Por que aparece “Você ainda não tem acesso ao Financeiro”?',
-      resposta: 'O Financeiro é liberado pessoa a pessoa. Peça a um administrador do espaço: o seu nível é definido em “Cadastros” → “Quem acessa”.',
+      resposta: 'O Financeiro é liberado pessoa a pessoa. Peça a um administrador: o seu nível é definido em “Cadastros” → “Quem acessa”.',
       termos: ['acesso negado', 'não consigo abrir', 'liberar acesso', 'permissão', 'sem acesso'],
     },
     {
       id: 'niveis',
       pergunta: 'O que cada nível de acesso pode fazer?',
-      resposta: '“Ver”: lançamentos, cadastros e comprovantes, sem mudar nada. “Lançar”: criar e editar despesas e receitas, marcar como pago e juntar comprovante. “Aprovar”: tudo isso, mais aprovar despesas que pedem aprovação (nunca as próprias). “Gestão e fechamento”: tudo, mais contas, fontes, categorias, regras e o fechamento do mês. A partir de “Lançar”, também dá para cadastrar favorecidos e importar e conciliar o extrato.\n\nCategorias, regras de aprovação e a reserva mínima valem para todas as empresas: só quem tem gestão de todas muda.',
+      resposta: '“Ver”: consulta lançamentos, cadastros e comprovantes, sem mudar nada. “Lançar”: cria e edita despesas e receitas, marca como pago, junta comprovante, cadastra favorecidos e importa e concilia o extrato.\n\n“Aprovar”: tudo isso, mais aprovar despesas que pedem aprovação (nunca as próprias); “Gestão e fechamento”: tudo, mais contas, fontes, categorias, regras e o fechamento do mês.\n\nCategorias, regras de aprovação e a reserva mínima valem para todas as empresas: só quem tem gestão de todas muda.',
       termos: ['nível', 'papel', 'contador', 'gestão', 'lançar', 'aprovar', 'Só a gestão do Financeiro muda estes cadastros'],
     },
     {
@@ -485,7 +485,7 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'situacoes',
       pergunta: 'O que significa cada situação do lançamento?',
-      resposta: '“Em aberto”: ainda não venceu. “Vence hoje”: vence hoje e não foi pago. “Atrasado”: venceu e não foi pago. “Esperando aprovação”: a despesa espera a decisão de alguém com nível Aprovar ou Gestão. “Recusado”: foi recusada e não pode ser paga. “Pago” e “Recebido”: o dinheiro já saiu ou já entrou.',
+      resposta: '“Em aberto”: ainda não venceu; “Vence hoje”: vence hoje e não foi pago; “Atrasado”: venceu e não foi pago. “Esperando aprovação”: a despesa espera a decisão de alguém com nível Aprovar ou Gestão; “Recusado”: foi recusada e não pode ser paga.\n\n“Pago” e “Recebido”: o dinheiro já saiu ou já entrou.',
       termos: ['status', 'estado', 'atrasada', 'vencida', 'pendente'],
     },
     {
@@ -527,7 +527,7 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'aviso-de-vencimento',
       pergunta: 'A Redação avisa das contas que vencem?',
-      resposta: 'Sim. Toda manhã, os administradores e quem tem nível Lançar, Aprovar ou Gestão recebem no sino o aviso das contas a pagar que vencem hoje, das atrasadas e das que vencem nos próximos 3 dias (despesa esperando aprovação ou recusada fica de fora). O e-mail segue a preferência de cada pessoa no assunto “Financeiro”. No dia 5, a gestão é lembrada de fechar o mês anterior, se ainda estiver aberto.',
+      resposta: 'Sim. Toda manhã, os administradores e quem tem nível Lançar, Aprovar ou Gestão recebem no sino o aviso das contas a pagar que vencem hoje, das atrasadas e das que vencem nos próximos 3 dias (despesa esperando aprovação ou recusada fica de fora). O e-mail segue a preferência de cada pessoa no assunto “Financeiro”.\n\nNo dia 5, a gestão é lembrada de fechar o mês anterior, se ainda estiver aberto.',
       termos: ['lembrete', 'notificação', 'vencimento', 'e-mail', 'alerta', 'contas a pagar'],
     },
     {
@@ -600,7 +600,7 @@ const TRANSPARENCIA: GuiaDaArea = {
     {
       alvo: 'transparencia.versao',
       titulo: 'Publicado não se troca',
-      texto: 'Cada publicação ganha a impressão digital do arquivo (SHA-256) e um código de verificação. Para corrigir, envie uma versão nova: a anterior fica listada como substituída.',
+      texto: 'Cada publicação ganha a impressão digital do arquivo e um código de verificação. Para corrigir, envie uma versão nova: a anterior fica listada como substituída.',
       seAusente: 'pular',
     },
   ],
@@ -657,7 +657,7 @@ const TRANSPARENCIA: GuiaDaArea = {
     {
       id: 'lancamento-oculto',
       pergunta: 'O que é o “Lançamento oculto”?',
-      resposta: 'A página pública já é publicada, mas sai com noindex (fora dos buscadores) e sem link no menu, no rodapé ou em matérias do site até a abertura, que ainda será decidida. Quem tiver o endereço consegue abrir: publique só o que já pode ser público.',
+      resposta: 'A página pública já é publicada, mas fica escondida dos buscadores e sem link no menu, no rodapé ou em matérias do site até a abertura, que ainda será decidida. Quem tiver o endereço consegue abrir: publique só o que já pode ser público.',
       termos: ['noindex', 'oculto', 'buscadores', 'google', 'abertura'],
     },
     {
@@ -817,7 +817,7 @@ const CANAIS: GuiaDaArea = {
     {
       id: 'quem-muda',
       pergunta: 'Quem pode mudar a lista?',
-      resposta: 'Só administradores. Se um perfil, telefone ou endereço mudou, fale com um administrador do espaço.',
+      resposta: 'Só administradores. Se um perfil, telefone ou endereço mudou, fale com um administrador.',
       termos: ['permissão', 'acesso', 'área restrita'],
     },
   ],
@@ -828,7 +828,7 @@ const CANAIS: GuiaDaArea = {
 
 const TRILHA: GuiaDaArea = {
   href: '/trilha-publica',
-  paraQueServe: 'O registro verificável do que a filial publica e emite: matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e um hash, e todo dia um lote é fechado, assinado e ancorado no Bitcoin, para qualquer pessoa conferir sem depender da Redação. Esta tela acompanha a saúde disso tudo.',
+  paraQueServe: 'O registro verificável do que a filial publica e emite: matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e uma impressão digital (hash), e todo dia um lote é fechado, assinado e registrado no Bitcoin, para qualquer pessoa conferir sem depender da Redação. Esta tela acompanha a saúde disso tudo.',
   quemUsa: 'Só administradores. A consulta pública, na página de verificação do site, mostra bem menos do que esta tela.',
   tour: [
     {
@@ -845,7 +845,7 @@ const TRILHA: GuiaDaArea = {
     {
       alvo: 'trilha.cadeia',
       titulo: 'Conferência da cadeia',
-      texto: 'Cada evento guarda o hash do anterior, e a conferência refaz as contas desde o início. “Cadeia íntegra” quer dizer que nada foi alterado direto no banco.',
+      texto: 'Cada evento guarda a impressão digital (hash) do anterior, e a conferência refaz as contas desde o início. “Cadeia íntegra” quer dizer que nada foi alterado direto no banco de dados.',
       seAusente: 'pular',
     },
     {
@@ -863,7 +863,7 @@ const TRILHA: GuiaDaArea = {
     {
       alvo: 'trilha.lotes',
       titulo: 'Lotes diários',
-      texto: 'Um lote por dia, com a assinatura, o carimbo RFC 3161, o registro no Bitcoin e a publicação no site. A coluna “Último erro” mostra o que travou.',
+      texto: 'Um lote por dia, com a assinatura, o carimbo de tempo (RFC 3161), o registro no Bitcoin e a publicação no site. A coluna “Último erro” mostra o que travou.',
       seAusente: 'pular',
     },
     {
@@ -924,7 +924,7 @@ const TRILHA: GuiaDaArea = {
     {
       id: 'o-publico-ve',
       pergunta: 'O que a consulta pública mostra?',
-      resposta: 'Para documentos públicos, o título, a data e a hora, o estado, o hash e as provas. Nunca mostra o papel de quem agiu, o fluxo nem a posição na cadeia: a história inteira do registro, evento por evento, só aparece nesta tela, que é só de administradores.',
+      resposta: 'Para documentos públicos, o título, a data e a hora, o estado, a impressão digital (hash) e as provas. Nunca mostra o papel de quem agiu, o fluxo nem a posição na cadeia: a história inteira do registro, evento por evento, só aparece nesta tela, que é só de administradores.',
       termos: ['privacidade', 'dados pessoais', 'verificação pública', 'quem vê'],
     },
     {
@@ -948,7 +948,7 @@ const TRILHA: GuiaDaArea = {
     {
       id: 'divergencia',
       pergunta: 'Apareceu “Divergência na cadeia”. O que faço?',
-      resposta: 'Algum registro não bate com o hash esperado: alguém alterou a trilha direto no banco, ou uma restauração de backup ficou incompleta. Não apague nem corrija nada nas tabelas da trilha. Anote onde está a quebra (o fluxo e a posição, ou o primeiro lote com divergência) e compare com o backup mais recente.',
+      resposta: 'Algum registro não bate com a impressão digital (hash) esperada: alguém alterou a trilha direto no banco de dados, ou uma restauração de backup ficou incompleta. Não apague nem corrija nada nas tabelas da trilha. Anote onde está a quebra (o fluxo e a posição, ou o primeiro lote com divergência) e compare com o backup mais recente.',
       termos: ['quebra', 'erro na cadeia', 'hash', 'adulteração', 'Atenção'],
     },
     {

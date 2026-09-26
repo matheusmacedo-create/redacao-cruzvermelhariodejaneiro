@@ -9,7 +9,7 @@ import type { Perfil } from '@/lib/membro/dados'
 import { cn } from '@/lib/utils'
 import { barraFixa, botaoDoMembro, botaoSecundario, campoDoMembro } from './marca'
 import { Recado, Secao } from './pecas'
-import { esquecerUltimoEmail } from './conta'
+import { esquecerAoSair } from './conta'
 
 /*
  * O formulário do perfil envia por `onSubmit` + `startTransition`, e não por
@@ -131,7 +131,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
   }
 
   return (
-    <form ref={formulario} id="form-perfil" className="flex flex-col gap-6" onChange={aoMudar} onSubmit={aoEnviar} onFocus={() => { if (alterado) mostrarCampoAtivo() }} data-ajuda="membro.formulario-do-perfil">
+    <form ref={formulario} id="form-perfil" className="flex flex-col gap-6" onChange={aoMudar} onSubmit={aoEnviar} onFocus={() => { if (alterado) mostrarCampoAtivo() }}>
       {resultado?.erro && (
         <RecadoEmFoco key={resultado.vez} id="perfil-resultado" tipo="erro" titulo={resultado.erro}>
           <p>O que você digitou continua aqui. Confira e tente salvar de novo.</p>
@@ -139,8 +139,10 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       )}
       {resultado?.ok && <RecadoEmFoco key={resultado.vez} id="perfil-resultado" tipo="sucesso" titulo="Cadastro atualizado." />}
 
+      {/* O tour aponta o começo do formulário (Contato), por onde o texto do passo
+          começa: o formulário inteiro passa da altura da tela. */}
       <Secao titulo="Contato" icone={Phone} className={cn(cartao, 'gap-4')}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2" data-ajuda="membro.formulario-do-perfil">
           <Campo id="m-nome-social" name="nome_social" rotulo="Nome social" maxLength={200} defaultValue={v('nome_social')} autoComplete="off"
             dica="Opcional. Se preenchido, é por ele que chamamos você aqui e nos e-mails." largo />
           <Campo id="m-telefone" name="telefone" rotulo="Telefone ou WhatsApp" type="tel" maxLength={40} defaultValue={v('telefone')} autoComplete="tel" />
@@ -274,7 +276,7 @@ export function SairDaArea() {
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-6" data-ajuda="membro.sair-da-area">
       <p className="text-sm text-muted-foreground">Seu acesso continua ativo neste aparelho. Se ele for compartilhado, saia ao terminar.</p>
-      <form action={sair} onSubmit={esquecerUltimoEmail}><BotaoDeSair /></form>
+      <form action={sair} onSubmit={esquecerAoSair}><BotaoDeSair /></form>
     </div>
   )
 }

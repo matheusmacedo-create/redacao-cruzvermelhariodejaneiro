@@ -67,7 +67,7 @@ export const guias: GuiaDaArea[] = [
       {
         alvo: 'patrimonio.etiquetas',
         titulo: 'Etiquetas com QR',
-        texto: 'Marque os bens na lista e use “Etiquetas dos marcados” para imprimir as plaquetas com QR em folha A4. Lido pelo celular, o QR abre o bem no Redação.',
+        texto: 'Marque os bens na lista e use “Etiquetas dos marcados” para imprimir as plaquetas com QR em folha A4. Lido pelo celular, o QR abre o bem na Redação.',
         lado: 'bottom',
         seAusente: 'pular',
       },
@@ -248,7 +248,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.material-validade',
             titulo: 'Lote e validade',
-            texto: 'Marque “Controla lote e validade” para medicamento, curativo, alimento e água. A saída segue o que vence primeiro, e o Redação avisa antes de vencer.',
+            texto: 'Marque “Controla lote e validade” para medicamento, curativo, alimento e água. A saída segue o que vence primeiro, e a Redação avisa antes de vencer.',
           },
           {
             alvo: 'patrimonio.material-minimo',
@@ -338,7 +338,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.receber-registrar',
             titulo: 'Registrar e emitir recibo',
-            texto: 'O Redação numera o recibo (ex.: DOA-2026-0001; a numeração recomeça a cada ano) e abre a doação, com o botão “Recibo (PDF)”.',
+            texto: 'A Redação numera o recibo (ex.: DOA-2026-0001; a numeração recomeça a cada ano) e abre a doação, com o botão “Recibo (PDF)”.',
             lado: 'top',
           },
         ],
@@ -349,7 +349,7 @@ export const guias: GuiaDaArea[] = [
         tour: [
           {
             titulo: 'Entregar doação',
-            texto: 'Registre o que foi entregue e para quem. Os itens saem do Estoque, o que vence primeiro antes, e o Redação gera o termo de entrega para assinar.',
+            texto: 'Registre o que foi entregue e para quem. Os itens saem do Estoque, o que vence primeiro antes, e a Redação gera o termo de entrega para assinar.',
           },
           {
             alvo: 'patrimonio.entregar-quem',
@@ -364,7 +364,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.entregar-registrar',
             titulo: 'Registrar e emitir termo',
-            texto: 'O Redação numera a entrega (ex.: ENT-2026-0001) e abre a tela com “Termo para assinar (PDF)”. Imprima e colha a assinatura de quem recebeu.',
+            texto: 'A Redação numera a entrega (ex.: ENT-2026-0001) e abre a tela com “Termo para assinar (PDF)”. Imprima e colha a assinatura de quem recebeu.',
             lado: 'top',
           },
         ],
@@ -453,7 +453,7 @@ export const guias: GuiaDaArea[] = [
           {
             alvo: 'patrimonio.veiculo-documentos',
             titulo: 'Documentos',
-            texto: 'CRLV, licenciamento, seguro, vistorias. Com vencimento, o Redação avisa 30 e 7 dias antes e no dia seguinte ao vencimento. Quem opera cadastra pelo botão “Documento”.',
+            texto: 'CRLV, licenciamento, seguro, vistorias. Com vencimento, a Redação avisa 30 e 7 dias antes e no dia seguinte ao vencimento. Quem opera cadastra pelo botão “Documento”.',
           },
           {
             alvo: 'patrimonio.veiculo-diario',
@@ -512,7 +512,7 @@ export const guias: GuiaDaArea[] = [
         tour: [
           {
             titulo: 'Inventário físico',
-            texto: 'Conferir, bem a bem, que tudo está onde o Redação diz. Com o inventário aberto, leia o QR da etiqueta com o celular e marque “Está aqui” na página do bem.',
+            texto: 'Conferir, bem a bem, que tudo está onde a Redação diz. Com o inventário aberto, leia o QR da etiqueta com o celular e marque “Está aqui” na página do bem.',
           },
           {
             alvo: 'patrimonio.inventario-abrir',
@@ -696,7 +696,7 @@ export const guias: GuiaDaArea[] = [
           'Confira o “Hodômetro na saída”, escolha a “Finalidade”, escreva o “Destino” e use “Registrar saída”.',
           'Na volta, use “Retorno” e informe o “Hodômetro na chegada”.',
           'Anote em “Ocorrências” o que houve (luz acesa, pneu baixo) e use “Registrar retorno”.',
-          'Se abasteceu, use “Abastecer” e marque “Encheu o tanque” quando encher: é assim que o Redação calcula o consumo.',
+          'Se abasteceu, use “Abastecer” e marque “Encheu o tanque” quando encher: é assim que a Redação calcula o consumo.',
         ],
         dica: 'Veículo “Em manutenção” ou “Fora de uso” não mostra “Saída”; em viagem, o botão vira “Retorno”. Se a viagem venceu um plano de manutenção por km, quem opera o Patrimônio recebe aviso.',
         quem: 'Nível “Operar” ou “Gestão”',
@@ -737,7 +737,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'niveis',
         pergunta: 'O que cada nível do Patrimônio pode fazer?',
-        resposta: '“Ver”: consulta bens, com quem estão, manutenções e histórico, além do estoque, das doações e da frota. “Operar”: também cadastra e edita bens e materiais, entrega e recebe de volta, registra manutenção, confere no inventário, movimenta o estoque, recebe e entrega doações e registra viagens, abastecimentos, serviços e documentos da frota. “Gestão”: também categorias, locais, prefixo da plaqueta e texto do termo, baixa de bens, abrir e concluir o inventário, campanhas, veículos, condutores, planos de manutenção e excluir lançamentos da frota.\n\nAdministradores têm acesso total.',
+        resposta: '“Ver”: consulta bens, com quem estão, manutenções e histórico, além do estoque, das doações e da frota.\n\n“Operar”: também cadastra e edita bens e materiais, entrega e recebe de volta, registra manutenção, confere no inventário, movimenta o estoque, recebe e entrega doações e registra viagens, abastecimentos, serviços e documentos da frota.\n\n“Gestão”: também categorias, locais, prefixo da plaqueta e texto do termo, baixa de bens, abrir e concluir o inventário, campanhas, veículos, condutores, planos de manutenção e excluir lançamentos da frota.\n\nAdministradores têm acesso total.',
         termos: ['nível', 'ver', 'operar', 'gestão', 'quem pode'],
       },
       {
@@ -749,7 +749,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'ler-o-qr',
         pergunta: 'O que acontece quando alguém lê o QR da etiqueta?',
-        resposta: 'O celular abre a página do bem no Redação, pedindo login antes se preciso. Sem nível no Patrimônio, a pessoa só abre um bem que esteja com ela.',
+        resposta: 'O celular abre a página do bem na Redação, pedindo login antes se preciso. Sem nível no Patrimônio, a pessoa só abre um bem que esteja com ela.',
         termos: ['qr code', 'celular', 'etiqueta', 'escanear'],
       },
       {
@@ -761,7 +761,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'situacao-do-bem',
         pergunta: 'Qual a diferença entre “Em uso”, “Reserva”, “Em manutenção” e “Baixado”?',
-        resposta: '“Em uso”: o bem está em serviço (entregar a alguém põe nesta situação). “Reserva”: guardado; é para onde ele volta depois da devolução. “Em manutenção”: parado para conserto. “Baixado”: saiu do patrimônio e não volta.\n\nO “Estado”, de “Novo” a “Inservível”, é outra coisa: a conservação do bem.',
+        resposta: '“Em uso”: o bem está em serviço (entregar a alguém põe nesta situação); “Reserva”: guardado, e é para onde ele volta depois da devolução. “Em manutenção”: parado para conserto; “Baixado”: saiu do patrimônio e não volta.\n\nO “Estado”, de “Novo” a “Inservível”, é outra coisa: a conservação do bem.',
         termos: ['situação', 'status', 'estado', 'guardado'],
       },
       {
@@ -779,12 +779,12 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'material-vencido',
         pergunta: 'Por que o material vencido não sai do estoque?',
-        resposta: 'Material vencido não sai para uso nem para doação: a saída pega primeiro o que vence primeiro e pula o vencido. Abra o material e, na linha do lote vencido, use “Registrar perda” com “Venceu”.\n\nO Redação avisa quem opera o estoque quando um lote entra no prazo de aviso do material e no dia seguinte ao vencimento.',
+        resposta: 'Material vencido não sai para uso nem para doação: a saída pega primeiro o que vence primeiro e pula o vencido. Abra o material e, na linha do lote vencido, use “Registrar perda” com “Venceu”.\n\nA Redação avisa quem opera o estoque quando um lote entra no prazo de aviso do material e no dia seguinte ao vencimento.',
         termos: ['validade', 'vencimento', 'lote vencido', 'Este lote está vencido: registre a perda.'],
       },
       {
         id: 'saldo-nao-bate',
-        pergunta: 'O saldo do Redação não bate com a prateleira. O que faço?',
+        pergunta: 'O saldo da Redação não bate com a prateleira. O que faço?',
         resposta: 'Abra o material e, na linha do lote, use “Contar”. Informe “Quanto há de fato”; se der diferente, explique em “O que pode ter acontecido”, que aí é obrigatório, e use “Registrar contagem”. O acerto entra nos movimentos como “Ajuste de contagem”.',
         termos: ['contagem', 'ajuste', 'diferença', 'inventário do estoque', 'A contagem deu diferente: diga o que pode ter acontecido.'],
       },

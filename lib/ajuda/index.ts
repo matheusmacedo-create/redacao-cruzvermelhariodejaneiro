@@ -24,6 +24,7 @@ import { guias as relacionamento } from './conteudo/relacionamento'
  */
 
 export type { GuiaDaArea, PassoDoTour, Pergunta, Tarefa, TelaDaArea, TopicoGeral } from './tipos'
+// TOPICOS_GERAIS é a lista inteira (o conferir-ajuda); para mostrar a alguém, topicosGerais().
 export { BOAS_VINDAS, BOAS_VINDAS_ESCOLA, TOPICOS_GERAIS }
 export { casarCaminho, hrefDaAjuda, ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda } from './indice'
 
@@ -82,6 +83,21 @@ export function ehChaveDeTour(chave: string): boolean {
   return GUIAS.some((g) => g.telas?.some((t) => t.caminho === chave && t.tour.length > 0))
 }
 
+/**
+ * O selo (`quem`) da tarefa geral que é só da equipe da Redação. A equipe da
+ * escola não tem o "Criar" (topbar.tsx) nem abre chamados (/chamados manda
+ * de volta para a Escola): a ajuda dela não pode mandar fazer isso. O
+ * conferir-ajuda acusa tarefa geral que cita o "Criar" ou chamado sem o selo.
+ */
+export const SO_DA_REDACAO = 'Equipe da Redação'
+
+const GERAIS_DA_ESCOLA: TopicoGeral[] = TOPICOS_GERAIS.map((t) => ({ ...t, tarefas: t.tarefas.filter((x) => x.quem !== SO_DA_REDACAO) }))
+
+/** Os tópicos gerais de quem está vendo: sem o que é só da Redação, para a equipe da escola. */
+export function topicosGerais(equipeDaEscola: boolean): TopicoGeral[] {
+  return equipeDaEscola ? GERAIS_DA_ESCOLA : TOPICOS_GERAIS
+}
+
 /** As áreas que a pessoa pode abrir e que têm ajuda escrita, na ordem do menu. */
 export function guiasVisiveis(grupos: Grupo[]): { grupo: Grupo; area: Area; guia: GuiaDaArea }[] {
   return grupos.flatMap((grupo) => grupo.areas.flatMap((area) => {
@@ -103,19 +119,25 @@ export type Achado = {
 /**
  * Busca por palavras nas perguntas e nas tarefas das áreas visíveis e nos
  * tópicos gerais. Todas as palavras precisam aparecer; o título casando vem
- * antes de quem só casou pela resposta.
+ * antes de quem só casou pela resposta. No empate, os tópicos gerais (conta
+ * e acesso, navegação) vêm antes das áreas: "senha" é quase sempre a da
+ * própria pessoa, e o ⌘K mostra só as cinco primeiras — com as áreas na
+ * frente, "Esqueci a senha" ficava atrás da assinatura de ofícios.
+ *
+ * `grupos` são as áreas que a pessoa abre (as mesmas do menu); a equipe da
+ * escola não recebe as tarefas gerais que são só da Redação (topicosGerais).
  */
-export function buscarNaAjuda(busca: string, grupos: Grupo[], limite = 20): Achado[] {
+export function buscarNaAjuda(busca: string, grupos: Grupo[], { limite = 20, equipeDaEscola = false }: { limite?: number; equipeDaEscola?: boolean } = {}): Achado[] {
   const palavras = normalizar(busca).split(/\s+/).filter((p) => p.length > 1)
   if (!palavras.length) return []
   const candidatos: (Achado & { titulo_: string; corpo: string })[] = []
+  for (const topico of topicosGerais(equipeDaEscola)) {
+    for (const p of topico.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: topico.titulo, href: `/ajuda#${p.id}`, titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), topico.titulo].join(' ')) })
+    for (const t of topico.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: topico.titulo, href: `/ajuda#${t.id}`, titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', topico.titulo].join(' ')) })
+  }
   for (const { area, guia } of guiasVisiveis(grupos)) {
     for (const p of guia.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: area.rotulo, href: hrefDaAjuda(area.href, p.id), titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), area.rotulo].join(' ')) })
     for (const t of guia.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: area.rotulo, href: hrefDaAjuda(area.href, t.id), titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', area.rotulo].join(' ')) })
-  }
-  for (const topico of TOPICOS_GERAIS) {
-    for (const p of topico.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: topico.titulo, href: `/ajuda#${p.id}`, titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), topico.titulo].join(' ')) })
-    for (const t of topico.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: topico.titulo, href: `/ajuda#${t.id}`, titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', topico.titulo].join(' ')) })
   }
   return candidatos
     .map((c, ordem) => {
@@ -126,6 +148,9 @@ export function buscarNaAjuda(busca: string, grupos: Grupo[], limite = 20): Acha
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
     .sort((a, b) => a.pontos - b.pontos || a.ordem - b.ordem)
+    // A mesma pergunta escrita em dois lugares (num tópico geral e numa área)
+    // aparece uma vez só: no ⌘K cabem cinco, e duas linhas iguais gastam uma.
+    .filter(({ c }, i, lista) => lista.findIndex((x) => x.c.tipo === c.tipo && x.c.titulo_ === c.titulo_) === i)
     .slice(0, limite)
     .map(({ c }) => ({ tipo: c.tipo, titulo: c.titulo, trecho: c.trecho, onde: c.onde, href: c.href }))
 }

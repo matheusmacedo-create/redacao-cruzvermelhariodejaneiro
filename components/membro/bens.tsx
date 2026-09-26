@@ -75,11 +75,13 @@ export function BensComigo({ bens }: { bens: BemComOVoluntario[] }) {
   const ordenados = [...bens].sort((a, b) => Number(!!a.termo_aceito_em) - Number(!!b.termo_aceito_em))
   return (
     <Secao titulo="Bens da filial com você" icone={Package} id="bens">
-      <ul className="flex flex-col gap-3" data-ajuda="membro.bens">
-        {ordenados.map((b) => {
+      {/* O tour aponta o primeiro bem (termo pendente vem primeiro), com o termo e o
+          "Aceitar o termo" de que o passo fala: a lista inteira passa da tela no celular. */}
+      <ul className="flex flex-col gap-3">
+        {ordenados.map((b, i) => {
           const detalhes = [b.marca, b.modelo, b.numero_serie && `série ${b.numero_serie}`].filter(Boolean).join(' · ')
           return (
-            <li key={b.cautela_id} data-cautela={b.cautela_id} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+            <li key={b.cautela_id} data-cautela={b.cautela_id} data-ajuda={i === 0 ? 'membro.bens' : undefined} className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="font-semibold wrap-anywhere">{b.nome}</h3>

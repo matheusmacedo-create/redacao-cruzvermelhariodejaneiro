@@ -229,7 +229,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'quem-recebe-aviso',
       pergunta: 'Quem é avisado quando eu escrevo?',
-      resposta: 'Numa mensagem direta, todo mundo dela. Num canal, quem foi mencionado (ou todos, com @canal) e quem escolheu “Avisar toda mensagem”. Numa resposta em fio, quem escreveu a mensagem, quem já respondeu e quem foi mencionado.\n\nQuem silenciou a conversa não recebe. O aviso vai para o sino e, conforme as preferências de cada pessoa, por e-mail.',
+      resposta: 'Numa mensagem direta, todo mundo dela. Num canal, quem foi mencionado (todo o canal, com @canal) e quem escolheu “Avisar toda mensagem”; numa resposta em fio, quem escreveu a mensagem, quem já respondeu e quem foi mencionado.\n\nQuem silenciou a conversa não recebe. O aviso vai para o sino e, conforme as preferências de cada pessoa, por e-mail.',
       termos: ['notificação', 'sino', 'e-mail', 'avisar'],
     },
     {
@@ -316,7 +316,7 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
     {
       alvo: 'caixa.avisos',
       titulo: 'O que fica de fora',
-      texto: 'No pé, recolhidos, ficam as redes que não responderam e as que este painel não lê. Abra para saber onde ainda olhar pelo aplicativo.',
+      texto: 'No pé da Caixa, recolhido, fica o aviso das redes que não responderam e das que este painel não lê. Abra o aviso para saber o que olhar pelo aplicativo da rede.',
       lado: 'top',
       seAusente: 'pular',
     },
@@ -372,15 +372,6 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
       dica: 'O título e o texto do material viram o título e a descrição da pauta. O material continua na pasta, sem o destaque de novo; para tirá-lo de lá, use “Arquivar”.',
     },
     {
-      id: 'arquivar-material',
-      titulo: 'Arquivar um material',
-      passos: [
-        'Na pasta “E-mail e materiais”, toque no item.',
-        'Toque em “Arquivar”. Ele sai da Caixa de entrada.',
-      ],
-      dica: 'Esta tela não tem como trazer de volta um material arquivado.',
-    },
-    {
       id: 'ver-o-que-chegou',
       titulo: 'Ver o que chegou agora',
       passos: [
@@ -410,7 +401,7 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
     {
       id: 'comentario-nao-aparece',
       pergunta: 'Por que um comentário não aparece?',
-      resposta: 'A Caixa lê os comentários das publicações mais recentes (até 8) que saíram pela integração de publicação, a mesma de “Publicações”, e até 25 comentários de cada uma. Post feito direto no aplicativo da rede não entra, e publicação mais antiga sai da lista.\n\nVale também tocar em “Atualizar” e olhar o aviso no pé da Caixa, que diz se alguma rede não respondeu.',
+      resposta: 'A Caixa lê os comentários das publicações mais recentes (até 8) que saíram pelo Upload-Post, o serviço que “Publicações” usa para publicar nas redes, e até 25 comentários de cada uma. Post feito direto no aplicativo da rede não entra, e publicação mais antiga sai da lista.\n\nVale também tocar em “Atualizar” e olhar o aviso no pé da Caixa, que diz se alguma rede não respondeu.',
       termos: ['sumiu', 'faltando', 'post antigo', 'celular'],
     },
     {
@@ -454,6 +445,12 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
       pergunta: 'Por que dá para esconder e não para apagar um comentário?',
       resposta: 'Porque esconder dá para desfazer e apagar não. Uma instituição humanitária recebe ataque e desinformação junto com as perguntas, e sumir com a fala de alguém precisa ter volta. O comentário escondido some para o público, mas continua na rede.',
       termos: ['apagar', 'excluir', 'ofensa', 'moderação', 'fake news'],
+    },
+    {
+      id: 'arquivar-material',
+      pergunta: 'Como tiro um material da pasta “E-mail e materiais”?',
+      resposta: 'Abra o item e toque em “Arquivar”: ele sai da Caixa de entrada. Esta tela não traz de volta um material arquivado, então arquive só o que já foi resolvido.',
+      termos: ['arquivar', 'limpar', 'remover material', 'tirar da caixa'],
     },
     {
       id: 'rascunhos-e-aprovacoes',
@@ -766,14 +763,14 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'comecar-conversa',
       pergunta: 'Posso começar uma conversa com uma pessoa voluntária?',
-      resposta: 'Por aqui, não: quem abre a conversa é a própria pessoa, na Área do Voluntário. Para falar com uma pessoa, use o e-mail ou o telefone do cadastro dela; para falar com todos, use os avisos.',
+      resposta: 'Por aqui, não: quem abre a conversa é a própria pessoa, na Área do Voluntário. Para falar com uma pessoa, use o e-mail ou o telefone do cadastro dela; para falar com todo o voluntariado, use o mural de avisos.',
       termos: ['nova mensagem', 'escrever para voluntário', 'iniciar'],
     },
     {
       id: 'recado-para-todos',
-      pergunta: 'Como mando um recado para todos os voluntários?',
-      resposta: 'Pelo mural de avisos: em Voluntários, no grupo Pessoas do menu, abra “Avisos”. O aviso aparece na Área do Voluntário e, marcando “Enviar também por e-mail”, vai uma vez para os voluntários ativos com e-mail que não saíram da lista.',
-      termos: ['mural', 'aviso', 'comunicado', 'todos'],
+      pergunta: 'Como mando um recado para todo o voluntariado?',
+      resposta: 'Pelo mural de avisos: em Voluntários, no grupo Pessoas do menu, abra “Avisos”. O aviso aparece na Área do Voluntário e, marcando “Enviar também por e-mail”, vai uma vez para cada pessoa ativa com e-mail que não saiu da lista.',
+      termos: ['mural', 'aviso', 'comunicado', 'todos', 'todos os voluntários'],
     },
   ],
   relacionadas: ['/voluntariado'],
