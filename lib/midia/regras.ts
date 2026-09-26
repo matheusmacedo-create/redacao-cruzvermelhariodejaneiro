@@ -24,9 +24,9 @@ export const FOTO: Record<PerfilDeFoto, { lado: number; qualidade: number }> = {
 export const VIDEO = { lado: 1920, bitrate: 5_000_000, fpsMaximo: 30 }
 
 /**
- * Acima disto, o servidor recomprime a foto que chegou (rede de segurança
- * para o que não passou pelo preparo do navegador). Uma foto de 2048 px bem
- * comprimida fica bem abaixo.
+ * Foto que o navegador já conferiu só é recomprimida pelo servidor acima
+ * disto (uma foto de 2048 px bem comprimida fica bem abaixo). A que chega sem
+ * ter passado pelo preparo é conferida pelo servidor em qualquer tamanho.
  */
 export const LIMIAR_DO_SERVIDOR: Record<PerfilDeFoto, number> = {
   padrao: 1.5 * 1024 * 1024,
@@ -35,6 +35,11 @@ export const LIMIAR_DO_SERVIDOR: Record<PerfilDeFoto, number> = {
 
 /** Tipos de foto que o servidor abre e otimiza (sharp). GIF, SVG e HEIC ficam de fora. */
 export const TIPOS_OTIMIZAVEIS = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/tiff'])
+
+/** A extensão de cada tipo de imagem, para o nome e o caminho do arquivo. */
+export const EXTENSAO_DO_TIPO: Record<string, string> = {
+  'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/avif': '.avif', 'image/tiff': '.tif',
+}
 
 /** Acima disto o servidor não lê a foto inteira para otimizar: estouro de memória não se pega com try/catch. */
 export const TETO_PARA_OTIMIZAR = 100 * 1024 * 1024
@@ -61,14 +66,19 @@ export function farejarTipo(b: Uint8Array): TipoFarejado {
   return 'outro'
 }
 
-/** JPEG com bloco EXIF (onde mora o GPS) antes do início da imagem? */
-export function jpegTemExif(b: Uint8Array): boolean {
+/**
+ * JPEG com metadado que pode levar localização ou dados pessoais, antes do
+ * início da imagem: EXIF (APP1 "Exif", onde mora o GPS), XMP (APP1 da
+ * Adobe, que também pode ter exif:GPS…) ou IPTC (APP13 "Photoshop 3.0").
+ */
+export function jpegTemMetadados(b: Uint8Array): boolean {
   let i = 2
   while (i + 4 < b.length && b[i] === 0xff) {
     const marca = b[i + 1]
     if (marca === 0xda) return false
     const tamanho = (b[i + 2] << 8) | b[i + 3]
-    if (marca === 0xe1 && ascii(b, i + 4, 4) === 'Exif') return true
+    if (marca === 0xe1 && (ascii(b, i + 4, 4) === 'Exif' || ascii(b, i + 4, 20).startsWith('http://ns.adobe.com/'))) return true
+    if (marca === 0xed && ascii(b, i + 4, 13) === 'Photoshop 3.0') return true
     i += 2 + tamanho
   }
   return false

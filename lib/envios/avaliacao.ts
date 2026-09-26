@@ -53,7 +53,11 @@ export async function copiarParaBiblioteca(admin: Admin, p: {
   let tamanho = arquivo.tamanho
   let otimizadoEm: string | null = null
   let tamanhoOriginal: number | null = null
-  if (TIPOS_OTIMIZAVEIS.has(tipo) && arquivo.tamanho <= TETO_PARA_OTIMIZAR) {
+  // Só lê inteiro o que o R2 confirma caber: o link de envio (PUT) não amarra o
+  // tamanho, e o declarado no envio pode não ser o que está lá. Sem o
+  // tamanho na resposta, ou acima do teto, vai em fluxo como antes.
+  const noArmazenamento = Number(resposta.headers.get('content-length') ?? NaN)
+  if (TIPOS_OTIMIZAVEIS.has(tipo) && Number.isFinite(noArmazenamento) && noArmazenamento <= TETO_PARA_OTIMIZAR && arquivo.tamanho <= TETO_PARA_OTIMIZAR) {
     const bytes = Buffer.from(await resposta.arrayBuffer())
     corpo = bytes
     tamanho = bytes.length

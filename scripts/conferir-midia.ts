@@ -12,7 +12,7 @@
  */
 import sharp from 'sharp'
 import {
-  FOTO, VIDEO, caber, decidirVideo, farejarTipo, jpegTemExif, pngInfo, tamanhoLegivel, textoDaEconomia, trocarExtensao, webpInfo,
+  FOTO, VIDEO, caber, decidirVideo, farejarTipo, jpegTemMetadados, pngInfo, tamanhoLegivel, textoDaEconomia, trocarExtensao, webpInfo,
 } from '../lib/midia/regras'
 
 let falhas = 0
@@ -49,8 +49,10 @@ async function main() {
   ok('MOV e MP4 reconhecidos', farejarTipo(ftyp('qt  ')) === 'mov' && farejarTipo(ftyp('isom')) === 'mp4' && farejarTipo(ftyp('mp42')) === 'mp4')
   ok('lixo e arquivo curto', farejarTipo(new Uint8Array([1, 2, 3])) === 'outro' && farejarTipo(bytes(Buffer.from('%PDF-1.7 teste...'))) === 'outro')
 
-  ok('JPEG com EXIF/GPS detectado', jpegTemExif(bytes(jpegComGps)))
-  ok('JPEG sem EXIF', !jpegTemExif(bytes(jpegLimpo)))
+  ok('JPEG com EXIF/GPS detectado', jpegTemMetadados(bytes(jpegComGps)))
+  ok('JPEG sem EXIF', !jpegTemMetadados(bytes(jpegLimpo)))
+  const jpegXmp = await sharp(cor()).jpeg().withXmp('<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="22,54S"/></rdf:RDF></x:xmpmeta>').toBuffer()
+  ok('JPEG só com XMP detectado', jpegTemMetadados(bytes(jpegXmp)))
 
   ok('PNG opaco sem alfa', !pngInfo(bytes(pngOpaco)).podeTerAlfa)
   ok('PNG RGBA pode ter alfa', pngInfo(bytes(pngAlfa)).podeTerAlfa && !pngInfo(bytes(pngAlfa)).animado)

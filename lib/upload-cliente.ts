@@ -54,7 +54,11 @@ export async function enviarParaBiblioteca(
     aoProgredir: (fracao) => opcoes.onEtapa?.('otimizando', Math.round(fracao * 100)),
   })
   const arquivo = preparo.arquivo
-  const contentType = arquivo.type || (await tipoPeloConteudo(arquivo)) || undefined
+  // O tipo só vai explícito quando é confiável: o arquivo que o preparo
+  // gerou, ou o reconhecido pelo conteúdo quando o navegador não disse nada
+  // (iPhone às vezes manda vazio). No resto, o Blob deduz pela extensão, como
+  // sempre foi — o tipo declarado pelo navegador varia (ex.: .ogg no Firefox).
+  const contentType = preparo.otimizado ? arquivo.type : !arquivo.type ? (await tipoPeloConteudo(arquivo)) ?? undefined : undefined
 
   opcoes.onEtapa?.('enviando', 0)
   const blob = await enviarAoBlob(caminhoDaBiblioteca(opcoes.workspaceId, arquivo.name), arquivo, {
@@ -79,6 +83,8 @@ export async function enviarParaBiblioteca(
       originalName: escolhido.name,
       originalSize: escolhido.size,
       optimized: preparo.otimizado,
+      // Conferido pelo preparo (mesmo sem mudar): não entra na fila do "Otimizar fotos antigas".
+      prepared: preparo.conferido,
       profile: opcoes.perfil ?? 'padrao',
       tags: opcoes.tags ?? [],
       authorization: opcoes.autorizacao ?? 'pending',
