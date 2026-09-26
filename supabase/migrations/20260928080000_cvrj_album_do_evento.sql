@@ -6,7 +6,7 @@
 --  - só quem avalia os envios cria o evento.
 --
 -- O evento tem dois links:
---  - o de ENVIO (/enviar?evento=<codigo>): quem manda por ele já cai no evento;
+--  - o de ENVIO (/enviar/<codigo>): quem manda por ele já cai no evento;
 --  - o do ÁLBUM (/album/<album_token>): quem tem vê e baixa. Nulo = desligado.
 -- Os arquivos continuam onde já estavam (R2, entrada/envios/); nada é copiado.
 
