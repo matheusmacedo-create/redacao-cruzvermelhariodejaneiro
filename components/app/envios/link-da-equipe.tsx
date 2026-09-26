@@ -10,7 +10,7 @@ export function LinkDaEquipe({ url, qr }: { url: string; qr: string }) {
     try { await navigator.clipboard.writeText(url); setCopiado(true); setTimeout(() => setCopiado(false), 2000) } catch { /* sem área de transferência */ }
   }
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center" data-ajuda="envios.link">
       <img src={qr} alt={`QR code para ${url}`} width={112} height={112} className="size-28 shrink-0 rounded-md border border-border bg-white p-1" />
       <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm font-semibold">Link para a equipe mandar ações</p>

@@ -2,8 +2,8 @@ import type { GuiaDaArea } from '../tipos'
 
 /**
  * A ajuda do grupo Comunicação do menu: Chat (/chat), Caixa de entrada
- * (/caixa-de-entrada), E-mail do setor (/correio) e o canal com os
- * voluntários (/voluntariado/mensagens).
+ * (/caixa-de-entrada), E-mail do setor (/correio), Envios da equipe (/envios)
+ * e o canal com os voluntários (/voluntariado/mensagens).
  *
  * Cada frase tem apoio no código:
  * - Chat: app/(app)/chat, components/app/chat/**, lib/chat/**, app/actions/chat.ts
@@ -13,12 +13,16 @@ import type { GuiaDaArea } from '../tipos'
  *   convertInboxToPauta em app/actions/editorial.ts);
  * - E-mail do setor: app/(app)/correio, components/app/correio/correio.tsx,
  *   lib/correio/** e app/actions/correio.ts;
+ * - Envios da equipe: app/(app)/envios/**, components/app/envios/**,
+ *   app/actions/envios.ts, lib/envios/** e o lado de quem manda (app/enviar,
+ *   components/enviar/**, app/api/enviar/**); o aviso de publicação sai de
+ *   lib/site/publicar-materia.ts;
  * - Voluntários: app/(app)/voluntariado/mensagens, components/app/canal/acoes.tsx,
  *   lib/canal/regras.ts, app/actions/canal.ts e o aviso ao time em app/actions/membro.ts.
  *
  * /chat só redireciona para uma conversa (/chat/[id]); por isso o tour do
  * Chat mora na tela da conversa, e não na raiz da área. Os alvos `chat.*`,
- * `caixa.*`, `correio.*` e `canal-voluntarios.*` são marcados com
+ * `caixa.*`, `correio.*`, `envios.*` e `canal-voluntarios.*` são marcados com
  * `data-ajuda` nessas telas. Mudou a tela ou a regra, muda aqui no mesmo PR
  * (docs/AJUDA.md).
  */
@@ -634,6 +638,235 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
   relacionadas: ['/imprensa', '/newsletter', '/configuracoes'],
 }
 
+// ---------------------------------------------------------------- Envios da equipe
+
+const ENVIOS_DA_EQUIPE: GuiaDaArea = {
+  href: '/envios',
+  paraQueServe: 'Envios da equipe é a caixa do que a equipe manda pelo link público, na tela “Mandar uma ação”, sem login: relato, áudio, fotos, vídeos e documentos de uma ação. Aqui você avalia, escolhe o material e transforma o envio em pauta, matéria e posts.',
+  quemUsa: 'Só quem foi escolhido para avaliar os envios. A escolha é pessoa a pessoa, e não pelo papel: para as outras pessoas, a área não aparece no menu e o endereço não abre. Quem manda pelo link não precisa de conta e não entra nesta área.',
+  tour: [
+    {
+      titulo: 'Os envios da equipe',
+      texto: 'Aqui chega o que a equipe manda pelo link, sem login: relato, áudios, fotos, vídeos e documentos de uma ação. Você avalia e decide se vira pauta, matéria e posts.',
+    },
+    {
+      alvo: 'envios.link',
+      titulo: 'O link e o QR code',
+      texto: '“Copiar link” copia o endereço para você colar no grupo da equipe; “Baixar QR code” baixa a imagem para imprimir no cartaz da ação. Qualquer pessoa com o link consegue mandar.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'envios.abas',
+      titulo: 'Para avaliar e o resto',
+      texto: '“Para avaliar” junta os envios novos e os já abertos. “Viraram pauta”, “Arquivados” e “Ainda chegando” guardam o resto. O número mostra quantos há em cada um.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'envios.lista',
+      titulo: 'Cada envio num cartão',
+      texto: 'Cada envio vira um cartão, do mais recente ao mais antigo, com a situação, o protocolo, a data, quem mandou e quantos arquivos de cada tipo chegaram. “imagem: conferir” pede cuidado com a autorização.',
+      lado: 'top',
+    },
+  ],
+  telas: [
+    {
+      caminho: '/envios/[id]',
+      rotulo: 'Envio da equipe',
+      tour: [
+        {
+          titulo: 'Um envio aberto',
+          texto: 'Aqui estão o relato, os áudios, as fotos, os vídeos e os documentos que chegaram. Abrir um envio “Novo” já o passa para “Em avaliação”.',
+        },
+        {
+          alvo: 'envios.ficha',
+          titulo: 'Quem mandou e a ação',
+          texto: 'Nome, setor, contatos, data, local, pessoas atendidas e parceiros. O WhatsApp abre a conversa com uma mensagem pronta. “Imagem das pessoas” mostra o que foi declarado.',
+          lado: 'left',
+        },
+        {
+          alvo: 'envios.transcricao',
+          titulo: 'Transcrição do áudio',
+          texto: '“Transcrever com IA” passa o áudio para texto em português. Faça antes de criar a pauta: a transcrição entra na pauta e na matéria.',
+          lado: 'bottom',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'envios.fotos-e-videos',
+          titulo: 'Fotos e vídeos',
+          texto: 'Antes de virar pauta, marque o que vai para a matéria e os posts. O selo “na Biblioteca” mostra o que já foi copiado, e “original” baixa o arquivo como chegou.',
+          lado: 'top',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'envios.acoes',
+          titulo: 'O que fazer com o envio',
+          texto: '“Criar matéria e posts” cria a pauta, a matéria e o pacote de publicação, e copia os arquivos marcados para a Biblioteca. “Só criar a pauta” não copia nada. “Arquivar” tira da fila.',
+          lado: 'top',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'envios.virou-trabalho',
+          titulo: 'Virou trabalho',
+          texto: 'Os links para o pacote e a pauta. Com a matéria no site, aparece “Ver a matéria no site” e, se a pessoa pediu aviso e deixou WhatsApp, “Avisar pelo WhatsApp”.',
+          lado: 'left',
+          seAusente: 'pular',
+        },
+      ],
+    },
+  ],
+  tarefas: [
+    {
+      id: 'divulgar-o-link',
+      titulo: 'Divulgar o link para a equipe',
+      passos: [
+        'Abra “Envios da equipe”, no grupo Comunicação do menu.',
+        'No quadro “Link para a equipe mandar ações”, toque em “Copiar link” e cole o endereço no grupo da equipe.',
+        'Para o cartaz da ação, toque em “Baixar QR code” e imprima a imagem.',
+        'Quem abre o link ou lê o QR code cai na tela “Mandar uma ação” e manda, sem login, em quatro passos.',
+      ],
+      dica: 'O link é aberto: qualquer pessoa com ele consegue mandar. Nada do que chega é publicado sozinho: só vira pauta pelas mãos de quem avalia.',
+    },
+    {
+      id: 'avaliar-envio',
+      titulo: 'Avaliar um envio que chegou',
+      passos: [
+        'Na aba “Para avaliar”, toque no cartão do envio. Os mais recentes vêm primeiro.',
+        'Leia o relato, ouça os áudios e veja as fotos, os vídeos e os documentos.',
+        'Se houver áudio, toque em “Transcrever com IA” para ler o que foi dito.',
+        'Confira “Imagem das pessoas”, no quadro com os dados de quem mandou.',
+        'Para tirar uma dúvida, toque no WhatsApp ou no e-mail de quem mandou.',
+        'Decida em “O que fazer com este envio”: “Criar matéria e posts”, “Só criar a pauta” ou “Arquivar”.',
+      ],
+      dica: 'Abrir o envio já tira o “Novo”: ele passa a “Em avaliação” e continua em “Para avaliar” até você decidir.',
+    },
+    {
+      id: 'criar-materia-e-posts',
+      titulo: 'Transformar um envio em matéria e posts',
+      passos: [
+        'Abra o envio.',
+        'Em “Fotos e vídeos”, marque o que vai para a matéria e os posts. Já vêm marcados as fotos e os vídeos de até 300 MB.',
+        'Toque em “Criar matéria e posts”. O botão mostra quantos arquivos estão marcados.',
+        'A Redação cria a pauta, a matéria em rascunho (com o relato e a transcrição) e o pacote de publicação, e copia para a Biblioteca os arquivos marcados, com o crédito de quem mandou.',
+        'Se tudo entrou, o pacote abre em seguida. Se algum arquivo ficou fora da Biblioteca, a tela fica no envio com um aviso amarelo, que diz o motivo e traz “Abrir o pacote (matéria e posts)”.',
+      ],
+      dica: 'Vão no máximo 30 arquivos para a Biblioteca; o que passar disso fica de fora, sem aviso. Transcreva o áudio antes de criar: a transcrição só entra na pauta e na matéria se já existir nessa hora.',
+    },
+    {
+      id: 'so-criar-a-pauta',
+      titulo: 'Criar só a pauta, sem matéria',
+      passos: [
+        'Abra o envio.',
+        'Toque em “Só criar a pauta”.',
+        'A pauta nasce em “Entrada”, com você como responsável e com o relato, a transcrição e os dados da ação na descrição.',
+        'Ela abre na hora. Dali, o trabalho segue pela pauta, como qualquer outra.',
+      ],
+      dica: 'Nada vai para a Biblioteca, e depois disso os botões do envio somem. Se precisar de uma foto ou de um vídeo, baixe em “original”, no envio, e suba na Biblioteca.',
+    },
+    {
+      id: 'arquivar-envio',
+      titulo: 'Arquivar um envio (e trazer de volta)',
+      passos: [
+        'Abra o envio e toque em “Arquivar”.',
+        'Ele sai de “Para avaliar” e vai para a aba “Arquivados”.',
+        'Para trazer de volta, abra o envio em “Arquivados” e toque em “Tirar do arquivo”. Ele volta para “Para avaliar”.',
+      ],
+      dica: 'Arquivar não apaga nada e não avisa quem mandou. Um envio arquivado ainda pode virar pauta, pelos mesmos botões.',
+    },
+    {
+      id: 'transcrever-audio',
+      titulo: 'Transcrever o áudio de um envio',
+      passos: [
+        'Abra o envio. A parte “Transcrição do áudio” só aparece quando há áudio.',
+        'Toque em “Transcrever com IA” e espere o “Transcrevendo…” terminar.',
+        'O texto aparece ali mesmo e fica guardado no envio.',
+        'Para refazer, toque em “Transcrever de novo”.',
+      ],
+      dica: 'Áudio com mais de 25 MB fica de fora, e a tela diz qual. Transcreva antes de criar a pauta: depois, a transcrição não entra mais nela nem na matéria.',
+    },
+    {
+      id: 'avisar-quem-mandou',
+      titulo: 'Avisar quem mandou que a ação virou matéria',
+      passos: [
+        'Quando a matéria do envio vai ao ar no site pela primeira vez, quem mandou e deixou e-mail recebe o link por e-mail, sem você fazer nada.',
+        'Quem deixou só o WhatsApp não é avisado sozinho: você recebe no sino o lembrete “Avise … pelo WhatsApp”.',
+        'Abra o envio. No quadro “Virou trabalho”, toque em “Avisar pelo WhatsApp”.',
+        'O WhatsApp abre com a mensagem pronta e o link da matéria. É só enviar.',
+        'O envio passa a mostrar “Avisado em …”.',
+      ],
+      dica: 'Só é avisado quem marcou “Me avise quando a ação virar post ou matéria”. O aviso sai com a matéria no site: post nas redes não gera aviso.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'quem-ve-os-envios',
+      pergunta: 'Quem vê os envios da equipe?',
+      resposta: 'Só quem foi escolhido para avaliar os envios. A escolha é pessoa a pessoa, e não pelo papel: ter o papel “Administrador” não basta. Quem avalia também recebe os avisos de envio novo.\n\nQuem manda pelo link não tem acesso a esta área e não vê o que as outras pessoas mandaram.',
+      termos: ['permissão', 'acesso', 'avaliador', 'quem avalia', 'privacidade'],
+    },
+    {
+      id: 'nao-vejo-a-area',
+      pergunta: 'Por que não vejo “Envios da equipe” no menu?',
+      resposta: 'A área só aparece para quem foi escolhido para avaliar os envios; para as outras pessoas, o endereço também não abre (aparece um erro 404). Essa escolha não fica em “Usuários e permissões”, e não há botão para ela na Redação: fale com quem cuida da ferramenta.',
+      termos: ['404', 'sumiu do menu', 'sem acesso', 'não aparece', 'não abre'],
+    },
+    {
+      id: 'situacoes-do-envio',
+      pergunta: 'O que significam “Chegando”, “Novo”, “Em avaliação”, “Virou pauta” e “Arquivado”?',
+      resposta: '“Chegando”: os arquivos ainda estão subindo, ou quem mandou saiu da tela antes do fim; o envio fica em “Ainda chegando”. “Novo”: terminou de chegar e ninguém abriu. “Em avaliação”: já foi aberto, ou voltou do arquivo. Esses dois ficam em “Para avaliar”.\n\n“Virou pauta”: alguém criou a pauta a partir dele. “Arquivado”: saiu da fila, sem nada ser apagado.',
+      termos: ['status', 'situação', 'estado', 'abas'],
+    },
+    {
+      id: 'ainda-chegando',
+      pergunta: 'Um envio ficou em “Ainda chegando”. O que faço?',
+      resposta: 'Quem mandou ainda está enviando os arquivos, ou fechou a tela antes de terminar. Você já pode abrir o envio: a tela diz quantos arquivos ainda não chegaram, mostra o que chegou e tem os mesmos botões de sempre.\n\nEnvio parado aqui não gera aviso. Se faltar algo, fale com a pessoa pelo WhatsApp ou pelo e-mail do envio.',
+      termos: ['chegando', 'incompleto', 'faltando arquivo', 'não chegou'],
+    },
+    {
+      id: 'aviso-de-envio-novo',
+      pergunta: 'Quando sou avisado de um envio novo?',
+      resposta: 'Quando os arquivos de um envio terminam de chegar, quem avalia recebe um aviso no sino, com o resumo do que veio, e outro quando a pessoa manda mais arquivos para o mesmo envio. Se o aviso vai também por e-mail, você escolhe em Meu perfil, no assunto “Pautas e conteúdos”.\n\nEnvio só com texto, sem arquivo, entra direto em “Para avaliar”, sem aviso: vale olhar a aba de vez em quando.',
+      termos: ['notificação', 'sino', 'e-mail', 'Nova ação enviada', 'Mais arquivos em'],
+    },
+    {
+      id: 'imagem-conferir',
+      pergunta: 'O que quer dizer “imagem: conferir”?',
+      resposta: 'Que quem mandou respondeu “Não sei / não perguntei” ou “Tem criança ou adolescente” sobre a imagem das pessoas. Os arquivos desse envio que forem para a Biblioteca entram com o selo “Falta autorizar”: confira a autorização antes de publicar.\n\nCom “Sim, todas autorizaram” ou “Não aparece ninguém de frente”, eles entram com “Uso autorizado”.',
+      termos: ['autorização de imagem', 'direito de imagem', 'menores', 'criança', 'pendente', 'Imagem das pessoas'],
+    },
+    {
+      id: 'o-que-vai-para-a-biblioteca',
+      pergunta: 'O que vai para a Biblioteca?',
+      resposta: 'Só as fotos e os vídeos marcados, só com “Criar matéria e posts” e no máximo 30, com o crédito de quem mandou. Fica de fora o arquivo acima de 300 MB, de tipo que a Biblioteca não aceita ou que não cabe no espaço dela; o aviso amarelo diz qual.\n\nÁudios e documentos não vão. Tudo o que chegou continua guardado e aparece no envio.',
+      termos: ['biblioteca de mídia', 'cota', 'espaço', 'crédito', 'acervo', 'a Biblioteca está cheia'],
+    },
+    {
+      id: 'so-criei-a-pauta',
+      pergunta: 'Escolhi “Só criar a pauta”. Como levo as fotos para a matéria depois?',
+      resposta: 'Pelo envio, não dá mais: depois que ele vira pauta, os botões somem. Baixe o que precisar em “original”, embaixo da foto ou do vídeo, e suba na Biblioteca.',
+      termos: ['fotos depois', 'copiar para a biblioteca', 'botões sumiram'],
+    },
+    {
+      id: 'limites-do-link',
+      pergunta: 'Há limite para o que a equipe manda?',
+      resposta: 'Cada arquivo vai até 2 GB, e cada envio, até 60 arquivos: fotos, vídeos, áudios, PDF e documentos do Office. Outros tipos, como arquivo compactado, não passam.\n\nDa mesma conexão de internet, são até 10 envios por hora e 5 GB por dia; numa ação com todo mundo no mesmo Wi-Fi, o limite é de todos juntos. Enquanto não fecha a tela com o protocolo, quem mandou pode pôr mais arquivos no mesmo envio, por até 24 horas, em “Mandar mais arquivos para este envio”.',
+      termos: ['tamanho', '2 GB', 'vídeo grande', 'limite', 'Muitos envios seguidos deste aparelho', 'limite diário'],
+    },
+    {
+      id: 'dados-de-quem-manda',
+      pergunta: 'O que acontece com os dados de quem manda?',
+      resposta: 'O formulário avisa que o material fica guardado pela Cruz Vermelha Brasileira – Filial RJ e só é usado na comunicação da instituição, depois da avaliação. Nome, setor, WhatsApp e e-mail aparecem para quem avalia e, se o envio vira pauta, para a equipe, na pauta; o nome também vira crédito das fotos na Biblioteca.\n\nCom “Transcrever com IA”, o áudio vai para o serviço de IA que faz a transcrição. O aparelho de quem manda guarda o nome e os contatos, para não pedir de novo no próximo envio.',
+      termos: ['LGPD', 'privacidade', 'dados pessoais', 'contato', 'telefone'],
+    },
+    {
+      id: 'quem-mandou-fica-sabendo',
+      pergunta: 'Quem mandou fica sabendo do que aconteceu com o envio?',
+      resposta: 'Se marcou “Me avise quando a ação virar post ou matéria”, fica, quando a matéria vai ao ar no site pela primeira vez: por e-mail, sozinho, ou pelo WhatsApp, com o botão “Avisar pelo WhatsApp” do envio. Post nas redes não gera aviso, e arquivar não avisa ninguém.',
+      termos: ['aviso', 'retorno', 'publicou', 'WhatsApp', 'agradecer'],
+    },
+  ],
+  relacionadas: ['/pautas', '/redes', '/biblioteca'],
+}
+
 // ---------------------------------------------------------------- Voluntários (canal direto)
 
 const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
@@ -776,4 +1009,4 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
   relacionadas: ['/voluntariado'],
 }
 
-export const guias: GuiaDaArea[] = [CHAT, CAIXA_DE_ENTRADA, EMAIL_DO_SETOR, CANAL_DOS_VOLUNTARIOS]
+export const guias: GuiaDaArea[] = [CHAT, CAIXA_DE_ENTRADA, EMAIL_DO_SETOR, ENVIOS_DA_EQUIPE, CANAL_DOS_VOLUNTARIOS]

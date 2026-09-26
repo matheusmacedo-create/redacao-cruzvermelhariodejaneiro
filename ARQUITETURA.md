@@ -767,15 +767,15 @@ Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
 [`docs/AJUDA.md`](docs/AJUDA.md).
 
 - **Conteúdo:** texto e dado puro, em `lib/ajuda/conteudo/<grupo>.ts` (um
-  arquivo por grupo do menu; 38 áreas) e em `lib/ajuda/membro.ts` (Área do
+  arquivo por grupo do menu; 40 áreas) e em `lib/ajuda/membro.ts` (Área do
   Voluntário), no formato de `lib/ajuda/tipos.ts`. A chave de cada guia é o
   `href` da área em `lib/navegacao.ts`, então a ajuda some junto com a área
   para quem não pode abri-la. O mesmo conteúdo serve ao painel “?” (botão no
   topo e tecla `?`), à Central (área "Ajuda", `/ajuda`, no menu da conta — no
   celular, na gaveta do menu —, com âncora em cada tarefa e pergunta) e à
   busca ⌘K (`buscarNaAjuda`).
-- **O texto não vai em toda página.** Com as 38 áreas, ele pesa cerca de
-  140 KB comprimidos; no pacote de cada página, custava isso a todo mundo,
+- **O texto não vai em toda página.** Com as 40 áreas, ele pesa cerca de
+  145 KB comprimidos; no pacote de cada página, custava isso a todo mundo,
   mesmo a quem nunca abre a ajuda. Toda página leva só o índice leve
   (`lib/ajuda/indice.ts`: que área tem guia, que tela tem tour e o nome
   dela), montado no servidor por `indiceDaAjuda()` e passado como prop pelo

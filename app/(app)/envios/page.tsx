@@ -81,7 +81,7 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
       <PageHeader title="Envios da equipe" description="O que a equipe mandou pelo link: relatos, áudios, fotos e vídeos das ações. Avalie, escolha o material e transforme em pauta, matéria e posts." />
       <LinkDaEquipe url={link} qr={qr} />
 
-      <nav aria-label="Filtro dos envios" className="flex flex-wrap gap-1.5">
+      <nav aria-label="Filtro dos envios" className="flex flex-wrap gap-1.5" data-ajuda="envios.abas">
         {(Object.keys(ABAS) as Aba[]).map((a, i) => (
           <Link key={a} href={a === 'avaliar' ? '/envios' : `/envios?aba=${a}`} aria-current={a === aba ? 'page' : undefined}
             className={cn('inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm', a === aba ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-border hover:bg-muted')}>
@@ -91,11 +91,11 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
       </nav>
 
       {linhas.length === 0 ? (
-        <Card className="p-8 text-center text-sm text-muted-foreground">
+        <Card className="p-8 text-center text-sm text-muted-foreground" data-ajuda="envios.lista">
           {aba === 'avaliar' ? 'Nada para avaliar. Quando alguém da equipe mandar uma ação pelo link, ela aparece aqui e você recebe um aviso.' : 'Nada por aqui.'}
         </Card>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="envios.lista">
           {linhas.map((l) => {
             const recebidos = l.envio_arquivos.filter((a) => a.estado === 'recebido')
             const conta = (c: string) => recebidos.filter((a) => a.categoria === c).length

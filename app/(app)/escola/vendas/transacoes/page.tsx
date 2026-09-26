@@ -36,7 +36,7 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/vendas" />
       <PageHeader title="Transações" description="Cada cobrança das contas da escola na Únicopag: criada ou paga no mês escolhido. O CPF aparece mascarado; a ficha do aluno fica no sistema da escola."
-        actions={<Button variant="outline" render={<a href={`/api/escola/vendas/transacoes?${busca}`} />} data-ajuda="escola-vendas.planilha"><Download className="size-4" />Planilha (CSV)</Button>} />
+        actions={<Button variant="outline" render={<a href={`/api/escola/transacoes?${busca}`} />} data-ajuda="escola-vendas.planilha"><Download className="size-4" />Planilha (CSV)</Button>} />
       <form className="flex flex-wrap items-end gap-2" id="filtros" data-ajuda="escola-vendas.filtros">
         <select name="mes" defaultValue={f.mes} className={selectClass} aria-label="Mês">{mesesAte(hoje, 24).reverse().map((m) => <option key={m} value={m}>{mesPorExtenso(m)}</option>)}</select>
         {(contas ?? []).length > 1 && <select name="conta" defaultValue={f.conta} className={selectClass} aria-label="Conta"><option value="">Todas as contas</option>{(contas ?? []).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>}

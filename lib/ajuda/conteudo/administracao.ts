@@ -3,9 +3,14 @@ import { ATIVAR_A_VERIFICACAO, CONFIRMAR_O_EMAIL, ESCOLHER_OS_EMAILS, PARA_QUE_S
 import { RESUMO_DIARIO } from './meu-dia'
 
 /**
- * A ajuda do grupo Administração do menu: Usuários e permissões (/usuarios),
- * Configurações (/configuracoes) e Meu perfil (/perfil). A Central de ajuda
- * (/ajuda) é a própria ajuda e não tem guia.
+ * A ajuda do grupo Administração do menu: Acessos (/acessos), Usuários e
+ * permissões (/usuarios), Configurações (/configuracoes) e Meu perfil
+ * (/perfil). A Central de ajuda (/ajuda) é a própria ajuda e não tem guia.
+ *
+ * Acessos: app/(app)/acessos, lib/acessos/**, app/actions/entrada.ts, o
+ * registro dos voluntários em app/actions/membro.ts, app/auth/signout e a
+ * migração 20260928000000_cvrj_acessos (docs/registro-de-acessos.md traz
+ * também o que ainda não foi feito: aqui só entra o que está no código).
  *
  * Cada frase tem apoio no código: app/(app)/usuarios, components/admin/
  * usuarios.tsx, app/actions/usuarios.ts e verificacao.ts; app/(app)/
@@ -17,10 +22,188 @@ import { RESUMO_DIARIO } from './meu-dia'
  * components/app/preferencias-de-notificacao.tsx, lib/notificacoes/regras.ts,
  * app/api/profile/avatar e app/actions/contas.ts. Regras de conta em
  * lib/usuarios/**, lib/contas/** e ARQUITETURA.md §5; permissões em
- * lib/permissoes.ts. Os alvos `usuarios.*`, `configuracoes.*` e `perfil.*`
- * são marcados com `data-ajuda` nessas telas. Mudou a tela ou a regra, muda
- * aqui no mesmo PR (docs/AJUDA.md).
+ * lib/permissoes.ts. Os alvos `acessos.*`, `usuarios.*`, `configuracoes.*` e
+ * `perfil.*` são marcados com `data-ajuda` nessas telas. Mudou a tela ou a
+ * regra, muda aqui no mesmo PR (docs/AJUDA.md).
  */
+
+// ------------------------------------------------------------------- Acessos
+
+const ACESSOS: GuiaDaArea = {
+  href: '/acessos',
+  paraQueServe: 'Acessos é o registro de quem entrou na Redação e na Área do Voluntário: quando, de onde e com qual aparelho, inclusive as tentativas erradas, os bloqueios e as saídas. Serve para cuidar da segurança das contas.',
+  quemUsa: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”: o papel sozinho não basta. Para as outras pessoas, a área não aparece no menu e o endereço não abre. Cada consulta a esta tela também fica registrada.',
+  tour: [
+    {
+      titulo: 'O registro de acessos',
+      texto: 'Quem entrou na Redação e na Área do Voluntário, quando, de onde e com qual aparelho, inclusive tentativas erradas e bloqueios. Cada consulta a esta tela também fica registrada.',
+    },
+    {
+      alvo: 'acessos.numeros',
+      titulo: 'O resumo',
+      texto: 'Entradas, tentativas erradas e bloqueios das últimas 24 horas, e os aparelhos vistos pela primeira vez nos últimos 7 dias.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'acessos.filtros',
+      titulo: 'Filtrar',
+      texto: 'Escolha “Pessoa”, “O que aconteceu” e “Período”, ou marque “Só com alerta”, e toque em “Filtrar”. A tela abre nos “Últimos 7 dias”.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'acessos.lista',
+      titulo: 'Cada acesso numa linha',
+      texto: 'Quem, o que aconteceu, quando e de onde, com os selos amarelos de alerta. Toque na linha para ver o IP, o mapa, o aparelho, os idiomas e a impressão digital.',
+      lado: 'top',
+    },
+    {
+      alvo: 'acessos.aparelhos',
+      titulo: 'Aparelhos da equipe',
+      texto: 'Cada aparelho reconhecido de cada pessoa da equipe, com a primeira e a última vez. Tocar no nome do aparelho mostra só os acessos dele.',
+      lado: 'top',
+    },
+    {
+      alvo: 'acessos.nota',
+      titulo: 'O local é aproximado',
+      texto: 'O local vem do IP: na rede de celular, a cidade pode sair errada. Dos voluntários, o registro guarda só IP, local e navegador, sem impressão digital.',
+      lado: 'top',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'ver-quem-entrou',
+      titulo: 'Ver quem entrou nas últimas 24 horas',
+      passos: [
+        'Abra “Acessos”, no grupo Administração do menu.',
+        'Em “O que aconteceu”, escolha “Entradas”.',
+        'Em “Período”, escolha “Últimas 24 horas”.',
+        'Toque em “Filtrar”.',
+        'Toque numa linha para ver o IP, o local no mapa e os dados do aparelho.',
+      ],
+      dica: 'A lista mostra até 300 acessos. Quando o título diz “Os 300 acessos mais recentes do filtro”, pode haver mais: escolha uma pessoa ou um período menor.',
+    },
+    {
+      id: 'investigar-tentativas-erradas',
+      titulo: 'Investigar tentativas erradas e bloqueios',
+      passos: [
+        'Em “O que aconteceu”, escolha “Erros e bloqueios” e toque em “Filtrar”.',
+        'Veja em cada linha quem tentou, quando e de onde.',
+        'Toque na linha: “Motivo” diz o que deu errado, e “Aparelho” mostra o navegador usado.',
+        'Toque no IP para ver tudo o que veio dele, desde o começo.',
+      ],
+      dica: '“Erros e bloqueios” junta “Tentativa errada”, “Bloqueado” e “Código errado (2 etapas)”.',
+    },
+    {
+      id: 'ver-acessos-de-uma-pessoa',
+      titulo: 'Ver os acessos de uma pessoa',
+      passos: [
+        'Em “Pessoa”, escolha o nome. “Voluntários” junta todos os voluntários.',
+        'Em “Período”, escolha “Desde o começo” ou um período menor.',
+        'Toque em “Filtrar”.',
+        'Para ver os aparelhos que ela usa, procure o nome dela na tabela “Aparelhos da equipe”.',
+      ],
+      dica: 'A lista “Pessoa” traz toda a equipe; quem é da escola vem com “(escola)” depois do nome. Voluntário não se filtra um por um.',
+    },
+    {
+      id: 'ver-um-aparelho-ou-ip',
+      titulo: 'Ver tudo o que veio de um aparelho ou de um IP',
+      passos: [
+        'Toque na linha de um acesso para abrir os detalhes.',
+        'Toque no IP ou, em “Aparelho”, no nome do aparelho, quando ele vier como link. Na tabela “Aparelhos da equipe”, o nome do aparelho também serve.',
+        'A lista passa a mostrar só o que veio dali, desde o começo.',
+        'Para voltar, toque em “Limpar aparelho ✕” ou “Limpar IP ✕”, ao lado de “Filtrar”.',
+      ],
+    },
+    {
+      id: 'conferir-alertas',
+      titulo: 'Conferir os acessos com alerta',
+      passos: [
+        'Marque “Só com alerta” e toque em “Filtrar”.',
+        'Leia o selo amarelo de cada linha: “Aparelho novo”, “País novo”, “Muitas tentativas” ou “Fuso diferente do IP”.',
+        'Toque na linha para ver o local, o aparelho e, em “Fuso: IP / navegador”, os dois fusos.',
+        'Toque no aparelho ou no IP para ver o que mais veio dali.',
+      ],
+      dica: 'A primeira entrada de cada pessoa no registro também aparece nesse filtro, sem selo: é só o começo do histórico dela.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'quem-ve-o-registro',
+      pergunta: 'Quem vê o registro de acessos?',
+      resposta: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”. A escolha é pessoa a pessoa: o papel sozinho não basta. Para as outras pessoas, “Acessos” não aparece no menu e o endereço não abre (aparece um erro 404).\n\nCada consulta a esta tela também fica registrada, com o filtro usado.',
+      termos: ['permissão', 'privacidade', 'quem vigia', 'quem pode ver'],
+    },
+    {
+      id: 'nao-vejo-acessos',
+      pergunta: 'Tenho o papel “Administrador” e não vejo “Acessos”. Por quê?',
+      resposta: 'Porque o registro não se abre pelo papel, só para quem foi escolhido para lê-lo. Essa escolha não fica em “Usuários e permissões”, e não há botão para ela na Redação: fale com quem cuida da ferramenta.',
+      termos: ['404', 'sumiu do menu', 'sem acesso', 'não aparece', 'admin'],
+    },
+    {
+      id: 'o-que-entra-no-registro',
+      pergunta: 'O que entra no registro?',
+      resposta: 'Da equipe, inclusive a da escola: as entradas, as tentativas erradas, os bloqueios, o código da verificação em duas etapas (certo ou errado) e as saídas pelo botão de sair da conta. Da Área do Voluntário: os códigos pedidos por e-mail, as entradas, as tentativas erradas e as saídas.\n\nAs páginas que a pessoa abre e o que ela faz depois de entrar não entram aqui.',
+      termos: ['eventos', 'login', 'saída', 'verificação em duas etapas', 'código'],
+    },
+    // Sem os números do bloqueio nem os critérios dos alertas: o texto da ajuda vai ao navegador de
+    // qualquer pessoa logada (components/app/ajuda/carregar.ts), e não precisa ensinar a contorná-los.
+    {
+      id: 'bloqueio-por-tentativas',
+      pergunta: 'Como funciona o bloqueio por tentativas erradas?',
+      resposta: 'Na entrada da equipe, várias tentativas erradas seguidas com o mesmo usuário (ou e-mail) bloqueiam novas tentativas com ele por alguns minutos; muitas vindas do mesmo IP, somando todas as contas, bloqueiam o IP. O bloqueio acaba sozinho.\n\nEnquanto isso, a tela de entrada pede para esperar ou usar “Esqueci minha senha”, e quem lê o registro recebe um aviso no sino quando uma conta é bloqueada.',
+      termos: ['Muitas tentativas erradas', 'bloqueado', 'senha errada', 'travou', 'Conta bloqueada por tentativas erradas'],
+    },
+    {
+      id: 'selos-amarelos',
+      pergunta: 'O que significam os selos amarelos?',
+      resposta: '“Aparelho novo”: a pessoa entrou de um aparelho que o registro ainda não conhecia para ela. “País novo”: de um país diferente dos das entradas recentes dela. “Muitas tentativas”: houve várias tentativas erradas na conta pouco antes da entrada certa.\n\n“Fuso diferente do IP”: o fuso do navegador não combina com o lugar do IP. Esse e “Muitas tentativas” só marcam a linha, sem aviso a ninguém.',
+      termos: ['alerta', 'sinal', 'risco', 'aparelho novo', 'país novo', 'fuso'],
+    },
+    {
+      id: 'quem-e-avisado',
+      pergunta: 'Quem é avisado quando aparece algo estranho?',
+      resposta: 'Com aparelho novo ou país novo, a própria pessoa recebe um e-mail de segurança, mesmo que tenha desligado os e-mails de aviso, desde que tenha e-mail confirmado. Com país novo e com conta bloqueada, quem lê o registro recebe um aviso no sino.\n\nSe esse aviso do sino vai também por e-mail, quem lê escolhe em Meu perfil, no assunto “Trilha pública”.',
+      termos: ['notificação', 'e-mail', 'Novo acesso à sua conta da Redação', 'Acesso de um país novo', 'sino'],
+    },
+    {
+      id: 'como-reconhece-o-aparelho',
+      pergunta: 'Como o registro reconhece um aparelho?',
+      resposta: 'Na primeira entrada de alguém da equipe num navegador, a Redação deixa nele uma marca para reconhecê-lo depois. Se ela foi apagada (aba anônima, limpeza do navegador), o registro ainda tenta reconhecer o aparelho por características do próprio navegador (a “impressão digital” que a linha mostra).',
+      termos: ['impressão digital', 'aparelho', 'navegador', 'reconhecer', 'fingerprint'],
+    },
+    {
+      id: 'local-aproximado',
+      pergunta: 'O local do acesso está certo?',
+      resposta: 'É aproximado: vem do IP, e não do GPS. Na rede de celular, a cidade pode sair errada. O link “mapa”, nos detalhes do acesso, mostra o ponto aproximado.',
+      termos: ['cidade errada', 'localização', 'IP', 'mapa'],
+    },
+    {
+      id: 'voluntarios-no-registro',
+      pergunta: 'O que aparece dos voluntários?',
+      resposta: 'Só IP, local e navegador, sem impressão digital, e eles não entram em “Aparelhos da equipe”. A linha traz o selo “voluntário”; no filtro “Pessoa”, “Voluntários” junta todos.\n\nOs códigos pedidos e as tentativas erradas deles aparecem como “Usuário inexistente”: o registro não liga essas linhas a um cadastro.',
+      termos: ['área do voluntário', 'membro', 'código por e-mail'],
+    },
+    {
+      id: 'usuario-inexistente',
+      pergunta: 'O que quer dizer “Usuário inexistente”?',
+      resposta: 'Que a linha não está ligada a uma conta. Aparece quando alguém digitou um usuário que não existe, em toda linha “Bloqueado” e nos códigos pedidos e nas tentativas erradas da Área do Voluntário. Abra a linha: o “Motivo” ajuda a entender o caso.\n\n“Conta removida” é outra coisa: a conta da equipe daquela linha não existe mais.',
+      termos: ['desconhecido', 'sem nome', 'Conta removida', 'quem tentou'],
+    },
+    {
+      id: 'quanto-tempo-fica-guardado',
+      pergunta: 'Por quanto tempo o registro fica guardado?',
+      resposta: 'Por enquanto, tudo fica guardado: não há rotina que apague acessos antigos. E ninguém apaga nem muda uma linha do registro pela Redação.',
+      termos: ['retenção', 'LGPD', 'apagar', 'histórico', 'prazo'],
+    },
+    {
+      id: 'a-pessoa-sabe',
+      pergunta: 'A pessoa sabe que o acesso dela é registrado?',
+      resposta: 'A tela de entrada da equipe avisa: “Por segurança, registramos data, local aproximado e dados do aparelho de cada acesso.” A pessoa não vê o próprio registro: recebe só o e-mail de segurança quando entra de um aparelho novo ou de um país novo.\n\nA tela de entrada da Área do Voluntário não traz esse aviso, e os voluntários não recebem o e-mail de segurança.',
+      termos: ['LGPD', 'privacidade', 'transparência', 'meus acessos', 'aviso'],
+    },
+  ],
+  relacionadas: ['/usuarios', '/perfil'],
+}
 
 // ------------------------------------------------------ Usuários e permissões
 
@@ -683,4 +866,4 @@ const PERFIL: GuiaDaArea = {
   relacionadas: ['/notificacoes', '/pessoas'],
 }
 
-export const guias: GuiaDaArea[] = [USUARIOS, CONFIGURACOES, PERFIL]
+export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, PERFIL]

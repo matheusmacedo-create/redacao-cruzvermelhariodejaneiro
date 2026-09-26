@@ -278,7 +278,7 @@ têm as boas-vindas. Ele é montado no servidor a partir do conteúdo
 do layout (`app/(app)/layout.tsx`). Basta para a dica de primeira visita, o
 `?tour=1`, o rótulo do balão e o tempo prometido nas boas-vindas.
 
-O texto (`lib/ajuda`, com as 38 áreas: cerca de 140 KB comprimidos) é
+O texto (`lib/ajuda`, com as 40 áreas: cerca de 145 KB comprimidos) é
 baixado por `carregarAjuda()` (`components/app/ajuda/carregar.ts`) quando
 alguém:
 
@@ -687,7 +687,7 @@ da Central, a action), no `import()` de `carregar.ts` e em
   (`vistos`), mas nada os lê: lá não há dica de primeira visita por tela.
   Falta decidir se ela vale a pena ali, ou se é melhor parar de gravar.
 - **Um arquivo só para o texto da Redação.** O primeiro painel, tour ou busca
-  da visita baixa as 38 áreas de uma vez (cerca de 140 KB comprimidos). Se o
+  da visita baixa as 40 áreas de uma vez (cerca de 145 KB comprimidos). Se o
   conteúdo crescer muito, dá para dividir por grupo do menu.
 
 ## 7. Onde isso mora

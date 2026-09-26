@@ -21,7 +21,7 @@ export function Transcricao({ envioId, temAudio, inicial }: { envioId: string; t
   const [rodando, rodar] = useTransition()
   if (!temAudio && !texto) return null
   return (
-    <section className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4">
+    <section className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4" data-ajuda="envios.transcricao">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Transcrição do áudio</h2>
         {temAudio && (
@@ -100,7 +100,7 @@ export function MaterialEAcoes({ envioId, estado, arquivos, jaVirou }: {
       )}
 
       {midias.length > 0 && (
-        <section className="flex flex-col gap-2">
+        <section className="flex flex-col gap-2" data-ajuda="envios.fotos-e-videos">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">Fotos e vídeos</h2>
             {!jaVirou && <p className="text-xs text-muted-foreground">Marque o que vai para a matéria e os posts ({escolhidos.size} de {midias.length})</p>}
@@ -150,7 +150,7 @@ export function MaterialEAcoes({ envioId, estado, arquivos, jaVirou }: {
       {erro && <p className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{erro}</p>}
 
       {!jaVirou && (
-        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 p-4">
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/40 p-4" data-ajuda="envios.acoes">
           <p className="text-sm font-semibold">O que fazer com este envio</p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => transformar(true)} disabled={rodando}>
