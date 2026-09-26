@@ -47,6 +47,12 @@ export type Tarefa = {
   passos: string[]
   /** Um cuidado ou atalho que vale saber (opcional). */
   dica?: string
+  /**
+   * Um caso concreto, com nomes e números de verdade (opcional): "Exemplo: a
+   * ação de prevenção na Central do Brasil teve 10 voluntários…". Mostra a
+   * tarefa acontecendo, não repete os passos.
+   */
+  exemplo?: string
   /** Só quem tem esta condição vê a tarefa ("Só administradores"); texto livre, aparece como selo. */
   quem?: string
 }
@@ -59,6 +65,20 @@ export type Pergunta = {
   resposta: string
   /** Palavras que alguém usaria para procurar esta dúvida e que não estão no texto. */
   termos?: string[]
+}
+
+/**
+ * "Na prática": como imaginamos a área funcionando no dia a dia da filial,
+ * contado como uma história curta, com um caso concreto do começo ao fim.
+ * É o "modelo mental" antes do passo a passo (docs/AJUDA.md §9).
+ */
+export type NaPratica = {
+  /** O caso: "Uma ação de rua vira matéria, posts e álbum". */
+  titulo: string
+  /** Os momentos da história, em ordem: quem faz o quê, em qual tela, e o que acontece depois. 3 a 7. */
+  passos: string[]
+  /** O que a pessoa ganha com isso, em uma frase (opcional). */
+  resultado?: string
 }
 
 /** Uma tela com endereço próprio dentro da área (a página de uma pauta, de um chamado…). */
@@ -77,6 +97,8 @@ export type GuiaDaArea = {
   paraQueServe: string
   /** Quem usa e quem pode o quê, em palavras ("Todos veem; só admin apaga de outros"). */
   quemUsa?: string
+  /** Como imaginamos a área funcionando, com um caso concreto (opcional, mas toda área deveria ter). */
+  naPratica?: NaPratica
   /** O tour da tela principal da área (3 a 7 passos). Vazio: a área não tem tour. */
   tour: PassoDoTour[]
   /** As telas internas com tour próprio. */
@@ -92,6 +114,7 @@ export type TopicoGeral = {
   id: string
   titulo: string
   resumo: string
+  naPratica?: NaPratica[]
   tarefas: Tarefa[]
   perguntas: Pergunta[]
 }

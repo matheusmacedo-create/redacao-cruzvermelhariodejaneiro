@@ -73,7 +73,7 @@ export function DadosDoCurso({ c }: { c: CursoNoEditor }) {
       <Rotulo t="Título"><input id="c-titulo" name="titulo" required minLength={3} maxLength={160} defaultValue={c.titulo} className={inputClass} /></Rotulo>
       <Rotulo t="Resumo (aparece no cartão do curso)"><input id="c-resumo" name="resumo" maxLength={300} defaultValue={c.resumo ?? ''} className={inputClass} /></Rotulo>
       <Rotulo t="Descrição (página do curso)"><textarea id="c-descricao" name="descricao" rows={5} maxLength={6000} defaultValue={c.descricao ?? ''} className={inputClass} /></Rotulo>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Rotulo t="Carga horária (h)"><input id="c-carga" name="carga_horaria" inputMode="decimal" maxLength={6} defaultValue={c.carga_horaria ?? ''} placeholder="Ex.: 8" className={inputClass} /></Rotulo>
         <Rotulo t="Nota mínima na prova"><input id="c-nota" name="nota_minima" inputMode="numeric" maxLength={3} defaultValue={c.nota_minima ?? ''} placeholder="Sem prova" className={inputClass} /></Rotulo>
         <Rotulo t="Validade do certificado (meses)"><input id="c-validade" name="validade_meses" inputMode="numeric" maxLength={3} defaultValue={c.validade_meses ?? ''} placeholder="Não vence" className={inputClass} /></Rotulo>
@@ -150,11 +150,11 @@ function FormularioDaAula({ cursoId, moduloId, aula, apostilas, onFim }: { curso
       const f = new FormData(e.currentTarget)
       executar(() => salvarAula(cursoId, moduloId, aula?.id ?? null, f), onFim)
     }}>
-      <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_8rem]">
         <Rotulo t="Título da aula"><input name="titulo" required minLength={2} maxLength={160} defaultValue={aula?.titulo ?? ''} className={inputClass} /></Rotulo>
         <Rotulo t="Duração (min)"><input name="duracao_min" inputMode="numeric" maxLength={3} defaultValue={aula?.duracao_min ?? ''} className={inputClass} /></Rotulo>
       </div>
-      <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_9rem]">
         <Rotulo t="Vídeo do YouTube (não listado)">
           <input name="video" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="https://youtu.be/…" className={inputClass} />
           {video && !id && <span className="text-xs font-normal text-destructive">Link não reconhecido.</span>}

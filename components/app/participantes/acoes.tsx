@@ -143,13 +143,13 @@ export function NovoRegistro({ participanteId, tipo, hoje }: { participanteId: s
       executar(() => (tipo === 'horas' ? registrarHoras(participanteId, f) : adicionarFormacao(participanteId, f)), () => setAberto(false))
     }}>
       {tipo === 'horas' ? (
-        <div className="grid gap-2 sm:grid-cols-[9rem_6rem_1fr]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[9rem_6rem_1fr]">
           <input aria-label="Data" name="data" type="date" required max={hoje} defaultValue={hoje} className={inputClass} />
           <input aria-label="Horas" name="horas" inputMode="decimal" required placeholder="Horas" className={inputClass} />
           <input aria-label="Atividade" name="atividade" required minLength={2} maxLength={200} placeholder="Atividade (ex.: cobertura do Réveillon)" className={inputClass} />
         </div>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <input aria-label="Formação" name="titulo" required minLength={2} maxLength={200} placeholder="Formação (ex.: Primeiros Socorros)" className={inputClass} />
           <input aria-label="Instituição" name="instituicao" maxLength={200} placeholder="Instituição" className={inputClass} />
           <label className="flex flex-col gap-1 text-xs text-muted-foreground">Concluída em<input name="concluido_em" type="date" max={hoje} className={inputClass} /></label>

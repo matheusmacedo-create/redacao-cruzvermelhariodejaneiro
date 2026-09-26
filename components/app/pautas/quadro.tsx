@@ -590,7 +590,7 @@ function CartaoAberto({ cartao, pessoas, etiquetas, aoFechar, aoMudarLocal, aoMo
           <button type="button" onClick={aoFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground hover:bg-muted"><X className="size-5" /></button>
         </header>
 
-        <div className="grid gap-5 px-5 py-4 md:grid-cols-[1fr_13rem]">
+        <div className="grid grid-cols-1 gap-5 px-5 py-4 md:grid-cols-[1fr_13rem]">
           <div className="flex min-w-0 flex-col gap-5">
             <EtiquetasDoCartao
               cartao={cartao}

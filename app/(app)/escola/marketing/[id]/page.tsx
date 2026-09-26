@@ -63,7 +63,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
       </Card>
 
       {(c.resumo || c.aprendizados) && (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {c.resumo && <Card className="p-4"><h2 className="text-sm font-medium">Resumo</h2><p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{c.resumo}</p></Card>}
           {c.aprendizados && <Card className="border-primary/30 p-4" id="aprendizados"><h2 className="text-sm font-medium">Aprendizados</h2><p className="mt-1 whitespace-pre-line text-sm">{c.aprendizados}</p></Card>}
         </div>
@@ -75,7 +75,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
           <NovaPeca campanhas={campanhas} campanhaId={c.id} />
         </div>
         {!pecas.length ? <Card className="p-8 text-center text-sm text-muted-foreground">Junte a página de venda, os anúncios e os posts desta campanha — com a imagem e os números de cada um.</Card> : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {pecas.map((p) => <CartaoDaPeca key={p.id} p={p} imagem={p.imagem_path ? imagens[p.imagem_path] ?? null : null} campanhas={campanhas} podeEditar podeExcluir={podeExcluir(p.criado_por)} />)}
           </div>
         )}

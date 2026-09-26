@@ -71,7 +71,7 @@ export default async function BibliotecaDePecasPage({ searchParams }: { searchPa
         <Button type="submit" variant="outline">Filtrar</Button>
       </form>
       {!pecas.length ? <Card className="p-10 text-center text-sm text-muted-foreground">{aba === 'referencias' ? 'Nenhuma referência guardada. Guarde anúncios e páginas de outros cursos que chamaram atenção.' : 'Nenhuma peça com estes filtros.'}</Card> : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="galeria" data-ajuda="escola-marketing.galeria">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" id="galeria" data-ajuda="escola-marketing.galeria">
           {pecas.map((p) => <CartaoDaPeca key={p.id} p={p} imagem={p.imagem_path ? imagens[p.imagem_path] ?? null : null} campanhas={campanhas} nomeDaCampanha={p.campanha_id ? nome.get(p.campanha_id) : null} podeEditar podeExcluir={podeExcluir(p.criado_por)} />)}
         </div>
       )}

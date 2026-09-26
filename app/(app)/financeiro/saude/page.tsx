@@ -121,7 +121,7 @@ export default async function SaudePage() {
             <p className="mt-2 text-xs text-muted-foreground">Com as contas a pagar e a receber já lançadas (o que está atrasado entra hoje). Despesa ainda não lançada não aparece: lance as contas do mês que vem para a previsão ficar certa.</p>
           </Card>
 
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <Card className="p-5" id="orcamento" data-ajuda="financeiro.saude-orcamento">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-semibold">Orçamento de {nomeDoMes(mes)}</h2>

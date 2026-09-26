@@ -54,7 +54,7 @@ export default async function EntrarNaAreaDoMembro({ searchParams }: { searchPar
   return (
     // Fundo branco, e não o cinza da área: a logo oficial é um PNG de fundo
     // branco e, sobre o cinza, viraria uma caixa branca solta.
-    <div className="grid min-h-dvh bg-background lg:grid-cols-[minmax(420px,1fr)_1.1fr]">
+    <div className="grid grid-cols-1 min-h-dvh bg-background lg:grid-cols-[minmax(420px,1fr)_1.1fr]">
       <main className="px-4 pb-10 pt-8 sm:px-6 lg:px-12 lg:pt-[14vh]">
         <div className="mx-auto w-full max-w-md">
           <Logo className="w-32 sm:w-36" />
@@ -71,7 +71,7 @@ export default async function EntrarNaAreaDoMembro({ searchParams }: { searchPar
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-linear-to-br from-transparent to-black/20" />
         <div className="relative flex flex-1 flex-col justify-center gap-8 p-10 xl:p-14">
           <h2 id="painel-titulo" className="max-w-xl text-3xl font-bold leading-tight tracking-tight text-balance xl:text-4xl">Quem ajuda também aprende, cresce e é reconhecido.</h2>
-          <ul className="grid max-w-2xl gap-3 xl:grid-cols-2">
+          <ul className="grid grid-cols-1 max-w-2xl gap-3 xl:grid-cols-2">
             {BENEFICIOS.map(({ icone: Icone, titulo, linha }) => (
               <li key={titulo} className="flex gap-3 rounded-xl border border-white/25 bg-black/10 p-4">
                 <Icone className="mt-0.5 size-5 shrink-0" aria-hidden="true" />

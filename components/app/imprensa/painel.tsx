@@ -494,7 +494,7 @@ function DialogNovoContato({ editando, onFechar, onSalvo }: {
 
   return (
     <Dialog titulo={editando ? 'Editar contato' : 'Novo contato'} onFechar={onFechar} podeFechar={!salvando}>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium sm:col-span-2">Nome
           <input value={nome} onChange={(e) => setNome(e.target.value)} disabled={salvando} placeholder="Nome da pessoa" className={`mt-1 ${inputClass}`} />
         </label>
@@ -701,7 +701,7 @@ function DialogEncontrarEmail({ onFechar, onEncontrado }: {
       onFechar={onFechar}
       podeFechar={!buscando}
     >
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium">Nome
           <input value={nome} onChange={(e) => setNome(e.target.value)} disabled={buscando} className={`mt-1 ${inputClass}`} />
         </label>

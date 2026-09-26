@@ -49,7 +49,7 @@ export function PainelDaTrilha({ painel, chave, aberta, geradoEm }: {
 function Avisos({ chave, aberta }: { chave: SituacaoDaChave; aberta: boolean }) {
   const problema = chave.estado !== 'configurada'
   return (
-    <div className="grid gap-3 lg:grid-cols-2" data-ajuda="trilha.avisos">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-ajuda="trilha.avisos">
       <Card className="flex items-start gap-3 p-4">
         <EyeOff className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <div className="min-w-0 text-sm">

@@ -367,7 +367,7 @@ function EscolherPessoas({ pessoas, marcadas, setMarcadas }: { pessoas: PessoaDo
     <div className="flex flex-col gap-2">
       <label className="relative"><Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
         <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pessoa" className={`${campo} pl-8`} aria-label="Buscar pessoa" /></label>
-      <div className="grid max-h-44 gap-1 overflow-y-auto sm:grid-cols-2">
+      <div className="grid grid-cols-1 max-h-44 gap-1 overflow-y-auto sm:grid-cols-2">
         {visiveis.map((p) => (
           <label key={p.id} className="flex items-center gap-2 text-sm">
             <input type="checkbox" className="size-4" checked={marcadas.has(p.id)} onChange={() => { const n = new Set(marcadas); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); setMarcadas(n) }} />
@@ -403,7 +403,7 @@ function NovoCanal({ pessoas, onFechar }: { pessoas: PessoaDoChat[]; onFechar: (
         e.preventDefault()
         iniciar(async () => { const r = await criarCanal({ nome, descricao, privado, pessoas: [...marcadas] }); if (r.erro) setErro(r.erro); else if (r.id) { onFechar(); router.push(`/chat/${r.id}`) } })
       }}>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="nome (ex.: campanha-natal)" required maxLength={40} className={campo} aria-label="Nome do canal" />
           <input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Para que serve (opcional)" maxLength={300} className={campo} aria-label="Descrição" />
         </div>

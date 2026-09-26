@@ -30,7 +30,7 @@ export function DialogoDoDoador({ doador, onSalvo, onFechar }: { doador?: Doador
   const set = (k: keyof DadosDoDoador) => (e: React.ChangeEvent<HTMLInputElement>) => setP({ ...p, [k]: e.target.value })
   return (
     <Dialog titulo={doador ? 'Editar doador' : 'Novo doador'} descricao="CPF ou CNPJ saem no recibo. Pessoa ou empresa que prefere não se identificar: deixe a doação como anônima." onFechar={onFechar} podeFechar={!ocupado}>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome ou razão social" className="sm:col-span-2"><input value={p.nome} onChange={set('nome')} maxLength={160} className={inputClass} autoFocus /></Campo>
         <Campo rotulo="CPF ou CNPJ"><input value={p.documento} onChange={set('documento')} inputMode="numeric" maxLength={18} className={inputClass} /></Campo>
         <Campo rotulo="Telefone"><input value={p.telefone} onChange={set('telefone')} maxLength={40} className={inputClass} /></Campo>
@@ -93,7 +93,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
 
   return (
     <div className="flex flex-col gap-5" id="form-recebimento">
-      <div className="grid gap-4 sm:grid-cols-2" data-ajuda="patrimonio.receber-cabecalho">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" data-ajuda="patrimonio.receber-cabecalho">
         <Campo rotulo="Doador" ajuda={doador?.documento ? `${doador.documento.length === 14 ? 'CNPJ' : 'CPF'} no recibo` : !cab.doador_id ? 'Sem doador: o recibo sai como doação anônima.' : undefined}>
           <div className="flex gap-2">
             <select value={cab.doador_id} onChange={(e) => setCab({ ...cab, doador_id: e.target.value })} className={`${inputClass} flex-1`} aria-label="Doador">
@@ -125,7 +125,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
                 const un = novo ? l.novo?.unidade ?? 'un' : m?.unidade
                 const validade = novo ? l.novo?.controla_validade : m?.controla_validade
                 return (
-                  <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <Campo rotulo="Material" className="sm:col-span-4">
                       <select value={l.item_id} onChange={(e) => mudar(l.chave, { item_id: e.target.value, ...(e.target.value === NOVO ? { novo: { nome: '', categoria_id: '', unidade: 'un', controla_validade: false } } : { novo: undefined }) })} className={inputClass}>
                         <option value="">Escolha…</option><option value={NOVO}>+ Material que ainda não está cadastrado</option>
@@ -151,7 +151,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
                   </div>
                 )
               })() : (
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                   <Campo rotulo="Bem" className="sm:col-span-2"><input value={l.nome} onChange={(e) => mudar(l.chave, { nome: e.target.value })} maxLength={160} placeholder="Ex.: Cadeira de rodas" className={inputClass} /></Campo>
                   <Campo rotulo="Categoria" className="sm:col-span-2"><select value={l.categoria_id} onChange={(e) => mudar(l.chave, { categoria_id: e.target.value })} className={inputClass}><option value="">Escolha…</option>{patCategorias.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
                   <Campo rotulo="Quantidade" ajuda="Cada um ganha plaqueta."><input value={l.quantidade} onChange={(e) => mudar(l.chave, { quantidade: e.target.value })} inputMode="numeric" className={inputClass} /></Campo>
@@ -214,7 +214,7 @@ export function FormularioDeEntrega({ campanhas, locais, materiais, disponivel, 
   const excede = itens.some((i) => { const q = lerQuantidade(i.quantidade); return i.item_id && q !== null && !Number.isNaN(q) && q > (aqui[i.item_id] ?? 0) })
   return (
     <div className="flex flex-col gap-5" id="form-entrega">
-      <fieldset className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.entregar-quem">
+      <fieldset className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.entregar-quem">
         <legend className="px-1 text-sm font-semibold">Quem recebe</legend>
         <Campo rotulo="Tipo"><select value={p.beneficiario_tipo} onChange={set('beneficiario_tipo')} className={inputClass}>{Object.entries(BENEFICIARIOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
         <Campo rotulo={p.beneficiario_tipo === 'familia' ? 'Família (sobrenome ou responsável)' : p.beneficiario_tipo === 'acao' ? 'Ação' : 'Nome'}><input value={p.beneficiario_nome} onChange={set('beneficiario_nome')} maxLength={160} className={inputClass} /></Campo>
@@ -226,7 +226,7 @@ export function FormularioDeEntrega({ campanhas, locais, materiais, disponivel, 
           <Campo rotulo="Bairro"><input value={p.bairro} onChange={set('bairro')} maxLength={80} className={inputClass} /></Campo>
         </div>
       </fieldset>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Campo rotulo="Campanha"><select value={p.campanha_id} onChange={set('campanha_id')} className={inputClass}><option value="">Sem campanha</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
         <Campo rotulo="Sai de"><select value={p.local_id} onChange={(e) => { setP({ ...p, local_id: e.target.value }); setItens(itens.map((i) => ({ ...i, item_id: '' }))) }} className={inputClass}>{locais.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select></Campo>
         <Campo rotulo="Data"><input type="date" value={p.data} max={hoje} onChange={set('data')} className={inputClass} /></Campo>
@@ -280,7 +280,7 @@ export function FormularioDeCampanha({ c, projetos, onFim }: { c?: Campanha; pro
   useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" id="form-campanha">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome" className="sm:col-span-2"><input name="nome" required maxLength={120} defaultValue={c?.nome} placeholder="Ex.: SOS Chuvas Petrópolis" className={inputClass} /></Campo>
         <Campo rotulo="Começa em"><input type="date" name="inicio" defaultValue={c?.inicio ?? ''} className={inputClass} /></Campo>
         <Campo rotulo="Termina em"><input type="date" name="fim" defaultValue={c?.fim ?? ''} className={inputClass} /></Campo>

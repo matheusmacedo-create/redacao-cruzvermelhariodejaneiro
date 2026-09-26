@@ -46,7 +46,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
         </div>
       )}
 
-      <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <Card className="flex flex-col gap-3 p-4" id="candidatos" data-ajuda="diretorio.candidatos">
           <div>
             <h2 className="font-semibold">1. Quem vai receber acesso</h2>
@@ -84,7 +84,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
             <ul className="flex flex-col gap-3">
               {linhas.map((l, i) => (
                 <li key={l.chave} className="rounded-lg border border-border p-3" data-convite={l.nome || 'nova'}>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-xs font-medium">Nome completo<input value={l.nome} onChange={(e) => mudar(l.chave, { nome: e.target.value })} readOnly={!l.nova} maxLength={120} className={cn(inputClass, !l.nova && 'bg-muted/40')} /></label>
                     <label className="flex flex-col gap-1 text-xs font-medium">E-mail<input type="email" value={l.email} onChange={(e) => mudar(l.chave, { email: e.target.value })} maxLength={200} placeholder="nome@exemplo.org" className={inputClass} /></label>
                     <label className="flex flex-col gap-1 text-xs font-medium">Setor

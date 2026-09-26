@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
-import { ArrowRight, BookOpen, Check, CircleHelp, Compass, LifeBuoy, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, CircleHelp, Compass, LifeBuoy, MessageSquareHeart, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela } from '@/lib/ajuda'
@@ -12,7 +12,8 @@ import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
 import { avisarResposta } from './ancora'
-import { PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } from './blocos'
+import { HistoriaRecolhida, PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } from './blocos'
+import { FormularioDoBeta, OpiniaoDaTela, PergunteAEquipe } from './beta'
 
 /**
  * O miolo do painel "?" (./painel.tsx): fica num arquivo à parte porque traz
@@ -68,8 +69,19 @@ export function ConteudoDoPainel() {
           <ResultadosDaAjuda achados={achados} busca={busca} aoEscolher={(href) => { fecharPainel(); avisarResposta(href) }} />
         ) : (
           <div className="flex flex-col gap-7">
+            {/* No celular o "Beta" não cabe no topo: fica aqui, no alto do painel. */}
+            <details className="group rounded-xl border border-primary/30 bg-primary/[0.04] sm:hidden" data-beta-no-painel>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary [&::-webkit-details-marker]:hidden">
+                <MessageSquareHeart className="size-4" aria-hidden="true" />Beta: conte um problema ou uma ideia
+              </summary>
+              <div className="border-t border-primary/20 px-4 py-4"><FormularioDoBeta noPainel area={daTela?.area.href ?? null} /></div>
+            </details>
             <PrimeirosPassos />
             {daTela?.guia ? <AjudaDaArea daTela={daTela} /> : <AjudaGeral daTela={daTela} />}
+            <section aria-label="Sua opinião" className="flex flex-col gap-3">
+              <OpiniaoDaTela area={daTela?.area.href ?? null} />
+              <PergunteAEquipe area={daTela?.area.href ?? null} />
+            </section>
           </div>
         )}
       </div>
@@ -112,6 +124,7 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
         </div>
         <p className="text-sm leading-relaxed">{guia.paraQueServe}</p>
         {guia.quemUsa && <p className="text-sm leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">Quem usa: </span>{guia.quemUsa}</p>}
+        {guia.naPratica && <HistoriaRecolhida historia={guia.naPratica} />}
         {daTela.tour.length > 0 ? (
           <Button type="button" size="lg" className="h-11 self-start sm:h-10" onClick={() => iniciarTour({ passos: daTela.tour, rotulo: rotuloDoTour(daTela), chave: daTela.chave })}>
             <Compass aria-hidden="true" />Fazer o tour desta tela
@@ -135,7 +148,7 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
       {guia.perguntas.length > 0 && (
         <section aria-labelledby={`${id}-perguntas`} className="flex flex-col gap-2">
           <h2 id={`${id}-perguntas`} className={tituloDeSecao}>Perguntas frequentes</h2>
-          {guia.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} />)}
+          {guia.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area={area.href} />)}
         </section>
       )}
 
@@ -158,8 +171,9 @@ function AjudaGeral({ daTela }: { daTela: AjudaDaTela | null }) {
         <section key={topico.id} aria-labelledby={`${id}-${topico.id}`} className="flex flex-col gap-2">
           <h2 id={`${id}-${topico.id}`} className={tituloDeSecao}>{topico.titulo}</h2>
           <p className="mb-1 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
+          {(topico.naPratica ?? []).map((h) => <HistoriaRecolhida key={h.titulo} historia={h} />)}
           {topico.tarefas.map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)}
-          {topico.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} />)}
+          {topico.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area="geral" />)}
         </section>
       ))}
     </>

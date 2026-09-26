@@ -217,7 +217,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
                     <span key={x} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{ROTULO_DO_SINAL[x] ?? x}</span>
                   ))}
                 </summary>
-                <dl className="grid gap-x-6 gap-y-3 border-t border-border px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-border px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
                   <Campo rotulo="IP">{l.ip ? <a href={`/acessos?p=tudo&ip=${encodeURIComponent(l.ip)}`} className="text-primary underline-offset-4 hover:underline">{l.ip}</a> : null}</Campo>
                   <Campo rotulo="Local aproximado (pelo IP)">
                     {lugar(l)}

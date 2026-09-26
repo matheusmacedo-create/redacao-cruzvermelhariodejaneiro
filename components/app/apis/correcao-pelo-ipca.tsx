@@ -24,7 +24,7 @@ export function CorrecaoPeloIpca() {
     <div className="mt-5 border-t border-border pt-4">
       <p className="mb-2 flex items-center gap-1.5 text-sm font-medium"><Calculator className="size-4" />Corrigir um valor pelo IPCA</p>
       <p className="mb-2 text-xs text-muted-foreground">Aplica a inflação de cada mês do período, do primeiro ao último, inclusive.</p>
-      <div className="grid gap-2 sm:grid-cols-[1fr_10rem_10rem_auto]">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_10rem_10rem_auto]">
         <input aria-label="Valor em reais" inputMode="decimal" placeholder="Valor (R$)" value={valor} onChange={(e) => setValor(e.target.value)} className={campo} />
         <input aria-label="Primeiro mês do período" title="Primeiro mês do período" type="month" value={de} onChange={(e) => setDe(e.target.value)} className={campo} />
         <input aria-label="Último mês do período" title="Último mês do período" type="month" value={ate} onChange={(e) => setAte(e.target.value)} className={campo} />

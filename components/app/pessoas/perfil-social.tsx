@@ -78,7 +78,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           <Metricas p={p} />
           {(p.disponibilidade || p.habilidades.length > 0) && (
@@ -134,7 +134,7 @@ function Metricas({ p }: { p: PerfilParaLeitura }) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Como responde à equipe</h2>
         <span className="text-xs text-muted-foreground">Últimos {m.dias} dias · mediana, em tempo corrido</span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Tile icone={MessageCircle} titulo="Tempo de resposta no chat" valor={duracao(m.chat.mediana_min) ?? '—'}
           detalhe={m.chat.recebidas ? `Respondeu ${m.chat.respondidas} de ${m.chat.recebidas} conversas e menções${tChat != null ? ` (${tChat}%)` : ''}` : 'Sem mensagens diretas ou menções no período'} />
         <Tile icone={CheckCircle2} titulo="Tempo para decidir aprovações" valor={duracao(m.aprovacoes.mediana_min) ?? '—'}

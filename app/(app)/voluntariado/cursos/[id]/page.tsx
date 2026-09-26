@@ -44,7 +44,7 @@ export default async function EditorDeCurso({ params }: { params: Promise<{ id: 
         <h1 className="text-2xl font-bold tracking-tight">{c.titulo}</h1>
         <p className="text-sm text-muted-foreground">{emOrdem.length} aulas em {porModulo.length} módulos · {questoes?.length ?? 0} questões · {alunos} voluntários começaram · {certificados?.length ?? 0} concluíram</p>
       </div>
-      <div className="grid gap-5 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.5fr_1fr]">
         <div className="flex flex-col gap-5">
           <Secao titulo="Dados do curso"><DadosDoCurso c={{ ...c, capa: null, carga_horaria: c.carga_horaria === null ? null : Number(c.carga_horaria) }} /></Secao>
           <Secao titulo="Conteúdo" descricao="Módulos e aulas, na ordem em que o voluntário vai ver. Cada aula tem vídeo, texto ou apostila (ou os três).">

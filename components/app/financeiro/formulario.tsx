@@ -114,7 +114,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Descrição" largo>
           <input name="descricao" required minLength={2} maxLength={190} defaultValue={l?.descricao.replace(/ \(\d+\/\d+\)$/, '') ?? ''}
             placeholder={tipo === 'receita' ? 'Ex.: Doação da campanha de inverno' : tipo === 'transferencia' ? 'Ex.: Aplicação do mês' : 'Ex.: Conta de luz da sede'} className={inputClass} />
@@ -208,7 +208,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
             {tipo === 'receita' ? 'Já foi recebido' : 'Já foi pago'}
           </label>
           {pago && (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Campo rotulo="Em"><input type="date" name="pago_em" required defaultValue={hoje} max={hoje} className={inputClass} /></Campo>
               <Campo rotulo="Valor pago" ajuda="Se teve juros ou desconto."><input name="valor_pago" inputMode="decimal" placeholder={valor || '0,00'} className={inputClass} /></Campo>
             </div>
@@ -216,7 +216,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
         </fieldset>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Forma de pagamento">
           <select name="forma" defaultValue={l?.forma ?? ''} className={inputClass}>
             <option value="">—</option>{Object.entries(FORMAS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

@@ -48,7 +48,7 @@ export function FormularioDoItem({ categorias, itens, i, componentes: iniciais, 
   const candidatos = itens.filter((x) => !x.eh_kit && x.id !== i?.id)
   return (
     <form action={enviar} className="flex flex-col gap-5" id="form-item">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Nome do material" largo><input name="nome" required minLength={2} maxLength={160} defaultValue={i?.nome} placeholder="Ex.: Luva de procedimento M (caixa com 100)" className={inputClass} /></Campo>
         <Campo rotulo="Categoria">
           <select name="categoria_id" required defaultValue={i?.categoria_id ?? ''} className={inputClass}><option value="" disabled>Escolha…</option>{categorias.map((k) => <option key={k.id} value={k.id}>{k.nome}</option>)}</select>
@@ -128,7 +128,7 @@ export function NovaEntrada({ itens, locais, fontes, projetos, hoje, itemFixo }:
       <Button onClick={() => { setP(vazio); setAberto(true) }} id="botao-entrada"><ArrowDownToLine className="size-4" />Entrada</Button>
       {aberto && (
         <Dialog titulo="Entrada no estoque" largura="max-w-2xl" descricao="Compra, doação ou outra entrada. Doação entra pelo valor de mercado (ITG 2002)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {!itemFixo && (
               <Campo rotulo="Material" largo>
                 <select value={p.item_id} onChange={set('item_id')} className={inputClass}><option value="">Escolha…</option>{itens.map((x) => <option key={x.id} value={x.id}>{x.codigo} · {x.nome}</option>)}</select>
@@ -191,7 +191,7 @@ export function NovaSaida({ itens, locais, projetos, lotes, hoje, itemFixo }: {
       <Button variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="botao-saida"><ArrowUpFromLine className="size-4" />Saída</Button>
       {aberto && (
         <Dialog titulo="Saída do estoque" largura="max-w-2xl" descricao="Sai primeiro o que vence primeiro (FEFO). Material vencido não sai: registre a perda." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {!itemFixo && (
               <Campo rotulo="Material" largo>
                 <select value={p.item_id} onChange={(e) => setP({ ...p, item_id: e.target.value, local_id: '' })} className={inputClass}>

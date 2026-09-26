@@ -96,7 +96,7 @@ export function OrdemDeCompra({ pedidoId, codigo, emitida, enviada, podeEmitir, 
                   else { setRecado({ tom: 'ok', texto: `Enviada a ${r.destinatarios?.join(', ')}.` }); setEnviando(false); router.refresh() }
                 })
               }}>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Rotulo texto="De">
                   <select value={caixa} onChange={(e) => setCaixa(e.target.value)} className={campo}>
                     {caixas.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
@@ -170,7 +170,7 @@ export function Recebimento({ pedidoId, itens, hoje }: {
           ))}
         </tbody>
       </table>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Rotulo texto="Chegou em"><input type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)} className={campo} required /></Rotulo>
         <Rotulo texto="Nota fiscal"><input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={60} className={campo} placeholder="Número da NF" /></Rotulo>
         <Rotulo texto="Observação"><input value={observacao} onChange={(e) => setObservacao(e.target.value)} maxLength={1000} className={campo} placeholder="Avaria, falta…" /></Rotulo>
@@ -231,7 +231,7 @@ export function ContaAPagar({ pedidoId, contas, aprovado, hoje, lancamento }: {
           if (r.erro) setRecado({ tom: 'erro', texto: r.erro }); else { setRecado(null); setAberto(false); router.refresh() }
         })
       }}>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Rotulo texto="Sai da conta">
           <select value={conta} onChange={(e) => setConta(e.target.value)} className={campo}>
             {contas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}

@@ -107,7 +107,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
         <span className="text-sm text-muted-foreground">{ESTADOS[o.estado as EstadoDoOficio].rotulo}</span>
       </div>
       <p className="-mt-2 text-sm text-muted-foreground">{doc.assunto}</p>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <FolhaDoOficio
           doc={doc}
           marcaDagua={o.estado === 'cancelado' ? 'Cancelado' : undefined}

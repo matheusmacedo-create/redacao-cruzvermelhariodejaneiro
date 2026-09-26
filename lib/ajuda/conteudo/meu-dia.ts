@@ -21,6 +21,17 @@ const INICIO: GuiaDaArea = {
   href: '/dashboard',
   paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, a saudação com o seu dia em uma frase, atalhos para começar algo e quatro números que levam direto ao que é seu. Depois, “Meu dia”: o que espera o seu voto e as suas pautas por prazo, com o que acontece hoje na comunicação, o tempo no Rio e a equipe ao lado. Mais abaixo, a semana da comunicação, quatro indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas. Essa é a arrumação padrão: em “Personalizar o Início”, cada pessoa escolhe o que aparece e em que ordem.',
   quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
+  naPratica: {
+    titulo: 'Segunda-feira, 8h40: por onde a Carla começa',
+    passos: [
+      'A Carla, da Comunicação, abre o Palácio Virtual no celular e cai no Início.',
+      'A frase do dia diz: “2 pautas suas vencem nos próximos 7 dias e 1 conteúdo espera a sua aprovação”.',
+      'Ela toca em “Esperando o seu voto”, abre a matéria da campanha de doação de sangue e aprova ali mesmo.',
+      'Em “Hoje na comunicação”, vê que o post das 11h no Instagram está agendado e que nada falhou no fim de semana.',
+      'Como não usa os indicadores no dia a dia, esconde esse bloco em “Personalizar o Início” e sobe “Minhas pautas” para o topo.',
+    ],
+    resultado: 'Em dois minutos você sabe o que é seu hoje, sem abrir cada área.',
+  },
   tour: [
     {
       titulo: 'O seu Início',
@@ -80,6 +91,7 @@ const INICIO: GuiaDaArea = {
     {
       id: 'personalizar-o-inicio',
       titulo: 'Escolher o que aparece no Início',
+      exemplo: 'O Bruno cuida das redes e quer ver primeiro a semana da comunicação: em “Personalizar o Início”, sobe “A semana da comunicação” para logo depois da saudação e esconde “Projetos”. No celular e no computador, o Início dele já abre assim.',
       passos: [
         'No Início, toque em “Personalizar o Início”, no alto, ao lado da data.',
         'Desmarque o que não quer ver e marque o que quer.',
@@ -91,6 +103,7 @@ const INICIO: GuiaDaArea = {
     {
       id: 'ver-o-que-e-meu',
       titulo: 'Ver o que precisa de você hoje',
+      exemplo: 'A frase “1 pauta sua está atrasada” leva a Ana a “Minhas pautas”, em “Atrasadas”: a matéria do Dia do Voluntariado passou do prazo de sexta. Ela abre a pauta, ajusta o prazo com a coordenação e segue.',
       passos: [
         'Abra “Início”, no alto do menu.',
         'Leia a frase abaixo da saudação: ela conta as pautas suas atrasadas, as que vencem nos próximos 7 dias e o que espera a sua aprovação.',
@@ -224,6 +237,17 @@ const APROVACOES: GuiaDaArea = {
   href: '/aprovacoes',
   paraQueServe: 'Quando alguém pede aprovação de um conteúdo ou de um pacote de “Publicações”, abre uma rodada: as pessoas convidadas votam “Aprovar” ou “Pedir ajustes”. A fila abre no que espera o seu voto e mostra, em cada rodada, o setor da pauta, o prazo do setor e quem ainda falta decidir.',
   quemUsa: 'Toda a equipe vê as rodadas, mas só vota quem recebeu o convite. Quem pediu a aprovação (ou um administrador) convida mais gente.',
+  naPratica: {
+    titulo: 'A matéria da campanha do agasalho precisa de dois “sim”',
+    passos: [
+      'O Bruno termina a matéria da campanha do agasalho e toca em “Enviar para aprovação”, convidando a coordenação e a Diretoria.',
+      'Cada pessoa convidada recebe o pedido no sino e vê a rodada em “Aprovações”, no topo da fila.',
+      'A coordenação lê, confere a lista “Antes de aprovar, confira” (autorização de imagem, dados, links) e vota “Aprovar”.',
+      'A Diretoria pede um ajuste no título: vota “Pedir ajustes” e escreve o que mudar.',
+      'O Bruno corrige, reenvia, e a rodada fecha com os dois “sim”; o pacote fica liberado para publicar.',
+    ],
+    resultado: 'Ninguém publica sem as aprovações certas, e fica registrado quem aprovou o quê.',
+  },
   tour: [
     {
       titulo: 'A fila de aprovações',
@@ -322,6 +346,7 @@ const APROVACOES: GuiaDaArea = {
     {
       id: 'aprovar-um-conteudo',
       titulo: 'Aprovar um conteúdo',
+      exemplo: 'O pedido “Matéria: Campanha do agasalho 2026” aparece no topo da fila da Carla. Ela abre, lê, confere que as fotos têm autorização e toca em “Aprovar”.',
       passos: [
         'Abra “Aprovações”. A tela já abre em “Esperando meu voto”.',
         'No cartão da rodada, toque em “Revisar agora”.',
@@ -335,6 +360,7 @@ const APROVACOES: GuiaDaArea = {
     {
       id: 'pedir-ajustes',
       titulo: 'Pedir ajustes num conteúdo',
+      exemplo: 'O título “Doe calor” ficou vago para a Diretoria, que vota “Pedir ajustes” e escreve: “Coloque no título o local e a data da entrega”. O autor recebe no sino.',
       passos: [
         'Abra a rodada pelo “Revisar agora”.',
         'Em “Sua decisão”, toque em “Pedir ajustes”.',
@@ -544,6 +570,16 @@ const NOTIFICACOES: GuiaDaArea = {
   href: '/notificacoes',
   paraQueServe: 'Tudo o que aconteceu com você no Palácio Virtual, lido e não lido: pedidos de aprovação, mensagens, chamados, ofícios e outros avisos para você. O sino do topo mostra as mais recentes; aqui ficam todas, das mais novas para as mais antigas.',
   quemUsa: 'Cada pessoa vê só as próprias notificações. Vale para toda a equipe, inclusive a da escola.',
+  naPratica: {
+    titulo: 'O que chegou enquanto a Ana estava na ação de rua',
+    passos: [
+      'A Ana passou a manhã na ação de prevenção na Central do Brasil e volta com 9 avisos no sino.',
+      'Ela abre “Notificações” e vê tudo em ordem: um pedido de aprovação, duas menções no Chat e a resposta de um chamado de TI.',
+      'Toca no pedido de aprovação primeiro, porque tem prazo, e ele já abre na tela certa.',
+      'Depois, “Marcar todas como lidas” limpa o resto que só era informativo.',
+    ],
+    resultado: 'Nada se perde: o que é com você chega no sino e fica guardado aqui.',
+  },
   tour: [
     {
       titulo: 'Todas as suas notificações',
@@ -576,6 +612,7 @@ const NOTIFICACOES: GuiaDaArea = {
     {
       id: 'ver-as-nao-lidas',
       titulo: 'Ver só o que você ainda não leu',
+      exemplo: 'Com 9 avisos, a Ana filtra só as não lidas e começa pelo pedido de aprovação da matéria, que vence hoje.',
       passos: [
         'Abra o sino, no alto, e toque em “Ver todas”.',
         'Toque em “Não lidas”.',

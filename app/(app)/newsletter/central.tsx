@@ -189,7 +189,7 @@ function Numeros({ contagens }: { contagens: Contagens }) {
     { rotulo: 'Inválidos', valor: contagens.invalidos, dica: 'O endereço devolveu a mensagem' },
   ]
   return (
-    <div data-ajuda="newsletter.numeros" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div data-ajuda="newsletter.numeros" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((t) => (
         <Card key={t.rotulo} className="p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.rotulo}</p>

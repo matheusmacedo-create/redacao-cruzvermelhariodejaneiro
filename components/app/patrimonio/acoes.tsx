@@ -176,7 +176,7 @@ export function Conferir({ bemId, locais, localAtual, estadoAtual, conferido }: 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-primary/40 bg-primary/5 p-4" id="conferir" data-ajuda="patrimonio.bem-conferir">
       <p className="flex items-center gap-2 text-sm font-semibold"><ClipboardCheck className="size-4 text-primary" />Inventário aberto{conferido ? ' — já conferido' : ''}</p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <select value={p.local_id} onChange={(e) => setP({ ...p, local_id: e.target.value })} aria-label="Onde foi encontrado" className={inputClass}><option value="">Sem local</option>{locais.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select>
         <select value={p.estado} onChange={(e) => setP({ ...p, estado: e.target.value })} aria-label="Estado" className={inputClass}>{Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
       </div>

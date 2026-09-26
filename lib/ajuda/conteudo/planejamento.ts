@@ -25,6 +25,16 @@ const RADAR: GuiaDaArea = {
   href: '/cerebro',
   paraQueServe: 'O Radar mostra o que o Cérebro leu nas contas oficiais do Rio e acha que pode virar pauta: o fato, por que apareceu, o que não pode e o plano por canal. O Cérebro recomenda; quem decide, produz e publica é o Palácio Virtual. A sugestão que a equipe leva adiante vira um pacote em rascunho em “Publicações”.',
   quemUsa: 'Toda a equipe do Palácio Virtual vê o Radar, leva sugestões adiante e recusa as que não servem. A recusa vale para a equipe inteira: a sugestão some daqui e do painel do Cérebro em “Publicações”.',
+  naPratica: {
+    titulo: 'Uma chuva forte no Rio vira pauta de prevenção',
+    passos: [
+      'O Cérebro lê nas contas oficiais do Rio o alerta de chuva forte para a noite e põe a sugestão no Radar.',
+      'A sugestão mostra o fato, por que apareceu, o que não pode (não inventar números de vítimas) e um plano por canal.',
+      'A Carla acha a sugestão boa e toca em “Trazer para pauta”: vira um pacote em rascunho em “Publicações”.',
+      'O Bruno ajusta o texto com as dicas de prevenção da filial e manda para aprovação.',
+    ],
+    resultado: 'A equipe reage rápido ao que acontece na cidade, sem ficar vigiando as redes o dia todo.',
+  },
   tour: [
     {
       titulo: 'O Radar de pautas',
@@ -88,6 +98,7 @@ const RADAR: GuiaDaArea = {
     {
       id: 'levar-sugestao-adiante',
       titulo: 'Levar uma sugestão para a produção',
+      exemplo: 'A sugestão “Alerta de chuva forte: dicas de segurança” tem nota alta e plano para Instagram e site; a Carla toca em “Trazer para pauta” e o pacote aparece em rascunho em Publicações.',
       passos: [
         'Abra “Radar de pautas” e toque na história, na lista.',
         'Leia o “Fato”, “O que não pode” e o “Plano por canal”. Se aparecer o aviso de que o Cérebro não viu ação da filial, confirme com a operação antes de seguir.',
@@ -233,6 +244,17 @@ const PAUTAS: GuiaDaArea = {
   href: '/pautas',
   paraQueServe: 'Pautas é o quadro editorial: cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”. Dentro de cada pauta, a sala guarda a conversa, a descrição, os links de arquivos, os conteúdos e as aprovações. Uma pauta nasce do “Registrar atividade”, do “Adicionar pauta” no quadro, do “Agendar” do calendário ou de um envio da equipe (“Envios da equipe”).',
   quemUsa: 'Toda a equipe cria, edita, move e arquiva pautas, e cria etiquetas. “Excluir pauta” aparece só para quem é responsável pela pauta e para administradores. No conteúdo, “Concluir matéria” aparece para quem responde pelo conteúdo ou pela pauta, e para administradores.',
+  naPratica: {
+    titulo: 'A matéria do Dia do Voluntariado, do cartão ao “Pronto”',
+    passos: [
+      'A Carla cria a pauta “Dia do Voluntariado” com prazo, responsável e as publicações previstas (site e Instagram).',
+      'O cartão nasce em “Entrada”; quando o Bruno começa, arrasta para “Produção”.',
+      'Na sala da pauta ficam a conversa, o checklist (entrevista, fotos, texto) e o link da pasta de arquivos.',
+      'O Bruno cria o conteúdo dentro da pauta e envia para aprovação; o cartão anda sozinho para “Aprovação”.',
+      'Aprovado, o cartão chega a “Pronto” e a publicação segue em “Publicações”.',
+    ],
+    resultado: 'Todo mundo vê em que pé está cada matéria, sem perguntar no grupo.',
+  },
   tour: [
     {
       titulo: 'O quadro de pautas',
@@ -369,6 +391,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'criar-pauta',
       titulo: 'Criar uma pauta completa',
+      exemplo: 'A Carla cria “Dia do Voluntariado — perfil de 3 voluntários”, prazo 03/10, responsável Bruno, com publicações previstas no site e no Instagram.',
       passos: [
         'Em “Pautas”, toque em “Nova pauta completa” (ou, no topo, em “Criar” e depois “Registrar atividade”).',
         'Escolha o “Tipo do registro” e escreva o nome.',
@@ -404,6 +427,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'mover-pauta',
       titulo: 'Mudar a etapa de uma pauta',
+      exemplo: 'O Bruno terminou as entrevistas e arrasta o cartão de “Entrada” para “Produção”; a equipe vê a mudança na hora.',
       passos: [
         'Arraste o cartão para outra coluna e solte na posição que quiser.',
         'Ou toque no cartão e escolha a “Etapa”.',
@@ -612,6 +636,17 @@ const CALENDARIO: GuiaDaArea = {
   href: '/calendario',
   paraQueServe: 'O calendário junta tudo o que tem data no Palácio Virtual, em camadas que você liga e desliga como no Google Agenda: publicações, prazos de pautas e marcos de projeto, ações do voluntariado, campanhas da escola e de doações, contas a pagar, documentos da frota, chamados, parcerias, aniversários da equipe, datas comemorativas e feriados. Ao lado, “Pede atenção” aponta o que precisa de alguém.',
   quemUsa: 'Toda a equipe. Cada pessoa vê só as camadas das áreas a que tem acesso, e o que liga ou desliga vale só para ela.',
+  naPratica: {
+    titulo: 'Planejar outubro com tudo o que tem data',
+    passos: [
+      'No começo do mês, a Carla abre o Calendário e liga as camadas “Publicações”, “Datas comemorativas” e “Voluntariado”.',
+      'Vê o Dia das Crianças, a campanha de vacinação e três ações do voluntariado na mesma semana.',
+      'Em “Pede atenção”, aparece uma data comemorativa sem pauta; ela toca e cria a pauta dali mesmo.',
+      'Liga o link do Google Agenda para ver as publicações da equipe no celular.',
+      'Toda segunda, o resumo semanal chega com o que vai acontecer na semana.',
+    ],
+    resultado: 'Nada importante passa sem planejamento, e ninguém marca duas ações no mesmo dia sem saber.',
+  },
   tour: [
     {
       titulo: 'O calendário do Palácio Virtual',
@@ -679,6 +714,7 @@ const CALENDARIO: GuiaDaArea = {
     {
       id: 'pauta-de-data-comemorativa',
       titulo: 'Transformar uma data comemorativa em pauta',
+      exemplo: 'O Dia Mundial da Saúde Mental (10/10) aparece em “Pede atenção” sem pauta; a Carla toca em “Criar pauta” e já sai com a data e o título.',
       passos: [
         'Toque na data comemorativa no calendário, ou no alerta “… sem pauta”.',
         'Toque em “Criar pauta”.',
@@ -689,6 +725,7 @@ const CALENDARIO: GuiaDaArea = {
     {
       id: 'ver-no-google-agenda',
       titulo: 'Ver o calendário no Google Agenda ou no celular',
+      exemplo: 'O Bruno copia o link e assina no Google Agenda do celular: as publicações da semana aparecem ao lado dos compromissos pessoais.',
       passos: [
         'Toque em “Configurar”.',
         'Em “Ver no Google Agenda ou no celular”, toque em “Gerar link”.',
@@ -776,6 +813,17 @@ const PROJETOS: GuiaDaArea = {
   href: '/projetos',
   paraQueServe: 'Projetos reúne campanhas, eventos e iniciativas com começo, meio e fim. A carteira mostra, numa linha por projeto, a situação, o progresso, o responsável, o prazo final e a última atualização. Dentro de cada projeto ficam as atualizações de status, os marcos e a linha do tempo das pautas.',
   quemUsa: 'Toda a equipe cria e edita projetos, publica atualizações, mexe nos marcos e conclui ou reabre projetos. “Excluir projeto” aparece para quem criou o projeto e para administradores; a lixeira de uma atualização, para quem a escreveu e para administradores.',
+  naPratica: {
+    titulo: 'A campanha de inverno, de ponta a ponta',
+    passos: [
+      'A coordenação cria o projeto “Campanha de inverno 2026”, com responsável, começo, fim e marcos (lançamento, coleta, entrega).',
+      'As pautas da campanha são ligadas ao projeto e aparecem na linha do tempo dele.',
+      'Toda sexta, a responsável publica uma atualização: “No prazo”, “Em risco” ou “Atrasado”, com uma frase do porquê.',
+      'A Diretoria acompanha pela carteira, uma linha por projeto, sem precisar de reunião.',
+      'No fim, o projeto é concluído e fica como histórico para a próxima campanha.',
+    ],
+    resultado: 'Quem decide vê o andamento de todas as iniciativas num lugar só.',
+  },
   tour: [
     {
       titulo: 'A carteira de projetos',
@@ -839,6 +887,7 @@ const PROJETOS: GuiaDaArea = {
     {
       id: 'criar-projeto',
       titulo: 'Criar um projeto',
+      exemplo: 'A coordenação cria “Semana de Prevenção 2026”, de 06/10 a 10/10, com os marcos “Divulgação”, “Ações de rua” e “Balanço”.',
       passos: [
         'Em “Projetos”, toque em “Novo projeto”.',
         'Preencha o “Nome” (pelo menos 3 caracteres) e, se quiser, o “Objetivo”.',
@@ -860,6 +909,7 @@ const PROJETOS: GuiaDaArea = {
     {
       id: 'publicar-atualizacao',
       titulo: 'Atualizar a situação do projeto',
+      exemplo: 'Na sexta, a Ana marca “Em risco” na campanha de inverno e escreve: “Arrecadamos 40% da meta; vamos reforçar a divulgação nas redes”.',
       passos: [
         'Abra o projeto, na aba “Visão geral”.',
         'Em “Atualização de status”, escolha “No prazo”, “Em risco” ou “Atrasado”.',

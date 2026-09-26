@@ -111,7 +111,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
             </div>
           </Field>
           <Field label={nomeDoTitulo}><input required minLength={3} name="title" className={inputClass} /></Field>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Field label="Coordenação responsável">
               <select required name="coordination" className={inputClass} defaultValue={minhaCoordenacao && coordenacoes.includes(minhaCoordenacao) ? minhaCoordenacao : ''}>
                 <option value="" disabled>Selecione…</option>
@@ -128,7 +128,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
         </Secao>
 
         <Secao icone={SlidersHorizontal} titulo="Planejamento" descricao="Como a pauta aparece no quadro e na linha do tempo do projeto.">
-          <div data-ajuda="registrar.planejamento" className="grid gap-5 sm:grid-cols-2">
+          <div data-ajuda="registrar.planejamento" className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <Field label="Responsável">
               <select name="responsavel" defaultValue={eu} className={inputClass}>
                 {pessoas.map((p) => <option key={p.id} value={p.id}>{p.id === eu ? `${p.nome} (eu)` : p.nome}</option>)}
@@ -171,8 +171,8 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
 
         <Secao icone={FileText} titulo="Detalhes">
           {(tipo === 'Ação' || tipo === 'Evento') && <>
-            <div className="grid gap-5 sm:grid-cols-2"><Field label="Local"><input name="local" className={inputClass} /></Field><Field label="Horário"><input name="schedule" className={inputClass} placeholder="Ex.: 14h às 17h" /></Field></div>
-            <div className="grid gap-5 sm:grid-cols-2"><Field label="Pessoas participantes"><input name="participantsCount" type="number" min={0} className={inputClass} /></Field><Field label="Voluntários"><input name="volunteersCount" type="number" min={0} className={inputClass} /></Field></div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2"><Field label="Local"><input name="local" className={inputClass} /></Field><Field label="Horário"><input name="schedule" className={inputClass} placeholder="Ex.: 14h às 17h" /></Field></div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2"><Field label="Pessoas participantes"><input name="participantsCount" type="number" min={0} className={inputClass} /></Field><Field label="Voluntários"><input name="volunteersCount" type="number" min={0} className={inputClass} /></Field></div>
             <Field label="Público atendido"><input name="audience" className={inputClass} /></Field>
           </>}
           {tipo === 'Evento' && <Field label="Organização ou parceiros"><input name="organizer" className={inputClass} /></Field>}
@@ -181,7 +181,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
           {tipo === 'Material' && <><Field label="Tipo de material"><select name="materialType" className={inputClass}><option>Texto</option><option>Foto</option><option>Vídeo</option><option>Arte</option><option>Documento</option></select></Field><Field label="O que precisa ser feito?"><textarea required name="request" rows={4} className={areaClass} /></Field></>}
           {(tipo === 'Sugestão' || tipo === 'Outro') && <Field label="Detalhes"><textarea required name="notes" rows={4} className={areaClass} /></Field>}
           <Field label="Descrição" hint="Contexto adicional para a equipe de Comunicação."><textarea name="description" rows={4} className={areaClass} /></Field>
-          <div className="grid gap-5 sm:grid-cols-2"><Field label="Objetivo"><input name="objective" className={inputClass} /></Field><Field label="Resultado"><input name="result" className={inputClass} /></Field></div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2"><Field label="Objetivo"><input name="objective" className={inputClass} /></Field><Field label="Resultado"><input name="result" className={inputClass} /></Field></div>
         </Secao>
 
         <Secao icone={CalendarPlus} titulo="Publicações no calendário editorial"
@@ -194,7 +194,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
                   <Trash2 className="size-4" />
                 </Button>
               </div>
-              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Data da publicação">
                   <input required name="pubData" type="date" value={pub.data} onChange={(e) => alterarPublicacao(pub.chave, 'data', e.target.value)} className={inputClass} />
                 </Field>
@@ -202,7 +202,7 @@ export function RegistrarForm({ projectId, projects, pessoas, etiquetas, eu, coo
                   <input name="pubHora" type="time" value={pub.hora} onChange={(e) => alterarPublicacao(pub.chave, 'hora', e.target.value)} className={inputClass} />
                 </Field>
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Canal">
                   <select name="pubCanal" value={pub.canal} onChange={(e) => alterarPublicacao(pub.chave, 'canal', e.target.value)} className={inputClass}>
                     {canaisDePublicacao.map((canal) => <option key={canal}>{canal}</option>)}

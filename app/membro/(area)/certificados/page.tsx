@@ -35,7 +35,7 @@ export default async function Certificados() {
       <CabecalhoDaPagina titulo="Certificados" descricao="Tudo o que você concluiu. Cada certificado tem um código que qualquer pessoa pode conferir." />
       <Secao titulo="Certificados emitidos" icone={Award} id="emitidos">
         {certificados.length ? (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-ajuda="membro.certificados">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-ajuda="membro.certificados">
             {certificados.map((c) => <li key={c.codigo} className="min-w-0"><CartaoDoCertificado c={c} hoje={hoje} verificacao={`${base}/certificado/${c.codigo}`} /></li>)}
           </ul>
         ) : (

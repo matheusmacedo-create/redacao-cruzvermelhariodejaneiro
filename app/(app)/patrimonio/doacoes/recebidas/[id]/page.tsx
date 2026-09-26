@@ -43,7 +43,7 @@ export default async function DoacaoRecebida({ params }: { params: Promise<{ id:
         actions={<Button render={<a href={`/api/patrimonio/doacoes/recibo/${r.id}`} target="_blank" rel="noreferrer" />} id="baixar-recibo"><FileText className="size-4" />Recibo (PDF)</Button>}
       />
       <Card className="p-5">
-        <dl className="grid gap-4 sm:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Dado rotulo="Doador">{r.doador_nome as string}{r.doador_documento && <span className="block text-xs text-muted-foreground">{documentoFormatado(r.doador_documento as string)}</span>}</Dado>
           <Dado rotulo="Contato">{[doador?.email, doador?.telefone].filter(Boolean).join(' · ')}</Dado>
           <Dado rotulo="Campanha">{campanha ? <Link href={`/patrimonio/doacoes/campanhas/${campanha.id}`} className="text-primary hover:underline">{campanha.nome as string}</Link> : null}</Dado>

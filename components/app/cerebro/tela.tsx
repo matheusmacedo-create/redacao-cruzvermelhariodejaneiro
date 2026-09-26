@@ -142,9 +142,10 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
     <div className="mt-4">
       {/* ── Zona A: briefing do dia ── */}
       <div data-ajuda="cerebro.briefing" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-[#F7F4EF] px-4 py-3">
-        <div className="flex">
+        {/* No celular os cinco contadores quebram em duas linhas (sem os divisores); do sm em diante, uma faixa só. */}
+        <div className="flex flex-wrap gap-y-2">
           {SECOES.map((s, i) => (
-            <div key={s.chave} className={cn('pr-4', i > 0 && 'border-l border-border pl-4')} title={s.explica}>
+            <div key={s.chave} className={cn('min-w-20 pr-4 sm:min-w-0', i > 0 && 'sm:border-l sm:border-border sm:pl-4')} title={s.explica}>
               <b className={cn('block text-xl font-extrabold leading-tight tabular-nums', s.chave === 'agir' && filas.agir.length > 0 && 'text-primary')}>
                 {filas[s.chave].length}
               </b>
@@ -160,7 +161,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
             </button>
           ))}
         </div>
-        <div data-ajuda="cerebro.ferramentas" className="flex items-center gap-2">
+        <div data-ajuda="cerebro.ferramentas" className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setBriefingAberto(true)}>Gerar briefing</Button>
           <Button size="sm" variant="outline" render={<Link href="/cerebro/mapa" />}>
             <Map className="size-3.5" />Mapa

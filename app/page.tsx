@@ -102,7 +102,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const needsBootstrap = !error && (count ?? 0) === 0
 
   return (
-    <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(380px,0.9fr)_1.1fr]">
+    <main className="grid grid-cols-1 min-h-screen bg-background lg:grid-cols-[minmax(380px,0.9fr)_1.1fr]">
       <section className="flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-md">
           <BrandMark className="w-72 items-start" />

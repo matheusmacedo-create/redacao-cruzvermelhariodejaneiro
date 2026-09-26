@@ -125,7 +125,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
           : <p className="text-sm text-muted-foreground">Nenhum lançamento no mês.</p>}
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 font-semibold">Por conta</h2>
           <Tabela cabecalho={['Conta', 'Início', 'Entradas', 'Saídas', 'Fim']} linhas={r.porConta.map((k) => [k.nome, k.inicio, k.entradas, k.saidas, k.fim])} />

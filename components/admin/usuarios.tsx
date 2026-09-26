@@ -149,7 +149,7 @@ function SenhaTemporaria({ usuario, senha, fechar }: { usuario: string; senha: s
 
 function SeletorDePapel({ valor, onChange, desabilitado }: { valor: Papel; onChange: (p: Papel) => void; desabilitado?: boolean }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Papel">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Papel">
       {PAPEIS.map((p) => (
         <button key={p} type="button" role="radio" aria-checked={valor === p} disabled={desabilitado} onClick={() => onChange(p)}
           className={cn('rounded-lg border p-3 text-left transition-colors disabled:opacity-50', valor === p ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:bg-muted/50')}>
@@ -233,7 +233,7 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
   return (
     <Card className="p-5">
       <form onSubmit={enviar} className="flex flex-col gap-4">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm font-medium">Nome completo
             <input required minLength={3} value={nome} className={campo} onChange={(e) => { setNome(e.target.value); if (!usuarioEditado) setUsuario(usuarioSugerido(e.target.value)) }} />
           </label>
@@ -368,7 +368,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
 
   return (
     <div className="flex flex-col gap-4 border-t border-border bg-muted/20 px-5 py-5">
-      <div className="grid gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-3">
         <span>Acesso criado em {data.format(new Date(u.criadoEm))}</span>
         <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
         {u.desativadoEm && <span>Desativado em {data.format(new Date(u.desativadoEm))}</span>}
@@ -376,7 +376,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
       </div>
 
       {u.ativo && <>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-sm font-medium">Nome completo<input value={nome} onChange={(e) => setNome(e.target.value)} className={campo} /></label>
           <label className="flex flex-col gap-1.5 text-sm font-medium">E-mail
             <input type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} placeholder="pessoa@email.com" className={campo} aria-invalid={emailInvalido} />
@@ -552,7 +552,7 @@ function ExigenciaDeVerificacao({ usuarios, obrigatorioPara }: { usuarios: Usuar
     <section data-ajuda="usuarios.verificacao" className="flex flex-col gap-3">
       <div className="flex items-start gap-2"><Smartphone className="mt-0.5 size-4 text-muted-foreground" /><div><h2 className="font-semibold">Verificação em duas etapas</h2><p className="text-sm text-muted-foreground">Qualquer pessoa pode ativar em Meu perfil → Segurança. Aqui você decide se algum papel é <strong className="font-medium text-foreground">obrigado</strong> a usar — quem ainda não tiver o app é levado a cadastrar no próximo acesso. Hoje: {obrigatorioPara.length ? 'obrigatória para ' + PAPEIS.filter((p) => obrigatorioPara.includes(p)).map((p) => PAPEL[p].rotulo.toLowerCase()).join(', ') : 'opcional para todos'}.</p></div></div>
       <Card className="flex flex-col gap-4 p-5">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {PAPEIS.map((p) => {
             const faltam = semApp(p).length
             const total = usuarios.filter((u) => u.papel === p).length

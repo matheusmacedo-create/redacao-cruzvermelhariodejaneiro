@@ -5,7 +5,7 @@ import { ArrowRight, CircleHelp, Compass } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
+import { HistoriaNaPratica, PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
 import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
 import { guiaDaArea, hrefDaAjuda } from '@/lib/ajuda'
 import { TODOS_OS_GRUPOS } from '@/lib/navegacao'
@@ -82,6 +82,12 @@ export default async function AjudaDaAreaPage({ params }: Props) {
         </div>
       </div>
 
+      {guia.naPratica && (
+        <section aria-label="Na prática: como imaginamos" className="mb-10" id="na-pratica">
+          <HistoriaNaPratica historia={guia.naPratica} />
+        </section>
+      )}
+
       {(guia.tarefas.length > 0 || guia.perguntas.length > 0) && (
         <nav aria-label="Nesta página" className="mb-10">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Nesta página</h2>
@@ -102,7 +108,7 @@ export default async function AjudaDaAreaPage({ params }: Props) {
       {guia.perguntas.length > 0 && (
         <section id="secao-perguntas" aria-labelledby="secao-perguntas-titulo" className="mb-12 scroll-mt-6">
           <h2 id="secao-perguntas-titulo" className="mb-4 text-lg font-semibold">Perguntas frequentes</h2>
-          <div className="flex flex-col gap-3">{guia.perguntas.map((p) => <PerguntaAberta key={p.id} pergunta={p} />)}</div>
+          <div className="flex flex-col gap-3">{guia.perguntas.map((p) => <PerguntaAberta key={p.id} pergunta={p} area={area.href} />)}</div>
         </section>
       )}
 
@@ -137,11 +143,11 @@ export default async function AjudaDaAreaPage({ params }: Props) {
       {relacionadas.length > 0 && (
         <section aria-labelledby="secao-relacionadas" className="mb-12">
           <h2 id="secao-relacionadas" className="mb-4 text-lg font-semibold">Anda junto com</h2>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {relacionadas.map((r) => {
               const IconeDaRelacionada = r.icone
               return (
-                <li key={r.href}>
+                <li key={r.href} className="min-w-0">
                   <Link href={hrefDaAjuda(r.href)} className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card p-3 text-sm shadow-xs hover:border-primary/40">
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/[0.08] text-primary" aria-hidden="true"><IconeDaRelacionada className="size-4" /></span>
                     <span className="min-w-0 flex-1"><span className="block font-medium">{r.rotulo}</span><span className="block truncate text-xs text-muted-foreground">{r.resumo}</span></span>

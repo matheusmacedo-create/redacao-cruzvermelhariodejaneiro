@@ -100,7 +100,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
 
   if (!fila) {
     return (
-      <div data-ajuda="chamados.equipes" className="grid gap-4 sm:grid-cols-2">
+      <div data-ajuda="chamados.equipes" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {filas.map((f) => {
           const Icone = ICONES[f.icone] ?? Ticket
           return (
@@ -124,7 +124,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
 
       <fieldset data-ajuda="chamados.assunto" className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Qual é o assunto?</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {fila.categorias.map((c) => (
             <label key={c.id} className={cn('flex cursor-pointer flex-col rounded-lg border p-3 text-sm', categoriaId === c.id ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:bg-muted/40')}>
               <input type="radio" name="categoria" value={c.id} checked={categoriaId === c.id} onChange={() => setCategoriaId(c.id)} className="sr-only" />
@@ -149,7 +149,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
         )}
         <fieldset data-ajuda="chamados.urgencia">
           <legend className="mb-2 text-sm font-medium">Quanto isso atrapalha?</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {([1, 2, 3] as const).map((u) => (
               <label key={u} className={cn('flex cursor-pointer flex-col rounded-lg border p-3 text-sm', urgencia === u ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border hover:bg-muted/40')}>
                 <input type="radio" name="urgencia" checked={urgencia === u} onChange={() => setUrgencia(u)} className="sr-only" />

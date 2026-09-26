@@ -80,7 +80,7 @@ function FormularioDaFila({ fila, aoConcluir }: { fila?: FilaNaConfiguracao; aoC
     <form onSubmit={enviar} className="flex flex-col gap-4">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{fila ? 'Fila' : 'Nova fila'}</h3>
       {fila && <input type="hidden" name="id" value={fila.id} />}
-      <div className="grid gap-3 md:grid-cols-[1fr_120px]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_120px]">
         <label className="flex flex-col gap-1.5 text-sm font-medium">Nome<input name="nome" defaultValue={fila?.nome} required maxLength={60} className={campo} placeholder="Ex.: Compras" /></label>
         <label className="flex flex-col gap-1.5 text-sm font-medium">Prefixo<input name="prefixo" defaultValue={fila?.prefixo} required maxLength={6} pattern="[A-Za-z]{2,6}" className={cn(campo, 'uppercase')} placeholder="COM" /></label>
       </div>
@@ -118,7 +118,7 @@ function Equipe({ fila, pessoas }: { fila: FilaNaConfiguracao; pessoas: { id: st
   return (
     <div data-ajuda="chamados.equipe" className="flex flex-col gap-3">
       <div><h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quem atende</h3><p className="text-xs text-muted-foreground">Recebem os chamados novos desta fila (no sino e por e-mail) e podem responder, atribuir, resolver e transferir. Administradores atendem todas as filas mesmo sem estar aqui.</p></div>
-      <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
         {pessoas.map((p) => (
           <label key={p.id} className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted/50">
             <input type="checkbox" checked={marcados.includes(p.id)} onChange={(e) => setMarcados(e.target.checked ? [...marcados, p.id] : marcados.filter((m) => m !== p.id))} />
@@ -167,7 +167,7 @@ function FormularioDaCategoria({ filaId, categoria, aoConcluir }: { filaId: stri
   }
   return (
     <form onSubmit={enviar} className="flex flex-col gap-2 py-1">
-      <div className="grid gap-2 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <input name="nome" defaultValue={categoria?.nome} required maxLength={80} className={campo} placeholder="Nome do assunto" autoFocus />
         <input name="descricao" defaultValue={categoria?.descricao ?? ''} maxLength={200} className={campo} placeholder="Exemplos, para quem abre (opcional)" />
       </div>

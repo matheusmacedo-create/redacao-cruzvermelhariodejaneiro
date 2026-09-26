@@ -44,6 +44,16 @@ const DIRETORIO: GuiaDaArea = {
   href: '/pessoas',
   paraQueServe: 'A equipe inteira da filial num lugar só: quem tem login no Palácio Virtual, quem só tem ficha em Recursos humanos e quem está na lista oficial dos setores. Aqui você acha cargo, setor e contato de trabalho de cada pessoa, abre o perfil dela e manda mensagem.',
   quemUsa: 'Toda a equipe vê o Diretório, os perfis e os setores. Dar acesso ao Palácio Virtual, mudar os setores e ver o que falta no cadastro de cada um é só de administradores. O perfil, só a própria pessoa edita — nem administrador edita o de outra.',
+  naPratica: {
+    titulo: 'Achar quem cuida das doações em outro setor',
+    passos: [
+      'A Carla precisa falar com alguém do setor de Captação sobre uma doação.',
+      'Abre o Diretório e filtra pelo setor.',
+      'Vê o cargo e o contato de trabalho de cada pessoa, e abre o perfil de quem cuida das doações.',
+      'Manda uma mensagem direta pelo Chat, dali mesmo.',
+    ],
+    resultado: 'Ninguém precisa perguntar no grupo “quem cuida disso?”.',
+  },
   tour: [
     {
       titulo: 'A equipe da filial',
@@ -198,6 +208,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'achar-contato',
       titulo: 'Achar o contato de alguém da equipe',
+      exemplo: 'Buscando “doações”, a Carla acha a Marta, da Captação, com o ramal e o e-mail de trabalho, e toca em “Mandar mensagem”.',
       passos: [
         'Abra “Diretório”, no grupo Pessoas do menu.',
         'No campo de busca, digite parte do nome, do cargo, do setor, do e-mail ou do telefone.',
@@ -383,6 +394,16 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
   href: '/equipe',
   paraQueServe: 'As fichas de toda a equipe contratada, inclusive coordenação, administrativo e diretoria: contrato e cargo, histórico de mudanças, arquivos, documentos e remuneração. O voluntariado fica em Voluntários; folha de pagamento, eSocial e ponto ficam com a contabilidade.',
   quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador, em quatro níveis — “Ver a equipe”, “Gerenciar”, “Documentos” e “Remuneração e banco” —, e cada um inclui o anterior. Administradores têm tudo. Abrir documentos, dados bancários, remuneração e arquivos fica registrado com o nome de quem abriu.',
+  naPratica: {
+    titulo: 'A contratação de uma nova técnica de enfermagem',
+    passos: [
+      'O RH cadastra a ficha da nova técnica de enfermagem, com cargo, contrato e data de início.',
+      'Guarda os documentos da admissão na ficha (com acesso restrito).',
+      'Registra a remuneração; só quem tem o nível certo vê valores.',
+      'Quando ela muda de cargo, a mudança entra no histórico da ficha.',
+    ],
+    resultado: 'A vida funcional de cada pessoa da equipe fica num só lugar, com acesso controlado.',
+  },
   tour: [
     {
       titulo: 'Recursos humanos',
@@ -518,6 +539,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     {
       id: 'cadastrar-ficha',
       titulo: 'Cadastrar uma pessoa na equipe',
+      exemplo: 'A ficha da Joana Lima é cadastrada: técnica de enfermagem, CLT, início em 01/10/2026, setor Saúde.',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
         'Em Recursos humanos, toque em “Nova pessoa”.',
@@ -725,6 +747,17 @@ const VOLUNTARIOS: GuiaDaArea = {
   href: '/voluntariado',
   paraQueServe: 'O cadastro do Voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”), com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, banners, oportunidades, cursos, apostilas e certificados.',
   quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador: “Ver a lista”; “Gerenciar” (cadastrar, aprovar inscrições, registrar horas e formações, exportar, cuidar de avisos, oportunidades e cursos); e “Dados sensíveis” (abrir CPF e saúde e apagar dados a pedido do titular). Administradores têm tudo.',
+  naPratica: {
+    titulo: 'De inscrição no site a voluntário com certificado',
+    passos: [
+      'O Lucas se inscreve pelo formulário do site para ser voluntário.',
+      'A coordenação aprova a inscrição, e ele recebe o convite para a Área do Voluntário.',
+      'Lá, ele se candidata à oportunidade “Ação de prevenção na Central” e faz o curso de primeiros socorros.',
+      'A coordenação marca a presença dele na ação e registra as horas.',
+      'Com o curso concluído, o certificado aparece na Área do Voluntário, verificável por código.',
+    ],
+    resultado: 'O voluntário tem tudo num lugar só, e a coordenação sabe quem fez o quê e por quantas horas.',
+  },
   tour: [
     {
       titulo: 'O cadastro do Voluntariado',
@@ -1079,6 +1112,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'aprovar-inscricao',
       titulo: 'Aprovar ou recusar uma inscrição',
+      exemplo: 'A inscrição do Lucas Pereira chega do site; a coordenação confere os dados e toca em “Aprovar”: ele recebe o convite para a Área do Voluntário por e-mail.',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
         'Em Voluntários, abra a aba “Inscrições pendentes”.',
@@ -1199,6 +1233,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'criar-oportunidade',
       titulo: 'Criar e publicar uma oportunidade',
+      exemplo: 'A coordenação cria “Ação de prevenção na Central do Brasil — 26/09, 8h às 13h, 10 vagas”; os voluntários veem na Área do Voluntário e se inscrevem.',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
         'Em Voluntários, toque em “Oportunidades” e depois em “Nova oportunidade”.',

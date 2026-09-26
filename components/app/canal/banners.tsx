@@ -114,7 +114,7 @@ function FormularioDeBanner({ b, onFim }: { b: BannerNaEquipe | null; onFim?: ()
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border p-4" data-ajuda={b ? undefined : 'voluntarios.banner-novo'}>
       <input type="hidden" name="imagem_caminho" value={caminho} />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,20rem)_1fr]">
         <div className="flex flex-col gap-2">
           <div className="aspect-[21/8] overflow-hidden rounded-lg border border-border bg-muted">
             {previa ? <img src={previa} alt="Prévia do banner" className="size-full object-cover" /> : <div className="flex size-full items-center justify-center px-4 text-center text-xs text-muted-foreground">Sem imagem</div>}
@@ -131,7 +131,7 @@ function FormularioDeBanner({ b, onFim }: { b: BannerNaEquipe | null; onFim?: ()
           <textarea name="texto" rows={2} maxLength={200} defaultValue={b?.texto ?? ''} placeholder="Uma frase de apoio (opcional)" aria-label="Texto" className={inputClass} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={comBotao} onChange={(e) => setComBotao(e.target.checked)} />Com botão</label>
           {comBotao && (
-            <div className="grid gap-2 sm:grid-cols-[12rem_1fr]">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-[12rem_1fr]">
               <input name="link_rotulo" required minLength={2} maxLength={30} defaultValue={b?.link_rotulo ?? ''} placeholder="Texto do botão" aria-label="Texto do botão" className={inputClass} />
               <input name="link_url" required maxLength={500} defaultValue={b?.link_url ?? ''} placeholder="/membro/oportunidades ou https://…" aria-label="Endereço do botão" className={inputClass} />
             </div>

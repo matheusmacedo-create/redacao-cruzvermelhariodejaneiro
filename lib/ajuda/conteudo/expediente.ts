@@ -34,6 +34,17 @@ const OFICIOS: GuiaDaArea = {
   href: '/oficios',
   paraQueServe: 'O livro de ofícios da filial. Você escreve o ofício, escolhe quem assina e emite: na emissão ele ganha o número do ano e o texto congela. Depois de todas as assinaturas, a prova vai ao Bitcoin, e quem recebe o documento confere tudo numa página pública.',
   quemUsa: 'Toda a equipe do Palácio Virtual vê o livro e pode criar ofícios. Editar, emitir, apagar o rascunho e cancelar é de quem criou o ofício ou de um administrador; assinar é de quem foi escolhido na emissão.',
+  naPratica: {
+    titulo: 'Um ofício à Secretaria de Saúde, assinado e verificável',
+    passos: [
+      'A coordenação escreve o ofício pedindo apoio para a campanha de vacinação e escolhe quem assina: a Presidência.',
+      'Toca em “Emitir”: o ofício ganha o número do ano (por exemplo, 045/2026) e o texto congela.',
+      'A Presidência recebe o pedido no sino e assina com a senha do Palácio (ou pelo gov.br).',
+      'Com todas as assinaturas, o PDF sai com o selo digital da filial e um código de verificação.',
+      'A Secretaria confere o ofício numa página pública, pelo código, sem precisar ligar para a filial.',
+    ],
+    resultado: 'Todo ofício tem número, assinatura e prova de que não foi alterado.',
+  },
   tour: [
     {
       titulo: 'O livro de ofícios',
@@ -116,6 +127,7 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'escrever-oficio',
       titulo: 'Escrever um ofício',
+      exemplo: 'O ofício “Pedido de apoio à campanha de vacinação” é escrito para a Secretaria Municipal de Saúde, com a Presidência como quem assina.',
       passos: [
         'Em “Ofícios”, toque em “Novo ofício”.',
         'Em “Origem”, preencha o “Setor” e confira o “Local”.',
@@ -129,6 +141,7 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'emitir-oficio',
       titulo: 'Emitir um ofício para assinatura',
+      exemplo: 'Ao tocar em “Emitir”, o ofício vira o 045/2026 e o texto não muda mais; a Presidência recebe o pedido de assinatura no sino.',
       quem: 'Quem criou o rascunho, ou um administrador',
       passos: [
         'Abra o rascunho e toque em “Emitir para assinatura”.',
@@ -334,6 +347,16 @@ const CHAMADOS: GuiaDaArea = {
   href: '/chamados',
   paraQueServe: 'Pedidos entre setores da filial: TI, Manutenção e outras equipes. Você abre o chamado, conversa com quem atende e confirma a solução. Cada chamado tem prioridade e prazos de resposta e de solução, e tudo fica registrado na linha do tempo.',
   quemUsa: 'Todo mundo abre chamados e acompanha os seus. Quem faz parte da equipe de uma fila atende os chamados dela; administradores atendem todas as filas e configuram filas, equipes, assuntos e prazos.',
+  naPratica: {
+    titulo: 'O projetor da sala de treinamento parou',
+    passos: [
+      'Na véspera do curso de primeiros socorros, o instrutor abre um chamado para a TI: “Projetor da sala 2 não liga”, dizendo que atrapalha o curso de amanhã.',
+      'O chamado entra na fila da TI com prioridade alta e prazo de resposta contado.',
+      'A TI responde na linha do tempo do chamado, troca o cabo e marca como resolvido.',
+      'O instrutor lê a solução, dá uma nota de 1 a 5 e toca em “Confirmar e avaliar”; o chamado fecha.',
+    ],
+    resultado: 'O pedido não se perde em mensagem, e cada setor vê o que está atrasado.',
+  },
   tour: [
     {
       titulo: 'Chamados',
@@ -483,6 +506,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'abrir-chamado',
       titulo: 'Abrir um chamado',
+      exemplo: 'Em “Abrir chamado”, fila TI: “Projetor da sala 2 não liga”, “Quanto isso atrapalha?”: impede um curso amanhã. O chamado nasce com prioridade alta.',
       passos: [
         'Em “Chamados”, toque em “Abrir chamado”.',
         'Escolha a equipe (por exemplo, TI ou Manutenção).',
@@ -507,6 +531,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'confirmar-e-avaliar',
       titulo: 'Confirmar a solução e avaliar',
+      exemplo: 'Depois da troca do cabo, o instrutor testa o projetor, escolhe a nota 5, escreve “Resolvido em 20 minutos, obrigado!” e toca em “Confirmar e avaliar”.',
       passos: [
         'Abra o chamado com o status “Resolvido”.',
         'Leia a “Solução” escrita pela equipe.',
@@ -692,6 +717,17 @@ const COMPRAS: GuiaDaArea = {
   href: '/financeiro/compras',
   paraQueServe: 'O caminho de uma compra, do pedido do setor à conta a pagar: cotação com as propostas dos fornecedores lado a lado, aprovação, ordem de compra, recebimento e entrada no estoque ou no patrimônio. Tudo fica no histórico do pedido, para a prestação de contas.',
   quemUsa: 'Qualquer pessoa da equipe pede e acompanha os seus pedidos. No Financeiro, quem tem o nível “Lançar” (ou acima) cota, emite a ordem e lança a conta, e quem tem o nível “Aprovar” (ou acima) aprova; acima do limite, a Diretoria também aprova. Quem opera o Patrimônio dá entrada no que chegou.',
+  naPratica: {
+    titulo: 'Papel e canetas para o escritório, da ideia à nota',
+    passos: [
+      'A Ana, da Comunicação, pede em “Novo pedido”: 10 resmas de papel A4 e 50 canetas, para até 15/10.',
+      'O Financeiro classifica o pedido em “Material de escritório” e toca em “Pedir propostas”: a Papelaria Centro e a Kalunga já vêm marcadas, porque vendem essa categoria.',
+      'Cada fornecedor recebe um e-mail com um link só dele, preenche os preços pelo celular e a proposta cai sozinha no mapa comparativo.',
+      'No prazo, o Financeiro escolhe a mais barata e manda para aprovação; a coordenação aprova.',
+      'Sai a ordem de compra por e-mail, o material chega, a Ana registra o recebimento, e a conta a pagar entra no Financeiro.',
+    ],
+    resultado: 'Cada compra tem as propostas, a aprovação e a nota juntas, prontas para a prestação de contas.',
+  },
   tour: [
     {
       titulo: 'Pedidos de compra',
@@ -832,6 +868,7 @@ const COMPRAS: GuiaDaArea = {
     {
       id: 'pedir-compra',
       titulo: 'Pedir uma compra',
+      exemplo: 'A Ana pede “Papel A4 e canetas” para “Reposição do escritório”: 10 resmas de A4 75 g/m² e 50 canetas azuis, entrega na sede até 15/10.',
       passos: [
         'Em “Pedidos de compra”, toque em “Novo pedido”.',
         'Preencha “O que você precisa comprar” e “Para quê”.',
@@ -868,6 +905,7 @@ const COMPRAS: GuiaDaArea = {
     {
       id: 'pedir-propostas',
       titulo: 'Pedir propostas aos fornecedores (sem digitar)',
+      exemplo: 'No pedido PC-2026-0001 (papel e canetas), “Pedir propostas” traz marcadas a Papelaria Centro (vende Material de escritório) e a Kalunga (cotou 1 vez); o Financeiro põe prazo de 5 dias e envia pela caixa compras@….',
       quem: 'Financeiro, a partir do nível “Lançar”',
       passos: [
         'Abra o pedido pela aba “Para cotar”. Se ele não tiver categoria, toque em “Alterar” e preencha “Categoria (Financeiro)”: é ela que traz os fornecedores habituais.',
@@ -908,6 +946,7 @@ const COMPRAS: GuiaDaArea = {
     {
       id: 'mandar-para-aprovacao',
       titulo: 'Escolher a proposta e mandar para aprovação',
+      exemplo: 'Das 3 propostas, a Papelaria Centro saiu mais barata (R$ 412,00 com frete); o Financeiro escolhe “Escolher” nela e toca em “Mandar para aprovação”, sem precisar de justificativa.',
       quem: 'Financeiro, a partir do nível “Lançar”',
       passos: [
         'No mapa comparativo, na linha “Vencedora”, marque “Escolher” na proposta escolhida. Só proposta completa pode ser escolhida.',

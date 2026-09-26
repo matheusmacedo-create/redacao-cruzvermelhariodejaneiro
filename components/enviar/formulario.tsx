@@ -336,7 +336,7 @@ export function FormularioDeEnvio({ hoje, setores, termo, evento }: { hoje: stri
               {coordenadas ? `Localização anotada (±${coordenadas.precisao} m)` : 'Usar minha localização'}
             </button>
           </Campo>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo id="envio-pessoas" rotulo="Pessoas atendidas (se souber)">
               <input id="envio-pessoas" type="number" inputMode="numeric" min={0} value={acao.pessoas} onChange={(e) => setAcao({ ...acao, pessoas: e.target.value })} className={campoDoMembro} />
             </Campo>

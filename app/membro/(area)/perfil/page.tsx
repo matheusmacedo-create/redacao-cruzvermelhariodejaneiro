@@ -76,7 +76,7 @@ export default async function PerfilDoMembro() {
           </Link>
         }>
         <p className="-mt-1 text-sm text-muted-foreground">Só a coordenação altera estes dados.</p>
-        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           {dados.map(([rotulo, valor]) => (
             <div key={rotulo} className="min-w-0">
               <dt className="text-xs text-muted-foreground">{rotulo}</dt>

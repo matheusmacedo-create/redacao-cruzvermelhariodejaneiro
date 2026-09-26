@@ -75,7 +75,7 @@ export default async function FrotaPage() {
       {!lista.length ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum veículo cadastrado.{nivel >= 3 ? ' Comece pelas ambulâncias.' : ''}</Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="veiculos" data-ajuda="patrimonio.frota-veiculos">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" id="veiculos" data-ajuda="patrimonio.frota-veiculos">
           {lista.map((v) => {
             const u = emUso.get(v.id as string)
             const condutor = u ? ((Array.isArray(u.frota_condutores) ? u.frota_condutores[0] : u.frota_condutores) as { nome: string } | null)?.nome : null

@@ -201,7 +201,7 @@ function FormularioDeData({ data, aoFechar, aoSalvar }: { data: DataComemorativa
   const [pendente, iniciar] = useTransition()
   return (
     <form
-      className="mt-3 grid gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-2"
+      className="mt-3 grid grid-cols-1 gap-3 rounded-lg bg-muted/40 p-3 sm:grid-cols-2"
       action={(fd) => iniciar(async () => {
         setErro(null)
         const r = await salvarDataComemorativa(fd)

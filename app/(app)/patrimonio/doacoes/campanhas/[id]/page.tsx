@@ -96,7 +96,7 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
         <p className="px-5 py-3 text-xs text-muted-foreground">Entregue pode passar do recebido: a entrega da campanha pode usar material que já estava no estoque.</p>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5">
           <h2 className="mb-3 font-semibold">Recibos</h2>
           <ul className="flex flex-col gap-2 text-sm">

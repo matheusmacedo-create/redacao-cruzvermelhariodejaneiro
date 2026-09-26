@@ -80,7 +80,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
 
   return (
     <form onSubmit={salvar} className="flex flex-col gap-5" data-formulario-do-pedido>
-      <section data-ajuda="compras.dados" className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2">
+      <section data-ajuda="compras.dados" className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2">
         <Rotulo texto="O que você precisa comprar" className="sm:col-span-2">
           <input value={titulo} onChange={(e) => setTitulo(e.target.value)} required minLength={3} maxLength={160} placeholder="Ex.: Kits de primeiros socorros para o curso de outubro" className={campo} />
         </Rotulo>
@@ -136,7 +136,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
         <ol className="flex flex-col gap-3">
           {itens.map((i, n) => (
             <li key={i.chave} className="rounded-lg border border-border p-3" data-item>
-              <div className="grid gap-2 sm:grid-cols-[1fr_6rem_6rem_8rem_auto] sm:items-end">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_6rem_6rem_8rem_auto] sm:items-end">
                 <Rotulo texto={`Item ${n + 1}`}>
                   <input value={i.descricao} onChange={(e) => mudar(i.chave, { descricao: e.target.value })} maxLength={300} placeholder="Descrição" className={campo} aria-label={`Descrição do item ${n + 1}`} />
                 </Rotulo>

@@ -25,6 +25,16 @@ const NEWSLETTER: GuiaDaArea = {
   href: '/newsletter',
   paraQueServe: 'A Newsletter guarda a lista de quem pediu para receber as notícias da Cruz Vermelha do Rio de Janeiro: quem confirmou, quem ainda não confirmou e quem saiu. Mostra também como a lista cresceu e as últimas edições enviadas. A edição em si é escrita e enviada em “Publicações”, como mais um destino do pacote.',
   quemUsa: 'Toda a equipe do Palácio Virtual vê a lista, acrescenta endereços, reenvia convites e exporta. Apagar alguém da lista, ver a situação do formulário do site, ligá-lo e ver o diagnóstico completo do envio são só para administradores.',
+  naPratica: {
+    titulo: 'Quem pediu recebe as notícias, sem spam',
+    passos: [
+      'Uma pessoa deixa o e-mail no formulário do site pedindo as notícias da filial.',
+      'Ela recebe um e-mail para confirmar; só depois de confirmar entra na lista.',
+      'Na hora de publicar a notícia da campanha, a newsletter é mais um destino do pacote em “Publicações”.',
+      'Na Newsletter, a Carla acompanha quantas pessoas confirmaram no mês e as últimas edições.',
+    ],
+    resultado: 'A lista cresce só com quem quer receber, dentro da LGPD.',
+  },
   tour: [
     {
       titulo: 'A Newsletter',
@@ -61,6 +71,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'enviar-edicao',
       titulo: 'Enviar uma edição da newsletter',
+      exemplo: 'No pacote “Campanha do agasalho: resultados”, o Bruno liga o destino “Newsletter”; a edição sai para os 1.240 inscritos confirmados junto com o site.',
       passos: [
         'Abra “Publicações” e o pacote da matéria (ou crie um).',
         'Toque em “Adicionar destino” e, em “Newsletter”, escolha “Edição”.',
@@ -245,6 +256,16 @@ const IMPRENSA: GuiaDaArea = {
   href: '/imprensa',
   paraQueServe: 'O banco de contatos da filial: jornalistas, veículos e qualquer contato relevante, com a situação de cada e-mail. Daqui saem campanhas por e-mail, como um release, e a tela mostra quem abriu, quem clicou e quem saiu da lista. Com a Hunter.io ligada, dá para achar e verificar e-mails pelo site do veículo.',
   quemUsa: 'Toda a equipe vê o banco, cadastra, edita e importa contatos, usa a Hunter.io (quando ligada) e vê todas as campanhas. Criar e enviar campanhas é para administradores e editores. Remover um contato: administradores e quem o cadastrou.',
+  naPratica: {
+    titulo: 'O release da campanha chega aos jornalistas certos',
+    passos: [
+      'A Carla importa a planilha com 80 contatos de imprensa do Rio.',
+      'O Palácio verifica os e-mails e marca os inválidos, que ficam de fora das campanhas.',
+      'Ela monta a campanha “Release: campanha do agasalho” e envia para os contatos de saúde e cidade.',
+      'No dia seguinte, vê quem abriu e manda um lembrete só para quem não abriu.',
+    ],
+    resultado: 'O release vai para quem importa, e você sabe quem leu.',
+  },
   tour: [
     {
       titulo: 'Imprensa e contatos',
@@ -348,6 +369,7 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'enviar-campanha',
       titulo: 'Enviar uma campanha',
+      exemplo: 'A campanha “Release: campanha do agasalho 2026” vai para 62 contatos válidos; os 18 com e-mail inválido ficam de fora sozinhos.',
       quem: 'Administradores e editores',
       passos: [
         'Na aba “Campanhas”, toque em “Nova campanha”. (Ou, em “Contatos”, marque as pessoas e toque em “Enviar campanha”.)',
@@ -373,6 +395,7 @@ const IMPRENSA: GuiaDaArea = {
     {
       id: 'follow-up',
       titulo: 'Mandar um follow-up para quem não abriu',
+      exemplo: 'Dois dias depois, 25 abriram; a Carla manda um lembrete curto só para os 37 que não abriram.',
       quem: 'Administradores e editores',
       passos: [
         'Na aba “Campanhas”, ache a campanha na lista.',
@@ -515,6 +538,16 @@ const RESULTADOS: GuiaDaArea = {
   href: '/impacto',
   paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que o Palácio Virtual registra; alcance, engajamento e dados do site entram quando as ferramentas de medição (analytics) forem conectadas, sem números estimados.',
   quemUsa: 'Toda a equipe vê os mesmos números, da filial inteira. É uma tela só de leitura: nada se edita aqui.',
+  naPratica: {
+    titulo: 'O que saiu no mês, para a reunião da Diretoria',
+    passos: [
+      'Antes da reunião mensal, a Carla abre Resultados.',
+      'Vê quantos pacotes e publicações saíram nos últimos 30 dias e em quais canais.',
+      'Confere como andam os projetos ativos, com a situação de cada um.',
+      'Leva esses números para a reunião, sem montar planilha.',
+    ],
+    resultado: 'A prestação de contas da comunicação sai pronta.',
+  },
   tour: [
     {
       alvo: 'resultados.aviso',
@@ -547,6 +580,7 @@ const RESULTADOS: GuiaDaArea = {
     {
       id: 'ver-o-que-saiu',
       titulo: 'Ver o que saiu nos últimos 30 dias',
+      exemplo: 'Em setembro saíram 18 pacotes e 52 publicações, a maior parte no Instagram e no site; a Carla leva esse resumo para a Diretoria.',
       passos: [
         'Abra “Resultados”, no grupo Análise do menu.',
         'Em “Atividade registrada”, leia quantos pacotes e quantas publicações saíram e em quantos canais.',
@@ -622,6 +656,16 @@ const HISTORICO: GuiaDaArea = {
   href: '/registro',
   paraQueServe: 'O Histórico é o registro de tudo o que o Palácio Virtual colocou no ar: uma linha para cada destino de um pacote que foi publicado ou que falhou, com a data, o canal e o endereço. Serve para conferir o que saiu, achar o que ficou pelo caminho e prestar contas.',
   quemUsa: 'Toda a equipe vê o mesmo Histórico e pode filtrar, baixar o CSV e usar “Conferir situação”. Tentar de novo o que falhou é feito no pacote, em “Publicações”.',
+  naPratica: {
+    titulo: 'Conferir se a matéria saiu em todos os canais',
+    passos: [
+      'A Diretoria pergunta se a matéria da vacinação saiu no Facebook.',
+      'O Bruno abre o Histórico e busca pelo título.',
+      'Vê que saiu no site e no Instagram, mas o Facebook “falhou” por causa do login da página.',
+      'Ele reconecta a página, toca em “Tentar de novo” e a linha passa a “Publicado”, com o link.',
+    ],
+    resultado: 'Você sabe exatamente o que foi ao ar, quando e onde.',
+  },
   tour: [
     {
       titulo: 'O Histórico',
@@ -660,6 +704,7 @@ const HISTORICO: GuiaDaArea = {
     {
       id: 'tentar-de-novo',
       titulo: 'Ver o que falhou e tentar de novo',
+      exemplo: 'O destino Facebook da matéria da vacinação aparece “Falhou”; depois de reconectar a página, o Bruno toca em “Tentar de novo” e o post sai.',
       passos: [
         'Procure as linhas com “Falhou” na coluna “Situação”. O total de falhas aparece em vermelho acima da tabela.',
         'Leia o motivo, em vermelho embaixo do título.',

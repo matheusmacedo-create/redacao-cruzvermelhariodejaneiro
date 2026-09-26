@@ -143,7 +143,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       {/* O tour aponta o começo do formulário (Contato), por onde o texto do passo
           começa: o formulário inteiro passa da altura da tela. */}
       <Secao titulo="Contato" icone={Phone} className={cn(cartao, 'gap-4')}>
-        <div className="grid gap-4 sm:grid-cols-2" data-ajuda="membro.formulario-do-perfil">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2" data-ajuda="membro.formulario-do-perfil">
           <Campo id="m-nome-social" name="nome_social" rotulo="Nome social" maxLength={200} defaultValue={v('nome_social')} autoComplete="off"
             dica="Opcional. Se preenchido, é por ele que chamamos você aqui e nos e-mails." largo />
           <Campo id="m-telefone" name="telefone" rotulo="Telefone ou WhatsApp" type="tel" maxLength={40} defaultValue={v('telefone')} autoComplete="tel" />
@@ -151,7 +151,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       </Secao>
 
       <Secao titulo="Endereço" icone={MapPin} className={cn(cartao, 'gap-4')}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="m-cep" name="cep" rotulo="CEP" inputMode="numeric" maxLength={12} defaultValue={v('cep')} autoComplete="postal-code" />
           <EnderecoPeloCep />
           <Campo id="m-logradouro" name="logradouro" rotulo="Logradouro" maxLength={200} defaultValue={v('logradouro')} autoComplete="address-line1" />
@@ -171,7 +171,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       {/* `autoComplete="off"`: o navegador preenchia aqui o nome e o telefone da própria pessoa. */}
       <Secao titulo="Contato de emergência" icone={HeartPulse} id="emergencia" className={cn(cartao, 'gap-4')}>
         <p className="-mt-2 text-sm text-muted-foreground">Quem a filial avisa se algo acontecer com você durante uma ação.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="m-emerg-nome" name="emergencia_nome" rotulo="Nome" maxLength={200} defaultValue={v('emergencia_nome')} autoComplete="off" />
           <Campo id="m-emerg-tel" name="emergencia_telefone" rotulo="Telefone" type="tel" maxLength={40} defaultValue={v('emergencia_telefone')} autoComplete="off" />
           <Campo id="m-emerg-par" name="emergencia_parentesco" rotulo="Parentesco ou relação" maxLength={60} defaultValue={v('emergencia_parentesco')} autoComplete="off" />
@@ -179,7 +179,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       </Secao>
 
       <Secao titulo="Perfil de voluntariado" icone={HandHeart} className={cn(cartao, 'gap-4')}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="m-habilidades" name="habilidades" rotulo="Habilidades" defaultValue={p.habilidades.join(', ')} dica="Separe por vírgula. Ex.: primeiros socorros, fotografia." largo />
           <Campo id="m-idiomas" name="idiomas" rotulo="Idiomas" defaultValue={p.idiomas.join(', ')} dica="Separe por vírgula. Ex.: inglês, Libras." largo />
           <fieldset id="disponibilidade" className="min-w-0 sm:col-span-2">

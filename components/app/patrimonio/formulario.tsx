@@ -26,7 +26,7 @@ export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: 
   return (
     <form action={enviar} className="flex flex-col gap-5" id="form-bem">
       {!b && <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm" data-ajuda="patrimonio.bem-plaqueta">Plaqueta: <span className="font-mono font-semibold">{c.config.prefixo}-{String(c.config.proximo_numero).padStart(5, '0')}</span> <span className="text-muted-foreground">(gerada ao salvar; imprima a etiqueta com QR depois)</span></p>}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Nome do bem" largo><input name="nome" required minLength={2} maxLength={160} defaultValue={b?.nome} placeholder="Ex.: Desfibrilador Philips HS1" className={inputClass} /></Campo>
         <Campo rotulo="Categoria" ajuda={cat ? `${cat.vida_util_meses ? `Vida útil ${cat.vida_util_meses} meses` : 'Não deprecia'}${cat.manutencao_meses ? ` · manutenção a cada ${cat.manutencao_meses} meses` : ''}` : undefined}>
           <select name="categoria_id" required value={categoria} data-ajuda="patrimonio.bem-categoria" onChange={(e) => setCategoria(e.target.value)} className={inputClass}>
@@ -52,7 +52,7 @@ export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: 
         </Campo>
       </div>
 
-      <fieldset className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.bem-aquisicao">
+      <fieldset className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.bem-aquisicao">
         <legend className="px-1 text-sm font-semibold">Aquisição</legend>
         <Campo rotulo="Origem">
           <select name="origem" value={origem} onChange={(e) => setOrigem(e.target.value)} className={inputClass}>{Object.entries(ORIGENS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -79,7 +79,7 @@ export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: 
         {b?.lancamento_id && <input type="hidden" name="lancamento_id" value={b.lancamento_id} />}
       </fieldset>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo rotulo="Manutenção a cada (meses)" ajuda={cat?.manutencao_meses ? `Vazio: segue a categoria (${cat.manutencao_meses} meses).` : 'Vazio: sem manutenção periódica.'}>
           <input name="manutencao_meses" inputMode="numeric" maxLength={3} defaultValue={b?.manutencao_meses ?? ''} className={inputClass} />
         </Campo>

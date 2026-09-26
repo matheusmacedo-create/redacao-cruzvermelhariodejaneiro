@@ -890,7 +890,21 @@ Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
   sem `data-ajuda` no código, id repetido, tela fora da área e tarefa geral
   que manda a equipe da escola ao “Criar” ou a um chamado sem o selo
   “Equipe da Redação”, e avisa sobre área sem ajuda. Tela nova ou que mudou
-  atualiza a ajuda no mesmo PR (§10.3).
+  atualiza a ajuda no mesmo PR (§10.3). Todo guia tem um “Na prática” (uma
+  história de uso, com nomes e datas) e as tarefas trazem `exemplo`
+  (`docs/AJUDA.md` §9).
+- **Beta com a equipe** (`docs/AJUDA.md` §10): o botão “Beta” no topo (no
+  celular, dentro do painel “?”), “O que achou desta tela?” (nota 1–5),
+  “Isso ajudou?” em cada pergunta e “Pergunte à equipe” gravam em
+  `ajuda_retornos` (migração `20260929010000`), com a tela e o aparelho
+  (largura, navegador, sistema). RLS: cada um vê os próprios; o
+  administrador vê todos em `/ajuda/retornos` (resumo por tela, respostas
+  que não ajudaram, CSV em `/api/ajuda/retornos`) e responde por
+  `ajuda_responder_retorno()` — a resposta vai ao sino de quem mandou e
+  aparece em “Seus retornos do beta” na Central. As “Perguntas mais
+  frequentes” da Central somam os votos (`ajuda_votos_das_perguntas()`, só
+  contagens) e completam com `MAIS_PERGUNTADAS`. Regras puras em
+  `lib/ajuda/retornos.ts` (`scripts/conferir-retornos.ts`).
 
 ### 7.16 Agenda (`/calendario`)
 

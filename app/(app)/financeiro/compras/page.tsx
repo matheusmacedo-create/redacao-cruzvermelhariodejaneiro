@@ -196,9 +196,9 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
               Para publicar, envie o PDF em Transparência → Documentos.
             </p>
           </div>
-          <form action="/api/compras/relatorio" target="_blank" className="flex shrink-0 gap-2">
+          <form action="/api/compras/relatorio" target="_blank" className="flex min-w-0 flex-wrap gap-2 sm:shrink-0">
             <input type="hidden" name="empresa" value={empresa.id} />
-            <select name="mes" className="rounded-lg border border-border bg-background px-3 py-2 text-sm" aria-label="Mês do relatório">
+            <select name="mes" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm sm:flex-none" aria-label="Mês do relatório">
               {mesesAtras(12).map((m) => <option key={m.valor} value={m.valor}>{m.rotulo}</option>)}
             </select>
             <Button type="submit" variant="outline"><FileText className="size-4" />Gerar PDF</Button>
