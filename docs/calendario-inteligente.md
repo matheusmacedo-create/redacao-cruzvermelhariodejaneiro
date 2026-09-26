@@ -1,9 +1,40 @@
 # Calendário inteligente — benchmark e proposta (26/09/2026)
 
 O pedido: refazer o calendário do Palácio Virtual "o mais inteligente possível", com uma
-pesquisa de mercado e soluções que integrem e façam sentido para o nosso ecossistema. Nada disto
-está construído: este arquivo é o benchmark e a proposta a aprovar antes do código. As decisões
-estão na §8.
+pesquisa de mercado e soluções que integrem e façam sentido para o nosso ecossistema. Este
+arquivo começou como benchmark e proposta; as decisões estão na §8 e o que foi construído, na §0.
+
+## 0. O que foi entregue (26/09/2026)
+
+Fases 1 a 3, sem a IA (decisão 4). Onde a construção se afastou da proposta, vale o que está aqui.
+
+- **Camadas** (`lib/agenda/camadas.ts`): as 12 da §3.1, cada uma com cor, liga/desliga por pessoa
+  como no Google Agenda ("só esta" e "Ligar todas"), guardado em `agenda_preferencias`. Só aparecem
+  as camadas das áreas a que a pessoa tem acesso (`camadasDisponiveis` em `lib/agenda/fontes.ts`).
+- **Fontes** (`lib/agenda/fontes.ts`): leem só a janela visível, com o cliente da pessoa (o RLS
+  decide). Nada é copiado. `calendar_events` segue como está e alimenta Publicações e Pautas;
+  pacotes entram antes de ir para a fila (depois disso o evento já existe em `calendar_events`).
+  Chamados: só os em que a pessoa é a responsável.
+- **Visões** (`lib/agenda/visao.ts`): mês, semana e lista (30 dias), com anterior, próximo e Hoje.
+  Itens longos (mês temático, campanha de mais de 7 dias) ficam na faixa "Durante o período".
+- **Alertas** (`lib/agenda/regras.ts`, puro, roda no navegador): data comemorativa sem pauta,
+  publicação a menos de 48 h sem aprovação, semana sem publicação, 3+ posts no mesmo canal no
+  mesmo dia, ação ou post em feriado, conta ou documento de veículo vencendo em até 7 dias.
+- **Datas comemorativas**: tabela `datas_comemorativas` com a lista geral (15 datas) e "Criar
+  pauta", que grava `details.data_comemorativa` e `details.ano` na pauta. Editar a lista exige a
+  permissão `agenda.datas` (admin e editor). As datas próprias da filial entram depois (decisão 6).
+- **Feriados** (`lib/agenda/datas.ts`): calculados — nacionais, Sexta-feira Santa, São Jorge (RJ),
+  São Sebastião (Rio), e Carnaval e Corpus Christi como ponto facultativo —, somados ao que a
+  BrasilAPI trouxer a mais (`feriadosDoAno`, a mesma fonte dos prazos dos chamados). A tabela
+  `feriados` da §4 não foi criada.
+- **Link de assinatura (ICS)**: `/api/agenda/ics/[token]`, gerado em "Configurar". O banco guarda
+  só o hash (em `agenda_preferencias`, não numa tabela `agenda_assinaturas`). A rota confere a
+  cada leitura se a pessoa segue ativa e o que ela pode ver. Financeiro, Frota, Chamados e
+  Aniversários nunca vão para o link. Um mês para trás e seis para frente.
+- **Resumo semanal**: `/api/agenda/resumo`, segunda 9h43 UTC (6h43 em Brasília), só para quem ligou.
+- **Não feito**: IA "Planejar o mês" (decisão 4), arrastar para reagendar, recorrência e as colunas
+  novas de `calendar_events` da §4, "adicionar à agenda" no voluntariado, sincronização de duas vias.
+- Conferência: `npx tsx scripts/conferir-agenda.ts`.
 
 ## 1. O que existe hoje
 
@@ -224,17 +255,15 @@ Cada fase segue o de sempre:
 - **Datas comemorativas erradas ou datadas:** a lista inicial precisa de revisão da comunicação
   antes de ir ao ar.
 
-## 8. Decisões do Matheus
+## 8. Decisões do Matheus (26/09/2026)
 
-1. **Construir no Palácio Virtual** (recomendado), ou assinar uma ferramenta pronta?
-2. **Camadas da fase 1:** todas da §3.1, ou começar por publicações, pautas, voluntariado e
-   datas comemorativas?
-3. **Resumo da semana** por e-mail toda segunda: para todos, ou só para quem ativar?
-4. **"Planejar o mês" com IA:** Claude (recomendado, o mesmo das matérias) ou GPT?
-5. **Integração com o Google:** começar pelo link ICS (recomendado), ou já a sincronização de
-   duas vias?
-6. **Datas da filial:** quais datas próprias entram na lista inicial (fundação da filial,
-   aniversário do Palácio da Cruz Vermelha, campanhas fixas do ano)?
+1. **Construir no Palácio Virtual.**
+2. **Todas as camadas**, com opção de desligar cada uma, "tipo o do Google".
+3. **Resumo semanal só para quem ativar.**
+4. **"Planejar o mês" com IA fica de fora**: automação grande demais para rodar com tantos dados e
+   com muita chance de não dar certo.
+5. **Link ICS primeiro** (a recomendação).
+6. **Datas da filial:** ainda não há; vai só a lista geral, editável depois.
 
 ## 9. Fontes (consultadas em 26/09/2026)
 
