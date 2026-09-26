@@ -446,12 +446,18 @@ const FORMACAO: GuiaDaArea = {
 
 const OPORTUNIDADES: GuiaDaArea = {
   href: '/membro/oportunidades',
-  paraQueServe: 'Oportunidades são as ações, os plantões e os eventos da filial abertos ao voluntariado. Aqui você se inscreve, entra na lista de espera, põe a atividade na agenda e cancela se precisar. Com a presença confirmada pela coordenação, as horas entram no seu cadastro.',
+  paraQueServe: 'Oportunidades são as ações, os plantões e os eventos da filial abertos ao voluntariado, e também o que a coordenação pede para você responder: avisos para confirmar, enquetes e quizzes. Aqui você se inscreve, entra na lista de espera, põe a atividade na agenda, cancela se precisar e responde aos pedidos. Com a presença confirmada pela coordenação, as horas entram no seu cadastro.',
   quemUsa: 'As outras pessoas do voluntariado não veem quem se inscreveu: aparece só quantas vagas restam.',
   tour: [
     {
       titulo: 'Oportunidades',
-      texto: 'Três partes: “Minhas inscrições”, “Abertas para inscrição” e “Onde você já esteve”. No celular, a aba de baixo se chama “Ações”.',
+      texto: 'Quando a coordenação pede alguma resposta, “Para você responder” aparece no alto. Depois vêm “Minhas inscrições”, “Abertas para inscrição” e “Onde você já esteve”. No celular, a aba de baixo se chama “Ações”.',
+    },
+    {
+      alvo: 'membro.pedido',
+      titulo: 'Para você responder',
+      texto: 'Avisos para confirmar, enquetes e quizzes da coordenação, cada um com o seu prazo. O botão abre a página para ler e responder.',
+      seAusente: 'pular',
     },
     {
       alvo: 'membro.oportunidade',
@@ -480,6 +486,24 @@ const OPORTUNIDADES: GuiaDaArea = {
     {
       titulo: 'Horas no cadastro',
       texto: 'Depois da atividade, a coordenação registra a presença. Com “Presença confirmada”, as horas entram no seu cadastro e aparecem no Início.',
+    },
+  ],
+  telas: [
+    {
+      caminho: '/membro/oportunidades/[id]',
+      rotulo: 'Responder',
+      tour: [
+        {
+          titulo: 'Responder',
+          texto: 'O texto da coordenação e as perguntas, uma por cartão. As opcionais estão marcadas; nas de várias escolhas, pode marcar mais de uma.',
+        },
+        {
+          alvo: 'membro.enviar-resposta',
+          titulo: 'Enviar',
+          texto: 'Se faltar alguma obrigatória, a tela leva até ela. Na enquete, dá para voltar e mudar até o prazo; no quiz, a nota sai na hora.',
+          seAusente: 'pular',
+        },
+      ],
     },
   ],
   tarefas: [
@@ -512,6 +536,27 @@ const OPORTUNIDADES: GuiaDaArea = {
         'Toque em “Sair da lista de espera”.',
         'Confirme em “Sim, sair” (ou toque em “Ficar na lista”).',
       ],
+    },
+    {
+      id: 'responder-pedido',
+      titulo: 'Responder a um aviso, enquete ou quiz',
+      passos: [
+        'Abra “Oportunidades” (no celular, “Ações”). No Início também aparece um aviso quando há pedido esperando.',
+        'Em “Para você responder”, toque no botão do cartão: “Ler e confirmar”, “Responder” ou “Fazer o quiz”.',
+        'Responda às perguntas. As marcadas como opcionais podem ficar em branco.',
+        'Toque em “Estou ciente”, “Enviar resposta” ou “Enviar respostas”.',
+      ],
+      dica: 'Na enquete, dá para mudar a resposta até o prazo. No quiz, a nota sai na hora; se não passar, você tem até 3 tentativas.',
+    },
+    {
+      id: 'inscricao-com-perguntas',
+      titulo: 'Inscrever-se numa ação que tem perguntas',
+      passos: [
+        'Em “Abertas para inscrição”, toque em “Quero participar”.',
+        'Na página da ação, responda às perguntas (por exemplo, o tamanho da camiseta).',
+        'Toque em “Quero participar” no fim da página.',
+      ],
+      dica: 'Até as inscrições encerrarem, “Minhas respostas” no cartão deixa mudar o que você respondeu.',
     },
     {
       id: 'por-na-agenda',
@@ -571,6 +616,24 @@ const OPORTUNIDADES: GuiaDaArea = {
       pergunta: 'Recebo lembrete da atividade?',
       resposta: 'Sim: na véspera, quem tem vaga recebe um e-mail de lembrete. Quem está só na lista de espera não recebe.',
       termos: ['lembrete', 'aviso', 'e-mail', 'véspera'],
+    },
+    {
+      id: 'quiz-tentativas',
+      pergunta: 'Quantas vezes posso fazer o quiz?',
+      resposta: 'Até 3 tentativas. A nota sai assim que você envia; passou da nota mínima, está aprovado e o resultado fica guardado. Se as 3 acabarem sem aprovação, fale com a coordenação em “Mensagens”.',
+      termos: ['quiz', 'nota', 'tentativa', 'Você já usou as 3 tentativas deste quiz.'],
+    },
+    {
+      id: 'mudar-resposta',
+      pergunta: 'Respondi errado. Dá para mudar?',
+      resposta: 'Na enquete e nas perguntas de uma ação, sim: abra de novo e toque em “Atualizar resposta” (ou “Atualizar respostas”), até o prazo. No quiz, a resposta vale como tentativa; se não passar, dá para tentar de novo.',
+      termos: ['mudar resposta', 'errei', 'corrigir', 'O prazo para responder terminou.'],
+    },
+    {
+      id: 'quem-ve-resposta',
+      pergunta: 'Quem vê as minhas respostas?',
+      resposta: 'Só a coordenação do Voluntariado. As outras pessoas do voluntariado não veem o que você respondeu.',
+      termos: ['privacidade', 'enquete', 'respostas'],
     },
     {
       id: 'quem-ve-inscricao',

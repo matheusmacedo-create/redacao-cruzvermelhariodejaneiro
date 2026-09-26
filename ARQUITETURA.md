@@ -1028,6 +1028,31 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - Bloco novo: acrescente em `BLOCOS` e `ORDEM_PADRAO` e em `BLOCO` na página, e marque a busca dele
   com `mostra('<id>')`.
 
+### 7.22 Oportunidades que pedem resposta: aviso, enquete, quiz e perguntas (`/voluntariado/oportunidades`, `/membro/oportunidades/[id]`)
+
+- **Tipos de resposta** (`aviso`, `enquete`, `quiz`; `ehDeResposta()` em `lib/oportunidades/regras.ts`):
+  - não têm inscrição, vagas nem horas;
+  - `inicio` é quando abre e `fim` é o prazo para responder;
+  - ficam fora da agenda da equipe e das seções de inscrição do voluntário;
+  - aparecem em "Para você responder" e no Início do voluntário.
+- **Perguntas** (`oportunidade_perguntas`) valem em qualquer oportunidade. Numa ação, as respostas vão
+  com a inscrição (`inscrever(id, respostas)` grava as respostas antes de inscrever).
+  - Tipos de pergunta: escolha única, várias escolhas, sim/não e resposta curta.
+  - A equipe só grava pela função `salvar_perguntas_oportunidade`, que troca a lista inteira.
+  - Depois da primeira resposta, a função recusa mudar as perguntas, e um gatilho recusa mudar o tipo.
+- **Respostas** (`oportunidade_respostas`, uma por pessoa):
+  - só por `membro_responder_oportunidade` (service_role), que confere prazo, obrigatórias e opções e
+    grava a versão limpa;
+  - enquete e perguntas de ação: responder de novo troca a resposta, até o prazo;
+  - quiz: corrige na hora; só acerta quem marca exatamente as certas; até 3 tentativas; aprovado, fica;
+  - o gabarito (`corretas`) nunca vai ao navegador do voluntário.
+- A equipe (nível ≥ 1) lê perguntas e respostas pelo RLS. A página da oportunidade mostra:
+  - o resumo por pergunta e a resposta de cada pessoa;
+  - no aviso, quantos confirmaram de quantos voluntários ativos;
+  - a planilha em `/api/voluntariado/oportunidades/[id]/respostas`, com nível ≥ 2.
+- Regras puras e estatística: `lib/oportunidades/perguntas.ts`, conferidas por
+  `npx tsx scripts/conferir-perguntas.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

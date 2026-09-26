@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { CalendarCheck, CalendarDays, History } from 'lucide-react'
+import { CalendarCheck, CalendarDays, ClipboardList, History } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
-import { agruparOportunidades, cartaoDaOportunidade, oportunidadesDoMembro, type OportunidadeDoMembro } from '@/lib/membro/oportunidades'
-import { CartaoDeOportunidade, ListaDeOportunidades } from '@/components/membro/oportunidades'
+import { agruparOportunidades, cartaoDaOportunidade, oportunidadesDoMembro, pedidosDoMembro, type OportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import { CartaoDeOportunidade, CartaoDePedidoView, ListaDeOportunidades } from '@/components/membro/oportunidades'
 import { CabecalhoDaPagina, EstadoVazio, Secao } from '@/components/membro/pecas'
 import { botaoSecundario } from '@/components/membro/marca'
 
@@ -19,10 +19,14 @@ export default async function Oportunidades() {
   // Um `agora` só para a página inteira: seção e cartão nunca discordam sobre o que já começou.
   const agora = new Date()
   const { minhas, abertas, passadas } = agruparOportunidades(lista, agora)
+  const pedidos = pedidosDoMembro(lista, agora)
   const cartoes = (l: OportunidadeDoMembro[]) => l.map((o) => <CartaoDeOportunidade key={o.id} c={cartaoDaOportunidade(o, agora)} />)
   return (
     <div className="flex flex-col gap-6">
-      <CabecalhoDaPagina titulo="Oportunidades" descricao="Ações, plantões e eventos da filial. Com a presença confirmada, as horas entram no seu cadastro." />
+      <CabecalhoDaPagina titulo="Oportunidades" descricao="Ações, plantões e eventos da filial, e o que a coordenação pede para você responder. Com a presença confirmada, as horas entram no seu cadastro." />
+      {pedidos.length > 0 && (
+        <Secao titulo="Para você responder" icone={ClipboardList} id="responder">{pedidos.map((p) => <CartaoDePedidoView key={p.id} c={p} />)}</Secao>
+      )}
       <ListaDeOportunidades visiveis={[...minhas, ...abertas, ...passadas].map((o) => o.id)}>
         {minhas.length > 0 && (
           <Secao titulo="Minhas inscrições" icone={CalendarCheck} id="minhas">{cartoes(minhas)}</Secao>

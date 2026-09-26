@@ -1,12 +1,13 @@
 'use client'
 
 import { createContext, use, useEffect, useId, useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  CalendarClock, CalendarPlus, CalendarX2, CheckCircle2, Clock, Hourglass, Loader2, MapPin, Radio, Timer, UserX, Users, type LucideIcon,
+  CalendarClock, CalendarPlus, CalendarX2, CheckCircle2, ClipboardList, Clock, Hourglass, Loader2, MapPin, Megaphone, Radio, Timer, Trophy, UserX, Users, type LucideIcon,
 } from 'lucide-react'
 import { cancelarInscricao, inscrever } from '@/app/actions/membro'
-import type { CartaoDaOportunidade, SeloDoCartao } from '@/lib/membro/oportunidades'
+import type { CartaoDaOportunidade, CartaoDePedido, SeloDoCartao } from '@/lib/membro/oportunidades'
 import { cn } from '@/lib/utils'
 import { botaoContorno, botaoDoMembro, botaoPerigo, botaoSecundario } from './marca'
 import { Recado, Selo, type TomDoSelo } from './pecas'
@@ -255,11 +256,21 @@ function Acoes({ c, idDoTitulo }: { c: CartaoDaOportunidade; idDoTitulo: string 
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          {participar && (
+          {participar && c.acoes.perguntas && (
+            // Com perguntas, a inscrição é na página da oportunidade: as respostas vão junto.
+            <Link href={`/membro/oportunidades/${c.id}`} aria-describedby={idDoTitulo} data-ajuda="membro.participar"
+              className={cn(participar === 'vaga' ? botaoDoMembro : botaoContorno, 'w-full sm:w-auto')}>
+              {participar === 'vaga' ? 'Quero participar' : 'Entrar na lista de espera'}
+            </Link>
+          )}
+          {participar && !c.acoes.perguntas && (
             <button type="button" aria-disabled={ocupado || undefined} aria-describedby={idDoTitulo} onClick={querParticipar} data-ajuda="membro.participar"
               className={cn(participar === 'vaga' ? botaoDoMembro : botaoContorno, 'w-full sm:w-auto')}>
               <Rotulo ocupado={ocupado} rotulo={participar === 'vaga' ? 'Quero participar' : 'Entrar na lista de espera'} andamento={participar === 'vaga' ? 'Inscrevendo…' : 'Entrando na lista…'} />
             </button>
+          )}
+          {!participar && sair && c.acoes.perguntas && (
+            <Link href={`/membro/oportunidades/${c.id}`} aria-describedby={idDoTitulo} className={cn(botaoSecundario, 'grow sm:grow-0')}>Minhas respostas</Link>
           )}
           {/* <a> e não <Link>: é um arquivo .ics para baixar, não uma página. */}
           {agenda && (
@@ -275,5 +286,36 @@ function Acoes({ c, idDoTitulo }: { c: CartaoDaOportunidade; idDoTitulo: string 
         </div>
       )}
     </div>
+  )
+}
+
+const ICONE_DO_PEDIDO: Record<string, LucideIcon> = { aviso: Megaphone, enquete: ClipboardList, quiz: Trophy }
+const TOM_DO_SELO: Record<'sucesso' | 'aviso' | 'neutro', TomDoSelo> = { sucesso: 'sucesso', aviso: 'aviso', neutro: 'neutro' }
+
+/**
+ * Um aviso para confirmar, uma enquete ou um quiz. O cartão só leva à
+ * página da oportunidade, onde a pessoa lê, responde e vê o resultado.
+ */
+export function CartaoDePedidoView({ c }: { c: CartaoDePedido }) {
+  const Icone = ICONE_DO_PEDIDO[c.codigo] ?? ClipboardList
+  const idDoTitulo = `p-${c.id}-titulo`
+  return (
+    <article id={`o-${c.id}`} aria-labelledby={idDoTitulo} data-ajuda="membro.pedido"
+      className={cn('flex scroll-mb-4 flex-col gap-3 rounded-xl border bg-card p-4 sm:p-5', c.pendente ? 'border-primary/40' : 'border-border')}>
+      <div className="flex gap-3 sm:gap-4">
+        <div aria-hidden="true" className={cn('flex size-14 shrink-0 items-center justify-center self-start rounded-lg', c.pendente ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+          <Icone className="size-6" />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm text-muted-foreground">{c.tipo}</p>
+          <h3 id={idDoTitulo} className="font-semibold wrap-break-word">{c.titulo}</h3>
+          <p className="flex items-center gap-1.5 text-sm text-muted-foreground"><CalendarClock className="size-4 shrink-0" aria-hidden="true" />{c.prazo}</p>
+          {c.selo && <div className="mt-1"><Selo tom={TOM_DO_SELO[c.selo.tom]} icone={c.selo.tom === 'sucesso' ? CheckCircle2 : Clock}>{c.selo.texto}</Selo></div>}
+        </div>
+      </div>
+      <div className="flex sm:pl-18">
+        <Link href={`/membro/oportunidades/${c.id}`} aria-describedby={idDoTitulo} className={cn(c.pendente ? botaoDoMembro : botaoSecundario, 'w-full sm:w-auto')}>{c.acao}</Link>
+      </div>
+    </article>
   )
 }

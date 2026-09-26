@@ -8,6 +8,7 @@ import { avisarPromovidos, enviarAoVoluntario, naEspera } from '@/lib/membro/com
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeCancelamento } from '@/lib/membro/emails'
 import { lerOportunidade, quando } from '@/lib/oportunidades/regras'
+import { lerPerguntas, paraOBanco } from '@/lib/oportunidades/perguntas'
 
 /**
  * Oportunidades — o lado da equipe. Escrita sob as políticas do nível do
@@ -35,22 +36,43 @@ function revalidar(id?: string) {
   revalidatePath('/membro', 'layout')
 }
 
+/**
+ * Salva a oportunidade e, quando o formulário manda (`perguntas_enviadas`),
+ * as perguntas. Com resposta gravada, o formulário não manda as perguntas
+ * (ficam travadas) e o banco recusa mudar o tipo. Numa oportunidade nova,
+ * se as perguntas forem recusadas, ela é desfeita: não sobra rascunho pela metade.
+ */
 export async function salvarOportunidade(id: string | null, _anterior: Resultado & { ok?: boolean }, formData: FormData): Promise<Resultado & { ok?: boolean }> {
   let novo = ''
   try {
     const { context, supabase } = await gerente()
     const { dados, erros } = lerOportunidade(formData)
     if (!dados) throw new Error(erros.join(' '))
+    const comPerguntas = formData.get('perguntas_enviadas') === '1'
+    const lidas = comPerguntas ? lerPerguntas(formData.get('perguntas'), dados.tipo) : null
+    if (lidas?.erros.length) throw new Error(lidas.erros.join(' '))
+    const gravarPerguntas = async (oportunidadeId: string) => {
+      if (!lidas) return
+      const { error } = await supabase.rpc('salvar_perguntas_oportunidade', { p_oportunidade_id: oportunidadeId, p_perguntas: paraOBanco(lidas.perguntas) })
+      if (error) erroDoBanco(error, 'Não foi possível salvar as perguntas.')
+    }
     if (id) {
       const antes = await naEspera(id)
       const { error } = await supabase.from('oportunidades').update({ ...dados, updated_at: new Date().toISOString() }).eq('id', id)
       if (error) erroDoBanco(error, 'Não foi possível salvar.')
+      await gravarPerguntas(id)
       await avisarPromovidos(id, antes)
       revalidar(id)
       return { ok: true }
     }
     const { data, error } = await supabase.from('oportunidades').insert({ ...dados, workspace_id: context.workspace.id, criado_por: context.user.id }).select('id').single()
     if (error || !data) erroDoBanco(error, 'Não foi possível criar.')
+    try {
+      await gravarPerguntas(data.id)
+    } catch (causa) {
+      await supabase.from('oportunidades').delete().eq('id', data.id)
+      throw causa
+    }
     novo = data.id
     revalidar()
   } catch (causa) {
@@ -100,8 +122,12 @@ export async function cancelarOportunidade(id: string, motivo: string): Promise<
 export async function excluirOportunidade(id: string): Promise<Resultado> {
   try {
     const { supabase } = await gerente()
-    const { count } = await supabase.from('oportunidade_inscricoes').select('id', { count: 'exact', head: true }).eq('oportunidade_id', id)
+    const [{ count }, { count: respostas }] = await Promise.all([
+      supabase.from('oportunidade_inscricoes').select('id', { count: 'exact', head: true }).eq('oportunidade_id', id),
+      supabase.from('oportunidade_respostas').select('id', { count: 'exact', head: true }).eq('oportunidade_id', id),
+    ])
     if (count) throw new Error('Já há inscrições. Em vez de excluir, cancele: os inscritos são avisados.')
+    if (respostas) throw new Error('Já há respostas. Em vez de excluir, cancele: as respostas ficam guardadas.')
     const { error } = await supabase.from('oportunidades').delete().eq('id', id)
     if (error) erroDoBanco(error, 'Não foi possível excluir.')
     revalidar()

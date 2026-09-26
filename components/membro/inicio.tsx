@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
 import type { CursoNoCatalogo } from '@/lib/membro/cursos'
-import type { OportunidadeDoMembro } from '@/lib/membro/oportunidades'
+import type { CartaoDePedido, OportunidadeDoMembro } from '@/lib/membro/oportunidades'
 import type { AvisoDoMembro } from '@/lib/membro/canal'
 import type { BannerDoMembro } from '@/lib/membro/banners'
 import { duracaoLegivel } from '@/lib/cursos/regras'
@@ -28,9 +28,11 @@ import { CabecalhoDaPagina, EstadoVazio, Recado, Secao, Selo, SeloDeValidade } f
  * Vermelho sólido só num único botão principal (e nos selos de "Novo"); o
  * resto é neutro, inclusive o bloco da data, igual ao de Oportunidades.
  */
-export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, atividades, cursos, oportunidades, avisos, banners = [], termosPendentes }: {
+export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, atividades, cursos, oportunidades, avisos, banners = [], termosPendentes, pedidos = [] }: {
   nome: string; perfil: Perfil; hoje: string; hora: number; agora: Date; formacoes: Formacao[]; atividades: Atividade[]
   cursos: CursoNoCatalogo[]; oportunidades: OportunidadeDoMembro[]; avisos: AvisoDoMembro[]; banners?: BannerDoMembro[]; termosPendentes: number
+  /** Avisos, enquetes e quizzes esperando resposta da pessoa. */
+  pedidos?: CartaoDePedido[]
 }) {
   const provas = provasPendentes(cursos)
   const continuar = cursoParaContinuar(cursos)
@@ -43,14 +45,21 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
   })
   // Um botão principal por tela: o do próximo passo, para quem está chegando;
   // senão o do curso, a menos que haja pendência no alto (a faixa de aviso já chama a atenção).
-  const cursoEhPrincipal = !passos && termosPendentes === 0 && provas.length === 0
+  const cursoEhPrincipal = !passos && termosPendentes === 0 && provas.length === 0 && pedidos.length === 0
   const linha = linhaDoPerfil(perfil)
   const ano = hoje.slice(0, 4)
 
   return (
     <div className="flex flex-col gap-6">
-      {(termosPendentes > 0 || provas.length > 0) && (
+      {(termosPendentes > 0 || provas.length > 0 || pedidos.length > 0) && (
         <div className="flex flex-col gap-3" data-ajuda="membro.pendencias">
+          {pedidos.length > 0 && (
+            <Recado tipo="aviso" id="pedidos-pendentes"
+              titulo={pedidos.length === 1 ? `${pedidos[0].tipo}: ${pedidos[0].titulo}` : `${pedidos.length} pedidos da coordenação esperam sua resposta`}
+              acao={<Link href={pedidos.length === 1 ? `/membro/oportunidades/${pedidos[0].id}` : '/membro/oportunidades#responder'} className={botaoSecundario}>{pedidos.length === 1 ? pedidos[0].acao : 'Ver e responder'}</Link>}>
+              <p>{pedidos.length === 1 ? pedidos[0].prazo : 'Avisos para confirmar, enquetes ou quizzes. Cada um tem o seu prazo.'}</p>
+            </Recado>
+          )}
           {termosPendentes > 0 && (
             <Recado tipo="aviso" id="termos-pendentes" titulo={termosPendentes === 1 ? 'Um bem da filial foi entregue a você.' : `${termosPendentes} bens da filial foram entregues a você.`}
               acao={<Link href="/membro/perfil#bens" className={botaoSecundario}>Conferir e aceitar</Link>}>

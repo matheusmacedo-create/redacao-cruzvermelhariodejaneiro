@@ -3,7 +3,7 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { adapter } from '@/lib/publicacao/canais'
 import { feriadosDoAno } from '@/lib/apis-publicas/servidor'
-import { TIPOS as TIPOS_DE_OPORTUNIDADE, type Tipo as TipoDeOportunidade } from '@/lib/oportunidades/regras'
+import { TIPOS as TIPOS_DE_OPORTUNIDADE, TIPOS_DE_RESPOSTA, type Tipo as TipoDeOportunidade } from '@/lib/oportunidades/regras'
 import { TIPOS_DE_DOCUMENTO, type TipoDeDocumento } from '@/lib/patrimonio/frota'
 import { pode, type Papel } from '@/lib/permissoes'
 import { CAMADAS_DO_ICS, TODAS_AS_CAMADAS, type Camada, type EstadoDoItem, type ItemDaAgenda } from './camadas'
@@ -171,8 +171,9 @@ async function pautas({ cliente, workspaceId, de, ate }: Contexto): Promise<Item
 }
 
 async function voluntariado({ cliente, workspaceId, de, ate }: Contexto): Promise<ItemDaAgenda[]> {
+  // Aviso, enquete e quiz não acontecem num dia: têm prazo para responder e ficam fora da agenda.
   const { data, error } = await cliente.from('oportunidades').select('id,titulo,tipo,local,inicio,fim,publicado')
-    .eq('workspace_id', workspaceId).is('cancelada_em', null)
+    .eq('workspace_id', workspaceId).is('cancelada_em', null).not('tipo', 'in', `(${TIPOS_DE_RESPOSTA.join(',')})`)
     .lte('inicio', fimDoDia(ate)).gte('fim', inicioDoDia(de)).order('inicio').limit(500)
   if (error) throw error
   return ((data ?? []) as Linha[]).map((o) => {

@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { exigirMembro } from '@/lib/membro/sessao'
 import { historicoDoMembro, perfilDoMembro } from '@/lib/membro/dados'
 import { catalogoDoMembro } from '@/lib/membro/cursos'
-import { oportunidadesDoMembro } from '@/lib/membro/oportunidades'
+import { oportunidadesDoMembro, pedidosDoMembro } from '@/lib/membro/oportunidades'
+import { ehDeResposta } from '@/lib/oportunidades/regras'
 import { avisosDoMembro } from '@/lib/membro/canal'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { InicioView } from '@/components/membro/inicio'
@@ -30,6 +31,7 @@ export default async function InicioDoMembro() {
   const termos = bens.filter((b) => !b.termo_aceito_em).length
   return (
     <InicioView nome={m.nome} perfil={perfil} hoje={hoje} hora={hora} agora={agora} formacoes={formacoes} atividades={atividades}
-      cursos={cursos} oportunidades={oportunidades} avisos={avisos} banners={banners} termosPendentes={termos} />
+      cursos={cursos} oportunidades={oportunidades.filter((o) => !ehDeResposta(o.tipo))} avisos={avisos} banners={banners} termosPendentes={termos}
+      pedidos={pedidosDoMembro(oportunidades, agora).filter((p) => p.pendente)} />
   )
 }

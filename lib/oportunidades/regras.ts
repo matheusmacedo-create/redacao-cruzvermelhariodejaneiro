@@ -9,9 +9,25 @@ export const TIPOS = {
   evento: { rotulo: 'Evento' },
   formacao: { rotulo: 'Formação presencial' },
   outro: { rotulo: 'Outro' },
+  // Os que pedem resposta: sem inscrição, vagas nem horas; `inicio` é quando
+  // abre e `fim` é o prazo para responder (migração 20260929020000).
+  aviso: { rotulo: 'Aviso para confirmar' },
+  enquete: { rotulo: 'Enquete / formulário' },
+  quiz: { rotulo: 'Quiz' },
 } as const
 export type Tipo = keyof typeof TIPOS
 export const ehTipo = (s: unknown): s is Tipo => typeof s === 'string' && Object.hasOwn(TIPOS, s)
+
+/** Aviso, enquete e quiz: o voluntário responde, não se inscreve. */
+export const TIPOS_DE_RESPOSTA = ['aviso', 'enquete', 'quiz'] as const
+export const ehDeResposta = (tipo: string | null | undefined) => (TIPOS_DE_RESPOSTA as readonly string[]).includes(tipo ?? '')
+
+/** O que cada tipo de resposta pede ao voluntário, para a tela da equipe. */
+export const EXPLICACAO_DO_TIPO: Partial<Record<Tipo, string>> = {
+  aviso: 'O voluntário lê e toca em “Estou ciente”. Pode ter perguntas, se quiser.',
+  enquete: 'O voluntário responde às perguntas e pode mudar a resposta até o prazo.',
+  quiz: 'Perguntas com resposta certa e nota mínima; até 3 tentativas.',
+}
 
 export const SITUACOES_DA_INSCRICAO = {
   inscrito: 'Inscrito',
@@ -49,6 +65,17 @@ export function estado(o: { inicio: string; fim: string; inscricoes_ate: string 
   return 'aberta'
 }
 
+export type EstadoDoPedido = 'agendado' | 'aberto' | 'encerrado' | 'cancelado'
+
+/** Aviso, enquete e quiz: antes de abrir, aberto até o prazo, encerrado. */
+export function estadoDoPedido(o: { inicio: string; fim: string; cancelada_em: string | null }, agora: Date): EstadoDoPedido {
+  const t = agora.getTime()
+  if (o.cancelada_em) return 'cancelado'
+  if (t < Date.parse(o.inicio)) return 'agendado'
+  if (t > Date.parse(o.fim)) return 'encerrado'
+  return 'aberto'
+}
+
 export const vagasRestantes = (vagas: number | null, ocupadas: number) => (vagas === null ? null : Math.max(0, vagas - ocupadas))
 
 const fmt = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', ...o }).format(new Date(iso))
@@ -73,14 +100,20 @@ export const horasDaAtividade = (o: { inicio: string; fim: string; horas: number
 
 export type DadosDaOportunidade = {
   titulo: string; tipo: Tipo; descricao: string | null; local: string | null; inicio: string; fim: string
-  vagas: number | null; inscricoes_ate: string | null; horas: number | null
+  vagas: number | null; inscricoes_ate: string | null; horas: number | null; nota_minima: number | null
 }
 
-export function lerOportunidade(f: FormData): { dados: DadosDaOportunidade | null; erros: string[] } {
+/**
+ * Lê o formulário da equipe. Nos tipos de resposta (aviso, enquete, quiz):
+ * "Abre em" vazio é agora; "Prazo" é obrigatório; vagas, prazo de inscrição
+ * e horas não valem; o quiz tem nota mínima (padrão 70).
+ */
+export function lerOportunidade(f: FormData, agora = new Date()): { dados: DadosDaOportunidade | null; erros: string[] } {
   const erros: string[] = []
   const t = (k: string, max: number) => String(f.get(k) ?? '').trim().slice(0, max)
   const titulo = t('titulo', 160)
   const tipo = t('tipo', 20)
+  if (ehDeResposta(tipo)) return lerPedido(f, titulo, tipo as Tipo, agora)
   const inicio = deLocal(t('inicio', 16))
   const fim = deLocal(t('fim', 16))
   const ate = t('inscricoes_ate', 16)
@@ -99,7 +132,29 @@ export function lerOportunidade(f: FormData): { dados: DadosDaOportunidade | nul
   return {
     dados: {
       titulo, tipo: tipo as Tipo, descricao: t('descricao', 6000) || null, local: t('local', 300) || null, inicio: inicio!, fim: fim!,
-      vagas: vagas ? Number(vagas) : null, inscricoes_ate: inscricoes, horas: horas ? Math.round(Number(horas) * 4) / 4 : null,
+      vagas: vagas ? Number(vagas) : null, inscricoes_ate: inscricoes, horas: horas ? Math.round(Number(horas) * 4) / 4 : null, nota_minima: null,
+    },
+    erros,
+  }
+}
+
+function lerPedido(f: FormData, titulo: string, tipo: Tipo, agora: Date): { dados: DadosDaOportunidade | null; erros: string[] } {
+  const erros: string[] = []
+  const t = (k: string, max: number) => String(f.get(k) ?? '').trim().slice(0, max)
+  const abre = t('inicio', 16)
+  const inicio = abre ? deLocal(abre) : new Date(Math.floor(agora.getTime() / 60_000) * 60_000).toISOString()
+  const fim = deLocal(t('fim', 16))
+  const nota = t('nota_minima', 3)
+  if (titulo.length < 3) erros.push('Dê um título.')
+  if (abre && !inicio) erros.push('Data de abertura inválida.')
+  if (!fim) erros.push('Informe o prazo para responder.')
+  else if (inicio && fim <= inicio) erros.push('O prazo precisa ser depois da abertura.')
+  if (tipo === 'quiz' && nota && !(/^\d+$/.test(nota) && Number(nota) >= 1 && Number(nota) <= 100)) erros.push('Nota mínima: de 1 a 100.')
+  if (erros.length) return { dados: null, erros }
+  return {
+    dados: {
+      titulo, tipo, descricao: t('descricao', 6000) || null, local: t('local', 300) || null, inicio: inicio!, fim: fim!,
+      vagas: null, inscricoes_ate: null, horas: null, nota_minima: tipo === 'quiz' ? (nota ? Number(nota) : 70) : null,
     },
     erros,
   }

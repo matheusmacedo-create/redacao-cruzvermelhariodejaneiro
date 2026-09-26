@@ -217,11 +217,59 @@ export async function responderProva(cursoId: string, respostas: number[]): Prom
 
 // ---------------------------------------------------------------- oportunidades
 
-export async function inscrever(oportunidadeId: string): Promise<{ erro?: string; situacao?: string }> {
+/** Até 50 respostas, cada uma com o id da pergunta e o texto ou as escolhas. O banco confere o resto. */
+function respostasDoFormulario(bruto: unknown): { p: string; t?: string; e?: number[] }[] {
+  if (!Array.isArray(bruto) || bruto.length > 50) throw new Error('Respostas inválidas.')
+  return bruto.flatMap((x): { p: string; t?: string; e?: number[] }[] => {
+    const r = (x ?? {}) as Record<string, unknown>
+    if (typeof r.p !== 'string' || !/^[0-9a-f-]{36}$/.test(r.p)) return []
+    if (typeof r.t === 'string') return [{ p: r.p, t: r.t.slice(0, 1000) }]
+    if (Array.isArray(r.e)) return [{ p: r.p, e: r.e.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < 10).slice(0, 10) }]
+    return []
+  })
+}
+
+export type ResultadoDaResposta = { erro?: string; nota?: number | null; acertos?: number | null; total?: number | null; aprovado?: boolean | null; tentativas?: number; minima?: number | null; jaAprovado?: boolean }
+
+/**
+ * Responde a um aviso ("Estou ciente"), enquete ou quiz — ou atualiza as
+ * respostas da inscrição numa ação com perguntas. O banco confere prazo,
+ * perguntas obrigatórias, opções e, no quiz, corrige e conta as tentativas.
+ */
+export async function responderOportunidade(oportunidadeId: string, respostas: unknown): Promise<ResultadoDaResposta> {
+  try {
+    const m = await exigirMembroQueEscreve()
+    if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
+    const { data, error } = await createAdminClient().rpc('membro_responder_oportunidade', {
+      p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId, p_respostas: respostasDoFormulario(respostas),
+    })
+    if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar a resposta.')
+    const r = data as { situacao: string; nota: number | null; acertos: number | null; total: number | null; aprovado: boolean | null; tentativas: number; minima: number | null }
+    revalidatePath('/membro', 'layout')
+    return { nota: r.nota, acertos: r.acertos, total: r.total, aprovado: r.aprovado, tentativas: r.tentativas, minima: r.minima, jaAprovado: r.situacao === 'ja_aprovado' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar a resposta.') }
+  }
+}
+
+/**
+ * Inscreve. Quando a oportunidade tem perguntas, as respostas vão junto: são
+ * gravadas antes (o banco recusa se faltar alguma obrigatória) e só então a
+ * inscrição é feita.
+ */
+export async function inscrever(oportunidadeId: string, respostas?: unknown): Promise<{ erro?: string; situacao?: string }> {
   try {
     const m = await exigirMembroQueEscreve()
     if (!/^[0-9a-f-]{36}$/.test(oportunidadeId)) throw new Error('Oportunidade inválida.')
     const admin = createAdminClient()
+    const { count: perguntas } = await admin.from('oportunidade_perguntas').select('id', { count: 'exact', head: true }).eq('oportunidade_id', oportunidadeId)
+    if (perguntas) {
+      if (respostas === undefined) throw new Error('Esta oportunidade tem perguntas: responda antes de se inscrever.')
+      const { error: erroDaResposta } = await admin.rpc('membro_responder_oportunidade', {
+        p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId, p_respostas: respostasDoFormulario(respostas),
+      })
+      if (erroDaResposta) throw new Error(erroDaResposta.code === 'P0001' && erroDaResposta.message ? erroDaResposta.message : 'Não foi possível enviar as respostas.')
+    }
     const { data, error } = await admin.rpc('membro_inscrever', { p_participante_id: m.participanteId, p_oportunidade_id: oportunidadeId })
     if (error) throw new Error(error.code === 'P0001' && error.message ? error.message : 'Não foi possível fazer a inscrição.')
     const situacao = (data as { situacao: string }).situacao
