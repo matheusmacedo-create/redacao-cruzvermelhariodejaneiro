@@ -7,6 +7,7 @@ import { Recado } from '@/components/membro/pecas'
 import { cn } from '@/lib/utils'
 import { ACEITOS, AUTORIZACOES, TEMPO_MINIMO_MS, categoriaDoArquivo, tamanhoLegivel, type Autorizacao, type Categoria } from '@/lib/envios/regras'
 import { Gravador } from './gravador'
+import { ColherAutorizacoes } from './colher-autorizacoes'
 import { acaoDoEnvio, enviarTodos, enviarUm, type Par, type Progresso } from './envio'
 
 type Escolhido = { chave: string; arquivo: File; gravadoNaHora: boolean; categoria: Categoria; previa: string | null }
@@ -31,7 +32,10 @@ function Campo({ id, rotulo, dica, obrigatorio, children }: { id: string; rotulo
  * para o celular na rua. Os arquivos sobem direto ao armazenamento, com
  * progresso, e o envio chega à Redação como "novo" para a comunicação avaliar.
  */
-export function FormularioDeEnvio({ hoje, setores }: { hoje: string; setores: string[] }) {
+/** O termo que as pessoas das fotos assinam (lib/imagem/termo.ts), vindo da página: aquele módulo usa node:crypto. */
+export type TermoDeImagem = { titulo: string; versao: string; paragrafos: readonly string[] }
+
+export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; setores: string[]; termo: TermoDeImagem }) {
   const [passo, setPasso] = useState(0)
   const [quem, setQuem] = useState<Quem>({ nome: '', setor: '', whatsapp: '', email: '' })
   const [avisar, setAvisar] = useState(true)
@@ -238,6 +242,10 @@ export function FormularioDeEnvio({ hoje, setores }: { hoje: string; setores: st
 
         {erro && <Recado tipo="erro">{erro}</Recado>}
 
+        {fase === 'pronto' && enviado?.id && autorizacao && autorizacao !== 'sem_pessoas' && lista.some((p) => p.arquivo.type.startsWith('image/') || p.arquivo.type.startsWith('video/') || /\.(jpe?g|png|webp|heic|heif|mp4|mov|m4v)$/i.test(p.arquivo.name)) && (
+          <ColherAutorizacoes envioId={enviado.id} token={enviado.token} titulo={acao.titulo} temMenores={autorizacao === 'menores'} />
+        )}
+
         {fase === 'pronto' && (
           <div className="flex flex-col gap-2 sm:flex-row">
             {enviado?.id && (
@@ -379,6 +387,17 @@ export function FormularioDeEnvio({ hoje, setores }: { hoje: string; setores: st
               <span><span className="block text-sm font-semibold">{AUTORIZACOES[chave].rotulo}</span><span className="block text-sm text-muted-foreground">{AUTORIZACOES[chave].detalhe}</span></span>
             </label>
           ))}
+          <details className="rounded-xl border border-border bg-background p-3 text-sm">
+            <summary className="cursor-pointer font-medium">Ler o termo que as pessoas das fotos assinam</summary>
+            <div className="mt-2 flex flex-col gap-2 text-muted-foreground">
+              <p className="font-medium text-foreground">{termo.titulo}</p>
+              {termo.paragrafos.map((p, i) => <p key={i}>{i + 1}. {p}</p>)}
+              <p className="text-xs">Versão {termo.versao}</p>
+            </div>
+          </details>
+          {temMidia && autorizacao !== 'sem_pessoas' && (
+            <p className="text-sm text-muted-foreground">Depois de enviar, você recebe um <strong>link e um QR code</strong> para as pessoas assinarem este termo no celular — é essa assinatura que libera as fotos para publicação.</p>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             O que você manda fica guardado pela Cruz Vermelha Brasileira – Filial RJ e só é usado na comunicação da instituição, depois da avaliação da equipe de comunicação.
           </p>

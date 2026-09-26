@@ -24,10 +24,10 @@ export type Categoria = 'foto' | 'video' | 'audio' | 'documento'
 export type Autorizacao = 'sim' | 'nao_sei' | 'menores' | 'sem_pessoas'
 
 export const AUTORIZACOES: Record<Autorizacao, { rotulo: string; detalhe: string; podePublicar: boolean }> = {
-  sim: { rotulo: 'Sim, todas autorizaram', detalhe: 'As pessoas que aparecem nas fotos e vídeos autorizaram o uso da imagem.', podePublicar: true },
+  sim: { rotulo: 'Sim, todas autorizaram', detalhe: 'As pessoas que aparecem concordaram. Depois de enviar, elas assinam o termo pelo link — é o que fica de prova.', podePublicar: true },
   sem_pessoas: { rotulo: 'Não aparece ninguém de frente', detalhe: 'Só o local, objetos, pessoas de costas ou de longe.', podePublicar: true },
-  nao_sei: { rotulo: 'Não sei / não perguntei', detalhe: 'A comunicação confere antes de publicar.', podePublicar: false },
-  menores: { rotulo: 'Tem criança ou adolescente', detalhe: 'Precisa da autorização dos responsáveis antes de publicar.', podePublicar: false },
+  nao_sei: { rotulo: 'Não sei / não perguntei', detalhe: 'Depois de enviar, você recebe um link para as pessoas assinarem; sem isso, a comunicação confere antes de publicar.', podePublicar: false },
+  menores: { rotulo: 'Tem criança ou adolescente', detalhe: 'Precisa da assinatura do pai, da mãe ou do responsável: depois de enviar, eles assinam pelo link.', podePublicar: false },
 }
 
 const EXTENSOES: Record<Categoria, string[]> = {

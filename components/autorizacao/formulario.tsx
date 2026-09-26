@@ -82,7 +82,7 @@ export function FormularioDeAutorizacao({ token }: { token: string }) {
       })
       const corpo = await resposta.json().catch(() => ({}))
       if (!resposta.ok || !corpo.codigo) { setErro(corpo.erro ?? 'Não foi possível enviar. Tente de novo.'); setEnviando(false); return }
-      router.push(`/autorizacao/comprovante/${corpo.codigo}?c=${encodeURIComponent(corpo.chave)}&novo=1`)
+      router.replace(`/autorizacao/comprovante/${corpo.codigo}?c=${encodeURIComponent(corpo.chave)}&novo=1`)
     } catch {
       setErro('Sem conexão. Confira a internet e tente de novo.')
       setEnviando(false)

@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { infoDoObjeto, apagarObjeto } from '@/lib/armazenamento/r2'
 import { dadosDaRequisicao } from '@/lib/acessos/agente'
 import { HORAS_PARA_MANDAR_MAIS, ehChaveDeEnvio, lerArquivos, type Categoria } from '@/lib/envios/regras'
+import { coletaDoEnvio } from '@/lib/imagem/servidor'
 import { armazenamento, avisarAvaliadores, conferirLimites, hashDaOrigem, hashDoToken, prepararArquivos, resumoDosArquivos } from '@/lib/envios/servidor'
 
 export const dynamic = 'force-dynamic'
@@ -14,7 +15,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  *  - `recebido`: o navegador terminou de mandar um arquivo; conferimos no R2
  *    que ele chegou com o tamanho declarado;
  *  - `concluir`: acabou a rodada; o envio passa a aparecer para quem avalia;
- *  - `arquivos`: "mandar mais arquivos para este envio", por 24 horas.
+ *  - `arquivos`: "mandar mais arquivos para este envio", por 24 horas;
+ *  - `autorizacao`: o link (e o QR) para as pessoas das fotos assinarem o
+ *    termo de uso de imagem — criado na primeira vez, o mesmo depois.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const responder = (status: number, corpo: Record<string, unknown>) => Response.json(corpo, { status })
@@ -64,6 +67,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       if (limite) return responder(429, { erro: limite })
       const uploads = await prepararArquivos(admin, envio, arquivos)
       return responder(200, { uploads })
+    }
+
+    if (j.acao === 'autorizacao') {
+      const r = await coletaDoEnvio(envio)
+      if (!r.token) return responder(422, { erro: r.erro })
+      return responder(200, { caminho: `/autorizacao/${r.token}` })
     }
 
     if (j.acao === 'concluir') {

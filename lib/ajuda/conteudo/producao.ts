@@ -571,6 +571,12 @@ const BIBLIOTECA: GuiaDaArea = {
       termos: ['validade jurídica', 'assinatura eletrônica', 'termo de imagem', 'LGPD', 'prova'],
     },
     {
+      id: 'autorizacao-pelo-enviar',
+      pergunta: 'E as fotos que a equipe manda pelo “Mandar uma ação” (/enviar)?',
+      resposta: 'Quem manda lê o termo na etapa “Imagem” e, na tela de “Recebemos!”, toca em “Gerar o link para assinarem”. As pessoas das fotos assinam ali mesmo, passando o celular, ou cada uma no seu pelo QR code ou pelo WhatsApp. As assinaturas aparecem na tela do envio e em “Autorizações de imagem”. Se quem enviou não gerou o link, quem avalia gera pela tela do envio.',
+      termos: ['enviar', 'mandar uma ação', 'envio da equipe', 'voluntário mandou fotos', 'QR code'],
+    },
+    {
       id: 'por-que-sem-selfie',
       pergunta: 'Por que o link não pede uma selfie?',
       resposta: 'Foto do rosto para identificar alguém é dado biométrico, que a LGPD trata como dado sensível e exige mais cuidado. Para autorizar uso de imagem, o registro da assinatura, do aparelho, do IP e da hora já basta como prova, sem guardar mais dados pessoais do que o necessário.',

@@ -37,6 +37,16 @@ os arquivos marcados**, em fluxo, até 300 MB cada e dentro da cota de 1 GB, com
 A autorização vai para a Biblioteca como `authorized` se a pessoa declarou "todos autorizaram" ou
 "não aparece ninguém de frente"; caso contrário, fica `pending`. "Só criar a pauta" não copia nada.
 
+**Termo de imagem assinado (26/09/2026):** a etapa "Imagem" mostra o termo que as pessoas assinam, e
+a tela de "Recebemos!" gera, para o envio com foto ou vídeo, um link e um QR code (`acao:
+'autorizacao'`, com o token do envio). Cada pessoa das fotos vê as fotos do envio (servidas do R2
+por link assinado de 5 minutos), marca os usos e assina com o dedo, no celular de quem enviou ou
+no próprio. É o mesmo fluxo da Biblioteca (ARQUITETURA §7.17): um link por envio
+(`imagem_coletas.envio_id`), válido por 30 dias. A tela do envio mostra quantas pessoas assinaram,
+e quem avalia pode gerar o link se quem enviou não gerou. A declaração do remetente continua
+decidindo o selo na cópia para a Biblioteca; as assinaturas são a prova, conferida antes de
+"Marcar fotos como autorizadas".
+
 **Aviso de publicação:** na primeira publicação da matéria no site, quem enviou e deixou e-mail
 recebe o link. Quem só deixou WhatsApp gera um lembrete no sino do avaliador, e o botão "Avisar pelo
 WhatsApp" do envio abre a conversa com a mensagem pronta.
