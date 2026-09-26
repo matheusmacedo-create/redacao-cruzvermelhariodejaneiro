@@ -24,3 +24,17 @@ export function ehDominioDoPalacio(host: string): boolean {
   const h = host.toLowerCase()
   return h === DOMINIO_DO_PALACIO || h === DOMINIO_ANTIGO
 }
+
+/**
+ * Para onde mandar quem abriu uma página pelo domínio antigo: o mesmo caminho
+ * no novo (308). Só navegação (GET/HEAD) fora de /api — webhooks (Upload-Post),
+ * o formulário da newsletter do site e as agendas assinadas (.ics) chamam
+ * /api pelo endereço antigo e muitos não seguem redirecionamento; esses
+ * continuam respondendo nos dois domínios. Devolve null quando não redireciona.
+ */
+export function enderecoNoDominioNovo(host: string | null, metodo: string, caminho: string, busca: string): string | null {
+  if (!host || host.toLowerCase().split(':')[0] !== DOMINIO_ANTIGO) return null
+  if (metodo !== 'GET' && metodo !== 'HEAD') return null
+  if (caminho === '/api' || caminho.startsWith('/api/')) return null
+  return `${ENDERECO_DO_PALACIO}${caminho}${busca}`
+}
