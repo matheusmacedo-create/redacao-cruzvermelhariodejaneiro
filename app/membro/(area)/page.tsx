@@ -7,6 +7,7 @@ import { avisosDoMembro } from '@/lib/membro/canal'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { InicioView } from '@/components/membro/inicio'
 import { bensDoMembro } from '@/lib/membro/bens'
+import { bannersDoMembro } from '@/lib/membro/banners'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,16 +18,18 @@ export const metadata: Metadata = { title: 'Início' }
 export default async function InicioDoMembro() {
   const m = await exigirMembro()
   const hoje = hojeEmSaoPaulo()
-  const [perfil, { formacoes, atividades }, cursos, oportunidades, avisos, bens] = await Promise.all([
+  const [perfil, { formacoes, atividades }, cursos, oportunidades, avisos, bens, banners] = await Promise.all([
     perfilDoMembro(m), historicoDoMembro(m), catalogoDoMembro(m), oportunidadesDoMembro(m),
     // Os avisos têm página própria; aqui são só um resumo. Se a leitura falhar, o Início abre sem eles em vez de cair na tela de erro.
     avisosDoMembro(m, hoje).catch(() => []), bensDoMembro(m),
+    // O banner é enfeite: se a leitura falhar, o Início abre sem ele.
+    bannersDoMembro(m, hoje).catch(() => []),
   ])
   const agora = new Date()
   const hora = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' }).format(agora))
   const termos = bens.filter((b) => !b.termo_aceito_em).length
   return (
     <InicioView nome={m.nome} perfil={perfil} hoje={hoje} hora={hora} agora={agora} formacoes={formacoes} atividades={atividades}
-      cursos={cursos} oportunidades={oportunidades} avisos={avisos} termosPendentes={termos} />
+      cursos={cursos} oportunidades={oportunidades} avisos={avisos} banners={banners} termosPendentes={termos} />
   )
 }

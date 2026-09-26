@@ -136,12 +136,12 @@ export function PainelDoOficio(props: {
       <Card data-ajuda="oficios.integridade" className="flex flex-col gap-3 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Integridade</p>
         <div className="text-xs">
-          <p className="flex items-center justify-between gap-2 font-medium">Código do documento (SHA-256)<Copiar valor={props.hashDocumento} rotulo="Copiar código do documento" /></p>
+          <p className="flex items-center justify-between gap-2 font-medium">Hash do documento (SHA-256)<Copiar valor={props.hashDocumento} rotulo="Copiar o hash do documento" /></p>
           <p className="break-all font-mono text-[11px] text-muted-foreground">{hashLegivel(props.hashDocumento)}</p>
         </div>
         {props.hashManifesto && (
           <div className="text-xs">
-            <p className="flex items-center justify-between gap-2 font-medium">Manifesto de assinaturas (SHA-256)<Copiar valor={props.hashManifesto} rotulo="Copiar código do manifesto" /></p>
+            <p className="flex items-center justify-between gap-2 font-medium">Hash do protocolo de assinaturas (SHA-256)<Copiar valor={props.hashManifesto} rotulo="Copiar o hash do protocolo" /></p>
             <p className="break-all font-mono text-[11px] text-muted-foreground">{hashLegivel(props.hashManifesto)}</p>
           </div>
         )}
@@ -159,7 +159,7 @@ export function PainelDoOficio(props: {
           {c && <SeloDoCarimbo estado={c.estado} />}
         </div>
         {!c ? (
-          <p className="text-xs text-muted-foreground">O registro começa quando todas as pessoas assinarem. Só o código do manifesto vai ao Bitcoin — nenhum texto ou nome.</p>
+          <p className="text-xs text-muted-foreground">O registro começa quando todas as pessoas assinarem. Só o hash do protocolo de assinaturas vai ao Bitcoin — nenhum texto ou nome.</p>
         ) : (
           <>
             <p className="text-xs text-muted-foreground">

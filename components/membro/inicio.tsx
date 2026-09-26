@@ -7,6 +7,7 @@ import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
 import type { CursoNoCatalogo } from '@/lib/membro/cursos'
 import type { OportunidadeDoMembro } from '@/lib/membro/oportunidades'
 import type { AvisoDoMembro } from '@/lib/membro/canal'
+import type { BannerDoMembro } from '@/lib/membro/banners'
 import { duracaoLegivel } from '@/lib/cursos/regras'
 import { ehTipo, estado, quando, selo as diaEMes, TIPOS } from '@/lib/oportunidades/regras'
 import { dataCurta, horasLegiveis, mesEAno, primeiroNome, saudacao } from '@/lib/membro/regras'
@@ -15,20 +16,21 @@ import {
   provasPendentes, proximaAtividade, temInscricao, type PrimeiroPasso,
 } from '@/lib/membro/inicio'
 import { cn } from '@/lib/utils'
+import { BannersDoMembro } from './banners'
 import { BarraDeProgresso } from './cursos'
 import { botaoDoMembro, botaoFantasma, botaoSecundario } from './marca'
 import { CabecalhoDaPagina, EstadoVazio, Recado, Secao, Selo, SeloDeValidade } from './pecas'
 
 /**
  * A vista do Início, na ordem do que a pessoa precisa fazer: pendências,
- * saudação, primeiros passos (só para quem acabou de chegar), próxima
+ * saudação, os banners da coordenação, primeiros passos (só para quem acabou de chegar), próxima
  * atividade, curso, números, avisos, certificados e últimas atividades.
  * Vermelho sólido só num único botão principal (e nos selos de "Novo"); o
  * resto é neutro, inclusive o bloco da data, igual ao de Oportunidades.
  */
-export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, atividades, cursos, oportunidades, avisos, termosPendentes }: {
+export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, atividades, cursos, oportunidades, avisos, banners = [], termosPendentes }: {
   nome: string; perfil: Perfil; hoje: string; hora: number; agora: Date; formacoes: Formacao[]; atividades: Atividade[]
-  cursos: CursoNoCatalogo[]; oportunidades: OportunidadeDoMembro[]; avisos: AvisoDoMembro[]; termosPendentes: number
+  cursos: CursoNoCatalogo[]; oportunidades: OportunidadeDoMembro[]; avisos: AvisoDoMembro[]; banners?: BannerDoMembro[]; termosPendentes: number
 }) {
   const provas = provasPendentes(cursos)
   const continuar = cursoParaContinuar(cursos)
@@ -69,6 +71,8 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
           <p className="text-sm text-muted-foreground">No voluntariado da Cruz Vermelha RJ desde {mesEAno(perfil.aprovado_em ?? perfil.created_at)}</p>
         </CabecalhoDaPagina>
       </div>
+
+      <BannersDoMembro banners={banners} />
 
       {passos && <PrimeirosPassos passos={passos} />}
 

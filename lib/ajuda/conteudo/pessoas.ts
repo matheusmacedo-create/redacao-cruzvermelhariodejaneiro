@@ -723,7 +723,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
 
 const VOLUNTARIOS: GuiaDaArea = {
   href: '/voluntariado',
-  paraQueServe: 'O cadastro do Voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”), com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, oportunidades, cursos, apostilas e certificados.',
+  paraQueServe: 'O cadastro do Voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”), com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, banners, oportunidades, cursos, apostilas e certificados.',
   quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador: “Ver a lista”; “Gerenciar” (cadastrar, aprovar inscrições, registrar horas e formações, exportar, cuidar de avisos, oportunidades e cursos); e “Dados sensíveis” (abrir CPF e saúde e apagar dados a pedido do titular). Administradores têm tudo.',
   tour: [
     {
@@ -901,6 +901,26 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           titulo: 'E-mail e leitura',
           texto: '“Enviar também por e-mail” manda o aviso uma vez só a quem está ativo, tem e-mail e não saiu da lista de avisos por e-mail. Cada aviso mostra quantos já viram.',
+        },
+      ],
+    },
+    {
+      caminho: '/voluntariado/banners',
+      rotulo: 'Banners da Área do Voluntário',
+      tour: [
+        {
+          titulo: 'Os destaques do voluntariado',
+          texto: 'Os banners aparecem no alto do Início da Área do Voluntário, para todo o voluntariado: campanhas, agradecimentos, chamadas e fotos das ações. Com mais de um no ar, eles se revezam.',
+        },
+        {
+          alvo: 'voluntarios.banner-novo',
+          titulo: 'Publicar um banner',
+          texto: 'Envie a imagem (larga, 1680×640, com o assunto no centro e sem texto escrito nela), dê um título e, se quiser, uma frase e um botão. O botão leva a uma página da Área do Voluntário (/membro/…) ou a um endereço https://.',
+        },
+        {
+          alvo: 'voluntarios.banners-lista',
+          titulo: 'Período e ordem',
+          texto: '“De” e “até” programam quando o banner fica no ar; sem datas, fica enquanto estiver ligado. A ordem menor aparece primeiro. “Desligar” tira do ar sem apagar.',
         },
       ],
     },
@@ -1162,6 +1182,19 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Toque em “Publicar aviso”.',
       ],
       dica: 'O e-mail sai uma vez só por aviso, para quem está ativo, tem e-mail e não saiu da lista de avisos por e-mail. Cada aviso mostra quantos já viram; o lápis edita e a lixeira exclui.',
+    },
+    {
+      id: 'publicar-banner',
+      titulo: 'Publicar um banner na Área do Voluntário',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'Em Voluntários, toque em “Banners”.',
+        'Toque em “Enviar imagem” e escolha uma foto ou arte larga (1680×640), com o assunto no centro e sem texto escrito nela.',
+        'Escreva o título e, se quiser, uma frase de apoio.',
+        'Para levar a algum lugar, marque “Com botão” e preencha o texto do botão e o endereço: uma página da Área do Voluntário (/membro/oportunidades) ou um https://.',
+        'Se o banner tiver prazo, preencha “De” e “até”. Toque em “Publicar banner”.',
+      ],
+      dica: 'Com mais de um no ar, eles se revezam no Início, na ordem que você der (menor primeiro); aparecem no máximo cinco. “Desligar” tira do ar sem apagar; a lixeira apaga o banner e a imagem.',
     },
     {
       id: 'criar-oportunidade',

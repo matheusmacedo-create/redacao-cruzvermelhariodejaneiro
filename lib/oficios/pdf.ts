@@ -251,8 +251,8 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   }
   garantir(12)
   const nota = limpar(helv, d.modo === 'govbr'
-    ? 'Documento assinado eletronicamente por meio da plataforma gov.br (Lei nº 14.063/2020).'
-    : 'Documento assinado eletronicamente no sistema Palácio Virtual (Lei nº 14.063/2020).')
+    ? 'Documento assinado eletronicamente com assinatura gov.br, nos termos da Lei nº 14.063/2020.'
+    : 'Documento assinado eletronicamente no Palácio Virtual da Cruz Vermelha RJ, nos termos da Lei nº 14.063/2020.')
   texto(nota, MARGEM.esq + (LARGURA_UTIL - helv.widthOfTextAtSize(nota, 7.5)) / 2, { fonte: helv, tamanho: 7.5, cor: CINZA })
 
   // Rodapé em todas as páginas: a filial (razão social, CNPJ, endereço), o
@@ -265,8 +265,8 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
     pagina.drawRectangle({ x: MARGEM.esq, y: y + 12, width: LARGURA_UTIL, height: 0.8, color: VERMELHO })
     pagina.drawText(filial, { x: MARGEM.esq, y, size: 7.5, font: helvNegrito, color: TINTA })
     pagina.drawText(endereco, { x: MARGEM.esq, y: y - 10, size: 7.5, font: helv, color: CINZA })
-    pagina.drawText(limpar(helv, `${titulo} · Código do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y: y - 28, size: 6.3, font: helv, color: CINZA_CLARO })
-    pagina.drawText(limpar(helv, `Confira a autenticidade em ${url}`), { x: MARGEM.esq, y: y - 37, size: 6.3, font: helv, color: CINZA_CLARO })
+    pagina.drawText(limpar(helv, `${titulo} · Hash do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y: y - 28, size: 6.3, font: helv, color: CINZA_CLARO })
+    pagina.drawText(limpar(helv, `A autenticidade deste documento pode ser conferida em ${url}`), { x: MARGEM.esq, y: y - 37, size: 6.3, font: helv, color: CINZA_CLARO })
     const pag = `Página ${i + 1} de ${paginas.length}`
     pagina.drawText(pag, { x: A4.largura - MARGEM.dir - helv.widthOfTextAtSize(pag, 7), y: y - 37, size: 7, font: helv, color: CINZA })
   })
@@ -274,7 +274,7 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   // Metadados fixos: o mesmo ofício dá sempre o mesmo arquivo.
   const quando = new Date(d.emitidoEm)
   pdf.setTitle(limpar(helv, `${titulo} – ${doc.assunto}`).slice(0, 300))
-  pdf.setAuthor(limpar(helv, doc.emitente || 'Cruz Vermelha Brasileira'))
+  pdf.setAuthor(limpar(helv, DADOS_DA_FILIAL.nome))
   pdf.setSubject(`SHA-256 do documento: ${d.hashDocumento}`)
   pdf.setKeywords([`oficio:${doc.numero ?? ''}`, `sha256:${d.hashDocumento}`, `verificacao:${d.codigoVerificacao}`])
   pdf.setProducer('Palácio Virtual – Cruz Vermelha RJ')
