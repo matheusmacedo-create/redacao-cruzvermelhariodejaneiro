@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarParticipante } from '@/app/actions/participantes'
 import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, VINCULOS } from '@/lib/participantes/regras'
+import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 export type ParticipanteNoFormulario = {
   id: string
@@ -108,6 +109,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
         <Campo rotulo="E-mail"><input id="p-email" name="email" type="email" maxLength={254} defaultValue={v('email')} className={inputClass} /></Campo>
         <Campo rotulo="Telefone / WhatsApp"><input id="p-telefone" name="telefone" type="tel" maxLength={40} defaultValue={v('telefone')} className={inputClass} /></Campo>
         <Campo rotulo="CEP"><input id="p-cep" name="cep" inputMode="numeric" maxLength={12} defaultValue={v('cep')} className={inputClass} /></Campo>
+        <EnderecoPeloCep />
         <Campo rotulo="Logradouro"><input id="p-logradouro" name="logradouro" maxLength={200} defaultValue={v('logradouro')} className={inputClass} /></Campo>
         <Campo rotulo="Número"><input id="p-numero" name="numero" maxLength={20} defaultValue={v('numero')} className={inputClass} /></Campo>
         <Campo rotulo="Complemento"><input id="p-complemento" name="complemento" maxLength={120} defaultValue={v('complemento')} className={inputClass} /></Campo>

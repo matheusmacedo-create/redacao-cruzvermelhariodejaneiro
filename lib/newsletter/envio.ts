@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { emailDaNewsletter } from '@/lib/newsletter/modelo'
 import { urlDeSaida, urlDeSaidaEmUmClique } from '@/lib/newsletter/contexto'
 import { enviarLote, emLotes, emailConfigurado, semChave, type Mensagem } from '@/lib/newsletter/resend'
+import { problemaDeLinkPerigoso } from '@/lib/apis-publicas/servidor'
 
 /**
  * A remessa de uma edição para a lista.
@@ -102,6 +103,9 @@ export async function enviarEdicao(
   if (!edicao.assunto.trim()) {
     return { enviados: 0, destinatarios: 0, agendada: false, erro: 'A edição precisa de um assunto.' }
   }
+  // E-mail enviado não volta: link perigoso é conferido antes (Google Safe Browsing).
+  const linkPerigoso = await problemaDeLinkPerigoso(workspaceId, [edicao.chamada ?? '', ...edicao.paragrafos, edicao.urlDaMateria ?? ''].join('\n'))
+  if (linkPerigoso) return { enviados: 0, destinatarios: 0, agendada: false, erro: linkPerigoso }
 
   let lista: Inscrito[]
   try {

@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { barraFixa, botaoDoMembro, botaoSecundario, campoDoMembro } from './marca'
 import { Recado, Secao } from './pecas'
 import { esquecerUltimoEmail } from './conta'
+import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 /*
  * O formulário do perfil envia por `onSubmit` + `startTransition`, e não por
@@ -150,6 +151,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
       <Secao titulo="Endereço" icone={MapPin} className={cn(cartao, 'gap-4')}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo id="m-cep" name="cep" rotulo="CEP" inputMode="numeric" maxLength={12} defaultValue={v('cep')} autoComplete="postal-code" />
+          <EnderecoPeloCep />
           <Campo id="m-logradouro" name="logradouro" rotulo="Logradouro" maxLength={200} defaultValue={v('logradouro')} autoComplete="address-line1" />
           <Campo id="m-numero" name="numero" rotulo="Número" maxLength={20} defaultValue={v('numero')} />
           <Campo id="m-complemento" name="complemento" rotulo="Complemento" maxLength={120} defaultValue={v('complemento')} autoComplete="address-line2" />

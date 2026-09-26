@@ -15,6 +15,7 @@ import {
 import { filasQueAtendo, papeisNoChamado } from '@/lib/chamados/servidor'
 import { EtiquetaDePrazo, EtiquetaDePrioridade, EtiquetaDeStatus, dataHora } from '@/components/app/chamados/comum'
 import { AcoesDeStatus, Avaliacao, CaixaDeMensagem, Triagem } from '@/components/app/chamados/formularios'
+import { datasDeFeriado } from '@/lib/apis-publicas/servidor'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,9 +94,10 @@ export default async function ChamadoPage({ params, searchParams }: { params: Pr
   const vinteQuatro = fila.atendimento_24h
   const pausado = PAUSADOS.includes(status)
   const inicio = new Date(c.criado_em)
-  const prazoResposta = situacaoDoPrazo({ inicio, prazo: c.prazo_resposta ? new Date(c.prazo_resposta) : null, concluidoEm: c.respondido_em ? new Date(c.respondido_em) : null, pausado, vinteQuatroHoras: vinteQuatro })
+  const feriados = await datasDeFeriado([new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1])
+  const prazoResposta = situacaoDoPrazo({ inicio, prazo: c.prazo_resposta ? new Date(c.prazo_resposta) : null, concluidoEm: c.respondido_em ? new Date(c.respondido_em) : null, pausado, vinteQuatroHoras: vinteQuatro, feriados })
   const prazoSolucao = ENCERRADOS.includes(status) && !c.resolvido_em ? null
-    : situacaoDoPrazo({ inicio, prazo: c.prazo_solucao ? new Date(c.prazo_solucao) : null, concluidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, pausado, vinteQuatroHoras: vinteQuatro })
+    : situacaoDoPrazo({ inicio, prazo: c.prazo_solucao ? new Date(c.prazo_solucao) : null, concluidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, pausado, vinteQuatroHoras: vinteQuatro, feriados })
   const encerrado = ENCERRADOS.includes(status)
   const proximos = proximosStatus(status, papeis)
   const soSolicitante = papeis.length === 1 && papeis[0] === 'solicitante'

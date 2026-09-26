@@ -11,6 +11,7 @@ import {
   INSTRUMENTOS, ROTULO_DA_SITUACAO, ROTULO_DO_INSTRUMENTO, SITUACOES_DA_PRESTACAO, formatarCnpj, lerParceria, lerValor, reais,
   type Instrumento, type SituacaoDaPrestacao,
 } from '@/lib/transparencia/regras'
+import { DadosPeloCnpj } from '@/components/app/apis/dados-pelo-cnpj'
 import {
   Campo, CodigoDaTrilha, Confirmacao, Dialogo, Etiqueta, FALHA_DE_REDE, HashCurto, OCUPADO_SEM_PERDER_FOCO, RetiradaComMotivo, Rodape, SemCodigo, data,
   diaEHora, recadoDe, somarDias, useFocoDepoisDaLista, type Estado, type Recado, type Resultado,
@@ -393,6 +394,7 @@ function FichaDaParceria({ parceria, onFechar, onSalvo }: {
           <Campo rotulo="CNPJ do órgão" opcional>
             {(p) => <input {...p} name="orgao_cnpj" inputMode="numeric" maxLength={18} defaultValue={parceria?.orgaoCnpj ? formatarCnpj(parceria.orgaoCnpj) : ''} placeholder="00.000.000/0000-00" className={inputClass} />}
           </Campo>
+          <DadosPeloCnpj campo="orgao_cnpj" preencher={{ razaoSocial: 'orgao' }} />
           <Campo rotulo="Objeto" className="sm:col-span-2" ajuda="O que a parceria faz, como está no instrumento (de 5 a 2.000 caracteres).">
             {(p) => <textarea {...p} name="objeto" required minLength={5} maxLength={2000} rows={3} defaultValue={parceria?.objeto ?? ''} className={inputClass} />}
           </Campo>

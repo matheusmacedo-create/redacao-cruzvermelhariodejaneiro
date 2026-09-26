@@ -15,6 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { linkDoBotao, linkDoPixel } from '@/lib/escola/advertoriais'
 import { avisarQuemEnviou } from '@/lib/envios/avaliacao'
+import { problemaDeLinkPerigoso } from '@/lib/apis-publicas/servidor'
 
 export type ResultadoDoSite = {
   erro?: string
@@ -336,6 +337,10 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
     if (!peca.title?.trim()) throw new Error('A matéria precisa de um título antes de virar página.')
     if (!peca.body?.trim()) throw new Error('A matéria precisa de texto antes de virar página. Escreva o texto e publique de novo.')
+    // Link perigoso no site da instituição é dano de reputação que não se desfaz
+    // com um "tirar do ar": confere antes de subir (Google Safe Browsing).
+    const linkPerigoso = await problemaDeLinkPerigoso(pedido.workspaceId, `${peca.subtitle ?? ''}\n${peca.body}`)
+    if (linkPerigoso) throw new Error(linkPerigoso)
 
     let slug = peca.slug ?? ''
     if (!slug) {
