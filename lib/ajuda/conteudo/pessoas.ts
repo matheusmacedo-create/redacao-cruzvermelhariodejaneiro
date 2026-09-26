@@ -777,8 +777,10 @@ const VOLUNTARIOS: GuiaDaArea = {
       rotulo: 'Cadastro no Voluntariado',
       tour: [
         {
+          alvo: 'voluntarios.foto',
           titulo: 'O cadastro de uma pessoa',
-          texto: 'Dados, formações e horas de voluntariado, o acesso à Área do Voluntário, os dados sensíveis e a situação da pessoa.',
+          texto: 'No alto, a foto de perfil (ou as iniciais), o nome e a situação. Abaixo, dados, formações e horas, a Área do Voluntário e os dados sensíveis.',
+          lado: 'bottom',
         },
         {
           alvo: 'voluntarios.editar',
@@ -859,6 +861,11 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           titulo: 'Editar o cadastro',
           texto: 'Mude o que for preciso e toque em “Salvar alterações”. CPF e saúde guardados não voltam preenchidos, para não aparecerem na tela.',
+        },
+        {
+          alvo: 'voluntarios.foto-editar',
+          titulo: 'Foto de perfil',
+          texto: '“Escolher foto” (ou “Trocar foto”) e “Remover” valem na hora, sem o “Salvar alterações”. O voluntário também troca a própria foto pela Área do Voluntário.',
         },
         {
           alvo: 'voluntarios.cpf',
@@ -1094,6 +1101,18 @@ const VOLUNTARIOS: GuiaDaArea = {
       ],
     },
     {
+      id: 'trocar-foto-voluntario',
+      titulo: 'Pôr, trocar ou tirar a foto de um voluntário',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'No cadastro da pessoa, toque em “Editar cadastro”.',
+        'Em “Foto de perfil”, toque em “Escolher foto” (ou “Trocar foto”) e escolha a imagem.',
+        'Espere o recado “Foto salva.” (ou “Foto trocada.”).',
+        'Para tirar, toque em “Remover” e confirme em “Remover”.',
+      ],
+      dica: 'A foto é recortada em quadrado pelo centro e salva na hora, sem o “Salvar alterações”.',
+    },
+    {
       id: 'registrar-horas',
       titulo: 'Registrar horas de voluntariado',
       quem: 'Nível “Gerenciar” ou acima',
@@ -1310,6 +1329,12 @@ const VOLUNTARIOS: GuiaDaArea = {
       pergunta: 'Por que apareceu uma formação que ninguém registrou?',
       resposta: 'É o certificado de um curso da Área do Voluntário: ao concluir, a formação entra sozinha no cadastro, com a validade do certificado. Se o certificado for cancelado, ela sai.',
       termos: ['formação', 'certificado', 'automático'],
+    },
+    {
+      id: 'foto-do-voluntario',
+      pergunta: 'De onde vem a foto do voluntário, e quem a vê?',
+      resposta: 'O próprio voluntário põe a foto em “Meu perfil”, na Área do Voluntário; quem gerencia também pode trocar ou tirar em “Editar cadastro”. Ela aparece no cadastro para quem tem acesso ao Voluntariado, e não para as outras pessoas do voluntariado.\n\nA foto é reduzida no aparelho de quem envia, sem a localização gravada nela. “Apagar dados (LGPD)” apaga a foto também.',
+      termos: ['foto', 'retrato', 'avatar', 'imagem do voluntário'],
     },
     {
       id: 'anonimizado-sumiu',

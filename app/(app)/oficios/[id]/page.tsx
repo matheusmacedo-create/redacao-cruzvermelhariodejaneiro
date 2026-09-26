@@ -5,8 +5,11 @@ import { ChevronLeft } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { processarFila } from '@/lib/oficios/carimbo'
+import { garantirSelo, impressaoLegivel } from '@/lib/oficios/selo'
+import { SeloVisual } from '@/components/app/oficios/selo-visual'
 import { ESTADOS, ehEstado, lerCanonico, tituloDoOficio, type EstadoDoOficio } from '@/lib/oficios/documento'
 import { EditorDeOficio, type PessoaQueAssina } from '@/components/app/oficios/editor'
 import { FolhaDoOficio } from '@/components/app/oficios/documento'
@@ -23,7 +26,7 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
 
   const [{ data: o }, { data: assinantes }, { data: carimbos }] = await Promise.all([
     supabase.from('oficios').select('*').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
-    supabase.from('oficio_assinantes').select('user_id,nome,cargo,ordem,estado,assinado_em,motivo_recusa,metodo,certificado').eq('oficio_id', id).order('ordem'),
+    supabase.from('oficio_assinantes').select('user_id,nome,cpf_mascara,cargo,setor,ordem,estado,assinado_em,motivo_recusa,metodo,certificado').eq('oficio_id', id).order('ordem'),
     supabase.from('oficio_carimbos').select('estado,bloco,enviado_em,confirmado_em,ultimo_erro,calendarios').eq('oficio_id', id).order('created_at', { ascending: false }).limit(1),
   ])
   if (!o || !ehEstado(o.estado)) notFound()
@@ -33,10 +36,26 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
   )
 
   if (o.estado === 'rascunho') {
-    const { data: membros } = await supabase.from('workspace_members').select('user_id,profiles(full_name,job_title,active)').eq('workspace_id', context.workspace.id)
+    // A ficha da Equipe é lida com a chave de serviço (quem escreve o ofício
+    // nem sempre vê o RH), mas só sai daqui nome, cargo, setor e se está completa.
+    const [{ data: membros }, { data: fichas }] = await Promise.all([
+      supabase.from('workspace_members').select('user_id,profiles(full_name,job_title,active)').eq('workspace_id', context.workspace.id),
+      createAdminClient().from('equipe_membros').select('user_id,nome,cargo,setor,cpf_mascara,situacao,updated_at')
+        .eq('workspace_id', context.workspace.id).not('user_id', 'is', null).neq('situacao', 'desligado').order('updated_at', { ascending: true }),
+    ])
+    const fichaDe = new Map((fichas ?? []).map((f) => [f.user_id as string, f]))
     const pessoas: PessoaQueAssina[] = (membros ?? []).flatMap((m) => {
       const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; job_title?: string | null; active?: boolean } | null
-      return p && p.active !== false ? [{ id: m.user_id as string, nome: p.full_name || 'Colaborador', cargo: p.job_title ?? null }] : []
+      if (!p || p.active === false) return []
+      const f = fichaDe.get(m.user_id as string)
+      const completa = Boolean(f && String(f.nome ?? '').trim().length >= 2 && f.cpf_mascara)
+      return [{
+        id: m.user_id as string,
+        nome: completa ? String(f!.nome).trim() : p.full_name || 'Colaborador',
+        cargo: (completa ? f!.cargo : null) ?? p.job_title ?? null,
+        setor: completa ? (f!.setor ?? null) : null,
+        fichaCompleta: completa,
+      }]
     })
     const podeEditar = o.criado_por === context.user.id || pode(context.role, 'oficios.gerenciar_de_outros')
     return (
@@ -67,13 +86,18 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
   }
 
   const lista: AssinanteNoPainel[] = (assinantes ?? []).map((a) => ({
-    userId: a.user_id, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinado_em, motivo: a.motivo_recusa,
+    userId: a.user_id, nome: a.nome, cpf: a.cpf_mascara ?? null, cargo: a.cargo, setor: a.setor ?? null, estado: a.estado, assinadoEm: a.assinado_em, motivo: a.motivo_recusa,
     metodo: a.metodo, certificado: a.certificado ?? null,
   }))
   const carimboNoPainel: CarimboNoPainel = carimbo
     ? { estado: carimbo.estado, bloco: carimbo.bloco, enviadoEm: carimbo.enviado_em, confirmadoEm: carimbo.confirmado_em, ultimoErro: carimbo.ultimo_erro, calendarios: carimbo.calendarios ?? [] }
     : null
   const urlPublica = `${urlBase()}/verificar/${o.codigo_verificacao}`
+  // O selo da filial (lib/oficios/selo.ts): quem abre o ofício assinado sem selo também o cria.
+  const { data: selo } = o.estado === 'assinado'
+    ? await supabase.from('oficio_selos').select('chave_id,selado_em').eq('oficio_id', id).maybeSingle()
+    : { data: null }
+  if (o.estado === 'assinado' && !selo) after(async () => { await garantirSelo(id) })
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,8 +111,15 @@ export default async function OficioPage({ params }: { params: Promise<{ id: str
         <FolhaDoOficio
           doc={doc}
           marcaDagua={o.estado === 'cancelado' ? 'Cancelado' : undefined}
-          assinaturas={lista.map((a, i) => ({ ordem: i + 1, nome: a.nome, cargo: a.cargo, estado: a.estado, assinadoEm: a.assinadoEm, metodo: a.metodo, titularDoCertificado: a.certificado?.titular ?? null }))}
-          rodape={<>Conferência: <span className="break-all">{urlPublica}</span></>}
+          assinaturas={lista.map((a, i) => ({ ordem: i + 1, nome: a.nome, cpf: a.cpf, cargo: a.cargo, setor: a.setor, estado: a.estado, assinadoEm: a.assinadoEm, metodo: a.metodo, titularDoCertificado: a.certificado?.titular ?? null }))}
+          rodape={
+            <div className="flex flex-wrap items-center gap-4">
+              {selo && o.assinado_em && (
+                <SeloVisual numero={doc.numero} data={new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(o.assinado_em))} impressao={impressaoLegivel(selo.chave_id as string)} valido tamanho={112} />
+              )}
+              <span>Conferência: <span className="break-all">{urlPublica}</span></span>
+            </div>
+          }
         />
         <PainelDoOficio
           id={o.id}

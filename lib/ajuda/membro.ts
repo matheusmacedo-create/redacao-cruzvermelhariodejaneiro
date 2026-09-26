@@ -66,7 +66,7 @@ export const BOAS_VINDAS_DO_MEMBRO: PassoDoTour[] = [
   {
     alvo: 'membro.conta',
     titulo: 'Perfil e Ajuda',
-    texto: 'Seus dados ficam em “Perfil”. No menu da sua conta (as suas iniciais, no alto) estão “Meu perfil”, “Ajuda”, “Sair” e, nas telas que têm tour, “Tour desta tela”.',
+    texto: 'Seus dados ficam em “Perfil”. No menu da sua conta (a sua foto ou as suas iniciais, no alto) estão “Meu perfil”, “Ajuda”, “Sair” e, nas telas que têm tour, “Tour desta tela”.',
   },
 ]
 
@@ -736,7 +736,7 @@ const MENSAGENS: GuiaDaArea = {
 
 const PERFIL: GuiaDaArea = {
   href: '/membro/perfil',
-  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam os bens da filial que estão com você e a preferência de avisos por e-mail.',
+  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam a sua foto de perfil, os bens da filial que estão com você e a preferência de avisos por e-mail.',
   tour: [
     {
       alvo: 'membro.completude',
@@ -748,6 +748,12 @@ const PERFIL: GuiaDaArea = {
       alvo: 'membro.bens',
       titulo: 'Bens da filial com você',
       texto: 'Os bens da filial que estão com você. Leia o “Termo de responsabilidade”, marque a caixa e toque em “Aceitar o termo”.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'membro.foto',
+      titulo: 'Foto de perfil',
+      texto: '“Escolher foto” (ou “Trocar foto”) põe uma foto sua, que aparece no alto da área e na sua ficha para a coordenação. É salva na hora, sem o “Salvar”.',
       seAusente: 'pular',
     },
     {
@@ -783,6 +789,17 @@ const PERFIL: GuiaDaArea = {
         'Espere o recado “Cadastro atualizado.”.',
       ],
       dica: 'Em “Habilidades” e “Idiomas”, separe os itens por vírgula.',
+    },
+    {
+      id: 'foto-de-perfil',
+      titulo: 'Pôr ou trocar a foto de perfil',
+      passos: [
+        'Em “Perfil”, vá até “Foto de perfil”.',
+        'Toque em “Escolher foto” (ou “Trocar foto”, se já houver uma).',
+        'Escolha a foto na galeria ou tire uma na hora.',
+        'Espere o recado “Foto salva.” (ou “Foto trocada.”).',
+      ],
+      dica: 'Use uma foto do rosto, de frente. Ela é recortada em quadrado pelo centro; para tirar, toque em “Remover” e confirme.',
     },
     {
       id: 'contato-de-emergencia',
@@ -861,6 +878,18 @@ const PERFIL: GuiaDaArea = {
       pergunta: 'Como devolvo um bem da filial?',
       resposta: 'Combine a devolução com a coordenação, por “Mensagens”, por exemplo. Quando a devolução é registrada, o bem sai de “Bens da filial com você”.',
       termos: ['devolução', 'equipamento', 'patrimônio', 'plaqueta'],
+    },
+    {
+      id: 'quem-ve-a-foto',
+      pergunta: 'Quem vê a minha foto de perfil?',
+      resposta: 'Você e a equipe da filial com acesso ao Voluntariado, na sua ficha. As outras pessoas do voluntariado não veem.\n\nA foto é reduzida no seu aparelho antes de enviar, e a localização gravada nela não vai junto. A coordenação também pode trocar ou tirar a foto do seu cadastro.',
+      termos: ['foto', 'retrato', 'avatar', 'imagem', 'privacidade'],
+    },
+    {
+      id: 'foto-nao-envia',
+      pergunta: 'Por que a minha foto não foi enviada?',
+      resposta: 'Alguns navegadores não abrem fotos HEIC, o formato do iPhone. No iPhone, escolha a foto pela galeria (ela vai em JPEG); no computador, exporte a foto como JPEG e tente de novo.\n\nFoto muito pequena (menos de 64 pixels de lado) também não vale.',
+      termos: ['HEIC', 'iPhone', 'foto não abre', 'Não foi possível abrir esta foto', 'Este navegador não abre fotos HEIC do iPhone', 'erro na foto'],
     },
     {
       id: 'quem-ve-meus-dados',
@@ -942,13 +971,13 @@ const ENTRAR_E_SAIR: TopicoGeral = {
     {
       id: 'sair-da-area',
       pergunta: 'Como saio da área?',
-      resposta: 'Toque nas suas iniciais, no alto da tela, e em “Sair”; no fim do “Perfil”, “Sair da Área do Voluntário” faz o mesmo. Ao sair, este aparelho esquece o e-mail que você usou para entrar e os tours que você já viu.',
+      resposta: 'Toque na sua foto (ou nas suas iniciais), no alto da tela, e em “Sair”; no fim do “Perfil”, “Sair da Área do Voluntário” faz o mesmo. Ao sair, este aparelho esquece o e-mail que você usou para entrar e os tours que você já viu.',
       termos: ['sair', 'deslogar', 'logout', 'encerrar'],
     },
     {
       id: 'aparelho-compartilhado',
       pergunta: 'Usei um aparelho de outra pessoa. Preciso sair?',
-      resposta: 'Sim. Toque nas suas iniciais, no alto, e em “Sair”. Assim o acesso daquele aparelho se encerra, e ele esquece o seu e-mail e os tours que você viu.',
+      resposta: 'Sim. Toque na sua foto (ou nas suas iniciais), no alto, e em “Sair”. Assim o acesso daquele aparelho se encerra, e ele esquece o seu e-mail e os tours que você viu.',
       termos: ['computador público', 'celular emprestado', 'segurança'],
     },
     {
@@ -1002,7 +1031,7 @@ const SOBRE_A_AJUDA: TopicoGeral = {
     {
       id: 'ver-tour-da-tela',
       pergunta: 'Como vejo o tour da tela em que estou?',
-      resposta: 'Toque nas suas iniciais, no alto da tela, e em “Tour desta tela” (aparece nas telas que têm tour). Nesta Ajuda, cada parte da área também tem o botão “Fazer o tour”.',
+      resposta: 'Toque na sua foto (ou nas suas iniciais), no alto da tela, e em “Tour desta tela” (aparece nas telas que têm tour). Nesta Ajuda, cada parte da área também tem o botão “Fazer o tour”.',
       termos: ['tour', 'apresentação', 'rever', 'como usar'],
     },
     {
@@ -1014,7 +1043,7 @@ const SOBRE_A_AJUDA: TopicoGeral = {
     {
       id: 'onde-fica-a-ajuda',
       pergunta: 'Onde fica esta Ajuda?',
-      resposta: 'No menu da sua conta (as suas iniciais, no alto), em “Ajuda”, e no fim do Início, em “Ajuda: passo a passo e perguntas frequentes”.',
+      resposta: 'No menu da sua conta (a sua foto ou as suas iniciais, no alto), em “Ajuda”, e no fim do Início, em “Ajuda: passo a passo e perguntas frequentes”.',
       termos: ['ajuda', 'dúvidas', 'perguntas frequentes', 'FAQ'],
     },
     {

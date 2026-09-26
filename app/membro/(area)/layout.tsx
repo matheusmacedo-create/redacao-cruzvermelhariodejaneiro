@@ -10,6 +10,7 @@ import { MenuDaConta } from '@/components/membro/conta'
 import { AjudaDoMembro } from '@/components/membro/ajuda'
 import { GUIAS_DO_MEMBRO } from '@/lib/ajuda/membro'
 import { primeiroNome } from '@/lib/membro/regras'
+import { fotoDoMembro } from '@/lib/membro/dados'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,9 +30,10 @@ const CAMINHOS_COM_TOUR = GUIAS_DO_MEMBRO.flatMap((g) => [
 export default async function AreaDoMembro({ children }: { children: React.ReactNode }) {
   const m = await exigirMembro()
   // Contadores são enfeite: se o banco falhar, a área abre com zero, não com erro.
-  const [naoLidas, avisos] = await Promise.all([
+  const [naoLidas, avisos, foto] = await Promise.all([
     naoLidasDoMembro(m).catch(() => 0),
     avisosDoMembro(m, hojeEmSaoPaulo()).catch(() => []),
+    fotoDoMembro(m.participanteId).catch(() => null),
   ])
   const avisosNovos = avisos.filter((a) => !a.visto).length
   return (
@@ -60,7 +62,7 @@ export default async function AreaDoMembro({ children }: { children: React.React
           </Link>
           <NavegacaoTopo novidades={naoLidas + avisosNovos} />
           {/* Em todas as larguras: no celular, o "Sair" não fica só no fim do Perfil. */}
-          <div className="shrink-0"><MenuDaConta nome={m.nome} email={m.email} previa={!!m.previa} /></div>
+          <div className="shrink-0"><MenuDaConta nome={m.nome} email={m.email} foto={foto} previa={!!m.previa} /></div>
         </div>
       </header>
       {/*

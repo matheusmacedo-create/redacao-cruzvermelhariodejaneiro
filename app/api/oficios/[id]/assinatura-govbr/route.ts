@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { buscarCertificado, caminhoDaVersao, guardar, pdfAtual, type OficioParaPdf } from '@/lib/oficios/arquivo'
 import { avaliarEnvio } from '@/lib/oficios/assinatura-pdf'
 import { processarFila } from '@/lib/oficios/carimbo'
+import { garantirSelo } from '@/lib/oficios/selo'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -75,7 +76,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       workspace_id: context.workspace.id, actor_id: context.user.id, action: 'oficio_assinado', entity_type: 'oficio', entity_id: o.id,
       metadata: { numero, assunto: o.assunto, concluido: Boolean(concluido), metodo: 'govbr' },
     })
-    if (concluido) after(async () => { await processarFila(1, o.id).catch(() => undefined) })
+    if (concluido) after(async () => { await garantirSelo(o.id); await processarFila(1, o.id).catch(() => undefined) })
     return Response.json({ ok: true, concluido: Boolean(concluido), titular: r.nova.titular })
   } catch (causa) {
     return erro(causa instanceof Error ? causa.message : 'Não foi possível conferir o PDF.', 500)

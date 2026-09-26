@@ -6,6 +6,8 @@ import { Card } from '@/components/ui/card'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { SITUACOES, VINCULOS, idade, situacaoDaFormacao } from '@/lib/participantes/regras'
+import { Retrato } from '@/components/membro/foto'
+import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
 
 export const dynamic = 'force-dynamic'
@@ -24,12 +26,15 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 1) notFound()
-  const [{ data: p }, { data: formacoes }, { data: horas }] = await Promise.all([
+  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }] = await Promise.all([
     supabase.from('participantes').select(COLUNAS).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     supabase.from('participante_formacoes').select('id,titulo,instituicao,concluido_em,valido_ate').eq('participante_id', id).order('valido_ate', { ascending: true, nullsFirst: false }),
     supabase.from('participante_horas').select('id,data,horas,atividade').eq('participante_id', id).order('data', { ascending: false }).limit(200),
+    // À parte das COLUNAS: se a coluna ainda não existir no banco, a ficha abre com as iniciais em vez de sumir.
+    supabase.from('participantes').select('foto_path').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
   ])
   if (!p) notFound()
+  const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
   const hoje = hojeEmSaoPaulo()
   const anos = idade(p.data_nascimento, hoje)
   const total = (horas ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -41,14 +46,17 @@ export default async function Participante({ params }: { params: Promise<{ id: s
     <div className="flex flex-col gap-5">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntários</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{p.nome_social || p.nome}</h1>
-          <p className="text-sm text-muted-foreground">
-            {[VINCULOS[p.vinculo as keyof typeof VINCULOS]?.rotulo, p.funcao, p.setores?.join(', '), anos !== null ? `${anos} anos` : null].filter(Boolean).join(' · ')}
-          </p>
-          <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.situacao === 'ativo' ? 'bg-success/15 text-success' : p.situacao === 'candidato' ? 'bg-warning/20 text-warning-foreground' : p.situacao === 'desligado' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
-            {SITUACOES[p.situacao as keyof typeof SITUACOES]?.rotulo}
-          </span>
+        <div className="flex items-start gap-4" data-ajuda="voluntarios.foto">
+          <Retrato url={foto} nome={p.nome_social || p.nome} className="size-16 text-xl" alt={foto ? `Foto de ${p.nome_social || p.nome}` : ''} />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{p.nome_social || p.nome}</h1>
+            <p className="text-sm text-muted-foreground">
+              {[VINCULOS[p.vinculo as keyof typeof VINCULOS]?.rotulo, p.funcao, p.setores?.join(', '), anos !== null ? `${anos} anos` : null].filter(Boolean).join(' · ')}
+            </p>
+            <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${p.situacao === 'ativo' ? 'bg-success/15 text-success' : p.situacao === 'candidato' ? 'bg-warning/20 text-warning-foreground' : p.situacao === 'desligado' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+              {SITUACOES[p.situacao as keyof typeof SITUACOES]?.rotulo}
+            </span>
+          </div>
         </div>
         {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/voluntariado/${id}/editar`} />} data-ajuda="voluntarios.editar"><Pencil className="size-4" />Editar cadastro</Button>}
       </div>
