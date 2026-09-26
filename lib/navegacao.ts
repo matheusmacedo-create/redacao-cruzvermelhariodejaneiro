@@ -67,7 +67,7 @@ export const GRUPOS: Grupo[] = [
     rotulo: 'Comunicação',
     areas: [
       { href: '/chat', rotulo: 'Chat', resumo: 'Canais e mensagens diretas da equipe, ao vivo e guardados', icone: MessagesSquare, termos: ['conversas', 'mensagens', 'recados', 'slack', 'canal', 'direct', 'equipe'], contador: 'chat' },
-      { href: '/caixa-de-entrada', rotulo: 'Caixa de entrada', resumo: 'Mensagens e comentários do público nas redes', icone: Inbox, termos: ['atendimento', 'comentários', 'dm', 'direct'] },
+      { href: '/direct', rotulo: 'Direct das redes', resumo: 'Mensagens e comentários do público nas redes sociais', icone: Inbox, termos: ['caixa de entrada', 'atendimento', 'comentários', 'dm', 'direct', 'instagram', 'mensagens do público'] },
       { href: '/correio', rotulo: 'E-mail do setor', resumo: 'Envie pelo endereço do setor, com a assinatura oficial', icone: AtSign, termos: ['correio', 'alias', 'assinatura', 'e-mail'] },
       { href: '/envios', rotulo: 'Envios da equipe', resumo: 'Ações que a equipe mandou pelo link: fotos, vídeos, áudios e relatos', icone: Send, termos: ['envios', 'mandar ação', 'fotos da equipe', 'relatos', 'link de envio'], soPara: 'avaliadorDeEnvios' },
       { href: '/voluntariado/mensagens', rotulo: 'Voluntários', resumo: 'O canal direto com voluntários e membros da área do membro', icone: HeartHandshake, termos: ['mensagens dos voluntários', 'canal do membro', 'área do membro'] },

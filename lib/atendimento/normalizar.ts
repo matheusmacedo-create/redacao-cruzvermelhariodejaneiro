@@ -22,6 +22,10 @@ export type Origem = 'comentario' | 'dm'
 export type Fala = {
   id: string
   texto: string
+  /** A rede não mandou texto: é foto, vídeo, áudio, figurinha ou post compartilhado (o conector não traz o arquivo). */
+  semTexto?: boolean
+  /** Imagem do anexo, se um dia o conector passar a devolver. */
+  imagem?: string
   /** ISO 8601, ou vazio quando a rede não informou. */
   quando: string
   /** true quando quem falou fomos nós — o balão muda de lado. */
@@ -68,7 +72,17 @@ export type Mensagem = {
   conversa?: Fala[]
   /** Foto de perfil de quem escreveu, quando a rede devolve. */
   foto?: string
+  /** A última fala não tem texto (mídia que o conector não traz). */
+  semTexto?: boolean
 }
+
+/**
+ * O que a tela mostra no lugar de uma mensagem sem texto. O conector do
+ * Direct (Upload-Post, GET /uploadposts/dms/conversations) devolve só o campo
+ * `message`: foto, vídeo, áudio, figurinha e post compartilhado chegam vazios.
+ */
+export const SEM_TEXTO = 'Foto, vídeo, áudio ou figurinha'
+const ANEXO = ['attachments.data.0.image_data.url', 'attachments.data.0.image_data.preview_url', 'attachments.data.0.file_url', 'attachments.data.0.video_data.preview_url']
 
 /** Primeiro valor não vazio entre os caminhos dados. */
 function primeiro(objeto: Record<string, unknown>, caminhos: string[]): string {
@@ -241,7 +255,9 @@ export function normalizarConversas(
     // O chat da tela, na ordem em que a conversa aconteceu.
     const falas: Fala[] = [...ordenadas].reverse().map((m, i) => ({
       id: primeiro(m, ID) || `fala:${i}`,
-      texto: primeiro(m, TEXTO) || '(mensagem sem texto — pode ser foto ou áudio)',
+      texto: primeiro(m, TEXTO) || SEM_TEXTO,
+      ...(primeiro(m, TEXTO) ? {} : { semTexto: true }),
+      ...(primeiro(m, ANEXO) ? { imagem: primeiro(m, ANEXO) } : {}),
       quando: normalizarData(primeiro(m, QUANDO)),
       nossa: souEu(primeiro(m, ['from.id']), primeiro(m, ['from.username', 'from.name'])),
       autor: primeiro(m, ['from.username', 'from.name']) || 'Sem nome',
@@ -254,7 +270,8 @@ export function normalizarConversas(
       autor: outro ? (primeiro(outro, ['username', 'name']) || autor) : autor,
       autorId: destinatarioId,
       ...(fotoDe(outro, candidatos) ? { foto: fotoDe(outro, candidatos) } : {}),
-      texto: primeiro(ultima, TEXTO) || '(mensagem sem texto — pode ser foto ou áudio)',
+      texto: primeiro(ultima, TEXTO) || SEM_TEXTO,
+      ...(primeiro(ultima, TEXTO) ? {} : { semTexto: true }),
       quando: normalizarData(primeiro(ultima, QUANDO)),
       destinatarioId,
       respondivel: Boolean(destinatarioId) && dentroDaJanela,

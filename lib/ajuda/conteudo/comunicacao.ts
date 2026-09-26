@@ -1,16 +1,16 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda do grupo Comunicação do menu: Chat (/chat), Caixa de entrada
- * (/caixa-de-entrada), E-mail do setor (/correio), Envios da equipe (/envios)
+ * A ajuda do grupo Comunicação do menu: Chat (/chat), Direct das redes
+ * (/direct), E-mail do setor (/correio), Envios da equipe (/envios)
  * e o canal com os voluntários (/voluntariado/mensagens).
  *
  * Cada frase tem apoio no código:
  * - Chat: app/(app)/chat, components/app/chat/**, lib/chat/**, app/actions/chat.ts
  *   e as funções chat_* das migrações 20260926000000 e 20260926010000;
- * - Caixa de entrada: app/(app)/caixa-de-entrada, components/app/atendimento/caixa.tsx,
- *   lib/atendimento/** e app/actions/atendimento.ts (mais archiveInboxItem e
- *   convertInboxToPauta em app/actions/editorial.ts);
+ * - Direct das redes: app/(app)/direct, components/app/atendimento/direct.tsx,
+ *   lib/atendimento/** (a situação em situacao.ts), app/actions/atendimento.ts e a
+ *   tabela direct_atendimentos (migração 20260928060000);
  * - E-mail do setor: app/(app)/correio, components/app/correio/correio.tsx,
  *   lib/correio/** e app/actions/correio.ts;
  * - Envios da equipe: app/(app)/envios/**, components/app/envios/**,
@@ -22,7 +22,7 @@ import type { GuiaDaArea } from '../tipos'
  *
  * /chat só redireciona para uma conversa (/chat/[id]); por isso o tour do
  * Chat mora na tela da conversa, e não na raiz da área. Os alvos `chat.*`,
- * `caixa.*`, `correio.*`, `envios.*` e `canal-voluntarios.*` são marcados com
+ * `direct.*`, `correio.*`, `envios.*` e `canal-voluntarios.*` são marcados com
  * `data-ajuda` nessas telas. Mudou a tela ou a regra, muda aqui no mesmo PR
  * (docs/AJUDA.md).
  */
@@ -288,47 +288,47 @@ const CHAT: GuiaDaArea = {
   relacionadas: ['/notificacoes', '/perfil'],
 }
 
-// ---------------------------------------------------------------- Caixa de entrada
+// ---------------------------------------------------------------- Direct das redes
 
-const CAIXA_DE_ENTRADA: GuiaDaArea = {
-  href: '/caixa-de-entrada',
-  paraQueServe: 'A Caixa de entrada é o atendimento ao público nas redes: as mensagens do Direct do Instagram e os comentários nas publicações recentes, para ler e responder sem abrir cada aplicativo. A pasta “E-mail e materiais” guarda o que chegou por dentro, e um material pode virar pauta.',
-  quemUsa: 'Toda a equipe do Palácio Virtual. As respostas saem pela conta da filial em cada rede, não no seu nome. O que você abre fica marcado como lido só no seu aparelho.',
+const DIRECT_DAS_REDES: GuiaDaArea = {
+  href: '/direct',
+  paraQueServe: 'O Direct das redes é o atendimento ao público nas redes sociais: as mensagens do Direct do Instagram e os comentários nas publicações recentes, para ler e responder sem abrir cada aplicativo. Cada conversa e cada comentário mostra, para a equipe inteira, se está pendente ou quem já respondeu. E-mail não passa por aqui: ele fica em “E-mail do setor”.',
+  quemUsa: 'Toda a equipe do Palácio Virtual. As respostas saem pela conta da filial em cada rede, não no seu nome; aqui dentro, a equipe vê quem respondeu.',
   tour: [
     {
-      titulo: 'A Caixa de entrada',
-      texto: 'Aqui chega o que o público escreve nas redes, em pastas. A Caixa consulta as redes quando abre; com a tela parada, nada novo aparece sozinho.',
+      titulo: 'O Direct das redes',
+      texto: 'Aqui chega o que o público escreve nas redes sociais. A tela consulta as redes quando abre; com a tela parada, nada novo aparece sozinho.',
     },
     {
-      alvo: 'caixa.pastas',
-      titulo: 'As três pastas',
-      texto: '“Mensagens” traz o Direct do Instagram; “Comentários”, os das publicações recentes; “E-mail e materiais”, o que chegou por dentro. O número conta o que ainda pede atenção.',
-      lado: 'right',
+      alvo: 'direct.abas',
+      titulo: 'Mensagens e Comentários',
+      texto: '“Mensagens” traz o Direct do Instagram; “Comentários”, os das publicações recentes. O número conta o que está pendente para a equipe.',
+      lado: 'bottom',
     },
     {
-      alvo: 'caixa.conteudo',
+      alvo: 'direct.filtro',
+      titulo: 'Pendentes ou todas',
+      texto: 'A tela abre só nos pendentes: o que ninguém da equipe respondeu nem resolveu. “Todas” mostra também o que já foi atendido, com o nome de quem atendeu.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'direct.conteudo',
       titulo: 'Ler e responder',
-      texto: 'A mensagem direta abre a conversa inteira, em balões. O comentário aparece embaixo da publicação dele, com “Responder” e “Esconder”.',
-      lado: 'left',
+      texto: 'A mensagem direta abre a conversa inteira, em balões. O comentário aparece embaixo da publicação dele, com “Responder”, “Não precisa responder” e “Esconder”.',
+      lado: 'top',
     },
     {
-      alvo: 'caixa.atualizar',
+      alvo: 'direct.atualizar',
       titulo: 'Atualizar',
       texto: '“Atualizar” consulta as redes de novo. Use quando voltar à tela depois de um tempo ou quando uma rede não tiver respondido.',
-      lado: 'right',
+      lado: 'bottom',
     },
     {
-      alvo: 'caixa.avisos',
+      alvo: 'direct.avisos',
       titulo: 'O que fica de fora',
-      texto: 'No pé da Caixa, recolhido, fica o aviso das redes que não responderam e das que este painel não lê. Abra o aviso para saber o que olhar pelo aplicativo da rede.',
+      texto: 'No pé da tela, recolhido, fica o aviso das redes que não responderam e das que esta tela não lê. Abra o aviso para saber o que olhar pelo aplicativo da rede.',
       lado: 'top',
       seAusente: 'pular',
-    },
-    {
-      alvo: 'caixa.registrar',
-      titulo: 'Registrar atividade',
-      texto: '“Registrar atividade” abre o formulário para levar à Comunicação uma ação, um evento, uma história, uma ideia ou um material. O registro entra no quadro de pautas, em “Entrada”.',
-      lado: 'bottom',
     },
   ],
   tarefas: [
@@ -336,21 +336,41 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
       id: 'responder-direct',
       titulo: 'Responder uma mensagem do Direct',
       passos: [
-        'Abra “Caixa de entrada” e fique na pasta “Mensagens”.',
-        'Toque na conversa. Ela abre inteira, em balões, e deixa de contar como não lida neste aparelho.',
+        'Abra “Direct das redes” e fique em “Mensagens”.',
+        'Toque na conversa. Ela abre inteira, em balões.',
         'Escreva no campo “Mensagem…” e toque no botão de enviar (“Enviar mensagem”).',
-        'A sua resposta aparece à direita, como no Instagram. A seta no alto (“Voltar para as conversas”) volta para a lista.',
+        'A sua resposta aparece à direita, como no Instagram, e a conversa passa a “Respondida” com o seu nome para toda a equipe.',
       ],
       dica: 'O Instagram só aceita resposta até 24 horas depois da última mensagem da pessoa. Passou disso, o campo some e a tela explica o motivo.',
+    },
+    {
+      id: 'nao-precisa-responder',
+      titulo: 'Tirar dos pendentes o que não precisa de resposta',
+      passos: [
+        'Abra a conversa, ou ache o comentário.',
+        'Toque em “Não precisa responder”.',
+        'O item vira “Resolvida” com o seu nome e sai dos pendentes para toda a equipe.',
+      ],
+      dica: 'Serve para um “obrigado”, uma figurinha, um elogio. Se a pessoa escrever de novo na conversa, ela volta sozinha para os pendentes. “Reabrir” desfaz.',
+    },
+    {
+      id: 'mensagem-com-foto-ou-audio',
+      titulo: 'Ver uma foto, um áudio ou uma figurinha',
+      passos: [
+        'A mensagem aparece como “Foto, vídeo, áudio ou figurinha”, com um clipe.',
+        'Abra a conversa e toque em “Abrir no Instagram”.',
+        'Veja o conteúdo no Direct do Instagram e responda por aqui ou por lá.',
+      ],
+      dica: 'O serviço que liga o Palácio Virtual ao Instagram entrega só o texto das mensagens. Por isso a mídia só aparece no próprio Instagram.',
     },
     {
       id: 'responder-comentario',
       titulo: 'Responder um comentário',
       passos: [
-        'Abra a pasta “Comentários”.',
+        'Abra “Comentários”.',
         'Ache o comentário embaixo da publicação dele. Com mais de uma rede, os botões do alto (“Todas as redes”, “Instagram”…) filtram a lista.',
         'Toque em “Responder”, escreva e toque no botão de enviar (“Publicar resposta”).',
-        'A resposta aparece embaixo do comentário, marcada como “publicada”.',
+        'A resposta aparece embaixo do comentário, marcada como “publicada”, e o comentário passa a “Respondida” com o seu nome.',
       ],
       dica: 'Resposta a comentário é pública: todo mundo que vê a publicação lê. “ver publicação” abre o post na rede.',
     },
@@ -358,90 +378,75 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
       id: 'esconder-comentario',
       titulo: 'Esconder um comentário ofensivo ou falso',
       passos: [
-        'Na pasta “Comentários”, ache o comentário.',
+        'Em “Comentários”, ache o comentário.',
         'Toque em “Esconder”. Ele fica mais claro na tela e ganha o selo “Escondido do público”.',
         'Mudou de ideia? Toque em “Mostrar”, no mesmo lugar.',
       ],
-      dica: 'Esconder não apaga: o comentário some para o público e pode voltar. Depois que a tela é recarregada, a Caixa não mostra mais que ele está escondido; para mostrar de novo mais tarde, use o aplicativo da rede.',
-    },
-    {
-      id: 'transformar-material-em-pauta',
-      titulo: 'Transformar um material em pauta',
-      passos: [
-        'Abra a pasta “E-mail e materiais” e toque no item.',
-        'Leia o conteúdo e confira a coordenação.',
-        'Toque em “Transformar em pauta”.',
-        'A pauta nasce em “Entrada”, com você como responsável, e abre na hora.',
-      ],
-      dica: 'O título e o texto do material viram o título e a descrição da pauta. O material continua na pasta, sem o destaque de novo; para tirá-lo de lá, use “Arquivar”.',
+      dica: 'Esconder não apaga: o comentário some para o público e pode voltar. Depois que a tela é recarregada, ela não mostra mais que ele está escondido; para mostrar de novo mais tarde, use o aplicativo da rede.',
     },
     {
       id: 'ver-o-que-chegou',
       titulo: 'Ver o que chegou agora',
       passos: [
-        'Toque em “Atualizar”, embaixo das pastas. No celular, é o ícone de setas em círculo, no fim da faixa das pastas.',
+        'Toque em “Atualizar”, no alto, à direita (no celular, só o ícone de setas em círculo).',
         'Espere a consulta às redes terminar.',
-        'Se uma rede não respondeu, abra o aviso no pé da Caixa para ver qual e tente de novo daqui a pouco.',
+        'Se uma rede não respondeu, abra o aviso no pé da tela para ver qual e tente de novo daqui a pouco.',
       ],
-    },
-    {
-      id: 'redes-fora-do-painel',
-      titulo: 'Descobrir que redes não passam por aqui',
-      passos: [
-        'No pé da Caixa, abra a linha “O que não é atendido por este painel” (ou a que diz quantas redes não responderam).',
-        'Leia o motivo de cada rede.',
-        'Atenda essas redes pelo aplicativo delas.',
-      ],
-      dica: 'A linha só aparece quando há rede ligada que este painel não lê, ou rede que não respondeu.',
     },
   ],
   perguntas: [
     {
       id: 'que-redes-aparecem',
-      pergunta: 'Que redes aparecem na Caixa de entrada?',
-      resposta: 'Os comentários do Instagram, do Facebook, do YouTube e do LinkedIn e as mensagens diretas do Instagram. O Messenger, o TikTok, o X e as outras redes ligadas não passam por aqui: o pé da Caixa lista o que fica de fora e por quê.',
+      pergunta: 'Que redes aparecem no Direct das redes?',
+      resposta: 'Os comentários do Instagram, do Facebook, do YouTube e do LinkedIn e as mensagens diretas do Instagram. O Messenger, o TikTok, o X e as outras redes ligadas não passam por aqui: o pé da tela lista o que fica de fora e por quê.',
       termos: ['messenger', 'tiktok', 'facebook', 'instagram', 'youtube', 'linkedin'],
+    },
+    {
+      id: 'onde-esta-o-email',
+      pergunta: 'Onde ficou a Caixa de entrada e o e-mail?',
+      resposta: 'A Caixa de entrada virou o Direct das redes, só com redes sociais. E-mail fica em “E-mail do setor”, o que a equipe manda das ações em “Envios da equipe”, e a conversa interna no Chat. O endereço antigo da Caixa de entrada leva para cá.',
+      termos: ['caixa de entrada', 'e-mail', 'materiais', 'sumiu'],
+    },
+    {
+      id: 'pendente-respondida',
+      pergunta: 'O que quer dizer “Pendente”, “Respondida”, “Resolvida” e “Em dia”?',
+      resposta: '“Pendente”: ninguém da equipe respondeu nem resolveu. “Respondida”: alguém respondeu por aqui (aparece o nome). “Resolvida”: alguém marcou que não precisa de resposta. “Em dia”: a última mensagem da conversa foi da filial, respondida direto no aplicativo do Instagram.\n\nÉ a mesma coisa para a equipe inteira, em qualquer aparelho.',
+      termos: ['situação', 'pendente', 'respondida', 'resolvida', 'em dia', 'quem respondeu'],
+    },
+    {
+      id: 'voltou-para-pendentes',
+      pergunta: 'Resolvi uma conversa e ela voltou para os pendentes. Por quê?',
+      resposta: 'Porque a pessoa escreveu de novo depois. Resolver vale para o que já tinha sido dito; mensagem nova precisa de outro olhar. Comentário não volta sozinho: cada comentário é um item só.',
+      termos: ['voltou', 'reabriu', 'pendente de novo'],
     },
     {
       id: 'comentario-nao-aparece',
       pergunta: 'Por que um comentário não aparece?',
-      resposta: 'A Caixa lê os comentários das publicações mais recentes (até 8) que saíram pelo Upload-Post, o serviço que “Publicações” usa para publicar nas redes, e até 25 comentários de cada uma. Post feito direto no aplicativo da rede não entra, e publicação mais antiga sai da lista.\n\nVale também tocar em “Atualizar” e olhar o aviso no pé da Caixa, que diz se alguma rede não respondeu.',
+      resposta: 'A tela lê os comentários das publicações mais recentes (até 8) que saíram pelo Upload-Post, o serviço que “Publicações” usa para publicar nas redes, e até 25 comentários de cada uma. Post feito direto no aplicativo da rede não entra, e publicação mais antiga sai da lista.\n\nConfira também o filtro: em “Pendentes”, o que já foi atendido não aparece. Toque em “Todas”.',
       termos: ['sumiu', 'faltando', 'post antigo', 'celular'],
     },
     {
       id: 'janela-de-24-horas',
       pergunta: 'Por que não consigo responder uma mensagem do Direct?',
-      resposta: 'O Instagram só aceita resposta até 24 horas depois da última mensagem da pessoa. Fora dessa janela, o campo de resposta some e a tela explica o motivo; responda pelo aplicativo do Instagram, se ainda for possível.\n\nMais raramente, a Caixa não consegue saber para quem responder ou quando foi a última mensagem. O aviso no lugar do campo diz qual é o caso.',
+      resposta: 'O Instagram só aceita resposta até 24 horas depois da última mensagem da pessoa. Fora dessa janela, o campo de resposta some e a tela explica o motivo; responda pelo aplicativo do Instagram, se ainda for possível.\n\nMais raramente, a tela não consegue saber para quem responder ou quando foi a última mensagem. O aviso no lugar do campo diz qual é o caso.',
       termos: ['24 horas', 'prazo', 'janela', 'direct', 'dm'],
     },
     {
       id: 'chega-sozinho',
       pergunta: 'As mensagens chegam sozinhas?',
-      resposta: 'Não. A Caixa consulta as redes quando abre e quando você toca em “Atualizar”. Com a tela parada, nada novo aparece.',
+      resposta: 'Não. A tela consulta as redes quando abre e quando você toca em “Atualizar”. Com a tela parada, nada novo aparece.',
       termos: ['tempo real', 'atualizar', 'recarregar'],
-    },
-    {
-      id: 'lida-so-no-aparelho',
-      pergunta: 'Abri uma conversa, mas no outro computador ela continua como não lida. Por quê?',
-      resposta: 'O “lida” da Caixa fica guardado no navegador de cada aparelho, e não na conta. Abrir a conversa marca como lida só ali: no seu celular e nos computadores dos colegas, ela continua como estava.',
-      termos: ['não lida', 'ponto', 'negrito', 'lida'],
-    },
-    {
-      id: 'numero-das-pastas',
-      pergunta: 'O que conta o número ao lado de cada pasta?',
-      resposta: 'Em “Mensagens”, as conversas que esperam resposta e que você ainda não abriu neste aparelho. Em “E-mail e materiais”, os itens novos que você ainda não abriu neste aparelho.\n\nEm “Comentários”, todos os comentários carregados, menos os que você respondeu desde que abriu a tela. Ao recarregar, a conta recomeça.',
-      termos: ['contador', 'bolinha', 'pendentes'],
     },
     {
       id: 'confira-quem-escreveu',
       pergunta: 'O que quer dizer “confira quem escreveu”?',
-      resposta: 'A Caixa não conseguiu confirmar qual é a conta da filial nas conversas. Aí as respostas da filial podem aparecer como se fossem do público, e a conversa pode contar como esperando resposta. Leia a conversa com atenção antes de responder.',
+      resposta: 'A tela não conseguiu confirmar qual é a conta da filial nas conversas. Aí as respostas da filial podem aparecer como se fossem do público, e a conversa pode aparecer como pendente. Leia a conversa com atenção antes de responder.',
       termos: ['identidade', 'aviso amarelo'],
     },
     {
       id: 'formato-nao-reconhecido',
       pergunta: 'E “formato não reconhecido”?',
-      resposta: 'A rede devolveu um comentário sem texto e sem autor que a Caixa consiga ler. Para ver o que foi escrito, abra a publicação na rede em “ver publicação”.',
+      resposta: 'A rede devolveu um comentário sem texto e sem autor que a tela consiga ler. Para ver o que foi escrito, abra a publicação na rede em “ver publicação”.',
       termos: ['comentário estranho', 'sem texto'],
     },
     {
@@ -451,25 +456,13 @@ const CAIXA_DE_ENTRADA: GuiaDaArea = {
       termos: ['apagar', 'excluir', 'ofensa', 'moderação', 'fake news'],
     },
     {
-      id: 'arquivar-material',
-      pergunta: 'Como tiro um material da pasta “E-mail e materiais”?',
-      resposta: 'Abra o item e toque em “Arquivar”: ele sai da Caixa de entrada. Esta tela não traz de volta um material arquivado, então arquive só o que já foi resolvido.',
-      termos: ['arquivar', 'limpar', 'remover material', 'tirar da caixa'],
-    },
-    {
-      id: 'rascunhos-e-aprovacoes',
-      pergunta: 'O que são “Meus rascunhos” e “Aguardando aprovação”, embaixo das pastas?',
-      resposta: 'Lembretes com número: “Meus rascunhos” conta os conteúdos em rascunho em que você é responsável, e “Aguardando aprovação”, os pedidos que esperam o seu voto (este leva a Aprovações). Só aparecem quando há algum, e não aparecem no celular.',
-      termos: ['atalho', 'rascunho', 'aprovação'],
-    },
-    {
       id: 'em-nome-de-quem',
       pergunta: 'A resposta sai no meu nome?',
-      resposta: 'Não. A resposta sai pela conta da filial na rede, e não pelo seu perfil. Qualquer pessoa da equipe do Palácio Virtual pode responder por aqui.',
+      resposta: 'Na rede, não: a resposta sai pela conta da filial, e não pelo seu perfil. Aqui dentro, a equipe vê que foi você (“Respondida por…”).',
       termos: ['perfil', 'assinatura', 'quem respondeu'],
     },
   ],
-  relacionadas: ['/redes', '/pautas', '/aprovacoes'],
+  relacionadas: ['/redes', '/correio', '/envios'],
 }
 
 // ---------------------------------------------------------------- E-mail do setor
@@ -1009,4 +1002,4 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
   relacionadas: ['/voluntariado'],
 }
 
-export const guias: GuiaDaArea[] = [CHAT, CAIXA_DE_ENTRADA, EMAIL_DO_SETOR, ENVIOS_DA_EQUIPE, CANAL_DOS_VOLUNTARIOS]
+export const guias: GuiaDaArea[] = [CHAT, DIRECT_DAS_REDES, EMAIL_DO_SETOR, ENVIOS_DA_EQUIPE, CANAL_DOS_VOLUNTARIOS]
