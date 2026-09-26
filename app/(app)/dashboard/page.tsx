@@ -19,6 +19,7 @@ import {
   ProjetosNoPainel, SaudeDosCanais, Secao,
   type CanalNoPainel, type Indicador, type ItemDoFeed, type MinhaPauta, type PedidoDeAprovacao, type ProjetoNoPainel,
 } from '@/components/app/dashboard/camadas'
+import { AberturaDoPalacio, AreasDoPalacio } from '@/components/app/dashboard/palacio'
 import { tituloDaArea } from '@/lib/navegacao'
 
 export const metadata = { title: tituloDaArea('/dashboard') }
@@ -145,7 +146,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     if (p) pessoas.set(m.user_id as string, { id: m.user_id as string, nome: p.full_name || 'Colaborador', iniciais: p.initials || '?', cor: p.color || null, avatar: p.avatar_path ?? null })
   }
   const pessoa = (id: string | null | undefined) => (id ? pessoas.get(id) : undefined)
-  const nome = pessoa(eu)?.nome.split(' ')[0] || context.profile?.full_name?.split(' ')[0] || context.profile?.username || 'colaborador'
+  const nome = pessoa(eu)?.nome.split(' ')[0] || context.profile?.full_name?.split(' ')[0] || context.profile?.username || ''
 
   // ---------------------------------------------------------------- camada 1
   const minhasPautas: MinhaPauta[] = (minhas ?? []).map((p) => ({
@@ -373,17 +374,20 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div data-ajuda="inicio.resumo">
-          <p className="text-sm font-medium text-primary">{maiuscula(DATA_LONGA.format(new Date()))}</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">{saudacao()}, {nome}.</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{maiuscula(resumo)}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link href="/calendario" />}><CalendarDays className="size-4" />Ver calendário</Button>
+      <AberturaDoPalacio
+        data={maiuscula(DATA_LONGA.format(new Date()))}
+        saudacao={nome ? `${saudacao()}, ${nome}.` : `${saudacao()}.`}
+        resumo={maiuscula(resumo)}
+        destaques={[
+          { valor: minhasPautas.length, rotulo: minhasPautas.length === 1 ? 'pauta sua em aberto' : 'pautas suas em aberto', href: '/pautas' },
+          { valor: pedidos.length, rotulo: 'esperando o seu voto', href: '/aprovacoes', alerta: true },
+          { valor: contagem('atrasadas'), rotulo: contagem('atrasadas') === 1 ? 'pauta atrasada' : 'pautas atrasadas', href: '/pautas', alerta: true },
+        ]}
+        acoes={<>
           <Button render={<Link href="/registrar" />}><Plus className="size-4" />Criar</Button>
-        </div>
-      </div>
+          <Button variant="outline" render={<Link href="/calendario" />}><CalendarDays className="size-4" />Ver calendário</Button>
+        </>}
+      />
 
       <Camada nome="Meu dia" pergunta="O que é seu e o que espera por você.">
         <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
@@ -398,9 +402,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         <Suspense fallback={null}><TempoNoRio /></Suspense>
       </Camada>
 
+      <Camada nome="O Palácio" pergunta="Todas as áreas que você pode abrir, do jeito que estão no menu.">
+        <AreasDoPalacio />
+      </Camada>
+
       <div id="semana" className="scroll-mt-6">
         <Camada
-          nome={ehSemanaAtual ? 'Esta semana' : `Semana de ${rotuloDaSemana(segunda)}`}
+          nome={ehSemanaAtual ? 'Esta semana na comunicação' : `Comunicação · semana de ${rotuloDaSemana(segunda)}`}
           pergunta={ehSemanaAtual ? `${rotuloDaSemana(segunda)} · o que vai ao ar, o que saiu e o que falhou.` : 'O que estava no calendário, o que saiu e o que falhou.'}
           lado={<NavegacaoDaSemana anterior={somarDias(segunda, -7)} proxima={somarDias(segunda, 7)} ehAtual={ehSemanaAtual} />}
         >
@@ -415,7 +423,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         </Camada>
       </div>
 
-      <Camada nome="Indicadores" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
+      <Camada nome="Indicadores da comunicação" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
         <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
           <div data-ajuda="inicio.indicadores" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {indicadores.map((i) => <CartaoDoIndicador key={i.nome} i={i} />)}
