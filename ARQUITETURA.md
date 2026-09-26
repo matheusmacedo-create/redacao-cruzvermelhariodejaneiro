@@ -1032,6 +1032,11 @@ Limites que valem conhecer:
 
 ## 9. Convenções
 
+**Marca.** O emblema (a cruz) é **sempre vermelho sobre fundo branco** — nunca
+vazado em branco sobre vermelho, nunca como marca d'água, nunca recortado. Faixa
+de destaque com a marca é branca com filete vermelho; o vermelho da marca é
+`--primary` (`rgb(227 34 25)`). A logo oficial é `public/images/logo-cvrj.png`.
+
 **Idioma.** Interface, mensagens de erro, comentários e mensagens de commit em
 **português**. Código novo nomeia em português (`publicacoesPrevistas`,
 `carregarArquivo`, `enquadrar`); código herdado da Fase 1 está em inglês

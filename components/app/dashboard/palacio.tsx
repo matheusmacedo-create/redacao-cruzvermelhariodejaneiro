@@ -13,7 +13,8 @@ import { cn } from '@/lib/utils'
  *
  * Identidade: o vermelho da marca (--primary), a cruz do emblema e a Libre
  * Franklin — as mesmas do menu, do cartaz de envios e da Área do Voluntário.
- * Sem cruz como marca d'água: o emblema aparece uma vez, no lugar dele.
+ * Sem cruz como marca d'água: o emblema aparece uma vez, no lugar dele, e
+ * sempre vermelho sobre branco — nunca vazado em branco sobre vermelho.
  */
 
 /** O emblema, nas mesmas proporções do logo (components/app/sidebar.tsx). */
@@ -40,9 +41,10 @@ export function AberturaDoPalacio({ data, saudacao, resumo, destaques, acoes }: 
 }) {
   return (
     <Card data-ajuda="inicio.resumo" className="overflow-hidden p-0">
-      <div className="flex items-center gap-2.5 bg-primary px-5 py-2.5 text-primary-foreground sm:px-6">
-        <Cruz className="size-4 shrink-0" />
-        <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.16em]">
+      {/* A cruz é SEMPRE vermelha sobre branco (manual da marca): o vermelho da faixa é o filete de baixo. */}
+      <div className="flex items-center gap-2.5 border-b-2 border-primary bg-card px-5 py-2.5 sm:px-6">
+        <Cruz className="size-4 shrink-0 text-primary" />
+        <p className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground">
           Palácio Virtual<span className="hidden sm:inline"> · Cruz Vermelha Brasileira — Rio de Janeiro</span>
         </p>
       </div>
