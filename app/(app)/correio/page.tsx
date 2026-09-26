@@ -4,6 +4,7 @@ import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { Correio, type CaixaDoSetor, type EnvioNaTela } from '@/components/app/correio/correio'
 import { tituloDaArea } from '@/lib/navegacao'
+import { sincronizarSeAntigo } from '@/lib/correio/sincronizar'
 
 export const metadata = { title: tituloDaArea('/correio') }
 
@@ -21,6 +22,8 @@ export default async function CorreioPage() {
   const supabase = await createClient()
   const workspaceId = context.workspace.id
   const admin = pode(context.role, 'correio.todas_as_caixas')
+  // Nome e assinatura de cada endereço vêm do Gmail; se a última leitura tem mais de 1 hora, lê de novo antes de mostrar.
+  await sincronizarSeAntigo(workspaceId)
 
   const [{ data: meus }, { data: setores }, { data: caixas }, { data: envios }, { data: conexao }] = await Promise.all([
     supabase.from('setor_membros').select('setor_id').eq('workspace_id', workspaceId).eq('user_id', context.user.id),
