@@ -19,6 +19,8 @@ import {
   type CanalNoPainel, type Indicador, type ItemDoFeed, type MinhaPauta, type PedidoDeAprovacao, type ProjetoNoPainel,
 } from '@/components/app/dashboard/camadas'
 import { AberturaDoPalacio, AreasDoPalacio } from '@/components/app/dashboard/palacio'
+import { PersonalizarInicio } from '@/components/app/dashboard/personalizar'
+import { faixas, lerArrumacao, type IdDoBloco } from '@/lib/inicio/blocos'
 import { tituloDaArea } from '@/lib/navegacao'
 
 export const metadata = { title: tituloDaArea('/dashboard') }
@@ -43,12 +45,16 @@ const inicioDoDia = (dia: string) => `${dia}T00:00:00-03:00`
 const fimDoDia = (dia: string) => `${dia}T23:59:59.999-03:00`
 
 /**
- * O Início em camadas, do operacional para o analítico: em cima, a abertura
+ * O Início em blocos, do operacional para o analítico: em cima, a abertura
  * (saudação, o dia em uma frase, atalhos e quatro números); depois o meu dia
  * (o que espera o meu voto e as minhas pautas, com a coluna do lado: hoje na
  * comunicação, o tempo e a equipe); a semana da operação; os indicadores com
  * tendência; e, recolhido no fim, o mapa de todas as áreas. O detalhe de cada
  * coisa continua na tela dela — aqui é o resumo que diz onde olhar.
+ *
+ * Essa é a arrumação padrão: cada pessoa escolhe o que aparece e em que ordem
+ * ("Personalizar o Início", lib/inicio/blocos.ts). Bloco escondido não é
+ * consultado no banco.
  */
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
   const { semana: semanaParam } = await searchParams
@@ -57,6 +63,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ws = context.workspace.id
   const eu = context.user.id
   const hoje = hojeEmSaoPaulo()
+
+  // A arrumação desta pessoa (sem a migração ou sem escolha, a padrão).
+  const { data: preferencia } = await supabase.from('inicio_preferencias').select('blocos').eq('user_id', eu).eq('workspace_id', ws).maybeSingle()
+  const arrumacao = lerArrumacao(preferencia?.blocos)
+  const visiveis = new Set(arrumacao.filter((b) => b.visivel).map((b) => b.id))
+  const mostra = (id: IdDoBloco) => visiveis.has(id)
+  const precisaDaSemana = mostra('semana') || mostra('hoje')
+  const nada = Promise.resolve({ data: null, count: null })
 
   const segunda = semanaPedida(semanaParam, hoje)
   const dias = diasDaSemana(segunda)
@@ -105,39 +119,39 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       .order('due_date', { ascending: true, nullsFirst: false }).limit(300),
     supabase.from('approval_voters').select('approval_id,approvals!inner(id,status,created_at,requested_by,content_pieces(title))')
       .eq('workspace_id', ws).eq('user_id', eu).eq('decision', 'pending').eq('approvals.status', 'pending').limit(30),
-    supabase.from('activity_log').select('id,actor_id,action,entity_type,entity_id,metadata,created_at')
-      .eq('workspace_id', ws).order('created_at', { ascending: false }).limit(40),
-    supabase.from('project_updates').select('id,project_id,situacao,autor_id,created_at,projects(name)')
-      .eq('workspace_id', ws).order('created_at', { ascending: false }).limit(6),
-    supabase.from('projects').select('id,name,situacao,fim,responsavel_id,status,pautas(status)')
-      .eq('workspace_id', ws).eq('status', 'active').limit(100),
-    supabase.from('calendar_events').select('id,title,event_date,event_time,type,channel,pauta_id,content_id')
-      .eq('workspace_id', ws).gte('event_date', segunda).lte('event_date', domingo).order('event_date').limit(300),
-    supabase.from('package_destinations').select('id,package_id,canal,corpo,extras,publicado_em,social_packages(titulo_interno)')
-      .eq('workspace_id', ws).eq('estado', 'publicada').gte('publicado_em', inicioDoDia(segunda)).lte('publicado_em', fimDoDia(domingo)).limit(300),
-    supabase.from('package_destinations').select('id,package_id,canal,corpo,extras,updated_at,social_packages(titulo_interno)')
-      .eq('workspace_id', ws).eq('estado', 'falhou').gte('updated_at', inicioDoDia(segunda)).lte('updated_at', fimDoDia(domingo)).limit(300),
-    supabase.from('approvals').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('status', 'pending'),
+    mostra('equipe') ? supabase.from('activity_log').select('id,actor_id,action,entity_type,entity_id,metadata,created_at')
+      .eq('workspace_id', ws).order('created_at', { ascending: false }).limit(40) : nada,
+    mostra('equipe') ? supabase.from('project_updates').select('id,project_id,situacao,autor_id,created_at,projects(name)')
+      .eq('workspace_id', ws).order('created_at', { ascending: false }).limit(6) : nada,
+    mostra('projetos') ? supabase.from('projects').select('id,name,situacao,fim,responsavel_id,status,pautas(status)')
+      .eq('workspace_id', ws).eq('status', 'active').limit(100) : nada,
+    precisaDaSemana ? supabase.from('calendar_events').select('id,title,event_date,event_time,type,channel,pauta_id,content_id')
+      .eq('workspace_id', ws).gte('event_date', segunda).lte('event_date', domingo).order('event_date').limit(300) : nada,
+    precisaDaSemana ? supabase.from('package_destinations').select('id,package_id,canal,corpo,extras,publicado_em,social_packages(titulo_interno)')
+      .eq('workspace_id', ws).eq('estado', 'publicada').gte('publicado_em', inicioDoDia(segunda)).lte('publicado_em', fimDoDia(domingo)).limit(300) : nada,
+    precisaDaSemana ? supabase.from('package_destinations').select('id,package_id,canal,corpo,extras,updated_at,social_packages(titulo_interno)')
+      .eq('workspace_id', ws).eq('estado', 'falhou').gte('updated_at', inicioDoDia(segunda)).lte('updated_at', fimDoDia(domingo)).limit(300) : nada,
+    mostra('semana') ? supabase.from('approvals').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('status', 'pending') : nada,
     // Já vem em ordem decrescente: a primeira linha de cada canal é a mais nova.
-    supabase.from('package_destinations').select('canal,publicado_em')
+    mostra('semana') ? supabase.from('package_destinations').select('canal,publicado_em')
       .eq('workspace_id', ws).eq('estado', 'publicada').not('publicado_em', 'is', null)
-      .order('publicado_em', { ascending: false }).limit(300),
-    supabase.from('package_destinations').select('canal,updated_at')
+      .order('publicado_em', { ascending: false }).limit(300) : nada,
+    mostra('semana') ? supabase.from('package_destinations').select('canal,updated_at')
       .eq('workspace_id', ws).eq('estado', 'falhou').gte('updated_at', inicioDoDia(somarDias(hoje, -14)))
-      .order('updated_at', { ascending: false }).limit(100),
-    publicacoesDesde(),
-    supabase.from('press_campanhas').select('enviada_em,total_enviados,total_aberturas')
+      .order('updated_at', { ascending: false }).limit(100) : nada,
+    mostra('indicadores') ? publicacoesDesde() : Promise.resolve([] as { canal: string; publicado_em: string }[]),
+    mostra('indicadores') ? supabase.from('press_campanhas').select('enviada_em,total_enviados,total_aberturas')
       .eq('workspace_id', ws).in('estado', ['enviada', 'parcial']).not('enviada_em', 'is', null)
-      .order('enviada_em', { ascending: false }).limit(300),
+      .order('enviada_em', { ascending: false }).limit(300) : nada,
     // Pauta entregue = chegou a "Pronto": pelo quadro (registrado no histórico)
     // ou pela aprovação do conteúdo (que move a pauta junto).
-    supabase.from('activity_log').select('entity_id,created_at')
+    mostra('indicadores') ? supabase.from('activity_log').select('entity_id,created_at')
       .eq('workspace_id', ws).eq('entity_type', 'pauta').eq('action', 'status_changed').eq('metadata->>status', 'approved')
-      .gte('created_at', desde).limit(2000),
-    supabase.from('approvals').select('updated_at,content_pieces(pauta_id)')
-      .eq('workspace_id', ws).eq('status', 'approved').gte('updated_at', desde).limit(2000),
-    supabase.from('approvals').select('created_at,updated_at')
-      .eq('workspace_id', ws).in('status', ['approved', 'changes_requested']).gte('updated_at', desde).limit(2000),
+      .gte('created_at', desde).limit(2000) : nada,
+    mostra('indicadores') ? supabase.from('approvals').select('updated_at,content_pieces(pauta_id)')
+      .eq('workspace_id', ws).eq('status', 'approved').gte('updated_at', desde).limit(2000) : nada,
+    mostra('indicadores') ? supabase.from('approvals').select('created_at,updated_at')
+      .eq('workspace_id', ws).in('status', ['approved', 'changes_requested']).gte('updated_at', desde).limit(2000) : nada,
   ])
 
   // ---------------------------------------------------------------- pessoas
@@ -373,12 +387,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const ehSemanaAtual = segunda === segundaDaSemana(hoje)
 
-  return (
-    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-10">
+  // ---------------------------------------------------------------- os blocos
+  const personalizar = <PersonalizarInicio inicial={arrumacao} />
+  // O botão fica ao lado da data quando a abertura é o primeiro bloco; senão, no alto da página.
+  const aberturaNoTopo = arrumacao.find((b) => b.visivel)?.id === 'abertura'
+  const BLOCO: Record<IdDoBloco, () => React.ReactNode> = {
+    abertura: () => (
       <AberturaDoPalacio
         data={maiuscula(DATA_LONGA.format(new Date()))}
         saudacao={nome ? `${saudacao()}, ${nome}.` : `${saudacao()}.`}
         resumo={maiuscula(resumo)}
+        acao={aberturaNoTopo ? personalizar : undefined}
         destaques={[
           { valor: pedidos.length, rotulo: 'Esperando o seu voto', href: '/aprovacoes', alerta: true, icone: <Vote /> },
           { valor: contagem('atrasadas'), rotulo: contagem('atrasadas') === 1 ? 'Pauta atrasada' : 'Pautas atrasadas', href: '/pautas', alerta: true, icone: <AlarmClock /> },
@@ -386,24 +405,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           { valor: minhasPautas.length, rotulo: minhasPautas.length === 1 ? 'Pauta sua em aberto' : 'Pautas suas em aberto', href: '/pautas', icone: <FileText /> },
         ]}
       />
-
-      <Camada nome="Meu dia" pergunta="O que espera por você, o que é seu e o que acontece hoje.">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="flex min-w-0 flex-col gap-6">
-            <EsperandoVoce pedidos={pedidos} hoje={hoje} />
-            <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />
-            <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
-          </div>
-          <aside className="flex min-w-0 flex-col gap-6" aria-label="Hoje">
-            {/* Vendo outra semana (?semana=), o mapa não tem o dia de hoje. */}
-            {ehSemanaAtual && <HojeNaAgenda itens={semana.get(hoje) ?? []} />}
-            {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
-            <Suspense fallback={null}><TempoNoRio compacto /></Suspense>
-            <EquipeAgora itens={feed} hoje={hoje} />
-          </aside>
-        </div>
-      </Camada>
-
+    ),
+    esperando: () => <EsperandoVoce pedidos={pedidos} hoje={hoje} />,
+    pautas: () => <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />,
+    projetos: () => <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />,
+    // Vendo outra semana (?semana=), o mapa não tem o dia de hoje.
+    hoje: () => (ehSemanaAtual ? <HojeNaAgenda itens={semana.get(hoje) ?? []} /> : null),
+    // Não segura o painel: a previsão chega quando chegar (e some se a API cair).
+    tempo: () => <Suspense fallback={null}><TempoNoRio compacto /></Suspense>,
+    equipe: () => <EquipeAgora itens={feed} hoje={hoje} />,
+    semana: () => (
       <div id="semana" className="scroll-mt-6">
         <Camada
           nome={ehSemanaAtual ? 'Esta semana na comunicação' : `Comunicação · semana de ${rotuloDaSemana(segunda)}`}
@@ -420,7 +431,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <SaudeDosCanais canais={canais} />
         </Camada>
       </div>
-
+    ),
+    indicadores: () => (
       <Camada nome="Indicadores da comunicação" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
         <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
           <div data-ajuda="inicio.indicadores" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -428,8 +440,38 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </Secao>
       </Camada>
+    ),
+    areas: () => <AreasDoPalacio />,
+  }
 
-      <AreasDoPalacio />
+  // Blocos de coluna larga e estreita em sequência ficam lado a lado; a primeira dessas faixas é o "Meu dia".
+  const lista = faixas(arrumacao)
+  const primeiraDeColunas = lista.findIndex((f) => f.tipo === 'colunas')
+  return (
+    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-10">
+      {!aberturaNoTopo && <div className="-mb-6 flex justify-end">{personalizar}</div>}
+      {lista.map((f, n) => {
+        if (f.tipo === 'inteiro') return <div key={f.id} data-bloco={f.id}>{BLOCO[f.id]()}</div>
+        const chave = [...f.largos, ...f.estreitos].join('-')
+        const corpo = f.largos.length && f.estreitos.length ? (
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="flex min-w-0 flex-col gap-6">{f.largos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</div>
+            <aside className="flex min-w-0 flex-col gap-6" aria-label="Ao lado">{f.estreitos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</aside>
+          </div>
+        ) : f.largos.length ? (
+          <div className="flex min-w-0 flex-col gap-6">{f.largos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">{f.estreitos.map((id) => <div key={id} className="min-w-0" data-bloco={id}>{BLOCO[id]()}</div>)}</div>
+        )
+        return n === primeiraDeColunas
+          ? <Camada key={chave} nome="Meu dia" pergunta="O que espera por você, o que é seu e o que acontece hoje.">{corpo}</Camada>
+          : <div key={chave}>{corpo}</div>
+      })}
+      {!lista.length && (
+        <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          Você escondeu todos os blocos do Início. Use “Personalizar o Início” para escolher o que aparece.
+        </p>
+      )}
     </div>
   )
 }

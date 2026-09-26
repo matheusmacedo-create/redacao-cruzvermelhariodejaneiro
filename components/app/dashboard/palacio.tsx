@@ -38,11 +38,13 @@ export type Destaque = { valor: number; rotulo: string; href: string; alerta?: b
  * A abertura: a linha da marca com a data, a saudação com o dia em uma frase,
  * os atalhos do "Criar" e quatro números que levam direto ao que é da pessoa.
  */
-export function AberturaDoPalacio({ data, saudacao, resumo, destaques }: {
+export function AberturaDoPalacio({ data, saudacao, resumo, destaques, acao }: {
   data: string
   saudacao: string
   resumo: string
   destaques: Destaque[]
+  /** Ao lado da data (o "Personalizar o Início"). */
+  acao?: React.ReactNode
 }) {
   return (
     <header data-ajuda="inicio.resumo" className="flex flex-col gap-5">
@@ -52,7 +54,10 @@ export function AberturaDoPalacio({ data, saudacao, resumo, destaques }: {
           <Cruz className="size-3.5 shrink-0 text-primary" />
           <span className="truncate">Palácio Virtual<span className="hidden sm:inline"> · Cruz Vermelha Brasileira — Rio de Janeiro</span></span>
         </p>
-        <p className="shrink-0 text-xs font-medium text-muted-foreground">{data}</p>
+        <div className="flex shrink-0 items-center gap-3">
+          <p className="hidden text-xs font-medium text-muted-foreground sm:block">{data}</p>
+          {acao}
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">
