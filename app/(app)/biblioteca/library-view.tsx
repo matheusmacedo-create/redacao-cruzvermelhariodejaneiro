@@ -1,9 +1,10 @@
 'use client'
 import { useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { upload as uploadToBlob } from '@vercel/blob/client'
 import { caminhoDaBiblioteca } from '@/lib/storage'
-import { AlertTriangle, CheckCircle2, Download, FileText, Folder, ImageIcon, Lock, Music, Search, ShieldCheck, Trash2, UploadCloud, Video } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileText, Folder, ImageIcon, Lock, Music, PenLine, Search, ShieldCheck, Trash2, UploadCloud, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -39,6 +40,9 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
    * dizendo isso nem onde mudar. Aqui ela vira estado visível e decisão.
    */
   const [confirmando, setConfirmando] = useState<Item | null>(null)
+  /** Fotos e vídeos marcados para pedir autorização às pessoas por link (/biblioteca/autorizacoes). */
+  const [selecionadas, setSelecionadas] = useState<string[]>([])
+  const alternarSelecao = (id: string) => setSelecionadas((a) => a.includes(id) ? a.filter((x) => x !== id) : [...a, id])
 
   async function autorizar(item: Item) {
     setError(''); setSuccess('')
@@ -181,15 +185,39 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
         </div>
       )}
 
-      <p className="text-xs text-muted-foreground">{list.length} arquivo(s)</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{list.length} arquivo(s)</p>
+        <div className="flex flex-wrap gap-2">
+          {list.some((f) => f.kind === 'foto' || f.kind === 'video') && (
+            <Button variant="ghost" size="sm" onClick={() => setSelecionadas(list.filter((f) => (f.kind === 'foto' || f.kind === 'video') && f.status !== 'internal').map((f) => f.id).slice(0, 60))}>Selecionar as fotos da lista</Button>
+          )}
+          <Button data-ajuda="biblioteca.autorizacoes" variant="outline" size="sm" render={<Link href="/biblioteca/autorizacoes" />}><PenLine className="size-4" />Autorizações de imagem</Button>
+        </div>
+      </div>
+      {selecionadas.length > 0 && (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-card/95 p-3 shadow-sm">
+          <span className="text-sm">{selecionadas.length} selecionada(s){selecionadas.length > 60 && ' — no máximo 60 por link'}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setSelecionadas([])}>Limpar</Button>
+            <Button size="sm" render={<Link href={`/biblioteca/autorizacoes/nova?arquivos=${selecionadas.slice(0, 60).join(',')}`} />}><PenLine className="size-4" />Pedir autorização às pessoas</Button>
+          </div>
+        </div>
+      )}
       <div data-ajuda="biblioteca.arquivos" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((f) => {
           const Icon = icons[f.kind] || FileText
           const preview = f.kind === 'foto' && f.storagePath ? `/api/private-blob?pathname=${encodeURIComponent(f.storagePath)}` : null
           const fileFolder = folderOf(f.tags)
           return (
-            <Card key={f.id} className="overflow-hidden">
-              <div className="flex aspect-video items-center justify-center bg-muted">{preview ? <img src={preview} alt={f.name} className="size-full object-cover" /> : <Icon className="size-10 text-muted-foreground" />}</div>
+            <Card key={f.id} className={cn('overflow-hidden', selecionadas.includes(f.id) && 'ring-2 ring-primary')}>
+              <div className="relative flex aspect-video items-center justify-center bg-muted">
+                {(f.kind === 'foto' || f.kind === 'video') && f.status !== 'internal' && (
+                  <label className="absolute left-2 top-2 flex items-center gap-1.5 rounded-md bg-background/90 px-2 py-1 text-xs font-medium shadow-sm">
+                    <input type="checkbox" checked={selecionadas.includes(f.id)} onChange={() => alternarSelecao(f.id)} className="size-4 accent-[var(--primary)]" />
+                    <span className="sr-only">Selecionar {f.name} para pedir autorização</span><span aria-hidden="true">Selecionar</span>
+                  </label>
+                )}
+                {preview ? <img src={preview} alt={f.name} className="size-full object-cover" /> : <Icon className="size-10 text-muted-foreground" />}</div>
               <div className="flex flex-col gap-3 p-4">
                 <div>
                   <p className="truncate text-sm font-semibold">{f.name}</p>
@@ -208,6 +236,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
                       Confirmo que há autorização de uso de imagem das pessoas que aparecem nesta mídia para publicação
                       pela Cruz Vermelha Brasileira — Rio de Janeiro.
                     </p>
+                    <p className="mt-1 text-muted-foreground">Ainda não tem? <Link href={`/biblioteca/autorizacoes/nova?arquivos=${f.id}`} className="font-medium text-primary hover:underline">Peça às pessoas por link</Link> — cada uma assina no celular.</p>
                     <div className="mt-2 flex gap-2">
                       <Button size="sm" onClick={() => autorizar(f)}><CheckCircle2 className="size-4" />Confirmo</Button>
                       <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>

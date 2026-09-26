@@ -389,6 +389,36 @@ const BIBLIOTECA: GuiaDaArea = {
       texto: 'Cada cartão mostra quem enviou e o selo de uso: “Uso autorizado”, “Falta autorizar” ou “Uso interno”. Dele você baixa e, quando cabe, autoriza o uso ou exclui.',
       seAusente: 'pular',
     },
+    {
+      alvo: 'biblioteca.autorizacoes',
+      titulo: 'Autorizações de imagem',
+      texto: 'Marque “Selecionar” nas fotos de uma ação e peça a autorização a quem aparece nelas: a pessoa recebe um link, vê as fotos e assina no próprio celular. Aqui ficam todas as assinaturas.',
+    },
+  ],
+  telas: [
+    {
+      caminho: '/biblioteca/autorizacoes',
+      rotulo: 'Autorizações de imagem',
+      tour: [
+        {
+          titulo: 'O banco de autorizações',
+          texto: 'Cada ação vira um link. Quem aparece nas fotos abre, lê o termo, marca onde as fotos podem sair e assina na tela. Cada assinatura fica aqui com data, hora, IP e o aparelho usado.',
+        },
+        { alvo: 'autorizacoes.nova', titulo: 'Pedir autorização', texto: 'Escolha as fotos da ação e gere um link novo, com QR code e botão de WhatsApp.' },
+        { alvo: 'autorizacoes.links', titulo: 'Os links', texto: 'Um cartão por ação, com o número de assinaturas e se o link ainda está aberto.' },
+        { alvo: 'autorizacoes.busca', titulo: 'Buscar no banco', texto: 'Procure pelo nome, pelo responsável ou pelo código IMG- do comprovante, e filtre por situação, uso autorizado e relação. “Baixar planilha” leva o resultado para o Excel.' },
+        { alvo: 'autorizacoes.tabela', titulo: 'As assinaturas', texto: 'Quem assinou, os usos que autorizou, quando, de que aparelho e se continua válida ou foi revogada.', seAusente: 'pular' },
+      ],
+    },
+    {
+      caminho: '/biblioteca/autorizacoes/[id]',
+      rotulo: 'Link de autorização',
+      tour: [
+        { alvo: 'autorizacao.compartilhar', titulo: 'Mandar o link', texto: 'Copie o link, mande pelo WhatsApp ou mostre o QR code. Cada pessoa assina no próprio celular; por menor de 18 anos, assina o responsável.', seAusente: 'pular' },
+        { alvo: 'autorizacoes.tabela', titulo: 'Quem já assinou', texto: 'Toque em “Ver assinatura” para conferir o desenho da assinatura, a versão do termo e a impressão digital do documento.', seAusente: 'pular' },
+        { alvo: 'autorizacao.marcar', titulo: 'Liberar as fotos', texto: 'Quando todas as pessoas que aparecem tiverem assinado, “Marcar fotos como autorizadas” passa as fotos a “Uso autorizado” na Biblioteca.', seAusente: 'pular' },
+      ],
+    },
   ],
   tarefas: [
     {
@@ -413,6 +443,41 @@ const BIBLIOTECA: GuiaDaArea = {
         'O selo passa a “Uso autorizado”, e o arquivo pode ir para as redes e para o site.',
       ],
       dica: 'Só confirme se a autorização de quem aparece existe de verdade. A confirmação vale para todos os usos do arquivo.',
+    },
+    {
+      id: 'pedir-autorizacao-por-link',
+      titulo: 'Pedir a autorização de imagem às pessoas por link',
+      passos: [
+        'Envie as fotos da ação para a Biblioteca.',
+        'Marque “Selecionar” em cada foto (ou toque em “Selecionar as fotos da lista” com a pasta da ação filtrada).',
+        'Toque em “Pedir autorização às pessoas”.',
+        'Dê um nome à ação, escreva um recado se quiser, escolha por quanto tempo o link vale e toque em “Gerar o link”.',
+        'Toque em “Mandar no WhatsApp”, “Copiar link” ou mostre o QR code para as pessoas.',
+        'Acompanhe as assinaturas na página do link. Quando todos que aparecem tiverem assinado, toque em “Marcar fotos como autorizadas”.',
+      ],
+      dica: 'Cada pessoa assina no próprio celular, uma assinatura por pessoa. Por criança ou adolescente, assina o pai, a mãe ou o responsável.',
+    },
+    {
+      id: 'conferir-autorizacao',
+      titulo: 'Conferir se alguém autorizou o uso da imagem',
+      passos: [
+        'Na Biblioteca, toque em “Autorizações de imagem”.',
+        'Em “Nome, responsável ou código IMG-…”, digite o nome da pessoa e toque em “Buscar”.',
+        'Veja na linha dela os usos autorizados, a data, o aparelho e a situação (“Válida” ou “Revogada”).',
+        'Para guardar ou mandar ao Jurídico, toque em “Baixar planilha”.',
+      ],
+    },
+    {
+      id: 'registrar-revogacao',
+      titulo: 'Registrar que uma pessoa revogou a autorização',
+      passos: [
+        'Abra o link da ação em “Autorizações de imagem”.',
+        'Na linha da pessoa, toque em “Ver assinatura” e em “Registrar revogação”.',
+        'Escreva como ela pediu (por exemplo, “pediu por e-mail em 12/10”) e toque em “Revogar”.',
+        'Tire as fotos dela das peças novas e, quando der, dos canais digitais da filial.',
+      ],
+      dica: 'A própria pessoa também pode revogar pelo comprovante que recebeu ao assinar; aí quem criou o link recebe um aviso.',
+      quem: 'Quem criou o link, editores e administradores',
     },
     {
       id: 'achar-arquivo',
@@ -498,6 +563,30 @@ const BIBLIOTECA: GuiaDaArea = {
       pergunta: 'Dá para mudar a pasta, as tags ou o nome depois do envio?',
       resposta: 'Não pela tela: pasta e tags são escolhidas no envio, e o nome é o do arquivo enviado. Se precisar muito, exclua e envie de novo.',
       termos: ['renomear', 'mover', 'editar tags', 'pasta errada'],
+    },
+    {
+      id: 'assinatura-no-celular-vale',
+      pergunta: 'A assinatura feita no celular tem validade?',
+      resposta: 'Sim. A lei aceita a assinatura eletrônica simples entre as partes (MP 2.200-2/2001, art. 10, § 2º, e Lei 14.063/2020), e a autorização de uso de imagem não exige forma especial. O que dá força à prova é o registro: a data e a hora, o IP, o aparelho, a versão exata do termo que a pessoa leu e uma impressão digital (hash) do documento assinado, que não se altera depois.\n\nO texto do termo é uma minuta, a ser revisada pelo Jurídico da filial.',
+      termos: ['validade jurídica', 'assinatura eletrônica', 'termo de imagem', 'LGPD', 'prova'],
+    },
+    {
+      id: 'por-que-sem-selfie',
+      pergunta: 'Por que o link não pede uma selfie?',
+      resposta: 'Foto do rosto para identificar alguém é dado biométrico, que a LGPD trata como dado sensível e exige mais cuidado. Para autorizar uso de imagem, o registro da assinatura, do aparelho, do IP e da hora já basta como prova, sem guardar mais dados pessoais do que o necessário.',
+      termos: ['selfie', 'foto do rosto', 'biometria', 'reconhecimento facial'],
+    },
+    {
+      id: 'autorizacao-menor',
+      pergunta: 'E quando quem aparece é criança ou adolescente?',
+      resposta: 'No link, a pessoa marca “menos de 18 anos” e quem assina é o pai, a mãe ou o responsável, com nome completo e parentesco. A assinatura fica registrada como do responsável.',
+      termos: ['menor de idade', 'criança', 'responsável legal', 'ECA'],
+    },
+    {
+      id: 'autorizacao-revogada',
+      pergunta: 'A pessoa revogou. O que precisa ser feito?',
+      resposta: 'A revogação vale dali em diante: não use mais as fotos dela em peças novas e retire dos canais digitais da filial quando for possível. O que já foi impresso ou publicado por outros antes da revogação não precisa ser recolhido. O registro da assinatura continua no banco, marcado como “Revogada”, com a data e quem revogou.',
+      termos: ['revogar', 'retirar foto', 'pediu para tirar', 'arrependeu'],
     },
     {
       id: 'recuperar-excluido',
