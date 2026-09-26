@@ -35,6 +35,10 @@
     {
       "path": "/api/auditoria/provas",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/correio/sincronizar",
+      "schedule": "47 9 * * *"
     }
   ]
 }

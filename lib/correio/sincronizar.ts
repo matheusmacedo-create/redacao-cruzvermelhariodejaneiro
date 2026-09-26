@@ -78,3 +78,26 @@ export function resumoDaSincronizacao(r: Awaited<ReturnType<typeof sincronizarCa
     r.pendentes.length ? `Ainda sem confirmação no Gmail: ${r.pendentes.join(', ')} (confirme lá e sincronize de novo).` : '',
   ].filter(Boolean).join(' ')
 }
+
+/**
+ * Sincroniza se a última vez foi há mais de `horas`. Nome e assinatura são
+ * editados no Gmail (contato@ → Enviar e-mail como); sem isto, a Redação só
+ * via a mudança quando alguém lembrava de clicar em "Sincronizar". Nunca
+ * lança e não segura a tela mais de 10 segundos: com o Gmail fora do ar, vale
+ * o que já estava guardado.
+ */
+export async function sincronizarSeAntigo(workspaceId: string, horas = 1): Promise<void> {
+  try {
+    const { data: conexao } = await createAdminClient().from('google_conexao')
+      .select('estado, sincronizada_em').eq('workspace_id', workspaceId).maybeSingle()
+    if (!conexao || conexao.estado !== 'ativa') return
+    const ultima = conexao.sincronizada_em ? new Date(conexao.sincronizada_em).getTime() : 0
+    if (Date.now() - ultima < horas * 60 * 60_000) return
+    await Promise.race([
+      sincronizarCaixas(workspaceId),
+      new Promise((resolver) => setTimeout(resolver, 10_000)),
+    ])
+  } catch (causa) {
+    console.error('[correio] sincronização automática falhou:', causa instanceof Error ? causa.message : causa)
+  }
+}
