@@ -53,8 +53,19 @@ const SINO: PassoDoTour = {
 const AJUDA: PassoDoTour = {
   alvo: 'shell.ajuda',
   titulo: 'Ajuda em qualquer tela',
-  texto: 'O “?” mostra o passo a passo e as perguntas frequentes da tela aberta e, quando ela tem tour, o botão para fazê-lo. No computador, a tecla ? também abre. Tudo junto fica na Central de ajuda.',
+  texto: 'O “?” mostra a ajuda da tela aberta: como imaginamos a área funcionando, o passo a passo com exemplos, as perguntas frequentes e o tour. No fim, “O que achou desta tela?” e “Pergunte à equipe”; no celular, o “Beta” também fica aqui.',
   lado: 'bottom',
+}
+
+// O beta com a equipe (components/app/ajuda/beta.tsx): o botão do topo só
+// existe do tablet para cima; no celular o mesmo formulário fica no alto do
+// painel "?", e o balão da ajuda diz isso.
+const BETA: PassoDoTour = {
+  alvo: 'shell.beta',
+  titulo: 'Estamos em beta: conte tudo',
+  texto: '“Beta” manda para a equipe que está melhorando o Palácio um problema, uma ideia, uma dúvida ou um elogio, com a tela onde você está. A resposta volta no sino.',
+  lado: 'bottom',
+  seAusente: 'pular',
 }
 
 // O menu da foto lista o grupo Administração que a pessoa vê (topbar.tsx →
@@ -68,7 +79,7 @@ const CONTA: PassoDoTour = {
 }
 
 /**
- * Primeiro acesso da equipe da Redação: 7 balões no computador, 6 no celular
+ * Primeiro acesso da equipe da Redação: 8 balões no computador, 6 no celular
  * (lá o menu é um botão e a linha de Aprovações fica dentro dele, fechada).
  * Não há balão de abertura: a janela de boas-vindas (boas-vindas.tsx) já
  * apresenta a Redação, e o tour só sai dela. A ordem segue a tela: o menu e o
@@ -91,13 +102,14 @@ export const BOAS_VINDAS: PassoDoTour[] = [
     texto: 'O botão “Criar” começa o que é mais comum sem passar pelo menu: “Registrar atividade”, “Nova publicação”, “Novo ofício” e “Abrir chamado”.',
     lado: 'bottom',
   },
+  BETA,
   SINO,
   AJUDA,
   CONTA,
 ]
 
 /**
- * Primeiro acesso da equipe da escola (5 balões): ela não tem "Criar" nem
+ * Primeiro acesso da equipe da escola (6 balões no computador, 5 no celular): ela não tem "Criar" nem
  * Aprovações (topbar.tsx esconde o Criar; o menu dela é lib/navegacao.ts →
  * gruposDaEquipeDaEscola, sem "Configurações"). Os nomes antigos que a busca
  * aceita são de áreas da Redação, então não entram aqui.
@@ -116,6 +128,7 @@ export const BOAS_VINDAS_ESCOLA: PassoDoTour[] = [
     ...BUSCA,
     texto: 'Digite o nome de uma área ou a sua dúvida. No computador, ⌘K (no Mac) ou Ctrl K também abrem a busca, de qualquer tela.',
   },
+  BETA,
   SINO,
   AJUDA,
   {
@@ -203,6 +216,135 @@ export const EMAIL_DE_AVISO_NAO_CHEGOU: Omit<Pergunta, 'id'> = {
 }
 
 export const TOPICOS_GERAIS: TopicoGeral[] = [
+  {
+    id: 'como-o-palacio-funciona',
+    titulo: 'Como imaginamos o Palácio funcionando',
+    resumo: 'O Palácio Virtual não é um monte de telas soltas: cada área passa o trabalho para a próxima. Estas quatro histórias mostram o caminho de ponta a ponta, com um caso de verdade. Cada área também tem o seu “Na prática”, no “?” e na Central.',
+    naPratica: [
+      {
+        titulo: 'Da ação na rua à notícia no ar',
+        passos: [
+          'A Comunicação cria o evento em “Envios da equipe” e manda o link aos voluntários que vão à ação na Central do Brasil.',
+          'Os voluntários mandam fotos, áudio e relato pelo celular, sem login; tudo chega em “Envios da equipe”.',
+          '“Criar matéria e posts” abre a pauta em “Pautas”, a matéria em rascunho e o pacote em “Publicações”, com as fotos na “Biblioteca”.',
+          'As pessoas que aparecem nas fotos assinam a autorização de imagem por link; a matéria vai para “Aprovações”.',
+          'Aprovado, o pacote sai no site, na newsletter e nas redes; o “Histórico” registra cada destino e a “Trilha pública” guarda a prova.',
+          'Quem mandou é avisado por e-mail, com o link da matéria e o do álbum do evento.',
+        ],
+        resultado: 'Do celular do voluntário ao site da filial sem planilha, sem grupo de fotos e com cada passo registrado.',
+      },
+      {
+        titulo: 'Da necessidade do setor ao material na prateleira',
+        passos: [
+          'Um setor pede papel e canetas em “Pedidos de compra”.',
+          'O Financeiro pede as propostas aos fornecedores habituais, que respondem por um link, sem login.',
+          'A proposta mais vantajosa vai para aprovação; aprovada, sai a ordem de compra por e-mail.',
+          'Quem pediu registra o que chegou; o Patrimônio dá entrada no estoque, e a conta a pagar entra no “Financeiro”.',
+          'No fim do mês, o relatório de compras vai para o portal de “Transparência”.',
+        ],
+        resultado: 'Cada real gasto tem pedido, propostas, aprovação e nota, juntos.',
+      },
+      {
+        titulo: 'Do formulário do site ao certificado do voluntário',
+        passos: [
+          'A pessoa se inscreve pelo site; a coordenação aprova em “Voluntários”.',
+          'Ela entra na Área do Voluntário, vê as oportunidades e se candidata a uma ação.',
+          'Faz o curso de primeiros socorros pela Área do Voluntário.',
+          'A coordenação marca a presença na ação e registra as horas.',
+          'O certificado sai com código de verificação, e a conversa com a coordenação fica em “Mensagens dos voluntários”.',
+        ],
+        resultado: 'O voluntário tem tudo num lugar, e a filial sabe quem fez o quê, por quantas horas.',
+      },
+      {
+        titulo: 'Do dinheiro que entra ao fechamento do mês',
+        passos: [
+          'As matrículas pagas na Únicopag entram sozinhas como receita no Financeiro da Escola.',
+          'As contas da filial são lançadas com categoria, fonte e comprovante; o sino avisa o que vence.',
+          'O extrato do banco é importado e conciliado com os lançamentos.',
+          'O mês é fechado e o pacote vai para o contador; os balanços aprovados vão para o portal de “Transparência”.',
+        ],
+        resultado: 'O caixa bate com o banco e a prestação de contas sai pronta.',
+      },
+    ],
+    tarefas: [],
+    perguntas: [
+      {
+        id: 'por-onde-comecar',
+        pergunta: 'Sou novo no Palácio Virtual. Por onde começo?',
+        resposta: 'Pelo Início: ele diz em uma frase o que é seu hoje. Depois, abra o “?” em cada tela que for usar: primeiro o “Na prática”, que conta como imaginamos a área funcionando, depois o passo a passo, com exemplos.\n\nSe algo não fizer sentido, é exatamente o que queremos saber: use o “Beta” para contar.',
+        termos: ['começar', 'primeiro dia', 'novo', 'iniciante', 'como usar'],
+      },
+    ],
+  },
+  {
+    id: 'beta',
+    titulo: 'O beta: conte o que achou',
+    resumo: 'O Palácio Virtual está em beta com a equipe: estamos melhorando a ferramenta todos os dias, a partir do que vocês contam. Cada opinião, dúvida, problema ou ideia chega direto a quem está construindo o Palácio, com a tela e o aparelho de onde veio.',
+    tarefas: [
+      {
+        id: 'contar-um-problema',
+        titulo: 'Contar um problema ou uma ideia',
+        passos: [
+          'Na tela onde aconteceu, toque em “Beta”, no alto (no celular, abra o “?” e toque em “Beta: conte um problema ou uma ideia”).',
+          'Escolha “Algo deu errado”, “Tenho uma ideia”, “Tenho uma dúvida” ou “Gostei!”.',
+          'Conte com as suas palavras: o que você fez, o que esperava e o que aconteceu.',
+          'Se quiser, dê uma nota para a tela e toque em “Enviar”.',
+        ],
+        exemplo: '“Algo deu errado”: “Em Pedidos de compra, no celular, toquei em Pedir propostas e o botão Enviar ficou escondido embaixo do teclado.” Junto vai sozinho: a tela, “Celular · 390×844 · Chrome no Android”.',
+        dica: 'Não precisa de print nem de explicar o aparelho: a tela e o tamanho da janela vão juntos. Nada do que está digitado na tela é enviado.',
+      },
+      {
+        id: 'avaliar-a-tela',
+        titulo: 'Dizer o que achou de uma tela',
+        passos: [
+          'Abra o “?” na tela.',
+          'No fim do painel, em “O que achou desta tela?”, toque numa das cinco notas, de “Muito ruim” a “Ótima”.',
+          'Se quiser, conte o que atrapalhou ou o que você mais gostou.',
+          'Toque em “Enviar opinião”.',
+        ],
+        exemplo: 'A Ana dá “Ruim” para Pedidos de compra e escreve: “Não achei onde ficam as propostas”. A administração vê essa tela subir na lista das piores avaliadas e sabe por onde começar.',
+      },
+      {
+        id: 'votar-numa-resposta',
+        titulo: 'Dizer se uma resposta da ajuda ajudou',
+        passos: [
+          'Abra uma pergunta frequente, no “?” ou na Central de ajuda.',
+          'Embaixo da resposta, toque em “Sim” ou “Não” em “Isso ajudou?”.',
+          'Se tocar em “Não”, conte o que faltou e toque em “Enviar”.',
+        ],
+        exemplo: 'Em “Onde ficam as propostas de um pedido?”, o Bruno toca “Não” e escreve “faltou dizer que no celular fica mais embaixo”. A resposta é reescrita, e as que mais ajudam sobem em “Perguntas mais frequentes”.',
+      },
+      {
+        id: 'ver-a-resposta',
+        titulo: 'Ver a resposta da equipe',
+        passos: [
+          'Quando a equipe responde, chega um aviso no sino: “A equipe respondeu o seu retorno do beta”.',
+          'Toque no aviso, ou abra a Central de ajuda e desça até “Seus retornos do beta”.',
+          'Lá ficam tudo o que você mandou, a situação (“Novo”, “Em análise”, “Resolvido”) e a resposta.',
+        ],
+      },
+    ],
+    perguntas: [
+      {
+        id: 'quem-ve-o-que-eu-mando',
+        pergunta: 'Quem vê o que eu mando pelo Beta?',
+        resposta: 'A administração do Palácio Virtual, que cuida das melhorias. As outras pessoas da equipe não veem o que você mandou; nas “Perguntas mais frequentes”, a Central mostra só quantas pessoas acharam uma resposta útil, nunca quem votou.',
+        termos: ['privacidade', 'anônimo', 'quem lê', 'feedback'],
+      },
+      {
+        id: 'o-que-acontece-depois',
+        pergunta: 'O que acontece com o que eu mando?',
+        resposta: 'Problema, dúvida, ideia e nota ruim avisam a administração na hora. Cada retorno ganha uma situação (“Novo”, “Em análise”, “Resolvido” ou “Arquivado”) e, quando precisa, uma resposta, que chega no seu sino.\n\nOs retornos também viram prioridade: as telas com pior avaliação e as respostas da ajuda que não ajudaram vêm primeiro na fila de melhorias.',
+        termos: ['depois de enviar', 'resposta', 'melhoria', 'prazo'],
+      },
+      {
+        id: 'nao-vejo-o-beta',
+        pergunta: 'Não vejo o botão “Beta”. Onde ele está?',
+        resposta: 'No computador e no tablet, ele fica no alto, ao lado do sino. No celular o topo não tem espaço: abra o “?” e toque em “Beta: conte um problema ou uma ideia”, logo no começo do painel. “O que achou desta tela?” e “Pergunte à equipe” ficam no fim do mesmo painel.',
+        termos: ['botão beta', 'celular', 'não aparece', 'opinião'],
+      },
+    ],
+  },
   {
     id: 'conta-e-acesso',
     titulo: 'Conta e acesso',

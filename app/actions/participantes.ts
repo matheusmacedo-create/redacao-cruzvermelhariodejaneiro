@@ -23,6 +23,11 @@ type Resultado = { erro?: string }
 
 function erroDoBanco(error: { message?: string; code?: string } | null, padrao: string): never {
   if (error?.code === 'P0001' && error.message) throw new Error(error.message)
+  // Cadastro de antes da Equipe (colaborador, coordenador, diretoria): a regra
+  // do vínculo vale em toda gravação, e nada nele salva até trocar o vínculo.
+  if (error?.code === '23514' && error.message?.includes('participantes_vinculo_check')) {
+    throw new Error('Este cadastro tem um vínculo que não existe mais no Voluntariado. Em “Editar cadastro”, escolha Voluntário, Juventude ou Instrutor e salve; depois tente de novo.')
+  }
   if (error?.code === '23514') throw new Error('Algum campo passou do tamanho permitido.')
   throw new Error(padrao)
 }

@@ -161,7 +161,7 @@ export function Remuneracoes({ id, hoje }: { id: string; hoje: string }) {
 
       {novo ? (
         <form className="flex flex-col gap-2 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); const f = new FormData(e.currentTarget); agir(() => registrarRemuneracao(id, f)) }}>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">Vigência<input name="vigencia" type="date" required defaultValue={hoje} className={inputClass} /></label>
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">Motivo
               <select name="motivo" defaultValue={historico.length ? 'reajuste' : 'admissao'} className={inputClass}>

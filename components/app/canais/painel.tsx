@@ -56,7 +56,7 @@ export function PainelDosCanais({ versoes, trilhaDisponivel, aberto, endereco, s
     <div className="flex flex-col gap-5">
       <AvisoDeLancamento aberto={aberto} endereco={endereco} atualizando={atualizando} onAtualizar={atualizarSite} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
         <div className="flex min-w-0 flex-col gap-5">
           {atual ? <VersaoNoAr v={atual} trilhaDisponivel={trilhaDisponivel} /> : (
             <Card className="p-5">
@@ -132,7 +132,7 @@ function VersaoNoAr({ v, trilhaDisponivel }: { v: VersaoDosCanais; trilhaDisponi
 
 function Registro({ v, trilhaDisponivel }: { v: VersaoDosCanais; trilhaDisponivel: boolean }) {
   return (
-    <dl className="grid gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+    <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
       <dt className="text-muted-foreground">SHA-256 do registro</dt>
       <dd>{v.hash ? <HashCurto hash={v.hash} rotulo="SHA-256 do registro" /> : '—'}</dd>
       <dt className="text-muted-foreground">Código de verificação</dt>

@@ -109,7 +109,7 @@ export default async function ChamadoPage({ params, searchParams }: { params: Pr
       <PageHeader title={c.titulo} description={`${c.codigo} · ${fila.nome}${categoria ? ` · ${categoria.nome}` : ''}`} breadcrumbs={[{ label: 'Chamados', href: '/chamados' }, { label: c.codigo }]} />
       {aberto && <p role="status" className="mb-4 rounded-lg bg-success/10 px-4 py-3 text-sm text-success">Chamado {c.codigo} aberto. A equipe de {fila.nome} foi avisada, e você recebe as respostas aqui e por e-mail.</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="flex min-w-0 flex-col gap-4">
           {c.solicitante_id === context.user.id && status === 'resolvido' && !c.avaliacao && (
             <Avaliacao chamadoId={c.id} podeReabrir={podeReabrir(c.resolvido_em ? new Date(c.resolvido_em) : null)} />

@@ -64,7 +64,7 @@ export default async function ColetaPage({ params }: { params: Promise<{ id: str
         actions={<Button variant="outline" render={<a href={`/api/biblioteca/autorizacoes/csv?coleta=${id}`} />}><Download className="size-4" />Baixar planilha</Button>}
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_16rem]">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_16rem]">
         <Card data-ajuda="autorizacao.compartilhar" className="flex flex-col gap-3 p-5">
           <h2 className="text-base font-semibold">Mande este link a quem aparece nas fotos</h2>
           {aberto ? (

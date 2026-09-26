@@ -132,7 +132,7 @@ function PassoAPassoDoGoogle({ retorno, clienteConfigurado }: { retorno: string;
       <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>
         Em “Credenciais”, crie um <strong className="font-medium text-foreground">ID do cliente OAuth</strong> do tipo “Aplicativo da Web”, com este URI de redirecionamento autorizado:
         <span className="mt-1 flex flex-wrap items-center gap-2">
-          <code className="rounded bg-background px-2 py-1 font-mono text-xs text-foreground" data-retorno>{retorno}</code>
+          <code className="rounded bg-background px-2 py-1 font-mono text-xs break-all text-foreground" data-retorno>{retorno}</code>
           <button type="button" className="text-xs text-primary hover:underline"
             onClick={async () => { await navigator.clipboard?.writeText(retorno).catch(() => undefined); setCopiado(true); setTimeout(() => setCopiado(false), 1500) }}>
             {copiado ? 'Copiado' : 'Copiar'}
@@ -196,7 +196,7 @@ function Setores({ setores, pessoas, ocupado, executar }: {
               </div>
               {editando === s.id && (
                 <div className="mt-3 rounded-lg bg-muted/40 p-3">
-                  <div className="grid max-h-56 gap-1 overflow-y-auto sm:grid-cols-2">
+                  <div className="grid grid-cols-1 max-h-56 gap-1 overflow-y-auto sm:grid-cols-2">
                     {pessoas.map((p) => (
                       <label key={p.id} className="flex items-center gap-2 text-sm">
                         <input type="checkbox" className="size-4" checked={marcados.has(p.id)} onChange={() => setMarcados((atual) => {
@@ -261,7 +261,7 @@ function Caixas({ caixas, setores, ocupado, executar, conectada }: {
           )}
         </div>
         {semNome.length > 0 && (
-          <Button variant="outline" disabled={ocupado} id="usar-nomes-sugeridos"
+          <Button variant="outline" disabled={ocupado} id="usar-nomes-sugeridos" className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal"
             onClick={() => executar(() => nomearCaixas(semNome.map((c) => ({ id: c.id, nome: nomeSugerido(c.email, nomeDoSetor(c.setorId)) }))))}>
             Dar nome de remetente {semNome.length === 1 ? 'ao endereço' : `aos ${semNome.length} endereços`} sem nome
           </Button>

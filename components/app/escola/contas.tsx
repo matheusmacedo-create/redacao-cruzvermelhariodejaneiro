@@ -24,7 +24,7 @@ function Formulario({ c, onFim }: { c: ContaDaEscola | null; onFim: () => void }
   useEffect(() => { if (estado.ok && !estado.erro) onFim() }, [estado.ok, estado.erro, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-conta-form autoComplete="off">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome da conta" ajuda="Como a equipe chama: o curso ou a finalidade da conta."><input name="nome" required maxLength={80} defaultValue={c?.nome} placeholder="Punção Venosa" className={inputClass} /></Campo>
         <Campo rotulo="Endereço do sistema da escola" ajuda="Onde ficam alunos, turmas e a secretaria desta conta (abre em outra aba).">
           <input name="sistema_url" type="url" maxLength={300} defaultValue={c?.sistema_url ?? ''} placeholder="https://…/secretaria" className={inputClass} />
@@ -80,7 +80,7 @@ export function ContasDaEscola({ contas, ehAdmin }: { contas: ContaDaEscola[]; e
                   </div>
                   {ehAdmin && <button type="button" title="Editar" aria-label={`Editar ${c.nome}`} onClick={() => setEditando(c.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>}
                 </div>
-                <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
                   <div className="flex gap-2"><dt className="text-muted-foreground">Chave</dt><dd className="flex items-center gap-1">{c.chave_final ? <><KeyRound className="size-3.5 text-success" />•••• {c.chave_final} <span className="text-xs text-muted-foreground">desde {quando(c.chave_em)}</span></> : <span className="text-warning-foreground">sem chave</span>}</dd></div>
                   <div className="flex gap-2"><dt className="text-muted-foreground">Lida em</dt><dd>{quando(c.sincronizada_em) ?? 'nunca'}</dd></div>
                   <div className="flex gap-2"><dt className="text-muted-foreground">Saldo</dt><dd className="tabular-nums">{c.saldo_disponivel === null ? '—' : `${reaisDeCentavos(c.saldo_disponivel)} disponível · ${reaisDeCentavos(c.saldo_a_liberar ?? 0)} a liberar`}</dd></div>

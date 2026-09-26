@@ -435,7 +435,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     indicadores: () => (
       <Camada nome="Indicadores da comunicação" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
         <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
-          <div data-ajuda="inicio.indicadores" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div data-ajuda="inicio.indicadores" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {indicadores.map((i) => <CartaoDoIndicador key={i.nome} i={i} />)}
           </div>
         </Secao>
@@ -454,14 +454,14 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         if (f.tipo === 'inteiro') return <div key={f.id} data-bloco={f.id}>{BLOCO[f.id]()}</div>
         const chave = [...f.largos, ...f.estreitos].join('-')
         const corpo = f.largos.length && f.estreitos.length ? (
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="flex min-w-0 flex-col gap-6">{f.largos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</div>
             <aside className="flex min-w-0 flex-col gap-6" aria-label="Ao lado">{f.estreitos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</aside>
           </div>
         ) : f.largos.length ? (
           <div className="flex min-w-0 flex-col gap-6">{f.largos.map((id) => <div key={id} data-bloco={id}>{BLOCO[id]()}</div>)}</div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">{f.estreitos.map((id) => <div key={id} className="min-w-0" data-bloco={id}>{BLOCO[id]()}</div>)}</div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">{f.estreitos.map((id) => <div key={id} className="min-w-0" data-bloco={id}>{BLOCO[id]()}</div>)}</div>
         )
         return n === primeiraDeColunas
           ? <Camada key={chave} nome="Meu dia" pergunta="O que espera por você, o que é seu e o que acontece hoje.">{corpo}</Camada>

@@ -83,7 +83,7 @@ export function ValorFipe({ veiculoId, tipoDoVeiculo, marcaSugerida, guardada, p
 
       {aberto && (
         <div className="mt-3 flex flex-col gap-2">
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
             <select aria-label="Tabela" value={tipo} onChange={(e) => { const t = e.target.value as TipoFipe; setTipo(t); carregarMarcas(t) }} className={campo}>
               {(Object.keys(TIPOS_FIPE) as TipoFipe[]).map((t) => <option key={t} value={t}>{TIPOS_FIPE[t]}</option>)}
             </select>

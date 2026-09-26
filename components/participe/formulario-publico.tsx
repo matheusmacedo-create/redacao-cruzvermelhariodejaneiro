@@ -140,7 +140,7 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
 
       <p className="-mb-2 text-sm text-muted-foreground">Campos com * são obrigatórios.</p>
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <legend className={legenda}>Sobre você</legend>
         <Campo id="i-nome" rotulo="Nome completo" obrigatorio largo><input id="i-nome" name="nome" required minLength={2} maxLength={200} autoComplete="name" className={campoDoMembro} /></Campo>
         <Campo id="i-nome-social" rotulo="Nome social"><input id="i-nome-social" name="nome_social" maxLength={200} className={campoDoMembro} /></Campo>
@@ -161,7 +161,7 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
       {/* A caixa fica num div, e não no fieldset: com borda, a legenda do fieldset corta a linha de cima. */}
       {menor && (
         <div className="rounded-xl border border-warning/50 bg-warning/15 p-4">
-          <fieldset className="grid gap-4 sm:grid-cols-2">
+          <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <legend className="mb-3 text-sm font-semibold text-warning-foreground">
               <span className="flex items-center gap-2"><TriangleAlert className="size-4 shrink-0" aria-hidden="true" />Menor de 18 anos: dados do responsável</span>
             </legend>
@@ -171,7 +171,7 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
         </div>
       )}
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <legend className={legenda}>Onde você está</legend>
         <Campo id="i-bairro" rotulo="Bairro"><input id="i-bairro" name="bairro" maxLength={120} className={campoDoMembro} /></Campo>
         <Campo id="i-cidade" rotulo="Cidade"><input id="i-cidade" name="cidade" maxLength={120} defaultValue="Rio de Janeiro" autoComplete="address-level2" className={campoDoMembro} /></Campo>
@@ -194,14 +194,14 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
         </div>
       </fieldset>
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <legend className={legenda}>Habilidades e emergência</legend>
         <Campo id="i-habilidades" rotulo="Habilidades e formações" dica="Separe por vírgula. Ex.: primeiros socorros, Libras, fotografia" largo><input id="i-habilidades" name="habilidades" aria-describedby="i-habilidades-dica" className={campoDoMembro} /></Campo>
         <Campo id="i-emerg-nome" rotulo="Contato de emergência"><input id="i-emerg-nome" name="emergencia_nome" maxLength={200} className={campoDoMembro} /></Campo>
         <Campo id="i-emerg-tel" rotulo="Telefone de emergência"><input id="i-emerg-tel" name="emergencia_telefone" type="tel" maxLength={40} className={campoDoMembro} /></Campo>
       </fieldset>
 
-      <fieldset className="grid gap-4 sm:grid-cols-2" aria-describedby="i-saude-dica">
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-describedby="i-saude-dica">
         <legend className="mb-1 text-base font-semibold">Saúde <span className="text-sm font-normal text-muted-foreground">(opcional)</span></legend>
         <p id="i-saude-dica" className="text-sm text-muted-foreground sm:col-span-2">Ajuda a equipe a cuidar de você em ações de campo. Fica guardado cifrado e só a coordenação vê.</p>
         <Campo id="i-tipo" rotulo="Tipo sanguíneo"><select id="i-tipo" name="tipo_sanguineo" className={campoDoMembro}><option value="">Prefiro não informar</option>{TIPOS_SANGUINEOS.map((t) => <option key={t}>{t}</option>)}</select></Campo>

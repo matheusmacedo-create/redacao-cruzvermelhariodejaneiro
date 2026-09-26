@@ -177,7 +177,7 @@ function ItemDetalhado({ item, titulo, aoConsultar }: { item: ItemInterno; titul
         {O_QUE_O_PUBLICO_VE[item.classe] && <p className="text-xs text-muted-foreground">{O_QUE_O_PUBLICO_VE[item.classe]}</p>}
       </header>
 
-      <dl className="grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
         <Campo rotulo="Tipo">
           {rotuloDoTipo(item.tipo)}
           <span className="block text-xs text-muted-foreground">{ROTULO_DA_CLASSE[item.classe] ?? `Classe ${item.classe}`}</span>

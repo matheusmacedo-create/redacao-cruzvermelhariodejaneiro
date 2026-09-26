@@ -81,7 +81,7 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
         breadcrumbs={[{ label: 'Envios da equipe', href: '/envios' }, { label: envio.protocolo }]}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-4">
           {!r2 && <Card className="p-4 text-sm">O armazenamento do acervo (R2) não está configurado: os arquivos não podem ser mostrados.</Card>}
           {faltando > 0 && <p className="text-sm text-muted-foreground">{faltando} arquivo{faltando > 1 ? 's' : ''} ainda não chegou{faltando > 1 ? 'aram' : ''} (a pessoa pode estar enviando agora).</p>}

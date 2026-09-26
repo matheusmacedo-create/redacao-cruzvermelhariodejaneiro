@@ -111,9 +111,9 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
         <p className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">Só quem criou este rascunho, ou um admin, pode editá-lo.</p>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         <Card data-ajuda="oficios.formulario" className={`flex flex-col gap-4 p-5 ${aba === 'ver' ? 'hidden xl:flex' : ''}`}>
-          <fieldset className="grid gap-3 sm:grid-cols-2" disabled={!podeEditar}>
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2" disabled={!podeEditar}>
             <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Origem</legend>
             {campo('setor', 'Setor', { placeholder: 'Ex.: Comunicação', maxLength: 120 })}
             {campo('local', 'Local', { maxLength: 120 })}
@@ -121,7 +121,7 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
           <fieldset className="grid gap-3" disabled={!podeEditar}>
             <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Destinatário</legend>
             {campo('destinatario_nome', 'Nome', { placeholder: 'Ex.: Sr. João da Silva', maxLength: 200 })}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {campo('destinatario_cargo', 'Cargo', { placeholder: 'Ex.: Diretor', maxLength: 200 })}
               {campo('destinatario_orgao', 'Órgão ou empresa', { placeholder: 'Ex.: Hemorio', maxLength: 200 })}
             </div>

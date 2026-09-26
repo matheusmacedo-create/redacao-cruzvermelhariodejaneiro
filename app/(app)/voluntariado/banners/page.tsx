@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 export default async function BannersDosVoluntarios() {
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 2) notFound()
-  const { data } = await supabase.from('membro_banners')
+  const { data, error } = await supabase.from('membro_banners')
     .select('id,titulo,texto,imagem_caminho,link_url,link_rotulo,inicio,fim,ativo,ordem,created_at')
     .eq('workspace_id', context.workspace.id).limit(200)
   const banners: BannerNaEquipe[] = ordenarBanners((data ?? []) as Omit<BannerNaEquipe, 'imagem'>[])
@@ -24,6 +24,12 @@ export default async function BannersDosVoluntarios() {
     <div className="flex flex-col gap-6">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
       <PageHeader title="Banners da Área do Voluntário" description="Aparecem no alto do Início de todo o voluntariado: campanhas, agradecimentos, chamadas e fotos das ações. Com mais de um no ar, eles se revezam. Programe o período e ligue ou desligue quando quiser." />
+      {/* Sem a migração dos banners, a lista vinha vazia e o envio da imagem falhava sem explicar. */}
+      {(error?.code === '42P01' || error?.code === 'PGRST205') && (
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Os banners ainda não estão ligados no banco (migração 20260929000000). Avise a administração.
+        </p>
+      )}
       <Card className="p-5">
         <PainelDeBanners banners={banners} hoje={hojeEmSaoPaulo()} />
       </Card>

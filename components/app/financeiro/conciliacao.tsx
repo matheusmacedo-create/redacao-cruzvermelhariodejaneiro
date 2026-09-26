@@ -137,7 +137,7 @@ export function LinhaPendente({ linha, sugestao, candidatos, categorias, fontes,
         </div>
       )}
       {modo === 'criar' && (
-        <div className="grid gap-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-2">
           <input value={novo.descricao} onChange={(e) => setNovo({ ...novo, descricao: e.target.value })} aria-label="Descrição" className={`${inputClass} sm:col-span-2`} />
           <select value={novo.categoria_id} onChange={(e) => setNovo({ ...novo, categoria_id: e.target.value })} aria-label="Categoria" className={inputClass}>
             <option value="">Categoria…</option>{categorias.filter((c) => c.tipo === tipo).map((c) => <option key={c.id} value={c.id}>{c.rotulo}</option>)}

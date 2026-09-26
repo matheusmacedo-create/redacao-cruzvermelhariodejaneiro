@@ -18,7 +18,7 @@ function Formulario({ tabela, id, onFim, children }: { tabela: 'categoria' | 'lo
   useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-cadastro={tabela}>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
       {estado.erro && <p className="text-xs text-destructive" role="alert">{estado.erro}</p>}
       <div className="flex justify-end gap-2">
         {tabela !== 'config' && <Button type="button" variant="ghost" size="sm" onClick={onFim}>Cancelar</Button>}
@@ -113,7 +113,7 @@ function FormularioDaCategoriaDoEstoque({ x, onFim }: { x: CadastrosDoPatrimonio
   useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-cadastro="categoria_estoque">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome"><input name="nome" required maxLength={80} defaultValue={x?.nome} placeholder="Ex.: Material de resgate" className={inputClass} /></Campo>
         <Campo rotulo="Conta contábil" ajuda="Do plano de contas do contador (estoque)."><input name="conta_contabil" maxLength={40} defaultValue={x?.conta_contabil ?? ''} className={inputClass} /></Campo>
         {x && <Situacao ativa={x.ativa} />}

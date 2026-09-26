@@ -89,14 +89,14 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
         <div className="flex flex-col gap-6">
           <Card className="p-5">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${SITUACOES[b.situacao].classe}`}>{SITUACOES[b.situacao].rotulo}</span>
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">Estado: {ESTADOS[b.estado as Estado] ?? b.estado}</span>
             </div>
-            <dl className="grid gap-4 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Dado rotulo="Onde está">{b.local_id ? c?.locais.find((l) => l.id === b.local_id)?.nome : null}</Dado>
               <Dado rotulo="Com quem">{atual ? <>{atual.nome as string}{atual.participante_id ? ' (voluntário)' : ''}</> : null}</Dado>
               <Dado rotulo="Marca e modelo">{[b.marca, b.modelo].filter(Boolean).join(' ')}</Dado>

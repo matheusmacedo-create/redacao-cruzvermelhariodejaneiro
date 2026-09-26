@@ -98,13 +98,13 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_20rem]">
         <Card className="p-5" data-ajuda="financeiro.detalhes">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <p className={`text-3xl font-bold tabular-nums ${l.tipo === 'receita' ? 'text-success' : ''}`}>{reais(l.valor)}</p>
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${SITUACOES[s].classe}`}>{SITUACOES[s].rotulo}</span>
           </div>
-          <dl className="grid gap-4 sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Dado rotulo={l.tipo === 'receita' ? 'Data prevista' : 'Vencimento'}>{dataCurta(l.vencimento)}</Dado>
             <Dado rotulo="Competência"><span className="capitalize">{nomeDoMes(l.competencia.slice(0, 7))}</span></Dado>
             {l.pago_em && <Dado rotulo={l.tipo === 'receita' ? 'Recebido em' : 'Pago em'}>{dataCurta(l.pago_em)}</Dado>}

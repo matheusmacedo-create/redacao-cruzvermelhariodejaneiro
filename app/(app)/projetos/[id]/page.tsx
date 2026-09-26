@@ -97,7 +97,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <ToolStat icon={CalendarDays} value={events?.length ?? 0} label="Agendamentos" />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Section title={`Pautas (${pautas?.length ?? 0})`}>
           {pautas?.map((pauta) => (
             <Link key={pauta.id} href={`/pautas/${pauta.id}`} className="flex min-w-0 items-center justify-between gap-3 px-5 py-4 hover:bg-muted/50">

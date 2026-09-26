@@ -287,7 +287,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId, 
           </div>
         </div>
       )}
-      <div data-ajuda="biblioteca.arquivos" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div data-ajuda="biblioteca.arquivos" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((f) => {
           const Icon = icons[f.kind] || FileText
           const preview = f.kind === 'foto' && f.storagePath ? `/api/private-blob?pathname=${encodeURIComponent(f.storagePath)}` : null

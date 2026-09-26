@@ -168,7 +168,7 @@ export function ProjetosNoPainel({ projetos, hoje }: { projetos: ProjetoNoPainel
   if (!projetos.length) return null
   return (
     <Secao titulo="Projetos em andamento" id="projetos-painel" acao={{ href: '/projetos', rotulo: 'Carteira' }}>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {projetos.map((p) => (
           <Link key={p.id} href={`/projetos/${p.id}`}>
             <Card className="flex h-full flex-col gap-2.5 p-4 transition-colors hover:bg-muted/40">
@@ -352,7 +352,7 @@ export type CanalNoPainel = { id: string; nome: string; saude: SaudeDoCanal; det
 export function SaudeDosCanais({ canais }: { canais: CanalNoPainel[] }) {
   return (
     <Secao titulo="Saúde dos canais" id="saude-canais" acao={{ href: '/registro', rotulo: 'Registro' }}>
-      <div data-ajuda="inicio.canais" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div data-ajuda="inicio.canais" className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {canais.map((c) => (
           <Card key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">

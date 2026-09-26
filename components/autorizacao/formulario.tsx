@@ -114,7 +114,7 @@ export function FormularioDeAutorizacao({ token }: { token: string }) {
           <span>A pessoa das fotos tem <strong>menos de 18 anos</strong> — quem assina é o pai, a mãe ou o responsável.</span>
         </label>
         {menor && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Campo id="aut-resp" rotulo="Nome completo do responsável" obrigatorio>
               <input id="aut-resp" value={responsavelNome} onChange={(e) => setResponsavelNome(e.target.value)} maxLength={200} className={campoDoMembro} />
             </Campo>

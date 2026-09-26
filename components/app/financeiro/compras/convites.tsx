@@ -228,7 +228,7 @@ function Formulario({ pedidoId, sugestoes, categoria, caixas, prazoSugerido, hoj
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Rotulo texto="Prazo para as propostas" ajuda={prazo ? `Até ${dataComDia(prazo)}. Na véspera, quem não respondeu recebe um lembrete.` : undefined}>
           <input type="date" required value={prazo} min={hoje} max={somarDias(hoje, PRAZO_MAXIMO_DIAS)} onChange={(e) => setPrazo(e.target.value)} className={campo} />
         </Rotulo>

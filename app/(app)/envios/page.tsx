@@ -118,7 +118,7 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
           {aba === 'avaliar' ? 'Nada para avaliar. Quando alguém da equipe mandar uma ação pelo link, ela aparece aqui e você recebe um aviso.' : 'Nada por aqui.'}
         </Card>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="envios.lista">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="envios.lista">
           {linhas.map((l) => {
             const recebidos = l.envio_arquivos.filter((a) => a.estado === 'recebido')
             const conta = (c: string) => recebidos.filter((a) => a.categoria === c).length

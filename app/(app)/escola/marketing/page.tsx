@@ -71,7 +71,7 @@ export default async function MarketingDaEscolaPage() {
         </div>}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-marketing" data-ajuda="escola-marketing.indicadores">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores-marketing" data-ajuda="escola-marketing.indicadores">
         <Indicador rotulo="Campanhas" valor={milhar(campanhas.length)} detalhe={`${noAr} no ar agora`} />
         <Indicador rotulo="Peças criadas" valor={milhar(pecas.length)} detalhe={`${pecas.filter((p) => p.vencedora).length} vencedoras`} />
         <Indicador rotulo="Investido em anúncios" valor={reais(geral.investimento)} detalhe={`${milhar(geral.matriculas)} matrículas · ${reais(geral.cpa)} por matrícula`} />

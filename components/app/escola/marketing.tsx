@@ -29,7 +29,7 @@ export function FormularioDaCampanha({ c, contas, onFim }: { c: Campanha | null;
   useEffect(() => { if (estado.ok && !estado.erro) onFim(estado.id) }, [estado.ok, estado.erro, estado.id, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-campanha-form>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome da campanha"><input name="nome" required maxLength={120} value={nome} placeholder="Punção Venosa — turma de outubro" className={inputClass}
           onChange={(e) => { setNome(e.target.value); if (!utmMexido) setUtm(slugDeUtm(e.target.value)) }} /></Campo>
         <Campo rotulo="Curso"><input name="curso" maxLength={120} defaultValue={c?.curso ?? ''} placeholder="Punção Venosa" className={inputClass} /></Campo>
@@ -89,7 +89,7 @@ export function FormularioDaPeca({ p, campanhas, campanhaId, referencia, onFim }
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-peca-form>
       {ehRef && <input type="hidden" name="referencia" value="sim" />}
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Título" className="sm:col-span-2"><input name="titulo" required maxLength={160} defaultValue={p?.titulo} placeholder={ehRef ? 'Anúncio do curso X (concorrente)' : 'Anúncio: vaga garantida por R$ 99'} className={inputClass} /></Campo>
         {meta ? <><input type="hidden" name="tipo" value={p!.tipo} /><input type="hidden" name="canal" value={p!.canal} /></> : <>
         <Campo rotulo="Tipo"><select name="tipo" defaultValue={p?.tipo ?? 'anuncio'} className={inputClass}>{Object.entries(TIPOS_DE_PECA).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
@@ -109,7 +109,7 @@ export function FormularioDaPeca({ p, campanhas, campanhaId, referencia, onFim }
       </div>
       {p?.origem === 'meta' && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Anúncio lido do Meta: investimento, impressões, cliques, contatos, matrículas, situação e datas vêm de lá todo dia. Aqui ficam o título, o ângulo, o formato, a nota e a marca de vencedora.</p>}
       {!ehRef && p?.origem !== 'meta' && (
-        <fieldset className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-3">
+        <fieldset className="grid grid-cols-1 gap-3 rounded-lg border border-border p-3 sm:grid-cols-3">
           <legend className="px-1 text-sm font-medium">Resultados</legend>
           <Campo rotulo="Investimento (R$)"><input name="investimento" inputMode="decimal" maxLength={20} defaultValue={valorNoCampo(p?.investimento ?? null)} className={inputClass} /></Campo>
           <Campo rotulo="Impressões"><input name="impressoes" inputMode="numeric" maxLength={20} defaultValue={p?.impressoes ?? ''} className={inputClass} /></Campo>
@@ -235,7 +235,7 @@ export function ConstrutorDeUtm({ utm, base }: { utm: string; base: string }) {
   const link = useMemo(() => (url ? linkComUtm(url, { ...UTM_DO_CANAL[canal], campaign: utm, content: conteudo }) : null), [url, canal, utm, conteudo])
   return (
     <div className="flex flex-col gap-3" id="construtor-utm">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Campo rotulo="Página de destino" className="sm:col-span-3"><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://… (a página de venda)" className={inputClass} /></Campo>
         <Campo rotulo="Canal"><select value={canal} onChange={(e) => setCanal(e.target.value as Canal)} className={inputClass}>{Object.entries(CANAIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
         <Campo rotulo="Qual peça (utm_content)" ajuda="Opcional: separa os anúncios da mesma campanha." className="sm:col-span-2"><input value={conteudo} onChange={(e) => setConteudo(e.target.value)} maxLength={60} placeholder="video-depoimento" className={inputClass} /></Campo>

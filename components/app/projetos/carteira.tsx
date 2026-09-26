@@ -167,7 +167,7 @@ function NovoProjeto({ pessoas, aoFechar }: { pessoas: PessoaDoProjeto[]; aoFech
           <h2 id="novo-projeto-titulo" className="font-semibold">Novo projeto</h2>
           <button type="button" onClick={aoFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground hover:bg-muted"><X className="size-5" /></button>
         </header>
-        <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">Nome
             <input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} placeholder="Ex.: Doação de Sangue — Novembro" className={campo} autoFocus />
           </label>

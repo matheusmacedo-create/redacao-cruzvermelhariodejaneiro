@@ -6,13 +6,14 @@
  * - ids de tarefa e pergunta são únicos dentro da área (viram âncora na Central);
  *   na Área do Voluntário, únicos na página inteira (/membro/ajuda junta tudo);
  * - telas internas moram dentro do endereço da área;
- * - a ajuda geral não manda a equipe da escola usar o "Criar" nem abrir chamado.
+ * - a ajuda geral não manda a equipe da escola usar o "Criar" nem abrir chamado;
+ * - toda área tem o "Na prática" (3 a 7 momentos) e as "mais perguntadas" existem.
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { GUIAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados } from '../lib/ajuda'
+import { GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, perguntaDaAjuda } from '../lib/ajuda'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
 
@@ -68,7 +69,11 @@ for (const guia of GUIAS) {
   for (const r of guia.relacionadas ?? []) if (!hrefs.has(r)) erros.push(`${guia.href}: relacionada inexistente ${r}`)
   if (guia.tour.length && (guia.tour.length < 2 || guia.tour.length > 8)) avisos.push(`${guia.href}: tour com ${guia.tour.length} passos (o ideal é 3 a 7)`)
   if (!guia.perguntas.length) avisos.push(`${guia.href}: sem perguntas frequentes`)
+  if (!guia.naPratica) erros.push(`${guia.href}: sem "Na prática" (como imaginamos a área funcionando)`)
+  else if (guia.naPratica.passos.length < 3 || guia.naPratica.passos.length > 7) avisos.push(`${guia.href}: "Na prática" com ${guia.naPratica.passos.length} momentos (o ideal é 3 a 7)`)
+  if (!guia.tarefas.some((t) => t.exemplo)) avisos.push(`${guia.href}: nenhum passo a passo com exemplo`)
 }
+for (const m of MAIS_PERGUNTADAS) if (!perguntaDaAjuda(m.area, m.id)) erros.push(`mais perguntadas: não existe ${m.area}#${m.id}`)
 for (const href of hrefs) if (!comAjuda.has(href) && href !== '/ajuda') avisos.push(`área sem ajuda: ${href}`)
 
 const idsGerais = TOPICOS_GERAIS.flatMap((t) => [t.id, ...t.tarefas.map((x) => x.id), ...t.perguntas.map((p) => p.id)])

@@ -76,7 +76,7 @@ export default async function ImpactoPage() {
 
       <section data-ajuda="resultados.atividade">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Atividade registrada</h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard icon={BarChart3} value={publicados.size} label="Pacotes publicados" helper="Conteúdos concluídos no período" />
           <MetricCard icon={Activity} value={totalDestinos} label="Publicações por canal" helper="Destinos efetivamente publicados" />
           <MetricCard icon={Globe2} value={canaisPublicados.size} label="Canais ativos" helper="Canais com publicação registrada" />
@@ -84,7 +84,7 @@ export default async function ImpactoPage() {
         </div>
       </section>
 
-      <div className="mt-7 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
+      <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <section data-ajuda="resultados.canais">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Distribuição por canal</h2>
           <Card className="divide-y divide-border overflow-hidden">
@@ -102,7 +102,7 @@ export default async function ImpactoPage() {
 
         <section data-ajuda="resultados.proximas">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Próximas métricas</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FutureMetric icon={Eye} title="Alcance e visualizações" description="Quantas contas foram alcançadas e quantas visualizações o conteúdo recebeu." />
             <FutureMetric icon={Users} title="Crescimento" description="Seguidores atuais, ganhos no período e evolução histórica por canal." />
             <FutureMetric icon={Heart} title="Engajamento" description="Curtidas, comentários, compartilhamentos, salvamentos e taxa de interação." />
@@ -116,7 +116,7 @@ export default async function ImpactoPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Projetos em andamento</h2>
           <Link href="/projetos" className="text-xs font-medium text-primary hover:underline">Abrir projetos</Link>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {(projects ?? []).map((project: any) => {
             const pautas = project.pautas ?? []
             const concluidas = pautas.filter((p: any) => ['approved', 'done'].includes(p.status)).length

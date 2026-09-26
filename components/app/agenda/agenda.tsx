@@ -79,7 +79,7 @@ export function Agenda(p: Props) {
   const painelDeAlertas = <Alertas alertas={alertas} todos={todosOsAlertas} verTodos={() => setTodosOsAlertas(true)} abrir={abrirItem} itens={itens} />
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] 2xl:grid-cols-[15rem_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[13rem_minmax(0,1fr)] 2xl:grid-cols-[15rem_minmax(0,1fr)]">
       {/* No computador, camadas e alertas moram na coluna da esquerda; no celular, as camadas abrem por um botão e os alertas vêm depois da agenda. */}
       <aside className="hidden flex-col gap-4 lg:flex">
         {camadas}
@@ -157,7 +157,7 @@ export function Agenda(p: Props) {
         )}
 
         {p.visao === 'semana' && (
-          <div data-ajuda="calendario.grade" className="grid gap-2 sm:grid-cols-7">
+          <div data-ajuda="calendario.grade" className="grid grid-cols-1 gap-2 sm:grid-cols-7">
             {diasEntre(p.janela.de, p.janela.ate).map((dia) => {
               const feriado = feriadoDo(dia)
               return (

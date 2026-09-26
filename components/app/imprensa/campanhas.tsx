@@ -137,7 +137,7 @@ export function PainelDeCampanhas({ campanhas, envioNoMes, podeDisparar, envioDi
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="grid divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5 lg:divide-x">
+        <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5 lg:divide-x">
           <Metrica titulo="Taxa de abertura" valor={t.abertura} dica="Quem abriu, sobre quem recebeu. Estimativa: alguns programas abrem sozinhos, outros bloqueiam imagens." linhas={[
             ['Aberturas únicas', numero.format(numeros.aberturasUnicas)],
             ['Aberturas totais', numero.format(numeros.aberturasTotais)],
@@ -362,7 +362,7 @@ function LinhaDaCampanha({ campanha: c, podeDisparar, envioDisponivel, abrirCamp
       {aberta && (
         <tr className="border-b border-border bg-muted/20">
           <td colSpan={10} className="px-4 py-4">
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mensagem</p>
                 <p className="whitespace-pre-wrap text-sm">{c.corpo}</p>
@@ -501,7 +501,7 @@ export function DialogCampanha({ todos, inicial, onFechar, onFeito }: {
           <code>{'{nome}'}</code> vira o primeiro nome de cada contato (some sozinho quando não há nome). Linha em branco separa parágrafos.
         </span>
       </label>
-      <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
         <label className="text-sm font-medium">Link <span className="font-normal text-muted-foreground">(opcional — mede cliques)</span>
           <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} disabled={ocupado} placeholder="https://cruzvermelhariodejaneiro.org/noticias/…" className={`mt-1 ${inputClass}`} />
         </label>

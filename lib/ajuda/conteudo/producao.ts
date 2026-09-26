@@ -27,6 +27,17 @@ const PUBLICACOES: GuiaDaArea = {
   href: '/redes',
   paraQueServe: 'Publicações é onde a notícia sai do Palácio Virtual. Cada pacote é uma notícia com vários destinos: a página no site, a newsletter e as redes (Instagram, Facebook, LinkedIn e outras). Você escreve a notícia uma vez, e cada destino recebe uma versão adaptada ao limite dele.',
   quemUsa: 'Toda a equipe do Palácio Virtual vê os pacotes, monta, pede aprovação e publica. Liberar para publicação uma mídia marcada como “uso interno” (material de terceiro) é só de administradores.',
+  naPratica: {
+    titulo: 'Uma notícia, vários destinos',
+    passos: [
+      'A matéria da ação na Central do Brasil vira um pacote em “Publicações”.',
+      'O Bruno escreve a notícia uma vez; o site, a newsletter, o Instagram e o Facebook recebem versões adaptadas ao limite de cada um.',
+      'Ele escolhe as fotos da Biblioteca (só as com autorização) e pede aprovação.',
+      'Aprovado, agenda o site para as 9h e o Instagram para as 12h.',
+      'Se um destino falhar, ele aparece em vermelho e dá para tentar de novo; tudo fica no Histórico.',
+    ],
+    resultado: 'Escreve uma vez, publica em todos os canais, com controle do que saiu.',
+  },
   tour: [
     {
       titulo: 'Publicações',
@@ -100,6 +111,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'criar-pacote',
       titulo: 'Criar um pacote do zero',
+      exemplo: 'O Bruno cria o pacote “Ação de prevenção na Central do Brasil” com os destinos site, Instagram e Facebook, e escreve a notícia no primeiro destino.',
       passos: [
         'Em “Publicações”, toque em “Novo pacote”. (Também dá pelo botão “Criar” do topo, em “Nova publicação”.)',
         'O pacote abre com “A notícia” escolhida no trilho. No alto, dê um nome interno ao pacote: ele não é publicado.',
@@ -170,6 +182,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       id: 'agendar-pacote',
       titulo: 'Agendar a publicação',
+      exemplo: 'Aprovado na quinta à tarde, o pacote é agendado: site às 9h de sexta e Instagram às 12h, horário de mais alcance.',
       passos: [
         'Com “A notícia” aberta, toque em “Endereço, agendamento e notas”.',
         'Em “Agendar o pacote”, escolha o dia e a hora (horário de Brasília).',
@@ -357,6 +370,17 @@ const BIBLIOTECA: GuiaDaArea = {
   href: '/biblioteca',
   paraQueServe: 'A Biblioteca guarda as fotos, os vídeos, os áudios e os documentos de trabalho da equipe, com a autorização de uso de imagem de cada um. É dela que saem as mídias dos pacotes de Publicações. Os arquivos são privados: só quem entra no Palácio Virtual vê.',
   quemUsa: 'Toda a equipe envia, baixa e usa os arquivos. Cada pessoa exclui o que enviou; administradores e editores excluem de qualquer pessoa e otimizam as fotos antigas.',
+  naPratica: {
+    titulo: 'As fotos da ação, com a autorização de quem aparece',
+    passos: [
+      'As 6 fotos escolhidas do envio da Ana chegam à Biblioteca com o crédito dela.',
+      'Algumas mostram pessoas atendidas de frente: a Carla seleciona essas fotos e toca em “Pedir autorização às pessoas”.',
+      'O link vai pelo WhatsApp (ou pelo QR code, na hora da ação); cada pessoa assina pelo próprio celular.',
+      'Quando todos que aparecem assinaram, a Carla toca em “Marcar fotos como autorizadas”.',
+      'Na hora de montar o post, o Bruno vê quais fotos estão com “Uso autorizado” e usa só essas.',
+    ],
+    resultado: 'Nenhuma foto vai ao ar sem a autorização de quem aparece nela, e a prova fica guardada.',
+  },
   tour: [
     {
       alvo: 'biblioteca.envio',
@@ -431,6 +455,7 @@ const BIBLIOTECA: GuiaDaArea = {
     {
       id: 'enviar-arquivo',
       titulo: 'Enviar um arquivo',
+      exemplo: 'O Bruno arrasta 20 fotos do cartão de memória para a Biblioteca: elas chegam leves (JPEG de até 2048 px) e sem a localização do GPS. Uma que vai para impressão ele envia com “Alta qualidade”.',
       passos: [
         'Em “Enviar arquivo”, escolha o arquivo no seu computador ou celular.',
         'Em “Pasta”, escolha uma pasta que já existe ou escreva o nome de uma nova (opcional).',
@@ -455,6 +480,7 @@ const BIBLIOTECA: GuiaDaArea = {
     {
       id: 'pedir-autorizacao-por-link',
       titulo: 'Pedir a autorização de imagem às pessoas por link',
+      exemplo: 'Na ação da Central do Brasil, a Carla seleciona as 4 fotos com pessoas de frente, gera o link “Ação na Central — 26/09” válido por 7 dias e manda no grupo; em uma hora, as 3 pessoas assinaram.',
       passos: [
         'Envie as fotos da ação para a Biblioteca.',
         'Marque “Selecionar” em cada foto (ou toque em “Selecionar as fotos da lista” com a pasta da ação filtrada).',
@@ -660,6 +686,16 @@ const ACERVO: GuiaDaArea = {
   href: '/acervo',
   paraQueServe: 'O Acervo guarda a memória da filial: documentos, fotos, vídeos, recortes de imprensa e registros da história. Cada arquivo ganha uma ficha (o que é, de quando, de quem). Tudo entra privado; só vai para cruzvermelhariodejaneiro.org/acervo o que alguém publica, com a ficha completa.',
   quemUsa: 'Administradores, editores e colaboradores veem e baixam tudo. Enviar, catalogar, publicar, tirar do site e excluir é de editores e administradores.',
+  naPratica: {
+    titulo: 'Uma foto de 1950 volta a contar a história da filial',
+    passos: [
+      'A equipe digitaliza fotos antigas da sede e envia ao Acervo; tudo entra privado.',
+      'Cada foto ganha uma ficha: o que é, de quando, quem aparece, de onde veio.',
+      'Com a ficha completa e a autorização conferida, a Carla toca em “Publicar no site”.',
+      'A foto aparece em cruzvermelhariodejaneiro.org/acervo e pode ser usada em matérias de aniversário da filial.',
+    ],
+    resultado: 'A memória da filial fica organizada, protegida e, quando dá, aberta ao público.',
+  },
   tour: [
     {
       titulo: 'O acervo da filial',
@@ -712,6 +748,7 @@ const ACERVO: GuiaDaArea = {
     {
       id: 'completar-ficha',
       titulo: 'Completar a ficha de um item',
+      exemplo: 'Na foto “Sede em 1952”, a Carla preenche: “Fachada da sede na Praça da Cruz Vermelha, 1952; doada pela família de uma ex-voluntária”.',
       passos: [
         'No “Catálogo”, toque no cartão do item e depois em “Editar ficha”.',
         'Preencha “Título” e “Descrição”: o que é, quem aparece, onde, quando e por que importa.',

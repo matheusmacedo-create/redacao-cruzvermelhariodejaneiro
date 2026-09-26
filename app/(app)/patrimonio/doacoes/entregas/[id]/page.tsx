@@ -42,7 +42,7 @@ export default async function EntregaDeDoacao({ params }: { params: Promise<{ id
         actions={<Button render={<a href={`/api/patrimonio/doacoes/termo/${e.id}`} target="_blank" rel="noreferrer" />} id="baixar-termo"><FileSignature className="size-4" />Termo para assinar (PDF)</Button>}
       />
       <Card className="p-5">
-        <dl className="grid gap-4 sm:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Dado rotulo="Quem recebeu">{e.beneficiario_nome as string}<span className="block text-xs text-muted-foreground">{BENEFICIARIOS[e.beneficiario_tipo as TipoDeBeneficiario]}{e.beneficiario_documento ? ` · ${e.beneficiario_documento}` : ''}</span></Dado>
           <Dado rotulo="Assinou">{e.responsavel as string}</Dado>
           <Dado rotulo="Pessoas atendidas">{e.pessoas as number}</Dado>

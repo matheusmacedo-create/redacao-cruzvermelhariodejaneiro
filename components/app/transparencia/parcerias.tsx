@@ -273,7 +273,7 @@ function CartaoDaParceria({ p, trilhaDisponivel, hoje, abrir }: {
               ? hoje <= ate ? ` Precisa ficar no portal ao menos até ${data(ate)}.` : ` O prazo mínimo no portal terminou em ${data(ate)}.`
               : ' Precisa ficar no portal até 180 dias depois da prestação de contas final, ainda não informada.')}
           </p>
-          <dl className="mt-1.5 grid gap-x-3 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+          <dl className="mt-1.5 grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
             <dt className="text-muted-foreground">SHA-256 do registro</dt>
             <dd>{p.hash ? <HashCurto hash={p.hash} rotulo="SHA-256 do registro" /> : '—'}</dd>
             <dt className="text-muted-foreground">Código de verificação</dt>

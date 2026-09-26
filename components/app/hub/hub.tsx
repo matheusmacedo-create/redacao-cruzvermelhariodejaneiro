@@ -617,7 +617,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
       </div>
 
       {/* Região 2 — editor + preview */}
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 min-w-0 gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card data-ajuda="publicacoes.editor" className="min-w-0 p-5">
           {!destinoAtivo || baseAtiva ? (
             <EditorDaNoticia
@@ -1419,7 +1419,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
                 mudá-la quebraria os links já compartilhados.
               </span>
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium">Link já existente <span className="font-normal text-muted-foreground">(opcional)</span>
                 <input value={mestre.linkUrl} onChange={muda('linkUrl')} disabled={congelado} placeholder="https://…" className={`mt-1 ${inputClass}`} />
                 <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">Para apontar as redes a uma página que já existe, em vez desta.</span>
@@ -1901,7 +1901,7 @@ function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDesc
                         {pedindoIdeias ? 'Pensando…' : 'Pedir ideias à IA'}
                       </Button>
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {sugestoes.map(({ estilo, prompt: sugerido }) => (
                         <CartaoDeEstilo
                           key={estilo.id}
@@ -2012,7 +2012,7 @@ function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDesc
                   {prontas.length > 0 && (
                     <section>
                       <p className="mb-2 text-sm font-medium">Geradas — já estão nas mídias do pacote</p>
-                      <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         {prontas.map((img) => (
                           <figure key={img.fileId} className="flex flex-col gap-1.5">
                             <img src={img.previa} alt="" className="w-full rounded-lg border border-border object-contain" />
@@ -2297,7 +2297,7 @@ function EstudioDeImagem({ destino, canal, proporcao, mestre, fotos, workspaceId
                       {pedindoIdeias ? 'Pensando…' : 'Pedir ideias à IA'}
                     </Button>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {sugestoes.map(({ estilo, prompt: sugerido }) => (
                       <CartaoDeEstilo
                         key={estilo.id}
