@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { TempoNoRio } from '@/components/app/apis/tempo-no-rio'
-import { CalendarDays, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { AlarmClock, CalendarClock, FileText, Vote } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
@@ -15,8 +14,8 @@ import {
   semanaPedida, taxaDeAbertura, type DestinoNaSemana, type EventoDoCalendario, type Janela,
 } from '@/lib/dashboard/painel'
 import {
-  Camada, CartaoDoIndicador, Contador, EquipeAgora, EsperandoVoce, GradeDaSemana, MinhasPautas, NavegacaoDaSemana,
-  ProjetosNoPainel, SaudeDosCanais, Secao,
+  Camada, CartaoDoIndicador, EquipeAgora, EsperandoVoce, GradeDaSemana, HojeNaAgenda, MinhasPautas, NavegacaoDaSemana,
+  NumerosDaSemana, ProjetosNoPainel, SaudeDosCanais, Secao,
   type CanalNoPainel, type Indicador, type ItemDoFeed, type MinhaPauta, type PedidoDeAprovacao, type ProjetoNoPainel,
 } from '@/components/app/dashboard/camadas'
 import { AberturaDoPalacio, AreasDoPalacio } from '@/components/app/dashboard/palacio'
@@ -44,10 +43,12 @@ const inicioDoDia = (dia: string) => `${dia}T00:00:00-03:00`
 const fimDoDia = (dia: string) => `${dia}T23:59:59.999-03:00`
 
 /**
- * O dashboard em três camadas: em cima, o meu dia (o que é meu e o que espera
- * por mim); no meio, a semana da operação (o que vai ao ar, o que saiu, o que
- * falhou); embaixo, quatro indicadores com tendência. O detalhe de cada coisa
- * continua na tela dela — aqui é o resumo que diz onde olhar.
+ * O Início em camadas, do operacional para o analítico: em cima, a abertura
+ * (saudação, o dia em uma frase, atalhos e quatro números); depois o meu dia
+ * (o que espera o meu voto e as minhas pautas, com a coluna do lado: hoje na
+ * comunicação, o tempo e a equipe); a semana da operação; os indicadores com
+ * tendência; e, recolhido no fim, o mapa de todas as áreas. O detalhe de cada
+ * coisa continua na tela dela — aqui é o resumo que diz onde olhar.
  */
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
   const { semana: semanaParam } = await searchParams
@@ -373,37 +374,34 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ehSemanaAtual = segunda === segundaDaSemana(hoje)
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-10">
       <AberturaDoPalacio
         data={maiuscula(DATA_LONGA.format(new Date()))}
         saudacao={nome ? `${saudacao()}, ${nome}.` : `${saudacao()}.`}
         resumo={maiuscula(resumo)}
         destaques={[
-          { valor: minhasPautas.length, rotulo: minhasPautas.length === 1 ? 'pauta sua em aberto' : 'pautas suas em aberto', href: '/pautas' },
-          { valor: pedidos.length, rotulo: 'esperando o seu voto', href: '/aprovacoes', alerta: true },
-          { valor: contagem('atrasadas'), rotulo: contagem('atrasadas') === 1 ? 'pauta atrasada' : 'pautas atrasadas', href: '/pautas', alerta: true },
+          { valor: pedidos.length, rotulo: 'Esperando o seu voto', href: '/aprovacoes', alerta: true, icone: <Vote /> },
+          { valor: contagem('atrasadas'), rotulo: contagem('atrasadas') === 1 ? 'Pauta atrasada' : 'Pautas atrasadas', href: '/pautas', alerta: true, icone: <AlarmClock /> },
+          { valor: vencendo, rotulo: 'Vencem em 7 dias', href: '/pautas', icone: <CalendarClock /> },
+          { valor: minhasPautas.length, rotulo: minhasPautas.length === 1 ? 'Pauta sua em aberto' : 'Pautas suas em aberto', href: '/pautas', icone: <FileText /> },
         ]}
-        acoes={<>
-          <Button render={<Link href="/registrar" />}><Plus className="size-4" />Criar</Button>
-          <Button variant="outline" render={<Link href="/calendario" />}><CalendarDays className="size-4" />Ver calendário</Button>
-        </>}
       />
 
-      <Camada nome="Meu dia" pergunta="O que é seu e o que espera por você.">
-        <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-          <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />
+      <Camada nome="Meu dia" pergunta="O que espera por você, o que é seu e o que acontece hoje.">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-6">
             <EsperandoVoce pedidos={pedidos} hoje={hoje} />
-            <EquipeAgora itens={feed} hoje={hoje} />
+            <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />
+            <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
           </div>
+          <aside className="flex min-w-0 flex-col gap-6" aria-label="Hoje">
+            {/* Vendo outra semana (?semana=), o mapa não tem o dia de hoje. */}
+            {ehSemanaAtual && <HojeNaAgenda itens={semana.get(hoje) ?? []} />}
+            {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
+            <Suspense fallback={null}><TempoNoRio compacto /></Suspense>
+            <EquipeAgora itens={feed} hoje={hoje} />
+          </aside>
         </div>
-        <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
-        {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
-        <Suspense fallback={null}><TempoNoRio /></Suspense>
-      </Camada>
-
-      <Camada nome="O Palácio" pergunta="Todas as áreas que você pode abrir, do jeito que estão no menu.">
-        <AreasDoPalacio />
       </Camada>
 
       <div id="semana" className="scroll-mt-6">
@@ -412,12 +410,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           pergunta={ehSemanaAtual ? `${rotuloDaSemana(segunda)} · o que vai ao ar, o que saiu e o que falhou.` : 'O que estava no calendário, o que saiu e o que falhou.'}
           lado={<NavegacaoDaSemana anterior={somarDias(segunda, -7)} proxima={somarDias(segunda, 7)} ehAtual={ehSemanaAtual} />}
         >
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Contador valor={itensDaSemana.length} rotulo="no calendário da semana" href="/calendario" />
-            <Contador valor={destinos.filter((d) => d.estado === 'publicado').length} rotulo="publicações no ar" href="/registro" />
-            <Contador valor={destinos.filter((d) => d.estado === 'falhou').length} rotulo="falharam ao publicar" href="/registro" alerta={destinos.some((d) => d.estado === 'falhou')} />
-            <Contador valor={aprovacoesPendentes ?? 0} rotulo="esperando aprovação" href="/aprovacoes" />
-          </div>
+          <NumerosDaSemana numeros={[
+            { valor: itensDaSemana.length, rotulo: 'no calendário da semana', href: '/calendario' },
+            { valor: destinos.filter((d) => d.estado === 'publicado').length, rotulo: 'publicações no ar', href: '/registro' },
+            { valor: destinos.filter((d) => d.estado === 'falhou').length, rotulo: 'falharam ao publicar', href: '/registro', alerta: destinos.some((d) => d.estado === 'falhou') },
+            { valor: aprovacoesPendentes ?? 0, rotulo: 'esperando aprovação', href: '/aprovacoes' },
+          ]} />
           <GradeDaSemana dias={dias} semana={semana} hoje={hoje} />
           <SaudeDosCanais canais={canais} />
         </Camada>
@@ -430,6 +428,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </Secao>
       </Camada>
+
+      <AreasDoPalacio />
     </div>
   )
 }

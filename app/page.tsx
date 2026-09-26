@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { ShieldCheck, TriangleAlert } from 'lucide-react'
+import { Building2, GraduationCap, Megaphone, TriangleAlert, Users } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError, type InvalidKey } from '@/lib/supabase/env'
 import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import { Button } from '@/components/ui/button'
+import { DOMINIO_DO_PALACIO } from '@/lib/dominio'
 
 // Só nomes de variáveis, nunca valores: a página é pública.
 function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid: InvalidKey[] }) {
@@ -60,6 +61,14 @@ function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid:
   )
 }
 
+/** O tamanho do Palácio em quatro frentes (as mesmas do menu: lib/navegacao.ts). */
+const PILARES = [
+  { icone: Megaphone, titulo: 'Comunicação', texto: 'Pautas, aprovações, publicações e imprensa.' },
+  { icone: Building2, titulo: 'Institucional', texto: 'Ofícios, chamados, compras e patrimônio.' },
+  { icone: GraduationCap, titulo: 'Escola', texto: 'Educação e Saúde: vendas, finanças e marketing.' },
+  { icone: Users, titulo: 'Pessoas', texto: 'Diretório, recursos humanos e voluntários.' },
+]
+
 const AVISOS: Record<string, string> = {
   definida: 'Senha criada. Entre com seu usuário e a senha nova.',
   redefinida: 'Senha redefinida. Entre com a senha nova.',
@@ -98,21 +107,32 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="w-full max-w-md">
           <BrandMark className="w-72 items-start" />
           <div className="mt-12">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Palácio Virtual</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Acesse o Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro'}</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Acesso da equipe</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Entre no Palácio Virtual'}</h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
           <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} /></div>
         </div>
       </section>
-      <section className="hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <BrandMark inverted className="w-72 items-start" />
+      {/* Sem logo repetida nem ícone genérico: o lado direito diz o que é o Palácio.
+          O vermelho entra como acento (filete e ícones); a cruz, só na logo, à esquerda. */}
+      <section className="relative hidden overflow-hidden border-l border-border bg-muted/60 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-primary" aria-hidden="true" />
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Cruz Vermelha Brasileira · Filial do Rio de Janeiro</p>
         <div className="max-w-xl">
-          <div className="mb-8 flex size-14 items-center justify-center rounded-xl border border-primary-foreground/30"><ShieldCheck className="size-7" /></div>
-          <h2 className="text-4xl font-bold leading-tight text-balance">Comunicação humanitária com organização e responsabilidade.</h2>
-          <p className="mt-5 max-w-lg text-lg leading-relaxed text-primary-foreground/80">Do registro da ação à publicação, cada etapa permanece documentada e acessível à equipe.</p>
+          <h2 className="text-4xl font-bold leading-[1.1] tracking-tight text-balance xl:text-5xl">Comunicação humanitária com organização e responsabilidade.</h2>
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-muted-foreground">Do registro da ação à publicação, cada etapa fica documentada e ao alcance da equipe.</p>
+          <ul className="mt-10 grid max-w-lg grid-cols-2 gap-3">
+            {PILARES.map(({ icone: Icone, titulo, texto }) => (
+              <li key={titulo} className="rounded-xl border border-border bg-card p-4 shadow-xs">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-primary/[0.08] text-primary"><Icone className="size-[18px]" aria-hidden="true" /></span>
+                <p className="mt-3 text-sm font-semibold">{titulo}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{texto}</p>
+              </li>
+            ))}
+          </ul>
         </div>
-        <p className="text-sm text-primary-foreground/70">Cruz Vermelha Brasileira · Rio de Janeiro</p>
+        <p className="text-sm text-muted-foreground">{DOMINIO_DO_PALACIO}</p>
       </section>
     </main>
   )

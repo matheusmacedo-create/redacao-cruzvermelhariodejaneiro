@@ -17,9 +17,10 @@ const diaDaSemana = (iso: string, i: number) =>
  * Previsão de 7 dias para a sede (Open-Meteo), com os dias de risco em
  * destaque — chuva forte, ventania, calor extremo. É o gancho para o GRD e
  * para a pauta se prepararem antes de a Defesa Civil soar a sirene.
- * Fora do ar, some sem quebrar o painel.
+ * Fora do ar, some sem quebrar o painel. `compacto`: um dia por linha, para
+ * caber na coluna estreita do Início.
  */
-export async function TempoNoRio() {
+export async function TempoNoRio({ compacto = false }: { compacto?: boolean } = {}) {
   const dias: DiaDoTempo[] = await previsaoDoRio()
   if (!dias.length) return null
   const comAlerta = dias.map((d) => ({ d, alertas: alertasDoDia(d) }))
@@ -28,7 +29,7 @@ export async function TempoNoRio() {
   return (
     <Card className={cn('p-4', temAlerta && 'border-destructive/50')}>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">Tempo no Rio · próximos 7 dias</h2>
+        <h3 className="text-sm font-semibold">Tempo no Rio · 7 dias</h3>
         <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="text-[11px] text-muted-foreground hover:underline">Previsão: Open-Meteo</a>
       </div>
       {pior.length > 0 && (
@@ -40,6 +41,19 @@ export async function TempoNoRio() {
           ))}
         </ul>
       )}
+      {compacto ? (
+        <ol className="-mx-1 flex flex-col">
+          {comAlerta.map(({ d, alertas }, i) => (
+            <li key={d.data} title={descricaoDoTempo(d.codigo)}
+              className={cn('flex items-center gap-2.5 rounded-md px-1 py-1 text-xs', alertas.some((a) => a.nivel === 'alerta') ? 'bg-destructive/5' : alertas.length ? 'bg-warning/10' : '')}>
+              <span className="w-14 shrink-0 font-medium capitalize text-muted-foreground">{diaDaSemana(d.data, i)}</span>
+              <Icone codigo={d.codigo} className="size-4 shrink-0 text-muted-foreground" />
+              <span className="flex-1 font-semibold tabular-nums">{d.maxima != null ? Math.round(d.maxima) : '–'}° <span className="font-normal text-muted-foreground">{d.minima != null ? Math.round(d.minima) : '–'}°</span></span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">{d.chuvaMm >= 0.5 ? `${Math.round(d.chuvaMm)} mm` : 'sem chuva'}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
       <ol className="grid grid-cols-4 gap-2 sm:grid-cols-7">
         {comAlerta.map(({ d, alertas }, i) => (
           <li key={d.data} title={descricaoDoTempo(d.codigo)}
@@ -51,6 +65,7 @@ export async function TempoNoRio() {
           </li>
         ))}
       </ol>
+      )}
     </Card>
   )
 }
