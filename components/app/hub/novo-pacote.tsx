@@ -31,7 +31,7 @@ export function NovoPacoteBotao({ origemTipo, origemId, rotulo }: {
   }
 
   return (
-    <span className="inline-flex flex-col items-end gap-1">
+    <span data-ajuda={origemTipo ? undefined : 'publicacoes.novo'} className="inline-flex flex-col items-end gap-1">
       <Button size="lg" onClick={criar} disabled={criando}>
         <Plus className="size-4" />
         {criando ? 'Criando…' : rotulo ?? 'Novo pacote'}

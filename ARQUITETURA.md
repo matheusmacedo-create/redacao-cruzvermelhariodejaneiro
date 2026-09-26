@@ -123,6 +123,7 @@ app/
     admin.ts          reset de dados do espaço
     usuarios.ts       criar, editar, redefinir senha, desativar/reativar
     acervo.ts         envio ao R2, ficha, publicação no site (§7.10)
+    ajuda.ts          o que cada pessoa já viu da ajuda (§7.15)
   api/                só o que precisa ser HTTP de verdade
     bootstrap/        primeiro administrador, quando o banco está vazio
     files/            upload-token, register, download, delete
@@ -131,6 +132,8 @@ app/
     admin/            diagnósticos (ftp-check, redes-check, ftp-descobrir)
 components/
   app/                componentes de tela (sidebar, publicador-redes, emoji-picker)
+    ajuda/            provedor, painel “?”, boas-vindas e dica do tour no shell (§7.15)
+  ajuda/              o motor do tour, da Redação e da Área do Voluntário (§7.15)
   ui/                 primitivos Base UI
   auth/  admin/
 lib/
@@ -139,6 +142,8 @@ lib/
   armazenamento/      r2.ts (cliente do Cloudflare R2, SigV4 sem SDK)
   acervo/             regras · dados · paginas (HTML público) · publicacao · imagens · video
   editorial/          publicacoes-previstas.ts
+  ajuda/              tipos · index (registro) · progresso · posicao · membro ·
+                      conteudo/<grupo>.ts, o texto de cada área (§7.15)
   session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
   permissoes.ts       quem pode o quê (catálogo único de permissões)
   navegacao.ts        nomes, grupos e ícones das áreas (sidebar, topo, busca ⌘K, aba)
@@ -146,6 +151,8 @@ lib/
   storage.ts          limites, tipos MIME, caminho da Biblioteca
   status-maps.ts      tradução banco → interface
   data.ts             constantes (coordenações, canais) + mock antigo da Fase 1
+scripts/              conferir-ajuda.ts (npx tsx, §7.15) · backup-banco.sh ·
+                      restaurar-arquivos.sh (docs/backup.md)
 supabase/migrations/  o schema, em ordem cronológica
 proxy.ts              middleware de sessão
 ```
@@ -753,6 +760,36 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
 - Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
   `publicarMateria`).
 
+### 7.15 Ajuda (boas-vindas, tours, painel e Central)
+
+Pesquisa, decisões, funcionamento do tour, guia de estilo e como manter:
+[`docs/AJUDA.md`](docs/AJUDA.md).
+
+- **Conteúdo:** texto e dado puro, em `lib/ajuda/conteudo/<grupo>.ts` (um
+  arquivo por grupo do menu) e em `lib/ajuda/membro.ts` (Área do Voluntário),
+  no formato de `lib/ajuda/tipos.ts`. A chave de cada guia é o `href` da área
+  em `lib/navegacao.ts`, então a ajuda some junto com a área para quem não
+  pode abri-la. O mesmo conteúdo serve ao painel “?” (botão no topo e tecla
+  `?`), à Central (área "Ajuda", `/ajuda`, no pé da sidebar, com âncora em
+  cada tarefa e pergunta) e à busca ⌘K (`buscarNaAjuda`).
+- **Tour** (`components/ajuda/tour.tsx`): aponta para os elementos marcados
+  com `data-ajuda="<área>.<coisa>"`. Sem o alvo na tela, o balão vai ao
+  centro, ou o passo some (`seAusente: 'pular'`). Abaixo de 640 px, vira uma
+  folha presa à borda. É um diálogo modal: foco preso, Esc fecha, as setas
+  andam. O tour das boas-vindas usa o mesmo motor; o de cada tela é
+  oferecido numa dica na primeira visita, e não aberto à força.
+- **Progresso:** o que a pessoa já viu fica em `user_metadata.ajuda` do
+  Supabase Auth (`lib/ajuda/progresso.ts`), sem tabela e sem migração. É
+  estado de interface e **não decide acesso**, porque a própria pessoa pode
+  editar o metadata. Quem grava é `registrarAjuda()` (`app/actions/ajuda.ts`):
+  só aceita chave de tour que existe (`ehChaveDeTour`), porque o metadata vai
+  no token de toda requisição, e nunca lança. A Área do Voluntário não usa o
+  Supabase Auth: lá fica no `localStorage`.
+- **Conferência:** `npx tsx scripts/conferir-ajuda.ts` acusa alvo citado
+  sem `data-ajuda` no código, id repetido e tela fora da área, e avisa sobre
+  área sem ajuda. Tela nova ou que mudou atualiza a ajuda no mesmo PR
+  (§10.3).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
@@ -904,7 +941,9 @@ na sidebar. Foi entregue como pronto e ninguém conseguia chegar nele.
 
 **Antes de dizer que algo está no ar, percorra o caminho do usuário até a tela.**
 Compilar não é entregar. Tela nova com endereço próprio precisa de uma linha
-em `lib/navegacao.ts`; sem ela, não aparece na sidebar nem na busca.
+em `lib/navegacao.ts`; sem ela, não aparece na sidebar nem na busca. E
+precisa de ajuda: o guia da área em `lib/ajuda/conteudo/`, os `data-ajuda`
+que o tour cita e `npx tsx scripts/conferir-ajuda.ts` passando (§7.15).
 
 ### 10.4 Diagnóstico que cria recurso
 
@@ -959,7 +998,11 @@ Um roteiro que evita a maioria dos erros acima:
    inclusive. Leva minutos e pega o `2026-02-31`.
 5. **Migração: só acrescente.** §10.1.
 6. **Percorra o caminho do usuário** até a tela que você mexeu. §10.3.
-7. **Nunca toque no valor de uma credencial.** §10.6.
-8. **Relate o que aconteceu de verdade** — o que passou, o que não foi feito, o
+7. **Atualize a ajuda junto com a tela.** Botão renomeado na tela e não na
+   ajuda manda a pessoa procurar o que não existe. Guia em
+   `lib/ajuda/conteudo/`, `data-ajuda` e `npx tsx scripts/conferir-ajuda.ts`.
+   §7.15 e `docs/AJUDA.md` §4–5.
+8. **Nunca toque no valor de uma credencial.** §10.6.
+9. **Relate o que aconteceu de verdade** — o que passou, o que não foi feito, o
    que ficou incerto. Um relatório otimista custa mais do que um problema
    admitido.

@@ -76,7 +76,7 @@ export function ProjetoAsana({ projeto, pautas, atualizacoes, marcos, pessoas, h
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
+        <div data-ajuda="projetos.cabecalho" className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-balance">{projeto.nome}</h1>
             <PillDaSituacao situacao={projeto.situacao} />
@@ -91,7 +91,7 @@ export function ProjetoAsana({ projeto, pautas, atualizacoes, marcos, pessoas, h
             {vencido && <span className="inline-flex items-center gap-1 font-medium text-destructive"><AlertTriangle className="size-4" />Prazo final vencido</span>}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div data-ajuda="projetos.acoes" className="flex shrink-0 flex-wrap items-center gap-2">
           <Button render={<Link href={`/registrar?projeto=${projeto.id}`} />}><Plus className="size-4" />Nova pauta</Button>
           <Button variant="outline" render={<Link href={`/pautas?projeto=${projeto.id}`} />}><KanbanSquare className="size-4" />Quadro</Button>
           <Button variant="outline" onClick={() => setEditando(true)}><Pencil className="size-4" />Editar</Button>
@@ -104,7 +104,7 @@ export function ProjetoAsana({ projeto, pautas, atualizacoes, marcos, pessoas, h
       </div>
       {erro && <p className="text-sm text-destructive">{erro}</p>}
 
-      <div className="flex gap-1 border-b border-border" role="tablist">
+      <div data-ajuda="projetos.abas-do-projeto" className="flex gap-1 border-b border-border" role="tablist">
         {([['visao', 'Visão geral'], ['linha', 'Linha do tempo']] as const).map(([id, rotulo]) => (
           <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
             className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${aba === id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -167,7 +167,7 @@ function Atualizacoes({ projetoId, atualizacoes, pessoaPorId, hoje }: {
 
   return (
     <section className="flex min-w-0 flex-col gap-4">
-      <Card className="flex flex-col gap-3 p-4">
+      <Card data-ajuda="projetos.atualizacao" className="flex flex-col gap-3 p-4">
         <h2 className="text-sm font-semibold">Atualização de status</h2>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Situação do projeto">
           {(Object.keys(SITUACOES) as Situacao[]).map((s) => (
@@ -225,7 +225,7 @@ function Resumo({ projeto, pautas, hoje }: { projeto: ProjetoNaTela; pautas: Pau
   const p = progresso(pautas.map((x) => x.status))
   const restante = projeto.fim && !projeto.concluido ? diasEntre(hoje, projeto.fim) : null
   return (
-    <Card className="flex flex-col gap-3 p-4 text-sm">
+    <Card data-ajuda="projetos.resumo" className="flex flex-col gap-3 p-4 text-sm">
       <h2 className="font-semibold">Resumo</h2>
       {projeto.descricao && <p className="text-muted-foreground">{projeto.descricao}</p>}
       <div>
@@ -259,7 +259,7 @@ function Marcos({ projetoId, marcos, hoje }: { projetoId: string; marcos: MarcoN
   })
 
   return (
-    <Card className="flex flex-col gap-3 p-4 text-sm">
+    <Card data-ajuda="projetos.marcos" className="flex flex-col gap-3 p-4 text-sm">
       <h2 className="flex items-center gap-1.5 font-semibold"><Flag className="size-4 text-primary" />Marcos</h2>
       {marcos.length === 0 ? <p className="text-xs text-muted-foreground">Datas que não podem passar: lançamento, dia do evento, balanço.</p> : (
         <ul className="flex flex-col gap-1.5">

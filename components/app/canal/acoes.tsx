@@ -26,7 +26,7 @@ export function SituacaoDaConversa({ conversaId, situacao }: { conversaId: strin
   const [ocupado, iniciar] = useTransition()
   const rodar = (acao: 'encerrar' | 'reabrir') => iniciar(async () => { const r = await marcarConversa(conversaId, acao); if (r.erro) setErro(r.erro); else router.refresh() })
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-2" data-ajuda="canal-voluntarios.situacao">
       {situacao === 'encerrada'
         ? <Button size="sm" variant="outline" disabled={ocupado} onClick={() => rodar('reabrir')}>Reabrir</Button>
         : <Button size="sm" variant="outline" disabled={ocupado} onClick={() => rodar('encerrar')}>Encerrar conversa</Button>}

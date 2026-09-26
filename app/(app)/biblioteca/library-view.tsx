@@ -109,7 +109,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
 
   return (
     <div className="flex flex-col gap-5">
-      <Card className="p-5">
+      <Card data-ajuda="biblioteca.envio" className="p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1">
             <p className="text-sm font-semibold">Enviar arquivo</p>
@@ -141,7 +141,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
             Tags
             <input value={tags} onChange={(e) => setTags(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 lg:w-56" placeholder="evento, campanha" />
           </label>
-          <label className="text-sm font-medium">
+          <label data-ajuda="biblioteca.uso-de-imagem" className="text-sm font-medium">
             Uso de imagem
             <select
               value={authorization}
@@ -163,13 +163,13 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
         </div>
       </Card>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div data-ajuda="biblioteca.busca" className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1"><Search className="absolute left-3 top-3 size-4 text-muted-foreground" /><input value={query} onChange={(e) => setQuery(e.target.value)} className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3" placeholder="Buscar arquivos e tags" /></div>
         <div className="flex flex-wrap gap-2">{kinds.map(([value, label]) => <button key={value} type="button" onClick={() => setKind(value)} className={cn('rounded-lg px-3 py-2 text-sm', kind === value ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{label}</button>)}</div>
       </div>
 
       {knownFolders.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-ajuda="biblioteca.pastas" className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">Pastas:</span>
           <button type="button" onClick={() => setFolder('todas')} className={cn('inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium', folder === 'todas' ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>Todas</button>
           {knownFolders.map((f) => (
@@ -182,7 +182,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId }
       )}
 
       <p className="text-xs text-muted-foreground">{list.length} arquivo(s)</p>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div data-ajuda="biblioteca.arquivos" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {list.map((f) => {
           const Icon = icons[f.kind] || FileText
           const preview = f.kind === 'foto' && f.storagePath ? `/api/private-blob?pathname=${encodeURIComponent(f.storagePath)}` : null

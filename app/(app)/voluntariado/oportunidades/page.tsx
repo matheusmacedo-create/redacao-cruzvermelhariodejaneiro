@@ -26,14 +26,14 @@ export default async function OportunidadesDaEquipe({ searchParams }: { searchPa
     <div className="flex flex-col gap-6">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
       <PageHeader title="Oportunidades" description="Ações, plantões e eventos para os voluntários se inscreverem pela Área do Voluntário. Presença confirmada vira horas no cadastro."
-        actions={nivel >= 2 ? <Button render={<Link href="/voluntariado/oportunidades/nova" />}><Plus className="size-4" />Nova oportunidade</Button> : undefined} />
-      <nav className="flex gap-1 border-b border-border" aria-label="Abas">
+        actions={nivel >= 2 ? <Button render={<Link href="/voluntariado/oportunidades/nova" />} data-ajuda="voluntarios.nova-oportunidade"><Plus className="size-4" />Nova oportunidade</Button> : undefined} />
+      <nav className="flex gap-1 border-b border-border" aria-label="Abas" data-ajuda="voluntarios.oportunidades-abas">
         {[['proximas', 'Próximas'], ['passadas', 'Passadas']].map(([id, r]) => (
           <Link key={id} href={`/voluntariado/oportunidades${id === 'proximas' ? '' : '?aba=passadas'}`} aria-current={aba === id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{r}</Link>
         ))}
       </nav>
-      <Card className="divide-y divide-border p-0">
+      <Card className="divide-y divide-border p-0" data-ajuda="voluntarios.oportunidades-lista">
         {(lista ?? []).map((o) => (
           <Link key={o.id} href={`/voluntariado/oportunidades/${o.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-muted/30">
             <span className="min-w-0">

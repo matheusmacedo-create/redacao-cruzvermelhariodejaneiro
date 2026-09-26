@@ -116,7 +116,7 @@ export function Central({
       <Crescimento meses={meses} total={contagens.total} />
 
       <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+        <div data-ajuda="newsletter.lista" className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
           <div className="flex flex-wrap gap-1.5">
             {FILTROS.map((f) => (
               <button
@@ -189,7 +189,7 @@ function Numeros({ contagens }: { contagens: Contagens }) {
     { rotulo: 'Inválidos', valor: contagens.invalidos, dica: 'O endereço devolveu a mensagem' },
   ]
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div data-ajuda="newsletter.numeros" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {tiles.map((t) => (
         <Card key={t.rotulo} className="p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t.rotulo}</p>
@@ -250,7 +250,7 @@ function FormularioDaHome({ podeLigar, executar, processando }: {
   const desligado = estado !== null && !ligado && estado !== 'restrito' && estado !== 'sem-resposta'
 
   return (
-    <Card className="p-5">
+    <Card data-ajuda="newsletter.formulario" className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ function EstadoDoEnvio({ envio, pendentes, executar, processando }: {
   }
 
   return (
-    <Card className="p-5">
+    <Card data-ajuda="newsletter.envio" className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -609,7 +609,7 @@ function Tabela({ lista, vazia, buscando, podeApagar, executar, processando }: {
 
 function Historico({ edicoes }: { edicoes: Edicao[] }) {
   return (
-    <Card>
+    <Card data-ajuda="newsletter.edicoes">
       <div className="border-b border-border p-4">
         <h2 className="font-semibold">Edições enviadas</h2>
         <p className="mt-1 text-xs text-muted-foreground">

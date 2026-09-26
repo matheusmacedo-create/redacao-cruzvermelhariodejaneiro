@@ -28,7 +28,7 @@ export function PublicacaoDaOportunidade({ id, publicado, cancelada, temInscrito
   const [avisados, setAvisados] = useState<number | null>(null)
   if (cancelada) return <p className="text-sm text-destructive">Cancelada.{avisados !== null ? ` ${avisados} ${avisados === 1 ? 'inscrito avisado' : 'inscritos avisados'} por e-mail.` : ''}</p>
   return (
-    <div className="flex flex-col gap-2" id="publicacao">
+    <div className="flex flex-col gap-2" id="publicacao" data-ajuda="voluntarios.publicacao">
       <p className={`flex items-center gap-2 text-sm font-medium ${publicado ? 'text-success' : 'text-muted-foreground'}`}>
         {publicado ? <Eye className="size-4" /> : <EyeOff className="size-4" />}{publicado ? 'Publicada na Área do Voluntário' : 'Rascunho: só a equipe vê'}
       </p>

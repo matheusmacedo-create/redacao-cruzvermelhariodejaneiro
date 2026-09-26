@@ -89,7 +89,7 @@ export default async function SaudePage() {
         <Card className="p-6 text-sm text-muted-foreground">Os números aparecem assim que houver contas cadastradas e lançamentos pagos. Comece em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
       ) : (
         <>
-          <Card className="p-5" id="alertas">
+          <Card className="p-5" id="alertas" data-ajuda="financeiro.saude-alertas">
             {lista.length ? (
               <ul className="flex flex-col gap-2">
                 {lista.map((a, i) => (
@@ -102,7 +102,7 @@ export default async function SaudePage() {
             ) : <p className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-4 text-success" />Nenhum alerta: caixa livre positivo, fôlego acima da reserva e nada atrasado.</p>}
           </Card>
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="indicadores">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="indicadores" data-ajuda="financeiro.saude-indicadores">
             <Numero valor={reais(livreHoje)} rotulo="Caixa livre hoje" detalhe="Pode pagar qualquer despesa da filial." tom={livreHoje < 0 ? 'ruim' : undefined} />
             <Numero valor={reais(comDestino)} rotulo="Com destino" detalhe="De convênios e doações carimbadas: só para o que foram feitos." />
             <Numero valor={folego === null ? '—' : `${folego.toLocaleString('pt-BR')} ${folego === 1 ? 'mês' : 'meses'}`} rotulo="Fôlego"
@@ -110,7 +110,7 @@ export default async function SaudePage() {
             <Numero valor={reais(media)} rotulo="Resultado médio do livre" detalhe={`Por mês, em ${meses.map((m) => nomeDoMes(m, true)).join(', ')}`} tom={media < 0 ? 'atencao' : undefined} />
           </div>
 
-          <Card className="p-5">
+          <Card className="p-5" data-ajuda="financeiro.saude-previsao">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-semibold">Saldo livre previsto — próximos 90 dias</h2>
               <p className="text-xs text-muted-foreground">Menor valor: <span className={`font-medium tabular-nums ${menor.livre < 0 ? 'text-destructive' : 'text-foreground'}`}>{reais(menor.livre)}</span> em {dataCurta(menor.data)}</p>
@@ -120,7 +120,7 @@ export default async function SaudePage() {
           </Card>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <Card className="p-5" id="orcamento">
+            <Card className="p-5" id="orcamento" data-ajuda="financeiro.saude-orcamento">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="font-semibold">Orçamento de {nomeDoMes(mes)}</h2>
                 {nivel >= 4 && <EditarOrcamento ano={ano} categorias={c.categorias.filter((k) => k.tipo === 'despesa' && k.ativa).map((k) => ({ id: k.id, nome: k.nome, grupo: k.grupo }))}

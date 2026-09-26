@@ -38,16 +38,16 @@ export default async function NotificacoesPage({ searchParams }: { searchParams:
         title="Notificações"
         description="Tudo o que aconteceu com você na Redação. O que você não abrir aqui também chega no seu e-mail de recuperação, do jeito que você escolher no perfil."
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div data-ajuda="notificacoes.filtros" className="mb-4 flex flex-wrap items-center gap-2">
         <Link href={href(1, false)} className={cn('rounded-full border px-3 py-1.5 text-sm', !soNaoLidas ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>Todas</Link>
         <Link href={href(1, true)} className={cn('rounded-full border px-3 py-1.5 text-sm', soNaoLidas ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>Não lidas{naoLidas ? ` (${naoLidas})` : ''}</Link>
         <Link href="/perfil#notificacoes" className="ml-auto text-sm text-muted-foreground hover:text-foreground hover:underline">Escolher o que chega por e-mail</Link>
       </div>
-      <Card className="overflow-hidden p-0">
+      <Card data-ajuda="notificacoes.lista" className="overflow-hidden p-0">
         <ListaDeNotificacoes itens={data ?? []} naoLidas={naoLidas ?? 0} vazio={soNaoLidas ? 'Nada por ler. Tudo em dia.' : 'Nenhuma notificação por enquanto.'} />
       </Card>
       {paginas > 1 && (
-        <nav className="mt-4 flex items-center justify-between text-sm" aria-label="Páginas">
+        <nav data-ajuda="notificacoes.paginas" className="mt-4 flex items-center justify-between text-sm" aria-label="Páginas">
           {pagina > 1 ? <Link href={href(pagina - 1)} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted">Mais recentes</Link> : <span />}
           <span className="text-muted-foreground">Página {pagina} de {paginas}</span>
           {pagina < paginas ? <Link href={href(pagina + 1)} className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted">Mais antigas</Link> : <span />}

@@ -104,7 +104,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
     <form action={enviar} className="flex flex-col gap-5" id="form-lancamento">
       <input type="hidden" name="tipo" value={tipo} />
       {!editando && (
-        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Tipo">
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Tipo" data-ajuda="financeiro.tipo">
           {TIPOS_DO_FORM.map((t) => (
             <button key={t.id} type="button" role="radio" aria-checked={tipo === t.id} onClick={() => setTipo(t.id)}
               className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-2.5 text-sm transition ${tipo === t.id ? 'border-primary bg-primary/5 font-semibold text-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>
@@ -160,7 +160,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
           </Campo>
         )}
         <Campo rotulo="Fonte do recurso" ajuda={cadastros.fontes.find((f) => f.id === fonteId)?.restrita ? 'Recurso com destino: só pode ser usado neste convênio ou projeto.' : 'Dinheiro livre da filial.'}>
-          <select name="fonte_id" required value={fonteId} onChange={(e) => setFonteId(e.target.value)} className={inputClass}>
+          <select name="fonte_id" required value={fonteId} onChange={(e) => setFonteId(e.target.value)} className={inputClass} data-ajuda="financeiro.fonte">
             {cadastros.fontes.filter((f) => f.ativa || f.id === l?.fonte_id).map((f) => <option key={f.id} value={f.id}>{f.nome}{f.restrita ? ' (com destino)' : ''}</option>)}
           </select>
         </Campo>
@@ -174,12 +174,12 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
           <input type="date" name="vencimento" required value={vencimento} onChange={(e) => mudarVencimento(e.target.value)} className={inputClass} />
         </Campo>
         <Campo rotulo="Competência" ajuda="O mês a que a despesa ou receita se refere (ex.: luz de agosto paga em setembro).">
-          <input type="month" name="competencia" required value={competencia} onChange={(e) => { setCompetencia(e.target.value); setCompetenciaManual(true) }} className={inputClass} />
+          <input type="month" name="competencia" required value={competencia} onChange={(e) => { setCompetencia(e.target.value); setCompetenciaManual(true) }} className={inputClass} data-ajuda="financeiro.competencia" />
         </Campo>
       </div>
 
       {!editando && (
-        <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4" data-ajuda="financeiro.repeticao">
           <legend className="px-1 text-sm font-medium">Repetição</legend>
           <div className="flex flex-wrap items-center gap-4 text-sm">
             {(Object.keys(REPETICOES) as Repeticao[]).map((r) => (
@@ -202,7 +202,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
       )}
 
       {!editando && repeticao === 'unica' && (
-        <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-4" data-ajuda="financeiro.ja-pago">
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" name="pago" value="sim" checked={pago} onChange={(e) => setPago(e.target.checked)} disabled={pedeAprovacao} />
             {tipo === 'receita' ? 'Já foi recebido' : 'Já foi pago'}

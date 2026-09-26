@@ -165,7 +165,7 @@ export default async function ChamadoPage({ params, searchParams }: { params: Pr
 
         {/* Lateral: estado, prazos, triagem */}
         <aside className="flex flex-col gap-4">
-          <Card className="flex flex-col gap-4 p-5">
+          <Card data-ajuda="chamados.situacao" className="flex flex-col gap-4 p-5">
             <div className="flex flex-wrap items-center gap-2"><EtiquetaDeStatus status={status} paraEquipe={equipe} /><EtiquetaDePrioridade prioridade={c.prioridade as Prioridade} /></div>
             {!(soSolicitante && status === 'resolvido') && <AcoesDeStatus chamadoId={c.id} status={status} proximos={proximos} equipe={equipe} />}
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
@@ -183,7 +183,7 @@ export default async function ChamadoPage({ params, searchParams }: { params: Pr
             </div>
           </Card>
           {equipe && (
-            <Card className="p-5">
+            <Card data-ajuda="chamados.triagem" className="p-5">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Triagem</p>
               <Triagem chamadoId={c.id} responsavelId={c.responsavel_id} equipe={equipeDaFila} impacto={c.impacto} urgencia={c.urgencia} filas={filasParaTransferir} filaAtual={fila.id} encerrado={encerrado} />
             </Card>

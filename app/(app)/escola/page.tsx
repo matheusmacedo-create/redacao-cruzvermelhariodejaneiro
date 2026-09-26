@@ -108,7 +108,7 @@ export default async function EscolaPage({ searchParams }: { searchParams: Promi
       )}
 
       {atencao.length > 0 && (
-        <Card className="border-warning/60 p-4 text-sm" id="pede-atencao">
+        <Card className="border-warning/60 p-4 text-sm" id="pede-atencao" data-ajuda="escola.atencao">
           <p className="flex items-center gap-2 font-medium text-warning-foreground"><AlertTriangle className="size-4" />Pede atenção</p>
           <ul className="mt-2 flex flex-col gap-1.5">
             {atencao.map((a) => <li key={a.texto}><Link href={a.href} className="hover:underline">{a.texto}</Link></li>)}
@@ -116,7 +116,7 @@ export default async function EscolaPage({ searchParams }: { searchParams: Promi
         </Card>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-3" data-ajuda="escola.blocos">
         {nivelEscola >= 2 && (
           <Bloco id="bloco-vendas" titulo="Vendas do mês" icone={ReceiptText} href="/escola/vendas" rotuloDoLink="Abrir vendas">
             {!contas.length ? <p className="text-sm text-muted-foreground">Nenhuma conta da Únicopag ligada. {nivelEscola >= 3 && <Link href="/escola/configuracoes" className="text-primary hover:underline">Ligar agora</Link>}</p> : (
@@ -161,7 +161,7 @@ export default async function EscolaPage({ searchParams }: { searchParams: Promi
       </div>
 
       {sistemas.length > 0 && (
-        <Card className="p-4" id="sistema-da-escola">
+        <Card className="p-4" id="sistema-da-escola" data-ajuda="escola.sistema">
           <h2 className="text-sm font-medium">Alunos, turmas e secretaria</h2>
           <p className="mt-1 text-sm text-muted-foreground">Ficha do aluno, turma, triagem e presença ficam no sistema da escola.</p>
           <div className="mt-3 flex flex-wrap gap-2">

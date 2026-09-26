@@ -42,7 +42,7 @@ export function OrdemDeCompra({ pedidoId, codigo, emitida, enviada, podeEmitir, 
   const [ocupado, iniciar] = useTransition()
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Ordem de compra" data-ordem>
+    <section data-ajuda="compras.ordem" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Ordem de compra" data-ordem>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="font-medium">Ordem de compra {codigo && <span className="font-mono text-sm text-muted-foreground">{codigo}</span>}</p>
         {codigo && (

@@ -68,12 +68,13 @@ function ItemDoMenu({ area, ativo, recolhida, contadores }: { area: Area; ativo:
   )
   const rotuloAcessivel = n ? `${area.rotulo}, ${n} pendente${n === 1 ? '' : 's'}` : undefined
 
+  // A linha de Aprovações é um passo das boas-vindas (lib/ajuda/conteudo/geral.ts).
   if (!recolhida) {
-    return <Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel} className={classe}>{conteudo}</Link>
+    return <Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel} data-ajuda={area.href === '/aprovacoes' ? 'shell.aprovacoes' : undefined} className={classe}>{conteudo}</Link>
   }
   return (
     <Tooltip.Root>
-      <Tooltip.Trigger delay={150} render={<Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel ?? area.rotulo} className={classe} />}>
+      <Tooltip.Trigger delay={150} render={<Link href={area.href} aria-current={ativo ? 'page' : undefined} aria-label={rotuloAcessivel ?? area.rotulo} data-ajuda={area.href === '/aprovacoes' ? 'shell.aprovacoes' : undefined} className={classe} />}>
         {conteudo}
       </Tooltip.Trigger>
       <Tooltip.Portal>
@@ -87,7 +88,7 @@ function ItemDoMenu({ area, ativo, recolhida, contadores }: { area: Area; ativo:
   )
 }
 
-function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate, rotulo = 'Áreas', className }: {
+function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate, rotulo = 'Áreas', className, principal = false }: {
   grupos: Grupo[]
   recolhida: boolean
   contadores: Contadores
@@ -95,6 +96,8 @@ function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate
   onNavigate?: () => void
   rotulo?: string
   className?: string
+  /** A do computador: é ela que o tour de boas-vindas aponta como "o menu". */
+  principal?: boolean
 }) {
   const pathname = usePathname()
   const [fechados, setFechados] = useState<string[]>(fechadosIniciais)
@@ -110,7 +113,7 @@ function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate
   }
 
   return (
-    <nav className={cn('flex flex-col', recolhida ? 'items-center gap-1' : '', className)} aria-label={rotulo} onClick={onNavigate}>
+    <nav className={cn('flex flex-col', recolhida ? 'items-center gap-1' : '', className)} aria-label={rotulo} onClick={onNavigate} data-ajuda={principal ? 'shell.menu' : undefined}>
       {grupos.map((g) => ({ ...g, areas: g.areas.filter((a) => !a.foraDoMenu) })).filter((g) => g.areas.length).map((grupo, i) => {
         // O grupo da tela aberta nunca fica fechado: senão a pessoa perde onde está.
         const temAtivo = grupo.areas.some((a) => a.href === ativo)
@@ -146,13 +149,13 @@ function BotaoDeBusca({ recolhida }: { recolhida: boolean }) {
   const { setBuscaAberta } = useShell()
   if (recolhida) {
     return (
-      <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" title="Buscar (⌘K)" className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-black/[0.045] hover:text-foreground">
+      <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" title="Buscar (⌘K)" data-ajuda="shell.busca" className="flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-black/[0.045] hover:text-foreground">
         <Search className="size-[17px]" />
       </button>
     )
   }
   return (
-    <button type="button" onClick={() => setBuscaAberta(true)} className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/70 px-2.5 text-sm text-muted-foreground shadow-xs transition-colors hover:border-border hover:bg-background hover:text-foreground">
+    <button type="button" onClick={() => setBuscaAberta(true)} data-ajuda="shell.busca" className="flex h-9 w-full items-center gap-2 rounded-lg border border-sidebar-border bg-background/70 px-2.5 text-sm text-muted-foreground shadow-xs transition-colors hover:border-border hover:bg-background hover:text-foreground">
       <Search className="size-4 shrink-0" aria-hidden="true" />
       <span className="flex-1 text-left">Buscar…</span>
       <kbd className="rounded border border-border bg-muted px-1.5 font-sans text-[10.5px] font-medium">⌘K</kbd>
@@ -190,7 +193,7 @@ export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, bui
           <Marca recolhida={recolhida} />
           <BotaoDeBusca recolhida={recolhida} />
         </div>
-        <Navegacao grupos={trabalho} recolhida={recolhida} contadores={contadores} fechadosIniciais={fechadosIniciais} className={cn('flex-1 overflow-y-auto overscroll-contain pb-3', recolhida ? 'px-2' : 'px-3')} />
+        <Navegacao grupos={trabalho} recolhida={recolhida} contadores={contadores} fechadosIniciais={fechadosIniciais} principal className={cn('flex-1 overflow-y-auto overscroll-contain pb-3', recolhida ? 'px-2' : 'px-3')} />
         <div className={cn('shrink-0 border-t border-sidebar-border py-2', recolhida ? 'flex flex-col items-center gap-1 px-2' : 'px-3')}>
           <div className={cn('flex gap-1', recolhida ? 'flex-col items-center' : 'items-center')}>
             {configuracoes && (
@@ -203,6 +206,7 @@ export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, bui
               onClick={alternarRecolhida}
               aria-label={recolhida ? 'Expandir menu' : 'Recolher menu'}
               title={recolhida ? 'Expandir menu' : 'Recolher menu'}
+              data-ajuda="shell.recolher"
               className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-black/[0.045] hover:text-foreground"
             >
               {recolhida ? <PanelLeftOpen className="size-[17px]" /> : <PanelLeftClose className="size-[17px]" />}

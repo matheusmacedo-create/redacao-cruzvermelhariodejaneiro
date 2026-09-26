@@ -141,7 +141,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
   return (
     <div className="mt-4">
       {/* ── Zona A: briefing do dia ── */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-[#F7F4EF] px-4 py-3">
+      <div data-ajuda="cerebro.briefing" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-[#F7F4EF] px-4 py-3">
         <div className="flex">
           {SECOES.map((s, i) => (
             <div key={s.chave} className={cn('pr-4', i > 0 && 'border-l border-border pl-4')} title={s.explica}>
@@ -160,7 +160,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div data-ajuda="cerebro.ferramentas" className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={() => setBriefingAberto(true)}>Gerar briefing</Button>
           <Button size="sm" variant="outline" render={<Link href="/cerebro/mapa" />}>
             <Map className="size-3.5" />Mapa
@@ -180,7 +180,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
 
       {/* ── Zonas B + C ── */}
       <div className="mt-4 grid items-start gap-4 min-[1200px]:grid-cols-[58fr_42fr]">
-        <div>
+        <div data-ajuda="cerebro.filas">
           {SECOES.map((s) => {
             const grupo = filas[s.chave]
             if (grupo.length === 0 && s.chave !== 'agir') return null
@@ -326,7 +326,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
 
   if (!p)
     return (
-      <aside className="hidden rounded-xl border border-border bg-[#F7F4EF] p-8 text-center text-sm text-muted-foreground min-[1200px]:block">
+      <aside data-ajuda="cerebro.detalhe" className="hidden rounded-xl border border-border bg-[#F7F4EF] p-8 text-center text-sm text-muted-foreground min-[1200px]:block">
         Selecione uma história para ver fato, raciocínio, o que não pode e o plano por canal.
       </aside>
     )
@@ -373,6 +373,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
 
   return (
     <aside
+      data-ajuda="cerebro.detalhe"
       className={cn(
         'flex-col rounded-xl border border-border bg-[#F7F4EF] min-[1200px]:sticky min-[1200px]:top-4 min-[1200px]:flex min-[1200px]:max-h-[calc(100dvh-100px)]',
         sheet ? 'fixed inset-0 z-40 flex max-h-none rounded-none' : 'hidden',
@@ -396,7 +397,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
 
         {/* As ações moram no topo: quem abre a história decide sem caçar
             botão no fim de um drawer comprido. */}
-        <div>
+        <div data-ajuda="cerebro.acoes">
           {recusando ? (
             <div>
               <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Por que não usar?</p>

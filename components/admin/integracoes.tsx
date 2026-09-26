@@ -26,7 +26,7 @@ const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle:
  */
 export function Integracoes({ chaves }: { chaves: ChaveNaTela[] }) {
   return (
-    <div className="mt-8 flex flex-col gap-4">
+    <div data-ajuda="configuracoes.integracoes" className="mt-8 flex flex-col gap-4">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Integrações</h2>
         <p className="mt-1 text-sm text-muted-foreground">

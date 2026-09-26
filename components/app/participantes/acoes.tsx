@@ -45,7 +45,7 @@ export function DecidirInscricao({ id }: { id: string }) {
 export function CopiarLink({ url }: { url: string }) {
   const [ok, setOk] = useState(false)
   return (
-    <Button variant="outline" onClick={() => navigator.clipboard?.writeText(url).then(() => { setOk(true); setTimeout(() => setOk(false), 1800) }).catch(() => undefined)}>
+    <Button variant="outline" data-ajuda="voluntarios.link" onClick={() => navigator.clipboard?.writeText(url).then(() => { setOk(true); setTimeout(() => setOk(false), 1800) }).catch(() => undefined)}>
       {ok ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}{ok ? 'Link copiado' : 'Copiar link de inscrição'}
     </Button>
   )

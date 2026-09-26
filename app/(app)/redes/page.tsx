@@ -75,14 +75,14 @@ export default async function RedesPage() {
       />
 
       {(pacotes ?? []).length === 0 ? (
-        <Card className="p-10 text-center">
+        <Card data-ajuda="publicacoes.lista" className="p-10 text-center">
           <p className="text-sm font-medium">Nenhum pacote ainda.</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Comece por uma matéria, uma pauta ou um texto livre. Depois escolha os destinos — o site é um deles.
           </p>
         </Card>
       ) : (
-        <div className="grid gap-3">
+        <div data-ajuda="publicacoes.lista" className="grid gap-3">
           {(pacotes ?? []).map((p) => {
             const st = STATUS_ROTULO[p.status] ?? STATUS_ROTULO.rascunho
             const dests = porPacote.get(p.id) ?? []
@@ -153,7 +153,7 @@ export default async function RedesPage() {
       {/* O Cérebro saiu do topo a pedido da redação: a página é o histórico
           das publicações, e as sugestões ficam à mão, recolhidas, para quem
           for buscá-las — não na frente do trabalho. */}
-      <details className="group mt-8">
+      <details data-ajuda="publicacoes.cerebro" className="group mt-8">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
           <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
           Sugestões do Cérebro

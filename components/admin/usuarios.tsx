@@ -76,7 +76,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
   return (
     <Setores.Provider value={setores}>
     <div className="flex flex-col gap-8">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div data-ajuda="usuarios.numeros" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className="text-2xl font-bold tabular-nums">{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p></Card>)}
       </div>
 
@@ -87,7 +87,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="font-semibold">Pessoas com acesso</h2><p className="text-sm text-muted-foreground">Login por usuário (ou e-mail confirmado) e senha. O jeito mais seguro de dar acesso é o convite por e-mail: a pessoa escolhe a própria senha pelo link, e ninguém mais a conhece.</p></div>
-          <div className="flex flex-wrap gap-2">
+          <div data-ajuda="usuarios.criar" className="flex flex-wrap gap-2">
             <Button size="lg" variant="outline" render={<Link href="/pessoas/adicionar" />}>Convidar várias pessoas</Button>
             <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
           </div>
@@ -287,7 +287,7 @@ function ListaDeUsuarios({ usuarios, envioConfigurado, aoGerarSenha }: { usuario
   ]
 
   return (
-    <Card className="overflow-hidden">
+    <Card data-ajuda="usuarios.lista" className="overflow-hidden">
       <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative sm:w-72"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, usuário ou setor" className={cn(campo, 'pl-9')} /></div>
         <div className="flex flex-wrap gap-1.5">{filtros.map((f) => <button key={f.id} type="button" onClick={() => setFiltro(f.id)} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f.id ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{f.rotulo}</button>)}</div>
@@ -427,7 +427,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
 function MatrizDePermissoes() {
   const grupos = matrizDePermissoes()
   return (
-    <section className="flex flex-col gap-3">
+    <section data-ajuda="usuarios.matriz" className="flex flex-col gap-3">
       <div><h2 className="font-semibold">O que cada papel pode fazer</h2><p className="text-sm text-muted-foreground">Todo usuário ativo registra, cria pautas, escreve, comenta, sobe arquivos e vota quando é convidado. A tabela mostra só o que muda de um papel para outro — e é a mesma regra que o servidor aplica.</p></div>
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[560px] text-sm">
@@ -496,7 +496,7 @@ function detalheDoEvento(e: EventoNaTela): string {
 
 function Auditoria({ eventos, disponivel }: { eventos: EventoNaTela[]; disponivel: boolean }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section data-ajuda="usuarios.registro" className="flex flex-col gap-3">
       <div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 size-4 text-muted-foreground" /><div><h2 className="font-semibold">Registro de acessos</h2><p className="text-sm text-muted-foreground">Toda criação, mudança de papel, senha redefinida e desativação — com quem fez e quando. Ninguém edita este registro, nem administradores.</p></div></div>
       <Card>
         {!disponivel ? <p className="px-5 py-6 text-sm text-muted-foreground">O registro ainda não está disponível: a migração de usuários e permissões precisa ser aplicada no banco.</p>
@@ -549,7 +549,7 @@ function ExigenciaDeVerificacao({ usuarios, obrigatorioPara }: { usuarios: Usuar
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <section data-ajuda="usuarios.verificacao" className="flex flex-col gap-3">
       <div className="flex items-start gap-2"><Smartphone className="mt-0.5 size-4 text-muted-foreground" /><div><h2 className="font-semibold">Verificação em duas etapas</h2><p className="text-sm text-muted-foreground">Qualquer pessoa pode ativar em Meu perfil → Segurança. Aqui você decide se algum papel é <strong className="font-medium text-foreground">obrigado</strong> a usar — quem ainda não tiver o app é levado a cadastrar no próximo acesso. Hoje: {obrigatorioPara.length ? 'obrigatória para ' + PAPEIS.filter((p) => obrigatorioPara.includes(p)).map((p) => PAPEL[p].rotulo.toLowerCase()).join(', ') : 'opcional para todos'}.</p></div></div>
       <Card className="flex flex-col gap-4 p-5">
         <div className="grid gap-2 sm:grid-cols-3">

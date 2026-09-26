@@ -92,7 +92,7 @@ export function MetaAds({ contas, ehAdmin, temToken }: { contas: ContaMeta[]; eh
         </div>
       ))}
       {ehAdmin && (editando === 'nova' ? <Formulario c={null} temToken={temToken} onFim={fim} /> : (
-        <div><Button size="sm" variant={contas.length ? 'ghost' : 'default'} onClick={() => setEditando('nova')} id="ligar-meta">{contas.length ? 'Ligar outra conta' : 'Ligar a conta de anúncios'}</Button></div>
+        <div><Button size="sm" variant={contas.length ? 'ghost' : 'default'} onClick={() => setEditando('nova')} id="ligar-meta" data-ajuda="escola-contas.ligar-meta">{contas.length ? 'Ligar outra conta' : 'Ligar a conta de anúncios'}</Button></div>
       ))}
       {!ehAdmin && !contas.length && <p className="text-xs text-muted-foreground">Peça a um admin para ligar a conta de anúncios.</p>}
     </Card>
@@ -111,7 +111,7 @@ export function StatusDoMeta({ contas, temToken }: { contas: ContaMeta[]; temTok
   const erro = ativas.find((c) => c.sincronizacao_erro)?.sincronizacao_erro
   const ultima = ativas.map((c) => c.sincronizada_em).filter(Boolean).sort().pop() ?? null
   return (
-    <Card className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-sm ${erro ? 'border-destructive/40' : ''}`} id="status-meta">
+    <Card className={`flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 text-sm ${erro ? 'border-destructive/40' : ''}`} id="status-meta" data-ajuda="escola-marketing.meta">
       <span className="font-medium">Anúncios do Meta</span>
       <span className={`min-w-0 flex-1 ${erro ? 'text-destructive' : 'text-muted-foreground'}`}>
         {!ativas.length ? (temToken ? 'Nenhuma conta de anúncios ligada.' : 'Não ligados: os números dos anúncios não entram sozinhos.') : erro ? `Última leitura falhou: ${erro}` : `Lidos automaticamente${ultima ? ` · última leitura ${quando(ultima)}` : ''}.`}

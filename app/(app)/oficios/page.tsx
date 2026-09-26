@@ -80,11 +80,11 @@ export default async function OficiosPage({ searchParams }: { searchParams: Prom
       <PageHeader
         title="Ofícios"
         description="Numerados por ano, assinados com senha e registrados no Bitcoin. Emitido não se apaga: cancelado fica guardado com o motivo."
-        actions={<form action={criarOficio}><Button type="submit"><Plus className="size-4" />Novo ofício</Button></form>}
+        actions={<form action={criarOficio}><Button data-ajuda="oficios.novo" type="submit"><Plus className="size-4" />Novo ofício</Button></form>}
       />
 
       {esperandoMim.length > 0 && (
-        <Card className="border-primary/40 bg-primary/5 p-0">
+        <Card data-ajuda="oficios.esperando" className="border-primary/40 bg-primary/5 p-0">
           <p className="flex items-center gap-2 border-b border-primary/20 px-4 py-2.5 text-sm font-semibold"><Signature className="size-4 text-primary" />Esperando a sua assinatura</p>
           <ul className="divide-y divide-primary/10">
             {esperandoMim.map((l) => (
@@ -98,7 +98,7 @@ export default async function OficiosPage({ searchParams }: { searchParams: Prom
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ajuda="oficios.filtros" className="flex flex-wrap items-center gap-2">
         <nav className="flex flex-wrap overflow-hidden rounded-lg border border-border" aria-label="Filtrar por estado">
           {([null, 'rascunho', 'em_assinatura', 'assinado', 'cancelado'] as (EstadoDoOficio | null)[]).map((e) => (
             <Link key={e ?? 'todos'} href={link(e)} aria-current={estado === e ? 'page' : undefined}
@@ -115,7 +115,7 @@ export default async function OficiosPage({ searchParams }: { searchParams: Prom
         </form>
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card data-ajuda="oficios.lista" className="overflow-hidden p-0">
         {!filtradas.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">
             {linhas.length ? 'Nenhum ofício neste filtro.' : 'Nenhum ofício ainda. Crie o primeiro: ele ganha número quando for emitido para assinatura.'}

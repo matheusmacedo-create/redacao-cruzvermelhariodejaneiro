@@ -168,7 +168,7 @@ export function EditorDosCanais({ atual, sugestao, endereco, aoPublicar }: {
   const mudam = (confirmar ?? []).filter((c) => { const a = antes.get(chaveDoCanal(c)); return a && (a.rotulo !== c.rotulo || (a.url ?? null) !== (c.url ?? null)) })
 
   return (
-    <Card className="flex flex-col gap-4 p-4 sm:p-5">
+    <Card className="flex flex-col gap-4 p-4 sm:p-5" data-ajuda="canais.editor">
       <div>
         <h2 className="text-base font-semibold">{atual ? `Nova versão (${proxima})` : 'Primeira versão'}</h2>
         <p className="mt-0.5 text-sm text-pretty text-muted-foreground">

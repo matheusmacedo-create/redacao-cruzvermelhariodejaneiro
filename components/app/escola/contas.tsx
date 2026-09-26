@@ -65,7 +65,7 @@ export function ContasDaEscola({ contas, ehAdmin }: { contas: ContaDaEscola[]; e
   }
   return (
     <div className="flex flex-col gap-3" id="contas-escola">
-      {ehAdmin && (editando === 'novo' ? <Formulario c={null} onFim={fim} /> : <div><Button size="sm" variant="outline" onClick={() => setEditando('novo')} id="nova-conta"><Plus className="size-3.5" />Nova conta</Button></div>)}
+      {ehAdmin && (editando === 'novo' ? <Formulario c={null} onFim={fim} /> : <div><Button size="sm" variant="outline" onClick={() => setEditando('novo')} id="nova-conta" data-ajuda="escola-contas.nova-conta"><Plus className="size-3.5" />Nova conta</Button></div>)}
       {(recado.erro || recado.recado) && <p className={`text-sm ${recado.erro ? 'text-destructive' : 'text-muted-foreground'}`} role="status">{recado.erro ?? recado.recado}</p>}
       {!contas.length && editando !== 'novo' && <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">Nenhuma conta da Únicopag cadastrada ainda.{ehAdmin ? '' : ' Peça a um admin.'}</p>}
       <ul className="flex flex-col gap-3">

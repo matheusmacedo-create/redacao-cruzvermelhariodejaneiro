@@ -42,7 +42,7 @@ export function ConfigurarChamados({ filas, pessoas }: { filas: FilaNaConfigurac
   const [aberta, setAberta] = useState<string | null>(filas[0]?.id ?? null)
   const [criando, setCriando] = useState(false)
   return (
-    <div className="flex flex-col gap-4">
+    <div data-ajuda="chamados.filas" className="flex flex-col gap-4">
       {filas.map((f) => (
         <Card key={f.id} className="overflow-hidden">
           <button type="button" onClick={() => setAberta(aberta === f.id ? null : f.id)} aria-expanded={aberta === f.id} className="flex w-full items-center gap-3 px-5 py-4 text-left hover:bg-muted/40">
@@ -61,7 +61,7 @@ export function ConfigurarChamados({ filas, pessoas }: { filas: FilaNaConfigurac
         </Card>
       ))}
       {criando ? <Card className="p-5"><FormularioDaFila aoConcluir={() => setCriando(false)} /></Card>
-        : <Button variant="outline" size="lg" className="self-start" onClick={() => setCriando(true)}><Plus className="size-4" />Nova fila</Button>}
+        : <Button data-ajuda="chamados.nova-fila" variant="outline" size="lg" className="self-start" onClick={() => setCriando(true)}><Plus className="size-4" />Nova fila</Button>}
     </div>
   )
 }
@@ -89,7 +89,7 @@ function FormularioDaFila({ fila, aoConcluir }: { fila?: FilaNaConfiguracao; aoC
         <label className="flex items-center gap-2"><input type="checkbox" name="ativa" defaultChecked={fila?.ativa ?? true} />Recebendo chamados</label>
         <label className="flex items-center gap-2"><input type="checkbox" name="atendimento24h" defaultChecked={fila?.atendimento24h ?? false} />Atende 24h (prazos em horas corridas)</label>
       </div>
-      <div className="overflow-x-auto">
+      <div data-ajuda="chamados.sla" className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
           <thead><tr className="text-left text-xs text-muted-foreground"><th className="pb-2 font-medium">Prioridade</th><th className="pb-2 font-medium">1ª resposta (horas)</th><th className="pb-2 font-medium">Solução (horas)</th></tr></thead>
           <tbody>{[...PRIORIDADES].reverse().map((p) => (
@@ -116,7 +116,7 @@ function Equipe({ fila, pessoas }: { fila: FilaNaConfiguracao; pessoas: { id: st
   const [marcados, setMarcados] = useState<string[]>(fila.membros)
   const mudou = marcados.length !== fila.membros.length || marcados.some((m) => !fila.membros.includes(m))
   return (
-    <div className="flex flex-col gap-3">
+    <div data-ajuda="chamados.equipe" className="flex flex-col gap-3">
       <div><h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quem atende</h3><p className="text-xs text-muted-foreground">Recebem os chamados novos desta fila (no sino e por e-mail) e podem responder, atribuir, resolver e transferir. Administradores atendem todas as filas mesmo sem estar aqui.</p></div>
       <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
         {pessoas.map((p) => (

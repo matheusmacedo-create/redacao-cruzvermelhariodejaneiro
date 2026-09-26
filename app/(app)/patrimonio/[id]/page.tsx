@@ -68,7 +68,7 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
         title={b.nome}
         description={`${b.plaqueta}${b.plaqueta_antiga ? ` · antiga ${b.plaqueta_antiga}` : ''} · ${cat?.nome ?? ''}`}
         actions={nivel >= 2 && !baixado ? (
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-wrap items-start gap-2" data-ajuda="patrimonio.bem-acoes">
             {atual ? <Devolver bemId={b.id} cautelaId={atual.id as string} locais={locais} localAtual={b.local_id} />
               : <Entregar bemId={b.id} equipe={(membros ?? []).filter((m) => perfil(m)?.active !== false).map((m) => ({ id: m.user_id as string, nome: perfil(m)?.full_name ?? 'Alguém' })).sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'))}
                 voluntarios={(voluntarios ?? []).map((v) => ({ id: v.id as string, nome: (v.nome_social || v.nome) as string }))} />}
@@ -111,7 +111,7 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
             {(b.descricao || b.observacao) && <p className="mt-4 whitespace-pre-line border-t border-border pt-4 text-sm text-muted-foreground">{[b.descricao, b.observacao].filter(Boolean).join('\n\n')}</p>}
           </Card>
 
-          <Card className="p-5" id="manutencoes">
+          <Card className="p-5" id="manutencoes" data-ajuda="patrimonio.bem-manutencao">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-semibold">Manutenção</h2>
               {nivel >= 2 && !baixado && <NovaManutencao bemId={b.id} hoje={hoje} />}
@@ -158,7 +158,7 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
         </div>
 
         <div className="flex flex-col gap-6">
-          <Card className="flex flex-col items-center gap-2 p-5" id="qr">
+          <Card className="flex flex-col items-center gap-2 p-5" id="qr" data-ajuda="patrimonio.bem-qr">
             <div className="w-40 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
             <p className="font-mono text-sm font-semibold">{b.plaqueta}</p>
             <p className="text-center text-xs text-muted-foreground">Lido pelo celular, abre esta página. {nivel >= 2 ? 'Com inventário aberto, dá para conferir daqui.' : ''}</p>
@@ -176,7 +176,7 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
             </Card>
           )}
           {(historico ?? []).length > 0 && (
-            <Card className="p-5" id="historico">
+            <Card className="p-5" id="historico" data-ajuda="patrimonio.bem-historico">
               <h2 className="mb-3 font-semibold">Histórico</h2>
               <ul className="flex flex-col gap-2 text-xs">
                 {(historico ?? []).map((h, i) => (

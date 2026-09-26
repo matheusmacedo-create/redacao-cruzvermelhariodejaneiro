@@ -231,7 +231,7 @@ export function QuadroDePautas({ cartoes: iniciais, pessoas, etiquetas: etiqueta
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ajuda="pautas.filtros" className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pautas" className={`w-full pl-9 ${campo}`} />
@@ -279,7 +279,7 @@ export function QuadroDePautas({ cartoes: iniciais, pessoas, etiquetas: etiqueta
       )}
 
       {/* Colunas lado a lado com rolagem horizontal, também no celular (como o Trello). */}
-      <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:snap-none md:px-0">
+      <div data-ajuda="pautas.quadro" className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:snap-none md:px-0">
         {COLUNAS.map((col) => {
           const itens = porColuna.get(col.status) ?? []
           const soltandoAqui = alvo?.status === col.status
@@ -318,7 +318,7 @@ export function QuadroDePautas({ cartoes: iniciais, pessoas, etiquetas: etiqueta
               </div>
               <div className="flex min-h-10 flex-col gap-2">
                 {itens.map((c) => (
-                  <div key={c.id}>
+                  <div key={c.id} data-ajuda={c === itens[0] ? 'pautas.cartao' : undefined}>
                     {soltandoAqui && alvo?.antesDe === c.id && <div className="mb-2 h-1 rounded-full bg-primary" />}
                     <CartaoNoQuadro
                       cartao={c}
@@ -450,7 +450,7 @@ function CriarRapido({ status, projetoId, aoCriar, aoErrar }: {
 
   if (!aberto) {
     return (
-      <button type="button" onClick={() => setAberto(true)} className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-background/70 hover:text-foreground">
+      <button type="button" data-ajuda="pautas.adicionar" onClick={() => setAberto(true)} className="mt-2 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-background/70 hover:text-foreground">
         <Plus className="size-4" />Adicionar pauta
       </button>
     )

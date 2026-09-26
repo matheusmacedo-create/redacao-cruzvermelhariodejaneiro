@@ -32,7 +32,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="diretorio.perfil-topo">
         <div className={cn('h-28 bg-gradient-to-br sm:h-40', CAPAS[p.capa].classe)} aria-hidden />
         <div className="px-4 pb-5 sm:px-6">
           <div className="-mt-12 flex flex-wrap items-end justify-between gap-3 sm:-mt-14">
@@ -41,7 +41,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
                 size="xl" className="size-24 text-3xl ring-4 ring-card sm:size-28" />
               {online && <span className="absolute bottom-2 right-2 size-4 rounded-full bg-success ring-4 ring-card" title="Com a Redação aberta agora" />}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2" data-ajuda="diretorio.perfil-acoes">
               {p.leitor.ehDono
                 ? <Button variant="outline" render={<Link href={`/pessoas/${p.id}/editar`} />}><Pencil className="size-4" />Editar perfil</Button>
                 : p.ativo && <BotaoMensagem pessoaId={p.id} nome={p.nome} />}
@@ -96,7 +96,7 @@ export function PerfilSocial({ p }: { p: PerfilParaLeitura }) {
             </Card>
           )}
         </div>
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6" data-ajuda="diretorio.contatos">
           <Contatos p={p} tipo="institucional" />
           <Contatos p={p} tipo="pessoal" />
         </div>
@@ -119,7 +119,7 @@ function Metricas({ p }: { p: PerfilParaLeitura }) {
   const m = p.metricas
   if (!m) {
     return (
-      <Card className="flex items-start gap-3 p-5 text-sm text-muted-foreground">
+      <Card className="flex items-start gap-3 p-5 text-sm text-muted-foreground" data-ajuda="diretorio.metricas">
         <EyeOff className="mt-0.5 size-4 shrink-0" />
         <p>{p.nome.split(' ')[0]} preferiu não mostrar as métricas no perfil.</p>
       </Card>
@@ -129,7 +129,7 @@ function Metricas({ p }: { p: PerfilParaLeitura }) {
   const tAprov = taxa(m.aprovacoes.decididos, m.aprovacoes.pedidos)
   const nota = m.chamados.nota_media != null ? m.chamados.nota_media.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : null
   return (
-    <Card className="p-5">
+    <Card className="p-5" data-ajuda="diretorio.metricas">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Como responde à equipe</h2>
         <span className="text-xs text-muted-foreground">Últimos {m.dias} dias · mediana, em tempo corrido</span>

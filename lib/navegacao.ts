@@ -1,5 +1,5 @@
 import {
-  Archive, AtSign, BadgeCheck, Bell, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
+  Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessagesSquare, Newspaper, Radar, Send, Settings, SquareCheckBig, UserRound, Contact,
   ReceiptText, ShoppingCart, type LucideIcon,
 } from 'lucide-react'
@@ -168,6 +168,8 @@ export const ADMINISTRACAO: Grupo = {
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
+    // A Central de ajuda (lib/ajuda). O botão "?" do topo abre a ajuda da tela; aqui fica tudo junto.
+    { href: '/ajuda', rotulo: 'Ajuda', resumo: 'Tutoriais, passo a passo e perguntas frequentes de cada área', icone: CircleHelp, termos: ['faq', 'tutorial', 'como usar', 'dúvidas', 'manual', 'onboarding', 'suporte'] },
   ],
 }
 
@@ -182,14 +184,14 @@ export function gruposVisiveis(pode: (p: Permissao) => boolean, grupos: Grupo[] 
 
 /**
  * A equipe da escola vê só a Escola (o Financeiro dela quando um admin
- * libera os livros da Escola), as notificações e o próprio perfil. O
+ * libera os livros da Escola), as notificações, o próprio perfil e a ajuda. O
  * servidor barra o resto de qualquer jeito (lib/session.ts); aqui é para o
  * menu e a busca não oferecerem porta fechada.
  */
 export function gruposDaEquipeDaEscola(comFinanceiro: boolean, grupos: Grupo[] = TODOS_OS_GRUPOS): Grupo[] {
   const escola = grupos.find((g) => g.id === 'escola')
   const notificacoes = grupos.flatMap((g) => g.areas).filter((a) => a.href === '/notificacoes' || a.href === '/chat')
-  const perfil = ADMINISTRACAO.areas.filter((a) => a.href === '/perfil')
+  const perfil = ADMINISTRACAO.areas.filter((a) => a.href === '/perfil' || a.href === '/ajuda')
   return [
     ...(escola ? [{ ...escola, areas: escola.areas.filter((a) => comFinanceiro || a.href !== '/escola/financeiro') }] : []),
     { id: 'meu-dia', rotulo: null, areas: notificacoes },

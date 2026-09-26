@@ -65,7 +65,7 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
         <span className="text-foreground">{content.title}</span>
       </nav>
 
-      <Card className="p-4">
+      <Card data-ajuda="aprovacoes.conversa" className="p-4">
         <p className="text-sm leading-relaxed">{introLine}</p>
         {rawPauta?.title && <p className="mt-1 text-xs text-muted-foreground">Pauta: {rawPauta.title}</p>}
         {!!(voterRows ?? []).length && (
@@ -90,7 +90,7 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
         )}
       </Card>
 
-      <div className="mt-4 flex flex-col gap-3">
+      <div data-ajuda="aprovacoes.conversa-mensagens" className="mt-4 flex flex-col gap-3">
         {(commentRows ?? []).map((comment) => {
           const author = profileById.get(comment.author_id)
           const mine = comment.author_id === context.user.id
@@ -108,7 +108,7 @@ export default async function MensagemThreadPage({ params }: { params: Promise<{
         {!commentRows?.length && <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma mensagem ainda. Escreva a primeira.</p>}
       </div>
 
-      <form action={addContentComment} className="sticky bottom-0 mt-4 flex gap-2 border-t border-border bg-background py-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+      <form action={addContentComment} data-ajuda="aprovacoes.conversa-escrever" className="sticky bottom-0 mt-4 flex gap-2 border-t border-border bg-background py-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
         <input type="hidden" name="contentId" value={contentId} />
         <input
           name="body"

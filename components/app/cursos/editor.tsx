@@ -69,7 +69,7 @@ function Excluir({ tabela, id, pergunta }: { tabela: 'curso_modulos' | 'curso_au
 export function DadosDoCurso({ c }: { c: CursoNoEditor }) {
   const [estado, enviar, enviando] = useActionState(salvarCurso.bind(null, c.id), {})
   return (
-    <form action={enviar} className="flex flex-col gap-3" id="dados-do-curso">
+    <form action={enviar} className="flex flex-col gap-3" id="dados-do-curso" data-ajuda="voluntarios.curso-dados">
       <Rotulo t="Título"><input id="c-titulo" name="titulo" required minLength={3} maxLength={160} defaultValue={c.titulo} className={inputClass} /></Rotulo>
       <Rotulo t="Resumo (aparece no cartão do curso)"><input id="c-resumo" name="resumo" maxLength={300} defaultValue={c.resumo ?? ''} className={inputClass} /></Rotulo>
       <Rotulo t="Descrição (página do curso)"><textarea id="c-descricao" name="descricao" rows={5} maxLength={6000} defaultValue={c.descricao ?? ''} className={inputClass} /></Rotulo>
@@ -91,7 +91,7 @@ export function DadosDoCurso({ c }: { c: CursoNoEditor }) {
 export function CapaDoCurso({ id, capa }: { id: string; capa: string | null }) {
   const { erro, ocupado, executar, setErro } = useAcao()
   return (
-    <div className="flex flex-col gap-2" id="capa">
+    <div className="flex flex-col gap-2" id="capa" data-ajuda="voluntarios.curso-capa">
       <div className="overflow-hidden rounded-lg border border-border bg-muted">
         {capa ? <img src={capa} alt="Capa do curso" className="aspect-video w-full object-cover" /> : <div className="flex aspect-video items-center justify-center text-xs text-muted-foreground">Sem capa</div>}
       </div>
@@ -123,7 +123,7 @@ export function CapaDoCurso({ id, capa }: { id: string; capa: string | null }) {
 export function PublicacaoDoCurso({ id, publicado, podeExcluir }: { id: string; publicado: boolean; podeExcluir: boolean }) {
   const { erro, ocupado, executar } = useAcao()
   return (
-    <div className="flex flex-col gap-2" id="publicacao">
+    <div className="flex flex-col gap-2" id="publicacao" data-ajuda="voluntarios.curso-publicacao">
       <p className={`flex items-center gap-2 text-sm font-medium ${publicado ? 'text-success' : 'text-muted-foreground'}`}>
         {publicado ? <Eye className="size-4" /> : <EyeOff className="size-4" />}{publicado ? 'Publicado na Área do Voluntário' : 'Rascunho: só a equipe vê'}
       </p>
@@ -226,7 +226,7 @@ export function ConteudoDoCurso({ cursoId, modulos, apostilas }: { cursoId: stri
   const { erro, ocupado, executar } = useAcao()
   const [novo, setNovo] = useState('')
   return (
-    <div className="flex flex-col gap-3" id="conteudo">
+    <div className="flex flex-col gap-3" id="conteudo" data-ajuda="voluntarios.curso-conteudo">
       {modulos.map((m, i) => <Modulo key={m.id} cursoId={cursoId} m={m} i={i} total={modulos.length} apostilas={apostilas} />)}
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); executar(() => salvarModulo(cursoId, null, novo), () => setNovo('')) }}>
         <input value={novo} onChange={(e) => setNovo(e.target.value)} maxLength={160} placeholder={modulos.length ? 'Nome do próximo módulo' : 'Nome do primeiro módulo (ex.: Introdução)'} aria-label="Novo módulo" className={inputClass} />
@@ -267,7 +267,7 @@ function FormularioDaQuestao({ cursoId, q, onFim }: { cursoId: string; q: Questa
 export function ProvaDoCurso({ cursoId, questoes, notaMinima }: { cursoId: string; questoes: QuestaoNoEditor[]; notaMinima: number | null }) {
   const [editando, setEditando] = useState<string | null>(null)
   return (
-    <div className="flex flex-col gap-3" id="prova">
+    <div className="flex flex-col gap-3" id="prova" data-ajuda="voluntarios.curso-prova">
       {!notaMinima && <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Sem nota mínima, o curso não tem prova: o certificado sai ao concluir as aulas. Defina a nota mínima nos dados do curso para usar estas questões.</p>}
       <ol className="flex flex-col gap-2">
         {questoes.map((q, i) => (

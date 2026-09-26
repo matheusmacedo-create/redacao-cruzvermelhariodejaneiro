@@ -58,3 +58,7 @@ Postgres com RLS) + Vercel (deploy, Blob, crons) + Resend. Gerenciador: **pnpm**
   script `npx tsx` (não há suíte de testes).
 - Siga o estilo do arquivo que está editando; não reformate o que não mudou.
 - Avisos a pessoas passam por `notificar()` (`lib/notificacoes/servidor.ts`).
+- Área nova ou tela que mudou → atualize a ajuda no mesmo PR: o guia em
+  `lib/ajuda/conteudo/<grupo>.ts` (ou `lib/ajuda/membro.ts`) e os
+  `data-ajuda` que o tour cita, e rode `npx tsx scripts/conferir-ajuda.ts`.
+  Regras e guia de estilo em [`docs/AJUDA.md`](./docs/AJUDA.md).

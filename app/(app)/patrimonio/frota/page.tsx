@@ -62,12 +62,12 @@ export default async function FrotaPage() {
         title="Frota"
         description="Ambulâncias e veículos: diário de bordo, abastecimento, manutenção por km e por data, e documentos com vencimento."
         actions={<div className="flex flex-wrap items-start gap-2">
-          <Button variant="outline" render={<Link href="/patrimonio/frota/condutores" />}><IdCard className="size-4" />Condutores</Button>
-          {nivel >= 3 && <Button render={<Link href="/patrimonio/frota/novo" />}><Plus className="size-4" />Novo veículo</Button>}
+          <Button variant="outline" data-ajuda="patrimonio.frota-condutores" render={<Link href="/patrimonio/frota/condutores" />}><IdCard className="size-4" />Condutores</Button>
+          {nivel >= 3 && <Button data-ajuda="patrimonio.frota-novo" render={<Link href="/patrimonio/frota/novo" />}><Plus className="size-4" />Novo veículo</Button>}
         </div>}
       />
       {cnh.length > 0 && (
-        <Card className="border-warning/60 p-4 text-sm" id="alerta-condutores">
+        <Card className="border-warning/60 p-4 text-sm" id="alerta-condutores" data-ajuda="patrimonio.frota-alerta-condutores">
           <p className="font-medium text-warning-foreground">Condutores</p>
           <ul className="mt-1 list-disc pl-5">{cnh.map((x) => <li key={x}>{x}</li>)}</ul>
         </Card>
@@ -75,7 +75,7 @@ export default async function FrotaPage() {
       {!lista.length ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">Nenhum veículo cadastrado.{nivel >= 3 ? ' Comece pelas ambulâncias.' : ''}</Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="veiculos">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="veiculos" data-ajuda="patrimonio.frota-veiculos">
           {lista.map((v) => {
             const u = emUso.get(v.id as string)
             const condutor = u ? ((Array.isArray(u.frota_condutores) ? u.frota_condutores[0] : u.frota_condutores) as { nome: string } | null)?.nome : null

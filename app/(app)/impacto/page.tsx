@@ -64,7 +64,7 @@ export default async function ImpactoPage() {
         actions={<Button variant="outline" render={<Link href="/redes" />}>Ver publicações<ArrowRight className="size-4" /></Button>}
       />
 
-      <div className="mb-6 rounded-xl border border-border bg-muted/35 p-5">
+      <div data-ajuda="resultados.aviso" className="mb-6 rounded-xl border border-border bg-muted/35 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><p className="text-sm font-semibold">Analytics em implantação</p></div>
@@ -74,7 +74,7 @@ export default async function ImpactoPage() {
         </div>
       </div>
 
-      <section>
+      <section data-ajuda="resultados.atividade">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Atividade registrada</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard icon={BarChart3} value={publicados.size} label="Pacotes publicados" helper="Conteúdos concluídos no período" />
@@ -85,7 +85,7 @@ export default async function ImpactoPage() {
       </section>
 
       <div className="mt-7 grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-        <section>
+        <section data-ajuda="resultados.canais">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Distribuição por canal</h2>
           <Card className="divide-y divide-border overflow-hidden">
             {canaisOrdenados.map(([canal, quantidade]) => (
@@ -100,7 +100,7 @@ export default async function ImpactoPage() {
           </Card>
         </section>
 
-        <section>
+        <section data-ajuda="resultados.proximas">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Próximas métricas</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <FutureMetric icon={Eye} title="Alcance e visualizações" description="Quantas contas foram alcançadas e quantas visualizações o conteúdo recebeu." />
@@ -111,7 +111,7 @@ export default async function ImpactoPage() {
         </section>
       </div>
 
-      <section className="mt-7">
+      <section data-ajuda="resultados.projetos" className="mt-7">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Projetos em andamento</h2>
           <Link href="/projetos" className="text-xs font-medium text-primary hover:underline">Abrir projetos</Link>

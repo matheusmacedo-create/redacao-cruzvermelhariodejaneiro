@@ -45,7 +45,7 @@ export default async function CondutoresPage() {
         actions={nivel >= 3 ? <CondutorDialog equipe={equipe} voluntarios={vols} /> : undefined} />
       <Card className="overflow-hidden p-0">
         {!(condutores ?? []).length ? <p className="p-10 text-center text-sm text-muted-foreground">Nenhum condutor cadastrado.</p> : (
-          <ul className="divide-y divide-border" id="condutores">
+          <ul className="divide-y divide-border" id="condutores" data-ajuda="patrimonio.condutores-lista">
             {((condutores ?? []) as CondutorCadastrado[]).map((c) => (
               <li key={c.id} className={`flex items-start gap-3 px-5 py-3 ${c.ativo ? '' : 'opacity-60'}`}>
                 <div className="min-w-0 flex-1 text-sm">

@@ -53,7 +53,7 @@ export default async function BibliotecaDePecasPage({ searchParams }: { searchPa
       <PageHeader title="Biblioteca de peças" breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: 'Biblioteca' }]}
         description="Cada página, anúncio, post e e-mail que a escola já usou, com a imagem e os números — e as referências guardadas para inspirar as próximas."
         actions={aba === 'referencias' ? <NovaPeca campanhas={campanhas} referencia /> : <NovaPeca campanhas={campanhas} />} />
-      <nav className="flex gap-1 border-b border-border" aria-label="Abas da biblioteca">
+      <nav className="flex gap-1 border-b border-border" aria-label="Abas da biblioteca" data-ajuda="escola-marketing.abas">
         {(['nossas', 'referencias'] as const).map((a) => (
           <Link key={a} href={a === 'nossas' ? '/escola/marketing/biblioteca' : '/escola/marketing/biblioteca?aba=referencias'} aria-current={aba === a ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -61,7 +61,7 @@ export default async function BibliotecaDePecasPage({ searchParams }: { searchPa
           </Link>
         ))}
       </nav>
-      <form className="flex flex-wrap items-end gap-2" id="filtros-biblioteca">
+      <form className="flex flex-wrap items-end gap-2" id="filtros-biblioteca" data-ajuda="escola-marketing.filtros">
         {aba === 'referencias' && <input type="hidden" name="aba" value="referencias" />}
         <select name="tipo" defaultValue={tipo} className={selectClass} aria-label="Tipo"><option value="">Todos os tipos</option>{Object.entries(TIPOS_DE_PECA).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
         <select name="canal" defaultValue={canal} className={selectClass} aria-label="Canal"><option value="">Todos os canais</option>{Object.entries(CANAIS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
@@ -71,7 +71,7 @@ export default async function BibliotecaDePecasPage({ searchParams }: { searchPa
         <Button type="submit" variant="outline">Filtrar</Button>
       </form>
       {!pecas.length ? <Card className="p-10 text-center text-sm text-muted-foreground">{aba === 'referencias' ? 'Nenhuma referência guardada. Guarde anúncios e páginas de outros cursos que chamaram atenção.' : 'Nenhuma peça com estes filtros.'}</Card> : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="galeria">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="galeria" data-ajuda="escola-marketing.galeria">
           {pecas.map((p) => <CartaoDaPeca key={p.id} p={p} imagem={p.imagem_path ? imagens[p.imagem_path] ?? null : null} campanhas={campanhas} nomeDaCampanha={p.campanha_id ? nome.get(p.campanha_id) : null} podeEditar podeExcluir={podeExcluir(p.criado_por)} />)}
         </div>
       )}

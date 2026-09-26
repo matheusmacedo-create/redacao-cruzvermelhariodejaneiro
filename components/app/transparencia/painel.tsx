@@ -69,7 +69,7 @@ export function PainelDaTransparencia({ documentos, parcerias, trilhaDisponivel,
     <div className="flex flex-col gap-5">
       <AvisoDeLancamento aberto={aberto} endereco={endereco} atualizando={atualizando} onAtualizar={atualizarSite} />
 
-      <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Conteúdo do portal" onKeyDown={teclado}>
+      <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Conteúdo do portal" onKeyDown={teclado} data-ajuda="transparencia.abas">
         {ABAS.map(({ id: a, rotulo, Icone }) => (
           <button
             key={a}

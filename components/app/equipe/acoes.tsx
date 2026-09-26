@@ -193,7 +193,7 @@ export function AcoesDeSituacao({ id, situacao, hoje }: { id: string; situacao: 
   const fechar = () => { if (!ocupado) { setDialogo(null); setMotivo(''); setErro('') } }
   const TITULO = { ativo: situacao === 'desligado' ? 'Reativar' : 'Registrar retorno', afastado: 'Registrar afastamento', desligado: 'Desligar' } as const
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-ajuda="rh.situacao">
       <div className="flex flex-wrap gap-2">
         {situacao === 'ativo' && <Button size="sm" variant="outline" onClick={() => setDialogo('afastado')}>Registrar afastamento</Button>}
         {situacao !== 'ativo' && <Button size="sm" variant="outline" onClick={() => setDialogo('ativo')}>{TITULO.ativo}</Button>}

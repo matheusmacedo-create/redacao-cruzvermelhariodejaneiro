@@ -12,7 +12,7 @@ export function AtualizarAgora({ quando }: { quando: string | null }) {
   const [pendente, iniciar] = useTransition()
   const [estado, setEstado] = useState<{ erro?: string; recado?: string }>({})
   return (
-    <div className="flex flex-col items-end gap-1" id="atualizar-escola">
+    <div className="flex flex-col items-end gap-1" id="atualizar-escola" data-ajuda="escola-vendas.atualizar">
       <Button variant="outline" disabled={pendente} onClick={() => iniciar(async () => { setEstado(await sincronizarEscolaAgora()); router.refresh() })}>
         {pendente ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}{pendente ? 'Lendo a Únicopag…' : 'Atualizar agora'}
       </Button>

@@ -13,6 +13,12 @@ import { ChatAoVivo, type ConversaAoVivo } from '@/components/app/chat/ao-vivo'
 import { pessoasDoChat, type ConversaNoPainel } from '@/lib/chat/servidor'
 import { podeVerAcessos } from '@/lib/acessos/servidor'
 import { avaliaEnvios } from '@/lib/envios/servidor'
+import { AjudaProvider } from '@/components/app/ajuda/ajuda'
+import { BoasVindas } from '@/components/app/ajuda/boas-vindas'
+import { DicaDaTela } from '@/components/app/ajuda/dica'
+import { PainelDeAjuda } from '@/components/app/ajuda/painel'
+import { lerProgresso } from '@/lib/ajuda/progresso'
+import { indiceDaAjuda } from '@/lib/ajuda'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Redação', default: 'Redação — Cruz Vermelha RJ' } }
@@ -67,6 +73,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     : await Promise.all([context.role === 'admin' && podeVerAcessos(context.user.id, ws), avaliaEnvios(context.user.id, ws)])
   const recolhida = lembrancas.get(COOKIE_DA_SIDEBAR)?.value === '1'
   const gruposFechados = (lembrancas.get(COOKIE_DOS_GRUPOS)?.value ?? '').split(',').filter(Boolean)
+  // A ajuda: o que a pessoa já viu (user_metadata, fresco do getUser) e o que o
+  // "Primeiros passos" do painel confere. Só booleanos: o e-mail não precisa ir ao navegador.
+  const pessoaNaAjuda = {
+    primeiroNome: context.profile?.full_name?.trim().split(/\s+/)[0] || context.profile?.username || '',
+    equipeDaEscola: ehEquipeDaEscola(context.role),
+    emailConfirmado: Boolean(context.profile?.email && context.profile?.email_confirmado_em),
+    temFoto: Boolean(context.profile?.avatar_path),
+  }
   const buildInfo = {
     sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
     message: process.env.VERCEL_GIT_COMMIT_MESSAGE?.slice(0, 80) ?? null,
@@ -75,6 +89,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
     <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola} escolhidos={{ leitorDeAcessos, avaliadorDeEnvios }}>
+    {/* Só o índice leve vai ao navegador em toda página; o texto da ajuda é baixado quando alguém pede (components/app/ajuda/carregar.ts). */}
+    <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda} indice={indiceDaAjuda()}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
         <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
@@ -89,6 +105,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </div>
       <BuscaRapida />
+      {/* Montados uma vez, abrem e fecham pelo estado da ajuda (components/app/ajuda/ajuda.tsx). */}
+      <PainelDeAjuda />
+      <DicaDaTela />
+      <BoasVindas />
+    </AjudaProvider>
     </AppShellProvider>
     </ChatAoVivo>
   )

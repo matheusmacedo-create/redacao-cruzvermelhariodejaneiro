@@ -59,11 +59,11 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
         title="Chamados"
         description="Pedidos entre setores: TI, Manutenção e outras equipes. Abra, acompanhe e avalie o atendimento."
         actions={<>
-          {pode(context.role, 'chamados.configurar') && <Button variant="outline" size="lg" render={<Link href="/chamados/configurar" />}><Settings className="size-4" />Configurar</Button>}
-          <Button size="lg" render={<Link href="/chamados/novo" />}><Plus className="size-4" />Abrir chamado</Button>
+          {pode(context.role, 'chamados.configurar') && <Button data-ajuda="chamados.configurar" variant="outline" size="lg" render={<Link href="/chamados/configurar" />}><Settings className="size-4" />Configurar</Button>}
+          <Button data-ajuda="chamados.abrir" size="lg" render={<Link href="/chamados/novo" />}><Plus className="size-4" />Abrir chamado</Button>
         </>}
       />
-      <nav className="mb-5 flex gap-1.5">
+      <nav data-ajuda="chamados.abas" className="mb-5 flex gap-1.5">
         {abas.map((a) => <Link key={a.id} href={`/chamados?aba=${a.id}`} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', aba === a.id ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{a.rotulo}</Link>)}
       </nav>
       {aba === 'meus' && <Meus />}
@@ -111,7 +111,7 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
     })
     return (
       <div className="flex flex-col gap-4">
-        <form className="flex flex-wrap items-center gap-2" role="search">
+        <form data-ajuda="chamados.filtros" className="flex flex-wrap items-center gap-2" role="search">
           <input type="hidden" name="aba" value="atendimento" />
           <div className="relative min-w-52 flex-1"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input name="q" defaultValue={termo} placeholder="Buscar por código ou título" className={`${selectClass} w-full pl-9`} /></div>
           {minhasFilas.length > 1 && <select name="fila" defaultValue={sp.fila ?? ''} className={selectClass}><option value="">Todas as minhas filas</option>{minhasFilas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select>}
@@ -194,7 +194,7 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
     const { data: pessoas } = ids.length ? await admin.from('profiles').select('id, full_name').in('id', ids) : { data: [] }
     const nome = new Map((pessoas ?? []).map((p) => [p.id, p.full_name as string]))
     return (
-      <section className="flex flex-col gap-2">
+      <section data-ajuda="chamados.lista" className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</h2>
         <Card className="overflow-hidden">
           {linhas.length ? (

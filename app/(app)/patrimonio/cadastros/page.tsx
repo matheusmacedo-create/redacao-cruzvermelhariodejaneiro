@@ -32,13 +32,13 @@ export default async function CadastrosDoPatrimonio({ searchParams }: { searchPa
     <div className="flex flex-col gap-6">
       <SecoesDoPatrimonio atual="/patrimonio/cadastros" nivel={nivel} />
       <PageHeader title="Cadastros do Patrimônio" description={visiveis.find((a) => a.id === aba)?.ajuda} />
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="patrimonio.cadastros-abas">
         {visiveis.map((a) => (
           <Link key={a.id} href={`/patrimonio/cadastros${a.id === 'categorias' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="patrimonio.cadastros-conteudo">
         {aba === 'categorias' && <Categorias c={c} pode={gestao} />}
         {aba === 'estoque' && <CategoriasDoEstoque c={c} pode={gestao} />}
         {aba === 'locais' && <Locais c={c} pode={gestao} />}

@@ -55,7 +55,7 @@ export function CaixaDeMensagens({ categoria, vazia, children }: { categoria: Ca
   }
 
   const nova = (
-    <button ref={botao} type="button" onClick={() => { setFocar(true); setAberta(true) }} className={botaoDoMembro}>
+    <button ref={botao} type="button" onClick={() => { setFocar(true); setAberta(true) }} className={botaoDoMembro} data-ajuda="membro.nova-mensagem">
       <MessageCirclePlus className="size-4" aria-hidden="true" />Nova mensagem
     </button>
   )
@@ -76,7 +76,7 @@ function NovaConversa({ categoria, focar, aoCancelar }: { categoria: CategoriaDa
   // No sucesso a ação redireciona para a conversa criada; aqui só volta erro.
   const [estado, enviar, enviando] = useActionState(abrirConversa, {})
   return (
-    <form id="nova-conversa" aria-labelledby="nova-conversa-titulo" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5"
+    <form id="nova-conversa" aria-labelledby="nova-conversa-titulo" data-ajuda="membro.nova-mensagem" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5"
       onSubmit={(e) => {
         e.preventDefault()
         // O Enviar fica em `aria-disabled`, e não `disabled`, para não perder o foco: a guarda barra o envio repetido.
@@ -149,7 +149,7 @@ export function ListaDaConversa({ total, children }: { total: number; children: 
     const inicioDaUltima = ultima.getBoundingClientRect().top + window.scrollY - margem
     window.scrollTo({ top: Math.max(0, Math.min(fundo, inicioDaUltima)), behavior: suave ? 'smooth' : 'instant' })
   }, [total])
-  return <ol ref={lista} id="mensagens" aria-label="Mensagens da conversa" className="flex flex-col gap-4">{children}</ol>
+  return <ol ref={lista} id="mensagens" aria-label="Mensagens da conversa" className="flex flex-col gap-4" data-ajuda="membro.mensagens-da-conversa">{children}</ol>
 }
 
 /** Altura do campo acompanhando o texto, até um teto (daí em diante, rola por dentro). */
@@ -175,7 +175,7 @@ export function Responder({ conversaId, encerrada }: { conversaId: string; encer
   }, [estado.ok])
   const descricao = [encerrada && 'resposta-encerrada', estado.erro && 'resposta-erro'].filter(Boolean).join(' ') || undefined
   return (
-    <form id="responder" className={cn(barraFixa, 'flex flex-col gap-2')}
+    <form id="responder" className={cn(barraFixa, 'flex flex-col gap-2')} data-ajuda="membro.responder"
       onSubmit={(e) => {
         e.preventDefault()
         // Botão em `aria-disabled` (o foco fica nele) e Ctrl+Enter (`requestSubmit` ignora o `disabled`): a guarda barra o envio repetido.

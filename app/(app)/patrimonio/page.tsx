@@ -81,11 +81,11 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
         description="Os bens da filial: plaqueta com QR, onde estão, com quem, manutenção e quanto valem hoje."
         actions={<div className="flex flex-wrap items-start gap-2">
           <ImprimirEtiquetas formId="form-etiquetas" />
-          {nivel >= 2 && <Button render={<Link href="/patrimonio/novo" />}><Plus className="size-4" />Novo bem</Button>}
+          {nivel >= 2 && <Button data-ajuda="patrimonio.novo" render={<Link href="/patrimonio/novo" />}><Plus className="size-4" />Novo bem</Button>}
         </div>}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" id="resumo-patrimonio">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" id="resumo-patrimonio" data-ajuda="patrimonio.resumo">
         {[
           { v: String(ativos.length), r: 'bens no patrimônio' },
           { v: reais(valorAquisicao), r: 'valor de aquisição' },
@@ -100,7 +100,7 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
         })}
       </div>
 
-      <form className="flex flex-wrap items-center gap-2" role="search">
+      <form className="flex flex-wrap items-center gap-2" role="search" data-ajuda="patrimonio.filtros">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input name="q" defaultValue={sp.q ?? ''} placeholder="Plaqueta, nome, série ou com quem está" aria-label="Buscar" className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm" />
@@ -113,7 +113,7 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
         <Button type="submit" variant="outline">Filtrar</Button>
       </form>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="patrimonio.lista">
         {!lista.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">{bens.length ? 'Nenhum bem neste filtro.' : 'Nenhum bem cadastrado. Comece pelos que mais circulam: rádios, desfibriladores, macas.'}</p>
         ) : (

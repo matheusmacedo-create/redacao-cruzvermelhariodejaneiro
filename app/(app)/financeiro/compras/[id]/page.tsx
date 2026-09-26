@@ -155,7 +155,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     <div className="flex flex-col gap-5">
       <div>
         <Link href="/financeiro/compras" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div data-ajuda="compras.estado" className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-sm text-muted-foreground">{numeroDoPedido(p.ano, p.numero)}</p>
             <h1 className="text-xl font-semibold">{p.titulo}</h1>
@@ -262,7 +262,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
       )}
 
       {depoisDaOrdem && (
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Recebimento" data-recebimentos>
+        <section data-ajuda="compras.recebimento" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5" aria-label="Recebimento" data-recebimentos>
           <p className="font-medium">Recebimento</p>
           {(recebimentos ?? []).length === 0
             ? <p className="text-sm text-muted-foreground">Nada chegou ainda.{podeReceber && ' Quando chegar, confira contra a ordem e registre aqui.'}</p>
@@ -310,7 +310,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </section>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-5" aria-label="Histórico">
+      <section data-ajuda="compras.historico" className="rounded-xl border border-border bg-card p-5" aria-label="Histórico">
         <p className="mb-3 font-medium">Histórico</p>
         <ol className="flex flex-col gap-2 text-sm" data-historico>
           {(historico ?? []).map((h) => {

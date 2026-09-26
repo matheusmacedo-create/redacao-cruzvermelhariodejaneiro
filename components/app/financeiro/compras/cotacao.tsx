@@ -54,7 +54,7 @@ export function Cotacao({ pedidoId, itens, propostas, fornecedores, regras, pode
   })
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5" aria-label="Cotação" data-cotacao>
+    <section data-ajuda="compras.cotacao" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5" aria-label="Cotação" data-cotacao>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-medium">Cotação — mapa comparativo</p>

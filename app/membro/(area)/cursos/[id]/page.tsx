@@ -54,7 +54,7 @@ export default async function Curso({ params }: Props) {
       </div>
 
       <aside className={cn('min-w-0 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:self-start', temDescricao ? 'lg:row-span-3' : 'lg:row-span-2')}>
-        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5" id="painel-do-curso" aria-labelledby="painel-do-curso-titulo">
+        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-5" id="painel-do-curso" aria-labelledby="painel-do-curso-titulo" data-ajuda="membro.painel-do-curso">
           <h2 id="painel-do-curso-titulo" className="text-base font-semibold">Sobre o curso</h2>
           <ul className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-sm lg:grid-cols-1">
             <li className="flex items-start gap-2"><ListOrdered className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{plural(total, 'aula', 'aulas')}</li>
@@ -121,7 +121,7 @@ export default async function Curso({ params }: Props) {
       <div className="min-w-0 lg:col-start-1">
         <Secao titulo="Conteúdo do curso" icone={ListOrdered} id="conteudo-do-curso">
           {d.modulos.map((mo, i) => (
-            <div key={mo.id} className="overflow-hidden rounded-xl border border-border bg-card">
+            <div key={mo.id} className="overflow-hidden rounded-xl border border-border bg-card" data-ajuda={i === 0 ? 'membro.conteudo-do-curso' : undefined}>
               <h3 className="border-b border-border bg-muted/60 px-4 py-2.5 text-sm font-semibold">Módulo {i + 1} · {mo.titulo}</h3>
               <ol className="divide-y divide-border">
                 {mo.aulas.map((a) => {
@@ -148,7 +148,7 @@ export default async function Curso({ params }: Props) {
             </div>
           ))}
           {d.temProva && (
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="overflow-hidden rounded-xl border border-border bg-card" data-ajuda="membro.item-da-prova">
               <ItemDaProva cursoId={curso.id} estado={estadoDaProva} aulas={total}
                 detalhe={semTentativa ? `Nova tentativa a partir de ${libera}` : faltaProva ? `${plural(d.questoes, 'questão', 'questões')} · nota mínima ${curso.nota_minima}` : undefined} />
             </div>

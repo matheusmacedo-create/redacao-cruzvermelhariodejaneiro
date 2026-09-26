@@ -68,7 +68,7 @@ export function PainelDosCanais({ versoes, trilhaDisponivel, aberto, endereco, s
           <EditorDosCanais key={atual?.id ?? 'primeira'} atual={atual} sugestao={sugestao} endereco={endereco} aoPublicar={publicado} />
         </div>
 
-        <section aria-labelledby="canais-historico" className="flex flex-col gap-2">
+        <section aria-labelledby="canais-historico" className="flex flex-col gap-2" data-ajuda="canais.historico">
           <h2 id="canais-historico" className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             <History className="size-4" aria-hidden />Versões anteriores
           </h2>
@@ -111,7 +111,7 @@ export function PainelDosCanais({ versoes, trilhaDisponivel, aberto, endereco, s
 
 function VersaoNoAr({ v, trilhaDisponivel }: { v: VersaoDosCanais; trilhaDisponivel: boolean }) {
   return (
-    <Card className="flex flex-col gap-3 p-4 sm:p-5">
+    <Card className="flex flex-col gap-3 p-4 sm:p-5" data-ajuda="canais.no-ar">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id={ID_DA_VERSAO_ATUAL} tabIndex={-1} className="flex items-center gap-1.5 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/50">

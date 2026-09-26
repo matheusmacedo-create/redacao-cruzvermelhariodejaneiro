@@ -78,7 +78,7 @@ export function CartaoDeOportunidade({ c }: { c: CartaoDaOportunidade }) {
   const { retorno } = use(Contexto)
   const idDoTitulo = `o-${c.id}-titulo`
   return (
-    <article id={`o-${c.id}`} data-oportunidade={c.id} aria-labelledby={idDoTitulo}
+    <article id={`o-${c.id}`} data-oportunidade={c.id} data-ajuda="membro.oportunidade" aria-labelledby={idDoTitulo}
       // Um respiro embaixo ao rolar até o cartão; a barra de navegação do celular já é descontada pelo `scroll-padding` do layout.
       className="flex scroll-mb-4 flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
       <div className="flex gap-3 sm:gap-4">
@@ -256,19 +256,19 @@ function Acoes({ c, idDoTitulo }: { c: CartaoDaOportunidade; idDoTitulo: string 
       ) : (
         <div className="flex flex-wrap gap-2">
           {participar && (
-            <button type="button" aria-disabled={ocupado || undefined} aria-describedby={idDoTitulo} onClick={querParticipar}
+            <button type="button" aria-disabled={ocupado || undefined} aria-describedby={idDoTitulo} onClick={querParticipar} data-ajuda="membro.participar"
               className={cn(participar === 'vaga' ? botaoDoMembro : botaoContorno, 'w-full sm:w-auto')}>
               <Rotulo ocupado={ocupado} rotulo={participar === 'vaga' ? 'Quero participar' : 'Entrar na lista de espera'} andamento={participar === 'vaga' ? 'Inscrevendo…' : 'Entrando na lista…'} />
             </button>
           )}
           {/* <a> e não <Link>: é um arquivo .ics para baixar, não uma página. */}
           {agenda && (
-            <a href={`/membro/oportunidades/${c.id}/agenda`} aria-describedby={idDoTitulo} className={cn(botaoSecundario, 'grow sm:grow-0')}>
+            <a href={`/membro/oportunidades/${c.id}/agenda`} aria-describedby={idDoTitulo} data-ajuda="membro.agenda" className={cn(botaoSecundario, 'grow sm:grow-0')}>
               <CalendarPlus className="size-4 shrink-0" aria-hidden="true" />Adicionar à agenda
             </a>
           )}
           {sair && (
-            <button ref={botaoSair} type="button" aria-describedby={idDoTitulo} onClick={() => { setErro(''); setConfirmando(true) }} className={cn(botaoPerigo, 'grow sm:grow-0')}>
+            <button ref={botaoSair} type="button" aria-describedby={idDoTitulo} data-ajuda="membro.sair-da-atividade" onClick={() => { setErro(''); setConfirmando(true) }} className={cn(botaoPerigo, 'grow sm:grow-0')}>
               {espera ? 'Sair da lista de espera' : 'Cancelar inscrição'}
             </button>
           )}

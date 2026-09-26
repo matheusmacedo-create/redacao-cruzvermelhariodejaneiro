@@ -115,7 +115,7 @@ export function RodarAgora() {
       titulo="Rodar agora"
       descricao="A rotina diária faz tudo isto sozinha, de madrugada. Use os botões para não esperar — depois de corrigir uma falha, por exemplo. Pode repetir sem receio: nada é registrado, fechado ou carimbado duas vezes."
     >
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="trilha.rodar">
         <ul className="divide-y divide-border">
           {ORDEM.map((r) => {
             const { Icone } = RODADAS[r]

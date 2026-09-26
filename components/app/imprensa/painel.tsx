@@ -80,7 +80,7 @@ export function PainelDeImprensa({ contatos, campanhas, envioNoMes, hunterDispon
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-1 border-b border-border" role="tablist">
+      <div data-ajuda="imprensa.abas" className="flex gap-1 border-b border-border" role="tablist">
         {([['contatos', `Contatos (${contatos.length})`, Users], ['campanhas', `Campanhas (${campanhas.length})`, History]] as const).map(([id, rotulo, Icone]) => (
           <button
             key={id}
@@ -218,7 +218,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ajuda="imprensa.barra" className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -250,7 +250,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
             <Button variant="outline" onClick={() => setDialogFinder(true)}><UserSearch className="size-4" />Encontrar e-mail</Button>
           </>
         )}
-        <Button variant="outline" onClick={() => setDialogNovo('criar')}><Plus className="size-4" />Novo contato</Button>
+        <Button data-ajuda="imprensa.novo-contato" variant="outline" onClick={() => setDialogNovo('criar')}><Plus className="size-4" />Novo contato</Button>
         <Button variant="outline" onClick={() => setDialogImportar(true)}><Upload className="size-4" />Importar planilha</Button>
         <Button variant="outline" onClick={baixarCsv} disabled={!filtrados.length}><Download className="size-4" />Baixar CSV</Button>
       </div>
@@ -283,7 +283,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
       </p>
 
       {filtrados.length > 0 && (
-        <Card className="overflow-hidden p-0">
+        <Card data-ajuda="imprensa.tabela" className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[56rem] border-collapse text-sm">
               <thead>

@@ -86,7 +86,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
         <Campo rotulo="Nome completo" largo><input id="e-nome" name="nome" required minLength={2} maxLength={200} defaultValue={v('nome')} className={inputClass} /></Campo>
         <Campo rotulo="Nome social" dica="Opcional. Aparece no lugar do nome."><input id="e-nome-social" name="nome_social" maxLength={200} defaultValue={v('nome_social')} className={inputClass} /></Campo>
         <Campo rotulo="Login no Redação" dica="Liga a ficha à conta de acesso, se a pessoa tiver.">
-          <select id="e-login" name="user_id" defaultValue={v('user_id')} className={inputClass}>
+          <select id="e-login" data-ajuda="rh.login" name="user_id" defaultValue={v('user_id')} className={inputClass}>
             <option value="">Sem login</option>{logins.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}
           </select>
         </Campo>
@@ -96,7 +96,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
 
       <Secao titulo="Contrato e cargo" descricao={m ? 'Mudança de cargo, setor, gestor, vínculo ou jornada entra no histórico com a data de vigência abaixo.' : undefined}>
         <Campo rotulo="Vínculo">
-          <select id="e-vinculo" name="vinculo" defaultValue={m?.vinculo ?? 'clt'} className={inputClass}>
+          <select id="e-vinculo" data-ajuda="rh.vinculo" name="vinculo" defaultValue={m?.vinculo ?? 'clt'} className={inputClass}>
             {Object.entries(VINCULOS).map(([k, x]) => <option key={k} value={k}>{x.rotulo}</option>)}
           </select>
         </Campo>
@@ -107,7 +107,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
           </select>
         </Campo>
         <Campo rotulo="Gestor direto">
-          <select id="e-gestor" name="gestor_id" defaultValue={v('gestor_id')} className={inputClass}>
+          <select id="e-gestor" data-ajuda="rh.gestor" name="gestor_id" defaultValue={v('gestor_id')} className={inputClass}>
             <option value="">Ninguém (topo do organograma)</option>{gestores.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
           </select>
         </Campo>
@@ -117,7 +117,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
         <Campo rotulo="Local de trabalho" dica="Ex.: Sede – Praça da Cruz Vermelha"><input id="e-local" name="local_trabalho" maxLength={120} defaultValue={v('local_trabalho')} className={inputClass} /></Campo>
         {m && (
           <>
-            <Campo rotulo="Vigência da mudança" dica="Em branco: hoje."><input id="e-vigencia" name="vigencia" type="date" className={inputClass} /></Campo>
+            <Campo rotulo="Vigência da mudança" dica="Em branco: hoje."><input id="e-vigencia" data-ajuda="rh.vigencia" name="vigencia" type="date" className={inputClass} /></Campo>
             <Campo rotulo="Motivo da mudança" dica="Opcional. Ex.: promoção aprovada em reunião de diretoria."><input id="e-motivo" name="observacao_da_mudanca" maxLength={600} className={inputClass} /></Campo>
           </>
         )}
@@ -161,7 +161,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
       {estado.erro && <p className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">{estado.erro}</p>}
       <div className="flex justify-end gap-2">
         <Button variant="outline" render={<Link href={m ? `/equipe/${m.id}` : '/equipe'} />}>Cancelar</Button>
-        <Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}{m ? 'Salvar alterações' : 'Cadastrar'}</Button>
+        <Button type="submit" disabled={enviando} data-ajuda="rh.salvar">{enviando && <Loader2 className="size-4 animate-spin" />}{m ? 'Salvar alterações' : 'Cadastrar'}</Button>
       </div>
     </form>
   )

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import {
-  Award, BadgeCheck, CalendarCheck2, CalendarDays, CalendarPlus, CheckCircle2, ChevronRight, Clock, GraduationCap, History, Hourglass, ListChecks,
+  Award, BadgeCheck, CalendarCheck2, CalendarDays, CalendarPlus, CheckCircle2, ChevronRight, CircleHelp, Clock, GraduationCap, History, Hourglass, ListChecks,
   MapPin, Megaphone, Pin, Sparkles, type LucideIcon,
 } from 'lucide-react'
 import type { Atividade, Formacao, Perfil } from '@/lib/membro/dados'
@@ -48,7 +48,7 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
   return (
     <div className="flex flex-col gap-6">
       {(termosPendentes > 0 || provas.length > 0) && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3" data-ajuda="membro.pendencias">
           {termosPendentes > 0 && (
             <Recado tipo="aviso" id="termos-pendentes" titulo={termosPendentes === 1 ? 'Um bem da filial foi entregue a você.' : `${termosPendentes} bens da filial foram entregues a você.`}
               acao={<Link href="/membro/perfil#bens" className={botaoSecundario}>Conferir e aceitar</Link>}>
@@ -77,7 +77,7 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
       {continuar && <ContinueSeuCurso c={continuar} principal={cursoEhPrincipal} />}
 
       {!numeros.vazio && (
-        <section aria-labelledby="numeros-titulo" id="numeros">
+        <section aria-labelledby="numeros-titulo" id="numeros" data-ajuda="membro.numeros">
           <h2 id="numeros-titulo" className="sr-only">Seus números</h2>
           <ul className="grid grid-cols-3 gap-3">
             <Numero icone={Clock} valor={horasLegiveis(numeros.horasNoAno)} rotulo={`em ${ano}`} detalhe={`${horasLegiveis(numeros.horasTotal)} no total`} />
@@ -154,6 +154,13 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
           </Secao>
         </div>
       )}
+
+      {/* Discreto, no fim: o mesmo caminho do menu da conta ("Ajuda"). */}
+      <p className="flex justify-center">
+        <Link href="/membro/ajuda" data-ajuda="membro.ajuda-link" className="inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          <CircleHelp className="size-4 shrink-0" aria-hidden="true" />Ajuda: passo a passo e perguntas frequentes
+        </Link>
+      </p>
     </div>
   )
 }
@@ -165,7 +172,7 @@ function PrimeirosPassos({ passos }: { passos: PrimeiroPasso[] }) {
   return (
     <Secao titulo="Primeiros passos" icone={ListChecks} id="primeiros-passos"
       acao={<span className="text-sm text-muted-foreground">{feitos} de {passos.length}<span className="sr-only"> feitos</span></span>}>
-      <ol className="divide-y divide-border rounded-xl border border-border bg-card">
+      <ol className="divide-y divide-border rounded-xl border border-border bg-card" data-ajuda="membro.primeiros-passos">
         {passos.map((p, i) => (
           <li key={p.chave} className="flex gap-3 px-4 py-4">
             {p.feito
@@ -196,7 +203,7 @@ function ProximaAtividade({ o, agora }: { o: OportunidadeDoMembro; agora: Date }
   const acontecendo = estado(o, o.ocupadas, agora) === 'andamento'
   return (
     <Secao titulo="Sua próxima atividade" icone={CalendarDays} id="proxima-atividade">
-      <article className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <article className="rounded-xl border border-border bg-card p-4 sm:p-5" data-ajuda="membro.atividade">
         <div className="flex gap-4">
           {/* A data já vai por extenso no texto abaixo; o bloco é só visual. */}
           <div aria-hidden="true" className="flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-lg bg-muted py-2">
@@ -230,14 +237,14 @@ function Abertas({ abertas }: { abertas: OportunidadeDoMembro[] }) {
   if (!abertas.length) {
     return (
       <Secao titulo="Oportunidades" icone={CalendarDays} id="oportunidades-abertas">
-        <EstadoVazio icone={CalendarDays} titulo="Nenhuma ação aberta agora" texto="Quando a coordenação publicar novas ações, plantões ou eventos, eles aparecem aqui." className="p-6" />
+        <EstadoVazio icone={CalendarDays} titulo="Nenhuma ação aberta agora" texto="Quando a coordenação publicar novas ações, plantões ou eventos, eles aparecem aqui." className="p-6" data-ajuda="membro.atividade" />
       </Secao>
     )
   }
   return (
     <Secao titulo={abertas.length === 1 ? '1 oportunidade aberta' : `${abertas.length} oportunidades abertas`} icone={CalendarDays}
       verTodos={{ href: '/membro/oportunidades', rotulo: 'Ver todas' }} id="oportunidades-abertas">
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card" data-ajuda="membro.atividade">
         {abertas.slice(0, 2).map((o) => {
           const { dia, mes } = diaEMes(o.inicio)
           const lotada = o.vagas !== null && o.ocupadas >= o.vagas
@@ -271,7 +278,7 @@ function ContinueSeuCurso({ c, principal }: { c: CursoNoCatalogo; principal: boo
   const destino = andamento && c.progresso.proxima ? `/membro/cursos/${c.id}/aulas/${c.progresso.proxima}` : `/membro/cursos/${c.id}`
   return (
     <Secao titulo={andamento ? 'Continue seu curso' : 'Comece um curso'} icone={GraduationCap} verTodos={{ href: '/membro/cursos', rotulo: 'Ver cursos' }} id="continuar">
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:p-5" data-ajuda="membro.curso">
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold wrap-break-word"><Link href={`/membro/cursos/${c.id}`} className="underline-offset-4 hover:underline">{c.titulo}</Link></h3>
           {andamento ? (

@@ -252,7 +252,7 @@ export function PainelDoAcervo({ itens, podeGerenciar, configurado, abaInicial, 
     <div className="flex flex-col gap-5">
       {configurado ? (
         <>
-          <div className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Acervo" onKeyDown={teclado}>
+          <div data-ajuda="acervo.abas" className="flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Acervo" onKeyDown={teclado}>
             {ABAS.map(({ id: a, rotulo, Icone }) => (
               <button
                 key={a}

@@ -59,7 +59,7 @@ export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setore
   })
 
   return (
-    <div id="correio" className="mt-8 flex scroll-mt-6 flex-col gap-4">
+    <div id="correio" data-ajuda="configuracoes.correio" className="mt-8 flex scroll-mt-6 flex-col gap-4">
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail do setor</h2>
         <p className="mt-1 text-sm text-muted-foreground">

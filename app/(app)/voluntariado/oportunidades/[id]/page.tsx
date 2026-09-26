@@ -37,7 +37,7 @@ export default async function Oportunidade({ params }: { params: Promise<{ id: s
         {o.cancelada_em && <p className="mt-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">Cancelada: {o.motivo_cancelamento}</p>}
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-        <Card className="overflow-hidden p-0" id="inscritos">
+        <Card className="overflow-hidden p-0" id="inscritos" data-ajuda="voluntarios.inscritos">
           <p className="border-b border-border px-4 py-3 text-sm font-semibold">Inscritos</p>
           <ul className="divide-y divide-border">
             {lista.map((i) => {

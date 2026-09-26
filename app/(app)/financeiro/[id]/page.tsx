@@ -59,7 +59,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
         title={l.descricao}
         description={`${TIPOS[l.tipo].rotulo}${l.parcela ? ` · parcela ${l.parcela} de ${l.parcelas}` : l.recorrente ? ' · todo mês' : ''}`}
         actions={nivel >= 2 && !fechado ? (
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-wrap items-start gap-2" data-ajuda="financeiro.lancamento-acoes">
             {!l.pago_em && l.aprovacao !== 'pendente' && l.aprovacao !== 'recusada' && (
               <Pagar id={l.id} tipo={l.tipo} valor={l.valor} contaId={l.conta_id} forma={l.forma} contas={c.contas.filter((x) => x.ativa && x.id !== l.conta_destino_id)} hoje={hoje} />
             )}
@@ -79,7 +79,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
       )}
 
       {l.aprovacao !== 'nao_exige' && (
-        <Card className={`p-5 ${l.aprovacao === 'pendente' ? 'border-warning/60' : l.aprovacao === 'recusada' ? 'border-destructive/40' : ''}`} id="aprovacao">
+        <Card className={`p-5 ${l.aprovacao === 'pendente' ? 'border-warning/60' : l.aprovacao === 'recusada' ? 'border-destructive/40' : ''}`} id="aprovacao" data-ajuda="financeiro.aprovacao">
           {l.aprovacao === 'pendente' && (
             <>
               <p className="font-medium">Esperando aprovação</p>
@@ -99,7 +99,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <Card className="p-5">
+        <Card className="p-5" data-ajuda="financeiro.detalhes">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <p className={`text-3xl font-bold tabular-nums ${l.tipo === 'receita' ? 'text-success' : ''}`}>{reais(l.valor)}</p>
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${SITUACOES[s].classe}`}>{SITUACOES[s].rotulo}</span>
@@ -130,7 +130,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
         </Card>
 
         <div className="flex flex-col gap-6">
-          <Card className="p-5">
+          <Card className="p-5" data-ajuda="financeiro.anexos">
             <h2 className="mb-3 font-semibold">Comprovantes e notas</h2>
             <Anexos lancamentoId={l.id} anexos={(anexos ?? []) as Anexo[]} podeEnviar={nivel >= 2} pago={Boolean(l.pago_em)} nomes={nomes} />
           </Card>

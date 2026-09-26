@@ -67,7 +67,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         title={i.nome}
         description={`${i.codigo} · ${categoria} · contado em ${UNIDADES[i.unidade as keyof typeof UNIDADES] ?? i.unidade}${i.ativo ? '' : ' · ARQUIVADO'}`}
         actions={nivel >= 2 ? (
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-wrap items-start gap-2" data-ajuda="patrimonio.material-acoes">
             {pode && <NovaEntrada itens={[opcao]} itemFixo={i.id} locais={locaisAtivos} fontes={c.fontes.map((f) => ({ id: f.id, nome: f.nome }))} projetos={projetos} hoje={hoje} />}
             {pode && i.saldo > 0 && <NovaSaida itens={[opcao]} itemFixo={i.id} locais={locaisAtivos} projetos={projetos} lotes={lotes} hoje={hoje} />}
             {pode && i.eh_kit && <MontarKits kitId={i.id} locais={locaisAtivos} possiveis={possiveis} />}
@@ -76,7 +76,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         ) : undefined}
       />
 
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="patrimonio.material-saldo">
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4" id="saldo-do-material">
           <Dado rotulo="Saldo (todos os locais)" destaque={situacao === 'zerado' && i.estoque_minimo > 0 ? 'text-destructive' : situacao === 'abaixo' ? 'text-warning-foreground' : ''}>{quantidade(i.saldo, i.unidade)}</Dado>
           <Dado rotulo="Mínimo">{i.estoque_minimo > 0 ? quantidade(i.estoque_minimo, i.unidade) : '—'}</Dado>
@@ -87,7 +87,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         {i.descricao && <p className="mt-3 text-sm text-muted-foreground">{i.descricao}</p>}
       </Card>
 
-      <Card className="overflow-hidden p-0" id="lotes">
+      <Card className="overflow-hidden p-0" id="lotes" data-ajuda="patrimonio.material-lotes">
         <h2 className="px-5 pt-5 font-semibold">Onde está{i.controla_validade ? ' (por lote e validade)' : ''}</h2>
         {!lotes.length ? <p className="px-5 pb-5 pt-2 text-sm text-muted-foreground">Sem saldo.</p> : (
           <div className="overflow-x-auto">
@@ -138,7 +138,7 @@ export default async function MaterialPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      <Card className="overflow-hidden p-0" id="movimentos">
+      <Card className="overflow-hidden p-0" id="movimentos" data-ajuda="patrimonio.material-movimentos">
         <h2 className="px-5 pt-5 font-semibold">Movimentos</h2>
         {!(movimentos ?? []).length ? <p className="px-5 pb-5 pt-2 text-sm text-muted-foreground">Nenhum movimento ainda.</p> : (
           <div className="overflow-x-auto">

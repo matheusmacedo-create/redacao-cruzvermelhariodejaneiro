@@ -20,7 +20,7 @@ export function NovoAdvertorial({ campanhas, destinoSugerido }: { campanhas: Opc
   const [aberto, setAberto] = useState(false)
   const [estado, enviar, enviando] = useActionState(criarAdvertorial, {})
   useEffect(() => { if (estado.ok && !estado.erro && estado.contentId) router.push(`/conteudos/${estado.contentId}`) }, [estado.ok, estado.erro, estado.contentId, router])
-  if (!aberto) return <Button onClick={() => setAberto(true)} id="novo-advertorial"><Plus className="size-4" />Novo advertorial</Button>
+  if (!aberto) return <Button onClick={() => setAberto(true)} id="novo-advertorial" data-ajuda="escola-advertoriais.novo"><Plus className="size-4" />Novo advertorial</Button>
   return (
     <form action={enviar} className="flex w-full flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-advertorial-form>
       <div className="grid gap-3 sm:grid-cols-2">

@@ -29,7 +29,7 @@ export default async function CampanhasPage() {
       <SecoesDoPatrimonio atual="/patrimonio/doacoes" nivel={nivel} />
       <PageHeader title="Campanhas" description="Cada campanha junta as doações recebidas e as entregas, para a prestação de contas a doadores e financiadores." />
       {nivel >= 3 && <div><NovaCampanha projetos={c.projetos.map((p) => ({ id: p.id, nome: p.name }))} /></div>}
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden p-0" data-ajuda="patrimonio.campanhas-lista">
         {!(campanhas ?? []).length ? <p className="p-10 text-center text-sm text-muted-foreground">Nenhuma campanha ainda.{nivel >= 3 ? ' Crie a primeira: "SOS Chuvas", "Campanha do Agasalho"…' : ''}</p> : (
           <ul className="divide-y divide-border" id="campanhas">
             {(campanhas ?? []).map((k) => {

@@ -89,11 +89,11 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
         actions={nivel >= 2 ? <div className="flex flex-wrap items-start gap-2">
           <TrazerLista faltam={faltam} />
           <Button variant="outline" render={<a href={exportar} />}><Download className="size-4" />Exportar</Button>
-          <Button render={<Link href="/equipe/novo" />}><Plus className="size-4" />Nova pessoa</Button>
+          <Button render={<Link href="/equipe/novo" />} data-ajuda="rh.nova"><Plus className="size-4" />Nova pessoa</Button>
         </div> : undefined}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-ajuda="rh.numeros">
         {[
           [atuais.filter((m) => m.situacao === 'ativo').length, 'ativos'],
           [atuais.filter((m) => m.situacao === 'afastado').length, 'afastados'],
@@ -105,7 +105,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
         ))}
       </div>
 
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="rh.abas">
         {abas.map((a) => (
           <Link key={a.id} href={`/equipe${a.id === 'lista' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
@@ -114,7 +114,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
 
       {aba === 'lista' && (
         <>
-          <form className="flex flex-wrap items-center gap-2" role="search">
+          <form className="flex flex-wrap items-center gap-2" role="search" data-ajuda="rh.filtros">
             <div className="relative min-w-52 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input name="q" defaultValue={sp.q ?? ''} placeholder="Nome, cargo, setor, e-mail ou telefone" aria-label="Buscar" className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm" />
@@ -132,7 +132,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
             </select>
             <Button type="submit" variant="outline">Filtrar</Button>
           </form>
-          <Card className="overflow-hidden p-0">
+          <Card className="overflow-hidden p-0" data-ajuda="rh.lista">
             {!lista.length ? (
               <p className="p-10 text-center text-sm text-muted-foreground">{membros.length ? 'Ninguém neste filtro.' : 'Nenhuma ficha ainda. Cadastre ou traga a lista de setores.'}</p>
             ) : (

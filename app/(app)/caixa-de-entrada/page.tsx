@@ -41,7 +41,7 @@ export default async function CaixaEntradaPage() {
       <PageHeader
         title="Caixa de entrada"
         description="O que o público escreveu nas redes e o que chegou por dentro, em pastas."
-        actions={<Button variant="outline" size="lg" render={<Link href="/registrar" />}>Registrar atividade</Button>}
+        actions={<Button variant="outline" size="lg" render={<Link href="/registrar" />} data-ajuda="caixa.registrar">Registrar atividade</Button>}
       />
 
       <CaixaDeAtendimento

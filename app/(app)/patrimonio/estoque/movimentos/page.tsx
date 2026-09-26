@@ -49,7 +49,7 @@ export default async function MovimentosPage({ searchParams }: { searchParams: P
       <SecoesDoPatrimonio atual="/patrimonio/estoque" nivel={nivel} />
       <PageHeader title="Movimentos do estoque" description={`${nomeDoMes(mes)}: o que entrou, saiu, foi transferido, contado ou perdido. O valor segue o custo médio; o mesmo resumo vai no fechamento do Financeiro.`} />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" data-ajuda="patrimonio.movimentos-filtros">
         <Button variant="outline" size="sm" render={<Link href={link(mesVizinho(-1))} />}>← {nomeDoMes(mesVizinho(-1))}</Button>
         <Button variant="outline" size="sm" render={<Link href={link(mesVizinho(1))} />}>{nomeDoMes(mesVizinho(1))} →</Button>
         <form className="ml-auto flex flex-wrap items-center gap-2">
@@ -60,7 +60,7 @@ export default async function MovimentosPage({ searchParams }: { searchParams: P
         </form>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="totais-do-mes">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="totais-do-mes" data-ajuda="patrimonio.movimentos-totais">
         {totais.map((t) => <Card key={t.r} className="p-4"><p className="text-xl font-bold tabular-nums">{reais(t.v)}</p><p className="text-xs text-muted-foreground">{t.r}</p></Card>)}
       </div>
 

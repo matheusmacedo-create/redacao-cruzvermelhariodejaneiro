@@ -90,7 +90,7 @@ export function PainelDoOficio(props: {
         <AssinarNoGovbr id={props.id} versao={props.versaoDoPdf} aoConcluir={(m) => { setAviso(m); router.refresh() }} />
       )}
       {devoAssinar && props.modo === 'senha' && (
-        <Card className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
+        <Card data-ajuda="oficios.assinar" className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
           <p className="text-sm font-semibold">Este ofício espera a sua assinatura.</p>
           <p className="text-xs text-muted-foreground">Leia a folha ao lado. Ao assinar, você confirma este texto — identificado pelo código abaixo — com a sua senha do Redação.</p>
           <div className="flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ export function PainelDoOficio(props: {
       )}
       {aviso && <p className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-sm" role="status">{aviso}</p>}
 
-      <Card className="flex flex-col gap-3 p-4">
+      <Card data-ajuda="oficios.assinaturas" className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assinaturas</p>
           <span className="text-xs tabular-nums text-muted-foreground">{assinaram} de {props.assinantes.length}</span>
@@ -131,7 +131,7 @@ export function PainelDoOficio(props: {
         )}
       </Card>
 
-      <Card className="flex flex-col gap-3 p-4">
+      <Card data-ajuda="oficios.integridade" className="flex flex-col gap-3 p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Integridade</p>
         <div className="text-xs">
           <p className="flex items-center justify-between gap-2 font-medium">Código do documento (SHA-256)<Copiar valor={props.hashDocumento} rotulo="Copiar código do documento" /></p>
@@ -151,7 +151,7 @@ export function PainelDoOficio(props: {
         </a>
       </Card>
 
-      <Card className="flex flex-col gap-3 p-4">
+      <Card data-ajuda="oficios.bitcoin" className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground"><Bitcoin className="size-3.5" />Registro no Bitcoin</p>
           {c && <SeloDoCarimbo estado={c.estado} />}
@@ -281,7 +281,7 @@ function AssinarNoGovbr({ id, versao, aoConcluir }: { id: string; versao: number
   }
 
   return (
-    <Card className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
+    <Card data-ajuda="oficios.assinar" className="flex flex-col gap-3 border-primary/50 bg-primary/5 p-4">
       <p className="text-sm font-semibold">Este ofício espera a sua assinatura gov.br.</p>
       <ol className="flex flex-col gap-3 text-sm">
         <li className="flex flex-col gap-1.5">

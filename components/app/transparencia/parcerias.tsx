@@ -111,7 +111,7 @@ export function Parcerias({ parcerias, trilhaDisponivel, hoje, aoRecado, painelI
             <p className="mt-1">{[`${quantas('no_ar')} no ar`, `${quantas('rascunho')} ${quantas('rascunho') === 1 ? 'rascunho' : 'rascunhos'}`, quantas('retirado') ? `${quantas('retirado')} retirada${quantas('retirado') === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')}</p>
           )}
         </div>
-        <Button className="self-start" onClick={() => setDialogo({ tipo: 'ficha', parceria: null })}><Plus className="size-4" aria-hidden />Nova parceria</Button>
+        <Button className="self-start" onClick={() => setDialogo({ tipo: 'ficha', parceria: null })} data-ajuda="transparencia.nova-parceria"><Plus className="size-4" aria-hidden />Nova parceria</Button>
       </div>
 
       {!parcerias.length && (

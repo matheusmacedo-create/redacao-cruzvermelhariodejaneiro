@@ -106,13 +106,13 @@ export default async function FinanceiroPage({ searchParams }: {
       <PageHeader
         title="Financeiro"
         description="Despesas, receitas e contas a pagar da filial, com a fonte de cada recurso e os comprovantes."
-        actions={<div className="flex flex-wrap items-start gap-2">
+        actions={<div className="flex flex-wrap items-start gap-2" data-ajuda="financeiro.novo">
           {nivel >= 2 && <Button variant="outline" render={<Link href="/financeiro/novo?tipo=receita" />}><Plus className="size-4" />Receita</Button>}
           {nivel >= 2 && <Button render={<Link href="/financeiro/novo" />}><Plus className="size-4" />Despesa</Button>}
         </div>}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" id="resumo">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" id="resumo" data-ajuda="financeiro.resumo">
         {[
           { valor: reais(saldoTotal), rotulo: `saldo hoje em ${c.contas.filter((x) => x.ativa).length} ${c.contas.filter((x) => x.ativa).length === 1 ? 'conta' : 'contas'}`, alerta: saldoTotal < 0 },
           { valor: reais(somar(aPagar.filter(noMes).map((l) => l.valor))), rotulo: `a pagar em ${nomeDoMes(mes)}` },
@@ -135,7 +135,7 @@ export default async function FinanceiroPage({ searchParams }: {
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3" data-ajuda="financeiro.abas">
         <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
           {abas.map((a) => (
             <Link key={a.id} href={qs({ aba: a.id === 'pagar' ? undefined : a.id })} aria-current={aba === a.id ? 'page' : undefined}
@@ -149,7 +149,7 @@ export default async function FinanceiroPage({ searchParams }: {
         </div>
       </div>
 
-      <form className="flex flex-wrap items-center gap-2" role="search">
+      <form className="flex flex-wrap items-center gap-2" role="search" data-ajuda="financeiro.filtros">
         {sp.aba && <input type="hidden" name="aba" value={sp.aba} />}
         {sp.mes && <input type="hidden" name="mes" value={sp.mes} />}
         <div className="relative min-w-52 flex-1">

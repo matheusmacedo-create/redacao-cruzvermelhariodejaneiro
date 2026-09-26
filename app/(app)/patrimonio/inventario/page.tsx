@@ -48,7 +48,7 @@ export default async function InventarioPage() {
 
       {aberto ? (
         <>
-          <Card className="flex flex-col gap-3 p-5" id="inventario-aberto">
+          <Card className="flex flex-col gap-3 p-5" id="inventario-aberto" data-ajuda="patrimonio.inventario-progresso">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-semibold">{aberto.nome as string}</h2>
               <span className="text-xs text-muted-foreground">aberto em {quando(aberto.iniciado_em as string)}</span>
@@ -57,7 +57,7 @@ export default async function InventarioPage() {
             <p className="text-sm"><span className="font-semibold tabular-nums">{conferidos.size}</span> de {bens.length} bens conferidos ({pct}%)</p>
             {nivel >= 3 && <ConcluirInventario faltam={faltam.length} />}
           </Card>
-          <Card className="p-5" id="faltam">
+          <Card className="p-5" id="faltam" data-ajuda="patrimonio.inventario-faltam">
             <h2 className="mb-3 font-semibold">Faltam conferir ({faltam.length})</h2>
             {!faltam.length ? <p className="text-sm text-success">Todos os bens foram conferidos.</p> : (
               <div className="flex flex-col gap-4">

@@ -28,16 +28,16 @@ export function FormularioDeOportunidade({ o }: { o: OportunidadeNoFormulario | 
       <Rotulo t="Local"><input name="local" maxLength={300} defaultValue={o?.local ?? ''} placeholder="Endereço ou ponto de encontro" className={inputClass} /></Rotulo>
       <Rotulo t="Início"><input name="inicio" type="datetime-local" required defaultValue={paraLocal(o?.inicio ?? null)} className={inputClass} /></Rotulo>
       <Rotulo t="Fim"><input name="fim" type="datetime-local" required defaultValue={paraLocal(o?.fim ?? null)} className={inputClass} /></Rotulo>
-      <Rotulo t="Vagas" dica="Em branco: sem limite. Lotou, vira lista de espera."><input name="vagas" inputMode="numeric" maxLength={5} defaultValue={o?.vagas ?? ''} className={inputClass} /></Rotulo>
+      <Rotulo t="Vagas" dica="Em branco: sem limite. Lotou, vira lista de espera."><input name="vagas" data-ajuda="voluntarios.vagas" inputMode="numeric" maxLength={5} defaultValue={o?.vagas ?? ''} className={inputClass} /></Rotulo>
       <Rotulo t="Inscrições até" dica="Em branco: até o início."><input name="inscricoes_ate" type="datetime-local" defaultValue={paraLocal(o?.inscricoes_ate ?? null)} className={inputClass} /></Rotulo>
-      <Rotulo t="Horas por presença" dica="Em branco: a duração da atividade."><input name="horas" inputMode="decimal" maxLength={5} defaultValue={o?.horas ?? ''} className={inputClass} /></Rotulo>
+      <Rotulo t="Horas por presença" dica="Em branco: a duração da atividade."><input name="horas" data-ajuda="voluntarios.horas-presenca" inputMode="decimal" maxLength={5} defaultValue={o?.horas ?? ''} className={inputClass} /></Rotulo>
       <span className="hidden sm:block" />
       <Rotulo t="Descrição" dica="O que vão fazer, o que levar, uniforme, pré-requisitos." largo><textarea name="descricao" rows={5} maxLength={6000} defaultValue={o?.descricao ?? ''} className={inputClass} /></Rotulo>
       {estado.erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive sm:col-span-2" role="alert">{estado.erro}</p>}
       <div className="flex items-center justify-end gap-2 sm:col-span-2">
         {estado.ok && !enviando && <span className="flex items-center gap-1 text-xs text-success"><CheckCircle2 className="size-3.5" />Salvo</span>}
         {!o && <Button variant="outline" render={<Link href="/voluntariado/oportunidades" />}>Cancelar</Button>}
-        <Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}{o ? 'Salvar' : 'Criar (como rascunho)'}</Button>
+        <Button type="submit" disabled={enviando} data-ajuda="voluntarios.salvar-oportunidade">{enviando && <Loader2 className="size-4 animate-spin" />}{o ? 'Salvar' : 'Criar (como rascunho)'}</Button>
       </div>
     </form>
   )

@@ -57,7 +57,7 @@ export function FormularioDaCampanha({ c, contas, onFim }: { c: Campanha | null;
 export function NovaCampanha({ contas }: { contas: Opcao[] }) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
-  if (!aberto) return <Button onClick={() => setAberto(true)} id="nova-campanha"><Plus className="size-4" />Nova campanha</Button>
+  if (!aberto) return <Button onClick={() => setAberto(true)} id="nova-campanha" data-ajuda="escola-marketing.nova-campanha"><Plus className="size-4" />Nova campanha</Button>
   return <div className="w-full"><FormularioDaCampanha c={null} contas={contas} onFim={(id) => { setAberto(false); if (id) router.push(`/escola/marketing/${id}`) }} /></div>
 }
 
@@ -69,7 +69,7 @@ export function EditarCampanha({ c, contas, podeExcluir }: { c: Campanha; contas
   if (aberto) return <FormularioDaCampanha c={c} contas={contas} onFim={() => { setAberto(false); router.refresh() }} />
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="outline" size="sm" onClick={() => setAberto(true)} id="editar-campanha"><Pencil className="size-3.5" />Editar e aprendizados</Button>
+      <Button variant="outline" size="sm" onClick={() => setAberto(true)} id="editar-campanha" data-ajuda="escola-marketing.editar-campanha"><Pencil className="size-3.5" />Editar e aprendizados</Button>
       {podeExcluir && <Button variant="ghost" size="sm" className="text-destructive" disabled={pendente} onClick={() => {
         if (!window.confirm(`Excluir a campanha "${c.nome}"? As peças continuam na biblioteca, soltas.`)) return
         iniciar(async () => { const r = await excluirDoMarketing('campanha', c.id); if (r.erro) setErro(r.erro); else router.push('/escola/marketing') })
@@ -136,7 +136,7 @@ export function FormularioDaPeca({ p, campanhas, campanhaId, referencia, onFim }
 export function NovaPeca({ campanhas, campanhaId, referencia, rotulo }: { campanhas: Opcao[]; campanhaId?: string; referencia?: boolean; rotulo?: string }) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
-  if (!aberto) return <Button variant={referencia ? 'outline' : 'default'} onClick={() => setAberto(true)} data-nova-peca={referencia ? 'referencia' : 'peca'}><Plus className="size-4" />{rotulo ?? (referencia ? 'Guardar referência' : 'Nova peça')}</Button>
+  if (!aberto) return <Button variant={referencia ? 'outline' : 'default'} onClick={() => setAberto(true)} data-nova-peca={referencia ? 'referencia' : 'peca'} data-ajuda={referencia ? 'escola-marketing.nova-referencia' : 'escola-marketing.nova-peca'}><Plus className="size-4" />{rotulo ?? (referencia ? 'Guardar referência' : 'Nova peça')}</Button>
   return <div className="w-full"><FormularioDaPeca p={null} campanhas={campanhas} campanhaId={campanhaId} referencia={referencia} onFim={() => { setAberto(false); router.refresh() }} /></div>
 }
 

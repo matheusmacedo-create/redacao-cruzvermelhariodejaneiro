@@ -50,7 +50,7 @@ export function CampoDeAnexos({ workspaceId, anexos, setAnexos, ocupado, setOcup
   }
   return (
     <div className="flex flex-col gap-2">
-      <label className={cn('inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50', (ocupado || anexos.length >= 6) && 'pointer-events-none opacity-50')}>
+      <label data-ajuda="chamados.anexos" className={cn('inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50', (ocupado || anexos.length >= 6) && 'pointer-events-none opacity-50')}>
         <Paperclip className="size-4" />Anexar foto, print ou arquivo
         <input type="file" multiple className="sr-only" accept="image/*,video/mp4,video/quicktime,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx" onChange={(e) => { void escolher(e.target.files); e.target.value = '' }} />
       </label>
@@ -100,7 +100,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
 
   if (!fila) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div data-ajuda="chamados.equipes" className="grid gap-4 sm:grid-cols-2">
         {filas.map((f) => {
           const Icone = ICONES[f.icone] ?? Ticket
           return (
@@ -122,7 +122,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
         <span className="font-medium">{fila.nome}</span>
       </div>
 
-      <fieldset className="flex flex-col gap-2">
+      <fieldset data-ajuda="chamados.assunto" className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Qual é o assunto?</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {fila.categorias.map((c) => (
@@ -147,7 +147,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
             <input value={local} onChange={(e) => setLocal(e.target.value)} maxLength={140} required className={campo} placeholder="Ex.: 2º andar, sala da Comunicação" />
           </label>
         )}
-        <fieldset>
+        <fieldset data-ajuda="chamados.urgencia">
           <legend className="mb-2 text-sm font-medium">Quanto isso atrapalha?</legend>
           <div className="grid gap-2 sm:grid-cols-3">
             {([1, 2, 3] as const).map((u) => (
@@ -191,7 +191,7 @@ export function CaixaDeMensagem({ workspaceId, chamadoId, equipe, encerrado }: {
     })
   }
   return (
-    <form onSubmit={enviar} className={cn('flex flex-col gap-3 rounded-xl border p-4', interno ? 'border-warning/50 bg-warning/5' : 'border-border bg-card')}>
+    <form data-ajuda="chamados.mensagem" onSubmit={enviar} className={cn('flex flex-col gap-3 rounded-xl border p-4', interno ? 'border-warning/50 bg-warning/5' : 'border-border bg-card')}>
       {equipe && (
         <div className="flex gap-1 text-sm" role="tablist">
           <button type="button" role="tab" aria-selected={!interno} onClick={() => setInterno(false)} className={cn('inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5', !interno ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted')}><MessageSquare className="size-3.5" />Responder a quem abriu</button>
@@ -255,7 +255,7 @@ export function AcoesDeStatus({ chamadoId, status, proximos, equipe }: { chamado
 
   const rotulo = (s: Status) => status === 'resolvido' && s === 'em_atendimento' ? 'Reabrir' : BOTAO_DO_STATUS[s]
   return (
-    <div className="flex flex-col gap-3">
+    <div data-ajuda="chamados.acoes" className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         {opcoes.map((s) => (
           <Button key={s} variant={s === 'resolvido' || (s === 'em_atendimento' && status === 'novo') ? 'default' : s === 'cancelado' ? 'ghost' : 'outline'} size="sm" disabled={ocupado}
@@ -303,7 +303,7 @@ export function Avaliacao({ chamadoId, podeReabrir }: { chamadoId: string; podeR
     })
   }
   return (
-    <Card className="flex flex-col gap-4 border-success/40 bg-success/5 p-5">
+    <Card data-ajuda="chamados.avaliacao" className="flex flex-col gap-4 border-success/40 bg-success/5 p-5">
       <div><p className="font-semibold">A equipe marcou este chamado como resolvido</p><p className="text-sm text-muted-foreground">Confirme e diga como foi o atendimento — ou reabra, se o problema continuar.</p></div>
       {!reabrindo ? <>
         <div className="flex items-center gap-1" role="radiogroup" aria-label="Nota do atendimento">

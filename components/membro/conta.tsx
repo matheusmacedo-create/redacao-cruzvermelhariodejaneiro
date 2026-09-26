@@ -3,11 +3,12 @@
 import { useRef } from 'react'
 import Link from 'next/link'
 import { Menu } from '@base-ui/react/menu'
-import { LogOut, UserRound } from 'lucide-react'
+import { CircleHelp, Compass, LogOut, UserRound } from 'lucide-react'
 import { sair } from '@/app/actions/membro'
 import { CHAVE_DO_ULTIMO_EMAIL } from '@/lib/membro/entrada'
 import { iniciais } from '@/lib/membro/regras'
 import { cn } from '@/lib/utils'
+import { useAjudaDoMembro } from './ajuda'
 
 /**
  * Ao sair, esquece o e-mail que a tela de entrada preenche (aparelho
@@ -31,17 +32,26 @@ const avatar = 'flex shrink-0 items-center justify-center rounded-full border bo
 
 /**
  * O menu da conta, em todas as larguras: avatar com as iniciais, nome,
- * e-mail, "Meu perfil" e "Sair" (no celular, o "Sair" também fica no fim do
- * Perfil). Na visualização da equipe, "Sair" é "Voltar ao Redação" (a mesma
- * ação `sair`, que ali só desfaz a prévia).
+ * e-mail, "Meu perfil", "Ajuda", "Tour desta tela" (só onde há tour) e "Sair"
+ * (no celular, o "Sair" também fica no fim do Perfil). Na visualização da
+ * equipe, "Sair" é "Voltar ao Redação" (a mesma ação `sair`, que ali só
+ * desfaz a prévia).
  */
 export function MenuDaConta({ nome, email, previa = false }: { nome: string; email: string | null; previa?: boolean }) {
   const formulario = useRef<HTMLFormElement>(null)
+  const ajuda = useAjudaDoMembro()
+  // O tour espera o menu terminar de fechar: senão o foco, que volta para o
+  // avatar ao fechar, sairia do balão (e o leitor de tela não leria o passo).
+  const tourAoFechar = useRef(false)
   const letras = iniciais(nome)
   return (
     <>
-      <Menu.Root>
-        <Menu.Trigger aria-label={`Conta de ${nome}`}
+      <Menu.Root onOpenChangeComplete={(aberto) => {
+        if (aberto || !tourAoFechar.current) return
+        tourAoFechar.current = false
+        window.setTimeout(() => ajuda?.iniciarTourDaTela(), 50)
+      }}>
+        <Menu.Trigger aria-label={`Conta de ${nome}`} data-ajuda="membro.conta"
           className="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[popup-open]:bg-muted">
           <span aria-hidden="true" className={cn(avatar, 'size-9 text-sm')}>{letras}</span>
         </Menu.Trigger>
@@ -60,6 +70,14 @@ export function MenuDaConta({ nome, email, previa = false }: { nome: string; ema
                 <Menu.LinkItem closeOnClick render={<Link href="/membro/perfil" />} className={itemDeMenu}>
                   <UserRound className="size-4 text-muted-foreground" aria-hidden="true" />Meu perfil
                 </Menu.LinkItem>
+                <Menu.LinkItem closeOnClick render={<Link href="/membro/ajuda" />} className={itemDeMenu}>
+                  <CircleHelp className="size-4 text-muted-foreground" aria-hidden="true" />Ajuda
+                </Menu.LinkItem>
+                {ajuda?.temTourNaTela && (
+                  <Menu.Item onClick={() => { tourAoFechar.current = true }} className={itemDeMenu}>
+                    <Compass className="size-4 text-muted-foreground" aria-hidden="true" />Tour desta tela
+                  </Menu.Item>
+                )}
                 <Menu.Separator className="my-1 h-px bg-border" />
                 <Menu.Item onClick={() => formulario.current?.requestSubmit()} className={itemDeMenu}>
                   <LogOut className="size-4 text-muted-foreground" aria-hidden="true" />{previa ? 'Voltar ao Redação' : 'Sair'}

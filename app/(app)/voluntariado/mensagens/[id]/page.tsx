@@ -26,7 +26,7 @@ export default async function ConversaComVoluntario({ params }: { params: Promis
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <Link href="/voluntariado/mensagens" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Mensagens dos voluntários</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div data-ajuda="canal-voluntarios.cabecalho">
           <h1 className="text-xl font-bold tracking-tight">{c.assunto}</h1>
           <p className="text-sm text-muted-foreground">
             <Link href={`/voluntariado/${c.participante_id}`} className="font-medium text-foreground hover:underline">{p?.nome_social || p?.nome}</Link>
@@ -35,7 +35,7 @@ export default async function ConversaComVoluntario({ params }: { params: Promis
         </div>
         <SituacaoDaConversa conversaId={id} situacao={c.situacao} />
       </div>
-      <ol className="flex flex-col gap-3">
+      <ol className="flex flex-col gap-3" data-ajuda="canal-voluntarios.conversa">
         {(mensagens ?? []).map((m) => {
           const autor = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string } | null
           const equipe = m.autor === 'equipe'
@@ -47,7 +47,7 @@ export default async function ConversaComVoluntario({ params }: { params: Promis
           )
         })}
       </ol>
-      <Card className="p-4"><ResponderMembro conversaId={id} /></Card>
+      <Card className="p-4" data-ajuda="canal-voluntarios.responder"><ResponderMembro conversaId={id} /></Card>
     </div>
   )
 }

@@ -50,7 +50,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
             {SITUACOES[p.situacao as keyof typeof SITUACOES]?.rotulo}
           </span>
         </div>
-        {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/voluntariado/${id}/editar`} />}><Pencil className="size-4" />Editar cadastro</Button>}
+        {nivel >= 2 && !p.anonimizado_em && <Button variant="outline" render={<Link href={`/voluntariado/${id}/editar`} />} data-ajuda="voluntarios.editar"><Pencil className="size-4" />Editar cadastro</Button>}
       </div>
 
       {anos !== null && anos < 18 && !p.anonimizado_em && (
@@ -81,7 +81,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
             </p>
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-5" data-ajuda="voluntarios.formacoes">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Formações e certificados</h2>
               {nivel >= 2 && !p.anonimizado_em && <NovoRegistro participanteId={id} tipo="formacao" hoje={hoje} />}
@@ -103,7 +103,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
             </ul>
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-5" data-ajuda="voluntarios.horas">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Horas de voluntariado</h2>
               {nivel >= 2 && !p.anonimizado_em && <NovoRegistro participanteId={id} tipo="horas" hoje={hoje} />}
@@ -123,7 +123,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
 
         <div className="flex flex-col gap-5">
           {p.situacao === 'ativo' && !p.anonimizado_em && (
-            <Card className="p-5" id="area-do-membro">
+            <Card className="p-5" id="area-do-membro" data-ajuda="voluntarios.area">
               <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Área do Voluntário</h2>
               <p className="mb-3 text-sm">
                 {p.membro_ultimo_acesso
@@ -139,13 +139,13 @@ export default async function Participante({ params }: { params: Promise<{ id: s
               )}
             </Card>
           )}
-          <Card className="p-5">
+          <Card className="p-5" data-ajuda="voluntarios.sensiveis">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Dados sensíveis</h2>
             {nivel >= 3 ? <DadosSensiveis id={id} temCpf={Boolean(p.cpf_mascara)} temSaude={p.tem_dados_de_saude} />
               : <p className="text-sm text-muted-foreground">{p.tem_dados_de_saude || p.cpf_mascara ? 'Há CPF ou dados de saúde guardados. Só quem tem acesso a dados sensíveis pode abrir.' : 'Nenhum dado sensível guardado.'}</p>}
           </Card>
           {nivel >= 2 && !p.anonimizado_em && (
-            <Card className="p-5">
+            <Card className="p-5" data-ajuda="voluntarios.situacao">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Situação</h2>
               <AcoesDeSituacao id={id} situacao={p.situacao} podeAnonimizar={nivel >= 3} />
             </Card>

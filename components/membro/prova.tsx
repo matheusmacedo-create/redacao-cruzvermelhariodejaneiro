@@ -150,7 +150,7 @@ export function Prova({ cursoId, questoes, minima, tentativas, certificado }: {
     // `scroll-padding-bottom` só na prova, enquanto ela está na tela: o Tab até a próxima questão
     // não deixa a alternativa focada atrás da barra "N de M respondidas / Enviar respostas".
     // `:root` (e não `html`) para vencer a regra do layout em qualquer ordem do CSS.
-    <form className="flex flex-col gap-4 [:root:has(&)]:scroll-pb-[calc(11rem+env(safe-area-inset-bottom))] lg:[:root:has(&)]:scroll-pb-32" id="prova" onSubmit={enviar}>
+    <form className="flex flex-col gap-4 [:root:has(&)]:scroll-pb-[calc(11rem+env(safe-area-inset-bottom))] lg:[:root:has(&)]:scroll-pb-32" id="prova" onSubmit={enviar} data-ajuda="membro.prova">
       {questoes.map((q, i) => {
         const numero = i + 1
         const falta = cobrar && respostas[i] === null
@@ -178,7 +178,7 @@ export function Prova({ cursoId, questoes, minima, tentativas, certificado }: {
         )
       })}
 
-      <div className={cn(barraFixa, 'flex flex-col gap-2')}>
+      <div className={cn(barraFixa, 'flex flex-col gap-2')} data-ajuda="membro.enviar-prova">
         {cobrar && faltando.length > 0 && (
           <p className="flex items-start gap-2 px-1 text-sm font-medium text-warning-foreground" role="alert">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

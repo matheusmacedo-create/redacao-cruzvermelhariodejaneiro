@@ -26,7 +26,7 @@ export default async function AvisosAosVoluntarios() {
     <div className="flex flex-col gap-6">
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntariado</Link>
       <PageHeader title="Avisos aos voluntários" description="Aparecem no início da Área do Voluntário, com a marca de novo até cada um ver. Fixe o que for importante; programe a saída do mural. Se precisar que todos saibam, mande também por e-mail." />
-      <Card className="p-5">
+      <Card className="p-5" data-ajuda="voluntarios.mural">
         <Mural hoje={hojeEmSaoPaulo()} total={ativos ?? 0}
           avisos={ordenarAvisos((avisos ?? []).map((a) => ({ ...(a as Omit<AvisoNaEquipe, 'vistos'>), vistos: porAviso.get(a.id as string) ?? 0 })))} />
       </Card>

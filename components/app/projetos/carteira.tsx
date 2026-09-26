@@ -62,7 +62,7 @@ export function Carteira({ projetos, pessoas, hoje }: { projetos: ProjetoNaCarte
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded-lg border border-border" role="tablist">
+        <div data-ajuda="projetos.abas" className="flex overflow-hidden rounded-lg border border-border" role="tablist">
           {ABAS.map((a) => (
             <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} onClick={() => setAba(a.id)}
               className={`border-r border-border px-3 py-1.5 text-sm last:border-r-0 ${aba === a.id ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
@@ -74,10 +74,10 @@ export function Carteira({ projetos, pessoas, hoje }: { projetos: ProjetoNaCarte
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar projeto" aria-label="Buscar projeto" className={`w-full pl-9 ${campo}`} />
         </div>
-        <Button onClick={() => setNovo(true)}><Plus className="size-4" />Novo projeto</Button>
+        <Button data-ajuda="projetos.novo" onClick={() => setNovo(true)}><Plus className="size-4" />Novo projeto</Button>
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card data-ajuda="projetos.lista" className="overflow-hidden p-0">
         {!lista.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">
             {projetos.length ? 'Nenhum projeto neste filtro.' : 'Nenhum projeto ainda. Crie o primeiro para organizar pautas, datas e marcos de uma campanha ou evento.'}

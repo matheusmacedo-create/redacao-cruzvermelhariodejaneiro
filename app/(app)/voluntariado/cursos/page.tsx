@@ -45,7 +45,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
       <Link href="/voluntariado" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Voluntários</Link>
       <PageHeader title="Cursos e apostilas" description={`O que o voluntário encontra na Área do Voluntário (${urlBase()}/membro). Vídeos do YouTube não listado; certificado automático ao concluir.`}
         actions={nivel >= 2 && aba === 'cursos' ? <NovoCurso /> : undefined} />
-      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas">
+      <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="voluntarios.cursos-abas">
         {abas.map((a) => (
           <Link key={a.id} href={`/voluntariado/cursos${a.id === 'cursos' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
@@ -53,7 +53,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
       </nav>
 
       {aba === 'cursos' && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="voluntarios.cursos-grade">
           {(cursos ?? []).map((c) => {
             const capa = urlDaCapa(c.capa_caminho as string | null)
             return (
@@ -78,7 +78,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
       )}
 
       {aba === 'certificados' && (
-        <Card className="overflow-hidden p-0">
+        <Card className="overflow-hidden p-0" data-ajuda="voluntarios.certificados">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
               <thead><tr className="border-b border-border bg-muted/40 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">

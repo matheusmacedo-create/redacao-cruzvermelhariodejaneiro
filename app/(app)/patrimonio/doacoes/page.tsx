@@ -49,14 +49,14 @@ export default async function DoacoesPage({ searchParams }: { searchParams: Prom
         title="Doações"
         description="Itens doados (alimentos, roupas, ajuda humanitária): quem doou, com recibo, e para quem foi, com termo de entrega. Doação em dinheiro é receita no Financeiro."
         actions={<div className="flex flex-wrap items-start gap-2">
-          {nivel >= 2 && <Button render={<Link href={`/patrimonio/doacoes/receber${campanha ? `?campanha=${campanha}` : ''}`} />}><HandHeart className="size-4" />Receber doação</Button>}
+          {nivel >= 2 && <Button data-ajuda="patrimonio.doacoes-receber" render={<Link href={`/patrimonio/doacoes/receber${campanha ? `?campanha=${campanha}` : ''}`} />}><HandHeart className="size-4" />Receber doação</Button>}
           {nivel >= 2 && <Button variant="outline" render={<Link href={`/patrimonio/doacoes/entregar${campanha ? `?campanha=${campanha}` : ''}`} />}><PackageOpen className="size-4" />Entregar</Button>}
-          <Button variant="outline" render={<Link href="/patrimonio/doacoes/campanhas" />}><Megaphone className="size-4" />Campanhas</Button>
+          <Button variant="outline" data-ajuda="patrimonio.doacoes-campanhas" render={<Link href="/patrimonio/doacoes/campanhas" />}><Megaphone className="size-4" />Campanhas</Button>
           <Button variant="outline" render={<Link href="/patrimonio/doacoes/doadores" />}><Users className="size-4" />Doadores</Button>
         </div>}
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-doacoes">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" id="resumo-doacoes" data-ajuda="patrimonio.doacoes-resumo">
         {[
           { v: String((doMesR ?? []).length), r: 'doações recebidas este mês' },
           { v: reais((doMesR ?? []).reduce((s, x) => s + Number(x.valor_total), 0)), r: 'recebido este mês (valor de mercado)' },
@@ -69,7 +69,7 @@ export default async function DoacoesPage({ searchParams }: { searchParams: Prom
         <p className="text-sm">Campanhas recebendo: {ativas.map((c, i) => <span key={c.id as string}>{i ? ', ' : ''}<Link href={`/patrimonio/doacoes/campanhas/${c.id}`} className="font-medium text-primary hover:underline">{c.nome as string}</Link></span>)}.</p>
       )}
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3" data-ajuda="patrimonio.doacoes-abas">
         <nav className="flex gap-1 border-b border-border" aria-label="Abas">
           {(['recebidas', 'entregas'] as const).map((a) => (
             <Link key={a} href={qs(a)} aria-current={aba === a ? 'page' : undefined}

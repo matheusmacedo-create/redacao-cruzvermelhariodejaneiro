@@ -34,7 +34,7 @@ export function Correio({ caixas, historico, situacao, ehAdmin }: {
   return (
     <div className="flex flex-col gap-6">
       {situacao !== 'ok' ? (
-        <Card className="flex items-start gap-3 border-dashed p-5 text-sm">
+        <Card className="flex items-start gap-3 border-dashed p-5 text-sm" data-ajuda="correio.aviso">
           <MailX className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             {situacao === 'expirada' ? 'A autorização da conta Google expirou. ' : 'O correio ainda não foi ligado à conta Google. '}
@@ -42,7 +42,7 @@ export function Correio({ caixas, historico, situacao, ehAdmin }: {
           </p>
         </Card>
       ) : caixas.length === 0 ? (
-        <Card className="flex items-start gap-3 border-dashed p-5 text-sm">
+        <Card className="flex items-start gap-3 border-dashed p-5 text-sm" data-ajuda="correio.aviso">
           <MailX className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             Você ainda não faz parte de um setor com endereço ativo. {ehAdmin
@@ -88,18 +88,18 @@ function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
       <div className="grid gap-3 sm:grid-cols-[6rem_1fr] sm:items-center">
         <span className="text-sm font-medium">De</span>
         {caixas.length === 1 ? (
-          <p className="flex items-center gap-2 text-sm">
+          <p className="flex items-center gap-2 text-sm" data-ajuda="correio.de">
             <Lock className="size-3.5 text-muted-foreground" />
             <span><strong>{caixa.nome || caixa.email}</strong> &lt;{caixa.email}&gt;</span>
             <span className="text-xs text-muted-foreground">· {caixa.setor}</span>
           </p>
         ) : (
-          <select value={caixaId} onChange={(e) => setCaixaId(e.target.value)} disabled={enviando} className={campo} aria-label="Enviar de">
+          <select value={caixaId} onChange={(e) => setCaixaId(e.target.value)} disabled={enviando} className={campo} aria-label="Enviar de" data-ajuda="correio.de">
             {caixas.map((c) => <option key={c.id} value={c.id}>{c.nome ? `${c.nome} <${c.email}>` : c.email} — {c.setor}</option>)}
           </select>
         )}
         <label htmlFor="correio-para" className="text-sm font-medium">Para</label>
-        <div className="flex gap-2">
+        <div className="flex gap-2" data-ajuda="correio.para">
           <input id="correio-para" value={para} onChange={(e) => setPara(e.target.value)} disabled={enviando} placeholder="nome@exemplo.org, outro@exemplo.org" className={campo} />
           {!mostrarCc && <Button variant="ghost" size="sm" onClick={() => setMostrarCc(true)}>Cc</Button>}
         </div>
@@ -115,7 +115,7 @@ function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
 
       <textarea value={corpo} onChange={(e) => setCorpo(e.target.value)} disabled={enviando} rows={10} aria-label="Mensagem" placeholder="Escreva a mensagem…" className={campo} />
 
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="rounded-lg border border-border bg-muted/30 p-3" data-ajuda="correio.assinatura">
         <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <Lock className="size-3.5" />Assinatura do setor — entra automaticamente e não pode ser alterada aqui
         </p>
@@ -132,7 +132,7 @@ function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={disparar} disabled={enviando || !para.trim() || !assunto.trim() || !corpo.trim()}>
+        <Button onClick={disparar} disabled={enviando || !para.trim() || !assunto.trim() || !corpo.trim()} data-ajuda="correio.enviar">
           {enviando ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}Enviar
         </Button>
       </div>
@@ -149,7 +149,7 @@ function Historico({ envios }: { envios: EnvioNaTela[] }) {
   }, [envios, busca])
 
   return (
-    <Card className="overflow-hidden p-0">
+    <Card className="overflow-hidden p-0" data-ajuda="correio.enviados">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
           <p className="font-medium">Enviados</p>

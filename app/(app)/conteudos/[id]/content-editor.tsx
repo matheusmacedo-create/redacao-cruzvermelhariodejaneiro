@@ -244,7 +244,7 @@ export function ContentEditor({
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-ajuda="conteudo.acoes" className="flex flex-wrap items-center gap-2">
           <span className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="size-3.5" />
             {saved ? 'Salvo automaticamente' : 'Alterações não salvas'}
@@ -260,7 +260,7 @@ export function ContentEditor({
             </Button>
           </form>
           {canSubmit && (
-            <Button size="lg" type="button" onClick={() => setShowConcludeModal(true)}>
+            <Button data-ajuda="conteudo.concluir" size="lg" type="button" onClick={() => setShowConcludeModal(true)}>
               <Send className="size-4" />
               {content.status === 'aprovacao' ? 'Atualizar aprovação' : 'Concluir matéria'}
             </Button>
@@ -271,7 +271,7 @@ export function ContentEditor({
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* Editor pane */}
         <div className="lg:border-r lg:border-border">
-          <div className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2 lg:px-8">
+          <div data-ajuda="conteudo.ferramentas" className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2 lg:px-8">
             <button type="button" aria-label="Título" onClick={() => prefixLines('## ')} className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
               <Heading2 className="size-4" />
             </button>
@@ -336,7 +336,7 @@ export function ContentEditor({
           </div>
           {mediaError && <p className="px-6 pt-2 text-xs text-destructive lg:px-8">{mediaError}</p>}
 
-          <div className="mx-auto max-w-3xl px-6 py-8 lg:px-12">
+          <div data-ajuda="conteudo.texto" className="mx-auto max-w-3xl px-6 py-8 lg:px-12">
             <input
               value={title}
               onChange={(e) => {
@@ -402,7 +402,7 @@ export function ContentEditor({
             )}
 
             {isPersisted && (
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
+              <div data-ajuda="conteudo.publicar" className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
                 <div>
                   <h3 className="text-sm font-semibold">Publicar esta matéria</h3>
                   <p className="mt-0.5 text-sm text-muted-foreground">
@@ -435,7 +435,7 @@ export function ContentEditor({
             </dl>
           </div>
 
-          <div className="border-t border-border pt-6">
+          <div data-ajuda="conteudo.comentarios" className="border-t border-border pt-6">
             <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <MessageSquare className="size-3.5" />
               Comentários ({visibleComments.length})

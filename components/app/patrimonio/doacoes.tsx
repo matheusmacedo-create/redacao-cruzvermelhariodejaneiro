@@ -93,7 +93,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
 
   return (
     <div className="flex flex-col gap-5" id="form-recebimento">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2" data-ajuda="patrimonio.receber-cabecalho">
         <Campo rotulo="Doador" ajuda={doador?.documento ? `${doador.documento.length === 14 ? 'CNPJ' : 'CPF'} no recibo` : !cab.doador_id ? 'Sem doador: o recibo sai como doação anônima.' : undefined}>
           <div className="flex gap-2">
             <select value={cab.doador_id} onChange={(e) => setCab({ ...cab, doador_id: e.target.value })} className={`${inputClass} flex-1`} aria-label="Doador">
@@ -109,7 +109,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
         <Campo rotulo="Data"><input type="date" value={cab.data} max={hoje} onChange={(e) => setCab({ ...cab, data: e.target.value })} className={inputClass} /></Campo>
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-ajuda="patrimonio.receber-itens">
         <h2 className="text-sm font-semibold">Itens doados</h2>
         <p className="-mt-2 text-xs text-muted-foreground">Material de consumo entra no Estoque; bem durável (cadeira de rodas, geladeira, maca) entra no Patrimônio, com plaqueta. O valor é o de mercado, como pede a ITG 2002.</p>
         <ul className="flex flex-col gap-3" id="linhas-recebidas">
@@ -178,7 +178,7 @@ export function FormularioDeRecebimento({ doadores: iniciais, campanhas, locais,
           {erro && <p className="max-w-xl text-right text-sm text-destructive" role="alert">{erro}</p>}
           <div className="flex gap-2">
             <Button type="button" variant="ghost" onClick={() => router.back()} disabled={ocupado}>Cancelar</Button>
-            <Button type="button" disabled={ocupado} id="registrar-doacao" onClick={() => iniciar(async () => {
+            <Button type="button" disabled={ocupado} id="registrar-doacao" data-ajuda="patrimonio.receber-registrar" onClick={() => iniciar(async () => {
               setErro('')
               const r = await receberDoacao({ ...cab, linhas: linhas.map(paraEnviar) })
               if (r.erro || !r.id) { setErro(r.erro ?? 'Não foi possível registrar.'); return }
@@ -214,7 +214,7 @@ export function FormularioDeEntrega({ campanhas, locais, materiais, disponivel, 
   const excede = itens.some((i) => { const q = lerQuantidade(i.quantidade); return i.item_id && q !== null && !Number.isNaN(q) && q > (aqui[i.item_id] ?? 0) })
   return (
     <div className="flex flex-col gap-5" id="form-entrega">
-      <fieldset className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.entregar-quem">
         <legend className="px-1 text-sm font-semibold">Quem recebe</legend>
         <Campo rotulo="Tipo"><select value={p.beneficiario_tipo} onChange={set('beneficiario_tipo')} className={inputClass}>{Object.entries(BENEFICIARIOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
         <Campo rotulo={p.beneficiario_tipo === 'familia' ? 'Família (sobrenome ou responsável)' : p.beneficiario_tipo === 'acao' ? 'Ação' : 'Nome'}><input value={p.beneficiario_nome} onChange={set('beneficiario_nome')} maxLength={160} className={inputClass} /></Campo>
@@ -231,7 +231,7 @@ export function FormularioDeEntrega({ campanhas, locais, materiais, disponivel, 
         <Campo rotulo="Sai de"><select value={p.local_id} onChange={(e) => { setP({ ...p, local_id: e.target.value }); setItens(itens.map((i) => ({ ...i, item_id: '' }))) }} className={inputClass}>{locais.map((l) => <option key={l.id} value={l.id}>{l.nome}</option>)}</select></Campo>
         <Campo rotulo="Data"><input type="date" value={p.data} max={hoje} onChange={set('data')} className={inputClass} /></Campo>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-ajuda="patrimonio.entregar-itens">
         <h2 className="text-sm font-semibold">Itens entregues</h2>
         {!opcoes.length && <p className="text-sm text-muted-foreground">Nada em estoque neste local.</p>}
         <ul className="flex flex-col gap-2" id="linhas-entregues">
@@ -259,7 +259,7 @@ export function FormularioDeEntrega({ campanhas, locais, materiais, disponivel, 
         {erro && <p className="max-w-xl text-right text-sm text-destructive" role="alert">{erro}</p>}
         <div className="flex gap-2">
           <Button type="button" variant="ghost" onClick={() => router.back()} disabled={ocupado}>Cancelar</Button>
-          <Button type="button" disabled={ocupado || excede || p.beneficiario_nome.trim().length < 2 || !itens.some((i) => i.item_id && i.quantidade)} id="registrar-entrega" onClick={() => iniciar(async () => {
+          <Button type="button" disabled={ocupado || excede || p.beneficiario_nome.trim().length < 2 || !itens.some((i) => i.item_id && i.quantidade)} id="registrar-entrega" data-ajuda="patrimonio.entregar-registrar" onClick={() => iniciar(async () => {
             setErro('')
             const r = await entregarDoacao({ ...p, itens: itens.filter((i) => i.item_id).map(({ item_id, quantidade: q }) => ({ item_id, quantidade: q })) })
             if (r.erro || !r.id) { setErro(r.erro ?? 'Não foi possível registrar.'); return }
@@ -303,5 +303,5 @@ export function NovaCampanha({ projetos, c }: { projetos: Opcao[]; c?: Campanha 
   if (aberto) return <FormularioDeCampanha c={c} projetos={projetos} onFim={() => { setAberto(false); router.refresh() }} />
   return c
     ? <Button size="sm" variant="outline" onClick={() => setAberto(true)}><Pencil className="size-3.5" />Editar campanha</Button>
-    : <Button size="sm" variant="outline" onClick={() => setAberto(true)} id="nova-campanha"><Plus className="size-3.5" />Nova campanha</Button>
+    : <Button size="sm" variant="outline" onClick={() => setAberto(true)} id="nova-campanha" data-ajuda="patrimonio.campanhas-nova"><Plus className="size-3.5" />Nova campanha</Button>
 }

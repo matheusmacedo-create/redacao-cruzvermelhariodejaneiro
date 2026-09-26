@@ -4,7 +4,7 @@ import { useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu as MenuDaBase } from '@base-ui/react/menu'
-import { ChevronDown, ChevronRight, Loader2, LogOut, Menu, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, CircleHelp, Loader2, LogOut, Menu, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/ui/avatar'
@@ -14,6 +14,8 @@ import { ehEquipeDaEscola, ehPapel, PAPEL } from '@/lib/permissoes'
 import type { WorkspaceRole } from '@/lib/session'
 import { ACOES_DE_CRIAR, useCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
+import { useAjuda } from './ajuda/ajuda'
+import { adiantarPainel } from './ajuda/painel'
 import { Sino, type Notificacao } from './sino'
 
 type Perfil = { full_name?: string | null; job_title?: string | null; initials?: string | null; color?: string | null; avatar_path?: string | null } | null
@@ -31,7 +33,7 @@ function Migalhas({ grupos }: { grupos: Grupo[] }) {
   const Icone = area.icone
   const naRaiz = pathname === area.href
   return (
-    <nav aria-label="Você está em" className="flex min-w-0 items-center gap-1.5 text-sm">
+    <nav aria-label="Você está em" data-ajuda="shell.migalhas" className="flex min-w-0 items-center gap-1.5 text-sm">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/[0.08] text-primary"><Icone className="size-4" aria-hidden="true" /></span>
       {grupo.rotulo && <><span className="hidden truncate text-muted-foreground lg:inline">{grupo.rotulo}</span><ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 lg:block" aria-hidden="true" /></>}
       {naRaiz
@@ -44,7 +46,7 @@ function Migalhas({ grupos }: { grupos: Grupo[] }) {
 function MenuCriar() {
   const { executar, pendente, erro, limparErro } = useCriar()
   return (
-    <div className="relative">
+    <div className="relative" data-ajuda="shell.criar">
       <MenuDaBase.Root onOpenChange={(aberto) => { if (aberto) limparErro() }}>
         <MenuDaBase.Trigger render={<Button size="lg" className="h-10 gap-1.5 px-3 max-sm:w-10 max-sm:px-0" aria-label="Criar" disabled={pendente} />}>
           {pendente ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
@@ -82,7 +84,7 @@ function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile:
   return (
     <>
       <MenuDaBase.Root>
-        <MenuDaBase.Trigger className="flex shrink-0 items-center rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:ring-2 data-[popup-open]:ring-primary/30" aria-label={`Conta de ${nome}`}>
+        <MenuDaBase.Trigger data-ajuda="shell.conta" className="flex shrink-0 items-center rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:ring-2 data-[popup-open]:ring-primary/30" aria-label={`Conta de ${nome}`}>
           <Avatar initials={profile?.initials ?? '?'} color={profile?.color ?? undefined} src={privateAvatarUrl(profile?.avatar_path)} alt="" size="sm" className="size-9" />
         </MenuDaBase.Trigger>
         <MenuDaBase.Portal>
@@ -114,21 +116,32 @@ function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile:
   )
 }
 
+/** O "?" do topo: a ajuda da tela aberta (components/app/ajuda/painel.tsx). A tecla ? faz o mesmo. */
+function BotaoDeAjuda() {
+  const { painelAberto, alternarPainel, atalhoLigado } = useAjuda()
+  return (
+    <button type="button" onClick={alternarPainel} onPointerEnter={adiantarPainel} onFocus={adiantarPainel} aria-label={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} title={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} aria-haspopup="dialog" aria-expanded={painelAberto} data-ajuda="shell.ajuda" className={cn(botaoIcone, painelAberto && 'bg-muted text-foreground')}>
+      <CircleHelp className="size-[18px]" />
+    </button>
+  )
+}
+
 export function Topbar({ role, profile, notifications, naoLidas }: { role: WorkspaceRole; profile: Perfil; notifications: Notificacao[]; naoLidas: number }) {
   const { grupos, toggle, setBuscaAberta } = useShell()
   return (
     <header className="sticky top-0 z-30 flex min-h-14 shrink-0 items-center gap-2 border-b border-border bg-background/90 px-2 backdrop-blur-md [padding-top:env(safe-area-inset-top)] sm:gap-3 sm:px-5">
-      <button type="button" onClick={toggle} aria-label="Abrir menu" className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden">
+      <button type="button" onClick={toggle} aria-label="Abrir menu" data-ajuda="shell.abrir-menu" className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden">
         <Menu className="size-5" />
       </button>
       <Migalhas grupos={grupos} />
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
-        <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" className={cn(botaoIcone, 'md:hidden')}>
+        <button type="button" onClick={() => setBuscaAberta(true)} aria-label="Buscar (⌘K)" data-ajuda="shell.busca" className={cn(botaoIcone, 'md:hidden')}>
           <Search className="size-[18px]" />
         </button>
         {/* Criar registro, pauta, conteúdo… é da Redação: a equipe da escola não tem. */}
         {!ehEquipeDaEscola(role) && <MenuCriar />}
         <Sino notificacoes={notifications} naoLidas={naoLidas} />
+        <BotaoDeAjuda />
         <MenuDaPessoa role={role} profile={profile} grupos={grupos} />
       </div>
     </header>

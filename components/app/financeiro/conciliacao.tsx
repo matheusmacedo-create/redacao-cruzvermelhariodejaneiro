@@ -46,7 +46,7 @@ export function ImportarExtrato({ contaId, contaNome }: { contaId: string; conta
   }
   const datas = lido ? lido.linhas.map((l) => l.data).sort() : []
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4" id="importar-extrato">
+    <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-4" id="importar-extrato" data-ajuda="financeiro.importar-extrato">
       <div className="flex flex-wrap items-center gap-3">
         <label className={`inline-flex cursor-pointer items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 ${ocupado ? 'pointer-events-none opacity-60' : ''}`}>
           <FileUp className="size-4" />Escolher extrato (OFX ou CSV)
@@ -82,7 +82,7 @@ export function ConciliarSugestoes({ pares }: { pares: { extrato: string; lancam
   if (!pares.length) return null
   return (
     <span className="flex flex-col items-start gap-1">
-      <Button disabled={ocupado} onClick={() => executar(() => conciliarSugestoes(pares))} id="conciliar-sugestoes">
+      <Button disabled={ocupado} onClick={() => executar(() => conciliarSugestoes(pares))} id="conciliar-sugestoes" data-ajuda="financeiro.conciliar-sugestoes">
         {ocupado ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}{pares.length === 1 ? 'Conciliar a sugestão' : `Conciliar as ${pares.length} sugestões`}
       </Button>
       <Erro texto={erro} />

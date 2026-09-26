@@ -1,0 +1,505 @@
+# Ajuda da ferramenta — pesquisa, modelo adotado e como manter
+
+A Redação tem perto de 40 áreas em dez grupos, de pautas a patrimônio, e
+cada papel vê uma parte delas. Até aqui não havia ajuda dentro da
+ferramenta: nada explicava para que servia uma tela, o que um status queria
+dizer ou por que um botão não aparecia. Este documento registra o que foi
+pesquisado sobre ajuda dentro do produto, o que foi adotado e por quê, como
+o tour funciona, as regras para escrever a ajuda e como mantê-la quando a
+tela muda.
+
+A ajuda tem cinco partes, todas lidas do mesmo conteúdo (`lib/ajuda`):
+
+1. **Boas-vindas** curtas e opcionais no primeiro acesso.
+2. **Tour de cada tela**, oferecido (não imposto) na primeira visita.
+3. **Painel “?”** com o passo a passo e as perguntas frequentes da área aberta.
+4. **Central de ajuda** em `/ajuda`, com busca e link direto para cada resposta.
+5. O mesmo na **Área do Voluntário** (`/membro`).
+
+## 1. O que foi pesquisado
+
+Pesquisa feita em set/2026 nas páginas de ajuda, documentação e notas de
+versão de cada ferramenta, e nos textos originais da pesquisa de usabilidade
+e das normas de acessibilidade. Algumas páginas não abriram: a central do
+ClickUp (403), o artigo de atalhos da Asana e o de boas práticas de tours da
+Intercom e as páginas do Padrão Digital de Governo (gov.br/ds) carregaram
+sem o texto; a lei no Planalto deu 503; o post do blog da Omie hoje mostra
+outro texto. Nesses casos valeu o trecho da página nos resultados de busca,
+marcado com *(busca)* na tabela. Do lado do governo, ficou a lei de
+linguagem simples, lida na notícia do Senado. Nenhuma tela foi vista em
+captura.
+
+### 1.1 Ferramentas de trabalho
+
+| Referência | Como ajuda dentro do produto | O que tiramos |
+| --- | --- | --- |
+| **Linear** | A entrada ensina o **⌘K** antes de a pessoa criar qualquer coisa; depois, uma lista curta de tarefas reais. **`?`** abre a ajuda de atalhos, que tem busca; "Help & Feedback" fica no pé da sidebar. | A busca ⌘K é o caminho que a pessoa já usa: a ajuda entra nela. O atalho `?`. |
+| **Notion** | A página "Getting Started" é uma lista de tarefas feitas dentro do próprio produto ("aprender fazendo"). O **"?" no canto de baixo** abre ajuda e atalhos. | Ajuda sempre no mesmo lugar, a um clique. |
+| **Asana** | A lista de atalhos abre com **⌘/ ou Ctrl+/** — um atalho com tecla modificadora *(busca)*. | Atalho com modificador não atrapalha quem dita texto (ver WCAG 2.1.4 abaixo). |
+| **Slack** | O ícone de **ponto de interrogação** (no topo do app, no pé no navegador) leva à central e ao material de ensino. O Slackbot responde dúvidas com artigos da central *(busca)*. | O “?” como símbolo que todo mundo reconhece. |
+| **ClickUp** | "Get help" no canto de baixo, central de ajuda e cursos (ClickUp University) *(busca)*. | — |
+| **HubSpot** | O ícone de ajuda no topo abre um painel com o campo **"Ask a question"**: a resposta aparece ali mesmo, com "See related results" e "Contact us". | Responder dentro da tela, sem mandar a pessoa para outro site. |
+| **Pipefy** | O guia de entrada explica o **modelo** antes de pedir que se construa algo (Pipe, Fase, Card): "quando o modelo mental está claro, tudo o que vem depois acontece muito mais rápido". | O "para que serve" de cada área vem antes do passo a passo. |
+| **RD Station** | "Primeiros passos" como curso, central de ajuda com artigos e implantação acompanhada por gente *(busca)*. | — (a implantação humana é outro serviço). |
+| **Conta Azul** | Menu **Ajuda › Central de Ajuda** no topo. Na busca: "Copie e cole as mensagens de erro exibidas no ERP na busca para localizar o passo a passo adequado". "Primeiros Passos" em missões, com barra de progresso salva e a opção de "pausar e retomar quando quiser". | Pôr o texto das mensagens de erro nos termos de busca. O progresso é guardado e dá para parar no meio. |
+| **Omie** | Central de ajuda "disponível dentro de cada módulo", num botão flutuante; tutoriais guiados para operações simples; os fluxos de entrada só nos primeiros 30 dias *(busca)*. | Ajuda por módulo, não uma central genérica. |
+| **Governo federal** (Lei 15.263/2025, Política Nacional de Linguagem Simples) | Frases curtas e em ordem direta, palavras comuns, evitar palavras estrangeiras e imprecisas, listas e tabelas, testar com o público. Pede também que não se usem "novas formas de flexão de gênero e de número". | O guia de estilo (§4). A linguagem neutra daqui usa palavras que já existem ("a pessoa", "quem", "equipe"), sem flexões novas. A Cruz Vermelha não é órgão público; a lei vale como referência. |
+| **GitHub** | **`?`** abre a lista de atalhos da página. Nas configurações de acessibilidade dá para **desligar os atalhos de uma tecla só**, mantendo os com modificador. | Como cumprir a WCAG 2.1.4 com o atalho `?` (§2). |
+
+### 1.2 Ferramentas de tour e de central de ajuda
+
+| Referência | O que ensina |
+| --- | --- |
+| **Appcues** | Tours de 3 a 5 passos; "sempre ofereça pular e deixe o tour acessível de novo"; separar por papel (quem chega vê o básico). |
+| **Chameleon** (relatório de 2022) | Tours de 3 passos têm 72% de conclusão; os de 7 passos, 16%. |
+| **Intercom Product Tours** | Tour curto, de apontar e avançar. Tarefa longa, ou que acontece fora do produto, vai para artigo, não para tour. Tour que depende de um elemento (um projeto já criado) só para quem tem o elemento. Tour pode ser aberto a partir de um link no artigo de ajuda *(busca)*. |
+| **Pendo** (Resource Center) | Um menu de ajuda dentro do produto que mostra conteúdo **conforme a página** e o perfil de quem vê; tem a lista de guias que a própria pessoa abre e uma lista de tarefas com progresso. |
+| **Userpilot** | Central dentro do produto, filtrada pela página e pelo perfil, para não obrigar a pessoa a trocar de aba *(busca)*. |
+| **driver.js** | Licença MIT, cerca de 5 kB, sem dependências, controlável por teclado. A documentação não descreve papel de diálogo, nome acessível nem comportamento próprio no celular (só inverte o lado do balão quando não cabe). |
+| **Shepherd** | Licença dupla: AGPL-3.0 e comercial — "Commercial license required for commercial products and revenue-generating companies". |
+| **Intro.js** | Licença dupla: GNU AGPLv3 ou comercial. |
+
+### 1.3 Pesquisa de usabilidade e acessibilidade
+
+| Referência | O que ensina |
+| --- | --- |
+| **NN/g — Onboarding Tutorials vs. Contextual Help** | Tutorial de entrada é pulado, esquecido e não melhora o desempenho. Melhor a **ajuda "puxada" (pull revelation)**, que aparece quando a pessoa precisa, do que a **"empurrada" (push)**, que aparece sem ninguém pedir. "Make it easy to dismiss (and recall) the help content". |
+| **NN/g — Mobile Tutorials** (estudo) | Sucesso nas tarefas de 91% com tutorial e 94% sem. Quem viu o tutorial achou as tarefas **mais difíceis** (4,92 contra 5,49 numa escala de 7). |
+| **NN/g — Mobile-App Onboarding** | Evitar a sequência de cartões; se houver, "Pular" bem visível, poucos cartões, um assunto por cartão. Entrada "breve, opcional e só com o mínimo". |
+| **NN/g — Instructional Overlays and Coach Marks** | Um balão explica **uma** interação; a memória de curto prazo guarda pouco e por uns 20 segundos *(busca)*. |
+| **NN/g — Heurística 10 (Help and Documentation)** | Ajuda com busca, fácil de varrer, organizada por assunto e **orientada a tarefas**, com passos concretos. Não ficar só no óbvio: quem abre a ajuda precisa de verdade. |
+| **WAI-ARIA APG — Dialog (Modal)** | Tab e Shift+Tab presos no diálogo, Esc fecha, o foco entra ao abrir (pode ser num elemento estático com `tabindex="-1"`) e volta para onde estava ao fechar; `role="dialog"`, `aria-modal`, `aria-labelledby` e, quando cabe, `aria-describedby`. |
+| **WCAG 2.2 — 2.4.11 Foco não escondido** | O elemento com foco não pode ficar todo coberto. Um modal bem feito cumpre, porque recebe o foco ao abrir. |
+| **WCAG 2.2 — 2.5.8 Tamanho do alvo** | Alvos de toque de pelo menos 24×24 px (2.5.5, o nível mais alto, pede 44×44). |
+| **WCAG 2.2 — 2.1.4 Atalhos de uma tecla** | Atalho de um caractere precisa poder ser desligado, remapeado ou valer só com o componente em foco. O texto cita o **`?`** como exemplo: conta mesmo exigindo Shift. Protege quem dita texto e quem esbarra nas teclas. |
+
+### 1.4 As cinco lições
+
+1. **Tutorial imposto não ensina.** A pessoa pula, esquece, e ainda sai
+   achando a ferramenta mais difícil (NN/g). As boas-vindas são curtas e
+   opcionais; o grosso da ajuda é puxado por quem precisa, na hora e na tela
+   em que precisa.
+2. **Tour curto e escolhido pela pessoa.** A conclusão cai de 72% para 16%
+   entre 3 e 7 passos (Chameleon). Todo tour tem "pular" e pode ser aberto de
+   novo (Appcues). Tarefa longa vira passo a passo escrito, não tour
+   (Intercom).
+3. **A ajuda mora onde a pessoa está.** Um “?” fixo que abre a ajuda **da
+   tela aberta** (Slack, HubSpot, Notion, Linear; por módulo na Omie; por
+   página no Pendo e no Userpilot), mais uma central com busca, sem sair da
+   ferramenta.
+4. **Escrever para a tarefa, com as palavras da tela.** Passos concretos com
+   o nome exato do botão, perguntas reais, busca que acha pelo sinônimo e
+   pela mensagem de erro (NN/g heurística 10, Conta Azul). Linguagem simples:
+   frase curta, ordem direta, palavra comum (Lei 15.263/2025).
+5. **Acessível desde o começo.** O balão é um diálogo modal (foco, Esc,
+   retorno do foco), funciona no celular e não esconde o que está em foco
+   (APG, WCAG 2.4.11 e 2.5.8). E o atalho `?`, por ser de uma tecla, precisa
+   poder ser desligado (WCAG 2.1.4, como no GitHub).
+
+## 2. O modelo adotado
+
+```
+primeiro acesso     boas-vindas: curtas, opcionais, uma vez ────────┐
+primeira visita     dica que oferece o tour da tela (sem forçar)    │  o que a pessoa já viu:
+a qualquer hora     painel “?” da área aberta (tecla ?) ────────────┤  user_metadata.ajuda
+                    Central /ajuda: tudo, com busca e âncoras       │  (voluntário: localStorage)
+                    busca ⌘K: acha perguntas e tarefas ─────────────┘
+```
+
+### Boas-vindas curtas e opcionais no primeiro acesso
+
+Uma janela de boas-vindas, com o nome da pessoa, que oferece um tour de
+poucos passos. O tour mostra **onde as coisas ficam** (o menu, a busca ⌘K, o
+“?”), não como fazer cada tarefa. Há três: `BOAS_VINDAS` (Redação),
+`BOAS_VINDAS_ESCOLA` (quem é só da equipe da escola, que vê só a Escola — ver
+`gruposDaEquipeDaEscola` em `lib/navegacao.ts`) e `BOAS_VINDAS_DO_MEMBRO`
+(Área do Voluntário). Qualquer saída da janela conta como vista: ela não
+volta a cada login. Dá para rever as boas-vindas depois, e também recomeçar
+do zero (boas-vindas e todos os tours).
+
+**Por quê:** a pesquisa é unânime contra o tutorial longo e obrigatório, mas
+admite uma entrada "breve, opcional e só com o mínimo" (NN/g). O mínimo aqui
+é saber que existe o “?” — o resto a pessoa puxa quando precisar.
+
+### Tour de cada tela oferecido, não imposto
+
+Na primeira visita à tela principal de uma área (ou a uma tela interna com
+tour próprio, como a página de uma pauta), a tela **oferece** o tour numa
+dica discreta; ele não abre sozinho. A dica só aparece depois das
+boas-vindas, cerca de 1 s depois de a tela abrir, e nunca por cima de outra
+coisa aberta (a busca, o menu do celular, o painel). Concluir o tour,
+fechá-lo no X ou no Esc, ou dispensar a dica marca o tour como visto; sair da
+tela no meio do tour, não. O painel “?” sempre tem o botão para abrir de
+novo, e um link com `?tour=1` (o "Fazer o tour" da Central) abre o tour ao
+chegar na tela, esperando até 2,5 s os elementos que ele aponta aparecerem.
+
+Qual tour vale onde é decidido por `ajudaDoCaminho()` (`lib/ajuda/index.ts`):
+na raiz da área, o tour da área; numa tela interna listada em `telas`, o tour
+dela (endereço fixo vence endereço com `[id]`); em qualquer outra tela
+interna, **nenhum** — o tour da lista apontaria para o que não está lá.
+
+**Por quê:** a pessoa decide a hora ("on their terms", na recomendação que
+a Appcues cita), e um tour que dispara sozinho em cada tela nova vira o
+"push" que a NN/g desaconselha.
+
+### Painel “?” contextual em toda tela, com atalho `?`
+
+O botão “?” do topo abre o painel com a ajuda **da área aberta**: para que
+serve, quem usa, o botão do tour, "Como fazer" (as tarefas em passos
+numerados), as perguntas frequentes e o link para a mesma área na Central.
+A tecla `?` abre e fecha o painel de qualquer tela, menos quando o foco está
+num campo de texto (ali o `?` é para ser digitado), com Ctrl, ⌘ ou Alt
+apertados, com o tour ou as boas-vindas abertos, ou com outro diálogo na
+frente. A pessoa pode desligar a tecla na Central (caixa “Abrir a ajuda com a
+tecla ?”), como pede a WCAG 2.1.4; o botão “?” do topo continua valendo, e
+recomeçar os tours não religa a tecla.
+
+**Por quê:** é o padrão de Slack, HubSpot, Notion e Linear, e é a "pull
+revelation" da NN/g: a ajuda certa, na tela certa, só quando pedida.
+
+### Central de ajuda em `/ajuda`, com busca e âncoras
+
+"Ajuda" fica no pé da sidebar, no grupo Administração (a equipe da escola
+também vê). Lá estão todas as áreas que a pessoa pode abrir, na ordem do
+menu (`guiasVisiveis()`), cada uma em `/ajuda/<endereço da área>` —
+`/ajuda/pautas`, `/ajuda/escola/vendas` —, e os tópicos gerais (conta e
+acesso, atalhos) em `/ajuda`. Cada tarefa e cada pergunta tem âncora pelo
+seu `id` (`/ajuda/pautas#criar-pauta`), para mandar o link numa conversa.
+
+**Por quê:** heurística 10 da NN/g (busca, organização por assunto) e o que
+fazem Conta Azul e HubSpot. O link direto evita "procura lá na ajuda".
+
+### Busca da ajuda no ⌘K
+
+A busca rápida que já navega entre as áreas também acha perguntas e tarefas
+(`buscarNaAjuda()`), numa seção "Ajuda" depois das áreas e das ações: sem
+acento e sem caixa, com todas as palavras presentes, o título casando antes
+do texto e a ordem do menu desempatando. O resultado leva à resposta na
+Central.
+
+**Por quê:** a pessoa já usa o ⌘K (`docs/NAVEGACAO.md`), e o Linear ensina o
+⌘K antes de tudo justamente por ser a porta de entrada de todo o resto.
+
+### A ajuda segue o menu
+
+A chave de cada guia é o `href` da área em `lib/navegacao.ts` — a mesma
+fonte do menu, da busca e das migalhas. `ajudaDoCaminho()`, `guiasVisiveis()`
+e `buscarNaAjuda()` recebem os grupos **já filtrados** pelo papel da pessoa:
+quem não pode abrir uma área não vê a ajuda dela no painel, na Central nem na
+busca.
+
+**Esconder não é proteger.** O texto da ajuda pode ir no código que o
+navegador baixa, e o selo `quem` ("Só administradores") é só um aviso. Quem
+barra é o servidor (`requirePermissao()`, RLS). Por isso a ajuda nunca traz
+dado sensível (§4).
+
+### O que a pessoa já viu fica na conta, não numa tabela
+
+`lib/ajuda/progresso.ts`: `{ boasVindas: data ou null, vistos: [chaves] }`,
+em `user_metadata.ajuda` do Supabase Auth. A chave de um tour é o `href` da
+área (`/pautas`) ou o caminho da tela (`/pautas/[id]`).
+
+Quem grava é `registrarAjuda()` (`app/actions/ajuda.ts`), com três eventos:
+boas-vindas vistas, tour visto e recomeçar. A tela muda na hora e a gravação
+vai por trás; a action nunca lança, porque uma falha só faz a dica aparecer
+de novo num próximo acesso.
+
+**Por quê:** é estado de interface da própria pessoa. Não pede migração (o
+banco é um só e é produção — `AGENTS.md`), vale em qualquer aparelho e **não
+decide acesso a nada**. Como o `user_metadata` pode ser editado pela própria
+pessoa, `lerProgresso()` desconfia de tudo o que lê e o servidor só grava
+chaves de tours que existem (`ehChaveDeTour()`). Como o metadata viaja dentro
+do token de sessão em toda requisição, a lista tem teto de 120 chaves.
+
+A Área do Voluntário tem sessão própria, fora do Supabase Auth: lá o mesmo
+formato fica no `localStorage` do aparelho. Limpar o navegador ou trocar de
+celular mostra as boas-vindas de novo — aceitável para algo que se fecha com
+um toque.
+
+### Motor próprio em vez de biblioteca
+
+| Opção | Por que não |
+| --- | --- |
+| Shepherd, Intro.js | AGPL ou licença comercial paga — a Shepherd exige a comercial de "revenue-generating companies". |
+| Appcues, Userpilot, Pendo, Intercom | Serviços pagos, com script de terceiro em toda página e o uso das pessoas medido fora de casa. Não cabe numa ferramenta interna com dados de pessoas. |
+| driver.js | A mais próxima (MIT, leve, sem dependências). Mas a documentação não descreve diálogo acessível nem comportamento no celular, e o visual seria o dela. |
+
+O motor daqui (`components/ajuda/tour.tsx`, com a posição num módulo puro
+em `lib/ajuda/posicao.ts`, cerca de 300 linhas somadas) dá:
+
+- o **visual do sistema** — tokens do tema, modo escuro, o `Button` de
+  `components/ui`;
+- o **celular** como caso de primeira classe: abaixo de 640 px o balão vira
+  uma folha presa à borda;
+- **acessibilidade** no padrão do APG, conferível no código;
+- as **regras nossas**: alvo ausente vai ao centro, passo opcional some antes
+  de contar "2 de 5";
+- **zero dependência** nova, e a matemática da posição conferível com `npx tsx`.
+
+## 3. Como o motor do tour funciona
+
+`<Tour passos rotulo aoTerminar />` — montado é aberto; quem abre desmonta
+no `aoTerminar(fim)`, com `fim` igual a `'concluido'` ou `'pulado'` (Esc, o
+X "Fechar o tour"). `rotulo` aparece acima do título ("Tour · Pautas",
+"Boas-vindas").
+
+- **Alvo.** Cada passo aponta para um elemento marcado com
+  `data-ajuda="<alvo>"`. `acharAlvo()` pega o primeiro que está **de fato na
+  tela**: ignora o que está dentro de `[inert]`, `[aria-hidden="true"]` ou
+  `[hidden]`, o que tem `visibility: hidden`, o que não tem tamanho e o que
+  está fora da tela na horizontal (a gaveta do menu fechada no celular).
+- **Alvo ausente vai ao centro.** Passo sem `alvo`, ou com o alvo fora da
+  tela, aparece no meio, com o fundo todo escurecido. Por isso o texto de
+  todo passo precisa se sustentar sozinho.
+- **`seAusente: 'pular'`.** O passo some se o alvo não estiver na tela. A
+  triagem acontece **uma vez, quando o tour abre**, para a contagem "2 de 5"
+  ser a verdadeira. Por isso quem abre o tour espera a tela carregar (a dica
+  de primeira visita espera 1 s; o link `?tour=1` espera os alvos). Se todos
+  os passos sumirem, o tour termina na hora, como concluído.
+- **Rolagem.** Se o alvo não cabe na tela (64 px do topo, 16 px de baixo), a
+  página rola até ele ficar no meio. O balão acompanha a rolagem suave (quadro
+  a quadro por quase 1 s), qualquer rolagem depois, o redimensionar da janela
+  e a mudança de tamanho do próprio alvo.
+- **Posição** (`posicionarBalao()`). Com 640 px ou mais: o lado pedido no
+  passo (`lado`), senão o primeiro que couber na ordem embaixo, em cima,
+  direita, esquerda; se nenhum couber, folha presa à borda. **Abaixo de
+  640 px**: sempre folha presa embaixo — ou em cima, quando o alvo está na
+  parte de baixo da tela —, com até 480 px e respeitando a área segura do
+  celular.
+- **Destaque.** O alvo fica iluminado, com uma folga de 6 px e cortado pela
+  borda da tela; o resto escurece.
+- **A página não recebe clique** enquanto o tour está aberto. O tour não é
+  para ser feito clicando junto: um clique fora do lugar navegaria e deixaria
+  o balão apontando para o nada.
+- **Teclado e leitor de tela.** O balão é `role="dialog"` com `aria-modal`,
+  título em `aria-labelledby` e texto em `aria-describedby`. A cada passo o
+  foco vai para o próprio balão, e o leitor lê o passo novo. Tab e Shift+Tab
+  ficam presos nos botões do balão; **Esc** fecha; **→** e **←** avançam e
+  voltam; **Enter** com o foco no balão avança. Ao fechar, o foco volta para
+  onde estava.
+- **Movimento e toque.** Sem animação para quem pediu menos movimento
+  (`prefers-reduced-motion`). Os botões têm 40 px de altura no celular e
+  36 px no computador, e o X tem 36×36 px — acima dos 24 px da WCAG 2.5.8.
+- Embaixo, "2 de 5" em texto e os pontinhos de progresso (só no computador e
+  escondidos do leitor de tela, que já ouve o número).
+
+## 4. Guia de estilo do conteúdo
+
+Vale para todo texto de ajuda: tour, tarefas, perguntas, boas-vindas.
+
+**Voz**
+
+- Português do Brasil, "você", frases curtas e em ordem direta, tom de
+  colega experiente.
+- Sem jargão técnico: nada de RLS, server action, Supabase, cookie, token,
+  R2, cron, API — a não ser que a própria tela use a palavra.
+- Linguagem neutra com palavras que já existem: "Boas-vindas" (nunca
+  "Bem-vindo"), "a pessoa", "quem", "equipe". Evite "o usuário" e
+  "inscrito/inscrita" quando der ("quem se inscreveu").
+- Explique o porquê quando ajuda a acertar: "a numeração do ofício recomeça
+  a cada ano".
+
+**Nomes da tela**
+
+- Botões, abas, campos e status **exatamente** como aparecem na tela,
+  inclusive maiúsculas, entre aspas curvas: “Nova pauta”. Confira no JSX o
+  texto real — não o que você lembra.
+
+**Verdade acima de tudo**
+
+- Cada frase tem apoio no código: o componente, a action, a regra em `lib/`,
+  as permissões em `lib/permissoes.ts`. Não invente prazo, limite, e-mail,
+  telefone, regra nem botão.
+- Na dúvida, deixe de fora e pergunte a quem cuida da área. Ajuda errada é
+  pior do que ajuda nenhuma: a pessoa segue o passo e se perde.
+- Nada de dado sensível: nome de pessoa, valor, endereço interno, senha. O
+  texto vai para o navegador (§2).
+
+**Tour**
+
+- De 3 a 7 passos. Título com até uns 40 caracteres; texto de 1 ou 2 frases,
+  até uns 220 caracteres. Um passo, uma ideia.
+- O primeiro passo pode ser sem alvo: a visão geral da tela.
+- O texto funciona mesmo se o balão cair no meio da tela: nada de "clique
+  aqui"; prefira "O botão “Nova pauta” …".
+- O que só aparece às vezes (botão só de admin, lista que pode estar vazia):
+  `seAusente: 'pular'`, ou texto que funcione no centro.
+
+**Como fazer (tarefas)**
+
+- As tarefas reais do dia a dia na área, com título no infinitivo ("Criar
+  uma pauta").
+- De 3 a 8 passos; cada passo é uma ação com o nome do botão ou do campo.
+- Quando só alguns papéis podem, diga em `quem` ("Só administradores").
+- `dica` para o cuidado ou o atalho que evita erro.
+
+**Perguntas frequentes**
+
+- As dúvidas reais: "por que não consigo…", "o que significa o status X",
+  "quem vê isso", "dá para desfazer?".
+- Resposta direta, de 1 a 4 frases; parágrafos separados por linha em branco
+  (`\n\n`).
+- `termos` com sinônimos e nomes antigos que alguém usaria na busca. Se a
+  dúvida nasce de uma mensagem de erro, ponha o texto da mensagem nos
+  `termos`: quem colar o erro na busca acha a resposta.
+
+**Ids**
+
+- Minúsculas com hífen, únicos dentro da área. Viram âncora na Central
+  (`/ajuda/pautas#criar-pauta`) e podem estar em links já enviados: não
+  troque o `id` de uma pergunta que já existe.
+
+## 5. Como pôr ajuda numa área nova (ou atualizar quando a tela muda)
+
+A ajuda muda **no mesmo PR** que muda a tela.
+
+1. **A área existe em `lib/navegacao.ts`** (ARQUITETURA.md §10.3). O `href`
+   de lá é a chave da ajuda.
+2. **Escreva o guia** no arquivo do grupo em `lib/ajuda/conteudo/` (o mesmo
+   corte do menu: `planejamento.ts`, `financeiro.ts`…), no formato de
+   `lib/ajuda/tipos.ts`: `href`, `paraQueServe`, `quemUsa`, `tour`, `telas`,
+   `tarefas`, `perguntas`, `relacionadas`. Boas-vindas e tópicos gerais
+   ficam em `conteudo/geral.ts`; a Área do Voluntário, em `lib/ajuda/membro.ts`.
+   Grupo novo no menu = arquivo novo em `conteudo/`, somado a `GUIAS` em
+   `lib/ajuda/index.ts`.
+3. **Tela interna com tour próprio** entra em `telas`, com o caminho no
+   formato de rota do Next (`/pautas/[id]`, `/financeiro/compras/novo`). Ela
+   precisa morar dentro do endereço da área (ou numa das moradas de
+   `lib/navegacao.ts`, como `/conteudos` em Pautas).
+4. **Marque os alvos** com `data-ajuda="<prefixo>.<coisa>"`, minúsculas e
+   hífen (`pautas.quadro`, `pautas.nova`). O prefixo é o da área; a moldura
+   comum a todas as telas (topo, menu) usa `shell.` (`shell.ajuda`,
+   `shell.criar`). Regras:
+   - valor sempre literal: `data-ajuda="pautas.quadro"`;
+   - marcação condicional com aspas simples dentro das chaves —
+     `data-ajuda={primeiro ? 'pautas.cartao' : undefined}` — que é o que o
+     script de conferência reconhece; nunca monte o valor com template string;
+   - num elemento com caixa visível (`div`, `section`, `button`, `a`,
+     `header`, `form`, `ul`…). Componente só se repassa props ao DOM
+     (`components/ui/button.tsx` repassa; o Trigger do Base UI também).
+     Nunca num invólucro com `display: contents`, que não tem tamanho;
+   - prefira contêineres estáveis e sempre desenhados (a barra de filtros,
+     o quadro, o botão principal) a itens de lista que podem não existir;
+   - na tela, mude **só** o atributo: nada de comportamento, estilo, texto ou
+     formatação.
+5. **Rode a conferência:** `npx tsx scripts/conferir-ajuda.ts`. Sai com
+   código 1 se houver erro.
+   - **Erro:** alvo citado num tour sem `data-ajuda` em `app/` ou
+     `components/`; ajuda de área que não existe no menu; duas ajudas para a
+     mesma área; `id` repetido ou fora do padrão; tela fora da área;
+     `relacionadas` apontando para área inexistente; `id` repetido nos
+     tópicos gerais; `id` repetido ou fora do padrão na ajuda do voluntário
+     (lá a Central é uma página só, então o `id` vale para a página inteira).
+   - **Aviso:** área sem ajuda; área sem perguntas; tela sem tour; tour com
+     menos de 2 ou mais de 8 passos; `data-ajuda` marcado sem uso (ok se for
+     de propósito).
+
+   O script confere que o alvo existe em **algum** arquivo, não que está na
+   tela certa nem que o texto bate com a tela. Isso é o passo seguinte.
+6. **Percorra de verdade:** abra a tela, rode o tour no computador e numa
+   janela estreita (menos de 640 px, com o menu fechado), e confira que cada
+   balão cai onde deveria e que cada nome entre aspas é o da tela.
+
+**Quando a tela muda:**
+
+- **botão ou aba renomeados** — procure o nome antigo em `lib/ajuda/`
+  (`grep -rn "Nome antigo" lib/ajuda`) e troque em tudo;
+- **elemento removido** — se o `data-ajuda` sumiu de todos os arquivos, o
+  script acusa o alvo sem elemento; mova o atributo ou reescreva o passo;
+- **elemento movido** — o script não percebe: rode o tour e confira que o
+  balão ainda aponta para o lugar certo;
+- **regra mudou** (permissão, prazo, status novo) — atualize a tarefa e a
+  pergunta que a citam;
+- **área nova** — guia novo, mesmo que curto: o script avisa "área sem
+  ajuda".
+
+## 6. O que ficou de fora
+
+- **Trilha de entrada com barra de progresso** (as missões da Conta Azul, o
+  Getting Started do Notion, o checklist do Pendo e do Linear). Na Redação
+  quem cria a conta é o administrador, e o trabalho é a rotina de cada área,
+  não uma configuração inicial. Uma lista de "tours por fazer" seria o push
+  que a pesquisa desaconselha.
+- **Medir os tours** (conclusão, onde a pessoa desiste), como fazem Chameleon
+  e Appcues. A Redação só tem o Analytics e o Speed Insights da Vercel, que
+  contam visitas de página, sem eventos por tela ou por pessoa. Se um dia
+  fizer falta, dá para começar pelos eventos do próprio Analytics.
+- **Vídeo e imagem na ajuda.** Só texto por enquanto: imagem e vídeo ficam
+  velhos quando a tela muda, sem ninguém perceber; o texto, o script confere
+  ao menos em parte.
+- **Tour em que se clica no elemento de verdade.** O nosso bloqueia a página
+  de propósito (§3).
+- **Dicas soltas ("i") ao lado de campos e avisos de novidade.**
+- **Assistente com IA na ajuda** (Slackbot, Userpilot).
+
+**Pendências a conferir**
+
+- **Leitor de tela.** O motor segue o APG no código, mas não foi testado com
+  NVDA nem VoiceOver.
+- **Alvo empurrado sem rolagem.** Passado o primeiro segundo, o balão só se
+  move com rolagem, janela redimensionada ou alvo que muda de tamanho. Se algo
+  carregar acima do alvo e empurrá-lo sem nada disso, o destaque fica no
+  lugar antigo até a próxima rolagem.
+
+## 7. Onde isso mora
+
+- `lib/ajuda/tipos.ts` — o formato: `GuiaDaArea`, `PassoDoTour`, `Tarefa`,
+  `Pergunta`, `TelaDaArea`, `TopicoGeral`.
+- `lib/ajuda/index.ts` — o registro: `GUIAS`, `ajudaDoCaminho()`,
+  `guiasVisiveis()`, `buscarNaAjuda()`, `hrefDaAjuda()`, `ehChaveDeTour()`,
+  `alvosCitados()`.
+- `lib/ajuda/conteudo/<grupo>.ts` — o conteúdo de cada grupo do menu;
+  `conteudo/geral.ts` — boas-vindas e tópicos gerais.
+- `lib/ajuda/membro.ts` — a Área do Voluntário.
+- `lib/ajuda/progresso.ts` — o que a pessoa já viu.
+- `lib/ajuda/posicao.ts` — onde o balão fica (puro).
+- `components/ajuda/tour.tsx` — o motor do tour (Redação e voluntário).
+- `components/app/ajuda/` — no shell da Redação: o provedor da ajuda
+  (boas-vindas, dica de primeira visita, tecla `?`, tour aberto), o painel
+  “?” e as peças de texto comuns ao painel e à Central.
+- `app/actions/ajuda.ts` — `registrarAjuda()`, que grava o progresso.
+- `lib/navegacao.ts` — a área "Ajuda" (`/ajuda`), no grupo Administração.
+- `scripts/conferir-ajuda.ts` — a conferência do conteúdo contra o código.
+
+## 8. Fontes
+
+Ferramentas de trabalho:
+[Linear — Keyboard shortcuts help](https://linear.app/changelog/2021-03-25-keyboard-shortcuts-help) ·
+[Linear — entrada, tela a tela (Supademo)](https://supademo.com/user-flow-examples/linear) ·
+[Notion — entrada leve (Appcues GoodUX)](https://goodux.appcues.com/blog/notions-lightweight-onboarding) ·
+[Notion — Using slash commands](https://www.notion.com/help/guides/using-slash-commands) ·
+[Asana — Keyboard shortcuts](https://help.asana.com/s/article/keyboard-shortcuts?language=en_US) ·
+[Slack — quick start guide](https://slack.com/help/articles/360059928654-How-to-use-Slack--your-quick-start-guide) ·
+[ClickUp — support resources](https://help.clickup.com/hc/en-us/articles/16251448728727-ClickUp-support-resources) ·
+[HubSpot — Get help with HubSpot](https://knowledge.hubspot.com/help-and-resources/get-help-with-hubspot) ·
+[Pipefy — Por onde começar](https://community.pipefy.com/primeiros-passos-175/por-onde-comecar-no-pipefy-um-guia-para-novos-usuarios-5140) ·
+[RD Station — serviços](https://www.rdstation.com/planos/marketing/servicos/) ·
+[Conta Azul — Primeiros passos](https://ajuda.contaazul.com/hc/pt-br/articles/4413113957261-Primeiros-passos-na-Conta-Azul) ·
+[Conta Azul — Central de Ajuda: boas práticas](https://ajuda.contaazul.com/hc/pt-br/articles/13361604744205-Central-de-Ajuda-Boas-pr%C3%A1ticas) ·
+[Omie — atualizações de maio (blog)](https://www.omie.com.br/blog/todo-mes-melhorias-pra-voce-fique-por-dentro-das-atualizacoes-omie-de-maio/) ·
+[Padrão Digital de Governo](https://www.gov.br/ds/home) ·
+[Senado — linguagem simples obrigatória](https://www12.senado.leg.br/noticias/materias/2025/11/17/linguagem-simples-em-mensagens-de-orgaos-publicos-agora-e-obrigatoria) ·
+[Lei 15.263/2025 (Planalto)](https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2025/lei/l15263.htm) ·
+[GitHub — Keyboard shortcuts](https://docs.github.com/en/get-started/accessibility/keyboard-shortcuts)
+
+Tours e centrais de ajuda:
+[Appcues — Product tours guide](https://www.appcues.com/blog/product-tours-walkthroughs-ultimate-guide) ·
+[Chameleon — Benchmark Report 2022](https://www.chameleon.io/benchmark-report-2022) ·
+[Intercom — Best practices for Product Tours](https://www.intercom.com/help/en/articles/3095688-best-practices-for-using-product-tours) ·
+[Pendo — Overview of the Resource Center](https://support.pendo.io/hc/en-us/articles/360031866712-Overview-of-the-Resource-Center) ·
+[Userpilot — In-app help](https://userpilot.com/blog/in-app-help/) ·
+[driver.js](https://github.com/kamranahmedse/driver.js) ·
+[driver.js — configuração](https://driverjs.com/docs/configuration) ·
+[Shepherd](https://github.com/shipshapecode/shepherd) ·
+[Intro.js — licença](https://introjs.com/docs/getting-started/license)
+
+Usabilidade e acessibilidade:
+[NN/g — Onboarding Tutorials vs. Contextual Help](https://www.nngroup.com/articles/onboarding-tutorials/) ·
+[NN/g — Mobile Tutorials](https://www.nngroup.com/articles/mobile-tutorials/) ·
+[NN/g — Mobile-App Onboarding](https://www.nngroup.com/articles/mobile-app-onboarding/) ·
+[NN/g — Instructional Overlays and Coach Marks](https://www.nngroup.com/articles/mobile-instructional-overlay/) ·
+[NN/g — Help and Documentation](https://www.nngroup.com/articles/help-and-documentation/) ·
+[WAI-ARIA APG — Dialog (Modal)](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) ·
+[WCAG 2.2 — 2.4.11 Focus Not Obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html) ·
+[WCAG 2.2 — 2.5.8 Target Size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) ·
+[WCAG 2.2 — 2.1.4 Character Key Shortcuts](https://www.w3.org/WAI/WCAG22/Understanding/character-key-shortcuts.html)

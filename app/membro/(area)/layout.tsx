@@ -7,6 +7,8 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Logo } from '@/components/membro/marca'
 import { NavegacaoCelular, NavegacaoTopo, SubAbas } from '@/components/membro/navegacao'
 import { MenuDaConta } from '@/components/membro/conta'
+import { AjudaDoMembro } from '@/components/membro/ajuda'
+import { primeiroNome } from '@/lib/membro/regras'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +22,8 @@ export default async function AreaDoMembro({ children }: { children: React.React
   ])
   const avisosNovos = avisos.filter((a) => !a.visto).length
   return (
-    <>
+    // A ajuda (convite de boas-vindas, tours e o ?tour=1 da página Ajuda) envolve cabeçalho e conteúdo: o menu da conta abre o tour da tela.
+    <AjudaDoMembro previa={!!m.previa} nome={primeiroNome(m.nome)}>
       {/* Aparece só com o foco do teclado; leva direto ao conteúdo, pulando cabeçalho e abas. */}
       <a href="#conteudo" className="fixed left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-4 py-3 text-sm font-semibold text-foreground shadow-lg focus:translate-y-0">Pular para o conteúdo</a>
       {m.previa && (
@@ -60,6 +63,6 @@ export default async function AreaDoMembro({ children }: { children: React.React
         {children}
       </main>
       <NavegacaoCelular novidades={naoLidas + avisosNovos} />
-    </>
+    </AjudaDoMembro>
   )
 }

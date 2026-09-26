@@ -51,7 +51,7 @@ export function ConcluirAula({ cursoId, aulaId, feita, anterior, seguinte, fim }
 
   const rotulo = feita ? (seguinte ? 'Próxima aula' : fim.rotulo) : seguinte ? 'Concluir e seguir' : 'Concluir aula'
   return (
-    <div className={barraFixa}>
+    <div className={barraFixa} data-ajuda="membro.concluir-aula">
       {erro && <p className="mb-2 flex items-start gap-2 px-1 text-sm text-destructive" role="alert"><XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{erro}</p>}
       <div className="flex items-center justify-between gap-2">
         {anterior

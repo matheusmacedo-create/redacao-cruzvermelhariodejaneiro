@@ -20,7 +20,7 @@ export function ListaDeNotificacoes({ itens, naoLidas, vazio }: { itens: Notific
   return (
     <div>
       {naoLidas > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <div data-ajuda="notificacoes.marcar" className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
           <span className="text-sm text-muted-foreground">{naoLidas === 1 ? '1 não lida' : `${naoLidas} não lidas`}</span>
           <div className="flex gap-1">
             {visiveisNaoLidas.length > 0 && visiveisNaoLidas.length < naoLidas && (

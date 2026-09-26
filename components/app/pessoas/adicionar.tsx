@@ -47,7 +47,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
       )}
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <Card className="flex flex-col gap-3 p-4" id="candidatos">
+        <Card className="flex flex-col gap-3 p-4" id="candidatos" data-ajuda="diretorio.candidatos">
           <div>
             <h2 className="font-semibold">1. Quem vai receber acesso</h2>
             <p className="text-xs text-muted-foreground">Da equipe, ainda sem login (fichas da Equipe e a lista oficial dos setores).</p>
@@ -75,7 +75,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
           </Button>
         </Card>
 
-        <Card className="flex flex-col gap-3 p-4" id="convites">
+        <Card className="flex flex-col gap-3 p-4" id="convites" data-ajuda="diretorio.convites">
           <div>
             <h2 className="font-semibold">2. Confira e envie</h2>
             <p className="text-xs text-muted-foreground">Cada pessoa recebe um e-mail com o usuário e um link para criar a própria senha (vale 72 horas). O papel define o que ela pode fazer — na dúvida, <strong>colaborador</strong>; dá para mudar depois.</p>
@@ -106,7 +106,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
           )}
           {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
           <div className="flex justify-end">
-            <Button disabled={!pronto || ocupado} id="enviar-convites" onClick={() => iniciar(async () => {
+            <Button disabled={!pronto || ocupado} id="enviar-convites" data-ajuda="diretorio.enviar" onClick={() => iniciar(async () => {
               setErro(''); setResultados(null)
               const r = await convidarEmLote(linhas.map((l) => ({ nome: l.nome.trim(), email: l.email.trim(), papel: l.papel, coordenacao: l.coordenacao, cargo: l.cargo.trim(), fichaId: l.fichaId ?? undefined })))
               if (r.erro) { setErro(r.erro); return }
@@ -146,7 +146,7 @@ function Pendentes({ pendentes, envioConfigurado }: { pendentes: Pendente[]; env
     router.refresh()
   })
   return (
-    <section className="flex flex-col gap-3" id="pendentes">
+    <section className="flex flex-col gap-3" id="pendentes" data-ajuda="diretorio.pendentes">
       <div>
         <h2 className="font-semibold">Convites pendentes · {pendentes.length}</h2>
         <p className="text-sm text-muted-foreground">Quem tem conta mas ainda não fez o primeiro acesso. Reenviar gera um link novo (o anterior deixa de valer); cancelar desativa a conta.</p>

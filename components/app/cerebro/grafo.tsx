@@ -129,7 +129,7 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-ajuda="cerebro.mapa-filtros" className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           value={busca}
@@ -167,7 +167,7 @@ export function GrafoDoCerebro({ nos, arestas }: { nos: NoDoGrafo[]; arestas: Ar
           ))}
       </div>
 
-      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
+      <div data-ajuda="cerebro.mapa-grafo" className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
         <Tela
           nos={visiveis}
           arestas={arestasVisiveis}
