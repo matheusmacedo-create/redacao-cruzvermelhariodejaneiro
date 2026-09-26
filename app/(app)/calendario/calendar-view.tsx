@@ -51,7 +51,14 @@ function ItemDoDia({ event, compacto = false }: { event: Event; compacto?: boole
   return href ? <Link href={href} className={classe}>{corpo}</Link> : <div className={classe}>{corpo}</div>
 }
 
-export function CalendarView({ events }: { events: Event[] }) {
+type Feriado = { data: string; nome: string; abrangencia: string }
+
+/** Feriado no dia: faixa discreta, para quem agenda não marcar publicação ou prazo sem expediente. */
+function MarcaDeFeriado({ f }: { f: Feriado }) {
+  return <span className="block truncate rounded bg-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-warning-foreground" title={`Feriado ${f.abrangencia}: ${f.nome}`}>{f.nome}</span>
+}
+
+export function CalendarView({ events, feriados = [] }: { events: Event[]; feriados?: Feriado[] }) {
   const [open, setOpen] = useState(false)
   // Abre no mês corrente, sempre. Abrir no mês do primeiro evento da lista
   // levava o calendário para o passado assim que houvesse histórico — e o mês
@@ -64,8 +71,11 @@ export function CalendarView({ events }: { events: Event[] }) {
   const cells = [...Array.from({ length: offset }, () => null), ...Array.from({ length: days }, (_, i) => i + 1)]
   const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
   const agendaDays = Array.from({ length: days }, (_, i) => i + 1)
-    .map((day) => ({ day, key: `${month}-${String(day).padStart(2, '0')}`, dayEvents: events.filter((event) => event.event_date === `${month}-${String(day).padStart(2, '0')}`) }))
-    .filter((entry) => entry.dayEvents.length > 0)
+    .map((day) => {
+      const key = `${month}-${String(day).padStart(2, '0')}`
+      return { day, key, dayEvents: events.filter((event) => event.event_date === key), feriado: feriados.find((f) => f.data === key) }
+    })
+    .filter((entry) => entry.dayEvents.length > 0 || entry.feriado)
 
   return <>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -78,10 +88,11 @@ export function CalendarView({ events }: { events: Event[] }) {
 
     {/* Agenda list — used on narrow screens where the 7-column grid can't fit event text */}
     <Card data-ajuda="calendario.grade" className="divide-y divide-border sm:hidden">
-      {agendaDays.map(({ day, dayEvents }) => (
+      {agendaDays.map(({ day, dayEvents, feriado }) => (
         <div key={day} className="px-4 py-3">
           <p className="text-xs font-semibold uppercase text-muted-foreground">Dia {day}</p>
           <div className="mt-2 flex flex-col gap-2">
+            {feriado && <MarcaDeFeriado f={feriado} />}
             {dayEvents.map((event) => <ItemDoDia key={event.id} event={event} />)}
           </div>
         </div>
@@ -95,7 +106,8 @@ export function CalendarView({ events }: { events: Event[] }) {
       <div className="grid grid-cols-7">{cells.map((day, i) => {
         const key = day ? `${month}-${String(day).padStart(2,'0')}` : ''
         const dayEvents = events.filter(event => event.event_date === key)
-        return <div key={i} className="min-h-28 border-b border-r border-border p-1.5 [&:nth-child(7n)]:border-r-0">{day && <><span className="block px-1 text-xs text-muted-foreground">{day}</span><div className="mt-1 flex flex-col gap-1">{dayEvents.map(event => <ItemDoDia key={event.id} event={event} compacto />)}</div></>}</div>
+        const feriado = day ? feriados.find((f) => f.data === key) : undefined
+        return <div key={i} className={cn('min-h-28 border-b border-r border-border p-1.5 [&:nth-child(7n)]:border-r-0', feriado && 'bg-warning/5')}>{day && <><span className="block px-1 text-xs text-muted-foreground">{day}</span><div className="mt-1 flex flex-col gap-1">{feriado && <MarcaDeFeriado f={feriado} />}{dayEvents.map(event => <ItemDoDia key={event.id} event={event} compacto />)}</div></>}</div>
       })}</div>
     </Card>
     {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true" aria-labelledby="schedule-title"><Card className="w-full max-w-md p-6"><div className="flex items-center justify-between"><h2 id="schedule-title" className="text-lg font-semibold">Novo agendamento</h2><Button type="button" variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Fechar"><X className="size-4" /></Button></div><form action={async formData => { await createCalendarEvent(formData); setOpen(false) }} className="mt-5 flex flex-col gap-4"><label className="text-sm font-medium">Título<input required minLength={3} name="title" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label><div className="grid grid-cols-2 gap-3"><label className="text-sm font-medium">Data<input required name="eventDate" type="date" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label><label className="text-sm font-medium">Horário<input name="eventTime" type="time" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2" /></label></div><label className="text-sm font-medium">Tipo<select name="type" className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2"><option value="publicacao">Publicação</option><option value="prazo">Prazo</option><option value="atividade">Atividade</option></select></label><label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm"><input name="createPauta" type="checkbox" className="mt-0.5 size-4 accent-primary" /><span><strong className="block font-medium">Criar pauta integrada</strong><span className="text-muted-foreground">Cria uma pauta com este título e data e mantém acesso direto pelo calendário.</span></span></label><Button type="submit" size="lg">Salvar agendamento</Button></form></Card></div>}

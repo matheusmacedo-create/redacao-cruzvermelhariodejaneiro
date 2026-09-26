@@ -41,6 +41,8 @@ export const SERVICOS = {
   // Gerada pela própria Redação (tela Trilha pública) e lida por lib/auditoria/chave.ts; fora da tela de Integrações.
   auditoria_trilha: { nome: 'Chave de assinatura da trilha pública', variavel: 'AUDITORIA_CHAVE_PRIVADA', painel: '', oculto: true },
   meta_ads: { nome: 'Meta Ads (token do usuário do sistema)', variavel: 'META_ADS_TOKEN', painel: 'https://business.facebook.com/settings/system-users' },
+  // Confere links de matérias e da newsletter antes de publicar (lib/apis-publicas).
+  google_safe_browsing: { nome: 'Google Safe Browsing (conferência de links)', variavel: 'GOOGLE_SAFE_BROWSING_KEY', painel: 'https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com' },
 } as const satisfies Record<string, DefinicaoDeServico>
 
 export type Servico = keyof typeof SERVICOS

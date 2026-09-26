@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import { MapaDoLocal } from '@/components/app/apis/mapa-do-local'
 import { notFound } from 'next/navigation'
 import { type Pauta } from '@/lib/data'
 import { requireWorkspace } from '@/lib/session'
@@ -97,5 +99,9 @@ export default async function PautaPage({ params }: { params: Promise<{ id: stri
 
   const canDelete = pode(context.role, 'pautas.apagar_de_outros') || data.owner_id === context.user.id
 
-  return <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} canDelete={canDelete} />
+  const local = ((data.details ?? {}) as Record<string, string>).local
+  return <>
+    <PautaRoom pauta={pauta} details={(data.details ?? {}) as Record<string, string>} participants={participants} availablePeople={people} availableProjects={projectRows ?? []} messages={messages} responsible={responsible} driveLinks={driveLinks} contentItems={realContents} history={history} canDelete={canDelete} />
+    {local && <div className="mx-auto mt-6 max-w-5xl"><Suspense fallback={null}><MapaDoLocal endereco={local} titulo="Local da atividade" /></Suspense></div>}
+  </>
 }

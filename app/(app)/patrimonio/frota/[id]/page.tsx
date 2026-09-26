@@ -1,3 +1,5 @@
+import { ValorFipe } from '@/components/app/apis/valor-fipe'
+import { tipoFipeDoVeiculo } from '@/lib/apis-publicas/regras'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Pencil } from 'lucide-react'
@@ -37,6 +39,8 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
   const { data: v } = await supabase.from('frota_veiculos').select('id,bem_id,placa,apelido,tipo,marca,modelo,ano_fabricacao,ano_modelo,cor,renavam,chassi,combustivel,tanque_litros,km_atual,local_id,situacao,observacao')
     .eq('id', id).eq('workspace_id', ws).maybeSingle()
   if (!v) notFound()
+  // Consulta à parte: a página não pode quebrar se as colunas da FIPE ainda não existirem no banco.
+  const { data: fipe } = await supabase.from('frota_veiculos').select('fipe_valor,fipe_codigo,fipe_descricao,fipe_referencia,fipe_consultado_em').eq('id', id).maybeSingle()
   const kmAtual = Number(v.km_atual)
   const umAno = somarDias(hoje, -365)
   const [{ data: usos }, { data: abast }, { data: servicos }, { data: planos }, { data: docs }, { data: condutores }, { data: bem }] = await Promise.all([
@@ -95,6 +99,11 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
         </dl>
         {v.observacao && <p className="mt-3 text-sm text-muted-foreground">{v.observacao as string}</p>}
       </Card>
+
+      {(tipoFipeDoVeiculo(v.tipo as string) || fipe?.fipe_valor != null) && (
+        <ValorFipe veiculoId={id} tipoDoVeiculo={v.tipo as string} marcaSugerida={(v.marca as string | null) ?? null} podeEditar={nivel >= 3 && Boolean(fipe)}
+          guardada={{ valor: fipe?.fipe_valor != null ? Number(fipe.fipe_valor) : null, codigo: fipe?.fipe_codigo ?? null, descricao: fipe?.fipe_descricao ?? null, referencia: fipe?.fipe_referencia ?? null, consultadoEm: fipe?.fipe_consultado_em ?? null }} />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="p-5" id="planos" data-ajuda="patrimonio.veiculo-planos">

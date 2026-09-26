@@ -82,6 +82,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `AUDITORIA_TSA_URL` | server | opcional — autoridade de carimbo de tempo RFC 3161 (padrão: FreeTSA) |
 | `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos nos buckets da trilha e do acervo; sem elas, o espelho da trilha e o acervo ficam desligados (§7.9, §7.10, `docs/armazenamento-r2.md`) |
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
+| `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
@@ -925,6 +926,35 @@ testam de verdade e devolvem o que encontraram.
 — e limpam chave e senha do texto de erro do servidor antes de responder.
 
 ---
+
+### 8.4 APIs públicas (CEP, CNPJ, feriados, tempo, FIPE, BC, mapa, senhas, links)
+
+Tudo passa por `lib/apis-publicas/`. `regras.ts` é puro: valida a entrada e
+lê a resposta, e dá para conferir com tsx. `servidor.ts` faz a rede: prazo
+curto, **nunca lança** e guarda no cache de dados do Next. A regra é que a API
+externa ajuda, mas não é dependência: fora do ar, a tela segue no modo manual.
+As telas consultam pelas actions de `app/actions/apis-publicas.ts`, e só quem
+está logado pode usá-las (Redação ou Área do Membro), para o servidor não
+virar repetidor grátis.
+
+| API | Onde entra | Chave |
+|---|---|---|
+| BrasilAPI CEP, com ViaCEP de reserva | `EnderecoPeloCep` nos cadastros de participantes, Equipe e Área do Membro: preenche logradouro, bairro, cidade e UF | não |
+| IBGE, municípios do RJ | Sugestão e grafia oficial no campo cidade | não |
+| BrasilAPI CNPJ | `DadosPeloCnpj` em favorecidos e empresa (Financeiro) e no órgão da parceria (Transparência): preenche só campos vazios e avisa quando o CNPJ não está ATIVO | não |
+| BrasilAPI feriados, mais São Sebastião e São Jorge | Calendário e **prazos dos chamados** (`somarMinutosUteis`/`minutosUteisEntre` recebem o conjunto de feriados) | não |
+| Open-Meteo | `TempoNoRio` no painel: 7 dias na sede, com alertas de chuva ≥ 25/50 mm, rajada ≥ 60/75 km/h e calor ≥ 38/40 °C | não (uso não comercial) |
+| Pwned Passwords (HIBP) | `problemaDeSenhaVazada` nas quatro telas em que alguém escolhe senha. Por anonimato por faixa, só os 5 primeiros caracteres do SHA-1 saem daqui. Se a API cair, a senha passa | não |
+| Google Safe Browsing | `problemaDeLinkPerigoso` antes de publicar matéria no site e de enviar a newsletter: bloqueia link marcado. Sem chave, não confere | **sim**, `google_safe_browsing` em Configurações → Integrações (ou `GOOGLE_SAFE_BROWSING_KEY`) |
+| Banco Central (PTAX e IPCA, SGS 433) | `IndicadoresDoBc` em Financeiro → Saúde do caixa: dólar, euro, IPCA de 12 meses e calculadora de correção (do primeiro ao último mês, inclusive) | não |
+| Tabela FIPE (parallelum) | `ValorFipe` na página do veículo. O valor é consultado de novo no servidor e gravado por `frota_registrar_fipe` (nível 3 do Patrimônio) | não |
+| Nominatim / OpenStreetMap | `MapaDoLocal` em pautas com local e nas oportunidades de voluntariado. Cache de 30 dias, respeitando a política de 1 consulta por segundo | não |
+
+Limites que valem conhecer:
+- a BrasilAPI de CEP tem entradas "inventadas" em sua base aberta (99999-999
+  existe lá);
+- a FIPE gratuita tem cota diária;
+- o Nominatim exige identificação (User-Agent) e cache.
 
 ## 9. Convenções
 

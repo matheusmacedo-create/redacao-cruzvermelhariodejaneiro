@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
 import { quemOperaOPatrimonio } from '@/lib/patrimonio/destinatarios'
 import { notificar } from '@/lib/notificacoes/servidor'
+import { valorFipe } from '@/lib/apis-publicas/servidor'
+import { ehTipoFipe } from '@/lib/apis-publicas/regras'
 import { lerValor } from '@/lib/patrimonio/regras'
 import { lerQuantidade } from '@/lib/patrimonio/estoque'
 import {
@@ -231,5 +233,29 @@ export async function excluirDaFrota(veiculoId: string, tabela: 'documento' | 'p
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível excluir.') }
+  }
+}
+
+/**
+ * Guarda no veículo o valor da Tabela FIPE escolhido na tela. O valor é
+ * consultado de novo aqui, no servidor, pelos códigos: o que vai ao banco é
+ * o que a FIPE diz, não um número vindo do navegador.
+ */
+export async function registrarFipe(veiculoId: string, escolha: { tipo: string; marca: string; modelo: string; ano: string } | null): Promise<Resultado & { valor?: number; referencia?: string }> {
+  try {
+    const { context, supabase } = await contextoDoPatrimonio()
+    let p: Record<string, string> = {}
+    if (escolha) {
+      if (!ehTipoFipe(escolha.tipo)) throw new Error('Tipo de veículo inválido.')
+      const v = await valorFipe(escolha.tipo, escolha.marca, escolha.modelo, escolha.ano)
+      if (!v) throw new Error('A Tabela FIPE não respondeu agora. Tente de novo em instantes.')
+      p = { codigo: v.codigoFipe, descricao: [v.marca, v.modelo, v.anoModelo, v.combustivel].filter(Boolean).join(' · '), valor: v.valor.toFixed(2), referencia: v.referencia }
+    }
+    const { error } = await supabase.rpc('frota_registrar_fipe', { p_workspace_id: context.workspace.id, p_veiculo_id: veiculoId, p })
+    if (error) erroDoBanco(error, 'Não foi possível guardar o valor FIPE.')
+    revalidar(veiculoId)
+    return escolha ? { valor: Number(p.valor), referencia: p.referencia } : {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível guardar o valor FIPE.') }
   }
 }

@@ -9,6 +9,7 @@ import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarMembro, verDadosRestritos } from '@/app/actions/equipe'
 import { BANCO, DOCUMENTOS, UFS, VINCULOS, type Nivel } from '@/lib/rh/regras'
 import type { Membro, Pessoais } from '@/lib/rh/acesso'
+import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 export type Opcao = { id: string; nome: string }
 
@@ -128,6 +129,7 @@ export function FormularioDeMembro({ m, pessoais, nivel, gestores, logins, setor
         <Campo rotulo="Telefone pessoal"><input id="e-tel-p" name="telefone_pessoal" type="tel" maxLength={40} defaultValue={p('telefone_pessoal')} className={inputClass} /></Campo>
         <Campo rotulo="Data de nascimento"><input id="e-nascimento" name="data_nascimento" type="date" defaultValue={p('data_nascimento')} className={inputClass} /></Campo>
         <Campo rotulo="CEP"><input id="e-cep" name="cep" inputMode="numeric" maxLength={12} defaultValue={p('cep')} className={inputClass} /></Campo>
+        <EnderecoPeloCep />
         <Campo rotulo="Logradouro"><input id="e-logradouro" name="logradouro" maxLength={200} defaultValue={p('logradouro')} className={inputClass} /></Campo>
         <Campo rotulo="Número"><input id="e-numero" name="numero" maxLength={20} defaultValue={p('numero')} className={inputClass} /></Campo>
         <Campo rotulo="Complemento"><input id="e-complemento" name="complemento" maxLength={120} defaultValue={p('complemento')} className={inputClass} /></Campo>

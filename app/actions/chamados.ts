@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
+import { datasDeFeriado } from '@/lib/apis-publicas/servidor'
 import {
   ehNivel, ehStatus, efeitosDaMudanca, podeMudar, podeReabrir, prazos, prioridade, ROTULO_DA_PRIORIDADE,
   ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, slaDaFila, PRIORIDADES, ENCERRADOS, type Status,
@@ -74,7 +75,7 @@ export async function abrirChamado(formData: FormData): Promise<Resultado> {
     const impacto = 1 as const
     const p = prioridade(urgencia, impacto)
     const agora = new Date()
-    const prazo = prazos(agora, p, slaDaFila(fila.sla), fila.atendimento_24h)
+    const prazo = prazos(agora, p, slaDaFila(fila.sla), fila.atendimento_24h, 0, await feriadosPerto(agora))
     const membro = context.memberships.find((m: { workspaces: unknown }) => {
       const w = Array.isArray(m.workspaces) ? m.workspaces[0] : m.workspaces
       return (w as { id?: string } | null)?.id === context.workspace.id
@@ -157,13 +158,20 @@ export async function comentarChamado(formData: FormData): Promise<Resultado> {
   }
 }
 
+/** Feriados do ano passado ao próximo: um chamado pode atravessar a virada. */
+async function feriadosPerto(agora = new Date()) {
+  const ano = agora.getFullYear()
+  return datasDeFeriado([ano - 1, ano, ano + 1])
+}
+
 // ------------------------------------------------------------------ status
 
 async function patchDeStatus(c: ChamadoCarregado, para: Status, agora: Date, porEquipe: boolean) {
+  const feriados = await feriadosPerto(agora)
   const efeitos = efeitosDaMudanca({
     status: c.status, pausadoDesde: c.pausado_desde ? new Date(c.pausado_desde) : null, minutosPausados: c.minutos_pausados,
     respondidoEm: c.respondido_em ? new Date(c.respondido_em) : null, resolvidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, reaberturas: c.reaberturas,
-  }, para, agora, { porEquipe, vinteQuatroHoras: c.fila.atendimento24h })
+  }, para, agora, { porEquipe, vinteQuatroHoras: c.fila.atendimento24h, feriados })
   const patch: Record<string, unknown> = { status: para, atualizado_em: agora.toISOString() }
   if ('pausadoDesde' in efeitos) patch.pausado_desde = efeitos.pausadoDesde?.toISOString() ?? null
   if ('respondidoEm' in efeitos) patch.respondido_em = efeitos.respondidoEm?.toISOString()
@@ -173,7 +181,7 @@ async function patchDeStatus(c: ChamadoCarregado, para: Status, agora: Date, por
   if ('minutosPausados' in efeitos) {
     // Saiu da pausa: os prazos andam o tempo parado.
     patch.minutos_pausados = efeitos.minutosPausados
-    const pz = prazos(new Date(c.criado_em), c.prioridade, c.fila.sla, c.fila.atendimento24h, efeitos.minutosPausados)
+    const pz = prazos(new Date(c.criado_em), c.prioridade, c.fila.sla, c.fila.atendimento24h, efeitos.minutosPausados, feriados)
     patch.prazo_resposta = pz.resposta.toISOString()
     patch.prazo_solucao = pz.solucao.toISOString()
   }
@@ -292,7 +300,7 @@ export async function definirImpacto(formData: FormData): Promise<Resultado> {
     if (!ehNivel(impacto)) throw new Error('Impacto inválido.')
     if (impacto === c.impacto) return { recado: 'Nada mudou.' }
     const p = prioridade(c.urgencia, impacto)
-    const pz = prazos(new Date(c.criado_em), p, c.fila.sla, c.fila.atendimento24h, c.minutos_pausados)
+    const pz = prazos(new Date(c.criado_em), p, c.fila.sla, c.fila.atendimento24h, c.minutos_pausados, await feriadosPerto())
     await admin.from('chamados').update({ impacto, prioridade: p, prazo_resposta: pz.resposta.toISOString(), prazo_solucao: pz.solucao.toISOString(), atualizado_em: new Date().toISOString() }).eq('id', c.id)
     await evento(admin, c, context.user.id, { acao: 'prioridade', de: c.prioridade, para: p, impacto })
     revalidar(c.id)
@@ -314,7 +322,7 @@ export async function transferirChamado(formData: FormData): Promise<Resultado> 
     if (!categoria) throw new Error('Escolha o assunto na fila de destino.')
     const motivo = texto(formData, 'texto', 2000)
     if (motivo.length < 3) throw new Error('Diga por que está transferindo.')
-    const pz = prazos(new Date(c.criado_em), c.prioridade, slaDaFila(destino.sla), destino.atendimento_24h, c.minutos_pausados)
+    const pz = prazos(new Date(c.criado_em), c.prioridade, slaDaFila(destino.sla), destino.atendimento_24h, c.minutos_pausados, await feriadosPerto())
     const { data: novo, error } = await admin.from('chamados').update({
       fila_id: destino.id, categoria_id: categoria.id, tipo: categoria.tipo, responsavel_id: null,
       prazo_resposta: pz.resposta.toISOString(), prazo_solucao: pz.solucao.toISOString(), atualizado_em: new Date().toISOString(),
