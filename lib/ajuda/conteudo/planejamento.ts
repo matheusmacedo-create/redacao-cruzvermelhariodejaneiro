@@ -231,7 +231,7 @@ const RADAR: GuiaDaArea = {
 
 const PAUTAS: GuiaDaArea = {
   href: '/pautas',
-  paraQueServe: 'Pautas é o quadro editorial: cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”. Dentro de cada pauta, a sala guarda a conversa, a descrição, os links de arquivos, os conteúdos e as aprovações. Uma pauta nasce do “Registrar atividade”, do “Adicionar pauta” no quadro, do “Agendar” do calendário ou do “Transformar em pauta” da “Caixa de entrada”.',
+  paraQueServe: 'Pautas é o quadro editorial: cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”. Dentro de cada pauta, a sala guarda a conversa, a descrição, os links de arquivos, os conteúdos e as aprovações. Uma pauta nasce do “Registrar atividade”, do “Adicionar pauta” no quadro, do “Agendar” do calendário ou de um envio da equipe (“Envios da equipe”).',
   quemUsa: 'Toda a equipe cria, edita, move e arquiva pautas, e cria etiquetas. “Excluir pauta” aparece só para quem é responsável pela pauta e para administradores. No conteúdo, “Concluir matéria” aparece para quem responde pelo conteúdo ou pela pauta, e para administradores.',
   tour: [
     {

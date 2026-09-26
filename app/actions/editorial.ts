@@ -869,33 +869,6 @@ export async function createPautaApproval(formData: FormData) {
   revalidatePath(`/pautas/${pautaId}`); revalidatePath('/aprovacoes'); redirect(`/aprovacoes/${approvalId}`)
 }
 
-export async function archiveInboxItem(formData: FormData) {
-  const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData, 'id')
-  const { error } = await supabase.from('inbox_items').update({ status: 'archived' }).eq('id', id).eq('workspace_id', context.workspace.id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/caixa-de-entrada')
-}
-
-export async function convertInboxToPauta(formData: FormData) {
-  const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData, 'id')
-  const { data: item, error: readError } = await supabase.from('inbox_items').select('*').eq('id', id).eq('workspace_id', context.workspace.id).single()
-  if (readError || !item) throw new Error('Item da caixa de entrada não encontrado.')
-  const { data: pauta, error } = await supabase.from('pautas').insert({
-    workspace_id: context.workspace.id,
-    title: item.title,
-    description: item.summary,
-    status: 'incoming',
-    priority: item.priority || 'medium',
-    coordination: item.coordination,
-    created_by: context.user.id,
-    owner_id: context.user.id,
-    tags: [item.type].filter(Boolean),
-  }).select('id').single()
-  if (error) throw new Error(error.message)
-  await supabase.from('inbox_items').update({ status: 'converted' }).eq('id', id).eq('workspace_id', context.workspace.id)
-  revalidatePath('/caixa-de-entrada'); revalidatePath('/pautas'); redirect(`/pautas/${pauta.id}`)
-}
-
 export async function addContentComment(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()

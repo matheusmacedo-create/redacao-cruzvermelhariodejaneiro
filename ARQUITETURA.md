@@ -123,7 +123,7 @@ explicaria o problema.
 ```
 app/
   (app)/              rotas autenticadas — o grupo tem o layout com sidebar
-    dashboard/  caixa-de-entrada/  registrar/  pautas/  projetos/
+    dashboard/  direct/  registrar/  pautas/  projetos/
     conteudos/[id]/   aprovacoes/  calendario/  biblioteca/  redes/
     mensagens/  pessoas/  perfil/  configuracoes/  acervo/
   actions/            server actions — TODA escrita passa por aqui
@@ -902,6 +902,24 @@ Benchmark, decisões e o que foi entregue: [`docs/calendario-inteligente.md`](do
   `router.replace` (o comprovante anterior, com a chave de revogação, não fica no histórico).
 - **Regras puras** em `lib/imagem/regras.ts` (validação, traços, aparelho, código `IMG-XXXX-XXXX`,
   documento canônico). O termo é **minuta** — revisão do Jurídico pendente.
+
+### 7.18 Direct das redes (`/direct`)
+
+A antiga Caixa de entrada (`/caixa-de-entrada` redireciona para cá, desde 26/09/2026). Só redes
+sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em "Envios da equipe".
+
+- **Mensagens e comentários vêm do conector** (Upload-Post, `lib/atendimento/conector.ts`) a cada
+  abertura, pela action `carregarFila`. Nada disso é guardado no banco.
+- **A situação é da equipe:** `direct_atendimentos` guarda, por item (`chave` = id do
+  normalizador), quem respondeu por aqui ou marcou "Não precisa responder". A regra
+  (pendente / respondida / resolvida / em dia; mensagem nova do público reabre a conversa) está em
+  `lib/atendimento/situacao.ts`, conferida por `npx tsx scripts/conferir-direct.ts`. Escrita só
+  pelas actions de `app/actions/atendimento.ts` (RLS sem escrita direta).
+- **Mídia no Direct:** o endpoint de conversas do Upload-Post devolve só o campo `message`. Foto,
+  áudio, vídeo e figurinha chegam vazios e aparecem como "Foto, vídeo, áudio ou figurinha", com
+  "Abrir no Instagram". Se o conector passar a mandar `attachments`, `normalizar.ts` já lê a imagem.
+- A pasta "E-mail e materiais" (`inbox_items`) saiu: nenhum código gravava nela e a tabela estava
+  vazia. A tabela continua no banco (migração só acrescenta).
 
 ## 8. Integrações externas
 
