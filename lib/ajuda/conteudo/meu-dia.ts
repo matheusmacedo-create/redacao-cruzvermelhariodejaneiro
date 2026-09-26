@@ -19,23 +19,18 @@ import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
-  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, o que é seu: as suas pautas por prazo e o que espera o seu voto. Depois, “O Palácio”, com todas as áreas que você pode abrir; a semana da comunicação (o que vai ao ar, o que saiu e o que falhou); e quatro indicadores dos últimos 30 dias.',
+  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, a saudação com o seu dia em uma frase, atalhos para começar algo e quatro números que levam direto ao que é seu. Depois, “Meu dia”: o que espera o seu voto e as suas pautas por prazo, com o que acontece hoje na comunicação, o tempo no Rio e a equipe ao lado. Mais abaixo, a semana da comunicação, quatro indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas.',
   quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   tour: [
     {
       titulo: 'O seu Início',
-      texto: 'O Início é a entrada do Palácio Virtual: “Meu dia”, “O Palácio” com todas as áreas, a semana da comunicação e os indicadores. O detalhe de cada coisa continua na tela dela.',
+      texto: 'O Início é a entrada do Palácio Virtual: o seu dia primeiro, depois a semana da comunicação, os indicadores e o mapa de todas as áreas. O detalhe de cada coisa continua na tela dela.',
     },
     {
       alvo: 'inicio.resumo',
       titulo: 'O dia em uma frase',
-      texto: 'A frase abaixo da saudação conta o que pede a sua atenção agora. Os três números ao lado levam às suas pautas em aberto, ao que espera o seu voto e às pautas atrasadas.',
+      texto: 'A frase abaixo da saudação conta o que pede a sua atenção agora. Os botões começam uma atividade, uma publicação, um ofício ou um chamado. Os quatro números levam ao que espera o seu voto, às pautas atrasadas, às que vencem em 7 dias e às suas em aberto; ficam vermelhos quando pedem ação.',
       lado: 'bottom',
-    },
-    {
-      alvo: 'inicio.minhas-pautas',
-      titulo: 'Minhas pautas',
-      texto: 'As pautas em aberto em que você é responsável, separadas por prazo, de “Atrasadas” a “Sem prazo”. Cada linha abre a pauta; “Abrir o quadro” leva a Pautas.',
     },
     {
       alvo: 'inicio.esperando-voce',
@@ -43,9 +38,14 @@ const INICIO: GuiaDaArea = {
       texto: 'Os conteúdos em que pediram o seu voto e que ainda esperam a sua decisão, do pedido mais antigo para o mais novo. Cada linha abre a tela de aprovação.',
     },
     {
+      alvo: 'inicio.minhas-pautas',
+      titulo: 'Minhas pautas',
+      texto: 'As pautas em aberto em que você é responsável, separadas por prazo, de “Atrasadas” a “Sem prazo”. Cada linha abre a pauta; “Abrir o quadro” leva a Pautas.',
+    },
+    {
       alvo: 'inicio.areas',
-      titulo: 'O Palácio',
-      texto: 'Todas as áreas que você pode abrir, agrupadas como no menu: comunicação, planejamento, expediente, escola, pessoas. Um toque leva direto à área.',
+      titulo: 'Todas as áreas',
+      texto: 'No fim do Início, “Todas as áreas do Palácio” abre o mapa de tudo o que você pode abrir, agrupado como no menu: comunicação, planejamento, institucional, escola, pessoas. Um toque leva direto à área.',
       seAusente: 'pular',
     },
     {

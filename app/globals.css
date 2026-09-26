@@ -73,7 +73,10 @@
   --accent-foreground: oklch(0.3 0 0);
 
   /* States */
-  --destructive: rgb(227 34 25);
+  /* Erro e atraso NÃO usam o vermelho da marca: com a mesma cor, o botão
+     principal e o alerta diziam a mesma coisa. Mais escuro (contraste 6,4:1
+     no branco) e sempre com ícone ou texto junto, nunca só a cor. */
+  --destructive: rgb(185 28 28);
   --destructive-foreground: oklch(1 0 0);
   --success: oklch(0.58 0.14 150);
   --success-foreground: oklch(1 0 0);

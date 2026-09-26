@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { AlertTriangle, ArrowRight, Check, ChevronLeft, ChevronRight, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CalendarDays, Check, CheckCircle2, ChevronLeft, ChevronRight, SquarePen, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Avatar } from '@/components/ui/avatar'
 import { privateAvatarUrl } from '@/lib/avatar-url'
@@ -18,7 +18,7 @@ export function Secao({ titulo, acao, children, id }: { titulo: string; acao?: {
   return (
     <section aria-labelledby={id} className="min-w-0">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 id={id} className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</h2>
+        <h3 id={id} className="text-[15px] font-semibold tracking-tight">{titulo}</h3>
         {acao && <Link href={acao.href} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">{acao.rotulo}<ArrowRight className="size-3" /></Link>}
       </div>
       {children}
@@ -30,10 +30,10 @@ export function Secao({ titulo, acao, children, id }: { titulo: string; acao?: {
 export function Camada({ nome, pergunta, lado, children }: { nome: string; pergunta: string; lado?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-2">
-        <div>
-          <p className="text-lg font-bold tracking-tight">{nome}</p>
-          <p className="text-xs text-muted-foreground">{pergunta}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="border-l-[3px] border-primary pl-3">
+          <h2 className="text-xl font-bold leading-tight tracking-tight">{nome}</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">{pergunta}</p>
         </div>
         {lado}
       </div>
@@ -65,7 +65,14 @@ export function MinhasPautas({ grupos, total, hoje }: { grupos: { grupo: GrupoDe
     <Secao titulo="Minhas pautas" id="minhas-pautas" acao={{ href: '/pautas', rotulo: 'Abrir o quadro' }}>
       <Card data-ajuda="inicio.minhas-pautas" className="overflow-hidden p-0">
         {!total ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma pauta sua em aberto. As pautas em que você é responsável aparecem aqui, separadas por prazo.</p>
+          <div className="flex flex-col items-center gap-3 px-6 py-8 text-center">
+            <span className="flex size-10 items-center justify-center rounded-full bg-success/10 text-success"><CheckCircle2 className="size-5" aria-hidden="true" /></span>
+            <div>
+              <p className="text-sm font-semibold">Nenhuma pauta sua em aberto</p>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">As pautas em que você é responsável aparecem aqui, separadas por prazo. Tem uma ação para contar?</p>
+            </div>
+            <Link href="/registrar" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium transition-colors hover:bg-muted"><SquarePen className="size-4" aria-hidden="true" />Registrar atividade</Link>
+          </div>
         ) : cortados.map((g) => (
           <div key={g.grupo}>
             <div className={`flex items-center justify-between border-b border-border bg-muted/40 px-4 py-1.5 text-xs font-semibold ${g.grupo === 'atrasadas' ? 'text-destructive' : 'text-muted-foreground'}`}>
@@ -109,7 +116,7 @@ export function EsperandoVoce({ pedidos, hoje }: { pedidos: PedidoDeAprovacao[];
             <span className="shrink-0 text-xs text-muted-foreground">{haQuanto(a.pedidoEm, hoje)}</span>
           </Link>
         ))}
-        {!pedidos.length && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Nada esperando a sua decisão.</p>}
+        {!pedidos.length && <p className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground"><Check className="size-4 text-success" aria-hidden="true" />Nada esperando a sua decisão.</p>}
       </Card>
     </Secao>
   )
@@ -141,7 +148,7 @@ export function EquipeAgora({ itens, hoje }: { itens: (ItemDoFeed & { dia: strin
             ? <Link key={i.id} href={i.href} className="flex items-start gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/40">{corpo}</Link>
             : <div key={i.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">{corpo}</div>
         })}
-        {!itens.length && <p className="px-4 py-6 text-center text-sm text-muted-foreground">Sem movimento registrado ainda.</p>}
+        {!itens.length && <p className="px-4 py-4 text-sm text-muted-foreground">Sem movimento registrado ainda. O que a equipe fizer (pautas, projetos, ofícios) aparece aqui.</p>}
       </Card>
     </Secao>
   )
@@ -197,14 +204,55 @@ export function NavegacaoDaSemana({ anterior, proxima, ehAtual }: { anterior: st
   )
 }
 
-export function Contador({ valor, rotulo, href, alerta }: { valor: number; rotulo: string; href?: string; alerta?: boolean }) {
-  const corpo = (
-    <Card className={`h-full p-3.5 transition-colors ${href ? 'hover:bg-muted/40' : ''} ${alerta ? 'border-destructive/60' : ''}`}>
-      <p className={`text-2xl font-bold tabular-nums ${alerta ? 'text-destructive' : ''}`}>{valor}</p>
-      <p className="text-xs text-muted-foreground">{rotulo}</p>
+/** Os números da semana numa faixa só (e não quatro cartões): lidos de passagem, levam à lista. */
+export function NumerosDaSemana({ numeros }: { numeros: { valor: number; rotulo: string; href: string; alerta?: boolean }[] }) {
+  return (
+    <Card className="grid grid-cols-2 overflow-hidden p-0 lg:grid-cols-4">
+      {numeros.map((n, i) => (
+        <Link
+          key={n.rotulo}
+          href={n.href}
+          className={`flex items-baseline gap-2 border-border px-4 py-3 transition-colors hover:bg-muted/40 ${i % 2 ? 'border-l' : ''} ${i >= 2 ? 'border-t lg:border-t-0' : ''} ${i === 2 ? 'lg:border-l' : ''} ${n.alerta ? 'bg-destructive/[0.04]' : ''}`}
+        >
+          <span className={`text-2xl font-bold tabular-nums ${n.alerta ? 'text-destructive' : ''}`}>{n.valor}</span>
+          <span className={`text-xs ${n.alerta ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>{n.rotulo}</span>
+        </Link>
+      ))}
     </Card>
   )
-  return href ? <Link href={href}>{corpo}</Link> : corpo
+}
+
+/** O que o calendário tem para hoje, na coluna do lado: o dia da comunicação de relance. */
+export function HojeNaAgenda({ itens }: { itens: ItemDaSemana[] }) {
+  return (
+    <Secao titulo="Hoje na comunicação" id="hoje-na-agenda" acao={{ href: '/calendario', rotulo: 'Calendário' }}>
+      <Card className="divide-y divide-border overflow-hidden p-0">
+        {itens.slice(0, 6).map((i) => {
+          const corpo = (
+            <>
+              <span className={`w-12 shrink-0 pt-px text-xs font-semibold tabular-nums ${i.estado === 'falhou' ? 'text-destructive' : i.estado === 'publicado' ? 'text-success' : 'text-muted-foreground'}`}>
+                {i.estado === 'falhou' ? 'Falhou' : i.hora ?? (i.estado === 'publicado' ? 'No ar' : 'Dia')}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{i.titulo}</span>
+                <span className="block truncate text-xs text-muted-foreground">{i.canal || ROTULO_DO_TIPO[i.tipo] || 'Agendamento'}</span>
+              </span>
+            </>
+          )
+          return i.href
+            ? <Link key={i.id} href={i.href} className="flex items-start gap-2 px-4 py-2.5 transition-colors hover:bg-muted/40">{corpo}</Link>
+            : <div key={i.id} className="flex items-start gap-2 px-4 py-2.5">{corpo}</div>
+        })}
+        {itens.length > 6 && <Link href="/calendario" className="block px-4 py-2 text-xs text-muted-foreground hover:text-foreground">+ {itens.length - 6} no calendário</Link>}
+        {!itens.length && (
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Nada programado para hoje. <Link href="/calendario" className="font-medium text-foreground hover:underline">Ver a semana no calendário</Link></p>
+          </div>
+        )}
+      </Card>
+    </Secao>
+  )
 }
 
 const NOME_DO_DIA = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
