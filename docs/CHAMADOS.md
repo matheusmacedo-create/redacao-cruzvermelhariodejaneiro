@@ -22,8 +22,12 @@ Jira Service Management**, a **matriz de prioridade e os dois prazos do
 GLPI**, a **satisfação do Zendesk** e a **simplicidade do Linear**.
 
 ### Filas e catálogo
-- **Filas** (TI, Manutenção; o admin cria outras): cada uma com prefixo
-  (`TI-0042`, `MAN-0007`), equipe de **atendentes**, expediente e SLA.
+- **Filas** — uma por setor que atende pedidos (TI, Manutenção, Comunicação,
+  Jurídico…): cada uma com prefixo (`TI-0042`, `MAN-0007`), ícone, equipe de
+  **atendentes**, expediente e SLA. Em Configurar, os setores de Pessoas →
+  Setores que ainda não têm fila aparecem com a fila sugerida (prefixo livre,
+  ícone e assuntos de `lib/chamados/setores.ts`) e viram fila num clique, com
+  o responsável do setor como atendente. Fila sem atendentes avisa os admins.
 - **Categorias** por fila (o "catálogo"): cada uma diz se é *incidente*
   (algo parou) ou *solicitação* (preciso de algo) e se pede **local**
   (sala/andar — essencial para Manutenção).

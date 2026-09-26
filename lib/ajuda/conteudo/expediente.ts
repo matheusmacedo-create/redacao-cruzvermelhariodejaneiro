@@ -332,12 +332,12 @@ const OFICIOS: GuiaDaArea = {
 
 const CHAMADOS: GuiaDaArea = {
   href: '/chamados',
-  paraQueServe: 'Pedidos entre setores da filial: TI, Manutenção e outras equipes. Você abre o chamado, conversa com quem atende e confirma a solução. Cada chamado tem prioridade e prazos de resposta e de solução, e tudo fica registrado na linha do tempo.',
+  paraQueServe: 'Pedidos entre os setores da filial: TI, Manutenção, Comunicação, Jurídico, Financeiro e os outros que recebem chamados. Você abre o chamado, conversa com quem atende e confirma a solução. Cada chamado tem prioridade e prazos de resposta e de solução, e tudo fica registrado na linha do tempo.',
   quemUsa: 'Todo mundo abre chamados e acompanha os seus. Quem faz parte da equipe de uma fila atende os chamados dela; administradores atendem todas as filas e configuram filas, equipes, assuntos e prazos.',
   tour: [
     {
       titulo: 'Chamados',
-      texto: 'Pedidos para TI, Manutenção e outras equipes. Você abre, acompanha a conversa e avalia o atendimento, tudo por aqui.',
+      texto: 'Pedidos para qualquer setor que recebe chamados: TI, Manutenção, Comunicação e os outros. Você abre, acompanha a conversa e avalia o atendimento, tudo por aqui.',
     },
     {
       alvo: 'chamados.abrir',
@@ -384,7 +384,7 @@ const CHAMADOS: GuiaDaArea = {
         {
           alvo: 'chamados.equipes',
           titulo: 'A equipe',
-          texto: 'Primeiro, para quem é o pedido: TI, Manutenção ou outra fila. Cada cartão diz o que aquela equipe atende.',
+          texto: 'Primeiro, para quem é o pedido: cada cartão é um setor e diz o que ele atende. Com muitos setores, busque pelo que você precisa (“reembolso”, “arte”, “acesso”): o assunto encontrado já vem marcado.',
           seAusente: 'pular',
         },
         {
@@ -453,6 +453,12 @@ const CHAMADOS: GuiaDaArea = {
           texto: 'Cada fila é uma equipe que recebe chamados, com prefixo, quem atende, o catálogo de assuntos e os prazos por prioridade. Só administradores mudam.',
         },
         {
+          alvo: 'chamados.setores',
+          titulo: 'Setores sem fila',
+          texto: 'Os setores de Pessoas → Setores que ainda não recebem chamados aparecem aqui, cada um com prefixo, ícone e assuntos sugeridos. Marque os que devem atender e toque em “Criar filas”: o responsável do setor já entra como atendente.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'chamados.filas',
           titulo: 'As filas',
           texto: 'Toque numa fila para abrir. Dentro dela ficam os dados da fila e os prazos, “Quem atende” e “Assuntos (catálogo)”.',
@@ -473,7 +479,7 @@ const CHAMADOS: GuiaDaArea = {
         {
           alvo: 'chamados.nova-fila',
           titulo: 'Nova fila',
-          texto: 'O botão “Nova fila” cria outra equipe de atendimento, com nome, prefixo de 2 a 6 letras e os prazos.',
+          texto: 'O botão “Nova fila” cria uma fila do zero, com nome, prefixo de 2 a 6 letras, ícone e os prazos. Fila sem ninguém em “Quem atende” manda os avisos para os administradores.',
           seAusente: 'pular',
         },
       ],
@@ -481,11 +487,23 @@ const CHAMADOS: GuiaDaArea = {
   ],
   tarefas: [
     {
+      id: 'chamados-para-os-setores',
+      titulo: 'Fazer outros setores receberem chamados',
+      quem: 'Administradores',
+      passos: [
+        'Em “Chamados”, toque em “Configurar”.',
+        'No alto, em “setores ainda não recebem chamados”, marque os setores que devem atender pedidos.',
+        'Toque em “Criar filas”. Cada setor vira uma fila com prefixo (ex.: JUR-0001), ícone e assuntos sugeridos.',
+        'Abra cada fila nova e confira “Quem atende” (o responsável do setor já vem marcado) e os assuntos.',
+      ],
+      dica: 'Os setores vêm de Pessoas → Setores: um setor novo lá aparece aqui para virar fila. Enquanto uma fila não tiver atendentes, os avisos de chamado novo vão para os administradores.',
+    },
+    {
       id: 'abrir-chamado',
       titulo: 'Abrir um chamado',
       passos: [
         'Em “Chamados”, toque em “Abrir chamado”.',
-        'Escolha a equipe (por exemplo, TI ou Manutenção).',
+        'Escolha o setor (por exemplo, TI, Manutenção ou Comunicação). Não sabe qual? Busque pelo que precisa e toque no assunto que aparecer.',
         'Em “Qual é o assunto?”, escolha o que mais combina.',
         'Preencha “Resumo” e “Descreva com detalhes”. Se o assunto pedir, informe o “Local” (sala, andar ou setor).',
         'Em “Quanto isso atrapalha?”, escolha “Consigo esperar”, “Atrapalha meu trabalho” ou “Parou tudo”.',

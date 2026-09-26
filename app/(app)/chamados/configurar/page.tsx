@@ -2,6 +2,8 @@ import { ShieldAlert } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { ConfigurarChamados, type FilaNaConfiguracao } from '@/components/app/chamados/configurar'
+import { setoresParaChamados } from '@/lib/chamados/servidor'
+import { propostasDeFila } from '@/lib/chamados/setores'
 import { requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { pode } from '@/lib/permissoes'
@@ -17,15 +19,16 @@ export default async function ConfigurarChamadosPage() {
   }
   const admin = createAdminClient()
   const ws = context.workspace.id
-  const [{ data: filas }, { data: membros }, { data: categorias }, { data: abertos }, { data: vinculos }] = await Promise.all([
-    admin.from('chamado_filas').select('id, nome, prefixo, descricao, ativa, atendimento_24h, sla').eq('workspace_id', ws).order('ordem').order('nome'),
+  const [{ data: filas }, { data: membros }, { data: categorias }, { data: abertos }, { data: vinculos }, setores] = await Promise.all([
+    admin.from('chamado_filas').select('id, slug, nome, prefixo, descricao, icone, ativa, atendimento_24h, sla').eq('workspace_id', ws).order('ordem').order('nome'),
     admin.from('chamado_fila_membros').select('fila_id, user_id').eq('workspace_id', ws),
     admin.from('chamado_categorias').select('id, fila_id, nome, descricao, tipo, pede_local, ativa').eq('workspace_id', ws).order('ordem').order('nome'),
     admin.from('chamados').select('fila_id').eq('workspace_id', ws).in('status', [...ABERTOS]),
     admin.from('workspace_members').select('user_id, role, profiles(full_name, active)').eq('workspace_id', ws),
+    setoresParaChamados(admin, ws),
   ])
   const lista: FilaNaConfiguracao[] = (filas ?? []).map((f) => ({
-    id: f.id, nome: f.nome, prefixo: f.prefixo, descricao: f.descricao, ativa: f.ativa, atendimento24h: f.atendimento_24h, sla: slaDaFila(f.sla),
+    id: f.id, nome: f.nome, prefixo: f.prefixo, descricao: f.descricao, icone: f.icone, ativa: f.ativa, atendimento24h: f.atendimento_24h, sla: slaDaFila(f.sla),
     membros: (membros ?? []).filter((m) => m.fila_id === f.id).map((m) => m.user_id as string),
     categorias: (categorias ?? []).filter((c) => c.fila_id === f.id).map((c) => ({ id: c.id, nome: c.nome, descricao: c.descricao, tipo: c.tipo, pedeLocal: c.pede_local, ativa: c.ativa })),
     abertos: (abertos ?? []).filter((c) => c.fila_id === f.id).length,
@@ -34,11 +37,13 @@ export default async function ConfigurarChamadosPage() {
     const p = (Array.isArray(v.profiles) ? v.profiles[0] : v.profiles) as { full_name: string; active: boolean } | null
     return p?.active ? [{ id: v.user_id as string, nome: p.full_name, papel: v.role as string }] : []
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  // Os setores (Pessoas → Setores) que ainda não têm fila, com a fila que cada um ganharia.
+  const semFila = propostasDeFila(setores, (filas ?? []).map((f) => ({ slug: f.slug, nome: f.nome, prefixo: f.prefixo })))
 
   return (
     <div className="mx-auto max-w-5xl">
-      <PageHeader title="Configurar chamados" description="Filas de atendimento, quem atende cada uma, o catálogo de assuntos e os prazos (SLA) por prioridade." breadcrumbs={migalhas} />
-      <ConfigurarChamados filas={lista} pessoas={pessoas} />
+      <PageHeader title="Configurar chamados" description="Uma fila por setor que atende pedidos: quem atende, o catálogo de assuntos e os prazos (SLA) por prioridade." breadcrumbs={migalhas} />
+      <ConfigurarChamados filas={lista} pessoas={pessoas} semFila={semFila} />
     </div>
   )
 }

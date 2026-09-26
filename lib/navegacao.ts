@@ -120,7 +120,7 @@ export const GRUPOS: Grupo[] = [
     rotulo: 'Institucional',
     areas: [
       { href: '/oficios', rotulo: 'Ofícios', resumo: 'Numerados por ano, assinados e registrados', icone: FileSignature, termos: ['documento oficial', 'carta'] },
-      { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos para TI, Manutenção e outras equipes', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk'] },
+      { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos a qualquer setor da filial', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk', 'setor', 'reembolso', 'arte'] },
       // Aberto a todos: qualquer setor pede; a cotação e a aprovação ficam com o Financeiro.
       { href: '/financeiro/compras', rotulo: 'Pedidos de compra', resumo: 'Peça o que o setor precisa e acompanhe a cotação e a aprovação', icone: ShoppingCart, termos: ['compras', 'comprar', 'cotação', 'orçamento de fornecedor', 'proposta', 'fornecedor', 'ordem de compra', 'requisição', 'mapa comparativo'] },
       { href: '/patrimonio', rotulo: 'Patrimônio', resumo: 'Bens com plaqueta e QR, estoque com lote e validade, doações, frota, manutenção e inventário', icone: Package, termos: ['inventário', 'bens', 'plaqueta', 'cautela', 'termo de responsabilidade', 'almoxarifado', 'estoque', 'materiais', 'validade', 'kits', 'doações', 'doador', 'recibo', 'campanha', 'distribuição', 'frota', 'veículos', 'ambulância', 'combustível', 'CNH'] },

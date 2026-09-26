@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2, Lock, MessageSquare, Monitor, Paperclip, Send, Star, Ticket, Wrench, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Lock, MessageSquare, Paperclip, Search, Send, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ import {
   abrirChamado, atribuirChamado, avaliarChamado, comentarChamado, definirImpacto, mudarStatusDoChamado, transferirChamado,
 } from '@/app/actions/chamados'
 import { campo } from './comum'
+import { iconeDaFila } from './icones'
+import { normalizar } from '@/lib/chamados/setores'
 
 type Aviso = { tom: 'ok' | 'erro'; texto: string } | null
 type Resultado = { erro?: string; recado?: string; id?: string }
@@ -69,7 +71,55 @@ export function CampoDeAnexos({ workspaceId, anexos, setAnexos, ocupado, setOcup
 
 export type FilaParaAbrir = { id: string; nome: string; descricao: string | null; icone: string; categorias: { id: string; nome: string; descricao: string | null; pedeLocal: boolean; tipo: 'incidente' | 'solicitacao' }[] }
 
-const ICONES: Record<string, typeof Ticket> = { monitor: Monitor, wrench: Wrench }
+
+/**
+ * O primeiro passo: a que setor pedir. Com muitos setores, a busca procura
+ * no nome, na descrição e nos assuntos de cada um ("reembolso" acha o
+ * Financeiro) — e o assunto encontrado já vem escolhido.
+ */
+function EscolherEquipe({ filas, escolher }: { filas: FilaParaAbrir[]; escolher: (filaId: string, categoriaId?: string) => void }) {
+  const [busca, setBusca] = useState('')
+  const termos = normalizar(busca).split(/\s+/).filter(Boolean)
+  const casa = (texto: string | null) => { const t = normalizar(texto ?? ''); return termos.every((p) => t.includes(p)) }
+  const achadas = filas.flatMap((f) => {
+    if (!termos.length) return [{ f, assuntos: [] as FilaParaAbrir['categorias'] }]
+    const assuntos = f.categorias.filter((c) => casa(`${c.nome} ${c.descricao ?? ''}`))
+    return casa(`${f.nome} ${f.descricao ?? ''}`) || assuntos.length ? [{ f, assuntos }] : []
+  })
+  return (
+    <div className="flex flex-col gap-4">
+      {filas.length > 4 && (
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <span className="sr-only">Buscar o setor ou o assunto</span>
+          <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Do que você precisa? Ex.: reembolso, arte, acesso, lâmpada" className={cn(campo, 'pl-9')} autoFocus />
+        </label>
+      )}
+      <div data-ajuda="chamados.equipes" className="grid gap-3 sm:grid-cols-2">
+        {achadas.map(({ f, assuntos }) => {
+          const Icone = iconeDaFila(f.icone)
+          return (
+            <div key={f.id} className="flex flex-col rounded-xl border border-border bg-card transition-colors hover:border-primary hover:bg-primary/5">
+              <button type="button" onClick={() => escolher(f.id)} className="flex items-start gap-4 p-4 text-left sm:p-5">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icone className="size-5" aria-hidden="true" /></span>
+                <span className="min-w-0"><span className="block font-semibold">{f.nome}</span><span className="mt-1 block text-sm text-muted-foreground">{f.descricao}</span></span>
+              </button>
+              {assuntos.length > 0 && (
+                <ul className="flex flex-wrap gap-1.5 px-4 pb-4 sm:px-5">
+                  {assuntos.slice(0, 4).map((c) => (
+                    <li key={c.id}><button type="button" onClick={() => escolher(f.id, c.id)} className="rounded-full border border-primary/30 bg-card px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10">{c.nome}</button></li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })}
+        {!filas.length && <Card className="p-6 text-sm text-muted-foreground">Nenhuma equipe está recebendo chamados agora.</Card>}
+        {filas.length > 0 && !achadas.length && <Card className="p-6 text-sm text-muted-foreground sm:col-span-2">Nenhum setor ou assunto com “{busca}”. Tente outra palavra, ou escolha o setor mais próximo: a equipe transfere se for de outro.</Card>}
+      </div>
+    </div>
+  )
+}
 
 export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: string; filas: FilaParaAbrir[]; filaInicial?: string }) {
   const router = useRouter()
@@ -98,22 +148,7 @@ export function NovoChamado({ workspaceId, filas, filaInicial }: { workspaceId: 
     })
   }
 
-  if (!fila) {
-    return (
-      <div data-ajuda="chamados.equipes" className="grid gap-4 sm:grid-cols-2">
-        {filas.map((f) => {
-          const Icone = ICONES[f.icone] ?? Ticket
-          return (
-            <button key={f.id} type="button" onClick={() => { setFilaId(f.id); setCategoriaId('') }} className="flex items-start gap-4 rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-primary hover:bg-primary/5">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icone className="size-5" /></span>
-              <span><span className="block font-semibold">{f.nome}</span><span className="mt-1 block text-sm text-muted-foreground">{f.descricao}</span></span>
-            </button>
-          )
-        })}
-        {!filas.length && <Card className="p-6 text-sm text-muted-foreground">Nenhuma equipe está recebendo chamados agora.</Card>}
-      </div>
-    )
-  }
+  if (!fila) return <EscolherEquipe filas={filas} escolher={(id, categoria) => { setFilaId(id); setCategoriaId(categoria ?? '') }} />
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-5">

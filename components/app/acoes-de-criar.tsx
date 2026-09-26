@@ -26,7 +26,7 @@ export const ACOES_DE_CRIAR: AcaoDeCriar[] = [
   { id: 'registrar', rotulo: 'Registrar atividade', resumo: 'Conte o que aconteceu; vira pauta na Entrada', icone: SquarePen, href: '/registrar', termos: ['nova pauta', 'registrar', 'ação', 'evento', 'ideia'] },
   { id: 'pacote', rotulo: 'Nova publicação', resumo: 'Um pacote para redes, site e newsletter', icone: Send, termos: ['novo pacote', 'post', 'publicar'] },
   { id: 'oficio', rotulo: 'Novo ofício', resumo: 'Rascunho que ganha número ao ser emitido', icone: FileSignature, termos: ['documento oficial', 'carta'] },
-  { id: 'chamado', rotulo: 'Abrir chamado', resumo: 'Pedido para TI, Manutenção e outras equipes', icone: LifeBuoy, href: '/chamados/novo', termos: ['suporte', 'ti', 'manutenção', 'pedido'] },
+  { id: 'chamado', rotulo: 'Abrir chamado', resumo: 'Pedido a qualquer setor da filial', icone: LifeBuoy, href: '/chamados/novo', termos: ['suporte', 'ti', 'manutenção', 'pedido', 'setor'] },
 ]
 
 export function useCriar() {

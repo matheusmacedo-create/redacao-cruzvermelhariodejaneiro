@@ -11,8 +11,9 @@ import {
 } from '@/lib/chamados/regras'
 import {
   avisarSobreChamado, carregarChamado, equipeDaFila, filasQueAtendo, lerAnexos, papeisNoChamado, registrarAnexos,
-  type ChamadoCarregado,
+  setoresParaChamados, type ChamadoCarregado,
 } from '@/lib/chamados/servidor'
+import { ehIconeDeFila, propostasDeFila } from '@/lib/chamados/setores'
 
 /**
  * Chamados (docs/CHAMADOS.md).
@@ -368,7 +369,8 @@ export async function salvarFila(formData: FormData): Promise<Resultado> {
       if (!(r > 0 && s > 0 && r <= s && s <= 2000)) throw new Error(`SLA de prioridade ${ROTULO_DA_PRIORIDADE[p].toLowerCase()}: a solução precisa ser maior ou igual à primeira resposta.`)
       sla[p] = { resposta: r, solucao: s }
     }
-    const campos = { nome, prefixo, descricao, sla, atendimento_24h: formData.get('atendimento24h') === '1', ativa: formData.get('ativa') !== '0' }
+    const icone = texto(formData, 'icone', 40)
+    const campos = { nome, prefixo, descricao, sla, atendimento_24h: formData.get('atendimento24h') === '1', ativa: formData.get('ativa') !== '0', ...(ehIconeDeFila(icone) ? { icone } : {}) }
     if (id) {
       const { error } = await admin.from('chamado_filas').update(campos).eq('workspace_id', context.workspace.id).eq('id', id)
       if (error) throw new Error(error.code === '23505' ? 'Já existe uma fila com esse prefixo.' : 'Não foi possível salvar a fila.')
@@ -383,6 +385,54 @@ export async function salvarFila(formData: FormData): Promise<Resultado> {
     return { recado: 'Fila salva.' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível salvar a fila.') }
+  }
+}
+
+/**
+ * Chamados para todos os setores: cria, de uma vez, a fila de cada setor
+ * escolhido que ainda não tem uma — com prefixo, ícone e catálogo inicial
+ * (lib/chamados/setores.ts) e o responsável do setor como atendente. A
+ * proposta é refeita aqui, do banco: o formulário só diz quais setores.
+ */
+export async function criarFilasDosSetores(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('chamados.configurar')
+    const admin = createAdminClient()
+    const ws = context.workspace.id
+    const escolhidos = new Set(formData.getAll('setores').map(String))
+    if (!escolhidos.size) throw new Error('Escolha pelo menos um setor.')
+    const [setores, { data: filas }, { data: membros }] = await Promise.all([
+      setoresParaChamados(admin, ws),
+      admin.from('chamado_filas').select('slug, nome, prefixo').eq('workspace_id', ws),
+      admin.from('workspace_members').select('user_id, profiles(active)').eq('workspace_id', ws),
+    ])
+    const ativos = new Set((membros ?? []).filter((m) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { active?: boolean } | null)?.active !== false).map((m) => m.user_id as string))
+    const responsavel = new Map(setores.map((s) => [s.id, s.responsavel_id]))
+    const propostas = propostasDeFila(setores, filas ?? []).filter((p) => escolhidos.has(p.setorId) && p.prefixo)
+    if (!propostas.length) throw new Error('Os setores escolhidos já têm fila de chamados.')
+    const criadas: string[] = []
+    for (const p of propostas) {
+      const { data: fila, error } = await admin.from('chamado_filas')
+        .insert({ workspace_id: ws, slug: p.slug, nome: p.nome, prefixo: p.prefixo, descricao: p.descricao, icone: p.icone, ativa: true, ordem: 60 })
+        .select('id').single()
+      // Nome ou prefixo que alguém criou nesse meio-tempo: pula este setor e segue.
+      if (error || !fila) continue
+      await admin.from('chamado_categorias').insert(p.assuntos.map((a, i) => ({
+        workspace_id: ws, fila_id: fila.id, nome: a.nome, descricao: a.descricao, tipo: a.tipo, pede_local: Boolean(a.pedeLocal), ativa: true, ordem: i * 10,
+      })))
+      const quem = responsavel.get(p.setorId)
+      if (quem && ativos.has(quem)) await admin.from('chamado_fila_membros').insert({ fila_id: fila.id, user_id: quem, workspace_id: ws })
+      criadas.push(p.nome)
+    }
+    if (!criadas.length) throw new Error('Não foi possível criar as filas. Recarregue a página e tente de novo.')
+    await admin.from('auditoria_de_acesso').insert({ workspace_id: ws, ator_id: context.user.id, alvo_id: null, acao: 'filas_de_chamados_criadas', detalhes: { filas: criadas } })
+    revalidar()
+    revalidatePath('/chamados/configurar')
+    revalidatePath('/chamados/novo')
+    const faltaram = propostas.length - criadas.length
+    return { recado: `${criadas.length === 1 ? 'Fila criada' : `${criadas.length} filas criadas`}: ${criadas.join(', ')}.${faltaram ? ` ${faltaram} não ${faltaram === 1 ? 'pôde' : 'puderam'} ser ${faltaram === 1 ? 'criada' : 'criadas'} (nome ou prefixo já em uso).` : ''}` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível criar as filas.') }
   }
 }
 

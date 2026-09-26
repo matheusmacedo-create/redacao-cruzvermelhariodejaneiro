@@ -24,7 +24,7 @@ export default async function NovoChamadoPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Abrir chamado" description="Peça ajuda a outra equipe da filial. Você acompanha tudo por aqui e recebe os avisos por e-mail." breadcrumbs={[{ label: 'Chamados', href: '/chamados' }, { label: 'Novo' }]} />
+      <PageHeader title="Abrir chamado" description="Peça ajuda a qualquer setor da filial. Você acompanha tudo por aqui e recebe os avisos por e-mail." breadcrumbs={[{ label: 'Chamados', href: '/chamados' }, { label: 'Novo' }]} />
       <Card className="p-5 sm:p-6"><NovoChamado workspaceId={context.workspace.id} filas={lista} filaInicial={inicial} /></Card>
     </div>
   )

@@ -5,6 +5,8 @@ import { pode, type Papel } from '@/lib/permissoes'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { slaDaFila, type Quem, type Sla, type Status } from './regras'
+import { setoresDoEspaco } from '@/lib/setores'
+import { SETORES } from '@/lib/equipe'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -71,6 +73,17 @@ export async function filasQueAtendo(admin: Admin, workspaceId: string, userId: 
 }
 
 /** Quem atende a fila (para avisar de chamado novo). Sem equipe, os admins. */
+/**
+ * Os setores do espaço que podem ganhar fila (Pessoas → Setores, os ativos).
+ * Espaço sem setores cadastrados usa a lista reserva de lib/equipe.ts, sem
+ * responsável.
+ */
+export async function setoresParaChamados(admin: Admin, workspaceId: string): Promise<{ id: string; nome: string; descricao: string | null; responsavel_id: string | null }[]> {
+  const setores = await setoresDoEspaco(admin, workspaceId)
+  if (setores.length) return setores.filter((s) => s.ativo).map((s) => ({ id: s.id, nome: s.nome, descricao: s.descricao, responsavel_id: s.responsavel_id }))
+  return SETORES.map((s) => ({ id: `reserva:${s.nome}`, nome: s.nome, descricao: s.descricao, responsavel_id: null }))
+}
+
 export async function equipeDaFila(admin: Admin, workspaceId: string, filaId: string): Promise<string[]> {
   const { data } = await admin.from('chamado_fila_membros').select('user_id, profiles(active)').eq('fila_id', filaId)
   const ativos = (data ?? []).filter((m) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles as { active?: boolean } | null)?.active !== false).map((m) => m.user_id as string)
