@@ -19,17 +19,17 @@ import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
-  paraQueServe: 'O Início é o resumo do dia. Em cima, o que é seu: as suas pautas por prazo e o que espera o seu voto. No meio, a semana da operação (o que vai ao ar, o que saiu e o que falhou) e, embaixo, quatro indicadores dos últimos 30 dias.',
+  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, o que é seu: as suas pautas por prazo e o que espera o seu voto. Depois, “O Palácio”, com todas as áreas que você pode abrir; a semana da comunicação (o que vai ao ar, o que saiu e o que falhou); e quatro indicadores dos últimos 30 dias.',
   quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   tour: [
     {
       titulo: 'O seu Início',
-      texto: 'O Início resume o dia em três partes: “Meu dia”, a semana e os “Indicadores”. O detalhe de cada coisa continua na tela dela; aqui você vê onde olhar primeiro.',
+      texto: 'O Início é a entrada do Palácio Virtual: “Meu dia”, “O Palácio” com todas as áreas, a semana da comunicação e os indicadores. O detalhe de cada coisa continua na tela dela.',
     },
     {
       alvo: 'inicio.resumo',
       titulo: 'O dia em uma frase',
-      texto: 'Abaixo da saudação, uma frase conta o que pede a sua atenção agora: pautas suas atrasadas, as que vencem nos próximos 7 dias e os conteúdos que esperam a sua aprovação.',
+      texto: 'A frase abaixo da saudação conta o que pede a sua atenção agora. Os três números ao lado levam às suas pautas em aberto, ao que espera o seu voto e às pautas atrasadas.',
       lado: 'bottom',
     },
     {
@@ -41,6 +41,12 @@ const INICIO: GuiaDaArea = {
       alvo: 'inicio.esperando-voce',
       titulo: 'Esperando você',
       texto: 'Os conteúdos em que pediram o seu voto e que ainda esperam a sua decisão, do pedido mais antigo para o mais novo. Cada linha abre a tela de aprovação.',
+    },
+    {
+      alvo: 'inicio.areas',
+      titulo: 'O Palácio',
+      texto: 'Todas as áreas que você pode abrir, agrupadas como no menu: comunicação, planejamento, expediente, escola, pessoas. Um toque leva direto à área.',
+      seAusente: 'pular',
     },
     {
       alvo: 'inicio.semana',
@@ -84,7 +90,7 @@ const INICIO: GuiaDaArea = {
       id: 'ver-outra-semana',
       titulo: 'Ver a semana passada ou a próxima',
       passos: [
-        'No Início, desça até a parte da semana (“Esta semana”).',
+        'No Início, desça até a parte da semana (“Esta semana na comunicação”).',
         'Toque em “Anterior” ou em “Próxima”.',
         'Para voltar à semana de hoje, toque em “Esta semana”, que aparece entre os dois botões quando você está em outra semana.',
       ],
@@ -104,7 +110,7 @@ const INICIO: GuiaDaArea = {
       id: 'ler-um-indicador',
       titulo: 'Ler um indicador',
       passos: [
-        'Em “Indicadores”, o número grande de cada cartão é o valor dos últimos 30 dias.',
+        'Em “Indicadores da comunicação”, o número grande de cada cartão é o valor dos últimos 30 dias.',
         'Logo abaixo, a seta e a diferença comparam com os 30 dias anteriores.',
         'Pare o mouse sobre um ponto da linha para ver o valor daquela semana.',
         'Para ir mais fundo, toque em “Ver resultados”.',
