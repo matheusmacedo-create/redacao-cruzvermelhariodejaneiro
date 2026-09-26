@@ -738,6 +738,14 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
 
   As regras moram nas funções `compras_*` do banco, e `lib/compras/regras.ts`
   é o espelho puro para a tela.
+- **Pedir propostas** (`docs/compras-cotacao-automatica.md`): o Financeiro
+  convida os fornecedores habituais (quem vende a categoria, em
+  `fin_favorecido_categorias`, e quem já cotou compras dela) e cada um recebe
+  um e-mail com um link só dele (`/cotacao/<token>`, sem login). A proposta
+  entra no mapa por `compras_proposta_do_fornecedor`, que só o servidor chama
+  (`/api/publico/cotacao/...`). O token não é legível pelo RLS. A rotina
+  diária do Financeiro manda o lembrete da véspera e avisa quando o prazo
+  acaba (`rotinaDasCotacoes`).
 - **Ordem de compra:** tem numeração própria (`OC-AAAA-NNNN`, só as compras
   aprovadas). O PDF é montado na hora (`lib/compras/ordem-pdf.ts`, sobre
   `lib/pdf/folha.ts`) e sai por um e-mail de setor com anexo. A regra de envio

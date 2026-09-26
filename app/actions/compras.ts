@@ -15,6 +15,8 @@ import { ordemDeCompra } from '@/lib/compras/ordem-pdf'
 import { enviarPelaCaixa } from '@/lib/correio/enviar'
 import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { quemOperaOPatrimonio } from '@/lib/patrimonio/destinatarios'
+import { MAXIMO_POR_VEZ, ehEmail, textoDoConvite } from '@/lib/compras/convites'
+import { compradorDe, linkDoConvite, novoTokenDoConvite } from '@/lib/compras/convites-servidor'
 
 /**
  * Compras — escrita. Toda regra que importa (quem pode, faixas, justificativa,
@@ -311,6 +313,103 @@ export async function enviarOrdem(pedidoId: string, dados: { caixaId: string; pa
     return { destinatarios: envio.destinatarios }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível enviar a ordem.') }
+  }
+}
+
+// ---------------------------------------------------------------- pedir propostas
+
+export type PedidoDePropostas = { prazo: string; caixaId: string | null; recado?: string; convites: { favorecido_id: string; email: string }[] }
+
+/**
+ * Pede as propostas: cria os convites (o banco confere nível, prazo e
+ * fornecedores) e manda um e-mail por fornecedor pela caixa escolhida, cada
+ * um com o link só dele. Sem caixa, os links ficam prontos para copiar.
+ * docs/compras-cotacao-automatica.md.
+ */
+export async function pedirPropostas(pedidoId: string, dados: PedidoDePropostas): Promise<Resultado<{ enviados?: number; falhas?: string[]; semEnvio?: number }>> {
+  try {
+    if (!UUID.test(pedidoId)) throw new Error('Pedido inválido.')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dados.prazo ?? '')) throw new Error('Escolha o prazo para as propostas.')
+    if (dados.caixaId && !UUID.test(dados.caixaId)) throw new Error('Escolha o e-mail de onde o pedido sai.')
+    const lista = (dados.convites ?? []).filter((c) => UUID.test(c.favorecido_id))
+    if (!lista.length) throw new Error('Marque ao menos um fornecedor.')
+    if (lista.length > MAXIMO_POR_VEZ) throw new Error(`No máximo ${MAXIMO_POR_VEZ} fornecedores por vez.`)
+    const semEmail = lista.filter((c) => !ehEmail(String(c.email ?? '').trim()))
+    if (semEmail.length) throw new Error('Algum fornecedor marcado está sem e-mail válido. Preencha ou desmarque.')
+    const recado = String(dados.recado ?? '').trim().slice(0, 1000)
+
+    const ctx = await contextoDeCompras()
+    const { context, supabase } = ctx
+    const { data: p } = await supabase.from('compras_pedidos').select('id,entidade_id,ano,numero,titulo,local_entrega,necessario_ate').eq('id', pedidoId).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (!p || nivelNaEmpresa(ctx, p.entidade_id) < 2) throw new Error('Pedido não encontrado.')
+
+    const { data, error } = await supabase.rpc('compras_convidar', {
+      p_pedido_id: pedidoId,
+      p: { prazo: dados.prazo, caixa_id: dados.caixaId, convites: lista.map((c) => ({ favorecido_id: c.favorecido_id, email: c.email.trim(), token: novoTokenDoConvite() })) },
+    })
+    if (error) erroDoBanco(error, 'Não foi possível pedir as propostas.')
+    const convites = (data ?? []) as { id: string; nome: string; email: string; token: string }[]
+    revalidar(pedidoId)
+    if (!dados.caixaId) return { enviados: 0, falhas: [], semEnvio: convites.length }
+
+    const admin = createAdminClient()
+    const [{ data: itens }, comprador] = await Promise.all([
+      admin.from('compras_itens').select('descricao,especificacao,quantidade,unidade').eq('pedido_id', pedidoId).order('ordem'),
+      compradorDe(admin, p.entidade_id),
+    ])
+    const falhas: string[] = []
+    let enviados = 0
+    // Um e-mail por fornecedor: ninguém vê quem mais foi convidado.
+    for (const c of convites) {
+      const texto = textoDoConvite({
+        comprador: comprador.nome, fornecedor: c.nome, codigo: numeroDoPedido(p.ano, p.numero), titulo: p.titulo, prazo: dados.prazo,
+        link: linkDoConvite(c.token), localEntrega: p.local_entrega, necessarioAte: p.necessario_ate, recado,
+        itens: (itens ?? []).map((i) => ({ descricao: i.descricao, especificacao: i.especificacao, quantidade: Number(i.quantidade), unidade: i.unidade })),
+      })
+      try {
+        await enviarPelaCaixa(context, dados.caixaId, { para: c.email, assunto: texto.assunto, corpo: texto.corpo })
+        await admin.from('compras_convites').update({ enviado_em: new Date().toISOString(), enviado_por: context.user.id, envio_erro: null }).eq('id', c.id)
+        enviados++
+      } catch (causa) {
+        const motivo = mensagemDoErro(causa, 'Não foi possível enviar.')
+        await admin.from('compras_convites').update({ envio_erro: motivo.slice(0, 500), enviado_por: context.user.id }).eq('id', c.id)
+        falhas.push(`${c.nome}: ${motivo}`)
+      }
+    }
+    revalidar(pedidoId)
+    return { enviados, falhas }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível pedir as propostas.') }
+  }
+}
+
+/** Tira o convite de um fornecedor: o link dele para de abrir. */
+export async function cancelarConvite(pedidoId: string, conviteId: string): Promise<Resultado> {
+  try {
+    if (!UUID.test(pedidoId) || !UUID.test(conviteId)) throw new Error('Convite inválido.')
+    const { supabase } = await contextoDeCompras()
+    const { error } = await supabase.rpc('compras_cancelar_convite', { p_id: conviteId })
+    if (error) erroDoBanco(error, 'Não foi possível cancelar o convite.')
+    revalidar(pedidoId)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível cancelar o convite.') }
+  }
+}
+
+/** O link do fornecedor, para mandar por WhatsApp ou outro canal. Só para quem cota. */
+export async function linkDoConviteParaCopiar(pedidoId: string, conviteId: string): Promise<Resultado<{ link?: string }>> {
+  try {
+    if (!UUID.test(pedidoId) || !UUID.test(conviteId)) throw new Error('Convite inválido.')
+    const ctx = await contextoDeCompras()
+    const { data: p } = await ctx.supabase.from('compras_pedidos').select('id,entidade_id').eq('id', pedidoId).eq('workspace_id', ctx.context.workspace.id).maybeSingle()
+    if (!p || nivelNaEmpresa(ctx, p.entidade_id) < 2) throw new Error('Convite não encontrado.')
+    // O token não é legível pelo RLS (nem para quem cota): vem pelo serviço, depois da conferência acima.
+    const { data: c } = await createAdminClient().from('compras_convites').select('token,cancelado_em').eq('id', conviteId).eq('pedido_id', pedidoId).maybeSingle()
+    if (!c || c.cancelado_em) throw new Error('Convite não encontrado.')
+    return { link: linkDoConvite(c.token as string) }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível copiar o link.') }
   }
 }
 
