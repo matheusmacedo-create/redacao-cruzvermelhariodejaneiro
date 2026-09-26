@@ -143,23 +143,31 @@ function local(t: number) {
   return { dia: d.getUTCDay(), minutos: d.getUTCHours() * 60 + d.getUTCMinutes() + d.getUTCSeconds() / 60, meiaNoite: t - (d.getUTCHours() * 60 + d.getUTCMinutes()) * MIN - d.getUTCSeconds() * 1000 - d.getUTCMilliseconds() }
 }
 
-const diaUtil = (dia: number) => dia >= 1 && dia <= 5
+/** Datas "AAAA-MM-DD" (horário de Brasília) em que não há expediente. */
+export type Feriados = ReadonlySet<string>
+const SEM_FERIADOS: Feriados = new Set()
+
+/** "AAAA-MM-DD" do dia local (UTC−3) de um instante. */
+const dataLocal = (t: number) => new Date(t + DESLOCAMENTO_MS).toISOString().slice(0, 10)
+
+const diaUtil = (dia: number, t: number, feriados: Feriados) => dia >= 1 && dia <= 5 && !feriados.has(dataLocal(t))
 
 /** Leva um instante para o próximo momento dentro do expediente. */
-function paraExpediente(t: number): number {
-  for (let i = 0; i < 10; i++) {
+function paraExpediente(t: number, feriados: Feriados = SEM_FERIADOS): number {
+  // 40 voltas cobrem fim de semana emendado em feriado prolongado (Carnaval).
+  for (let i = 0; i < 40; i++) {
     const l = local(t)
-    if (!diaUtil(l.dia) || l.minutos >= FIM_H * 60) { t = l.meiaNoite + 24 * 60 * MIN + INICIO_H * 60 * MIN; continue }
+    if (!diaUtil(l.dia, t, feriados) || l.minutos >= FIM_H * 60) { t = l.meiaNoite + 24 * 60 * MIN + INICIO_H * 60 * MIN; continue }
     if (l.minutos < INICIO_H * 60) return l.meiaNoite + INICIO_H * 60 * MIN
     return t
   }
   return t
 }
 
-/** Soma minutos de atendimento a um instante. */
-export function somarMinutosUteis(inicio: Date, minutos: number, vinteQuatroHoras = false): Date {
+/** Soma minutos de atendimento a um instante (pulando fins de semana e os feriados informados). */
+export function somarMinutosUteis(inicio: Date, minutos: number, vinteQuatroHoras = false, feriados: Feriados = SEM_FERIADOS): Date {
   if (vinteQuatroHoras) return new Date(inicio.getTime() + minutos * MIN)
-  let t = paraExpediente(inicio.getTime())
+  let t = paraExpediente(inicio.getTime(), feriados)
   let resto = minutos
   for (let guarda = 0; resto > 0 && guarda < 5000; guarda++) {
     const l = local(t)
@@ -167,23 +175,23 @@ export function somarMinutosUteis(inicio: Date, minutos: number, vinteQuatroHora
     const disponivel = (fimDoDia - t) / MIN
     if (resto <= disponivel) return new Date(t + resto * MIN)
     resto -= disponivel
-    t = paraExpediente(fimDoDia)
+    t = paraExpediente(fimDoDia, feriados)
   }
   return new Date(t)
 }
 
 /** Minutos de atendimento entre dois instantes (0 se b ≤ a). */
-export function minutosUteisEntre(a: Date, b: Date, vinteQuatroHoras = false): number {
+export function minutosUteisEntre(a: Date, b: Date, vinteQuatroHoras = false, feriados: Feriados = SEM_FERIADOS): number {
   if (b <= a) return 0
   if (vinteQuatroHoras) return (b.getTime() - a.getTime()) / MIN
-  let t = paraExpediente(a.getTime())
+  let t = paraExpediente(a.getTime(), feriados)
   const fim = b.getTime()
   let total = 0
   for (let guarda = 0; t < fim && guarda < 5000; guarda++) {
     const l = local(t)
     const fimDoDia = l.meiaNoite + FIM_H * 60 * MIN
     total += (Math.min(fimDoDia, fim) - t) / MIN
-    t = paraExpediente(fimDoDia)
+    t = paraExpediente(fimDoDia, feriados)
   }
   return Math.max(0, total)
 }
@@ -192,10 +200,10 @@ export function minutosUteisEntre(a: Date, b: Date, vinteQuatroHoras = false): n
  * Prazos = abertura + SLA da prioridade + tempo parado em "aguardando".
  * Sempre recalculados do zero: mudar a prioridade não perde as pausas.
  */
-export function prazos(abertura: Date, p: Prioridade, sla: Sla, vinteQuatroHoras = false, minutosPausados = 0) {
+export function prazos(abertura: Date, p: Prioridade, sla: Sla, vinteQuatroHoras = false, minutosPausados = 0, feriados: Feriados = SEM_FERIADOS) {
   return {
-    resposta: somarMinutosUteis(abertura, sla[p].resposta * 60 + minutosPausados, vinteQuatroHoras),
-    solucao: somarMinutosUteis(abertura, sla[p].solucao * 60 + minutosPausados, vinteQuatroHoras),
+    resposta: somarMinutosUteis(abertura, sla[p].resposta * 60 + minutosPausados, vinteQuatroHoras, feriados),
+    solucao: somarMinutosUteis(abertura, sla[p].solucao * 60 + minutosPausados, vinteQuatroHoras, feriados),
   }
 }
 
@@ -219,13 +227,13 @@ export type EstadoDoRelogio = {
  * - Voltar de "resolvido" é reabertura.
  * `porEquipe` diz se quem mudou é da equipe: só ela "responde".
  */
-export function efeitosDaMudanca(atual: EstadoDoRelogio, para: Status, agora: Date, opcoes: { porEquipe: boolean; vinteQuatroHoras?: boolean }) {
+export function efeitosDaMudanca(atual: EstadoDoRelogio, para: Status, agora: Date, opcoes: { porEquipe: boolean; vinteQuatroHoras?: boolean; feriados?: Feriados }) {
   const fica: Partial<{ status: Status; pausadoDesde: Date | null; minutosPausados: number; respondidoEm: Date; resolvidoEm: Date | null; fechadoEm: Date | null; reaberturas: number }> = { status: para }
   const estavaPausado = PAUSADOS.includes(atual.status) && atual.pausadoDesde
   const vaiPausar = PAUSADOS.includes(para)
 
   if (estavaPausado && !vaiPausar) {
-    fica.minutosPausados = atual.minutosPausados + Math.round(minutosUteisEntre(atual.pausadoDesde!, agora, opcoes.vinteQuatroHoras))
+    fica.minutosPausados = atual.minutosPausados + Math.round(minutosUteisEntre(atual.pausadoDesde!, agora, opcoes.vinteQuatroHoras, opcoes.feriados))
     fica.pausadoDesde = null
   } else if (!estavaPausado && vaiPausar) {
     fica.pausadoDesde = agora
@@ -248,14 +256,14 @@ export type SituacaoDoPrazo = 'cumprido' | 'estourado' | 'em_risco' | 'no_prazo'
  * Como está um prazo agora. "Em risco" = menos de 25% do tempo total
  * restando. Concluído (respondido/resolvido) compara a data de conclusão.
  */
-export function situacaoDoPrazo(p: { inicio: Date; prazo: Date | null; concluidoEm: Date | null; pausado: boolean; agora?: Date; vinteQuatroHoras?: boolean }): SituacaoDoPrazo | null {
+export function situacaoDoPrazo(p: { inicio: Date; prazo: Date | null; concluidoEm: Date | null; pausado: boolean; agora?: Date; vinteQuatroHoras?: boolean; feriados?: Feriados }): SituacaoDoPrazo | null {
   if (!p.prazo) return null
   if (p.concluidoEm) return p.concluidoEm <= p.prazo ? 'cumprido' : 'estourado'
   const agora = p.agora ?? new Date()
   if (agora > p.prazo) return 'estourado'
   if (p.pausado) return 'pausado'
-  const total = minutosUteisEntre(p.inicio, p.prazo, p.vinteQuatroHoras)
-  const resta = minutosUteisEntre(agora, p.prazo, p.vinteQuatroHoras)
+  const total = minutosUteisEntre(p.inicio, p.prazo, p.vinteQuatroHoras, p.feriados)
+  const resta = minutosUteisEntre(agora, p.prazo, p.vinteQuatroHoras, p.feriados)
   return total > 0 && resta / total < 0.25 ? 'em_risco' : 'no_prazo'
 }
 

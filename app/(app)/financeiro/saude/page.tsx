@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import { IndicadoresDoBc } from '@/components/app/apis/indicadores-do-bc'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AlertTriangle, CheckCircle2, OctagonAlert } from 'lucide-react'
@@ -178,6 +180,7 @@ export default async function SaudePage() {
           </Card>
         </>
       )}
+      <Suspense fallback={null}><IndicadoresDoBc /></Suspense>
     </div>
   )
 }

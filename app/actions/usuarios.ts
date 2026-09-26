@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto'
 import { emailConfigurado } from '@/lib/newsletter/resend'
 import { emailDeConfirmacao, emailDeConvite, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
 import { avisar, emitirToken, enviarComSeguranca, revogarLinksDeSenha, urlDoLink, VALIDADE_MIN } from '@/lib/contas/servidor'
+import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 
 /**
  * Gestão de usuários e acessos.
@@ -169,7 +170,7 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     if (convite && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Use a senha temporária.')
     const senha = convite ? senhaInacessivel() : gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
     if (!convite && !gerar) {
-      const problema = problemaDaSenha(senha, { usuario, nome })
+      const problema = problemaDaSenha(senha, { usuario, nome }) ?? await problemaDeSenhaVazada(senha)
       if (problema) throw new Error(problema)
     }
 
@@ -331,7 +332,7 @@ export async function redefinirSenha(formData: FormData): Promise<Resultado> {
     const gerar = texto(formData, 'modoSenha') !== 'definir'
     const senha = gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
     if (!gerar) {
-      const problema = problemaDaSenha(senha, { usuario: alvo.username, nome: alvo.full_name })
+      const problema = problemaDaSenha(senha, { usuario: alvo.username, nome: alvo.full_name }) ?? await problemaDeSenhaVazada(senha)
       if (problema) throw new Error(problema)
     }
 
@@ -465,7 +466,7 @@ export async function trocarMinhaSenha(formData: FormData): Promise<{ erro?: str
     const nova = String(formData.get('novaSenha') ?? '')
     if (nova !== String(formData.get('confirmacao') ?? '')) throw new Error('A confirmação não confere com a nova senha.')
     if (nova === atual) throw new Error('A nova senha precisa ser diferente da atual.')
-    const problema = problemaDaSenha(nova, { usuario, nome: context.profile?.full_name })
+    const problema = problemaDaSenha(nova, { usuario, nome: context.profile?.full_name }) ?? await problemaDeSenhaVazada(nova)
     if (problema) throw new Error(problema)
 
     // Confere a senha atual num cliente avulso, que não mexe nos cookies

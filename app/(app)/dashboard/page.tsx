@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
+import { TempoNoRio } from '@/components/app/apis/tempo-no-rio'
 import { CalendarDays, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { requireWorkspace } from '@/lib/session'
@@ -392,6 +394,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </div>
         <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
+        {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
+        <Suspense fallback={null}><TempoNoRio /></Suspense>
       </Camada>
 
       <div id="semana" className="scroll-mt-6">

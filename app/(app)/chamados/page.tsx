@@ -15,6 +15,7 @@ import {
 import { filasQueAtendo } from '@/lib/chamados/servidor'
 import { EtiquetaDePrazo, EtiquetaDePrioridade, EtiquetaDeStatus, dataHora } from '@/components/app/chamados/comum'
 import { tituloDaArea } from '@/lib/navegacao'
+import { datasDeFeriado } from '@/lib/apis-publicas/servidor'
 
 export const metadata = { title: tituloDaArea('/chamados') }
 
@@ -35,6 +36,8 @@ type Filtro = { aba?: string; fila?: string; situacao?: string; resp?: string; q
 export default async function ChamadosPage({ searchParams }: { searchParams: Promise<Filtro> }) {
   const sp = await searchParams
   const context = await requireWorkspace()
+  const ano = new Date().getFullYear()
+  const feriados = await datasDeFeriado([ano - 1, ano, ano + 1])
   const supabase = await createClient()
   const admin = createAdminClient()
   const ws = context.workspace.id
@@ -141,8 +144,8 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
     const respondidos = lista.filter((c) => c.respondido_em)
     const resolvidos = lista.filter((c) => c.resolvido_em)
     const media = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN)
-    const tResposta = media(respondidos.map((c) => minutosUteisEntre(new Date(c.criado_em), new Date(c.respondido_em!), h24(c))))
-    const tSolucao = media(resolvidos.map((c) => minutosUteisEntre(new Date(c.criado_em), new Date(c.resolvido_em!), h24(c))))
+    const tResposta = media(respondidos.map((c) => minutosUteisEntre(new Date(c.criado_em), new Date(c.respondido_em!), h24(c), feriados)))
+    const tSolucao = media(resolvidos.map((c) => minutosUteisEntre(new Date(c.criado_em), new Date(c.resolvido_em!), h24(c), feriados)))
     const noPrazo = resolvidos.filter((c) => c.prazo_solucao && new Date(c.resolvido_em!) <= new Date(c.prazo_solucao)).length
     const avaliados = lista.filter((c) => c.avaliacao)
     const csat = media(avaliados.map((c) => c.avaliacao!))
@@ -203,7 +206,7 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
                 const f = filaPorId.get(c.fila_id)
                 const pausado = PAUSADOS.includes(c.status)
                 const encerrado = ENCERRADOS.includes(c.status)
-                const situacao = encerrado ? null : situacaoDoPrazo({ inicio: new Date(c.criado_em), prazo: c.prazo_solucao ? new Date(c.prazo_solucao) : null, concluidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, pausado, vinteQuatroHoras: Boolean(f?.atendimento_24h) })
+                const situacao = encerrado ? null : situacaoDoPrazo({ inicio: new Date(c.criado_em), prazo: c.prazo_solucao ? new Date(c.prazo_solucao) : null, concluidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, pausado, vinteQuatroHoras: Boolean(f?.atendimento_24h), feriados })
                 return (
                   <li key={c.id}>
                     <Link href={`/chamados/${c.id}`} className="flex flex-col gap-1.5 px-4 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4">

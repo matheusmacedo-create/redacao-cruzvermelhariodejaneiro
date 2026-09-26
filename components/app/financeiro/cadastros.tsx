@@ -8,6 +8,7 @@ import { inputClass } from '@/components/app/imprensa/comum'
 import { definirAcessoDoFinanceiro, salvarCadastro, salvarEmpresa, salvarRegras } from '@/app/actions/financeiro'
 import { NIVEIS, TIPOS_DE_CONTA, dataCurta, documentoLegivel, reais, valorNoCampo, type NomeDoNivel } from '@/lib/financeiro/regras'
 import type { Cadastros } from '@/lib/financeiro/acesso'
+import { DadosPeloCnpj } from '@/components/app/apis/dados-pelo-cnpj'
 
 type Tabela = 'conta' | 'fonte' | 'categoria' | 'favorecido'
 
@@ -184,6 +185,7 @@ export function Favorecidos({ c, pode }: { c: Cadastros; pode: boolean }) {
           <Formulario tabela="favorecido" id={x?.id ?? null} onFim={fim}>
             <Campo rotulo="Nome"><input name="nome" required maxLength={160} defaultValue={x?.nome} className={inputClass} /></Campo>
             <Campo rotulo="CPF ou CNPJ" ajuda={x?.documento?.length === 11 ? 'CPF guardado; aparece mascarado na lista.' : undefined}><input name="documento" inputMode="numeric" maxLength={20} defaultValue={x?.documento ?? ''} className={inputClass} /></Campo>
+            <DadosPeloCnpj campo="documento" preencher={{ nomeFantasia: 'nome', email: 'email', telefone: 'telefone' }} />
             <Campo rotulo="Chave Pix"><input name="chave_pix" maxLength={140} defaultValue={x?.chave_pix ?? ''} className={inputClass} /></Campo>
             <Campo rotulo="E-mail"><input type="email" name="email" maxLength={200} defaultValue={x?.email ?? ''} className={inputClass} /></Campo>
             <Campo rotulo="Telefone"><input name="telefone" maxLength={30} defaultValue={x?.telefone ?? ''} className={inputClass} /></Campo>
@@ -204,6 +206,7 @@ export function DadosDaEmpresa({ empresa, pode }: { empresa: NonNullable<Cadastr
         <Campo rotulo="Nome curto" ajuda="Como aparece no seletor do Financeiro."><input name="nome" required maxLength={80} defaultValue={empresa.nome} className={inputClass} /></Campo>
         <Campo rotulo="CNPJ"><input name="cnpj" inputMode="numeric" maxLength={20} defaultValue={cnpj} placeholder="00.000.000/0000-00" className={inputClass} /></Campo>
         <Campo rotulo="Razão social" largo ajuda="Sai no cabeçalho do pacote do contador."><input name="razao_social" maxLength={200} defaultValue={empresa.razao_social ?? ''} className={inputClass} /></Campo>
+        <DadosPeloCnpj campo="cnpj" preencher={{ razaoSocial: 'razao_social', nomeFantasia: 'nome' }} />
       </fieldset>
       <p className="text-xs text-muted-foreground">{empresa.principal ? 'Empresa principal: patrimônio, estoque, doações e trabalho voluntário entram no fechamento dela.' : 'Empresa à parte: contas, fontes, lançamentos, orçamento e fechamento do mês próprios.'}{empresa.fechado_ate ? ` Mês fechado até ${dataCurta(empresa.fechado_ate)}.` : ''}</p>
       {estado.erro && <p className="text-sm text-destructive" role="alert">{estado.erro}</p>}

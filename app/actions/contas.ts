@@ -11,6 +11,7 @@ import { problemaDaSenha } from '@/lib/usuarios/senha'
 import { emailConfigurado } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeConfirmacao, emailDePedidoDeAjuda, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
+import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 import {
   auditarConta, avisar, consumirToken, emitirToken, enviarComSeguranca, hashDoIp, lerToken, revogarLinksDeSenha,
   urlDoLink, VALIDADE_MIN,
@@ -94,7 +95,7 @@ export async function definirSenhaPeloLink(formData: FormData): Promise<Resultad
     const previa = await lerToken(admin, token, ['definir_senha', 'redefinir_senha'])
     if (!previa) throw new Error('Este link expirou ou já foi usado. Peça um novo em "Esqueci minha senha".')
     if (!previa.pessoa.ativo) throw new Error('Esta conta está desativada. Fale com um administrador.')
-    const problema = problemaDaSenha(nova, { usuario: previa.pessoa.usuario, nome: previa.pessoa.nome })
+    const problema = problemaDaSenha(nova, { usuario: previa.pessoa.usuario, nome: previa.pessoa.nome }) ?? await problemaDeSenhaVazada(nova)
     if (problema) throw new Error(problema)
 
     // Consome ANTES de trocar a senha: se dois envios chegarem juntos, só um passa.

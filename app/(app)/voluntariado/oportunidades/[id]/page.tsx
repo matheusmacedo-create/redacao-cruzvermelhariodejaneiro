@@ -1,3 +1,5 @@
+import { Suspense } from 'react'
+import { MapaDoLocal } from '@/components/app/apis/mapa-do-local'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
@@ -64,6 +66,7 @@ export default async function Oportunidade({ params }: { params: Promise<{ id: s
           </div>
         )}
       </div>
+      {o.local && <Suspense fallback={null}><MapaDoLocal endereco={o.local} titulo="Local da ação" /></Suspense>}
     </div>
   )
 }
