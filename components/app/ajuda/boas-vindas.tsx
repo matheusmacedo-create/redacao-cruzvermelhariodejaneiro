@@ -3,7 +3,6 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { Compass, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { BOAS_VINDAS, BOAS_VINDAS_ESCOLA } from '@/lib/ajuda'
 import { useAjuda } from './ajuda'
 
 /**
@@ -13,10 +12,9 @@ import { useAjuda } from './ajuda'
  * sem pedir (a Central de ajuda tem "Rever as boas-vindas").
  */
 export function BoasVindas() {
-  const { boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, pessoa } = useAjuda()
-  const passos = pessoa.equipeDaEscola ? BOAS_VINDAS_ESCOLA : BOAS_VINDAS
+  const { boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, pessoa, passosDasBoasVindas } = useAjuda()
   // Uns 8 segundos por balão: o tour inteiro cabe em um minuto, e é isso que prometemos.
-  const minutos = Math.max(1, Math.round((passos.length * 8) / 60))
+  const minutos = Math.max(1, Math.round((passosDasBoasVindas * 8) / 60))
   const titulo = pessoa.primeiroNome ? `Boas-vindas à Redação, ${pessoa.primeiroNome}!` : 'Boas-vindas à Redação!'
 
   return (
@@ -50,9 +48,9 @@ export function BoasVindas() {
           </Dialog.Description>
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" size="lg" className="h-11 sm:h-10" onClick={() => sairDasBoasVindas(false)}>
-              {passos.length ? 'Agora não' : 'Começar'}
+              {passosDasBoasVindas ? 'Agora não' : 'Começar'}
             </Button>
-            {passos.length > 0 && (
+            {passosDasBoasVindas > 0 && (
               <Button type="button" size="lg" className="h-11 sm:h-10" onClick={() => sairDasBoasVindas(true)}>
                 <Compass aria-hidden="true" />Fazer o tour ({minutos} min)
               </Button>

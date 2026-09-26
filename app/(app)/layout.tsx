@@ -16,6 +16,7 @@ import { BoasVindas } from '@/components/app/ajuda/boas-vindas'
 import { DicaDaTela } from '@/components/app/ajuda/dica'
 import { PainelDeAjuda } from '@/components/app/ajuda/painel'
 import { lerProgresso } from '@/lib/ajuda/progresso'
+import { indiceDaAjuda } from '@/lib/ajuda'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Redação', default: 'Redação — Cruz Vermelha RJ' } }
@@ -82,7 +83,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
     <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola}>
-    <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda}>
+    {/* Só o índice leve vai ao navegador em toda página; o texto da ajuda é baixado quando alguém pede (components/app/ajuda/carregar.ts). */}
+    <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda} indice={indiceDaAjuda()}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
         <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />

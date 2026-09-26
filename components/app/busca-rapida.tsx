@@ -1,14 +1,14 @@
 'use client'
 
-import { useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
 import { CircleHelp, CornerDownLeft, Loader2, Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { buscarAreas, type Grupo } from '@/lib/navegacao'
-import { buscarNaAjuda } from '@/lib/ajuda'
 import { ACOES_DE_CRIAR, useCriar, type AcaoDeCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
+import { carregarAjuda, type ModuloDaAjuda } from './ajuda/carregar'
 
 type Item = {
   chave: string
@@ -54,16 +54,27 @@ function Conteudo({ grupos, fechar }: { grupos: Grupo[]; fechar: () => void }) {
     ...grupos.flatMap((g) => g.areas.map((a) => ({ chave: a.href, secao: g.rotulo ?? 'Ir para', rotulo: a.rotulo, resumo: a.resumo, icone: a.icone, termos: a.termos, href: a.href }))),
   ], [grupos])
 
+  // As respostas da ajuda precisam do texto dela (lib/ajuda), que não vem em
+  // toda página: é baixado na primeira letra digitada e aparece assim que chegar.
+  const [buscarNaAjuda, setBuscarNaAjuda] = useState<ModuloDaAjuda['buscarNaAjuda'] | null>(null)
+  const digitou = busca.trim() !== ''
+  useEffect(() => {
+    if (!digitou || buscarNaAjuda) return
+    let valendo = true
+    carregarAjuda().then((m) => { if (valendo) setBuscarNaAjuda(() => m.buscarNaAjuda) }).catch(() => {})
+    return () => { valendo = false }
+  }, [digitou, buscarNaAjuda])
+
   // Buscando, as áreas vêm antes das ações: quem digita um nome quer ir lá.
   // Por último, as respostas da ajuda (até 5), que abrem na Central de ajuda.
   const itens = useMemo(() => {
     if (!busca.trim()) return todos
     const achados = buscarAreas(busca, todos)
-    const ajuda = buscarNaAjuda(busca, grupos, 5).map<Item>((a) => ({
+    const ajuda = (buscarNaAjuda ? buscarNaAjuda(busca, grupos, 5) : []).map<Item>((a) => ({
       chave: `ajuda:${a.href}`, secao: 'Ajuda', rotulo: a.titulo, resumo: `${a.tipo === 'pergunta' ? 'Pergunta' : 'Passo a passo'} · ${a.onde}`, icone: CircleHelp, href: a.href,
     }))
     return [...achados.filter((i) => i.href).map((i) => ({ ...i, secao: 'Ir para' })), ...achados.filter((i) => i.acao), ...ajuda]
-  }, [busca, todos, grupos])
+  }, [busca, todos, grupos, buscarNaAjuda])
 
   const indice = Math.min(ativo, Math.max(itens.length - 1, 0))
 

@@ -1,7 +1,7 @@
 'use server'
 
 import { requireWorkspace } from '@/lib/session'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext } from '@/lib/erro-de-acao'
 import { ehChaveDeTour } from '@/lib/ajuda'
 import { comAtalho, comBoasVindas, comTourVisto, lerProgresso, progressoZerado, type Progresso } from '@/lib/ajuda/progresso'
@@ -30,10 +30,13 @@ export async function registrarAjuda(evento: EventoDaAjuda): Promise<{ ok: boole
     const novo = proximo(atual, evento)
     if (!novo) return { ok: false }
     if (mesmo(atual, novo)) return { ok: true }
-    // Cliente da própria pessoa: o Auth só deixa cada um mexer no próprio
-    // user_metadata, e o `data` substitui só a chave "ajuda", sem tocar no resto.
-    const supabase = await createClient()
-    const { error } = await supabase.auth.updateUser({ data: { ajuda: novo } })
+    // Pelo cliente admin, para o id que o requireWorkspace acabou de conferir
+    // (nunca um id vindo do navegador). O cliente da própria pessoa
+    // (auth.updateUser) regravaria o cookie da sessão, e cookie gravado numa
+    // action faz o Next refazer no servidor o layout e a página abertos — a
+    // cada "Agora não" e a cada tour. O Auth mescla o user_metadata chave a
+    // chave: só "ajuda" muda, o resto (nome, usuário) fica.
+    const { error } = await createAdminClient().auth.admin.updateUserById(context.user.id, { user_metadata: { ajuda: novo } })
     if (error) {
       console.error('[ajuda] não foi possível guardar o progresso:', error.code ?? error.status ?? 'erro do Auth')
       return { ok: false }

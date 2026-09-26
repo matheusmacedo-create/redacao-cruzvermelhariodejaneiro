@@ -3,10 +3,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Tour, acharAlvo } from '@/components/ajuda/tour'
-import { ajudaDoCaminho, BOAS_VINDAS, BOAS_VINDAS_ESCOLA, type AjudaDaTela, type PassoDoTour } from '@/lib/ajuda'
+import { ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda } from '@/lib/ajuda/indice'
+import type { PassoDoTour } from '@/lib/ajuda/tipos'
 import { comAtalho, comBoasVindas, comTourVisto, progressoZerado, viuTour, type Progresso } from '@/lib/ajuda/progresso'
 import { registrarAjuda, type EventoDaAjuda } from '@/app/actions/ajuda'
 import { useShell } from '../app-shell'
+import { adiantarAjuda, carregarAjuda } from './carregar'
 
 /** O que o layout sabe da pessoa e a ajuda usa (nome nas boas-vindas, "Primeiros passos"). */
 export type PessoaNaAjuda = {
@@ -22,8 +24,10 @@ type TourAberto = PedidoDeTour & { id: number }
 type AjudaState = {
   progresso: Progresso
   pessoa: PessoaNaAjuda
-  /** A ajuda que vale na tela aberta: área, guia, tela interna e tour. */
-  daTela: AjudaDaTela | null
+  /** Onde a pessoa está, pelo índice leve: área, tela interna e a chave do tour (o texto vem sob demanda). */
+  onde: OndeNaAjuda | null
+  /** Quantos balões têm as boas-vindas desta pessoa (a janela promete o tempo). */
+  passosDasBoasVindas: number
   painelAberto: boolean
   abrirPainel: () => void
   fecharPainel: () => void
@@ -57,11 +61,6 @@ export function useAjuda() {
   return ctx
 }
 
-/** "Tour · Pautas", "Tour · Pauta": o rótulo pequeno acima do título do balão. */
-export function rotuloDoTour(daTela: AjudaDaTela): string {
-  return `Tour · ${daTela.tela?.rotulo ?? daTela.area.rotulo}`
-}
-
 /** Quanto a dica de primeira visita espera: a tela assenta antes de aparecer algo no canto. */
 const ESPERA_DA_DICA_MS = 1000
 /** Quanto o tour de um link com ?tour=1 espera a tela carregar os elementos que ele aponta. */
@@ -70,7 +69,9 @@ const ESPERA_DOS_ALVOS_MS = 2500
 /**
  * A ajuda da Redação: boas-vindas no primeiro acesso, a dica de primeira
  * visita em cada tela com tour, o tour em si, o painel "?" e o atalho de
- * teclado. O conteúdo vem de lib/ajuda; o que a pessoa já viu, de
+ * teclado. Em toda página só vale o índice leve (lib/ajuda/indice.ts, prop
+ * `indice`); o texto (lib/ajuda) é baixado quando um tour começa ou o painel
+ * abre (./carregar.ts). O que a pessoa já viu vem de
  * user_metadata.ajuda (lib/ajuda/progresso.ts), gravado por
  * app/actions/ajuda.ts.
  *
@@ -79,10 +80,11 @@ const ESPERA_DOS_ALVOS_MS = 2500
  * não é refeito a cada navegação, então adotar o valor do servidor a cada
  * resposta só traria de volta um valor velho no meio de duas escolhas seguidas.
  */
-export function AjudaProvider({ children, progressoInicial, pessoa }: {
+export function AjudaProvider({ children, progressoInicial, pessoa, indice }: {
   children: React.ReactNode
   progressoInicial: Progresso
   pessoa: PessoaNaAjuda
+  indice: IndiceDaAjuda
 }) {
   const { grupos, buscaAberta, open: menuAberto } = useShell()
   const pathname = usePathname()
@@ -96,7 +98,12 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
   const pendente = useRef<(() => void) | null>(null)
   const contador = useRef(0)
 
-  const daTela = useMemo(() => ajudaDoCaminho(pathname, grupos), [pathname, grupos])
+  const onde = useMemo(() => ondeNaAjuda(pathname, grupos, indice), [pathname, grupos, indice])
+  // Para o que termina depois de um download: a tela ainda é a mesma?
+  const caminhoAtual = useRef(pathname)
+  useEffect(() => { caminhoAtual.current = pathname }, [pathname])
+  const gruposAtuais = useRef(grupos)
+  useEffect(() => { gruposAtuais.current = grupos }, [grupos])
   const boasVindasAberta = (progresso.boasVindas === null || revendo) && !tour
 
   // Mudou de página: o tour e o painel eram da tela anterior. O tour sai sem
@@ -146,25 +153,48 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
     }, 700)
   }, [])
 
-  const tourDaTela = useCallback((): PedidoDeTour | null => {
-    if (!daTela?.tour.length) return null
-    return { passos: daTela.tour, rotulo: rotuloDoTour(daTela), chave: daTela.chave }
-  }, [daTela])
+  /**
+   * O tour da tela aberta, com o texto baixado sob demanda. Devolve null se a
+   * tela não tem tour, se o download falhar ou se a pessoa mudou de página
+   * enquanto ele vinha (o tour seria o da tela anterior).
+   */
+  const tourDaTela = useCallback(async (): Promise<PedidoDeTour | null> => {
+    if (!onde?.chave) return null
+    const caminho = caminhoAtual.current
+    try {
+      const { ajudaDoCaminho } = await carregarAjuda()
+      if (caminhoAtual.current !== caminho) return null
+      const aqui = ajudaDoCaminho(caminho, gruposAtuais.current)
+      return aqui?.tour.length ? { passos: aqui.tour, rotulo: rotuloDoTour(aqui), chave: aqui.chave } : null
+    } catch {
+      return null
+    }
+  }, [onde])
 
-  const iniciarTour = useCallback((pedido?: Partial<PedidoDeTour>) => {
-    const padrao = tourDaTela()
-    const alvo: PedidoDeTour | null = pedido?.passos
-      ? { passos: pedido.passos, rotulo: pedido.rotulo ?? 'Tour', chave: pedido.chave ?? null }
-      : padrao && { ...padrao, rotulo: pedido?.rotulo ?? padrao.rotulo }
-    if (!alvo) return
-    if (painelAberto || boasVindasAberta) {
+  // O estado dos diálogos, lido por quem termina depois de um download.
+  const dialogos = useRef({ painelAberto, boasVindasAberta })
+  useEffect(() => { dialogos.current = { painelAberto, boasVindasAberta } }, [painelAberto, boasVindasAberta])
+
+  const abrirPorCimaDosDialogos = useCallback((alvo: PedidoDeTour) => {
+    if (dialogos.current.painelAberto || dialogos.current.boasVindasAberta) {
       depoisDoDialogo(() => abrirTour(alvo))
       setPainelAberto(false)
       setRevendo(false)
       return
     }
     abrirTour(alvo)
-  }, [tourDaTela, painelAberto, boasVindasAberta, abrirTour, depoisDoDialogo])
+  }, [abrirTour, depoisDoDialogo])
+
+  const iniciarTour = useCallback((pedido?: Partial<PedidoDeTour>) => {
+    // Com os passos na mão (o painel já tem o texto), abre na hora.
+    if (pedido?.passos) {
+      abrirPorCimaDosDialogos({ passos: pedido.passos, rotulo: pedido.rotulo ?? 'Tour', chave: pedido.chave ?? null })
+      return
+    }
+    tourDaTela().then((padrao) => {
+      if (padrao) abrirPorCimaDosDialogos({ ...padrao, rotulo: pedido?.rotulo ?? padrao.rotulo })
+    })
+  }, [tourDaTela, abrirPorCimaDosDialogos])
 
   const aoFecharDialogo = useCallback(() => {
     const fazer = pendente.current
@@ -185,8 +215,15 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
       registrar({ tipo: 'boas-vindas' })
     }
     setRevendo(false)
-    const passos = pessoa.equipeDaEscola ? BOAS_VINDAS_ESCOLA : BOAS_VINDAS
-    if (fazerTour && passos.length) depoisDoDialogo(() => abrirTour({ passos, rotulo: 'Boas-vindas', chave: null }))
+    if (!fazerTour) return
+    // O texto vem enquanto a janela fecha; o tour abre quando os dois terminarem.
+    const carregando = carregarAjuda()
+    depoisDoDialogo(() => {
+      carregando.then((m) => {
+        const passos = pessoa.equipeDaEscola ? m.BOAS_VINDAS_ESCOLA : m.BOAS_VINDAS
+        if (passos.length) abrirTour({ passos, rotulo: 'Boas-vindas', chave: null })
+      }).catch(() => {})
+    })
   }, [progresso.boasVindas, pessoa.equipeDaEscola, registrar, depoisDoDialogo, abrirTour])
 
   const reverBoasVindas = useCallback(() => {
@@ -210,7 +247,7 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
 
   // A dica de primeira visita: só depois das boas-vindas, numa tela com tour
   // ainda não visto, e nunca por cima de outra coisa aberta.
-  const chaveDaTela = daTela?.chave ?? null
+  const chaveDaTela = onde?.chave ?? null
   const cabeDica = Boolean(progresso.boasVindas && chaveDaTela && !viuTour(progresso, chaveDaTela))
   useEffect(() => {
     if (!cabeDica || !chaveDaTela) return
@@ -220,9 +257,11 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
   const livre = !tour && !painelAberto && !boasVindasAberta && !buscaAberta && !menuAberto && !aguardandoTour
   const dica = cabeDica && livre && dicaPronta === chaveDaTela ? chaveDaTela : null
 
+  // Com a dica ou as boas-vindas na tela, o "Fazer o tour" está a um clique: o texto já vem vindo.
+  useEffect(() => { if (dica || boasVindasAberta) adiantarAjuda() }, [dica, boasVindasAberta])
+
   const aceitarDica = useCallback(() => {
-    const pedido = tourDaTela()
-    if (pedido) abrirTour(pedido)
+    tourDaTela().then((pedido) => { if (pedido) abrirTour(pedido) })
   }, [tourDaTela, abrirTour])
 
   const dispensarDica = useCallback(() => {
@@ -236,8 +275,8 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
   // parâmetro sai pelo history.replaceState (que o Next acompanha), não por
   // router.replace: este refaria a página no servidor — e poderia trocá-la
   // pelo esqueleto do loading.tsx no meio do tour.
-  const daTelaRef = useRef(daTela)
-  useEffect(() => { daTelaRef.current = daTela }, [daTela])
+  const ondeRef = useRef(onde)
+  useEffect(() => { ondeRef.current = onde }, [onde])
   const boasVindasVistasRef = useRef(Boolean(progresso.boasVindas))
   useEffect(() => { boasVindasVistasRef.current = Boolean(progresso.boasVindas) }, [progresso.boasVindas])
   useEffect(() => {
@@ -246,26 +285,32 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
     busca.delete('tour')
     const resto = busca.toString()
     window.history.replaceState(null, '', `${pathname}${resto ? `?${resto}` : ''}${window.location.hash}`)
-    const aqui = daTelaRef.current
     // Quem ainda não viu as boas-vindas vê as boas-vindas primeiro.
-    if (!aqui?.tour.length || !boasVindasVistasRef.current) return
-    const pedido: PedidoDeTour = { passos: aqui.tour, rotulo: rotuloDoTour(aqui), chave: aqui.chave }
+    if (!ondeRef.current?.chave || !boasVindasVistasRef.current) return
     // A página pode ainda estar chegando (o esqueleto do loading.tsx vem antes):
-    // espera aparecer algum elemento que o tour aponta, até um limite.
-    const comAlvo = pedido.passos.filter((p) => p.alvo && !p.alvo.startsWith('shell.'))
-    const inicio = performance.now()
+    // o texto baixa enquanto isso, e o tour espera aparecer algum elemento que
+    // ele aponta, até um limite.
     let relogio = 0
-    const tentar = () => {
-      const pronto = !comAlvo.length || comAlvo.some((p) => acharAlvo(p.alvo)) || performance.now() - inicio > ESPERA_DOS_ALVOS_MS
-      if (!pronto) { relogio = window.setTimeout(tentar, 120); return }
-      setAguardandoTour(false)
-      abrirTour(pedido)
-    }
+    let cancelado = false
     setAguardandoTour(true)
-    // Um respiro antes da primeira tentativa: se o link veio do painel "?", ele
-    // ainda está fechando e devolvendo o foco — o balão tem de abrir depois.
-    relogio = window.setTimeout(tentar, 300)
-    return () => window.clearTimeout(relogio)
+    tourDaTela().then((pedido) => {
+      if (cancelado) return
+      if (!pedido) { setAguardandoTour(false); return }
+      const comAlvo = pedido.passos.filter((p) => p.alvo && !p.alvo.startsWith('shell.'))
+      const inicio = performance.now()
+      const tentar = () => {
+        if (cancelado) return
+        const pronto = !comAlvo.length || comAlvo.some((p) => acharAlvo(p.alvo)) || performance.now() - inicio > ESPERA_DOS_ALVOS_MS
+        if (!pronto) { relogio = window.setTimeout(tentar, 120); return }
+        setAguardandoTour(false)
+        abrirTour(pedido)
+      }
+      // Um respiro antes da primeira tentativa: se o link veio do painel "?", ele
+      // ainda está fechando e devolvendo o foco — o balão tem de abrir depois.
+      relogio = window.setTimeout(tentar, 300)
+    })
+    return () => { cancelado = true; window.clearTimeout(relogio) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na chegada a cada página; tourDaTela muda junto com ela
   }, [pathname, abrirTour])
 
   // "?" abre e fecha o painel de qualquer tela — menos de dentro de um campo
@@ -292,10 +337,10 @@ export function AjudaProvider({ children, progressoInicial, pessoa }: {
   const alternarPainel = useCallback(() => setPainelAberto((aberto) => !aberto), [])
 
   const valor = useMemo<AjudaState>(() => ({
-    progresso, pessoa, daTela, painelAberto, abrirPainel, fecharPainel, alternarPainel,
+    progresso, pessoa, onde, passosDasBoasVindas: pessoa.equipeDaEscola ? indice.passosDasBoasVindas.escola : indice.passosDasBoasVindas.equipe, painelAberto, abrirPainel, fecharPainel, alternarPainel,
     iniciarTour, tourAberto: Boolean(tour), reverBoasVindas, recomecar, atalhoLigado: !progresso.semAtalho, ligarAtalho,
     boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, dica, aceitarDica, dispensarDica,
-  }), [progresso, pessoa, daTela, painelAberto, abrirPainel, fecharPainel, alternarPainel, iniciarTour, tour, reverBoasVindas, recomecar, ligarAtalho, boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, dica, aceitarDica, dispensarDica])
+  }), [progresso, pessoa, onde, indice, painelAberto, abrirPainel, fecharPainel, alternarPainel, iniciarTour, tour, reverBoasVindas, recomecar, ligarAtalho, boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, dica, aceitarDica, dispensarDica])
 
   return (
     <AjudaContext.Provider value={valor}>

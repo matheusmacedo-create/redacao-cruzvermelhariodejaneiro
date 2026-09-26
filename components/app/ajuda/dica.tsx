@@ -12,9 +12,9 @@ import { useAjuda } from './ajuda'
  * Quando aparece (e quando não) é decidido em ./ajuda.tsx.
  */
 export function DicaDaTela() {
-  const { dica, daTela, aceitarDica, dispensarDica } = useAjuda()
-  if (!dica || !daTela) return null
-  const nome = daTela.tela?.rotulo ?? daTela.area.rotulo
+  const { dica, onde, aceitarDica, dispensarDica } = useAjuda()
+  if (!dica || !onde) return null
+  const nome = onde.tela?.rotulo ?? onde.area.rotulo
   return (
     <section
       role="status"

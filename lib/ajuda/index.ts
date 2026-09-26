@@ -1,5 +1,6 @@
-import { areaDoCaminho, normalizar, type Area, type Grupo } from '../navegacao'
+import { normalizar, type Area, type Grupo } from '../navegacao'
 import type { GuiaDaArea, PassoDoTour, TelaDaArea, TopicoGeral } from './tipos'
+import { hrefDaAjuda, ondeNaAjuda, type IndiceDaAjuda } from './indice'
 import { guias as administracao } from './conteudo/administracao'
 import { guias as comunicacao } from './conteudo/comunicacao'
 import { guias as escola } from './conteudo/escola'
@@ -24,6 +25,7 @@ import { guias as relacionamento } from './conteudo/relacionamento'
 
 export type { GuiaDaArea, PassoDoTour, Pergunta, Tarefa, TelaDaArea, TopicoGeral } from './tipos'
 export { BOAS_VINDAS, BOAS_VINDAS_ESCOLA, TOPICOS_GERAIS }
+export { casarCaminho, hrefDaAjuda, ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda } from './indice'
 
 export const GUIAS: GuiaDaArea[] = [
   ...meuDia, ...comunicacao, ...planejamento, ...producao, ...relacionamento,
@@ -34,25 +36,6 @@ const POR_HREF = new Map(GUIAS.map((g) => [g.href, g]))
 
 export function guiaDaArea(href: string): GuiaDaArea | null {
   return POR_HREF.get(href) ?? null
-}
-
-/** '/pautas/[id]' casa com '/pautas/abc'; '[...x]' casa com o resto do caminho. */
-export function casarCaminho(padrao: string, pathname: string): boolean {
-  const partes = padrao.split('/').filter(Boolean)
-  const reais = pathname.split('/').filter(Boolean)
-  for (let i = 0; i < partes.length; i++) {
-    const parte = partes[i]
-    if (/^\[\.\.\..+\]$/.test(parte)) return reais.length > i
-    if (i >= reais.length) return false
-    if (/^\[.+\]$/.test(parte)) continue
-    if (parte !== reais[i]) return false
-  }
-  return partes.length === reais.length
-}
-
-/** Estático vence dinâmico: '/financeiro/compras/novo' antes de '/financeiro/compras/[id]'. */
-function especificidade(padrao: string): number {
-  return padrao.split('/').filter((p) => p && !p.startsWith('[')).length
 }
 
 export type AjudaDaTela = {
@@ -66,18 +49,30 @@ export type AjudaDaTela = {
   chave: string | null
 }
 
+/**
+ * O índice leve (lib/ajuda/indice.ts), montado uma vez a partir do conteúdo.
+ * O layout manda para o navegador; o texto fica aqui até alguém pedir.
+ */
+const INDICE: IndiceDaAjuda = {
+  areas: Object.fromEntries(GUIAS.map((g) => [g.href, {
+    tour: g.tour.length > 0,
+    telas: (g.telas ?? []).map((t) => ({ caminho: t.caminho, rotulo: t.rotulo, tour: t.tour.length > 0 })),
+  }])),
+  passosDasBoasVindas: { equipe: BOAS_VINDAS.length, escola: BOAS_VINDAS_ESCOLA.length },
+}
+
+export function indiceDaAjuda(): IndiceDaAjuda {
+  return INDICE
+}
+
+/** A ajuda inteira da tela aberta. "Que tela é esta" segue as regras do índice (ondeNaAjuda). */
 export function ajudaDoCaminho(pathname: string, grupos: Grupo[]): AjudaDaTela | null {
-  const achado = areaDoCaminho(pathname, grupos)
-  if (!achado) return null
-  const guia = guiaDaArea(achado.area.href)
-  const tela = guia?.telas
-    ?.filter((t) => casarCaminho(t.caminho, pathname))
-    .sort((a, b) => especificidade(b.caminho) - especificidade(a.caminho))[0] ?? null
-  // Na raiz da área vale o tour da área; numa tela interna sem tour próprio, nenhum
-  // (o tour da lista apontaria para o que não está na tela).
-  const naRaiz = pathname === achado.area.href
-  const tour = tela ? tela.tour : naRaiz ? guia?.tour ?? [] : []
-  return { area: achado.area, guia, tela, tour, chave: tour.length ? (tela?.caminho ?? achado.area.href) : null }
+  const onde = ondeNaAjuda(pathname, grupos, INDICE)
+  if (!onde) return null
+  const guia = guiaDaArea(onde.area.href)
+  const tela = onde.tela ? guia?.telas?.find((t) => t.caminho === onde.tela!.caminho) ?? null : null
+  const tour = !onde.chave ? [] : tela ? tela.tour : guia?.tour ?? []
+  return { area: onde.area, guia, tela, tour, chave: onde.chave }
 }
 
 /** As chaves que o servidor aceita guardar como "tour visto". */
@@ -85,11 +80,6 @@ export function ehChaveDeTour(chave: string): boolean {
   const guia = guiaDaArea(chave)
   if (guia) return guia.tour.length > 0
   return GUIAS.some((g) => g.telas?.some((t) => t.caminho === chave && t.tour.length > 0))
-}
-
-/** O endereço de uma área na Central de ajuda (/ajuda/pautas, /ajuda/escola/vendas#id). */
-export function hrefDaAjuda(areaHref: string, ancora?: string): string {
-  return `/ajuda${areaHref}${ancora ? `#${ancora}` : ''}`
 }
 
 /** As áreas que a pessoa pode abrir e que têm ajuda escrita, na ordem do menu. */

@@ -15,6 +15,7 @@ import type { WorkspaceRole } from '@/lib/session'
 import { ACOES_DE_CRIAR, useCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
 import { useAjuda } from './ajuda/ajuda'
+import { adiantarPainel } from './ajuda/painel'
 import { Sino, type Notificacao } from './sino'
 
 type Perfil = { full_name?: string | null; job_title?: string | null; initials?: string | null; color?: string | null; avatar_path?: string | null } | null
@@ -119,7 +120,7 @@ function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile:
 function BotaoDeAjuda() {
   const { painelAberto, alternarPainel, atalhoLigado } = useAjuda()
   return (
-    <button type="button" onClick={alternarPainel} aria-label={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} title={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} aria-haspopup="dialog" aria-expanded={painelAberto} data-ajuda="shell.ajuda" className={cn(botaoIcone, painelAberto && 'bg-muted text-foreground')}>
+    <button type="button" onClick={alternarPainel} onPointerEnter={adiantarPainel} onFocus={adiantarPainel} aria-label={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} title={atalhoLigado ? 'Ajuda (?)' : 'Ajuda'} aria-haspopup="dialog" aria-expanded={painelAberto} data-ajuda="shell.ajuda" className={cn(botaoIcone, painelAberto && 'bg-muted text-foreground')}>
       <CircleHelp className="size-[18px]" />
     </button>
   )
