@@ -91,4 +91,4 @@ function renovarSessaoDoMembro(request: NextRequest, naArea: boolean, response: 
 
 // A consulta pública da trilha (/api/publico/) não tem sessão: fica fora, sem
 // uma ida ao Supabase Auth a cada verificação.
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|images/|api/publico/).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|images/|api/publico/).*)'] }
