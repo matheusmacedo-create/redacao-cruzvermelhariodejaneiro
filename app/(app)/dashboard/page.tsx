@@ -1,8 +1,7 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { TempoNoRio } from '@/components/app/apis/tempo-no-rio'
-import { CalendarDays, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { AlarmClock, CalendarClock, FileText, Vote } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
@@ -15,10 +14,11 @@ import {
   semanaPedida, taxaDeAbertura, type DestinoNaSemana, type EventoDoCalendario, type Janela,
 } from '@/lib/dashboard/painel'
 import {
-  Camada, CartaoDoIndicador, Contador, EquipeAgora, EsperandoVoce, GradeDaSemana, MinhasPautas, NavegacaoDaSemana,
-  ProjetosNoPainel, SaudeDosCanais, Secao,
+  Camada, CartaoDoIndicador, EquipeAgora, EsperandoVoce, GradeDaSemana, HojeNaAgenda, MinhasPautas, NavegacaoDaSemana,
+  NumerosDaSemana, ProjetosNoPainel, SaudeDosCanais, Secao,
   type CanalNoPainel, type Indicador, type ItemDoFeed, type MinhaPauta, type PedidoDeAprovacao, type ProjetoNoPainel,
 } from '@/components/app/dashboard/camadas'
+import { AberturaDoPalacio, AreasDoPalacio } from '@/components/app/dashboard/palacio'
 import { tituloDaArea } from '@/lib/navegacao'
 
 export const metadata = { title: tituloDaArea('/dashboard') }
@@ -43,10 +43,12 @@ const inicioDoDia = (dia: string) => `${dia}T00:00:00-03:00`
 const fimDoDia = (dia: string) => `${dia}T23:59:59.999-03:00`
 
 /**
- * O dashboard em três camadas: em cima, o meu dia (o que é meu e o que espera
- * por mim); no meio, a semana da operação (o que vai ao ar, o que saiu, o que
- * falhou); embaixo, quatro indicadores com tendência. O detalhe de cada coisa
- * continua na tela dela — aqui é o resumo que diz onde olhar.
+ * O Início em camadas, do operacional para o analítico: em cima, a abertura
+ * (saudação, o dia em uma frase, atalhos e quatro números); depois o meu dia
+ * (o que espera o meu voto e as minhas pautas, com a coluna do lado: hoje na
+ * comunicação, o tempo e a equipe); a semana da operação; os indicadores com
+ * tendência; e, recolhido no fim, o mapa de todas as áreas. O detalhe de cada
+ * coisa continua na tela dela — aqui é o resumo que diz onde olhar.
  */
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ semana?: string }> }) {
   const { semana: semanaParam } = await searchParams
@@ -145,7 +147,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     if (p) pessoas.set(m.user_id as string, { id: m.user_id as string, nome: p.full_name || 'Colaborador', iniciais: p.initials || '?', cor: p.color || null, avatar: p.avatar_path ?? null })
   }
   const pessoa = (id: string | null | undefined) => (id ? pessoas.get(id) : undefined)
-  const nome = pessoa(eu)?.nome.split(' ')[0] || context.profile?.full_name?.split(' ')[0] || context.profile?.username || 'colaborador'
+  const nome = pessoa(eu)?.nome.split(' ')[0] || context.profile?.full_name?.split(' ')[0] || context.profile?.username || ''
 
   // ---------------------------------------------------------------- camada 1
   const minhasPautas: MinhaPauta[] = (minhas ?? []).map((p) => ({
@@ -372,56 +374,62 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const ehSemanaAtual = segunda === segundaDaSemana(hoje)
 
   return (
-    <div className="flex flex-col gap-10">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div data-ajuda="inicio.resumo">
-          <p className="text-sm font-medium text-primary">{maiuscula(DATA_LONGA.format(new Date()))}</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">{saudacao()}, {nome}.</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{maiuscula(resumo)}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" render={<Link href="/calendario" />}><CalendarDays className="size-4" />Ver calendário</Button>
-          <Button render={<Link href="/registrar" />}><Plus className="size-4" />Criar</Button>
-        </div>
-      </div>
+    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-10">
+      <AberturaDoPalacio
+        data={maiuscula(DATA_LONGA.format(new Date()))}
+        saudacao={nome ? `${saudacao()}, ${nome}.` : `${saudacao()}.`}
+        resumo={maiuscula(resumo)}
+        destaques={[
+          { valor: pedidos.length, rotulo: 'Esperando o seu voto', href: '/aprovacoes', alerta: true, icone: <Vote /> },
+          { valor: contagem('atrasadas'), rotulo: contagem('atrasadas') === 1 ? 'Pauta atrasada' : 'Pautas atrasadas', href: '/pautas', alerta: true, icone: <AlarmClock /> },
+          { valor: vencendo, rotulo: 'Vencem em 7 dias', href: '/pautas', icone: <CalendarClock /> },
+          { valor: minhasPautas.length, rotulo: minhasPautas.length === 1 ? 'Pauta sua em aberto' : 'Pautas suas em aberto', href: '/pautas', icone: <FileText /> },
+        ]}
+      />
 
-      <Camada nome="Meu dia" pergunta="O que é seu e o que espera por você.">
-        <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-          <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />
+      <Camada nome="Meu dia" pergunta="O que espera por você, o que é seu e o que acontece hoje.">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-6">
             <EsperandoVoce pedidos={pedidos} hoje={hoje} />
-            <EquipeAgora itens={feed} hoje={hoje} />
+            <MinhasPautas grupos={grupos} total={minhasPautas.length} hoje={hoje} />
+            <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
           </div>
+          <aside className="flex min-w-0 flex-col gap-6" aria-label="Hoje">
+            {/* Vendo outra semana (?semana=), o mapa não tem o dia de hoje. */}
+            {ehSemanaAtual && <HojeNaAgenda itens={semana.get(hoje) ?? []} />}
+            {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
+            <Suspense fallback={null}><TempoNoRio compacto /></Suspense>
+            <EquipeAgora itens={feed} hoje={hoje} />
+          </aside>
         </div>
-        <ProjetosNoPainel projetos={projetosNoPainel} hoje={hoje} />
-        {/* Não segura o painel: a previsão chega quando chegar (e some se a API cair). */}
-        <Suspense fallback={null}><TempoNoRio /></Suspense>
       </Camada>
 
       <div id="semana" className="scroll-mt-6">
         <Camada
-          nome={ehSemanaAtual ? 'Esta semana' : `Semana de ${rotuloDaSemana(segunda)}`}
+          nome={ehSemanaAtual ? 'Esta semana na comunicação' : `Comunicação · semana de ${rotuloDaSemana(segunda)}`}
           pergunta={ehSemanaAtual ? `${rotuloDaSemana(segunda)} · o que vai ao ar, o que saiu e o que falhou.` : 'O que estava no calendário, o que saiu e o que falhou.'}
           lado={<NavegacaoDaSemana anterior={somarDias(segunda, -7)} proxima={somarDias(segunda, 7)} ehAtual={ehSemanaAtual} />}
         >
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Contador valor={itensDaSemana.length} rotulo="no calendário da semana" href="/calendario" />
-            <Contador valor={destinos.filter((d) => d.estado === 'publicado').length} rotulo="publicações no ar" href="/registro" />
-            <Contador valor={destinos.filter((d) => d.estado === 'falhou').length} rotulo="falharam ao publicar" href="/registro" alerta={destinos.some((d) => d.estado === 'falhou')} />
-            <Contador valor={aprovacoesPendentes ?? 0} rotulo="esperando aprovação" href="/aprovacoes" />
-          </div>
+          <NumerosDaSemana numeros={[
+            { valor: itensDaSemana.length, rotulo: 'no calendário da semana', href: '/calendario' },
+            { valor: destinos.filter((d) => d.estado === 'publicado').length, rotulo: 'publicações no ar', href: '/registro' },
+            { valor: destinos.filter((d) => d.estado === 'falhou').length, rotulo: 'falharam ao publicar', href: '/registro', alerta: destinos.some((d) => d.estado === 'falhou') },
+            { valor: aprovacoesPendentes ?? 0, rotulo: 'esperando aprovação', href: '/aprovacoes' },
+          ]} />
           <GradeDaSemana dias={dias} semana={semana} hoje={hoje} />
           <SaudeDosCanais canais={canais} />
         </Camada>
       </div>
 
-      <Camada nome="Indicadores" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
+      <Camada nome="Indicadores da comunicação" pergunta="Últimos 30 dias comparados aos 30 anteriores, com a tendência de 8 semanas.">
         <Secao titulo="Resultados da operação" id="indicadores" acao={{ href: '/impacto', rotulo: 'Ver resultados' }}>
           <div data-ajuda="inicio.indicadores" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {indicadores.map((i) => <CartaoDoIndicador key={i.nome} i={i} />)}
           </div>
         </Secao>
       </Camada>
+
+      <AreasDoPalacio />
     </div>
   )
 }

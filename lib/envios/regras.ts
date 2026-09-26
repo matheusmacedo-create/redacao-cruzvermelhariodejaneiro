@@ -5,6 +5,7 @@
  */
 
 import { nomeSeguro } from '@/lib/acervo/regras'
+import { gerarSlug } from '@/lib/site/slug'
 
 /** 2 GB por arquivo: o mesmo teto do acervo, que é para onde os arquivos vão. */
 export const TAMANHO_MAXIMO = 2 * 1024 * 1024 * 1024
@@ -165,6 +166,38 @@ export function lerEnvio(j: Record<string, unknown>, hoje: string): { dados?: Da
       avisar_quando_publicar: j.avisar_quando_publicar !== false,
     },
   }
+}
+
+const EXTENSAO_PADRAO: Record<string, string> = { jpeg: 'jpg', jpe: 'jpg', tif: 'tiff', mpeg: 'mpg', qt: 'mov' }
+const cortarSlug = (slug: string, max: number) => (slug.length <= max ? slug : slug.slice(0, max).replace(/-[^-]*$/, '')).replace(/-+$/, '')
+
+/**
+ * O nome que o arquivo ganha para sempre (no armazenamento, no download, no
+ * .zip e na Biblioteca): data, assunto, quem fotografou e o número.
+ *
+ *   2026-09-26-acao-de-prevencao-na-central-ana-souza-001.jpg
+ *
+ * A data na frente mantém qualquer pasta em ordem cronológica; o assunto é o
+ * que buscador e gente procuram (o mesmo título para todos que mandam pelo
+ * link de um evento); o autor dá o crédito e evita nomes repetidos. Sem
+ * acento, sem espaço, minúsculo: atravessa qualquer sistema. O nome que veio
+ * do celular fica guardado no banco (envio_arquivos.nome).
+ */
+export function nomeCanonico(d: { titulo: string; data: string | null; hoje: string; autor: string; indice: number; nomeOriginal: string }): string {
+  const bruta = /\.([a-z0-9]{1,5})$/i.exec(d.nomeOriginal)?.[1]?.toLowerCase() ?? ''
+  const ext = bruta ? `.${EXTENSAO_PADRAO[bruta] ?? bruta}` : ''
+  const data = d.data && /^\d{4}-\d{2}-\d{2}$/.test(d.data) ? d.data : d.hoje
+  const assunto = cortarSlug(gerarSlug(d.titulo), 60) || 'acao'
+  const partes = gerarSlug(d.autor).split('-').filter(Boolean)
+  const autor = cortarSlug(partes.length > 2 ? `${partes[0]}-${partes.at(-1)}` : partes.join('-'), 24)
+  const numero = String(Math.max(1, Math.min(d.indice, 999))).padStart(3, '0')
+  return [data, assunto, autor, numero].filter(Boolean).join('-') + ext
+}
+
+/** O nome de arquivo guardado na chave (o que vem depois de "<8 letras>-"): é o nome canônico, ou o original nos envios antigos. */
+export function nomeDaChave(chave: string): string {
+  const ultimo = chave.split('/').pop() ?? chave
+  return /^[0-9a-f]{8}-(.+)$/.exec(ultimo)?.[1] ?? ultimo
 }
 
 /** A chave do arquivo no bucket do acervo: entrada/envios/AAAA-MM/<id do envio>/<8 letras>-<nome>. */

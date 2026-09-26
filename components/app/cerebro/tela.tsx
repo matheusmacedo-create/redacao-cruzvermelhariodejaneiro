@@ -292,7 +292,7 @@ function Linha({ pauta: p, pacote, ativa, aoAbrir }: { pauta: PautaDoCerebro; pa
             key={f.texto}
             className={cn(
               'rounded bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground',
-              f.alerta && 'bg-[#FBE9EB] text-primary',
+              f.alerta && 'bg-destructive/10 text-destructive',
               f.destaque && 'bg-[#E7F3EB] text-[#1A7F45]',
             )}
           >

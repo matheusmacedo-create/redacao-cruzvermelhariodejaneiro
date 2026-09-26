@@ -3,6 +3,7 @@ import { infoDoObjeto, apagarObjeto } from '@/lib/armazenamento/r2'
 import { dadosDaRequisicao } from '@/lib/acessos/agente'
 import { HORAS_PARA_MANDAR_MAIS, ehChaveDeEnvio, lerArquivos, type Categoria } from '@/lib/envios/regras'
 import { coletaDoEnvio } from '@/lib/imagem/servidor'
+import { TAMANHO_MAXIMO_DA_MINIATURA, ehMiniaturaDoEnvio, miniaturaDaChave } from '@/lib/envios/album'
 import { armazenamento, avisarAvaliadores, conferirLimites, hashDaOrigem, hashDoToken, prepararArquivos, resumoDosArquivos } from '@/lib/envios/servidor'
 
 export const dynamic = 'force-dynamic'
@@ -30,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient()
   const { data: envio } = await admin.from('envios')
-    .select('id, workspace_id, protocolo, estado, criado_em, token_hash, nome, setor, titulo, relato')
+    .select('id, workspace_id, protocolo, estado, criado_em, token_hash, nome, setor, titulo, relato, data_da_acao')
     .eq('id', id).maybeSingle()
   if (!envio || envio.token_hash !== hashDoToken(token)) return responder(403, { erro: 'Este envio não é seu.' })
 
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (j.acao === 'recebido') {
       const arquivoId = String(j.arquivoId ?? '')
       if (!UUID.test(arquivoId)) return responder(400, { erro: 'Arquivo inválido.' })
-      const { data: arquivo } = await admin.from('envio_arquivos').select('id, chave, tamanho, estado').eq('id', arquivoId).eq('envio_id', id).maybeSingle()
+      const { data: arquivo } = await admin.from('envio_arquivos').select('id, chave, tamanho, estado, categoria').eq('id', arquivoId).eq('envio_id', id).maybeSingle()
       if (!arquivo) return responder(404, { erro: 'Arquivo não encontrado.' })
       if (arquivo.estado === 'recebido') return responder(200, { ok: true })
       const r2 = armazenamento()
@@ -50,7 +51,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         await apagarObjeto(r2.config, r2.bucket, arquivo.chave).catch(() => undefined)
         return responder(409, { erro: 'O arquivo chegou diferente do que foi anunciado. Tente de novo.' })
       }
-      await admin.from('envio_arquivos').update({ estado: 'recebido', recebido_em: new Date().toISOString() }).eq('id', arquivoId)
+      // A miniatura é um extra: se chegou e é pequena, o álbum usa; se não, mostra o original.
+      let miniatura: string | null = null
+      const chaveDaMini = j.miniatura === true && arquivo.categoria === 'foto' ? miniaturaDaChave(arquivo.chave) : null
+      if (chaveDaMini && ehMiniaturaDoEnvio(chaveDaMini, id)) {
+        const mini = await infoDoObjeto(r2.config, r2.bucket, chaveDaMini).catch(() => null)
+        if (mini && mini.tamanho > 0 && mini.tamanho <= TAMANHO_MAXIMO_DA_MINIATURA) miniatura = chaveDaMini
+        else if (mini) await apagarObjeto(r2.config, r2.bucket, chaveDaMini).catch(() => undefined)
+      }
+      await admin.from('envio_arquivos').update({ estado: 'recebido', recebido_em: new Date().toISOString(), ...(miniatura ? { miniatura } : {}) }).eq('id', arquivoId)
       return responder(200, { ok: true })
     }
 
@@ -65,7 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const origem = hashDaOrigem(dadosDaRequisicao((nome) => request.headers.get(nome)).ip)
       const limite = await conferirLimites(admin, origem, arquivos.reduce((s, a) => s + a.tamanho, 0), false)
       if (limite) return responder(429, { erro: limite })
-      const uploads = await prepararArquivos(admin, envio, arquivos)
+      const uploads = await prepararArquivos(admin, envio, arquivos, count ?? 0)
       return responder(200, { uploads })
     }
 

@@ -123,7 +123,7 @@ explicaria o problema.
 ```
 app/
   (app)/              rotas autenticadas — o grupo tem o layout com sidebar
-    dashboard/  caixa-de-entrada/  registrar/  pautas/  projetos/
+    dashboard/  direct/  registrar/  pautas/  projetos/
     conteudos/[id]/   aprovacoes/  calendario/  biblioteca/  redes/
     mensagens/  pessoas/  perfil/  configuracoes/  acervo/
   actions/            server actions — TODA escrita passa por aqui
@@ -769,6 +769,11 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
   e copia para a Biblioteca só o que foi marcado.
 - Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
   `publicarMateria`).
+- **Álbum do evento** (`docs/envio-de-acoes.md` §9): `envio_eventos` dá a cada evento um link de
+  envio (`/enviar/<codigo>`) e um álbum por link secreto (`/album/<token>`, sem login), com .zip em
+  fluxo e "Esconder do álbum". Os arquivos são servidos por `/api/publico/album/...`, que confere o
+  token e redireciona para um link assinado curto do R2. Os arquivos chegam com nome canônico
+  (`AAAA-MM-DD-assunto-autor-NNN.ext`, `nomeCanonico`) e o celular manda uma miniatura de 640 px.
 
 ### 7.15 Ajuda (boas-vindas, tours, painel e Central)
 
@@ -903,6 +908,24 @@ Benchmark, decisões e o que foi entregue: [`docs/calendario-inteligente.md`](do
 - **Regras puras** em `lib/imagem/regras.ts` (validação, traços, aparelho, código `IMG-XXXX-XXXX`,
   documento canônico). O termo é **minuta** — revisão do Jurídico pendente.
 
+### 7.18 Direct das redes (`/direct`)
+
+A antiga Caixa de entrada (`/caixa-de-entrada` redireciona para cá, desde 26/09/2026). Só redes
+sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em "Envios da equipe".
+
+- **Mensagens e comentários vêm do conector** (Upload-Post, `lib/atendimento/conector.ts`) a cada
+  abertura, pela action `carregarFila`. Nada disso é guardado no banco.
+- **A situação é da equipe:** `direct_atendimentos` guarda, por item (`chave` = id do
+  normalizador), quem respondeu por aqui ou marcou "Não precisa responder". A regra
+  (pendente / respondida / resolvida / em dia; mensagem nova do público reabre a conversa) está em
+  `lib/atendimento/situacao.ts`, conferida por `npx tsx scripts/conferir-direct.ts`. Escrita só
+  pelas actions de `app/actions/atendimento.ts` (RLS sem escrita direta).
+- **Mídia no Direct:** o endpoint de conversas do Upload-Post devolve só o campo `message`. Foto,
+  áudio, vídeo e figurinha chegam vazios e aparecem como "Foto, vídeo, áudio ou figurinha", com
+  "Abrir no Instagram". Se o conector passar a mandar `attachments`, `normalizar.ts` já lê a imagem.
+- A pasta "E-mail e materiais" (`inbox_items`) saiu: nenhum código gravava nela e a tabela estava
+  vazia. A tabela continua no banco (migração só acrescenta).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
@@ -1013,6 +1036,15 @@ Limites que valem conhecer:
 - o Nominatim exige identificação (User-Agent) e cache.
 
 ## 9. Convenções
+
+**Marca.** O emblema (a cruz) é **sempre vermelho sobre fundo branco** — nunca
+vazado em branco sobre vermelho, nunca como marca d'água, nunca recortado. Faixa
+de destaque com a marca é branca com filete vermelho; o vermelho da marca é
+`--primary` (`rgb(227 34 25)`). A logo oficial é `public/images/logo-cvrj.png`.
+O vermelho da marca é acento (logo, botão principal, item ativo, filetes), não
+sinal de problema: erro e atraso usam `--destructive` (`rgb(185 28 28)`, mais
+escuro), sempre com ícone ou texto junto. Não use `primary` para alerta nem
+`destructive` para marca.
 
 **Idioma.** Interface, mensagens de erro, comentários e mensagens de commit em
 **português**. Código novo nomeia em português (`publicacoesPrevistas`,

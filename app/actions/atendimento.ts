@@ -1,6 +1,7 @@
 'use server'
 
 import { requireWorkspace } from '@/lib/session'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { obterPerfil, perfilPadrao, redesConectadas, semSegredo } from '@/lib/publicacao/upload-post'
 import {
@@ -8,6 +9,7 @@ import {
   REDES_COM_COMENTARIO, REDES_COM_DM, FORA_DO_ALCANCE, nomeDoCanal,
 } from '@/lib/atendimento/conector'
 import type { Mensagem } from '@/lib/atendimento/normalizar'
+import type { Registro } from '@/lib/atendimento/situacao'
 
 /**
  * As ações do atendimento.
@@ -55,7 +57,42 @@ export async function carregarFila(): Promise<Fila> {
   }
 }
 
-export type Resultado = { erro?: string; recado?: string }
+export type Resultado = { erro?: string; recado?: string; registro?: Registro | null }
+
+const CHAVE = /^(dm|comentario):[\w.-]{1,40}:[^\s]{1,250}$/
+
+/**
+ * Grava quem respondeu ou resolveu (direct_atendimentos). A tabela não aceita
+ * escrita direta (RLS); o cliente de serviço grava sempre no espaço da sessão.
+ * Falhar aqui não desfaz a resposta, que já saiu na rede: devolve null e a
+ * tela avisa que a situação não ficou guardada.
+ */
+async function registrar(workspaceId: string, userId: string, nome: string | null, chave: string, situacao: Registro['situacao']): Promise<Registro | null> {
+  if (!CHAVE.test(chave)) return null
+  const em = new Date().toISOString()
+  const { error } = await createAdminClient().from('direct_atendimentos')
+    .upsert({ workspace_id: workspaceId, chave, situacao, por: userId, em }, { onConflict: 'workspace_id,chave' })
+  if (error) { console.error('[direct] situação não gravada:', error.message); return null }
+  return { situacao, por: userId, nome, em }
+}
+
+/** "Não precisa responder" (resolvida) ou reabrir (volta a pendente). */
+export async function marcarSituacao(chave: string, resolvida: boolean): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    if (!CHAVE.test(chave)) throw new Error('Item não identificado.')
+    if (resolvida) {
+      const registro = await registrar(context.workspace.id, context.user.id, (context.profile?.full_name as string | undefined) ?? null, chave, 'resolvida')
+      if (!registro) throw new Error('Não foi possível guardar. Se continuar, a migração do Direct das redes pode não ter sido aplicada.')
+      return { registro }
+    }
+    const { error } = await createAdminClient().from('direct_atendimentos').delete().eq('workspace_id', context.workspace.id).eq('chave', chave)
+    if (error) throw new Error('Não foi possível reabrir.')
+    return { registro: null }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível mudar a situação.') }
+  }
+}
 
 /**
  * Responde — comentário ou mensagem direta, conforme a origem.
@@ -66,7 +103,9 @@ export type Resultado = { erro?: string; recado?: string }
  */
 export async function responder(formData: FormData): Promise<Resultado> {
   try {
-    await requireWorkspace()
+    const context = await requireWorkspace()
+    const chave = String(formData.get('chave') ?? '')
+    const nome = (context.profile?.full_name as string | undefined) ?? null
 
     const origem = String(formData.get('origem') ?? '')
     const canal = String(formData.get('canal') ?? '')
@@ -79,7 +118,7 @@ export async function responder(formData: FormData): Promise<Resultado> {
       const destinatarioId = String(formData.get('destinatarioId') ?? '')
       if (!destinatarioId) throw new Error('Não sei para quem enviar esta resposta.')
       await responderDm({ destinatarioId, mensagem: texto })
-      return { recado: 'Mensagem enviada.' }
+      return { recado: 'Mensagem enviada.', registro: await registrar(context.workspace.id, context.user.id, nome, chave, 'respondida') }
     }
 
     const comentarioId = String(formData.get('comentarioId') ?? '')
@@ -90,7 +129,7 @@ export async function responder(formData: FormData): Promise<Resultado> {
     }
 
     await responderComentario({ canal, comentarioId: comentarioId || undefined, postId: postId || undefined, mensagem: texto })
-    return { recado: `Resposta publicada no ${nomeDoCanal(canal)}.` }
+    return { recado: `Resposta publicada no ${nomeDoCanal(canal)}.`, registro: await registrar(context.workspace.id, context.user.id, nome, chave, 'respondida') }
   } catch (causa) {
     return { erro: semSegredo(mensagemDoErro(causa, 'Não foi possível enviar a resposta.')) }
   }

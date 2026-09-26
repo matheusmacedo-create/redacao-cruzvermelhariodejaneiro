@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { bucketDoAcervo } from '@/lib/acervo/dados'
 import { urlAssinada } from '@/lib/armazenamento/r2'
 import { notificar } from '@/lib/notificacoes/servidor'
-import { BYTES_POR_DIA, ENVIOS_POR_HORA, chaveDoArquivo, tamanhoLegivel, type ArquivoPedido, type Categoria } from './regras'
+import { BYTES_POR_DIA, ENVIOS_POR_HORA, chaveDoArquivo, nomeCanonico, tamanhoLegivel, type ArquivoPedido, type Categoria } from './regras'
+import { miniaturaDaChave } from './album'
 
 /**
  * O lado do servidor do envio de ações (docs/envio-de-acoes.md). As rotas
@@ -45,22 +46,42 @@ export async function conferirLimites(admin: Admin, ipHash: string, bytesNovos: 
   return null
 }
 
-/** Cria as linhas dos arquivos e devolve um link de envio (PUT, 2 horas) para cada um. */
-export async function prepararArquivos(admin: Admin, envio: { id: string; workspace_id: string }, arquivos: ArquivoPedido[]) {
+const hojeEmSaoPaulo = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+
+/**
+ * Cria as linhas dos arquivos e devolve um link de envio (PUT, 2 horas) para
+ * cada um. A chave já nasce com o nome canônico (data, assunto, autor e
+ * número — regras.ts, nomeCanonico); o nome do celular fica em `nome`.
+ * `jaTem` continua a numeração quando a pessoa manda mais arquivos depois.
+ */
+export async function prepararArquivos(
+  admin: Admin,
+  envio: { id: string; workspace_id: string; titulo: string; data_da_acao: string | null; nome: string },
+  arquivos: ArquivoPedido[],
+  jaTem = 0,
+) {
   if (!arquivos.length) return []
   const r2 = armazenamento()
   if (!r2) throw new Error('O envio de arquivos está fora do ar agora. Mande o texto e avise a comunicação.')
   const mes = new Date().toISOString().slice(0, 7)
-  const linhas = arquivos.map((a) => ({
+  const hoje = hojeEmSaoPaulo()
+  const linhas = arquivos.map((a, i) => ({
     envio_id: envio.id, workspace_id: envio.workspace_id,
-    chave: chaveDoArquivo(envio.id, mes, randomUUID().slice(0, 8), a.nome),
+    chave: chaveDoArquivo(envio.id, mes, randomUUID().slice(0, 8), nomeCanonico({
+      titulo: envio.titulo, data: envio.data_da_acao, hoje, autor: envio.nome, indice: jaTem + i + 1, nomeOriginal: a.nome,
+    })),
     nome: a.nome, tipo_mime: a.tipo || null, tamanho: a.tamanho, categoria: a.categoria, gravado_na_hora: a.gravadoNaHora,
   }))
-  const { data, error } = await admin.from('envio_arquivos').insert(linhas).select('id, chave, nome')
+  const { data, error } = await admin.from('envio_arquivos').insert(linhas).select('id, chave, nome, categoria')
   if (error || !data) throw new Error('Não foi possível preparar o envio dos arquivos.')
-  return (data as { id: string; chave: string; nome: string }[]).map((l) => ({
-    id: l.id, nome: l.nome, url: urlAssinada(r2.config, r2.bucket, l.chave, 'PUT', 2 * 60 * 60),
-  }))
+  return (data as { id: string; chave: string; nome: string; categoria: Categoria }[]).map((l) => {
+    // Foto ganha também o link da miniatura, que o celular gera e manda (o álbum do evento carrega leve).
+    const mini = l.categoria === 'foto' ? miniaturaDaChave(l.chave) : null
+    return {
+      id: l.id, nome: l.nome, url: urlAssinada(r2.config, r2.bucket, l.chave, 'PUT', 2 * 60 * 60),
+      ...(mini ? { miniatura: urlAssinada(r2.config, r2.bucket, mini, 'PUT', 2 * 60 * 60) } : {}),
+    }
+  })
 }
 
 /** O resumo "12 fotos, 2 vídeos e 1 áudio" do que chegou. */

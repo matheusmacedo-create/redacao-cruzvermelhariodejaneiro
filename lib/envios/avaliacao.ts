@@ -1,4 +1,5 @@
 import 'server-only'
+import { urlBase } from '@/lib/newsletter/contexto'
 import { put, del } from '@vercel/blob'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlAssinada } from '@/lib/armazenamento/r2'
@@ -7,7 +8,7 @@ import { TIPOS_OTIMIZAVEIS, nomeFinal, otimizarImagem } from '@/lib/midia/otimiz
 import { TETO_PARA_OTIMIZAR, farejarTipo, type TipoFarejado } from '@/lib/midia/regras'
 import { montar } from '@/lib/contas/emails'
 import { enviarComSeguranca } from '@/lib/contas/servidor'
-import { AUTORIZACOES, mensagemDePublicacao, tamanhoLegivel, type Autorizacao } from './regras'
+import { AUTORIZACOES, mensagemDePublicacao, nomeDaChave, tamanhoLegivel, type Autorizacao } from './regras'
 import { armazenamento, avisarAvaliadores } from './servidor'
 
 /**
@@ -48,7 +49,7 @@ export async function copiarParaBiblioteca(admin: Admin, p: {
 
   let corpo: ReadableStream<Uint8Array> | Buffer = resposta.body
   let tipoFinal = tipo
-  let nome = arquivo.nome
+  let nome = nomeDaChave(arquivo.chave)
   let tamanho = arquivo.tamanho
   let otimizadoEm: string | null = null
   let tamanhoOriginal: number | null = null
@@ -63,7 +64,7 @@ export async function copiarParaBiblioteca(admin: Admin, p: {
         const foto = await otimizarImagem(bytes, real, 'padrao')
         corpo = foto.bytes
         tipoFinal = foto.tipo
-        nome = nomeFinal(arquivo.nome, foto)
+        nome = nomeFinal(nome, foto)
         tamanho = foto.bytes.length
         // Mesmo sem mudar (mudou=false), passou pelo otimizador: não volta a ser candidata.
         otimizadoEm = new Date().toISOString()
@@ -83,6 +84,7 @@ export async function copiarParaBiblioteca(admin: Admin, p: {
   })
   const { data, error } = await admin.from('files').insert({
     workspace_id: p.workspaceId,
+    // O nome canônico (data-assunto-autor-número) na Biblioteca; o do celular fica como original.
     name: nome, original_name: arquivo.nome,
     file_type: fileKind(tipoFinal), content_type: tipoFinal,
     storage_path: blob.pathname, size_bytes: tamanho, status: 'available',
@@ -116,8 +118,19 @@ export async function avisarQuemEnviou(contentId: string, workspaceId: string, u
     const { data: envios } = await admin.from('envios')
       .select('id, nome, titulo, email, whatsapp, avisar_quando_publicar, avisado_em')
       .eq('workspace_id', workspaceId).eq('pauta_id', peca.pauta_id).is('avisado_em', null)
+    // O álbum do evento, se o envio é de um evento com o álbum ligado: vai junto no e-mail.
+    const ids = (envios ?? []).map((e) => e.id as string)
+    const albumDe = new Map<string, string>()
+    if (ids.length) {
+      const { data: comEvento } = await admin.from('envios').select('id, envio_eventos(album_token)').in('id', ids).not('evento_id', 'is', null)
+      for (const l of (comEvento ?? []) as { id: string; envio_eventos: { album_token: string | null } | { album_token: string | null }[] | null }[]) {
+        const ev = Array.isArray(l.envio_eventos) ? l.envio_eventos[0] : l.envio_eventos
+        if (ev?.album_token) albumDe.set(l.id, `${urlBase()}/album/${ev.album_token}`)
+      }
+    }
     for (const e of (envios ?? []) as { id: string; nome: string; titulo: string; email: string | null; whatsapp: string | null; avisar_quando_publicar: boolean }[]) {
       if (!e.avisar_quando_publicar) continue
+      const album = albumDe.get(e.id)
       if (e.email) {
         const enviado = await enviarComSeguranca(e.email, montar({
           assunto: 'A ação que você mandou virou matéria',
@@ -126,6 +139,7 @@ export async function avisarQuemEnviou(contentId: string, workspaceId: string, u
           blocos: [
             { tipo: 'p', texto: mensagemDePublicacao(e.nome, e.titulo, url) },
             { tipo: 'botao', rotulo: 'Ver a matéria', url },
+            ...(album ? [{ tipo: 'item' as const, titulo: 'O álbum do evento', texto: 'As fotos de todo mundo que esteve lá, para ver e baixar.', url: album }] : []),
             { tipo: 'nota', texto: 'Continue mandando: cada ação registrada ajuda a mostrar o trabalho da filial.' },
           ],
         }))

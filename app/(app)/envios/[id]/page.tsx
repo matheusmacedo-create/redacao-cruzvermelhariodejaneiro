@@ -6,11 +6,12 @@ import { Card } from '@/components/ui/card'
 import { MaterialEAcoes, Transcricao, type ArquivoNaTela } from '@/components/app/envios/avaliacao'
 import { avisarPeloWhatsapp } from '@/app/actions/envios'
 import { GerarLinkDoEnvio } from '@/components/app/envios/autorizacoes-do-envio'
+import { EventoDoEnvio } from '@/components/app/envios/eventos'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { urlAssinada } from '@/lib/armazenamento/r2'
 import { armazenamento, avaliaEnvios } from '@/lib/envios/servidor'
-import { AUTORIZACOES, ESTADOS_DO_ENVIO, linkDoWhatsapp, type Autorizacao, type EstadoDoEnvio } from '@/lib/envios/regras'
+import { AUTORIZACOES, ESTADOS_DO_ENVIO, linkDoWhatsapp, nomeDaChave, type Autorizacao, type EstadoDoEnvio } from '@/lib/envios/regras'
 
 export const metadata = { title: 'Envio da equipe' }
 // Copiar vídeos para a Biblioteca e transcrever áudio rodam como ações desta página.
@@ -22,6 +23,7 @@ type Envio = {
   titulo: string; data_da_acao: string | null; local: string | null; latitude: number | null; longitude: number | null
   pessoas_atendidas: number | null; parceiros: string | null; relato: string | null; transcricao: string | null
   autorizacao_imagem: Autorizacao; avisar_quando_publicar: boolean; pauta_id: string | null; pacote_id: string | null; avisado_em: string | null
+  evento_id?: string | null
   envio_arquivos: { id: string; chave: string; nome: string; tamanho: number; categoria: ArquivoNaTela['categoria']; estado: string; gravado_na_hora: boolean; file_id: string | null; criado_em: string }[]
 }
 
@@ -50,7 +52,7 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
     ? envio.envio_arquivos.filter((a) => a.estado === 'recebido').sort((a, b) => a.criado_em.localeCompare(b.criado_em)).map((a) => ({
       id: a.id, nome: a.nome, categoria: a.categoria, tamanho: Number(a.tamanho), naBiblioteca: Boolean(a.file_id), gravadoNaHora: a.gravado_na_hora,
       url: urlAssinada(r2.config, r2.bucket, a.chave, 'GET', 3600),
-      baixar: urlAssinada(r2.config, r2.bucket, a.chave, 'GET', 3600, { nomeParaBaixar: a.nome }),
+      baixar: urlAssinada(r2.config, r2.bucket, a.chave, 'GET', 3600, { nomeParaBaixar: nomeDaChave(a.chave) }),
     }))
     : []
   const faltando = envio.envio_arquivos.filter((a) => a.estado !== 'recebido').length
@@ -59,6 +61,11 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
   const { data: publicada } = envio.pauta_id
     ? await supabase.from('content_pieces').select('site_url').eq('workspace_id', ws).eq('pauta_id', envio.pauta_id).not('site_url', 'is', null).limit(1).maybeSingle()
     : { data: null }
+  // O evento do envio (álbum): lido à parte para a tela funcionar mesmo sem a migração dos álbuns.
+  const [{ data: doEnvio }, { data: eventos }] = await Promise.all([
+    supabase.from('envios').select('evento_id').eq('id', id).maybeSingle(),
+    supabase.from('envio_eventos').select('id, nome, data_do_evento').eq('workspace_id', ws).order('criado_em', { ascending: false }).limit(50),
+  ])
   const autorizacao = AUTORIZACOES[envio.autorizacao_imagem]
   // As assinaturas do termo de imagem feitas pelo link deste envio (Biblioteca → Autorizações de imagem).
   const { data: coleta } = await supabase.from('imagem_coletas').select('id, imagem_autorizacoes(revogada_em)').eq('workspace_id', ws).eq('envio_id', id).maybeSingle()
@@ -89,6 +96,14 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
         </div>
 
         <aside className="flex flex-col gap-4">
+          {eventos && (
+            <Card className="flex flex-col gap-2 p-4">
+              <h2 className="text-sm font-semibold">Evento (álbum)</h2>
+              <p className="text-xs text-muted-foreground">As fotos e vídeos deste envio entram no álbum do evento escolhido.</p>
+              <EventoDoEnvio envioId={envio.id} atual={(doEnvio?.evento_id as string | null) ?? null} eventos={eventos.map((e) => ({ id: e.id as string, nome: e.nome as string, data: e.data_do_evento as string | null }))} />
+              {doEnvio?.evento_id && <Link href={`/envios/eventos/${doEnvio.evento_id}`} className="text-xs text-primary hover:underline">Abrir o evento</Link>}
+            </Card>
+          )}
           <Card className="p-4" data-ajuda="envios.ficha">
             <dl className="flex flex-col gap-3">
               <Linha rotulo="Enviado por">{envio.nome}{envio.setor ? ` · ${envio.setor}` : ''}</Linha>

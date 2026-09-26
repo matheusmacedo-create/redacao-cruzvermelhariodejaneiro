@@ -31,10 +31,11 @@ export default async function CartazDoEnvio() {
       <BotoesDoCartaz />
 
       <article className="mx-auto flex h-[297mm] w-[210mm] flex-col overflow-hidden bg-white text-neutral-900 shadow-xl max-[860px]:[zoom:0.72] max-[600px]:[zoom:0.45] print:shadow-none print:[zoom:1]" aria-label="Cartaz: mande a sua ação para a Comunicação">
-        {/* Faixa vermelha com a cruz: a marca de longe, antes de ler qualquer coisa. */}
-        <div className="flex h-[14mm] items-center gap-[4mm] bg-[rgb(227_34_25)] px-[16mm] text-white [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
-          <svg viewBox="0 0 30 30" className="size-[6mm]" aria-hidden="true"><path d="M10 0h10v10h10v10H20v10H10V20H0V10h10z" fill="#fff" /></svg>
-          <p className="text-[11pt] font-semibold uppercase tracking-[0.18em]">Comunicação · Cruz Vermelha RJ</p>
+        {/* Faixa da marca: a cruz é SEMPRE vermelha sobre branco (manual da marca e regra de uso do
+            emblema) — nunca vazada em branco sobre vermelho. O vermelho entra como filete embaixo. */}
+        <div className="flex h-[14mm] items-center gap-[4mm] border-b-[1.2mm] border-[rgb(227_34_25)] bg-white px-[16mm] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]">
+          <svg viewBox="0 0 30 30" className="size-[6mm]" aria-hidden="true"><path d="M10 0h10v10h10v10H20v10H10V20H0V10h10z" fill="rgb(227 34 25)" /></svg>
+          <p className="text-[11pt] font-semibold uppercase tracking-[0.18em] text-neutral-800">Comunicação · Cruz Vermelha RJ</p>
         </div>
 
         <div className="flex flex-1 flex-col px-[16mm] pb-[10mm] pt-[12mm]">
