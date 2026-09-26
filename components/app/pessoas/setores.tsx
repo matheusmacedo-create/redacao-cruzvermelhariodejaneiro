@@ -20,7 +20,7 @@ function Formulario({ s, contas, onFim }: { s: SetorNaTela | null; contas: Opcao
   useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-setor-form>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome" ajuda={s && s.pessoas ? `Renomear leva o nome novo às ${s.pessoas} pessoas do setor, às fichas, aos voluntários e às pautas.` : undefined}>
           <input name="nome" required maxLength={80} defaultValue={s?.nome} className={inputClass} />
         </Campo>

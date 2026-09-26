@@ -56,7 +56,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
       </nav>
 
       {aba === 'cursos' && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="voluntarios.cursos-grade">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="voluntarios.cursos-grade">
           {(cursos ?? []).map((c) => {
             const capa = urlDaCapa(c.capa_caminho as string | null)
             return (

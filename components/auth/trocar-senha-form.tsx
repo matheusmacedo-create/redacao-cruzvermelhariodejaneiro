@@ -46,7 +46,7 @@ export function TrocarSenhaForm({ origem, usuario, nome }: { origem: 'perfil' | 
           <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? 'Ocultar senhas' : 'Mostrar senhas'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">{ver ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button>
         </div>
       </label>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-medium">Nova senha
           <input required type={tipo} autoComplete="new-password" minLength={SENHA_MINIMO} value={nova} onChange={(e) => setNova(e.target.value)} className={campo} aria-invalid={Boolean(problema)} />
         </label>

@@ -134,7 +134,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
       </div>
 
       {!lista.length ? <Card className="p-10 text-center text-sm text-muted-foreground">Ninguém com esse filtro.</Card> : vista === 'cartoes' ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes">{lista.map((p, i) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} primeiro={i === 0} />)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" id="cartoes">{lista.map((p, i) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} primeiro={i === 0} />)}</div>
       ) : (
         <div className="flex flex-col gap-6" id="por-setor">
           {grupos.map((g) => {
@@ -151,7 +151,7 @@ export function Diretorio({ pessoas, setores, ehAdmin, alertaDeAdmins }: {
                     {info?.email && <>{info.responsavel ? ' · ' : ''}<a href={`mailto:${info.email}`} className="text-primary hover:underline">{info.email}</a></>}
                   </p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{g.pessoas.map((p) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} />)}</div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{g.pessoas.map((p) => <CartaoDaPessoa key={p.chave} p={p} ehAdmin={ehAdmin} />)}</div>
               </section>
             )
           })}

@@ -22,7 +22,7 @@ function Formulario({ tabela, id, onFim, children }: { tabela: Tabela; id: strin
   useEffect(() => { if (estado.ok) onFim() }, [estado.ok, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-cadastro={tabela}>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
       {estado.erro && <p className="text-xs text-destructive" role="alert">{estado.erro}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onFim}>Cancelar</Button>
@@ -219,7 +219,7 @@ export function DadosDaEmpresa({ empresa, pode }: { empresa: NonNullable<Cadastr
   const cnpj = empresa.cnpj ? empresa.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : ''
   return (
     <form action={enviar} className="flex flex-col gap-4" id="dados-da-empresa">
-      <fieldset disabled={!pode} className="grid gap-3 sm:grid-cols-2">
+      <fieldset disabled={!pode} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome curto" ajuda="Como aparece no seletor do Financeiro."><input name="nome" required maxLength={80} defaultValue={empresa.nome} className={inputClass} /></Campo>
         <Campo rotulo="CNPJ"><input name="cnpj" inputMode="numeric" maxLength={20} defaultValue={cnpj} placeholder="00.000.000/0000-00" className={inputClass} /></Campo>
         <Campo rotulo="Razão social" largo ajuda="Sai no cabeçalho do pacote do contador."><input name="razao_social" maxLength={200} defaultValue={empresa.razao_social ?? ''} className={inputClass} /></Campo>

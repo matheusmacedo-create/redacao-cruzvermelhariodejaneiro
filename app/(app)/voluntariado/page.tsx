@@ -222,7 +222,7 @@ async function Acessos({ workspaceId }: { workspaceId: string }) {
     .sort((a, b) => (nomes.get(a.user_id as string) ?? '').localeCompare(nomes.get(b.user_id as string) ?? '', 'pt-BR'))
   const ACAO: Record<string, string> = { criar: 'cadastrou', editar: 'editou', ver_sensiveis: 'abriu CPF/saúde', aprovar: 'aprovou inscrição', situacao: 'mudou a situação', anonimizar: 'apagou dados (LGPD)', exportar: 'exportou a planilha', acesso: 'mudou um acesso', inscricao_publica: 'inscrição pelo formulário', recusar_inscricao: 'recusou inscrição' }
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
       <Card className="p-0">
         <div className="border-b border-border px-4 py-3">
           <p className="font-semibold">Quem acessa o cadastro</p>

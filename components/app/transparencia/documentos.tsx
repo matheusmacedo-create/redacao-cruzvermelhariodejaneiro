@@ -440,7 +440,7 @@ function VersaoPublicada({ v, rotulo, trilhaDisponivel, compacta }: { v: VersaoN
           {v.removidoDoSiteEm ? ` · apagada do site em ${diaEHora(v.removidoDoSiteEm)}` : ''}
         </span>
       </p>
-      <dl className="mt-1.5 grid gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
+      <dl className="mt-1.5 grid grid-cols-1 gap-x-3 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
         <dt className="text-muted-foreground">SHA-256 do arquivo</dt>
         <dd><HashCurto hash={v.sha256} rotulo="SHA-256 do arquivo" /></dd>
         <dt className="text-muted-foreground">Código de verificação</dt>
@@ -502,7 +502,7 @@ function FichaDoDocumento({ documento, categoriaInicial, onFechar, onSalvo }: {
         <Campo rotulo="Título" ajuda="Como aparece no portal, de 3 a 200 caracteres.">
           {(p) => <input {...p} name="titulo" required minLength={3} maxLength={200} defaultValue={documento?.titulo ?? ''} placeholder="Ex.: Estatuto social" data-autofocus className={inputClass} />}
         </Campo>
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_9rem]">
           <Campo rotulo="Período" opcional ajuda="O ano, o exercício ou o mandato a que o documento se refere.">
             {(p) => <input {...p} name="periodo" maxLength={60} defaultValue={documento?.periodo ?? ''} placeholder="Ex.: 2025 ou mandato 2024–2027" className={inputClass} />}
           </Campo>

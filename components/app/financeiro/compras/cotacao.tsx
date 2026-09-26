@@ -224,7 +224,7 @@ function FormularioDaProposta({ pedidoId, itens, proposta, fornecedores, onFim }
         })
       }}>
       <p className="text-sm font-medium">{proposta ? `Proposta de ${proposta.fornecedor}` : 'Nova proposta'}</p>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Rotulo texto="Fornecedor" ajuda="Não está na lista? Cadastre em Financeiro → Cadastros → Favorecidos.">
           <select value={fornecedor} onChange={(e) => setFornecedor(e.target.value)} required className={campo}>
             {fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
@@ -239,7 +239,7 @@ function FormularioDaProposta({ pedidoId, itens, proposta, fornecedores, onFim }
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium text-muted-foreground">Preço unitário de cada item (vazio: não cotou)</p>
         {itens.map((i) => (
-          <label key={i.id} className="grid items-center gap-2 text-sm sm:grid-cols-[1fr_10rem]">
+          <label key={i.id} className="grid grid-cols-1 items-center gap-2 text-sm sm:grid-cols-[1fr_10rem]">
             <span>{i.descricao} <span className="text-xs text-muted-foreground">({String(i.quantidade).replace('.', ',')} {i.unidade})</span></span>
             <input value={precos[i.id] ?? ''} onChange={(e) => setPrecos((p) => ({ ...p, [i.id]: e.target.value }))} inputMode="decimal" placeholder="R$ por unidade" className={campo} aria-label={`Preço unitário de ${i.descricao}`} />
           </label>

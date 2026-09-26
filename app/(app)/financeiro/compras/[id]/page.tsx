@@ -201,7 +201,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
-      <Card className="grid gap-4 p-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
+      <Card className="grid grid-cols-1 gap-4 p-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <Dado rotulo="Para quê" largo>{p.justificativa}</Dado>
         <Dado rotulo="Setor">{setor?.nome ?? '—'}</Dado>
         <Dado rotulo="Projeto">{projeto?.name ?? '—'}</Dado>

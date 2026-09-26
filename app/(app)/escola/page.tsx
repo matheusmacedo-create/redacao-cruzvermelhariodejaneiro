@@ -116,7 +116,7 @@ export default async function EscolaPage({ searchParams }: { searchParams: Promi
         </Card>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-3" data-ajuda="escola.blocos">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3" data-ajuda="escola.blocos">
         {nivelEscola >= 2 && (
           <Bloco id="bloco-vendas" titulo="Vendas do mês" icone={ReceiptText} href="/escola/vendas" rotuloDoLink="Abrir vendas">
             {!contas.length ? <p className="text-sm text-muted-foreground">Nenhuma conta da Únicopag ligada. {nivelEscola >= 3 && <Link href="/escola/configuracoes" className="text-primary hover:underline">Ligar agora</Link>}</p> : (

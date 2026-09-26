@@ -43,7 +43,7 @@ export default async function PaginaDaCotacao({ params }: { params: Promise<{ to
         </p>
       </div>
 
-      <section className="grid gap-3 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-3" aria-label="Condições do pedido">
+      <section className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-4 text-sm sm:grid-cols-3" aria-label="Condições do pedido">
         <Dado rotulo="Prazo para a proposta">{pedido.cotacao_prazo ? dataComDia(pedido.cotacao_prazo) : 'sem prazo definido'}</Dado>
         <Dado rotulo="Entrega em">{pedido.local_entrega ?? 'a combinar'}</Dado>
         <Dado rotulo="Precisamos até">{pedido.necessario_ate ? dataCurta(pedido.necessario_ate) : 'a combinar'}</Dado>

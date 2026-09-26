@@ -34,6 +34,17 @@ export const guias: GuiaDaArea[] = [
     href: '/patrimonio',
     paraQueServe: 'Tudo o que é físico e da filial: os bens duráveis (com plaqueta e QR, onde estão, com quem, manutenção e quanto valem hoje), o estoque de materiais com lote e validade, as doações em espécie, com recibo e termo de entrega, e a frota de veículos. Serve para saber onde está cada coisa, quem responde por ela e prestar contas a financiadores e ao contador.',
     quemUsa: 'Toda a equipe vê “Comigo”, com os bens que estão sob a sua responsabilidade. O resto depende do nível no Patrimônio, dado por um administrador: “Ver” consulta; “Operar” cadastra, entrega, movimenta o estoque, as doações e a frota; “Gestão” também cuida de categorias, locais, baixas, inventário, campanhas, veículos e condutores. Administradores têm acesso total. Os avisos (manutenção, devolução atrasada, estoque baixo, validade, documentos e condutores da frota) vão para quem tem “Operar” ou “Gestão” e para os administradores.',
+    naPratica: {
+      titulo: 'Um notebook, uma doação de cestas e a van da filial',
+      passos: [
+        'Chega um notebook comprado pelo pedido de compras; o Patrimônio cadastra o bem, imprime a plaqueta com QR e entrega à Ana, que aceita o termo pelo celular.',
+        'Uma empresa doa 200 cestas básicas: entram como doação em espécie, com recibo, e vão para o estoque.',
+        'Na ação de sábado, saem 80 cestas com o termo de entrega assinado.',
+        'A van leva a equipe à ação; a viagem registra motorista, quilometragem e abastecimento.',
+        'No fim do ano, o inventário confere cada bem pelo QR, e o valor de hoje de cada um já está calculado.',
+      ],
+      resultado: 'Você sabe onde está cada coisa, com quem, e presta contas de cada doação.',
+    },
     tour: [
       {
         titulo: 'Patrimônio',
@@ -583,6 +594,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'entregar-bem',
         titulo: 'Entregar um bem a alguém e registrar a devolução',
+        exemplo: 'O notebook PAT-0231 é entregue à Ana; ela recebe o termo no sino, aceita pelo celular, e o bem passa a constar como “com Ana Souza, Comunicação”.',
         passos: [
           'Abra o bem, pela lista de “Bens” ou lendo o QR da etiqueta.',
           'Use “Entregar a alguém” e escolha “Equipe (login do Palácio Virtual)” ou “Voluntário”.',
@@ -662,6 +674,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'receber-doacao',
         titulo: 'Receber uma doação e emitir o recibo',
+        exemplo: 'A empresa X doa 200 cestas básicas; o Patrimônio registra a doação em espécie, gera o recibo para a empresa e dá entrada no estoque, com a validade dos itens.',
         passos: [
           'Em “Doações”, use “Receber doação”.',
           'Escolha o “Doador” ou cadastre um novo pelo botão ao lado. Sem doador, o recibo sai como doação anônima.',

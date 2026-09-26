@@ -58,7 +58,7 @@ export function FormularioDoVeiculo({ v, locais, bens }: { v?: Veiculo; locais: 
   useEffect(() => { if (estado.id) router.push(`/patrimonio/frota/${estado.id}`) }, [estado.id, router])
   return (
     <form action={enviar} className="flex flex-col gap-5" id="form-veiculo">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Campo rotulo="Placa"><input name="placa" required maxLength={8} defaultValue={v?.placa} placeholder="ABC1D23" className={`${inputClass} uppercase`} /></Campo>
         <Campo rotulo="Apelido" ajuda="Como a equipe chama (ex.: UR-01)."><input name="apelido" maxLength={60} defaultValue={v?.apelido ?? ''} className={inputClass} /></Campo>
         <Campo rotulo="Tipo"><select name="tipo" defaultValue={v?.tipo ?? 'carro'} className={inputClass}>{Object.entries(TIPOS_DE_VEICULO).map(([k, x]) => <option key={k} value={k}>{x}</option>)}</select></Campo>
@@ -104,7 +104,7 @@ export function SairComVeiculo({ veiculoId, tipo, kmAtual, condutores, projetos,
       <Button onClick={() => { setP({ condutor_id: '', km_saida: String(kmAtual), destino: '', finalidade: 'atendimento', projeto_id: '' }); setAberto(true) }} id="botao-sair"><KeyRound className="size-4" />Saída</Button>
       {aberto && (
         <Dialog titulo="Saída do veículo" descricao="Abre a viagem no diário de bordo. Só dirige quem tem CNH válida na categoria certa (e, na ambulância, o curso de veículo de emergência)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo rotulo="Quem dirige" className="sm:col-span-2">
               <select value={p.condutor_id} onChange={set('condutor_id')} className={inputClass}>
                 <option value="">Escolha…</option>
@@ -160,7 +160,7 @@ export function Abastecer({ veiculoId, combustivel, kmAtual, condutores, hoje }:
       <Button variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="botao-abastecer"><Fuel className="size-4" />Abastecer</Button>
       {aberto && (
         <Dialog titulo="Abastecimento" descricao="Com o tanque cheio, o Palácio Virtual calcula o consumo (km por litro)." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo rotulo="Data"><input type="date" value={p.data} max={hoje} onChange={set('data')} className={inputClass} /></Campo>
             <Campo rotulo="Hodômetro"><input value={p.km} onChange={set('km')} inputMode="numeric" className={inputClass} /></Campo>
             <Campo rotulo="Litros"><input value={p.litros} onChange={set('litros')} inputMode="decimal" className={inputClass} /></Campo>
@@ -192,7 +192,7 @@ export function NovoServico({ veiculoId, kmAtual, planos, hoje, planoInicial }: 
         : <Button variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="botao-servico"><Wrench className="size-4" />Serviço</Button>}
       {aberto && (
         <Dialog titulo="Serviço no veículo" descricao="Se for de um plano de manutenção, o plano volta a contar a partir deste serviço." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {planos.length > 0 && (
               <Campo rotulo="Plano de manutenção" className="sm:col-span-2">
                 <select value={p.plano_id} onChange={(e) => setP({ ...p, plano_id: e.target.value, tipo: e.target.value ? 'preventiva' : p.tipo, descricao: p.descricao || planos.find((x) => x.id === e.target.value)?.nome || '' })} className={inputClass}>
@@ -234,7 +234,7 @@ export function PlanoDeManutencao({ veiculoId, plano, kmAtual, hoje }: { veiculo
         : <Button size="sm" variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="novo-plano"><CalendarClock className="size-3.5" />Plano de manutenção</Button>}
       {aberto && (
         <Dialog titulo={plano ? 'Plano de manutenção' : 'Novo plano de manutenção'} descricao="O que se repete: vence no que chegar primeiro, km ou tempo. Ex.: óleo a cada 10.000 km ou 6 meses." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo rotulo="Nome" className="sm:col-span-2"><input value={p.nome} onChange={set('nome')} maxLength={120} placeholder="Ex.: Troca de óleo" className={inputClass} /></Campo>
             <Campo rotulo="A cada (km)"><input value={p.a_cada_km} onChange={set('a_cada_km')} inputMode="numeric" placeholder="10000" className={inputClass} /></Campo>
             <Campo rotulo="Ou a cada (meses)"><input value={p.a_cada_meses} onChange={set('a_cada_meses')} inputMode="numeric" placeholder="6" className={inputClass} /></Campo>
@@ -264,7 +264,7 @@ export function DocumentoDoVeiculoDialog({ veiculoId, doc }: { veiculoId: string
         : <Button size="sm" variant="outline" onClick={() => { setP(vazio); setAberto(true) }} id="novo-documento"><Plus className="size-3.5" />Documento</Button>}
       {aberto && (
         <Dialog titulo={doc ? 'Documento' : 'Novo documento'} descricao="Com vencimento, o Palácio Virtual avisa 30 e 7 dias antes." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo rotulo="Tipo"><select value={p.tipo} onChange={set('tipo')} className={inputClass}>{Object.entries(TIPOS_DE_DOCUMENTO).map(([k, x]) => <option key={k} value={k}>{x}</option>)}</select></Campo>
             <Campo rotulo="Vencimento"><input type="date" value={p.vencimento} onChange={set('vencimento')} className={inputClass} /></Campo>
             <Campo rotulo="Descrição"><input value={p.descricao} onChange={set('descricao')} maxLength={200} placeholder="Ex.: Seguradora X, apólice anual" className={inputClass} /></Campo>
@@ -316,7 +316,7 @@ export function CondutorDialog({ c, equipe, voluntarios }: { c?: CondutorCadastr
         : <Button onClick={() => { setP(vazio); setAberto(true) }} id="novo-condutor" data-ajuda="patrimonio.condutores-novo"><Plus className="size-4" />Novo condutor</Button>}
       {aberto && (
         <Dialog titulo={c ? 'Condutor' : 'Novo condutor'} descricao="Ambulância exige o curso de condutor de veículo de emergência (CTB, art. 145-A). O Palácio Virtual avisa quando a CNH ou o curso vão vencer." onFechar={() => setAberto(false)} podeFechar={!ocupado}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex gap-2 sm:col-span-2" role="radiogroup">
               {(['equipe', 'voluntario', 'outro'] as const).map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={p.vinculo === t} onClick={() => setP({ ...p, vinculo: t, pessoa: '' })}

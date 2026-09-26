@@ -105,7 +105,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
           guardada={{ valor: fipe?.fipe_valor != null ? Number(fipe.fipe_valor) : null, codigo: fipe?.fipe_codigo ?? null, descricao: fipe?.fipe_descricao ?? null, referencia: fipe?.fipe_referencia ?? null, consultadoEm: fipe?.fipe_consultado_em ?? null }} />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-5" id="planos" data-ajuda="patrimonio.veiculo-planos">
           <div className="mb-3 flex items-center justify-between gap-2"><h2 className="font-semibold">Manutenção programada</h2>{nivel >= 3 && <PlanoDeManutencao veiculoId={id} kmAtual={kmAtual} hoje={hoje} />}</div>
           {!listaPlanos.length ? <p className="text-sm text-muted-foreground">Nenhum plano. Sugestão: troca de óleo (10.000 km ou 6 meses), revisão geral (anual), pneus e freios.</p> : (
@@ -179,7 +179,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
         )}
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="overflow-hidden p-0" id="abastecimentos">
           <h2 className="px-5 pt-5 font-semibold">Abastecimentos</h2>
           {!abastecimentos.length ? <p className="px-5 pb-5 pt-2 text-sm text-muted-foreground">Nenhum.</p> : (

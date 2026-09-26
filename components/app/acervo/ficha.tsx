@@ -177,7 +177,7 @@ export function FichaDoItem({ item, onFechar, onSalvo }: { item: ItemNaTela; onF
         {!imagem && <input type="hidden" name="texto_alternativo" value={alt} />}
         {!comVideo && <input type="hidden" name="url_video" value={video} />}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
           <div className="flex min-w-0 flex-col gap-4">
             <Campo rotulo="Coleção" ajuda={colecaoFixa ? 'Já foi ao site: a coleção faz parte do endereço público e não muda mais.' : `${COLECAO[colecao].ajuda}${pastaGuardada && colecao !== item.colecao ? ` O arquivo continua em ${pastaGuardada} no bucket: muda só a ficha.` : ''}`}>
               {(p) => (
@@ -209,7 +209,7 @@ export function FichaDoItem({ item, onFechar, onSalvo }: { item: ItemNaTela; onF
               {(p) => <input {...p} value={data} onChange={(e) => setData(e.target.value)} autoComplete="off" placeholder="Ex.: 12/05/1998" aria-invalid={lida === 'invalida' || undefined} className={cn(inputClass, 'sm:max-w-56')} />}
             </Campo>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Campo rotulo="Autoria" ajuda="Quem fotografou, filmou ou escreveu. Para ir ao site, é preciso a autoria ou o crédito.">
                 {(p) => <input {...p} name="autoria" maxLength={200} value={autoria} onChange={(e) => setAutoria(e.target.value)} placeholder="Ex.: Maria Silva" className={inputClass} />}
               </Campo>
@@ -218,7 +218,7 @@ export function FichaDoItem({ item, onFechar, onSalvo }: { item: ItemNaTela; onF
               </Campo>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Campo rotulo="Direitos de uso" ajuda={`${AJUDA_DOS_DIREITOS[direitos]}${direitos !== 'todos_reservados' && direitos !== 'dominio_publico' ? ' Licença aberta, só se a filial tiver os direitos.' : ''}`}>
                 {(p) => (
                   <select {...p} name="direitos" value={direitos} onChange={(e) => setDireitos(e.target.value as Direitos)} className={inputClass}>

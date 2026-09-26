@@ -85,7 +85,7 @@ function NovaConversa({ categoria, focar, aoCancelar }: { categoria: CategoriaDa
         startTransition(() => enviar(dados))
       }}>
       <h2 id="nova-conversa-titulo" className="text-base font-semibold">Nova mensagem</h2>
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
         <div className="flex min-w-0 flex-col gap-1.5">
           <label htmlFor="nova-assunto" className="text-sm font-medium">Assunto</label>
           <input id="nova-assunto" name="assunto" required minLength={3} maxLength={160} autoComplete="off" autoFocus={focar} className={campoDoMembro} />

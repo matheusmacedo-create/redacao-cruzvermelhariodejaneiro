@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { ChevronRight, CircleHelp, Lightbulb, ListOrdered, UserRoundCheck } from 'lucide-react'
+import { ChevronRight, CircleHelp, Lightbulb, ListOrdered, MapPinned, Sparkles, UserRoundCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Achado } from '@/lib/ajuda'
-import type { Pergunta, Tarefa } from '@/lib/ajuda/tipos'
+import type { NaPratica, Pergunta, Tarefa } from '@/lib/ajuda/tipos'
+import { IssoAjudou } from './beta'
 
 /**
  * As peças de texto da ajuda, iguais no painel "?" e na Central (/ajuda).
@@ -32,6 +33,12 @@ function Passos({ tarefa }: { tarefa: Tarefa }) {
       <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm leading-relaxed marker:font-semibold marker:tabular-nums marker:text-muted-foreground">
         {tarefa.passos.map((passo, i) => <li key={i} className="pl-1">{passo}</li>)}
       </ol>
+      {tarefa.exemplo && (
+        <p className="mt-3 flex gap-2 rounded-lg border border-primary/15 bg-primary/[0.04] px-3 py-2 text-sm leading-relaxed">
+          <MapPinned className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span><span className="font-medium">Exemplo: </span><span className="text-muted-foreground">{tarefa.exemplo}</span></span>
+        </p>
+      )}
       {tarefa.dica && (
         <p className="mt-3 flex gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm leading-relaxed text-muted-foreground">
           <Lightbulb className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" />
@@ -47,6 +54,46 @@ function Resposta({ texto }: { texto: string }) {
     <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
       {texto.split(/\n{2,}/).map((paragrafo, i) => <p key={i}>{paragrafo}</p>)}
     </div>
+  )
+}
+
+/**
+ * "Na prática": a história de como imaginamos a área funcionando, com um caso
+ * concreto. Uma linha do tempo numerada (lista ordenada de verdade, para o
+ * leitor de tela) e, no fim, o que a pessoa ganha.
+ */
+export function HistoriaNaPratica({ historia, compacta = false }: { historia: NaPratica; compacta?: boolean }) {
+  return (
+    <div className={cn('flex flex-col gap-3', !compacta && 'rounded-xl border border-primary/15 bg-primary/[0.03] p-4 sm:p-5')}>
+      {!compacta && (
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
+          <Sparkles className="size-3.5" aria-hidden="true" />Na prática: como imaginamos
+        </p>
+      )}
+      {!compacta && <p className="text-[15px] font-semibold leading-snug">{historia.titulo}</p>}
+      <ol className="relative flex flex-col gap-3 border-l-2 border-primary/20 pl-4">
+        {historia.passos.map((passo, i) => (
+          <li key={i} className="relative text-sm leading-relaxed">
+            <span className="absolute -left-[27px] top-0 flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold tabular-nums text-primary-foreground" aria-hidden="true">{i + 1}</span>
+            {passo}
+          </li>
+        ))}
+      </ol>
+      {historia.resultado && <p className="rounded-lg bg-background/70 px-3 py-2 text-sm leading-relaxed"><span className="font-medium">O que você ganha: </span><span className="text-muted-foreground">{historia.resultado}</span></p>}
+    </div>
+  )
+}
+
+/** "Na prática" recolhida (painel). */
+export function HistoriaRecolhida({ historia }: { historia: NaPratica }) {
+  return (
+    <details className="group rounded-lg border border-primary/20 bg-primary/[0.03] open:bg-primary/[0.05]" data-na-pratica>
+      <summary className={cabecaDoRecolhivel}>
+        <ChevronRight className={seta} aria-hidden="true" />
+        <span className="min-w-0 flex-1"><span className="block text-[11px] font-semibold uppercase tracking-wider text-primary">Na prática: como imaginamos</span><span className="block">{historia.titulo}</span></span>
+      </summary>
+      <div className="px-3 pb-3 pl-9"><HistoriaNaPratica historia={historia} compacta /></div>
+    </details>
   )
 }
 
@@ -68,15 +115,15 @@ export function TarefaRecolhida({ tarefa }: { tarefa: Tarefa }) {
   )
 }
 
-/** Uma pergunta recolhida (painel). */
-export function PerguntaRecolhida({ pergunta }: { pergunta: Pergunta }) {
+/** Uma pergunta recolhida (painel). `area`: o href da área (ou 'geral'), para o voto "Isso ajudou?". */
+export function PerguntaRecolhida({ pergunta, area }: { pergunta: Pergunta; area?: string | null }) {
   return (
     <details className={recolhivel}>
       <summary className={cabecaDoRecolhivel}>
         <ChevronRight className={seta} aria-hidden="true" />
         <span className="min-w-0 flex-1">{pergunta.pergunta}</span>
       </summary>
-      <div className="px-3 pb-3 pl-9"><Resposta texto={pergunta.resposta} /></div>
+      <div className="px-3 pb-3 pl-9"><Resposta texto={pergunta.resposta} />{area !== undefined && <IssoAjudou perguntaId={pergunta.id} area={area} />}</div>
     </details>
   )
 }
@@ -105,12 +152,13 @@ export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 
 }
 
 /** Uma pergunta aberta, com âncora (Central). */
-export function PerguntaAberta({ pergunta, nivel = 3 }: { pergunta: Pergunta; nivel?: 3 | 5 }) {
+export function PerguntaAberta({ pergunta, nivel = 3, area }: { pergunta: Pergunta; nivel?: 3 | 5; area?: string | null }) {
   const Titulo = nivel === 3 ? 'h3' : 'h5'
   return (
     <article id={pergunta.id} tabIndex={-1} className={ancorado}>
       <Titulo className="mb-2 text-[15px] font-semibold leading-snug">{pergunta.pergunta}</Titulo>
       <Resposta texto={pergunta.resposta} />
+      {area !== undefined && <IssoAjudou perguntaId={pergunta.id} area={area} />}
     </article>
   )
 }

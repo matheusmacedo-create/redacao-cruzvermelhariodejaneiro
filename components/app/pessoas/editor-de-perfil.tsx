@@ -81,7 +81,7 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" />
             <p className="mt-1 text-right text-xs text-muted-foreground">{bio.length}/{LIMITES.bio}</p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="pronomes" className={rotuloDoCampo}>Pronomes <span className="font-normal text-muted-foreground">(opcional)</span></label>
               <input id="pronomes" value={pronomes} maxLength={LIMITES.pronomes} onChange={(e) => setPronomes(e.target.value)} placeholder="ela/dela, ele/dele…" className={campo} />
@@ -125,13 +125,13 @@ export function EditorDePerfil({ inicial }: { inicial: PerfilEditavel }) {
           <ul className="flex flex-col gap-3">
             {grupo(tipo).map((l) => (
               <li key={l.chave} className={cn('rounded-lg border p-3', erros[l.chave] ? 'border-destructive/60' : 'border-border')}>
-                <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[9rem_1fr]">
                   <select aria-label="Canal" value={l.canal} onChange={(e) => mudar(l.chave, { canal: e.target.value as Canal })} className={campo}>
                     {(Object.keys(CANAIS) as Canal[]).map((c) => <option key={c} value={c}>{CANAIS[c].rotulo}</option>)}
                   </select>
                   <input aria-label="Contato" value={l.valor} maxLength={LIMITES.valor} onChange={(e) => mudar(l.chave, { valor: e.target.value })} placeholder={CANAIS[l.canal].exemplo} className={campo} />
                 </div>
-                <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_12rem_auto]">
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_12rem_auto]">
                   <input aria-label="Descrição (opcional)" value={l.rotulo} maxLength={LIMITES.rotulo} onChange={(e) => mudar(l.chave, { rotulo: e.target.value })} placeholder="Descrição (opcional): Recepção, Celular…" className={campo} />
                   <select aria-label="Quem vê" value={l.visibilidade} onChange={(e) => mudar(l.chave, { visibilidade: e.target.value as Visibilidade })} className={campo} title={VISIBILIDADES[l.visibilidade].ajuda}>
                     {(Object.keys(VISIBILIDADES) as Visibilidade[]).map((v) => <option key={v} value={v}>{VISIBILIDADES[v].rotulo}</option>)}

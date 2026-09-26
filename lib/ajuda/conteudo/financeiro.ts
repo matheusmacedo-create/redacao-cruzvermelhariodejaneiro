@@ -36,6 +36,16 @@ const FINANCEIRO: GuiaDaArea = {
   href: '/financeiro',
   paraQueServe: 'O caixa da filial: despesas, receitas e contas a pagar e a receber, com a fonte de cada recurso e os comprovantes. Aqui também se concilia o extrato do banco, se acompanha a saúde do caixa e se fecha o mês para o contador. A filial e a Escola têm livros separados, cada uma com as suas contas e o seu fechamento.',
   quemUsa: 'Um administrador libera o acesso pessoa a pessoa, em “Cadastros” → “Quem acessa”. “Ver” só consulta; “Lançar” cria, paga e junta comprovantes; “Aprovar” também aprova despesas de outras pessoas; “Gestão e fechamento” também cuida dos cadastros, das regras e do fechamento do mês (é o nível do contador). Administradores têm acesso total, e o acesso pode valer para todas as empresas ou só para uma.',
+  naPratica: {
+    titulo: 'Uma conta de luz do começo ao fechamento do mês',
+    passos: [
+      'A conta de luz de setembro chega; o Financeiro lança a despesa com a categoria “Energia”, a fonte “Recursos próprios” e o PDF do boleto.',
+      'No dia do vencimento, o sino avisa quem lança no Financeiro; depois de pagar, a conta é marcada como paga.',
+      'No fim do mês, importa o extrato do banco e concilia: o pagamento da luz casa com a linha do extrato.',
+      'Com tudo conciliado, fecha o mês e gera o pacote para o contador.',
+    ],
+    resultado: 'O caixa bate com o banco, e o contador recebe tudo organizado.',
+  },
   tour: [
     {
       titulo: 'O caixa da filial',
@@ -300,6 +310,7 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'lancar-despesa',
       titulo: 'Lançar uma despesa',
+      exemplo: 'Despesa “Conta de luz — setembro/2026”, R$ 1.380,45, vence em 10/10, categoria Energia, fonte Recursos próprios, com o boleto em PDF anexado.',
       quem: 'Nível Lançar ou acima',
       passos: [
         'Em “Lançamentos”, toque em “Despesa”.',
@@ -365,6 +376,7 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'conciliar-extrato',
       titulo: 'Importar o extrato e conciliar',
+      exemplo: 'O extrato OFX de setembro tem 64 linhas; 61 casam sozinhas com os lançamentos, e o Financeiro resolve à mão as 3 tarifas bancárias que faltavam.',
       quem: 'Nível Lançar ou acima',
       passos: [
         'No internet banking, exporte o extrato da conta em OFX (Money/Quicken) ou CSV.',
@@ -564,6 +576,16 @@ const TRANSPARENCIA: GuiaDaArea = {
   href: '/transparencia',
   paraQueServe: 'O portal de transparência por dentro: os documentos (estatuto, atas, balanços, relatórios, certidões) e as parcerias com o poder público que a filial publica no site. Tudo nasce como rascunho. Publicado, não se troca em silêncio: arquivo novo vira versão nova, e cada publicação entra na trilha pública de auditoria.',
   quemUsa: 'Só administradores. O que está “No ar” aparece na página de transparência do site; rascunhos e PDFs aguardando publicação existem só aqui.',
+  naPratica: {
+    titulo: 'O balanço de 2025 no portal de transparência',
+    passos: [
+      'A Diretoria aprova o balanço de 2025 e o Financeiro manda o PDF para “Transparência”.',
+      'O documento nasce como rascunho; alguém confere o nome, o ano e o arquivo.',
+      'Publicado, ele aparece no portal do site e entra na trilha pública de auditoria.',
+      'Se precisar corrigir, sobe um arquivo novo: vira a versão 2, e a anterior continua visível no histórico.',
+    ],
+    resultado: 'Qualquer pessoa confere os documentos da filial, e nada muda em silêncio.',
+  },
   tour: [
     {
       titulo: 'O portal de transparência',
@@ -608,6 +630,7 @@ const TRANSPARENCIA: GuiaDaArea = {
     {
       id: 'publicar-documento',
       titulo: 'Publicar um documento no portal',
+      exemplo: 'O “Balanço patrimonial 2025”, aprovado em assembleia, é enviado como rascunho, conferido e publicado; no portal aparece com a data e o código de verificação.',
       passos: [
         'Na aba “Documentos”, toque em “Novo documento” (ou em “Adicionar”, na seção certa).',
         'Escolha a “Seção do portal”, dê o “Título” e, se fizer sentido, o “Período” e a “Descrição”.',
@@ -718,6 +741,16 @@ const CANAIS: GuiaDaArea = {
   href: '/canais-oficiais',
   paraQueServe: 'A lista pública dos endereços, telefones e perfis que são mesmo da filial. É por ela que alguém confere se uma mensagem em nome da Cruz Vermelha é verdadeira. Cada publicação é uma versão nova e inteira da lista, registrada na trilha pública.',
   quemUsa: 'Só administradores mantêm a lista. A página pública mostra sempre a versão mais nova.',
+  naPratica: {
+    titulo: 'Um golpe no WhatsApp desmentido em minutos',
+    passos: [
+      'Circula uma mensagem pedindo doação por Pix em nome da Cruz Vermelha RJ, de um número desconhecido.',
+      'Quem recebeu abre a página de canais oficiais do site e vê que aquele número não está na lista.',
+      'A Comunicação publica o alerta nas redes com o link da lista oficial.',
+      'Quando a filial troca um telefone, a lista é republicada como versão nova e fica registrada na trilha.',
+    ],
+    resultado: 'O público tem onde conferir se um contato é mesmo da filial.',
+  },
   tour: [
     {
       titulo: 'Canais oficiais',
@@ -764,6 +797,7 @@ const CANAIS: GuiaDaArea = {
     {
       id: 'mudar-canal',
       titulo: 'Mudar a lista (perfil novo, telefone que mudou)',
+      exemplo: 'A filial ganhou um novo WhatsApp de atendimento; a Comunicação troca o número na lista, confere e publica: sai a versão 4 da lista, com a data da mudança.',
       passos: [
         'O editor já vem com a versão no ar: mude, acrescente ou remova as linhas.',
         'Para tirar um perfil antigo, use a lixeira da linha: ele simplesmente sai da lista.',
@@ -830,6 +864,16 @@ const TRILHA: GuiaDaArea = {
   href: '/trilha-publica',
   paraQueServe: 'O registro verificável do que a filial publica e emite: matérias, comunicados, ofícios, certificados e o portal de transparência. Cada item ganha um código e uma impressão digital (hash), e todo dia um lote é fechado, assinado e registrado no Bitcoin, para qualquer pessoa conferir sem depender do Palácio Virtual. Esta tela acompanha a saúde disso tudo.',
   quemUsa: 'Só administradores. A consulta pública, na página de verificação do site, mostra bem menos do que esta tela.',
+  naPratica: {
+    titulo: 'Provar que a matéria não foi mudada depois',
+    passos: [
+      'A matéria sobre a doação recebida de uma empresa é publicada e ganha um código e uma impressão digital (hash).',
+      'À noite, o lote do dia é fechado, assinado e registrado no Bitcoin.',
+      'Meses depois, alguém questiona o valor publicado; qualquer pessoa confere, pelo código de verificação, que o texto é o mesmo do dia da publicação.',
+      'A administração acompanha aqui se os lotes estão saindo e se há alguma divergência.',
+    ],
+    resultado: 'A filial prova o que publicou e quando, sem depender de ninguém acreditar na palavra dela.',
+  },
   tour: [
     {
       titulo: 'A trilha pública',
@@ -877,6 +921,7 @@ const TRILHA: GuiaDaArea = {
     {
       id: 'consultar-codigo',
       titulo: 'Consultar um código',
+      exemplo: 'Um parceiro manda os 32 caracteres do rodapé do ofício 045/2026; em “Consultar um código”, a administração vê o estado do registro, o que o público vê e a história dele, evento por evento.',
       passos: [
         'Em “Consultar um código”, cole no campo “Código” os 26 caracteres da trilha, os 32 do rodapé do ofício ou o XXXX-XXXX do certificado.',
         'Toque em “Consultar”.',

@@ -107,7 +107,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
             {mes < hoje ? <Button variant="ghost" size="sm" render={<Link href={`/escola/vendas?mes=${somarMeses(mes, 1)}`} aria-label="Próximo mês" />}><ChevronRight className="size-4" /></Button> : <span className="w-9" />}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores" data-ajuda="escola-vendas.indicadores">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" id="indicadores" data-ajuda="escola-vendas.indicadores">
             <Indicador id="ind-recebido" rotulo="Recebido no mês" valor={reaisDeCentavos(r.recebido)}
               detalhe={<>{r.pagamentos} {r.pagamentos === 1 ? 'pagamento' : 'pagamentos'}{r.pagamentos ? ` · ticket médio ${reaisDeCentavos(r.ticketMedio)}` : ''}{delta !== null ? <> · <span className={delta < 0 ? 'text-destructive' : 'text-success'}>{porcento(delta)}</span> sobre o mês anterior</> : ''}</>} />
             <Indicador id="ind-aguardando" rotulo="Aguardando pagamento" valor={reaisDeCentavos(r.aguardando)}
@@ -122,7 +122,7 @@ export function PainelDaEscola({ contas, ts, mes, meses, hoje, nivel }: { contas
             <GraficoMensal pontos={serie.map((p) => ({ mes: p.mes, recebido: p.recebido }))} atual={mes} />
           </Card>
 
-          <div className="grid gap-3 lg:grid-cols-2" data-ajuda="escola-vendas.divisoes">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-ajuda="escola-vendas.divisoes">
             <Divisao id="por-curso" titulo="Por curso" fatias={comOutros(r.porProduto, 8)} total={r.recebido} />
             <Divisao id="por-metodo" titulo="Por forma de pagamento" fatias={r.porMetodo} total={r.recebido} nome={(k) => (ehMetodo(k) ? METODOS[k] : k)} />
             <Divisao id="por-origem" titulo="Por origem da venda" fatias={comOutros(r.porOrigem, 6)} total={r.recebido} />

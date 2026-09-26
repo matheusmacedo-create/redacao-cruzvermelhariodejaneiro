@@ -84,7 +84,7 @@ export function DetalheDoItem({ item, recado, podeGerenciar, configurado, abrir,
       <RecadoNoDialogo recado={aviso} focar={Boolean(recado)} acaoDoAviso={acaoDoAviso} />
 
       {/* O foco começa aqui, no topo do conteúdo (ou no recado, quando há um). */}
-      <div data-autofocus={recado ? undefined : ''} tabIndex={-1} className="grid gap-5 outline-none md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div data-autofocus={recado ? undefined : ''} tabIndex={-1} className="grid grid-cols-1 gap-5 outline-none md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div className="flex flex-col gap-3">
           <div className="aspect-[4/3] overflow-hidden rounded-lg border border-border bg-muted">
             <Previa url={item.previaGrande} reserva={item.previaReserva} alt={item.textoAlternativo ?? ''} rotulo={rotulo} grande className="object-contain" />
@@ -128,7 +128,7 @@ export function DetalheDoItem({ item, recado, podeGerenciar, configurado, abrir,
 
           <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
             <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Arquivo</h3>
-            <dl className="grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)]">
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-xs sm:grid-cols-[auto_minmax(0,1fr)]">
               <Linha rotulo="Nome original"><span className="break-all">{item.nomeOriginal ?? '—'}</span></Linha>
               <Linha rotulo="Formato">{formato} · {tamanhoLegivel(item.tamanho)}{item.largura && item.altura ? ` · ${item.largura} × ${item.altura} px` : ''}</Linha>
               <Linha rotulo="No bucket"><span className="break-all font-mono text-[11px]">{item.chave ?? '—'}</span></Linha>

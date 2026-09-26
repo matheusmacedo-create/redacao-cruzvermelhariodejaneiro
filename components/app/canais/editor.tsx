@@ -205,7 +205,7 @@ export function EditorDosCanais({ atual, sugestao, endereco, aoPublicar }: {
                       </Button>
                     </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-[10rem_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-[10rem_minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
                     <Campo rotulo="Tipo" complemento={`da linha ${i + 1}`}>
                       {(p) => (
                         <select {...p} data-campo="tipo" aria-invalid={comErro(i + 1, 'tipo') || undefined} value={l.tipo} autoFocus={l.nova} onChange={(e) => mudar(l.chave, 'tipo', e.target.value)} className={CAMPO_DA_LINHA}>

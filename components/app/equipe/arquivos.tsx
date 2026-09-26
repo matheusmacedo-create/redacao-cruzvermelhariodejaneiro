@@ -116,7 +116,7 @@ export function ArquivosDaFicha({ membroId, arquivos, categorias, hoje, nomes }:
               if (f && t && !t.value) t.value = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').slice(0, 200)
             }} />
           </label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs text-muted-foreground">Categoria
               <select id="a-categoria" name="categoria" value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaDeArquivo)} className={inputClass}>
                 {categorias.map((c) => <option key={c} value={c}>{CATEGORIAS_DE_ARQUIVO[c].rotulo}</option>)}

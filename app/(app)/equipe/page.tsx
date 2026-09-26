@@ -190,7 +190,7 @@ async function Acessos({ workspaceId }: { workspaceId: string }) {
     enviar_arquivo: 'guardou um arquivo na ficha de', abrir_arquivo: 'abriu um arquivo de', excluir_arquivo: 'excluiu um arquivo de',
   }
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
       <Card className="p-0">
         <div className="border-b border-border px-4 py-3">
           <p className="font-semibold">Quem acessa a Equipe</p>

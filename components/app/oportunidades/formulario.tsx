@@ -20,7 +20,7 @@ const Rotulo = ({ t, dica, children, largo }: { t: string; dica?: string; childr
 export function FormularioDeOportunidade({ o }: { o: OportunidadeNoFormulario | null }) {
   const [estado, enviar, enviando] = useActionState(salvarOportunidade.bind(null, o?.id ?? null), {})
   return (
-    <form action={enviar} className="grid gap-3 sm:grid-cols-2" id="form-oportunidade">
+    <form action={enviar} className="grid grid-cols-1 gap-3 sm:grid-cols-2" id="form-oportunidade">
       <Rotulo t="Título" largo><input name="titulo" required minLength={3} maxLength={160} defaultValue={o?.titulo ?? ''} placeholder="Ex.: Plantão no jogo do Maracanã" className={inputClass} /></Rotulo>
       <Rotulo t="Tipo">
         <select name="tipo" defaultValue={o?.tipo ?? 'acao'} className={inputClass}>{Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}</select>

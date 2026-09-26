@@ -115,7 +115,7 @@ export function ProjetoAsana({ projeto, pautas, atualizacoes, marcos, pessoas, h
 
       {aba === 'visao' ? (
         <>
-          <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_20rem]">
             <Atualizacoes projetoId={projeto.id} atualizacoes={atualizacoes} pessoaPorId={pessoaPorId} hoje={hoje} />
             <div className="flex flex-col gap-5">
               <Resumo projeto={projeto} pautas={pautas} hoje={hoje} />
@@ -469,7 +469,7 @@ function EditarProjeto({ projeto, pessoas, aoFechar }: { projeto: ProjetoNaTela;
           <h2 id="editar-projeto-titulo" className="font-semibold">Editar projeto</h2>
           <button type="button" onClick={aoFechar} aria-label="Fechar" className="rounded-md p-1 text-muted-foreground hover:bg-muted"><X className="size-5" /></button>
         </header>
-        <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">Nome<input value={nome} onChange={(e) => setNome(e.target.value)} maxLength={120} className={campo} /></label>
           <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">Objetivo<textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} className={campo} /></label>
           <label className="flex flex-col gap-1 text-sm font-medium">Início<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className={campo} /></label>

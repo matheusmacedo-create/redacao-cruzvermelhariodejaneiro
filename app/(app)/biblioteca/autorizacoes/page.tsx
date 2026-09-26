@@ -54,7 +54,7 @@ export default async function AutorizacoesPage({ searchParams }: { searchParams:
       <section aria-labelledby="links" data-ajuda="autorizacoes.links" className="flex flex-col gap-3">
         <h2 id="links" className="text-base font-semibold">Links ({lista.length})</h2>
         {lista.length ? (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {lista.map((c) => {
               const { aberto } = linkAberto(c)
               const assinaturas = c.imagem_autorizacoes?.[0]?.count ?? 0

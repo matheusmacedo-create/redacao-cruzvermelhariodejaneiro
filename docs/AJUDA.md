@@ -778,3 +778,76 @@ Usabilidade e acessibilidade:
 [WCAG 2.2 — 2.4.11 Focus Not Obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html) ·
 [WCAG 2.2 — 2.5.8 Target Size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) ·
 [WCAG 2.2 — 2.1.4 Character Key Shortcuts](https://www.w3.org/WAI/WCAG22/Understanding/character-key-shortcuts.html)
+
+## 9. Na prática e exemplos (26/09/2026)
+
+Pedido do Matheus depois de um dia de muitas mudanças: "acrescente exemplos, mostre para o
+usuário como imaginamos a ferramenta funcionando". É a lição do Pipefy (§1.1): o modelo mental vem
+antes do passo a passo.
+
+- **Na prática** (`GuiaDaArea.naPratica`): toda área conta, em 3 a 7 momentos, um caso concreto de
+  ponta a ponta, com nomes e números plausíveis ("A Ana pede 10 resmas de papel…"). No painel "?"
+  ele fica recolhido, logo abaixo do "para que serve"; na Central, aberto, antes do passo a passo.
+  O `conferir-ajuda` acusa área sem "Na prática".
+- **Exemplo** (`Tarefa.exemplo`): nas tarefas principais, um caso que mostra a tarefa acontecendo.
+  Não repete os passos. Entra na busca.
+- **Como imaginamos o Palácio funcionando** (tópico geral): quatro jornadas que atravessam as
+  áreas (ação de rua → notícia; necessidade → compra; inscrição → certificado; dinheiro →
+  fechamento).
+- **Estilo**: os nomes das pessoas nos exemplos são fictícios e aparecem sem pronome. Botões e
+  campos com o nome exato da tela. Aspas tipográficas, porque o texto vai entre aspas simples.
+
+## 10. O beta com a equipe (26/09/2026)
+
+"Preciso de tudo o mais completo possível nesse atendimento beta aos nossos colaboradores para
+conseguir melhorar a aplicação o mais rápido possível." O retorno é **puxado** e fica sempre à
+mão, sem janela que interrompe o trabalho (NN/g, §1.3).
+
+Onde a pessoa conta:
+
+- **"Beta", no topo** (tablet e computador) ou **no alto do painel "?"** (celular). Serve para
+  relatar problema, ideia, dúvida ou elogio, com nota opcional para a tela
+  (`components/app/ajuda/beta.tsx`).
+- **"O que achou desta tela?"**, no fim do painel "?". São cinco notas, de "Muito ruim" a
+  "Ótima"; o comentário é opcional e a pergunta muda conforme a nota.
+- **"Isso ajudou?"**, em cada pergunta frequente, no painel e na Central. Cada pessoa tem um voto
+  por pergunta, e votar de novo troca o voto. Quem vota "Não" pode contar o que faltou.
+- **"Pergunte à equipe"**, no fim do painel. A dúvida que a ajuda não respondeu vira resposta nova
+  para a próxima pessoa.
+
+Junto vai o contexto, para reproduzir (`lerContexto`, em `lib/ajuda/retornos.ts`):
+- a tela;
+- o tamanho da janela;
+- se é celular e se é tela de toque;
+- o nome do navegador e do sistema;
+- o idioma e o tema.
+
+Nunca vai o conteúdo da tela.
+
+O que volta para a pessoa:
+
+- **"Perguntas mais frequentes"**, no alto da Central. Primeiro aparecem as mais votadas como
+  úteis (`ajuda_votos_das_perguntas`, só contagens, nunca quem votou). A lista é completada com
+  `MAIS_PERGUNTADAS` (`lib/ajuda/index.ts`), as dúvidas mais comuns do começo do beta.
+- **"Seus retornos do beta"**, no fim da Central: o que a pessoa mandou, a situação e a resposta.
+  A resposta também chega no sino.
+
+A administração cuida dos retornos em `/ajuda/retornos` (só administradores):
+- **números**: esperando resposta, nota média, opiniões e quantas pessoas participaram;
+- **telas da pior para a melhor avaliação**;
+- **respostas da ajuda que não ajudaram**, com o que faltou;
+- **a lista** com filtros por situação, tipo e tela, onde se responde e se muda a situação;
+- **a planilha** (CSV, `/api/ajuda/retornos`).
+
+Problema, dúvida, sugestão, nota 1–2 e "não ajudou" com texto avisam os administradores na hora.
+Esses avisos usam a categoria "Chamados", a mais próxima de atendimento, sem criar uma categoria
+nova de notificação.
+
+Banco: `ajuda_retornos` (migração `20260929010000`), com RLS:
+- quem manda vê os próprios retornos;
+- o administrador vê todos;
+- só se insere em nome próprio, como "novo";
+- só o próprio voto pode ser apagado, para trocar.
+
+A resposta passa por `ajuda_responder_retorno`, que confere se quem responde é administrador.
+Conferência: `npx tsx scripts/conferir-retornos.ts`.

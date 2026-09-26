@@ -17,7 +17,7 @@ function Formulario({ c, temToken, onFim }: { c: ContaMeta | null; temToken: boo
   useEffect(() => { if (estado.ok && !estado.erro) onFim() }, [estado.ok, estado.erro, onFim])
   return (
     <form action={enviar} className="flex flex-col gap-3" data-meta-form autoComplete="off">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium">ID da conta de anúncios
           <input name="act_id" required maxLength={40} defaultValue={c?.act_id ?? ''} placeholder="act_1234567890" className={`${inputClass} font-mono`} spellCheck={false} />
           <span className="text-xs font-normal text-muted-foreground">No Gerenciador de Anúncios, o número ao lado do nome da conta.</span>

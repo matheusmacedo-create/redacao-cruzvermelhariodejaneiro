@@ -66,11 +66,11 @@ export default async function Participante({ params }: { params: Promise<{ id: s
       )}
       {p.situacao === 'desligado' && p.motivo_desligamento && <p className="rounded-lg bg-destructive/10 px-4 py-2.5 text-sm text-destructive">Desligado{p.desligado_em ? ` em ${new Date(p.desligado_em).toLocaleDateString('pt-BR')}` : ''}: {p.motivo_desligamento}</p>}
 
-      <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_1fr]">
         <div className="flex flex-col gap-5">
           <Card className="p-5">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Cadastro</h2>
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Item rotulo="Nome civil">{p.nome_social ? p.nome : null}</Item>
               <Item rotulo="Nascimento">{p.data_nascimento ? DATA(p.data_nascimento) : null}</Item>
               <Item rotulo="E-mail">{p.email}</Item>

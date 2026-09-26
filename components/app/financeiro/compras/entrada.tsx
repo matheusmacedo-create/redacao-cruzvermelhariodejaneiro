@@ -104,7 +104,7 @@ function FormularioDeEntrada({ pedidoId, item, opcoes, fechar }: { pedidoId: str
         ))}
       </fieldset>
       <p className="text-xs text-muted-foreground">{DESTINOS[tipo].ajuda}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Rotulo texto={`Quantidade (${item.unidade})`} ajuda={`Até ${qtd(item.semDestino)}.`}>
           <input value={quantidade} onChange={(e) => setQuantidade(e.target.value)} inputMode="decimal" className={campo} required />
         </Rotulo>

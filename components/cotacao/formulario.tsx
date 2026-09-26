@@ -137,7 +137,7 @@ export function FormularioDaProposta({ token, itens, proposta, hoje, prazo, recu
         </p>
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2" aria-label="Condições">
+      <section className="grid grid-cols-1 gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2" aria-label="Condições">
         <h2 className="font-semibold sm:col-span-2">Condições</h2>
         <label className="flex flex-col gap-1 text-sm font-medium">Prazo de entrega
           <input value={entrega} onChange={(e) => setEntrega(e.target.value)} maxLength={120} placeholder="Ex.: 5 dias úteis" className={campo} />

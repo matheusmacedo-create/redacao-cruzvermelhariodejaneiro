@@ -133,11 +133,11 @@ export function buscarNaAjuda(busca: string, grupos: Grupo[], { limite = 20, equ
   const candidatos: (Achado & { titulo_: string; corpo: string })[] = []
   for (const topico of topicosGerais(equipeDaEscola)) {
     for (const p of topico.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: topico.titulo, href: `/ajuda#${p.id}`, titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), topico.titulo].join(' ')) })
-    for (const t of topico.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: topico.titulo, href: `/ajuda#${t.id}`, titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', topico.titulo].join(' ')) })
+    for (const t of topico.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: topico.titulo, href: `/ajuda#${t.id}`, titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', t.exemplo ?? '', topico.titulo].join(' ')) })
   }
   for (const { area, guia } of guiasVisiveis(grupos)) {
     for (const p of guia.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: area.rotulo, href: hrefDaAjuda(area.href, p.id), titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), area.rotulo].join(' ')) })
-    for (const t of guia.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: area.rotulo, href: hrefDaAjuda(area.href, t.id), titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', area.rotulo].join(' ')) })
+    for (const t of guia.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: area.rotulo, href: hrefDaAjuda(area.href, t.id), titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', t.exemplo ?? '', area.rotulo].join(' ')) })
   }
   return candidatos
     .map((c, ordem) => {
@@ -165,3 +165,28 @@ export function alvosCitados(): { alvo: string; onde: string }[] {
   return tours.flatMap(({ onde, passos }) => passos.flatMap((p) => (p.alvo ? [{ alvo: p.alvo, onde }] : [])))
 }
 
+
+/**
+ * As "mais perguntadas" do começo do beta: as dúvidas que mais apareceram nas
+ * conversas com a equipe. A Central põe na frente as que a equipe marcar como
+ * úteis ("Isso ajudou?") e completa com estas (lib/ajuda/retornos.ts →
+ * maisUteis). O conferir-ajuda acusa id que não existe.
+ */
+export const MAIS_PERGUNTADAS: { area: string; id: string }[] = [
+  { area: '/financeiro/compras', id: 'onde-estao-as-propostas' },
+  { area: '/financeiro/compras', id: 'como-o-fornecedor-responde' },
+  { area: '/pautas', id: 'etapas-do-quadro' },
+  { area: '/aprovacoes', id: 'nao-consigo-votar' },
+  { area: '/dashboard', id: 'pauta-nao-aparece' },
+  { area: '/envios', id: 'album-e-seguro' },
+  { area: '/notificacoes', id: 'por-que-recebi' },
+  { area: '/biblioteca', id: 'foto-menor-jpeg' },
+  { area: '/calendario', id: 'de-onde-vem-cada-item' },
+  { area: '/chamados', id: 'quem-ve-o-chamado' },
+]
+
+/** Uma pergunta pelo href da área e o id, com o link direto para ela na Central. */
+export function perguntaDaAjuda(area: string, id: string): { pergunta: string; href: string } | null {
+  const p = guiaDaArea(area)?.perguntas.find((x) => x.id === id)
+  return p ? { pergunta: p.pergunta, href: hrefDaAjuda(area, id) } : null
+}

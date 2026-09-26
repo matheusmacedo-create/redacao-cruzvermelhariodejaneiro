@@ -35,7 +35,7 @@ export function RegrasDeCompra({ inicial, setores, pode }: {
           if (!r.erro) router.refresh()
         })
       }}>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Rotulo texto="Compra simples até (R$)" ajuda="Até este valor, basta uma proposta.">
           <input value={simples} onChange={(e) => setSimples(e.target.value)} inputMode="decimal" disabled={!pode} className={campo} />
         </Rotulo>

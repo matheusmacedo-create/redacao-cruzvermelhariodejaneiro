@@ -56,7 +56,7 @@ function Secao({ titulo, descricao, children }: { titulo: string; descricao?: st
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</h2>
         {descricao && <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>}
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{children}</div>
     </Card>
   )
 }

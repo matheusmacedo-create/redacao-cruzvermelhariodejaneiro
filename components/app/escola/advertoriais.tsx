@@ -23,7 +23,7 @@ export function NovoAdvertorial({ campanhas, destinoSugerido }: { campanhas: Opc
   if (!aberto) return <Button onClick={() => setAberto(true)} id="novo-advertorial" data-ajuda="escola-advertoriais.novo"><Plus className="size-4" />Novo advertorial</Button>
   return (
     <form action={enviar} className="flex w-full flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4" data-advertorial-form>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Manchete" className="sm:col-span-2" ajuda="O título da matéria. Dá para mudar depois, no editor."><input name="titulo" required minLength={5} maxLength={160} placeholder="Técnica de enfermagem conta como aprendeu punção venosa em um sábado" className={inputClass} /></Campo>
         <Campo rotulo="Campanha"><select name="campanha_id" defaultValue={campanhas[0]?.id ?? ''} className={inputClass}><option value="">— sem campanha</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
         <Campo rotulo="Ângulo" ajuda="A ideia que vende: história, prova, preço, carreira…"><input name="angulo" maxLength={60} list="angulos-adv" className={inputClass} /></Campo>

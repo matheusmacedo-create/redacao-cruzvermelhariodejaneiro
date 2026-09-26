@@ -16,6 +16,7 @@ import { ACOES_DE_CRIAR, useCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
 import { useAjuda } from './ajuda/ajuda'
 import { adiantarPainel } from './ajuda/painel'
+import { BotaoBeta } from './ajuda/beta'
 import { Sino, type Notificacao } from './sino'
 
 type Perfil = { full_name?: string | null; job_title?: string | null; initials?: string | null; color?: string | null; avatar_path?: string | null } | null
@@ -140,6 +141,8 @@ export function Topbar({ role, profile, notifications, naoLidas }: { role: Works
         </button>
         {/* Criar registro, pauta, conteúdo… é da Redação: a equipe da escola não tem. */}
         {!ehEquipeDaEscola(role) && <MenuCriar />}
+        {/* O beta com a equipe: no celular não cabe aqui e fica no alto do painel "?". */}
+        <BotaoBeta className="hidden sm:inline-flex" />
         <Sino notificacoes={notifications} naoLidas={naoLidas} />
         <BotaoDeAjuda />
         <MenuDaPessoa role={role} profile={profile} grupos={grupos} />

@@ -34,6 +34,17 @@ const CHAT: GuiaDaArea = {
   paraQueServe: 'O Chat é a conversa da equipe: canais por assunto ou por setor e mensagens diretas, ao vivo e guardados. Dá para responder em fio, reagir, mandar arquivo e mensagem de voz e buscar tudo o que você pode ver.',
   quemUsa: 'Toda a equipe do Palácio Virtual e a equipe da escola. Cada pessoa edita e apaga as próprias mensagens; só administradores apagam as dos outros, arquivam canais e veem o que foi editado ou apagado. A equipe da escola vê só os canais para que foi chamada e as mensagens diretas dela.',
   // /chat abre direto a última conversa com novidade: o tour fica na tela da conversa.
+  naPratica: {
+    titulo: 'Combinar a cobertura do evento sem grupo de WhatsApp',
+    passos: [
+      'A Carla cria o canal #campanha-agasalho e chama a equipe de Comunicação e o Voluntariado.',
+      'No canal, ela manda o roteiro em PDF e menciona @Bruno para as fotos e @Ana para os vídeos.',
+      'O Bruno responde em fio com dúvidas sobre horário, sem bagunçar a conversa principal.',
+      'No dia, a Ana manda uma mensagem de voz da rua avisando que a entrega começou mais cedo.',
+      'Semanas depois, qualquer pessoa busca “agasalho” no Chat e acha o roteiro e as combinações.',
+    ],
+    resultado: 'A conversa do trabalho fica no trabalho, guardada e fácil de achar.',
+  },
   tour: [],
   telas: [
     {
@@ -99,6 +110,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'criar-canal',
       titulo: 'Criar um canal',
+      exemplo: 'Para a Semana de Prevenção, a Carla cria o canal #semana-prevencao, aberto, e chama quem vai participar; quem entrar depois lê todo o histórico.',
       quem: 'Equipe do Palácio Virtual',
       passos: [
         'Na lista do Chat, toque em “#” (“Novo canal”).',
@@ -112,6 +124,7 @@ const CHAT: GuiaDaArea = {
     {
       id: 'mencionar-alguem',
       titulo: 'Chamar alguém com @',
+      exemplo: 'Na mensagem “@Bruno, você consegue as fotos da entrega às 10h?”, o Bruno recebe aviso no sino mesmo com o canal silenciado.',
       passos: [
         'Na caixa de escrever, digite @ e o começo do nome.',
         'Escolha a pessoa na lista (com as setas e Enter, ou com um clique).',
@@ -294,6 +307,17 @@ const DIRECT_DAS_REDES: GuiaDaArea = {
   href: '/direct',
   paraQueServe: 'O Direct das redes é o atendimento ao público nas redes sociais: as mensagens do Direct do Instagram e os comentários nas publicações recentes, para ler e responder sem abrir cada aplicativo. Cada conversa e cada comentário mostra, para a equipe inteira, se está pendente ou quem já respondeu. E-mail não passa por aqui: ele fica em “E-mail do setor”.',
   quemUsa: 'Toda a equipe do Palácio Virtual. As respostas saem pela conta da filial em cada rede, não no seu nome; aqui dentro, a equipe vê quem respondeu.',
+  naPratica: {
+    titulo: 'Uma pergunta no Instagram respondida em minutos',
+    passos: [
+      'Depois do post da campanha de doação de sangue, chegam no Direct: “Posso doar tendo feito tatuagem?”.',
+      'A mensagem aparece em “Direct das redes” como “Pendente”, para toda a equipe ver.',
+      'O Bruno responde dali mesmo, sem abrir o Instagram, e a conversa passa a “Respondida” com o nome dele.',
+      'Um comentário com ofensa na publicação é escondido pela Carla, também dali.',
+      'Quem entra no turno seguinte vê o que já foi respondido e não repete a resposta.',
+    ],
+    resultado: 'O público é respondido rápido e ninguém responde duas vezes a mesma pessoa.',
+  },
   tour: [
     {
       titulo: 'O Direct das redes',
@@ -335,6 +359,7 @@ const DIRECT_DAS_REDES: GuiaDaArea = {
     {
       id: 'responder-direct',
       titulo: 'Responder uma mensagem do Direct',
+      exemplo: 'Chega: “Vocês recebem roupas no sábado?”. O Bruno responde “Sim, das 9h às 13h, na Praça da Cruz Vermelha, 10” e a conversa sai de “Pendente”.',
       passos: [
         'Abra “Direct das redes” e fique em “Mensagens”.',
         'Toque na conversa. Ela abre inteira, em balões.',
@@ -377,6 +402,7 @@ const DIRECT_DAS_REDES: GuiaDaArea = {
     {
       id: 'esconder-comentario',
       titulo: 'Esconder um comentário ofensivo ou falso',
+      exemplo: 'Um comentário com xingamento aparece no post da campanha; a Carla toca em “Esconder”: o comentário some para o público e continua registrado para a equipe.',
       passos: [
         'Em “Comentários”, ache o comentário.',
         'Toque em “Esconder”. Ele fica mais claro na tela e ganha o selo “Escondido do público”.',
@@ -471,6 +497,16 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
   href: '/correio',
   paraQueServe: 'O E-mail do setor envia e-mails pelo endereço oficial do seu setor, com a assinatura fixa dele, sem sair do Palácio Virtual. Tudo o que sai, e o que falha, fica registrado para o setor.',
   quemUsa: 'Quem faz parte de um setor com endereço ativo envia por ele e vê o que o setor enviou. Administradores enviam por qualquer endereço ativo, veem todos os envios e ligam endereços e setores em Configurações.',
+  naPratica: {
+    titulo: 'A Comunicação responde a um jornal pelo endereço oficial',
+    passos: [
+      'Um jornalista pede os números da campanha do agasalho por e-mail.',
+      'A Carla abre “E-mail do setor” e escreve pelo endereço da Comunicação, que já sai com a assinatura oficial do setor.',
+      'Ela envia com a planilha em anexo; o envio fica registrado para o setor inteiro ver.',
+      'A resposta do jornalista chega na caixa do setor no Gmail, e quem estiver de plantão continua a conversa.',
+    ],
+    resultado: 'O setor fala com uma voz só, e o que saiu fica guardado mesmo se alguém sair de férias.',
+  },
   tour: [
     {
       titulo: 'O e-mail oficial do setor',
@@ -522,6 +558,7 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
     {
       id: 'enviar-email-do-setor',
       titulo: 'Enviar um e-mail pelo endereço do setor',
+      exemplo: 'A Carla escreve para redacao@jornal.com.br pelo endereço comunicacao@…, com o assunto “Campanha do agasalho: números de 2026”; a assinatura do setor entra sozinha no fim.',
       passos: [
         'Abra “E-mail do setor”.',
         'Em “De”, confira o endereço. Se houver mais de um endereço para você, escolha na lista.',
@@ -637,6 +674,18 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
   href: '/envios',
   paraQueServe: 'Envios da equipe é a caixa do que a equipe manda pelo link público, na tela “Mandar uma ação”, sem login: relato, áudio, fotos, vídeos e documentos de uma ação. Aqui você avalia, escolhe o material e transforma o envio em pauta, matéria e posts.',
   quemUsa: 'Só quem foi escolhido para avaliar os envios. A escolha é pessoa a pessoa, e não pelo papel: para as outras pessoas, a área não aparece no menu e o endereço não abre. Quem manda pelo link não precisa de conta e não entra nesta área.',
+  naPratica: {
+    titulo: 'Uma ação de rua vira matéria, posts e álbum',
+    passos: [
+      'Antes da ação de prevenção na Central do Brasil, a Comunicação cria o evento em “Eventos e álbuns” e manda o link de envio para os 10 voluntários.',
+      'Durante a ação, cada voluntário manda pelo celular, sem login, as fotos, um áudio contando o que aconteceu e quantas pessoas foram atendidas.',
+      'Os envios chegam em “Envios da equipe”; a Carla transcreve o áudio e escolhe as melhores fotos.',
+      '“Criar matéria e posts” cria a pauta, a matéria em rascunho e o pacote de publicação, com as fotos na Biblioteca e o crédito de cada voluntário.',
+      'O álbum do evento, com o link secreto, vai para o grupo dos voluntários: todo mundo vê e baixa as fotos de todos.',
+      'Quando a matéria vai ao ar, quem mandou e pediu aviso recebe o link por e-mail, junto com o do álbum.',
+    ],
+    resultado: 'Quem estava na rua não precisa de conta nem de grupo de fotos, e a Comunicação recebe tudo organizado.',
+  },
   tour: [
     {
       titulo: 'Os envios da equipe',
@@ -768,6 +817,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       id: 'divulgar-o-link',
       titulo: 'Divulgar o link para a equipe',
+      exemplo: 'Na véspera do plantão de verão na praia de Copacabana, a Carla cola o link no grupo dos voluntários e imprime o cartaz com o QR code para a barraca.',
       passos: [
         'Abra “Envios da equipe”, no grupo Comunicação do menu.',
         'No quadro “Link para a equipe mandar ações”, toque em “Copiar link” e cole o endereço no grupo da equipe.',
@@ -792,6 +842,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       id: 'criar-materia-e-posts',
       titulo: 'Transformar um envio em matéria e posts',
+      exemplo: 'Do envio da Ana (relato, áudio e 14 fotos), a Carla marca 6 fotos e toca em “Criar matéria e posts”: a pauta nasce em “Produção”, a matéria em rascunho já tem a transcrição, e as 6 fotos entram na Biblioteca com “Foto: Ana Souza”.',
       passos: [
         'Abra o envio.',
         'Em “Fotos e vídeos”, marque o que vai para a matéria e os posts. Já vêm marcados as fotos e os vídeos de até 300 MB.',
@@ -848,6 +899,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       id: 'album-do-evento',
       titulo: 'Juntar as fotos de um evento num álbum',
+      exemplo: 'A Semana de Prevenção teve 10 voluntários fotografando; o álbum juntou 180 fotos de 10 pessoas, e cada um baixou o .zip com tudo no dia seguinte.',
       passos: [
         'Abra “Envios da equipe” e, em “Eventos e álbuns”, toque em “Novo evento”.',
         'Dê o nome, a data e o local e toque em “Criar evento”.',
@@ -949,6 +1001,16 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
   href: '/voluntariado/mensagens',
   paraQueServe: 'É o canal direto entre quem é voluntário e a coordenação. A pessoa escreve pela Área do Voluntário; a equipe lê e responde daqui, e a resposta chega também por e-mail, quando o cadastro tem e-mail.',
   quemUsa: 'Quem gerencia o Voluntariado: administradores e quem tem o acesso “Gerenciar” ou “Dados sensíveis” ao cadastro de voluntários. Essas pessoas veem todas as conversas. Para as demais, a tela não abre (aparece um erro 404).',
+  naPratica: {
+    titulo: 'Um voluntário pergunta sobre o certificado',
+    passos: [
+      'O Lucas, voluntário, escreve pela Área do Voluntário: “Meu certificado do curso de primeiros socorros não apareceu”.',
+      'A mensagem chega em “Mensagens dos voluntários” como “Aguardando resposta”.',
+      'A coordenação confere o curso, libera o certificado e responde a conversa.',
+      'O Lucas recebe a resposta na Área do Voluntário e por e-mail; a coordenação encerra a conversa.',
+    ],
+    resultado: 'Cada voluntário tem um canal direto e registrado com a coordenação.',
+  },
   tour: [
     {
       titulo: 'Mensagens dos voluntários',
@@ -1003,6 +1065,7 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'responder-voluntario',
       titulo: 'Responder uma mensagem do canal',
+      exemplo: 'A resposta “Liberamos o seu certificado, está em Cursos > Primeiros socorros” chega ao Lucas na Área do Voluntário e no e-mail dele.',
       passos: [
         'Abra “Voluntários”, no grupo Comunicação do menu.',
         'Na aba “Aguardando resposta”, toque na conversa. As mais antigas vêm primeiro.',

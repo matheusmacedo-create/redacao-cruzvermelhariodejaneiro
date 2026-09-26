@@ -18,7 +18,7 @@ const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'l
 
 function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
-    <div className="grid gap-0.5 border-b border-border py-2 last:border-0 sm:grid-cols-[11rem_1fr] sm:gap-3">
+    <div className="grid grid-cols-1 gap-0.5 border-b border-border py-2 last:border-0 sm:grid-cols-[11rem_1fr] sm:gap-3">
       <dt className="text-sm text-muted-foreground">{rotulo}</dt>
       <dd className="min-w-0 break-words text-sm">{children}</dd>
     </div>

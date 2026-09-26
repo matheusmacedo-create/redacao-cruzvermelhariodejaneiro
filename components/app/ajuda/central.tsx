@@ -82,7 +82,7 @@ export function BotoesDeBoasVindas() {
       <Button type="button" size="lg" className="h-11 justify-start sm:h-10" onClick={reverBoasVindas}>
         <Sparkles aria-hidden="true" />Rever as boas-vindas
       </Button>
-      <Button type="button" variant="outline" size="lg" className="h-11 justify-start sm:h-10" onClick={recomecar}>
+      <Button type="button" variant="outline" size="lg" className="h-auto min-h-11 justify-start py-2 text-left whitespace-normal sm:min-h-10" onClick={recomecar}>
         <RotateCcw aria-hidden="true" />Recomeçar as boas-vindas e os tours
       </Button>
     </div>

@@ -94,7 +94,7 @@ function Escrever({ caixas }: { caixas: CaixaDoSetor[] }) {
 
   return (
     <Card className="flex flex-col gap-3 p-5">
-      <div className="grid gap-3 sm:grid-cols-[6rem_1fr] sm:items-center">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[6rem_1fr] sm:items-center">
         <span className="text-sm font-medium">De</span>
         {caixas.length === 1 ? (
           <p className="flex items-center gap-2 text-sm" data-ajuda="correio.de">

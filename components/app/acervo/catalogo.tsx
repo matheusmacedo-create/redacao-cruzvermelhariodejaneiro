@@ -143,7 +143,7 @@ export function Catalogo({ itens, podeGerenciar, configurado, truncado, abrir, b
           <Button type="button" variant="outline" size="sm" onClick={limpar}><X aria-hidden />Limpar os filtros</Button>
         </Card>
       ) : (
-        <ul data-ajuda="acervo.lista" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+        <ul data-ajuda="acervo.lista" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {visiveis.map((i) => <li key={i.id}><CartaoDoItem item={i} abrir={abrir} /></li>)}
         </ul>
       )}

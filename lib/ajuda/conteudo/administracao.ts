@@ -33,6 +33,16 @@ const ACESSOS: GuiaDaArea = {
   href: '/acessos',
   paraQueServe: 'Acessos é o registro de quem entrou no Palácio Virtual e na Área do Voluntário: quando, de onde e com qual aparelho, inclusive as tentativas erradas, os bloqueios e as saídas. Serve para cuidar da segurança das contas.',
   quemUsa: 'Só quem foi escolhido para ler o registro e, além disso, tem o papel “Administrador”: o papel sozinho não basta. Para as outras pessoas, a área não aparece no menu e o endereço não abre. Cada consulta a esta tela também fica registrada.',
+  naPratica: {
+    titulo: 'Uma senha errada muitas vezes às 3h da manhã',
+    passos: [
+      'A administração recebe o alerta: muitas tentativas erradas na conta da Carla, de madrugada.',
+      'Abre “Acessos” e vê as tentativas, o aparelho e a região.',
+      'A conta foi bloqueada sozinha por um tempo; a Carla confirma que não era ela.',
+      'Ela troca a senha e liga a verificação em duas etapas.',
+    ],
+    resultado: 'Um ataque é notado e contido antes de virar problema.',
+  },
   tour: [
     {
       titulo: 'O registro de acessos',
@@ -85,6 +95,7 @@ const ACESSOS: GuiaDaArea = {
     {
       id: 'investigar-tentativas-erradas',
       titulo: 'Investigar tentativas erradas e bloqueios',
+      exemplo: 'Em “Acessos”, a conta da Carla mostra 14 tentativas erradas entre 3h02 e 3h09, de um aparelho desconhecido, e o bloqueio automático logo depois.',
       passos: [
         'Em “O que aconteceu”, escolha “Erros e bloqueios” e toque em “Filtrar”.',
         'Veja em cada linha quem tentou, quando e de onde.',
@@ -211,6 +222,16 @@ const USUARIOS: GuiaDaArea = {
   href: '/usuarios',
   paraQueServe: 'Aqui a administração decide quem entra no Palácio Virtual e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
   quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o Palácio Virtual nunca fica sem pelo menos um administrador ativo.',
+  naPratica: {
+    titulo: 'A chegada de uma nova pessoa na Comunicação',
+    passos: [
+      'A administração cria o acesso do Rafael por convite no e-mail dele, com o papel de Editor e a coordenação da Comunicação.',
+      'O Rafael abre o convite, cria a senha e já entra vendo só o que o papel dele permite.',
+      'Como a Comunicação publica nas redes, a administração exige a verificação em duas etapas para Editores.',
+      'Quando alguém sai da filial, o acesso é desativado no mesmo dia.',
+    ],
+    resultado: 'Cada pessoa entra com o acesso certo, e ninguém fica com acesso depois de sair.',
+  },
   tour: [
     {
       titulo: 'Usuários e permissões',
@@ -253,6 +274,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'dar-acesso-por-convite',
       titulo: 'Dar acesso a uma pessoa por convite',
+      exemplo: 'O convite vai para rafael@…, papel Editor, coordenação Comunicação; o Rafael cria a senha pelo link e entra no mesmo dia.',
       passos: [
         'Toque em “Novo usuário”.',
         'Preencha “Nome completo”. O “Usuário (para o login)” vem sugerido a partir do nome, no formato nome.sobrenome; ajuste se precisar.',
@@ -473,6 +495,16 @@ const CONFIGURACOES: GuiaDaArea = {
   href: '/configuracoes',
   paraQueServe: 'Configurações é onde a administração liga o Palácio Virtual às ferramentas de fora e cuida do site: as chaves de integração, o E-mail do setor (a conta Google, os setores e os endereços), o Google Analytics, as páginas do site, o que está no ar em /noticias/ e a zona de risco.',
   quemUsa: 'Editores e colaboradores também abrem esta área, mas veem só um aviso: as seções são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”.',
+  naPratica: {
+    titulo: 'Ligar o e-mail do setor de Compras',
+    passos: [
+      'A administração conecta a conta Google da filial em “E-mail do setor”.',
+      'Cria o setor Compras e ativa o endereço compras@… para ele.',
+      'Define a assinatura do setor, que sai em todo e-mail.',
+      'A partir daí, o Financeiro manda os pedidos de proposta e as ordens de compra por esse endereço.',
+    ],
+    resultado: 'O Palácio conversa com as ferramentas de fora pelos endereços oficiais.',
+  },
   tour: [
     {
       titulo: 'Configurações do Palácio Virtual',
@@ -555,6 +587,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'ativar-endereco',
       titulo: 'Ligar um endereço a um setor e ativar',
+      exemplo: 'O endereço compras@cruzvermelhariodejaneiro.org é ativado para o setor Compras; quem é do setor já vê a caixa em “E-mail do setor”.',
       quem: 'Só administradores',
       passos: [
         'Endereço criado (e confirmado) no Gmail depois da conexão só aparece depois de “Sincronizar endereços”. Ele chega inativo.',
@@ -713,6 +746,16 @@ const PERFIL: GuiaDaArea = {
   href: '/perfil',
   paraQueServe: 'Meu perfil reúne a sua conta: foto e dados, o e-mail de recuperação, o que chega por e-mail, a senha e a verificação em duas etapas. Quase tudo o que é da sua conta você resolve aqui, sem depender de um administrador.',
   quemUsa: 'Cada pessoa vê e muda só o próprio perfil. Usuário e coordenação não se mudam aqui: a coordenação é definida pela administração.',
+  naPratica: {
+    titulo: 'Deixar a conta segura e com a sua cara',
+    passos: [
+      'No primeiro acesso, a Ana põe uma foto e confere o cargo.',
+      'Confirma o e-mail de recuperação, para o “Esqueci minha senha” funcionar.',
+      'Liga a verificação em duas etapas com o app de autenticação do celular.',
+      'Escolhe o que chega por e-mail e o que fica só no sino.',
+    ],
+    resultado: 'Você resolve a sua conta sozinho e fica protegido.',
+  },
   tour: [
     {
       alvo: 'perfil.identidade',
@@ -750,6 +793,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'trocar-foto',
       titulo: 'Trocar a sua foto',
+      exemplo: 'A Ana escolhe uma foto do celular e ajusta o enquadramento; a foto aparece no Chat, nas pautas e no Diretório.',
       passos: [
         'No alto, toque em “Trocar foto” e escolha uma imagem JPEG, PNG ou WebP.',
         'Em “Ajustar foto”, arraste a imagem para posicionar e use o controle para aproximar. O que fica dentro do círculo é o que aparece.',
@@ -774,6 +818,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'segundo-aparelho',
       titulo: 'Cadastrar um segundo aparelho',
+      exemplo: 'O Bruno troca de celular e cadastra o novo aparelho na verificação em duas etapas antes de apagar o antigo.',
       passos: [
         'Com a verificação ativada, toque em “Adicionar outro aparelho”.',
         'Dê ao aparelho um nome diferente dos que já existem (a tela sugere “Celular 2”) e toque em “Gerar QR Code”.',

@@ -44,7 +44,7 @@ export default async function EventosPage() {
       ) : !eventos.length ? (
         <Card className="p-8 text-center text-sm text-muted-foreground">Nenhum evento ainda.</Card>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="eventos.lista">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-ajuda="eventos.lista">
           {eventos.map((ev) => {
             const arquivos = ev.envios.flatMap((e) => e.envio_arquivos).filter((a) => a.estado === 'recebido' && !a.oculto_no_album)
             const fotos = arquivos.filter((a) => a.categoria === 'foto').length

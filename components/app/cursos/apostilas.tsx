@@ -64,7 +64,7 @@ export function Apostilas({ lista, cursos, podeEditar }: { lista: ApostilaDaEqui
               if (f && t && !t.value) t.value = f.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').slice(0, 200)
             }} />
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-sm font-medium">Título<input name="titulo" required minLength={2} maxLength={200} className={inputClass} /></label>
             <label className="flex flex-col gap-1 text-sm font-medium">Curso (opcional)
               <select name="curso_id" defaultValue="" className={inputClass}><option value="">Apostila avulsa</option>{cursos.map((c) => <option key={c.id} value={c.id}>{c.titulo}</option>)}</select>

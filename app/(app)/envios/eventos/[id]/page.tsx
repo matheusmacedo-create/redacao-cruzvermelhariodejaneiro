@@ -50,7 +50,7 @@ export default async function EventoPage({ params }: { params: Promise<{ id: str
         breadcrumbs={[{ label: 'Envios da equipe', href: '/envios' }, { label: 'Eventos', href: '/envios/eventos' }, { label: ev.nome }]}
       />
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div data-ajuda="eventos.link-de-envio">
           <LinkDoEvento
             eventoId={ev.id} aoAlternar="envio" ligado={ev.envio_aberto}
@@ -79,7 +79,7 @@ export default async function EventoPage({ params }: { params: Promise<{ id: str
         }))} />
       </Card>
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[2fr_1fr]">
         <Card className="p-4">
           <h2 className="mb-3 text-sm font-semibold">Envios deste evento</h2>
           {envios?.length ? (

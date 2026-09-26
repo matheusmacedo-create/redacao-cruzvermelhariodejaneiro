@@ -169,7 +169,7 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {numeros.map((n) => <Card key={n.rotulo} className="p-4"><p className={cn('text-2xl font-bold tabular-nums', n.alerta && 'text-destructive')}>{n.valor}</p><p className="text-sm text-muted-foreground">{n.rotulo}</p>{n.ajuda && <p className="mt-1 text-xs text-muted-foreground">{n.ajuda}</p>}</Card>)}
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Card className="p-5">
             <h3 className="mb-3 font-semibold">Por fila</h3>
             <table className="w-full text-sm"><thead><tr className="text-left text-xs text-muted-foreground"><th className="pb-2 font-medium">Fila</th><th className="pb-2 text-right font-medium">Abertos</th><th className="pb-2 text-right font-medium">Atrasados</th><th className="pb-2 text-right font-medium">90 dias</th></tr></thead>

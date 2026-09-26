@@ -95,9 +95,9 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
       </nav>
 
       {aba === 'contrato' && (
-        <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_1fr]">
           <Bloco titulo="Contrato e cargo">
-            <dl className="grid gap-3 sm:grid-cols-2">
+            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Item rotulo="Cargo">{m.cargo}</Item>
               <Item rotulo="Setor">{m.setor}</Item>
               <Item rotulo="Vínculo">{rotuloDoVinculo(m.vinculo)}</Item>
@@ -131,7 +131,7 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
 
       {aba === 'pessoal' && (
         <Bloco titulo="Dados pessoais">
-          <dl className="grid gap-3 sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Item rotulo="Nome civil">{m.nome_social ? m.nome : null}</Item>
             <Item rotulo="Nascimento">{pessoais?.data_nascimento ? `${DATA(pessoais.data_nascimento)}${anos !== null ? ` (${anos} anos)` : ''}` : null}</Item>
             <Item rotulo="E-mail pessoal">{pessoais?.email_pessoal}</Item>
@@ -176,7 +176,7 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
       )}
 
       {aba === 'remuneracao' && (
-        <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.3fr_1fr]">
           <Bloco titulo="Remuneração" acao={<Lock className="size-4 text-muted-foreground" />}><Remuneracoes id={id} hoje={hoje} /></Bloco>
           <Bloco titulo="Dados bancários" acao={<Lock className="size-4 text-muted-foreground" />}>
             <VerRestritos id={id} tipo="banco" guardado={m.tem_banco} />

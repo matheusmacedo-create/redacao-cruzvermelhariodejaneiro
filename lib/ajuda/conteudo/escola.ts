@@ -40,6 +40,16 @@ export const guias: GuiaDaArea[] = [
     href: '/escola',
     paraQueServe: 'A porta de entrada da Escola de Educação e Saúde, uma empresa da Cruz Vermelha RJ com receita e gestão próprias. Junta num lugar só as vendas do mês, o financeiro, o marketing, os advertoriais e o que pede atenção, e cada bloco leva à área dele. Alunos, turmas e secretaria continuam no sistema da escola.',
     quemUsa: 'Abre para quem tem acesso às vendas ou ao marketing da escola. Vendas: administradores, a equipe da escola, quem é da coordenação ou do setor Educação e Saúde e quem tem acesso aos livros da Escola no Financeiro. Marketing e advertoriais: essas mesmas pessoas, mais editores e a Comunicação Social. Cada bloco só aparece para quem pode abrir a área dele.',
+    naPratica: {
+      titulo: 'A manhã da coordenação da Escola',
+      passos: [
+        'A coordenação abre a Escola e vê num só lugar as vendas do mês, o financeiro e as campanhas.',
+        'O quadro “Pede atenção” mostra um pagamento em disputa e uma campanha sem utm_campaign, que não recebe a receita.',
+        'Ela abre o pagamento em disputa em “Vendas” e corrige a campanha em “Marketing”.',
+        'Alunos, turmas e secretaria continuam no sistema da escola; aqui fica a visão de negócio.',
+      ],
+      resultado: 'A Escola é tocada como empresa, com os números na mão.',
+    },
     tour: [
       {
         titulo: 'A Escola como empresa',
@@ -73,6 +83,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'acompanhar-o-mes',
         titulo: 'Acompanhar a escola num relance',
+        exemplo: 'Em setembro, a visão geral mostra R$ 48 mil recebidos, R$ 6 mil aguardando pagamento e 2 contestações; a campanha “Técnico de enfermagem” lidera as matrículas.',
         passos: [
           'Abra “Visão geral”, no grupo “Escola de Educação e Saúde” do menu.',
           'Em “Vendas do mês”, veja o “Recebido” e a variação sobre o mês anterior, o que está “Aguardando”, o “Saldo nas contas” e o “Ticket médio”.',
@@ -159,6 +170,16 @@ export const guias: GuiaDaArea[] = [
     href: '/escola/vendas',
     paraQueServe: 'O dinheiro que entra pelas contas da Únicopag da escola, mês a mês: quanto foi recebido, o que está aguardando pagamento, o que voltou (estorno e contestação), o saldo nas contas e de onde veio cada venda, por curso, forma de pagamento e origem. Em “Transações”, cada cobrança, com filtros.',
     quemUsa: 'Administradores, a equipe da escola, quem é da coordenação ou do setor Educação e Saúde e quem tem acesso aos livros da Escola no Financeiro. Todas essas pessoas veem os números e usam “Atualizar agora”. Ligar, trocar a chave e tirar uma conta é só de administrador, em “Contas e integrações”.',
+    naPratica: {
+      titulo: 'De onde veio o dinheiro de setembro',
+      passos: [
+        'A coordenação abre “Vendas” e escolhe setembro.',
+        'Vê quanto foi recebido, o que está aguardando pagamento e o que voltou (estornos e contestações).',
+        'Filtra por curso e forma de pagamento: o curso de cuidador vendeu mais no Pix.',
+        'Em “Transações”, acha a cobrança de um aluno que diz ter pago e confere a situação.',
+      ],
+      resultado: 'Você responde a qualquer dúvida de pagamento sem abrir outro sistema.',
+    },
     tour: [
       {
         titulo: 'Vendas da escola',
@@ -265,6 +286,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'achar-transacao',
         titulo: 'Achar uma transação',
+        exemplo: 'Um aluno diz que pagou a matrícula de cuidador; em “Transações”, a busca pelo nome mostra o Pix de R$ 350,00 “pago” em 12/09.',
         passos: [
           'Em “Vendas”, use o botão “Ver as transações de…”, no pé do painel.',
           'Escolha o mês e, se precisar, a conta, a situação e a forma de pagamento.',
@@ -380,6 +402,16 @@ export const guias: GuiaDaArea[] = [
     paraQueServe: 'Os livros da Escola no Financeiro. A escola é uma empresa à parte, com CNPJ, contas, lançamentos, conciliação e fechamento do mês próprios; “Financeiro”, na Escola, abre o Financeiro já nos livros dela. As vendas pagas na Únicopag entram lá sozinhas como receita, e os estornos, como despesa.',
     quemUsa: 'Só quem tem acesso aos livros da Escola, dado por um administrador no Financeiro (“Cadastros”, aba “Quem acessa”). O nível decide o que a pessoa faz: “Ver”, “Lançar”, “Aprovar” ou “Gestão e fechamento”. A equipe da escola só pode ter os livros da Escola; administradores têm acesso a tudo.',
     // Não há tela neste endereço: ele abre o Financeiro nos livros da Escola (route.ts).
+    naPratica: {
+      titulo: 'A venda da Únicopag vira receita nos livros da Escola',
+      passos: [
+        'Um aluno paga a matrícula pela Únicopag.',
+        'A venda entra sozinha no Financeiro da Escola como receita, na conta certa.',
+        'Se houver estorno, ele entra como despesa, também sozinho.',
+        'No fim do mês, a Escola concilia e fecha os próprios livros, separados dos da filial.',
+      ],
+      resultado: 'Os livros da Escola ficam em dia sem digitar venda por venda.',
+    },
     tour: [],
     tarefas: [
       {
@@ -417,6 +449,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'conferir-vendas-nos-livros',
         titulo: 'Conferir as vendas da Únicopag nos livros da Escola',
+        exemplo: 'As 142 vendas pagas de setembro aparecem como receitas no Financeiro da Escola, uma por venda, com o curso na descrição.',
         passos: [
           'Abra os livros da Escola (“Financeiro”, na Escola).',
           'Em “Lançamentos”, procure as receitas que começam com “Únicopag ·”, seguidas do curso e da forma de pagamento. Elas ficam na conta “Únicopag · <nome da conta>”.',
@@ -506,6 +539,16 @@ export const guias: GuiaDaArea[] = [
     href: '/escola/marketing',
     paraQueServe: 'O marketing da escola num lugar só: as campanhas, com o que custaram e o que trouxeram; as peças (páginas, anúncios, posts, e-mails) com imagem e números; e as referências de fora, para inspirar. Os anúncios do Meta entram sozinhos, e a receita vem das vendas da Únicopag pelo utm_campaign de cada campanha.',
     quemUsa: 'Administradores, a equipe da escola, quem é de Educação e Saúde ou tem acesso aos livros da Escola, editores e a Comunicação Social. Todas essas pessoas criam e editam campanhas e peças. Excluir uma campanha ou uma peça é de quem a criou e dos administradores.',
+    naPratica: {
+      titulo: 'Qual anúncio trouxe matrícula de verdade',
+      passos: [
+        'A coordenação cria a campanha “Técnico de enfermagem — outubro” com o utm_campaign dela.',
+        'Os anúncios do Meta entram sozinhos, com o que custaram.',
+        'As vendas da Únicopag com aquele utm_campaign mostram quanto a campanha trouxe.',
+        'Com os números, marca a peça vencedora e registra o aprendizado para a próxima.',
+      ],
+      resultado: 'O dinheiro de anúncio vai para o que traz matrícula.',
+    },
     tour: [
       {
         titulo: 'Marketing da escola',
@@ -640,6 +683,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'montar-link-com-utm',
         titulo: 'Montar o link com UTM de um anúncio ou post',
+        exemplo: 'Para o post do Instagram, a coordenação gera o link com utm_campaign=tecnico-enfermagem-out26; as vendas que vierem por ele contam para essa campanha.',
         passos: [
           'Abra a campanha pelo nome dela, na lista de “Campanhas”.',
           'No quadro “Link com UTM”, confira a “Página de destino”. Ela já vem com a página de venda da campanha, se houver; senão, cole o endereço.',
@@ -809,6 +853,16 @@ export const guias: GuiaDaArea[] = [
     href: '/escola/marketing/advertoriais',
     paraQueServe: 'O banco de advertoriais da escola: matérias-anúncio publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão de matrícula, matrículas, receita e o que custaram os anúncios que apontam para ela.',
     quemUsa: 'Quem trabalha no marketing da escola: administradores, a equipe da escola, quem é de Educação e Saúde ou tem acesso aos livros da Escola, editores e a Comunicação Social. Todas essas pessoas acompanham os números e mudam os dados de cada advertorial. Criar e escrever o texto, no editor de matérias do Palácio Virtual, fica com quem não é da equipe da escola.',
+    naPratica: {
+      titulo: 'Uma matéria-anúncio que leva à matrícula',
+      passos: [
+        'A equipe escreve o advertorial “Como virar cuidador de idosos em 3 meses”.',
+        'Publica como notícia no site e aponta os anúncios para ele.',
+        'O funil mostra visitas, cliques em “Matricule-se”, matrículas e receita.',
+        'Comparando dois advertoriais, fica claro qual converte mais.',
+      ],
+      resultado: 'Você sabe qual texto vende, não só qual texto é lido.',
+    },
     tour: [
       {
         titulo: 'Advertoriais',
@@ -896,6 +950,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'comparar-advertoriais',
         titulo: 'Descobrir qual advertorial vende mais',
+        exemplo: 'O advertorial de cuidador teve 3.200 visitas e 41 matrículas; o de socorrista, 5.100 visitas e 12 matrículas: vale reforçar o primeiro.',
         passos: [
           'Em “Advertoriais”, escolha a ordem “Mais matrículas”, “Maior taxa de clique” ou “Melhor retorno”.',
           'Se quiser, escolha uma campanha. Depois, use “Aplicar”.',
@@ -974,6 +1029,16 @@ export const guias: GuiaDaArea[] = [
     href: '/escola/configuracoes',
     paraQueServe: 'Onde a escola se liga ao mundo de fora: as contas da Únicopag por onde ela recebe e a conta de anúncios do Meta (Facebook e Instagram). O Palácio Virtual só lê: não cria cobrança, não estorna e não mexe em anúncio. Daqui saem os números de “Vendas” e do “Marketing” e as vendas lançadas no Financeiro da escola.',
     quemUsa: 'Quem vê as vendas da escola enxerga as contas da Únicopag; quem trabalha no marketing, a conta do Meta. Só administradores cadastram, editam, pausam e tiram contas e guardam chaves e tokens.',
+    naPratica: {
+      titulo: 'Ligar a Escola à Únicopag e ao Meta',
+      passos: [
+        'A administração liga a conta da Únicopag da Escola com a chave de leitura.',
+        'Liga também a conta de anúncios do Meta.',
+        'A partir daí, as vendas e os custos dos anúncios chegam sozinhos em “Vendas” e “Marketing”.',
+        'O Palácio só lê: não cria cobrança, não estorna e não mexe em anúncio.',
+      ],
+      resultado: 'Os números da Escola chegam sozinhos, sem risco de alguém mexer no dinheiro por aqui.',
+    },
     tour: [
       {
         titulo: 'Contas e integrações',
@@ -1016,6 +1081,7 @@ export const guias: GuiaDaArea[] = [
       {
         id: 'ligar-conta-unicopag',
         titulo: 'Ligar uma conta da Únicopag',
+        exemplo: 'A conta “Escola — matrículas” é ligada com a chave de leitura da Únicopag; em minutos, as vendas de setembro aparecem em “Vendas”.',
         passos: [
           'No painel da Únicopag da conta, em Integrações → API, copie a chave de API.',
           'Em “Contas e integrações”, use “Nova conta”. Se ainda não há nenhuma conta, o formulário já aparece aberto.',
