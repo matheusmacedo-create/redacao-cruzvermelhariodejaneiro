@@ -1,15 +1,18 @@
 import { get } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
 import { obterWorkspace } from '@/lib/session'
+import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
-  const context = await obterWorkspace()
+  // A equipe da Escola vê fotos de perfil (a própria, no /perfil); arquivo da Redação, não.
+  const context = await obterWorkspace({ escola: true })
   if (!context) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   const pathname = request.nextUrl.searchParams.get('pathname')
   if (!pathname) return NextResponse.json({ error: 'Arquivo não informado.' }, { status: 400 })
   const supabase = await createClient()
   const isAvatar = pathname.startsWith('avatars/')
+  if (!isAvatar && ehEquipeDaEscola(context.role)) return NextResponse.json({ error: 'Sessão expirada. Entre de novo.' }, { status: 401 })
   if (isAvatar) {
     const { data } = await supabase.from('profiles').select('id').eq('avatar_path', pathname).limit(1).maybeSingle()
     if (!data) return new NextResponse('Não encontrado', { status: 404 })

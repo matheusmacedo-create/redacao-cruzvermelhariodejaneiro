@@ -37,7 +37,14 @@ export async function salvarParticipante(id: string | null, _anterior: Resultado
   try {
     const { context, supabase, nivel } = await contextoDeParticipantes()
     if (nivel < 2) throw new Error('Você não tem acesso para editar participantes.')
-    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo(), { setores: await nomesDosSetores(supabase, context.workspace.id) })
+    // Os setores que a ficha já tem valem, mesmo que tenham saído da lista:
+    // senão salvar (para corrigir um telefone) apagaria o setor desativado.
+    const setores = await nomesDosSetores(supabase, context.workspace.id)
+    if (id) {
+      const { data: atual } = await supabase.from('participantes').select('setores').eq('id', id).maybeSingle()
+      for (const s of (atual?.setores as string[] | null) ?? []) if (!setores.includes(s)) setores.push(s)
+    }
+    const { dados, erros } = lerFormulario(formData, hojeEmSaoPaulo(), { setores })
     if (erros.length) return { erro: erros.join(' ') }
     const { data, error } = await supabase.rpc('salvar_participante', { p_workspace_id: context.workspace.id, p_id: id, p: dados })
     if (error) erroDoBanco(error, 'Não foi possível salvar o cadastro.')

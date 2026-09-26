@@ -5,6 +5,9 @@ import { CODIGO_DE_CERTIFICADO, normalizarCodigo } from '@/lib/cursos/regras'
 import { dataPorExtenso } from '@/lib/cursos/certificado-pdf'
 import { Marca } from '@/components/membro/marca'
 
+/** Código com % malformado vira texto vazio (e "não encontrado"), não erro 500. */
+const decodificar = (bruto: string) => { try { return decodeURIComponent(bruto) } catch { return '' } }
+
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Verificação de certificado — Cruz Vermelha RJ', robots: { index: false, follow: false } }
 
@@ -14,7 +17,7 @@ export const metadata: Metadata = { title: 'Verificação de certificado — Cru
  * situação — nada de contato, CPF ou nota.
  */
 export default async function VerificarCertificado({ params }: { params: Promise<{ codigo: string }> }) {
-  const codigo = normalizarCodigo(decodeURIComponent((await params).codigo))
+  const codigo = normalizarCodigo(decodificar((await params).codigo))
   let c: { nome: string; curso_titulo: string; carga_horaria: number | null; emitido_em: string; valido_ate: string | null; revogado_em: string | null } | null = null
   let indisponivel = false
   if (CODIGO_DE_CERTIFICADO.test(codigo)) {

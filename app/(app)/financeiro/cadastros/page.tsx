@@ -9,6 +9,7 @@ import { RegrasDeCompra } from '@/components/app/financeiro/compras/regras'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
 import { REGRAS_PADRAO } from '@/lib/compras/regras'
 import { NIVEIS, saldos, type Lancamento, type NomeDoNivel } from '@/lib/financeiro/regras'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Cadastros do Financeiro' }
 export const dynamic = 'force-dynamic'
@@ -54,7 +55,7 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
   let saldosHoje: Record<string, number> = {}
   if (aba === 'contas') {
     const hoje = hojeEmSaoPaulo()
-    const { data } = await supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', context.workspace.id).eq('entidade_id', c.empresa?.id ?? '').not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000)
+    const { data } = await todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', context.workspace.id).eq('entidade_id', c.empresa?.id ?? '').not('pago_em', 'is', null).lte('pago_em', hoje).order('id').range(de, ate))
     saldosHoje = Object.fromEntries(saldos(c.contas, (data ?? []).map(lerLinha) as Lancamento[], hoje))
   }
 

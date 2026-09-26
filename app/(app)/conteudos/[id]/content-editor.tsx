@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -79,6 +79,27 @@ export function ContentEditor({
   const [subtitle, setSubtitle] = useState(content.subtitle ?? '')
   const [body, setBody] = useState(content.body ?? '')
   const [saved, setSaved] = useState(true)
+  const [salvando, setSalvando] = useState(false)
+  const [erroAoSalvar, setErroAoSalvar] = useState('')
+  // Não há salvamento automático: sair com alterações não salvas pede confirmação.
+  useEffect(() => {
+    if (saved) return
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [saved])
+  async function salvar(formData: FormData) {
+    setSalvando(true); setErroAoSalvar('')
+    try {
+      const r = await saveContent(formData)
+      if (r?.erro) setErroAoSalvar(r.erro)
+      else setSaved(true)
+    } catch {
+      setErroAoSalvar('Não foi possível salvar a matéria.')
+    } finally {
+      setSalvando(false)
+    }
+  }
   const [showConcludeModal, setShowConcludeModal] = useState(false)
   const [concludeBusy, setConcludeBusy] = useState(false)
   const [revisores, setRevisores] = useState<string[]>([])
@@ -237,7 +258,7 @@ export function ContentEditor({
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-6 py-4 lg:px-8">
         <div className="flex items-center gap-4">
           <Link
-            href={`/pautas/${content.pautaId}`}
+            href={content.pautaId ? `/pautas/${content.pautaId}` : '/aprovacoes'}
             className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Voltar para a pauta"
           >
@@ -256,14 +277,14 @@ export function ContentEditor({
         <div data-ajuda="conteudo.acoes" className="flex flex-wrap items-center gap-2">
           <span className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Clock className="size-3.5" />
-            {saved ? 'Salvo automaticamente' : 'Alterações não salvas'}
+            {erroAoSalvar ? <span role="alert" className="text-destructive">{erroAoSalvar}</span> : salvando ? 'Salvando…' : saved ? 'Salvo' : 'Alterações não salvas'}
           </span>
-          <form action={saveContent} onSubmit={() => setSaved(true)}>
+          <form action={salvar}>
             <input type="hidden" name="id" value={content.id} />
             <input type="hidden" name="title" value={title} />
             <input type="hidden" name="body" value={body} />
             <input type="hidden" name="subtitle" value={subtitle} />
-            <Button variant="outline" size="lg" type="submit">
+            <Button variant="outline" size="lg" type="submit" disabled={salvando}>
               <Save className="size-4" />
               Salvar
             </Button>

@@ -16,6 +16,7 @@ import { COLUNAS_DO_LANCAMENTO, dataCurta, mesDe, nomeDoMes, reais, saldos, soma
 import {
   alertas, despesaFixaMedia, fontesComDestino, mesesCompletos, orcamentoDoMes, origensDasReceitas, previsao, resultadoMedio,
 } from '@/lib/financeiro/saude'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Saúde do caixa' }
 export const dynamic = 'force-dynamic'
@@ -45,9 +46,9 @@ export default async function SaudePage() {
   const c = await cadastrosDoFinanceiro()
   const ent = c.empresa?.id ?? ''
   const [{ data: pagosBrutos }, { data: abertosBrutos }, { data: doMesBrutos }, { data: orcamentos }] = await Promise.all([
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).limit(50000),
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).neq('aprovacao', 'recusada').lte('vencimento', somarDias(hoje, 90)).limit(10000),
-    supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).eq('competencia', `${mes}-01`).limit(10000),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).not('pago_em', 'is', null).lte('pago_em', hoje).order('id').range(de, ate)),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).neq('aprovacao', 'recusada').lte('vencimento', somarDias(hoje, 90)).order('id').range(de, ate)),
+    todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).eq('competencia', `${mes}-01`).order('id').range(de, ate)),
     supabase.from('fin_orcamentos').select('categoria_id,valor_mensal').eq('workspace_id', ws).eq('entidade_id', ent).eq('ano', ano),
   ])
   const pagos = (pagosBrutos ?? []).map(lerLinha) as Lancamento[]

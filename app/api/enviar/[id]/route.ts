@@ -90,8 +90,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const recebidos = lista.filter((a) => a.estado === 'recebido')
       const primeiraVez = envio.estado === 'recebendo'
       if (primeiraVez) {
-        await admin.from('envios').update({ estado: 'novo', concluido_em: new Date().toISOString() }).eq('id', id).eq('estado', 'recebendo')
-        await avisarAvaliadores(admin, envio.workspace_id, {
+        // Clique duplo ou nova tentativa: só quem de fato virou o estado avisa.
+        const { data: virou } = await admin.from('envios').update({ estado: 'novo', concluido_em: new Date().toISOString() }).eq('id', id).eq('estado', 'recebendo').select('id')
+        if (virou?.length) await avisarAvaliadores(admin, envio.workspace_id, {
           envioId: id,
           titulo: `Nova ação enviada: ${envio.titulo}`.slice(0, 200),
           mensagem: `${envio.nome}${envio.setor ? ` (${envio.setor})` : ''} mandou ${resumoDosArquivos(recebidos)}.`,

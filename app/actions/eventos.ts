@@ -59,7 +59,8 @@ export async function salvarEvento(id: string, formData: FormData): Promise<Resu
     const evento = await eventoDoEspaco(admin, id, context.workspace.id)
     const { dados, erro } = lerEvento({ nome: formData.get('nome'), data: formData.get('data'), local: formData.get('local') })
     if (!dados) throw new Error(erro)
-    await admin.from('envio_eventos').update(dados).eq('id', evento.id)
+    const { error } = await admin.from('envio_eventos').update(dados).eq('id', evento.id)
+    if (error) throw new Error('Não foi possível salvar o evento.')
     revalidar(evento.id)
     return {}
   } catch (causa) {
@@ -72,7 +73,8 @@ export async function alternarAlbum(id: string, ligado: boolean): Promise<Result
   try {
     const { context, admin } = await contexto()
     const evento = await eventoDoEspaco(admin, id, context.workspace.id)
-    await admin.from('envio_eventos').update({ album_token: ligado ? novoTokenDoAlbum() : null }).eq('id', evento.id)
+    const { error } = await admin.from('envio_eventos').update({ album_token: ligado ? novoTokenDoAlbum() : null }).eq('id', evento.id)
+    if (error) throw new Error('Não foi possível mudar o link do álbum.')
     revalidar(evento.id)
     return {}
   } catch (causa) {
@@ -85,7 +87,8 @@ export async function alternarEnvioDoEvento(id: string, aberto: boolean): Promis
   try {
     const { context, admin } = await contexto()
     const evento = await eventoDoEspaco(admin, id, context.workspace.id)
-    await admin.from('envio_eventos').update({ envio_aberto: aberto }).eq('id', evento.id)
+    const { error } = await admin.from('envio_eventos').update({ envio_aberto: aberto }).eq('id', evento.id)
+    if (error) throw new Error('Não foi possível mudar o link de envio.')
     revalidar(evento.id)
     return {}
   } catch (causa) {
@@ -117,6 +120,7 @@ export async function esconderDoAlbum(arquivoId: string, oculto: boolean): Promi
     const { data, error } = await admin.from('envio_arquivos').update({ oculto_no_album: oculto === true })
       .eq('id', arquivoId).eq('workspace_id', context.workspace.id).select('id').maybeSingle()
     if (error || !data) throw new Error('Arquivo não encontrado.')
+    revalidar()
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível mudar a foto.') }

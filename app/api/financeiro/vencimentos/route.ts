@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { avisoDeVencimentos, somarDias } from '@/lib/financeiro/avisos'
 import { rotinaDasCotacoes } from '@/lib/compras/convites-servidor'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -24,10 +25,10 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient()
   const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
-  const { data, error } = await admin.from('fin_lancamentos')
+  const { data, error } = await todasAsLinhas((de, ate) => admin.from('fin_lancamentos')
     .select('workspace_id,entidade_id,valor,vencimento')
     .eq('tipo', 'despesa').is('pago_em', null).in('aprovacao', ['nao_exige', 'aprovada'])
-    .lte('vencimento', somarDias(hoje, 3)).limit(20000)
+    .lte('vencimento', somarDias(hoje, 3)).order('id').range(de, ate))
   if (error) return Response.json({ erro: 'Falha ao ler as contas.' }, { status: 500 })
 
   // Cada empresa (a filial e a Escola) avisa quem cuida dos livros dela: admins e quem tem acesso a ela ou a todas.
@@ -61,10 +62,12 @@ export async function GET(request: Request) {
   if (hoje.slice(8, 10) === '05') {
     const fimDoMesPassado = somarDias(`${hoje.slice(0, 7)}-01`, -1)
     // Cada empresa (a filial e a Escola) fecha o seu mês: lembra das que têm movimento e estão abertas.
-    const { data: comMovimento } = await admin.from('fin_lancamentos').select('entidade_id').lte('pago_em', fimDoMesPassado).limit(5000)
-    const ativas = new Set((comMovimento ?? []).map((x) => x.entidade_id as string))
     for (const c of empresas ?? []) {
-      if (!ativas.has(c.id as string) || (c.fechado_ate && c.fechado_ate >= fimDoMesPassado)) continue
+      if (c.fechado_ate && c.fechado_ate >= fimDoMesPassado) continue
+      // Uma contagem por empresa: ler as linhas esbarraria no teto de 1000 e podia esquecer a Escola.
+      const { count: comMovimento } = await admin.from('fin_lancamentos').select('id', { count: 'exact', head: true })
+        .eq('entidade_id', c.id as string).lte('pago_em', fimDoMesPassado)
+      if (!comMovimento) continue
       const para = await quemCuida(c.workspace_id as string, c.id as string, ['gestao'])
       const deQuem = doLivro(c)
       await notificar(admin, {

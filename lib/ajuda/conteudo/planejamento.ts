@@ -587,7 +587,7 @@ const PAUTAS: GuiaDaArea = {
     {
       id: 'conteudo-salva-sozinho',
       pergunta: 'O conteúdo salva sozinho?',
-      resposta: 'Não. O texto só é gravado quando você toca em “Salvar”, “Enviar para aprovação” ou “Arquivar e continuar depois”, e cada “Salvar” conta uma versão nova. Enquanto aparecer “Alterações não salvas”, sair da tela perde o que você mudou.\n\nApesar do nome, o aviso “Salvo automaticamente” só quer dizer que não há mudança pendente desde o último “Salvar”.',
+      resposta: 'Não. O texto só é gravado quando você toca em “Salvar”, “Enviar para aprovação” ou “Arquivar e continuar depois”, e cada “Salvar” conta uma versão nova. Enquanto aparecer “Alterações não salvas”, sair da tela perde o que você mudou (ao fechar ou recarregar a aba, o navegador pergunta antes). “Salvo” quer dizer que não há mudança pendente desde o último “Salvar”; se a gravação falhar, o erro aparece no lugar do aviso.',
       termos: ['salvar', 'perdi o texto', 'salvamento automático', 'rascunho', 'salvo automaticamente'],
     },
     {

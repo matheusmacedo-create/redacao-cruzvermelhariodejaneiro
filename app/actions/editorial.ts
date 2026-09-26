@@ -555,16 +555,22 @@ export async function sendPautaMessage(formData: FormData) {
   revalidatePath(`/pautas/${pautaId}`)
 }
 
-export async function saveContent(formData: FormData) {
+/** Devolve o erro como valor (ver submitContentForApproval): a tela só marca "Salvo" quando salvou. */
+export async function saveContent(formData: FormData): Promise<{ erro?: string }> {
+  try {
   const context = await requireWorkspace(); const supabase = await createClient(); const id = text(formData,'id')
   const title = text(formData,'title'); const body = text(formData,'body'); const subtitle = text(formData,'subtitle')
   const { data: current, error: readError } = await supabase.from('content_pieces').select('version').eq('id',id).eq('workspace_id',context.workspace.id).single()
   if (readError) throw new Error('Conteúdo não encontrado.')
   const version = current.version + 1
   const { error } = await supabase.from('content_pieces').update({ title, subtitle, body, version, updated_at: new Date().toISOString() }).eq('id',id).eq('workspace_id',context.workspace.id)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error('Não foi possível salvar a matéria.')
   await supabase.from('content_versions').insert({ content_id:id, version, title, body, author_id:context.user.id })
   revalidatePath(`/conteudos/${id}`)
+  return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar a matéria.') }
+  }
 }
 
 /**
@@ -733,9 +739,15 @@ export async function archiveContentDraft(formData: FormData) {
   if (error) throw new Error(error.message)
   await supabase.from('content_versions').insert({ content_id: id, version, title, body, author_id: context.user.id })
   await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'archived', entity_type: 'content_piece', entity_id: id, metadata: { title } })
+  // "Cancelar aprovação e arquivar": a rodada aberta se encerra, some da fila
+  // de /aprovacoes e deixa de aceitar voto (decideApproval confere o status).
+  const { error: fecharErro } = await supabase.from('approvals').update({ status: 'changes_requested', updated_at: new Date().toISOString() })
+    .eq('content_id', id).eq('workspace_id', context.workspace.id).eq('status', 'pending')
+  if (fecharErro) throw new Error('A matéria foi arquivada, mas a rodada de aprovação continua aberta. Tente de novo.')
 
   revalidatePath(`/conteudos/${id}`)
   revalidatePath('/pautas')
+  revalidatePath('/aprovacoes')
 }
 
 export async function createCalendarEvent(formData: FormData) {
@@ -780,7 +792,17 @@ export async function createCalendarEvent(formData: FormData) {
   revalidatePath('/pautas')
 }
 
-export async function addDriveLink(formData: FormData) {
+/** Erro esperado volta como valor (o Next apaga a mensagem de exceção em produção). */
+export async function addDriveLink(formData: FormData): Promise<{ erro?: string }> {
+  try {
+    await addDriveLinkInterno(formData)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar o link.') }
+  }
+}
+
+async function addDriveLinkInterno(formData: FormData) {
   const context = await requireWorkspace(); const supabase = await createClient()
   const pautaId = text(formData, 'pautaId'); const rawUrl = text(formData, 'url'); const title = text(formData, 'name') || 'Link da pauta'
   let url: URL
@@ -807,7 +829,17 @@ export async function createPautaContent(formData: FormData) {
   revalidatePath(`/pautas/${pautaId}`); redirect(`/conteudos/${data.id}`)
 }
 
-export async function createPautaApproval(formData: FormData) {
+/** Erro esperado volta como valor (o Next apaga a mensagem de exceção em produção). */
+export async function createPautaApproval(formData: FormData): Promise<{ erro?: string }> {
+  try {
+    await createPautaApprovalInterno(formData)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível abrir a aprovação.') }
+  }
+}
+
+async function createPautaApprovalInterno(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const pautaId = text(formData, 'pautaId')
@@ -980,7 +1012,17 @@ export async function updateProfile(formData: FormData) {
   revalidatePath('/perfil')
 }
 
-export async function decideApproval(formData: FormData) {
+/** Erro esperado volta como valor (o Next apaga a mensagem de exceção em produção). */
+export async function decideApproval(formData: FormData): Promise<{ erro?: string }> {
+  try {
+    await decideApprovalInterno(formData)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível registrar a decisão.') }
+  }
+}
+
+async function decideApprovalInterno(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const id = text(formData, 'id')
@@ -988,8 +1030,11 @@ export async function decideApproval(formData: FormData) {
   const note = text(formData, 'note')
   if (!['approved', 'changes_requested'].includes(decision)) throw new Error('Selecione uma decisão.')
   if (decision === 'changes_requested' && !note) throw new Error('Explique quais ajustes são necessários.')
-  const { data: approval } = await supabase.from('approvals').select('id,content_id').eq('id', id).eq('workspace_id', context.workspace.id).single()
+  const { data: approval } = await supabase.from('approvals').select('id,content_id,status').eq('id', id).eq('workspace_id', context.workspace.id).single()
   if (!approval) throw new Error('Aprovação não encontrada.')
+  // Rodada encerrada (inclusive a matéria arquivada) não recebe voto: o voto
+  // devolveria ao conteúdo o estado "aprovado".
+  if (approval.status !== 'pending') throw new Error('Esta rodada já foi encerrada.')
   // Aprovar exige a conferência do setor inteira marcada (lib/aprovacoes/setores.ts).
   // A tela já trava o botão; aqui é a autoridade. O que foi conferido vai junto do voto.
   let comentario = note
