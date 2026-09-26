@@ -44,6 +44,13 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
       ])
     : null
 
+  // O que cada fornecedor vende (sugere quem convidar nas cotações). Sem a migração, fica vazio.
+  const vende: Record<string, string[]> = {}
+  if (aba === 'favorecidos' && c.favorecidos.length) {
+    const { data } = await supabase.from('fin_favorecido_categorias').select('favorecido_id,categoria_id').eq('workspace_id', context.workspace.id).limit(20000)
+    for (const x of data ?? []) (vende[x.favorecido_id as string] ??= []).push(x.categoria_id as string)
+  }
+
   let saldosHoje: Record<string, number> = {}
   if (aba === 'contas') {
     const hoje = hojeEmSaoPaulo()
@@ -67,7 +74,7 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
         {aba === 'contas' && <Contas c={c} saldos={saldosHoje} pode={gestao} />}
         {aba === 'fontes' && <Fontes c={c} pode={gestao} />}
         {aba === 'categorias' && <Categorias c={c} pode={gestaoGeral} />}
-        {aba === 'favorecidos' && <Favorecidos c={c} pode={nivel >= 2} />}
+        {aba === 'favorecidos' && <Favorecidos c={c} pode={nivel >= 2} vende={vende} />}
         {aba === 'regras' && <Regras config={c.config} pode={gestaoGeral} />}
         {aba === 'compras' && regrasDeCompra && (
           <RegrasDeCompra pode={gestaoGeral} setores={(regrasDeCompra[1].data ?? []) as { id: string; nome: string }[]}

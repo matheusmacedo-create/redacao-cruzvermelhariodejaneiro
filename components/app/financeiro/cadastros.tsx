@@ -169,8 +169,10 @@ export function Categorias({ c, pode }: { c: Cadastros; pode: boolean }) {
   )
 }
 
-export function Favorecidos({ c, pode }: { c: Cadastros; pode: boolean }) {
+export function Favorecidos({ c, pode, vende = {} }: { c: Cadastros; pode: boolean; vende?: Record<string, string[]> }) {
   const [busca, setBusca] = useState('')
+  const despesas = c.categorias.filter((x) => x.tipo === 'despesa' && x.ativa)
+  const nomeDaCategoria = new Map(c.categorias.map((x) => [x.id, x.nome]))
   const termo = busca.trim().toLowerCase()
   const itens = c.favorecidos.filter((f) => !termo || [f.nome, f.documento, f.email].filter(Boolean).join(' ').toLowerCase().includes(termo))
   return (
@@ -179,7 +181,8 @@ export function Favorecidos({ c, pode }: { c: Cadastros; pode: boolean }) {
       <Lista itens={itens} titulo="Novo favorecido" podeEditar={pode} vazio={c.favorecidos.length ? 'Ninguém com esse nome.' : 'Nenhum favorecido ainda. Eles também podem ser cadastrados na hora do lançamento.'}
         linha={(x) => (
           <span><span className="font-medium">{x.nome}</span>
-            <span className="block text-xs text-muted-foreground">{[documentoLegivel(x.documento), x.chave_pix && `Pix ${x.chave_pix}`, x.email, x.telefone].filter(Boolean).join(' · ')}</span></span>
+            <span className="block text-xs text-muted-foreground">{[documentoLegivel(x.documento), x.chave_pix && `Pix ${x.chave_pix}`, x.email, x.telefone].filter(Boolean).join(' · ')}</span>
+            {(vende[x.id] ?? []).length > 0 && <span className="block text-xs text-muted-foreground">Vende: {(vende[x.id] ?? []).map((id) => nomeDaCategoria.get(id)).filter(Boolean).join(', ')}</span>}</span>
         )}
         formulario={(x, fim) => (
           <Formulario tabela="favorecido" id={x?.id ?? null} onFim={fim}>
@@ -190,6 +193,20 @@ export function Favorecidos({ c, pode }: { c: Cadastros; pode: boolean }) {
             <Campo rotulo="E-mail"><input type="email" name="email" maxLength={200} defaultValue={x?.email ?? ''} className={inputClass} /></Campo>
             <Campo rotulo="Telefone"><input name="telefone" maxLength={30} defaultValue={x?.telefone ?? ''} className={inputClass} /></Campo>
             <Campo rotulo="Observação" largo><textarea name="observacao" rows={2} maxLength={1000} defaultValue={x?.observacao ?? ''} className={inputClass} /></Campo>
+            {despesas.length > 0 && (
+              <fieldset className="sm:col-span-2">
+                <input type="hidden" name="vende_no_formulario" value="sim" />
+                <legend className="text-sm font-medium">O que ele vende</legend>
+                <p className="mb-2 text-xs text-muted-foreground">Quando um pedido de compra for destas categorias, ele já vem marcado em “Pedir propostas”.</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {despesas.map((cat) => (
+                    <label key={cat.id} className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" name="vende" value={cat.id} defaultChecked={(vende[x?.id ?? ''] ?? []).includes(cat.id)} />{cat.nome}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
           </Formulario>
         )} />
     </div>

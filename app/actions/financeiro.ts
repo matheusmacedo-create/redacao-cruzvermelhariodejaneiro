@@ -211,6 +211,12 @@ export async function salvarCadastro(tabela: Tabela, id: string | null, _anterio
     const p = { ...lerCadastro(tabela, formData), ...(id ? { id } : {}), ...(tabela !== 'categoria' && empresa ? { entidade_id: empresa.id } : {}) }
     const { data, error } = await supabase.rpc('financeiro_salvar_cadastro', { p_workspace_id: context.workspace.id, p_tabela: tabela, p })
     if (error) erroDoBanco(error, 'Não foi possível salvar.')
+    // O que o fornecedor vende (sugere quem convidar nas cotações de Compras). O campo só vem do formulário do favorecido.
+    if (tabela === 'favorecido' && formData.get('vende_no_formulario') === 'sim' && data) {
+      const categorias = formData.getAll('vende').map(String).filter((v) => /^[0-9a-f-]{36}$/.test(v)).slice(0, 50)
+      const { error: e2 } = await supabase.rpc('compras_definir_ramos', { p_favorecido_id: data as string, p_categorias: categorias })
+      if (e2) erroDoBanco(e2, 'O cadastro foi salvo, mas não o que ele vende.')
+    }
     revalidar()
     return { ok: Date.now(), id: data as string }
   } catch (causa) {

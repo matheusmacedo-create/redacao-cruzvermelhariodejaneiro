@@ -5,15 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EstadoDoPedido } from '@/components/app/financeiro/compras/comum'
 import { Cotacao, type PropostaNaTela } from '@/components/app/financeiro/compras/cotacao'
+import { PedirPropostas, type ConviteNaTela } from '@/components/app/financeiro/compras/convites'
 import { Aprovacao, CancelarPedido } from '@/components/app/financeiro/compras/decisao'
 import { ContaAPagar, OrdemDeCompra, Recebimento } from '@/components/app/financeiro/compras/ordem'
 import { EntradaDoQueChegou } from '@/components/app/financeiro/compras/entrada'
 import { comprasParecidas, contextoDeCompras, verbaDaCategoria } from '@/lib/compras/servidor'
 import {
-  JANELA_DE_FRACIONAMENTO_DIAS, custoComFrete, faltaReceber, fracionamento, mapaComparativo, numeroDaOrdem, numeroDoPedido, semDestino, totalEstimado,
+  JANELA_DE_FRACIONAMENTO_DIAS, custoComFrete, exigencias, faltaReceber, fracionamento, mapaComparativo, numeroDaOrdem, numeroDoPedido, semDestino, totalEstimado,
   type Destino, type EstadoDoPedido as Estado, type ItemDoPedido,
 } from '@/lib/compras/regras'
 import { caixasQuePodeUsar } from '@/lib/correio/enviar'
+import { prazoPadrao, sugerirFornecedores } from '@/lib/compras/convites'
 import { quantidade } from '@/lib/patrimonio/estoque'
 import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { dataCurta, reais } from '@/lib/financeiro/regras'
@@ -29,6 +31,8 @@ const ACOES: Record<string, string> = {
   aprovado_financeiro: 'aprovou pelo Financeiro', aprovado_diretoria: 'aprovou pela Diretoria', devolvido: 'devolveu para a cotação',
   recusado: 'recusou', cancelado: 'cancelou', ordem_emitida: 'emitiu a ordem de compra', ordem_enviada: 'enviou a ordem ao fornecedor',
   recebido: 'registrou o recebimento', conta_lancada: 'lançou a conta a pagar',
+  propostas_pedidas: 'pediu propostas aos fornecedores', proposta_do_fornecedor: 'mandou a proposta pelo link', convite_recusado: 'avisou que não vai cotar',
+  convite_cancelado: 'cancelou o convite',
   entrada_estoque: 'deu entrada no estoque', entrada_patrimonio: 'cadastrou no patrimônio', entrada_consumo: 'registrou sem entrada (consumo)',
 }
 const DEPOIS_DA_ORDEM: Estado[] = ['emitido', 'recebido_parcial', 'recebido']
@@ -46,11 +50,13 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   const ctx = await contextoDeCompras()
   const { context, supabase, diretoria, regras, patrimonio } = ctx
   const eu = context.user.id
-  const [{ data: p }, { data: itensBrutos }, { data: propostasBrutas }, { data: historico }] = await Promise.all([
+  const [{ data: p }, { data: itensBrutos }, { data: propostasBrutas }, { data: historico }, { data: convitesBrutos }] = await Promise.all([
     supabase.from('compras_pedidos').select('*').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     supabase.from('compras_itens').select('id,descricao,especificacao,quantidade,unidade,valor_estimado_unit,ordem').eq('pedido_id', id).order('ordem'),
     supabase.from('compras_propostas').select('id,favorecido_id,recebida_em,validade,prazo_entrega,condicao_pagamento,frete,observacao,arquivo_nome,arquivo_caminho,compras_proposta_itens(item_id,valor_unitario)').eq('pedido_id', id).order('created_at'),
     supabase.from('compras_historico').select('id,acao,detalhe,por,em').eq('pedido_id', id).order('em'),
+    // Os convites aos fornecedores (sem o token: o RLS não deixa ler). Sem a migração, vem vazio.
+    supabase.from('compras_convites').select('id,favorecido_id,email,enviado_em,envio_erro,visto_em,respondido_em,recusado_em,motivo_recusa,cancelado_em,lembrete_em').eq('pedido_id', id).order('created_at'),
   ])
   if (!p) notFound()
   const estado = p.estado as Estado
@@ -61,7 +67,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   // Nomes: o RLS já confirmou que esta pessoa vê o pedido; fornecedor, categoria e fonte
   // vêm pelo serviço porque quem pediu (sem acesso ao Financeiro) não lê esses cadastros.
   const admin = createAdminClient()
-  const favIds = [...new Set((propostasBrutas ?? []).map((x) => x.favorecido_id as string))]
+  const favIds = [...new Set([...(propostasBrutas ?? []), ...(convitesBrutos ?? [])].map((x) => x.favorecido_id as string))]
   const chegou = estado === 'recebido_parcial' || estado === 'recebido'
   const [{ data: recebimentos }, { data: destinos }] = await Promise.all([
     depoisDaOrdem
@@ -89,9 +95,9 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     p.projeto_id ? supabase.from('projects').select('name').eq('id', p.projeto_id).maybeSingle() : Promise.resolve({ data: null }),
     p.categoria_id ? admin.from('fin_categorias').select('nome').eq('id', p.categoria_id).maybeSingle() : Promise.resolve({ data: null }),
     p.fonte_id ? admin.from('fin_fontes').select('nome,restrita').eq('id', p.fonte_id).maybeSingle() : Promise.resolve({ data: null }),
-    podeCotar ? supabase.from('fin_favorecidos').select('id,nome').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).order('nome').limit(5000) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    podeCotar ? supabase.from('fin_favorecidos').select('id,nome,email').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).order('nome').limit(5000) : Promise.resolve({ data: [] as { id: string; nome: string; email: string | null }[] }),
     nivel >= 1 && p.categoria_id ? verbaDaCategoria(supabase, context.workspace.id, p.entidade_id, p.categoria_id, new Date().toISOString().slice(0, 7), p.id) : Promise.resolve(null),
-    podeEnviar ? caixasQuePodeUsar(context) : Promise.resolve([]),
+    podeEnviar || podeCotar ? caixasQuePodeUsar(context) : Promise.resolve([]),
     podeLancar ? supabase.from('fin_contas').select('id,nome').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).eq('ativa', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
     p.lancamento_id ? supabase.from('fin_lancamentos').select('id,descricao').eq('id', p.lancamento_id).maybeSingle() : Promise.resolve({ data: null }),
     // Plaquetas e nomes do estoque: quem pediu não lê o Patrimônio, mas vê para onde foi o que comprou.
@@ -102,6 +108,24 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     darEntrada ? supabase.from('pat_categorias').select('id,nome').eq('workspace_id', context.workspace.id).eq('ativa', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ])
   const fornecedorDe = new Map((favs ?? []).map((f) => [f.id, f.nome as string]))
+
+  // Os habituais: quem vende a categoria do pedido e quem já mandou proposta em compras dela.
+  const [{ data: vendem }, { data: jaCotaram }] = podeCotar && p.categoria_id
+    ? await Promise.all([
+        supabase.from('fin_favorecido_categorias').select('favorecido_id').eq('categoria_id', p.categoria_id).limit(5000),
+        supabase.from('compras_propostas').select('favorecido_id,compras_pedidos!inner(categoria_id)').eq('workspace_id', context.workspace.id)
+          .eq('compras_pedidos.categoria_id', p.categoria_id).neq('pedido_id', id).limit(5000),
+      ])
+    : [{ data: [] as { favorecido_id: string }[] }, { data: [] as { favorecido_id: string }[] }]
+  const cotacoes = new Map<string, number>()
+  for (const x of jaCotaram ?? []) cotacoes.set(x.favorecido_id as string, (cotacoes.get(x.favorecido_id as string) ?? 0) + 1)
+  const convites: ConviteNaTela[] = (convitesBrutos ?? []).map((c) => ({ ...c, fornecedor: fornecedorDe.get(c.favorecido_id) ?? 'Fornecedor' })) as ConviteNaTela[]
+  const sugestoes = podeCotar
+    ? sugerirFornecedores((fornecedores ?? []) as { id: string; nome: string; email: string | null }[], {
+        vendem: new Set((vendem ?? []).map((x) => x.favorecido_id as string)), cotacoes,
+        convidados: new Set(convites.filter((c) => !c.cancelado_em).map((c) => c.favorecido_id)),
+      })
+    : []
   const nomeDe = new Map((perfis ?? []).map((x) => [x.id, x.full_name as string]))
   const propostas: PropostaNaTela[] = (propostasBrutas ?? []).map((x) => ({
     id: x.id, favorecido_id: x.favorecido_id, fornecedor: fornecedorDe.get(x.favorecido_id) ?? 'Fornecedor', frete: Number(x.frete),
@@ -238,6 +262,11 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         </Card>
       )}
 
+      {(podeCotar || convites.length > 0) && (
+        <PedirPropostas pedidoId={id} podeCotar={podeCotar} convites={convites} sugestoes={sugestoes} categoria={categoria?.nome ?? null}
+          caixas={caixas.map((c) => ({ id: c.id, email: c.email }))} prazoSugerido={prazoPadrao(hoje)} prazoAtual={(p.cotacao_prazo as string | null) ?? null} hoje={hoje}
+          minimas={exigencias(Number(p.valor_aprovado ?? estimado), regras).propostas} />
+      )}
       {(propostas.length > 0 || podeCotar) && (
         <Cotacao pedidoId={id} itens={itens} propostas={propostas} fornecedores={fornecedores ?? []} regras={regras} podeCotar={podeCotar}
           escolhida={p.proposta_id} justificativa={p.justificativa_escolha} emCotacao={podeCotar} />
@@ -315,11 +344,14 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
         <ol className="flex flex-col gap-2 text-sm" data-historico>
           {(historico ?? []).map((h) => {
             const d = (h.detalhe ?? {}) as Record<string, unknown>
+            // Sem autor e com fornecedor: foi o próprio fornecedor, pelo link.
+            const peloFornecedor = !h.por && typeof d.fornecedor === 'string'
             return (
               <li key={h.id} className="flex flex-wrap gap-x-2">
                 <span className="tabular-nums text-muted-foreground">{quando(h.em)}</span>
-                <span><span className="font-medium">{nomeDe.get(h.por) ?? 'Alguém'}</span> {ACOES[h.acao] ?? h.acao}
-                  {typeof d.fornecedor === 'string' && ` de ${d.fornecedor}`}
+                <span><span className="font-medium">{peloFornecedor ? d.fornecedor as string : nomeDe.get(h.por) ?? 'Alguém'}</span> {ACOES[h.acao] ?? h.acao}
+                  {typeof d.fornecedor === 'string' && !peloFornecedor && ` de ${d.fornecedor}`}
+                  {h.acao === 'propostas_pedidas' && typeof d.quantos === 'number' && ` (${d.quantos} ${d.quantos === 1 ? 'fornecedor' : 'fornecedores'}${typeof d.prazo === 'string' ? `, prazo ${dataCurta(d.prazo)}` : ''})`}
                   {typeof d.total === 'number' && ` — ${reais(d.total)}`}
                   {typeof d.motivo === 'string' && d.motivo && `: ${d.motivo}`}
                   {typeof d.observacao === 'string' && d.observacao && `: ${d.observacao}`}

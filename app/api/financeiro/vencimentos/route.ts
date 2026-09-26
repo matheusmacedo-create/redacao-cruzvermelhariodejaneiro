@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { avisoDeVencimentos, somarDias } from '@/lib/financeiro/avisos'
+import { rotinaDasCotacoes } from '@/lib/compras/convites-servidor'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -11,7 +12,8 @@ export const maxDuration = 60
  * conforme a preferência de cada um no assunto "Financeiro" — quem lança no
  * Financeiro das contas que vencem hoje, das atrasadas e das que vencem
  * nos próximos três dias. Despesa esperando aprovação ou recusada fica de fora: não dá para
- * pagar. Protegida por CRON_SECRET, como as outras rotinas.
+ * pagar. Também roda a rotina das cotações de Compras (lembrete da véspera e
+ * prazo encerrado). Protegida por CRON_SECRET, como as outras rotinas.
  */
 export async function GET(request: Request) {
   const segredo = process.env.CRON_SECRET
@@ -72,5 +74,11 @@ export async function GET(request: Request) {
       lembretes++
     }
   }
-  return Response.json({ ok: true, empresas: porEmpresa.size, avisados, lembretes })
+  // Compras: lembrete da véspera aos fornecedores e aviso do prazo encerrado (docs/compras-cotacao-automatica.md).
+  // Sem a migração dos convites, só não faz nada.
+  const cotacoes = await rotinaDasCotacoes(admin).catch((causa) => {
+    console.error('[compras] rotina das cotações:', causa instanceof Error ? causa.message : causa)
+    return null
+  })
+  return Response.json({ ok: true, empresas: porEmpresa.size, avisados, lembretes, cotacoes })
 }

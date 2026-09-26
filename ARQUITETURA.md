@@ -738,6 +738,14 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
 
   As regras moram nas funções `compras_*` do banco, e `lib/compras/regras.ts`
   é o espelho puro para a tela.
+- **Pedir propostas** (`docs/compras-cotacao-automatica.md`): o Financeiro
+  convida os fornecedores habituais (quem vende a categoria, em
+  `fin_favorecido_categorias`, e quem já cotou compras dela) e cada um recebe
+  um e-mail com um link só dele (`/cotacao/<token>`, sem login). A proposta
+  entra no mapa por `compras_proposta_do_fornecedor`, que só o servidor chama
+  (`/api/publico/cotacao/...`). O token não é legível pelo RLS. A rotina
+  diária do Financeiro manda o lembrete da véspera e avisa quando o prazo
+  acaba (`rotinaDasCotacoes`).
 - **Ordem de compra:** tem numeração própria (`OC-AAAA-NNNN`, só as compras
   aprovadas). O PDF é montado na hora (`lib/compras/ordem-pdf.ts`, sobre
   `lib/pdf/folha.ts`) e sai por um e-mail de setor com anexo. A regra de envio
@@ -988,6 +996,19 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - O voluntário troca pela própria sessão (`/api/membro/foto`, RPC `membro_definir_foto`, só
   service role); a equipe vê com nível ≥ 1 e troca com ≥ 2 (`/api/voluntariado/[id]/foto`, RPC
   `definir_foto_participante`). Anonimizar ou recusar o cadastro apaga a foto.
+
+### 7.21 Início modular (`/dashboard`)
+
+- O Início é uma lista de blocos (`lib/inicio/blocos.ts`): abertura, esperando você, minhas pautas,
+  projetos, hoje na comunicação, tempo no Rio, a equipe agora, a semana, os indicadores e todas as
+  áreas. Cada bloco tem uma largura natural: toda a largura, coluna larga ou coluna estreita. Largos
+  e estreitos em sequência formam as duas colunas do "Meu dia" (`faixas()`).
+- Cada pessoa escolhe o que aparece e em que ordem ("Personalizar o Início"), guardado em
+  `inicio_preferencias` (uma linha por pessoa e espaço, RLS só da própria). Sem linha, vale a
+  `ORDEM_PADRAO`. Um bloco que surgir depois entra visível, ao lado do vizinho na ordem padrão.
+- Bloco escondido não é consultado: a página só busca no banco o que vai mostrar.
+- Bloco novo: acrescente em `BLOCOS` e `ORDEM_PADRAO` e em `BLOCO` na página, e marque a busca dele
+  com `mostra('<id>')`.
 
 ## 8. Integrações externas
 

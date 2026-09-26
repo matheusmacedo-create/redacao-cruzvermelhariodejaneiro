@@ -17,7 +17,8 @@ import type { GuiaDaArea } from '../tipos'
  * - Pedidos de compra: app/(app)/financeiro/compras,
  *   components/app/financeiro/compras/**, app/actions/compras.ts,
  *   lib/compras/regras.ts e servidor.ts e as funções compras_* das migrações
- *   *_cvrj_compras*.sql.
+ *   *_cvrj_compras*.sql; o pedido de proposta ao fornecedor em
+ *   lib/compras/convites*.ts, app/cotacao/[token] e docs/compras-cotacao-automatica.md.
  * Quem pode o quê: lib/permissoes.ts (oficios.gerenciar_de_outros,
  * chamados.configurar, chamados.ver_todos) e os níveis do Financeiro em
  * lib/financeiro/regras.ts.
@@ -789,6 +790,12 @@ const COMPRAS: GuiaDaArea = {
           lado: 'bottom',
         },
         {
+          alvo: 'compras.pedir-propostas',
+          titulo: 'Pedir propostas',
+          texto: '“Pedir propostas” traz marcados os fornecedores habituais: quem vende a categoria do pedido e quem já cotou compras dela. Cada um recebe um e-mail com um link só dele, responde sem senha, e a proposta cai sozinha no mapa. Aqui você acompanha quem já respondeu.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'compras.cotacao',
           titulo: 'O mapa comparativo',
           texto: 'As propostas lado a lado: o menor preço de cada item fica em verde, e o troféu marca a proposta completa mais barata.',
@@ -859,13 +866,39 @@ const COMPRAS: GuiaDaArea = {
       dica: 'Dá para registrar em partes, conforme chega. Ninguém registra mais do que foi pedido.',
     },
     {
+      id: 'pedir-propostas',
+      titulo: 'Pedir propostas aos fornecedores (sem digitar)',
+      quem: 'Financeiro, a partir do nível “Lançar”',
+      passos: [
+        'Abra o pedido pela aba “Para cotar”. Se ele não tiver categoria, toque em “Alterar” e preencha “Categoria (Financeiro)”: é ela que traz os fornecedores habituais.',
+        'Em “Pedir propostas aos fornecedores”, toque em “Pedir propostas”.',
+        'Confira a lista: já vêm marcados quem vende a categoria e quem já cotou compras dela. Para incluir outro, use “Buscar outro fornecedor” ou “Mostrar todos os fornecedores”. Quem está sem e-mail pede o e-mail na hora.',
+        'Escolha o “Prazo para as propostas” e, em “Enviar pelo e-mail”, a caixa do setor. Se quiser, escreva um “Recado”.',
+        'Toque em “Enviar para … fornecedores”. Cada um recebe um e-mail só dele, com os itens, o prazo e o link.',
+        'Acompanhe na mesma lista: “E-mail enviado”, “Abriu o link”, “Mandou a proposta” ou “Não vai cotar”. Cada resposta também avisa no sino, e a proposta já aparece no mapa comparativo.',
+      ],
+      dica: 'Na véspera do prazo, quem não respondeu recebe um lembrete sozinho; quando o prazo acaba, você é avisado. Sem caixa de e-mail, escolha “Não enviar e-mail (só gerar os links)” e use “Copiar link” para mandar por WhatsApp.',
+    },
+    {
+      id: 'marcar-o-que-vende',
+      titulo: 'Dizer o que cada fornecedor vende',
+      quem: 'Financeiro, a partir do nível “Lançar”',
+      passos: [
+        'Vá em Financeiro → Cadastros → Favorecidos.',
+        'Toque no lápis do fornecedor (ou em “Novo favorecido”).',
+        'Confira o “E-mail” e, em “O que ele vende”, marque as categorias.',
+        'Toque em “Salvar”.',
+      ],
+      dica: 'Quando um pedido de compra for de uma dessas categorias, o fornecedor já vem marcado em “Pedir propostas”.',
+    },
+    {
       id: 'cotar-pedido',
-      titulo: 'Cotar um pedido',
+      titulo: 'Registrar uma proposta à mão',
       quem: 'Financeiro, a partir do nível “Lançar”',
       passos: [
         'Abra o pedido pela aba “Para cotar”.',
         'Se faltar, toque em “Alterar” e preencha “Categoria (Financeiro)” e “Fonte do dinheiro (Financeiro)”: sem elas o pedido não vai para aprovação.',
-        'Em “Cotação — mapa comparativo”, toque em “Registrar proposta”.',
+        'Se a proposta chegou por outro caminho (telefone, balcão, e-mail fora do link), em “Cotação — mapa comparativo”, toque em “Registrar proposta”.',
         'Escolha o “Fornecedor”, preencha “Recebida em”, “Válida até”, o “Prazo de entrega”, a “Condição de pagamento”, o “Frete (R$)” e o preço unitário de cada item. Toque em “Salvar proposta”.',
         'Na proposta, use “Anexar documento” para juntar o PDF ou a foto da proposta do fornecedor.',
         'Repita para cada fornecedor.',
@@ -947,6 +980,18 @@ const COMPRAS: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'como-o-fornecedor-responde',
+      pergunta: 'Como o fornecedor responde a um pedido de proposta?',
+      resposta: 'Pelo link do e-mail, sem senha nem cadastro. Ele vê os itens, as quantidades, o local de entrega e o prazo; preenche o preço de cada item, o frete, o prazo de entrega, a condição de pagamento e a validade, e pode anexar a proposta em PDF. Se não fornece algum item, deixa em branco.\n\nAté o fim do dia do prazo, ele pode abrir o link de novo e corrigir: a nova proposta substitui a anterior. Também pode avisar que não vai cotar. O fornecedor não vê o valor estimado nem quem mais foi convidado.',
+      termos: ['link', 'fornecedor', 'cotação', 'pedido de proposta', 'orçamento por e-mail'],
+    },
+    {
+      id: 'onde-estao-as-propostas',
+      pergunta: 'Onde ficam as propostas de um pedido?',
+      resposta: 'Dentro do pedido, no “Cotação — mapa comparativo”: as que os fornecedores mandaram pelo link entram sozinhas, e as registradas à mão também. Na lista “Para cotar”, cada pedido mostra quantas já chegaram e o prazo.',
+      termos: ['cotações', 'outras cotações', 'mapa comparativo', 'para cotar'],
+    },
     {
       id: 'quantas-propostas',
       pergunta: 'Quantas propostas uma compra precisa?',

@@ -8,6 +8,7 @@ import { EstadoDoPedido } from '@/components/app/financeiro/compras/comum'
 import { contextoDeCompras } from '@/lib/compras/servidor'
 import { numeroDaOrdem, numeroDoPedido, type EstadoDoPedido as Estado } from '@/lib/compras/regras'
 import { dataCurta, reais } from '@/lib/financeiro/regras'
+import { resumoDosConvites, type Convite } from '@/lib/compras/convites'
 import { tituloDaArea } from '@/lib/navegacao'
 import { cn } from '@/lib/utils'
 
@@ -97,6 +98,32 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
     setoresIds.length ? supabase.from('setores').select('id,nome').in('id', setoresIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
   ])
   const nomeDe = new Map((perfis ?? []).map((p) => [p.id, p.full_name as string]))
+
+  // Em cotação: quantas propostas chegaram e como estão os convites (a pergunta "onde estão as cotações?").
+  const emCotacao = lista.filter((p) => p.estado === 'aberto' || p.estado === 'em_cotacao').map((p) => p.id)
+  const [{ data: propostasDaLista }, { data: convitesDaLista }, { data: prazos }] = emCotacao.length && nivel >= 1
+    ? await Promise.all([
+        supabase.from('compras_propostas').select('pedido_id').in('pedido_id', emCotacao).limit(5000),
+        supabase.from('compras_convites').select('pedido_id,enviado_em,envio_erro,visto_em,respondido_em,recusado_em,motivo_recusa,cancelado_em,lembrete_em').in('pedido_id', emCotacao).limit(5000),
+        supabase.from('compras_pedidos').select('id,cotacao_prazo').in('id', emCotacao),
+      ])
+    : [{ data: [] as { pedido_id: string }[] }, { data: [] as (Convite & { pedido_id: string })[] }, { data: [] as { id: string; cotacao_prazo: string | null }[] }]
+  const propostasDe = new Map<string, number>()
+  for (const x of propostasDaLista ?? []) propostasDe.set(x.pedido_id as string, (propostasDe.get(x.pedido_id as string) ?? 0) + 1)
+  const convitesDe = new Map<string, Convite[]>()
+  for (const x of (convitesDaLista ?? []) as (Convite & { pedido_id: string })[]) convitesDe.set(x.pedido_id, [...(convitesDe.get(x.pedido_id) ?? []), x])
+  const prazoDe = new Map((prazos ?? []).map((x) => [x.id as string, x.cotacao_prazo as string | null]))
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+  const situacaoDaCotacao = (id: string): { texto: string; alerta: boolean } | null => {
+    if (!emCotacao.includes(id) || nivel < 1) return null
+    const n = propostasDe.get(id) ?? 0
+    const convites = convitesDe.get(id) ?? []
+    const prazo = prazoDe.get(id) ?? null
+    if (!convites.length) return { texto: n ? `${n} ${n === 1 ? 'proposta registrada' : 'propostas registradas'} · nenhum fornecedor convidado pelo link` : 'Nenhuma proposta ainda: abra e use “Pedir propostas”', alerta: n === 0 }
+    const r = resumoDosConvites(convites)
+    const noPrazo = prazo ? (hoje > prazo ? ` · prazo acabou em ${dataCurta(prazo)}` : ` · prazo ${dataCurta(prazo)}`) : ''
+    return { texto: `${r.texto}${n > r.propostas ? ` · ${n} propostas no mapa` : ''}${noPrazo}`, alerta: Boolean(prazo && hoje > prazo) }
+  }
   const setorDe = new Map((setores ?? []).map((s) => [s.id, s.nome as string]))
 
   return (
@@ -145,10 +172,14 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
                     {nomeDe.get(p.solicitante_id ?? '') ?? 'Alguém'}{p.setor_id && setorDe.get(p.setor_id) ? ` · ${setorDe.get(p.setor_id)}` : ''} · pedido em {dataCurta(p.created_at.slice(0, 10))}
                     {p.necessario_ate && ` · precisa até ${dataCurta(p.necessario_ate)}`}
                   </p>
+                  {(() => {
+                    const c = situacaoDaCotacao(p.id)
+                    return c && <p className={cn('mt-0.5 text-xs font-medium', c.alerta ? 'text-warning-foreground' : 'text-muted-foreground')} data-situacao-cotacao>{c.texto}</p>
+                  })()}
                   {aba === 'andamento' && <p className="mt-0.5 text-xs font-medium text-warning-foreground">Próximo passo: {proximoPasso(p)}</p>}
                   {aba === 'entrada' && <p className="mt-0.5 text-xs font-medium text-warning-foreground">Chegou: dê a entrada no estoque ou no patrimônio</p>}
                 </div>
-                <span className="text-sm font-medium tabular-nums">{p.valor_aprovado !== null ? reais(p.valor_aprovado) : p.valor_estimado ? `~ ${reais(p.valor_estimado)}` : '—'}</span>
+                <span className="text-sm font-medium tabular-nums" title={p.valor_aprovado === null && !p.valor_estimado ? 'Sem valor estimado: o valor sai das propostas' : undefined}>{p.valor_aprovado !== null ? reais(p.valor_aprovado) : p.valor_estimado ? `~ ${reais(p.valor_estimado)}` : <span className="text-xs font-normal text-muted-foreground">sem estimativa</span>}</span>
                 <EstadoDoPedido estado={p.estado} />
               </Link>
             </li>
