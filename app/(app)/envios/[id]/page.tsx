@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { MaterialEAcoes, Transcricao, type ArquivoNaTela } from '@/components/app/envios/avaliacao'
 import { avisarPeloWhatsapp } from '@/app/actions/envios'
+import { GerarLinkDoEnvio } from '@/components/app/envios/autorizacoes-do-envio'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { urlAssinada } from '@/lib/armazenamento/r2'
@@ -59,6 +60,11 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
     ? await supabase.from('content_pieces').select('site_url').eq('workspace_id', ws).eq('pauta_id', envio.pauta_id).not('site_url', 'is', null).limit(1).maybeSingle()
     : { data: null }
   const autorizacao = AUTORIZACOES[envio.autorizacao_imagem]
+  // As assinaturas do termo de imagem feitas pelo link deste envio (Biblioteca → Autorizações de imagem).
+  const { data: coleta } = await supabase.from('imagem_coletas').select('id, imagem_autorizacoes(revogada_em)').eq('workspace_id', ws).eq('envio_id', id).maybeSingle()
+  const assinaturas = (coleta?.imagem_autorizacoes ?? []) as { revogada_em: string | null }[]
+  const validas = assinaturas.filter((a) => !a.revogada_em).length
+  const temFoto = arquivos.some((a) => a.categoria === 'foto' || a.categoria === 'video')
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,6 +121,23 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
               </Linha>
             </dl>
           </Card>
+
+          {temFoto && (
+            <Card className="flex flex-col gap-2 p-4 text-sm">
+              <p className="font-semibold">Termo de imagem assinado</p>
+              {coleta ? (
+                <>
+                  <p>{validas ? `${validas} pessoa${validas > 1 ? 's assinaram' : ' assinou'}` : 'Ninguém assinou ainda'}{assinaturas.length > validas ? ` · ${assinaturas.length - validas} revogada(s)` : ''}.</p>
+                  <Link href={`/biblioteca/autorizacoes/${coleta.id}`} className="text-primary underline-offset-4 hover:underline">Ver as assinaturas e o link</Link>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground">Quem enviou ainda não gerou o link para as pessoas das fotos assinarem.</p>
+                  <GerarLinkDoEnvio envioId={envio.id} />
+                </>
+              )}
+            </Card>
+          )}
 
           {(envio.pauta_id || envio.pacote_id) && (
             <Card className="flex flex-col gap-2 p-4 text-sm">

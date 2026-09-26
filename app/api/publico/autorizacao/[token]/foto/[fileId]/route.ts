@@ -9,9 +9,11 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: Request, { params }: { params: Promise<{ token: string; fileId: string }> }) {
   const { token, fileId } = await params
-  const caminho = await caminhoDaFoto(token, fileId)
-  if (!caminho) return new Response('Não encontrado', { status: 404 })
-  const resultado = await get(caminho, { access: 'private', ifNoneMatch: request.headers.get('if-none-match') ?? undefined })
+  const onde = await caminhoDaFoto(token, fileId)
+  if (!onde) return new Response('Não encontrado', { status: 404 })
+  // Foto de um envio: vai direto ao R2 por um link assinado de poucos minutos.
+  if ('url' in onde) return new Response(null, { status: 302, headers: { Location: onde.url, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } })
+  const resultado = await get(onde.blob, { access: 'private', ifNoneMatch: request.headers.get('if-none-match') ?? undefined })
   if (!resultado) return new Response('Não encontrado', { status: 404 })
   const cabecalhos = { ETag: resultado.blob.etag, 'Cache-Control': 'private, no-cache', 'X-Robots-Tag': 'noindex' }
   if (resultado.statusCode === 304) return new Response(null, { status: 304, headers: cabecalhos })

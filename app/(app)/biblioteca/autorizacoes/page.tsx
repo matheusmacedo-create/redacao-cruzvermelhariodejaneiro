@@ -14,7 +14,7 @@ export const metadata = { title: 'Autorizações de imagem' }
 const data = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 const campo = 'h-10 rounded-lg border border-border bg-background px-3 text-sm'
 
-type Coleta = { id: string; titulo: string; created_at: string; expira_em: string | null; encerrada_em: string | null; file_ids: string[]; imagem_autorizacoes: { count: number }[] }
+type Coleta = { id: string; titulo: string; created_at: string; expira_em: string | null; encerrada_em: string | null; file_ids: string[]; envio_id: string | null; envios: { protocolo: string } | { protocolo: string }[] | null; imagem_autorizacoes: { count: number }[] }
 
 /**
  * O banco de autorizações de imagem: os links criados (um por ação) e a busca
@@ -26,7 +26,7 @@ export default async function AutorizacoesPage({ searchParams }: { searchParams:
   const supabase = await createClient()
   const buscando = Boolean(filtros.q || filtros.situacao || filtros.uso || filtros.vinculo)
   const [{ data: coletas, error }, linhas] = await Promise.all([
-    supabase.from('imagem_coletas').select('id, titulo, created_at, expira_em, encerrada_em, file_ids, imagem_autorizacoes(count)')
+    supabase.from('imagem_coletas').select('id, titulo, created_at, expira_em, encerrada_em, file_ids, envio_id, envios(protocolo), imagem_autorizacoes(count)')
       .eq('workspace_id', context.workspace.id).order('created_at', { ascending: false }).limit(100),
     buscarAutorizacoes(supabase, context.workspace.id, filtros, buscando ? 300 : 50).catch(() => null),
   ])
@@ -62,7 +62,7 @@ export default async function AutorizacoesPage({ searchParams }: { searchParams:
                 <li key={c.id}>
                   <Link href={`/biblioteca/autorizacoes/${c.id}`} className="flex h-full flex-col gap-2 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:bg-muted/40">
                     <span className="flex items-start gap-2 font-semibold"><Link2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />{c.titulo}</span>
-                    <span className="text-xs text-muted-foreground">{c.file_ids.length} foto(s) · criado em {data(c.created_at)}</span>
+                    <span className="text-xs text-muted-foreground">{c.envio_id ? `Fotos do envio ${(Array.isArray(c.envios) ? c.envios[0] : c.envios)?.protocolo ?? ''}` : `${c.file_ids.length} foto(s)`} · criado em {data(c.created_at)}</span>
                     <span className="mt-auto flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded bg-primary/10 px-2 py-0.5 font-medium text-primary">{assinaturas} assinatura(s)</span>
                       <span className={aberto ? 'rounded bg-success/10 px-2 py-0.5 font-medium text-success' : 'rounded bg-muted px-2 py-0.5 font-medium text-muted-foreground'}>{aberto ? 'Aberto' : 'Encerrado'}</span>

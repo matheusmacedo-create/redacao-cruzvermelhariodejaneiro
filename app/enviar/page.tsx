@@ -5,6 +5,7 @@ import { FormularioDeEnvio } from '@/components/enviar/formulario'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { nomesDosSetores } from '@/lib/setores'
 import { NOMES_DOS_SETORES } from '@/lib/equipe'
+import { PARAGRAFOS_DO_TERMO, TERMO_VERSAO, TITULO_DO_TERMO } from '@/lib/imagem/termo'
 
 // Página pública, sem login: o link (e o QR code) que a equipe usa para mandar
 // o que aconteceu numa ação. Fica fora do Google (noindex): é da equipe.
@@ -45,7 +46,7 @@ export default async function Enviar() {
           descricao="Fez uma ação, um atendimento ou um evento? Mande as fotos, os vídeos e conte o que aconteceu — a comunicação transforma em post e matéria."
         />
         <div className="relative rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
-          <FormularioDeEnvio hoje={hoje()} setores={lista} />
+          <FormularioDeEnvio hoje={hoje()} setores={lista} termo={{ titulo: TITULO_DO_TERMO, versao: TERMO_VERSAO, paragrafos: PARAGRAFOS_DO_TERMO }} />
         </div>
       </main>
     </div>

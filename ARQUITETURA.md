@@ -844,6 +844,11 @@ Benchmark, decisões e o que foi entregue: [`docs/calendario-inteligente.md`](do
   de serviço, limite de 60 assinaturas por IP por hora e 500 por link), a equipe por
   `app/actions/autorizacoes-de-imagem.ts`. Busca e planilha: `lib/imagem/consulta.ts` e
   `/api/biblioteca/autorizacoes/csv`.
+- **Também pelo `/enviar`.** A etapa "Imagem" mostra o termo, e a tela de "Recebemos!" gera o link
+  do envio (`imagem_coletas.envio_id`, um por envio, `file_ids` vazio): as fotos vêm de
+  `envio_arquivos` (R2, link assinado de 5 min). Várias pessoas podem assinar no mesmo celular: o
+  comprovante vai para o WhatsApp de cada uma e "Outra pessoa vai assinar" troca a página com
+  `router.replace` (o comprovante anterior, com a chave de revogação, não fica no histórico).
 - **Regras puras** em `lib/imagem/regras.ts` (validação, traços, aparelho, código `IMG-XXXX-XXXX`,
   documento canônico). O termo é **minuta** — revisão do Jurídico pendente.
 

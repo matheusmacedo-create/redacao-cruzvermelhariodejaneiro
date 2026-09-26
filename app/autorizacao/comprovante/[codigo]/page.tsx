@@ -5,6 +5,7 @@ import { comprovante } from '@/lib/imagem/servidor'
 import { USOS, VINCULOS, ehUso, ehVinculo } from '@/lib/imagem/regras'
 import { Moldura } from '../../moldura'
 import { Revogar } from './revogar'
+import { ProximaPessoa } from './proxima-pessoa'
 
 export const metadata: Metadata = {
   title: 'Comprovante de autorização de imagem — Cruz Vermelha RJ',
@@ -41,9 +42,10 @@ export default async function Comprovante({ params, searchParams }: { params: Pr
       <CabecalhoDaPagina sobretitulo="Comprovante de autorização de imagem" titulo={a.codigo} descricao={a.titulo} />
       {novo && !a.revogadaEm && (
         <Recado tipo="sucesso" titulo="Autorização registrada. Obrigado!">
-          Guarde este comprovante: salve o link nos favoritos ou tire um print. É por ele que você pode revogar a autorização quando quiser.
+          Guarde este comprovante: mande para o seu WhatsApp, salve o link ou tire um print. É por ele que você pode revogar a autorização quando quiser.
         </Recado>
       )}
+      {novo && !a.revogadaEm && <ProximaPessoa codigo={a.codigo} chave={c ?? ''} link={a.linkDaColeta} />}
       {a.revogadaEm && <Recado tipo="aviso" titulo="Autorização revogada">Revogada em {quando(a.revogadaEm)}{a.revogadaPor === 'equipe' ? ' pela equipe da filial' : ''}. As fotos não serão usadas em publicações novas.</Recado>}
       <dl className="rounded-xl border border-border bg-card px-4 py-2">
         <Linha rotulo="Nome">{a.nome}</Linha>
