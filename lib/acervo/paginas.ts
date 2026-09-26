@@ -1,6 +1,7 @@
 import { escapar, montarPaginaDoSite, noDaOrganizacao, noDoSite, tituloDaAba } from '@/lib/site/esqueleto'
 import type { EntradaDoMapa } from '@/lib/site/sitemap'
 import { COLECAO, COLECOES, DIREITO, dataIso, dataLegivel, tipoDoArquivo, type Colecao, type Direitos, type Precisao } from './regras'
+import { ENDERECO_DO_PALACIO } from '../dominio'
 
 /**
  * As páginas públicas do acervo em cruzvermelhariodejaneiro.org/acervo/ (docs/acervo.md):
@@ -19,7 +20,7 @@ import { COLECAO, COLECOES, DIREITO, dataIso, dataLegivel, tipoDoArquivo, type C
 export const ORIGEM_DO_ACERVO = 'https://cruzvermelhariodejaneiro.org'
 export const POR_PAGINA = 24
 export const IMAGEM_PADRAO = { url: `${ORIGEM_DO_ACERVO}/assets/otim/og-acervo.jpg`, largura: 1200, altura: 630, alt: 'Acervo da Cruz Vermelha Brasileira Rio de Janeiro' }
-export const ENDERECO_DA_EQUIPE = 'https://redacao.cruzvermelhariodejaneiro.org/acervo'
+export const ENDERECO_DA_EQUIPE = `${ENDERECO_DO_PALACIO}/acervo`
 const NOME_DA_FILIAL = 'Cruz Vermelha Brasileira Rio de Janeiro'
 const EMAIL = 'contato@cruzvermelhariodejaneiro.org'
 

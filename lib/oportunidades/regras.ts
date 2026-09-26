@@ -111,6 +111,8 @@ export function ics(o: { id: string; titulo: string; descricao: string | null; l
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, (c) => `\\${c}`)
   return [
     'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Cruz Vermelha RJ//Area do Voluntario//PT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    // O UID fica com o domínio antigo de propósito: é a identidade do evento na agenda de quem
+    // já baixou; mudar faria o calendário duplicar a atividade (lib/dominio.ts).
     'BEGIN:VEVENT', `UID:${o.id}@redacao.cruzvermelhariodejaneiro.org`, `DTSTAMP:${d(new Date().toISOString())}`,
     `DTSTART:${d(o.inicio)}`, `DTEND:${d(o.fim)}`, `SUMMARY:${esc(o.titulo)}`,
     ...(o.local ? [`LOCATION:${esc(o.local)}`] : []),

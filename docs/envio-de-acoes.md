@@ -108,7 +108,7 @@ precisa copiar à mão, que é justamente o trabalho que a Redação existe para
 
 ## 3. Recomendação: "Mandar uma ação", dentro da Redação
 
-Um link público próprio, **`redacao.cruzvermelhariodejaneiro.org/enviar`**, com QR code para
+Um link público próprio, **`palacio.cruzvermelhariodejaneiro.org/enviar`** (antes `redacao.`, que redireciona), com QR code para
 imprimir, que junta o melhor do benchmark e aproveita o que a Redação já tem:
 
 | Peça que já existe | Como entra aqui |

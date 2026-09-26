@@ -9,7 +9,8 @@ foram pagos caro. Leia inteiro antes da primeira alteração.
 ## 1. O que é
 
 **Palácio Virtual** é o sistema interno da **Cruz Vermelha Brasileira — Rio de
-Janeiro**, no ar em `redacao.cruzvermelhariodejaneiro.org`.
+Janeiro**, no ar em `palacio.cruzvermelhariodejaneiro.org` (o endereço antigo,
+`redacao.cruzvermelhariodejaneiro.org`, redireciona para ele; o domínio mora em `lib/dominio.ts`).
 
 > **Nome.** Até 26/09/2026 o produto se chamava **Redação**. Nas telas, e-mails e PDFs o nome
 > agora é **Palácio Virtual** (com artigo masculino: "o Palácio Virtual", "no Palácio Virtual").
