@@ -18,7 +18,7 @@ export function ConferirNoNavegador({ itens }: { itens: { rotulo: string; texto:
     <div className="flex flex-col gap-2">
       <button type="button" className="self-start rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-neutral-50"
         onClick={async () => setRes(await Promise.all(itens.map(async (i) => (await sha256Hex(i.texto)) === i.hash)))}>
-        Recalcular os códigos neste navegador
+        Recalcular os hashes neste navegador
       </button>
       <ul className="flex flex-col gap-1 text-sm">
         {itens.map((i, k) => (

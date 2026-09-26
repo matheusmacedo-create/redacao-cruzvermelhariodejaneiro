@@ -74,8 +74,8 @@ export const BOAS_VINDAS_DO_MEMBRO: PassoDoTour[] = [
 
 const INICIO: GuiaDaArea = {
   href: '/membro',
-  paraQueServe: 'O Início junta o que é seu. Primeiro, o que pede ação: um termo de bem para aceitar ou uma prova final por fazer. Depois, sua próxima atividade, o curso em andamento, seus números, os avisos da coordenação, seus certificados e as últimas atividades.',
-  quemUsa: 'Cursos, inscrições, horas e certificados são só seus. Os avisos e as oportunidades abertas são os mesmos para todo o voluntariado.',
+  paraQueServe: 'O Início junta o que é seu. Primeiro, o que pede ação: um termo de bem para aceitar ou uma prova final por fazer. Logo abaixo da saudação, os destaques da Cruz Vermelha RJ, quando houver. Depois, sua próxima atividade, o curso em andamento, seus números, os avisos da coordenação, seus certificados e as últimas atividades.',
+  quemUsa: 'Cursos, inscrições, horas e certificados são só seus. Os destaques, os avisos e as oportunidades abertas são os mesmos para todo o voluntariado.',
   tour: [
     {
       titulo: 'Seu Início',
@@ -85,6 +85,12 @@ const INICIO: GuiaDaArea = {
       alvo: 'membro.pendencias',
       titulo: 'Pendências',
       texto: 'Quando há um termo de bem para aceitar ou uma prova final por fazer, o aviso fica no alto, com o botão que leva direto.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'membro.banners',
+      titulo: 'Destaques',
+      texto: 'Campanhas, agradecimentos e chamadas da Cruz Vermelha RJ. Com mais de um, eles se revezam; use as setas ou arraste para ver os outros.',
       seAusente: 'pular',
     },
     {
