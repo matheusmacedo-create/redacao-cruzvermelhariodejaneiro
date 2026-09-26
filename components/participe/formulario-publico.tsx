@@ -5,6 +5,7 @@ import { Check, ChevronDown, Loader2, TriangleAlert, XCircle } from 'lucide-reac
 import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, cpfValido, ehMenor, somenteDigitos } from '@/lib/participantes/regras'
 import { botaoDoMembro, campoDoMembro } from '@/components/membro/marca'
 import { Recado } from '@/components/membro/pecas'
+import { useHoje } from '@/components/membro/hoje'
 import { cn } from '@/lib/utils'
 
 // O servidor descarta, fingindo sucesso, o envio feito em menos de 4 s (armadilha
@@ -50,7 +51,8 @@ const legenda = 'mb-3 text-base font-semibold'
  * A inscrição de voluntários. Envia para /api/participe; a inscrição chega à
  * coordenação do Voluntariado como pendente.
  */
-export function FormularioPublico({ hoje, setores }: { hoje: string; setores: string[] }) {
+export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: string; setores: string[] }) {
+  const hoje = useHoje(hojeDoServidor)
   const [inicio] = useState(() => Date.now())
   const [nascimento, setNascimento] = useState('')
   const [enviando, setEnviando] = useState(false)

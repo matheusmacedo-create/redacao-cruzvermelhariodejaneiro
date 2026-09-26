@@ -166,12 +166,15 @@ export function NovoRegistro({ participanteId, tipo, hoje }: { participanteId: s
 }
 
 export function RemoverRegistro({ tabela, id, participanteId }: { tabela: 'participante_horas' | 'participante_formacoes'; id: string; participanteId: string }) {
-  const { ocupado, executar } = useAcao()
+  const { erro, ocupado, executar } = useAcao()
   return (
-    <button type="button" aria-label="Remover" title="Remover" disabled={ocupado} onClick={() => executar(() => removerRegistro(tabela, id, participanteId))}
-      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40">
-      {ocupado ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-    </button>
+    <span className="inline-flex items-center gap-1.5">
+      <Erro texto={erro} />
+      <button type="button" aria-label="Remover" title="Remover" disabled={ocupado} onClick={() => executar(() => removerRegistro(tabela, id, participanteId))}
+        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-40">
+        {ocupado ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+      </button>
+    </span>
   )
 }
 

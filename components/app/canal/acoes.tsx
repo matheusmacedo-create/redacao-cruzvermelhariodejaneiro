@@ -68,9 +68,11 @@ export function Mural({ avisos, total, hoje }: { avisos: AvisoNaEquipe[]; total:
   const router = useRouter()
   const [editando, setEditando] = useState<string | null>(null)
   const [ocupado, iniciar] = useTransition()
+  const [erro, setErro] = useState('')
   return (
     <div className="flex flex-col gap-4" id="mural-equipe">
       <FormularioDeAviso a={null} />
+      {erro && <p role="alert" className="text-sm text-destructive">{erro}</p>}
       <ul className="flex flex-col gap-3">
         {avisos.map((a) => (
           <li key={a.id} className="rounded-lg border border-border p-4">
@@ -86,7 +88,7 @@ export function Mural({ avisos, total, hoje }: { avisos: AvisoNaEquipe[]; total:
                   </p>
                 </div>
                 <button type="button" title="Editar" aria-label="Editar" onClick={() => setEditando(a.id)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><Pencil className="size-3.5" /></button>
-                <button type="button" title="Excluir" aria-label="Excluir" disabled={ocupado} onClick={() => { if (confirm('Excluir este aviso?')) iniciar(async () => { await excluirAviso(a.id); router.refresh() }) }}
+                <button type="button" title="Excluir" aria-label="Excluir" disabled={ocupado} onClick={() => { if (confirm('Excluir este aviso?')) iniciar(async () => { setErro(''); const r = await excluirAviso(a.id); if (r.erro) setErro(r.erro); else router.refresh() }) }}
                   className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"><Trash2 className="size-3.5" /></button>
               </div>
             )}

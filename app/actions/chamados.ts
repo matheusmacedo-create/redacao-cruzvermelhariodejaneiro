@@ -92,9 +92,11 @@ export async function abrirChamado(formData: FormData): Promise<Resultado> {
     if (error || !criado) throw new Error('Não foi possível abrir o chamado.')
 
     await evento(admin, criado, context.user.id, { acao: 'aberto', prioridade: p })
+    let semAnexo = false
     await registrarAnexos(admin, { workspaceId: context.workspace.id, chamadoId: criado.id, interacaoId: null, autorId: context.user.id, interno: false, anexos: lerAnexos(formData) })
       .catch(async (causa) => {
         // O chamado vale sem o anexo: melhor abrir e avisar do que perder o relato.
+        semAnexo = true
         await evento(admin, criado, null, { acao: 'anexo_recusado' }, causa instanceof Error ? causa.message : null)
       })
 
@@ -105,7 +107,7 @@ export async function abrirChamado(formData: FormData): Promise<Resultado> {
       citacao: descricao.slice(0, 600),
     })
     revalidar()
-    return { id: criado.id, recado: `Chamado ${criado.codigo} aberto.` }
+    return { id: criado.id, recado: semAnexo ? `Chamado ${criado.codigo} aberto, mas o anexo não entrou. Mande o arquivo de novo na conversa do chamado.` : `Chamado ${criado.codigo} aberto.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível abrir o chamado.') }
   }
@@ -139,8 +141,10 @@ export async function comentarChamado(formData: FormData): Promise<Resultado> {
       Object.assign(patch, await patchDeStatus(c, 'em_atendimento', agora, false))
       voltou = true
     }
-    await admin.from('chamados').update(patch).eq('id', c.id)
-    if (voltou) await evento(admin, c, context.user.id, { acao: 'status', de: c.status, para: 'em_atendimento', automatico: true })
+    const { error: erroDoPatch } = await admin.from('chamados').update(patch).eq('id', c.id)
+    // A mensagem já foi; se o relógio ou a volta do status falharem, fica no log.
+    if (erroDoPatch) console.error('[chamados] comentário:', erroDoPatch.message)
+    if (voltou && !erroDoPatch) await evento(admin, c, context.user.id, { acao: 'status', de: c.status, para: 'em_atendimento', automatico: true })
 
     if (!interno) {
       const daEquipe = equipe && c.solicitante_id !== context.user.id
@@ -249,7 +253,10 @@ export async function avaliarChamado(formData: FormData): Promise<Resultado> {
     const agora = new Date()
     const patch: Record<string, unknown> = { avaliacao: nota, avaliacao_comentario: comentario, atualizado_em: agora.toISOString() }
     if (c.status === 'resolvido') Object.assign(patch, await patchDeStatus(c, 'fechado', agora, false))
-    await admin.from('chamados').update(patch).eq('id', c.id)
+    // Só avalia uma vez: com duas abas abertas, a segunda não sobrescreve a primeira.
+    const { data: avaliou, error: erroDaNota } = await admin.from('chamados').update(patch).eq('id', c.id).is('avaliacao', null).select('id').maybeSingle()
+    if (erroDaNota) throw new Error('Não foi possível registrar a avaliação.')
+    if (!avaliou) throw new Error('Este atendimento já foi avaliado.')
     await evento(admin, c, context.user.id, { acao: 'avaliado', nota, fechou: c.status === 'resolvido' }, comentario)
     await avisarSobreChamado(admin, {
       workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: [c.responsavel_id],
@@ -275,7 +282,8 @@ export async function atribuirChamado(formData: FormData): Promise<Resultado> {
       const atendeFila = await filasQueAtendo(admin, c.workspace_id, novo, await papelDe(admin, c.workspace_id, novo))
       if (!atendeFila.has(c.fila_id)) throw new Error('Essa pessoa não faz parte da equipe desta fila.')
     }
-    await admin.from('chamados').update({ responsavel_id: novo, atualizado_em: new Date().toISOString() }).eq('id', c.id)
+    const { error: erroDoResponsavel } = await admin.from('chamados').update({ responsavel_id: novo, atualizado_em: new Date().toISOString() }).eq('id', c.id)
+    if (erroDoResponsavel) throw new Error('Não foi possível definir o responsável.')
     await evento(admin, c, context.user.id, { acao: 'responsavel', de: c.responsavel_id, para: novo })
     if (novo) await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: [novo], titulo: 'Chamado atribuído a você', mensagem: `${context.profile?.full_name ?? 'Alguém'} deixou o chamado com você (prioridade ${ROTULO_DA_PRIORIDADE[c.prioridade].toLowerCase()}).` })
     revalidar(c.id)
@@ -301,7 +309,8 @@ export async function definirImpacto(formData: FormData): Promise<Resultado> {
     if (impacto === c.impacto) return { recado: 'Nada mudou.' }
     const p = prioridade(c.urgencia, impacto)
     const pz = prazos(new Date(c.criado_em), p, c.fila.sla, c.fila.atendimento24h, c.minutos_pausados, await feriadosPerto())
-    await admin.from('chamados').update({ impacto, prioridade: p, prazo_resposta: pz.resposta.toISOString(), prazo_solucao: pz.solucao.toISOString(), atualizado_em: new Date().toISOString() }).eq('id', c.id)
+    const { error: erroDoImpacto } = await admin.from('chamados').update({ impacto, prioridade: p, prazo_resposta: pz.resposta.toISOString(), prazo_solucao: pz.solucao.toISOString(), atualizado_em: new Date().toISOString() }).eq('id', c.id)
+    if (erroDoImpacto) throw new Error('Não foi possível mudar o impacto.')
     await evento(admin, c, context.user.id, { acao: 'prioridade', de: c.prioridade, para: p, impacto })
     revalidar(c.id)
     return { recado: `Prioridade: ${ROTULO_DA_PRIORIDADE[p]}. Prazos recalculados.` }

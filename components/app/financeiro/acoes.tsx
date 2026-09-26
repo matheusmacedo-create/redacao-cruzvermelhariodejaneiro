@@ -34,7 +34,10 @@ export function Pagar({ id, tipo, valor, contaId, forma, contas, hoje }: {
 }) {
   const [aberto, setAberto] = useState(false)
   const { erro, ocupado, executar } = useAcao()
-  const [p, setP] = useState({ pago_em: hoje, valor_pago: valorNoCampo(valor), conta_id: contaId, forma: forma ?? '' })
+  // A lista só tem contas ativas: se a do lançamento foi desativada, começa na
+  // primeira da lista — o que a tela mostra é para onde o pagamento vai.
+  const contaInicial = contas.some((c) => c.id === contaId) ? contaId : (contas[0]?.id ?? contaId)
+  const [p, setP] = useState({ pago_em: hoje, valor_pago: valorNoCampo(valor), conta_id: contaInicial, forma: forma ?? '' })
   const verbo = tipo === 'receita' ? 'recebido' : 'pago'
   return (
     <>

@@ -50,7 +50,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
     )
   }
 
-  const aba = sp.aba === 'inscricoes' ? 'inscricoes' : sp.aba === 'acessos' && nivel >= 3 ? 'acessos' : 'lista'
+  const aba = sp.aba === 'inscricoes' ? 'inscricoes' : sp.aba === 'acessos' && context.role === 'admin' ? 'acessos' : 'lista'
   const hoje = hojeEmSaoPaulo()
 
   const linhas: Linha[] = []
@@ -86,7 +86,8 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   const abas = [
     { id: 'lista', rotulo: `Voluntários (${linhas.filter((l) => l.situacao !== 'candidato' && !l.anonimizado_em).length})` },
     { id: 'inscricoes', rotulo: `Inscrições pendentes (${pendentes.length})` },
-    ...(nivel >= 3 ? [{ id: 'acessos', rotulo: 'Quem acessa' }] : []),
+    // Só admin define quem acessa (definir_acesso_participantes recusa os demais).
+    ...(context.role === 'admin' ? [{ id: 'acessos', rotulo: 'Quem acessa' }] : []),
   ]
   const exportar = `/api/voluntariado/exportar?${new URLSearchParams(Object.entries({ vinculo: sp.vinculo ?? '', situacao: sp.situacao ?? '', setor: sp.setor ?? '' }).filter(([, v]) => v)).toString()}`
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, Check, CheckCircle2, FileText, Image as ImageIcon, Images, Loader2, MapPin, Mic, Paperclip, RotateCcw, Video, X } from 'lucide-react'
 import { areaDoMembro, botaoDoMembro, botaoFantasma, botaoSecundario, campoDoMembro } from '@/components/membro/marca'
 import { Recado } from '@/components/membro/pecas'
+import { useHoje } from '@/components/membro/hoje'
 import { cn } from '@/lib/utils'
 import { ACEITOS, AUTORIZACOES, TEMPO_MINIMO_MS, categoriaDoArquivo, tamanhoLegivel, type Autorizacao, type Categoria } from '@/lib/envios/regras'
 import { Gravador } from './gravador'
@@ -38,13 +39,16 @@ export type TermoDeImagem = { titulo: string; versao: string; paragrafos: readon
 /** O evento, quando a pessoa chegou pelo link dele (/enviar/<codigo>): o envio já cai no álbum. */
 export type EventoDoEnvio = { codigo: string; nome: string; data: string | null; local: string | null; album: string | null }
 
-export function FormularioDeEnvio({ hoje, setores, termo, evento }: { hoje: string; setores: string[]; termo: TermoDeImagem; evento?: EventoDoEnvio }) {
+export function FormularioDeEnvio({ hoje: hojeDoServidor, setores, termo, evento }: { hoje: string; setores: string[]; termo: TermoDeImagem; evento?: EventoDoEnvio }) {
   // Pelo link do evento, a ação já vem preenchida com o nome, a data e o local dele (dá para mudar).
-  const acaoInicial = { titulo: evento?.nome ?? '', data: evento?.data && evento.data <= hoje ? evento.data : hoje, local: evento?.local ?? '', pessoas: '', parceiros: '' }
+  const acaoInicial = { titulo: evento?.nome ?? '', data: evento?.data && evento.data <= hojeDoServidor ? evento.data : hojeDoServidor, local: evento?.local ?? '', pessoas: '', parceiros: '' }
   const [passo, setPasso] = useState(0)
   const [quem, setQuem] = useState<Quem>({ nome: '', setor: '', whatsapp: '', email: '' })
   const [avisar, setAvisar] = useState(true)
   const [acao, setAcao] = useState(acaoInicial)
+  // A página fica em cache: a data de hoje vem do navegador (e o campo que ainda
+  // mostra a data velha do servidor passa para a de hoje).
+  const hoje = useHoje(hojeDoServidor, (velha, nova) => setAcao((x) => (x.data === velha ? { ...x, data: nova } : x)))
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number; precisao: number } | null>(null)
   const [buscandoLocal, setBuscandoLocal] = useState(false)
   const [relato, setRelato] = useState('')
@@ -187,7 +191,7 @@ export function FormularioDeEnvio({ hoje, setores, termo, evento }: { hoje: stri
   }
 
   function novoEnvio() {
-    setPasso(1); setAcao(acaoInicial); setCoordenadas(null); setRelato('')
+    setPasso(1); setAcao({ ...acaoInicial, data: acaoInicial.data === hojeDoServidor ? hoje : acaoInicial.data }); setCoordenadas(null); setRelato('')
     setEscolhidos([]); setAutorizacao(''); setErro(''); setFase('preenchendo'); setProgresso({}); setEnviado(null)
     inicio.current = Date.now()
     topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

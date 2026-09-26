@@ -7,6 +7,7 @@ import { ConciliarSugestoes, Desconciliar, ExcluirImportacao, ImportarExtrato, L
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/financeiro/acesso'
 import { candidatos, normalizarDescricao, sugestoes, type Candidato } from '@/lib/financeiro/extrato'
 import { dataCurta, reais, saldos, somarMeses, type Lancamento } from '@/lib/financeiro/regras'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Conciliação bancária' }
 export const dynamic = 'force-dynamic'
@@ -93,8 +94,8 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
   const ultimoSaldo = (importacoes ?? []).find((i) => i.saldo_banco !== null && i.saldo_em)
   let conferencia: { banco: number; redacao: number; em: string } | null = null
   if (ultimoSaldo) {
-    const { data: pagos } = await supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws)
-      .or(`conta_id.eq.${conta.id},conta_destino_id.eq.${conta.id}`).not('pago_em', 'is', null).lte('pago_em', ultimoSaldo.saldo_em as string).limit(50000)
+    const { data: pagos } = await todasAsLinhas((de, ate) => supabase.from('fin_lancamentos').select('tipo,conta_id,conta_destino_id,valor,valor_pago,pago_em').eq('workspace_id', ws)
+      .or(`conta_id.eq.${conta.id},conta_destino_id.eq.${conta.id}`).not('pago_em', 'is', null).lte('pago_em', ultimoSaldo.saldo_em as string).order('id').range(de, ate))
     const s = saldos([conta], (pagos ?? []).map(lerLinha) as Lancamento[], ultimoSaldo.saldo_em as string)
     conferencia = { banco: Number(ultimoSaldo.saldo_banco), redacao: s.get(conta.id) ?? 0, em: ultimoSaldo.saldo_em as string }
   }

@@ -14,8 +14,11 @@
 /** Quantas inscrições um mesmo endereço de IP pode originar por hora. */
 export const LIMITE_POR_IP = 5
 
-/** Janela em que um convite não é repetido para o mesmo endereço. */
-export const MINUTOS_ENTRE_CONVITES = 5
+/**
+ * Janela em que um convite não é repetido para o mesmo endereço. Longa o
+ * bastante para o formulário não virar ferramenta de encher a caixa de alguém.
+ */
+export const MINUTOS_ENTRE_CONVITES = 30
 
 export type InscritoExistente = {
   id: string

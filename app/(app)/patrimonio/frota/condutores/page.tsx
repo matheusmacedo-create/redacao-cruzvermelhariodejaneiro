@@ -7,6 +7,7 @@ import { CondutorDialog, type CondutorCadastrado } from '@/components/app/patrim
 import { contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { situacaoDoVencimento } from '@/lib/patrimonio/frota'
+import { todasAsLinhas } from '@/lib/supabase/paginar'
 
 export const metadata = { title: 'Condutores' }
 export const dynamic = 'force-dynamic'
@@ -22,7 +23,7 @@ export default async function CondutoresPage() {
   const [{ data: condutores }, { data: membros }, { data: viagens }] = await Promise.all([
     supabase.from('frota_condutores').select('id,user_id,participante_id,nome,cnh_numero,cnh_categoria,cnh_validade,emergencia_validade,telefone,ativo').eq('workspace_id', ws).order('ativo', { ascending: false }).order('nome'),
     nivel >= 3 ? supabase.from('workspace_members').select('user_id,profiles(full_name,active)').eq('workspace_id', ws) : Promise.resolve({ data: [] }),
-    supabase.from('frota_usos').select('condutor_id,km_saida,km_retorno').eq('workspace_id', ws).not('retorno_em', 'is', null).limit(50000),
+    todasAsLinhas((de, ate) => supabase.from('frota_usos').select('condutor_id,km_saida,km_retorno').eq('workspace_id', ws).not('retorno_em', 'is', null).order('id').range(de, ate)),
   ])
   // Voluntários ativos só pelo nome (quem gere a frota pode não ter acesso ao Voluntariado).
   const { data: voluntarios } = nivel >= 3

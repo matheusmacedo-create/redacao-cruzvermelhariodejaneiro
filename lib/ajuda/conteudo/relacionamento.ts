@@ -177,7 +177,7 @@ const NEWSLETTER: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'A pessoa se inscreveu, mas o convite não chegou. E agora?',
-      resposta: 'Peça que ela olhe o spam e, na linha dela (filtro “Aguardando”), toque em “Reenviar”, que manda um link novo. Quem se inscreve várias vezes seguidas pelo site só recebe um convite novo depois de 5 minutos.\n\nSe o cartão “Envio” mostra “Sem chave do Resend”, nenhum e-mail sai, e o convite não sai sozinho depois. Quando um administrador configurar o envio, o botão “Reenviar … convites” desse cartão manda o convite a quem ficou aguardando.',
+      resposta: 'Peça que ela olhe o spam e, na linha dela (filtro “Aguardando”), toque em “Reenviar”, que manda um link novo. Quem se inscreve várias vezes seguidas pelo site só recebe um convite novo depois de 30 minutos.\n\nSe o cartão “Envio” mostra “Sem chave do Resend”, nenhum e-mail sai, e o convite não sai sozinho depois. Quando um administrador configurar o envio, o botão “Reenviar … convites” desse cartão manda o convite a quem ficou aguardando.',
       termos: ['não recebeu', 'convite', 'spam', 'confirmação', 'e-mail não chega'],
     },
     {

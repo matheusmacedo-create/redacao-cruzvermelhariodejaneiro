@@ -96,7 +96,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
     p.categoria_id ? admin.from('fin_categorias').select('nome').eq('id', p.categoria_id).maybeSingle() : Promise.resolve({ data: null }),
     p.fonte_id ? admin.from('fin_fontes').select('nome,restrita').eq('id', p.fonte_id).maybeSingle() : Promise.resolve({ data: null }),
     podeCotar ? supabase.from('fin_favorecidos').select('id,nome,email').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).order('nome').limit(5000) : Promise.resolve({ data: [] as { id: string; nome: string; email: string | null }[] }),
-    nivel >= 1 && p.categoria_id ? verbaDaCategoria(supabase, context.workspace.id, p.entidade_id, p.categoria_id, new Date().toISOString().slice(0, 7), p.id) : Promise.resolve(null),
+    nivel >= 1 && p.categoria_id ? verbaDaCategoria(supabase, context.workspace.id, p.entidade_id, p.categoria_id, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()).slice(0, 7), p.id) : Promise.resolve(null),
     podeEnviar || podeCotar ? caixasQuePodeUsar(context) : Promise.resolve([]),
     podeLancar ? supabase.from('fin_contas').select('id,nome').eq('workspace_id', context.workspace.id).eq('entidade_id', p.entidade_id).eq('ativa', true).order('nome') : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
     p.lancamento_id ? supabase.from('fin_lancamentos').select('id,descricao').eq('id', p.lancamento_id).maybeSingle() : Promise.resolve({ data: null }),

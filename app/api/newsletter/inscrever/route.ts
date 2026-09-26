@@ -145,7 +145,10 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
 
   // Defesa 2: limite por IP, contado no banco — o único lugar onde a contagem
-  // é compartilhada entre as instâncias da função.
+  // é compartilhada entre as instâncias da função. Conta por updated_at (o
+  // gatilho newsletter_inscritos_touch o atualiza): o reenvio de um endereço
+  // que já existe também gasta a cota — senão bastava repetir o mesmo e-mail
+  // para mandar convites sem limite.
   let inscricoesDoIpNaHora = 0
   if (ip) {
     const desde = new Date(Date.now() - 3600_000).toISOString()
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('workspace_id', espaco.id)
       .eq('consentimento_ip', ip)
-      .gte('created_at', desde)
+      .gte('updated_at', desde)
     inscricoesDoIpNaHora = count ?? 0
   }
 

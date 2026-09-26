@@ -91,7 +91,7 @@ export function Contas({ c, saldos, pode }: { c: Cadastros; saldos: Record<strin
             <Campo rotulo="Conta"><input name="numero" maxLength={30} defaultValue={x?.numero ?? ''} className={inputClass} /></Campo>
           </div>
           <Campo rotulo="Saldo inicial" ajuda="O saldo do extrato no dia abaixo. Negativo com sinal de menos."><input name="saldo_inicial" inputMode="decimal" defaultValue={valorNoCampo(x?.saldo_inicial ?? 0)} className={inputClass} /></Campo>
-          <Campo rotulo="Em"><input type="date" name="saldo_inicial_em" required defaultValue={x?.saldo_inicial_em ?? new Date().toISOString().slice(0, 10)} className={inputClass} /></Campo>
+          <Campo rotulo="Em"><input type="date" name="saldo_inicial_em" required defaultValue={x?.saldo_inicial_em ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())} className={inputClass} /></Campo>
           <Campo rotulo="Fonte padrão" ajuda="Conta exclusiva de convênio? Escolha a fonte dele: os lançamentos nela já vêm com essa fonte." largo>
             <select name="fonte_id" defaultValue={x?.fonte_id ?? ''} className={inputClass}><option value="">Nenhuma</option>{c.fontes.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select>
           </Campo>
