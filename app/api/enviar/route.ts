@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { dadosDaRequisicao } from '@/lib/acessos/agente'
 import { lerArquivos, lerEnvio, TEMPO_MINIMO_MS } from '@/lib/envios/regras'
 import { conferirLimites, espacoPrincipal, hashDaOrigem, hashDoToken, novoToken, prepararArquivos } from '@/lib/envios/servidor'
+import { eventoPeloCodigo } from '@/lib/envios/eventos'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,12 +45,16 @@ export async function POST(request: Request) {
     const limite = await conferirLimites(admin, ipHash, arquivos.reduce((s, a) => s + a.tamanho, 0), true)
     if (limite) return responder(429, { erro: limite })
 
+    // Veio pelo link de um evento (/enviar/<codigo>): o envio já cai no álbum dele. Link encerrado
+    // ou código estranho não derruba o envio: ele chega avulso, e quem avalia junta depois.
+    const evento = typeof j.evento === 'string' ? await eventoPeloCodigo(j.evento, admin) : null
     const token = novoToken()
     const { data: envio, error } = await admin.from('envios').insert({
       workspace_id: workspaceId, ...dados, token_hash: hashDoToken(token), ip_hash: ipHash, user_agent: requisicao.userAgent,
+      ...(evento && evento.workspace_id === workspaceId ? { evento_id: evento.id } : {}),
       // Só texto, sem arquivo: já nasce pronto para avaliar.
       ...(arquivos.length ? {} : { estado: 'novo', concluido_em: new Date().toISOString() }),
-    }).select('id, workspace_id, protocolo').single()
+    }).select('id, workspace_id, protocolo, titulo, data_da_acao, nome').single()
     if (error || !envio) {
       console.error('[envios] envio não criado:', error?.message)
       return responder(500, { erro: 'Não foi possível registrar o envio agora. Tente de novo em instantes.' })

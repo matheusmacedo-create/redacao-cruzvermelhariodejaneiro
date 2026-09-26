@@ -213,3 +213,49 @@ essencial. Quem quer mandar só três fotos e uma frase termina em 30 segundos.
 11. Bynder, envio externo sem login e sala de espera — [Bynder Support](https://support.bynder.com/hc/en-us/articles/360013931459-Upload-Assets-As-An-External-User-External-Uploader); Brandfolder — [Brandfolder](https://brandfolder.com/resources/external-partner-collaboration/)
 12. WhatsApp *tiplines* em redações — [Meedan](https://meedan.com/programs/whatsapp-3pfc), [Poynter](https://www.poynter.org/reporting-editing/2019/here-comes-a-tool-approved-by-whatsapp-to-automate-the-distribution-of-fact-checks/)
 - Limites de upload do Vercel Blob (contexto da cota da Biblioteca) — [Vercel](https://vercel.com/docs/vercel-blob/client-upload)
+
+## 9. Álbum do evento (26/09/2026)
+
+**O problema.** Um evento de rua com 10 voluntários fotografando: cada um manda as suas fotos, a ação
+vira matéria e post, e depois todo mundo quer ver (e baixar) as fotos de todos.
+
+**Decisões do Matheus (26/09):**
+
+1. O álbum abre por **link secreto, sem login**. Ninguém da equipe de voluntários precisa de conta.
+2. As fotos entram no álbum **na hora** em que chegam; quem avalia **esconde** o que não deve aparecer.
+3. Baixar **uma a uma** ou **tudo num .zip**.
+4. Só quem avalia os envios (`envios_avaliadores`) cria eventos.
+5. Os arquivos ganham **nome bom para SEO e para o acervo** desde a chegada.
+
+**Como funciona.**
+
+- `envio_eventos` guarda o evento: nome, data, local, o `codigo` do link de envio (10 letras,
+  `/enviar/<codigo>`, liga e desliga com `envio_aberto`) e o `album_token` do álbum (32 caracteres,
+  `/album/<token>`; `null` = desligado; religar gera outro token, e o link antigo para de abrir).
+  RLS só de leitura para quem avalia; as escritas passam por `app/actions/eventos.ts` com o cliente
+  de serviço, depois de conferir `envios_avaliadores`.
+- `envios.evento_id` liga o envio ao evento. Quem manda por `/enviar/<codigo>` já chega com o
+  evento, o título e o local preenchidos; um envio avulso pode ser juntado ao evento na tela dele.
+- `envio_arquivos.oculto_no_album` esconde do álbum e do .zip, sem tirar do envio.
+- **Miniatura.** O celular gera, antes de mandar, uma miniatura JPEG de 640 px
+  (`components/enviar/envio.ts`) e sobe em `entrada/envios/AAAA-MM/<envio>/mini/<sufixo>.jpg`. O
+  servidor confere o tamanho no R2 (até 1 MB) antes de gravar `envio_arquivos.miniatura`. Sem
+  miniatura (arquivo antigo ou falha), o álbum mostra o original.
+- **Álbum público.** `app/album/[token]` (noindex, sem referrer) lista fotos e vídeos recebidos e não
+  escondidos, com filtro por pessoa e visualização em tela cheia. Cada arquivo passa por
+  `/api/publico/album/<token>/<arquivo>?tipo=mini|ver|baixar`, que confere o token e redireciona
+  para um link assinado do R2 de 10 minutos. Nada é público no bucket.
+- **.zip.** `/api/publico/album/<token>/zip` monta o .zip em fluxo (`client-zip`), lendo cada arquivo
+  do R2 na hora; `?so=fotos` deixa os vídeos de fora. Limites: 800 arquivos e 4 GB (acima disso a rota
+  responde 413 e a tela não mostra o botão; as fotos continuam baixando uma a uma).
+- **Nome canônico** (`nomeCanonico`, `lib/envios/regras.ts`):
+  `AAAA-MM-DD-<assunto>-<autor>-NNN.ext`, por exemplo
+  `2026-09-26-acao-de-prevencao-na-central-ana-souza-003.jpg`. A data é a da ação (ou a do dia), o
+  assunto é o título do envio (até 60 caracteres), o autor é o primeiro e o último nome, e o número
+  segue a ordem dos arquivos no envio. O nome vai na chave do R2 (depois do sufixo de 8 caracteres,
+  que garante chave única), no download, no .zip e na Biblioteca (`files.name`); o nome do celular
+  fica em `envio_arquivos.nome` e `files.original_name`. Arquivos que chegaram antes disso mantêm o
+  nome antigo na chave.
+- Quem pediu aviso de publicação recebe, no mesmo e-mail, o link do álbum se ele estiver ligado.
+
+Conferência: `npx tsx scripts/conferir-album.ts`.

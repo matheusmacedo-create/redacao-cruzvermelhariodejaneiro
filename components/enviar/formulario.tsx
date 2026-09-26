@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, Check, CheckCircle2, FileText, Image as ImageIcon, Loader2, MapPin, Mic, Paperclip, RotateCcw, Video, X } from 'lucide-react'
+import { Camera, Check, CheckCircle2, FileText, Image as ImageIcon, Images, Loader2, MapPin, Mic, Paperclip, RotateCcw, Video, X } from 'lucide-react'
 import { areaDoMembro, botaoDoMembro, botaoFantasma, botaoSecundario, campoDoMembro } from '@/components/membro/marca'
 import { Recado } from '@/components/membro/pecas'
 import { cn } from '@/lib/utils'
@@ -35,11 +35,16 @@ function Campo({ id, rotulo, dica, obrigatorio, children }: { id: string; rotulo
 /** O termo que as pessoas das fotos assinam (lib/imagem/termo.ts), vindo da página: aquele módulo usa node:crypto. */
 export type TermoDeImagem = { titulo: string; versao: string; paragrafos: readonly string[] }
 
-export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; setores: string[]; termo: TermoDeImagem }) {
+/** O evento, quando a pessoa chegou pelo link dele (/enviar/<codigo>): o envio já cai no álbum. */
+export type EventoDoEnvio = { codigo: string; nome: string; data: string | null; local: string | null; album: string | null }
+
+export function FormularioDeEnvio({ hoje, setores, termo, evento }: { hoje: string; setores: string[]; termo: TermoDeImagem; evento?: EventoDoEnvio }) {
+  // Pelo link do evento, a ação já vem preenchida com o nome, a data e o local dele (dá para mudar).
+  const acaoInicial = { titulo: evento?.nome ?? '', data: evento?.data && evento.data <= hoje ? evento.data : hoje, local: evento?.local ?? '', pessoas: '', parceiros: '' }
   const [passo, setPasso] = useState(0)
   const [quem, setQuem] = useState<Quem>({ nome: '', setor: '', whatsapp: '', email: '' })
   const [avisar, setAvisar] = useState(true)
-  const [acao, setAcao] = useState({ titulo: '', data: hoje, local: '', pessoas: '', parceiros: '' })
+  const [acao, setAcao] = useState(acaoInicial)
   const [coordenadas, setCoordenadas] = useState<{ latitude: number; longitude: number; precisao: number } | null>(null)
   const [buscandoLocal, setBuscandoLocal] = useState(false)
   const [relato, setRelato] = useState('')
@@ -137,11 +142,11 @@ export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; seto
           nome: quem.nome, setor: quem.setor, whatsapp: quem.whatsapp, email: quem.email, avisar_quando_publicar: avisar,
           titulo: acao.titulo, data_da_acao: acao.data, local: acao.local, pessoas_atendidas: acao.pessoas, parceiros: acao.parceiros,
           latitude: coordenadas?.latitude, longitude: coordenadas?.longitude,
-          relato, autorizacao_imagem: autorizacao,
+          relato, autorizacao_imagem: autorizacao, evento: evento?.codigo,
           arquivos: escolhidos.map((e) => ({ nome: e.arquivo.name, tipo: e.arquivo.type, tamanho: e.arquivo.size, gravadoNaHora: e.gravadoNaHora })),
         }),
       })
-      const j = await r.json().catch(() => ({})) as { erro?: string; id?: string; token?: string; protocolo?: string; uploads?: { id: string; url: string }[]; concluido?: boolean }
+      const j = await r.json().catch(() => ({})) as { erro?: string; id?: string; token?: string; protocolo?: string; uploads?: Par['upload'][]; concluido?: boolean }
       if (!r.ok || !j.protocolo) throw new Error(j.erro ?? 'Não foi possível enviar agora. Tente de novo.')
       if (!j.id || !j.token) { setFase('pronto'); setEnviado({ id: '', token: '', protocolo: j.protocolo, pares: [] }); return }
       const pares: Par[] = (j.uploads ?? []).map((u, i) => ({ upload: u, arquivo: escolhidos[i].arquivo }))
@@ -171,7 +176,7 @@ export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; seto
     setErro(''); setMaisOcupado(true)
     try {
       const j = await acaoDoEnvio(enviado.id, { token: enviado.token, acao: 'arquivos', arquivos: arquivos.map((a) => ({ nome: a.name, tipo: a.type, tamanho: a.size })) })
-      const pares: Par[] = ((j.uploads ?? []) as { id: string; url: string }[]).map((u, i) => ({ upload: u, arquivo: arquivos[i] }))
+      const pares: Par[] = ((j.uploads ?? []) as Par['upload'][]).map((u, i) => ({ upload: u, arquivo: arquivos[i] }))
       setEnviado((atual) => atual ? { ...atual, pares: [...atual.pares, ...pares] } : atual)
       setProgresso((atual) => ({ ...atual, ...Object.fromEntries(pares.map((p) => [p.upload.id, { enviado: 0, total: p.arquivo.size, estado: 'esperando' as const }])) }))
       await enviarTodos(enviado.id, enviado.token, pares, (id, p) => setProgresso((atual) => ({ ...atual, [id]: { ...atual[id], ...p } })))
@@ -182,7 +187,7 @@ export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; seto
   }
 
   function novoEnvio() {
-    setPasso(1); setAcao({ titulo: '', data: hoje, local: '', pessoas: '', parceiros: '' }); setCoordenadas(null); setRelato('')
+    setPasso(1); setAcao(acaoInicial); setCoordenadas(null); setRelato('')
     setEscolhidos([]); setAutorizacao(''); setErro(''); setFase('preenchendo'); setProgresso({}); setEnviado(null)
     inicio.current = Date.now()
     topo.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -246,6 +251,12 @@ export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; seto
           <ColherAutorizacoes envioId={enviado.id} token={enviado.token} titulo={acao.titulo} temMenores={autorizacao === 'menores'} />
         )}
 
+        {fase === 'pronto' && evento?.album && (
+          <a href={evento.album} className={cn(botaoSecundario, 'justify-center')}>
+            <Images className="size-4" aria-hidden="true" />Ver o álbum do evento, com as fotos de todo mundo
+          </a>
+        )}
+
         {fase === 'pronto' && (
           <div className="flex flex-col gap-2 sm:flex-row">
             {enviado?.id && (
@@ -265,6 +276,13 @@ export function FormularioDeEnvio({ hoje, setores, termo }: { hoje: string; seto
 
   return (
     <div ref={topo} className="flex scroll-mt-4 flex-col gap-5">
+      {evento && (
+        <p className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm">
+          <Images className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span>Você está mandando para o evento <strong>{evento.nome}</strong>. As suas fotos entram no álbum dele, junto com as de todo mundo.</span>
+        </p>
+      )}
+
       <ol className="grid grid-cols-4 gap-1.5" aria-label="Etapas">
         {PASSOS.map((nome, i) => (
           <li key={nome} aria-current={i === passo ? 'step' : undefined} className="flex flex-col gap-1">

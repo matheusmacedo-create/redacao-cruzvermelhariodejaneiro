@@ -7,7 +7,7 @@
 
 export type EstadoDoArquivo = 'esperando' | 'enviando' | 'conferindo' | 'pronto' | 'falhou'
 export type Progresso = { enviado: number; total: number; estado: EstadoDoArquivo; erro?: string }
-export type Par = { upload: { id: string; url: string }; arquivo: File }
+export type Par = { upload: { id: string; url: string; miniatura?: string }; arquivo: File }
 
 const TENTATIVAS = 4
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -25,6 +25,41 @@ function subir(url: string, arquivo: File, aoProgredir: (enviado: number) => voi
   })
 }
 
+/** Lado maior da miniatura (o mesmo de lib/envios/album.ts, que o servidor confere). */
+const LADO = 640
+
+/**
+ * A miniatura da foto, feita no próprio celular (JPEG de até 640 px). É o
+ * que faz o álbum do evento abrir leve com dezenas de fotos. Qualquer falha
+ * (formato que o navegador não abre, pouca memória) só deixa sem miniatura.
+ */
+async function miniaturaDe(arquivo: File): Promise<Blob | null> {
+  try {
+    const imagem = await createImageBitmap(arquivo, { imageOrientation: 'from-image' })
+    const escala = Math.min(1, LADO / Math.max(imagem.width, imagem.height))
+    const tela = document.createElement('canvas')
+    tela.width = Math.max(1, Math.round(imagem.width * escala))
+    tela.height = Math.max(1, Math.round(imagem.height * escala))
+    tela.getContext('2d')?.drawImage(imagem, 0, 0, tela.width, tela.height)
+    imagem.close()
+    return await new Promise((resolver) => tela.toBlob((b) => resolver(b), 'image/jpeg', 0.78))
+  } catch {
+    return null
+  }
+}
+
+/** Manda a miniatura (uma tentativa só: é um extra). Devolve true se subiu. */
+async function subirMiniatura(url: string, arquivo: File): Promise<boolean> {
+  const mini = await miniaturaDe(arquivo)
+  if (!mini) return false
+  try {
+    const r = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: mini })
+    return r.ok
+  } catch {
+    return false
+  }
+}
+
 export async function acaoDoEnvio(envioId: string, corpo: Record<string, unknown>): Promise<Record<string, unknown>> {
   const r = await fetch(`/api/enviar/${envioId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })
   const j = await r.json().catch(() => ({})) as Record<string, unknown>
@@ -39,7 +74,8 @@ export async function enviarUm(envioId: string, token: string, par: Par, aoMudar
       aoMudar({ estado: 'enviando', enviado: 0, erro: undefined })
       await subir(par.upload.url, par.arquivo, (enviado) => aoMudar({ enviado }))
       aoMudar({ estado: 'conferindo', enviado: par.arquivo.size })
-      await acaoDoEnvio(envioId, { token, acao: 'recebido', arquivoId: par.upload.id })
+      const miniatura = par.upload.miniatura ? await subirMiniatura(par.upload.miniatura, par.arquivo) : false
+      await acaoDoEnvio(envioId, { token, acao: 'recebido', arquivoId: par.upload.id, miniatura })
       aoMudar({ estado: 'pronto' })
       return true
     } catch (causa) {

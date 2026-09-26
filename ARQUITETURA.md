@@ -769,6 +769,11 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
   e copia para a Biblioteca só o que foi marcado.
 - Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
   `publicarMateria`).
+- **Álbum do evento** (`docs/envio-de-acoes.md` §9): `envio_eventos` dá a cada evento um link de
+  envio (`/enviar/<codigo>`) e um álbum por link secreto (`/album/<token>`, sem login), com .zip em
+  fluxo e "Esconder do álbum". Os arquivos são servidos por `/api/publico/album/...`, que confere o
+  token e redireciona para um link assinado curto do R2. Os arquivos chegam com nome canônico
+  (`AAAA-MM-DD-assunto-autor-NNN.ext`, `nomeCanonico`) e o celular manda uma miniatura de 640 px.
 
 ### 7.15 Ajuda (boas-vindas, tours, painel e Central)
 
