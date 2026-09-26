@@ -652,7 +652,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       alvo: 'envios.link',
       titulo: 'O link e o QR code',
-      texto: '“Copiar link” copia o endereço para você colar no grupo da equipe; “Baixar QR code” baixa a imagem para imprimir no cartaz da ação. Qualquer pessoa com o link consegue mandar.',
+      texto: '“Copiar link” copia o endereço para colar no grupo da equipe; “Cartaz para imprimir” abre um cartaz A4 com a nossa marca e o QR code, para a ação. Qualquer pessoa com o link consegue mandar.',
       lado: 'bottom',
     },
     {
@@ -721,7 +721,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       passos: [
         'Abra “Envios da equipe”, no grupo Comunicação do menu.',
         'No quadro “Link para a equipe mandar ações”, toque em “Copiar link” e cole o endereço no grupo da equipe.',
-        'Para o cartaz da ação, toque em “Baixar QR code” e imprima a imagem.',
+        'Para a ação, toque em “Cartaz para imprimir” e depois em “Imprimir ou salvar PDF” (o PDF serve para mandar no grupo). Se preferir só o código, “Baixar QR code” baixa a imagem.',
         'Quem abre o link ou lê o QR code cai na tela “Mandar uma ação” e manda, sem login, em quatro passos.',
       ],
       dica: 'O link é aberto: qualquer pessoa com ele consegue mandar. Nada do que chega é publicado sozinho: só vira pauta pelas mãos de quem avalia.',
