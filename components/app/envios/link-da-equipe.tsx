@@ -15,7 +15,7 @@ export function LinkDaEquipe({ url, qr }: { url: string; qr: string }) {
       <img src={qr} alt={`QR code para ${url}`} width={112} height={112} className="size-28 shrink-0 rounded-md border border-border bg-white p-1" />
       <div className="flex min-w-0 flex-col gap-2">
         <p className="text-sm font-semibold">Link para a equipe mandar ações</p>
-        <p className="text-sm text-muted-foreground">Qualquer pessoa com o link manda fotos, vídeos, áudios e o relato — sem login. Imprima o cartaz com a nossa marca para a ação, ou mande o link no grupo da equipe.</p>
+        <p className="text-sm text-muted-foreground">Qualquer pessoa com o link manda fotos, vídeos, áudios e o relato — sem login. Monte o cartaz com a nossa marca (A4 para imprimir, story, post do feed ou quadrado), ou mande o link no grupo da equipe.</p>
         <div className="flex flex-wrap items-center gap-2">
           <code className="min-w-0 break-all rounded bg-muted px-2 py-1 text-xs">{url}</code>
           <button type="button" onClick={copiar} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium hover:bg-muted">
@@ -25,7 +25,7 @@ export function LinkDaEquipe({ url, qr }: { url: string; qr: string }) {
             <Download className="size-3.5" aria-hidden="true" />Baixar QR code
           </a>
           <Link href="/envios/cartaz" className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-            <Printer className="size-3.5" aria-hidden="true" />Cartaz para imprimir
+            <Printer className="size-3.5" aria-hidden="true" />Cartazes e artes
           </Link>
         </div>
       </div>

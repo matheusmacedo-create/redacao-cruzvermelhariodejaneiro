@@ -853,6 +853,12 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
   fluxo e "Esconder do álbum". Os arquivos são servidos por `/api/publico/album/...`, que confere o
   token e redireciona para um link assinado curto do R2. Os arquivos chegam com nome canônico
   (`AAAA-MM-DD-assunto-autor-NNN.ext`, `nomeCanonico`) e o celular manda uma miniatura de 640 px.
+- **Cartaz do link** (`/envios/cartaz`): 4 formatos (A4, story, feed, quadrado), 3 modelos
+  (Clássico, Destaque, Faixa), 4 chamadas e o nome da ação opcional, tudo na URL
+  (`lib/envios/cartaz.ts`). O desenho é um só (`components/envios/cartaz.tsx`, só flexbox e estilo
+  inline): a página mostra e imprime o A4, e `/api/envios/cartaz` gera o PNG com o `next/og`
+  (fontes de `lib/pdf/fontes`, em `outputFileTracingIncludes`). Sempre com o nome completo da
+  filial. Conferência: `npx tsx scripts/conferir-cartaz.ts`.
 
 ### 7.15 Ajuda (boas-vindas, tours, painel e Central)
 

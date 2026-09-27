@@ -694,7 +694,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       alvo: 'envios.link',
       titulo: 'O link e o QR code',
-      texto: '“Copiar link” copia o endereço para colar no grupo da equipe; “Cartaz para imprimir” abre um cartaz A4 com a nossa marca e o QR code, para a ação. Qualquer pessoa com o link consegue mandar.',
+      texto: '“Copiar link” copia o endereço para colar no grupo da equipe; “Cartazes e artes” monta o cartaz com a nossa marca e o QR code: A4 para imprimir, story, post do feed ou quadrado, em três modelos (Clássico, Destaque e Faixa), com a chamada que você escolher e, se quiser, o nome da ação. O A4 imprime ou vira PDF; todos baixam em PNG. Qualquer pessoa com o link consegue mandar.',
       lado: 'bottom',
     },
     {
@@ -817,7 +817,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
     {
       id: 'divulgar-o-link',
       titulo: 'Divulgar o link para a equipe',
-      exemplo: 'Na véspera do plantão de verão na praia de Copacabana, a Carla cola o link no grupo dos voluntários e imprime o cartaz com o QR code para a barraca.',
+      exemplo: 'Na véspera do plantão de verão na praia de Copacabana, a Carla cola o link no grupo dos voluntários imprime o cartaz A4 com o nome do plantão para a barraca e posta o story com o mesmo QR.',
       passos: [
         'Abra “Envios da equipe”, no grupo Mídia do menu.',
         'No quadro “Link para a equipe mandar ações”, toque em “Copiar link” e cole o endereço no grupo da equipe.',
