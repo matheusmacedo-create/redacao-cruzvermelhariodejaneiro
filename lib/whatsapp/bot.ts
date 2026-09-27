@@ -12,8 +12,12 @@ import { registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
+  avisoCitado, comecarChamado, guardarPendencia, marcarPergunta, pendenciaAberta, responderAoAviso, seguirPendencia, type Pendencia, type Pessoa,
+  type Resposta,
+} from './acoes'
+import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_PAUSADO, TEXTO_VOLTOU, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
+  TEXTO_PAUSADO, TEXTO_VOLTOU, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
   textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
@@ -43,8 +47,24 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedido = pessoa ? lerPedido(m.texto, { pausado }) : null
     const comando = pedido?.comando ?? 'apresentacao'
 
+    // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
+    const aviso = pessoa && m.citada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
+    // Ou respondeu a uma pergunta do bot (a conferência antes de aprovar, os passos do chamado).
+    let pendencia: Pendencia | null = null
+    let estrita = false
+    if (pessoa && !aviso) {
+      if (m.citada) {
+        pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
+        estrita = Boolean(pendencia)
+      }
+      pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
+    }
+    // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
+    const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto) || ehCancelamento(m.texto))
+
     const nova = await registrar(admin, {
-      workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando,
+      workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
+      comando: aviso ? 'responder_aviso' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
     })
     if (!nova) return
 
@@ -62,6 +82,40 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
         .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', umDia)
       if ((count ?? 0) > 0) return
       await responder(textoDaApresentacao({ urlBase: base, site: ORIGEM_DO_SITE }))
+      return
+    }
+
+    // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
+    const enviar = async (r: Resposta) => {
+      if (!r.pergunta) {
+        await responder(r.texto)
+        return
+      }
+      const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
+      if (!id) {
+        const onde = r.pergunta.tipo === 'aprovar' ? `/aprovacoes/${String(r.pergunta.dados.approvalId ?? '')}` : '/chamados/novo'
+        await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${onde}`)
+        return
+      }
+      const entrega = await responder(r.texto)
+      if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
+    }
+
+    if (aviso) {
+      await enviar(await responderAoAviso(admin, workspaceId, pessoa, aviso.link, m.texto, base))
+      return
+    }
+
+    if (pendencia && paraPendencia) {
+      const resposta = await seguirPendencia(admin, workspaceId, pessoa, pendencia, m.texto, base, estrita)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
+    if (comando === 'abrir_chamado' && pedido) {
+      await enviar(await comecarChamado(admin, workspaceId, pessoa, pedido.resto, base))
       return
     }
 
@@ -119,8 +173,6 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
   }
 }
-
-type Pessoa = { id: string; nome: string | null; papel: Papel }
 
 /** A pessoa ativa, membro deste espaço; null para o resto (conta desativada vira "número desconhecido"). */
 async function pessoaDoEspaco(admin: Admin, workspaceId: string, userId: string): Promise<Pessoa | null> {

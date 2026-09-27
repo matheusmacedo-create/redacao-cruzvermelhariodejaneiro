@@ -1124,8 +1124,14 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.',
-      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'aprovação pelo whatsapp', 'dúvida pelo whatsapp'],
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você confirma com “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto e o quanto atrapalha.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.',
+      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'aprovação pelo whatsapp', 'dúvida pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp'],
+    },
+    {
+      id: 'whatsapp-com-verificacao',
+      pergunta: 'Por que o WhatsApp não me deixa responder nem votar?',
+      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp só consulta: avisos, agenda, chamados, aprovações e dúvidas. Responder, votar e abrir chamado ficam no Palácio.',
+      termos: ['verificação em duas etapas', 'não deixa responder', 'não consigo votar pelo whatsapp', '2fa whatsapp'],
     },
     {
       id: 'perfil-publico',

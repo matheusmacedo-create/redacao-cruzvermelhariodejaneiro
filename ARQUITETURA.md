@@ -1465,8 +1465,23 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   hora e atende depois (`after`); `whatsapp_mensagens` tem trava por id da mensagem, então nada é
   respondido duas vezes. O registro guarda só o comando reconhecido, nunca o texto recebido.
 - **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
-  pausa ou retoma. Número desconhecido recebe uma apresentação, no máximo uma vez por dia. Teto de 6
-  respostas a cada 10 min por número (um robô do outro lado não vira conversa infinita).
+  pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
+  `5` chamados abertos (que a pessoa abriu ou estão com ela), `6` aprovações esperando o voto dela,
+  `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
+  achados com esforço baixo, e sem chave vão os trechos). Número desconhecido recebe uma
+  apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
+  do outro lado não vira conversa infinita).
+- **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
+  link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
+  saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
+  do setor e só vota depois de `confirmo`; `ajustes: …` vota na hora. `chamado: …` abre chamado
+  perguntando equipe, assunto, local (se pedir) e urgência. As perguntas em aberto ficam em
+  `whatsapp_pendencias` (15 min). Tudo passa pelas mesmas regras da tela: `lib/chamados/nucleo.ts`,
+  `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
+  pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
+  `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
+  usa (ou é obrigado a usar) a verificação em duas etapas só consulta pelo WhatsApp: o servidor
+  confere antes (`podeAgirPeloWhatsapp`) e o banco recusa de novo.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre

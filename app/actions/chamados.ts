@@ -4,15 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { datasDeFeriado } from '@/lib/apis-publicas/servidor'
 import {
-  ehNivel, ehStatus, efeitosDaMudanca, podeMudar, podeReabrir, prazos, prioridade, ROTULO_DA_PRIORIDADE,
+  ehNivel, ehStatus, podeMudar, podeReabrir, prazos, prioridade, ROTULO_DA_PRIORIDADE,
   ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, slaDaFila, PRIORIDADES, ENCERRADOS, type Status,
 } from '@/lib/chamados/regras'
 import {
-  avisarSobreChamado, carregarChamado, equipeDaFila, filasQueAtendo, lerAnexos, papeisNoChamado, registrarAnexos,
-  setoresParaChamados, type ChamadoCarregado,
+  avisarSobreChamado, carregarChamado, equipeDaFila, filasQueAtendo, lerAnexos, papeisNoChamado, setoresParaChamados,
 } from '@/lib/chamados/servidor'
+import { comentarNoChamado, criarChamado, evento, feriadosPerto, patchDeStatus } from '@/lib/chamados/nucleo'
 import { ehIconeDeFila, propostasDeFila } from '@/lib/chamados/setores'
 
 /**
@@ -34,10 +33,6 @@ function revalidar(id?: string) {
   if (id) revalidatePath(`/chamados/${id}`)
 }
 
-async function evento(admin: Admin, c: { workspace_id: string; id: string }, autorId: string | null, dados: Record<string, unknown>, textoDoEvento?: string | null) {
-  await admin.from('chamado_interacoes').insert({ workspace_id: c.workspace_id, chamado_id: c.id, autor_id: autorId, tipo: 'evento', texto: textoDoEvento ?? null, dados })
-}
-
 /** Carrega o chamado e diz o papel de quem pede. Sem papel, "não encontrado". */
 async function contextoDoChamado(formData: FormData) {
   const context = await requireWorkspace()
@@ -56,59 +51,19 @@ export async function abrirChamado(formData: FormData): Promise<Resultado> {
   try {
     const context = await requireWorkspace()
     const admin = createAdminClient()
-    const filaId = texto(formData, 'filaId', 60)
-    const { data: fila } = await admin.from('chamado_filas').select('id, nome, ativa, sla, atendimento_24h')
-      .eq('workspace_id', context.workspace.id).eq('id', filaId).maybeSingle()
-    if (!fila || !fila.ativa) throw new Error('Escolha para qual equipe é o chamado.')
-    const { data: categoria } = await admin.from('chamado_categorias').select('id, nome, tipo, pede_local, ativa')
-      .eq('fila_id', fila.id).eq('id', texto(formData, 'categoriaId', 60)).maybeSingle()
-    if (!categoria || !categoria.ativa) throw new Error('Escolha o assunto do chamado.')
-
-    const titulo = texto(formData, 'titulo', 140).replace(/\s+/g, ' ')
-    const descricao = texto(formData, 'descricao')
-    const local = texto(formData, 'local', 140) || null
-    const urgencia = Number(formData.get('urgencia'))
-    if (titulo.length < 3) throw new Error('Resuma o problema no título (pelo menos 3 letras).')
-    if (descricao.length < 5) throw new Error('Descreva o que está acontecendo.')
-    if (!ehNivel(urgencia)) throw new Error('Diga o quanto isso atrapalha.')
-    if (categoria.pede_local && !local) throw new Error('Informe o local (sala, andar ou setor).')
-
-    const impacto = 1 as const
-    const p = prioridade(urgencia, impacto)
-    const agora = new Date()
-    const prazo = prazos(agora, p, slaDaFila(fila.sla), fila.atendimento_24h, 0, await feriadosPerto(agora))
     const membro = context.memberships.find((m: { workspaces: unknown }) => {
       const w = Array.isArray(m.workspaces) ? m.workspaces[0] : m.workspaces
       return (w as { id?: string } | null)?.id === context.workspace.id
     }) as { coordination?: string | null } | undefined
-
-    const { data: criado, error } = await admin.from('chamados').insert({
-      workspace_id: context.workspace.id, fila_id: fila.id, categoria_id: categoria.id,
-      // numero e codigo são do gatilho de numeração; estes valores são descartados.
-      numero: 0, codigo: '',
-      tipo: categoria.tipo, titulo, descricao, local, urgencia, impacto, prioridade: p,
-      solicitante_id: context.user.id, setor_solicitante: membro?.coordination ?? null,
-      prazo_resposta: prazo.resposta.toISOString(), prazo_solucao: prazo.solucao.toISOString(),
-    }).select('id, codigo, workspace_id').single()
-    if (error || !criado) throw new Error('Não foi possível abrir o chamado.')
-
-    await evento(admin, criado, context.user.id, { acao: 'aberto', prioridade: p })
-    let semAnexo = false
-    await registrarAnexos(admin, { workspaceId: context.workspace.id, chamadoId: criado.id, interacaoId: null, autorId: context.user.id, interno: false, anexos: lerAnexos(formData) })
-      .catch(async (causa) => {
-        // O chamado vale sem o anexo: melhor abrir e avisar do que perder o relato.
-        semAnexo = true
-        await evento(admin, criado, null, { acao: 'anexo_recusado' }, causa instanceof Error ? causa.message : null)
-      })
-
-    await avisarSobreChamado(admin, {
-      workspaceId: context.workspace.id, chamado: { id: criado.id, codigo: criado.codigo, titulo }, atorId: context.user.id,
-      para: await equipeDaFila(admin, context.workspace.id, fila.id),
-      titulo: 'Chamado novo', mensagem: `${context.profile?.full_name ?? 'Alguém'} abriu um chamado em ${fila.nome} (${categoria.nome}), prioridade ${ROTULO_DA_PRIORIDADE[p].toLowerCase()}.`,
-      citacao: descricao.slice(0, 600),
+    const criado = await criarChamado(admin, {
+      workspaceId: context.workspace.id,
+      autor: { id: context.user.id, nome: context.profile?.full_name ?? null, setor: membro?.coordination ?? null },
+      filaId: texto(formData, 'filaId', 60), categoriaId: texto(formData, 'categoriaId', 60),
+      titulo: texto(formData, 'titulo', 140), descricao: texto(formData, 'descricao'), local: texto(formData, 'local', 140) || null,
+      urgencia: Number(formData.get('urgencia')), anexos: lerAnexos(formData),
     })
     revalidar()
-    return { id: criado.id, recado: semAnexo ? `Chamado ${criado.codigo} aberto, mas o anexo não entrou. Mande o arquivo de novo na conversa do chamado.` : `Chamado ${criado.codigo} aberto.` }
+    return { id: criado.id, recado: criado.semAnexo ? `Chamado ${criado.codigo} aberto, mas o anexo não entrou. Mande o arquivo de novo na conversa do chamado.` : `Chamado ${criado.codigo} aberto.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível abrir o chamado.') }
   }
@@ -118,44 +73,12 @@ export async function abrirChamado(formData: FormData): Promise<Resultado> {
 
 export async function comentarChamado(formData: FormData): Promise<Resultado> {
   try {
-    const { context, admin, c, equipe, solicitante } = await contextoDoChamado(formData)
-    const corpo = texto(formData, 'texto')
-    const anexos = lerAnexos(formData)
+    const { context, admin, c, papeis } = await contextoDoChamado(formData)
     const interno = formData.get('interno') === '1'
-    if (!corpo && !anexos.length) throw new Error('Escreva a mensagem ou anexe um arquivo.')
-    if (interno && !equipe) throw new Error('Nota interna é só para a equipe que atende.')
-    if (ENCERRADOS.includes(c.status)) throw new Error('Este chamado está encerrado. Abra um novo, se precisar.')
-
-    const { data: interacao, error } = await admin.from('chamado_interacoes').insert({
-      workspace_id: c.workspace_id, chamado_id: c.id, autor_id: context.user.id, tipo: interno ? 'nota_interna' : 'comentario', texto: corpo || null,
-    }).select('id').single()
-    if (error || !interacao) throw new Error('Não foi possível enviar a mensagem.')
-    if (anexos.length) await registrarAnexos(admin, { workspaceId: c.workspace_id, chamadoId: c.id, interacaoId: interacao.id, autorId: context.user.id, interno, anexos })
-
-    const agora = new Date()
-    const patch: Record<string, unknown> = { atualizado_em: agora.toISOString() }
-    // A primeira resposta pública da equipe para o relógio de "1ª resposta".
-    if (equipe && !interno && !c.respondido_em && c.solicitante_id !== context.user.id) patch.respondido_em = agora.toISOString()
-    // Quem abriu respondeu o que a equipe pediu: o chamado volta para a equipe.
-    let voltou = false
-    if (solicitante && !equipe && c.status === 'aguardando_solicitante') {
-      Object.assign(patch, await patchDeStatus(c, 'em_atendimento', agora, false))
-      voltou = true
-    }
-    const { error: erroDoPatch } = await admin.from('chamados').update(patch).eq('id', c.id)
-    // A mensagem já foi; se o relógio ou a volta do status falharem, fica no log.
-    if (erroDoPatch) console.error('[chamados] comentário:', erroDoPatch.message)
-    if (voltou && !erroDoPatch) await evento(admin, c, context.user.id, { acao: 'status', de: c.status, para: 'em_atendimento', automatico: true })
-
-    if (!interno) {
-      const daEquipe = equipe && c.solicitante_id !== context.user.id
-      await avisarSobreChamado(admin, {
-        workspaceId: c.workspace_id, chamado: c, atorId: context.user.id,
-        para: daEquipe ? [c.solicitante_id] : c.responsavel_id ? [c.responsavel_id] : await equipeDaFila(admin, c.workspace_id, c.fila_id),
-        titulo: daEquipe ? 'Nova resposta da equipe' : 'Nova mensagem de quem abriu',
-        mensagem: `${context.profile?.full_name ?? 'Alguém'} escreveu no chamado.`, citacao: corpo || '(anexo)',
-      })
-    }
+    await comentarNoChamado(admin, {
+      c, papeis, autor: { id: context.user.id, nome: context.profile?.full_name ?? null },
+      texto: texto(formData, 'texto'), interno, anexos: lerAnexos(formData),
+    })
     revalidar(c.id)
     return { recado: interno ? 'Nota interna registrada.' : 'Mensagem enviada.' }
   } catch (causa) {
@@ -163,35 +86,7 @@ export async function comentarChamado(formData: FormData): Promise<Resultado> {
   }
 }
 
-/** Feriados do ano passado ao próximo: um chamado pode atravessar a virada. */
-async function feriadosPerto(agora = new Date()) {
-  const ano = agora.getFullYear()
-  return datasDeFeriado([ano - 1, ano, ano + 1])
-}
-
 // ------------------------------------------------------------------ status
-
-async function patchDeStatus(c: ChamadoCarregado, para: Status, agora: Date, porEquipe: boolean) {
-  const feriados = await feriadosPerto(agora)
-  const efeitos = efeitosDaMudanca({
-    status: c.status, pausadoDesde: c.pausado_desde ? new Date(c.pausado_desde) : null, minutosPausados: c.minutos_pausados,
-    respondidoEm: c.respondido_em ? new Date(c.respondido_em) : null, resolvidoEm: c.resolvido_em ? new Date(c.resolvido_em) : null, reaberturas: c.reaberturas,
-  }, para, agora, { porEquipe, vinteQuatroHoras: c.fila.atendimento24h, feriados })
-  const patch: Record<string, unknown> = { status: para, atualizado_em: agora.toISOString() }
-  if ('pausadoDesde' in efeitos) patch.pausado_desde = efeitos.pausadoDesde?.toISOString() ?? null
-  if ('respondidoEm' in efeitos) patch.respondido_em = efeitos.respondidoEm?.toISOString()
-  if ('resolvidoEm' in efeitos) patch.resolvido_em = efeitos.resolvidoEm?.toISOString() ?? null
-  if ('fechadoEm' in efeitos) patch.fechado_em = efeitos.fechadoEm?.toISOString() ?? null
-  if ('reaberturas' in efeitos) patch.reaberturas = efeitos.reaberturas
-  if ('minutosPausados' in efeitos) {
-    // Saiu da pausa: os prazos andam o tempo parado.
-    patch.minutos_pausados = efeitos.minutosPausados
-    const pz = prazos(new Date(c.criado_em), c.prioridade, c.fila.sla, c.fila.atendimento24h, efeitos.minutosPausados, feriados)
-    patch.prazo_resposta = pz.resposta.toISOString()
-    patch.prazo_solucao = pz.solucao.toISOString()
-  }
-  return patch
-}
 
 export async function mudarStatusDoChamado(formData: FormData): Promise<Resultado> {
   try {

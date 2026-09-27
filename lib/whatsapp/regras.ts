@@ -188,8 +188,18 @@ export function textoDoAviso(p: { urlBase: string; titulo: string; mensagem: str
   const partes = [`*${limpo(p.titulo, 200)}*`, limpo(p.mensagem, 900)]
   if (p.citacao?.trim()) partes.push(limpo(p.citacao, 600).split('\n').map((l) => `> ${l}`).join('\n'))
   partes.push(`Abrir: ${p.urlBase}${p.link ?? '/notificacoes'}`)
+  const dica = dicaDeResposta(p.link)
+  if (dica) partes.push(dica)
   partes.push(RODAPE)
   return partes.join('\n\n')
+}
+
+/** Quando o aviso aceita resposta pelo WhatsApp, diz como (lib/whatsapp/acoes.ts). */
+export function dicaDeResposta(link: string | null | undefined): string | null {
+  const alvo = alvoDoLink(link)
+  if (!alvo) return null
+  if (alvo.tipo === 'aprovacao') return '_Para votar por aqui, responda esta mensagem com *aprovar* ou com *ajustes:* e o que precisa mudar._'
+  return '_Para responder por aqui, responda esta mensagem._'
 }
 
 // ------------------------------------------------------------------ volume
@@ -305,6 +315,8 @@ export type MensagemRecebida = {
   numero: string | null
   texto: string
   nome: string | null
+  /** O id da mensagem que a pessoa citou ao responder (o aviso, a pergunta do bot); null sem citação. */
+  citada: string | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
 }
@@ -340,6 +352,29 @@ export function textoDaMensagem(mensagem: unknown, profundidade = 0): string {
   return ''
 }
 
+const TIPOS_COM_CONTEXTO = ['extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage']
+
+/** O id da mensagem citada (contextInfo.stanzaId), onde quer que ele esteja. */
+export function citadaNaMensagem(dado: unknown, profundidade = 0): string | null {
+  const d = objeto(dado)
+  if (!d || profundidade > 3) return null
+  const direto = texto(objeto(d.contextInfo)?.stanzaId)
+  if (direto) return direto.slice(0, 128)
+  const m = objeto(d.message) ?? d
+  for (const tipo of TIPOS_COM_CONTEXTO) {
+    const id = texto(objeto(objeto(m[tipo])?.contextInfo)?.stanzaId)
+    if (id) return id.slice(0, 128)
+  }
+  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
+    const dentro = objeto(m[embrulho])
+    if (dentro) {
+      const id = citadaNaMensagem({ message: dentro.message }, profundidade + 1)
+      if (id) return id
+    }
+  }
+  return null
+}
+
 function lerMensagem(dado: unknown): MensagemRecebida | null {
   const d = objeto(dado)
   const chave = objeto(d?.key)
@@ -351,8 +386,10 @@ function lerMensagem(dado: unknown): MensagemRecebida | null {
   return {
     id: texto(chave.id)?.slice(0, 128) ?? null,
     numero: grupo ? null : numero,
-    texto: textoDaMensagem(d.message).slice(0, 500),
+    // Cabe uma resposta de chamado ou do Chat; comando é curto de todo jeito.
+    texto: textoDaMensagem(d.message).slice(0, 4000),
     nome: texto(d.pushName)?.slice(0, 80) ?? null,
+    citada: citadaNaMensagem(d),
     ignorar: chave.fromMe === true ? 'de_mim' : grupo ? 'grupo' : numero ? null : 'sem_numero',
   }
 }
@@ -392,7 +429,7 @@ export type Pedido = { comando: Comando; resto: string }
 
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
 function depoisDe(entrada: string, prefixo: RegExp): string {
-  return entrada.trim().replace(prefixo, '').replace(/^[\s:,.-]+/, '').trim().slice(0, 1000)
+  return entrada.trim().replace(prefixo, '').replace(/^[\s:,.-]+/, '').trim().slice(0, 4000)
 }
 
 /**
@@ -424,7 +461,7 @@ export function lerPedido(entrada: string, p: { pausado: boolean }): Pedido {
 export const interpretarComando = (entrada: string, p: { pausado: boolean }): Comando => lerPedido(entrada, p).comando
 
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
-export const RESPOSTAS_POR_JANELA = 6
+export const RESPOSTAS_POR_JANELA = 10
 export const JANELA_DAS_RESPOSTAS_MIN = 10
 /** Número que não é de ninguém da equipe recebe a apresentação no máximo uma vez neste intervalo. */
 export const APRESENTACAO_A_CADA_HORAS = 24
@@ -556,3 +593,92 @@ export function textoDaAjuda(p: { pergunta: string; achados: AchadoDaAjuda[]; re
   const primeiros = p.achados.slice(0, 3).map((a) => `*${limpo(a.titulo, 120)}*\n${limpo(a.trecho, 280)}\n${p.urlBase}${a.href}`)
   return ['Achei isto na Central de ajuda:', ...primeiros].join('\n\n')
 }
+
+// ------------------------------------------------------------------ ações (responder citando o aviso, votar, abrir chamado)
+
+/** O que um aviso aponta, pelo link dele: é para lá que vai a resposta que cita o aviso. */
+export type AlvoDoAviso =
+  | { tipo: 'chamado'; id: string }
+  | { tipo: 'chat'; canalId: string; fio: string | null }
+  | { tipo: 'aprovacao'; id: string }
+  | { tipo: 'mensagem'; pessoaId: string }
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+export function alvoDoLink(link: string | null | undefined): AlvoDoAviso | null {
+  const bruto = String(link ?? '').trim()
+  if (!bruto.startsWith('/')) return null
+  const [caminho, busca = ''] = bruto.split('?')
+  const partes = caminho.toLowerCase().replace(/\/+$/, '').split('/').filter(Boolean)
+  const ehId = (v: string | undefined): v is string => Boolean(v && new RegExp(`^${UUID}$`).test(v))
+  if (partes.length === 2 && partes[0] === 'chamados' && ehId(partes[1])) return { tipo: 'chamado', id: partes[1] }
+  if (partes.length === 2 && partes[0] === 'aprovacoes' && ehId(partes[1])) return { tipo: 'aprovacao', id: partes[1] }
+  if (partes.length === 3 && partes[0] === 'mensagens' && partes[1] === 'pessoa' && ehId(partes[2])) return { tipo: 'mensagem', pessoaId: partes[2] }
+  if (partes.length === 2 && partes[0] === 'chat' && ehId(partes[1])) {
+    const fio = new URLSearchParams(busca).get('fio')?.toLowerCase() ?? null
+    return { tipo: 'chat', canalId: partes[1], fio: ehId(fio ?? undefined) ? fio : null }
+  }
+  return null
+}
+
+export type Decisao = { decisao: 'aprovar' } | { decisao: 'ajustes'; nota: string }
+
+/**
+ * A resposta a um aviso de aprovação. "aprovar" pede a conferência antes do
+ * voto; "ajustes: …" já vota, com o que precisa mudar (pelo menos 5 letras,
+ * como na tela). Qualquer outra coisa: null.
+ */
+export function lerDecisao(entrada: string): Decisao | null {
+  const t = normalizar(entrada)
+  if (/^(aprovar|aprovo|aprovado|aprovada|aprova)( (sim|ok))?$/.test(t)) return { decisao: 'aprovar' }
+  const ajuste = /^\s*((pedir|peco|pe[çc]o)\s+)?ajustes?\b[\s:,.-]*/i
+  if (/^((pedir|peco) )?ajustes?( |$)/.test(t)) {
+    const nota = entrada.trim().replace(ajuste, '').trim().slice(0, 2000)
+    return { decisao: 'ajustes', nota }
+  }
+  return null
+}
+
+const CONFIRMA = ['confirmo', 'confirmar', 'confirma', 'confirmado', 'conferi', 'conferido', 'sim', 's', 'ok']
+// Sem "parar" e "sair": com uma pergunta aberta, eles continuam pausando os avisos.
+const CANCELA = ['cancelar', 'cancela', 'cancelo', 'nao', 'n', 'desistir', 'desisto']
+export const ehConfirmacao = (entrada: string) => CONFIRMA.includes(normalizar(entrada))
+export const ehCancelamento = (entrada: string) => CANCELA.includes(normalizar(entrada))
+
+/** "2", "2.", "opção 2", "*2*": o número escolhido entre 1 e `quantas`; null para o resto. */
+export function lerEscolha(entrada: string, quantas: number): number | null {
+  const t = normalizar(entrada).replace(/^(opcao|numero|n|no) /, '')
+  if (!/^[0-9]{1,2}$/.test(t)) return null
+  const n = Number(t)
+  return n >= 1 && n <= quantas ? n : null
+}
+
+/** Quanto tempo a pergunta do bot espera a resposta. */
+export const PENDENCIA_VALE_MIN = 15
+
+export function textoDaConferencia(p: { titulo: string; blocos: { setor: string; itens: string[] }[] }): string {
+  const itens = p.blocos.map((b) => [`*${limpo(b.setor, 60)}*`, ...b.itens.map((i) => `☐ ${limpo(i, 200)}`)].join('\n'))
+  return [
+    `Antes de aprovar *${limpo(p.titulo, 140)}*, confira:`,
+    ...itens,
+    `Se conferiu tudo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+export type Opcao = { nome: string; detalhe?: string | null }
+
+/** Uma lista numerada para a pessoa escolher respondendo o número. */
+export function textoDaEscolha(p: { pergunta: string; opcoes: Opcao[]; rodape?: string | null }): string {
+  const linhas = p.opcoes.map((o, i) => `*${i + 1}* – ${limpo(o.nome, 80)}${o.detalhe ? ` _(${limpo(o.detalhe, 80)})_` : ''}`)
+  return [p.pergunta, linhas.join('\n'), p.rodape ?? `Responda com o número, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`].join('\n\n')
+}
+
+/** Título do chamado a partir do relato: a primeira frase, até 140 letras. */
+export function tituloDoRelato(relato: string): string {
+  const primeira = relato.trim().split(/\n|(?<=[.!?])\s/)[0] ?? ''
+  const base = (primeira.length >= 3 ? primeira : relato).replace(/\s+/g, ' ').trim()
+  return base.length <= 140 ? base.replace(/[.!?]+$/, '') : `${base.slice(0, 137).trimEnd()}…`
+}
+
+export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
+  'Sua conta usa a verificação em duas etapas, então responder, votar e abrir chamado ficam só no Palácio (o WhatsApp não pede o código do app). As consultas por aqui continuam valendo.'

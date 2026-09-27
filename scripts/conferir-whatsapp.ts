@@ -7,6 +7,7 @@ import {
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
+  alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 
@@ -102,7 +103,7 @@ const mensagem = lerEventoDoWebhook({
 })
 igual(mensagem.evento, 'messages.upsert', 'evento')
 igual(mensagem.instancia, 'palacio', 'instância')
-igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', ignorar: null }], 'mensagem comum')
+igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', citada: null, ignorar: null }], 'mensagem comum')
 
 const maiusculo = lerEventoDoWebhook({ event: 'MESSAGES_UPSERT', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'X' }, message: { extendedTextMessage: { text: 'avisos' } } } })
 igual(maiusculo.evento, 'messages.upsert', 'evento em maiúsculas')
@@ -222,6 +223,60 @@ contem(comIa, '1. Abra *Meu perfil*.', 'ajuda com o resumo')
 contem(comIa, '• Trocar a sua senha: https://p/ajuda#trocar-a-senha', 'resumo leva o link da Central')
 igual(respostaParaWhatsapp('## Passos\n1. Abra **Meu perfil** e veja [a ajuda](https://x).\n\n\n2. `Salvar`'), 'Passos\n1. Abra *Meu perfil* e veja a ajuda.\n\n2. Salvar', 'markdown vira formato do WhatsApp')
 igual(respostaParaWhatsapp('linha um\nlinha dois muito comprida', 15), 'linha um…', 'corta na quebra de linha')
+
+// ---------------------------------------------------------------- ações: citação, alvo do aviso, decisão e escolha
+const citando = lerEventoDoWebhook({ event: 'messages.upsert', data: {
+  key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R1' },
+  message: { extendedTextMessage: { text: 'Já reiniciei o roteador', contextInfo: { stanzaId: '3EB0AVISO', participant: '552192368473@s.whatsapp.net' } } },
+} })
+igual(citando.mensagens[0]?.citada, '3EB0AVISO', 'resposta citando o aviso')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R2' }, contextInfo: { stanzaId: 'TOPO' }, message: { conversation: 'ok' } } }).mensagens[0]?.citada, 'TOPO', 'citação no contextInfo de fora (Evolution v2)')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R3' }, message: { ephemeralMessage: { message: { extendedTextMessage: { text: 'x', contextInfo: { stanzaId: 'EFE' } } } } } } }).mensagens[0]?.citada, 'EFE', 'citação em mensagem temporária')
+igual(mensagem.mensagens[0]?.citada, null, 'sem citação')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'L' }, message: { conversation: 'x'.repeat(5000) } } }).mensagens[0]?.texto.length, 4000, 'texto longo cabe numa resposta de chamado')
+
+const id1 = '0f8fad5b-d9cb-469f-a165-70867728950e'
+const id2 = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
+igual(alvoDoLink(`/chamados/${id1}`), { tipo: 'chamado', id: id1 }, 'aviso de chamado')
+igual(alvoDoLink(`/aprovacoes/${id1}`), { tipo: 'aprovacao', id: id1 }, 'aviso de aprovação')
+igual(alvoDoLink(`/chat/${id1}`), { tipo: 'chat', canalId: id1, fio: null }, 'aviso do chat')
+igual(alvoDoLink(`/chat/${id1}?fio=${id2}`), { tipo: 'chat', canalId: id1, fio: id2 }, 'aviso de fio do chat')
+igual(alvoDoLink(`/chat/${id1}?fio=abc`), { tipo: 'chat', canalId: id1, fio: null }, 'fio inválido vira a conversa')
+igual(alvoDoLink(`/mensagens/pessoa/${id2}`), { tipo: 'mensagem', pessoaId: id2 }, 'mensagem direta')
+igual(alvoDoLink('/chamados'), null, 'lista não é alvo')
+igual(alvoDoLink(`/chamados/${id1}/editar`), null, 'subpágina não é alvo')
+igual(alvoDoLink(`https://outro.site/chamados/${id1}`), null, 'link de fora não é alvo')
+igual(alvoDoLink(null), null, 'aviso sem link')
+
+igual(lerDecisao('Aprovar'), { decisao: 'aprovar' }, 'aprovar')
+igual(lerDecisao('aprovado!'), { decisao: 'aprovar' }, 'aprovado')
+igual(lerDecisao('ajustes: trocar a foto de capa'), { decisao: 'ajustes', nota: 'trocar a foto de capa' }, 'ajustes com nota')
+igual(lerDecisao('Pedir ajustes - o título está errado'), { decisao: 'ajustes', nota: 'o título está errado' }, 'pedir ajustes')
+igual(lerDecisao('ajustes'), { decisao: 'ajustes', nota: '' }, 'ajustes sem nota (o bot pede a nota)')
+igual(lerDecisao('não aprovo'), null, 'negação não é aprovação')
+igual(lerDecisao('aprovar depois de ler'), null, 'frase com "aprovar" no começo não vota')
+igual(lerDecisao('achei ótimo'), null, 'comentário solto')
+igual(ehConfirmacao('Confirmo'), true, 'confirmo')
+igual(ehConfirmacao('confirmo tudo'), false, 'confirmação é a palavra sozinha')
+igual(ehCancelamento('Cancelar'), true, 'cancelar')
+igual(lerEscolha('2', 3), 2, 'escolha 2')
+igual(lerEscolha('*3*', 3), 3, 'escolha com negrito')
+igual(lerEscolha('opção 1', 3), 1, 'opção 1')
+igual(lerEscolha('4', 3), null, 'fora da lista')
+igual(lerEscolha('0', 3), null, 'zero não é opção')
+igual(lerEscolha('2 cadeiras quebradas', 3), null, 'número no meio da frase não é escolha')
+
+contem(textoDoAviso({ urlBase: 'https://p', titulo: 'Nova resposta da equipe', mensagem: 'm', link: `/chamados/${id1}` }), '_Para responder por aqui, responda esta mensagem._', 'aviso de chamado ensina a responder')
+contem(textoDoAviso({ urlBase: 'https://p', titulo: 'Aprovação', mensagem: 'm', link: `/aprovacoes/${id1}` }), '*aprovar* ou com *ajustes:*', 'aviso de aprovação ensina a votar')
+igual(textoDoAviso({ urlBase: 'https://p', titulo: 'Ofício', mensagem: 'm', link: '/oficios/1' }).includes('responda esta mensagem'), false, 'aviso sem resposta pelo WhatsApp não promete')
+const conferencia = textoDaConferencia({ titulo: 'Matéria X', blocos: [{ setor: 'Comunicação', itens: ['Fonte citada', 'Foto autorizada'] }] })
+contem(conferencia, '*Comunicação*\n☐ Fonte citada\n☐ Foto autorizada', 'conferência lista os itens')
+contem(conferencia, 'responda *esta mensagem* com *confirmo*', 'conferência pede a confirmação')
+const escolha = textoDaEscolha({ pergunta: 'Para qual equipe?', opcoes: [{ nome: 'TI' }, { nome: 'Manutenção', detalhe: 'predial' }] })
+contem(escolha, '*1* – TI\n*2* – Manutenção _(predial)_', 'escolha numerada')
+igual(tituloDoRelato('A impressora da sala 3 está sem toner. Já troquei o cabo.'), 'A impressora da sala 3 está sem toner', 'título é a primeira frase')
+igual(tituloDoRelato('ar pinga'), 'ar pinga', 'relato curto')
+igual(tituloDoRelato('x'.repeat(200)).length, 138, 'título longo é cortado')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.
