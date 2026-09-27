@@ -4,7 +4,7 @@
  */
 import {
   crachaPendente, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
-  situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas,
+  situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas, formatoDoCracha, crachasPorFolha,
 } from '../lib/portaria/regras'
 
 let falhas = 0
@@ -71,6 +71,13 @@ igual(folhas.length, 2, 'dez crachás: duas folhas')
 igual(folhas[0].verso.slice(0, 3), ['V-03', 'V-02', 'V-01'], 'verso espelhado na linha')
 igual(folhas[1].frente.filter(Boolean), ['V-10'], 'segunda folha com o que sobrou')
 igual(folhas[1].verso.slice(0, 3), [null, null, 'V-10'], 'verso da sobra no lugar certo')
+const deitados = folhasDeCrachas(numerosDeCracha('V', 1, 12, crachasPorFolha('deitado')), 'deitado')
+igual(numerosDeCracha('V', null, null, crachasPorFolha('deitado')).length, 10, 'deitado: padrão de uma folha com 10')
+igual(deitados.length, 2, 'deitado: doze crachás, duas folhas')
+igual(deitados[0].verso.slice(0, 4), ['V-02', 'V-01', 'V-04', 'V-03'], 'deitado: verso espelhado em cada linha de 2')
+igual(deitados[1].verso.slice(0, 2), ['V-12', 'V-11'], 'deitado: sobra espelhada')
+igual(formatoDoCracha('empe'), 'empe', 'formato em pé')
+igual(formatoDoCracha('x'), 'deitado', 'formato padrão: deitado')
 
 if (falhas) { console.error(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('Portaria: tudo certo.')
