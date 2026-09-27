@@ -10,6 +10,7 @@ import {
   alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
+import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -103,7 +104,7 @@ const mensagem = lerEventoDoWebhook({
 })
 igual(mensagem.evento, 'messages.upsert', 'evento')
 igual(mensagem.instancia, 'palacio', 'instância')
-igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', citada: null, ignorar: null }], 'mensagem comum')
+igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', citada: null, midia: null, ignorar: null }], 'mensagem comum')
 
 const maiusculo = lerEventoDoWebhook({ event: 'MESSAGES_UPSERT', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'X' }, message: { extendedTextMessage: { text: 'avisos' } } } })
 igual(maiusculo.evento, 'messages.upsert', 'evento em maiúsculas')
@@ -277,6 +278,26 @@ contem(escolha, '*1* – TI\n*2* – Manutenção _(predial)_', 'escolha numerad
 igual(tituloDoRelato('A impressora da sala 3 está sem toner. Já troquei o cabo.'), 'A impressora da sala 3 está sem toner', 'título é a primeira frase')
 igual(tituloDoRelato('ar pinga'), 'ar pinga', 'relato curto')
 igual(tituloDoRelato('x'.repeat(200)).length, 138, 'título longo é cortado')
+
+// ---------------------------------------------------------------- fotos e vídeos viram envio
+const foto = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'F1' },
+  message: { imageMessage: { mimetype: 'image/jpeg', fileLength: { low: 245760, high: 0, unsigned: true }, caption: 'Ação na Central' } } } })
+igual(foto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 245760, nome: null }, 'foto com tamanho em Long')
+igual(foto.mensagens[0]?.texto, 'Ação na Central', 'a legenda vem como texto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'V1' }, message: { videoMessage: { mimetype: 'video/mp4', fileLength: '1048576' } } } }).mensagens[0]?.midia,
+  { categoria: 'video', mime: 'video/mp4', tamanho: 1048576, nome: null }, 'vídeo com tamanho em texto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'D1' }, message: { documentWithCaptionMessage: { message: { documentMessage: { mimetype: 'image/png', fileName: 'cartaz.png', fileLength: 10 } } } } } }).mensagens[0]?.midia,
+  { categoria: 'foto', mime: 'image/png', tamanho: 10, nome: 'cartaz.png' }, 'foto mandada como documento continua foto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'S1' }, message: { stickerMessage: { mimetype: 'image/webp' } } } }).mensagens[0]?.midia, null, 'figurinha não é envio')
+igual(ehFimDaColeta('Pronto!'), true, 'pronto fecha a coleta')
+igual(ehFimDaColeta('só isso'), true, 'só isso fecha a coleta')
+igual(ehFimDaColeta('pronto, mais uma foto'), false, 'frase com pronto não fecha')
+igual(tituloProvisorio('Ana Lima Souza'), 'Envio pelo WhatsApp de Ana', 'título provisório')
+igual(tituloProvisorio(null), 'Envio pelo WhatsApp de alguém da equipe', 'título provisório sem nome')
+igual(nomeDoArquivoRecebido({ nome: null, mime: 'image/jpeg', mensagemId: '3EB0-ABC', categoria: 'foto' }), 'whatsapp-3EB0ABC.jpg', 'nome de foto sem nome')
+igual(nomeDoArquivoRecebido({ nome: 'relatório/final.pdf', mime: 'application/pdf', mensagemId: 'X', categoria: 'documento' }), 'relatóriofinal.pdf', 'nome de documento sem barra')
+igual(nomeDoArquivoRecebido({ nome: 'sem extensao', mime: 'video/quicktime', mensagemId: 'X', categoria: 'video' }), 'whatsapp-X.mov', 'sem extensão, vale o tipo')
+igual(opcoesDeAutorizacao().length, 4, 'as quatro respostas da autorização de imagem')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.

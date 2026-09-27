@@ -14,6 +14,7 @@ import {
   PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, lerDecisao, lerEscolha, textoDaConferencia,
   textoDaEscolha, tituloDoRelato,
 } from './regras'
+import { seguirEnvio } from './envio'
 
 /**
  * O que o bot do WhatsApp FAZ em nome de quem escreveu: responder o aviso de
@@ -39,7 +40,7 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export type Pessoa = { id: string; nome: string | null; papel: Papel }
 
-export type TipoDePendencia = 'aprovar' | 'abrir_chamado'
+export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
 /** A resposta do bot e, se houver, a pergunta que fica esperando (`id` = a pendência que continua). */
@@ -195,8 +196,8 @@ export async function guardarPendencia(admin: Admin, workspaceId: string, userId
     const { error } = await admin.from('whatsapp_pendencias').update({ dados: p.dados, expira_em: expira, mensagem_id: null }).eq('id', p.id)
     return error ? null : p.id
   }
-  // Uma pergunta por vez: a nova substitui as que ficaram abertas.
-  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null)
+  // Uma pergunta por vez: a nova substitui as que ficaram abertas (o envio de fotos aberto continua).
+  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null).neq('tipo', 'envio')
   const { data, error } = await admin.from('whatsapp_pendencias').insert({ workspace_id: workspaceId, user_id: userId, tipo: p.tipo, dados: p.dados, expira_em: expira }).select('id').single()
   return error || !data ? null : (data.id as number)
 }
@@ -211,6 +212,7 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  * como mensagem comum (a pessoa pode ter mudado de assunto).
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
+  if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
   if (ehCancelamento(texto)) {
     await encerrarPendencia(admin, p.id)
     return { texto: p.tipo === 'aprovar' ? 'Pronto: nenhum voto registrado.' : 'Pronto: o chamado não foi aberto.' }
@@ -329,4 +331,10 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
   } catch (causa) {
     return { texto: `${causa instanceof Error ? causa.message : 'Não foi possível abrir o chamado.'} Abra pelo Palácio: ${base}/chamados/novo` }
   }
+}
+
+/** A pergunta aberta espera texto livre (o local do chamado, o título do envio)? Aí até frase com "agenda" é resposta. */
+export function esperaTextoLivre(p: Pendencia | null): boolean {
+  const etapa = p?.dados.etapa
+  return (p?.tipo === 'abrir_chamado' && etapa === 'local') || (p?.tipo === 'envio' && etapa === 'titulo')
 }

@@ -132,6 +132,27 @@ export async function enviarTexto(config: ConfigDoWhatsapp, numero: string, text
   return { ok: true, id: typeof id === 'string' ? id.slice(0, 128) : null }
 }
 
+export type MidiaBaixada = { ok: true; conteudo: Buffer; mime: string | null; nome: string | null } | { ok: false; erro: string }
+
+/**
+ * O arquivo de uma mensagem recebida, pela Evolution (ela baixa do WhatsApp e
+ * devolve em base64). O webhook não traz o arquivo: ligar "base64" no webhook
+ * estouraria o limite de corpo da Vercel com qualquer vídeo.
+ */
+export async function baixarMidia(config: ConfigDoWhatsapp, mensagemId: string, tetoBytes: number): Promise<MidiaBaixada> {
+  const r = await chamar(config, 'POST', `/chat/getBase64FromMediaMessage/${inst(config)}`, { message: { key: { id: mensagemId } }, convertToMp4: false }, 120_000)
+  if (!r.ok) return { ok: false, erro: r.semResposta ? 'O servidor do WhatsApp demorou demais para entregar o arquivo.' : r.erro ?? 'Não foi possível baixar o arquivo.' }
+  const d = objeto(r.dados)
+  const base64 = typeof d?.base64 === 'string' ? d.base64.replace(/^data:[^,]*,/, '') : ''
+  // base64 tem 4 letras para cada 3 bytes: confere o teto antes de decodificar.
+  if (!base64 || base64.length * 0.75 > tetoBytes + 4) return { ok: false, erro: base64 ? 'Arquivo grande demais.' : 'O arquivo veio vazio.' }
+  const conteudo = Buffer.from(base64, 'base64')
+  if (!conteudo.length) return { ok: false, erro: 'O arquivo veio vazio.' }
+  const mime = typeof d?.mimetype === 'string' ? d.mimetype.split(';')[0].trim().toLowerCase().slice(0, 120) : null
+  const nome = typeof d?.fileName === 'string' ? d.fileName.slice(0, 200) : null
+  return { ok: true, conteudo, mime, nome }
+}
+
 /** O número tem WhatsApp? null = não deu para conferir (segue e deixa o envio dizer). */
 export async function temWhatsapp(config: ConfigDoWhatsapp, numero: string): Promise<boolean | null> {
   const r = await chamar(config, 'POST', `/chat/whatsappNumbers/${inst(config)}`, { numbers: [numero] })

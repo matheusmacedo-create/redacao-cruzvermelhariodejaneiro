@@ -111,6 +111,15 @@ select ok(has_function_privilege('service_role', 'public.whatsapp_votar(uuid, uu
 select throws_ok(format('insert into public.whatsapp_pendencias (workspace_id, user_id, tipo, expira_em) values (%L, %L, %L, now())', :'ws', :'editor', 'apagar_tudo'),
                  '23514', null, 'pendência de tipo fora da lista é recusada');
 
+insert into public.whatsapp_pendencias (workspace_id, user_id, tipo, expira_em) values (:'ws', :'editor', 'envio', now() + interval '30 minutes');
+select throws_ok(format('insert into public.whatsapp_pendencias (workspace_id, user_id, tipo, expira_em) values (%L, %L, %L, now())', :'ws', :'editor', 'envio'),
+                 '23505', null, 'um envio aberto por pessoa (fotos que chegam juntas vão para o mesmo)');
+select lives_ok(format('insert into public.whatsapp_pendencias (workspace_id, user_id, tipo, expira_em) values (%L, %L, %L, now())', :'ws', :'editor', 'aprovar'),
+                'pergunta de outro tipo convive com o envio aberto');
+update public.whatsapp_pendencias set encerrada_em = now() where user_id = :'editor' and tipo = 'envio';
+select lives_ok(format('insert into public.whatsapp_pendencias (workspace_id, user_id, tipo, expira_em) values (%L, %L, %L, now())', :'ws', :'editor', 'envio'),
+                'encerrado o envio, abre outro');
+
 insert into public.chat_canais (id, workspace_id, tipo, nome) values ('00000000-0000-4000-8000-0000000000c1', :'ws', 'canal', 'geral-whats');
 insert into public.chat_canais (id, workspace_id, tipo, nome, privado) values ('00000000-0000-4000-8000-0000000000c2', :'ws', 'canal', 'fechado-whats', true);
 

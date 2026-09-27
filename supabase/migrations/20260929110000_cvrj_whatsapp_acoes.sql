@@ -6,8 +6,10 @@
 -- disponível e manda o link do Palácio.
 --
 --  - whatsapp_pendencias: o passo que falta numa conversa com o bot — a
---    confirmação da conferência antes de aprovar, e a fila, o assunto, o
---    local e a urgência de um chamado aberto por lá. Vale 15 minutos.
+--    confirmação da conferência antes de aprovar; a fila, o assunto, o
+--    local e a urgência de um chamado aberto por lá; e as fotos e vídeos que
+--    viram um envio da equipe (o título e a autorização de imagem vêm no
+--    fim). Uma pergunta vale 15 minutos; um envio aberto, 30.
 --  - whatsapp_chat_enviar / whatsapp_votar: as funções do Chat e da
 --    aprovação, chamadas pelo servidor EM NOME de quem escreveu no WhatsApp.
 --    Só o service role executa; o servidor já conferiu que o número é da
@@ -24,7 +26,7 @@ create table if not exists public.whatsapp_pendencias (
   id           bigint generated always as identity primary key,
   workspace_id uuid not null references public.workspaces (id) on delete cascade,
   user_id      uuid not null references public.profiles (id) on delete cascade,
-  tipo         text not null check (tipo in ('aprovar', 'abrir_chamado')),
+  tipo         text not null check (tipo in ('aprovar', 'abrir_chamado', 'envio')),
   dados        jsonb not null default '{}'::jsonb check (jsonb_typeof(dados) = 'object' and pg_column_size(dados) <= 8000),
   -- A mensagem do bot que fez a pergunta: responder citando ela resolve esta pendência.
   mensagem_id  text check (mensagem_id is null or char_length(mensagem_id) <= 128),
@@ -35,6 +37,8 @@ create table if not exists public.whatsapp_pendencias (
 create index if not exists whatsapp_pendencias_abertas_idx on public.whatsapp_pendencias (user_id, criado_em desc) where encerrada_em is null;
 create index if not exists whatsapp_pendencias_mensagem_idx on public.whatsapp_pendencias (mensagem_id) where mensagem_id is not null;
 create index if not exists whatsapp_pendencias_espaco_idx on public.whatsapp_pendencias (workspace_id);
+-- Fotos mandadas juntas chegam em entregas paralelas do webhook: um envio aberto por pessoa, e as outras se juntam a ele.
+create unique index if not exists whatsapp_pendencias_um_envio_aberto on public.whatsapp_pendencias (user_id) where tipo = 'envio' and encerrada_em is null;
 
 -- RLS ligado e nenhuma policy: só o service role (o servidor) lê e escreve.
 alter table public.whatsapp_pendencias enable row level security;

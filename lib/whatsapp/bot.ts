@@ -12,9 +12,10 @@ import { registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, guardarPendencia, marcarPergunta, pendenciaAberta, responderAoAviso, seguirPendencia, type Pendencia, type Pessoa,
-  type Resposta,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, responderAoAviso, seguirPendencia, type Pendencia,
+  type Pessoa, type Resposta,
 } from './acoes'
+import { receberMidia } from './envio'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_PAUSADO, TEXTO_VOLTOU, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
@@ -60,21 +61,32 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
     // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
-    const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto) || ehCancelamento(m.texto))
+    const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
+      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && m.texto.trim().split(/\s+/).length >= 3))
+    // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
+    const midia = Boolean(pessoa && m.midia && !aviso)
 
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
-      comando: aviso ? 'responder_aviso' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+      comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
     })
     if (!nova) return
 
     const desde = new Date(Date.now() - JANELA_DAS_RESPOSTAS_MIN * 60_000).toISOString()
     const { count: respostas } = await admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
       .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', desde)
-    if ((respostas ?? 0) >= RESPOSTAS_POR_JANELA) return
+    const noTeto = (respostas ?? 0) >= RESPOSTAS_POR_JANELA
 
     const responder = (texto: string) => entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null }, { config })
     const base = urlBase()
+
+    // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
+    if (midia && pessoa) {
+      const resposta = await receberMidia(admin, workspaceId, pessoa, m, config, base)
+      if (resposta && !noTeto) await responder(resposta.texto)
+      return
+    }
+    if (noTeto) return
 
     if (!pessoa) {
       const umDia = new Date(Date.now() - APRESENTACAO_A_CADA_HORAS * 3_600_000).toISOString()
@@ -102,6 +114,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (aviso) {
+      // Anexo respondendo um aviso: o arquivo não entra no chamado nem na conversa por aqui (só o texto entraria, sem ele).
+      if (m.midia) {
+        await responder(`Arquivo respondendo um aviso ainda não entra por aqui. Anexe pelo Palácio: ${base}${aviso.link ?? '/notificacoes'}`)
+        return
+      }
       await enviar(await responderAoAviso(admin, workspaceId, pessoa, aviso.link, m.texto, base))
       return
     }

@@ -976,6 +976,12 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       termos: ['chegando', 'incompleto', 'faltando arquivo', 'não chegou'],
     },
     {
+      id: 'envio-pelo-whatsapp',
+      pergunta: 'Chegou um envio “pelo WhatsApp”. Como ele foi feito?',
+      resposta: 'Alguém da equipe mandou fotos ou vídeos para o número do Palácio no WhatsApp. Cada arquivo foi guardado assim que chegou, a legenda virou o relato e, no fim, a pessoa deu o título e respondeu a autorização de imagem. O nome e o setor vêm do cadastro dela no Palácio.\n\nSe a pessoa sumiu no meio, o envio fecha sozinho depois de 30 minutos, com o título “Envio pelo WhatsApp de …” e “Não sei / não perguntei” na autorização: confira antes de publicar. Pelo WhatsApp vão arquivos de até 64 MB; o que for maior, a pessoa manda pelo link de envio.',
+      termos: ['whatsapp', 'envio pelo whatsapp', 'fotos pelo whatsapp', 'fechado sozinho'],
+    },
+    {
       id: 'aviso-de-envio-novo',
       pergunta: 'Quando sou avisado de um envio novo?',
       resposta: 'Quando os arquivos de um envio terminam de chegar, quem avalia recebe um aviso no sino, com o resumo do que veio, e outro quando a pessoa manda mais arquivos para o mesmo envio. Se o aviso vai também por e-mail, você escolhe em Meu perfil, no assunto “Pautas e conteúdos”.\n\nEnvio só com texto, sem arquivo, entra direto em “Para avaliar”, sem aviso: vale olhar a aba de vez em quando.',

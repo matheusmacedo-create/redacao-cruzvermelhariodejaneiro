@@ -317,6 +317,8 @@ export type MensagemRecebida = {
   nome: string | null
   /** O id da mensagem que a pessoa citou ao responder (o aviso, a pergunta do bot); null sem citação. */
   citada: string | null
+  /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Evolution). */
+  midia: MidiaRecebida | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
 }
@@ -350,6 +352,38 @@ export function textoDaMensagem(mensagem: unknown, profundidade = 0): string {
     if (dentro) return dentro
   }
   return ''
+}
+
+export type CategoriaDaMidia = 'foto' | 'video' | 'audio' | 'documento'
+export type MidiaRecebida = { categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null }
+
+/** fileLength do Baileys: número, texto ou Long ({ low, high }). */
+function tamanhoDaMidia(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v
+  if (typeof v === 'string' && /^\d{1,12}$/.test(v)) return Number(v)
+  const longo = objeto(v)
+  if (longo && typeof longo.low === 'number') return (longo.low >>> 0) + (typeof longo.high === 'number' ? longo.high * 2 ** 32 : 0)
+  return null
+}
+
+/** A mídia da mensagem, se houver (figurinha não conta). */
+export function midiaDaMensagem(mensagem: unknown, profundidade = 0): MidiaRecebida | null {
+  const m = objeto(mensagem)
+  if (!m || profundidade > 3) return null
+  const tipos: [string, CategoriaDaMidia][] = [['imageMessage', 'foto'], ['videoMessage', 'video'], ['audioMessage', 'audio'], ['documentMessage', 'documento']]
+  for (const [chave, categoria] of tipos) {
+    const d = objeto(m[chave])
+    if (!d) continue
+    const mime = (texto(d.mimetype) ?? '').split(';')[0].trim().toLowerCase().slice(0, 120)
+    // Foto e vídeo mandados "como documento" continuam foto e vídeo.
+    const real: CategoriaDaMidia = categoria === 'documento' && mime.startsWith('image/') ? 'foto' : categoria === 'documento' && mime.startsWith('video/') ? 'video' : categoria
+    return { categoria: real, mime: mime || 'application/octet-stream', tamanho: tamanhoDaMidia(d.fileLength), nome: texto(d.fileName)?.slice(0, 200) ?? null }
+  }
+  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
+    const dentro = midiaDaMensagem(objeto(m[embrulho])?.message, profundidade + 1)
+    if (dentro) return dentro
+  }
+  return null
 }
 
 const TIPOS_COM_CONTEXTO = ['extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage']
@@ -390,6 +424,7 @@ function lerMensagem(dado: unknown): MensagemRecebida | null {
     texto: textoDaMensagem(d.message).slice(0, 4000),
     nome: texto(d.pushName)?.slice(0, 80) ?? null,
     citada: citadaNaMensagem(d),
+    midia: midiaDaMensagem(d.message),
     ignorar: chave.fromMe === true ? 'de_mim' : grupo ? 'grupo' : numero ? null : 'sem_numero',
   }
 }

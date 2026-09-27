@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, situacaoDaConexao } from '@/lib/whatsapp/servidor'
 import { registrarEstado } from '@/lib/whatsapp/estado'
 import { processarFila } from '@/lib/whatsapp/fila'
+import { concluirEsquecidos } from '@/lib/whatsapp/envio'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -32,6 +33,8 @@ export async function GET(request: Request) {
     conexoes[id as string] = estado
     if (estado !== 'conectando') await registrarEstado(admin, id as string, estado)
   }
-  const fila = await processarFila(admin, null, { orcamentoMs: 270_000, limite: 200 })
-  return Response.json({ ok: true, conexoes, fila })
+  // Fotos mandadas pelo WhatsApp num envio que a pessoa não fechou: vão para a caixa como estão.
+  const enviosFechados = await concluirEsquecidos(admin)
+  const fila = await processarFila(admin, null, { orcamentoMs: 240_000, limite: 200 })
+  return Response.json({ ok: true, conexoes, fila, enviosFechados })
 }

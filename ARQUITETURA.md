@@ -1482,6 +1482,15 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
   usa (ou é obrigado a usar) a verificação em duas etapas só consulta pelo WhatsApp: o servidor
   confere antes (`podeAgirPeloWhatsapp`) e o banco recusa de novo.
+- **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
+  quem é da equipe abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
+  pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Evolution
+  (`/chat/getBase64FromMediaMessage`, até 64 MB — o webhook não traz o arquivo) e gravado no R2 com
+  o nome canônico, já `recebido`; a legenda vai para o relato. `pronto` → título → autorização de
+  imagem → conclui como o botão do link (`avisarAvaliadores`, link de assinatura quando cabe). Sem
+  resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
+  a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
+  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre
