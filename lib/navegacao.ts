@@ -176,7 +176,7 @@ export const ADMINISTRACAO: Grupo = {
   areas: [
     { href: '/acessos', rotulo: 'Acessos', resumo: 'Quem entrou, quando, de onde e com qual aparelho', icone: Fingerprint, termos: ['login', 'entradas', 'ip', 'aparelho', 'fingerprint', 'segurança'], soPara: 'leitorDeAcessos' },
     { href: '/usuarios', rotulo: 'Usuários e permissões', resumo: 'Logins, papéis, senhas e verificação em duas etapas', icone: KeyRound, termos: ['acessos', 'senha', 'papel', 'admin'], permissao: 'usuarios.gerenciar' },
-    { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Integrações, site e preferências do espaço', icone: Settings, termos: ['integrações', 'preferências'] },
+    { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Sua conta, os ajustes de cada área, e-mail dos setores, integrações e site', icone: Settings, termos: ['integrações', 'preferências', 'e-mail dos setores', 'chaves', 'site', 'redes sociais'] },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
     // A Central de ajuda (lib/ajuda). O botão "?" do topo abre a ajuda da tela; aqui fica tudo junto.
     { href: '/ajuda', rotulo: 'Ajuda', resumo: 'Tutoriais, passo a passo e perguntas frequentes de cada área', icone: CircleHelp, termos: ['faq', 'tutorial', 'como usar', 'dúvidas', 'manual', 'onboarding', 'suporte'] },

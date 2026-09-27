@@ -594,7 +594,7 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
       titulo: 'Liberar o endereço de um setor para a equipe',
       quem: 'Só administradores',
       passos: [
-        'Abra “Configurações” e desça até “E-mail do setor” (o quadro desta tela tem o link quando falta algo).',
+        'Abra Configurações e, no submenu, “E-mail dos setores” (o quadro desta tela tem o link quando falta algo).',
         'Em “2. Setores e quem é de cada um”, se o setor ainda não existe, escreva o nome e toque em “Criar setor”.',
         'No setor, toque em “Membros”, marque as pessoas e toque em “Salvar membros”.',
         'Em “3. Endereços (aliases do Gmail)”, escolha o setor de cada endereço na lista ao lado dele.',

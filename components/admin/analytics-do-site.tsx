@@ -42,7 +42,7 @@ export function AnalyticsDoSite() {
   const paginasFeitas = Boolean(estado?.paginas) || Boolean(paginas?.recado)
 
   return (
-    <div data-ajuda="configuracoes.site" className="mt-6 rounded-xl border border-border bg-card p-6">
+    <div data-ajuda="configuracoes.site" className="rounded-xl border border-border bg-card p-6">
       <h2 className="flex items-center gap-2 font-semibold"><BarChart3 className="size-4" />Google Analytics no site</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         O Analytics ({ID_DO_ANALYTICS}) é nativo: toda página que o Palácio Virtual cria — matéria, central de notícias,

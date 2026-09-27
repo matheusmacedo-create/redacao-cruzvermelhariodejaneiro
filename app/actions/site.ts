@@ -300,7 +300,7 @@ export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null
         vitrine: r.vitrine?.feita ?? false, continua: Boolean(r.proximo),
       },
     })
-    if (!r.proximo) revalidatePath('/configuracoes')
+    if (!r.proximo) revalidatePath('/configuracoes', 'layout')
     return r
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível regerar as páginas das notícias.') }
@@ -396,7 +396,7 @@ export async function republicarMateriaAction(formData: FormData): Promise<{ err
     })
     if (r.erro) return { erro: r.erro }
 
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes', 'layout')
     revalidatePath(`/conteudos/${contentId}`)
     return { recado: `De volta ao ar em ${r.url}.${r.aviso ? ` Atenção: ${r.aviso}` : ''}` }
   } catch (causa) {
@@ -421,7 +421,7 @@ export async function tirarMateriaDoArAction(formData: FormData): Promise<{ erro
     const r = await tirarMateriaDoAr({ workspaceId: context.workspace.id, userId: context.user.id, contentId })
     if (r.erro) return { erro: r.erro }
 
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes', 'layout')
     revalidatePath(`/conteudos/${contentId}`)
     return { recado: r.aviso ? `A página saiu do ar. Atenção: ${r.aviso}.` : 'A página saiu do ar, e o índice e o sitemap já não a listam.' }
   } catch (causa) {

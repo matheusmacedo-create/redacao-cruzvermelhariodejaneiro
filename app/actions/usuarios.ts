@@ -147,7 +147,7 @@ function revalidar() {
   revalidatePath('/usuarios')
   revalidatePath('/pessoas')
   revalidatePath('/pessoas/adicionar')
-  revalidatePath('/configuracoes')
+  revalidatePath('/configuracoes', 'layout')
 }
 
 // ------------------------------------------------------------------ criar

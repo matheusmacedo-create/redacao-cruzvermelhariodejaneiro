@@ -54,7 +54,7 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
       metadata: { servico },
     })
 
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes', 'layout')
     revalidatePath('/imprensa')
     return { recado: `Chave da ${SERVICOS[servico].nome} guardada no cofre.` }
   } catch (causa) {
@@ -84,7 +84,7 @@ export async function removerChaveDeIntegracao(formData: FormData): Promise<Resu
       metadata: { servico },
     })
 
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes', 'layout')
     revalidatePath('/imprensa')
     return { recado: `Chave da ${SERVICOS[servico].nome} removida do cofre.` }
   } catch (causa) {

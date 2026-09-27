@@ -493,8 +493,8 @@ const USUARIOS: GuiaDaArea = {
 
 const CONFIGURACOES: GuiaDaArea = {
   href: '/configuracoes',
-  paraQueServe: 'Configurações é onde a administração liga o Palácio Virtual às ferramentas de fora e cuida do site: as chaves de integração, o E-mail do setor (a conta Google, os setores e os endereços), o Google Analytics, as páginas do site, o que está no ar em /noticias/ e a zona de risco.',
-  quemUsa: 'Editores e colaboradores também abrem esta área, mas veem só um aviso: as seções são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”.',
+  paraQueServe: 'Configurações é o mapa de tudo o que se ajusta no Palácio Virtual. A visão geral mostra a sua conta, onde fica o ajuste de cada área e, para a administração, a situação de cada seção do espaço. Cada seção tem a sua tela no submenu: E-mail dos setores (a conta Google, quem envia por cada setor e os endereços), Integrações (as chaves, as redes sociais e o que está ligado na hospedagem), Site (Google Analytics, páginas e matérias no ar) e Zona de risco.',
+  quemUsa: 'Todo mundo abre a visão geral, com os atalhos da própria conta. O submenu e as seções do espaço são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”; a lista de setores, em Diretório › Setores.',
   naPratica: {
     titulo: 'Ligar o e-mail do setor de Compras',
     passos: [
@@ -508,12 +508,54 @@ const CONFIGURACOES: GuiaDaArea = {
   tour: [
     {
       titulo: 'Configurações do Palácio Virtual',
-      texto: 'Aqui a administração liga o Palácio Virtual às ferramentas de fora e cuida do site. Quem não é administrador vê só um aviso: estas seções são restritas.',
+      texto: 'A visão geral aponta onde fica cada ajuste. Para quem administra, o submenu separa cada assunto numa tela.',
     },
     {
       alvo: 'configuracoes.restrito',
-      titulo: 'Área da administração',
-      texto: 'Para mudar algo daqui, fale com alguém da administração. O que é seu (senha, foto, e-mails de aviso) fica em “Meu perfil”.',
+      titulo: 'O resto é da administração',
+      texto: 'Pessoas, e-mail dos setores, integrações e site são ajustados por administradores. O que é seu fica em “Sua conta”.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.submenu',
+      titulo: 'Uma tela por assunto',
+      texto: 'Visão geral, E-mail dos setores, Integrações, Site e Zona de risco. Cada uma cuida só do seu assunto.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.espaco',
+      titulo: 'A situação do espaço',
+      texto: 'Cada cartão mostra como está a seção: se a conta Google está conectada, quantos endereços estão ativos e quais chaves faltam. Amarelo pede atenção.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.pessoas',
+      titulo: 'Pessoas e acessos',
+      texto: 'Os logins e papéis (Usuários e permissões), a lista de setores da filial e, para quem foi liberado, o registro de acessos.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.areas',
+      titulo: 'Ajustes de cada área',
+      texto: 'Filas dos chamados, contas e categorias do financeiro, locais do patrimônio, contas da escola e o QR da portaria ficam dentro da própria área. Aqui estão os atalhos.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.conta',
+      titulo: 'Sua conta',
+      texto: 'Perfil, crachá, avisos por e-mail e e-mail de recuperação. Cada pessoa resolve os seus, sem depender da administração.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.correio',
+      titulo: 'E-mail dos setores',
+      texto: 'Três passos: conectar a conta Google dona dos endereços, dizer quem envia por cada setor e ligar cada endereço ao seu setor. Endereço novo chega inativo.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.quem-envia',
+      titulo: 'Quem envia por cada setor',
+      texto: 'Em “Membros”, marque quem envia pelo endereço do setor. Criar, renomear ou desativar setores é em Diretório › Setores.',
       seAusente: 'pular',
     },
     {
@@ -523,9 +565,15 @@ const CONFIGURACOES: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
-      alvo: 'configuracoes.correio',
-      titulo: 'E-mail do setor',
-      texto: 'Três passos: conectar a conta Google dona dos endereços, criar os setores com quem é de cada um e ligar cada endereço ao seu setor. Endereço novo chega inativo.',
+      alvo: 'configuracoes.redes',
+      titulo: 'Redes sociais',
+      texto: '“Conectar ou revisar as contas” abre o Upload-Post, onde quem administra cada página autoriza o Palácio Virtual a publicar.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'configuracoes.hospedagem',
+      titulo: 'Configuradas na hospedagem',
+      texto: 'Chaves que ficam na Vercel, como a do envio de e-mails. Aqui só aparece se estão ligadas.',
       seAusente: 'pular',
     },
     {
@@ -553,7 +601,7 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Guardar ou trocar a chave de uma integração',
       quem: 'Só administradores',
       passos: [
-        'Em “Integrações”, ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)” ou “Meta Ads (token do usuário do sistema)”.',
+        'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)” ou “Meta Ads (token do usuário do sistema)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
         'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”.',
         'Toque em “Salvar no cofre”.',
@@ -566,8 +614,8 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Conectar a conta Google do E-mail do setor',
       quem: 'Só administradores',
       passos: [
-        'Em “1. Conta do Google”, siga uma vez o passo a passo do Google Cloud que aparece ali. O endereço de retorno que ele pede está na tela, com o botão “Copiar”.',
-        'Cole o ID e a chave secreta no cartão “Google (cliente OAuth do Gmail)”, em Integrações, e toque em “Salvar no cofre”.',
+        'Em Configurações, abra “E-mail dos setores” no submenu. Em “1. Conta do Google”, siga uma vez o passo a passo do Google Cloud que aparece ali. O endereço de retorno que ele pede está na tela, com o botão “Copiar”.',
+        'Cole o ID e a chave secreta no cartão “Google (cliente OAuth do Gmail)”, em “Integrações” (o passo a passo tem o link), e toque em “Salvar no cofre”.',
         'Toque em “Conectar conta Google” e entre com a conta dona dos endereços dos setores, a que tem a lista “Enviar e-mail como” no Gmail.',
         'De volta ao Palácio Virtual, o cartão mostra “Conectada:” com a conta, e os endereços do Gmail já aparecem em “3. Endereços (aliases do Gmail)”.',
       ],
@@ -575,14 +623,14 @@ const CONFIGURACOES: GuiaDaArea = {
     },
     {
       id: 'criar-setor',
-      titulo: 'Criar um setor e dizer quem é dele',
+      titulo: 'Dizer quem envia pelo endereço de um setor',
       quem: 'Só administradores',
       passos: [
-        'Em “2. Setores e quem é de cada um”, digite o nome no campo “Nome do setor” e toque em “Criar setor”.',
-        'Na linha do setor, toque em “Membros”.',
+        'Se o setor ainda não existe, crie em Diretório › Setores (o link está no cartão “2. Quem envia por cada setor”).',
+        'Em Configurações › E-mail dos setores, no cartão “2. Quem envia por cada setor”, toque em “Membros” na linha do setor.',
         'Marque quem é do setor e toque em “Salvar membros”.',
       ],
-      dica: 'Só envia pelo endereço de um setor quem é membro dele (quem tem o papel “Administrador” envia por qualquer um). O setor criado aqui entra na lista de setores da filial, a mesma de “Setores”, no Diretório. Mudar a coordenação de alguém em “Usuários e permissões” também muda o setor de mesmo nome.',
+      dica: 'Só envia pelo endereço de um setor quem é membro dele (quem tem o papel “Administrador” envia por qualquer um). A lista de setores é uma só, a de Diretório › Setores; mudar a coordenação de alguém em “Usuários e permissões” também muda o setor de mesmo nome.',
     },
     {
       id: 'ativar-endereco',
@@ -591,7 +639,7 @@ const CONFIGURACOES: GuiaDaArea = {
       quem: 'Só administradores',
       passos: [
         'Endereço criado (e confirmado) no Gmail depois da conexão só aparece depois de “Sincronizar endereços”. Ele chega inativo.',
-        'Em “3. Endereços (aliases do Gmail)”, escolha na lista ao lado de cada endereço o setor dele.',
+        'Em Configurações › E-mail dos setores, no cartão “3. Endereços (aliases do Gmail)”, escolha na lista ao lado de cada endereço o setor dele.',
         'Marque “Ativa”. Só dá para ativar endereço com setor e que ainda está no Gmail.',
         'Para ativar de uma vez todos os que já têm setor, use o botão “Ativar … com setor”, que aparece quando há algum pronto.',
         'Confira o “Nome do remetente”, que é o nome que quem recebe vê. Digite e aperte Enter, ou use o botão que começa com “Dar nome de remetente” para os que estão sem nome.',
@@ -615,7 +663,7 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Tirar uma matéria do site',
       quem: 'Só administradores',
       passos: [
-        'Em “No ar em /noticias/”, ache a matéria na lista.',
+        'Em Configurações › Site, desça até “No ar em /noticias/” e ache a matéria na lista.',
         'Toque em “Tirar do ar”. Na pergunta “Apagar do servidor?”, toque em “Tirar do ar” de novo.',
         'A página sai do servidor, da central de notícias e do mapa do site para os buscadores (sitemap) na mesma hora.',
         'A matéria passa para “Arquivadas — fora do ar”. Para trazê-la de volta, toque em “Republicar”: ela volta no mesmo endereço.',
@@ -626,7 +674,7 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Refazer as páginas das matérias com o molde atual',
       quem: 'Só administradores',
       passos: [
-        'Em “Regerar as páginas das matérias”, toque no botão de mesmo nome.',
+        'Em Configurações › Site, ache “Regerar as páginas das matérias” e toque no botão de mesmo nome.',
         'Na pergunta “Regravar todas as matérias no site?”, toque em “Regerar agora”.',
         'Deixe a página aberta: o trabalho é feito aos poucos enquanto a tela está aberta, e o botão mostra quantas já foram (“Regerando… 12 de 40”, por exemplo).',
         'No fim, veja o balanço: quantas foram regeradas, puladas e com falha, com o motivo de cada uma.',
@@ -638,7 +686,7 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Publicar a central de notícias e o mapa do site',
       quem: 'Só administradores',
       passos: [
-        'Desça até “Google Analytics no site” e, dentro dele, “Páginas de base e vitrine”.',
+        'Em Configurações › Site, dentro de “Google Analytics no site”, ache “Páginas de base e vitrine”.',
         'Toque em “Publicar páginas do site” (ou em “Publicar de novo (regrava tudo)”, se já foi feito).',
         'Espere o “Publicando…” terminar e leia o recado, com a lista do que foi publicado.',
       ],
@@ -648,9 +696,9 @@ const CONFIGURACOES: GuiaDaArea = {
   perguntas: [
     {
       id: 'tela-quase-vazia',
-      pergunta: 'Por que a tela de Configurações está quase vazia para mim?',
-      resposta: 'As seções daqui são só de administradores; para os outros papéis aparece apenas o aviso “A gestão de usuários é restrita aos administradores”. O que é seu (senha, foto, e-mails de aviso) fica em “Meu perfil”.',
-      termos: ['sem acesso', 'Preferências do espaço', 'restrito'],
+      pergunta: 'Por que eu não vejo o submenu das Configurações?',
+      resposta: 'As seções do espaço (e-mail dos setores, integrações, site e zona de risco) são só de administradores. Para os outros papéis, a tela mostra os atalhos da sua conta e o aviso “O resto é da administração”. Os ajustes de cada área ficam dentro da própria área, para quem cuida dela.',
+      termos: ['sem acesso', 'Preferências do espaço', 'restrito', 'tela vazia'],
     },
     {
       id: 'chave-sumiu',
@@ -672,8 +720,8 @@ const CONFIGURACOES: GuiaDaArea = {
     },
     {
       id: 'setores-do-diretorio',
-      pergunta: 'Os setores daqui são os mesmos da tela “Setores”, no Diretório?',
-      resposta: 'São: a lista de setores da filial é uma só, usada também em Usuários e permissões, Recursos humanos, Voluntários e “Registrar atividade”. Aqui, em “Membros”, você decide quem envia pelo endereço de cada setor.',
+      pergunta: 'Onde crio um setor novo?',
+      resposta: 'Em Diretório › Setores. A lista de setores da filial é uma só, usada também em Usuários e permissões, Recursos humanos, Voluntários, “Registrar atividade” e no e-mail. Em E-mail dos setores, “Membros” só decide quem envia pelo endereço de cada setor.',
       termos: ['coordenação', 'lista de setores', 'setor'],
     },
     {
@@ -684,9 +732,21 @@ const CONFIGURACOES: GuiaDaArea = {
     },
     {
       id: 'apagar-setor',
-      pergunta: 'O que acontece se eu apagar um setor aqui?',
-      resposta: 'O botão da lixeira, ao lado de “Membros”, apaga o setor da lista de setores da filial, a mesma de “Setores”, no Diretório, e da “Coordenação” em Usuários. Os endereços dele ficam sem setor e desativados, e a lista de membros se perde.\n\nPara só tirar um setor de uso, prefira marcá-lo como “Desativado” em “Setores”, no Diretório.',
-      termos: ['excluir setor', 'remover setor', 'Apagar o setor', 'lixeira'],
+      pergunta: 'Como tiro um setor de uso?',
+      resposta: 'Em Diretório › Setores, edite o setor e marque a situação “Desativado”. Ele some das listas de escolha, e quem já está nele continua. Os endereços de e-mail dele, se houver, você desativa em E-mail dos setores.',
+      termos: ['excluir setor', 'remover setor', 'Apagar o setor', 'desativar setor'],
+    },
+    {
+      id: 'onde-foi-parar',
+      pergunta: 'Onde foi parar o que ficava na página de Configurações?',
+      resposta: 'Nada saiu, só mudou de tela. A equipe e os papéis estão em “Pessoas e acessos”, na visão geral. As chaves estão em Integrações; a conta Google, os setores e os endereços, em E-mail dos setores; o Google Analytics e as matérias no ar, em Site; “Reiniciar dados”, em Zona de risco.',
+      termos: ['mudou', 'sumiu', 'não acho', 'antes ficava'],
+    },
+    {
+      id: 'conectar-redes',
+      pergunta: 'Como conecto as contas das redes sociais?',
+      resposta: 'Em Configurações › Integrações, no cartão “Redes sociais”, toque em “Conectar ou revisar as contas”. Abre o Upload-Post, onde quem administra cada página autoriza a publicação; no fim, você volta para cá.',
+      termos: ['instagram', 'facebook', 'upload-post', 'publicar nas redes', 'conta desconectada'],
     },
     {
       id: 'nao-esta-no-gmail',

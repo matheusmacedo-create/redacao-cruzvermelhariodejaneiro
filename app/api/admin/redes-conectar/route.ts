@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const { dados } = await linkDeConexao({
       username: perfil,
       language: 'pt',
-      redirect_url: new URL('/configuracoes', request.nextUrl.origin).toString(),
+      redirect_url: new URL('/configuracoes/integracoes', request.nextUrl.origin).toString(),
       connect_title: 'Conectar as redes da Cruz Vermelha',
       connect_description:
         'Autorize as contas oficiais para que o Palácio Virtual possa publicar direto daqui.',

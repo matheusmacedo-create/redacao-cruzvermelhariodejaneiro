@@ -997,7 +997,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
           await marcar([d.id], {
             estado: 'falhou',
             erro: `A conta de ${adapter(d.canal)?.nome ?? d.canal} não está conectada no Upload-Post.`
-              + ' Conecte em Configurações → Redes sociais e reprocesse — nada foi gasto do plano.',
+              + ' Conecte em Configurações → Integrações → Redes sociais e reprocesse — nada foi gasto do plano.',
           })
         }
       }
