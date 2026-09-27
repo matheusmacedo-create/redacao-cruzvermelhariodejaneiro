@@ -10,6 +10,7 @@ const nextConfig = {
     '/api/cracha/pdf': ['./lib/pdf/fontes/*.ttf', './public/images/logo-cvrj.png'],
     '/membro/diplomas/*/pdf': ['./lib/pdf/fontes/*.ttf', './public/images/logo-cvrj.png'],
     '/api/voluntariado/diplomas/*/pdf': ['./lib/pdf/fontes/*.ttf', './public/images/logo-cvrj.png'],
+    '/api/voluntariado/diplomas/lote': ['./lib/pdf/fontes/*.ttf', './public/images/logo-cvrj.png'],
     '/api/envios/cartaz': ['./lib/pdf/fontes/*.ttf', './public/images/logo-cvrj.png'],
   },
   // A Caixa de entrada virou o Direct das redes (26/09/2026): links e favoritos antigos continuam chegando.

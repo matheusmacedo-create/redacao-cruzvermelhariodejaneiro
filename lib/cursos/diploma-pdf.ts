@@ -11,12 +11,15 @@
  * certificado (lib/cursos/certificado-pdf.ts).
  */
 
-import { PDFDocument, rgb, type PDFPage } from 'pdf-lib'
-import { embutirFontes } from '@/lib/pdf/fontes'
+import { PDFDocument, rgb, type PDFImage, type PDFPage } from 'pdf-lib'
+import { embutirFontes, type Fontes } from '@/lib/pdf/fontes'
 import { desenharQr, embutirImagem, escrever, paragrafoJustificado, quebrar, retanguloArredondado } from '@/lib/pdf/desenho'
 import { PROPORCAO_DA_LOGO } from '@/lib/pdf/logo'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import { assinaturaDaFilial, dataPorExtenso } from './certificado-pdf'
+import { textoDoDiploma } from './diploma-texto'
+
+export { textoDoDiploma }
 
 const L = 1190.55 // A3 paisagem
 const A = 841.89
@@ -34,15 +37,6 @@ export type DadosDoDiploma = {
   codigo: string
   urlDeVerificacao: string
   logo?: Uint8Array | null
-}
-
-/** O texto do reconhecimento, sem o nome (vai logo depois dele). */
-export function textoDoDiploma(d: Pick<DadosDoDiploma, 'motivo' | 'marcoHoras' | 'texto'>): string {
-  if (d.motivo === 'horas' && d.marcoHoras) {
-    return `em reconhecimento às ${d.marcoHoras.toLocaleString('pt-BR')} horas de serviço voluntário dedicadas à missão humanitária da Cruz Vermelha Brasileira, com a dedicação que tanto dignifica a história desta Instituição perante o Movimento Internacional da Cruz Vermelha e do Crescente Vermelho.`
-  }
-  const motivo = (d.texto ?? '').trim().replace(/[.;\s]+$/, '')
-  return `em agradecimento aos relevantes serviços prestados à Cruz Vermelha Brasileira${motivo ? `: ${motivo.charAt(0).toLowerCase()}${motivo.slice(1)}` : ''}.`
 }
 
 /** Um ornamento de canto: volutas que se abrem para dentro da página. `sx`/`sy` espelham para cada canto. */
@@ -69,20 +63,42 @@ function moldura(p: PDFPage) {
 }
 
 export async function gerarPdfDoDiploma(d: DadosDoDiploma): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create()
-  pdf.setTitle(`Diploma de Reconhecimento ${d.codigo} — ${d.nome}`)
-  pdf.setAuthor(DADOS_DA_FILIAL.nome)
-  pdf.setSubject(`Diploma de Reconhecimento de ${d.nome}. Verificação: ${d.urlDeVerificacao}`)
-  pdf.setKeywords(['diploma', 'reconhecimento', d.codigo])
-  pdf.setCreationDate(new Date(d.emitidoEm))
-  const p = pdf.addPage([L, A])
-  const f = await embutirFontes(pdf, ['texto', 'textoItalico', 'destaque', 'caligrafia'] as const)
+  return gerarPdfDeDiplomas([d], {
+    titulo: `Diploma de Reconhecimento ${d.codigo} — ${d.nome}`,
+    assunto: `Diploma de Reconhecimento de ${d.nome}. Verificação: ${d.urlDeVerificacao}`,
+    palavras: ['diploma', 'reconhecimento', d.codigo],
+    data: new Date(d.emitidoEm),
+  })
+}
 
+/**
+ * Vários diplomas num PDF só, uma página A3 cada (a área de Diplomas, para a
+ * cerimônia). As fontes e a logo entram uma vez só no arquivo: juntar PDFs
+ * avulsos repetiria cerca de 300 kB de fonte por diploma.
+ */
+export async function gerarPdfDeDiplomas(
+  lista: DadosDoDiploma[],
+  meta: { titulo: string; assunto?: string; palavras?: string[]; data?: Date } = { titulo: `Diplomas de Reconhecimento (${lista.length})` },
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create()
+  pdf.setTitle(meta.titulo)
+  pdf.setAuthor(DADOS_DA_FILIAL.nome)
+  if (meta.assunto) pdf.setSubject(meta.assunto)
+  pdf.setKeywords(meta.palavras ?? ['diploma', 'reconhecimento'])
+  pdf.setCreationDate(meta.data ?? new Date())
+  const f = await embutirFontes(pdf, ['texto', 'textoItalico', 'destaque', 'caligrafia'] as const)
+  const logo = await embutirImagem(pdf, lista[0]?.logo ?? null)
+  for (const d of lista) desenharDiploma(pdf.addPage([L, A]), f, logo, d)
+  return pdf.save()
+}
+
+type FontesDoDiploma = Pick<Fontes, 'texto' | 'textoItalico' | 'destaque' | 'caligrafia'>
+
+function desenharDiploma(p: PDFPage, f: FontesDoDiploma, logo: PDFImage | null, d: DadosDoDiploma) {
   p.drawRectangle({ x: 0, y: 0, width: L, height: A, color: rgb(1, 1, 1) })
   moldura(p)
 
   // A logo numa caixa branca sobre a moldura (manual, p. 18).
-  const logo = await embutirImagem(pdf, d.logo ?? null)
   const lw = 190, lh = lw / PROPORCAO_DA_LOGO
   p.drawRectangle({ x: (L - lw - 30) / 2, y: A - 22 - lh - 18, width: lw + 30, height: lh + 18, color: rgb(1, 1, 1) })
   if (logo) p.drawImage(logo, { x: (L - lw) / 2, y: A - 30 - lh, width: lw, height: lh })
@@ -111,5 +127,4 @@ export async function gerarPdfDoDiploma(d: DadosDoDiploma): Promise<Uint8Array> 
   escrever(p, f.destaque, `Código ${d.codigo}`, { x: L - 150 - qr - 14, y: 146, tamanho: 11, alinhar: 'direita' })
   quebrar(f.texto, `Confira em ${d.urlDeVerificacao}`, 9, 260)
     .forEach((linha, i) => escrever(p, f.texto, linha, { x: L - 150 - qr - 14, y: 130 - i * 12, tamanho: 9, alinhar: 'direita', cor: CINZA }))
-  return pdf.save()
 }

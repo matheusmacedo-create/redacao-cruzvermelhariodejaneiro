@@ -57,6 +57,7 @@ pelo Matheus em 27/09/2026.
    - A coordenação também concede, no cadastro do voluntário.
    - Tem código e QR de verificação pública (`/diploma/<código>`).
    - Aparece em “Certificados”, na Área do Voluntário.
+   - Área própria em Voluntários → “Diplomas” (`/voluntariado/diplomas`): emitir para vários de uma vez e imprimir vários num PDF.
 5. **Foto do crachá do voluntário com aprovação do Voluntariado** (migração
    `20260929050000`). A fila de aprovação fica em Voluntários → “Fotos do crachá”.
 6. **Verificação do crachá refeita para a portaria**: resultado grande e

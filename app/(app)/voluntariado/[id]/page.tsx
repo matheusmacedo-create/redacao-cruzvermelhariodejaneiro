@@ -150,7 +150,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
           <Card className="p-5" data-ajuda="voluntarios.diplomas" id="diplomas">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Diplomas de reconhecimento</h2>
-              {nivel >= 2 && !p.anonimizado_em && <ConcederDiploma participanteId={id} nome={p.nome_social || p.nome} />}
+              <div className="flex items-center gap-2"><Link href="/voluntariado/diplomas" className="text-xs font-medium text-primary hover:underline">Todos os diplomas</Link>{nivel >= 2 && !p.anonimizado_em && <ConcederDiploma participanteId={id} nome={p.nome_social || p.nome} />}</div>
             </div>
             <p className="mb-2 text-xs text-muted-foreground">Saem sozinhos com 100, 500 e 1.000 horas registradas; a coordenação também concede. O voluntário baixa na Área do Voluntário.</p>
             <ul className="divide-y divide-border">

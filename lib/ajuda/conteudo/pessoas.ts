@@ -790,7 +790,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       alvo: 'voluntarios.atalhos',
       titulo: 'A Área do Voluntário',
-      texto: 'Daqui você cuida do que aparece do outro lado: “Oportunidades” e “Cursos e apostilas” e, para quem gerencia, “Mensagens” e “Avisos”.',
+      texto: 'Daqui você cuida do que aparece do outro lado: “Oportunidades”, “Cursos e apostilas” e “Diplomas” e, para quem gerencia, “Mensagens” e “Avisos”.',
       seAusente: 'pular',
     },
     {
@@ -865,7 +865,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.diplomas',
           titulo: 'Diplomas de reconhecimento',
-          texto: 'Aos 100, 500 e 1.000 horas, o diploma sai sozinho. “Conceder diploma” homenageia um serviço especial, com o motivo que vai impresso. “Cancelar” tira a validade, e a verificação pública passa a mostrar “cancelado”.',
+          texto: 'Aos 100, 500 e 1.000 horas, o diploma sai sozinho. “Conceder diploma” homenageia um serviço especial, com o motivo que vai impresso. “Cancelar” tira a validade, e a verificação pública passa a mostrar “cancelado”. “Todos os diplomas” abre a área onde se emite para vários de uma vez e se imprime tudo num PDF.',
           seAusente: 'pular',
         },
         {
@@ -990,6 +990,39 @@ const VOLUNTARIOS: GuiaDaArea = {
           alvo: 'voluntarios.banners-lista',
           titulo: 'Período e ordem',
           texto: '“De” e “até” programam quando o banner fica no ar; sem datas, fica enquanto estiver ligado. A ordem menor aparece primeiro. “Desligar” tira do ar sem apagar.',
+        },
+      ],
+    },
+    {
+      caminho: '/voluntariado/diplomas',
+      rotulo: 'Diplomas de Reconhecimento',
+      tour: [
+        {
+          titulo: 'Os diplomas num lugar só',
+          texto: 'Aqui ficam todos os Diplomas de Reconhecimento da filial, no modelo oficial aprovado, com código de verificação. Aos 100, 500 e 1.000 horas registradas o diploma sai sozinho; a coordenação também homenageia quem quiser.',
+        },
+        {
+          alvo: 'diplomas.emitir',
+          titulo: 'Emitir para vários de uma vez',
+          texto: 'Marque os voluntários (a busca e “Marcar os da lista” ajudam com uma turma inteira), escreva o motivo e toque em “Emitir”. Cada pessoa recebe o seu diploma, com código próprio, e ele aparece na Área do Voluntário. Até 100 por vez.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'diplomas.motivo',
+          titulo: 'O motivo vai impresso',
+          texto: 'O texto entra no diploma depois de “em agradecimento aos relevantes serviços prestados à Cruz Vermelha Brasileira”. A prévia logo abaixo mostra como fica.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'diplomas.perto',
+          titulo: 'Perto do próximo diploma',
+          texto: 'Quem está a menos de 20% dos 100, 500 ou 1.000 horas. Bom para preparar a cerimônia: o diploma sai sozinho quando as horas chegarem.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'diplomas.lista',
+          titulo: 'Imprimir de uma vez',
+          texto: 'Marque os diplomas e toque em “Baixar em um PDF”: sai um arquivo com uma página A3 por diploma, pronto para a gráfica. “PDF” abre um só; o ícone ao lado abre a verificação pública; o “x” cancela, com motivo.',
         },
       ],
     },

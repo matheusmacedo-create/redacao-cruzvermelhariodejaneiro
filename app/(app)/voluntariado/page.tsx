@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CalendarHeart, Download, Eye, GalleryHorizontalEnd, GraduationCap, Lock, Megaphone, MessageCircle, Plus, Search } from 'lucide-react'
+import { Award, CalendarHeart, Download, Eye, GalleryHorizontalEnd, GraduationCap, Lock, Megaphone, MessageCircle, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -115,13 +115,14 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
         </div> : undefined}
       />
 
-      <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5" aria-label="Área do Voluntário" id="area-do-voluntario" data-ajuda="voluntarios.atalhos">
+      <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Área do Voluntário" id="area-do-voluntario" data-ajuda="voluntarios.atalhos">
         {[
           ...(nivel >= 2 ? [{ href: '/voluntariado/mensagens', rotulo: 'Mensagens', dica: conversasAbertas ? `${conversasAbertas} aguardando resposta` : 'Canal direto', icone: MessageCircle, alerta: conversasAbertas > 0 }] : []),
           ...(nivel >= 2 ? [{ href: '/voluntariado/avisos', rotulo: 'Avisos', dica: 'Mural dos voluntários', icone: Megaphone, alerta: false }] : []),
           ...(nivel >= 2 ? [{ href: '/voluntariado/banners', rotulo: 'Banners', dica: 'Destaques no Início', icone: GalleryHorizontalEnd, alerta: false }] : []),
           { href: '/voluntariado/oportunidades', rotulo: 'Oportunidades', dica: 'Ações, plantões e eventos', icone: CalendarHeart, alerta: false },
           { href: '/voluntariado/cursos', rotulo: 'Cursos e apostilas', dica: 'Formação e certificados', icone: GraduationCap, alerta: false },
+          { href: '/voluntariado/diplomas', rotulo: 'Diplomas', dica: 'Emitir e imprimir', icone: Award, alerta: false },
         ].map((x) => (
           <Link key={x.href} href={x.href} className={`flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 hover:border-primary/50 ${x.alerta ? 'border-primary/60' : 'border-border'}`}>
             <x.icone className={`size-5 shrink-0 ${x.alerta ? 'text-primary' : 'text-muted-foreground'}`} />
