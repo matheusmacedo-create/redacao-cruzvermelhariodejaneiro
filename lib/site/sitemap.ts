@@ -31,8 +31,8 @@ export function paginasFixas(origem: string = ORIGEM_DO_SITE): EntradaDoMapa[] {
     { url: `${origem}/equipe.html` },
     // cursos.html e doacao.html saíram do ar e respondem 301: o sitemap não deve
     // listar endereço que redireciona — o Google conta como página incorreta no mapa.
+    // /doe/ também saiu: a doação online está fora do ar (responde 503) desde 25/09/2026.
     { url: `${origem}/matricula-cursos-presenciais/` },
-    { url: `${origem}/doe/` },
     { url: `${origem}/campanha-agasalho.html` },
     { url: `${origem}/bio/` },
     // O acervo entra com as coleções e os itens públicos (lib/acervo/paginas.ts); este é o

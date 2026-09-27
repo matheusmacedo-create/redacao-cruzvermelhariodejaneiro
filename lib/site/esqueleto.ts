@@ -7,12 +7,15 @@ import { svgDaMarca } from '@/lib/marcas'
  *
  * Antes isto vivia dentro do gerador de matérias, e cada página nova ia
  * exigir uma cópia — e cópia de chrome é como um site ganha dois rodapés
- * diferentes em seis meses. A matéria, a central de notícias, a privacidade,
- * os termos, o acervo e o portal agora vestem o MESMO esqueleto, deste arquivo.
+ * diferentes em seis meses. A matéria, a central de notícias, o acervo e o
+ * portal agora vestem o MESMO esqueleto, deste arquivo. (A privacidade, os
+ * termos e as demais políticas são do repositório do site, em
+ * scripts/gerar_politicas.py.)
  *
  * Cabeçalho e rodapé seguem os da home do site (site/index.html, no
  * repositório do site): mesmos links, mesma ordem, mesmos ícones em SVG — sem
  * a folha do Font Awesome, que custava uma requisição a um CDN por página.
+ * Nada de convite a doar: a doação online saiu do ar em 25/09/2026.
  *
  * Módulo puro, sem nada de servidor: a prévia do hub (no navegador) monta a
  * matéria com ele.
@@ -464,7 +467,6 @@ export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): 
             <a href="${o}/#faq">FAQ</a>
             <a href="${o}/equipe.html">Equipe</a>
             <a href="${o}/#contato">Contato</a>
-            <a href="${o}/doe/">Doe</a>
           </nav>
           <div class="header-actions">
             <div class="seletor-idioma" role="navigation" aria-label="Idioma">
@@ -479,7 +481,12 @@ export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): 
     </header>`
 }
 
-/** O rodapé — as mesmas colunas e os mesmos links da home. */
+/**
+ * O rodapé — as mesmas colunas e os mesmos links da home. Na faixa de baixo, as
+ * políticas (do repositório do site) e "Preferências de cookies": o aviso de
+ * cookies transforma o clique em qualquer [data-cvrj-cookies] na abertura das
+ * preferências; sem o aviso, o link leva à Política de Cookies.
+ */
 export function rodapeDoSite(origem: string, ano: number | string): string {
   const o = escapar(origem)
   return `<footer>
@@ -525,6 +532,12 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <a href="${o}/privacidade/">Política de Privacidade</a>
           <span class="sep">|</span>
           <a href="${o}/termos/">Termos de Uso</a>
+          <span class="sep">|</span>
+          <a href="${o}/cookies/">Política de Cookies</a>
+          <span class="sep">|</span>
+          <a href="${o}/reembolso/">Cancelamento e reembolso</a>
+          <span class="sep">|</span>
+          <a href="${o}/cookies/#preferencias" data-cvrj-cookies>Preferências de cookies</a>
         </div>
       </div>
     </footer>`
@@ -559,7 +572,7 @@ export type DadosDaPagina = {
    * assinatura (o <h1> e o og:title seguem com `titulo`). */
   assuntoDaAba?: string
   descricao: string
-  /** Caminho canônico com barra final, ex.: /privacidade/ */
+  /** Caminho canônico com barra final, ex.: /noticias/ */
   caminho: string
   origem?: string
   /** HTML do miolo — tudo entre o cabeçalho e o rodapé. */

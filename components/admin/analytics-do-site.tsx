@@ -46,8 +46,9 @@ export function AnalyticsDoSite() {
       <h2 className="flex items-center gap-2 font-semibold"><BarChart3 className="size-4" />Google Analytics no site</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         O Analytics ({ID_DO_ANALYTICS}) é nativo: toda página que o Palácio Virtual cria — matéria, central de notícias,
-        privacidade, termos — já nasce com ele, sem precisar de botão. A varredura abaixo só existe para arquivos
-        antigos ou colocados no servidor por fora, e pula o que já tem o rastreador.
+        acervo — já nasce com ele, sem precisar de botão, e só mede quem aceitar no aviso de cookies do site. A
+        varredura abaixo só existe para arquivos antigos ou colocados no servidor por fora, e pula o que já tem o
+        rastreador.
       </p>
       {estado?.analytics && !resultado && (
         <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-success">
@@ -82,9 +83,10 @@ export function AnalyticsDoSite() {
       <div className="mt-6 border-t border-border pt-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold"><FileText className="size-4" />Páginas de base e vitrine</h3>
         <p className="mt-1.5 text-sm text-muted-foreground">
-          Publica a Política de Privacidade e os Termos de Uso (com o CNPJ e o endereço da filial), a central de
-          notícias em /noticias/, o sitemap.xml e o robots.txt, e liga os atalhos de Notícias no menu e no rodapé da
-          página inicial. Daqui em diante o índice e o sitemap se atualizam sozinhos a cada matéria publicada.
+          Publica a central de notícias em /noticias/, o sitemap.xml e o robots.txt, e liga os atalhos de Notícias no
+          menu e no rodapé da página inicial. Daqui em diante o índice e o sitemap se atualizam sozinhos a cada matéria
+          publicada. A Política de Privacidade, os Termos de Uso e as demais políticas não saem daqui: são publicadas
+          com o resto do site.
         </p>
         {estado?.paginas && !paginas && (
           <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-success">
@@ -131,8 +133,8 @@ type Balanco = {
 
 /**
  * Regera todas as matérias no ar com o molde atual (cabeçalho, rodapé,
- * dados estruturados, fotos otimizadas) e, no fim, o índice, as páginas de
- * base, o sitemap e o robots.
+ * dados estruturados, fotos otimizadas) e, no fim, o índice, o sitemap e o
+ * robots.
  *
  * Cada página no site é um arquivo gravado no dia da publicação: corrigir o
  * gerador não corrige o que já está no ar. O servidor trabalha em rodadas
@@ -184,9 +186,9 @@ function RegerarNoticias() {
       <h3 className="flex items-center gap-2 text-sm font-semibold"><RefreshCw className="size-4" />Regerar as páginas das matérias</h3>
       <p className="mt-1.5 text-sm text-muted-foreground">
         Refaz no site todas as matérias publicadas com o molde atual — cabeçalho e rodapé do site, dados para o
-        Google, fotos otimizadas — e, no fim, a central de notícias, a privacidade, os termos, o sitemap e o
-        robots. Endereços e datas não mudam. Matéria com texto editado depois da última publicação fica de fora:
-        essa se revisa e republica pela própria tela.
+        Google, fotos otimizadas — e, no fim, a central de notícias, o sitemap e o robots. Endereços e datas não
+        mudam. Matéria com texto editado depois da última publicação fica de fora: essa se revisa e republica pela
+        própria tela.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {confirmando ? (

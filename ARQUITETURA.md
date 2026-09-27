@@ -535,8 +535,9 @@ confira em `/api/admin/ftp-check`.
    (mozjpeg, q82) — o arquivo canônico — mais WebP 480/960/1600, girada pelo EXIF e
    sem metadados; GIF e SVG passam direto. Mesmo conteúdo, mesmo nome (subir de novo
    sobrescreve, não duplica). Mídia apagada sai da página e fica no aviso.
-2. **Página** (`artigo-html.ts` sobre `esqueleto.ts`): o cabeçalho, o rodapé, o GA4, o
-   Pixel e o chat da home; JSON-LD `NewsArticle` + `BreadcrumbList`; `<title>` no padrão
+2. **Página** (`artigo-html.ts` sobre `esqueleto.ts`): o cabeçalho, o rodapé (com as
+   políticas e “Preferências de cookies”), o bloco de medição e o chat da home; JSON-LD
+   `NewsArticle` + `BreadcrumbList`; `<title>` no padrão
    "Assunto | Cruz Vermelha Brasileira Rio de Janeiro" (até 60 caracteres). Link para
    arquivo interno vira texto; links antigos do site (`/cursos.html`, `/doacao.html`…)
    viram os endereços atuais (`LINKS_ANTIGOS_DO_SITE`).
@@ -552,12 +553,43 @@ versão entra na trilha pela RPC `auditoria_registrar_item` (§7.9), não pelo g
 
 **Regerar tudo** (Configurações → site, só admin; `regerarPaginasDasNoticias`): refaz
 todas as matérias no ar com o modelo atual, em rodadas de até 40 s que continuam de
-onde pararam, e no fim privacidade, termos, índice e sitemap. Pula a matéria editada
-depois da última publicação (texto não revisado não vai ao ar sem querer).
+onde pararam, e no fim o índice e o sitemap. Pula a matéria editada depois da última
+publicação (texto não revisado não vai ao ar sem querer).
 
 **Chat.** As páginas usam a versão (`?v=`) que a home usa, lida da home na hora
 (`chat-do-site.ts`); sem ela, saem sem o chat. **Redirecionamentos** 301 de notícias:
 `REDIRECIONAMENTOS_DAS_NOTICIAS` em `cache-do-site.ts` (vazio até alguém preencher).
+
+**Medição só com consentimento** (LGPD; Guia de Cookies da ANPD). O bloco de
+`blocoDoAnalytics` (`analytics.ts`) é cópia byte a byte do da home (`site/index.html`,
+de `<!-- Google tag (gtag.js) -->` a `<!-- End Meta Pixel Code -->`): Consent Mode do
+Google negado por padrão, `fbq('consent', 'revoke')` antes do `init`, sem o `<noscript>`
+do Pixel, e o gtag.js e o fbevents.js só são baixados quando o cookie
+`cvrj_consentimento` (`v=1&e=0|1&m=0|1&t=…`, em `.cruzvermelhariodejaneiro.org`)
+permite; o aviso liga a medição na hora da escolha por `window.cvrjMedicao`. A última
+linha do bloco é a tag do aviso de cookies (`/consentimento/consentimento.js?v=HASH`,
+cache de um ano): a versão é lida da home na mesma leitura do chat
+(`prepararChatDoSite`, regex estrita) e, sem ela, o bloco sai sem o aviso — ninguém é
+perguntado e só é medido quem já escolheu “sim” em outra página. Mudou o bloco na home,
+copie para `analytics.ts` e confira byte a byte. O rodapé tem “Preferências de cookies”
+(`data-cvrj-cookies`, que o aviso transforma em abrir as preferências). `temAnalytics`
+reconhece o bloco antigo e o novo; o enxerto de Configurações (`ligarAnalyticsDoSite`)
+põe o novo, com o aviso, só em página que não tem nenhum — página com o bloco antigo se
+atualiza regerando (matérias, acervo, portal), não pelo enxerto.
+
+**Políticas.** Privacidade, termos, cookies e cancelamento e reembolso (em português,
+inglês e espanhol) são do repositório do site, que as gera e publica
+(`scripts/gerar_politicas.py`, com o texto dos três idiomas em `site/politicas.json`).
+O Palácio Virtual não as grava: saíram de “Publicar páginas do site” e da regeração, e
+`privacidade`/`termos` saíram da lista de pastas que o FTP aceita na raiz.
+`lib/site/juridico.ts` guarda só `DADOS_DA_FILIAL`.
+
+**Sem convite a doar.** A doação online saiu do ar em 25/09/2026 (`/doe/` responde 503
+com aviso, no repositório do site). Nada que o Palácio Virtual gera convida a doar: o
+“Doe” saiu do cabeçalho, `/doe/` saiu do sitemap e das páginas que a IA pode ligar no
+texto, e os formatos de melhoria não pedem mais o convite. Link para `/doacao.html` ou
+`/doe/` escrito no texto de uma matéria continua saindo (para `/doe/`, que mostra o
+aviso): se não deve ficar, é a matéria que se revisa.
 
 ---
 

@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { withFtp, enviarArquivo } from '@/lib/publicacao/ftp'
 import { slugValido } from '@/lib/site/slug'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
-import { atualizarVitrine, descobrirRaizDoSite, noticiasPublicadas, publicarPaginasJuridicas, type NoticiaPublicada } from '@/lib/site/vitrine'
+import { atualizarVitrine, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
 import {
   COLUNAS_DA_PECA, baseDoSite, gerarPaginaDaMateria, leitorDaBiblioteca, mensagemDaPublicacao, rastreioDaMateria, resumoDoRegistro,
   type PecaNoSite,
@@ -12,7 +12,7 @@ import {
 
 /**
  * Regera TODAS as matérias publicadas com o molde atual — e, no fim, o índice,
- * as páginas de base, o sitemap e o robots.
+ * o sitemap e o robots. (As políticas do site são do repositório do site.)
  *
  * Existe porque cada página é um arquivo estático gravado no dia em que foi
  * publicada: corrigir o gerador não corrige o que já está no ar. A regeração
@@ -47,7 +47,7 @@ export type ResultadoDaRegeracao = {
   falhas: { titulo: string; erro: string }[]
   /** Avisos das páginas regeradas (mídia ou link que ficou de fora). */
   avisos: { titulo: string; aviso: string }[]
-  /** O índice, as páginas de base, o sitemap e o robots foram refeitos nesta rodada. */
+  /** O índice, o sitemap e o robots foram refeitos nesta rodada. */
   vitrine?: { feita: boolean; detalhes: string[] }
   /** De onde continuar; ausente quando acabou. */
   proximo?: Continuacao
@@ -170,22 +170,14 @@ export async function regerarNoticias(p: {
       resultado.proximo = { depoisDe: ultimoVisto, soVitrine: false }
       return
     }
-    // Todas as matérias vistas: o índice, as páginas de base, o sitemap e o
-    // robots. Sem tempo para isso nesta rodada, fica para a próxima.
+    // Todas as matérias vistas: o índice, o sitemap e o robots. Sem tempo
+    // para isso nesta rodada, fica para a próxima.
     if (!noPrazo(15000)) {
       resultado.proximo = { depoisDe: ultimoVisto, soVitrine: true }
       return
     }
     const detalhes: string[] = []
     const agora = new Date()
-    try {
-      const raiz = await descobrirRaizDoSite(client, config)
-      if (!raiz) throw new Error('pasta do site não encontrada')
-      await publicarPaginasJuridicas(client, raiz, agora)
-      detalhes.push('/privacidade/ e /termos/ regeradas')
-    } catch (causa) {
-      detalhes.push(`atenção: as páginas de base não subiram (${causa instanceof Error ? causa.message : 'erro'})`)
-    }
     const vitrine = await atualizarVitrine(client, config, p.workspaceId, agora)
     if (vitrine.indice) detalhes.push(`/noticias/ regerada (${vitrine.noticias} matéria(s))`)
     if (vitrine.sitemap) detalhes.push('sitemap.xml e robots.txt regerados')

@@ -9,10 +9,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { withFtp, baixarTexto, regravarPaginaListada, enviarNaRaizDoSite } from '@/lib/publicacao/ftp'
 import { ligarAtalhosNaHome } from '@/lib/site/atalho-noticias'
-import { atualizarVitrine, descobrirRaizDoSite, publicarPaginasJuridicas } from '@/lib/site/vitrine'
+import { atualizarVitrine, descobrirRaizDoSite } from '@/lib/site/vitrine'
 import { regerarNoticias, type Continuacao, type ResultadoDaRegeracao } from '@/lib/site/regerar-noticias'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { ligarAnalyticsNaPagina, temAnalytics, ID_DO_ANALYTICS } from '@/lib/site/analytics'
+import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import type { Client } from 'basic-ftp'
 
 /**
@@ -20,7 +21,8 @@ import type { Client } from 'basic-ftp'
  *
  * A home já tinha o gtag; as páginas de notícia geradas por aqui e as páginas
  * soltas (equipe, campanha, privacidade…) não. Novas páginas já nascem com o
- * bloco pelo gerador; esta ação completa o que JÁ ESTÁ no servidor.
+ * bloco pelo gerador; esta ação completa o que JÁ ESTÁ no servidor, com o
+ * bloco de agora: só mede com consentimento e leva o aviso de cookies da home.
  *
  * As mesmas regras do enxerto da newsletter, porque o risco é o mesmo — FTP
  * com acesso ao servidor inteiro:
@@ -52,6 +54,9 @@ export async function ligarAnalyticsDoSite(): Promise<ResultadoDoAnalytics> {
   try {
     const context = await requireWorkspace()
     if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode alterar as páginas do site.')
+
+    // A versão do aviso de cookies que o bloco leva (sem ela, o bloco sai sem o aviso).
+    await prepararChatDoSite()
 
     const resultado = await withFtp(async (client, config) => {
       // Descobre a pasta do site pela home — mesma técnica do enxerto da
@@ -173,15 +178,14 @@ export type ResultadoDasPaginas = {
 /**
  * Publica as páginas de base do site e liga os atalhos — tudo de uma vez.
  *
- *  1. /privacidade/ e /termos/ — o rodapé linkava /privacidade desde o
- *     primeiro dia e a página nunca existiu: era um 404 num site que roda
- *     Google Analytics e pixel. Agora existem, com o CNPJ e o endereço
- *     oficiais da filial.
- *  2. A central de notícias em /noticias/ — que também tira do ar o teste
+ *  1. A central de notícias em /noticias/ — que também tira do ar o teste
  *     que estava servindo de índice.
- *  3. sitemap.xml e robots.txt — e a partir daqui os três acima se mantêm
+ *  2. sitemap.xml e robots.txt — e a partir daqui os três se mantêm
  *     sozinhos: toda publicação de matéria os regera.
- *  4. Os atalhos de Notícias no menu e no rodapé da página inicial.
+ *  3. Os atalhos de Notícias no menu e no rodapé da página inicial.
+ *
+ * /privacidade/ e /termos/ não saem mais daqui: as políticas do site são do
+ * repositório do site (scripts/gerar_politicas.py).
  *
  * Idempotente: rodar de novo só regrava o que é gerado (que é sempre igual ou
  * mais novo) e não duplica atalho nenhum.
@@ -197,19 +201,15 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
       const raiz = await descobrirRaizDoSite(client, config)
       if (!raiz) return { ok: false as const, detalhe: 'Não encontrei a pasta do site pela home. Me diga qual é a pasta e eu acrescento.' }
 
-      // 1. Páginas jurídicas.
+      // 1 e 2. Índice de notícias + sitemap + robots.
       const agora = new Date()
-      await publicarPaginasJuridicas(client, raiz, agora)
-      detalhes.push('/privacidade/ e /termos/ publicadas')
-
-      // 2 e 3. Índice de notícias + sitemap + robots.
       const vitrine = await atualizarVitrine(client, config, context.workspace.id, agora)
       if (vitrine.indice) detalhes.push(`/noticias/ atualizada (${vitrine.noticias} matéria(s))`)
       if (vitrine.sitemap) detalhes.push('sitemap.xml no ar')
       if (vitrine.robots) detalhes.push('robots.txt no ar')
       if (vitrine.aviso) detalhes.push(`atenção: ${vitrine.aviso}`)
 
-      // 4. Atalhos na home.
+      // 3. Atalhos na home.
       try {
         const home = await baixarTexto(client, `${raiz}/index.html`)
         const troca = ligarAtalhosNaHome(home)
@@ -228,11 +228,11 @@ export async function publicarPaginasDoSite(): Promise<ResultadoDasPaginas> {
 
     if (!resultado.ok) return { erro: resultado.detalhe }
 
-    // A prova pública: a política de privacidade tem de responder 200.
+    // A prova pública: a central de notícias tem de responder 200.
     let confirmado = false
     try {
-      const res = await fetch('https://cruzvermelhariodejaneiro.org/privacidade/', { cache: 'no-store' })
-      confirmado = res.ok && (await res.text()).includes('Política de Privacidade')
+      const res = await fetch('https://cruzvermelhariodejaneiro.org/noticias/', { cache: 'no-store' })
+      confirmado = res.ok && (await res.text()).includes('<h1>Notícias</h1>')
     } catch { /* rede daqui; a gravação não se desfaz */ }
 
     await createAdminClient().from('activity_log').insert({
@@ -269,7 +269,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Regera todas as matérias publicadas com o molde atual e, no fim, o índice,
- * a privacidade, os termos, o sitemap e o robots.
+ * o sitemap e o robots.
  *
  * Mesmo desenho de "Atualizar as páginas do acervo": a ação trabalha até
  * perto do limite de tempo e devolve de onde continuar; a tela chama de novo

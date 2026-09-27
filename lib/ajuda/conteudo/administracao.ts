@@ -531,7 +531,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.site',
       titulo: 'O site',
-      texto: 'O Google Analytics, as páginas de base (privacidade, termos, central de notícias) e “Regerar as páginas das matérias”, que refaz o que está no ar com o molde atual.',
+      texto: 'O Google Analytics, a central de notícias com o mapa do site e “Regerar as páginas das matérias”, que refaz o que está no ar com o molde atual.',
       seAusente: 'pular',
     },
     {
@@ -635,14 +635,14 @@ const CONFIGURACOES: GuiaDaArea = {
     },
     {
       id: 'publicar-paginas-de-base',
-      titulo: 'Publicar a privacidade, os termos e a central de notícias',
+      titulo: 'Publicar a central de notícias e o mapa do site',
       quem: 'Só administradores',
       passos: [
         'Desça até “Google Analytics no site” e, dentro dele, “Páginas de base e vitrine”.',
         'Toque em “Publicar páginas do site” (ou em “Publicar de novo (regrava tudo)”, se já foi feito).',
         'Espere o “Publicando…” terminar e leia o recado, com a lista do que foi publicado.',
       ],
-      dica: 'Depois disso, a central de notícias e o mapa do site para os buscadores (sitemap) se atualizam sozinhos a cada matéria publicada.',
+      dica: 'Depois disso, a central de notícias e o mapa do site para os buscadores (sitemap) se atualizam sozinhos a cada matéria publicada. A Política de Privacidade e os Termos de Uso não saem daqui: são publicados com o resto do site.',
     },
   ],
   perguntas: [
