@@ -6,6 +6,7 @@
  */
 import { filtrarDiplomas, lerCodigos, lerEscolhidos, lerFiltro, lerMotivo, pertoDoMarco, proximoMarco } from '../lib/participantes/diplomas'
 import { textoDoDiploma } from '../lib/cursos/diploma-texto'
+import { assinaturaDaPresidencia, assinaturasDoDiploma, assinaturasSugeridas, centrosDasAssinaturas, lerAssinaturas } from '../lib/cursos/assinaturas'
 
 let falhas = 0
 const conferir = (nome: string, ok: boolean, detalhe?: unknown) => {
@@ -47,6 +48,21 @@ conferir('tipo horas', filtrarDiplomas(lista, lerFiltro({ tipo: 'horas', situaca
 
 conferir('texto da coordenação: minúscula e ponto final', textoDoDiploma({ motivo: 'coordenacao', marcoHoras: null, texto: 'Pela dedicação nas enchentes.' }) === 'em agradecimento aos relevantes serviços prestados à Cruz Vermelha Brasileira: pela dedicação nas enchentes.')
 conferir('texto de horas cita o marco', textoDoDiploma({ motivo: 'horas', marcoHoras: 1000, texto: null }).includes('1.000 horas'))
+
+// Quem assina
+const sugeridas = assinaturasSugeridas()
+conferir('sugestões: presidência, vice e coordenação do Voluntariado', sugeridas.map((a) => a.cargo).join('|') === 'Presidente|Vice-Presidente|Coordenação de Voluntariado', sugeridas)
+conferir('lista vazia é recusada', Boolean(lerAssinaturas([]).erro))
+conferir('mais de três é recusada', Boolean(lerAssinaturas([...sugeridas, { nome: 'Quarta Pessoa', cargo: 'Tesouraria' }]).erro))
+conferir('nome curto é recusado', Boolean(lerAssinaturas([{ nome: 'Lu', cargo: 'Presidente' }]).erro))
+conferir('sem cargo é recusada, citando o nome', lerAssinaturas([{ nome: 'Luiz Carlos', cargo: '' }]).erro?.includes('Luiz Carlos') === true)
+conferir('linha toda em branco é ignorada; espaços somem', JSON.stringify(lerAssinaturas([{ nome: '  Antonio   Pedregal ', cargo: 'Vice-Presidente' }, { nome: '', cargo: '' }]).assinaturas) === '[{"nome":"Antonio Pedregal","cargo":"Vice-Presidente"}]')
+conferir('diploma com lista gravada usa a dele', assinaturasDoDiploma([{ nome: 'Antiga Presidenta', cargo: 'Presidente' }], sugeridas)[0].nome === 'Antiga Presidenta')
+conferir('diploma de antes usa a lista da filial', assinaturasDoDiploma(null, sugeridas).length === 3)
+conferir('sem nada: só a presidência', JSON.stringify(assinaturasDoDiploma(null, null)) === JSON.stringify([assinaturaDaPresidencia()]))
+conferir('lista gravada estragada cai na da filial', assinaturasDoDiploma('lixo', sugeridas.slice(0, 2)).length === 2)
+conferir('uma assinatura fica no meio', JSON.stringify(centrosDasAssinaturas(1, 170, 1020)) === '[595]')
+conferir('três distribuídas por igual', JSON.stringify(centrosDasAssinaturas(3, 100, 400)) === '[150,250,350]')
 
 console.log(falhas ? `\n${falhas} falha(s)` : '\ntudo ok')
 process.exit(falhas ? 1 : 0)

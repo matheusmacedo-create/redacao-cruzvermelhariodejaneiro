@@ -7,6 +7,9 @@ import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { todasAsLinhas } from '@/lib/supabase/paginar'
 import { filtrarDiplomas, lerFiltro, pertoDoMarco, proximoMarco } from '@/lib/participantes/diplomas'
 import { EmitirDiplomas, ListaDeDiplomas, type DiplomaNaLista, type VoluntarioParaDiploma } from '@/components/app/participantes/area-de-diplomas'
+import { QuemAssina } from '@/components/app/participantes/quem-assina'
+import { assinaturasDoDiploma, assinaturasSugeridas } from '@/lib/cursos/assinaturas'
+import { PESSOAS_DA_EQUIPE } from '@/lib/equipe'
 
 export const metadata = { title: 'Diplomas — Voluntariado' }
 export const dynamic = 'force-dynamic'
@@ -37,7 +40,7 @@ export default async function DiplomasPage({ searchParams }: { searchParams: Pro
     )
   }
 
-  const [participantes, horas, diplomas] = await Promise.all([
+  const [participantes, horas, diplomas, config] = await Promise.all([
     todasAsLinhas<{ id: string; nome: string; nome_social: string | null; situacao: string; vinculo: string }>((de, ate) => supabase.from('participantes')
       .select('id,nome,nome_social,situacao,vinculo').eq('workspace_id', ws).is('anonimizado_em', null).neq('situacao', 'candidato').order('id').range(de, ate)),
     todasAsLinhas<{ participante_id: string; horas: number | string }>((de, ate) => supabase.from('participante_horas')
@@ -45,7 +48,9 @@ export default async function DiplomasPage({ searchParams }: { searchParams: Pro
     // Sem a migração dos diplomas, a consulta falha e a lista só mostra "nenhum".
     todasAsLinhas<DiplomaNaLista>((de, ate) => supabase.from('diplomas')
       .select('id,participante_id,codigo,nome,motivo,marco_horas,texto,emitido_em,revogado_em,motivo_revogacao').eq('workspace_id', ws).order('id').range(de, ate)),
+    supabase.from('diplomas_config').select('assinaturas').eq('workspace_id', ws).maybeSingle(),
   ])
+  const assinaturasEscolhidas = config.data?.assinaturas ?? null
 
   const totalPorPessoa = new Map<string, number>()
   for (const h of horas.data) totalPorPessoa.set(h.participante_id, (totalPorPessoa.get(h.participante_id) ?? 0) + Number(h.horas))
@@ -81,6 +86,14 @@ export default async function DiplomasPage({ searchParams }: { searchParams: Pro
       </div>
 
       {nivel >= 2 && <EmitirDiplomas voluntarios={voluntarios} />}
+
+      <QuemAssina
+        atuais={assinaturasDoDiploma(null, assinaturasEscolhidas)}
+        escolhida={Boolean(assinaturasEscolhidas)}
+        sugestoes={assinaturasSugeridas()}
+        nomesDaEquipe={PESSOAS_DA_EQUIPE.map((p) => p.nome)}
+        podeEditar={nivel >= 2}
+      />
 
       {perto.length > 0 && (
         <Card className="p-5" data-ajuda="diplomas.perto">

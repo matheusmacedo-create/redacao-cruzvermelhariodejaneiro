@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { lerEscolhidos, lerMotivo } from '@/lib/participantes/diplomas'
+import { lerAssinaturas, type Assinatura } from '@/lib/cursos/assinaturas'
 
 /**
  * Diploma de Reconhecimento (docs/IDENTIDADE.md): a coordenação concede e
@@ -86,5 +87,26 @@ export async function concederDiplomas(participanteIds: string[], texto: string)
     return { codigos, falhas }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível conceder os diplomas.') }
+  }
+}
+
+/**
+ * Quem assina os diplomas da filial (de uma a três pessoas). Vale para os
+ * emitidos daqui em diante: o banco copia a lista para cada diploma novo
+ * (migração 20260929150000) e confere de novo o nível e o formato.
+ */
+export async function definirAssinaturas(lista: Assinatura[]): Promise<{ erro?: string }> {
+  try {
+    const { context, supabase, nivel } = await contextoDeParticipantes()
+    if (nivel < 2) throw new Error('Só quem gerencia o Voluntariado escolhe quem assina os diplomas.')
+    const { assinaturas, erro } = lerAssinaturas(lista)
+    if (erro) throw new Error(erro)
+    const { error } = await supabase.rpc('definir_assinaturas_do_diploma', { p_workspace_id: context.workspace.id, p_assinaturas: assinaturas })
+    if (error?.code === 'PGRST202' || error?.code === '42883') throw new Error('A escolha de quem assina ainda não está ligada no banco (migração 20260929150000). Avise a administração.')
+    if (error) erroDoBanco(error, 'Não foi possível salvar quem assina.')
+    revalidatePath('/voluntariado/diplomas')
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar quem assina.') }
   }
 }
