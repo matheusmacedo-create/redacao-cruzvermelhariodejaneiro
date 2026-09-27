@@ -61,6 +61,11 @@ pelo Matheus em 27/09/2026.
    `20260929050000`). A fila de aprovação fica em Voluntários → “Fotos do crachá”.
 6. **Verificação do crachá refeita para a portaria**: resultado grande e
    colorido, relógio correndo e foto grande.
+7. **Cartaz do link de envios** (`/envios/cartaz`) na identidade: títulos em
+   Barlow Condensed (Demi Cond), texto em Libre Franklin, o vermelho do
+   manual e o nome completo da filial em toda peça. No modelo "Destaque" (fundo
+   vermelho), a logo e o QR vão em caixa branca (pp. 17–20). Formatos A4,
+   story, feed e quadrado, em PNG.
 
 ## 4. O que dá para incrementar (proposta, por prioridade)
 
