@@ -6,13 +6,16 @@ import { FormularioDoPedido } from '@/components/app/financeiro/compras/formular
 import { contextoDeCompras, opcoesDoFormulario } from '@/lib/compras/servidor'
 import { reais } from '@/lib/financeiro/regras'
 import { tituloDaArea } from '@/lib/navegacao'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: `Novo pedido — ${tituloDaArea('/financeiro/compras')}` }
 export const dynamic = 'force-dynamic'
 
 export default async function NovoPedidoPage() {
+  const livro = await livroDaRequisicao()
   const ctx = await contextoDeCompras()
-  const voltar = <Link href="/financeiro/compras" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
+  const voltar = <Link href={noLivro(livro, '/financeiro/compras')} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
   if (!ctx.pede) {
     return <div>{voltar}<Card className="p-6 text-sm">Pedidos de compra são abertos pela equipe do Palácio Virtual.</Card></div>
   }

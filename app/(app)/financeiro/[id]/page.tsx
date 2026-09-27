@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ChevronLeft, Landmark, Lock, Pencil, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { Anexos, Decisao, DesfazerPagamento, Excluir, Pagar, type Anexo } from '@/components/app/financeiro/acoes'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha, nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { COLUNAS_DO_LANCAMENTO, FORMAS, SITUACOES, TIPOS, dataCurta, documentoLegivel, ehAutomatico, nomeDoMes, reais, situacao, type Lancamento } from '@/lib/financeiro/regras'
+import { livroDaEmpresaNaLista, livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: 'Lançamento' }
 export const dynamic = 'force-dynamic'
@@ -22,6 +24,7 @@ function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode 
 }
 
 export default async function LancamentoPage({ params }: { params: Promise<{ id: string }> }) {
+  const livro = await livroDaRequisicao()
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const ctx = await contextoDoFinanceiro()
@@ -32,6 +35,9 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
   // O nível que vale é o da empresa do lançamento (pode não ser a aberta no seletor).
   const nivel = nivelNaEmpresa(ctx, l.entidade_id)
   if (nivel < 1) notFound()
+  // Lançamento do outro livro (um link antigo, um aviso): abre no endereço dele, nunca aqui.
+  const doLancamento = livroDaEmpresaNaLista(ctx.empresas, l.entidade_id)
+  if (doLancamento && doLancamento !== livro) redirect(noLivro(doLancamento, `/financeiro/${id}`))
   const c = await cadastrosDoFinanceiro(l.entidade_id)
   const hoje = hojeEmSaoPaulo()
 
@@ -54,7 +60,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-      <Link href="/financeiro" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
+      <Link href={noLivro(livro, '/financeiro')} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ChevronLeft className="size-4" />Financeiro</Link>
       <PageHeader
         title={l.descricao}
         description={`${TIPOS[l.tipo].rotulo}${l.parcela ? ` · parcela ${l.parcela} de ${l.parcelas}` : l.recorrente ? ' · todo mês' : ''}`}
@@ -64,7 +70,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
               <Pagar id={l.id} tipo={l.tipo} valor={l.valor} contaId={l.conta_id} forma={l.forma} contas={c.contas.filter((x) => x.ativa && x.id !== l.conta_destino_id)} hoje={hoje} />
             )}
             {l.pago_em && !automatico && <DesfazerPagamento id={l.id} />}
-            <Button variant="outline" render={<Link href={`/financeiro/${l.id}/editar`} />}><Pencil className="size-4" />Editar</Button>
+            <Button variant="outline" render={<Link href={noLivro(livro, `/financeiro/${l.id}/editar`)} />}><Pencil className="size-4" />Editar</Button>
             {!l.pago_em && <Excluir id={l.id} emGrupo={Boolean(l.grupo_id)} />}
           </div>
         ) : undefined}
@@ -142,7 +148,7 @@ export default async function LancamentoPage({ params }: { params: Promise<{ id:
                   const sg = situacao({ tipo: g.tipo as Lancamento['tipo'], vencimento: g.vencimento as string, pago_em: g.pago_em as string | null, aprovacao: g.aprovacao as Lancamento['aprovacao'] }, hoje)
                   return (
                     <li key={g.id as string}>
-                      <Link href={`/financeiro/${g.id}`} className={`flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-muted ${g.id === l.id ? 'bg-muted font-medium' : ''}`}>
+                      <Link href={noLivro(livro, `/financeiro/${g.id}`)} className={`flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-muted ${g.id === l.id ? 'bg-muted font-medium' : ''}`}>
                         <span className="tabular-nums">{dataCurta(g.vencimento as string)}</span>
                         <span className="tabular-nums">{reais(Number(g.valor_pago ?? g.valor))}</span>
                         <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${SITUACOES[sg].classe}`}>{SITUACOES[sg].rotulo}</span>

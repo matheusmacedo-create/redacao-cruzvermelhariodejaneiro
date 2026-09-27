@@ -12,6 +12,8 @@ import {
 } from '@/lib/financeiro/regras'
 import { tituloDaArea } from '@/lib/navegacao'
 import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: tituloDaArea('/financeiro') }
 export const dynamic = 'force-dynamic'
@@ -27,18 +29,19 @@ type Aba = 'pagar' | 'receber' | 'mes' | 'aprovacao'
 export default async function FinanceiroPage({ searchParams }: {
   searchParams: Promise<{ aba?: string; mes?: string; conta?: string; categoria?: string; fonte?: string; projeto?: string; q?: string }>
 }) {
+  const livro = await livroDaRequisicao()
   const sp = await searchParams
   const { context, supabase, nivel } = await contextoDoFinanceiro()
 
   if (nivel < 1) {
     return (
       <div>
-        <PageHeader title="Financeiro" description="Despesas, receitas, contas a pagar e o caixa da filial." />
+        <PageHeader title={livro === 'escola' ? 'Financeiro da Escola' : 'Financeiro da filial'} description={livro === 'escola' ? 'Os livros da Escola: contas, lançamentos, conciliação e fechamento, com o CNPJ dela.' : 'Despesas, receitas, contas a pagar e o caixa da filial.'} />
         <Card className="flex items-start gap-3 p-6">
           <Lock className="mt-0.5 size-5 text-muted-foreground" />
           <div>
-            <p className="font-medium">Você ainda não tem acesso ao Financeiro.</p>
-            <p className="mt-1 text-sm text-muted-foreground">Ele é liberado pessoa a pessoa, por um administrador, em Financeiro → Cadastros → Quem acessa.</p>
+            <p className="font-medium">Você ainda não tem acesso {livro === 'escola' ? 'aos livros da Escola' : 'aos livros da filial'}.</p>
+            <p className="mt-1 text-sm text-muted-foreground">O acesso é liberado pessoa a pessoa, e empresa a empresa, por um administrador, em Financeiro → Cadastros → Quem acessa.</p>
           </div>
         </Card>
       </div>
@@ -91,7 +94,7 @@ export default async function FinanceiroPage({ searchParams }: {
     const p = new URLSearchParams(Object.entries({ aba: sp.aba, mes: sp.mes, conta: sp.conta, categoria: sp.categoria, fonte: sp.fonte, projeto: sp.projeto, q: sp.q, ...mudar })
       .filter((e): e is [string, string] => Boolean(e[1])))
     const s = p.toString()
-    return `/financeiro${s ? `?${s}` : ''}`
+    return noLivro(livro, `/financeiro${s ? `?${s}` : ''}`)
   }
   const abas: { id: Aba; rotulo: string }[] = [
     { id: 'pagar', rotulo: `A pagar (${aPagar.length})` },
@@ -103,13 +106,13 @@ export default async function FinanceiroPage({ searchParams }: {
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro" empresas={c.empresas} empresa={c.empresa} />
+      <SecoesDoFinanceiro atual="/financeiro" />
       <PageHeader
-        title="Financeiro"
-        description="Despesas, receitas e contas a pagar da filial, com a fonte de cada recurso e os comprovantes."
+        title={livro === 'escola' ? 'Financeiro da Escola' : 'Financeiro da filial'}
+        description={`Despesas, receitas e contas a pagar ${livro === 'escola' ? 'da Escola' : 'da filial'}, com a fonte de cada recurso e os comprovantes.`}
         actions={<div className="flex flex-wrap items-start gap-2" data-ajuda="financeiro.novo">
-          {nivel >= 2 && <Button variant="outline" render={<Link href="/financeiro/novo?tipo=receita" />}><Plus className="size-4" />Receita</Button>}
-          {nivel >= 2 && <Button render={<Link href="/financeiro/novo" />}><Plus className="size-4" />Despesa</Button>}
+          {nivel >= 2 && <Button variant="outline" render={<Link href={noLivro(livro, '/financeiro/novo?tipo=receita')} />}><Plus className="size-4" />Receita</Button>}
+          {nivel >= 2 && <Button render={<Link href={noLivro(livro, '/financeiro/novo')} />}><Plus className="size-4" />Despesa</Button>}
         </div>}
       />
 
@@ -132,7 +135,7 @@ export default async function FinanceiroPage({ searchParams }: {
         <Card className="p-5 text-sm">
           <p className="font-medium">Para começar, cadastre as contas da filial</p>
           <p className="mt-1 text-muted-foreground">A conta do banco (com o saldo do extrato de hoje) e o caixa em dinheiro. Se houver conta exclusiva de convênio, cadastre a fonte dele antes.</p>
-          <Button className="mt-3" size="sm" render={<Link href="/financeiro/cadastros?aba=contas" />}>Cadastrar contas</Button>
+          <Button className="mt-3" size="sm" render={<Link href={noLivro(livro, '/financeiro/cadastros?aba=contas')} />}>Cadastrar contas</Button>
         </Card>
       )}
 
@@ -184,7 +187,7 @@ export default async function FinanceiroPage({ searchParams }: {
                     <tr key={l.id} className="border-b border-border last:border-0 hover:bg-muted/30" data-lancamento={l.id}>
                       <td className="whitespace-nowrap px-4 py-3 tabular-nums">{dataCurta(aba === 'mes' && l.pago_em ? l.pago_em : l.vencimento)}</td>
                       <td className="max-w-80 px-3 py-3">
-                        <Link href={`/financeiro/${l.id}`} className="block truncate font-medium hover:text-primary hover:underline">{l.descricao}</Link>
+                        <Link href={noLivro(livro, `/financeiro/${l.id}`)} className="block truncate font-medium hover:text-primary hover:underline">{l.descricao}</Link>
                         <span className="block truncate text-xs text-muted-foreground">
                           {[l.favorecido_id && nomeDe.favorecido.get(l.favorecido_id), l.categoria_id ? nomeDe.categoria.get(l.categoria_id) : 'Transferência'].filter(Boolean).join(' · ')}
                         </span>

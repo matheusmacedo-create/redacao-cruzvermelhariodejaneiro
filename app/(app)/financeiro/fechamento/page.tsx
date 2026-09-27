@@ -11,6 +11,8 @@ import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
 import { cadastrosDoFinanceiro, contextoDoFinanceiro } from '@/lib/financeiro/acesso'
 import { somarDias } from '@/lib/financeiro/avisos'
 import { ehMes, mesAnterior, mesDe, mesSeguinte, nomeDoMes, reais } from '@/lib/financeiro/regras'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: 'Fechamento do mês' }
 export const dynamic = 'force-dynamic'
@@ -40,6 +42,7 @@ function Tabela({ cabecalho, linhas, id }: { cabecalho: string[]; linhas: (strin
  * do contador e o histórico de fechamentos.
  */
 export default async function FechamentoPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
+  const livro = await livroDaRequisicao()
   const sp = await searchParams
   const { nivel, nivelGeral } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
@@ -64,21 +67,21 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/fechamento" empresas={empresas} empresa={empresa} />
+      <SecoesDoFinanceiro atual="/financeiro/fechamento" />
       <PageHeader
         title={`Fechamento de ${nomeDoMes(mes)}`}
         description="Conferir, fechar e mandar ao contador. Fechado, o que foi pago no mês não muda mais."
         actions={<div className="flex flex-wrap items-start gap-2" data-ajuda="financeiro.fechamento-acoes">
-          {nivel >= 4 && <Button variant="outline" render={<a href={`/api/financeiro/fechamento/${mes}`} />}><Download className="size-4" />Pacote do contador</Button>}
+          {nivel >= 4 && <Button variant="outline" render={<a href={`/api/financeiro/fechamento/${mes}?livro=${livro}`} />}><Download className="size-4" />Pacote do contador</Button>}
           {nivel >= 4 && !estaFechado && <FecharMes mes={mes} nome={nomeDoMes(mes)} bloqueado={bloqueios.length > 0} avisos={avisos.map((i) => `${i.rotulo}${i.detalhe ? `: ${i.detalhe}` : ''}`)} />}
           {nivel >= 4 && ultimoFechado && <ReabrirMes nome={nomeDoMes(mes)} />}
         </div>}
       />
 
       <div className="flex items-center gap-1 text-sm" aria-label="Mês" data-ajuda="financeiro.fechamento-mes">
-        <Button variant="ghost" size="icon" aria-label="Mês anterior" render={<Link href={`/financeiro/fechamento?mes=${mesAnterior(mes)}`} />}><ChevronLeft className="size-4" /></Button>
+        <Button variant="ghost" size="icon" aria-label="Mês anterior" render={<Link href={noLivro(livro, `/financeiro/fechamento?mes=${mesAnterior(mes)}`)} />}><ChevronLeft className="size-4" /></Button>
         <span className="min-w-36 text-center font-medium capitalize">{nomeDoMes(mes)}</span>
-        <Button variant="ghost" size="icon" aria-label="Próximo mês" render={<Link href={`/financeiro/fechamento?mes=${mesSeguinte(mes)}`} />}><ChevronRight className="size-4" /></Button>
+        <Button variant="ghost" size="icon" aria-label="Próximo mês" render={<Link href={noLivro(livro, `/financeiro/fechamento?mes=${mesSeguinte(mes)}`)} />}><ChevronRight className="size-4" /></Button>
         {estaFechado
           ? <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success"><Lock className="size-3" />Fechado</span>
           : <span className="ml-2 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Aberto</span>}
@@ -102,7 +105,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
                 <span>
                   <span className={i.ok ? '' : 'font-medium'}>{i.rotulo}</span>
                   {!i.ok && i.bloqueia && <span className="ml-1.5 rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-destructive">impede</span>}
-                  {i.detalhe && <span className="block text-xs text-muted-foreground">{i.detalhe}{i.link && !i.ok && <> · <Link href={i.link} className="text-primary hover:underline">resolver</Link></>}</span>}
+                  {i.detalhe && <span className="block text-xs text-muted-foreground">{i.detalhe}{i.link && !i.ok && <> · <Link href={noLivro(livro, i.link)} className="text-primary hover:underline">resolver</Link></>}</span>}
                 </span>
               </li>
             ))}
@@ -179,7 +182,7 @@ export default async function FechamentoPage({ searchParams }: { searchParams: P
           <ul className="flex flex-col gap-2 text-sm">
             {d.fechamentos.map((f) => (
               <li key={f.id} className="flex flex-wrap items-baseline gap-x-2">
-                <Link href={`/financeiro/fechamento?mes=${f.mes.slice(0, 7)}`} className="font-medium capitalize hover:text-primary hover:underline">{nomeDoMes(f.mes.slice(0, 7))}</Link>
+                <Link href={noLivro(livro, `/financeiro/fechamento?mes=${f.mes.slice(0, 7)}`)} className="font-medium capitalize hover:text-primary hover:underline">{nomeDoMes(f.mes.slice(0, 7))}</Link>
                 <span className="text-muted-foreground">fechado por {f.fechado_por ? nomes[f.fechado_por] ?? 'alguém' : 'alguém'} em {quando(f.fechado_em)}{f.avisos.length ? ` · ${f.avisos.length} ${f.avisos.length === 1 ? 'aviso' : 'avisos'}` : ''}</span>
                 {f.situacao === 'reaberto' && <span className="text-xs text-warning-foreground">reaberto{f.reaberto_em ? ` em ${quando(f.reaberto_em)}` : ''}{f.motivo_reabertura ? `: ${f.motivo_reabertura}` : ''}</span>}
               </li>

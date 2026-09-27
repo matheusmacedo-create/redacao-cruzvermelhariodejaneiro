@@ -6,10 +6,13 @@ import { FormularioDoPedido } from '@/components/app/financeiro/compras/formular
 import { contextoDeCompras, opcoesDoFormulario } from '@/lib/compras/servidor'
 import { numeroDoPedido } from '@/lib/compras/regras'
 import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
+import { livroDaEmpresaNaLista, livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const dynamic = 'force-dynamic'
 
 export default async function EditarPedidoPage({ params }: { params: Promise<{ id: string }> }) {
+  const livro = await livroDaRequisicao()
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const ctx = await contextoDeCompras()
@@ -19,15 +22,17 @@ export default async function EditarPedidoPage({ params }: { params: Promise<{ i
     ctx.supabase.from('compras_itens').select('id,descricao,especificacao,quantidade,unidade,valor_estimado_unit').eq('pedido_id', id).order('ordem'),
   ])
   if (!p) notFound()
+  const doPedido = livroDaEmpresaNaLista(ctx.empresas, p.entidade_id)
+  if (doPedido && doPedido !== livro) redirect(noLivro(doPedido, `/financeiro/compras/${id}/editar`))
   const nivel = nivelNaEmpresa(ctx, p.entidade_id)
   // A mesma regra do banco (compras_salvar_pedido): quem pediu, até começar a cotação; o Financeiro, até mandar para aprovação.
   const pode = (p.estado === 'aberto' && (p.solicitante_id === ctx.context.user.id || nivel >= 2)) || (p.estado === 'em_cotacao' && nivel >= 2)
-  if (!pode) redirect(`/financeiro/compras/${id}`)
+  if (!pode) redirect(noLivro(livro, `/financeiro/compras/${id}`))
   const classificar = nivel >= 2
   const o = await opcoesDoFormulario(ctx, p.entidade_id, classificar)
   return (
     <div className="mx-auto max-w-4xl">
-      <Link href={`/financeiro/compras/${id}`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{numeroDoPedido(p.ano, p.numero)}</Link>
+      <Link href={noLivro(livro, `/financeiro/compras/${id}`)} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{numeroDoPedido(p.ano, p.numero)}</Link>
       <PageHeader title="Alterar pedido" description={p.estado === 'em_cotacao' ? 'Tirar um item apaga os preços dele nas propostas já registradas.' : 'Enquanto ninguém começou a cotar, dá para mudar tudo.'} />
       <FormularioDoPedido classificar={classificar} setores={o.setores} projetos={o.projetos} categorias={o.categorias} fontes={o.fontes}
         inicial={{ ...p, itens: (itens ?? []).map((i) => ({ ...i, quantidade: Number(i.quantidade), valor_estimado_unit: i.valor_estimado_unit === null ? null : Number(i.valor_estimado_unit) })) }} />

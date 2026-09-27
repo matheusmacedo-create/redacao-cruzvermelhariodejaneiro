@@ -2,10 +2,9 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { COOKIE_DA_EMPRESA, contextoDoFinanceiro, nivelNaEmpresa } from '@/lib/financeiro/acesso'
+import { contextoDoFinanceiro, nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { documentoValido } from '@/lib/patrimonio/doacoes'
 import { dadosDoMes } from '@/lib/financeiro/fechamento-servidor'
 import { notificar } from '@/lib/notificacoes/servidor'
@@ -32,7 +31,9 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
 }
 
 function revalidar(id?: string) {
+  // As duas portas dos livros (a da Escola é reescrita para as mesmas telas).
   revalidatePath('/financeiro', 'layout')
+  revalidatePath('/escola/financeiro', 'layout')
   if (id) revalidatePath(`/financeiro/${id}`)
 }
 
@@ -525,19 +526,6 @@ export async function salvarOrcamento(ano: number, itens: { categoria_id: string
 }
 
 // ---------------------------------------------------------------- empresas
-
-/** Abre o Financeiro de outra empresa (a filial ou a Escola). */
-export async function escolherEmpresa(id: string): Promise<Resultado> {
-  try {
-    const { empresas } = await contextoDoFinanceiro()
-    if (!empresas.some((e) => e.id === id)) throw new Error('Empresa não encontrada.')
-    ;(await cookies()).set(COOKIE_DA_EMPRESA, id, { path: '/', httpOnly: true, sameSite: 'lax', secure: true, maxAge: 60 * 60 * 24 * 365 })
-    revalidar()
-    return {}
-  } catch (causa) {
-    return { erro: mensagemDoErro(causa, 'Não foi possível trocar de empresa.') }
-  }
-}
 
 /** Nome, razão social e CNPJ de uma empresa (gestão do Financeiro). */
 export async function salvarEmpresa(id: string, _anterior: Resultado & { ok?: number }, formData: FormData): Promise<Resultado & { ok?: number }> {

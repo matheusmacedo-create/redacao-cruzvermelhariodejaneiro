@@ -17,6 +17,8 @@ import {
   alertas, despesaFixaMedia, fontesComDestino, mesesCompletos, orcamentoDoMes, origensDasReceitas, previsao, resultadoMedio,
 } from '@/lib/financeiro/saude'
 import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: 'Saúde do caixa' }
 export const dynamic = 'force-dynamic'
@@ -37,6 +39,7 @@ function Numero({ valor, rotulo, detalhe, tom }: { valor: string; rotulo: string
  * fontes com destino perto de acabar e de onde vem o dinheiro.
  */
 export default async function SaudePage() {
+  const livro = await livroDaRequisicao()
   const { context, supabase, nivel } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
   const ws = context.workspace.id
@@ -85,11 +88,11 @@ export default async function SaudePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/saude" empresas={c.empresas} empresa={c.empresa} />
+      <SecoesDoFinanceiro atual="/financeiro/saude" />
       <PageHeader title="Saúde do caixa" description="Estamos bem? O dinheiro livre separado do que tem destino, quanto tempo ele aguenta e o que vem pela frente." />
 
       {semHistorico ? (
-        <Card className="p-6 text-sm text-muted-foreground">Os números aparecem assim que houver contas cadastradas e lançamentos pagos. Comece em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
+        <Card className="p-6 text-sm text-muted-foreground">Os números aparecem assim que houver contas cadastradas e lançamentos pagos. Comece em <Link href={noLivro(livro, '/financeiro/cadastros')} className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
       ) : (
         <>
           <Card className="p-5" id="alertas" data-ajuda="financeiro.saude-alertas">
@@ -98,7 +101,7 @@ export default async function SaudePage() {
                 {lista.map((a, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm" data-nivel={a.nivel}>
                     {a.nivel === 'critico' ? <OctagonAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-label="Crítico" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning-foreground" aria-label="Atenção" />}
-                    <span>{a.texto}{a.link && <> <Link href={a.link} className="text-primary hover:underline">Ver</Link></>}</span>
+                    <span>{a.texto}{a.link && <> <Link href={noLivro(livro, a.link)} className="text-primary hover:underline">Ver</Link></>}</span>
                   </li>
                 ))}
               </ul>

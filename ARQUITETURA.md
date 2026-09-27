@@ -1259,6 +1259,37 @@ a primeira pela `ordem`; `patrimonio_foto_capa` põe uma foto na frente.
 No cadastro de um bem novo, as fotos escolhidas sobem logo depois que o banco
 devolve o id. Conferência: `npx tsx scripts/conferir-fotos-do-patrimonio.ts`.
 
+### 7.28 Financeiro: um endereço por livro (`/financeiro`, `/escola/financeiro`)
+
+A filial e a Escola são empresas à parte (`fin_entidades`), cada uma com CNPJ,
+contas, lançamentos, conciliação e fechamento próprios. O livro aberto vem do
+endereço, nunca de um cookie:
+
+- `/financeiro/...` → livros da filial;
+- `/escola/financeiro/...` → livros da Escola.
+
+O `proxy.ts` reescreve `/escola/financeiro/x` para as mesmas telas de
+`/financeiro/x` e grava o livro no cabeçalho `x-cvrj-livro-financeiro`. O
+proxy sempre sobrescreve esse cabeçalho, e fora do Financeiro o apaga.
+`contextoDoFinanceiro()` (com `cache`) lê o livro e escolhe a empresa. As
+server actions fazem POST para o endereço da tela e herdam o mesmo livro.
+
+Nas rotas de API, o livro vem em `?livro=` (o pacote do contador) e o proxy
+confere do mesmo jeito.
+
+- **Links**: o código escreve `/financeiro/...` e passa por `noLivro(livro, …)`
+  (`lib/financeiro/livro.ts`); no cliente, `useNoLivro()`
+  (`components/app/financeiro/livro.tsx`, com o provedor no layout).
+- **Endereço antigo**: um lançamento ou pedido aberto pelo endereço do outro
+  livro (link antigo, aviso, calendário) redireciona para o livro da empresa
+  dele.
+- **Tela**: o layout mostra a `FaixaDoLivro` (vermelha na filial, azul na
+  Escola, com nome e CNPJ) e, na Escola, as seções da Escola no alto.
+- **Equipe da escola**: nunca abre os livros da filial.
+- **Por quê**: antes o cookie `fin_empresa` guardava a empresa aberta, e duas
+  abas trocavam os livros uma da outra sem aviso.
+- **Conferência**: `npx tsx scripts/conferir-livros-do-financeiro.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

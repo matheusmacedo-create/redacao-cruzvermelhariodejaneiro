@@ -37,6 +37,7 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
 
 const revalidar = (id?: string) => {
   revalidatePath('/financeiro/compras')
+  revalidatePath('/escola/financeiro/compras')
   if (id) revalidatePath(`/financeiro/compras/${id}`)
 }
 
@@ -524,6 +525,7 @@ export async function lancarContaDaCompra(pedidoId: string, dados: ContaNoFormul
     if (error || !id) erroDoBanco(error, 'Não foi possível lançar a conta a pagar.')
     revalidar(pedidoId)
     revalidatePath('/financeiro')
+    revalidatePath('/escola/financeiro')
     return { id: id as string }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível lançar a conta a pagar.') }
@@ -545,6 +547,7 @@ export async function salvarRegrasDeCompra(dados: { limite_simples: string; limi
     })
     if (error) erroDoBanco(error, 'Não foi possível salvar as regras.')
     revalidatePath('/financeiro/cadastros')
+    revalidatePath('/escola/financeiro/cadastros')
     revalidar()
     return {}
   } catch (causa) {

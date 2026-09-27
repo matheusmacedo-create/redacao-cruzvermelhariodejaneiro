@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   AlertTriangle, BadgeCheck, Bell, ChevronRight, DoorOpen, Fingerprint, Globe, GraduationCap, KeyRound, LifeBuoy, Mail, MailCheck,
-  Package, PlugZap, Smartphone, UserRound, Users, Wallet, type LucideIcon,
+  Package, PiggyBank, PlugZap, Smartphone, UserRound, Users, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
@@ -93,7 +93,8 @@ export default async function ConfiguracoesPage() {
 
   const areas: Atalho[] = [
     { href: '/chamados/configurar', titulo: 'Chamados', texto: 'Filas, equipes de atendimento e prazos.', icone: LifeBuoy },
-    { href: '/financeiro/cadastros', titulo: 'Financeiro', texto: 'Contas, categorias, centros de custo, favorecidos e quem acessa.', icone: Wallet },
+    { href: '/financeiro/cadastros', titulo: 'Financeiro da filial', texto: 'Contas, categorias, fontes, favorecidos e quem acessa, nos livros da filial.', icone: Wallet },
+    { href: '/escola/financeiro/cadastros', titulo: 'Financeiro da Escola', texto: 'Contas, fontes, favorecidos e o CNPJ, nos livros da Escola.', icone: PiggyBank },
     { href: '/patrimonio/cadastros', titulo: 'Patrimônio', texto: 'Categorias, locais e quem acessa.', icone: Package },
     { href: '/escola/configuracoes', titulo: 'Escola', texto: 'Contas da Únicopag e conta de anúncios do Meta.', icone: GraduationCap },
     { href: '/portaria?aba=qr', titulo: 'Portaria', texto: 'O QR do autocadastro de visitantes e o cartaz.', icone: DoorOpen },

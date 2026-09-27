@@ -5,6 +5,7 @@ import { enderecoNoDominioNovo } from '@/lib/dominio'
 import {
   CABECALHO_DO_CAMINHO, COOKIE_DA_RENOVACAO, COOKIE_DO_MEMBRO, caminhoParaVoltar, diaDaRenovacao, naAreaDoMembro, opcoesDoCookieDoMembro, renovaCookieDoMembro,
 } from '@/lib/membro/entrada'
+import { CABECALHO_DO_ENDERECO, CABECALHO_DO_LIVRO, caminhoInterno, ehLivro, livroDoCaminho } from '@/lib/financeiro/livro'
 
 export async function proxy(request: NextRequest) {
   // Domínio antigo (redacao.) → novo (palacio.), só para páginas: /api segue
@@ -15,6 +16,7 @@ export async function proxy(request: NextRequest) {
   // Antes de qualquer NextResponse.next({ request }): o cabeçalho da área do
   // voluntário tem de ir junto nos dois retornos abaixo.
   const naArea = prepararAreaDoMembro(request)
+  const seguir = prepararLivroDoFinanceiro(request)
   const { url, key, missing, invalid } = publicSupabaseEnv()
 
   // O proxy roda em toda requisição. Se ele lançar por falta de variável, o
@@ -22,16 +24,16 @@ export async function proxy(request: NextRequest) {
   // explicaria o problema. Sem credenciais, segue sem renovar a sessão.
   if (missing.length || invalid.length) {
     console.error('[proxy] Supabase não configurado.', new SupabaseConfigError(missing, invalid).message)
-    return renovarSessaoDoMembro(request, naArea, NextResponse.next({ request }))
+    return renovarSessaoDoMembro(request, naArea, seguir())
   }
 
-  let response = NextResponse.next({ request })
+  let response = seguir()
   const supabase = createServerClient(url!, key!, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        response = NextResponse.next({ request })
+        response = seguir()
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
       },
     },
@@ -50,6 +52,32 @@ export async function proxy(request: NextRequest) {
   }
 
   return renovarSessaoDoMembro(request, naArea, response)
+}
+
+// ---------------------------------------------------------------- Livros do Financeiro
+
+/**
+ * O livro do Financeiro vem do endereço (lib/financeiro/livro.ts):
+ * /financeiro/... é a filial e /escola/financeiro/... é a Escola, que é
+ * reescrito para as mesmas telas. O cabeçalho diz às telas e às server
+ * actions qual é o livro; o que o navegador mande nele é sempre
+ * sobrescrito (ou apagado, fora do Financeiro). Devolve como seguir: a
+ * reescrita da Escola ou o caminho normal.
+ */
+function prepararLivroDoFinanceiro(request: NextRequest): () => NextResponse {
+  const { pathname, searchParams } = request.nextUrl
+  // As rotas de API do Financeiro (o pacote do contador) não têm o livro no
+  // caminho: vem em ?livro=, conferido aqui do mesmo jeito.
+  const pedido = searchParams.get('livro')
+  const livro = livroDoCaminho(pathname) ?? (pathname.startsWith('/api/financeiro/') && ehLivro(pedido) ? pedido : null)
+  if (livro) request.headers.set(CABECALHO_DO_LIVRO, livro)
+  else request.headers.delete(CABECALHO_DO_LIVRO)
+  if (livro) request.headers.set(CABECALHO_DO_ENDERECO, `${pathname}${request.nextUrl.search}`.slice(0, 500))
+  else request.headers.delete(CABECALHO_DO_ENDERECO)
+  if (livro !== 'escola') return () => NextResponse.next({ request })
+  const destino = request.nextUrl.clone()
+  destino.pathname = caminhoInterno(pathname)
+  return () => NextResponse.rewrite(destino, { request })
 }
 
 // ---------------------------------------------------------------- Área do Voluntário
@@ -91,4 +119,4 @@ function renovarSessaoDoMembro(request: NextRequest, naArea: boolean, response: 
 
 // A consulta pública da trilha (/api/publico/) não tem sessão: fica fora, sem
 // uma ida ao Supabase Auth a cada verificação.
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|images/|api/publico/).*)'] }
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|images/|api/publico/).*)'] }

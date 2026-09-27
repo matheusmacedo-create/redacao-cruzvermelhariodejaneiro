@@ -127,7 +127,7 @@ export const GRUPOS: Grupo[] = [
     id: 'gestao',
     rotulo: 'Gestão',
     areas: [
-      { href: '/financeiro', rotulo: 'Financeiro', resumo: 'Despesas, receitas, contas a pagar e o caixa da filial', icone: Wallet, termos: ['contas a pagar', 'despesas', 'receitas', 'caixa', 'lançamentos', 'fluxo de caixa', 'conciliação', 'fechamento'] },
+      { href: '/financeiro', rotulo: 'Financeiro da filial', resumo: 'Os livros da filial: despesas, receitas, contas a pagar e o caixa, com o CNPJ dela', icone: Wallet, termos: ['financeiro', 'contas a pagar', 'despesas', 'receitas', 'caixa', 'lançamentos', 'fluxo de caixa', 'conciliação', 'fechamento'] },
       { href: '/patrimonio', rotulo: 'Patrimônio', resumo: 'Bens com plaqueta e QR, estoque com lote e validade, doações, frota, manutenção e inventário', icone: Package, termos: ['inventário', 'bens', 'plaqueta', 'cautela', 'termo de responsabilidade', 'almoxarifado', 'estoque', 'materiais', 'validade', 'kits', 'doações', 'doador', 'recibo', 'campanha', 'distribuição', 'frota', 'veículos', 'ambulância', 'combustível', 'CNH'] },
       // O portal público de prestação de contas; Canais oficiais e Trilha pública são abas dele.
       // Lançamento oculto: as páginas públicas destas áreas saem com noindex e sem link no site até a abertura (docs/auditoria-publica.md §9).
