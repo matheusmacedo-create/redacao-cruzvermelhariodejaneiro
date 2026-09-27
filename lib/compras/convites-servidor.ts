@@ -149,7 +149,7 @@ export async function rotinaDasCotacoes(admin: Admin = createAdminClient()): Pro
     for (const c of convites as unknown as { id: string; email: string; token: string; caixa_id: string; fin_favorecidos: { nome: string } | null }[]) {
       const texto = textoDoLembrete({ comprador: comprador.nome, fornecedor: c.fin_favorecidos?.nome ?? 'fornecedor', codigo: numeroDoPedido(p.ano, p.numero), titulo: p.titulo, prazo: p.cotacao_prazo, link: linkDoConvite(c.token) })
       try {
-        await enviarPelaCaixaAutomatica(p.workspace_id, c.caixa_id, { para: c.email, assunto: texto.assunto, corpo: texto.corpo })
+        await enviarPelaCaixaAutomatica(p.workspace_id, c.caixa_id, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html })
         await admin.from('compras_convites').update({ lembrete_em: new Date().toISOString() }).eq('id', c.id)
         lembretes++
       } catch (causa) {

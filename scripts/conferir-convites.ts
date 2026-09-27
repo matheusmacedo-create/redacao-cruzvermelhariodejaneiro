@@ -6,6 +6,8 @@ import {
   dataComDia, lerPreco, lerPropostaDoFornecedor, motivoDaSugestao, prazoPadrao, resumoDosConvites, situacaoDoConvite, sugerirFornecedores,
   textoDoConvite, textoDoLembrete, totalParaOFornecedor, vespera, type Convite,
 } from '../lib/compras/convites'
+import { writeFileSync } from 'node:fs'
+import { corpoHtmlComAssinatura } from '../lib/correio/mensagem'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, rotulo: string) {
@@ -88,6 +90,28 @@ igual(convite.corpo.includes('Prazo para a proposta: 01/10/2026 (quinta-feira)')
 igual(convite.corpo.includes('https://palacio.exemplo/cotacao/abc'), true, 'link no corpo')
 igual(convite.corpo.includes('Entrega em horário comercial.'), true, 'recado entra')
 igual(/estimad|valor de refer/i.test(convite.corpo), false, 'nenhum valor estimado vai ao fornecedor')
+igual(/estimad|valor de refer/i.test(convite.html), false, 'nenhum valor estimado vai ao fornecedor (HTML)')
+igual(convite.html.includes('href="https://palacio.exemplo/cotacao/abc"'), true, 'botão com o link')
+igual(convite.html.includes('75 g/m²<br>branco'), true, 'especificação com quebra de linha no HTML')
+const comCnpj = textoDoConvite({
+  comprador: 'O-CVB Filial Rio de Janeiro Ensino Ltda - EPP', cnpj: '12345678000190', fornecedor: 'Loja <b>&</b> Cia', codigo: 'PC-2026-0002', titulo: 'Cadeiras <script>',
+  prazo: '2026-10-02', link: 'https://palacio.exemplo/cotacao/x"y', itens: [{ descricao: 'Cadeira & mesa', especificacao: null, quantidade: 2.5, unidade: 'un' }],
+  localEntrega: null, necessarioAte: null,
+})
+igual(comCnpj.corpo.includes('Nota fiscal em nome de: O-CVB Filial Rio de Janeiro Ensino Ltda - EPP — CNPJ 12.345.678/0001-90'), true, 'nota fiscal com o CNPJ de quem compra')
+igual(/<script>|<b>|x"y/.test(comCnpj.html), false, 'HTML escapa nome, título e link')
+igual(comCnpj.html.includes('Cadeira &amp; mesa') && comCnpj.html.includes('>2,5<'), true, 'item escapado e quantidade com vírgula')
+igual(/A O-CVB/.test(comCnpj.corpo + comCnpj.html), false, 'sem "A O-CVB…"')
+igual(textoDoLembrete({ comprador: 'X', fornecedor: 'Y', codigo: 'PC-2026-0001', titulo: 'Papel', prazo: '2026-10-01', link: 'L' }).html.includes('amanhã, 01/10/2026 (quinta-feira)'), true, 'lembrete em HTML')
+if (process.argv[2]) {
+  const exemplo = textoDoConvite({
+    comprador: 'O-CVB Filial Rio de Janeiro Ensino Ltda - EPP', cnpj: '12345678000190', fornecedor: 'Matheus Macedo', codigo: 'PC-2026-0001', titulo: 'Material para o curso de Primeiros Socorros',
+    prazo: '2026-10-02', link: 'https://palacio.cruzvermelhariodejaneiro.org/cotacao/C0_exemplo', recado: 'Por favor, informe se há pronta entrega.',
+    itens: [{ descricao: 'Manequim de RCP adulto', especificacao: 'Com indicador de compressão', quantidade: 2, unidade: 'un' }, { descricao: 'Luva de procedimento M', especificacao: 'Caixa com 100', quantidade: 10, unidade: 'cx' }],
+    localEntrega: 'Praça da Cruz Vermelha, 10 — Centro, Rio de Janeiro/RJ', necessarioAte: '2026-10-15',
+  })
+  writeFileSync(process.argv[2], `<!doctype html><meta charset="utf-8"><body style="margin:24px;background:#fff">${corpoHtmlComAssinatura(exemplo.html, exemplo.corpo, '<p style="color:#888">[assinatura da caixa do setor]</p>').html}</body>`)
+}
 igual(textoDoLembrete({ comprador: 'X', fornecedor: 'Y', codigo: 'PC-2026-0001', titulo: 'Papel', prazo: '2026-10-01', link: 'L' }).assunto, 'Lembrete: proposta PC-2026-0001 até 01/10/2026', 'assunto do lembrete')
 
 if (falhas) { console.error(`\n${falhas} falha(s).`); process.exit(1) }

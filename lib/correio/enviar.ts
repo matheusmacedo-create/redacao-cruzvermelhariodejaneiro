@@ -3,7 +3,7 @@ import { pode, type Papel } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { enviarPeloGmail, GmailError } from '@/lib/google/gmail'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { corpoComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
+import { corpoComAssinatura, corpoHtmlComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
 
 /**
  * Enviar por uma caixa de setor — a regra num lugar só (a tela do E-mail do
@@ -14,7 +14,11 @@ import { corpoComAssinatura, lerDestinatarios, montarMensagem } from './mensagem
 
 export const TETO_DE_DESTINATARIOS = 50
 type Contexto = { workspace: { id: string }; user: { id: string }; role: Papel }
-export type Envio = { para: string; cc?: string; assunto: string; corpo: string; anexos?: { nome: string; tipo: string; conteudo: Uint8Array }[] }
+export type Envio = {
+  para: string; cc?: string; assunto: string; corpo: string; anexos?: { nome: string; tipo: string; conteudo: Uint8Array }[]
+  /** Corpo já em HTML (escapado por quem monta); `corpo` segue como a versão em texto. */
+  html?: string
+}
 
 /** As caixas por onde esta pessoa pode enviar (todas, para quem tem a permissão). */
 export async function caixasQuePodeUsar(context: Contexto): Promise<{ id: string; email: string; setor_id: string }[]> {
@@ -80,7 +84,7 @@ async function despachar(admin: ReturnType<typeof createAdminClient>, workspaceI
       de: caixa.email, para: para.validos, cc: cc.validos, assunto,
       corpo: m.anexos?.length ? `${corpo}\n\n[anexos: ${m.anexos.map((a) => a.nome).join(', ')}]` : corpo,
     }
-    const conteudo = corpoComAssinatura(corpo, caixa.assinatura_html)
+    const conteudo = m.html ? corpoHtmlComAssinatura(m.html, corpo, caixa.assinatura_html) : corpoComAssinatura(corpo, caixa.assinatura_html)
     const { raw } = montarMensagem({
       // O nome definido na Redação vale mais que o do Gmail (que por padrão é só o endereço).
       de: { nome: caixa.nome_remetente || caixa.nome_exibicao, email: caixa.email },

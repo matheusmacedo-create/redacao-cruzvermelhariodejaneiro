@@ -374,12 +374,12 @@ export async function pedirPropostas(pedidoId: string, dados: PedidoDePropostas)
     // Um e-mail por fornecedor: ninguém vê quem mais foi convidado.
     for (const c of convites) {
       const texto = textoDoConvite({
-        comprador: comprador.nome, fornecedor: c.nome, codigo: numeroDoPedido(p.ano, p.numero), titulo: p.titulo, prazo: dados.prazo,
+        comprador: comprador.nome, cnpj: comprador.cnpj, fornecedor: c.nome, codigo: numeroDoPedido(p.ano, p.numero), titulo: p.titulo, prazo: dados.prazo,
         link: linkDoConvite(c.token), localEntrega: p.local_entrega, necessarioAte: p.necessario_ate, recado,
         itens: (itens ?? []).map((i) => ({ descricao: i.descricao, especificacao: i.especificacao, quantidade: Number(i.quantidade), unidade: i.unidade })),
       })
       try {
-        await enviarPelaCaixa(context, dados.caixaId, { para: c.email, assunto: texto.assunto, corpo: texto.corpo })
+        await enviarPelaCaixa(context, dados.caixaId, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html })
         await admin.from('compras_convites').update({ enviado_em: new Date().toISOString(), enviado_por: context.user.id, envio_erro: null }).eq('id', c.id)
         enviados++
       } catch (causa) {

@@ -6,6 +6,7 @@
  */
 
 import { dataCurta, reais } from '@/lib/financeiro/regras'
+import { escapar } from '@/lib/correio/mensagem'
 
 /** Dias corridos do prazo sugerido (cai para a segunda se for fim de semana). */
 export const PRAZO_PADRAO_DIAS = 5
@@ -121,34 +122,103 @@ export type DadosDoConvite = {
   comprador: string; fornecedor: string; codigo: string; titulo: string; prazo: string; link: string
   itens: { descricao: string; especificacao: string | null; quantidade: number; unidade: string }[]
   localEntrega: string | null; necessarioAte: string | null; recado?: string | null
+  /** CNPJ de quem compra (só dígitos): vai na nota fiscal. */
+  cnpj?: string | null
 }
 
 const qtd = (n: number) => String(n).replace('.', ',')
+const cnpjLegivel = (c: string) => c.replace(/\D/g, '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+/** "Nota fiscal em nome de …": quem compra pode ser a Filial ou a Escola, cada uma com o seu CNPJ. */
+const notaFiscal = (d: Pick<DadosDoConvite, 'comprador' | 'cnpj'>) => `${d.comprador}${d.cnpj ? ` — CNPJ ${cnpjLegivel(d.cnpj)}` : ''}`
 
-/** O pedido de proposta. Um e-mail por fornecedor: ninguém vê quem mais foi convidado. */
-export function textoDoConvite(d: DadosDoConvite): { assunto: string; corpo: string } {
-  const itens = d.itens.map((i, n) => `${n + 1}. ${i.descricao} — ${qtd(i.quantidade)} ${i.unidade}${i.especificacao ? `\n   ${i.especificacao.replace(/\n+/g, ' ')}` : ''}`)
-  return {
-    assunto: `Pedido de proposta ${d.codigo} — ${d.titulo}`.slice(0, 200),
-    corpo: [
-      `Olá, ${d.fornecedor}.`,
-      `A ${d.comprador} pede a sua proposta para os itens abaixo.`,
-      ...(d.recado?.trim() ? [d.recado.trim()] : []),
-      itens.join('\n'),
-      [
-        d.localEntrega ? `Entrega em: ${d.localEntrega}` : '',
-        d.necessarioAte ? `Precisamos até: ${dataCurta(d.necessarioAte)}` : '',
-        `Prazo para a proposta: ${dataComDia(d.prazo)}`,
-      ].filter(Boolean).join('\n'),
-      `Para responder, abra o link abaixo, preencha o preço de cada item (e o frete, o prazo de entrega e a validade) e, se quiser, anexe a sua proposta em PDF. Não precisa de senha nem de cadastro:\n${d.link}`,
-      'Se não puder cotar desta vez, o mesmo link tem o botão "Não vou cotar". Dúvidas, é só responder este e-mail.',
-      'Obrigado,',
-    ].join('\n\n'),
-  }
+// Cores e medidas do e-mail: tabelas e estilo em linha, que é o que os clientes de e-mail respeitam.
+const VERMELHO = '#d71920'
+const TINTA = '#1a202c'
+const CINZA = '#5f6b7a'
+const BORDA = '#e2e8f0'
+const FUNDO = '#f7f8fa'
+
+function botao(rotulo: string, link: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 8px;"><tr><td style="border-radius:8px;background:${VERMELHO};">`
+    + `<a href="${escapar(link)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">${escapar(rotulo)}</a>`
+    + '</td></tr></table>'
+}
+
+function linhaDeDado(rotulo: string, valor: string, destaque = false): string {
+  return `<tr><td style="padding:6px 12px 6px 0;color:${CINZA};font-size:13px;white-space:nowrap;vertical-align:top;">${escapar(rotulo)}</td>`
+    + `<td style="padding:6px 0;font-size:14px;${destaque ? `font-weight:bold;color:${VERMELHO};` : ''}">${escapar(valor)}</td></tr>`
+}
+
+/**
+ * O pedido de proposta. Um e-mail por fornecedor: ninguém vê quem mais foi
+ * convidado. Sai em HTML (itens em tabela, prazo em destaque, botão para a
+ * página da proposta) e em texto, para quem lê sem HTML.
+ */
+export function textoDoConvite(d: DadosDoConvite): { assunto: string; corpo: string; html: string } {
+  const recado = d.recado?.trim() || ''
+  const itensTexto = d.itens.map((i, n) => `${n + 1}. ${i.descricao} — ${qtd(i.quantidade)} ${i.unidade}${i.especificacao ? `\n   ${i.especificacao.replace(/\n+/g, ' ')}` : ''}`)
+  const dados: [string, string, boolean?][] = [
+    ['Prazo para a proposta', dataComDia(d.prazo), true],
+    ...(d.necessarioAte ? [['Precisamos até', dataCurta(d.necessarioAte)] as [string, string]] : []),
+    ...(d.localEntrega ? [['Entrega em', d.localEntrega] as [string, string]] : []),
+    ['Nota fiscal em nome de', notaFiscal(d)],
+  ]
+  const corpo = [
+    `Olá, ${d.fornecedor}.`,
+    `Gostaríamos de receber a sua proposta para os itens abaixo (pedido ${d.codigo} — ${d.titulo}).`,
+    ...(recado ? [recado] : []),
+    itensTexto.join('\n'),
+    dados.map(([r, v]) => `${r}: ${v}`).join('\n'),
+    `Para responder, abra o link abaixo e preencha o preço de cada item, o frete, o prazo de entrega e a validade. Se quiser, anexe a sua proposta em PDF. Não precisa de senha nem de cadastro:\n${d.link}`,
+    'Se não puder cotar desta vez, o mesmo link tem o botão "Não vou cotar". Dúvidas? É só responder este e-mail.',
+    'Obrigado,',
+  ].join('\n\n')
+
+  const linhas = d.itens.map((i, n) => `<tr>`
+    + `<td style="padding:10px 8px;border-top:1px solid ${BORDA};color:${CINZA};font-size:13px;vertical-align:top;">${n + 1}</td>`
+    + `<td style="padding:10px 8px;border-top:1px solid ${BORDA};vertical-align:top;"><span style="font-weight:bold;">${escapar(i.descricao)}</span>`
+    + `${i.especificacao ? `<br><span style="color:${CINZA};font-size:13px;">${escapar(i.especificacao).replace(/\n/g, '<br>')}</span>` : ''}</td>`
+    + `<td style="padding:10px 8px;border-top:1px solid ${BORDA};text-align:right;white-space:nowrap;vertical-align:top;font-weight:bold;">${qtd(i.quantidade)}</td>`
+    + `<td style="padding:10px 8px;border-top:1px solid ${BORDA};white-space:nowrap;vertical-align:top;color:${CINZA};">${escapar(i.unidade)}</td>`
+    + '</tr>').join('')
+  const html = [
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;border:1px solid ${BORDA};border-radius:10px;border-collapse:separate;overflow:hidden;">`,
+    `<tr><td style="background:${VERMELHO};padding:16px 20px;color:#ffffff;">`
+      + `<div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:0.9;">Pedido de proposta · ${escapar(d.codigo)}</div>`
+      + `<div style="font-size:20px;font-weight:bold;line-height:1.3;margin-top:2px;">${escapar(d.titulo)}</div>`
+      + `<div style="font-size:13px;opacity:0.9;margin-top:4px;">${escapar(d.comprador)}</div></td></tr>`,
+    `<tr><td style="padding:20px;color:${TINTA};">`,
+    `<p style="margin:0 0 12px;">Olá, <strong>${escapar(d.fornecedor)}</strong>.</p>`,
+    '<p style="margin:0 0 16px;">Gostaríamos de receber a sua proposta para os itens abaixo.</p>',
+    recado ? `<div style="margin:0 0 16px;padding:10px 14px;border-left:3px solid ${VERMELHO};background:${FUNDO};">${escapar(recado).replace(/\n/g, '<br>')}</div>` : '',
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 16px;font-size:14px;">`
+      + `<tr style="background:${FUNDO};"><th align="left" style="padding:8px;font-size:12px;color:${CINZA};font-weight:normal;">#</th>`
+      + `<th align="left" style="padding:8px;font-size:12px;color:${CINZA};font-weight:normal;">Item</th>`
+      + `<th align="right" style="padding:8px;font-size:12px;color:${CINZA};font-weight:normal;">Qtd.</th>`
+      + `<th align="left" style="padding:8px;font-size:12px;color:${CINZA};font-weight:normal;">Unid.</th></tr>`
+      + `${linhas}</table>`,
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">${dados.map(([r, v, destaque]) => linhaDeDado(r, v, destaque)).join('')}</table>`,
+    botao('Enviar minha proposta', d.link),
+    `<p style="margin:0 0 16px;font-size:13px;color:${CINZA};">Na página, preencha o preço de cada item, o frete, o prazo de entrega e a validade. Se quiser, anexe a sua proposta em PDF. Não precisa de senha nem de cadastro.</p>`,
+    `<p style="margin:0;font-size:13px;color:${CINZA};">Não vai cotar desta vez? <a href="${escapar(d.link)}" style="color:${VERMELHO};">Avise pelo mesmo link</a>. Dúvidas? É só responder este e-mail.</p>`,
+    `<p style="margin:12px 0 0;font-size:12px;color:${CINZA};word-break:break-all;">Se o botão não abrir: ${escapar(d.link)}</p>`,
+    '</td></tr></table>',
+    '<p style="margin:16px 0 0;">Obrigado,</p>',
+  ].filter(Boolean).join('\n')
+
+  return { assunto: `Pedido de proposta ${d.codigo} — ${d.titulo}`.slice(0, 200), corpo, html }
 }
 
 /** O lembrete da véspera, para quem ainda não respondeu. */
-export function textoDoLembrete(d: Pick<DadosDoConvite, 'comprador' | 'fornecedor' | 'codigo' | 'titulo' | 'prazo' | 'link'>): { assunto: string; corpo: string } {
+export function textoDoLembrete(d: Pick<DadosDoConvite, 'comprador' | 'fornecedor' | 'codigo' | 'titulo' | 'prazo' | 'link'>): { assunto: string; corpo: string; html: string } {
+  const html = [
+    `<p style="margin:0 0 12px;">Olá, <strong>${escapar(d.fornecedor)}</strong>.</p>`,
+    `<p style="margin:0 0 16px;">O prazo para a proposta de <strong>“${escapar(d.titulo)}”</strong> (${escapar(d.codigo)}) termina <strong style="color:${VERMELHO};">amanhã, ${escapar(dataComDia(d.prazo))}</strong>.</p>`,
+    botao('Enviar minha proposta', d.link),
+    `<p style="margin:0 0 12px;font-size:13px;color:${CINZA};">Não vai cotar desta vez? <a href="${escapar(d.link)}" style="color:${VERMELHO};">Avise pelo mesmo link</a>.</p>`,
+    `<p style="margin:0 0 16px;font-size:12px;color:${CINZA};word-break:break-all;">Se o botão não abrir: ${escapar(d.link)}</p>`,
+    '<p style="margin:0;">Obrigado,</p>',
+  ].join('\n')
   return {
     assunto: `Lembrete: proposta ${d.codigo} até ${dataCurta(d.prazo)}`.slice(0, 200),
     corpo: [
@@ -158,6 +228,7 @@ export function textoDoLembrete(d: Pick<DadosDoConvite, 'comprador' | 'fornecedo
       'Se não puder cotar desta vez, o mesmo link tem o botão "Não vou cotar".',
       'Obrigado,',
     ].join('\n\n'),
+    html,
   }
 }
 
