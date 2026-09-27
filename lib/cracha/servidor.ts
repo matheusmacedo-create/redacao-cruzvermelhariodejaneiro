@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NINGUEM, type Membro } from '@/lib/membro/sessao'
 import { fotoDoParticipante } from '@/lib/membro/foto'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque, type Cracha, type Origem } from './regras'
+import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque, situacaoDaFotoDoCracha, type Cracha, type Origem } from './regras'
 
 /**
  * O crachá virtual no servidor: de quem é (RH, Voluntários ou só a conta do
@@ -30,10 +30,10 @@ const pronto = (c: Cracha & { fotoCaminho: string | null }): CrachaPronto => {
 }
 
 type LinhaDaEquipe = { id: string; workspace_id: string; nome: string; nome_social: string | null; cargo: string | null; setor: string | null; admissao: string | null; cpf_mascara: string | null; situacao: string; user_id: string | null }
-type LinhaDoVoluntario = { id: string; nome: string; nome_social: string | null; funcao: string | null; setores: string[]; aprovado_em: string | null; created_at: string; cpf_mascara: string | null; situacao: string; foto_path: string | null; user_id: string | null; workspace_id: string }
+type LinhaDoVoluntario = { id: string; nome: string; nome_social: string | null; funcao: string | null; setores: string[]; aprovado_em: string | null; created_at: string; cpf_mascara: string | null; situacao: string; foto_path: string | null; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null; foto_cracha_motivo: string | null; user_id: string | null; workspace_id: string }
 
 const COLUNAS_DA_EQUIPE = 'id,workspace_id,nome,nome_social,cargo,setor,admissao,cpf_mascara,situacao,user_id'
-const COLUNAS_DO_VOLUNTARIO = 'id,nome,nome_social,funcao,setores,aprovado_em,created_at,cpf_mascara,situacao,foto_path,user_id,workspace_id'
+const COLUNAS_DO_VOLUNTARIO = 'id,nome,nome_social,funcao,setores,aprovado_em,created_at,cpf_mascara,situacao,foto_path,foto_cracha_path,foto_cracha_recusada_path,foto_cracha_motivo,user_id,workspace_id'
 
 /** O tipo sanguíneo, só para o crachá da própria pessoa. Sem a migração 20260929030000, fica "não informado". */
 async function fatorRh(participanteId: string): Promise<string | null> {
@@ -49,9 +49,12 @@ function daEquipe(e: LinhaDaEquipe, avatar: string | null): Cracha & { fotoCamin
   }
 }
 
-function doVoluntario(v: LinhaDoVoluntario, rh: string | null, avatar: string | null): Cracha & { fotoCaminho: string | null } {
-  const foto = v.foto_path && fotoDoParticipante(v.foto_path, v.workspace_id, v.id) ? v.foto_path : avatar
+/** Voluntário: só a foto que o Voluntariado aprovou (nada da foto de perfil da conta). */
+function doVoluntario(v: LinhaDoVoluntario, rh: string | null): Cracha & { fotoCaminho: string | null } {
+  const situacaoDaFoto = situacaoDaFotoDoCracha({ foto: v.foto_path, aprovada: v.foto_cracha_path, recusada: v.foto_cracha_recusada_path })
+  const foto = situacaoDaFoto === 'aprovada' && fotoDoParticipante(v.foto_path, v.workspace_id, v.id) ? v.foto_path : null
   return {
+    situacaoDaFoto, motivoDaFoto: situacaoDaFoto === 'recusada' ? v.foto_cracha_motivo : null,
     origem: 'voluntario', id: v.id, nomeDeDestaque: nomeDeDestaque(v.nome, v.nome_social), nomeCompleto: v.nome,
     funcao: v.funcao, setor: v.setores[0] ?? null, faixa: faixaDoVinculo('voluntario'), cpf: v.cpf_mascara,
     desde: mesAno(v.aprovado_em ?? v.created_at), fatorRh: rh, foto: null, fotoCaminho: foto, ativo: v.situacao === 'ativo',
@@ -79,7 +82,7 @@ export async function crachaDaConta(userId: string, workspaceId: string): Promis
   }
   if (voluntario) {
     const v = voluntario as LinhaDoVoluntario
-    return pronto(doVoluntario(v, await fatorRh(v.id), avatar))
+    return pronto(doVoluntario(v, await fatorRh(v.id)))
   }
   const nome = (perfil?.full_name as string | null)?.trim() || 'Colaborador'
   return pronto({
@@ -97,10 +100,8 @@ export async function crachaDoMembro(m: Membro): Promise<CrachaPronto | null> {
   const { data } = await admin.from('participantes').select(COLUNAS_DO_VOLUNTARIO).eq('id', m.participanteId).maybeSingle()
   if (!data) return null
   const v = data as LinhaDoVoluntario
-  let avatar: string | null = null
-  if (!v.foto_path && v.user_id) avatar = ((await admin.from('profiles').select('avatar_path').eq('id', v.user_id).maybeSingle()).data?.avatar_path as string | null) ?? null
   // Na visualização da equipe ("ver como"), o tipo sanguíneo não aparece: é só da própria pessoa.
-  return pronto(doVoluntario(v, m.previa ? null : await fatorRh(v.id), avatar))
+  return pronto(doVoluntario(v, m.previa ? null : await fatorRh(v.id)))
 }
 
 // ---------------------------------------------------------------- verificação pública
@@ -135,9 +136,7 @@ async function resolver(codigo: string): Promise<{ v: Verificacao; fotoCaminho: 
       const { data, error } = await admin.from('participantes').select(COLUNAS_DO_VOLUNTARIO).eq('id', lido.id).is('anonimizado_em', null).maybeSingle()
       if (error) throw error
       if (data) {
-        const v = data as LinhaDoVoluntario
-        const avatar = !v.foto_path && v.user_id ? ((await admin.from('profiles').select('avatar_path').eq('id', v.user_id).maybeSingle()).data?.avatar_path as string | null) ?? null : null
-        c = doVoluntario(v, null, avatar)
+        c = doVoluntario(data as LinhaDoVoluntario, null)
       }
     } else {
       const [{ data: perfil, error }, { data: membros }] = await Promise.all([

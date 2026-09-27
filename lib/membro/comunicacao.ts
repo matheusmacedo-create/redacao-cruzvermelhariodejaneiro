@@ -5,7 +5,7 @@ import { emailConfigurado, emLotes, enviarEmailDeConta, enviarLote } from '@/lib
 import { urlBase } from '@/lib/newsletter/contexto'
 import type { EmailPronto } from '@/lib/contas/emails'
 import { quando } from '@/lib/oportunidades/regras'
-import { emailDeAvisoGeral, emailDeBoasVindas, emailDeCertificado, emailDeVagaLiberada } from './emails'
+import { emailDaFotoDoCracha, emailDeAvisoGeral, emailDeBoasVindas, emailDeCertificado, emailDeVagaLiberada } from './emails'
 
 /**
  * Os e-mails do Voluntariado. Todos saem com o remetente do Voluntariado, no
@@ -71,6 +71,14 @@ export async function avisarPromovidos(oportunidadeId: string, antes: string[]) 
     return enviarAoVoluntario(p?.email, emailDeVagaLiberada({ nome: p?.nome_social || p?.nome || '', titulo: o.titulo, quando: quando(o.inicio, o.fim), local: o.local, url: `${urlBase()}/membro/oportunidades` }))
   }))
   return enviados.filter(Boolean).length
+}
+
+/** A foto do crachá foi aprovada ou recusada: o voluntário fica sabendo por e-mail. */
+export async function avisarFotoDoCracha(participanteId: string) {
+  const { data: p } = await createAdminClient().from('participantes').select('nome,nome_social,email,foto_path,foto_cracha_path,foto_cracha_motivo').eq('id', participanteId).maybeSingle()
+  if (!p?.email || !p.foto_path) return false
+  const aprovada = p.foto_path === p.foto_cracha_path
+  return enviarAoVoluntario(p.email, emailDaFotoDoCracha({ nome: p.nome_social || p.nome, aprovada, motivo: aprovada ? null : p.foto_cracha_motivo as string | null, url: `${urlBase()}/membro/perfil#${aprovada ? 'cracha' : 'foto'}` }))
 }
 
 /** Certificado recém-emitido (há menos de 2 minutos): parabéns por e-mail. */

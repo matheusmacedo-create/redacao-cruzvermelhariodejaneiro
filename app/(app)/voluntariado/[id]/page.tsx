@@ -10,6 +10,8 @@ import { Retrato } from '@/components/membro/foto'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
 import { CancelarDiploma, ConcederDiploma } from '@/components/app/participantes/diplomas'
+import { AvaliarFotoDoCracha } from '@/components/app/participantes/foto-do-cracha'
+import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +29,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 1) notFound()
-  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }, { data: diplomas }] = await Promise.all([
+  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }, { data: diplomas }, { data: fotoDoCracha }] = await Promise.all([
     supabase.from('participantes').select(COLUNAS).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     supabase.from('participante_formacoes').select('id,titulo,instituicao,concluido_em,valido_ate').eq('participante_id', id).order('valido_ate', { ascending: true, nullsFirst: false }),
     supabase.from('participante_horas').select('id,data,horas,atividade').eq('participante_id', id).order('data', { ascending: false }).limit(200),
@@ -35,9 +37,13 @@ export default async function Participante({ params }: { params: Promise<{ id: s
     supabase.from('participantes').select('foto_path').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     // Sem a migração dos diplomas, a consulta falha e o bloco só mostra "nenhum".
     supabase.from('diplomas').select('id,codigo,motivo,marco_horas,texto,emitido_em,revogado_em,motivo_revogacao').eq('participante_id', id).order('emitido_em', { ascending: false }),
+    // Sem a migração 20260929050000, a consulta falha e o bloco da foto do crachá não aparece.
+    supabase.from('participantes').select('foto_path,foto_cracha_path,foto_cracha_recusada_path,foto_cracha_motivo,foto_cracha_avaliada_em').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
   ])
   if (!p) notFound()
   const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
+  const fc = p.anonimizado_em ? null : fotoDoCracha as { foto_path: string | null; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null; foto_cracha_motivo: string | null; foto_cracha_avaliada_em: string | null } | null
+  const situacaoDaFoto = fc ? situacaoDaFotoDoCracha({ foto: fc.foto_path, aprovada: fc.foto_cracha_path, recusada: fc.foto_cracha_recusada_path }) : null
   const hoje = hojeEmSaoPaulo()
   const anos = idade(p.data_nascimento, hoje)
   const total = (horas ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -119,6 +125,27 @@ export default async function Participante({ params }: { params: Promise<{ id: s
               {!formacoes?.length && <li className="py-3 text-sm text-muted-foreground">Nenhuma formação registrada.</li>}
             </ul>
           </Card>
+
+          {situacaoDaFoto && (
+            <Card className="p-5" data-ajuda="voluntarios.foto-do-cracha" id="foto-do-cracha">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Foto do crachá</h2>
+              <div className="flex flex-wrap items-start gap-4">
+                {foto && <img src={foto} alt={`Foto enviada por ${p.nome_social || p.nome}`} className="h-36 w-28 shrink-0 rounded-lg border border-border object-cover" />}
+                <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+                  <p data-situacao-da-foto={situacaoDaFoto} className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${situacaoDaFoto === 'aprovada' ? 'bg-success/15 text-success' : situacaoDaFoto === 'recusada' ? 'bg-destructive/10 text-destructive' : situacaoDaFoto === 'aguardando' ? 'bg-warning/20 text-warning-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    {{ aprovada: 'Aprovada', aguardando: 'Aguardando aprovação', recusada: 'Recusada', sem_foto: 'Sem foto' }[situacaoDaFoto]}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {situacaoDaFoto === 'sem_foto' && 'O voluntário ainda não enviou foto. O crachá sai com a silhueta.'}
+                    {situacaoDaFoto === 'aguardando' && 'Confira: rosto inteiro, de frente, com boa luz, sem óculos escuros. Só depois de aprovada ela vai para o crachá e para a verificação do QR.'}
+                    {situacaoDaFoto === 'aprovada' && `Está no crachá${fc?.foto_cracha_avaliada_em ? ` desde ${new Date(fc.foto_cracha_avaliada_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}. Se o voluntário trocar a foto, ela volta para aprovação.`}
+                    {situacaoDaFoto === 'recusada' && `Motivo enviado ao voluntário: “${(fc?.foto_cracha_motivo ?? '').replace(/[.!]+$/, '')}”. Ele envia outra pela Área do Voluntário.`}
+                  </p>
+                  {nivel >= 2 && fc?.foto_path && situacaoDaFoto !== 'aprovada' && <AvaliarFotoDoCracha participanteId={id} fotoPath={fc.foto_path} nome={p.nome_social || p.nome} />}
+                </div>
+              </div>
+            </Card>
+          )}
 
           <Card className="p-5" data-ajuda="voluntarios.diplomas" id="diplomas">
             <div className="mb-3 flex items-center justify-between gap-2">

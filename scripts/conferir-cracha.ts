@@ -5,7 +5,7 @@
  */
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque } from '../lib/cracha/regras'
+import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque, situacaoDaFotoDoCracha } from '../lib/cracha/regras'
 import { gerarPdfDoCracha } from '../lib/cracha/pdf'
 import { gerarPdfDoCertificado } from '../lib/cursos/certificado-pdf'
 import { gerarPdfDoDiploma, textoDoDiploma } from '../lib/cursos/diploma-pdf'
@@ -41,6 +41,13 @@ igual(fatorRhPorExtenso('O POSITIVO'), 'O POSITIVO', 'por extenso')
 igual(fatorRhPorExtenso('não sei'), null, 'desconhecido')
 igual(faixaDoVinculo('voluntario'), 'COLABORADOR VOLUNTÁRIO', 'faixa do voluntário (manual p. 28)')
 igual(faixaDoVinculo('equipe'), 'COLABORADOR', 'faixa da equipe')
+const foto = 'voluntarios/w/p/a.jpg', outra = 'voluntarios/w/p/b.jpg'
+igual(situacaoDaFotoDoCracha({ foto: null, aprovada: null, recusada: null }), 'sem_foto', 'foto: sem foto')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: null, recusada: null }), 'aguardando', 'foto: enviada, esperando')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: foto, recusada: null }), 'aprovada', 'foto: aprovada')
+igual(situacaoDaFotoDoCracha({ foto: outra, aprovada: foto, recusada: null }), 'aguardando', 'foto: trocada depois de aprovada volta a esperar')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: null, recusada: foto }), 'recusada', 'foto: recusada')
+igual(situacaoDaFotoDoCracha({ foto: outra, aprovada: null, recusada: foto }), 'aguardando', 'foto: nova depois da recusa')
 igual(textoDoDiploma({ motivo: 'horas', marcoHoras: 1000, texto: null }).startsWith('em reconhecimento às 1.000 horas'), true, 'diploma de horas')
 igual(textoDoDiploma({ motivo: 'coordenacao', marcoHoras: null, texto: 'Pela dedicação nas enchentes de 2026.' }), 'em agradecimento aos relevantes serviços prestados à Cruz Vermelha Brasileira: pela dedicação nas enchentes de 2026.', 'diploma da coordenação')
 

@@ -1119,6 +1119,15 @@ do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
 - **Página de verificação.** Feita para a portaria, no celular: resultado grande
   e colorido (válido, inativo, não reconhecido), relógio correndo (um print fica
   parado), foto, nome na faixa vermelha e o contato da filial.
+- **Foto do crachá do voluntário** (migração `20260929050000`). Só vale a foto
+  que o Voluntariado aprovou (`participantes.foto_cracha_path` igual a `foto_path`).
+  - Foto trocada pela Área do Voluntário volta a aguardar e avisa quem gerencia
+    o Voluntariado.
+  - `avaliar_foto_do_cracha` aprova ou recusa (com motivo, que vai por e-mail),
+    e recebe o caminho da foto avaliada: se ela mudou no meio, recusa.
+  - A foto posta pela equipe em "Editar cadastro" já sai aprovada.
+  - A fila fica na aba "Fotos do crachá" de `/voluntariado`. O crachá de
+    voluntário não usa mais a foto de perfil da conta.
 - **Diploma de Reconhecimento** (migração `20260929040000`, tabela `diplomas`).
   - Sai sozinho aos 100, 500 e 1.000 horas: um gatilho em `participante_horas`
     chama `private.emitir_diplomas_de_horas()`, que é idempotente.

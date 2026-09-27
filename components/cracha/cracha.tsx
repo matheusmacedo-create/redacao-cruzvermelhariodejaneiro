@@ -109,6 +109,13 @@ export async function Cracha({ cracha, pdf }: { cracha: CrachaPronto; pdf: strin
         </a>
       </div>
       {!cracha.ativo && <p className="text-sm text-warning-foreground">Seu cadastro não está ativo: quem ler o QR verá o crachá como inativo.</p>}
+      {cracha.situacaoDaFoto && cracha.situacaoDaFoto !== 'aprovada' && (
+        <p role="status" className="max-w-xl rounded-lg border border-warning/50 bg-warning/10 px-3 py-2 text-sm" data-cracha-foto={cracha.situacaoDaFoto}>
+          {cracha.situacaoDaFoto === 'sem_foto' && 'Seu crachá ainda está sem foto. Envie uma foto de rosto, de frente e sem óculos escuros: o Voluntariado aprova antes de ela ir para o crachá.'}
+          {cracha.situacaoDaFoto === 'aguardando' && 'Sua foto está com o Voluntariado para aprovação. Enquanto isso, o crachá sai sem foto.'}
+          {cracha.situacaoDaFoto === 'recusada' && <>O Voluntariado não aprovou sua foto{cracha.motivoDaFoto ? <>: “{cracha.motivoDaFoto.replace(/[.!]+$/, '')}”</> : null}. Envie outra para o crachá.</>}
+        </p>
+      )}
     </div>
   )
 }

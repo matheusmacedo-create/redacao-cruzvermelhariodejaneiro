@@ -862,7 +862,7 @@ const PERFIL: GuiaDaArea = {
         'Para mostrar numa ação, abra esta tela no celular: quem precisar confere lendo o QR do verso com a câmera.',
         'Para imprimir e usar no cordão, toque em “Baixar para imprimir (PDF)”. Saem frente e verso no tamanho de crachá (54 × 86 mm).',
       ],
-      dica: 'A foto do crachá é a sua foto de perfil: sem foto, aparece uma silhueta. Quem lê o QR vê só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato.',
+      dica: 'A foto do crachá é a sua foto de perfil, depois que o Voluntariado aprova. Sem foto aprovada, aparece uma silhueta. Quem lê o QR vê só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato.',
     },
     {
       id: 'atualizar-dados',
@@ -928,6 +928,12 @@ const PERFIL: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'cracha-foto',
+      pergunta: 'Por que a minha foto não aparece no crachá?',
+      resposta: 'Toda foto de crachá passa pela aprovação do Voluntariado. Enquanto ela espera, o crachá sai com uma silhueta, e o aviso embaixo do crachá diz “aguardando aprovação”. Quando o Voluntariado aprovar ou recusar, você recebe um e-mail; se recusar, o motivo aparece no aviso e você envia outra em “Foto de perfil”.\n\nUse uma foto de rosto, de frente, com boa luz e sem óculos escuros. Trocar a foto depois de aprovada manda a nova para aprovação de novo.',
+      termos: ['foto', 'crachá', 'cracha', 'aprovação', 'recusada', 'silhueta'],
+    },
     {
       id: 'cracha-dados',
       pergunta: 'O meu crachá está com um dado errado. Como corrijo?',
