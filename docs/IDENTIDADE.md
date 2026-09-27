@@ -22,7 +22,7 @@ pelo Matheus em 27/09/2026.
 | Outras marcas | Com FICV, CICV e outras Sociedades Nacionais: composição hierárquica e **autorização expressa**. | 22 |
 | Papelaria | Timbrado A4 com margens de 17 e 14 mm, logo com 17 mm, "Reconhecida como Utilidade Pública Internacional – Decreto nº 9.620, de 13/06/1912" no alto à direita (Book 8), setor em Demi Cond 18 e rodapé em Book 8. Envelopes e cartão pessoal (90 × 50 mm). | 24–27 |
 | Crachá funcional | Frente: logo, foto, faixa vermelha com o nome, função, órgão e CNPJ. Verso: nome, CPF, admissão, fator RH, "COLABORADOR VOLUNTÁRIO" (para quem não tem vínculo empregatício), "válido em todo o território nacional", decreto, endereço e o texto de credenciamento. | 28 |
-| Diploma e certificado | Diploma de Reconhecimento (A3) e Certificado (A4 paisagem): moldura marrom, título em caligrafia, nome em itálico, assinatura da presidência. | 29 |
+| Diploma e certificado | Diploma de Reconhecimento (A3) e Certificado (A4 paisagem): moldura marrom, título em caligrafia, nome em itálico, assinatura da presidência (no diploma, até três assinaturas). | 29 |
 | Bandeira, banner, slides | Modelos de capa, conteúdo e encerramento. | 30–32 |
 | Trajes, uniformes, veículos | Onde e em que tamanho vai o emblema; colete com bolso transparente para o crachá. | 33–42 |
 | Mídias sociais | 12 regras: legalidade, uma página por filial, respeito, honestidade, reciprocidade, consequência (análise prévia), debate, regularidade (texto com começo, meio e fim), perfil (pessoa física não usa o emblema, fora de campanhas), texto técnico e com fonte, grupos, segurança. | 47–48 |
@@ -55,7 +55,9 @@ pelo Matheus em 27/09/2026.
 4. **Diploma de Reconhecimento** (p. 29, A3): `lib/cursos/diploma-pdf.ts`.
    - Sai sozinho aos 100, 500 e 1.000 horas de voluntariado.
    - A coordenação também concede, no cadastro do voluntário.
-   - Tem código e QR de verificação pública (`/diploma/<código>`).
+   - Tem código e QR de verificação pública (`/diploma/<código>`), pequenos no rodapé.
+   - Até três assinaturas (presidência, vice-presidência, coordenação do Voluntariado), escolhidas em
+     “Diplomas” → “Quem assina” (migração `20260929150000`); cada diploma guarda quem assinava na emissão.
    - Aparece em “Certificados”, na Área do Voluntário.
    - Área própria em Voluntários → “Diplomas” (`/voluntariado/diplomas`): emitir para vários de uma vez e imprimir vários num PDF.
 5. **Foto do crachá do voluntário com aprovação do Voluntariado** (migração

@@ -3,11 +3,14 @@
  * Institucional da CVB (p. 29): A3 paisagem, moldura dourada com ornamentos
  * nos cantos, a logo no alto, "Diploma de Reconhecimento" em caligrafia, o
  * lema, o nome em destaque, o texto do reconhecimento, local e data à direita
- * e a assinatura da presidência. Além do modelo: o código e o QR que qualquer
- * pessoa confere em /diploma/<código>.
+ * e as assinaturas: a presidência e, se a filial escolher, a vice-presidência
+ * e a coordenação do Voluntariado (até três, lib/cursos/assinaturas.ts).
+ * Além do modelo: o código e o QR que qualquer pessoa confere em
+ * /diploma/<código>, pequenos no rodapé para não disputar espaço com as
+ * assinaturas.
  *
  * Sai sozinho nos marcos de horas (100, 500, 1.000) ou quando a coordenação
- * concede (migração 20260929040000). A assinatura é tipográfica, como no
+ * concede (migração 20260929040000). As assinaturas são tipográficas, como no
  * certificado (lib/cursos/certificado-pdf.ts).
  */
 
@@ -16,8 +19,9 @@ import { embutirFontes, type Fontes } from '@/lib/pdf/fontes'
 import { desenharQr, embutirImagem, escrever, paragrafoJustificado, quebrar, retanguloArredondado } from '@/lib/pdf/desenho'
 import { PROPORCAO_DA_LOGO } from '@/lib/pdf/logo'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
-import { assinaturaDaFilial, dataPorExtenso } from './certificado-pdf'
+import { dataPorExtenso } from './certificado-pdf'
 import { textoDoDiploma } from './diploma-texto'
+import { assinaturaDaPresidencia, centrosDasAssinaturas, type Assinatura } from './assinaturas'
 
 export { textoDoDiploma }
 
@@ -37,6 +41,8 @@ export type DadosDoDiploma = {
   codigo: string
   urlDeVerificacao: string
   logo?: Uint8Array | null
+  /** De uma a três (assinaturasDoDiploma); sem a lista, só a presidência. */
+  assinaturas?: Assinatura[]
 }
 
 /** Um ornamento de canto: volutas que se abrem para dentro da página. `sx`/`sy` espelham para cada canto. */
@@ -107,24 +113,37 @@ function desenharDiploma(p: PDFPage, f: FontesDoDiploma, logo: PDFImage | null, 
   escrever(p, f.caligrafia, 'Diploma de Reconhecimento', { x: L / 2, y: A - 236, tamanho: 92, alinhar: 'centro', cor: TINTA, largura: L - 260 })
   escrever(p, f.textoItalico, '“Aliviar e atenuar o sofrimento humano.”', { x: L - 190, y: A - 270, tamanho: 12, alinhar: 'direita', cor: CINZA })
 
-  escrever(p, f.textoItalico, 'A Cruz Vermelha Brasileira – Filial do Estado do Rio de Janeiro confere este Diploma a', { x: L / 2, y: A - 330, tamanho: 18, alinhar: 'centro', largura: L - 300 })
-  escrever(p, f.caligrafia, d.nome, { x: L / 2, y: A - 410, tamanho: 62, alinhar: 'centro', largura: L - 300 })
-  let y = paragrafoJustificado(p, [{ texto: textoDoDiploma(d), fonte: f.textoItalico }], 150, A - 470, L - 300, 18, 27, TINTA)
+  // Um pouco mais alto que no modelo: sobra lugar para até três assinaturas mesmo com o texto mais longo (600 letras).
+  escrever(p, f.textoItalico, 'A Cruz Vermelha Brasileira – Filial do Estado do Rio de Janeiro confere este Diploma a', { x: L / 2, y: A - 322, tamanho: 18, alinhar: 'centro', largura: L - 300 })
+  escrever(p, f.caligrafia, d.nome, { x: L / 2, y: A - 398, tamanho: 62, alinhar: 'centro', largura: L - 300 })
+  // O texto da coordenação vai até 600 letras: longo, ele desce um ponto ou dois para a data não encostar nas assinaturas.
+  const texto = textoDoDiploma(d)
+  const [tamanho, entrelinha] = ([[18, 27], [17, 25], [16, 23], [15, 21], [14, 19.5], [13, 18], [12, 16.5]] as const).find(([t, e]) => (quebrar(f.textoItalico, texto, t, L - 300).length - 1) * e <= 150) ?? [12, 16.5]
+  let y = paragrafoJustificado(p, [{ texto, fonte: f.textoItalico }], 150, A - 452, L - 300, tamanho, entrelinha, TINTA)
 
-  y -= 16
+  y -= 12
   escrever(p, f.textoItalico, 'O Poder da Humanidade', { x: L - 150, y, tamanho: 11, alinhar: 'direita', cor: CINZA })
   escrever(p, f.textoItalico, `Rio de Janeiro, ${dataPorExtenso(d.emitidoEm)}.`, { x: L - 150, y: y - 22, tamanho: 17, alinhar: 'direita' })
 
-  // Assinatura, à esquerda como no modelo.
-  const quem = assinaturaDaFilial()
-  escrever(p, f.caligrafia, quem.nome, { x: 330, y: 150, tamanho: 30, alinhar: 'centro' })
-  p.drawLine({ start: { x: 200, y: 140 }, end: { x: 460, y: 140 }, thickness: 0.6, color: CINZA })
-  escrever(p, f.destaque, quem.cargo, { x: 330, y: 125, tamanho: 12, alinhar: 'centro' })
+  // Assinaturas: uma só fica à esquerda, como no modelo; duas ou três se distribuem entre as cantoneiras.
+  const assinaturas = d.assinaturas?.length ? d.assinaturas.slice(0, 3) : [assinaturaDaPresidencia()]
+  const centros = assinaturas.length === 1 ? [330] : centrosDasAssinaturas(assinaturas.length, 170, L - 170)
+  const linha = assinaturas.length === 3 ? 230 : 260
+  // Com o texto mais longo, a data desce: a fileira de assinaturas desce junto (até onde o rodapé deixa).
+  const base = Math.max(146, Math.min(158, y - 22 - 42))
+  assinaturas.forEach((a, i) => {
+    const x = centros[i]
+    escrever(p, f.caligrafia, a.nome, { x, y: base, tamanho: 30, alinhar: 'centro', largura: linha - 10 })
+    p.drawLine({ start: { x: x - linha / 2, y: base - 10 }, end: { x: x + linha / 2, y: base - 10 }, thickness: 0.6, color: CINZA })
+    escrever(p, f.destaque, a.cargo, { x, y: base - 25, tamanho: 12, alinhar: 'centro', largura: linha })
+  })
 
-  // Verificação à direita, embaixo.
-  const qr = 70
-  desenharQr(p, d.urlDeVerificacao, L - 150 - qr, 96, qr, TINTA)
-  escrever(p, f.destaque, `Código ${d.codigo}`, { x: L - 150 - qr - 14, y: 146, tamanho: 11, alinhar: 'direita' })
-  quebrar(f.texto, `Confira em ${d.urlDeVerificacao}`, 9, 260)
-    .forEach((linha, i) => escrever(p, f.texto, linha, { x: L - 150 - qr - 14, y: 130 - i * 12, tamanho: 9, alinhar: 'direita', cor: CINZA }))
+  // Verificação: pequena e centrada no rodapé, entre as cantoneiras — o QR à esquerda, o código e o endereço ao lado.
+  const qr = 44 // cerca de 1,5 cm impresso: o celular ainda lê
+  const endereco = `Confira a autenticidade em ${d.urlDeVerificacao}`
+  const larguraDoTexto = Math.max(f.destaque.widthOfTextAtSize(`Código ${d.codigo}`, 8.5), f.texto.widthOfTextAtSize(endereco, 7.5))
+  const x0 = (L - (qr + 10 + larguraDoTexto)) / 2
+  desenharQr(p, d.urlDeVerificacao, x0, 62, qr, rgb(0.25, 0.24, 0.23))
+  escrever(p, f.destaque, `Código ${d.codigo}`, { x: x0 + qr + 10, y: 88, tamanho: 8.5, cor: CINZA })
+  escrever(p, f.texto, endereco, { x: x0 + qr + 10, y: 75, tamanho: 7.5, cor: CINZA })
 }

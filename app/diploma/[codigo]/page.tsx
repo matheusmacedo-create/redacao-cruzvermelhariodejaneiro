@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { AlertTriangle, BadgeCheck, XCircle } from 'lucide-react'
-import { diplomaPorCodigo, type Diploma } from '@/lib/cursos/diplomas'
+import { diplomaPorCodigo, quemAssina, type Diploma } from '@/lib/cursos/diplomas'
+import type { Assinatura } from '@/lib/cursos/assinaturas'
 import { dataPorExtenso } from '@/lib/cursos/certificado-pdf'
 import { textoDoDiploma } from '@/lib/cursos/diploma-pdf'
 import { normalizarCodigo } from '@/lib/cursos/regras'
@@ -20,7 +21,11 @@ export default async function VerificarDiploma({ params }: { params: Promise<{ c
   const codigo = normalizarCodigo(decodificar((await params).codigo))
   let d: Diploma | null = null
   let indisponivel = false
-  try { d = await diplomaPorCodigo(codigo) } catch { indisponivel = true }
+  let assinaturas: Assinatura[] = []
+  try {
+    d = await diplomaPorCodigo(codigo)
+    if (d) assinaturas = await quemAssina(d)
+  } catch { indisponivel = true }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-sidebar px-4 py-10 text-foreground">
@@ -30,7 +35,7 @@ export default async function VerificarDiploma({ params }: { params: Promise<{ c
           {indisponivel ? (
             <p className="flex items-start gap-3 text-warning-foreground"><AlertTriangle className="mt-0.5 size-6 shrink-0" /><span><span className="block font-semibold">Verificação indisponível agora</span><span className="text-sm">Tente de novo em alguns minutos.</span></span></p>
           ) : !d ? (
-            <p className="flex items-start gap-3 text-destructive"><XCircle className="mt-0.5 size-6 shrink-0" /><span><span className="block font-semibold">Diploma não encontrado</span><span className="text-sm">Confira o código {codigo ? `(${codigo}) ` : ''}impresso no canto do diploma.</span></span></p>
+            <p className="flex items-start gap-3 text-destructive"><XCircle className="mt-0.5 size-6 shrink-0" /><span><span className="block font-semibold">Diploma não encontrado</span><span className="text-sm">Confira o código {codigo ? `(${codigo}) ` : ''}impresso no rodapé do diploma, ao lado do QR.</span></span></p>
           ) : (
             <div className="flex flex-col gap-4">
               {d.revogado_em
@@ -40,6 +45,7 @@ export default async function VerificarDiploma({ params }: { params: Promise<{ c
                 <div><dt className="text-xs text-muted-foreground">Concedido a</dt><dd className="text-base font-medium">{d.nome}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Reconhecimento</dt><dd>{textoDoDiploma({ motivo: d.motivo, marcoHoras: d.marco_horas, texto: d.texto }).replace(/^em /, 'Em ')}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Emitido em</dt><dd>{dataPorExtenso(d.emitido_em)}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">Assinado por</dt><dd>{assinaturas.map((a) => `${a.nome} (${a.cargo})`).join(', ')}</dd></div>
                 <div><dt className="text-xs text-muted-foreground">Código</dt><dd className="font-mono">{d.codigo}</dd></div>
               </dl>
             </div>

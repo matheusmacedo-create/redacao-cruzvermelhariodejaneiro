@@ -1020,6 +1020,11 @@ const VOLUNTARIOS: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'diplomas.assinaturas',
+          titulo: 'Quem assina',
+          texto: 'Até três assinaturas lado a lado no pé do diploma: a presidência e, se quiserem, a vice-presidência e a coordenação do Voluntariado. “Alterar” muda a lista (quem gerencia o Voluntariado); “Ver exemplo em PDF” mostra como fica. Cada diploma guarda quem assinava no dia em que saiu.',
+        },
+        {
           alvo: 'diplomas.lista',
           titulo: 'Imprimir de uma vez',
           texto: 'Marque os diplomas e toque em “Baixar em um PDF”: sai um arquivo com uma página A3 por diploma, pronto para a gráfica. “PDF” abre um só; o ícone ao lado abre a verificação pública; o “x” cancela, com motivo.',
@@ -1415,6 +1420,19 @@ const VOLUNTARIOS: GuiaDaArea = {
       dica: 'A busca por texto não entra na planilha. Sem escolher a situação, ela traz também as inscrições pendentes. CPF e saúde nunca saem, e cada exportação fica registrada.',
     },
     {
+      id: 'assinaturas-do-diploma',
+      titulo: 'Escolher quem assina os diplomas',
+      exemplo: 'Para a cerimônia de dezembro, a coordenação quer o diploma assinado pelo presidente, pelo vice e pela coordenação do Voluntariado: acrescenta os dois em “Quem assina” e confere no PDF de exemplo.',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'Em Voluntários, toque em “Todos os diplomas” e desça até “Quem assina”.',
+        'Toque em “Alterar”.',
+        'Toque em “Vice-Presidente” ou em “Coordenação de Voluntariado” para acrescentar, ou em “Outra pessoa” para escrever nome e cargo. O “x” tira uma assinatura.',
+        'Toque em “Salvar” e depois em “Ver exemplo em PDF” para conferir.',
+      ],
+      dica: 'São no máximo três, para caber com folga no diploma. A lista vale para os diplomas emitidos daqui em diante: cada um guarda quem assinava no dia, mesmo que a diretoria mude depois. Os emitidos antes desta opção existir seguem a lista atual.',
+    },
+    {
       id: 'dar-acesso-voluntariado',
       titulo: 'Liberar o cadastro de voluntários para alguém',
       quem: 'Só administradores',
@@ -1427,6 +1445,12 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'diploma-assinaturas-antigos',
+      pergunta: 'Mudei quem assina: os diplomas já emitidos mudam também?',
+      resposta: 'Não. Cada diploma guarda as assinaturas do dia em que saiu, e o PDF e a verificação pública mostram sempre essas. A exceção são os diplomas emitidos antes da escolha de assinaturas existir: esses seguem a lista atual da filial.',
+      termos: ['assinatura', 'vice-presidente', 'presidente', 'coordenação', 'diploma antigo', 'quem assina'],
+    },
     {
       id: 'oportunidade-no-whatsapp',
       pergunta: 'Quem recebe a oportunidade pelo WhatsApp?',
