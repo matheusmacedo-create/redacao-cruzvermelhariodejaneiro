@@ -14,7 +14,7 @@ function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid:
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-lg">
-        <BrandMark className="w-72 items-start" />
+        <BrandMark selo className="w-72 items-start" />
         <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
           <TriangleAlert className="size-6" />
         </div>
@@ -105,7 +105,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="grid grid-cols-1 min-h-screen bg-background lg:grid-cols-[minmax(380px,0.9fr)_1.1fr]">
       <section className="flex items-center justify-center px-6 py-12 lg:px-12">
         <div className="w-full max-w-md">
-          <BrandMark className="w-72 items-start" />
+          <BrandMark selo className="w-72 items-start" />
           <div className="mt-12">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Acesso da equipe</p>
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Entre no Palácio Virtual'}</h1>
@@ -142,7 +142,7 @@ function SemAcesso() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-md">
-        <BrandMark className="w-72 items-start" />
+        <BrandMark selo className="w-72 items-start" />
         <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-destructive/10 text-destructive"><TriangleAlert className="size-6" /></div>
         <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Sem acesso ao Palácio Virtual</h1>
         <p className="mt-3 leading-relaxed text-muted-foreground">Sua conta está desativada ou não está vinculada a nenhum espaço. Se isso não era esperado, fale com um administrador.</p>

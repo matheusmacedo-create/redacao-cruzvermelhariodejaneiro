@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Tooltip } from '@base-ui/react/tooltip'
@@ -10,34 +9,28 @@ import { cn } from '@/lib/utils'
 import { ADMINISTRACAO, areaDoCaminho, ehDaArea, hrefNoMenu, type Area, type Contador, type Grupo } from '@/lib/navegacao'
 import { useShell } from './app-shell'
 import { useChatAoVivo } from '@/components/app/chat/ao-vivo'
+import { SeloDoPalacio } from './selo-do-palacio'
 // Os grupos que a pessoa fechou ficam num cookie, para o servidor desenhar igual (o nome mora fora deste módulo do cliente).
 import { COOKIE_DOS_GRUPOS } from './cookies-do-menu'
 
 type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
 export type Contadores = Partial<Record<Contador, number>>
 
-/** O emblema sozinho, para a sidebar recolhida. Mesmas proporções do logo. */
-function Emblema({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 30 30" className={className} aria-hidden="true">
-      <path d="M10 0h10v10h10v10H20v10H10V20H0V10h10z" fill="rgb(227 34 25)" />
-    </svg>
-  )
-}
-
 function Marca({ recolhida }: { recolhida: boolean }) {
   if (recolhida) {
     return (
       <Link href="/dashboard" aria-label="Início — Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro" className="flex size-9 items-center justify-center rounded-lg hover:bg-black/[0.04]">
-        <Emblema className="size-5" />
+        <SeloDoPalacio tamanho={30} priority />
       </Link>
     )
   }
   return (
-    <Link href="/dashboard" className="block min-w-0 rounded-lg px-1 py-1" aria-label="Início — Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro">
-      {/* O PNG tem fundo branco; o multiply deixa o branco com a cor da sidebar. */}
-      <Image src="/images/logo-cvrj.png" alt="" width={1844} height={752} priority sizes="150px" className="h-auto w-[150px] mix-blend-multiply" />
-      <span className="mt-1 block pl-[3px] text-[10.5px] font-semibold tracking-[0.02em] text-muted-foreground">Palácio Virtual · Central de Comunicação</span>
+    <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 hover:bg-black/[0.03]" aria-label="Início — Palácio Virtual da Cruz Vermelha Brasileira Rio de Janeiro">
+      <SeloDoPalacio tamanho={44} priority />
+      <span className="min-w-0 leading-tight">
+        <span className="block truncate text-[15px] font-bold tracking-tight text-foreground">Palácio Virtual</span>
+        <span className="block truncate text-[11px] font-medium text-muted-foreground">Cruz Vermelha Brasileira · RJ</span>
+      </span>
     </Link>
   )
 }
