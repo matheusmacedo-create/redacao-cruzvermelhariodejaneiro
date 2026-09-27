@@ -263,6 +263,8 @@ igual(lerDecisao('aprovar depois de ler'), null, 'frase com "aprovar" no começo
 igual(lerDecisao('achei ótimo'), null, 'comentário solto')
 igual(ehConfirmacao('Confirmo'), true, 'confirmo')
 igual(ehConfirmacao('confirmo tudo'), false, 'confirmação é a palavra sozinha')
+igual(ehConfirmacao('ok'), false, '"ok" solto não vira voto')
+igual(ehConfirmacao('sim'), false, '"sim" solto não vira voto')
 igual(ehCancelamento('Cancelar'), true, 'cancelar')
 igual(lerEscolha('2', 3), 2, 'escolha 2')
 igual(lerEscolha('*3*', 3), 3, 'escolha com negrito')

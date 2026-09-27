@@ -185,8 +185,20 @@ export async function pendenciaAberta(admin: Admin, workspaceId: string, userId:
   return { id: data.id as number, tipo: data.tipo as TipoDePendencia, dados: (data.dados ?? {}) as Record<string, unknown> }
 }
 
-export async function encerrarPendencia(admin: Admin, id: number) {
-  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('id', id)
+/**
+ * Encerra a pergunta e diz se foi ESTA chamada que encerrou: duas respostas
+ * seguidas (reenvio, toque duplo) chegam em entregas paralelas, e só uma pode
+ * votar ou abrir o chamado.
+ */
+export async function encerrarPendencia(admin: Admin, id: number): Promise<boolean> {
+  const { data } = await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('id', id).is('encerrada_em', null).select('id').maybeSingle()
+  return Boolean(data)
+}
+
+/** A pergunta que saiu nesta mensagem já foi respondida, vencida ou trocada por outra? */
+export async function perguntaVencida(admin: Admin, workspaceId: string, userId: string, citada: string): Promise<boolean> {
+  const { data } = await admin.from('whatsapp_pendencias').select('id').eq('workspace_id', workspaceId).eq('user_id', userId).eq('mensagem_id', citada).limit(1).maybeSingle()
+  return Boolean(data)
 }
 
 /** Guarda (ou atualiza) a pergunta antes de enviar; sem a tabela, devolve null e o bot manda para o Palácio. */
@@ -221,7 +233,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
   if (p.tipo === 'aprovar') {
     const approvalId = String(p.dados.approvalId ?? '')
     if (!ehConfirmacao(texto)) return estrita ? { texto: 'Para aprovar, responda a conferência com *confirmo*; para desistir, *cancelar*.' } : null
-    await encerrarPendencia(admin, p.id)
+    if (!await encerrarPendencia(admin, p.id)) return { texto: 'Esta conferência já foi respondida.' }
     if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: TEXTO_SEM_ACAO_PELO_WHATSAPP }
     const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
     if ('erro' in rodada) return { texto: `${rodada.erro} ${base}/aprovacoes/${approvalId}` }
@@ -319,7 +331,7 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
 
   const urgencia = lerEscolha(texto, 3)
   if (!urgencia) return deNovo('Responda com 1, 2 ou 3, ou *cancelar*.')
-  await encerrarPendencia(admin, p.id)
+  if (!await encerrarPendencia(admin, p.id)) return { texto: 'Este chamado já foi aberto.' }
   if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: TEXTO_SEM_ACAO_PELO_WHATSAPP }
   const { data: vinculo } = await admin.from('workspace_members').select('coordination').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle()
   try {

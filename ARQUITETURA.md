@@ -1489,7 +1489,7 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   usa (ou é obrigado a usar) a verificação em duas etapas só consulta pelo WhatsApp: o servidor
   confere antes (`podeAgirPeloWhatsapp`) e o banco recusa de novo.
 - **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
-  quem é da equipe abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
+  quem é da equipe (e pode agir pelo WhatsApp) abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
   pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Evolution
   (`/chat/getBase64FromMediaMessage`, até 64 MB — o webhook não traz o arquivo) e gravado no R2 com
   o nome canônico, já `recebido`; a legenda vai para o relato. `pronto` → título → autorização de
@@ -1502,7 +1502,8 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
   oportunidade (`oportunidades.avisada_por_whatsapp_em`, marca atômica) põe na fila uma mensagem
   por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,
-  a fila desiste se a pessoa saiu ou a oportunidade fechou. O bot reconhece o número do voluntário:
+  a fila desiste se a pessoa saiu ou a oportunidade fechou. Anonimizar o voluntário (LGPD) apaga o
+  número, a autorização e a fila dele, e tira o número do registro. O bot reconhece o número do voluntário:
   `1` oportunidades abertas, `2` inscrições, `sair`/`voltar`. Não há envio a quem não autorizou.
 - **Ficha da Equipe pela própria pessoa** (`lib/rh/convites.ts`, regras em `lib/rh/ficha.ts`, página
   pública `/ficha/[token]`, tabela `equipe_convites`): o RH (nível ≥2; documentos, ≥3) gera um link
@@ -1510,7 +1511,9 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   o número confirmado no Palácio, senão o telefone pessoal da ficha. A gravação é da função
   `equipe_preencher_pelo_convite` (só service role): dados pessoais e, se liberado, documentos
   (somados aos que já havia, cifrados); **nunca banco, cargo ou salário**; campo vazio não apaga;
-  auditoria "pela própria pessoa". A página não mostra valores guardados. Quem pediu é avisado na
+  auditoria "pela própria pessoa"; desligado não usa mais o link. Nunca vai para o telefone de
+  trabalho, e o link só volta ao RH em "Só gerar o link"; na fila, o texto com o token é apagado
+  depois do envio. A página não mostra valores guardados. Quem pediu é avisado na
   categoria `equipe`. A rotina diária lembra (2 dias, no máximo 2 vezes) trocando o token.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
@@ -1519,7 +1522,9 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
   fila anda quando a Evolution avisa que reconectou (webhook), a cada aviso novo, na rotina diária
   `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
-  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Só controle de volume:
+  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Batido o teto do minuto,
+  a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de
+  resposta do bot, segurança e avisos da equipe. Só controle de volume:
   **não há variação de texto nem “digitando” para despistar o WhatsApp**.
 - **Alerta de queda** (`lib/whatsapp/estado.ts`, tabela `whatsapp_estado`): quando a conexão cai
   (connection.update, envio que falhou por servidor fora ou a rotina diária), os administradores

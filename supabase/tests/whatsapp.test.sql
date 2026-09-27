@@ -153,7 +153,7 @@ reset role;
 select is((select decision from public.approval_voters where approval_id = '00000000-0000-4000-8000-0000000000e1' and user_id = :'editor'), 'approved', 'o voto ficou com o nome da pessoa');
 select is((select status from public.content_pieces where id = '00000000-0000-4000-8000-0000000000d1'), 'approved', 'e a matéria saiu aprovada');
 
--- ================================================================ voluntários (20260929120000)
+-- ================================================================ voluntários (20260929120000 e o gatilho da 20260929140000)
 
 select ok(not has_table_privilege('authenticated', 'public.participantes_whatsapp', 'select')
           and not has_table_privilege('anon', 'public.participantes_whatsapp', 'select'), 'número do voluntário: ninguém lê pela Data API');
@@ -170,6 +170,12 @@ select lives_ok(format('insert into public.participantes_whatsapp (participante_
 select throws_ok(format('update public.participantes_whatsapp set codigo_hash = %L where participante_id = %L', '123456', '00000000-0000-4000-8000-0000000000f2'),
                  '23514', null, 'o código fica só como hash');
 select has_column('public', 'oportunidades', 'avisada_por_whatsapp_em', 'oportunidade guarda quando foi anunciada');
+insert into public.whatsapp_fila (workspace_id, numero, texto, tipo, categoria, motivo) values (:'ws', '5521911112222', 'Oportunidade', 'aviso', 'voluntariado', 'volume');
+insert into public.whatsapp_mensagens (workspace_id, direcao, tipo, situacao, numero) values (:'ws', 'saida', 'aviso', 'enviada', '5521911112222');
+update public.participantes set anonimizado_em = now() where id = '00000000-0000-4000-8000-0000000000f1';
+select is((select count(*)::int from public.participantes_whatsapp where participante_id = '00000000-0000-4000-8000-0000000000f1'), 0, 'anonimizar apaga o número e a autorização do voluntário');
+select is((select count(*)::int from public.whatsapp_fila where numero = '5521911112222'), 0, 'anonimizar tira da fila o que ia para ele');
+select is((select count(*)::int from public.whatsapp_mensagens where numero = '5521911112222'), 0, 'no registro das mensagens, o número some');
 
 -- ================================================================ ficha da Equipe pelo link (20260929130000)
 
@@ -202,6 +208,12 @@ reset role;
 
 select lives_ok(format('insert into public.notifications (workspace_id, user_id, title, message, categoria) values (%L, %L, %L, %L, %L)', :'ws', :'admin', 'Ficha completa', 'x', 'equipe'),
                 'categoria "equipe" aceita nas notificações');
+
+update public.equipe_membros set situacao = 'desligado' where id = '00000000-0000-4000-8000-0000000000b1';
+insert into public.equipe_convites (workspace_id, membro_id, token_hash, expira_em) values (:'ws', '00000000-0000-4000-8000-0000000000b1', repeat('d', 64), now() + interval '7 days');
+set local role service_role;
+select throws_ok(format('select public.equipe_preencher_pelo_convite(%L, %L)', repeat('d', 64), '{"cidade":"Rio"}'), 'P0001', 'Este link não vale mais. Fale com o RH.', 'desligado não usa mais o link (20260929140000)');
+reset role;
 
 select * from finish();
 rollback;

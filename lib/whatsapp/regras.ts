@@ -675,7 +675,8 @@ export function lerDecisao(entrada: string): Decisao | null {
   return null
 }
 
-const CONFIRMA = ['confirmo', 'confirmar', 'confirma', 'confirmado', 'conferi', 'conferido', 'sim', 's', 'ok']
+// Só palavra de quem conferiu: "ok" ou "sim" soltos, ditos sobre outra coisa, não podem virar voto.
+const CONFIRMA = ['confirmo', 'confirmar', 'confirma', 'confirmado', 'conferi', 'conferido']
 // Sem "parar" e "sair": com uma pergunta aberta, eles continuam pausando os avisos.
 const CANCELA = ['cancelar', 'cancela', 'cancelo', 'nao', 'n', 'desistir', 'desisto']
 export const ehConfirmacao = (entrada: string) => CONFIRMA.includes(normalizar(entrada))
@@ -717,4 +718,4 @@ export function tituloDoRelato(relato: string): string {
 }
 
 export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
-  'Sua conta usa a verificação em duas etapas, então responder, votar e abrir chamado ficam só no Palácio (o WhatsApp não pede o código do app). As consultas por aqui continuam valendo.'
+  'Sua conta usa a verificação em duas etapas, então responder, votar, abrir chamado e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas por aqui continuam valendo.'

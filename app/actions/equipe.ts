@@ -63,6 +63,10 @@ export async function mudarSituacaoDoMembro(id: string, situacao: 'ativo' | 'afa
     if (data && !/^\d{4}-\d{2}-\d{2}$/.test(data)) throw new Error('Data inválida.')
     const { error } = await supabase.rpc('mudar_situacao_membro_equipe', { p_id: id, p_situacao: situacao, p_data: data || null, p_motivo: motivo.trim().slice(0, 600) || null })
     if (error) erroDoBanco(error, 'Não foi possível mudar a situação.')
+    // Desligou: o link aberto para a pessoa completar a ficha para de valer.
+    if (situacao === 'desligado') {
+      await createAdminClient().from('equipe_convites').update({ cancelado_em: new Date().toISOString() }).eq('membro_id', id).is('usado_em', null).is('cancelado_em', null)
+    }
     revalidar(id)
     return {}
   } catch (causa) {
@@ -280,7 +284,7 @@ export async function pedirFichaAPessoa(membroId: string, opcoes: { documentos: 
       workspaceId: context.workspace.id, membroId, criadoPor: context.user.id, incluiDocumentos: Boolean(opcoes.documentos), porWhatsapp: Boolean(opcoes.porWhatsapp),
     })
     revalidar(membroId)
-    return { recado: r.recado, link: r.link }
+    return { recado: r.recado, link: r.link ?? undefined }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível gerar o link.') }
   }
