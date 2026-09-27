@@ -320,10 +320,10 @@ export async function adaptarLegendaDoDestino(formData: FormData): Promise<Resul
 async function paginasParaLinkar(workspaceId: string): Promise<PaginaDoSite[]> {
   const fixas: PaginaDoSite[] = [
     { titulo: 'Central de notícias', url: `${ORIGEM_DO_SITE}/noticias/` },
-    // Endereço final, nunca um que redireciona: doacao.html e cursos.html saíram do ar em
-    // setembro de 2026 e respondem 301. Link para 301 dentro do texto some com o sinal e
-    // gasta um salto em toda leitura.
-    { titulo: 'Como doar para a Cruz Vermelha do Rio', url: `${ORIGEM_DO_SITE}/doe/` },
+    // Endereço final, nunca um que redireciona: cursos.html saiu do ar em setembro de 2026 e
+    // responde 301. Link para 301 dentro do texto some com o sinal e gasta um salto em toda
+    // leitura. Página de doação não entra: a doação online saiu do ar em 25/09/2026, e o
+    // texto do site não convida a doar.
     { titulo: 'Cursos e matrícula', url: `${ORIGEM_DO_SITE}/matricula-cursos-presenciais/` },
     { titulo: 'Nossa equipe', url: `${ORIGEM_DO_SITE}/equipe.html` },
     { titulo: 'Campanha do Agasalho', url: `${ORIGEM_DO_SITE}/campanha-agasalho.html` },

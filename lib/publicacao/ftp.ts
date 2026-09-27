@@ -319,11 +319,15 @@ export async function regravarPaginaListada(
   await client.uploadFrom(Readable.from(Buffer.from(conteudo, 'utf8')), caminho)
 }
 
-/** Pastas de página fixa que o app pode criar na raiz do site. Lista fechada. */
-const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['privacidade', 'termos', 'transparencia', 'canais-oficiais'])
+/**
+ * Pastas de página fixa que o app pode criar na raiz do site. Lista fechada.
+ * /privacidade/ e /termos/ saíram: as políticas são do repositório do site
+ * (scripts/gerar_politicas.py), e daqui não se grava por cima delas.
+ */
+const PASTAS_PERMITIDAS_NA_RAIZ = new Set(['transparencia', 'canais-oficiais'])
 
 /**
- * Grava a index.html de uma pasta fixa na raiz do site (ex.: /privacidade/).
+ * Grava a index.html de uma pasta fixa na raiz do site (ex.: /transparencia/).
  *
  * Mesma disciplina de enviarNaRaizDoSite: só nomes da lista, nunca um caminho
  * a interpretar. A pasta é criada se não existir.

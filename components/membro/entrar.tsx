@@ -387,7 +387,7 @@ function PassoDoCodigo({ email, enviadoEm, reenviado, voltar, aoTrocarEmail, aoR
         <ul className="flex list-disc flex-col gap-2 border-t border-border py-3 pl-9 pr-4 text-sm text-muted-foreground">
           <li>Procure por “código de acesso” no Spam, em Promoções ou no Lixo eletrônico e marque como “Não é spam”.</li>
           <li>Confira se o e-mail acima está certo.</li>
-          {/* Mesmo número que a Política de Privacidade publica como o WhatsApp do Voluntariado (lib/site/juridico.ts). Mudou lá, muda aqui. */}
+          {/* Mesmo número que a Política de Privacidade publica como o WhatsApp do Voluntariado (repositório do site, site/politicas.json). Mudou lá, muda aqui. */}
           <li>
             Ainda sem código? Fale com a coordenação do Voluntariado pelo WhatsApp{' '}
             {/* nowrap: sem ele, o ponto final caía sozinho na linha de baixo. */}

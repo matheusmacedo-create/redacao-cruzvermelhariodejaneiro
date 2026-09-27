@@ -278,7 +278,9 @@ imprecisão do IP móvel, daria alarme falso demais.
    guardarem os registros de acesso (IP, data e hora) por 6 meses. A obrigação vale para quem tem
    fins econômicos, mas o prazo serve de régua.
 2. **Transparência:** aviso na tela de login e uma seção na política de privacidade do site
-   (`/privacidade/`) dizendo o que se coleta, para quê, por quanto tempo e quem vê.
+   (`/privacidade/`) dizendo o que se coleta, para quê, por quanto tempo e quem vê. O texto da
+   política é do repositório do site (`site/politicas.json`, publicado por
+   `scripts/gerar_politicas.py`), não deste.
 3. **Retenção (recomendado):** 6 meses com o registro completo. Depois disso, a rotina diária
    apaga IP, user agent e sinais e guarda só evento, data, pessoa e cidade/país por mais 18 meses,
    para estatística e investigação tardia. Aparelho sem uso há 13 meses é apagado.

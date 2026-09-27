@@ -2,7 +2,7 @@ import 'server-only'
 import type { Client } from 'basic-ftp'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  baixarTexto, enviarArquivo, enviarNaRaizDoSite, enviarPastaFixaNaRaiz, type FtpConfig,
+  baixarTexto, enviarArquivo, enviarNaRaizDoSite, type FtpConfig,
 } from '@/lib/publicacao/ftp'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
@@ -10,7 +10,6 @@ import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-notici
 import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE, type EntradaDoMapa } from '@/lib/site/sitemap'
 import { HTACCESS_DAS_NOTICIAS } from '@/lib/site/cache-do-site'
-import { paginaDePrivacidade, paginaDeTermos } from '@/lib/site/juridico'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { medidasDoCabecalho } from '@/lib/site/medidas-da-imagem'
 import { itensPublicosDoAcervo } from '@/lib/acervo/dados'
@@ -222,12 +221,8 @@ export async function descobrirRaizDoSite(client: Client, config: FtpConfig): Pr
   return null
 }
 
-/** /privacidade/ e /termos/, na raiz do site, na sessão dada. */
-export async function publicarPaginasJuridicas(client: Client, raiz: string, agora: Date = new Date()): Promise<void> {
-  const chat = await prepararChatDoSite()
-  await enviarPastaFixaNaRaiz(client, raiz, 'privacidade', paginaDePrivacidade(agora, chat))
-  await enviarPastaFixaNaRaiz(client, raiz, 'termos', paginaDeTermos(agora, chat))
-}
+// /privacidade/ e /termos/ não saem mais daqui: as políticas do site (privacidade, termos, cookies,
+// reembolso, nos três idiomas) são do repositório do site, em scripts/gerar_politicas.py.
 
 /**
  * Regera e sobe o índice de notícias, o sitemap e o robots — na sessão dada.
