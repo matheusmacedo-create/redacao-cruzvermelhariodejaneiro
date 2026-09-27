@@ -466,6 +466,12 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'rh.pedir-ficha',
+          titulo: 'A pessoa completa a ficha',
+          texto: 'Na aba “Pessoal”, “Mandar pelo WhatsApp” manda à pessoa um link pessoal para ela completar os próprios dados, sem login. Vale uma vez e por 7 dias.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'rh.situacao',
           titulo: 'Afastamento e desligamento',
           texto: '“Registrar afastamento”, “Registrar retorno”, “Reativar” e “Desligar” entram no histórico com a data. A ficha nunca é apagada.',
@@ -536,6 +542,18 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     },
   ],
   tarefas: [
+    {
+      id: 'pessoa-completa-a-ficha',
+      titulo: 'Pedir para a pessoa completar a própria ficha',
+      exemplo: 'A Carla entrou ontem: o RH manda o link, ela preenche endereço e contato de emergência no celular e o RH é avisado no sino.',
+      passos: [
+        'Abra a ficha da pessoa e vá à aba “Pessoal”. Embaixo aparece o que falta.',
+        'Quem tem acesso a documentos pode marcar “Pedir também os números dos documentos”.',
+        'Toque em “Mandar pelo WhatsApp”. O link vai para o WhatsApp que a pessoa confirmou no Palácio ou, se não houver, para o telefone pessoal da ficha. Sem celular, use “Só gerar o link” e mande como quiser.',
+        'Quando ela enviar, você recebe “… completou a ficha” no sino. Se não enviar, o Palácio lembra 2 dias depois, no máximo duas vezes, com um link novo.',
+      ],
+      dica: 'O link vale uma vez e por 7 dias; pedir de novo cancela o anterior. Ele nunca mostra o que já está guardado, campo em branco não apaga nada, e dados bancários, cargo e salário não vão por ele.',
+    },
     {
       id: 'cadastrar-ficha',
       titulo: 'Cadastrar uma pessoa na equipe',
@@ -659,6 +677,12 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'link-da-ficha-seguro',
+      pergunta: 'O link da ficha é seguro? E se a pessoa repassar?',
+      resposta: 'O link é pessoal, vale uma vez e por 7 dias, e só grava: não mostra nada do que já está na ficha (cada campo diz só “já preenchido”). Dados bancários, cargo, vínculo e salário não vão por ele — conta bancária por link abriria a porta para desviar o pagamento de alguém. Tudo o que chega fica na auditoria como “pela própria pessoa”, e os documentos são guardados cifrados, como quando o RH digita.',
+      termos: ['link da ficha', 'completar a ficha', 'autopreenchimento', 'whatsapp', 'seguro'],
+    },
     {
       id: 'sem-acesso-rh',
       pergunta: 'Por que aparece “Você ainda não tem acesso a Recursos humanos”?',

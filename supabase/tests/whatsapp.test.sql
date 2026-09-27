@@ -171,5 +171,37 @@ select throws_ok(format('update public.participantes_whatsapp set codigo_hash = 
                  '23514', null, 'o código fica só como hash');
 select has_column('public', 'oportunidades', 'avisada_por_whatsapp_em', 'oportunidade guarda quando foi anunciada');
 
+-- ================================================================ ficha da Equipe pelo link (20260929130000)
+
+insert into vault.secrets (name, secret) values ('equipe_chave', 'chave-de-teste-local') on conflict (name) do nothing;
+select ok(not has_table_privilege('authenticated', 'public.equipe_convites', 'select')
+          and not has_table_privilege('anon', 'public.equipe_convites', 'select'), 'convites da ficha: ninguém lê pela Data API');
+select ok(not has_function_privilege('anon', 'public.equipe_preencher_pelo_convite(text, jsonb)', 'execute')
+          and not has_function_privilege('authenticated', 'public.equipe_preencher_pelo_convite(text, jsonb)', 'execute'), 'preencher pelo link: só o servidor');
+insert into public.equipe_membros (id, workspace_id, nome) values ('00000000-0000-4000-8000-0000000000b1', :'ws', 'Pessoa da Ficha');
+insert into public.equipe_pessoais (membro_id, workspace_id, cidade) values ('00000000-0000-4000-8000-0000000000b1', :'ws', 'Niterói');
+insert into public.equipe_convites (workspace_id, membro_id, token_hash, expira_em, inclui_documentos)
+  values (:'ws', '00000000-0000-4000-8000-0000000000b1', repeat('b', 64), now() + interval '7 days', true);
+select throws_ok(format('insert into public.equipe_convites (workspace_id, membro_id, token_hash, expira_em) values (%L, %L, %L, now())', :'ws', '00000000-0000-4000-8000-0000000000b1', repeat('c', 64)),
+                 '23505', null, 'um link aberto por pessoa');
+set local role service_role;
+select throws_ok(format('select public.equipe_preencher_pelo_convite(%L, %L)', repeat('9', 64), '{"cidade":"Rio"}'), 'P0001', 'Este link venceu ou já foi usado. Peça um novo ao RH.', 'token desconhecido não grava');
+select throws_ok(format('select public.equipe_preencher_pelo_convite(%L, %L)', repeat('b', 64), '{"documentos":{"cpf":"111.111.111-11"}}'), 'P0001', 'CPF inválido.', 'CPF inválido é recusado');
+select lives_ok(format('select public.equipe_preencher_pelo_convite(%L, %L)', repeat('b', 64),
+                '{"telefone_pessoal":"21 98765-4321","cidade":"","data_nascimento":"1990-05-01","documentos":{"rg":"12.345.678-9"},"banco":{"conta":"999"},"cargo":"Diretora"}'),
+                'a pessoa completa a ficha pelo link');
+reset role;
+select is((select cidade from public.equipe_pessoais where membro_id = '00000000-0000-4000-8000-0000000000b1'), 'Niterói', 'campo vazio não apaga o que o RH tinha');
+select is((select telefone_pessoal from public.equipe_pessoais where membro_id = '00000000-0000-4000-8000-0000000000b1'), '21 98765-4321', 'o que veio preenchido entra');
+select ok((select tem_documentos and not tem_banco and cargo is null from public.equipe_membros where id = '00000000-0000-4000-8000-0000000000b1'),
+          'documentos entram cifrados; banco e cargo pelo link, nunca');
+select is((select (detalhe->>'pela_pessoa')::boolean from public.equipe_auditoria where membro_id = '00000000-0000-4000-8000-0000000000b1' order by id desc limit 1), true, 'auditoria diz que foi a própria pessoa');
+set local role service_role;
+select throws_ok(format('select public.equipe_preencher_pelo_convite(%L, %L)', repeat('b', 64), '{"cidade":"Rio"}'), 'P0001', 'Este link venceu ou já foi usado. Peça um novo ao RH.', 'o link vale uma vez só');
+reset role;
+
+select lives_ok(format('insert into public.notifications (workspace_id, user_id, title, message, categoria) values (%L, %L, %L, %L, %L)', :'ws', :'admin', 'Ficha completa', 'x', 'equipe'),
+                'categoria "equipe" aceita nas notificações');
+
 select * from finish();
 rollback;

@@ -1498,6 +1498,14 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,
   a fila desiste se a pessoa saiu ou a oportunidade fechou. O bot reconhece o número do voluntário:
   `1` oportunidades abertas, `2` inscrições, `sair`/`voltar`. Não há envio a quem não autorizou.
+- **Ficha da Equipe pela própria pessoa** (`lib/rh/convites.ts`, regras em `lib/rh/ficha.ts`, página
+  pública `/ficha/[token]`, tabela `equipe_convites`): o RH (nível ≥2; documentos, ≥3) gera um link
+  de uso único (7 dias, só o hash do token no banco, um aberto por pessoa) e manda pelo WhatsApp —
+  o número confirmado no Palácio, senão o telefone pessoal da ficha. A gravação é da função
+  `equipe_preencher_pelo_convite` (só service role): dados pessoais e, se liberado, documentos
+  (somados aos que já havia, cifrados); **nunca banco, cargo ou salário**; campo vazio não apaga;
+  auditoria "pela própria pessoa". A página não mostra valores guardados. Quem pediu é avisado na
+  categoria `equipe`. A rotina diária lembra (2 dias, no máximo 2 vezes) trocando o token.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre

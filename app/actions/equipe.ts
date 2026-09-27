@@ -13,6 +13,7 @@ import {
   lerBeneficios, lerFormulario, lerValor, type NomeDoNivel,
 } from '@/lib/rh/regras'
 import { nomesDosSetores } from '@/lib/setores'
+import { criarConviteDaFicha } from '@/lib/rh/convites'
 
 /**
  * Equipe. Tudo passa por funções do banco, que conferem o nível de acesso,
@@ -259,5 +260,28 @@ export async function excluirArquivo(membroId: string, id: string, motivo: strin
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível excluir.') }
+  }
+}
+
+// ---------------------------------------------------------------- a pessoa completa a própria ficha
+
+/**
+ * Gera o link para a própria pessoa completar a ficha e, se pedido, manda pelo
+ * WhatsApp. Precisa de acesso para editar a equipe; liberar os documentos no
+ * link, do acesso a documentos. Banco nunca vai pelo link.
+ */
+export async function pedirFichaAPessoa(membroId: string, opcoes: { documentos: boolean; porWhatsapp: boolean }): Promise<Resultado & { recado?: string; link?: string }> {
+  try {
+    const { context, nivel } = await contextoDaEquipe()
+    if (nivel < 2) throw new Error('Você não tem acesso para editar a equipe.')
+    if (opcoes.documentos && nivel < 3) throw new Error('Só quem tem acesso a documentos pode pedir os documentos pelo link.')
+    if (!/^[0-9a-f-]{36}$/.test(membroId)) throw new Error('Pessoa não encontrada.')
+    const r = await criarConviteDaFicha({
+      workspaceId: context.workspace.id, membroId, criadoPor: context.user.id, incluiDocumentos: Boolean(opcoes.documentos), porWhatsapp: Boolean(opcoes.porWhatsapp),
+    })
+    revalidar(membroId)
+    return { recado: r.recado, link: r.link }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível gerar o link.') }
   }
 }

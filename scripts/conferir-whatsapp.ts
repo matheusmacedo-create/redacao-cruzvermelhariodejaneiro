@@ -14,6 +14,7 @@ import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvis
 import {
   TEXTO_DO_CONSENTIMENTO, VERSAO_DO_CONSENTIMENTO, comandoDoVoluntario, consentimentoGuardado, textoDaListaDoVoluntario, textoDaOportunidade, textoDoMenuDoVoluntario,
 } from '../lib/whatsapp/voluntarios-regras'
+import { faltasDaFicha, lerFicha, textoDoConviteDaFicha } from '../lib/rh/ficha'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -322,6 +323,20 @@ contem(TEXTO_DO_CONSENTIMENTO, 'SAIR', 'consentimento diz como parar')
 contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: [], url: 'https://p' }), 'Nada.', 'lista vazia')
 contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: Array.from({ length: 8 }, (_, i) => ({ titulo: `O${i}`, quando: 'q' })), url: 'https://p' }), '_e mais 2_', 'lista corta em 6')
 contem(textoDoMenuDoVoluntario({ nome: 'Bia Souza', pausado: true, urlBase: 'https://p' }), '*3* – voltar a receber', 'menu do voluntário pausado')
+
+// ---------------------------------------------------------------- ficha da Equipe pelo link
+igual(faltasDaFicha(null, { temDocumentos: false, pedeDocumentos: true }).length, 12, 'ficha vazia: 11 campos e os documentos')
+igual(faltasDaFicha({ telefone_pessoal: '21 9', email_pessoal: 'a@b.c', data_nascimento: '1990-01-01', cep: '20000-000', logradouro: 'Rua A', numero: '1', bairro: 'Centro', cidade: 'Rio', uf: 'RJ', emergencia_nome: 'Mãe', emergencia_telefone: '21 8' },
+  { temDocumentos: true, pedeDocumentos: true }), [], 'ficha completa (complemento é opcional)')
+igual(faltasDaFicha({ cidade: '  ' }, { temDocumentos: false, pedeDocumentos: false }).includes('Cidade'), true, 'só espaço conta como vazio')
+igual(lerFicha({ cidade: ' Rio ', uf: 'rj', cep: '', banco: '001', cargo: 'Diretora', doc_cpf: '123', doc_senha: 'x' }, ['cpf', 'rg']),
+  { cidade: 'Rio', uf: 'RJ', documentos: { cpf: '123' } }, 'lerFicha: só campos conhecidos e preenchidos; banco e cargo ficam de fora')
+igual(lerFicha({ numero: '1'.repeat(50) }, [])['numero'], '1'.repeat(20), 'lerFicha corta no tamanho do campo')
+const conviteFicha = textoDoConviteDaFicha({ nome: 'Carla Dias', url: 'https://p/ficha/abc', documentos: true })
+contem(conviteFicha, 'Olá, Carla!', 'convite chama pelo primeiro nome')
+contem(conviteFicha, 'números dos seus documentos', 'convite avisa dos documentos')
+contem(conviteFicha, 'nunca pede senha nem dados de banco', 'convite alerta contra golpe')
+contem(textoDoConviteDaFicha({ nome: 'Carla', url: 'u', documentos: false, lembrete: true }), 'Carla, falta completar', 'lembrete')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.
