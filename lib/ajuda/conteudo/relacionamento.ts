@@ -1,7 +1,7 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda dos grupos Relacionamento e Análise do menu — quem fala com a Casa
+ * A ajuda do Público e dos Resultados (no menu: Público e Redação) — quem fala com a Casa
  * e o que aconteceu depois de publicar: Newsletter (/newsletter), Imprensa e
  * contatos (/imprensa), Resultados (/impacto) e Histórico (/registro).
  *
@@ -582,10 +582,10 @@ const RESULTADOS: GuiaDaArea = {
       titulo: 'Ver o que saiu nos últimos 30 dias',
       exemplo: 'Em setembro saíram 18 pacotes e 52 publicações, a maior parte no Instagram e no site; a Carla leva esse resumo para a Diretoria.',
       passos: [
-        'Abra “Resultados”, no grupo Análise do menu.',
+        'Abra “Resultados”, no grupo Redação do menu.',
         'Em “Atividade registrada”, leia quantos pacotes e quantas publicações saíram e em quantos canais.',
         'Em “Distribuição por canal”, veja quanto cada canal publicou.',
-        'Para ver cada publicação, com data e endereço, abra o “Histórico”. O botão “Ver publicações”, no alto, leva aos pacotes, em “Publicações”.',
+        'Para ver cada publicação, com data e endereço, toque na aba “Histórico”. O botão “Ver publicações”, no alto, leva aos pacotes, em “Publicações”.',
       ],
     },
     {
@@ -695,7 +695,7 @@ const HISTORICO: GuiaDaArea = {
       id: 'achar-publicacao',
       titulo: 'Achar quando e onde algo foi publicado',
       passos: [
-        'Abra “Histórico”, no grupo Análise do menu.',
+        'Abra “Resultados”, no grupo Redação do menu, e toque na aba “Histórico”.',
         'Digite parte do título, do canal ou do endereço em “Buscar por título, canal ou endereço…”.',
         'Se precisar, troque “Todos os canais” por um canal e o período por “Últimos 90 dias” ou “Tudo”.',
         'Na linha, “Quando” diz a data e a hora, e “Abrir” leva ao endereço publicado.',

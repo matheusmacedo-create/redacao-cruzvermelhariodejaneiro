@@ -19,8 +19,8 @@ import type { PassoDoTour, Pergunta, Tarefa, TopicoGeral } from '../tipos'
 // dos grupos, e o texto precisa valer nos dois jeitos.
 const MENU_NO_COMPUTADOR: PassoDoTour = {
   alvo: 'shell.menu',
-  titulo: 'As áreas, por tipo de trabalho',
-  texto: 'O menu junta as áreas em grupos, como “Planejamento”, “Produção” e “Institucional”, e só mostra o que o seu papel permite. O nome de um grupo abre e fecha a lista, e o botão no pé do menu deixa só os ícones ou volta a abrir tudo.',
+  titulo: 'As áreas, por setor',
+  texto: 'O menu junta as áreas por setor e por tipo de trabalho, como “Expediente”, “Redação” e “Gestão”, e só mostra o que o seu papel permite. Cada área aparece uma vez só; o que é parte de uma área vira aba dentro dela. O nome de um grupo abre e fecha a lista, e o botão no pé do menu deixa só os ícones ou volta a abrir tudo.',
   lado: 'right',
   seAusente: 'pular',
 }
@@ -28,7 +28,7 @@ const MENU_NO_COMPUTADOR: PassoDoTour = {
 const MENU_NO_CELULAR: PassoDoTour = {
   alvo: 'shell.abrir-menu',
   titulo: 'As áreas ficam no menu',
-  texto: 'O botão de menu, no alto à esquerda, abre as áreas, agrupadas por tipo de trabalho. Você só vê o que o seu papel permite.',
+  texto: 'O botão de menu, no alto à esquerda, abre as áreas, agrupadas por setor. Você só vê o que o seu papel permite.',
   seAusente: 'pular',
 }
 
@@ -463,6 +463,13 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
     ],
     perguntas: [
       {
+        // A reorganização do menu de 27/09/2026 (docs/NAVEGACAO.md §5). Os endereços não mudaram.
+        id: 'onde-foi-parar',
+        pergunta: 'O menu mudou. Onde foi parar cada área?',
+        resposta: 'O menu agora segue os setores, e cada área aparece uma vez só. Chat e Calendário subiram para o topo, junto do Início e das Aprovações. Chamados, Pedidos de compra, Ofícios e E-mail do setor ficam em “Expediente”. A comunicação se divide em “Redação” (Radar de pautas, Pautas, Projetos, Publicações e Resultados), “Mídia” (Biblioteca, Envios da equipe e Acervo) e “Público” (Direct das redes, Newsletter e Imprensa). Financeiro, Patrimônio e Transparência ficam em “Gestão”. O que era parte de outra área virou aba dentro dela: o Histórico é uma aba de Resultados; Canais oficiais e Trilha pública, abas de Transparência; as Mensagens dos voluntários, um atalho em Voluntários; e os Advertoriais, uma aba do Marketing da escola. Os links antigos continuam abrindo, e a busca (Ctrl K) acha tudo pelo nome antigo.',
+        termos: ['menu novo', 'sumiu', 'mudou de lugar', 'barra lateral', 'sidebar', 'histórico', 'canais oficiais', 'trilha pública', 'mensagens dos voluntários', 'advertoriais', 'institucional', 'relacionamento', 'análise'],
+      },
+      {
         id: 'area-nao-aparece',
         pergunta: 'Por que não vejo uma área que um colega vê?',
         resposta: 'O menu e a busca mostram só o que o seu papel permite abrir. Se você precisa de uma área que não aparece, peça a um administrador.',
@@ -471,7 +478,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'grupos-do-menu',
         pergunta: 'Como fecho um grupo do menu?',
-        resposta: 'Toque no nome do grupo (por exemplo, “Planejamento”) para fechar ou abrir a lista. O grupo da tela em que você está fica sempre aberto, para você não perder onde está. O Palácio Virtual lembra neste navegador os grupos que você fechou.',
+        resposta: 'Toque no nome do grupo (por exemplo, “Redação”) para fechar ou abrir a lista. O grupo da tela em que você está fica sempre aberto, para você não perder onde está. O Palácio Virtual lembra neste navegador os grupos que você fechou.',
         termos: ['esconder', 'sidebar', 'barra lateral'],
       },
       {

@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
+import { AbasDaArea } from '@/components/app/abas-da-area'
 import { TabelaDoRegistro, type LinhaDoRegistro } from '@/components/app/registro/tabela'
 import { adapter, formatoDoAdapter } from '@/lib/publicacao/canais'
 import { requireWorkspace } from '@/lib/session'
@@ -98,6 +99,7 @@ export default async function RegistroPage() {
         title="Histórico de publicações"
         description="Tudo o que foi publicado: quando saiu, em qual canal e em qual endereço. Inclui o que falhou."
       />
+      <AbasDaArea atual="/registro" papel={context.role} />
       {linhas.length === 0 ? (
         <Card className="p-10 text-center">
           <p className="text-sm font-medium">Nada publicado ainda.</p>

@@ -1,5 +1,6 @@
 import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
+import { AbasDaArea } from '@/components/app/abas-da-area'
 import { Card } from '@/components/ui/card'
 import { PainelDaTransparencia, type Aba } from '@/components/app/transparencia/painel'
 import type { DocumentoNaTela, VersaoNaTela } from '@/components/app/transparencia/documentos'
@@ -63,7 +64,7 @@ export default async function TransparenciaPage({ searchParams }: { searchParams
       .eq('workspace_id', workspaceId).order('created_at', { ascending: false }),
   ])
 
-  const cabecalho = <PageHeader title="Transparência" description="Os documentos e as parcerias com o poder público que a filial publica no portal de transparência do site. Publicado não se troca em silêncio: arquivo novo vira versão nova, e cada publicação entra na trilha pública de auditoria." />
+  const cabecalho = <><PageHeader title="Transparência" description="Os documentos e as parcerias com o poder público que a filial publica no portal de transparência do site. Publicado não se troca em silêncio: arquivo novo vira versão nova, e cada publicação entra na trilha pública de auditoria." /><AbasDaArea atual="/transparencia" papel={context.role} /></>
 
   if (docs.error || parcs.error) {
     console.error('[transparencia] leitura:', docs.error?.message ?? parcs.error?.message)

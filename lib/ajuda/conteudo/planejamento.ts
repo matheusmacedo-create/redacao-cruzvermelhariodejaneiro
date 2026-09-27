@@ -1,7 +1,7 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda do grupo Planejamento do menu — de onde a pauta nasce até quando
+ * A ajuda do planejamento editorial (no menu: Redação e o topo) — de onde a pauta nasce até quando
  * ela vai ao ar: Radar de pautas (/cerebro, com /cerebro/mapa), Pautas
  * (/pautas, com a sala /pautas/[id], o formulário /registrar e o editor
  * /conteudos/[id], que o menu põe em Pautas), Calendário (/calendario) e
