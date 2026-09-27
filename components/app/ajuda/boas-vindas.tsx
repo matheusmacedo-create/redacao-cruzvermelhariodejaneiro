@@ -5,6 +5,7 @@ import { Dialog } from '@base-ui/react/dialog'
 import { Compass, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAjuda, useFocoAoFecharDialogo } from './ajuda'
+import { SeloDoPalacio } from '@/components/app/selo-do-palacio'
 
 /**
  * As boas-vindas do primeiro acesso: o que é a Redação, em duas frases, e o
@@ -35,9 +36,7 @@ export function BoasVindas() {
           <Dialog.Close aria-label="Fechar" className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
             <X className="size-4" aria-hidden="true" />
           </Dialog.Close>
-          <span className="flex size-12 items-center justify-center rounded-xl bg-primary/[0.08]" aria-hidden="true">
-            <svg viewBox="0 0 30 30" className="size-6"><path d="M10 0h10v10h10v10H20v10H10V20H0V10h10z" fill="rgb(227 34 25)" /></svg>
-          </span>
+          <SeloDoPalacio tamanho={56} />
           <Dialog.Title className="mt-5 pr-8 text-xl font-bold leading-tight tracking-tight text-balance">{titulo}</Dialog.Title>
           <Dialog.Description render={<div />} className="mt-3 flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
             {pessoa.equipeDaEscola ? (

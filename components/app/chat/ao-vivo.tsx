@@ -74,7 +74,7 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
         setTimeout(() => setAvisos((a) => a.filter((x) => x.id !== m.id)), 8000)
         if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           try {
-            const n = new Notification(titulo, { body: texto, tag: m.canal_id, icon: '/images/logo-cvrj.png' })
+            const n = new Notification(titulo, { body: texto, tag: m.canal_id, icon: '/images/palacio-virtual.png' })
             n.onclick = () => { window.focus(); router.push(`/chat/${m.resposta_de ? `${m.canal_id}?fio=${m.resposta_de}` : m.canal_id}`); n.close() }
           } catch { /* navegador sem suporte a Notification no contexto atual */ }
         }

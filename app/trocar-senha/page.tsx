@@ -19,7 +19,7 @@ export default async function TrocarSenhaPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
       <div className="w-full max-w-lg">
-        <BrandMark className="w-72 items-start" />
+        <BrandMark selo className="w-72 items-start" />
         <div className="mt-10 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><KeyRound className="size-6" /></div>
         <h1 className="mt-6 text-2xl font-bold tracking-tight text-balance">Crie a sua senha</h1>
         <p className="mt-3 leading-relaxed text-muted-foreground">
