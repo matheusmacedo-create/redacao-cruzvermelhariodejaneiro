@@ -1187,7 +1187,9 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   (`avisarVisitado`).
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
-  aparece com alerta.
+  aparece com alerta. Os crachás para imprimir (`/portaria/crachas`) saem deitados (86 × 54 mm,
+  10 por A4, para o porta-crachá horizontal) ou em pé (54 × 86 mm, 9 por A4):
+  `FORMATOS_DE_CRACHA` em `lib/portaria/regras.ts`.
 - **Conferência.** `npx tsx scripts/conferir-portaria.ts`.
 
 ### 7.25 Escola: Marketing por curso (`/escola/marketing/cursos`)

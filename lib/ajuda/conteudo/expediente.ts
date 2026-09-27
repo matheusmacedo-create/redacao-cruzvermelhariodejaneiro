@@ -1243,9 +1243,10 @@ const PORTARIA: GuiaDaArea = {
       titulo: 'Imprimir crachás de visitante',
       passos: [
         'Em “Portaria”, abra a aba “Crachás de visitante”.',
-        'Escolha o prefixo e a numeração (por exemplo, V de 1 a 18) e se quer as regras no verso.',
+        'Escolha o formato: deitado (86 × 54 mm, 10 por folha), para o porta-crachá horizontal com presilha, ou em pé (54 × 86 mm, 9 por folha).',
+        'Escolha o prefixo e a numeração (por exemplo, V de 1 a 20) e se quer as regras no verso.',
         'Toque em “Abrir para imprimir” e depois em “Imprimir ou salvar PDF”.',
-        'Com verso, imprima frente e verso virando pela borda longa; corte nas marcas e plastifique.',
+        'Com verso, imprima frente e verso virando pela borda longa; corte nas marcas e ponha no porta-crachá ou plastifique.',
       ],
       dica: 'O crachá leva só o número, nunca o nome: é reutilizável. Anote o número em “Nº do crachá de visitante” na entrada.',
     },
