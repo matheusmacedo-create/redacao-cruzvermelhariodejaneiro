@@ -20,6 +20,7 @@ import { DicaDaTela } from '@/components/app/ajuda/dica'
 import { PainelDeAjuda } from '@/components/app/ajuda/painel'
 import { lerProgresso } from '@/lib/ajuda/progresso'
 import { indiceDaAjuda } from '@/lib/ajuda'
+import { lerVersao } from '@/lib/versao'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Palácio Virtual', default: 'Palácio Virtual — Cruz Vermelha RJ' } }
@@ -82,11 +83,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     emailConfirmado: Boolean(context.profile?.email && context.profile?.email_confirmado_em),
     temFoto: Boolean(context.profile?.avatar_path),
   }
-  const buildInfo = {
-    sha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
-    message: process.env.VERCEL_GIT_COMMIT_MESSAGE?.slice(0, 80) ?? null,
-    renderedAt: new Date().toISOString(),
-  }
+  const versao = lerVersao({ sha: process.env.VERCEL_GIT_COMMIT_SHA, mensagem: process.env.VERCEL_GIT_COMMIT_MESSAGE, publicadaEm: process.env.PALACIO_PUBLICADO_EM })
   return (
     <ChatAoVivo workspaceId={ws} eu={context.user.id} inicial={chatNaoLidas} conversas={conversasAoVivo} nomes={nomes}>
     <AppShellProvider permitidas={permitidas} recolhidaInicial={recolhida} equipeDaEscola={equipeDaEscola} escolhidos={{ leitorDeAcessos, avaliadorDeEnvios }}>
@@ -94,7 +91,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda} indice={indiceDaAjuda()}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
-        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} buildInfo={buildInfo} />
+        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} versao={versao} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-xl md:border md:border-sidebar-border md:shadow-sm">
             <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} naoLidas={naoLidas ?? 0} />

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // A hora do build, para o pé do menu mostrar quando a versão no ar foi publicada (lib/versao.ts).
+  env: { PALACIO_PUBLICADO_EM: new Date().toISOString() },
   images: {
     unoptimized: true,
   },

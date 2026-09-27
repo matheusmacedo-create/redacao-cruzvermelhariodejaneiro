@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { Versao } from '@/lib/versao'
+import { VersaoNoAr } from './versao-no-ar'
 import { ADMINISTRACAO, areaDoCaminho, ehDaArea, hrefNoMenu, type Area, type Contador, type Grupo } from '@/lib/navegacao'
 import { useShell } from './app-shell'
 import { useChatAoVivo } from '@/components/app/chat/ao-vivo'
@@ -13,7 +15,6 @@ import { SeloDoPalacio } from './selo-do-palacio'
 // Os grupos que a pessoa fechou ficam num cookie, para o servidor desenhar igual (o nome mora fora deste módulo do cliente).
 import { COOKIE_DOS_GRUPOS } from './cookies-do-menu'
 
-type BuildInfo = { sha: string | null; message: string | null; renderedAt: string }
 export type Contadores = Partial<Record<Contador, number>>
 
 function Marca({ recolhida }: { recolhida: boolean }) {
@@ -157,11 +158,11 @@ function BotaoDeBusca({ recolhida }: { recolhida: boolean }) {
   )
 }
 
-export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, buildInfo }: {
+export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, versao }: {
   contadores: Contadores
   fechadosIniciais: string[]
   profile: { username?: string | null } | null
-  buildInfo?: BuildInfo
+  versao?: Versao
 }) {
   const { grupos, open, close, recolhida, alternarRecolhida } = useShell()
   // O número do Chat muda ao vivo (mensagem chegando, conversa lida), sem esperar a página recarregar.
@@ -175,7 +176,8 @@ export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, bui
   const admin = grupos.find((g) => g.id === ADMINISTRACAO.id)
   const configuracoes = admin?.areas.find((a) => a.href === '/configuracoes')
   const doCelular = [...trabalho, ...(admin ? [admin] : [])]
-  const mostrarBuild = buildInfo && profile?.username === 'matheus.macedo'
+  // A versão no ar só aparece para quem cuida do sistema.
+  const mostrarVersao = Boolean(versao) && profile?.username === 'matheus.macedo'
 
   return (
     <Tooltip.Provider>
@@ -206,12 +208,7 @@ export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, bui
               {recolhida ? <PanelLeftOpen className="size-[17px]" /> : <PanelLeftClose className="size-[17px]" />}
             </button>
           </div>
-          {mostrarBuild && !recolhida && (
-            <div className="mt-2 rounded-lg bg-black/[0.03] px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
-              <p>Build {buildInfo!.sha || 'local'}{buildInfo!.message ? ` — ${buildInfo!.message}` : ''}</p>
-              <p>Visto em {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(buildInfo!.renderedAt))}</p>
-            </div>
-          )}
+          {mostrarVersao && !recolhida && <VersaoNoAr versao={versao!} />}
         </div>
       </aside>
 
@@ -232,3 +229,4 @@ export function Sidebar({ contadores: doServidor, fechadosIniciais, profile, bui
     </Tooltip.Provider>
   )
 }
+
