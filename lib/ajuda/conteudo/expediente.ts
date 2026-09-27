@@ -4,7 +4,7 @@ import type { GuiaDaArea } from '../tipos'
  * A ajuda do expediente da filial, no grupo Expediente do menu: Ofícios
  * (/oficios, com /oficios/[id]), Chamados (/chamados, com /chamados/novo,
  * /chamados/[id] e /chamados/configurar) e Pedidos de compra
- * (/financeiro/compras, com /novo, /[id] e /[id]/editar).
+ * (/financeiro/compras, com /novo, /[id] e /[id]/editar) e Portaria (/portaria).
  *
  * Cada frase tem apoio no código:
  * - Ofícios: app/(app)/oficios, components/app/oficios/** (editor, painel,
@@ -1149,4 +1149,133 @@ const COMPRAS: GuiaDaArea = {
   relacionadas: ['/financeiro', '/patrimonio'],
 }
 
-export const guias: GuiaDaArea[] = [OFICIOS, CHAMADOS, COMPRAS]
+// ---------------------------------------------------------------- Portaria
+// Apoio: app/(app)/portaria, components/app/portaria/acoes.tsx, app/actions/portaria.ts,
+// lib/portaria/regras.ts e servidor.ts, a página pública app/visitante e a migração
+// 20260929060000_cvrj_portaria.sql.
+
+const PORTARIA: GuiaDaArea = {
+  href: '/portaria',
+  paraQueServe: 'O livro de visitantes da filial, no lugar do caderno da portaria. Registra quem chegou, quem veio visitar e por quê, com foto e crachá de visitante, e mostra quem está na filial agora. O visitante também pode se registrar sozinho, pelo QR da entrada.',
+  quemUsa: 'Toda a equipe do Palácio Virtual (menos a equipe da Escola) registra entradas e saídas e vê o livro. Só administradores trocam o link do QR da entrada. Não pedimos documento: nome, telefone, de onde vem, quem visita e o motivo.',
+  naPratica: {
+    titulo: 'Uma reunião com a Prefeitura, da chegada à saída',
+    passos: [
+      'A representante da Prefeitura lê o QR na entrada, preenche o nome e escreve “Presidência” em quem vai visitar.',
+      'O cadastro aparece em “Chegaram pelo QR” na tela da portaria, que recarrega sozinha.',
+      'A portaria toca em “Confirmar entrada”, escolhe a pessoa visitada, anota o crachá V-07 e tira a foto.',
+      'A Presidência recebe no sino: “Ana Lima chegou para falar com você”.',
+      'Na saída, a portaria toca em “Saída” e confirma que o crachá V-07 voltou.',
+    ],
+    resultado: 'O livro fica completo, com hora de entrada e saída, sem caderno e sem crachá perdido.',
+  },
+  tour: [
+    {
+      alvo: 'portaria.numeros',
+      titulo: 'A portaria em números',
+      texto: 'Quantos visitantes estão na filial agora, quantas entradas houve hoje, quantos cadastros pelo QR esperam confirmação e quantos crachás não voltaram.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'portaria.aguardando',
+      titulo: 'Chegaram pelo QR',
+      texto: 'Quem se registrou pelo QR aparece aqui. “Confirmar entrada” abre os dados para conferir, escolher quem é visitado, anotar o crachá e tirar a foto. “Descartar” tira do livro um cadastro repetido ou de brincadeira.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'portaria.nova',
+      titulo: 'Registrar entrada',
+      texto: 'Nome, de onde vem, quem vai visitar, o motivo e o número do crachá de visitante. “Tirar foto” abre a câmera do tablet ou do celular. Quem é escolhido em “Quem vai visitar” recebe aviso no sino.',
+    },
+    {
+      alvo: 'portaria.dentro',
+      titulo: 'Na filial agora',
+      texto: 'Quem entrou e ainda não saiu, com a hora da entrada. “Saída” registra a saída e, se havia crachá, pergunta se ele foi devolvido. Quem entrou em outro dia aparece com um alerta: provavelmente esqueceram a saída.',
+    },
+    {
+      alvo: 'portaria.crachas',
+      titulo: 'Crachás não devolvidos',
+      texto: 'Quem saiu sem devolver o crachá de visitante fica aqui até alguém tocar em “Crachá devolvido”.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'portaria.abas',
+      titulo: 'Histórico e QR',
+      texto: '“Histórico” mostra as visitas de um dia e busca pelo nome em todos os dias. “QR da entrada” tem o cartaz para imprimir e deixar na recepção.',
+      lado: 'bottom',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'registrar-visitante',
+      titulo: 'Registrar a entrada de um visitante',
+      passos: [
+        'Abra “Portaria”, no menu Expediente.',
+        'Em “Registrar entrada”, preencha o nome e, se quiser, telefone, “De onde vem” e o motivo.',
+        'Em “Quem vai visitar”, escolha a pessoa do Palácio (ela recebe aviso) ou escreva o setor em “Setor ou pessoa”.',
+        'Anote o “Nº do crachá de visitante” que você entregou.',
+        'Toque em “Tirar foto”, se for o caso, e depois em “Registrar entrada”.',
+      ],
+      dica: 'Esqueceu a foto? Na lista “Na filial agora”, o botão “Foto” tira depois.',
+      exemplo: 'Exemplo: o técnico da empresa de ar-condicionado chega às 9h para a manutenção; a portaria registra “Refrigeração Rio”, escolhe o setor de Patrimônio e entrega o crachá V-03.',
+    },
+    {
+      id: 'confirmar-qr',
+      titulo: 'Confirmar quem se registrou pelo QR',
+      passos: [
+        'Em “Chegaram pelo QR”, ache o nome do visitante.',
+        'Toque em “Confirmar entrada” e confira os dados com ele.',
+        'Escolha quem é visitado, anote o crachá, tire a foto e toque em “Confirmar entrada”.',
+      ],
+      dica: 'A tela recarrega sozinha a cada 30 segundos: deixe-a aberta na recepção.',
+    },
+    {
+      id: 'registrar-saida',
+      titulo: 'Registrar a saída e a devolução do crachá',
+      passos: [
+        'Em “Na filial agora”, ache o visitante e toque em “Saída”.',
+        'Se ele estava com crachá, marque ou desmarque “Devolveu o crachá” e toque em “Registrar saída”.',
+        'Crachá que não voltou fica em “Crachás não devolvidos”; quando voltar, toque em “Crachá devolvido”.',
+      ],
+    },
+    {
+      id: 'imprimir-qr',
+      titulo: 'Imprimir o QR da entrada',
+      passos: [
+        'Em “Portaria”, abra a aba “QR da entrada”.',
+        'Toque em “Cartaz para imprimir” e depois em “Imprimir ou salvar PDF” (A4 em pé).',
+        'Deixe o cartaz na recepção, onde o visitante vê ao chegar.',
+      ],
+      dica: 'Se o cartaz for copiado por quem não devia, um administrador toca em “Gerar link novo”: o cartaz antigo para de valer e é preciso imprimir o novo.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'documento',
+      pergunta: 'Preciso pedir documento ao visitante?',
+      resposta: 'Não. O livro guarda só nome, telefone, de onde vem, quem visita, o motivo, a foto (opcional) e o crachá. Menos dados pessoais guardados, menos risco (LGPD).',
+      termos: ['rg', 'cpf', 'identidade', 'lgpd'],
+    },
+    {
+      id: 'quem-recebe-aviso',
+      pergunta: 'Quem fica sabendo que o visitante chegou?',
+      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe aviso no sino (e por e-mail, conforme a preferência dela, no assunto “Portaria”). O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
+      termos: ['notificação', 'avisar', 'chegou'],
+    },
+    {
+      id: 'qr-nao-funciona',
+      pergunta: 'O visitante diz que o QR “não vale mais”. E agora?',
+      resposta: 'O link do cartaz foi trocado por um administrador. Registre a entrada pela tela da portaria e imprima o cartaz novo, na aba “QR da entrada”.',
+      termos: ['qr code', 'cartaz', 'link'],
+    },
+    {
+      id: 'cadastro-falso',
+      pergunta: 'Alguém mandou um cadastro de brincadeira pelo QR.',
+      resposta: 'Toque em “Descartar”: o cadastro sai de “Chegaram pelo QR” e não entra no livro como visita. O mesmo aparelho só consegue mandar seis cadastros por hora.',
+      termos: ['spam', 'trote', 'repetido'],
+    },
+  ],
+  relacionadas: ['/chamados'],
+}
+
+export const guias: GuiaDaArea[] = [OFICIOS, CHAMADOS, COMPRAS, PORTARIA]
