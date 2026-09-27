@@ -3,7 +3,7 @@ import { pode, type Papel } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { enviarPeloGmail, GmailError } from '@/lib/google/gmail'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { corpoComAssinatura, corpoHtmlComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
+import { assinaturaEmNomeDe, corpoComAssinatura, corpoHtmlComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
 
 /**
  * Enviar por uma caixa de setor — a regra num lugar só (a tela do E-mail do
@@ -18,6 +18,8 @@ export type Envio = {
   para: string; cc?: string; assunto: string; corpo: string; anexos?: { nome: string; tipo: string; conteudo: Uint8Array }[]
   /** Corpo já em HTML (escapado por quem monta); `corpo` segue como a versão em texto. */
   html?: string
+  /** Em nome de outra empresa do grupo (a Escola): a linha legal da assinatura sai com a razão social e o CNPJ dela. */
+  empresa?: { nome: string; cnpj: string } | null
 }
 
 /** As caixas por onde esta pessoa pode enviar (todas, para quem tem a permissão). */
@@ -84,7 +86,8 @@ async function despachar(admin: ReturnType<typeof createAdminClient>, workspaceI
       de: caixa.email, para: para.validos, cc: cc.validos, assunto,
       corpo: m.anexos?.length ? `${corpo}\n\n[anexos: ${m.anexos.map((a) => a.nome).join(', ')}]` : corpo,
     }
-    const conteudo = m.html ? corpoHtmlComAssinatura(m.html, corpo, caixa.assinatura_html) : corpoComAssinatura(corpo, caixa.assinatura_html)
+    const assinatura = assinaturaEmNomeDe(caixa.assinatura_html, m.empresa)
+    const conteudo = m.html ? corpoHtmlComAssinatura(m.html, corpo, assinatura) : corpoComAssinatura(corpo, assinatura)
     const { raw } = montarMensagem({
       // O nome definido na Redação vale mais que o do Gmail (que por padrão é só o endereço).
       de: { nome: caixa.nome_remetente || caixa.nome_exibicao, email: caixa.email },

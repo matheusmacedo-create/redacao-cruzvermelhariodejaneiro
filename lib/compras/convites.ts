@@ -127,7 +127,7 @@ export type DadosDoConvite = {
 }
 
 const qtd = (n: number) => String(n).replace('.', ',')
-const cnpjLegivel = (c: string) => c.replace(/\D/g, '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+export const cnpjLegivel = (c: string) => c.replace(/\D/g, '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
 /** "Nota fiscal em nome de …": quem compra pode ser a Filial ou a Escola, cada uma com o seu CNPJ. */
 const notaFiscal = (d: Pick<DadosDoConvite, 'comprador' | 'cnpj'>) => `${d.comprador}${d.cnpj ? ` — CNPJ ${cnpjLegivel(d.cnpj)}` : ''}`
 

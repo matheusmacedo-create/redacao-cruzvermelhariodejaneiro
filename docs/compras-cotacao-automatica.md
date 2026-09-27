@@ -55,6 +55,11 @@ O convite e o lembrete saem em HTML, com a versão em texto ao lado (`textoDoCon
 
 A assinatura da caixa vem no fim, como nos outros e-mails do setor (`Envio.html` em `lib/correio/enviar.ts`).
 
+As caixas de setor são da Filial, e a assinatura delas traz a linha "Cruz Vermelha Brasileira do Rio de
+Janeiro — CNPJ: 08.560.973/0001-97". Num pedido da Escola, o convite, o lembrete e a ordem de compra trocam
+essa linha pela razão social e pelo CNPJ da Escola (`Envio.empresa` e `assinaturaEmNomeDe` em
+`lib/correio/mensagem.ts`). A assinatura guardada na caixa não muda.
+
 Sem caixa, os links ficam prontos para "Copiar link", para mandar por WhatsApp. O token **não é
 legível pelo RLS**: a coluna fica fora do `grant select`. O link só sai por `linkDoConviteParaCopiar`,
 depois de conferir o nível.

@@ -314,9 +314,10 @@ export async function enviarOrdem(pedidoId: string, dados: { caixaId: string; pa
     if (!p || nivelNaEmpresa(ctx, p.entidade_id) < 2) throw new Error('Pedido não encontrado.')
     const ordem = p.oc_numero ? await dadosDaOrdem(createAdminClient(), context.workspace.id, pedidoId) : null
     if (!ordem) throw new Error('Emita a ordem de compra antes de enviar.')
-    const pdf = await ordemDeCompra(ordem.dados)
+    const [pdf, comprador] = await Promise.all([ordemDeCompra(ordem.dados), compradorDe(createAdminClient(), p.entidade_id)])
     const envio = await enviarPelaCaixa(context, dados.caixaId, {
       para: dados.para, cc: dados.cc, assunto: `Ordem de compra ${ordem.codigo} — ${p.titulo}`.slice(0, 200), corpo: String(dados.mensagem ?? ''),
+      empresa: comprador.assinatura,
       anexos: [{ nome: `${ordem.codigo}.pdf`, tipo: 'application/pdf', conteudo: pdf }],
     })
     const { error } = await supabase.rpc('compras_registrar_envio', { p_pedido_id: pedidoId, p_para: envio.destinatarios.join(', ') })
@@ -379,7 +380,7 @@ export async function pedirPropostas(pedidoId: string, dados: PedidoDePropostas)
         itens: (itens ?? []).map((i) => ({ descricao: i.descricao, especificacao: i.especificacao, quantidade: Number(i.quantidade), unidade: i.unidade })),
       })
       try {
-        await enviarPelaCaixa(context, dados.caixaId, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html })
+        await enviarPelaCaixa(context, dados.caixaId, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html, empresa: comprador.assinatura })
         await admin.from('compras_convites').update({ enviado_em: new Date().toISOString(), enviado_por: context.user.id, envio_erro: null }).eq('id', c.id)
         enviados++
       } catch (causa) {

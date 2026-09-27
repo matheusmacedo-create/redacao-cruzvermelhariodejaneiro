@@ -8,7 +8,7 @@ import { enviarPelaCaixaAutomatica } from '@/lib/correio/enviar'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import { dataCurta } from '@/lib/financeiro/regras'
 import { numeroDoPedido } from './regras'
-import { diaSeguinte, resumoDosConvites, textoDoLembrete, type Convite } from './convites'
+import { cnpjLegivel, diaSeguinte, resumoDosConvites, textoDoLembrete, type Convite } from './convites'
 import { pessoasDoFinanceiro } from './servidor'
 
 /**
@@ -26,14 +26,17 @@ export const linkDoConvite = (token: string) => `${urlBase()}/cotacao/${token}`
 
 const hojeEmSaoPaulo = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
 
-/** Quem compra, como sai no e-mail e na página do fornecedor. */
-export async function compradorDe(admin: Admin, entidadeId: string): Promise<{ nome: string; cnpj: string | null }> {
+/**
+ * Quem compra, como sai no e-mail e na página do fornecedor. `assinatura`:
+ * quando não é a Filial (a Escola), a razão social e o CNPJ que trocam a
+ * linha legal da assinatura da caixa (que é da Filial) — lib/correio/mensagem.ts.
+ */
+export async function compradorDe(admin: Admin, entidadeId: string): Promise<{ nome: string; cnpj: string | null; assinatura: { nome: string; cnpj: string } | null }> {
   const { data: e } = await admin.from('fin_entidades').select('nome,razao_social,cnpj,tipo,principal').eq('id', entidadeId).maybeSingle()
   const filial = !e || e.principal || e.tipo === 'filial'
-  return {
-    nome: (e?.razao_social as string | null) || (filial ? DADOS_DA_FILIAL.nome : (e?.nome as string) ?? DADOS_DA_FILIAL.nome),
-    cnpj: (e?.cnpj as string | null) ?? (filial ? DADOS_DA_FILIAL.cnpj.replace(/\D/g, '') : null),
-  }
+  const nome = (e?.razao_social as string | null) || (filial ? DADOS_DA_FILIAL.nome : (e?.nome as string) ?? DADOS_DA_FILIAL.nome)
+  const cnpj = (e?.cnpj as string | null) ?? (filial ? DADOS_DA_FILIAL.cnpj.replace(/\D/g, '') : null)
+  return { nome, cnpj, assinatura: !filial && cnpj ? { nome, cnpj: cnpjLegivel(cnpj) } : null }
 }
 
 export type ConviteAberto = {
@@ -149,7 +152,7 @@ export async function rotinaDasCotacoes(admin: Admin = createAdminClient()): Pro
     for (const c of convites as unknown as { id: string; email: string; token: string; caixa_id: string; fin_favorecidos: { nome: string } | null }[]) {
       const texto = textoDoLembrete({ comprador: comprador.nome, fornecedor: c.fin_favorecidos?.nome ?? 'fornecedor', codigo: numeroDoPedido(p.ano, p.numero), titulo: p.titulo, prazo: p.cotacao_prazo, link: linkDoConvite(c.token) })
       try {
-        await enviarPelaCaixaAutomatica(p.workspace_id, c.caixa_id, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html })
+        await enviarPelaCaixaAutomatica(p.workspace_id, c.caixa_id, { para: c.email, assunto: texto.assunto, corpo: texto.corpo, html: texto.html, empresa: comprador.assinatura })
         await admin.from('compras_convites').update({ lembrete_em: new Date().toISOString() }).eq('id', c.id)
         lembretes++
       } catch (causa) {
