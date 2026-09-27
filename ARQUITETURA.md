@@ -1089,6 +1089,34 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - Regras puras e estatística: `lib/oportunidades/perguntas.ts`, conferidas por
   `npx tsx scripts/conferir-perguntas.ts`.
 
+### 7.23 Identidade: crachá virtual e certificado oficial (`/perfil`, `/membro/perfil`, `/cracha/[codigo]`)
+
+Base: o Manual de Identidade Institucional da CVB. O estudo e a lista do que dá
+para incrementar estão em [`docs/IDENTIDADE.md`](docs/IDENTIDADE.md). **Os contatos
+do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
+
+- **Crachá** (`lib/cracha/`). De onde vêm os dados:
+  - a ficha do RH (`equipe_membros`, faixa "COLABORADOR");
+  - senão, o cadastro de voluntário ligado à conta (`participantes`, "COLABORADOR VOLUNTÁRIO");
+  - senão, o perfil.
+
+  O voluntário da Área usa o próprio cadastro.
+- **QR do crachá.** Leva a `/cracha/<código>`. O código é o id com HMAC
+  (`CRACHA_SEGREDO`; na falta, derivado da chave de serviço). Não há tabela: o
+  QR vale enquanto a pessoa estiver ativa. A página mostra nome, função, vínculo
+  e foto (`/cracha/<código>/foto`, só de quem está ativo), nunca CPF, saúde ou
+  contato.
+- **Fator RH.** Só no crachá da própria pessoa, pela função
+  `cracha_fator_rh()` (service_role, migração `20260929030000`).
+- **PDFs.** O crachá sai em `/api/cracha/pdf` (equipe) e `/membro/cracha/pdf`
+  (voluntário). O certificado continua em `/membro/certificados/[codigo]/pdf`,
+  agora no modelo oficial.
+- **Fontes.** Ficam em `lib/pdf/fontes/` (SIL OFL) e são lidas do disco. Cada
+  rota que as usa precisa estar em `outputFileTracingIncludes`
+  (`next.config.mjs`).
+- **Conferência.** `npx tsx scripts/conferir-cracha.ts [pasta]` testa as regras
+  e, com pasta, grava exemplos em PDF.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

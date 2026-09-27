@@ -16,6 +16,8 @@ import { AvatarUpload } from './avatar-upload'
 import { PreferenciasDeNotificacao } from '@/components/app/preferencias-de-notificacao'
 import { lerModos } from '@/lib/notificacoes/regras'
 import { tituloDaArea } from '@/lib/navegacao'
+import { Cracha } from '@/components/cracha/cracha'
+import { crachaDaConta } from '@/lib/cracha/servidor'
 
 export const metadata = { title: tituloDaArea('/perfil') }
 
@@ -36,12 +38,21 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
     .eq('user_id', context.user.id).eq('finalidade', 'confirmar_email').is('usado_em', null).gt('expira_em', new Date().toISOString())
     .order('criado_em', { ascending: false }).limit(1).maybeSingle()
   const name = profile?.full_name || 'Usuário'
+  // O crachá é enfeite do perfil: se a leitura falhar, a página abre sem ele.
+  const cracha = await crachaDaConta(context.user.id, context.workspace.id).catch(() => null)
   const coordination = context.memberships.find((membership) => { const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces; return workspace?.id === context.workspace.id })?.coordination || 'Sem coordenação'
 
   return <div className="mx-auto max-w-3xl">
     <PageHeader title="Meu perfil" description="Suas informações e preferências de conta." />
     <div className="flex flex-col gap-6">
       <Card data-ajuda="perfil.identidade" className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-bold">{name}</h2><p className="text-sm text-muted-foreground">{profile?.job_title || context.role} · {coordination || 'Sem coordenação'}</p><p className="mt-1 text-sm text-primary">@{profile?.username}</p>{!ehEquipeDaEscola(context.role) && <Link href={`/pessoas/${context.user.id}`} className="mt-2 inline-block text-sm font-medium text-primary hover:underline">Ver meu perfil público →</Link>}</div><AvatarUpload initials={profile?.initials || name.slice(0, 2).toUpperCase()} color={profile?.color} path={profile?.avatar_path} name={name} /></Card>
+      {cracha && (
+        <Card id="cracha" data-ajuda="perfil.cracha" className="scroll-mt-24 p-6">
+          <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Crachá virtual</h3>
+          <p className="mb-4 text-sm text-muted-foreground">No modelo do Manual de Identidade da Cruz Vermelha Brasileira. Mostre na tela ou imprima; o QR do verso confirma que você é da filial. A foto é a do seu perfil, e os dados vêm do seu cadastro.</p>
+          <Cracha cracha={cracha} pdf="/api/cracha/pdf" />
+        </Card>
+      )}
       <Card id="email-de-recuperacao" data-ajuda="perfil.email" className={`scroll-mt-24 p-6 ${profile?.email_confirmado_em ? '' : 'border-warning/60 ring-2 ring-warning/20'}`}><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail de recuperação</h3><EmailDaConta email={profile?.email ?? null} confirmado={Boolean(profile?.email && profile?.email_confirmado_em)} pendente={pendente?.email ?? null} envioConfigurado={emailConfigurado()} /></Card>
       <Card id="notificacoes" data-ajuda="perfil.notificacoes" className="scroll-mt-24 p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mails de notificação</h3><PreferenciasDeNotificacao modos={lerModos(preferencias?.modos)} email={profile?.email && profile?.email_confirmado_em ? profile.email : null} /></Card>
       <Card data-ajuda="perfil.dados" className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Dados pessoais</h3><form action={updateProfile}><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field label="Nome completo" name="fullName" defaultValue={name} required /><Field label="Usuário" defaultValue={profile?.username || ''} disabled /><Field label="Cargo" name="jobTitle" defaultValue={profile?.job_title || ''} /><Field label="Coordenação" defaultValue={coordination || ''} disabled /></div><div className="mt-5 flex justify-end"><Button type="submit" size="lg">Salvar alterações</Button></div></form></Card>

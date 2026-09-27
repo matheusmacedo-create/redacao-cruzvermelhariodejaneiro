@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Camera, ChevronRight, CircleCheck, ListTodo, Lock, MessageSquareText } from 'lucide-react'
+import { Camera, ChevronRight, CircleCheck, IdCard, ListTodo, Lock, MessageSquareText } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
 import { fotoDoMembro, perfilDoMembro } from '@/lib/membro/dados'
 import { VINCULOS } from '@/lib/participantes/regras'
@@ -10,6 +10,8 @@ import { BensComigo } from '@/components/membro/bens'
 import { EditorDaFoto } from '@/components/membro/foto'
 import { CabecalhoDaPagina, Secao, Selo } from '@/components/membro/pecas'
 import { bensDoMembro } from '@/lib/membro/bens'
+import { Cracha } from '@/components/cracha/cracha'
+import { crachaDoMembro } from '@/lib/cracha/servidor'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +47,7 @@ function Completude({ pct, faltam }: ReturnType<typeof pendenciasDoPerfil>) {
 
 export default async function PerfilDoMembro() {
   const m = await exigirMembro()
-  const [p, bens, foto] = await Promise.all([perfilDoMembro(m), bensDoMembro(m), fotoDoMembro(m.participanteId).catch(() => null)])
+  const [p, bens, foto, cracha] = await Promise.all([perfilDoMembro(m), bensDoMembro(m), fotoDoMembro(m.participanteId).catch(() => null), crachaDoMembro(m).catch(() => null)])
   const dados: [string, string][] = [
     ['Nome', p.nome],
     ['E-mail (seu acesso)', p.email ?? '—'],
@@ -68,6 +70,14 @@ export default async function PerfilDoMembro() {
       <Secao titulo="Foto de perfil" icone={Camera} id="foto" className="rounded-xl border border-border bg-card p-4 sm:p-5">
         <EditorDaFoto url={foto} nome={p.nome_social || p.nome} endpoint="/api/membro/foto" podeEditar={!m.previa} />
       </Secao>
+
+      {/* Logo abaixo da foto: a foto do crachá é esta. Na prévia geral (sem pessoa) não há crachá. */}
+      {cracha && (
+        <Secao titulo="Crachá virtual" icone={IdCard} id="cracha" className="rounded-xl border border-border bg-card p-4 sm:p-5">
+          <p className="-mt-1 text-sm text-muted-foreground">O seu crachá de colaborador voluntário, no modelo oficial da Cruz Vermelha Brasileira. Mostre na tela ou imprima e use no cordão; o QR do verso confirma que você é voluntário ativo da filial.</p>
+          <Cracha cracha={cracha} pdf="/membro/cracha/pdf" />
+        </Secao>
+      )}
 
       <Secao titulo="Dados do cadastro" icone={Lock} id="dados-do-cadastro" className="rounded-xl border border-border bg-card p-4 sm:p-5"
         acao={

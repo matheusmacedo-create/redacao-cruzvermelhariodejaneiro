@@ -301,7 +301,7 @@ const FORMACAO: GuiaDaArea = {
         {
           alvo: 'membro.certificados',
           titulo: 'Seus certificados',
-          texto: 'Cada certificado tem um código. Quando o curso tem validade, o selo mostra até quando ele vale. “Baixar PDF” entrega o arquivo.',
+          texto: 'Cada certificado tem um código. Quando o curso tem validade, o selo mostra até quando ele vale. “Baixar PDF” entrega o arquivo, no modelo oficial de certificado da Cruz Vermelha Brasileira.',
           seAusente: 'pular',
         },
         {
@@ -799,7 +799,7 @@ const MENSAGENS: GuiaDaArea = {
 
 const PERFIL: GuiaDaArea = {
   href: '/membro/perfil',
-  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam a sua foto de perfil, os bens da filial que estão com você e a preferência de avisos por e-mail.',
+  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam a sua foto de perfil, o seu crachá virtual de colaborador voluntário, os bens da filial que estão com você e a preferência de avisos por e-mail.',
   tour: [
     {
       alvo: 'membro.completude',
@@ -842,6 +842,16 @@ const PERFIL: GuiaDaArea = {
     },
   ],
   tarefas: [
+    {
+      id: 'usar-o-cracha',
+      titulo: 'Mostrar ou imprimir o seu crachá',
+      passos: [
+        'Abra “Perfil” e desça até “Crachá virtual”, logo abaixo da sua foto.',
+        'Para mostrar numa ação, abra esta tela no celular: quem precisar confere lendo o QR do verso com a câmera.',
+        'Para imprimir e usar no cordão, toque em “Baixar para imprimir (PDF)”. Saem frente e verso no tamanho de crachá (54 × 86 mm).',
+      ],
+      dica: 'A foto do crachá é a sua foto de perfil: sem foto, aparece uma silhueta. Quem lê o QR vê só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato.',
+    },
     {
       id: 'atualizar-dados',
       titulo: 'Atualizar telefone, endereço ou disponibilidade',
@@ -906,6 +916,12 @@ const PERFIL: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'cracha-dados',
+      pergunta: 'O meu crachá está com um dado errado. Como corrijo?',
+      resposta: 'O crachá usa o seu cadastro: nome, CPF (com parte escondida), função, setor e a data em que você foi aprovado. Para corrigir, use “Pedir correção”, em “Dados do cadastro”; a coordenação ajusta e o crachá muda junto. O “Fator RH” aparece se você informou o tipo sanguíneo no cadastro, e só no seu crachá.',
+      termos: ['crachá', 'cracha', 'identificação', 'fator rh', 'tipo sanguíneo', 'qr'],
+    },
     {
       id: 'mudar-nome-cpf-email',
       pergunta: 'Por que não consigo mudar meu nome, CPF ou e-mail?',
