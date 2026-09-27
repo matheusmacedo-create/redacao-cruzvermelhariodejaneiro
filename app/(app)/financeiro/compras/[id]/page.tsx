@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -21,6 +21,8 @@ import { nivelNaEmpresa } from '@/lib/financeiro/acesso'
 import { dataCurta, reais } from '@/lib/financeiro/regras'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { tituloDaArea } from '@/lib/navegacao'
+import { livroDaEmpresaNaLista, livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: tituloDaArea('/financeiro/compras') }
 export const dynamic = 'force-dynamic'
@@ -45,6 +47,7 @@ const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 's
  * contas pede.
  */
 export default async function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
+  const livro = await livroDaRequisicao()
   const { id } = await params
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const ctx = await contextoDeCompras()
@@ -60,6 +63,9 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   ])
   if (!p) notFound()
   const estado = p.estado as Estado
+  // Pedido do outro livro (um aviso, um link antigo): abre no endereço dele.
+  const doPedido = livroDaEmpresaNaLista(ctx.empresas, p.entidade_id)
+  if (doPedido && doPedido !== livro) redirect(noLivro(doPedido, `/financeiro/compras/${id}`))
   const nivel = nivelNaEmpresa(ctx, p.entidade_id)
   const itens: ItemDoPedido[] = (itensBrutos ?? []).map((i) => ({ ...i, quantidade: Number(i.quantidade), valor_estimado_unit: i.valor_estimado_unit === null ? null : Number(i.valor_estimado_unit) }))
   const depoisDaOrdem = DEPOIS_DA_ORDEM.includes(estado)
@@ -178,7 +184,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <Link href="/financeiro/compras" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
+        <Link href={noLivro(livro, '/financeiro/compras')} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Pedidos de compra</Link>
         <div data-ajuda="compras.estado" className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-mono text-sm text-muted-foreground">{numeroDoPedido(p.ano, p.numero)}</p>
@@ -189,7 +195,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-2">
-            {podeEditar && <Button variant="outline" size="sm" render={<Link href={`/financeiro/compras/${id}/editar`} />}><Pencil className="size-4" />Alterar</Button>}
+            {podeEditar && <Button variant="outline" size="sm" render={<Link href={noLivro(livro, `/financeiro/compras/${id}/editar`)} />}><Pencil className="size-4" />Alterar</Button>}
             {podeCancelar && <CancelarPedido pedidoId={id} />}
           </div>
         </div>
@@ -253,7 +259,7 @@ export default async function PedidoPage({ params }: { params: Promise<{ id: str
           <ul className="mt-2 flex flex-col gap-0.5 text-xs">
             {alerta.parecidas.map((c) => (
               <li key={c.id}>
-                <Link href={`/financeiro/compras/${c.id}`} className="font-mono underline underline-offset-2">{c.codigo}</Link> {c.titulo} — {reais(c.valor)}
+                <Link href={noLivro(livro, `/financeiro/compras/${c.id}`)} className="font-mono underline underline-offset-2">{c.codigo}</Link> {c.titulo} — {reais(c.valor)}
                 <span className="text-muted-foreground"> ({[c.mesmaCategoria && 'mesma categoria', c.mesmoFornecedor && 'mesmo fornecedor'].filter(Boolean).join(', ')})</span>
               </li>
             ))}

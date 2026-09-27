@@ -8,6 +8,8 @@ import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/fin
 import { candidatos, normalizarDescricao, sugestoes, type Candidato } from '@/lib/financeiro/extrato'
 import { dataCurta, reais, saldos, somarMeses, type Lancamento } from '@/lib/financeiro/regras'
 import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: 'Conciliação bancária' }
 export const dynamic = 'force-dynamic'
@@ -20,6 +22,7 @@ type Linha = { id: string; data: string; valor: number; descricao: string; docum
  * próxima; o resto quem concilia escolhe, cria ou ignora (com motivo).
  */
 export default async function Conciliacao({ searchParams }: { searchParams: Promise<{ conta?: string; aba?: string }> }) {
+  const livro = await livroDaRequisicao()
   const sp = await searchParams
   const { context, supabase, nivel } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
@@ -32,9 +35,9 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
   if (!conta) {
     return (
       <div className="flex flex-col gap-6">
-        <SecoesDoFinanceiro atual="/financeiro/conciliacao" empresas={c.empresas} empresa={c.empresa} />
+        <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
         <PageHeader title="Conciliação bancária" />
-        <Card className="p-6 text-sm text-muted-foreground">Cadastre antes uma conta em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
+        <Card className="p-6 text-sm text-muted-foreground">Cadastre antes uma conta em <Link href={noLivro(livro, '/financeiro/cadastros')} className="font-medium text-primary hover:underline">Cadastros</Link>.</Card>
       </div>
     )
   }
@@ -109,7 +112,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
   }
   const url = (mudar: Record<string, string | undefined>) => {
     const p = new URLSearchParams(Object.entries({ conta: conta.id, aba: aba === 'pendentes' ? undefined : aba, ...mudar }).filter((e): e is [string, string] => Boolean(e[1])))
-    return `/financeiro/conciliacao?${p.toString()}`
+    return noLivro(livro, `/financeiro/conciliacao?${p.toString()}`)
   }
   const nomeDoLancamento = async (ids: string[]) => {
     if (!ids.length) return new Map<string, string>()
@@ -120,13 +123,13 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/conciliacao" empresas={c.empresas} empresa={c.empresa} />
+      <SecoesDoFinanceiro atual="/financeiro/conciliacao" />
       <PageHeader title="Conciliação bancária" description="Importe o extrato do banco e confirme, linha a linha, qual lançamento é cada movimento. O que o banco diz (data e valor) passa a valer no lançamento." />
 
       {contas.length > 1 && (
         <nav className="flex flex-wrap gap-2" aria-label="Conta" data-ajuda="financeiro.conciliacao-contas">
           {contas.map((x) => (
-            <Link key={x.id} href={`/financeiro/conciliacao?conta=${x.id}`} aria-current={x.id === conta.id ? 'page' : undefined}
+            <Link key={x.id} href={noLivro(livro, `/financeiro/conciliacao?conta=${x.id}`)} aria-current={x.id === conta.id ? 'page' : undefined}
               className={`rounded-lg border px-3 py-1.5 text-sm ${x.id === conta.id ? 'border-primary bg-primary/5 font-medium text-primary' : 'border-border text-muted-foreground hover:bg-muted'}`}>{x.nome}</Link>
           ))}
         </nav>
@@ -183,7 +186,7 @@ export default async function Conciliacao({ searchParams }: { searchParams: Prom
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{l.descricao}</span>
                   <span className="block truncate text-xs text-muted-foreground">
-                    {l.situacao === 'conciliado' && l.lancamento_id ? <Link href={`/financeiro/${l.lancamento_id}`} className="hover:text-primary hover:underline">→ {nomes.get(l.lancamento_id) ?? 'lançamento'}</Link> : `Ignorada: ${l.motivo ?? ''}`}
+                    {l.situacao === 'conciliado' && l.lancamento_id ? <Link href={noLivro(livro, `/financeiro/${l.lancamento_id}`)} className="hover:text-primary hover:underline">→ {nomes.get(l.lancamento_id) ?? 'lançamento'}</Link> : `Ignorada: ${l.motivo ?? ''}`}
                   </span>
                 </span>
                 <span className={`whitespace-nowrap font-medium tabular-nums ${l.valor > 0 ? 'text-success' : ''}`}>{l.valor > 0 ? '+' : '−'}{reais(Math.abs(l.valor))}</span>

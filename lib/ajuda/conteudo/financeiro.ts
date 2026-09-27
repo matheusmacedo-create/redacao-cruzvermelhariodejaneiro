@@ -34,7 +34,7 @@ import type { GuiaDaArea } from '../tipos'
 
 const FINANCEIRO: GuiaDaArea = {
   href: '/financeiro',
-  paraQueServe: 'O caixa da filial: despesas, receitas e contas a pagar e a receber, com a fonte de cada recurso e os comprovantes. Aqui também se concilia o extrato do banco, se acompanha a saúde do caixa e se fecha o mês para o contador. A filial e a Escola têm livros separados, cada uma com as suas contas e o seu fechamento.',
+  paraQueServe: 'O caixa da filial: despesas, receitas e contas a pagar e a receber, com a fonte de cada recurso e os comprovantes. Aqui também se concilia o extrato do banco, se acompanha a saúde do caixa e se fecha o mês para o contador. A filial e a Escola têm livros separados, cada uma com as suas contas e o seu fechamento, e cada uma no seu endereço: o Financeiro da filial fica no grupo Gestão, o da Escola, no grupo Escola.',
   quemUsa: 'Um administrador libera o acesso pessoa a pessoa, em “Cadastros” → “Quem acessa”. “Ver” só consulta; “Lançar” cria, paga e junta comprovantes; “Aprovar” também aprova despesas de outras pessoas; “Gestão e fechamento” também cuida dos cadastros, das regras e do fechamento do mês (é o nível do contador). Administradores têm acesso total, e o acesso pode valer para todas as empresas ou só para uma.',
   naPratica: {
     titulo: 'Uma conta de luz do começo ao fechamento do mês',
@@ -52,9 +52,9 @@ const FINANCEIRO: GuiaDaArea = {
       texto: 'Despesas, receitas e contas a pagar, com a fonte de cada recurso e os comprovantes. Quem ainda não tem acesso vê só um aviso: o acesso é liberado por um administrador.',
     },
     {
-      alvo: 'financeiro.empresa',
-      titulo: 'De qual empresa são os livros',
-      texto: 'A filial e a Escola têm livros separados, com contas e fechamento próprios. “Livros abertos” mostra qual está aberta; “Trocar empresa” troca em todas as seções de uma vez.',
+      alvo: 'financeiro.livro',
+      titulo: 'De quem são estes livros',
+      texto: 'A faixa diz de quem são os livros desta tela: vermelha, “Livros da filial”; azul, “Livros da Escola”, com o nome e o CNPJ. Cada livro tem o seu endereço e nada de um entra no outro. Para ir ao outro, use o botão da faixa.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -407,11 +407,12 @@ const FINANCEIRO: GuiaDaArea = {
       id: 'trocar-empresa',
       titulo: 'Abrir os livros da Escola (ou da filial)',
       passos: [
-        'No alto de qualquer seção do Financeiro, em “Trocar empresa”, toque no nome da empresa.',
-        'Espere a mensagem “Abrindo os livros de …” sumir.',
-        'Confira em “Livros abertos” qual empresa está aberta antes de lançar.',
+        'Os livros da filial abrem em “Financeiro da filial”, no grupo Gestão do menu.',
+        'Os da Escola abrem em “Financeiro da escola”, no grupo Escola do menu (ou na seção “Financeiro”, no alto das telas da Escola).',
+        'Confira a faixa no alto: vermelha é a filial, azul é a Escola, com o nome e o CNPJ.',
+        'Para ir de um livro ao outro, use o botão “Ir para os livros da …”, na própria faixa.',
       ],
-      dica: 'O cartão só aparece para quem tem acesso a mais de uma empresa. A escolha vale para todas as seções e fica guardada neste navegador. No menu da Escola, “Financeiro” abre direto os livros da Escola.',
+      dica: 'Cada livro tem o seu endereço (/financeiro e /escola/financeiro). Dá para deixar os dois abertos em abas diferentes: um não muda o outro. O botão da faixa só aparece para quem tem acesso às duas empresas.',
     },
     {
       id: 'cadastrar-conta',
@@ -491,8 +492,8 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'filial-e-escola',
       pergunta: 'Qual a diferença entre os livros da filial e os da Escola?',
-      resposta: 'A Escola é uma empresa à parte, com CNPJ, contas, fontes, favorecidos, lançamentos e fechamento próprios. Categorias e regras de aprovação valem para as duas. O cartão “Livros abertos”, no alto, mostra qual está aberta, e “Trocar empresa” muda para a outra.',
-      termos: ['escola', 'empresa', 'cnpj', 'seletor', 'trocar empresa', 'livros abertos', 'entidade'],
+      resposta: 'A Escola é uma empresa à parte, com CNPJ, contas, fontes, favorecidos, lançamentos e fechamento próprios. Categorias e regras de aprovação valem para as duas. Cada uma tem o seu endereço e a sua faixa no alto: vermelha para a filial, azul para a Escola. Nada lançado numa aparece na outra.',
+      termos: ['escola', 'empresa', 'cnpj', 'seletor', 'trocar empresa', 'livros abertos', 'entidade', 'faixa'],
     },
     {
       id: 'situacoes',

@@ -11,6 +11,8 @@ import { dataCurta, reais } from '@/lib/financeiro/regras'
 import { resumoDosConvites, type Convite } from '@/lib/compras/convites'
 import { tituloDaArea } from '@/lib/navegacao'
 import { cn } from '@/lib/utils'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: tituloDaArea('/financeiro/compras') }
 export const dynamic = 'force-dynamic'
@@ -48,6 +50,7 @@ function proximoPasso(p: Linha): string | null {
  * quem opera o Patrimônio vê o que chegou e ainda espera entrada.
  */
 export default async function ComprasPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
+  const livro = await livroDaRequisicao()
   const sp = await searchParams
   const { context, supabase, nivel, empresa, empresas, pede, diretoria, patrimonio, regras } = await contextoDeCompras()
   const ws = context.workspace.id
@@ -130,8 +133,8 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
     <div className="flex flex-col gap-5">
       {nivel >= 1 ? (
         <>
-          <PageHeader title="Financeiro" description="Compras: do pedido do setor à aprovação, com as propostas dos fornecedores e o mapa comparativo." />
-          <SecoesDoFinanceiro atual="/financeiro/compras" empresas={empresas} empresa={empresa} />
+          <PageHeader title={livro === 'escola' ? 'Compras da Escola' : 'Compras da filial'} description="Compras: do pedido do setor à aprovação, com as propostas dos fornecedores e o mapa comparativo." />
+          <SecoesDoFinanceiro atual="/financeiro/compras" />
         </>
       ) : (
         <PageHeader title="Pedidos de compra" description="Peça o que o seu setor precisa. O Financeiro cota com os fornecedores, e você acompanha cada passo até a aprovação." />
@@ -140,13 +143,13 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
       <div className="flex flex-wrap items-center justify-between gap-3">
         <nav data-ajuda="compras.abas" className="flex flex-wrap gap-2" aria-label="Pedidos">
           {visiveis.map((a) => (
-            <Link key={a.id} href={`/financeiro/compras?aba=${a.id}`} aria-current={aba === a.id ? 'page' : undefined}
+            <Link key={a.id} href={noLivro(livro, `/financeiro/compras?aba=${a.id}`)} aria-current={aba === a.id ? 'page' : undefined}
               className={cn('rounded-lg border px-3 py-2 text-sm font-medium', aba === a.id ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>
               {a.rotulo}{a.id !== 'todos' && listas[a.id].length > 0 && <span className="ml-1.5 tabular-nums opacity-80">{listas[a.id].length}</span>}
             </Link>
           ))}
         </nav>
-        {pede && <Button data-ajuda="compras.novo" render={<Link href="/financeiro/compras/novo" />}><Plus className="size-4" />Novo pedido</Button>}
+        {pede && <Button data-ajuda="compras.novo" render={<Link href={noLivro(livro, '/financeiro/compras/novo')} />}><Plus className="size-4" />Novo pedido</Button>}
       </div>
 
       {lista.length === 0 ? (
@@ -161,7 +164,7 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
         <ul data-ajuda="compras.lista" className="flex flex-col gap-2" data-pedidos>
           {lista.map((p) => (
             <li key={p.id}>
-              <Link href={`/financeiro/compras/${p.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-card p-4 hover:border-primary/40">
+              <Link href={noLivro(livro, `/financeiro/compras/${p.id}`)} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-border bg-card p-4 hover:border-primary/40">
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">{numeroDoPedido(p.ano, p.numero)}</span>

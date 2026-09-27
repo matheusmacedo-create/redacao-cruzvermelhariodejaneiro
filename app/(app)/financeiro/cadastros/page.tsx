@@ -10,6 +10,8 @@ import { cadastrosDoFinanceiro, contextoDoFinanceiro, lerLinha } from '@/lib/fin
 import { REGRAS_PADRAO } from '@/lib/compras/regras'
 import { NIVEIS, saldos, type Lancamento, type NomeDoNivel } from '@/lib/financeiro/regras'
 import { todasAsLinhas } from '@/lib/supabase/paginar'
+import { livroDaRequisicao } from '@/lib/financeiro/acesso'
+import { noLivro } from '@/lib/financeiro/livro'
 
 export const metadata = { title: 'Cadastros do Financeiro' }
 export const dynamic = 'force-dynamic'
@@ -27,6 +29,7 @@ const ABAS = [
 type Aba = (typeof ABAS)[number]['id']
 
 export default async function CadastrosDoFinanceiro({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
+  const livro = await livroDaRequisicao()
   const sp = await searchParams
   const { context, supabase, nivel, nivelGeral } = await contextoDoFinanceiro()
   if (nivel < 1) notFound()
@@ -61,11 +64,11 @@ export default async function CadastrosDoFinanceiro({ searchParams }: { searchPa
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDoFinanceiro atual="/financeiro/cadastros" empresas={c.empresas} empresa={c.empresa} />
+      <SecoesDoFinanceiro atual="/financeiro/cadastros" />
       <PageHeader title="Cadastros do Financeiro" description={visiveis.find((a) => a.id === aba)?.ajuda} />
       <nav className="flex flex-wrap gap-1 border-b border-border" aria-label="Abas" data-ajuda="financeiro.cadastros-abas">
         {visiveis.map((a) => (
-          <Link key={a.id} href={`/financeiro/cadastros${a.id === 'contas' ? '' : `?aba=${a.id}`}`} aria-current={aba === a.id ? 'page' : undefined}
+          <Link key={a.id} href={noLivro(livro, `/financeiro/cadastros${a.id === 'contas' ? '' : `?aba=${a.id}`}`)} aria-current={aba === a.id ? 'page' : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>

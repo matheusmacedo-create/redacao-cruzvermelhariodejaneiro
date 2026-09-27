@@ -511,9 +511,9 @@ export const guias: GuiaDaArea[] = [CURSOS,
   // ------------------------------------------------------------ Financeiro da escola
   {
     href: '/escola/financeiro',
-    paraQueServe: 'Os livros da Escola no Financeiro. A escola é uma empresa à parte, com CNPJ, contas, lançamentos, conciliação e fechamento do mês próprios; “Financeiro”, na Escola, abre o Financeiro já nos livros dela. As vendas pagas na Únicopag entram lá sozinhas como receita, e os estornos, como despesa.',
+    paraQueServe: 'Os livros da Escola no Financeiro. A escola é uma empresa à parte, com CNPJ, contas, lançamentos, conciliação e fechamento do mês próprios; “Financeiro”, na Escola, abre os livros dela, com a faixa azul no alto; os da filial ficam em outro endereço. As vendas pagas na Únicopag entram lá sozinhas como receita, e os estornos, como despesa.',
     quemUsa: 'Só quem tem acesso aos livros da Escola, dado por um administrador no Financeiro (“Cadastros”, aba “Quem acessa”). O nível decide o que a pessoa faz: “Ver”, “Lançar”, “Aprovar” ou “Gestão e fechamento”. A equipe da escola só pode ter os livros da Escola; administradores têm acesso a tudo.',
-    // Não há tela neste endereço: ele abre o Financeiro nos livros da Escola (route.ts).
+    // As telas são as do Financeiro, nos livros da Escola: o proxy reescreve /escola/financeiro/... (lib/financeiro/livro.ts).
     naPratica: {
       titulo: 'A venda da Únicopag vira receita nos livros da Escola',
       passos: [
@@ -524,18 +524,35 @@ export const guias: GuiaDaArea[] = [CURSOS,
       ],
       resultado: 'Os livros da Escola ficam em dia sem digitar venda por venda.',
     },
-    tour: [],
+    tour: [
+      {
+        titulo: 'Os livros da Escola',
+        texto: 'As mesmas seções do Financeiro, mas só com o que é da Escola: contas, lançamentos, conciliação e fechamento com o CNPJ dela.',
+      },
+      {
+        alvo: 'financeiro.livro',
+        titulo: 'A faixa azul',
+        texto: 'Diz que estes são os livros da Escola, com o nome e o CNPJ. Nada daqui entra nos livros da filial, que têm faixa vermelha e outro endereço.',
+        seAusente: 'pular',
+      },
+      {
+        alvo: 'financeiro.secoes',
+        titulo: 'As seções',
+        texto: 'Lançamentos, Saúde do caixa, Compras, Conciliação, Fechamento e Cadastros, todas nos livros da Escola.',
+        seAusente: 'pular',
+      },
+    ],
     tarefas: [
       {
         id: 'abrir-livros-da-escola',
         titulo: 'Abrir os livros da Escola',
         passos: [
           'No menu, no grupo Escola, abra “Financeiro da escola” (ou a seção “Financeiro” no alto das telas da Escola).',
-          'O Financeiro abre nos livros da Escola.',
+          'Os livros da Escola abrem com a faixa azul “Livros da Escola”, o nome e o CNPJ dela.',
           'Use as seções do Financeiro como de costume: “Lançamentos”, “Conciliação”, “Fechamento”, “Cadastros”…',
-          'Quem vê mais de uma empresa confere o nome em “Livros abertos” e volta aos livros da filial em “Trocar empresa”.',
+          'Tudo o que você fizer ali fica só nos livros da Escola. Os da filial têm outro endereço, “Financeiro da filial”, no grupo Gestão.',
         ],
-        dica: 'O Financeiro lembra a última empresa aberta. Depois de entrar pela Escola, ele continua nos livros dela até você trocar.',
+        dica: 'Os livros da Escola e os da filial nunca dividem a mesma tela: cada um tem o seu endereço, e dá para deixar os dois abertos em abas diferentes sem um mudar o outro.',
       },
       {
         id: 'pedir-acesso-aos-livros',
@@ -620,8 +637,8 @@ export const guias: GuiaDaArea[] = [CURSOS,
       },
       {
         id: 'financeiro-na-empresa-errada',
-        pergunta: 'Por que o Financeiro abriu nos livros da Escola?',
-        resposta: 'O Financeiro lembra a última empresa aberta. Entrar pelo “Financeiro” da Escola abre os livros dela; para voltar aos da filial, use “Trocar empresa”, no alto do Financeiro.',
+        pergunta: 'Como sei se estou nos livros da Escola ou nos da filial?',
+        resposta: 'Pela faixa no alto de toda tela do Financeiro: azul, “Livros da Escola”; vermelha, “Livros da filial”, cada uma com o nome e o CNPJ. O endereço também diz: /escola/financeiro é a Escola, /financeiro é a filial. Um livro não muda sozinho: não há mais troca de empresa guardada no navegador.',
         termos: ['filial', 'empresa errada', 'trocar empresa', 'livros abertos', 'mudou sozinho'],
       },
       {

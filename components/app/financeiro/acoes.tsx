@@ -10,6 +10,7 @@ import {
   decidirAprovacao, desfazerPagamento, excluirAnexo, excluirLancamento, pagarLancamento, prepararAnexo, registrarAnexo,
 } from '@/app/actions/financeiro'
 import { FORMAS, TAMANHO_MAXIMO, TIPOS_DE_ANEXO, ehArquivoAceito, valorNoCampo, type TipoDeAnexo } from '@/lib/financeiro/regras'
+import { useNoLivro } from '@/components/app/financeiro/livro'
 
 type R = { erro?: string }
 
@@ -79,6 +80,7 @@ export function DesfazerPagamento({ id }: { id: string }) {
 }
 
 export function Excluir({ id, emGrupo }: { id: string; emGrupo: boolean }) {
+  const noLivro = useNoLivro()
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [escopo, setEscopo] = useState<'este' | 'futuros'>('este')
@@ -98,7 +100,7 @@ export function Excluir({ id, emGrupo }: { id: string; emGrupo: boolean }) {
             <Erro texto={erro} />
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setAberto(false)} disabled={ocupado}>Cancelar</Button>
-              <Button variant="destructive" disabled={ocupado} onClick={() => executar(() => excluirLancamento(id, escopo), () => router.push('/financeiro'))}>{ocupado && <Loader2 className="size-4 animate-spin" />}Excluir</Button>
+              <Button variant="destructive" disabled={ocupado} onClick={() => executar(() => excluirLancamento(id, escopo), () => router.push(noLivro('/financeiro')))}>{ocupado && <Loader2 className="size-4 animate-spin" />}Excluir</Button>
             </div>
           </div>
         </Dialog>

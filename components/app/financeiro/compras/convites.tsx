@@ -13,6 +13,7 @@ import {
 import { dataCurta } from '@/lib/financeiro/regras'
 import { cn } from '@/lib/utils'
 import { campo, Rotulo } from './comum'
+import { useNoLivro } from '@/components/app/financeiro/livro'
 
 export type ConviteNaTela = Convite & { id: string; favorecido_id: string; fornecedor: string; email: string }
 
@@ -130,6 +131,7 @@ function LinhaDoConvite({ pedidoId, c, podeCotar }: { pedidoId: string; c: Convi
 function Formulario({ pedidoId, sugestoes, categoria, caixas, prazoSugerido, hoje, onFim }: {
   pedidoId: string; sugestoes: Sugestao[]; categoria: string | null; caixas: { id: string; email: string }[]; prazoSugerido: string; hoje: string; onFim: () => void
 }) {
+  const noLivro = useNoLivro()
   const router = useRouter()
   const [marcados, setMarcados] = useState(() => new Set(sugestoes.filter((s) => s.marcado).map((s) => s.id)))
   const [emails, setEmails] = useState<Record<string, string>>(() => Object.fromEntries(sugestoes.map((s) => [s.id, s.email ?? ''])))
@@ -167,7 +169,7 @@ function Formulario({ pedidoId, sugestoes, categoria, caixas, prazoSugerido, hoj
   if (!sugestoes.length) {
     return (
       <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-        Nenhum fornecedor cadastrado nesta empresa. Cadastre em <Link href="/financeiro/cadastros?aba=favorecidos" className="text-primary underline">Financeiro → Cadastros → Favorecidos</Link>, com o e-mail e o que ele vende.
+        Nenhum fornecedor cadastrado nesta empresa. Cadastre em <Link href={noLivro('/financeiro/cadastros?aba=favorecidos')} className="text-primary underline">Financeiro → Cadastros → Favorecidos</Link>, com o e-mail e o que ele vende.
       </div>
     )
   }

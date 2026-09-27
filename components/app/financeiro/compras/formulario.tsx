@@ -8,6 +8,7 @@ import { salvarPedido, type PedidoNoFormulario } from '@/app/actions/compras'
 import { lerValor, totalDaLinha } from '@/lib/compras/regras'
 import { reais, valorNoCampo } from '@/lib/financeiro/regras'
 import { campo, Rotulo } from './comum'
+import { useNoLivro } from '@/components/app/financeiro/livro'
 
 type Opcao = { id: string; nome: string }
 type ItemNaTela = { chave: string; id: string | null; descricao: string; especificacao: string; quantidade: string; unidade: string; valor: string; aberto: boolean }
@@ -39,6 +40,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
   /** Pedido novo: a empresa das listas acima (fontes são de cada empresa). O pedido é aberto nela. */
   empresa?: { id: string; nome: string; varias: boolean } | null
 }) {
+  const noLivro = useNoLivro()
   const router = useRouter()
   const [titulo, setTitulo] = useState(inicial?.titulo ?? '')
   const [justificativa, setJustificativa] = useState(inicial?.justificativa ?? '')
@@ -73,7 +75,7 @@ export function FormularioDoPedido({ inicial, setores, projetos, classificar, ca
     iniciar(async () => {
       const r = await salvarPedido(inicial?.id ?? null, dados)
       if (r.erro || !r.id) { setErro(r.erro ?? 'Não foi possível salvar.'); return }
-      router.push(`/financeiro/compras/${r.id}`)
+      router.push(noLivro(`/financeiro/compras/${r.id}`))
       router.refresh()
     })
   }

@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import { CalendarCheck, HeartPulse, Landmark, ListOrdered, Settings2, ShoppingCart } from 'lucide-react'
-import { EscolhaDaEmpresa } from './empresa'
+import { cn } from '@/lib/utils'
+import { useLivro, useNoLivro } from './livro'
 
 const SECOES = [
   { href: '/financeiro', rotulo: 'Lançamentos', icone: ListOrdered },
@@ -11,25 +14,27 @@ const SECOES = [
   { href: '/financeiro/cadastros', rotulo: 'Cadastros', icone: Settings2 },
 ] as const
 
-type Empresa = { id: string; nome: string; cnpj: string | null; tipo: string; principal: boolean }
-
-/** As seções do Financeiro, no alto de cada uma — e de qual empresa são os livros abertos. */
-export function SecoesDoFinanceiro({ atual, empresas = [], empresa = null }: { atual: (typeof SECOES)[number]['href']; empresas?: Empresa[]; empresa?: Empresa | null }) {
+/**
+ * As seções do Financeiro, no alto de cada uma, sempre no livro aberto: na
+ * Escola, as abas levam a /escola/financeiro/... e sublinham na cor dela.
+ * Não há troca de empresa aqui: cada livro tem o seu endereço (FaixaDoLivro).
+ */
+export function SecoesDoFinanceiro({ atual }: { atual: (typeof SECOES)[number]['href'] }) {
+  const livro = useLivro()
+  const noLivro = useNoLivro()
+  const escola = livro === 'escola'
   return (
-    <div className="flex flex-col gap-4">
-      <EscolhaDaEmpresa empresas={empresas} atual={empresa} />
-      {/* Abas das seções: sublinhadas, para não se confundirem com a troca de empresa acima. */}
-      <nav className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Seções do Financeiro" data-ajuda="financeiro.secoes">
-        {SECOES.map((s) => {
-          const ativa = atual === s.href
-          return (
-            <Link key={s.href} href={s.href} aria-current={ativa ? 'page' : undefined}
-              className={`-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors ${ativa ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'}`}>
-              <s.icone className={`size-4 ${ativa ? 'text-primary' : ''}`} />{s.rotulo}
-            </Link>
-          )
-        })}
-      </nav>
-    </div>
+    <nav className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" aria-label="Seções do Financeiro" data-ajuda="financeiro.secoes">
+      {SECOES.map((s) => {
+        const ativa = atual === s.href
+        return (
+          <Link key={s.href} href={noLivro(s.href)} aria-current={ativa ? 'page' : undefined}
+            className={cn('-mb-px flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors',
+              ativa ? cn('font-medium text-foreground', escola ? 'border-sky-700' : 'border-primary') : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground')}>
+            <s.icone className={cn('size-4', ativa && (escola ? 'text-sky-700' : 'text-primary'))} />{s.rotulo}
+          </Link>
+        )
+      })}
+    </nav>
   )
 }

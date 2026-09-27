@@ -11,6 +11,7 @@ import {
   FORMAS, REPETICOES, dataCurta, gerarOcorrencias, lerValor, mesDe, reais, valorNoCampo, type Lancamento, type Repeticao, type Tipo,
 } from '@/lib/financeiro/regras'
 import type { Cadastros } from '@/lib/financeiro/acesso'
+import { useNoLivro } from '@/components/app/financeiro/livro'
 
 const TIPOS_DO_FORM: { id: Tipo; rotulo: string; icone: typeof ArrowUpRight; ajuda: string }[] = [
   { id: 'despesa', rotulo: 'Despesa', icone: ArrowUpRight, ajuda: 'Sai dinheiro' },
@@ -56,10 +57,11 @@ function FavorecidoRapido({ onCriado, onFechar }: { onCriado: (f: { id: string; 
 export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'despesa', emGrupo = false }: {
   cadastros: Cadastros; hoje: string; l?: Lancamento; tipoInicial?: Tipo; emGrupo?: boolean
 }) {
+  const noLivro = useNoLivro()
   const router = useRouter()
   const editando = Boolean(l)
   const [estado, enviar, enviando] = useActionState(editando ? atualizarLancamento.bind(null, l!.id) : criarLancamento, {})
-  useEffect(() => { if (estado.id) router.push(`/financeiro/${estado.id}`) }, [estado.id, router])
+  useEffect(() => { if (estado.id) router.push(noLivro(`/financeiro/${estado.id}`)) }, [estado.id, router, noLivro])
 
   const livre = cadastros.fontes.find((f) => !f.restrita && f.ativa) ?? cadastros.fontes[0]
   const contasAtivas = cadastros.contas.filter((c) => c.ativa || c.id === l?.conta_id || c.id === l?.conta_destino_id)
@@ -96,7 +98,7 @@ export function FormularioDeLancamento({ cadastros, hoje, l, tipoInicial = 'desp
   }
 
   if (!contasAtivas.length) {
-    return <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">Cadastre antes uma conta (banco ou caixa) em <Link href="/financeiro/cadastros" className="font-medium text-primary hover:underline">Cadastros</Link>.</p>
+    return <p className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">Cadastre antes uma conta (banco ou caixa) em <Link href={noLivro('/financeiro/cadastros')} className="font-medium text-primary hover:underline">Cadastros</Link>.</p>
   }
 
   return (

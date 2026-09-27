@@ -9,6 +9,7 @@ import { emitirOrdem, enviarOrdem, lancarContaDaCompra, receberPedido } from '@/
 import { lerValor, parcelas } from '@/lib/compras/regras'
 import { reais, valorNoCampo } from '@/lib/financeiro/regras'
 import { campo, Rotulo } from './comum'
+import { useNoLivro } from '@/components/app/financeiro/livro'
 
 type Recado = { tom: 'ok' | 'erro'; texto: string } | null
 const Aviso = ({ recado }: { recado: Recado }) => recado && (
@@ -198,6 +199,7 @@ export function ContaAPagar({ pedidoId, contas, aprovado, hoje, lancamento }: {
   hoje: string
   lancamento: { id: string; descricao: string } | null
 }) {
+  const noLivro = useNoLivro()
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [conta, setConta] = useState(contas[0]?.id ?? '')
@@ -212,7 +214,7 @@ export function ContaAPagar({ pedidoId, contas, aprovado, hoje, lancamento }: {
     return (
       <p className="text-sm" data-conta-lancada>
         <Receipt className="mr-1 inline size-4 text-success" />Conta a pagar lançada no Financeiro:{' '}
-        <Link href={`/financeiro/${lancamento.id}`} className="font-medium underline underline-offset-2">{lancamento.descricao}</Link>
+        <Link href={noLivro(`/financeiro/${lancamento.id}`)} className="font-medium underline underline-offset-2">{lancamento.descricao}</Link>
       </p>
     )
   }
