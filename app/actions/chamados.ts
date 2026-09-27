@@ -118,14 +118,15 @@ export async function mudarStatusDoChamado(formData: FormData): Promise<Resultad
     await evento(admin, c, context.user.id, { acao: 'status', de: c.status, para, reabertura: reabrindo || undefined }, nota || null)
 
     const nome = context.profile?.full_name ?? 'Alguém'
-    const aviso: Partial<Record<Status, { para: (string | null)[]; titulo: string; mensagem: string; botao?: string }>> = {
-      aguardando_solicitante: { para: [c.solicitante_id], titulo: 'A equipe precisa de você', mensagem: `${nome} pediu uma informação para continuar o atendimento. O prazo fica pausado até você responder.`, botao: 'Responder' },
-      resolvido: { para: [c.solicitante_id], titulo: 'Chamado resolvido', mensagem: `${nome} marcou o chamado como resolvido. Confirme e avalie o atendimento — ou reabra, se o problema continuar.`, botao: 'Confirmar ou reabrir' },
-      cancelado: { para: equipe ? [c.solicitante_id] : [c.responsavel_id], titulo: 'Chamado cancelado', mensagem: `${nome} cancelou o chamado.` },
+    // O que responde a quem abriu é "importante": no WhatsApp, chega mesmo com o Palácio aberto (notificar()).
+    const aviso: Partial<Record<Status, { para: (string | null)[]; titulo: string; mensagem: string; botao?: string; importante?: boolean }>> = {
+      aguardando_solicitante: { para: [c.solicitante_id], titulo: 'A equipe precisa de você', mensagem: `${nome} pediu uma informação para continuar o atendimento. O prazo fica pausado até você responder.`, botao: 'Responder', importante: true },
+      resolvido: { para: [c.solicitante_id], titulo: 'Chamado resolvido', mensagem: `${nome} marcou o chamado como resolvido. Confirme e avalie o atendimento — ou reabra, se o problema continuar.`, botao: 'Confirmar ou reabrir', importante: true },
+      cancelado: { para: equipe ? [c.solicitante_id] : [c.responsavel_id], titulo: 'Chamado cancelado', mensagem: `${nome} cancelou o chamado.`, importante: equipe },
       em_atendimento: reabrindo ? { para: [c.responsavel_id ?? null], titulo: 'Chamado reaberto', mensagem: `${nome} reabriu o chamado.` } : undefined,
     }
     const a = aviso[para]
-    if (a) await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: a.para, titulo: a.titulo, mensagem: a.mensagem, citacao: nota || null, botao: a.botao })
+    if (a) await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: a.para, titulo: a.titulo, mensagem: a.mensagem, citacao: nota || null, botao: a.botao, importante: a.importante })
     if (reabrindo && !c.responsavel_id) {
       await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: await equipeDaFila(admin, c.workspace_id, c.fila_id), titulo: 'Chamado reaberto', mensagem: `${nome} reabriu o chamado.`, citacao: nota })
     }

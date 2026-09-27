@@ -135,6 +135,8 @@ export const urlDoChamado = (id: string) => `${urlBase()}/chamados/${id}`
 export async function avisarSobreChamado(admin: Admin, p: {
   workspaceId: string; chamado: { id: string; codigo: string; titulo: string }; para: (string | null | undefined)[]; atorId: string
   titulo: string; mensagem: string; citacao?: string | null; botao?: string
+  /** Desfecho para quem abriu (resolvido, pedido de informação, cancelado): notificar() explica. */
+  importante?: boolean
 }) {
   await notificar(admin, {
     workspaceId: p.workspaceId,
@@ -148,5 +150,6 @@ export async function avisarSobreChamado(admin: Admin, p: {
     link: `/chamados/${p.chamado.id}`,
     botao: p.botao ?? 'Abrir o chamado',
     nota: 'Responda pelo Palácio Virtual, no próprio chamado: respostas a este e-mail não entram no atendimento.',
+    importante: p.importante,
   })
 }

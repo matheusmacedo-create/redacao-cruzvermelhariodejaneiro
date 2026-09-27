@@ -11,6 +11,8 @@ import { emailConfigurado } from '@/lib/newsletter/resend'
 import { tituloDaArea } from '@/lib/navegacao'
 import { nomesDosSetores } from '@/lib/setores'
 import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { formatarNumero, numeroCanonico } from '@/lib/whatsapp/regras'
+import { lerMarcaDoConvite } from '@/lib/contas/convite'
 
 export const metadata = { title: tituloDaArea('/usuarios') }
 
@@ -45,6 +47,27 @@ export default async function UsuariosPage() {
   const ultimoAcesso = new Map((contas.data?.users ?? []).map((u) => [u.id, u.last_sign_in_at ?? null]))
   const aparelhos = new Map((contas.data?.users ?? []).map((u) => [u.id, (u.factors ?? []).filter((f) => f.status === 'verified').length]))
 
+  // Quem nunca entrou pode receber o convite de primeiro acesso: o WhatsApp vem
+  // sugerido do último convite ou, sem ele, do celular pessoal da ficha do RH.
+  const nuncaEntraram = (membros ?? []).map((m) => m.user_id as string).filter((id) => !ultimoAcesso.get(id))
+  const [{ data: links }, { data: fichas }] = nuncaEntraram.length ? await Promise.all([
+    admin.from('tokens_de_conta').select('user_id, email, criado_em').eq('finalidade', 'definir_senha').in('user_id', nuncaEntraram).order('criado_em', { ascending: false }),
+    admin.from('equipe_membros').select('user_id, equipe_pessoais(telefone_pessoal)').eq('workspace_id', workspaceId).in('user_id', nuncaEntraram),
+  ]) : [{ data: [] }, { data: [] }]
+  const whatsappSugerido = new Map<string, string>()
+  for (const f of fichas ?? []) {
+    const pessoais = (Array.isArray(f.equipe_pessoais) ? f.equipe_pessoais[0] : f.equipe_pessoais) as { telefone_pessoal: string | null } | null
+    const numero = numeroCanonico(pessoais?.telefone_pessoal ?? '')
+    if (numero) whatsappSugerido.set(f.user_id as string, formatarNumero(numero))
+  }
+  const conviteDe = new Map<string, { whatsapp: string | null; porEmail: boolean }>()
+  for (const l of links ?? []) {
+    if (conviteDe.has(l.user_id as string)) continue
+    const canal = lerMarcaDoConvite((l.email as string | null) ?? null)
+    conviteDe.set(l.user_id as string, { whatsapp: canal.numero ? formatarNumero(canal.numero) : null, porEmail: canal.porEmail })
+    if (canal.numero) whatsappSugerido.set(l.user_id as string, formatarNumero(canal.numero))
+  }
+
   const usuarios: UsuarioNaTela[] = (membros ?? []).flatMap((m) => {
     const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as Perfil | null
     if (!p || !ehPapel(m.role)) return []
@@ -54,6 +77,7 @@ export default async function UsuariosPage() {
       desativadoEm: p.desativado_em ?? null, criadoEm: m.created_at, ultimoAcesso: ultimoAcesso.get(p.id) ?? null, souEu: p.id === context.user.id,
       aparelhos: aparelhos.get(p.id) ?? 0,
       email: p.email ?? null, emailConfirmado: Boolean(p.email && p.email_confirmado_em),
+      ultimoConvite: conviteDe.get(p.id) ?? null, whatsappSugerido: whatsappSugerido.get(p.id) ?? null,
     }]
   }).sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'))
 

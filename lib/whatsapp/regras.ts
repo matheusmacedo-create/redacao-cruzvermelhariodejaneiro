@@ -9,7 +9,10 @@ import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } f
  *  - só vai para número CONFIRMADO por código e não pausado;
  *  - cada pessoa liga ou desliga por assunto (padrão: ligado);
  *  - quem está com o Palácio aberto agora não recebe (já está vendo o sino);
- *  - no mesmo link, no máximo uma mensagem a cada INTERVALO_NO_MESMO_LINK_MIN.
+ *  - no mesmo link, no máximo uma mensagem a cada INTERVALO_NO_MESMO_LINK_MIN;
+ *  - aviso "importante" (o desfecho de algo que a pessoa pediu, como o
+ *    chamado resolvido) passa por cima dessas duas últimas: é a resposta que
+ *    ela espera, e pode chegar minutos depois de outro aviso do mesmo link.
  *
  * O número é guardado só em dígitos, com o 55 e o nono dígito do celular
  * (numeroCanonico). O WhatsApp ainda identifica muitos celulares antigos SEM o
@@ -165,8 +168,11 @@ export function decidirWhatsapp(p: {
   vistoEm: string | null | undefined
   ultimoNoMesmoLink: string | null | undefined
   agora: Date
+  /** O desfecho que a pessoa espera: sai mesmo com o Palácio aberto e logo depois de outro aviso do mesmo link. */
+  importante?: boolean
 }): boolean {
   if (!p.temNumero || p.pausado || !p.categoriaLigada) return false
+  if (p.importante) return true
   const agora = p.agora.getTime()
   const visto = p.vistoEm ? new Date(p.vistoEm).getTime() : NaN
   if (Number.isFinite(visto) && agora - visto < ONLINE_MIN * 60_000) return false

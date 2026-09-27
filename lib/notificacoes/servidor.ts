@@ -29,6 +29,13 @@ export type Aviso = {
   botao?: string
   /** Frase pequena no fim do e-mail. */
   nota?: string
+  /**
+   * O desfecho de algo que a pessoa pediu (chamado resolvido, a equipe
+   * precisa de você). No WhatsApp, sai mesmo com o Palácio aberto e logo
+   * depois de outro aviso do mesmo link; pausa, assunto desligado, silêncio
+   * da noite e teto diário continuam valendo.
+   */
+  importante?: boolean
 }
 
 /**
@@ -149,6 +156,7 @@ async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], l
       vistoEm: perfil.visto_em,
       ultimoNoMesmoLink: ultimo.get(conta.user_id),
       agora,
+      importante: aviso.importante,
     })
     if (!vai) continue
     // Teto diário por pessoa: passou disso, o aviso fica só no sino e no e-mail.

@@ -750,6 +750,40 @@ export async function reenviarConvite(userId: string): Promise<Resultado> {
   }
 }
 
+/**
+ * O convite de primeiro acesso pela tela de Usuários, para quem já tem conta e
+ * nunca entrou (criada com senha temporária, ou com o convite vencido): link
+ * novo para criar a senha, pelo WhatsApp informado e/ou pelo e-mail salvo no
+ * perfil. Os links de senha anteriores deixam de valer.
+ */
+export async function enviarConvite(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('usuarios.gerenciar')
+    const admin = createAdminClient()
+    const alvo = await convitePendente(admin, context.workspace.id, texto(formData, 'userId'))
+    if (!alvo.active) throw new Error(`${alvo.full_name} está desativado: reative antes de convidar.`)
+    const numero = lerWhatsapp(formData)
+    const querEmail = texto(formData, 'porEmail') === '1'
+    if (numero && !await configDoWhatsapp(context.workspace.id)) throw new Error('O WhatsApp do Palácio Virtual não está ligado. Mande o convite por e-mail.')
+    if (querEmail && !alvo.email) throw new Error(`${alvo.full_name} não tem e-mail no perfil. Preencha o e-mail, salve e tente de novo.`)
+    if (querEmail && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Mande pelo WhatsApp.')
+    const email = querEmail ? alvo.email : null
+    if (!email && !numero) throw new Error('Informe o WhatsApp ou marque o envio por e-mail.')
+
+    await revogarLinksDeSenha(admin, alvo.id)
+    const envio = await mandarConvite(admin, {
+      workspaceId: context.workspace.id, userId: alvo.id, nome: alvo.full_name, usuario: alvo.username, email, numero,
+      adminId: context.user.id, convidadoPor: context.profile?.full_name ?? 'Um administrador',
+    })
+    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_reenviado', detalhes: { email_enviado: envio.email, whatsapp: envio.whatsapp } })
+    revalidar()
+    if (!saiu(envio)) throw new Error(`O convite não saiu${envio.erroDoWhatsapp ? ` (${envio.erroDoWhatsapp})` : ''}. Tente de novo em alguns minutos ou use "Redefinir senha" para gerar uma senha temporária.`)
+    return { recado: `Convite enviado ${comoSaiu(envio, email, numero)}. ${alvo.full_name} cria a senha pelo link (vale 72 horas); links anteriores deixaram de valer.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível enviar o convite.') }
+  }
+}
+
 /** Cancela um convite ainda não usado: o link deixa de valer e a conta fica desativada (dá para reativar depois). */
 export async function cancelarConvite(userId: string): Promise<Resultado> {
   try {
