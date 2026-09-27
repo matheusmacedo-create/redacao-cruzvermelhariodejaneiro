@@ -18,6 +18,9 @@ import { lerModos } from '@/lib/notificacoes/regras'
 import { tituloDaArea } from '@/lib/navegacao'
 import { Cracha } from '@/components/cracha/cracha'
 import { crachaDaConta } from '@/lib/cracha/servidor'
+import { WhatsappDoPerfil } from '@/components/app/whatsapp-do-perfil'
+import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { formatarNumero, lerCategoriasDoWhatsapp } from '@/lib/whatsapp/regras'
 
 export const metadata = { title: tituloDaArea('/perfil') }
 
@@ -38,6 +41,12 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
     .eq('user_id', context.user.id).eq('finalidade', 'confirmar_email').is('usado_em', null).gt('expira_em', new Date().toISOString())
     .order('criado_em', { ascending: false }).limit(1).maybeSingle()
   const name = profile?.full_name || 'Usuário'
+  // Leituras à parte: antes da migração do WhatsApp elas falham, e o resto do perfil não pode ir junto.
+  const [{ data: whatsapp }, { data: whatsappPreferencias }, whatsappConfig] = await Promise.all([
+    supabase.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', context.user.id).maybeSingle(),
+    supabase.from('notificacao_preferencias').select('whatsapp').eq('user_id', context.user.id).maybeSingle(),
+    configDoWhatsapp(context.workspace.id),
+  ])
   // O crachá é enfeite do perfil: se a leitura falhar, a página abre sem ele.
   const cracha = await crachaDaConta(context.user.id, context.workspace.id).catch(() => null)
   const coordination = context.memberships.find((membership) => { const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces; return workspace?.id === context.workspace.id })?.coordination || 'Sem coordenação'
@@ -55,6 +64,7 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
       )}
       <Card id="email-de-recuperacao" data-ajuda="perfil.email" className={`scroll-mt-24 p-6 ${profile?.email_confirmado_em ? '' : 'border-warning/60 ring-2 ring-warning/20'}`}><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail de recuperação</h3><EmailDaConta email={profile?.email ?? null} confirmado={Boolean(profile?.email && profile?.email_confirmado_em)} pendente={pendente?.email ?? null} envioConfigurado={emailConfigurado()} /></Card>
       <Card id="notificacoes" data-ajuda="perfil.notificacoes" className="scroll-mt-24 p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mails de notificação</h3><PreferenciasDeNotificacao modos={lerModos(preferencias?.modos)} email={profile?.email && profile?.email_confirmado_em ? profile.email : null} /></Card>
+      <Card id="whatsapp" data-ajuda="perfil.whatsapp" className="scroll-mt-24 p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">WhatsApp</h3><WhatsappDoPerfil disponivel={Boolean(whatsappConfig)} conta={whatsapp ? { numero: formatarNumero(whatsapp.numero as string), pausado: Boolean(whatsapp.pausado_em) } : null} categorias={lerCategoriasDoWhatsapp(whatsappPreferencias?.whatsapp)} /></Card>
       <Card data-ajuda="perfil.dados" className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Dados pessoais</h3><form action={updateProfile}><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Field label="Nome completo" name="fullName" defaultValue={name} required /><Field label="Usuário" defaultValue={profile?.username || ''} disabled /><Field label="Cargo" name="jobTitle" defaultValue={profile?.job_title || ''} /><Field label="Coordenação" defaultValue={coordination || ''} disabled /></div><div className="mt-5 flex justify-end"><Button type="submit" size="lg">Salvar alterações</Button></div></form></Card>
       <Card data-ajuda="perfil.senha" className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Segurança</h3>{senha === 'trocada' && <p role="status" className="mb-4 rounded-lg bg-success/10 px-3 py-2 text-sm text-success">Senha trocada. As outras sessões abertas foram encerradas.</p>}<TrocarSenhaForm origem="perfil" usuario={profile?.username || ''} nome={name} /></Card>
       <Card data-ajuda="perfil.verificacao" className="p-6"><h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Verificação em duas etapas</h3><VerificacaoNoPerfil fatores={context.fatores.map((f) => ({ id: f.id, nome: f.friendly_name || 'Aparelho', criadoEm: f.created_at }))} obrigatoria={context.verificacaoObrigatoria} /></Card>

@@ -14,7 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * código de servidor, na chamada à ferramenta.
  */
 
-type Campo = { id: string; rotulo: string; secreto: boolean }
+type Campo = { id: string; rotulo: string; secreto: boolean; /** Tamanho mínimo aceito na tela (padrão 8). */ minimo?: number }
 type DefinicaoDeServico = {
   nome: string
   variavel: string
@@ -43,6 +43,18 @@ export const SERVICOS = {
   meta_ads: { nome: 'Meta Ads (token do usuário do sistema)', variavel: 'META_ADS_TOKEN', painel: 'https://business.facebook.com/settings/system-users' },
   // Confere links de matérias e da newsletter antes de publicar (lib/apis-publicas).
   google_safe_browsing: { nome: 'Google Safe Browsing (conferência de links)', variavel: 'GOOGLE_SAFE_BROWSING_KEY', painel: 'https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com' },
+  // O WhatsApp do Palácio (lib/whatsapp). A chave pode ser a global do servidor ou o token da instância;
+  // só "Criar a instância" exige a global. Reserva no ambiente: EVOLUTION_API_URL, _KEY e EVOLUTION_INSTANCIA.
+  evolution_api: {
+    nome: 'WhatsApp (Evolution API)',
+    variavel: 'EVOLUTION_API',
+    painel: 'https://docs.evolutionfoundation.com.br',
+    campos: [
+      { id: 'url', rotulo: 'Endereço do servidor (https://…)', secreto: false },
+      { id: 'instancia', rotulo: 'Nome da instância', secreto: false, minimo: 1 },
+      { id: 'chave', rotulo: 'Chave da API (apikey)', secreto: true },
+    ],
+  },
 } as const satisfies Record<string, DefinicaoDeServico>
 
 export type Servico = keyof typeof SERVICOS

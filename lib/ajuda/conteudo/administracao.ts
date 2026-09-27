@@ -493,7 +493,7 @@ const USUARIOS: GuiaDaArea = {
 
 const CONFIGURACOES: GuiaDaArea = {
   href: '/configuracoes',
-  paraQueServe: 'Configurações é o mapa de tudo o que se ajusta no Palácio Virtual. A visão geral mostra a sua conta, onde fica o ajuste de cada área e, para a administração, a situação de cada seção do espaço. Cada seção tem a sua tela no submenu: E-mail dos setores (a conta Google, quem envia por cada setor e os endereços), Integrações (as chaves, as redes sociais e o que está ligado na hospedagem), Site (Google Analytics, páginas e matérias no ar) e Zona de risco.',
+  paraQueServe: 'Configurações é o mapa de tudo o que se ajusta no Palácio Virtual. A visão geral mostra a sua conta, onde fica o ajuste de cada área e, para a administração, a situação de cada seção do espaço. Cada seção tem a sua tela no submenu: E-mail dos setores (a conta Google, quem envia por cada setor e os endereços), Integrações (as chaves, as redes sociais e o que está ligado na hospedagem), Site (Google Analytics, páginas e matérias no ar), WhatsApp (o número do Palácio, pelo QR code) e Zona de risco.',
   quemUsa: 'Todo mundo abre a visão geral, com os atalhos da própria conta. O submenu e as seções do espaço são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”; a lista de setores, em Diretório › Setores.',
   naPratica: {
     titulo: 'Ligar o e-mail do setor de Compras',
@@ -519,7 +519,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.submenu',
       titulo: 'Uma tela por assunto',
-      texto: 'Visão geral, E-mail dos setores, Integrações, Site e Zona de risco. Cada uma cuida só do seu assunto.',
+      texto: 'Visão geral, E-mail dos setores, Integrações, WhatsApp, Site e Zona de risco. Cada uma cuida só do seu assunto.',
       seAusente: 'pular',
     },
     {
@@ -601,9 +601,9 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Guardar ou trocar a chave de uma integração',
       quem: 'Só administradores',
       passos: [
-        'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)” ou “Meta Ads (token do usuário do sistema)”.',
+        'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)” ou “WhatsApp (Evolution API)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
-        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”.',
+        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No do WhatsApp, o endereço do servidor, o nome da instância e a chave da API.',
         'Toque em “Salvar no cofre”.',
         'O cartão passa a mostrar “Configurada no cofre em …”, com a data.',
       ],
@@ -797,14 +797,117 @@ const CONFIGURACOES: GuiaDaArea = {
       termos: ['zona de risco', 'apagar tudo', 'começar do zero', 'resetar'],
     },
   ],
-  relacionadas: ['/usuarios', '/correio', '/redes'],
+  relacionadas: ['/usuarios', '/correio', '/redes', '/configuracoes/whatsapp'],
+}
+
+// -------------------------------------------------------------------- WhatsApp
+
+const WHATSAPP: GuiaDaArea = {
+  href: '/configuracoes/whatsapp',
+  paraQueServe: 'WhatsApp liga um número de WhatsApp ao Palácio Virtual, pela Evolution API. Com ele conectado, os avisos do sino chegam também no WhatsApp de quem confirmou o número em “Meu perfil”, e um bot responde a quem escreve: mostra os avisos sem abrir, marca como lidos e pausa os avisos.',
+  quemUsa: 'Só administradores abrem esta aba. Cada pessoa liga o próprio WhatsApp em “Meu perfil”, sem depender da administração.',
+  naPratica: {
+    titulo: 'O WhatsApp do Palácio no ar',
+    passos: [
+      'A administração guarda o endereço do servidor, a instância e a chave no cartão “WhatsApp (Evolution API)”, em Integrações.',
+      'Nesta aba, toca em “Conectar pelo QR code” e lê o QR com o celular do chip do Palácio.',
+      'Toca em “Ligar o recebimento de mensagens”, para o bot passar a responder.',
+      'A Ana confirma o WhatsApp dela em “Meu perfil” com o código de 6 números que chega por lá.',
+      'Quando alguém pede a aprovação dela, o aviso chega no sino e no WhatsApp; ela responde “1” e vê o que falta abrir.',
+    ],
+    resultado: 'Os avisos chegam onde a equipe já está, sem trocar o sino.',
+  },
+  tour: [
+    {
+      titulo: 'O WhatsApp do Palácio Virtual',
+      texto: 'Aqui a administração conecta o número do Palácio e confere se ele está mandando e recebendo. Cada pessoa liga o próprio WhatsApp em “Meu perfil”.',
+    },
+    {
+      alvo: 'whatsapp.conexao',
+      titulo: 'Conexão',
+      texto: 'Mostra se o número está conectado. Desconectado, “Conectar pelo QR code” mostra o QR para ler em Dispositivos conectados, no celular do chip do Palácio.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'whatsapp.recebimento',
+      titulo: 'Receber mensagens (bot)',
+      texto: 'Sem isto ligado, o número só manda. “Ligar o recebimento de mensagens” faz o servidor entregar ao Palácio o que chega, e o bot responde.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'whatsapp.teste',
+      titulo: 'Testar',
+      texto: '“Mandar mensagem de teste” manda uma mensagem para o seu WhatsApp confirmado. Responda “menu” por lá para ver o bot.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'whatsapp.registro',
+      titulo: 'Últimas mensagens',
+      texto: 'O que saiu e o que chegou, com o motivo de cada falha. Do que chega, fica só o comando que o bot entendeu, nunca o texto.',
+      seAusente: 'pular',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'conectar-whatsapp',
+      titulo: 'Conectar o número do Palácio',
+      exemplo: 'A administração conecta o chip do Palácio numa segunda de manhã; na mesma hora, quem já confirmou o WhatsApp em “Meu perfil” começa a receber os pedidos de aprovação por lá.',
+      quem: 'Só administradores',
+      passos: [
+        'Em Configurações, no cartão “WhatsApp (Evolution API)”, preencha “Endereço do servidor (https://…)”, “Nome da instância” e “Chave da API (apikey)” e toque em “Salvar no cofre”.',
+        'Abra a aba “WhatsApp”. Se aparecer “Instância não encontrada no servidor”, toque em “Criar a instância” ou crie pelo painel da Evolution.',
+        'Toque em “Conectar pelo QR code”.',
+        'No celular do chip do Palácio, abra o WhatsApp em Configurações → Dispositivos conectados → Conectar um dispositivo e leia o QR. O QR se renova sozinho a cada 30 segundos.',
+        'Quando a tela mostrar “Conectado”, toque em “Ligar o recebimento de mensagens”.',
+      ],
+      dica: 'Use um chip só do Palácio, não um número pessoal. Se a câmera não ler o QR, abra “Não consegue ler o QR code?”, digite o número do chip e toque em “Gerar código”.',
+    },
+    {
+      id: 'testar-whatsapp',
+      titulo: 'Testar se está funcionando',
+      quem: 'Só administradores',
+      passos: [
+        'Confirme antes o seu WhatsApp em “Meu perfil”.',
+        'Aqui, em “Testar”, toque em “Mandar mensagem de teste”.',
+        'No seu WhatsApp, responda “menu”. O bot responde com as opções.',
+        'Em “Últimas mensagens”, toque em “Atualizar” e confira o envio e a resposta.',
+      ],
+    },
+  ],
+  perguntas: [
+    {
+      id: 'url-do-webhook',
+      pergunta: 'Preciso colar a URL do webhook no painel da Evolution?',
+      resposta: 'Não. “Ligar o recebimento de mensagens” configura o endereço, a senha e os eventos no servidor. Uma URL colada à mão no painel da Evolution vai sem a senha, e o Palácio recusa as entregas.\n\nSe a chave mudar em Integrações, toque em “Ligar de novo”.',
+      termos: ['webhook', 'url', 'eventos', 'manager', 'painel da evolution'],
+    },
+    {
+      id: 'aviso-nao-chegou',
+      pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), e numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos. Se o motivo foi uma falha, ele aparece em “Últimas mensagens”.',
+      termos: ['não chegou', 'não recebi', 'mensagem não chega'],
+    },
+    {
+      id: 'quem-escreve-para-o-numero',
+      pergunta: 'E quem não é da equipe e escreve para o número?',
+      resposta: 'Recebe, no máximo uma vez por dia, uma resposta automática dizendo que o número é de avisos do sistema interno e indicando o site para falar com a Cruz Vermelha. Ninguém lê essas mensagens.',
+      termos: ['público', 'atendimento', 'desconhecido'],
+    },
+    {
+      id: 'desconectou-sozinho',
+      pergunta: 'O número desconectou sozinho. O que faço?',
+      resposta: 'Toque em “Conectar pelo QR code” e leia o QR de novo com o celular do chip do Palácio. Enquanto estiver desconectado, nada sai pelo WhatsApp; os avisos continuam no sino e no e-mail.',
+      termos: ['desconectado', 'caiu', 'parou'],
+    },
+  ],
+  relacionadas: ['/configuracoes', '/perfil', '/notificacoes'],
 }
 
 // ----------------------------------------------------------------- Meu perfil
 
 const PERFIL: GuiaDaArea = {
   href: '/perfil',
-  paraQueServe: 'Meu perfil reúne a sua conta: foto e dados, o crachá virtual, o e-mail de recuperação, o que chega por e-mail, a senha e a verificação em duas etapas. Quase tudo o que é da sua conta você resolve aqui, sem depender de um administrador.',
+  paraQueServe: 'Meu perfil reúne a sua conta: foto e dados, o crachá virtual, o e-mail de recuperação, o que chega por e-mail e pelo WhatsApp, a senha e a verificação em duas etapas. Quase tudo o que é da sua conta você resolve aqui, sem depender de um administrador.',
   quemUsa: 'Cada pessoa vê e muda só o próprio perfil. Usuário e coordenação não se mudam aqui: a coordenação é definida pela administração.',
   naPratica: {
     titulo: 'Deixar a conta segura e com a sua cara',
@@ -837,6 +940,11 @@ const PERFIL: GuiaDaArea = {
       alvo: 'perfil.notificacoes',
       titulo: 'O que chega por e-mail',
       texto: 'Tudo aparece no sino. Aqui você escolhe, por assunto, se também chega por e-mail: “Na hora”, “Resumo diário” ou “Só no sino”. A escolha vale na hora.',
+    },
+    {
+      alvo: 'perfil.whatsapp',
+      titulo: 'Avisos no WhatsApp',
+      texto: 'Os mesmos avisos do sino, no seu WhatsApp. O número passa a valer depois do código de 6 números que chega nele; dá para pausar e escolher os assuntos.',
     },
     {
       alvo: 'perfil.dados',
@@ -890,6 +998,17 @@ const PERFIL: GuiaDaArea = {
     },
     { id: 'confirmar-email', ...CONFIRMAR_O_EMAIL },
     { id: 'escolher-emails-de-aviso', ...ESCOLHER_OS_EMAILS },
+    {
+      id: 'ligar-whatsapp',
+      titulo: 'Receber os avisos no WhatsApp',
+      exemplo: 'A Ana confirma o celular dela e desliga “Chat” em “O que chega pelo WhatsApp”: recebe por lá só aprovações, chamados e o resto.',
+      passos: [
+        'Em “WhatsApp”, digite o seu número com DDD e toque em “Mandar código”.',
+        'Chega pelo WhatsApp um código de 6 números. Digite no campo e toque em “Confirmar”. O código vale por 10 minutos.',
+        'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
+      ],
+      dica: 'Por lá, responda “menu” para ver as opções: “1” mostra os avisos sem abrir, “2” marca todos como lidos e “3” pausa (ou retoma) os avisos. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
+    },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
     {
@@ -1000,4 +1119,4 @@ const PERFIL: GuiaDaArea = {
   relacionadas: ['/notificacoes', '/pessoas'],
 }
 
-export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, PERFIL]
+export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, WHATSAPP, PERFIL]

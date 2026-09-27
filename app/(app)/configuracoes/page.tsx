@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import {
   AlertTriangle, BadgeCheck, Bell, ChevronRight, DoorOpen, Fingerprint, Globe, GraduationCap, KeyRound, LifeBuoy, Mail, MailCheck,
-  Package, PlugZap, UserRound, Users, Wallet, type LucideIcon,
+  Package, PlugZap, Smartphone, UserRound, Users, Wallet, type LucideIcon,
 } from 'lucide-react'
 import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
@@ -30,6 +30,7 @@ export default async function ConfiguracoesPage() {
     { href: '/perfil#cracha', titulo: 'Crachá virtual', texto: 'O seu crachá com QR, para mostrar ou imprimir.', icone: BadgeCheck },
     { href: '/perfil#notificacoes', titulo: 'Avisos por e-mail', texto: 'O que chega por e-mail e o que fica só no sino.', icone: Bell },
     { href: '/perfil#email-de-recuperacao', titulo: 'E-mail de recuperação', texto: 'Para o “Esqueci minha senha” funcionar.', icone: MailCheck },
+    { href: '/perfil#whatsapp', titulo: 'Avisos no WhatsApp', texto: 'Os avisos do sino também no seu WhatsApp.', icone: Smartphone },
   ]
 
   if (!admin) {
@@ -58,6 +59,7 @@ export default async function ConfiguracoesPage() {
   const ativas = (caixas ?? []).filter((c) => c.ativa && c.no_gmail).length
   const google = conexao.data
   const faltam = chaves.filter((c) => !c.origem)
+  const whatsapp = chaves.some((c) => c.servico === 'evolution_api' && c.origem)
 
   const espaco: Atalho[] = [
     {
@@ -71,6 +73,12 @@ export default async function ConfiguracoesPage() {
       href: '/configuracoes/integracoes', titulo: 'Integrações', icone: PlugZap,
       texto: faltam.length ? `${chaves.length - faltam.length} de ${chaves.length} chaves configuradas. Falta: ${faltam.map((c) => nomeCurto(c.nome)).join(', ')}.` : `As ${chaves.length} chaves estão configuradas.`,
       tom: faltam.length ? 'atencao' : 'ok',
+    },
+    {
+      // Só se a chave existe: conferir a conexão de verdade é na própria tela (pede o servidor da Evolution).
+      href: '/configuracoes/whatsapp', titulo: 'WhatsApp', icone: Smartphone,
+      texto: whatsapp ? 'Conexão pelo QR code, recebimento de mensagens (bot) e teste.' : 'Falta o endereço, a instância e a chave da Evolution API em Integrações.',
+      tom: whatsapp ? undefined : 'atencao',
     },
     { href: '/configuracoes/site', titulo: 'Site', icone: Globe, texto: 'Google Analytics, páginas do site e matérias no ar em /noticias/.' },
     { href: '/configuracoes/zona-de-risco', titulo: 'Zona de risco', icone: AlertTriangle, texto: 'Reiniciar os dados do espaço. Não tem volta.', tom: 'risco' },

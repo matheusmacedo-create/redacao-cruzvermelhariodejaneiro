@@ -85,6 +85,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
+| `EVOLUTION_API_URL` `EVOLUTION_INSTANCIA` `EVOLUTION_API_KEY` | server | **segredo** (a chave), opcionais — reserva do cartão “WhatsApp (Evolution API)” de Configurações → Integrações, que é o lugar preferido; valem as três juntas (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -646,6 +647,16 @@ Quando o e-mail sai (`decidirEmail` em `lib/notificacoes/regras.ts`, puro):
 
 Avisos de segurança da conta (senha, 2FA, e-mail trocado) não passam por aqui
 e saem sempre (`avisar()` em `lib/contas/servidor.ts`).
+
+**WhatsApp** (§8.5). Depois do e-mail, `notificar()` manda o mesmo aviso ao
+WhatsApp de quem confirmou o número em `/perfil#whatsapp` (código de 6
+dígitos; `whatsapp_contas`, fora de `profiles` para o celular não ficar
+visível a todo o espaço). Sai se a pessoa não pausou, deixou o assunto ligado
+(`notificacao_preferencias.whatsapp`, padrão ligado) e não está com o Palácio
+aberto; no mesmo link, no máximo uma mensagem a cada 15 min
+(`notifications.whatsapp_em`). Regras em `decidirWhatsapp`
+(`lib/whatsapp/regras.ts`). Os avisos de segurança de `avisar()` também vão ao
+WhatsApp confirmado, menos se a pessoa pausou.
 
 O sino (`components/app/sino.tsx`) mostra a contagem real de não lidas, e não
 só as 10 carregadas. Ele marca como lido ao clicar, ao abrir a página do link
@@ -1356,6 +1367,36 @@ Limites que valem conhecer:
   existe lá);
 - a FIPE gratuita tem cota diária;
 - o Nominatim exige identificação (User-Agent) e cache.
+
+### 8.5 WhatsApp (Evolution API)
+
+O número do Palácio no WhatsApp, por uma [Evolution API](https://github.com/EvolutionAPI/evolution-api)
+(v2, Baileys) hospedada pela filial. Configuração no cofre (cartão “WhatsApp (Evolution API)”:
+endereço, instância e chave); conexão, recebimento e teste em `/configuracoes/whatsapp` (só admin).
+
+- **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
+  do bot — `npx tsx scripts/conferir-whatsapp.ts`), `servidor.ts` (cliente da Evolution, nunca
+  lança, tira chave e URL do texto de erro), `bot.ts` (respostas), `app/actions/whatsapp.ts` e
+  `app/api/webhooks/whatsapp`.
+- **Contrato conferido no código da v2.3.7** (a documentação nova erra o `/webhook/set`): cabeçalho
+  `apikey` (a global ou o token da instância; só `/instance/create` exige a global); corpo do
+  `/webhook/set` **aninhado** em `webhook` e com `events` sempre (sem ele, a Evolution quebra);
+  o texto recebido vem em `message.conversation`; com endereço anônimo (`@lid`), o número vem em
+  `remoteJidAlt`.
+- **Número canônico:** só dígitos, com 55 e o nono dígito do celular. O WhatsApp ainda identifica
+  muitos celulares antigos sem o nono dígito; é pela forma canônica que o bot reconhece quem escreveu.
+- **Webhook:** a Evolution não assina as entregas. O botão “Ligar o recebimento de mensagens”
+  configura a URL (`/api/webhooks/whatsapp?w=<espaço>`) com um cabeçalho `x-palacio-whatsapp`
+  derivado da chave (HMAC); sem ele, 401. **Não configure a URL à mão no painel da Evolution** — vai
+  sem o cabeçalho. Trocou a chave, ligue de novo. Só `MESSAGES_UPSERT` e `CONNECTION_UPDATE`.
+- **Reentrega:** a Evolution tenta até 10 vezes (menos em 400/401/403/404/422). A rota responde na
+  hora e atende depois (`after`); `whatsapp_mensagens` tem trava por id da mensagem, então nada é
+  respondido duas vezes. O registro guarda só o comando reconhecido, nunca o texto recebido.
+- **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
+  pausa ou retoma. Número desconhecido recebe uma apresentação, no máximo uma vez por dia. Teto de 6
+  respostas a cada 10 min por número (um robô do outro lado não vira conversa infinita).
+- **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
+  quem confirmou o número, com teto por link. Use um chip só do Palácio.
 
 ## 9. Convenções
 

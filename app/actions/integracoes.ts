@@ -32,7 +32,7 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
       const dados: Record<string, string> = {}
       for (const c of campos) {
         const v = String(formData.get(c.id) ?? '').trim()
-        if (v.length < 8) throw new Error(`Preencha "${c.rotulo}" inteiro.`)
+        if (v.length < (c.minimo ?? 8)) throw new Error(`Preencha "${c.rotulo}" inteiro.`)
         dados[c.id] = v
       }
       valor = JSON.stringify(dados)
