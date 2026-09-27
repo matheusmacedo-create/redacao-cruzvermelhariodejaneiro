@@ -1,0 +1,45 @@
+# Trava de migração (ARQUITETURA §10.7): PR que traz migração nova fica com
+# este check vermelho até alguém marcar, na descrição do PR, que ela já foi
+# aplicada em produção. Duas vezes (#232 e #241) o merge entrou antes da
+# migração e a tela quebrou no ar. Não precisa de segredo: só lê o PR.
+name: Migração aplicada?
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  conferir:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Migração nova precisa estar marcada como aplicada
+        env:
+          CORPO: ${{ github.event.pull_request.body }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          novas=$(git diff --name-only --diff-filter=A "$BASE"..."$HEAD" -- 'supabase/migrations/*.sql')
+          if [ -z "$novas" ]; then
+            echo "Sem migração nova neste PR."
+            exit 0
+          fi
+          echo "Migrações novas neste PR:"
+          echo "$novas"
+          # A caixa marcada na descrição: "- [x] Migração aplicada em produção".
+          if printf '%s' "$CORPO" | grep -Eiq '^\s*[-*] \[x\] Migra(ç|c)(ã|a)o aplicada em produ(ç|c)(ã|a)o'; then
+            echo "Marcada como aplicada em produção. Pode mesclar."
+            exit 0
+          fi
+          echo "::error::Este PR traz migração nova e ela ainda não está marcada como aplicada em produção."
+          echo "Aplique a migração no Supabase (skill migracao), confira em supabase_migrations.schema_migrations"
+          echo "e marque na descrição do PR: - [x] Migração aplicada em produção"
+          exit 1
