@@ -15,8 +15,7 @@ import {
   urlDaFotoDoVisitante, type Visita,
 } from '@/lib/portaria/regras'
 import { pessoasParaVisitar } from '@/lib/portaria/servidor'
-import { FORMATOS_DE_CRACHA, MAXIMO_DE_CRACHAS, crachasPorFolha } from '@/lib/portaria/regras'
-import { FrenteDoCrachaDeVisitante, VersoDoCrachaDeVisitante } from '@/components/portaria/cracha-de-visitante'
+import { CrachasDeVisitante } from '@/components/app/portaria/crachas-de-visitante'
 import { AtualizarSozinho, ConfirmarCadastro, DevolverCracha, NovaEntrada, RegistrarSaida, TirarFoto, TrocarLink } from '@/components/app/portaria/acoes'
 
 export const metadata = { title: tituloDaArea('/portaria') }
@@ -246,64 +245,6 @@ async function CartazDoQr({ ws, supabase, admin }: { ws: string; supabase: Supab
         <p className="text-sm">Aponte a câmera, preencha e mostre a tela na portaria.<br />Não pedimos documento.</p>
         <p className="break-all text-[10px] text-muted-foreground">{link}</p>
       </Card>
-    </div>
-  )
-}
-
-/** Os modelos de crachá de visitante: escolhe o formato e a numeração e abre a folha A4 para imprimir. */
-function CrachasDeVisitante() {
-  return (
-    <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-4 p-5" data-ajuda="portaria.crachas-modelo">
-        <div>
-          <h2 className="font-semibold">Imprimir crachás de visitante</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Folhas A4 com marcas de corte, no tamanho de cartão: {crachasPorFolha('deitado')} crachás deitados (86 × 54 mm, para o porta-crachá horizontal com presilha) ou {crachasPorFolha('empe')} em pé (54 × 86 mm). O crachá leva só o número: a portaria anota o número na entrada e confere a devolução na saída. Use capa plástica ou plastifique para durar.
-          </p>
-        </div>
-        <form action="/portaria/crachas" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" target="_blank">
-          <label className="col-span-2 flex flex-col gap-1 text-sm font-medium sm:col-span-1">Formato
-            <select name="formato" defaultValue="deitado" className={inputClass}>
-              {Object.entries(FORMATOS_DE_CRACHA).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">Prefixo
-            <input name="prefixo" defaultValue="V" maxLength={5} className={inputClass} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">Do número
-            <input name="de" type="number" min={1} max={999} defaultValue={1} className={inputClass} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">Até o número
-            <input name="ate" type="number" min={1} max={999} defaultValue={crachasPorFolha('deitado')} className={inputClass} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm font-medium">Verso
-            <select name="verso" defaultValue="sim" className={inputClass}>
-              <option value="sim">Com as regras no verso</option>
-              <option value="nao">Só a frente</option>
-            </select>
-          </label>
-          <div className="col-span-2 flex flex-wrap items-center gap-3 sm:col-span-3 lg:col-span-5">
-            <Button type="submit" data-portaria-crachas><Printer className="size-4" />Abrir para imprimir</Button>
-            <span className="text-xs text-muted-foreground">Até {MAXIMO_DE_CRACHAS} crachás por vez. Com verso, imprima frente e verso virando pela borda longa.</span>
-          </div>
-        </form>
-      </Card>
-      <div className="flex flex-wrap items-start justify-center gap-6" aria-label="Prévia dos crachás de visitante">
-        <figure className="flex flex-col items-center gap-2">
-          <div className="flex flex-wrap justify-center gap-3">
-            <div className="overflow-hidden rounded-xl border border-border shadow-sm"><FrenteDoCrachaDeVisitante numero="V-07" deitado /></div>
-            <div className="overflow-hidden rounded-xl border border-border shadow-sm max-sm:hidden"><VersoDoCrachaDeVisitante numero="V-07" deitado /></div>
-          </div>
-          <figcaption className="text-xs text-muted-foreground">{FORMATOS_DE_CRACHA.deitado.rotulo}</figcaption>
-        </figure>
-        <figure className="flex flex-col items-center gap-2">
-          <div className="flex justify-center gap-3">
-            <div className="overflow-hidden rounded-xl border border-border shadow-sm"><FrenteDoCrachaDeVisitante numero="V-07" /></div>
-            <div className="overflow-hidden rounded-xl border border-border shadow-sm max-sm:hidden"><VersoDoCrachaDeVisitante numero="V-07" /></div>
-          </div>
-          <figcaption className="text-xs text-muted-foreground">{FORMATOS_DE_CRACHA.empe.rotulo}</figcaption>
-        </figure>
-      </div>
     </div>
   )
 }
