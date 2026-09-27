@@ -1229,6 +1229,25 @@ As subpáginas chamam `exigirAdministracao()` (`lib/configuracoes/servidor.ts`),
 que manda quem não é administrador para a visão geral. As ações revalidam com
 `revalidatePath('/configuracoes', 'layout')`, que alcança todas as subpáginas.
 
+### 7.27 Patrimônio: fotos do bem (`pat_bem_fotos`)
+
+Até 12 fotos por bem, em `patrimonio/<workspace>/<bem>/<id>.jpg` no Blob
+privado. O navegador reduz para até 1600 px no lado maior, sem recorte
+(`lib/patrimonio/preparar-foto.ts`). A rota `POST /api/patrimonio/fotos`
+confere o arquivo (`conferirFotoDoBem`: JPEG de 200 a 1600 px, sem EXIF),
+grava no Blob e registra com `patrimonio_foto_adicionar`. Se o banco recusar,
+o arquivo sai do Blob.
+
+`GET` e `DELETE /api/patrimonio/fotos/[id]` servem e apagam a foto. A capa é
+a primeira pela `ordem`; `patrimonio_foto_capa` põe uma foto na frente.
+
+- Ver as fotos: quem vê o bem.
+- Pôr e apagar: nível "Operar".
+- Bem baixado não muda.
+
+No cadastro de um bem novo, as fotos escolhidas sobem logo depois que o banco
+devolve o id. Conferência: `npx tsx scripts/conferir-fotos-do-patrimonio.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

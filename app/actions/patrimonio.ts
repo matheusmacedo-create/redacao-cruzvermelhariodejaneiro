@@ -235,3 +235,17 @@ export async function definirAcessoDoPatrimonio(userId: string, nivel: NomeDoNiv
     return { erro: mensagemDoErro(causa, 'Não foi possível mudar o acesso.') }
   }
 }
+
+/** Põe a foto na frente: ela vira a capa do bem (a que aparece na lista). */
+export async function definirCapaDoBem(bemId: string, fotoId: string): Promise<Resultado> {
+  try {
+    if (!ehUuid(bemId) || !ehUuid(fotoId)) throw new Error('Foto não encontrada.')
+    const { supabase } = await contextoDoPatrimonio()
+    const { error } = await supabase.rpc('patrimonio_foto_capa', { p_id: fotoId })
+    if (error) erroDoBanco(error, 'Não foi possível trocar a capa.')
+    revalidar(bemId)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível trocar a capa.') }
+  }
+}

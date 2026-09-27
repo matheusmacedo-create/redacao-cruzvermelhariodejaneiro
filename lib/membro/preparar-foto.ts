@@ -49,7 +49,7 @@ export async function prepararFotoDePerfil(file: File): Promise<File> {
   }
 }
 
-async function decodificar(file: Blob): Promise<ImageBitmap> {
+export async function decodificar(file: Blob): Promise<ImageBitmap> {
   try {
     return await createImageBitmap(file, { imageOrientation: 'from-image' })
   } catch (erro) {
@@ -67,7 +67,7 @@ function novoCanvas(lado: number): OffscreenCanvas | HTMLCanvasElement {
   return c
 }
 
-function exportar(canvas: OffscreenCanvas | HTMLCanvasElement, quality: number): Promise<Blob> {
+export function exportar(canvas: OffscreenCanvas | HTMLCanvasElement, quality: number): Promise<Blob> {
   if ('convertToBlob' in canvas) return canvas.convertToBlob({ type: 'image/jpeg', quality })
   return new Promise((ok, falha) => canvas.toBlob((b) => (b ? ok(b) : falha(new ErroDaFoto('Não foi possível gerar a foto.'))), 'image/jpeg', quality))
 }

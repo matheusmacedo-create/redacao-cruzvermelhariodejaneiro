@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Lock, Plus, Search } from 'lucide-react'
+import { Lock, Package, Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -8,6 +8,7 @@ import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { ImprimirEtiquetas } from '@/components/app/patrimonio/acoes'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio, COLUNAS_DO_BEM, lerBemDoBanco, type Bem } from '@/lib/patrimonio/acesso'
 import { ESTADOS, SITUACOES, depreciacao, situacaoDaManutencao, type Estado } from '@/lib/patrimonio/regras'
+import { ordenarFotos, urlDaFotoDoBem, type FotoDoBem } from '@/lib/patrimonio/fotos'
 import { tituloDaArea } from '@/lib/navegacao'
 
 export const metadata = { title: tituloDaArea('/patrimonio') }
@@ -43,12 +44,16 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
   const hoje = hojeEmSaoPaulo()
   const mes = hoje.slice(0, 7)
   const c = await cadastrosDoPatrimonio()
-  const [{ data: brutos }, { data: cautelas }, { data: manutencoes }] = await Promise.all([
+  const [{ data: brutos }, { data: cautelas }, { data: manutencoes }, { data: fotos }] = await Promise.all([
     supabase.from('pat_bens').select(COLUNAS_DO_BEM).eq('workspace_id', ws).order('numero', { ascending: false }).limit(10000),
     supabase.from('pat_cautelas').select('bem_id,nome,termo_aceito_em,prevista_devolucao,participante_id').eq('workspace_id', ws).is('devolvido_em', null),
     supabase.from('pat_manutencoes').select('bem_id,prevista_para').eq('workspace_id', ws).is('realizada_em', null).not('prevista_para', 'is', null),
+    supabase.from('pat_bem_fotos').select('id,bem_id,path,ordem,created_at').eq('workspace_id', ws).limit(50000),
   ])
   const bens = (brutos ?? []).map(lerBemDoBanco) as Bem[]
+  // A capa de cada bem: a primeira foto pela ordem.
+  const capa = new Map<string, string>()
+  for (const f of ordenarFotos((fotos ?? []) as (FotoDoBem & { bem_id: string })[])) if (!capa.has(f.bem_id)) capa.set(f.bem_id, urlDaFotoDoBem(f))
   const comQuem = new Map((cautelas ?? []).map((x) => [x.bem_id as string, x]))
   const manutencaoVencida = new Set((manutencoes ?? []).filter((m) => situacaoDaManutencao(m.prevista_para as string, null, hoje) === 'vencida').map((m) => m.bem_id as string))
   const categoria = new Map(c.categorias.map((k) => [k.id, k]))
@@ -132,9 +137,16 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
                     <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/30" data-bem={b.plaqueta}>
                       <td className="px-3 py-3"><input type="checkbox" name="id" value={b.id} aria-label={`Etiqueta de ${b.plaqueta}`} /></td>
                       <td className="whitespace-nowrap px-3 py-3 font-mono text-xs">{b.plaqueta}{b.plaqueta_antiga && <span className="block text-muted-foreground">antiga {b.plaqueta_antiga}</span>}</td>
-                      <td className="max-w-72 px-3 py-3">
-                        <Link href={`/patrimonio/${b.id}`} className="block truncate font-medium hover:text-primary hover:underline">{b.nome}</Link>
-                        <span className="block truncate text-xs text-muted-foreground">{[categoria.get(b.categoria_id)?.nome, b.marca, b.modelo].filter(Boolean).join(' · ')}</span>
+                      <td className="max-w-80 px-3 py-3">
+                        <div className="flex items-center gap-3">
+                          {capa.has(b.id)
+                            ? <img src={capa.get(b.id)} alt="" loading="lazy" className="size-10 shrink-0 rounded-md border border-border object-cover" />
+                            : <span className="flex size-10 shrink-0 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground" aria-hidden="true"><Package className="size-4" /></span>}
+                          <div className="min-w-0">
+                            <Link href={`/patrimonio/${b.id}`} className="block truncate font-medium hover:text-primary hover:underline">{b.nome}</Link>
+                            <span className="block truncate text-xs text-muted-foreground">{[categoria.get(b.categoria_id)?.nome, b.marca, b.modelo].filter(Boolean).join(' · ')}</span>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-3 py-3 text-xs">
                         <span className="block">{b.local_id ? local.get(b.local_id) : '—'}</span>
