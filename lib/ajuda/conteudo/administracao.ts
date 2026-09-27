@@ -1130,7 +1130,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'whatsapp-com-verificacao',
       pergunta: 'Por que o WhatsApp não me deixa responder nem votar?',
-      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp só consulta: avisos, agenda, chamados, aprovações e dúvidas. Responder, votar, abrir chamado e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio).',
+      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp consulta (avisos, agenda, chamados, aprovações e dúvidas) e abre chamado. Responder, votar e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio).',
       termos: ['verificação em duas etapas', 'não deixa responder', 'não consigo votar pelo whatsapp', '2fa whatsapp'],
     },
     {

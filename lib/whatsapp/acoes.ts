@@ -29,8 +29,9 @@ import { seguirEnvio } from './envio'
  * actions.
  *
  * O WhatsApp não pede o código do app autenticador: quem usa a verificação
- * em duas etapas (ou é obrigado a usar) só consulta por aqui; agir fica no
- * Palácio. O banco confere de novo (a sessão simulada é aal1).
+ * em duas etapas (ou é obrigado a usar) consulta e abre chamado por aqui; o
+ * resto (responder, votar, mandar fotos) fica no Palácio. O banco confere de
+ * novo no Chat e no voto (a sessão simulada é aal1).
  *
  * Nada aqui envia mensagem: cada função devolve o texto da resposta e, quando
  * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias).
@@ -260,7 +261,8 @@ type DadosDoChamado = {
 
 export async function comecarChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, relato: string, base: string): Promise<Resposta> {
   if (ehEquipeDaEscola(pessoa.papel)) return { texto: `Chamados ficam no Palácio: ${base}/chamados` }
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${base}/chamados/novo` }
+  // Abrir chamado vale mesmo com a verificação em duas etapas (decisão de 27/09/2026): só cria o pedido
+  // no nome de quem escreveu, não lê nem mexe no que é de outros.
   return proximoPasso(admin, workspaceId, pessoa, { relato: relato.trim().slice(0, 4000) }, base)
 }
 
@@ -332,7 +334,6 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
   const urgencia = lerEscolha(texto, 3)
   if (!urgencia) return deNovo('Responda com 1, 2 ou 3, ou *cancelar*.')
   if (!await encerrarPendencia(admin, p.id)) return { texto: 'Este chamado já foi aberto.' }
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: TEXTO_SEM_ACAO_PELO_WHATSAPP }
   const { data: vinculo } = await admin.from('workspace_members').select('coordination').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle()
   try {
     const criado = await criarChamado(admin, {
