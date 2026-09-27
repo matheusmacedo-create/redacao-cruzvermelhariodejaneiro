@@ -5,8 +5,8 @@ import { quantidade } from './estoque'
 
 /**
  * Os documentos das doações, em PDF A4: o recibo que vai ao doador e o
- * termo de entrega que o beneficiário assina. Fonte padrão do PDF
- * (Helvetica), que desenha acentos do português.
+ * termo de entrega que o beneficiário assina, no papel timbrado da filial
+ * (lib/pdf/folha.ts).
  */
 
 export type DadosDoRecibo = {

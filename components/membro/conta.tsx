@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import Link from 'next/link'
 import { Menu } from '@base-ui/react/menu'
-import { CircleHelp, Compass, LogOut, UserRound } from 'lucide-react'
+import { CircleHelp, Compass, Landmark, LogOut, UserRound } from 'lucide-react'
 import { sair } from '@/app/actions/membro'
 import { CHAVE_DO_ULTIMO_EMAIL } from '@/lib/membro/entrada'
 import { Retrato } from './foto'
@@ -78,6 +78,9 @@ export function MenuDaConta({ nome, email, foto = null, previa = false }: { nome
                 <Menu.Separator className="my-1 h-px bg-border" />
                 <Menu.LinkItem closeOnClick render={<Link href="/membro/perfil" />} className={itemDeMenu}>
                   <UserRound className="size-4 text-muted-foreground" aria-hidden="true" />Meu perfil
+                </Menu.LinkItem>
+                <Menu.LinkItem closeOnClick render={<Link href="/membro/principios" />} className={itemDeMenu}>
+                  <Landmark className="size-4 text-muted-foreground" aria-hidden="true" />Princípios Fundamentais
                 </Menu.LinkItem>
                 <Menu.LinkItem closeOnClick render={<Link href="/membro/ajuda" />} className={itemDeMenu}>
                   <CircleHelp className="size-4 text-muted-foreground" aria-hidden="true" />Ajuda

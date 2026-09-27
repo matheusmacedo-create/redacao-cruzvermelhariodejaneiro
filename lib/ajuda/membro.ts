@@ -66,7 +66,7 @@ export const BOAS_VINDAS_DO_MEMBRO: PassoDoTour[] = [
   {
     alvo: 'membro.conta',
     titulo: 'Perfil e Ajuda',
-    texto: 'Seus dados ficam em “Perfil”. No menu da sua conta (a sua foto ou as suas iniciais, no alto) estão “Meu perfil”, “Ajuda”, “Sair” e, nas telas que têm tour, “Tour desta tela”.',
+    texto: 'Seus dados ficam em “Perfil”. No menu da sua conta (a sua foto ou as suas iniciais, no alto) estão “Meu perfil”, “Princípios Fundamentais”, “Ajuda”, “Sair” e, nas telas que têm tour, “Tour desta tela”.',
   },
 ]
 
@@ -74,7 +74,7 @@ export const BOAS_VINDAS_DO_MEMBRO: PassoDoTour[] = [
 
 const INICIO: GuiaDaArea = {
   href: '/membro',
-  paraQueServe: 'O Início junta o que é seu. Primeiro, o que pede ação: um termo de bem para aceitar ou uma prova final por fazer. Logo abaixo da saudação, os destaques da Cruz Vermelha RJ, quando houver. Depois, sua próxima atividade, o curso em andamento, seus números, os avisos da coordenação, seus certificados e as últimas atividades.',
+  paraQueServe: 'O Início junta o que é seu. Primeiro, o que pede ação: um termo de bem para aceitar ou uma prova final por fazer. Logo abaixo da saudação, os destaques da Cruz Vermelha RJ, quando houver. Depois, sua próxima atividade, o curso em andamento, seus números, os avisos da coordenação, seus certificados e as últimas atividades. No fim, sempre, os sete Princípios Fundamentais da Cruz Vermelha.',
   quemUsa: 'Cursos, inscrições, horas e certificados são só seus. Os destaques, os avisos e as oportunidades abertas são os mesmos para todo o voluntariado.',
   tour: [
     {
@@ -117,6 +117,11 @@ const INICIO: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'membro.principios',
+      titulo: 'Os Princípios Fundamentais',
+      texto: 'Os sete Princípios que guiam toda ação da Cruz Vermelha, cada um numa frase. “Ler na íntegra” abre o texto oficial e o que vale para o emblema no seu perfil pessoal.',
+    },
+    {
       alvo: 'membro.ajuda-link',
       titulo: 'Dúvidas?',
       texto: 'No fim do Início e no menu da sua conta fica a “Ajuda”, com o passo a passo de cada parte da área e as perguntas frequentes.',
@@ -153,7 +158,36 @@ const INICIO: GuiaDaArea = {
       dica: 'Resolvida a pendência, o aviso some sozinho.',
     },
   ],
+  telas: [
+    {
+      caminho: '/membro/principios',
+      rotulo: 'Princípios Fundamentais',
+      tour: [
+        {
+          titulo: 'Os sete Princípios',
+          texto: 'Humanidade, Imparcialidade, Neutralidade, Independência, Voluntariado, Unidade e Universalidade, no texto oficial adotado em 1965. Valem para cada voluntário em cada ação.',
+        },
+        {
+          alvo: 'membro.emblema',
+          titulo: 'O emblema no seu perfil pessoal',
+          texto: 'Pode postar sobre as suas ações voluntárias. O que não pode: usar o emblema da Cruz Vermelha na foto ou no nome do seu perfil, fora de campanhas da própria instituição. “Ler a regra como está no manual” mostra o texto completo.',
+        },
+      ],
+    },
+  ],
   perguntas: [
+    {
+      id: 'emblema-no-perfil',
+      pergunta: 'Posso usar o emblema da Cruz Vermelha na minha foto ou no meu perfil?',
+      resposta: 'Não, a não ser em campanhas da própria Cruz Vermelha, quando a coordenação orientar. O emblema é protegido por lei: só a Cruz Vermelha Brasileira pode usá-lo em tempo de paz. Postar textos e fotos das suas ações voluntárias pode, sim, e é bem-vindo.\n\nO texto completo da regra fica em “Princípios Fundamentais”, no fim do Início ou no menu da sua conta.',
+      termos: ['emblema', 'logo', 'foto de perfil', 'instagram', 'redes sociais', 'cruz', 'marca'],
+    },
+    {
+      id: 'onde-principios',
+      pergunta: 'Onde leio os Princípios Fundamentais?',
+      resposta: 'No fim do Início, em “Nossos Princípios Fundamentais”, cada um numa frase. “Ler na íntegra” abre o texto oficial. A mesma página fica no menu da sua conta, em “Princípios Fundamentais”.',
+      termos: ['princípios', 'humanidade', 'neutralidade', 'imparcialidade', 'valores', 'missão'],
+    },
     {
       id: 'numeros-nao-aparecem',
       pergunta: 'Por que não aparecem meus números?',
