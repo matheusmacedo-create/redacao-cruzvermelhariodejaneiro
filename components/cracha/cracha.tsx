@@ -1,10 +1,10 @@
 import Image from 'next/image'
-import localFont from 'next/font/local'
 import QRCode from 'qrcode'
 import { Download, ScanLine } from 'lucide-react'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import type { CrachaPronto } from '@/lib/cracha/servidor'
 import { cn } from '@/lib/utils'
+import { condensada } from './fonte'
 
 /**
  * O crachá funcional virtual, no desenho do Manual de Identidade Institucional
@@ -15,8 +15,6 @@ import { cn } from '@/lib/utils'
  * Os contatos do modelo do manual são antigos: o verso usa DADOS_DA_FILIAL.
  */
 
-// A Franklin Gothic Demi Cond do manual, na equivalente livre (lib/pdf/fontes).
-const condensada = localFont({ src: [{ path: '../../lib/pdf/fontes/BarlowCondensed_600SemiBold.ttf', weight: '600' }, { path: '../../lib/pdf/fontes/BarlowCondensed_700Bold.ttf', weight: '700' }], display: 'swap' })
 
 const CARTAO = 'relative flex aspect-[54/86] w-[256px] shrink-0 flex-col overflow-hidden rounded-xl border border-black/10 bg-white text-[#1f1f1f] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)]'
 
@@ -111,6 +109,13 @@ export async function Cracha({ cracha, pdf }: { cracha: CrachaPronto; pdf: strin
         </a>
       </div>
       {!cracha.ativo && <p className="text-sm text-warning-foreground">Seu cadastro não está ativo: quem ler o QR verá o crachá como inativo.</p>}
+      {cracha.situacaoDaFoto && cracha.situacaoDaFoto !== 'aprovada' && (
+        <p role="status" className="max-w-xl rounded-lg border border-warning/50 bg-warning/10 px-3 py-2 text-sm" data-cracha-foto={cracha.situacaoDaFoto}>
+          {cracha.situacaoDaFoto === 'sem_foto' && 'Seu crachá ainda está sem foto. Envie uma foto de rosto, de frente e sem óculos escuros: o Voluntariado aprova antes de ela ir para o crachá.'}
+          {cracha.situacaoDaFoto === 'aguardando' && 'Sua foto está com o Voluntariado para aprovação. Enquanto isso, o crachá sai sem foto.'}
+          {cracha.situacaoDaFoto === 'recusada' && <>O Voluntariado não aprovou sua foto{cracha.motivoDaFoto ? <>: “{cracha.motivoDaFoto.replace(/[.!]+$/, '')}”</> : null}. Envie outra para o crachá.</>}
+        </p>
+      )}
     </div>
   )
 }

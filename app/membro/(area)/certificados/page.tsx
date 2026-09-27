@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Award, Download, GraduationCap, Share2, ShieldCheck } from 'lucide-react'
+import { Award, Download, GraduationCap, Medal, Share2, ShieldCheck } from 'lucide-react'
 import { exigirMembro } from '@/lib/membro/sessao'
 import { certificadosDoMembro, linkDoLinkedin, type CertificadoDoMembro } from '@/lib/membro/cursos'
+import { diplomasDoMembro, type Diploma } from '@/lib/cursos/diplomas'
 import { historicoDoMembro } from '@/lib/membro/dados'
 import { dataCurta, validadeLegivel } from '@/lib/membro/regras'
 import { urlBase } from '@/lib/newsletter/contexto'
@@ -24,7 +25,7 @@ export const metadata: Metadata = { title: 'Certificados' }
  */
 export default async function Certificados() {
   const m = await exigirMembro()
-  const [certificados, { formacoes }] = await Promise.all([certificadosDoMembro(m), historicoDoMembro(m)])
+  const [certificados, { formacoes }, diplomas] = await Promise.all([certificadosDoMembro(m), historicoDoMembro(m), diplomasDoMembro(m)])
   const hoje = hojeEmSaoPaulo()
   const jaListadas = new Set(certificados.map((c) => c.formacao_id).filter(Boolean))
   const outras = formacoes.filter((f) => !jaListadas.has(f.id))
@@ -32,7 +33,14 @@ export default async function Certificados() {
   const base = urlBase()
   return (
     <div className="flex flex-col gap-6">
-      <CabecalhoDaPagina titulo="Certificados" descricao="Tudo o que você concluiu. Cada certificado tem um código que qualquer pessoa pode conferir." />
+      <CabecalhoDaPagina titulo="Certificados" descricao="Tudo o que você concluiu e os reconhecimentos da filial. Cada documento tem um código que qualquer pessoa pode conferir." />
+      {diplomas.length > 0 && (
+        <Secao titulo="Diplomas de reconhecimento" icone={Medal} id="diplomas">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-ajuda="membro.diplomas">
+            {diplomas.map((d) => <li key={d.codigo} className="min-w-0"><CartaoDoDiploma d={d} verificacao={`${base}/diploma/${d.codigo}`} /></li>)}
+          </ul>
+        </Secao>
+      )}
       <Secao titulo="Certificados emitidos" icone={Award} id="emitidos">
         {certificados.length ? (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" data-ajuda="membro.certificados">
@@ -97,6 +105,30 @@ function CartaoDoCertificado({ c, hoje, verificacao }: { c: CertificadoDoMembro;
         <CopiarLink url={verificacao} className={acao} />
         <LinkExterno href={linkDoLinkedin(c, verificacao)} className={acao}><Share2 className="size-4 shrink-0" aria-hidden="true" />Adicionar ao LinkedIn</LinkExterno>
         <LinkExterno href={`/certificado/${c.codigo}`} className={acao}><ShieldCheck className="size-4 shrink-0" aria-hidden="true" />Página de verificação</LinkExterno>
+      </div>
+    </article>
+  )
+}
+
+/** Um Diploma de Reconhecimento: o motivo, a data, o código e o que dá para fazer com ele. */
+function CartaoDoDiploma({ d, verificacao }: { d: Diploma; verificacao: string }) {
+  const idDoTitulo = `diploma-${d.codigo}`
+  const acao = cn(botaoFantasma, 'w-full justify-start px-2 text-left font-medium')
+  return (
+    <article className="flex h-full flex-col gap-3 rounded-xl border border-[#b08c4d]/40 bg-card p-4 sm:p-5" aria-labelledby={idDoTitulo}>
+      <div className="flex items-start gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#b08c4d]/15"><Medal className="size-5 text-[#8a6a2f]" aria-hidden="true" /></span>
+        <div className="min-w-0">
+          <h3 id={idDoTitulo} className="font-semibold leading-snug">{d.motivo === 'horas' ? `${Number(d.marco_horas).toLocaleString('pt-BR')} horas de voluntariado` : 'Reconhecimento da coordenação'}</h3>
+          <p className="text-sm text-muted-foreground">Emitido em {dataCurta(d.emitido_em)}</p>
+        </div>
+      </div>
+      {d.texto && <p className="text-sm">{d.texto}</p>}
+      <p className="text-sm text-muted-foreground">Código <code className="whitespace-nowrap rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">{d.codigo}</code></p>
+      <div className="mt-auto flex flex-col gap-1 pt-1">
+        <a href={`/membro/diplomas/${d.codigo}/pdf`} className={cn(botaoSecundario, 'mb-1 w-full')}><Download className="size-4" aria-hidden="true" />Baixar diploma (PDF)</a>
+        <CopiarLink url={verificacao} className={acao} />
+        <LinkExterno href={`/diploma/${d.codigo}`} className={acao}><ShieldCheck className="size-4 shrink-0" aria-hidden="true" />Página de verificação</LinkExterno>
       </div>
     </article>
   )

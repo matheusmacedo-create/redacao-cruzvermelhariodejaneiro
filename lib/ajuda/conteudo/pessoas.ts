@@ -778,7 +778,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       alvo: 'voluntarios.abas',
       titulo: 'Cadastro e inscrições',
-      texto: '“Voluntários” é o cadastro. “Inscrições pendentes” são as que chegaram pelo formulário público e esperam aprovação. “Quem acessa” aparece só para administradores.',
+      texto: '“Voluntários” é o cadastro. “Inscrições pendentes” são as que chegaram pelo formulário público e esperam aprovação. “Fotos do crachá” são as fotos que os voluntários enviaram e esperam a sua aprovação. “Quem acessa” aparece só para administradores.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -831,6 +831,18 @@ const VOLUNTARIOS: GuiaDaArea = {
           alvo: 'voluntarios.horas',
           titulo: 'Horas de voluntariado',
           texto: '“Registrar horas” lança data, horas e atividade. Presença marcada numa oportunidade também vira horas aqui, sozinha.',
+        },
+        {
+          alvo: 'voluntarios.foto-do-cracha',
+          titulo: 'Foto do crachá',
+          texto: 'A foto que o voluntário envia só vai para o crachá depois que o Voluntariado aprova. “Aprovar” libera; “Recusar” pede o motivo, que vai para o voluntário por e-mail. A foto que você mesmo põe em “Editar cadastro” já sai aprovada.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'voluntarios.diplomas',
+          titulo: 'Diplomas de reconhecimento',
+          texto: 'Aos 100, 500 e 1.000 horas, o diploma sai sozinho. “Conceder diploma” homenageia um serviço especial, com o motivo que vai impresso. “Cancelar” tira a validade, e a verificação pública passa a mostrar “cancelado”.',
+          seAusente: 'pular',
         },
         {
           alvo: 'voluntarios.area',

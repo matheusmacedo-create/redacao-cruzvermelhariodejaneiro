@@ -14,9 +14,9 @@
  * (lib/equipe.ts: a Presidência).
  */
 
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import { embutirFontes, textoQueCabe } from '@/lib/pdf/fontes'
-import { desenharQr, embutirImagem, escrever, quebrar } from '@/lib/pdf/desenho'
+import { PDFDocument, rgb, type PDFPage } from 'pdf-lib'
+import { embutirFontes } from '@/lib/pdf/fontes'
+import { desenharQr, embutirImagem, escrever, paragrafoJustificado, quebrar, retanguloArredondado } from '@/lib/pdf/desenho'
 import { PROPORCAO_DA_LOGO } from '@/lib/pdf/logo'
 import { SETORES } from '@/lib/equipe'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
@@ -48,11 +48,6 @@ export const dataPorExtenso = (iso: string) => new Intl.DateTimeFormat('pt-BR', 
 export function assinaturaDaFilial(): { nome: string; cargo: string } {
   const presidente = SETORES.flatMap((s) => s.pessoas).find((p) => p.cargo === 'Presidente')
   return presidente ? { nome: presidente.nome, cargo: 'Presidente' } : { nome: DADOS_DA_FILIAL.nome, cargo: 'Presidência' }
-}
-
-/** Retângulo de cantos arredondados em SVG (y para baixo, a partir do canto de cima). */
-function retanguloArredondado(w: number, h: number, r: number): string {
-  return `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`
 }
 
 /** A textura de segurança do fundo: ondas finas cruzadas, como no papel do modelo. */
@@ -88,44 +83,6 @@ function ornamento(p: PDFPage, cx: number, y: number) {
   p.drawCircle({ x: cx, y: y - 1, size: 2.4, color: MARROM })
 }
 
-type Trecho = { texto: string; fonte: PDFFont }
-
-/** Parágrafo justificado com trechos em fontes diferentes (o curso em destaque). A última linha fica à esquerda. */
-function paragrafoJustificado(p: PDFPage, trechos: Trecho[], x: number, y: number, largura: number, tamanho: number, entrelinha: number): number {
-  // Pontuação no começo de um trecho ("…Voluntários, ministrado") cola na palavra anterior, sem espaço.
-  const palavras: { w: string; f: PDFFont; colada?: { w: string; f: PDFFont } }[] = []
-  for (const t of trechos) {
-    for (const w of textoQueCabe(t.fonte, t.texto).split(/\s+/).filter(Boolean)) {
-      const pont = /^[,.;:!?)]+/.exec(w)
-      const anterior = palavras[palavras.length - 1]
-      if (pont && anterior && !anterior.colada) {
-        anterior.colada = { w: pont[0], f: t.fonte }
-        if (w.length > pont[0].length) palavras.push({ w: w.slice(pont[0].length), f: t.fonte })
-      } else palavras.push({ w, f: t.fonte })
-    }
-  }
-  const larguraDaPalavra = (q: (typeof palavras)[number]) => q.f.widthOfTextAtSize(q.w, tamanho) + (q.colada ? q.colada.f.widthOfTextAtSize(q.colada.w, tamanho) : 0)
-  const espaco = trechos[0].fonte.widthOfTextAtSize(' ', tamanho)
-  let linha: typeof palavras = []
-  const larguraDe = (ps: typeof palavras) => ps.reduce((s, q) => s + larguraDaPalavra(q), 0) + espaco * Math.max(0, ps.length - 1)
-  const desenhar = (ps: typeof palavras, justificar: boolean) => {
-    const sobra = largura - larguraDe(ps)
-    const extra = justificar && ps.length > 1 ? sobra / (ps.length - 1) : 0
-    let cx = x
-    for (const q of ps) {
-      p.drawText(q.w, { x: cx, y, size: tamanho, font: q.f, color: TINTA })
-      if (q.colada) p.drawText(q.colada.w, { x: cx + q.f.widthOfTextAtSize(q.w, tamanho), y, size: tamanho, font: q.colada.f, color: TINTA })
-      cx += larguraDaPalavra(q) + espaco + extra
-    }
-    y -= entrelinha
-  }
-  for (const q of palavras) {
-    if (linha.length && larguraDe([...linha, q]) > largura) { desenhar(linha, true); linha = [q] } else linha.push(q)
-  }
-  if (linha.length) desenhar(linha, false)
-  return y
-}
-
 export async function gerarPdfDoCertificado(d: DadosDoCertificado): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.setTitle(`Certificado ${d.codigo} — ${d.curso}`)
@@ -157,7 +114,7 @@ export async function gerarPdfDoCertificado(d: DadosDoCertificado): Promise<Uint
     { texto: 'concluiu o curso', fonte: f.texto },
     { texto: d.curso, fonte: f.negrito },
     { texto: `, ministrado pela Cruz Vermelha Brasileira – Filial do Estado do Rio de Janeiro na Área do Voluntário${carga}${nota}.`, fonte: f.texto },
-  ], 118, A - 292, L - 236, 13, 19.5)
+  ], 118, A - 292, L - 236, 13, 19.5, TINTA)
 
   y -= 8
   escrever(p, f.textoItalico, `Rio de Janeiro, ${dataPorExtenso(d.emitidoEm)}.`, { x: L - 118, y, tamanho: 12.5, alinhar: 'direita' })

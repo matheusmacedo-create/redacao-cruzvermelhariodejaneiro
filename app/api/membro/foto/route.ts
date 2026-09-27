@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NINGUEM, sessaoDoMembro } from '@/lib/membro/sessao'
 import { apagarFoto, erroDaFoto, lerFotoEnviada, servirFoto, trocarFoto } from '@/lib/membro/foto-servidor'
 import { fotoDoParticipante } from '@/lib/membro/foto'
+import { gerentesDoVoluntariado } from '@/lib/membro/comunicacao'
+import { notificar } from '@/lib/notificacoes/servidor'
 
 /**
  * A foto de perfil do voluntário, pela sessão da Área do Voluntário: ele vê,
@@ -44,6 +46,13 @@ export async function POST(request: NextRequest) {
   } catch (causa) {
     return erroDaFoto(causa instanceof Error ? causa.message : 'Não foi possível salvar a foto.', 500)
   }
+  // A foto nova só vai para o crachá depois que o Voluntariado aprova (migração 20260929050000).
+  const admin = createAdminClient()
+  await notificar(admin, {
+    workspaceId: m.workspaceId, para: await gerentesDoVoluntariado(m.workspaceId), atorId: null, categoria: 'aprovacoes',
+    titulo: `Foto de crachá para aprovar: ${m.nome}`, mensagem: 'O voluntário enviou uma foto nova. Ela só vai para o crachá depois da sua aprovação.',
+    link: `/voluntariado/${m.participanteId}#foto-do-cracha`, botao: 'Ver a foto',
+  })
   revalidatePath('/membro', 'layout')
   return NextResponse.json({ ok: true })
 }

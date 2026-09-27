@@ -1,13 +1,14 @@
 /**
- * Confere o crachá virtual e o certificado oficial (docs/IDENTIDADE.md).
+ * Confere o crachá virtual, o certificado e o diploma oficiais (docs/IDENTIDADE.md).
  * Rode com: npx tsx scripts/conferir-cracha.ts [pasta]
- * Com uma pasta, grava ali um crachá e um certificado de exemplo em PDF.
+ * Com uma pasta, grava ali um crachá, um certificado e um diploma de exemplo em PDF.
  */
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque } from '../lib/cracha/regras'
+import { codigoDoCracha, faixaDoVinculo, fatorRhPorExtenso, lerCodigoDoCracha, mesAno, nomeDeDestaque, situacaoDaFotoDoCracha } from '../lib/cracha/regras'
 import { gerarPdfDoCracha } from '../lib/cracha/pdf'
 import { gerarPdfDoCertificado } from '../lib/cursos/certificado-pdf'
+import { gerarPdfDoDiploma, textoDoDiploma } from '../lib/cursos/diploma-pdf'
 import { logoOficial } from '../lib/pdf/logo'
 
 let falhas = 0
@@ -40,6 +41,15 @@ igual(fatorRhPorExtenso('O POSITIVO'), 'O POSITIVO', 'por extenso')
 igual(fatorRhPorExtenso('não sei'), null, 'desconhecido')
 igual(faixaDoVinculo('voluntario'), 'COLABORADOR VOLUNTÁRIO', 'faixa do voluntário (manual p. 28)')
 igual(faixaDoVinculo('equipe'), 'COLABORADOR', 'faixa da equipe')
+const foto = 'voluntarios/w/p/a.jpg', outra = 'voluntarios/w/p/b.jpg'
+igual(situacaoDaFotoDoCracha({ foto: null, aprovada: null, recusada: null }), 'sem_foto', 'foto: sem foto')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: null, recusada: null }), 'aguardando', 'foto: enviada, esperando')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: foto, recusada: null }), 'aprovada', 'foto: aprovada')
+igual(situacaoDaFotoDoCracha({ foto: outra, aprovada: foto, recusada: null }), 'aguardando', 'foto: trocada depois de aprovada volta a esperar')
+igual(situacaoDaFotoDoCracha({ foto, aprovada: null, recusada: foto }), 'recusada', 'foto: recusada')
+igual(situacaoDaFotoDoCracha({ foto: outra, aprovada: null, recusada: foto }), 'aguardando', 'foto: nova depois da recusa')
+igual(textoDoDiploma({ motivo: 'horas', marcoHoras: 1000, texto: null }).startsWith('em reconhecimento às 1.000 horas'), true, 'diploma de horas')
+igual(textoDoDiploma({ motivo: 'coordenacao', marcoHoras: null, texto: 'Pela dedicação nas enchentes de 2026.' }), 'em agradecimento aos relevantes serviços prestados à Cruz Vermelha Brasileira: pela dedicação nas enchentes de 2026.', 'diploma da coordenação')
 
 async function exemplos(pasta: string) {
   const logo = await logoOficial()
@@ -53,11 +63,15 @@ async function exemplos(pasta: string) {
     nome: 'Maria Eduarda da Silva Neves', curso: 'Primeiros Socorros para Voluntários', cargaHoraria: 20, nota: 92, emitidoEm: '2026-09-27T15:00:00Z',
     validoAte: '2028-09-27', codigo: 'ABCD-2345', urlDeVerificacao: 'https://palacio.cruzvermelhariodejaneiro.org/certificado/ABCD-2345', logo,
   }))
+  writeFileSync(join(pasta, 'diploma-exemplo.pdf'), await gerarPdfDoDiploma({
+    nome: 'Maria Eduarda da Silva Neves', motivo: 'horas', marcoHoras: 500, texto: null, emitidoEm: '2026-09-27T15:00:00Z',
+    codigo: 'WXYZ-6789', urlDeVerificacao: 'https://palacio.cruzvermelhariodejaneiro.org/diploma/WXYZ-6789', logo,
+  }))
   console.log(`Exemplos gravados em ${pasta}`)
 }
 
 const pasta = process.argv[2]
 ;(pasta ? exemplos(pasta) : Promise.resolve()).then(() => {
-  console.log(falhas ? `${falhas} falha(s).` : 'Crachá e certificado: tudo certo.')
+  console.log(falhas ? `${falhas} falha(s).` : 'Crachá, certificado e diploma: tudo certo.')
   if (falhas) process.exit(1)
 })

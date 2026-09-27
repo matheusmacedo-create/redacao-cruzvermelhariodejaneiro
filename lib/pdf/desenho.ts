@@ -72,3 +72,46 @@ export function imagemCobrindo(p: PDFPage, img: PDFImage, x: number, y: number, 
   p.drawImage(img, { x: x + (w - iw) / 2, y: y + (h - ih) / 2, width: iw, height: ih })
   p.pushOperators(popGraphicsState())
 }
+
+/** Retângulo de cantos arredondados em SVG (y para baixo, a partir do canto de cima). */
+export function retanguloArredondado(w: number, h: number, r: number): string {
+  return `M ${r} 0 H ${w - r} Q ${w} 0 ${w} ${r} V ${h - r} Q ${w} ${h} ${w - r} ${h} H ${r} Q 0 ${h} 0 ${h - r} V ${r} Q 0 0 ${r} 0 Z`
+}
+
+export type Trecho = { texto: string; fonte: PDFFont }
+
+/** Parágrafo justificado com trechos em fontes diferentes (o curso em destaque). A última linha fica à esquerda. */
+export function paragrafoJustificado(p: PDFPage, trechos: Trecho[], x: number, y: number, largura: number, tamanho: number, entrelinha: number, cor: RGB = rgb(0.13, 0.12, 0.11)): number {
+  // Pontuação no começo de um trecho ("…Voluntários, ministrado") cola na palavra anterior, sem espaço.
+  const palavras: { w: string; f: PDFFont; colada?: { w: string; f: PDFFont } }[] = []
+  for (const t of trechos) {
+    for (const w of textoQueCabe(t.fonte, t.texto).split(/\s+/).filter(Boolean)) {
+      const pont = /^[,.;:!?)]+/.exec(w)
+      const anterior = palavras[palavras.length - 1]
+      if (pont && anterior && !anterior.colada) {
+        anterior.colada = { w: pont[0], f: t.fonte }
+        if (w.length > pont[0].length) palavras.push({ w: w.slice(pont[0].length), f: t.fonte })
+      } else palavras.push({ w, f: t.fonte })
+    }
+  }
+  const larguraDaPalavra = (q: (typeof palavras)[number]) => q.f.widthOfTextAtSize(q.w, tamanho) + (q.colada ? q.colada.f.widthOfTextAtSize(q.colada.w, tamanho) : 0)
+  const espaco = trechos[0].fonte.widthOfTextAtSize(' ', tamanho)
+  let linha: typeof palavras = []
+  const larguraDe = (ps: typeof palavras) => ps.reduce((s, q) => s + larguraDaPalavra(q), 0) + espaco * Math.max(0, ps.length - 1)
+  const desenhar = (ps: typeof palavras, justificar: boolean) => {
+    const sobra = largura - larguraDe(ps)
+    const extra = justificar && ps.length > 1 ? sobra / (ps.length - 1) : 0
+    let cx = x
+    for (const q of ps) {
+      p.drawText(q.w, { x: cx, y, size: tamanho, font: q.f, color: cor })
+      if (q.colada) p.drawText(q.colada.w, { x: cx + q.f.widthOfTextAtSize(q.w, tamanho), y, size: tamanho, font: q.colada.f, color: cor })
+      cx += larguraDaPalavra(q) + espaco + extra
+    }
+    y -= entrelinha
+  }
+  for (const q of palavras) {
+    if (linha.length && larguraDe([...linha, q]) > largura) { desenhar(linha, true); linha = [q] } else linha.push(q)
+  }
+  if (linha.length) desenhar(linha, false)
+  return y
+}

@@ -10,6 +10,9 @@ import { NIVEIS, SITUACOES, VINCULOS, ehSituacao, ehVinculo, idade, situacaoDaFo
 import { CopiarLink, DecidirInscricao, NivelDeAcesso } from '@/components/app/participantes/acoes'
 import { nomesDosSetores } from '@/lib/setores'
 import { tituloDaArea } from '@/lib/navegacao'
+import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
+import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
+import { AvaliarFotoDoCracha } from '@/components/app/participantes/foto-do-cracha'
 
 export const metadata = { title: tituloDaArea('/voluntariado') }
 
@@ -50,7 +53,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
     )
   }
 
-  const aba = sp.aba === 'inscricoes' ? 'inscricoes' : sp.aba === 'acessos' && context.role === 'admin' ? 'acessos' : 'lista'
+  const aba = sp.aba === 'inscricoes' ? 'inscricoes' : sp.aba === 'fotos' && nivel >= 2 ? 'fotos' : sp.aba === 'acessos' && context.role === 'admin' ? 'acessos' : 'lista'
   const hoje = hojeEmSaoPaulo()
 
   const linhas: Linha[] = []
@@ -71,6 +74,13 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
     ? await supabase.from('membro_conversas').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('situacao', 'aberta')
     : { count: 0 }
   const conversasAbertas = abertas ?? 0
+  // Fotos de crachá esperando o Voluntariado (migração 20260929050000). Sem a migração, a consulta falha e a fila fica vazia.
+  const { data: comFoto } = nivel >= 2
+    ? await supabase.from('participantes').select('id,nome,nome_social,foto_path,foto_cracha_path,foto_cracha_recusada_path,situacao')
+      .eq('workspace_id', ws).not('foto_path', 'is', null).is('anonimizado_em', null).neq('situacao', 'desligado').limit(5000)
+    : { data: [] }
+  const fotosParaAprovar = ((comFoto ?? []) as { id: string; nome: string; nome_social: string | null; foto_path: string; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null }[])
+    .filter((f) => situacaoDaFotoDoCracha({ foto: f.foto_path, aprovada: f.foto_cracha_path, recusada: f.foto_cracha_recusada_path }) === 'aguardando')
   const ativos = linhas.filter((l) => l.situacao === 'ativo')
   const pendentes = linhas.filter((l) => l.situacao === 'candidato')
   const totalHoras = (horasDoMes ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -86,6 +96,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   const abas = [
     { id: 'lista', rotulo: `Voluntários (${linhas.filter((l) => l.situacao !== 'candidato' && !l.anonimizado_em).length})` },
     { id: 'inscricoes', rotulo: `Inscrições pendentes (${pendentes.length})` },
+    ...(nivel >= 2 ? [{ id: 'fotos', rotulo: `Fotos do crachá (${fotosParaAprovar.length})` }] : []),
     // Só admin define quem acessa (definir_acesso_participantes recusa os demais).
     ...(context.role === 'admin' ? [{ id: 'acessos', rotulo: 'Quem acessa' }] : []),
   ]
@@ -199,6 +210,22 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
                 <p className="text-[11px] text-muted-foreground">Inscrito em {new Date(l.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
               </div>
               {nivel >= 2 && <DecidirInscricao id={l.id} />}
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {aba === 'fotos' && (
+        <Card className="divide-y divide-border p-0" data-ajuda="voluntarios.fotos-do-cracha">
+          <p className="px-4 py-3 text-sm text-muted-foreground">A foto do voluntário só vai para o crachá e para a verificação do QR depois de aprovada aqui. Confira: rosto inteiro, de frente, com boa luz, sem óculos escuros.</p>
+          {!fotosParaAprovar.length && <p className="p-10 text-center text-sm text-muted-foreground">Nenhuma foto esperando aprovação.</p>}
+          {fotosParaAprovar.map((f) => (
+            <div key={f.id} className="flex flex-wrap items-center gap-4 px-4 py-3">
+              <img src={urlDaFotoNaEquipe(f.id, f.foto_path) ?? ''} alt={`Foto enviada por ${f.nome_social || f.nome}`} className="h-24 w-[72px] shrink-0 rounded-lg border border-border object-cover" loading="lazy" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Link href={`/voluntariado/${f.id}#foto-do-cracha`} className="font-medium hover:text-primary hover:underline">{f.nome_social || f.nome}</Link>
+                <AvaliarFotoDoCracha participanteId={f.id} fotoPath={f.foto_path} nome={f.nome_social || f.nome} />
+              </div>
             </div>
           ))}
         </Card>

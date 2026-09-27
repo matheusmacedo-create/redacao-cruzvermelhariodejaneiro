@@ -35,6 +35,23 @@ export type Cracha = {
   fatorRh: string | null
   foto: string | null
   ativo: boolean
+  /** Só no crachá do voluntário: a foto precisa da aprovação do Voluntariado. */
+  situacaoDaFoto?: SituacaoDaFoto
+  /** Por que o Voluntariado recusou a foto (só para a própria pessoa). */
+  motivoDaFoto?: string | null
+}
+
+/**
+ * A foto do crachá do voluntário (migração 20260929050000): vale só a que o
+ * Voluntariado aprovou. Foto trocada depois da aprovação volta a aguardar.
+ */
+export type SituacaoDaFoto = 'sem_foto' | 'aprovada' | 'aguardando' | 'recusada'
+
+export function situacaoDaFotoDoCracha(f: { foto: string | null; aprovada: string | null; recusada: string | null }): SituacaoDaFoto {
+  if (!f.foto) return 'sem_foto'
+  if (f.foto === f.aprovada) return 'aprovada'
+  if (f.foto === f.recusada) return 'recusada'
+  return 'aguardando'
 }
 
 /** Faixa do verso. O manual (p. 28): "COLABORADOR VOLUNTÁRIO" é para todos que não possuem vínculo empregatício. */

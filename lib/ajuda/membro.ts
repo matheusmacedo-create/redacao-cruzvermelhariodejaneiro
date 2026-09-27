@@ -311,6 +311,12 @@ const FORMACAO: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'membro.diplomas',
+          titulo: 'Diplomas de reconhecimento',
+          texto: 'Ao completar 100, 500 e 1.000 horas de voluntariado, o Diploma de Reconhecimento sai sozinho. A coordenação também pode conceder um. “Baixar PDF” entrega o diploma no modelo oficial.',
+          seAusente: 'pular',
+        },
+        {
           titulo: 'Outras formações',
           texto: 'Se a coordenação registrou outras formações no seu cadastro, elas aparecem embaixo, em “Outras formações no seu cadastro”.',
         },
@@ -414,6 +420,12 @@ const FORMACAO: GuiaDaArea = {
       pergunta: 'Como alguém confere se meu certificado é verdadeiro?',
       resposta: 'Cada certificado tem um código (no formato ABCD-2345) e um endereço público de verificação. Quem abrir o link de “Copiar link de verificação” ou de “Página de verificação” vê se ele é autêntico e está válido, com o seu nome, o curso e as datas, sem contato, CPF ou nota.',
       termos: ['verificação', 'autenticidade', 'código', 'comprovante', 'validar'],
+    },
+    {
+      id: 'diploma-de-reconhecimento',
+      pergunta: 'Como ganho um Diploma de Reconhecimento?',
+      resposta: 'Ele sai sozinho quando as suas horas de voluntariado somam 100, 500 e 1.000, e aparece em “Certificados”, na parte “Diplomas de reconhecimento”. A coordenação também pode conceder um diploma por um serviço especial.\n\nCada diploma tem um código e um QR: quem ler confere se ele é autêntico.',
+      termos: ['diploma', 'reconhecimento', 'horas', 'homenagem', '100 horas', '500 horas', '1000 horas'],
     },
     {
       id: 'nome-no-certificado',
@@ -850,7 +862,7 @@ const PERFIL: GuiaDaArea = {
         'Para mostrar numa ação, abra esta tela no celular: quem precisar confere lendo o QR do verso com a câmera.',
         'Para imprimir e usar no cordão, toque em “Baixar para imprimir (PDF)”. Saem frente e verso no tamanho de crachá (54 × 86 mm).',
       ],
-      dica: 'A foto do crachá é a sua foto de perfil: sem foto, aparece uma silhueta. Quem lê o QR vê só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato.',
+      dica: 'A foto do crachá é a sua foto de perfil, depois que o Voluntariado aprova. Sem foto aprovada, aparece uma silhueta. Quem lê o QR vê só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato.',
     },
     {
       id: 'atualizar-dados',
@@ -916,6 +928,12 @@ const PERFIL: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'cracha-foto',
+      pergunta: 'Por que a minha foto não aparece no crachá?',
+      resposta: 'Toda foto de crachá passa pela aprovação do Voluntariado. Enquanto ela espera, o crachá sai com uma silhueta, e o aviso embaixo do crachá diz “aguardando aprovação”. Quando o Voluntariado aprovar ou recusar, você recebe um e-mail; se recusar, o motivo aparece no aviso e você envia outra em “Foto de perfil”.\n\nUse uma foto de rosto, de frente, com boa luz e sem óculos escuros. Trocar a foto depois de aprovada manda a nova para aprovação de novo.',
+      termos: ['foto', 'crachá', 'cracha', 'aprovação', 'recusada', 'silhueta'],
+    },
     {
       id: 'cracha-dados',
       pergunta: 'O meu crachá está com um dado errado. Como corrijo?',

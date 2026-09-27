@@ -160,3 +160,27 @@ export function emailDeBemEntregue(p: { nome: string; bem: string; plaqueta: str
     ],
   })
 }
+
+export function emailDaFotoDoCracha(p: { nome: string; aprovada: boolean; motivo: string | null; url: string }): EmailPronto {
+  return p.aprovada
+    ? montar({
+      assunto: 'Sua foto do crachá foi aprovada',
+      preheader: 'Seu crachá virtual já está com a foto.',
+      titulo: 'Foto aprovada',
+      blocos: [
+        { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. O Voluntariado aprovou a sua foto: ela já está no seu crachá virtual e na verificação do QR.` },
+        { tipo: 'botao', rotulo: 'Ver meu crachá', url: p.url },
+      ],
+    })
+    : montar({
+      assunto: 'Envie outra foto para o seu crachá',
+      preheader: 'O Voluntariado não aprovou a foto enviada.',
+      titulo: 'Foto não aprovada',
+      blocos: [
+        { tipo: 'p', texto: `Olá, ${primeiroNome(p.nome)}. O Voluntariado não aprovou a foto que você enviou para o crachá${p.motivo ? `: “${p.motivo.replace(/[.!]+$/, '')}”.` : '.'}` },
+        { tipo: 'p', texto: 'Envie uma foto de rosto, de frente, com boa luz e sem óculos escuros. Enquanto isso, o crachá sai sem foto.' },
+        { tipo: 'botao', rotulo: 'Enviar outra foto', url: p.url },
+      ],
+    })
+}
+

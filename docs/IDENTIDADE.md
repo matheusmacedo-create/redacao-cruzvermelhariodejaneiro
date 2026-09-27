@@ -52,18 +52,21 @@ pelo Matheus em 27/09/2026.
    - Great Vibes, para a caligrafia do certificado.
 
    `lib/pdf/fontes.ts` embute as fontes. `lib/pdf/desenho.ts` reúne QR vetorial, quebra de linha e foto recortada.
+4. **Diploma de Reconhecimento** (p. 29, A3): `lib/cursos/diploma-pdf.ts`.
+   - Sai sozinho aos 100, 500 e 1.000 horas de voluntariado.
+   - A coordenação também concede, no cadastro do voluntário.
+   - Tem código e QR de verificação pública (`/diploma/<código>`).
+   - Aparece em “Certificados”, na Área do Voluntário.
+5. **Foto do crachá do voluntário com aprovação do Voluntariado** (migração
+   `20260929050000`). A fila de aprovação fica em Voluntários → “Fotos do crachá”.
+6. **Verificação do crachá refeita para a portaria**: resultado grande e
+   colorido, relógio correndo e foto grande.
 
 ## 4. O que dá para incrementar (proposta, por prioridade)
 
 ### Rápido e visível
 
-1. **Diploma de Reconhecimento (p. 29, A3).** O app já registra as horas de
-   voluntariado (`participante_horas`), e dá para emitir o diploma com o mesmo
-   motor do certificado, em dois momentos:
-   - em marcos de horas (por exemplo, 100, 500 e 1.000 horas);
-   - por decisão da coordenação.
-
-   O diploma teria código de verificação pública e apareceria na Área do Voluntário.
+1. ~~Diploma de Reconhecimento~~: feito (item 4 da seção 3).
 2. **Papel timbrado no padrão (p. 24).** Hoje os ofícios e as folhas (recibos
    e termos do Patrimônio, relatório de Compras) usam Times e Helvetica, com
    margens próprias. A proposta é alinhar ao manual:

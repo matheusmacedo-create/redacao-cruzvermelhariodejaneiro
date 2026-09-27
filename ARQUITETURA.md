@@ -1089,7 +1089,7 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - Regras puras e estatística: `lib/oportunidades/perguntas.ts`, conferidas por
   `npx tsx scripts/conferir-perguntas.ts`.
 
-### 7.23 Identidade: crachá virtual e certificado oficial (`/perfil`, `/membro/perfil`, `/cracha/[codigo]`)
+### 7.23 Identidade: crachá virtual, certificado e diploma oficiais (`/perfil`, `/membro/perfil`, `/cracha/[codigo]`, `/diploma/[codigo]`)
 
 Base: o Manual de Identidade Institucional da CVB. O estudo e a lista do que dá
 para incrementar estão em [`docs/IDENTIDADE.md`](docs/IDENTIDADE.md). **Os contatos
@@ -1114,8 +1114,30 @@ do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
 - **Fontes.** Ficam em `lib/pdf/fontes/` (SIL OFL) e são lidas do disco. Cada
   rota que as usa precisa estar em `outputFileTracingIncludes`
   (`next.config.mjs`).
+- **Ficha do RH incompleta.** Sem cargo ou setor na ficha, o crachá e a
+  verificação completam com o cargo do perfil e a coordenação da conta.
+- **Página de verificação.** Feita para a portaria, no celular: resultado grande
+  e colorido (válido, inativo, não reconhecido), relógio correndo (um print fica
+  parado), foto, nome na faixa vermelha e o contato da filial.
+- **Foto do crachá do voluntário** (migração `20260929050000`). Só vale a foto
+  que o Voluntariado aprovou (`participantes.foto_cracha_path` igual a `foto_path`).
+  - Foto trocada pela Área do Voluntário volta a aguardar e avisa quem gerencia
+    o Voluntariado.
+  - `avaliar_foto_do_cracha` aprova ou recusa (com motivo, que vai por e-mail),
+    e recebe o caminho da foto avaliada: se ela mudou no meio, recusa.
+  - A foto posta pela equipe em "Editar cadastro" já sai aprovada.
+  - A fila fica na aba "Fotos do crachá" de `/voluntariado`. O crachá de
+    voluntário não usa mais a foto de perfil da conta.
+- **Diploma de Reconhecimento** (migração `20260929040000`, tabela `diplomas`).
+  - Sai sozinho aos 100, 500 e 1.000 horas: um gatilho em `participante_horas`
+    chama `private.emitir_diplomas_de_horas()`, que é idempotente.
+  - A coordenação concede (`conceder_diploma`, nível 2 de participantes) e
+    cancela (`revogar_diploma`).
+  - O PDF (A3, `lib/cursos/diploma-pdf.ts`) sai em `/membro/diplomas/[codigo]/pdf`
+    e `/api/voluntariado/diplomas/[codigo]/pdf`.
+  - A verificação pública fica em `/diploma/[codigo]`.
 - **Conferência.** `npx tsx scripts/conferir-cracha.ts [pasta]` testa as regras
-  e, com pasta, grava exemplos em PDF.
+  e, com pasta, grava exemplos em PDF (crachá, certificado e diploma).
 
 ## 8. Integrações externas
 
