@@ -15,6 +15,8 @@ import {
   textoDaEscolha, tituloDoRelato,
 } from './regras'
 import { seguirEnvio } from './envio'
+import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
+import { aposResposta } from '@/lib/portaria/servidor'
 
 /**
  * O que o bot do WhatsApp FAZ em nome de quem escreveu: responder o aviso de
@@ -87,6 +89,8 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
   const alvo = alvoDoLink(link)
   const abrir = `${base}${link ?? '/notificacoes'}`
   if (!alvo) return { texto: `Este aviso não aceita resposta por aqui. Abra no Palácio: ${abrir}` }
+  // A visita na portaria: "1", "2" ou "3" já são a resposta inteira.
+  if (alvo.tipo === 'visita') return responderVisita(admin, workspaceId, pessoa, alvo.id, texto, base)
   const corpo = texto.trim()
   if (corpo.length < 2) return { texto: 'Escreva a resposta respondendo a mensagem do aviso.' }
   if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
@@ -127,6 +131,30 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
   }
 
   return decidirAprovacao(admin, workspaceId, pessoa, alvo.id, corpo, base)
+}
+
+// ------------------------------------------------------------------ visita na portaria
+
+/**
+ * Quem é visitado responde à portaria: pode subir, aguarde na recepção ou não
+ * pode agora (lib/portaria/regras.ts). Vale com a verificação em duas etapas,
+ * como abrir chamado: é só a resposta à visita dele, e o banco confere que a
+ * visita é mesmo para esta pessoa (portaria_responder_whatsapp).
+ */
+export async function responderVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, visitaId: string, texto: string, base: string): Promise<Resposta> {
+  const abrir = `${base}${linkDaVisita(visitaId)}`
+  const lida = lerRespostaDaVisita(texto)
+  if (!lida) return { texto: `Não entendi a resposta. ${PERGUNTA_DA_VISITA}\n\nOu responda pelo Palácio: ${abrir}` }
+  const { error } = await admin.rpc('portaria_responder_whatsapp', { p_user_id: pessoa.id, p_id: visitaId, p_resposta: lida.resposta, p_recado: lida.recado })
+  if (semFuncao(error)) return { texto: `${INDISPONIVEL}: ${abrir}` }
+  if (error) return { texto: `${error.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a resposta.'} ${abrir}` }
+  const { visitanteAvisado } = await aposResposta(visitaId, pessoa.id)
+  return {
+    texto: [
+      `Pronto: *${RESPOSTAS[lida.resposta].rotulo}*. A portaria foi avisada${visitanteAvisado ? ' e o visitante recebeu a resposta no WhatsApp' : ''}.`,
+      lida.resposta === 'aguardar' ? 'Quando puder receber, responda de novo com *1*.' : null,
+    ].filter(Boolean).join(' '),
+  }
 }
 
 // ------------------------------------------------------------------ aprovação

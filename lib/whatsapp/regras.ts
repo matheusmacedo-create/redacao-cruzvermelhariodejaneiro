@@ -1,4 +1,5 @@
 import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from '@/lib/notificacoes/regras'
+import { PERGUNTA_DA_VISITA } from '@/lib/portaria/regras'
 
 /**
  * Regras do WhatsApp do Palácio Virtual, sem banco nem rede — conferidas por
@@ -205,6 +206,7 @@ export function dicaDeResposta(link: string | null | undefined): string | null {
   const alvo = alvoDoLink(link)
   if (!alvo) return null
   if (alvo.tipo === 'aprovacao') return '_Para votar por aqui, responda esta mensagem com *aprovar* ou com *ajustes:* e o que precisa mudar._'
+  if (alvo.tipo === 'visita') return `_${PERGUNTA_DA_VISITA}_`
   return '_Para responder por aqui, responda esta mensagem._'
 }
 
@@ -660,6 +662,7 @@ export type AlvoDoAviso =
   | { tipo: 'chat'; canalId: string; fio: string | null }
   | { tipo: 'aprovacao'; id: string }
   | { tipo: 'mensagem'; pessoaId: string }
+  | { tipo: 'visita'; id: string }
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
@@ -672,6 +675,7 @@ export function alvoDoLink(link: string | null | undefined): AlvoDoAviso | null 
   if (partes.length === 2 && partes[0] === 'chamados' && ehId(partes[1])) return { tipo: 'chamado', id: partes[1] }
   if (partes.length === 2 && partes[0] === 'aprovacoes' && ehId(partes[1])) return { tipo: 'aprovacao', id: partes[1] }
   if (partes.length === 3 && partes[0] === 'mensagens' && partes[1] === 'pessoa' && ehId(partes[2])) return { tipo: 'mensagem', pessoaId: partes[2] }
+  if (partes.length === 3 && partes[0] === 'portaria' && partes[1] === 'visita' && ehId(partes[2])) return { tipo: 'visita', id: partes[2] }
   if (partes.length === 2 && partes[0] === 'chat' && ehId(partes[1])) {
     const fio = new URLSearchParams(busca).get('fio')?.toLowerCase() ?? null
     return { tipo: 'chat', canalId: partes[1], fio: ehId(fio ?? undefined) ? fio : null }

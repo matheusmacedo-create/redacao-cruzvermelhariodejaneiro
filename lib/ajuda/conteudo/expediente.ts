@@ -1156,7 +1156,7 @@ const COMPRAS: GuiaDaArea = {
 
 const PORTARIA: GuiaDaArea = {
   href: '/portaria',
-  paraQueServe: 'O livro de visitantes da filial, no lugar do caderno da portaria. Registra quem chegou, quem veio visitar e por quê, com foto e crachá de visitante, e mostra quem está na filial agora. O visitante também pode se registrar sozinho, pelo QR da entrada.',
+  paraQueServe: 'O livro de visitantes da filial, no lugar do caderno da portaria. Registra quem chegou, quem veio visitar e por quê, com foto e crachá de visitante, e mostra quem está na filial agora. Quem é visitado responde pelo Palácio ou pelo WhatsApp se o visitante pode subir ao hall, se aguarda na recepção ou se não pode ser recebido agora. O visitante também pode se registrar sozinho, pelo QR da entrada.',
   quemUsa: 'Toda a equipe do Palácio Virtual (menos a equipe da Escola) registra entradas e saídas e vê o livro. Só administradores trocam o link do QR da entrada. Não pedimos documento: nome, telefone, de onde vem, quem visita e o motivo.',
   naPratica: {
     titulo: 'Uma reunião com a Prefeitura, da chegada à saída',
@@ -1164,8 +1164,9 @@ const PORTARIA: GuiaDaArea = {
       'A representante da Prefeitura lê o QR na entrada, preenche o nome e escreve “Presidência” em quem vai visitar.',
       'O cadastro aparece em “Chegaram pelo QR” na tela da portaria, que recarrega sozinha.',
       'A portaria toca em “Confirmar entrada”, escolhe a pessoa visitada, anota o crachá V-07 e tira a foto.',
-      'A Presidência recebe no sino: “Ana Lima chegou para falar com você”.',
-      'Na saída, a portaria toca em “Saída” e confirma que o crachá V-07 voltou.',
+      'A Presidência recebe no sino e no WhatsApp: “Ana Lima chegou para falar com você”, e responde a mensagem com 2, “aguarde na recepção”.',
+      'Na tela da portaria aparece “Aguarde na recepção”; dez minutos depois, a Presidência responde 1 e a tela muda para “Pode subir”. A representante recebe a mesma resposta no WhatsApp, porque marcou esse pedido no QR.',
+      'Ela sobe ao hall e espera a Presidência. Na saída, a portaria toca em “Saída” e confirma que o crachá V-07 voltou.',
     ],
     resultado: 'O livro fica completo, com hora de entrada e saída, sem caderno e sem crachá perdido.',
   },
@@ -1185,12 +1186,12 @@ const PORTARIA: GuiaDaArea = {
     {
       alvo: 'portaria.nova',
       titulo: 'Registrar entrada',
-      texto: 'Nome, de onde vem, quem vai visitar, o motivo e o número do crachá de visitante. “Tirar foto” abre a câmera do tablet ou do celular. Quem é escolhido em “Quem vai visitar” recebe aviso no sino.',
+      texto: 'Nome, de onde vem, quem vai visitar, o motivo e o número do crachá de visitante. Quem é escolhido em “Quem vai visitar” recebe o aviso no sino e no WhatsApp e responde se o visitante pode subir. Se o visitante quiser, marque para ele receber essa resposta no WhatsApp.',
     },
     {
       alvo: 'portaria.dentro',
       titulo: 'Na filial agora',
-      texto: 'Quem entrou e ainda não saiu, com a hora da entrada. “Saída” registra a saída e, se havia crachá, pergunta se ele foi devolvido. Quem entrou em outro dia aparece com um alerta: provavelmente esqueceram a saída.',
+      texto: 'Quem entrou e ainda não saiu, com a hora da entrada e a resposta de quem é visitado: “Esperando a resposta”, “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”, com o recado. A resposta aparece sozinha. “Resposta” registra a que chegou por telefone. “Saída” registra a saída e, se havia crachá, pergunta se ele foi devolvido.',
     },
     {
       alvo: 'portaria.crachas',
@@ -1207,6 +1208,19 @@ const PORTARIA: GuiaDaArea = {
   ],
   tarefas: [
     {
+      id: 'responder-visita',
+      titulo: 'Responder à portaria quando chega uma visita para você',
+      exemplo: 'O representante da empresa de manutenção chega às 10h; a coordenadora está numa ligação, responde 2 (aguarde na recepção) e, ao terminar, responde 1 (pode subir).',
+      passos: [
+        'Chega o aviso “Fulano chegou para falar com você”, no sino e no WhatsApp.',
+        'No WhatsApp, responda a mensagem do aviso com 1 (pode subir), 2 (aguarde na recepção) ou 3 (não posso receber agora). Pode escrever um recado depois do número, como “2 estou terminando uma reunião”.',
+        'Pelo Palácio, toque no aviso e escolha “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”, com o recado se quiser.',
+        'A portaria vê a resposta na hora. Se o visitante pediu, ele recebe a mesma resposta no WhatsApp.',
+        'Pediu para aguardar? Quando puder receber, responda de novo com 1.',
+      ],
+      dica: 'Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
+    },
+    {
       id: 'registrar-visitante',
       titulo: 'Registrar a entrada de um visitante',
       passos: [
@@ -1214,7 +1228,9 @@ const PORTARIA: GuiaDaArea = {
         'Em “Registrar entrada”, preencha o nome e, se quiser, telefone, “De onde vem” e o motivo.',
         'Em “Quem vai visitar”, escolha a pessoa do Palácio (ela recebe aviso) ou escreva o setor em “Setor ou pessoa”.',
         'Anote o “Nº do crachá de visitante” que você entregou.',
+        'Se o visitante quiser receber no WhatsApp a resposta de quem vai visitar, confira o telefone e marque a opção. Pergunte antes de marcar.',
         'Toque em “Tirar foto”, se for o caso, e depois em “Registrar entrada”.',
+        'Em “Na filial agora”, espere a resposta: “Pode subir” (oriente o visitante a subir ao hall e aguardar o setor), “Aguarde na recepção” ou “Não pode receber agora”.',
       ],
       dica: 'Esqueceu a foto? Na lista “Na filial agora”, o botão “Foto” tira depois.',
       exemplo: 'Exemplo: o técnico da empresa de ar-condicionado chega às 9h para a manutenção; a portaria registra “Refrigeração Rio”, escolhe o setor de Patrimônio e entrega o crachá V-03.',
@@ -1271,8 +1287,20 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'quem-recebe-aviso',
       pergunta: 'Quem fica sabendo que o visitante chegou?',
-      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe aviso no sino (e por e-mail, conforme a preferência dela, no assunto “Portaria”). O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
+      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe o aviso no sino, no WhatsApp confirmado e por e-mail, conforme as preferências dela no assunto “Portaria”. O aviso sai na hora, mesmo à noite. Quando ela responde, quem registrou a entrada é avisado. O visitante recebe a resposta no WhatsApp só se pediu. O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
       termos: ['notificação', 'avisar', 'chegou'],
+    },
+    {
+      id: 'sem-resposta',
+      pergunta: 'Quem é visitado não respondeu. E agora?',
+      resposta: 'A visita fica com “Esperando a resposta de…” em “Na filial agora”. Ligue para a pessoa ou para o setor e, com a resposta, toque em “Resposta” para registrar: “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”. Fica registrado quem anotou.',
+      termos: ['não respondeu', 'demora', 'telefone', 'ligar'],
+    },
+    {
+      id: 'visitante-whatsapp',
+      pergunta: 'O visitante recebe mensagem no WhatsApp?',
+      resposta: 'Só se ele pediu: no QR da entrada, marcando a opção, ou na portaria, que marca depois de perguntar. Ele recebe só a resposta sobre a visita daquele dia (“Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”); o recado fica só com a portaria. Sem telefone, nada sai.',
+      termos: ['visitante', 'whatsapp', 'mensagem', 'lgpd', 'consentimento'],
     },
     {
       id: 'qr-nao-funciona',
@@ -1285,6 +1313,24 @@ const PORTARIA: GuiaDaArea = {
       pergunta: 'Alguém mandou um cadastro de brincadeira pelo QR.',
       resposta: 'Toque em “Descartar”: o cadastro sai de “Chegaram pelo QR” e não entra no livro como visita. O mesmo aparelho só consegue mandar seis cadastros por hora.',
       termos: ['spam', 'trote', 'repetido'],
+    },
+  ],
+  telas: [
+    {
+      caminho: '/portaria/visita/[id]',
+      rotulo: 'Visita na portaria',
+      tour: [
+        {
+          titulo: 'Chegou uma visita para você',
+          texto: 'Quem é, de onde vem, o motivo e a hora em que chegou. A portaria espera a sua resposta para orientar o visitante.',
+        },
+        {
+          alvo: 'portaria.responder',
+          titulo: 'A sua resposta',
+          texto: '“Pode subir”: o visitante sobe ao hall e espera você. “Aguarde na recepção”: ele espera lá embaixo até você responder de novo. “Não pode receber agora”: a portaria conversa com ele. O recado é opcional e aparece para a portaria.',
+          seAusente: 'pular',
+        },
+      ],
     },
   ],
   relacionadas: ['/chamados'],

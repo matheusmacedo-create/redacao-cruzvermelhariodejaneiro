@@ -12,12 +12,14 @@ import { registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, seguirPendencia,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita, seguirPendencia,
   type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
 import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
+import { respostaClaraDaVisita } from '@/lib/portaria/regras'
+import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_PAUSADO, TEXTO_VOLTOU, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
@@ -156,6 +158,15 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
           await enviar(doEnvio)
           return
         }
+      }
+    }
+
+    // Respondeu à portaria sem citar o aviso ("1", "pode subir"): vale para a única visita de agora que espera esta pessoa.
+    if (!m.midia && respostaClaraDaVisita(m.texto)) {
+      const visita = await visitaEsperandoResposta(admin, workspaceId, pessoa.id)
+      if (visita) {
+        await enviar(await responderVisita(admin, workspaceId, pessoa, visita.id, m.texto, base))
+        return
       }
     }
 

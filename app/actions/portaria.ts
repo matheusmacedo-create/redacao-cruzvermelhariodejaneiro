@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { lerVisitante } from '@/lib/portaria/regras'
-import { avisarVisitado } from '@/lib/portaria/servidor'
+import { ehResposta, lerVisitante } from '@/lib/portaria/regras'
+import { aposResposta, avisarVisitado } from '@/lib/portaria/servidor'
 
 /**
  * Portaria virtual (lib/portaria/regras.ts, migração 20260929060000). Quem
@@ -34,7 +34,7 @@ export async function registrarEntrada(formData: FormData): Promise<Resultado<{ 
     const supabase = await createClient()
     const { data, error } = await supabase.rpc('portaria_registrar_entrada', { p_workspace_id: context.workspace.id, p: dados })
     if (error || !data) erroDoBanco(error, 'Não foi possível registrar a entrada.')
-    await avisarVisitado({ workspaceId: context.workspace.id, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
+    await avisarVisitado({ workspaceId: context.workspace.id, visitaId: data as string, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
     revalidar()
     return { id: data as string }
   } catch (causa) {
@@ -52,7 +52,7 @@ export async function confirmarEntrada(id: string, formData: FormData): Promise<
     const supabase = await createClient()
     const { error } = await supabase.rpc('portaria_confirmar', { p_id: id, p: dados })
     if (error) erroDoBanco(error, 'Não foi possível confirmar a entrada.')
-    await avisarVisitado({ workspaceId: context.workspace.id, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
+    await avisarVisitado({ workspaceId: context.workspace.id, visitaId: id, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
     revalidar()
     return {}
   } catch (causa) {
@@ -98,5 +98,28 @@ export async function trocarLinkDaEntrada(): Promise<Resultado> {
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível trocar o link.') }
+  }
+}
+
+/**
+ * A resposta de quem é visitado (ou a que a portaria recebeu por telefone):
+ * pode subir, aguarde na recepção ou não pode agora. O banco confere quem
+ * pode (portaria_responder); depois avisa a portaria e, se ele autorizou, o
+ * visitante. Vale também para a equipe da Escola, que recebe visita.
+ */
+export async function responderVisita(id: string, resposta: string, recado: string): Promise<Resultado<{ visitanteAvisado?: boolean }>> {
+  try {
+    const context = await requireWorkspace({ escola: true })
+    if (!UUID.test(id)) throw new Error('Visita inválida.')
+    if (!ehResposta(resposta)) throw new Error('Escolha uma resposta.')
+    const supabase = await createClient()
+    const { error } = await supabase.rpc('portaria_responder', { p_id: id, p_resposta: resposta, p_recado: recado.trim().slice(0, 280) || null })
+    if (error) erroDoBanco(error, 'Não foi possível registrar a resposta.')
+    const { visitanteAvisado } = await aposResposta(id, context.user.id)
+    revalidar()
+    revalidatePath(`/portaria/visita/${id}`)
+    return { visitanteAvisado }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível registrar a resposta.') }
   }
 }
