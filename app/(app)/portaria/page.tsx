@@ -15,6 +15,8 @@ import {
   urlDaFotoDoVisitante, type Visita,
 } from '@/lib/portaria/regras'
 import { pessoasParaVisitar } from '@/lib/portaria/servidor'
+import { CRACHAS_POR_FOLHA, MAXIMO_DE_CRACHAS } from '@/lib/portaria/regras'
+import { FrenteDoCrachaDeVisitante, VersoDoCrachaDeVisitante } from '@/components/portaria/cracha-de-visitante'
 import { AtualizarSozinho, ConfirmarCadastro, DevolverCracha, NovaEntrada, RegistrarSaida, TirarFoto, TrocarLink } from '@/components/app/portaria/acoes'
 
 export const metadata = { title: tituloDaArea('/portaria') }
@@ -35,7 +37,7 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
   const context = await requireWorkspace()
   const ws = context.workspace.id
   const supabase = await createClient()
-  const aba = sp.aba === 'historico' ? 'historico' : sp.aba === 'qr' ? 'qr' : 'agora'
+  const aba = sp.aba === 'historico' ? 'historico' : sp.aba === 'qr' ? 'qr' : sp.aba === 'crachas' ? 'crachas' : 'agora'
   const hoje = diaEmSaoPaulo(new Date())
   const pessoas = await pessoasParaVisitar(ws)
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]))
@@ -44,6 +46,7 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
     { id: 'agora', rotulo: 'Agora' },
     { id: 'historico', rotulo: 'Histórico' },
     { id: 'qr', rotulo: 'QR da entrada' },
+    { id: 'crachas', rotulo: 'Crachás de visitante' },
   ]
 
   return (
@@ -58,6 +61,7 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
       {aba === 'agora' && <Agora ws={ws} hoje={hoje} supabase={supabase} pessoas={pessoas} nomeDe={nomeDe} />}
       {aba === 'historico' && <Historico ws={ws} hoje={hoje} dia={sp.dia} q={sp.q} supabase={supabase} nomeDe={nomeDe} />}
       {aba === 'qr' && <CartazDoQr ws={ws} supabase={supabase} admin={context.role === 'admin'} />}
+      {aba === 'crachas' && <CrachasDeVisitante />}
     </div>
   )
 }
@@ -245,3 +249,45 @@ async function CartazDoQr({ ws, supabase, admin }: { ws: string; supabase: Supab
     </div>
   )
 }
+
+/** Os modelos de crachá de visitante: escolhe a numeração e abre a folha A4 para imprimir. */
+function CrachasDeVisitante() {
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto]">
+      <Card className="flex flex-col gap-4 p-5" data-ajuda="portaria.crachas-modelo">
+        <div>
+          <h2 className="font-semibold">Imprimir crachás de visitante</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Folhas A4 com {CRACHAS_POR_FOLHA} crachás no tamanho padrão (54 × 86 mm), com marcas de corte. O crachá leva só o número: a portaria anota o número na entrada e confere a devolução na saída. Use capa plástica ou plastifique para durar.
+          </p>
+        </div>
+        <form action="/portaria/crachas" className="grid grid-cols-2 gap-3 sm:grid-cols-4" target="_blank">
+          <label className="flex flex-col gap-1 text-sm font-medium">Prefixo
+            <input name="prefixo" defaultValue="V" maxLength={5} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">Do número
+            <input name="de" type="number" min={1} max={999} defaultValue={1} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">Até o número
+            <input name="ate" type="number" min={1} max={999} defaultValue={CRACHAS_POR_FOLHA} className={inputClass} />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">Verso
+            <select name="verso" defaultValue="sim" className={inputClass}>
+              <option value="sim">Com as regras no verso</option>
+              <option value="nao">Só a frente</option>
+            </select>
+          </label>
+          <div className="col-span-2 flex flex-wrap items-center gap-3 sm:col-span-4">
+            <Button type="submit" data-portaria-crachas><Printer className="size-4" />Abrir para imprimir</Button>
+            <span className="text-xs text-muted-foreground">Até {MAXIMO_DE_CRACHAS} crachás por vez. Com verso, imprima frente e verso virando pela borda longa.</span>
+          </div>
+        </form>
+      </Card>
+      <div className="flex justify-center gap-3" aria-label="Prévia do crachá de visitante">
+        <div className="overflow-hidden rounded-xl border border-border shadow-sm"><FrenteDoCrachaDeVisitante numero="V-07" /></div>
+        <div className="overflow-hidden rounded-xl border border-border shadow-sm max-sm:hidden"><VersoDoCrachaDeVisitante numero="V-07" /></div>
+      </div>
+    </div>
+  )
+}
+

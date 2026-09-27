@@ -4,7 +4,7 @@
  */
 import {
   crachaPendente, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
-  situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante,
+  situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas,
 } from '../lib/portaria/regras'
 
 let falhas = 0
@@ -57,6 +57,20 @@ igual(ehTokenDaEntrada('abcdefghijklmnopqrstuvwxyz_-12'), true, 'token válido')
 igual(ehTokenDaEntrada('curto'), false, 'token curto')
 igual(ehTokenDaEntrada('a'.repeat(30) + '/'), false, 'token com barra')
 igual(linkDaEntrada('https://palacio.exemplo/', 'T'.repeat(32)), `https://palacio.exemplo/visitante?t=${'T'.repeat(32)}`, 'link do QR')
+
+igual(numerosDeCracha('v', 1, 3), ['V-01', 'V-02', 'V-03'], 'numeração com zero')
+igual(numerosDeCracha('V', 99, 101), ['V-099', 'V-100', 'V-101'], 'largura pelo maior número')
+igual(numerosDeCracha('V', null, null).length, 9, 'padrão: uma folha')
+igual(numerosDeCracha('V', 5, 2), ['V-05'], 'fim antes do início: só o início')
+igual(numerosDeCracha('V', 1, 500).length, 99, 'no máximo 99 por vez')
+igual(prefixoDoCracha('pres'), 'PRES', 'prefixo em maiúsculas')
+igual(prefixoDoCracha('<b>'), 'V', 'prefixo inválido vira V')
+igual(prefixoDoCracha('Visitânte'), 'V', 'mais de 5 letras vira V')
+const folhas = folhasDeCrachas(numerosDeCracha('V', 1, 10))
+igual(folhas.length, 2, 'dez crachás: duas folhas')
+igual(folhas[0].verso.slice(0, 3), ['V-03', 'V-02', 'V-01'], 'verso espelhado na linha')
+igual(folhas[1].frente.filter(Boolean), ['V-10'], 'segunda folha com o que sobrou')
+igual(folhas[1].verso.slice(0, 3), [null, null, 'V-10'], 'verso da sobra no lugar certo')
 
 if (falhas) { console.error(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('Portaria: tudo certo.')

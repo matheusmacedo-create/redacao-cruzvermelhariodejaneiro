@@ -1201,7 +1201,7 @@ const PORTARIA: GuiaDaArea = {
     {
       alvo: 'portaria.abas',
       titulo: 'Histórico e QR',
-      texto: '“Histórico” mostra as visitas de um dia e busca pelo nome em todos os dias. “QR da entrada” tem o cartaz para imprimir e deixar na recepção.',
+      texto: '“Histórico” mostra as visitas de um dia e busca pelo nome em todos os dias. “QR da entrada” tem o cartaz para imprimir e deixar na recepção. “Crachás de visitante” imprime os crachás numerados.',
       lado: 'bottom',
     },
   ],
@@ -1237,6 +1237,17 @@ const PORTARIA: GuiaDaArea = {
         'Se ele estava com crachá, marque ou desmarque “Devolveu o crachá” e toque em “Registrar saída”.',
         'Crachá que não voltou fica em “Crachás não devolvidos”; quando voltar, toque em “Crachá devolvido”.',
       ],
+    },
+    {
+      id: 'imprimir-crachas',
+      titulo: 'Imprimir crachás de visitante',
+      passos: [
+        'Em “Portaria”, abra a aba “Crachás de visitante”.',
+        'Escolha o prefixo e a numeração (por exemplo, V de 1 a 18) e se quer as regras no verso.',
+        'Toque em “Abrir para imprimir” e depois em “Imprimir ou salvar PDF”.',
+        'Com verso, imprima frente e verso virando pela borda longa; corte nas marcas e plastifique.',
+      ],
+      dica: 'O crachá leva só o número, nunca o nome: é reutilizável. Anote o número em “Nº do crachá de visitante” na entrada.',
     },
     {
       id: 'imprimir-qr',
