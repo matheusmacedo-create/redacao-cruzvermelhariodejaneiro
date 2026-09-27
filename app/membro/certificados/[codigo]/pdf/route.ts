@@ -4,14 +4,17 @@ import { certificadosDoMembro } from '@/lib/membro/cursos'
 import { gerarPdfDoCertificado } from '@/lib/cursos/certificado-pdf'
 import { CODIGO_DE_CERTIFICADO } from '@/lib/cursos/regras'
 import { urlBase } from '@/lib/newsletter/contexto'
+import { logoOficial } from '@/lib/pdf/logo'
 
 export const dynamic = 'force-dynamic'
 
-// A logo oficial, buscada no próprio site uma vez por instância.
-let logo: Promise<Uint8Array | null> | null = null
-function logoOficial(origem: string) {
-  logo ??= fetch(new URL('/images/logo-cvrj.png', origem)).then(async (r) => (r.ok ? new Uint8Array(await r.arrayBuffer()) : null)).catch(() => null)
-  return logo
+// A logo oficial: do disco (lib/pdf/logo.ts); se o arquivo não veio no pacote, do próprio site.
+let logoDoSite: Promise<Uint8Array | null> | null = null
+async function logoDoCertificado(origem: string) {
+  const doDisco = await logoOficial()
+  if (doDisco) return doDisco
+  logoDoSite ??= fetch(new URL('/images/logo-cvrj.png', origem)).then(async (r) => (r.ok ? new Uint8Array(await r.arrayBuffer()) : null)).catch(() => null)
+  return logoDoSite
 }
 
 /** /membro/certificados/ABCD-2345/pdf — o PDF do certificado, só para o dono. */
@@ -26,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ codi
   if (!c) return new Response('Certificado não encontrado.', { status: 404 })
   const pdf = await gerarPdfDoCertificado({
     nome: c.nome, curso: c.curso_titulo, cargaHoraria: c.carga_horaria, nota: c.nota, emitidoEm: c.emitido_em, validoAte: c.valido_ate,
-    codigo: c.codigo, urlDeVerificacao: `${urlBase()}/certificado/${c.codigo}`, logo: await logoOficial(request.url),
+    codigo: c.codigo, urlDeVerificacao: `${urlBase()}/certificado/${c.codigo}`, logo: await logoDoCertificado(request.url),
   })
   const nome = `certificado-${c.codigo}.pdf`
   return new Response(Buffer.from(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${nome}"`, 'Cache-Control': 'private, no-store' } })

@@ -744,7 +744,7 @@ const CONFIGURACOES: GuiaDaArea = {
 
 const PERFIL: GuiaDaArea = {
   href: '/perfil',
-  paraQueServe: 'Meu perfil reúne a sua conta: foto e dados, o e-mail de recuperação, o que chega por e-mail, a senha e a verificação em duas etapas. Quase tudo o que é da sua conta você resolve aqui, sem depender de um administrador.',
+  paraQueServe: 'Meu perfil reúne a sua conta: foto e dados, o crachá virtual, o e-mail de recuperação, o que chega por e-mail, a senha e a verificação em duas etapas. Quase tudo o que é da sua conta você resolve aqui, sem depender de um administrador.',
   quemUsa: 'Cada pessoa vê e muda só o próprio perfil. Usuário e coordenação não se mudam aqui: a coordenação é definida pela administração.',
   naPratica: {
     titulo: 'Deixar a conta segura e com a sua cara',
@@ -762,6 +762,11 @@ const PERFIL: GuiaDaArea = {
       titulo: 'A sua conta num lugar só',
       texto: 'Aqui ficam sua foto e seus dados, o e-mail de recuperação, os e-mails de aviso, a senha e a verificação em duas etapas. “Trocar foto” aceita JPEG, PNG ou WebP, e você ajusta o corte antes de salvar.',
       lado: 'bottom',
+    },
+    {
+      alvo: 'perfil.cracha',
+      titulo: 'O seu crachá virtual',
+      texto: 'O crachá funcional no modelo do Manual de Identidade da Cruz Vermelha Brasileira: frente com foto e nome, verso com os dados e um QR. Quem lê o QR vê se você está ativo na filial. “Baixar para imprimir (PDF)” entrega frente e verso no tamanho de crachá.',
     },
     {
       alvo: 'perfil.email',
@@ -800,6 +805,18 @@ const PERFIL: GuiaDaArea = {
         'Toque em “Usar esta foto”.',
       ],
       dica: 'Para voltar às iniciais, toque em “Remover”, ao lado de “Trocar foto”.',
+    },
+    {
+      id: 'usar-o-cracha',
+      titulo: 'Mostrar ou imprimir o crachá virtual',
+      exemplo: 'Na portaria do evento na Central do Brasil, a Ana mostra o crachá no celular; o segurança lê o QR e vê “Crachá válido: pessoa ativa na filial”, com a foto dela.',
+      passos: [
+        'Em “Crachá virtual”, confira a frente (foto, nome e cargo) e o verso (dados e QR).',
+        'Para mostrar, abra esta tela no celular: quem precisar confere lendo o QR do verso com a câmera.',
+        'Para imprimir, toque em “Baixar para imprimir (PDF)”. Saem duas páginas no tamanho de crachá (54 × 86 mm): frente e verso.',
+        'Para ver o que aparece para quem lê o QR, toque em “Ver a verificação do QR”.',
+      ],
+      dica: 'A verificação mostra só nome, função, vínculo e foto — nunca CPF, tipo sanguíneo ou contato. Se você sair da filial, o mesmo QR passa a dizer “Crachá inativo”.',
     },
     {
       id: 'mudar-nome-ou-cargo',
@@ -851,6 +868,18 @@ const PERFIL: GuiaDaArea = {
       pergunta: 'Troquei o e-mail, mas o antigo continua aparecendo. Por quê?',
       resposta: 'O endereço novo só passa a valer quando você abre o link que chegou nele e toca em “Confirmar este e-mail” (o link vale por 48 horas). Até lá aparece “Aguardando confirmação de …”, e o anterior continua valendo. Depois da troca, o endereço antigo, se estava confirmado, recebe um aviso.',
       termos: ['trocar e-mail', 'Aguardando confirmação', 'e-mail novo'],
+    },
+    {
+      id: 'cracha-dados',
+      pergunta: 'De onde vêm os dados do meu crachá? Algo está errado.',
+      resposta: 'Da sua ficha em Recursos humanos, se você é da equipe contratada (cargo, setor, admissão e CPF); senão, do seu cadastro de voluntário, se a sua conta estiver ligada a ele; senão, do seu perfil (nome, cargo e coordenação). A foto é a do perfil. Nome e cargo do perfil você corrige aqui mesmo; o que vem do RH ou do cadastro de voluntário, peça a quem cuida dele.',
+      termos: ['crachá', 'cracha', 'identificação', 'dados errados', 'admissão', 'cpf no crachá'],
+    },
+    {
+      id: 'cracha-fator-rh',
+      pergunta: 'Por que o “Fator RH” do meu crachá diz “Não informado”?',
+      resposta: 'O tipo sanguíneo é dado de saúde e só aparece no seu próprio crachá quando está no seu cadastro de voluntário. A ficha do RH não guarda tipo sanguíneo. Ele nunca aparece para quem lê o QR.',
+      termos: ['tipo sanguíneo', 'sangue', 'fator rh', 'crachá'],
     },
     {
       id: 'usuario-travado',
