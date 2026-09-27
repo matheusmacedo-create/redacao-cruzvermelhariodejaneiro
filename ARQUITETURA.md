@@ -1139,6 +1139,34 @@ do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
 - **Conferência.** `npx tsx scripts/conferir-cracha.ts [pasta]` testa as regras
   e, com pasta, grava exemplos em PDF (crachá, certificado e diploma).
 
+### 7.24 Portaria virtual (`/portaria`, `/visitante`)
+
+O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
+
+- **Quem usa.** Todo membro do Palácio, menos a equipe da Escola:
+  `private.pode_portaria`, que o RLS e todas as funções `portaria_*` conferem.
+  Só administradores trocam o link do QR (`portaria_novo_link`).
+- **Dados.** Sem documento: nome, telefone, de onde vem, quem visita (a pessoa
+  do Palácio, que é avisada, e/ou texto livre), o motivo, a foto e o nº do
+  crachá de visitante. `portaria_visitas.ip_hash` fica fora do `grant select`:
+  liste as colunas (`COLUNAS_DA_VISITA`), nunca `select('*')`.
+- **Autocadastro.** O QR do cartaz leva a `/visitante?t=<segredo>`
+  (`portaria_config.token`). `app/api/visitante` confere:
+  - o segredo;
+  - a armadilha para robôs;
+  - o tempo mínimo de preenchimento.
+
+  `portaria_autocadastro` (só `service_role`) limita a 6 por hora por origem.
+  A visita entra "aguardando" até a portaria confirmar ou descartar.
+- **Foto.** Blob privado `portaria/<ws>/<visita>/<uuid>.jpg`, servida por
+  `/api/portaria/[id]/foto` com a sessão.
+- **Aviso.** Quem é visitado recebe um aviso na categoria `portaria`
+  (`avisarVisitado`).
+- **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
+  (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
+  aparece com alerta.
+- **Conferência.** `npx tsx scripts/conferir-portaria.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
