@@ -8,6 +8,7 @@ import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarBem } from '@/app/actions/patrimonio'
 import { ESTADOS, ORIGENS, type Estado } from '@/lib/patrimonio/regras'
 import type { Bem, CadastrosDoPatrimonio } from '@/lib/patrimonio/acesso'
+import { FotosNoCadastro, enviarFotos } from './fotos'
 
 function Campo({ rotulo, ajuda, children, largo }: { rotulo: string; ajuda?: string; children: React.ReactNode; largo?: boolean }) {
   return <label className={`flex flex-col gap-1 text-sm font-medium ${largo ? 'sm:col-span-2' : ''}`}>{rotulo}{children}{ajuda && <span className="text-xs font-normal text-muted-foreground">{ajuda}</span>}</label>
@@ -19,7 +20,21 @@ const valorNoCampo = (n: number | null | undefined) => (n === null || n === unde
 export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: Bem; hoje: string }) {
   const router = useRouter()
   const [estado, enviar, enviando] = useActionState(salvarBem.bind(null, b?.id ?? null), {})
-  useEffect(() => { if (estado.id) router.push(`/patrimonio/${estado.id}`) }, [estado.id, router])
+  // Bem novo: as fotos escolhidas sobem logo depois que o banco dá o id, e só então abre a ficha.
+  const [fotos, setFotos] = useState<File[]>([])
+  const [enviandoFotos, setEnviandoFotos] = useState<string | null>(null)
+  const idSalvo = estado.id
+  useEffect(() => {
+    if (!idSalvo) return
+    if (b || !fotos.length) { router.push(`/patrimonio/${idSalvo}`); return }
+    let vivo = true
+    enviarFotos(idSalvo, fotos, (feitas) => { if (vivo) setEnviandoFotos(`Enviando as fotos: ${feitas} de ${fotos.length}…`) }).then((erros) => {
+      router.push(`/patrimonio/${idSalvo}${erros.length ? `?fotos=${erros.length}` : ''}`)
+    })
+    return () => { vivo = false }
+    // As fotos são lidas uma vez, no momento em que o bem é salvo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idSalvo])
   const [origem, setOrigem] = useState(b?.origem ?? 'compra')
   const [categoria, setCategoria] = useState(b?.categoria_id ?? '')
   const cat = c.categorias.find((k) => k.id === categoria)
@@ -51,6 +66,8 @@ export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: 
           <select name="estado" defaultValue={b?.estado ?? 'bom'} className={inputClass}>{(Object.keys(ESTADOS) as Estado[]).map((e) => <option key={e} value={e}>{ESTADOS[e]}</option>)}</select>
         </Campo>
       </div>
+
+      {!b && <FotosNoCadastro arquivos={fotos} setArquivos={setFotos} />}
 
       <fieldset className="grid grid-cols-1 gap-4 rounded-lg border border-border p-4 sm:grid-cols-2" data-ajuda="patrimonio.bem-aquisicao">
         <legend className="px-1 text-sm font-semibold">Aquisição</legend>
@@ -87,9 +104,10 @@ export function FormularioDoBem({ c, b, hoje }: { c: CadastrosDoPatrimonio; b?: 
         <Campo rotulo="Observação" largo><textarea name="observacao" rows={2} maxLength={2000} defaultValue={b?.observacao ?? ''} className={inputClass} /></Campo>
       </div>
       {estado.erro && <p className="text-sm text-destructive" role="alert">{estado.erro}</p>}
+      {enviandoFotos && <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status"><Loader2 className="size-4 animate-spin" />{enviandoFotos}</p>}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-        <Button type="submit" disabled={enviando}>{enviando && <Loader2 className="size-4 animate-spin" />}{b ? 'Salvar' : 'Cadastrar bem'}</Button>
+        <Button type="submit" disabled={enviando || Boolean(idSalvo)}>{enviando && <Loader2 className="size-4 animate-spin" />}{b ? 'Salvar' : 'Cadastrar bem'}</Button>
       </div>
     </form>
   )

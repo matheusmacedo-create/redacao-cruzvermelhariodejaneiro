@@ -113,6 +113,11 @@ export const guias: GuiaDaArea[] = [
             seAusente: 'pular',
           },
           {
+            alvo: 'patrimonio.bem-galeria',
+            titulo: 'Fotos',
+            texto: 'Até 12 fotos do bem: toque numa para ampliar. Quem opera usa “Tirar foto” (a câmera do celular) ou “Escolher fotos”; ampliada, a foto pode virar a capa ou ser apagada.',
+          },
+          {
             alvo: 'patrimonio.bem-manutencao',
             titulo: 'Manutenção',
             texto: 'Manutenções feitas e agendadas. Quem opera usa o botão “Manutenção” para registrar ou agendar; preventiva, calibração ou inspeção feita num bem com periodicidade já agenda a próxima.',
@@ -155,6 +160,11 @@ export const guias: GuiaDaArea[] = [
             alvo: 'patrimonio.bem-aquisicao',
             titulo: 'Aquisição',
             texto: 'Escolha a “Origem”. Bem doado entra pelo valor de mercado; comodato não é da filial e não deprecia. “Comprado com”, quando aparece, liga o bem a um convênio.',
+          },
+          {
+            alvo: 'patrimonio.bem-fotos',
+            titulo: 'Fotos',
+            texto: 'Fotografe o bem inteiro, a plaqueta e o número de série. As fotos sobem logo depois de “Cadastrar bem”; a primeira vira a capa na lista.',
           },
         ],
       },
@@ -585,11 +595,23 @@ export const guias: GuiaDaArea[] = [
           'Em “Bens”, use “Novo bem”.',
           'Preencha “Nome do bem”, “Categoria” e “Onde está”. Se o bem já tinha número de patrimônio, ponha em “Plaqueta antiga”.',
           'Em “Aquisição”, escolha a “Origem” e preencha “Data”, o valor e “Nota fiscal / documento”. Bem doado pede o “Valor de mercado”.',
-          'Use “Cadastrar bem”: a plaqueta é numerada e a página do bem abre.',
+          'Em “Fotos”, use “Tirar foto” (no celular abre a câmera) ou “Escolher fotos”. A primeira vira a capa.',
+          'Use “Cadastrar bem”: a plaqueta é numerada, as fotos sobem e a página do bem abre.',
           'Na página do bem, use “Etiqueta” para abrir o PDF com o QR, imprima e cole no bem.',
         ],
         dica: 'Para várias etiquetas de uma vez, marque os bens na lista de “Bens” e use “Etiquetas dos marcados” (folha A4, 3 × 8).',
         quem: 'Nível “Operar” ou “Gestão”',
+      },
+      {
+        id: 'fotos-do-bem',
+        titulo: 'Pôr, apagar ou trocar a capa das fotos de um bem',
+        passos: [
+          'Abra o bem, pela lista de “Bens” ou lendo o QR da etiqueta.',
+          'Em “Fotos”, use “Tirar foto” para abrir a câmera do celular, ou “Escolher fotos” para mandar várias de uma vez.',
+          'Toque numa foto para ampliar. Ali, “Usar como capa” põe a foto na frente (ela aparece na lista de “Bens”) e “Apagar foto” a tira do bem.',
+        ],
+        dica: 'Cada bem tem até 12 fotos. Vale fotografar a plaqueta e o número de série: ajuda no inventário e numa troca pela garantia. Bem baixado não muda mais, nem as fotos.',
+        quem: 'Nível “Operar” ou “Gestão” põe e apaga; quem vê o bem vê as fotos',
       },
       {
         id: 'entregar-bem',

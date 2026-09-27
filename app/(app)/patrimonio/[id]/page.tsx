@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/app/page-header'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { SecoesDoPatrimonio } from '@/components/app/patrimonio/secoes'
 import { Baixar, Conferir, Devolver, Entregar, ManutencaoPendente, NovaManutencao } from '@/components/app/patrimonio/acoes'
+import { GaleriaDoBem } from '@/components/app/patrimonio/fotos'
+import { ordenarFotos, urlDaFotoDoBem, type FotoDoBem } from '@/lib/patrimonio/fotos'
 import { cadastrosDoPatrimonio, contextoDoPatrimonio, COLUNAS_DO_BEM, lerBemDoBanco } from '@/lib/patrimonio/acesso'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
@@ -21,14 +23,16 @@ const data = (d: string | null) => (d ? new Date(d.length === 10 ? `${d}T12:00:0
 const ACOES: Record<string, string> = {
   cadastrar: 'cadastrou', editar: 'editou', entregar: 'entregou', devolver: 'recebeu de volta', aceitar_termo: 'aceitou o termo', manutencao: 'registrou manutenção',
   agendar_manutencao: 'agendou manutenção', cancelar_manutencao: 'cancelou manutenção', baixar: 'deu baixa', conferir: 'conferiu no inventário',
+  foto_adicionar: 'pôs uma foto', foto_remover: 'tirou uma foto',
 }
 
 function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return <div><dt className="text-xs text-muted-foreground">{rotulo}</dt><dd className="text-sm">{children || '—'}</dd></div>
 }
 
-export default async function BemPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fotos?: string }> }) {
   const { id } = await params
+  const { fotos: fotosQueFalharam } = await searchParams
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const { context, supabase, nivel } = await contextoDoPatrimonio()
   const { data: bruto } = await supabase.from('pat_bens').select(COLUNAS_DO_BEM).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
@@ -37,12 +41,13 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
   const hoje = hojeEmSaoPaulo()
   const ws = context.workspace.id
   const c = nivel >= 1 ? await cadastrosDoPatrimonio() : null
-  const [{ data: cautelas }, { data: manutencoes }, { data: historico }, { data: inventario }, { data: membros }] = await Promise.all([
+  const [{ data: cautelas }, { data: manutencoes }, { data: historico }, { data: inventario }, { data: membros }, { data: fotos }] = await Promise.all([
     supabase.from('pat_cautelas').select('id,nome,user_id,participante_id,entregue_em,prevista_devolucao,termo,termo_aceito_em,devolvido_em,estado_devolucao,observacao').eq('bem_id', id).order('entregue_em', { ascending: false }),
     supabase.from('pat_manutencoes').select('id,tipo,descricao,prevista_para,realizada_em,fornecedor,custo').eq('bem_id', id).order('realizada_em', { ascending: false, nullsFirst: true }),
     supabase.from('pat_historico').select('acao,created_at,user_id,detalhe').eq('bem_id', id).order('created_at', { ascending: false }).limit(40),
     supabase.from('pat_inventarios').select('id,nome').eq('workspace_id', ws).is('concluido_em', null).maybeSingle(),
     supabase.from('workspace_members').select('user_id,profiles(full_name,active)').eq('workspace_id', ws),
+    supabase.from('pat_bem_fotos').select('id,path,legenda,ordem,created_at').eq('bem_id', id),
   ])
   const perfil = (m: { profiles: unknown }) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; active?: boolean } | null
   const nomes: Record<string, string> = Object.fromEntries((membros ?? []).map((m) => [m.user_id as string, perfil(m)?.full_name ?? 'Alguém']))
@@ -109,6 +114,12 @@ export default async function BemPage({ params }: { params: Promise<{ id: string
               {b.projeto_id && <Dado rotulo="Projeto">{c?.projetos.find((p) => p.id === b.projeto_id)?.name}</Dado>}
             </dl>
             {(b.descricao || b.observacao) && <p className="mt-4 whitespace-pre-line border-t border-border pt-4 text-sm text-muted-foreground">{[b.descricao, b.observacao].filter(Boolean).join('\n\n')}</p>}
+          </Card>
+
+          <Card className="p-5" id="fotos" data-ajuda="patrimonio.bem-galeria">
+            <GaleriaDoBem bemId={b.id} fotos={ordenarFotos((fotos ?? []) as FotoDoBem[]).map((f) => ({ id: f.id, url: urlDaFotoDoBem(f) }))}
+              podeEditar={nivel >= 2 && !baixado}
+              avisoInicial={Number(fotosQueFalharam) > 0 ? `O bem foi cadastrado, mas ${Number(fotosQueFalharam) === 1 ? '1 foto não subiu' : `${Number(fotosQueFalharam)} fotos não subiram`}. Tente de novo por aqui.` : undefined} />
           </Card>
 
           <Card className="p-5" id="manutencoes" data-ajuda="patrimonio.bem-manutencao">
