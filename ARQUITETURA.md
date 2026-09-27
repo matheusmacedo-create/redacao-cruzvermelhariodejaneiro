@@ -1486,8 +1486,10 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
   pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
   `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
-  usa (ou é obrigado a usar) a verificação em duas etapas só consulta pelo WhatsApp: o servidor
-  confere antes (`podeAgirPeloWhatsapp`) e o banco recusa de novo.
+  usa (ou é obrigado a usar) a verificação em duas etapas só consulta e abre chamado pelo WhatsApp
+  (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de quem escreveu):
+  responder, votar e mandar fotos, o servidor recusa antes (`podeAgirPeloWhatsapp`), e o banco
+  recusa de novo no Chat e no voto.
 - **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
   quem é da equipe (e pode agir pelo WhatsApp) abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
   pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Evolution
