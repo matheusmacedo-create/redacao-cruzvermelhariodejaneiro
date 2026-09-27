@@ -13,18 +13,26 @@ import { chaveDoNome } from '@/lib/equipe'
 import { nomeExibido } from '@/lib/pessoas/diretorio'
 import { cn } from '@/lib/utils'
 
-export type Candidato = { chave: string; nome: string; cargo: string | null; setor: string | null; email: string | null; fichaId: string | null; papel: Papel }
-export type Pendente = { userId: string; nome: string; email: string | null; setor: string | null; criadoEm: string | null }
-type Linha = { chave: string; nome: string; email: string; papel: Papel; coordenacao: string; cargo: string; fichaId: string | null; nova: boolean }
+export type Candidato = { chave: string; nome: string; cargo: string | null; setor: string | null; email: string | null; whatsapp: string | null; fichaId: string | null; papel: Papel }
+export type Pendente = { userId: string; nome: string; email: string | null; whatsapp: string | null; setor: string | null; criadoEm: string | null }
+type Linha = {
+  chave: string; nome: string; email: string; whatsapp: string; papel: Papel; coordenacao: string; cargo: string; fichaId: string | null; nova: boolean
+  criarFicha: boolean; pedirFicha: boolean
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+/** Celular com DDD (10 a 13 dígitos, com ou sem o 55): o servidor confere de verdade. */
+const celularNoFormato = (v: string) => { const d = v.replace(/\D/g, ''); return d.length >= 10 && d.length <= 13 }
 const quando = (t: string | null) => (t ? new Date(t).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '')
 
-export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigurado, inicial }: {
-  candidatos: Candidato[]; pendentes: Pendente[]; setores: string[]; envioConfigurado: boolean; inicial?: string
+export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigurado, whatsappConfigurado, inicial }: {
+  candidatos: Candidato[]; pendentes: Pendente[]; setores: string[]; envioConfigurado: boolean; whatsappConfigurado: boolean; inicial?: string
 }) {
   const router = useRouter()
-  const paraLinha = (c: Candidato): Linha => ({ chave: c.chave, nome: nomeExibido(c.nome), email: c.email ?? '', papel: c.papel, coordenacao: c.setor && setores.includes(c.setor) ? c.setor : '', cargo: c.cargo ?? '', fichaId: c.fichaId, nova: false })
+  const paraLinha = (c: Candidato): Linha => ({
+    chave: c.chave, nome: nomeExibido(c.nome), email: c.email ?? '', whatsapp: c.whatsapp ?? '', papel: c.papel, coordenacao: c.setor && setores.includes(c.setor) ? c.setor : '',
+    cargo: c.cargo ?? '', fichaId: c.fichaId, nova: false, criarFicha: !c.fichaId, pedirFicha: true,
+  })
   const [linhas, setLinhas] = useState<Linha[]>(() => candidatos.filter((c) => inicial && chaveDoNome(c.nome) === chaveDoNome(inicial)).map(paraLinha))
   const [q, setQ] = useState('')
   const [resultados, setResultados] = useState<ResultadoDoConvite[] | null>(null)
@@ -34,15 +42,25 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
   const visiveis = useMemo(() => candidatos.filter((c) => !q || chaveDoNome(`${c.nome} ${c.cargo ?? ''} ${c.setor ?? ''}`).includes(chaveDoNome(q))), [candidatos, q])
   const alternar = (c: Candidato) => setLinhas(escolhidos.has(c.chave) ? linhas.filter((l) => l.chave !== c.chave) : [...linhas, paraLinha(c)])
   const mudar = (chave: string, m: Partial<Linha>) => setLinhas(linhas.map((l) => (l.chave === chave ? { ...l, ...m } : l)))
-  const problemas = linhas.map((l) => (l.nome.trim().split(/\s+/).length < 2 ? 'nome e sobrenome' : !EMAIL.test(l.email.trim()) ? 'e-mail' : !l.coordenacao ? 'setor' : null))
-  const pronto = linhas.length > 0 && problemas.every((p) => !p) && envioConfigurado
+  // Por onde o convite sai: o que foi preenchido e está ligado (e-mail configurado, WhatsApp conectado).
+  const canais = (l: Linha) => ({ email: envioConfigurado && Boolean(l.email.trim()), whatsapp: whatsappConfigurado && Boolean(l.whatsapp.trim()) })
+  const problemas = linhas.map((l) => {
+    if (l.nome.trim().split(/\s+/).length < 2) return 'nome e sobrenome'
+    if (l.email.trim() && !EMAIL.test(l.email.trim())) return 'e-mail válido'
+    if (l.whatsapp.trim() && !celularNoFormato(l.whatsapp)) return 'WhatsApp com DDD'
+    const c = canais(l)
+    if (!c.email && !c.whatsapp) return !whatsappConfigurado ? 'e-mail (o WhatsApp do Palácio não está ligado)' : !envioConfigurado ? 'WhatsApp (o e-mail não está configurado)' : 'WhatsApp ou e-mail'
+    if (!l.coordenacao) return 'setor'
+    return null
+  })
+  const pronto = linhas.length > 0 && problemas.every((p) => !p)
 
   return (
     <div className="flex flex-col gap-8">
-      {!envioConfigurado && (
+      {!envioConfigurado && !whatsappConfigurado && (
         <div className="flex items-start gap-3 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
           <MailWarning className="mt-0.5 size-4 shrink-0" />
-          <span>O envio de e-mail não está configurado (falta a variável <code className="font-mono">RESEND_API_KEY</code> na Vercel), então convites não saem. Enquanto isso, dê acesso com senha temporária em <Link href="/usuarios" className="font-medium text-primary hover:underline">Usuários</Link>.</span>
+          <span>Nem o e-mail (falta a variável <code className="font-mono">RESEND_API_KEY</code> na Vercel) nem o WhatsApp do Palácio estão ligados, então convites não saem. Enquanto isso, dê acesso com senha temporária em <Link href="/usuarios" className="font-medium text-primary hover:underline">Usuários</Link>.</span>
         </div>
       )}
 
@@ -70,7 +88,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
             ))}
             {!visiveis.length && <li className="px-2 py-3 text-sm text-muted-foreground">{candidatos.length ? 'Ninguém com essa busca.' : 'Todos da equipe já têm acesso.'}</li>}
           </ul>
-          <Button variant="outline" size="sm" onClick={() => setLinhas([...linhas, { chave: `nova-${Date.now()}`, nome: '', email: '', papel: 'colaborador', coordenacao: '', cargo: '', fichaId: null, nova: true }])} id="outra-pessoa">
+          <Button variant="outline" size="sm" onClick={() => setLinhas([...linhas, { chave: `nova-${Date.now()}`, nome: '', email: '', whatsapp: '', papel: 'colaborador', coordenacao: '', cargo: '', fichaId: null, nova: true, criarFicha: true, pedirFicha: true }])} id="outra-pessoa">
             <Plus className="size-3.5" />Outra pessoa (fora da lista)
           </Button>
         </Card>
@@ -78,7 +96,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
         <Card className="flex flex-col gap-3 p-4" id="convites" data-ajuda="diretorio.convites">
           <div>
             <h2 className="font-semibold">2. Confira e envie</h2>
-            <p className="text-xs text-muted-foreground">Cada pessoa recebe um e-mail com o usuário e um link para criar a própria senha (vale 72 horas). O papel define o que ela pode fazer — na dúvida, <strong>colaborador</strong>; dá para mudar depois.</p>
+            <p className="text-xs text-muted-foreground">Cada pessoa recebe o usuário e um link para criar a própria senha (vale 72 horas), pelo WhatsApp e/ou pelo e-mail preenchidos. Quem não tem ficha no RH ganha uma, e o pedido para completar a ficha vai na mesma mensagem do WhatsApp. O papel define o que ela pode fazer — na dúvida, <strong>colaborador</strong>; dá para mudar depois.</p>
           </div>
           {!linhas.length ? <p className="rounded-lg bg-muted/40 px-3 py-6 text-center text-sm text-muted-foreground">Marque pessoas à esquerda ou adicione alguém de fora da lista.</p> : (
             <ul className="flex flex-col gap-3">
@@ -86,6 +104,7 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
                 <li key={l.chave} className="rounded-lg border border-border p-3" data-convite={l.nome || 'nova'}>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <label className="flex flex-col gap-1 text-xs font-medium">Nome completo<input value={l.nome} onChange={(e) => mudar(l.chave, { nome: e.target.value })} readOnly={!l.nova} maxLength={120} className={cn(inputClass, !l.nova && 'bg-muted/40')} /></label>
+                    <label className="flex flex-col gap-1 text-xs font-medium">WhatsApp<input type="tel" inputMode="tel" value={l.whatsapp} onChange={(e) => mudar(l.chave, { whatsapp: e.target.value })} maxLength={30} placeholder="(21) 98765-4321" className={inputClass} /></label>
                     <label className="flex flex-col gap-1 text-xs font-medium">E-mail<input type="email" value={l.email} onChange={(e) => mudar(l.chave, { email: e.target.value })} maxLength={200} placeholder="nome@exemplo.org" className={inputClass} /></label>
                     <label className="flex flex-col gap-1 text-xs font-medium">Setor
                       <select value={l.coordenacao} onChange={(e) => mudar(l.chave, { coordenacao: e.target.value })} className={inputClass}><option value="">Escolha…</option>{setores.map((s) => <option key={s} value={s}>{s}</option>)}</select>
@@ -94,6 +113,15 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
                       <select value={l.papel} onChange={(e) => mudar(l.chave, { papel: e.target.value as Papel })} className={inputClass}>{PAPEIS.map((p) => <option key={p} value={p}>{PAPEL[p].rotulo}</option>)}</select>
                     </label>
                     <label className="flex flex-col gap-1 text-xs font-medium sm:col-span-2">Cargo (opcional)<input value={l.cargo} onChange={(e) => mudar(l.chave, { cargo: e.target.value })} maxLength={120} className={inputClass} /></label>
+                  </div>
+                  <div className="mt-2 flex flex-col gap-1.5 text-xs" data-ajuda="diretorio.ficha">
+                    {l.fichaId
+                      ? <span className="text-muted-foreground">Ficha do RH: já existe e fica ligada ao acesso.</span>
+                      : <label className="flex items-center gap-2"><input type="checkbox" checked={l.criarFicha} onChange={(e) => mudar(l.chave, { criarFicha: e.target.checked })} />Criar a ficha no RH (nome, cargo, setor e contato)</label>}
+                    <label className={cn('flex items-center gap-2', !(canais(l).whatsapp && (l.fichaId || l.criarFicha)) && 'text-muted-foreground')}>
+                      <input type="checkbox" checked={l.pedirFicha && canais(l).whatsapp && Boolean(l.fichaId || l.criarFicha)} disabled={!canais(l).whatsapp || !(l.fichaId || l.criarFicha)} onChange={(e) => mudar(l.chave, { pedirFicha: e.target.checked })} />
+                      Pedir, na mesma mensagem do WhatsApp, que a pessoa complete a ficha
+                    </label>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-2 text-xs">
                     <span className={problemas[i] ? 'text-warning-foreground' : 'text-muted-foreground'}>{problemas[i] ? `Falta: ${problemas[i]}` : PAPEL[l.papel].descricao}</span>
@@ -108,7 +136,10 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
           <div className="flex justify-end">
             <Button disabled={!pronto || ocupado} id="enviar-convites" data-ajuda="diretorio.enviar" onClick={() => iniciar(async () => {
               setErro(''); setResultados(null)
-              const r = await convidarEmLote(linhas.map((l) => ({ nome: l.nome.trim(), email: l.email.trim(), papel: l.papel, coordenacao: l.coordenacao, cargo: l.cargo.trim(), fichaId: l.fichaId ?? undefined })))
+              const r = await convidarEmLote(linhas.map((l) => ({
+                nome: l.nome.trim(), email: l.email.trim(), whatsapp: l.whatsapp.trim(), papel: l.papel, coordenacao: l.coordenacao, cargo: l.cargo.trim(),
+                fichaId: l.fichaId ?? undefined, criarFicha: !l.fichaId && l.criarFicha, pedirFicha: l.pedirFicha && canais(l).whatsapp,
+              })))
               if (r.erro) { setErro(r.erro); return }
               setResultados(r.resultados ?? [])
               const ok = new Set((r.resultados ?? []).filter((x) => x.ok).map((x) => chaveDoNome(x.nome)))
@@ -128,12 +159,12 @@ export function AdicionarPessoas({ candidatos, pendentes, setores, envioConfigur
         </Card>
       </section>
 
-      <Pendentes pendentes={pendentes} envioConfigurado={envioConfigurado} />
+      <Pendentes pendentes={pendentes} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} />
     </div>
   )
 }
 
-function Pendentes({ pendentes, envioConfigurado }: { pendentes: Pendente[]; envioConfigurado: boolean }) {
+function Pendentes({ pendentes, envioConfigurado, whatsappConfigurado }: { pendentes: Pendente[]; envioConfigurado: boolean; whatsappConfigurado: boolean }) {
   const router = useRouter()
   const [recado, setRecado] = useState<{ texto: string; erro: boolean } | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
@@ -158,10 +189,10 @@ function Pendentes({ pendentes, envioConfigurado }: { pendentes: Pendente[]; env
           <div key={p.userId} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3" data-pendente={nomeExibido(p.nome)}>
             <div className="min-w-0 text-sm">
               <p className="font-medium">{nomeExibido(p.nome)}</p>
-              <p className="text-xs text-muted-foreground">{[p.email ?? 'sem e-mail', p.setor, p.criadoEm ? `conta criada em ${quando(p.criadoEm)}` : null].filter(Boolean).join(' · ')}</p>
+              <p className="text-xs text-muted-foreground">{[p.whatsapp ? `WhatsApp ${p.whatsapp}` : null, p.email ?? (p.whatsapp ? null : 'sem e-mail'), p.setor, p.criadoEm ? `conta criada em ${quando(p.criadoEm)}` : null].filter(Boolean).join(' · ')}</p>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={!envioConfigurado || !p.email || ocupado === p.userId} title={!p.email ? 'Sem e-mail: cadastre em Usuários' : undefined} onClick={() => agir(p.userId, reenviarConvite)}>
+              <Button size="sm" variant="outline" disabled={!((envioConfigurado && p.email) || (whatsappConfigurado && p.whatsapp)) || ocupado === p.userId} title={!p.email && !p.whatsapp ? 'Sem e-mail nem WhatsApp: cadastre o e-mail em Usuários' : undefined} onClick={() => agir(p.userId, reenviarConvite)}>
                 {ocupado === p.userId ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCw className="size-3.5" />}Reenviar
               </Button>
               <Button size="sm" variant="ghost" disabled={ocupado === p.userId} onClick={() => { if (window.confirm(`Cancelar o convite de ${nomeExibido(p.nome)}? O link deixa de valer e a conta fica desativada.`)) agir(p.userId, cancelarConvite) }}>Cancelar</Button>

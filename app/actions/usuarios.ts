@@ -17,6 +17,11 @@ import { emailConfigurado } from '@/lib/newsletter/resend'
 import { emailDeConfirmacao, emailDeConvite, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
 import { avisar, emitirToken, enviarComSeguranca, revogarLinksDeSenha, urlDoLink, VALIDADE_MIN } from '@/lib/contas/servidor'
 import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
+import { marcaDoConvite, lerMarcaDoConvite } from '@/lib/contas/convite'
+import { entregar } from '@/lib/whatsapp/fila'
+import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { criarConviteDaFicha } from '@/lib/rh/convites'
+import { formatarNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/whatsapp/regras'
 
 /**
  * Gestão de usuários e acessos.
@@ -152,6 +157,100 @@ function revalidar() {
 
 // ------------------------------------------------------------------ criar
 
+/**
+ * Cria a conta: Auth, perfil, vínculo com o espaço e setor do Correio. Sem
+ * mandar nada. Qualquer falha no meio desfaz a conta: conta sem perfil ou
+ * sem vínculo existe no Auth e não entra em lugar nenhum.
+ */
+async function criarConta(admin: Admin, workspaceId: string, d: {
+  nome: string; usuario: string; papel: Papel; coordenacao: string; cargo: string; email: string | null; senha: string; convite: boolean
+}): Promise<string> {
+  const { data: existente } = await admin.from('profiles').select('id').eq('username', d.usuario).maybeSingle()
+  if (existente) throw new Error(`O usuário @${d.usuario} já existe.`)
+  if (d.email && await emailEmUso(admin, d.email)) throw new Error('Este e-mail já está em uso por outra conta.')
+
+  const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
+    email: emailInterno(d.usuario), password: d.senha, email_confirm: true,
+    user_metadata: { username: d.usuario, full_name: d.nome },
+  })
+  if (erroAuth || !criado.user) throw new Error('Não foi possível criar a conta. Confira se o usuário já não existe.')
+  const userId = criado.user.id
+
+  const { error: erroPerfil } = await admin.from('profiles').insert({
+    id: userId, username: d.usuario, full_name: d.nome, job_title: d.cargo, initials: iniciais(d.nome),
+    // Convite: a pessoa escolhe a senha no link, não há provisória a trocar.
+    trocar_senha: !d.convite, email: d.email,
+  })
+  if (erroPerfil) {
+    await admin.auth.admin.deleteUser(userId)
+    throw new Error('Não foi possível criar o perfil.')
+  }
+
+  const supabase = await createClient()
+  const { error: erroVinculo } = await supabase.from('workspace_members').insert({
+    workspace_id: workspaceId, user_id: userId, role: d.papel, coordination: d.coordenacao || null,
+  })
+  if (erroVinculo) {
+    await admin.auth.admin.deleteUser(userId)
+    throw new Error('Não foi possível vincular a pessoa ao espaço.')
+  }
+
+  await sincronizarSetor(admin, workspaceId, userId, '', d.coordenacao)
+  return userId
+}
+
+type EnvioDoConvite = { email: boolean; whatsapp: 'enviada' | 'na_fila' | 'falhou' | null; erroDoWhatsapp?: string }
+
+/**
+ * Manda o link para criar a senha por e-mail e/ou WhatsApp. O link é um só;
+ * a marca do canal vai junto dele (lib/contas/convite.ts), e é ela que decide
+ * o que o primeiro acesso prova. Pelo WhatsApp, a mensagem pode levar também o
+ * link da ficha do RH.
+ */
+async function mandarConvite(admin: Admin, p: {
+  workspaceId: string; userId: string; nome: string; usuario: string; email: string | null; numero: string | null
+  adminId: string; convidadoPor: string; urlDaFicha?: string | null
+}): Promise<EnvioDoConvite> {
+  const porEmail = Boolean(p.email && emailConfigurado())
+  const token = await emitirToken(admin, {
+    userId: p.userId, finalidade: 'definir_senha', validadeMin: VALIDADE_MIN.definir_senha, criadoPor: p.adminId,
+    email: marcaDoConvite({ porEmail, numero: p.numero }) ?? undefined,
+  })
+  const url = urlDoLink('/redefinir-senha', token)
+  const horas = VALIDADE_MIN.definir_senha / 60
+  const envio: EnvioDoConvite = { email: false, whatsapp: null }
+  if (porEmail && p.email) envio.email = await enviarComSeguranca(p.email, emailDeConvite({ nome: p.nome, usuario: p.usuario, url, horas, convidadoPor: p.convidadoPor }))
+  if (p.numero) {
+    // Sem userId: a conta acabou de nascer e ainda não tem WhatsApp confirmado; a fila apaga o texto depois do envio.
+    const entrega = await entregar(admin, p.workspaceId, {
+      numero: p.numero, tipo: 'aviso', categoria: 'conta', userId: null,
+      texto: textoDoConviteDoPalacio({ nome: p.nome, usuario: p.usuario, url, horas, convidadoPor: p.convidadoPor, urlDaFicha: p.urlDaFicha }),
+    })
+    envio.whatsapp = entrega.situacao
+    if (entrega.situacao === 'falhou') envio.erroDoWhatsapp = entrega.erro
+  }
+  return envio
+}
+
+/** "por e-mail e WhatsApp", "pelo WhatsApp (sai às 7h)"… para o recado da tela. */
+function comoSaiu(e: EnvioDoConvite, email: string | null, numero: string | null): string {
+  const partes: string[] = []
+  if (e.email && email) partes.push(`por e-mail (${email})`)
+  if (e.whatsapp === 'enviada' && numero) partes.push(`pelo WhatsApp (${formatarNumero(numero)})`)
+  if (e.whatsapp === 'na_fila' && numero) partes.push(`pelo WhatsApp (${formatarNumero(numero)}, assim que a fila andar; de 22h às 7h, de manhã)`)
+  return partes.join(' e ')
+}
+
+const saiu = (e: EnvioDoConvite) => e.email || e.whatsapp === 'enviada' || e.whatsapp === 'na_fila'
+
+function lerWhatsapp(f: FormData): string | null {
+  const bruto = texto(f, 'whatsapp')
+  if (!bruto) return null
+  const numero = numeroCanonico(bruto)
+  if (!numero) throw new Error('O WhatsApp informado não é válido. Use DDD e número, como (21) 98765-4321.')
+  return numero
+}
+
 export async function criarUsuario(formData: FormData): Promise<Resultado> {
   try {
     const context = await requirePermissao('usuarios.gerenciar')
@@ -162,12 +261,14 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     const coordenacao = lerCoordenacao(formData, await nomesDosSetores(createAdminClient(), context.workspace.id))
     const cargo = texto(formData, 'cargo').slice(0, 120)
     const email = lerEmail(formData)
+    const numero = lerWhatsapp(formData)
 
     const modo = texto(formData, 'modoSenha')
     const convite = modo === 'convite'
     const gerar = modo === 'gerar'
-    if (convite && !email) throw new Error('Para enviar o convite por e-mail, informe o e-mail da pessoa.')
-    if (convite && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Use a senha temporária.')
+    if (convite && !email && !numero) throw new Error('Para enviar o convite, informe o e-mail ou o WhatsApp da pessoa.')
+    if (convite && numero && !await configDoWhatsapp(context.workspace.id)) throw new Error('O WhatsApp do Palácio Virtual não está ligado. Mande o convite por e-mail ou use a senha temporária.')
+    if (convite && !numero && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Mande pelo WhatsApp ou use a senha temporária.')
     const senha = convite ? senhaInacessivel() : gerar ? gerarSenhaTemporaria() : String(formData.get('senha') ?? '')
     if (!convite && !gerar) {
       const problema = problemaDaSenha(senha, { usuario, nome }) ?? await problemaDeSenhaVazada(senha)
@@ -175,66 +276,37 @@ export async function criarUsuario(formData: FormData): Promise<Resultado> {
     }
 
     const admin = createAdminClient()
-    const { data: existente } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
-    if (existente) throw new Error(`O usuário @${usuario} já existe.`)
-    if (email && await emailEmUso(admin, email)) throw new Error('Este e-mail já está em uso por outra conta.')
+    const userId = await criarConta(admin, context.workspace.id, { nome, usuario, papel, coordenacao, cargo, email, senha, convite })
 
-    const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
-      email: emailInterno(usuario), password: senha, email_confirm: true,
-      user_metadata: { username: usuario, full_name: nome },
-    })
-    if (erroAuth || !criado.user) throw new Error('Não foi possível criar a conta. Confira se o usuário já não existe.')
-    const userId = criado.user.id
-
-    // Daqui em diante, qualquer falha desfaz a conta: conta sem perfil ou sem
-    // vínculo existe no Auth e não entra em lugar nenhum.
-    const { error: erroPerfil } = await admin.from('profiles').insert({
-      id: userId, username: usuario, full_name: nome, job_title: cargo, initials: iniciais(nome),
-      // Convite: a pessoa escolhe a senha no link, não há provisória a trocar.
-      trocar_senha: !convite, email,
-    })
-    if (erroPerfil) {
-      await admin.auth.admin.deleteUser(userId)
-      throw new Error('Não foi possível criar o perfil.')
-    }
-
-    const supabase = await createClient()
-    const { error: erroVinculo } = await supabase.from('workspace_members').insert({
-      workspace_id: context.workspace.id, user_id: userId, role: papel, coordination: coordenacao || null,
-    })
-    if (erroVinculo) {
-      await admin.auth.admin.deleteUser(userId)
-      throw new Error('Não foi possível vincular a pessoa ao espaço.')
-    }
-
-    await sincronizarSetor(admin, context.workspace.id, userId, '', coordenacao)
-
-    // O convite prova o e-mail (só quem recebe consegue definir a senha). Nos
-    // outros modos, um e-mail informado ainda precisa ser confirmado.
-    let enviado = false
-    if (convite && email) {
-      const token = await emitirToken(admin, { userId, finalidade: 'definir_senha', validadeMin: VALIDADE_MIN.definir_senha, criadoPor: context.user.id })
-      enviado = await enviarComSeguranca(email, emailDeConvite({
-        nome, usuario, url: urlDoLink('/redefinir-senha', token), horas: VALIDADE_MIN.definir_senha / 60, convidadoPor: context.profile?.full_name ?? 'Um administrador',
-      }))
+    // O convite prova o canal que o recebeu (lib/contas/convite.ts). Nos outros
+    // modos, um e-mail informado ainda precisa ser confirmado.
+    let envio: EnvioDoConvite = { email: false, whatsapp: null }
+    let confirmacao = false
+    if (convite) {
+      envio = await mandarConvite(admin, {
+        workspaceId: context.workspace.id, userId, nome, usuario, email, numero, adminId: context.user.id, convidadoPor: context.profile?.full_name ?? 'Um administrador',
+      })
     } else if (email) {
-      enviado = await pedirConfirmacao(admin, { userId, nome, email, adminId: context.user.id })
+      confirmacao = await pedirConfirmacao(admin, { userId, nome, email, adminId: context.user.id })
     }
 
     await auditar(admin, {
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: userId, acao: 'usuario_criado',
-      detalhes: { usuario, papel, coordenacao, senha: convite ? 'convite_por_email' : gerar ? 'temporaria_gerada' : 'definida_pelo_admin', email_enviado: enviado },
+      detalhes: {
+        usuario, papel, coordenacao, senha: convite ? (numero ? (email ? 'convite_por_email_e_whatsapp' : 'convite_por_whatsapp') : 'convite_por_email') : gerar ? 'temporaria_gerada' : 'definida_pelo_admin',
+        email_enviado: convite ? envio.email : confirmacao, whatsapp: envio.whatsapp,
+      },
     })
 
     revalidar()
     const papelTexto = PAPEL[papel].rotulo.toLowerCase()
     if (convite) {
-      return enviado
-        ? { recado: `Acesso de ${nome} criado como ${papelTexto}. O convite foi enviado para ${email}: a pessoa define a senha pelo link (vale por 72 horas).` }
-        : { recado: `Atenção: o acesso de ${nome} foi criado, mas o convite NÃO saiu (falha no envio de e-mail). Abra a pessoa na lista e use "Redefinir senha" para gerar uma senha temporária.` }
+      return saiu(envio)
+        ? { recado: `Acesso de ${nome} criado como ${papelTexto}. O convite saiu ${comoSaiu(envio, email, numero)}: a pessoa define a senha pelo link (vale por 72 horas).` }
+        : { recado: `Atenção: o acesso de ${nome} foi criado, mas o convite NÃO saiu${envio.erroDoWhatsapp ? ` (${envio.erroDoWhatsapp})` : ''}. Use "Reenviar" em Pessoas → Adicionar, ou "Redefinir senha" para gerar uma senha temporária.` }
     }
     return {
-      recado: `Acesso de ${nome} criado como ${papelTexto}. No primeiro login, a pessoa troca a senha.${email ? (enviado ? ` Enviamos a confirmação de e-mail para ${email}.` : ' A confirmação de e-mail não saiu.') : ''}`,
+      recado: `Acesso de ${nome} criado como ${papelTexto}. No primeiro login, a pessoa troca a senha.${email ? (confirmacao ? ` Enviamos a confirmação de e-mail para ${email}.` : ' A confirmação de e-mail não saiu.') : ''}`,
       usuario,
       senhaTemporaria: gerar ? senha : undefined,
     }
@@ -499,7 +571,13 @@ export async function trocarMinhaSenha(formData: FormData): Promise<{ erro?: str
 
 // ------------------------------------------------------------------ convites (Pessoas → Adicionar)
 
-export type ConviteEmLote = { nome: string; email: string; papel: string; coordenacao: string; cargo: string; fichaId?: string }
+export type ConviteEmLote = {
+  nome: string; email: string; whatsapp?: string; papel: string; coordenacao: string; cargo: string; fichaId?: string
+  /** Sem ficha no RH: cria a ficha junto, já ligada ao login. */
+  criarFicha?: boolean
+  /** Manda, na mesma mensagem do WhatsApp, o link para a pessoa completar a própria ficha. */
+  pedirFicha?: boolean
+}
 export type ResultadoDoConvite = { nome: string; ok: boolean; mensagem: string }
 
 /** Usuário livre a partir do nome: nome.sobrenome, e nome.sobrenome2, 3… se já existir. */
@@ -512,41 +590,118 @@ async function usuarioLivre(admin: Admin, nome: string, reservados: Set<string>)
   throw new Error(`Não há usuário livre para ${nome}.`)
 }
 
+/** Endereço da instituição vai para o e-mail de trabalho da ficha; o resto, para o pessoal. */
+const DOMINIO_DA_INSTITUICAO = '@cruzvermelhariodejaneiro.org'
+
 /**
- * Convida várias pessoas de uma vez, cada uma pelo mesmo caminho do
- * convite individual (criarUsuario em modo convite): conta, vínculo, setor,
- * link para definir a senha e auditoria. Uma falha não impede as outras.
- * Quem veio de uma ficha da Equipe tem a ficha ligada ao login novo.
+ * O cadastro de quem entra na equipe, de uma vez: para cada pessoa, a conta
+ * no Palácio (usuário livre a partir do nome), a ficha no RH (ligada à conta
+ * que existia ou criada agora) e o convite — por e-mail e/ou WhatsApp, com o
+ * link para criar a senha e, se pedido, o da ficha, numa mensagem só. Uma
+ * falha não impede as outras; a ficha que não sai não desfaz o acesso.
  */
 export async function convidarEmLote(convites: ConviteEmLote[]): Promise<{ erro?: string; resultados?: ResultadoDoConvite[] }> {
   try {
     const context = await requirePermissao('usuarios.gerenciar')
-    if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY). Sem ele, dê acesso com senha temporária em Usuários.')
     if (!Array.isArray(convites) || !convites.length) throw new Error('Escolha ao menos uma pessoa.')
     if (convites.length > 30) throw new Error('No máximo 30 convites de uma vez.')
     const admin = createAdminClient()
+    const supabase = await createClient()
+    const ws = context.workspace.id
+    const setores = await nomesDosSetores(admin, ws)
+    const convidadoPor = context.profile?.full_name ?? 'Um administrador'
+    // Sem o WhatsApp do Palácio ligado, o número ainda vai para a ficha, mas o convite não sai por ele.
+    const whatsappLigado = Boolean(await configDoWhatsapp(ws))
     const reservados = new Set<string>()
     const resultados: ResultadoDoConvite[] = []
     for (const c of convites) {
       const nome = String(c.nome ?? '').trim().replace(/\s+/g, ' ')
       try {
-        if (!emailValido(String(c.email ?? ''))) throw new Error('e-mail inválido')
+        if (nome.split(' ').length < 2 || nome.length > 120) throw new Error('informe nome e sobrenome')
+        const email = String(c.email ?? '').trim() ? emailValido(String(c.email)) : null
+        if (String(c.email ?? '').trim() && !email) throw new Error('e-mail inválido')
+        const numero = String(c.whatsapp ?? '').trim() ? numeroCanonico(String(c.whatsapp)) : null
+        if (String(c.whatsapp ?? '').trim() && !numero) throw new Error('WhatsApp inválido (use DDD e número)')
+        const numeroDoConvite = whatsappLigado ? numero : null
+        if (!email && !numeroDoConvite) throw new Error(numero ? 'o WhatsApp do Palácio não está ligado: informe o e-mail' : 'informe o e-mail ou o WhatsApp')
+        if (!numeroDoConvite && !emailConfigurado()) throw new Error(whatsappLigado ? 'o envio de e-mail não está configurado: informe o WhatsApp' : 'nem o e-mail nem o WhatsApp do Palácio estão ligados')
+        if (!ehPapel(c.papel)) throw new Error('papel inválido')
+        const coordenacao = String(c.coordenacao ?? '')
+        if (coordenacao && !setores.includes(coordenacao)) throw new Error('escolha um setor da lista')
+        const cargo = String(c.cargo ?? '').trim().slice(0, 120)
+
         const usuario = await usuarioLivre(admin, nome, reservados)
         reservados.add(usuario)
-        const f = new FormData()
-        for (const [k, v] of Object.entries({ nome, usuario, papel: c.papel, coordenacao: c.coordenacao, cargo: c.cargo ?? '', email: c.email, modoSenha: 'convite' })) f.set(k, String(v ?? ''))
-        const r = await criarUsuario(f)
-        if (r.erro) throw new Error(r.erro)
-        if (c.fichaId && /^[0-9a-f-]{36}$/.test(c.fichaId)) {
-          const { data: novo } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
-          if (novo) await admin.from('equipe_membros').update({ user_id: novo.id }).eq('id', c.fichaId).eq('workspace_id', context.workspace.id).is('user_id', null)
+        const userId = await criarConta(admin, ws, { nome, usuario, papel: c.papel, coordenacao, cargo, email, senha: senhaInacessivel(), convite: true })
+
+        // A ficha do RH: a que já existia ganha o login; sem ficha, nasce agora (pela mesma função do RH, que audita).
+        let fichaId: string | null = null
+        let sobreAFicha = ''
+        const doRh = (p: Record<string, unknown>, id: string | null) => supabase.rpc('salvar_membro_equipe', { p_workspace_id: ws, p_id: id, p })
+        try {
+          if (c.fichaId && /^[0-9a-f-]{36}$/.test(c.fichaId)) {
+            const [{ data: ficha }, { data: pessoais }] = await Promise.all([
+              admin.from('equipe_membros').select('id, user_id').eq('id', c.fichaId).eq('workspace_id', ws).maybeSingle(),
+              admin.from('equipe_pessoais').select('telefone_pessoal').eq('membro_id', c.fichaId).maybeSingle(),
+            ])
+            if (ficha && !ficha.user_id) {
+              const p: Record<string, unknown> = { user_id: userId }
+              if (numero && !String(pessoais?.telefone_pessoal ?? '').trim()) p.telefone_pessoal = formatarNumero(numero)
+              const { error } = await doRh(p, ficha.id as string)
+              if (error) throw error
+              fichaId = ficha.id as string
+              sobreAFicha = 'ficha do RH ligada'
+            } else {
+              sobreAFicha = ficha ? 'a ficha do RH já estava ligada a outro login: confira em Recursos humanos' : 'a ficha do RH não foi achada'
+            }
+          } else if (c.criarFicha) {
+            const trabalho = Boolean(email && email.endsWith(DOMINIO_DA_INSTITUICAO))
+            const { data: novaFicha, error } = await doRh({
+              // "Outro / a definir": a ficha entra em "sem admissão ou vínculo" até o RH completar o contrato.
+              nome, cargo, setor: coordenacao, user_id: userId, vinculo: 'outro',
+              ...(email ? (trabalho ? { email_trabalho: email } : { email_pessoal: email }) : {}),
+              ...(numero ? { telefone_pessoal: formatarNumero(numero) } : {}),
+            }, null)
+            if (error || !novaFicha) throw error ?? new Error('ficha não criada')
+            fichaId = novaFicha as string
+            sobreAFicha = 'ficha do RH criada'
+          }
+        } catch (causa) {
+          const detalhe = (causa as { code?: string; message?: string })?.code === 'P0001' ? (causa as { message: string }).message : 'erro no RH'
+          sobreAFicha = `a ficha do RH não saiu (${detalhe}): cadastre em Recursos humanos`
         }
-        resultados.push({ nome, ok: !r.recado?.startsWith('Atenção'), mensagem: r.recado?.startsWith('Atenção') ? 'conta criada, mas o e-mail não saiu: reenvie o convite' : `convite enviado para ${c.email} (usuário @${usuario})` })
+
+        // O pedido para completar a ficha vai junto do convite, na mesma mensagem do WhatsApp.
+        let urlDaFicha: string | null = null
+        if (c.pedirFicha && fichaId && numeroDoConvite) {
+          try {
+            const r = await criarConviteDaFicha({ workspaceId: ws, membroId: fichaId, criadoPor: context.user.id, incluiDocumentos: false, porWhatsapp: false, numeroDoConvite })
+            urlDaFicha = r.link
+            if (urlDaFicha) sobreAFicha = [sobreAFicha, 'pedido para completar a ficha junto'].filter(Boolean).join('; ')
+          } catch {
+            sobreAFicha = [sobreAFicha, 'o pedido da ficha não saiu'].filter(Boolean).join('; ')
+          }
+        }
+
+        const envio = await mandarConvite(admin, { workspaceId: ws, userId, nome, usuario, email, numero: numeroDoConvite, adminId: context.user.id, convidadoPor, urlDaFicha })
+        await auditar(admin, {
+          workspace_id: ws, ator_id: context.user.id, alvo_id: userId, acao: 'usuario_criado',
+          detalhes: {
+            usuario, papel: c.papel, coordenacao, senha: numeroDoConvite ? (email ? 'convite_por_email_e_whatsapp' : 'convite_por_whatsapp') : 'convite_por_email',
+            email_enviado: envio.email, whatsapp: envio.whatsapp, ficha: sobreAFicha || null,
+          },
+        })
+        const ok = saiu(envio)
+        resultados.push({
+          nome, ok,
+          mensagem: [ok ? `convite enviado ${comoSaiu(envio, email, numeroDoConvite)} (usuário @${usuario})` : `conta @${usuario} criada, mas o convite não saiu${envio.erroDoWhatsapp ? ` (${envio.erroDoWhatsapp})` : ''}: use "Reenviar"`, sobreAFicha].filter(Boolean).join('; '),
+        })
       } catch (causa) {
         resultados.push({ nome: nome || '(sem nome)', ok: false, mensagem: mensagemDoErro(causa, 'não foi possível convidar') })
       }
     }
     revalidar()
+    revalidatePath('/equipe')
     return { resultados }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível enviar os convites.') }
@@ -561,24 +716,35 @@ async function convitePendente(admin: Admin, workspaceId: string, userId: string
   return alvo
 }
 
-/** Novo link para definir a senha (o anterior deixa de valer). */
+/**
+ * Novo link para definir a senha (o anterior deixa de valer), pelos mesmos
+ * canais do convite anterior — a marca guardada no último link diz quais.
+ */
 export async function reenviarConvite(userId: string): Promise<Resultado> {
   try {
     const context = await requirePermissao('usuarios.gerenciar')
-    if (!emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY).')
     const admin = createAdminClient()
     const alvo = await convitePendente(admin, context.workspace.id, userId)
     if (!alvo.active) throw new Error(`${alvo.full_name} está desativado: reative em Usuários.`)
-    if (!alvo.email) throw new Error(`${alvo.full_name} não tem e-mail. Cadastre o e-mail em Usuários ou use a senha temporária.`)
+    const { data: ultimo } = await admin.from('tokens_de_conta').select('email').eq('user_id', alvo.id).eq('finalidade', 'definir_senha')
+      .order('criado_em', { ascending: false }).limit(1).maybeSingle()
+    const canal = lerMarcaDoConvite((ultimo?.email as string | null) ?? null)
+    // O WhatsApp do convite anterior, se o do Palácio continua ligado; senão, só o e-mail.
+    const numero = canal.numero && await configDoWhatsapp(context.workspace.id) ? canal.numero : null
+    const email = canal.porEmail || !numero ? alvo.email : null
+    if (!email && !numero) throw new Error(canal.numero
+      ? `O convite de ${alvo.full_name} foi pelo WhatsApp, que não está ligado agora. Cadastre o e-mail em Usuários ou use a senha temporária.`
+      : `${alvo.full_name} não tem e-mail nem WhatsApp no convite. Cadastre o e-mail em Usuários ou use a senha temporária.`)
+    if (!numero && !emailConfigurado()) throw new Error('O envio de e-mail não está configurado (falta RESEND_API_KEY).')
     await revogarLinksDeSenha(admin, alvo.id)
-    const token = await emitirToken(admin, { userId: alvo.id, finalidade: 'definir_senha', validadeMin: VALIDADE_MIN.definir_senha, criadoPor: context.user.id })
-    const enviado = await enviarComSeguranca(alvo.email, emailDeConvite({
-      nome: alvo.full_name, usuario: alvo.username, url: urlDoLink('/redefinir-senha', token), horas: VALIDADE_MIN.definir_senha / 60, convidadoPor: context.profile?.full_name ?? 'Um administrador',
-    }))
-    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_reenviado', detalhes: { email_enviado: enviado } })
+    const envio = await mandarConvite(admin, {
+      workspaceId: context.workspace.id, userId: alvo.id, nome: alvo.full_name, usuario: alvo.username, email, numero,
+      adminId: context.user.id, convidadoPor: context.profile?.full_name ?? 'Um administrador',
+    })
+    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_reenviado', detalhes: { email_enviado: envio.email, whatsapp: envio.whatsapp } })
     revalidar()
-    if (!enviado) throw new Error('O convite não saiu (falha no envio de e-mail). Tente de novo em alguns minutos.')
-    return { recado: `Convite reenviado para ${alvo.email}. O link anterior deixou de valer.` }
+    if (!saiu(envio)) throw new Error(`O convite não saiu${envio.erroDoWhatsapp ? ` (${envio.erroDoWhatsapp})` : ''}. Tente de novo em alguns minutos.`)
+    return { recado: `Convite reenviado ${comoSaiu(envio, email, numero)}. O link anterior deixou de valer.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível reenviar o convite.') }
   }

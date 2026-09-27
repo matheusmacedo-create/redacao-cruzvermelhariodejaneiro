@@ -285,6 +285,22 @@ export const categoriaVaiPorWhatsapp = (categoria: string): boolean => categoria
 /** Alerta de queda repetido no máximo a cada tantas horas. */
 export const ALERTA_A_CADA_HORAS = 6
 
+/**
+ * O convite de acesso ao Palácio pelo WhatsApp: o usuário e o link para criar
+ * a senha (uso único) e, quando o RH também pediu, o link da ficha — tudo numa
+ * mensagem só.
+ */
+export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url: string; horas: number; convidadoPor: string; urlDaFicha?: string | null }): string {
+  const nome = primeiroNome(p.nome)
+  return [
+    `${nome ? `Olá, ${limpo(nome, 60)}!` : 'Olá!'} ${limpo(p.convidadoPor, 80)} criou o seu acesso ao *Palácio Virtual*, o sistema interno da Cruz Vermelha Brasileira – RJ.`,
+    `Seu usuário: *${limpo(p.usuario, 40)}*`,
+    `${p.urlDaFicha ? '*1.* ' : ''}Crie a sua senha (o link vale por ${p.horas} horas e funciona uma vez só):\n${p.url}`,
+    p.urlDaFicha ? `*2.* Complete a sua ficha no RH (dados pessoais, endereço e contato de emergência):\n${p.urlDaFicha}` : null,
+    '_Não repasse estes links. A Cruz Vermelha nunca pede a sua senha por mensagem._',
+  ].filter(Boolean).join('\n\n')
+}
+
 /** Aviso de segurança da conta (senha, verificação, e-mail): sai sempre, mesmo pausado. */
 export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
   return [`*${limpo(p.titulo, 200)}*`, limpo(p.texto, 900), '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._'].join('\n\n')

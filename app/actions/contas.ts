@@ -15,6 +15,7 @@ import {
   auditarConta, avisar, consumirToken, emitirToken, enviarComSeguranca, hashDoIp, lerToken, revogarLinksDeSenha,
   urlDoLink, VALIDADE_MIN,
 } from '@/lib/contas/servidor'
+import { oQueOLinkProva } from '@/lib/contas/convite'
 
 /**
  * O lado de conta que não precisa de administrador: esqueci minha senha,
@@ -104,12 +105,21 @@ export async function definirSenhaPeloLink(formData: FormData): Promise<Resultad
     const { error } = await admin.auth.admin.updateUserById(userId, { password: nova })
     if (error) throw new Error('Não foi possível salvar a senha. Peça um novo link.')
 
-    // O convite chegou ao e-mail cadastrado e foi aberto: o endereço está provado.
+    // O convite foi aberto: fica provado o canal que o recebeu (lib/contas/convite.ts).
+    // Só por e-mail, o endereço; só pelo WhatsApp, o número; pelos dois, nada.
     const convite = lido.finalidade === 'definir_senha'
+    const prova = convite ? oQueOLinkProva(lido.email) : { email: false, whatsapp: null }
     await admin.from('profiles').update({
       trocar_senha: false, updated_at: new Date().toISOString(),
-      ...(convite && lido.pessoa.email && !lido.pessoa.emailConfirmado ? { email_confirmado_em: new Date().toISOString() } : {}),
+      ...(prova.email && lido.pessoa.email && !lido.pessoa.emailConfirmado ? { email_confirmado_em: new Date().toISOString() } : {}),
     }).eq('id', userId)
+    if (prova.whatsapp) {
+      // Os avisos passam a chegar por lá desde o primeiro dia. Número já confirmado em outra conta: fica de fora.
+      const agora = new Date().toISOString()
+      const { error: erroDoNumero } = await admin.from('whatsapp_contas')
+        .upsert({ user_id: userId, numero: prova.whatsapp, confirmado_em: agora, pausado_em: null, atualizado_em: agora }, { onConflict: 'user_id' })
+      if (erroDoNumero && erroDoNumero.code !== '23505') console.error('[contas] WhatsApp do convite não ligado:', erroDoNumero.message)
+    }
     await revogarLinksDeSenha(admin, userId)
     await admin.rpc('encerrar_sessoes_do_usuario', { p_user_id: userId })
     await auditarConta(admin, { userId, atorId: userId, acao: convite ? 'senha_definida_pelo_convite' : 'senha_redefinida_pelo_link' })

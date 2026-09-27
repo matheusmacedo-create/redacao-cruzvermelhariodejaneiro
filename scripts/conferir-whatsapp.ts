@@ -7,7 +7,7 @@ import {
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
-  alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
+  textoDoConviteDoPalacio, alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -15,6 +15,7 @@ import {
   TEXTO_DO_CONSENTIMENTO, VERSAO_DO_CONSENTIMENTO, comandoDoVoluntario, consentimentoGuardado, textoDaListaDoVoluntario, textoDaOportunidade, textoDoMenuDoVoluntario,
 } from '../lib/whatsapp/voluntarios-regras'
 import { faltasDaFicha, lerFicha, textoDoConviteDaFicha } from '../lib/rh/ficha'
+import { lerMarcaDoConvite, marcaDoConvite, oQueOLinkProva } from '../lib/contas/convite'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -339,6 +340,23 @@ contem(conviteFicha, 'Olá, Carla!', 'convite chama pelo primeiro nome')
 contem(conviteFicha, 'números dos seus documentos', 'convite avisa dos documentos')
 contem(conviteFicha, 'nunca pede senha nem dados de banco', 'convite alerta contra golpe')
 contem(textoDoConviteDaFicha({ nome: 'Carla', url: 'u', documentos: false, lembrete: true }), 'Carla, falta completar', 'lembrete')
+
+// ---------------------------------------------------------------- convite de acesso pelo WhatsApp
+igual(marcaDoConvite({ porEmail: true, numero: null }), null, 'só e-mail: sem marca (como sempre foi)')
+igual(marcaDoConvite({ porEmail: false, numero: '5521987654321' }), 'whatsapp:5521987654321', 'só WhatsApp')
+igual(marcaDoConvite({ porEmail: true, numero: '5521987654321' }), 'whatsapp+email:5521987654321', 'pelos dois')
+igual(lerMarcaDoConvite(null), { porEmail: true, numero: null }, 'convite antigo: e-mail')
+igual(lerMarcaDoConvite('whatsapp+email:5521987654321'), { porEmail: true, numero: '5521987654321' }, 'lê os dois canais')
+igual(lerMarcaDoConvite('whatsapp:123'), { porEmail: true, numero: null }, 'marca estranha vale como e-mail')
+igual(oQueOLinkProva(null), { email: true, whatsapp: null }, 'link só por e-mail prova o e-mail')
+igual(oQueOLinkProva('whatsapp:5521987654321'), { email: false, whatsapp: '5521987654321' }, 'link só pelo WhatsApp prova o número, não o e-mail')
+igual(oQueOLinkProva('whatsapp+email:5521987654321'), { email: false, whatsapp: null }, 'pelos dois: não prova nada sozinho')
+const conviteZap = textoDoConviteDoPalacio({ nome: 'Carla Dias', usuario: 'carla.dias', url: 'https://p/redefinir-senha?t=x', horas: 72, convidadoPor: 'Matheus', urlDaFicha: 'https://p/ficha/y' })
+contem(conviteZap, 'Olá, Carla! Matheus criou o seu acesso', 'convite: quem convidou')
+contem(conviteZap, 'Seu usuário: *carla.dias*', 'convite: usuário')
+contem(conviteZap, '*1.* Crie a sua senha', 'convite com a ficha numera os passos')
+contem(conviteZap, '*2.* Complete a sua ficha no RH', 'convite leva a ficha junto')
+igual(textoDoConviteDoPalacio({ nome: 'Carla', usuario: 'c', url: 'u', horas: 72, convidadoPor: 'M' }).includes('*1.*'), false, 'sem ficha, sem numeração')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.

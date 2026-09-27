@@ -86,7 +86,7 @@ const DIRETORIO: GuiaDaArea = {
     {
       alvo: 'diretorio.adicionar',
       titulo: 'Dar acesso ao Palácio Virtual',
-      texto: 'Só administradores: “Adicionar pessoas” convida por e-mail quem ainda não tem login. Cada pessoa cria a própria senha pelo link.',
+      texto: 'Só administradores: “Adicionar pessoas” convida pelo WhatsApp e/ou por e-mail quem ainda não tem login, e já cria a ficha no RH. Cada pessoa cria a própria senha pelo link.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -167,17 +167,23 @@ const DIRETORIO: GuiaDaArea = {
         {
           alvo: 'diretorio.convites',
           titulo: '2. Confira e envie',
-          texto: 'Confira nome e sobrenome, e-mail, setor e papel de cada pessoa. O papel vem sugerido pelo setor; na dúvida, “Colaborador”, que dá para mudar depois.',
+          texto: 'Confira nome e sobrenome, WhatsApp e/ou e-mail, setor e papel de cada pessoa. O convite sai pelo que estiver preenchido. O papel vem sugerido pelo setor; na dúvida, “Colaborador”, que dá para mudar depois.',
+        },
+        {
+          alvo: 'diretorio.ficha',
+          titulo: 'A ficha no RH vem junto',
+          texto: 'Quem ainda não tem ficha em Recursos humanos ganha uma (“Criar a ficha no RH”); quem já tem fica ligado a ela. Com WhatsApp, o pedido para a pessoa completar a ficha vai na mesma mensagem do convite.',
+          seAusente: 'pular',
         },
         {
           alvo: 'diretorio.enviar',
           titulo: 'Enviar os convites',
-          texto: 'Cada pessoa recebe um e-mail com o usuário e um link para criar a própria senha, que vale 72 horas. O resultado de cada convite aparece logo abaixo.',
+          texto: 'Cada pessoa recebe, pelo WhatsApp e/ou por e-mail, o usuário e um link para criar a própria senha, que vale 72 horas. O resultado de cada convite aparece logo abaixo.',
         },
         {
           alvo: 'diretorio.pendentes',
           titulo: 'Convites pendentes',
-          texto: 'Quem tem conta e ainda não entrou. “Reenviar” gera um link novo (o anterior deixa de valer); “Cancelar” desativa a conta.',
+          texto: 'Quem tem conta e ainda não entrou. “Reenviar” gera um link novo pelo mesmo caminho do convite (WhatsApp e/ou e-mail), e o anterior deixa de valer; “Cancelar” desativa a conta.',
         },
       ],
     },
@@ -267,12 +273,13 @@ const DIRETORIO: GuiaDaArea = {
       passos: [
         'No Diretório, toque em “Adicionar pessoas” (ou em “Dar acesso”, no cartão de quem está “Sem acesso”).',
         'Em “1. Quem vai receber acesso”, marque as pessoas. Para alguém que não está na lista, toque em “Outra pessoa (fora da lista)”.',
-        'Em “2. Confira e envie”, preencha o “E-mail” e confira “Setor”, “Papel” e “Cargo (opcional)”.',
+        'Em “2. Confira e envie”, preencha o “WhatsApp” e/ou o “E-mail” e confira “Setor”, “Papel” e “Cargo (opcional)”.',
+        'Deixe marcado “Criar a ficha no RH” (para quem ainda não tem ficha) e, se quiser, “Pedir, na mesma mensagem do WhatsApp, que a pessoa complete a ficha”.',
         'Resolva o que aparecer como “Falta: …” embaixo de cada pessoa.',
         'Toque em “Enviar convite” (com mais gente, o botão mostra quantos convites vão sair).',
         'Confira o resultado de cada pessoa na lista que aparece embaixo do botão.',
       ],
-      dica: 'Dá para convidar até 30 pessoas de uma vez. Para quem não tem e-mail, o acesso sai com senha temporária em “Usuários e permissões”.',
+      dica: 'Dá para convidar até 30 pessoas de uma vez. Com WhatsApp e e-mail preenchidos, o convite sai pelos dois. Para quem não tem nenhum dos dois, o acesso sai com senha temporária em “Usuários e permissões”.',
     },
     {
       id: 'reenviar-convite',
@@ -283,7 +290,7 @@ const DIRETORIO: GuiaDaArea = {
         'Em “Convites pendentes”, ache a pessoa.',
         'Toque em “Reenviar” para mandar um link novo, ou em “Cancelar” para desfazer o convite.',
       ],
-      dica: 'Reenviar invalida o link anterior. Cancelar desativa a conta; se precisar, ela é reativada em “Usuários e permissões”.',
+      dica: 'Reenviar usa o mesmo caminho do convite (WhatsApp e/ou e-mail) e invalida o link anterior. Cancelar desativa a conta; se precisar, ela é reativada em “Usuários e permissões”.',
     },
     {
       id: 'editar-setores',
@@ -381,8 +388,8 @@ const DIRETORIO: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'O convite não chegou ou o link venceu. E agora?',
-      resposta: 'O link do convite vale 72 horas. Um administrador abre “Adicionar pessoas” e, em “Convites pendentes”, toca em “Reenviar”: sai um link novo, e o anterior deixa de valer.\n\nSe a tela avisar que o envio de e-mail não está configurado, nenhum convite sai: dê o acesso com senha temporária em “Usuários e permissões”.',
-      termos: ['e-mail', 'link expirou', 'senha', 'reenviar', 'o e-mail não saiu'],
+      resposta: 'O link do convite vale 72 horas. Um administrador abre “Adicionar pessoas” e, em “Convites pendentes”, toca em “Reenviar”: sai um link novo pelo mesmo caminho (WhatsApp e/ou e-mail), e o anterior deixa de valer.\n\nPelo WhatsApp, convite enviado entre 22h e 7h espera a manhã na fila. Se a tela avisar que nem o e-mail nem o WhatsApp do Palácio estão ligados, nenhum convite sai: dê o acesso com senha temporária em “Usuários e permissões”.',
+      termos: ['e-mail', 'WhatsApp', 'link expirou', 'senha', 'reenviar', 'o e-mail não saiu', 'o WhatsApp não saiu'],
     },
   ],
   relacionadas: ['/usuarios', '/equipe', '/perfil', '/chat'],
@@ -463,6 +470,12 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
           titulo: 'Editar a ficha',
           texto: '“Editar ficha” muda o cadastro e o contrato. Mudança de cargo, setor, gestor, vínculo ou jornada entra no histórico com a data de vigência.',
           lado: 'bottom',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'rh.dar-acesso',
+          titulo: 'Acesso ao Palácio Virtual',
+          texto: 'Só administradores, em quem ainda não tem login: “Dar acesso e mandar o convite” cria a conta já ligada a esta ficha e manda o link da senha pelo WhatsApp e/ou por e-mail.',
           seAusente: 'pular',
         },
         {
@@ -567,6 +580,20 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
         'Complete os “Dados pessoais” que tiver à mão.',
         'Toque em “Cadastrar”.',
       ],
+      dica: 'Se a pessoa também vai usar o Palácio Virtual, é mais rápido começar pelo Diretório, em “Adicionar pessoas”: o convite de acesso já cria a ficha. Para quem já tem ficha, um administrador dá o acesso no quadro “Acesso ao Palácio Virtual” da própria ficha.',
+    },
+    {
+      id: 'dar-acesso-pela-ficha',
+      titulo: 'Dar acesso ao Palácio Virtual a partir da ficha',
+      exemplo: 'A ficha da Joana já existe; a administração abre a ficha, confere o WhatsApp dela e manda o convite: a Joana cria a senha pelo link e a conta já nasce ligada à ficha.',
+      quem: 'Só administradores',
+      passos: [
+        'Abra a ficha da pessoa, na aba “Contrato e cargo”.',
+        'No quadro “Acesso ao Palácio Virtual”, confira o “WhatsApp” (vem do telefone pessoal da ficha) e/ou o “E-mail”, o “Setor” e o “Papel”.',
+        'Se faltar algo na ficha, deixe marcado “Pedir, na mesma mensagem do WhatsApp, que a pessoa complete a ficha”.',
+        'Toque em “Dar acesso e mandar o convite”.',
+      ],
+      dica: 'O quadro só aparece para quem ainda não tem login e não foi desligado. O link da senha vale 72 horas; se vencer, reenvie em “Adicionar pessoas”, em “Convites pendentes”.',
     },
     {
       id: 'trazer-lista',
@@ -752,7 +779,7 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
     {
       id: 'ficha-e-login',
       pergunta: 'Para que serve ligar a ficha ao login?',
-      resposta: 'Liga a ficha à conta da pessoa no Palácio Virtual. Com isso, o e-mail e o telefone de trabalho da ficha aparecem sozinhos nos contatos institucionais do perfil dela, e o nome social e o cargo da ficha passam a valer no perfil.',
+      resposta: 'Liga a ficha à conta da pessoa no Palácio Virtual. Com isso, o e-mail e o telefone de trabalho da ficha aparecem sozinhos nos contatos institucionais do perfil dela, e o nome social e o cargo da ficha passam a valer no perfil.\n\nQuem recebe acesso por “Adicionar pessoas” ou pelo quadro “Acesso ao Palácio Virtual” da ficha já fica ligado; não precisa fazer nada.',
       termos: ['login', 'conta', 'duplicado', 'Login no Palácio Virtual'],
     },
     {
