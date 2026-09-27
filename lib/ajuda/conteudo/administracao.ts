@@ -902,7 +902,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-nao-chegou',
       pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
-      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp.\n\nDe 22h às 7h os avisos comuns esperam na fila e saem às 7h. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp. A exceção é o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado): esse sai mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica.\n\nDe 22h às 7h os avisos comuns esperam na fila e saem às 7h. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
       termos: ['não chegou', 'não recebi', 'mensagem não chega'],
     },
     {

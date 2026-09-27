@@ -678,7 +678,11 @@ dígitos; `whatsapp_contas`, fora de `profiles` para o celular não ficar
 visível a todo o espaço). Sai se a pessoa não pausou, deixou o assunto ligado
 (`notificacao_preferencias.whatsapp`, padrão ligado) e não está com o Palácio
 aberto; no mesmo link, no máximo uma mensagem a cada 15 min
-(`notifications.whatsapp_em`). Regras em `decidirWhatsapp`
+(`notifications.whatsapp_em`). Aviso com `importante: true` (o desfecho para
+quem abriu o chamado: resolvido, "a equipe precisa de você", cancelado pela
+equipe) passa por cima dessas duas, não da pausa, do assunto, do silêncio da
+noite nem do teto diário. Quem causou o aviso nunca o recebe (`atorId`):
+quem resolve o próprio chamado não ganha réplica. Regras em `decidirWhatsapp`
 (`lib/whatsapp/regras.ts`). Os avisos de segurança de `avisar()` também vão ao
 WhatsApp confirmado, menos se a pessoa pausou.
 

@@ -95,6 +95,9 @@ igual(decidirWhatsapp({ ...base, vistoEm: '2026-09-27T14:58:30Z' }), false, 'est
 igual(decidirWhatsapp({ ...base, vistoEm: '2026-09-27T14:50:00Z' }), true, 'viu há 10 min')
 igual(decidirWhatsapp({ ...base, ultimoNoMesmoLink: '2026-09-27T14:50:00Z' }), false, 'mesmo link há 10 min')
 igual(decidirWhatsapp({ ...base, ultimoNoMesmoLink: '2026-09-27T14:40:00Z' }), true, 'mesmo link há 20 min')
+igual(decidirWhatsapp({ ...base, vistoEm: '2026-09-27T14:58:30Z', ultimoNoMesmoLink: '2026-09-27T14:50:00Z', importante: true }), true, 'importante: sai mesmo com o Palácio aberto e logo depois')
+igual(decidirWhatsapp({ ...base, pausado: true, importante: true }), false, 'importante: a pausa continua valendo')
+igual(decidirWhatsapp({ ...base, categoriaLigada: false, importante: true }), false, 'importante: o assunto desligado continua valendo')
 
 const aviso = textoDoAviso({ urlBase: 'https://palacio.x', titulo: 'Pedido de *aprovação*', mensagem: 'Ana pediu sua aprovação.', link: '/aprovacoes', citacao: 'linha 1\nlinha 2' })
 contem(aviso, '*Pedido de aprovação*', 'título em negrito, sem o * de dentro')

@@ -680,8 +680,8 @@ const CHAMADOS: GuiaDaArea = {
     {
       id: 'quando-recebo-aviso',
       pergunta: 'Quando recebo aviso de um chamado?',
-      resposta: 'Quem abriu é avisado das respostas da equipe, dos pedidos de informação, da solução, do cancelamento feito pela equipe e da mudança de fila.\n\nA equipe da fila é avisada de chamado novo e de chamado transferido para ela. Quem é responsável pelo chamado é avisado da atribuição, das mensagens de quem abriu, da reabertura, do cancelamento e da avaliação; sem responsável, mensagens e reaberturas vão para a equipe da fila. Ninguém é avisado do que fez.',
-      termos: ['notificação', 'sino', 'e-mail'],
+      resposta: 'Quem abriu é avisado das respostas da equipe, dos pedidos de informação, da solução, do cancelamento feito pela equipe e da mudança de fila.\n\nA equipe da fila é avisada de chamado novo e de chamado transferido para ela. Quem é responsável pelo chamado é avisado da atribuição, das mensagens de quem abriu, da reabertura, do cancelamento e da avaliação; sem responsável, mensagens e reaberturas vão para a equipe da fila. Ninguém é avisado do que fez: quem resolve o próprio chamado não recebe a réplica.\n\nNo WhatsApp confirmado no perfil, a solução, o pedido de informação e o cancelamento pela equipe chegam mesmo se você estiver com o Palácio Virtual aberto (de 22h às 7h, esperam a manhã).',
+      termos: ['notificação', 'sino', 'e-mail', 'WhatsApp', 'réplica', 'não recebi'],
     },
     {
       id: 'fechou-sozinho',
