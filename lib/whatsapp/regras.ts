@@ -94,8 +94,10 @@ export function mascararNumero(numero: string | null | undefined): string {
 
 /** Endereço do servidor da Evolution API, sem barra no fim; null se não serve. */
 export function urlDoServidor(valor: string | null | undefined): string | null {
-  const bruto = String(valor ?? '').trim()
+  let bruto = String(valor ?? '').trim()
   if (!bruto) return null
+  // "evolution.exemplo.org" (sem protocolo) vira https: foi assim que o primeiro cadastro travou.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(bruto)) bruto = `https://${bruto}`
   try {
     const u = new URL(bruto)
     if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
@@ -103,6 +105,24 @@ export function urlDoServidor(valor: string | null | undefined): string | null {
     return `${u.origin}${u.pathname}`.replace(/\/+$/, '')
   } catch {
     return null
+  }
+}
+
+/**
+ * Endereço que só existe dentro de um computador ou da rede local (localhost,
+ * 127.x, 10.x, 192.168.x, 172.16–31.x). O Palácio roda na internet e nunca
+ * alcança esses endereços: é preciso o endereço público (ex.: o do ngrok).
+ */
+export function enderecoLocal(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '[::1]' || host === '0.0.0.0') return true
+    const ip = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host)
+    if (!ip) return false
+    const [a, b] = [Number(ip[1]), Number(ip[2])]
+    return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254)
+  } catch {
+    return false
   }
 }
 
@@ -171,6 +191,89 @@ export function textoDoAviso(p: { urlBase: string; titulo: string; mensagem: str
   partes.push(RODAPE)
   return partes.join('\n\n')
 }
+
+// ------------------------------------------------------------------ volume
+//
+// Controle de volume comum, não disfarce: o Palácio não manda mais do que
+// isto, para não virar enxurrada no celular de ninguém nem sobrecarregar o
+// servidor da Evolution. O que passa do limite espera na fila.
+
+/** Espera fixa entre dois envios seguidos da mesma leva (ms). */
+export const INTERVALO_ENTRE_ENVIOS_MS = 3000
+/** Teto de mensagens do Palácio por minuto, somando todo mundo. */
+export const TETO_POR_MINUTO = 12
+/** Teto de avisos por pessoa em 24 h; passou disso, só sino e e-mail até o dia seguinte. */
+export const TETO_DIARIO_POR_PESSOA = 40
+
+/** Hora (0–23) em São Paulo. */
+export function horaEmSaoPaulo(agora: Date): number {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hourCycle: 'h23' }).format(agora))
+}
+
+// ------------------------------------------------------------------ horário de silêncio e fila
+
+/** Entre 22h e 7h (São Paulo), os avisos esperam; saem às 7h. */
+export const SILENCIO = { de: 22, ate: 7 } as const
+
+export function emSilencio(agora: Date): boolean {
+  const h = horaEmSaoPaulo(agora)
+  return h >= SILENCIO.de || h < SILENCIO.ate
+}
+
+/** Diferença (min) entre o relógio de São Paulo e o UTC naquele instante. */
+function deslocamentoDeSaoPaulo(agora: Date): number {
+  const partes = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23',
+  }).formatToParts(agora).map((x) => [x.type, x.value]))
+  const local = Date.UTC(Number(partes.year), Number(partes.month) - 1, Number(partes.day), Number(partes.hour), Number(partes.minute), Number(partes.second))
+  return Math.round((local - agora.getTime()) / 60_000)
+}
+
+/** O fim do silêncio: as próximas 7h em São Paulo a partir de agora. */
+export function fimDoSilencio(agora: Date): Date {
+  const desloc = deslocamentoDeSaoPaulo(agora)
+  const local = new Date(agora.getTime() + desloc * 60_000) // relógio de SP escrito como UTC
+  const alvo = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate(), SILENCIO.ate, 0, 0))
+  if (local.getUTCHours() >= SILENCIO.ate) alvo.setUTCDate(alvo.getUTCDate() + 1)
+  return new Date(alvo.getTime() - desloc * 60_000)
+}
+
+/**
+ * O silêncio vale para os avisos comuns. Não vale para o que a pessoa acabou
+ * de pedir (código, resposta do bot, teste), para a segurança da conta e para
+ * a portaria (a visita está na porta agora).
+ */
+export function silencioSeAplica(p: { tipo: 'aviso' | 'seguranca' | 'codigo' | 'bot' | 'teste'; categoria?: string | null }): boolean {
+  return p.tipo === 'aviso' && p.categoria !== 'portaria'
+}
+
+/** Por que um envio falhou, para decidir se vale tentar de novo. */
+export type MotivoDaFalha = 'rede' | 'tempo' | 'servidor' | 'chave' | 'instancia' | 'numero' | 'outro'
+
+/**
+ * Reenvia o que falhou por o servidor estar fora (rede, 5xx), a chave ou a
+ * instância estarem erradas (volta a funcionar quando alguém arruma). Não
+ * reenvia o que pode já ter saído (tempo esgotado: seria mensagem repetida) nem
+ * número sem WhatsApp.
+ */
+export const falhaMereceReenvio = (motivo: MotivoDaFalha): boolean => motivo === 'rede' || motivo === 'servidor' || motivo === 'chave' || motivo === 'instancia'
+
+/** Falha que indica o WhatsApp do Palácio fora do ar (vira alerta para a administração). */
+export const falhaDerrubaConexao = (motivo: MotivoDaFalha): boolean => motivo === 'rede' || motivo === 'servidor' || motivo === 'chave' || motivo === 'instancia'
+
+/** Espera antes de cada nova tentativa (min). Depois da última, desiste. */
+export const ESPERAS_DE_REENVIO_MIN = [5, 15, 60, 180, 720] as const
+
+export function proximaTentativa(tentativas: number, agora: Date): Date | null {
+  const espera = ESPERAS_DE_REENVIO_MIN[tentativas - 1]
+  return espera === undefined ? null : new Date(agora.getTime() + espera * 60_000)
+}
+
+/** Categoria que não vai pelo WhatsApp: o alerta de "WhatsApp caiu" iria justamente por onde caiu. */
+export const categoriaVaiPorWhatsapp = (categoria: string): boolean => categoria !== 'sistema'
+
+/** Alerta de queda repetido no máximo a cada tantas horas. */
+export const ALERTA_A_CADA_HORAS = 6
 
 /** Aviso de segurança da conta (senha, verificação, e-mail): sai sempre, mesmo pausado. */
 export function textoDeSeguranca(p: { titulo: string; texto: string }): string {

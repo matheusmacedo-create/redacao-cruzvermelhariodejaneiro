@@ -5,8 +5,9 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { enviarComSeguranca } from '@/lib/contas/servidor'
 import { emailDeNotificacao } from './emails'
 import { decidirEmail, lerModos, linkInterno, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from './regras'
-import { configDoWhatsapp, mandar } from '@/lib/whatsapp/servidor'
-import { decidirWhatsapp, lerCategoriasDoWhatsapp, textoDoAviso } from '@/lib/whatsapp/regras'
+import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { entregar, processarFila } from '@/lib/whatsapp/fila'
+import { INTERVALO_ENTRE_ENVIOS_MS, TETO_DIARIO_POR_PESSOA, categoriaVaiPorWhatsapp, decidirWhatsapp, lerCategoriasDoWhatsapp, textoDoAviso } from '@/lib/whatsapp/regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -114,6 +115,7 @@ async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linh
  */
 async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], linhas: { id: string; user_id: string }[],
   texto: { titulo: string; mensagem: string; link: string | null }) {
+  if (!categoriaVaiPorWhatsapp(aviso.categoria)) return
   const { data: contas, error } = await admin.from('whatsapp_contas').select('user_id, numero, pausado_em').in('user_id', destinos)
   if (error || !contas?.length) return
   const config = await configDoWhatsapp(aviso.workspaceId)
@@ -135,6 +137,8 @@ async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], l
   for (const r of recentes.data ?? []) if (!ultimo.has(r.user_id) || r.whatsapp_em > ultimo.get(r.user_id)!) ultimo.set(r.user_id, r.whatsapp_em)
   const corpo = textoDoAviso({ urlBase: urlBase(), titulo: texto.titulo, mensagem: aviso.textoDoEmail ?? texto.mensagem, link: texto.link, citacao: aviso.citacao })
 
+  const umDia = new Date(agora.getTime() - 86_400_000).toISOString()
+  let enviouAntes = false
   for (const conta of contas as { user_id: string; numero: string; pausado_em: string | null }[]) {
     const perfil = perfis.get(conta.user_id)
     if (!perfil?.active) continue
@@ -147,10 +151,22 @@ async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], l
       agora,
     })
     if (!vai) continue
+    // Teto diário por pessoa: passou disso, o aviso fica só no sino e no e-mail.
+    const { count: hoje } = await admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
+      .eq('user_id', conta.user_id).eq('direcao', 'saida').eq('tipo', 'aviso').eq('situacao', 'enviada').gte('criado_em', umDia)
+    if ((hoje ?? 0) >= TETO_DIARIO_POR_PESSOA) continue
     const linha = linhas.find((l) => l.user_id === conta.user_id)
-    const envio = await mandar(admin, aviso.workspaceId, { numero: conta.numero, texto: corpo, tipo: 'aviso', userId: conta.user_id, notificacaoId: linha?.id ?? null, config })
-    if (envio.ok && linha) await admin.from('notifications').update({ whatsapp_em: new Date().toISOString() }).eq('id', linha.id)
+    if (enviouAntes) await new Promise((resolver) => setTimeout(resolver, INTERVALO_ENTRE_ENVIOS_MS))
+    const entrega = await entregar(admin, aviso.workspaceId, {
+      numero: conta.numero, texto: corpo, tipo: 'aviso', userId: conta.user_id, notificacaoId: linha?.id ?? null, categoria: aviso.categoria, link: texto.link,
+    }, { config })
+    if (entrega.situacao === 'enviada') {
+      enviouAntes = true
+      if (linha) await admin.from('notifications').update({ whatsapp_em: new Date().toISOString() }).eq('id', linha.id)
+    }
   }
+  // Aproveita a viagem: o que já venceu na fila (reenvios) sai junto.
+  await processarFila(admin, aviso.workspaceId, { orcamentoMs: 60_000, limite: 10 })
 }
 
 /**

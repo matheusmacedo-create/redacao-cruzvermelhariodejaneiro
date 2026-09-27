@@ -1,12 +1,15 @@
 import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CABECALHO_DO_WEBHOOK, configDoWhatsapp, segredoConfere } from '@/lib/whatsapp/servidor'
-import { lerEventoDoWebhook } from '@/lib/whatsapp/regras'
+import { estadoDaEvolution, lerEventoDoWebhook } from '@/lib/whatsapp/regras'
 import { atenderMensagem } from '@/lib/whatsapp/bot'
+import { registrarEstado } from '@/lib/whatsapp/estado'
+import { processarFila } from '@/lib/whatsapp/fila'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+// Ao reconectar, a fila acumulada sai daqui (depois da resposta), com o ritmo da fila.
+export const maxDuration = 300
 
 /**
  * Recebe da Evolution API o que chega ao WhatsApp do Palácio e passa ao bot
@@ -47,8 +50,16 @@ export async function POST(req: Request) {
   if (evento.instancia && evento.instancia !== config.instancia) return NextResponse.json({ ok: true, ignorado: 'outra instância' })
 
   if (evento.evento === 'connection.update') {
-    // A tela de conexão lê o estado ao vivo; aqui só fica no log da Vercel.
     console.info('[whatsapp] conexão:', evento.estado)
+    const estado = estadoDaEvolution(evento.estado)
+    // "connecting" é passagem (QR na tela, reconexão): nem alerta nem fila.
+    if (estado !== 'conectando') {
+      const admin = createAdminClient()
+      after(async () => {
+        await registrarEstado(admin, workspaceId, estado)
+        if (estado === 'conectado') await processarFila(admin, workspaceId, { orcamentoMs: 270_000 })
+      })
+    }
     return NextResponse.json({ ok: true })
   }
   if (evento.evento !== 'messages.upsert' || !evento.mensagens.length) return NextResponse.json({ ok: true, ignorado: evento.evento || 'sem evento' })

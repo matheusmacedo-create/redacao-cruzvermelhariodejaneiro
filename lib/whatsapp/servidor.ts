@@ -3,7 +3,7 @@ import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { estadoDaEvolution, instanciaValida, numeroCanonico, urlDoServidor, type EstadoDaConexao } from './regras'
+import { estadoDaEvolution, instanciaValida, numeroCanonico, urlDoServidor, type EstadoDaConexao, type MotivoDaFalha } from './regras'
 
 /**
  * O WhatsApp do Palácio Virtual, pela Evolution API (v2).
@@ -52,7 +52,16 @@ const TEMPO_MAXIMO_MS = 15_000
  */
 const TEMPO_DO_ENVIO_MS = 40_000
 
-type Resposta = { ok: boolean; status: number; dados: unknown; erro: string | null; semResposta?: boolean }
+type Resposta = { ok: boolean; status: number; dados: unknown; erro: string | null; semResposta?: boolean; motivo?: MotivoDaFalha }
+
+/** O que a resposta diz sobre a falha (a fila decide se reenvia; a conexão decide se alerta). */
+function motivoDoStatus(status: number, dados: unknown): MotivoDaFalha {
+  if (status === 401 || status === 403) return 'chave'
+  if (status === 404) return 'instancia'
+  if (status >= 500) return 'servidor'
+  if (status === 400 && mensagemDoCorpo(dados) === 'Esse número não tem WhatsApp.') return 'numero'
+  return 'outro'
+}
 
 function limparErro(config: ConfigDoWhatsapp, texto: string): string {
   return texto.split(config.chave).join('[chave]').split(config.url).join('[servidor]').slice(0, 300)
@@ -91,14 +100,14 @@ async function chamar(config: ConfigDoWhatsapp, metodo: 'GET' | 'POST' | 'DELETE
       ? 'O servidor recusou a chave. Confira a chave da API em Configurações → Integrações.'
       : resposta.status === 404 ? `Não encontrado no servidor (${mensagemDoCorpo(dados) ?? 'confira o nome da instância'}).`
         : mensagemDoCorpo(dados) ?? `O servidor respondeu ${resposta.status}.`
-    return { ok: false, status: resposta.status, dados, erro: limparErro(config, motivo) }
+    return { ok: false, status: resposta.status, dados, erro: limparErro(config, motivo), motivo: motivoDoStatus(resposta.status, dados) }
   } catch (causa) {
     const nome = causa instanceof Error ? causa.name : ''
     const semResposta = nome === 'TimeoutError' || nome === 'AbortError'
     const motivo = semResposta
       ? 'O servidor da Evolution não respondeu a tempo.'
       : `Não consegui falar com o servidor da Evolution (${causa instanceof Error ? causa.message : 'erro de rede'}).`
-    return { ok: false, status: 0, dados: null, erro: limparErro(config, motivo), semResposta }
+    return { ok: false, status: 0, dados: null, erro: limparErro(config, motivo), semResposta, motivo: semResposta ? 'tempo' : 'rede' }
   }
 }
 
@@ -112,13 +121,13 @@ const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v ==
  * pode ter saído mesmo assim (o envio segue no servidor dela): quem chama não
  * trata isso como "não chegou".
  */
-export type Envio = { ok: true; id: string | null } | { ok: false; erro: string; semResposta?: boolean }
+export type Envio = { ok: true; id: string | null } | { ok: false; erro: string; motivo: MotivoDaFalha; semResposta?: boolean }
 
 /** Manda um texto. `numero` em dígitos (a Evolution resolve o nono dígito). */
 export async function enviarTexto(config: ConfigDoWhatsapp, numero: string, texto: string): Promise<Envio> {
   const r = await chamar(config, 'POST', `/message/sendText/${inst(config)}`, { number: numero, text: texto, linkPreview: false }, TEMPO_DO_ENVIO_MS)
-  if (r.semResposta) return { ok: false, erro: 'A Evolution não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', semResposta: true }
-  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.' }
+  if (r.semResposta) return { ok: false, erro: 'A Evolution não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', motivo: 'tempo', semResposta: true }
+  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.', motivo: r.motivo ?? 'outro' }
   const id = objeto(objeto(r.dados)?.key)?.id
   return { ok: true, id: typeof id === 'string' ? id.slice(0, 128) : null }
 }
@@ -275,7 +284,7 @@ export async function mandar(admin: Admin, workspaceId: string, p: {
   numero: string; texto: string; tipo: LinhaDoRegistro['tipo']; userId?: string | null; notificacaoId?: string | null; config?: ConfigDoWhatsapp | null
 }): Promise<Envio> {
   const config = p.config ?? await configDoWhatsapp(workspaceId)
-  if (!config) return { ok: false, erro: 'O WhatsApp do Palácio Virtual não está configurado.' }
+  if (!config) return { ok: false, erro: 'O WhatsApp do Palácio Virtual não está configurado.', motivo: 'chave' }
   const envio = await enviarTexto(config, p.numero, p.texto)
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: p.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: p.numero,

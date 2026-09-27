@@ -6,6 +6,7 @@ import { Loader2, Pause, Play, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { confirmarCodigoDoWhatsapp, pausarMeuWhatsapp, pedirCodigoDoWhatsapp, removerMeuWhatsapp, salvarCategoriasDoWhatsapp } from '@/app/actions/whatsapp'
 import { CATEGORIAS, ROTULO_DA_CATEGORIA, type Categoria } from '@/lib/notificacoes/regras'
+import { categoriaVaiPorWhatsapp } from '@/lib/whatsapp/regras'
 import { cn } from '@/lib/utils'
 
 const campo = 'h-10 min-w-48 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
@@ -88,7 +89,7 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">
         Os mesmos avisos do sino, no seu WhatsApp, vindos do número do Palácio Virtual. Não chegam se você estiver com o Palácio aberto,
-        e uma conversa movimentada manda no máximo uma mensagem a cada 15 minutos. Responda <strong className="text-foreground">menu</strong> por lá para ver os avisos, marcar como lidos ou parar.
+        e uma conversa movimentada manda no máximo uma mensagem a cada 15 minutos. De 22h às 7h os avisos esperam e chegam de manhã (menos os da portaria e os de segurança da conta). Responda <strong className="text-foreground">menu</strong> por lá para ver os avisos, marcar como lidos ou parar.
       </p>
 
       {conta && !trocando && (
@@ -138,7 +139,7 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">O que chega pelo WhatsApp</p>
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {CATEGORIAS.map((categoria) => (
+            {CATEGORIAS.filter(categoriaVaiPorWhatsapp).map((categoria) => (
               <li key={categoria}>
                 <label className="flex cursor-pointer items-center justify-between gap-3 p-3">
                   <span className="min-w-0">

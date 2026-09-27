@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
+import { enderecoLocal, instanciaValida, urlDoServidor } from '@/lib/whatsapp/regras'
 
 /**
  * Gravar e remover chaves de integração. A regra "só admin" mora no banco
@@ -34,6 +35,15 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
         const v = String(formData.get(c.id) ?? '').trim()
         if (v.length < (c.minimo ?? 8)) throw new Error(`Preencha "${c.rotulo}" inteiro.`)
         dados[c.id] = v
+      }
+      // WhatsApp: o endereço sem https:// travava a tela em "Falta configurar" sem dizer o motivo.
+      if (servico === 'evolution_api') {
+        const url = urlDoServidor(dados.url)
+        if (!url) throw new Error('O endereço do servidor não é válido. Use algo como https://seu-endereco.ngrok-free.dev')
+        if (enderecoLocal(url)) throw new Error('Esse endereço só existe dentro do seu computador ou da sua rede, e o Palácio roda na internet: use o endereço público (por exemplo, o do ngrok, https://….ngrok-free.dev).')
+        if (!instanciaValida(dados.instancia)) throw new Error('O nome da instância só pode ter letras, números, ponto, hífen e sublinhado, sem espaços.')
+        dados.url = url
+        dados.instancia = dados.instancia.trim()
       }
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {

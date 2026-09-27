@@ -84,5 +84,21 @@ set local role authenticated;
 select is((select count(*)::int from public.whatsapp_contas), 0, 'quem não confirmou não vê nada');
 reset role;
 
+-- ================================================================ fila e estado (20260929100000)
+
+select ok(not has_table_privilege('authenticated', 'public.whatsapp_fila', 'select')
+          and not has_table_privilege('anon', 'public.whatsapp_fila', 'select'), 'fila: ninguém lê pela Data API (guarda o texto)');
+select ok(not has_table_privilege('authenticated', 'public.whatsapp_estado', 'select'), 'estado: só o servidor');
+select lives_ok(format('insert into public.whatsapp_fila (workspace_id, user_id, numero, texto, tipo, motivo, link) values (%L, %L, %L, %L, %L, %L, %L)',
+                :'ws', :'editor', '5521987654321', 'Aviso', 'aviso', 'silencio', '/chamados/1'), 'aviso entra na fila');
+select throws_ok(format('insert into public.whatsapp_fila (workspace_id, numero, texto, tipo, motivo) values (%L, %L, %L, %L, %L)', :'ws', '5521987654321', 'x', 'aviso', 'porque_sim'),
+                 '23514', null, 'motivo fora da lista é recusado');
+select throws_ok(format('insert into public.whatsapp_fila (workspace_id, numero, texto, tipo, motivo) values (%L, %L, %L, %L, %L)', :'ws', '5521987654321', 'x', 'codigo', 'falha'),
+                 '23514', null, 'código de confirmação não entra na fila (vence em 10 min)');
+select lives_ok(format('insert into public.notifications (workspace_id, user_id, title, message, categoria) values (%L, %L, %L, %L, %L)', :'ws', :'admin', 'WhatsApp caiu', 'x', 'sistema'),
+                'categoria "sistema" aceita nas notificações');
+select lives_ok(format('insert into public.notifications (workspace_id, user_id, title, message, categoria) values (%L, %L, %L, %L, %L)', :'ws', :'admin', 'Chamado', 'x', 'chamados'),
+                'as categorias antigas continuam aceitas');
+
 select * from finish();
 rollback;

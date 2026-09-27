@@ -43,6 +43,10 @@
     {
       "path": "/api/agenda/resumo",
       "schedule": "43 9 * * 1"
+    },
+    {
+      "path": "/api/whatsapp/rotina",
+      "schedule": "5 10 * * *"
     }
   ]
 }

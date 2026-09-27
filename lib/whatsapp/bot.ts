@@ -2,7 +2,8 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
-import { mandar, registrar, type ConfigDoWhatsapp } from './servidor'
+import { registrar, type ConfigDoWhatsapp } from './servidor'
+import { entregar } from './fila'
 import {
   APRESENTACAO_A_CADA_HORAS, AVISOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA, TEXTO_PAUSADO, TEXTO_VOLTOU,
   interpretarComando, textoDaApresentacao, textoDasLidas, textoDoMenu, textoDosAvisos, type MensagemRecebida,
@@ -43,7 +44,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', desde)
     if ((respostas ?? 0) >= RESPOSTAS_POR_JANELA) return
 
-    const responder = (texto: string) => mandar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, config })
+    const responder = (texto: string) => entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null }, { config })
     const base = urlBase()
 
     if (!pessoa) {

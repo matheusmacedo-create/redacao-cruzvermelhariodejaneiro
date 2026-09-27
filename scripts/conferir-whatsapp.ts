@@ -5,7 +5,8 @@
 import {
   numeroCanonico, numeroDoJid, formatarNumero, mascararNumero, urlDoServidor, instanciaValida, estadoDaEvolution,
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
-  textoDoMenu, codigoNoFormato,
+  textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
+  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal,
 } from '../lib/whatsapp/regras'
 
 let falhas = 0
@@ -52,7 +53,14 @@ igual(urlDoServidor('https://exemplo.org/evolution/'), 'https://exemplo.org/evol
 igual(urlDoServidor('ftp://exemplo.org'), null, 'protocolo errado')
 igual(urlDoServidor('https://user:senha@exemplo.org'), null, 'credencial na URL')
 igual(urlDoServidor('https://exemplo.org/?apikey=x'), null, 'chave na URL')
-igual(urlDoServidor('exemplo.org'), null, 'sem protocolo')
+igual(urlDoServidor('exemplo.org'), 'https://exemplo.org', 'sem protocolo vira https')
+igual(urlDoServidor('gently-jaws-denim.ngrok-free.dev'), 'https://gently-jaws-denim.ngrok-free.dev', 'o caso que travou o primeiro cadastro')
+igual(urlDoServidor('localhost:8080'), 'https://localhost:8080', 'localhost ganha protocolo…')
+igual(enderecoLocal('https://localhost:8080'), true, '…mas é endereço local')
+igual(enderecoLocal('http://192.168.0.10:8080'), true, 'rede de casa é local')
+igual(enderecoLocal('http://172.20.1.5'), true, 'rede do Docker é local')
+igual(enderecoLocal('https://gently-jaws-denim.ngrok-free.dev'), false, 'ngrok é público')
+igual(enderecoLocal('https://8.8.8.8'), false, 'IP público não é local')
 igual(instanciaValida('palacio'), true, 'instância simples')
 igual(instanciaValida('Palacio-Virtual_1'), true, 'instância com traço')
 igual(instanciaValida('com espaço'), false, 'instância com espaço')
@@ -148,6 +156,29 @@ contem(textoDoMenu({ nome: null, pausado: false, urlBase: 'https://p' }), 'Olá!
 igual(codigoNoFormato('123456'), true, 'código ok')
 igual(codigoNoFormato('12345'), false, 'código curto')
 igual(codigoNoFormato('12a456'), false, 'código com letra')
+
+// ---------------------------------------------------------------- silêncio, fila e reenvio
+// Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.
+igual(horaEmSaoPaulo(new Date('2026-09-28T01:30:00Z')), 22, 'hora em SP')
+igual(emSilencio(new Date('2026-09-28T00:59:00Z')), false, '21h59 não é silêncio')
+igual(emSilencio(new Date('2026-09-28T01:00:00Z')), true, '22h é silêncio')
+igual(emSilencio(new Date('2026-09-28T09:59:00Z')), true, '6h59 é silêncio')
+igual(emSilencio(new Date('2026-09-28T10:00:00Z')), false, '7h não é silêncio')
+igual(fimDoSilencio(new Date('2026-09-28T02:00:00Z')).toISOString(), '2026-09-28T10:00:00.000Z', '23h → 7h do dia seguinte')
+igual(fimDoSilencio(new Date('2026-09-28T05:00:00Z')).toISOString(), '2026-09-28T10:00:00.000Z', '2h da madrugada → 7h do mesmo dia')
+igual(fimDoSilencio(new Date('2026-09-30T02:30:00Z')).toISOString(), '2026-09-30T10:00:00.000Z', 'virada de mês')
+igual(silencioSeAplica({ tipo: 'aviso', categoria: 'chat' }), true, 'aviso comum espera')
+igual(silencioSeAplica({ tipo: 'aviso', categoria: 'portaria' }), false, 'portaria sai na hora')
+igual(silencioSeAplica({ tipo: 'seguranca' }), false, 'segurança sai na hora')
+igual(silencioSeAplica({ tipo: 'bot' }), false, 'resposta do bot sai na hora')
+igual(proximaTentativa(1, new Date('2026-09-28T12:00:00Z'))?.toISOString(), '2026-09-28T12:05:00.000Z', '1ª espera 5 min')
+igual(proximaTentativa(5, new Date('2026-09-28T12:00:00Z'))?.toISOString(), '2026-09-29T00:00:00.000Z', '5ª espera 12 h')
+igual(proximaTentativa(6, new Date('2026-09-28T12:00:00Z')), null, 'depois da 5ª, desiste')
+igual(falhaMereceReenvio('rede'), true, 'rede fora: reenvia')
+igual(falhaMereceReenvio('tempo'), false, 'tempo esgotado pode ter saído: não repete')
+igual(falhaMereceReenvio('numero'), false, 'número sem WhatsApp: não reenvia')
+igual(categoriaVaiPorWhatsapp('sistema'), false, 'alerta de queda não vai pelo WhatsApp')
+igual(categoriaVaiPorWhatsapp('chamados'), true, 'chamados vão')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

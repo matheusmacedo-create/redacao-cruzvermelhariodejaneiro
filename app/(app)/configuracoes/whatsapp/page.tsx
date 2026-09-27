@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/card'
 import { PainelDoWhatsapp, type LinhaDoRegistroNaTela } from '@/components/admin/whatsapp'
 import { exigirAdministracao } from '@/lib/configuracoes/servidor'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { resumoDaFila } from '@/lib/whatsapp/fila'
 import { configDoWhatsapp, perfilConectado, situacaoDaConexao, situacaoDoWebhook } from '@/lib/whatsapp/servidor'
 import { formatarNumero, mascararNumero } from '@/lib/whatsapp/regras'
 
@@ -29,12 +31,14 @@ export default async function WhatsappPage() {
   }
 
   const supabase = await createClient()
-  const [conexao, webhook, meu, registro] = await Promise.all([
+  const [conexao, webhook, meu, registro, fila] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, context.workspace.id),
     supabase.from('whatsapp_contas').select('numero').eq('user_id', context.user.id).maybeSingle(),
     supabase.from('whatsapp_mensagens').select('id, direcao, tipo, situacao, numero, comando, erro, criado_em, profiles:user_id(full_name)')
       .eq('workspace_id', context.workspace.id).order('criado_em', { ascending: false }).limit(30),
+    // A fila guarda o texto das mensagens: é lida pelo servidor, e a tela recebe só as contagens.
+    resumoDaFila(createAdminClient(), context.workspace.id),
   ])
   const conectado = conexao.estado === 'conectado' ? await perfilConectado(config) : { numero: null, nome: null }
 
@@ -65,6 +69,7 @@ export default async function WhatsappPage() {
       meuNumero={meu.data?.numero ? formatarNumero(meu.data.numero as string) : null}
       registro={linhas}
       registroIndisponivel={Boolean(registro.error)}
+      fila={fila}
     />
   </div>
 }

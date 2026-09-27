@@ -835,6 +835,12 @@ const WHATSAPP: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'whatsapp.fila',
+      titulo: 'Fila e horário de silêncio',
+      texto: 'De 22h às 7h os avisos comuns esperam e saem às 7h. O que falhou porque o servidor estava fora volta a ser tentado sozinho; “Enviar a fila agora” adianta o que já pode sair.',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'whatsapp.teste',
       titulo: 'Testar',
       texto: '“Mandar mensagem de teste” manda uma mensagem para o seu WhatsApp confirmado. Responda “menu” por lá para ver o bot.',
@@ -884,7 +890,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-nao-chegou',
       pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
-      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), e numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos. Se o motivo foi uma falha, ele aparece em “Últimas mensagens”.',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp.\n\nDe 22h às 7h os avisos comuns esperam na fila e saem às 7h. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
       termos: ['não chegou', 'não recebi', 'mensagem não chega'],
     },
     {
@@ -892,6 +898,12 @@ const WHATSAPP: GuiaDaArea = {
       pergunta: 'E quem não é da equipe e escreve para o número?',
       resposta: 'Recebe, no máximo uma vez por dia, uma resposta automática dizendo que o número é de avisos do sistema interno e indicando o site para falar com a Cruz Vermelha. Ninguém lê essas mensagens.',
       termos: ['público', 'atendimento', 'desconhecido'],
+    },
+    {
+      id: 'aviso-caiu-no-sino',
+      pergunta: 'Como fico sabendo que o WhatsApp do Palácio caiu?',
+      resposta: 'Os administradores recebem no sino e no e-mail o aviso “O WhatsApp do Palácio caiu”, uma vez, e “O WhatsApp do Palácio voltou” quando a conexão volta. Nunca pelo WhatsApp, que é justamente o que caiu. O Palácio percebe pela própria Evolution, por um envio que falhou ou pela conferência de todo dia às 7h05.',
+      termos: ['caiu', 'fora do ar', 'alerta', 'computador desligado', 'ngrok'],
     },
     {
       id: 'desconectou-sozinho',
@@ -1007,7 +1019,7 @@ const PERFIL: GuiaDaArea = {
         'Chega pelo WhatsApp um código de 6 números. Digite no campo e toque em “Confirmar”. O código vale por 10 minutos.',
         'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
       ],
-      dica: 'Por lá, responda “menu” para ver as opções: “1” mostra os avisos sem abrir, “2” marca todos como lidos e “3” pausa (ou retoma) os avisos. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
+      dica: 'Por lá, responda “menu” para ver as opções: “1” mostra os avisos sem abrir, “2” marca todos como lidos e “3” pausa (ou retoma) os avisos. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
     },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
