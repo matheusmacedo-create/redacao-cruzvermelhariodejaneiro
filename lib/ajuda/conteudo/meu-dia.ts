@@ -1,5 +1,5 @@
 import type { GuiaDaArea, Pergunta } from '../tipos'
-import { EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
+import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
 
 /**
  * A ajuda do grupo sem título do menu — o que é do dia de cada pessoa:
@@ -663,7 +663,7 @@ const NOTIFICACOES: GuiaDaArea = {
     {
       id: 'por-que-recebi',
       pergunta: 'Por que recebi esta notificação?',
-      resposta: 'Porque algo aconteceu com você: um pedido de aprovação ou um voto no que você enviou, uma mensagem, uma pauta em que você entrou, um comentário num conteúdo seu, um chamado ou um ofício para assinar, entre outros. O que você mesmo fez não gera aviso para você.',
+      resposta: 'Porque algo aconteceu com você: um pedido de aprovação ou um voto no que você enviou, uma mensagem, uma pauta em que você entrou, um comentário num conteúdo seu, um chamado ou um ofício para assinar, um visitante que chegou para você na portaria, entre outros. O que você mesmo fez não gera aviso para você; a exceção é a visita que você registrou para si mesmo na portaria.',
       termos: ['motivo', 'aviso', 'alerta'],
     },
     {
@@ -673,6 +673,7 @@ const NOTIFICACOES: GuiaDaArea = {
       termos: ['atraso', 'contagem', 'número do sino'],
     },
     { id: 'email-nao-chegou', ...EMAIL_DE_AVISO_NAO_CHEGOU },
+    { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
     { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',

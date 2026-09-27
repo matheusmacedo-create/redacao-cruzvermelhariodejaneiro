@@ -744,4 +744,4 @@ export function tituloDoRelato(relato: string): string {
 }
 
 export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
-  'Sua conta usa a verificação em duas etapas, então responder, votar e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas e a abertura de chamado por aqui continuam valendo.'
+  'Sua conta usa a verificação em duas etapas, então responder, votar e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
