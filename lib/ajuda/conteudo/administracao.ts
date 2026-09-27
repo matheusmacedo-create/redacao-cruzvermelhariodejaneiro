@@ -1019,7 +1019,7 @@ const PERFIL: GuiaDaArea = {
         'Chega pelo WhatsApp um código de 6 números. Digite no campo e toque em “Confirmar”. O código vale por 10 minutos.',
         'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
       ],
-      dica: 'Por lá, responda “menu” para ver as opções: “1” mostra os avisos sem abrir, “2” marca todos como lidos e “3” pausa (ou retoma) os avisos. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
+      dica: 'Por lá, responda “menu” para ver as opções (veja “O que dá para fazer pelo WhatsApp do Palácio?”). De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
     },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
@@ -1120,6 +1120,12 @@ const PERFIL: GuiaDaArea = {
       pergunta: 'Perdi o celular com o app autenticador. Como entro?',
       resposta: 'Se você cadastrou um segundo aparelho, use o código dele. Se não, na tela do código toque em “Perdi ou troquei de celular — avisar os administradores”: alguém da administração confirma com você e tira a verificação da sua conta. Depois, cadastre o app no celular novo aqui.',
       termos: ['celular novo', 'troquei de celular', 'código do app', '2fa'],
+    },
+    {
+      id: 'o-que-faz-o-whatsapp',
+      pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.',
+      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'aprovação pelo whatsapp', 'dúvida pelo whatsapp'],
     },
     {
       id: 'perfil-publico',

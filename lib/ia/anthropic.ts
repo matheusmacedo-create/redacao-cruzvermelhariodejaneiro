@@ -66,6 +66,10 @@ export type MedidaDoClaude = {
 export async function reescreverComClaude(pedido: {
   system: string
   texto: string
+  /** Para respostas curtas (o bot do WhatsApp): menos raciocínio, teto menor e espera menor. */
+  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+  maxTokens?: number
+  timeoutMs?: number
 }): Promise<{ texto: string; medida: MedidaDoClaude }> {
   const chave = chaveDoClaude()
   if (!chave) {
@@ -75,14 +79,14 @@ export async function reescreverComClaude(pedido: {
     )
   }
 
-  const cliente = new Anthropic({ apiKey: chave, timeout: 120_000, maxRetries: 1 })
+  const cliente = new Anthropic({ apiKey: chave, timeout: pedido.timeoutMs ?? 120_000, maxRetries: 1 })
   const comecou = Date.now()
   let resposta: Anthropic.Beta.BetaMessage
   try {
     resposta = await cliente.beta.messages.create({
       model: modeloDoClaude(),
-      max_tokens: 16_000,
-      output_config: { effort: esforcoDoClaude() },
+      max_tokens: pedido.maxTokens ?? 16_000,
+      output_config: { effort: pedido.effort ?? esforcoDoClaude() },
       system: pedido.system,
       messages: [{ role: 'user', content: pedido.texto }],
       betas: ['server-side-fallback-2026-07-01'],

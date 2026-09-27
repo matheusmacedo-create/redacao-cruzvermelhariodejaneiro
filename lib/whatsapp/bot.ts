@@ -2,11 +2,19 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
+import { lerCamadas } from '@/lib/agenda/camadas'
+import { agoraEmBrasilia, somarDias } from '@/lib/agenda/datas'
+import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
+import { ABERTOS, ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, ehStatus } from '@/lib/chamados/regras'
+import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
+import { ehPapel, type Papel } from '@/lib/permissoes'
 import { registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
+import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  APRESENTACAO_A_CADA_HORAS, AVISOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA, TEXTO_PAUSADO, TEXTO_VOLTOU,
-  interpretarComando, textoDaApresentacao, textoDasLidas, textoDoMenu, textoDosAvisos, type MensagemRecebida,
+  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
+  TEXTO_PAUSADO, TEXTO_VOLTOU, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
+  textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -32,7 +40,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const { data: conta } = await admin.from('whatsapp_contas').select('user_id, pausado_em').eq('numero', numero).maybeSingle()
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
-    const comando = pessoa ? interpretarComando(m.texto, { pausado }) : 'apresentacao'
+    const pedido = pessoa ? lerPedido(m.texto, { pausado }) : null
+    const comando = pedido?.comando ?? 'apresentacao'
 
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando,
@@ -84,6 +93,26 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    if (comando === 'agenda') {
+      await responder(await agendaDaPessoa(admin, workspaceId, pessoa, base))
+      return
+    }
+
+    if (comando === 'chamados') {
+      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa.id, base))
+      return
+    }
+
+    if (comando === 'aprovacoes') {
+      await responder(await aprovacoesDaPessoa(admin, workspaceId, pessoa.id, base))
+      return
+    }
+
+    if (comando === 'ajuda' && pedido) {
+      await responder(await responderDuvida(pedido.resto, pessoa.papel, base))
+      return
+    }
+
     const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base })
     await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu)
   } catch (causa) {
@@ -91,10 +120,95 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
   }
 }
 
+type Pessoa = { id: string; nome: string | null; papel: Papel }
+
 /** A pessoa ativa, membro deste espaço; null para o resto (conta desativada vira "número desconhecido"). */
-async function pessoaDoEspaco(admin: Admin, workspaceId: string, userId: string): Promise<{ id: string; nome: string | null } | null> {
-  const { data } = await admin.from('workspace_members').select('user_id, profiles(full_name, active)').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
+async function pessoaDoEspaco(admin: Admin, workspaceId: string, userId: string): Promise<Pessoa | null> {
+  const { data } = await admin.from('workspace_members').select('user_id, role, profiles(full_name, active)').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
   const perfil = (Array.isArray(data?.profiles) ? data?.profiles[0] : data?.profiles) as { full_name?: string | null; active?: boolean } | null | undefined
-  if (!data || !perfil || perfil.active === false) return null
-  return { id: userId, nome: perfil.full_name ?? null }
+  if (!data || !perfil || perfil.active === false || !ehPapel(data.role)) return null
+  return { id: userId, nome: perfil.full_name ?? null, papel: data.role }
+}
+
+// ------------------------------------------------------------------ consultas
+//
+// O cliente é o de serviço (não há sessão no WhatsApp), então cada consulta
+// filtra pela pessoa e pelo espaço, e a agenda passa pelo mesmo crivo de
+// acesso do resumo semanal por e-mail (camadasDisponiveis com semSessao).
+
+/** Hoje e amanhã, com as camadas que a pessoa deixou ligadas na Agenda. */
+async function agendaDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
+  const hoje = agoraEmBrasilia().dia
+  const amanha = somarDias(hoje, 1)
+  const [disponiveis, { data: preferencias }] = await Promise.all([
+    camadasDisponiveis(admin, workspaceId, pessoa.id, pessoa.papel, { semSessao: true }),
+    admin.from('agenda_preferencias').select('camadas_ocultas').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle(),
+  ])
+  const ocultas = lerCamadas(preferencias?.camadas_ocultas)
+  const { itens, falhas } = await itensDaAgenda(admin, workspaceId, pessoa.id, { de: hoje, ate: amanha }, [...disponiveis].filter((c) => !ocultas.includes(c)))
+  // Só o que começa no dia: a campanha que dura o mês inteiro não enche a lista de todo dia.
+  const doDia = (dia: string): ItemDoDia[] => itens.filter((i) => i.dia === dia).map((i) => ({ titulo: i.titulo, hora: i.hora ?? null, detalhe: i.detalhe ?? null }))
+  return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou: falhas.length > 0 })
+}
+
+/** Os chamados abertos que a pessoa abriu ou que estão com ela. */
+async function chamadosDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
+  const deQuem = `solicitante_id.eq.${userId},responsavel_id.eq.${userId}`
+  const [{ data, error }, { count }] = await Promise.all([
+    admin.from('chamados').select('id, codigo, titulo, status, solicitante_id').eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS])
+      .order('atualizado_em', { ascending: false }).limit(CHAMADOS_NA_RESPOSTA),
+    admin.from('chamados').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS]),
+  ])
+  if (error) return `Não consegui ler os seus chamados agora. Veja em ${base}/chamados`
+  return textoDosChamados({
+    chamados: (data ?? []).map((c) => {
+      const status = ehStatus(c.status) ? c.status : 'novo'
+      const deOutro = c.solicitante_id !== userId
+      return {
+        id: c.id as string, codigo: (c.codigo as string) || 'Chamado', titulo: (c.titulo as string) ?? '',
+        situacao: deOutro ? `${ROTULO_DO_STATUS_PARA_EQUIPE[status]} · com você` : ROTULO_DO_STATUS[status],
+      }
+    }),
+    total: count ?? data?.length ?? 0, urlBase: base,
+  })
+}
+
+/** As rodadas de aprovação em aberto em que o voto da pessoa ainda falta. */
+async function aprovacoesDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
+  const { data: votos, error } = await admin.from('approval_voters').select('approval_id').eq('workspace_id', workspaceId).eq('user_id', userId).eq('decision', 'pending').limit(200)
+  if (error) return `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`
+  const ids = [...new Set((votos ?? []).map((v) => v.approval_id as string))]
+  if (!ids.length) return textoDasAprovacoes({ aprovacoes: [], total: 0, urlBase: base })
+  const { data: abertas } = await admin.from('approvals').select('id, content_id').eq('workspace_id', workspaceId).eq('status', 'pending').in('id', ids)
+    .order('created_at', { ascending: false })
+  const lista = abertas ?? []
+  const mostrar = lista.slice(0, APROVACOES_NA_RESPOSTA)
+  const pecas = [...new Set(mostrar.map((a) => a.content_id as string))]
+  const { data: titulos } = pecas.length ? await admin.from('content_pieces').select('id, title').in('id', pecas) : { data: [] }
+  const tituloDe = new Map((titulos ?? []).map((t) => [t.id as string, (t.title as string | null)?.trim() || 'Matéria sem título']))
+  return textoDasAprovacoes({
+    aprovacoes: mostrar.map((a) => ({ id: a.id as string, titulo: tituloDe.get(a.content_id as string) ?? 'Matéria sem título' })),
+    total: lista.length, urlBase: base,
+  })
+}
+
+/**
+ * A dúvida respondida com a Central de ajuda. O Claude só resume os trechos
+ * achados (esforço baixo, resposta curta); sem chave, fora do ar ou demorando,
+ * vão os trechos como estão. A busca olha só as áreas que a pessoa abre.
+ */
+async function responderDuvida(pergunta: string, papel: Papel, base: string): Promise<string> {
+  const achados = buscarDuvida(pergunta, papel)
+  let resposta: string | null = null
+  if (achados.length && claudeConfigurado()) {
+    try {
+      const { texto } = await reescreverComClaude({
+        system: SISTEMA_DA_DUVIDA, texto: pedidoDaDuvida(pergunta, achados), effort: 'low', maxTokens: 2_000, timeoutMs: 30_000,
+      })
+      resposta = texto
+    } catch (causa) {
+      console.error('[whatsapp] dúvida sem resumo do Claude:', causa instanceof Error ? causa.message : causa)
+    }
+  }
+  return textoDaAjuda({ pergunta, achados, resposta, urlBase: base })
 }

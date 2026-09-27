@@ -373,34 +373,55 @@ export function lerEventoDoWebhook(corpo: unknown): EventoDoWebhook {
 
 // ------------------------------------------------------------------ bot
 
-export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'desconhecido'
+export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado' | 'desconhecido'
 
-const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 
-const PALAVRAS: Record<Exclude<Comando, 'desconhecido'>, string[]> = {
+const PALAVRAS: Record<'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes', string[]> = {
   menu: ['menu', 'oi', 'ola', 'oie', 'opa', 'bom', 'boa', 'ajuda', 'inicio', 'opcoes', 'help', '0'],
   avisos: ['1', 'avisos', 'aviso', 'notificacoes', 'notificacao', 'novidades', 'pendencias'],
   lidas: ['2', 'lidas', 'lida', 'lido', 'lidos', 'li'],
   parar: ['parar', 'pare', 'sair', 'stop', 'cancelar', 'descadastrar', 'desativar'],
   voltar: ['voltar', 'volta', 'ativar', 'retomar', 'continuar', 'start', 'reativar'],
+  agenda: ['4', 'agenda', 'compromissos', 'calendario'],
+  chamados: ['5', 'chamados', 'chamado'],
+  aprovacoes: ['6', 'aprovacoes', 'aprovacao', 'votos', 'votar'],
+}
+
+export type Pedido = { comando: Comando; resto: string }
+
+/** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
+function depoisDe(entrada: string, prefixo: RegExp): string {
+  return entrada.trim().replace(prefixo, '').replace(/^[\s:,.-]+/, '').trim().slice(0, 1000)
 }
 
 /**
- * O que a pessoa pediu. O "3" do menu alterna: para quem recebe, é parar;
- * para quem pausou, é voltar.
+ * O que a pessoa pediu, e o resto do texto quando o comando leva um
+ * complemento ("ajuda como abrir um chamado", "chamado: impressora sem
+ * toner"). O "3" do menu alterna: para quem recebe, é parar; para quem
+ * pausou, é voltar.
  */
-export function interpretarComando(entrada: string, p: { pausado: boolean }): Comando {
+export function lerPedido(entrada: string, p: { pausado: boolean }): Pedido {
   const t = normalizar(entrada)
-  if (!t) return 'desconhecido'
-  if (t === '3') return p.pausado ? 'voltar' : 'parar'
+  if (!t) return { comando: 'desconhecido', resto: '' }
+  if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
   const palavras = t.split(' ')
-  // "marcar como lidas", "ver avisos": vale a palavra que decide, não a primeira.
-  for (const comando of ['parar', 'voltar', 'lidas', 'avisos'] as const) {
-    if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return comando
+  // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
+  if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
+  if (palavras[0] === 'como' && palavras.length > 2) return { comando: 'ajuda', resto: entrada.trim().slice(0, 1000) }
+  const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
+  if ((palavras[0] === 'chamado' || (palavras[0] === 'abrir' && palavras.includes('chamado')) || (palavras[0] === 'novo' && palavras[1] === 'chamado')) && depoisDe(entrada, abrir).length >= 8) {
+    return { comando: 'abrir_chamado', resto: depoisDe(entrada, abrir) }
   }
-  if (PALAVRAS.menu.includes(palavras[0])) return 'menu'
-  return 'desconhecido'
+  // "marcar como lidas", "ver avisos": vale a palavra que decide, não a primeira.
+  for (const comando of ['parar', 'voltar', 'lidas', 'avisos', 'agenda', 'chamados', 'aprovacoes'] as const) {
+    if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return { comando, resto: '' }
+  }
+  if (PALAVRAS.menu.includes(palavras[0])) return { comando: 'menu', resto: '' }
+  return { comando: 'desconhecido', resto: '' }
 }
+
+export const interpretarComando = (entrada: string, p: { pausado: boolean }): Comando => lerPedido(entrada, p).comando
 
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
 export const RESPOSTAS_POR_JANELA = 6
@@ -413,8 +434,11 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
   return [
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
-    ['Responda com o número:', '*1* – ver os avisos que você ainda não abriu', '*2* – marcar todos os avisos como lidos',
-      p.pausado ? '*3* – voltar a receber os avisos por aqui' : '*3* – parar de receber os avisos por aqui'].join('\n'),
+    ['Responda com o número:', '*1* – os avisos que você ainda não abriu', '*2* – marcar todos os avisos como lidos',
+      p.pausado ? '*3* – voltar a receber os avisos por aqui' : '*3* – parar de receber os avisos por aqui',
+      '*4* – sua agenda de hoje e amanhã', '*5* – seus chamados abertos', '*6* – o que espera o seu voto'].join('\n'),
+    ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
+      'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].join('\n'),
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
 }
@@ -451,4 +475,84 @@ export function textoDaApresentacao(p: { urlBase: string; site: string }): strin
     `Se você é da equipe, cadastre este número em Meu perfil → WhatsApp: ${p.urlBase}/perfil#whatsapp`,
     `Para falar com a Cruz Vermelha, use os canais oficiais: ${p.site}`,
   ].join('\n\n')
+}
+
+// ------------------------------------------------------------------ consultas (agenda, chamados, aprovações, ajuda)
+
+const DIAS_DA_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'] as const
+
+/** "seg, 28/09" a partir de "2026-09-28". */
+export function rotuloDoDia(dia: string): string {
+  const [a, m, d] = dia.split('-').map(Number)
+  const semana = DIAS_DA_SEMANA[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]
+  return `${semana}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`
+}
+
+export type ItemDoDia = { titulo: string; hora?: string | null; detalhe?: string | null }
+export const ITENS_POR_DIA = 8
+
+export function textoDaAgenda(p: { hoje: string; amanha: string; itensHoje: ItemDoDia[]; itensAmanha: ItemDoDia[]; urlBase: string; falhou?: boolean }): string {
+  const bloco = (rotulo: string, itens: ItemDoDia[]) => {
+    if (!itens.length) return `*${rotulo}*\n_Nada marcado._`
+    const ordenados = [...itens].sort((x, y) => (x.hora ?? '').localeCompare(y.hora ?? ''))
+    const linhas = ordenados.slice(0, ITENS_POR_DIA).map((i) => `• ${i.hora ? i.hora : 'Dia todo'} – ${limpo(i.titulo, 120)}${i.detalhe ? ` _(${limpo(i.detalhe, 80)})_` : ''}`)
+    if (ordenados.length > ITENS_POR_DIA) linhas.push(`_e mais ${ordenados.length - ITENS_POR_DIA}_`)
+    return [`*${rotulo}*`, ...linhas].join('\n')
+  }
+  return [
+    '*Sua agenda*',
+    bloco(`Hoje, ${rotuloDoDia(p.hoje)}`, p.itensHoje),
+    bloco(`Amanhã, ${rotuloDoDia(p.amanha)}`, p.itensAmanha),
+    p.falhou ? '_Parte da agenda não carregou agora; confira no Palácio._' : null,
+    `Agenda completa: ${p.urlBase}/calendario`,
+  ].filter(Boolean).join('\n\n')
+}
+
+export type ChamadoNaLista = { id: string; codigo: string; titulo: string; situacao: string }
+export const CHAMADOS_NA_RESPOSTA = 6
+
+export function textoDosChamados(p: { chamados: ChamadoNaLista[]; total: number; urlBase: string }): string {
+  if (!p.total || !p.chamados.length) return 'Você não tem chamados abertos. Para abrir um, escreva *chamado:* e o problema.'
+  const itens = p.chamados.slice(0, CHAMADOS_NA_RESPOSTA).map((c) => `*${limpo(c.codigo, 20)}* · ${limpo(c.titulo, 120)}\n_${limpo(c.situacao, 40)}_ · ${p.urlBase}/chamados/${c.id}`)
+  const cabeca = p.total === 1 ? 'Você tem *1 chamado* aberto:' : `Você tem *${p.total} chamados* abertos${p.total > itens.length ? `. Os ${itens.length} mais recentes` : ''}:`
+  return [cabeca, ...itens, 'Para responder, use o link ou responda a mensagem do aviso do chamado.'].join('\n\n')
+}
+
+export type AprovacaoNaLista = { id: string; titulo: string }
+export const APROVACOES_NA_RESPOSTA = 6
+
+export function textoDasAprovacoes(p: { aprovacoes: AprovacaoNaLista[]; total: number; urlBase: string }): string {
+  if (!p.total || !p.aprovacoes.length) return 'Nada esperando o seu voto agora.'
+  const itens = p.aprovacoes.slice(0, APROVACOES_NA_RESPOSTA).map((a, i) => `*${i + 1}.* ${limpo(a.titulo, 140)}\n${p.urlBase}/aprovacoes/${a.id}`)
+  const cabeca = p.total === 1 ? '*1 aprovação* espera o seu voto:' : `*${p.total} aprovações* esperam o seu voto:`
+  return [cabeca, ...itens, 'Para votar por aqui, responda a mensagem do aviso de aprovação com *aprovar* ou *ajustes:* e o que precisa mudar.'].join('\n\n')
+}
+
+export type AchadoDaAjuda = { titulo: string; trecho: string; href: string }
+
+/**
+ * O resumo do Claude no formato do WhatsApp: mantém *negrito* e _itálico_,
+ * mas desfaz o Markdown que o WhatsApp não entende (títulos, **duplo**, links,
+ * crases) e corta numa quebra de linha, não no meio da palavra.
+ */
+export function respostaParaWhatsapp(texto: string, max = 1200): string {
+  const limpa = texto
+    .replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`~]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  if (limpa.length <= max) return limpa
+  const corte = limpa.lastIndexOf('\n', max)
+  return `${limpa.slice(0, corte > max / 2 ? corte : max).trim()}…`
+}
+
+export function textoDaAjuda(p: { pergunta: string; achados: AchadoDaAjuda[]; resposta?: string | null; urlBase: string }): string {
+  if (!p.achados.length) return `Não achei nada na Central de ajuda sobre “${limpo(p.pergunta, 120)}”. Tente com outras palavras, ou veja tudo em ${p.urlBase}/ajuda`
+  const links = p.achados.slice(0, 3).map((a) => `• ${limpo(a.titulo, 120)}: ${p.urlBase}${a.href}`)
+  if (p.resposta?.trim()) return [respostaParaWhatsapp(p.resposta), ['Na Central de ajuda:', ...links].join('\n')].join('\n\n')
+  const primeiros = p.achados.slice(0, 3).map((a) => `*${limpo(a.titulo, 120)}*\n${limpo(a.trecho, 280)}\n${p.urlBase}${a.href}`)
+  return ['Achei isto na Central de ajuda:', ...primeiros].join('\n\n')
 }

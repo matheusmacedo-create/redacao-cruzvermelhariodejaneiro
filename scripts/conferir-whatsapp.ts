@@ -6,8 +6,9 @@ import {
   numeroCanonico, numeroDoJid, formatarNumero, mascararNumero, urlDoServidor, instanciaValida, estadoDaEvolution,
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
-  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal,
+  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
 } from '../lib/whatsapp/regras'
+import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -156,6 +157,71 @@ contem(textoDoMenu({ nome: null, pausado: false, urlBase: 'https://p' }), 'Olá!
 igual(codigoNoFormato('123456'), true, 'código ok')
 igual(codigoNoFormato('12345'), false, 'código curto')
 igual(codigoNoFormato('12a456'), false, 'código com letra')
+
+// ---------------------------------------------------------------- consultas e pedidos com complemento
+const ped = (t: string, pausado = false) => lerPedido(t, { pausado })
+igual(cmd('4'), 'agenda', '4')
+igual(cmd('minha agenda'), 'agenda', 'minha agenda')
+igual(cmd('5'), 'chamados', '5')
+igual(cmd('meus chamados'), 'chamados', 'meus chamados')
+igual(cmd('chamado'), 'chamados', 'chamado sozinho lista')
+igual(cmd('6'), 'aprovacoes', '6')
+igual(cmd('aprovações'), 'aprovacoes', 'aprovações com acento')
+igual(cmd('ajuda'), 'menu', 'ajuda sozinha é o menu')
+igual(ped('ajuda como trocar a senha'), { comando: 'ajuda', resto: 'como trocar a senha' }, 'ajuda com dúvida')
+igual(ped('Dúvida: onde vejo os ofícios?'), { comando: 'ajuda', resto: 'onde vejo os ofícios?' }, 'dúvida com dois-pontos')
+igual(ped('Como eu paro os avisos?'), { comando: 'ajuda', resto: 'Como eu paro os avisos?' }, '"como" vira dúvida, não "avisos"')
+igual(ped('chamado: impressora da sala 3 sem toner'), { comando: 'abrir_chamado', resto: 'impressora da sala 3 sem toner' }, 'abrir chamado')
+igual(ped('Abrir um chamado - o ar-condicionado pinga'), { comando: 'abrir_chamado', resto: 'o ar-condicionado pinga' }, 'abrir um chamado')
+igual(ped('novo chamado: tomada solta'), { comando: 'abrir_chamado', resto: 'tomada solta' }, 'novo chamado')
+igual(cmd('chamado: oi'), 'chamados', 'relato curto demais não abre chamado')
+igual(cmd('como assim'), 'desconhecido', '"como" com uma palavra só não é dúvida')
+
+igual(rotuloDoDia('2026-09-28'), 'seg, 28/09', 'rótulo do dia')
+igual(rotuloDoDia('2026-10-04'), 'dom, 04/10', 'domingo')
+const agenda = textoDaAgenda({
+  hoje: '2026-09-28', amanha: '2026-09-29', urlBase: 'https://p',
+  itensHoje: [{ titulo: 'Reunião de pauta', hora: '14:00' }, { titulo: 'Dia do Idoso', hora: null, detalhe: 'Data comemorativa' }, { titulo: 'Plantão', hora: '09:00' }],
+  itensAmanha: [],
+})
+contem(agenda, '*Hoje, seg, 28/09*', 'agenda: cabeça de hoje')
+igual(agenda.indexOf('Dia todo') < agenda.indexOf('09:00') && agenda.indexOf('09:00') < agenda.indexOf('14:00'), true, 'agenda: dia todo, depois por hora')
+contem(agenda, '_(Data comemorativa)_', 'agenda: detalhe')
+contem(agenda, '*Amanhã, ter, 29/09*\n_Nada marcado._', 'agenda: dia vazio')
+contem(agenda, 'https://p/calendario', 'agenda: link')
+const cheia = textoDaAgenda({ hoje: '2026-09-28', amanha: '2026-09-29', urlBase: 'https://p', itensHoje: Array.from({ length: 11 }, (_, i) => ({ titulo: `I${i}`, hora: `1${i % 10}:00` })), itensAmanha: [], falhou: true })
+contem(cheia, '_e mais 3_', 'agenda: corta em 8')
+contem(cheia, 'não carregou', 'agenda: aviso de camada que falhou')
+
+igual(textoDosChamados({ chamados: [], total: 0, urlBase: 'https://p' }).includes('não tem chamados abertos'), true, 'sem chamados')
+const chamados = textoDosChamados({ chamados: [{ id: 'c1', codigo: 'TI-0042', titulo: 'Sem internet', situacao: 'Aguardando você' }], total: 1, urlBase: 'https://p' })
+contem(chamados, '*1 chamado*', 'um chamado')
+contem(chamados, '*TI-0042* · Sem internet', 'código e título')
+contem(chamados, 'https://p/chamados/c1', 'link do chamado')
+contem(textoDosChamados({ chamados: Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, codigo: `C${i}`, titulo: 't', situacao: 'Novo' })), total: 9, urlBase: 'https://p' }), 'Os 6 mais recentes', 'corta chamados')
+
+igual(textoDasAprovacoes({ aprovacoes: [], total: 0, urlBase: 'https://p' }), 'Nada esperando o seu voto agora.', 'sem aprovações')
+const aprovacoes = textoDasAprovacoes({ aprovacoes: [{ id: 'a1', titulo: 'Matéria do Dia do Voluntário' }, { id: 'a2', titulo: 'Post' }], total: 2, urlBase: 'https://p' })
+contem(aprovacoes, '*2 aprovações* esperam', 'duas aprovações')
+contem(aprovacoes, '*1.* Matéria do Dia do Voluntário\nhttps://p/aprovacoes/a1', 'item numerado com link')
+
+igual(palavrasDaDuvida('ajuda como eu troco a minha senha?'), ['troc', 'senh'], 'palavras da dúvida sem as vazias, pela raiz')
+igual(palavrasDaDuvida('onde vejo as aprovações?'), ['aprovac'], 'raiz acha singular e plural')
+igual(palavrasDaDuvida('como é que eu faço?'), [], 'só palavras vazias')
+igual(buscarDuvida('como eu troco a minha senha?', 'editor')[0]?.href, '/ajuda#trocar-a-senha', 'dúvida acha "Trocar a sua senha"')
+igual(buscarDuvida('xyzw qwerty', 'editor'), [], 'dúvida sem resposta')
+igual(buscarDuvida('como pagar uma conta no financeiro', 'escola').some((a) => a.href.startsWith('/ajuda/financeiro')), false, 'equipe da escola não recebe ajuda de área que não abre')
+const pedidoIa = pedidoDaDuvida('como troco a senha?', [{ titulo: 'Trocar a sua senha', trecho: 'Abra Meu perfil.', onde: 'Conta' }])
+contem(pedidoIa, '<duvida>\ncomo troco a senha?\n</duvida>', 'dúvida vai separada dos trechos')
+
+const achados = [{ titulo: 'Trocar a sua senha', trecho: 'Abra *Meu perfil* e toque em Trocar senha.', href: '/ajuda#trocar-a-senha' }]
+contem(textoDaAjuda({ pergunta: 'senha', achados: [], urlBase: 'https://p' }), 'Não achei nada', 'ajuda sem achado')
+contem(textoDaAjuda({ pergunta: 'senha', achados, urlBase: 'https://p' }), 'Achei isto na Central de ajuda', 'ajuda sem IA mostra os trechos')
+const comIa = textoDaAjuda({ pergunta: 'senha', achados, resposta: '1. Abra *Meu perfil*.', urlBase: 'https://p' })
+contem(comIa, '1. Abra *Meu perfil*.', 'ajuda com o resumo')
+contem(comIa, '• Trocar a sua senha: https://p/ajuda#trocar-a-senha', 'resumo leva o link da Central')
+igual(respostaParaWhatsapp('## Passos\n1. Abra **Meu perfil** e veja [a ajuda](https://x).\n\n\n2. `Salvar`'), 'Passos\n1. Abra *Meu perfil* e veja a ajuda.\n\n2. Salvar', 'markdown vira formato do WhatsApp')
+igual(respostaParaWhatsapp('linha um\nlinha dois muito comprida', 15), 'linha um…', 'corta na quebra de linha')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.
