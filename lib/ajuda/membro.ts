@@ -311,6 +311,12 @@ const FORMACAO: GuiaDaArea = {
           seAusente: 'pular',
         },
         {
+          alvo: 'membro.diplomas',
+          titulo: 'Diplomas de reconhecimento',
+          texto: 'Ao completar 100, 500 e 1.000 horas de voluntariado, o Diploma de Reconhecimento sai sozinho. A coordenação também pode conceder um. “Baixar PDF” entrega o diploma no modelo oficial.',
+          seAusente: 'pular',
+        },
+        {
           titulo: 'Outras formações',
           texto: 'Se a coordenação registrou outras formações no seu cadastro, elas aparecem embaixo, em “Outras formações no seu cadastro”.',
         },
@@ -414,6 +420,12 @@ const FORMACAO: GuiaDaArea = {
       pergunta: 'Como alguém confere se meu certificado é verdadeiro?',
       resposta: 'Cada certificado tem um código (no formato ABCD-2345) e um endereço público de verificação. Quem abrir o link de “Copiar link de verificação” ou de “Página de verificação” vê se ele é autêntico e está válido, com o seu nome, o curso e as datas, sem contato, CPF ou nota.',
       termos: ['verificação', 'autenticidade', 'código', 'comprovante', 'validar'],
+    },
+    {
+      id: 'diploma-de-reconhecimento',
+      pergunta: 'Como ganho um Diploma de Reconhecimento?',
+      resposta: 'Ele sai sozinho quando as suas horas de voluntariado somam 100, 500 e 1.000, e aparece em “Certificados”, na parte “Diplomas de reconhecimento”. A coordenação também pode conceder um diploma por um serviço especial.\n\nCada diploma tem um código e um QR: quem ler confere se ele é autêntico.',
+      termos: ['diploma', 'reconhecimento', 'horas', 'homenagem', '100 horas', '500 horas', '1000 horas'],
     },
     {
       id: 'nome-no-certificado',

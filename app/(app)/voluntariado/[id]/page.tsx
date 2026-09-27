@@ -9,6 +9,7 @@ import { SITUACOES, VINCULOS, ehVinculo, idade, situacaoDaFormacao } from '@/lib
 import { Retrato } from '@/components/membro/foto'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
+import { CancelarDiploma, ConcederDiploma } from '@/components/app/participantes/diplomas'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,12 +27,14 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 1) notFound()
-  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }] = await Promise.all([
+  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }, { data: diplomas }] = await Promise.all([
     supabase.from('participantes').select(COLUNAS).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     supabase.from('participante_formacoes').select('id,titulo,instituicao,concluido_em,valido_ate').eq('participante_id', id).order('valido_ate', { ascending: true, nullsFirst: false }),
     supabase.from('participante_horas').select('id,data,horas,atividade').eq('participante_id', id).order('data', { ascending: false }).limit(200),
     // À parte das COLUNAS: se a coluna ainda não existir no banco, a ficha abre com as iniciais em vez de sumir.
     supabase.from('participantes').select('foto_path').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
+    // Sem a migração dos diplomas, a consulta falha e o bloco só mostra "nenhum".
+    supabase.from('diplomas').select('id,codigo,motivo,marco_horas,texto,emitido_em,revogado_em,motivo_revogacao').eq('participante_id', id).order('emitido_em', { ascending: false }),
   ])
   if (!p) notFound()
   const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
@@ -114,6 +117,32 @@ export default async function Participante({ params }: { params: Promise<{ id: s
                 )
               })}
               {!formacoes?.length && <li className="py-3 text-sm text-muted-foreground">Nenhuma formação registrada.</li>}
+            </ul>
+          </Card>
+
+          <Card className="p-5" data-ajuda="voluntarios.diplomas" id="diplomas">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Diplomas de reconhecimento</h2>
+              {nivel >= 2 && !p.anonimizado_em && <ConcederDiploma participanteId={id} nome={p.nome_social || p.nome} />}
+            </div>
+            <p className="mb-2 text-xs text-muted-foreground">Saem sozinhos com 100, 500 e 1.000 horas registradas; a coordenação também concede. O voluntário baixa na Área do Voluntário.</p>
+            <ul className="divide-y divide-border">
+              {(diplomas ?? []).map((d) => (
+                <li key={d.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className={`font-medium ${d.revogado_em ? 'text-muted-foreground line-through' : ''}`}>{d.motivo === 'horas' ? `${Number(d.marco_horas).toLocaleString('pt-BR')} horas de voluntariado` : 'Concedido pela coordenação'}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {new Date(d.emitido_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} · código <span className="font-mono">{d.codigo}</span>
+                      {d.texto ? ` · ${d.texto}` : ''}{d.revogado_em ? ` · cancelado: ${d.motivo_revogacao ?? ''}` : ''}
+                    </p>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <a href={`/api/voluntariado/diplomas/${d.codigo}/pdf`} className="rounded px-1.5 py-1 text-xs font-medium text-primary hover:underline">PDF</a>
+                    {nivel >= 2 && !d.revogado_em && <CancelarDiploma id={d.id} participanteId={id} codigo={d.codigo} />}
+                  </span>
+                </li>
+              ))}
+              {!diplomas?.length && <li className="py-3 text-sm text-muted-foreground">Nenhum diploma ainda.</li>}
             </ul>
           </Card>
 

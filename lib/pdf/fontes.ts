@@ -61,8 +61,11 @@ export async function embutirFontes<E extends Estilo>(pdf: PDFDocument, estilos:
   const saida = {} as Pick<Fontes, E>
   for (const e of estilos) {
     const b = await bytes(e)
-    // A caligrafia vai inteira: o recorte do pdf-lib perde glifos dela (saía só "ad" de "Certificado").
-    saida[e] = b ? await pdf.embedFont(b, { subset: e !== 'caligrafia' }) : await pdf.embedFont(RESERVA[e])
+    // A caligrafia vai inteira (o recorte do pdf-lib perde glifos dela: saía só "ad" de "Certificado") e sem as
+    // alternativas de contexto, que o pdf-lib posiciona mal ("Reconhecimen to").
+    saida[e] = b
+      ? await pdf.embedFont(b, e === 'caligrafia' ? { subset: false, features: { calt: false, liga: false, clig: false, dlig: false } } : { subset: true })
+      : await pdf.embedFont(RESERVA[e])
   }
   return saida
 }

@@ -29,10 +29,10 @@ const pronto = (c: Cracha & { fotoCaminho: string | null }): CrachaPronto => {
   return { ...c, foto, codigo, urlDeVerificacao: `${urlBase()}/cracha/${codigo}` }
 }
 
-type LinhaDaEquipe = { id: string; nome: string; nome_social: string | null; cargo: string | null; setor: string | null; admissao: string | null; cpf_mascara: string | null; situacao: string; user_id: string | null }
+type LinhaDaEquipe = { id: string; workspace_id: string; nome: string; nome_social: string | null; cargo: string | null; setor: string | null; admissao: string | null; cpf_mascara: string | null; situacao: string; user_id: string | null }
 type LinhaDoVoluntario = { id: string; nome: string; nome_social: string | null; funcao: string | null; setores: string[]; aprovado_em: string | null; created_at: string; cpf_mascara: string | null; situacao: string; foto_path: string | null; user_id: string | null; workspace_id: string }
 
-const COLUNAS_DA_EQUIPE = 'id,nome,nome_social,cargo,setor,admissao,cpf_mascara,situacao,user_id'
+const COLUNAS_DA_EQUIPE = 'id,workspace_id,nome,nome_social,cargo,setor,admissao,cpf_mascara,situacao,user_id'
 const COLUNAS_DO_VOLUNTARIO = 'id,nome,nome_social,funcao,setores,aprovado_em,created_at,cpf_mascara,situacao,foto_path,user_id,workspace_id'
 
 /** O tipo sanguíneo, só para o crachá da própria pessoa. Sem a migração 20260929030000, fica "não informado". */
@@ -72,7 +72,11 @@ export async function crachaDaConta(userId: string, workspaceId: string): Promis
     admin.from('workspace_members').select('coordination,created_at').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle(),
   ])
   const avatar = (perfil?.avatar_path as string | null) ?? null
-  if (equipe) return pronto(daEquipe(equipe as LinhaDaEquipe, avatar))
+  if (equipe) {
+    // Ficha do RH incompleta (sem cargo ou setor): completa com o perfil e a coordenação da conta.
+    const e = equipe as LinhaDaEquipe
+    return pronto(daEquipe({ ...e, cargo: e.cargo || (perfil?.job_title as string | null) || null, setor: e.setor || (membro?.coordination as string | null) || null }, avatar))
+  }
   if (voluntario) {
     const v = voluntario as LinhaDoVoluntario
     return pronto(doVoluntario(v, await fatorRh(v.id), avatar))
@@ -118,8 +122,14 @@ async function resolver(codigo: string): Promise<{ v: Verificacao; fotoCaminho: 
       if (error) throw error
       if (data) {
         const e = data as LinhaDaEquipe
-        const avatar = e.user_id ? ((await admin.from('profiles').select('avatar_path').eq('id', e.user_id).maybeSingle()).data?.avatar_path as string | null) ?? null : null
-        c = daEquipe(e, avatar)
+        const [{ data: perfil }, { data: membro }] = e.user_id
+          ? await Promise.all([
+            admin.from('profiles').select('job_title,avatar_path').eq('id', e.user_id).maybeSingle(),
+            admin.from('workspace_members').select('coordination').eq('workspace_id', e.workspace_id).eq('user_id', e.user_id).maybeSingle(),
+          ])
+          : [{ data: null }, { data: null }]
+        // O mesmo complemento do crachá (crachaDaConta): o que a ficha não tem vem da conta.
+        c = daEquipe({ ...e, cargo: e.cargo || (perfil?.job_title as string | null) || null, setor: e.setor || (membro?.coordination as string | null) || null }, (perfil?.avatar_path as string | null) ?? null)
       }
     } else if (lido.origem === 'voluntario') {
       const { data, error } = await admin.from('participantes').select(COLUNAS_DO_VOLUNTARIO).eq('id', lido.id).is('anonimizado_em', null).maybeSingle()

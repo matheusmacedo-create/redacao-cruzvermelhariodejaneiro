@@ -833,6 +833,12 @@ const VOLUNTARIOS: GuiaDaArea = {
           texto: '“Registrar horas” lança data, horas e atividade. Presença marcada numa oportunidade também vira horas aqui, sozinha.',
         },
         {
+          alvo: 'voluntarios.diplomas',
+          titulo: 'Diplomas de reconhecimento',
+          texto: 'Aos 100, 500 e 1.000 horas, o diploma sai sozinho. “Conceder diploma” homenageia um serviço especial, com o motivo que vai impresso. “Cancelar” tira a validade, e a verificação pública passa a mostrar “cancelado”.',
+          seAusente: 'pular',
+        },
+        {
           alvo: 'voluntarios.area',
           titulo: 'Área do Voluntário',
           texto: 'Mostra o último acesso. “Enviar convite por e-mail” manda o caminho de entrada; “Ver como este voluntário” abre a área da pessoa só para leitura, e isso fica registrado.',

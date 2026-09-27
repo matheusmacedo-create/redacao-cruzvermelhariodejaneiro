@@ -1,10 +1,10 @@
 import Image from 'next/image'
-import localFont from 'next/font/local'
 import QRCode from 'qrcode'
 import { Download, ScanLine } from 'lucide-react'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import type { CrachaPronto } from '@/lib/cracha/servidor'
 import { cn } from '@/lib/utils'
+import { condensada } from './fonte'
 
 /**
  * O crachá funcional virtual, no desenho do Manual de Identidade Institucional
@@ -15,8 +15,6 @@ import { cn } from '@/lib/utils'
  * Os contatos do modelo do manual são antigos: o verso usa DADOS_DA_FILIAL.
  */
 
-// A Franklin Gothic Demi Cond do manual, na equivalente livre (lib/pdf/fontes).
-const condensada = localFont({ src: [{ path: '../../lib/pdf/fontes/BarlowCondensed_600SemiBold.ttf', weight: '600' }, { path: '../../lib/pdf/fontes/BarlowCondensed_700Bold.ttf', weight: '700' }], display: 'swap' })
 
 const CARTAO = 'relative flex aspect-[54/86] w-[256px] shrink-0 flex-col overflow-hidden rounded-xl border border-black/10 bg-white text-[#1f1f1f] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)]'
 
