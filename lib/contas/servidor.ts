@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
+import { mandar } from '@/lib/whatsapp/servidor'
+import { textoDeSeguranca } from '@/lib/whatsapp/regras'
 
 /**
  * Links de uso único e avisos por e-mail da conta.
@@ -121,12 +123,33 @@ export async function enviarComSeguranca(para: string, email: EmailPronto): Prom
   }
 }
 
-/** Aviso de segurança para o e-mail CONFIRMADO da pessoa. Sem e-mail, nada. */
+/**
+ * Aviso de segurança para o e-mail CONFIRMADO da pessoa (sem e-mail, nada) e,
+ * se ela confirmou um WhatsApp e não pausou, o mesmo aviso por lá.
+ */
 export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguranca, paraEmail?: string): Promise<boolean> {
   const { data: p } = await admin.from('profiles').select('full_name, email, email_confirmado_em').eq('id', userId).maybeSingle()
-  const destino = paraEmail ?? (p?.email && p.email_confirmado_em ? p.email : null)
-  if (!p || !destino) return false
-  return enviarComSeguranca(destino, emailDeAviso({ nome: p.full_name, quando: new Date(), aviso, urlDeLogin: urlDeLogin() }))
+  if (!p) return false
+  const pronto = emailDeAviso({ nome: p.full_name, quando: new Date(), aviso, urlDeLogin: urlDeLogin() })
+  const destino = paraEmail ?? (p.email && p.email_confirmado_em ? p.email : null)
+  // Lado a lado: o WhatsApp lento não atrasa o e-mail nem a resposta de quem trocou a senha.
+  const [enviado] = await Promise.all([destino ? enviarComSeguranca(destino, pronto) : Promise.resolve(false), avisarPorWhatsapp(admin, userId, pronto)])
+  return enviado
+}
+
+/** Nunca lança; sem a tabela (antes da migração) ou sem a Evolution, não faz nada. */
+async function avisarPorWhatsapp(admin: Admin, userId: string, pronto: EmailPronto) {
+  try {
+    const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', userId).maybeSingle()
+    if (!conta || conta.pausado_em) return
+    const workspaceId = await espacoDaPessoa(admin, userId)
+    if (!workspaceId) return
+    // O texto do e-mail sem o título (vai em negrito) e sem o rodapé.
+    const corpo = pronto.texto.split('\n—\n')[0].split('\n').slice(2).join('\n')
+    await mandar(admin, workspaceId, { numero: conta.numero as string, texto: textoDeSeguranca({ titulo: pronto.assunto, texto: corpo }), tipo: 'seguranca', userId })
+  } catch (causa) {
+    console.error('[contas] aviso por WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
+  }
 }
 
 /** Hash do IP para o limite de pedidos. Com sal: o hash sozinho não revela o IP. */

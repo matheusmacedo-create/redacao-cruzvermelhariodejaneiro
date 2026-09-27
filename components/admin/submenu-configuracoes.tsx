@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { AlertTriangle, Globe, LayoutGrid, Mail, PlugZap } from 'lucide-react'
+import { AlertTriangle, Globe, LayoutGrid, Mail, PlugZap, Smartphone } from 'lucide-react'
 
 const ITENS = [
   { href: '/configuracoes', rotulo: 'Visão geral', icone: LayoutGrid },
   { href: '/configuracoes/email', rotulo: 'E-mail dos setores', icone: Mail },
   { href: '/configuracoes/integracoes', rotulo: 'Integrações', icone: PlugZap },
+  { href: '/configuracoes/whatsapp', rotulo: 'WhatsApp', icone: Smartphone },
   { href: '/configuracoes/site', rotulo: 'Site', icone: Globe },
   { href: '/configuracoes/zona-de-risco', rotulo: 'Zona de risco', icone: AlertTriangle },
 ] as const

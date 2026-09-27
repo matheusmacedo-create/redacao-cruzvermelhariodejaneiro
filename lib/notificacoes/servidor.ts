@@ -5,6 +5,8 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { enviarComSeguranca } from '@/lib/contas/servidor'
 import { emailDeNotificacao } from './emails'
 import { decidirEmail, lerModos, linkInterno, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from './regras'
+import { configDoWhatsapp, mandar } from '@/lib/whatsapp/servidor'
+import { decidirWhatsapp, lerCategoriasDoWhatsapp, textoDoAviso } from '@/lib/whatsapp/regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -31,7 +33,8 @@ export type Aviso = {
 /**
  * O único jeito de avisar alguém na Redação: grava no sino e, conforme a
  * preferência da pessoa, manda e-mail para o endereço de recuperação
- * confirmado (lib/notificacoes/regras.ts explica quando).
+ * confirmado (lib/notificacoes/regras.ts explica quando) e mensagem para o
+ * WhatsApp confirmado (lib/whatsapp/regras.ts).
  *
  * Nunca lança: o aviso é consequência de algo que já foi salvo, e falhar o
  * aviso não pode desfazer nem esconder aquilo. O e-mail sai depois da
@@ -59,6 +62,9 @@ export async function notificar(admin: Admin, aviso: Aviso): Promise<void> {
     const enviar = async () => {
       try { await enviarEmails(admin, aviso, destinos, linhas ?? [], { titulo, mensagem, link }) } catch (causa) {
         console.error('[notificacoes] e-mails não enviados:', causa instanceof Error ? causa.message : causa)
+      }
+      try { await enviarWhatsapps(admin, aviso, destinos, linhas ?? [], { titulo, mensagem, link }) } catch (causa) {
+        console.error('[notificacoes] WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
       }
     }
     try { after(enviar) } catch { await enviar() }
@@ -98,6 +104,52 @@ async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linh
     }))
     const linha = linhas.find((l) => l.user_id === pessoa.id)
     if (enviado && linha) await admin.from('notifications').update({ email_em: new Date().toISOString() }).eq('id', linha.id)
+  }
+}
+
+/**
+ * O mesmo aviso no WhatsApp de quem confirmou o número, não pausou e deixou o
+ * assunto ligado. Antes da migração do WhatsApp (ou sem a Evolution
+ * configurada), a primeira leitura volta vazia e nada acontece.
+ */
+async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], linhas: { id: string; user_id: string }[],
+  texto: { titulo: string; mensagem: string; link: string | null }) {
+  const { data: contas, error } = await admin.from('whatsapp_contas').select('user_id, numero, pausado_em').in('user_id', destinos)
+  if (error || !contas?.length) return
+  const config = await configDoWhatsapp(aviso.workspaceId)
+  if (!config) return
+
+  const ids = contas.map((c) => c.user_id as string)
+  const agora = new Date()
+  const desde = new Date(agora.getTime() - INTERVALO_NO_MESMO_LINK_MIN * 60_000).toISOString()
+  const [{ data: pessoas }, { data: preferencias }, recentes] = await Promise.all([
+    admin.from('profiles').select('id, active, visto_em').in('id', ids),
+    admin.from('notificacao_preferencias').select('user_id, whatsapp').in('user_id', ids),
+    texto.link
+      ? admin.from('notifications').select('user_id, whatsapp_em').in('user_id', ids).eq('link', texto.link).gte('whatsapp_em', desde)
+      : Promise.resolve({ data: [] as { user_id: string; whatsapp_em: string }[] }),
+  ])
+  const perfis = new Map(((pessoas ?? []) as { id: string; active: boolean; visto_em: string | null }[]).map((p) => [p.id, p]))
+  const categorias = new Map((preferencias ?? []).map((p) => [p.user_id as string, lerCategoriasDoWhatsapp(p.whatsapp)]))
+  const ultimo = new Map<string, string>()
+  for (const r of recentes.data ?? []) if (!ultimo.has(r.user_id) || r.whatsapp_em > ultimo.get(r.user_id)!) ultimo.set(r.user_id, r.whatsapp_em)
+  const corpo = textoDoAviso({ urlBase: urlBase(), titulo: texto.titulo, mensagem: aviso.textoDoEmail ?? texto.mensagem, link: texto.link, citacao: aviso.citacao })
+
+  for (const conta of contas as { user_id: string; numero: string; pausado_em: string | null }[]) {
+    const perfil = perfis.get(conta.user_id)
+    if (!perfil?.active) continue
+    const vai = decidirWhatsapp({
+      temNumero: true,
+      pausado: Boolean(conta.pausado_em),
+      categoriaLigada: (categorias.get(conta.user_id) ?? lerCategoriasDoWhatsapp(null))[aviso.categoria],
+      vistoEm: perfil.visto_em,
+      ultimoNoMesmoLink: ultimo.get(conta.user_id),
+      agora,
+    })
+    if (!vai) continue
+    const linha = linhas.find((l) => l.user_id === conta.user_id)
+    const envio = await mandar(admin, aviso.workspaceId, { numero: conta.numero, texto: corpo, tipo: 'aviso', userId: conta.user_id, notificacaoId: linha?.id ?? null, config })
+    if (envio.ok && linha) await admin.from('notifications').update({ whatsapp_em: new Date().toISOString() }).eq('id', linha.id)
   }
 }
 
