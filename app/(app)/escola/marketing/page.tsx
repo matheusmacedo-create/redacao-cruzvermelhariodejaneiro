@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Images, Megaphone, Newspaper } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
-import { NovaCampanha } from '@/components/app/escola/marketing'
+import { SubmenuDoMarketing } from '@/components/app/escola/submenu-marketing'
+import { ListaDeCursos, NovaCampanha } from '@/components/app/escola/marketing'
 import { StatusDoMeta, type ContaMeta } from '@/components/app/escola/meta'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
 import { mesPorExtenso } from '@/lib/escola/painel'
@@ -39,13 +40,15 @@ export default async function MarketingDaEscolaPage() {
   const { context, supabase, nivel, nivelEscola } = await contextoDoMarketing()
   if (nivel < 2) notFound()
   const ws = context.workspace.id
-  const [{ data: cs }, { data: ps }, { data: rs }, { data: contas }, { data: metaContas }, { data: chaveMeta }] = await Promise.all([
+  const [{ data: cs }, { data: ps }, { data: rs }, { data: contas }, { data: metaContas }, { data: chaveMeta }, { data: cursosDoCatalogo }] = await Promise.all([
     supabase.from('escola_campanhas').select(COLUNAS_DA_CAMPANHA).eq('workspace_id', ws).order('inicio', { ascending: false, nullsFirst: false }).limit(2000),
     supabase.from('escola_pecas').select(COLUNAS_DA_PECA).eq('workspace_id', ws).eq('referencia', false).order('publicada_em', { ascending: false, nullsFirst: false }).limit(5000),
     supabase.rpc('escola_receita_por_campanha', { p_workspace_id: ws }),
     supabase.from('escola_contas').select('id,nome').eq('workspace_id', ws).order('nome'),
     supabase.from('escola_meta_contas').select('id,act_id,nome,filtro,ativa,sincronizada_em,sincronizacao_erro').eq('workspace_id', ws).order('created_at'),
     supabase.from('integracoes_chaves').select('servico').eq('workspace_id', ws).eq('servico', 'meta_ads').maybeSingle(),
+    // Sugestões do campo "Curso" da campanha (sem a migração 20260929070000, fica vazio).
+    supabase.from('escola_cursos').select('nome').eq('workspace_id', ws).eq('ativo', true).order('nome'),
   ])
   const temToken = Boolean(chaveMeta) || Boolean(process.env.META_ADS_TOKEN?.trim())
   const campanhas = (cs ?? []).map((c) => lerCampanhaDoBanco(c))
@@ -61,12 +64,12 @@ export default async function MarketingDaEscolaPage() {
   return (
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
+      <SubmenuDoMarketing atual="/escola/marketing" />
+      <ListaDeCursos nomes={(cursosDoCatalogo ?? []).map((c) => c.nome as string)} />
       <PageHeader
         title="Marketing da escola"
         description="Tudo o que já foi feito para vender os cursos: campanhas, páginas, anúncios e posts, com o que custaram e o que trouxeram. Os anúncios vêm sozinhos do Meta, e a receita, da Únicopag pelo utm_campaign."
         actions={<div className="flex flex-wrap items-start gap-2">
-          <Button variant="outline" render={<Link href="/escola/marketing/advertoriais" />}><Newspaper className="size-4" />Advertoriais</Button>
-          <Button variant="outline" render={<Link href="/escola/marketing/biblioteca" />} data-ajuda="escola-marketing.biblioteca"><Images className="size-4" />Biblioteca de peças</Button>
           <NovaCampanha contas={(contas ?? []) as { id: string; nome: string }[]} />
         </div>}
       />

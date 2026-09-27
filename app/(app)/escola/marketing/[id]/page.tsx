@@ -1,8 +1,11 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
-import { CartaoDaPeca, ConstrutorDeUtm, EditarCampanha, NovaPeca } from '@/components/app/escola/marketing'
+import { SubmenuDoMarketing } from '@/components/app/escola/submenu-marketing'
+import { CartaoDaPeca, ConstrutorDeUtm, EditarCampanha, ListaDeCursos, NovaPeca } from '@/components/app/escola/marketing'
+import { chave } from '@/lib/escola/cursos'
 import { contextoDoMarketing, imagensAssinadas } from '@/lib/escola/marketing-servidor'
 import {
   COLUNAS_DA_CAMPANHA, COLUNAS_DA_PECA, OBJETIVOS, SITUACOES_DA_CAMPANHA, lerCampanhaDoBanco, lerPecaDoBanco, milhar, pct, reais, totaisDaCampanha, type ReceitaDaCampanha,
@@ -24,12 +27,14 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
   const { context, supabase, nivel, nivelEscola } = await contextoDoMarketing()
   if (nivel < 2) notFound()
   const ws = context.workspace.id
-  const [{ data: bruta }, { data: ps }, { data: rs }, { data: todas }, { data: contas }] = await Promise.all([
+  const [{ data: bruta }, { data: ps }, { data: rs }, { data: todas }, { data: contas }, { data: cursosDoCatalogo }] = await Promise.all([
     supabase.from('escola_campanhas').select(COLUNAS_DA_CAMPANHA).eq('workspace_id', ws).eq('id', id).maybeSingle(),
     supabase.from('escola_pecas').select(COLUNAS_DA_PECA).eq('workspace_id', ws).eq('campanha_id', id).order('publicada_em', { ascending: false, nullsFirst: false }).limit(500),
     supabase.rpc('escola_receita_por_campanha', { p_workspace_id: ws }),
     supabase.from('escola_campanhas').select('id,nome').eq('workspace_id', ws).order('nome'),
     supabase.from('escola_contas').select('id,nome').eq('workspace_id', ws).order('nome'),
+    // Sugestões do campo "Curso" e o link para o curso (sem a migração 20260929070000, fica vazio).
+    supabase.from('escola_cursos').select('id,nome,ativo').eq('workspace_id', ws).order('nome'),
   ])
   if (!bruta) notFound()
   const c = lerCampanhaDoBanco(bruta)
@@ -41,10 +46,14 @@ export default async function CampanhaPage({ params }: { params: Promise<{ id: s
   const campanhas = (todas ?? []) as { id: string; nome: string }[]
   const podeExcluir = (criador: string | null) => nivel >= 3 || criador === context.user.id
   const pagina = pecas.find((p) => p.tipo === 'pagina' && p.url)?.url ?? ''
+  const cursoDaCampanha = c.curso ? ((cursosDoCatalogo ?? []) as { id: string; nome: string }[]).find((x) => chave(x.nome) === chave(c.curso!)) : undefined
 
   return (
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
+      <SubmenuDoMarketing atual="/escola/marketing" />
+      <ListaDeCursos nomes={((cursosDoCatalogo ?? []) as { nome: string; ativo: boolean }[]).filter((x) => x.ativo).map((x) => x.nome)} />
+      {cursoDaCampanha && <Link href={`/escola/marketing/cursos/${cursoDaCampanha.id}`} className="-mb-3 text-sm text-muted-foreground hover:text-foreground">Curso: <span className="font-medium text-foreground underline-offset-4 hover:underline">{cursoDaCampanha.nome}</span></Link>}
       <PageHeader
         title={c.nome}
         breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: c.nome }]}

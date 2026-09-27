@@ -1,7 +1,7 @@
 import {
   Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessageCircleHeart, MessagesSquare, Newspaper, PiggyBank, PlugZap, Radar, ScrollText, Send, Settings, SquareCheckBig, Upload, UserRound, Contact,
-  ReceiptText, ShoppingCart, DoorOpen, type LucideIcon,
+  ReceiptText, ShoppingCart, DoorOpen, BookOpen, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -161,7 +161,8 @@ export const GRUPOS: Grupo[] = [
       // Nome e ícone próprios: "Financeiro" sozinho repetia o da filial.
       { href: '/escola/financeiro', rotulo: 'Financeiro da escola', resumo: 'Os livros da escola: contas, lançamentos, conciliação e fechamento do mês, com o CNPJ dela', icone: PiggyBank, termos: ['financeiro da escola', 'contas a pagar da escola', 'fechamento da escola', 'contador da escola', 'cnpj da escola'] },
       { href: '/escola/marketing', rotulo: 'Marketing', resumo: 'Campanhas, anúncios e posts da escola, com o que custaram e o que trouxeram', icone: Megaphone, termos: ['marketing da escola', 'anúncios', 'campanhas', 'criativos', 'utm', 'meta ads', 'referências', 'swipe file'] },
-      // Uma aba do Marketing (as abas da escola já mostram); não ocupa linha própria.
+      // Uma aba do Marketing (o submenu do Marketing mostra); não ocupa linha própria.
+      { href: '/escola/marketing/cursos', rotulo: 'Cursos', resumo: 'Cada curso com os alunos da Únicopag, quem tentou e não pagou e o que o marketing fez para ele', icone: BookOpen, termos: ['cursos da escola', 'alunos por curso', 'matriculados', 'interessados', 'remarketing', 'página do curso', 'onde investir'], dentroDe: '/escola/marketing' },
       { href: '/escola/marketing/advertoriais', rotulo: 'Advertoriais', resumo: 'Matérias-anúncio da escola publicadas como notícia, com visitas, cliques e matrículas', icone: ScrollText, termos: ['advertorial', 'advertoriais', 'matéria patrocinada', 'página de venda', 'landing'], dentroDe: '/escola/marketing' },
       { href: '/escola/configuracoes', rotulo: 'Contas e integrações', resumo: 'As contas da Únicopag e a conta de anúncios do Meta da escola', icone: PlugZap, termos: ['configurações da escola', 'chave únicopag', 'token meta', 'integrações da escola'] },
     ],

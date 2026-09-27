@@ -34,7 +34,119 @@ import type { GuiaDaArea } from '../tipos'
  * nessas telas. Mudou a tela ou a regra, muda aqui no mesmo PR (docs/AJUDA.md).
  */
 
-export const guias: GuiaDaArea[] = [
+// ---------------------------------------------------------------- Cursos (Marketing)
+// Apoio: app/(app)/escola/marketing/cursos, components/app/escola/cursos.tsx,
+// app/actions/escola-cursos.ts, lib/escola/cursos.ts e cursos-servidor.ts e a
+// migração 20260929070000_cvrj_escola_cursos.sql.
+
+const CURSOS: GuiaDaArea = {
+  href: '/escola/marketing/cursos',
+  paraQueServe: 'Cada curso da escola com os alunos que a Únicopag registrou, quem tentou e não pagou e o que o marketing já fez para ele (campanhas, páginas, anúncios, advertoriais). Serve para decidir onde pôr esforço.',
+  quemUsa: 'Quem trabalha no marketing da escola: administradores, a equipe da escola, editores e a Comunicação Social. Os números chegam agregados, sem nome nem CPF dos alunos.',
+  naPratica: {
+    titulo: 'Onde pôr o esforço da semana',
+    passos: [
+      'A equipe abre Marketing → Cursos e vê Punção Venosa com 12 alunos e 4 interessados que não pagaram.',
+      'Primeiros Socorros Lei Lucas tem alunos novos, mas nenhuma campanha no ar: a frase do curso aponta a oportunidade.',
+      'A equipe cria a campanha do Lei Lucas, escolhe o curso no campo “Curso” e liga a página e os anúncios a ela.',
+      'Para os interessados da Punção Venosa, monta um remarketing no Meta.',
+      'Na semana seguinte, os alunos novos em 30 dias mostram o que funcionou.',
+    ],
+    resultado: 'O esforço vai para o curso que mais pede, com números em vez de palpite.',
+  },
+  tour: [
+          {
+            titulo: 'Os cursos da escola',
+            texto: 'Cada curso com os alunos que a Únicopag registrou, quem tentou e não pagou e o que o marketing já fez para ele. É daqui que se decide onde pôr esforço.',
+          },
+          {
+            alvo: 'escola-cursos.numeros',
+            titulo: 'O resumo',
+            texto: 'Cursos ativos, alunos (pessoas que pagaram; inscrição e curso contam uma vez), interessados que não pagaram e o que os cursos receberam.',
+          },
+          {
+            alvo: 'escola-cursos.tabela',
+            titulo: 'Curso a curso',
+            texto: 'Alunos, novos em 30 dias, interessados, conversão, recebido, campanhas, peças e o custo por aluno. A frase embaixo do nome aponta onde vale agir: remarketing, uma campanha nova ou a página que falta.',
+          },
+          {
+            alvo: 'escola-cursos.produtos',
+            titulo: 'Produtos sem curso',
+            texto: 'Nomes da Únicopag que não batem sozinhos com um curso (“Curso”, “Matrícula”). Escolha a qual curso cada um pertence, ou “Ignorar”.',
+            seAusente: 'pular',
+          },
+          {
+            alvo: 'escola-cursos.novo',
+            titulo: 'Novo curso',
+            texto: 'Cadastre com o mesmo nome do produto na Únicopag: “Taxa de inscrição — X” e “X — Inscrição” já contam para o curso X.',
+            lado: 'bottom',
+          },
+          ],
+  telas: [
+      {
+        caminho: '/escola/marketing/cursos/[id]',
+        rotulo: 'Curso',
+        tour: [
+          {
+            alvo: 'escola-curso.numeros',
+            titulo: 'Os números do curso',
+            texto: 'Alunos, novos em 30 dias, quem tentou e não pagou, a conversão e o que o curso recebeu pela Únicopag.',
+          },
+          {
+            alvo: 'escola-curso.campanhas',
+            titulo: 'Campanhas do curso',
+            texto: 'As campanhas com este curso no campo “Curso”. Para ligar uma campanha, escolha o curso na edição dela.',
+          },
+          {
+            alvo: 'escola-curso.pecas',
+            titulo: 'O que foi criado',
+            texto: 'Páginas, advertoriais, anúncios e posts das campanhas do curso, por tipo, com o investido e as matrículas.',
+          },
+          {
+            alvo: 'escola-curso.produtos',
+            titulo: 'Produtos da Únicopag',
+            texto: 'Os nomes de produto que contam para este curso. Se faltar algum, associe em “Cursos”, na lista de produtos sem curso.',
+            lado: 'top',
+          },
+        ],
+      }
+  ],
+  tarefas: [
+    {
+      id: 'cadastrar-curso',
+      titulo: 'Cadastrar um curso',
+      passos: [
+        'Em Escola → Marketing, abra “Cursos”.',
+        'Toque em “Novo curso”.',
+        'Escreva o nome igual ao do produto na Únicopag, a página do curso (https://…) e salve.',
+      ],
+      dica: '“Taxa de inscrição — X” e “X — Inscrição” já contam para o curso X: não precisa cadastrar esses nomes.',
+      exemplo: 'Exemplo: a escola abre “Instrumentação Cirúrgica”. A equipe cadastra o curso com esse nome e a página de inscrição; na primeira venda, “Taxa de inscrição — Instrumentação Cirúrgica” já conta como aluno do curso.',
+    },
+    {
+      id: 'ligar-campanha-ao-curso',
+      titulo: 'Ligar uma campanha a um curso',
+      passos: [
+        'Abra a campanha em “Campanhas” e toque em editar.',
+        'No campo “Curso”, escolha o curso da lista (o nome igual ao do catálogo).',
+        'Salve: a campanha e as peças dela passam a aparecer no curso.',
+      ],
+    },
+    {
+      id: 'associar-produto',
+      titulo: 'Associar um produto da Únicopag a um curso',
+      passos: [
+        'Em “Cursos”, desça até “Produtos da Únicopag sem curso”.',
+        'No produto, escolha “Conta em:” e o curso, ou “Ignorar”.',
+      ],
+      dica: '“Automático (pelo nome)” desfaz a escolha.',
+    },
+  ],
+  perguntas: [],
+  relacionadas: ['/escola/marketing', '/escola/vendas'],
+}
+
+export const guias: GuiaDaArea[] = [CURSOS, 
   // ------------------------------------------------------------ Visão geral
   {
     href: '/escola',
@@ -562,9 +674,15 @@ export const guias: GuiaDaArea[] = [
         seAusente: 'pular',
       },
       {
+        alvo: 'escola-marketing.submenu',
+        titulo: 'O submenu do Marketing',
+        texto: '“Cursos” mostra cada curso com os alunos e o que foi feito para ele; “Campanhas” é esta tela; “Advertoriais” e “Biblioteca de peças” completam o marketing da escola.',
+        lado: 'bottom',
+      },
+      {
         alvo: 'escola-marketing.biblioteca',
         titulo: 'Biblioteca de peças',
-        texto: 'O botão “Biblioteca de peças” abre todas as peças numa galeria, com imagem e números, e as referências de fora guardadas para inspirar as próximas.',
+        texto: '“Biblioteca de peças” abre todas as peças numa galeria, com imagem e números, e as referências de fora guardadas para inspirar as próximas.',
         lado: 'bottom',
         seAusente: 'pular',
       },
@@ -760,6 +878,18 @@ export const guias: GuiaDaArea[] = [
       },
     ],
     perguntas: [
+      {
+        id: 'alunos-por-curso',
+        pergunta: 'De onde vem o número de alunos de cada curso?',
+        resposta: 'Das vendas da Únicopag. Aluno é a pessoa que pagou algum produto do curso: quem pagou a inscrição e o curso conta uma vez. “Interessados” tentaram e não pagaram nada do curso, e são o público para remarketing.\n\nO Marketing vê só os números, sem nome nem CPF dos alunos.',
+        termos: ['alunos', 'matriculados', 'únicopag', 'quantos alunos', 'interessados'],
+      },
+      {
+        id: 'curso-sem-vendas',
+        pergunta: 'Um curso aparece sem alunos, mas tem vendas. Por quê?',
+        resposta: 'O nome do produto na Únicopag não bate com o nome do curso. Em “Cursos”, olhe “Produtos da Únicopag sem curso” e escolha o curso certo para o produto. “Taxa de inscrição — X” e “X — Inscrição” já contam sozinhos para o curso X.',
+        termos: ['sem alunos', 'nome do produto', 'associar'],
+      },
       {
         id: 'sem-utm',
         pergunta: 'Por que a campanha aparece “sem UTM” e sem receita?',

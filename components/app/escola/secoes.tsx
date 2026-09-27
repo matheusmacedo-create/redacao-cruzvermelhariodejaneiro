@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutDashboard, Megaphone, PiggyBank, PlugZap, ReceiptText, ScrollText } from 'lucide-react'
+import { LayoutDashboard, Megaphone, PiggyBank, PlugZap, ReceiptText } from 'lucide-react'
 
 type Acesso = 'vendas' | 'marketing' | 'qualquer'
 
@@ -8,7 +8,6 @@ const SECOES = [
   { href: '/escola/vendas', rotulo: 'Vendas', icone: ReceiptText, acesso: 'vendas' as Acesso },
   { href: '/escola/financeiro', rotulo: 'Financeiro', icone: PiggyBank, acesso: 'vendas' as Acesso },
   { href: '/escola/marketing', rotulo: 'Marketing', icone: Megaphone, acesso: 'marketing' as Acesso },
-  { href: '/escola/marketing/advertoriais', rotulo: 'Advertoriais', icone: ScrollText, acesso: 'marketing' as Acesso },
   { href: '/escola/configuracoes', rotulo: 'Contas e integrações', icone: PlugZap, acesso: 'qualquer' as Acesso },
 ] as const
 
@@ -17,8 +16,8 @@ export type SecaoDaEscola = (typeof SECOES)[number]['href']
 /**
  * As seções da Escola, no alto de cada página: a escola é uma empresa à
  * parte dentro da filial, e estas abas são o mapa dela. Vendas (dinheiro)
- * só aparece para quem vê o financeiro da escola; Marketing e Advertoriais,
- * para quem trabalha no marketing.
+ * só aparece para quem vê o financeiro da escola; Marketing (com cursos,
+ * campanhas, advertoriais e biblioteca no submenu), para quem trabalha no marketing.
  */
 export function SecoesDaEscola({ atual, financeiro = true, marketing = true }: { atual: SecaoDaEscola; financeiro?: boolean; marketing?: boolean }) {
   return (

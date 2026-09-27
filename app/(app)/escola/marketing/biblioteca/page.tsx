@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { inputClass, selectClass } from '@/components/app/imprensa/campos'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
+import { SubmenuDoMarketing } from '@/components/app/escola/submenu-marketing'
 import { CartaoDaPeca, NovaPeca } from '@/components/app/escola/marketing'
 import { contextoDoMarketing, imagensAssinadas } from '@/lib/escola/marketing-servidor'
 import { CANAIS, COLUNAS_DA_PECA, TIPOS_DE_PECA, ehCanal, ehTipoDePeca, lerPecaDoBanco } from '@/lib/escola/marketing'
@@ -50,6 +51,7 @@ export default async function BibliotecaDePecasPage({ searchParams }: { searchPa
   return (
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
+      <SubmenuDoMarketing atual="/escola/marketing/biblioteca" />
       <PageHeader title="Biblioteca de peças" breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: 'Biblioteca' }]}
         description="Cada página, anúncio, post e e-mail que a escola já usou, com a imagem e os números — e as referências guardadas para inspirar as próximas."
         actions={aba === 'referencias' ? <NovaPeca campanhas={campanhas} referencia /> : <NovaPeca campanhas={campanhas} />} />

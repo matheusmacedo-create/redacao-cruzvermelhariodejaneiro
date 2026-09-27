@@ -32,7 +32,7 @@ export function FormularioDaCampanha({ c, contas, onFim }: { c: Campanha | null;
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Campo rotulo="Nome da campanha"><input name="nome" required maxLength={120} value={nome} placeholder="Punção Venosa — turma de outubro" className={inputClass}
           onChange={(e) => { setNome(e.target.value); if (!utmMexido) setUtm(slugDeUtm(e.target.value)) }} /></Campo>
-        <Campo rotulo="Curso"><input name="curso" maxLength={120} defaultValue={c?.curso ?? ''} placeholder="Punção Venosa" className={inputClass} /></Campo>
+        <Campo rotulo="Curso"><input name="curso" list="cursos-da-escola" maxLength={120} defaultValue={c?.curso ?? ''} placeholder="Punção Venosa" className={inputClass} /></Campo>
         <Campo rotulo="Objetivo"><select name="objetivo" defaultValue={c?.objetivo ?? 'matriculas'} className={inputClass}>{Object.entries(OBJETIVOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Campo>
         <Campo rotulo="Situação"><select name="status" defaultValue={c?.status ?? 'planejada'} className={inputClass}>{Object.entries(SITUACOES_DA_CAMPANHA).map(([k, v]) => <option key={k} value={k}>{v.rotulo}</option>)}</select></Campo>
         <Campo rotulo="Início"><input name="inicio" type="date" defaultValue={c?.inicio ?? ''} className={inputClass} /></Campo>
@@ -252,3 +252,13 @@ export function ConstrutorDeUtm({ utm, base }: { utm: string; base: string }) {
     </div>
   )
 }
+
+/**
+ * As sugestões do campo "Curso" da campanha: os cursos ativos do catálogo
+ * (Marketing → Cursos). Com o nome igual ao do catálogo, a campanha e as
+ * peças dela aparecem no curso.
+ */
+export function ListaDeCursos({ nomes }: { nomes: string[] }) {
+  return <datalist id="cursos-da-escola">{nomes.map((n) => <option key={n} value={n} />)}</datalist>
+}
+

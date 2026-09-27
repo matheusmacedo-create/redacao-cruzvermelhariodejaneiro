@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { selectClass } from '@/components/app/imprensa/campos'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
+import { SubmenuDoMarketing } from '@/components/app/escola/submenu-marketing'
 import { CartaoDoAdvertorial, NovoAdvertorial } from '@/components/app/escola/advertoriais'
 import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { contextoDoMarketing } from '@/lib/escola/marketing-servidor'
@@ -69,7 +70,8 @@ export default async function AdvertoriaisPage({ searchParams }: { searchParams:
 
   return (
     <div className="flex flex-col gap-6">
-      <SecoesDaEscola atual="/escola/marketing/advertoriais" financeiro={nivelEscola >= 2} />
+      <SecoesDaEscola atual="/escola/marketing" financeiro={nivelEscola >= 2} />
+      <SubmenuDoMarketing atual="/escola/marketing/advertoriais" />
       <PageHeader title="Advertoriais" breadcrumbs={[{ label: 'Marketing da escola', href: '/escola/marketing' }, { label: 'Advertoriais' }]}
         description="Matérias publicadas como notícia no site para levar quem vem do anúncio até a matrícula. Cada uma com o funil dela: visitas, cliques no botão, matrículas e o que custou."
         actions={podeEscrever ? <NovoAdvertorial campanhas={campanhas} destinoSugerido={destinoSugerido} /> : undefined} />

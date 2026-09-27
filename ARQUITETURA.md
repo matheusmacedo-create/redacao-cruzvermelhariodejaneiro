@@ -1173,6 +1173,38 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   aparece com alerta.
 - **Conferência.** `npx tsx scripts/conferir-portaria.ts`.
 
+### 7.25 Escola: Marketing por curso (`/escola/marketing/cursos`)
+
+Cada curso com os alunos da Únicopag e o que o marketing fez para ele
+(migração `20260929070000`, `lib/escola/cursos.ts`).
+
+- **Submenu.** O Marketing da escola tem um submenu (`SubmenuDoMarketing`):
+  Cursos, Campanhas, Advertoriais e Biblioteca de peças. "Advertoriais" saiu
+  das seções do topo da Escola.
+- **Catálogo.** `escola_cursos` guarda nome, página do curso e se está ativo.
+  A migração já cria os 7 cursos que apareciam nas vendas.
+- **Campanhas e peças.** A campanha é do curso pelo nome
+  (`escola_campanhas.curso`, com sugestões do catálogo), e a peça é do curso
+  pela campanha. Renomear o curso renomeia as campanhas dele
+  (`escola_curso_salvar`).
+- **Produto da Únicopag → curso.** É uma regra pura (`destinoDoProduto`):
+  - "Taxa de inscrição — X" e "X — Inscrição" contam para X;
+  - produto de teste fica de fora;
+  - o resto ("Curso", "Matrícula") a equipe associa ou ignora
+    (`escola_produtos`, `escola_produto_classificar`).
+- **Alunos sem dado pessoal.** `escola_compras_por_produto` devolve as compras
+  agregadas por produto e pessoa, e a pessoa é um código (sha-256 com o espaço
+  como sal). O Marketing vê alunos e interessados sem ver nome, CPF nem o
+  financeiro da Escola.
+  - Aluno = pessoa distinta que pagou algum produto do curso.
+  - Interessado = tentou e não pagou nada do curso.
+- **Onde pôr esforço.** `sinalDoCurso` escreve uma frase por curso:
+  - remarketing, quando há 10 ou mais interessados, ou 3 ou mais com conversão abaixo de 50%;
+  - curso parado, sem alunos nem nada criado;
+  - curso que vende sem campanha no ar.
+- **Conferência.** `npx tsx scripts/conferir-cursos-escola.ts`, com os nomes de
+  produto reais.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
