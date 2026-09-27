@@ -3,7 +3,7 @@ import { pode, type Papel } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { enviarPeloGmail, GmailError } from '@/lib/google/gmail'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { assinaturaEmNomeDe, corpoComAssinatura, corpoHtmlComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
+import { assinaturaEmNomeDe, comCitacao, corpoComAssinatura, corpoHtmlComAssinatura, lerDestinatarios, montarMensagem } from './mensagem'
 
 /**
  * Enviar por uma caixa de setor — a regra num lugar só (a tela do E-mail do
@@ -20,6 +20,8 @@ export type Envio = {
   html?: string
   /** Em nome de outra empresa do grupo (a Escola): a linha legal da assinatura sai com a razão social e o CNPJ dela. */
   empresa?: { nome: string; cnpj: string } | null
+  /** Resposta ou encaminhamento: a conversa do Gmail, os cabeçalhos que prendem a ela e o texto citado. */
+  conversa?: { threadId: string | null; emResposta: { emRespostaA: string; referencias: string } | null; citacao: { html: string; texto: string } | null }
 }
 
 /** As caixas por onde esta pessoa pode enviar (todas, para quem tem a permissão). */
@@ -87,14 +89,14 @@ async function despachar(admin: ReturnType<typeof createAdminClient>, workspaceI
       corpo: m.anexos?.length ? `${corpo}\n\n[anexos: ${m.anexos.map((a) => a.nome).join(', ')}]` : corpo,
     }
     const assinatura = assinaturaEmNomeDe(caixa.assinatura_html, m.empresa)
-    const conteudo = m.html ? corpoHtmlComAssinatura(m.html, corpo, assinatura) : corpoComAssinatura(corpo, assinatura)
+    const conteudo = comCitacao(m.html ? corpoHtmlComAssinatura(m.html, corpo, assinatura) : corpoComAssinatura(corpo, assinatura), m.conversa?.citacao)
     const { raw } = montarMensagem({
       // O nome definido na Redação vale mais que o do Gmail (que por padrão é só o endereço).
       de: { nome: caixa.nome_remetente || caixa.nome_exibicao, email: caixa.email },
       para: para.validos, cc: cc.validos, responderPara: caixa.responder_para, assunto,
-      texto: conteudo.texto, html: conteudo.html, anexos: m.anexos,
+      texto: conteudo.texto, html: conteudo.html, anexos: m.anexos, emResposta: m.conversa?.emResposta ?? null,
     })
-    const enviado = await enviarPeloGmail(workspaceId, raw)
+    const enviado = await enviarPeloGmail(workspaceId, raw, m.conversa?.threadId ?? null)
     await admin.from('emails_enviados').insert({ ...registro, estado: 'enviado', gmail_message_id: enviado.id, gmail_thread_id: enviado.threadId })
     return { de: caixa.email, destinatarios: [...para.validos, ...cc.validos] }
   } catch (causa) {
