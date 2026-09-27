@@ -12,10 +12,10 @@ import { registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, responderAoAviso, seguirPendencia, type Pendencia,
-  type Pessoa, type Resposta,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, seguirPendencia,
+  type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
-import { receberMidia } from './envio'
+import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
 import {
@@ -58,12 +58,16 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Ou respondeu a uma pergunta do bot (a conferência antes de aprovar, os passos do chamado).
     let pendencia: Pendencia | null = null
     let estrita = false
+    // Citou uma pergunta que já foi respondida, venceu ou foi trocada: nunca cai na pergunta mais nova
+    // (a conferência antiga não pode aprovar outra matéria).
+    let vencida = false
     if (pessoa && !aviso) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
+        vencida = !pendencia && await perguntaVencida(admin, workspaceId, pessoa.id, m.citada)
       }
-      pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
+      if (!vencida) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
     // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
     const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
@@ -73,7 +77,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
-      comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+      comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
     })
     if (!nova) return
 
@@ -133,11 +137,25 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    if (vencida && !m.midia) {
+      await responder('Esta pergunta não vale mais: já foi respondida, venceu ou foi trocada por outra. Se precisar, comece de novo.')
+      return
+    }
+
     if (pendencia && paraPendencia) {
       const resposta = await seguirPendencia(admin, workspaceId, pessoa, pendencia, m.texto, base, estrita)
       if (resposta) {
         await enviar(resposta)
         return
+      }
+      // A pergunta mais nova não serviu, mas pode haver um envio de fotos aberto esperando o "pronto" ou o título.
+      if (pendencia.tipo !== 'envio' && !estrita) {
+        const envio = await envioAberto(admin, pessoa.id)
+        const doEnvio = envio ? await seguirPendencia(admin, workspaceId, pessoa, envio, m.texto, base, false) : null
+        if (doEnvio) {
+          await enviar(doEnvio)
+          return
+        }
       }
     }
 
@@ -167,9 +185,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'parar' || comando === 'voltar') {
+      const agora = new Date().toISOString()
       const { error } = await admin.from('whatsapp_contas')
-        .update({ pausado_em: comando === 'parar' ? new Date().toISOString() : null, atualizado_em: new Date().toISOString() })
+        .update({ pausado_em: comando === 'parar' ? agora : null, atualizado_em: agora })
         .eq('user_id', pessoa.id)
+      // Quem é da equipe e também voluntário com o mesmo número: o "sair" do anúncio vale para os dois.
+      await admin.from('participantes_whatsapp').update({ pausado_em: comando === 'parar' ? agora : null, atualizado_em: agora }).eq('numero', numero)
       await responder(error ? 'Não consegui mudar agora. Tente de novo daqui a pouco ou mude em Meu perfil.' : comando === 'parar' ? TEXTO_PAUSADO : TEXTO_VOLTOU)
       return
     }

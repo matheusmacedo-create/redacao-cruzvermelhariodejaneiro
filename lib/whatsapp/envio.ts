@@ -6,12 +6,12 @@ import { AUTORIZACOES, chaveDoArquivo, nomeCanonico, type Autorizacao } from '@/
 import { armazenamento, avisarAvaliadores, conferirLimites, hashDaOrigem, hashDoToken, novoToken, resumoDosArquivos } from '@/lib/envios/servidor'
 import { coletaDoEnvio } from '@/lib/imagem/servidor'
 import { baixarMidia, type ConfigDoWhatsapp } from './servidor'
-import { ehCancelamento, lerEscolha, textoDaEscolha, tituloDoRelato, type MensagemRecebida } from './regras'
+import { TEXTO_SEM_ACAO_PELO_WHATSAPP, ehCancelamento, lerEscolha, textoDaEscolha, tituloDoRelato, type MensagemRecebida } from './regras'
 import {
   ARQUIVOS_POR_ENVIO_PELO_WHATSAPP, ENVIO_ABERTO_MIN, ORDEM_DAS_AUTORIZACOES, TAMANHO_MAXIMO_PELO_WHATSAPP, TEXTO_COLETA_COMECOU, TEXTO_PEDE_TITULO,
   ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio,
 } from './envio-regras'
-import type { Pendencia, Pessoa, Resposta } from './acoes'
+import { podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from './acoes'
 
 /**
  * Fotos e vídeos mandados ao WhatsApp do Palácio viram um envio da equipe,
@@ -38,7 +38,7 @@ const hoje = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Pau
 const expira = () => new Date(Date.now() + ENVIO_ABERTO_MIN * 60_000).toISOString()
 const origem = (userId: string) => hashDaOrigem(`whatsapp:${userId}`)
 
-async function envioAberto(admin: Admin, userId: string): Promise<Pendencia | null> {
+export async function envioAberto(admin: Admin, userId: string): Promise<Pendencia | null> {
   const { data } = await admin.from('whatsapp_pendencias').select('id, tipo, dados').eq('user_id', userId).eq('tipo', 'envio').is('encerrada_em', null).maybeSingle()
   return data ? { id: data.id as number, tipo: 'envio', dados: (data.dados ?? {}) as Record<string, unknown> } : null
 }
@@ -65,6 +65,8 @@ export async function receberMidia(admin: Admin, workspaceId: string, pessoa: Pe
     return { texto: 'Por aqui eu não ouço áudio nem abro documento solto. Para mandar uma ação, comece pelas fotos ou vídeos; para o resto, escreva *menu*.' }
   }
   if (!aberto) {
+    // Como as outras ações: quem usa a verificação em duas etapas não manda em nome próprio por aqui.
+    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${pelaLink}` }
     const limite = await conferirLimites(admin, origem(pessoa.id), midia.tamanho ?? 0, true)
     if (limite) return { texto: limite }
     const { data: vinculo } = await admin.from('workspace_members').select('coordination').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle()
@@ -96,6 +98,11 @@ export async function receberMidia(admin: Admin, workspaceId: string, pessoa: Pe
   }
   const { count } = await admin.from('envio_arquivos').select('id', { count: 'exact', head: true }).eq('envio_id', envio.id)
   if ((count ?? 0) >= ARQUIVOS_POR_ENVIO_PELO_WHATSAPP) return { texto: `Este envio já tem ${ARQUIVOS_POR_ENVIO_PELO_WHATSAPP} arquivos. Escreva *pronto* para fechar e mande o resto num envio novo.` }
+  // O limite diário por origem vale arquivo a arquivo, como no link.
+  if (!comecou) {
+    const limite = await conferirLimites(admin, origem(pessoa.id), midia.tamanho ?? TAMANHO_MAXIMO_PELO_WHATSAPP, false)
+    if (limite) return { texto: limite }
+  }
 
   const baixado = await baixarMidia(config, m.id, TAMANHO_MAXIMO_PELO_WHATSAPP)
   if (!baixado.ok) return { texto: `Não consegui pegar este arquivo (${baixado.erro}). Mande de novo, ou ${pelaLink.charAt(0).toLowerCase()}${pelaLink.slice(1)}` }

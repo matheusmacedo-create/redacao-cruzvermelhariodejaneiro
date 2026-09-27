@@ -21,34 +21,37 @@ export const hashDoConvite = (token: string) => createHash('sha256').update(`fic
 const novoToken = () => randomBytes(32).toString('base64url')
 const urlDaFicha = (token: string) => `${urlBase()}/ficha/${token}`
 
-/** Para onde mandar: o WhatsApp que a pessoa confirmou no Palácio; senão, o telefone pessoal; senão, o de trabalho. */
-async function destinoDaPessoa(admin: Admin, membro: { user_id: string | null; telefone_trabalho: string | null }, telefonePessoal: string | null) {
+/**
+ * Para onde mandar: o WhatsApp que a pessoa confirmou no Palácio; senão, o
+ * telefone pessoal da ficha. Nunca o de trabalho: pode ser o celular do setor,
+ * e quem o tiver escreveria a ficha dela.
+ */
+async function destinoDaPessoa(admin: Admin, membro: { user_id: string | null }, telefonePessoal: string | null) {
   if (membro.user_id) {
     const { data } = await admin.from('whatsapp_contas').select('numero').eq('user_id', membro.user_id).maybeSingle()
-    if (data?.numero) return { numero: data.numero as string, userId: membro.user_id }
+    if (data?.numero) return data.numero as string
   }
-  const numero = numeroCanonico(telefonePessoal ?? '') ?? numeroCanonico(membro.telefone_trabalho ?? '')
-  return numero ? { numero, userId: null } : null
+  return numeroCanonico(telefonePessoal ?? '')
 }
 
 export async function criarConviteDaFicha(p: {
   workspaceId: string; membroId: string; criadoPor: string; incluiDocumentos: boolean; porWhatsapp: boolean
-}): Promise<{ link: string; enviadoPara: string | null; recado: string }> {
+}): Promise<{ link: string | null; enviadoPara: string | null; recado: string }> {
   const admin = createAdminClient()
   const [{ data: membro }, { data: pessoais }] = await Promise.all([
-    admin.from('equipe_membros').select('id, nome, nome_social, user_id, telefone_trabalho, situacao').eq('id', p.membroId).eq('workspace_id', p.workspaceId).maybeSingle(),
+    admin.from('equipe_membros').select('id, nome, nome_social, user_id, situacao').eq('id', p.membroId).eq('workspace_id', p.workspaceId).maybeSingle(),
     admin.from('equipe_pessoais').select('telefone_pessoal').eq('membro_id', p.membroId).maybeSingle(),
   ])
   if (!membro) throw new Error('Pessoa não encontrada.')
   if (membro.situacao === 'desligado') throw new Error('Esta pessoa foi desligada.')
-  const destino = p.porWhatsapp ? await destinoDaPessoa(admin, membro as { user_id: string | null; telefone_trabalho: string | null }, (pessoais?.telefone_pessoal as string | null) ?? null) : null
-  if (p.porWhatsapp && !destino) throw new Error('A ficha não tem um celular válido (nem WhatsApp confirmado no Palácio). Preencha o telefone pessoal ou use “Copiar o link”.')
+  const destino = p.porWhatsapp ? await destinoDaPessoa(admin, membro as { user_id: string | null }, (pessoais?.telefone_pessoal as string | null) ?? null) : null
+  if (p.porWhatsapp && !destino) throw new Error('A ficha não tem celular pessoal válido (nem WhatsApp confirmado no Palácio). Preencha o telefone pessoal ou use “Só gerar o link”.')
 
   // Um link aberto por pessoa: o novo cancela o anterior.
   await admin.from('equipe_convites').update({ cancelado_em: new Date().toISOString() }).eq('membro_id', p.membroId).is('usado_em', null).is('cancelado_em', null)
   const token = novoToken()
   const { error } = await admin.from('equipe_convites').insert({
-    workspace_id: p.workspaceId, membro_id: p.membroId, token_hash: hashDoConvite(token), numero: destino?.numero ?? null,
+    workspace_id: p.workspaceId, membro_id: p.membroId, token_hash: hashDoConvite(token), numero: destino ?? null,
     inclui_documentos: p.incluiDocumentos, criado_por: p.criadoPor, expira_em: new Date(Date.now() + DIAS_DO_CONVITE * 86_400_000).toISOString(),
   })
   if (error) throw new Error(error.code === '42P01' || error.code === 'PGRST205' ? 'O link da ficha ainda não está pronto no banco. Avise a administração.' : 'Não foi possível gerar o link.')
@@ -56,14 +59,16 @@ export async function criarConviteDaFicha(p: {
   const nome = ((membro.nome_social as string | null) || (membro.nome as string)) ?? ''
 
   if (!destino) return { link, enviadoPara: null, recado: 'Link gerado. Copie e mande à pessoa: ele vale uma vez e por 7 dias.' }
+  // Sem userId: é um pedido do RH, não um aviso do sino — a pausa dos avisos da pessoa não o segura na fila.
   const entrega = await entregar(admin, p.workspaceId, {
-    numero: destino.numero, tipo: 'aviso', categoria: 'equipe', userId: destino.userId,
+    numero: destino, tipo: 'aviso', categoria: 'equipe', userId: null,
     texto: textoDoConviteDaFicha({ nome, url: link, documentos: p.incluiDocumentos }),
   })
-  const para = formatarNumero(destino.numero)
+  const para = formatarNumero(destino)
+  // Falhou o WhatsApp: o link volta para o RH mandar de outro jeito. Saiu: o link fica só com a pessoa.
   if (entrega.situacao === 'falhou') return { link, enviadoPara: null, recado: `O WhatsApp não saiu (${entrega.erro}). Copie o link e mande de outro jeito.` }
   return {
-    link, enviadoPara: mascararNumero(destino.numero),
+    link: null, enviadoPara: mascararNumero(destino),
     recado: entrega.situacao === 'na_fila' ? `O link vai para ${para} pelo WhatsApp assim que a fila andar (de 22h às 7h, espera a manhã).` : `Link mandado para ${para} pelo WhatsApp.`,
   }
 }

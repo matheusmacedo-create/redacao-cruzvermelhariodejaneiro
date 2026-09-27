@@ -46,6 +46,9 @@ export type Entrega =
 
 const dormir = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms))
 
+/** Com o teto do minuto batido, espera tanto e confere de novo. */
+const ESPERA_DO_TETO_MS = 5_000
+
 /** Folga para um envio no pior caso (a Evolution tem até 40 s para confirmar): sem ela, não começa outro. */
 const FOLGA_POR_ENVIO_MS = 42_000
 
@@ -142,13 +145,20 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
     await admin.from('whatsapp_fila').update({ situacao: 'pendente', atualizado_em: new Date().toISOString() })
       .eq('situacao', 'processando').lt('atualizado_em', new Date(Date.now() - 10 * 60_000).toISOString())
 
-    let consulta = admin.from('whatsapp_fila')
-      .select('id, workspace_id, user_id, numero, texto, tipo, categoria, link, notificacao_id, tentativas')
-      .eq('situacao', 'pendente').lte('enviar_apos', new Date().toISOString())
-      .order('enviar_apos', { ascending: true }).limit(opcoes.limite ?? 60)
-    if (workspaceId) consulta = consulta.eq('workspace_id', workspaceId)
-    const { data: itens, error } = await consulta
-    if (error || !itens?.length) return resultado
+    // O anúncio aos voluntários (lista grande) vai por último: resposta do bot, aviso de
+    // segurança e aviso da equipe não esperam atrás dele.
+    const buscar = (anuncio: boolean) => {
+      let consulta = admin.from('whatsapp_fila')
+        .select('id, workspace_id, user_id, numero, texto, tipo, categoria, link, notificacao_id, tentativas')
+        .eq('situacao', 'pendente').lte('enviar_apos', new Date().toISOString())
+        .order('enviar_apos', { ascending: true }).limit(opcoes.limite ?? 60)
+      consulta = anuncio ? consulta.eq('categoria', 'voluntariado') : consulta.or('categoria.is.null,categoria.neq.voluntariado')
+      return workspaceId ? consulta.eq('workspace_id', workspaceId) : consulta
+    }
+    const [urgentes, anuncios] = await Promise.all([buscar(false), buscar(true)])
+    if (urgentes.error) return resultado
+    const itens = [...(urgentes.data ?? []), ...(anuncios.data ?? [])].slice(0, opcoes.limite ?? 60)
+    if (!itens.length) return resultado
 
     const configs = new Map<string, ConfigDoWhatsapp | null>()
     const derrubados = new Set<string>()
@@ -156,15 +166,24 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
 
     for (const item of itens as Item[]) {
       if (Date.now() + FOLGA_POR_ENVIO_MS > fim || derrubados.has(item.workspace_id)) { resultado.restam++; continue }
-      if (await saidasNoUltimoMinuto(admin, item.workspace_id) >= TETO_POR_MINUTO) { resultado.restam++; continue }
+      // Teto do minuto batido: espera a janela abrir enquanto houver orçamento (antes, pulava tudo).
+      let noTeto = await saidasNoUltimoMinuto(admin, item.workspace_id) >= TETO_POR_MINUTO
+      while (noTeto && Date.now() + ESPERA_DO_TETO_MS + FOLGA_POR_ENVIO_MS <= fim) {
+        await dormir(ESPERA_DO_TETO_MS)
+        noTeto = await saidasNoUltimoMinuto(admin, item.workspace_id) >= TETO_POR_MINUTO
+      }
+      if (noTeto) { resultado.restam++; continue }
 
       const { data: pego } = await admin.from('whatsapp_fila').update({ situacao: 'processando', atualizado_em: new Date().toISOString() })
         .eq('id', item.id).eq('situacao', 'pendente').select('id').maybeSingle()
       if (!pego) continue
 
       const agora = new Date()
+      // O link da ficha da Equipe carrega o token: saiu (ou desistiu), o texto não fica guardado.
+      const semSegredo = (campos: Record<string, unknown>) =>
+        item.categoria === 'equipe' && (campos.situacao === 'enviada' || campos.situacao === 'desistiu') ? { ...campos, texto: '[link da ficha apagado depois do envio]' } : campos
       const devolver = (campos: Record<string, unknown>) =>
-        admin.from('whatsapp_fila').update({ ...campos, atualizado_em: new Date().toISOString() }).eq('id', item.id)
+        admin.from('whatsapp_fila').update({ ...semSegredo(campos), atualizado_em: new Date().toISOString() }).eq('id', item.id)
 
       if (silencioSeAplica(item) && emSilencio(agora)) {
         await devolver({ situacao: 'pendente', enviar_apos: fimDoSilencio(agora).toISOString() })
