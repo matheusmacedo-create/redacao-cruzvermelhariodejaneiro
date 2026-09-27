@@ -36,6 +36,8 @@ async function destinoDaPessoa(admin: Admin, membro: { user_id: string | null },
 
 export async function criarConviteDaFicha(p: {
   workspaceId: string; membroId: string; criadoPor: string; incluiDocumentos: boolean; porWhatsapp: boolean
+  /** O link vai dentro de outra mensagem (o convite de acesso) para este número: o lembrete usa o mesmo. */
+  numeroDoConvite?: string | null
 }): Promise<{ link: string | null; enviadoPara: string | null; recado: string }> {
   const admin = createAdminClient()
   const [{ data: membro }, { data: pessoais }] = await Promise.all([
@@ -51,7 +53,7 @@ export async function criarConviteDaFicha(p: {
   await admin.from('equipe_convites').update({ cancelado_em: new Date().toISOString() }).eq('membro_id', p.membroId).is('usado_em', null).is('cancelado_em', null)
   const token = novoToken()
   const { error } = await admin.from('equipe_convites').insert({
-    workspace_id: p.workspaceId, membro_id: p.membroId, token_hash: hashDoConvite(token), numero: destino ?? null,
+    workspace_id: p.workspaceId, membro_id: p.membroId, token_hash: hashDoConvite(token), numero: destino ?? p.numeroDoConvite ?? null,
     inclui_documentos: p.incluiDocumentos, criado_por: p.criadoPor, expira_em: new Date(Date.now() + DIAS_DO_CONVITE * 86_400_000).toISOString(),
   })
   if (error) throw new Error(error.code === '42P01' || error.code === 'PGRST205' ? 'O link da ficha ainda não está pronto no banco. Avise a administração.' : 'Não foi possível gerar o link.')

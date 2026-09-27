@@ -133,6 +133,21 @@ export const linkDaEntrada = (base: string, token: string) => `${base.replace(/\
 
 // ---------------------------------------------------------------- crachás de visitante para imprimir
 
+/**
+ * Os dois formatos do crachá de visitante, os dois no tamanho de cartão
+ * (CR80, 86 × 54 mm): deitado, o do porta-crachá horizontal com presilha,
+ * o mais comum no Brasil; e em pé, na mesma posição do crachá funcional.
+ * Numa folha A4 em pé cabem 10 deitados (2 × 5) ou 9 em pé (3 × 3).
+ */
+export const FORMATOS_DE_CRACHA = {
+  deitado: { rotulo: 'Deitado (86 × 54 mm)', colunas: 2, linhas: 5, largura: 86, altura: 54 },
+  empe: { rotulo: 'Em pé (54 × 86 mm)', colunas: 3, linhas: 3, largura: 54, altura: 86 },
+} as const
+export type FormatoDoCracha = keyof typeof FORMATOS_DE_CRACHA
+export const formatoDoCracha = (bruto: unknown): FormatoDoCracha => (bruto === 'empe' ? 'empe' : 'deitado')
+export const crachasPorFolha = (f: FormatoDoCracha) => FORMATOS_DE_CRACHA[f].colunas * FORMATOS_DE_CRACHA[f].linhas
+
+/** O crachá em pé, o primeiro formato: 9 por folha. */
 export const CRACHAS_POR_FOLHA = 9
 export const MAXIMO_DE_CRACHAS = 99
 
@@ -146,22 +161,28 @@ export function prefixoDoCracha(bruto: unknown): string {
  * Os números da folha: de `de` até `ate` (no máximo 99 crachás), com zero à
  * esquerda na mesma largura ("V-01" … "V-18"). Fora do intervalo, corrige.
  */
-export function numerosDeCracha(prefixo: unknown, de: unknown, ate: unknown): string[] {
+export function numerosDeCracha(prefixo: unknown, de: unknown, ate: unknown, porFolha = CRACHAS_POR_FOLHA): string[] {
   const p = prefixoDoCracha(prefixo)
   const lerInteiro = (v: unknown, padrao: number) => { const n = Number.parseInt(String(v ?? ''), 10); return Number.isFinite(n) ? n : padrao }
   const inicio = Math.min(Math.max(lerInteiro(de, 1), 1), 999)
-  const fim = Math.min(Math.max(lerInteiro(ate, inicio + CRACHAS_POR_FOLHA - 1), inicio), inicio + MAXIMO_DE_CRACHAS - 1, 999)
+  const fim = Math.min(Math.max(lerInteiro(ate, inicio + porFolha - 1), inicio), inicio + MAXIMO_DE_CRACHAS - 1, 999)
   const largura = Math.max(2, String(fim).length)
   return Array.from({ length: fim - inicio + 1 }, (_, i) => `${p}-${String(inicio + i).padStart(largura, '0')}`)
 }
 
-/** Em folhas de 9. No verso, cada linha sai espelhada: impresso frente e verso (virando pela borda longa), cada verso cai atrás da sua frente. */
-export function folhasDeCrachas<T>(itens: T[]): { frente: (T | null)[]; verso: (T | null)[] }[] {
+/**
+ * Em folhas do formato (9 em pé, 10 deitados). No verso, cada linha sai
+ * espelhada: impresso frente e verso (virando pela borda longa), cada verso
+ * cai atrás da sua frente.
+ */
+export function folhasDeCrachas<T>(itens: T[], formato: FormatoDoCracha = 'empe'): { frente: (T | null)[]; verso: (T | null)[] }[] {
+  const { colunas, linhas } = FORMATOS_DE_CRACHA[formato]
+  const porFolha = colunas * linhas
   const folhas: { frente: (T | null)[]; verso: (T | null)[] }[] = []
-  for (let i = 0; i < itens.length; i += CRACHAS_POR_FOLHA) {
-    const frente: (T | null)[] = [...itens.slice(i, i + CRACHAS_POR_FOLHA)]
-    while (frente.length < CRACHAS_POR_FOLHA) frente.push(null)
-    const verso = [0, 1, 2].flatMap((linha) => frente.slice(linha * 3, linha * 3 + 3).reverse())
+  for (let i = 0; i < itens.length; i += porFolha) {
+    const frente: (T | null)[] = [...itens.slice(i, i + porFolha)]
+    while (frente.length < porFolha) frente.push(null)
+    const verso = Array.from({ length: linhas }, (_, l) => frente.slice(l * colunas, (l + 1) * colunas).reverse()).flat()
     folhas.push({ frente, verso })
   }
   return folhas
