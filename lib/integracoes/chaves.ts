@@ -41,6 +41,9 @@ export const SERVICOS = {
   // Gerada pela própria Redação (tela Trilha pública) e lida por lib/auditoria/chave.ts; fora da tela de Integrações.
   auditoria_trilha: { nome: 'Chave de assinatura da trilha pública', variavel: 'AUDITORIA_CHAVE_PRIVADA', painel: '', oculto: true },
   meta_ads: { nome: 'Meta Ads (token do usuário do sistema)', variavel: 'META_ADS_TOKEN', painel: 'https://business.facebook.com/settings/system-users' },
+  // A conta de serviço que lê o Google Analytics do site para Resultados (lib/analytics). A chave JSON inteira;
+  // o cofre guarda só client_email e private_key (contaDeServicoParaGuardar).
+  google_analytics: { nome: 'Google Analytics (conta de serviço)', variavel: 'GOOGLE_ANALYTICS_CONTA', painel: 'https://console.cloud.google.com/iam-admin/serviceaccounts' },
   // Confere links de matérias e da newsletter antes de publicar (lib/apis-publicas).
   google_safe_browsing: { nome: 'Google Safe Browsing (conferência de links)', variavel: 'GOOGLE_SAFE_BROWSING_KEY', painel: 'https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com' },
   // O WhatsApp do Palácio (lib/whatsapp). A chave pode ser a global do servidor ou o token da instância;

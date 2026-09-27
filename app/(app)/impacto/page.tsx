@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Activity, ArrowRight, BarChart3, Eye, Gauge, Globe2, Heart, MousePointerClick, Share2, Users } from 'lucide-react'
+import { Activity, ArrowRight, BarChart3, Eye, Gauge, Globe2, Heart, Share2, Users } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/app/page-header'
@@ -8,6 +8,11 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
 import { tituloDaArea } from '@/lib/navegacao'
+import { pode } from '@/lib/permissoes'
+import { situacaoDoAnalytics } from '@/lib/analytics/servidor'
+import { caminhoDaPagina, lerPeriodo } from '@/lib/analytics/relatorio'
+import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
+import { SiteNoResultados } from '@/components/app/resultados/site'
 
 export const metadata = { title: tituloDaArea('/impacto') }
 
@@ -19,10 +24,17 @@ function inicio30Dias() {
   return date.toISOString()
 }
 
-export default async function ImpactoPage() {
+/** A data de hoje em São Paulo (AAAA-MM-DD): o período do Analytics termina ontem, no fuso da filial. */
+function hojeEmSaoPaulo() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+}
+
+export default async function ImpactoPage({ searchParams }: { searchParams: Promise<{ periodo?: string | string[] }> }) {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const desde = inicio30Dias()
+  const { periodo } = await searchParams
+  const dias = lerPeriodo(Array.isArray(periodo) ? periodo[0] : periodo)
 
   // O recorte é por QUANDO SAIU, não por quando alguém editou. Filtrar por
   // updated_at contava neste mês uma matéria publicada em maio e reaberta
@@ -44,6 +56,24 @@ export default async function ImpactoPage() {
       .order('updated_at', { ascending: false })
       .limit(8),
   ])
+  const site = await situacaoDoAnalytics(context.workspace.id, dias, hojeEmSaoPaulo())
+
+  // As matérias que o Palácio publicou no site: a página mais vista leva à pauta de origem.
+  const materias: Record<string, { pautaId: string }> = {}
+  if (site.estado === 'ok' && site.dados.paginas.length) {
+    const { data: pecas } = await supabase
+      .from('content_pieces')
+      .select('site_url,pauta_id')
+      .eq('workspace_id', context.workspace.id)
+      .not('site_url', 'is', null)
+      .not('pauta_id', 'is', null)
+      .limit(2000)
+    const vistas = new Set(site.dados.paginas.map((p) => caminhoDaPagina(p.caminho)))
+    for (const peca of pecas ?? []) {
+      const caminho = caminhoDaPagina(String(peca.site_url))
+      if (caminho && vistas.has(caminho)) materias[caminho] = { pautaId: String(peca.pauta_id) }
+    }
+  }
 
   const canaisPublicados = new Map<string, number>()
   for (const destination of destinations ?? []) {
@@ -69,10 +99,10 @@ export default async function ImpactoPage() {
       <div data-ajuda="resultados.aviso" className="mb-6 rounded-xl border border-border bg-muted/35 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><p className="text-sm font-semibold">Analytics em implantação</p></div>
-            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">Esta primeira versão usa somente dados que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site aparecerão aqui quando as fontes analíticas forem conectadas — sem números estimados ou inventados.</p>
+            <div className="flex items-center gap-2"><Gauge className="size-4 text-primary" /><p className="text-sm font-semibold">De onde vêm os números</p></div>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">A atividade e os canais vêm do que o Palácio Virtual registrou nos últimos 30 dias. “O site” vem do Google Analytics, no período que você escolher. Alcance e engajamento das redes sociais aparecem aqui quando essas fontes forem conectadas — sem números estimados ou inventados.</p>
           </div>
-          <div className="shrink-0 rounded-lg bg-background px-4 py-3 text-xs text-muted-foreground shadow-sm ring-1 ring-border">Período atual: últimos 30 dias</div>
+          <div className="shrink-0 rounded-lg bg-background px-4 py-3 text-xs text-muted-foreground shadow-sm ring-1 ring-border">Atividade: últimos 30 dias</div>
         </div>
       </div>
 
@@ -85,6 +115,14 @@ export default async function ImpactoPage() {
           <MetricCard icon={Users} value={projects?.length ?? 0} label="Projetos ativos" helper="Projetos competindo pela agenda editorial" />
         </div>
       </section>
+
+      <SiteNoResultados
+        situacao={site.estado === 'erro' && !pode(context.role, 'integracoes.configurar') ? { ...site, email: null } : site}
+        dias={dias}
+        materias={materias}
+        ehAdmin={pode(context.role, 'integracoes.configurar')}
+        propriedade={ID_DA_PROPRIEDADE}
+      />
 
       <div className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-[0.8fr_1.2fr]">
         <section data-ajuda="resultados.canais">
@@ -108,7 +146,7 @@ export default async function ImpactoPage() {
             <FutureMetric icon={Eye} title="Alcance e visualizações" description="Quantas contas foram alcançadas e quantas visualizações o conteúdo recebeu." />
             <FutureMetric icon={Users} title="Crescimento" description="Seguidores atuais, ganhos no período e evolução histórica por canal." />
             <FutureMetric icon={Heart} title="Engajamento" description="Curtidas, comentários, compartilhamentos, salvamentos e taxa de interação." />
-            <FutureMetric icon={MousePointerClick} title="Site e Google" description="Usuários, páginas vistas, buscas, cliques, CTR e matérias com melhor desempenho." />
+            <FutureMetric icon={Globe2} title="Busca no Google" description="Buscas que trouxeram gente ao site, cliques e posição (Search Console)." />
           </div>
         </section>
       </div>

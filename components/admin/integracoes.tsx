@@ -126,6 +126,11 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
           Salvar no cofre
         </Button>
       </div>
+      {chave.servico === 'google_analytics' && (
+        <p className="text-xs text-muted-foreground">
+          Abra o arquivo JSON da chave da conta de serviço, copie tudo e cole no campo. O Palácio guarda só o e-mail da conta e a chave privada, e lê o Analytics sem poder mudar nada. O passo a passo completo está em Resultados, em “O site”.
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         A chave fica em <a href={chave.painel} target="_blank" rel="noreferrer" className="text-primary hover:underline">{chave.painel.replace(/^https:\/\//, '')}</a>.
         Nunca cole chave no chat, em e-mail ou em documento — só aqui.
