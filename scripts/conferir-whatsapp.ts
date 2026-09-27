@@ -6,8 +6,15 @@ import {
   numeroCanonico, numeroDoJid, formatarNumero, mascararNumero, urlDoServidor, instanciaValida, estadoDaEvolution,
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
-  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal,
+  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
+  alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
 } from '../lib/whatsapp/regras'
+import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
+import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
+import {
+  TEXTO_DO_CONSENTIMENTO, VERSAO_DO_CONSENTIMENTO, comandoDoVoluntario, consentimentoGuardado, textoDaListaDoVoluntario, textoDaOportunidade, textoDoMenuDoVoluntario,
+} from '../lib/whatsapp/voluntarios-regras'
+import { faltasDaFicha, lerFicha, textoDoConviteDaFicha } from '../lib/rh/ficha'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -101,7 +108,7 @@ const mensagem = lerEventoDoWebhook({
 })
 igual(mensagem.evento, 'messages.upsert', 'evento')
 igual(mensagem.instancia, 'palacio', 'instância')
-igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', ignorar: null }], 'mensagem comum')
+igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', citada: null, midia: null, ignorar: null }], 'mensagem comum')
 
 const maiusculo = lerEventoDoWebhook({ event: 'MESSAGES_UPSERT', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'X' }, message: { extendedTextMessage: { text: 'avisos' } } } })
 igual(maiusculo.evento, 'messages.upsert', 'evento em maiúsculas')
@@ -156,6 +163,180 @@ contem(textoDoMenu({ nome: null, pausado: false, urlBase: 'https://p' }), 'Olá!
 igual(codigoNoFormato('123456'), true, 'código ok')
 igual(codigoNoFormato('12345'), false, 'código curto')
 igual(codigoNoFormato('12a456'), false, 'código com letra')
+
+// ---------------------------------------------------------------- consultas e pedidos com complemento
+const ped = (t: string, pausado = false) => lerPedido(t, { pausado })
+igual(cmd('4'), 'agenda', '4')
+igual(cmd('minha agenda'), 'agenda', 'minha agenda')
+igual(cmd('5'), 'chamados', '5')
+igual(cmd('meus chamados'), 'chamados', 'meus chamados')
+igual(cmd('chamado'), 'chamados', 'chamado sozinho lista')
+igual(cmd('6'), 'aprovacoes', '6')
+igual(cmd('aprovações'), 'aprovacoes', 'aprovações com acento')
+igual(cmd('ajuda'), 'menu', 'ajuda sozinha é o menu')
+igual(ped('ajuda como trocar a senha'), { comando: 'ajuda', resto: 'como trocar a senha' }, 'ajuda com dúvida')
+igual(ped('Dúvida: onde vejo os ofícios?'), { comando: 'ajuda', resto: 'onde vejo os ofícios?' }, 'dúvida com dois-pontos')
+igual(ped('Como eu paro os avisos?'), { comando: 'ajuda', resto: 'Como eu paro os avisos?' }, '"como" vira dúvida, não "avisos"')
+igual(ped('chamado: impressora da sala 3 sem toner'), { comando: 'abrir_chamado', resto: 'impressora da sala 3 sem toner' }, 'abrir chamado')
+igual(ped('Abrir um chamado - o ar-condicionado pinga'), { comando: 'abrir_chamado', resto: 'o ar-condicionado pinga' }, 'abrir um chamado')
+igual(ped('novo chamado: tomada solta'), { comando: 'abrir_chamado', resto: 'tomada solta' }, 'novo chamado')
+igual(cmd('chamado: oi'), 'chamados', 'relato curto demais não abre chamado')
+igual(cmd('como assim'), 'desconhecido', '"como" com uma palavra só não é dúvida')
+
+igual(rotuloDoDia('2026-09-28'), 'seg, 28/09', 'rótulo do dia')
+igual(rotuloDoDia('2026-10-04'), 'dom, 04/10', 'domingo')
+const agenda = textoDaAgenda({
+  hoje: '2026-09-28', amanha: '2026-09-29', urlBase: 'https://p',
+  itensHoje: [{ titulo: 'Reunião de pauta', hora: '14:00' }, { titulo: 'Dia do Idoso', hora: null, detalhe: 'Data comemorativa' }, { titulo: 'Plantão', hora: '09:00' }],
+  itensAmanha: [],
+})
+contem(agenda, '*Hoje, seg, 28/09*', 'agenda: cabeça de hoje')
+igual(agenda.indexOf('Dia todo') < agenda.indexOf('09:00') && agenda.indexOf('09:00') < agenda.indexOf('14:00'), true, 'agenda: dia todo, depois por hora')
+contem(agenda, '_(Data comemorativa)_', 'agenda: detalhe')
+contem(agenda, '*Amanhã, ter, 29/09*\n_Nada marcado._', 'agenda: dia vazio')
+contem(agenda, 'https://p/calendario', 'agenda: link')
+const cheia = textoDaAgenda({ hoje: '2026-09-28', amanha: '2026-09-29', urlBase: 'https://p', itensHoje: Array.from({ length: 11 }, (_, i) => ({ titulo: `I${i}`, hora: `1${i % 10}:00` })), itensAmanha: [], falhou: true })
+contem(cheia, '_e mais 3_', 'agenda: corta em 8')
+contem(cheia, 'não carregou', 'agenda: aviso de camada que falhou')
+
+igual(textoDosChamados({ chamados: [], total: 0, urlBase: 'https://p' }).includes('não tem chamados abertos'), true, 'sem chamados')
+const chamados = textoDosChamados({ chamados: [{ id: 'c1', codigo: 'TI-0042', titulo: 'Sem internet', situacao: 'Aguardando você' }], total: 1, urlBase: 'https://p' })
+contem(chamados, '*1 chamado*', 'um chamado')
+contem(chamados, '*TI-0042* · Sem internet', 'código e título')
+contem(chamados, 'https://p/chamados/c1', 'link do chamado')
+contem(textoDosChamados({ chamados: Array.from({ length: 6 }, (_, i) => ({ id: `c${i}`, codigo: `C${i}`, titulo: 't', situacao: 'Novo' })), total: 9, urlBase: 'https://p' }), 'Os 6 mais recentes', 'corta chamados')
+
+igual(textoDasAprovacoes({ aprovacoes: [], total: 0, urlBase: 'https://p' }), 'Nada esperando o seu voto agora.', 'sem aprovações')
+const aprovacoes = textoDasAprovacoes({ aprovacoes: [{ id: 'a1', titulo: 'Matéria do Dia do Voluntário' }, { id: 'a2', titulo: 'Post' }], total: 2, urlBase: 'https://p' })
+contem(aprovacoes, '*2 aprovações* esperam', 'duas aprovações')
+contem(aprovacoes, '*1.* Matéria do Dia do Voluntário\nhttps://p/aprovacoes/a1', 'item numerado com link')
+
+igual(palavrasDaDuvida('ajuda como eu troco a minha senha?'), ['troc', 'senh'], 'palavras da dúvida sem as vazias, pela raiz')
+igual(palavrasDaDuvida('onde vejo as aprovações?'), ['aprovac'], 'raiz acha singular e plural')
+igual(palavrasDaDuvida('como é que eu faço?'), [], 'só palavras vazias')
+igual(buscarDuvida('como eu troco a minha senha?', 'editor')[0]?.href, '/ajuda#trocar-a-senha', 'dúvida acha "Trocar a sua senha"')
+igual(buscarDuvida('xyzw qwerty', 'editor'), [], 'dúvida sem resposta')
+igual(buscarDuvida('como pagar uma conta no financeiro', 'escola').some((a) => a.href.startsWith('/ajuda/financeiro')), false, 'equipe da escola não recebe ajuda de área que não abre')
+const pedidoIa = pedidoDaDuvida('como troco a senha?', [{ titulo: 'Trocar a sua senha', trecho: 'Abra Meu perfil.', onde: 'Conta' }])
+contem(pedidoIa, '<duvida>\ncomo troco a senha?\n</duvida>', 'dúvida vai separada dos trechos')
+
+const achados = [{ titulo: 'Trocar a sua senha', trecho: 'Abra *Meu perfil* e toque em Trocar senha.', href: '/ajuda#trocar-a-senha' }]
+contem(textoDaAjuda({ pergunta: 'senha', achados: [], urlBase: 'https://p' }), 'Não achei nada', 'ajuda sem achado')
+contem(textoDaAjuda({ pergunta: 'senha', achados, urlBase: 'https://p' }), 'Achei isto na Central de ajuda', 'ajuda sem IA mostra os trechos')
+const comIa = textoDaAjuda({ pergunta: 'senha', achados, resposta: '1. Abra *Meu perfil*.', urlBase: 'https://p' })
+contem(comIa, '1. Abra *Meu perfil*.', 'ajuda com o resumo')
+contem(comIa, '• Trocar a sua senha: https://p/ajuda#trocar-a-senha', 'resumo leva o link da Central')
+igual(respostaParaWhatsapp('## Passos\n1. Abra **Meu perfil** e veja [a ajuda](https://x).\n\n\n2. `Salvar`'), 'Passos\n1. Abra *Meu perfil* e veja a ajuda.\n\n2. Salvar', 'markdown vira formato do WhatsApp')
+igual(respostaParaWhatsapp('linha um\nlinha dois muito comprida', 15), 'linha um…', 'corta na quebra de linha')
+
+// ---------------------------------------------------------------- ações: citação, alvo do aviso, decisão e escolha
+const citando = lerEventoDoWebhook({ event: 'messages.upsert', data: {
+  key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R1' },
+  message: { extendedTextMessage: { text: 'Já reiniciei o roteador', contextInfo: { stanzaId: '3EB0AVISO', participant: '552192368473@s.whatsapp.net' } } },
+} })
+igual(citando.mensagens[0]?.citada, '3EB0AVISO', 'resposta citando o aviso')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R2' }, contextInfo: { stanzaId: 'TOPO' }, message: { conversation: 'ok' } } }).mensagens[0]?.citada, 'TOPO', 'citação no contextInfo de fora (Evolution v2)')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R3' }, message: { ephemeralMessage: { message: { extendedTextMessage: { text: 'x', contextInfo: { stanzaId: 'EFE' } } } } } } }).mensagens[0]?.citada, 'EFE', 'citação em mensagem temporária')
+igual(mensagem.mensagens[0]?.citada, null, 'sem citação')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'L' }, message: { conversation: 'x'.repeat(5000) } } }).mensagens[0]?.texto.length, 4000, 'texto longo cabe numa resposta de chamado')
+
+const id1 = '0f8fad5b-d9cb-469f-a165-70867728950e'
+const id2 = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
+igual(alvoDoLink(`/chamados/${id1}`), { tipo: 'chamado', id: id1 }, 'aviso de chamado')
+igual(alvoDoLink(`/aprovacoes/${id1}`), { tipo: 'aprovacao', id: id1 }, 'aviso de aprovação')
+igual(alvoDoLink(`/chat/${id1}`), { tipo: 'chat', canalId: id1, fio: null }, 'aviso do chat')
+igual(alvoDoLink(`/chat/${id1}?fio=${id2}`), { tipo: 'chat', canalId: id1, fio: id2 }, 'aviso de fio do chat')
+igual(alvoDoLink(`/chat/${id1}?fio=abc`), { tipo: 'chat', canalId: id1, fio: null }, 'fio inválido vira a conversa')
+igual(alvoDoLink(`/mensagens/pessoa/${id2}`), { tipo: 'mensagem', pessoaId: id2 }, 'mensagem direta')
+igual(alvoDoLink('/chamados'), null, 'lista não é alvo')
+igual(alvoDoLink(`/chamados/${id1}/editar`), null, 'subpágina não é alvo')
+igual(alvoDoLink(`https://outro.site/chamados/${id1}`), null, 'link de fora não é alvo')
+igual(alvoDoLink(null), null, 'aviso sem link')
+
+igual(lerDecisao('Aprovar'), { decisao: 'aprovar' }, 'aprovar')
+igual(lerDecisao('aprovado!'), { decisao: 'aprovar' }, 'aprovado')
+igual(lerDecisao('ajustes: trocar a foto de capa'), { decisao: 'ajustes', nota: 'trocar a foto de capa' }, 'ajustes com nota')
+igual(lerDecisao('Pedir ajustes - o título está errado'), { decisao: 'ajustes', nota: 'o título está errado' }, 'pedir ajustes')
+igual(lerDecisao('ajustes'), { decisao: 'ajustes', nota: '' }, 'ajustes sem nota (o bot pede a nota)')
+igual(lerDecisao('não aprovo'), null, 'negação não é aprovação')
+igual(lerDecisao('aprovar depois de ler'), null, 'frase com "aprovar" no começo não vota')
+igual(lerDecisao('achei ótimo'), null, 'comentário solto')
+igual(ehConfirmacao('Confirmo'), true, 'confirmo')
+igual(ehConfirmacao('confirmo tudo'), false, 'confirmação é a palavra sozinha')
+igual(ehCancelamento('Cancelar'), true, 'cancelar')
+igual(lerEscolha('2', 3), 2, 'escolha 2')
+igual(lerEscolha('*3*', 3), 3, 'escolha com negrito')
+igual(lerEscolha('opção 1', 3), 1, 'opção 1')
+igual(lerEscolha('4', 3), null, 'fora da lista')
+igual(lerEscolha('0', 3), null, 'zero não é opção')
+igual(lerEscolha('2 cadeiras quebradas', 3), null, 'número no meio da frase não é escolha')
+
+contem(textoDoAviso({ urlBase: 'https://p', titulo: 'Nova resposta da equipe', mensagem: 'm', link: `/chamados/${id1}` }), '_Para responder por aqui, responda esta mensagem._', 'aviso de chamado ensina a responder')
+contem(textoDoAviso({ urlBase: 'https://p', titulo: 'Aprovação', mensagem: 'm', link: `/aprovacoes/${id1}` }), '*aprovar* ou com *ajustes:*', 'aviso de aprovação ensina a votar')
+igual(textoDoAviso({ urlBase: 'https://p', titulo: 'Ofício', mensagem: 'm', link: '/oficios/1' }).includes('responda esta mensagem'), false, 'aviso sem resposta pelo WhatsApp não promete')
+const conferencia = textoDaConferencia({ titulo: 'Matéria X', blocos: [{ setor: 'Comunicação', itens: ['Fonte citada', 'Foto autorizada'] }] })
+contem(conferencia, '*Comunicação*\n☐ Fonte citada\n☐ Foto autorizada', 'conferência lista os itens')
+contem(conferencia, 'responda *esta mensagem* com *confirmo*', 'conferência pede a confirmação')
+const escolha = textoDaEscolha({ pergunta: 'Para qual equipe?', opcoes: [{ nome: 'TI' }, { nome: 'Manutenção', detalhe: 'predial' }] })
+contem(escolha, '*1* – TI\n*2* – Manutenção _(predial)_', 'escolha numerada')
+igual(tituloDoRelato('A impressora da sala 3 está sem toner. Já troquei o cabo.'), 'A impressora da sala 3 está sem toner', 'título é a primeira frase')
+igual(tituloDoRelato('ar pinga'), 'ar pinga', 'relato curto')
+igual(tituloDoRelato('x'.repeat(200)).length, 138, 'título longo é cortado')
+
+// ---------------------------------------------------------------- fotos e vídeos viram envio
+const foto = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'F1' },
+  message: { imageMessage: { mimetype: 'image/jpeg', fileLength: { low: 245760, high: 0, unsigned: true }, caption: 'Ação na Central' } } } })
+igual(foto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 245760, nome: null }, 'foto com tamanho em Long')
+igual(foto.mensagens[0]?.texto, 'Ação na Central', 'a legenda vem como texto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'V1' }, message: { videoMessage: { mimetype: 'video/mp4', fileLength: '1048576' } } } }).mensagens[0]?.midia,
+  { categoria: 'video', mime: 'video/mp4', tamanho: 1048576, nome: null }, 'vídeo com tamanho em texto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'D1' }, message: { documentWithCaptionMessage: { message: { documentMessage: { mimetype: 'image/png', fileName: 'cartaz.png', fileLength: 10 } } } } } }).mensagens[0]?.midia,
+  { categoria: 'foto', mime: 'image/png', tamanho: 10, nome: 'cartaz.png' }, 'foto mandada como documento continua foto')
+igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'S1' }, message: { stickerMessage: { mimetype: 'image/webp' } } } }).mensagens[0]?.midia, null, 'figurinha não é envio')
+igual(ehFimDaColeta('Pronto!'), true, 'pronto fecha a coleta')
+igual(ehFimDaColeta('só isso'), true, 'só isso fecha a coleta')
+igual(ehFimDaColeta('pronto, mais uma foto'), false, 'frase com pronto não fecha')
+igual(tituloProvisorio('Ana Lima Souza'), 'Envio pelo WhatsApp de Ana', 'título provisório')
+igual(tituloProvisorio(null), 'Envio pelo WhatsApp de alguém da equipe', 'título provisório sem nome')
+igual(nomeDoArquivoRecebido({ nome: null, mime: 'image/jpeg', mensagemId: '3EB0-ABC', categoria: 'foto' }), 'whatsapp-3EB0ABC.jpg', 'nome de foto sem nome')
+igual(nomeDoArquivoRecebido({ nome: 'relatório/final.pdf', mime: 'application/pdf', mensagemId: 'X', categoria: 'documento' }), 'relatóriofinal.pdf', 'nome de documento sem barra')
+igual(nomeDoArquivoRecebido({ nome: 'sem extensao', mime: 'video/quicktime', mensagemId: 'X', categoria: 'video' }), 'whatsapp-X.mov', 'sem extensão, vale o tipo')
+igual(opcoesDeAutorizacao().length, 4, 'as quatro respostas da autorização de imagem')
+
+// ---------------------------------------------------------------- voluntários
+const cv = (t: string, pausado = false) => comandoDoVoluntario(t, { pausado })
+igual(cv('1'), 'oportunidades', 'voluntário: 1')
+igual(cv('quais as vagas?'), 'oportunidades', 'voluntário: vagas')
+igual(cv('2'), 'inscricoes', 'voluntário: 2')
+igual(cv('minhas inscrições'), 'inscricoes', 'voluntário: inscrições')
+igual(cv('SAIR'), 'sair', 'voluntário: sair')
+igual(cv('3'), 'sair', 'voluntário: 3 recebendo')
+igual(cv('3', true), 'voltar', 'voluntário: 3 pausado')
+igual(cv('oi'), 'menu', 'voluntário: oi')
+igual(cv('posso levar um amigo?'), 'desconhecido', 'voluntário: pergunta solta')
+const anuncio = textoDaOportunidade({ titulo: 'Ação na Central', quando: 'sáb, 3 de out · 09:00 às 12:00', local: 'Central do Brasil', vagas: '20 vagas', url: 'https://p/membro/oportunidades/x' })
+contem(anuncio, '*Ação na Central*\n🗓 sáb, 3 de out · 09:00 às 12:00\n📍 Central do Brasil\n20 vagas', 'anúncio: o essencial')
+contem(anuncio, 'Para se inscrever: https://p/membro/oportunidades/x', 'anúncio: link da inscrição')
+contem(anuncio, '*sair*', 'anúncio: diz como parar')
+contem(consentimentoGuardado(), `[${VERSAO_DO_CONSENTIMENTO}] Autorizo`, 'consentimento guarda a versão e o texto')
+contem(TEXTO_DO_CONSENTIMENTO, 'SAIR', 'consentimento diz como parar')
+contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: [], url: 'https://p' }), 'Nada.', 'lista vazia')
+contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: Array.from({ length: 8 }, (_, i) => ({ titulo: `O${i}`, quando: 'q' })), url: 'https://p' }), '_e mais 2_', 'lista corta em 6')
+contem(textoDoMenuDoVoluntario({ nome: 'Bia Souza', pausado: true, urlBase: 'https://p' }), '*3* – voltar a receber', 'menu do voluntário pausado')
+
+// ---------------------------------------------------------------- ficha da Equipe pelo link
+igual(faltasDaFicha(null, { temDocumentos: false, pedeDocumentos: true }).length, 12, 'ficha vazia: 11 campos e os documentos')
+igual(faltasDaFicha({ telefone_pessoal: '21 9', email_pessoal: 'a@b.c', data_nascimento: '1990-01-01', cep: '20000-000', logradouro: 'Rua A', numero: '1', bairro: 'Centro', cidade: 'Rio', uf: 'RJ', emergencia_nome: 'Mãe', emergencia_telefone: '21 8' },
+  { temDocumentos: true, pedeDocumentos: true }), [], 'ficha completa (complemento é opcional)')
+igual(faltasDaFicha({ cidade: '  ' }, { temDocumentos: false, pedeDocumentos: false }).includes('Cidade'), true, 'só espaço conta como vazio')
+igual(lerFicha({ cidade: ' Rio ', uf: 'rj', cep: '', banco: '001', cargo: 'Diretora', doc_cpf: '123', doc_senha: 'x' }, ['cpf', 'rg']),
+  { cidade: 'Rio', uf: 'RJ', documentos: { cpf: '123' } }, 'lerFicha: só campos conhecidos e preenchidos; banco e cargo ficam de fora')
+igual(lerFicha({ numero: '1'.repeat(50) }, [])['numero'], '1'.repeat(20), 'lerFicha corta no tamanho do campo')
+const conviteFicha = textoDoConviteDaFicha({ nome: 'Carla Dias', url: 'https://p/ficha/abc', documentos: true })
+contem(conviteFicha, 'Olá, Carla!', 'convite chama pelo primeiro nome')
+contem(conviteFicha, 'números dos seus documentos', 'convite avisa dos documentos')
+contem(conviteFicha, 'nunca pede senha nem dados de banco', 'convite alerta contra golpe')
+contem(textoDoConviteDaFicha({ nome: 'Carla', url: 'u', documentos: false, lembrete: true }), 'Carla, falta completar', 'lembrete')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.

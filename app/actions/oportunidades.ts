@@ -2,10 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { avisarPromovidos, enviarAoVoluntario, naEspera } from '@/lib/membro/comunicacao'
 import { urlBase } from '@/lib/newsletter/contexto'
+import { avisarOportunidadePorWhatsapp } from '@/lib/whatsapp/voluntarios'
 import { emailDeCancelamento } from '@/lib/membro/emails'
 import { lerOportunidade, quando } from '@/lib/oportunidades/regras'
 import { lerPerguntas, paraOBanco } from '@/lib/oportunidades/perguntas'
@@ -86,6 +88,8 @@ export async function publicarOportunidade(id: string, publicado: boolean): Prom
     const { supabase } = await gerente()
     const { error } = await supabase.from('oportunidades').update({ publicado, updated_at: new Date().toISOString() }).eq('id', id)
     if (error) erroDoBanco(error, 'Não foi possível mudar a publicação.')
+    // Na primeira publicação, os voluntários que autorizaram recebem pelo WhatsApp (pela fila, aos poucos).
+    if (publicado) after(() => avisarOportunidadePorWhatsapp(id))
     revalidar(id)
     return {}
   } catch (causa) {

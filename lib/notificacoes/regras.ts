@@ -14,7 +14,7 @@
  * aqui: esses saem sempre (lib/contas/servidor.ts).
  */
 
-export const CATEGORIAS = ['chat', 'aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro', 'patrimonio', 'portaria', 'auditoria', 'sistema'] as const
+export const CATEGORIAS = ['chat', 'aprovacoes', 'mensagens', 'pautas', 'chamados', 'oficios', 'financeiro', 'patrimonio', 'portaria', 'equipe', 'auditoria', 'sistema'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const MODOS = ['imediato', 'resumo', 'nunca'] as const
@@ -30,6 +30,7 @@ export const ROTULO_DA_CATEGORIA: Record<Categoria, { nome: string; exemplos: st
   financeiro: { nome: 'Financeiro', exemplos: 'Contas que vencem hoje ou estão atrasadas, e o fechamento do mês.' },
   patrimonio: { nome: 'Patrimônio e estoque', exemplos: 'Bens entregues a você, termos para aceitar, manutenções vencendo e estoque baixo.' },
   portaria: { nome: 'Portaria', exemplos: 'Quando um visitante chega para falar com você.' },
+  equipe: { nome: 'Recursos humanos', exemplos: 'Quando a pessoa a quem você pediu completa a própria ficha pelo link.' },
   auditoria: { nome: 'Trilha pública', exemplos: 'Só para a administração: falha na conferência diária da trilha, num registro, num carimbo ou na publicação dos lotes.' },
   sistema: { nome: 'Sistema', exemplos: 'Só para a administração: quando o WhatsApp do Palácio cai ou volta. Chega no sino e no e-mail, nunca pelo WhatsApp.' },
 }

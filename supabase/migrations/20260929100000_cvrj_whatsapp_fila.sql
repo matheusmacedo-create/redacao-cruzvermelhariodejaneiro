@@ -60,12 +60,16 @@ create table if not exists public.whatsapp_estado (
 alter table public.whatsapp_estado enable row level security;
 revoke all on public.whatsapp_estado from anon, authenticated;
 
--- Categoria "sistema" nas notificações (mesmo jeito das migrações anteriores:
--- lê a lista atual do check e acrescenta, sem perder nenhuma).
+-- Categoria "sistema" nas notificações. Lê a lista atual do check e junta com
+-- todas as categorias que o código conhece (lib/notificacoes/regras.ts), sem
+-- perder nenhuma. A junção também conserta um banco novo: nele, a migração do
+-- chat (20260926000000) não lê a lista no formato '{…}' e deixa só "chat" —
+-- em produção a lista está inteira, e só ganha "sistema".
 do $$
 declare
   v_def text;
   v_lista text[];
+  v_todas text[] := array['aprovacoes', 'auditoria', 'chamados', 'chat', 'financeiro', 'geral', 'mensagens', 'oficios', 'patrimonio', 'pautas', 'portaria', 'sistema'];
 begin
   select pg_get_constraintdef(c.oid) into v_def from pg_constraint c
    where c.conrelid = 'public.notifications'::regclass and c.conname = 'notifications_categoria_valida';
@@ -78,8 +82,8 @@ begin
   if coalesce(cardinality(v_lista), 0) = 0 then
     raise exception 'Não consegui ler as categorias de notifications_categoria_valida: %', v_def;
   end if;
-  if 'sistema' = any (v_lista) then return; end if;
-  v_lista := v_lista || array['sistema'];
+  if v_todas <@ v_lista then return; end if;
+  select array_agg(distinct x order by x) into v_lista from unnest(v_lista || v_todas) as x;
   alter table public.notifications drop constraint notifications_categoria_valida;
   execute format('alter table public.notifications add constraint notifications_categoria_valida check (categoria = any (%L::text[]))', v_lista);
 end $$;

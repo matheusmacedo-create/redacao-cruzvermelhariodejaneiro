@@ -10,6 +10,9 @@ import { MOVIMENTACOES, categoriasDoNivel, rotuloDoVinculo, tempoDeCasa } from '
 import { AcoesDeSituacao, Remuneracoes, VerRestritos } from '@/components/app/equipe/acoes'
 import { Situacao, nomeDe } from '@/components/app/equipe/comum'
 import { ArquivosDaFicha, type ArquivoDaFicha } from '@/components/app/equipe/arquivos'
+import { PedirFicha } from '@/components/app/equipe/pedir-ficha'
+import { faltasDaFicha } from '@/lib/rh/ficha'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,6 +56,10 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
       .eq('membro_id', id).order('created_at', { ascending: false }).limit(500) : Promise.resolve({ data: null }),
     nivel >= 2 && sp.aba === 'arquivos' ? supabase.from('workspace_members').select('user_id,profiles(full_name)').eq('workspace_id', context.workspace.id) : Promise.resolve({ data: null }),
   ])
+  // O link aberto para a pessoa completar a ficha (a tabela é só do servidor).
+  const { data: convite } = nivel >= 2 && sp.aba === 'pessoal'
+    ? await createAdminClient().from('equipe_convites').select('criado_em').eq('membro_id', id).is('usado_em', null).is('cancelado_em', null).gt('expira_em', new Date().toISOString()).maybeSingle()
+    : { data: null }
   const arquivos = (arquivosR.data ?? []) as ArquivoDaFicha[]
   const nomes = Object.fromEntries(((membrosR.data ?? []) as { user_id: string; profiles: unknown }[])
     .map((x) => [x.user_id, ((Array.isArray(x.profiles) ? x.profiles[0] : x.profiles) as { full_name?: string } | null)?.full_name ?? 'Alguém']))
@@ -140,6 +147,10 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
             <Item rotulo="Emergência">{[pessoais?.emergencia_nome, pessoais?.emergencia_parentesco, pessoais?.emergencia_telefone].filter(Boolean).join(' · ')}</Item>
             <Item rotulo="CPF">{m.cpf_mascara}</Item>
           </dl>
+          {m.situacao !== 'desligado' && (
+            <PedirFicha membroId={m.id} podeDocumentos={nivel >= 3} linkAberto={convite ? DATA(convite.criado_em.slice(0, 10)) : null}
+              faltam={faltasDaFicha(pessoais, { temDocumentos: m.tem_documentos, pedeDocumentos: nivel >= 3 })} />
+          )}
         </Bloco>
       )}
 

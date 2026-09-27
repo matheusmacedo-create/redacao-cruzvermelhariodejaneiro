@@ -188,8 +188,18 @@ export function textoDoAviso(p: { urlBase: string; titulo: string; mensagem: str
   const partes = [`*${limpo(p.titulo, 200)}*`, limpo(p.mensagem, 900)]
   if (p.citacao?.trim()) partes.push(limpo(p.citacao, 600).split('\n').map((l) => `> ${l}`).join('\n'))
   partes.push(`Abrir: ${p.urlBase}${p.link ?? '/notificacoes'}`)
+  const dica = dicaDeResposta(p.link)
+  if (dica) partes.push(dica)
   partes.push(RODAPE)
   return partes.join('\n\n')
+}
+
+/** Quando o aviso aceita resposta pelo WhatsApp, diz como (lib/whatsapp/acoes.ts). */
+export function dicaDeResposta(link: string | null | undefined): string | null {
+  const alvo = alvoDoLink(link)
+  if (!alvo) return null
+  if (alvo.tipo === 'aprovacao') return '_Para votar por aqui, responda esta mensagem com *aprovar* ou com *ajustes:* e o que precisa mudar._'
+  return '_Para responder por aqui, responda esta mensagem._'
 }
 
 // ------------------------------------------------------------------ volume
@@ -305,6 +315,10 @@ export type MensagemRecebida = {
   numero: string | null
   texto: string
   nome: string | null
+  /** O id da mensagem que a pessoa citou ao responder (o aviso, a pergunta do bot); null sem citação. */
+  citada: string | null
+  /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Evolution). */
+  midia: MidiaRecebida | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
 }
@@ -340,6 +354,61 @@ export function textoDaMensagem(mensagem: unknown, profundidade = 0): string {
   return ''
 }
 
+export type CategoriaDaMidia = 'foto' | 'video' | 'audio' | 'documento'
+export type MidiaRecebida = { categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null }
+
+/** fileLength do Baileys: número, texto ou Long ({ low, high }). */
+function tamanhoDaMidia(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v
+  if (typeof v === 'string' && /^\d{1,12}$/.test(v)) return Number(v)
+  const longo = objeto(v)
+  if (longo && typeof longo.low === 'number') return (longo.low >>> 0) + (typeof longo.high === 'number' ? longo.high * 2 ** 32 : 0)
+  return null
+}
+
+/** A mídia da mensagem, se houver (figurinha não conta). */
+export function midiaDaMensagem(mensagem: unknown, profundidade = 0): MidiaRecebida | null {
+  const m = objeto(mensagem)
+  if (!m || profundidade > 3) return null
+  const tipos: [string, CategoriaDaMidia][] = [['imageMessage', 'foto'], ['videoMessage', 'video'], ['audioMessage', 'audio'], ['documentMessage', 'documento']]
+  for (const [chave, categoria] of tipos) {
+    const d = objeto(m[chave])
+    if (!d) continue
+    const mime = (texto(d.mimetype) ?? '').split(';')[0].trim().toLowerCase().slice(0, 120)
+    // Foto e vídeo mandados "como documento" continuam foto e vídeo.
+    const real: CategoriaDaMidia = categoria === 'documento' && mime.startsWith('image/') ? 'foto' : categoria === 'documento' && mime.startsWith('video/') ? 'video' : categoria
+    return { categoria: real, mime: mime || 'application/octet-stream', tamanho: tamanhoDaMidia(d.fileLength), nome: texto(d.fileName)?.slice(0, 200) ?? null }
+  }
+  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
+    const dentro = midiaDaMensagem(objeto(m[embrulho])?.message, profundidade + 1)
+    if (dentro) return dentro
+  }
+  return null
+}
+
+const TIPOS_COM_CONTEXTO = ['extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage']
+
+/** O id da mensagem citada (contextInfo.stanzaId), onde quer que ele esteja. */
+export function citadaNaMensagem(dado: unknown, profundidade = 0): string | null {
+  const d = objeto(dado)
+  if (!d || profundidade > 3) return null
+  const direto = texto(objeto(d.contextInfo)?.stanzaId)
+  if (direto) return direto.slice(0, 128)
+  const m = objeto(d.message) ?? d
+  for (const tipo of TIPOS_COM_CONTEXTO) {
+    const id = texto(objeto(objeto(m[tipo])?.contextInfo)?.stanzaId)
+    if (id) return id.slice(0, 128)
+  }
+  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
+    const dentro = objeto(m[embrulho])
+    if (dentro) {
+      const id = citadaNaMensagem({ message: dentro.message }, profundidade + 1)
+      if (id) return id
+    }
+  }
+  return null
+}
+
 function lerMensagem(dado: unknown): MensagemRecebida | null {
   const d = objeto(dado)
   const chave = objeto(d?.key)
@@ -351,8 +420,11 @@ function lerMensagem(dado: unknown): MensagemRecebida | null {
   return {
     id: texto(chave.id)?.slice(0, 128) ?? null,
     numero: grupo ? null : numero,
-    texto: textoDaMensagem(d.message).slice(0, 500),
+    // Cabe uma resposta de chamado ou do Chat; comando é curto de todo jeito.
+    texto: textoDaMensagem(d.message).slice(0, 4000),
     nome: texto(d.pushName)?.slice(0, 80) ?? null,
+    citada: citadaNaMensagem(d),
+    midia: midiaDaMensagem(d.message),
     ignorar: chave.fromMe === true ? 'de_mim' : grupo ? 'grupo' : numero ? null : 'sem_numero',
   }
 }
@@ -373,37 +445,58 @@ export function lerEventoDoWebhook(corpo: unknown): EventoDoWebhook {
 
 // ------------------------------------------------------------------ bot
 
-export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'desconhecido'
+export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado' | 'desconhecido'
 
-const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 
-const PALAVRAS: Record<Exclude<Comando, 'desconhecido'>, string[]> = {
+const PALAVRAS: Record<'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes', string[]> = {
   menu: ['menu', 'oi', 'ola', 'oie', 'opa', 'bom', 'boa', 'ajuda', 'inicio', 'opcoes', 'help', '0'],
   avisos: ['1', 'avisos', 'aviso', 'notificacoes', 'notificacao', 'novidades', 'pendencias'],
   lidas: ['2', 'lidas', 'lida', 'lido', 'lidos', 'li'],
   parar: ['parar', 'pare', 'sair', 'stop', 'cancelar', 'descadastrar', 'desativar'],
   voltar: ['voltar', 'volta', 'ativar', 'retomar', 'continuar', 'start', 'reativar'],
+  agenda: ['4', 'agenda', 'compromissos', 'calendario'],
+  chamados: ['5', 'chamados', 'chamado'],
+  aprovacoes: ['6', 'aprovacoes', 'aprovacao', 'votos', 'votar'],
+}
+
+export type Pedido = { comando: Comando; resto: string }
+
+/** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
+function depoisDe(entrada: string, prefixo: RegExp): string {
+  return entrada.trim().replace(prefixo, '').replace(/^[\s:,.-]+/, '').trim().slice(0, 4000)
 }
 
 /**
- * O que a pessoa pediu. O "3" do menu alterna: para quem recebe, é parar;
- * para quem pausou, é voltar.
+ * O que a pessoa pediu, e o resto do texto quando o comando leva um
+ * complemento ("ajuda como abrir um chamado", "chamado: impressora sem
+ * toner"). O "3" do menu alterna: para quem recebe, é parar; para quem
+ * pausou, é voltar.
  */
-export function interpretarComando(entrada: string, p: { pausado: boolean }): Comando {
+export function lerPedido(entrada: string, p: { pausado: boolean }): Pedido {
   const t = normalizar(entrada)
-  if (!t) return 'desconhecido'
-  if (t === '3') return p.pausado ? 'voltar' : 'parar'
+  if (!t) return { comando: 'desconhecido', resto: '' }
+  if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
   const palavras = t.split(' ')
-  // "marcar como lidas", "ver avisos": vale a palavra que decide, não a primeira.
-  for (const comando of ['parar', 'voltar', 'lidas', 'avisos'] as const) {
-    if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return comando
+  // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
+  if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
+  if (palavras[0] === 'como' && palavras.length > 2) return { comando: 'ajuda', resto: entrada.trim().slice(0, 1000) }
+  const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
+  if ((palavras[0] === 'chamado' || (palavras[0] === 'abrir' && palavras.includes('chamado')) || (palavras[0] === 'novo' && palavras[1] === 'chamado')) && depoisDe(entrada, abrir).length >= 8) {
+    return { comando: 'abrir_chamado', resto: depoisDe(entrada, abrir) }
   }
-  if (PALAVRAS.menu.includes(palavras[0])) return 'menu'
-  return 'desconhecido'
+  // "marcar como lidas", "ver avisos": vale a palavra que decide, não a primeira.
+  for (const comando of ['parar', 'voltar', 'lidas', 'avisos', 'agenda', 'chamados', 'aprovacoes'] as const) {
+    if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return { comando, resto: '' }
+  }
+  if (PALAVRAS.menu.includes(palavras[0])) return { comando: 'menu', resto: '' }
+  return { comando: 'desconhecido', resto: '' }
 }
 
+export const interpretarComando = (entrada: string, p: { pausado: boolean }): Comando => lerPedido(entrada, p).comando
+
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
-export const RESPOSTAS_POR_JANELA = 6
+export const RESPOSTAS_POR_JANELA = 10
 export const JANELA_DAS_RESPOSTAS_MIN = 10
 /** Número que não é de ninguém da equipe recebe a apresentação no máximo uma vez neste intervalo. */
 export const APRESENTACAO_A_CADA_HORAS = 24
@@ -413,8 +506,11 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
   return [
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
-    ['Responda com o número:', '*1* – ver os avisos que você ainda não abriu', '*2* – marcar todos os avisos como lidos',
-      p.pausado ? '*3* – voltar a receber os avisos por aqui' : '*3* – parar de receber os avisos por aqui'].join('\n'),
+    ['Responda com o número:', '*1* – os avisos que você ainda não abriu', '*2* – marcar todos os avisos como lidos',
+      p.pausado ? '*3* – voltar a receber os avisos por aqui' : '*3* – parar de receber os avisos por aqui',
+      '*4* – sua agenda de hoje e amanhã', '*5* – seus chamados abertos', '*6* – o que espera o seu voto'].join('\n'),
+    ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
+      'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].join('\n'),
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
 }
@@ -449,6 +545,176 @@ export function textoDaApresentacao(p: { urlBase: string; site: string }): strin
   return [
     'Olá! Este é o WhatsApp de avisos do *Palácio Virtual*, o sistema interno da Cruz Vermelha Brasileira – Rio de Janeiro. As mensagens daqui não são lidas por uma pessoa.',
     `Se você é da equipe, cadastre este número em Meu perfil → WhatsApp: ${p.urlBase}/perfil#whatsapp`,
+    `Se você é voluntário, confirme este número na Área do Voluntário para receber as oportunidades: ${p.urlBase}/membro/perfil#whatsapp`,
     `Para falar com a Cruz Vermelha, use os canais oficiais: ${p.site}`,
   ].join('\n\n')
 }
+
+// ------------------------------------------------------------------ consultas (agenda, chamados, aprovações, ajuda)
+
+const DIAS_DA_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'] as const
+
+/** "seg, 28/09" a partir de "2026-09-28". */
+export function rotuloDoDia(dia: string): string {
+  const [a, m, d] = dia.split('-').map(Number)
+  const semana = DIAS_DA_SEMANA[new Date(Date.UTC(a, m - 1, d)).getUTCDay()]
+  return `${semana}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`
+}
+
+export type ItemDoDia = { titulo: string; hora?: string | null; detalhe?: string | null }
+export const ITENS_POR_DIA = 8
+
+export function textoDaAgenda(p: { hoje: string; amanha: string; itensHoje: ItemDoDia[]; itensAmanha: ItemDoDia[]; urlBase: string; falhou?: boolean }): string {
+  const bloco = (rotulo: string, itens: ItemDoDia[]) => {
+    if (!itens.length) return `*${rotulo}*\n_Nada marcado._`
+    const ordenados = [...itens].sort((x, y) => (x.hora ?? '').localeCompare(y.hora ?? ''))
+    const linhas = ordenados.slice(0, ITENS_POR_DIA).map((i) => `• ${i.hora ? i.hora : 'Dia todo'} – ${limpo(i.titulo, 120)}${i.detalhe ? ` _(${limpo(i.detalhe, 80)})_` : ''}`)
+    if (ordenados.length > ITENS_POR_DIA) linhas.push(`_e mais ${ordenados.length - ITENS_POR_DIA}_`)
+    return [`*${rotulo}*`, ...linhas].join('\n')
+  }
+  return [
+    '*Sua agenda*',
+    bloco(`Hoje, ${rotuloDoDia(p.hoje)}`, p.itensHoje),
+    bloco(`Amanhã, ${rotuloDoDia(p.amanha)}`, p.itensAmanha),
+    p.falhou ? '_Parte da agenda não carregou agora; confira no Palácio._' : null,
+    `Agenda completa: ${p.urlBase}/calendario`,
+  ].filter(Boolean).join('\n\n')
+}
+
+export type ChamadoNaLista = { id: string; codigo: string; titulo: string; situacao: string }
+export const CHAMADOS_NA_RESPOSTA = 6
+
+export function textoDosChamados(p: { chamados: ChamadoNaLista[]; total: number; urlBase: string }): string {
+  if (!p.total || !p.chamados.length) return 'Você não tem chamados abertos. Para abrir um, escreva *chamado:* e o problema.'
+  const itens = p.chamados.slice(0, CHAMADOS_NA_RESPOSTA).map((c) => `*${limpo(c.codigo, 20)}* · ${limpo(c.titulo, 120)}\n_${limpo(c.situacao, 40)}_ · ${p.urlBase}/chamados/${c.id}`)
+  const cabeca = p.total === 1 ? 'Você tem *1 chamado* aberto:' : `Você tem *${p.total} chamados* abertos${p.total > itens.length ? `. Os ${itens.length} mais recentes` : ''}:`
+  return [cabeca, ...itens, 'Para responder, use o link ou responda a mensagem do aviso do chamado.'].join('\n\n')
+}
+
+export type AprovacaoNaLista = { id: string; titulo: string }
+export const APROVACOES_NA_RESPOSTA = 6
+
+export function textoDasAprovacoes(p: { aprovacoes: AprovacaoNaLista[]; total: number; urlBase: string }): string {
+  if (!p.total || !p.aprovacoes.length) return 'Nada esperando o seu voto agora.'
+  const itens = p.aprovacoes.slice(0, APROVACOES_NA_RESPOSTA).map((a, i) => `*${i + 1}.* ${limpo(a.titulo, 140)}\n${p.urlBase}/aprovacoes/${a.id}`)
+  const cabeca = p.total === 1 ? '*1 aprovação* espera o seu voto:' : `*${p.total} aprovações* esperam o seu voto:`
+  return [cabeca, ...itens, 'Para votar por aqui, responda a mensagem do aviso de aprovação com *aprovar* ou *ajustes:* e o que precisa mudar.'].join('\n\n')
+}
+
+export type AchadoDaAjuda = { titulo: string; trecho: string; href: string }
+
+/**
+ * O resumo do Claude no formato do WhatsApp: mantém *negrito* e _itálico_,
+ * mas desfaz o Markdown que o WhatsApp não entende (títulos, **duplo**, links,
+ * crases) e corta numa quebra de linha, não no meio da palavra.
+ */
+export function respostaParaWhatsapp(texto: string, max = 1200): string {
+  const limpa = texto
+    .replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[`~]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  if (limpa.length <= max) return limpa
+  const corte = limpa.lastIndexOf('\n', max)
+  return `${limpa.slice(0, corte > max / 2 ? corte : max).trim()}…`
+}
+
+export function textoDaAjuda(p: { pergunta: string; achados: AchadoDaAjuda[]; resposta?: string | null; urlBase: string }): string {
+  if (!p.achados.length) return `Não achei nada na Central de ajuda sobre “${limpo(p.pergunta, 120)}”. Tente com outras palavras, ou veja tudo em ${p.urlBase}/ajuda`
+  const links = p.achados.slice(0, 3).map((a) => `• ${limpo(a.titulo, 120)}: ${p.urlBase}${a.href}`)
+  if (p.resposta?.trim()) return [respostaParaWhatsapp(p.resposta), ['Na Central de ajuda:', ...links].join('\n')].join('\n\n')
+  const primeiros = p.achados.slice(0, 3).map((a) => `*${limpo(a.titulo, 120)}*\n${limpo(a.trecho, 280)}\n${p.urlBase}${a.href}`)
+  return ['Achei isto na Central de ajuda:', ...primeiros].join('\n\n')
+}
+
+// ------------------------------------------------------------------ ações (responder citando o aviso, votar, abrir chamado)
+
+/** O que um aviso aponta, pelo link dele: é para lá que vai a resposta que cita o aviso. */
+export type AlvoDoAviso =
+  | { tipo: 'chamado'; id: string }
+  | { tipo: 'chat'; canalId: string; fio: string | null }
+  | { tipo: 'aprovacao'; id: string }
+  | { tipo: 'mensagem'; pessoaId: string }
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+export function alvoDoLink(link: string | null | undefined): AlvoDoAviso | null {
+  const bruto = String(link ?? '').trim()
+  if (!bruto.startsWith('/')) return null
+  const [caminho, busca = ''] = bruto.split('?')
+  const partes = caminho.toLowerCase().replace(/\/+$/, '').split('/').filter(Boolean)
+  const ehId = (v: string | undefined): v is string => Boolean(v && new RegExp(`^${UUID}$`).test(v))
+  if (partes.length === 2 && partes[0] === 'chamados' && ehId(partes[1])) return { tipo: 'chamado', id: partes[1] }
+  if (partes.length === 2 && partes[0] === 'aprovacoes' && ehId(partes[1])) return { tipo: 'aprovacao', id: partes[1] }
+  if (partes.length === 3 && partes[0] === 'mensagens' && partes[1] === 'pessoa' && ehId(partes[2])) return { tipo: 'mensagem', pessoaId: partes[2] }
+  if (partes.length === 2 && partes[0] === 'chat' && ehId(partes[1])) {
+    const fio = new URLSearchParams(busca).get('fio')?.toLowerCase() ?? null
+    return { tipo: 'chat', canalId: partes[1], fio: ehId(fio ?? undefined) ? fio : null }
+  }
+  return null
+}
+
+export type Decisao = { decisao: 'aprovar' } | { decisao: 'ajustes'; nota: string }
+
+/**
+ * A resposta a um aviso de aprovação. "aprovar" pede a conferência antes do
+ * voto; "ajustes: …" já vota, com o que precisa mudar (pelo menos 5 letras,
+ * como na tela). Qualquer outra coisa: null.
+ */
+export function lerDecisao(entrada: string): Decisao | null {
+  const t = normalizar(entrada)
+  if (/^(aprovar|aprovo|aprovado|aprovada|aprova)( (sim|ok))?$/.test(t)) return { decisao: 'aprovar' }
+  const ajuste = /^\s*((pedir|peco|pe[çc]o)\s+)?ajustes?\b[\s:,.-]*/i
+  if (/^((pedir|peco) )?ajustes?( |$)/.test(t)) {
+    const nota = entrada.trim().replace(ajuste, '').trim().slice(0, 2000)
+    return { decisao: 'ajustes', nota }
+  }
+  return null
+}
+
+const CONFIRMA = ['confirmo', 'confirmar', 'confirma', 'confirmado', 'conferi', 'conferido', 'sim', 's', 'ok']
+// Sem "parar" e "sair": com uma pergunta aberta, eles continuam pausando os avisos.
+const CANCELA = ['cancelar', 'cancela', 'cancelo', 'nao', 'n', 'desistir', 'desisto']
+export const ehConfirmacao = (entrada: string) => CONFIRMA.includes(normalizar(entrada))
+export const ehCancelamento = (entrada: string) => CANCELA.includes(normalizar(entrada))
+
+/** "2", "2.", "opção 2", "*2*": o número escolhido entre 1 e `quantas`; null para o resto. */
+export function lerEscolha(entrada: string, quantas: number): number | null {
+  const t = normalizar(entrada).replace(/^(opcao|numero|n|no) /, '')
+  if (!/^[0-9]{1,2}$/.test(t)) return null
+  const n = Number(t)
+  return n >= 1 && n <= quantas ? n : null
+}
+
+/** Quanto tempo a pergunta do bot espera a resposta. */
+export const PENDENCIA_VALE_MIN = 15
+
+export function textoDaConferencia(p: { titulo: string; blocos: { setor: string; itens: string[] }[] }): string {
+  const itens = p.blocos.map((b) => [`*${limpo(b.setor, 60)}*`, ...b.itens.map((i) => `☐ ${limpo(i, 200)}`)].join('\n'))
+  return [
+    `Antes de aprovar *${limpo(p.titulo, 140)}*, confira:`,
+    ...itens,
+    `Se conferiu tudo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+export type Opcao = { nome: string; detalhe?: string | null }
+
+/** Uma lista numerada para a pessoa escolher respondendo o número. */
+export function textoDaEscolha(p: { pergunta: string; opcoes: Opcao[]; rodape?: string | null }): string {
+  const linhas = p.opcoes.map((o, i) => `*${i + 1}* – ${limpo(o.nome, 80)}${o.detalhe ? ` _(${limpo(o.detalhe, 80)})_` : ''}`)
+  return [p.pergunta, linhas.join('\n'), p.rodape ?? `Responda com o número, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`].join('\n\n')
+}
+
+/** Título do chamado a partir do relato: a primeira frase, até 140 letras. */
+export function tituloDoRelato(relato: string): string {
+  const primeira = relato.trim().split(/\n|(?<=[.!?])\s/)[0] ?? ''
+  const base = (primeira.length >= 3 ? primeira : relato).replace(/\s+/g, ' ').trim()
+  return base.length <= 140 ? base.replace(/[.!?]+$/, '') : `${base.slice(0, 137).trimEnd()}…`
+}
+
+export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
+  'Sua conta usa a verificação em duas etapas, então responder, votar e abrir chamado ficam só no Palácio (o WhatsApp não pede o código do app). As consultas por aqui continuam valendo.'

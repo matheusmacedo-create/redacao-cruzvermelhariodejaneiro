@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { CABECALHO_DO_WEBHOOK, configDoWhatsapp, segredoConfere } from '@/lib/whatsapp/servidor'
 import { estadoDaEvolution, lerEventoDoWebhook } from '@/lib/whatsapp/regras'
 import { atenderMensagem } from '@/lib/whatsapp/bot'
+import { concluirEsquecidos } from '@/lib/whatsapp/envio'
 import { registrarEstado } from '@/lib/whatsapp/estado'
 import { processarFila } from '@/lib/whatsapp/fila'
 
@@ -67,6 +68,10 @@ export async function POST(req: Request) {
   const admin = createAdminClient()
   after(async () => {
     for (const mensagem of evento.mensagens.slice(0, 20)) await atenderMensagem(admin, workspaceId, config, mensagem)
+    // Envio de fotos que ficou aberto mais de 30 min sem resposta: fecha agora, não só na rotina do dia.
+    await concluirEsquecidos(admin)
+    // E a fila anda um pouco (uma lista grande de oportunidades não espera a rotina do dia).
+    await processarFila(admin, workspaceId, { orcamentoMs: 60_000, limite: 12 })
   })
   return NextResponse.json({ ok: true })
 }

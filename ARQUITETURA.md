@@ -1465,8 +1465,47 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   hora e atende depois (`after`); `whatsapp_mensagens` tem trava por id da mensagem, então nada é
   respondido duas vezes. O registro guarda só o comando reconhecido, nunca o texto recebido.
 - **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
-  pausa ou retoma. Número desconhecido recebe uma apresentação, no máximo uma vez por dia. Teto de 6
-  respostas a cada 10 min por número (um robô do outro lado não vira conversa infinita).
+  pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
+  `5` chamados abertos (que a pessoa abriu ou estão com ela), `6` aprovações esperando o voto dela,
+  `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
+  achados com esforço baixo, e sem chave vão os trechos). Número desconhecido recebe uma
+  apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
+  do outro lado não vira conversa infinita).
+- **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
+  link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
+  saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
+  do setor e só vota depois de `confirmo`; `ajustes: …` vota na hora. `chamado: …` abre chamado
+  perguntando equipe, assunto, local (se pedir) e urgência. As perguntas em aberto ficam em
+  `whatsapp_pendencias` (15 min). Tudo passa pelas mesmas regras da tela: `lib/chamados/nucleo.ts`,
+  `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
+  pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
+  `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
+  usa (ou é obrigado a usar) a verificação em duas etapas só consulta pelo WhatsApp: o servidor
+  confere antes (`podeAgirPeloWhatsapp`) e o banco recusa de novo.
+- **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
+  quem é da equipe abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
+  pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Evolution
+  (`/chat/getBase64FromMediaMessage`, até 64 MB — o webhook não traz o arquivo) e gravado no R2 com
+  o nome canônico, já `recebido`; a legenda vai para o relato. `pronto` → título → autorização de
+  imagem → conclui como o botão do link (`avisarAvaliadores`, link de assinatura quando cabe). Sem
+  resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
+  a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
+  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
+- **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
+  confirma o número na Área do Voluntário (código ao próprio WhatsApp) marcando a autorização, cujo
+  texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
+  oportunidade (`oportunidades.avisada_por_whatsapp_em`, marca atômica) põe na fila uma mensagem
+  por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,
+  a fila desiste se a pessoa saiu ou a oportunidade fechou. O bot reconhece o número do voluntário:
+  `1` oportunidades abertas, `2` inscrições, `sair`/`voltar`. Não há envio a quem não autorizou.
+- **Ficha da Equipe pela própria pessoa** (`lib/rh/convites.ts`, regras em `lib/rh/ficha.ts`, página
+  pública `/ficha/[token]`, tabela `equipe_convites`): o RH (nível ≥2; documentos, ≥3) gera um link
+  de uso único (7 dias, só o hash do token no banco, um aberto por pessoa) e manda pelo WhatsApp —
+  o número confirmado no Palácio, senão o telefone pessoal da ficha. A gravação é da função
+  `equipe_preencher_pelo_convite` (só service role): dados pessoais e, se liberado, documentos
+  (somados aos que já havia, cifrados); **nunca banco, cargo ou salário**; campo vazio não apaga;
+  auditoria "pela própria pessoa". A página não mostra valores guardados. Quem pediu é avisado na
+  categoria `equipe`. A rotina diária lembra (2 dias, no máximo 2 vezes) trocando o token.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre
