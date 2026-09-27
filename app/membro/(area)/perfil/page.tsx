@@ -12,6 +12,8 @@ import { CabecalhoDaPagina, Secao, Selo } from '@/components/membro/pecas'
 import { bensDoMembro } from '@/lib/membro/bens'
 import { Cracha } from '@/components/cracha/cracha'
 import { crachaDoMembro } from '@/lib/cracha/servidor'
+import { whatsappDoVoluntario } from '@/lib/whatsapp/voluntarios'
+import { WhatsappDoVoluntarioCartao } from '@/components/membro/whatsapp'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +49,11 @@ function Completude({ pct, faltam }: ReturnType<typeof pendenciasDoPerfil>) {
 
 export default async function PerfilDoMembro() {
   const m = await exigirMembro()
-  const [p, bens, foto, cracha] = await Promise.all([perfilDoMembro(m), bensDoMembro(m), fotoDoMembro(m.participanteId).catch(() => null), crachaDoMembro(m).catch(() => null)])
+  const [p, bens, foto, cracha, whatsapp] = await Promise.all([
+    perfilDoMembro(m), bensDoMembro(m), fotoDoMembro(m.participanteId).catch(() => null), crachaDoMembro(m).catch(() => null),
+    // Na prévia da equipe o quadro não aparece: ele mexe no número da pessoa.
+    m.previa ? null : whatsappDoVoluntario(m.participanteId, m.workspaceId).catch(() => null),
+  ])
   const dados: [string, string][] = [
     ['Nome', p.nome],
     ['E-mail (seu acesso)', p.email ?? '—'],
@@ -99,6 +105,8 @@ export default async function PerfilDoMembro() {
       <FormularioDoPerfil p={p} />
 
       <PreferenciaDeAvisos inicial={p.avisos_por_email} />
+
+      {whatsapp && <WhatsappDoVoluntarioCartao inicial={whatsapp} />}
 
       {/* Na visualização da equipe não há o que "sair": a faixa do alto já tem o "Voltar ao Palácio Virtual". */}
       {!m.previa && <SairDaArea />}

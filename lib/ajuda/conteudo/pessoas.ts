@@ -1044,7 +1044,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.publicacao',
           titulo: 'Publicar ou cancelar',
-          texto: '“Publicar” mostra a atividade na Área do Voluntário. “Cancelar atividade” pede o motivo e avisa por e-mail quem se inscreveu e quem está na espera. “Excluir” só aparece sem inscrições.',
+          texto: '“Publicar” mostra a atividade na Área do Voluntário e, na primeira vez, manda pelo WhatsApp aos voluntários que autorizaram. “Cancelar atividade” pede o motivo e avisa por e-mail quem se inscreveu e quem está na espera. “Excluir” só aparece sem inscrições.',
           seAusente: 'pular',
         },
         {
@@ -1370,6 +1370,12 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'oportunidade-no-whatsapp',
+      pergunta: 'Quem recebe a oportunidade pelo WhatsApp?',
+      resposta: 'Na primeira vez que você toca em “Publicar”, a oportunidade vai pelo WhatsApp do Palácio aos voluntários ativos que confirmaram o número e marcaram a autorização na Área do Voluntário, com o link para se inscrever. Despublicar e publicar de novo não manda outra vez, e oportunidade que já começou ou com inscrição encerrada não é anunciada.\n\nSai aos poucos, no máximo 12 mensagens por minuto e nunca entre 22h e 7h: numa lista grande, os últimos recebem mais tarde. Se a oportunidade for cancelada antes, quem ainda não recebeu não recebe mais.',
+      termos: ['whatsapp', 'anunciar oportunidade', 'mandar para os voluntários', 'divulgar'],
+    },
     {
       id: 'sem-acesso-voluntarios',
       pergunta: 'Por que aparece “Você ainda não tem acesso a este cadastro”?',

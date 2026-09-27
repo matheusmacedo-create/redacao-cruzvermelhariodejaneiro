@@ -545,6 +545,7 @@ export function textoDaApresentacao(p: { urlBase: string; site: string }): strin
   return [
     'Olá! Este é o WhatsApp de avisos do *Palácio Virtual*, o sistema interno da Cruz Vermelha Brasileira – Rio de Janeiro. As mensagens daqui não são lidas por uma pessoa.',
     `Se você é da equipe, cadastre este número em Meu perfil → WhatsApp: ${p.urlBase}/perfil#whatsapp`,
+    `Se você é voluntário, confirme este número na Área do Voluntário para receber as oportunidades: ${p.urlBase}/membro/perfil#whatsapp`,
     `Para falar com a Cruz Vermelha, use os canais oficiais: ${p.site}`,
   ].join('\n\n')
 }

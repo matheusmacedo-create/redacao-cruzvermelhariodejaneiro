@@ -847,6 +847,12 @@ const PERFIL: GuiaDaArea = {
       texto: 'Ligue ou desligue os avisos do mural por e-mail. Essa escolha é salva na hora, sem o “Salvar”.',
     },
     {
+      alvo: 'membro.whatsapp',
+      titulo: 'WhatsApp',
+      texto: 'Quer receber as oportunidades no WhatsApp? Digite o seu número, marque a autorização e confirme com o código que chega lá. Para parar, responda “sair” no WhatsApp ou toque em “Pausar”.',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'membro.sair-da-area',
       titulo: 'Sair',
       texto: '“Sair da Área do Voluntário” encerra o acesso neste aparelho: num aparelho compartilhado, saia ao terminar. O “Sair” também fica no menu da sua conta, no alto.',
@@ -918,6 +924,17 @@ const PERFIL: GuiaDaArea = {
       ],
     },
     {
+      id: 'receber-oportunidades-no-whatsapp',
+      titulo: 'Receber as oportunidades no WhatsApp',
+      passos: [
+        'Em “Perfil”, vá até “WhatsApp” e digite o seu número com DDD.',
+        'Leia e marque a autorização. Sem ela, o código não sai.',
+        'Toque em “Mandar código”. Chega no seu WhatsApp um código de 6 números, que vale por 10 minutos: digite e toque em “Confirmar”.',
+        'Pronto: cada oportunidade nova chega por lá quando for publicada. No WhatsApp, “1” mostra as abertas, “2” as suas inscrições e “sair” para de mandar.',
+      ],
+      dica: 'Para se inscrever, use o link da mensagem: a inscrição continua sendo aqui na Área. “Remover o número” apaga o número e a autorização.',
+    },
+    {
       id: 'ligar-avisos-por-email',
       titulo: 'Ligar ou desligar os avisos por e-mail',
       passos: [
@@ -928,6 +945,12 @@ const PERFIL: GuiaDaArea = {
     },
   ],
   perguntas: [
+    {
+      id: 'whatsapp-o-que-chega',
+      pergunta: 'O que chega pelo WhatsApp, e como paro?',
+      resposta: 'Só as oportunidades de voluntariado, quando são publicadas, e só se você confirmou o número e marcou a autorização no Perfil. Elas saem aos poucos e nunca entre 22h e 7h. Para parar, responda “sair” no WhatsApp, ou toque em “Pausar” ou “Remover o número” no Perfil. O número não é usado para mais nada nem compartilhado.',
+      termos: ['whatsapp', 'oportunidades no whatsapp', 'parar whatsapp', 'sair', 'lgpd', 'autorização'],
+    },
     {
       id: 'cracha-foto',
       pergunta: 'Por que a minha foto não aparece no crachá?',

@@ -11,6 +11,9 @@ import {
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
+import {
+  TEXTO_DO_CONSENTIMENTO, VERSAO_DO_CONSENTIMENTO, comandoDoVoluntario, consentimentoGuardado, textoDaListaDoVoluntario, textoDaOportunidade, textoDoMenuDoVoluntario,
+} from '../lib/whatsapp/voluntarios-regras'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -298,6 +301,27 @@ igual(nomeDoArquivoRecebido({ nome: null, mime: 'image/jpeg', mensagemId: '3EB0-
 igual(nomeDoArquivoRecebido({ nome: 'relatório/final.pdf', mime: 'application/pdf', mensagemId: 'X', categoria: 'documento' }), 'relatóriofinal.pdf', 'nome de documento sem barra')
 igual(nomeDoArquivoRecebido({ nome: 'sem extensao', mime: 'video/quicktime', mensagemId: 'X', categoria: 'video' }), 'whatsapp-X.mov', 'sem extensão, vale o tipo')
 igual(opcoesDeAutorizacao().length, 4, 'as quatro respostas da autorização de imagem')
+
+// ---------------------------------------------------------------- voluntários
+const cv = (t: string, pausado = false) => comandoDoVoluntario(t, { pausado })
+igual(cv('1'), 'oportunidades', 'voluntário: 1')
+igual(cv('quais as vagas?'), 'oportunidades', 'voluntário: vagas')
+igual(cv('2'), 'inscricoes', 'voluntário: 2')
+igual(cv('minhas inscrições'), 'inscricoes', 'voluntário: inscrições')
+igual(cv('SAIR'), 'sair', 'voluntário: sair')
+igual(cv('3'), 'sair', 'voluntário: 3 recebendo')
+igual(cv('3', true), 'voltar', 'voluntário: 3 pausado')
+igual(cv('oi'), 'menu', 'voluntário: oi')
+igual(cv('posso levar um amigo?'), 'desconhecido', 'voluntário: pergunta solta')
+const anuncio = textoDaOportunidade({ titulo: 'Ação na Central', quando: 'sáb, 3 de out · 09:00 às 12:00', local: 'Central do Brasil', vagas: '20 vagas', url: 'https://p/membro/oportunidades/x' })
+contem(anuncio, '*Ação na Central*\n🗓 sáb, 3 de out · 09:00 às 12:00\n📍 Central do Brasil\n20 vagas', 'anúncio: o essencial')
+contem(anuncio, 'Para se inscrever: https://p/membro/oportunidades/x', 'anúncio: link da inscrição')
+contem(anuncio, '*sair*', 'anúncio: diz como parar')
+contem(consentimentoGuardado(), `[${VERSAO_DO_CONSENTIMENTO}] Autorizo`, 'consentimento guarda a versão e o texto')
+contem(TEXTO_DO_CONSENTIMENTO, 'SAIR', 'consentimento diz como parar')
+contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: [], url: 'https://p' }), 'Nada.', 'lista vazia')
+contem(textoDaListaDoVoluntario({ titulo: 'T', vazio: 'Nada.', itens: Array.from({ length: 8 }, (_, i) => ({ titulo: `O${i}`, quando: 'q' })), url: 'https://p' }), '_e mais 2_', 'lista corta em 6')
+contem(textoDoMenuDoVoluntario({ nome: 'Bia Souza', pausado: true, urlBase: 'https://p' }), '*3* – voltar a receber', 'menu do voluntário pausado')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.

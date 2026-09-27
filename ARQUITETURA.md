@@ -1491,6 +1491,13 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
   a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
   link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
+- **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
+  confirma o número na Área do Voluntário (código ao próprio WhatsApp) marcando a autorização, cujo
+  texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
+  oportunidade (`oportunidades.avisada_por_whatsapp_em`, marca atômica) põe na fila uma mensagem
+  por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,
+  a fila desiste se a pessoa saiu ou a oportunidade fechou. O bot reconhece o número do voluntário:
+  `1` oportunidades abertas, `2` inscrições, `sair`/`voltar`. Não há envio a quem não autorizou.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre

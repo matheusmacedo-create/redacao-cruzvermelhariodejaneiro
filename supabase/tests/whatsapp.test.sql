@@ -153,5 +153,23 @@ reset role;
 select is((select decision from public.approval_voters where approval_id = '00000000-0000-4000-8000-0000000000e1' and user_id = :'editor'), 'approved', 'o voto ficou com o nome da pessoa');
 select is((select status from public.content_pieces where id = '00000000-0000-4000-8000-0000000000d1'), 'approved', 'e a matéria saiu aprovada');
 
+-- ================================================================ voluntários (20260929120000)
+
+select ok(not has_table_privilege('authenticated', 'public.participantes_whatsapp', 'select')
+          and not has_table_privilege('anon', 'public.participantes_whatsapp', 'select'), 'número do voluntário: ninguém lê pela Data API');
+insert into public.participantes (id, workspace_id, vinculo, nome) values
+  ('00000000-0000-4000-8000-0000000000f1', :'ws', 'voluntario', 'Voluntária Um'), ('00000000-0000-4000-8000-0000000000f2', :'ws', 'voluntario', 'Voluntário Dois');
+select throws_ok(format('insert into public.participantes_whatsapp (participante_id, workspace_id, numero, confirmado_em) values (%L, %L, %L, now())',
+                 '00000000-0000-4000-8000-0000000000f1', :'ws', '5521911112222'), '23514', null, 'número confirmado sem a autorização guardada é recusado');
+select lives_ok(format('insert into public.participantes_whatsapp (participante_id, workspace_id, numero, confirmado_em, consentimento_em, consentimento_texto) values (%L, %L, %L, now(), now(), %L)',
+                '00000000-0000-4000-8000-0000000000f1', :'ws', '5521911112222', '[2026-09-27] Autorizo'), 'número com a autorização entra');
+select throws_ok(format('insert into public.participantes_whatsapp (participante_id, workspace_id, numero, confirmado_em, consentimento_em, consentimento_texto) values (%L, %L, %L, now(), now(), %L)',
+                 '00000000-0000-4000-8000-0000000000f2', :'ws', '5521911112222', 'x'), '23505', null, 'o mesmo número não serve a dois voluntários');
+select lives_ok(format('insert into public.participantes_whatsapp (participante_id, workspace_id, numero_pendente, codigo_hash, codigo_expira_em) values (%L, %L, %L, %L, now())',
+                '00000000-0000-4000-8000-0000000000f2', :'ws', '5521933334444', repeat('a', 64)), 'confirmação em andamento, sem número ainda');
+select throws_ok(format('update public.participantes_whatsapp set codigo_hash = %L where participante_id = %L', '123456', '00000000-0000-4000-8000-0000000000f2'),
+                 '23514', null, 'o código fica só como hash');
+select has_column('public', 'oportunidades', 'avisada_por_whatsapp_em', 'oportunidade guarda quando foi anunciada');
+
 select * from finish();
 rollback;

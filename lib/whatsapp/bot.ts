@@ -16,6 +16,8 @@ import {
   type Pessoa, type Resposta,
 } from './acoes'
 import { receberMidia } from './envio'
+import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
+import { comandoDoVoluntario } from './voluntarios-regras'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_PAUSADO, TEXTO_VOLTOU, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
@@ -45,8 +47,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const { data: conta } = await admin.from('whatsapp_contas').select('user_id, pausado_em').eq('numero', numero).maybeSingle()
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
+    // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
+    const achado = pessoa ? null : await voluntarioDoNumero(admin, numero)
+    const voluntario = achado?.workspaceId === workspaceId ? achado : null
     const pedido = pessoa ? lerPedido(m.texto, { pausado }) : null
-    const comando = pedido?.comando ?? 'apresentacao'
+    const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
     const aviso = pessoa && m.citada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
@@ -87,6 +92,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
     if (noTeto) return
+
+    if (voluntario) {
+      await responder((await respostaAoVoluntario(admin, voluntario, m.texto, base)).resposta)
+      return
+    }
 
     if (!pessoa) {
       const umDia = new Date(Date.now() - APRESENTACAO_A_CADA_HORAS * 3_600_000).toISOString()

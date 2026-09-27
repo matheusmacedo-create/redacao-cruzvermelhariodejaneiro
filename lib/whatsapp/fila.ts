@@ -221,6 +221,12 @@ async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
     const { data: aviso } = await admin.from('notifications').select('read_at').eq('id', item.notificacao_id).maybeSingle()
     if (aviso?.read_at) return 'O aviso já foi lido no Palácio.'
   }
+  // Oportunidade para voluntário (sem conta no Palácio): confere o número dele e a oportunidade.
+  if (!item.user_id && item.categoria === 'voluntariado') {
+    // Import tardio: voluntarios.ts põe na fila e roda a fila.
+    const { desistirDoVoluntario } = await import('./voluntarios')
+    return desistirDoVoluntario(admin, item)
+  }
   if (item.user_id && item.tipo !== 'teste') {
     const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', item.user_id).maybeSingle()
     if (!conta || conta.numero !== item.numero) return 'O número não está mais confirmado.'
