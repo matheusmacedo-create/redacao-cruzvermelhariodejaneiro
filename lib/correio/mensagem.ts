@@ -124,6 +124,20 @@ export function corpoHtmlComAssinatura(htmlDoCorpo: string, texto: string, assin
   return { html, texto: simples.texto }
 }
 
+/**
+ * A mensagem respondida ou encaminhada, citada depois da assinatura, como os
+ * clientes de e-mail fazem. O HTML citado é o do remetente original.
+ */
+export function comCitacao(conteudo: { html: string; texto: string }, citado: { html: string; texto: string } | null | undefined): { html: string; texto: string } {
+  if (!citado) return conteudo
+  const semRisco = citado.html.replace(/<(script|iframe|object|embed)\b[\s\S]*?(<\/\1>|$)/gi, '')
+  return {
+    // Função, e não texto, na troca: um "$&" no e-mail citado não pode virar padrão de substituição.
+    html: conteudo.html.replace(/<\/div>\s*$/, () => `<br>${semRisco}\n</div>`),
+    texto: `${conteudo.texto}\n\n${citado.texto}`,
+  }
+}
+
 export type MensagemDoCorreio = {
   de: Endereco
   para: string[]
@@ -134,6 +148,8 @@ export type MensagemDoCorreio = {
   html: string
   /** Arquivos anexados (a ordem de compra em PDF, por exemplo). */
   anexos?: { nome: string; tipo: string; conteudo: Uint8Array }[]
+  /** Resposta: prende a mensagem à conversa original em qualquer cliente de e-mail. */
+  emResposta?: { emRespostaA: string; referencias: string } | null
   /** Fixo nos testes; aleatório no uso real. */
   fronteira?: string
 }
@@ -154,6 +170,7 @@ export function montarMensagem(m: MensagemDoCorreio): { raw: string; bruto: stri
     ...(m.cc?.length ? [`Cc: ${m.cc.map(semQuebra).join(', ')}`] : []),
     ...(m.responderPara?.trim() ? [`Reply-To: ${semQuebra(m.responderPara)}`] : []),
     `Subject: ${codificarCabecalho(m.assunto)}`,
+    ...(m.emResposta?.emRespostaA ? [`In-Reply-To: ${semQuebra(m.emResposta.emRespostaA)}`, `References: ${semQuebra(m.emResposta.referencias)}`] : []),
     'MIME-Version: 1.0',
   ]
   const alternativa = [

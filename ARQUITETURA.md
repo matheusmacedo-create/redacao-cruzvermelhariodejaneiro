@@ -1290,6 +1290,44 @@ confere do mesmo jeito.
   abas trocavam os livros uma da outra sem aviso.
 - **Conferência**: `npx tsx scripts/conferir-livros-do-financeiro.ts`.
 
+### 7.29 E-mail do setor: caixa de entrada (`/correio`)
+
+`/correio` funciona como um cliente de e-mail: caixas e pastas (entrada,
+enviados, todas), lista de conversas, leitura, responder, responder a todos,
+encaminhar, não lida e arquivar. O "Registro do Palácio" (`emails_enviados`)
+continua sendo o registro do que saiu por aqui, com quem enviou.
+
+Tudo é lido do Gmail na hora (`lib/correio/caixa-de-entrada.ts`); o conteúdo
+dos e-mails não fica no banco.
+
+**Permissão.** Exige o escopo `gmail.modify`: ler e mexer em rótulos, nunca
+apagar de vez. Uma conexão feita antes dele continua enviando; a tela mostra
+o aviso `semLeitura` até um administrador reconectar.
+
+**Quem vê o quê** (`lib/correio/leitura.ts`):
+- As caixas visíveis são as mesmas por onde a pessoa pode enviar
+  (`caixasQuePodeUsar`).
+- A busca no Gmail sai presa ao endereço (`consultaDaPasta`). O texto da
+  pessoa entra limpo, sem parênteses, chaves, aspas ou OR/AND
+  (`limparBusca`), e sempre em AND.
+- Cada mensagem ainda passa por `envolveOEndereco` (De, Para, Cc,
+  Delivered-To) antes de aparecer, ao abrir uma conversa, nas ações e no
+  anexo. Um id de conversa de outro setor abre vazio.
+
+**Leitura na tela.** O e-mail aparece num `iframe` sandbox sem script, e
+`documentoDeLeitura` ainda tira scripts, `on*` e `javascript:`, põe uma CSP
+e troca `cid:` pelo endereço do anexo.
+
+**Anexos.** `/api/correio/anexo` acha o anexo pelo `partId` (o id de anexo
+do Gmail muda a cada leitura). Só imagem comum e PDF abrem no navegador; o
+resto baixa.
+
+**Respostas.** Saem com `threadId`, `In-Reply-To` e `References`, e a
+original vai citada depois da assinatura (`comCitacao`).
+
+**Testes.** `npx tsx scripts/conferir-caixa-de-entrada.ts`. Fora de produção,
+`GOOGLE_API_TESTE` aponta as chamadas do Google para um servidor de teste.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

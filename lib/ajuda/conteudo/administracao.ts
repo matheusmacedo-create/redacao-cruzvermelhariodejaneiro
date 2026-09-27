@@ -616,10 +616,10 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em Configurações, abra “E-mail dos setores” no submenu. Em “1. Conta do Google”, siga uma vez o passo a passo do Google Cloud que aparece ali. O endereço de retorno que ele pede está na tela, com o botão “Copiar”.',
         'Cole o ID e a chave secreta no cartão “Google (cliente OAuth do Gmail)”, em “Integrações” (o passo a passo tem o link), e toque em “Salvar no cofre”.',
-        'Toque em “Conectar conta Google” e entre com a conta dona dos endereços dos setores, a que tem a lista “Enviar e-mail como” no Gmail.',
+        'Toque em “Conectar conta Google” e entre com a conta dona dos endereços dos setores, a que tem a lista “Enviar e-mail como” no Gmail. Aceite as permissões: enviar, ler e organizar os e-mails (a caixa de entrada de cada setor) e ler as assinaturas. Nada é apagado de vez.',
         'De volta ao Palácio Virtual, o cartão mostra “Conectada:” com a conta, e os endereços do Gmail já aparecem em “3. Endereços (aliases do Gmail)”.',
       ],
-      dica: 'Se a autorização vencer ou for revogada, o cartão avisa, e nenhum setor envia até alguém tocar em “Reconectar”.',
+      dica: 'Se a autorização vencer ou for revogada, o cartão avisa, e nenhum setor envia até alguém tocar em “Reconectar”. Conta conectada antes da caixa de entrada existir: toque em “Reconectar” uma vez para liberar a leitura.',
     },
     {
       id: 'criar-setor',

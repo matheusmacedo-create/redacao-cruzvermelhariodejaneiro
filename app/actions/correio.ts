@@ -6,8 +6,10 @@ import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { esquecerToken } from '@/lib/google/gmail'
+import { esquecerToken, mudarRotulos } from '@/lib/google/gmail'
 import { enviarPelaCaixa } from '@/lib/correio/enviar'
+import { abrirConversa, caixasVisiveis } from '@/lib/correio/caixa-de-entrada'
+import { cabecalhosDaResposta, citacao } from '@/lib/correio/leitura'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 
 /**
@@ -208,11 +210,31 @@ export async function nomearCaixas(nomes: { id: string; nome: string }[]): Promi
  * no banco. Quem não é do setor dono da caixa não envia — nem forjando o
  * pedido, porque a conferência é aqui, no servidor.
  */
-export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado> {
+export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado & { threadId?: string }> {
   try {
     const context = await requireWorkspace()
-    const { de, destinatarios } = await enviarPelaCaixa(context, texto(formData, 'caixaId'), {
+    const caixaId = texto(formData, 'caixaId')
+    // Resposta ou encaminhamento: a mensagem original é lida de novo aqui, e só
+    // vale se envolve o endereço da caixa (um id de outro setor não passa).
+    const mensagemId = texto(formData, 'mensagemId')
+    const modo = texto(formData, 'modo')
+    let conversa: Parameters<typeof enviarPelaCaixa>[2]['conversa']
+    if (mensagemId) {
+      const caixa = (await caixasVisiveis(context)).find((c) => c.id === caixaId)
+      if (!caixa) throw new Error('Você não faz parte do setor desta caixa.')
+      const mensagens = await abrirConversa(context.workspace.id, caixa, texto(formData, 'threadId'))
+      const original = mensagens?.find((m) => m.id === mensagemId)
+      if (!original) throw new Error('A mensagem original não foi encontrada nesta caixa.')
+      const encaminhar = modo === 'encaminhar'
+      conversa = {
+        threadId: encaminhar ? null : original.threadId,
+        emResposta: encaminhar ? null : cabecalhosDaResposta(original),
+        citacao: citacao(original, encaminhar ? 'encaminhar' : 'responder'),
+      }
+    }
+    const { de, destinatarios } = await enviarPelaCaixa(context, caixaId, {
       para: texto(formData, 'para'), cc: texto(formData, 'cc'), assunto: texto(formData, 'assunto'), corpo: String(formData.get('corpo') ?? ''),
+      conversa,
     })
     revalidatePath('/correio')
     return { recado: `Enviado de ${de} para ${destinatarios.length} destinatário(s).` }
@@ -220,5 +242,27 @@ export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado>
     // enviarPelaCaixa já registrou a falha em emails_enviados (quando chegou a montar o envio).
     revalidatePath('/correio')
     return { erro: mensagemDoErro(causa, 'Não foi possível enviar.') }
+  }
+}
+
+/**
+ * Marca uma conversa como lida ou não lida, arquiva (sai da caixa de
+ * entrada, continua em "Todas") ou devolve à caixa de entrada. Só nas
+ * mensagens que envolvem o endereço da caixa.
+ */
+export async function marcarConversa(caixaId: string, threadId: string, acao: 'lida' | 'nao_lida' | 'arquivar' | 'entrada'): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    const caixa = (await caixasVisiveis(context)).find((c) => c.id === caixaId)
+    if (!caixa) throw new Error('Você não faz parte do setor desta caixa.')
+    const mensagens = await abrirConversa(context.workspace.id, caixa, threadId)
+    if (!mensagens) throw new Error('Conversa não encontrada nesta caixa.')
+    const ids = mensagens.map((m) => m.id)
+    const [por, tira] = acao === 'lida' ? [[], ['UNREAD']] : acao === 'nao_lida' ? [['UNREAD'], []] : acao === 'arquivar' ? [[], ['INBOX']] : [['INBOX'], []]
+    await mudarRotulos(context.workspace.id, ids, por, tira)
+    if (acao !== 'lida') revalidatePath('/correio')
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível atualizar a conversa.')
   }
 }

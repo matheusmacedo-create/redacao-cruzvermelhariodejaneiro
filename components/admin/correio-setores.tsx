@@ -65,7 +65,8 @@ export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setore
       <div>
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail dos setores</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cada setor envia só pelo próprio endereço (alias do Gmail) e com a assinatura exata configurada no Gmail.
+          Cada setor recebe, lê e envia só pelo próprio endereço (alias do Gmail), com a assinatura exata configurada no Gmail.
+          Conexões feitas antes da caixa de entrada existir precisam de “Reconectar” uma vez, para o Google liberar a leitura.
           A conta do Google fica guardada no cofre: ninguém dos setores recebe senha nem acesso à caixa.
         </p>
       </div>
