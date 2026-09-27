@@ -45,8 +45,14 @@ export async function configDoWhatsapp(workspaceId: string): Promise<ConfigDoWha
 }
 
 const TEMPO_MAXIMO_MS = 15_000
+/**
+ * O envio espera mais: logo depois de conectar pelo QR code, a Evolution
+ * sincroniza o histórico do número e cada envio leva bem mais que 15 s (visto
+ * em produção, 27/09/2026). Cabe na duração das actions e da rota do webhook.
+ */
+const TEMPO_DO_ENVIO_MS = 40_000
 
-type Resposta = { ok: boolean; status: number; dados: unknown; erro: string | null }
+type Resposta = { ok: boolean; status: number; dados: unknown; erro: string | null; semResposta?: boolean }
 
 function limparErro(config: ConfigDoWhatsapp, texto: string): string {
   return texto.split(config.chave).join('[chave]').split(config.url).join('[servidor]').slice(0, 300)
@@ -66,13 +72,13 @@ function mensagemDoCorpo(dados: unknown): string | null {
   return typeof candidata === 'string' ? candidata : null
 }
 
-async function chamar(config: ConfigDoWhatsapp, metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown): Promise<Resposta> {
+async function chamar(config: ConfigDoWhatsapp, metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown, tempoMs = TEMPO_MAXIMO_MS): Promise<Resposta> {
   try {
     const resposta = await fetch(`${config.url}${caminho}`, {
       method: metodo,
       headers: { apikey: config.chave, ...(corpo === undefined ? {} : { 'content-type': 'application/json' }) },
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
-      signal: AbortSignal.timeout(TEMPO_MAXIMO_MS),
+      signal: AbortSignal.timeout(tempoMs),
       cache: 'no-store',
     })
     const bruto = await resposta.text()
@@ -88,10 +94,11 @@ async function chamar(config: ConfigDoWhatsapp, metodo: 'GET' | 'POST' | 'DELETE
     return { ok: false, status: resposta.status, dados, erro: limparErro(config, motivo) }
   } catch (causa) {
     const nome = causa instanceof Error ? causa.name : ''
-    const motivo = nome === 'TimeoutError' || nome === 'AbortError'
+    const semResposta = nome === 'TimeoutError' || nome === 'AbortError'
+    const motivo = semResposta
       ? 'O servidor da Evolution não respondeu a tempo.'
       : `Não consegui falar com o servidor da Evolution (${causa instanceof Error ? causa.message : 'erro de rede'}).`
-    return { ok: false, status: 0, dados: null, erro: limparErro(config, motivo) }
+    return { ok: false, status: 0, dados: null, erro: limparErro(config, motivo), semResposta }
   }
 }
 
@@ -100,11 +107,17 @@ const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v ==
 
 // ------------------------------------------------------------------ mensagens
 
-export type Envio = { ok: true; id: string | null } | { ok: false; erro: string }
+/**
+ * `semResposta`: o tempo acabou antes de a Evolution confirmar. A mensagem
+ * pode ter saído mesmo assim (o envio segue no servidor dela): quem chama não
+ * trata isso como "não chegou".
+ */
+export type Envio = { ok: true; id: string | null } | { ok: false; erro: string; semResposta?: boolean }
 
 /** Manda um texto. `numero` em dígitos (a Evolution resolve o nono dígito). */
 export async function enviarTexto(config: ConfigDoWhatsapp, numero: string, texto: string): Promise<Envio> {
-  const r = await chamar(config, 'POST', `/message/sendText/${inst(config)}`, { number: numero, text: texto, linkPreview: false })
+  const r = await chamar(config, 'POST', `/message/sendText/${inst(config)}`, { number: numero, text: texto, linkPreview: false }, TEMPO_DO_ENVIO_MS)
+  if (r.semResposta) return { ok: false, erro: 'A Evolution não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', semResposta: true }
   if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.' }
   const id = objeto(objeto(r.dados)?.key)?.id
   return { ok: true, id: typeof id === 'string' ? id.slice(0, 128) : null }

@@ -60,6 +60,10 @@ export async function pedirCodigoDoWhatsapp(formData: FormData): Promise<Resulta
     if (error) throw new Error('Não foi possível gerar o código.')
 
     const envio = await mandar(admin, context.workspace.id, { numero, texto: textoDoCodigo(codigo), tipo: 'codigo', userId: context.user.id, config })
+    // Sem confirmação a tempo, o código costuma chegar com atraso: a tela abre o campo mesmo assim.
+    if (!envio.ok && envio.semResposta) {
+      return { recado: `O WhatsApp demorou a confirmar o envio para ${formatarNumero(numero)}. O código deve chegar em instantes: digite abaixo quando chegar. Se não chegar em 2 minutos, peça outro.`, numero: formatarNumero(numero) }
+    }
     if (!envio.ok) throw new Error(`O código não saiu: ${envio.erro}`)
     return { recado: `Mandamos um código para ${formatarNumero(numero)} pelo WhatsApp. Ele vale por ${CODIGO_VALIDADE_MIN} minutos.`, numero: formatarNumero(numero) }
   } catch (causa) {
