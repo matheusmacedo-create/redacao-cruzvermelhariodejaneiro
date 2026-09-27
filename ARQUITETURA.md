@@ -1153,6 +1153,12 @@ do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
   - O PDF (A3, `lib/cursos/diploma-pdf.ts`) sai em `/membro/diplomas/[codigo]/pdf`
     e `/api/voluntariado/diplomas/[codigo]/pdf`.
   - A verificação pública fica em `/diploma/[codigo]`.
+  - **Área de Diplomas** (`/voluntariado/diplomas`): todos os diplomas da filial num lugar só.
+    Emite o mesmo reconhecimento para até 100 voluntários de uma vez (`concederDiplomas`, que chama
+    `conceder_diploma` por pessoa), mostra quem está a menos de 20% do próximo marco e baixa até 60
+    diplomas num PDF só (`/api/voluntariado/diplomas/lote?codigos=…`, uma página A3 por diploma).
+    Regras em `lib/participantes/diplomas.ts`; o texto impresso em `lib/cursos/diploma-texto.ts`.
+    Conferência: `npx tsx scripts/conferir-diplomas.ts`.
 - **Conferência.** `npx tsx scripts/conferir-cracha.ts [pasta]` testa as regras
   e, com pasta, grava exemplos em PDF (crachá, certificado e diploma).
 

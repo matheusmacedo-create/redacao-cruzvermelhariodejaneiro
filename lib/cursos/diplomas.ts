@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NINGUEM, type Membro } from '@/lib/membro/sessao'
 import { CODIGO_DE_CERTIFICADO, normalizarCodigo } from './regras'
-import { gerarPdfDoDiploma } from './diploma-pdf'
+import { gerarPdfDeDiplomas, gerarPdfDoDiploma } from './diploma-pdf'
 import { logoOficial } from '@/lib/pdf/logo'
 import { urlBase } from '@/lib/newsletter/contexto'
 
@@ -52,4 +52,24 @@ export async function pdfDoDiploma(d: Diploma): Promise<Response> {
     codigo: d.codigo, urlDeVerificacao: urlDeVerificacaoDoDiploma(d.codigo), logo: await logoOficial(),
   })
   return new Response(Buffer.from(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="diploma-${d.codigo}.pdf"`, 'Cache-Control': 'private, no-store' } })
+}
+
+/** Os diplomas válidos de uma filial pelos códigos, na ordem pedida. */
+export async function diplomasPorCodigos(workspaceId: string, codigos: string[]): Promise<Diploma[]> {
+  if (!codigos.length) return []
+  const { data, error } = await createAdminClient().from('diplomas').select(COLUNAS)
+    .eq('workspace_id', workspaceId).in('codigo', codigos).is('revogado_em', null)
+  if (error) throw new Error('Diplomas indisponíveis.')
+  const porCodigo = new Map((data as Diploma[]).map((d) => [d.codigo, d]))
+  return codigos.map((c) => porCodigo.get(c)).filter((d): d is Diploma => Boolean(d))
+}
+
+/** Vários diplomas num PDF só, uma página A3 cada, para imprimir de uma vez na cerimônia. */
+export async function pdfDeVariosDiplomas(lista: Diploma[]): Promise<Response> {
+  const logo = await logoOficial()
+  const pdf = await gerarPdfDeDiplomas(lista.map((d) => ({
+    nome: d.nome, motivo: d.motivo, marcoHoras: d.marco_horas, texto: d.texto, emitidoEm: d.emitido_em,
+    codigo: d.codigo, urlDeVerificacao: urlDeVerificacaoDoDiploma(d.codigo), logo,
+  })))
+  return new Response(Buffer.from(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="diplomas-${lista.length}.pdf"`, 'Cache-Control': 'private, no-store' } })
 }
