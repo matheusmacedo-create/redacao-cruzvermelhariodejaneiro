@@ -39,7 +39,9 @@ export async function pessoasParaVisitar(workspaceId: string, admin: Admin = cre
 export async function avisarVisitado(v: { workspaceId: string; visitaId: string; visitadoId: string | null; nome: string; empresa: string | null; motivo: string | null }, atorId: string | null) {
   if (!v.visitadoId) return
   await notificar(createAdminClient(), {
-    workspaceId: v.workspaceId, para: [v.visitadoId], atorId, categoria: 'portaria', importante: true,
+    // Quem chegou é o visitante, não quem registrou: o aviso sai mesmo quando a pessoa da
+    // portaria registra uma visita para si (notificar não avisa o autor, e isso a calaria).
+    workspaceId: v.workspaceId, para: [v.visitadoId], atorId: atorId === v.visitadoId ? null : atorId, categoria: 'portaria', importante: true,
     titulo: `${v.nome} chegou para falar com você`,
     mensagem: [v.empresa ? `De ${v.empresa}.` : '', v.motivo ? (/[.!?…]$/.test(v.motivo) ? v.motivo : `${v.motivo}.`) : '', 'Diga à portaria se pode subir, se aguarda na recepção ou se não pode receber agora.']
       .filter(Boolean).join(' ').slice(0, 400),
