@@ -25,7 +25,7 @@ const popup = 'origin-[var(--transform-origin)] rounded-xl border border-border 
 const itemDeMenu = 'flex min-h-10 cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-sm outline-none select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground'
 const botaoIcone = 'relative inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted data-[popup-open]:text-foreground'
 
-/** Onde a pessoa está: grupo › área. A página continua com o título dela embaixo. */
+/** Onde a pessoa está: grupo › área (› parte, quando a área é uma aba de outra). A página continua com o título dela embaixo. */
 function Migalhas({ grupos }: { grupos: Grupo[] }) {
   const pathname = usePathname()
   const achado = areaDoCaminho(pathname, grupos)
@@ -33,10 +33,12 @@ function Migalhas({ grupos }: { grupos: Grupo[] }) {
   const { grupo, area } = achado
   const Icone = area.icone
   const naRaiz = pathname === area.href
+  const mae = area.dentroDe ? grupo.areas.find((a) => a.href === area.dentroDe) : undefined
   return (
     <nav aria-label="Você está em" data-ajuda="shell.migalhas" className="flex min-w-0 items-center gap-1.5 text-sm">
       <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/[0.08] text-primary"><Icone className="size-4" aria-hidden="true" /></span>
       {grupo.rotulo && <><span className="hidden truncate text-muted-foreground lg:inline">{grupo.rotulo}</span><ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 lg:block" aria-hidden="true" /></>}
+      {mae && <><Link href={mae.href} className="hidden truncate text-muted-foreground hover:text-foreground md:inline">{mae.rotulo}</Link><ChevronRight className="hidden size-3.5 shrink-0 text-muted-foreground/60 md:block" aria-hidden="true" /></>}
       {naRaiz
         ? <span className="truncate font-semibold" aria-current="page">{area.rotulo}</span>
         : <Link href={area.href} className="truncate font-semibold hover:text-primary">{area.rotulo}</Link>}

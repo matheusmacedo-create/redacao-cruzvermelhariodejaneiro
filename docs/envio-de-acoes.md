@@ -22,7 +22,7 @@ arquivos e informações**. Tudo chega para o Matheus avaliar e virar post ou ma
 | Regras puras | `lib/envios/regras.ts` (tipos aceitos, limites, leitura do formulário, chave no R2) |
 | Página pública | `/enviar` — `app/enviar/page.tsx`, `components/enviar/` (formulário em 4 passos, gravador, envio com progresso e novas tentativas) |
 | Rotas públicas | `POST /api/enviar` (cria e devolve os links de envio) e `POST /api/enviar/[id]` (`recebido`, `arquivos`, `concluir`, sempre com o token de quem enviou) |
-| Caixa | `/envios` e `/envios/[id]` (grupo Comunicação, só para avaliador), `app/actions/envios.ts` |
+| Caixa | `/envios` e `/envios/[id]` (grupo Mídia, só para avaliador), `app/actions/envios.ts` |
 | Cópia para a Biblioteca e aviso de publicação | `lib/envios/avaliacao.ts`; o aviso é chamado por `publicarMateria` na primeira publicação |
 
 **Como funciona o caminho de um arquivo:** o navegador pede o envio (`/api/enviar`), recebe um link
@@ -159,7 +159,7 @@ essencial. Quem quer mandar só três fotos e uma frase termina em 30 segundos.
 
 - **Sino e e-mail:** "Nova ação enviada por Ana (Socorro): Prevenção na Central — 12 fotos, 2
   vídeos, 1 áudio".
-- **Nova área "Envios da equipe"** (grupo Comunicação), uma caixa de entrada com os estados
+- **Nova área "Envios da equipe"** (grupo Mídia; até 27/09/2026, Comunicação), uma caixa de entrada com os estados
   *novo · em avaliação · virou pauta · arquivado*:
   - galeria das fotos e vídeos, player do áudio e o texto;
   - mapa do local e quem mandou, com botão de **WhatsApp** para pedir mais informação;

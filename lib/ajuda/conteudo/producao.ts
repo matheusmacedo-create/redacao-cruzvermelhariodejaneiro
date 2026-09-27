@@ -1,7 +1,7 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda do grupo Produção do menu: Publicações (/redes, com o pacote em
+ * A ajuda da produção (no menu: Redação e Mídia): Publicações (/redes, com o pacote em
  * /redes/[id]), Biblioteca de mídia (/biblioteca) e Acervo (/acervo).
  *
  * Cada frase tem apoio no código:

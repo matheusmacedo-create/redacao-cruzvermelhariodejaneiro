@@ -1,7 +1,7 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda do grupo Comunicação do menu: Chat (/chat), Direct das redes
+ * A ajuda das conversas (no menu: o topo, Expediente, Mídia, Público e Pessoas): Chat (/chat), Direct das redes
  * (/direct), E-mail do setor (/correio), Envios da equipe (/envios)
  * e o canal com os voluntários (/voluntariado/mensagens).
  *
@@ -819,7 +819,7 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       titulo: 'Divulgar o link para a equipe',
       exemplo: 'Na véspera do plantão de verão na praia de Copacabana, a Carla cola o link no grupo dos voluntários e imprime o cartaz com o QR code para a barraca.',
       passos: [
-        'Abra “Envios da equipe”, no grupo Comunicação do menu.',
+        'Abra “Envios da equipe”, no grupo Mídia do menu.',
         'No quadro “Link para a equipe mandar ações”, toque em “Copiar link” e cole o endereço no grupo da equipe.',
         'Para a ação, toque em “Cartaz para imprimir” e depois em “Imprimir ou salvar PDF” (o PDF serve para mandar no grupo). Se preferir só o código, “Baixar QR code” baixa a imagem.',
         'Quem abre o link ou lê o QR code cai na tela “Mandar uma ação” e manda, sem login, em quatro passos.',
@@ -1067,7 +1067,7 @@ const CANAL_DOS_VOLUNTARIOS: GuiaDaArea = {
       titulo: 'Responder uma mensagem do canal',
       exemplo: 'A resposta “Liberamos o seu certificado, está em Cursos > Primeiros socorros” chega ao Lucas na Área do Voluntário e no e-mail dele.',
       passos: [
-        'Abra “Voluntários”, no grupo Comunicação do menu.',
+        'Abra “Voluntários”, no grupo Pessoas do menu, e toque em “Mensagens”, nos atalhos da Área do Voluntário.',
         'Na aba “Aguardando resposta”, toque na conversa. As mais antigas vêm primeiro.',
         'Leia a conversa. Para ver o cadastro de quem escreveu, toque no nome da pessoa, no alto.',
         'Escreva a resposta no campo de baixo e toque em “Responder”.',

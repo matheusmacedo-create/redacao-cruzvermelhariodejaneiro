@@ -2,7 +2,7 @@ import type { GuiaDaArea } from '../tipos'
 
 /**
  * A ajuda do Financeiro e das três áreas públicas da administração, no grupo
- * Institucional do menu: Financeiro (/financeiro, com /novo, /[id],
+ * Gestão do menu (Canais oficiais e Trilha pública são abas de Transparência): Financeiro (/financeiro, com /novo, /[id],
  * /cadastros, /conciliacao, /fechamento e /saude — Pedidos de compra,
  * /financeiro/compras, é outra área, em expediente.ts), Transparência
  * (/transparencia), Canais oficiais (/canais-oficiais) e Trilha pública

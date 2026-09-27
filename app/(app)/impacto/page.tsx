@@ -3,6 +3,7 @@ import { Activity, ArrowRight, BarChart3, Eye, Gauge, Globe2, Heart, MousePointe
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/app/page-header'
+import { AbasDaArea } from '@/components/app/abas-da-area'
 import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
@@ -63,6 +64,7 @@ export default async function ImpactoPage() {
         description="O que aconteceu depois da publicação. O Início mostra o que precisa ser feito; aqui fica o efeito do que já saiu."
         actions={<Button variant="outline" render={<Link href="/redes" />}>Ver publicações<ArrowRight className="size-4" /></Button>}
       />
+      <AbasDaArea atual="/impacto" papel={context.role} />
 
       <div data-ajuda="resultados.aviso" className="mb-6 rounded-xl border border-border bg-muted/35 p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

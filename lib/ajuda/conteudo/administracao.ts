@@ -3,7 +3,7 @@ import { ATIVAR_A_VERIFICACAO, CONFIRMAR_O_EMAIL, ESCOLHER_OS_EMAILS, PARA_QUE_S
 import { RESUMO_DIARIO } from './meu-dia'
 
 /**
- * A ajuda do grupo Administração do menu: Acessos (/acessos), Usuários e
+ * A ajuda do grupo “Conta e administração” (menu da conta): Acessos (/acessos), Usuários e
  * permissões (/usuarios), Configurações (/configuracoes) e Meu perfil
  * (/perfil). A Central de ajuda (/ajuda) é a própria ajuda e não tem guia.
  *
@@ -84,7 +84,7 @@ const ACESSOS: GuiaDaArea = {
       id: 'ver-quem-entrou',
       titulo: 'Ver quem entrou nas últimas 24 horas',
       passos: [
-        'Abra “Acessos”, no grupo Administração do menu.',
+        'Toque na sua foto, no alto à direita, e abra “Acessos” (no celular, fica no fim do menu, em “Conta e administração”).',
         'Em “O que aconteceu”, escolha “Entradas”.',
         'Em “Período”, escolha “Últimas 24 horas”.',
         'Toque em “Filtrar”.',

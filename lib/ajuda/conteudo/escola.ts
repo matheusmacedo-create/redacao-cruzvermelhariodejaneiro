@@ -85,7 +85,7 @@ export const guias: GuiaDaArea[] = [
         titulo: 'Acompanhar a escola num relance',
         exemplo: 'Em setembro, a visão geral mostra R$ 48 mil recebidos, R$ 6 mil aguardando pagamento e 2 contestações; a campanha “Técnico de enfermagem” lidera as matrículas.',
         passos: [
-          'Abra “Visão geral”, no grupo “Escola de Educação e Saúde” do menu.',
+          'Abra “Visão geral”, no grupo Escola do menu.',
           'Em “Vendas do mês”, veja o “Recebido” e a variação sobre o mês anterior, o que está “Aguardando”, o “Saldo nas contas” e o “Ticket médio”.',
           'Em “Financeiro da escola”, veja as receitas e despesas pagas no mês, o “Resultado do mês” e até quando o mês está fechado.',
           'Em “Marketing”, veja as campanhas no ar, o investido em anúncios, a receita das campanhas e o retorno.',
@@ -418,7 +418,7 @@ export const guias: GuiaDaArea[] = [
         id: 'abrir-livros-da-escola',
         titulo: 'Abrir os livros da Escola',
         passos: [
-          'No menu, em “Escola de Educação e Saúde”, abra “Financeiro” (ou a seção “Financeiro” no alto das telas da Escola).',
+          'No menu, no grupo Escola, abra “Financeiro da escola” (ou a seção “Financeiro” no alto das telas da Escola).',
           'O Financeiro abre nos livros da Escola.',
           'Use as seções do Financeiro como de costume: “Lançamentos”, “Conciliação”, “Fechamento”, “Cadastros”…',
           'Quem vê mais de uma empresa confere o nome em “Livros abertos” e volta aos livros da filial em “Trocar empresa”.',

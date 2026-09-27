@@ -255,7 +255,7 @@ imprecisão do IP móvel, daria alarme falso demais.
 
 ## 7. Telas
 
-- **Administração → Acessos** (`/acessos`, só admin, no grupo Administração do menu —
+- **Administração → Acessos** (`/acessos`, só admin, no grupo “Conta e administração”, o menu da conta —
   `lib/navegacao.ts`):
   - lista dos últimos acessos: pessoa, evento, quando, cidade/UF/país, aparelho e os selos de
     risco;

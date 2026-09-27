@@ -1,7 +1,7 @@
 import type { GuiaDaArea } from '../tipos'
 
 /**
- * A ajuda do expediente da filial, no grupo Institucional do menu: Ofícios
+ * A ajuda do expediente da filial, no grupo Expediente do menu: Ofícios
  * (/oficios, com /oficios/[id]), Chamados (/chamados, com /chamados/novo,
  * /chamados/[id] e /chamados/configurar) e Pedidos de compra
  * (/financeiro/compras, com /novo, /[id] e /[id]/editar).

@@ -208,10 +208,10 @@ revelation" da NN/g: a ajuda certa, na tela certa, só quando pedida.
 
 ### Central de ajuda em `/ajuda`, com busca e âncoras
 
-A Central é a área "Ajuda" do grupo Administração (`lib/navegacao.ts`). No
+A Central é a área "Ajuda" do grupo “Conta e administração” (`lib/navegacao.ts`). No
 computador, ela fica no menu da conta (a foto, no alto), junto de “Meu
 perfil” e “Configurações” — do grupo, o pé da sidebar mostra só
-“Configurações”; no celular, na gaveta do menu, no grupo Administração. Também se chega pelo
+“Configurações”; no celular, na gaveta do menu, no grupo “Conta e administração”. Também se chega pelo
 link “Central de ajuda” do pé do painel “?” e pela busca ⌘K. A equipe da
 escola também vê.
 
@@ -726,7 +726,7 @@ da Central, a action), no `import()` de `carregar.ts` e em
   `[...area]/page.tsx`, `[...area]/not-found.tsx` e `grupos-da-pessoa.ts`, o
   corte do menu).
 - `app/actions/ajuda.ts` — `registrarAjuda()`, que grava o progresso.
-- `lib/navegacao.ts` — a área "Ajuda" (`/ajuda`), no grupo Administração.
+- `lib/navegacao.ts` — a área "Ajuda" (`/ajuda`), no grupo “Conta e administração”.
 - `components/membro/ajuda.tsx` — o provedor do voluntário (convite, tours,
   `?tour=1`, `localStorage`); `central-de-ajuda.tsx` — a página
   `/membro/ajuda`; `conta.tsx` — o menu da conta (“Ajuda”, “Tour desta tela”)

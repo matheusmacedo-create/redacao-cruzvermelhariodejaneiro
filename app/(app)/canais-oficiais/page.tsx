@@ -1,5 +1,6 @@
 import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
+import { AbasDaArea } from '@/components/app/abas-da-area'
 import { Card } from '@/components/ui/card'
 import { PainelDosCanais } from '@/components/app/canais/painel'
 import type { VersaoDosCanais } from '@/components/app/canais/lista'
@@ -45,7 +46,7 @@ export default async function CanaisOficiaisPage() {
 
   const supabase = await createClient()
   const workspaceId = context.workspace.id
-  const cabecalho = <PageHeader title="Canais oficiais" description="A lista pública dos endereços, telefones e perfis que são mesmo da filial — é por ela que alguém confere se uma mensagem em nome da Cruz Vermelha é verdadeira. Cada publicação é uma versão nova e inteira; a anterior fica na trilha pública como substituída." />
+  const cabecalho = <><PageHeader title="Canais oficiais" description="A lista pública dos endereços, telefones e perfis que são mesmo da filial — é por ela que alguém confere se uma mensagem em nome da Cruz Vermelha é verdadeira. Cada publicação é uma versão nova e inteira; a anterior fica na trilha pública como substituída." /><AbasDaArea atual="/canais-oficiais" papel={context.role} /></>
 
   // Leitura pelo cliente da pessoa: o RLS da tabela só deixa admin ler.
   const { data, error } = await supabase.from('canais_oficiais_versoes')

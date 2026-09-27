@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { ChevronDown, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ADMINISTRACAO, areaDoCaminho, ehDaArea, type Area, type Contador, type Grupo } from '@/lib/navegacao'
+import { ADMINISTRACAO, areaDoCaminho, ehDaArea, hrefNoMenu, type Area, type Contador, type Grupo } from '@/lib/navegacao'
 import { useShell } from './app-shell'
 import { useChatAoVivo } from '@/components/app/chat/ao-vivo'
 // Os grupos que a pessoa fechou ficam num cookie, para o servidor desenhar igual (o nome mora fora deste módulo do cliente).
@@ -101,7 +101,9 @@ function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate
   const pathname = usePathname()
   const [fechados, setFechados] = useState<string[]>(fechadosIniciais)
   // A mesma regra das migalhas: prefixo mais longo, e /registrar ou /conteudos acendem Pautas.
-  const ativo = areaDoCaminho(pathname, grupos)?.area.href
+  // Uma aba de outra área (Histórico, Canais oficiais…) acende a linha da área-mãe.
+  const achado = areaDoCaminho(pathname, grupos)?.area
+  const ativo = achado ? hrefNoMenu(achado) : undefined
 
   function alternar(id: string) {
     setFechados((atual) => {
@@ -113,7 +115,7 @@ function Navegacao({ grupos, recolhida, contadores, fechadosIniciais, onNavigate
 
   return (
     <nav className={cn('flex flex-col', recolhida ? 'items-center gap-1' : '', className)} aria-label={rotulo} onClick={onNavigate} data-ajuda={principal ? 'shell.menu' : undefined}>
-      {grupos.map((g) => ({ ...g, areas: g.areas.filter((a) => !a.foraDoMenu) })).filter((g) => g.areas.length).map((grupo, i) => {
+      {grupos.map((g) => ({ ...g, areas: g.areas.filter((a) => !a.foraDoMenu && !a.dentroDe) })).filter((g) => g.areas.length).map((grupo, i) => {
         // O grupo da tela aberta nunca fica fechado: senão a pessoa perde onde está.
         const temAtivo = grupo.areas.some((a) => a.href === ativo)
         const aberto = recolhida || !grupo.rotulo || temAtivo || !fechados.includes(grupo.id)

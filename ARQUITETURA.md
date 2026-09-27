@@ -174,8 +174,12 @@ Recursos humanos, `/voluntariado` é Voluntários, `/pessoas` é Diretório,
 `/mensagens` é Conversas e `/newsletter` é Newsletter. Os endereços antigos
 ficaram porque há links gravados em notificações e e-mails. Área nova entra
 em `lib/navegacao.ts` — é o que a põe na sidebar, na busca e na aba (§10.3).
-O porquê de cada nome e o benchmark estão em
-[`docs/NAVEGACAO.md`](docs/NAVEGACAO.md).
+Os grupos seguem os setores (Expediente, Redação, Mídia, Público, Gestão,
+Pessoas, Escola), cada área tem nome e ícone só dela, e o que é parte de
+outra área entra com `dentroDe` (vira aba, com `AbasDaArea`, e não linha).
+`npx tsx scripts/conferir-navegacao.ts` confere isso e o que a ajuda diz do
+menu. O porquê de cada nome, o benchmark e a reorganização estão em
+[`docs/NAVEGACAO.md`](docs/NAVEGACAO.md) (§5).
 
 **`lib/data.ts` é meio verdade e meio fóssil.** As constantes do topo
 (`coordenacoes`, `canaisDePublicacao`) e os tipos são usados de verdade. Os

@@ -1,5 +1,6 @@
 import { ShieldAlert, TriangleAlert } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
+import { AbasDaArea } from '@/components/app/abas-da-area'
 import { Card } from '@/components/ui/card'
 import { PainelDaTrilha } from '@/components/app/trilha/painel'
 import { lerPainel, type SituacaoDaChave } from '@/components/app/trilha/dados'
@@ -71,6 +72,7 @@ export default async function TrilhaPublicaPage() {
   return (
     <div>
       <PageHeader title={TITULO} description={DESCRICAO} />
+      <AbasDaArea atual="/trilha-publica" papel={context.role} />
       <PainelDaTrilha
         painel={lerPainel(data)}
         chave={await situacaoDaChave()}

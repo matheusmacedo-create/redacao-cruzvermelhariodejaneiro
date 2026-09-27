@@ -83,7 +83,7 @@ não sobra ambiguidade.
 acompanha a aprovação projeto a projeto, não só o voto de cada um. Em troca,
 ganhou lugar no topo e um **número com o que espera o seu voto**.
 
-### Grupos
+### Grupos (set/2026 — substituídos pela reorganização do §5)
 
 ```
 (topo)          Início · Aprovações (nº) · Conversas
@@ -126,6 +126,101 @@ itens, como no benchmark.
   chave da ajuda é o `href` da área em `lib/navegacao.ts`.
 - **Aba do navegador** com o nome da área ("Pautas — Redação").
 - No celular, a gaveta de antes, com os mesmos grupos, e a busca no topo.
+
+## 5. Reorganização por setor (27/09/2026)
+
+Pedido do Matheus: *"organize a barra lateral, ela está absolutamente confusa,
+com setores misturados e funções repetidas; faça um estudo e reestruture por
+completo"*. Em um mês o menu passou de 17 para 35 linhas em 9 grupos: cada
+entrega (Financeiro, Patrimônio, Escola, Chat, Transparência…) entrou onde
+cabia na hora.
+
+### O que o estudo achou
+
+| Problema | Onde |
+| --- | --- |
+| **Nome repetido** | Duas linhas "Voluntários" (o canal de mensagens, em Comunicação, e o cadastro, em Pessoas); dois "Financeiro" (o da filial e o da escola). |
+| **Ícone repetido** em áreas diferentes | Envios da equipe e Publicações (avião); Voluntários duas vezes (mãos); Imprensa e Advertoriais (jornal); Usuários e Contas da escola (chave); os dois Financeiros (carteira). |
+| **Parte de uma área como se fosse outra área** | Mensagens dos voluntários (um atalho de Voluntários); Advertoriais (uma aba do Marketing da escola, que já tinha as abas); Histórico ao lado de Resultados; Canais oficiais e Trilha pública ao lado de Transparência (as três são o portal público de prestação de contas, e só o admin vê). |
+| **Setores misturados** | "Institucional" tinha oito linhas de três naturezas: expediente (Ofícios, Chamados), gestão (Compras, Patrimônio, Financeiro) e portal público (Transparência, Canais, Trilha). |
+| **Grupos que se sobrepõem** | "Comunicação" (Chat, Direct, E-mail do setor, Envios, Voluntários) e "Relacionamento" (Newsletter, Imprensa) eram, os dois, "falar com o público" — e o Chat, que é da equipe inteira, morava ali. |
+| **Grupos de duas linhas** | Relacionamento e Análise. |
+| **Área de todos dentro de um setor** | Calendário (a agenda junta pautas, voluntariado, escola e doações) em Planejamento; Chat em Comunicação. |
+
+### Princípios (do benchmark do §1, mais o que o estudo pediu)
+
+1. **O que é de todo mundo no topo**, sem título: Início, Aprovações, Chat e
+   Calendário (Linear, Asana, Sprout).
+2. **Grupos por setor e, dentro da comunicação, por etapa do trabalho**
+   (Hootsuite, Planable): pauta → material → público.
+3. **Uma área, uma linha, um nome, um ícone.**
+4. **Parte de área vira aba, não linha** (`dentroDe`): a linha da mãe acende,
+   as migalhas mostram "mãe › parte" e as abas (`AbasDaArea`) levam de uma à
+   outra. Os endereços não mudam.
+5. **Até 6 linhas por grupo.**
+
+### O menu novo
+
+```
+(topo)        Início · Aprovações (nº) · Chat (nº) · Calendário
+Expediente    Chamados · Pedidos de compra · Ofícios · E-mail do setor
+Redação       Radar de pautas · Pautas · Projetos · Publicações · Resultados
+                                                        └ aba Histórico
+Mídia         Biblioteca de mídia · Envios da equipe* · Acervo*
+Público       Direct das redes · Newsletter · Imprensa e contatos
+Gestão        Financeiro · Patrimônio · Transparência*
+                                        └ abas Canais oficiais, Trilha pública
+Pessoas       Diretório · Recursos humanos · Voluntários
+                                            └ atalho Mensagens dos voluntários
+Escola        Visão geral · Vendas · Financeiro da escola · Marketing · Contas e integrações
+                                                            └ aba Advertoriais
+(conta)       Acessos* · Usuários e permissões* · Configurações · Meu perfil · Ajuda
+                                                    * só para quem pode
+```
+
+De 35 linhas em 9 grupos para 30 em 8 (o admin; quem tem menos permissões vê
+menos). **Expediente** é o que qualquer setor usa para pedir e para falar em
+nome da filial. **Redação, Mídia e Público** são a comunicação, na ordem do
+trabalho. **Gestão** é o administrativo-financeiro com a prestação de contas
+pública. O grupo da conta passou a se chamar **Conta e administração**, porque
+tem Meu perfil e Ajuda, que não são administração.
+
+### Onde foi parar
+
+| Área | Antes | Agora |
+| --- | --- | --- |
+| Chat | Comunicação | topo |
+| Calendário | Planejamento | topo |
+| Chamados, Ofícios | Institucional | Expediente |
+| Pedidos de compra | Institucional | Expediente |
+| E-mail do setor | Comunicação | Expediente |
+| Radar, Pautas, Projetos | Planejamento | Redação |
+| Publicações | Produção | Redação |
+| Resultados | Análise | Redação |
+| Histórico | Análise | aba de Resultados |
+| Biblioteca, Acervo | Produção | Mídia |
+| Envios da equipe | Comunicação | Mídia |
+| Direct das redes | Comunicação | Público |
+| Newsletter, Imprensa e contatos | Relacionamento | Público |
+| Financeiro, Patrimônio, Transparência | Institucional | Gestão |
+| Canais oficiais, Trilha pública | Institucional | abas de Transparência |
+| Mensagens dos voluntários ("Voluntários") | Comunicação | atalho em Voluntários |
+| Financeiro (da escola) | Escola | Escola, como "Financeiro da escola" |
+| Advertoriais | Escola | aba do Marketing da escola |
+| (título do grupo) | Escola de Educação e Saúde | Escola (o nome inteiro quebrava em duas linhas; continua no resumo e na busca) |
+
+A pergunta "O menu mudou. Onde foi parar cada área?" está na ajuda (tópico
+geral), e a busca ⌘K continua achando tudo, também pelos nomes antigos.
+
+### Como manter
+
+`npx tsx scripts/conferir-navegacao.ts` falha quando:
+- duas áreas têm o mesmo endereço, nome ou ícone;
+- uma parte aponta para mãe inexistente, de outro grupo ou que também é parte;
+- a ajuda ou a documentação diz "no grupo X do menu" com um grupo que não
+  existe, ou manda abrir “Área” num grupo onde ela não é linha.
+
+Também avisa quando um grupo passa de 6 linhas.
 
 ## 3. Onde isso mora
 
