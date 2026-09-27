@@ -30,7 +30,7 @@ async function exigirAdmin() {
   return context
 }
 
-const revalidar = () => { revalidatePath('/configuracoes'); revalidatePath('/correio') }
+const revalidar = () => { revalidatePath('/configuracoes', 'layout'); revalidatePath('/correio') }
 
 export async function sincronizarCaixasAgora(): Promise<Resultado> {
   try {

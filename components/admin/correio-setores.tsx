@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { AlertTriangle, CheckCircle2, Link2, Loader2, Mail, Plus, RefreshCw, Trash2, Unlink, Users } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Link2, Loader2, Mail, RefreshCw, Unlink, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
-  ativarCaixasComSetor, configurarCaixa, criarSetor, definirMembros, desconectarGoogle, excluirSetor, nomearCaixas, sincronizarCaixasAgora,
+  ativarCaixasComSetor, configurarCaixa, definirMembros, desconectarGoogle, nomearCaixas, sincronizarCaixasAgora,
 } from '@/app/actions/correio'
 import { nomeSugerido } from '@/lib/correio/setor-do-endereco'
 
@@ -34,9 +35,10 @@ const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle:
  * Configuração do correio dos setores (só administradores).
  *
  * Três passos, na ordem em que a tela os mostra: conectar a conta do Google
- * dona dos aliases; criar os setores e dizer quem é de cada um; dizer de que
- * setor é cada endereço e ativá-lo. Endereço novo chega inativo — ninguém
- * envia por ele até esta tela decidir de quem ele é.
+ * dona dos aliases; dizer quem envia por cada setor; dizer de que setor é
+ * cada endereço e ativá-lo. Endereço novo chega inativo — ninguém envia por
+ * ele até esta tela decidir de quem ele é. A lista de setores em si (criar,
+ * renomear, desativar) é a do Diretório, em /pessoas/setores.
  */
 export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setores, pessoas, caixas, aviso }: {
   conexao: ConexaoNaTela
@@ -59,9 +61,9 @@ export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setore
   })
 
   return (
-    <div id="correio" data-ajuda="configuracoes.correio" className="mt-8 flex scroll-mt-6 flex-col gap-4">
+    <div id="correio" data-ajuda="configuracoes.correio" className="flex scroll-mt-6 flex-col gap-4">
       <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail do setor</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">E-mail dos setores</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Cada setor envia só pelo próprio endereço (alias do Gmail) e com a assinatura exata configurada no Gmail.
           A conta do Google fica guardada no cofre: ninguém dos setores recebe senha nem acesso à caixa.
@@ -81,7 +83,7 @@ export function CorreioDosSetores({ conexao, clienteConfigurado, retorno, setore
             <p className="font-medium">1. Conta do Google</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {!clienteConfigurado
-                ? 'Primeiro, cole o ID e a chave secreta do cliente OAuth do Google em Integrações (acima).'
+                ? <>Primeiro, cole o ID e a chave secreta do cliente OAuth do Google em <Link href="/configuracoes/integracoes" className="text-primary hover:underline">Integrações</Link>.</>
                 : !conexao
                   ? 'Conecte a conta do Workspace que tem os aliases dos setores.'
                   : conexao.estado === 'expirada'
@@ -139,7 +141,9 @@ function PassoAPassoDoGoogle({ retorno, clienteConfigurado }: { retorno: string;
           </button>
         </span>
       </li>
-      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>Cole o ID e a chave secreta em Integrações (acima). A chave vai direto para o cofre.</li>
+      <li className={clienteConfigurado ? 'line-through opacity-60' : ''}>
+        Cole o ID e a chave secreta no cartão “Google (cliente OAuth do Gmail)”, em <Link href="/configuracoes/integracoes" className="text-primary hover:underline">Integrações</Link>. A chave vai direto para o cofre.
+      </li>
       <li>
         Clique em “Conectar conta Google” e entre com a conta <strong className="font-medium text-foreground">dona dos endereços</strong> — a que tem a lista “Enviar e-mail como” (hoje, a do contato@).
         Os endereços e as assinaturas vêm de lá.
@@ -154,25 +158,21 @@ function Setores({ setores, pessoas, ocupado, executar }: {
   ocupado: boolean
   executar: (a: () => Promise<{ erro?: string; recado?: string }>) => void
 }) {
-  const [nome, setNome] = useState('')
   const [editando, setEditando] = useState<string | null>(null)
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
   const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]))
 
   return (
-    <Card className="flex flex-col gap-3 p-5">
-      <p className="font-medium">2. Setores e quem é de cada um</p>
-      <form className="flex flex-wrap gap-2" onSubmit={(e) => {
-        e.preventDefault()
-        const f = new FormData(); f.set('nome', nome)
-        executar(async () => { const r = await criarSetor(f); if (!r.erro) setNome(''); return r })
-      }}>
-        <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do setor (ex.: Cursos, Voluntariado)" aria-label="Nome do setor" className={`min-w-56 flex-1 ${campo}`} />
-        <Button type="submit" variant="outline" disabled={ocupado || nome.trim().length < 2}><Plus className="size-4" />Criar setor</Button>
-      </form>
-
+    <Card className="flex flex-col gap-3 p-5" data-ajuda="configuracoes.quem-envia">
+      <div>
+        <p className="font-medium">2. Quem envia por cada setor</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Só envia pelo endereço de um setor quem é membro dele (administradores enviam por qualquer um).
+          Criar, renomear ou desativar setores é em <Link href="/pessoas/setores" className="text-primary hover:underline">Diretório › Setores</Link>.
+        </p>
+      </div>
       {setores.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nenhum setor ainda.</p>
+        <p className="text-sm text-muted-foreground">Nenhum setor ainda. Crie em <Link href="/pessoas/setores" className="text-primary hover:underline">Diretório › Setores</Link>.</p>
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {setores.map((s) => (
@@ -184,15 +184,9 @@ function Setores({ setores, pessoas, ocupado, executar }: {
                     {s.membros.length ? s.membros.map((id) => nomeDe.get(id) ?? '—').join(', ') : 'Sem membros — ninguém envia por este setor.'}
                   </p>
                 </div>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" onClick={() => { setEditando(editando === s.id ? null : s.id); setMarcados(new Set(s.membros)) }}>
-                    <Users className="size-4" />Membros
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" disabled={ocupado} aria-label={`Apagar setor ${s.nome}`}
-                    onClick={() => { if (confirm(`Apagar o setor "${s.nome}"? As caixas dele ficam sem setor e desativadas.`)) { const f = new FormData(); f.set('id', s.id); executar(() => excluirSetor(f)) } }}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
+                <Button size="sm" variant="outline" onClick={() => { setEditando(editando === s.id ? null : s.id); setMarcados(new Set(s.membros)) }}>
+                  <Users className="size-4" />Membros
+                </Button>
               </div>
               {editando === s.id && (
                 <div className="mt-3 rounded-lg bg-muted/40 p-3">

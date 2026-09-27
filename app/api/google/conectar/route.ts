@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   let workspaceId: string
   try { workspaceId = (await requirePermissao('integracoes.configurar')).workspace.id } catch {
-    return NextResponse.redirect(new URL('/configuracoes?google=restrito', request.nextUrl.origin))
+    return NextResponse.redirect(new URL('/configuracoes/email?google=restrito', request.nextUrl.origin))
   }
   try {
     const { clientId } = await clienteOAuth(workspaceId)
@@ -28,6 +28,6 @@ export async function GET(request: NextRequest) {
     return res
   } catch (causa) {
     const motivo = causa instanceof Error ? causa.message : 'Não foi possível começar a conexão.'
-    return NextResponse.redirect(new URL(`/configuracoes?google=erro&motivo=${encodeURIComponent(motivo)}`, request.nextUrl.origin))
+    return NextResponse.redirect(new URL(`/configuracoes/email?google=erro&motivo=${encodeURIComponent(motivo)}`, request.nextUrl.origin))
   }
 }

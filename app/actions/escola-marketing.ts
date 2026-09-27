@@ -165,7 +165,7 @@ export async function ligarMeta(id: string | null, _anterior: Estado & { recado?
     }
     after(() => sincronizarMetaDoEspaco(context.workspace.id, contaId as string).then(() => undefined))
     revalidar()
-    revalidatePath('/configuracoes')
+    revalidatePath('/configuracoes', 'layout')
     return { ok: Date.now(), recado: `Conta "${teste.nome}" ligada. Os anúncios estão sendo lidos — atualize a página em um minuto.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível ligar a conta de anúncios.') }

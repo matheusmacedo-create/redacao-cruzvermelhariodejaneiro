@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: NextRequest) {
   const origem = request.nextUrl.origin
   const voltar = (status: string, motivo?: string) => {
-    const res = NextResponse.redirect(new URL(`/configuracoes?google=${status}${motivo ? `&motivo=${encodeURIComponent(motivo)}` : ''}#correio`, origem))
+    const res = NextResponse.redirect(new URL(`/configuracoes/email?google=${status}${motivo ? `&motivo=${encodeURIComponent(motivo)}` : ''}`, origem))
     res.cookies.set('google_oauth_estado', '', { path: '/api/google', maxAge: 0 })
     return res
   }
