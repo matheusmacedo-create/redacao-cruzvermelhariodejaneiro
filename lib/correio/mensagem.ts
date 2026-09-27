@@ -95,6 +95,22 @@ export function corpoComAssinatura(texto: string, assinaturaHtml: string): { htm
   return { html, texto: [paragrafos.join('\n\n'), textoAssinatura ? `-- \n${textoAssinatura}` : ''].filter(Boolean).join('\n\n') }
 }
 
+/** A linha legal das assinaturas das caixas (todas da Filial): "Cruz Vermelha Brasileira do Rio de Janeiro — CNPJ: 08.560.973/0001-97". */
+const LINHA_LEGAL_DA_FILIAL = /Cruz Vermelha Brasileira do Rio de Janeiro\s*[—–-]\s*CNPJ:?\s*08\.560\.973\/0001-97/g
+const CNPJ_DA_FILIAL = /08\.560\.973\/0001-97/g
+
+/**
+ * A assinatura em nome de outra empresa do grupo. As caixas de setor são da
+ * Filial, e a assinatura traz a razão social e o CNPJ dela; num pedido de
+ * compra da Escola, o fornecedor precisa ver os da Escola (é para ela a nota).
+ * Troca só a linha legal (e qualquer outro CNPJ da Filial); o resto fica igual.
+ */
+export function assinaturaEmNomeDe(assinaturaHtml: string, empresa: { nome: string; cnpj: string } | null | undefined): string {
+  if (!empresa) return assinaturaHtml
+  const cnpj = escapar(empresa.cnpj)
+  return assinaturaHtml.replace(LINHA_LEGAL_DA_FILIAL, `${escapar(empresa.nome)} — CNPJ: ${cnpj}`).replace(CNPJ_DA_FILIAL, cnpj)
+}
+
 /**
  * Corpo já montado em HTML (um e-mail com tabela e botão, como o pedido de
  * proposta), com a versão em texto ao lado e a assinatura da caixa no fim.
