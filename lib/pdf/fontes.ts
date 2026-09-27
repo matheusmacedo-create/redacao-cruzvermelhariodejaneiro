@@ -63,8 +63,11 @@ export async function embutirFontes<E extends Estilo>(pdf: PDFDocument, estilos:
     const b = await bytes(e)
     // A caligrafia vai inteira (o recorte do pdf-lib perde glifos dela: saía só "ad" de "Certificado") e sem as
     // alternativas de contexto, que o pdf-lib posiciona mal ("Reconhecimen to").
+    // Nome fixo: sem ele o pdf-lib sorteia um sufixo, e o mesmo documento sairia diferente a cada geração
+    // (o PDF do ofício precisa sair igual byte a byte).
+    const customName = ARQUIVOS[e].replace(/\.ttf$/, '')
     saida[e] = b
-      ? await pdf.embedFont(b, e === 'caligrafia' ? { subset: false, features: { calt: false, liga: false, clig: false, dlig: false } } : { subset: true })
+      ? await pdf.embedFont(b, e === 'caligrafia' ? { subset: false, customName, features: { calt: false, liga: false, clig: false, dlig: false } } : { subset: true, customName })
       : await pdf.embedFont(RESERVA[e])
   }
   return saida

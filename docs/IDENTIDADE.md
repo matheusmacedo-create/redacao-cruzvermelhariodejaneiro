@@ -69,20 +69,29 @@ pelo Matheus em 27/09/2026.
    manual e o nome completo da filial em toda peça. No modelo "Destaque" (fundo
    vermelho), a logo e o QR vão em caixa branca (pp. 17–20). Formatos A4,
    story, feed e quadrado, em PNG.
+8. **Papel timbrado no padrão** (p. 24), em `lib/pdf/timbrado.ts` (textos em
+   `lib/pdf/timbrado-texto.ts`):
+   - margens de 14 mm dos lados e 17 mm no alto, com a cruz da logo medindo 17 mm;
+   - o decreto no alto à direita e o setor centrado em Demi Cond 18;
+   - o rodapé centrado a 10 mm da borda, com o nome nas três línguas e os dados atuais da filial;
+   - as fontes de `lib/pdf/fontes.ts`, embutidas com nome fixo, porque o ofício precisa sair igual byte a byte.
+
+   Vale para o ofício (PDF e a folha na tela) e para as folhas de `lib/pdf/folha.ts`: recibo e termo de doação,
+   ordem e relatório de Compras. A cruz em marca d'água do ofício saiu, porque não está no modelo.
+   Conferência: `npx tsx scripts/conferir-timbrado.ts`.
+9. **Princípios Fundamentais na Área do Voluntário** (p. 52):
+   - um bloco fixo no fim do Início, com os sete nomes e uma frase de cada;
+   - a página `/membro/principios`, com o texto oficial e a regra 9 das mídias sociais (o emblema no
+     perfil pessoal, p. 48), também no menu da conta.
+
+   O conteúdo fica em `lib/membro/principios.ts`.
 
 ## 4. O que dá para incrementar (proposta, por prioridade)
 
 ### Rápido e visível
 
 1. ~~Diploma de Reconhecimento~~: feito (item 4 da seção 3).
-2. **Papel timbrado no padrão (p. 24).** Hoje os ofícios e as folhas (recibos
-   e termos do Patrimônio, relatório de Compras) usam Times e Helvetica, com
-   margens próprias. A proposta é alinhar ao manual:
-   - margens de 17 e 14 mm;
-   - a linha "Reconhecida como Utilidade Pública Internacional – Decreto nº 9.620, de 13/06/1912" no alto à direita;
-   - o setor em Demi Cond;
-   - o rodapé com os dados atuais da filial;
-   - as fontes de `lib/pdf/fontes.ts`.
+2. ~~Papel timbrado no padrão~~: feito (item 8 da seção 3).
 3. **Cartão pessoal digital (p. 27).** Um cartão de visita de 90 × 50 mm, com
    QR de vCard, para cada pessoa da equipe, gerado a partir do Diretório. Serve
    para imprimir ou mandar por WhatsApp.
@@ -111,11 +120,10 @@ pelo Matheus em 27/09/2026.
 ### Voluntariado e formação
 
 8. **Os 7 Princípios Fundamentais (p. 52).**
-   - Um bloco fixo na Área do Voluntário.
+   - ~~Um bloco fixo na Área do Voluntário~~: feito (item 9 da seção 3), com a regra 9 das mídias sociais.
    - Um curso curto, "Princípios e uso do emblema", como formação de entrada,
      com certificado. Ele usaria o motor de cursos existente.
-   - A regra 9 das mídias sociais (quem é da filial não usa o emblema no
-     perfil pessoal, fora de campanhas), explicada no termo e na ajuda do voluntário.
+   - A regra 9 das mídias sociais já está na página dos Princípios e na ajuda do voluntário; falta citá-la no termo.
 9. **Uniformes e coletes (pp. 33–38).** Pedido e entrega de colete e uniforme
    pelo Estoque (kits por tamanho), com o registro de quem está com o quê. O
    colete tem bolso transparente para o crachá, que agora sai impresso do app.

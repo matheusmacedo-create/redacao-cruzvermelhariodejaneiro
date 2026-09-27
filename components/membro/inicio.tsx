@@ -17,6 +17,7 @@ import {
 } from '@/lib/membro/inicio'
 import { cn } from '@/lib/utils'
 import { BannersDoMembro } from './banners'
+import { PrincipiosNoInicio } from './principios'
 import { BarraDeProgresso } from './cursos'
 import { botaoDoMembro, botaoFantasma, botaoSecundario } from './marca'
 import { CabecalhoDaPagina, EstadoVazio, Recado, Secao, Selo, SeloDeValidade } from './pecas'
@@ -24,7 +25,8 @@ import { CabecalhoDaPagina, EstadoVazio, Recado, Secao, Selo, SeloDeValidade } f
 /**
  * A vista do Início, na ordem do que a pessoa precisa fazer: pendências,
  * saudação, os banners da coordenação, primeiros passos (só para quem acabou de chegar), próxima
- * atividade, curso, números, avisos, certificados e últimas atividades.
+ * atividade, curso, números, avisos, certificados, últimas atividades e, fixo
+ * no fim, os Princípios Fundamentais.
  * Vermelho sólido só num único botão principal (e nos selos de "Novo"); o
  * resto é neutro, inclusive o bloco da data, igual ao de Oportunidades.
  */
@@ -167,6 +169,8 @@ export function InicioView({ nome, perfil, hoje, hora, agora, formacoes, ativida
           </Secao>
         </div>
       )}
+
+      <PrincipiosNoInicio />
 
       {/* Discreto, no fim: o mesmo caminho do menu da conta ("Ajuda"). */}
       <p className="flex justify-center">

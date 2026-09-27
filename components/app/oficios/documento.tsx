@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
+import { LINHAS_DO_DECRETO, linhasDoRodape } from '@/lib/pdf/timbrado-texto'
 import { blocosDoCorpo, localEData, momento, tituloDoOficio, type Documento } from '@/lib/oficios/documento'
 
 export type AssinaturaNaFolha = {
@@ -18,7 +18,8 @@ export type AssinaturaNaFolha = {
 
 /**
  * A folha do ofício, no formato da correspondência oficial e com o mesmo
- * desenho do PDF (lib/oficios/pdf.ts): timbre com a logo, número, local e data, destinatário, assunto, vocativo, texto, fecho e o
+ * desenho do PDF (lib/oficios/pdf.ts): o timbrado do manual (logo, decreto, setor e rodapé da filial), número, local e data,
+ * destinatário, assunto, vocativo, texto, fecho e o
  * bloco de assinaturas. Serve à tela interna, à pré-visualização do rascunho
  * e à página pública de conferência (que também é a versão para imprimir).
  */
@@ -32,23 +33,19 @@ export function FolhaDoOficio({ doc, assinaturas, rodape, marcaDagua }: {
   const assinantes = assinaturas ?? doc.assinantes.map((a) => ({ ...a, estado: 'pendente' as const, assinadoEm: null }))
   const dest = doc.destinatario
   return (
-    <article className="folha-oficio relative mx-auto w-full max-w-[52rem] overflow-hidden rounded-md border border-border bg-white px-6 py-8 font-serif text-[15px] leading-relaxed text-neutral-900 shadow-sm sm:px-14 sm:py-12 print:max-w-none print:rounded-none print:border-0 print:px-0 print:py-0 print:shadow-none">
+    <article className="folha-oficio relative mx-auto w-full max-w-[52rem] overflow-hidden rounded-md border border-border bg-white px-6 py-8 font-sans text-[14.5px] leading-relaxed text-neutral-900 shadow-sm sm:px-14 sm:py-12 print:max-w-none print:rounded-none print:border-0 print:px-0 print:py-0 print:shadow-none">
       {marcaDagua && (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="-rotate-[24deg] select-none font-sans text-6xl font-black uppercase tracking-widest text-neutral-900/[0.06] sm:text-8xl">{marcaDagua}</span>
         </div>
       )}
-      <span aria-hidden="true" className="pointer-events-none absolute -bottom-6 -right-6 size-44 opacity-[0.05] print:hidden">
-        <span className="absolute left-1/2 top-0 h-full w-[34%] -translate-x-1/2 bg-[#e32219]" />
-        <span className="absolute left-0 top-1/2 h-[34%] w-full -translate-y-1/2 bg-[#e32219]" />
-      </span>
-      <header className="flex items-center justify-between gap-4 border-b-2 border-[#e32219] pb-3 font-sans">
-        <Image src="/images/logo-cvrj.png" alt="Cruz Vermelha Brasileira – Rio de Janeiro" width={1844} height={752} sizes="170px" className="-ml-[3%] h-auto w-[140px] shrink-0 sm:w-[170px]" />
-        <div className="min-w-0 text-right text-[11px] leading-snug text-neutral-600">
-          {doc.setor && <p className="text-xs font-bold uppercase tracking-wide text-neutral-900">{doc.setor}</p>}
-          <p className="hidden sm:block">{DADOS_DA_FILIAL.email}</p>
-          <p className="hidden sm:block">{DADOS_DA_FILIAL.telefone}</p>
+      {/* O timbrado do manual (p. 24): logo à esquerda, o decreto à direita e o setor centrado, sem fio nem marca d'água. */}
+      <header>
+        <div className="flex items-start justify-between gap-4">
+          <Image src="/images/logo-cvrj.png" alt="Cruz Vermelha Brasileira – Rio de Janeiro" width={1844} height={752} sizes="190px" className="-ml-[3%] h-auto w-[120px] shrink-0 sm:w-[190px]" />
+          <p className="mt-1 text-right text-[9px] leading-snug text-neutral-500 sm:text-[10px]">{LINHAS_DO_DECRETO.map((l) => <span key={l} className="block whitespace-nowrap">{l}</span>)}</p>
         </div>
+        {doc.setor && <p className="mt-1 text-center text-lg font-semibold uppercase tracking-tight text-neutral-900 [font-stretch:condensed]">{doc.setor}</p>}
       </header>
 
       <div className="mt-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
@@ -102,9 +99,8 @@ export function FolhaDoOficio({ doc, assinaturas, rodape, marcaDagua }: {
         ))}
       </div>
 
-      <div className="mt-10 border-t border-[#e32219] pt-2 font-sans text-[11px] leading-snug text-neutral-600">
-        <p className="font-bold text-neutral-900">{DADOS_DA_FILIAL.nome} · CNPJ {DADOS_DA_FILIAL.cnpj}</p>
-        <p>{DADOS_DA_FILIAL.endereco}</p>
+      <div className="mt-12 text-center text-[10.5px] leading-snug text-balance text-neutral-600">
+        {linhasDoRodape().map((l, i) => <p key={l} className={i === 0 ? 'font-semibold text-neutral-900' : undefined}>{l}</p>)}
       </div>
       {rodape && <footer className="mt-4 border-t border-neutral-200 pt-3 font-sans text-[11px] leading-relaxed text-neutral-600">{rodape}</footer>}
     </article>

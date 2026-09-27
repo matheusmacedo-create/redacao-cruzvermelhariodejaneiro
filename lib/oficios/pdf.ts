@@ -7,30 +7,33 @@
  * mesmo ofício: sem data de geração, sem identificador aleatório. É isso que
  * permite reconhecer depois, no PDF assinado que volta, o arquivo original.
  *
- * Fontes padrão do PDF (Times e Helvetica): sem arquivo de fonte para
- * carregar no servidor. Elas cobrem o português; um caractere fora da tabela
- * delas vira "?" em vez de quebrar a geração.
+ * No papel timbrado do Manual de Identidade Institucional (lib/pdf/timbrado.ts),
+ * com as fontes da identidade (lib/pdf/fontes.ts), embutidas com nome fixo
+ * para o arquivo não mudar entre uma geração e outra. Um caractere fora da
+ * tabela delas vira "?" em vez de quebrar a geração.
  */
 
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib'
+import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
+import { embutirFontes } from '@/lib/pdf/fontes'
+import { desenharTimbrado } from '@/lib/pdf/timbrado'
 import { blocosDoCorpo, localEData, tituloDoOficio, type Documento } from './documento'
 import { LOGO_PNG_BASE64 } from './logo'
 
-// Padrão da correspondência oficial (Manual de Redação da Presidência) com a
-// identidade da Cruz Vermelha: timbre com a logo da filial, fio vermelho,
-// Times 12 com entrelinha de 1,5, recuo de parágrafo e rodapé institucional.
+// Padrão da correspondência oficial (Manual de Redação da Presidência) no
+// timbrado da Cruz Vermelha: Libre Franklin 11 com entrelinha de 1,5, recuo de
+// parágrafo, e a linha de conferência acima do rodapé da filial.
 const A4 = { largura: 595.28, altura: 841.89 }
-const MARGEM = { esq: 71, dir: 57, topo: 36, base: 104 }
+const MARGEM = { esq: 71, dir: 57, base: 108 }
 const LARGURA_UTIL = A4.largura - MARGEM.esq - MARGEM.dir
-const CORPO = 12
-const ENTRELINHA = 17.5
+const CORPO = 11
+const ENTRELINHA = 16.5
 const RECUO = 56
 const VERMELHO = rgb(0.89, 0.133, 0.098)
 const TINTA = rgb(0.1, 0.1, 0.1)
 const CINZA = rgb(0.38, 0.38, 0.38)
 const CINZA_CLARO = rgb(0.55, 0.55, 0.55)
-const LOGO = { largura: 150, px: { l: 922, a: 376 }, inicioX: 0.045 }
+const LINHA = rgb(0.82, 0.82, 0.82)
 
 export type DadosDoPdf = {
   doc: Documento
@@ -43,7 +46,7 @@ export type DadosDoPdf = {
   modo: 'senha' | 'govbr'
 }
 
-/** Troca o que as fontes padrão não desenham por equivalentes ou "?". */
+/** Troca o que a fonte não desenha por equivalentes ou "?". */
 function limpar(fonte: PDFFont, texto: string): string {
   const suportados = new Set(fonte.getCharacterSet())
   const trocas: Record<string, string> = { '‑': '-', '−': '-', ' ': ' ', ' ': ' ', ' ': ' ', '​': '', '\t': '    ' }
@@ -82,7 +85,6 @@ function quebrar(fonte: PDFFont, tamanho: number, texto: string, largura: number
 }
 
 type Cursor = { pagina: PDFPage; y: number }
-type Fontes = { times: PDFFont; timesNegrito: PDFFont; helv: PDFFont; helvNegrito: PDFFont }
 
 /** Linha justificada: o espaço que sobra se divide entre as palavras. */
 function justificada(pagina: PDFPage, texto: string, x: number, y: number, largura: number, fonte: PDFFont, tamanho: number) {
@@ -94,45 +96,11 @@ function justificada(pagina: PDFPage, texto: string, x: number, y: number, largu
   for (const w of palavras) { pagina.drawText(w, { x: px, y, size: tamanho, font: fonte, color: TINTA }); px += fonte.widthOfTextAtSize(w, tamanho) + vao }
 }
 
-/** Timbre: a logo da filial à esquerda, o setor e o site à direita, o fio vermelho embaixo. */
-function timbre(pagina: PDFPage, f: Fontes, logo: PDFImage, setor: string | null) {
-  const altura = LOGO.largura * LOGO.px.a / LOGO.px.l
-  const topo = A4.altura - MARGEM.topo
-  pagina.drawImage(logo, { x: MARGEM.esq - LOGO.largura * LOGO.inicioX, y: topo - altura, width: LOGO.largura, height: altura })
-  const direita = A4.largura - MARGEM.dir
-  const linhas: [string, PDFFont, number, ReturnType<typeof rgb>][] = [
-    ...(setor ? [[limpar(f.helvNegrito, setor.toUpperCase()), f.helvNegrito, 8.5, TINTA] as [string, PDFFont, number, ReturnType<typeof rgb>]] : []),
-    [limpar(f.helv, DADOS_DA_FILIAL.email), f.helv, 7.5, CINZA],
-    [limpar(f.helv, DADOS_DA_FILIAL.telefone), f.helv, 7.5, CINZA],
-  ]
-  let y = topo - altura / 2 + (linhas.length * 11) / 2 - 8
-  for (const [t, fonte, tam, cor] of linhas) {
-    pagina.drawText(t, { x: direita - fonte.widthOfTextAtSize(t, tam), y, size: tam, font: fonte, color: cor })
-    y -= 11
-  }
-  pagina.drawRectangle({ x: MARGEM.esq, y: topo - altura - 8, width: LARGURA_UTIL, height: 1.6, color: VERMELHO })
-  return topo - altura - 8
-}
-
-/** A cruz, bem clara, no canto de baixo: a marca d'água da identidade. */
-function cruzAoFundo(pagina: PDFPage) {
-  const lado = 170
-  const braco = lado * 0.34
-  const x = A4.largura - MARGEM.dir - lado + 20
-  const y = MARGEM.base + 6
-  pagina.drawRectangle({ x: x + (lado - braco) / 2, y, width: braco, height: lado, color: VERMELHO, opacity: 0.045 })
-  pagina.drawRectangle({ x, y: y + (lado - braco) / 2, width: lado, height: braco, color: VERMELHO, opacity: 0.045 })
-}
-
 export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   const pdf = await PDFDocument.create({ updateMetadata: false })
-  const f: Fontes = {
-    times: await pdf.embedFont(StandardFonts.TimesRoman),
-    timesNegrito: await pdf.embedFont(StandardFonts.TimesRomanBold),
-    helv: await pdf.embedFont(StandardFonts.Helvetica),
-    helvNegrito: await pdf.embedFont(StandardFonts.HelveticaBold),
-  }
-  const { times, timesNegrito, helv, helvNegrito } = f
+  const f = await embutirFontes(pdf, ['texto', 'negrito', 'destaque', 'condensada'] as const)
+  // Nomes de antes, para o desenho abaixo ficar legível: o corpo e o negrito do corpo; o texto miúdo e o seu destaque.
+  const { texto: times, negrito: timesNegrito, texto: helv, destaque: helvNegrito } = f
   const logo = await pdf.embedPng(Buffer.from(LOGO_PNG_BASE64, 'base64'))
   const { doc } = d
   const titulo = tituloDoOficio(doc.numero, null)
@@ -141,9 +109,8 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
   const novaPagina = (): Cursor => {
     const pagina = pdf.addPage([A4.largura, A4.altura])
     paginas.push(pagina)
-    cruzAoFundo(pagina)
-    const fio = timbre(pagina, f, logo, doc.setor)
-    return { pagina, y: fio - 34 }
+    const { topo } = desenharTimbrado(pagina, f, logo, { setor: doc.setor })
+    return { pagina, y: topo - 20 }
   }
 
   let c = novaPagina()
@@ -154,7 +121,7 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
 
   // Número à esquerda, local e data à direita, na mesma linha.
   const data = limpar(times, localEData(doc.local, doc.data))
-  texto(limpar(helvNegrito, titulo.toUpperCase()), MARGEM.esq, { fonte: helvNegrito, tamanho: 11.5 })
+  texto(limpar(helvNegrito, titulo.toUpperCase()), MARGEM.esq, { fonte: helvNegrito, tamanho: 11 })
   texto(data, A4.largura - MARGEM.dir - times.widthOfTextAtSize(data, CORPO), {})
   espaco(ENTRELINHA * 2.2)
 
@@ -232,7 +199,7 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
       const meia = Math.min(120, col / 2 - 10)
       c.pagina.drawLine({ start: { x: cx - meia, y: yLinha }, end: { x: cx + meia, y: yLinha }, thickness: 0.6, color: TINTA })
       const nome = limpar(timesNegrito, a.nome)
-      c.pagina.drawText(nome, { x: cx - timesNegrito.widthOfTextAtSize(nome, 11.5) / 2, y: yLinha - 14, size: 11.5, font: timesNegrito, color: TINTA })
+      c.pagina.drawText(nome, { x: cx - timesNegrito.widthOfTextAtSize(nome, 11) / 2, y: yLinha - 14, size: 11, font: timesNegrito, color: TINTA })
       let y = yLinha - 28
       // CPF mascarado do cadastro da Equipe: identifica quem assina sem expor o número inteiro.
       if (a.cpf) {
@@ -241,8 +208,8 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
         y -= 12
       }
       const funcao = [a.cargo, a.setor].filter(Boolean).join(' · ')
-      for (const q of funcao ? quebrar(times, 10.5, limpar(times, funcao), col - 16) : []) {
-        c.pagina.drawText(q, { x: cx - times.widthOfTextAtSize(q, 10.5) / 2, y, size: 10.5, font: times, color: CINZA })
+      for (const q of funcao ? quebrar(times, 9.5, limpar(times, funcao), col - 16) : []) {
+        c.pagina.drawText(q, { x: cx - times.widthOfTextAtSize(q, 9.5) / 2, y, size: 9.5, font: times, color: CINZA })
         y -= 13
       }
       fundo = Math.min(fundo, y)
@@ -255,20 +222,15 @@ export async function gerarPdfDoOficio(d: DadosDoPdf): Promise<Uint8Array> {
     : 'Documento assinado eletronicamente no Palácio Virtual da Cruz Vermelha RJ, nos termos da Lei nº 14.063/2020.')
   texto(nota, MARGEM.esq + (LARGURA_UTIL - helv.widthOfTextAtSize(nota, 7.5)) / 2, { fonte: helv, tamanho: 7.5, cor: CINZA })
 
-  // Rodapé em todas as páginas: a filial (razão social, CNPJ, endereço), o
-  // código do documento e onde conferir.
+  // Em todas as páginas, acima do rodapé da filial (que vem do timbrado): o
+  // hash do documento, onde conferir e a página.
   const url = `${d.urlBase.replace(/\/+$/, '')}/verificar/${d.codigoVerificacao}`
-  const filial = limpar(helvNegrito, `${DADOS_DA_FILIAL.nome}  ·  CNPJ ${DADOS_DA_FILIAL.cnpj}`)
-  const endereco = limpar(helv, DADOS_DA_FILIAL.endereco)
   paginas.forEach((pagina, i) => {
-    const y = 74
-    pagina.drawRectangle({ x: MARGEM.esq, y: y + 12, width: LARGURA_UTIL, height: 0.8, color: VERMELHO })
-    pagina.drawText(filial, { x: MARGEM.esq, y, size: 7.5, font: helvNegrito, color: TINTA })
-    pagina.drawText(endereco, { x: MARGEM.esq, y: y - 10, size: 7.5, font: helv, color: CINZA })
-    pagina.drawText(limpar(helv, `${titulo} · Hash do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y: y - 28, size: 6.3, font: helv, color: CINZA_CLARO })
-    pagina.drawText(limpar(helv, `A autenticidade deste documento pode ser conferida em ${url}`), { x: MARGEM.esq, y: y - 37, size: 6.3, font: helv, color: CINZA_CLARO })
+    pagina.drawLine({ start: { x: MARGEM.esq, y: 96 }, end: { x: A4.largura - MARGEM.dir, y: 96 }, thickness: 0.5, color: LINHA })
+    pagina.drawText(limpar(helv, `${titulo} · Hash do documento (SHA-256): ${d.hashDocumento}`), { x: MARGEM.esq, y: 87, size: 6.3, font: helv, color: CINZA_CLARO })
+    pagina.drawText(limpar(helv, `A autenticidade deste documento pode ser conferida em ${url}`), { x: MARGEM.esq, y: 78, size: 6.3, font: helv, color: CINZA_CLARO })
     const pag = `Página ${i + 1} de ${paginas.length}`
-    pagina.drawText(pag, { x: A4.largura - MARGEM.dir - helv.widthOfTextAtSize(pag, 7), y: y - 37, size: 7, font: helv, color: CINZA })
+    pagina.drawText(pag, { x: A4.largura - MARGEM.dir - helv.widthOfTextAtSize(pag, 7), y: 87, size: 7, font: helv, color: CINZA })
   })
 
   // Metadados fixos: o mesmo ofício dá sempre o mesmo arquivo.
