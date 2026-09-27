@@ -305,8 +305,11 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   e-mail (os convites antigos também), `whatsapp:<n>` = só WhatsApp,
   `whatsapp+email:<n>` = os dois. Só e-mail confirma o e-mail; só WhatsApp
   confirma o número (`whatsapp_contas`); pelos dois, nada é confirmado sozinho.
-  "Reenviar" lê a marca do último link e usa os mesmos canais. O link nunca
-  volta para a tela do admin — senão deixaria de provar o canal.
+  "Reenviar" lê a marca do último link e usa os mesmos canais. Em
+  `/usuarios`, quem nunca entrou tem "Enviar convite de primeiro acesso"
+  (`enviarConvite`): o admin escolhe o WhatsApp (sugerido do último convite ou
+  do celular pessoal da ficha do RH) e/ou o e-mail salvo no perfil. O link
+  nunca volta para a tela do admin — senão deixaria de provar o canal.
 - **Cadastro único** (`convidarEmLote`, telas `/pessoas/adicionar` e o quadro
   "Acesso ao Palácio Virtual" da ficha em `/equipe/[id]`): uma ação cria a
   conta, liga ou cria a ficha do RH (`salvar_membro_equipe` pela sessão do

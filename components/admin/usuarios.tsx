@@ -4,7 +4,7 @@ import { createContext, useContext, useMemo, useState, useTransition } from 'rea
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
+  Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, Send, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -18,7 +18,7 @@ import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
 const Setores = createContext<string[]>(NOMES_DOS_SETORES)
 import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
 import { emailValido } from '@/lib/contas/emails'
-import { atualizarUsuario, criarUsuario, desativarUsuario, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
+import { atualizarUsuario, criarUsuario, desativarUsuario, enviarConvite, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
 import { definirVerificacaoObrigatoria, removerVerificacaoDoUsuario } from '@/app/actions/verificacao'
 
 export type UsuarioNaTela = {
@@ -30,6 +30,10 @@ export type UsuarioNaTela = {
   /** E-mail de contato (links de senha e avisos). Só vale confirmado. */
   email: string | null
   emailConfirmado: boolean
+  /** Por onde saiu o último convite (só de quem nunca entrou). */
+  ultimoConvite: { whatsapp: string | null; porEmail: boolean } | null
+  /** Para o convite de primeiro acesso: o WhatsApp do último convite ou o celular pessoal da ficha do RH. */
+  whatsappSugerido: string | null
 }
 export type PessoaSemAcesso = { nome: string; cargo: string; setor: string; papel: Papel; usuario: string }
 export type EventoNaTela = { id: string; acao: string; detalhes: Record<string, unknown>; quando: string; ator: string; alvo: string | null }
@@ -95,7 +99,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
           </div>
         </div>
         {criando && <FormularioDeCriacao inicial={criando} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
-        <ListaDeUsuarios usuarios={usuarios} envioConfigurado={envioConfigurado} aoGerarSenha={setSenhaNova} />
+        <ListaDeUsuarios usuarios={usuarios} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} aoGerarSenha={setSenhaNova} />
       </section>
 
       {semAcesso.length > 0 && (
@@ -277,7 +281,7 @@ function FormularioDeCriacao({ inicial, envioConfigurado, whatsappConfigurado, a
 
 // ------------------------------------------------------------------ lista
 
-function ListaDeUsuarios({ usuarios, envioConfigurado, aoGerarSenha }: { usuarios: UsuarioNaTela[]; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function ListaDeUsuarios({ usuarios, envioConfigurado, whatsappConfigurado, aoGerarSenha }: { usuarios: UsuarioNaTela[]; envioConfigurado: boolean; whatsappConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<'todos' | Papel | 'desativados'>('todos')
   const [aberto, setAberto] = useState<string | null>(null)
@@ -302,14 +306,14 @@ function ListaDeUsuarios({ usuarios, envioConfigurado, aoGerarSenha }: { usuario
         <div className="flex flex-wrap gap-1.5">{filtros.map((f) => <button key={f.id} type="button" onClick={() => setFiltro(f.id)} className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', filtro === f.id ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground')}>{f.rotulo}</button>)}</div>
       </div>
       <ul className="divide-y divide-border">
-        {lista.map((u) => <LinhaDoUsuario key={u.id} usuario={u} aberto={aberto === u.id} alternar={() => setAberto(aberto === u.id ? null : u.id)} envioConfigurado={envioConfigurado} aoGerarSenha={aoGerarSenha} />)}
+        {lista.map((u) => <LinhaDoUsuario key={u.id} usuario={u} aberto={aberto === u.id} alternar={() => setAberto(aberto === u.id ? null : u.id)} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} aoGerarSenha={aoGerarSenha} />)}
         {!lista.length && <li className="px-5 py-10 text-center text-sm text-muted-foreground"><Users className="mx-auto mb-2 size-5" />Ninguém encontrado com esse filtro.</li>}
       </ul>
     </Card>
   )
 }
 
-function LinhaDoUsuario({ usuario: u, aberto, alternar, envioConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; aberto: boolean; alternar: () => void; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function LinhaDoUsuario({ usuario: u, aberto, alternar, envioConfigurado, whatsappConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; aberto: boolean; alternar: () => void; envioConfigurado: boolean; whatsappConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   return (
     <li className={cn(!u.ativo && 'bg-muted/30')}>
       <button type="button" onClick={alternar} aria-expanded={aberto} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-muted/40">
@@ -331,12 +335,12 @@ function LinhaDoUsuario({ usuario: u, aberto, alternar, envioConfigurado, aoGera
           : <span className="shrink-0 rounded-md bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive">Desativado</span>}
         <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', aberto && 'rotate-180')} />
       </button>
-      {aberto && <PainelDoUsuario usuario={u} envioConfigurado={envioConfigurado} aoGerarSenha={aoGerarSenha} />}
+      {aberto && <PainelDoUsuario usuario={u} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} aoGerarSenha={aoGerarSenha} />}
     </li>
   )
 }
 
-function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; envioConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
+function PainelDoUsuario({ usuario: u, envioConfigurado, whatsappConfigurado, aoGerarSenha }: { usuario: UsuarioNaTela; envioConfigurado: boolean; whatsappConfigurado: boolean; aoGerarSenha: (s: { usuario: string; senha: string }) => void }) {
   const router = useRouter()
   const [nome, setNome] = useState(u.nome)
   const [cargo, setCargo] = useState(u.cargo)
@@ -351,6 +355,15 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
   const [senha, setSenha] = useState('')
   const [aviso, setAviso] = useState<Aviso>(null)
   const [ocupado, rodar] = useTransition()
+  // Convite de primeiro acesso: só para quem nunca entrou. Sai pelo WhatsApp e/ou pelo e-mail salvo.
+  const podeConvidar = u.ativo && !u.ultimoAcesso && !u.souEu && (envioConfigurado || whatsappConfigurado)
+  const [convidando, setConvidando] = useState(false)
+  const [numero, setNumero] = useState(u.whatsappSugerido ?? '')
+  const porEmailPossivel = envioConfigurado && Boolean(u.email)
+  const [porEmail, setPorEmail] = useState(porEmailPossivel && (u.ultimoConvite ? u.ultimoConvite.porEmail : !u.whatsappSugerido))
+  const zap = whatsappConfigurado ? numero.trim() : ''
+  const digitos = zap.replace(/\D/g, '')
+  const zapInvalido = zap.length > 0 && (digitos.length < 10 || digitos.length > 13)
 
   const emailNovo = email.trim().toLowerCase()
   const emailMudou = emailNovo !== (u.email ?? '') && emailNovo.length > 0
@@ -370,7 +383,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
       if (r.erro) return setAviso({ tom: 'erro', texto: r.erro })
       setAviso({ tom: 'ok', texto: r.recado ?? 'Pronto.' })
       if (r.senhaTemporaria && r.usuario) aoGerarSenha({ usuario: r.usuario, senha: r.senhaTemporaria })
-      setRedefinindo(false); setSenha('')
+      setRedefinindo(false); setSenha(''); setConvidando(false)
       router.refresh()
     })
   }
@@ -414,13 +427,39 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, aoGerarSenha }: { usuar
         </div>
       )}
 
+      {convidando && (
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
+          <p className="text-sm font-medium">Convite de primeiro acesso para {u.nome}</p>
+          <p className="text-xs text-muted-foreground">
+            A pessoa recebe o usuário <strong>@{u.usuario}</strong> e um link para criar a própria senha, que vale 72 horas. Um convite novo invalida o anterior.
+            {u.ultimoConvite && ` Último convite: ${[u.ultimoConvite.whatsapp && `WhatsApp ${u.ultimoConvite.whatsapp}`, u.ultimoConvite.porEmail && 'e-mail'].filter(Boolean).join(' e ')}.`}
+          </p>
+          {whatsappConfigurado && (
+            <label className="flex flex-col gap-1.5 text-sm font-medium">WhatsApp
+              <input type="tel" inputMode="tel" value={numero} maxLength={30} className={campo} placeholder="(21) 98765-4321" onChange={(e) => setNumero(e.target.value)} aria-invalid={zapInvalido} />
+              {zapInvalido && <span className="text-xs font-normal text-destructive">Use DDD e número, como (21) 98765-4321.</span>}
+            </label>
+          )}
+          {porEmailPossivel
+            ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={porEmail} onChange={(e) => setPorEmail(e.target.checked)} />Também por e-mail ({u.email}{u.emailConfirmado ? '' : ', ainda não confirmado'})</label>
+            : <p className="text-xs text-muted-foreground">{!envioConfigurado ? 'Por e-mail, indisponível: o envio de e-mail não está configurado.' : 'Por e-mail, só depois de preencher o e-mail acima e salvar.'}</p>}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConvidando(false)}>Cancelar</Button>
+            <Button disabled={ocupado || zapInvalido || (!zap && !(porEmail && porEmailPossivel))} onClick={() => executar(enviarConvite, { whatsapp: zap, porEmail: porEmail && porEmailPossivel ? '1' : '' })}>
+              {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}Enviar convite
+            </Button>
+          </div>
+        </div>
+      )}
+
       {aviso && <p role={aviso.tom === 'erro' ? 'alert' : 'status'} className={cn('rounded-lg px-3 py-2 text-sm', aviso.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success')}>{aviso.texto}</p>}
 
       {!u.souEu && (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           {u.ativo ? <>
             {u.aparelhos > 0 && <Button variant="outline" disabled={ocupado} onClick={() => { if (confirm(`Remover a verificação em duas etapas de ${u.nome}? Use quando a pessoa perdeu ou trocou de celular. As sessões abertas dela são encerradas.`)) executar(removerVerificacaoDoUsuario, {}) }}><ShieldOff className="size-4" />Remover verificação em 2 etapas</Button>}
-            {!redefinindo && <Button variant="outline" onClick={() => setRedefinindo(true)}><KeyRound className="size-4" />Redefinir senha</Button>}
+            {podeConvidar && !convidando && <Button onClick={() => { setConvidando(true); setRedefinindo(false) }}><Send className="size-4" />Enviar convite de primeiro acesso</Button>}
+            {!redefinindo && <Button variant="outline" onClick={() => { setRedefinindo(true); setConvidando(false) }}><KeyRound className="size-4" />Redefinir senha</Button>}
             <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
           </> : (
             <Button disabled={ocupado} onClick={() => { if (confirm(podeLink ? `Reativar ${u.nome}? Enviaremos para ${u.email} um link para escolher uma senha nova.` : `Reativar ${u.nome}? Uma senha temporária nova será gerada.`)) executar(reativarUsuario, {}) }}><UserCheck className="size-4" />{podeLink ? 'Reativar e enviar link de senha' : 'Reativar com senha temporária'}</Button>

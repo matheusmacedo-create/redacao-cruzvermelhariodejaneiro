@@ -286,6 +286,18 @@ const USUARIOS: GuiaDaArea = {
       dica: 'O convite sai por todos os canais preenchidos. O link vale por 72 horas e, quando usado, confirma o canal que o recebeu: o e-mail, se foi só por e-mail; o WhatsApp, se foi só pelo WhatsApp. Quem ainda não entrou aparece em “Convites pendentes”, na tela de “Convidar várias pessoas”, onde dá para reenviar ou cancelar o convite. Para já criar a ficha no RH junto, prefira “Convidar várias pessoas”, mesmo para uma pessoa só.',
     },
     {
+      id: 'convite-de-primeiro-acesso',
+      titulo: 'Mandar o convite de primeiro acesso a quem já tem conta',
+      exemplo: 'O acesso do Matheus foi criado com senha temporária e ele nunca entrou: a administração abre a conta dele e manda o convite pelo WhatsApp; ele cria a senha pelo link.',
+      passos: [
+        'Na lista, toque na pessoa que aparece como “Nunca entrou”.',
+        'Toque em “Enviar convite de primeiro acesso”.',
+        'Confira o “WhatsApp” (vem do último convite ou do celular pessoal da ficha do RH) e, se quiser, marque “Também por e-mail”.',
+        'Toque em “Enviar convite”. O recado confirma por onde saiu.',
+      ],
+      dica: 'O botão só aparece para quem nunca entrou. O link vale 72 horas, e um convite novo invalida o anterior e qualquer link de senha pendente. Por e-mail, o convite vai para o e-mail salvo no perfil: se ele estiver errado, corrija e salve antes.',
+    },
+    {
       id: 'dar-acesso-sem-email',
       titulo: 'Dar acesso a quem não tem e-mail',
       passos: [
@@ -416,13 +428,13 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'O convite não chegou. E agora?',
-      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã. Para mandar um link novo, abra “Convidar várias pessoas”: em “Convites pendentes”, “Reenviar” gera outro link pelo mesmo caminho, e o anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
+      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã. Para mandar um link novo, toque na pessoa aqui e em “Enviar convite de primeiro acesso” (dá para trocar o WhatsApp), ou use “Reenviar” em “Convites pendentes”, na tela de “Convidar várias pessoas”. O link anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
       termos: ['reenviar convite', 'convite expirou', 'link expirou', 'o convite NÃO saiu'],
     },
     {
       id: 'aguardando-troca-de-senha',
       pergunta: 'O que significa “Aguardando troca de senha”?',
-      resposta: 'A pessoa está com uma senha provisória (gerada ou definida pela administração) e ainda não criou a dela. No próximo login, o Palácio Virtual pede a troca antes de qualquer outra coisa. O número “Aguardando 1º acesso”, no alto, conta essas pessoas.\n\nQuem recebeu convite por e-mail e ainda não entrou aparece como “Nunca entrou”.',
+      resposta: 'A pessoa está com uma senha provisória (gerada ou definida pela administração) e ainda não criou a dela. No próximo login, o Palácio Virtual pede a troca antes de qualquer outra coisa. O número “Aguardando 1º acesso”, no alto, conta essas pessoas.\n\nQuem recebeu convite e ainda não entrou aparece como “Nunca entrou”; para mandar o link de novo, toque na pessoa e em “Enviar convite de primeiro acesso”.',
       termos: ['senha provisória', 'aguardando 1º acesso', 'primeiro acesso', 'nunca entrou'],
     },
     {
