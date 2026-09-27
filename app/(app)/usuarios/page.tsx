@@ -10,6 +10,7 @@ import { chaveDoNome, PESSOAS_DA_EQUIPE } from '@/lib/equipe'
 import { emailConfigurado } from '@/lib/newsletter/resend'
 import { tituloDaArea } from '@/lib/navegacao'
 import { nomesDosSetores } from '@/lib/setores'
+import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
 
 export const metadata = { title: tituloDaArea('/usuarios') }
 
@@ -29,7 +30,7 @@ export default async function UsuariosPage() {
   const admin = createAdminClient()
   const workspaceId = context.workspace.id
 
-  const [{ data: membros }, contas, auditoria, setores] = await Promise.all([
+  const [{ data: membros }, contas, auditoria, setores, whatsapp] = await Promise.all([
     // profiles(*) e não a lista de colunas: a tela continua abrindo se o
     // deploy chegar antes da migração que criou trocar_senha/desativado_em.
     supabase.from('workspace_members').select('user_id, role, coordination, created_at, profiles(*)').eq('workspace_id', workspaceId).order('created_at'),
@@ -38,6 +39,7 @@ export default async function UsuariosPage() {
       ? supabase.from('auditoria_de_acesso').select('id, ator_id, alvo_id, acao, detalhes, criado_em').eq('workspace_id', workspaceId).order('criado_em', { ascending: false }).limit(60)
       : Promise.resolve({ data: [] as never[], error: null }),
     nomesDosSetores(supabase, workspaceId),
+    configDoWhatsapp(workspaceId),
   ])
 
   const ultimoAcesso = new Map((contas.data?.users ?? []).map((u) => [u.id, u.last_sign_in_at ?? null]))
@@ -70,7 +72,7 @@ export default async function UsuariosPage() {
   return (
     <div>
       <PageHeader title="Usuários e permissões" description={`Quem acessa o espaço ${context.workspace.name}, com qual papel, e o que cada papel pode fazer.`} />
-      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} verificacaoObrigatoriaPara={context.verificacaoObrigatoriaPara} envioConfigurado={emailConfigurado()} setores={setores} />
+      <GestaoDeUsuarios usuarios={usuarios} semAcesso={semAcesso} eventos={eventos} auditoriaDisponivel={!auditoria.error} verificacaoObrigatoriaPara={context.verificacaoObrigatoriaPara} envioConfigurado={emailConfigurado()} whatsappConfigurado={Boolean(whatsapp)} setores={setores} />
     </div>
   )
 }

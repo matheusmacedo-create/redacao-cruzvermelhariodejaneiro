@@ -293,9 +293,30 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
 - **Trocar e-mail exige abrir o link no endereço novo** (a pessoa ou o admin
   pedem; nada muda antes) e o endereço antigo recebe aviso. `profiles.email`
   não está no grant de update por coluna: a Data API não troca.
-- **Admin**: criação por **convite** (a pessoa define a senha pelo link, que
-  também confirma o e-mail), redefinição e reativação por **link** quando há
-  e-mail confirmado; senha temporária na tela continua para quem não tem.
+- **Admin**: criação por **convite** (a pessoa define a senha pelo link),
+  redefinição e reativação por **link** quando há e-mail confirmado; senha
+  temporária na tela continua para quem não tem.
+- **Convite pelo WhatsApp e/ou por e-mail** (`mandarConvite` em
+  `app/actions/usuarios.ts`, regras em `lib/contas/convite.ts`). O link sai por
+  todo canal preenchido; pelo WhatsApp vai pela fila (`categoria 'conta'`,
+  silêncio de 22h às 7h, texto apagado depois do envio). O **primeiro acesso
+  prova o canal que recebeu o link**, e só ele: a marca fica em
+  `tokens_de_conta.email` (sem uso nos links de definir senha) — nula = só
+  e-mail (os convites antigos também), `whatsapp:<n>` = só WhatsApp,
+  `whatsapp+email:<n>` = os dois. Só e-mail confirma o e-mail; só WhatsApp
+  confirma o número (`whatsapp_contas`); pelos dois, nada é confirmado sozinho.
+  "Reenviar" lê a marca do último link e usa os mesmos canais. O link nunca
+  volta para a tela do admin — senão deixaria de provar o canal.
+- **Cadastro único** (`convidarEmLote`, telas `/pessoas/adicionar` e o quadro
+  "Acesso ao Palácio Virtual" da ficha em `/equipe/[id]`): uma ação cria a
+  conta, liga ou cria a ficha do RH (`salvar_membro_equipe` pela sessão do
+  admin; ficha nova nasce com vínculo "Outro / a definir"; e-mail do domínio
+  da instituição vai para o de trabalho, o resto para o pessoal; o WhatsApp
+  vira o telefone pessoal se a ficha não tiver) e, se
+  pedido, põe o link de completar a ficha (`criarConviteDaFicha` com
+  `porWhatsapp: false` e `numeroDoConvite`, para o lembrete) na **mesma
+  mensagem** do convite. Falha na ficha não desfaz a conta: o resultado da
+  linha diz o que faltou.
 - **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
   papel alterado, conta desativada/reativada e e-mail trocado. São
   best-effort: nunca desfazem a ação; a falha vai para o log.

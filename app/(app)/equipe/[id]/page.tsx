@@ -11,6 +11,11 @@ import { AcoesDeSituacao, Remuneracoes, VerRestritos } from '@/components/app/eq
 import { Situacao, nomeDe } from '@/components/app/equipe/comum'
 import { ArquivosDaFicha, type ArquivoDaFicha } from '@/components/app/equipe/arquivos'
 import { PedirFicha } from '@/components/app/equipe/pedir-ficha'
+import { DarAcesso } from '@/components/app/equipe/dar-acesso'
+import { pode, type Papel } from '@/lib/permissoes'
+import { nomesDosSetores } from '@/lib/setores'
+import { SETORES } from '@/lib/equipe'
+import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
 import { faltasDaFicha } from '@/lib/rh/ficha'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -56,6 +61,13 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
       .eq('membro_id', id).order('created_at', { ascending: false }).limit(500) : Promise.resolve({ data: null }),
     nivel >= 2 && sp.aba === 'arquivos' ? supabase.from('workspace_members').select('user_id,profiles(full_name)').eq('workspace_id', context.workspace.id) : Promise.resolve({ data: null }),
   ])
+  // Sem login e quem vê pode dar acesso (admin): o cartão "Acesso ao Palácio Virtual" já oferece o convite.
+  const darAcesso = !m.user_id && m.situacao !== 'desligado' && pode(context.role, 'usuarios.gerenciar')
+    ? {
+      setores: await nomesDosSetores(supabase, context.workspace.id), whatsapp: Boolean(await configDoWhatsapp(context.workspace.id)),
+      papel: ((m.setor && SETORES.find((x) => x.nome === m.setor)?.papelSugerido) || 'colaborador') as Papel,
+    }
+    : null
   // O link aberto para a pessoa completar a ficha (a tabela é só do servidor).
   const { data: convite } = nivel >= 2 && sp.aba === 'pessoal'
     ? await createAdminClient().from('equipe_convites').select('criado_em').eq('membro_id', id).is('usado_em', null).is('cancelado_em', null).gt('expira_em', new Date().toISOString()).maybeSingle()
@@ -120,6 +132,13 @@ export default async function FichaDaEquipe({ params, searchParams }: { params: 
             {m.observacoes && nivel >= 2 && <p className="mt-3 whitespace-pre-line border-t border-border pt-3 text-sm">{m.observacoes}</p>}
           </Bloco>
           <div className="flex flex-col gap-5">
+            {darAcesso && (
+              <Bloco titulo="Acesso ao Palácio Virtual">
+                <DarAcesso fichaId={m.id} nome={m.nome_social || m.nome} cargo={m.cargo ?? ''} setor={m.setor ?? ''} setores={darAcesso.setores}
+                  papelSugerido={darAcesso.papel} whatsapp={pessoais?.telefone_pessoal ?? ''} email={m.email_trabalho ?? pessoais?.email_pessoal ?? ''}
+                  faltaFicha={faltasDaFicha(pessoais, { temDocumentos: m.tem_documentos, pedeDocumentos: false }).length > 0} whatsappConfigurado={darAcesso.whatsapp} />
+              </Bloco>
+            )}
             <Bloco titulo={`Equipe direta (${diretos?.length ?? 0})`}>
               {diretos?.length ? (
                 <ul className="flex flex-col gap-1.5 text-sm">

@@ -48,10 +48,12 @@ const TOM_DO_PAPEL: Record<Papel, string> = {
   escola: 'bg-success/10 text-success',
 }
 
-export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara, envioConfigurado, setores }: {
+export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDisponivel, verificacaoObrigatoriaPara, envioConfigurado, whatsappConfigurado, setores }: {
   setores: string[]; usuarios: UsuarioNaTela[]; semAcesso: PessoaSemAcesso[]; eventos: EventoNaTela[]; auditoriaDisponivel: boolean; verificacaoObrigatoriaPara: string[]
   /** RESEND_API_KEY presente: dá para mandar convite e links por e-mail. */
   envioConfigurado: boolean
+  /** O WhatsApp do Palácio está ligado: o convite também sai por ele. */
+  whatsappConfigurado: boolean
 }) {
   const [criando, setCriando] = useState<Partial<PessoaSemAcesso> | null>(null)
   const [senhaNova, setSenhaNova] = useState<{ usuario: string; senha: string } | null>(null)
@@ -92,7 +94,7 @@ export function GestaoDeUsuarios({ usuarios, semAcesso, eventos, auditoriaDispon
             <Button size="lg" onClick={() => setCriando(criando ? null : {})}><UserPlus className="size-4" />Novo usuário</Button>
           </div>
         </div>
-        {criando && <FormularioDeCriacao inicial={criando} envioConfigurado={envioConfigurado} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
+        {criando && <FormularioDeCriacao inicial={criando} envioConfigurado={envioConfigurado} whatsappConfigurado={whatsappConfigurado} aoConcluir={aoCriar} cancelar={() => setCriando(null)} />}
         <ListaDeUsuarios usuarios={usuarios} envioConfigurado={envioConfigurado} aoGerarSenha={setSenhaNova} />
       </section>
 
@@ -164,14 +166,14 @@ function SeletorDePapel({ valor, onChange, desabilitado }: { valor: Papel; onCha
 type ModoDeSenha = 'convite' | 'link' | 'gerar' | 'definir'
 
 const ROTULO_DO_MODO: Record<ModoDeSenha, string> = {
-  convite: 'Enviar convite por e-mail (recomendado)',
+  convite: 'Enviar convite (recomendado)',
   link: 'Enviar link por e-mail (recomendado)',
   gerar: 'Gerar senha temporária',
   definir: 'Definir uma senha',
 }
 
 const AJUDA_DO_MODO: Partial<Record<ModoDeSenha, string>> = {
-  convite: 'A pessoa recebe o usuário e um link para criar a própria senha. Ninguém mais conhece a senha, e o e-mail fica confirmado.',
+  convite: 'A pessoa recebe, pelo WhatsApp e/ou pelo e-mail preenchidos, o usuário e um link para criar a própria senha. Ninguém mais conhece a senha, e o canal que recebeu o link fica confirmado.',
   link: 'A pessoa recebe um link para escolher a senha nova. A senha atual continua valendo até ela usar o link.',
   gerar: 'A senha aparece uma vez aqui, para você repassar pessoalmente. A pessoa troca no primeiro acesso.',
 }
@@ -197,7 +199,7 @@ function CampoDeSenha({ opcoes, modo, setModo, senha, setSenha, usuario, nome, m
   )
 }
 
-function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }: { inicial: Partial<PessoaSemAcesso>; envioConfigurado: boolean; aoConcluir: (r: Resultado) => void; cancelar: () => void }) {
+function FormularioDeCriacao({ inicial, envioConfigurado, whatsappConfigurado, aoConcluir, cancelar }: { inicial: Partial<PessoaSemAcesso>; envioConfigurado: boolean; whatsappConfigurado: boolean; aoConcluir: (r: Resultado) => void; cancelar: () => void }) {
   const router = useRouter()
   const [nome, setNome] = useState(inicial.nome ?? '')
   const [usuario, setUsuario] = useState(inicial.usuario ?? '')
@@ -207,13 +209,16 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
   const [coordenacao, setCoordenacao] = useState(inicial.setor ?? '')
   const [papel, setPapel] = useState<Papel>(inicial.papel ?? 'colaborador')
   const [email, setEmail] = useState('')
-  const [modoEscolhido, setModo] = useState<ModoDeSenha>(envioConfigurado ? 'convite' : 'gerar')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [modoEscolhido, setModo] = useState<ModoDeSenha>(envioConfigurado || whatsappConfigurado ? 'convite' : 'gerar')
   const [senha, setSenha] = useState('')
   const [aviso, setAviso] = useState<Aviso>(null)
   const [ocupado, rodar] = useTransition()
   const temEmail = Boolean(emailValido(email))
-  const podeConvidar = envioConfigurado && temEmail
-  // Sem e-mail válido, o convite some da lista e o modo cai para a temporária.
+  const digitos = whatsapp.replace(/\D/g, '')
+  const temWhatsapp = digitos.length >= 10 && digitos.length <= 13
+  const podeConvidar = (envioConfigurado && temEmail) || (whatsappConfigurado && temWhatsapp)
+  // Sem canal para o convite, ele some da lista e o modo cai para a temporária.
   const modo: ModoDeSenha = modoEscolhido === 'convite' && !podeConvidar ? 'gerar' : modoEscolhido
   const opcoes: ModoDeSenha[] = podeConvidar ? ['convite', 'gerar', 'definir'] : ['gerar', 'definir']
 
@@ -222,7 +227,7 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
     setAviso(null)
     rodar(async () => {
       const form = new FormData()
-      Object.entries({ nome, usuario, cargo, coordenacao, papel, email, modoSenha: modo, senha }).forEach(([k, v]) => form.set(k, v))
+      Object.entries({ nome, usuario, cargo, coordenacao, papel, email, whatsapp: modo === 'convite' && whatsappConfigurado && temWhatsapp ? whatsapp : '', modoSenha: modo, senha }).forEach(([k, v]) => form.set(k, v))
       const r = await criarUsuario(form)
       if (r.erro) return setAviso({ tom: 'erro', texto: r.erro })
       aoConcluir(r)
@@ -243,10 +248,13 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
           <label className="flex flex-col gap-1.5 text-sm font-medium">E-mail
             <input type="email" value={email} maxLength={254} className={campo} placeholder="pessoa@email.com" onChange={(e) => setEmail(e.target.value)} aria-invalid={email.length > 0 && !temEmail} />
           </label>
+          {whatsappConfigurado && <label className="flex flex-col gap-1.5 text-sm font-medium">WhatsApp
+            <input type="tel" inputMode="tel" value={whatsapp} maxLength={30} className={campo} placeholder="(21) 98765-4321" onChange={(e) => setWhatsapp(e.target.value)} aria-invalid={whatsapp.length > 0 && !temWhatsapp} />
+          </label>}
           <label className="flex flex-col gap-1.5 text-sm font-medium">Cargo ou função
             <input value={cargo} maxLength={120} className={campo} onChange={(e) => setCargo(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium md:col-span-2">Coordenação
+          <label className={cn('flex flex-col gap-1.5 text-sm font-medium', !whatsappConfigurado && 'md:col-span-2')}>Coordenação
             <select value={coordenacao} className={campo} onChange={(e) => setCoordenacao(e.target.value)}>
               <option value="">Sem coordenação</option>
               {setores.map((s) => <option key={s}>{s}</option>)}
@@ -255,7 +263,8 @@ function FormularioDeCriacao({ inicial, envioConfigurado, aoConcluir, cancelar }
         </div>
         <SeletorDePapel valor={papel} onChange={setPapel} />
         <CampoDeSenha opcoes={opcoes} modo={modo} setModo={setModo} senha={senha} setSenha={setSenha} usuario={usuario} nome={nome}
-          motivoSemEmail={!envioConfigurado ? 'Convite por e-mail indisponível: o envio de e-mail não está configurado.' : !temEmail ? 'Informe o e-mail para poder enviar o convite.' : null} />
+          motivoSemEmail={podeConvidar ? null : !envioConfigurado && !whatsappConfigurado ? 'Convite indisponível: nem o envio de e-mail nem o WhatsApp do Palácio estão configurados.'
+            : whatsappConfigurado && envioConfigurado ? 'Informe o WhatsApp ou o e-mail para poder enviar o convite.' : whatsappConfigurado ? 'Informe o WhatsApp (com DDD) para poder enviar o convite.' : 'Informe o e-mail para poder enviar o convite.'} />
         {aviso && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{aviso.texto}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" size="lg" onClick={cancelar}>Cancelar</Button>

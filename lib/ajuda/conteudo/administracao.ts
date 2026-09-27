@@ -220,7 +220,7 @@ const ACESSOS: GuiaDaArea = {
 
 const USUARIOS: GuiaDaArea = {
   href: '/usuarios',
-  paraQueServe: 'Aqui a administração decide quem entra no Palácio Virtual e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
+  paraQueServe: 'Aqui a administração decide quem entra no Palácio Virtual e o que cada pessoa pode fazer. Você cria acessos (de preferência por convite, pelo WhatsApp e/ou por e-mail), muda papel, coordenação e e-mail, redefine senhas, desativa e reativa contas e escolhe quem é obrigado a usar a verificação em duas etapas. Tudo o que muda fica no “Registro de acessos”.',
   quemUsa: 'Só administradores veem esta área. Ninguém muda o próprio papel nem desativa a própria conta (quem faz é outra pessoa da administração), e o Palácio Virtual nunca fica sem pelo menos um administrador ativo.',
   naPratica: {
     titulo: 'A chegada de uma nova pessoa na Comunicação',
@@ -246,7 +246,7 @@ const USUARIOS: GuiaDaArea = {
     {
       alvo: 'usuarios.criar',
       titulo: 'Dar acesso',
-      texto: '“Novo usuário” cria um acesso por vez; “Convidar várias pessoas” manda vários convites de uma vez. Pelo convite por e-mail, a pessoa cria a própria senha e ninguém mais a conhece.',
+      texto: '“Novo usuário” cria um acesso por vez; “Convidar várias pessoas” manda vários convites de uma vez e já cria as fichas no RH. Pelo convite, a pessoa cria a própria senha e ninguém mais a conhece.',
       lado: 'bottom',
     },
     {
@@ -278,12 +278,12 @@ const USUARIOS: GuiaDaArea = {
       passos: [
         'Toque em “Novo usuário”.',
         'Preencha “Nome completo”. O “Usuário (para o login)” vem sugerido a partir do nome, no formato nome.sobrenome; ajuste se precisar.',
-        'Digite o “E-mail” da pessoa e, se quiser, “Cargo ou função” e “Coordenação”.',
+        'Digite o “WhatsApp” e/ou o “E-mail” da pessoa e, se quiser, “Cargo ou função” e “Coordenação”.',
         'Escolha o papel: “Administrador”, “Editor”, “Colaborador” ou “Equipe da escola”. Na dúvida, “Colaborador”: dá para mudar depois.',
-        'Deixe marcado “Enviar convite por e-mail (recomendado)” e toque em “Criar acesso”.',
+        'Deixe marcado “Enviar convite (recomendado)” e toque em “Criar acesso”.',
         'O recado no alto confirma para onde o convite foi. A pessoa recebe o usuário e um link para criar a própria senha.',
       ],
-      dica: 'O link do convite vale por 72 horas e, quando usado, já confirma o e-mail da pessoa. Quem ainda não entrou aparece em “Convites pendentes”, na tela de “Convidar várias pessoas”, onde dá para reenviar ou cancelar o convite.',
+      dica: 'O convite sai por todos os canais preenchidos. O link vale por 72 horas e, quando usado, confirma o canal que o recebeu: o e-mail, se foi só por e-mail; o WhatsApp, se foi só pelo WhatsApp. Quem ainda não entrou aparece em “Convites pendentes”, na tela de “Convidar várias pessoas”, onde dá para reenviar ou cancelar o convite. Para já criar a ficha no RH junto, prefira “Convidar várias pessoas”, mesmo para uma pessoa só.',
     },
     {
       id: 'dar-acesso-sem-email',
@@ -403,20 +403,20 @@ const USUARIOS: GuiaDaArea = {
     },
     {
       id: 'convite-ou-senha-temporaria',
-      pergunta: 'Convite por e-mail, senha temporária ou definir uma senha: qual usar?',
-      resposta: 'Prefira o convite: a pessoa cria a própria senha pelo link, ninguém mais a conhece e o e-mail dela já fica confirmado.\n\nA senha temporária é para quem não tem e-mail: aparece uma vez na tela, você repassa pessoalmente e a pessoa troca no primeiro login. “Definir uma senha” funciona igual, mas quem escolhe a senha é você.',
+      pergunta: 'Convite, senha temporária ou definir uma senha: qual usar?',
+      resposta: 'Prefira o convite, pelo WhatsApp e/ou por e-mail: a pessoa cria a própria senha pelo link e ninguém mais a conhece.\n\nA senha temporária é para quem não tem nem WhatsApp nem e-mail: aparece uma vez na tela, você repassa pessoalmente e a pessoa troca no primeiro login. “Definir uma senha” funciona igual, mas quem escolhe a senha é você.',
       termos: ['senha provisória', 'primeiro acesso', 'como dar acesso'],
     },
     {
       id: 'convite-nao-aparece',
-      pergunta: 'Por que a opção de convite por e-mail não aparece?',
-      resposta: 'Ela só aparece com um e-mail válido no campo “E-mail” e com o envio de e-mail do Palácio Virtual configurado. Sem o envio configurado, a tela mostra um aviso amarelo no alto, e só a senha temporária (ou uma senha definida por você) funciona.',
-      termos: ['Convite por e-mail indisponível', 'Informe o e-mail para poder enviar o convite', 'envio de e-mail não está configurado', 'RESEND_API_KEY'],
+      pergunta: 'Por que a opção “Enviar convite” não aparece?',
+      resposta: 'Ela só aparece com um canal que funcione: um e-mail válido no campo “E-mail”, com o envio de e-mail do Palácio Virtual configurado, ou um celular com DDD no campo “WhatsApp”, com o WhatsApp do Palácio ligado (sem ele, o campo nem aparece). Sem o envio de e-mail, a tela mostra um aviso amarelo no alto.',
+      termos: ['Convite por e-mail indisponível', 'Convite indisponível', 'Informe o e-mail para poder enviar o convite', 'Informe o WhatsApp', 'envio de e-mail não está configurado', 'RESEND_API_KEY'],
     },
     {
       id: 'convite-nao-chegou',
       pergunta: 'O convite não chegou. E agora?',
-      resposta: 'Peça para a pessoa olhar o spam. Para mandar um link novo, abra “Convidar várias pessoas”: em “Convites pendentes”, “Reenviar” gera outro link, e o anterior deixa de valer.\n\nSe o e-mail não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
+      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã. Para mandar um link novo, abra “Convidar várias pessoas”: em “Convites pendentes”, “Reenviar” gera outro link pelo mesmo caminho, e o anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
       termos: ['reenviar convite', 'convite expirou', 'link expirou', 'o convite NÃO saiu'],
     },
     {
@@ -470,7 +470,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'convidar-varias-pessoas',
       pergunta: 'Dá para dar acesso a várias pessoas de uma vez?',
-      resposta: 'Dá, por convite: toque em “Convidar várias pessoas”. Na tela “Adicionar pessoas ao Palácio Virtual”, você marca quem vai receber acesso, confere e-mail, setor e papel e envia os convites, até 30 de uma vez. Quem não tem e-mail entra por aqui, com senha temporária.',
+      resposta: 'Dá, por convite: toque em “Convidar várias pessoas”. Na tela “Adicionar pessoas ao Palácio Virtual”, você marca quem vai receber acesso, confere WhatsApp e/ou e-mail, setor e papel e envia os convites, até 30 de uma vez; as fichas no RH são criadas junto. Quem não tem nem WhatsApp nem e-mail entra por aqui, com senha temporária.',
       termos: ['em lote', 'vários convites', 'adicionar pessoas'],
     },
     {
