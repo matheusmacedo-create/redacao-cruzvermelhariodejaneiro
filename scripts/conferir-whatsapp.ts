@@ -7,7 +7,7 @@ import {
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
-  textoDoConviteDoPalacio, alvoDoLink, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
+  textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -250,6 +250,9 @@ igual(alvoDoLink(`/chamados/${id1}`), { tipo: 'chamado', id: id1 }, 'aviso de ch
 igual(alvoDoLink(`/aprovacoes/${id1}`), { tipo: 'aprovacao', id: id1 }, 'aviso de aprovação')
 igual(alvoDoLink(`/chat/${id1}`), { tipo: 'chat', canalId: id1, fio: null }, 'aviso do chat')
 igual(alvoDoLink(`/chat/${id1}?fio=${id2}`), { tipo: 'chat', canalId: id1, fio: id2 }, 'aviso de fio do chat')
+igual(alvoDoLink(`/portaria/visita/${id1}`), { tipo: 'visita', id: id1 }, 'aviso de visita na portaria')
+igual(alvoDoLink('/portaria'), null, 'a portaria sem visita não aceita resposta')
+igual(dicaDeResposta(`/portaria/visita/${id1}`)?.includes('*1* (pode subir)'), true, 'dica da visita: 1, 2 ou 3')
 igual(alvoDoLink(`/chat/${id1}?fio=abc`), { tipo: 'chat', canalId: id1, fio: null }, 'fio inválido vira a conversa')
 igual(alvoDoLink(`/mensagens/pessoa/${id2}`), { tipo: 'mensagem', pessoaId: id2 }, 'mensagem direta')
 igual(alvoDoLink('/chamados'), null, 'lista não é alvo')

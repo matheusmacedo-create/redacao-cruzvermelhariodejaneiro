@@ -18,6 +18,7 @@ import { pessoasParaVisitar } from '@/lib/portaria/servidor'
 import { FORMATOS_DE_CRACHA, MAXIMO_DE_CRACHAS, crachasPorFolha } from '@/lib/portaria/regras'
 import { FrenteDoCrachaDeVisitante, VersoDoCrachaDeVisitante } from '@/components/portaria/cracha-de-visitante'
 import { AtualizarSozinho, ConfirmarCadastro, DevolverCracha, NovaEntrada, RegistrarSaida, TirarFoto, TrocarLink } from '@/components/app/portaria/acoes'
+import { ResponderVisita, SeloDaResposta } from '@/components/app/portaria/resposta'
 
 export const metadata = { title: tituloDaArea('/portaria') }
 export const dynamic = 'force-dynamic'
@@ -137,15 +138,26 @@ async function Agora({ ws, hoje, supabase, pessoas, nomeDe }: { ws: string; hoje
         <div className="flex flex-col gap-6">
           <Card className="overflow-hidden p-0" data-ajuda="portaria.dentro">
             <h2 className="border-b border-border px-4 py-2.5 text-sm font-semibold">Na filial agora ({agora.length})</h2>
+            {agora.some((v) => v.visitado_id && (!v.resposta || v.resposta === 'aguardar')) && (
+              <p className="border-b border-border bg-muted/40 px-4 py-2 text-xs text-muted-foreground">Quem é visitado responde pelo Palácio ou pelo WhatsApp; a resposta aparece aqui sozinha.</p>
+            )}
             {!agora.length && <p className="p-8 text-center text-sm text-muted-foreground">Nenhum visitante dentro da filial.</p>}
             <ul className="divide-y divide-border">
               {agora.map((v) => (
                 <Linha key={v.id} v={v} nomeDe={nomeDe} destaque={
-                  <p className={`flex items-center gap-1 text-xs ${entrouEmOutroDia(v, hoje) ? 'font-medium text-warning-foreground' : 'text-muted-foreground'}`}>
-                    {entrouEmOutroDia(v, hoje) ? <AlertTriangle className="size-3.5" /> : <Clock className="size-3.5" />}
-                    Entrou {entrouEmOutroDia(v, hoje) ? `em ${diaEHora(v.entrada_em!)} — esqueceram a saída?` : `às ${hora(v.entrada_em!)} (${haQuanto(v.entrada_em!)})`}
-                  </p>
+                  <>
+                    <p className={`flex items-center gap-1 text-xs ${entrouEmOutroDia(v, hoje) ? 'font-medium text-warning-foreground' : 'text-muted-foreground'}`}>
+                      {entrouEmOutroDia(v, hoje) ? <AlertTriangle className="size-3.5" /> : <Clock className="size-3.5" />}
+                      Entrou {entrouEmOutroDia(v, hoje) ? `em ${diaEHora(v.entrada_em!)} — esqueceram a saída?` : `às ${hora(v.entrada_em!)} (${haQuanto(v.entrada_em!)})`}
+                    </p>
+                    {/* A resposta de quem é visitado (pelo Palácio ou pelo WhatsApp): o que dizer ao visitante. */}
+                    {v.visitado_id && (
+                      <SeloDaResposta resposta={v.resposta} quem={nomeDe.get(v.visitado_id) ?? null} recado={v.resposta_recado}
+                        quando={v.resposta_em ? hora(v.resposta_em) : null} pelo={v.resposta_canal} />
+                    )}
+                  </>
                 }>
+                  {v.visitado_id && <ResponderVisita id={v.id} atual={v.resposta} compacto nomeDoVisitante={v.nome} />}
                   <TirarFoto id={v.id} nome={v.nome} tem={Boolean(v.foto_path)} />
                   <RegistrarSaida id={v.id} nome={v.nome} cracha={v.cracha_numero} />
                 </Linha>

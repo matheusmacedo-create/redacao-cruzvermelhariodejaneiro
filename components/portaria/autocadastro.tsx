@@ -32,7 +32,7 @@ export function Autocadastro({ token }: { token: string }) {
       <div role="status" className="flex flex-col items-center gap-3 py-6 text-center" data-autocadastro="ok">
         <CircleCheck className="size-12 text-[var(--success-texto)]" aria-hidden="true" />
         <p className="text-lg font-semibold">Pronto, {enviado.split(' ')[0]}!</p>
-        <p className="max-w-sm text-sm text-muted-foreground">Mostre esta tela na portaria. A equipe confirma a sua entrada e avisa quem você veio visitar.</p>
+        <p className="max-w-sm text-sm text-muted-foreground">Mostre esta tela na portaria. A equipe confirma a sua entrada e avisa quem você veio visitar; a resposta chega pela portaria ou, se você pediu, no seu WhatsApp.</p>
       </div>
     )
   }
@@ -62,9 +62,14 @@ export function Autocadastro({ token }: { token: string }) {
       <Campo id="v-nome" rotulo="Seu nome" obrigatorio>
         <input id="v-nome" name="nome" required minLength={2} maxLength={120} autoComplete="name" className={campoDoMembro} />
       </Campo>
-      <Campo id="v-telefone" rotulo="Telefone" dica="Com DDD. Só para a portaria falar com você, se precisar.">
+      <Campo id="v-telefone" rotulo="Telefone" dica="Com DDD. Para a portaria falar com você, se precisar.">
         <input id="v-telefone" name="telefone" type="tel" inputMode="tel" maxLength={30} autoComplete="tel" aria-describedby="v-telefone-dica" className={campoDoMembro} />
       </Campo>
+      {/* Desmarcado de início (LGPD): só recebe quem pedir. */}
+      <label className="flex min-h-11 items-start gap-3 text-sm">
+        <input type="checkbox" name="avisar_visitante" className="mt-0.5 size-5 shrink-0 accent-primary" />
+        <span>Quero receber no WhatsApp, neste telefone, a resposta de quem vou visitar (pode subir ou aguarde na recepção).</span>
+      </label>
       <Campo id="v-empresa" rotulo="De onde você vem" dica="Empresa, órgão ou instituição. Em branco se for visita particular.">
         <input id="v-empresa" name="empresa" maxLength={120} autoComplete="organization" aria-describedby="v-empresa-dica" className={campoDoMembro} />
       </Campo>
@@ -77,7 +82,7 @@ export function Autocadastro({ token }: { token: string }) {
       {/* Armadilha para robôs: fora da tela, sem foco. */}
       <input type="text" name="site" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute -left-[9999px] size-px opacity-0" />
       <p className="text-xs text-muted-foreground">
-        Os dados ficam no livro de visitantes da Cruz Vermelha Brasileira – RJ, só para a segurança da filial. Não pedimos documento.
+        Os dados ficam no livro de visitantes da Cruz Vermelha Brasileira – RJ, só para a segurança da filial e, se você marcar, para a resposta da sua visita no WhatsApp. Não pedimos documento.
       </p>
       {erro && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{erro}</p>}
       <button type="submit" disabled={enviando} className={botaoDoMembro} data-autocadastro-enviar>

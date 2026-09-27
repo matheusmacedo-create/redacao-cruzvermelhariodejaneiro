@@ -5,6 +5,7 @@
 import {
   crachaPendente, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
   situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas, formatoDoCracha, crachasPorFolha,
+  lerRespostaDaVisita, respostaClaraDaVisita, linkDaVisita, mensagemParaVisitante, avisoParaPortaria, situacaoDaResposta,
 } from '../lib/portaria/regras'
 
 let falhas = 0
@@ -78,6 +79,36 @@ igual(deitados[0].verso.slice(0, 4), ['V-02', 'V-01', 'V-04', 'V-03'], 'deitado:
 igual(deitados[1].verso.slice(0, 2), ['V-12', 'V-11'], 'deitado: sobra espelhada')
 igual(formatoDoCracha('empe'), 'empe', 'formato em pé')
 igual(formatoDoCracha('x'), 'deitado', 'formato padrão: deitado')
+
+// A resposta de quem é visitado (migração 20260929160000)
+igual(lerRespostaDaVisita('1'), { resposta: 'subir', recado: null }, 'resposta 1: pode subir')
+igual(lerRespostaDaVisita('Pode subir!'), { resposta: 'subir', recado: null }, 'pode subir, com exclamação')
+igual(lerRespostaDaVisita('2 estou em reunião, 10 min'), { resposta: 'aguardar', recado: 'estou em reunião, 10 min' }, 'aguardar com recado')
+igual(lerRespostaDaVisita('Aguarde: já desço'), { resposta: 'aguardar', recado: 'já desço' }, 'aguarde com dois-pontos')
+igual(lerRespostaDaVisita('3 - estou fora hoje'), { resposta: 'recusar', recado: 'estou fora hoje' }, 'recusar com recado')
+igual(lerRespostaDaVisita('Não posso receber agora'), { resposta: 'recusar', recado: null }, 'não posso receber agora')
+igual(lerRespostaDaVisita('nao'), { resposta: 'recusar', recado: null }, 'não sem acento')
+igual(lerRespostaDaVisita('12 pessoas'), null, '12 não é 1')
+igual(lerRespostaDaVisita('subindo a escada'), null, '"subindo" não é "sobe"')
+igual(lerRespostaDaVisita('olá'), null, 'outra conversa')
+igual(respostaClaraDaVisita('sim'), null, 'sem citar, "sim" solto não vale')
+igual(respostaClaraDaVisita('ok'), null, 'sem citar, "ok" solto não vale')
+igual(respostaClaraDaVisita('1')?.resposta, 'subir', 'sem citar, "1" vale')
+igual(respostaClaraDaVisita('não posso, estou fora')?.resposta, 'recusar', 'sem citar, "não posso" vale')
+igual(linkDaVisita('a'.repeat(8)), '/portaria/visita/aaaaaaaa', 'link da visita')
+const paraVisitante = mensagemParaVisitante({ visitante: 'José Pereira', quem: 'Ana Lima', setor: 'Comunicação Social', resposta: 'subir' })
+igual(paraVisitante.startsWith('Olá, José! *Pode subir.* Ana Lima (Comunicação Social)'), true, 'mensagem ao visitante: pode subir, com o setor')
+igual(paraVisitante.includes('Recado'), false, 'mensagem ao visitante não leva o recado (é para a portaria)')
+igual(mensagemParaVisitante({ visitante: 'José', quem: '*Ana*', setor: null, resposta: 'aguardar' }).includes('*Ana*'), false, 'nome sem formatação do WhatsApp')
+const aviso = avisoParaPortaria({ visitante: 'José Pereira', quemRespondeu: 'Ana Lima', resposta: 'recusar', recado: 'fora hoje', visitanteAvisado: true })
+igual(aviso.titulo, 'Não pode receber agora: José Pereira', 'aviso à portaria: título')
+igual(aviso.mensagem.includes('Recado: fora hoje. O visitante') && aviso.mensagem.includes('recebeu a resposta pelo WhatsApp'), true, 'aviso à portaria: recado e visitante avisado')
+igual(situacaoDaResposta({ visitado_id: null, resposta: null }), 'sem_pessoa', 'sem pessoa do Palácio, sem resposta')
+igual(situacaoDaResposta({ visitado_id: 'x', resposta: null }), 'esperando', 'esperando a resposta')
+const autorizou = (tel: string, marca: string | null) => lerVisitante({ get: (n: string) => ({ nome: 'José', telefone: tel, motivo: 'reunião', avisar_visitante: marca } as Record<string, unknown>)[n] ?? null }, true).dados.avisar_visitante
+igual(autorizou('21999991234', 'on'), true, 'autorização com telefone')
+igual(autorizou('', 'on'), false, 'autorização sem telefone não vale')
+igual(autorizou('21999991234', null), false, 'sem marcar, não autoriza')
 
 if (falhas) { console.error(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('Portaria: tudo certo.')

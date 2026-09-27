@@ -9,7 +9,10 @@ import { ErroDaFoto, prepararFotoDePerfil } from '@/lib/membro/preparar-foto'
 import { confirmarEntrada, descartarCadastro, devolverCracha, registrarEntrada, registrarSaida, trocarLinkDaEntrada } from '@/app/actions/portaria'
 
 export type Pessoa = { id: string; nome: string; setor: string | null }
-type Inicial = { nome?: string; telefone?: string | null; empresa?: string | null; motivo?: string | null; visitado_id?: string | null; visitado_texto?: string | null; cracha_numero?: string | null }
+type Inicial = {
+  nome?: string; telefone?: string | null; empresa?: string | null; motivo?: string | null; visitado_id?: string | null; visitado_texto?: string | null
+  cracha_numero?: string | null; avisar_visitante?: boolean
+}
 
 const rotulo = 'flex flex-col gap-1.5 text-sm font-medium'
 
@@ -52,6 +55,11 @@ function Campos({ pessoas, inicial, foto, setFoto }: { pessoas: Pessoa[]; inicia
       </label>
       <label className={rotulo}>Motivo
         <input name="motivo" maxLength={300} defaultValue={inicial?.motivo ?? ''} className={inputClass} placeholder="Reunião, entrega, curso…" />
+      </label>
+      {/* Só com o "sim" do visitante (LGPD): ele recebe no WhatsApp a resposta de quem vai visitar. */}
+      <label className="flex items-start gap-2 text-sm sm:col-span-2" data-ajuda="portaria.avisar-visitante">
+        <input type="checkbox" name="avisar_visitante" defaultChecked={Boolean(inicial?.avisar_visitante)} className="mt-0.5 size-4 accent-primary" />
+        <span>O visitante quer receber no WhatsApp a resposta de quem vai visitar (pode subir, aguarde ou não pode agora). <span className="text-muted-foreground">Precisa do telefone; pergunte antes de marcar.</span></span>
       </label>
       <label className={rotulo}>Nº do crachá de visitante
         <input name="cracha_numero" maxLength={20} defaultValue={inicial?.cracha_numero ?? ''} className={inputClass} placeholder="Ex.: V-07" />
