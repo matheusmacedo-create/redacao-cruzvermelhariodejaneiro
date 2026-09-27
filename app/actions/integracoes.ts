@@ -8,6 +8,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
 import { enderecoLocal, instanciaValida, urlDoServidor } from '@/lib/whatsapp/regras'
+import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta-de-servico-regras'
+import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
 
 /**
  * Gravar e remover chaves de integração. A regra "só admin" mora no banco
@@ -29,6 +31,7 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
     if (!ehServico(servico) || 'oculto' in SERVICOS[servico]) throw new Error('Serviço desconhecido.')
     const campos = camposDo(servico)
     let valor = String(formData.get('valor') ?? '').trim()
+    let recadoExtra = ''
     if (campos.length) {
       const dados: Record<string, string> = {}
       for (const c of campos) {
@@ -48,6 +51,13 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {
       throw new Error('A chave parece curta demais. Cole a chave inteira.')
+    } else if (servico === 'google_analytics') {
+      // O arquivo JSON inteiro da conta de serviço: confere e guarda só o que o Palácio usa.
+      const guardar = contaDeServicoParaGuardar(valor)
+      if (typeof guardar !== 'string') throw new Error(guardar.erro)
+      valor = guardar
+      const conta = lerContaDeServico(guardar)
+      if ('email' in conta) recadoExtra = ` Falta um passo: no Google Analytics, dê acesso de Leitor à propriedade ${ID_DA_PROPRIEDADE} para ${conta.email}. Os números aparecem em Resultados.`
     }
 
     const supabase = await createClient()
@@ -66,7 +76,8 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
 
     revalidatePath('/configuracoes', 'layout')
     revalidatePath('/imprensa')
-    return { recado: `Chave da ${SERVICOS[servico].nome} guardada no cofre.` }
+    revalidatePath('/impacto')
+    return { recado: `Chave da ${SERVICOS[servico].nome} guardada no cofre.${recadoExtra}` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível guardar a chave.') }
   }
@@ -96,6 +107,7 @@ export async function removerChaveDeIntegracao(formData: FormData): Promise<Resu
 
     revalidatePath('/configuracoes', 'layout')
     revalidatePath('/imprensa')
+    revalidatePath('/impacto')
     return { recado: `Chave da ${SERVICOS[servico].nome} removida do cofre.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível remover a chave.') }

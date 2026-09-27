@@ -2,6 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos, obterChave } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
+import { apiDoGoogle } from './api'
 
 /**
  * A conexão da Redação com o Gmail da conta do Workspace.
@@ -32,14 +33,6 @@ export const ESCOPOS = [
   'https://www.googleapis.com/auth/gmail.settings.basic',
 ]
 
-/**
- * Onde ficam as APIs do Google. Só fora de produção, para os testes com um
- * servidor de mentira, dá para apontar para outro endereço (GOOGLE_API_TESTE).
- */
-function apiDoGoogle(padrao: string): string {
-  const teste = process.env.NODE_ENV !== 'production' ? process.env.GOOGLE_API_TESTE?.trim() : ''
-  return teste ? `${teste.replace(/\/$/, '')}${new URL(padrao).pathname}` : padrao
-}
 
 /** A conexão foi feita antes da leitura existir: o token não tem gmail.modify. */
 export const SEM_LEITURA = 'A autorização do Google não inclui a permissão necessária. Reconecte a conta em Configurações.'

@@ -536,13 +536,14 @@ const IMPRENSA: GuiaDaArea = {
 
 const RESULTADOS: GuiaDaArea = {
   href: '/impacto',
-  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação, nos últimos 30 dias: quantos pacotes e publicações saíram, em quais canais, e como andam os projetos ativos. Por enquanto, só com dados que o Palácio Virtual registra; alcance, engajamento e dados do site entram quando as ferramentas de medição (analytics) forem conectadas, sem números estimados.',
+  paraQueServe: 'Resultados mostra o que aconteceu depois da publicação: quantos pacotes e publicações saíram nos últimos 30 dias, em quais canais, quanta gente visitou o site (pelo Google Analytics) e como andam os projetos ativos. Alcance e engajamento das redes sociais entram quando essas fontes forem conectadas, sem números estimados.',
   quemUsa: 'Toda a equipe vê os mesmos números, da filial inteira. É uma tela só de leitura: nada se edita aqui.',
   naPratica: {
     titulo: 'O que saiu no mês, para a reunião da Diretoria',
     passos: [
       'Antes da reunião mensal, a Carla abre Resultados.',
       'Vê quantos pacotes e publicações saíram nos últimos 30 dias e em quais canais.',
+      'Em “O site”, vê quantas pessoas visitaram o site no mês e quais matérias foram mais lidas.',
       'Confere como andam os projetos ativos, com a situação de cada um.',
       'Leva esses números para a reunião, sem montar planilha.',
     ],
@@ -552,7 +553,7 @@ const RESULTADOS: GuiaDaArea = {
     {
       alvo: 'resultados.aviso',
       titulo: 'O que esta tela mostra',
-      texto: 'O efeito do que já saiu, nos últimos 30 dias. Por enquanto, só dados que o Palácio Virtual registra; alcance e engajamento chegam quando as ferramentas de medição (analytics) forem conectadas.',
+      texto: 'O efeito do que já saiu: a atividade que o Palácio Virtual registrou nos últimos 30 dias e as visitas do site, pelo Google Analytics. Alcance e engajamento das redes chegam quando essas fontes forem conectadas.',
       lado: 'bottom',
     },
     {
@@ -566,9 +567,19 @@ const RESULTADOS: GuiaDaArea = {
       texto: 'Quantas publicações cada canal teve nos últimos 30 dias, do que mais publicou ao que menos.',
     },
     {
+      alvo: 'resultados.site',
+      titulo: 'O site',
+      texto: 'As visitas do site, pelo Google Analytics: pessoas, visitas, páginas vistas e tempo de leitura, cada um comparado com o período anterior. Abaixo, as pessoas por dia, de onde vieram, o aparelho, as cidades e as páginas mais vistas.',
+    },
+    {
+      alvo: 'resultados.periodo',
+      titulo: 'Período do site',
+      texto: '“7 dias”, “28 dias” ou “90 dias”. O período termina ontem, porque o dia de hoje ainda está chegando ao Analytics. Vale só para “O site”; a atividade continua nos últimos 30 dias.',
+    },
+    {
       alvo: 'resultados.proximas',
       titulo: 'Próximas métricas',
-      texto: 'O que ainda vai chegar: alcance, crescimento de seguidores, engajamento e os dados do site e do Google. Até lá, a tela não mostra nenhum número estimado.',
+      texto: 'O que ainda vai chegar: alcance, crescimento de seguidores e engajamento nas redes, e as buscas no Google. Até lá, a tela não mostra nenhum número estimado.',
     },
     {
       alvo: 'resultados.projetos',
@@ -589,6 +600,32 @@ const RESULTADOS: GuiaDaArea = {
       ],
     },
     {
+      id: 'ver-visitas-do-site',
+      titulo: 'Ver quanta gente visitou o site e o que leu',
+      exemplo: 'Nos últimos 28 dias, 3.400 pessoas visitaram o site, 12% a mais que no período anterior; a matéria da campanha do agasalho foi a mais vista, e a maior parte chegou pelas redes sociais.',
+      passos: [
+        'Abra “Resultados” e desça até “O site”.',
+        'Escolha o período no alto da seção: “7 dias”, “28 dias” ou “90 dias”.',
+        'Leia os quatro números: pessoas, visitas, páginas vistas e tempo de leitura. Embaixo de cada um, a seta mostra quanto mudou em relação ao período anterior, do mesmo tamanho.',
+        'No gráfico “Pessoas por dia”, passe o mouse ou o dedo para ver cada dia. “Ver em tabela” mostra os números dia a dia.',
+        'Em “Páginas mais vistas”, o título abre a página no site. Nas matérias publicadas pelo Palácio, “Ver a pauta” leva à pauta de origem.',
+      ],
+      dica: 'O site só mede quem aceita os cookies, então os números ficam abaixo das visitas reais. Use para comparar períodos e matérias entre si.',
+    },
+    {
+      id: 'ligar-google-analytics',
+      titulo: 'Ligar o Google Analytics ao Palácio',
+      quem: 'Só administradores',
+      passos: [
+        'No Google Cloud, no mesmo projeto do Gmail, ative a “Google Analytics Data API”.',
+        'Em “Contas de serviço”, crie uma conta sem papéis no projeto e, nela, crie uma chave do tipo JSON. O arquivo é baixado no computador.',
+        'No Google Analytics, em Administrador → Gerenciamento de acesso à propriedade, adicione o e-mail da conta de serviço (termina em .iam.gserviceaccount.com) com o papel “Leitor”.',
+        'Em Configurações → Integrações, abra o arquivo JSON, copie tudo e cole no cartão “Google Analytics (conta de serviço)”. Toque em “Salvar no cofre”.',
+        'Volte a Resultados: “O site” passa a mostrar os números. Se aparecer um aviso, ele diz o passo que falta.',
+      ],
+      dica: 'A mesma lista, com os links, aparece em “O site” enquanto o Analytics não está ligado. Nunca mande o arquivo JSON por chat ou e-mail: ele é uma chave.',
+    },
+    {
       id: 'acompanhar-projetos',
       titulo: 'Acompanhar os projetos em andamento',
       passos: [
@@ -606,20 +643,32 @@ const RESULTADOS: GuiaDaArea = {
         'Se quiser, filtre por canal: a contagem de publicações e falhas acima da tabela acompanha o filtro.',
         'Para levar os números para uma planilha, toque em “Baixar CSV”.',
       ],
-      dica: 'Resultados mostra sempre os últimos 30 dias; não há seletor de período nesta tela.',
+      dica: 'A atividade de Resultados é sempre dos últimos 30 dias. O seletor de período da tela vale só para “O site”.',
     },
   ],
   perguntas: [
     {
       id: 'sem-alcance',
-      pergunta: 'Por que não vejo alcance, curtidas nem visitas do site?',
-      resposta: 'Porque essas fontes ainda não estão conectadas. Esta primeira versão usa só o que o Palácio Virtual já registra com segurança. Alcance, visualizações, seguidores, engajamento e dados do site vão aparecer quando as ferramentas de medição (analytics) forem ligadas, sem números estimados ou inventados.',
-      termos: ['analytics', 'alcance', 'curtidas', 'engajamento', 'seguidores', 'google', 'visualizações'],
+      pergunta: 'Por que não vejo alcance nem curtidas das redes?',
+      resposta: 'Porque essas fontes ainda não estão conectadas. Resultados usa o que o Palácio Virtual registra e, para o site, o Google Analytics. Alcance, visualizações, seguidores e engajamento das redes vão aparecer quando essas fontes forem ligadas, sem números estimados ou inventados.',
+      termos: ['alcance', 'curtidas', 'engajamento', 'seguidores', 'visualizações', 'instagram'],
+    },
+    {
+      id: 'site-desligado',
+      pergunta: 'Por que “O site” pede para ligar o Google Analytics, ou mostra um aviso?',
+      resposta: 'Sem a chave da conta de serviço em Configurações → Integrações, o Palácio não consegue ler o Analytics, e a seção mostra o passo a passo para um administrador. Com a chave, um aviso diz o que falta: ativar a “Google Analytics Data API” no Google Cloud, ou dar acesso de “Leitor” à conta de serviço na propriedade do site.',
+      termos: ['google analytics', 'analytics', 'visitas do site', 'ligar', 'conta de serviço', 'GA4', 'acesso de leitor'],
+    },
+    {
+      id: 'site-numeros-baixos',
+      pergunta: 'Por que o Analytics mostra menos visitas do que o site teve?',
+      resposta: 'Porque o site só mede quem aceita os cookies no aviso (é a regra da LGPD). Quem recusa ou ignora o aviso não é contado. Por isso, os números servem para comparar períodos e matérias entre si, não como a contagem exata de visitantes. Os números também são atualizados a cada meia hora, e o período termina ontem.',
+      termos: ['cookies', 'LGPD', 'poucas visitas', 'números baixos', 'diferente', 'atualização'],
     },
     {
       id: 'mudar-periodo',
       pergunta: 'Dá para mudar o período?',
-      resposta: 'Não nesta tela: ela mostra sempre os últimos 30 dias. Para outros períodos, use o “Histórico”, que tem “Últimos 90 dias” e “Tudo”, e baixe o CSV se precisar.',
+      resposta: 'Para o site, sim: “7 dias”, “28 dias” ou “90 dias”, no alto de “O site”. A atividade registrada fica sempre nos últimos 30 dias; para outros períodos, use o “Histórico”, que tem “Últimos 90 dias” e “Tudo”, e baixe o CSV se precisar.',
       termos: ['período', 'mês passado', 'ano', 'datas'],
     },
     {

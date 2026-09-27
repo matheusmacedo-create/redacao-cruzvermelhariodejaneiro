@@ -18,6 +18,12 @@
 
 /** O mesmo identificador que a home do site já usa. */
 export const ID_DO_ANALYTICS = 'G-HDYZZ5JZHF'
+/**
+ * A propriedade do GA4 desse identificador (Administrador → Detalhes da
+ * propriedade), de onde Resultados lê os números pela Data API. Também não é
+ * segredo: sem a conta de serviço com acesso de Leitor, ninguém lê nada com ele.
+ */
+export const ID_DA_PROPRIEDADE = '544248603'
 /** O Pixel da Meta da home. */
 export const ID_DO_PIXEL = '2224500131617302'
 
