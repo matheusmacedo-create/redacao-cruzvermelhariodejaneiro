@@ -12,6 +12,7 @@ import {
   CODIGOS_POR_JANELA, CODIGO_TENTATIVAS, CODIGO_VALIDADE_MIN, JANELA_DOS_CODIGOS_MIN, WHATSAPP_PADRAO,
   codigoNoFormato, formatarNumero, mascararNumero, numeroCanonico, textoDoCodigo, textoDoMenu, type EstadoDaConexao,
 } from '@/lib/whatsapp/regras'
+import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import {
   codigoConfere, configDoWhatsapp, criarInstancia, desconectar, gerarCodigo, hashDoCodigo, ligarWebhook, mandar, pedirQr,
   situacaoDaConexao, temWhatsapp,
@@ -105,7 +106,7 @@ export async function confirmarCodigoDoWhatsapp(formData: FormData): Promise<Res
 
     await auditarConta(admin, { userId: context.user.id, atorId: context.user.id, acao: 'whatsapp_confirmado', detalhes: { numero: mascararNumero(numero) }, workspaceId: context.workspace.id })
     // Boas-vindas com o menu: a pessoa vê na hora o que o número faz.
-    await mandar(admin, context.workspace.id, {
+    await entregar(admin, context.workspace.id, {
       numero, tipo: 'bot', userId: context.user.id,
       texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase() })}`,
     })
@@ -237,6 +238,22 @@ export async function ligarRecebimentoDoWhatsapp(): Promise<Resultado> {
     return { recado: 'Recebimento ligado: o bot passa a responder a quem escreve para o número.' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível ligar o recebimento.') }
+  }
+}
+
+/** Faz a fila andar agora (o que já pode sair; o silêncio continua valendo). */
+export async function enviarFilaAgora(): Promise<Resultado> {
+  try {
+    const { context } = await exigirAdmin()
+    const r = await processarFila(createAdminClient(), context.workspace.id, { orcamentoMs: 120_000, limite: 30 })
+    revalidatePath('/configuracoes/whatsapp')
+    const partes = [`${r.enviadas} ${r.enviadas === 1 ? 'mensagem enviada' : 'mensagens enviadas'}`]
+    if (r.adiadas) partes.push(`${r.adiadas} para tentar de novo mais tarde`)
+    if (r.desistiu) partes.push(`${r.desistiu} ${r.desistiu === 1 ? 'descartada' : 'descartadas'} (aviso já lido, número removido ou falha sem volta)`)
+    if (r.restam) partes.push(`${r.restam} ainda esperando a vez`)
+    return { recado: `${partes.join('; ')}.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível fazer a fila andar.') }
   }
 }
 

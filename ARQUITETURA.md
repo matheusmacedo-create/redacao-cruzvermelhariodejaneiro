@@ -1429,6 +1429,21 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
 - **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
   pausa ou retoma. Número desconhecido recebe uma apresentação, no máximo uma vez por dia. Teto de 6
   respostas a cada 10 min por número (um robô do outro lado não vira conversa infinita).
+- **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
+  `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
+  conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre
+  uma e outra, e 40 avisos por pessoa em 24 h. Falha por servidor fora (rede, 5xx, chave, instância)
+  volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
+  fila anda quando a Evolution avisa que reconectou (webhook), a cada aviso novo, na rotina diária
+  `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
+  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Só controle de volume:
+  **não há variação de texto nem “digitando” para despistar o WhatsApp**.
+- **Alerta de queda** (`lib/whatsapp/estado.ts`, tabela `whatsapp_estado`): quando a conexão cai
+  (connection.update, envio que falhou por servidor fora ou a rotina diária), os administradores
+  recebem “O WhatsApp do Palácio caiu” no sino e no e-mail (categoria `sistema`, que nunca vai pelo
+  WhatsApp), no máximo a cada 6 h; e “voltou” quando reconecta.
+- **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
+  (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
   quem confirmou o número, com teto por link. Use um chip só do Palácio.
 

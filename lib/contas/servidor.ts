@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
-import { mandar } from '@/lib/whatsapp/servidor'
+import { entregar } from '@/lib/whatsapp/fila'
 import { textoDeSeguranca } from '@/lib/whatsapp/regras'
 
 /**
@@ -146,7 +146,7 @@ async function avisarPorWhatsapp(admin: Admin, userId: string, pronto: EmailPron
     if (!workspaceId) return
     // O texto do e-mail sem o título (vai em negrito) e sem o rodapé.
     const corpo = pronto.texto.split('\n—\n')[0].split('\n').slice(2).join('\n')
-    await mandar(admin, workspaceId, { numero: conta.numero as string, texto: textoDeSeguranca({ titulo: pronto.assunto, texto: corpo }), tipo: 'seguranca', userId })
+    await entregar(admin, workspaceId, { numero: conta.numero as string, texto: textoDeSeguranca({ titulo: pronto.assunto, texto: corpo }), tipo: 'seguranca', userId })
   } catch (causa) {
     console.error('[contas] aviso por WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
   }

@@ -3,10 +3,10 @@
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Loader2, LogOut, PlugZap, QrCode, RefreshCw, Send, Webhook } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, LogOut, PlugZap, QrCode, RefreshCw, Send, Webhook } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { conectarWhatsapp, criarInstanciaDoWhatsapp, desconectarWhatsapp, estadoDoWhatsapp, ligarRecebimentoDoWhatsapp, testarWhatsapp } from '@/app/actions/whatsapp'
+import { conectarWhatsapp, criarInstanciaDoWhatsapp, desconectarWhatsapp, enviarFilaAgora, estadoDoWhatsapp, ligarRecebimentoDoWhatsapp, testarWhatsapp } from '@/app/actions/whatsapp'
 import { ROTULO_DO_ESTADO, type EstadoDaConexao } from '@/lib/whatsapp/regras'
 
 export type LinhaDoRegistroNaTela = {
@@ -55,6 +55,8 @@ export function PainelDoWhatsapp(p: {
   meuNumero: string | null
   registro: LinhaDoRegistroNaTela[]
   registroIndisponivel: boolean
+  /** null: a fila ainda não existe no banco. */
+  fila: { silencio: number; volume: number; falha: number } | null
 }) {
   const router = useRouter()
   // O que a tela descobriu sozinha (conectou pelo QR) vale até a próxima leitura do servidor.
@@ -186,6 +188,23 @@ export function PainelDoWhatsapp(p: {
         <div><Button variant={p.webhook === 'ligado' ? 'outline' : 'default'} disabled={ocupado} onClick={() => acao(ligarRecebimentoDoWhatsapp)}>
           {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Webhook className="size-4" />}{p.webhook === 'ligado' ? 'Ligar de novo' : 'Ligar o recebimento de mensagens'}
         </Button></div>
+      </Card>
+
+      <Card data-ajuda="whatsapp.fila" className="flex flex-col gap-3 p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Fila e horário de silêncio</h2>
+        <p className="text-sm text-muted-foreground">
+          De 22h às 7h, os avisos comuns esperam e saem às 7h; portaria, segurança da conta, códigos e respostas do bot saem na hora.
+          Saem no máximo 12 mensagens por minuto, e o que passar espera a vez. O que falhou porque o servidor estava fora volta a ser tentado sozinho quando a conexão voltar.
+        </p>
+        {p.fila === null
+          ? <p className="text-sm text-muted-foreground">A fila ainda não existe no banco (falta aplicar a migração da fila).</p>
+          : p.fila.silencio + p.fila.volume + p.fila.falha === 0
+            ? <p className="text-sm">A fila está vazia.</p>
+            : <p className="text-sm">Na fila agora: <strong>{p.fila.silencio}</strong> esperando o fim do silêncio, <strong>{p.fila.volume}</strong> esperando a vez e <strong>{p.fila.falha}</strong> para reenviar.</p>}
+        <div><Button variant="outline" disabled={ocupado || !p.fila || p.fila.volume + p.fila.falha === 0} onClick={() => acao(enviarFilaAgora)}>
+          {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}Enviar a fila agora
+        </Button></div>
+        <p className="text-xs text-muted-foreground">O botão manda o que já pode sair. O que espera o fim do silêncio continua esperando.</p>
       </Card>
 
       <Card data-ajuda="whatsapp.teste" className="flex flex-col gap-3 p-6">
