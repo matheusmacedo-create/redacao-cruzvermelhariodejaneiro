@@ -45,6 +45,16 @@ O e-mail sai pela caixa do setor escolhida, a mesma regra de `lib/correio/enviar
 por fornecedor, então ninguém vê quem mais foi convidado. As respostas por e-mail chegam em
 "E-mail do setor".
 
+O convite e o lembrete saem em HTML, com a versão em texto ao lado (`textoDoConvite` e
+`textoDoLembrete`, em `lib/compras/convites.ts`). O convite traz:
+- o número e o título do pedido;
+- os itens numa tabela;
+- o prazo em destaque;
+- a empresa e o CNPJ da nota fiscal (a Filial ou a Escola, conforme o pedido);
+- o botão "Enviar minha proposta".
+
+A assinatura da caixa vem no fim, como nos outros e-mails do setor (`Envio.html` em `lib/correio/enviar.ts`).
+
 Sem caixa, os links ficam prontos para "Copiar link", para mandar por WhatsApp. O token **não é
 legível pelo RLS**: a coluna fica fora do `grant select`. O link só sai por `linkDoConviteParaCopiar`,
 depois de conferir o nível.

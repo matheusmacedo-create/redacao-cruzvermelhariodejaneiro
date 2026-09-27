@@ -64,7 +64,7 @@ function base64Quebrado(texto: string): string {
   return (Buffer.from(texto, 'utf8').toString('base64').match(/.{1,76}/g) ?? []).join('\r\n')
 }
 
-function escapar(texto: string): string {
+export function escapar(texto: string): string {
   return texto.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
@@ -93,6 +93,19 @@ export function corpoComAssinatura(texto: string, assinaturaHtml: string): { htm
     assinatura ? `<br><div class="gmail_signature">${assinatura}</div>\n` : ''}</div>`
   const textoAssinatura = assinatura ? htmlParaTexto(assinatura) : ''
   return { html, texto: [paragrafos.join('\n\n'), textoAssinatura ? `-- \n${textoAssinatura}` : ''].filter(Boolean).join('\n\n') }
+}
+
+/**
+ * Corpo já montado em HTML (um e-mail com tabela e botão, como o pedido de
+ * proposta), com a versão em texto ao lado e a assinatura da caixa no fim.
+ * Quem chama garante que `htmlDoCorpo` já vem escapado.
+ */
+export function corpoHtmlComAssinatura(htmlDoCorpo: string, texto: string, assinaturaHtml: string): { html: string; texto: string } {
+  const simples = corpoComAssinatura(texto, assinaturaHtml)
+  const assinatura = assinaturaHtml.trim()
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#1a202c;">\n${htmlDoCorpo}\n${
+    assinatura ? `<br><div class="gmail_signature">${assinatura}</div>\n` : ''}</div>`
+  return { html, texto: simples.texto }
 }
 
 export type MensagemDoCorreio = {
