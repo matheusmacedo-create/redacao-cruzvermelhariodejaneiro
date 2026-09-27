@@ -1414,6 +1414,9 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   `/webhook/set` **aninhado** em `webhook` e com `events` sempre (sem ele, a Evolution quebra);
   o texto recebido vem em `message.conversation`; com endereço anônimo (`@lid`), o número vem em
   `remoteJidAlt`.
+- **Tempo do envio:** logo depois de conectar pelo QR code, a Evolution sincroniza o histórico e
+  cada envio pode passar de 15 s. O envio espera até 40 s; sem confirmação nesse prazo, a mensagem
+  pode ter saído mesmo assim (`semResposta`), e a confirmação do número abre o campo do código.
 - **Número canônico:** só dígitos, com 55 e o nono dígito do celular. O WhatsApp ainda identifica
   muitos celulares antigos sem o nono dígito; é pela forma canônica que o bot reconhece quem escreveu.
 - **Webhook:** a Evolution não assina as entregas. O botão “Ligar o recebimento de mensagens”
