@@ -135,7 +135,7 @@ export function EditorDeOficio({ rascunho, pessoas, eu, podeEditar }: { rascunho
             {campo('vocativo', 'Vocativo', { placeholder: 'Ex.: Senhor Diretor,', maxLength: 200 })}
             <label className="flex flex-col gap-1 text-sm font-medium">Corpo
               <span className="text-xs font-normal text-muted-foreground">Deixe uma linha em branco entre os parágrafos.</span>
-              <textarea id="oficio-corpo" value={campos.corpo} onChange={(e) => mudar('corpo', e.target.value)} rows={14} maxLength={30000} className={`${inputClass} font-serif leading-relaxed`} />
+              <textarea id="oficio-corpo" value={campos.corpo} onChange={(e) => mudar('corpo', e.target.value)} rows={14} maxLength={30000} className={`${inputClass} leading-relaxed`} />
             </label>
             {campo('fecho', 'Fecho', { maxLength: 200 })}
           </fieldset>
