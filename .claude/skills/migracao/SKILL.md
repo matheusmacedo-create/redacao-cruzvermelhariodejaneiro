@@ -44,6 +44,10 @@ ignorados; os da sua migração, não.
 ## Aplicar em produção
 
 **Não aplique você mesmo** a menos que o responsável peça explicitamente. O
-caminho normal: a migração vai no PR, alguém com acesso de administrador ao
-Supabase aplica (MCP do Supabase ou painel) antes ou junto do merge, e confere
-com uma consulta ao `information_schema`.
+caminho normal: a migração vai no PR, **aberto como rascunho**; alguém com
+acesso de administrador ao Supabase aplica (MCP do Supabase ou painel)
+**antes** do merge, confere com uma consulta ao `information_schema` e em
+`supabase_migrations.schema_migrations`, marca "Migração aplicada em
+produção" na descrição e tira o PR do rascunho. O check "Migração aplicada?"
+(`.github/workflows/migracao-pendente.yml`) fica vermelho até a caixa ser
+marcada. Merge antes disso já derrubou telas no ar duas vezes (ARQUITETURA §10.7).

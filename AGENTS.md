@@ -38,6 +38,9 @@ Postgres com RLS) + Vercel (deploy, Blob, crons) + Resend. Gerenciador: **pnpm**
    versão maior que a última (`ls supabase/migrations | tail -1`). Coluna ou
    tabela só sai num deploy posterior, depois que o código parou de usá-la.
    Toda tabela nova tem RLS. Detalhes: skill `migracao`.
+   **PR com migração não é mesclado antes de ela estar em produção**: abra o PR
+   como rascunho e marque "Migração aplicada em produção" na descrição só
+   depois de aplicar e conferir; o check "Migração aplicada?" fica vermelho até lá.
 4. **pnpm, nunca npm.** `npm install` cria um lockfile concorrente e quebra o
    build da Vercel.
 5. **Antes de todo push:** `npx tsc --noEmit`, eslint nos arquivos alterados e

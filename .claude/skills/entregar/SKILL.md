@@ -18,7 +18,11 @@ ninguém — pessoa ou agente — faz push direto na `main`.
 4. **Push** do branch: `git push -u origin <branch>`.
 5. **Pull request** para a `main` com:
    - o que muda e por quê;
-   - migração nova, se houver, e se já foi aplicada em produção;
+   - migração nova, se houver, e a caixa "Migração aplicada em produção"
+     (já está no modelo do PR). **Com migração, abra o PR como rascunho**;
+     ele só fica pronto para revisão depois de a migração ser aplicada e
+     conferida (skill `migracao`) e a caixa marcada. O check "Migração
+     aplicada?" fica vermelho enquanto a caixa estiver vazia;
    - variáveis de ambiente novas (só os **nomes**);
    - como foi validado e **o que não foi testado**.
 6. **Preview**: a Vercel comenta no PR com o link do preview. Percorra a tela

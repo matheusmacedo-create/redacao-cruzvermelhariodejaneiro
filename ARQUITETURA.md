@@ -1289,6 +1289,23 @@ minutos**, até a migração ser aplicada.
 **antes** do merge. Quem mescla confere na lista de migrações do Supabase
 (`supabase_migrations.schema_migrations`) que a do PR já está lá.
 
+**De novo em 26/09/2026:** o PR #241 (aviso, enquete e quiz nas
+oportunidades) foi mesclado com a migração `20260929020000` pendente, apesar
+do aviso no topo da descrição. As telas passaram a ler `nota_minima`, que não
+existia: criar oportunidade falhava e a lista do voluntário podia vir vazia,
+até a migração ser aplicada minutos depois. O #238 entrou na mesma noite com a
+sua migração (`20260929010000_cvrj_ajuda_retornos`) também pendente. Aviso em
+texto não bastou; por isso a trava virou mecânica:
+
+- PR com migração nasce **rascunho** (skill `entregar`);
+- o modelo do PR (`.github/pull_request_template.md`) traz a caixa
+  "Migração aplicada em produção", marcada só depois de aplicar e conferir;
+- o check **"Migração aplicada?"** (`.github/workflows/migracao-pendente.yml`)
+  fica vermelho em todo PR que acrescenta arquivo em `supabase/migrations/`
+  enquanto a caixa estiver vazia. Para ele **impedir** o merge (e não só
+  avisar), ligue-o como obrigatório na proteção da `main` (GitHub → Settings →
+  Branches → Require status checks).
+
 ### 10.8 Consulta que "traz tudo" e traz só mil linhas
 
 A API do Supabase devolve **no máximo 1000 linhas por pedido**, e
