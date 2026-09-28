@@ -81,7 +81,7 @@ function Rosto({ nome, foto, classe, tamanho = 'size-9' }: { nome: string; foto?
   if (foto && !quebrou) {
     return (
       // A foto vem da CDN da rede, fora dos domínios do next/image.
-      <img src={foto} alt="" aria-hidden onError={() => setQuebrou(true)} className={cn('shrink-0 rounded-full object-cover', tamanho)} />
+      <img src={foto} alt="" aria-hidden loading="lazy" decoding="async" onError={() => setQuebrou(true)} className={cn('shrink-0 rounded-full object-cover', tamanho)} />
     )
   }
   return (

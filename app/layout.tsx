@@ -3,6 +3,7 @@ import { Libre_Franklin } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
+import { ServiceWorker } from '@/components/app/service-worker'
 
 const libreFranklin = Libre_Franklin({
   subsets: ['latin'],
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${libreFranklin.variable} bg-background`}>
       <body className="font-sans antialiased">
         {children}
+        <ServiceWorker />
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <SpeedInsights />
       </body>

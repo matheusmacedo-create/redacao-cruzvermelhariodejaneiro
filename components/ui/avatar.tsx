@@ -19,7 +19,7 @@ export function Avatar({ initials, color, size = 'sm', className, src, alt = '' 
   const [enderecoQueFalhou, setEnderecoQueFalhou] = useState<string | null>(null)
   const failed = Boolean(src) && enderecoQueFalhou === src
   return <span className={cn('inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-white select-none', sizes[size], className)} style={{ backgroundColor: color ?? 'oklch(0.52 0 0)' }} aria-label={alt || undefined} aria-hidden={!alt}>
-    {src && !failed ? <img src={src} alt={alt} className="size-full object-cover" onError={() => setEnderecoQueFalhou(src ?? null)} /> : initials}
+    {src && !failed ? <img src={src} alt={alt} className="size-full object-cover" loading="lazy" decoding="async" onError={() => setEnderecoQueFalhou(src ?? null)} /> : initials}
   </span>
 }
 

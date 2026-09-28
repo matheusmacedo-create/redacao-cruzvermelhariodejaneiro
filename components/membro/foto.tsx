@@ -24,7 +24,7 @@ export function Retrato({ url, nome, className, alt = '' }: { url: string | null
   const base = cn('flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted font-semibold text-foreground', className)
   if (!url || falhou === url) return <span aria-hidden={alt ? undefined : true} role={alt ? 'img' : undefined} aria-label={alt || undefined} className={base}>{iniciais(nome)}</span>
   // <img> e não next/image: a foto é privada, servida por rota com sessão, e o otimizador do Next não a alcança.
-  return <img src={url} alt={alt} className={cn(base, 'object-cover')} onError={() => setFalhou(url)} decoding="async" />
+  return <img src={url} alt={alt} className={cn(base, 'object-cover')} onError={() => setFalhou(url)} loading="lazy" decoding="async" />
 }
 
 type Estado = { tipo: 'ok' | 'erro'; texto: string; vez: number } | null

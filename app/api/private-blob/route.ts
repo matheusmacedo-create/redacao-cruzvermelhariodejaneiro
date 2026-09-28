@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
   }
   const result = await get(pathname, { access: 'private', ifNoneMatch: request.headers.get('if-none-match') ?? undefined })
   if (!result) return new NextResponse('Não encontrado', { status: 404 })
-  if (result.statusCode === 304) return new NextResponse(null, { status: 304, headers: { ETag: result.blob.etag, 'Cache-Control': 'private, no-cache' } })
-  return new NextResponse(result.stream, { headers: { 'Content-Type': result.blob.contentType, ETag: result.blob.etag, 'Cache-Control': 'private, no-cache', 'Content-Disposition': 'inline' } })
+  // Cache só no navegador de quem pediu (private). Sem ele, cada avatar de cada
+  // lista (e o do topo, em toda página) voltava ao servidor a cada tela.
+  // O avatar tem nome novo a cada troca de foto (avatars/<id>/<uuid>): o mesmo
+  // endereço é sempre a mesma imagem. O arquivo da Biblioteca também tem nome
+  // único, mas pode ser otimizado no lugar (arquivos.ts): uma hora basta.
+  const cache = isAvatar ? 'private, max-age=604800, immutable' : 'private, max-age=3600'
+  if (result.statusCode === 304) return new NextResponse(null, { status: 304, headers: { ETag: result.blob.etag, 'Cache-Control': cache } })
+  return new NextResponse(result.stream, { headers: { 'Content-Type': result.blob.contentType, ETag: result.blob.etag, 'Cache-Control': cache, 'Content-Disposition': 'inline' } })
 }

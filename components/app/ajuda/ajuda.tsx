@@ -338,7 +338,14 @@ export function AjudaProvider({ children, progressoInicial, pessoa, indice }: {
   const dica = cabeDica && livre && !falhaDoTour && dicaPronta === chaveDaTela ? chaveDaTela : null
 
   // Com a dica ou as boas-vindas na tela, o "Fazer o tour" está a um clique: o texto já vem vindo.
-  useEffect(() => { if (dica || boasVindasAberta) adiantarAjuda() }, [dica, boasVindasAberta])
+  // Só depois que a tela terminou de carregar (o navegador ocioso): o texto de todas as
+  // áreas pesa ~145 KB comprimidos e não pode disputar a rede com a própria página.
+  useEffect(() => {
+    if (!dica && !boasVindasAberta) return
+    const ocioso = typeof window.requestIdleCallback === 'function'
+    const id = ocioso ? window.requestIdleCallback(() => adiantarAjuda(), { timeout: 5000 }) : window.setTimeout(adiantarAjuda, 2500)
+    return () => { if (ocioso) window.cancelIdleCallback(id); else window.clearTimeout(id) }
+  }, [dica, boasVindasAberta])
 
   const aceitarDica = useCallback(() => {
     if (!carregandoTour) pedirTourDaTela()
