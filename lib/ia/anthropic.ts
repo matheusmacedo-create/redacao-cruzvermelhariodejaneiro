@@ -13,9 +13,16 @@ import { IaError } from '@/lib/ia/openai'
  * CLAUDE_API — aceitar os dois evita que o nome da variável derrube a
  * funcionalidade. O modelo vem do ambiente pelo mesmo motivo dos da OpenAI:
  * trocar um nome não pode exigir mudança de código.
+ *
+ * O padrão é o Sonnet 5 (US$ 2 / US$ 10 por milhão de tokens, set/2026): o
+ * mais barato que aceita tudo o que este módulo usa — `output_config.effort`,
+ * saída estruturada, imagens e o recuo de segurança — sem perder a qualidade
+ * de escrita. O Opus 5 (US$ 5 / US$ 25) custa 2,5x e já é linha legada; o
+ * Haiku 4.5 é mais barato ainda, mas rejeita `effort` e está com data de
+ * aposentadoria marcada. Decisão de 28/09/2026, para segurar a fatura.
  */
 
-export const MODELO_CLAUDE_PADRAO = 'claude-opus-5'
+export const MODELO_CLAUDE_PADRAO = 'claude-sonnet-5'
 
 function chaveDoClaude(): string | undefined {
   return process.env.ANTHROPIC_API_KEY?.trim() || process.env.CLAUDE_API?.trim() || undefined
