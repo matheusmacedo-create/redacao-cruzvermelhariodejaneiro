@@ -236,14 +236,14 @@ function Camadas({ disponiveis, ocultas, alternar, soEsta, aviso, falhas }: {
         })}
       </ul>
       {!todasLigadas && <button type="button" onClick={() => alternar(disponiveis, true)} className="mt-2 text-xs font-medium text-primary hover:underline">Ligar todas</button>}
-      {aviso && <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+      {aviso && <p className="mt-2 text-xs text-amber-700">{aviso}</p>}
       {falhas.length > 0 && <p className="mt-2 text-xs text-destructive">Não deu para carregar: {falhas.map((c) => CAMADAS[c].nome).join(', ')}.</p>}
     </section>
   )
 }
 
 const ICONE_DO_ALERTA = { urgente: AlertTriangle, atencao: BellRing, info: Info }
-const COR_DO_ALERTA = { urgente: 'text-destructive', atencao: 'text-amber-600 dark:text-amber-400', info: 'text-muted-foreground' }
+const COR_DO_ALERTA = { urgente: 'text-destructive', atencao: 'text-amber-600', info: 'text-muted-foreground' }
 
 function Alertas({ alertas, todos, verTodos, abrir, itens }: { alertas: Alerta[]; todos: boolean; verTodos: () => void; abrir: (i: ItemDaAgenda) => void; itens: ItemDaAgenda[] }) {
   const mostrados = todos ? alertas : alertas.slice(0, ALERTAS_VISIVEIS)
@@ -324,7 +324,7 @@ function Detalhe({ item, aoCriarPauta }: { item: ItemDaAgenda; aoCriarPauta: (pa
       <p className="first-letter:uppercase">{quando}</p>
       {(item.canal || item.estado) && <p className="text-muted-foreground">{[item.canal, item.estado ? ROTULO_DO_ESTADO[item.estado] : null].filter(Boolean).join(' · ')}</p>}
       {item.detalhe && <p className="whitespace-pre-line text-muted-foreground">{item.detalhe}</p>}
-      {item.camada === 'datas' && item.temPauta && <p className="text-emerald-700 dark:text-emerald-400">Já tem pauta neste ano.</p>}
+      {item.camada === 'datas' && item.temPauta && <p className="text-emerald-700">Já tem pauta neste ano.</p>}
       {erro && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-destructive">{erro}</p>}
       <div className="mt-1 flex flex-wrap gap-2">
         {podeCriarPauta && (

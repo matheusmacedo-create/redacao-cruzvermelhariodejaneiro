@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { barraFixa, botaoDoMembro, botaoSecundario, campoDoMembro } from './marca'
 import { Recado, Secao } from './pecas'
 import { esquecerAoSair } from './conta'
+import { EscolhaDeTema } from '@/components/tema'
 import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 /*
@@ -256,6 +257,11 @@ export function PreferenciaDeAvisos({ inicial }: { inicial: boolean }) {
         </p>
       </div>
       {erro && <Recado tipo="erro">{erro}</Recado>}
+      <div className="flex flex-col gap-2 border-t border-border pt-4" data-ajuda="membro.tema">
+        <p className="text-sm font-medium">Aparência</p>
+        <EscolhaDeTema className="max-w-sm" />
+        <p className="text-sm text-muted-foreground">“Automático” segue o modo claro ou escuro do seu celular ou computador. Vale só neste aparelho.</p>
+      </div>
     </Secao>
   )
 }

@@ -72,7 +72,7 @@ export function QuemAssina({ atuais, escolhida, sugestoes, nomesDaEquipe, podeEd
             ))}
           </ol>
           {!escolhida && <p className="text-xs text-muted-foreground">Ainda não escolhida: os diplomas saem só com a assinatura da presidência.</p>}
-          {salvo && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-500">Salvo. Os próximos diplomas já saem com estas assinaturas.</p>}
+          {salvo && <p role="status" className="text-xs text-emerald-700">Salvo. Os próximos diplomas já saem com estas assinaturas.</p>}
         </>
       ) : (
         <div className="flex flex-col gap-3">

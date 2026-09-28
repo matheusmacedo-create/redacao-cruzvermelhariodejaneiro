@@ -72,9 +72,9 @@ const STATUS_DO_PACOTE: Record<string, string> = {
 // As faixas seguem os cortes do motor: 72 é "produzir", 55 é "agendar".
 const faixaDaNota = (n: number) =>
   n >= 72
-    ? 'text-[#1A7F45] bg-[#E7F3EB]'
+    ? 'text-[#1A7F45] dark:text-success bg-[#E7F3EB] dark:bg-success/15'
     : n >= 55
-      ? 'text-[#B7791F] bg-[#F7EEDD]'
+      ? 'text-[#B7791F] dark:text-warning bg-[#F7EEDD] dark:bg-warning/15'
       : 'text-muted-foreground bg-muted'
 
 export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel = false, origem, geradoEm, erro }: {
@@ -141,7 +141,7 @@ export function TelaDoCerebro({ filas, pacotesPorSinal = {}, redatorDisponivel =
   return (
     <div className="mt-4">
       {/* ── Zona A: briefing do dia ── */}
-      <div data-ajuda="cerebro.briefing" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-[#F7F4EF] px-4 py-3">
+      <div data-ajuda="cerebro.briefing" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-[#F7F4EF] dark:bg-muted px-4 py-3">
         {/* No celular os cinco contadores quebram em duas linhas (sem os divisores); do sm em diante, uma faixa só. */}
         <div className="flex flex-wrap gap-y-2">
           {SECOES.map((s, i) => (
@@ -271,7 +271,7 @@ function Linha({ pauta: p, pacote, ativa, aoAbrir }: { pauta: PautaDoCerebro; pa
       onClick={aoAbrir}
       className={cn(
         'grid w-full grid-cols-[1fr_auto] items-center gap-x-3 border-l-[3px] border-t border-t-border/60 px-3 py-2.5 text-left',
-        ativa ? 'border-l-primary bg-[#F7F4EF]' : 'border-l-transparent hover:bg-muted/40',
+        ativa ? 'border-l-primary bg-[#F7F4EF] dark:bg-muted' : 'border-l-transparent hover:bg-muted/40',
       )}
     >
       <span className="flex min-w-0 items-center gap-2">
@@ -294,7 +294,7 @@ function Linha({ pauta: p, pacote, ativa, aoAbrir }: { pauta: PautaDoCerebro; pa
             className={cn(
               'rounded bg-muted px-1.5 py-px text-[11px] font-medium text-muted-foreground',
               f.alerta && 'bg-destructive/10 text-destructive',
-              f.destaque && 'bg-[#E7F3EB] text-[#1A7F45]',
+              f.destaque && 'bg-[#E7F3EB] dark:bg-success/15 text-[#1A7F45] dark:text-success',
             )}
           >
             {f.texto}
@@ -327,7 +327,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
 
   if (!p)
     return (
-      <aside data-ajuda="cerebro.detalhe" className="hidden rounded-xl border border-border bg-[#F7F4EF] p-8 text-center text-sm text-muted-foreground min-[1200px]:block">
+      <aside data-ajuda="cerebro.detalhe" className="hidden rounded-xl border border-border bg-[#F7F4EF] dark:bg-muted p-8 text-center text-sm text-muted-foreground min-[1200px]:block">
         Selecione uma história para ver fato, raciocínio, o que não pode e o plano por canal.
       </aside>
     )
@@ -376,7 +376,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
     <aside
       data-ajuda="cerebro.detalhe"
       className={cn(
-        'flex-col rounded-xl border border-border bg-[#F7F4EF] min-[1200px]:sticky min-[1200px]:top-4 min-[1200px]:flex min-[1200px]:max-h-[calc(100dvh-100px)]',
+        'flex-col rounded-xl border border-border bg-[#F7F4EF] dark:bg-muted min-[1200px]:sticky min-[1200px]:top-4 min-[1200px]:flex min-[1200px]:max-h-[calc(100dvh-100px)]',
         sheet ? 'fixed inset-0 z-40 flex max-h-none rounded-none' : 'hidden',
       )}
     >
@@ -468,7 +468,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
         </div>
 
         {precisaConferirAcao && !pacote && (
-          <p className="rounded-lg border border-[#B7791F]/40 bg-[#F7EEDD] px-3 py-2 text-xs text-[#7A4F0A]">
+          <p className="rounded-lg border border-[#B7791F]/40 dark:border-warning/40 bg-[#F7EEDD] dark:bg-warning/15 px-3 py-2 text-xs text-[#7A4F0A] dark:text-warning-foreground">
             O Cérebro não viu ação da filial neste assunto. Antes de produzir, confirme com a operação o que a Casa está fazendo — sem isso a peça vira eco de terceiro.
           </p>
         )}
@@ -476,7 +476,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
         {p.midia && (
           <div className="relative overflow-hidden rounded-lg border border-border">
             <Image src={p.midia.url} alt="" width={640} height={360} unoptimized className="h-40 w-full bg-muted object-contain" />
-            <span className={cn('absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', p.midia.podePublicar ? 'bg-emerald-500/15 text-emerald-700' : p.midia.daCasa || p.midia.direito === 'casa' ? 'bg-white/85 text-[#B7791F]' : 'bg-white/85 text-primary')}>
+            <span className={cn('absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide', p.midia.podePublicar ? 'bg-emerald-500/15 text-emerald-700' : p.midia.daCasa || p.midia.direito === 'casa' ? 'bg-white/85 dark:bg-card/85 text-[#B7791F] dark:text-warning' : 'bg-white/85 dark:bg-card/85 text-primary')}>
               {p.midia.daCasa || p.midia.direito === 'casa' ? 'da Casa · confirmar termo' : p.midia.direito}
             </span>
             <span className="absolute bottom-2 right-2 max-w-[75%] truncate rounded bg-black/60 px-2 py-0.5 text-[10px] text-white">{p.midia.credito}</span>
@@ -499,8 +499,8 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
         </Bloco>
 
         {/* A trava nobre, sempre aberta — nunca um accordion vazio. */}
-        <div className="rounded-r-lg border-l-[3px] border-primary bg-[#F3F1ED] px-3 py-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B0E20]">O que não pode</span>
+        <div className="rounded-r-lg border-l-[3px] border-primary bg-[#F3F1ED] dark:bg-muted/40 px-3 py-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B0E20] dark:text-primary">O que não pode</span>
           <ul className="mt-1.5 list-disc space-y-1 pl-4 text-[13px]">
             {(p.proibido.length ? p.proibido : ['Nenhuma trava específica além das regras gerais do Movimento.']).map((x, i) => (
               <li key={i}>{x}</li>
@@ -531,7 +531,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
               {p.canais.map((c) => (
                 <tr key={c.canal} className="align-top">
                   <td className="border-b border-border/50 py-1.5 pr-2 font-medium">{DESTINO_POR_CANAL[c.canal]?.rotulo ?? c.canal}</td>
-                  <td className={cn('border-b border-border/50 py-1.5 pr-2 text-[11px] font-extrabold', c.usar ? 'text-[#1A7F45]' : 'text-primary')}>
+                  <td className={cn('border-b border-border/50 py-1.5 pr-2 text-[11px] font-extrabold', c.usar ? 'text-[#1A7F45] dark:text-success' : 'text-primary')}>
                     {c.usar ? 'SIM' : 'NÃO'}
                   </td>
                   <td className="border-b border-border/50 py-1.5 text-muted-foreground">
@@ -568,7 +568,7 @@ function Drawer({ pauta: p, pacote, redatorDisponivel, sheet, fecharSheet, rel, 
             return (
               <div key={chave} className="mt-1.5 grid grid-cols-[110px_1fr_30px] items-center gap-2 text-xs">
                 <span>{rotulo}</span>
-                <span className="h-1.5 overflow-hidden rounded-full bg-[#E7E4DE]">
+                <span className="h-1.5 overflow-hidden rounded-full bg-[#E7E4DE] dark:bg-muted">
                   <span className="block h-full bg-foreground" style={{ width: `${Math.min(100, nota)}%` }} />
                 </span>
                 <b className="text-right tabular-nums">{nota}</b>
@@ -655,7 +655,7 @@ function PainelRelacionados({ rel }: { rel: Relacionados }) {
         <div className="mt-2">
           {rel.daCasa.map((m) => (
             <Link key={m.url} href={m.url} className="group flex items-baseline gap-2 border-t border-border/50 py-1.5 text-xs first:border-t-0">
-              <span className="rounded bg-[#FBE9EB] px-1.5 text-[9.5px] font-extrabold uppercase tracking-wide text-primary">nossa</span>
+              <span className="rounded bg-[#FBE9EB] dark:bg-primary/15 px-1.5 text-[9.5px] font-extrabold uppercase tracking-wide text-primary">nossa</span>
               <span className="truncate group-hover:underline">{m.titulo}</span>
               <span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">{m.status}</span>
             </Link>
@@ -713,7 +713,7 @@ Fonte: leitura das contas oficiais e do acervo documental. O Cérebro recomenda;
           <b className="text-sm">Briefing do dia</b>
           <Button size="sm" variant="outline" onClick={fechar}>Fechar</Button>
         </div>
-        <pre className="m-4 max-h-[60dvh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-[#F7F4EF] p-3 font-mono text-xs leading-relaxed">
+        <pre className="m-4 max-h-[60dvh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-[#F7F4EF] dark:bg-muted p-3 font-mono text-xs leading-relaxed">
           {texto}
         </pre>
         <div className="flex justify-end border-t border-border px-4 py-3">

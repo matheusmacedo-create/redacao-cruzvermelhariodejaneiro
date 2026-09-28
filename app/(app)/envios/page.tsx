@@ -37,8 +37,8 @@ type Linha = {
 
 const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
 const COR: Record<EstadoDoEnvio, string> = {
-  recebendo: 'bg-muted text-muted-foreground', novo: 'bg-primary/10 text-primary', em_avaliacao: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
-  virou_pauta: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200', arquivado: 'bg-muted text-muted-foreground',
+  recebendo: 'bg-muted text-muted-foreground', novo: 'bg-primary/10 text-primary', em_avaliacao: 'bg-amber-100 text-amber-900',
+  virou_pauta: 'bg-emerald-100 text-emerald-900', arquivado: 'bg-muted text-muted-foreground',
 }
 
 export default async function EnviosPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
@@ -141,7 +141,7 @@ export default async function EnviosPage({ searchParams }: { searchParams: Promi
                       {conta('video') > 0 && <span className="inline-flex items-center gap-1"><Video className="size-3.5" aria-hidden="true" />{conta('video')}</span>}
                       {conta('audio') > 0 && <span className="inline-flex items-center gap-1"><Mic className="size-3.5" aria-hidden="true" />{conta('audio')}</span>}
                       {conta('documento') > 0 && <span className="inline-flex items-center gap-1"><FileText className="size-3.5" aria-hidden="true" />{conta('documento')}</span>}
-                      {!AUTORIZACOES[l.autorizacao_imagem].podePublicar && <span className="text-amber-700 dark:text-amber-400">imagem: conferir</span>}
+                      {!AUTORIZACOES[l.autorizacao_imagem].podePublicar && <span className="text-amber-700">imagem: conferir</span>}
                     </div>
                   </div>
                 </Link>

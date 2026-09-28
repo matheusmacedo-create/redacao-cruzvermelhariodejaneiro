@@ -56,7 +56,7 @@ export default async function EventosPage() {
                   <span className="text-sm text-muted-foreground">{[ev.data_do_evento?.split('-').reverse().join('/'), ev.local].filter(Boolean).join(' · ') || 'Sem data nem local'}</span>
                   <span className="text-sm">{ev.envios.length} {ev.envios.length === 1 ? 'envio' : 'envios'} · {fotos} {fotos === 1 ? 'foto' : 'fotos'}{videos ? ` · ${videos} ${videos === 1 ? 'vídeo' : 'vídeos'}` : ''}</span>
                   <span className="mt-auto flex flex-wrap gap-1.5 pt-1 text-[11px]">
-                    <span className={ev.envio_aberto ? 'rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-200' : 'rounded-full bg-muted px-2 py-0.5 text-muted-foreground'}>{ev.envio_aberto ? 'recebendo fotos' : 'envio encerrado'}</span>
+                    <span className={ev.envio_aberto ? 'rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-900' : 'rounded-full bg-muted px-2 py-0.5 text-muted-foreground'}>{ev.envio_aberto ? 'recebendo fotos' : 'envio encerrado'}</span>
                     <span className={ev.album_token ? 'rounded-full bg-primary/10 px-2 py-0.5 text-primary' : 'rounded-full bg-muted px-2 py-0.5 text-muted-foreground'}>{ev.album_token ? 'álbum compartilhado' : 'álbum desligado'}</span>
                   </span>
                 </Link>

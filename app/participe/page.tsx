@@ -36,7 +36,7 @@ async function setoresPublicos(): Promise<string[]> {
 export default async function Participe() {
   const setores = await setoresPublicos()
   return (
-    <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)]">
+    <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)] dark:[--destructive:rgb(239_83_80)] dark:[--success-texto:oklch(0.76_0.14_150)]">
       {/* Faixa branca: a logo oficial é um PNG de fundo branco e, sobre o cinza, viraria uma caixa solta. */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-3 px-4 sm:px-6 lg:h-16">

@@ -1681,6 +1681,22 @@ sinal de problema: erro e atraso usam `--destructive` (`rgb(185 28 28)`, mais
 escuro), sempre com ícone ou texto junto. Não use `primary` para alerta nem
 `destructive` para marca.
 
+**Modo escuro.** A escolha (claro, escuro ou automático) fica no cookie `tema`;
+o `<html>` ganha a classe `dark` por um script no `<head>`, antes da primeira
+pintura (`lib/tema.ts`, `components/tema.tsx`). Escreva cores pelos tokens
+(`bg-card`, `text-muted-foreground`, `text-warning-foreground`…): eles trocam
+sozinhos. As escalas fixas do Tailwind (`bg-amber-50`, `text-emerald-700`)
+trocam de ponta no escuro (50↔950, 100↔900, 200↔800, 300↔700): um selo claro
+com texto escuro vira selo escuro com texto claro sem `dark:` nenhum. **Não**
+escreva `dark:text-amber-300` ao lado de `text-amber-700` (a troca já faz
+isso, e a classe `dark:` seria invertida também); `dark:` só com tokens
+(`dark:bg-muted`) e só onde o claro usa cor fixa em hex ou `bg-white`. Papel é
+papel: a folha do ofício, os crachás e os cartazes levam a classe `papel` e
+continuam claros; `/verificar`, `/cracha` e as páginas de impressão são sempre
+claras (`CAMINHOS_SEMPRE_CLAROS`). Prévias de site, newsletter e e-mail em
+`<iframe>` ficam `bg-white` de propósito. Conferência:
+`npx tsx scripts/conferir-tema.ts`.
+
 **Idioma.** Interface, mensagens de erro, comentários e mensagens de commit em
 **português**. Código novo nomeia em português (`publicacoesPrevistas`,
 `carregarArquivo`, `enquadrar`); código herdado da Fase 1 está em inglês

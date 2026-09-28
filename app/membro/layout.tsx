@@ -20,5 +20,5 @@ export const metadata: Metadata = {
  * sem criar contêiner de rolagem. Vale só enquanto a área está na tela.
  */
 export default function LayoutDoMembro({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)] [body:has(&)]:overflow-x-clip">{children}</div>
+  return <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)] dark:[--destructive:rgb(239_83_80)] dark:[--success-texto:oklch(0.76_0.14_150)] [body:has(&)]:overflow-x-clip">{children}</div>
 }

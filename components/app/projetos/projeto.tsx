@@ -37,9 +37,9 @@ const ETAPA: Record<string, string> = {
 }
 
 const CLASSE_DA_SITUACAO: Record<Situacao, string> = {
-  no_prazo: 'border-emerald-600 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
-  em_risco: 'border-amber-600 bg-amber-500/10 text-amber-800 dark:text-amber-300',
-  atrasado: 'border-red-600 bg-red-500/10 text-red-700 dark:text-red-300',
+  no_prazo: 'border-emerald-600 bg-emerald-500/10 text-emerald-800',
+  em_risco: 'border-amber-600 bg-amber-500/10 text-amber-800',
+  atrasado: 'border-red-600 bg-red-500/10 text-red-700',
 }
 const BORDA_DA_SITUACAO: Record<Situacao, string> = { no_prazo: 'border-l-emerald-600', em_risco: 'border-l-amber-600', atrasado: 'border-l-red-600' }
 
@@ -375,12 +375,12 @@ function Cronograma({ projeto, pautas, marcos, hoje }: { projeto: ProjetoNaTela;
                     <button type="button" onClick={() => setEditando(editando === p.id ? null : p.id)}
                       title={`${p.titulo}: ${dataCurta(p.periodo!.inicio, hoje)} → ${dataCurta(p.periodo!.fim, hoje)} · clique para mudar as datas`}
                       className={`absolute top-1/2 flex h-6 -translate-y-1/2 items-center overflow-hidden whitespace-nowrap rounded-md px-2 text-[11px] font-semibold ${
-                        pronta ? 'bg-secondary text-secondary-foreground' : atrasada ? 'bg-red-500/10 text-red-700 ring-1 ring-red-600 dark:text-red-300' : 'bg-primary/15 text-foreground ring-1 ring-primary/40'}`}
+                        pronta ? 'bg-secondary text-secondary-foreground' : atrasada ? 'bg-red-500/10 text-red-700 ring-1 ring-red-600' : 'bg-primary/15 text-foreground ring-1 ring-primary/40'}`}
                       style={{ left: `${pos.esquerda}%`, width: `max(${pos.largura}%, 1.5rem)` }}>
                       {pronta ? <Check className="mr-1 size-3 shrink-0" /> : null}{curta ? <span className="sr-only">{rotulo}</span> : rotulo}
                     </button>
                     {curta && (
-                      <span aria-hidden="true" className={`pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-1.5 text-[11px] font-semibold ${atrasada ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'}`}
+                      <span aria-hidden="true" className={`pointer-events-none absolute top-1/2 -translate-y-1/2 whitespace-nowrap pl-1.5 text-[11px] font-semibold ${atrasada ? 'text-red-700' : 'text-muted-foreground'}`}
                         style={{ left: `calc(${pos.esquerda + pos.largura}% + 0.25rem)` }}>
                         {rotulo}
                       </span>

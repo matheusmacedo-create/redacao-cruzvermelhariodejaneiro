@@ -47,7 +47,7 @@ const data = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'A
 
 const TOM_DO_PAPEL: Record<Papel, string> = {
   admin: 'bg-primary/10 text-primary',
-  editor: 'bg-blue-500/10 text-blue-700 dark:text-blue-300',
+  editor: 'bg-blue-500/10 text-blue-700',
   colaborador: 'bg-muted text-muted-foreground',
   escola: 'bg-success/10 text-success',
 }

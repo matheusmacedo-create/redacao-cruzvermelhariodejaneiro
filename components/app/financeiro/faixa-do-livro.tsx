@@ -19,13 +19,13 @@ export function FaixaDoLivro({ livro, empresa, outroVisivel }: { livro: Livro; e
   return (
     <section aria-label={IDENTIDADE[livro].titulo} data-livro={livro} data-ajuda="financeiro.livro"
       className={cn('mb-5 flex flex-col gap-3 rounded-xl border border-l-4 p-4 sm:flex-row sm:items-center sm:justify-between',
-        escola ? 'border-sky-200 border-l-sky-700 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/40' : 'border-primary/20 border-l-primary bg-primary/[0.04]')}>
+        escola ? 'border-sky-200 border-l-sky-700 bg-sky-50' : 'border-primary/20 border-l-primary bg-primary/[0.04]')}>
       <div className="flex min-w-0 items-center gap-3">
         <span className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg text-white', escola ? 'bg-sky-700' : 'bg-primary')}>
           <Icone className="size-5" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className={cn('text-[11px] font-bold uppercase tracking-wider', escola ? 'text-sky-800 dark:text-sky-300' : 'text-primary')}>{IDENTIDADE[livro].titulo}</p>
+          <p className={cn('text-[11px] font-bold uppercase tracking-wider', escola ? 'text-sky-800' : 'text-primary')}>{IDENTIDADE[livro].titulo}</p>
           <p className="truncate text-base font-semibold">{empresa.nome}</p>
           <p className="truncate text-xs text-muted-foreground">
             {empresa.cnpj ? `CNPJ ${cnpjLegivel(empresa.cnpj)}` : 'CNPJ não informado — complete em Cadastros → Empresa'}

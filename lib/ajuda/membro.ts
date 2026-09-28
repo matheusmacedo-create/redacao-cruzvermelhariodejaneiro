@@ -1064,6 +1064,16 @@ const ENTRAR_E_SAIR: TopicoGeral = {
   resumo: 'Sem senha: você entra com um código de 6 dígitos que chega no seu e-mail.',
   tarefas: [
     {
+      id: 'modo-escuro',
+      titulo: 'Ligar o modo escuro',
+      passos: [
+        'Abra “Perfil” e desça até “Preferências”.',
+        'Em “Aparência”, escolha “Escuro”. A tela muda na hora.',
+        '“Automático” segue o modo claro ou escuro do seu celular; “Claro” volta ao normal.',
+      ],
+      dica: 'A escolha vale só neste aparelho.',
+    },
+    {
       id: 'entrar-com-codigo',
       titulo: 'Entrar na Área do Voluntário',
       passos: [

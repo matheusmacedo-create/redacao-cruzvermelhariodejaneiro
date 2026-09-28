@@ -16,10 +16,10 @@ export const dynamic = 'force-dynamic'
 
 const STATUS_ROTULO: Record<string, { texto: string; classe: string }> = {
   rascunho: { texto: 'Rascunho', classe: 'bg-muted text-muted-foreground' },
-  em_aprovacao: { texto: 'Em aprovação', classe: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
-  aprovado: { texto: 'Aprovado', classe: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' },
-  parcial: { texto: 'Parcialmente publicado', classe: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
-  publicado: { texto: 'Publicado', classe: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' },
+  em_aprovacao: { texto: 'Em aprovação', classe: 'bg-amber-500/15 text-amber-700' },
+  aprovado: { texto: 'Aprovado', classe: 'bg-emerald-500/15 text-emerald-700' },
+  parcial: { texto: 'Parcialmente publicado', classe: 'bg-amber-500/15 text-amber-700' },
+  publicado: { texto: 'Publicado', classe: 'bg-emerald-500/15 text-emerald-700' },
   falhou: { texto: 'Falhou', classe: 'bg-destructive/10 text-destructive' },
   arquivado: { texto: 'Arquivado', classe: 'bg-muted text-muted-foreground' },
 }

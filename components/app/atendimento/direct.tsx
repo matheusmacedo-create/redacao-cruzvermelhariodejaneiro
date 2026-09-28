@@ -26,10 +26,10 @@ import { ROTULO_DA_SITUACAO, situacaoDe, type Registro, type Situacao } from '@/
  */
 
 const REDES: Record<string, { nome: string; classe: string }> = {
-  instagram: { nome: 'Instagram', classe: 'bg-pink-500/12 text-pink-700 dark:text-pink-300' },
-  facebook: { nome: 'Facebook', classe: 'bg-blue-500/12 text-blue-700 dark:text-blue-300' },
-  youtube: { nome: 'YouTube', classe: 'bg-red-500/12 text-red-700 dark:text-red-300' },
-  linkedin: { nome: 'LinkedIn', classe: 'bg-sky-600/12 text-sky-700 dark:text-sky-300' },
+  instagram: { nome: 'Instagram', classe: 'bg-pink-500/12 text-pink-700' },
+  facebook: { nome: 'Facebook', classe: 'bg-blue-500/12 text-blue-700' },
+  youtube: { nome: 'YouTube', classe: 'bg-red-500/12 text-red-700' },
+  linkedin: { nome: 'LinkedIn', classe: 'bg-sky-600/12 text-sky-700' },
 }
 
 const NOMES_EXTRAS: Record<string, string> = {

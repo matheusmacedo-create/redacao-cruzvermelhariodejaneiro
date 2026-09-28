@@ -9,7 +9,7 @@ export function VersaoNoAr({ versao }: { versao: Versao }) {
   const link = 'rounded hover:text-foreground hover:underline'
   if (!versao.commit) return <p className="mt-2 px-2 text-[11px] text-muted-foreground">Versão local, fora da Vercel.</p>
   return (
-    <div className="mt-2 rounded-lg border border-sidebar-border bg-white/60 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground" title={versao.titulo ?? undefined}>
+    <div className="mt-2 rounded-lg border border-sidebar-border bg-white/60 dark:bg-sidebar-accent/60 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground" title={versao.titulo ?? undefined}>
       <p className="flex items-center gap-1.5 font-medium text-foreground">
         <span className="size-1.5 shrink-0 rounded-full bg-success" aria-hidden="true" />
         No ar{versao.publicadaEm ? <span className="font-normal text-muted-foreground" suppressHydrationWarning> · {quandoFoiPublicada(versao.publicadaEm)}</span> : null}

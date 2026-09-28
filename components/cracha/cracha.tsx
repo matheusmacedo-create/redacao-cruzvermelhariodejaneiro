@@ -16,7 +16,7 @@ import { condensada } from './fonte'
  */
 
 
-const CARTAO = 'relative flex aspect-[54/86] w-[256px] shrink-0 flex-col overflow-hidden rounded-xl border border-black/10 bg-white text-[#1f1f1f] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)]'
+const CARTAO = 'papel relative flex aspect-[54/86] w-[256px] shrink-0 flex-col overflow-hidden rounded-xl border border-black/10 bg-white text-[#1f1f1f] shadow-[0_8px_24px_-12px_rgba(0,0,0,0.35)]'
 
 function Silhueta() {
   return (

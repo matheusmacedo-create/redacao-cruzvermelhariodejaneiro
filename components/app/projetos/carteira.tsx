@@ -120,7 +120,7 @@ export function Carteira({ projetos, pessoas, hoje }: { projetos: ProjetoNaCarte
                         {vencido && <AlertTriangle className="mr-1 inline size-3.5 align-[-2px]" aria-label="Prazo vencido" />}
                         {dataCurta(p.fim, hoje)}
                       </td>
-                      <td className={`whitespace-nowrap px-3 py-3 text-xs ${desatualizado ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}
+                      <td className={`whitespace-nowrap px-3 py-3 text-xs ${desatualizado ? 'font-medium text-amber-700' : 'text-muted-foreground'}`}
                         title={desatualizado ? 'Sem atualização de status há mais de 14 dias' : undefined}>
                         {p.ultimaAtualizacao ? haQuanto(p.ultimaAtualizacao, hoje) : 'nunca'}
                       </td>

@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 export function Logo({ className = 'w-32', alt = 'Cruz Vermelha Brasileira – Rio de Janeiro' }: { className?: string; alt?: string }) {
   // `loading="eager"`: a logo está sempre no alto da tela. No Next 16 o
   // `priority` foi descontinuado em favor de `preload`/`loading`.
-  return <Image src="/images/logo-cvrj.png" alt={alt} width={1844} height={752} loading="eager" sizes="160px" className={cn('h-auto shrink-0 object-contain object-left', className)} />
+  return <Image src="/images/logo-cvrj.png" alt={alt} width={1844} height={752} loading="eager" sizes="160px" className={cn('h-auto shrink-0 object-contain object-left dark:rounded-md dark:bg-white dark:p-1', className)} />
 }
 
 /** A logo oficial com o nome da Área do Voluntário, no padrão do Redação. */

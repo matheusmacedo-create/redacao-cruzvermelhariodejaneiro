@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
  * na entrada e confere na saída — nunca o nome do visitante.
  */
 
-const BASE = 'relative flex flex-col overflow-hidden bg-white text-[#1f1f1f] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]'
+const BASE = 'papel relative flex flex-col overflow-hidden bg-white text-[#1f1f1f] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]'
 const CARTAO = `${BASE} h-[86mm] w-[54mm]`
 const CARTAO_DEITADO = `${BASE} h-[54mm] w-[86mm]`
 const VERMELHO = 'bg-[#e32219] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]'

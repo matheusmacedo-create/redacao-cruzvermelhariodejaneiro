@@ -309,7 +309,7 @@ export function LibraryView({ initialFiles, usedBytes, limitBytes, workspaceId, 
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {f.status === 'authorized' && <span className="inline-flex items-center gap-1 rounded bg-success/10 px-2 py-0.5 text-xs font-medium text-success"><ShieldCheck className="size-3" />Uso autorizado</span>}
-                  {f.status === 'pending' && <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"><AlertTriangle className="size-3" />Falta autorizar</span>}
+                  {f.status === 'pending' && <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700"><AlertTriangle className="size-3" />Falta autorizar</span>}
                   {f.status === 'internal' && <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"><Lock className="size-3" />Uso interno</span>}
                   {fileFolder && <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"><Folder className="size-3" />{fileFolder}</span>}
                   {visibleTags(f.tags).map((t) => <span key={t} className="rounded bg-muted px-2 py-0.5 text-xs">#{t}</span>)}

@@ -18,6 +18,7 @@ import { useAjuda } from './ajuda/ajuda'
 import { adiantarPainel } from './ajuda/painel'
 import { BotaoBeta } from './ajuda/beta'
 import { Sino, type Notificacao } from './sino'
+import { EscolhaDeTema } from '@/components/tema'
 
 type Perfil = { full_name?: string | null; job_title?: string | null; initials?: string | null; color?: string | null; avatar_path?: string | null } | null
 
@@ -100,6 +101,11 @@ function MenuDaPessoa({ role, profile, grupos }: { role: WorkspaceRole; profile:
                   <p className="truncate text-xs text-muted-foreground">{profile?.job_title || 'Colaborador'}</p>
                   <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success"><span className="size-1.5 rounded-full bg-success" aria-hidden="true" />{ehPapel(role) ? PAPEL[role].rotulo : role}</p>
                 </div>
+              </div>
+              <MenuDaBase.Separator className="my-1 h-px bg-border" />
+              <div className="px-2.5 pb-2 pt-1.5" data-ajuda="shell.tema">
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Aparência</p>
+                <EscolhaDeTema />
               </div>
               <MenuDaBase.Separator className="my-1 h-px bg-border" />
               {conta.map((area) => {
