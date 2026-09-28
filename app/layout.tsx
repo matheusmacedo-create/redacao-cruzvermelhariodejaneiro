@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Libre_Franklin } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import { AplicarTema } from '@/components/tema'
+import { SCRIPT_DO_TEMA } from '@/lib/tema'
 import './globals.css'
 import { ServiceWorker } from '@/components/app/service-worker'
 
@@ -33,8 +35,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR" className={`${libreFranklin.variable} bg-background`}>
+    // suppressHydrationWarning: o script do tema põe a classe `dark` no <html> antes de o React chegar.
+    <html lang="pt-BR" className={`${libreFranklin.variable} bg-background`} suppressHydrationWarning>
+      <head>
+        {/* Modo escuro antes da primeira pintura, sem clarão (lib/tema.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_DO_TEMA }} />
+      </head>
       <body className="font-sans antialiased">
+        <AplicarTema />
         {children}
         <ServiceWorker />
         {process.env.NODE_ENV === 'production' && <Analytics />}

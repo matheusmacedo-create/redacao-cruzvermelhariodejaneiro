@@ -63,7 +63,7 @@ export default async function IntegracoesPage() {
                 <p className="font-medium">{h.nome}</p>
                 <p className="text-sm text-muted-foreground">{h.texto}</p>
               </div>
-              <span className={`shrink-0 text-xs font-medium ${h.ligado ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>{h.ligado ? 'Ligada' : 'Desligada'}</span>
+              <span className={`shrink-0 text-xs font-medium ${h.ligado ? 'text-emerald-700' : 'text-muted-foreground'}`}>{h.ligado ? 'Ligada' : 'Desligada'}</span>
             </div>
           ))}
         </Card>

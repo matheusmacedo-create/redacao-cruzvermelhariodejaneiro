@@ -39,8 +39,8 @@ const FILTROS_DE_LEITURA = [
 
 const STATUS_INFO: Record<ContatoDeImprensa['emailStatus'], { rotulo: string; classe: string }> = {
   nao_verificado: { rotulo: 'Não verificado', classe: 'bg-secondary text-secondary-foreground' },
-  valido: { rotulo: 'Válido', classe: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' },
-  arriscado: { rotulo: 'Arriscado', classe: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
+  valido: { rotulo: 'Válido', classe: 'bg-emerald-500/15 text-emerald-700' },
+  arriscado: { rotulo: 'Arriscado', classe: 'bg-amber-500/15 text-amber-700' },
   invalido: { rotulo: 'Inválido', classe: 'bg-destructive/10 text-destructive' },
 }
 
@@ -94,7 +94,7 @@ export function PainelDeImprensa({ contatos, campanhas, envioNoMes, hunterDispon
           </button>
         ))}
       </div>
-      {recado && <p className="text-xs text-emerald-700 dark:text-emerald-500">{recado}</p>}
+      {recado && <p className="text-xs text-emerald-700">{recado}</p>}
       {aba === 'contatos'
         ? <Contatos contatos={contatos} hunterDisponivel={hunterDisponivel} envioDisponivel={envioDisponivel} podeDisparar={podeDisparar} ehAdmin={ehAdmin} abrirCampanha={(ids) => setComposicao({ ids })} />
         : <PainelDeCampanhas campanhas={campanhas} envioNoMes={envioNoMes} podeDisparar={podeDisparar} envioDisponivel={envioDisponivel} abrirCampanha={setComposicao} />}
@@ -272,7 +272,7 @@ function Contatos({ contatos, hunterDisponivel, envioDisponivel, podeDisparar, e
           <Button size="sm" variant="ghost" onClick={() => setSelecionados(new Set())}>Limpar</Button>
         </div>
       )}
-      {recado && <p className={`text-xs ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-500'}`}>{recado.texto}</p>}
+      {recado && <p className={`text-xs ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700'}`}>{recado.texto}</p>}
 
       <p className="text-xs text-muted-foreground">
         {filtrados.length === 0
@@ -361,7 +361,7 @@ function Leitura({ contato }: { contato: ContatoDeImprensa }) {
     <div className="flex flex-col gap-1">
       <span className="text-xs">Abriu {contato.totalAberturas} de {contato.totalEnvios}</span>
       {naoLe(contato.enviosSemAbertura) && (
-        <span className="inline-flex w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+        <span className="inline-flex w-fit rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700">
           {contato.enviosSemAbertura} seguidos sem abrir
         </span>
       )}
@@ -616,8 +616,8 @@ function DialogBuscarDominio({ onFechar, onAdicionados }: {
       </div>
 
       {erro && <p className="text-xs text-destructive">{erro}</p>}
-      {aviso && <p className="text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
-      {resultado && <p className="text-xs text-emerald-700 dark:text-emerald-500">{resultado}</p>}
+      {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
+      {resultado && <p className="text-xs text-emerald-700">{resultado}</p>}
 
       {candidatos && candidatos.length > 0 && (
         <>
@@ -726,7 +726,7 @@ function DialogEncontrarEmail({ onFechar, onEncontrado }: {
       </div>
 
       {erro && <p className="text-xs text-destructive">{erro}</p>}
-      {aviso && <p className="text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+      {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onFechar} disabled={buscando}>Cancelar</Button>
@@ -855,7 +855,7 @@ function DialogImportar({ listasExistentes, onFechar, onImportado }: {
 
       {erro && <p className="text-xs text-destructive">{erro}</p>}
       {progresso && <p className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3 animate-spin" />{progresso}</p>}
-      {resultado && <p className="text-xs text-emerald-700 dark:text-emerald-500">{resultado}</p>}
+      {resultado && <p className="text-xs text-emerald-700">{resultado}</p>}
 
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onFechar} disabled={gravando}>{resultado ? 'Fechar' : 'Cancelar'}</Button>

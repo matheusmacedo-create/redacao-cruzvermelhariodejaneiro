@@ -45,7 +45,8 @@ export function BrandMark({
           priority
           sizes={compact ? '180px' : '(max-width: 768px) 240px, 288px'}
           className={cn(
-            'h-auto w-full object-contain object-left',
+            // A logo tem fundo branco: no modo escuro vira uma placa (cruz vermelha sobre branco, como pede a marca).
+            'h-auto w-full object-contain object-left dark:rounded-md dark:bg-white dark:p-1',
             compact ? 'max-w-[180px]' : selo ? 'min-w-0 max-w-[184px]' : 'max-w-72',
             imageClassName,
           )}

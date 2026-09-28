@@ -33,7 +33,7 @@ export function FolhaDoOficio({ doc, assinaturas, rodape, marcaDagua }: {
   const assinantes = assinaturas ?? doc.assinantes.map((a) => ({ ...a, estado: 'pendente' as const, assinadoEm: null }))
   const dest = doc.destinatario
   return (
-    <article className="folha-oficio relative mx-auto w-full max-w-[52rem] overflow-hidden rounded-md border border-border bg-white px-6 py-8 font-sans text-[14.5px] leading-relaxed text-neutral-900 shadow-sm sm:px-14 sm:py-12 print:max-w-none print:rounded-none print:border-0 print:px-0 print:py-0 print:shadow-none">
+    <article className="folha-oficio papel relative mx-auto w-full max-w-[52rem] overflow-hidden rounded-md border border-border bg-white px-6 py-8 font-sans text-[14.5px] leading-relaxed text-neutral-900 shadow-sm sm:px-14 sm:py-12 print:max-w-none print:rounded-none print:border-0 print:px-0 print:py-0 print:shadow-none">
       {marcaDagua && (
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="-rotate-[24deg] select-none font-sans text-6xl font-black uppercase tracking-widest text-neutral-900/[0.06] sm:text-8xl">{marcaDagua}</span>

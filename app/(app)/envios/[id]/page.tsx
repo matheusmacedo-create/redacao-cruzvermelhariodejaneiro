@@ -129,7 +129,7 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
               {envio.pessoas_atendidas !== null && <Linha rotulo="Pessoas atendidas">{envio.pessoas_atendidas.toLocaleString('pt-BR')}</Linha>}
               {envio.parceiros && <Linha rotulo="Parceiros">{envio.parceiros}</Linha>}
               <Linha rotulo="Imagem das pessoas">
-                <span className={autorizacao.podePublicar ? '' : 'inline-flex items-start gap-1 text-amber-700 dark:text-amber-400'}>
+                <span className={autorizacao.podePublicar ? '' : 'inline-flex items-start gap-1 text-amber-700'}>
                   {!autorizacao.podePublicar && <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />}{autorizacao.rotulo}
                 </span>
                 {!autorizacao.podePublicar && <span className="mt-0.5 block text-xs text-muted-foreground">As fotos entram na Biblioteca como “pendente”: confira a autorização antes de publicar.</span>}

@@ -37,7 +37,7 @@ const curto = (h: string | null) => (h ? `${h.slice(0, 8)}…${h.slice(-4)}` : '
 const ICONE: Record<EventoDeAcesso, typeof LogIn> = {
   entrada: LogIn, entrada_falhou: ShieldX, entrada_bloqueada: Ban, mfa_ok: ShieldCheck, mfa_falhou: ShieldX, codigo_pedido: Mail, saida: LogOut,
 }
-const TOM = { ok: 'text-emerald-700 dark:text-emerald-400', falha: 'text-red-700 dark:text-red-400', neutro: 'text-muted-foreground' }
+const TOM = { ok: 'text-emerald-700', falha: 'text-red-700', neutro: 'text-muted-foreground' }
 /** Um instante no passado, em ISO. Fora do componente: a página é de servidor e roda uma vez por pedido. */
 const haDias = (dias: number) => new Date(Date.now() - dias * 24 * 60 * 60_000).toISOString()
 const selectClass = 'h-9 rounded-md border border-border bg-background px-2 text-sm'
@@ -214,7 +214,7 @@ export default async function AcessosPage({ searchParams }: { searchParams: Prom
                   <span className="text-muted-foreground">{lugar(l)}</span>
                   <span className="hidden text-muted-foreground md:inline">{[l.navegador, l.sistema, l.dispositivo].filter(Boolean).join(' · ')}</span>
                   {l.sinais_de_risco.filter((x) => x !== 'primeiro_registro').map((x) => (
-                    <span key={x} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{ROTULO_DO_SINAL[x] ?? x}</span>
+                    <span key={x} className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-900">{ROTULO_DO_SINAL[x] ?? x}</span>
                   ))}
                 </summary>
                 <dl className="grid grid-cols-1 gap-x-6 gap-y-3 border-t border-border px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">

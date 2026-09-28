@@ -115,7 +115,7 @@ export default async function ConfiguracoesPage() {
 const nomeCurto = (nome: string) => nome.includes('Gmail') ? 'Google (Gmail)' : nome.replace(/ \(.*\)$/, '')
 
 const TONS = {
-  ok: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  ok: 'bg-emerald-500/10 text-emerald-700',
   atencao: 'bg-warning/15 text-warning-foreground',
   risco: 'bg-destructive/10 text-destructive',
 } as const

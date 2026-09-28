@@ -135,7 +135,7 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
         A chave fica em <a href={chave.painel} target="_blank" rel="noreferrer" className="text-primary hover:underline">{chave.painel.replace(/^https:\/\//, '')}</a>.
         Nunca cole chave no chat, em e-mail ou em documento — só aqui.
       </p>
-      {recado && <p className={`text-xs ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-500'}`}>{recado.texto}</p>}
+      {recado && <p className={`text-xs ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700'}`}>{recado.texto}</p>}
     </Card>
   )
 }

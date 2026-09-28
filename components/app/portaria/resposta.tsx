@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 
 const ICONES: Record<RespostaDaVisita, typeof Clock> = { subir: ArrowUpFromLine, aguardar: Hourglass, recusar: XCircle }
 const TOM: Record<RespostaDaVisita, string> = {
-  subir: 'border-success/40 bg-success/10 text-emerald-800 dark:text-emerald-300',
+  subir: 'border-success/40 bg-success/10 text-emerald-800',
   aguardar: 'border-warning/60 bg-warning/15 text-warning-foreground',
   recusar: 'border-destructive/40 bg-destructive/10 text-destructive',
 }

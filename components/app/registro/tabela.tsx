@@ -188,7 +188,7 @@ export function TabelaDoRegistro({ linhas, temPendentes }: {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       {l.estado === 'publicada' ? (
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-500">Publicado</span>
+                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-700">Publicado</span>
                       ) : (
                         <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">Falhou</span>
                       )}

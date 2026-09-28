@@ -769,10 +769,10 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
             </ul>
             {barrados.length > 0 && (
               <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Ficam de fora, com pendência:</p>
+                <p className="text-xs font-medium text-amber-700">Ficam de fora, com pendência:</p>
                 <ul className="mt-1 flex flex-col gap-0.5">
                   {barrados.map((d) => (
-                    <li key={d.id} className="text-xs text-amber-700 dark:text-amber-400">
+                    <li key={d.id} className="text-xs text-amber-700">
                       {nomeDoDestino(d)} — corrija a validação para incluir.
                     </li>
                   ))}
@@ -1180,7 +1180,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
       </div>
 
       {publicada && !encerrado && (
-        <p className="-mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+        <p className="-mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
           Esta notícia já está no site. Você pode corrigir o texto, trocar fotos, legendas e a posição delas;
           as mudanças só entram na página quando você clicar em <strong>Atualizar a página no site</strong>.
           O endereço e a data de publicação continuam os mesmos, e o que já saiu nas redes não muda.
@@ -1203,7 +1203,7 @@ function EditorDaNoticia({ base, mestre, onMudar, fileIds, onFileIds, biblioteca
       {mestre.cerebro && <OrientacaoDoCerebro orientacao={mestre.cerebro} congelado={congelado} />}
 
       {base?.erro && ['falhou', 'publicada'].includes(base.estado) && (
-        <p className={`rounded-lg border px-3 py-2 text-xs ${base.estado === 'falhou' ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'}`}>{base.erro}</p>
+        <p className={`rounded-lg border px-3 py-2 text-xs ${base.estado === 'falhou' ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-amber-500/40 bg-amber-500/10 text-amber-700'}`}>{base.erro}</p>
       )}
 
       <label className="text-sm font-medium">Título
@@ -1520,7 +1520,7 @@ function OrientacaoDoCerebro({ orientacao, congelado }: {
   const stories = pecas?.stories ?? []
 
   return (
-    <div className="flex flex-col gap-3 rounded-r-lg border-l-[3px] border-primary bg-[#F3F1ED] px-3 py-2.5 text-foreground dark:bg-muted/40">
+    <div className="flex flex-col gap-3 rounded-r-lg border-l-[3px] border-primary bg-[#F3F1ED] dark:bg-muted/40 px-3 py-2.5 text-foreground dark:bg-muted/40">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
         <span className={`${tituloDaSecaoDoCerebro} text-primary`}>Sugerido pelo Cérebro</span>
         <span>· nota {orientacao.nota}</span>
@@ -1599,7 +1599,7 @@ function OrientacaoDoCerebro({ orientacao, congelado }: {
                 {orientacao.canais.map((c, i) => (
                   <tr key={`${c.canal}-${i}`} className="align-top">
                     <td className="border-b border-border/50 py-1.5 pr-2 font-medium">{rotuloDoCanalDoCerebro(c.canal)}</td>
-                    <td className={cn('border-b border-border/50 py-1.5 pr-2 text-[11px] font-extrabold', c.usar ? 'text-[#1A7F45]' : 'text-primary')}>
+                    <td className={cn('border-b border-border/50 py-1.5 pr-2 text-[11px] font-extrabold', c.usar ? 'text-[#1A7F45] dark:text-success' : 'text-primary')}>
                       {c.usar ? 'SIM' : 'NÃO'}
                     </td>
                     <td className="border-b border-border/50 py-1.5 text-muted-foreground">
@@ -1994,7 +1994,7 @@ function CriarImagensDaMateria({ mestre, fotos, workspaceId, onNovaMidia, onDesc
                   </section>
 
                   {erro && <p className="text-xs text-destructive">{erro}</p>}
-                  {aviso && <p className="text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+                  {aviso && <p className="text-xs text-amber-700">{aviso}</p>}
 
                   <div className="flex flex-wrap items-center gap-3">
                     <Button onClick={gerarAgora} disabled={gerando || prompt.trim().length < 10 || formatos.size === 0}>
@@ -2267,7 +2267,7 @@ function EstudioDeImagem({ destino, canal, proporcao, mestre, fotos, workspaceId
                   </Button>
                 </div>
                 {cheio && (
-                  <p className="text-xs text-amber-600 dark:text-amber-500">
+                  <p className="text-xs text-amber-600">
                     Este destino já está com o número máximo de mídias. Tire uma antes de anexar esta.
                   </p>
                 )}
@@ -2375,8 +2375,8 @@ function EstudioDeImagem({ destino, canal, proporcao, mestre, fotos, workspaceId
                 </section>
 
                 <section className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
-                  <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
-                  <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+                  <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                  <p className="text-xs leading-relaxed text-amber-800">
                     Os pedidos prontos já proíbem <strong>pessoas</strong> e o <strong>emblema da cruz vermelha</strong>.
                     O emblema é símbolo protegido pelas Convenções de Genebra — uma versão saída de um gerador não pode
                     sair no canal oficial. E imagem que finja registro de atendimento custa a credibilidade do que a
@@ -2715,7 +2715,7 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
           <button
             type="button"
             onClick={() => setConfirmando(a)}
-            className="rounded-md border border-amber-600/50 px-2 py-1 font-medium text-amber-800 transition-colors hover:bg-amber-500/20 dark:text-amber-300"
+            className="rounded-md border border-amber-600/50 px-2 py-1 font-medium text-amber-800 transition-colors hover:bg-amber-500/20"
           >
             Autorizar uso
           </button>
@@ -2869,7 +2869,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
         <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">{destino.erro}</p>
       )}
       {destino.erro && destino.estado === 'publicada' && (
-        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">{destino.erro}</p>
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">{destino.erro}</p>
       )}
 
       <label className="text-sm font-medium">
@@ -2920,7 +2920,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
         </div>
         )}
         {formato.texto.dobra && tamanho > formato.texto.dobra && !estourou && (
-          <span className="mt-1 block text-xs font-normal text-amber-600 dark:text-amber-500">
+          <span className="mt-1 block text-xs font-normal text-amber-600">
             Acima de {formato.texto.dobra} o leitor vê “…mais” — o essencial precisa estar antes disso.
           </span>
         )}
@@ -2978,7 +2978,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
             onLiberar={onLiberarMidia}
           />
           {temImagemDeIa && (
-            <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700 dark:text-amber-400">
+            <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-700">
               <Sparkles className="mt-0.5 size-3 shrink-0" />
               <span>
                 Este destino leva imagem gerada por IA. Ela sai declarada como sintética para a rede — e não deve
@@ -2987,7 +2987,7 @@ function EditorCanal({ destino, arquivoPorId, fileIdsDoMestre, midiasNoTextoDoMe
             </p>
           )}
           {!eSite && midiasNoTextoDoMestre > 0 && destino.fileIds.length === 0 && (
-            <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
+            <p className="mt-2 text-xs text-amber-600">
               O texto da notícia tem {midiasNoTextoDoMestre === 1 ? 'uma foto escrita no meio do texto' : `${midiasNoTextoDoMestre} fotos escritas no meio do texto`}.
               Isso vale para a página do site; em rede social a mídia é anexo — escolha acima qual vai junto.
             </p>
@@ -3060,7 +3060,7 @@ function comAcrescimosMarcados(texto: string): React.ReactNode {
   const partes = texto.split(/(⟦[^⟦⟧]*⟧)/)
   if (partes.length === 1) return texto
   return partes.map((parte, i) => (i % 2 === 1
-    ? <mark key={i} title="Acréscimo da IA — confira" className="rounded bg-amber-100 px-0.5 text-inherit dark:bg-amber-500/25">{parte}</mark>
+    ? <mark key={i} title="Acréscimo da IA — confira" className="rounded bg-amber-100 px-0.5 text-inherit">{parte}</mark>
     : parte))
 }
 
@@ -3252,8 +3252,8 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
               )}
               {checagens.length > 0 && (
                 <div className="mt-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Para conferir</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800 dark:text-amber-300">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Para conferir</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
                     {checagens.map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
@@ -3266,7 +3266,7 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
                   — entram junto com o texto, no rodapé das fotos, para você revisar.
                 </p>
               )}
-              {aviso && <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400">{aviso}</p>}
+              {aviso && <p className="mt-1.5 text-xs text-amber-700">{aviso}</p>}
               <div className="mt-2 flex items-center gap-2">
                 <Button size="sm" onClick={aplicar}><Check className="size-3.5" />Usar este texto</Button>
                 <Button size="sm" variant="outline" onClick={() => { setProposta(null); setLegendas(null); setChecagens([]) }}>Descartar</Button>
@@ -3277,7 +3277,7 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
           {anterior !== null && !proposta && (
             <div className="mt-2">
               <div className="flex items-center gap-2">
-                <p className="text-xs text-emerald-700 dark:text-emerald-400">Texto aplicado no editor.</p>
+                <p className="text-xs text-emerald-700">Texto aplicado no editor.</p>
                 <button type="button" className="text-xs font-medium text-muted-foreground underline hover:text-foreground" onClick={desfazer}>
                   Desfazer
                 </button>
@@ -3286,8 +3286,8 @@ function MelhorarComIa({ titulo, linhaFina, corpo, desabilitado, disponivel, fot
                   editor, que alguém vai atrás de cada item. */}
               {checagens.length > 0 && (
                 <div className="mt-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Para conferir antes de publicar</p>
-                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800 dark:text-amber-300">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Para conferir antes de publicar</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
                     {checagens.map((item, i) => <li key={i}>{item}</li>)}
                   </ul>
                 </div>
@@ -3539,7 +3539,7 @@ function CampoDaMateria({ valor, onMudar, desabilitado, max, tamanho, estourou, 
                   className={inputClass}
                 />
                 {!foto.alt.trim() && (
-                  <span className="text-[11px] text-amber-600 dark:text-amber-500">
+                  <span className="text-[11px] text-amber-600">
                     Sem legenda a foto sai muda para quem usa leitor de tela.
                   </span>
                 )}
@@ -3582,7 +3582,7 @@ function CampoExtraInput({ campo, valor, onMudar, desabilitado }: {
         <input value={valor} onChange={(e) => onMudar(e.target.value)} maxLength={campo.max} disabled={inativo} className={`mt-1 ${inputClass}`} />
       )}
       {campo.indisponivel
-        ? <span className="mt-0.5 block text-[11px] font-normal text-amber-600 dark:text-amber-500">{campo.indisponivel}</span>
+        ? <span className="mt-0.5 block text-[11px] font-normal text-amber-600">{campo.indisponivel}</span>
         : campo.dica && <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">{campo.dica}</span>}
     </label>
   )
@@ -3997,7 +3997,7 @@ function ValidacaoDoDestino({ destino, dadosPorArquivo }: {
   )
   if (!avisos.length) {
     return (
-      <Card className="flex items-center gap-2 p-3 text-xs text-emerald-700 dark:text-emerald-500">
+      <Card className="flex items-center gap-2 p-3 text-xs text-emerald-700">
         <Check className="size-4" />Nada a corrigir neste destino.
       </Card>
     )
@@ -4007,7 +4007,7 @@ function ValidacaoDoDestino({ destino, dadosPorArquivo }: {
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Validação</p>
       <ul className="flex flex-col gap-1">
         {avisos.map((a, i) => (
-          <li key={i} className={`flex items-start gap-1.5 text-xs ${a.nivel === 'erro' ? 'text-destructive' : a.nivel === 'aviso' ? 'text-amber-600 dark:text-amber-500' : 'text-muted-foreground'}`}>
+          <li key={i} className={`flex items-start gap-1.5 text-xs ${a.nivel === 'erro' ? 'text-destructive' : a.nivel === 'aviso' ? 'text-amber-600' : 'text-muted-foreground'}`}>
             <CircleAlert className="mt-0.5 size-3 shrink-0" />{a.mensagem}
           </li>
         ))}

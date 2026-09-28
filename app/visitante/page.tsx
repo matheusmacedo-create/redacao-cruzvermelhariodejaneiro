@@ -18,7 +18,7 @@ export default async function Visitante({ searchParams }: { searchParams: Promis
   let valido = false
   try { valido = Boolean(await espacoDaEntrada(t)) } catch { valido = false }
   return (
-    <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)]">
+    <div className="min-h-dvh bg-sidebar text-foreground [--destructive:oklch(0.5_0.19_27)] [--success-texto:oklch(0.45_0.12_150)] dark:[--destructive:rgb(239_83_80)] dark:[--success-texto:oklch(0.76_0.14_150)]">
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between gap-3 px-4">
           <Logo className="w-28" />

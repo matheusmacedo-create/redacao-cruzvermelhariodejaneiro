@@ -16,7 +16,7 @@ type Recado = { tom: 'ok' | 'erro'; texto: string } | null
 
 function Aviso({ recado }: { recado: Recado }) {
   if (!recado) return null
-  return <p role={recado.tom === 'erro' ? 'alert' : 'status'} className={cn('mt-3 rounded-lg px-3 py-2 text-sm', recado.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400')}>{recado.texto}</p>
+  return <p role={recado.tom === 'erro' ? 'alert' : 'status'} className={cn('mt-3 rounded-lg px-3 py-2 text-sm', recado.tom === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-700')}>{recado.texto}</p>
 }
 
 export function Configuracoes({ instalada, resumoSemanal, link, visiveis, disponiveis, datas, podeEditarDatas }: {
@@ -31,7 +31,7 @@ export function Configuracoes({ instalada, resumoSemanal, link, visiveis, dispon
   return (
     <div className="flex flex-col gap-4">
       {!instalada && (
-        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-800">
           A Agenda ainda não foi instalada no banco (migração pendente). As camadas funcionam, mas as escolhas daqui não ficam guardadas.
         </p>
       )}

@@ -114,7 +114,7 @@ export function MaterialEAcoes({ envioId, estado, arquivos, jaVirou }: {
                     ? <a href={a.url} target="_blank" rel="noreferrer"><img src={a.url} alt={a.nome} loading="lazy" className="aspect-square w-full object-cover" /></a>
                     : <video src={a.url} controls preload="metadata" className="aspect-square w-full bg-black object-contain" />}
                   {!jaVirou && (
-                    <label className="absolute left-1.5 top-1.5 flex size-8 cursor-pointer items-center justify-center rounded-md bg-white/90 shadow">
+                    <label className="absolute left-1.5 top-1.5 flex size-8 cursor-pointer items-center justify-center rounded-md bg-white/90 shadow dark:bg-card/90">
                       <input type="checkbox" checked={marcado} onChange={() => alternar(a.id)} className="size-4 accent-[var(--primary)]" aria-label={`Usar ${a.nome}`} />
                     </label>
                   )}
@@ -142,7 +142,7 @@ export function MaterialEAcoes({ envioId, estado, arquivos, jaVirou }: {
       )}
 
       {aviso && (
-        <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <p>{aviso}</p>
           {pronto && <a href={pronto} className="w-fit font-semibold underline underline-offset-4">{pronto.startsWith('/redes/') ? 'Abrir o pacote (matéria e posts)' : 'Abrir a pauta'} →</a>}
         </div>

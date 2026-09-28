@@ -467,7 +467,7 @@ function Compositor({ caixas, caixaInicial, fixa = false, resposta, voltar, onFe
       </details>
 
       {recado && (
-        <p className={`flex items-start gap-2 text-sm ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-500'}`} role={recado.tom === 'erro' ? 'alert' : 'status'}>
+        <p className={`flex items-start gap-2 text-sm ${recado.tom === 'erro' ? 'text-destructive' : 'text-emerald-700'}`} role={recado.tom === 'erro' ? 'alert' : 'status'}>
           {recado.tom === 'erro' ? <AlertTriangle className="mt-0.5 size-4 shrink-0" /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0" />}{recado.texto}
         </p>
       )}
@@ -519,7 +519,7 @@ function Historico({ envios, embutido = false }: { envios: EnvioNaTela[]; embuti
                   <p className="truncate text-xs text-muted-foreground">{e.de} → {e.para.join(', ')}{e.cc.length ? ` · cc ${e.cc.join(', ')}` : ''}</p>
                 </div>
                 <span className="text-xs text-muted-foreground">{e.setor} · {e.autor}{e.quando && !Number.isNaN(Date.parse(e.quando)) ? ` · ${quandoNoRegistro.format(new Date(e.quando))}` : ''}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${e.estado === 'enviado' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${e.estado === 'enviado' ? 'bg-emerald-500/15 text-emerald-700' : 'bg-destructive/10 text-destructive'}`}>
                   {e.estado === 'enviado' ? 'Enviado' : 'Falhou'}
                 </span>
                 <ChevronDown className={`size-4 text-muted-foreground transition-transform ${aberto === e.id ? 'rotate-180' : ''}`} />

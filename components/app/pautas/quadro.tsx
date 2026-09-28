@@ -49,8 +49,8 @@ const campo = 'rounded-lg border border-border bg-background px-3 py-2 text-sm o
 
 /** Cor da etiqueta de prioridade — sempre com o nome escrito junto. */
 const PRIORIDADE: Record<string, { rotulo: string; faixa: string; chip: string }> = {
-  critical: { rotulo: 'Crítica', faixa: 'bg-red-600', chip: 'bg-red-600/12 text-red-700 dark:text-red-400' },
-  high: { rotulo: 'Alta', faixa: 'bg-orange-500', chip: 'bg-orange-500/15 text-orange-700 dark:text-orange-400' },
+  critical: { rotulo: 'Crítica', faixa: 'bg-red-600', chip: 'bg-red-600/12 text-red-700' },
+  high: { rotulo: 'Alta', faixa: 'bg-orange-500', chip: 'bg-orange-500/15 text-orange-700' },
   medium: { rotulo: 'Normal', faixa: 'bg-sky-500', chip: '' },
   low: { rotulo: 'Baixa', faixa: 'bg-slate-400', chip: '' },
 }
@@ -58,7 +58,7 @@ const PRIORIDADE: Record<string, { rotulo: string; faixa: string; chip: string }
 const PRAZO: Record<SituacaoDoPrazo, string> = {
   atrasada: 'bg-destructive text-white',
   hoje: 'bg-amber-500 text-white',
-  semana: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
+  semana: 'bg-amber-500/15 text-amber-800',
   futura: 'bg-muted text-muted-foreground',
   sem: '',
 }

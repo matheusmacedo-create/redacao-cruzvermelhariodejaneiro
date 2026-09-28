@@ -42,7 +42,7 @@ export default async function AreaDoMembro({ children }: { children: React.React
       {/* Aparece só com o foco do teclado; leva direto ao conteúdo, pulando cabeçalho e abas. */}
       <a href="#conteudo" className="fixed left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-4 py-3 text-sm font-semibold text-foreground shadow-lg focus:translate-y-0">Pular para o conteúdo</a>
       {m.previa && (
-        <div className="bg-warning text-warning-foreground" role="status" id="faixa-da-previa">
+        <div className="bg-warning text-warning-foreground dark:bg-warning/20" role="status" id="faixa-da-previa">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
             <span className="flex items-center gap-2 font-medium"><Eye className="size-4 shrink-0" />
               {m.previa.como === 'geral' ? 'Visualização: é isto que um voluntário vê. Nada é gravado.' : `Visualização como ${m.nome}. Só leitura — nada é gravado em nome dele.`}

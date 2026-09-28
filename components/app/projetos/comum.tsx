@@ -11,9 +11,9 @@ export const ROTULO_DA_SITUACAO: Record<SituacaoNaTela, string> = {
 }
 
 const CLASSE: Record<SituacaoNaTela, string> = {
-  no_prazo: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  em_risco: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
-  atrasado: 'bg-red-500/12 text-red-700 dark:text-red-400',
+  no_prazo: 'bg-emerald-500/15 text-emerald-700',
+  em_risco: 'bg-amber-500/15 text-amber-800',
+  atrasado: 'bg-red-500/12 text-red-700',
   concluido: 'bg-secondary text-secondary-foreground',
   sem_atualizacao: 'bg-muted text-muted-foreground',
 }

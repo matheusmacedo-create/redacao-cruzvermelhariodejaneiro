@@ -57,9 +57,9 @@ const ABAS = [
 
 const ESTADO: Record<string, { rotulo: string; classe: string }> = {
   rascunho: { rotulo: 'Rascunho', classe: 'bg-secondary text-secondary-foreground' },
-  enviando: { rotulo: 'Enviando', classe: 'bg-sky-500/15 text-sky-700 dark:text-sky-400' },
-  enviada: { rotulo: 'Enviada', classe: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-500' },
-  parcial: { rotulo: 'Parcial', classe: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
+  enviando: { rotulo: 'Enviando', classe: 'bg-sky-500/15 text-sky-700' },
+  enviada: { rotulo: 'Enviada', classe: 'bg-emerald-500/15 text-emerald-700' },
+  parcial: { rotulo: 'Parcial', classe: 'bg-amber-500/15 text-amber-700' },
   falhou: { rotulo: 'Falhou', classe: 'bg-destructive/10 text-destructive' },
 }
 
@@ -380,9 +380,9 @@ function LinhaDaCampanha({ campanha: c, podeDisparar, envioDisponivel, abrirCamp
                           {d.estado === 'falhou' && <span className="text-destructive" title={d.erro ?? ''}>falhou</span>}
                           {d.estado === 'na_fila' && <span className="text-muted-foreground">sem confirmação</span>}
                           {d.estado === 'enviado' && !d.abertoEm && <span className="text-muted-foreground">não abriu</span>}
-                          {d.abertoEm && <span className="text-emerald-700 dark:text-emerald-500">abriu</span>}
+                          {d.abertoEm && <span className="text-emerald-700">abriu</span>}
                           {d.clicadoEm && <span className="text-primary">clicou</span>}
-                          {d.descadastrouEm && <span className="text-amber-700 dark:text-amber-400">saiu</span>}
+                          {d.descadastrouEm && <span className="text-amber-700">saiu</span>}
                         </span>
                       </li>
                     ))}

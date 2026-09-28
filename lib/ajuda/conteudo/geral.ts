@@ -383,6 +383,16 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       { id: 'confirmar-o-email', ...CONFIRMAR_O_EMAIL },
       { id: 'ativar-a-verificacao', ...ATIVAR_A_VERIFICACAO },
       { id: 'sair-da-conta', ...SAIR_DA_CONTA },
+      {
+        id: 'modo-escuro',
+        titulo: 'Ligar o modo escuro',
+        passos: [
+          'Toque na sua foto (ou iniciais), no alto à direita.',
+          'Em “Aparência”, escolha “Escuro”. A tela muda na hora.',
+          '“Automático” segue o modo claro ou escuro do seu celular ou computador e muda junto com ele; “Claro” volta ao normal.',
+        ],
+        dica: 'A escolha vale para este navegador. A conferência de ofício, os crachás e os cartazes continuam claros, porque são o documento (e saem assim na impressão).',
+      },
     ],
     perguntas: [
       {
