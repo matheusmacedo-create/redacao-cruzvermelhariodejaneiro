@@ -10,10 +10,12 @@ import { cn } from '@/lib/utils'
 
 /**
  * O beta com a equipe (docs/AJUDA.md §10), nas telas:
- *  - OpiniaoDaTela: "O que achou desta tela?" (nota de 1 a 5, e o que quiser contar);
- *  - IssoAjudou: o voto em cada pergunta da ajuda;
- *  - PergunteAEquipe: a dúvida que a ajuda não respondeu;
- *  - BotaoBeta: o "Beta" do topo, para relatar problema, sugestão, dúvida ou elogio de qualquer tela.
+ *  - FormularioDoBeta: problema, ideia, dúvida ou elogio, com a nota da tela se
+ *    quiser. É um só, em dois lugares: o "Beta" do topo (BotaoBeta) e "Conte
+ *    para a equipe", no fim do painel "?" (painel-conteudo.tsx). Antes havia
+ *    também "O que achou desta tela?" e "Pergunte à equipe", três formulários
+ *    parecidos enfileirados no painel (§11);
+ *  - IssoAjudou: o voto em cada pergunta da ajuda.
  * Junto vai o contexto do aparelho (tamanho da janela, celular ou não, navegador), para reproduzir.
  */
 
@@ -55,45 +57,6 @@ function EscolhaDaNota({ nota, aoEscolher, nome }: { nota: number | null; aoEsco
   )
 }
 
-/** "O que achou desta tela?" — no fim do painel "?". Um toque na nota já basta; o comentário é opcional. */
-export function OpiniaoDaTela({ area }: { area: string | null }) {
-  const caminho = usePathname()
-  const id = useId()
-  const [nota, setNota] = useState<number | null>(null)
-  const [texto, setTexto] = useState('')
-  const [erro, setErro] = useState('')
-  const [feito, setFeito] = useState(false)
-  const [ocupado, iniciar] = useTransition()
-  if (feito) return <Obrigado texto="Obrigado! A sua opinião chegou à equipe que está melhorando o Palácio. Se escreveu algo, a resposta aparece no sino." />
-  return (
-    <form className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4" data-opiniao-da-tela onSubmit={(e) => {
-      e.preventDefault()
-      iniciar(async () => {
-        setErro('')
-        const r = await enviarRetorno({ tipo: 'tela', caminho, area, nota, texto, contexto: contextoDoAparelho() })
-        if (r.erro) setErro(r.erro); else setFeito(true)
-      })
-    }}>
-      <div>
-        <p id={`${id}-t`} className="text-sm font-semibold">O que achou desta tela?</p>
-        <p className="text-xs text-muted-foreground">Estamos em beta: cada opinião vai direto para quem está melhorando o Palácio.</p>
-      </div>
-      <EscolhaDaNota nota={nota} aoEscolher={setNota} nome={`${id}-nota`} />
-      {nota !== null && (
-        <>
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            {nota <= 2 ? 'O que atrapalhou? (opcional)' : nota === 3 ? 'O que faria ficar melhor? (opcional)' : 'O que você mais gostou? (opcional)'}
-            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={4000} rows={3} className={campo}
-              placeholder={nota <= 2 ? 'Ex.: não achei onde ficam as propostas; no celular o botão fica cortado.' : 'Ex.: seria bom ver o total antes de enviar.'} />
-          </label>
-          {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
-          <button type="submit" disabled={ocupado} className={cn(botaoPrincipal, 'self-start')}>{ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}Enviar opinião</button>
-        </>
-      )}
-    </form>
-  )
-}
-
 /** "Isso ajudou?" debaixo de cada resposta. "Não" abre um campo para dizer o que faltou. */
 export function IssoAjudou({ perguntaId, area }: { perguntaId: string; area: string | null }) {
   const caminho = usePathname()
@@ -132,34 +95,6 @@ export function IssoAjudou({ perguntaId, area }: { perguntaId: string; area: str
   )
 }
 
-/** "Não achou? Pergunte à equipe": a dúvida vai para a administração, e a resposta volta no sino. */
-export function PergunteAEquipe({ area }: { area: string | null }) {
-  const caminho = usePathname()
-  const [texto, setTexto] = useState('')
-  const [erro, setErro] = useState('')
-  const [feito, setFeito] = useState(false)
-  const [ocupado, iniciar] = useTransition()
-  if (feito) return <Obrigado texto="Pergunta enviada. A resposta chega no sino e fica em “Seus retornos”, na Central de ajuda." />
-  return (
-    <form className="flex flex-col gap-2 rounded-xl border border-dashed border-border p-4" data-pergunte onSubmit={(e) => {
-      e.preventDefault()
-      iniciar(async () => {
-        setErro('')
-        const r = await enviarRetorno({ tipo: 'duvida', caminho, area, texto, contexto: contextoDoAparelho() })
-        if (r.erro) setErro(r.erro); else setFeito(true)
-      })
-    }}>
-      <label className="flex flex-col gap-1 text-sm font-semibold">
-        <span className="flex items-center gap-2"><MessageCircleQuestion className="size-4 text-primary" aria-hidden="true" />Não achou a resposta? Pergunte à equipe</span>
-        <span className="text-xs font-normal text-muted-foreground">A sua dúvida também vira resposta nova aqui na ajuda, para a próxima pessoa.</span>
-        <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={3} maxLength={4000} className={cn(campo, 'mt-1 font-normal')} placeholder="Ex.: como faço para mandar a cotação só para dois fornecedores?" />
-      </label>
-      {erro && <p className="text-sm text-destructive" role="alert">{erro}</p>}
-      <button type="submit" disabled={ocupado || texto.trim().length < 3} className={cn(botaoSecundario, 'self-start')}>{ocupado ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}Enviar a pergunta</button>
-    </form>
-  )
-}
-
 const TIPOS_DO_BETA: { tipo: TipoDeRetorno; rotulo: string; icone: typeof Bug; dica: string }[] = [
   { tipo: 'problema', rotulo: 'Algo deu errado', icone: Bug, dica: 'O que você fez, o que esperava e o que aconteceu. Ex.: “Toquei em Salvar na proposta e a tela ficou em branco.”' },
   { tipo: 'sugestao', rotulo: 'Tenho uma ideia', icone: Lightbulb, dica: 'O que faria o seu trabalho ficar mais fácil. Ex.: “Seria bom avisar o setor quando a compra chegar.”' },
@@ -189,11 +124,11 @@ export function BotaoBeta({ className }: { className?: string }) {
   )
 }
 
-/** O formulário do beta (no diálogo do topo e, no celular, no painel "?"). */
-export function FormularioDoBeta({ aoFechar, area = null, noPainel = false }: { aoFechar?: () => void; area?: string | null; noPainel?: boolean }) {
+/** O formulário do beta: no diálogo do topo e em "Conte para a equipe", no fim do painel "?" (que começa em "dúvida"). */
+export function FormularioDoBeta({ aoFechar, area = null, noPainel = false, tipoInicial = 'problema' }: { aoFechar?: () => void; area?: string | null; noPainel?: boolean; tipoInicial?: TipoDeRetorno }) {
   const caminho = usePathname()
   const id = useId()
-  const [tipo, setTipo] = useState<TipoDeRetorno>('problema')
+  const [tipo, setTipo] = useState<TipoDeRetorno>(tipoInicial)
   const [texto, setTexto] = useState('')
   const [nota, setNota] = useState<number | null>(null)
   const [erro, setErro] = useState('')

@@ -1266,28 +1266,14 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'registrar-horas',
-      titulo: 'Registrar horas de voluntariado',
+      titulo: 'Registrar horas ou uma formação no cadastro de alguém',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
         'Abra o cadastro da pessoa.',
-        'Em “Horas de voluntariado”, toque em “Registrar horas”.',
-        'Preencha a data, as horas e a atividade (ex.: cobertura do Réveillon).',
-        'Toque em “Salvar”.',
+        'Horas: em “Horas de voluntariado”, toque em “Registrar horas”, preencha a data, as horas e a atividade (ex.: cobertura do Réveillon) e toque em “Salvar”.',
+        'Formação: em “Formações e certificados”, toque em “Adicionar formação”, preencha o nome (ex.: Primeiros Socorros), a instituição se quiser, “Concluída em” e, se o certificado vencer, “Válida até”; toque em “Salvar”.',
       ],
-      dica: 'Cada registro vai de 0,25 a 24 horas, e a data não pode ser futura. As horas de oportunidade com presença marcada entram sozinhas. Registro lançado por engano sai pela lixeira ao lado dele.',
-    },
-    {
-      id: 'registrar-formacao',
-      titulo: 'Registrar uma formação ou certificado',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Abra o cadastro da pessoa.',
-        'Em “Formações e certificados”, toque em “Adicionar formação”.',
-        'Preencha o nome da formação (ex.: Primeiros Socorros) e, se quiser, a instituição.',
-        'Preencha “Concluída em” e, se o certificado vencer, “Válida até”.',
-        'Toque em “Salvar”.',
-      ],
-      dica: 'Com “Válida até”, a formação ganha selo de validade, e as vencidas ou que vencem em até 60 dias entram na contagem do topo de Voluntários. Cursos da Área do Voluntário entram sozinhos.',
+      dica: 'Cada registro de horas vai de 0,25 a 24 horas, e a data não pode ser futura; o lançado por engano sai pela lixeira ao lado. Com “Válida até”, a formação ganha selo de validade, e as vencidas ou que vencem em até 60 dias entram na contagem do topo de Voluntários. Presença em oportunidade e curso da Área do Voluntário entram sozinhos.',
     },
     {
       id: 'convidar-area',
@@ -1324,29 +1310,14 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'publicar-aviso',
-      titulo: 'Publicar um aviso para o voluntariado',
+      titulo: 'Publicar um aviso ou um banner na Área do Voluntário',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
-        'Em Voluntários, toque em “Avisos”.',
-        'Escreva o título e o recado.',
-        'Marque “Fixar no alto”, se for importante, e escolha a data em “Sai do mural em”, se o aviso tiver prazo.',
-        'Marque “Enviar também por e-mail” se todo mundo precisa saber logo.',
-        'Toque em “Publicar aviso”.',
+        'Em Voluntários, toque em “Avisos” (um recado no mural) ou em “Banners” (uma imagem larga no Início da Área do Voluntário).',
+        'Aviso: escreva o título e o recado; marque “Fixar no alto” se for importante, escolha a data em “Sai do mural em” se tiver prazo e marque “Enviar também por e-mail” se todo mundo precisa saber logo. Toque em “Publicar aviso”.',
+        'Banner: toque em “Enviar imagem” (foto ou arte larga, 1680×640, com o assunto no centro e sem texto), escreva o título e, se quiser, uma frase de apoio. “Com botão” leva a uma página da Área do Voluntário (/membro/oportunidades) ou a um https://; “De” e “até” dão prazo. Toque em “Publicar banner”.',
       ],
-      dica: 'O e-mail sai uma vez só por aviso, para quem está ativo, tem e-mail e não saiu da lista de avisos por e-mail. Cada aviso mostra quantos já viram; o lápis edita e a lixeira exclui.',
-    },
-    {
-      id: 'publicar-banner',
-      titulo: 'Publicar um banner na Área do Voluntário',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Em Voluntários, toque em “Banners”.',
-        'Toque em “Enviar imagem” e escolha uma foto ou arte larga (1680×640), com o assunto no centro e sem texto escrito nela.',
-        'Escreva o título e, se quiser, uma frase de apoio.',
-        'Para levar a algum lugar, marque “Com botão” e preencha o texto do botão e o endereço: uma página da Área do Voluntário (/membro/oportunidades) ou um https://.',
-        'Se o banner tiver prazo, preencha “De” e “até”. Toque em “Publicar banner”.',
-      ],
-      dica: 'Com mais de um no ar, eles se revezam no Início, na ordem que você der (menor primeiro); aparecem no máximo cinco. “Desligar” tira do ar sem apagar; a lixeira apaga o banner e a imagem.',
+      dica: 'O e-mail do aviso sai uma vez só, para quem está ativo, tem e-mail e não saiu da lista; cada aviso mostra quantos já viram. Banners: com mais de um no ar, eles se revezam no Início na ordem que você der (no máximo cinco); “Desligar” tira do ar sem apagar. Em ambos, o lápis edita e a lixeira exclui.',
     },
     {
       id: 'criar-oportunidade',
@@ -1358,9 +1329,11 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Preencha “Título”, “Tipo”, “Local”, “Início” e “Fim”.',
         'Se houver limite, preencha “Vagas”; se as inscrições fecham antes do início, “Inscrições até”.',
         'Escreva a “Descrição”: o que vão fazer, o que levar, uniforme, pré-requisitos.',
+        'Para perguntar algo na inscrição (“Tamanho da camiseta?”), em “Perguntas na inscrição” toque em “Pergunta” e escreva a pergunta com as alternativas.',
         'Toque em “Criar (como rascunho)”.',
         'Na oportunidade, toque em “Publicar”.',
       ],
+      dica: 'O voluntário responde às perguntas antes de se inscrever; as respostas aparecem em “Respostas”, na própria oportunidade.',
     },
     {
       id: 'criar-pedido',
@@ -1376,37 +1349,15 @@ const VOLUNTARIOS: GuiaDaArea = {
       dica: 'Depois da primeira resposta, as perguntas e o tipo não mudam mais: mudar embaralharia o que já foi respondido. Precisa de outras perguntas? Crie outra.',
     },
     {
-      id: 'perguntas-na-inscricao',
-      titulo: 'Fazer perguntas na inscrição de uma ação',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Na ação (nova ou já criada), vá até “Perguntas na inscrição”.',
-        'Toque em “Pergunta” e escreva, por exemplo, “Tamanho da camiseta?”, com as alternativas.',
-        'Toque em “Salvar”.',
-      ],
-      dica: 'O voluntário responde antes de se inscrever. As respostas aparecem em “Respostas”, na própria oportunidade.',
-    },
-    {
       id: 'marcar-presenca',
-      titulo: 'Marcar presença numa oportunidade',
+      titulo: 'Marcar presença ou cancelar uma oportunidade',
       quem: 'Nível “Gerenciar” ou acima',
       passos: [
-        'Abra a oportunidade, a partir do início da atividade.',
-        'Em “Inscritos”, confira as horas ao lado de cada pessoa.',
-        'Toque em “Presente” ou em “Ausente”.',
+        'Abra a oportunidade.',
+        'Presença, a partir do início da atividade: em “Inscritos”, confira as horas ao lado de cada pessoa e toque em “Presente” ou em “Ausente”. “Presente” lança as horas no cadastro; trocar para “Ausente” tira.',
+        'Para cancelar: toque em “Cancelar atividade”, escreva o “Motivo” (ele vai no aviso) e toque em “Cancelar e avisar”.',
       ],
-      dica: '“Presente” lança as horas no cadastro da pessoa; trocar para “Ausente” tira. Antes do início aparece “Presença a partir do início”.',
-    },
-    {
-      id: 'cancelar-oportunidade',
-      titulo: 'Cancelar uma oportunidade',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Abra a oportunidade e toque em “Cancelar atividade”.',
-        'Escreva o “Motivo”: ele vai no aviso.',
-        'Toque em “Cancelar e avisar”.',
-      ],
-      dica: 'Se ela estava publicada, quem se inscreveu e quem estava na espera recebem um e-mail com o motivo. A atividade continua na lista, marcada como cancelada. “Excluir” só existe enquanto ninguém se inscreveu.',
+      dica: 'Ao cancelar uma oportunidade publicada, quem se inscreveu e quem estava na espera recebem um e-mail com o motivo; ela continua na lista, marcada como cancelada. “Excluir” só existe enquanto ninguém se inscreveu.',
     },
     {
       id: 'montar-curso',
@@ -1436,17 +1387,6 @@ const VOLUNTARIOS: GuiaDaArea = {
       dica: 'Ela já fica visível na Área do Voluntário; o ícone de olho oculta ou mostra de novo. Para usar numa aula, escolha a apostila em “Apostila da aula (opcional)”.',
     },
     {
-      id: 'exportar-planilha',
-      titulo: 'Exportar a planilha de voluntários',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Em Voluntários, escolha o vínculo, a situação e o setor, se quiser, e toque em “Filtrar”.',
-        'Toque em “Exportar”.',
-        'Abra o arquivo baixado no Excel ou em outra planilha.',
-      ],
-      dica: 'A busca por texto não entra na planilha. Sem escolher a situação, ela traz também as inscrições pendentes. CPF e saúde nunca saem, e cada exportação fica registrada.',
-    },
-    {
       id: 'assinaturas-do-diploma',
       titulo: 'Escolher quem assina os diplomas',
       exemplo: 'Para a cerimônia de dezembro, a coordenação quer o diploma assinado pelo presidente, pelo vice e pela coordenação do Voluntariado: acrescenta os dois em “Quem assina” e confere no PDF de exemplo.',
@@ -1472,12 +1412,6 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
   ],
   perguntas: [
-    {
-      id: 'diploma-assinaturas-antigos',
-      pergunta: 'Mudei quem assina: os diplomas já emitidos mudam também?',
-      resposta: 'Não. Cada diploma guarda as assinaturas do dia em que saiu, e o PDF e a verificação pública mostram sempre essas. A exceção são os diplomas emitidos antes da escolha de assinaturas existir: esses seguem a lista atual da filial.',
-      termos: ['assinatura', 'vice-presidente', 'presidente', 'coordenação', 'diploma antigo', 'quem assina'],
-    },
     {
       id: 'oportunidade-no-whatsapp',
       pergunta: 'Quem recebe a oportunidade pelo WhatsApp?',
@@ -1522,15 +1456,9 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'horas-sozinhas',
-      pergunta: 'De onde vêm as horas que aparecem sozinhas no cadastro?',
-      resposta: 'Da presença nas oportunidades: “Presente” lança as horas da atividade (ou as que você informou), com o título dela. Trocar para “Ausente” tira essas horas.',
-      termos: ['horas', 'presença', 'automático'],
-    },
-    {
-      id: 'formacao-sozinha',
-      pergunta: 'Por que apareceu uma formação que ninguém registrou?',
-      resposta: 'É o certificado de um curso da Área do Voluntário: ao concluir, a formação entra sozinha no cadastro, com a validade do certificado. Se o certificado for cancelado, ela sai.',
-      termos: ['formação', 'certificado', 'automático'],
+      pergunta: 'De onde vêm as horas e as formações que aparecem sozinhas no cadastro?',
+      resposta: 'As horas vêm da presença nas oportunidades: “Presente” lança as horas da atividade (ou as que você informou), com o título dela. Trocar para “Ausente” tira essas horas.\n\nA formação é o certificado de um curso da Área do Voluntário: ao concluir, ela entra sozinha no cadastro, com a validade do certificado. Se o certificado for cancelado, ela sai.',
+      termos: ['horas', 'presença', 'automático', 'formação', 'certificado', 'ninguém registrou'],
     },
     {
       id: 'foto-do-voluntario',
@@ -1546,9 +1474,9 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'exportar-voluntarios',
-      pergunta: 'A planilha exportada traz CPF e saúde?',
-      resposta: 'Não: dado sensível não sai em planilha. “Exportar” leva nome, vínculo, situação, setores, função, contatos, nascimento, cidade, habilidades e disponibilidade, com os filtros de vínculo, situação e setor da tela. Cada exportação fica registrada.',
-      termos: ['planilha', 'excel', 'csv', 'exportar'],
+      pergunta: 'Como exporto a planilha de voluntários, e ela traz CPF e saúde?',
+      resposta: 'Em Voluntários, escolha o vínculo, a situação e o setor, se quiser, toque em “Filtrar” e depois em “Exportar”; o arquivo abre no Excel ou em outra planilha. A busca por texto não entra; sem escolher a situação, vai também quem está com inscrição pendente.\n\nCPF e saúde nunca saem: dado sensível não vai em planilha. Vão nome, vínculo, situação, setores, função, contatos, nascimento, cidade, habilidades e disponibilidade. Cada exportação fica registrada.',
+      termos: ['planilha', 'excel', 'csv', 'exportar', 'baixar a lista'],
     },
     {
       id: 'lista-espera',
@@ -1594,15 +1522,9 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'certificado-quando',
-      pergunta: 'Quando sai o certificado de um curso?',
-      resposta: 'Sozinho, quando a pessoa conclui todas as aulas. Se o curso tem nota mínima, só depois de passar na prova, com até 3 tentativas a cada 24 horas. A validade vem de “Validade do certificado (meses)”; em branco, não vence.',
-      termos: ['certificado', 'prova', 'nota', 'validade'],
-    },
-    {
-      id: 'cancelar-certificado',
-      pergunta: 'Dá para cancelar um certificado?',
-      resposta: 'Dá, para quem gerencia: em “Cursos e apostilas”, na aba “Certificados”, toque em “Cancelar”, escreva o motivo e confirme em “Cancelar certificado”. Não tem volta: a página de verificação passa a dizer que ele foi cancelado, e a formação sai do cadastro da pessoa.',
-      termos: ['revogar', 'certificado errado', 'verificação'],
+      pergunta: 'Quando sai o certificado de um curso, e dá para cancelar?',
+      resposta: 'Sai sozinho, quando a pessoa conclui todas as aulas. Se o curso tem nota mínima, só depois de passar na prova, com até 3 tentativas a cada 24 horas. A validade vem de “Validade do certificado (meses)”; em branco, não vence.\n\nCancelar dá, para quem gerencia: em “Cursos e apostilas”, na aba “Certificados”, toque em “Cancelar”, escreva o motivo e confirme em “Cancelar certificado”. Não tem volta: a página de verificação passa a dizer que ele foi cancelado, e a formação sai do cadastro da pessoa.',
+      termos: ['certificado', 'prova', 'nota', 'validade', 'revogar', 'certificado errado', 'verificação'],
     },
     {
       id: 'quem-abriu-voluntario',

@@ -33,7 +33,7 @@ export const guias: GuiaDaArea[] = [
   {
     href: '/patrimonio',
     paraQueServe: 'Tudo o que é físico e da filial: os bens duráveis (com plaqueta e QR, onde estão, com quem, manutenção e quanto valem hoje), o estoque de materiais com lote e validade, as doações em espécie, com recibo e termo de entrega, e a frota de veículos. Serve para saber onde está cada coisa, quem responde por ela e prestar contas a financiadores e ao contador.',
-    quemUsa: 'Toda a equipe vê “Comigo”, com os bens que estão sob a sua responsabilidade. O resto depende do nível no Patrimônio, dado por um administrador: “Ver” consulta; “Operar” cadastra, entrega, movimenta o estoque, as doações e a frota; “Gestão” também cuida de categorias, locais, baixas, inventário, campanhas, veículos e condutores. Administradores têm acesso total. Os avisos (manutenção, devolução atrasada, estoque baixo, validade, documentos e condutores da frota) vão para quem tem “Operar” ou “Gestão” e para os administradores.',
+    quemUsa: 'Toda a equipe vê “Comigo”, com os bens que estão sob a sua responsabilidade. O resto depende do nível no Patrimônio, dado por um administrador: “Ver” consulta; “Operar” cadastra, entrega, movimenta o estoque, as doações e a frota; “Gestão” também cuida de categorias, locais, baixas, inventário, campanhas, veículos e condutores. Administradores têm acesso total.',
     naPratica: {
       titulo: 'Um notebook, uma doação de cestas e a van da filial',
       passos: [

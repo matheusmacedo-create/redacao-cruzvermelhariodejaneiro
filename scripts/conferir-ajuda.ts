@@ -7,13 +7,18 @@
  *   na Área do Voluntário, únicos na página inteira (/membro/ajuda junta tudo);
  * - telas internas moram dentro do endereço da área;
  * - a ajuda geral não manda a equipe da escola usar o "Criar" nem abrir chamado;
- * - toda área tem o "Na prática" (3 a 7 momentos) e as "mais perguntadas" existem.
+ * - toda área tem o "Na prática" (3 a 7 momentos) e as "mais perguntadas" existem;
+ * - avisa do que passa da medida (docs/AJUDA.md §11): "para que serve" ou
+ *   "quem usa" acima de 400 caracteres, resumo de painel acima de 260,
+ *   resposta acima de 900, mais de 15 tarefas ou 20 perguntas numa área, tour
+ *   de tela interna com um balão só.
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, perguntaDaAjuda } from '../lib/ajuda'
+import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
 
@@ -65,7 +70,16 @@ for (const guia of GUIAS) {
     const exemplo = tela.caminho.replace(/\[\.\.\.[^\]]+\]/g, 'x/y').replace(/\[[^\]]+\]/g, 'x')
     if (areaDoCaminho(exemplo)?.area.href !== guia.href) erros.push(`${guia.href}: tela fora da área ${tela.caminho}`)
     if (!tela.tour.length) avisos.push(`${guia.href}: tela sem tour ${tela.caminho}`)
+    else if (tela.tour.length === 1) avisos.push(`${guia.href}: a tela ${tela.caminho} tem um balão só (um tour de um passo não é tour)`)
   }
+  // A medida das coisas (§11): o que passa daqui vira rolagem sem fim no painel.
+  if (guia.paraQueServe.length > 400) avisos.push(`${guia.href}: "para que serve" com ${guia.paraQueServe.length} caracteres (até 400; o resto cabe nas perguntas)`)
+  if ((guia.quemUsa?.length ?? 0) > 400) avisos.push(`${guia.href}: "quem usa" com ${guia.quemUsa!.length} caracteres (até 400)`)
+  const { resumo } = resumoEDetalhe(guia.paraQueServe)
+  if (resumo.length > 260) avisos.push(`${guia.href}: a primeira frase do "para que serve" tem ${resumo.length} caracteres (o painel mostra só ela; até 260)`)
+  if (guia.tarefas.length > 15) avisos.push(`${guia.href}: ${guia.tarefas.length} tarefas (até 15; o que sobra vira pergunta ou some)`)
+  if (guia.perguntas.length > 20) avisos.push(`${guia.href}: ${guia.perguntas.length} perguntas (até 20; junte as parecidas)`)
+  for (const p of guia.perguntas) if (p.resposta.length > 900) avisos.push(`${guia.href}#${p.id}: resposta com ${p.resposta.length} caracteres (até 900; divida em duas perguntas)`)
   for (const r of guia.relacionadas ?? []) if (!hrefs.has(r)) erros.push(`${guia.href}: relacionada inexistente ${r}`)
   if (guia.tour.length && (guia.tour.length < 2 || guia.tour.length > 8)) avisos.push(`${guia.href}: tour com ${guia.tour.length} passos (o ideal é 3 a 7)`)
   if (!guia.perguntas.length) avisos.push(`${guia.href}: sem perguntas frequentes`)
@@ -106,6 +120,20 @@ for (const id of idsDoMembro) if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) erros.pu
 const usados = new Set(citados.map((c) => c.alvo))
 const soltos = [...marcados].filter((m) => !usados.has(m))
 if (soltos.length) avisos.push(`marcados sem uso em tour (ok se for de propósito): ${soltos.join(', ')}`)
+
+// O corte de frases do painel (lib/ajuda/texto.ts): casos que já deram errado.
+const cortes: [string, string][] = [
+  ['Uma frase só.', 'Uma frase só.'],
+  ['Curta. Depois uma segunda frase que completa a ideia da primeira com calma.', 'Curta. Depois uma segunda frase que completa a ideia da primeira com calma.'],
+  ['Pautas é o quadro editorial: cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”. Dentro, tudo mais.', 'Pautas é o quadro editorial: cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”.'],
+  ['O E-mail do setor é a caixa de e-mail do seu setor. “Caixa de entrada” mostra o que chegou.', 'O E-mail do setor é a caixa de e-mail do seu setor. “Caixa de entrada” mostra o que chegou.'],
+  ['Versão 2.0 do site. Nada muda para quem lê.', 'Versão 2.0 do site. Nada muda para quem lê.'],
+]
+for (const [texto, esperado] of cortes) {
+  const { resumo, detalhe } = resumoEDetalhe(texto)
+  if (resumo !== esperado) erros.push(`corte de frases: "${texto.slice(0, 40)}…" deu "${resumo}"`)
+  if (`${resumo} ${detalhe}`.trim() !== texto) erros.push(`corte de frases perdeu texto em "${texto.slice(0, 40)}…"`)
+}
 
 for (const a of avisos) console.log(`aviso: ${a}`)
 for (const e of erros) console.log(`ERRO: ${e}`)

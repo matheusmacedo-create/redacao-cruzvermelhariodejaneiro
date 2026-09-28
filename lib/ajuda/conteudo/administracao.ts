@@ -505,7 +505,7 @@ const USUARIOS: GuiaDaArea = {
 
 const CONFIGURACOES: GuiaDaArea = {
   href: '/configuracoes',
-  paraQueServe: 'Configurações é o mapa de tudo o que se ajusta no Palácio Virtual. A visão geral mostra a sua conta, onde fica o ajuste de cada área e, para a administração, a situação de cada seção do espaço. Cada seção tem a sua tela no submenu: E-mail dos setores (a conta Google, quem envia por cada setor e os endereços), Integrações (as chaves, as redes sociais e o que está ligado na hospedagem), Site (Google Analytics, páginas e matérias no ar), WhatsApp (o número do Palácio, pelo QR code) e Zona de risco.',
+  paraQueServe: 'Configurações é o mapa de tudo o que se ajusta no Palácio Virtual. A visão geral mostra a sua conta, onde fica o ajuste de cada área e, para a administração, a situação de cada seção do espaço. No submenu, cada assunto tem a sua tela: E-mail dos setores, Integrações, Site, WhatsApp e Zona de risco.',
   quemUsa: 'Todo mundo abre a visão geral, com os atalhos da própria conta. O submenu e as seções do espaço são de administradores. Criar logins e mudar papéis fica em “Usuários e permissões”; a lista de setores, em Diretório › Setores.',
   naPratica: {
     titulo: 'Ligar o e-mail do setor de Compras',
@@ -531,7 +531,7 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       alvo: 'configuracoes.submenu',
       titulo: 'Uma tela por assunto',
-      texto: 'Visão geral, E-mail dos setores, Integrações, WhatsApp, Site e Zona de risco. Cada uma cuida só do seu assunto.',
+      texto: 'Visão geral, E-mail dos setores, Integrações, WhatsApp, Site e Zona de risco (onde “Reiniciar dados” apaga tudo de vez, sem volta). Cada tela cuida só do seu assunto, e tem o próprio tour.',
       seAusente: 'pular',
     },
     {
@@ -558,53 +558,64 @@ const CONFIGURACOES: GuiaDaArea = {
       texto: 'Perfil, crachá, avisos por e-mail e e-mail de recuperação. Cada pessoa resolve os seus, sem depender da administração.',
       seAusente: 'pular',
     },
+  ],
+  // As telas do submenu (components/admin/submenu-configuracoes.tsx), cada uma com o seu tour.
+  telas: [
     {
-      alvo: 'configuracoes.correio',
-      titulo: 'E-mail dos setores',
-      texto: 'Três passos: conectar a conta Google dona dos endereços, dizer quem envia por cada setor e ligar cada endereço ao seu setor. Endereço novo chega inativo.',
-      seAusente: 'pular',
+      caminho: '/configuracoes/email',
+      rotulo: 'E-mail dos setores',
+      tour: [
+        {
+          alvo: 'configuracoes.correio',
+          titulo: 'E-mail dos setores',
+          texto: 'Três passos: conectar a conta Google dona dos endereços, dizer quem envia por cada setor e ligar cada endereço ao seu setor. Endereço novo chega inativo.',
+        },
+        {
+          alvo: 'configuracoes.quem-envia',
+          titulo: 'Quem envia por cada setor',
+          texto: 'Em “Membros”, marque quem envia pelo endereço do setor. Criar, renomear ou desativar setores é em Diretório › Setores.',
+        },
+      ],
     },
     {
-      alvo: 'configuracoes.quem-envia',
-      titulo: 'Quem envia por cada setor',
-      texto: 'Em “Membros”, marque quem envia pelo endereço do setor. Criar, renomear ou desativar setores é em Diretório › Setores.',
-      seAusente: 'pular',
+      caminho: '/configuracoes/integracoes',
+      rotulo: 'Integrações',
+      tour: [
+        {
+          alvo: 'configuracoes.integracoes',
+          titulo: 'Integrações',
+          texto: 'As chaves das ferramentas externas. Ficam guardadas no cofre e valem na hora; depois de salva, a chave não aparece mais para ninguém. Para trocar, cole a nova por cima.',
+        },
+        {
+          alvo: 'configuracoes.redes',
+          titulo: 'Redes sociais',
+          texto: '“Conectar ou revisar as contas” abre o Upload-Post, onde quem administra cada página autoriza o Palácio Virtual a publicar.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'configuracoes.hospedagem',
+          titulo: 'Configuradas na hospedagem',
+          texto: 'Chaves que ficam na Vercel, como a do envio de e-mails. Aqui só aparece se estão ligadas.',
+          seAusente: 'pular',
+        },
+      ],
     },
     {
-      alvo: 'configuracoes.integracoes',
-      titulo: 'Integrações',
-      texto: 'As chaves das ferramentas externas. Ficam guardadas no cofre e valem na hora; depois de salva, a chave não aparece mais para ninguém. Para trocar, cole a nova por cima.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'configuracoes.redes',
-      titulo: 'Redes sociais',
-      texto: '“Conectar ou revisar as contas” abre o Upload-Post, onde quem administra cada página autoriza o Palácio Virtual a publicar.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'configuracoes.hospedagem',
-      titulo: 'Configuradas na hospedagem',
-      texto: 'Chaves que ficam na Vercel, como a do envio de e-mails. Aqui só aparece se estão ligadas.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'configuracoes.site',
-      titulo: 'O site',
-      texto: 'O Google Analytics, a central de notícias com o mapa do site e “Regerar as páginas das matérias”, que refaz o que está no ar com o molde atual.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'configuracoes.no-ar',
-      titulo: 'No ar em /noticias/',
-      texto: 'O que o público vê agora na central de notícias. “Tirar do ar” apaga a página do servidor; “Republicar” a traz de volta no mesmo endereço.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'configuracoes.zona-de-risco',
-      titulo: 'Zona de risco',
-      texto: '“Reiniciar dados” apaga de vez pautas, matérias, aprovações, mensagens e arquivos do Palácio Virtual. Não tem volta: é só para começar do zero.',
-      seAusente: 'pular',
+      caminho: '/configuracoes/site',
+      rotulo: 'Site',
+      tour: [
+        {
+          alvo: 'configuracoes.site',
+          titulo: 'O site',
+          texto: 'O Google Analytics, a central de notícias com o mapa do site e “Regerar as páginas das matérias”, que refaz o que está no ar com o molde atual.',
+        },
+        {
+          alvo: 'configuracoes.no-ar',
+          titulo: 'No ar em /noticias/',
+          texto: 'O que o público vê agora na central de notícias. “Tirar do ar” apaga a página do servidor; “Republicar” a traz de volta no mesmo endereço.',
+          seAusente: 'pular',
+        },
+      ],
     },
   ],
   tarefas: [
@@ -902,8 +913,14 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-nao-chegou',
       pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
-      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp. As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.\n\nDe 22h às 7h os avisos comuns esperam na fila e saem às 7h; os da portaria saem na hora. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp. As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.',
       termos: ['não chegou', 'não recebi', 'mensagem não chega'],
+    },
+    {
+      id: 'avisos-a-noite',
+      pergunta: 'Os avisos saem à noite?',
+      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      termos: ['madrugada', 'horário', 'fila', 'atrasado', 'de manhã'],
     },
     {
       id: 'quem-escreve-para-o-numero',
@@ -1136,8 +1153,20 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você confirma com “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto e o quanto atrapalha.\n\nNo aviso de visitante na portaria, responda a mensagem com “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.\n\nFotos e vídeos de uma ação mandados para o número do Palácio viram um envio para a comunicação: mande todos, escreva “pronto” e responda o título e se as pessoas autorizaram o uso da imagem (arquivos de até 64 MB; maiores, pelo link de envio).\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.',
-      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'aprovação pelo whatsapp', 'dúvida pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'fotos pelo whatsapp', 'envio pelo whatsapp'],
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.\n\nOs avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
+      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp'],
+    },
+    {
+      id: 'responder-pelo-whatsapp',
+      pergunta: 'Como respondo um aviso pelo WhatsApp?',
+      resposta: 'Para responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você confirma com “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto e o quanto atrapalha.\n\nNo aviso de visitante na portaria, responda a mensagem com “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
+      termos: ['aprovação pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'portaria pelo whatsapp', 'pode subir'],
+    },
+    {
+      id: 'fotos-pelo-whatsapp',
+      pergunta: 'Dá para mandar as fotos de uma ação pelo WhatsApp?',
+      resposta: 'Dá. Fotos e vídeos mandados para o número do Palácio viram um envio para a comunicação: mande todos, escreva “pronto” e responda o título e se as pessoas autorizaram o uso da imagem. Arquivos de até 64 MB; maiores, pelo link de envio.',
+      termos: ['fotos pelo whatsapp', 'envio pelo whatsapp', 'vídeo pelo whatsapp', 'mandar fotos'],
     },
     {
       id: 'whatsapp-com-verificacao',

@@ -53,13 +53,13 @@ const SINO: PassoDoTour = {
 const AJUDA: PassoDoTour = {
   alvo: 'shell.ajuda',
   titulo: 'Ajuda em qualquer tela',
-  texto: 'O “?” mostra a ajuda da tela aberta: como imaginamos a área funcionando, o passo a passo com exemplos, as perguntas frequentes e o tour. No fim, “O que achou desta tela?” e “Pergunte à equipe”; no celular, o “Beta” também fica aqui.',
+  texto: 'O “?” mostra a ajuda da tela aberta: para que serve, o tour, “Como fazer” e “Dúvidas”. No fim, “Conte para a equipe” manda uma dúvida, um problema ou uma ideia; a resposta volta no sino.',
   lado: 'bottom',
 }
 
 // O beta com a equipe (components/app/ajuda/beta.tsx): o botão do topo só
-// existe do tablet para cima; no celular o mesmo formulário fica no alto do
-// painel "?", e o balão da ajuda diz isso.
+// existe do tablet para cima; o mesmo formulário fica no fim do painel "?"
+// ("Conte para a equipe"), em qualquer aparelho, e o balão da ajuda diz isso.
 const BETA: PassoDoTour = {
   alvo: 'shell.beta',
   titulo: 'Estamos em beta: conte tudo',
@@ -291,7 +291,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         id: 'contar-um-problema',
         titulo: 'Contar um problema ou uma ideia',
         passos: [
-          'Na tela onde aconteceu, toque em “Beta”, no alto (no celular, abra o “?” e toque em “Beta: conte um problema ou uma ideia”).',
+          'Na tela onde aconteceu, toque em “Beta”, no alto (ou abra o “?” e, no fim do painel, toque em “Conte para a equipe”).',
           'Escolha “Algo deu errado”, “Tenho uma ideia”, “Tenho uma dúvida” ou “Gostei!”.',
           'Conte com as suas palavras: o que você fez, o que esperava e o que aconteceu.',
           'Se quiser, dê uma nota para a tela e toque em “Enviar”.',
@@ -303,10 +303,10 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         id: 'avaliar-a-tela',
         titulo: 'Dizer o que achou de uma tela',
         passos: [
-          'Abra o “?” na tela.',
-          'No fim do painel, em “O que achou desta tela?”, toque numa das cinco notas, de “Muito ruim” a “Ótima”.',
-          'Se quiser, conte o que atrapalhou ou o que você mais gostou.',
-          'Toque em “Enviar opinião”.',
+          'Abra o “?” na tela e, no fim do painel, toque em “Conte para a equipe” (ou em “Beta”, no alto).',
+          'Escolha o que quer contar (“Gostei!” para um elogio) e escreva, se quiser.',
+          'Em “E esta tela, de modo geral?”, toque numa das cinco notas, de “Muito ruim” a “Ótima”.',
+          'Toque em “Enviar”.',
         ],
         exemplo: 'A Ana dá “Ruim” para Pedidos de compra e escreve: “Não achei onde ficam as propostas”. A administração vê essa tela subir na lista das piores avaliadas e sabe por onde começar.',
       },
@@ -346,7 +346,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'nao-vejo-o-beta',
         pergunta: 'Não vejo o botão “Beta”. Onde ele está?',
-        resposta: 'No computador e no tablet, ele fica no alto, ao lado do sino. No celular o topo não tem espaço: abra o “?” e toque em “Beta: conte um problema ou uma ideia”, logo no começo do painel. “O que achou desta tela?” e “Pergunte à equipe” ficam no fim do mesmo painel.',
+        resposta: 'No computador e no tablet, ele fica no alto, ao lado do sino. No celular o topo não tem espaço: abra o “?” e, no fim do painel, toque em “Conte para a equipe”. É o mesmo formulário, em qualquer aparelho.',
         termos: ['botão beta', 'celular', 'não aparece', 'opinião'],
       },
     ],

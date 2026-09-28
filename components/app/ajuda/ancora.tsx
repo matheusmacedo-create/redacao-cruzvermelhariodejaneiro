@@ -38,6 +38,8 @@ export function AncoraDaAjuda() {
       acesa = alvo
       cancelAnimationFrame(quadro)
       if (!alvo) return
+      // A resposta pode estar dentro de um tópico recolhido (<details>): abre o caminho até ela.
+      for (let el: Element | null = alvo; el; el = el.parentElement) if (el instanceof HTMLDetailsElement) el.open = true
       alvo.setAttribute('data-ancora', '')
       const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       alvo.scrollIntoView({ block: 'start', behavior: reduzido ? 'auto' : 'smooth' })

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, CircleHelp, Compass, Flame, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
+import { ArrowRight, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Card } from '@/components/ui/card'
 import { AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
@@ -23,7 +23,12 @@ const tecla = 'inline-flex min-w-7 items-center justify-center rounded-md border
  * busca. O conteúdo é o de lib/ajuda, desenhado aqui no servidor (só a busca
  * baixa o texto para o navegador, e só quando alguém busca); as áreas listadas
  * são as que a pessoa pode abrir (a mesma regra do menu). Os tópicos gerais
- * têm âncora — é para cá que a busca aponta (/ajuda#esqueci-a-senha).
+ * têm âncora — é para cá que a busca aponta (/ajuda#esqueci-a-senha) — e
+ * ficam recolhidos: a AncoraDaAjuda abre o tópico da resposta pedida.
+ *
+ * A ordem (docs/AJUDA.md §11): a busca, as mais perguntadas, a ajuda por
+ * área (o que a pessoa mais procura), "Comece por aqui", a ajuda geral e os
+ * retornos da própria pessoa.
  */
 export default async function CentralDeAjudaPage() {
   const context = await requireWorkspace({ escola: true })
@@ -90,7 +95,9 @@ export default async function CentralDeAjudaPage() {
         </section>
       )}
 
-      <section aria-labelledby="secao-comece-por-aqui" className="mt-10">
+      <AreasDaCentral grupos={grupos} />
+
+      <section aria-labelledby="secao-comece-por-aqui" className="mt-12">
         <h2 id="secao-comece-por-aqui" className="text-lg font-semibold">Comece por aqui</h2>
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           <Card className="flex flex-col p-5">
@@ -123,8 +130,8 @@ export default async function CentralDeAjudaPage() {
           <Card className="p-5">
             <h3 className="flex items-center gap-2 font-semibold"><LifeBuoy className="size-4 text-primary" aria-hidden="true" />Como pedir ajuda</h3>
             <ul className="mt-3 flex flex-col gap-3 text-sm leading-relaxed text-muted-foreground">
-              <li className="flex gap-2.5"><CircleHelp className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>O botão <strong className="font-medium text-foreground">“?”</strong>, no alto de cada tela, mostra a ajuda daquela tela e o tour dela. No fim, “Pergunte à equipe” manda a sua dúvida, e a resposta volta no sino.</span></li>
-              <li className="flex gap-2.5"><MessageSquareHeart className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Estamos em <strong className="font-medium text-foreground">beta</strong>: o botão “Beta”, no alto (no celular, dentro do “?”), manda um problema, uma ideia ou um elogio sobre a tela em que você está.</span></li>
+              <li className="flex gap-2.5"><CircleHelp className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>O botão <strong className="font-medium text-foreground">“?”</strong>, no alto de cada tela, mostra a ajuda daquela tela e o tour dela. No fim, “Conte para a equipe” manda uma dúvida, um problema ou uma ideia, e a resposta volta no sino.</span></li>
+              <li className="flex gap-2.5"><MessageSquareHeart className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Estamos em <strong className="font-medium text-foreground">beta</strong>: o botão “Beta”, no alto, é o mesmo formulário, para qualquer tela. No celular, que não tem o botão, use o “?”.</span></li>
               <li className="flex gap-2.5"><BookOpen className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Esta Central junta a ajuda de todas as áreas. A busca (⌘K) também acha as respostas daqui.</span></li>
               {!escola && <li className="flex gap-2.5"><LifeBuoy className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Algo não funciona? <Link href="/chamados/novo?fila=ti" className="font-medium text-primary hover:underline">Abra um chamado para a TI</Link> contando o que tentou fazer.</span></li>}
               <li className="flex gap-2.5"><MessagesSquare className="mt-0.5 size-4 shrink-0 text-foreground/70" aria-hidden="true" /><span>Dúvida sobre o trabalho? Pergunte à equipe no <Link href="/chat" className="font-medium text-primary hover:underline">Chat</Link>.</span></li>
@@ -133,8 +140,6 @@ export default async function CentralDeAjudaPage() {
         </div>
       </section>
 
-      <AreasDaCentral grupos={grupos} />
-
       {gerais.length > 0 && (
         <section aria-labelledby="secao-ajuda-geral" className="mt-12">
           <h2 id="secao-ajuda-geral" className="text-lg font-semibold">Ajuda geral</h2>
@@ -142,25 +147,34 @@ export default async function CentralDeAjudaPage() {
           <nav aria-label="Tópicos da ajuda geral" className="mt-4 flex flex-wrap gap-2">
             {gerais.map((t) => <a key={t.id} href={`#${t.id}`} className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm hover:bg-muted sm:min-h-9">{t.titulo}</a>)}
           </nav>
-          <div className="mt-6 flex max-w-3xl flex-col gap-12">
+          {/* Um tópico por vez: recolhidos, com o resumo à vista. O link para uma resposta (#id) abre o tópico dela (AncoraDaAjuda). */}
+          <div className="mt-6 flex max-w-3xl flex-col gap-3">
             {gerais.map((topico) => (
-              <section key={topico.id} id={topico.id} aria-labelledby={`secao-${topico.id}`} className="scroll-mt-6">
-                <h3 id={`secao-${topico.id}`} className="text-base font-semibold">{topico.titulo}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
-                {(topico.naPratica ?? []).length > 0 && <div className="mt-5 flex flex-col gap-4">{topico.naPratica!.map((h) => <HistoriaNaPratica key={h.titulo} historia={h} />)}</div>}
-                {topico.tarefas.length > 0 && (
-                  <>
-                    <h4 className="mb-3 mt-5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Passo a passo</h4>
-                    <div className="flex flex-col gap-3">{topico.tarefas.map((t) => <TarefaAberta key={t.id} tarefa={t} nivel={5} />)}</div>
-                  </>
-                )}
-                {topico.perguntas.length > 0 && (
-                  <>
-                    <h4 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Perguntas frequentes</h4>
-                    <div className="flex flex-col gap-3">{topico.perguntas.map((p) => <PerguntaAberta key={p.id} pergunta={p} nivel={5} area="geral" />)}</div>
-                  </>
-                )}
-              </section>
+              <details key={topico.id} id={topico.id} className="group scroll-mt-6 rounded-xl border border-border bg-card shadow-xs open:bg-muted/10" data-topico-geral>
+                <summary className="flex min-h-14 cursor-pointer list-none items-start gap-3 rounded-xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                  <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+                  <span className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold">{topico.titulo}</h3>
+                    <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{[topico.tarefas.length ? `${topico.tarefas.length} passo${topico.tarefas.length === 1 ? '' : 's'} a passo` : null, topico.perguntas.length ? `${topico.perguntas.length} pergunta${topico.perguntas.length === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ')}</p>
+                  </span>
+                </summary>
+                <div className="border-t border-border px-4 pb-5 pt-4 sm:px-5">
+                  {(topico.naPratica ?? []).length > 0 && <div className="flex flex-col gap-4">{topico.naPratica!.map((h) => <HistoriaNaPratica key={h.titulo} historia={h} />)}</div>}
+                  {topico.tarefas.length > 0 && (
+                    <>
+                      <h4 className="mb-3 mt-5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Passo a passo</h4>
+                      <div className="flex flex-col gap-3">{topico.tarefas.map((t) => <TarefaAberta key={t.id} tarefa={t} nivel={5} />)}</div>
+                    </>
+                  )}
+                  {topico.perguntas.length > 0 && (
+                    <>
+                      <h4 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Perguntas frequentes</h4>
+                      <div className="flex flex-col gap-3">{topico.perguntas.map((p) => <PerguntaAberta key={p.id} pergunta={p} nivel={5} area="geral" />)}</div>
+                    </>
+                  )}
+                </div>
+              </details>
             ))}
           </div>
         </section>
@@ -168,7 +182,7 @@ export default async function CentralDeAjudaPage() {
 
       <section id="meus-retornos" aria-labelledby="secao-meus-retornos" className="mt-12 scroll-mt-6">
         <h2 id="secao-meus-retornos" className="flex items-center gap-2 text-lg font-semibold"><MessageSquareHeart className="size-5 text-primary" aria-hidden="true" />Seus retornos do beta</h2>
-        <p className="mt-1 text-sm text-muted-foreground">O que você mandou pelo “Beta”, por “O que achou desta tela?” e por “Pergunte à equipe”, e o que a equipe respondeu.</p>
+        <p className="mt-1 text-sm text-muted-foreground">O que você mandou pelo “Beta” e por “Conte para a equipe”, e o que a equipe respondeu.</p>
         {meusRetornos.length === 0 ? (
           <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">Nada ainda. Achou algo estranho ou tem uma ideia? Use o “Beta” no alto de qualquer tela.</p>
         ) : (

@@ -19,7 +19,7 @@ import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } fro
 
 const INICIO: GuiaDaArea = {
   href: '/dashboard',
-  paraQueServe: 'O Início é a entrada do Palácio Virtual. Em cima, a saudação com o seu dia em uma frase, atalhos para começar algo e quatro números que levam direto ao que é seu. Depois, “Meu dia”: o que espera o seu voto e as suas pautas por prazo, com o que acontece hoje na comunicação, o tempo no Rio e a equipe ao lado. Mais abaixo, a semana da comunicação, quatro indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas. Essa é a arrumação padrão: em “Personalizar o Início”, cada pessoa escolhe o que aparece e em que ordem.',
+  paraQueServe: 'O Início é a entrada do Palácio Virtual: o seu dia em uma frase, atalhos para começar algo e o que espera por você. Depois, “Meu dia” (o que espera o seu voto e as suas pautas por prazo), a semana da comunicação, os indicadores dos últimos 30 dias e, recolhido no fim, o mapa de todas as áreas. Em “Personalizar o Início”, cada pessoa escolhe o que aparece e em que ordem.',
   quemUsa: 'Toda a equipe do Palácio Virtual. “Minhas pautas” e “Esperando você” mostram só o que é seu; a semana, a saúde dos canais e os indicadores são da filial inteira, iguais para todo mundo.',
   naPratica: {
     titulo: 'Segunda-feira, 8h40: por onde a Carla começa',
@@ -71,13 +71,7 @@ const INICIO: GuiaDaArea = {
     {
       alvo: 'inicio.semana',
       titulo: 'A semana da operação',
-      texto: 'Dia a dia, o que está no calendário, o que foi ao ar (com ✓) e o que falhou ao publicar. Os botões “Anterior” e “Próxima”, acima, trocam de semana.',
-      seAusente: 'pular',
-    },
-    {
-      alvo: 'inicio.canais',
-      titulo: 'Saúde dos canais',
-      texto: 'Cada canal em uso, com a última publicação. “Com falha”: a tentativa mais recente falhou. “Parado”: nada publicado há mais de 14 dias. O site aparece sempre.',
+      texto: 'Dia a dia, o que está no calendário, o que foi ao ar (com ✓) e o que falhou ao publicar. Ao lado, a saúde de cada canal: “Com falha” é a última tentativa que falhou; “Parado”, nada publicado há mais de 14 dias.',
       seAusente: 'pular',
     },
     {
