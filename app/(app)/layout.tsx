@@ -29,7 +29,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
   const ws = context.workspace.id
-  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas] = await Promise.all([
+  const escola = context.role === 'escola'
+  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas, leitorDeAcessos, avaliadorDeEnvios, entidadeDaEscola] = await Promise.all([
     supabase
       .from('notifications')
       .select('id,title,message,link,read_at,created_at')
@@ -55,7 +56,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     cookies(),
     // O chat ao vivo: o que falta ler e o que cada conversa é para esta pessoa (para o aviso decidir).
     supabase.rpc('chat_painel', { p_workspace_id: ws }),
-    pessoasDoChat(ws, context.user.id, context.role === 'escola'),
+    pessoasDoChat(ws, context.user.id, escola),
+    // O registro de acessos é por pessoa, não por papel: só quem está em acessos_leitores (e é admin).
+    !escola && context.role === 'admin' && podeVerAcessos(context.user.id, ws),
+    !escola && avaliaEnvios(context.user.id, ws),
+    // Equipe da escola: o menu é só a Escola; o Financeiro aparece se os livros da Escola foram liberados (o RLS decide).
+    ehEquipeDaEscola(context.role)
+      ? supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('tipo', 'escola')
+      : null,
   ])
   const conversasDoChat = (painelDoChat ?? []) as ConversaNoPainel[]
   const chatNaoLidas = conversasDoChat.filter((c) => c.membro && c.avisar !== 'nada')
@@ -65,14 +73,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Quem está navegando não recebe e-mail do que vê no sino.
   after(() => marcarVisto(context.user.id, context.profile?.visto_em))
   const permitidas = (Object.keys(PERMISSOES) as Permissao[]).filter((p) => pode(context.role, p))
-  // Equipe da escola: o menu é só a Escola; o Financeiro aparece se os livros da Escola foram liberados (o RLS decide).
-  const equipeDaEscola = ehEquipeDaEscola(context.role)
-    ? { financeiro: Boolean((await supabase.from('fin_entidades').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('tipo', 'escola')).count) }
-    : null
-  // O registro de acessos é por pessoa, não por papel: só quem está em acessos_leitores (e é admin).
-  const [leitorDeAcessos, avaliadorDeEnvios] = context.role === 'escola'
-    ? [false, false]
-    : await Promise.all([context.role === 'admin' && podeVerAcessos(context.user.id, ws), avaliaEnvios(context.user.id, ws)])
+  const equipeDaEscola = entidadeDaEscola ? { financeiro: Boolean(entidadeDaEscola.count) } : null
   const recolhida = lembrancas.get(COOKIE_DA_SIDEBAR)?.value === '1'
   const gruposFechados = (lembrancas.get(COOKIE_DOS_GRUPOS)?.value ?? '').split(',').filter(Boolean)
   // A ajuda: o que a pessoa já viu (user_metadata, fresco do getUser) e o que o

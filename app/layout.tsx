@@ -14,7 +14,7 @@ const libreFranklin = Libre_Franklin({
 export const metadata: Metadata = {
   title: 'Palácio Virtual — Cruz Vermelha Brasileira Rio de Janeiro',
   description:
-    'Ambiente interno da equipe de Comunicação da Cruz Vermelha Brasileira — Rio de Janeiro para receber, produzir, revisar e aprovar conteúdos institucionais.',
+    'Ambiente interno da Cruz Vermelha Brasileira — Filial do Rio de Janeiro: comunicação, expediente, gestão, pessoas e voluntariado num só lugar.',
   generator: 'v0.app',
 }
 
