@@ -848,6 +848,13 @@ const VOLUNTARIOS: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'voluntarios.cartaz',
+      titulo: 'Cartaz com QR',
+      texto: '“Cartaz com QR” imprime o cartaz de inscrição (o QR abre o formulário público: para o mural, eventos e parceiros) ou o da Área do Voluntário (para quem já é). Escolha a chamada entre as escritas para cada um, ou escreva a sua.',
+      lado: 'bottom',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'voluntarios.novo',
       titulo: 'Cadastrar direto',
       texto: '“Novo voluntário” cadastra alguém pela equipe, já como ativo. “Ver Área do Voluntário” abre a área como quem é voluntário a veria, só para ler.',
@@ -1433,8 +1440,8 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'link-inscricao',
       pergunta: 'Onde está o link do formulário de inscrição?',
-      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço (o botão aparece para quem gerencia). Quem se inscreve por ele entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova.',
-      termos: ['participe', 'formulário público', 'inscrever', 'divulgar'],
+      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço, e “Cartaz com QR” imprime um cartaz A4 com esse endereço no código, para o mural, eventos e parceiros: escolha a chamada entre as escritas (“Tem um tempo? Seja voluntário.” e outras) ou escreva a sua. O mesmo cartaz tem a versão da Área do Voluntário, para quem já é. Os dois botões aparecem para quem gerencia.\n\nQuem se inscreve pelo formulário entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova.',
+      termos: ['participe', 'formulário público', 'inscrever', 'divulgar', 'cartaz', 'qr code', 'imprimir'],
     },
     {
       id: 'status-voluntario',

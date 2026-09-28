@@ -19,7 +19,8 @@ export const ehIconeDeFila = (v: unknown): v is IconeDeFila => typeof v === 'str
 
 export type AssuntoInicial = { nome: string; descricao: string; tipo: 'incidente' | 'solicitacao'; pedeLocal?: boolean }
 
-type Modelo = { chaves: string[]; icone: IconeDeFila; prefixo?: string; descricao: string; assuntos: AssuntoInicial[] }
+/** `artigo` é o que vai antes do nome no cartaz: "a Manutenção", "o Jurídico", "o setor de Compras", "a equipe de Primeiros Socorros". */
+type Modelo = { chaves: string[]; icone: IconeDeFila; prefixo?: string; artigo: string; descricao: string; assuntos: AssuntoInicial[] }
 
 /** Tira acento e caixa: "Comunicação Social" → "comunicacao social". */
 export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
@@ -31,7 +32,7 @@ export const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, 
  */
 const MODELOS: Modelo[] = [
   {
-    chaves: ['tecnologia', 'informatica', ' ti '], icone: 'monitor', prefixo: 'TI',
+    chaves: ['tecnologia', 'informatica', ' ti '], icone: 'monitor', prefixo: 'TI', artigo: 'a',
     descricao: 'Computadores, internet, e-mail, acessos, impressoras e sistemas.',
     assuntos: [
       { nome: 'Algo parou de funcionar', descricao: 'Computador, internet, impressora, sistema fora do ar.', tipo: 'incidente', pedeLocal: true },
@@ -40,7 +41,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['manutencao', 'predial', 'infraestrutura', 'zeladoria'], icone: 'wrench', prefixo: 'MAN',
+    chaves: ['manutencao', 'predial', 'infraestrutura', 'zeladoria'], icone: 'wrench', prefixo: 'MAN', artigo: 'a',
     descricao: 'Elétrica, hidráulica, ar-condicionado, mobiliário e reparos na sede.',
     assuntos: [
       { nome: 'Algo quebrou ou vazou', descricao: 'Lâmpada, tomada, torneira, porta, ar-condicionado.', tipo: 'incidente', pedeLocal: true },
@@ -48,7 +49,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['comunicacao', 'imprensa', 'marketing'], icone: 'megaphone', prefixo: 'COM',
+    chaves: ['comunicacao', 'imprensa', 'marketing'], icone: 'megaphone', prefixo: 'COM', artigo: 'a',
     descricao: 'Artes, divulgação, cobertura de ações, site, redes e imprensa.',
     assuntos: [
       { nome: 'Arte ou material gráfico', descricao: 'Card, cartaz, banner, apresentação, certificado.', tipo: 'solicitacao' },
@@ -58,7 +59,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['juridic', 'legal'], icone: 'scale', prefixo: 'JUR',
+    chaves: ['juridic', 'legal'], icone: 'scale', prefixo: 'JUR', artigo: 'o',
     descricao: 'Contratos, convênios, termos, pareceres e questões legais.',
     assuntos: [
       { nome: 'Análise de contrato ou convênio', descricao: 'Revisar minuta antes de assinar ou renovar.', tipo: 'solicitacao' },
@@ -67,7 +68,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['financ', 'tesouraria', 'contab'], icone: 'wallet', prefixo: 'FIN',
+    chaves: ['financ', 'tesouraria', 'contab'], icone: 'wallet', prefixo: 'FIN', artigo: 'o',
     descricao: 'Pagamentos, reembolsos, notas fiscais e prestação de contas.',
     assuntos: [
       { nome: 'Reembolso', descricao: 'Despesa paga do próprio bolso, com comprovante.', tipo: 'solicitacao' },
@@ -76,7 +77,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['compra', 'suprimento', 'almoxarifado'], icone: 'shopping-cart', prefixo: 'CPR',
+    chaves: ['compra', 'suprimento', 'almoxarifado'], icone: 'shopping-cart', prefixo: 'CPR', artigo: 'o setor de',
     descricao: 'Compras, cotações e material de consumo.',
     assuntos: [
       { nome: 'Material de consumo', descricao: 'Papelaria, limpeza, copa.', tipo: 'solicitacao', pedeLocal: true },
@@ -84,7 +85,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['recursos humanos', ' rh ', 'departamento pessoal', 'gente e gestao'], icone: 'users', prefixo: 'RH',
+    chaves: ['recursos humanos', ' rh ', 'departamento pessoal', 'gente e gestao'], icone: 'users', prefixo: 'RH', artigo: 'o setor de',
     descricao: 'Documentos, férias, ponto, benefícios e admissões.',
     assuntos: [
       { nome: 'Declaração ou documento', descricao: 'Declaração de vínculo, informe de rendimentos, holerite.', tipo: 'solicitacao' },
@@ -93,7 +94,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['diretoria', 'presidencia', 'secretaria'], icone: 'file-signature', prefixo: 'DIR',
+    chaves: ['diretoria', 'presidencia', 'secretaria'], icone: 'file-signature', prefixo: 'DIR', artigo: 'a',
     descricao: 'Assinaturas, agenda, autorizações e representação institucional.',
     assuntos: [
       { nome: 'Assinatura de documento', descricao: 'Ofício, contrato, termo ou declaração.', tipo: 'solicitacao' },
@@ -102,7 +103,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['voluntari'], icone: 'heart-handshake', prefixo: 'VOL',
+    chaves: ['voluntari'], icone: 'heart-handshake', prefixo: 'VOL', artigo: 'o',
     descricao: 'Voluntários para ações, cadastro e declarações de horas.',
     assuntos: [
       { nome: 'Voluntários para uma ação', descricao: 'Quantas pessoas, quando, onde e para quê.', tipo: 'solicitacao', pedeLocal: true },
@@ -110,14 +111,14 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['juventude', 'jovem'], icone: 'sprout', prefixo: 'JUV',
+    chaves: ['juventude', 'jovem'], icone: 'sprout', prefixo: 'JUV', artigo: 'a',
     descricao: 'Juventude da Cruz Vermelha: grupos, atividades e ações com jovens.',
     assuntos: [
       { nome: 'Apoio da Juventude numa ação', descricao: 'Quantas pessoas, quando e onde.', tipo: 'solicitacao', pedeLocal: true },
     ],
   },
   {
-    chaves: ['primeiros socorros', 'socorro', 'ambulancia'], icone: 'siren', prefixo: 'PSO',
+    chaves: ['primeiros socorros', 'socorro', 'ambulancia'], icone: 'siren', prefixo: 'PSO', artigo: 'a equipe de',
     descricao: 'Equipe de primeiros socorros em eventos e treinamentos.',
     assuntos: [
       { nome: 'Cobertura de evento', descricao: 'Data, local, público esperado e duração.', tipo: 'solicitacao', pedeLocal: true },
@@ -125,7 +126,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['grd', 'desastre', 'defesa civil', 'emergencia'], icone: 'siren', prefixo: 'GRD',
+    chaves: ['grd', 'desastre', 'defesa civil', 'emergencia'], icone: 'siren', prefixo: 'GRD', artigo: 'a',
     descricao: 'Gestão de riscos e desastres: resposta a emergências e prevenção.',
     assuntos: [
       { nome: 'Emergência em andamento', descricao: 'Enchente, deslizamento, incêndio: o que, onde, quantas pessoas.', tipo: 'incidente', pedeLocal: true },
@@ -133,7 +134,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['educacao', 'escola', 'ensino', 'curso'], icone: 'graduation-cap', prefixo: 'EDU',
+    chaves: ['educacao', 'escola', 'ensino', 'curso'], icone: 'graduation-cap', prefixo: 'EDU', artigo: 'a',
     descricao: 'Cursos, turmas, certificados e parcerias de ensino.',
     assuntos: [
       { nome: 'Curso ou turma', descricao: 'Abrir turma, inscrição, material.', tipo: 'solicitacao' },
@@ -141,7 +142,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['psicolog', 'servico social', 'assistencia social'], icone: 'brain', prefixo: 'PSS',
+    chaves: ['psicolog', 'servico social', 'assistencia social'], icone: 'brain', prefixo: 'PSS', artigo: 'a',
     descricao: 'Apoio psicossocial e encaminhamentos de serviço social.',
     assuntos: [
       { nome: 'Apoio psicossocial numa ação', descricao: 'Acolhimento em emergência ou atividade.', tipo: 'solicitacao', pedeLocal: true },
@@ -149,14 +150,14 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['saude', 'medic', 'enfermagem'], icone: 'stethoscope', prefixo: 'SAU',
+    chaves: ['saude', 'medic', 'enfermagem'], icone: 'stethoscope', prefixo: 'SAU', artigo: 'a equipe de',
     descricao: 'Ações de saúde, campanhas e atendimentos.',
     assuntos: [
       { nome: 'Ação de saúde', descricao: 'Campanha, aferição, vacinação, palestra.', tipo: 'solicitacao', pedeLocal: true },
     ],
   },
   {
-    chaves: ['humanitari', 'assistencia', 'doacao', 'doacoes'], icone: 'package', prefixo: 'HUM',
+    chaves: ['humanitari', 'assistencia', 'doacao', 'doacoes'], icone: 'package', prefixo: 'HUM', artigo: 'o setor',
     descricao: 'Ações humanitárias, doações e distribuição de itens.',
     assuntos: [
       { nome: 'Doação recebida ou oferecida', descricao: 'O que é, quantidade e onde está.', tipo: 'solicitacao', pedeLocal: true },
@@ -164,12 +165,12 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['esporte'], icone: 'trophy', prefixo: 'ESP',
+    chaves: ['esporte'], icone: 'trophy', prefixo: 'ESP', artigo: 'o setor de',
     descricao: 'Atividades esportivas e eventos.',
     assuntos: [{ nome: 'Atividade ou evento esportivo', descricao: 'Data, local e público.', tipo: 'solicitacao', pedeLocal: true }],
   },
   {
-    chaves: ['frota', 'transporte', 'logistic', 'veiculo'], icone: 'truck', prefixo: 'FRO',
+    chaves: ['frota', 'transporte', 'logistic', 'veiculo'], icone: 'truck', prefixo: 'FRO', artigo: 'a',
     descricao: 'Veículos, transporte e logística.',
     assuntos: [
       { nome: 'Transporte ou veículo', descricao: 'Data, horário, trajeto e quantas pessoas ou volumes.', tipo: 'solicitacao', pedeLocal: true },
@@ -189,6 +190,27 @@ export function modeloDoSetor(nome: string): Modelo | null {
   const n = ` ${normalizar(nome)} `
   // Com espaço nas pontas do nome, ' ti ' casa só a sigla inteira (e não "tinta" ou "direito").
   return MODELOS.find((m) => m.chaves.some((c) => n.includes(c))) ?? null
+}
+
+/**
+ * O artigo do setor no cartaz de chamados: o do modelo ou, para um setor sem
+ * modelo, um palpite pela terminação da primeira palavra ("Secretaria" → a,
+ * "Almoxarifado" → o, "Suprimentos" → o setor de). Quem imprime vê o
+ * resultado e pode trocar de chamada se ler estranho.
+ */
+export function artigoDoSetor(nome: string): string {
+  const m = modeloDoSetor(nome)
+  const primeira = normalizar(nome).split(/[^a-z0-9]+/).filter(Boolean)[0] ?? ''
+  // O que a terminação da primeira palavra diz: "Ouvidoria" → a, "Almoxarifado" → o, "Suprimentos" → o setor de.
+  const palpite = /(cao|sao|ia|dade|gem|tura|eza|a)$/.test(primeira) ? 'a'
+    : /(?<!ca|sa)o$|ismo$/.test(primeira) ? 'o'
+    : /s$/.test(primeira) ? 'o setor de'
+    : null
+  if (!m) return palpite ?? 'o'
+  // O modelo casa por várias chaves ("Departamento Pessoal" é RH): a palavra vale mais que o modelo; a sigla ("TI", "GRD") fica com o modelo.
+  if (m.artigo === 'a equipe de') return m.artigo
+  if (m.artigo.startsWith('o setor')) return palpite === 'o setor de' || palpite === 'a' ? palpite : m.artigo === 'o setor' ? 'o setor' : 'o'
+  return palpite ?? m.artigo
 }
 
 export const slugDoNome = (nome: string) => normalizar(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)

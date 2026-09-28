@@ -663,6 +663,15 @@ GLPI, Freshservice e Zendesk). Peças:
   caminho do próprio Palácio (nunca `//outro-site`). Botão "Cartaz com QR" em
   Chamados e, na configuração, em cada fila. Conferência:
   `npx tsx scripts/conferir-cartaz-dos-chamados.ts`.
+- **A copy dos cartazes** é escolhida na hora de imprimir e fica na URL
+  (`lib/cartaz/copy.ts`: chamada, título e frase livres, marcadores como
+  `{setor}`; barra `components/cartaz/barra-de-opcoes.tsx`). O mesmo
+  esquema serve ao cartaz de matrícula dos cursos (`/escola/cartaz?curso=…`,
+  `lib/escola/cartaz.ts`, o QR leva à página do curso ou à matrícula no site)
+  e aos do Voluntariado (`/voluntariado/cartaz?para=inscricao|area`,
+  `lib/voluntariado/cartaz.ts`, o QR leva a `/participe` ou `/membro`). A copy
+  escrita para cada setor, curso e alvo vive nos `*-copy.ts` ao lado; cada
+  cartaz tem o seu `scripts/conferir-cartaz-*.ts`.
 
 ### 7.8 Notificações (sino e e-mail)
 

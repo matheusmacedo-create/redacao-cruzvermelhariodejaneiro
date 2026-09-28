@@ -403,7 +403,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       alvo: 'chamados.cartaz',
       titulo: 'Cartaz com QR',
-      texto: '“Cartaz com QR” imprime um cartaz por setor. Quem lê o código com o celular cai direto em “Abrir chamado”, já no setor.',
+      texto: '“Cartaz com QR” imprime um cartaz por setor, com a chamada à sua escolha: há textos escritos para os setores mais comuns (TI, Manutenção, Compras…), chamadas gerais que servem a qualquer setor, um cartaz geral de todos os setores, e dá para escrever o seu. Quem lê o código com o celular cai direto em “Abrir chamado”, já no setor.',
       lado: 'bottom',
       seAusente: 'pular',
     },
@@ -652,10 +652,12 @@ const CHAMADOS: GuiaDaArea = {
       exemplo: 'A TI cola o cartaz dela ao lado da impressora do segundo andar: quem vê a impressora travada lê o QR e abre o chamado para a TI em um minuto, sem procurar o caminho no menu.',
       passos: [
         'Em “Chamados”, toque em “Cartaz com QR”.',
-        'No alto, em “Setor”, escolha o setor que vai receber os chamados.',
+        'No alto, em “Setor”, escolha o setor que vai receber os chamados — ou “Todos os setores”, para um cartaz geral em que a pessoa escolhe o setor ao ler o QR.',
+        'Em “Chamada”, escolha o texto do cartaz: “Precisa de…?”, as chamadas escritas para os setores mais comuns, “O que o setor atende” (lista os assuntos do catálogo) e as outras. O cartaz muda na hora.',
+        'Se preferir, escreva o seu próprio “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”: eles valem por cima da chamada escolhida.',
         'Toque em “Imprimir ou salvar PDF” (A4 em pé) e cole o cartaz perto de onde o problema costuma aparecer.',
       ],
-      dica: 'Quem configura os chamados acha o mesmo cartaz dentro de cada fila, em “Cartaz com QR deste setor”. Só aparecem os setores ativos.',
+      dica: 'Quem configura os chamados acha o mesmo cartaz dentro de cada fila, em “Cartaz com QR deste setor”. Só aparecem os setores ativos. O endereço da página guarda as escolhas: copie e mande a outra pessoa para imprimir o mesmo cartaz.',
     },
   ],
   perguntas: [
