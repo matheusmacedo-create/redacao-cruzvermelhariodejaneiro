@@ -848,6 +848,13 @@ const VOLUNTARIOS: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'voluntarios.cartaz',
+      titulo: 'Cartaz com QR',
+      texto: '“Cartaz com QR” imprime o cartaz de inscrição (o QR abre o formulário público: para o mural, eventos e parceiros) ou o da Área do Voluntário (para quem já é). Escolha a chamada entre as escritas para cada um, ou escreva a sua.',
+      lado: 'bottom',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'voluntarios.novo',
       titulo: 'Cadastrar direto',
       texto: '“Novo voluntário” cadastra alguém pela equipe, já como ativo. “Ver Área do Voluntário” abre a área como quem é voluntário a veria, só para ler.',
@@ -1238,6 +1245,19 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Toque em “Aprovar” ou em “Recusar”.',
       ],
       dica: 'Aprovada, a pessoa passa a “Ativo” e, se tiver e-mail, recebe as boas-vindas com o caminho da Área do Voluntário. Recusada, a inscrição é apagada.',
+    },
+    {
+      id: 'cartaz-com-qr',
+      titulo: 'Imprimir o cartaz com QR de inscrição (ou o da Área do Voluntário)',
+      exemplo: 'A coordenação cola o cartaz “Tem um tempo? Seja voluntário.” na entrada da sede e leva outro para a ação de domingo: quem lê o QR cai no formulário de inscrição e aparece em “Inscrições pendentes”.',
+      quem: 'Nível “Gerenciar” ou acima',
+      passos: [
+        'Em Voluntários, toque em “Cartaz com QR”.',
+        'No alto, em “Cartaz”, escolha “Seja voluntário (inscrição pública)” ou “Área do Voluntário (quem já é)”.',
+        'Em “Chamada”, escolha o texto do cartaz; ele muda na hora. Se preferir, escreva o seu “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”.',
+        'Toque em “Imprimir ou salvar PDF” (A4 em pé).',
+      ],
+      dica: 'O cartaz de inscrição é para quem ainda não é voluntário: o QR abre o formulário público, sem login. O da área é para quem já é: o QR abre a Área do Voluntário, e a pessoa entra com o e-mail do cadastro e um código de 6 dígitos. O endereço da página guarda as escolhas: copie e mande a outra pessoa para imprimir o mesmo cartaz.',
     },
     {
       id: 'cadastrar-voluntario',

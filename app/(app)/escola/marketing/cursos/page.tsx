@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowUpRight, BookOpen, Lightbulb, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Lightbulb, QrCode, TriangleAlert } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
@@ -60,7 +61,10 @@ export default async function CursosDaEscola() {
       <PageHeader
         title="Cursos"
         description="Cada curso com os alunos que a Únicopag registrou, quem tentou e não pagou e o que o marketing já fez para ele. Use para decidir onde pôr esforço."
-        actions={<FormularioDoCurso />}
+        actions={<div className="flex flex-wrap gap-2">
+          {d.pronto && <Button variant="outline" render={<Link href="/escola/cartaz" />} data-ajuda="escola-cursos.cartaz"><QrCode className="size-4" />Cartaz com QR</Button>}
+          <FormularioDoCurso />
+        </div>}
       />
 
       {!d.pronto ? (

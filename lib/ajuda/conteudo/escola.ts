@@ -81,6 +81,13 @@ const CURSOS: GuiaDaArea = {
             texto: 'Cadastre com o mesmo nome do produto na Únicopag: “Taxa de inscrição — X” e “X — Inscrição” já contam para o curso X.',
             lado: 'bottom',
           },
+          {
+            alvo: 'escola-cursos.cartaz',
+            titulo: 'Cartaz com QR',
+            texto: '“Cartaz com QR” imprime um cartaz de matrícula por curso: o QR leva à página do curso cadastrada ou, sem ela, à matrícula dos cursos presenciais no site. Há chamadas escritas para cada curso, e dá para escrever a sua.',
+            lado: 'bottom',
+            seAusente: 'pular',
+          },
           ],
   telas: [
       {
@@ -103,6 +110,13 @@ const CURSOS: GuiaDaArea = {
             texto: 'Páginas, advertoriais, anúncios e posts das campanhas do curso, por tipo, com o investido e as matrículas.',
           },
           {
+            alvo: 'escola-curso.cartaz',
+            titulo: 'Cartaz deste curso',
+            texto: '“Cartaz com QR” abre o cartaz de matrícula já neste curso. Só aparece em curso ativo.',
+            lado: 'bottom',
+            seAusente: 'pular',
+          },
+          {
             alvo: 'escola-curso.produtos',
             titulo: 'Produtos da Únicopag',
             texto: 'Os nomes de produto que contam para este curso. Se faltar algum, associe em “Cursos”, na lista de produtos sem curso.',
@@ -122,6 +136,18 @@ const CURSOS: GuiaDaArea = {
       ],
       dica: '“Taxa de inscrição — X” e “X — Inscrição” já contam para o curso X: não precisa cadastrar esses nomes.',
       exemplo: 'Exemplo: a escola abre “Instrumentação Cirúrgica”. A equipe cadastra o curso com esse nome e a página de inscrição; na primeira venda, “Taxa de inscrição — Instrumentação Cirúrgica” já conta como aluno do curso.',
+    },
+    {
+      id: 'cartaz-com-qr',
+      titulo: 'Imprimir o cartaz de matrícula de um curso',
+      exemplo: 'A escola cola o cartaz “Parada cardíaca: saiba agir.” do Suporte Básico de Vida no mural da sede e manda o PDF para uma unidade parceira: quem lê o QR cai na página de matrícula pelo celular.',
+      passos: [
+        'Em “Cursos”, toque em “Cartaz com QR” (ou, dentro de um curso, no mesmo botão: ele já vem escolhido).',
+        'No alto, em “Curso”, escolha o curso. Só aparecem os ativos.',
+        'Em “Chamada”, escolha o texto do cartaz: “Inscrições abertas”, as chamadas escritas para aquele curso e as gerais. Se preferir, escreva o seu “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”.',
+        'Toque em “Imprimir ou salvar PDF” (A4 em pé).',
+      ],
+      dica: 'O QR leva à “Página do curso” cadastrada (só endereços https). Sem ela, leva à página geral de matrícula dos cursos presenciais no site, e a pessoa escolhe o curso lá: cadastre a página em Editar para levar direto. O nome e a descrição do cartaz vêm do cadastro.',
     },
     {
       id: 'ligar-campanha-ao-curso',

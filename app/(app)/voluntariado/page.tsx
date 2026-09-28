@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Award, CalendarHeart, Download, Eye, GalleryHorizontalEnd, GraduationCap, Lock, Megaphone, MessageCircle, Plus, Search } from 'lucide-react'
+import { Award, CalendarHeart, Download, Eye, GalleryHorizontalEnd, GraduationCap, Lock, Megaphone, MessageCircle, Plus, QrCode, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
@@ -114,6 +114,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
         actions={nivel >= 2 ? <div className="flex flex-wrap gap-2">
           <Button variant="outline" render={<a href="/membro/previa?como=geral" target="_blank" rel="noopener" />}><Eye className="size-4" />Ver Área do Voluntário</Button>
           <CopiarLink url={`${urlBase()}/participe`} />
+          <Button variant="outline" render={<Link href="/voluntariado/cartaz" />} data-ajuda="voluntarios.cartaz"><QrCode className="size-4" />Cartaz com QR</Button>
           <Button variant="outline" render={<a href={exportar} />}><Download className="size-4" />Exportar</Button>
           <Button render={<Link href="/voluntariado/novo" />} data-ajuda="voluntarios.novo"><Plus className="size-4" />Novo voluntário</Button>
         </div> : undefined}

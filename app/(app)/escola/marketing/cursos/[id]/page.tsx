@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowUpRight, ChevronLeft, Lightbulb, Megaphone, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, ChevronLeft, Lightbulb, Megaphone, QrCode, TriangleAlert } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
@@ -48,6 +48,7 @@ export default async function CursoDaEscola({ params }: { params: Promise<{ id: 
         description={c.descricao ?? (c.ativo ? 'Curso ativo.' : 'Curso inativo (fora de oferta).')}
         actions={<div className="flex flex-wrap gap-2">
           {c.pagina_url && <a href={c.pagina_url} target="_blank" rel="noopener" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium hover:bg-muted" data-pagina-do-curso>Página do curso<ArrowUpRight className="size-3.5" /></a>}
+          {c.ativo && <Link href={`/escola/cartaz?curso=${c.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium hover:bg-muted" data-ajuda="escola-curso.cartaz"><QrCode className="size-3.5" />Cartaz com QR</Link>}
           <FormularioDoCurso curso={c} />
         </div>}
       />
