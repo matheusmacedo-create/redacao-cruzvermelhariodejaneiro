@@ -8,6 +8,7 @@ import { adminSupabaseEnv, publicSupabaseEnv, SupabaseConfigError, type InvalidK
 import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import { Button } from '@/components/ui/button'
 import { DOMINIO_DO_PALACIO } from '@/lib/dominio'
+import { destinoSeguro } from '@/lib/chamados/cartaz'
 
 // Só nomes de variáveis, nunca valores: a página é pública.
 function ConfigurationNotice({ missing, invalid }: { missing: string[]; invalid: InvalidKey[] }) {
@@ -74,8 +75,10 @@ const AVISOS: Record<string, string> = {
   redefinida: 'Senha redefinida. Entre com a senha nova.',
 }
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ senha?: string }> }) {
-  const { senha } = await searchParams
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ senha?: string; voltar?: string }> }) {
+  const { senha, voltar: pedido } = await searchParams
+  // De um QR (cartaz de chamados): depois de entrar, volta para lá. Só caminho do próprio Palácio.
+  const voltar = destinoSeguro(pedido)
   const publicEnv = publicSupabaseEnv()
   const adminEnv = adminSupabaseEnv()
   const missingConfig = [...new Set([...publicEnv.missing, ...adminEnv.missing])]
@@ -90,7 +93,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // Logado mas sem espaço (conta desativada, vínculo removido): mandar para
   // o dashboard devolveria para cá, em laço. Explica e oferece sair.
   if (user) {
-    if (await obterWorkspaceSemVerificacao()) redirect('/dashboard')
+    if (await obterWorkspaceSemVerificacao()) redirect(voltar ?? '/dashboard')
     return <SemAcesso />
   }
 
@@ -111,7 +114,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <h1 className="mt-3 text-3xl font-bold tracking-tight text-balance">{needsBootstrap ? 'Configure o primeiro acesso' : 'Entre no Palácio Virtual'}</h1>
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
-          <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} /></div>
+          <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} voltar={voltar} /></div>
         </div>
       </section>
       {/* Sem logo repetida nem ícone genérico: o lado direito diz o que é o Palácio.

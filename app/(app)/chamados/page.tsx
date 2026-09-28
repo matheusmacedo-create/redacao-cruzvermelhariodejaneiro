@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Search, Settings } from 'lucide-react'
+import { Plus, QrCode, Search, Settings } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -63,6 +63,7 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
         description="Pedidos entre os setores da filial. Abra, acompanhe e avalie o atendimento."
         actions={<>
           {pode(context.role, 'chamados.configurar') && <Button data-ajuda="chamados.configurar" variant="outline" size="lg" render={<Link href="/chamados/configurar" />}><Settings className="size-4" />Configurar</Button>}
+          <Button data-ajuda="chamados.cartaz" variant="outline" size="lg" render={<Link href="/chamados/cartaz" />}><QrCode className="size-4" />Cartaz com QR</Button>
           <Button data-ajuda="chamados.abrir" size="lg" render={<Link href="/chamados/novo" />}><Plus className="size-4" />Abrir chamado</Button>
         </>}
       />
