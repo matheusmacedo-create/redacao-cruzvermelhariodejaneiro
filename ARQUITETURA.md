@@ -1704,7 +1704,8 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
   saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
   do setor e só vota depois de `confirmo`; `ajustes: …` vota na hora. `chamado: …` abre chamado
-  perguntando equipe, assunto, local (se pedir) e urgência. As perguntas em aberto ficam em
+  perguntando equipe, assunto, local (se pedir), urgência e, por fim, detalhes opcionais
+  (`pular` ou `não` abre só com o relato; `cancelar` desiste). As perguntas em aberto ficam em
   `whatsapp_pendencias` (15 min). Tudo passa pelas mesmas regras da tela: `lib/chamados/nucleo.ts`,
   `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
   pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
