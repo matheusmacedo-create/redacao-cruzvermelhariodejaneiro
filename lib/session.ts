@@ -4,27 +4,42 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PERMISSOES, ehEquipeDaEscola, pode, type Papel, type Permissao } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
+import { lerPacoteDaSessao, type VinculoDaSessao } from '@/lib/sessao/pacote'
 
 export type WorkspaceRole = Papel
 
 export const getSessionContext = cache(async () => {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  // As três leituras não dependem uma da outra: juntas, custam uma ida ao
-  // banco em vez de três — e isto roda em toda página.
-  // O nível da sessão vem do mesmo token que getUser() acabou de validar no
-  // servidor do Auth; ler daqui não custa rede. Os fatores vêm do usuário.
-  const [{ data: profile }, { data: memberships }, { data: aal }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase
-      .from('workspace_members')
-      .select('role, coordination, workspaces(id,name,slug,kind,mfa_obrigatorio_para)')
-      .eq('user_id', user.id),
+  // Sem cookie de sessão não há o que conferir, e nenhuma ida à rede: a
+  // entrada e as páginas públicas passam por aqui a todo momento.
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return null
+  // Três coisas ao mesmo tempo, numa ida só (ARQUITETURA §7.35):
+  //  - getUser(): a checagem forte no servidor do Auth (conta desativada,
+  //    sessão revogada). Só ela decide se há sessão;
+  //  - palacio_sessao(): perfil, vínculos, níveis de acesso das áreas e o que
+  //    o layout mostra (sino, aprovações, chat, pessoas), num pacote só. Sem a
+  //    migração 20260929170000 (ou com erro), o pacote vem nulo e as duas
+  //    leituras de antes entram no lugar;
+  //  - o nível da sessão (aal), lido do próprio token, sem rede.
+  const [{ data: { user } }, pacote, { data: aal }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.rpc('palacio_sessao').then((r) => (r.error ? null : lerPacoteDaSessao(r.data)), () => null),
     supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
   ])
+  if (!user) return null
+  let profile: Record<string, any> | null = pacote?.profile ?? null
+  let memberships: VinculoDaSessao[] = pacote?.memberships ?? []
+  if (!pacote) {
+    const [p, m] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('workspace_members').select('role, coordination, workspaces(id,name,slug,kind,mfa_obrigatorio_para)').eq('user_id', user.id),
+    ])
+    profile = p.data
+    memberships = (m.data ?? []) as unknown as VinculoDaSessao[]
+  }
   const fatores = (user.factors ?? []).filter((f) => f.status === 'verified' && f.factor_type === 'totp')
-  return { user, profile, memberships: memberships ?? [], nivel: aal?.currentLevel ?? 'aal1', fatores }
+  return { user, profile, memberships, nivel: aal?.currentLevel ?? 'aal1', fatores, pacote }
 })
 
 export async function requireSession() {

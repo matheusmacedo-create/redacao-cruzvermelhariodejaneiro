@@ -30,25 +30,24 @@ export default async function PerfilPage({ searchParams }: { searchParams: Promi
   const { senha } = await searchParams
   const context = await requireWorkspace({ escola: true })
   const supabase = await createClient()
-  const [{ data: profile }, { data: activity }, { data: preferencias }] = await Promise.all([
+  // Tudo de uma vez (eram quatro rodadas). As leituras do WhatsApp continuam à
+  // parte: antes da migração do WhatsApp elas falham, e o resto do perfil não
+  // pode ir junto. O crachá é enfeite: se a leitura falhar, a página abre sem ele.
+  const [{ data: profile }, { data: activity }, { data: preferencias }, { data: pendente }, { data: whatsapp }, { data: whatsappPreferencias }, whatsappConfig, cracha] = await Promise.all([
     supabase.from('profiles').select('full_name,username,job_title,initials,color,avatar_path,email,email_confirmado_em').eq('id', context.user.id).single(),
     supabase.from('activity_log').select('id,action,entity_type,created_at').eq('workspace_id', context.workspace.id).eq('actor_id', context.user.id).order('created_at', { ascending: false }).limit(8),
     supabase.from('notificacao_preferencias').select('modos').eq('user_id', context.user.id).maybeSingle(),
-  ])
-  // O e-mail de contato e um eventual pedido de troca ainda não confirmado.
-  // Lido pelo service role: tokens_de_conta não é visível pela Data API.
-  const { data: pendente } = await createAdminClient().from('tokens_de_conta').select('email')
-    .eq('user_id', context.user.id).eq('finalidade', 'confirmar_email').is('usado_em', null).gt('expira_em', new Date().toISOString())
-    .order('criado_em', { ascending: false }).limit(1).maybeSingle()
-  const name = profile?.full_name || 'Usuário'
-  // Leituras à parte: antes da migração do WhatsApp elas falham, e o resto do perfil não pode ir junto.
-  const [{ data: whatsapp }, { data: whatsappPreferencias }, whatsappConfig] = await Promise.all([
+    // O e-mail de contato e um eventual pedido de troca ainda não confirmado.
+    // Lido pelo service role: tokens_de_conta não é visível pela Data API.
+    createAdminClient().from('tokens_de_conta').select('email')
+      .eq('user_id', context.user.id).eq('finalidade', 'confirmar_email').is('usado_em', null).gt('expira_em', new Date().toISOString())
+      .order('criado_em', { ascending: false }).limit(1).maybeSingle(),
     supabase.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', context.user.id).maybeSingle(),
     supabase.from('notificacao_preferencias').select('whatsapp').eq('user_id', context.user.id).maybeSingle(),
     configDoWhatsapp(context.workspace.id),
+    crachaDaConta(context.user.id, context.workspace.id).catch(() => null),
   ])
-  // O crachá é enfeite do perfil: se a leitura falhar, a página abre sem ele.
-  const cracha = await crachaDaConta(context.user.id, context.workspace.id).catch(() => null)
+  const name = profile?.full_name || 'Usuário'
   const coordination = context.memberships.find((membership) => { const workspace = Array.isArray(membership.workspaces) ? membership.workspaces[0] : membership.workspaces; return workspace?.id === context.workspace.id })?.coordination || 'Sem coordenação'
 
   return <div className="mx-auto max-w-3xl">

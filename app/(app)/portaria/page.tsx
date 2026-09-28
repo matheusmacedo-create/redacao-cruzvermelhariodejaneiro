@@ -39,8 +39,8 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
   const supabase = await createClient()
   const aba = sp.aba === 'historico' ? 'historico' : sp.aba === 'qr' ? 'qr' : sp.aba === 'crachas' ? 'crachas' : 'agora'
   const hoje = diaEmSaoPaulo(new Date())
-  const pessoas = await pessoasParaVisitar(ws)
-  const nomeDe = new Map(pessoas.map((p) => [p.id, p.nome]))
+  // Quem pode ser visitado sai junto com as visitas da aba, numa ida só ao banco.
+  const pessoas = aba === 'agora' || aba === 'historico' ? pessoasParaVisitar(ws) : Promise.resolve([])
 
   const abas = [
     { id: 'agora', rotulo: 'Agora' },
@@ -58,8 +58,8 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
             className={`-mb-px border-b-2 px-3 py-2 text-sm ${aba === a.id ? 'border-primary font-medium text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{a.rotulo}</Link>
         ))}
       </nav>
-      {aba === 'agora' && <Agora ws={ws} hoje={hoje} supabase={supabase} pessoas={pessoas} nomeDe={nomeDe} />}
-      {aba === 'historico' && <Historico ws={ws} hoje={hoje} dia={sp.dia} q={sp.q} supabase={supabase} nomeDe={nomeDe} />}
+      {aba === 'agora' && <Agora ws={ws} hoje={hoje} supabase={supabase} pessoas={pessoas} />}
+      {aba === 'historico' && <Historico ws={ws} hoje={hoje} dia={sp.dia} q={sp.q} supabase={supabase} pessoas={pessoas} />}
       {aba === 'qr' && <CartazDoQr ws={ws} supabase={supabase} admin={context.role === 'admin'} />}
       {aba === 'crachas' && <CrachasDeVisitante />}
     </div>
@@ -67,6 +67,8 @@ export default async function PortariaPage({ searchParams }: { searchParams: Pro
 }
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
+type Pessoas = ReturnType<typeof pessoasParaVisitar>
+const nomesDe = (pessoas: Awaited<Pessoas>) => new Map(pessoas.map((p) => [p.id, p.nome]))
 
 function Linha({ v, nomeDe, children, destaque }: { v: Visita; nomeDe: Map<string, string>; children?: React.ReactNode; destaque?: React.ReactNode }) {
   const visita = quemVisita(v, v.visitado_id ? nomeDe.get(v.visitado_id) : null)
@@ -85,8 +87,9 @@ function Linha({ v, nomeDe, children, destaque }: { v: Visita; nomeDe: Map<strin
   )
 }
 
-async function Agora({ ws, hoje, supabase, pessoas, nomeDe }: { ws: string; hoje: string; supabase: Supabase; pessoas: { id: string; nome: string; setor: string | null }[]; nomeDe: Map<string, string> }) {
-  const [{ data: aguardando, error }, { data: dentro }, { data: crachas }, { count: hojeTotal }] = await Promise.all([
+async function Agora({ ws, hoje, supabase, pessoas: pessoasP }: { ws: string; hoje: string; supabase: Supabase; pessoas: Pessoas }) {
+  const [pessoas, { data: aguardando, error }, { data: dentro }, { data: crachas }, { count: hojeTotal }] = await Promise.all([
+    pessoasP,
     supabase.from('portaria_visitas').select(COLUNAS_DA_VISITA).eq('workspace_id', ws).is('entrada_em', null).is('descartada_em', null).order('created_at').limit(50),
     supabase.from('portaria_visitas').select(COLUNAS_DA_VISITA).eq('workspace_id', ws).not('entrada_em', 'is', null).is('saida_em', null).order('entrada_em', { ascending: false }).limit(300),
     supabase.from('portaria_visitas').select(COLUNAS_DA_VISITA).eq('workspace_id', ws).not('cracha_numero', 'is', null).is('cracha_devolvido_em', null).not('saida_em', 'is', null).order('saida_em', { ascending: false }).limit(100),
@@ -95,6 +98,7 @@ async function Agora({ ws, hoje, supabase, pessoas, nomeDe }: { ws: string; hoje
   if (error) {
     return <Card className="p-6 text-sm">A Portaria ainda não está ligada no banco (migração 20260929060000). Avise a administração.</Card>
   }
+  const nomeDe = nomesDe(pessoas)
   const esperando = (aguardando ?? []) as Visita[]
   const agora = (dentro ?? []) as Visita[]
   const pendentes = ((crachas ?? []) as Visita[]).filter(crachaPendente)
@@ -183,7 +187,7 @@ async function Agora({ ws, hoje, supabase, pessoas, nomeDe }: { ws: string; hoje
   )
 }
 
-async function Historico({ ws, hoje, dia, q, supabase, nomeDe }: { ws: string; hoje: string; dia?: string; q?: string; supabase: Supabase; nomeDe: Map<string, string> }) {
+async function Historico({ ws, hoje, dia, q, supabase, pessoas: pessoasP }: { ws: string; hoje: string; dia?: string; q?: string; supabase: Supabase; pessoas: Pessoas }) {
   const escolhido = dia && /^\d{4}-\d{2}-\d{2}$/.test(dia) && dia <= hoje ? dia : hoje
   const termo = (q ?? '').trim().slice(0, 60)
   let consulta = supabase.from('portaria_visitas').select(COLUNAS_DA_VISITA).eq('workspace_id', ws).not('entrada_em', 'is', null)
@@ -193,7 +197,8 @@ async function Historico({ ws, hoje, dia, q, supabase, nomeDe }: { ws: string; h
     const fim = new Date(new Date(`${escolhido}T00:00:00-03:00`).getTime() + 86_400_000).toISOString()
     consulta = consulta.gte('entrada_em', inicioDoDia(escolhido)).lt('entrada_em', fim)
   }
-  const { data } = await consulta.order('entrada_em', { ascending: false }).limit(500)
+  const [pessoas, { data }] = await Promise.all([pessoasP, consulta.order('entrada_em', { ascending: false }).limit(500)])
+  const nomeDe = nomesDe(pessoas)
   const visitas = (data ?? []) as Visita[]
   return (
     <div className="flex flex-col gap-4">

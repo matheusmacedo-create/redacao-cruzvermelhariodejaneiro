@@ -37,13 +37,14 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams
   const context = await requireWorkspace()
   const ano = new Date().getFullYear()
-  const feriados = await datasDeFeriado([ano - 1, ano, ano + 1])
   const supabase = await createClient()
   const admin = createAdminClient()
   const ws = context.workspace.id
-  const [atendo, { data: filas }] = await Promise.all([
+  // Os feriados (API pública, com cache) saem junto com as leituras do banco.
+  const [atendo, { data: filas }, feriados] = await Promise.all([
     filasQueAtendo(admin, ws, context.user.id, context.role),
     supabase.from('chamado_filas').select('id, nome, atendimento_24h').eq('workspace_id', ws).order('ordem'),
+    datasDeFeriado([ano - 1, ano, ano + 1]),
   ])
   const atende = atendo.size > 0
   const aba = sp.aba === 'atendimento' && atende ? 'atendimento' : sp.aba === 'indicadores' && atende ? 'indicadores' : 'meus'

@@ -50,10 +50,13 @@ export const contextoDoFinanceiro = cache(async () => {
   }
   const supabase = await createClient()
   const ehAdmin = context.role === 'admin'
-  const { data: acesso } = ehAdmin ? { data: null } : await supabase.from('fin_acesso').select('nivel,entidade_id').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
+  // O acesso e as empresas vêm no pacote da sessão (uma ida só, lib/session.ts); sem ele, as leituras de antes.
+  const pacote = context.pacote
+  const { data: acesso } = ehAdmin ? { data: null } : pacote ? { data: pacote.acessos.financeiro }
+    : await supabase.from('fin_acesso').select('nivel,entidade_id').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
   const concedido: Nivel = ehAdmin ? 4 : nivelDoNome(acesso?.nivel)
-  // As empresas que esta pessoa enxerga (o RLS filtra pelo acesso). Sem acesso ao Financeiro, a lista vem vazia.
-  let { data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem')
+  // As empresas que esta pessoa enxerga (o RLS filtra pelo acesso; o pacote usa a mesma regra). Sem acesso ao Financeiro, a lista vem vazia.
+  let { data: empresas } = pacote ? { data: pacote.entidades } : await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem')
   if (!empresas?.length && concedido >= 1) {
     await supabase.rpc('financeiro_preparar', { p_workspace_id: context.workspace.id })
     ;({ data: empresas } = await supabase.from('fin_entidades').select('id,nome,razao_social,cnpj,tipo,principal,fechado_ate').eq('workspace_id', context.workspace.id).eq('ativa', true).order('ordem'))

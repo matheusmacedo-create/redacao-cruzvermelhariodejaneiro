@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { MessagesSquare, X } from 'lucide-react'
-import { createClient as clienteDoNavegador } from '@/lib/supabase/client'
 import { infoDoCanal } from '@/app/actions/chat'
 import { textoDoAviso, type AnexoDoChat } from '@/lib/chat/regras'
 
@@ -47,8 +46,14 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
   const fechar = useCallback((id: string) => setAvisos((a) => a.filter((x) => x.id !== id)), [])
 
   useEffect(() => {
-    const supabase = clienteDoNavegador()
-    const canal = supabase.channel(`chat-ao-vivo-${eu}`)
+    // O cliente do Supabase do navegador (~225 KB) só entra depois que a página
+    // está de pé: é o único uso dele fora do Chat, e ia no pacote de toda tela.
+    let vivo = true
+    let desligar = () => {}
+    import('@/lib/supabase/client').then(({ createClient }) => {
+      if (!vivo) return
+      const supabase = createClient()
+      const canal = supabase.channel(`chat-ao-vivo-${eu}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_mensagens', filter: `workspace_id=eq.${workspaceId}` }, async (p: { new: Record<string, unknown> }) => {
         const m = p.new as { id: string; canal_id: string; autor_id: string | null; corpo: string; mencoes: string[] | null; menciona_todos: boolean; resposta_de: string | null; anexos: AnexoDoChat[] | null }
         if (!m || m.autor_id === eu) return
@@ -80,7 +85,9 @@ export function ChatAoVivo({ workspaceId, eu, inicial, conversas, nomes, childre
         }
       })
       .subscribe()
-    return () => { void supabase.removeChannel(canal) }
+      desligar = () => { void supabase.removeChannel(canal) }
+    }).catch(() => { /* sem conexão ou sem configuração: o sino continua contando pelo layout */ })
+    return () => { vivo = false; desligar() }
   }, [workspaceId, eu, nomes, router])
 
   return (

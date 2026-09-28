@@ -65,7 +65,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const hoje = hojeEmSaoPaulo()
 
   // A arrumação desta pessoa (sem a migração ou sem escolha, a padrão).
-  const { data: preferencia } = await supabase.from('inicio_preferencias').select('blocos').eq('user_id', eu).eq('workspace_id', ws).maybeSingle()
+  // No pacote da sessão (uma ida só); sem ele, a leitura de antes.
+  const { data: preferencia } = context.pacote ? { data: { blocos: context.pacote.inicio } } : await supabase.from('inicio_preferencias').select('blocos').eq('user_id', eu).eq('workspace_id', ws).maybeSingle()
   const arrumacao = lerArrumacao(preferencia?.blocos)
   const visiveis = new Set(arrumacao.filter((b) => b.visivel).map((b) => b.id))
   const mostra = (id: IdDoBloco) => visiveis.has(id)

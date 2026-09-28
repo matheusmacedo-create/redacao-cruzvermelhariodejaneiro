@@ -96,21 +96,18 @@ export default async function ComprasPage({ searchParams }: { searchParams: Prom
 
   const pessoas = [...new Set(lista.map((p) => p.solicitante_id).filter(Boolean))] as string[]
   const setoresIds = [...new Set(lista.map((p) => p.setor_id).filter(Boolean))] as string[]
-  const [{ data: perfis }, { data: setores }] = await Promise.all([
-    pessoas.length ? supabase.from('profiles').select('id,full_name').in('id', pessoas) : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
-    setoresIds.length ? supabase.from('setores').select('id,nome').in('id', setoresIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
-  ])
-  const nomeDe = new Map((perfis ?? []).map((p) => [p.id, p.full_name as string]))
-
   // Em cotação: quantas propostas chegaram e como estão os convites (a pergunta "onde estão as cotações?").
   const emCotacao = lista.filter((p) => p.estado === 'aberto' || p.estado === 'em_cotacao').map((p) => p.id)
-  const [{ data: propostasDaLista }, { data: convitesDaLista }, { data: prazos }] = emCotacao.length && nivel >= 1
-    ? await Promise.all([
-        supabase.from('compras_propostas').select('pedido_id').in('pedido_id', emCotacao).limit(5000),
-        supabase.from('compras_convites').select('pedido_id,enviado_em,envio_erro,visto_em,respondido_em,recusado_em,motivo_recusa,cancelado_em,lembrete_em').in('pedido_id', emCotacao).limit(5000),
-        supabase.from('compras_pedidos').select('id,cotacao_prazo').in('id', emCotacao),
-      ])
-    : [{ data: [] as { pedido_id: string }[] }, { data: [] as (Convite & { pedido_id: string })[] }, { data: [] as { id: string; cotacao_prazo: string | null }[] }]
+  const cotando = emCotacao.length > 0 && nivel >= 1
+  // Nomes, setores e o andamento das cotações dependem só da lista: uma ida ao banco para tudo.
+  const [{ data: perfis }, { data: setores }, { data: propostasDaLista }, { data: convitesDaLista }, { data: prazos }] = await Promise.all([
+    pessoas.length ? supabase.from('profiles').select('id,full_name').in('id', pessoas) : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+    setoresIds.length ? supabase.from('setores').select('id,nome').in('id', setoresIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    cotando ? supabase.from('compras_propostas').select('pedido_id').in('pedido_id', emCotacao).limit(5000) : Promise.resolve({ data: [] as { pedido_id: string }[] }),
+    cotando ? supabase.from('compras_convites').select('pedido_id,enviado_em,envio_erro,visto_em,respondido_em,recusado_em,motivo_recusa,cancelado_em,lembrete_em').in('pedido_id', emCotacao).limit(5000) : Promise.resolve({ data: [] as (Convite & { pedido_id: string })[] }),
+    cotando ? supabase.from('compras_pedidos').select('id,cotacao_prazo').in('id', emCotacao) : Promise.resolve({ data: [] as { id: string; cotacao_prazo: string | null }[] }),
+  ])
+  const nomeDe = new Map((perfis ?? []).map((p) => [p.id, p.full_name as string]))
   const propostasDe = new Map<string, number>()
   for (const x of propostasDaLista ?? []) propostasDe.set(x.pedido_id as string, (propostasDe.get(x.pedido_id as string) ?? 0) + 1)
   const convitesDe = new Map<string, Convite[]>()

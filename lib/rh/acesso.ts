@@ -14,7 +14,9 @@ export async function contextoDaEquipe() {
   const supabase = await createClient()
   let nivel: Nivel = 0
   if (context.role === 'admin') nivel = 4
+  else if (context.pacote) nivel = nivelDoNome(context.pacote.acessos.equipe)
   else {
+    // Sem o pacote da sessão (migração 20260929170000 ainda não aplicada): a leitura de antes.
     const { data } = await supabase.from('equipe_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
     nivel = nivelDoNome(data?.nivel)
   }

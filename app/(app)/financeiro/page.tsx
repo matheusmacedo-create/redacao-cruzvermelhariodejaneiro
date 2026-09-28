@@ -31,7 +31,7 @@ export default async function FinanceiroPage({ searchParams }: {
 }) {
   const livro = await livroDaRequisicao()
   const sp = await searchParams
-  const { context, supabase, nivel } = await contextoDoFinanceiro()
+  const { context, supabase, nivel, empresa } = await contextoDoFinanceiro()
 
   if (nivel < 1) {
     return (
@@ -53,10 +53,10 @@ export default async function FinanceiroPage({ searchParams }: {
   const mes = ehMes(sp.mes) ? sp.mes : mesDe(hoje)
   const inicio = primeiroDia(mes)
   const fim = ultimoDia(mes)
-  const c = await cadastrosDoFinanceiro()
-  const ent = c.empresa?.id ?? ''
-
-  const [{ data: abertosBrutos }, { data: doMesBrutos }, { data: pagosBrutos }] = await Promise.all([
+  // A empresa aberta já veio no contexto: os cadastros e os lançamentos saem juntos (eram duas rodadas).
+  const ent = empresa?.id ?? ''
+  const [c, { data: abertosBrutos }, { data: doMesBrutos }, { data: pagosBrutos }] = await Promise.all([
+    cadastrosDoFinanceiro(),
     // Em aberto até o fim do mês escolhido (atrasados de meses antes entram).
     supabase.from('fin_lancamentos').select(COLUNAS_DO_LANCAMENTO).eq('workspace_id', ws).eq('entidade_id', ent).is('pago_em', null).lte('vencimento', fim).order('vencimento').limit(3000),
     // Tudo o que vence ou foi pago no mês.
