@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { enviarEmailDoSetor, marcarConversa } from '@/app/actions/correio'
+import { atualizarCorreio, enviarEmailDoSetor, marcarConversa } from '@/app/actions/correio'
 import {
   assuntoDaResposta, destinatariosDaResposta, documentoDeLeitura, tamanhoLegivel,
   type AnexoLido, type MensagemLida, type Pasta,
@@ -114,7 +114,7 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
       <div className="grid min-h-[70dvh] grid-cols-1 overflow-hidden rounded-xl border border-border bg-card lg:h-[calc(100dvh-11rem)] lg:grid-cols-[15rem_minmax(18rem,24rem)_1fr]">
         {/* Coluna 1: as caixas e as pastas */}
         <nav aria-label="Caixas e pastas" data-ajuda="correio.caixas" className={cn('flex flex-col gap-3 border-border p-3 lg:overflow-y-auto lg:border-r', aberta && 'hidden lg:flex')}>
-          <Button render={<Link href={url(estado, { caixa: caixa.id, escrever: true, conversa: null })} />} className="w-full justify-start" data-ajuda="correio.escrever">
+          <Button render={<Link href={url(estado, { caixa: caixa.id, escrever: true, conversa: null })} prefetch={false} />} className="w-full justify-start" data-ajuda="correio.escrever">
             <PenSquare className="size-4" />Escrever
           </Button>
           <div className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
@@ -127,7 +127,7 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
                   const Icone = p === 'entrada' ? Inbox : p === 'enviados' ? SendHorizonal : Mail
                   const n = p === 'entrada' ? naoLidas[c.id] ?? 0 : 0
                   return (
-                    <Link key={p} href={url({ ...estado, q: '' }, { caixa: c.id, pasta: p, conversa: null, pagina: null, escrever: false })} aria-current={ativa ? 'page' : undefined}
+                    <Link key={p} href={url({ ...estado, q: '' }, { caixa: c.id, pasta: p, conversa: null, pagina: null, escrever: false })} prefetch={false} aria-current={ativa ? 'page' : undefined}
                       className={cn('flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm', ativa ? 'bg-primary/10 font-semibold text-primary' : 'text-foreground/85 hover:bg-muted')}>
                       <Icone className="size-4 shrink-0" />
                       <span className="flex-1 truncate">{p === 'entrada' ? 'Caixa de entrada' : p === 'enviados' ? 'Enviados' : 'Todas'}</span>
@@ -138,7 +138,7 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
               </div>
             ))}
           </div>
-          <Link href={url({ ...estado, q: '' }, { pasta: 'registro', conversa: null, pagina: null, escrever: false })} aria-current={estado.pasta === 'registro' ? 'page' : undefined}
+          <Link href={url({ ...estado, q: '' }, { pasta: 'registro', conversa: null, pagina: null, escrever: false })} prefetch={false} aria-current={estado.pasta === 'registro' ? 'page' : undefined}
             className={cn('mt-auto flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm', estado.pasta === 'registro' ? 'bg-primary/10 font-semibold text-primary' : 'text-muted-foreground hover:bg-muted')}>
             <ScrollText className="size-4" />Registro do Palácio
           </Link>
@@ -185,7 +185,8 @@ function Lista({ caixa, estado, lista, proxima, hoje, semLeitura }: { caixa: Cai
             <p className="truncate font-semibold">{pasta === 'entrada' ? 'Caixa de entrada' : pasta === 'enviados' ? 'Enviados' : 'Todas'}</p>
             <p className="truncate text-xs text-muted-foreground">{caixa.setor} · {caixa.email}</p>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Atualizar" disabled={atualizando} onClick={() => atualizar(() => router.refresh())}>
+          {/* Lê o Gmail de novo agora: as leituras ficam guardadas por um minuto (lib/correio/caixa-de-entrada.ts). */}
+          <Button variant="ghost" size="icon" aria-label="Atualizar" disabled={atualizando} onClick={() => atualizar(async () => { await atualizarCorreio(); router.refresh() })}>
             <RefreshCw className={cn('size-4', atualizando && 'animate-spin')} />
           </Button>
         </div>
@@ -201,7 +202,7 @@ function Lista({ caixa, estado, lista, proxima, hoje, semLeitura }: { caixa: Cai
           const ativa = estado.conversa === c.id
           return (
             <li key={c.id}>
-              <Link href={url(estado, { conversa: c.id, escrever: false })} aria-current={ativa ? 'true' : undefined} data-conversa={c.id}
+              <Link href={url(estado, { conversa: c.id, escrever: false })} prefetch={false} aria-current={ativa ? 'true' : undefined} data-conversa={c.id}
                 className={cn('flex gap-2 px-3 py-2.5 hover:bg-muted/50', ativa && 'bg-primary/[0.07]', c.naoLida && !ativa && 'bg-background')}>
                 <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', c.naoLida ? 'bg-primary' : 'bg-transparent')} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
@@ -227,8 +228,8 @@ function Lista({ caixa, estado, lista, proxima, hoje, semLeitura }: { caixa: Cai
       </ul>
       {(proxima || estado.pagina) && (
         <div className="flex justify-between gap-2 border-t border-border p-2">
-          {estado.pagina ? <Button variant="ghost" size="sm" render={<Link href={url(estado, { pagina: null, conversa: null })} />}>Mais recentes</Button> : <span />}
-          {proxima && <Button variant="ghost" size="sm" render={<Link href={url(estado, { pagina: proxima, conversa: null })} />}>Mais antigas</Button>}
+          {estado.pagina ? <Button variant="ghost" size="sm" render={<Link href={url(estado, { pagina: null, conversa: null })} prefetch={false} />}>Mais recentes</Button> : <span />}
+          {proxima && <Button variant="ghost" size="sm" render={<Link href={url(estado, { pagina: proxima, conversa: null })} prefetch={false} />}>Mais antigas</Button>}
         </div>
       )}
     </>
@@ -280,7 +281,7 @@ function Leitura({ caixa, mensagens, estado, caixas }: { caixa: CaixaVisivel; me
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-1 border-b border-border p-2" data-ajuda="correio.acoes">
-        <Button variant="ghost" size="sm" className="lg:hidden" render={<Link href={url(estado, { conversa: null })} />}><ArrowLeft className="size-4" />Voltar</Button>
+        <Button variant="ghost" size="sm" className="lg:hidden" render={<Link href={url(estado, { conversa: null })} prefetch={false} />}><ArrowLeft className="size-4" />Voltar</Button>
         <Button variant="ghost" size="sm" onClick={() => setResposta({ modo: 'responder', mensagem: ultima })}><Reply className="size-4" />Responder</Button>
         <Button variant="ghost" size="sm" onClick={() => setResposta({ modo: 'todos', mensagem: ultima })}><ReplyAll className="size-4" />Responder a todos</Button>
         <Button variant="ghost" size="sm" onClick={() => setResposta({ modo: 'encaminhar', mensagem: ultima })}><Forward className="size-4" />Encaminhar</Button>

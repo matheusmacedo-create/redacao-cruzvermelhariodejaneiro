@@ -690,6 +690,12 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
       resposta: 'Os pedidos de compra também enviam a ordem de compra pelo endereço do setor, e esses envios entram em “Enviados” como os outros. O nome do arquivo anexado aparece no fim do texto.',
       termos: ['ordem de compra', 'compras', 'fornecedor', 'anexo'],
     },
+    {
+      id: 'gmail-limitou',
+      pergunta: 'Apareceu “O Gmail limitou as leituras por um minuto”. O que faço?',
+      resposta: 'Espere uns segundos e toque em “Atualizar” (a seta circular no alto da lista). A cota de leitura é da conta Google da filial, dividida por toda a equipe: quando muita gente abre o E-mail do setor ao mesmo tempo, o Google segura por um minuto. Para isso acontecer menos, o Palácio guarda cada leitura por um minuto e só volta ao Gmail quando algo muda ou quando você toca em “Atualizar”.\n\nSe o aviso não sair depois de alguns minutos, avise um administrador: pode ser a cota do projeto do Google, ajustada no console dele.',
+      termos: ['Quota exceeded', 'Total Query Cost', 'Units per minute per user', 'gmail.googleapis.com', 'O Gmail recusou', 'cota', 'limite', 'não carrega', 'caixa vazia'],
+    },
   ],
   relacionadas: ['/imprensa', '/newsletter', '/configuracoes'],
 }

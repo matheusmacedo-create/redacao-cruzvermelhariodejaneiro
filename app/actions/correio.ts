@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { esquecerToken, mudarRotulos } from '@/lib/google/gmail'
 import { enviarPelaCaixa } from '@/lib/correio/enviar'
-import { abrirConversa, caixasVisiveis } from '@/lib/correio/caixa-de-entrada'
+import { abrirConversa, caixasVisiveis, esquecerLeituras as esquecerNoServidor } from '@/lib/correio/caixa-de-entrada'
 import { cabecalhosDaResposta, citacao } from '@/lib/correio/leitura'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 
@@ -33,6 +33,19 @@ async function exigirAdmin() {
 }
 
 const revalidar = () => { revalidatePath('/configuracoes', 'layout'); revalidatePath('/correio') }
+/** As leituras do Gmail ficam guardadas por um minuto (lib/correio/caixa-de-entrada.ts): o que muda aqui esquece na hora. */
+const esquecerLeituras = (workspaceId: string) => { esquecerNoServidor(workspaceId); revalidatePath('/correio') }
+
+/** O botão "Atualizar" da caixa: lê o Gmail de novo agora, em vez de esperar o minuto do cache. */
+export async function atualizarCorreio(): Promise<Resultado> {
+  try {
+    const context = await requireWorkspace()
+    esquecerLeituras(context.workspace.id)
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível atualizar.')
+  }
+}
 
 export async function sincronizarCaixasAgora(): Promise<Resultado> {
   try {
@@ -236,7 +249,7 @@ export async function enviarEmailDoSetor(formData: FormData): Promise<Resultado 
       para: texto(formData, 'para'), cc: texto(formData, 'cc'), assunto: texto(formData, 'assunto'), corpo: String(formData.get('corpo') ?? ''),
       conversa,
     })
-    revalidatePath('/correio')
+    esquecerLeituras(context.workspace.id)
     return { recado: `Enviado de ${de} para ${destinatarios.length} destinatário(s).` }
   } catch (causa) {
     // enviarPelaCaixa já registrou a falha em emails_enviados (quando chegou a montar o envio).
@@ -260,7 +273,8 @@ export async function marcarConversa(caixaId: string, threadId: string, acao: 'l
     const ids = mensagens.map((m) => m.id)
     const [por, tira] = acao === 'lida' ? [[], ['UNREAD']] : acao === 'nao_lida' ? [['UNREAD'], []] : acao === 'arquivar' ? [[], ['INBOX']] : [['INBOX'], []]
     await mudarRotulos(context.workspace.id, ids, por, tira)
-    if (acao !== 'lida') revalidatePath('/correio')
+    // Marcar como lida some com a bolinha na lista e do contador: as leituras guardadas ficam velhas.
+    esquecerLeituras(context.workspace.id)
     return {}
   } catch (causa) {
     return comoErro(causa, 'Não foi possível atualizar a conversa.')
