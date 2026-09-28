@@ -1464,6 +1464,45 @@ antigo:
 
 Sem esses arquivos, o Next mostra o 404 padrão, em inglês e sem saída.
 
+### 7.34 Velocidade: cache e service worker (28/09/2026)
+
+Relato de lentidão. Medições: o Palácio roda em `iad1` (Washington), perto do
+banco (`ca-central-1`); cada tela custa de 150 a 300 ms no servidor; toda tela
+baixava ~1,76 MB de JavaScript (sem compressão); e o menu e o "voltar" iam ao
+servidor a cada clique. O que foi feito:
+
+- **Cache de telas no navegador** (`experimental.staleTimes.dynamic: 30` em
+  `next.config.mjs`): voltar a uma tela visitada há menos de 30 s não vai ao
+  servidor. Salvar (as actions chamam `revalidatePath`) e `router.refresh()`
+  limpam esse cache, então o que a própria pessoa muda aparece na hora; o que
+  outra pessoa mudou pode levar até 30 s para aparecer ao voltar à tela.
+- **Avatares e mídias da Biblioteca** (`/api/private-blob`): eram
+  `private, no-cache` e voltavam ao servidor (que confere a sessão) a cada tela,
+  um pedido por avatar. Agora o avatar é `private, max-age=604800, immutable` (o
+  nome muda a cada troca de foto) e o arquivo da Biblioteca, `private,
+  max-age=3600`. As outras fotos (voluntário, portaria, bem) já eram de um dia.
+- **Imagens fixas** (`/images/*`): um dia de cache e uma semana de
+  `stale-while-revalidate` (o padrão da Vercel era conferir a cada tela).
+- **Service worker** (`public/sw.js`, registrado por
+  `components/app/service-worker.tsx`, só na versão publicada): guarda os
+  arquivos do build (`/_next/static`, cache primeiro, no máximo 300) e as
+  imagens fixas (mostra o guardado e atualiza por trás), e mostra
+  `public/offline.html` quando a navegação cai sem internet. **Nunca guarda
+  página, dado de tela (RSC), `/api` ou foto privada**: são de cada pessoa. O
+  `proxy.ts` não roda para `sw.js` e `offline.html`. Mudou a lógica do worker?
+  Troque `VERSAO` (os caches antigos são apagados no `activate`). Para desligar,
+  publique um `sw.js` que chame `self.registration.unregister()`.
+- **Portaria** (`AtualizarSozinho`): o recarregamento de 30 s pula a vez quando
+  há um campo em foco ou uma janela aberta — ele redesenha a tela inteira e
+  engasgava a digitação na recepção.
+- **Texto da Ajuda** (~145 KB comprimidos): o download antecipado, quando a dica
+  do tour aparece, espera o navegador ficar ocioso (`requestIdleCallback`), para
+  não disputar a rede com a própria tela.
+- **Fotos em listas** (avatares, retratos, grades de mídia): `loading="lazy"`.
+
+Não mudou (e por quê): a região da Vercel (em `gru1`, cada consulta ao banco no
+Canadá custaria ~120 ms), e as páginas continuam dinâmicas (são de cada pessoa).
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

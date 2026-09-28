@@ -1698,7 +1698,7 @@ function ImagemDeBase({ fotos, baseId, onMudar, workspaceId, onNovaFoto, desabil
               baseId === f.id ? 'border-primary ring-2 ring-primary/30' : 'border-border hover:border-muted-foreground/50'
             }`}
           >
-            <img src={f.previa} alt={f.nome} className="size-full object-cover" />
+            <img src={f.previa} alt={f.nome} className="size-full object-cover" loading="lazy" decoding="async" />
             {baseId === f.id && (
               <span className="absolute inset-x-0 bottom-0 bg-primary py-0.5 text-center text-[10px] font-semibold text-primary-foreground">
                 base
@@ -2683,7 +2683,7 @@ function GradeDaBiblioteca({ biblioteca, selecionados, onMudar, limite, desabili
           >
             {a.tipo === 'video'
               ? <video src={a.previa} muted playsInline preload="metadata" className={`size-full object-cover ${interna ? 'opacity-45' : ''}`} />
-              : <img src={a.previa} alt={a.nome} className={`size-full object-cover ${interna ? 'opacity-45' : ''}`} />}
+              : <img src={a.previa} alt={a.nome} loading="lazy" decoding="async" className={`size-full object-cover ${interna ? 'opacity-45' : ''}`} />}
             {ordem >= 0 && (
               <span className={`absolute left-1 top-1 flex size-5 items-center justify-center rounded-full text-[11px] font-bold ${pendente ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>{ordem + 1}</span>
             )}
@@ -3620,7 +3620,7 @@ function RecorteControles({ destino, arquivoPorId, proporcaoAlvo, rotuloProporca
               return (
                 <button key={id} type="button" onClick={() => setEscolhido(id)}
                   className={`size-10 overflow-hidden rounded border-2 ${id === selecionado ? 'border-primary' : 'border-transparent'}`}>
-                  <img src={a.previa} alt="" className="size-full object-cover" />
+                  <img src={a.previa} alt="" className="size-full object-cover" loading="lazy" decoding="async" />
                 </button>
               )
             })}

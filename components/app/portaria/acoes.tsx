@@ -228,7 +228,15 @@ export function TirarFoto({ id, nome, tem }: { id: string; nome: string; tem: bo
 export function AtualizarSozinho({ segundos = 30 }: { segundos?: number }) {
   const router = useRouter()
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === 'visible') router.refresh() }, segundos * 1000)
+    const t = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      // Alguém digitando (ou com uma janela aberta) não leva o recarregamento no meio:
+      // ele redesenha a tela inteira e engasgava a digitação no computador da recepção.
+      const foco = document.activeElement
+      if (foco && foco.matches('input, textarea, select, [contenteditable="true"]')) return
+      if (document.querySelector('[role="dialog"]')) return
+      router.refresh()
+    }, segundos * 1000)
     return () => clearInterval(t)
   }, [router, segundos])
   return null
