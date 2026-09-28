@@ -44,7 +44,7 @@ const BUSCA: PassoDoTour = {
 const SINO: PassoDoTour = {
   alvo: 'shell.sino',
   titulo: 'Notificações',
-  texto: 'O sino mostra o que aconteceu com você, com o número do que falta ler. Em “E-mails de aviso”, dentro dele, você escolhe o que também chega por e-mail.',
+  texto: 'O sino mostra o que aconteceu com você, com o número do que falta ler. Em “E-mails de aviso”, dentro dele, você escolhe o que chega por e-mail; o WhatsApp se liga em “Meu perfil”.',
   lado: 'bottom',
 }
 
@@ -206,13 +206,19 @@ export const ESCOLHER_OS_EMAILS: Omit<Tarefa, 'id'> = {
     'Em cada um, escolha “Na hora”, “Resumo diário” ou “Só no sino”.',
     'Não há botão de salvar: ao tocar, a escolha já vale e aparece “Preferência salva.” embaixo da lista.',
   ],
-  dica: 'Os e-mails vão para o seu e-mail de recuperação, e só depois que ele for confirmado. Os avisos de segurança da conta (senha, verificação em duas etapas) chegam sempre.',
+  dica: 'Os e-mails vão para o seu e-mail de recuperação, e só depois que ele for confirmado. Os avisos de segurança da conta (senha, verificação em duas etapas) chegam sempre. Para receber também no WhatsApp, confirme o número em “Meu perfil”, na parte “WhatsApp”.',
 }
 
 export const EMAIL_DE_AVISO_NAO_CHEGOU: Omit<Pergunta, 'id'> = {
   pergunta: 'Por que não recebi o e-mail de uma notificação?',
   resposta: 'Alguns motivos: o seu e-mail de recuperação não está confirmado; o assunto está em “Só no sino” ou “Resumo diário”; ou você estava com o Palácio Virtual aberto, e aí o aviso não sai na hora: se você não abrir, ele vai no resumo do dia.\n\nSobre a mesma coisa, sai no máximo um e-mail a cada 15 minutos. Vale olhar também a caixa de spam.',
   termos: ['e-mail de aviso', 'não chegou', 'notificação por e-mail', 'spam'],
+}
+
+export const AVISOS_NO_WHATSAPP: Omit<Pergunta, 'id'> = {
+  pergunta: 'Dá para receber os avisos no WhatsApp?',
+  resposta: 'Dá. Em “Meu perfil”, na parte “WhatsApp”, digite o seu número com DDD, toque em “Mandar código” e confirme com o código de 6 números que chega por lá. A partir daí, os avisos do sino chegam também no WhatsApp, e em “O que chega pelo WhatsApp” você desliga os assuntos que não quer receber por lá.\n\nPara não repetir o que você já está vendo, o aviso não sai no WhatsApp enquanto você está com o Palácio Virtual aberto, e de 22h às 7h ele espera até de manhã. As exceções são as que não podem esperar: a chegada de um visitante na portaria sai na hora, mesmo à noite, e a resposta do seu chamado sai mesmo com o Palácio aberto.',
+  termos: ['whatsapp', 'zap', 'celular', 'mensagem no celular', 'aviso no whatsapp', 'não chegou no whatsapp'],
 }
 
 export const TOPICOS_GERAIS: TopicoGeral[] = [
@@ -494,6 +500,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         termos: ['notificações', 'avisos', 'não lidas', 'alertas'],
       },
       { id: 'sem-email-de-aviso', ...EMAIL_DE_AVISO_NAO_CHEGOU },
+      { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
       {
         id: 'nomes-antigos',
         pergunta: 'Os nomes das áreas mudaram. Os links antigos ainda funcionam?',

@@ -193,7 +193,7 @@ const OFICIOS: GuiaDaArea = {
         'No quadro “Integridade”, toque em “Baixar PDF do ofício” (no gov.br, com assinaturas, “Baixar PDF assinado”).',
         'Para imprimir, abra a “Página pública de conferência (e versão para imprimir)” e use “Imprimir ou salvar em PDF”.',
       ],
-      dica: 'O rodapé do PDF traz o endereço onde quem recebe o ofício confere a autenticidade.',
+      dica: 'O pé de cada página do PDF, logo acima dos dados da filial, traz o endereço onde quem recebe o ofício confere a autenticidade.',
     },
     {
       id: 'cancelar-oficio',
@@ -328,8 +328,14 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'conferir-autenticidade',
       pergunta: 'Como quem recebe o ofício confere se ele é verdadeiro?',
-      resposta: 'O rodapé do PDF traz o endereço da página pública de conferência. Ela mostra o texto como foi assinado, quem assinou e quando, e se o ofício foi cancelado. Lá também dá para recalcular os hashes no próprio navegador e baixar o protocolo de assinaturas e a prova.',
+      resposta: 'O pé de cada página do PDF traz o endereço da página pública de conferência. Ela mostra o texto como foi assinado, quem assinou e quando, e se o ofício foi cancelado. Lá também dá para recalcular os hashes no próprio navegador e baixar o protocolo de assinaturas e a prova.',
       termos: ['autenticidade', 'validar', 'verificar', 'página pública', 'falsificação'],
+    },
+    {
+      id: 'papel-timbrado',
+      pergunta: 'Em que papel o ofício sai?',
+      resposta: 'No papel timbrado do Manual de Identidade da Cruz Vermelha. No alto ficam a logo, o setor que emite, centrado logo abaixo dela, e, à direita, “Reconhecida como Utilidade Pública Internacional - Decreto nº 9.620, de 13/06/1912”. No pé ficam o nome nas três línguas, o CNPJ, o endereço, o telefone e o e-mail da filial; logo acima, em todas as páginas, o hash do documento, o endereço de conferência e o número da página.\n\nO recibo e o termo de entrega de doação, do Patrimônio, e a ordem de compra e o relatório de compras e contratações, de Compras, saem no mesmo papel.',
+      termos: ['timbrado', 'papel timbrado', 'cabeçalho', 'rodapé', 'logo', 'modelo', 'identidade visual', 'decreto'],
     },
     {
       id: 'quem-ve-oficios',
@@ -1264,7 +1270,7 @@ const PORTARIA: GuiaDaArea = {
         'Toque em “Abrir para imprimir” e depois em “Imprimir ou salvar PDF”.',
         'Com verso, imprima frente e verso virando pela borda longa; corte nas marcas e ponha no porta-crachá ou plastifique.',
       ],
-      dica: 'O crachá leva só o número, nunca o nome: é reutilizável. Anote o número em “Nº do crachá de visitante” na entrada.',
+      dica: 'A prévia ao lado troca junto com o “Formato”, e “Até o número” já sugere uma folha cheia (10 deitados ou 9 em pé). O crachá leva só o número, nunca o nome: é reutilizável. Anote o número em “Nº do crachá de visitante” na entrada.',
     },
     {
       id: 'imprimir-qr',
@@ -1287,7 +1293,7 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'quem-recebe-aviso',
       pergunta: 'Quem fica sabendo que o visitante chegou?',
-      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe o aviso no sino, no WhatsApp confirmado e por e-mail, conforme as preferências dela no assunto “Portaria”. O aviso sai na hora, mesmo à noite. Quando ela responde, quem registrou a entrada é avisado. O visitante recebe a resposta no WhatsApp só se pediu. O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
+      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe o aviso no sino, no WhatsApp confirmado e por e-mail, conforme as preferências dela no assunto “Portaria”. O aviso sai na hora, mesmo à noite e com o Palácio aberto, e também quando quem registrou é a própria pessoa visitada. Quando ela responde, quem registrou ou confirmou a entrada é avisado. O visitante recebe a resposta no WhatsApp só se pediu. O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
       termos: ['notificação', 'avisar', 'chegou'],
     },
     {
