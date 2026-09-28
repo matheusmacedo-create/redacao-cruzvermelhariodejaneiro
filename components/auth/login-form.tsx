@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { entrar } from '@/app/actions/entrada'
 import { impressaoDoNavegador, type Impressao } from './impressao'
 
-export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; aviso?: string }) {
+export function LoginForm({ needsBootstrap, aviso, voltar }: { needsBootstrap: boolean; aviso?: string; voltar?: string | null }) {
   const router = useRouter()
   const [setup, setSetup] = useState(needsBootstrap)
   const [fullName, setFullName] = useState('')
@@ -39,7 +39,8 @@ export function LoginForm({ needsBootstrap, aviso }: { needsBootstrap: boolean; 
       ]).catch(() => null)
       const r = await entrar(username.trim(), password, JSON.stringify(sinais ?? {}))
       if (r?.erro) throw new Error(r.erro)
-      router.push('/dashboard'); router.refresh()
+      // Veio de um QR (?voltar=, já conferido na página): volta para lá.
+      router.push(voltar ?? '/dashboard'); router.refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.')
     } finally { setLoading(false) }

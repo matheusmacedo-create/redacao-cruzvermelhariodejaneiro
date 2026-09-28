@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Layers, Loader2, Plus, UserRoundX } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronDown, Layers, Loader2, Plus, QrCode, UserRoundX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -61,6 +62,7 @@ export function ConfigurarChamados({ filas, pessoas, semFila }: { filas: FilaNaC
           </button>
           {aberta === f.id && (
             <div className="flex flex-col gap-6 border-t border-border bg-muted/20 p-5">
+              {f.ativa && <Button variant="outline" size="sm" className="self-start" render={<Link href={`/chamados/cartaz?fila=${f.id}`} />}><QrCode className="size-4" />Cartaz com QR deste setor</Button>}
               <FormularioDaFila fila={f} />
               <Equipe fila={f} pessoas={pessoas} />
               <Categorias fila={f} />

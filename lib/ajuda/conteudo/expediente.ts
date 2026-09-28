@@ -400,6 +400,13 @@ const CHAMADOS: GuiaDaArea = {
       lado: 'bottom',
       seAusente: 'pular',
     },
+    {
+      alvo: 'chamados.cartaz',
+      titulo: 'Cartaz com QR',
+      texto: '“Cartaz com QR” imprime um cartaz por setor. Quem lê o código com o celular cai direto em “Abrir chamado”, já no setor.',
+      lado: 'bottom',
+      seAusente: 'pular',
+    },
   ],
   telas: [
     {
@@ -639,8 +646,25 @@ const CHAMADOS: GuiaDaArea = {
       ],
       dica: 'Assunto desmarcado em “Ativo” some do formulário de abertura. Fila sem nenhum assunto ativo não aparece para quem abre chamado.',
     },
+    {
+      id: 'cartaz-com-qr',
+      titulo: 'Imprimir o cartaz com QR de um setor',
+      exemplo: 'A TI cola o cartaz dela ao lado da impressora do segundo andar: quem vê a impressora travada lê o QR e abre o chamado para a TI em um minuto, sem procurar o caminho no menu.',
+      passos: [
+        'Em “Chamados”, toque em “Cartaz com QR”.',
+        'No alto, em “Setor”, escolha o setor que vai receber os chamados.',
+        'Toque em “Imprimir ou salvar PDF” (A4 em pé) e cole o cartaz perto de onde o problema costuma aparecer.',
+      ],
+      dica: 'Quem configura os chamados acha o mesmo cartaz dentro de cada fila, em “Cartaz com QR deste setor”. Só aparecem os setores ativos.',
+    },
   ],
   perguntas: [
+    {
+      id: 'qr-do-cartaz',
+      pergunta: 'Quem lê o QR do cartaz precisa ter login?',
+      resposta: 'Precisa: o cartaz é para a equipe da filial. Com o Palácio Virtual já aberto no celular, o QR leva direto a “Abrir chamado”, no setor do cartaz. Sem estar logada, a pessoa entra com o usuário e a senha e volta sozinha para o chamado.',
+      termos: ['qr code', 'cartaz', 'imprimir', 'celular', 'visitante'],
+    },
     {
       id: 'status-do-chamado',
       pergunta: 'O que significa cada status?',

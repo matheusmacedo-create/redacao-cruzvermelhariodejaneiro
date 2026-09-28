@@ -655,6 +655,14 @@ GLPI, Freshservice e Zendesk). Peças:
   fecha resolvidos há mais de 5 dias.
 - Configuração (filas, equipe, catálogo, SLA) em `/chamados/configurar`,
   permissão `chamados.configurar`.
+- **Cartaz com QR por setor** (`/chamados/cartaz?fila=…`, grupo `(impressao)`,
+  A4 em pé, como os da Portaria e dos Envios): o QR leva a `/chamado?fila=<slug>`
+  (`app/chamado/route.ts`), que abre `/chamados/novo?fila=…` com a sessão ou
+  manda para `/?voltar=…` sem ela. A entrada (`app/page.tsx` e `LoginForm`) volta
+  para lá depois de entrar; `destinoSeguro` (`lib/chamados/cartaz.ts`) só aceita
+  caminho do próprio Palácio (nunca `//outro-site`). Botão "Cartaz com QR" em
+  Chamados e, na configuração, em cada fila. Conferência:
+  `npx tsx scripts/conferir-cartaz-dos-chamados.ts`.
 
 ### 7.8 Notificações (sino e e-mail)
 
