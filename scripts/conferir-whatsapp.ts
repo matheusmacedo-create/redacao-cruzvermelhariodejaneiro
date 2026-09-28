@@ -7,7 +7,7 @@ import {
   lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
-  textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, lerEscolha, textoDaConferencia, textoDaEscolha, tituloDoRelato,
+  textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -277,6 +277,11 @@ igual(lerEscolha('2', 3), 2, 'escolha 2')
 igual(lerEscolha('*3*', 3), 3, 'escolha com negrito')
 igual(lerEscolha('opção 1', 3), 1, 'opção 1')
 igual(lerEscolha('4', 3), null, 'fora da lista')
+igual(ehPular('Pular'), true, 'pular os detalhes do chamado')
+igual(ehPular('não'), true, '"não" pula os detalhes (não cancela o chamado)')
+igual(ehPular('Cancelar'), false, '"cancelar" não é pular: continua desistindo')
+igual(ehPular('não liga desde ontem'), false, 'frase com "não" é detalhe, não pulo')
+contem(textoPedeDetalhes(), '*pular*', 'a pergunta dos detalhes diz como pular')
 igual(lerEscolha('0', 3), null, 'zero não é opção')
 igual(lerEscolha('2 cadeiras quebradas', 3), null, 'número no meio da frase não é escolha')
 

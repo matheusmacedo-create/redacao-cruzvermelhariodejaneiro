@@ -708,6 +708,20 @@ const CANCELA = ['cancelar', 'cancela', 'cancelo', 'nao', 'n', 'desistir', 'desi
 export const ehConfirmacao = (entrada: string) => CONFIRMA.includes(normalizar(entrada))
 export const ehCancelamento = (entrada: string) => CANCELA.includes(normalizar(entrada))
 
+// A pergunta dos detalhes do chamado é opcional: isto pula. "não" está aqui (e não cancela)
+// porque a pergunta foi "quer detalhar?"; "cancelar" continua desistindo do chamado.
+const PULA = ['pular', 'pula', 'pulo', 'nao', 'n', 'sem', 'nada', 'nenhum', 'nenhuma', 'so isso', 'e isso', 'e so isso', 'so', 'pronto', 'ok',
+  'abrir', 'abre', 'pode abrir', 'seguir', 'continuar', 'nao precisa', 'sem detalhes']
+export const ehPular = (entrada: string) => PULA.includes(normalizar(entrada))
+
+/** A última pergunta de abrir chamado: o relato de "chamado: wifi da sala 2" costuma ser curto demais para quem atende. */
+export function textoPedeDetalhes(): string {
+  return [
+    'Quer detalhar o que está acontecendo? Escreva aqui: desde quando, o que já tentou, o que precisa.',
+    `Ou responda *pular* para abrir o chamado só com o que você já disse. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
 /** "2", "2.", "opção 2", "*2*": o número escolhido entre 1 e `quantas`; null para o resto. */
 export function lerEscolha(entrada: string, quantas: number): number | null {
   const t = normalizar(entrada).replace(/^(opcao|numero|n|no) /, '')

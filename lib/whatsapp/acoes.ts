@@ -11,8 +11,8 @@ import { avisarMensagemDireta } from '@/lib/mensagens/avisos'
 import { ehEquipeDaEscola, type Papel } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 import {
-  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, lerDecisao, lerEscolha, textoDaConferencia,
-  textoDaEscolha, tituloDoRelato,
+  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular, lerDecisao, lerEscolha, textoDaConferencia,
+  textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
 } from './regras'
 import { seguirEnvio } from './envio'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
@@ -254,7 +254,9 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
-  if (ehCancelamento(texto)) {
+  // Na pergunta dos detalhes, "não" quer dizer "sem detalhes", não "desisto do chamado".
+  const pulandoDetalhes = p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes' && ehPular(texto)
+  if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
     return { texto: p.tipo === 'aprovar' ? 'Pronto: nenhum voto registrado.' : 'Pronto: o chamado não foi aberto.' }
   }
@@ -277,7 +279,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
 type FilaNaConversa = { id: string; nome: string }
 type CategoriaNaConversa = { id: string; nome: string; pedeLocal: boolean }
 type DadosDoChamado = {
-  etapa?: 'fila' | 'categoria' | 'local' | 'urgencia'
+  etapa?: 'fila' | 'categoria' | 'local' | 'urgencia' | 'detalhes'
   relato: string
   filas?: FilaNaConversa[]
   filaId?: string
@@ -285,6 +287,7 @@ type DadosDoChamado = {
   categoriaId?: string
   pedeLocal?: boolean
   local?: string | null
+  urgencia?: 1 | 2 | 3
 }
 
 export async function comecarChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, relato: string, base: string): Promise<Resposta> {
@@ -322,10 +325,15 @@ async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d
     return perguntar({ ...d, etapa: 'local' }, `Onde é? Responda com a sala, o andar ou o setor (ou *cancelar*). Vale por ${PENDENCIA_VALE_MIN} minutos.`)
   }
 
-  return perguntar({ ...d, etapa: 'urgencia' }, textoDaEscolha({
-    pergunta: 'Quanto isso atrapalha?',
-    opcoes: ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })),
-  }))
+  if (!d.urgencia) {
+    return perguntar({ ...d, etapa: 'urgencia' }, textoDaEscolha({
+      pergunta: 'Quanto isso atrapalha?',
+      opcoes: ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })),
+    }))
+  }
+
+  // A última pergunta é opcional: quem atende lê o relato, e "wifi da sala 2" diz pouco.
+  return perguntar({ ...d, etapa: 'detalhes' }, textoPedeDetalhes())
 }
 
 async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
@@ -354,19 +362,27 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
     if (local.length < 2 || local.length > 140) return deNovo('Diga onde é em poucas palavras: a sala, o andar ou o setor.')
     return avancar({ ...d, local })
   }
-  if (d.etapa !== 'urgencia' || !d.filaId || !d.categoriaId) {
+  if (d.etapa === 'urgencia') {
+    const urgencia = lerEscolha(texto, 3)
+    if (!urgencia) return deNovo('Responda com 1, 2 ou 3, ou *cancelar*.')
+    return avancar({ ...d, urgencia: urgencia as 1 | 2 | 3 })
+  }
+  if (d.etapa !== 'detalhes' || !d.filaId || !d.categoriaId || !d.urgencia) {
     await encerrarPendencia(admin, p.id)
     return { texto: `Não consegui continuar este chamado. Abra pelo Palácio: ${base}/chamados/novo` }
   }
 
-  const urgencia = lerEscolha(texto, 3)
-  if (!urgencia) return deNovo('Responda com 1, 2 ou 3, ou *cancelar*.')
+  // Os detalhes: texto livre que entra na descrição, depois do relato; "pular" (ou "não") abre só com o relato.
+  const pula = ehPular(texto)
+  const detalhes = pula ? '' : texto.trim().replace(/[ \t]+/g, ' ').slice(0, 4000)
+  if (!pula && (detalhes.length < 3 || lerEscolha(texto, 99) !== null)) return deNovo('Escreva o que está acontecendo, ou responda *pular* para abrir o chamado assim.')
   if (!await encerrarPendencia(admin, p.id)) return { texto: 'Este chamado já foi aberto.' }
   const { data: vinculo } = await admin.from('workspace_members').select('coordination').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle()
   try {
     const criado = await criarChamado(admin, {
       workspaceId, autor: { id: pessoa.id, nome: pessoa.nome, setor: (vinculo?.coordination as string | null) ?? null },
-      filaId: d.filaId, categoriaId: d.categoriaId, titulo: tituloDoRelato(d.relato), descricao: d.relato, local: d.local ?? null, urgencia,
+      filaId: d.filaId, categoriaId: d.categoriaId, titulo: tituloDoRelato(d.relato), descricao: [d.relato, detalhes].filter(Boolean).join('\n\n'),
+      local: d.local ?? null, urgencia: d.urgencia,
     })
     return { texto: `Chamado *${criado.codigo}* aberto. As respostas da equipe chegam por aqui; para responder, responda a mensagem do aviso.\n\n${base}/chamados/${criado.id}` }
   } catch (causa) {
@@ -374,8 +390,8 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
   }
 }
 
-/** A pergunta aberta espera texto livre (o local do chamado, o título do envio)? Aí até frase com "agenda" é resposta. */
+/** A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio)? Aí até frase com "agenda" é resposta. */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
-  return (p?.tipo === 'abrir_chamado' && etapa === 'local') || (p?.tipo === 'envio' && etapa === 'titulo')
+  return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
 }
