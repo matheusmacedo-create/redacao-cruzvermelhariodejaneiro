@@ -19,7 +19,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
         <h1 className="text-lg font-semibold">Algo deu errado ao carregar esta página</h1>
         <p className="mt-1 max-w-md text-sm text-muted-foreground">
           Se você acabou de salvar algo, a alteração provavelmente foi registrada — apenas esta tela não
-          conseguiu atualizar. Tente novamente ou volte para o Dashboard.
+          conseguiu atualizar. Tente novamente ou volte para o Início.
         </p>
       </div>
       <div className="flex items-center gap-2">
@@ -28,7 +28,7 @@ export default function AppError({ error, reset }: { error: Error & { digest?: s
           Tentar novamente
         </Button>
         <Button variant="outline" render={<Link href="/dashboard" />}>
-          Ir para o Dashboard
+          Ir para o Início
         </Button>
       </div>
     </div>

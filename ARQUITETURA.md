@@ -123,49 +123,56 @@ explicaria o problema.
 
 ```
 app/
-  (app)/              rotas autenticadas — o grupo tem o layout com sidebar
-    dashboard/  direct/  registrar/  pautas/  projetos/
-    conteudos/[id]/   aprovacoes/  calendario/  biblioteca/  redes/
-    mensagens/  pessoas/  perfil/  configuracoes/  acervo/
-  actions/            server actions — TODA escrita passa por aqui
-    editorial.ts      pautas, conteúdos, aprovações, calendário, projetos, perfil
-    redes.ts          publicação em redes sociais
-    admin.ts          reset de dados do espaço
-    usuarios.ts       criar, editar, redefinir senha, desativar/reativar
-    acervo.ts         envio ao R2, ficha, publicação no site (§7.10)
-    ajuda.ts          o que cada pessoa já viu da ajuda (§7.15)
-  api/                só o que precisa ser HTTP de verdade
-    bootstrap/        primeiro administrador, quando o banco está vazio
-    files/            upload-token, register, download, delete
-    private-blob/     proxy autenticado para arquivos privados
-    redes/            redes conectadas, imagens da biblioteca
-    admin/            diagnósticos (ftp-check, redes-check, ftp-descobrir)
+  (app)/                  a equipe, com login (layout com menu, sino, busca e ajuda)
+    dashboard/            Início (blocos que cada pessoa escolhe)
+    aprovacoes/ chat/ calendario/ notificacoes/
+    chamados/ oficios/ correio/ portaria/            Expediente (Pedidos de compra: financeiro/compras)
+    cerebro/ pautas/ projetos/ redes/ impacto/ registro/ registrar/ conteudos/
+                                                     Redação (Radar, Pautas, Projetos, Publicações, Resultados, Histórico)
+    biblioteca/ envios/ acervo/                      Mídia
+    direct/ newsletter/ imprensa/ mensagens/         Público
+    financeiro/ patrimonio/ transparencia/ canais-oficiais/ trilha-publica/
+                                                     Gestão
+    pessoas/ equipe/ voluntariado/ participantes/    Pessoas (Diretório, RH, Voluntários)
+    escola/                                          Escola (vendas, financeiro, marketing, configurações)
+    acessos/ usuarios/ configuracoes/ perfil/ ajuda/ administração e conta
+    not-found.tsx error.tsx loading.tsx
+  membro/                 Área do Voluntário (sessão própria, cookie cvrj_membro)
+    (area)/               início, cursos, apostilas, certificados, oportunidades,
+                          avisos, mensagens, perfil, princípios, ajuda
+    entrar/               código por e-mail ou WhatsApp
+  páginas públicas (sem login):
+    page.tsx (entrada) esqueci-senha/ redefinir-senha/ trocar-senha/ verificacao/ confirmar-email/
+    visitante/            autocadastro da Portaria pelo QR
+    enviar/ album/        envio de ações pela equipe e álbum do evento
+    autorizacao/          autorização de uso de imagem
+    cotacao/              proposta do fornecedor
+    ficha/                ficha do RH preenchida pela própria pessoa
+    participe/            inscrição de voluntário
+    verificar/ cracha/ diploma/ certificado/          conferência de ofício, crachá e diplomas
+    newsletter/ comunicados/
+    not-found.tsx         endereço que não existe
+  actions/                server actions (57 arquivos) — TODA escrita passa por aqui
+  api/                    o que precisa ser HTTP: arquivos e PDFs, webhooks (WhatsApp,
+                          Upload-Post), rotinas diárias (CRON_SECRET) e verificações públicas
 components/
-  app/                componentes de tela (sidebar, publicador-redes, emoji-picker)
-    ajuda/            provedor, painel “?”, boas-vindas, dica do tour e Central (§7.15)
-  ajuda/              o motor do tour, da Redação e da Área do Voluntário (§7.15)
-  ui/                 primitivos Base UI
-  auth/  admin/
-lib/
-  supabase/           client.ts (browser) · server.ts (SSR) · admin.ts (service role) · env.ts
-  publicacao/         upload-post.ts · requisitos.ts · ftp.ts
-  armazenamento/      r2.ts (cliente do Cloudflare R2, SigV4 sem SDK)
-  acervo/             regras · dados · paginas (HTML público) · publicacao · imagens · video
-  editorial/          publicacoes-previstas.ts
-  ajuda/              tipos · indice (leve, vai a toda página) · index (registro) ·
-                      progresso · posicao · membro · conteudo/<grupo>.ts, o texto
-                      de cada área, baixado sob demanda (§7.15)
-  session.ts          requireSession · requireWorkspace · requireAdmin · requirePermissao
-  permissoes.ts       quem pode o quê (catálogo único de permissões)
-  navegacao.ts        nomes, grupos e ícones das áreas (sidebar, topo, busca ⌘K, aba)
-  equipe.ts           setores e pessoas da filial
-  storage.ts          limites, tipos MIME, caminho da Biblioteca
-  status-maps.ts      tradução banco → interface
-  data.ts             constantes (coordenações, canais) + mock antigo da Fase 1
-scripts/              conferir-ajuda.ts (npx tsx, §7.15) · backup-banco.sh ·
-                      restaurar-arquivos.sh (docs/backup.md)
-supabase/migrations/  o schema, em ordem cronológica
-proxy.ts              middleware de sessão
+  app/<área>/             telas da equipe, uma pasta por área
+  membro/                 Área do Voluntário
+  ajuda/                  motor do tour (equipe e voluntário)
+  ui/                     primitivos Base UI
+lib/                      regras e acesso a dados, uma pasta por área:
+  supabase/               client (navegador) · server (sessão) · admin (serviço) · paginar
+  session.ts permissoes.ts navegacao.ts     quem é, o que pode, onde fica cada área
+  notificacoes/ whatsapp/ correio/          sino, e-mail, WhatsApp e e-mail do setor
+  editorial/ pautas/ publicacao/ site/ midia/ acervo/ envios/ imprensa/ newsletter/
+  chamados/ oficios/ compras/ portaria/ financeiro/ patrimonio/ transparencia/ auditoria/
+  equipe.ts rh/ participantes/ membro/ cursos/ oportunidades/ cracha/ escola/
+  pdf/                    timbrado, folha, fontes (§7.30)
+  analytics/ google/ integracoes/ ia/ apis-publicas/ armazenamento/
+  ajuda/                  o texto de ajuda de cada área (§7.15)
+scripts/                  conferir-*.ts (um por área, npx tsx) · backup-banco.sh · restaurar-arquivos.sh
+supabase/migrations/      o schema, em ordem cronológica (108 arquivos em 28/09/2026)
+proxy.ts                  sessão, livro do Financeiro, Área do Voluntário
 ```
 
 **Os nomes das áreas moram em `lib/navegacao.ts`, não nas rotas.** A tela
@@ -1187,6 +1194,12 @@ do manual estão desatualizados**: os dados da filial vêm de `DADOS_DA_FILIAL`.
     diplomas num PDF só (`/api/voluntariado/diplomas/lote?codigos=…`, uma página A3 por diploma).
     Regras em `lib/participantes/diplomas.ts`; o texto impresso em `lib/cursos/diploma-texto.ts`.
     Conferência: `npx tsx scripts/conferir-diplomas.ts`.
+  - **Quem assina** (migração `20260929150000`, `lib/cursos/assinaturas.ts`): até três assinaturas
+    lado a lado (presidência e, se a filial quiser, vice-presidência e coordenação do Voluntariado),
+    escolhidas em "Quem assina" na área de Diplomas (nível ≥ 2). Cada diploma novo guarda a lista do
+    dia (`diplomas.assinaturas`): se a diretoria mudar, os antigos não mudam. Os emitidos antes da
+    opção existir têm `assinaturas` nulo e seguem a lista atual (`assinaturasDoDiploma`). A
+    verificação (código e QR) ficou menor, no rodapé, para caber as três.
 - **Conferência.** `npx tsx scripts/conferir-cracha.ts [pasta]` testa as regras
   e, com pasta, grava exemplos em PDF (crachá, certificado e diploma).
 
@@ -1212,7 +1225,30 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
 - **Foto.** Blob privado `portaria/<ws>/<visita>/<uuid>.jpg`, servida por
   `/api/portaria/[id]/foto` com a sessão.
 - **Aviso.** Quem é visitado recebe um aviso na categoria `portaria`
-  (`avisarVisitado`).
+  (`avisarVisitado`), `importante` (sai no WhatsApp mesmo com o Palácio aberto e
+  à noite). O aviso sai também quando quem registrou é a própria pessoa visitada:
+  `notificar()` nunca avisa o autor, então nesse caso o aviso vai sem `atorId`.
+- **Resposta de quem é visitado** (migração `20260929160000`). Três respostas,
+  `subir` (pode subir e aguardar no hall), `aguardar` (na recepção) e `recusar`
+  (não pode receber agora), com recado opcional (até 280 caracteres), que podem
+  mudar enquanto a visita está dentro:
+  - pelo Palácio, em `/portaria/visita/[id]` (o link do aviso), pela função
+    `portaria_responder` (quem é visitado ou a portaria, que registra o que
+    chegou por telefone pelo botão "Resposta" da lista);
+  - pelo WhatsApp, respondendo a mensagem do aviso com 1, 2 ou 3
+    (`alvoDoLink` reconhece `/portaria/visita/<id>`), pela função
+    `portaria_responder_whatsapp` (só `service_role`, confere que quem responde é
+    o visitado). Sem citar a mensagem, só vale resposta clara
+    (`respostaClaraDaVisita`) e só se houver uma única visita esperando a pessoa
+    nas últimas 2 h (`visitaEsperandoResposta`). Vale mesmo com a verificação em
+    duas etapas: é resposta a uma pergunta, não uma ação sobre dados.
+  - Depois de responder (`aposResposta`), quem registrou e quem confirmou a
+    entrada recebem o aviso com o recado, e o visitante recebe a situação no
+    WhatsApp **só se autorizou** (`avisar_visitante`, marcado por ele no QR ou
+    pela portaria depois de perguntar, e só com telefone). A mensagem ao
+    visitante nunca leva o recado: ele é para a portaria.
+  - A lista "Na filial agora" mostra a situação ao lado de cada visitante e se
+    atualiza sozinha.
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
   aparece com alerta. Os crachás para imprimir (`/portaria/crachas`) saem deitados (86 × 54 mm,
@@ -1363,6 +1399,70 @@ original vai citada depois da assinatura (`comCitacao`).
 
 **Testes.** `npx tsx scripts/conferir-caixa-de-entrada.ts`. Fora de produção,
 `GOOGLE_API_TESTE` aponta as chamadas do Google para um servidor de teste.
+
+### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
+
+O modelo da p. 24 do Manual de Identidade Institucional, desenhado por
+`desenharTimbrado()`:
+- **No alto:** a cruz da logo, o setor que emite centrado logo abaixo (Franklin
+  Demi Cond 18) e, à direita, "Reconhecida como Utilidade Pública Internacional -
+  Decreto nº 9.620, de 13/06/1912".
+- **No pé:** o nome nas três línguas, o CNPJ, o endereço, o telefone e o e-mail da
+  filial (`linhasDoRodape`, de `DADOS_DA_FILIAL`, porque os contatos do manual
+  estão desatualizados).
+- **Margens de 14 mm.** A cruz em marca d'água saiu: não está no modelo.
+
+Onde é usado:
+- **Ofício:** o PDF e a folha na tela. O hash, o endereço de conferência e o
+  número da página ficam logo acima do rodapé da filial.
+- **Folhas de `lib/pdf/folha.ts`:** o recibo e o termo de entrega de doação
+  (Patrimônio), a ordem de compra e o relatório de compras e contratações
+  (Compras).
+
+As fontes entram com nome fixo (`customName` em `lib/pdf/fontes.ts`): o mesmo
+ofício continua gerando o mesmo arquivo, byte a byte, e o hash não muda.
+Conferência: `npx tsx scripts/conferir-timbrado.ts`.
+
+### 7.31 Resultados: o site pelo Google Analytics (`/impacto`, "O site")
+
+A propriedade GA4 do site (`ID_DA_PROPRIEDADE`, em `lib/site/analytics.ts`) é
+lida pela Data API com uma conta de serviço só de leitura
+(`lib/analytics/servidor.ts`, regras puras em `lib/analytics/relatorio.ts`).
+
+- **O que mostra:**
+  - pessoas, visitas, páginas vistas e tempo de leitura, contra o período anterior;
+  - pessoas por dia, com tabela;
+  - origens, aparelhos e cidades;
+  - páginas mais vistas, com link para a pauta quando a matéria saiu pelo Palácio.
+- **Período:** 7, 28 ou 90 dias, até ontem.
+- **Cache:** uma leitura por período a cada 30 minutos, em memória. Os números mudam
+  devagar, e a cota da API é por projeto.
+- **Chave:** a chave JSON da conta de serviço é colada em Configurações →
+  Integrações. O cofre guarda só o e-mail da conta e a chave privada.
+- **Mensagens na tela:** sem a chave, a seção mostra o passo a passo; com a chave
+  e sem acesso à propriedade, o aviso diz o e-mail a autorizar.
+- **Conferência:** `npx tsx scripts/conferir-analytics.ts`.
+
+### 7.32 Princípios Fundamentais na Área do Voluntário (`/membro/principios`)
+
+Os sete Princípios do Movimento (texto oficial, Manual p. 52) ficam num bloco
+fixo no fim do Início da Área e na página própria, também no menu da conta. A
+página traz a regra do emblema no perfil pessoal (p. 48, regra 9). O texto está
+em `lib/membro/principios.ts`; o componente, em `components/membro/principios.tsx`.
+
+### 7.33 Página não encontrada
+
+As telas chamam `notFound()` para registro apagado, fora do acesso ou link
+antigo:
+- dentro do Palácio, isso cai em `app/(app)/not-found.tsx`, com o menu e o
+  caminho de volta (Início e Central de ajuda);
+- endereço sem rota nenhuma cai em `app/not-found.tsx`, que também serve a quem
+  não entrou (visitante, voluntário, fornecedor), com as duas portas: o Palácio e
+  a Área do Voluntário;
+- a Área do Voluntário e a Ajuda têm as suas (`app/membro/(area)/not-found.tsx`,
+  `app/(app)/ajuda/[...area]/not-found.tsx`).
+
+Sem esses arquivos, o Next mostra o 404 padrão, em inglês e sem saída.
 
 ## 8. Integrações externas
 
@@ -1564,6 +1664,9 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   WhatsApp), no máximo a cada 6 h; e “voltou” quando reconecta.
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
+- **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
+  `responderAoAviso` desvia para `responderVisita` antes da conferência da verificação em duas
+  etapas, e `atenderMensagem` aceita "1", "2" ou "3" sem citar quando só uma visita espera a pessoa.
 - **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
   quem confirmou o número, com teto por link. Use um chip só do Palácio.
 
@@ -1606,10 +1709,10 @@ estilo herdado; ao editar, siga o do arquivo em vez de reformatar.
 para poder ser conferida sem subir banco. Exemplos: `publicacoes-previstas.ts`,
 `requisitos.ts`, `caminhoSeguro()`.
 
-**Não há suíte de testes.** Não existe vitest nem jest, e `pnpm lint` está
-quebrado (falta `eslint.config.js` — anterior a este documento). O que existe é
-`npx tsc --noEmit` e `pnpm build`, **e ambos devem passar antes de qualquer
-push**. Para lógica pura, escreva um script avulso no scratchpad e rode com
+**Não há suíte de testes.** Não existe vitest nem jest. O que existe é
+`npx tsc --noEmit`, `pnpm lint` (eslint no repositório inteiro,
+`eslint.config.mjs`) e `pnpm build`, **e os três devem passar antes de qualquer
+push**, além dos `scripts/conferir-*.ts` da área que você mexeu. Para lógica pura, escreva um script avulso no scratchpad e rode com
 `npx tsx`; foi assim que `caminhoSeguro()`, `enquadrar()` e
 `publicacoesPrevistas()` foram conferidos.
 
@@ -1707,6 +1810,14 @@ texto não bastou; por isso a trava virou mecânica:
   avisar), ligue-o como obrigatório na proteção da `main` (GitHub → Settings →
   Branches → Require status checks).
 
+**E de novo em 27/09/2026**, com a trava já no lugar mas ainda não obrigatória:
+quatro vezes o código chegou à produção minutos antes da sua migração. Os logs
+do Supabase mostram 404 em `portaria_visitas` e `portaria_config` (16h26), em
+`whatsapp_fila` (21h08) e em `whatsapp_pendencias` (21h34–21h36), e o #271
+(resposta da portaria) foi mesclado 30 segundos antes da migração. Nada se
+perdeu porque as telas novas só liam, mas a lição continua: **enquanto o check
+não for obrigatório na proteção da `main`, ele só avisa.**
+
 ### 10.8 Consulta que "traz tudo" e traz só mil linhas
 
 A API do Supabase devolve **no máximo 1000 linhas por pedido**, e
@@ -1726,8 +1837,16 @@ para a tela podem ter teto, desde que a tela diga que cortou.
 - **Suíte de testes das páginas do site** — a conferência (render com exemplos,
   `validar_jsonld.py` do repositório do site, capturas) ainda é manual (§7.6).
 - **Migração de limpeza do `file_id`** — depende do deploy do carrossel.
-- **`eslint.config.js`** — `pnpm lint` não roda.
 - **Suíte de testes** — hoje só `tsc`, `build` e scripts avulsos.
+- **Check "Migração aplicada?" obrigatório** — hoje ele só avisa (§10.7); falta
+  ligar em GitHub → Settings → Branches.
+- **Proteção contra senhas vazadas** no Supabase Auth (HaveIBeenPwned), apontada
+  pelo verificador de segurança do Supabase: um interruptor no painel (Auth →
+  Providers → Email), fora do código.
+- **Retenção dos registros** — `notifications`, `whatsapp_mensagens`,
+  `whatsapp_fila` e o registro de acessos crescem sem limpeza. Com o volume de
+  hoje (centenas de linhas) não pesa; vale uma rotina de limpeza antes de passar
+  de dezenas de milhares.
 - **Registro de acessos, fase 2** — sessões abertas, "visto por último", encerrar sessão e
   retenção (`docs/registro-de-acessos.md` §0).
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
