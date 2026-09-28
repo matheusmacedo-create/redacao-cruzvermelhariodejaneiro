@@ -30,7 +30,7 @@ export const COPY_POR_MODELO: CopyPorModelo = {
     'termo-duvida': { rotulo: 'Contrato, termo ou dúvida?', titulo: ['Contrato, termo ou dúvida?', 'Abra um chamado.'], texto: 'Conte com {a} {setor} para revisar contrato ou convênio, preparar termo, procuração ou declaração e tirar dúvidas. Fica registrado e com prazo.' },
   },
   FIN: {
-    'pagou-do-bolso': { rotulo: 'Pagou do bolso?', titulo: ['Pagou do bolso?', 'Peça o reembolso por chamado.'], texto: 'Reembolso, nota fiscal, boleto ou prestação de contas: anexe o comprovante no chamado e {a} {setor} recebe registrado, com prazo.' },
+    'pagou-do-bolso': { rotulo: 'Pagou do bolso?', titulo: ['Pagou do bolso?', 'Peça o reembolso por chamado.'], texto: 'Reembolso, nota fiscal, boleto ou prestação de contas: anexe o comprovante no chamado e {a} {setor} recebe o pedido registrado, com prazo.' },
     reembolso: { rotulo: 'Reembolso ou nota para pagar?', titulo: ['Reembolso ou', 'nota para pagar?'], texto: 'Comprovante em mãos? Abra um chamado: fica registrado e {a} {setor} responde com prazo.' },
   },
   CPR: {
@@ -38,7 +38,7 @@ export const COPY_POR_MODELO: CopyPorModelo = {
     comprar: { rotulo: 'Precisa comprar algo?', titulo: ['Precisa comprar algo?', 'Abra um chamado.'], texto: 'Cotação de produto ou serviço e material de papelaria, limpeza e copa: pelo chamado, o pedido chega a quem compra e tem prazo.' },
   },
   RH: {
-    ferias: { rotulo: 'Férias, ponto ou holerite?', titulo: ['Férias, ponto ou holerite?', 'Abra um chamado.'], texto: 'Declaração de vínculo, informe de rendimentos, férias, ponto ou benefícios: {a} {setor} recebe por chamado, com registro e prazo de resposta.' },
+    ferias: { rotulo: 'Férias, ponto ou holerite?', titulo: ['Férias, ponto ou holerite?', 'Abra um chamado.'], texto: 'Declaração de vínculo, informe de rendimentos, férias, ponto ou benefícios: {a} {setor} recebe por chamado, com registro e prazo.' },
     declaracao: { rotulo: 'Férias, holerite ou declaração?', titulo: ['Férias, holerite', 'ou declaração?'], texto: 'Documento, ponto ou benefício: abra um chamado e acompanhe a resposta, com prazo.' },
   },
   DIR: {
@@ -46,7 +46,7 @@ export const COPY_POR_MODELO: CopyPorModelo = {
     aval: { rotulo: 'Assinatura, agenda ou aval?', titulo: ['Assinatura, agenda ou aval?', 'Abra um chamado.'], texto: 'Ofício, contrato ou termo para assinar, reunião ou evento com {a} {setor} e autorização de ação, gasto ou uso do nome. Registrado e com prazo.' },
   },
   VOL: {
-    faltam: { rotulo: 'Faltam voluntários na ação?', titulo: ['Faltam voluntários na ação?', 'Abra um chamado.'], texto: 'Voluntários para uma ação ou declaração de horas: diga quantos, quando e onde no chamado e {a} {setor} recebe registrado, com prazo.' },
+    faltam: { rotulo: 'Faltam voluntários na ação?', titulo: ['Faltam voluntários na ação?', 'Abra um chamado.'], texto: 'Voluntários para uma ação ou declaração de horas: diga quantos, quando e onde no chamado e {a} {setor} recebe o pedido registrado, com prazo.' },
     voluntarios: { rotulo: 'Precisa de voluntários?', titulo: ['Precisa de', 'voluntários?'], texto: 'Ação ou declaração de horas: abra um chamado e {a} {setor} organiza, com prazo.' },
   },
   JUV: {
@@ -54,7 +54,7 @@ export const COPY_POR_MODELO: CopyPorModelo = {
     'na-sua-acao': { rotulo: 'Quer jovens na sua ação?', titulo: ['Quer jovens', 'na sua ação?'], texto: 'Diga quantos, quando e onde: {a} {setor} recebe o pedido registrado, com prazo.' },
   },
   PSO: {
-    'sem-socorrista': { rotulo: 'Evento sem socorrista?', titulo: ['Evento sem socorrista?', 'Abra um chamado.'], texto: 'Cobertura de evento ou treinamento para a sua equipe: informe data, local e público no chamado e {a} {setor} recebe registrado, com prazo.' },
+    'sem-socorrista': { rotulo: 'Evento sem socorrista?', titulo: ['Evento sem socorrista?', 'Abra um chamado.'], texto: 'Cobertura de evento ou treinamento da equipe: informe data, local e público no chamado e {a} {setor} recebe o pedido registrado, com prazo.' },
     socorristas: { rotulo: 'Evento precisa de socorristas?', titulo: ['Evento precisa', 'de socorristas?'], texto: 'Cobertura ou treinamento: abra um chamado com data e local. Tem registro e prazo.' },
   },
   GRD: {
@@ -71,7 +71,7 @@ export const COPY_POR_MODELO: CopyPorModelo = {
   },
   SAU: {
     acao: { rotulo: 'Ação de saúde à vista?', titulo: ['Ação de saúde à vista?', 'Chame {a} {setor}.'], texto: 'Campanha, aferição de pressão, vacinação ou palestra: {a} {setor} está à disposição. Pelo chamado, o pedido fica registrado e com prazo.' },
-    vacinacao: { rotulo: 'Vacinação ou palestra?', titulo: ['Vacinação ou palestra?', 'Abra um chamado.'], texto: 'Campanha, aferição, vacinação ou palestra: informe data, local e público no chamado e {a} {setor} recebe registrado, com prazo de resposta.' },
+    vacinacao: { rotulo: 'Vacinação ou palestra?', titulo: ['Vacinação ou palestra?', 'Abra um chamado.'], texto: 'Campanha, aferição, vacinação ou palestra: informe data, local e público no chamado e {a} {setor} recebe o pedido registrado, com prazo de resposta.' },
   },
   HUM: {
     doacao: { rotulo: 'Chegou uma doação?', titulo: ['Chegou uma doação?', 'Abra um chamado.'], texto: 'Doação recebida ou oferecida, itens, pessoas ou transporte para uma ação: diga o que, quanto e onde, e {a} {setor} recebe com registro e prazo.' },

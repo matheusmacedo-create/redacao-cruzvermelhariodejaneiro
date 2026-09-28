@@ -8,7 +8,7 @@
  * cima da chamada, a pessoa pode escrever o próprio título e a própria frase.
  *
  * Puro: as páginas, as barras de opções e as conferências
- * (scripts/conferir-cartaz-dos-chamados.ts, scripts/conferir-cartaz-dos-cursos.ts)
+ * (scripts/conferir-cartaz-dos-chamados.ts, -dos-cursos.ts, -do-voluntariado.ts)
  * usam as mesmas regras.
  */
 
@@ -24,7 +24,8 @@ export type ChamadaPronta = { chave: string; rotulo: string; titulo: [string, st
  */
 export type Marcadores = {
   valores: Record<string, string | null | undefined>
-  listas?: Record<string, { itens: readonly string[]; maximo: number; separador: string }>
+  /** `resto` entra no fim quando a lista foi cortada no máximo (" e outros"). */
+  listas?: Record<string, { itens: readonly string[]; maximo: number; separador: string; resto?: string }>
 }
 
 export const MAXIMO_DO_TITULO = 48
@@ -52,7 +53,7 @@ export function montarChamada(chave: string, c: Chamada, m: Marcadores): Chamada
       const lista = m.listas?.[nome]
       if (lista) {
         if (!lista.itens.length) faltou = true
-        return lista.itens.slice(0, lista.maximo).join(lista.separador)
+        return lista.itens.slice(0, lista.maximo).join(lista.separador) + (lista.itens.length > lista.maximo ? lista.resto ?? '' : '')
       }
       if (nome in m.valores) {
         const v = m.valores[nome]
@@ -65,9 +66,22 @@ export function montarChamada(chave: string, c: Chamada, m: Marcadores): Chamada
   }
   const t1 = trocar(c.titulo[0]), t2 = trocar(c.titulo[1]), texto = trocar(c.texto)
   if (t1 === null || t2 === null || texto === null) return null
-  // A segunda parte continua a frase ("Fale com / a Manutenção.") — só ganha maiúscula quando começa uma.
-  const segundaComeca = t1 === '' || /[.?!:]$/.test(t1)
+  // A segunda parte continua a frase ("Fale com / a Manutenção.", "Parada cardíaca: / saiba agir.") — só ganha maiúscula quando começa uma.
+  const segundaComeca = t1 === '' || /[.?!]$/.test(t1)
   return { chave, rotulo: c.rotulo, titulo: [capitalizar(t1), segundaComeca ? capitalizar(t2) : t2], texto: capitalizar(texto) }
+}
+
+/**
+ * A descrição que vai para a folha no lugar de {descricao}: o cadastro aceita
+ * texto longo (para o painel), a frase do cartaz não. Inteira se cabe; senão a
+ * primeira frase, se cabe; senão o texto padrão do cartaz.
+ */
+export function descricaoCurta(descricao: string | null | undefined, maximo: number, padrao: string): string {
+  const d = (descricao ?? '').replace(/\s+/g, ' ').trim()
+  if (!d) return padrao
+  if (d.length <= maximo) return d
+  const primeira = d.match(/^.*?[.!?](?=\s|$)/)?.[0].trim()
+  return primeira && primeira.length <= maximo ? primeira : padrao
 }
 
 /** Monta uma lista de chamadas, pulando as que não cabem neste cartaz. */

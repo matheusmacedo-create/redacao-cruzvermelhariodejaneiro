@@ -1247,19 +1247,6 @@ const VOLUNTARIOS: GuiaDaArea = {
       dica: 'Aprovada, a pessoa passa a “Ativo” e, se tiver e-mail, recebe as boas-vindas com o caminho da Área do Voluntário. Recusada, a inscrição é apagada.',
     },
     {
-      id: 'cartaz-com-qr',
-      titulo: 'Imprimir o cartaz com QR de inscrição (ou o da Área do Voluntário)',
-      exemplo: 'A coordenação cola o cartaz “Tem um tempo? Seja voluntário.” na entrada da sede e leva outro para a ação de domingo: quem lê o QR cai no formulário de inscrição e aparece em “Inscrições pendentes”.',
-      quem: 'Nível “Gerenciar” ou acima',
-      passos: [
-        'Em Voluntários, toque em “Cartaz com QR”.',
-        'No alto, em “Cartaz”, escolha “Seja voluntário (inscrição pública)” ou “Área do Voluntário (quem já é)”.',
-        'Em “Chamada”, escolha o texto do cartaz; ele muda na hora. Se preferir, escreva o seu “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”.',
-        'Toque em “Imprimir ou salvar PDF” (A4 em pé).',
-      ],
-      dica: 'O cartaz de inscrição é para quem ainda não é voluntário: o QR abre o formulário público, sem login. O da área é para quem já é: o QR abre a Área do Voluntário, e a pessoa entra com o e-mail do cadastro e um código de 6 dígitos. O endereço da página guarda as escolhas: copie e mande a outra pessoa para imprimir o mesmo cartaz.',
-    },
-    {
       id: 'cadastrar-voluntario',
       titulo: 'Cadastrar alguém direto, sem o formulário público',
       quem: 'Nível “Gerenciar” ou acima',
@@ -1453,8 +1440,8 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'link-inscricao',
       pergunta: 'Onde está o link do formulário de inscrição?',
-      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço (o botão aparece para quem gerencia). Quem se inscreve por ele entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova.',
-      termos: ['participe', 'formulário público', 'inscrever', 'divulgar'],
+      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço, e “Cartaz com QR” imprime um cartaz A4 com esse endereço no código, para o mural, eventos e parceiros: escolha a chamada entre as escritas (“Tem um tempo? Seja voluntário.” e outras) ou escreva a sua. O mesmo cartaz tem a versão da Área do Voluntário, para quem já é. Os dois botões aparecem para quem gerencia.\n\nQuem se inscreve pelo formulário entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova.',
+      termos: ['participe', 'formulário público', 'inscrever', 'divulgar', 'cartaz', 'qr code', 'imprimir'],
     },
     {
       id: 'status-voluntario',

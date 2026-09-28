@@ -150,7 +150,7 @@ const MODELOS: Modelo[] = [
     ],
   },
   {
-    chaves: ['saude', 'medic', 'enfermagem'], icone: 'stethoscope', prefixo: 'SAU', artigo: 'a',
+    chaves: ['saude', 'medic', 'enfermagem'], icone: 'stethoscope', prefixo: 'SAU', artigo: 'a equipe de',
     descricao: 'Ações de saúde, campanhas e atendimentos.',
     assuntos: [
       { nome: 'Ação de saúde', descricao: 'Campanha, aferição, vacinação, palestra.', tipo: 'solicitacao', pedeLocal: true },
@@ -200,11 +200,17 @@ export function modeloDoSetor(nome: string): Modelo | null {
  */
 export function artigoDoSetor(nome: string): string {
   const m = modeloDoSetor(nome)
-  if (m) return m.artigo
   const primeira = normalizar(nome).split(/[^a-z0-9]+/).filter(Boolean)[0] ?? ''
-  if (/(cao|sao|ia|dade|gem|tura|eza|a)$/.test(primeira)) return 'a'
-  if (/s$/.test(primeira)) return 'o setor de'
-  return 'o'
+  // O que a terminação da primeira palavra diz: "Ouvidoria" → a, "Almoxarifado" → o, "Suprimentos" → o setor de.
+  const palpite = /(cao|sao|ia|dade|gem|tura|eza|a)$/.test(primeira) ? 'a'
+    : /(?<!ca|sa)o$|ismo$/.test(primeira) ? 'o'
+    : /s$/.test(primeira) ? 'o setor de'
+    : null
+  if (!m) return palpite ?? 'o'
+  // O modelo casa por várias chaves ("Departamento Pessoal" é RH): a palavra vale mais que o modelo; a sigla ("TI", "GRD") fica com o modelo.
+  if (m.artigo === 'a equipe de') return m.artigo
+  if (m.artigo.startsWith('o setor')) return palpite === 'o setor de' || palpite === 'a' ? palpite : m.artigo === 'o setor' ? 'o setor' : 'o'
+  return palpite ?? m.artigo
 }
 
 export const slugDoNome = (nome: string) => normalizar(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)

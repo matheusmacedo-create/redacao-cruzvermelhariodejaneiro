@@ -84,7 +84,7 @@ const CURSOS: GuiaDaArea = {
           {
             alvo: 'escola-cursos.cartaz',
             titulo: 'Cartaz com QR',
-            texto: '“Cartaz com QR” imprime um cartaz de matrícula por curso: o QR leva à página do curso cadastrada ou, sem ela, à matrícula dos cursos presenciais no site. Há chamadas escritas para cada curso, e dá para escrever a sua.',
+            texto: '“Cartaz com QR” imprime um cartaz de matrícula por curso: o QR leva à página do curso cadastrada ou, sem ela, à matrícula dos cursos presenciais no site. Há chamadas escritas para os cursos do site, chamadas gerais para qualquer curso, e dá para escrever a sua.',
             lado: 'bottom',
             seAusente: 'pular',
           },
@@ -144,10 +144,10 @@ const CURSOS: GuiaDaArea = {
       passos: [
         'Em “Cursos”, toque em “Cartaz com QR” (ou, dentro de um curso, no mesmo botão: ele já vem escolhido).',
         'No alto, em “Curso”, escolha o curso. Só aparecem os ativos.',
-        'Em “Chamada”, escolha o texto do cartaz: “Inscrições abertas”, as chamadas escritas para aquele curso e as gerais. Se preferir, escreva o seu “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”.',
+        'Em “Chamada”, escolha o texto do cartaz: “Inscrições abertas”, as chamadas escritas para os cursos do site e as gerais. Se preferir, escreva o seu “Título” (use | antes da parte que fica em vermelho) e a sua “Frase de apoio”.',
         'Toque em “Imprimir ou salvar PDF” (A4 em pé).',
       ],
-      dica: 'O QR leva à “Página do curso” cadastrada (só endereços https). Sem ela, leva à página geral de matrícula dos cursos presenciais no site, e a pessoa escolhe o curso lá: cadastre a página em Editar para levar direto. O nome e a descrição do cartaz vêm do cadastro.',
+      dica: 'O QR leva à “Página do curso” cadastrada (só endereços https). Sem ela, leva à página geral de matrícula dos cursos presenciais no site, e a pessoa escolhe o curso lá. Para levar direto, abra o curso, toque em “Editar curso” e cadastre a “Página do curso”. O nome e a descrição do cartaz vêm do cadastro.',
     },
     {
       id: 'ligar-campanha-ao-curso',

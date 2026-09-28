@@ -48,10 +48,10 @@ export default async function CartazDosCursos({ searchParams }: { searchParams: 
         alvo={{ rotulo: 'Curso', parametro: PARAMETRO_DO_CURSO, itens: cursos.map((c) => ({ valor: c.id, nome: c.nome })), ajuda: 'Só os cursos ativos. O nome e a descrição vêm do cadastro em Marketing → Cursos.' }}
         chamadaPadrao={CHAVE_PADRAO}
         opcoes={{ ...opcoes, alvo: curso.id }}
-        chamadas={lista.map((c) => ({ chave: c.chave, nome: `${c.titulo[0]} ${c.titulo[1]}`.trim(), texto: c.texto, titulo: c.titulo }))}
+        chamadas={lista.map((c) => ({ chave: c.chave, nome: c.rotulo, texto: c.texto, titulo: c.titulo }))}
         nota={destino.daPagina
           ? `O QR abre a página do curso: ${curto}`
-          : `O QR abre a página geral de matrícula do site (${curto}). Para levar direto a este curso, cadastre a “Página do curso” em Marketing → Cursos → Editar.`}
+          : `O QR abre a página geral de matrícula do site (${curto}). Para levar direto a este curso, abra o curso em Marketing → Cursos, toque em “Editar curso” e cadastre a “Página do curso”.`}
       />
       <article className="papel mx-auto flex h-[297mm] w-[210mm] flex-col overflow-hidden bg-white text-neutral-900 shadow-xl max-[860px]:[zoom:0.72] max-[600px]:[zoom:0.45] print:shadow-none print:[zoom:1]" aria-label={`Cartaz: matrícula em ${curso.nome}`} data-cartaz-curso={curso.id}>
         <div className="h-[4mm] bg-[rgb(227_34_25)] [print-color-adjust:exact] [-webkit-print-color-adjust:exact]" />

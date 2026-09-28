@@ -55,10 +55,10 @@ export default async function CartazDosChamados({ searchParams }: { searchParams
       <BarraDeOpcoes
         rota="/chamados/cartaz"
         voltar={{ href: '/chamados', rotulo: 'Chamados' }}
-        alvo={{ rotulo: 'Setor', parametro: PARAMETRO_DA_FILA, itens: [...filas.map((x) => ({ valor: x.slug, nome: x.nome })), { valor: FILA_GERAL, nome: 'Todos os setores (a pessoa escolhe)' }] }}
+        alvo={{ rotulo: 'Setor', parametro: PARAMETRO_DA_FILA, itens: [...filas.map((x) => ({ valor: x.slug, nome: x.nome })), { valor: FILA_GERAL, nome: 'Todos os setores' }] }}
         chamadaPadrao={CHAVE_PADRAO}
         opcoes={{ ...opcoes, alvo: f?.slug ?? FILA_GERAL }}
-        chamadas={lista.map((c) => ({ chave: c.chave, nome: `${c.titulo[0]} ${c.titulo[1]}`.trim(), texto: c.texto, titulo: c.titulo }))}
+        chamadas={lista.map((c) => ({ chave: c.chave, nome: c.rotulo, texto: c.texto, titulo: c.titulo }))}
         nota={geral ? 'O QR abre “Abrir chamado” sem setor: a pessoa escolhe na hora.' : `O QR abre “Abrir chamado” já em ${f!.nome}.`}
       />
       <article className="papel mx-auto flex h-[297mm] w-[210mm] flex-col overflow-hidden bg-white text-neutral-900 shadow-xl max-[860px]:[zoom:0.72] max-[600px]:[zoom:0.45] print:shadow-none print:[zoom:1]" aria-label={f ? `Cartaz: abrir chamado para ${f.nome}` : 'Cartaz: abrir chamado para qualquer setor'} data-cartaz-chamados={f?.slug ?? FILA_GERAL}>

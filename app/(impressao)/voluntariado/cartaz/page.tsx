@@ -17,12 +17,12 @@ export const dynamic = 'force-dynamic'
  * público (o QR abre o formulário público /participe), e o da Área do
  * Voluntário, para quem já é (o QR abre /membro). A copy (chamada, título e
  * frase) vem da URL (lib/voluntariado/cartaz.ts). Fora do grupo (app), como os
- * outros cartazes: a folha impressa é só o cartaz. Quem vê o cadastro do
- * Voluntariado pode imprimir.
+ * outros cartazes: a folha impressa é só o cartaz. Quem gerencia o
+ * Voluntariado pode imprimir (o mesmo nível do botão em Voluntários).
  */
 export default async function CartazDoVoluntariado({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { nivel } = await contextoDeParticipantes()
-  if (nivel < 1) notFound()
+  if (nivel < 2) notFound()
   const opcoes = lerOpcoes(await searchParams, PARAMETRO_DO_ALVO, CHAVE_PADRAO)
   const alvo = ehAlvo(opcoes.alvo) ? opcoes.alvo : 'inscricao'
   const dados = ALVOS[alvo]
@@ -43,7 +43,7 @@ export default async function CartazDoVoluntariado({ searchParams }: { searchPar
         alvo={{ rotulo: 'Cartaz', parametro: PARAMETRO_DO_ALVO, itens: (Object.keys(ALVOS) as (keyof typeof ALVOS)[]).map((k) => ({ valor: k, nome: ALVOS[k].rotulo })) }}
         chamadaPadrao={CHAVE_PADRAO}
         opcoes={{ ...opcoes, alvo }}
-        chamadas={lista.map((c) => ({ chave: c.chave, nome: `${c.titulo[0]} ${c.titulo[1]}`.trim(), texto: c.texto, titulo: c.titulo }))}
+        chamadas={lista.map((c) => ({ chave: c.chave, nome: c.rotulo, texto: c.texto, titulo: c.titulo }))}
         nota={alvo === 'inscricao'
           ? `O QR abre o formulário público de inscrição (${curto}). Quem se inscreve cai em “Inscrições pendentes”.`
           : `O QR abre a Área do Voluntário (${curto}): a pessoa entra com o e-mail do cadastro e um código de 6 dígitos.`}
