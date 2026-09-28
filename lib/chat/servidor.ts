@@ -59,7 +59,12 @@ export async function pessoasDoChat(workspaceId: string, userId: string, equipeD
   let q = admin.from('workspace_members').select('user_id, profiles(full_name, username, initials, color, avatar_path, active)').eq('workspace_id', workspaceId)
   if (ids) q = q.in('user_id', ids)
   const { data } = await q
-  return (data ?? []).map((m) => {
+  return pessoasDoChatDeLinhas(data ?? [])
+}
+
+/** As linhas de workspace_members com o perfil (da consulta acima ou do pacote da sessão) viram as pessoas do chat. */
+export function pessoasDoChatDeLinhas(data: { user_id: unknown; profiles: unknown }[]): PessoaDoChat[] {
+  return data.map((m) => {
     const p = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string; username?: string; initials?: string; color?: string | null; avatar_path?: string | null; active?: boolean } | null
     const nome = p?.full_name || p?.username || 'Alguém'
     return {

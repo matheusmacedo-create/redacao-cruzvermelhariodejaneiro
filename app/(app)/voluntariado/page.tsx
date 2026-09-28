@@ -56,29 +56,33 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   const aba = sp.aba === 'inscricoes' ? 'inscricoes' : sp.aba === 'fotos' && nivel >= 2 ? 'fotos' : sp.aba === 'acessos' && context.role === 'admin' ? 'acessos' : 'lista'
   const hoje = hojeEmSaoPaulo()
 
-  const linhas: Linha[] = []
-  for (let de = 0; de < TETO; de += 1000) {
-    const { data } = await supabase.from('participantes')
-      .select('id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cidade,origem,created_at,anonimizado_em')
-      .eq('workspace_id', ws).order('nome').range(de, de + 999)
-    linhas.push(...((data ?? []) as Linha[]))
-    if (!data || data.length < 1000) break
-  }
   const inicioDoMes = `${hoje.slice(0, 8)}01`
-  const [{ data: horasDoMes }, { data: formacoes }] = await Promise.all([
+  // A lista (em páginas de 1000) e as outras leituras não dependem uma da outra: saem juntas (eram quatro rodadas).
+  const lerLista = async () => {
+    const linhas: Linha[] = []
+    for (let de = 0; de < TETO; de += 1000) {
+      const { data } = await supabase.from('participantes')
+        .select('id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cidade,origem,created_at,anonimizado_em')
+        .eq('workspace_id', ws).order('nome').range(de, de + 999)
+      linhas.push(...((data ?? []) as Linha[]))
+      if (!data || data.length < 1000) break
+    }
+    return linhas
+  }
+  const [linhas, { data: horasDoMes }, { data: formacoes }, { count: abertas }, { data: comFoto }] = await Promise.all([
+    lerLista(),
     supabase.from('participante_horas').select('horas').eq('workspace_id', ws).gte('data', inicioDoMes).limit(10000),
     supabase.from('participante_formacoes').select('valido_ate').eq('workspace_id', ws).not('valido_ate', 'is', null).limit(10000),
+    nivel >= 2
+      ? supabase.from('membro_conversas').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('situacao', 'aberta')
+      : Promise.resolve({ count: 0 }),
+    // Fotos de crachá esperando o Voluntariado (migração 20260929050000). Sem a migração, a consulta falha e a fila fica vazia.
+    nivel >= 2
+      ? supabase.from('participantes').select('id,nome,nome_social,foto_path,foto_cracha_path,foto_cracha_recusada_path,situacao')
+        .eq('workspace_id', ws).not('foto_path', 'is', null).is('anonimizado_em', null).neq('situacao', 'desligado').limit(5000)
+      : Promise.resolve({ data: [] }),
   ])
-
-  const { count: abertas } = nivel >= 2
-    ? await supabase.from('membro_conversas').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).eq('situacao', 'aberta')
-    : { count: 0 }
   const conversasAbertas = abertas ?? 0
-  // Fotos de crachá esperando o Voluntariado (migração 20260929050000). Sem a migração, a consulta falha e a fila fica vazia.
-  const { data: comFoto } = nivel >= 2
-    ? await supabase.from('participantes').select('id,nome,nome_social,foto_path,foto_cracha_path,foto_cracha_recusada_path,situacao')
-      .eq('workspace_id', ws).not('foto_path', 'is', null).is('anonimizado_em', null).neq('situacao', 'desligado').limit(5000)
-    : { data: [] }
   const fotosParaAprovar = ((comFoto ?? []) as { id: string; nome: string; nome_social: string | null; foto_path: string; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null }[])
     .filter((f) => situacaoDaFotoDoCracha({ foto: f.foto_path, aprovada: f.foto_cracha_path, recusada: f.foto_cracha_recusada_path }) === 'aguardando')
   const ativos = linhas.filter((l) => l.situacao === 'ativo')

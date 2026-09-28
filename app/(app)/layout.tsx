@@ -11,7 +11,7 @@ import { PERMISSOES, ehEquipeDaEscola, pode, type Permissao } from '@/lib/permis
 import { after } from 'next/server'
 import { marcarVisto } from '@/lib/notificacoes/servidor'
 import { ChatAoVivo, type ConversaAoVivo } from '@/components/app/chat/ao-vivo'
-import { pessoasDoChat, type ConversaNoPainel } from '@/lib/chat/servidor'
+import { pessoasDoChat, pessoasDoChatDeLinhas, type ConversaNoPainel } from '@/lib/chat/servidor'
 import { podeVerAcessos } from '@/lib/acessos/servidor'
 import { avaliaEnvios } from '@/lib/envios/servidor'
 import { AjudaProvider } from '@/components/app/ajuda/ajuda'
@@ -30,7 +30,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const supabase = await createClient()
   const ws = context.workspace.id
   const escola = context.role === 'escola'
-  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas, leitorDeAcessos, avaliadorDeEnvios, entidadeDaEscola] = await Promise.all([
+  // O pacote da sessão já trouxe tudo isto numa ida só (lib/session.ts); sem
+  // ele (migração 20260929170000 ainda não aplicada), as consultas de antes.
+  const pacote = context.pacote
+  const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas, leitorDeAcessos, avaliadorDeEnvios, entidadeDaEscola] = pacote
+    ? [{ data: pacote.notificacoes }, { count: pacote.naoLidas }, { count: pacote.aprovacoesPendentes }, await cookies(), { data: pacote.chat }, pessoasDoChatDeLinhas(pacote.pessoas),
+      !escola && context.role === 'admin' && pacote.leitorDeAcessos, !escola && pacote.avaliadorDeEnvios, ehEquipeDaEscola(context.role) ? { count: pacote.escolaTemEntidade ? 1 : 0 } : null]
+    : await Promise.all([
     supabase
       .from('notifications')
       .select('id,title,message,link,read_at,created_at')

@@ -1511,6 +1511,47 @@ servidor a cada clique. O que foi feito:
 Não mudou (e por quê): a região da Vercel (em `gru1`, cada consulta ao banco no
 Canadá custaria ~120 ms), e as páginas continuam dinâmicas (são de cada pessoa).
 
+### 7.35 A sessão em uma ida ao banco (`palacio_sessao`, 28/09/2026)
+
+Medido com o banco a 30 ms (a distância real de Washington ao Canadá): toda
+tela precisava de 2 idas em sequência só para começar (Auth → perfil e vínculo),
+uma terceira nas áreas com nível de acesso (Financeiro, Patrimônio, Voluntários,
+RH) e só então os dados da tela; e o layout somava, em toda página, notificações
+(2), aprovações, painel do chat, pessoas, leitor de acessos e avaliador de
+envios. Voluntários chegava a 6 idas encadeadas.
+
+- **`public.palacio_sessao()`** (migração `20260929170000`): perfil, vínculos,
+  níveis de acesso das quatro áreas, empresas do Financeiro (pela mesma regra da
+  política, `private.nivel_fin`), leitor de acessos, avaliador de envios, o
+  sino (10 recentes e não lidas), aprovações pendentes, o painel do chat
+  (`chat_painel`), as pessoas do chat (mesma regra de `pessoasDoChat`) e a
+  arrumação do Início, num JSON só. `security definer` com cada subconsulta
+  filtrada por `auth.uid()`: só devolve o que é da própria pessoa ou o que ela
+  já enxergava. `anon` não executa.
+- **`getSessionContext`** (`lib/session.ts`): sem cookie de sessão, nada de
+  rede. Com ele, três coisas em paralelo: `getUser()` (a checagem forte, que
+  continua decidindo se há sessão), o RPC e o nível da sessão (local). O pacote
+  lido por `lib/sessao/pacote.ts` vai em `context.pacote`; **sem ele** (a
+  migração ainda não aplicada, ou erro), as duas leituras de antes entram no
+  lugar. É a regra de §10.7 aplicada: o código sobrevive ao banco de ontem.
+- **Quem lê o pacote:** o layout de `(app)` (todas as consultas dele), os
+  contextos de acesso (`contextoDoFinanceiro`, `contextoDeParticipantes`,
+  `contextoDoPatrimonio`, `contextoDaEquipe`, `nivelDeParticipantesSemRedirecionar`),
+  o Início (`inicio_preferencias`) e a página do Chat. Cada um com o mesmo
+  recuo para a leitura antiga.
+- **Páginas achatadas** (sequências que viraram um `Promise.all`): Meu perfil
+  (4 rodadas → 1), Voluntários (4 → 1), Financeiro e Patrimônio (cadastros
+  junto com os dados), Chamados (feriados junto com o banco), Portaria (quem
+  pode ser visitado junto com as visitas da aba) e Compras (nomes, setores e
+  andamento das cotações numa rodada só).
+- **Chat ao vivo** (`components/app/chat/ao-vivo.tsx`): o cliente do Supabase do
+  navegador (~225 KB) entra por `import()` dentro do efeito, depois que a
+  página está de pé; era o único uso dele no pacote de toda tela.
+- **Como medir:** o Supabase de mentira do scratchpad aceita `LATENCIA_MS` e
+  assina os tokens em ES256 (como a produção), então o `getClaims()` do proxy
+  confere localmente e cada "onda" de consultas aparece no tempo da página.
+  Conferência do parser: `npx tsx scripts/conferir-sessao.ts`.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

@@ -14,7 +14,9 @@ export async function contextoDeParticipantes() {
   const supabase = await createClient()
   let nivel: Nivel = 0
   if (context.role === 'admin') nivel = 3
+  else if (context.pacote) nivel = nivelDoNome(context.pacote.acessos.participantes)
   else {
+    // Sem o pacote da sessão (migração 20260929170000 ainda não aplicada): a leitura de antes.
     const { data } = await supabase.from('participantes_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
     nivel = nivelDoNome(data?.nivel)
   }
@@ -34,7 +36,7 @@ export async function nivelDeParticipantesSemRedirecionar(): Promise<{ workspace
   let nivel: Nivel = 0
   if (context.role === 'admin') nivel = 3
   else {
-    const { data } = await supabase.from('participantes_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
+    const { data } = context.pacote ? { data: { nivel: context.pacote.acessos.participantes } } : await supabase.from('participantes_acesso').select('nivel').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle()
     nivel = nivelDoNome(data?.nivel)
   }
   return { workspaceId: context.workspace.id, userId: context.user.id, nome: (context.profile?.full_name as string | undefined) ?? 'Equipe', nivel }

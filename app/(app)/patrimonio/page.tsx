@@ -43,8 +43,9 @@ export default async function PatrimonioPage({ searchParams }: { searchParams: P
   const ws = context.workspace.id
   const hoje = hojeEmSaoPaulo()
   const mes = hoje.slice(0, 7)
-  const c = await cadastrosDoPatrimonio()
-  const [{ data: brutos }, { data: cautelas }, { data: manutencoes }, { data: fotos }] = await Promise.all([
+  // Os cadastros e os bens saem juntos (eram duas rodadas).
+  const [c, { data: brutos }, { data: cautelas }, { data: manutencoes }, { data: fotos }] = await Promise.all([
+    cadastrosDoPatrimonio(),
     supabase.from('pat_bens').select(COLUNAS_DO_BEM).eq('workspace_id', ws).order('numero', { ascending: false }).limit(10000),
     supabase.from('pat_cautelas').select('bem_id,nome,termo_aceito_em,prevista_devolucao,participante_id').eq('workspace_id', ws).is('devolvido_em', null),
     supabase.from('pat_manutencoes').select('bem_id,prevista_para').eq('workspace_id', ws).is('realizada_em', null).not('prevista_para', 'is', null),
