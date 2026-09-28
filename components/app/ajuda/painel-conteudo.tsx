@@ -4,20 +4,28 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
-import { ArrowRight, BookOpen, Check, CircleHelp, Compass, LifeBuoy, MessageSquareHeart, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, ChevronRight, CircleHelp, Compass, LifeBuoy, MessageSquareHeart, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela } from '@/lib/ajuda'
+import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela, type GuiaDaArea, type TopicoGeral } from '@/lib/ajuda'
+import { resumoEDetalhe } from '@/lib/ajuda/texto'
 import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
 import { avisarResposta } from './ancora'
 import { HistoriaRecolhida, PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } from './blocos'
-import { FormularioDoBeta, OpiniaoDaTela, PergunteAEquipe } from './beta'
+import { FormularioDoBeta } from './beta'
 
 /**
  * O miolo do painel "?" (./painel.tsx): fica num arquivo à parte porque traz
  * o texto de toda a ajuda (lib/ajuda) — só é baixado quando o painel abre.
+ *
+ * A ordem, de cima para baixo, é uma coisa de cada vez (docs/AJUDA.md §11):
+ * a busca; os "Primeiros passos" (só enquanto faltam); a área, numa frase,
+ * com o tour e o "Na prática"; "Como fazer" e "Dúvidas" em abas, com seis
+ * itens à vista e o resto atrás de "Mostrar as outras"; e, no fim, um único
+ * lugar para falar com a equipe ("Conte para a equipe"). Numa tela sem
+ * guia, a ajuda geral, um tópico por vez.
  */
 export function ConteudoDoPainel() {
   const { grupos, equipeDaEscola } = useShell()
@@ -68,20 +76,10 @@ export function ConteudoDoPainel() {
         {buscando ? (
           <ResultadosDaAjuda achados={achados} busca={busca} aoEscolher={(href) => { fecharPainel(); avisarResposta(href) }} />
         ) : (
-          <div className="flex flex-col gap-7">
-            {/* No celular o "Beta" não cabe no topo: fica aqui, no alto do painel. */}
-            <details className="group rounded-xl border border-primary/30 bg-primary/[0.04] sm:hidden" data-beta-no-painel>
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-semibold text-primary [&::-webkit-details-marker]:hidden">
-                <MessageSquareHeart className="size-4" aria-hidden="true" />Beta: conte um problema ou uma ideia
-              </summary>
-              <div className="border-t border-primary/20 px-4 py-4"><FormularioDoBeta noPainel area={daTela?.area.href ?? null} /></div>
-            </details>
+          <div className="flex flex-col gap-6">
             <PrimeirosPassos />
-            {daTela?.guia ? <AjudaDaArea daTela={daTela} /> : <AjudaGeral daTela={daTela} />}
-            <section aria-label="Sua opinião" className="flex flex-col gap-3">
-              <OpiniaoDaTela area={daTela?.area.href ?? null} />
-              <PergunteAEquipe area={daTela?.area.href ?? null} />
-            </section>
+            {daTela?.guia ? <AjudaDaArea key={daTela.area.href} daTela={daTela} /> : <AjudaGeral daTela={daTela} />}
+            <ConteParaAEquipe area={daTela?.area.href ?? null} />
           </div>
         )}
       </div>
@@ -93,8 +91,8 @@ export function ConteudoDoPainel() {
         </div>
         {/* A equipe da escola não abre chamados (a página manda de volta para a Escola): para ela, o Chat. */}
         {pessoa.equipeDaEscola
-          ? <Link href="/chat" onClick={fecharPainel} className={linkDoRodape}><MessagesSquare className="size-4" aria-hidden="true" />Ainda com dúvida? Pergunte no Chat</Link>
-          : <Link href="/chamados/novo?fila=ti" onClick={fecharPainel} className={linkDoRodape}><LifeBuoy className="size-4" aria-hidden="true" />Ainda com dúvida? Abra um chamado para a TI</Link>}
+          ? <Link href="/chat" onClick={fecharPainel} className={linkDoRodape}><MessagesSquare className="size-4" aria-hidden="true" />Falar com a equipe no Chat</Link>
+          : <Link href="/chamados/novo?fila=ti" onClick={fecharPainel} className={linkDoRodape}><LifeBuoy className="size-4" aria-hidden="true" />Algo não funciona? Abra um chamado para a TI</Link>}
       </footer>
     </>
   )
@@ -102,7 +100,11 @@ export function ConteudoDoPainel() {
 
 const linkDoRodape = 'inline-flex min-h-11 items-center gap-2 rounded-lg px-2.5 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9'
 
-/** A ajuda da área aberta: para que serve, o tour, o passo a passo e as perguntas. */
+/** "Ler mais": o resto do "para que serve" e o "quem usa", atrás de um clique. */
+const lerMais = 'group -mx-1 rounded-md px-1'
+const cabecaDoLerMais = 'inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-sm font-medium text-primary outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden'
+
+/** A ajuda da área aberta: uma frase sobre a área, o tour, o "Na prática" e as abas "Como fazer" e "Dúvidas". */
 function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
   const pathname = usePathname()
   const { iniciarTour, fecharPainel } = useAjuda()
@@ -112,6 +114,8 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
   const { area, guia, tela } = daTela
   const Icone = area.icone
   const naRaiz = pathname === area.href
+  const { resumo, detalhe } = resumoEDetalhe(guia.paraQueServe)
+  const temMais = Boolean(detalhe || guia.quemUsa)
   return (
     <>
       <section aria-labelledby={`${id}-area`} className="flex flex-col gap-3">
@@ -122,9 +126,16 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
             {tela && <p className="mt-0.5 text-xs text-muted-foreground">Nesta tela: {tela.rotulo}</p>}
           </div>
         </div>
-        <p className="text-sm leading-relaxed">{guia.paraQueServe}</p>
-        {guia.quemUsa && <p className="text-sm leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">Quem usa: </span>{guia.quemUsa}</p>}
-        {guia.naPratica && <HistoriaRecolhida historia={guia.naPratica} />}
+        <p className="text-sm leading-relaxed">{resumo}</p>
+        {temMais && (
+          <details className={lerMais} data-ler-mais>
+            <summary className={cabecaDoLerMais}><ChevronRight className="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />Ler mais sobre {area.rotulo}</summary>
+            <div className="mt-1 flex flex-col gap-2 pb-1 text-sm leading-relaxed text-muted-foreground">
+              {detalhe && <p>{detalhe}</p>}
+              {guia.quemUsa && <p><span className="font-medium text-foreground">Quem usa: </span>{guia.quemUsa}</p>}
+            </div>
+          </details>
+        )}
         {daTela.tour.length > 0 ? (
           <Button type="button" size="lg" className="h-11 self-start sm:h-10" onClick={() => iniciarTour({ passos: daTela.tour, rotulo: rotuloDoTour(daTela), chave: daTela.chave })}>
             <Compass aria-hidden="true" />Fazer o tour desta tela
@@ -136,21 +147,10 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
             <Compass aria-hidden="true" />Fazer o tour de {area.rotulo}
           </Link>
         ) : null}
+        {guia.naPratica && <HistoriaRecolhida historia={guia.naPratica} />}
       </section>
 
-      {guia.tarefas.length > 0 && (
-        <section aria-labelledby={`${id}-passos`} className="flex flex-col gap-2">
-          <h2 id={`${id}-passos`} className={tituloDeSecao}>Passo a passo</h2>
-          {guia.tarefas.map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)}
-        </section>
-      )}
-
-      {guia.perguntas.length > 0 && (
-        <section aria-labelledby={`${id}-perguntas`} className="flex flex-col gap-2">
-          <h2 id={`${id}-perguntas`} className={tituloDeSecao}>Perguntas frequentes</h2>
-          {guia.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area={area.href} />)}
-        </section>
-      )}
+      <ComoFazerEDuvidas guia={guia} area={area.href} />
 
       <Link href={hrefDaAjuda(area.href)} onClick={fecharPainel} className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-medium text-primary hover:underline">
         Ver tudo sobre {area.rotulo} na Central de ajuda<ArrowRight className="size-4" aria-hidden="true" />
@@ -159,24 +159,120 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
   )
 }
 
-/** Numa tela sem guia (ou fora de qualquer área): a ajuda que vale em toda a Redação. */
+/** Quantas tarefas ou perguntas ficam à vista antes de "Mostrar as outras". */
+const A_VISTA = 6
+
+type Aba = { id: 'fazer' | 'duvidas'; rotulo: string; total: number }
+
+/**
+ * "Como fazer" e "Dúvidas" em abas: uma lista de cada vez, em vez de trinta
+ * cartões enfileirados. Seis à vista; o resto atrás de "Mostrar as outras N".
+ * Com só um dos dois, vira uma seção comum, sem abas.
+ */
+function ComoFazerEDuvidas({ guia, area }: { guia: GuiaDaArea; area: string }) {
+  const id = useId()
+  const abas: Aba[] = [
+    ...(guia.tarefas.length ? [{ id: 'fazer' as const, rotulo: 'Como fazer', total: guia.tarefas.length }] : []),
+    ...(guia.perguntas.length ? [{ id: 'duvidas' as const, rotulo: 'Dúvidas', total: guia.perguntas.length }] : []),
+  ]
+  const [aba, setAba] = useState<Aba['id']>(abas[0]?.id ?? 'fazer')
+  const [todas, setTodas] = useState(false)
+  if (!abas.length) return null
+  const escolher = (nova: Aba['id']) => { setAba(nova); setTodas(false) }
+  const total = aba === 'fazer' ? guia.tarefas.length : guia.perguntas.length
+  const escondidas = todas ? 0 : Math.max(0, total - A_VISTA)
+  const lista = aba === 'fazer'
+    ? guia.tarefas.slice(0, todas ? undefined : A_VISTA).map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)
+    : guia.perguntas.slice(0, todas ? undefined : A_VISTA).map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area={area} />)
+  const mostrarMais = escondidas > 0 && (
+    <button type="button" onClick={() => setTodas(true)} className="inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-medium text-primary hover:bg-primary/[0.06] focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9">
+      <ChevronRight className="size-4" aria-hidden="true" />Mostrar {escondidas === 1 ? 'a outra' : `as outras ${escondidas}`}
+    </button>
+  )
+
+  if (abas.length === 1) {
+    return (
+      <section aria-labelledby={`${id}-titulo`} className="flex flex-col gap-2">
+        <h2 id={`${id}-titulo`} className={tituloDeSecao}>{abas[0].rotulo} ({abas[0].total})</h2>
+        {lista}
+        {mostrarMais}
+      </section>
+    )
+  }
+  return (
+    <section aria-label="Como fazer e dúvidas" className="flex flex-col gap-2">
+      <div role="tablist" aria-label="Como fazer ou dúvidas" className="flex gap-1 rounded-lg bg-muted p-1" data-abas-da-ajuda
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+          e.preventDefault()
+          const i = abas.findIndex((a) => a.id === aba)
+          const proxima = abas[(i + (e.key === 'ArrowRight' ? 1 : abas.length - 1)) % abas.length]
+          escolher(proxima.id)
+          ;(e.currentTarget.querySelector(`[data-aba="${proxima.id}"]`) as HTMLElement | null)?.focus()
+        }}>
+        {abas.map((a) => (
+          <button key={a.id} type="button" role="tab" id={`${id}-aba-${a.id}`} data-aba={a.id} aria-selected={aba === a.id} aria-controls={`${id}-painel-${a.id}`} tabIndex={aba === a.id ? 0 : -1}
+            onClick={() => escolher(a.id)}
+            className={cn('inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 sm:min-h-8', aba === a.id ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
+            {a.rotulo}<span className={cn('text-xs tabular-nums', aba === a.id ? 'text-muted-foreground' : 'text-muted-foreground/70')}>{a.total}</span>
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`${id}-painel-${aba}`} aria-labelledby={`${id}-aba-${aba}`} className="flex flex-col gap-2">
+        {lista}
+        {mostrarMais}
+      </div>
+    </section>
+  )
+}
+
+/** Numa tela sem guia (ou fora de qualquer área): a ajuda geral, um tópico por vez. */
 function AjudaGeral({ daTela }: { daTela: AjudaDaTela | null }) {
   const { equipeDaEscola } = useShell()
-  const id = useId()
   const semGuia = daTela && daTela.area.href !== '/ajuda' ? daTela.area.rotulo : null
   return (
-    <>
-      {semGuia && <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em todo o Palácio Virtual.</p>}
-      {topicosGerais(equipeDaEscola).map((topico) => (
-        <section key={topico.id} aria-labelledby={`${id}-${topico.id}`} className="flex flex-col gap-2">
-          <h2 id={`${id}-${topico.id}`} className={tituloDeSecao}>{topico.titulo}</h2>
-          <p className="mb-1 text-sm leading-relaxed text-muted-foreground">{topico.resumo}</p>
-          {(topico.naPratica ?? []).map((h) => <HistoriaRecolhida key={h.titulo} historia={h} />)}
-          {topico.tarefas.map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)}
-          {topico.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area="geral" />)}
-        </section>
-      ))}
-    </>
+    <section aria-label="Ajuda geral" className="flex flex-col gap-2">
+      {semGuia && <p className="mb-2 rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">“{semGuia}” ainda não tem um guia próprio. Aqui vai o que vale em todo o Palácio Virtual.</p>}
+      <h2 className={tituloDeSecao}>Ajuda geral</h2>
+      {topicosGerais(equipeDaEscola).map((topico) => <TopicoRecolhido key={topico.id} topico={topico} />)}
+    </section>
+  )
+}
+
+/** Um tópico da ajuda geral recolhido: o título e o resumo à vista, o resto atrás de um clique. */
+function TopicoRecolhido({ topico }: { topico: TopicoGeral }) {
+  return (
+    <details className="group rounded-lg border border-border bg-card open:bg-muted/20" data-topico-geral>
+      <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 rounded-lg px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+        <span className="min-w-0 flex-1"><span className="block font-medium">{topico.titulo}</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{topico.resumo}</span></span>
+      </summary>
+      <div className="flex flex-col gap-2 px-3 pb-3 pl-9">
+        {(topico.naPratica ?? []).map((h) => <HistoriaRecolhida key={h.titulo} historia={h} />)}
+        {topico.tarefas.map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)}
+        {topico.perguntas.map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area="geral" />)}
+      </div>
+    </details>
+  )
+}
+
+/**
+ * O único lugar do painel para falar com a equipe: dúvida, problema, ideia
+ * ou elogio, com a nota da tela se quiser. É o mesmo formulário do "Beta" do
+ * topo (que no celular não existe: o topo não tem espaço). Antes eram três
+ * formulários parecidos enfileirados — o Beta, "O que achou desta tela?" e
+ * "Pergunte à equipe" —, e ninguém sabia qual usar.
+ */
+function ConteParaAEquipe({ area }: { area: string | null }) {
+  return (
+    <details className="group rounded-xl border border-primary/30 bg-primary/[0.04]" data-conte-para-a-equipe>
+      <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2.5 px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+        <MessageSquareHeart className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+        <span className="min-w-0 flex-1"><span className="block font-semibold text-primary">Não achou? Conte para a equipe</span><span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Uma dúvida, um problema, uma ideia ou um elogio sobre esta tela. A resposta chega no sino.</span></span>
+        <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+      </summary>
+      <div className="border-t border-primary/20 px-4 py-4"><FormularioDoBeta noPainel area={area} tipoInicial="duvida" /></div>
+    </details>
   )
 }
 

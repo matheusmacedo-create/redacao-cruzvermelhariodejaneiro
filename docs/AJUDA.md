@@ -182,16 +182,21 @@ a Appcues cita), e um tour que dispara sozinho em cada tela nova vira o
 ### Painel “?” contextual em toda tela, com atalho `?`
 
 O botão “?” do topo abre, numa gaveta à direita (tela cheia no celular), a
-ajuda **da área aberta**: para que serve, quem usa, “Fazer o tour desta
-tela”, o “Passo a passo” (as tarefas em passos numerados) e as “Perguntas
-frequentes” — recolhidos, em `<details>` — e o link “Ver tudo sobre <área> na
-Central de ajuda”. No alto, a busca em toda a ajuda. Enquanto a pessoa não
-cumpre os três, os “Primeiros passos” aparecem em cima: ver as boas-vindas,
-confirmar o e-mail de recuperação e pôr uma foto no perfil. Numa tela sem
-guia, o painel mostra a ajuda geral (conta e acesso, como se achar, ajuda e
-suporte). No pé: “Central de ajuda”, “Rever as boas-vindas” e “Ainda com
-dúvida? Abra um chamado para a TI” — para a equipe da escola, que não abre
-chamados, “Ainda com dúvida? Pergunte no Chat”.
+ajuda **da área aberta**, uma coisa de cada vez (a ordem e as medidas estão
+no §11): a área numa frase (a primeira do "para que serve"; o resto e o
+"quem usa" atrás de “Ler mais”), “Fazer o tour desta tela”, o “Na prática”
+recolhido, e as abas **“Como fazer”** (as tarefas em passos numerados) e
+**“Dúvidas”** (as perguntas frequentes), com seis itens à vista e o resto
+atrás de “Mostrar as outras N” — tudo recolhido, em `<details>` — e o link
+“Ver tudo sobre <área> na Central de ajuda”. No alto, a busca em toda a
+ajuda. Enquanto a pessoa não cumpre os três, os “Primeiros passos” aparecem
+em cima: ver as boas-vindas, confirmar o e-mail de recuperação e pôr uma
+foto no perfil. Numa tela sem guia, o painel mostra a ajuda geral, um tópico
+recolhido por vez (conta e acesso, como se achar, ajuda e suporte). No fim,
+um único lugar para falar com a equipe: “Não achou? Conte para a equipe”
+(§10). No pé: “Central de ajuda”, “Rever as boas-vindas” e “Algo não
+funciona? Abra um chamado para a TI” — para a equipe da escola, que não abre
+chamados, “Falar com a equipe no Chat”.
 
 A tecla `?` abre e fecha o painel de qualquer tela, menos quando o foco está
 num campo de texto (ali o `?` é para ser digitado), com Ctrl, ⌘ ou Alt
@@ -215,11 +220,14 @@ perfil” e “Configurações” — do grupo, o pé da sidebar mostra só
 link “Central de ajuda” do pé do painel “?” e pela busca ⌘K. A equipe da
 escola também vê.
 
-Em `/ajuda`: a busca; “Comece por aqui”, com três cartões (boas-vindas e
-tours, atalhos de teclado com a caixa da tecla `?`, e como pedir ajuda); a
+Em `/ajuda`, nesta ordem: a busca; as “Perguntas mais frequentes” (§10); a
 “Ajuda por área”, com as áreas que a pessoa pode abrir e que têm guia,
-agrupadas como no menu (`guiasVisiveis()`); e a “Ajuda geral”
-(`topicosGerais()`: conta e acesso, como se achar, ajuda e suporte). Cada
+agrupadas como no menu (`guiasVisiveis()`) — é o que mais se procura, por
+isso vem antes; “Comece por aqui”, com três cartões (boas-vindas e tours,
+atalhos de teclado com a caixa da tecla `?`, e como pedir ajuda); a “Ajuda
+geral” (`topicosGerais()`: conta e acesso, como se achar, ajuda e suporte),
+um tópico recolhido por vez — o link para uma resposta abre o tópico dela;
+e “Seus retornos do beta”. Cada
 área tem a sua página em `/ajuda/<endereço da área>` — `/ajuda/pautas`,
 `/ajuda/escola/vendas` —, com “Abrir <área>”, “Fazer o tour”, o passo a
 passo, as perguntas, as telas internas com tour e as áreas que andam junto.
@@ -706,6 +714,8 @@ da Central, a action), no `import()` de `carregar.ts` e em
 - `lib/ajuda/membro.ts` — a Área do Voluntário: `BOAS_VINDAS_DO_MEMBRO`,
   `GUIAS_DO_MEMBRO`, `TOPICOS_DO_MEMBRO`, `tourDoMembro()`,
   `buscarNaAjudaDoMembro()`.
+- `lib/ajuda/texto.ts` — `resumoEDetalhe()`: a primeira frase do "para que
+  serve" para o painel (§11). Puro.
 - `lib/ajuda/progresso.ts` — o que a pessoa já viu e a tecla `?`.
 - `lib/ajuda/posicao.ts` — onde o balão fica (puro).
 - `components/ajuda/tour.tsx` — o motor do tour (Redação e voluntário).
@@ -803,17 +813,20 @@ antes do passo a passo.
 conseguir melhorar a aplicação o mais rápido possível." O retorno é **puxado** e fica sempre à
 mão, sem janela que interrompe o trabalho (NN/g, §1.3).
 
-Onde a pessoa conta:
+Onde a pessoa conta (um formulário só, em dois lugares — §11):
 
-- **"Beta", no topo** (tablet e computador) ou **no alto do painel "?"** (celular). Serve para
-  relatar problema, ideia, dúvida ou elogio, com nota opcional para a tela
-  (`components/app/ajuda/beta.tsx`).
-- **"O que achou desta tela?"**, no fim do painel "?". São cinco notas, de "Muito ruim" a
-  "Ótima"; o comentário é opcional e a pergunta muda conforme a nota.
+- **"Beta", no topo** (tablet e computador) e **"Não achou? Conte para a equipe", no fim do
+  painel "?"** (qualquer aparelho; no celular é o único, porque o topo não tem espaço). É o
+  mesmo formulário (`FormularioDoBeta`, em `components/app/ajuda/beta.tsx`): problema, ideia,
+  dúvida ou elogio, com a nota da tela opcional ("E esta tela, de modo geral?", cinco notas de
+  "Muito ruim" a "Ótima"). No painel ele começa em "Tenho uma dúvida", porque é de lá que se
+  chega sem resposta. A dúvida vira resposta nova na ajuda para a próxima pessoa.
 - **"Isso ajudou?"**, em cada pergunta frequente, no painel e na Central. Cada pessoa tem um voto
   por pergunta, e votar de novo troca o voto. Quem vota "Não" pode contar o que faltou.
-- **"Pergunte à equipe"**, no fim do painel. A dúvida que a ajuda não respondeu vira resposta nova
-  para a próxima pessoa.
+
+Até 28/09/2026 o painel tinha três formulários parecidos enfileirados — o Beta (no celular), "O
+que achou desta tela?" e "Pergunte à equipe" —, e ninguém sabia qual usar. Os tipos de retorno
+(`tela`, `duvida`…) e a caixa de retornos não mudaram.
 
 Junto vai o contexto, para reproduzir (`lerContexto`, em `lib/ajuda/retornos.ts`):
 - a tela;
@@ -851,3 +864,67 @@ Banco: `ajuda_retornos` (migração `20260929010000`), com RLS:
 
 A resposta passa por `ajuda_responder_retorno`, que confere se quem responde é administrador.
 Conferência: `npx tsx scripts/conferir-retornos.ts`.
+
+## 11. A arrumação: uma coisa de cada vez (28/09/2026)
+
+"Vamos acumulando várias ideias e acabou ficando uma bagunça absurda." Em
+três semanas a ajuda cresceu para 43 áreas, 328 passos a passo e 541
+perguntas, e o painel "?" virou uma rolagem só: o "para que serve" de até
+500 caracteres, o "quem usa", o "Na prática", o tour, até 20 tarefas, até
+23 perguntas, "O que achou desta tela?", "Pergunte à equipe" e, no celular,
+o Beta em cima de tudo — nove blocos antes do pé. Configurações tinha um tour
+de 15 balões. O conteúdo continua sendo o valor da ajuda; o que mudou foi a
+**ordem** e a **medida** de cada coisa.
+
+**O painel mostra uma coisa de cada vez** (`painel-conteudo.tsx`):
+
+1. A busca.
+2. "Primeiros passos", só enquanto faltam.
+3. A área **numa frase**: a primeira do "para que serve"
+   (`resumoEDetalhe()`, em `lib/ajuda/texto.ts`: a primeira frase, puxando
+   a seguinte se for muito curta, até uns 220 caracteres). O resto e o "quem
+   usa" ficam atrás de “Ler mais sobre <área>”. A Central continua mostrando
+   o texto inteiro.
+4. “Fazer o tour desta tela” e o “Na prática” recolhido.
+5. **“Como fazer” e “Dúvidas” em abas**, uma lista de cada vez, com seis
+   itens à vista e “Mostrar as outras N” para o resto (`A_VISTA`). Com só um
+   dos dois, vira uma seção comum. As abas seguem o padrão de tabs (setas
+   trocam a aba).
+6. “Ver tudo sobre <área> na Central de ajuda”.
+7. **Um único lugar para falar com a equipe**: “Não achou? Conte para a
+   equipe”, recolhido, com o mesmo formulário do Beta (§10).
+
+Numa tela sem guia, a ajuda geral vem um tópico recolhido por vez, com o
+título e o resumo à vista. Na Central, a mesma coisa: a "Ajuda geral" (44
+itens abertos, antes) virou cinco tópicos recolhidos, e a `AncoraDaAjuda`
+abre o tópico da resposta pedida por link (`/ajuda#esqueci-a-senha`). A
+"Ajuda por área" subiu para antes de "Comece por aqui": é o que mais se
+procura.
+
+**A medida de cada coisa**, cobrada por `scripts/conferir-ajuda.ts` (avisos,
+não erros: o que passa vira rolagem sem fim no painel):
+
+| O quê | Até | Por quê |
+| --- | --- | --- |
+| "Para que serve" | 400 caracteres; a primeira frase, 260 | O painel mostra só a primeira frase. O que passa cabe numa pergunta. |
+| "Quem usa" | 400 caracteres | O mesmo. Regras de aviso e de nível têm pergunta própria. |
+| Tour de área | 3 a 7 balões (aviso acima de 8) | Chameleon: 72% concluem 3 passos, 16% concluem 7 (§1.2). |
+| Tour de tela interna | 2 ou mais balões | Um balão só não é tour; vira texto. |
+| Tarefas por área | 15 | Acima disso há tarefas que são a mesma tela (junte) ou uma pergunta (mova). |
+| Perguntas por área | 20 | Junte as parecidas: "de onde vêm as horas" e "de onde vem a formação" viraram uma. |
+| Resposta | 900 caracteres | Divida em duas perguntas: "o que dá para fazer pelo WhatsApp" virou três. |
+
+O que foi feito no dia: o tour de Configurações (15 balões) virou 7 na
+visão geral e um tour por tela do submenu (`telas`: E-mail dos setores,
+Integrações, Site); o do Início, 9 → 8; Voluntários, 20 tarefas → 15 e 23
+perguntas → 20; as respostas de 1.540 e 906 caracteres, em três e duas; e as
+introduções acima da medida, encurtadas ou com a primeira frase separada.
+
+**Regras para o que vier** (além do §4):
+
+- Toda ideia nova de retorno entra no formulário que existe, não num bloco
+  novo no painel.
+- Tarefa nova numa área com 15: antes, veja se alguma já cobre a mesma tela.
+- O painel não ganha seção nova. Se algo precisa aparecer em toda tela,
+  entra numa das sete peças acima, ou na Central.
+

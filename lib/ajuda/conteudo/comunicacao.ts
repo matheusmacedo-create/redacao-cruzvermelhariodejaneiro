@@ -495,7 +495,7 @@ const DIRECT_DAS_REDES: GuiaDaArea = {
 
 const EMAIL_DO_SETOR: GuiaDaArea = {
   href: '/correio',
-  paraQueServe: 'O E-mail do setor é a caixa de e-mail do seu setor dentro do Palácio Virtual, como um cliente de e-mail: caixa de entrada, enviados, ler, responder, responder a todos, encaminhar, arquivar e escrever pelo endereço oficial do setor, sempre com a assinatura fixa dele. O que sai por aqui fica também no “Registro do Palácio”, com quem enviou.',
+  paraQueServe: 'O E-mail do setor é a caixa de e-mail do seu setor dentro do Palácio Virtual, como um cliente de e-mail. Caixa de entrada, enviados, ler, responder, responder a todos, encaminhar, arquivar e escrever pelo endereço oficial do setor, sempre com a assinatura fixa dele. O que sai por aqui fica também no “Registro do Palácio”, com quem enviou.',
   quemUsa: 'Quem faz parte de um setor com endereço ativo vê a caixa desse endereço, e só dele: nada de outro setor aparece. Administradores veem as caixas de todos os endereços ativos e ligam endereços e setores em Configurações.',
   naPratica: {
     titulo: 'A Comunicação responde a um jornal pelo endereço oficial',

@@ -634,7 +634,7 @@ const PAUTAS: GuiaDaArea = {
 
 const CALENDARIO: GuiaDaArea = {
   href: '/calendario',
-  paraQueServe: 'O calendário junta tudo o que tem data no Palácio Virtual, em camadas que você liga e desliga como no Google Agenda: publicações, prazos de pautas e marcos de projeto, ações do voluntariado, campanhas da escola e de doações, contas a pagar, documentos da frota, chamados, parcerias, aniversários da equipe, datas comemorativas e feriados. Ao lado, “Pede atenção” aponta o que precisa de alguém.',
+  paraQueServe: 'O calendário junta tudo o que tem data no Palácio Virtual, em camadas que você liga e desliga como no Google Agenda. Entram publicações, prazos de pautas e marcos de projeto, ações do voluntariado, campanhas da escola e de doações, contas a pagar, documentos da frota, chamados, parcerias, aniversários, datas comemorativas e feriados. Ao lado, “Pede atenção” aponta o que precisa de alguém.',
   quemUsa: 'Toda a equipe. Cada pessoa vê só as camadas das áreas a que tem acesso, e o que liga ou desliga vale só para ela.',
   naPratica: {
     titulo: 'Planejar outubro com tudo o que tem data',

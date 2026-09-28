@@ -34,7 +34,7 @@ import type { GuiaDaArea } from '../tipos'
 
 const FINANCEIRO: GuiaDaArea = {
   href: '/financeiro',
-  paraQueServe: 'O caixa da filial: despesas, receitas e contas a pagar e a receber, com a fonte de cada recurso e os comprovantes. Aqui também se concilia o extrato do banco, se acompanha a saúde do caixa e se fecha o mês para o contador. A filial e a Escola têm livros separados, cada uma com as suas contas e o seu fechamento, e cada uma no seu endereço: o Financeiro da filial fica no grupo Gestão, o da Escola, no grupo Escola.',
+  paraQueServe: 'O caixa da filial: despesas, receitas e contas a pagar e a receber, com a fonte de cada recurso e os comprovantes. Aqui também se concilia o extrato do banco, se acompanha a saúde do caixa e se fecha o mês para o contador. A filial e a Escola têm livros separados, cada uma com as suas contas e o seu fechamento: o da filial fica no grupo Gestão; o da Escola, no grupo Escola.',
   quemUsa: 'Um administrador libera o acesso pessoa a pessoa, em “Cadastros” → “Quem acessa”. “Ver” só consulta; “Lançar” cria, paga e junta comprovantes; “Aprovar” também aprova despesas de outras pessoas; “Gestão e fechamento” também cuida dos cadastros, das regras e do fechamento do mês (é o nível do contador). Administradores têm acesso total, e o acesso pode valer para todas as empresas ou só para uma.',
   naPratica: {
     titulo: 'Uma conta de luz do começo ao fechamento do mês',
