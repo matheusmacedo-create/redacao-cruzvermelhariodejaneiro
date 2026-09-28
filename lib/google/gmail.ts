@@ -133,7 +133,13 @@ export async function tokenDeAcesso(workspaceId: string): Promise<string> {
 
 export const esquecerToken = (workspaceId: string) => cache.delete(workspaceId)
 
-async function gmail<T>(workspaceId: string, caminho: string, init?: RequestInit): Promise<T> {
+export const COTA_ESTOURADA = 'O Gmail limitou as leituras por um minuto (a cota é da conta Google, dividida por toda a equipe). Espere um instante e toque em “Atualizar”.'
+/** 403 "Quota exceeded … Units per minute per user" e 429 "User-rate limit exceeded": é cota, não permissão. */
+const ehCota = (status: number, motivo: string) => status === 429 || (status === 403 && /quota|rate ?limit/i.test(motivo))
+/** Quanto esperar antes de tentar de novo quando o Gmail limita (a cota por segundo é uma média móvel curta). */
+const ESPERAS_MS = [700, 1800]
+
+async function gmail<T>(workspaceId: string, caminho: string, init?: RequestInit, tentativa = 0): Promise<T> {
   const token = await tokenDeAcesso(workspaceId)
   const res = await fetch(`${apiDoGoogle('https://gmail.googleapis.com/gmail/v1/users/me')}${caminho}`, {
     ...init,
@@ -145,13 +151,18 @@ async function gmail<T>(workspaceId: string, caminho: string, init?: RequestInit
   if (!res.ok) {
     if (res.status === 401) esquecerToken(workspaceId)
     const motivo = dados.error?.message ?? `HTTP ${res.status}`
+    // Limitado: espera e tenta de novo (o Google pede recuo exponencial); só depois desiste, com a mensagem em português.
+    if (ehCota(res.status, motivo) && tentativa < ESPERAS_MS.length) {
+      await new Promise((r) => setTimeout(r, ESPERAS_MS[tentativa]))
+      return gmail<T>(workspaceId, caminho, init, tentativa + 1)
+    }
     throw new GmailError(
       res.status === 403 && /scope|insufficient/i.test(motivo)
         ? SEM_LEITURA
-        : res.status === 429 ? 'Limite de envio do Gmail atingido. Tente mais tarde.'
+        : ehCota(res.status, motivo) ? COTA_ESTOURADA
           : `O Gmail recusou: ${motivo}`,
       res.status,
-      res.status === 401 || res.status === 403,
+      res.status === 401 || (res.status === 403 && !ehCota(res.status, motivo)),
     )
   }
   return dados as T

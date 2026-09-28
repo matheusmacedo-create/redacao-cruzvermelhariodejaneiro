@@ -1419,6 +1419,29 @@ resto baixa.
 **Respostas.** Saem com `threadId`, `In-Reply-To` e `References`, e a
 original vai citada depois da assinatura (`comCitacao`).
 
+**Cota do Gmail (28/09/2026).** A cota de leitura ("Total Query Cost",
+15.000 unidades por minuto **por usuário**) é da conta Google conectada — uma
+só para a filial —, e cada abertura da tela custava ~300 unidades (o contador
+de cada caixa, 5; a lista, 10 + 25 conversas a 10 cada), repetidas a cada
+conversa aberta (o `router.refresh()` de marcar como lida). Numa manhã com a
+equipe toda na caixa, o Google respondeu `403 Quota exceeded … Units per
+minute per user`. O que foi feito:
+- as leituras (`conversasDaPasta`, `naoLidasPorCaixa`, `abrirConversa`) ficam
+  na memória do servidor por 60 s (`lembrar()`, que também compartilha uma
+  leitura em andamento entre quem pede ao mesmo tempo); marcar lida/não
+  lida, arquivar, enviar e o botão "Atualizar" (`atualizarCorreio`) chamam
+  `esquecerLeituras(ws)`. É um Map na memória do processo, e não o
+  `unstable_cache` do Next: comporta-se igual em dev e na Vercel e se
+  confere com um log. É memória de cada instância: outra instância pode
+  mostrar a bolinha de não lida por até um minuto depois de alguém marcar;
+- `emLotes` desceu de 8 para 4 em paralelo (a cota por segundo é uma média
+  móvel de 250 unidades; uma conversa custa 10);
+- `gmail()` tenta de novo duas vezes (0,7 s e 1,8 s) em 429 e em 403 de cota,
+  e só então mostra `COTA_ESTOURADA`, em português; cota não marca a conexão
+  como "reconectar";
+- os `<Link>` da caixa têm `prefetch={false}`: são variações da mesma tela
+  dinâmica, e cada uma lida no servidor custaria cota.
+
 **Testes.** `npx tsx scripts/conferir-caixa-de-entrada.ts`. Fora de produção,
 `GOOGLE_API_TESTE` aponta as chamadas do Google para um servidor de teste.
 
