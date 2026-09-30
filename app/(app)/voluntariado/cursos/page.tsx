@@ -27,7 +27,7 @@ export default async function CursosDaEquipe({ searchParams }: { searchParams: P
     supabase.from('cursos').select('id,titulo,resumo,capa_caminho,publicado,nota_minima,carga_horaria').eq('workspace_id', ws).order('ordem').order('created_at'),
     supabase.from('curso_aulas').select('curso_id').eq('workspace_id', ws).limit(10000),
     supabase.from('membro_aulas_concluidas').select('curso_id,participante_id').limit(50000),
-    supabase.from('certificados').select('id,codigo,nome,curso_id,curso_titulo,emitido_em,valido_ate,revogado_em,motivo_revogacao,participante_id').eq('workspace_id', ws).order('emitido_em', { ascending: false }).limit(1000),
+    supabase.from('certificados').select('id,codigo,nome,curso_id,curso_titulo,emitido_em,valido_ate,revogado_em,motivo_revogacao,participante_id').eq('workspace_id', ws).not('participante_id', 'is', null).order('emitido_em', { ascending: false }).limit(1000),
     supabase.from('materiais').select('id,titulo,descricao,tamanho,publicado,created_at,curso_id').eq('workspace_id', ws).order('created_at', { ascending: false }).limit(500),
   ])
   const conta = (lista: { curso_id: unknown }[] | null, id: string) => (lista ?? []).filter((x) => x.curso_id === id).length
