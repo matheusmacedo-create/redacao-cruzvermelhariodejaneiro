@@ -212,6 +212,12 @@ tem Meu perfil e Ajuda, que não são administração.
 A pergunta "O menu mudou. Onde foi parar cada área?" está na ajuda (tópico
 geral), e a busca ⌘K continua achando tudo, também pelos nomes antigos.
 
+### Depois da reorganização
+
+- **30/09/2026:** entrou em Pessoas o **Livro de ponto** (`/livro-de-ponto`), o caminho até o ponto
+  da sede, que mora no site da filial (tablet da recepção, QR code do cartaz e o portal da secretaria,
+  com login próprio). A página diz como registrar e abre o portal em outra aba.
+
 ### Como manter
 
 `npx tsx scripts/conferir-navegacao.ts` falha quando:

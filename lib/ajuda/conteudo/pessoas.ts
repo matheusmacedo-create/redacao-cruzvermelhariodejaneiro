@@ -7,7 +7,8 @@ import type { GuiaDaArea } from '../tipos'
  * /[id]/editar) e Voluntários (/voluntariado, com o cadastro, avisos,
  * oportunidades, cursos e apostilas; /participantes redireciona para lá). As
  * mensagens dos voluntários (/voluntariado/mensagens) são outra área, em
- * conteudo/comunicacao.ts.
+ * conteudo/comunicacao.ts. O Livro de ponto (/livro-de-ponto) é o caminho até
+ * o ponto da sede, que mora no site da filial.
  *
  * Cada frase tem apoio no código:
  * - Diretório: app/(app)/pessoas/**, components/app/pessoas/**,
@@ -25,12 +26,18 @@ import type { GuiaDaArea } from '../tipos'
  *   app/actions/participantes.ts, oportunidades.ts, cursos.ts e canal.ts,
  *   app/api/participe e app/api/voluntariado/exportar, e as funções das
  *   migrações *_cvrj_participantes.sql, *_cvrj_oportunidades.sql e
- *   *_cvrj_cursos.sql.
+ *   *_cvrj_cursos.sql;
+ * - Livro de ponto: app/(app)/livro-de-ponto/page.tsx; o ponto e o portal da
+ *   secretaria estão no repositório do site (cruzvermelhariodejaneiro):
+ *   site/matricula-cursos-presenciais/api/painel.php (entrada por link de 20
+ *   minutos, sessão de 12 horas, abas do ponto), ponto/ e static/ponto.js
+ *   (“Continuar”, “Registrar entrada”, “Estou saindo agora”, “Lembrar de mim
+ *   neste celular”, localização só para conferir a distância).
  * Quem pode o quê: "usuarios.gerenciar" em lib/permissoes.ts (Diretório) e
  * os níveis próprios de Recursos humanos (NIVEIS em lib/rh/regras.ts) e de
  * Voluntários (NIVEIS em lib/participantes/regras.ts), liberados por admin.
  *
- * Os alvos `diretorio.*`, `rh.*` e `voluntarios.*` são marcados com
+ * Os alvos `diretorio.*`, `rh.*`, `voluntarios.*` e `ponto.*` são marcados com
  * `data-ajuda` nessas telas. Atenção às telas: '/pessoas/[id]' casa também com
  * /pessoas/adicionar e /pessoas/setores, '/equipe/[id]' com /equipe/novo e
  * '/voluntariado/[id]' com avisos, cursos, oportunidades e novo — por isso
@@ -1543,4 +1550,91 @@ const VOLUNTARIOS: GuiaDaArea = {
   relacionadas: ['/voluntariado/mensagens', '/equipe', '/pessoas'],
 }
 
-export const guias: GuiaDaArea[] = [DIRETORIO, RECURSOS_HUMANOS, VOLUNTARIOS]
+// ---------------------------------------------------------------- Livro de ponto
+
+const LIVRO_DE_PONTO: GuiaDaArea = {
+  href: '/livro-de-ponto',
+  paraQueServe: 'O caminho até o ponto da sede, que funciona no site da filial. O tablet da recepção e o celular, pelo QR code do cartaz, registram a entrada e a saída; o portal da secretaria guarda as horas doadas pelos voluntários, a presença da equipe e dos alunos e a lista de emergência.',
+  quemUsa: 'Toda a equipe vê a página e o jeito de registrar. O livro de ponto abre no portal da secretaria, que tem login próprio: só entra quem tem o e-mail da equipe cadastrado lá.',
+  naPratica: {
+    titulo: 'Saber quem está na sede quando o alarme toca',
+    passos: [
+      'Voluntários e equipe registram a entrada no tablet da recepção ou, com o celular, pelo QR code do cartaz.',
+      'O alarme de incêndio toca e a secretaria precisa saber quem está no prédio.',
+      'Ela abre o Livro de ponto no Palácio Virtual e toca em “Lista de emergência”.',
+      'O portal mostra quem está na sede agora, com os alunos em aula, pronto para imprimir.',
+    ],
+    resultado: 'Na evacuação, ninguém fica esquecido lá dentro.',
+  },
+  tour: [
+    {
+      titulo: 'O livro de ponto',
+      texto: 'O ponto da sede funciona no site da filial. Esta página junta o jeito de registrar e os atalhos para o portal da secretaria, que abre em outra aba.',
+    },
+    {
+      alvo: 'ponto.abrir',
+      titulo: 'Abrir o livro de ponto',
+      texto: 'O botão “Abrir o livro de ponto” leva ao portal da secretaria, que pede o e-mail da equipe e manda um link de acesso.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'ponto.registrar',
+      titulo: 'Registrar a entrada e a saída',
+      texto: 'No tablet da recepção, com o CPF; no celular, pelo QR code do cartaz, que só registra perto da sede.',
+    },
+    {
+      alvo: 'ponto.secretaria',
+      titulo: 'Os atalhos da secretaria',
+      texto: 'Cada linha abre uma parte do portal: colaboradores e horas, alunos nas aulas, lista de emergência, aparelhos e comunicação.',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'abrir-livro-de-ponto',
+      titulo: 'Abrir o livro de ponto',
+      passos: [
+        'No menu, em Pessoas, abra “Livro de ponto”.',
+        'Toque em “Abrir o livro de ponto”: o portal da secretaria abre em outra aba.',
+        'Em “E-mail da equipe”, digite o e-mail e toque em “Receber link de acesso”.',
+        'Abra o link que chega no e-mail: ele vale 20 minutos, e a sessão dura 12 horas.',
+      ],
+      dica: 'O portal só manda o link para os e-mails da equipe cadastrados nele.',
+      quem: 'Secretaria',
+    },
+    {
+      id: 'registrar-pelo-celular',
+      titulo: 'Registrar a entrada pelo celular',
+      passos: [
+        'Na sede, aponte a câmera do celular para o QR code do cartaz.',
+        'Digite o CPF e toque em “Continuar”.',
+        'Permita a localização quando o celular pedir.',
+        'Toque em “Registrar entrada”. Na hora de ir embora, faça o mesmo e toque em “Estou saindo agora”.',
+      ],
+      dica: 'Marque “Lembrar de mim neste celular” para não digitar o CPF da próxima vez.',
+      exemplo: 'Exemplo: uma voluntária chega para o plantão da tarde, lê o QR code do cartaz na entrada e toca em “Registrar entrada”. No fim do plantão, toca em “Estou saindo agora”, e as horas do dia entram no mês dela.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'por-que-fora-do-palacio',
+      pergunta: 'Por que o livro de ponto abre fora do Palácio Virtual?',
+      resposta: 'O ponto da sede funciona no site da filial, junto do tablet da recepção e do cartaz com o QR code. O Palácio Virtual só guarda o caminho até lá, e o portal da secretaria tem login próprio.',
+      termos: ['ponto', 'portal da secretaria', 'site da filial'],
+    },
+    {
+      id: 'nao-consigo-entrar',
+      pergunta: 'Não consigo entrar no portal da secretaria',
+      resposta: 'Só entra quem tem o e-mail cadastrado no portal. O link de acesso vale 20 minutos: se passou, peça outro em “Receber link de acesso”.',
+      termos: ['login', 'link expirado', 'acesso negado', 'e-mail da equipe'],
+    },
+    {
+      id: 'celular-nao-registra',
+      pergunta: 'O celular não registra o ponto',
+      resposta: 'O celular só registra perto da sede e com a localização permitida para o site. Se o navegador negou a localização, permita nas configurações dele e tente de novo, ou registre no tablet da recepção.',
+      termos: ['localização', 'gps', 'permissão negada', 'fora da sede'],
+    },
+  ],
+  relacionadas: ['/voluntariado', '/equipe', '/portaria'],
+}
+
+export const guias: GuiaDaArea[] = [DIRETORIO, RECURSOS_HUMANOS, VOLUNTARIOS, LIVRO_DE_PONTO]

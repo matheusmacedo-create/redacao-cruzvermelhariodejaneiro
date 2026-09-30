@@ -1,7 +1,7 @@
 import {
   Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessageCircleHeart, MessagesSquare, Newspaper, PiggyBank, PlugZap, Radar, ScrollText, Send, Settings, SquareCheckBig, Upload, UserRound, Contact,
-  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, type LucideIcon,
+  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -147,6 +147,9 @@ export const GRUPOS: Grupo[] = [
       { href: '/voluntariado', rotulo: 'Voluntários', resumo: 'Cadastro de voluntários, juventude e instrutores, e a Área do Voluntário', icone: HeartHandshake, termos: ['voluntariado', 'juventude', 'inscrições', 'participantes', 'oportunidades', 'cursos', 'avisos', 'banners'] },
       // Era uma segunda linha "Voluntários" no grupo Comunicação: é o canal da Área do Voluntário, e mora dentro dela.
       { href: '/voluntariado/mensagens', rotulo: 'Mensagens dos voluntários', resumo: 'O canal direto com voluntários e membros da Área do Voluntário', icone: MessageCircleHeart, termos: ['mensagens dos voluntários', 'canal do membro', 'área do membro', 'conversa com voluntário'], dentroDe: '/voluntariado' },
+      // O ponto da sede mora no site da filial (tablet da recepção, QR code do cartaz e o portal da secretaria,
+      // com login próprio): aqui fica o caminho até lá e o jeito de registrar.
+      { href: '/livro-de-ponto', rotulo: 'Livro de ponto', resumo: 'Entradas e saídas na sede: horas dos voluntários, presença e a lista de emergência, no portal da secretaria', icone: ClockCheck, termos: ['ponto', 'ponto da sede', 'entrada', 'saída', 'horas doadas', 'presença', 'frequência', 'check-in', 'lista de emergência', 'tablet da recepção', 'qr code do ponto', 'banco de horas'] },
     ],
   },
   {
