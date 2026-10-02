@@ -13,6 +13,8 @@ import { tituloDaArea } from '@/lib/navegacao'
 import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AvaliarFotoDoCracha } from '@/components/app/participantes/foto-do-cracha'
+import { ChipDaVerificacao } from '@/components/app/participantes/verificacao'
+import type { Verificacao } from '@/lib/participantes/verificacao/regras'
 
 export const metadata = { title: tituloDaArea('/voluntariado') }
 
@@ -69,7 +71,7 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
     }
     return linhas
   }
-  const [linhas, { data: horasDoMes }, { data: formacoes }, { count: abertas }, { data: comFoto }] = await Promise.all([
+  const [linhas, { data: horasDoMes }, { data: formacoes }, { count: abertas }, { data: comFoto }, { data: verificacoes }] = await Promise.all([
     lerLista(),
     supabase.from('participante_horas').select('horas').eq('workspace_id', ws).gte('data', inicioDoMes).limit(10000),
     supabase.from('participante_formacoes').select('valido_ate').eq('workspace_id', ws).not('valido_ate', 'is', null).limit(10000),
@@ -81,7 +83,17 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
       ? supabase.from('participantes').select('id,nome,nome_social,foto_path,foto_cracha_path,foto_cracha_recusada_path,situacao')
         .eq('workspace_id', ws).not('foto_path', 'is', null).is('anonimizado_em', null).neq('situacao', 'desligado').limit(5000)
       : Promise.resolve({ data: [] }),
+    // Verificação dos candidatos (migração 20261002000000). Sem a migração, a consulta falha e a lista fica sem o selo.
+    nivel >= 2
+      ? supabase.from('participantes_verificacoes').select('participante_id,estado,parecer,restricoes,link_expira_em,termo_aceito_em,created_at').eq('workspace_id', ws).order('created_at', { ascending: false }).limit(5000)
+      : Promise.resolve({ data: [] }),
   ])
+  // A verificação de cada candidato: a em andamento; senão, a mais nova.
+  const verificacaoDe = new Map<string, Pick<Verificacao, 'estado' | 'parecer' | 'restricoes' | 'link_expira_em' | 'termo_aceito_em'>>()
+  for (const v of ((verificacoes ?? []) as unknown as (Pick<Verificacao, 'estado' | 'parecer' | 'restricoes' | 'link_expira_em' | 'termo_aceito_em'> & { participante_id: string })[])) {
+    const atual = verificacaoDe.get(v.participante_id)
+    if (!atual || ((v.estado === 'aberta' || v.estado === 'enviada') && atual.estado === 'concluida')) verificacaoDe.set(v.participante_id, v)
+  }
   const conversasAbertas = abertas ?? 0
   const fotosParaAprovar = ((comFoto ?? []) as { id: string; nome: string; nome_social: string | null; foto_path: string; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null }[])
     .filter((f) => situacaoDaFotoDoCracha({ foto: f.foto_path, aprovada: f.foto_cracha_path, recusada: f.foto_cracha_recusada_path }) === 'aguardando')
@@ -213,9 +225,9 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
                 <p className="text-xs text-muted-foreground">
                   {[VINCULOS[l.vinculo as keyof typeof VINCULOS]?.rotulo, idade(l.data_nascimento, hoje) !== null ? `${idade(l.data_nascimento, hoje)} anos` : null, l.email, l.setores.length ? `interesse: ${l.setores.join(', ')}` : null].filter(Boolean).join(' · ')}
                 </p>
-                <p className="text-[11px] text-muted-foreground">Inscrito em {new Date(l.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+                <p className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">Inscrito em {new Date(l.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}{nivel >= 2 && <ChipDaVerificacao verificacao={verificacaoDe.get(l.id) ?? null} hoje={hoje} />}</p>
               </div>
-              {nivel >= 2 && <DecidirInscricao id={l.id} />}
+              {nivel >= 2 && <DecidirInscricao id={l.id} nome={l.nome_social || l.nome} verificacao={verificacaoDe.get(l.id) ?? null} />}
             </div>
           ))}
         </Card>
@@ -253,7 +265,7 @@ async function Acessos({ workspaceId }: { workspaceId: string }) {
   const nomes = new Map((membros ?? []).map((m) => [m.user_id as string, ((Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string } | null)?.full_name ?? 'Alguém']))
   const pessoas = (membros ?? []).filter((m) => ((Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { active?: boolean } | null)?.active !== false)
     .sort((a, b) => (nomes.get(a.user_id as string) ?? '').localeCompare(nomes.get(b.user_id as string) ?? '', 'pt-BR'))
-  const ACAO: Record<string, string> = { criar: 'cadastrou', editar: 'editou', ver_sensiveis: 'abriu CPF/saúde', aprovar: 'aprovou inscrição', situacao: 'mudou a situação', anonimizar: 'apagou dados (LGPD)', exportar: 'exportou a planilha', acesso: 'mudou um acesso', inscricao_publica: 'inscrição pelo formulário', recusar_inscricao: 'recusou inscrição' }
+  const ACAO: Record<string, string> = { criar: 'cadastrou', editar: 'editou', ver_sensiveis: 'abriu CPF/saúde', aprovar: 'aprovou inscrição', situacao: 'mudou a situação', anonimizar: 'apagou dados (LGPD)', exportar: 'exportou a planilha', acesso: 'mudou um acesso', inscricao_publica: 'inscrição pelo formulário', recusar_inscricao: 'recusou inscrição', verificacao_abrir: 'abriu a verificação', verificacao_link: 'mandou o link de documentos', verificacao_termo: 'candidato aceitou o termo', verificacao_enviada: 'candidato enviou os documentos', verificacao_item: 'registrou item da verificação', verificacao_leitura: 'leu o documento com o Claude', verificacao_sancoes: 'consultou sanções (CGU)', consulta_externa: 'consulta externa com o CPF', verificacao_concluir: 'concluiu a verificação', enviar_arquivo: 'guardou um documento', abrir_arquivo: 'abriu um documento', excluir_arquivo: 'excluiu um documento', referencia: 'mexeu nas referências', parecer_pdf: 'gerou o parecer em PDF' }
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
       <Card className="p-0">

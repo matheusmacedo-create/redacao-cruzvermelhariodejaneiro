@@ -804,12 +804,13 @@ const RECURSOS_HUMANOS: GuiaDaArea = {
 const VOLUNTARIOS: GuiaDaArea = {
   href: '/voluntariado',
   paraQueServe: 'O cadastro do Voluntariado (vínculos “Voluntário”, “Juventude” e “Instrutor voluntário”), com formações e horas. Daqui a coordenação aprova as inscrições do formulário público e cuida do que aparece na Área do Voluntário: avisos, banners, oportunidades, cursos, apostilas e certificados.',
-  quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador: “Ver a lista”; “Gerenciar” (cadastrar, aprovar inscrições, registrar horas e formações, exportar, cuidar de avisos, oportunidades e cursos); e “Dados sensíveis” (abrir CPF e saúde e apagar dados a pedido do titular). Administradores têm tudo.',
+  quemUsa: 'O acesso é liberado pessoa a pessoa por um administrador: “Ver a lista”; “Gerenciar” (cadastrar, verificar e aprovar inscrições, registrar horas e formações, exportar, cuidar de avisos, oportunidades e cursos); e “Dados sensíveis” (abrir CPF, saúde e o documento do candidato, e apagar dados a pedido do titular). Administradores têm tudo.',
   naPratica: {
     titulo: 'De inscrição no site a voluntário com certificado',
     passos: [
       'O Lucas se inscreve pelo formulário do site para ser voluntário.',
-      'A coordenação aprova a inscrição, e ele recebe o convite para a Área do Voluntário.',
+      'A coordenação pede os documentos pelo link: ele manda a foto do RG, o atestado de antecedentes e duas referências; o Palácio lê o documento, consulta a CGU e mostra o que confere.',
+      'A coordenação conclui a verificação como “apto” e aprova a inscrição; ele recebe o convite para a Área do Voluntário.',
       'Lá, ele se candidata à oportunidade “Ação de prevenção na Central” e faz o curso de primeiros socorros.',
       'A coordenação marca a presença dele na ação e registra as horas.',
       'Com o curso concluído, o certificado aparece na Área do Voluntário, verificável por código.',
@@ -885,6 +886,12 @@ const VOLUNTARIOS: GuiaDaArea = {
           titulo: 'Editar o cadastro',
           texto: '“Editar cadastro” muda dados, contato, setores, saúde e perfil de voluntariado. Cadastro com dados apagados (LGPD) não se edita mais.',
           lado: 'bottom',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'voluntarios.verificacao',
+          titulo: 'Verificação do candidato',
+          texto: '“Pedir documentos” manda um link pessoal: a pessoa aceita o termo e envia documento com foto, atestado de antecedentes e referências. Aqui a coordenação confere item a item, consulta a CGU e decide: apto, apto com restrição ou não apto.',
           seAusente: 'pular',
         },
         {
@@ -1243,15 +1250,18 @@ const VOLUNTARIOS: GuiaDaArea = {
   tarefas: [
     {
       id: 'aprovar-inscricao',
-      titulo: 'Aprovar ou recusar uma inscrição',
-      exemplo: 'A inscrição do Lucas Pereira chega do site; a coordenação confere os dados e toca em “Aprovar”: ele recebe o convite para a Área do Voluntário por e-mail.',
-      quem: 'Nível “Gerenciar” ou acima',
+      titulo: 'Verificar e aprovar (ou recusar) uma inscrição',
+      exemplo: 'A inscrição do Lucas Pereira chega do site. A coordenação toca em “Pedir documentos”; dois dias depois chega o aviso “Lucas enviou os documentos”. O Claude lê o RG e mostra que nome, nascimento e CPF conferem; a CGU responde “nada consta”; a Ana liga para as duas referências e registra “favorável”. Ela marca identidade e antecedentes como conferidos, conclui como “Apto” e aprova: ele recebe as boas-vindas por e-mail.',
+      quem: 'Nível “Gerenciar” ou acima; identidade e antecedentes, “Dados sensíveis”',
       passos: [
-        'Em Voluntários, abra a aba “Inscrições pendentes”.',
-        'Toque no nome para conferir o cadastro, se quiser.',
-        'Toque em “Aprovar” ou em “Recusar”.',
+        'Em Voluntários → “Inscrições pendentes”, toque no nome e vá ao quadro “Verificação do candidato”.',
+        'Toque em “Pedir documentos” e escolha por onde mandar o link (e-mail, WhatsApp ou copiar). A pessoa aceita o termo e envia documento com foto, atestado de antecedentes e duas referências.',
+        'Quando chegar o aviso, em “Identidade” toque em “Ler o documento com o Claude”, compare com o cadastro e com a foto do crachá e marque “Conferido” (ou “Divergente”).',
+        'Em “Antecedentes”, valide o código no site da Polícia Civil e marque “Conferido”.',
+        'Em “Sanções e pessoa exposta”, toque em “Consultar CEIS, CNEP, CEAF e PEP”; em “Referências”, registre o contato com cada pessoa; registre a entrevista.',
+        'Em “Decisão”, escolha “Apto”, “Apto com restrição” (marque as restrições e o motivo) ou “Não apto”, e toque em “Concluir verificação”. Com “Aprovar a inscrição agora” marcado, a pessoa passa a “Ativo”.',
       ],
-      dica: 'Aprovada, a pessoa passa a “Ativo” e, se tiver e-mail, recebe as boas-vindas com o caminho da Área do Voluntário. Recusada, a inscrição é apagada.',
+      dica: 'Sem identidade e antecedentes conferidos, “Aprovar” só funciona com a restrição “Não atua com crianças e adolescentes” e um motivo (Lei 14.811/2024). “Recusar” apaga a inscrição e os documentos. O atestado vale 90 dias e é renovado a cada 6 meses: a coordenação é avisada 15 dias antes e pede o novo pelo mesmo botão.',
     },
     {
       id: 'cadastrar-voluntario',
@@ -1441,7 +1451,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'niveis-voluntarios',
       pergunta: 'O que cada nível de acesso deixa fazer?',
-      resposta: '“Ver a lista”: nome, vínculo, setores e contatos. “Gerenciar”: cadastrar, editar, aprovar inscrições, registrar horas e formações, exportar e cuidar de avisos, oportunidades e cursos.\n\n“Dados sensíveis”: tudo isso, mais abrir CPF e saúde e apagar dados a pedido do titular. Só administradores mudam o nível de alguém.',
+      resposta: '“Ver a lista”: nome, vínculo, setores e contatos. “Gerenciar”: cadastrar, editar, pedir documentos e conduzir a verificação do candidato, aprovar inscrições, registrar horas e formações, exportar e cuidar de avisos, oportunidades e cursos.\n\n“Dados sensíveis”: tudo isso, mais abrir CPF e saúde, abrir o documento e o atestado do candidato (e conferir identidade e antecedentes) e apagar dados a pedido do titular. Só administradores mudam o nível de alguém.',
       termos: ['nível', 'permissão', 'acesso'],
     },
     {
@@ -1458,15 +1468,15 @@ const VOLUNTARIOS: GuiaDaArea = {
     },
     {
       id: 'area-como-entra',
-      pergunta: 'Como alguém entra na Área do Voluntário?',
-      resposta: 'Com o e-mail do cadastro e um código que chega por e-mail; não há senha. Só entra quem está “Ativo” e tem e-mail no cadastro. Se a pessoa ainda não entrou, use “Enviar convite por e-mail” no quadro “Área do Voluntário” do cadastro.',
-      termos: ['login do voluntário', 'código', 'membro', 'senha', 'convite', 'Cadastre um e-mail para poder convidar.'],
+      pergunta: 'Como alguém entra na Área do Voluntário, e dá para ver como ela aparece do outro lado?',
+      resposta: 'Com o e-mail do cadastro e um código que chega por e-mail; não há senha. Só entra quem está “Ativo” e tem e-mail no cadastro. Se a pessoa ainda não entrou, use “Enviar convite por e-mail” no quadro “Área do Voluntário” do cadastro.\n\nPara ver do outro lado (quem gerencia): “Ver Área do Voluntário”, no topo de Voluntários, abre a área com o conteúdo publicado, sem dados de ninguém; no cadastro de uma pessoa ativa, “Ver como este voluntário” mostra a área dela, só para leitura, e a visualização fica registrada.',
+      termos: ['login do voluntário', 'código', 'membro', 'senha', 'convite', 'Cadastre um e-mail para poder convidar.', 'prévia', 'pré-visualizar', 'visualizar'],
     },
     {
-      id: 'ver-como-voluntario',
-      pergunta: 'Dá para ver a Área do Voluntário do jeito que ela aparece do outro lado?',
-      resposta: 'Dá, para quem gerencia. “Ver Área do Voluntário”, no topo de Voluntários, abre a área com o conteúdo publicado, sem dados de ninguém. No cadastro de uma pessoa ativa, “Ver como este voluntário” mostra a área dela, só para leitura, e a visualização fica registrada.',
-      termos: ['prévia', 'pré-visualizar', 'visualizar'],
+      id: 'verificacao-trava',
+      pergunta: 'Por que não consigo aprovar uma inscrição, e o que é a “verificação do candidato”?',
+      resposta: 'Desde outubro de 2026, aprovar exige a verificação concluída como “Apto” ou “Apto com restrição”: a Lei 14.811/2024 pede atestado de antecedentes de todo colaborador de instituição que atende crianças e adolescentes, renovado a cada 6 meses. No quadro “Verificação do candidato” da ficha, “Pedir documentos” manda um link pessoal (14 dias) para a pessoa aceitar o termo e enviar documento com foto, atestado (gratuito, no site da Polícia Civil) e duas referências; o Claude lê o documento e compara com o cadastro, a CGU responde sobre sanções, e a coordenação decide.\n\nSem identidade e antecedentes conferidos, “Aprovar com restrição” aprova na hora com a restrição “Não atua com crianças e adolescentes” e um motivo; a restrição aparece na ficha até a verificação ser concluída. O parecer sai em PDF.',
+      termos: ['kyc', 'antecedentes', 'certidão', 'atestado', 'documentos', 'restrição', 'Conclua a verificação do candidato antes de aprovar', 'CGU', 'referências', 'Lei 14.811'],
     },
     {
       id: 'horas-sozinhas',

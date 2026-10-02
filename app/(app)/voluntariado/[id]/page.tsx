@@ -12,6 +12,10 @@ import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, Re
 import { CancelarDiploma, ConcederDiploma } from '@/components/app/participantes/diplomas'
 import { AvaliarFotoDoCracha } from '@/components/app/participantes/foto-do-cracha'
 import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
+import { CardDaVerificacao, SeloDeRestricoes } from '@/components/app/participantes/verificacao'
+import { claudeConfigurado } from '@/lib/ia/anthropic'
+import { obterChave } from '@/lib/integracoes/chaves'
+import type { ArquivoDoVoluntario, Referencia, Verificacao } from '@/lib/participantes/verificacao/regras'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +33,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound()
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 1) notFound()
-  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }, { data: diplomas }, { data: fotoDoCracha }] = await Promise.all([
+  const [{ data: p }, { data: formacoes }, { data: horas }, { data: comFoto }, { data: diplomas }, { data: fotoDoCracha }, { data: verificacoes }, { data: arquivos }, { data: referencias }, { data: comRestricoes }, chaveDaCgu] = await Promise.all([
     supabase.from('participantes').select(COLUNAS).eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
     supabase.from('participante_formacoes').select('id,titulo,instituicao,concluido_em,valido_ate').eq('participante_id', id).order('valido_ate', { ascending: true, nullsFirst: false }),
     supabase.from('participante_horas').select('id,data,horas,atividade').eq('participante_id', id).order('data', { ascending: false }).limit(200),
@@ -39,6 +43,18 @@ export default async function Participante({ params }: { params: Promise<{ id: s
     supabase.from('diplomas').select('id,codigo,motivo,marco_horas,texto,emitido_em,revogado_em,motivo_revogacao').eq('participante_id', id).order('emitido_em', { ascending: false }),
     // Sem a migração 20260929050000, a consulta falha e o bloco da foto do crachá não aparece.
     supabase.from('participantes').select('foto_path,foto_cracha_path,foto_cracha_recusada_path,foto_cracha_motivo,foto_cracha_avaliada_em').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
+    // Verificação do candidato (migração 20261002000000): leituras à parte e tolerantes — sem a migração, o quadro aparece vazio.
+    nivel >= 2
+      ? supabase.from('participantes_verificacoes').select('id,escopo,estado,link_expira_em,link_enviado_para,termo_aceito_em,enviado_em,itens,documento_lido,sancoes,registro_profissional,parecer,restricoes,motivo,decidido_por,decidido_em,created_at').eq('participante_id', id).order('created_at', { ascending: false }).limit(5)
+      : Promise.resolve({ data: [] }),
+    nivel >= 2
+      ? supabase.from('participantes_arquivos').select('id,categoria,lado,data_documento,validade,vence_em,codigo_autenticacao,observacao,nome_original,tipo,tamanho,sha256,pelo_candidato,enviado_por,created_at,excluido_em,motivo_exclusao').eq('participante_id', id).order('created_at')
+      : Promise.resolve({ data: [] }),
+    nivel >= 2
+      ? supabase.from('participantes_referencias').select('id,nome,relacao,telefone,email,informado_pelo_candidato,contatado_em,contatado_por_nome,parecer,nota').eq('participante_id', id).order('created_at')
+      : Promise.resolve({ data: [] }),
+    supabase.from('participantes').select('restricoes,verificado_em').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle(),
+    nivel >= 2 ? obterChave(context.workspace.id, 'portal_transparencia').catch(() => null) : Promise.resolve(null),
   ])
   if (!p) notFound()
   const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
@@ -50,6 +66,10 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   const anoAtual = hoje.slice(0, 4)
   const noAno = (horas ?? []).filter((h) => String(h.data).startsWith(anoAtual)).reduce((s, h) => s + Number(h.horas), 0)
   const endereco = [[p.logradouro, p.numero].filter(Boolean).join(', '), p.complemento, p.bairro, [p.cidade, p.uf].filter(Boolean).join(' – '), p.cep].filter(Boolean).join(' · ')
+  // A verificação que importa: a que está em andamento; senão, a última concluída.
+  const lista = ((verificacoes ?? []) as unknown as Verificacao[])
+  const verificacao = lista.find((v) => v.estado === 'aberta' || v.estado === 'enviada') ?? lista.find((v) => v.estado === 'concluida') ?? null
+  const restricoes = p.anonimizado_em ? [] : (((comRestricoes as { restricoes?: string[] } | null)?.restricoes) ?? [])
 
   return (
     <div className="flex flex-col gap-5">
@@ -76,6 +96,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
         </p>
       )}
 
+      <SeloDeRestricoes restricoes={restricoes} />
       {anos !== null && anos < 18 && !p.anonimizado_em && (
         <p className="flex items-center gap-2 rounded-lg border border-warning/50 bg-warning/10 px-4 py-2.5 text-sm"><AlertTriangle className="size-4" />Menor de idade. Responsável: {p.responsavel_nome ?? 'não informado'}{p.responsavel_telefone ? ` · ${p.responsavel_telefone}` : ''}</p>
       )}
@@ -103,6 +124,18 @@ export default async function Participante({ params }: { params: Promise<{ id: s
               {p.consentimento_em ? ` · aceitou o termo de dados (${p.consentimento_versao}) em ${new Date(p.consentimento_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}
             </p>
           </Card>
+
+          {nivel >= 2 && !p.anonimizado_em && (
+            <Card className="p-5" id="verificacao" data-ajuda="voluntarios.verificacao">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Verificação do candidato</h2>
+              <CardDaVerificacao
+                participanteId={id} nome={p.nome_social || p.nome} situacao={p.situacao} nivel={nivel} verificacao={verificacao}
+                arquivos={(arquivos ?? []) as unknown as ArquivoDoVoluntario[]} referencias={(referencias ?? []) as unknown as Referencia[]} hoje={hoje}
+                fotoDoCracha={fc ? urlDaFotoNaEquipe(id, fc.foto_cracha_path ?? fc.foto_path) : null}
+                temEmail={Boolean(p.email)} temTelefone={Boolean(p.telefone)} cguConfigurada={Boolean(chaveDaCgu)} claudePronto={claudeConfigurado()}
+              />
+            </Card>
+          )}
 
           <Card className="p-5" data-ajuda="voluntarios.formacoes">
             <div className="mb-3 flex items-center justify-between gap-2">
@@ -217,7 +250,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
           {nivel >= 2 && !p.anonimizado_em && (
             <Card className="p-5" data-ajuda="voluntarios.situacao">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Situação</h2>
-              <AcoesDeSituacao id={id} situacao={p.situacao} podeAnonimizar={nivel >= 3} />
+              <AcoesDeSituacao id={id} nome={p.nome_social || p.nome} situacao={p.situacao} podeAnonimizar={nivel >= 3} verificacao={verificacao} />
             </Card>
           )}
         </div>

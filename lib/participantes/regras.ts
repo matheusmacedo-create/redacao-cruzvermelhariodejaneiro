@@ -35,8 +35,8 @@ export const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
 export type Nivel = 0 | 1 | 2 | 3
 export const NIVEIS = {
   ver: { valor: 1, rotulo: 'Ver a lista', descricao: 'Nome, vínculo, setores e contatos.' },
-  gerenciar: { valor: 2, rotulo: 'Gerenciar', descricao: 'Cadastrar, editar, aprovar inscrições, registrar horas e formações, exportar.' },
-  sensiveis: { valor: 3, rotulo: 'Dados sensíveis', descricao: 'Tudo acima, mais abrir CPF e dados de saúde e anonimizar a pedido do titular.' },
+  gerenciar: { valor: 2, rotulo: 'Gerenciar', descricao: 'Cadastrar, editar, pedir documentos e conduzir a verificação do candidato (sanções, referências, decisão), aprovar inscrições, registrar horas e formações, exportar.' },
+  sensiveis: { valor: 3, rotulo: 'Dados sensíveis', descricao: 'Tudo acima, mais abrir CPF e dados de saúde, abrir o documento e o atestado do candidato (e conferir identidade e antecedentes) e anonimizar a pedido do titular.' },
 } as const
 export type NomeDoNivel = keyof typeof NIVEIS
 export const nivelDoNome = (n: string | null | undefined): Nivel => (n && Object.hasOwn(NIVEIS, n) ? NIVEIS[n as NomeDoNivel].valor : 0) as Nivel
