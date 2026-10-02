@@ -77,6 +77,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `FTP_HOST` `FTP_USER` `FTP_PASSWORD` `FTP_BASE_DIR` | server | publicação no site |
 | `SITE_PUBLIC_BASE_URL` | server | opcional; sem ela o `ftp-check` não confere se a pasta é publicada |
 | `CRON_SECRET` | server | **segredo** — a Vercel manda nos crons de `vercel.json`; sem ela as rotas de cron ficam fechadas |
+| `META_CONVERSOES_TOKEN` | server | **segredo**, reserva do cofre — token da API de Conversões do pixel da Escola (§8.6); sem ele, o envio tenta `META_ADS_TOKEN` |
 | `AUDITORIA_CHAVE_PRIVADA` | server | **segredo** — Ed25519 (PKCS#8 PEM) que assina os lotes da trilha pública; sem ela os lotes ficam sem assinatura até ela chegar (§7.9) |
 | `AUDITORIA_SEGREDO` | server | **segredo**, opcional — HMAC do limite da consulta pública; na falta, derivado da chave de serviço |
 | `AUDITORIA_ABERTA` | server | `1` só na abertura da trilha: tira o `noindex` das páginas de transparência e canais oficiais |
@@ -1327,6 +1328,9 @@ Cada curso com os alunos da Únicopag e o que o marketing fez para ele
   - curso que vende sem campanha no ar.
 - **Conferência.** `npx tsx scripts/conferir-cursos-escola.ts`, com os nomes de
   produto reais.
+- **Pagamentos como conversões na Meta.** Cada venda paga vira um `Purchase`
+  na API de Conversões, com `content_category` "taxa_de_inscricao" ou "curso"
+  (§8.6).
 
 ### 7.26 Configurações (`/configuracoes`)
 
@@ -1865,6 +1869,62 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   etapas, e `atenderMensagem` aceita "1", "2" ou "3" sem citar quando só uma visita espera a pessoa.
 - **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
   quem confirmou o número, com teto por link. Use um chip só do Palácio.
+
+### 8.6 API de Conversões da Meta: os pagamentos da Escola (02/10/2026)
+
+O pixel do site não vê o pagamento (ele acontece na página da Únicopag, ou
+no banco, no boleto e no PIX). Por isso é o servidor que avisa a Meta, pela
+API de Conversões, depois de cada leitura das transações
+(`sincronizarConta` → `enviarConversoes`, `lib/escola/conversoes-servidor.ts`).
+Regras puras em `lib/escola/conversoes.ts` (`scripts/conferir-conversoes-escola.ts`);
+banco em `20261002150000` (`supabase/tests/conversoes.test.sql`).
+
+- **Dois momentos, um evento.** Tudo sai como `Purchase` (a Meta otimiza por
+  valor nesse evento), com `content_category` = `taxa_de_inscricao` quando o
+  produto é "Taxa de inscrição — X" ou "X — Inscrição…", e `curso` no resto
+  (`categoriaDoProduto`, mesma regra de nome de `cursoNoProduto`). No
+  Gerenciador de Eventos a escola cria duas conversões personalizadas sobre
+  esse parâmetro e cada campanha otimiza pela etapa que quiser.
+- **O evento.** `event_id = unicopag:<hash>` (reenviar nunca duplica),
+  `event_time` = `paga_em`, `action_source` `website` com a página do curso
+  (`escola_cursos.pagina_url`) ou a página padrão da configuração — sem
+  página, `other`. `custom_data`: `currency` BRL, `value`, `content_name`
+  (curso), `content_ids` (produto), `order_id`.
+- **A pessoa.** A Únicopag manda nome, e-mail, telefone e CPF na transação
+  (`TransacaoLida.pessoa`). Eles ficam só na memória do servidor:
+  `semPessoa()` tira antes de `escola_gravar_sincronizacao`, e vão à Meta já
+  normalizados e com SHA-256 (`normalizarPessoa`: e-mail em minúsculas,
+  telefone só dígitos com 55, nome sem acento, CPF como `external_id`).
+  `qualidadeDoEvento` diz se havia e-mail ou telefone (boa), só nome ou CPF
+  (fraca) ou nada; a mensagem da leitura avisa quando a Meta pode não casar.
+  A documentação pública da Únicopag não diz o nome do campo do telefone:
+  `lerTransacao` aceita `phone`, `phone_number`, `cellphone`, `mobile` e
+  `telefone`. **Conferir numa transação real** e, se for outro, acrescentar.
+- **O que não vai.** Venda não paga (estorno e chargeback incluídos),
+  sem valor, produto de teste, produto ignorado pela equipe e venda paga há
+  mais de 7 dias (a Meta não aceita). Logo, ao ligar o pixel, o histórico não
+  é enviado.
+- **Registro.** `escola_conversoes` (uma por espaço: pixel, página padrão,
+  ligado, último aviso, erro) e `escola_conversoes_envios` (uma linha por
+  venda: categoria, curso, valor, qualidade, tentativas, enviado_em, rastro
+  `fbtrace_id`, erro) — sem dado pessoal. `escola_conversoes_pendentes`
+  filtra o lote (já enviado ou 5 falhas → fora); `escola_conversoes_registrar`
+  grava o resultado sem sobrescrever o que já foi. A tela de transações mostra
+  a coluna "Meta".
+- **Token.** Serviço `meta_conversoes` no cofre (Gerenciador de Eventos →
+  Configurações → API de Conversões → gerar token); na falta, o token do
+  `meta_ads` (um usuário do sistema com acesso ao pixel também envia). Ligar
+  testa `GET /{pixel}?fields=id,name`; "Enviar evento de teste" manda um
+  `Purchase` de R$ 1,00 com `test_event_code`.
+- **Cadência.** O cron diário das 9h lê tudo; um cron de hora em hora
+  (`/api/escola/sincronizar?so=unicopag`, minuto 23) lê só a Únicopag, para o
+  evento chegar perto do pagamento.
+- **LGPD.** Dado pessoal com hash ainda é dado pessoal: a base legal
+  (legítimo interesse na medição de anúncios, ou consentimento) e o aviso na
+  página de inscrição são da escola. Decisão do Matheus (02/10): `Purchase`
+  com categoria, e não dois eventos personalizados.
+- **Teste local.** `META_GRAPH_URL` e `UNICOPAG_URL` apontam os dois clientes
+  para servidores de mentira.
 
 ## 9. Convenções
 

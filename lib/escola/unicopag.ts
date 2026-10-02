@@ -97,7 +97,16 @@ export type TransacaoLida = {
   /** O utm_content da venda: com ele a matrícula chega ao advertorial que a trouxe. */
   conteudo: string | null
   criada_em: string; paga_em: string | null; atualizada_em: string | null
+  /**
+   * Quem pagou, como a Únicopag manda (nome, e-mail, telefone e CPF em claro).
+   * Só para o aviso à Meta (lib/escola/conversoes.ts), com hash: NUNCA vai ao
+   * banco — `semPessoa` tira antes de gravar.
+   */
+  pessoa: { nome: string | null; email: string | null; telefone: string | null; documento: string | null } | null
 }
+
+/** A transação sem os dados em claro da pessoa: é o que vai para escola_gravar_sincronizacao. */
+export const semPessoa = ({ pessoa: _pessoa, ...t }: TransacaoLida): Omit<TransacaoLida, 'pessoa'> => t
 
 /** Uma transação da API. Sem hash, sem valor ou sem data de criação: descartada (null). */
 export function lerTransacao(bruta: unknown): TransacaoLida | null {
@@ -125,6 +134,13 @@ export function lerTransacao(bruta: unknown): TransacaoLida | null {
     // Pago sem paid_at (acontece em importações antigas): usa a última atualização.
     paga_em: lerData(t.paid_at) ?? (contaComoRecebido(situacao) ? lerData(t.updated_at) ?? criada : null),
     atualizada_em: lerData(t.updated_at),
+    pessoa: {
+      nome: texto(cliente.name, 200),
+      email: texto(cliente.email, 254),
+      // A documentação pública não diz o nome do campo do telefone: aceita os comuns.
+      telefone: texto(cliente.phone, 40) ?? texto(cliente.phone_number, 40) ?? texto(cliente.cellphone, 40) ?? texto(cliente.mobile, 40) ?? texto(cliente.telefone, 40),
+      documento: texto(cliente.document, 30),
+    },
   }
 }
 

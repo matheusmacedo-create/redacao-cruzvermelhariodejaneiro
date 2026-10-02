@@ -9,6 +9,7 @@ import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { contextoDaEscola, transacoesDesde } from '@/lib/escola/servidor'
 import { filtrarTransacoes, lerFiltro, mesDe, mesPorExtenso, mesesAte, reaisDeCentavos, transacoesDoMes } from '@/lib/escola/painel'
 import { METODOS, SITUACOES, contaComoRecebido, type Metodo, type Situacao } from '@/lib/escola/unicopag'
+import { CATEGORIAS, type Categoria } from '@/lib/escola/conversoes'
 
 export const metadata = { title: 'Transações · Escola' }
 export const dynamic = 'force-dynamic'
@@ -23,10 +24,13 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
   const ws = context.workspace.id
   const hoje = mesDe(new Date().toISOString())
   const f = lerFiltro(await searchParams, hoje)
-  const [{ data: contas }, ts] = await Promise.all([
+  const [{ data: contas }, ts, { data: envios }] = await Promise.all([
     supabase.from('escola_contas').select('id,nome').eq('workspace_id', ws).order('nome'),
     transacoesDesde(supabase, ws, new Date(`${f.mes}-01T03:00:00Z`).toISOString()),
+    // O aviso à Meta de cada venda (migração 20261002150000); sem ela, a coluna fica vazia.
+    supabase.from('escola_conversoes_envios').select('conta_id,hash,categoria,enviado_em,erro').eq('workspace_id', ws).gte('paga_em', new Date(`${f.mes}-01T03:00:00Z`).toISOString()).limit(5000),
   ])
+  const meta = new Map(((envios ?? []) as { conta_id: string; hash: string; categoria: string; enviado_em: string | null; erro: string | null }[]).map((e) => [`${e.conta_id}:${e.hash}`, e]))
   const nomeDaConta = new Map((contas ?? []).map((c) => [c.id as string, c.nome as string]))
   const lista = filtrarTransacoes(transacoesDoMes(ts, f.mes), f)
   const recebido = lista.filter((t) => contaComoRecebido(t.situacao) && t.paga_em && mesDe(t.paga_em) === f.mes).reduce((s, t) => s + t.valor, 0)
@@ -50,7 +54,7 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
         <Card className="overflow-x-auto p-0" data-ajuda="escola-vendas.tabela">
           <table className="w-full min-w-[760px] text-sm" id="tabela-transacoes">
             <thead className="border-b border-border text-left text-xs text-muted-foreground">
-              <tr><th className="px-3 py-2 font-medium">Criada</th><th className="px-3 py-2 font-medium">Pagador</th><th className="px-3 py-2 font-medium">Curso</th><th className="px-3 py-2 font-medium">Forma</th><th className="px-3 py-2 font-medium">Situação</th><th className="px-3 py-2 text-right font-medium">Valor</th><th className="px-3 py-2 font-medium">Paga</th></tr>
+              <tr><th className="px-3 py-2 font-medium">Criada</th><th className="px-3 py-2 font-medium">Pagador</th><th className="px-3 py-2 font-medium">Curso</th><th className="px-3 py-2 font-medium">Forma</th><th className="px-3 py-2 font-medium">Situação</th><th className="px-3 py-2 text-right font-medium">Valor</th><th className="px-3 py-2 font-medium">Paga</th><th className="px-3 py-2 font-medium">Meta</th></tr>
             </thead>
             <tbody className="divide-y divide-border">
               {lista.slice(0, LIMITE).map((t) => (
@@ -62,6 +66,10 @@ export default async function TransacoesDaEscolaPage({ searchParams }: { searchP
                   <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs ${SITUACOES[t.situacao].classe}`} title={`${SITUACOES[t.situacao].ajuda} (${t.status})`}>{SITUACOES[t.situacao].rotulo}</span></td>
                   <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{reaisDeCentavos(t.valor)}</td>
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">{dataHora(t.paga_em)}</td>
+                  {/* O aviso à Meta (API de Conversões): a categoria quando foi, o erro quando falhou, nada quando não se aplica. */}
+                  <td className="whitespace-nowrap px-3 py-2 text-xs" data-meta={meta.get(`${t.conta_id}:${t.hash}`)?.enviado_em ? 'enviado' : meta.get(`${t.conta_id}:${t.hash}`)?.erro ? 'falhou' : 'nao'}>
+                    {(() => { const e = meta.get(`${t.conta_id}:${t.hash}`); return e?.enviado_em ? <span className="text-success" title={`Enviado à Meta em ${dataHora(e.enviado_em)}`}>✓ {CATEGORIAS[e.categoria as Categoria]?.rotulo ?? e.categoria}</span> : e?.erro ? <span className="text-destructive" title={e.erro}>falhou</span> : <span className="text-muted-foreground">—</span> })()}
+                  </td>
                 </tr>
               ))}
             </tbody>
