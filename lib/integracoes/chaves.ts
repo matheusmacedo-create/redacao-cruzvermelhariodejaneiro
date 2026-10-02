@@ -41,6 +41,10 @@ export const SERVICOS = {
   // Gerada pela própria Redação (tela Trilha pública) e lida por lib/auditoria/chave.ts; fora da tela de Integrações.
   auditoria_trilha: { nome: 'Chave de assinatura da trilha pública', variavel: 'AUDITORIA_CHAVE_PRIVADA', painel: '', oculto: true },
   meta_ads: { nome: 'Meta Ads (token do usuário do sistema)', variavel: 'META_ADS_TOKEN', painel: 'https://business.facebook.com/settings/system-users' },
+  // A API de Conversões da Meta (lib/escola/conversoes-servidor.ts): os pagamentos da Escola viram eventos
+  // Purchase no pixel. Token gerado no Gerenciador de Eventos (Configurações → API de Conversões) ou de um
+  // usuário do sistema com acesso ao pixel. Sem ele, o envio tenta o token do Meta Ads.
+  meta_conversoes: { nome: 'Meta — API de Conversões (pixel da Escola)', variavel: 'META_CONVERSOES_TOKEN', painel: 'https://business.facebook.com/events_manager2' },
   // A conta de serviço que lê o Google Analytics do site para Resultados (lib/analytics). A chave JSON inteira;
   // o cofre guarda só client_email e private_key (contaDeServicoParaGuardar).
   google_analytics: { nome: 'Google Analytics (conta de serviço)', variavel: 'GOOGLE_ANALYTICS_CONTA', painel: 'https://console.cloud.google.com/iam-admin/serviceaccounts' },

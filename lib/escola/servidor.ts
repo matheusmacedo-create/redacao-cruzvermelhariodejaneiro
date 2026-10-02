@@ -5,10 +5,12 @@ import { requireWorkspace } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { chaveDoNome } from '@/lib/equipe'
-import { lerPagina, lerSaldo, lerTransacao, mensagemDoErroDaApi, type TransacaoLida } from './unicopag'
+import { lerPagina, lerSaldo, lerTransacao, mensagemDoErroDaApi, semPessoa, type TransacaoLida } from './unicopag'
+import { enviarConversoes } from './conversoes-servidor'
 import type { TransacaoDoPainel } from './painel'
 
-const BASE = 'https://api.cloud.unicopag.com.br'
+// UNICOPAG_URL só para teste local, com um servidor de mentira.
+const BASE = process.env.UNICOPAG_URL?.trim() || 'https://api.cloud.unicopag.com.br'
 /** Serviço no cofre (integracoes_chaves) da chave de uma conta. */
 export const servicoDaConta = (contaId: string) => `unicopag:${contaId}`
 
@@ -134,12 +136,12 @@ export async function sincronizarConta(admin: SupabaseClient, workspaceId: strin
     // Em lotes, para o corpo da chamada não crescer sem limite.
     for (let i = 0; i < Math.max(1, transacoes.length); i += 500) {
       const { data, error } = await admin.rpc('escola_gravar_sincronizacao', {
-        p_conta_id: conta.id, p_transacoes: transacoes.slice(i, i + 500), p_saldo: i === 0 ? saldo : null, p_erro: null,
+        p_conta_id: conta.id, p_transacoes: transacoes.slice(i, i + 500).map(semPessoa), p_saldo: i === 0 ? saldo : null, p_erro: null,
       })
       if (error) throw new ErroDaApi(null, 'Não foi possível gravar as transações lidas.')
       gravadas += Number(data ?? 0)
     }
-    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.${await lancarNoFinanceiro(admin, conta.id)}`, gravadas }
+    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.${await lancarNoFinanceiro(admin, conta.id)}${await enviarConversoes(admin, workspaceId, conta.id, transacoes)}`, gravadas }
   } catch (e) {
     const mensagem = e instanceof ErroDaApi ? e.message : 'Falha inesperada ao sincronizar.'
     await admin.rpc('escola_gravar_sincronizacao', { p_conta_id: conta.id, p_transacoes: null, p_saldo: null, p_erro: mensagem })

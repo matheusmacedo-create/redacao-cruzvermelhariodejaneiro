@@ -29,6 +29,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/escola/sincronizar?so=unicopag",
+      "schedule": "23 * * * *"
+    },
+    {
       "path": "/api/auditoria/diaria",
       "schedule": "0 8 * * *"
     },
