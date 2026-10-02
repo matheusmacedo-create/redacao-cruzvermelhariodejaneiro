@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { contextoDeParticipantes } from '@/lib/participantes/acesso'
 import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
-import { SITUACOES, VINCULOS, ehVinculo, idade, situacaoDaFormacao } from '@/lib/participantes/regras'
+import { REDES, SITUACOES, VINCULOS, ehVinculo, idade, lerRedesGuardadas, situacaoDaFormacao, textoDaRede } from '@/lib/participantes/regras'
 import { Retrato } from '@/components/membro/foto'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AcoesDeSituacao, ConvidarAreaDoMembro, DadosSensiveis, NovoRegistro, RemoverRegistro } from '@/components/app/participantes/acoes'
@@ -20,7 +20,7 @@ import type { ArquivoDoVoluntario, Referencia, Verificacao } from '@/lib/partici
 export const dynamic = 'force-dynamic'
 
 // As colunas cifradas não são liberadas para a API: a lista é explícita.
-const COLUNAS = 'id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,origem,consentimento_em,consentimento_versao,desligado_em,motivo_desligamento,anonimizado_em,created_at,membro_ultimo_acesso'
+const COLUNAS = 'id,nome,nome_social,vinculo,situacao,setores,funcao,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,redes,origem,consentimento_em,consentimento_versao,desligado_em,motivo_desligamento,anonimizado_em,created_at,membro_ultimo_acesso'
 
 const DATA = (d: string | null) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—')
 
@@ -57,6 +57,7 @@ export default async function Participante({ params }: { params: Promise<{ id: s
     nivel >= 2 ? obterChave(context.workspace.id, 'portal_transparencia').catch(() => null) : Promise.resolve(null),
   ])
   if (!p) notFound()
+  const redes = p.anonimizado_em ? [] : lerRedesGuardadas(p.redes)
   const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
   const fc = p.anonimizado_em ? null : fotoDoCracha as { foto_path: string | null; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null; foto_cracha_motivo: string | null; foto_cracha_avaliada_em: string | null } | null
   const situacaoDaFoto = fc ? situacaoDaFotoDoCracha({ foto: fc.foto_path, aprovada: fc.foto_cracha_path, recusada: fc.foto_cracha_recusada_path }) : null
@@ -117,6 +118,14 @@ export default async function Participante({ params }: { params: Promise<{ id: s
               <Item rotulo="Disponibilidade">{p.disponibilidade?.join(', ')}</Item>
               <Item rotulo="Habilidades">{p.habilidades?.join(', ')}</Item>
               <Item rotulo="Idiomas">{p.idiomas?.join(', ')}</Item>
+              <Item rotulo="Redes sociais">
+                {redes.length > 0 && (
+                  <ul className="flex flex-wrap gap-x-3 gap-y-1">
+                    {/* Link de fora, informado pela pessoa: nova aba, sem referer e sem passar reputação. */}
+                    {redes.map(([rede, url]) => <li key={rede}><a href={url} target="_blank" rel="noopener noreferrer nofollow" className="text-primary underline-offset-4 hover:underline">{REDES[rede].rotulo}: {textoDaRede(rede, url)}</a></li>)}
+                  </ul>
+                )}
+              </Item>
             </dl>
             {p.observacoes && <p className="mt-3 whitespace-pre-line border-t border-border pt-3 text-sm">{p.observacoes}</p>}
             <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">

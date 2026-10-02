@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Loader2, TriangleAlert, XCircle } from 'lucide-react'
-import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, cpfValido, ehMenor, somenteDigitos } from '@/lib/participantes/regras'
-import { botaoDoMembro, campoDoMembro } from '@/components/membro/marca'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Camera, Check, ChevronDown, Loader2, TriangleAlert, XCircle } from 'lucide-react'
+import { CHAVES_DAS_REDES, DISPONIBILIDADES, REDES, TIPOS_SANGUINEOS, UFS, cpfValido, ehMenor, normalizarRede, somenteDigitos } from '@/lib/participantes/regras'
+import { ErroDaFoto, prepararFotoDePerfil } from '@/lib/membro/preparar-foto'
+import { botaoDoMembro, botaoSecundario, campoDoMembro } from '@/components/membro/marca'
 import { Recado } from '@/components/membro/pecas'
 import { useHoje } from '@/components/membro/hoje'
 import { cn } from '@/lib/utils'
@@ -48,6 +49,62 @@ function Chip({ name, valor }: { name: string; valor: string }) {
 const legenda = 'mb-3 text-base font-semibold'
 
 /**
+ * A foto opcional da inscrição. É preparada no navegador como a foto de
+ * perfil da Área do Voluntário (quadrada, até 512 px, JPEG sem metadados) e
+ * só sobe junto com a inscrição; o campo de arquivo não tem `name`, para o
+ * original não ir no envio. `aoMudar` entrega o arquivo pronto (ou null).
+ */
+function FotoDaInscricao({ aoMudar }: { aoMudar: (foto: File | null) => void }) {
+  const id = useId()
+  const entrada = useRef<HTMLInputElement>(null)
+  const [previa, setPrevia] = useState<string | null>(null)
+  const [erro, setErro] = useState('')
+  const [preparando, setPreparando] = useState(false)
+  // Libera o endereço da prévia anterior ao trocar ou tirar a foto.
+  useEffect(() => () => { if (previa) URL.revokeObjectURL(previa) }, [previa])
+
+  async function escolher(file: File | undefined) {
+    if (!file) return
+    setErro('')
+    setPreparando(true)
+    try {
+      const foto = await prepararFotoDePerfil(file)
+      setPrevia(URL.createObjectURL(foto))
+      aoMudar(foto)
+    } catch (causa) {
+      setErro(causa instanceof ErroDaFoto ? causa.message : 'Não foi possível preparar a foto. Tente outra.')
+      aoMudar(null)
+      setPrevia(null)
+    } finally {
+      setPreparando(false)
+      if (entrada.current) entrada.current.value = ''
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 sm:col-span-2">
+      <p id={`${id}-rotulo`} className="text-sm font-medium">Foto</p>
+      <p id={`${id}-dica`} className="text-sm text-muted-foreground">Opcional. Rosto visível, como numa foto de documento. Fica no seu crachá depois que a coordenação aprovar.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        {/* A prévia é decorativa: o texto ao lado diz que há foto. */}
+        <span aria-hidden="true" className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+          {previa ? <img src={previa} alt="" className="size-full object-cover" /> : <Camera className="size-7 text-muted-foreground" />}
+        </span>
+        <input ref={entrada} id={id} type="file" accept="image/*" className="sr-only" aria-labelledby={`${id}-rotulo`} aria-describedby={erro ? `${id}-dica ${id}-erro` : `${id}-dica`} onChange={(e) => escolher(e.target.files?.[0])} />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={preparando} onClick={() => entrada.current?.click()} className={cn(botaoSecundario, 'min-h-11')}>
+            {preparando ? <><Loader2 className="size-4 shrink-0 motion-safe:animate-spin" aria-hidden="true" />Preparando…</> : previa ? 'Trocar a foto' : 'Escolher uma foto'}
+          </button>
+          {previa && <button type="button" onClick={() => { setPrevia(null); aoMudar(null); setErro('') }} className={cn(botaoSecundario, 'min-h-11')}>Tirar</button>}
+        </div>
+      </div>
+      <p aria-live="polite" className="sr-only">{previa ? 'Foto escolhida.' : ''}</p>
+      {erro && <p id={`${id}-erro`} className="flex items-start gap-1.5 text-sm text-destructive"><XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{erro}</p>}
+    </div>
+  )
+}
+
+/**
  * A inscrição de voluntários. Envia para /api/participe; a inscrição chega à
  * coordenação do Voluntariado como pendente.
  */
@@ -58,6 +115,8 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
   const [enviando, setEnviando] = useState(false)
   const [erro, setErro] = useState('')
   const [erroDoCpf, setErroDoCpf] = useState('')
+  const [foto, setFoto] = useState<File | null>(null)
+  const [errosDasRedes, setErrosDasRedes] = useState<Partial<Record<string, string>>>({})
   // O e-mail informado: a tela de sucesso mostra por inteiro, para a pessoa notar erro de digitação.
   const [pronto, setPronto] = useState<{ email: string } | null>(null)
   const menor = ehMenor(nascimento || null, hoje)
@@ -118,6 +177,16 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
         refDoCpf.current?.focus()
         return
       }
+      // Os links de redes sociais: a mesma conferência do servidor, com o erro ao lado do campo.
+      const errosDasRedes: Partial<Record<string, string>> = {}
+      for (const k of CHAVES_DAS_REDES) {
+        const r = normalizarRede(k, String(f.get(`rede_${k}`) ?? ''))
+        if (r && 'erro' in r) errosDasRedes[k] = r.erro
+      }
+      setErrosDasRedes(errosDasRedes)
+      const primeiroErro = CHAVES_DAS_REDES.find((k) => errosDasRedes[k])
+      if (primeiroErro) { document.getElementById(`i-rede-${primeiroErro}`)?.focus(); return }
+      if (foto) f.set('foto', foto, 'foto.jpg')
       setEnviando(true)
       try {
         f.set('_inicio', String(inicio))
@@ -201,6 +270,21 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
         <Campo id="i-emerg-tel" rotulo="Telefone de emergência"><input id="i-emerg-tel" name="emergencia_telefone" type="tel" maxLength={40} className={campoDoMembro} /></Campo>
       </fieldset>
 
+      <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-describedby="i-redes-dica">
+        <legend className="mb-1 text-base font-semibold">Foto e redes sociais <span className="text-sm font-normal text-muted-foreground">(opcional)</span></legend>
+        <p id="i-redes-dica" className="text-sm text-muted-foreground sm:col-span-2">Ajudam a coordenação a conhecer você. Só quem gerencia o Voluntariado vê.</p>
+        <FotoDaInscricao aoMudar={setFoto} />
+        {CHAVES_DAS_REDES.map((k) => (
+          <Campo key={k} id={`i-rede-${k}`} rotulo={REDES[k].rotulo} dica={REDES[k].dica} erro={errosDasRedes[k]}>
+            {/* `type="text"`: o `url` nativo exigiria o `https://`, que normalizarRede completa sozinho. */}
+            <input id={`i-rede-${k}`} name={`rede_${k}`} type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={300}
+              placeholder={k === 'instagram' ? '@usuario' : k === 'outro' ? 'https://' : `${REDES[k].host}/…`}
+              aria-invalid={errosDasRedes[k] ? true : undefined} aria-describedby={errosDasRedes[k] ? `i-rede-${k}-dica i-rede-${k}-erro` : `i-rede-${k}-dica`}
+              onChange={() => { if (errosDasRedes[k]) setErrosDasRedes((e) => ({ ...e, [k]: undefined })) }} className={campoDoMembro} />
+          </Campo>
+        ))}
+      </fieldset>
+
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2" aria-describedby="i-saude-dica">
         <legend className="mb-1 text-base font-semibold">Saúde <span className="text-sm font-normal text-muted-foreground">(opcional)</span></legend>
         <p id="i-saude-dica" className="text-sm text-muted-foreground sm:col-span-2">Ajuda a equipe a cuidar de você em ações de campo. Fica guardado cifrado e só a coordenação vê.</p>
@@ -216,7 +300,7 @@ export function FormularioPublico({ hoje: hojeDoServidor, setores }: { hoje: str
           </summary>
           <div className="flex flex-col gap-2 px-4 pb-4">
             <p>A Cruz Vermelha Brasileira – Filial do Estado do Rio de Janeiro trata os dados deste formulário para analisar a sua inscrição, organizar as atividades de voluntariado, contratar o seguro de voluntário quando houver, e falar com você e com o seu contato de emergência.</p>
-            <p>CPF e dados de saúde ficam guardados cifrados e só são vistos por quem coordena o voluntariado; cada acesso fica registrado. Os dados não são vendidos nem compartilhados para fins comerciais.</p>
+            <p>CPF e dados de saúde ficam guardados cifrados e só são vistos por quem coordena o voluntariado; cada acesso fica registrado. A foto, se você enviar, serve para o crachá e para a equipe reconhecer você; os links de redes sociais, se informar, servem para a coordenação conhecer o seu perfil público. Os dados não são vendidos nem compartilhados para fins comerciais.</p>
             <p>Você pode pedir a qualquer momento acesso, correção ou a exclusão dos seus dados pelos canais oficiais da filial. Dados de menores de 18 anos são tratados com a autorização do responsável.</p>
           </div>
         </details>

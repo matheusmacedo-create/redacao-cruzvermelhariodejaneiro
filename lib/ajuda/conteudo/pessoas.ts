@@ -878,7 +878,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         {
           alvo: 'voluntarios.foto',
           titulo: 'O cadastro de uma pessoa',
-          texto: 'No alto, a foto de perfil (ou as iniciais), o nome e a situação. Abaixo, dados, formações e horas, a Área do Voluntário e os dados sensíveis.',
+          texto: 'No alto, a foto de perfil (ou as iniciais), o nome e a situação. Abaixo, dados (com as redes sociais que a pessoa informou), formações e horas, a Área do Voluntário e os dados sensíveis.',
           lado: 'bottom',
         },
         {
@@ -1258,7 +1258,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Toque em “Pedir documentos” e escolha por onde mandar o link (e-mail, WhatsApp ou copiar). A pessoa aceita o termo e envia documento com foto, atestado de antecedentes e duas referências.',
         'Quando chegar o aviso, em “Identidade” toque em “Ler o documento com o Claude”, compare com o cadastro e com a foto do crachá e marque “Conferido” (ou “Divergente”).',
         'Em “Antecedentes”, valide o código no site da Polícia Civil e marque “Conferido”.',
-        'Em “Sanções e pessoa exposta”, toque em “Consultar CEIS, CNEP, CEAF e PEP”; em “Referências”, registre o contato com cada pessoa; registre a entrevista.',
+        'Em “Sanções e pessoa exposta”, toque em “Consultar CEIS, CNEP, CEAF e PEP”; em “Referências”, registre o contato com cada pessoa; registre a entrevista. As redes sociais que a pessoa informou ficam no quadro “Cadastro”, para conhecer o perfil público.',
         'Em “Decisão”, escolha “Apto”, “Apto com restrição” (marque as restrições e o motivo) ou “Não apto”, e toque em “Concluir verificação”. Com “Aprovar a inscrição agora” marcado, a pessoa passa a “Ativo”.',
       ],
       dica: 'Sem identidade e antecedentes conferidos, “Aprovar” só funciona com a restrição “Não atua com crianças e adolescentes” e um motivo (Lei 14.811/2024). “Recusar” apaga a inscrição e os documentos. O atestado vale 90 dias e é renovado a cada 6 meses: a coordenação é avisada 15 dias antes e pede o novo pelo mesmo botão.',
@@ -1457,7 +1457,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'link-inscricao',
       pergunta: 'Onde está o link do formulário de inscrição?',
-      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço, e “Cartaz com QR” imprime um cartaz A4 com esse endereço no código, para o mural, eventos e parceiros: escolha a chamada entre as escritas (“Tem um tempo? Seja voluntário.” e outras) ou escreva a sua. O mesmo cartaz tem a versão da Área do Voluntário, para quem já é. Os dois botões aparecem para quem gerencia.\n\nQuem se inscreve pelo formulário entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova.',
+      resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço, e “Cartaz com QR” imprime um cartaz A4 com esse endereço no código, para o mural, eventos e parceiros: escolha a chamada entre as escritas (“Tem um tempo? Seja voluntário.” e outras) ou escreva a sua. O mesmo cartaz tem a versão da Área do Voluntário, para quem já é. Os dois botões aparecem para quem gerencia.\n\nQuem se inscreve pelo formulário entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova. A pessoa pode mandar uma foto (opcional; ela entra na fila “Fotos do crachá”, aguardando aprovação) e os links das redes sociais, que aparecem no quadro “Cadastro” da ficha.',
       termos: ['participe', 'formulário público', 'inscrever', 'divulgar', 'cartaz', 'qr code', 'imprimir'],
     },
     {

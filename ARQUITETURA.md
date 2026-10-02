@@ -1131,6 +1131,17 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
 - O voluntário troca pela própria sessão (`/api/membro/foto`, RPC `membro_definir_foto`, só
   service role); a equipe vê com nível ≥ 1 e troca com ≥ 2 (`/api/voluntariado/[id]/foto`, RPC
   `definir_foto_participante`). Anonimizar ou recusar o cadastro apaga a foto.
+- **Na inscrição pública** (`/participe`, `20261002120000`) a foto é opcional: o navegador prepara
+  do mesmo jeito, ela sobe no mesmo `FormData` da inscrição e `app/api/participe/route.ts` grava
+  no Blob depois de `inscrever_participante`, pela RPC `definir_foto_na_inscricao` (service role;
+  só candidato vindo do formulário, sem foto, inscrito há menos de 30 min). Entra "aguardando" na
+  fila de fotos do crachá. Se o Blob falhar, a inscrição fica sem foto e a pessoa não vê erro.
+- **Redes sociais** (`participantes.redes`, jsonb `{instagram, linkedin, facebook, outro}`, um
+  link https por rede): a pessoa informa na inscrição, no perfil da Área do Voluntário
+  (`membro_atualizar_perfil`) ou a equipe na edição; `normalizarRede` (`lib/participantes/regras.ts`)
+  transforma `@usuário` e links sem `https://` no endereço e recusa domínio de outra rede; o banco
+  confere de novo em `private.aplicar_campos_participante`. A ficha mostra como link externo
+  (`rel="noopener noreferrer nofollow"`). Anonimizar limpa.
 
 ### 7.21 Início modular (`/dashboard`)
 

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { inputClass } from '@/components/app/imprensa/comum'
 import { salvarParticipante } from '@/app/actions/participantes'
-import { DISPONIBILIDADES, TIPOS_SANGUINEOS, UFS, VINCULOS, ehVinculo } from '@/lib/participantes/regras'
+import { CHAVES_DAS_REDES, DISPONIBILIDADES, REDES, TIPOS_SANGUINEOS, UFS, VINCULOS, ehVinculo, lerRedesGuardadas } from '@/lib/participantes/regras'
 import { EnderecoPeloCep } from '@/components/app/apis/endereco-pelo-cep'
 
 export type ParticipanteNoFormulario = {
@@ -38,6 +38,7 @@ export type ParticipanteNoFormulario = {
   idiomas: string[]
   disponibilidade: string[]
   observacoes: string | null
+  redes?: unknown
 }
 
 function Campo({ rotulo, dica, children, largo }: { rotulo: string; dica?: string; children: React.ReactNode; largo?: boolean }) {
@@ -71,6 +72,7 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
   const [trocarSaude, setTrocarSaude] = useState(!p?.tem_dados_de_saude)
   const [cpf, setCpf] = useState('')
   const v = (k: keyof ParticipanteNoFormulario) => (p ? (p[k] as string | null) ?? '' : '')
+  const redes = Object.fromEntries(lerRedesGuardadas(p?.redes))
 
   return (
     <form action={enviar} className="flex flex-col gap-5">
@@ -167,6 +169,11 @@ export function FormularioDeParticipante({ p, setores }: { p: ParticipanteNoForm
           </div>
           <input type="hidden" name="disponibilidade" value="" />
         </fieldset>
+        {CHAVES_DAS_REDES.map((k) => (
+          <Campo key={k} rotulo={REDES[k].rotulo} dica={REDES[k].dica}>
+            <input id={`p-rede-${k}`} name={`rede_${k}`} inputMode="url" autoCapitalize="none" spellCheck={false} maxLength={300} defaultValue={redes[k] ?? ''} className={inputClass} />
+          </Campo>
+        ))}
         <Campo rotulo="Observações" largo><textarea id="p-obs" name="observacoes" rows={3} maxLength={4000} defaultValue={v('observacoes')} className={inputClass} /></Campo>
       </Secao>
 

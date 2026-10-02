@@ -10,13 +10,13 @@ import { urlDaFotoDoMembro } from './foto'
  * participante dela — é a única porta para os dados do voluntário.
  */
 
-export const COLUNAS_DO_PERFIL = 'nome,nome_social,email,telefone,vinculo,funcao,setores,cpf_mascara,data_nascimento,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,habilidades,idiomas,disponibilidade,aprovado_em,created_at,avisos_por_email'
+export const COLUNAS_DO_PERFIL = 'nome,nome_social,email,telefone,vinculo,funcao,setores,cpf_mascara,data_nascimento,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,habilidades,idiomas,disponibilidade,redes,aprovado_em,created_at,avisos_por_email'
 
 export type Perfil = {
   nome: string; nome_social: string | null; email: string | null; telefone: string | null; vinculo: string; funcao: string | null; setores: string[]
   cpf_mascara: string | null; data_nascimento: string | null; cep: string | null; logradouro: string | null; numero: string | null; complemento: string | null
   bairro: string | null; cidade: string | null; uf: string | null; emergencia_nome: string | null; emergencia_telefone: string | null
-  emergencia_parentesco: string | null; habilidades: string[]; idiomas: string[]; disponibilidade: string[]; aprovado_em: string | null; created_at: string
+  emergencia_parentesco: string | null; habilidades: string[]; idiomas: string[]; disponibilidade: string[]; redes: unknown; aprovado_em: string | null; created_at: string
   avisos_por_email: boolean
 }
 
@@ -24,7 +24,7 @@ export type Perfil = {
 const PERFIL_DA_PREVIA: Perfil = {
   nome: 'Voluntário', nome_social: null, email: 'voluntario@exemplo', telefone: null, vinculo: 'voluntario', funcao: null, setores: [], cpf_mascara: null,
   data_nascimento: null, cep: null, logradouro: null, numero: null, complemento: null, bairro: null, cidade: null, uf: null, emergencia_nome: null,
-  emergencia_telefone: null, emergencia_parentesco: null, habilidades: [], idiomas: [], disponibilidade: [], aprovado_em: null, created_at: new Date().toISOString(), avisos_por_email: true,
+  emergencia_telefone: null, emergencia_parentesco: null, habilidades: [], idiomas: [], disponibilidade: [], redes: {}, aprovado_em: null, created_at: new Date().toISOString(), avisos_por_email: true,
 }
 
 export async function perfilDoMembro(m: Membro): Promise<Perfil> {
