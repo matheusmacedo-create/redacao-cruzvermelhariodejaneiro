@@ -23,6 +23,8 @@ type DefinicaoDeServico = {
   campos?: readonly Campo[]
   /** Gravado pelo próprio sistema (ex.: autorização do Google), fora da tela de chaves. */
   oculto?: boolean
+  /** Uma linha de ajuda na tela, abaixo do campo. */
+  dica?: string
 }
 
 export const SERVICOS = {
@@ -52,7 +54,10 @@ export const SERVICOS = {
   google_safe_browsing: { nome: 'Google Safe Browsing (conferência de links)', variavel: 'GOOGLE_SAFE_BROWSING_KEY', painel: 'https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com' },
   // Verificação do candidato a voluntário (lib/participantes/verificacao/cgu.ts): consulta CEIS, CNEP,
   // CEAF e PEP por CPF. Chave gratuita, pedida com conta gov.br (prata ou ouro); 90 consultas por minuto.
-  portal_transparencia: { nome: 'Portal da Transparência (CGU — sanções e PEP)', variavel: 'PORTAL_TRANSPARENCIA_KEY', painel: 'https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email' },
+  portal_transparencia: {
+    nome: 'Portal da Transparência (CGU — sanções e PEP)', variavel: 'PORTAL_TRANSPARENCIA_KEY', painel: 'https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email',
+    dica: 'Cadastre com a conta gov.br da filial (prata ou ouro, ou CPF e senha com verificação em duas etapas): a chave, de 32 letras e números, chega por e-mail. Cole só ela; é testada na CGU antes de ir para o cofre.',
+  },
   // Serpro (Consulta CPF / Datavalid): confirma nome, nascimento e situação do CPF na Receita, e a biometria
   // facial. É pago por consulta e exige contrato com o CNPJ da filial. Fica preparado: ligar esta entrada
   // quando lib/participantes/verificacao/serpro.ts existir (docs/verificacao-de-voluntarios.md).
@@ -77,6 +82,9 @@ const definicao = (s: Servico): DefinicaoDeServico => SERVICOS[s]
 
 /** Os campos de um serviço de vários valores; vazio nos de valor único. */
 export const camposDo = (s: Servico): readonly Campo[] => definicao(s).campos ?? []
+
+/** A linha de ajuda de um serviço, se houver. */
+export const dicaDo = (s: Servico): string | null => definicao(s).dica ?? null
 
 /** Serviços que aparecem na tela de Integrações. */
 export const servicosNaTela = () => (Object.keys(SERVICOS) as Servico[]).filter((s) => !definicao(s).oculto)
@@ -105,6 +113,7 @@ export type SituacaoDaChave = {
   campos: readonly Campo[]
   origem: 'cofre' | 'ambiente' | null
   atualizadaEm: string | null
+  dica: string | null
 }
 
 /** O que está configurado, sem nunca tocar no valor. */
@@ -124,6 +133,7 @@ export async function situacaoDasChaves(supabase: SupabaseClient, workspaceId: s
       campos: camposDo(servico),
       origem: atualizadaEm ? 'cofre' : noAmbiente ? 'ambiente' : null,
       atualizadaEm,
+      dica: dicaDo(servico),
     }
   })
 }

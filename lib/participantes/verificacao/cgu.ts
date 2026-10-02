@@ -31,6 +31,24 @@ async function consultarBase(chave: string, base: BaseDaCgu, cpf: string): Promi
   }
 }
 
+/**
+ * Confere a chave antes de guardar: uma consulta ao CEIS com um CPF que não
+ * existe. 200 = chave boa; 401/403 = recusada (definitivo); o resto (fora do
+ * ar, limite) não diz nada sobre a chave.
+ */
+export async function testarChaveDaCgu(chave: string): Promise<{ ok: true } | { erro: string; definitivo: boolean }> {
+  const url = `${urlDaCgu()}/${BASES_DA_CGU.ceis.caminho}?${new URLSearchParams({ [BASES_DA_CGU.ceis.parametro]: '00000000000', pagina: '1' }).toString()}`
+  try {
+    const r = await fetch(url, { headers: { 'chave-api-dados': chave, accept: 'application/json' }, cache: 'no-store', signal: AbortSignal.timeout(PRAZO_MS) })
+    if (r.status === 200) return { ok: true }
+    if (r.status === 401 || r.status === 403) return { erro: 'A CGU recusou esta chave. Confira se copiou os 32 caracteres inteiros do e-mail do Portal da Transparência e se a chave já está ativa (pode levar alguns minutos depois do cadastro).', definitivo: true }
+    if (r.status === 429) return { erro: 'A CGU está no limite de consultas por minuto; a chave não pôde ser testada agora.', definitivo: false }
+    return { erro: `A CGU respondeu ${r.status}; a chave não pôde ser testada agora.`, definitivo: false }
+  } catch {
+    return { erro: 'A CGU não respondeu; a chave não pôde ser testada agora.', definitivo: false }
+  }
+}
+
 /** As quatro bases, em paralelo, e o resumo. */
 export async function consultarCgu(chave: string, cpf: string): Promise<Sancoes> {
   const digitos = cpf.replace(/\D/g, '')

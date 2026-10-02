@@ -11,7 +11,7 @@
  */
 import {
   atestadoAceitavel, atestadoMaisNovo, chipDaVerificacao, codigoDoParecer, compararComCadastro, compararNomes, lerDecisao, lerReferencias,
-  lerRegistroProfissional, lerRespostaDaCgu, linhasDoParecer, mascararNumeroDoDocumento, normalizarNome, pendencias, problemaDaDecisao,
+  CHAVE_DA_CGU_RECUSADA, lerChaveDaCgu, lerRegistroProfissional, lerRespostaDaCgu, linhasDoParecer, mascararNumeroDoDocumento, normalizarNome, pendencias, problemaDaDecisao,
   renovacaoDoAtestado, resumirSancoes, situacaoDaRenovacao, somarMeses, textoDoPedidoDeDocumentos, travaDaAprovacao, validadeDoAtestado,
   verificacaoCompleta, type ArquivoDoVoluntario, type Referencia, type ResultadoDaBase, type Verificacao,
 } from '../lib/participantes/verificacao/regras'
@@ -78,7 +78,17 @@ igual(lerRespostaDaCgu('ceis', 200, [{ tipoSancao: { descricaoResumida: 'Inidone
 igual(lerRespostaDaCgu('peps', 200, [{ descricaoFuncao: 'Vereador', nomeOrgao: 'Câmara', dataInicioExercicio: '2021-01-01' }]).detalhes, ['Vereador · Câmara · desde 01/01/2021'], 'PEP resumido')
 igual(lerRespostaDaCgu('ceaf', 200, [{}]).detalhes, ['Registro encontrado'], 'registro sem os campos conhecidos ainda conta')
 igual(lerRespostaDaCgu('cnep', 500, null).situacao, 'falha', 'erro 500: falha')
-igual(lerRespostaDaCgu('cnep', 401, null).erro, 'A CGU recusou a chave.', 'erro 401: chave')
+igual(lerRespostaDaCgu('cnep', 401, null).erro, CHAVE_DA_CGU_RECUSADA, 'erro 401: chave')
+igual(lerRespostaDaCgu('cnep', 403, null).erro, CHAVE_DA_CGU_RECUSADA, 'erro 403: chave')
+
+// A chave da CGU como a pessoa colou.
+igual(lerChaveDaCgu(' FEDCBA9876543210FEDCBA9876543210 '), 'fedcba9876543210fedcba9876543210', 'chave pura, com espaço e maiúsculas')
+igual(lerChaveDaCgu('[{"key":"chave-api-dados","value":"0123456789abcdef0123456789abcdef"}]'), '0123456789abcdef0123456789abcdef', 'JSON do Portal')
+igual(lerChaveDaCgu('chave-api-dados: 0123456789abcdef0123456789abcdef'), '0123456789abcdef0123456789abcdef', 'cabeçalho colado')
+igual(lerChaveDaCgu('0123456789abcdef0123456789abcde'), null, '31 caracteres não é chave')
+igual(lerChaveDaCgu('0123456789abcdef0123456789abcdef0'), null, '33 caracteres não é chave')
+igual(lerChaveDaCgu('minha chave é xyz'), null, 'sem chave')
+igual(lerChaveDaCgu(''), null, 'vazio')
 igual(lerRespostaDaCgu('cnep', 200, { erro: 'x' }).situacao, 'falha', 'corpo que não é lista: falha')
 const limpa: ResultadoDaBase = { situacao: 'ok', ocorrencias: 0, detalhes: [] }
 const falha: ResultadoDaBase = { situacao: 'falha', ocorrencias: 0, detalhes: [], erro: 'x' }
