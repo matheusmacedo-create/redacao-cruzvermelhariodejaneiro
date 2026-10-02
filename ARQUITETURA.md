@@ -600,7 +600,10 @@ antes do `init`** (de 27/09 a 02/10 essa linha travou o Pixel: com o fbevents.js
 só depois do “Aceitar todos”, o `grant` ficava atrás na fila e nada saía), e o gtag.js e
 o fbevents.js só são baixados quando o cookie
 `cvrj_consentimento` (`v=1&e=0|1&m=0|1&t=…`, em `.cruzvermelhariodejaneiro.org`)
-permite; o aviso liga a medição na hora da escolha por `window.cvrjMedicao`. A última
+permite; o aviso liga a medição na hora da escolha por `window.cvrjMedicao`. Com
+marketing, o PageView leva um `eventID` e o mesmo id vai ao servidor do site
+(`/matricula-cursos-presenciais/api/medicao.php`), que o repassa à Meta pela API de
+Conversões; a Meta junta os dois (só nos endereços de cruzvermelhariodejaneiro.org). A última
 linha do bloco é a tag do aviso de cookies (`/consentimento/consentimento.js?v=HASH`,
 cache de um ano): a versão é lida da home na mesma leitura do chat
 (`prepararChatDoSite`, regex estrita) e, sem ela, o bloco sai sem o aviso — ninguém é

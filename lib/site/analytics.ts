@@ -53,7 +53,11 @@ export function usarAvisoDeCookies(tag: string): void {
  * fila travava o Pixel (de 27/09 a 02/10 nada saiu). O gtag.js e o fbevents.js
  * só são baixados quando o cookie cvrj_consentimento, gravado pelo aviso,
  * permite; o aviso liga a medição na hora da escolha por window.cvrjMedicao
- * ({ ler, aplicar }).
+ * ({ ler, aplicar, novoId, servidor }). Com marketing, o PageView vai com um
+ * id (eventID) e o mesmo id é repassado ao servidor do site
+ * (/matricula-cursos-presenciais/api/medicao.php), que o manda à Meta pela
+ * API de Conversões; a Meta junta os dois. O repasse só sai nos endereços de
+ * cruzvermelhariodejaneiro.org (as notícias são publicadas lá).
  *
  * Mudou o bloco na home, muda aqui — e a conferência byte a byte da §7.6.
  */
@@ -81,7 +85,9 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
   // Sem fbq('consent', 'revoke') antes do init: o fbevents.js só é baixado com consentimento, e um revoke
   // na fila travava o Pixel (o grant ficava atrás do PageView e nada era enviado, nem com "Aceitar todos").
   fbq('init', '${ID_DO_PIXEL}');
-  fbq('track', 'PageView');
+  // O mesmo id vai no PageView que o servidor do site repassa à Meta (API de Conversões): ela junta os dois.
+  window.cvrjIdPageView = 'pv.' + Date.now().toString(36) + '.' + Math.random().toString(36).slice(2, 10);
+  fbq('track', 'PageView', {}, { eventID: window.cvrjIdPageView });
   </script>
   <script>
     // Medição só com consentimento. A escolha fica no cookie cvrj_consentimento (todo
@@ -104,6 +110,25 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
         baixados[src] = 1;
         var s = document.createElement('script'); s.async = true; s.src = src; document.head.appendChild(s);
       }
+      // API de Conversões: com "sim" para marketing, o evento vai também ao servidor do site, com o mesmo
+      // eventID do Pixel, e de lá à Meta. Só no site principal (o endereço é relativo a ele).
+      var SERVIDOR = /^(www\\.)?cruzvermelhariodejaneiro\\.org$/i.test(location.hostname) ? '/matricula-cursos-presenciais/api/medicao.php' : '';
+      var repassados = {};
+      function novoId(prefixo) { return (prefixo || 'ev') + '.' + Date.now().toString(36) + '.' + Math.random().toString(36).slice(2, 10); }
+      var pendentes = [];
+      function servidor(evento, id, curso) {
+        if (!SERVIDOR || !id || repassados[id] || !window.fetch) return;
+        var c = ler();
+        // Sem escolha ainda (o checkout dispara ao abrir): espera, como a fila do Pixel. "Não" descarta.
+        if (!c) { if (pendentes.length < 20) pendentes.push([evento, id, curso]); return; }
+        if (!c.marketing) return;
+        repassados[id] = 1;
+        var corpo = { evento: evento, id: id, url: location.href };
+        if (curso) corpo.curso = String(curso);
+        try {
+          fetch(SERVIDOR, { method: 'POST', keepalive: true, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) })['catch'](function () {});
+        } catch (e) { /* navegador sem fetch: fica só o Pixel */ }
+      }
       function aplicar(c) {
         c = c || ler();
         if (!c) return;
@@ -116,9 +141,15 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
         });
         fbq('consent', c.marketing ? 'grant' : 'revoke');
         if (c.estatistica) baixar(GTAG);
-        if (c.marketing) baixar(PIXEL);
+        var esperando = pendentes;
+        pendentes = [];
+        if (c.marketing) {
+          baixar(PIXEL);
+          servidor('PageView', window.cvrjIdPageView);
+          esperando.forEach(function (p) { servidor(p[0], p[1], p[2]); });
+        }
       }
-      window.cvrjMedicao = { ler: ler, aplicar: aplicar };
+      window.cvrjMedicao = { ler: ler, aplicar: aplicar, novoId: novoId, servidor: servidor };
       function agendar() {
         if (!ler()) return;
         if ('requestIdleCallback' in window) requestIdleCallback(function () { aplicar(); }, { timeout: 2500 });
