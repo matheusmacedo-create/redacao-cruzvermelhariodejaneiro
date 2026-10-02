@@ -378,6 +378,21 @@ const texto = (o: unknown, ...caminhos: string[]): string | null => {
  * consta). Guarda só um resumo por registro, nunca o JSON bruto. Status fora
  * de 200 (ou corpo que não é lista) = falha: a base não respondeu.
  */
+/**
+ * A chave da CGU como a pessoa colou: só os 32 caracteres (letras e números),
+ * ou dentro do que o Portal mostra (`chave-api-dados: …`, o JSON
+ * `[{"key":"chave-api-dados","value":"…"}]`). Devolve a chave limpa, ou null
+ * quando não há uma chave reconhecível no texto.
+ */
+export function lerChaveDaCgu(bruto: string | null | undefined): string | null {
+  const texto = (bruto ?? '').trim()
+  if (/^[0-9a-f]{32}$/i.test(texto)) return texto.toLowerCase()
+  const m = /(?:^|[^0-9a-z])([0-9a-f]{32})(?=$|[^0-9a-z])/i.exec(texto)
+  return m ? m[1].toLowerCase() : null
+}
+
+export const CHAVE_DA_CGU_RECUSADA = 'A CGU recusou a chave. Em Configurações → Integrações, cole só os 32 caracteres da chave (ela chega por e-mail do Portal da Transparência) e salve de novo: a chave é testada na hora.'
+
 export function lerRespostaDaCgu(base: BaseDaCgu, status: number, corpo: unknown): ResultadoDaBase {
   if (status === 200 && Array.isArray(corpo)) {
     const detalhes = corpo.slice(0, 10).map((r) => {
@@ -391,7 +406,7 @@ export function lerRespostaDaCgu(base: BaseDaCgu, status: number, corpo: unknown
     })
     return { situacao: 'ok', ocorrencias: corpo.length, detalhes }
   }
-  return { situacao: 'falha', ocorrencias: 0, detalhes: [], erro: status === 401 || status === 403 ? 'A CGU recusou a chave.' : status === 429 ? 'Limite de consultas da CGU por minuto.' : status === 0 ? 'A CGU não respondeu.' : `A CGU respondeu ${status}.` }
+  return { situacao: 'falha', ocorrencias: 0, detalhes: [], erro: status === 401 || status === 403 ? CHAVE_DA_CGU_RECUSADA : status === 429 ? 'Limite de consultas da CGU por minuto.' : status === 0 ? 'A CGU não respondeu.' : `A CGU respondeu ${status}.` }
 }
 
 /** Nada consta só quando TODAS as bases responderam limpas; qualquer falha é "incompleto" (nunca "nada consta" por falha). */

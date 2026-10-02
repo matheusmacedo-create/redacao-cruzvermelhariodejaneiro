@@ -730,6 +730,12 @@ const CONFIGURACOES: GuiaDaArea = {
       termos: ['ver a chave', 'chave escondida', 'cofre'],
     },
     {
+      id: 'cgu-recusou-a-chave',
+      pergunta: 'A consulta de sanções diz “A CGU recusou a chave”. O que faço?',
+      resposta: 'A chave do Portal da Transparência tem 32 letras e números e chega por e-mail depois do cadastro com a conta gov.br (prata ou ouro, ou CPF e senha com verificação em duas etapas). Em Integrações, cole só esses 32 caracteres, sem o “chave-api-dados” nem colchetes, e salve: a chave é testada na CGU antes de ir para o cofre, e a tela diz se foi aceita.\n\nSe o Portal recusar uma chave recém-criada, espere alguns minutos e salve de novo. Chave que apareceu em chat, e-mail ou documento deve ser trocada por uma nova no Portal.',
+      termos: ['cgu', 'portal da transparência', 'chave-api-dados', 'sanções', 'verificação do candidato', 'chave recusada'],
+    },
+    {
       id: 'variavel-de-ambiente',
       pergunta: 'O que quer dizer “Usando a variável de ambiente da Vercel”?',
       resposta: 'A chave foi configurada por fora, direto na hospedagem do Palácio Virtual, e está valendo. Se você salvar uma chave aqui, a daqui passa a valer no lugar dela.',

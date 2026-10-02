@@ -10,6 +10,8 @@ import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
 import { enderecoLocal, instanciaValida, urlDoServidor } from '@/lib/whatsapp/regras'
 import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta-de-servico-regras'
 import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
+import { lerChaveDaCgu } from '@/lib/participantes/verificacao/regras'
+import { testarChaveDaCgu } from '@/lib/participantes/verificacao/cgu'
 
 /**
  * Gravar e remover chaves de integração. A regra "só admin" mora no banco
@@ -51,6 +53,18 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {
       throw new Error('A chave parece curta demais. Cole a chave inteira.')
+    } else if (servico === 'portal_transparencia') {
+      // A pessoa cola o que o Portal mostra (JSON, "chave-api-dados: …"): fica só a chave, testada antes de ir ao cofre.
+      const chave = lerChaveDaCgu(valor)
+      if (!chave) throw new Error('Não achei a chave no que você colou. A chave do Portal da Transparência tem 32 letras e números e chega por e-mail; cole só ela.')
+      const teste = await testarChaveDaCgu(chave)
+      if ('erro' in teste) {
+        if (teste.definitivo) throw new Error(teste.erro)
+        recadoExtra = ` ${teste.erro} Ela foi guardada mesmo assim: a consulta na ficha do candidato diz se funciona.`
+      } else {
+        recadoExtra = ' A CGU aceitou a chave.'
+      }
+      valor = chave
     } else if (servico === 'google_analytics') {
       // O arquivo JSON inteiro da conta de serviço: confere e guarda só o que o Palácio usa.
       const guardar = contaDeServicoParaGuardar(valor)

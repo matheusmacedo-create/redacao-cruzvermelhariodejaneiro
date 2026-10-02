@@ -14,6 +14,7 @@ export type ChaveNaTela = {
   origem: 'cofre' | 'ambiente' | null
   atualizadaEm: string | null
   painel: string
+  dica: string | null
 }
 
 const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -126,6 +127,7 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
           Salvar no cofre
         </Button>
       </div>
+      {chave.dica && <p className="text-xs text-muted-foreground">{chave.dica}</p>}
       {chave.servico === 'google_analytics' && (
         <p className="text-xs text-muted-foreground">
           Abra o arquivo JSON da chave da conta de serviço, copie tudo e cole no campo. O Palácio guarda só o e-mail da conta e a chave privada, e lê o Analytics sem poder mudar nada. O passo a passo completo está em Resultados, em “O site”.

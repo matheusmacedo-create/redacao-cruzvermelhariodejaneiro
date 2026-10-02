@@ -13,6 +13,7 @@ import { baixarArquivo, conferirESelar, prepararEnvio, removerDoStorage } from '
 import { consultarCgu } from '@/lib/participantes/verificacao/cgu'
 import { ErroDaLeitura, anexoDoArquivo, lerDocumento } from '@/lib/participantes/verificacao/documento'
 import {
+  lerChaveDaCgu,
   CATEGORIAS_DE_DOCUMENTO, ITENS, atestadoAceitavel, compararComCadastro, ehAntecedentes, ehCategoriaDeDocumento, ehItem, ehSituacaoDoItem, lerDecisao,
   type DocumentoLido, type Escopo, type Sancoes,
 } from '@/lib/participantes/verificacao/regras'
@@ -103,8 +104,11 @@ export async function consultarSancoes(id: string): Promise<Resultado & { sancoe
     if (!ehId(id)) throw new Error('Participante não encontrado.')
     const { context, supabase, nivel } = await contextoDeParticipantes()
     if (nivel < 2) throw new Error('Você não tem acesso para consultar.')
-    const chave = await obterChave(context.workspace.id, 'portal_transparencia')
-    if (!chave) throw new Error('Falta a chave do Portal da Transparência (Configurações → Integrações). É gratuita: peça com a conta gov.br da filial. Sem ela, dispense o item com o motivo.')
+    const guardada = await obterChave(context.workspace.id, 'portal_transparencia')
+    if (!guardada) throw new Error('Falta a chave do Portal da Transparência (Configurações → Integrações). É gratuita: peça com a conta gov.br da filial. Sem ela, dispense o item com o motivo.')
+    // Chave guardada antes da conferência no salvamento pode estar com o JSON do Portal em volta.
+    const chave = lerChaveDaCgu(guardada)
+    if (!chave) throw new Error('A chave do Portal da Transparência guardada não está no formato da CGU (32 letras e números). Em Configurações → Integrações, cole só a chave e salve de novo.')
     const { data: cpf, error } = await createAdminClient().rpc('cpf_para_verificacao', { p_participante_id: id, p_user_id: context.user.id })
     if (error) erroDoBanco(error, 'Não foi possível ler o CPF.')
     if (!cpf) throw new Error('O cadastro não tem CPF. O candidato informa o dele ao aceitar o termo pelo link; ou cadastre em “Editar cadastro”.')
