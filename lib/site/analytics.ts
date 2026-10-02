@@ -57,7 +57,8 @@ export function usarAvisoDeCookies(tag: string): void {
  * id (eventID) e o mesmo id é repassado ao servidor do site
  * (/matricula-cursos-presenciais/api/medicao.php), que o manda à Meta pela
  * API de Conversões; a Meta junta os dois. O repasse só sai nos endereços de
- * cruzvermelhariodejaneiro.org (as notícias são publicadas lá).
+ * cruzvermelhariodejaneiro.org (as notícias são publicadas lá). Quem tem um "sim" de um texto anterior do
+ * aviso (sem r=2 no cookie) é perguntado de novo, e o repasse espera a resposta.
  *
  * Mudou o bloco na home, muda aqui — e a conferência byte a byte da §7.6.
  */
@@ -103,7 +104,7 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
         if (!m) return null;
         var p = {};
         try { decodeURIComponent(m[1]).split('&').forEach(function (par) { var i = par.indexOf('='); if (i > 0) p[par.slice(0, i)] = par.slice(i + 1); }); } catch (e) { return null; }
-        return p.v === '1' ? { estatistica: p.e === '1', marketing: p.m === '1' } : null;
+        return p.v === '1' ? { estatistica: p.e === '1', marketing: p.m === '1', revisao: parseInt(p.r, 10) || 0 } : null;
       }
       function baixar(src) {
         if (baixados[src]) return;
@@ -113,14 +114,18 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
       // API de Conversões: com "sim" para marketing, o evento vai também ao servidor do site, com o mesmo
       // eventID do Pixel, e de lá à Meta. Só no site principal (o endereço é relativo a ele).
       var SERVIDOR = /^(www\\.)?cruzvermelhariodejaneiro\\.org$/i.test(location.hostname) ? '/matricula-cursos-presenciais/api/medicao.php' : '';
+      // Revisão do texto do aviso que vale para o servidor (r no cookie; MCP_META_REVISAO em api/lib/meta.php e
+      // REVISAO em consentimento.js são o mesmo número). O Pixel não depende dela.
+      var REVISAO = 2;
       var repassados = {};
       function novoId(prefixo) { return (prefixo || 'ev') + '.' + Date.now().toString(36) + '.' + Math.random().toString(36).slice(2, 10); }
       var pendentes = [];
       function servidor(evento, id, curso) {
         if (!SERVIDOR || !id || repassados[id] || !window.fetch) return;
         var c = ler();
-        // Sem escolha ainda (o checkout dispara ao abrir): espera, como a fila do Pixel. "Não" descarta.
-        if (!c) { if (pendentes.length < 20) pendentes.push([evento, id, curso]); return; }
+        // Sem escolha ainda (o checkout dispara ao abrir), ou "sim" num texto anterior que o aviso está
+        // perguntando de novo: espera, como a fila do Pixel. "Não" descarta.
+        if (!c || (c.marketing && c.revisao < REVISAO)) { if (pendentes.length < 20) pendentes.push([evento, id, curso]); return; }
         if (!c.marketing) return;
         repassados[id] = 1;
         var corpo = { evento: evento, id: id, url: location.href };
