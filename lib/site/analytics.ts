@@ -48,10 +48,12 @@ export function usarAvisoDeCookies(tag: string): void {
  * O bloco de medição, copiado da home (site/index.html, de "Google tag
  * (gtag.js)" a "End Meta Pixel Code") byte a byte; só a tag do aviso de
  * cookies, a última linha, vem de fora. O Consent Mode do Google começa
- * negado e o Pixel começa revogado (fbq('consent', 'revoke') antes do init),
- * sem o <noscript> do Pixel. O gtag.js e o fbevents.js só são baixados quando
- * o cookie cvrj_consentimento, gravado pelo aviso, permite; o aviso liga a
- * medição na hora da escolha por window.cvrjMedicao ({ ler, aplicar }).
+ * negado, sem o <noscript> do Pixel e sem fbq('consent', 'revoke') antes do
+ * init: com o fbevents.js baixado só depois do "Aceitar todos", o revoke na
+ * fila travava o Pixel (de 27/09 a 02/10 nada saiu). O gtag.js e o fbevents.js
+ * só são baixados quando o cookie cvrj_consentimento, gravado pelo aviso,
+ * permite; o aviso liga a medição na hora da escolha por window.cvrjMedicao
+ * ({ ler, aplicar }).
  *
  * Mudou o bloco na home, muda aqui — e a conferência byte a byte da §7.6.
  */
@@ -76,7 +78,8 @@ export function blocoDoAnalytics(avisoDeCookies: string = tagDoAvisoDeCookies): 
   if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
   n.queue=[]}(window, document,'script',
   'https://connect.facebook.net/en_US/fbevents.js');
-  fbq('consent', 'revoke');
+  // Sem fbq('consent', 'revoke') antes do init: o fbevents.js só é baixado com consentimento, e um revoke
+  // na fila travava o Pixel (o grant ficava atrás do PageView e nada era enviado, nem com "Aceitar todos").
   fbq('init', '${ID_DO_PIXEL}');
   fbq('track', 'PageView');
   </script>

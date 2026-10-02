@@ -595,8 +595,10 @@ publicação (texto não revisado não vai ao ar sem querer).
 **Medição só com consentimento** (LGPD; Guia de Cookies da ANPD). O bloco de
 `blocoDoAnalytics` (`analytics.ts`) é cópia byte a byte do da home (`site/index.html`,
 de `<!-- Google tag (gtag.js) -->` a `<!-- End Meta Pixel Code -->`): Consent Mode do
-Google negado por padrão, `fbq('consent', 'revoke')` antes do `init`, sem o `<noscript>`
-do Pixel, e o gtag.js e o fbevents.js só são baixados quando o cookie
+Google negado por padrão, sem o `<noscript>` do Pixel e **sem `fbq('consent', 'revoke')`
+antes do `init`** (de 27/09 a 02/10 essa linha travou o Pixel: com o fbevents.js baixado
+só depois do “Aceitar todos”, o `grant` ficava atrás na fila e nada saía), e o gtag.js e
+o fbevents.js só são baixados quando o cookie
 `cvrj_consentimento` (`v=1&e=0|1&m=0|1&t=…`, em `.cruzvermelhariodejaneiro.org`)
 permite; o aviso liga a medição na hora da escolha por `window.cvrjMedicao`. A última
 linha do bloco é a tag do aviso de cookies (`/consentimento/consentimento.js?v=HASH`,
