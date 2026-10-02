@@ -153,6 +153,8 @@ export async function pedirJsonAoClaude<T>(pedido: {
   schema: Record<string, unknown>
   maxTokens?: number
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+  /** Imagens ou PDFs que o modelo deve olhar junto do texto (a leitura de um documento, por exemplo). */
+  anexos?: AnexoParaVer[]
 }): Promise<{ dados: T; medida: MedidaDoClaude }> {
   const chave = chaveDoClaude()
   if (!chave) {
@@ -178,7 +180,7 @@ export async function pedirJsonAoClaude<T>(pedido: {
           format: { type: 'json_schema', schema: pedido.schema },
         },
         system: pedido.system,
-        messages: [{ role: 'user', content: pedido.texto }],
+        messages: [{ role: 'user', content: pedido.anexos?.length ? [...pedido.anexos.map(blocoDoAnexo), { type: 'text' as const, text: pedido.texto }] : pedido.texto }],
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
       })
@@ -229,6 +231,13 @@ export async function pedirJsonAoClaude<T>(pedido: {
 
 /** Uma imagem pronta para o modelo ver. */
 export type ImagemParaVer = { b64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' }
+/** Um anexo para o modelo olhar: imagem, ou PDF (até 32 MB e 100 páginas na API; aqui os chamadores limitam bem antes). */
+export type AnexoParaVer = ImagemParaVer | { pdfB64: string }
+
+function blocoDoAnexo(a: AnexoParaVer): Anthropic.Beta.BetaContentBlockParam {
+  if ('pdfB64' in a) return { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.pdfB64 } }
+  return { type: 'image', source: { type: 'base64', media_type: a.mediaType, data: a.b64 } }
+}
 
 /**
  * Manda as fotos DE VERDADE para o Claude e devolve o texto da resposta.

@@ -4,6 +4,8 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { enviarAoVoluntario } from '@/lib/membro/comunicacao'
 import { emailDeLembrete } from '@/lib/membro/emails'
 import { quando } from '@/lib/oportunidades/regras'
+import { lembrarCandidatos } from '@/lib/participantes/verificacao/link'
+import { avisarRenovacoesDeAntecedentes } from '@/lib/participantes/verificacao/arquivos'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -47,5 +49,9 @@ export async function GET(request: Request) {
       await admin.from('oportunidade_inscricoes').update({ lembrete_em: new Date().toISOString() }).eq('id', i.id)
     }
   }
-  return Response.json({ ok: true, oportunidades: oportunidades?.length ?? 0, enviados })
+  // Verificação do candidato: lembrete de documentos que não chegaram e aviso de atestado a renovar (6 meses).
+  const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
+  const candidatosLembrados = await lembrarCandidatos(admin)
+  const renovacoesAvisadas = await avisarRenovacoesDeAntecedentes(admin, hoje)
+  return Response.json({ ok: true, oportunidades: oportunidades?.length ?? 0, enviados, candidatosLembrados, renovacoesAvisadas })
 }

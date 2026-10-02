@@ -184,3 +184,22 @@ export function emailDaFotoDoCracha(p: { nome: string; aprovada: boolean; motivo
     })
 }
 
+
+export function emailDoPedidoDeDocumentos(p: { nome: string; url: string; renovacao?: boolean; lembrete?: boolean; dias: number }): EmailPronto {
+  const oQue = p.renovacao
+    ? 'Você emite o atestado de antecedentes (gratuito, na hora, no site da Polícia Civil) e envia pelo link.'
+    : 'Leva uns 10 minutos: foto do seu documento com foto, atestado de antecedentes (gratuito, emitido na hora no site da Polícia Civil) e o contato de duas pessoas que possam falar de você.'
+  return montar({
+    assunto: p.lembrete ? 'Faltam os seus documentos para a verificação' : p.renovacao ? 'Renove o seu atestado de antecedentes' : 'Confirme quem você é para seguir com a inscrição',
+    preheader: p.renovacao ? 'A lei pede um atestado novo a cada 6 meses.' : 'Documento com foto, atestado de antecedentes e duas referências.',
+    titulo: p.lembrete ? 'Faltam os seus documentos' : p.renovacao ? 'Atestado de antecedentes' : 'Verificação do candidato',
+    blocos: [
+      { tipo: 'p', texto: p.lembrete
+        ? `Olá, ${primeiroNome(p.nome)}. Ainda faltam os seus documentos para a verificação na Cruz Vermelha RJ. ${oQue}`
+        : `Olá, ${primeiroNome(p.nome)}. Para seguir com a sua ${p.renovacao ? 'atuação' : 'inscrição'} como voluntário(a) da Cruz Vermelha RJ, precisamos ${p.renovacao ? 'renovar o seu atestado de antecedentes' : 'confirmar quem você é'}. ${oQue}` },
+      { tipo: 'botao', rotulo: p.renovacao ? 'Enviar o atestado' : 'Enviar meus documentos', url: p.url },
+      { tipo: 'p', texto: `O link é pessoal e vale ${p.dias} dias. Você pode parar e voltar: o que já enviou fica guardado.` },
+      { tipo: 'nota', texto: 'A Cruz Vermelha nunca pede senha nem dados de banco por link. Os documentos ficam cifrados, só a coordenação do Voluntariado abre, e cada abertura fica registrada.' },
+    ],
+  })
+}

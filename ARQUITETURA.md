@@ -84,6 +84,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos nos buckets da trilha e do acervo; sem elas, o espelho da trilha e o acervo ficam desligados (§7.9, §7.10, `docs/armazenamento-r2.md`) |
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
+| `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
 | `EVOLUTION_API_URL` `EVOLUTION_INSTANCIA` `EVOLUTION_API_KEY` | server | **segredo** (a chave), opcionais — reserva do cartão “WhatsApp (Evolution API)” de Configurações → Integrações, que é o lugar preferido; valem as três juntas (§8.5) |
 
@@ -149,6 +150,7 @@ app/
     cotacao/              proposta do fornecedor
     ficha/                ficha do RH preenchida pela própria pessoa
     participe/            inscrição de voluntário
+    verificacao/[token]   documentos da verificação do candidato (§7.36)
     verificar/ cracha/ diploma/ certificado/          conferência de ofício, crachá e diplomas
     newsletter/ comunicados/
     not-found.tsx         endereço que não existe
@@ -1594,6 +1596,57 @@ envios. Voluntários chegava a 6 idas encadeadas.
   confere localmente e cada "onda" de consultas aparece no tempo da página.
   Conferência do parser: `npx tsx scripts/conferir-sessao.ts`.
 
+### 7.36 Verificação do candidato a voluntário (`/voluntariado/[id]#verificacao`, `/verificacao/[token]`, 02/10/2026)
+
+O que havia: a inscrição pública caía em "Inscrições pendentes" e a coordenação
+aprovava com um toque, sem conferir nada. A Lei 14.811/2024 (art. 59-A do ECA)
+exige certidão de antecedentes de todo colaborador, inclusive voluntário, de
+instituição que atende crianças e adolescentes, renovada a cada 6 meses. Guia
+completo em `docs/verificacao-de-voluntarios.md`.
+
+- **Banco** (`20261002000000`): `participantes.restricoes`/`verificado_em`;
+  `participantes_verificacoes` (uma em andamento por pessoa; hash do link, termo,
+  checklist `itens`, `documento_lido`, `sancoes`, `registro_profissional`,
+  decisão); `participantes_arquivos` (bucket privado `voluntarios-arquivos`,
+  espelho de `equipe_arquivos`; identidade e antecedentes pedem nível 3);
+  `participantes_referencias`. Funções da coordenação (`authenticated`, nível
+  conferido dentro, auditoria em cada uma) e do link (`service_role`:
+  `aceitar_termo_pelo_token`, `registrar_arquivo_pelo_token`,
+  `guardar_dados_pelo_token`, `concluir_envio_pelo_token`, `verificacao_pelo_token`,
+  `cpf_para_verificacao`). **`mudar_situacao_participante` recriada**: candidato →
+  ativo exige a última verificação concluída como apto ou apto com restrição.
+  Gatilho de anonimização limpa tudo. Testes: `supabase/tests/verificacao.test.sql`.
+- **Regras puras** em `lib/participantes/verificacao/regras.ts` (vocabulário,
+  prazos — atestado 90 dias, renovação 6 meses com fim de mês, aviso 15 dias —,
+  comparação de nomes, máscara do número, leitura das bases da CGU, trava,
+  pendências, régua da decisão, chip, formulários, textos, linhas do parecer),
+  conferidas em `scripts/conferir-verificacao.ts`.
+- **Link do candidato** (`link.ts`, `app/actions/verificacao-publica.ts`,
+  `components/verificacao/formulario.tsx`): sha256 do token com prefixo, 14 dias,
+  várias visitas até concluir (diferente da ficha do RH), lembrete a cada 5 dias
+  (2×) trocando o token, por e-mail ou WhatsApp. Passos: termo + CPF (cadastro
+  sem CPF guarda cifrado; com CPF, tem de bater por HMAC) → documento (reduzido
+  no aparelho, sem EXIF) → atestado com data → registro → referências → revisar.
+  Até 20 aceites por hora por IP (`participantes_inscricoes_tentativas`).
+- **Coordenação** (`app/actions/verificacao-do-candidato.ts`,
+  `components/app/participantes/verificacao.tsx`): pedir documentos, checklist
+  item a item, "Ler o documento com o Claude" (`documento.ts`: `pedirJsonAoClaude`
+  com `anexos`, esquema fixo, sharp ≤ 2000 px; o CPF transcrito vira só
+  `cpf_confere` e morre), "Consultar CEIS, CNEP, CEAF e PEP" (`cgu.ts`, chave
+  `portal_transparencia`; nunca "nada consta" por falha), referências,
+  decisão com trava parcial, "Aprovar com restrição" na lista e no quadro
+  Situação, parecer em PDF (`parecer.ts`, `/api/voluntariado/[id]/verificacao/pdf`),
+  arquivos por `/api/voluntariado/[id]/arquivos/[arquivoId]` (link assinado de
+  1 minuto). Recusar e anonimizar apagam a pasta do Storage.
+- **Rotina diária** (`/api/membro/lembretes`): `lembrarCandidatos` e
+  `avisarRenovacoesDeAntecedentes` (15 dias antes e no dia seguinte), categoria
+  `aprovacoes`.
+- **Decisões**: sem biometria facial; CPF nunca em claro fora do banco (só
+  HMAC e a consulta à CGU, auditada); leitura automatizada e transferência
+  internacional declaradas no termo (`VERIFICACAO_TERMO_VERSAO`); decisão
+  humana; nível 1 não vê a verificação (só o selo de restrição). Serpro fica
+  preparado (entrada comentada em `chaves.ts`), não ligado.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post
@@ -1693,6 +1746,7 @@ virar repetidor grátis.
 | Open-Meteo | `TempoNoRio` no painel: 7 dias na sede, com alertas de chuva ≥ 25/50 mm, rajada ≥ 60/75 km/h e calor ≥ 38/40 °C | não (uso não comercial) |
 | Pwned Passwords (HIBP) | `problemaDeSenhaVazada` nas quatro telas em que alguém escolhe senha. Por anonimato por faixa, só os 5 primeiros caracteres do SHA-1 saem daqui. Se a API cair, a senha passa | não |
 | Google Safe Browsing | `problemaDeLinkPerigoso` antes de publicar matéria no site e de enviar a newsletter: bloqueia link marcado. Sem chave, não confere | **sim**, `google_safe_browsing` em Configurações → Integrações (ou `GOOGLE_SAFE_BROWSING_KEY`) |
+| Portal da Transparência (CGU) | `consultarCgu` na verificação do candidato (§7.36): CEIS, CNEP, CEAF e PEP por CPF, 4 chamadas em paralelo, 8 s, nunca lança; base fora do ar = "incompleto". Fora de `lib/apis-publicas` porque exige chave | **sim**, gratuita: `portal_transparencia` em Configurações → Integrações (ou `PORTAL_TRANSPARENCIA_KEY`); 90/min |
 | Banco Central (PTAX e IPCA, SGS 433) | `IndicadoresDoBc` em Financeiro → Saúde do caixa: dólar, euro, IPCA de 12 meses e calculadora de correção (do primeiro ao último mês, inclusive) | não |
 | Tabela FIPE (parallelum) | `ValorFipe` na página do veículo. O valor é consultado de novo no servidor e gravado por `frota_registrar_fipe` (nível 3 do Patrimônio) | não |
 | Nominatim / OpenStreetMap | `MapaDoLocal` em pautas com local e nas oportunidades de voluntariado. Cache de 30 dias, respeitando a política de 1 consulta por segundo | não |
@@ -1996,6 +2050,14 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   de dezenas de milhares.
 - **Registro de acessos, fase 2** — sessões abertas, "visto por último", encerrar sessão e
   retenção (`docs/registro-de-acessos.md` §0).
+- **Serpro na verificação do candidato** (§7.36) — Consulta CPF (nome × CPF ×
+  nascimento × situação na Receita) e Datavalid são pagos e exigem contrato com
+  o CNPJ da filial; a entrada em `lib/integracoes/chaves.ts` está escrita e
+  comentada. Roteiro em `docs/verificacao-de-voluntarios.md` §8.
+- **Varredura de órfãos no Storage** — se uma action morrer entre o registro no
+  banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
+  `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
+  tabelas resolve.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

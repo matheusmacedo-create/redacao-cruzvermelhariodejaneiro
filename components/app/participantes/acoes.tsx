@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Eye, Loader2, Send, Trash2, UserX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,10 @@ import {
   adicionarFormacao, anonimizarParticipante, convidarParaAreaDoMembro, definirAcesso, mudarSituacao, recusarCandidato, registrarHoras, removerRegistro, verDadosSensiveis,
 } from '@/app/actions/participantes'
 import { NIVEIS, type NomeDoNivel } from '@/lib/participantes/regras'
+import { travaDaAprovacao, type Verificacao } from '@/lib/participantes/verificacao/regras'
+import { AprovarComRestricao } from './verificacao'
+
+type VerificacaoResumida = Pick<Verificacao, 'estado' | 'parecer'> | null
 
 type R = { erro?: string }
 
@@ -28,16 +33,26 @@ function useAcao() {
 
 const Erro = ({ texto }: { texto: string }) => (texto ? <p className="text-xs text-destructive" role="alert">{texto}</p> : null)
 
-/** Aprovar ou recusar uma inscrição pendente, na lista. */
-export function DecidirInscricao({ id }: { id: string }) {
+/**
+ * Aprovar ou recusar uma inscrição pendente, na lista. Sem verificação
+ * concluída (apto ou apto com restrição), "Aprovar" abre o diálogo de
+ * aprovar com restrição — o banco recusa a aprovação simples.
+ */
+export function DecidirInscricao({ id, nome, verificacao = null }: { id: string; nome?: string; verificacao?: VerificacaoResumida }) {
   const { erro, ocupado, executar } = useAcao()
+  const [comRestricao, setComRestricao] = useState(false)
+  const trava = travaDaAprovacao(verificacao)
   return (
     <span className="flex flex-col items-end gap-1">
-      <span className="flex gap-1.5">
-        <Button size="sm" disabled={ocupado} onClick={() => executar(() => mudarSituacao(id, 'ativo'))}><Check className="size-3.5" />Aprovar</Button>
+      <span className="flex flex-wrap items-center gap-1.5">
+        {trava.travada && <Link href={`/voluntariado/${id}#verificacao`} className="text-xs font-medium text-primary hover:underline">Verificar primeiro</Link>}
+        <Button size="sm" variant={trava.travada ? 'outline' : 'default'} disabled={ocupado} onClick={() => (trava.travada ? setComRestricao(true) : executar(() => mudarSituacao(id, 'ativo')))} data-aprovar>
+          <Check className="size-3.5" />{trava.travada ? 'Aprovar com restrição' : 'Aprovar'}
+        </Button>
         <Button size="sm" variant="ghost" disabled={ocupado} onClick={() => executar(() => recusarCandidato(id))}><X className="size-3.5" />Recusar</Button>
       </span>
       <Erro texto={erro} />
+      <AprovarComRestricao id={id} nome={nome ?? 'A pessoa'} verificacao={verificacao} aberto={comRestricao} onFechar={() => setComRestricao(false)} />
     </span>
   )
 }
@@ -95,22 +110,29 @@ export function DadosSensiveis({ id, temCpf, temSaude }: { id: string; temCpf: b
   )
 }
 
-export function AcoesDeSituacao({ id, situacao, podeAnonimizar }: { id: string; situacao: string; podeAnonimizar: boolean }) {
+export function AcoesDeSituacao({ id, nome, situacao, podeAnonimizar, verificacao = null }: { id: string; nome?: string; situacao: string; podeAnonimizar: boolean; verificacao?: VerificacaoResumida }) {
   const { erro, ocupado, executar, setErro } = useAcao()
-  const [dialogo, setDialogo] = useState<'desligar' | 'anonimizar' | null>(null)
+  const [dialogo, setDialogo] = useState<'desligar' | 'anonimizar' | 'restricao' | null>(null)
   const [motivo, setMotivo] = useState('')
   const fechar = () => { if (!ocupado) { setDialogo(null); setMotivo(''); setErro('') } }
+  const trava = travaDaAprovacao(verificacao)
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        {situacao === 'candidato' && <Button size="sm" disabled={ocupado} onClick={() => executar(() => mudarSituacao(id, 'ativo'))}><Check className="size-3.5" />Aprovar inscrição</Button>}
+        {situacao === 'candidato' && (
+          <Button size="sm" variant={trava.travada ? 'outline' : 'default'} disabled={ocupado} onClick={() => (trava.travada ? setDialogo('restricao') : executar(() => mudarSituacao(id, 'ativo')))} data-aprovar>
+            <Check className="size-3.5" />{trava.travada ? 'Aprovar com restrição' : 'Aprovar inscrição'}
+          </Button>
+        )}
         {situacao === 'ativo' && <Button size="sm" variant="outline" disabled={ocupado} onClick={() => executar(() => mudarSituacao(id, 'inativo'))}>Marcar como inativo</Button>}
         {(situacao === 'inativo' || situacao === 'desligado') && <Button size="sm" variant="outline" disabled={ocupado} onClick={() => executar(() => mudarSituacao(id, 'ativo'))}>Reativar</Button>}
         {situacao !== 'desligado' && situacao !== 'candidato' && <Button size="sm" variant="ghost" onClick={() => setDialogo('desligar')}><UserX className="size-3.5" />Desligar</Button>}
         {podeAnonimizar && <Button size="sm" variant="ghost" onClick={() => setDialogo('anonimizar')}><Trash2 className="size-3.5" />Apagar dados (LGPD)</Button>}
       </div>
+      {situacao === 'candidato' && trava.travada && <p className="text-xs text-muted-foreground">{trava.motivo} A verificação fica no quadro “Verificação do candidato”.</p>}
       {!dialogo && <Erro texto={erro} />}
-      {dialogo && (
+      <AprovarComRestricao id={id} nome={nome ?? 'A pessoa'} verificacao={verificacao} aberto={dialogo === 'restricao'} onFechar={fechar} />
+      {dialogo && dialogo !== 'restricao' && (
         <Dialog titulo={dialogo === 'desligar' ? 'Desligar participante' : 'Apagar dados pessoais'} onFechar={fechar} podeFechar={!ocupado}
           descricao={dialogo === 'desligar' ? 'O cadastro fica guardado, marcado como desligado, com o motivo.' : 'Atende ao pedido do titular (LGPD, art. 18). Nome, contatos, documentos, endereço, saúde e formações são apagados; ficam só vínculo, setores e horas, sem identificar ninguém. Não tem volta.'}>
           <form className="flex flex-col gap-3 px-6 py-5" onSubmit={(e) => {

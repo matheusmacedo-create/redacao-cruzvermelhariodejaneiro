@@ -46,6 +46,13 @@ export const SERVICOS = {
   google_analytics: { nome: 'Google Analytics (conta de serviço)', variavel: 'GOOGLE_ANALYTICS_CONTA', painel: 'https://console.cloud.google.com/iam-admin/serviceaccounts' },
   // Confere links de matérias e da newsletter antes de publicar (lib/apis-publicas).
   google_safe_browsing: { nome: 'Google Safe Browsing (conferência de links)', variavel: 'GOOGLE_SAFE_BROWSING_KEY', painel: 'https://console.cloud.google.com/apis/library/safebrowsing.googleapis.com' },
+  // Verificação do candidato a voluntário (lib/participantes/verificacao/cgu.ts): consulta CEIS, CNEP,
+  // CEAF e PEP por CPF. Chave gratuita, pedida com conta gov.br (prata ou ouro); 90 consultas por minuto.
+  portal_transparencia: { nome: 'Portal da Transparência (CGU — sanções e PEP)', variavel: 'PORTAL_TRANSPARENCIA_KEY', painel: 'https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email' },
+  // Serpro (Consulta CPF / Datavalid): confirma nome, nascimento e situação do CPF na Receita, e a biometria
+  // facial. É pago por consulta e exige contrato com o CNPJ da filial. Fica preparado: ligar esta entrada
+  // quando lib/participantes/verificacao/serpro.ts existir (docs/verificacao-de-voluntarios.md).
+  // serpro: { nome: 'Serpro (Consulta CPF)', variavel: 'SERPRO_CONSULTA_CPF', painel: 'https://loja.serpro.gov.br/consultacpf', campos: [{ id: 'consumerKey', rotulo: 'Consumer key', secreto: false }, { id: 'consumerSecret', rotulo: 'Consumer secret', secreto: true }] },
   // O WhatsApp do Palácio (lib/whatsapp). A chave pode ser a global do servidor ou o token da instância;
   // só "Criar a instância" exige a global. Reserva no ambiente: EVOLUTION_API_URL, _KEY e EVOLUTION_INSTANCIA.
   evolution_api: {
