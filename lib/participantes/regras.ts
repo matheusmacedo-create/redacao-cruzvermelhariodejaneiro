@@ -42,7 +42,7 @@ export type NomeDoNivel = keyof typeof NIVEIS
 export const nivelDoNome = (n: string | null | undefined): Nivel => (n && Object.hasOwn(NIVEIS, n) ? NIVEIS[n as NomeDoNivel].valor : 0) as Nivel
 
 /** Versão do termo de tratamento de dados que a pessoa aceita no formulário. */
-export const TERMO_VERSAO = '2026-09-v1'
+export const TERMO_VERSAO = '2026-10-v1'
 
 export const somenteDigitos = (s: string) => s.replace(/\D/g, '')
 
@@ -86,6 +86,90 @@ export function situacaoDaFormacao(validoAte: string | null, hoje: string): Situ
   return dias <= 60 ? 'vence_logo' : 'valida'
 }
 
+/**
+ * Redes sociais do voluntário: o cadastro guarda só endereços https, um por
+ * rede (participantes.redes, jsonb). A pessoa digita como quiser (`@fulana`,
+ * `instagram.com/fulana`, o link inteiro) e `normalizarRede` transforma no
+ * endereço; o banco confere de novo que é um link https de até 300 caracteres.
+ */
+export const REDES = {
+  instagram: { rotulo: 'Instagram', host: 'instagram.com', perfil: 'https://www.instagram.com/', dica: '@usuário ou o link' },
+  linkedin: { rotulo: 'LinkedIn', host: 'linkedin.com', perfil: 'https://www.linkedin.com/in/', dica: 'O link do perfil' },
+  facebook: { rotulo: 'Facebook', host: 'facebook.com', perfil: 'https://www.facebook.com/', dica: 'O link do perfil' },
+  outro: { rotulo: 'Outro link', host: null, perfil: null, dica: 'Site, portfólio, TikTok, YouTube…' },
+} as const
+export type Rede = keyof typeof REDES
+export const CHAVES_DAS_REDES = Object.keys(REDES) as Rede[]
+export const ehRede = (s: unknown): s is Rede => typeof s === 'string' && Object.hasOwn(REDES, s)
+export type Redes = Partial<Record<Rede, string>>
+export const TAMANHO_DO_LINK = 300
+
+const USUARIO = /^[A-Za-z0-9._-]{1,100}$/
+
+/**
+ * O que a pessoa digitou → o endereço https da rede, ou a mensagem de erro.
+ * Vazio devolve null (campo não preenchido). Instagram, LinkedIn e Facebook
+ * aceitam `@usuário` (vira o link do perfil) e só links do próprio site; o
+ * "outro" aceita qualquer endereço http(s) com domínio.
+ */
+export function normalizarRede(rede: Rede, valor: string): { url: string } | { erro: string } | null {
+  const r = REDES[rede]
+  let texto = valor.trim()
+  if (!texto) return null
+  const invalido = { erro: rede === 'outro' ? 'Link inválido. Informe o endereço completo, como https://exemplo.com.br.' : `Link do ${r.rotulo} inválido. Cole o endereço do perfil${rede === 'instagram' ? ' ou informe o @usuário' : ''}.` }
+  if (r.perfil) {
+    // `@fulana.rj` ou `fulana.rj` (sem barra e sem o site) é o usuário; o resto é link.
+    const comArroba = texto.startsWith('@')
+    if (comArroba) texto = texto.slice(1)
+    if (comArroba || (!texto.includes('/') && !texto.toLowerCase().includes(r.host))) return USUARIO.test(texto) ? { url: r.perfil + texto } : invalido
+  }
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(texto)) texto = 'https://' + texto
+  let u: URL
+  try { u = new URL(texto) } catch { return invalido }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return invalido
+  if (u.username || u.password) return invalido
+  const host = u.hostname.toLowerCase()
+  if (r.host ? (host !== r.host && !host.endsWith('.' + r.host)) || u.pathname.length < 2 : !host.includes('.')) return invalido
+  u.protocol = 'https:'
+  u.hash = ''
+  const url = u.toString().replace(/\/$/, '')
+  if (url.length > TAMANHO_DO_LINK) return { erro: `Link do ${r.rotulo} longo demais (até ${TAMANHO_DO_LINK} caracteres).` }
+  return { url }
+}
+
+/** Como o link aparece na tela: sem `https://www.`, e `@usuário` no Instagram. */
+export function textoDaRede(rede: Rede, url: string): string {
+  const m = rede === 'instagram' ? /^https:\/\/(?:www\.)?instagram\.com\/([^/?#]+)\/?$/.exec(url) : null
+  if (m) return '@' + decodeURIComponent(m[1])
+  return url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
+}
+
+/** Os links que o cadastro guarda, na ordem das redes e só os válidos. */
+export function lerRedesGuardadas(bruto: unknown): [Rede, string][] {
+  if (!bruto || typeof bruto !== 'object') return []
+  const o = bruto as Record<string, unknown>
+  return CHAVES_DAS_REDES.flatMap((k) => (typeof o[k] === 'string' && /^https?:\/\//.test(o[k] as string) ? [[k, o[k] as string] as [Rede, string]] : []))
+}
+
+/**
+ * Os campos `rede_<nome>` do formulário. Só entra quando ao menos um deles
+ * veio (formulário que não tem os campos não mexe nas redes guardadas); um
+ * campo vazio tira aquele link.
+ */
+export function lerRedes(f: FormData): { redes: Redes; erros: string[] } | null {
+  const presentes = CHAVES_DAS_REDES.filter((k) => f.has(`rede_${k}`))
+  if (!presentes.length) return null
+  const redes: Redes = {}
+  const erros: string[] = []
+  for (const k of presentes) {
+    const r = normalizarRede(k, String(f.get(`rede_${k}`) ?? '').slice(0, 1000))
+    if (!r) continue
+    if ('erro' in r) erros.push(r.erro)
+    else redes[k] = r.url
+  }
+  return { redes, erros }
+}
+
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 /** Lista separada por vírgula ou linha → itens limpos, sem repetição. */
@@ -93,7 +177,7 @@ export function lerLista(texto: string, max = 20): string[] {
   return [...new Set(texto.split(/[,\n;]/).map((s) => s.trim().slice(0, 80)).filter(Boolean))].slice(0, max)
 }
 
-export type DadosDoParticipante = Record<string, string | string[] | boolean | null>
+export type DadosDoParticipante = Record<string, string | string[] | boolean | Redes | null>
 
 /**
  * Lê o formulário (da equipe ou público) nos campos que o banco entende.
@@ -149,6 +233,8 @@ export function lerFormulario(f: FormData, hoje: string, o: { publico?: boolean;
   if (f.has('disponibilidade')) dados.disponibilidade = f.getAll('disponibilidade').map(String).filter((s) => (DISPONIBILIDADES as readonly string[]).includes(s))
   if (f.has('habilidades')) dados.habilidades = lerLista(String(f.get('habilidades') ?? ''))
   if (f.has('idiomas')) dados.idiomas = lerLista(String(f.get('idiomas') ?? ''), 10)
+  const redes = lerRedes(f)
+  if (redes) { erros.push(...redes.erros); dados.redes = redes.redes }
 
   if (!String(dados.nome ?? '').trim() && (o.publico || f.has('nome'))) erros.push('Informe o nome.')
   if (o.publico) {

@@ -845,7 +845,7 @@ const MENSAGENS: GuiaDaArea = {
 
 const PERFIL: GuiaDaArea = {
   href: '/membro/perfil',
-  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam a sua foto de perfil, o seu crachá virtual de colaborador voluntário, os bens da filial que estão com você e a preferência de avisos por e-mail.',
+  paraQueServe: 'No Perfil ficam os seus dados. Contato, endereço, contato de emergência, habilidades, idiomas, redes sociais e quando você pode atuar você atualiza por aqui; nome, e-mail de acesso, CPF, nascimento, vínculo, função e setores só a coordenação altera. Aqui também ficam a sua foto de perfil, o seu crachá virtual de colaborador voluntário, os bens da filial que estão com você e a preferência de avisos por e-mail.',
   tour: [
     {
       alvo: 'membro.completude',
@@ -873,7 +873,7 @@ const PERFIL: GuiaDaArea = {
     {
       alvo: 'membro.formulario-do-perfil',
       titulo: 'O que você atualiza',
-      texto: 'Contato, endereço, contato de emergência, habilidades, idiomas e quando você pode atuar. Mexeu em algo, aparece embaixo a barra “Alterações não salvas”, com o “Salvar”.',
+      texto: 'Contato, endereço, contato de emergência, habilidades, idiomas, redes sociais e quando você pode atuar. Mexeu em algo, aparece embaixo a barra “Alterações não salvas”, com o “Salvar”.',
     },
     {
       alvo: 'membro.avisos-por-email',

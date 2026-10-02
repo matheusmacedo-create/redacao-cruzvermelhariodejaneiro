@@ -4,7 +4,7 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react
 import { useFormStatus } from 'react-dom'
 import { BellRing, Check, CircleCheck, HandHeart, HeartPulse, LoaderCircle, LogOut, MapPin, Phone, type LucideIcon } from 'lucide-react'
 import { preferirAvisos, sair, salvarPerfil } from '@/app/actions/membro'
-import { DISPONIBILIDADES, UFS } from '@/lib/participantes/regras'
+import { CHAVES_DAS_REDES, DISPONIBILIDADES, REDES, UFS, lerRedesGuardadas } from '@/lib/participantes/regras'
 import type { Perfil } from '@/lib/membro/dados'
 import { cn } from '@/lib/utils'
 import { barraFixa, botaoDoMembro, botaoSecundario, campoDoMembro } from './marca'
@@ -88,6 +88,7 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [enviando, iniciar] = useTransition()
   const v = (k: keyof Perfil) => String(p[k] ?? '')
+  const redes = Object.fromEntries(lerRedesGuardadas(p.redes))
 
   useEffect(() => {
     if (formulario.current) salvo.current = retrato(formulario.current)
@@ -183,6 +184,9 @@ export function FormularioDoPerfil({ p }: { p: Perfil }) {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo id="m-habilidades" name="habilidades" rotulo="Habilidades" defaultValue={p.habilidades.join(', ')} dica="Separe por vírgula. Ex.: primeiros socorros, fotografia." largo />
           <Campo id="m-idiomas" name="idiomas" rotulo="Idiomas" defaultValue={p.idiomas.join(', ')} dica="Separe por vírgula. Ex.: inglês, Libras." largo />
+          {CHAVES_DAS_REDES.map((k) => (
+            <Campo key={k} id={`m-rede-${k}`} name={`rede_${k}`} rotulo={REDES[k].rotulo} dica={REDES[k].dica} defaultValue={redes[k] ?? ''} inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={300} placeholder={k === 'instagram' ? '@usuario' : k === 'outro' ? 'https://' : `${REDES[k].host}/…`} />
+          ))}
           <fieldset id="disponibilidade" className="min-w-0 sm:col-span-2">
             <legend className="mb-2 text-sm font-medium">Quando você pode atuar</legend>
             {/*

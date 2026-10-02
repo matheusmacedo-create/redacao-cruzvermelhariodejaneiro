@@ -14,7 +14,7 @@ export default async function EditarParticipante({ params }: { params: Promise<{
   const { context, supabase, nivel } = await contextoDeParticipantes()
   if (nivel < 2) redirect(`/voluntariado/${id}`)
   const { data: p } = await supabase.from('participantes')
-    .select('id,nome,nome_social,vinculo,funcao,setores,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,anonimizado_em')
+    .select('id,nome,nome_social,vinculo,funcao,setores,email,telefone,data_nascimento,cpf_mascara,cep,logradouro,numero,complemento,bairro,cidade,uf,emergencia_nome,emergencia_telefone,emergencia_parentesco,tem_dados_de_saude,responsavel_nome,responsavel_telefone,habilidades,idiomas,disponibilidade,observacoes,redes,anonimizado_em')
     .eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
   if (!p || p.anonimizado_em) notFound()
   // À parte: se a coluna ainda não existir no banco, a edição abre sem o bloco da foto quebrar a página.
