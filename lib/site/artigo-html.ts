@@ -4,6 +4,7 @@ import {
   type ImagemDaPagina,
 } from '@/lib/site/esqueleto'
 import { svgDaMarca } from '@/lib/marcas'
+import { alternativasDaPagina } from '@/lib/site/traducoes'
 export { escapar } from '@/lib/site/esqueleto'
 
 /**
@@ -505,6 +506,8 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
       });
     </script>`
 
+  const alternativas = alternativasDaPagina(canonica.slice(origem.length), origem)
+
   return montarPaginaDoSite({
     titulo,
     descricao,
@@ -513,6 +516,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     corpo,
     cssExtra: dados.rastreio ? CSS_DO_BOTAO : '',
     jsonLd,
+    ...(alternativas ? { alternativas } : {}),
     ativo: 'noticias',
     agora: publicadoEm,
     imagem: capa ?? IMAGEM_PADRAO_DO_SITE,
