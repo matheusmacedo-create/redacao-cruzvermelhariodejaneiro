@@ -1929,9 +1929,15 @@ banco em `20261002150000` (`supabase/tests/conversoes.test.sql`).
   `meta_ads` (um usuário do sistema com acesso ao pixel também envia). Ligar
   testa `GET /{pixel}?fields=id,name`; "Enviar evento de teste" manda um
   `Purchase` de R$ 1,00 com `test_event_code`.
-- **Cadência.** O cron diário das 9h lê tudo; um cron de hora em hora
-  (`/api/escola/sincronizar?so=unicopag`, minuto 23) lê só a Únicopag, para o
-  evento chegar perto do pagamento.
+- **Cadência.** O cron diário das 9h lê tudo; um segundo cron
+  (`/api/escola/sincronizar?so=unicopag`, 12h23 UTC) lê só a Únicopag. Ele nasceu
+  de hora em hora (02/10), mas **o plano Hobby da Vercel só aceita cron diário**: com
+  `23 * * * *` em `vercel.json`, todo deploy do projeto falhou de 02/10 a 03/10
+  ("Hobby accounts are limited to daily cron jobs") e a produção ficou parada no
+  commit anterior ao PR #292. Em 03/10 voltou a diário. Para o evento chegar perto
+  do pagamento de novo, é preciso o plano Pro (decisão da instituição) e aí basta
+  trocar a linha para `23 * * * *`; enquanto isso, o botão "Atualizar agora" na visão
+  geral da Escola faz a leitura na hora.
 - **LGPD.** Dado pessoal com hash ainda é dado pessoal: a base legal
   (legítimo interesse na medição de anúncios, ou consentimento) e o aviso na
   página de inscrição são da escola. Decisão do Matheus (02/10): `Purchase`
