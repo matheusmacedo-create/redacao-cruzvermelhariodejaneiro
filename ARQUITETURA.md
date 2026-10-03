@@ -624,6 +624,19 @@ O Palácio Virtual não as grava: saíram de “Publicar páginas do site” e d
 `privacidade`/`termos` saíram da lista de pastas que o FTP aceita na raiz.
 `lib/site/juridico.ts` guarda só `DADOS_DA_FILIAL`.
 
+**Inglês (hreflang).** As matérias traduzidas vivem no repositório do site
+(`/en/news/`, geradas por `scripts/gerar_ingles.py`, que grava
+`traducoes/en/mapa-hreflang.json`). `lib/site/traducoes-en.json` é uma cópia desse mapa
+e `lib/site/traducoes.ts` (`alternativasDaPagina`) devolve as três linhas de hreflang
+(pt-BR, en, x-default no português) para a matéria que tem par e para `/noticias/` ↔
+`/en/news/`; matéria sem par não declara nada. Tradução nova no site: copie o mapa de
+novo e clique em “Regerar”. `npx tsx scripts/conferir-traducoes.ts` confere o mapa.
+
+**O Palácio não entra na busca.** `app/robots.ts` proíbe tudo e `next.config.mjs` manda
+`X-Robots-Tag: noindex, nofollow` em toda resposta (03/10/2026). As páginas públicas
+(crachá, diploma, verificação, inscrição) chegam por link e QR, não pelo Google; o
+domínio antigo redireciona e herda o mesmo.
+
 **Sem convite a doar.** A doação online saiu do ar em 25/09/2026 (`/doe/` responde 503
 com aviso, no repositório do site). Nada que o Palácio Virtual gera convida a doar: o
 “Doe” saiu do cabeçalho, `/doe/` saiu do sitemap e das páginas que a IA pode ligar no

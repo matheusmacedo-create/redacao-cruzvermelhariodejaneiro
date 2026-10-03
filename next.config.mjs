@@ -14,6 +14,8 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // Ferramenta interna: nada do Palácio entra na busca (app/robots.ts diz o mesmo).
+      { source: '/:path*', headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }] },
       // O service worker (public/sw.js) sempre conferido: versão nova chega na próxima visita.
       { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, max-age=0' }, { key: 'Service-Worker-Allowed', value: '/' }] },
       // Logo e imagens fixas: um dia sem perguntar ao servidor (o padrão da Vercel é perguntar a cada tela).

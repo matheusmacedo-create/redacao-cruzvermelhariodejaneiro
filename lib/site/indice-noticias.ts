@@ -1,4 +1,5 @@
 import { IMAGEM_PADRAO_DO_SITE, NOME_DO_SITE, montarPaginaDoSite, escapar, noDaOrganizacao, noDoSite } from '@/lib/site/esqueleto'
+import { alternativasDaPagina } from '@/lib/site/traducoes'
 import { NOME_DO_CANAL, resumoDoPost, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { svgDaMarca } from '@/lib/marcas'
 
@@ -185,6 +186,7 @@ export function paginaDeNoticias(
 
   const origem = 'https://cruzvermelhariodejaneiro.org'
   const url = `${origem}/noticias/`
+  const alternativasDoIndice = alternativasDaPagina('/noticias/', origem)
   const descricao = `Notícias da ${NOME_DO_SITE}: voluntariado, cursos de primeiros socorros, campanhas humanitárias e ações da filial no estado do Rio.`
   // O cartão de compartilhamento do índice é a capa da matéria mais nova;
   // sem capa, a imagem da home.
@@ -203,6 +205,7 @@ export function paginaDeNoticias(
     ativo: 'noticias',
     imagem,
     chat,
+    ...(alternativasDoIndice ? { alternativas: alternativasDoIndice } : {}),
     // A página é uma coleção; a lista vai como ItemList de endereços e títulos
     // (antes eram NewsArticle aninhados, incompletos, que o Google lia como
     // matérias sem autor, sem imagem e sem data de alteração).
