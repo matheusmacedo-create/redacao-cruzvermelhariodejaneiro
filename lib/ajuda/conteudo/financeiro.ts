@@ -1025,4 +1025,124 @@ const TRILHA: GuiaDaArea = {
   relacionadas: ['/transparencia', '/canais-oficiais', '/oficios'],
 }
 
-export const guias: GuiaDaArea[] = [FINANCEIRO, TRANSPARENCIA, CANAIS, TRILHA]
+const MAPA: GuiaDaArea = {
+  href: '/mapa',
+  paraQueServe: 'Um só desenho de tudo o que a filial tem no digital: o Palácio Virtual, o site e a plataforma da Escola, com cada área e cada módulo marcado como “no ar”, “feito, falta ligar”, “em andamento”, “fora do ar por decisão” ou “só proposta”. Cada parte lista as pendências que faltam para ela funcionar de ponta a ponta. É a tela para responder “o que já temos?” e “o que falta?” sem percorrer documentos.',
+  quemUsa: 'Todo membro do espaço vê o mapa. Administradores e editores marcam pendências como resolvidas e mudam o estado de cada parte; as contagens e o progresso se recalculam na hora.',
+  naPratica: {
+    titulo: 'Ligar o que já estava pronto',
+    passos: [
+      'Na visão geral, o cartão do Palácio Virtual mostra quantos recursos estão no ar e quantas pendências ainda estão abertas.',
+      'Clicando no cartão e depois em “Integrações”, aparece o módulo de conversões do Meta marcado como “Feito, falta ligar”, com a pendência “Cadastrar a chave no painel”.',
+      'Alguém faz a configuração na Vercel, volta ao mapa, abre o módulo e marca a pendência como resolvida; em seguida muda o estado para “No ar”.',
+      'O cartão do Palácio, a saúde do ecossistema e a fila de próximos passos se atualizam sozinhos, para todo mundo.',
+    ],
+    resultado: 'O mapa é sempre o retrato de agora: ninguém precisa perguntar “isso já foi ligado?”.',
+  },
+  tour: [
+    {
+      titulo: 'Um mapa, três sistemas',
+      texto: 'Palácio Virtual, site e plataforma da Escola numa só árvore. Cada clique desce um nível: sistema, área, módulo. Esc ou “Voltar” sobe de novo.',
+    },
+    {
+      alvo: 'mapa.sistemas',
+      titulo: 'Visão geral',
+      texto: 'Um cartão por sistema, com o total de recursos, a barra do que está no ar e as pendências abertas. Embaixo, a saúde do conjunto e o próximo passo da fila.',
+      lado: 'top',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'mapa.busca',
+      titulo: 'Buscar',
+      texto: 'Ctrl K abre a busca. Digite parte do nome de um sistema, área ou módulo e vá direto para ele.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'mapa.filtros',
+      titulo: 'Filtros',
+      texto: 'Filtre por estado (só o que falta ligar, por exemplo), por sistema, ou mostre só o que tem pendência. Os filtros ativos ficam listados ao lado, cada um com um × para tirar.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'mapa.modo',
+      titulo: 'Mapa ou lista',
+      texto: 'O mesmo conteúdo em dois jeitos: o mapa, com os ramos em volta do que está em foco, ou a lista, em cartões ordenáveis. A escolha fica salva.',
+      lado: 'bottom',
+    },
+    {
+      alvo: 'mapa.mais',
+      titulo: 'Mais opções',
+      texto: 'Em “Mais” está a visualização completa, com as três árvores inteiras de uma vez, e a lista de atalhos do teclado.',
+      lado: 'bottom',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'marcar-pendencia-resolvida',
+      titulo: 'Marcar uma pendência como resolvida',
+      passos: [
+        'Chegue ao módulo da pendência: pela busca (Ctrl K) ou descendo pelo mapa até ele.',
+        'No painel que abre à direita, em “Pendências ligadas”, marque a caixa da pendência resolvida.',
+        'Se precisar voltar atrás, abra “Resolvidas” no mesmo painel e desmarque a caixa.',
+      ],
+      dica: 'Só administradores e editores veem as caixas. Para os demais, o painel mostra a lista sem elas.',
+      exemplo: 'Exemplo: a pendência “Ligar as conversões do Meta no Palácio” (R-01) é marcada depois que a chave entra na Vercel; ela sai da fila e a “Integrações” do Palácio passa de 2 para 1 pendência aberta.',
+    },
+    {
+      id: 'mudar-estado',
+      titulo: 'Mudar o estado de um módulo',
+      passos: [
+        'Abra o módulo (clique nele no mapa ou na lista).',
+        'No painel, em “Estado”, escolha o novo estado na lista: No ar, Feito, falta ligar, Em andamento, Fora do ar por decisão ou Só proposta.',
+        'O mapa redesenha na hora: a barra do sistema, a saúde e os filtros já refletem a mudança.',
+      ],
+    },
+    {
+      id: 'ver-so-o-que-falta',
+      titulo: 'Ver só o que falta ligar',
+      passos: [
+        'Nos filtros, clique em “Pendências” (o estado “feito, falta ligar”) ou em “⚠ Só com pendência”.',
+        'Troque para o modo “Lista” e ordene por “Mais pendências” para começar pelo que mais trava.',
+        'Clique em “Limpar filtros” para voltar ao mapa inteiro.',
+      ],
+    },
+    {
+      id: 'visualizacao-completa',
+      titulo: 'Ver as três árvores inteiras',
+      passos: [
+        'Clique em “Mais ⋯” e depois em “Visualização completa”.',
+        'Arraste para mover e use a roda do mouse, os botões + e −, ou os dedos no celular para aproximar: de longe aparecem só as áreas, de perto os módulos e os nomes.',
+        'Esc volta ao modo normal.',
+      ],
+    },
+  ],
+  perguntas: [
+    {
+      id: 'de-onde-vem',
+      pergunta: 'De onde vêm os itens e as pendências do mapa?',
+      resposta: 'Do levantamento feito em outubro de 2026, gravado em duas tabelas do banco (itens e pendências). O mapa só mostra o que está lá: não há número fixo na tela, tudo é contado na hora. Item novo entra por migração ou por quem tem acesso ao banco.',
+      termos: ['origem', 'dados', 'tabela', 'fonte'],
+    },
+    {
+      id: 'o-que-significa-cada-estado',
+      pergunta: 'O que quer dizer cada estado?',
+      resposta: '“No ar”: funciona hoje para quem usa. “Feito, falta ligar”: o código está pronto, mas falta uma chave, uma publicação ou uma configuração em outro painel. “Em andamento”: ainda está sendo construído. “Fora do ar por decisão”: existe, mas foi desligado de propósito. “Só proposta”: só existe em documento.',
+      termos: ['legenda', 'cores', 'status'],
+    },
+    {
+      id: 'fila',
+      pergunta: 'O que é a “fila de próximos passos”?',
+      resposta: 'A ordem sugerida para atacar as pendências, do levantamento. Quando uma pendência é marcada como resolvida, ela sai da fila e a seguinte passa a ser a número 1. A posição aparece no cartão da pendência, dentro do painel.',
+      termos: ['ordem', 'prioridade', 'próximo'],
+    },
+    {
+      id: 'nao-consigo-marcar',
+      pergunta: 'Não aparece a caixa para marcar a pendência. Por quê?',
+      resposta: 'Marcar pendências e mudar estados exige a permissão “Atualizar o mapa do ecossistema”, que administradores e editores têm. Colaboradores veem tudo, mas não alteram. Um administrador muda papéis em Usuários.',
+      termos: ['permissão', 'editar', 'não consigo'],
+    },
+  ],
+  relacionadas: ['/transparencia', '/usuarios', '/configuracoes'],
+}
+
+export const guias: GuiaDaArea[] = [FINANCEIRO, TRANSPARENCIA, CANAIS, TRILHA, MAPA]
