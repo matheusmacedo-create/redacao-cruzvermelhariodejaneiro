@@ -1,7 +1,7 @@
 import {
   Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessageCircleHeart, MessagesSquare, Newspaper, PiggyBank, PlugZap, Radar, ScrollText, Send, Settings, SquareCheckBig, Upload, UserRound, Contact,
-  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, type LucideIcon,
+  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, Waypoints, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -134,6 +134,8 @@ export const GRUPOS: Grupo[] = [
       { href: '/transparencia', rotulo: 'Transparência', resumo: 'Estatuto, balanços, relatórios e parcerias publicados no portal', icone: Landmark, termos: ['portal da transparência', 'balanço', 'estatuto', 'mrosc', 'parcerias', 'prestação de contas'], permissao: 'transparencia.gerenciar' },
       { href: '/canais-oficiais', rotulo: 'Canais oficiais', resumo: 'A lista pública dos endereços e perfis que são mesmo da filial', icone: BadgeCheck, termos: ['canais', 'redes sociais', 'golpe', 'perfis oficiais', 'telefones'], permissao: 'transparencia.gerenciar', dentroDe: '/transparencia' },
       { href: '/trilha-publica', rotulo: 'Trilha pública', resumo: 'Registros verificáveis, lotes diários e carimbos no Bitcoin', icone: ShieldCheck, termos: ['auditoria', 'verificação', 'carimbo', 'blockchain', 'autenticidade', 'lotes'], permissao: 'trilha.ver', dentroDe: '/transparencia' },
+      // O mapa do que a filial tem no ar (Palácio, site e plataforma da Escola) e do que falta ligar.
+      { href: '/mapa', rotulo: 'Mapa do ecossistema', resumo: 'Palácio Virtual, site e plataforma da Escola numa só árvore: o que está no ar, o que falta ligar e as pendências de cada parte', icone: Waypoints, termos: ['mapa', 'ecossistema', 'pendências', 'o que falta', 'próximos passos', 'sistemas', 'integrações', 'status', 'mapa mental'] },
     ],
   },
   {
