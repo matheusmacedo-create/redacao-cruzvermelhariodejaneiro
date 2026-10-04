@@ -1942,7 +1942,17 @@ banco em `20261002150000` e `20261004170000` (`supabase/tests/conversoes.test.sq
   API de Conversões dele, **só com o consentimento de marketing da pessoa**
   (é o que o aviso de cookies do site promete). Mandar daqui contaria a compra
   duas vezes (`unicopag:<hash>` é outro event_id) e mandaria dados de quem disse
-  "não" — essa fica desmarcada.
+  "não" — essa fica desmarcada. Na tela, id de conta apagada que sobrou em
+  `contas` não conta como conta que manda (e de fato não manda).
+- **Só ligue o pixel depois do merge desse código (04/10/2026).** O preview usa o
+  banco de produção, e o código antigo da produção (`enviarConversoes` sem
+  `contas`) manda as vendas de **todas** as contas, com o CPF, assim que
+  `ativa` = true. Sem a migração `20261004170000`, a tela esconde o formulário e
+  `ligarConversoes` recusa ("Aplique a migração 20261004170000 antes de ligar o
+  pixel…"), porque a `escola_conversoes_salvar` antiga ignoraria as contas e
+  gravaria ligado. Com a migração aplicada e o PR ainda aberto, o código novo
+  não tem como impedir: a regra é de quem liga — aplicar a migração, mesclar,
+  esperar o deploy da `main` e só então ligar.
 - **Dois momentos, um evento.** Tudo sai como `Purchase` (a Meta otimiza por
   valor nesse evento), com `content_category` = `taxa_de_inscricao` quando o
   produto é "Taxa de inscrição — X" ou "X — Inscrição…", e `curso` no resto

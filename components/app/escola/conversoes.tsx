@@ -82,16 +82,20 @@ function Teste() {
  * inscrição ou o curso. Ligar e desligar é de admin; o teste, de quem
  * trabalha no marketing.
  */
-export function ConversoesDaMeta({ configuracao, contas, resumo, token, ehAdmin }: { configuracao: ConfiguracaoDasConversoes | null; contas: ContaDaUnicopag[]; resumo: ResumoDosEnvios[]; token: { proprio: boolean; reserva: boolean }; ehAdmin: boolean }) {
+export function ConversoesDaMeta({ configuracao, migracaoPendente, contas, veContas, resumo, token, ehAdmin }: { configuracao: ConfiguracaoDasConversoes | null; migracaoPendente: boolean; contas: ContaDaUnicopag[]; veContas: boolean; resumo: ResumoDosEnvios[]; token: { proprio: boolean; reserva: boolean }; ehAdmin: boolean }) {
   const router = useRouter()
   const [editando, setEditando] = useState(false)
   const [recado, setRecado] = useState<{ erro?: string }>({})
   const [pendente, iniciar] = useTransition()
   const fim = () => { setEditando(false); router.refresh() }
   const c = configuracao
-  // As contas marcadas, pelo nome; quem não vê as contas da Únicopag (RLS) vê só quantas são.
+  // As contas marcadas, pelo nome. Quem vê as contas da Únicopag (todo admin) vê só as que existem: id de conta
+  // apagada não manda nada e não conta. Quem não as vê (RLS) vê só quantas são.
   const marcadas = c ? contas.filter((k) => c.contas.includes(k.id)).map((k) => k.nome) : []
-  const semNome = c ? c.contas.length - marcadas.length : 0
+  const semNome = c && !veContas ? c.contas.length : 0
+  const algumaMarcada = marcadas.length + semNome > 0
+  // Sem a migração 20261004170000, ligar ou editar gravaria o pixel sem as contas: o formulário some.
+  const podeEditar = ehAdmin && !migracaoPendente
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm" id="conversoes-meta">
       <div>
@@ -102,6 +106,7 @@ export function ConversoesDaMeta({ configuracao, contas, resumo, token, ehAdmin 
       </div>
       {c?.erro && <p className="text-xs text-destructive" role="alert">Último aviso falhou: {c.erro}</p>}
       {recado.erro && <p className="text-xs text-destructive" role="alert">{recado.erro}</p>}
+      {migracaoPendente && ehAdmin && <p className="text-xs text-destructive" role="alert" data-conversoes-migracao>Falta aplicar a migração 20261004170000 (as contas que mandam as vendas à Meta). Até lá, o pixel não pode ser ligado nem editado.</p>}
       {c && !editando && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-3 py-2 text-sm" data-pixel={c.pixel_id}>
           <span className={`font-medium ${c.ativa ? '' : 'opacity-60'}`}>Pixel {c.pixel_id}</span>
@@ -109,17 +114,17 @@ export function ConversoesDaMeta({ configuracao, contas, resumo, token, ehAdmin 
           <span className="text-xs text-muted-foreground">{token.proprio ? 'token da API de Conversões no cofre' : token.reserva ? 'usando o token do Meta Ads' : 'sem token: nada é enviado'}</span>
           {ehAdmin && (
             <span className="ml-auto flex gap-1">
-              <button type="button" onClick={() => setEditando(true)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Editar o pixel"><Pencil className="size-3.5" /></button>
+              {podeEditar && <button type="button" onClick={() => setEditando(true)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Editar o pixel"><Pencil className="size-3.5" /></button>}
               <Button variant="ghost" size="sm" className="text-destructive" disabled={pendente} onClick={() => {
                 if (!window.confirm('Desligar o pixel? O que já foi enviado continua no histórico.')) return
                 iniciar(async () => { setRecado(await desligarConversoes()); router.refresh() })
               }}>Desligar</Button>
             </span>
           )}
-          <span className={`basis-full text-xs ${c.contas.length ? 'text-muted-foreground' : 'text-destructive'}`} data-conversoes-marcadas>
-            {c.contas.length
+          <span className={`basis-full text-xs ${algumaMarcada ? 'text-muted-foreground' : 'text-destructive'}`} data-conversoes-marcadas>
+            {algumaMarcada
               ? `Mandam as vendas: ${[...marcadas, ...(semNome > 0 ? [`${semNome} ${semNome === 1 ? 'conta' : 'contas'} da Únicopag`] : [])].join(', ')}.`
-              : `Nenhuma conta da Únicopag marcada: nada é enviado à Meta.${ehAdmin ? ' Toque no lápis e marque as contas.' : ''}`}
+              : `Nenhuma conta da Únicopag marcada: nada é enviado à Meta.${podeEditar ? ' Toque no lápis e marque as contas.' : ''}`}
           </span>
         </div>
       )}
@@ -133,7 +138,7 @@ export function ConversoesDaMeta({ configuracao, contas, resumo, token, ehAdmin 
           ))}
         </dl>
       )}
-      {editando || (!c && ehAdmin) ? <Formulario c={c} contas={contas} token={token} onFim={fim} /> : null}
+      {podeEditar && (editando || !c) ? <Formulario c={c} contas={contas} token={token} onFim={fim} /> : null}
       {c && !editando && <Teste />}
       {!ehAdmin && !c && <p className="text-xs text-muted-foreground">Peça a um admin para ligar o pixel.</p>}
       <p className="text-xs text-muted-foreground">

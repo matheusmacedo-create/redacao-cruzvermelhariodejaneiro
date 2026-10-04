@@ -23,14 +23,15 @@ type Cliente = Awaited<ReturnType<typeof contextoDoMarketing>>['supabase']
 /**
  * A configuração do pixel, com as contas da Únicopag que mandam as vendas.
  * Sem a migração 20261004170000 (o preview antes de ela entrar), a coluna
- * `contas` não existe: lê o resto e mostra nenhuma conta marcada — e o
- * servidor, sem a lista, não manda nada (falha fechada).
+ * `contas` não existe: lê o resto, mostra nenhuma conta marcada e avisa
+ * `migracaoPendente` (a tela esconde o formulário e a ação recusa ligar) — e
+ * o servidor, sem a lista, não manda nada (falha fechada).
  */
-async function lerConfiguracaoDasConversoes(supabase: Cliente, ws: string): Promise<ConfiguracaoDasConversoes | null> {
+async function lerConfiguracaoDasConversoes(supabase: Cliente, ws: string): Promise<{ configuracao: ConfiguracaoDasConversoes | null; migracaoPendente: boolean }> {
   const r = await supabase.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,enviada_em,erro,contas').eq('workspace_id', ws).maybeSingle()
-  if (!r.error) return r.data ? { ...(r.data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: Array.isArray(r.data.contas) ? (r.data.contas as string[]) : [] } : null
+  if (!r.error) return { configuracao: r.data ? { ...(r.data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: Array.isArray(r.data.contas) ? (r.data.contas as string[]) : [] } : null, migracaoPendente: false }
   const { data } = await supabase.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,enviada_em,erro').eq('workspace_id', ws).maybeSingle()
-  return data ? { ...(data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: [] } : null
+  return { configuracao: data ? { ...(data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: [] } : null, migracaoPendente: true }
 }
 
 /**
@@ -48,7 +49,7 @@ export default async function ConfiguracoesDaEscolaPage() {
     nivel >= 2 ? supabase.from('escola_meta_contas').select('id,act_id,nome,filtro,ativa,sincronizada_em,sincronizacao_erro').eq('workspace_id', ws).order('created_at') : Promise.resolve({ data: [] }),
     supabase.from('integracoes_chaves').select('servico').eq('workspace_id', ws).eq('servico', 'meta_ads').maybeSingle(),
     // Sem a migração 20261002150000, as duas consultas falham e o quadro do pixel aparece vazio.
-    nivel >= 2 ? lerConfiguracaoDasConversoes(supabase, ws).then((data) => ({ data })) : Promise.resolve({ data: null }),
+    nivel >= 2 ? lerConfiguracaoDasConversoes(supabase, ws).then((data) => ({ data })) : Promise.resolve({ data: { configuracao: null, migracaoPendente: false } }),
     nivel >= 2 ? supabase.from('escola_conversoes_envios').select('categoria,valor,enviado_em,erro').eq('workspace_id', ws).gte('paga_em', ha30Dias).limit(5000) : Promise.resolve({ data: [] }),
     nivel >= 2 ? situacaoDoToken(ws) : Promise.resolve({ proprio: false, reserva: false }),
   ])
@@ -76,7 +77,7 @@ export default async function ConfiguracoesDaEscolaPage() {
       )}
       {nivel >= 2 && (
         <section className="flex flex-col gap-3" id="conversoes" data-ajuda="escola-contas.conversoes">
-          <ConversoesDaMeta configuracao={conversoes ?? null} contas={contasDaUnicopag} resumo={resumo} token={token} ehAdmin={nivel >= 3} />
+          <ConversoesDaMeta configuracao={conversoes.configuracao} migracaoPendente={conversoes.migracaoPendente} contas={contasDaUnicopag} veContas={nivelEscola >= 2} resumo={resumo} token={token} ehAdmin={nivel >= 3} />
         </section>
       )}
       <Card className="p-4 text-sm text-muted-foreground" data-ajuda="escola-contas.como-funciona">

@@ -26,6 +26,8 @@ function lerContas(formData: FormData): string[] {
   return [...new Set(ids.filter((v) => UUID.test(v)))]
 }
 
+const MIGRACAO_PENDENTE = 'Aplique a migração 20261004170000 antes de ligar o pixel: sem ela, as contas marcadas não ficam guardadas.'
+
 function erroDoBanco(error: { code?: string; message?: string } | null, padrao: string): never {
   throw new Error(error?.code === 'P0001' && error.message ? error.message : padrao)
 }
@@ -35,6 +37,9 @@ export async function ligarConversoes(_anterior: Estado, formData: FormData): Pr
   try {
     const { context, supabase, nivel } = await contextoDoMarketing()
     if (nivel < 3) throw new Error('Só um admin liga o pixel da Meta.')
+    // Sem a coluna `contas` (migração 20261004170000), o banco ignoraria as contas marcadas e gravaria o pixel ligado: recusa antes.
+    const { error: semContas } = await supabase.from('escola_conversoes').select('contas').eq('workspace_id', context.workspace.id).limit(1)
+    if (semContas) throw new Error(MIGRACAO_PENDENTE)
     const pixel = lerPixelId(String(formData.get('pixel_id') ?? ''))
     if (!pixel) throw new Error('O ID do pixel (conjunto de dados) é um número. Ele aparece no Gerenciador de Eventos, abaixo do nome.')
     const ativa = formData.get('ativa') !== 'nao'
