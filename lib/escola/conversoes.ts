@@ -47,7 +47,10 @@ export function lerPixelId(valor: string): string | null {
   return /^\d{5,30}$/.test(d) ? d : null
 }
 
-/** O que a Únicopag diz da pessoa que pagou. Fica só na memória do servidor: nunca vai ao banco. */
+/**
+ * O que a Únicopag diz da pessoa que pagou. Fica só na memória do servidor: nunca vai ao banco.
+ * O documento (CPF) não vai à Meta: os Termos das Ferramentas de Negócios proíbem número de documento.
+ */
 export type PessoaDaTransacao = { nome: string | null; email: string | null; telefone: string | null; documento: string | null }
 
 export type TransacaoParaEnviar = {
@@ -67,20 +70,21 @@ export function motivoParaNaoEnviar(t: Pick<TransacaoParaEnviar, 'situacao' | 'v
 
 const semAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
 
-/** E-mail, telefone, nome e CPF no formato que a Meta exige antes do hash (minúsculas, só dígitos no telefone com o 55). */
-export function normalizarPessoa(p: PessoaDaTransacao): { em: string | null; ph: string | null; fn: string | null; ln: string | null; external_id: string | null } {
+/**
+ * E-mail, telefone e nome no formato que a Meta exige antes do hash (minúsculas, só dígitos no telefone com o 55).
+ * O CPF fica de fora de propósito: nada aqui o lê.
+ */
+export function normalizarPessoa(p: PessoaDaTransacao): { em: string | null; ph: string | null; fn: string | null; ln: string | null } {
   const email = (p.email ?? '').trim().toLowerCase()
   let tel = (p.telefone ?? '').replace(/\D/g, '').replace(/^0+/, '')
   if (tel.length === 10 || tel.length === 11) tel = '55' + tel
   if (!(tel.length === 12 || tel.length === 13) || !tel.startsWith('55')) tel = ''
   const nome = semAcento((p.nome ?? '').toLowerCase()).replace(/[^a-z\s]/g, ' ').trim().split(/\s+/).filter(Boolean)
-  const cpf = (p.documento ?? '').replace(/\D/g, '')
   return {
     em: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? email : null,
     ph: tel || null,
     fn: nome[0] ?? null,
     ln: nome.length > 1 ? nome[nome.length - 1] : null,
-    external_id: cpf.length === 11 ? cpf : null,
   }
 }
 
@@ -105,7 +109,7 @@ export const idDoEvento = (hash: string) => `unicopag:${hash}`
 export function montarEvento(t: TransacaoParaEnviar, o: { categoria: Categoria; curso: string; pagina: string | null; hash: (s: string) => string }): EventoDaMeta {
   const n = normalizarPessoa(t.pessoa ?? { nome: null, email: null, telefone: null, documento: null })
   const user_data: Record<string, string[]> = { country: [o.hash('br')] }
-  for (const k of ['em', 'ph', 'fn', 'ln', 'external_id'] as const) if (n[k]) user_data[k] = [o.hash(n[k] as string)]
+  for (const k of ['em', 'ph', 'fn', 'ln'] as const) if (n[k]) user_data[k] = [o.hash(n[k] as string)]
   const produto = (t.produto ?? o.curso).trim().slice(0, 150)
   return {
     event_name: EVENTO,
@@ -118,11 +122,11 @@ export function montarEvento(t: TransacaoParaEnviar, o: { categoria: Categoria; 
   }
 }
 
-/** Quantos dados de pessoa o evento leva: diz à equipe se a correspondência com a Meta tem chance. */
+/** Quantos dados de pessoa o evento leva: diz à equipe se a correspondência com a Meta tem chance (boa com e-mail ou telefone, fraca só com nome). */
 export function qualidadeDoEvento(e: Pick<EventoDaMeta, 'user_data'>): 'boa' | 'fraca' | 'nenhuma' {
   const tem = (k: string) => Array.isArray(e.user_data[k]) && e.user_data[k].length > 0
   if (tem('em') || tem('ph')) return 'boa'
-  if (tem('fn') || tem('external_id')) return 'fraca'
+  if (tem('fn') || tem('ln')) return 'fraca'
   return 'nenhuma'
 }
 

@@ -28,12 +28,12 @@ igual(lerPixelId('act_123456'), null, 'id de conta de anúncios não é pixel')
 
 // Dados da pessoa no formato da Meta.
 igual(normalizarPessoa({ nome: 'Maria José da Silva', email: ' Maria.Silva@Exemplo.ORG ', telefone: '(21) 99999-8888', documento: '123.456.789-01' }),
-  { em: 'maria.silva@exemplo.org', ph: '5521999998888', fn: 'maria', ln: 'silva', external_id: '12345678901' }, 'pessoa completa')
+  { em: 'maria.silva@exemplo.org', ph: '5521999998888', fn: 'maria', ln: 'silva' }, 'pessoa completa: o CPF não sai')
 igual(normalizarPessoa({ nome: 'Ana', email: 'sem-arroba', telefone: '+55 21 3333-4444', documento: '12.345.678/0001-99' }),
-  { em: null, ph: '552133334444', fn: 'ana', ln: null, external_id: null }, 'telefone fixo com +55, e-mail inválido, CNPJ fora')
-igual(normalizarPessoa({ nome: null, email: null, telefone: '123', documento: null }), { em: null, ph: null, fn: null, ln: null, external_id: null }, 'telefone curto fora')
+  { em: null, ph: '552133334444', fn: 'ana', ln: null }, 'telefone fixo com +55, e-mail inválido, CNPJ fora')
+igual(normalizarPessoa({ nome: null, email: null, telefone: '123', documento: null }), { em: null, ph: null, fn: null, ln: null }, 'telefone curto fora')
 igual(normalizarPessoa({ nome: 'João-Pedro  Álvares', email: null, telefone: '021999998888', documento: null }).ph, '5521999998888', 'zero à esquerda sai')
-igual(normalizarPessoa({ nome: 'João-Pedro  Álvares', email: null, telefone: null, documento: null }), { em: null, ph: null, fn: 'joao', ln: 'alvares', external_id: null }, 'nome sem acento e sem hífen')
+igual(normalizarPessoa({ nome: 'João-Pedro  Álvares', email: null, telefone: null, documento: null }), { em: null, ph: null, fn: 'joao', ln: 'alvares' }, 'nome sem acento e sem hífen')
 
 // Quando não envia.
 const agora = new Date('2026-10-02T15:00:00Z')
@@ -62,7 +62,14 @@ igual(e.user_data.em, [sha('maria@exemplo.org')], 'e-mail com hash')
 igual(e.user_data.ph, [sha('5521999998888')], 'telefone com hash e 55')
 igual(e.user_data.fn, [sha('maria')], 'primeiro nome com hash')
 igual(e.user_data.ln, [sha('silva')], 'último nome com hash')
-igual(e.user_data.external_id, [sha('12345678901')], 'CPF com hash')
+// O CPF nunca vai à Meta (os Termos das Ferramentas de Negócios proíbem número de documento): nem em claro, nem com hash.
+igual('external_id' in e.user_data, false, 'sem external_id na user_data')
+igual(Object.keys(e.user_data).sort(), ['country', 'em', 'fn', 'ln', 'ph'], 'user_data só com e-mail, telefone, nome e país')
+igual(Object.values(e.user_data).flat().includes(sha('12345678901')), false, 'o hash do CPF não sai')
+igual(JSON.stringify(e).includes('12345678901'), false, 'o CPF não aparece em claro no evento')
+const soCpf = montarEvento({ ...t, pessoa: { nome: null, email: null, telefone: null, documento: '123.456.789-01' } }, { categoria: 'curso', curso: 'X', pagina: null, hash: sha })
+igual(Object.keys(soCpf.user_data), ['country'], 'só com CPF: a user_data leva só o país')
+igual(qualidadeDoEvento(soCpf), 'nenhuma', 'só com CPF: nenhuma')
 igual(e.user_data.country, [sha('br')], 'país')
 igual(Object.values(e.user_data).flat().every((h) => /^[0-9a-f]{64}$/.test(h)), true, 'nada em claro na user_data')
 igual(JSON.stringify(e).includes('maria@'), false, 'o e-mail não aparece em claro no evento')
@@ -72,6 +79,7 @@ igual(e2.action_source, 'other', 'sem página é other')
 igual('event_source_url' in e2, false, 'sem página não manda endereço')
 igual(e2.custom_data.content_category, 'curso', 'categoria curso')
 igual(qualidadeDoEvento(e2), 'fraca', 'só nome: fraca')
+igual(qualidadeDoEvento(montarEvento({ ...t, pessoa: { nome: null, email: null, telefone: '21999998888', documento: null } }, { categoria: 'curso', curso: 'X', pagina: null, hash: sha })), 'boa', 'só telefone: boa')
 igual(qualidadeDoEvento(montarEvento({ ...t, pessoa: null }, { categoria: 'curso', curso: 'X', pagina: null, hash: sha })), 'nenhuma', 'sem pessoa: nenhuma')
 igual(montarEvento({ ...t, produto: null }, { categoria: 'curso', curso: 'Punção Venosa', pagina: null, hash: sha }).custom_data.content_ids, ['Punção Venosa'], 'sem produto, o id é o curso')
 

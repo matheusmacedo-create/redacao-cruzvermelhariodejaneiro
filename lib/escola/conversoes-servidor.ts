@@ -86,12 +86,16 @@ type Registro = { hash: string; categoria: string; curso_id: string | null; curs
 /**
  * Depois de uma leitura: as vendas pagas desta conta que ainda não foram
  * avisadas (ou falharam menos de TENTATIVAS vezes) vão à Meta em lotes.
+ * Só as contas marcadas na configuração mandam (`contas`): a do checkout do
+ * site fica de fora, porque o site já manda a compra, com o consentimento da
+ * pessoa. Falha fechada: sem a lista (ou se a leitura der erro), nada sai.
  * Nunca derruba a sincronização: devolve o trecho da mensagem.
  */
 export async function enviarConversoes(admin: SupabaseClient, workspaceId: string, contaId: string, transacoes: TransacaoLida[]): Promise<string> {
   try {
-    const { data: cfg } = await admin.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa').eq('workspace_id', workspaceId).maybeSingle()
-    if (!cfg || !cfg.ativa) return ''
+    const { data: cfg, error: erroDaConfiguracao } = await admin.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,contas').eq('workspace_id', workspaceId).maybeSingle()
+    if (erroDaConfiguracao || !cfg || !cfg.ativa) return ''
+    if (!Array.isArray(cfg.contas) || !(cfg.contas as unknown[]).includes(contaId)) return ''
     const agora = new Date()
     const limite = agora.getTime() - PRAZO_DO_EVENTO_DIAS * 86_400_000
     const candidatas = transacoes.filter((t) => contaComoRecebido(t.situacao) && t.paga_em && Date.parse(t.paga_em) >= limite && t.valor > 0)

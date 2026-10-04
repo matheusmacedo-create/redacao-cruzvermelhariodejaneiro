@@ -9,12 +9,15 @@ import { desligarConversoes, ligarConversoes, testarEventoDaMeta } from '@/app/a
 import { CATEGORIAS, type Categoria } from '@/lib/escola/conversoes'
 import { reaisDeCentavos } from '@/lib/escola/painel'
 
-export type ConfiguracaoDasConversoes = { pixel_id: string; pagina_padrao: string | null; ativa: boolean; enviada_em: string | null; erro: string | null }
+/** `contas`: as contas da Únicopag cujas vendas vão à Meta (nenhuma por padrão; vazia também quando a migração 20261004170000 ainda não entrou). */
+export type ConfiguracaoDasConversoes = { pixel_id: string; pagina_padrao: string | null; ativa: boolean; enviada_em: string | null; erro: string | null; contas: string[] }
+/** Uma conta da Únicopag do espaço, para marcar quais mandam as vendas à Meta. */
+export type ContaDaUnicopag = { id: string; nome: string }
 export type ResumoDosEnvios = { categoria: Categoria; enviados: number; valor: number; falhas: number }
 
 const quando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null)
 
-function Formulario({ c, token, onFim }: { c: ConfiguracaoDasConversoes | null; token: { proprio: boolean; reserva: boolean }; onFim: () => void }) {
+function Formulario({ c, contas, token, onFim }: { c: ConfiguracaoDasConversoes | null; contas: ContaDaUnicopag[]; token: { proprio: boolean; reserva: boolean }; onFim: () => void }) {
   const [estado, enviar, enviando] = useActionState(ligarConversoes, {})
   useEffect(() => { if (estado.ok && !estado.erro) onFim() }, [estado.ok, estado.erro, onFim])
   const temToken = token.proprio || token.reserva
@@ -35,6 +38,16 @@ function Formulario({ c, token, onFim }: { c: ConfiguracaoDasConversoes | null; 
             No Gerenciador de Eventos: o pixel → Configurações → API de Conversões → <b>Gerar token de acesso</b>. O token é testado contra o pixel antes de guardar, vai direto para o cofre e nunca mais aparece.
           </span>
         </label>
+        <fieldset className="flex flex-col gap-1.5 rounded-lg border border-border p-3 sm:col-span-2" data-conversoes-contas>
+          <legend className="px-1 text-sm font-medium">Contas que mandam as vendas à Meta</legend>
+          {contas.length ? contas.map((k) => (
+            <label key={k.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="contas" value={k.id} defaultChecked={c?.contas.includes(k.id) ?? false} className="size-4 accent-primary" />
+              {k.nome}
+            </label>
+          )) : <p className="text-xs text-muted-foreground">Nenhuma conta da Únicopag cadastrada. Ligue a conta em “Contas da Únicopag” antes.</p>}
+          <span className="text-xs font-normal text-muted-foreground">Deixe desmarcada a conta do checkout do site (matrícula): o site já manda essa compra à Meta, e só com o consentimento da pessoa. Daqui, ela seria contada duas vezes.</span>
+        </fieldset>
         {c && (
           <label className="flex flex-col gap-1 text-sm font-medium">Situação
             <select name="ativa" defaultValue={c.ativa ? 'sim' : 'nao'} className={inputClass}><option value="sim">Avisando a cada leitura</option><option value="nao">Pausado</option></select>
@@ -69,19 +82,22 @@ function Teste() {
  * inscrição ou o curso. Ligar e desligar é de admin; o teste, de quem
  * trabalha no marketing.
  */
-export function ConversoesDaMeta({ configuracao, resumo, token, ehAdmin }: { configuracao: ConfiguracaoDasConversoes | null; resumo: ResumoDosEnvios[]; token: { proprio: boolean; reserva: boolean }; ehAdmin: boolean }) {
+export function ConversoesDaMeta({ configuracao, contas, resumo, token, ehAdmin }: { configuracao: ConfiguracaoDasConversoes | null; contas: ContaDaUnicopag[]; resumo: ResumoDosEnvios[]; token: { proprio: boolean; reserva: boolean }; ehAdmin: boolean }) {
   const router = useRouter()
   const [editando, setEditando] = useState(false)
   const [recado, setRecado] = useState<{ erro?: string }>({})
   const [pendente, iniciar] = useTransition()
   const fim = () => { setEditando(false); router.refresh() }
   const c = configuracao
+  // As contas marcadas, pelo nome; quem não vê as contas da Únicopag (RLS) vê só quantas são.
+  const marcadas = c ? contas.filter((k) => c.contas.includes(k.id)).map((k) => k.nome) : []
+  const semNome = c ? c.contas.length - marcadas.length : 0
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm" id="conversoes-meta">
       <div>
         <h2 className="text-sm font-medium">Pixel da Meta: pagamentos como conversões</h2>
         <p className="text-sm text-muted-foreground">
-          {c ? `Cada venda paga vira um evento Purchase no pixel ${c.pixel_id}, a cada leitura das transações${c.enviada_em ? ` · último aviso ${quando(c.enviada_em)}` : ''}.` : 'Ligue o pixel e cada venda paga na Únicopag vira um evento Purchase na API de Conversões: a taxa de inscrição e o curso, em dois momentos, para as campanhas otimizarem por cada um.'}
+          {c ? `Cada venda paga das contas marcadas vira um evento Purchase no pixel ${c.pixel_id}, a cada leitura das transações${c.enviada_em ? ` · último aviso ${quando(c.enviada_em)}` : ''}.` : 'Ligue o pixel e cada venda paga nas contas da Únicopag que você marcar vira um evento Purchase na API de Conversões: a taxa de inscrição e o curso, em dois momentos, para as campanhas otimizarem por cada um.'}
         </p>
       </div>
       {c?.erro && <p className="text-xs text-destructive" role="alert">Último aviso falhou: {c.erro}</p>}
@@ -100,6 +116,11 @@ export function ConversoesDaMeta({ configuracao, resumo, token, ehAdmin }: { con
               }}>Desligar</Button>
             </span>
           )}
+          <span className={`basis-full text-xs ${c.contas.length ? 'text-muted-foreground' : 'text-destructive'}`} data-conversoes-marcadas>
+            {c.contas.length
+              ? `Mandam as vendas: ${[...marcadas, ...(semNome > 0 ? [`${semNome} ${semNome === 1 ? 'conta' : 'contas'} da Únicopag`] : [])].join(', ')}.`
+              : `Nenhuma conta da Únicopag marcada: nada é enviado à Meta.${ehAdmin ? ' Toque no lápis e marque as contas.' : ''}`}
+          </span>
         </div>
       )}
       {c && !editando && resumo.length > 0 && (
@@ -112,11 +133,11 @@ export function ConversoesDaMeta({ configuracao, resumo, token, ehAdmin }: { con
           ))}
         </dl>
       )}
-      {editando || (!c && ehAdmin) ? <Formulario c={c} token={token} onFim={fim} /> : null}
+      {editando || (!c && ehAdmin) ? <Formulario c={c} contas={contas} token={token} onFim={fim} /> : null}
       {c && !editando && <Teste />}
       {!ehAdmin && !c && <p className="text-xs text-muted-foreground">Peça a um admin para ligar o pixel.</p>}
       <p className="text-xs text-muted-foreground">
-        Vão para a Meta só o valor, a categoria, o curso e os dados da pessoa com hash SHA-256 (e-mail, telefone, nome e CPF), como a API exige; nada disso fica guardado aqui. Vendas de produto de teste, ignoradas ou pagas há mais de 7 dias não são enviadas. No Gerenciador de Eventos, crie duas conversões personalizadas sobre <code>content_category</code> (“taxa_de_inscricao” e “curso”).
+        Vão para a Meta só o valor, a categoria, o curso e os dados da pessoa com hash SHA-256 (e-mail, telefone e nome), como a API exige; o CPF não vai, e nada disso fica guardado aqui. Só as vendas das contas marcadas vão; as de produto de teste, ignoradas ou pagas há mais de 7 dias, não. No Gerenciador de Eventos, crie duas conversões personalizadas sobre <code>content_category</code> (“taxa_de_inscricao” e “curso”).
         {' '}<a href="https://business.facebook.com/events_manager2" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 underline underline-offset-2">Gerenciador de Eventos<ExternalLink className="size-3" /></a>
       </p>
     </div>
