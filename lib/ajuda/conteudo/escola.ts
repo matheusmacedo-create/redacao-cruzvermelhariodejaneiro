@@ -332,7 +332,7 @@ export const guias: GuiaDaArea[] = [CURSOS,
       {
         alvo: 'escola-vendas.atualizar',
         titulo: 'Atualizar agora',
-        texto: 'O Palácio Virtual lê a Únicopag uma vez por dia. “Atualizar agora” lê de novo na hora; embaixo do botão aparece quando foi a última leitura.',
+        texto: 'O Palácio Virtual lê a Únicopag uma vez por dia. “Atualizar agora” lê na hora as vendas dos últimos 30 dias; embaixo do botão aparece quando foi a última leitura. Se a Únicopag demorar, ele grava o que conseguiu ler e avisa; o resto entra na leitura seguinte.',
         lado: 'bottom',
         seAusente: 'pular',
       },
