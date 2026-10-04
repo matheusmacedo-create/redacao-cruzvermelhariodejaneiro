@@ -18,6 +18,16 @@ type Estado = { erro?: string; recado?: string; ok?: number }
 
 const revalidar = () => { for (const c of ['/escola/configuracoes', '/escola/vendas/transacoes', '/configuracoes']) revalidatePath(c) }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** As contas da Únicopag marcadas para mandar as vendas à Meta: só ids no formato uuid, sem repetição. O banco confere se são do espaço. */
+function lerContas(formData: FormData): string[] {
+  const ids = formData.getAll('contas').filter((v): v is string => typeof v === 'string').map((v) => v.trim().toLowerCase())
+  return [...new Set(ids.filter((v) => UUID.test(v)))]
+}
+
+const MIGRACAO_PENDENTE = 'Aplique a migração 20261004170000 antes de ligar o pixel: sem ela, as contas marcadas não ficam guardadas.'
+
 function erroDoBanco(error: { code?: string; message?: string } | null, padrao: string): never {
   throw new Error(error?.code === 'P0001' && error.message ? error.message : padrao)
 }
@@ -27,8 +37,14 @@ export async function ligarConversoes(_anterior: Estado, formData: FormData): Pr
   try {
     const { context, supabase, nivel } = await contextoDoMarketing()
     if (nivel < 3) throw new Error('Só um admin liga o pixel da Meta.')
+    // Sem a coluna `contas` (migração 20261004170000), o banco ignoraria as contas marcadas e gravaria o pixel ligado: recusa antes.
+    const { error: semContas } = await supabase.from('escola_conversoes').select('contas').eq('workspace_id', context.workspace.id).limit(1)
+    if (semContas) throw new Error(MIGRACAO_PENDENTE)
     const pixel = lerPixelId(String(formData.get('pixel_id') ?? ''))
     if (!pixel) throw new Error('O ID do pixel (conjunto de dados) é um número. Ele aparece no Gerenciador de Eventos, abaixo do nome.')
+    const ativa = formData.get('ativa') !== 'nao'
+    const contas = lerContas(formData)
+    if (ativa && !contas.length) throw new Error('Marque ao menos uma conta da Únicopag para enviar à Meta.')
     const token = String(formData.get('token') ?? '').trim()
     if (token && (token.length < 40 || /\s/.test(token))) throw new Error('O token parece incompleto. Cole o token inteiro, sem espaços.')
     const usar = token || (await tokenDasConversoes(context.workspace.id))
@@ -37,7 +53,7 @@ export async function ligarConversoes(_anterior: Estado, formData: FormData): Pr
     if ('erro' in teste) throw new Error(teste.erro)
     const pagina = String(formData.get('pagina_padrao') ?? '').trim().slice(0, 500)
     if (pagina && !/^https:\/\/[^\s]+$/.test(pagina)) throw new Error('A página padrão precisa começar com https://.')
-    const { error } = await supabase.rpc('escola_conversoes_salvar', { p_workspace_id: context.workspace.id, p: { pixel_id: pixel, pagina_padrao: pagina, ativa: formData.get('ativa') !== 'nao' } })
+    const { error } = await supabase.rpc('escola_conversoes_salvar', { p_workspace_id: context.workspace.id, p: { pixel_id: pixel, pagina_padrao: pagina, ativa, contas } })
     if (error) erroDoBanco(error, 'Não foi possível ligar o pixel.')
     if (token) {
       const { error: e2 } = await supabase.rpc('definir_chave_de_integracao', { p_workspace_id: context.workspace.id, p_servico: 'meta_conversoes', p_valor: token })
@@ -45,7 +61,7 @@ export async function ligarConversoes(_anterior: Estado, formData: FormData): Pr
       await createAdminClient().from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: 'integracao_chave_definida', entity_type: 'integracao', metadata: { servico: 'meta_conversoes' } })
     }
     revalidar()
-    return { ok: Date.now(), recado: `Pixel “${teste.nome}” ligado. A partir da próxima leitura das transações, cada venda paga vira um evento Purchase.` }
+    return { ok: Date.now(), recado: `Pixel “${teste.nome}” ligado. A partir da próxima leitura das transações, cada venda paga das contas marcadas vira um evento Purchase.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível ligar o pixel.') }
   }

@@ -1,4 +1,5 @@
--- Testes do aviso à Meta dos pagamentos da Escola (supabase/migrations/20261002150000_cvrj_escola_conversoes_meta.sql).
+-- Testes do aviso à Meta dos pagamentos da Escola (supabase/migrations/20261002150000_cvrj_escola_conversoes_meta.sql
+-- e 20261004170000_cvrj_escola_conversoes_contas.sql, a escolha das contas que mandam).
 -- Mesmas regras de supabase/tests/auditoria.test.sql: só em banco local, numa transação desfeita no fim.
 --
 --   psql -v ON_ERROR_STOP=1 -d redacao_local < supabase/tests/conversoes.test.sql
@@ -24,6 +25,8 @@ create function pg_temp.como(p_usuario uuid) returns void language sql as $$
 $$;
 insert into public.escola_contas (workspace_id, nome) values (:'ws', 'Escola — teste') returning id as conta \gset
 insert into public.escola_cursos (workspace_id, nome) values (:'ws', 'Curso de Teste das Conversões') returning id as curso \gset
+select id as ws_outro from public.workspaces where slug = 'demonstracao' \gset
+insert into public.escola_contas (workspace_id, nome) values (:'ws_outro', 'Escola de outro espaço — teste') returning id as conta_outra \gset
 
 -- ================================================================ privilégios
 
@@ -43,8 +46,21 @@ select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)',
   'O ID do pixel (conjunto de dados) é um número. Ele aparece no Gerenciador de Eventos, abaixo do nome.', 'pixel que não é número é recusado');
 select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890","pagina_padrao":"http://inseguro"}'), 'P0001',
   'A página padrão precisa começar com https://.', 'página sem https é recusada');
-select lives_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":" 1234567890 ","pagina_padrao":"https://escola.exemplo.org/"}'), 'admin liga o pixel');
+-- As contas que mandam: nenhuma sem ser marcada, só do mesmo espaço, sem repetição.
+select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890"}'), 'P0001',
+  'Marque ao menos uma conta da Únicopag para enviar à Meta.', 'ligado sem conta é recusado');
+select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890","contas":[]}'), 'P0001',
+  'Marque ao menos uma conta da Únicopag para enviar à Meta.', 'ligado com a lista vazia é recusado');
+select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', json_build_object('pixel_id', '1234567890', 'contas', json_build_array(:'conta_outra'))), 'P0001',
+  'Conta da Únicopag não encontrada neste espaço.', 'conta de outro espaço é recusada');
+select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890","contas":["não é uuid"]}'), 'P0001',
+  'Conta da Únicopag inválida.', 'id que não é uuid é recusado');
+select throws_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890","contas":"x"}'), 'P0001',
+  'A lista de contas da Únicopag veio num formato inválido.', 'contas que não é lista é recusado');
+select is((select count(*) from public.escola_conversoes where workspace_id = :'ws'), 0::bigint, 'nada gravado nas recusas');
+select lives_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', json_build_object('pixel_id', ' 1234567890 ', 'pagina_padrao', 'https://escola.exemplo.org/', 'contas', json_build_array(:'conta', :'conta'))), 'admin liga o pixel com a conta certa');
 select is((select pixel_id || '|' || pagina_padrao || '|' || ativa::text from public.escola_conversoes where workspace_id = :'ws'), '1234567890|https://escola.exemplo.org/|true', 'configuração gravada');
+select is((select contas from public.escola_conversoes where workspace_id = :'ws'), array[:'conta'::uuid], 'a conta marcada, sem repetição');
 select lives_ok(format('select public.escola_conversoes_salvar(%L, %L::jsonb)', :'ws', '{"pixel_id":"1234567890","ativa":false}'), 'admin pausa o pixel');
 select is((select ativa from public.escola_conversoes where workspace_id = :'ws'), false, 'pausado');
 select is((select count(*) from public.escola_conversoes where workspace_id = :'ws'), 1::bigint, 'uma configuração por espaço');

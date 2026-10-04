@@ -1926,8 +1926,33 @@ no banco, no boleto e no PIX). Por isso é o servidor que avisa a Meta, pela
 API de Conversões, depois de cada leitura das transações
 (`sincronizarConta` → `enviarConversoes`, `lib/escola/conversoes-servidor.ts`).
 Regras puras em `lib/escola/conversoes.ts` (`scripts/conferir-conversoes-escola.ts`);
-banco em `20261002150000` (`supabase/tests/conversoes.test.sql`).
+banco em `20261002150000` e `20261004170000` (`supabase/tests/conversoes.test.sql`).
 
+- **Quais contas mandam (04/10/2026).** `escola_conversoes.contas` (uuid[],
+  vazio por padrão) lista as contas da Únicopag cujas vendas vão à Meta; a
+  tela tem uma caixa por conta e `escola_conversoes_salvar` recusa id que não
+  seja uuid ou não seja do espaço, e recusa ligar sem nenhuma marcada. **Falha
+  fechada:** `enviarConversoes` só manda se a conta lida estiver na lista; se a
+  leitura da configuração der erro (a coluna ainda não existe, por exemplo),
+  não manda nada. Por quê: o espaço tem duas contas. A "CVB" recebe as vendas
+  da plataforma da escola (escola.cursoscruzvermelha.org, "Taxa de inscrição —
+  X"), que o pixel não vê — essa manda. A "Matricula automatica" recebe o
+  checkout do site (`/matricula-cursos-presenciais/`, "X — Inscrição…"), e o
+  site já manda esse `Purchase` pelo pixel (eventID `c.<hash do token>`) e pela
+  API de Conversões dele, **só com o consentimento de marketing da pessoa**
+  (é o que o aviso de cookies do site promete). Mandar daqui contaria a compra
+  duas vezes (`unicopag:<hash>` é outro event_id) e mandaria dados de quem disse
+  "não" — essa fica desmarcada. Na tela, id de conta apagada que sobrou em
+  `contas` não conta como conta que manda (e de fato não manda).
+- **Só ligue o pixel depois do merge desse código (04/10/2026).** O preview usa o
+  banco de produção, e o código antigo da produção (`enviarConversoes` sem
+  `contas`) manda as vendas de **todas** as contas, com o CPF, assim que
+  `ativa` = true. Sem a migração `20261004170000`, a tela esconde o formulário e
+  `ligarConversoes` recusa ("Aplique a migração 20261004170000 antes de ligar o
+  pixel…"), porque a `escola_conversoes_salvar` antiga ignoraria as contas e
+  gravaria ligado. Com a migração aplicada e o PR ainda aberto, o código novo
+  não tem como impedir: a regra é de quem liga — aplicar a migração, mesclar,
+  esperar o deploy da `main` e só então ligar.
 - **Dois momentos, um evento.** Tudo sai como `Purchase` (a Meta otimiza por
   valor nesse evento), com `content_category` = `taxa_de_inscricao` quando o
   produto é "Taxa de inscrição — X" ou "X — Inscrição…", e `curso` no resto
@@ -1943,19 +1968,21 @@ banco em `20261002150000` (`supabase/tests/conversoes.test.sql`).
   (`TransacaoLida.pessoa`). Eles ficam só na memória do servidor:
   `semPessoa()` tira antes de `escola_gravar_sincronizacao`, e vão à Meta já
   normalizados e com SHA-256 (`normalizarPessoa`: e-mail em minúsculas,
-  telefone só dígitos com 55, nome sem acento, CPF como `external_id`).
-  `qualidadeDoEvento` diz se havia e-mail ou telefone (boa), só nome ou CPF
-  (fraca) ou nada; a mensagem da leitura avisa quando a Meta pode não casar.
+  telefone só dígitos com 55, nome sem acento). **O CPF não vai** (desde
+  04/10/2026; antes ia como `external_id`): os Termos das Ferramentas de
+  Negócios da Meta proíbem número de documento, e o site já decidiu o mesmo.
+  `qualidadeDoEvento` diz se havia e-mail ou telefone (boa), só nome (fraca)
+  ou nada; a mensagem da leitura avisa quando a Meta pode não casar.
   A documentação pública da Únicopag não diz o nome do campo do telefone:
   `lerTransacao` aceita `phone`, `phone_number`, `cellphone`, `mobile` e
   `telefone`. **Conferir numa transação real** e, se for outro, acrescentar.
-- **O que não vai.** Venda não paga (estorno e chargeback incluídos),
-  sem valor, produto de teste, produto ignorado pela equipe e venda paga há
-  mais de 7 dias (a Meta não aceita). Logo, ao ligar o pixel, o histórico não
+- **O que não vai.** Venda de conta não marcada, venda não paga (estorno e
+  chargeback incluídos), sem valor, produto de teste, produto ignorado pela
+  equipe e venda paga há mais de 7 dias (a Meta não aceita). Logo, ao ligar o pixel, o histórico não
   é enviado.
 - **Registro.** `escola_conversoes` (uma por espaço: pixel, página padrão,
-  ligado, último aviso, erro) e `escola_conversoes_envios` (uma linha por
-  venda: categoria, curso, valor, qualidade, tentativas, enviado_em, rastro
+  contas que mandam, ligado, último aviso, erro) e `escola_conversoes_envios`
+  (uma linha por venda: categoria, curso, valor, qualidade, tentativas, enviado_em, rastro
   `fbtrace_id`, erro) — sem dado pessoal. `escola_conversoes_pendentes`
   filtra o lote (já enviado ou 5 falhas → fora); `escola_conversoes_registrar`
   grava o resultado sem sobrescrever o que já foi. A tela de transações mostra

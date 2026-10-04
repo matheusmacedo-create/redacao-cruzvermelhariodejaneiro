@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/app/page-header'
 import { SecoesDaEscola } from '@/components/app/escola/secoes'
 import { ContasDaEscola } from '@/components/app/escola/contas'
 import { MetaAds, type ContaMeta } from '@/components/app/escola/meta'
-import { ConversoesDaMeta, type ConfiguracaoDasConversoes, type ResumoDosEnvios } from '@/components/app/escola/conversoes'
+import { ConversoesDaMeta, type ConfiguracaoDasConversoes, type ContaDaUnicopag, type ResumoDosEnvios } from '@/components/app/escola/conversoes'
 import { situacaoDoToken } from '@/app/actions/escola-conversoes'
 import { resumirEnvios } from '@/lib/escola/conversoes'
 import { COLUNAS_DA_CONTA, lerConta } from '@/lib/escola/servidor'
@@ -17,6 +17,22 @@ export const maxDuration = 60
 
 // Fora do componente: regra do lint para função impura no render.
 const ultimos30Dias = () => new Date(Date.now() - 30 * 86_400_000).toISOString()
+
+type Cliente = Awaited<ReturnType<typeof contextoDoMarketing>>['supabase']
+
+/**
+ * A configuração do pixel, com as contas da Únicopag que mandam as vendas.
+ * Sem a migração 20261004170000 (o preview antes de ela entrar), a coluna
+ * `contas` não existe: lê o resto, mostra nenhuma conta marcada e avisa
+ * `migracaoPendente` (a tela esconde o formulário e a ação recusa ligar) — e
+ * o servidor, sem a lista, não manda nada (falha fechada).
+ */
+async function lerConfiguracaoDasConversoes(supabase: Cliente, ws: string): Promise<{ configuracao: ConfiguracaoDasConversoes | null; migracaoPendente: boolean }> {
+  const r = await supabase.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,enviada_em,erro,contas').eq('workspace_id', ws).maybeSingle()
+  if (!r.error) return { configuracao: r.data ? { ...(r.data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: Array.isArray(r.data.contas) ? (r.data.contas as string[]) : [] } : null, migracaoPendente: false }
+  const { data } = await supabase.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,enviada_em,erro').eq('workspace_id', ws).maybeSingle()
+  return { configuracao: data ? { ...(data as Omit<ConfiguracaoDasConversoes, 'contas'>), contas: [] } : null, migracaoPendente: true }
+}
 
 /**
  * Onde a escola se liga ao mundo de fora: as contas da Únicopag por onde ela
@@ -33,12 +49,14 @@ export default async function ConfiguracoesDaEscolaPage() {
     nivel >= 2 ? supabase.from('escola_meta_contas').select('id,act_id,nome,filtro,ativa,sincronizada_em,sincronizacao_erro').eq('workspace_id', ws).order('created_at') : Promise.resolve({ data: [] }),
     supabase.from('integracoes_chaves').select('servico').eq('workspace_id', ws).eq('servico', 'meta_ads').maybeSingle(),
     // Sem a migração 20261002150000, as duas consultas falham e o quadro do pixel aparece vazio.
-    nivel >= 2 ? supabase.from('escola_conversoes').select('pixel_id,pagina_padrao,ativa,enviada_em,erro').eq('workspace_id', ws).maybeSingle() : Promise.resolve({ data: null }),
+    nivel >= 2 ? lerConfiguracaoDasConversoes(supabase, ws).then((data) => ({ data })) : Promise.resolve({ data: { configuracao: null, migracaoPendente: false } }),
     nivel >= 2 ? supabase.from('escola_conversoes_envios').select('categoria,valor,enviado_em,erro').eq('workspace_id', ws).gte('paga_em', ha30Dias).limit(5000) : Promise.resolve({ data: [] }),
     nivel >= 2 ? situacaoDoToken(ws) : Promise.resolve({ proprio: false, reserva: false }),
   ])
   const temToken = Boolean(chaveMeta) || Boolean(process.env.META_ADS_TOKEN?.trim())
   const resumo: ResumoDosEnvios[] = resumirEnvios((envios ?? []) as { categoria: string; valor: number; enviado_em: string | null; erro: string | null }[])
+  // As contas da Únicopag para marcar quais mandam as vendas à Meta (o RLS só mostra a quem vê as vendas, o que inclui os admins).
+  const contasDaUnicopag: ContaDaUnicopag[] = ((contas ?? []) as { id: string; nome: string }[]).map((c) => ({ id: c.id, nome: c.nome }))
   return (
     <div className="flex flex-col gap-6">
       <SecoesDaEscola atual="/escola/configuracoes" financeiro={nivelEscola >= 2} marketing={nivel >= 2} />
@@ -59,7 +77,7 @@ export default async function ConfiguracoesDaEscolaPage() {
       )}
       {nivel >= 2 && (
         <section className="flex flex-col gap-3" id="conversoes" data-ajuda="escola-contas.conversoes">
-          <ConversoesDaMeta configuracao={(conversoes as ConfiguracaoDasConversoes | null) ?? null} resumo={resumo} token={token} ehAdmin={nivel >= 3} />
+          <ConversoesDaMeta configuracao={conversoes.configuracao} migracaoPendente={conversoes.migracaoPendente} contas={contasDaUnicopag} veContas={nivelEscola >= 2} resumo={resumo} token={token} ehAdmin={nivel >= 3} />
         </section>
       )}
       <Card className="p-4 text-sm text-muted-foreground" data-ajuda="escola-contas.como-funciona">
@@ -68,7 +86,7 @@ export default async function ConfiguracoesDaEscolaPage() {
           <li>Uma vez por dia (e pelos botões de atualizar), o Palácio Virtual lê o saldo e as transações de cada conta da Únicopag e as campanhas e anúncios do Meta.</li>
           <li>Da transação ficam o valor, a forma de pagamento, o curso, a origem e o nome do pagador com o CPF mascarado. A ficha do aluno continua só no sistema da escola.</li>
           <li>As chaves são testadas antes de guardar e ficam no cofre criptografado; ninguém as vê de novo, nem o admin.</li>
-          <li>Com o pixel ligado, cada venda paga vira um evento Purchase na API de Conversões da Meta, com os dados da pessoa só em hash.</li>
+          <li>Com o pixel ligado, cada venda paga das contas marcadas vira um evento Purchase na API de Conversões da Meta, com os dados da pessoa só em hash (o CPF não vai).</li>
         </ul>
       </Card>
     </div>
