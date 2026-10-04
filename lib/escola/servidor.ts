@@ -61,13 +61,13 @@ class ErroDaApi extends Error {
   constructor(public status: number | null, mensagem: string) { super(mensagem) }
 }
 
-async function chamar(chave: string, caminho: string, busca: Record<string, string> = {}): Promise<unknown> {
+async function chamar(chave: string, caminho: string, busca: Record<string, string> = {}, esperaMs = 25_000): Promise<unknown> {
   const url = new URL(caminho, BASE)
   url.searchParams.set('api_token', chave)
   for (const [k, v] of Object.entries(busca)) url.searchParams.set(k, v)
   let resposta: Response
   try {
-    resposta = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${chave}` }, cache: 'no-store', signal: AbortSignal.timeout(25_000) })
+    resposta = await fetch(url, { headers: { Accept: 'application/json', Authorization: `Bearer ${chave}` }, cache: 'no-store', signal: AbortSignal.timeout(esperaMs) })
   } catch {
     throw new ErroDaApi(null, mensagemDoErroDaApi(null))
   }
@@ -91,15 +91,41 @@ const MAX_PAGINAS = 60
 const JANELA_DIAS = 180
 
 /**
+ * Como ler: a janela (dias para trás) e, opcional, até quando (epoch ms) dá
+ * para seguir pedindo páginas. A função na Vercel tem 60 s: o botão "Atualizar
+ * agora" lê só 30 dias e para a tempo de gravar; o cron diário relê os 180.
+ */
+export type ModoDaLeitura = { janelaDias: number; prazo?: number }
+export const LEITURA_DO_CRON: ModoDaLeitura = { janelaDias: JANELA_DIAS }
+/** O botão: os últimos 30 dias (a Meta só aceita venda de até 7) e no máximo 40 s lendo a Únicopag. */
+export const leituraDoBotao = (): ModoDaLeitura => ({ janelaDias: 30, prazo: Date.now() + 40_000 })
+
+/**
  * Lê as transações da conta, página a página, até acabar — ou, quando a
  * conta já foi sincronizada antes, até uma página inteira mais velha que a
  * janela. Se a API ignorar `page` (a mesma página volta), para também.
+ * Com prazo, para antes dele e devolve o que já leu (`parcial`): melhor gravar
+ * parte do que perder tudo no corte da Vercel. A primeira carga (completa)
+ * nunca para por prazo, para o histórico não ficar com buraco.
  */
-async function lerTransacoes(chave: string, completa: boolean): Promise<TransacaoLida[]> {
-  const limite = Date.now() - JANELA_DIAS * 86_400_000
+async function lerTransacoes(chave: string, completa: boolean, modo: ModoDaLeitura): Promise<{ transacoes: TransacaoLida[]; parcial: boolean }> {
+  const limite = Date.now() - modo.janelaDias * 86_400_000
+  const prazo = completa ? undefined : modo.prazo
   const vistas = new Map<string, TransacaoLida>()
+  let parcial = false
   for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-    const { itens, ultima } = lerPagina(await chamar(chave, '/public/v1/transactions', { page: String(pagina), per_page: '100' }))
+    const resta = prazo === undefined ? 25_000 : Math.min(25_000, prazo - Date.now())
+    // A primeira página sempre vai (com no mínimo 5 s); as seguintes, só se ainda couberem.
+    if (pagina > 1 && resta < 3_000) { parcial = true; break }
+    let corpo: unknown
+    try {
+      corpo = await chamar(chave, '/public/v1/transactions', { page: String(pagina), per_page: '100' }, Math.max(resta, 5_000))
+    } catch (e) {
+      // Com prazo, a página que não volta a tempo encerra a leitura sem perder as anteriores.
+      if (prazo !== undefined && pagina > 1) { parcial = true; break }
+      throw e
+    }
+    const { itens, ultima } = lerPagina(corpo)
     if (!itens.length) break
     let novas = 0, recentes = 0
     for (const bruta of itens) {
@@ -113,7 +139,7 @@ async function lerTransacoes(chave: string, completa: boolean): Promise<Transaca
     if (ultima !== null && pagina >= ultima) break
     if (!completa && !recentes) break
   }
-  return [...vistas.values()]
+  return { transacoes: [...vistas.values()], parcial }
 }
 
 export type ResultadoDaSincronizacao = { conta: string; ok: boolean; mensagem: string; gravadas: number }
@@ -123,15 +149,15 @@ export type ResultadoDaSincronizacao = { conta: string; ok: boolean; mensagem: s
  * tem sessão) — quem chama TEM de ter conferido antes que a pessoa pode
  * (nível 2 na Escola) ou que é o cron.
  */
-export async function sincronizarConta(admin: SupabaseClient, workspaceId: string, conta: { id: string; nome: string; sincronizada_em: string | null }): Promise<ResultadoDaSincronizacao> {
+export async function sincronizarConta(admin: SupabaseClient, workspaceId: string, conta: { id: string; nome: string; sincronizada_em: string | null }, modo: ModoDaLeitura = LEITURA_DO_CRON): Promise<ResultadoDaSincronizacao> {
   const { data: chave } = await admin.rpc('chave_de_integracao', { p_workspace_id: workspaceId, p_servico: servicoDaConta(conta.id) })
   if (typeof chave !== 'string' || !chave.trim()) {
     await admin.rpc('escola_gravar_sincronizacao', { p_conta_id: conta.id, p_transacoes: null, p_saldo: null, p_erro: 'Sem chave de API guardada para esta conta.' })
     return { conta: conta.nome, ok: false, mensagem: 'Sem chave de API guardada.', gravadas: 0 }
   }
   try {
-    const saldo = lerSaldo(await chamar(chave.trim(), '/public/v1/balance'))
-    const transacoes = await lerTransacoes(chave.trim(), !conta.sincronizada_em)
+    const saldo = lerSaldo(await chamar(chave.trim(), '/public/v1/balance', {}, modo.prazo ? 10_000 : 25_000))
+    const { transacoes, parcial } = await lerTransacoes(chave.trim(), !conta.sincronizada_em, modo)
     let gravadas = 0
     // Em lotes, para o corpo da chamada não crescer sem limite.
     for (let i = 0; i < Math.max(1, transacoes.length); i += 500) {
@@ -141,7 +167,8 @@ export async function sincronizarConta(admin: SupabaseClient, workspaceId: strin
       if (error) throw new ErroDaApi(null, 'Não foi possível gravar as transações lidas.')
       gravadas += Number(data ?? 0)
     }
-    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.${await lancarNoFinanceiro(admin, conta.id)}${await enviarConversoes(admin, workspaceId, conta.id, transacoes)}`, gravadas }
+    const aviso = parcial ? ' A Únicopag demorou: foi lida só uma parte; o resto entra na próxima leitura.' : ''
+    return { conta: conta.nome, ok: true, mensagem: `${transacoes.length} transações lidas, ${gravadas} novas ou atualizadas.${aviso}${await lancarNoFinanceiro(admin, conta.id)}${await enviarConversoes(admin, workspaceId, conta.id, transacoes)}`, gravadas }
   } catch (e) {
     const mensagem = e instanceof ErroDaApi ? e.message : 'Falha inesperada ao sincronizar.'
     await admin.rpc('escola_gravar_sincronizacao', { p_conta_id: conta.id, p_transacoes: null, p_saldo: null, p_erro: mensagem })
@@ -163,15 +190,16 @@ async function lancarNoFinanceiro(admin: SupabaseClient, contaId: string): Promi
   return partes.length ? ` No Financeiro da escola: ${partes.join(' e ')}.` : ''
 }
 
-/** Sincroniza todas as contas ativas de um espaço. */
-export async function sincronizarEspaco(workspaceId: string, soContaId?: string): Promise<ResultadoDaSincronizacao[]> {
+/**
+ * Sincroniza todas as contas ativas de um espaço, ao mesmo tempo: uma conta
+ * lenta na Únicopag não come o tempo da outra (a função tem 60 s).
+ */
+export async function sincronizarEspaco(workspaceId: string, soContaId?: string, modo: ModoDaLeitura = LEITURA_DO_CRON): Promise<ResultadoDaSincronizacao[]> {
   const admin = createAdminClient()
   let q = admin.from('escola_contas').select('id,nome,sincronizada_em').eq('workspace_id', workspaceId).eq('ativa', true)
   if (soContaId) q = q.eq('id', soContaId)
   const { data } = await q
-  const r: ResultadoDaSincronizacao[] = []
-  for (const c of data ?? []) r.push(await sincronizarConta(admin, workspaceId, c as { id: string; nome: string; sincronizada_em: string | null }))
-  return r
+  return Promise.all((data ?? []).map((c) => sincronizarConta(admin, workspaceId, c as { id: string; nome: string; sincronizada_em: string | null }, modo)))
 }
 
 export const COLUNAS_DA_TRANSACAO = 'conta_id,hash,metodo,status,situacao,valor,parcelas,cliente,documento,produto,origem,criada_em,paga_em'

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { sincronizarEspaco } from '@/lib/escola/servidor'
+import { LEITURA_DO_CRON, sincronizarEspaco } from '@/lib/escola/servidor'
 import { sincronizarMetaDoEspaco } from '@/lib/escola/meta-servidor'
 
 export const dynamic = 'force-dynamic'
@@ -27,8 +27,10 @@ export async function GET(request: Request) {
   const { data } = await createAdminClient().from('escola_contas').select('workspace_id').eq('ativa', true)
   const espacos = [...new Set((data ?? []).map((c) => c.workspace_id as string))]
   let certas = 0, falhas = 0
+  // Os 180 dias, mas parando a tempo de gravar o que já leu (a função tem 60 s).
+  const modo = { ...LEITURA_DO_CRON, prazo: Date.now() + 40_000 }
   for (const ws of espacos) {
-    for (const r of await sincronizarEspaco(ws)) (r.ok ? certas++ : falhas++)
+    for (const r of await sincronizarEspaco(ws, undefined, modo)) (r.ok ? certas++ : falhas++)
   }
   if (new URL(request.url).searchParams.get('so') === 'unicopag') return Response.json({ contas: certas + falhas, certas, falhas })
   const { data: meta } = await createAdminClient().from('escola_meta_contas').select('workspace_id').eq('ativa', true)

@@ -2001,6 +2001,13 @@ banco em `20261002150000` e `20261004170000` (`supabase/tests/conversoes.test.sq
   do pagamento de novo, é preciso o plano Pro (decisão da instituição) e aí basta
   trocar a linha para `23 * * * *`; enquanto isso, o botão "Atualizar agora" na visão
   geral da Escola faz a leitura na hora.
+- **Tempo da leitura (04/10).** A função na Vercel tem 60 s (plano Hobby) e a Únicopag às vezes demora:
+  o "Atualizar agora" chegou a girar sem fim porque a leitura foi cortada antes de gravar. Agora as
+  contas leem em paralelo (`sincronizarEspaco`), o botão lê só os últimos 30 dias (`leituraDoBotao`)
+  e tanto ele quanto o cron têm um prazo de 40 s para pedir páginas: estourou, a leitura para, grava o
+  que já leu e a mensagem avisa que foi parcial. A primeira carga de uma conta nova não tem prazo, para
+  o histórico não ficar com buraco. `escola_gravar_sincronizacao` só insere ou atualiza, nunca apaga:
+  ler menos não tira nada do banco. Conferido por `scripts/conferir-leitura-unicopag.ts`.
 - **LGPD.** Dado pessoal com hash ainda é dado pessoal: a base legal
   (legítimo interesse na medição de anúncios, ou consentimento) e o aviso na
   página de inscrição são da escola. Decisão do Matheus (02/10): `Purchase`

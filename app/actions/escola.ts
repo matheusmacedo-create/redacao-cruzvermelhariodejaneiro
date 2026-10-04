@@ -4,7 +4,7 @@ import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { contextoDaEscola, servicoDaConta, sincronizarEspaco, testarChave } from '@/lib/escola/servidor'
+import { contextoDaEscola, leituraDoBotao, servicoDaConta, sincronizarEspaco, testarChave } from '@/lib/escola/servidor'
 import { finalDaChave } from '@/lib/escola/unicopag'
 
 /**
@@ -99,7 +99,8 @@ export async function sincronizarEscolaAgora(): Promise<Estado> {
   try {
     const { context, nivel } = await contextoDaEscola()
     if (nivel < 2) throw new Error('Sem acesso à Escola.')
-    const r = await sincronizarEspaco(context.workspace.id)
+    // Os últimos 30 dias, com prazo para caber nos 60 s da função; o cron diário relê os 180.
+    const r = await sincronizarEspaco(context.workspace.id, undefined, leituraDoBotao())
     revalidar()
     if (!r.length) return { recado: 'Nenhuma conta ativa para atualizar.', ok: Date.now() }
     const falhas = r.filter((x) => !x.ok)
