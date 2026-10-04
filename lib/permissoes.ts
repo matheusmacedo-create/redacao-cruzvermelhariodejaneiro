@@ -66,6 +66,7 @@ export const PERMISSOES = {
   'espaco.reiniciar': { grupo: 'Administração', rotulo: 'Apagar todos os dados do espaço', papeis: ['admin'] },
   'trilha.ver': { grupo: 'Administração', rotulo: 'Acompanhar a trilha pública: registros verificáveis, lotes diários e carimbos', papeis: ['admin'] },
   'transparencia.gerenciar': { grupo: 'Administração', rotulo: 'Publicar documentos e parcerias no portal de transparência e a página de canais oficiais', papeis: ['admin'] },
+  'mapa.editar': { grupo: 'Administração', rotulo: 'Atualizar o mapa do ecossistema: marcar pendências resolvidas e mudar o estado de cada parte', papeis: ['admin', 'editor'] },
 
   // Site e publicação
   'site.configurar': { grupo: 'Site e publicação', rotulo: 'Alterar páginas do site, analytics e formulário da newsletter', papeis: ['admin'] },

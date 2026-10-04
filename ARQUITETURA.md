@@ -133,7 +133,7 @@ app/
                                                      Redação (Radar, Pautas, Projetos, Publicações, Resultados, Histórico)
     biblioteca/ envios/ acervo/                      Mídia
     direct/ newsletter/ imprensa/ mensagens/         Público
-    financeiro/ patrimonio/ transparencia/ canais-oficiais/ trilha-publica/
+    financeiro/ patrimonio/ transparencia/ canais-oficiais/ trilha-publica/ mapa/
                                                      Gestão
     pessoas/ equipe/ voluntariado/ participantes/    Pessoas (Diretório, RH, Voluntários)
     escola/                                          Escola (vendas, financeiro, marketing, configurações)
@@ -1674,6 +1674,42 @@ completo em `docs/verificacao-de-voluntarios.md`.
   internacional declaradas no termo (`VERIFICACAO_TERMO_VERSAO`); decisão
   humana; nível 1 não vê a verificação (só o selo de restrição). Serpro fica
   preparado (entrada comentada em `chaves.ts`), não ligado.
+
+### 7.37 Mapa do ecossistema (`/mapa`, 03/10/2026)
+
+O levantamento de outubro ("o que já temos, o que falta ligar") deixou de ser
+um documento parado e virou uma área do Palácio: Palácio Virtual, site e
+plataforma da Escola numa só árvore, com estado por item e as pendências de
+cada parte. Guia completo em `docs/mapa-do-ecossistema.md`.
+
+- **Banco** (`20261003210000`): `mapa_itens` (nó da árvore; `tipo`
+  sistema/categoria/item, `parent_id`, `estado` só em item — CHECK —,
+  `entregas` jsonb, `url`, `ordem`) e `mapa_pendencias` (`R-01`…; `item_id`
+  opcional, `situacao` pendente/parcial/feito, `ordem_fila`, `resolvida_em/por`,
+  `nota`, mais o texto do levantamento). RLS de membro para ler; escrita só
+  pelo servidor. A semente (`20261003210100`) insere os 119 itens e 134
+  pendências no espaço `producao` com `on conflict do nothing`.
+- **Modelo puro** em `lib/mapa/modelo.ts`: `montarArvore` calcula contagens
+  por estado, total, percentual no ar, pendências abertas/feitas e última
+  entrega a cada leitura (nada gravado em dobro); `filaDeProximos`, `caminho`,
+  `slugDoMapa`. Conferido em `scripts/conferir-mapa.ts`, que também valida
+  ids e referências da semente.
+- **Tela**: `app/(app)/mapa/page.tsx` lê com `carregarMapa` (sessão do usuário,
+  RLS) e entrega ao componente `components/app/mapa/mapa-do-ecossistema.tsx`,
+  que desenha a moldura e monta o motor `lib/mapa/ui.ts` (DOM/SVG direto:
+  visão geral com cartões e saúde, foco um nível por clique, lista, filtros,
+  busca Ctrl K, painel lateral, minimap, visualização completa com três
+  níveis de detalhe; endereço no `#`, preferências em `localStorage`
+  `mapa-eco:*`). Estilo em `components/app/mapa/mapa.css`, tudo sob `.mapa-eco`.
+- **Escrita**: `app/actions/mapa.ts` (`marcarPendenciaDoMapa`,
+  `mudarEstadoDoItemDoMapa`) com `requireWorkspace()` + `pode(role,
+  'mapa.editar')` (admin e editor), validação por lista fechada, admin client
+  filtrado por `workspace_id`, `revalidatePath('/mapa')`. O componente faz
+  `router.refresh()` e o motor redesenha com `atualizar` sem perder o foco.
+- **Decisões**: motor em DOM direto em vez de React Flow (dezenas de nós
+  redesenhados e animados a cada clique; o React cuida só dos dados); item
+  novo entra por migração, não pela tela; a equipe da Escola não vê o mapa
+  (regra geral do papel `escola`).
 
 ## 8. Integrações externas
 
