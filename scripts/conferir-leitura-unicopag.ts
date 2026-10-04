@@ -8,7 +8,8 @@
  *  - com prazo, uma Únicopag lenta não estoura: a leitura para, grava o que leu e avisa "parcial";
  *  - a janela de 30 dias do botão para na primeira página mais velha que ela;
  *  - a primeira carga (conta nunca lida) não para por prazo;
- *  - as contas leem ao mesmo tempo (o tempo total é o da mais lenta, não a soma).
+ *  - as contas leem ao mesmo tempo (o tempo total é o da mais lenta, não a soma);
+ *  - a origem (utm) que o site e a escola mandam no metadata da cobrança chega à transação.
  */
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -125,6 +126,15 @@ async function main() {
     conferir(r.ok && /só uma parte/.test(r.mensagem), 'página que estoura o prazo: dá certo e avisa parcial')
     conferir(gravadas[0] === 100, `página que estoura o prazo: grava a página 1 (${gravadas[0]})`)
     conferir(levou < 8_000, `página que estoura o prazo: termina a tempo (${levou} ms)`)
+  }
+
+  // 6) A origem que o site e a escola mandam no metadata chega à transação lida.
+  {
+    const { lerTransacao } = await import('@/lib/escola/unicopag')
+    const t = lerTransacao({ hash: 'h1', amount: 9900, payment_status: 'paid', created_at: new Date().toISOString(), metadata: { order_id: 'm', utm_source: 'facebook', utm_campaign: 'CVB_Cursos', utm_content: 'Video1' } })
+    conferir(t?.origem === 'facebook' && t?.campanha === 'cvb_cursos' && t?.conteudo === 'video1', `utm do metadata: origem ${t?.origem}, campanha ${t?.campanha}, conteúdo ${t?.conteudo}`)
+    const sem = lerTransacao({ hash: 'h2', amount: 9900, payment_status: 'paid', created_at: new Date().toISOString(), metadata: { order_id: 'm' } })
+    conferir(sem?.origem === null && sem?.campanha === null, 'sem utm: origem e campanha vazias')
   }
 
   lenta.fechar()

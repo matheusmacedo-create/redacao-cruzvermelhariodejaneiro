@@ -127,8 +127,9 @@ export function lerTransacao(bruta: unknown): TransacaoLida | null {
     parcelas: parcelas && parcelas >= 1 && parcelas <= 24 ? parcelas : null,
     cliente: texto(cliente.name, 200), documento: mascararDocumento(texto(cliente.document, 30)),
     produto: titulos.length ? titulos.join(' + ').slice(0, 300) : null,
-    origem: texto(t.utm_source, 100) ?? texto(t.src, 100) ?? texto(cliente.utm_source, 100),
-    campanha: (texto(t.utm_campaign, 100) ?? texto(cliente.utm_campaign, 100))?.toLowerCase() ?? null,
+    // O checkout do site e o da escola mandam a origem no metadata da cobrança (utm_source, utm_campaign...).
+    origem: texto(t.utm_source, 100) ?? texto(t.src, 100) ?? texto(cliente.utm_source, 100) ?? texto(obj(t.metadata).utm_source, 100),
+    campanha: (texto(t.utm_campaign, 100) ?? texto(cliente.utm_campaign, 100) ?? texto(obj(t.metadata).utm_campaign, 100))?.toLowerCase() ?? null,
     conteudo: (texto(t.utm_content, 100) ?? texto(cliente.utm_content, 100) ?? texto(obj(t.metadata).utm_content, 100))?.toLowerCase() ?? null,
     criada_em: criada,
     // Pago sem paid_at (acontece em importações antigas): usa a última atualização.
