@@ -15,6 +15,9 @@ import { svgDaMarca } from '@/lib/marcas'
  * Cabeçalho e rodapé seguem os da home do site (site/index.html, no
  * repositório do site): mesmos links, mesma ordem, mesmos ícones em SVG — sem
  * a folha do Font Awesome, que custava uma requisição a um CDN por página.
+ * Abertura da trilha pública (05/10/2026): "História" e "Transparência" no
+ * menu; no rodapé, o portal, os canais oficiais e "Verificar um documento".
+ * A home recebe os mesmos links no repositório do site.
  * Nada de convite a doar: a doação online saiu do ar em 25/09/2026.
  *
  * Módulo puro, sem nada de servidor: a prévia do hub (no navegador) monta a
@@ -460,12 +463,14 @@ export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): 
         <div class="header-collapse">
           <nav class="nav-links" aria-label="Menu principal">
             <a href="${o}/#institucional">Sobre</a>
+            <a href="${o}/historia/">História</a>
             <a href="${o}/noticias/"${atual}>Notícias</a>
             <a href="${o}/matricula-cursos-presenciais/" class="nav-nowrap">Matrícula cursos presenciais</a>
             <a href="${o}/#campanhas">Campanhas</a>
             <a href="${o}/#parceiros">Parceiros</a>
             <a href="${o}/#faq">FAQ</a>
             <a href="${o}/equipe.html">Equipe</a>
+            <a href="${o}/transparencia/">Transparência</a>
             <a href="${o}/#contato">Contato</a>
           </nav>
           <div class="header-actions">
@@ -501,6 +506,8 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <p><a href="${o}/matricula-cursos-presenciais/">Matrícula cursos presenciais</a></p>
           <p><a href="https://escola.cursoscruzvermelha.org" target="_blank" rel="noopener">Plataforma da escola</a></p>
           <p><a href="${o}/bio/">Links oficiais</a></p>
+          <p><a href="${o}/transparencia/">Portal da transparência</a></p>
+          <p><a href="${o}/verificar/">Verificar um documento</a></p>
           <p><a href="https://pt.wikipedia.org/wiki/Cruz_Vermelha_Brasileira_-_Rio_de_Janeiro" target="_blank" rel="noopener">Wikipédia</a></p>
         </div>
         <div class="footer-col">
@@ -524,6 +531,12 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <a href="${o}/noticias/">Notícias</a>
           <span class="sep">|</span>
           <a href="${o}/acervo/">Acervo</a>
+          <span class="sep">|</span>
+          <a href="${o}/transparencia/">Transparência</a>
+          <span class="sep">|</span>
+          <a href="${o}/canais-oficiais/">Canais oficiais</a>
+          <span class="sep">|</span>
+          <a href="${o}/verificar/">Verificar documento</a>
           <span class="sep">|</span>
           <a href="https://escola.cursoscruzvermelha.org" target="_blank" rel="noopener">Escola de Educação e Saúde</a>
           <span class="sep">|</span>
