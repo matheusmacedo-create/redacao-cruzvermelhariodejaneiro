@@ -48,6 +48,16 @@ export async function enviarPelaCaixa(context: Contexto, caixaId: string, m: Env
 }
 
 /**
+ * Envio pelo app de e-mail provisório (/email): quem pode usar a caixa já foi
+ * conferido lá (lib/email-provisorio/sessao.ts — acesso dado pelo responsável
+ * ou setor no Palácio). Mesma montagem e mesmo registro em emails_enviados.
+ */
+export async function enviarPelaCaixaLiberada(workspaceId: string, caixaId: string, autorId: string, m: Envio): Promise<{ de: string; destinatarios: string[] }> {
+  const admin = createAdminClient()
+  return despachar(admin, workspaceId, await lerCaixa(admin, workspaceId, caixaId), autorId, m)
+}
+
+/**
  * Envio que o sistema faz sozinho (o lembrete da véspera de uma cotação),
  * pela caixa que uma pessoa escolheu quando pediu as propostas. Sem autor;
  * fica em emails_enviados como os outros.

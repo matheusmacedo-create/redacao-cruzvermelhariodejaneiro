@@ -6,7 +6,8 @@ import { pode } from '@/lib/permissoes'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { esquecerToken, mudarRotulos } from '@/lib/google/gmail'
+import { apagarFiltro, criarEtiqueta, criarFiltro, esquecerToken, etiquetarExistentes, listarEtiquetas, listarFiltros, mudarRotulos } from '@/lib/google/gmail'
+import { buscaDoFiltro, lerCriterio } from '@/lib/correio/filtros'
 import { enviarPelaCaixa } from '@/lib/correio/enviar'
 import { abrirConversa, caixasVisiveis, esquecerLeituras as esquecerNoServidor } from '@/lib/correio/caixa-de-entrada'
 import { cabecalhosDaResposta, citacao } from '@/lib/correio/leitura'
@@ -278,5 +279,93 @@ export async function marcarConversa(caixaId: string, threadId: string, acao: 'l
     return {}
   } catch (causa) {
     return comoErro(causa, 'Não foi possível atualizar a conversa.')
+  }
+}
+
+// ---------------------------------------------------------------- etiqueta e filtros (o que leva e-mail à caixa)
+
+async function caixaDoEspaco(workspaceId: string, id: string) {
+  const { data } = await createAdminClient().from('caixas_de_email').select('id,email,rotulo_gmail_id,rotulo_gmail_nome,setor_id')
+    .eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
+  if (!data) throw new Error('Caixa não encontrada.')
+  return data as { id: string; email: string; rotulo_gmail_id: string | null; rotulo_gmail_nome: string | null; setor_id: string | null }
+}
+
+/**
+ * Qual etiqueta do Gmail também leva à caixa. `etiqueta`: o id de uma que já
+ * existe, "nova:<nome>" para criar, ou vazio para tirar (a caixa volta a ver
+ * só o endereço). O id e o nome vêm sempre do Gmail, nunca da tela.
+ */
+export async function definirEtiquetaDaCaixa(caixaId: string, etiqueta: string): Promise<Resultado> {
+  try {
+    const context = await exigirAdmin()
+    const ws = context.workspace.id
+    const caixa = await caixaDoEspaco(ws, caixaId)
+    let escolhida: { id: string; nome: string } | null = null
+    if (etiqueta.startsWith('nova:')) {
+      const nome = etiqueta.slice(5).replace(/[\r\n]/g, ' ').trim()
+      if (nome.length < 2 || nome.length > 80) throw new Error('O nome da etiqueta precisa ter entre 2 e 80 caracteres.')
+      escolhida = await criarEtiqueta(ws, nome)
+    } else if (etiqueta) {
+      escolhida = (await listarEtiquetas(ws)).find((e) => e.id === etiqueta) ?? null
+      if (!escolhida) throw new Error('Essa etiqueta não existe mais no Gmail. Atualize a página.')
+    }
+    const admin = createAdminClient()
+    const { error } = await admin.from('caixas_de_email').update({ rotulo_gmail_id: escolhida?.id ?? null, rotulo_gmail_nome: escolhida?.nome ?? null })
+      .eq('id', caixa.id).eq('workspace_id', ws)
+    if (error) throw new Error('Não foi possível salvar a etiqueta da caixa.')
+    await admin.from('activity_log').insert({
+      workspace_id: ws, actor_id: context.user.id, action: 'caixa_etiqueta_definida',
+      entity_type: 'caixa_de_email', entity_id: caixa.id, metadata: { etiqueta: escolhida?.nome ?? null },
+    })
+    revalidar(); esquecerLeituras(ws)
+    return { recado: escolhida ? `${caixa.email} passa a mostrar também o que tem a etiqueta “${escolhida.nome}”.` : `${caixa.email} volta a mostrar só o que vai para o endereço.` }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível salvar a etiqueta.')
+  }
+}
+
+/**
+ * Cria no Gmail um filtro que põe a etiqueta da caixa no que chegar e bater
+ * com o critério. Com `aplicar`, etiqueta também o que já está na conta (até
+ * 500 mensagens), como o "aplicar também" do Gmail.
+ */
+export async function criarFiltroDaCaixa(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await exigirAdmin()
+    const ws = context.workspace.id
+    const caixa = await caixaDoEspaco(ws, texto(formData, 'caixaId'))
+    if (!caixa.rotulo_gmail_id) throw new Error('Escolha primeiro a etiqueta da caixa.')
+    const criterio = lerCriterio({ de: formData.get('de'), para: formData.get('para'), assunto: formData.get('assunto'), palavras: formData.get('palavras') })
+    await criarFiltro(ws, criterio, caixa.rotulo_gmail_id)
+    const quantas = texto(formData, 'aplicar') === 'true' ? await etiquetarExistentes(ws, buscaDoFiltro(criterio), caixa.rotulo_gmail_id) : 0
+    await createAdminClient().from('activity_log').insert({
+      workspace_id: ws, actor_id: context.user.id, action: 'caixa_filtro_criado',
+      entity_type: 'caixa_de_email', entity_id: caixa.id, metadata: { criterio, etiquetadas: quantas },
+    })
+    revalidar(); esquecerLeituras(ws)
+    return { recado: `Filtro criado no Gmail.${quantas ? ` ${quantas} mensagem(ns) que já estavam na conta ganharam a etiqueta.` : ''}` }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível criar o filtro.')
+  }
+}
+
+/** Apaga no Gmail um filtro que põe a etiqueta desta caixa (só esses: os outros filtros da conta não são desta tela). */
+export async function apagarFiltroDaCaixa(caixaId: string, filtroId: string): Promise<Resultado> {
+  try {
+    const context = await exigirAdmin()
+    const ws = context.workspace.id
+    const caixa = await caixaDoEspaco(ws, caixaId)
+    const filtro = (await listarFiltros(ws)).find((f) => f.id === filtroId)
+    if (!filtro || !caixa.rotulo_gmail_id || !filtro.poeEtiquetas.includes(caixa.rotulo_gmail_id)) throw new Error('Filtro não encontrado nesta caixa.')
+    await apagarFiltro(ws, filtro.id)
+    await createAdminClient().from('activity_log').insert({
+      workspace_id: ws, actor_id: context.user.id, action: 'caixa_filtro_apagado',
+      entity_type: 'caixa_de_email', entity_id: caixa.id, metadata: { criterio: filtro.criterio },
+    })
+    revalidar()
+    return { recado: 'Filtro apagado no Gmail. O que já tinha a etiqueta continua com ela.' }
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível apagar o filtro.')
   }
 }

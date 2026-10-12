@@ -94,6 +94,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // o dashboard devolveria para cá, em laço. Explica e oferece sair.
   if (user) {
     if (await obterWorkspaceSemVerificacao()) redirect(voltar ?? '/dashboard')
+    // Conta só do e-mail provisório (sem vínculo com o espaço): o lugar dela é a caixa.
+    const { count: caixas } = await createAdminClient().from('email_acessos').select('caixa_id', { count: 'exact', head: true }).eq('user_id', user.id)
+    if (caixas) redirect('/email')
     return <SemAcesso />
   }
 

@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { contarMensagens, lerConversa, listarConversas } from '@/lib/google/gmail'
 import { caixasQuePodeUsar } from './enviar'
-import { consultaDaPasta, envolveOEndereco, lerEnderecos, lerMensagem, cabecalho, decodificarEntidades, decodificarPalavras, type MensagemLida, type Pasta } from './leitura'
+import { consultaDaPasta, mensagensDaCaixa, lerEnderecos, lerMensagem, cabecalho, decodificarEntidades, decodificarPalavras, type MensagemLida, type Pasta } from './leitura'
 import type { Papel } from '@/lib/permissoes'
 
 /**
@@ -50,7 +50,8 @@ export function esquecerLeituras(workspaceId: string): void {
 }
 
 type Contexto = { workspace: { id: string }; user: { id: string }; role: Papel }
-export type CaixaVisivel = { id: string; email: string; nome: string; setor: string; assinatura: string }
+/** rotuloId/rotuloNome: a etiqueta do Gmail que também leva à caixa (lib/correio/leitura.ts → mensagensDaCaixa). */
+export type CaixaVisivel = { id: string; email: string; nome: string; setor: string; assinatura: string; rotuloId: string | null; rotuloNome: string | null }
 export type ConversaNaLista = {
   id: string
   assunto: string
@@ -66,17 +67,28 @@ export type ConversaNaLista = {
 /** As caixas que esta pessoa vê, com o nome do setor e a assinatura (para responder). */
 export async function caixasVisiveis(context: Contexto): Promise<CaixaVisivel[]> {
   const permitidas = await caixasQuePodeUsar(context)
-  if (!permitidas.length) return []
+  return caixasPorId(context.workspace.id, permitidas.map((c) => c.id))
+}
+
+/**
+ * As caixas destes ids, prontas para a tela. Quem chama já decidiu que a
+ * pessoa pode vê-las (caixasVisiveis, no Palácio; lib/email-provisorio no app
+ * de e-mail). Só as ativas, no Gmail e com setor.
+ */
+export async function caixasPorId(workspaceId: string, ids: string[]): Promise<CaixaVisivel[]> {
+  if (!ids.length) return []
   const admin = createAdminClient()
   const [{ data: caixas }, { data: setores }] = await Promise.all([
-    admin.from('caixas_de_email').select('id,email,nome_exibicao,nome_remetente,assinatura_html,setor_id').in('id', permitidas.map((c) => c.id)),
-    admin.from('setores').select('id,nome').eq('workspace_id', context.workspace.id),
+    admin.from('caixas_de_email').select('id,email,nome_exibicao,nome_remetente,assinatura_html,setor_id,rotulo_gmail_id,rotulo_gmail_nome')
+      .eq('workspace_id', workspaceId).eq('ativa', true).eq('no_gmail', true).not('setor_id', 'is', null).in('id', ids),
+    admin.from('setores').select('id,nome').eq('workspace_id', workspaceId),
   ])
   const setor = new Map((setores ?? []).map((s) => [s.id as string, s.nome as string]))
   return (caixas ?? [])
     .map((c) => ({
       id: c.id as string, email: c.email as string, nome: (c.nome_remetente || c.nome_exibicao || '') as string,
       setor: setor.get(c.setor_id as string) ?? '', assinatura: (c.assinatura_html ?? '') as string,
+      rotuloId: (c.rotulo_gmail_id || null) as string | null, rotuloNome: (c.rotulo_gmail_nome || null) as string | null,
     }))
     .sort((a, b) => a.setor.localeCompare(b.setor, 'pt-BR') || a.email.localeCompare(b.email))
 }
@@ -99,15 +111,19 @@ const primeiroNome = (nome: string, email: string) => (nome.split(/\s+/)[0] || e
 
 /** Uma página de conversas de uma pasta do setor (guardada por CACHE_SEGUNDOS). */
 export async function conversasDaPasta(workspaceId: string, caixa: CaixaVisivel, pasta: Pasta, busca: string, pagina: string | null): Promise<{ conversas: ConversaNaLista[]; proxima: string | null }> {
-  return lembrar(`${workspaceId}|pasta|${caixa.email}|${pasta}|${busca}|${pagina ?? ''}`, () => lerPaginaDaPasta(workspaceId, caixa.email, pasta, busca, pagina))
+  return lembrar(`${workspaceId}|pasta|${chaveDaCaixa(caixa)}|${pasta}|${busca}|${pagina ?? ''}`, () => lerPaginaDaPasta(workspaceId, caixa, pasta, busca, pagina))
 }
 
-async function lerPaginaDaPasta(workspaceId: string, email: string, pasta: Pasta, busca: string, pagina: string | null): Promise<{ conversas: ConversaNaLista[]; proxima: string | null }> {
-  const { conversas, proxima } = await listarConversas(workspaceId, consultaDaPasta(email, pasta, busca), pagina, 25)
+/** A caixa na chave do cache: o endereço e a etiqueta (trocar a etiqueta muda o que a caixa vê). */
+const chaveDaCaixa = (c: Pick<CaixaVisivel, 'email' | 'rotuloId'>) => `${c.email}#${c.rotuloId ?? ''}`
+
+async function lerPaginaDaPasta(workspaceId: string, caixa: CaixaVisivel, pasta: Pasta, busca: string, pagina: string | null): Promise<{ conversas: ConversaNaLista[]; proxima: string | null }> {
+  const email = caixa.email
+  const { conversas, proxima } = await listarConversas(workspaceId, consultaDaPasta(email, pasta, busca, caixa.rotuloNome), pagina, 25)
   const lidas = await emLotes(conversas, 4, async (c): Promise<ConversaNaLista | null> => {
     const { messages } = await lerConversa(workspaceId, c.id, 'metadata')
-    // Só as mensagens que envolvem o endereço do setor contam (e aparecem).
-    const doSetor = messages.filter((m) => envolveOEndereco(m.payload, email))
+    // Só as mensagens da caixa contam (e aparecem): as do endereço, ou a conversa inteira se tem a etiqueta dela.
+    const doSetor = mensagensDaCaixa(messages, caixa)
     if (!doSetor.length) return null
     const ultima = doSetor[doSetor.length - 1]
     const remetentes: string[] = []
@@ -132,29 +148,28 @@ async function lerPaginaDaPasta(workspaceId: string, email: string, pasta: Pasta
 
 /** Quantas não lidas há na caixa de entrada de cada endereço (estimativa do Gmail; guardada por CACHE_SEGUNDOS). */
 export async function naoLidasPorCaixa(workspaceId: string, caixas: CaixaVisivel[]): Promise<Record<string, number>> {
-  const emails = caixas.map((c) => c.email)
-  const contas = await lembrar(`${workspaceId}|nao-lidas|${emails.join(',')}`, () => contarNaoLidas(workspaceId, emails))
-  return Object.fromEntries(caixas.map((c) => [c.id, contas[c.email] ?? 0]))
+  const contas = await lembrar(`${workspaceId}|nao-lidas|${caixas.map(chaveDaCaixa).join(',')}`, () => contarNaoLidas(workspaceId, caixas))
+  return Object.fromEntries(caixas.map((c, i) => [c.id, contas[i] ?? 0]))
 }
 
-async function contarNaoLidas(workspaceId: string, emails: string[]): Promise<Record<string, number>> {
-  const contas = await emLotes(emails, 4, async (email) => {
-    try { return await contarMensagens(workspaceId, `${consultaDaPasta(email, 'entrada')} is:unread`) } catch { return 0 }
+async function contarNaoLidas(workspaceId: string, caixas: CaixaVisivel[]): Promise<number[]> {
+  return emLotes(caixas, 4, async (c) => {
+    try { return await contarMensagens(workspaceId, `${consultaDaPasta(c.email, 'entrada', '', c.rotuloNome)} is:unread`) } catch { return 0 }
   })
-  return Object.fromEntries(emails.map((email, i) => [email, contas[i]]))
 }
 
 /**
- * Uma conversa aberta: só as mensagens que envolvem o endereço do setor.
- * Null se nenhuma envolve (id de conversa de outro setor, digitado à mão).
+ * Uma conversa aberta: só as mensagens da caixa (as do endereço, ou todas se
+ * a conversa tem a etiqueta dela). Null se nenhuma é (id de conversa de outro
+ * setor, digitado à mão).
  */
 export async function abrirConversa(workspaceId: string, caixa: CaixaVisivel, threadId: string): Promise<MensagemLida[] | null> {
   if (!/^[0-9a-f]{6,32}$/i.test(threadId)) return null
-  return lembrar(`${workspaceId}|conversa|${caixa.email}|${threadId}`, () => lerConversaDoSetor(workspaceId, caixa.email, threadId))
+  return lembrar(`${workspaceId}|conversa|${chaveDaCaixa(caixa)}|${threadId}`, () => lerConversaDoSetor(workspaceId, caixa, threadId))
 }
 
-async function lerConversaDoSetor(workspaceId: string, email: string, threadId: string): Promise<MensagemLida[] | null> {
+async function lerConversaDoSetor(workspaceId: string, caixa: CaixaVisivel, threadId: string): Promise<MensagemLida[] | null> {
   const { messages } = await lerConversa(workspaceId, threadId, 'full')
-  const doSetor = messages.filter((m) => envolveOEndereco(m.payload, email))
+  const doSetor = mensagensDaCaixa(messages, caixa)
   return doSetor.length ? doSetor.map(lerMensagem) : null
 }
