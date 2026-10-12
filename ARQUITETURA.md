@@ -1480,6 +1480,57 @@ minute per user`. O que foi feito:
 **Testes.** `npx tsx scripts/conferir-caixa-de-entrada.ts`. Fora de produção,
 `GOOGLE_API_TESTE` aponta as chamadas do Google para um servidor de teste.
 
+**Etiqueta = caixa (12/10/2026).** Os endereços dos setores são apelidos da
+mesma conta (contato@): encaminhar de um para o outro não funciona (o Gmail
+trata como mensagem para si mesmo). O que leva um e-mail de outro endereço à
+caixa de um setor é uma etiqueta do Gmail:
+- `caixas_de_email.rotulo_gmail_id`/`rotulo_gmail_nome` (migração
+  `20261012120000`): a etiqueta ligada à caixa. O nome entra na busca
+  (`termoDaEtiqueta`: minúsculas, espaço e "/" viram hífen, acento fica; o id
+  NÃO funciona na busca, conferido na conta) em OR com o endereço, na entrada
+  e em "Todas"; "Enviados" ignora a etiqueta;
+- `mensagensDaCaixa` (a trava): conversa com a etiqueta em qualquer mensagem
+  aparece inteira, inclusive a resposta dada por contato@; sem ela, vale
+  `envolveOEndereco`. O anexo (`lib/correio/anexo.ts`) confere pela conversa;
+- os filtros que põem a etiqueta são criados no próprio Gmail, por
+  Configurações › E-mail dos setores › "4. O que chega a cada caixa"
+  (`app/actions/correio.ts`: `definirEtiquetaDaCaixa`, `criarFiltroDaCaixa`,
+  `apagarFiltroDaCaixa`; puro em `lib/correio/filtros.ts`). Usa o escopo
+  `gmail.settings.basic`, que a conexão já tinha (lista "enviar como"), e
+  `gmail.modify` para criar etiqueta e etiquetar o que já existe (até 500).
+  A tela só apaga filtro que põe a etiqueta daquela caixa.
+
+### 7.29a E-mail provisório (`/email`, email.cruzvermelhariodejaneiro.org, 12/10/2026)
+
+A mesma caixa de `/correio` para a equipe usar o e-mail do setor antes de o
+Palácio abrir para todos, sem passar cada acesso por um administrador.
+- **Endereço**: mesmo deploy; o domínio `email.` (lib/dominio.ts →
+  `inicioDoEmail`) manda a raiz para `/email`. O domínio precisa estar na
+  Vercel e no DNS.
+- **Contas**: usuário e senha, criadas pelo responsável da caixa
+  (`criarContaDoEmail`) com senha provisória mostrada uma vez e
+  `trocar_senha` ligado: o primeiro acesso cai em `/email/trocar-senha`.
+  Conta só do e-mail tem perfil e NÃO tem `workspace_members`: o Palácio
+  segue fechado para ela (`obterWorkspace` devolve null; `/` manda para
+  `/email`). O login é o mesmo (`entrar`, com bloqueio e registro).
+- **Quem vê o quê** (`lib/email-provisorio/sessao.ts`): as caixas de
+  `email_acessos` + as do setor no Palácio (`caixasQuePodeUsar`) para quem
+  tem conta lá. Membro do Palácio no app passa pela troca de senha e pela
+  verificação em duas etapas do Palácio. Quem tem `correio.configurar` vê
+  todas e escolhe os responsáveis.
+- **Responsável** (`email_acessos.responsavel`): dá e tira acesso à caixa e
+  gera senha provisória — só para conta que é só do e-mail; senha de quem
+  entra no Palácio é cuidada no Palácio. Tirar um responsável é só de quem
+  configura o correio. Tudo em `app/actions/email-provisorio.ts`, que confere
+  de novo a caixa e o papel; `activity_log` registra cada mudança.
+- **Tela**: `CaixaDoCorreio` recebe um `ambiente` (endereços, actions e
+  textos); a do Palácio é o padrão. Envio por `enviarPelaCaixaLiberada`, com o
+  mesmo `emails_enviados` ("Registro de envios", lido pelo admin client
+  filtrado pelos endereços da pessoa). Anexo em `/api/email/anexo`.
+- **Quando o Palácio abrir para todos**: a conta é a mesma (usuário e
+  perfil); basta o vínculo com o espaço. `email_acessos` pode sair depois, em
+  migração própria, quando ninguém mais usar `/email`.
+
 ### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
 
 O modelo da p. 24 do Manual de Identidade Institucional, desenhado por

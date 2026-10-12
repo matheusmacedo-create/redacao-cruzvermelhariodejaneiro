@@ -19,6 +19,20 @@ export const DOMINIO_ANTIGO = 'redacao.cruzvermelhariodejaneiro.org'
 
 export const ENDERECO_DO_PALACIO = `https://${DOMINIO_DO_PALACIO}`
 
+/**
+ * O app de e-mail provisório (/email) no endereço próprio: o mesmo deploy,
+ * outro domínio na Vercel. A raiz desse domínio vai para /email
+ * (inicioDoEmail); o resto dos caminhos é o mesmo do Palácio.
+ */
+export const DOMINIO_DO_EMAIL = 'email.cruzvermelhariodejaneiro.org'
+export const ENDERECO_DO_EMAIL = `https://${DOMINIO_DO_EMAIL}`
+
+/** Quem abriu a raiz do domínio do e-mail vai para a caixa (/email). Null nos outros casos. */
+export function inicioDoEmail(host: string | null, caminho: string): string | null {
+  if (!host || host.toLowerCase().split(':')[0] !== DOMINIO_DO_EMAIL) return null
+  return caminho === '/' ? '/email' : null
+}
+
 /** O host é do Palácio Virtual (o domínio novo ou o antigo)? */
 export function ehDominioDoPalacio(host: string): boolean {
   const h = host.toLowerCase()

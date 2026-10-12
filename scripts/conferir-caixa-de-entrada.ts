@@ -5,9 +5,10 @@
  */
 import {
   assuntoDaResposta, cabecalhosDaResposta, citacao, consultaDaPasta, destinatariosDaResposta, documentoDeLeitura, envolveOEndereco,
-  lerEnderecos, lerMensagem, limparBusca, partesDaMensagem, type MensagemDoGmail, type ParteDoGmail,
+  lerEnderecos, lerMensagem, limparBusca, mensagensDaCaixa, partesDaMensagem, termoDaEtiqueta, type MensagemDoGmail, type ParteDoGmail,
 } from '../lib/correio/leitura'
 import { comCitacao, corpoComAssinatura, montarMensagem } from '../lib/correio/mensagem'
+import { buscaDoFiltro, descricaoDoFiltro, lerCriterio } from '../lib/correio/filtros'
 
 let falhas = 0
 function confere(nome: string, obtido: unknown, esperado: unknown) {
@@ -41,6 +42,31 @@ confere('enviados', consultaDaPasta('compras@cvrj.org', 'enviados'), 'from:compr
 confere('entrada + busca maliciosa fica presa', consultaDaPasta('compras@cvrj.org', 'entrada', ') OR (to:rh@cvrj.org'),
   '(to:compras@cvrj.org OR cc:compras@cvrj.org OR deliveredto:compras@cvrj.org) in:inbox to:rh@cvrj.org')
 confere('endereço com caractere estranho é limpo', consultaDaPasta('a) OR (b@x.org', 'enviados'), 'from:aorb@x.org in:sent')
+
+// A etiqueta da caixa (o filtro do Gmail que leva à caixa)
+confere('etiqueta simples', termoDaEtiqueta('Voluntariado'), 'label:voluntariado')
+confere('etiqueta com espaço e acento', termoDaEtiqueta('Comunicação e Parcerias'), 'label:comunicação-e-parcerias')
+confere('etiqueta aninhada', termoDaEtiqueta('Escola/Secretaria'), 'label:escola-secretaria')
+confere('etiqueta não solta a trava', termoDaEtiqueta('x) OR (to:rh@cvrj.org'), 'label:x-or-torhcvrj.org')
+confere('sem etiqueta', termoDaEtiqueta('  '), null)
+confere('entrada com etiqueta', consultaDaPasta('voluntariado@cvrj.org', 'entrada', '', 'Voluntariado'),
+  '(to:voluntariado@cvrj.org OR cc:voluntariado@cvrj.org OR deliveredto:voluntariado@cvrj.org OR label:voluntariado) in:inbox')
+confere('enviados ignora a etiqueta', consultaDaPasta('voluntariado@cvrj.org', 'enviados', '', 'Voluntariado'), 'from:voluntariado@cvrj.org in:sent')
+const doContato = { labelIds: ['INBOX'], payload: para('contato@cvrj.org') }
+const etiquetada = { labelIds: ['INBOX', 'Label_5'], payload: para('contato@cvrj.org') }
+const resposta = { labelIds: ['SENT'], payload: { headers: h({ From: 'contato@cvrj.org', To: 'fora@x.org' }) } }
+const caixaVol = { email: 'voluntariado@cvrj.org', rotuloId: 'Label_5' }
+confere('conversa etiquetada aparece inteira', mensagensDaCaixa([etiquetada, resposta], caixaVol).length, 2)
+confere('sem etiqueta e de outro endereço não aparece', mensagensDaCaixa([doContato, resposta], caixaVol).length, 0)
+confere('caixa sem etiqueta: só o endereço', mensagensDaCaixa([etiquetada, { labelIds: [], payload: para('voluntariado@cvrj.org') }], { email: 'voluntariado@cvrj.org', rotuloId: null }).length, 1)
+
+// Filtros do Gmail que levam à caixa
+confere('critério limpo', lerCriterio({ assunto: '  voluntariado\n', de: '' }), { assunto: 'voluntariado' })
+let semCampo = ''
+try { lerCriterio({}) } catch (e) { semCampo = (e as Error).message }
+confere('critério vazio recusado', semCampo.startsWith('Preencha'), true)
+confere('busca do filtro', buscaDoFiltro({ de: '@gmail.com', assunto: 'quero ser voluntário' }), 'from:@gmail.com subject:(quero ser voluntário)')
+confere('descrição do filtro', descricaoDoFiltro({ para: 'contato@cvrj.org', assunto: 'doação' }), 'para “contato@cvrj.org” · assunto contém “doação”')
 
 // MIME: alternativa, latin1, anexo e imagem embutida
 const raiz: ParteDoGmail = {

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos, obterChave } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { apiDoGoogle } from './api'
+import type { Criterio } from '@/lib/correio/filtros'
 
 /**
  * A conexão da Redação com o Gmail da conta do Workspace.
@@ -245,4 +246,84 @@ export async function mudarRotulos(workspaceId: string, ids: string[], por: stri
     method: 'POST',
     body: JSON.stringify({ ids: ids.slice(0, 1000), addLabelIds: por, removeLabelIds: tira }),
   })
+}
+
+// ---------------------------------------------------------------- etiquetas e filtros (a etiqueta leva à caixa do setor)
+
+export type EtiquetaDoGmail = { id: string; nome: string }
+
+/** As etiquetas criadas na conta (as do sistema, como INBOX, ficam de fora). */
+export async function listarEtiquetas(workspaceId: string): Promise<EtiquetaDoGmail[]> {
+  const r = await gmail<{ labels?: { id?: string; name?: string; type?: string }[] }>(workspaceId, '/labels')
+  return (r.labels ?? []).filter((l) => l.type === 'user' && l.id && l.name)
+    .map((l) => ({ id: String(l.id), nome: String(l.name) }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+/** Cria a etiqueta; se já existe com esse nome, devolve a que existe. */
+export async function criarEtiqueta(workspaceId: string, nome: string): Promise<EtiquetaDoGmail> {
+  const existente = (await listarEtiquetas(workspaceId)).find((e) => e.nome.toLowerCase() === nome.toLowerCase())
+  if (existente) return existente
+  const r = await gmail<{ id?: string; name?: string }>(workspaceId, '/labels', {
+    method: 'POST',
+    body: JSON.stringify({ name: nome, labelListVisibility: 'labelShow', messageListVisibility: 'show' }),
+  })
+  return { id: String(r.id ?? ''), nome: String(r.name ?? nome) }
+}
+
+/** O que um filtro procura (os mesmos campos da tela de filtros do Gmail): lib/correio/filtros.ts. */
+export type CriterioDoFiltro = Criterio
+export type FiltroDoGmail = { id: string; criterio: CriterioDoFiltro; poeEtiquetas: string[] }
+
+/** Os filtros da conta. */
+export async function listarFiltros(workspaceId: string): Promise<FiltroDoGmail[]> {
+  const r = await gmail<{ filter?: { id?: string; criteria?: Record<string, unknown>; action?: { addLabelIds?: string[] } }[] }>(workspaceId, '/settings/filters')
+  return (r.filter ?? []).filter((f) => f.id).map((f) => ({
+    id: String(f.id),
+    criterio: {
+      de: f.criteria?.from ? String(f.criteria.from) : undefined,
+      para: f.criteria?.to ? String(f.criteria.to) : undefined,
+      assunto: f.criteria?.subject ? String(f.criteria.subject) : undefined,
+      palavras: f.criteria?.query ? String(f.criteria.query) : undefined,
+    },
+    poeEtiquetas: f.action?.addLabelIds ?? [],
+  }))
+}
+
+/** Cria um filtro que põe a etiqueta em tudo o que chegar daqui em diante e bater com o critério. */
+export async function criarFiltro(workspaceId: string, criterio: CriterioDoFiltro, etiquetaId: string): Promise<string> {
+  const criteria: Record<string, string> = {}
+  if (criterio.de) criteria.from = criterio.de
+  if (criterio.para) criteria.to = criterio.para
+  if (criterio.assunto) criteria.subject = criterio.assunto
+  if (criterio.palavras) criteria.query = criterio.palavras
+  const r = await gmail<{ id?: string }>(workspaceId, '/settings/filters', {
+    method: 'POST',
+    body: JSON.stringify({ criteria, action: { addLabelIds: [etiquetaId] } }),
+  })
+  return String(r.id ?? '')
+}
+
+export async function apagarFiltro(workspaceId: string, id: string): Promise<void> {
+  await gmail(workspaceId, `/settings/filters/${encodeURIComponent(id)}`, { method: 'DELETE' })
+}
+
+/**
+ * O filtro só vale para o que chega depois: isto põe a etiqueta no que já
+ * está na conta e bate com a busca (como o "aplicar também às conversas"
+ * do Gmail). Até `teto` mensagens; devolve quantas foram.
+ */
+export async function etiquetarExistentes(workspaceId: string, busca: string, etiquetaId: string, teto = 500): Promise<number> {
+  const ids: string[] = []
+  let pagina: string | null = null
+  do {
+    const u = new URLSearchParams({ q: busca, maxResults: '100', fields: 'messages/id,nextPageToken' })
+    if (pagina) u.set('pageToken', pagina)
+    const r: { messages?: { id: string }[]; nextPageToken?: string } = await gmail(workspaceId, `/messages?${u}`)
+    ids.push(...(r.messages ?? []).map((m) => m.id))
+    pagina = r.nextPageToken ?? null
+  } while (pagina && ids.length < teto)
+  const lista = ids.slice(0, teto)
+  await mudarRotulos(workspaceId, lista, [etiquetaId], [])
+  return lista.length
 }

@@ -12,7 +12,13 @@ const campo = 'h-10 w-full rounded-lg border border-border bg-background px-3 pr
  * Troca da própria senha. O aviso da política aparece enquanto se digita
  * (mesma regra de lib/usuarios/senha.ts), mas quem recusa de verdade é a action.
  */
-export function TrocarSenhaForm({ origem, usuario, nome }: { origem: 'perfil' | 'obrigatoria'; usuario: string; nome: string }) {
+/** `acao`: outra action no lugar de trocarMinhaSenha (o app de e-mail provisório tem a dele, sem o Palácio). */
+export function TrocarSenhaForm({ origem, usuario, nome, acao = trocarMinhaSenha }: {
+  origem: 'perfil' | 'obrigatoria'
+  usuario: string
+  nome: string
+  acao?: (f: FormData) => Promise<{ erro?: string } | undefined | void>
+}) {
   const [atual, setAtual] = useState('')
   const [nova, setNova] = useState('')
   const [confirmacao, setConfirmacao] = useState('')
@@ -33,7 +39,7 @@ export function TrocarSenhaForm({ origem, usuario, nome }: { origem: 'perfil' | 
       form.set('senhaAtual', atual)
       form.set('novaSenha', nova)
       form.set('confirmacao', confirmacao)
-      const r = await trocarMinhaSenha(form)
+      const r = await acao(form)
       if (r?.erro) setErro(r.erro)
     })
   }

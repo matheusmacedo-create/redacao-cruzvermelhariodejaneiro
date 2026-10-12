@@ -616,8 +616,40 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
       ],
       dica: 'Endereço sem setor não pode ser ativado: sempre tem de haver um setor responsável por ele. Endereço novo no Gmail só aparece depois de “Sincronizar endereços”.',
     },
+    {
+      id: 'levar-email-a-caixa',
+      titulo: 'Fazer um e-mail que chega em contato@ aparecer na caixa de outro setor',
+      quem: 'Só administradores',
+      exemplo: 'Quem quer ser voluntário costuma escrever para contato@. Com a etiqueta “Voluntariado” ligada à caixa voluntariado@ e um filtro “assunto contém voluntariado”, esses e-mails aparecem também na caixa do Voluntariado.',
+      passos: [
+        'Abra Configurações › E-mail dos setores e desça até “4. O que chega a cada caixa”.',
+        'Na linha da caixa, escolha a etiqueta do Gmail que leva até ela (ou “Criar etiqueta nova…”).',
+        'Toque em “Novo filtro” e preencha o que identifica esses e-mails: de quem vêm, para qual endereço, palavra no assunto ou no texto.',
+        'Deixe marcado “Aplicar também ao que já está na conta” para trazer também os e-mails antigos (até 500), e toque em “Criar filtro”.',
+      ],
+      dica: 'O filtro roda no próprio Gmail, na hora em que o e-mail chega. A conversa com a etiqueta aparece inteira na caixa do setor, com as respostas. Apagar o filtro não tira a etiqueta do que já foi etiquetado.',
+    },
+    {
+      id: 'dar-acesso-no-email-provisorio',
+      titulo: 'Dar acesso ao e-mail do setor para quem ainda não usa o Palácio',
+      quem: 'O responsável da caixa (quem configura o correio escolhe o responsável)',
+      exemplo: 'A responsável pelo Voluntariado cria o acesso da Ana em email.cruzvermelhariodejaneiro.org › Equipe das caixas e passa a ela o usuário e a senha provisória.',
+      passos: [
+        'Entre em email.cruzvermelhariodejaneiro.org e toque em “Equipe das caixas”.',
+        'Na caixa do setor, toque em “Nova pessoa”, escreva o nome completo e toque em “Criar acesso”.',
+        'Copie o quadro com o endereço, o usuário e a senha provisória e passe à pessoa. A senha não aparece de novo.',
+        'No primeiro acesso, a pessoa escolhe uma senha só dela.',
+      ],
+      dica: 'Quem já tem conta (do Palácio ou de outra caixa) recebe acesso por “Dar acesso a quem já tem conta”, pelo usuário. Esqueceu a senha? “Senha provisória” gera uma nova e derruba as sessões abertas. Conta que entra no Palácio tem a senha cuidada lá.',
+    },
   ],
   perguntas: [
+    {
+      id: 'email-provisorio',
+      pergunta: 'O que é o email.cruzvermelhariodejaneiro.org?',
+      resposta: 'É a mesma caixa do E-mail do setor, num endereço próprio, para a equipe usar o e-mail antes de o Palácio Virtual abrir para todos. Quem entra lá vê só as caixas liberadas para ela e nada do resto do Palácio. O responsável de cada caixa dá e tira acesso; quem já é do setor no Palácio também pode entrar lá com a mesma conta.',
+      termos: ['provisório', 'email.', 'sem palácio', 'acesso ao e-mail', 'senha provisória'],
+    },
     {
       id: 'nao-faco-parte-de-setor',
       pergunta: 'Aparece “Você ainda não faz parte de um setor com endereço ativo”. O que faço?',

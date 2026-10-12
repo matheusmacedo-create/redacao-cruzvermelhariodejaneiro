@@ -105,6 +105,29 @@ export function envolveOEndereco(parte: ParteDoGmail | undefined, email: string)
   return false
 }
 
+/**
+ * A etiqueta na busca do Gmail: o NOME em minúsculas, com espaço e "/" trocados
+ * por hífen ("Escola/Secretaria" → label:escola-secretaria; acento fica). O id
+ * da etiqueta não funciona na busca (conferido na conta, 12/10/2026). Só letra,
+ * número, hífen, ponto, "_" e "&" passam: nada que solte a trava do endereço.
+ */
+export function termoDaEtiqueta(nome: string | null | undefined): string | null {
+  const t = String(nome ?? '').trim().toLowerCase().replace(/[\s/]+/g, '-').replace(/[^\p{L}\p{N}._&-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  return t ? `label:${t}` : null
+}
+
+/**
+ * As mensagens de uma conversa que a caixa vê. Conversa com a etiqueta da
+ * caixa em qualquer mensagem (o filtro do Gmail levou-a para lá) aparece
+ * inteira — inclusive a resposta que alguém deu pelo endereço principal;
+ * sem a etiqueta, só as que envolvem o endereço (envolveOEndereco).
+ */
+export function mensagensDaCaixa<M extends { labelIds?: string[]; payload?: ParteDoGmail }>(mensagens: M[], caixa: { email: string; rotuloId?: string | null }): M[] {
+  const rotulo = caixa.rotuloId?.trim()
+  if (rotulo && mensagens.some((m) => (m.labelIds ?? []).includes(rotulo))) return mensagens
+  return mensagens.filter((m) => envolveOEndereco(m.payload, caixa.email))
+}
+
 /** Tira da busca da pessoa tudo o que poderia soltar a trava do endereço: parênteses, chaves, aspas e OR/AND. */
 export function limparBusca(busca: string): string {
   return busca
@@ -119,12 +142,15 @@ export function limparBusca(busca: string): string {
  * A busca no Gmail de uma pasta do setor. O filtro do endereço vai entre
  * parênteses e sempre em AND com o resto; a busca da pessoa entra limpa.
  */
-export function consultaDaPasta(email: string, pasta: Pasta, busca = ''): string {
+export function consultaDaPasta(email: string, pasta: Pasta, busca = '', etiqueta: string | null = null): string {
   const e = email.trim().toLowerCase().replace(/[^a-z0-9._%+@-]/g, '')
-  const paraOEndereco = `(to:${e} OR cc:${e} OR deliveredto:${e})`
+  // A etiqueta da caixa (um filtro do Gmail que a põe) também leva à caixa — na entrada e em "Todas".
+  const rotulo = termoDaEtiqueta(etiqueta)
+  const ouEtiqueta = rotulo ? ` OR ${rotulo}` : ''
+  const paraOEndereco = `(to:${e} OR cc:${e} OR deliveredto:${e}${ouEtiqueta})`
   const base = pasta === 'entrada' ? `${paraOEndereco} in:inbox`
     : pasta === 'enviados' ? `from:${e} in:sent`
-      : `(to:${e} OR cc:${e} OR deliveredto:${e} OR from:${e}) -in:trash -in:spam`
+      : `(to:${e} OR cc:${e} OR deliveredto:${e} OR from:${e}${ouEtiqueta}) -in:trash -in:spam`
   const extra = limparBusca(busca)
   return extra ? `${base} ${extra}` : base
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -41,7 +41,37 @@ const diaMes = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short'
 const completo = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeStyle: 'short', timeZone: fuso })
 const diaDe = new Intl.DateTimeFormat('en-CA', { timeZone: fuso })
 
-function url(e: Estado, muda: Partial<Estado>): string {
+type Resultado = { erro?: string; recado?: string }
+
+/**
+ * Onde a caixa está: no Palácio (/correio) ou no app de e-mail provisório
+ * (/email). Muda o endereço das telas e do anexo, as actions chamadas e os
+ * textos que citam o Palácio; a tela é a mesma. Cada lado confere a pessoa
+ * nas próprias actions.
+ */
+export type AmbienteDoCorreio = {
+  base: string
+  anexo: string
+  nomeDoRegistro: string
+  /** Para quem não tem caixa: a quem pedir. */
+  semCaixa: string
+  /** Para quando a conta Google precisa de um administrador. */
+  semConta: string
+  atualizar: () => Promise<Resultado>
+  enviar: (f: FormData) => Promise<Resultado>
+  marcar: (caixaId: string, threadId: string, acao: 'lida' | 'nao_lida' | 'arquivar' | 'entrada') => Promise<Resultado>
+}
+
+const NO_PALACIO: AmbienteDoCorreio = {
+  base: '/correio', anexo: '/api/correio/anexo', nomeDoRegistro: 'Registro do Palácio',
+  semCaixa: 'Peça a um administrador para incluir você no seu setor.', semConta: 'Avise um administrador.',
+  atualizar: atualizarCorreio, enviar: enviarEmailDoSetor, marcar: marcarConversa,
+}
+const Ambiente = createContext<AmbienteDoCorreio>(NO_PALACIO)
+const useAmbiente = () => useContext(Ambiente)
+const useUrl = () => { const { base } = useAmbiente(); return (e: Estado, muda: Partial<Estado>) => montarUrl(base, e, muda) }
+
+function montarUrl(base: string, e: Estado, muda: Partial<Estado>): string {
   const n = { ...e, ...muda }
   const p = new URLSearchParams()
   if (n.caixa) p.set('caixa', n.caixa)
@@ -51,7 +81,7 @@ function url(e: Estado, muda: Partial<Estado>): string {
   if (n.conversa) p.set('conversa', n.conversa)
   if (n.escrever) p.set('escrever', '1')
   const s = p.toString()
-  return `/correio${s ? `?${s}` : ''}`
+  return `${base}${s ? `?${s}` : ''}`
 }
 
 /** "14:32" se foi hoje; "27 de set." antes. */
@@ -65,7 +95,11 @@ const iniciais = (nome: string, email: string) => (nome || email).split(/[\s@.]+
 
 // ---------------------------------------------------------------- a tela
 
-export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conversa, historico, situacao, semLeitura, erroDoGmail, ehAdmin, hoje }: {
+export function CaixaDoCorreio({ ambiente, ...props }: Parameters<typeof Tela>[0] & { ambiente?: AmbienteDoCorreio }) {
+  return <Ambiente.Provider value={ambiente ?? NO_PALACIO}><Tela {...props} /></Ambiente.Provider>
+}
+
+function Tela({ caixas, estado, naoLidas, lista, proxima, conversa, historico, situacao, semLeitura, erroDoGmail, ehAdmin, hoje }: {
   caixas: CaixaVisivel[]
   estado: Estado
   naoLidas: Record<string, number>
@@ -79,6 +113,8 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
   ehAdmin: boolean
   hoje: string
 }) {
+  const url = useUrl()
+  const ambiente = useAmbiente()
   if (situacao !== 'ok' || !caixas.length) {
     return (
       <div className="flex flex-col gap-6">
@@ -86,7 +122,7 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
           <MailX className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
           <p className="text-muted-foreground">
             {situacao === 'expirada' ? 'A autorização da conta Google expirou. ' : situacao === 'desconectado' ? 'O correio ainda não foi ligado à conta Google. ' : 'Você ainda não faz parte de um setor com endereço ativo. '}
-            {ehAdmin ? <>Resolva em <a href="/configuracoes/email" className="text-primary hover:underline">Configurações → E-mail dos setores</a>.</> : situacao === 'ok' ? 'Peça a um administrador para incluir você no seu setor.' : 'Avise um administrador.'}
+            {ehAdmin ? <>Resolva em <a href="/configuracoes/email" className="text-primary hover:underline">Configurações → E-mail dos setores</a>.</> : situacao === 'ok' ? ambiente.semCaixa : ambiente.semConta}
           </p>
         </Card>
         <Historico envios={historico} />
@@ -140,7 +176,7 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
           </div>
           <Link href={url({ ...estado, q: '' }, { pasta: 'registro', conversa: null, pagina: null, escrever: false })} prefetch={false} aria-current={estado.pasta === 'registro' ? 'page' : undefined}
             className={cn('mt-auto flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm', estado.pasta === 'registro' ? 'bg-primary/10 font-semibold text-primary' : 'text-muted-foreground hover:bg-muted')}>
-            <ScrollText className="size-4" />Registro do Palácio
+            <ScrollText className="size-4" />{ambiente.nomeDoRegistro}
           </Link>
         </nav>
 
@@ -175,6 +211,8 @@ export function CaixaDoCorreio({ caixas, estado, naoLidas, lista, proxima, conve
 
 function Lista({ caixa, estado, lista, proxima, hoje, semLeitura }: { caixa: CaixaVisivel; estado: Estado; lista: ConversaNaLista[]; proxima: string | null; hoje: string; semLeitura: boolean }) {
   const router = useRouter()
+  const url = useUrl()
+  const ambiente = useAmbiente()
   const [atualizando, atualizar] = useTransition()
   const pasta = estado.pasta as Pasta
   return (
@@ -186,11 +224,11 @@ function Lista({ caixa, estado, lista, proxima, hoje, semLeitura }: { caixa: Cai
             <p className="truncate text-xs text-muted-foreground">{caixa.setor} · {caixa.email}</p>
           </div>
           {/* Lê o Gmail de novo agora: as leituras ficam guardadas por um minuto (lib/correio/caixa-de-entrada.ts). */}
-          <Button variant="ghost" size="icon" aria-label="Atualizar" disabled={atualizando} onClick={() => atualizar(async () => { await atualizarCorreio(); router.refresh() })}>
+          <Button variant="ghost" size="icon" aria-label="Atualizar" disabled={atualizando} onClick={() => atualizar(async () => { await ambiente.atualizar(); router.refresh() })}>
             <RefreshCw className={cn('size-4', atualizando && 'animate-spin')} />
           </Button>
         </div>
-        <form action="/correio" className="relative" data-ajuda="correio.busca">
+        <form action={ambiente.base} className="relative" data-ajuda="correio.busca">
           <input type="hidden" name="caixa" value={caixa.id} />
           {pasta !== 'entrada' && <input type="hidden" name="pasta" value={pasta} />}
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -247,13 +285,15 @@ function ajustarAltura(quadro: HTMLIFrameElement) {
   doc.querySelectorAll('img').forEach((img) => { if (!img.complete) img.addEventListener('load', medir, { once: true }) })
 }
 
-const urlDoAnexo = (caixaId: string, mensagemId: string, a: AnexoLido, baixar = false) =>
-  `/api/correio/anexo?caixa=${caixaId}&mensagem=${mensagemId}&parte=${encodeURIComponent(a.parte)}${baixar ? '&baixar=1' : ''}`
+const urlDoAnexo = (base: string, caixaId: string, mensagemId: string, a: AnexoLido, baixar = false) =>
+  `${base}?caixa=${caixaId}&mensagem=${mensagemId}&parte=${encodeURIComponent(a.parte)}${baixar ? '&baixar=1' : ''}`
 
 type Modo = 'responder' | 'todos' | 'encaminhar'
 
 function Leitura({ caixa, mensagens, estado, caixas }: { caixa: CaixaVisivel; mensagens: MensagemLida[]; estado: Estado; caixas: CaixaVisivel[] }) {
   const router = useRouter()
+  const url = useUrl()
+  const ambiente = useAmbiente()
   const ultima = mensagens[mensagens.length - 1]
   // Abertas: a última e as não lidas; as outras ficam num resumo de uma linha, como no Gmail.
   const [abertas, setAbertas] = useState<Set<string>>(() => new Set([ultima.id, ...mensagens.filter((m) => m.naoLida).map((m) => m.id)]))
@@ -268,12 +308,12 @@ function Leitura({ caixa, mensagens, estado, caixas }: { caixa: CaixaVisivel; me
   useEffect(() => {
     if (marcou.current || !mensagens.some((m) => m.naoLida)) return
     marcou.current = true
-    marcarConversa(caixa.id, ultima.threadId, 'lida').then((r) => { if (!r.erro) router.refresh() })
-  }, [caixa.id, mensagens, ultima.threadId, router])
+    ambiente.marcar(caixa.id, ultima.threadId, 'lida').then((r) => { if (!r.erro) router.refresh() })
+  }, [ambiente, caixa.id, mensagens, ultima.threadId, router])
 
   const acao = (a: 'nao_lida' | 'arquivar' | 'entrada') => rodar(async () => {
     setErro('')
-    const r = await marcarConversa(caixa.id, ultima.threadId, a)
+    const r = await ambiente.marcar(caixa.id, ultima.threadId, a)
     if (r.erro) { setErro(r.erro); return }
     router.push(url(estado, { conversa: null }))
   })
@@ -317,13 +357,13 @@ function Leitura({ caixa, mensagens, estado, caixas }: { caixa: CaixaVisivel; me
                 {aberta && (
                   <div className="border-t border-border px-3 pb-3 pt-2">
                     <iframe title={`Mensagem de ${de.nome || de.email}`} sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-                      srcDoc={documentoDeLeitura(m, (a) => urlDoAnexo(caixa.id, m.id, a))} onLoad={(e) => ajustarAltura(e.currentTarget)}
+                      srcDoc={documentoDeLeitura(m, (a) => urlDoAnexo(ambiente.anexo, caixa.id, m.id, a))} onLoad={(e) => ajustarAltura(e.currentTarget)}
                       className="h-24 w-full rounded bg-white" />
                     {m.anexos.filter((a) => !a.embutido).length > 0 && (
                       <ul className="mt-3 flex flex-wrap gap-2" aria-label="Anexos">
                         {m.anexos.filter((a) => !a.embutido).map((a) => (
                           <li key={a.parte}>
-                            <a href={urlDoAnexo(caixa.id, m.id, a)} target="_blank" rel="noreferrer" data-anexo={a.nome}
+                            <a href={urlDoAnexo(ambiente.anexo, caixa.id, m.id, a)} target="_blank" rel="noreferrer" data-anexo={a.nome}
                               className="flex max-w-64 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-primary/40 hover:bg-muted/40">
                               <Paperclip className="size-4 shrink-0 text-muted-foreground" />
                               <span className="min-w-0"><span className="block truncate font-medium">{a.nome}</span><span className="text-xs text-muted-foreground">{tamanhoLegivel(a.tamanho)}</span></span>
@@ -373,6 +413,7 @@ function Compositor({ caixas, caixaInicial, fixa = false, resposta, voltar, onFe
   onFechar?: () => void
 }) {
   const router = useRouter()
+  const ambiente = useAmbiente()
   const [caixaId, setCaixaId] = useState(caixaInicial)
   const caixa = caixas.find((c) => c.id === caixaId) ?? caixas[0]
   const inicial = useMemo(() => {
@@ -400,7 +441,7 @@ function Compositor({ caixas, caixaInicial, fixa = false, resposta, voltar, onFe
         f.set('mensagemId', resposta.mensagem.id); f.set('threadId', resposta.mensagem.threadId)
         f.set('modo', resposta.modo === 'encaminhar' ? 'encaminhar' : 'responder')
       }
-      const r = await enviarEmailDoSetor(f)
+      const r = await ambiente.enviar(f)
       if (r.erro) { setRecado({ tom: 'erro', texto: r.erro }); return }
       setRecado({ tom: 'ok', texto: r.recado ?? 'Enviado.' })
       setPara(''); setCc(''); setAssunto(''); setCorpo('')
@@ -488,6 +529,7 @@ const quandoNoRegistro = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', 
 
 /** O registro do Palácio: tudo o que saiu pelas caixas por aqui, com quem enviou (o Gmail não sabe quem foi). */
 function Historico({ envios, embutido = false }: { envios: EnvioNaTela[]; embutido?: boolean }) {
+  const ambiente = useAmbiente()
   const [busca, setBusca] = useState('')
   const [aberto, setAberto] = useState<string | null>(null)
   const lista = useMemo(() => {
@@ -499,8 +541,8 @@ function Historico({ envios, embutido = false }: { envios: EnvioNaTela[]; embuti
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div>
-          <p className="font-medium">Registro do Palácio</p>
-          <p className="text-xs text-muted-foreground">O que saiu pelo Palácio Virtual, com quem enviou. Você vê o dos seus setores; administradores veem todos.</p>
+          <p className="font-medium">{ambiente.nomeDoRegistro}</p>
+          <p className="text-xs text-muted-foreground">O que saiu por aqui (Palácio Virtual e e-mail provisório), com quem enviou. Você vê o das suas caixas; administradores veem todos.</p>
         </div>
         <div className="relative min-w-56">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

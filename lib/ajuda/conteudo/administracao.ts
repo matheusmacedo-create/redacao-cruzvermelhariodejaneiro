@@ -568,12 +568,18 @@ const CONFIGURACOES: GuiaDaArea = {
         {
           alvo: 'configuracoes.correio',
           titulo: 'E-mail dos setores',
-          texto: 'Três passos: conectar a conta Google dona dos endereços, dizer quem envia por cada setor e ligar cada endereço ao seu setor. Endereço novo chega inativo.',
+          texto: 'Quatro passos: conectar a conta Google dona dos endereços, dizer quem envia por cada setor, ligar cada endereço ao seu setor e dizer o que mais chega a cada caixa (etiquetas e filtros do Gmail). Endereço novo chega inativo.',
         },
         {
           alvo: 'configuracoes.quem-envia',
           titulo: 'Quem envia por cada setor',
           texto: 'Em “Membros”, marque quem envia pelo endereço do setor. Criar, renomear ou desativar setores é em Diretório › Setores.',
+        },
+        {
+          alvo: 'configuracoes.etiquetas',
+          titulo: 'O que chega a cada caixa',
+          texto: 'Os endereços dos setores são da mesma conta do Gmail. Para levar a uma caixa e-mails de outro endereço (como contato@), ligue uma etiqueta à caixa e crie filtros que a ponham: tudo o que tem a etiqueta aparece também na caixa do setor.',
+          seAusente: 'pular',
         },
       ],
     },

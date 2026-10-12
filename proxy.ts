@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { publicSupabaseEnv, SupabaseConfigError } from '@/lib/supabase/env'
-import { enderecoNoDominioNovo } from '@/lib/dominio'
+import { enderecoNoDominioNovo, inicioDoEmail } from '@/lib/dominio'
 import {
   CABECALHO_DO_CAMINHO, COOKIE_DA_RENOVACAO, COOKIE_DO_MEMBRO, caminhoParaVoltar, diaDaRenovacao, naAreaDoMembro, opcoesDoCookieDoMembro, renovaCookieDoMembro,
 } from '@/lib/membro/entrada'
@@ -12,6 +12,9 @@ export async function proxy(request: NextRequest) {
   // respondendo nos dois (webhooks, formulário do site, .ics). lib/dominio.ts.
   const novo = enderecoNoDominioNovo(request.headers.get('host'), request.method, request.nextUrl.pathname, request.nextUrl.search)
   if (novo) return NextResponse.redirect(novo, 308)
+  // email.cruzvermelhariodejaneiro.org: a raiz é a caixa do app de e-mail provisório (app/email).
+  const caixa = inicioDoEmail(request.headers.get('host'), request.nextUrl.pathname)
+  if (caixa) return NextResponse.redirect(new URL(caixa, request.url), 307)
 
   // Antes de qualquer NextResponse.next({ request }): o cabeçalho da área do
   // voluntário tem de ir junto nos dois retornos abaixo.
