@@ -48,9 +48,15 @@ export default async function CriarContaPage({ params }: { params: Promise<{ tok
         ) : (
           <>
             <p className="mt-3 leading-relaxed text-muted-foreground">Preencha e o seu e-mail @cruzvermelhariodejaneiro.org é criado na hora, no Google. Você entra pelo Gmail, no computador ou no celular.</p>
-            <div className="mt-8 rounded-xl border border-border bg-card p-6">
+            <ol className="mt-5 flex flex-col gap-2 text-sm text-muted-foreground" aria-label="Como funciona">
+              <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">1</span><span>Preencha seu nome, escolha o e-mail e diga o seu setor.</span></li>
+              <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">2</span><span>A conta é criada no Google e você recebe no seu e-mail pessoal o endereço, a senha provisória e o passo a passo.</span></li>
+              <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">3</span><span>Entre em mail.google.com com a senha provisória. O Google pede uma senha nova na hora, e pronto.</span></li>
+            </ol>
+            <div className="mt-6 rounded-xl border border-border bg-card p-6">
               <CriarContaDoGoogle token={token} setorFixo={setorFixo} setores={setores} />
             </div>
+            <p className="mt-6 text-center text-xs text-muted-foreground">Dúvida ou link que não funciona? Fale com o responsável do seu setor.</p>
           </>
         )}
       </div>
