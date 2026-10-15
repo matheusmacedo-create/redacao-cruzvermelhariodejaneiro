@@ -39,7 +39,7 @@ export default async function EquipeDasCaixasPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      <CabecalhoDoEmail nome={ctx.nome} responsavel atual="equipe" />
+      <CabecalhoDoEmail nome={ctx.nome} responsavel atual="equipe" caixa={null} />
       <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 sm:p-6">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Equipe das caixas</h1>
