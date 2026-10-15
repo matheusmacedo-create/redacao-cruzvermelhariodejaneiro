@@ -1547,6 +1547,47 @@ Palácio abrir para todos, sem passar cada acesso por um administrador.
   perfil); basta o vínculo com o espaço. `email_acessos` pode sair depois, em
   migração própria, quando ninguém mais usar `/email`.
 
+### 7.29b Contas do Google pelo link (`/email/criar/[token]`, 15/10/2026)
+
+A filial ganhou o Google Workspace for Nonprofits (até 2.000 usuários, sem
+custo) e o rumo é cada pessoa ter a própria conta do Google
+(nome.sobrenome@), com o endereço do setor como **grupo** do Google (Caixa
+colaborativa), nunca conta com senha compartilhada: o grupo guarda o
+histórico e o registro de quem fez o quê é por pessoa. O app provisório de
+7.29a vira ponte até isso estar montado. Para não criar conta por conta no
+Admin do Google, um administrador gera um link e a pessoa cria a própria.
+- **Conexão de administrador** (`google_admin_conexao` + chave `google_admin`
+  no cofre; `/api/google/conectar-admin`, mesma volta `/api/google/retorno`
+  com `state` começando em `admin.`): outra conexão, separada da do Gmail.
+  A do Gmail é a conta dona dos apelidos (contato@), que não precisa — e não
+  deve — ser administradora; esta precisa ser superadministradora do
+  Workspace. Escopos mínimos: `admin.directory.user` e
+  `admin.directory.group.member` (`lib/google/diretorio.ts`).
+- **Links** (`google_convites`): só o sha-256 do código fica no banco; o link
+  aparece uma vez para quem gerou. Pode fixar um setor ou deixar a pessoa
+  escolher. Vence (1 a 30 dias), tem limite de usos (1 a 500) e pode ser
+  revogado. Gerar e cancelar exigem `correio.configurar`.
+- **A página do link** é pública (quem abre ainda não tem conta nenhuma) e
+  mora no app de e-mail (`app/email/criar/[token]`), aberta em
+  email.cruzvermelhariodejaneiro.org. Pede nome e sobrenome (o Google exige
+  os dois), e-mail desejado (sugerido do nome: `usuarioSugeridoDoGoogle`),
+  setor, celular (E.164) e e-mail pessoal de fora do domínio, os dois para a
+  recuperação de senha do próprio Google. `criarContaPeloConvite`
+  (`app/actions/google-contas.ts`) confere o link de novo, recusa endereço
+  que é caixa de setor ou já existe no Google (409), cria com
+  `changePasswordAtNextLogin` e tenta pôr no grupo do setor (`setores.email`).
+  Grupo que ainda é apelido devolve 404: a conta nasce mesmo assim e
+  `google_contas.grupo_ok` fica falso, com aviso na tela de acompanhamento.
+  A senha provisória aparece uma vez e não é gravada.
+- **Cercas** (`lib/google/contas-regras.ts`, puro): `CONTAS_POR_IP_POR_HORA`
+  (6) por hash de IP com sal (`hashDoIp`, o mesmo de
+  `pedidos_de_recuperacao`), usos do link, vencimento, revogação.
+- **Acompanhamento**: bloco "5. Criar e-mails pelo link" em Configurações ›
+  E-mail dos setores (`components/admin/contas-google.tsx`): conexão, gerar
+  link, links vivos e contas criadas. Tudo vai ao `activity_log`
+  (`google_convite_criado`, `google_convite_revogado`, `google_conta_criada`
+  sem ator, `google_admin_conectado`/`_desconectado`).
+
 ### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
 
 O modelo da p. 24 do Manual de Identidade Institucional, desenhado por
