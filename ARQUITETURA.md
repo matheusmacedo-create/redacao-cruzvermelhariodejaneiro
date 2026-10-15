@@ -1527,6 +1527,22 @@ Palácio abrir para todos, sem passar cada acesso por um administrador.
   textos); a do Palácio é o padrão. Envio por `enviarPelaCaixaLiberada`, com o
   mesmo `emails_enviados` ("Registro de envios", lido pelo admin client
   filtrado pelos endereços da pessoa). Anexo em `/api/email/anexo`.
+- **Cara de "o Gmail do setor" (15/10/2026)**: o cabeçalho
+  (`components/email-provisorio/cabecalho.tsx`) mostra o endereço da caixa
+  aberta em destaque, com o setor e o nome da pessoa embaixo; a marca diz só
+  "E-mail dos setores" — a palavra "provisório" fica na documentação e no
+  código, nunca na tela de quem usa; o "Escrever" é grande e vermelho no alto
+  da coluna (`escreverEmDestaque` no `ambiente`); a entrada pede só usuário e
+  senha (`usuario` em `LoginForm` troca o rótulo "Usuário ou e-mail", que não
+  faz sentido para conta só do e-mail).
+- **Liberar o setor de uma vez** (`liberarSetorDoEmail`): em Equipe das
+  caixas, uma lista de nomes (um por linha, "Nome; usuario" para escolher o
+  usuário, até 30) vira uma conta por linha, cada uma com a própria senha
+  provisória, e a tela mostra o quadro de cada pessoa com "Copiar" (o recado
+  pronto para o WhatsApp) e "Copiar todos". Linha com problema volta com o
+  erro ao lado do nome, sem derrubar as outras. Quem configura o correio pode
+  marcar a primeira pessoa criada como responsável — é o caminho para abrir
+  um setor que ainda não tem ninguém no e-mail, sem passar pelo Palácio.
 - **Quando o Palácio abrir para todos**: a conta é a mesma (usuário e
   perfil); basta o vínculo com o espaço. `email_acessos` pode sair depois, em
   migração própria, quando ninguém mais usar `/email`.

@@ -8,8 +8,17 @@ import { Button } from '@/components/ui/button'
 import { entrar } from '@/app/actions/entrada'
 import { impressaoDoNavegador, type Impressao } from './impressao'
 
-/** `rodape`: troca o rodapé padrão (esqueci a senha, aviso do registro) — o app de e-mail provisório tem o dele. */
-export function LoginForm({ needsBootstrap, aviso, voltar, rodape }: { needsBootstrap: boolean; aviso?: string; voltar?: string | null; rodape?: React.ReactNode }) {
+/**
+ * `rodape`: troca o rodapé padrão (esqueci a senha, aviso do registro) — o app de e-mail tem o dele.
+ * `usuario`: o rótulo e o exemplo do campo de usuário — o app de e-mail só entra por usuário, sem e-mail.
+ */
+export function LoginForm({ needsBootstrap, aviso, voltar, rodape, usuario: campoUsuario }: {
+  needsBootstrap: boolean
+  aviso?: string
+  voltar?: string | null
+  rodape?: React.ReactNode
+  usuario?: { rotulo: string; placeholder: string }
+}) {
   const router = useRouter()
   const [setup, setSetup] = useState(needsBootstrap)
   const [fullName, setFullName] = useState('')
@@ -52,7 +61,7 @@ export function LoginForm({ needsBootstrap, aviso, voltar, rodape }: { needsBoot
       {setup && <div className="rounded-lg border border-primary/25 bg-primary/5 p-4"><p className="text-sm font-semibold">Configuração inicial</p><p className="mt-1 text-sm text-muted-foreground">Crie o primeiro administrador. Nenhum e-mail será enviado.</p></div>}
       {setup && <label className="flex flex-col gap-2 text-sm font-medium">Nome completo<input required minLength={3} value={fullName} onChange={(e) => setFullName(e.target.value)} className="h-11 rounded-lg border border-border bg-background px-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder="Nome do administrador" /></label>}
       {aviso && !setup && <p role="status" className="rounded-lg bg-success/10 px-3 py-2 text-sm text-success">{aviso}</p>}
-      <label className="flex flex-col gap-2 text-sm font-medium">{setup ? 'Usuário' : 'Usuário ou e-mail'}<div className="relative"><UserRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} className="h-11 w-full rounded-lg border border-border bg-background pl-10 pr-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder={setup ? 'nome.sobrenome' : 'nome.sobrenome ou seu@email.com'} /></div></label>
+      <label className="flex flex-col gap-2 text-sm font-medium">{setup ? 'Usuário' : campoUsuario?.rotulo ?? 'Usuário ou e-mail'}<div className="relative"><UserRound className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} className="h-11 w-full rounded-lg border border-border bg-background pl-10 pr-3 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder={setup ? 'nome.sobrenome' : campoUsuario?.placeholder ?? 'nome.sobrenome ou seu@email.com'} /></div></label>
       <label className="flex flex-col gap-2 text-sm font-medium">Senha<div className="relative"><LockKeyhole className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input required minLength={8} autoComplete={setup ? 'new-password' : 'current-password'} type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 w-full rounded-lg border border-border bg-background pl-10 pr-11 outline-none focus:border-ring focus:ring-2 focus:ring-ring/30" placeholder="Mínimo de 8 caracteres"/><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">{showPassword ? <EyeOff className="size-4"/> : <Eye className="size-4"/>}</button></div></label>
       {error && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       <Button type="submit" size="lg" className="h-12" disabled={loading}>{loading && <Loader2 className="size-4 animate-spin"/>}{setup ? 'Criar administrador e entrar' : 'Entrar'}</Button>

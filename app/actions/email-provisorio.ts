@@ -16,9 +16,10 @@ import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
 import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 import { revogarLinksDeSenha } from '@/lib/contas/servidor'
 import { usuarioSugerido } from '@/lib/equipe'
+import type { ContaCriada } from '@/components/email-provisorio/equipe'
 
 /**
- * O app de e-mail provisório (/email): a caixa e a equipe de cada caixa.
+ * O app de e-mail (/email): a caixa e a equipe de cada caixa.
  *
  * Toda action confere de novo, aqui, quem pede (obterContextoDoEmail) e se a
  * caixa é dela; a tela esconder um botão é só conforto. As tabelas são
@@ -188,43 +189,102 @@ async function usuarioLivre(base: string): Promise<string> {
 
 /**
  * Cria a conta de uma pessoa (só do e-mail) com acesso a uma caixa. A senha
- * provisória aparece uma vez para quem criou e vale só para o primeiro
- * acesso: na entrada, a pessoa escolhe a dela.
+ * provisória vale só para o primeiro acesso: na entrada, a pessoa escolhe a
+ * dela. Lança com a mensagem para a tela; quem chama já conferiu que pede o
+ * responsável da caixa.
  */
-export async function criarContaDoEmail(formData: FormData): Promise<Resultado & { usuario?: string; senhaTemporaria?: string }> {
+async function criarConta(ctx: ContextoDoEmail, caixa: { id: string; email: string }, nomeBruto: string, pedido: string): Promise<{ userId: string; usuario: string; senha: string }> {
+  const nome = nomeBruto.replace(/\s+/g, ' ').trim()
+  if (nome.length < 3 || nome.length > 120) throw new Error('Escreva o nome completo da pessoa (3 a 120 caracteres).')
+  const escolhido = pedido.trim().toLowerCase()
+  if (escolhido && !USUARIO_VALIDO.test(escolhido)) throw new Error('Usuário: de 3 a 40 letras minúsculas, números, ponto, hífen ou sublinhado.')
+  const usuario = escolhido || await usuarioLivre(usuarioSugerido(nome))
+  const admin = createAdminClient()
+  const { data: existente } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
+  if (existente) throw new Error(`O usuário ${usuario} já existe. Se for a mesma pessoa, use "Dar acesso a quem já tem conta".`)
+
+  const senha = gerarSenhaTemporaria()
+  const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
+    email: emailInterno(usuario), password: senha, email_confirm: true, user_metadata: { username: usuario, full_name: nome },
+  })
+  if (erroAuth || !criado.user) throw new Error('Não foi possível criar a conta. Confira se o usuário já não existe.')
+  const userId = criado.user.id
+  const { error: erroPerfil } = await admin.from('profiles').insert({ id: userId, username: usuario, full_name: nome, initials: iniciais(nome), trocar_senha: true })
+  if (erroPerfil) {
+    await admin.auth.admin.deleteUser(userId)
+    throw new Error('Não foi possível criar o perfil.')
+  }
+  const { error: erroAcesso } = await admin.from('email_acessos').insert({ caixa_id: caixa.id, user_id: userId, workspace_id: ctx.workspaceId, criado_por: ctx.userId })
+  if (erroAcesso) {
+    await admin.auth.admin.deleteUser(userId)
+    throw new Error('Não foi possível dar o acesso à caixa.')
+  }
+  await registrar(ctx, 'email_conta_criada', userId, { caixa: caixa.email, usuario })
+  return { userId, usuario, senha }
+}
+
+/** Uma pessoa: a senha provisória aparece uma vez para quem criou. */
+export async function criarContaDoEmail(formData: FormData): Promise<Resultado & { nome?: string; usuario?: string; senhaTemporaria?: string }> {
   try {
     const ctx = await exigir()
     const caixa = exigirResponsavel(ctx, texto(formData, 'caixaId'))
     const nome = texto(formData, 'nome').replace(/\s+/g, ' ')
-    if (nome.length < 3 || nome.length > 120) throw new Error('Escreva o nome completo da pessoa (3 a 120 caracteres).')
-    const pedido = texto(formData, 'usuario').toLowerCase()
-    if (pedido && !USUARIO_VALIDO.test(pedido)) throw new Error('Usuário: de 3 a 40 letras minúsculas, números, ponto, hífen ou sublinhado.')
-    const usuario = pedido || await usuarioLivre(usuarioSugerido(nome))
-    const admin = createAdminClient()
-    const { data: existente } = await admin.from('profiles').select('id').eq('username', usuario).maybeSingle()
-    if (existente) throw new Error(`O usuário ${usuario} já existe. Se for a mesma pessoa, use "Dar acesso a quem já tem conta".`)
-
-    const senha = gerarSenhaTemporaria()
-    const { data: criado, error: erroAuth } = await admin.auth.admin.createUser({
-      email: emailInterno(usuario), password: senha, email_confirm: true, user_metadata: { username: usuario, full_name: nome },
-    })
-    if (erroAuth || !criado.user) throw new Error('Não foi possível criar a conta. Confira se o usuário já não existe.')
-    const userId = criado.user.id
-    const { error: erroPerfil } = await admin.from('profiles').insert({ id: userId, username: usuario, full_name: nome, initials: iniciais(nome), trocar_senha: true })
-    if (erroPerfil) {
-      await admin.auth.admin.deleteUser(userId)
-      throw new Error('Não foi possível criar o perfil.')
-    }
-    const { error: erroAcesso } = await admin.from('email_acessos').insert({ caixa_id: caixa.id, user_id: userId, workspace_id: ctx.workspaceId, criado_por: ctx.userId })
-    if (erroAcesso) {
-      await admin.auth.admin.deleteUser(userId)
-      throw new Error('Não foi possível dar o acesso à caixa.')
-    }
-    await registrar(ctx, 'email_conta_criada', userId, { caixa: caixa.email, usuario })
+    const { usuario, senha } = await criarConta(ctx, caixa, nome, texto(formData, 'usuario'))
     revalidatePath('/email/equipe')
-    return { recado: `Conta criada com acesso a ${caixa.email}.`, usuario, senhaTemporaria: senha }
+    return { recado: `Conta criada com acesso a ${caixa.email}.`, nome, usuario, senhaTemporaria: senha }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível criar a conta.') }
+  }
+}
+
+/** Uma linha da lista de "Liberar o setor de uma vez": "Nome Completo" ou "Nome Completo; usuario". Marcador de lista na frente é ignorado. */
+function lerLinhaDePessoa(linha: string): { nome: string; pedido: string } {
+  const limpa = linha.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim()
+  const [nome = '', pedido = ''] = limpa.split(/\s*[;|]\s*/)
+  return { nome, pedido }
+}
+
+/**
+ * Libera o setor de uma vez: uma conta por linha, cada uma com a própria
+ * senha provisória, para o responsável (ou o administrador) passar à equipe
+ * sem criar pessoa por pessoa. Linha com problema não derruba as outras:
+ * volta com o erro ao lado do nome. Quem configura o correio pode marcar a
+ * primeira pessoa criada como responsável pela caixa — é o caminho para
+ * abrir um setor que ainda não tem ninguém no e-mail.
+ */
+export async function liberarSetorDoEmail(formData: FormData): Promise<Resultado & { criadas?: ContaCriada[] }> {
+  try {
+    const ctx = await exigir()
+    const caixa = exigirResponsavel(ctx, texto(formData, 'caixaId'))
+    const linhas = String(formData.get('pessoas') ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    if (!linhas.length) throw new Error('Escreva um nome completo por linha.')
+    if (linhas.length > 30) throw new Error('No máximo 30 pessoas por vez. Divida a lista.')
+    const primeiraResponsavel = formData.get('primeiraResponsavel') === '1' && ctx.administra
+
+    const criadas: (ContaCriada & { userId?: string })[] = []
+    for (const linha of linhas) {
+      const { nome, pedido } = lerLinhaDePessoa(linha)
+      try {
+        const c = await criarConta(ctx, caixa, nome, pedido)
+        criadas.push({ nome: nome.replace(/\s+/g, ' ').trim(), usuario: c.usuario, senha: c.senha, userId: c.userId })
+      } catch (causa) {
+        criadas.push({ nome: nome || linha, erro: mensagemDoErro(causa, 'Não foi possível criar a conta.') })
+      }
+    }
+    const primeira = criadas.find((c) => c.userId)
+    if (primeiraResponsavel && primeira?.userId) {
+      await createAdminClient().from('email_acessos').update({ responsavel: true }).eq('caixa_id', caixa.id).eq('user_id', primeira.userId)
+      await registrar(ctx, 'email_responsavel_definido', primeira.userId, { caixa: caixa.email })
+    }
+    revalidatePath('/email/equipe')
+    const ok = criadas.filter((c) => c.usuario).length
+    const falhas = criadas.length - ok
+    return {
+      recado: `${ok} acesso${ok === 1 ? '' : 's'} criado${ok === 1 ? '' : 's'} para ${caixa.email}${falhas ? `. ${falhas} linha${falhas === 1 ? '' : 's'} com problema, veja abaixo` : ''}.`,
+      criadas: criadas.map(({ userId: _userId, ...c }) => c),
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível criar os acessos.') }
   }
 }
 
@@ -271,7 +331,7 @@ export async function tirarAcessoDoEmail(caixaId: string, userId: string): Promi
 }
 
 /** Nova senha provisória para quem esqueceu (só conta que é só do e-mail e tem acesso a esta caixa). */
-export async function novaSenhaDoEmail(caixaId: string, userId: string): Promise<Resultado & { usuario?: string; senhaTemporaria?: string }> {
+export async function novaSenhaDoEmail(caixaId: string, userId: string): Promise<Resultado & { nome?: string; usuario?: string; senhaTemporaria?: string }> {
   try {
     const ctx = await exigir()
     const caixa = exigirResponsavel(ctx, caixaId)
@@ -280,14 +340,14 @@ export async function novaSenhaDoEmail(caixaId: string, userId: string): Promise
     const { data: acesso } = await admin.from('email_acessos').select('user_id').eq('caixa_id', caixa.id).eq('user_id', userId).maybeSingle()
     if (!acesso) throw new Error('Essa pessoa não tem acesso a esta caixa.')
     if (!await soDoEmail(userId)) throw new Error('Essa pessoa entra no Palácio Virtual: a senha dela é redefinida lá, por um administrador.')
-    const { data: perfil } = await admin.from('profiles').select('username').eq('id', userId).maybeSingle()
+    const { data: perfil } = await admin.from('profiles').select('username,full_name').eq('id', userId).maybeSingle()
     const senha = gerarSenhaTemporaria()
     const { error } = await admin.auth.admin.updateUserById(userId, { password: senha })
     if (error) throw new Error('Não foi possível gerar a senha.')
     await admin.from('profiles').update({ trocar_senha: true, updated_at: new Date().toISOString() }).eq('id', userId)
     await admin.rpc('encerrar_sessoes_do_usuario', { p_user_id: userId })
     await registrar(ctx, 'email_senha_provisoria', userId, { caixa: caixa.email })
-    return { recado: 'Senha provisória gerada. As sessões abertas dessa pessoa foram encerradas.', usuario: String(perfil?.username ?? ''), senhaTemporaria: senha }
+    return { recado: 'Senha provisória gerada. As sessões abertas dessa pessoa foram encerradas.', nome: String(perfil?.full_name ?? ''), usuario: String(perfil?.username ?? ''), senhaTemporaria: senha }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível gerar a senha.') }
   }

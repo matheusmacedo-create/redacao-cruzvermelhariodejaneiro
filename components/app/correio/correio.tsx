@@ -57,6 +57,8 @@ export type AmbienteDoCorreio = {
   semCaixa: string
   /** Para quando a conta Google precisa de um administrador. */
   semConta: string
+  /** O "Escrever" grande no alto da coluna, como no Gmail (o app de e-mail). */
+  escreverEmDestaque?: boolean
   atualizar: () => Promise<Resultado>
   enviar: (f: FormData) => Promise<Resultado>
   marcar: (caixaId: string, threadId: string, acao: 'lida' | 'nao_lida' | 'arquivar' | 'entrada') => Promise<Resultado>
@@ -150,8 +152,9 @@ function Tela({ caixas, estado, naoLidas, lista, proxima, conversa, historico, s
       <div className="grid min-h-[70dvh] grid-cols-1 overflow-hidden rounded-xl border border-border bg-card lg:h-[calc(100dvh-11rem)] lg:grid-cols-[15rem_minmax(18rem,24rem)_1fr]">
         {/* Coluna 1: as caixas e as pastas */}
         <nav aria-label="Caixas e pastas" data-ajuda="correio.caixas" className={cn('flex flex-col gap-3 border-border p-3 lg:overflow-y-auto lg:border-r', aberta && 'hidden lg:flex')}>
-          <Button render={<Link href={url(estado, { caixa: caixa.id, escrever: true, conversa: null })} prefetch={false} />} className="w-full justify-start" data-ajuda="correio.escrever">
-            <PenSquare className="size-4" />Escrever
+          <Button render={<Link href={url(estado, { caixa: caixa.id, escrever: true, conversa: null })} prefetch={false} />} size={ambiente.escreverEmDestaque ? 'lg' : 'default'}
+            className={cn('w-full justify-start', ambiente.escreverEmDestaque && 'h-11 justify-center text-base font-semibold shadow-sm')} data-ajuda="correio.escrever">
+            <PenSquare className={ambiente.escreverEmDestaque ? 'size-5' : 'size-4'} />Escrever
           </Button>
           <div className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
             {caixas.map((c) => (

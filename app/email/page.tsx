@@ -12,10 +12,10 @@ export const metadata = { title: 'E-mail dos setores' }
 export const dynamic = 'force-dynamic'
 
 /**
- * O app de e-mail provisório (/email; email.cruzvermelhariodejaneiro.org
- * abre aqui): a mesma caixa do Palácio (/correio), para quem ainda não usa o
- * Palácio. As caixas vêm de lib/email-provisorio/sessao.ts; a leitura, o
- * envio e as conferências de cada conversa são as mesmas do Palácio.
+ * O app de e-mail (/email; email.cruzvermelhariodejaneiro.org abre aqui): a
+ * mesma caixa do Palácio (/correio), para quem ainda não usa o Palácio. As
+ * caixas vêm de lib/email-provisorio/sessao.ts; a leitura, o envio e as
+ * conferências de cada conversa são as mesmas do Palácio.
  */
 export default async function EmailPage({ searchParams }: {
   searchParams: Promise<{ caixa?: string; pasta?: string; q?: string; conversa?: string; pagina?: string; escrever?: string }>
@@ -24,7 +24,7 @@ export default async function EmailPage({ searchParams }: {
   if (!ctx) {
     return (
       <main className="min-h-screen bg-background">
-        <CabecalhoDoEmail nome="" responsavel={false} atual="caixa" />
+        <CabecalhoDoEmail nome="" responsavel={false} atual="caixa" caixa={null} />
         <p className="mx-auto mt-16 max-w-md px-6 text-center text-muted-foreground">
           Sua conta ainda não tem nenhuma caixa. Peça ao responsável do seu setor para liberar o acesso.
         </p>
@@ -94,11 +94,11 @@ export default async function EmailPage({ searchParams }: {
 
   return (
     <main className="min-h-screen bg-background">
-      <CabecalhoDoEmail nome={ctx.nome} responsavel={ctx.responsavelDe.size > 0} atual="caixa" />
+      <CabecalhoDoEmail nome={ctx.nome} responsavel={ctx.responsavelDe.size > 0} atual="caixa" caixa={caixa ? { email: caixa.email, setor: caixa.setor } : null} />
       <div className="p-3 sm:p-4">
         <CaixaDoCorreio
           ambiente={{
-            base: '/email', anexo: '/api/email/anexo', nomeDoRegistro: 'Registro de envios',
+            base: '/email', anexo: '/api/email/anexo', nomeDoRegistro: 'Registro de envios', escreverEmDestaque: true,
             semCaixa: 'Peça ao responsável do seu setor para liberar o acesso.', semConta: 'Avise o administrador do Palácio.',
             atualizar: atualizarEmail, enviar: enviarEmailProvisorio, marcar: marcarConversaEmail,
           }}
