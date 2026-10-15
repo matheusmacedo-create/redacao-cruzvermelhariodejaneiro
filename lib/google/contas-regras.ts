@@ -53,9 +53,10 @@ export function celularEmE164(bruto: string): string | { erro: string } {
   return `+55${semPais}`
 }
 
+/** O e-mail pessoal é obrigatório: é para onde vão o endereço novo, a senha provisória e o passo a passo. */
 export function problemaDoEmailPessoal(email: string): string | null {
   const e = email.trim().toLowerCase()
-  if (!e) return null
+  if (!e) return 'Informe um e-mail pessoal: é nele que chegam o endereço novo, a senha provisória e o passo a passo.'
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'E-mail pessoal inválido.'
   if (e.endsWith(`@${DOMINIO_DAS_CONTAS}`)) return 'O e-mail de recuperação precisa ser de fora da Cruz Vermelha (Gmail, Outlook…), para valer quando a conta nova estiver trancada.'
   return null

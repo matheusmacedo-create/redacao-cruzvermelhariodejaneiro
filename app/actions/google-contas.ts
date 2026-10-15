@@ -7,7 +7,8 @@ import { requirePermissao } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
-import { hashDoIp, hashDoToken } from '@/lib/contas/servidor'
+import { enviarComSeguranca, hashDoIp, hashDoToken } from '@/lib/contas/servidor'
+import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
 import { ENDERECO_DO_EMAIL } from '@/lib/dominio'
 import { adicionarAoGrupo, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle, esquecerTokenDeAdmin } from '@/lib/google/diretorio'
@@ -27,9 +28,12 @@ import {
  *    preenche o formulário e a conta nasce no Google na hora. As cercas:
  *    o link vale (vencimento, usos, não revogado), o e-mail é válido e livre,
  *    o setor existe no espaço do link, e um mesmo IP cria no máximo
- *    CONTAS_POR_IP_POR_HORA por hora. A senha provisória aparece uma vez na
- *    tela e não é gravada em lugar nenhum: o Google obriga a troca no
- *    primeiro acesso.
+ *    CONTAS_POR_IP_POR_HORA por hora. A senha provisória não é gravada em
+ *    lugar nenhum: o Google obriga a troca no primeiro acesso. Ela vai num
+ *    e-mail só, para o e-mail pessoal, com o endereço e o passo a passo
+ *    (lib/google/contas-emails.ts); a tela só a mostra se o e-mail não saiu,
+ *    para a pessoa nunca ficar sem ela. O envio não pode derrubar a criação:
+ *    a conta já existe.
  */
 
 type Resultado = { erro?: string; recado?: string }
@@ -123,11 +127,14 @@ export async function desconectarGoogleAdmin(): Promise<Resultado> {
 
 export type ContaCriadaNoGoogle = {
   email: string
-  senha: string
+  /** Só quando o e-mail não saiu: a tela mostra para a pessoa anotar. */
+  senha: string | null
   /** O endereço do setor, quando a pessoa entrou no grupo dele. */
   grupo: string | null
   /** O setor tem endereço, mas ele ainda é apelido (não grupo): a pessoa não entrou. */
   grupoPendente: string | null
+  /** Para onde foi o e-mail com tudo, e se saiu. */
+  avisos: { email: string; emailEnviado: boolean }
 }
 
 /**
@@ -184,17 +191,23 @@ export async function criarContaPeloConvite(formData: FormData): Promise<{ erro?
       try { grupoOk = await adicionarAoGrupo(workspaceId, grupo, email) } catch (causa) { console.error('[google-contas] grupo:', causa instanceof Error ? causa.message : causa) }
     }
 
+    const nomeCompleto = `${nome.primeiro} ${nome.resto}`
     await admin.from('google_contas').insert({
-      workspace_id: workspaceId, convite_id: convite.id, email, nome: `${nome.primeiro} ${nome.resto}`, setor_id: setor.id,
+      workspace_id: workspaceId, convite_id: convite.id, email, nome: nomeCompleto, setor_id: setor.id,
       grupo_email: grupo, grupo_ok: grupoOk, google_id: googleId || null, ip_hash: ipHash,
     })
     await admin.from('google_convites').update({ usos: (convite.usos as number) + 1 }).eq('id', convite.id)
+
+    // Um e-mail só, com tudo. Nunca lança; se não saiu, a senha vai para a tela.
+    const emailEnviado = await enviarComSeguranca(emailPessoal, emailDeContaDoGoogle({ nome: nomeCompleto, email, senha, setor: String(setor.nome), grupo: grupoOk ? grupo : null }))
+    const avisos: ContaCriadaNoGoogle['avisos'] = { email: emailPessoal, emailEnviado }
+
     await admin.from('activity_log').insert({
       workspace_id: workspaceId, actor_id: null, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null,
-      metadata: { email, setor: setor.nome, grupo, grupo_ok: grupoOk, convite_id: convite.id },
+      metadata: { email, setor: setor.nome, grupo, grupo_ok: grupoOk, convite_id: convite.id, email_enviado: emailEnviado },
     })
     revalidar()
-    return { conta: { email, senha, grupo: grupoOk ? grupo : null, grupoPendente: grupo && !grupoOk ? grupo : null } }
+    return { conta: { email, senha: emailEnviado ? null : senha, grupo: grupoOk ? grupo : null, grupoPendente: grupo && !grupoOk ? grupo : null, avisos } }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível criar a conta.') }
   }

@@ -652,7 +652,7 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
         'Uma vez só: em Configurações › E-mail dos setores, no bloco “5. Criar e-mails pelo link”, toque em “Conectar conta de administrador” e entre com uma conta de superadministrador do Google Workspace (não é a do contato@).',
         'Escolha o setor (ou “Qualquer setor”, para a pessoa escolher), a validade em dias e quantas pessoas podem usar, e toque em “Gerar link”.',
         'Copie o link e mande à equipe. Ele aparece uma vez; se perder, gere outro e cancele o antigo.',
-        'Quem abre preenche nome, e-mail desejado, setor, celular e e-mail pessoal, e recebe na tela o e-mail e a senha provisória. No primeiro acesso ao Gmail, o Google pede uma senha nova.',
+        'Quem abre preenche nome, e-mail desejado, setor, e-mail pessoal e celular. A conta nasce no Google na hora e a pessoa recebe no e-mail pessoal o endereço novo, a senha provisória e o passo a passo. No primeiro acesso ao Gmail, o Google pede uma senha nova.',
         'Acompanhe em “Contas criadas pelo link”: quem criou, quando, e se entrou no grupo do setor.',
       ],
       dica: 'A pessoa entra no grupo do setor na hora só se o endereço do setor já for um grupo do Google. Enquanto ele for apelido do contato@, a tela marca a conta com um aviso, e o administrador liga depois. Um mesmo lugar (wi-fi) cria no máximo 6 contas por hora. Para quem ainda não entra no Palácio, este é o caminho mais simples: a conta é do Google, com recuperação de senha pelo celular.',

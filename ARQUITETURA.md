@@ -1579,6 +1579,18 @@ Admin do Google, um administrador gera um link e a pessoa cria a própria.
   Grupo que ainda é apelido devolve 404: a conta nasce mesmo assim e
   `google_contas.grupo_ok` fica falso, com aviso na tela de acompanhamento.
   A senha provisória aparece uma vez e não é gravada.
+- **Um e-mail só, com tudo** (`lib/google/contas-emails.ts`, puro;
+  `emailDeContaDoGoogle` pela Resend via `enviarComSeguranca`): o e-mail
+  pessoal, obrigatório no formulário, recebe o endereço novo, a senha
+  provisória e o passo a passo. É a **exceção assumida (15/10/2026)** à regra
+  "nenhum e-mail leva senha" de `lib/contas/emails.ts`: para a conta do
+  Google não há link de uso único, a senha é provisória e o Google obriga a
+  troca no primeiro acesso, e um canal só é mais simples de explicar à
+  equipe (a versão em dois canais, senha por WhatsApp, existiu por um commit
+  e foi descartada por decisão do responsável). A tela depois do envio é um
+  aviso ("mandamos para x@gmail.com"); a senha só aparece nela quando o
+  e-mail não saiu, para a pessoa nunca ficar sem ela. A action só devolve a
+  senha ao navegador nesse caso.
 - **Cercas** (`lib/google/contas-regras.ts`, puro): `CONTAS_POR_IP_POR_HORA`
   (6) por hash de IP com sal (`hashDoIp`, o mesmo de
   `pedidos_de_recuperacao`), usos do link, vencimento, revogação.
