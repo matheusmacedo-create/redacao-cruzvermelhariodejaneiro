@@ -54,12 +54,13 @@ export async function clienteOAuth(workspaceId: string): Promise<{ clientId: str
   return { clientId: c.clientId, clientSecret: c.clientSecret }
 }
 
-export function urlDeAutorizacao(clientId: string, estado: string): string {
+/** `escopos`: os do Gmail por padrão; a conexão de administrador (lib/google/diretorio.ts) passa os dela. */
+export function urlDeAutorizacao(clientId: string, estado: string, escopos: readonly string[] = ESCOPOS): string {
   const u = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   u.searchParams.set('client_id', clientId)
   u.searchParams.set('redirect_uri', urlDeRetorno())
   u.searchParams.set('response_type', 'code')
-  u.searchParams.set('scope', ESCOPOS.join(' '))
+  u.searchParams.set('scope', escopos.join(' '))
   // offline + consent: é o que garante o refresh token, inclusive numa
   // reconexão (sem consent o Google devolve só token de acesso).
   u.searchParams.set('access_type', 'offline')
@@ -69,7 +70,7 @@ export function urlDeAutorizacao(clientId: string, estado: string): string {
   return u.toString()
 }
 
-async function chamarToken(corpo: Record<string, string>) {
+export async function chamarToken(corpo: Record<string, string>) {
   const res = await fetch(apiDoGoogle('https://oauth2.googleapis.com/token'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

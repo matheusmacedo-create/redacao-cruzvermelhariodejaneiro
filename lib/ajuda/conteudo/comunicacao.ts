@@ -643,6 +643,20 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
       ],
       dica: 'O usuário sai do nome (maria.silva); para escolher outro, escreva “Nome; usuario” na linha. Um administrador pode marcar a primeira pessoa da lista como responsável pela caixa: é assim que se abre um setor que ainda não tem ninguém no e-mail. Quem já tem conta (do Palácio ou de outra caixa) recebe acesso por “Dar acesso a quem já tem conta”, pelo usuário. Esqueceu a senha? “Senha provisória” gera uma nova e derruba as sessões abertas. Conta que entra no Palácio tem a senha cuidada lá.',
     },
+    {
+      id: 'criar-emails-pelo-link',
+      titulo: 'Dar a cada pessoa um e-mail do Google pelo link',
+      quem: 'Só administradores geram o link; qualquer pessoa da equipe usa',
+      exemplo: 'A coordenação gera um link para a Juventude, manda no grupo do WhatsApp, e cada pessoa cria o próprio e-mail @cruzvermelhariodejaneiro.org em um minuto, já recebendo os e-mails de juventude@.',
+      passos: [
+        'Uma vez só: em Configurações › E-mail dos setores, no bloco “5. Criar e-mails pelo link”, toque em “Conectar conta de administrador” e entre com uma conta de superadministrador do Google Workspace (não é a do contato@).',
+        'Escolha o setor (ou “Qualquer setor”, para a pessoa escolher), a validade em dias e quantas pessoas podem usar, e toque em “Gerar link”.',
+        'Copie o link e mande à equipe. Ele aparece uma vez; se perder, gere outro e cancele o antigo.',
+        'Quem abre preenche nome, e-mail desejado, setor, celular e e-mail pessoal, e recebe na tela o e-mail e a senha provisória. No primeiro acesso ao Gmail, o Google pede uma senha nova.',
+        'Acompanhe em “Contas criadas pelo link”: quem criou, quando, e se entrou no grupo do setor.',
+      ],
+      dica: 'A pessoa entra no grupo do setor na hora só se o endereço do setor já for um grupo do Google. Enquanto ele for apelido do contato@, a tela marca a conta com um aviso, e o administrador liga depois. Um mesmo lugar (wi-fi) cria no máximo 6 contas por hora. Para quem ainda não entra no Palácio, este é o caminho mais simples: a conta é do Google, com recuperação de senha pelo celular.',
+    },
   ],
   perguntas: [
     {
@@ -650,6 +664,12 @@ const EMAIL_DO_SETOR: GuiaDaArea = {
       pergunta: 'O que é o email.cruzvermelhariodejaneiro.org?',
       resposta: 'É a mesma caixa do E-mail do setor, num endereço próprio, para a equipe usar o e-mail antes de o Palácio Virtual abrir para todos. Quem entra lá vê só as caixas liberadas para ela e nada do resto do Palácio. O responsável de cada caixa dá e tira acesso; quem já é do setor no Palácio também pode entrar lá com a mesma conta.',
       termos: ['provisório', 'email.', 'sem palácio', 'acesso ao e-mail', 'senha provisória'],
+    },
+    {
+      id: 'link-de-criar-email',
+      pergunta: 'O link de criar e-mail parou de funcionar. Por quê?',
+      resposta: 'Ou venceu (a validade em dias escolhida ao gerar), ou chegou ao limite de pessoas, ou foi cancelado, ou a conta de administrador do Google foi desconectada ou expirou. Em Configurações › E-mail dos setores, bloco 5, a lista de links mostra até quando cada um vale e quantos usos restam; “Reconectar” resolve a autorização. Gere um link novo quando precisar: o antigo não volta.',
+      termos: ['link venceu', 'criar e-mail', 'conta do google', 'não consigo criar o e-mail'],
     },
     {
       id: 'nao-faco-parte-de-setor',
