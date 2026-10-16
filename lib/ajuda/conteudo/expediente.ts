@@ -4,7 +4,8 @@ import type { GuiaDaArea } from '../tipos'
  * A ajuda do expediente da filial, no grupo Expediente do menu: Ofícios
  * (/oficios, com /oficios/[id]), Chamados (/chamados, com /chamados/novo,
  * /chamados/[id] e /chamados/configurar) e Pedidos de compra
- * (/financeiro/compras, com /novo, /[id] e /[id]/editar) e Portaria (/portaria).
+ * (/financeiro/compras, com /novo, /[id] e /[id]/editar), Portaria (/portaria) e
+ * Arquivos do setor (/arquivos).
  *
  * Cada frase tem apoio no código:
  * - Ofícios: app/(app)/oficios, components/app/oficios/** (editor, painel,
@@ -19,11 +20,16 @@ import type { GuiaDaArea } from '../tipos'
  *   lib/compras/regras.ts e servidor.ts e as funções compras_* das migrações
  *   *_cvrj_compras*.sql; o pedido de proposta ao fornecedor em
  *   lib/compras/convites*.ts, app/cotacao/[token] e docs/compras-cotacao-automatica.md.
+ * - Arquivos do setor: app/(app)/arquivos, components/app/arquivos/**
+ *   (central e ligação), app/actions/arquivos-do-setor.ts, lib/arquivos/regras.ts
+ *   e servidor.ts, lib/google/drive.ts, a rota app/api/arquivos/[setor]/[item]
+ *   e docs/arquivos-do-setor.md.
  * Quem pode o quê: lib/permissoes.ts (oficios.gerenciar_de_outros,
- * chamados.configurar, chamados.ver_todos) e os níveis do Financeiro em
+ * chamados.configurar, chamados.ver_todos, arquivos.configurar,
+ * arquivos.todos_os_setores) e os níveis do Financeiro em
  * lib/financeiro/regras.ts.
  *
- * Os alvos `oficios.*`, `chamados.*` e `compras.*` são marcados com
+ * Os alvos `oficios.*`, `chamados.*`, `compras.*` e `arquivos.*` são marcados com
  * `data-ajuda` nessas telas. Mudou a tela ou a regra, muda aqui no mesmo PR
  * (docs/AJUDA.md).
  */
@@ -1368,4 +1374,132 @@ const PORTARIA: GuiaDaArea = {
   relacionadas: ['/chamados'],
 }
 
-export const guias: GuiaDaArea[] = [OFICIOS, CHAMADOS, COMPRAS, PORTARIA]
+// ---------------------------------------------------------------- Arquivos do setor
+
+const ARQUIVOS: GuiaDaArea = {
+  href: '/arquivos',
+  paraQueServe: 'As pastas e os arquivos de cada setor, num lugar só, sem sair do Palácio. Por baixo, tudo fica guardado no Google Drive da filial; aqui você cria pastas, envia, abre, baixa, renomeia e manda para a lixeira. Cada setor tem a própria pasta, e você só vê as pastas dos setores de que faz parte.',
+  quemUsa: 'Toda a equipe do Palácio Virtual (menos a equipe da Escola) abre as pastas dos próprios setores, definidos em Pessoas → Setores. Administradores abrem as pastas de todos os setores, ligam o Google Drive e escolhem a pasta da filial.',
+  naPratica: {
+    titulo: 'As atas da Secretaria, guardadas e achadas em segundos',
+    passos: [
+      'A secretária abre “Arquivos do setor”, no menu Expediente, e cai direto na pasta da Secretaria.',
+      'Toca em “Nova pasta” e cria “Atas 2026”.',
+      'Entra na pasta e toca em “Enviar arquivos”: escolhe as cinco atas em PDF do computador, e a lista mostra o andamento de cada uma.',
+      'Na semana seguinte, a diretoria pede a ata de março: ela abre “Atas 2026” e toca em “Ver”.',
+      'A planilha de presença, feita no Google Planilhas, abre em “Abrir no Google” para editar, ou em “Baixar” como Excel.',
+    ],
+    resultado: 'Os documentos do setor ficam guardados no Drive da filial, organizados por pasta, e quem é do setor acha sem pedir o arquivo a ninguém.',
+  },
+  tour: [
+    {
+      alvo: 'arquivos.ligacao',
+      titulo: 'Ligação com o Google Drive',
+      texto: 'Só administradores veem este quadro. “Conectar o Google Drive” liga a conta da filial que guarda os arquivos; depois, cole o link da pasta da filial e toque em “Usar esta pasta”.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'arquivos.setores',
+      titulo: 'Os seus setores',
+      texto: 'Quem faz parte de mais de um setor escolhe aqui de qual quer ver a pasta. Cada setor tem a própria pasta no Drive da filial.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'arquivos.caminho',
+      titulo: 'Onde você está',
+      texto: 'O caminho da pasta aberta, a partir da pasta do setor. Toque num nome do caminho para voltar até ele.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'arquivos.acoes',
+      titulo: 'Criar e enviar',
+      texto: '“Nova pasta” cria uma pasta aqui dentro. “Enviar arquivos” manda do seu aparelho para esta pasta, vários de uma vez, até 5 GB cada. “Recarregar” traz o que mudou pelo próprio Google.',
+      lado: 'bottom',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'arquivos.lista',
+      titulo: 'Pastas e arquivos',
+      texto: 'Pastas primeiro. Toque no nome da pasta para entrar. Em cada arquivo: “Ver” abre numa aba, “Baixar” salva no aparelho, “Abrir no Google” abre o original, e “Renomear” e “Lixeira” organizam.',
+      seAusente: 'pular',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'enviar-arquivos',
+      titulo: 'Enviar arquivos para a pasta do setor',
+      passos: [
+        'Abra “Arquivos do setor”, no menu Expediente.',
+        'Se você é de mais de um setor, escolha o setor em “Setor”.',
+        'Entre na pasta onde o arquivo deve ficar (ou crie uma em “Nova pasta”).',
+        'Toque em “Enviar arquivos” e escolha um ou vários arquivos.',
+        'Espere a lista mostrar “Enviado” em cada um; a pasta se atualiza sozinha no fim.',
+      ],
+      dica: 'Até 50 arquivos por vez e 5 GB cada. Deu erro num deles? Envie só aquele de novo.',
+      exemplo: 'Exemplo: a coordenação de Voluntariado envia as 30 fichas de inscrição escaneadas para a pasta “Fichas 2026”, de uma vez.',
+    },
+    {
+      id: 'documento-do-google',
+      titulo: 'Abrir e editar um documento do Google',
+      passos: [
+        'Ache o documento na pasta do setor.',
+        'Para só ler, toque em “Ver”: o Palácio mostra o documento em PDF.',
+        'Para editar, toque em “Abrir no Google”: abre no Google Docs ou Planilhas, com a sua conta da filial.',
+        'Para levar para fora, toque em “Baixar”: documento vira Word, planilha vira Excel e apresentação vira PowerPoint.',
+      ],
+      dica: '“Abrir no Google” só funciona se a pasta do setor estiver compartilhada com a sua conta do Google. Se o Google pedir acesso, use “Ver” ou “Baixar”, que funcionam sempre pelo Palácio.',
+    },
+    {
+      id: 'organizar',
+      titulo: 'Renomear ou tirar um item da pasta',
+      passos: [
+        'Ache o item na pasta do setor.',
+        'Toque em “Renomear”, escreva o novo nome e toque em “Salvar nome”.',
+        'Ou toque em “Lixeira” e confirme em “Mover para a lixeira”.',
+      ],
+      dica: 'Nada se apaga de vez pelo Palácio: o item vai para a lixeira do Google Drive, e um administrador recupera por lá em até 30 dias.',
+    },
+    {
+      id: 'ligar-o-drive',
+      titulo: 'Ligar o Google Drive e escolher a pasta da filial',
+      quem: 'Administradores',
+      passos: [
+        'Abra “Arquivos do setor”, no menu Expediente.',
+        'No quadro “Ligação com o Google Drive”, toque em “Conectar o Google Drive” e entre com a conta da filial que é dona das pastas.',
+        'No Google Drive, abra a pasta que vai guardar tudo e copie o endereço do navegador.',
+        'Cole em “Pasta da filial” e toque em “Usar esta pasta”.',
+        'A pasta de cada setor nasce dentro dela na primeira vez que alguém do setor abrir.',
+      ],
+      dica: 'Deixe a pasta da filial com acesso geral “Restrito” no Google: quem precisa abre pelo Palácio, e o link copiado não abre nada para quem não é da equipe.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'nao-vejo-setor',
+      pergunta: 'Por que não vejo a pasta de um setor?',
+      resposta: 'Você só vê as pastas dos setores de que faz parte. Peça a um administrador para incluir você no setor, em Pessoas → Setores.',
+      termos: ['sem acesso', 'não aparece', 'setor errado'],
+    },
+    {
+      id: 'onde-fica',
+      pergunta: 'Onde os arquivos ficam guardados?',
+      resposta: 'No Google Drive da filial, dentro da pasta escolhida pelo administrador, numa pasta com o nome de cada setor. O Palácio não guarda cópia: o que você vê é o que está no Drive.',
+      termos: ['drive', 'google', 'armazenamento', 'nuvem'],
+    },
+    {
+      id: 'mudei-pelo-google',
+      pergunta: 'Mexi na pasta pelo próprio Google Drive. Aparece aqui?',
+      resposta: 'Aparece. A lista vem do Drive na hora: toque em “Recarregar”. Só não renomeie nem apague a pasta do setor pelo Google; se ela sumir, o Palácio cria outra vazia.',
+      termos: ['sincronizar', 'atualizar', 'drive'],
+    },
+    {
+      id: 'apaguei',
+      pergunta: 'Mandei um arquivo para a lixeira sem querer. E agora?',
+      resposta: 'Ele fica na lixeira do Google Drive por 30 dias. Peça a um administrador para restaurar por lá.',
+      termos: ['recuperar', 'desfazer', 'apaguei'],
+    },
+  ],
+  relacionadas: ['/correio', '/acervo'],
+}
+
+export const guias: GuiaDaArea[] = [OFICIOS, CHAMADOS, COMPRAS, PORTARIA, ARQUIVOS]

@@ -1831,6 +1831,57 @@ cada parte. Guia completo em `docs/mapa-do-ecossistema.md`.
   novo entra por migração, não pela tela; a equipe da Escola não vê o mapa
   (regra geral do papel `escola`).
 
+### 7.38 Arquivos do setor: o Google Drive pelo Palácio (`/arquivos`, 16/10/2026)
+
+Uma central onde cada setor organiza as próprias pastas e arquivos sem sair do
+Palácio; por baixo, tudo fica no Google Drive da filial. O Drive guarda, o
+Palácio decide quem vê. Guia de instalação em `docs/arquivos-do-setor.md`.
+
+- **Conexão própria** (`drive_conexao` + chave `google_drive` no cofre,
+  migração `20261016120000`): a terceira conexão do mesmo cliente OAuth
+  (`google_oauth`), separada da do Gmail e da de administrador — a conta que
+  guarda os arquivos não precisa ser administradora. Escopos `openid email
+  drive` (`ESCOPOS_DO_DRIVE`): o Drive inteiro, para a lista mostrar também o
+  que a equipe põe pelo próprio Google (`drive.file` só veria o que o Palácio
+  criou). Começa em `/api/google/conectar-drive` (state `drive.…`) e volta pela
+  mesma `/api/google/retorno`, que manda para `/arquivos?drive=…`. Exige
+  `arquivos.configurar`. A Google Drive API precisa estar ativada no projeto
+  do cliente OAuth.
+- **Pasta da filial** (`drive_conexao.raiz_id`): o administrador cola o link
+  (`idDaPastaNoLink`); `definirPastaDaFilial` confere no Drive que é pasta e
+  que a conta pode acrescentar. A pasta de cada setor (`drive_pastas_dos_setores`)
+  nasce dentro dela na primeira abertura (`pastaDoSetor`), com o nome do setor,
+  e é lembrada pelo id. Corrida entre duas aberturas: a gravação no banco
+  decide, a pasta que perdeu vai para a lixeira do Drive. Pasta apagada pelo
+  Google nasce de novo, vazia. Com `setores.email`, a pasta é compartilhada
+  com esse endereço (Editor, sem e-mail), para "Abrir no Google" funcionar com
+  a conta da pessoa; apelido que não é grupo é recusado pelo Google e fica
+  sem compartilhar (`compartilhada_com` nulo).
+- **A cerca**: o Drive não sabe quem é do setor (a conta conectada vê tudo).
+  Toda action e a rota de download passam por `noSetor`
+  (`lib/arquivos/servidor.ts`): o setor precisa ser de `setor_membros` da
+  pessoa (ou `arquivos.todos_os_setores`), e o item precisa morar DENTRO da
+  pasta do setor — `caminhoAte` sobe pelos pais no Drive até achá-la (até 30
+  níveis, sem seguir ciclo, recusando o que está na lixeira). Um id copiado de
+  outro setor não abre nada. Conferido em `scripts/conferir-arquivos.ts`.
+- **Envio**: `prepararEnvioAosArquivos` abre no Google uma sessão de envio
+  retomável por arquivo (com o cabeçalho `Origin` do pedido, que libera o PUT
+  do navegador por CORS) e devolve só o endereço dela; o navegador manda o
+  arquivo direto ao Google, sem passar pela Vercel. Até 50 por vez, 5 GB cada.
+- **Ver e baixar**: `app/api/arquivos/[setor]/[item]` repassa o conteúdo do
+  Drive em fluxo, sem guardar nada; documento do Google vira PDF para ver e
+  Word/Excel/PowerPoint para baixar (`saidaPara`). Resposta com CSP `sandbox`:
+  arquivo de terceiros abre na origem do Palácio sem rodar script.
+- **Lixeira, não exclusão**: "Lixeira" é `trashed: true` no Drive (30 dias para
+  recuperar por lá). A pasta do setor não renomeia nem vai para a lixeira pelo
+  Palácio.
+- **Registro**: `activity_log` com `arquivos_drive_conectado`,
+  `arquivos_drive_desconectado`, `arquivos_pasta_da_filial`,
+  `arquivos_pasta_do_setor_criada`, `arquivos_envio` e
+  `arquivos_item_na_lixeira`.
+- **Não faz (ainda)**: busca dentro do Drive, mover entre pastas, ver a
+  lixeira pelo Palácio, cota por setor.
+
 ## 8. Integrações externas
 
 ### 8.1 Upload-Post

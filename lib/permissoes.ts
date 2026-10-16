@@ -66,6 +66,7 @@ export const PERMISSOES = {
   'espaco.reiniciar': { grupo: 'Administração', rotulo: 'Apagar todos os dados do espaço', papeis: ['admin'] },
   'trilha.ver': { grupo: 'Administração', rotulo: 'Acompanhar a trilha pública: registros verificáveis, lotes diários e carimbos', papeis: ['admin'] },
   'transparencia.gerenciar': { grupo: 'Administração', rotulo: 'Publicar documentos e parcerias no portal de transparência e a página de canais oficiais', papeis: ['admin'] },
+  'arquivos.configurar': { grupo: 'Administração', rotulo: 'Ligar o Google Drive dos Arquivos do setor e escolher a pasta da filial', papeis: ['admin'] },
   'mapa.editar': { grupo: 'Administração', rotulo: 'Atualizar o mapa do ecossistema: marcar pendências resolvidas e mudar o estado de cada parte', papeis: ['admin', 'editor'] },
 
   // Site e publicação
@@ -85,6 +86,7 @@ export const PERMISSOES = {
   'projetos.apagar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Apagar projetos e atualizações de outras pessoas', papeis: ['admin'] },
   'aprovacoes.gerenciar': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Convidar aprovadores e ver conversas de aprovações alheias', papeis: ['admin'] },
   'oficios.gerenciar_de_outros': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Editar e cancelar ofícios criados por outras pessoas', papeis: ['admin'] },
+  'arquivos.todos_os_setores': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Abrir e organizar os Arquivos de qualquer setor, mesmo sem fazer parte dele', papeis: ['admin'] },
   'correio.todas_as_caixas': { grupo: 'Conteúdo de outras pessoas', rotulo: 'Enviar pelo e-mail de qualquer setor, mesmo sem fazer parte dele', papeis: ['admin'] },
 } as const satisfies Record<string, Definicao>
 

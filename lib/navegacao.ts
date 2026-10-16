@@ -1,7 +1,7 @@
 import {
   Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessageCircleHeart, MessagesSquare, Newspaper, PiggyBank, PlugZap, Radar, ScrollText, Send, Settings, SquareCheckBig, Upload, UserRound, Contact,
-  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, Waypoints, type LucideIcon,
+  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, Waypoints, FolderOpen, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -80,6 +80,8 @@ export const GRUPOS: Grupo[] = [
       // Aberto a todos: qualquer setor pede; a cotação e a aprovação ficam com o Financeiro (que também tem a aba Compras).
       { href: '/financeiro/compras', rotulo: 'Pedidos de compra', resumo: 'Peça o que o setor precisa e acompanhe a cotação e a aprovação', icone: ShoppingCart, termos: ['compras', 'comprar', 'cotação', 'orçamento de fornecedor', 'proposta', 'fornecedor', 'ordem de compra', 'requisição', 'mapa comparativo'] },
       { href: '/oficios', rotulo: 'Ofícios', resumo: 'Numerados por ano, assinados e registrados', icone: FileSignature, termos: ['documento oficial', 'carta'] },
+      // As pastas de cada setor, guardadas no Google Drive da filial: o Palácio decide quem vê o quê.
+      { href: '/arquivos', rotulo: 'Arquivos do setor', resumo: 'As pastas e os arquivos de cada setor, guardados no Google Drive da filial', icone: FolderOpen, termos: ['drive', 'google drive', 'pastas', 'documentos do setor', 'planilhas', 'arquivos', 'docs'] },
       { href: '/correio', rotulo: 'E-mail do setor', resumo: 'A caixa do setor: receba, leia, responda e envie pelo endereço oficial', icone: AtSign, termos: ['correio', 'alias', 'assinatura', 'e-mail', 'caixa de entrada', 'gmail', 'responder'] },
       // O livro de visitantes: a portaria é de toda a filial (a equipe da Escola não entra, como no resto do Palácio).
       { href: '/portaria', rotulo: 'Portaria', resumo: 'O livro de visitantes: quem chegou, quem está na filial e os crachás de visitante', icone: DoorOpen, termos: ['visitantes', 'livro de visitantes', 'recepção', 'entrada', 'saída', 'crachá de visitante', 'portaria virtual', 'visita'] },

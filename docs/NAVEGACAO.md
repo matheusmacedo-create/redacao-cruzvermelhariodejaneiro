@@ -163,7 +163,7 @@ cabia na hora.
 
 ```
 (topo)        Início · Aprovações (nº) · Chat (nº) · Calendário
-Expediente    Chamados · Pedidos de compra · Ofícios · E-mail do setor
+Expediente    Chamados · Pedidos de compra · Ofícios · Arquivos do setor · E-mail do setor · Portaria
 Redação       Radar de pautas · Pautas · Projetos · Publicações · Resultados
                                                         └ aba Histórico
 Mídia         Biblioteca de mídia · Envios da equipe* · Acervo*
@@ -217,6 +217,9 @@ geral), e a busca ⌘K continua achando tudo, também pelos nomes antigos.
 - **30/09/2026:** entrou em Pessoas o **Livro de ponto** (`/livro-de-ponto`), o caminho até o ponto
   da sede, que mora no site da filial (tablet da recepção, QR code do cartaz e o portal da secretaria,
   com login próprio). A página diz como registrar e abre o portal em outra aba.
+- **16/10/2026:** entrou no Expediente **Arquivos do setor** (`/arquivos`), antes de E-mail do setor: as
+  pastas de cada setor no Google Drive da filial, abertas pelo Palácio (ARQUITETURA.md §7.38). Com ela o
+  Expediente chega a 6 linhas, o limite.
 
 ### Como manter
 
