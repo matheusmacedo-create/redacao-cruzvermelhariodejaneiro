@@ -149,6 +149,9 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
         <p>Baixe o PDF e calcule o SHA-256 dele (no Windows, <code>certutil -hashfile arquivo.pdf SHA256</code>; no Mac ou Linux,
         <code>shasum -a 256 arquivo.pdf</code>). O resultado tem de ser igual ao publicado aqui. Pelo código de verificação você vê
         quando o documento foi registrado, se continua valendo e baixa a prova ancorada no Bitcoin, que se confere sem depender da Filial.</p>
+        <p>Precisa da íntegra de um documento, com dados pessoais, ou de um documento que não está aqui? Faça um
+        <a href="/pedido-de-documentos/">pedido de documentos</a>: a resposta é por e-mail, com comprovação de quem pede.
+        Para entender como a trilha, os selos diários e a verificação funcionam, veja <a href="/gestao/">Como funciona a nossa gestão</a>.</p>
       </section>
     </main>`
 
