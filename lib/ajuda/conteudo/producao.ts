@@ -50,6 +50,12 @@ const PUBLICACOES: GuiaDaArea = {
       lado: 'bottom',
     },
     {
+      alvo: 'publicacoes.importar',
+      titulo: 'Importar um pacote',
+      texto: '“Importar pacote” cria o rascunho a partir de um arquivo .json: escolha o arquivo e as fotos juntos. Nada é publicado nem agendado, e as fotos entram na Biblioteca sem autorização — quem autoriza é uma pessoa.',
+      lado: 'bottom',
+    },
+    {
       alvo: 'publicacoes.lista',
       titulo: 'Os pacotes',
       texto: 'Cada linha é um pacote, com os destinos e a situação (“Rascunho”, “Em aprovação”, “Publicado”…). Um destino que já saiu vira link para ver como ficou.',

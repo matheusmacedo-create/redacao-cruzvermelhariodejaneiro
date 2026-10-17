@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { adapter } from '@/lib/publicacao/canais'
 import { LogoDoCanal } from '@/components/ui/logo-do-canal'
 import { NovoPacoteBotao } from '@/components/app/hub/novo-pacote'
+import { ImportarPacoteBotao } from '@/components/app/hub/importar-pacote'
 import { PainelDoCerebro } from '@/components/app/cerebro/painel'
 import { tituloDaArea } from '@/lib/navegacao'
 
@@ -71,7 +72,12 @@ export default async function RedesPage() {
       <PageHeader
         title="Publicações"
         description="O histórico das publicações. Abra qualquer uma para acrescentar outra rede — pacote publicado continua aberto."
-        actions={<NovoPacoteBotao />}
+        actions={(
+          <div className="flex items-start gap-2">
+            <ImportarPacoteBotao workspaceId={context.workspace.id} />
+            <NovoPacoteBotao />
+          </div>
+        )}
       />
 
       {(pacotes ?? []).length === 0 ? (
