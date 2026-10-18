@@ -52,7 +52,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       alvo: 'publicacoes.importar',
       titulo: 'Importar um pacote',
-      texto: '“Importar pacote” cria o rascunho a partir de um arquivo .json: escolha o arquivo e as fotos juntos. Nada é publicado nem agendado, e as fotos entram na Biblioteca sem autorização — quem autoriza é uma pessoa.',
+      texto: '“Importar pacote” cria o rascunho a partir de um arquivo .json: escolha o arquivo e as fotos juntos. Nada é publicado nem agendado, e as fotos entram na Biblioteca sem autorização — quem autoriza é uma pessoa. Um arquivo com “tipo”: “advertorial” vira advertorial da escola: a matéria abre no editor, com os links do curso já trocados pelo botão de matrícula rastreado.',
       lado: 'bottom',
     },
     {
