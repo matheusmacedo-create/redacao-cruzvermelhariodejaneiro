@@ -7,8 +7,8 @@ import { cotaDeConversas, processarFila, resumoDaFila } from './fila'
 import { falhasRecentes, ultimaRotina } from './estado'
 import { criarConfirmacao } from './confirmacoes'
 import {
-  TEXTO_PEDE_QUEM_DESATIVAR, acharPeloNome, oQueDaDesativacao, resumoDasFalhas, textoDeNinguemParaDesativar, textoDeQuemDesativar, textoDoComandoFila,
-  textoDoLinkDeConfirmacao, textoDoStatus, type ComandoDaAdministracao,
+  TEXTO_PEDE_QUEM_DESATIVAR, acharPeloNome, oQueDaDesativacao, resumoDasFalhas, situacaoDaSincronizacao, textoDeNinguemParaDesativar, textoDeQuemDesativar,
+  textoDoComandoFila, textoDoLinkDeConfirmacao, textoDoStatus, type ComandoDaAdministracao, type OrigemDaEscola, type SincronizacaoDaEscola,
 } from './regras'
 import { INDISPONIVEL, type Pessoa } from './acoes'
 
@@ -23,7 +23,9 @@ type Admin = ReturnType<typeof createAdminClient>
  *    recebimento (webhook), a fila, as conversas iniciadas nas últimas 24 h
  *    (a cota diária da Meta), as falhas de envio das últimas 24 h por
  *    motivo, as integrações sem chave (só os nomes, nunca os valores), as
- *    autorizações do Google expiradas e a última rotina diária;
+ *    autorizações do Google expiradas, a última sincronização de cada conta
+ *    da Escola (Únicopag e Meta: em dia, atrasada ou com o erro gravado) e a
+ *    última rotina diária;
  *  - "fila" faz a fila andar agora, como "Enviar a fila agora". Não age em
  *    nome de ninguém nem manda nada novo — qualquer mensagem ao número já faz
  *    a fila andar (rota do webhook) —, por isso vale também para quem usa a
@@ -100,7 +102,7 @@ export async function respostaDaAdministracao(admin: Admin, workspaceId: string,
 
 /** O "status": tudo em paralelo; o que não der para ler sai como "não deu para ler agora". */
 async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, base: string): Promise<string> {
-  const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina] = await Promise.all([
+  const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina, escola] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, workspaceId),
     resumoDaFila(admin, workspaceId),
@@ -111,6 +113,7 @@ async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDo
     admin.from('google_conexao').select('email_conta, estado').eq('workspace_id', workspaceId).maybeSingle(),
     admin.from('google_admin_conexao').select('email_conta, estado').eq('workspace_id', workspaceId).maybeSingle(),
     ultimaRotina(admin, workspaceId),
+    sincronizacoesDaEscola(admin, workspaceId),
   ])
   const googleExpiradas = [
     gmail.data?.estado === 'expirada' ? { onde: 'E-mail dos setores', conta: String(gmail.data.email_conta ?? '') } : null,
@@ -120,8 +123,32 @@ async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDo
     conexao, webhook, fila, conversas: cota?.usadas ?? null,
     falhas: falhas ? { total: falhas.total, grupos: resumoDasFalhas(falhas.falhas) } : null,
     semChave: chaves ? chaves.filter((c) => !c.origem).map((c) => nomeCurto(c.nome)) : null,
-    googleExpiradas, rotina, urlBase: base,
+    googleExpiradas, rotina, escola, urlBase: base,
   })
+}
+
+/**
+ * As contas ativas da Escola — a Únicopag (saldo e transações) e o Meta (marketing) — com a última leitura
+ * certa e o erro da última tentativa (o texto que lib/escola grava, sem chave nem dado de aluno). Sem conta
+ * ativa, a lista vem vazia e a linha não sai; null = não deu para ler.
+ */
+async function sincronizacoesDaEscola(admin: Admin, workspaceId: string): Promise<SincronizacaoDaEscola[] | null> {
+  try {
+    const colunas = 'nome, sincronizada_em, sincronizacao_erro'
+    const [unicopag, meta] = await Promise.all([
+      admin.from('escola_contas').select(colunas).eq('workspace_id', workspaceId).eq('ativa', true).order('nome'),
+      admin.from('escola_meta_contas').select(colunas).eq('workspace_id', workspaceId).eq('ativa', true).order('nome'),
+    ])
+    if (unicopag.error && meta.error) return null
+    const agora = new Date()
+    const ler = (origem: OrigemDaEscola, linhas: Record<string, unknown>[] | null) => (linhas ?? []).map((c): SincronizacaoDaEscola => {
+      const conta = { sincronizadaEm: (c.sincronizada_em as string | null) ?? null, erro: (c.sincronizacao_erro as string | null) ?? null }
+      return { origem, nome: (c.nome as string | null) ?? null, ...conta, situacao: situacaoDaSincronizacao(conta, agora) }
+    })
+    return [...ler('unicopag', unicopag.data), ...ler('meta', meta.data)]
+  } catch {
+    return null
+  }
 }
 
 /** "Google (cliente OAuth do Gmail)" vira "Google (Gmail)"; o resto perde o parêntese (como na visão geral das Configurações). */

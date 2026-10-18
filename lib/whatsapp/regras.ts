@@ -1,6 +1,8 @@
 import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from '@/lib/notificacoes/regras'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, situacaoDaResposta, type RespostaDaVisita } from '@/lib/portaria/regras'
 import { reais } from '@/lib/financeiro/regras'
+import { FINALIDADES_DE_USO, SITUACOES_DO_VEICULO, TIPOS_DE_VEICULO, km, lerHodometro, placaLegivel, type FinalidadeDeUso } from '@/lib/patrimonio/frota'
+import { quantidade, situacaoDoSaldo } from '@/lib/patrimonio/estoque'
 
 /**
  * Regras do WhatsApp do Palácio Virtual, sem banco nem rede — conferidas por
@@ -192,6 +194,8 @@ export function dicaDeResposta(link: string | null | undefined): string | null {
   if (!alvo) return null
   if (alvo.tipo === 'aprovacao') return '_Para votar por aqui, responda esta mensagem com *aprovar* ou com *ajustes:* e o que precisa mudar._'
   if (alvo.tipo === 'visita') return `_${PERGUNTA_DA_VISITA}_`
+  // O ofício não se assina por aqui: o aviso sai como os comuns, com o link (a resposta só diz onde assinar).
+  if (alvo.tipo === 'oficio') return null
   return '_Para responder por aqui, responda esta mensagem._'
 }
 
@@ -491,7 +495,54 @@ export type StatusDoCanal = {
   conversas: number | null
   /** Quando a rotina diária do WhatsApp terminou pela última vez; null = sem registro. */
   rotina: string | null
+  /** A última sincronização de cada conta ativa da Escola (Únicopag e Meta); null = não deu para ler; sem conta (ou sem o campo), a linha não sai. */
+  escola?: SincronizacaoDaEscola[] | null
   urlBase: string
+}
+
+// A Escola no "status": a sincronização diária de cada conta da Únicopag (saldo e transações) e do Meta
+// (marketing), lida de escola_contas e escola_meta_contas — quando leu certo pela última vez e o erro da última
+// tentativa (o texto que lib/escola grava, sem chave nem dado de aluno).
+
+export type OrigemDaEscola = 'unicopag' | 'meta'
+export type SituacaoDaSincronizacao = 'em_dia' | 'atrasada' | 'erro' | 'nunca'
+export type SincronizacaoDaEscola = { origem: OrigemDaEscola; nome: string | null; sincronizadaEm: string | null; erro: string | null; situacao: SituacaoDaSincronizacao }
+
+/** Sem leitura certa há mais que isso, a conta está atrasada (a rotina da Escola roda todo dia). */
+export const ESCOLA_ATRASADA_HORAS = 30
+export const CONTAS_DA_ESCOLA_NO_STATUS = 4
+
+/** A situação da conta: o erro da última tentativa manda; sem erro, nunca leu, leu há muito ou está em dia. */
+export function situacaoDaSincronizacao(c: { sincronizadaEm: string | null; erro: string | null }, agora: Date): SituacaoDaSincronizacao {
+  if (c.erro?.trim()) return 'erro'
+  const lida = c.sincronizadaEm ? new Date(c.sincronizadaEm).getTime() : NaN
+  if (!Number.isFinite(lida)) return 'nunca'
+  return agora.getTime() - lida > ESCOLA_ATRASADA_HORAS * 3_600_000 ? 'atrasada' : 'em_dia'
+}
+
+const ORIGEM_DA_ESCOLA: Record<OrigemDaEscola, string> = { unicopag: 'Únicopag', meta: 'Meta' }
+
+/** As linhas da Escola no "status": uma quando tudo está em dia; com problema, a contagem e até 4 contas. */
+function linhasDaEscola(e: SincronizacaoDaEscola[] | null | undefined): string[] {
+  if (e === undefined) return []
+  if (e === null) return ['*Escola (sincronização):* não deu para ler agora']
+  if (!e.length) return []
+  const problemas = e.filter((c) => c.situacao !== 'em_dia')
+  if (!problemas.length) {
+    const ultima = e.map((c) => c.sincronizadaEm ?? '').sort().reverse()[0]
+    return [`*Escola (sincronização):* em dia (${e.length} ${e.length === 1 ? 'conta' : 'contas'}; última leitura ${quandoEmSaoPaulo(ultima) ?? 'sem data'})`]
+  }
+  const mostradas = problemas.slice(0, CONTAS_DA_ESCOLA_NO_STATUS)
+  const linhas = [`*Escola (sincronização):* ${problemas.length} de ${e.length} com problema`, ...mostradas.map((c) => {
+    const qual = `${ORIGEM_DA_ESCOLA[c.origem]}${c.nome?.trim() ? ` · ${limpo(c.nome, 60)}` : ''}`
+    const ultima = quandoEmSaoPaulo(c.sincronizadaEm)
+    if (c.situacao === 'erro') return `• ${qual} – ${limpo(c.erro ?? '', 120)} (última leitura certa: ${ultima ?? 'nunca'})`
+    if (c.situacao === 'nunca') return `• ${qual} – ainda não leu nenhuma vez`
+    return `• ${qual} – sem leitura há mais de ${ESCOLA_ATRASADA_HORAS} h (última: ${ultima ?? 'sem data'})`
+  })]
+  const outras = problemas.length - mostradas.length
+  if (outras > 0) linhas.push(`_e mais ${outras} ${outras === 1 ? 'conta' : 'contas'}_`)
+  return linhas
 }
 
 /** A resposta ao "status": curta, uma linha por assunto, no formato do WhatsApp. */
@@ -521,6 +572,7 @@ export function textoDoStatus(s: StatusDoCanal): string {
       ...linhasDasFalhas,
       `*Integrações sem chave:* ${semChave}`,
       `*Contas Google:* ${google}`,
+      ...linhasDaEscola(s.escola),
       `*Rotina diária:* ${quandoEmSaoPaulo(s.rotina) ?? 'sem registro ainda'}`,
     ].join('\n'),
     `Detalhes: ${s.urlBase}/configuracoes/whatsapp`,
@@ -1030,7 +1082,8 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 
 export type Comando =
   | 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado'
-  | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta' | ComandoDaAdministracao | 'desconhecido'
+  | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta'
+  | 'presenca' | 'frota' | 'saida_veiculo' | 'retorno_veiculo' | 'estoque' | ComandoDaAdministracao | 'desconhecido'
 
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
 export type ComandoDaAdministracao = 'status' | 'fila'
@@ -1075,6 +1128,59 @@ const DA_FINANCEIRO = new Set([
   'pendencias do financeiro', 'pendencias financeiras', 'aprovacoes do financeiro', 'aprovacoes financeiras', 'aprovacoes de compras',
 ])
 
+/**
+ * A chamada da ação de hoje (lib/whatsapp/presenca.ts): só como a mensagem inteira, como a portaria. Quem não
+ * coordena as oportunidades do Voluntariado cai no menu.
+ */
+const DA_PRESENCA = new Set([
+  'presenca', 'presencas', 'marcar presenca', 'marcar presencas', 'chamada', 'fazer chamada', 'fazer a chamada', 'lista de presenca',
+  'presenca de hoje', 'presenca da acao', 'presenca na acao',
+])
+
+/** A frota agora (lib/whatsapp/frota.ts): só como a mensagem inteira. Quem não vê a Frota cai no menu. */
+const DA_FROTA = new Set([
+  'veiculos', 'veiculo', 'frota', 'carros', 'viaturas', 'ambulancias', 'veiculos disponiveis', 'carros disponiveis', 'frota disponivel', 'diario de bordo',
+])
+
+/** O saldo de um material (lib/whatsapp/estoque.ts): "estoque luva", "estoque: álcool 70", "estoque de máscaras". */
+const SALDO_NO_ESTOQUE = /^\s*estoque(?![\p{L}\d])[\s:,.;\-–—]*(?:(?:d[aeo]s?)\s+)?/iu
+
+/** "estoque luva" → "luva"; "estoque" sozinho → "" (o bot pergunta o material); o resto, null. */
+export function lerEstoque(entrada: string): string | null {
+  const m = SALDO_NO_ESTOQUE.exec(String(entrada ?? ''))
+  return m ? entrada.slice(m[0].length).replace(/\s+/g, ' ').trim().slice(0, 80) : null
+}
+
+// O diário de bordo pelo WhatsApp (lib/whatsapp/frota.ts), só para quem opera a frota (`frota` em lerPedido): para
+// os outros, "sair com…" continua pausando os avisos e "volta…" retomando, como sempre.
+const SAIDA_DE_VEICULO = /^\s*(?:registrar\s+(?:a\s+)?sa[ií]da|sa[ií]da|sair\s+com)(?![\p{L}\d])[\s:,.;\-–—]*/iu
+const RETORNO_DE_VEICULO = /^\s*(?:registrar\s+(?:o\s+|a\s+)?(?:retorno|volta)|retorno|volta|voltei\s+com|cheguei\s+com)(?![\p{L}\d])[\s:,.;\-–—]*/iu
+const ARTIGO_DO_VEICULO = /^(?:d[oa]s?|de|com(?:\s+[oa]s?)?|[oa]s?)\s+/iu
+/** Depois de "volta", só "do/da/com" dizem que é um veículo ("volta a receber" é retomar os avisos). */
+const LIGACAO_DA_VOLTA = /^(?:d[oa]s?|com(?:\s+[oa]s?)?)\s+/iu
+const PARECE_PLACA = /^[a-z]{3}\s*-?\s*\d[a-z0-9]\d{2}$/iu
+
+export type PedidoDeViagem = { acao: 'saida' | 'retorno'; veiculo: string }
+
+/**
+ * "saída ABC1D23", "saída da ambulância 1", "registrar saída", "sair com a van"; "retorno ABC1D23", "volta da
+ * van", "voltei com a ambulância 1", "registrar retorno". O veículo é opcional (o bot pergunta), menos em "sair
+ * com" e "voltei com", que sem ele não dizem nada; e "volta" só vale com "do/da/com" ou a placa ("volta a receber"
+ * nunca é retorno). null para o resto.
+ */
+export function lerViagem(entrada: string): PedidoDeViagem | null {
+  const t = String(entrada ?? '')
+  const saida = SAIDA_DE_VEICULO.exec(t)
+  const m = saida ?? RETORNO_DE_VEICULO.exec(t)
+  if (!m) return null
+  const verbo = normalizar(m[0])
+  const bruto = t.slice(m[0].length).replace(/\s+/g, ' ').trim()
+  const veiculo = bruto.replace(ARTIGO_DO_VEICULO, '').trim().slice(0, 80)
+  if ((verbo === 'sair com' || verbo === 'voltei com' || verbo === 'cheguei com') && veiculo.length < 2) return null
+  if (verbo === 'volta' && !((LIGACAO_DA_VOLTA.test(bruto) && veiculo.length >= 2) || PARECE_PLACA.test(veiculo))) return null
+  return { acao: saida ? 'saida' : 'retorno', veiculo }
+}
+
 export type Pedido = { comando: Comando; resto: string }
 
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
@@ -1089,9 +1195,11 @@ function depoisDe(entrada: string, prefixo: RegExp): string {
  * pausou, é voltar. "status" e "fila" são só de quem administra o espaço
  * (`admin`); para o resto seguem o caminho de sempre e dão "desconhecido".
  * "desativar conta: …" é só de quem gerencia usuários (`usuarios`); para o
- * resto, "desativar" continua pausando os avisos, como sempre.
+ * resto, "desativar" continua pausando os avisos, como sempre. "saída…" e
+ * "retorno…" são só de quem opera a frota (`frota`); para o resto, "sair
+ * com…" pausa e "volta…" retoma, como sempre.
  */
-export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean }): Pedido {
+export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean }): Pedido {
   const t = normalizar(entrada)
   if (!t) return { comando: 'desconhecido', resto: '' }
   if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
@@ -1111,6 +1219,15 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
     const nome = lerDesativarConta(entrada)
     if (nome !== null) return { comando: 'desativar_conta', resto: nome }
   }
+  // As outras áreas: a chamada da ação de hoje, a frota, o diário de bordo (só de quem opera) e o saldo do estoque.
+  if (DA_PRESENCA.has(t)) return { comando: 'presenca', resto: '' }
+  if (DA_FROTA.has(t)) return { comando: 'frota', resto: '' }
+  if (p.frota) {
+    const viagem = lerViagem(entrada)
+    if (viagem) return { comando: viagem.acao === 'saida' ? 'saida_veiculo' : 'retorno_veiculo', resto: viagem.veiculo }
+  }
+  const material = lerEstoque(entrada)
+  if (material !== null) return { comando: 'estoque', resto: material }
   const visita = REGISTRAR_VISITA.exec(entrada)
   if (visita) return { comando: 'registrar_visita', resto: entrada.slice(visita[0].length).replace(/\s+/g, ' ').trim().slice(0, 120) }
   const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
@@ -1125,7 +1242,10 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   return { comando: 'desconhecido', resto: '' }
 }
 
-export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean }): Comando => lerPedido(entrada, p).comando
+export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean }): Comando => lerPedido(entrada, p).comando
+
+/** A mensagem pode ser do diário de bordo? Só então o bot lê o nível da pessoa na Frota (lib/whatsapp/frota.ts). */
+export const pareceViagem = (entrada: string): boolean => lerViagem(entrada) !== null
 
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
 export const RESPOSTAS_POR_JANELA = 10
@@ -1162,52 +1282,93 @@ const OPCAO_DA_PORTARIA: OpcaoDoMenu = { id: 'portaria', titulo: 'Visitas de hoj
 /** As despesas e compras esperando a decisão, na lista do menu de quem decide (no texto, é a linha do "Ou escreva"). */
 const OPCAO_DO_FINANCEIRO: OpcaoDoMenu = { id: 'financeiro', titulo: 'Despesas e compras', texto: 'o que espera a sua decisão no Financeiro' }
 
+/** A chamada da ação de hoje, na lista do menu de quem coordena as oportunidades (se couber nas 10 linhas). */
+const OPCAO_DA_PRESENCA: OpcaoDoMenu = { id: 'presenca', titulo: 'Presença da ação', texto: 'marcar quem veio na ação de hoje' }
+
+/** A frota agora, na lista do menu de quem vê a Frota (se couber nas 10 linhas). */
+const OPCAO_DA_FROTA: OpcaoDoMenu = { id: 'veiculos', titulo: 'Veículos', texto: 'a frota agora: disponíveis e em viagem' }
+
+/** O começo do menu que responde ao que o bot não entendeu. */
+export const TEXTO_NAO_ENTENDI = '_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._'
+
 const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`
 
 /**
- * O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria, quem atende chamados e
- * quem decide despesas ou compras (`financeiro`: a mesma permissão das telas, lib/whatsapp/financeiro.ts).
+ * O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria, quem atende chamados,
+ * quem decide despesas ou compras (`financeiro`: a mesma permissão das telas, lib/whatsapp/financeiro.ts), quem
+ * coordena as oportunidades do Voluntariado (`presenca`), quem vê ou opera a Frota (`frota`) e quem vê o
+ * Estoque (`estoque`) — cada um com a permissão da tela da área.
  */
-export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean; financeiro?: boolean }
+export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean; financeiro?: boolean; presenca?: boolean; frota?: 'ver' | 'operar' | null; estoque?: boolean }
+
+/** As linhas das áreas no "Ou escreva", uma por área (a forma longa). */
+function linhasDasAreas(p: QuemNoMenu): string[] {
+  return [
+    p.portaria ? '*portaria* para as visitas de hoje e registrar quem chegou' : null,
+    p.financeiro ? '*financeiro* para decidir despesas e compras' : null,
+    p.presenca ? '*presença* para marcar quem veio na ação de hoje' : null,
+    p.frota === 'operar' ? '*veículos* para a frota; *saída* e *retorno* para o diário de bordo' : p.frota === 'ver' ? '*veículos* para ver a frota' : null,
+    p.estoque ? '*estoque* e o material, para o saldo (ex.: _estoque luva_)' : null,
+  ].filter((l): l is string => Boolean(l))
+}
+
+/** As mesmas áreas numa linha só (a forma curta, quando a longa não cabe no corpo da lista). */
+function linhaCurtaDasAreas(p: QuemNoMenu): string | null {
+  const palavras = [
+    p.portaria ? '*portaria*' : null, p.financeiro ? '*financeiro*' : null, p.presenca ? '*presença*' : null,
+    p.frota ? '*veículos*' : null, p.frota === 'operar' ? '*saída*' : null, p.frota === 'operar' ? '*retorno*' : null,
+  ].filter((x): x is string => Boolean(x))
+  const lista = palavras.length > 1 ? `${palavras.slice(0, -1).join(', ')} ou ${palavras[palavras.length - 1]}` : palavras[0] ?? ''
+  if (!lista && !p.estoque) return null
+  return `Das suas áreas: ${[lista, p.estoque ? '*estoque* e o material' : null].filter(Boolean).join('; ')}.`
+}
 
 /**
- * `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). `portaria`: a linha
- * de "portaria" e "visitante:". `atende`: o 5 diz que traz também a fila. `financeiro`: a linha do
- * "financeiro". O texto mais longo (pausado, com tudo e o "Não entendi") ainda cabe no corpo de 1024 da lista.
+ * `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). `portaria`,
+ * `financeiro`, `presenca`, `frota` e `estoque`: a linha de cada área no "Ou escreva". `atende`: o 5 diz que
+ * traz também a fila. `naoEntendi`: começa com TEXTO_NAO_ENTENDI. O menu cabe sempre no corpo de 1024 da
+ * lista: com áreas demais (quem administra tem todas), elas vão numa linha só.
  */
-export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string } & QuemNoMenu): string {
+export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; naoEntendi?: boolean } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
-  return [
+  const montar = (areas: string[]) => [
+    p.naoEntendi ? TEXTO_NAO_ENTENDI : null,
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
     ['Responda com o número:', ...opcoesDoMenu(p.pausado, p.atende).map(linhaDoMenu)].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_)',
-      p.portaria ? '*portaria* para as visitas de hoje e registrar quem chegou' : null,
-      p.financeiro ? '*financeiro* para decidir despesas e compras' : null,
-      'Para responder um aviso, responda a própria mensagem dele.'].filter(Boolean).join('\n'),
+      ...areas, 'Para responder um aviso, responda a própria mensagem dele.'].join('\n'),
     p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
+  const longo = montar(linhasDasAreas(p))
+  if (longo.length <= LIMITES_DO_INTERATIVO.corpo) return longo
+  const curta = linhaCurtaDasAreas(p)
+  return curta ? montar([curta]) : longo
 }
 
 /**
  * O menu como lista (dentro da janela): as opções 1 a 6, "portaria" para quem tem a portaria, "financeiro" para
- * quem decide despesas ou compras e, para quem administra, "status" e "fila" (no máximo 10 linhas, o teto da
- * Meta). Cada linha leva o que se digita, então o toque segue por lerPedido como o número digitado (o "3"
- * continua alternando parar e voltar pelo estado da hora). "chamado:", "ajuda" e "visitante:" pedem texto:
- * ficam só no corpo.
+ * quem decide despesas ou compras, "presenca" para quem coordena as oportunidades, "veiculos" para quem vê a
+ * Frota e, para quem administra, "status" e "fila" — no máximo 10 linhas, o teto da Meta: as áreas entram nessa
+ * ordem enquanto cabem (as que sobram ficam no corpo, que diz o que digitar). Cada linha leva o que se digita,
+ * então o toque segue por lerPedido como o número digitado (o "3" continua alternando parar e voltar pelo estado
+ * da hora). "chamado:", "ajuda", "visitante:", "saída", "retorno" e "estoque" pedem texto: ficam só no corpo.
  */
 export function interativoDoMenu(p: { pausado: boolean } & QuemNoMenu): Interativo {
   const linha = (o: OpcaoDoMenu): LinhaDaLista => ({ id: o.id, titulo: o.titulo, descricao: `${o.texto.charAt(0).toUpperCase()}${o.texto.slice(1)}` })
+  const daAdministracao = p.admin ? OPCOES_DA_ADMINISTRACAO : []
+  const opcoes = opcoesDoMenu(p.pausado, p.atende)
+  const areas = [
+    ...(p.portaria ? [OPCAO_DA_PORTARIA] : []), ...(p.financeiro ? [OPCAO_DO_FINANCEIRO] : []),
+    ...(p.presenca ? [OPCAO_DA_PRESENCA] : []), ...(p.frota ? [OPCAO_DA_FROTA] : []),
+  ].slice(0, Math.max(0, LIMITES_DO_INTERATIVO.linhas - opcoes.length - daAdministracao.length))
   return {
     tipo: 'lista',
     botao: 'Ver as opções',
     secoes: [
-      {
-        titulo: 'Opções',
-        linhas: [...opcoesDoMenu(p.pausado, p.atende), ...(p.portaria ? [OPCAO_DA_PORTARIA] : []), ...(p.financeiro ? [OPCAO_DO_FINANCEIRO] : [])].map(linha),
-      },
-      ...(p.admin ? [{ titulo: 'Da administração', linhas: OPCOES_DA_ADMINISTRACAO.map(linha) }] : []),
+      { titulo: 'Opções', linhas: [...opcoes, ...areas].map(linha) },
+      ...(daAdministracao.length ? [{ titulo: 'Da administração', linhas: daAdministracao.map(linha) }] : []),
     ],
   }
 }
@@ -1371,6 +1532,8 @@ export type AlvoDoAviso =
   | { tipo: 'aprovacao'; id: string }
   | { tipo: 'mensagem'; pessoaId: string }
   | { tipo: 'visita'; id: string }
+  /** O pedido de assinatura (e os outros avisos de um ofício): a resposta não assina nada, só diz onde. */
+  | { tipo: 'oficio'; id: string }
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
@@ -1384,6 +1547,7 @@ export function alvoDoLink(link: string | null | undefined): AlvoDoAviso | null 
   if (partes.length === 2 && partes[0] === 'aprovacoes' && ehId(partes[1])) return { tipo: 'aprovacao', id: partes[1] }
   if (partes.length === 3 && partes[0] === 'mensagens' && partes[1] === 'pessoa' && ehId(partes[2])) return { tipo: 'mensagem', pessoaId: partes[2] }
   if (partes.length === 3 && partes[0] === 'portaria' && partes[1] === 'visita' && ehId(partes[2])) return { tipo: 'visita', id: partes[2] }
+  if (partes.length === 2 && partes[0] === 'oficios' && ehId(partes[1])) return { tipo: 'oficio', id: partes[1] }
   if (partes.length === 2 && partes[0] === 'chat' && ehId(partes[1])) {
     const fio = new URLSearchParams(busca).get('fio')?.toLowerCase() ?? null
     return { tipo: 'chat', canalId: partes[1], fio: ehId(fio ?? undefined) ? fio : null }
@@ -1484,7 +1648,7 @@ export function tituloDoRelato(relato: string): string {
 }
 
 export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
-  'Sua conta usa a verificação em duas etapas, então responder, atender chamados, registrar visitas e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). O voto e as decisões do Financeiro saem por aqui com um link para confirmar no Palácio. As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
+  'Sua conta usa a verificação em duas etapas, então responder, atender chamados, registrar visitas, marcar presença, registrar saída e retorno de veículo e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). O voto e as decisões do Financeiro saem por aqui com um link para confirmar no Palácio. As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
 
 // ------------------------------------------------------------------ quem atende chamado (assumir, resolver, transferir)
 //
@@ -1840,3 +2004,340 @@ export const TEXTO_NAO_FUI_EU_SEM_AVISO =
 /** Antes da migração 20261018223000 (a conferência não tem onde ficar): o caminho de sempre. */
 export const TEXTO_NAO_FUI_EU_INDISPONIVEL =
   'Ainda não consigo proteger a conta por aqui. Agora mesmo: troque a senha pela tela de entrada do Palácio (“Esqueci minha senha”) e fale com a administração.'
+
+// ------------------------------------------------------------------ ofícios (o aviso do pedido de assinatura)
+//
+// O pedido de assinatura de um ofício já é um aviso (categoria "oficios", app/actions/oficios.ts) e vai pelo
+// WhatsApp como os outros, com o link. Assinar — e recusar — é só no Palácio, com a senha ou o gov.br: a resposta
+// que cita o aviso não assina nada, só diz onde.
+
+export function textoDoOficioPeloWhatsapp(abrir: string): string {
+  return `Ofício não se assina pelo WhatsApp: a assinatura (ou a recusa) é no Palácio, com a sua senha ou pelo gov.br. Abra o ofício: ${abrir}`
+}
+
+// ------------------------------------------------------------------ presença das ações do Voluntariado (lib/whatsapp/presenca.ts)
+//
+// Quem coordena as oportunidades (nível "gerenciar" ou "dados sensíveis" no Voluntariado — a permissão do botão
+// "Presente" da tela) faz a chamada da ação de hoje: escolhe a ação (se houver mais de uma), responde com os
+// números de quem veio e confere. Cada marcação passa pela mesma registrar_presenca da tela, que lança (ou tira)
+// as horas no cadastro do voluntário.
+
+/** Na escolha da ação, no máximo tantas (cabe numa lista do WhatsApp, com a linha de cancelar). */
+export const ACOES_NA_ESCOLHA = 9
+/** A chamada por aqui vai até tantos inscritos; ação maior, pela tela. */
+export const INSCRITOS_NA_CHAMADA = 40
+
+export type InscritoNaChamada = { nome: string; situacao: string }
+
+/** "4 h", "2,5 h", "0,25 h". */
+export const horasNoTexto = (h: number) => `${h.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} h`
+
+const SITUACAO_NA_CHAMADA: Record<string, string> = { presente: 'presente', ausente: 'falta' }
+
+/** A lista numerada dos inscritos, com o que já foi marcado, e como responder. */
+export function textoDaChamada(p: { titulo: string; quando: string; inscritos: InscritoNaChamada[]; horas: number }): string {
+  const total = p.inscritos.length
+  const linhas = p.inscritos.map((i, n) => `*${n + 1}* – ${limpo(i.nome, 60)}${SITUACAO_NA_CHAMADA[i.situacao] ? ` _(${SITUACAO_NA_CHAMADA[i.situacao]})_` : ''}`)
+  return [
+    `*${limpo(p.titulo, 140)}*\n${limpo(p.quando, 80)} · ${total === 1 ? '1 inscrito' : `${total} inscritos`}`,
+    linhas.join('\n'),
+    `Responda com os números de quem veio (ex.: _1 3 4_ ou _1 a 5_), *todos* ou _todos menos 3_ (aí o 3 fica com falta). Só faltas: _faltas 2 6_. Cada presença lança ${horasNoTexto(p.horas)} no cadastro do voluntário.`,
+    `Ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+/** Os botões da chamada: "todos" (lerMarcacaoDePresenca) e cancelar. */
+export const BOTOES_DA_CHAMADA: Interativo = { tipo: 'botoes', botoes: [{ id: 'todos', titulo: 'Todos vieram' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+
+export type MarcacaoDePresenca = { presentes: number[]; ausentes: number[] }
+
+const VIERAM = new Set(['presente', 'presentes', 'presenca', 'presencas', 'vieram', 'veio', 'compareceram', 'compareceu'])
+const FALTARAM = new Set(['ausente', 'ausentes', 'faltaram', 'faltou', 'falta', 'faltas'])
+const TIRANDO = new Set(['menos', 'exceto', 'fora', 'tirando'])
+const LIGACOES = new Set(['e', 'o', 'a', 'os', 'as', 'n', 'no', 'numero', 'numeros'])
+
+/**
+ * A resposta à chamada (`quantos` inscritos na lista): "1 3 4", "1, 3 e 4", "1 a 5", "1-5" (os que vieram),
+ * "todos", "todos menos 3 5" (os outros vieram; o 3 e o 5 ficam com falta), "faltas 2 6" ou "não vieram 2", e as
+ * duas coisas juntas ("presentes 1 3, faltas 2"). null quando não dá para ler sem chutar: palavra estranha,
+ * número fora da lista, o mesmo número nos dois lados, "presente" ou "falta" depois dos números ("2 não veio")
+ * ou nenhum número.
+ */
+export function lerMarcacaoDePresenca(entrada: string, quantos: number): MarcacaoDePresenca | null {
+  const t = String(entrada ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/(\d+)\s*(?:-|–|—|\ba\b|\bate\b)\s*(\d+)/g, '$1~$2')
+    .replace(/[^a-z0-9~ ]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!t || quantos < 1) return null
+  const palavras = t.split(' ')
+  let i = 0
+  // "todos" (ou "todos faltaram") e, depois de "menos", as exceções.
+  let todos: 'vieram' | 'faltaram' | null = null
+  if (palavras[0] === 'todos' || palavras[0] === 'todas' || (palavras[0] === 'todo' && palavras[1] === 'mundo')) {
+    i = palavras[0] === 'todo' ? 2 : 1
+    todos = 'vieram'
+    if (VIERAM.has(palavras[i] ?? '')) i++
+    else if (FALTARAM.has(palavras[i] ?? '')) { todos = 'faltaram'; i++ }
+    if (i < palavras.length) {
+      if (!TIRANDO.has(palavras[i])) return null
+      i++
+      if (i >= palavras.length) return null
+    }
+  }
+  const presentes = new Set<number>()
+  const ausentes = new Set<number>()
+  let lado: 'presentes' | 'ausentes' = todos === 'vieram' ? 'ausentes' : 'presentes'
+  let numeros = 0
+  let semNumero = false
+  let nao = false
+  for (; i < palavras.length; i++) {
+    const w = palavras[i]
+    if (!todos && (w === 'nao' || VIERAM.has(w) || FALTARAM.has(w))) {
+      if (w === 'nao') { nao = true; continue }
+      lado = FALTARAM.has(w) || nao ? 'ausentes' : 'presentes'
+      nao = false
+      semNumero = true
+      continue
+    }
+    if (LIGACOES.has(w)) continue
+    const faixa = /^(\d{1,3})(?:~(\d{1,3}))?$/.exec(w)
+    if (!faixa || nao) return null
+    const de = Number(faixa[1])
+    const ate = Number(faixa[2] ?? faixa[1])
+    if (de < 1 || ate > quantos || de > ate) return null
+    for (let n = de; n <= ate; n++) (lado === 'presentes' ? presentes : ausentes).add(n)
+    numeros++
+    semNumero = false
+  }
+  if (semNumero || nao) return null
+  if (todos === 'vieram') for (let n = 1; n <= quantos; n++) { if (!ausentes.has(n)) presentes.add(n) }
+  else if (todos === 'faltaram') for (let n = 1; n <= quantos; n++) { if (!presentes.has(n)) ausentes.add(n) }
+  else if (!numeros) return null
+  if ([...presentes].some((n) => ausentes.has(n))) return null
+  const ordem = (c: Set<number>) => [...c].sort((a, b) => a - b)
+  return { presentes: ordem(presentes), ausentes: ordem(ausentes) }
+}
+
+/** A conferência antes de marcar: quem fica com presença (e as horas) e quem fica com falta. */
+export function textoDaConferenciaDaPresenca(p: { titulo: string; quando: string; presentes: string[]; ausentes: string[]; horas: number }): string {
+  const nomes = (l: string[]) => l.map((n) => limpo(n, 60)).join(', ')
+  return [
+    `Marcar na *${limpo(p.titulo, 140)}* (${limpo(p.quando, 80)}):`,
+    [
+      p.presentes.length ? `*Presença (${p.presentes.length}):* ${nomes(p.presentes)} – ${horasNoTexto(p.horas)} no cadastro de cada um.` : null,
+      p.ausentes.length ? `*Falta (${p.ausentes.length}):* ${nomes(p.ausentes)} – se esta ação já tinha lançado horas para eles, elas saem.` : null,
+    ].filter(Boolean).join('\n'),
+    `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+/** Depois de marcar: o que entrou e o que não deu (com o motivo do banco). */
+export function textoDaPresencaMarcada(p: { titulo: string; presentes: number; ausentes: number; horas: number; falhas: { nome: string; motivo: string }[]; link: string }): string {
+  const feitas = [
+    p.presentes ? `${p.presentes === 1 ? '1 presença' : `${p.presentes} presenças`} (${horasNoTexto(p.horas)} no cadastro de cada um)` : null,
+    p.ausentes ? (p.ausentes === 1 ? '1 falta' : `${p.ausentes} faltas`) : null,
+  ].filter(Boolean)
+  const mostradas = p.falhas.slice(0, 10)
+  return [
+    feitas.length
+      ? `Pronto: na *${limpo(p.titulo, 140)}*, ${feitas.join(' e ')} ${p.presentes + p.ausentes === 1 ? 'registrada' : 'registradas'}.`
+      : `Nada foi marcado na *${limpo(p.titulo, 140)}*.`,
+    mostradas.length
+      ? ['Não deu para marcar:', ...mostradas.map((f) => `• ${limpo(f.nome, 60)}: ${limpo(f.motivo, 140)}`), p.falhas.length > mostradas.length ? `_e mais ${p.falhas.length - mostradas.length}_` : null]
+        .filter(Boolean).join('\n')
+      : null,
+    `A ação no Palácio: ${p.link}`,
+  ].filter(Boolean).join('\n\n')
+}
+
+/** Nenhuma ação com a presença liberada hoje; `depois`: as de hoje que ainda vão começar (a presença vale a partir do início). */
+export function textoSemAcaoHoje(p: { depois: { titulo: string; hora: string }[]; urlBase: string }): string {
+  return [
+    'Nenhuma ação de hoje com a presença liberada: a presença vale a partir do início da ação.',
+    p.depois.length ? `Mais tarde: ${p.depois.slice(0, 3).map((a) => `${limpo(a.titulo, 80)} (${limpo(a.hora, 5)})`).join('; ')}.` : null,
+    `As oportunidades: ${p.urlBase}/voluntariado/oportunidades`,
+  ].filter(Boolean).join('\n\n')
+}
+
+// ------------------------------------------------------------------ frota (lib/whatsapp/frota.ts)
+//
+// Quem vê a Frota (nível "ver" ou mais no Patrimônio, a permissão da tela) pede "veículos": os disponíveis, os em
+// viagem (com quem e para onde) e os parados. Quem opera ("operar" ou "gestão", a permissão dos botões "Saída" e
+// "Retorno") registra a saída — veículo, quem dirige, hodômetro, finalidade e destino — e o retorno — hodômetro e
+// ocorrências —, sempre com a conferência, pelas mesmas funções da tela (frota_sair e frota_retornar, com a
+// conferência de pedidoDeSaida e pedidoDeRetorno, em lib/patrimonio/frota.ts).
+
+export type VeiculoNaFrota = { nome: string; tipo: string; km: number; situacao: string; uso?: { condutor: string; destino: string; desde: string } | null }
+export const VEICULOS_NA_RESPOSTA = 12
+
+/** "Ambulância 1 · ABC-1234" (ou só a placa, legível). */
+export const nomeDoVeiculo = (v: { apelido: string | null; placa: string }) => (v.apelido?.trim() ? `${v.apelido.trim()} · ${placaLegivel(v.placa)}` : placaLegivel(v.placa))
+
+const tipoDoVeiculo = (tipo: string) => (TIPOS_DE_VEICULO as Record<string, string>)[tipo] ?? tipo
+
+/** O "veículos": os disponíveis, os em viagem e os parados. `opera`: ensina o "saída" e o "retorno". */
+export function textoDaFrota(p: { veiculos: VeiculoNaFrota[]; urlBase: string; opera: boolean }): string {
+  const link = `${p.urlBase}/patrimonio/frota`
+  if (!p.veiculos.length) return ['Nenhum veículo cadastrado na Frota.', `A frota: ${link}`].join('\n\n')
+  const disponiveis = p.veiculos.filter((v) => v.situacao === 'ativo' && !v.uso)
+  const emViagem = p.veiculos.filter((v) => v.uso)
+  const parados = p.veiculos.filter((v) => v.situacao !== 'ativo' && !v.uso)
+  const bloco = (titulo: string, lista: VeiculoNaFrota[], linha: (v: VeiculoNaFrota) => string) => {
+    if (!lista.length) return null
+    const mostrados = lista.slice(0, VEICULOS_NA_RESPOSTA)
+    return [`*${titulo}*`, ...mostrados.map(linha), lista.length > mostrados.length ? `_e mais ${lista.length - mostrados.length}_` : null].filter(Boolean).join('\n')
+  }
+  const situacao = (v: VeiculoNaFrota) => ((SITUACOES_DO_VEICULO as Record<string, { rotulo: string }>)[v.situacao]?.rotulo ?? v.situacao).toLowerCase()
+  return [
+    `*Frota agora:* ${disponiveis.length} ${disponiveis.length === 1 ? 'disponível' : 'disponíveis'}, ${emViagem.length} em viagem${parados.length ? `, ${parados.length} ${parados.length === 1 ? 'parado' : 'parados'}` : ''}.`,
+    bloco('Disponíveis', disponiveis, (v) => `• ${limpo(v.nome, 60)} (${tipoDoVeiculo(v.tipo)}) – ${km(v.km)}`),
+    bloco('Em viagem', emViagem, (v) => `• ${limpo(v.nome, 60)} – ${limpo(v.uso?.condutor ?? '', 60)}, para ${limpo(v.uso?.destino ?? '', 80)}, desde ${limpo(v.uso?.desde ?? '', 30)}`),
+    bloco('Em manutenção ou fora de uso', parados, (v) => `• ${limpo(v.nome, 60)} – ${situacao(v)}`),
+    [p.opera ? 'Para o diário de bordo, escreva *saída* ou *retorno* e o veículo (ex.: _saída ABC1D23_).' : null, `A frota completa: ${link}`].filter(Boolean).join(' '),
+  ].filter(Boolean).join('\n\n')
+}
+
+/**
+ * Os veículos que batem com o que a pessoa escreveu: a placa inteira (com ou sem hífen) ou o fim dela ("1D23"),
+ * senão o apelido, o tipo, a marca e o modelo (acharPeloNome: "amb 1" acha "Ambulância 1"). Nada escrito, nada.
+ */
+export function acharVeiculo<T extends { placa: string; apelido: string | null; tipo: string; marca?: string | null; modelo?: string | null }>(lista: T[], busca: string): T[] {
+  const placa = String(busca ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (!placa) return []
+  const iguais = lista.filter((v) => v.placa === placa)
+  if (iguais.length) return iguais
+  if (placa.length >= 3 && /\d/.test(placa)) {
+    const peloFim = lista.filter((v) => v.placa.endsWith(placa))
+    if (peloFim.length) return peloFim
+  }
+  const nomes = lista.map((v) => ({ v, nome: [v.apelido, tipoDoVeiculo(v.tipo), v.marca, v.modelo].filter(Boolean).join(' ') }))
+  return acharPeloNome(nomes, busca).map((x) => x.v)
+}
+
+const MESMO_KM = new Set(['mesmo', 'o mesmo', 'mesma', 'manter', 'mantem', 'mantenha', 'igual', 'nao mudou'])
+
+/** O hodômetro respondido na conversa: "52.100", "52100 km"; "mesmo" (ou o toque em "Manter") repete `atual`. null se não serve. */
+export function lerHodometroDaConversa(entrada: string, atual: number | null): number | null {
+  if (atual !== null && MESMO_KM.has(normalizar(entrada))) return atual
+  const n = lerHodometro(entrada)
+  return n === null || Number.isNaN(n) ? null : n
+}
+
+/** A pergunta do hodômetro: na saída, o último registro (e "mesmo" para manter); no retorno, o da saída. */
+export function textoPedeHodometro(p: { veiculo: string; acao: 'saida' | 'retorno'; km: number }): string {
+  return p.acao === 'saida'
+    ? `Qual o hodômetro de *${limpo(p.veiculo, 80)}* agora? O último registro é ${km(p.km)}. Responda o número, *mesmo* para manter, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+    : `Qual o hodômetro de *${limpo(p.veiculo, 80)}* na chegada? Saiu com ${km(p.km)}. Responda o número, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+}
+
+/** Os botões da pergunta do hodômetro na saída: manter o último registro ("mesmo") ou desistir. */
+export const botoesDoHodometro = (atual: number): Interativo => ({ tipo: 'botoes', botoes: [{ id: 'mesmo', titulo: `Manter ${km(atual)}` }, { id: 'cancelar', titulo: 'Cancelar' }] })
+
+export const TEXTO_PEDE_DESTINO = `Para onde vai? Escreva o destino (ex.: _Maracanã – posto médico do jogo_), ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+export const TEXTO_PEDE_OCORRENCIAS = `Alguma ocorrência na viagem (luz acesa no painel, pneu baixo, batida)? Escreva, ou responda *pular*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+
+/** As finalidades da viagem, na ordem da tela (a escolha numerada da saída). */
+export const FINALIDADES_NA_CONVERSA = Object.keys(FINALIDADES_DE_USO) as FinalidadeDeUso[]
+
+/** A conferência antes de abrir a viagem: o veículo, quem dirige, o hodômetro, a finalidade e o destino. */
+export function textoDaConferenciaDaSaida(p: { veiculo: string; condutor: string; km: number; finalidade: FinalidadeDeUso; destino: string }): string {
+  return [
+    `Registrar a *saída* de *${limpo(p.veiculo, 80)}*?`,
+    [`Quem dirige: ${limpo(p.condutor, 80)}`, `Hodômetro na saída: ${km(p.km)}`, `Finalidade: ${FINALIDADES_DE_USO[p.finalidade]}`, `Destino: ${limpo(p.destino, 200)}`].join('\n'),
+    'A viagem fica aberta no diário de bordo até o retorno. Para ligar a viagem a um projeto, registre a saída pela tela do veículo.',
+    `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+/** A conferência antes de fechar a viagem: o hodômetro (e o quanto rodou) e as ocorrências. */
+export function textoDaConferenciaDoRetorno(p: { veiculo: string; kmSaida: number; km: number; observacao: string; condutor: string | null; destino: string | null }): string {
+  const viagem = [p.condutor ? limpo(p.condutor, 60) : null, p.destino ? `para ${limpo(p.destino, 100)}` : null].filter(Boolean).join(', ')
+  return [
+    `Registrar o *retorno* de *${limpo(p.veiculo, 80)}*?`,
+    [
+      viagem ? `Viagem: ${viagem}` : null,
+      `Hodômetro na chegada: ${km(p.km)} (rodou ${km(p.km - p.kmSaida)})`,
+      `Ocorrências: ${p.observacao ? limpo(p.observacao, 300) : 'nenhuma'}`,
+    ].filter(Boolean).join('\n'),
+    `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+/** Depois do retorno: o quanto rodou e, se venceu, a manutenção (quem opera a frota recebe o aviso). */
+export function textoDoRetornoRegistrado(p: { veiculo: string; kmRodado: number; planos: { nome: string; km: number }[]; link: string }): string {
+  return [
+    `Pronto: retorno de *${limpo(p.veiculo, 80)}* registrado; rodou ${km(p.kmRodado)}.`,
+    p.planos.length ? `Atenção: manutenção vencida nesta viagem – ${p.planos.map((x) => `${limpo(x.nome, 60)} (${km(x.km)})`).join('; ')}. Quem opera a frota foi avisado.` : null,
+    `O veículo: ${p.link}`,
+  ].filter(Boolean).join('\n\n')
+}
+
+// ------------------------------------------------------------------ estoque (lib/whatsapp/estoque.ts)
+//
+// Quem vê o Estoque (nível "ver" ou mais no Patrimônio, a permissão da tela) pergunta o saldo de um material:
+// "estoque luva". Só leitura: o saldo, o mínimo, onde está e a validade mais próxima. As doações em espécie entram
+// no mesmo estoque, então valem também. Entrada, saída, transferência e ajuste ficam na tela.
+
+export type MaterialNoSaldo = {
+  id: string; nome: string; codigo: string; unidade: string; saldo: number; minimo: number
+  /** Onde está (os lotes com saldo, somados por local). */
+  locais: { nome: string; quantidade: number }[]
+  /** A validade mais próxima que ainda não venceu (AAAA-MM-DD), e quanto já venceu e espera a baixa. */
+  validade: string | null
+  vencido: number
+}
+export const MATERIAIS_NO_SALDO = 5
+
+export const TEXTO_PEDE_MATERIAL = 'Escreva *estoque* e o material (ex.: _estoque luva_, _estoque álcool 70_). A resposta traz o saldo, o mínimo e onde está.'
+
+const PALAVRAS_SOLTAS = new Set(['de', 'do', 'da', 'dos', 'das', 'em', 'e', 'para', 'com', 'o', 'a', 'os', 'as'])
+
+/**
+ * Os materiais que batem com o que a pessoa escreveu: o código igual ("EST-0012", sem diferença de hífen ou
+ * maiúscula) vem sozinho; senão, cada palavra escrita (menos "de", "em"…) começa uma palavra do nome — no
+ * singular também ("luvas" acha "Luva de procedimento").
+ */
+export function acharNoEstoque<T extends { nome: string; codigo: string }>(itens: T[], busca: string): T[] {
+  const q = normalizar(busca)
+  if (!q) return []
+  const peloCodigo = itens.filter((i) => normalizar(i.codigo).replace(/ /g, '') === q.replace(/ /g, ''))
+  if (peloCodigo.length) return peloCodigo
+  const todos = q.split(' ')
+  const termos = todos.filter((t) => !PALAVRAS_SOLTAS.has(t))
+  const usar = termos.length ? termos : todos
+  const singular = (t: string) => (t.length > 3 && t.endsWith('s') ? t.slice(0, -1) : t)
+  return itens.filter((i) => {
+    const palavras = normalizar(i.nome).split(' ')
+    return usar.every((t) => palavras.some((w) => w.startsWith(t) || w.startsWith(singular(t))))
+  })
+}
+
+const dataBr = (d: string) => d.split('-').reverse().join('/')
+
+/** A resposta ao "estoque <material>": um material, em detalhe; vários, um por linha (até 5), com o link da busca. */
+export function textoDoSaldo(p: { busca: string; materiais: MaterialNoSaldo[]; total: number; urlBase: string }): string {
+  const buscaNaTela = `${p.urlBase}/patrimonio/estoque?q=${encodeURIComponent(p.busca.trim().slice(0, 80))}`
+  if (!p.total || !p.materiais.length) return `Não achei “${limpo(p.busca, 80)}” no estoque. Tente outra palavra (ou o código), ou veja a lista: ${buscaNaTela}`
+  const alerta = (m: MaterialNoSaldo) => {
+    const s = situacaoDoSaldo(m.saldo, m.minimo)
+    return s === 'zerado' ? ' _(zerado)_' : s === 'abaixo' ? ` _(abaixo do mínimo de ${quantidade(m.minimo, m.unidade)})_` : ''
+  }
+  if (p.total === 1) {
+    const m = p.materiais[0]
+    return [
+      `*${limpo(m.nome, 120)}* (${limpo(m.codigo, 20)})`,
+      [
+        `Saldo: *${quantidade(m.saldo, m.unidade)}*${alerta(m)}${m.minimo > 0 && situacaoDoSaldo(m.saldo, m.minimo) === 'ok' ? ` · mínimo ${quantidade(m.minimo, m.unidade)}` : ''}`,
+        m.locais.length ? `Onde está: ${m.locais.slice(0, 6).map((l) => `${limpo(l.nome, 60)} ${quantidade(l.quantidade, m.unidade)}`).join('; ')}${m.locais.length > 6 ? '; …' : ''}` : null,
+        m.validade ? `Validade mais próxima: ${dataBr(m.validade)}` : null,
+        m.vencido > 0 ? `Vencido esperando a baixa: ${quantidade(m.vencido, m.unidade)}` : null,
+      ].filter(Boolean).join('\n'),
+      `No Palácio: ${p.urlBase}/patrimonio/estoque/${m.id}`,
+    ].join('\n\n')
+  }
+  const mostrados = p.materiais.slice(0, MATERIAIS_NO_SALDO)
+  return [
+    `Achei *${p.total} materiais* com “${limpo(p.busca, 80)}”${p.total > mostrados.length ? `. Os ${mostrados.length} primeiros` : ''}:`,
+    mostrados.map((m) => `• *${limpo(m.nome, 80)}* (${limpo(m.codigo, 20)}): ${quantidade(m.saldo, m.unidade)}${alerta(m)}`).join('\n'),
+    `Para o detalhe de um, escreva mais do nome ou o código. A lista: ${buscaNaTela}`,
+  ].join('\n\n')
+}

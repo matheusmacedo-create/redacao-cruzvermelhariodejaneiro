@@ -4,14 +4,14 @@ import { revalidatePath } from 'next/cache'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { contextoDoPatrimonio } from '@/lib/patrimonio/acesso'
-import { quemOperaOPatrimonio } from '@/lib/patrimonio/destinatarios'
-import { notificar } from '@/lib/notificacoes/servidor'
+import { avisarManutencaoVencida } from '@/lib/patrimonio/frota-servidor'
 import { valorFipe } from '@/lib/apis-publicas/servidor'
 import { ehTipoFipe } from '@/lib/apis-publicas/regras'
 import { lerValor } from '@/lib/patrimonio/regras'
 import { lerQuantidade } from '@/lib/patrimonio/estoque'
 import {
-  ehCategoriaCnh, ehCombustivel, ehFinalidadeDeUso, ehTipoDeDocumento, ehTipoDeServico, ehTipoDeVeiculo, km, lerPlaca, placaLegivel,
+  ehCategoriaCnh, ehCombustivel, ehTipoDeDocumento, ehTipoDeServico, ehTipoDeVeiculo, lerHodometro, lerPlaca, pedidoDeRetorno, pedidoDeSaida,
+  type RetornoDaViagem,
 } from '@/lib/patrimonio/frota'
 
 /**
@@ -36,12 +36,12 @@ const ehUuid = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]
 const ehData = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const uuidOuVazio = (v: unknown) => (ehUuid(v) ? v : '')
 
-/** Inteiro de hodômetro: "52.100" → 52100. */
+/** Inteiro de hodômetro: "52.100" → 52100 (lerHodometro, o mesmo da saída e do retorno). */
 function lerKm(texto: string, obrigatorio = true): number | null {
-  const s = String(texto ?? '').replace(/[.\s]/g, '').replace(/km$/i, '')
-  if (!s) { if (obrigatorio) throw new Error('Informe o km do hodômetro.'); return null }
-  if (!/^\d{1,7}$/.test(s)) throw new Error('Quilometragem inválida (só números).')
-  return Number(s)
+  const n = lerHodometro(texto)
+  if (n === null) { if (obrigatorio) throw new Error('Informe o km do hodômetro.'); return null }
+  if (Number.isNaN(n)) throw new Error('Quilometragem inválida (só números).')
+  return n
 }
 
 export async function salvarVeiculo(id: string | null, _anterior: Resultado & { id?: string }, formData: FormData): Promise<Resultado & { id?: string }> {
@@ -100,16 +100,11 @@ export async function salvarCondutor(p: DadosDoCondutor): Promise<Resultado> {
   }
 }
 
+/** Saída (abre a viagem). A conferência é a mesma do WhatsApp (pedidoDeSaida); o banco confere de novo. */
 export async function sairComVeiculo(veiculoId: string, p: { condutor_id: string; km_saida: string; destino: string; finalidade: string; projeto_id: string }): Promise<Resultado> {
   try {
     const { context, supabase } = await contextoDoPatrimonio()
-    if (!ehUuid(p.condutor_id)) throw new Error('Escolha quem vai dirigir.')
-    if (!ehFinalidadeDeUso(p.finalidade)) throw new Error('Escolha a finalidade.')
-    if (p.destino.trim().length < 2) throw new Error('Diga para onde vai.')
-    const { error } = await supabase.rpc('frota_sair', {
-      p_workspace_id: context.workspace.id,
-      p: { veiculo_id: veiculoId, condutor_id: p.condutor_id, km_saida: lerKm(p.km_saida), destino: p.destino.trim().slice(0, 200), finalidade: p.finalidade, projeto_id: uuidOuVazio(p.projeto_id) },
-    })
+    const { error } = await supabase.rpc('frota_sair', { p_workspace_id: context.workspace.id, p: pedidoDeSaida(veiculoId, p) })
     if (error) erroDoBanco(error, 'Não foi possível registrar a saída.')
     revalidar(veiculoId)
     return {}
@@ -122,19 +117,11 @@ export async function sairComVeiculo(veiculoId: string, p: { condutor_id: string
 export async function retornarVeiculo(veiculoId: string, usoId: string, p: { km_retorno: string; observacao: string }): Promise<Resultado & { kmRodado?: number }> {
   try {
     const { context, supabase } = await contextoDoPatrimonio()
-    const { data, error } = await supabase.rpc('frota_retornar', {
-      p_workspace_id: context.workspace.id, p: { uso_id: usoId, km_retorno: lerKm(p.km_retorno), observacao: p.observacao.slice(0, 1000) },
-    })
+    const { data, error } = await supabase.rpc('frota_retornar', { p_workspace_id: context.workspace.id, p: pedidoDeRetorno(usoId, p) })
     if (error) erroDoBanco(error, 'Não foi possível registrar o retorno.')
-    const r = data as { km_rodado: number; planos_vencidos: { nome: string; km: number }[] }
+    const r = data as RetornoDaViagem
     if (r.planos_vencidos?.length) {
-      const { data: v } = await supabase.from('frota_veiculos').select('placa,apelido').eq('id', veiculoId).single()
-      const admin = createAdminClient()
-      await notificar(admin, {
-        workspaceId: context.workspace.id, para: await quemOperaOPatrimonio(admin, context.workspace.id), atorId: context.user.id, categoria: 'patrimonio',
-        titulo: `Manutenção vencida: ${v ? `${v.apelido ? `${v.apelido} · ` : ''}${placaLegivel(v.placa as string)}` : 'veículo'}`,
-        mensagem: r.planos_vencidos.map((x) => `${x.nome} (${km(x.km)})`).join('; '), link: `/patrimonio/frota/${veiculoId}`, botao: 'Ver o veículo',
-      })
+      await avisarManutencaoVencida(createAdminClient(), { workspaceId: context.workspace.id, veiculoId, atorId: context.user.id, planos: r.planos_vencidos })
     }
     revalidar(veiculoId)
     return { kmRodado: r.km_rodado }

@@ -298,8 +298,8 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'aviso-de-assinatura',
       pergunta: 'Como fico sabendo que tenho um ofício para assinar?',
-      resposta: 'Chega um aviso no sino (e por e-mail, conforme as suas preferências de notificação), e o ofício aparece em “Esperando a sua assinatura”, no alto de “Ofícios”.',
-      termos: ['notificação', 'e-mail', 'pendente'],
+      resposta: 'Chega um aviso no sino (e por e-mail e no WhatsApp confirmado, conforme as suas preferências de notificação), e o ofício aparece em “Esperando a sua assinatura”, no alto de “Ofícios”.\n\nPelo WhatsApp não se assina nem se recusa: o aviso traz o link do ofício, e a assinatura é no Palácio, com a sua senha ou pelo gov.br. Responder a mensagem só devolve esse link.',
+      termos: ['notificação', 'e-mail', 'pendente', 'whatsapp', 'assinar pelo whatsapp'],
     },
     {
       id: 'alguem-recusou',

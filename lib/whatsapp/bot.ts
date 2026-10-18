@@ -21,6 +21,9 @@ import {
 import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
 import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
+import { comecarPresenca, coordenaAcoes } from './presenca'
+import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
+import { saldoNoEstoque } from './estoque'
 import { conversaDeProtecao } from './protecao'
 import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
@@ -29,7 +32,8 @@ import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
+  textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida,
 } from './regras'
@@ -45,7 +49,11 @@ type Admin = ReturnType<typeof createAdminClient>
  * (lib/whatsapp/admin.ts). Quem atende uma fila assume, resolve e transfere
  * chamados (lib/whatsapp/atendimento.ts); quem tem a portaria vê as visitas do
  * dia e registra quem chegou (lib/whatsapp/portaria.ts); quem decide despesas
- * ou compras vê o que espera a decisão dele (lib/whatsapp/financeiro.ts). O
+ * ou compras vê o que espera a decisão dele (lib/whatsapp/financeiro.ts);
+ * quem coordena as oportunidades marca a presença da ação de hoje
+ * (lib/whatsapp/presenca.ts); quem vê a Frota consulta os veículos e quem a
+ * opera registra a saída e o retorno (lib/whatsapp/frota.ts); quem vê o
+ * Estoque consulta o saldo de um material (lib/whatsapp/estoque.ts). O
  * que é sensível — decidir, o voto de quem usa a verificação em duas etapas,
  * desativar uma conta — sai daqui como um link de confirmar no Palácio
  * (lib/whatsapp/confirmacoes.ts). Quem não é recebe uma apresentação (no
@@ -114,7 +122,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const voluntario = achado?.workspaceId === workspaceId ? achado : null
     // Quem administra o espaço tem também "status" e "fila" (lib/whatsapp/admin.ts); para o resto, são "desconhecido".
     const administra = ehAdministracao(pessoa)
-    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa) }) : null
+    // "saída…" e "retorno…" só são comando para quem opera a frota: o nível é lido só quando a mensagem parece do diário de bordo.
+    const operaFrota = pessoa && !m.midia && pareceViagem(m.texto) ? (await nivelNoPatrimonio(admin, workspaceId, pessoa)) >= 2 : false
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -279,6 +289,39 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       }
     }
 
+    // As outras áreas, cada uma com a permissão da tela dela: para quem não tem, as palavras caem no menu.
+    if (comando === 'presenca') {
+      const resposta = await comecarPresenca(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
+    if (comando === 'frota') {
+      const resposta = await frotaAgora(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
+    if ((comando === 'saida_veiculo' || comando === 'retorno_veiculo') && pedido) {
+      const resposta = await comecarViagem(admin, workspaceId, pessoa, comando === 'saida_veiculo' ? 'saida' : 'retorno', pedido.resto, base)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
+    if (comando === 'estoque' && pedido) {
+      const resposta = await saldoNoEstoque(admin, workspaceId, pessoa, pedido.resto, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
     if (comando === 'avisos') {
       const [{ data: avisos }, { count: total }] = await Promise.all([
         admin.from('notifications').select('title, message, link').eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
@@ -339,12 +382,16 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
-    const [atende, financeiro] = await Promise.all([atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa)])
-    const quem = { admin: administra, portaria: temPortaria(pessoa), atende, financeiro }
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, ...quem })
-    await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu, {
-      interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu',
-    })
+    const [atende, financeiro, presenca, patrimonio] = await Promise.all([
+      atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa),
+      coordenaAcoes(admin, workspaceId, pessoa), nivelNoPatrimonio(admin, workspaceId, pessoa),
+    ])
+    const quem = {
+      admin: administra, portaria: temPortaria(pessoa), atende, financeiro, presenca,
+      frota: patrimonio >= 2 ? 'operar' as const : patrimonio >= 1 ? 'ver' as const : null, estoque: patrimonio >= 1,
+    }
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', ...quem })
+    await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
   }

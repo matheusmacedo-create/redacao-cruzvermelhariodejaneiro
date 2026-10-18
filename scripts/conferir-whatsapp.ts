@@ -20,7 +20,12 @@ import {
   CONFIRMACAO_VALE_MIN, textoDoLinkDeConfirmacao, textoDasDecisoes, lerDecisaoFinanceira, oQueDaDecisao, lerDesativarConta, oQueDaDesativacao,
   textoDeQuemDesativar, textoDeNinguemParaDesativar, oQueDoVoto, DECISOES_NA_RESPOSTA, type ItemParaDecidir,
   COTA_DE_CONVERSAS, limiteDaCota, prioridadeNaCota, esperaPelaCota, fimDaEsperaDaCota, textoDaCota, TEXTO_DA_ESPERA_DA_COTA,
+  lerEstoque, lerViagem, pareceViagem, TEXTO_NAO_ENTENDI, situacaoDaSincronizacao, ESCOLA_ATRASADA_HORAS, textoDoOficioPeloWhatsapp, type SincronizacaoDaEscola,
+  horasNoTexto, textoDaChamada, BOTOES_DA_CHAMADA, lerMarcacaoDePresenca, textoDaConferenciaDaPresenca, textoDaPresencaMarcada, textoSemAcaoHoje,
+  nomeDoVeiculo, textoDaFrota, acharVeiculo, lerHodometroDaConversa, textoPedeHodometro, botoesDoHodometro, textoDaConferenciaDaSaida, textoDaConferenciaDoRetorno,
+  textoDoRetornoRegistrado, FINALIDADES_NA_CONVERSA, acharNoEstoque, textoDoSaldo, TEXTO_PEDE_MATERIAL, type MaterialNoSaldo,
 } from '../lib/whatsapp/regras'
+import { lerHodometro, pedidoDeRetorno, pedidoDeSaida } from '../lib/patrimonio/frota'
 import { CATEGORIAS, ROTULO_DA_CATEGORIA } from '../lib/notificacoes/regras'
 import {
   ALERTA_DE_INTEGRACAO_A_CADA_HORAS, INTEGRACOES_ALERTADAS, alertaDeIntegracaoSai, motivoDaFalhaDoEmail, motivoDaFalhaDoR2, textoDoAlertaDeIntegracao,
@@ -993,6 +998,214 @@ contem(textoDoAlertaDeIntegracao('google_admin').mensagem, 'da conta de administ
 contem(textoDoAlertaDeIntegracao('resend', { motivo: 'chave' }).mensagem, 'RESEND_API_KEY', 'integrações: Resend com a chave recusada diz o que conferir')
 igual(textoDoAlertaDeIntegracao('resend', { motivo: 'servico' }).mensagem.includes('RESEND_API_KEY'), false, 'integrações: Resend fora do ar não manda trocar a chave')
 contem(textoDoAlertaDeIntegracao('r2', { motivo: 'chave' }).mensagem, 'R2_*', 'integrações: R2 com a credencial recusada diz o que conferir')
+
+// ---------------------------------------------------------------- as outras áreas: os comandos
+const operador = { pausado: false, frota: true }
+igual(lerPedido('presença', { pausado: false }), { comando: 'presenca', resto: '' }, 'presença: a mensagem inteira')
+igual(lerPedido('Chamada', { pausado: false }).comando, 'presenca', 'presença: "chamada"')
+igual(lerPedido('marcar presença', { pausado: false }).comando, 'presenca', 'presença: "marcar presença"')
+igual(lerPedido('a presença de ontem foi boa', { pausado: false }).comando === 'presenca', false, 'presença numa frase não é comando')
+igual(lerPedido('veículos', { pausado: false }).comando, 'frota', 'frota: "veículos"')
+igual(lerPedido('Frota', { pausado: false }).comando, 'frota', 'frota: "frota"')
+igual(lerPedido('estoque luva', { pausado: false }), { comando: 'estoque', resto: 'luva' }, 'estoque: com o material')
+igual(lerPedido('Estoque: álcool 70', { pausado: false }), { comando: 'estoque', resto: 'álcool 70' }, 'estoque: com dois-pontos')
+igual(lerEstoque('estoque de máscaras'), 'máscaras', 'estoque: "de" não entra no material')
+igual(lerEstoque('estoque dentifrício'), 'dentifrício', 'estoque: material que começa com "de" fica inteiro')
+igual(lerEstoque('estoque'), '', 'estoque: sozinho (o bot pergunta o material)')
+igual(lerEstoque('estoques da filial'), null, 'estoque: outra palavra não é comando')
+igual(lerPedido('saída ABC1D23', operador), { comando: 'saida_veiculo', resto: 'ABC1D23' }, 'saída: com a placa')
+igual(lerPedido('Saída da ambulância 1', operador), { comando: 'saida_veiculo', resto: 'ambulância 1' }, 'saída: sem o artigo')
+igual(lerPedido('registrar saída', operador), { comando: 'saida_veiculo', resto: '' }, 'saída: sem o veículo (o bot pergunta)')
+igual(lerPedido('sair com a van', operador), { comando: 'saida_veiculo', resto: 'van' }, 'saída: "sair com"')
+igual(lerPedido('sair', operador).comando, 'parar', 'saída: "sair" sozinho continua pausando os avisos')
+igual(lerPedido('sair com a van', { pausado: false }).comando, 'parar', 'saída: para quem não opera a frota, "sair com…" continua pausando')
+igual(lerPedido('saída ABC1D23', { pausado: false }).comando === 'saida_veiculo', false, 'saída: para quem não opera a frota, não é comando')
+igual(lerPedido('retorno ABC-1D23', operador), { comando: 'retorno_veiculo', resto: 'ABC-1D23' }, 'retorno: com a placa')
+igual(lerPedido('volta da ambulância 1', operador), { comando: 'retorno_veiculo', resto: 'ambulância 1' }, 'retorno: "volta da"')
+igual(lerPedido('volta ABC1D23', operador), { comando: 'retorno_veiculo', resto: 'ABC1D23' }, 'retorno: "volta" e a placa')
+igual(lerPedido('voltei com a van', operador), { comando: 'retorno_veiculo', resto: 'van' }, 'retorno: "voltei com"')
+igual(lerPedido('registrar retorno', operador), { comando: 'retorno_veiculo', resto: '' }, 'retorno: sem o veículo')
+igual(lerPedido('volta', operador).comando, 'voltar', 'retorno: "volta" sozinho continua retomando os avisos')
+igual(lerPedido('volta a receber', operador).comando, 'voltar', 'retorno: "volta a receber" é retomar os avisos')
+igual(lerPedido('voltar', operador).comando, 'voltar', 'retorno: "voltar" é retomar os avisos')
+igual(lerPedido('volta da ambulância 1', { pausado: false }).comando, 'voltar', 'retorno: para quem não opera a frota, "volta…" retoma os avisos')
+igual(lerViagem('voltei com'), null, 'retorno: "voltei com" sem o veículo não diz nada')
+igual(lerViagem('volta com a van'), { acao: 'retorno', veiculo: 'van' }, 'retorno: "volta com a" e o veículo')
+igual(lerViagem('Volta Redonda'), null, 'retorno: "volta" sem do/da/com nem placa não é retorno')
+igual([pareceViagem('saída'), pareceViagem('retorno da van'), pareceViagem('menu'), pareceViagem('volta')], [true, true, false, false], 'diário de bordo: só a mensagem que parece dele lê o nível')
+
+// ---------------------------------------------------------------- as outras áreas no menu
+const menuDasAreas = textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', presenca: true, frota: 'operar', estoque: true })
+contem(menuDasAreas, '*presença* para marcar quem veio na ação de hoje', 'menu: a linha da presença')
+contem(menuDasAreas, '*veículos* para a frota; *saída* e *retorno* para o diário de bordo', 'menu: a linha da frota de quem opera')
+contem(menuDasAreas, '*estoque* e o material, para o saldo', 'menu: a linha do estoque')
+contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', frota: 'ver' }), '*veículos* para ver a frota', 'menu: quem só vê a frota não tem saída e retorno')
+igual(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }).includes('*presença*'), false, 'menu de quem não coordena: sem a presença')
+igual(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', naoEntendi: true }).startsWith(TEXTO_NAO_ENTENDI), true, 'menu: o "não entendi" no começo')
+const tudo = { admin: true, portaria: true, atende: true, financeiro: true, presenca: true, frota: 'operar' as const, estoque: true }
+const menuDeTudo = textoDoMenu({ nome: 'Maria Aparecida', pausado: true, urlBase: 'https://palacio.cruzvermelhario.org.br', naoEntendi: true, ...tudo })
+igual(menuDeTudo.length <= LIMITES_DO_INTERATIVO.corpo, true, `menu com todas as áreas, pausado e com "não entendi": cabe no corpo (${menuDeTudo.length})`)
+igual(objetoInterativo(menuDeTudo, interativoDoMenu({ pausado: true, ...tudo }))?.type, 'list', 'menu com todas as áreas: sai como lista')
+contem(menuDeTudo, 'Das suas áreas: *portaria*, *financeiro*, *presença*, *veículos*, *saída* ou *retorno*; *estoque* e o material.', 'menu com todas as áreas: numa linha só quando não cabe')
+const menuDoAdminComTudo = textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://palacio.cruzvermelhario.org.br', ...tudo })
+igual(menuDoAdminComTudo.length <= LIMITES_DO_INTERATIVO.corpo, true, 'menu de quem administra, com tudo: cabe no corpo')
+contem(menuDoAdminComTudo, '*presença* para marcar quem veio', 'menu de quem administra, com tudo: cabe na forma longa')
+const listaDasAreas = interativoDoMenu({ pausado: false, portaria: true, financeiro: true, presenca: true, frota: 'ver' })
+igual(linhasDoMenu(listaDasAreas).map((l) => lerPedido(l.id, { pausado: false }).comando), ['avisos', 'lidas', 'parar', 'agenda', 'chamados', 'aprovacoes', 'portaria', 'financeiro', 'presenca', 'frota'], 'menu em lista: presença e veículos depois do financeiro, como o comando digitado')
+const listaDeTudo = interativoDoMenu({ pausado: false, ...tudo })
+igual(linhasDoMenu(listaDeTudo).length, LIMITES_DO_INTERATIVO.linhas, 'menu em lista com tudo: as 10 linhas, o teto')
+igual(linhasDoMenu(listaDeTudo).map((l) => l.id).slice(-4), ['portaria', 'financeiro', 'status', 'fila'], 'menu em lista com tudo: as áreas que não cabem ficam no corpo')
+
+// ---------------------------------------------------------------- ofícios: o aviso comum, sem assinar por aqui
+igual(alvoDoLink(`/oficios/${id1}`), { tipo: 'oficio', id: id1 }, 'ofício: o aviso aponta o ofício')
+igual(dicaDeResposta(`/oficios/${id1}`), null, 'ofício: o aviso não ensina a responder (nada se assina por aqui)')
+igual(textoDoAviso({ urlBase: 'https://p', titulo: 'Ana pediu sua assinatura no ofício 012/2026', mensagem: 'Assunto: Parceria.', link: `/oficios/${id1}` }).includes('Para responder'), false, 'ofício: o aviso sai como os comuns')
+contem(textoDoAviso({ urlBase: 'https://p', titulo: 'Ana pediu sua assinatura no ofício 012/2026', mensagem: 'Assunto: Parceria.', link: `/oficios/${id1}` }), `Abrir: https://p/oficios/${id1}`, 'ofício: o aviso leva o link para assinar no Palácio')
+igual([categoriaVaiPorWhatsapp('oficios'), lerCategoriasDoWhatsapp({}).oficios], [true, true], 'ofício: o pedido de assinatura vai pelo WhatsApp (ligado por padrão)')
+contem(textoDoOficioPeloWhatsapp('https://p/oficios/1'), 'não se assina pelo WhatsApp', 'ofício: a resposta ao aviso não assina')
+contem(textoDoOficioPeloWhatsapp('https://p/oficios/1'), 'https://p/oficios/1', 'ofício: a resposta leva o link')
+
+// ---------------------------------------------------------------- presença das ações
+igual(lerMarcacaoDePresenca('1 3 4', 5), { presentes: [1, 3, 4], ausentes: [] }, 'presença: os números de quem veio')
+igual(lerMarcacaoDePresenca('1, 3 e 4', 5), { presentes: [1, 3, 4], ausentes: [] }, 'presença: com vírgula e "e"')
+igual(lerMarcacaoDePresenca('1 a 3', 5), { presentes: [1, 2, 3], ausentes: [] }, 'presença: faixa "1 a 3"')
+igual(lerMarcacaoDePresenca('2-4', 5), { presentes: [2, 3, 4], ausentes: [] }, 'presença: faixa com hífen')
+igual(lerMarcacaoDePresenca('1 até 2', 5), { presentes: [1, 2], ausentes: [] }, 'presença: faixa "até"')
+igual(lerMarcacaoDePresenca('todos', 3), { presentes: [1, 2, 3], ausentes: [] }, 'presença: todos')
+igual(lerMarcacaoDePresenca('Todos vieram!', 3), { presentes: [1, 2, 3], ausentes: [] }, 'presença: "todos vieram"')
+igual(lerMarcacaoDePresenca('todo mundo', 2), { presentes: [1, 2], ausentes: [] }, 'presença: "todo mundo"')
+igual(lerMarcacaoDePresenca('todos menos 3', 5), { presentes: [1, 2, 4, 5], ausentes: [3] }, 'presença: todos menos um (falta)')
+igual(lerMarcacaoDePresenca('todos, exceto 2 e 4', 5), { presentes: [1, 3, 5], ausentes: [2, 4] }, 'presença: todos exceto dois')
+igual(lerMarcacaoDePresenca('faltas 2 5', 5), { presentes: [], ausentes: [2, 5] }, 'presença: só faltas')
+igual(lerMarcacaoDePresenca('não vieram 2', 5), { presentes: [], ausentes: [2] }, 'presença: "não vieram"')
+igual(lerMarcacaoDePresenca('presentes 1 3, faltas 2', 5), { presentes: [1, 3], ausentes: [2] }, 'presença: as duas coisas juntas')
+igual(lerMarcacaoDePresenca('todos faltaram', 2), { presentes: [], ausentes: [1, 2] }, 'presença: todos faltaram')
+igual(lerMarcacaoDePresenca('1 e 1', 3), { presentes: [1], ausentes: [] }, 'presença: número repetido conta uma vez')
+igual(lerMarcacaoDePresenca('2 não veio', 5), null, 'presença: "não veio" depois do número não chuta')
+igual(lerMarcacaoDePresenca('6', 5), null, 'presença: número fora da lista')
+igual(lerMarcacaoDePresenca('0', 5), null, 'presença: zero não é da lista')
+igual(lerMarcacaoDePresenca('1 a 9', 5), null, 'presença: faixa que passa da lista')
+igual(lerMarcacaoDePresenca('presentes 1 faltas 1', 3), null, 'presença: o mesmo número nos dois lados')
+igual(lerMarcacaoDePresenca('oi, tudo bem?', 3), null, 'presença: conversa não marca nada')
+igual(lerMarcacaoDePresenca('todos menos', 3), null, 'presença: "todos menos" sem o número')
+igual(lerMarcacaoDePresenca('todos exceto a Ana', 3), null, 'presença: nome em vez do número não chuta')
+igual(lerMarcacaoDePresenca('faltas', 3), null, 'presença: palavra sem número')
+igual(lerMarcacaoDePresenca('', 3), null, 'presença: vazio')
+igual(lerMarcacaoDePresenca(BOTOES_DA_CHAMADA.tipo === 'botoes' ? BOTOES_DA_CHAMADA.botoes[0].id : '', 4), { presentes: [1, 2, 3, 4], ausentes: [] }, 'presença: o toque em "Todos vieram"')
+igual([horasNoTexto(4), horasNoTexto(2.5), horasNoTexto(0.25)], ['4 h', '2,5 h', '0,25 h'], 'presença: as horas no texto')
+const textoDeChamada = textoDaChamada({ titulo: 'Ação na Central do Brasil', quando: 'sáb., 18 de out. · 08:00 às 12:00', horas: 4, inscritos: [{ nome: 'Ana Lima', situacao: 'presente' }, { nome: 'Bruno Costa', situacao: 'inscrito' }, { nome: 'Carla *Dias*', situacao: 'ausente' }] })
+contem(textoDeChamada, '*Ação na Central do Brasil*\nsáb., 18 de out. · 08:00 às 12:00 · 3 inscritos', 'presença: a ação, quando e quantos')
+contem(textoDeChamada, '*1* – Ana Lima _(presente)_\n*2* – Bruno Costa\n*3* – Carla Dias _(falta)_', 'presença: a lista numerada com o que já foi marcado, sem a formatação dos nomes')
+contem(textoDeChamada, 'Cada presença lança 4 h no cadastro do voluntário', 'presença: as horas que cada presença lança')
+igual(objetoInterativo(textoDeChamada, BOTOES_DA_CHAMADA)?.type, 'button', 'presença: a chamada sai com os botões')
+const conferenciaDaPresenca = textoDaConferenciaDaPresenca({ titulo: 'Ação X', quando: 'hoje', presentes: ['Ana', 'Bruno'], ausentes: ['Carla'], horas: 4 })
+contem(conferenciaDaPresenca, '*Presença (2):* Ana, Bruno – 4 h no cadastro de cada um.\n*Falta (1):* Carla', 'presença: a conferência diz quem fica com presença e quem fica com falta')
+contem(conferenciaDaPresenca, '*confirmo*', 'presença: a conferência pede o confirmo')
+igual(textoDaConferenciaDaPresenca({ titulo: 'Ação X', quando: 'hoje', presentes: [], ausentes: ['Carla'], horas: 4 }).includes('Presença ('), false, 'presença: só faltas, sem a linha da presença')
+contem(textoDaPresencaMarcada({ titulo: 'Ação X', presentes: 2, ausentes: 1, horas: 4, falhas: [], link: 'https://p/v' }), 'Pronto: na *Ação X*, 2 presenças (4 h no cadastro de cada um) e 1 falta registradas.', 'presença: o resultado')
+contem(textoDaPresencaMarcada({ titulo: 'Ação X', presentes: 1, ausentes: 0, horas: 4, falhas: [], link: 'https://p/v' }), '1 presença (4 h no cadastro de cada um) registrada.', 'presença: uma só, no singular')
+const comFalha = textoDaPresencaMarcada({ titulo: 'Ação X', presentes: 0, ausentes: 0, horas: 4, falhas: [{ nome: 'Ana', motivo: 'Só quem está inscrito tem presença.' }], link: 'https://p/v' })
+contem(comFalha, 'Nada foi marcado na *Ação X*.', 'presença: nada entrou')
+contem(comFalha, 'Não deu para marcar:\n• Ana: Só quem está inscrito tem presença.', 'presença: o motivo do banco de cada recusa')
+contem(textoSemAcaoHoje({ depois: [{ titulo: 'Plantão da tarde', hora: '14:00' }], urlBase: 'https://p' }), 'Mais tarde: Plantão da tarde (14:00).', 'presença: sem ação liberada, as que ainda vão começar')
+
+// ---------------------------------------------------------------- frota
+igual([lerHodometro('52.100'), lerHodometro('52100 km'), lerHodometro('')], [52100, 52100, null], 'frota: o hodômetro (o mesmo da tela)')
+igual(Number.isNaN(lerHodometro('cinquenta mil')), true, 'frota: hodômetro que não é número')
+const saidaCerta = { condutor_id: id1, km_saida: '52.100', destino: '  Maracanã  ', finalidade: 'evento', projeto_id: 'x' }
+igual(pedidoDeSaida(id2, saidaCerta), { veiculo_id: id2, condutor_id: id1, km_saida: 52100, destino: 'Maracanã', finalidade: 'evento', projeto_id: '' }, 'frota: a saída como frota_sair recebe')
+const motivoDaRecusa = (f: () => unknown) => { try { f(); return null } catch (e) { return e instanceof Error ? e.message : String(e) } }
+igual(motivoDaRecusa(() => pedidoDeSaida(id2, { ...saidaCerta, condutor_id: '' })), 'Escolha quem vai dirigir.', 'frota: saída sem condutor')
+igual(motivoDaRecusa(() => pedidoDeSaida(id2, { ...saidaCerta, finalidade: 'passeio' })), 'Escolha a finalidade.', 'frota: saída com finalidade que não existe')
+igual(motivoDaRecusa(() => pedidoDeSaida(id2, { ...saidaCerta, destino: 'x' })), 'Diga para onde vai.', 'frota: saída sem destino')
+igual(motivoDaRecusa(() => pedidoDeSaida(id2, { ...saidaCerta, km_saida: '' })), 'Informe o km do hodômetro.', 'frota: saída sem hodômetro')
+igual(pedidoDeRetorno(id1, { km_retorno: '52.180', observacao: 'pneu baixo' }), { uso_id: id1, km_retorno: 52180, observacao: 'pneu baixo' }, 'frota: o retorno como frota_retornar recebe')
+igual([nomeDoVeiculo({ apelido: 'Ambulância 1', placa: 'ABC1234' }), nomeDoVeiculo({ apelido: null, placa: 'ABC1D23' })], ['Ambulância 1 · ABC-1234', 'ABC1D23'], 'frota: o nome do veículo')
+const frotaDeTeste = [
+  { placa: 'ABC1D23', apelido: 'Ambulância 1', tipo: 'ambulancia', marca: null, modelo: null },
+  { placa: 'XYZ1234', apelido: null, tipo: 'van', marca: 'Renault', modelo: 'Master' },
+  { placa: 'KLM5E67', apelido: 'Ambulância 2', tipo: 'ambulancia', marca: null, modelo: null },
+]
+const placas = (busca: string) => acharVeiculo(frotaDeTeste, busca).map((v) => v.placa)
+igual(placas('abc-1d23'), ['ABC1D23'], 'frota: acha pela placa, com hífen e minúscula')
+igual(placas('1D23'), ['ABC1D23'], 'frota: acha pelo fim da placa')
+igual(placas('XYZ-1234'), ['XYZ1234'], 'frota: placa antiga com hífen')
+igual(placas('ambulância'), ['ABC1D23', 'KLM5E67'], 'frota: pelo tipo, todas')
+igual(placas('amb 2'), ['KLM5E67'], 'frota: pelo apelido, em parte')
+igual(placas('master'), ['XYZ1234'], 'frota: pelo modelo')
+igual([placas(''), placas('caminhão')], [[], []], 'frota: nada escrito ou nada achado')
+igual([lerHodometroDaConversa('mesmo', 52100), lerHodometroDaConversa('mesmo', null), lerHodometroDaConversa('52.180', null), lerHodometroDaConversa('muito', 1)], [52100, null, 52180, null], 'frota: o hodômetro na conversa ("mesmo" só na saída)')
+const botoesDoKm = objetoInterativo('Qual o hodômetro?', botoesDoHodometro(152100))
+igual(botoesDoKm?.type === 'button' ? botoesDoKm.action.buttons.map((b) => b.reply) : null, [{ id: 'mesmo', title: 'Manter 152.100 km' }, { id: 'cancelar', title: 'Cancelar' }], 'frota: o botão de manter o hodômetro cabe nos 20')
+contem(textoPedeHodometro({ veiculo: 'Ambulância 1', acao: 'saida', km: 52100 }), 'O último registro é 52.100 km. Responda o número, *mesmo* para manter', 'frota: a pergunta do hodômetro na saída')
+contem(textoPedeHodometro({ veiculo: 'Ambulância 1', acao: 'retorno', km: 52100 }), 'Saiu com 52.100 km', 'frota: a pergunta do hodômetro no retorno')
+const listaDasFinalidades = interativoDaEscolha(FINALIDADES_NA_CONVERSA.map((f) => ({ nome: f })), { cancelar: 'Não registrar a saída' })
+igual(listaDasFinalidades ? objetoInterativo('Qual é a finalidade?', listaDasFinalidades)?.type : null, 'list', 'frota: as finalidades cabem numa lista')
+const conferenciaDaSaida = textoDaConferenciaDaSaida({ veiculo: 'Ambulância 1 · ABC1D23', condutor: 'João Souza', km: 52100, finalidade: 'atendimento', destino: 'Maracanã' })
+contem(conferenciaDaSaida, 'Quem dirige: João Souza\nHodômetro na saída: 52.100 km\nFinalidade: Atendimento / emergência\nDestino: Maracanã', 'frota: a conferência da saída')
+const conferenciaDoRetorno = textoDaConferenciaDoRetorno({ veiculo: 'Van', kmSaida: 52100, km: 52180, observacao: '', condutor: 'João', destino: 'Maracanã' })
+contem(conferenciaDoRetorno, 'Viagem: João, para Maracanã\nHodômetro na chegada: 52.180 km (rodou 80 km)\nOcorrências: nenhuma', 'frota: a conferência do retorno')
+contem(textoDoRetornoRegistrado({ veiculo: 'Van', kmRodado: 80, planos: [{ nome: 'Troca de óleo', km: 60000 }], link: 'https://p/f' }), 'Atenção: manutenção vencida nesta viagem – Troca de óleo (60.000 km). Quem opera a frota foi avisado.', 'frota: o retorno avisa a manutenção vencida')
+igual(textoDoRetornoRegistrado({ veiculo: 'Van', kmRodado: 80, planos: [], link: 'https://p/f' }).includes('Atenção'), false, 'frota: sem manutenção vencida, sem o alerta')
+const veiculosDeTeste = [
+  { nome: 'Ambulância 1 · ABC1D23', tipo: 'ambulancia', km: 52100, situacao: 'ativo' },
+  { nome: 'Van · XYZ-1234', tipo: 'van', km: 81000, situacao: 'ativo', uso: { condutor: 'João', destino: 'Maracanã', desde: 'dom, 18/10 às 08:15' } },
+  { nome: 'Ambulância 2 · KLM5E67', tipo: 'ambulancia', km: 9000, situacao: 'manutencao' },
+]
+const frotaComOperador = textoDaFrota({ veiculos: veiculosDeTeste, urlBase: 'https://p', opera: true })
+contem(frotaComOperador, '*Frota agora:* 1 disponível, 1 em viagem, 1 parado.', 'frota: o resumo')
+contem(frotaComOperador, '*Disponíveis*\n• Ambulância 1 · ABC1D23 (Ambulância) – 52.100 km', 'frota: os disponíveis com o hodômetro')
+contem(frotaComOperador, '*Em viagem*\n• Van · XYZ-1234 – João, para Maracanã, desde dom, 18/10 às 08:15', 'frota: os em viagem, com quem e para onde')
+contem(frotaComOperador, '*Em manutenção ou fora de uso*\n• Ambulância 2 · KLM5E67 – em manutenção', 'frota: os parados')
+contem(frotaComOperador, 'escreva *saída* ou *retorno* e o veículo', 'frota: quem opera aprende o diário de bordo')
+igual(textoDaFrota({ veiculos: veiculosDeTeste, urlBase: 'https://p', opera: false }).includes('*saída*'), false, 'frota: quem só vê não aprende o diário de bordo')
+contem(textoDaFrota({ veiculos: [], urlBase: 'https://p', opera: true }), 'Nenhum veículo cadastrado', 'frota: sem veículos')
+
+// ---------------------------------------------------------------- estoque
+const materiais = [
+  { nome: 'Luva de procedimento M', codigo: 'EST-0012' }, { nome: 'Luva nitrílica G', codigo: 'EST-0013' },
+  { nome: 'Álcool 70% 1L', codigo: 'EST-0020' }, { nome: 'Máscara N95', codigo: 'EST-0030' },
+]
+const codigos = (busca: string) => acharNoEstoque(materiais, busca).map((m) => m.codigo)
+igual(codigos('luvas'), ['EST-0012', 'EST-0013'], 'estoque: o plural acha o singular')
+igual(codigos('luva m'), ['EST-0012'], 'estoque: cada palavra começa uma palavra do nome')
+igual(codigos('luva de procedimento'), ['EST-0012'], 'estoque: "de" não atrapalha')
+igual([codigos('est-0020'), codigos('EST0020')], [['EST-0020'], ['EST-0020']], 'estoque: pelo código, com ou sem hífen')
+igual(codigos('alcool'), ['EST-0020'], 'estoque: sem acento')
+igual(codigos('máscaras'), ['EST-0030'], 'estoque: plural com acento')
+igual(codigos('álcool em gel'), [], 'estoque: palavra que não está no nome não acha')
+const luva: MaterialNoSaldo = { id: 'm1', nome: 'Luva de procedimento M', codigo: 'EST-0012', unidade: 'cx', saldo: 340, minimo: 100, locais: [{ nome: 'Almoxarifado', quantidade: 300 }, { nome: 'Base Centro', quantidade: 40 }], validade: '2027-03-12', vencido: 0 }
+const saldoDaLuva = textoDoSaldo({ busca: 'luva m', materiais: [luva], total: 1, urlBase: 'https://p' })
+contem(saldoDaLuva, '*Luva de procedimento M* (EST-0012)', 'estoque: o material e o código')
+contem(saldoDaLuva, 'Saldo: *340 cx* · mínimo 100 cx\nOnde está: Almoxarifado 300 cx; Base Centro 40 cx\nValidade mais próxima: 12/03/2027', 'estoque: saldo, mínimo, onde está e validade')
+contem(saldoDaLuva, 'https://p/patrimonio/estoque/m1', 'estoque: o link do material')
+contem(textoDoSaldo({ busca: 'luva', materiais: [{ ...luva, saldo: 50 }], total: 1, urlBase: 'https://p' }), 'Saldo: *50 cx* _(abaixo do mínimo de 100 cx)_', 'estoque: abaixo do mínimo')
+contem(textoDoSaldo({ busca: 'luva', materiais: [{ ...luva, saldo: 0, locais: [] }], total: 1, urlBase: 'https://p' }), '_(zerado)_', 'estoque: zerado')
+contem(textoDoSaldo({ busca: 'luva', materiais: [{ ...luva, vencido: 5 }], total: 1, urlBase: 'https://p' }), 'Vencido esperando a baixa: 5 cx', 'estoque: o vencido aparece')
+const saldoDeVarios = textoDoSaldo({ busca: 'luva', materiais: [luva, { ...luva, id: 'm2', nome: 'Luva nitrílica G', codigo: 'EST-0013', saldo: 12 }], total: 2, urlBase: 'https://p' })
+contem(saldoDeVarios, 'Achei *2 materiais* com “luva”:', 'estoque: vários, a contagem')
+contem(saldoDeVarios, '• *Luva nitrílica G* (EST-0013): 12 cx _(abaixo do mínimo de 100 cx)_', 'estoque: vários, um por linha')
+contem(textoDoSaldo({ busca: 'álcool gel', materiais: [], total: 0, urlBase: 'https://p' }), 'Não achei “álcool gel” no estoque. Tente outra palavra (ou o código), ou veja a lista: https://p/patrimonio/estoque?q=%C3%A1lcool%20gel', 'estoque: nada achado, com o link da busca')
+contem(TEXTO_PEDE_MATERIAL, '*estoque* e o material', 'estoque: sem o material, o que escrever')
+
+// ---------------------------------------------------------------- a Escola no "status"
+const agoraDaEscola = new Date('2026-10-18T12:00:00Z')
+igual([
+  situacaoDaSincronizacao({ sincronizadaEm: '2026-10-18T09:00:00Z', erro: null }, agoraDaEscola),
+  situacaoDaSincronizacao({ sincronizadaEm: '2026-10-17T00:00:00Z', erro: null }, agoraDaEscola),
+  situacaoDaSincronizacao({ sincronizadaEm: null, erro: null }, agoraDaEscola),
+  situacaoDaSincronizacao({ sincronizadaEm: '2026-10-18T09:00:00Z', erro: 'Chave recusada pela Únicopag.' }, agoraDaEscola),
+], ['em_dia', 'atrasada', 'nunca', 'erro'], `escola: em dia, atrasada (mais de ${ESCOLA_ATRASADA_HORAS} h), nunca e com erro`)
+const contaEmDia: SincronizacaoDaEscola = { origem: 'unicopag', nome: 'Cursos livres', sincronizadaEm: '2026-10-18T09:00:00Z', erro: null, situacao: 'em_dia' }
+igual(statusEmDia.includes('Escola'), false, 'escola: sem o campo, a linha não sai')
+igual(textoDoStatus({ ...statusBase, escola: [] }).includes('Escola'), false, 'escola: sem conta ativa, a linha não sai')
+contem(textoDoStatus({ ...statusBase, escola: null }), '*Escola (sincronização):* não deu para ler agora', 'escola: não deu para ler')
+contem(textoDoStatus({ ...statusBase, escola: [contaEmDia, { ...contaEmDia, origem: 'meta', sincronizadaEm: '2026-10-18T09:05:00Z' }] }), '*Escola (sincronização):* em dia (2 contas; última leitura dom, 18/10 às 06:05)\n*Rotina diária:*', 'escola: em dia, uma linha antes da rotina')
+const escolaComProblema = textoDoStatus({ ...statusBase, escola: [contaEmDia, { ...contaEmDia, nome: 'Pós *técnico*', erro: 'Chave recusada pela Únicopag.', situacao: 'erro' }, { ...contaEmDia, origem: 'meta', nome: 'Anúncios', sincronizadaEm: null, situacao: 'nunca' }] })
+contem(escolaComProblema, '*Escola (sincronização):* 2 de 3 com problema', 'escola: a contagem dos problemas')
+contem(escolaComProblema, '• Únicopag · Pós técnico – Chave recusada pela Únicopag. (última leitura certa: dom, 18/10 às 06:00)', 'escola: o erro gravado e a última leitura certa')
+contem(escolaComProblema, '• Meta · Anúncios – ainda não leu nenhuma vez', 'escola: a conta que nunca leu')
+contem(textoDoStatus({ ...statusBase, escola: [{ ...contaEmDia, sincronizadaEm: '2026-10-16T09:00:00Z', situacao: 'atrasada' }] }), `sem leitura há mais de ${ESCOLA_ATRASADA_HORAS} h (última: sex, 16/10 às 06:00)`, 'escola: atrasada')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

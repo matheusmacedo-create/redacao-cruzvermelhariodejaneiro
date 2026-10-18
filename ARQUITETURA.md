@@ -1202,6 +1202,10 @@ sociais: e-mail fica em "E-mail do setor" (`/correio`), o que a equipe manda em 
   `selarPendentes`). A página pública confere o selo a cada abertura e oferece `.txt`, `.sig` e
   `.pem` (`/api/verificar/[codigo]/selo`) para conferir com
   `openssl pkeyutl -verify -pubin -inkey … -rawin -in selo.txt -sigfile selo.sig`.
+- **O pedido de assinatura pelo WhatsApp (18/10/2026):** o aviso “pediu sua assinatura” (categoria
+  `oficios`) sai também pelo WhatsApp de quem confirmou o número, como os avisos comuns, com o link do
+  ofício. Assinar e recusar continuam só no Palácio (senha ou gov.br): a resposta que cita o aviso só
+  devolve o link (§8.5, “As outras áreas pelo WhatsApp”).
 - **Selo visual** (`components/app/oficios/selo-visual.tsx`, SVG): carimbo redondo com a cruz,
   número, data e impressão digital da chave, com QR code da conferência; riscado se não
   conferir. Aparece no rodapé da folha na conferência (que é a versão para imprimir) e na
@@ -2042,7 +2046,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
   `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
   `portaria.ts` (as visitas do dia e registrar quem chegou),
-  `financeiro.ts` (as decisões do Financeiro e de Compras), `confirmacoes.ts` (o link de confirmar no Palácio),
+  `financeiro.ts` (as decisões do Financeiro e de Compras), `presenca.ts` (a chamada da ação de hoje),
+  `frota.ts` (a frota agora e o diário de bordo), `estoque.ts` (o saldo de um material),
+  `confirmacoes.ts` (o link de confirmar no Palácio),
   `confirmar-no-palacio.ts` (a tela do link: o que vai ser feito e a execução), `protecao.ts` (o “Não fui eu”),
   `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
   `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
@@ -2114,7 +2120,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `5` chamados abertos (que a pessoa abriu ou estão com ela e, para quem atende uma fila, os abertos da
   fila — veja “Quem atende chamado”), `6` aprovações esperando o voto dela, `portaria` as visitas abertas
   do dia (veja “A portaria pelo WhatsApp”), `financeiro` o que espera a decisão dela (veja “Decisões do
-  Financeiro e de Compras”),
+  Financeiro e de Compras”), `presença` a chamada da ação de hoje, `veículos` a frota agora, `saída` /
+  `retorno` o diário de bordo e `estoque <material>` o saldo (veja “As outras áreas pelo WhatsApp”),
   `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
   achados com esforço baixo, e sem chave vão os trechos). O menu vai também como lista (“Botões e
   listas”, abaixo); digitar o número continua valendo. Número desconhecido recebe uma
@@ -2131,12 +2138,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   como `interactive.button_reply.id` / `list_reply.id` (`lerMensagemDaKapso` já os lia como o texto; agora
   marca `toque`) e segue por `lerPedido`, `lerDecisao`, `lerEscolha`, `ehConfirmacao`, `ehPular`,
   `lerRespostaDaVisita` sem caminho novo. O corpo é o texto inteiro, que continua dizendo o que digitar.
-  Onde há: o **menu** (lista “Ver as opções”: `1`–`6`, `portaria` para quem tem a portaria e, para quem
-  administra, `status` e `fila`, numa seção “Da administração” — no máximo 9 linhas; `interativoDoMenu`,
-  das mesmas opções de `textoDoMenu`, cujo texto mais longo, pausado e com tudo, ainda cabe nos 1024); a
+  Onde há: o **menu** (lista “Ver as opções”: `1`–`6`, depois `portaria`, `financeiro`, `presenca` e
+  `veiculos` para quem tem a área — nessa ordem, enquanto cabem — e, para quem administra, `status` e `fila`,
+  numa seção “Da administração” — no máximo 10 linhas, o teto da Meta; `interativoDoMenu`, das mesmas opções
+  de `textoDoMenu`; a área que não cabe na lista continua no corpo, e o corpo cabe sempre nos 1024: com áreas
+  demais, as linhas delas viram uma só, `linhaCurtaDasAreas`); a
   **conferência do voto** e as de resolver, transferir e registrar visita (`confirmo` / `cancelar`,
   `BOTOES_DA_CONFERENCIA`); as escolhas de equipe e assunto da transferência e de pessoa da visita (lista,
-  `interativoDaEscolha`), e o motivo da visita (`pular` / `cancelar`, `BOTOES_DOS_DETALHES`); os passos do **chamado** — equipe, assunto e
+  `interativoDaEscolha`), e o motivo da visita (`pular` / `cancelar`, `BOTOES_DOS_DETALHES`); a ação, o
+  veículo, quem dirige e a finalidade (lista), a chamada (`todos` / `cancelar`, `BOTOES_DA_CHAMADA`), o
+  hodômetro da saída (`mesmo` / `cancelar`, `botoesDoHodometro`) e as ocorrências do retorno
+  (`BOTOES_DOS_DETALHES`); os passos do **chamado** — equipe, assunto e
   urgência em lista (`interativoDaEscolha`: `1`…`n` com o nome e o detalhe, mais a linha `cancelar` quando
   cabe; a urgência é lista, não botões, porque “Atrapalha meu trabalho” passa dos 20 caracteres e a ajuda
   de cada uma vai na descrição) e os detalhes com `pular` / `cancelar` (`BOTOES_DOS_DETALHES`); e o
@@ -2165,13 +2177,18 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
   por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
   conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
-  `google_conexao`/`google_admin_conexao` com estado `expirada` e a última execução da rotina; a resposta sai
+  `google_conexao`/`google_admin_conexao` com estado `expirada`, a última sincronização de cada conta ativa da
+  Escola (`escola_contas` e `escola_meta_contas`: `sincronizada_em` e `sincronizacao_erro`, o texto que
+  `lib/escola` grava, sem chave nem dado de aluno; `situacaoDaSincronizacao`: o erro manda, depois nunca leu,
+  mais de 30 h sem leitura certa — a rotina é diária — ou em dia; uma linha quando está tudo em dia, até 4
+  contas com problema; sem conta ativa, a linha não sai) e a última execução da rotina; a resposta sai
   de `textoDoStatus` (puro). `fila` roda `processarFila` (90 s, 20 itens) e responde com `textoDaRodadaDaFila`,
   o mesmo texto do botão “Enviar a fila agora”. `fila` não age em nome de ninguém (qualquer mensagem ao número
   já faz a fila andar), então vale também com verificação em duas etapas. O registro é o de sempre
   (`whatsapp_mensagens.comando` = `status`/`fila`).
 - **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
-  link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
+  link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação; o aviso de um ofício
+  só devolve o link — veja “As outras áreas pelo WhatsApp”) — a mensagem de
   saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
   do setor e só vota depois de `confirmo` (ou do botão “Confirmo”); `ajustes: …` vota na hora. `chamado: …` abre chamado
   perguntando equipe, assunto, local (se pedir), urgência e, por fim, detalhes opcionais
@@ -2183,9 +2200,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
   usa (ou é obrigado a usar) a verificação em duas etapas só consulta, abre chamado e responde à
   portaria pelo WhatsApp (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de
-  quem escreveu): responder, votar, atender chamado, registrar visita e mandar fotos, o servidor
-  recusa antes (`podeAgirPeloWhatsapp`), e o banco recusa de novo no Chat, no voto e no registro
-  da visita. Não há exceção para quem atende chamado. O voto dessa pessoa (`aprovar` / `ajustes: …`
+  quem escreveu): responder, votar, atender chamado, registrar visita, marcar presença, registrar saída e
+  retorno de veículo e mandar fotos, o servidor recusa antes (`podeAgirPeloWhatsapp`), e o banco recusa de
+  novo no Chat, no voto, no registro da visita, na presença e na viagem. Não há exceção para quem atende chamado. O voto dessa pessoa (`aprovar` / `ajustes: …`
   respondendo o aviso) vira o link de confirmar no Palácio (`votarPeloPalacio`; veja “Confirmar no
   Palácio”).
 - **Quem atende chamado pelo WhatsApp (18/10/2026)** (`lib/whatsapp/atendimento.ts`): quem atende a
@@ -2282,6 +2299,62 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   alertas de acesso) para os administradores e quem lê o registro de acessos, e o e-mail
   `sessoes_encerradas` à pessoa. Não troca a senha nem desativa: a resposta manda trocar a senha.
   Sem aviso recente, quem é da equipe ouve o que fazer; número desconhecido segue para a apresentação.
+- **As outras áreas pelo WhatsApp (18/10/2026)**: cada uma só onde a função da tela já existe e com a
+  permissão da tela dela, lida sem sessão como o banco lê; para quem não tem, as palavras caem no menu, e o
+  menu só mostra a linha (e a opção da lista) a quem tem (`QuemNoMenu.presenca`, `frota`, `estoque`).
+  - **Presença das ações do Voluntariado** (`lib/whatsapp/presenca.ts`): quem coordena as oportunidades
+    (`private.nivel_participantes` ≥ 2, a permissão de `marcarPresenca`: admin tudo, os outros
+    `participantes_acesso`; a equipe da Escola não abre o Voluntariado) manda `presença` (ou `chamada`,
+    `marcar presença`, só como a mensagem inteira). Vêm as ações de hoje com a presença liberada — já
+    começaram e acabam hoje ou depois, sem as de resposta (aviso, enquete, quiz) nem as canceladas; mais de
+    uma, a lista para escolher (até 9) — e a chamada: os inscritos (`inscrito`, `presente`, `ausente`) por
+    nome, numerados, com o que já foi marcado, até 40 (mais do que isso, pela tela; telefone e e-mail não
+    vêm). A resposta é lida por `lerMarcacaoDePresenca` (puro): “1 3 4”, “1 a 5”, `todos`, “todos menos 3”
+    (o 3 fica com falta), “faltas 2 6”; o que não dá para ler sem chutar é pedido de novo. Depois da
+    conferência, cada um passa pela MESMA `registrar_presenca` da tela, como a pessoa, por
+    `whatsapp_registrar_presenca` (só service role, sessão aal1; confere que a inscrição é do espaço), com
+    `p_horas` nulo — as horas da oportunidade ou a duração, como o campo da tela vem preenchido; ação de
+    mais de 24 h vai para a tela. Uma recusa (ação que não começou, inscrição que mudou) não para as outras
+    e sai na resposta com o motivo do banco. A pergunta guarda os números escolhidos, não os ids, para
+    caber nos 8000 bytes de `whatsapp_pendencias.dados`.
+  - **Frota** (`lib/whatsapp/frota.ts`): quem vê a Frota (`private.nivel_patrimonio` ≥ 1, `pat_acesso`;
+    a equipe da Escola não) manda `veículos` (ou `frota`, `carros`, `veículos disponíveis`…): os
+    disponíveis com o hodômetro, os em viagem (condutor, destino, desde quando) e os em manutenção ou fora
+    de uso (`textoDaFrota`); é consulta, vale com a verificação em duas etapas. Quem opera (nível ≥ 2, a
+    permissão dos botões “Saída” e “Retorno”) registra o diário de bordo: `saída ABC1D23` / `sair com a van`
+    e `retorno ABC1D23` / `volta da ambulância 1` / `voltei com…` (`lerViagem`, só para quem opera —
+    `lerPedido({ frota })`, e o bot só lê o nível quando a mensagem `pareceViagem`; para os outros, “sair
+    com…” pausa e “volta…” retoma os avisos como sempre, e “volta a receber” nunca é retorno). A saída
+    pergunta o veículo (`acharVeiculo`: a placa com ou sem hífen, o fim dela, o apelido, o tipo, a marca e
+    o modelo; sem ele, a lista dos disponíveis), quem dirige (só os condutores ativos sem `impedimento`
+    para aquele veículo hoje — a mesma regra da tela —, quem escreveu primeiro), o hodômetro (`mesmo`
+    mantém o último; menos que ele ou mais de 20.000 km acima é pedido de novo, como o banco recusaria), a
+    finalidade e o destino; o retorno, o veículo em viagem (um só vai direto), o hodômetro na chegada e as
+    ocorrências (`pular`). Tudo termina na conferência e grava pelo MESMO caminho do botão: a conferência
+    de `pedidoDeSaida` / `pedidoDeRetorno` (`lib/patrimonio/frota.ts`, que `app/actions/frota.ts` passou a
+    usar) e `frota_sair` / `frota_retornar`, como a pessoa, por `whatsapp_frota_sair` /
+    `whatsapp_frota_retornar` (só service role, aal1: o banco confere de novo o nível, a CNH, o curso de
+    emergência, o km e a viagem aberta; `registrado_por` é a pessoa). Manutenção vencida por km na volta
+    avisa quem opera pelo mesmo `avisarManutencaoVencida` (`lib/patrimonio/frota-servidor.ts`) do botão.
+    Projeto da viagem, abastecimento, serviço e documento ficam na tela.
+  - **Estoque** (`lib/whatsapp/estoque.ts`): quem vê o Estoque (nível ≥ 1 no Patrimônio) manda
+    `estoque <material>` (`lerEstoque`; `estoque` sozinho ensina): `acharNoEstoque` (puro) acha pelo código
+    ou por palavras do nome (o plural acha o singular) entre os ativos, e a resposta traz o saldo, o mínimo
+    (zerado, abaixo), onde está (os lotes com saldo, por local), a validade mais próxima e o vencido que
+    espera a baixa — um material em detalhe, vários em lista (até 5), com o link da busca. Só leitura; vale
+    com a verificação em duas etapas. As doações em espécie entram no mesmo estoque. O valor do estoque não
+    vem.
+  - **Ofícios**: o pedido de assinatura já é um aviso (`avisarSobreOficio`, categoria `oficios`, link
+    `/oficios/<id>`) e já ia pelo WhatsApp como os comuns, com o link. `alvoDoLink` agora reconhece o
+    ofício só para a resposta citando o aviso dizer que assinar (ou recusar) é no Palácio, com a senha ou
+    pelo gov.br (`textoDoOficioPeloWhatsapp`), e `dicaDeResposta` não ensina a responder. Nada se assina
+    pelo WhatsApp.
+- **Antes da migração `20261018233000`:** o CHECK de `whatsapp_pendencias.tipo` não aceita
+  `marcar_presenca`, `frota_saida` e `frota_retorno`, e as funções `whatsapp_registrar_presenca`,
+  `whatsapp_frota_sair` e `whatsapp_frota_retornar` não existem: a pergunta não se guarda e o bot responde
+  com o link da ação ou do veículo (`ondeNoPalacio`; a escolha da ação, com a lista e o link das
+  oportunidades). As consultas (`veículos`, `estoque`, a Escola no `status`) e a resposta ao aviso do
+  ofício não dependem dela. A migração lê a lista em vigor e só acrescenta.
 - **Antes da migração `20261018223000`:** `whatsapp_confirmacoes` não existe e o CHECK de
   `whatsapp_pendencias.tipo` não aceita `financeiro` nem `nao_fui_eu`: o pedido sensível responde com o
   link da tela de sempre (o voto, com o texto da verificação em duas etapas), a lista do `financeiro` sai

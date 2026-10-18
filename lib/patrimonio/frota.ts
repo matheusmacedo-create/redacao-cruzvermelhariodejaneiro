@@ -122,3 +122,45 @@ export function impedimento(c: Condutor, tipo: string, hoje: string): string | n
   if (['ambulancia', 'van', 'carro', 'caminhonete'].includes(tipo) && cat === 'A') return 'pede CNH B ou superior'
   return null
 }
+
+// ---------------------------------------------------------------- viagem (a saída e o retorno, da tela e do WhatsApp)
+
+/** Hodômetro: "52.100" ou "52100 km" → 52100. Vazio → null; o que não é número inteiro → NaN. */
+export function lerHodometro(texto: string): number | null {
+  const s = String(texto ?? '').replace(/[.\s]/g, '').replace(/km$/i, '')
+  if (!s) return null
+  return /^\d{1,7}$/.test(s) ? Number(s) : Number.NaN
+}
+
+/** O hodômetro obrigatório, com a mensagem da tela quando falta ou não serve. */
+function kmObrigatorio(texto: string): number {
+  const n = lerHodometro(texto)
+  if (n === null) throw new Error('Informe o km do hodômetro.')
+  if (Number.isNaN(n)) throw new Error('Quilometragem inválida (só números).')
+  return n
+}
+
+const ehId = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f-]{36}$/.test(v)
+
+/**
+ * A saída como frota_sair recebe, conferida como a tela confere antes de ir ao banco (que confere tudo de
+ * novo: CNH, curso de emergência, km que não volta, viagem aberta). Lança com a mensagem para a pessoa. É a
+ * mesma para o botão "Saída" (app/actions/frota.ts) e para o WhatsApp (lib/whatsapp/frota.ts).
+ */
+export function pedidoDeSaida(veiculoId: string, p: { condutor_id: string; km_saida: string; destino: string; finalidade: string; projeto_id: string }) {
+  if (!ehId(p.condutor_id)) throw new Error('Escolha quem vai dirigir.')
+  if (!ehFinalidadeDeUso(p.finalidade)) throw new Error('Escolha a finalidade.')
+  if (p.destino.trim().length < 2) throw new Error('Diga para onde vai.')
+  return {
+    veiculo_id: veiculoId, condutor_id: p.condutor_id, km_saida: kmObrigatorio(p.km_saida), destino: p.destino.trim().slice(0, 200),
+    finalidade: p.finalidade, projeto_id: ehId(p.projeto_id) ? p.projeto_id : '',
+  }
+}
+
+/** O retorno como frota_retornar recebe (o banco confere o km de saída e a viagem aberta). O mesmo da tela e do WhatsApp. */
+export function pedidoDeRetorno(usoId: string, p: { km_retorno: string; observacao: string }) {
+  return { uso_id: usoId, km_retorno: kmObrigatorio(p.km_retorno), observacao: p.observacao.slice(0, 1000) }
+}
+
+/** O que frota_retornar devolve: o km rodado e os planos de manutenção que venceram por km nesta viagem. */
+export type RetornoDaViagem = { km_rodado: number; planos_vencidos: { nome: string; km: number }[] }

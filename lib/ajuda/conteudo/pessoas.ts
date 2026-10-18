@@ -1379,6 +1379,7 @@ const VOLUNTARIOS: GuiaDaArea = {
       passos: [
         'Abra a oportunidade.',
         'Presença, a partir do início da atividade: em “Inscritos”, confira as horas ao lado de cada pessoa e toque em “Presente” ou em “Ausente”. “Presente” lança as horas no cadastro; trocar para “Ausente” tira.',
+        'No dia, dá também pelo WhatsApp do Palácio: mande “presença”, escolha a ação, responda com os números de quem veio (“1 3 4”, “todos” ou “todos menos 3”) e confirme. Vale o mesmo “Presente” e “Ausente” da tela, com as horas da atividade; com a verificação em duas etapas, só pela tela.',
         'Para cancelar: toque em “Cancelar atividade”, escreva o “Motivo” (ele vai no aviso) e toque em “Cancelar e avisar”.',
       ],
       dica: 'Ao cancelar uma oportunidade publicada, quem se inscreveu e quem estava na espera recebem um e-mail com o motivo; ela continua na lista, marcada como cancelada. “Excluir” só existe enquanto ninguém se inscreveu.',

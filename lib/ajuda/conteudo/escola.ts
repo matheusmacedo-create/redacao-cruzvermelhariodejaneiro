@@ -1371,7 +1371,7 @@ export const guias: GuiaDaArea[] = [CURSOS,
       {
         id: 'quando-le',
         pergunta: 'De quanto em quanto tempo as contas são lidas?',
-        resposta: 'Uma vez por dia, sozinhas. Para ler na hora, use “Atualizar agora” em “Vendas” (Únicopag) ou “Atualizar do Meta” no “Marketing”. Conta pausada não é lida.',
+        resposta: 'Uma vez por dia, sozinhas. Para ler na hora, use “Atualizar agora” em “Vendas” (Únicopag) ou “Atualizar do Meta” no “Marketing”. Conta pausada não é lida.\n\nAdministradores conferem também pelo WhatsApp do Palácio: o “status” traz a última leitura certa de cada conta ativa e, se a última tentativa falhou ou passou de um dia sem ler, o motivo.',
         termos: ['frequência', 'sincronização', 'atualizar', 'diário'],
       },
       {
