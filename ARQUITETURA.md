@@ -719,7 +719,7 @@ e saem sempre (`avisar()` em `lib/contas/servidor.ts`).
 
 **WhatsApp** (§8.5). Depois do e-mail, `notificar()` manda o mesmo aviso ao
 WhatsApp de quem confirmou o número em `/perfil#whatsapp` (código de 6
-dígitos; `whatsapp_contas`, fora de `profiles` para o celular não ficar
+dígitos, §8.5; `whatsapp_contas`, fora de `profiles` para o celular não ficar
 visível a todo o espaço). Sai se a pessoa não pausou, deixou o assunto ligado
 (`notificacao_preferencias.whatsapp`, padrão ligado) e não está com o Palácio
 aberto; no mesmo link, no máximo uma mensagem a cada 15 min
@@ -1952,7 +1952,25 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
+  `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
   `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
+- **Confirmação do número (18/10/2026):** dois caminhos, nos mesmos limites (3 códigos a cada 30 min,
+  10 min de validade, 5 tentativas). O **padrão é o código de ida**: “Gerar código” mostra na tela um código
+  de 6 dígitos e o botão “Abrir o WhatsApp” (`https://wa.me/<número do Palácio>?text=Confirmar meu WhatsApp no
+  Palácio: 123456`; o número vem de `perfilConectado`, e sem ele a tela mostra só o código e a instrução). A
+  pessoa manda do próprio número; `atenderMensagem`, antes de tudo, acha o código na mensagem
+  (`codigoNaMensagem`: um grupo só de 6 dígitos, sem outro número junto) e, havendo código em aberto para o
+  número canônico (`codigosPendentesDoNumero`), confere o hash e confirma pela mesma função do caminho de
+  digitar (`confirmarNumeroDaEquipe` / `confirmarNumeroDoVoluntario`: consome o código de forma atômica, grava
+  `whatsapp_contas` ou `participantes_whatsapp`, 23505 = número de outra conta, auditoria `whatsapp_confirmado`
+  com `caminho`). Responde por lá (confirmado, com a linha do menu; código errado conta tentativa em cada
+  código em aberto do número). A tela pergunta a cada 4 s (`conferirConfirmacaoDoWhatsapp` /
+  `conferirConfirmacaoDoVoluntario`, só leitura) até confirmar ou o código deixar de valer. Como quem escreve é
+  a pessoa, não depende da janela de 24 h nem de modelo. A **alternativa** (“Prefiro receber o código pelo
+  WhatsApp”) é a de antes: o Palácio manda o código e a pessoa digita — só chega dentro da janela ou com modelo.
+  Não há coluna que diga o sentido: o hash leva um sal por sentido (`whatsapp-ida:` × `whatsapp:`, o de volta
+  no formato antigo), então o código da tela nunca serve para digitar e o que chegou no número nunca confirma
+  mandado ao bot (o bot responde que ele é para digitar, sem contar tentativa).
 - **Contrato (docs.kapso.ai, outubro de 2026):** envio pelo proxy da Meta
   (`https://api.kapso.ai/meta/whatsapp/v24.0/{phone_number_id}/messages`, formato da Cloud API);
   mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
@@ -2013,7 +2031,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
   link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
 - **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
-  confirma o número na Área do Voluntário (código ao próprio WhatsApp) marcando a autorização, cujo
+  confirma o número na Área do Voluntário (os mesmos dois caminhos de Meu perfil) marcando a autorização, cujo
   texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
   oportunidade (`oportunidades.avisada_por_whatsapp_em`, marca atômica) põe na fila uma mensagem
   por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,

@@ -883,7 +883,7 @@ const PERFIL: GuiaDaArea = {
     {
       alvo: 'membro.whatsapp',
       titulo: 'WhatsApp',
-      texto: 'Quer receber as oportunidades no WhatsApp? Digite o seu número, marque a autorização e confirme com o código que chega lá. Para parar, responda “sair” no WhatsApp ou toque em “Pausar”.',
+      texto: 'Quer receber as oportunidades no WhatsApp? Digite o seu número, marque a autorização, toque em “Gerar código” e mande o código ao WhatsApp do Voluntariado pelo botão “Abrir o WhatsApp”: a confirmação aparece aqui sozinha. Para parar, responda “sair” no WhatsApp ou toque em “Pausar”.',
       seAusente: 'pular',
     },
     {
@@ -962,11 +962,12 @@ const PERFIL: GuiaDaArea = {
       titulo: 'Receber as oportunidades no WhatsApp',
       passos: [
         'Em “Perfil”, vá até “WhatsApp” e digite o seu número com DDD.',
-        'Leia e marque a autorização. Sem ela, o código não sai.',
-        'Toque em “Mandar código”. Chega no seu WhatsApp um código de 6 números, que vale por 10 minutos: digite e toque em “Confirmar”.',
+        'Leia e marque a autorização. Sem ela, o código não é gerado.',
+        'Toque em “Gerar código”. Aparece um código de 6 números, que vale por 10 minutos.',
+        'Toque em “Abrir o WhatsApp” e envie a mensagem que já vem pronta, do número que você digitou. Em alguns segundos aparece “WhatsApp confirmado” aqui.',
         'Pronto: cada oportunidade nova chega por lá quando for publicada. No WhatsApp, “1” mostra as abertas, “2” as suas inscrições e “sair” para de mandar.',
       ],
-      dica: 'Para se inscrever, use o link da mensagem: a inscrição continua sendo aqui na Área. “Remover o número” apaga o número e a autorização.',
+      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Voluntariado nas últimas 24 horas. Para se inscrever, use o link da mensagem: a inscrição continua sendo aqui na Área. “Remover o número” apaga o número e a autorização.',
     },
     {
       id: 'ligar-avisos-por-email',

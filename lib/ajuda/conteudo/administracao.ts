@@ -847,7 +847,7 @@ const WHATSAPP: GuiaDaArea = {
       'A administração guarda a chave da Kapso e o Phone number ID no cartão “WhatsApp (Kapso — API oficial)”, em Integrações.',
       'Nesta aba, confere que a conexão aparece como “Conectado”, com o número do Palácio.',
       'Toca em “Ligar o recebimento de mensagens”, para o bot passar a responder.',
-      'A Ana confirma o WhatsApp dela em “Meu perfil” com o código de 6 números que chega por lá.',
+      'A Ana confirma o WhatsApp dela em “Meu perfil”: toca em “Gerar código” e manda o código ao número do Palácio pelo botão “Abrir o WhatsApp”.',
       'Quando alguém pede a aprovação dela, o aviso chega no sino e no WhatsApp; ela responde “1” e vê o que falta abrir.',
     ],
     resultado: 'Os avisos chegam onde a equipe já está, sem trocar o sino.',
@@ -1001,7 +1001,7 @@ const PERFIL: GuiaDaArea = {
     {
       alvo: 'perfil.whatsapp',
       titulo: 'Avisos no WhatsApp',
-      texto: 'Os mesmos avisos do sino, no seu WhatsApp. O número passa a valer depois do código de 6 números que chega nele; dá para pausar e escolher os assuntos.',
+      texto: 'Os mesmos avisos do sino, no seu WhatsApp. Para confirmar o número, toque em “Gerar código” e mande o código ao WhatsApp do Palácio pelo botão “Abrir o WhatsApp” (a mensagem vai pronta): a tela confirma sozinha. Dá para pausar e escolher os assuntos.',
     },
     {
       alvo: 'perfil.dados',
@@ -1060,11 +1060,12 @@ const PERFIL: GuiaDaArea = {
       titulo: 'Receber os avisos no WhatsApp',
       exemplo: 'A Ana confirma o celular dela e desliga “Chat” em “O que chega pelo WhatsApp”: recebe por lá só aprovações, chamados e o resto.',
       passos: [
-        'Em “WhatsApp”, digite o seu número com DDD e toque em “Mandar código”.',
-        'Chega pelo WhatsApp um código de 6 números. Digite no campo e toque em “Confirmar”. O código vale por 10 minutos.',
+        'Em “WhatsApp”, digite o seu número com DDD e toque em “Gerar código”. Aparecem um código de 6 números e o número do Palácio.',
+        'Toque em “Abrir o WhatsApp”: abre a conversa com o Palácio, com a mensagem e o código prontos. Envie do número que você digitou (no computador, abre o WhatsApp Web). O código vale por 10 minutos.',
+        'Volte ao Palácio: em alguns segundos aparece “WhatsApp confirmado”, sem digitar nada. O Palácio também responde por lá.',
         'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
       ],
-      dica: 'Por lá, responda “menu” para ver as opções (veja “O que dá para fazer pelo WhatsApp do Palácio?”). De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
+      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas (ou se a administração tiver um modelo aprovado). Por lá, responda “menu” para ver as opções. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
     },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
@@ -1165,6 +1166,12 @@ const PERFIL: GuiaDaArea = {
       pergunta: 'Perdi o celular com o app autenticador. Como entro?',
       resposta: 'Se você cadastrou um segundo aparelho, use o código dele. Se não, na tela do código toque em “Perdi ou troquei de celular — avisar os administradores”: alguém da administração confirma com você e tira a verificação da sua conta. Depois, cadastre o app no celular novo aqui.',
       termos: ['celular novo', 'troquei de celular', 'código do app', '2fa'],
+    },
+    {
+      id: 'whatsapp-nao-confirmou',
+      pergunta: 'Mandei o código pelo WhatsApp e não confirmou. O que faço?',
+      resposta: 'Confira três coisas: a mensagem saiu do mesmo número que você digitou (quem tem dois WhatsApps no celular costuma mandar do outro); o código é o que está na tela agora (só o último vale, por 10 minutos); e foi para o número do Palácio que aparece na tela. O Palácio responde por lá: “não confere” é código errado (são 5 tentativas), e “já está confirmado em outra conta” quer dizer que o número é de outra pessoa no Palácio.\n\nSe aparecer “O código não vale mais”, toque em “Gerar outro código”. Sem o botão “Abrir o WhatsApp”, escreva o código numa mensagem para o número do Palácio.',
+      termos: ['não confirmou', 'código do whatsapp', 'gerar código', 'abrir o whatsapp', 'O código não vale mais', 'Esse código não confere', 'confirmar número'],
     },
     {
       id: 'o-que-faz-o-whatsapp',

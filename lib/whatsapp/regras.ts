@@ -299,6 +299,14 @@ export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
 }
 
 // ------------------------------------------------------------------ confirmação do número
+//
+// Dois caminhos, e o código de um nunca serve no outro (o sentido entra no hash):
+//  - ida (o padrão): o Palácio mostra o código na tela e a pessoa manda ao número do Palácio
+//    (link wa.me com o texto pronto). Quem escreve é que abre a conversa, então não depende da
+//    janela de 24 h nem de modelo aprovado. O bot confere e confirma (lib/whatsapp/confirmacao.ts);
+//  - volta: o Palácio manda o código ao número e a pessoa digita na tela. Só chega a quem escreveu
+//    ao número nas últimas 24 h, ou pelo modelo aprovado do cofre.
+// Os limites (códigos por janela, validade, tentativas) são os mesmos e contam juntos.
 
 export const CODIGO_VALIDADE_MIN = 10
 export const CODIGO_TENTATIVAS = 5
@@ -308,6 +316,15 @@ export const JANELA_DOS_CODIGOS_MIN = 30
 
 export const codigoNoFormato = (codigo: string) => /^\d{6}$/.test(codigo)
 
+export type SentidoDoCodigo = 'ida' | 'volta'
+
+/**
+ * O que entra no hash do código: o sentido, o dono (a pessoa da equipe ou `voluntario:<id>`), o
+ * número e o código. O de volta é o formato de sempre: os códigos já pedidos continuam valendo.
+ */
+export const baseDoHashDoCodigo = (sentido: SentidoDoCodigo, dono: string, numero: string, codigo: string) =>
+  `${sentido === 'ida' ? 'whatsapp-ida' : 'whatsapp'}:${dono}:${numero}:${codigo}`
+
 export function textoDoCodigo(codigo: string): string {
   return [
     `Seu código do Palácio Virtual: *${codigo}*`,
@@ -315,6 +332,60 @@ export function textoDoCodigo(codigo: string): string {
     '_Se não foi você que pediu, ignore esta mensagem: nada muda sem o código._',
   ].join('\n\n')
 }
+
+/** A tela do código de ida pergunta a cada tanto se o bot já confirmou (só lê). */
+export const INTERVALO_DA_CONFERENCIA_MS = 4_000
+
+/** A mensagem pronta do link, com o código de ida. Sem outro número no texto: o bot acha o código sem confusão. */
+export function textoDoCodigoDeIda(codigo: string, onde: 'palacio' | 'voluntariado' = 'palacio'): string {
+  return `Confirmar meu WhatsApp ${onde === 'voluntariado' ? 'na Área do Voluntário' : 'no Palácio'}: ${codigo}`
+}
+
+/** Link do WhatsApp (wa.me) para o número, com a mensagem pronta; null sem um número que sirva. */
+export function linkDoWhatsapp(numero: string | null | undefined, texto: string): string | null {
+  const d = String(numero ?? '').replace(/\D/g, '')
+  if (d.length < 10 || d.length > 15) return null
+  return `https://wa.me/${d}?text=${encodeURIComponent(texto)}`
+}
+
+/**
+ * O código de 6 números numa mensagem ao bot: a mensagem pronta do link, só o código ou
+ * "123 456". null se não há, se há outro número junto (um telefone, uma data, o "10 minutos" do
+ * código que o Palácio mandou) ou se a mensagem é longa demais para ser o código.
+ */
+export function codigoNaMensagem(entrada: string | null | undefined): string | null {
+  const t = String(entrada ?? '').trim()
+  if (!t || t.length > 160) return null
+  const grupos = t.match(/\d(?:[\d .-]*\d)?/g) ?? []
+  if (grupos.length !== 1) return null
+  const digitos = grupos[0].replace(/\D/g, '')
+  return codigoNoFormato(digitos) ? digitos : null
+}
+
+/** A resposta do bot quando o código de ida confere. */
+export function textoDoNumeroConfirmado(onde: 'palacio' | 'voluntariado'): string {
+  return onde === 'voluntariado'
+    ? 'Pronto: número confirmado. As oportunidades de voluntariado passam a chegar por aqui.\n\nResponda *menu* para ver as opções.'
+    : 'Pronto: número confirmado. Os avisos do Palácio Virtual passam a chegar por aqui.\n\nResponda *menu* para ver o que dá para fazer por aqui.'
+}
+
+/** Código de ida errado: curto, com o que resta. */
+export function textoDoCodigoDeIdaErrado(restam: number): string {
+  if (restam <= 0) return 'Esse código não confere, e as tentativas acabaram. Gere um código novo na tela.'
+  return `Esse código não confere. Confira o código na tela e mande de novo (${restam === 1 ? 'resta 1 tentativa' : `restam ${restam} tentativas`}).`
+}
+
+/** O código de ida conferiu, mas o número não se confirmou: por quê. */
+export function textoDaFalhaDoCodigoDeIda(motivo: 'usado' | 'outra_conta' | 'falhou', quem: 'equipe' | 'voluntario'): string {
+  if (motivo === 'usado') return 'Esse código já foi usado. Gere um código novo na tela.'
+  if (motivo === 'outra_conta') {
+    return quem === 'equipe' ? 'Esse número já está confirmado em outra conta do Palácio Virtual. Nada mudou.' : 'Esse número já está confirmado por outro voluntário. Nada mudou.'
+  }
+  return 'Não consegui confirmar o número agora. Gere um código novo na tela e tente de novo.'
+}
+
+/** O código que o Palácio mandou (o de digitar na tela) chegou de volta aqui: não conta tentativa. */
+export const TEXTO_DO_CODIGO_DE_VOLTA = 'Este código é para digitar na tela em que você o pediu, não para mandar aqui.'
 
 // ------------------------------------------------------------------ webhook
 

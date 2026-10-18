@@ -3,7 +3,7 @@ import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import type { EstadoDaConexao, MotivoDaFalha } from './regras'
+import { baseDoHashDoCodigo, type EstadoDaConexao, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
 import {
   baixarMidiaKapso, enviarTextoKapso, ligarWebhookKapso, numeroIdValido, perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso,
   type ConfigDaKapso,
@@ -132,12 +132,15 @@ export async function mandar(admin: Admin, workspaceId: string, p: {
 
 export const gerarCodigo = () => String(randomInt(0, 1_000_000)).padStart(6, '0')
 
-/** No banco vai só o hash, amarrado à pessoa e ao número. */
-export const hashDoCodigo = (userId: string, numero: string, codigo: string) =>
-  createHash('sha256').update(`whatsapp:${userId}:${numero}:${codigo}`, 'utf8').digest('hex')
+/**
+ * No banco vai só o hash, amarrado à pessoa, ao número e ao sentido (regras.ts, baseDoHashDoCodigo):
+ * o código mostrado na tela (ida) não serve para digitar, nem o mandado ao número (volta) para mandar ao bot.
+ */
+export const hashDoCodigo = (userId: string, numero: string, codigo: string, sentido: SentidoDoCodigo = 'volta') =>
+  createHash('sha256').update(baseDoHashDoCodigo(sentido, userId, numero, codigo), 'utf8').digest('hex')
 
-export function codigoConfere(esperado: string, userId: string, numero: string, codigo: string): boolean {
+export function codigoConfere(esperado: string, userId: string, numero: string, codigo: string, sentido: SentidoDoCodigo = 'volta'): boolean {
   const a = Buffer.from(esperado, 'hex')
-  const b = Buffer.from(hashDoCodigo(userId, numero, codigo), 'hex')
+  const b = Buffer.from(hashDoCodigo(userId, numero, codigo, sentido), 'hex')
   return a.length === b.length && timingSafeEqual(a, b)
 }

@@ -8,6 +8,7 @@ import {
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
+  baseDoHashDoCodigo, textoDoCodigo, textoDoCodigoDeIda, linkDoWhatsapp, codigoNaMensagem, textoDoNumeroConfirmado, textoDoCodigoDeIdaErrado, textoDaFalhaDoCodigoDeIda,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -113,6 +114,37 @@ contem(textoDoMenu({ nome: null, pausado: false, urlBase: 'https://p' }), 'Olá!
 igual(codigoNoFormato('123456'), true, 'código ok')
 igual(codigoNoFormato('12345'), false, 'código curto')
 igual(codigoNoFormato('12a456'), false, 'código com letra')
+
+// ---------------------------------------------------------------- código de ida (a pessoa manda ao Palácio)
+igual(baseDoHashDoCodigo('volta', 'u1', '5521987654321', '123456'), 'whatsapp:u1:5521987654321:123456', 'hash de volta no formato de sempre (códigos já pedidos valem)')
+igual(baseDoHashDoCodigo('ida', 'u1', '5521987654321', '123456') === baseDoHashDoCodigo('volta', 'u1', '5521987654321', '123456'), false, 'ida e volta nunca no mesmo hash')
+igual(baseDoHashDoCodigo('ida', 'voluntario:p1', '5521987654321', '123456'), 'whatsapp-ida:voluntario:p1:5521987654321:123456', 'hash de ida do voluntário')
+igual(textoDoCodigoDeIda('123456'), 'Confirmar meu WhatsApp no Palácio: 123456', 'mensagem pronta da equipe')
+igual(textoDoCodigoDeIda('123456', 'voluntariado'), 'Confirmar meu WhatsApp na Área do Voluntário: 123456', 'mensagem pronta do voluntário')
+igual(linkDoWhatsapp('12053412375', textoDoCodigoDeIda('123456')), 'https://wa.me/12053412375?text=Confirmar%20meu%20WhatsApp%20no%20Pal%C3%A1cio%3A%20123456', 'link wa.me com a mensagem pronta')
+igual(linkDoWhatsapp('+1 205-341-2375', 'oi'), 'https://wa.me/12053412375?text=oi', 'link só com os dígitos')
+igual(linkDoWhatsapp(null, 'oi'), null, 'sem número do Palácio, sem link')
+igual(linkDoWhatsapp('12345', 'oi'), null, 'número curto, sem link')
+igual(codigoNaMensagem(textoDoCodigoDeIda('012345')), '012345', 'acha o código na mensagem pronta (zero na frente)')
+igual(codigoNaMensagem(textoDoCodigoDeIda('654321', 'voluntariado')), '654321', 'acha o código na mensagem pronta do voluntário')
+igual(codigoNaMensagem('123456'), '123456', 'só o código')
+igual(codigoNaMensagem(' 123 456 '), '123456', 'código com espaço no meio')
+igual(codigoNaMensagem('meu código é 123-456.'), '123456', 'código com hífen e texto')
+igual(codigoNaMensagem('12345'), null, 'cinco números não é código')
+igual(codigoNaMensagem('1234567'), null, 'sete números não é código')
+igual(codigoNaMensagem('3'), null, 'opção do menu não é código')
+igual(codigoNaMensagem('menu'), null, 'sem número')
+igual(codigoNaMensagem('meu número é (21) 98765-4321 e o código 123456'), null, 'outro número junto')
+igual(codigoNaMensagem(textoDoCodigo('123456')), null, 'o código que o Palácio mandou, encaminhado de volta (tem o "10 minutos")')
+igual(codigoNaMensagem(`${'a'.repeat(170)} 123456`), null, 'mensagem longa demais')
+igual(codigoNaMensagem(null), null, 'vazio')
+contem(textoDoNumeroConfirmado('palacio'), 'Responda *menu*', 'confirmado: linha do menu (equipe)')
+contem(textoDoNumeroConfirmado('voluntariado'), 'oportunidades', 'confirmado: voluntário')
+contem(textoDoCodigoDeIdaErrado(2), 'restam 2 tentativas', 'errado: o que resta')
+contem(textoDoCodigoDeIdaErrado(1), 'resta 1 tentativa', 'errado: singular')
+contem(textoDoCodigoDeIdaErrado(0), 'Gere um código novo', 'errado: acabaram as tentativas')
+contem(textoDaFalhaDoCodigoDeIda('outra_conta', 'equipe'), 'outra conta', 'falha: número de outra conta')
+contem(textoDaFalhaDoCodigoDeIda('outra_conta', 'voluntario'), 'outro voluntário', 'falha: número de outro voluntário')
 
 // ---------------------------------------------------------------- consultas e pedidos com complemento
 const ped = (t: string, pausado = false) => lerPedido(t, { pausado })
