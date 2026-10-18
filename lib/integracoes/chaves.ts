@@ -69,11 +69,8 @@ export const SERVICOS = {
   // facial. É pago por consulta e exige contrato com o CNPJ da filial. Fica preparado: ligar esta entrada
   // quando lib/participantes/verificacao/serpro.ts existir (docs/verificacao-de-voluntarios.md).
   // serpro: { nome: 'Serpro (Consulta CPF)', variavel: 'SERPRO_CONSULTA_CPF', painel: 'https://loja.serpro.gov.br/consultacpf', campos: [{ id: 'consumerKey', rotulo: 'Consumer key', secreto: false }, { id: 'consumerSecret', rotulo: 'Consumer secret', secreto: true }] },
-  // O WhatsApp do Palácio (lib/whatsapp). A chave pode ser a global do servidor ou o token da instância;
-  // só "Criar a instância" exige a global. Reserva no ambiente: EVOLUTION_API_URL, _KEY e EVOLUTION_INSTANCIA.
-  // O WhatsApp do Palácio pela Kapso (API oficial da Meta; lib/whatsapp/kapso.ts). Configurada, tem a
-  // preferência sobre a Evolution. A chave é a do projeto (painel → Integrations → API keys); o id é o
-  // "Phone number ID" do número na tela WhatsApp do painel. O modelo é um modelo de mensagem aprovado pela
+  // O WhatsApp do Palácio, pela Kapso (API oficial da Meta; lib/whatsapp/kapso.ts). A chave é a do
+  // projeto (painel → Integrations → API keys); o id é o "Phone number ID" do número na tela WhatsApp do painel. O modelo é um modelo de mensagem aprovado pela
   // Meta, com uma variável no corpo, usado para avisar quem não escreveu nas últimas 24 h.
   kapso: {
     nome: 'WhatsApp (Kapso — API oficial)',
@@ -85,16 +82,6 @@ export const SERVICOS = {
       { id: 'modelo', rotulo: 'Modelo aprovado para fora das 24 h (opcional)', secreto: false, minimo: 1, opcional: true },
     ],
     dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
-  },
-  evolution_api: {
-    nome: 'WhatsApp (Evolution API)',
-    variavel: 'EVOLUTION_API',
-    painel: 'https://docs.evolutionfoundation.com.br',
-    campos: [
-      { id: 'url', rotulo: 'Endereço do servidor (https://…)', secreto: false },
-      { id: 'instancia', rotulo: 'Nome da instância', secreto: false, minimo: 1 },
-      { id: 'chave', rotulo: 'Chave da API (apikey)', secreto: true },
-    ],
   },
 } as const satisfies Record<string, DefinicaoDeServico>
 

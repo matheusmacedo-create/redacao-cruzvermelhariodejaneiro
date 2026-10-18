@@ -87,7 +87,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
-| `EVOLUTION_API_URL` `EVOLUTION_INSTANCIA` `EVOLUTION_API_KEY` | server | **segredo** (a chave), opcionais — reserva do cartão “WhatsApp (Evolution API)” de Configurações → Integrações, que é o lugar preferido; valem as três juntas (§8.5) |
+| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcional, `modelo` (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -1941,32 +1941,35 @@ Limites que valem conhecer:
 - a FIPE gratuita tem cota diária;
 - o Nominatim exige identificação (User-Agent) e cache.
 
-### 8.5 WhatsApp (Evolution API)
+### 8.5 WhatsApp (Kapso)
 
-O número do Palácio no WhatsApp, por uma [Evolution API](https://github.com/EvolutionAPI/evolution-api)
-(v2, Baileys) hospedada pela filial. Configuração no cofre (cartão “WhatsApp (Evolution API)”:
-endereço, instância e chave); conexão, recebimento e teste em `/configuracoes/whatsapp` (só admin).
+O número do Palácio no WhatsApp, pela [Kapso](https://docs.kapso.ai) (API oficial da Meta, número
+gerenciado pela Kapso). Configuração no cofre (cartão “WhatsApp (Kapso — API oficial)”: chave
+`X-API-Key`, Phone number ID e, opcional, o nome de um modelo aprovado); conferência da conexão,
+recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, usada até outubro de
+2026, saiu do código.
 
 - **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
-  do bot — `npx tsx scripts/conferir-whatsapp.ts`), `servidor.ts` (cliente da Evolution, nunca
-  lança, tira chave e URL do texto de erro), `bot.ts` (respostas), `app/actions/whatsapp.ts` e
-  `app/api/webhooks/whatsapp`.
-- **Contrato conferido no código da v2.3.7** (a documentação nova erra o `/webhook/set`): cabeçalho
-  `apikey` (a global ou o token da instância; só `/instance/create` exige a global); corpo do
-  `/webhook/set` **aninhado** em `webhook` e com `events` sempre (sem ele, a Evolution quebra);
-  o texto recebido vem em `message.conversation`; com endereço anônimo (`@lid`), o número vem em
-  `remoteJidAlt`.
-- **Tempo do envio:** logo depois de conectar pelo QR code, a Evolution sincroniza o histórico e
-  cada envio pode passar de 15 s. O envio espera até 40 s; sem confirmação nesse prazo, a mensagem
-  pode ter saído mesmo assim (`semResposta`), e a confirmação do número abre o campo do código.
+  do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
+  a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
+  `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
+- **Contrato (docs.kapso.ai, outubro de 2026):** envio pelo proxy da Meta
+  (`https://api.kapso.ai/meta/whatsapp/v24.0/{phone_number_id}/messages`, formato da Cloud API);
+  mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
+  webhook por número em `https://api.kapso.ai/platform/v1/whatsapp/phone_numbers/{id}/webhooks`.
+- **Janela de 24 h:** texto livre só para quem escreveu ao número nas últimas 24 h. Fora dela a Meta
+  recusa (131047) e o envio recai no modelo aprovado do cofre, com o texto achatado na variável
+  `{{1}}` (sem quebras de linha, até 1000 caracteres). Sem modelo, a falha fica registrada com o
+  motivo e não é reenviada.
 - **Número canônico:** só dígitos, com 55 e o nono dígito do celular. O WhatsApp ainda identifica
   muitos celulares antigos sem o nono dígito; é pela forma canônica que o bot reconhece quem escreveu.
-- **Webhook:** a Evolution não assina as entregas. O botão “Ligar o recebimento de mensagens”
-  configura a URL (`/api/webhooks/whatsapp?w=<espaço>`) com um cabeçalho `x-palacio-whatsapp`
-  derivado da chave (HMAC); sem ele, 401. **Não configure a URL à mão no painel da Evolution** — vai
-  sem o cabeçalho. Trocou a chave, ligue de novo. Só `MESSAGES_UPSERT` e `CONNECTION_UPDATE`.
-- **Reentrega:** a Evolution tenta até 10 vezes (menos em 400/401/403/404/422). A rota responde na
-  hora e atende depois (`after`); `whatsapp_mensagens` tem trava por id da mensagem, então nada é
+- **Webhook:** o botão “Ligar o recebimento de mensagens” cria (ou acerta) na Kapso o webhook do
+  número para `/api/webhooks/whatsapp?w=<espaço>&p=kapso`, só com `whatsapp.message.received`, e uma
+  `secret_key` derivada da chave (HMAC). Cada entrega vem assinada: HMAC-SHA256 do corpo cru em
+  `X-Webhook-Signature`; sem a assinatura certa, 401. **Não cadastre a URL à mão no painel da
+  Kapso** — vai sem a senha. Trocou a chave, ligue de novo. O payload é o v2, avulso ou em lote.
+- **Reentrega:** a Kapso tenta mais duas vezes se não receber 200 em 10 s. A rota responde na hora e
+  atende depois (`after`); `whatsapp_mensagens` tem trava por id da mensagem, então nada é
   respondido duas vezes. O registro guarda só o comando reconhecido, nunca o texto recebido.
 - **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
   pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
@@ -1991,8 +1994,8 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
   recusa de novo no Chat e no voto.
 - **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
   quem é da equipe (e pode agir pelo WhatsApp) abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
-  pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Evolution
-  (`/chat/getBase64FromMediaMessage`, até 64 MB — o webhook não traz o arquivo) e gravado no R2 com
+  pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Kapso
+  (pelo id da mídia, até 64 MB — o webhook não traz o arquivo) e gravado no R2 com
   o nome canônico, já `recebido`; a legenda vai para o relato. `pronto` → título → autorização de
   imagem → conclui como o botão do link (`avisarAvaliadores`, link de assinatura quando cabe). Sem
   resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
@@ -2019,9 +2022,9 @@ endereço, instância e chave); conexão, recebimento e teste em `/configuracoes
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
   conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre
-  uma e outra, e 40 avisos por pessoa em 24 h. Falha por servidor fora (rede, 5xx, chave, instância)
+  uma e outra, e 40 avisos por pessoa em 24 h. Falha por Kapso fora (rede, 5xx, chave, número)
   volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
-  fila anda quando a Evolution avisa que reconectou (webhook), a cada aviso novo, na rotina diária
+  fila anda quando chega mensagem (webhook), a cada aviso novo, na rotina diária
   `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
   sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Batido o teto do minuto,
   a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de

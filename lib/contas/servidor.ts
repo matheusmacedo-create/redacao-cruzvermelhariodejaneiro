@@ -137,7 +137,7 @@ export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguran
   return enviado
 }
 
-/** Nunca lança; sem a tabela (antes da migração) ou sem a Evolution, não faz nada. */
+/** Nunca lança; sem a tabela (antes da migração) ou sem a Kapso, não faz nada. */
 async function avisarPorWhatsapp(admin: Admin, userId: string, pronto: EmailPronto) {
   try {
     const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', userId).maybeSingle()

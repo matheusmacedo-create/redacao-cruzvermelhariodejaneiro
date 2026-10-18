@@ -8,11 +8,9 @@ type Admin = ReturnType<typeof createAdminClient>
  * O estado da conexão do WhatsApp do Palácio, e o alerta à administração
  * quando ele cai ou volta.
  *
- * A Evolution roda num computador da filial: se ele desliga, perde a
- * internet ou o celular sai do "Dispositivos conectados", os avisos param em
- * silêncio. Quem descobre isso primeiro é o Palácio — pela Evolution
- * (connection.update no webhook), por um envio que falhou por rede ou pela
- * checagem diária (/api/whatsapp/rotina) — e é daqui que sai o aviso no sino
+ * Se a chave da Kapso for recusada, os créditos acabarem ou o número sair da
+ * conta, os avisos param em silêncio. Quem descobre isso primeiro é o
+ * Palácio — por um envio que falhou ou pela checagem diária (/api/whatsapp/rotina) — e é daqui que sai o aviso no sino
  * e no e-mail dos administradores. Nunca pelo WhatsApp: é justamente o que
  * caiu (categoria "sistema", fora do WhatsApp em lib/whatsapp/regras.ts).
  *
@@ -22,9 +20,9 @@ type Admin = ReturnType<typeof createAdminClient>
 const FORA: EstadoDaConexao[] = ['desconectado', 'sem_instancia', 'erro']
 
 const TEXTO_DA_QUEDA: Record<string, string> = {
-  desconectado: 'O número do Palácio saiu do WhatsApp (desconectado). Os avisos por WhatsApp estão parados até conectar de novo pelo QR code.',
-  sem_instancia: 'O número do WhatsApp não foi encontrado no provedor (a instância na Evolution ou o Phone number ID na Kapso). Os avisos por WhatsApp estão parados.',
-  erro: 'O Palácio não consegue falar com o provedor do WhatsApp (na Kapso: chave recusada ou sem créditos; na Evolution: computador desligado, sem internet ou túnel do ngrok parado). Os avisos por WhatsApp estão parados e ficam na fila até voltar.',
+  desconectado: 'O número do Palácio saiu do WhatsApp (desconectado). Os avisos por WhatsApp estão parados até reconectar no painel da Kapso.',
+  sem_instancia: 'A Kapso não acha mais o número do WhatsApp (confira o Phone number ID em Integrações). Os avisos por WhatsApp estão parados.',
+  erro: 'O Palácio não consegue falar com a Kapso (chave recusada, sem créditos ou a Kapso fora do ar). Os avisos por WhatsApp estão parados e ficam na fila até voltar.',
 }
 
 export async function registrarEstado(admin: Admin, workspaceId: string, estado: EstadoDaConexao): Promise<void> {

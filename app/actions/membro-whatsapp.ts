@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { exigirMembroQueEscreve } from '@/lib/membro/sessao'
-import { codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, mandar, temWhatsapp } from '@/lib/whatsapp/servidor'
+import { codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, mandar } from '@/lib/whatsapp/servidor'
 import { entregar } from '@/lib/whatsapp/fila'
 import {
   CODIGOS_POR_JANELA, CODIGO_TENTATIVAS, CODIGO_VALIDADE_MIN, JANELA_DOS_CODIGOS_MIN, codigoNoFormato, formatarNumero, numeroCanonico,
@@ -43,8 +43,6 @@ export async function pedirCodigoDoVoluntario(formData: FormData): Promise<Resul
     const janelaAberta = atual?.codigos_desde && agora.getTime() - new Date(atual.codigos_desde as string).getTime() < JANELA_DOS_CODIGOS_MIN * 60_000
     const naJanela = janelaAberta ? Number(atual?.codigos_na_janela ?? 0) : 0
     if (naJanela >= CODIGOS_POR_JANELA) throw new Error(`Você já pediu ${CODIGOS_POR_JANELA} códigos nos últimos ${JANELA_DOS_CODIGOS_MIN} minutos. Espere um pouco e tente de novo.`)
-
-    if (await temWhatsapp(config, numero) === false) throw new Error(`${formatarNumero(numero)} não tem WhatsApp. Confira os dígitos.`)
 
     const codigo = gerarCodigo()
     const { error } = await admin.from('participantes_whatsapp').upsert({

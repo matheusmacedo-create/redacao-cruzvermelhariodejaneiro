@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
-import { enderecoLocal, instanciaValida, urlDoServidor } from '@/lib/whatsapp/regras'
 import { numeroIdValido } from '@/lib/whatsapp/kapso'
 import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta-de-servico-regras'
 import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
@@ -47,15 +46,6 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
         dados.numeroId = dados.numeroId.replace(/\s/g, '')
         if (!numeroIdValido(dados.numeroId)) throw new Error('O Phone number ID tem só números (ex.: 1401089659754587). Copie da tela do número no painel da Kapso.')
         if (dados.modelo && !/^[a-z0-9_]{1,512}$/.test(dados.modelo)) throw new Error('O nome do modelo usa só letras minúsculas, números e sublinhado, como aparece na Kapso (ex.: aviso_do_palacio).')
-      }
-      // WhatsApp: o endereço sem https:// travava a tela em "Falta configurar" sem dizer o motivo.
-      if (servico === 'evolution_api') {
-        const url = urlDoServidor(dados.url)
-        if (!url) throw new Error('O endereço do servidor não é válido. Use algo como https://seu-endereco.ngrok-free.dev')
-        if (enderecoLocal(url)) throw new Error('Esse endereço só existe dentro do seu computador ou da sua rede, e o Palácio roda na internet: use o endereço público (por exemplo, o do ngrok, https://….ngrok-free.dev).')
-        if (!instanciaValida(dados.instancia)) throw new Error('O nome da instância só pode ter letras, números, ponto, hífen e sublinhado, sem espaços.')
-        dados.url = url
-        dados.instancia = dados.instancia.trim()
       }
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {

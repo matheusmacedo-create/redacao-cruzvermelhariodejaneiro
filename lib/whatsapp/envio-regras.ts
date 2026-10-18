@@ -6,8 +6,7 @@ import { primeiroNome, type CategoriaDaMidia } from './regras'
  * (docs/envio-de-acoes.md) — as regras, sem banco. O servidor fica em
  * lib/whatsapp/envio.ts.
  *
- * O arquivo passa pelo servidor da Evolution (o computador da filial, atrás
- * do túnel) e pelo servidor do Palácio: por isso o teto é bem menor que o do
+ * O arquivo passa pela Kapso e pelo servidor do Palácio: por isso o teto é bem menor que o do
  * link /enviar, que manda direto ao armazenamento. Arquivo maior vai pelo link.
  */
 
