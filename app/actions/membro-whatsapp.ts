@@ -104,11 +104,12 @@ export async function conferirConfirmacaoDoVoluntario(numeroNaTela: string, desd
   }
 }
 
-/** A alternativa: o código chega no número e o voluntário digita. Só chega dentro da janela de 24 h ou pelo modelo aprovado. */
+/** A alternativa: o código chega no número e o voluntário digita. Só chega dentro da janela de 24 h ou pelo modelo de Autenticação. */
 export async function pedirCodigoDoVoluntario(formData: FormData): Promise<Resultado & { numero?: string }> {
   try {
     const { m, admin, config, numero, codigo } = await novoCodigoDoVoluntario(formData, 'volta')
-    const envio = await mandar(admin, m.workspaceId, { numero, texto: textoDoCodigoDoVoluntario(codigo, CODIGO_VALIDADE_MIN), tipo: 'codigo', userId: null, config })
+    // Fora da janela de 24 h, o código vai sozinho pelo modelo de Autenticação (o texto é fixo da Meta).
+    const envio = await mandar(admin, m.workspaceId, { numero, texto: textoDoCodigoDoVoluntario(codigo, CODIGO_VALIDADE_MIN), tipo: 'codigo', codigo, userId: null, config })
     if (!envio.ok && envio.semResposta) {
       return { recado: `O WhatsApp demorou a confirmar o envio para ${formatarNumero(numero)}. O código deve chegar em instantes: digite abaixo quando chegar.`, numero: formatarNumero(numero) }
     }

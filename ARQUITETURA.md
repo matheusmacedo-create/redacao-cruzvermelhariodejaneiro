@@ -87,7 +87,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
-| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcional, `modelo` (§8.5) |
+| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo` e `modeloSeguranca` (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -1945,7 +1945,7 @@ Limites que valem conhecer:
 
 O número do Palácio no WhatsApp, pela [Kapso](https://docs.kapso.ai) (API oficial da Meta, número
 gerenciado pela Kapso). Configuração no cofre (cartão “WhatsApp (Kapso — API oficial)”: chave
-`X-API-Key`, Phone number ID e, opcional, o nome de um modelo aprovado); conferência da conexão,
+`X-API-Key`, Phone number ID e, opcionais, os nomes dos modelos aprovados — avisos, código e segurança); conferência da conexão,
 recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, usada até outubro de
 2026, saiu do código.
 
@@ -1967,7 +1967,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   código em aberto do número). A tela pergunta a cada 4 s (`conferirConfirmacaoDoWhatsapp` /
   `conferirConfirmacaoDoVoluntario`, só leitura) até confirmar ou o código deixar de valer. Como quem escreve é
   a pessoa, não depende da janela de 24 h nem de modelo. A **alternativa** (“Prefiro receber o código pelo
-  WhatsApp”) é a de antes: o Palácio manda o código e a pessoa digita — só chega dentro da janela ou com modelo.
+  WhatsApp”) é a de antes: o Palácio manda o código e a pessoa digita — só chega dentro da janela ou pelo modelo
+  de Autenticação (`mandar` com `tipo: 'codigo'` e o próprio `codigo`).
   Não há coluna que diga o sentido: o hash leva um sal por sentido (`whatsapp-ida:` × `whatsapp:`, o de volta
   no formato antigo), então o código da tela nunca serve para digitar e o que chegou no número nunca confirma
   mandado ao bot (o bot responde que ele é para digitar, sem contar tentativa).
@@ -1986,10 +1987,20 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Nono dígito:** a Kapso confere a janela de 24 h pelo número exato da conversa, e o WhatsApp ainda identifica
   muitos celulares antigos sem o 9 (554898032197). O Palácio guarda e manda com o 9; se a Kapso disser "fora da
   janela", o envio tenta de novo sem o 9 (`numeroSemNonoDigito`) antes de recorrer ao modelo.
-- **Janela de 24 h:** texto livre só para quem escreveu ao número nas últimas 24 h. Fora dela a Meta
-  recusa (131047) e o envio recai no modelo aprovado do cofre, com o texto achatado na variável
-  `{{1}}` (sem quebras de linha, até 1000 caracteres). Sem modelo, a falha fica registrada com o
-  motivo e não é reenviada.
+- **Janela de 24 h e modelos por finalidade (18/10/2026):** texto livre só para quem escreveu ao número nas
+  últimas 24 h. Fora dela a Kapso recusa (422, "outside the 24-hour window"; na Meta, 131047) e o envio recai
+  no modelo aprovado da **finalidade**, que é o tipo do registro (`mandar`/`entregar` passam `tipo` como
+  `finalidade` a `enviarTexto(config, numero, texto, { finalidade, codigo })`). Os objetos `template` saem de
+  `modeloParaEnviar` (puro, em `regras.ts`): **aviso** e **teste** → `modelo` (o id antigo do cofre), com o texto
+  achatado na variável `{{1}}` (sem quebras de linha, até 1000 caracteres); **codigo** → `modeloCodigo`, da
+  categoria AUTHENTICATION da Meta (a que a Meta exige para códigos): texto fixo da Meta, `components` = corpo
+  com o código e botão `url` de índice `0` com o código (botão de copiar), `pt_BR` — sem ele, o código não sai
+  fora da janela, nunca pelo modelo dos avisos (e o cartão recusa o mesmo nome nos dois); **seguranca** →
+  `modeloSeguranca` ou, vazio, `modelo`; **bot** → nunca por modelo (inclusive as boas-vindas depois de
+  confirmar pelo código digitado). Sem o modelo, a falha fica registrada com o motivo e não é reenviada. Recusa
+  do modelo (132000–132016, 132068, 132069, ou 400/404/422 da Kapso que fala de template) vira texto legível
+  (`problemaDoModelo`), motivo `outro`: sem reenvio e sem alerta de queda (o 404 do modelo não vira "número não
+  achado"). `/configuracoes/whatsapp` mostra quais modelos estão no cofre e o que acontece sem cada um.
 - **Número canônico:** só dígitos, com 55 e o nono dígito do celular. O WhatsApp ainda identifica
   muitos celulares antigos sem o nono dígito; é pela forma canônica que o bot reconhece quem escreveu.
 - **Webhook:** o botão “Ligar o recebimento de mensagens” cria (ou acerta) na Kapso o webhook do

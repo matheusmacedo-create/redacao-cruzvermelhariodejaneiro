@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
 import { numeroIdValido } from '@/lib/whatsapp/kapso'
+import { nomeDeModeloValido } from '@/lib/whatsapp/regras'
 import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta-de-servico-regras'
 import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
 import { lerChaveDaCgu } from '@/lib/participantes/verificacao/regras'
@@ -45,7 +46,12 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
       if (servico === 'kapso') {
         dados.numeroId = dados.numeroId.replace(/\s/g, '')
         if (!numeroIdValido(dados.numeroId)) throw new Error('O Phone number ID tem só números (ex.: 1401089659754587). Copie da tela do número no painel da Kapso.')
-        if (dados.modelo && !/^[a-z0-9_]{1,512}$/.test(dados.modelo)) throw new Error('O nome do modelo usa só letras minúsculas, números e sublinhado, como aparece na Kapso (ex.: aviso_do_palacio).')
+        // Os três modelos (avisos, código de Autenticação, segurança): o nome como a Meta grava.
+        for (const [id, exemplo] of [['modelo', 'aviso_do_palacio'], ['modeloCodigo', 'codigo_do_palacio'], ['modeloSeguranca', 'seguranca_do_palacio']] as const) {
+          if (!dados[id] || nomeDeModeloValido(dados[id])) continue
+          throw new Error(`O nome do modelo em "${campos.find((c) => c.id === id)?.rotulo ?? id}" usa só letras minúsculas, números e sublinhado, como aparece na Kapso (ex.: ${exemplo}).`)
+        }
+        if (dados.modeloCodigo && dados.modeloCodigo === dados.modelo) throw new Error('O modelo do código precisa ser outro, da categoria Autenticação: o dos avisos não serve para mandar códigos.')
       }
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {

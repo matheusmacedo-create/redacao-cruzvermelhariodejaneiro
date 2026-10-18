@@ -19,7 +19,7 @@ const cartao = 'rounded-xl border border-border bg-card p-4 sm:p-5'
 const dataCurta = (iso: string) => new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 /** Passado o prazo do código, a tela ainda espera um pouco: a mensagem pode estar a caminho. */
 const FOLGA_DA_ESPERA_MS = 15_000
-const AVISO_DA_ALTERNATIVA = 'Esse código só chega se você escreveu ao WhatsApp do Voluntariado nas últimas 24 horas, ou se houver um modelo de mensagem aprovado pelo WhatsApp. Se não chegar, use “Gerar código”.'
+const AVISO_DA_ALTERNATIVA = 'Esse código só chega se você escreveu ao WhatsApp do Voluntariado nas últimas 24 horas, ou se houver o modelo de código aprovado pelo WhatsApp. Se não chegar, use “Gerar código”.'
 
 /**
  * O WhatsApp na Área do Voluntário: confirmar o número e autorizar receber as

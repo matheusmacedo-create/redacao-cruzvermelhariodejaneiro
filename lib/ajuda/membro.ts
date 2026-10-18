@@ -967,7 +967,7 @@ const PERFIL: GuiaDaArea = {
         'Toque em “Abrir o WhatsApp” e envie a mensagem que já vem pronta, do número que você digitou. Em alguns segundos aparece “WhatsApp confirmado” aqui.',
         'Pronto: cada oportunidade nova chega por lá quando for publicada. No WhatsApp, “1” mostra as abertas, “2” as suas inscrições e “sair” para de mandar.',
       ],
-      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Voluntariado nas últimas 24 horas. Para se inscrever, use o link da mensagem: a inscrição continua sendo aqui na Área. “Remover o número” apaga o número e a autorização.',
+      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Voluntariado nas últimas 24 horas (ou se houver o modelo de código aprovado pelo WhatsApp). Para se inscrever, use o link da mensagem: a inscrição continua sendo aqui na Área. “Remover o número” apaga o número e a autorização.',
     },
     {
       id: 'ligar-avisos-por-email',

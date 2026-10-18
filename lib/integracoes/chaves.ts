@@ -70,8 +70,11 @@ export const SERVICOS = {
   // quando lib/participantes/verificacao/serpro.ts existir (docs/verificacao-de-voluntarios.md).
   // serpro: { nome: 'Serpro (Consulta CPF)', variavel: 'SERPRO_CONSULTA_CPF', painel: 'https://loja.serpro.gov.br/consultacpf', campos: [{ id: 'consumerKey', rotulo: 'Consumer key', secreto: false }, { id: 'consumerSecret', rotulo: 'Consumer secret', secreto: true }] },
   // O WhatsApp do Palácio, pela Kapso (API oficial da Meta; lib/whatsapp/kapso.ts). A chave é a do
-  // projeto (painel → Integrations → API keys); o id é o "Phone number ID" do número na tela WhatsApp do painel. O modelo é um modelo de mensagem aprovado pela
-  // Meta, com uma variável no corpo, usado para avisar quem não escreveu nas últimas 24 h.
+  // projeto (painel → Integrations → API keys); o id é o "Phone number ID" do número na tela WhatsApp do painel. Os modelos,
+  // aprovados pela Meta, levam a mensagem a quem não escreveu nas últimas 24 h, um por finalidade (lib/whatsapp/regras.ts,
+  // modeloParaEnviar): `modelo` o dos avisos, com uma variável no corpo (o id fica: é o que já está no cofre); `modeloCodigo`
+  // o do código de confirmação, da categoria AUTHENTICATION (a Meta exige essa categoria para códigos); `modeloSeguranca`
+  // o dos avisos de segurança da conta (vazio, vai pelo dos avisos).
   kapso: {
     nome: 'WhatsApp (Kapso — API oficial)',
     variavel: 'KAPSO_WHATSAPP',
@@ -79,9 +82,11 @@ export const SERVICOS = {
     campos: [
       { id: 'chave', rotulo: 'Chave da API (X-API-Key)', secreto: true },
       { id: 'numeroId', rotulo: 'Phone number ID', secreto: false, minimo: 5 },
-      { id: 'modelo', rotulo: 'Modelo aprovado para fora das 24 h (opcional)', secreto: false, minimo: 1, opcional: true },
+      { id: 'modelo', rotulo: 'Modelo dos avisos, para fora das 24 h (opcional)', secreto: false, minimo: 1, opcional: true },
+      { id: 'modeloCodigo', rotulo: 'Modelo do código, categoria Autenticação (opcional)', secreto: false, minimo: 1, opcional: true },
+      { id: 'modeloSeguranca', rotulo: 'Modelo de segurança da conta (opcional; vazio usa o dos avisos)', secreto: false, minimo: 1, opcional: true },
     ],
-    dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
+    dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Os modelos são os nomes aprovados na Kapso para quem não escreveu nas últimas 24 h: o dos avisos tem uma variável no corpo; o do código é da categoria Autenticação. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
   },
 } as const satisfies Record<string, DefinicaoDeServico>
 

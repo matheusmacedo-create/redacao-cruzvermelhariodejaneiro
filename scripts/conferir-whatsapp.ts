@@ -9,6 +9,7 @@ import {
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
   baseDoHashDoCodigo, textoDoCodigo, textoDoCodigoDeIda, linkDoWhatsapp, codigoNaMensagem, textoDoNumeroConfirmado, textoDoCodigoDeIdaErrado, textoDaFalhaDoCodigoDeIda,
+  modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -405,6 +406,60 @@ const kapsoSaida = lerEventoDaKapso({ message: { id: 'y', type: 'text', from: '5
 igual(kapsoSaida.mensagens[0]?.ignorar, 'de_mim', 'kapso: mensagem que o número mandou não é respondida')
 igual(lerEventoDaKapso({ message: { id: 'z' } }, 'whatsapp.message.delivered', NUMERO_ID).mensagens.length, 0, 'kapso: outros eventos não viram mensagem')
 igual(lerEventoDaKapso('lixo', 'whatsapp.message.received', NUMERO_ID).mensagens.length, 0, 'kapso: corpo estranho não lança')
+
+// ---------------------------------------------------------------- modelos por finalidade (fora da janela de 24 h)
+const todos = { modelo: 'aviso_do_palacio', modeloCodigo: 'codigo_do_palacio', modeloSeguranca: 'seguranca_do_palacio' }
+const soAviso = { modelo: 'aviso_do_palacio', modeloCodigo: null, modeloSeguranca: null }
+igual(modeloDaFinalidade('aviso', todos), 'aviso_do_palacio', 'aviso: modelo dos avisos')
+igual(modeloDaFinalidade('teste', todos), 'aviso_do_palacio', 'teste: modelo dos avisos')
+igual(modeloDaFinalidade('seguranca', todos), 'seguranca_do_palacio', 'segurança: modelo próprio')
+igual(modeloDaFinalidade('seguranca', soAviso), 'aviso_do_palacio', 'segurança sem modelo próprio: o dos avisos')
+igual(modeloDaFinalidade('codigo', todos), 'codigo_do_palacio', 'código: modelo de Autenticação')
+igual(modeloDaFinalidade('codigo', soAviso), null, 'código nunca vai pelo modelo dos avisos')
+igual(modeloDaFinalidade('bot', todos), null, 'bot nunca usa modelo')
+
+igual(modeloParaEnviar({ finalidade: 'codigo', modelos: todos, texto: 'Seu código: *123456*', codigo: '123456' }), {
+  ok: true,
+  modelo: {
+    name: 'codigo_do_palacio', language: { code: 'pt_BR' },
+    components: [
+      { type: 'body', parameters: [{ type: 'text', text: '123456' }] },
+      { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: '123456' }] },
+    ],
+  },
+}, 'código: corpo e botão de copiar com o código, no formato AUTHENTICATION')
+igual(modeloParaEnviar({ finalidade: 'aviso', modelos: todos, texto: '*Título*\n\nLinha 1\nLinha 2' }), {
+  ok: true, modelo: { name: 'aviso_do_palacio', language: { code: 'pt_BR' }, components: [{ type: 'body', parameters: [{ type: 'text', text: '*Título* · Linha 1 · Linha 2' }] }] },
+}, 'aviso: o texto achatado na variável')
+igual((modeloParaEnviar({ finalidade: 'seguranca', modelos: soAviso, texto: 'x' }) as { modelo?: { name: string } }).modelo?.name, 'aviso_do_palacio', 'segurança recai no modelo dos avisos')
+igual(modeloParaEnviar({ finalidade: 'bot', modelos: todos, texto: 'menu' }).ok, false, 'bot: nunca por modelo')
+const semModeloDoCodigo = modeloParaEnviar({ finalidade: 'codigo', modelos: soAviso, texto: 'x', codigo: '123456' })
+igual(semModeloDoCodigo.ok, false, 'código sem modelo de Autenticação não sai')
+contem(semModeloDoCodigo.ok ? '' : semModeloDoCodigo.falta, 'Autenticação', 'diz que falta o modelo de Autenticação')
+igual(modeloParaEnviar({ finalidade: 'codigo', modelos: todos, texto: 'x' }).ok, false, 'código sem o código não monta o modelo')
+igual(modeloParaEnviar({ finalidade: 'codigo', modelos: todos, texto: 'x', codigo: '12a456' }).ok, false, 'código fora do formato')
+const avisoSemModelo = modeloParaEnviar({ finalidade: 'aviso', modelos: { modelo: null, modeloCodigo: 'codigo_do_palacio', modeloSeguranca: null }, texto: 'x' })
+contem(avisoSemModelo.ok ? '' : avisoSemModelo.falta, 'Configurações → Integrações', 'aviso sem modelo diz onde informar')
+igual(textoParaModelo('a\tb\u00a0 c\n\n  d'), 'a b c · d', 'achata tabulação, espaço duro e quebras')
+igual(textoParaModelo('x'.repeat(1200)).length, 1000, 'corta em 1000')
+igual(nomeDeModeloValido('codigo_do_palacio'), true, 'nome de modelo ok')
+igual(nomeDeModeloValido('Código do Palácio'), false, 'nome com maiúscula, acento e espaço')
+
+igual(ehErroDeModelo(132000), true, '132000: variáveis')
+igual(ehErroDeModelo(132016), true, '132016: desativado')
+igual(ehErroDeModelo(132017), false, '132017 fica fora')
+igual(ehErroDeModelo(132068), true, '132068: fluxo bloqueado')
+igual(ehErroDeModelo(131047), false, 'fora da janela não é erro de modelo')
+igual(ehErroDeModelo(null), false, 'sem código')
+contem(problemaDoModelo({ nome: 'aviso_do_palacio', codigo: 132001, status: 400, mensagem: 'Template name does not exist in the translation' }) ?? '', 'não existe na Kapso em português', '132001 legível, com o nome inteiro')
+contem(problemaDoModelo({ nome: 'aviso_do_palacio', codigo: 132001, status: 400, mensagem: null }) ?? '', '“aviso_do_palacio”', 'o nome do modelo mantém o sublinhado')
+contem(problemaDoModelo({ nome: 'x', codigo: 132015, status: 400, mensagem: null }) ?? '', 'pausado', '132015: pausado')
+contem(problemaDoModelo({ nome: 'x', codigo: 132000, status: 400, mensagem: null }) ?? '', 'número de variáveis', '132000: variáveis')
+contem(problemaDoModelo({ nome: 'x', codigo: 132010, status: 400, mensagem: null }) ?? '', 'erro 132010 da Meta', 'outro da faixa: genérico com o código')
+contem(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Template not found' }) ?? '', 'A Kapso recusou', '404 da Kapso que fala do modelo não vira "número não achado"')
+igual(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Phone number not found' }), null, '404 do número continua sendo do número')
+igual(problemaDoModelo({ nome: 'x', codigo: 190, status: 401, mensagem: 'Invalid OAuth access token' }), null, 'token da Meta não é do modelo')
+igual(problemaDoModelo({ nome: 'x', codigo: null, status: 402, mensagem: 'template credits' }), null, 'créditos não é do modelo')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

@@ -245,7 +245,7 @@ export function fimDoSilencio(agora: Date): Date {
  * de pedir (código, resposta do bot, teste), para a segurança da conta e para
  * a portaria (a visita está na porta agora).
  */
-export function silencioSeAplica(p: { tipo: 'aviso' | 'seguranca' | 'codigo' | 'bot' | 'teste'; categoria?: string | null }): boolean {
+export function silencioSeAplica(p: { tipo: Finalidade; categoria?: string | null }): boolean {
   return p.tipo === 'aviso' && p.categoria !== 'portaria'
 }
 
@@ -305,7 +305,7 @@ export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
 //    (link wa.me com o texto pronto). Quem escreve é que abre a conversa, então não depende da
 //    janela de 24 h nem de modelo aprovado. O bot confere e confirma (lib/whatsapp/confirmacao.ts);
 //  - volta: o Palácio manda o código ao número e a pessoa digita na tela. Só chega a quem escreveu
-//    ao número nas últimas 24 h, ou pelo modelo aprovado do cofre.
+//    ao número nas últimas 24 h, ou pelo modelo de Autenticação do cofre (modeloParaEnviar, abaixo).
 // Os limites (códigos por janela, validade, tentativas) são os mesmos e contam juntos.
 
 export const CODIGO_VALIDADE_MIN = 10
@@ -386,6 +386,118 @@ export function textoDaFalhaDoCodigoDeIda(motivo: 'usado' | 'outra_conta' | 'fal
 
 /** O código que o Palácio mandou (o de digitar na tela) chegou de volta aqui: não conta tentativa. */
 export const TEXTO_DO_CODIGO_DE_VOLTA = 'Este código é para digitar na tela em que você o pediu, não para mandar aqui.'
+
+// ------------------------------------------------------------------ modelos (fora da janela de 24 h)
+//
+// Pela API oficial, texto livre só sai para quem escreveu ao número nas últimas 24 h. Fora disso,
+// só modelo aprovado pela Meta, um por finalidade (os nomes ficam no cofre, Configurações → Integrações):
+//  - aviso e teste: o modelo dos avisos, com uma variável no corpo ({{1}}) que leva o texto inteiro;
+//  - código de confirmação: um modelo da categoria AUTHENTICATION da Meta (é a categoria que a Meta
+//    exige para códigos). O texto é fixo da Meta, com o botão de copiar; o código vai no corpo e no
+//    botão. Sem ele, o código não sai fora da janela — nunca pelo modelo dos avisos;
+//  - segurança da conta: o modelo de segurança, se houver; senão, o dos avisos;
+//  - resposta do bot: nunca por modelo (quem escreveu acabou de abrir a janela).
+
+/** Para que a mensagem sai. É o tipo do registro (whatsapp_mensagens.tipo) e da fila. */
+export type Finalidade = 'aviso' | 'seguranca' | 'codigo' | 'bot' | 'teste'
+
+/** Os nomes dos modelos aprovados, como estão no cofre (null = não informado). */
+export type ModelosDoWhatsapp = { modelo: string | null; modeloCodigo: string | null; modeloSeguranca: string | null }
+
+/** Idioma dos modelos aprovados do Palácio. */
+export const IDIOMA_DO_MODELO = 'pt_BR'
+
+/** O nome de um modelo como a Meta grava: letras minúsculas, números e sublinhado. */
+export const nomeDeModeloValido = (nome: string) => /^[a-z0-9_]{1,512}$/.test(nome)
+
+/** O modelo que leva a mensagem fora da janela; null = nenhum serve. */
+export function modeloDaFinalidade(finalidade: Finalidade, m: ModelosDoWhatsapp): string | null {
+  if (finalidade === 'bot') return null
+  if (finalidade === 'codigo') return m.modeloCodigo
+  if (finalidade === 'seguranca') return m.modeloSeguranca ?? m.modelo
+  return m.modelo
+}
+
+/**
+ * O texto de um aviso cabendo num parâmetro de modelo: a Meta não aceita
+ * quebra de linha, tabulação nem mais de 4 espaços seguidos ali.
+ */
+export function textoParaModelo(t: string): string {
+  return t.replace(/\s*\n+\s*/g, ' · ').replace(/[\t\u00a0]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000)
+}
+
+type ParametroDeTexto = { type: 'text'; text: string }
+
+/** O objeto `template` da Cloud API (POST /{phone_number_id}/messages com type "template"). */
+export type ObjetoDoModelo = {
+  name: string
+  language: { code: string }
+  components: ({ type: 'body'; parameters: ParametroDeTexto[] } | { type: 'button'; sub_type: 'url'; index: string; parameters: ParametroDeTexto[] })[]
+}
+
+/**
+ * O modelo para mandar fora da janela, ou o que falta para haver um. `texto` é a mensagem que
+ * sairia como texto livre; `codigo`, o código de confirmação (só na finalidade "codigo": o modelo
+ * de Autenticação não leva o nosso texto, só o código, no corpo e no botão de copiar).
+ */
+export function modeloParaEnviar(p: { finalidade: Finalidade; modelos: ModelosDoWhatsapp; texto: string; codigo?: string | null }):
+  { ok: true; modelo: ObjetoDoModelo } | { ok: false; falta: string } {
+  if (p.finalidade === 'bot') return { ok: false, falta: 'Resposta do bot não sai por modelo.' }
+  const nome = modeloDaFinalidade(p.finalidade, p.modelos)
+  if (!nome) {
+    return {
+      ok: false,
+      falta: p.finalidade === 'codigo'
+        ? 'Para mandar o código fora da janela, aprove na Kapso um modelo da categoria Autenticação e informe o nome em Configurações → Integrações.'
+        : 'Para avisar fora da janela, aprove um modelo de mensagem na Kapso e informe o nome em Configurações → Integrações.',
+    }
+  }
+  const idioma = { code: IDIOMA_DO_MODELO }
+  if (p.finalidade === 'codigo') {
+    const codigo = String(p.codigo ?? '')
+    if (!codigoNoFormato(codigo)) return { ok: false, falta: 'O código não veio para o modelo de Autenticação.' }
+    const parametros: ParametroDeTexto[] = [{ type: 'text', text: codigo }]
+    return { ok: true, modelo: { name: nome, language: idioma, components: [{ type: 'body', parameters: parametros }, { type: 'button', sub_type: 'url', index: '0', parameters: parametros }] } }
+  }
+  return { ok: true, modelo: { name: nome, language: idioma, components: [{ type: 'body', parameters: [{ type: 'text', text: textoParaModelo(p.texto) }] }] } }
+}
+
+/**
+ * Erro da Meta que é do modelo, não da conexão: 132000–132016 (modelo que não existe no idioma,
+ * pausado, desativado, variáveis erradas) e 132068/132069 (fluxo do modelo bloqueado ou limitado).
+ */
+export const ehErroDeModelo = (codigo: number | null | undefined): boolean =>
+  typeof codigo === 'number' && (codigo >= 132000 && codigo <= 132016 || codigo === 132068 || codigo === 132069)
+
+/**
+ * A recusa de um envio por modelo, legível; null se a recusa não é do modelo (chave, créditos,
+ * volume, número). Quem chama trata como falha comum ("outro"): sem reenvio e sem alerta de queda,
+ * porque quem arruma é a administração, na Kapso. A Kapso pode recusar antes de chegar à Meta, sem
+ * o código: 400, 404 ou 422 que fala do modelo também conta (o 404 não vira "número não achado").
+ */
+export function problemaDoModelo(p: { nome: string; codigo: number | null; status: number; mensagem: string | null }): string | null {
+  const nome = p.nome.slice(0, 80)
+  const qual = `o modelo “${nome}”`
+  const Qual = `O modelo “${nome}”`
+  if (ehErroDeModelo(p.codigo)) {
+    const c = p.codigo as number
+    const meta = ` (erro ${c} da Meta)`
+    if (c === 132000) return `${Qual} espera outro número de variáveis${meta}. O dos avisos e o de segurança têm uma variável só, no corpo; o de código é da categoria Autenticação, com o botão de copiar.`
+    if (c === 132001) return `${Qual} não existe na Kapso em português (pt_BR) ou ainda não foi aprovado pela Meta${meta}. Confira o nome em Configurações → Integrações.`
+    if (c === 132005) return `O texto ficou longo demais para ${qual}${meta}.`
+    if (c === 132007) return `A Meta recusou o texto em ${qual} pelas regras de formatação${meta}.`
+    if (c === 132012) return `As variáveis não estão no formato que ${qual} espera${meta}. O de código precisa ser da categoria Autenticação, com o botão de copiar.`
+    if (c === 132015) return `${Qual} foi pausado pela Meta por baixa qualidade${meta}. Veja no painel da Kapso; até lá, o que depende dele não sai fora da janela.`
+    if (c === 132016) return `${Qual} foi desativado pela Meta${meta}. Aprove outro na Kapso e troque o nome em Configurações → Integrações.`
+    if (c === 132068) return `O fluxo ligado a ${qual} está bloqueado na Meta${meta}.`
+    if (c === 132069) return `O fluxo ligado a ${qual} está limitado pela Meta agora${meta}. Tente mais tarde.`
+    return `A Meta recusou ${qual}${meta}. Confira o modelo no painel da Kapso.`
+  }
+  if ((p.status === 400 || p.status === 404 || p.status === 422) && /template|modelo/i.test(p.mensagem ?? '')) {
+    return `A Kapso recusou ${qual}: ${String(p.mensagem).replace(/\s+/g, ' ').trim().slice(0, 160)}. Confira o nome em Configurações → Integrações e o modelo no painel da Kapso.`
+  }
+  return null
+}
 
 // ------------------------------------------------------------------ webhook
 

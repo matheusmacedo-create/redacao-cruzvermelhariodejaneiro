@@ -632,7 +632,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)”, “Google Analytics (conta de serviço)” ou “WhatsApp (Kapso — API oficial)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
-        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, o nome do modelo aprovado. No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
+        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, os nomes dos modelos aprovados (avisos, código e segurança da conta). No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
         'Toque em “Salvar no cofre”.',
         'O cartão passa a mostrar “Configurada no cofre em …”, com a data.',
       ],
@@ -864,6 +864,12 @@ const WHATSAPP: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'whatsapp.modelos',
+      titulo: 'Modelos para fora das 24 horas',
+      texto: 'Quais modelos aprovados estão em Integrações: o dos avisos, o do código (categoria Autenticação) e o de segurança da conta. Sem o modelo, o que é daquele tipo não sai para quem não escreveu ao número nas últimas 24 horas.',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'whatsapp.recebimento',
       titulo: 'Receber mensagens (bot)',
       texto: 'Sem isto ligado, o número só manda. “Ligar o recebimento de mensagens” faz a Kapso entregar ao Palácio o que chega, e o bot responde.',
@@ -899,7 +905,7 @@ const WHATSAPP: GuiaDaArea = {
         'Abra a aba “WhatsApp”: a conexão aparece como “Conectado”, com o número e o nome verificado.',
         'Toque em “Ligar o recebimento de mensagens”. Pronto: não há QR code nem celular para manter ligado.',
       ],
-      dica: 'Para os avisos chegarem a quem não escreveu ao número nas últimas 24 horas, aprove um modelo de mensagem na Kapso e informe o nome dele no mesmo cartão (veja a pergunta sobre a janela de 24 horas).',
+      dica: 'Para os avisos chegarem a quem não escreveu ao número nas últimas 24 horas, aprove os modelos de mensagem na Kapso (o dos avisos e, para o código, um da categoria Autenticação) e informe os nomes no mesmo cartão (veja a pergunta sobre a janela de 24 horas).',
     },
     {
       id: 'testar-whatsapp',
@@ -917,8 +923,8 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'janela-de-24-horas',
       pergunta: 'Por que um aviso falhou com “Fora da janela de 24 horas”?',
-      resposta: 'É uma regra da API oficial do WhatsApp: o número só manda texto livre para quem escreveu para ele nas últimas 24 horas. Para os outros, só sai um modelo de mensagem aprovado pela Meta.\n\nNo painel da Kapso, crie um modelo em português com uma variável no corpo (por exemplo, “Aviso do Palácio Virtual: {{1}}”) e espere a aprovação. Depois, em Integrações, informe o nome dele no campo “Modelo aprovado para fora das 24 h”. A partir daí, o aviso fora da janela sai pelo modelo, com o texto inteiro no lugar da variável.\n\nQuem responde ao bot abre a janela de novo por 24 horas.',
-      termos: ['24 horas', 'janela', 'modelo', 'template', 'kapso', '131047'],
+      resposta: 'É uma regra da API oficial do WhatsApp: o número só manda texto livre para quem escreveu para ele nas últimas 24 horas. Para os outros, só sai modelo de mensagem aprovado pela Meta. Crie os modelos em português no painel da Kapso, espere a aprovação e informe os nomes em Configurações → Integrações, no cartão da Kapso. São três, todos opcionais:\n\nAvisos (e o teste): uma variável no corpo, como “Aviso do Palácio Virtual: {{1}}”; o texto inteiro vai no lugar dela.\n\nCódigo: da categoria Autenticação da Meta, a que a Meta exige para códigos. O texto é fixo da Meta, com o botão de copiar o código. Sem ele, o código não sai fora da janela (“Gerar código” não depende disso).\n\nSegurança da conta: vazio, vai pelo dos avisos.\n\nAs respostas do bot nunca vão por modelo. Modelo recusado (nome errado, pausado) aparece em “Últimas mensagens” com o motivo.',
+      termos: ['24 horas', 'janela', 'modelo', 'template', 'kapso', '131047', 'autenticação', 'código', 'segurança', '132001', '132015'],
     },
     {
       id: 'url-do-webhook',
@@ -1065,7 +1071,7 @@ const PERFIL: GuiaDaArea = {
         'Volte ao Palácio: em alguns segundos aparece “WhatsApp confirmado”, sem digitar nada. O Palácio também responde por lá.',
         'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
       ],
-      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas (ou se a administração tiver um modelo aprovado). Por lá, responda “menu” para ver as opções. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
+      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas (ou se a administração tiver aprovado o modelo de código). Por lá, responda “menu” para ver as opções. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui.',
     },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },

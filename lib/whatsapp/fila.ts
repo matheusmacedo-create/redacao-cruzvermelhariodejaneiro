@@ -85,7 +85,8 @@ export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem,
 
 /** Envia agora e registra; atualiza o estado da conexão pelo resultado. */
 async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: Mensagem) {
-  const envio = await enviarTexto(config, m.numero, m.texto)
+  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo).
+  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero,
     userId: m.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,

@@ -117,11 +117,12 @@ export async function conferirConfirmacaoDoWhatsapp(numeroNaTela: string, desde:
   }
 }
 
-/** A alternativa: o Palácio manda o código ao número e a pessoa digita. Só chega dentro da janela de 24 h ou pelo modelo aprovado. */
+/** A alternativa: o Palácio manda o código ao número e a pessoa digita. Só chega dentro da janela de 24 h ou pelo modelo de Autenticação. */
 export async function pedirCodigoDoWhatsapp(formData: FormData): Promise<Resultado & { numero?: string }> {
   try {
     const { context, admin, config, numero, codigo } = await novoCodigo(formData, 'volta')
-    const envio = await mandar(admin, context.workspace.id, { numero, texto: textoDoCodigo(codigo), tipo: 'codigo', userId: context.user.id, config })
+    // Fora da janela de 24 h, o código vai sozinho pelo modelo de Autenticação (o texto é fixo da Meta).
+    const envio = await mandar(admin, context.workspace.id, { numero, texto: textoDoCodigo(codigo), tipo: 'codigo', codigo, userId: context.user.id, config })
     // Sem confirmação a tempo, o código costuma chegar com atraso: a tela abre o campo mesmo assim.
     if (!envio.ok && envio.semResposta) {
       return { recado: `O WhatsApp demorou a confirmar o envio para ${formatarNumero(numero)}. O código deve chegar em instantes: digite abaixo quando chegar. Se não chegar em 2 minutos, peça outro.`, numero: formatarNumero(numero) }

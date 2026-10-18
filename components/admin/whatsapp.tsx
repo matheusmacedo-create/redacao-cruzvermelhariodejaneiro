@@ -37,6 +37,31 @@ function MostrarRecado({ recado }: { recado: Recado }) {
   return <p role={recado.tom === 'erro' ? 'alert' : 'status'} className={`text-sm ${recado.tom === 'erro' ? 'text-destructive' : 'text-success'}`}>{recado.texto}</p>
 }
 
+/** Os nomes dos modelos aprovados para fora da janela de 24 h (null = não informado em Integrações). Não são segredo. */
+type ModelosNaTela = { aviso: string | null; codigo: string | null; seguranca: string | null }
+
+const Nome = ({ nome }: { nome: string }) => <strong className="font-mono text-xs text-foreground">{nome}</strong>
+
+/**
+ * Fora da janela de 24 h, só sai modelo aprovado, um por finalidade (lib/whatsapp/regras.ts,
+ * modeloParaEnviar): diz quais estão em Integrações e o que acontece sem cada um.
+ */
+function ModelosDaJanela({ modelos }: { modelos: ModelosNaTela }) {
+  return (
+    <div data-ajuda="whatsapp.modelos" className="flex flex-col gap-1 text-sm text-muted-foreground">
+      <p>Pela API oficial, o Palácio só manda texto livre para quem escreveu ao número nas últimas 24 horas. Para os outros, só sai modelo aprovado pela Meta:</p>
+      <ul className="list-disc space-y-0.5 pl-5">
+        <li>Avisos e teste: {modelos.aviso ? <>modelo <Nome nome={modelos.aviso} />, com o texto inteiro na variável.</> : 'nenhum modelo; fora da janela, o aviso falha e fica em “Últimas mensagens”.'}</li>
+        <li>Código de confirmação: {modelos.codigo
+          ? <>modelo <Nome nome={modelos.codigo} />, da categoria Autenticação (texto fixo da Meta, com o botão de copiar).</>
+          : 'nenhum modelo de Autenticação; fora da janela, o código não sai (“Gerar código”, o caminho padrão, não depende disso).'}</li>
+        <li>Segurança da conta: {modelos.seguranca ? <>modelo <Nome nome={modelos.seguranca} />.</> : modelos.aviso ? <>pelo modelo dos avisos, <Nome nome={modelos.aviso} />.</> : 'nenhum modelo.'}</li>
+      </ul>
+      <p>As respostas do bot nunca vão por modelo: quem escreve abre a janela. Os nomes ficam em <Link href="/configuracoes/integracoes" className="text-primary hover:underline">Integrações</Link>, no cartão da Kapso.</p>
+    </div>
+  )
+}
+
 /**
  * A conexão do número do Palácio (pela Kapso): estado, recebimento (webhook),
  * fila, teste e as últimas mensagens. Tudo passa pelas actions de
@@ -47,8 +72,7 @@ export function PainelDoWhatsapp(p: {
   numeroId: string
   estado: EstadoDaConexao
   erro: string | null
-  /** Há um modelo aprovado para avisar fora da janela de 24 h. */
-  temModelo: boolean
+  modelos: ModelosNaTela
   webhook: string
   numeroConectado: string | null
   nomeConectado: string | null
@@ -94,13 +118,7 @@ export function PainelDoWhatsapp(p: {
             {p.numeroConectado ? <>Número conectado: <strong>{p.numeroConectado}</strong>{p.nomeConectado ? ` (${p.nomeConectado})` : ''}.</> : 'Conectado ao WhatsApp.'}
           </p>
         )}
-        {conectado && (
-          <p className="text-sm text-muted-foreground">
-            {p.temModelo
-              ? 'Para quem não escreveu ao número nas últimas 24 horas, os avisos saem pelo modelo aprovado informado em Integrações.'
-              : 'Pela API oficial, o Palácio só manda texto livre para quem escreveu ao número nas últimas 24 horas. Para os outros avisos, aprove um modelo de mensagem na Kapso (com uma variável no corpo) e informe o nome dele em Configurações → Integrações.'}
-          </p>
-        )}
+        {conectado && <ModelosDaJanela modelos={p.modelos} />}
         <p className="text-xs text-muted-foreground">O número se conecta e se desconecta no painel da Kapso, não aqui.</p>
         <MostrarRecado recado={recado} />
       </Card>

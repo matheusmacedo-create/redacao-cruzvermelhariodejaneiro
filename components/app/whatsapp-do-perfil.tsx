@@ -27,7 +27,7 @@ const FOLGA_DA_ESPERA_MS = 15_000
  * mensagem já vai pronta); a tela confere sozinha, a cada poucos segundos, até
  * o bot confirmar. A alternativa, "Prefiro receber o código pelo WhatsApp": o
  * código chega no número e a pessoa digita — só chega a quem escreveu ao
- * Palácio nas últimas 24 h ou com modelo aprovado.
+ * Palácio nas últimas 24 h ou pelo modelo de Autenticação aprovado.
  */
 export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
   disponivel: boolean
@@ -157,7 +157,7 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
       <Button type="button" variant="link" className="h-auto px-0 text-left whitespace-normal" disabled={ocupado || !serve(paraNumero)} onClick={() => pedir(paraNumero)}>
         Prefiro receber o código pelo WhatsApp
       </Button>
-      <p className="text-xs text-muted-foreground">Esse código só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas, ou se a administração tiver um modelo de mensagem aprovado.</p>
+      <p className="text-xs text-muted-foreground">Esse código só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas, ou se a administração tiver aprovado o modelo de código (categoria Autenticação).</p>
     </div>
   )
 
