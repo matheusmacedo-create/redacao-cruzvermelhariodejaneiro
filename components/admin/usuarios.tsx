@@ -461,7 +461,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, whatsappConfigurado, ao
       {!u.souEu && (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           {/* Também na conta desativada: as desativadas antes da liberação automática ainda prendem o número. */}
-          {u.whatsapp && <Button variant="outline" disabled={ocupado} onClick={() => { if (u.whatsapp && confirm(`Remover o WhatsApp de ${u.nome} (${u.whatsapp.numero})? Os avisos param de ir para esse número, que fica livre para ser confirmado em outra conta. A pessoa é avisada pelo e-mail e pelo próprio número.`)) executar(removerWhatsappDoUsuario, {}) }}><MessageCircleOff className="size-4" />Remover WhatsApp</Button>}
+          {u.whatsapp && <Button variant="outline" disabled={ocupado} onClick={() => { if (u.whatsapp && confirm(`Remover o WhatsApp de ${u.nome} (${u.whatsapp.numero})? Os avisos param de ir para esse número, que fica livre para ser confirmado em outra conta. A pessoa é avisada pelo e-mail confirmado; o número não recebe nada, porque pode já ser de outra pessoa.`)) executar(removerWhatsappDoUsuario, {}) }}><MessageCircleOff className="size-4" />Remover WhatsApp</Button>}
           {u.ativo ? <>
             {u.aparelhos > 0 && <Button variant="outline" disabled={ocupado} onClick={() => { if (confirm(`Remover a verificação em duas etapas de ${u.nome}? Use quando a pessoa perdeu ou trocou de celular. As sessões abertas dela são encerradas.`)) executar(removerVerificacaoDoUsuario, {}) }}><ShieldOff className="size-4" />Remover verificação em 2 etapas</Button>}
             {podeConvidar && !convidando && <Button onClick={() => { setConvidando(true); setRedefinindo(false) }}><Send className="size-4" />Enviar convite de primeiro acesso</Button>}
@@ -551,7 +551,7 @@ function detalheDoEvento(e: EventoNaTela): string {
   // Os números já foram gravados mascarados.
   if (e.acao === 'whatsapp_confirmado') return d.anterior ? `${d.anterior} → ${d.numero}` : String(d.numero ?? '')
   if (e.acao === 'whatsapp_removido' || e.acao === 'whatsapp_removido_pelo_admin') return String(d.numero ?? '')
-  if (e.acao === 'usuario_desativado' && d.whatsapp_liberado) return `WhatsApp ${d.whatsapp_liberado} liberado`
+  if ((e.acao === 'usuario_desativado' || e.acao === 'convite_cancelado') && d.whatsapp_liberado) return `WhatsApp ${d.whatsapp_liberado} liberado`
   if (e.acao === 'conta_bloqueada_por_tentativas') return String(d.lugar ?? '')
   if (e.acao === 'verificacao_exigencia_alterada') {
     const lista = (v: unknown) => (Array.isArray(v) && v.length ? v.map(papel).join(', ') : 'ninguém')

@@ -52,6 +52,8 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
           throw new Error(`O nome do modelo em "${campos.find((c) => c.id === id)?.rotulo ?? id}" usa só letras minúsculas, números e sublinhado, como aparece na Kapso (ex.: ${exemplo}).`)
         }
         if (dados.modeloCodigo && dados.modeloCodigo === dados.modelo) throw new Error('O modelo do código precisa ser outro, da categoria Autenticação: o dos avisos não serve para mandar códigos.')
+        // "Segurança" lembra "Autenticação", mas o modelo de Autenticação só leva o código: com o aviso inteiro, a Meta recusa.
+        if (dados.modeloCodigo && dados.modeloSeguranca === dados.modeloCodigo) throw new Error('O modelo de segurança precisa ser outro: o de Autenticação só leva o código. Deixe vazio para usar o dos avisos.')
       }
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {

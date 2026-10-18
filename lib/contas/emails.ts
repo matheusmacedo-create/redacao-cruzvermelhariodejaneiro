@@ -162,12 +162,13 @@ export type AvisoDeSeguranca =
   | { tipo: 'conta_reativada'; adminNome: string }
   | { tipo: 'papel_alterado'; de: string; para: string; adminNome: string }
   | { tipo: 'email_alterado'; novo: string }
-  // Os números chegam já mascarados (lib/whatsapp/regras.ts, mascararNumero): o aviso vai também ao número antigo.
+  // Os números chegam já mascarados (lib/whatsapp/regras.ts, mascararNumero). Vão só ao e-mail confirmado: o número
+  // antigo recebe um recado sem nome (lib/contas/servidor.ts, avisarTrocaDeWhatsapp).
   | { tipo: 'whatsapp_trocado'; de: string; para: string }
   | { tipo: 'whatsapp_removido'; numero: string; porAdmin?: string }
   | { tipo: 'conta_bloqueada'; lugar: string }
 
-/** O fecho dos avisos do WhatsApp da conta: o texto vai também ao número antigo, que não necessariamente entra no Palácio. */
+/** O fecho dos avisos do WhatsApp da conta (troca e remoção pela própria pessoa: se não foi ela, alguém mexeu na conta). */
 const SE_NAO_FOI_VOCE_NO_WHATSAPP = 'Se não foi você, fale com a administração do Palácio Virtual e troque a sua senha em Meu perfil.'
 
 export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSeguranca; urlDeLogin: string }): EmailPronto {
@@ -243,7 +244,8 @@ export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSegu
         { tipo: 'nota', texto: SE_NAO_FOI_VOCE },
       ],
     }),
-    // O mesmo texto vai ao e-mail e ao número antigo: nada de "este número" nem de "este endereço".
+    // Só para o e-mail confirmado: o número antigo, que pode já ser de outra pessoa, recebe um recado sem nome
+    // (lib/whatsapp/regras.ts, AVISO_AO_NUMERO_ANTIGO), e na remoção pela administração, nada.
     whatsapp_trocado: () => {
       const s = a as Extract<AvisoDeSeguranca, { tipo: 'whatsapp_trocado' }>
       return {

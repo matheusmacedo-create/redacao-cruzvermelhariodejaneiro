@@ -5,7 +5,7 @@ import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { corpoParaWhatsapp, emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
 import { entregar } from '@/lib/whatsapp/fila'
-import { mascararNumero, textoDeSeguranca } from '@/lib/whatsapp/regras'
+import { AVISO_AO_NUMERO_ANTIGO, mascararNumero, textoDeSeguranca } from '@/lib/whatsapp/regras'
 
 /**
  * Links de uso único e avisos por e-mail da conta.
@@ -125,8 +125,9 @@ export async function enviarComSeguranca(para: string, email: EmailPronto): Prom
 
 /**
  * Para onde vai o aviso. `email`: outro endereço (o antigo, quando o e-mail
- * muda). `whatsapp`: sem ele, o número confirmado; com um número, aquele (o
- * antigo, quando o WhatsApp muda ou sai); null, nenhum.
+ * muda). `whatsapp`: sem ele, o número confirmado; com um número, aquele;
+ * null, nenhum (a troca do WhatsApp: o número antigo recebe outro texto, em
+ * avisarTrocaDeWhatsapp).
  */
 export type DestinosDoAviso = { email?: string; whatsapp?: string | null }
 
@@ -151,12 +152,14 @@ export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguran
 /**
  * O aviso de segurança pelo WhatsApp: para o número confirmado da pessoa ou,
  * com `numero`, para aquele (o que estava confirmado antes de uma troca ou
- * remoção — é por ele que a pessoa descobre, se não foi ela).
+ * remoção, com o recado sem nome — é por ele que a pessoa descobre, se não
+ * foi ela).
  *
  * Sai mesmo com os avisos pausados, como promete textoDeSeguranca: pausar
  * vale para os avisos comuns, não para a segurança da conta. Também não
  * espera o fim do silêncio das 22h (silencioSeAplica) e, se cair na fila, não
- * é descartado por o número ter mudado (fila.ts, desistirAntes).
+ * é descartado por o número ter mudado — só se ele foi confirmado em outra
+ * conta enquanto esperava (fila.ts, desistirAntes).
  *
  * Nunca lança; sem a tabela (antes da migração), sem número ou sem a Kapso,
  * não faz nada.
@@ -179,15 +182,20 @@ export async function avisarPorWhatsapp(admin: Admin, userId: string, aviso: { t
 
 /**
  * O WhatsApp da conta mudou (outro número confirmado) ou saiu (`novo` null):
- * avisa o e-mail confirmado e o número ANTIGO. Na primeira confirmação (sem
- * número antigo) ou com o mesmo número, nada. Nunca lança.
+ * o aviso completo (nome, números, quem fez) vai só ao e-mail confirmado. O
+ * número ANTIGO pode já ser de outra pessoa — é o caso da remoção pela
+ * administração ("o número passou para outra pessoa") —, então recebe só um
+ * recado sem nome (AVISO_AO_NUMERO_ANTIGO), e na remoção pela administração
+ * nem isso. Na primeira confirmação (sem número antigo) ou com o mesmo
+ * número, nada. Nunca lança.
  */
 export async function avisarTrocaDeWhatsapp(admin: Admin, userId: string, p: { anterior: string | null; novo: string | null; porAdmin?: string }): Promise<void> {
   if (!p.anterior || p.anterior === p.novo) return
   try {
     await avisar(admin, userId, p.novo
       ? { tipo: 'whatsapp_trocado', de: mascararNumero(p.anterior), para: mascararNumero(p.novo) }
-      : { tipo: 'whatsapp_removido', numero: mascararNumero(p.anterior), porAdmin: p.porAdmin }, { whatsapp: p.anterior })
+      : { tipo: 'whatsapp_removido', numero: mascararNumero(p.anterior), porAdmin: p.porAdmin }, { whatsapp: null })
+    if (!p.porAdmin) await avisarPorWhatsapp(admin, userId, AVISO_AO_NUMERO_ANTIGO, p.anterior)
   } catch (causa) {
     console.error('[contas] aviso da troca de WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
   }

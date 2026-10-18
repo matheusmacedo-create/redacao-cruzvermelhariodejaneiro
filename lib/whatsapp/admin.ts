@@ -69,7 +69,7 @@ async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDo
   ].filter((g): g is { onde: string; conta: string } => g !== null)
   return textoDoStatus({
     conexao, webhook, fila,
-    falhas: falhas ? { total: falhas.total, grupos: resumoDasFalhas(falhas.erros) } : null,
+    falhas: falhas ? { total: falhas.total, grupos: resumoDasFalhas(falhas.falhas) } : null,
     semChave: chaves ? chaves.filter((c) => !c.origem).map((c) => nomeCurto(c.nome)) : null,
     googleExpiradas, rotina, urlBase: base,
   })

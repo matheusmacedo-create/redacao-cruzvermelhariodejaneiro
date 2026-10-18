@@ -336,21 +336,31 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   confirmado e ao WhatsApp confirmado (`avisarPorWhatsapp`, tipo `seguranca`)
   **mesmo com os avisos pausados** — pausar vale para os avisos comuns, como
   promete `textoDeSeguranca`. `avisar(admin, userId, aviso, { email, whatsapp })`
-  manda para outro endereço ou número: o antigo, quando o e-mail ou o WhatsApp
-  muda. São best-effort: nunca desfazem a ação; a falha vai para o log.
+  manda para outro endereço ou número (o endereço antigo, quando o e-mail muda)
+  ou, com `whatsapp: null`, só ao e-mail. São best-effort: nunca desfazem a
+  ação; a falha vai para o log.
 - **WhatsApp da conta (18/10/2026):** confirmar outro número
   (`confirmarNumeroDaEquipe`, pela tela ou pelo bot; e o convite só pelo
   WhatsApp) ou tirar o número (Meu perfil, ou o admin em `/usuarios` com
-  “Remover WhatsApp”, `removerWhatsappDoUsuario`) avisa o e-mail confirmado e o
-  número ANTIGO (`avisarTrocaDeWhatsapp`, números mascarados). **Desativar libera
-  o número**: cancela o que esperava na fila para a pessoa (`desistiu`, menos os
-  avisos de segurança), manda o aviso de conta desativada e só então apaga a
-  linha de `whatsapp_contas` e invalida os códigos — o número pode ser
-  confirmado em outra conta; reativada, a pessoa confirma de novo. `/usuarios`
-  mostra o número mascarado (o inteiro não vai ao navegador). Auditoria em
-  `auditoria_de_acesso`: `whatsapp_confirmado` (com `anterior` na troca),
-  `whatsapp_removido`, `whatsapp_removido_pelo_admin` e, em
-  `usuario_desativado`, `whatsapp_liberado` e `whatsapp_fila_cancelada`.
+  “Remover WhatsApp”, `removerWhatsappDoUsuario`) avisa
+  (`avisarTrocaDeWhatsapp`, números mascarados) só o e-mail confirmado com o
+  aviso completo. O número ANTIGO pode já ser de outra pessoa (é o caso da
+  remoção pelo admin), então recebe só um recado sem nome, sem quem fez e sem
+  “sua conta” (`AVISO_AO_NUMERO_ANTIGO`, tipo `seguranca`) — e, na remoção pelo
+  admin, nada. **Desativar libera o número**: cancela o que esperava na fila
+  para a pessoa (`desistiu`, menos os avisos de segurança) e o convite de acesso
+  que ainda não saiu (entra sem `user_id`; é achado pelo número da marca do
+  último convite, `lerMarcaDoConvite`, e o texto com o link é apagado), manda o
+  aviso de conta desativada e só então apaga a linha de `whatsapp_contas` e
+  invalida os códigos — o número pode ser confirmado em outra conta; reativada,
+  a pessoa confirma de novo. **Cancelar o convite** faz o mesmo (o convite
+  aberto só pelo WhatsApp já confirmou o número sem abrir sessão, e a conta
+  segue “sem primeiro acesso”). O link avulso da ficha do RH na fila fica: é do
+  RH, não da conta. `/usuarios` mostra o número mascarado (o inteiro não vai ao
+  navegador). Auditoria em `auditoria_de_acesso`: `whatsapp_confirmado` (com
+  `anterior` na troca), `whatsapp_removido`, `whatsapp_removido_pelo_admin` e,
+  em `usuario_desativado` e `convite_cancelado`, `whatsapp_liberado` e
+  `whatsapp_fila_cancelada`.
 - **Perdi o celular** (`/verificacao`): avisa os admins por e-mail, 1 vez por
   hora. Não remove nada sozinho — senão a 2ª etapa valeria o mesmo que a senha.
 
@@ -1983,8 +1993,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   de 6 dígitos e o botão “Abrir o WhatsApp” (`https://wa.me/<número do Palácio>?text=Confirmar meu WhatsApp no
   Palácio: 123456`; o número vem de `perfilConectado`, e sem ele a tela mostra só o código e a instrução). A
   pessoa manda do próprio número; `atenderMensagem`, antes de tudo, acha o código na mensagem
-  (`codigoNaMensagem`: um grupo só de 6 dígitos, sem outro número junto) e, havendo código em aberto para o
-  número canônico (`codigosPendentesDoNumero`), confere o hash e confirma pela mesma função do caminho de
+  (`codigoNaMensagem`: um grupo só de 6 dígitos, sem outro número junto; se o número já está em
+  `whatsapp_contas`, só a leitura estrita `soOCodigo` — a mensagem que é só o código ou exatamente a
+  mensagem pronta —, para “chamado: patrimônio 123456 sem toner” seguir para o chamado) e, havendo código
+  em aberto para o número canônico (`codigosPendentesDoNumero`), confere o hash e confirma pela mesma função do caminho de
   digitar (`confirmarNumeroDaEquipe` / `confirmarNumeroDoVoluntario`: consome o código de forma atômica, grava
   `whatsapp_contas` ou `participantes_whatsapp`, 23505 = número de outra conta, auditoria `whatsapp_confirmado`
   com `caminho`). Responde por lá (confirmado, com a linha do menu; código errado conta tentativa em cada
@@ -1992,7 +2004,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `conferirConfirmacaoDoVoluntario`, só leitura) até confirmar ou o código deixar de valer. Como quem escreve é
   a pessoa, não depende da janela de 24 h nem de modelo. A **alternativa** (“Prefiro receber o código pelo
   WhatsApp”) é a de antes: o Palácio manda o código e a pessoa digita — só chega dentro da janela ou pelo modelo
-  de Autenticação (`mandar` com `tipo: 'codigo'` e o próprio `codigo`).
+  de Autenticação (`mandar` com `tipo: 'codigo'` e o próprio `codigo`). O código novo toma o lugar do de ida
+  antes do envio: se não sai, a action devolve `codigoTrocado` e a tela volta ao formulário do número (onde está
+  o “Gerar código”), em vez de seguir mostrando um código que não vale mais.
   Não há coluna que diga o sentido: o hash leva um sal por sentido (`whatsapp-ida:` × `whatsapp:`, o de volta
   no formato antigo), então o código da tela nunca serve para digitar e o que chegou no número nunca confirma
   mandado ao bot (o bot responde que ele é para digitar, sem contar tentativa).
@@ -2020,7 +2034,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   categoria AUTHENTICATION da Meta (a que a Meta exige para códigos): texto fixo da Meta, `components` = corpo
   com o código e botão `url` de índice `0` com o código (botão de copiar), `pt_BR` — sem ele, o código não sai
   fora da janela, nunca pelo modelo dos avisos (e o cartão recusa o mesmo nome nos dois); **seguranca** →
-  `modeloSeguranca` ou, vazio, `modelo`; **bot** → nunca por modelo (inclusive as boas-vindas depois de
+  `modeloSeguranca` ou, vazio, `modelo` (o cartão recusa nele o nome do de Autenticação, que só leva o
+  código); **bot** → nunca por modelo (inclusive as boas-vindas depois de
   confirmar pelo código digitado). Sem o modelo, a falha fica registrada com o motivo e não é reenviada. Recusa
   do modelo (132000–132016, 132068, 132069, ou 400/404/422 da Kapso que fala de template) vira texto legível
   (`problemaDoModelo`), motivo `outro`: sem reenvio e sem alerta de queda (o 404 do modelo não vira "número não
@@ -2105,8 +2120,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   fila anda quando chega mensagem (webhook), a cada aviso novo, na rotina diária
   `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
   sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número — menos o aviso de
-  segurança da conta, que vai ao número a que foi endereçado, pausado ou não (o da troca ou remoção
-  vai justamente ao número antigo; §5, “WhatsApp da conta”). Batido o teto do minuto,
+  segurança da conta, que vai ao número a que foi endereçado, pausado ou não (o recado da troca ou
+  remoção vai justamente ao número antigo; §5, “WhatsApp da conta”), a não ser que, enquanto
+  esperava, o número tenha sido confirmado em outra conta (`whatsapp_contas` de outro `user_id`;
+  `participantes_whatsapp` não conta: a mesma pessoa pode ser voluntária). Batido o teto do minuto,
   a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de
   resposta do bot, segurança e avisos da equipe. Só controle de volume:
   **não há variação de texto nem “digitando” para despistar o WhatsApp**.
@@ -2118,14 +2135,21 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (`situacaoDoWebhook`): `desligado` ou `outro_endereco` alertam “O WhatsApp do Palácio parou de receber
   mensagens” (`conferirWebhook`; `desconhecido` não conta — é a Kapso sem responder, e a queda tem o alerta
   dela). E conta as falhas das últimas 24 h por “fora da janela” sem modelo ou recusa do modelo
-  (`falhasSemModelo`): a partir de 5 (`FALHAS_SEM_MODELO_PARA_ALERTAR`), “Mensagens do WhatsApp sem modelo
+  (`falhasSemModelo`, que lê o erro e o tipo do registro: a resposta do bot fora da janela — as
+  boas-vindas depois de confirmar pelo código digitado — nunca vai por modelo, então não conta; no
+  `status` ela sai à parte, “Resposta do bot fora da janela de 24 h (não usa modelo)”, sem a dica dos
+  modelos): a partir de 5 (`FALHAS_SEM_MODELO_PARA_ALERTAR`), “Mensagens do WhatsApp sem modelo
   aprovado” (`conferirFalhasSemModelo`). Os dois vão como o de queda (sino e e-mail, categoria `sistema`) e
   seguem `decidirAlerta` (puro): uma vez por episódio, nunca de novo antes de 6 h. Sem migração, a memória fica
   em `activity_log` (`entity_type` `integracao`, sem ator): `whatsapp_webhook_alertado` abre o episódio, e
   `whatsapp_webhook_voltou` (a rotina viu ligado; avisa “voltou a receber mensagens”) ou
   `whatsapp_webhook_ligado` (o botão da tela, que já gravava isso) fecham; `whatsapp_modelos_alertado` /
   `whatsapp_modelos_em_dia` (fecha sem aviso). No fim, a rotina grava `whatsapp_rotina` por espaço conferido
-  (estado, webhook e a contagem; é a “Rotina diária” do `status`). O painel não mostra essas linhas
+  (estado, webhook e a contagem; é a “Rotina diária” do `status`). `activity_log` aceita inserção de qualquer
+  membro (RLS), com a data que ele quiser: a leitura dos marcos e da última rotina ignora data futura
+  (`created_at <= agora`), senão uma linha “para 2099” calaria o alerta para sempre. Um membro ainda abre um
+  episódio com a data de agora, até o próximo “resolvido”; a memória definitiva vai para `whatsapp_estado`
+  (só service role) numa migração futura. O painel não mostra essas linhas
   (`fraseDaAtividade` devolve null). A frequência do cron não mudou (uma vez por dia).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.

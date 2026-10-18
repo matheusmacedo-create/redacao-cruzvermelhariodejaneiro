@@ -96,7 +96,12 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
       const form = new FormData()
       form.set('numero', paraNumero)
       const r = await pedirCodigoDoWhatsapp(form)
-      if (r.erro) return setRecado({ tom: 'erro', texto: r.erro })
+      if (r.erro) {
+        // O código novo já tomou o lugar do de ida, mas não saiu: a tela volta ao número, onde está o “Gerar código”.
+        // Os outros erros (limite de códigos, número de outra conta) vêm antes da troca, e o de ida continua valendo.
+        if (r.codigoTrocado) { setIda(null); setNumero(paraNumero) }
+        return setRecado({ tom: 'erro', texto: r.erro })
+      }
       setIda(null)
       setEnviadoPara(r.numero ?? paraNumero)
       setCodigo('')

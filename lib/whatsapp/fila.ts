@@ -237,10 +237,16 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
  * Enquanto esperava, a situação pode ter mudado: a pessoa leu o aviso no sino,
  * pausou ou tirou o número. Nesses casos a mensagem não sai mais — menos o
  * aviso de segurança da conta, que vai ao número a que foi endereçado, com ou
- * sem pausa: o da troca ou remoção do número vai justamente ao número antigo
- * (lib/contas/servidor.ts, avisarPorWhatsapp).
+ * sem pausa: o recado da troca ou remoção do número vai justamente ao número
+ * antigo (lib/contas/servidor.ts, avisarPorWhatsapp). Só não sai se, enquanto
+ * isso, o número foi confirmado em outra conta: ali já é de outra pessoa.
  */
 async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
+  if (item.user_id && item.tipo === 'seguranca') {
+    // Só whatsapp_contas: a mesma pessoa pode ter o número também como voluntária.
+    const { data: dono } = await admin.from('whatsapp_contas').select('user_id').eq('numero', item.numero).maybeSingle()
+    if (dono && dono.user_id !== item.user_id) return 'O número passou para outra conta.'
+  }
   if (item.notificacao_id) {
     const { data: aviso } = await admin.from('notifications').select('read_at').eq('id', item.notificacao_id).maybeSingle()
     if (aviso?.read_at) return 'O aviso já foi lido no Palácio.'

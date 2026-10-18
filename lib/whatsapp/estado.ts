@@ -1,6 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ALERTA_A_CADA_HORAS, FALHAS_SEM_MODELO_PARA_ALERTAR, decidirAlerta, type EstadoDaConexao, type EstadoDoWebhook } from './regras'
+import { ALERTA_A_CADA_HORAS, FALHAS_SEM_MODELO_PARA_ALERTAR, decidirAlerta, type EstadoDaConexao, type EstadoDoWebhook, type FalhaDeEnvio } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -74,7 +74,14 @@ async function avisarAdministracao(admin: Admin, workspaceId: string, titulo: st
 /**
  * Os marcos de cada alerta em activity_log (entity_type "integracao", sem ator). O alerta abre o
  * episódio; qualquer um dos "resolvido" fecha. "whatsapp_webhook_ligado" é o que a tela grava quando
- * alguém toca em "Ligar o recebimento de mensagens" (app/actions/whatsapp.ts).
+ * alguém toca em "Ligar o recebimento de mensagens" (app/actions/whatsapp.ts), com o administrador
+ * como ator — por isso a leitura não filtra pelo ator.
+ *
+ * activity_log aceita inserção de qualquer membro do espaço (RLS), com a data que ele quiser: a
+ * leitura ignora linha com data futura, senão um marco "para 2099" calaria o alerta para sempre (e
+ * inventaria a "Rotina diária" do status). Um membro ainda consegue abrir um episódio com a data de
+ * agora, que vale até o próximo "resolvido". A memória definitiva vai para colunas em whatsapp_estado
+ * (só o service role escreve) numa migração futura.
  */
 const MARCOS = {
   webhook: { alerta: 'whatsapp_webhook_alertado', resolvido: ['whatsapp_webhook_voltou', 'whatsapp_webhook_ligado'] },
@@ -87,7 +94,7 @@ const ROTINA = 'whatsapp_rotina'
 async function marcoDoAlerta(admin: Admin, workspaceId: string, qual: keyof typeof MARCOS): Promise<{ aberto: boolean; ultimoAlertaEm: string | null } | null> {
   const m = MARCOS[qual]
   const { data, error } = await admin.from('activity_log').select('action, created_at').eq('workspace_id', workspaceId).eq('entity_type', 'integracao')
-    .in('action', [m.alerta, ...m.resolvido]).order('created_at', { ascending: false }).limit(20)
+    .in('action', [m.alerta, ...m.resolvido]).lte('created_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(20)
   if (error) return null
   const linhas = data ?? []
   return { aberto: linhas[0]?.action === m.alerta, ultimoAlertaEm: (linhas.find((l) => l.action === m.alerta)?.created_at as string | undefined) ?? null }
@@ -101,7 +108,7 @@ async function marcar(admin: Admin, workspaceId: string, acao: string, detalhes:
 // O notificar() corta a mensagem em 280 letras: estes textos cabem.
 const TEXTO_DO_WEBHOOK: Record<'desligado' | 'outro_endereco', string> = {
   desligado: 'O recebimento de mensagens está desligado na Kapso: o bot não responde e o código mandado ao Palácio não confirma ninguém. Abra a conexão e toque em “Ligar o recebimento de mensagens”.',
-  outro_endereco: 'O webhook do número na Kapso aponta para outro endereço (ou está sem a senha do Palácio): o bot não recebe nada. Abra a conexão e toque em “Ligar de novo”.',
+  outro_endereco: 'O webhook do número na Kapso aponta para outro endereço (ou está sem a senha do Palácio): o bot não recebe nada. Abra a conexão e toque em “Ligar o recebimento de mensagens”.',
 }
 
 /** O recebimento, conferido pela rotina: desligado ou com outro endereço, alerta uma vez; se voltou sem ninguém tocar no botão, avisa. */
@@ -150,16 +157,19 @@ export async function conferirFalhasSemModelo(admin: Admin, workspaceId: string,
   }
 }
 
-/** Os erros das mensagens que falharam nas últimas 24 h (até 1000; `total` conta todas). null = não deu para ler. */
-export async function falhasRecentes(admin: Admin, workspaceId: string): Promise<{ total: number; erros: (string | null)[] } | null> {
+/**
+ * O erro e o tipo das mensagens que falharam nas últimas 24 h (até 1000; `total` conta todas). O tipo
+ * separa a resposta do bot, que nunca vai por modelo (regras.ts, tipoDaFalha). null = não deu para ler.
+ */
+export async function falhasRecentes(admin: Admin, workspaceId: string): Promise<{ total: number; falhas: FalhaDeEnvio[] } | null> {
   try {
     const desde = new Date(Date.now() - 24 * 3_600_000).toISOString()
-    const { data, count, error } = await admin.from('whatsapp_mensagens').select('erro', { count: 'exact' })
+    const { data, count, error } = await admin.from('whatsapp_mensagens').select('tipo, erro', { count: 'exact' })
       .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('situacao', 'falhou').gte('criado_em', desde)
       .order('criado_em', { ascending: false }).limit(1000)
     if (error) return null
-    const erros = (data ?? []).map((l) => (l.erro as string | null) ?? null)
-    return { total: count ?? erros.length, erros }
+    const falhas = (data ?? []).map((l) => ({ erro: (l.erro as string | null) ?? null, tipo: (l.tipo as string | null) ?? null }))
+    return { total: count ?? falhas.length, falhas }
   } catch {
     return null
   }
@@ -181,8 +191,9 @@ export async function registrarRotina(admin: Admin, conferidos: { workspaceId: s
 /** Quando a rotina diária terminou pela última vez neste espaço; null sem registro. */
 export async function ultimaRotina(admin: Admin, workspaceId: string): Promise<string | null> {
   try {
+    // Sem data futura (MARCOS, acima): uma linha "para 2099" não vira a última rotina.
     const { data } = await admin.from('activity_log').select('created_at').eq('workspace_id', workspaceId).eq('entity_type', 'integracao').eq('action', ROTINA)
-      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .lte('created_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1).maybeSingle()
     return (data?.created_at as string | undefined) ?? null
   } catch {
     return null

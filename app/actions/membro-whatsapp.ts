@@ -104,8 +104,12 @@ export async function conferirConfirmacaoDoVoluntario(numeroNaTela: string, desd
   }
 }
 
-/** A alternativa: o código chega no número e o voluntário digita. Só chega dentro da janela de 24 h ou pelo modelo de Autenticação. */
-export async function pedirCodigoDoVoluntario(formData: FormData): Promise<Resultado & { numero?: string }> {
+/**
+ * A alternativa: o código chega no número e o voluntário digita. Só chega dentro da janela de 24 h ou pelo modelo de Autenticação.
+ * `codigoTrocado`: o envio falhou depois de o código novo tomar o lugar do anterior — o código de ida que
+ * a tela mostrava não vale mais, e ela volta ao formulário do número (onde está o “Gerar código”).
+ */
+export async function pedirCodigoDoVoluntario(formData: FormData): Promise<Resultado & { numero?: string; codigoTrocado?: boolean }> {
   try {
     const { m, admin, config, numero, codigo } = await novoCodigoDoVoluntario(formData, 'volta')
     // Fora da janela de 24 h, o código vai sozinho pelo modelo de Autenticação (o texto é fixo da Meta).
@@ -113,7 +117,9 @@ export async function pedirCodigoDoVoluntario(formData: FormData): Promise<Resul
     if (!envio.ok && envio.semResposta) {
       return { recado: `O WhatsApp demorou a confirmar o envio para ${formatarNumero(numero)}. O código deve chegar em instantes: digite abaixo quando chegar.`, numero: formatarNumero(numero) }
     }
-    if (!envio.ok) throw new Error(`O código não saiu: ${envio.erro} Use “Gerar código” e mande o código pelo WhatsApp: esse caminho não depende disso.`)
+    if (!envio.ok) {
+      return { erro: `O código não saiu: ${envio.erro} Use “Gerar código” e mande o código pelo WhatsApp: esse caminho não depende disso.`.slice(0, 500), codigoTrocado: true }
+    }
     return { recado: `Mandamos um código para ${formatarNumero(numero)} pelo WhatsApp. Ele vale por ${CODIGO_VALIDADE_MIN} minutos.`, numero: formatarNumero(numero) }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível mandar o código.') }

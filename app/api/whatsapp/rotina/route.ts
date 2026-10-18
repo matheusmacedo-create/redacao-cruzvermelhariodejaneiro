@@ -47,8 +47,9 @@ export async function GET(request: Request) {
     // Desligado ou com outro endereço, o bot fica mudo sem ninguém perceber: alerta (nunca pelo WhatsApp).
     const doWebhook = await conferirWebhook(admin, workspaceId, webhook)
     // Muitas falhas por fora da janela ou recusa do modelo: falta configurar os modelos aprovados.
+    // A resposta do bot fora da janela não conta: ela nunca vai por modelo (falhasSemModelo olha o tipo).
     const falhas = await falhasRecentes(admin, workspaceId)
-    const quantas = falhas ? falhasSemModelo(falhas.erros) : null
+    const quantas = falhas ? falhasSemModelo(falhas.falhas) : null
     semModelo[workspaceId] = quantas
     const dosModelos = quantas === null ? null : await conferirFalhasSemModelo(admin, workspaceId, quantas)
     alertas[workspaceId] = [doWebhook ? `recebimento_${doWebhook}` : null, dosModelos ? `modelos_${dosModelos}` : null].filter((a): a is string => a !== null)

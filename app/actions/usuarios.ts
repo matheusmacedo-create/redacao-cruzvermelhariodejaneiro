@@ -164,20 +164,34 @@ async function liberarWhatsapp(admin: Admin, userId: string): Promise<string | n
 
 /**
  * O que espera na fila do WhatsApp para a pessoa deixa de sair (situação
- * "desistiu", com o motivo). O aviso de segurança da conta fica: ele vai ao
- * número a que foi endereçado (lib/whatsapp/fila.ts, desistirAntes). O texto
- * com link de token (convite, ficha do RH) é apagado, como a fila faz depois
- * do envio. Nunca lança; devolve quantas mensagens saíram da fila.
+ * "desistiu", com o motivo):
+ *  - o que foi endereçado à conta (user_id), menos o aviso de segurança, que
+ *    vai ao número a que foi endereçado (lib/whatsapp/fila.ts, desistirAntes).
+ *    Nada disso leva link de token;
+ *  - o convite de acesso que ainda espera (o silêncio das 22h às 7h, ou o
+ *    reenvio com a Kapso fora). Ele entra sem user_id — a conta ainda não tem
+ *    WhatsApp confirmado —, então é achado pelo número da marca do último
+ *    convite (tokens_de_conta.email, legível mesmo com o link revogado). O
+ *    texto, com o link de senha, é apagado, como a fila faz depois do envio.
+ * O link avulso da ficha do RH (categoria "equipe", também sem user_id) fica:
+ * é pedido do RH sobre a ficha, não sobre a conta. Nunca lança; devolve
+ * quantas mensagens saíram da fila.
  */
 async function cancelarFilaDoWhatsapp(admin: Admin, userId: string, motivo: string): Promise<number> {
   try {
     const agora = new Date().toISOString()
-    const pendentes = (campos: Record<string, unknown>) => admin.from('whatsapp_fila')
-      .update({ situacao: 'desistiu', ultimo_erro: motivo, atualizado_em: agora, ...campos })
-      .eq('user_id', userId).eq('situacao', 'pendente').neq('tipo', 'seguranca')
-    const { data: comLink } = await pendentes({ texto: '[link apagado ao cancelar]' }).in('categoria', ['equipe', 'conta']).select('id')
-    const { data: resto } = await pendentes({}).select('id')
-    return (comLink?.length ?? 0) + (resto?.length ?? 0)
+    const { data: daConta } = await admin.from('whatsapp_fila')
+      .update({ situacao: 'desistiu', ultimo_erro: motivo, atualizado_em: agora })
+      .eq('user_id', userId).eq('situacao', 'pendente').neq('tipo', 'seguranca').select('id')
+    const { data: ultimo } = await admin.from('tokens_de_conta').select('email').eq('user_id', userId).eq('finalidade', 'definir_senha')
+      .order('criado_em', { ascending: false }).limit(1).maybeSingle()
+    const canal = lerMarcaDoConvite((ultimo?.email as string | null) ?? null)
+    const { data: convite } = canal.numero
+      ? await admin.from('whatsapp_fila')
+        .update({ situacao: 'desistiu', ultimo_erro: motivo, texto: '[link apagado ao cancelar]', atualizado_em: agora })
+        .is('user_id', null).eq('categoria', 'conta').eq('numero', canal.numero).eq('situacao', 'pendente').select('id')
+      : { data: [] }
+    return (daConta?.length ?? 0) + (convite?.length ?? 0)
   } catch (causa) {
     console.error('[usuarios] fila do WhatsApp não cancelada:', causa instanceof Error ? causa.message : causa)
     return 0
@@ -494,7 +508,7 @@ export async function desativarUsuario(formData: FormData): Promise<Resultado> {
     if (erroBan) console.error('[usuarios] ban não aplicado:', erroBan.message)
     const encerradas = await encerrarSessoes(admin, alvo.id)
     await revogarLinksDeSenha(admin, alvo.id)
-    // Antes do aviso: o que esperava na fila do WhatsApp para a pessoa não sai mais (o aviso de segurança, sim).
+    // Antes do aviso: o que esperava na fila do WhatsApp para a pessoa (e o convite) não sai mais (o aviso de segurança, sim).
     const filaCancelada = await cancelarFilaDoWhatsapp(admin, alvo.id, 'A conta foi desativada.')
     // O aviso sai antes de liberar o número: é por ele (e pelo e-mail) que a pessoa fica sabendo.
     await avisar(admin, alvo.id, { tipo: 'conta_desativada', adminNome: context.profile?.full_name ?? 'Um administrador' })
@@ -570,9 +584,10 @@ export async function reativarUsuario(formData: FormData): Promise<Resultado> {
  * antigo, ou o número passou a ser de outra pessoa, que só consegue confirmá-lo
  * depois que ele sai daqui (um número, uma conta). Vale também para conta
  * desativada: as desativadas antes da liberação automática ainda prendem o
- * número. A pessoa fica sabendo pelo e-mail confirmado e pelo próprio número
- * removido; o que esperava na fila para ele, a fila descarta sozinha
- * (desistirAntes), menos os avisos de segurança.
+ * número. A pessoa fica sabendo pelo e-mail confirmado; o número removido não
+ * recebe nada, porque pode já ser de outra pessoa (avisarTrocaDeWhatsapp). O
+ * que esperava na fila para ele, a fila descarta sozinha (desistirAntes); o
+ * aviso de segurança, só se o número for confirmado em outra conta.
  */
 export async function removerWhatsappDoUsuario(formData: FormData): Promise<Resultado> {
   try {
@@ -589,7 +604,7 @@ export async function removerWhatsappDoUsuario(formData: FormData): Promise<Resu
     })
     await avisarTrocaDeWhatsapp(admin, alvo.id, { anterior: numero, novo: null, porAdmin: context.profile?.full_name ?? 'Um administrador' })
     revalidar()
-    return { recado: `WhatsApp de ${alvo.full_name} (${mascararNumero(numero)}) removido: os avisos param de ir para ele, e o número pode ser confirmado em outra conta. Avisamos a pessoa pelo e-mail confirmado e pelo número removido.` }
+    return { recado: `WhatsApp de ${alvo.full_name} (${mascararNumero(numero)}) removido: os avisos param de ir para ele, e o número pode ser confirmado em outra conta. Avisamos a pessoa pelo e-mail confirmado (o número removido não recebe nada: ele pode já ser de outra pessoa).` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível remover o WhatsApp.') }
   }
@@ -864,7 +879,11 @@ export async function enviarConvite(formData: FormData): Promise<Resultado> {
   }
 }
 
-/** Cancela um convite ainda não usado: o link deixa de valer e a conta fica desativada (dá para reativar depois). */
+/**
+ * Cancela um convite ainda não usado: o link deixa de valer e a conta fica desativada (dá para reativar depois).
+ * Como em desativarUsuario, o convite que esperava na fila não sai e o WhatsApp é liberado: o convite aberto só
+ * pelo WhatsApp já confirmou o número (definirSenhaPeloLink) sem abrir sessão, e a conta segue "sem primeiro acesso".
+ */
 export async function cancelarConvite(userId: string): Promise<Resultado> {
   try {
     const context = await requirePermissao('usuarios.gerenciar')
@@ -876,9 +895,22 @@ export async function cancelarConvite(userId: string): Promise<Resultado> {
     const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.id, { ban_duration: BAN_PERMANENTE })
     if (erroBan) console.error('[usuarios] ban não aplicado:', erroBan.message)
     await revogarLinksDeSenha(admin, alvo.id)
-    await auditar(admin, { workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_cancelado', detalhes: { login_bloqueado: !erroBan } })
+    const filaCancelada = await cancelarFilaDoWhatsapp(admin, alvo.id, 'O convite foi cancelado.')
+    // A conta já está desativada: uma falha aqui vai para o log, sem dizer que o cancelamento falhou.
+    const numeroLiberado = await liberarWhatsapp(admin, alvo.id).catch((causa) => {
+      console.error('[usuarios] WhatsApp não liberado:', causa instanceof Error ? causa.message : causa)
+      return null
+    })
+    await auditar(admin, {
+      workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'convite_cancelado',
+      detalhes: {
+        login_bloqueado: !erroBan,
+        ...(numeroLiberado ? { whatsapp_liberado: mascararNumero(numeroLiberado) } : {}),
+        ...(filaCancelada ? { whatsapp_fila_cancelada: filaCancelada } : {}),
+      },
+    })
     revalidar()
-    return { recado: `Convite de ${alvo.full_name} cancelado. O link não vale mais; se precisar, reative em Usuários.` }
+    return { recado: `Convite de ${alvo.full_name} cancelado. O link não vale mais; se precisar, reative em Usuários.${numeroLiberado ? ' O WhatsApp da conta foi liberado e pode ser confirmado em outra conta.' : ''}` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível cancelar o convite.') }
   }

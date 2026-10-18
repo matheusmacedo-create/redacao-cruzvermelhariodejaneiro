@@ -362,7 +362,7 @@ const USUARIOS: GuiaDaArea = {
         'Abra a pessoa na lista.',
         'Toque em “Desativar acesso” e confirme.',
         'A pessoa perde o acesso na hora e sai de todas as sessões. Ela recebe o aviso no e-mail e no WhatsApp confirmados.',
-        'Se ela tinha WhatsApp confirmado, o número é liberado logo depois desse aviso: os avisos do Palácio param de ir para ele, o que esperava na fila para ela é descartado, e o número pode ser confirmado em outra conta.',
+        'Se ela tinha WhatsApp confirmado, o número é liberado logo depois desse aviso: os avisos do Palácio param de ir para ele, o que esperava na fila para ela é descartado (inclusive um convite pelo WhatsApp que ainda não tinha saído), e o número pode ser confirmado em outra conta.',
         'Ela passa a aparecer como “Desativado” e no filtro “Desativados”.',
       ],
       dica: 'Desativar não apaga nada: o nome da pessoa continua nas pautas, nos votos e no histórico, e dá para reativar depois.',
@@ -385,7 +385,7 @@ const USUARIOS: GuiaDaArea = {
         'Abra a pessoa na lista. Nos dados do alto aparece “WhatsApp” com o número, com o meio escondido (e “avisos pausados”, se for o caso).',
         'Toque em “Remover WhatsApp” e confirme.',
         'Os avisos param de ir para aquele número, e ele fica livre para ser confirmado em outra conta.',
-        'A pessoa recebe um aviso de segurança no e-mail confirmado e no próprio número removido, dizendo quem removeu.',
+        'A pessoa recebe um aviso de segurança no e-mail confirmado, dizendo quem removeu. O número removido não recebe nada: ele pode já ser de outra pessoa, como a Carla.',
       ],
       dica: 'O botão aparece também nas contas desativadas: as que foram desativadas antes de o Palácio liberar o número sozinho ainda podem prender um WhatsApp. O seu próprio número você tira em “Meu perfil”.',
     },
@@ -489,7 +489,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'a-pessoa-e-avisada',
       pergunta: 'A pessoa fica sabendo quando mudo o papel ou a senha dela?',
-      resposta: 'Fica: o Palácio Virtual manda um aviso de segurança quando o papel muda, quando a senha é redefinida, quando a conta é desativada ou reativada, quando a verificação em duas etapas é removida e quando você tira o WhatsApp dela. O aviso vai ao e-mail confirmado e ao WhatsApp confirmado (mesmo com os avisos pausados); o da remoção do WhatsApp vai ao próprio número removido. Sem e-mail nem WhatsApp confirmados, não há para onde mandar.',
+      resposta: 'Fica: o Palácio Virtual manda um aviso de segurança quando o papel muda, quando a senha é redefinida, quando a conta é desativada ou reativada, quando a verificação em duas etapas é removida e quando você tira o WhatsApp dela. O aviso vai ao e-mail confirmado e ao WhatsApp confirmado (mesmo com os avisos pausados); o da remoção do WhatsApp vai só ao e-mail confirmado, porque o número removido pode já ser de outra pessoa. Sem e-mail nem WhatsApp confirmados, não há para onde mandar.',
       termos: ['aviso de segurança', 'e-mail de aviso', 'notificação', 'whatsapp'],
     },
     {
@@ -942,7 +942,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'janela-de-24-horas',
       pergunta: 'Por que um aviso falhou com “Fora da janela de 24 horas”?',
-      resposta: 'É uma regra da API oficial do WhatsApp: o número só manda texto livre para quem escreveu para ele nas últimas 24 horas. Para os outros, só sai modelo de mensagem aprovado pela Meta. Crie os modelos em português no painel da Kapso, espere a aprovação e informe os nomes em Configurações → Integrações, no cartão da Kapso. São três, todos opcionais:\n\nAvisos (e o teste): uma variável no corpo, como “Aviso do Palácio Virtual: {{1}}”; o texto inteiro vai no lugar dela.\n\nCódigo: da categoria Autenticação da Meta, a que a Meta exige para códigos. O texto é fixo da Meta, com o botão de copiar o código. Sem ele, o código não sai fora da janela (“Gerar código” não depende disso).\n\nSegurança da conta: vazio, vai pelo dos avisos.\n\nAs respostas do bot nunca vão por modelo. Modelo recusado (nome errado, pausado) aparece em “Últimas mensagens” com o motivo.',
+      resposta: 'É uma regra da API oficial do WhatsApp: o número só manda texto livre para quem escreveu para ele nas últimas 24 horas. Para os outros, só sai modelo de mensagem aprovado pela Meta. Crie os modelos em português no painel da Kapso, espere a aprovação e informe os nomes em Configurações → Integrações, no cartão da Kapso. São três, todos opcionais:\n\nAvisos (e o teste): uma variável no corpo, como “Aviso do Palácio Virtual: {{1}}”; o texto inteiro vai no lugar dela.\n\nCódigo: da categoria Autenticação da Meta, a que a Meta exige para códigos. O texto é fixo da Meta, com o botão de copiar o código. Sem ele, o código não sai fora da janela (“Gerar código” não depende disso).\n\nSegurança da conta: como o dos avisos (nunca o de Autenticação); vazio, vai pelo dos avisos.\n\nAs respostas do bot nunca vão por modelo. Modelo recusado (nome errado, pausado) aparece em “Últimas mensagens” com o motivo.',
       termos: ['24 horas', 'janela', 'modelo', 'template', 'kapso', '131047', 'autenticação', 'código', 'segurança', '132001', '132015'],
     },
     {
@@ -978,7 +978,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'alertas-da-conferencia-diaria',
       pergunta: 'Que outros alertas a conferência das 7h05 manda?',
-      resposta: 'Dois, também só no sino e no e-mail dos administradores, uma vez por problema (enquanto ele continua, não repete todo dia):\n\n“O WhatsApp do Palácio parou de receber mensagens”: o recebimento está desligado na Kapso ou aponta para outro endereço. O bot fica mudo e o código mandado ao Palácio não confirma ninguém. Toque em “Ligar o recebimento de mensagens” (ou “Ligar de novo”) nesta aba. Se voltar sem ninguém tocar no botão, chega “voltou a receber mensagens”.\n\n“Mensagens do WhatsApp sem modelo aprovado”: nas últimas 24 horas, 5 ou mais mensagens não saíram por estarem fora da janela de 24 horas ou por recusa do modelo. É a hora de aprovar os modelos (veja a pergunta sobre a janela de 24 horas).',
+      resposta: 'Dois, também só no sino e no e-mail dos administradores, uma vez por problema (enquanto ele continua, não repete todo dia):\n\n“O WhatsApp do Palácio parou de receber mensagens”: o recebimento está desligado na Kapso ou aponta para outro endereço. O bot fica mudo e o código mandado ao Palácio não confirma ninguém. Toque em “Ligar o recebimento de mensagens” nesta aba. Se voltar sem ninguém tocar no botão, chega “voltou a receber mensagens”.\n\n“Mensagens do WhatsApp sem modelo aprovado”: nas últimas 24 horas, 5 ou mais mensagens não saíram por estarem fora da janela de 24 horas ou por recusa do modelo. É a hora de aprovar os modelos (veja a pergunta sobre a janela de 24 horas). As respostas do bot não contam: nunca saem por modelo (no “status”, aparecem à parte).',
       termos: ['parou de receber mensagens', 'voltou a receber mensagens', 'sem modelo aprovado', 'webhook', 'recebimento', 'alerta', '7h05'],
     },
     {
@@ -1102,7 +1102,7 @@ const PERFIL: GuiaDaArea = {
         'Volte ao Palácio: em alguns segundos aparece “WhatsApp confirmado”, sem digitar nada. O Palácio também responde por lá.',
         'Em “O que chega pelo WhatsApp”, desmarque os assuntos que você não quer receber por lá.',
       ],
-      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas (ou se a administração tiver aprovado o modelo de código). Por lá, responda “menu” para ver as opções. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui; trocar ou remover o número avisa o número antigo e o seu e-mail confirmado.',
+      dica: 'Prefere receber o código? Toque em “Prefiro receber o código pelo WhatsApp” e digite o que chegar; ele só chega se você escreveu ao WhatsApp do Palácio nas últimas 24 horas (ou se a administração tiver aprovado o modelo de código). Se não sair, o código que estava na tela deixa de valer e a tela volta ao número: toque em “Gerar código” de novo. Por lá, responda “menu” para ver as opções. De 22h às 7h os avisos esperam e chegam de manhã, menos os da portaria e os de segurança da conta. “Pausar”, “Trocar número” e “Remover” também ficam aqui; trocar ou remover o número avisa o seu e-mail confirmado, e o número antigo recebe só um recado curto, sem o seu nome.',
     },
     { id: 'trocar-senha', ...TROCAR_A_SENHA },
     { id: 'ativar-verificacao', ...ATIVAR_A_VERIFICACAO },
@@ -1183,7 +1183,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'so-no-sino',
       pergunta: 'Com “Só no sino” ou com o WhatsApp pausado, eu deixo de receber algum aviso?',
-      resposta: 'Não. Tudo continua aparecendo no sino e em “Notificações”; só deixa de chegar por e-mail (ou pelo WhatsApp).\n\nOs avisos de segurança da conta chegam sempre no seu e-mail confirmado e no seu WhatsApp confirmado, pausado ou não, até de madrugada: senha trocada, verificação em duas etapas, papel mudado, conta desativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas e WhatsApp trocado ou removido. Quando o número é trocado ou removido, o aviso vai ao número antigo. Se um desses avisos fala de algo que você não fez, troque a sua senha aqui e fale com a administração.',
+      resposta: 'Não. Tudo continua aparecendo no sino e em “Notificações”; só deixa de chegar por e-mail (ou pelo WhatsApp).\n\nOs avisos de segurança da conta chegam sempre no seu e-mail confirmado e no seu WhatsApp confirmado, pausado ou não, até de madrugada: senha trocada, verificação em duas etapas, papel mudado, conta desativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas e WhatsApp trocado ou removido. Quando o número é trocado ou removido, o aviso vai ao e-mail confirmado; o número antigo, que pode já ser de outra pessoa, recebe só um recado curto, sem o seu nome (e, se foi a administração que removeu, nem isso). Se um desses avisos fala de algo que você não fez, troque a sua senha aqui e fale com a administração.',
       termos: ['desligar e-mails', 'parar de receber e-mail', 'sino', 'whatsapp pausado', 'chegou mesmo pausado', 'aviso de segurança', 'WhatsApp da conta trocado', 'WhatsApp da conta removido', 'não fui eu'],
     },
     {

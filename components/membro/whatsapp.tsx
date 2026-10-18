@@ -41,6 +41,8 @@ export function WhatsappDoVoluntarioCartao({ inicial }: { inicial: WhatsappDoVol
   // O código de digitar: `enviado` = pedido agora; sem ele, veio da página (pode ser um de ida, que não se digita).
   const [volta, setVolta] = useState<{ numero: string; enviado: boolean } | null>(inicial.pendente ? { numero: inicial.pendente, enviado: false } : null)
   const [recado, setRecado] = useState<{ tipo: 'erro' | 'sucesso'; texto: string } | null>(null)
+  // O número que volta ao formulário quando o código de ida deixou de valer (pedir, abaixo).
+  const [numeroDoFormulario, setNumeroDoFormulario] = useState('')
   const [ocupado, iniciar] = useTransition()
 
   const rodar = <R extends { erro?: string; recado?: string }>(acao: () => Promise<R>, depois?: (r: R) => void) => iniciar(async () => {
@@ -90,7 +92,13 @@ export function WhatsappDoVoluntarioCartao({ inicial }: { inicial: WhatsappDoVol
     return f
   }
   const gerar = (f: FormData) => rodar(() => gerarCodigoDeIdaDoVoluntario(f), (r) => { if (r.ida) { setVolta(null); setIdaVenceu(false); setIda(r.ida) } })
-  const pedir = (f: FormData) => rodar(() => pedirCodigoDoVoluntario(f), (r) => { setIda(null); setVolta(r.numero ? { numero: r.numero, enviado: true } : null) })
+  const pedir = (f: FormData) => rodar(async () => {
+    const r = await pedirCodigoDoVoluntario(f)
+    // O código novo já tomou o lugar do de ida, mas não saiu: a tela volta ao número, onde está o “Gerar código”.
+    // Os outros erros (limite de códigos, número de outro voluntário) vêm antes da troca, e o de ida continua valendo.
+    if (r.codigoTrocado) { setNumeroDoFormulario(String(f.get('numero') ?? '')); setIda(null) }
+    return r
+  }, (r) => { setIda(null); setVolta(r.numero ? { numero: r.numero, enviado: true } : null) })
 
   const consentimento = (
     <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm" data-ajuda="membro.whatsapp-autorizacao">
@@ -163,7 +171,7 @@ export function WhatsappDoVoluntarioCartao({ inicial }: { inicial: WhatsappDoVol
             <p className="text-sm text-muted-foreground">Receba as oportunidades de voluntariado no seu WhatsApp, assim que forem publicadas.</p>
             <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="whatsapp-numero">
               Seu WhatsApp, com DDD
-              <input id="whatsapp-numero" name="numero" type="tel" inputMode="tel" autoComplete="tel" placeholder="(21) 98765-4321" required className={cn(campoDoMembro, 'max-w-64')} />
+              <input id="whatsapp-numero" name="numero" type="tel" inputMode="tel" autoComplete="tel" placeholder="(21) 98765-4321" required defaultValue={numeroDoFormulario} className={cn(campoDoMembro, 'max-w-64')} />
             </label>
             {consentimento}
             <p className="text-sm text-muted-foreground">A tela mostra um código de 6 números para você mandar, deste número, ao WhatsApp do Voluntariado. A confirmação aparece aqui sozinha.</p>

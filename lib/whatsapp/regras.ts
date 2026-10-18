@@ -307,22 +307,37 @@ const FALHAS: [TipoDeFalha, RegExp, string][] = [
   ['rede', /falar com a Kapso/i, 'Sem conexão com a Kapso'],
 ]
 
-/** O motivo de uma falha de envio, resumido para agrupar. O que não é conhecido agrupa pelo próprio erro, cortado. */
-export function tipoDaFalha(erro: string | null | undefined): { tipo: TipoDeFalha; rotulo: string } {
+/** A resposta do bot que caiu fora da janela: nunca vai por modelo (modeloParaEnviar), então nenhum modelo aprovado a faz sair. */
+export const ROTULO_DO_BOT_FORA_DA_JANELA = 'Resposta do bot fora da janela de 24 h (não usa modelo)'
+
+/**
+ * O motivo de uma falha de envio, resumido para agrupar. O que não é conhecido agrupa pelo próprio erro, cortado.
+ * `tipoDaMensagem` é o tipo do registro (whatsapp_mensagens.tipo): a resposta do bot fora da janela (as
+ * boas-vindas depois de confirmar o número, por exemplo) vira "outro", com rótulo próprio — não conta como
+ * falta de modelo nem puxa a dica dos modelos.
+ */
+export function tipoDaFalha(erro: string | null | undefined, tipoDaMensagem?: string | null): { tipo: TipoDeFalha; rotulo: string } {
   const t = String(erro ?? '').replace(/\s+/g, ' ').trim()
   if (!t) return { tipo: 'outro', rotulo: 'Sem motivo registrado' }
-  for (const [tipo, padrao, rotulo] of FALHAS) if (padrao.test(t)) return { tipo, rotulo }
+  for (const [tipo, padrao, rotulo] of FALHAS) {
+    if (!padrao.test(t)) continue
+    if (tipoDaMensagem === 'bot' && (tipo === 'janela' || tipo === 'modelo')) return { tipo: 'outro', rotulo: ROTULO_DO_BOT_FORA_DA_JANELA }
+    return { tipo, rotulo }
+  }
   const curto = t.replace(/\.$/, '')
   return { tipo: 'outro', rotulo: curto.length > 80 ? `${curto.slice(0, 79).trimEnd()}…` : curto }
 }
 
+/** Uma saída que falhou: o erro gravado e o tipo do registro (a finalidade: aviso, bot, código…). */
+export type FalhaDeEnvio = { erro: string | null; tipo?: string | null }
+
 export type GrupoDeFalhas = { rotulo: string; tipo: TipoDeFalha; quantas: number }
 
 /** As falhas agrupadas pelo motivo, da mais comum para a menos. */
-export function resumoDasFalhas(erros: (string | null)[]): GrupoDeFalhas[] {
+export function resumoDasFalhas(falhas: FalhaDeEnvio[]): GrupoDeFalhas[] {
   const grupos = new Map<string, GrupoDeFalhas>()
-  for (const erro of erros) {
-    const { tipo, rotulo } = tipoDaFalha(erro)
+  for (const f of falhas) {
+    const { tipo, rotulo } = tipoDaFalha(f.erro, f.tipo)
     const g = grupos.get(rotulo)
     if (g) g.quantas++
     else grupos.set(rotulo, { rotulo, tipo, quantas: 1 })
@@ -330,9 +345,9 @@ export function resumoDasFalhas(erros: (string | null)[]): GrupoDeFalhas[] {
   return [...grupos.values()].sort((a, b) => b.quantas - a.quantas || a.rotulo.localeCompare(b.rotulo))
 }
 
-/** Quantas falharam por estar fora da janela sem modelo ou por recusa do modelo: as que os modelos aprovados resolvem. */
-export const falhasSemModelo = (erros: (string | null)[]): number =>
-  erros.filter((e) => { const { tipo } = tipoDaFalha(e); return tipo === 'janela' || tipo === 'modelo' }).length
+/** Quantas falharam por estar fora da janela sem modelo ou por recusa do modelo: as que os modelos aprovados resolvem (a resposta do bot, não). */
+export const falhasSemModelo = (falhas: FalhaDeEnvio[]): number =>
+  falhas.filter((f) => { const { tipo } = tipoDaFalha(f.erro, f.tipo); return tipo === 'janela' || tipo === 'modelo' }).length
 
 /**
  * O alerta de um problema que a rotina confere (recebimento desligado, falhas sem modelo): uma vez
@@ -472,6 +487,16 @@ export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
   return [`*${limpo(p.titulo, 200)}*`, limpo(p.texto, 900), '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._'].join('\n\n')
 }
 
+/**
+ * O recado ao número que saiu da conta (trocado ou removido pela própria pessoa): o número pode já
+ * ser de outra pessoa, então vai sem nome, sem quem fez, sem data e sem "sua conta" ou "sua senha". O
+ * aviso completo vai só ao e-mail confirmado (lib/contas/servidor.ts, avisarTrocaDeWhatsapp).
+ */
+export const AVISO_AO_NUMERO_ANTIGO = {
+  titulo: 'Avisos do Palácio Virtual',
+  texto: 'Este número deixou de receber os avisos de uma conta do Palácio Virtual. Se não foi você que pediu, fale com a administração.',
+} as const
+
 // ------------------------------------------------------------------ confirmação do número
 //
 // Dois caminhos, e o código de um nunca serve no outro (o sentido entra no hash):
@@ -534,6 +559,17 @@ export function codigoNaMensagem(entrada: string | null | undefined): string | n
   if (grupos.length !== 1) return null
   const digitos = grupos[0].replace(/\D/g, '')
   return codigoNoFormato(digitos) ? digitos : null
+}
+
+/**
+ * A leitura estrita do código, para o número que já é de alguém da equipe: só a mensagem que é o
+ * código ("123456", "123 456") ou exatamente a mensagem pronta do link. "chamado: patrimônio 123456
+ * sem toner" segue para o chamado — codigoNaMensagem acharia ali um código.
+ */
+export function soOCodigo(entrada: string | null | undefined): string | null {
+  const t = String(entrada ?? '').trim()
+  const m = /^(\d{3})[ .-]?(\d{3})$/.exec(t) ?? /^Confirmar meu WhatsApp (?:no Palácio|na Área do Voluntário):\s*(\d{3})[ .-]?(\d{3})$/i.exec(t)
+  return m ? `${m[1]}${m[2]}` : null
 }
 
 /** A resposta do bot quando o código de ida confere. */

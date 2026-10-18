@@ -26,7 +26,7 @@ import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda, textoDaApresentacao,
   textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
@@ -44,8 +44,10 @@ type Admin = ReturnType<typeof createAdminClient>
  *
  * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
  * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
- * caminho a mensagem com um código quando há código em aberto para o número;
- * o resto segue como sempre.
+ * caminho a mensagem com um código quando há código em aberto para o número
+ * — e, se o número já é de alguém da equipe, só a mensagem que é o código
+ * (regras.ts, soOCodigo), para o chamado com um número de patrimônio não se
+ * perder ali; o resto segue como sempre.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -57,8 +59,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     if (m.ignorar || !m.numero) return
     const numero = m.numero
 
+    const { data: conta } = await admin.from('whatsapp_contas').select('user_id, pausado_em').eq('numero', numero).maybeSingle()
+
     // O código de ida vem antes de tudo: o número ainda é desconhecido, ou é de quem pediu para confirmar de novo.
-    const codigo = m.midia ? null : codigoNaMensagem(m.texto)
+    // Número que já é de alguém da equipe só entra aqui com a mensagem que é só o código (ou a mensagem pronta):
+    // "chamado: patrimônio 123456 sem toner" segue para o chamado, mesmo com um código em aberto para o número.
+    const codigo = m.midia ? null : conta ? soOCodigo(m.texto) : codigoNaMensagem(m.texto)
     const pendentes = codigo ? await codigosPendentesDoNumero(admin, workspaceId, numero) : []
     if (codigo && pendentes.length) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida' })
@@ -69,7 +75,6 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
-    const { data: conta } = await admin.from('whatsapp_contas').select('user_id, pausado_em').eq('numero', numero).maybeSingle()
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.

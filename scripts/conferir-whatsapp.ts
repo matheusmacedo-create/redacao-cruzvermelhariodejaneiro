@@ -11,7 +11,7 @@ import {
   baseDoHashDoCodigo, textoDoCodigo, textoDoCodigoDeIda, linkDoWhatsapp, codigoNaMensagem, textoDoNumeroConfirmado, textoDoCodigoDeIdaErrado, textoDaFalhaDoCodigoDeIda,
   modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido, TEXTO_PAUSADO, textoDeSeguranca,
   tipoDaFalha, resumoDasFalhas, falhasSemModelo, decidirAlerta, quandoEmSaoPaulo, textoDoStatus, textoDaRodadaDaFila, textoDoComandoFila, FALHAS_SEM_MODELO_PARA_ALERTAR,
-  type StatusDoCanal,
+  soOCodigo, ROTULO_DO_BOT_FORA_DA_JANELA, AVISO_AO_NUMERO_ANTIGO, type StatusDoCanal, type FalhaDeEnvio,
 } from '../lib/whatsapp/regras'
 import { corpoParaWhatsapp, emailDeAviso } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
@@ -142,6 +142,21 @@ igual(codigoNaMensagem('meu número é (21) 98765-4321 e o código 123456'), nul
 igual(codigoNaMensagem(textoDoCodigo('123456')), null, 'o código que o Palácio mandou, encaminhado de volta (tem o "10 minutos")')
 igual(codigoNaMensagem(`${'a'.repeat(170)} 123456`), null, 'mensagem longa demais')
 igual(codigoNaMensagem(null), null, 'vazio')
+// Número que já é de alguém da equipe: só a mensagem que é o código (o chamado com um patrimônio não se perde no código).
+igual(codigoNaMensagem('chamado: patrimônio 123456 sem toner na sala da presidência'), '123456', 'a leitura solta acha código no chamado (por isso a estrita)')
+igual(soOCodigo('123456'), '123456', 'estrito: só o código')
+igual(soOCodigo(' 123 456 '), '123456', 'estrito: com espaço no meio')
+igual(soOCodigo('123-456'), '123456', 'estrito: com hífen')
+igual(soOCodigo('123.456'), '123456', 'estrito: com ponto')
+igual(soOCodigo(textoDoCodigoDeIda('012345')), '012345', 'estrito: a mensagem pronta da equipe')
+igual(soOCodigo(textoDoCodigoDeIda('654321', 'voluntariado')), '654321', 'estrito: a mensagem pronta do voluntário')
+igual(soOCodigo('confirmar meu whatsapp no palácio: 123 456'), '123456', 'estrito: a mensagem pronta em minúsculas')
+igual(soOCodigo('chamado: patrimônio 123456 sem toner na sala da presidência'), null, 'estrito: chamado com patrimônio segue para o chamado')
+igual(soOCodigo('Pagamento de R$ 150.000 aprovado?'), null, 'estrito: valor no meio da frase não é código')
+igual(soOCodigo('meu código é 123-456.'), null, 'estrito: código com texto em volta não vale')
+igual(soOCodigo('1234567'), null, 'estrito: sete números')
+igual(soOCodigo('12345'), null, 'estrito: cinco números')
+igual(soOCodigo(null), null, 'estrito: vazio')
 contem(textoDoNumeroConfirmado('palacio'), 'Responda *menu*', 'confirmado: linha do menu (equipe)')
 contem(textoDoNumeroConfirmado('voluntariado'), 'oportunidades', 'confirmado: voluntário')
 contem(textoDoCodigoDeIdaErrado(2), 'restam 2 tentativas', 'errado: o que resta')
@@ -361,6 +376,10 @@ igual(corpoTrocado.startsWith('Olá, Carla.'), true, 'o corpo do WhatsApp começ
 igual(corpoTrocado.includes('Mensagem automática'), false, 'o corpo do WhatsApp sai sem o rodapé do e-mail')
 contem(corpoParaWhatsapp(avisoDe({ tipo: 'whatsapp_removido', numero: mascararNumero('5521987654321') })), 'Se não foi você, fale com a administração', 'remoção pela pessoa: o que fazer se não foi ela')
 contem(corpoParaWhatsapp(avisoDe({ tipo: 'whatsapp_removido', numero: mascararNumero('5521987654321'), porAdmin: 'Matheus' })), 'removido da sua conta no Palácio Virtual por Matheus', 'remoção pela administração diz quem')
+// O aviso acima vai só ao e-mail: o número antigo pode já ser de outra pessoa e recebe um recado sem nome (avisarTrocaDeWhatsapp).
+const aoNumeroAntigo = textoDeSeguranca(AVISO_AO_NUMERO_ANTIGO)
+contem(aoNumeroAntigo, 'Este número deixou de receber os avisos de uma conta do Palácio Virtual', 'número antigo: o recado')
+igual(/Olá|Carla|Matheus|sua conta|\d{2} de \w+ de \d{4}/.test(aoNumeroAntigo), false, 'número antigo: sem nome, sem quem fez, sem data e sem "sua conta"')
 const bloqueada = corpoParaWhatsapp(avisoDe({ tipo: 'conta_bloqueada', lugar: 'Rio de Janeiro/RJ, BR' }))
 contem(bloqueada, 'de Rio de Janeiro/RJ, BR (local aproximado)', 'bloqueio: o local aproximado')
 contem(bloqueada, 'Em 18 de outubro de 2026', 'bloqueio: a data')
@@ -523,9 +542,19 @@ igual(tipoDaFalha('Não consegui falar com a Kapso (fetch failed).').tipo, 'rede
 igual(tipoDaFalha('Message Undeliverable.'), { tipo: 'outro', rotulo: 'Message Undeliverable' }, 'falha desconhecida agrupa pelo próprio erro')
 igual(tipoDaFalha('x'.repeat(200)).rotulo.length, 80, 'falha desconhecida longa é cortada')
 igual(tipoDaFalha(null).rotulo, 'Sem motivo registrado', 'falha sem erro')
-const grupos = resumoDasFalhas([foraDaJanela, 'Message Undeliverable.', foraDaJanela, modeloPausado, foraDaJanela, null])
+/** As saídas que falharam, como falhasRecentes devolve (o tipo do registro junto do erro). */
+const deAviso = (erros: (string | null)[], tipo = 'aviso'): FalhaDeEnvio[] => erros.map((erro) => ({ erro, tipo }))
+const grupos = resumoDasFalhas(deAviso([foraDaJanela, 'Message Undeliverable.', foraDaJanela, modeloPausado, foraDaJanela, null]))
 igual(grupos.map((g) => `${g.quantas}:${g.tipo}`), ['3:janela', '1:outro', '1:modelo', '1:outro'], 'falhas agrupadas: a mais comum primeiro, o empate em ordem alfabética')
-igual(falhasSemModelo([foraDaJanela, modeloPausado, 'Message Undeliverable.', null]), 2, 'falhas sem modelo: janela e modelo')
+igual(falhasSemModelo(deAviso([foraDaJanela, modeloPausado, 'Message Undeliverable.', null])), 2, 'falhas sem modelo: janela e modelo')
+// A resposta do bot (as boas-vindas depois de confirmar pelo código digitado) nunca vai por modelo: nenhum modelo a faz sair.
+const foraDaJanelaDoBot = 'Fora da janela de 24 horas do WhatsApp: a pessoa não escreveu para o número do Palácio nas últimas 24 horas. Resposta do bot não sai por modelo.'
+igual(tipoDaFalha(foraDaJanelaDoBot), { tipo: 'janela', rotulo: 'Fora da janela de 24 h, sem modelo aprovado' }, 'falha: sem o tipo do registro, o texto sozinho parece de modelo')
+igual(tipoDaFalha(foraDaJanelaDoBot, 'bot'), { tipo: 'outro', rotulo: ROTULO_DO_BOT_FORA_DA_JANELA }, 'falha: resposta do bot fora da janela tem rótulo próprio')
+igual(tipoDaFalha('Não consegui falar com a Kapso (fetch failed).', 'bot').tipo, 'rede', 'falha: resposta do bot por outro motivo segue o motivo')
+const comBot: FalhaDeEnvio[] = [...deAviso([foraDaJanela]), ...deAviso([foraDaJanelaDoBot, foraDaJanelaDoBot, foraDaJanelaDoBot, foraDaJanelaDoBot, foraDaJanelaDoBot], 'bot')]
+igual(falhasSemModelo(comBot), 1, 'falhas sem modelo: as respostas do bot não contam (5 delas não disparam o alerta)')
+igual(resumoDasFalhas(comBot).map((g) => `${g.quantas}:${g.tipo}`), ['5:outro', '1:janela'], 'falhas agrupadas: as do bot à parte')
 igual(FALHAS_SEM_MODELO_PARA_ALERTAR, 5, 'o limite do alerta de modelos')
 
 const agoraDoAlerta = new Date('2026-10-18T10:05:00Z')
@@ -553,7 +582,7 @@ contem(statusEmDia, 'Detalhes: https://p/configuracoes/whatsapp', 'status: link 
 const statusComProblema = textoDoStatus({
   ...statusBase,
   conexao: { estado: 'erro', erro: 'A Kapso aponta *problema* no número.' }, webhook: 'desligado', fila: { silencio: 2, volume: 0, falha: 1 },
-  falhas: { total: 9, grupos: resumoDasFalhas([foraDaJanela, foraDaJanela, foraDaJanela, modeloPausado, 'a', 'b', 'c', 'd']) },
+  falhas: { total: 9, grupos: resumoDasFalhas(deAviso([foraDaJanela, foraDaJanela, foraDaJanela, modeloPausado, 'a', 'b', 'c', 'd'])) },
   semChave: ['Hunter.io', 'Meta Ads'], googleExpiradas: [{ onde: 'E-mail dos setores', conta: 'comunicacao@cvb.org' }], rotina: null,
 })
 contem(statusComProblema, '*Kapso:* Sem resposta da Kapso – A Kapso aponta problema no número.', 'status: o erro da conexão, sem a marcação')
@@ -566,6 +595,9 @@ contem(statusComProblema, '*Integrações sem chave:* Hunter.io, Meta Ads', 'sta
 contem(statusComProblema, 'E-mail dos setores (comunicacao@cvb.org) – a autorização expirou', 'status: Google expirado')
 contem(statusComProblema, '*Rotina diária:* sem registro ainda', 'status: rotina sem registro')
 contem(textoDoStatus({ ...statusBase, fila: null, falhas: null, semChave: null, webhook: 'desconhecido' }), '*Fila:* não deu para ler agora', 'status: o que não deu para ler')
+const statusDoBot = textoDoStatus({ ...statusBase, falhas: { total: 2, grupos: resumoDasFalhas(deAviso([foraDaJanelaDoBot, foraDaJanelaDoBot], 'bot')) } })
+contem(statusDoBot, `*Falhas em 24 h:* 2\n• 2 – ${ROTULO_DO_BOT_FORA_DA_JANELA}`, 'status: resposta do bot fora da janela com rótulo próprio')
+igual(statusDoBot.includes('Os modelos aprovados'), false, 'status: resposta do bot fora da janela não puxa a dica dos modelos')
 
 igual(textoDaRodadaDaFila({ enviadas: 1, adiadas: 0, desistiu: 0, restam: 0 }), '1 mensagem enviada.', 'rodada: uma enviada')
 igual(textoDaRodadaDaFila({ enviadas: 3, adiadas: 1, desistiu: 2, restam: 4 }),
