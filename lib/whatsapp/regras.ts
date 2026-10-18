@@ -1,5 +1,5 @@
 import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from '@/lib/notificacoes/regras'
-import { PERGUNTA_DA_VISITA, RESPOSTAS } from '@/lib/portaria/regras'
+import { PERGUNTA_DA_VISITA, RESPOSTAS, situacaoDaResposta, type RespostaDaVisita } from '@/lib/portaria/regras'
 
 /**
  * Regras do WhatsApp do Palácio Virtual, sem banco nem rede — conferidas por
@@ -935,7 +935,9 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 
 // ------------------------------------------------------------------ bot
 
-export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado' | ComandoDaAdministracao | 'desconhecido'
+export type Comando =
+  | 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado'
+  | 'atender_chamado' | 'portaria' | 'registrar_visita' | ComandoDaAdministracao | 'desconhecido'
 
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
 export type ComandoDaAdministracao = 'status' | 'fila'
@@ -962,6 +964,15 @@ const DA_ADMINISTRACAO: Record<string, ComandoDaAdministracao> = {
   fila: 'fila', 'fila agora': 'fila', 'enviar fila': 'fila',
 }
 
+/**
+ * A lista das visitas abertas do dia (lib/whatsapp/portaria.ts): só como a mensagem inteira, como os da
+ * administração — "a portaria ligou" numa frase não roda nada. Quem não tem a portaria cai no menu.
+ */
+const DA_PORTARIA = new Set(['portaria', 'quem esta aqui', 'quem ta aqui', 'quem esta na filial', 'quem chegou', 'visitas', 'visitantes', 'visitas de hoje', 'visitantes de hoje'])
+
+/** Registrar quem chegou: "visitante: João Silva", "registrar visita". O nome é opcional (o bot pergunta); "visitantes" é a lista. */
+const REGISTRAR_VISITA = /^\s*(?:registrar\s+(?:a\s+|uma\s+)?(?:visita|visitante|entrada)|nova\s+visita|novo\s+visitante|visitante)(?![\p{L}\d])[\s:,.;\-–—]*/iu
+
 export type Pedido = { comando: Comando; resto: string }
 
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
@@ -985,6 +996,12 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
   if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
   if (palavras[0] === 'como' && palavras.length > 2) return { comando: 'ajuda', resto: entrada.trim().slice(0, 1000) }
+  // Quem atende: "assumir TI-0042", "resolver TI-0042: …", "transferir TI-0042 para …". Sem o código, não é comando
+  // (respondendo ao aviso do chamado, o código vem do aviso: lib/whatsapp/atendimento.ts).
+  if (lerAtendimento(entrada)?.codigo) return { comando: 'atender_chamado', resto: entrada.trim().slice(0, 4000) }
+  if (DA_PORTARIA.has(t)) return { comando: 'portaria', resto: '' }
+  const visita = REGISTRAR_VISITA.exec(entrada)
+  if (visita) return { comando: 'registrar_visita', resto: entrada.slice(visita[0].length).replace(/\s+/g, ' ').trim().slice(0, 120) }
   const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
   if ((palavras[0] === 'chamado' || (palavras[0] === 'abrir' && palavras.includes('chamado')) || (palavras[0] === 'novo' && palavras[1] === 'chamado')) && depoisDe(entrada, abrir).length >= 8) {
     return { comando: 'abrir_chamado', resto: depoisDe(entrada, abrir) }
@@ -1008,7 +1025,8 @@ export const APRESENTACAO_A_CADA_HORAS = 24
 /** Uma opção do menu da equipe: o mesmo `id` (o que se digita) no texto (*1* – …) e na lista. */
 type OpcaoDoMenu = { id: string; titulo: string; texto: string }
 
-function opcoesDoMenu(pausado: boolean): OpcaoDoMenu[] {
+/** `atende`: quem atende uma fila de chamados vê no 5 também os chamados da fila (lib/whatsapp/atendimento.ts). */
+function opcoesDoMenu(pausado: boolean, atende = false): OpcaoDoMenu[] {
   return [
     { id: '1', titulo: 'Avisos sem abrir', texto: 'os avisos que você ainda não abriu' },
     { id: '2', titulo: 'Marcar como lidos', texto: 'marcar todos os avisos como lidos' },
@@ -1016,7 +1034,7 @@ function opcoesDoMenu(pausado: boolean): OpcaoDoMenu[] {
       ? { id: '3', titulo: 'Voltar a receber', texto: 'voltar a receber os avisos por aqui' }
       : { id: '3', titulo: 'Parar os avisos', texto: 'parar de receber os avisos por aqui' },
     { id: '4', titulo: 'Agenda', texto: 'sua agenda de hoje e amanhã' },
-    { id: '5', titulo: 'Meus chamados', texto: 'seus chamados abertos' },
+    { id: '5', titulo: 'Meus chamados', texto: atende ? 'seus chamados e os da fila que você atende' : 'seus chamados abertos' },
     { id: '6', titulo: 'Aprovações', texto: 'o que espera o seu voto' },
   ]
 }
@@ -1027,34 +1045,46 @@ const OPCOES_DA_ADMINISTRACAO: OpcaoDoMenu[] = [
   { id: 'fila', titulo: 'Fazer a fila andar', texto: 'fazer a fila do WhatsApp andar agora' },
 ]
 
+/** A lista das visitas de hoje, na lista do menu de quem tem a portaria (no texto, é a linha do "Ou escreva"). */
+const OPCAO_DA_PORTARIA: OpcaoDoMenu = { id: 'portaria', titulo: 'Visitas de hoje', texto: 'quem está na portaria hoje' }
+
 const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`
 
-/** `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). */
-export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; admin?: boolean }): string {
+/** O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria e quem atende chamados. */
+export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean }
+
+/**
+ * `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). `portaria`: a linha
+ * de "portaria" e "visitante:". `atende`: o 5 diz que traz também a fila. O texto mais longo (pausado, com
+ * tudo e o "Não entendi") ainda cabe no corpo de 1024 da lista.
+ */
+export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   return [
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
-    ['Responda com o número:', ...opcoesDoMenu(p.pausado).map(linhaDoMenu)].join('\n'),
+    ['Responda com o número:', ...opcoesDoMenu(p.pausado, p.atende).map(linhaDoMenu)].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
-      'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].join('\n'),
+      p.portaria ? '*portaria* para as visitas de hoje e registrar quem chegou' : null,
+      'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].filter(Boolean).join('\n'),
     p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
 }
 
 /**
- * O menu como lista (dentro da janela): as opções 1 a 6 e, para quem administra, "status" e "fila". Cada
- * linha leva o que se digita, então o toque segue por lerPedido como o número digitado (o "3" continua
- * alternando parar e voltar pelo estado da hora). "chamado:" e "ajuda" pedem texto: ficam só no corpo.
+ * O menu como lista (dentro da janela): as opções 1 a 6, "portaria" para quem tem a portaria e, para quem
+ * administra, "status" e "fila" (no máximo 9 linhas). Cada linha leva o que se digita, então o toque segue
+ * por lerPedido como o número digitado (o "3" continua alternando parar e voltar pelo estado da hora).
+ * "chamado:", "ajuda" e "visitante:" pedem texto: ficam só no corpo.
  */
-export function interativoDoMenu(p: { pausado: boolean; admin?: boolean }): Interativo {
+export function interativoDoMenu(p: { pausado: boolean } & QuemNoMenu): Interativo {
   const linha = (o: OpcaoDoMenu): LinhaDaLista => ({ id: o.id, titulo: o.titulo, descricao: `${o.texto.charAt(0).toUpperCase()}${o.texto.slice(1)}` })
   return {
     tipo: 'lista',
     botao: 'Ver as opções',
     secoes: [
-      { titulo: 'Opções', linhas: opcoesDoMenu(p.pausado).map(linha) },
+      { titulo: 'Opções', linhas: [...opcoesDoMenu(p.pausado, p.atende), ...(p.portaria ? [OPCAO_DA_PORTARIA] : [])].map(linha) },
       ...(p.admin ? [{ titulo: 'Da administração', linhas: OPCOES_DA_ADMINISTRACAO.map(linha) }] : []),
     ],
   }
@@ -1129,12 +1159,46 @@ export function textoDaAgenda(p: { hoje: string; amanha: string; itensHoje: Item
 
 export type ChamadoNaLista = { id: string; codigo: string; titulo: string; situacao: string }
 export const CHAMADOS_NA_RESPOSTA = 6
+/** Os da fila que a pessoa atende, depois dos dela (o 5 de quem atende). */
+export const CHAMADOS_DA_FILA_NA_RESPOSTA = 5
 
-export function textoDosChamados(p: { chamados: ChamadoNaLista[]; total: number; urlBase: string }): string {
-  if (!p.total || !p.chamados.length) return 'Você não tem chamados abertos. Para abrir um, escreva *chamado:* e o problema.'
-  const itens = p.chamados.slice(0, CHAMADOS_NA_RESPOSTA).map((c) => `*${limpo(c.codigo, 20)}* · ${limpo(c.titulo, 120)}\n_${limpo(c.situacao, 40)}_ · ${p.urlBase}/chamados/${c.id}`)
-  const cabeca = p.total === 1 ? 'Você tem *1 chamado* aberto:' : `Você tem *${p.total} chamados* abertos${p.total > itens.length ? `. Os ${itens.length} mais recentes` : ''}:`
-  return [cabeca, ...itens, 'Para responder, use o link ou responda a mensagem do aviso do chamado.'].join('\n\n')
+/** Como quem atende age pelo WhatsApp: o comando com o código (lerAtendimento). */
+export const DICA_DO_ATENDIMENTO =
+  'Nos chamados da sua fila, escreva *assumir*, *resolver* ou *transferir* e o código: _assumir TI-0042_, _resolver TI-0042: troquei o toner_, _transferir TI-0042 para Manutenção_.'
+
+/**
+ * O 5: os chamados abertos que a pessoa abriu ou que estão com ela e, para quem atende uma fila
+ * (`daFila`), os abertos da fila que não estão com ela — sem responsável primeiro.
+ */
+export function textoDosChamados(p: {
+  chamados: ChamadoNaLista[]; total: number; urlBase: string
+  /** `falhou`: a fila não carregou (não é "em dia"). */
+  daFila?: { chamados: ChamadoNaLista[]; total: number; falhou?: boolean } | null
+}): string {
+  const linha = (c: ChamadoNaLista) => `*${limpo(c.codigo, 20)}* · ${limpo(c.titulo, 120)}\n_${limpo(c.situacao, 60)}_ · ${p.urlBase}/chamados/${c.id}`
+  const fila = p.daFila
+  const temFila = Boolean(fila?.total && fila.chamados.length)
+  if ((!p.total || !p.chamados.length) && !temFila && !fila?.falhou) {
+    return fila
+      ? 'Você não tem chamados abertos, e a fila que você atende está em dia. Para abrir um, escreva *chamado:* e o problema.'
+      : 'Você não tem chamados abertos. Para abrir um, escreva *chamado:* e o problema.'
+  }
+  const partes: string[] = []
+  if (p.total && p.chamados.length) {
+    const itens = p.chamados.slice(0, CHAMADOS_NA_RESPOSTA).map(linha)
+    partes.push(p.total === 1 ? 'Você tem *1 chamado* aberto:' : `Você tem *${p.total} chamados* abertos${p.total > itens.length ? `. Os ${itens.length} mais recentes` : ''}:`, ...itens)
+  } else {
+    partes.push('Você não tem chamados abertos.')
+  }
+  if (fila && temFila) {
+    const itens = fila.chamados.slice(0, CHAMADOS_DA_FILA_NA_RESPOSTA).map(linha)
+    partes.push(fila.total === 1 ? '*Na fila que você atende*, 1 chamado aberto:' : `*Na fila que você atende*, ${fila.total} abertos${fila.total > itens.length ? `. Os ${itens.length} primeiros` : ''}:`, ...itens)
+  } else if (fila?.falhou) {
+    partes.push(`_A fila que você atende não carregou agora: veja em ${p.urlBase}/chamados_`)
+  }
+  partes.push('Para responder, use o link ou responda a mensagem do aviso do chamado.')
+  if (fila) partes.push(DICA_DO_ATENDIMENTO)
+  return partes.join('\n\n')
 }
 
 export type AprovacaoNaLista = { id: string; titulo: string }
@@ -1298,4 +1362,179 @@ export function tituloDoRelato(relato: string): string {
 }
 
 export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
-  'Sua conta usa a verificação em duas etapas, então responder, votar e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
+  'Sua conta usa a verificação em duas etapas, então responder, votar, atender chamados, registrar visitas e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
+
+// ------------------------------------------------------------------ quem atende chamado (assumir, resolver, transferir)
+//
+// Quem atende uma fila age no chamado pelo WhatsApp com as mesmas funções da tela (lib/chamados/nucleo.ts):
+// pelo comando com o código ("resolver TI-0042: troquei o toner") ou respondendo ao aviso do chamado (aí o
+// código vem do aviso: "resolvido: troquei o toner"). Resolver e transferir terminam na conferência
+// ("confirmo"), como o voto; assumir vai direto.
+
+export type AcaoNoChamado = 'assumir' | 'resolver' | 'transferir'
+
+export type PedidoDeAtendimento = {
+  acao: AcaoNoChamado
+  /** O código escrito logo depois do verbo, no formato do Palácio ("TI-0042"); null sem código. */
+  codigo: string | null
+  /** O que vem depois do código (a solução; a fila e o motivo da transferência). */
+  texto: string
+  /** O que vem depois do verbo, com o que parecia código junto: respondendo ao aviso, "resolvido: rede-2 trocada" não cita chamado nenhum. */
+  resto: string
+}
+
+const VERBO_DO_ATENDIMENTO = /^\s*(assumir|assumo|atender|atendo|resolver|resolvido|resolvida|transferir|transfira|transfere)(?![\p{L}\d])[\s:,.;\-–—]*(?:(?:o\s+)?chamado(?![\p{L}\d])[\s:,.;\-–—]*)?/iu
+const CODIGO_NO_COMECO = /^([a-z]{2,6})\s*-\s*(\d{1,7})(?![\p{L}\d])/iu
+/** Os separadores e a pontuação solta no começo ("resolvido: …", "assumo!"). */
+const semComeco = (t: string) => t.replace(/^[\s:,.;!\-–—]+/, '').trim()
+
+/**
+ * "assumir TI-0042", "resolver TI-0042: troquei o toner", "transferir o chamado ti-42 para Manutenção: …".
+ * O verbo vem no começo; o resto é a solução ou a fila e o motivo. "assumir" é só o verbo (e o código): "atendo
+ * amanhã cedo" é conversa, não comando. Pergunta ("Resolvido?") também é conversa. null para o resto.
+ */
+export function lerAtendimento(entrada: string): PedidoDeAtendimento | null {
+  const bruto = String(entrada ?? '').slice(0, 4000)
+  const m = VERBO_DO_ATENDIMENTO.exec(bruto)
+  if (!m || /\?\s*$/.test(bruto)) return null
+  const verbo = normalizar(m[1])
+  const acao: AcaoNoChamado = verbo.startsWith('resolv') ? 'resolver' : verbo.startsWith('transf') ? 'transferir' : 'assumir'
+  const resto = bruto.slice(m[0].length).trim()
+  const c = CODIGO_NO_COMECO.exec(resto)
+  const codigo = c ? `${c[1].toUpperCase()}-${c[2].padStart(4, '0')}` : null
+  const texto = semComeco(c ? resto.slice(c[0].length) : resto)
+  if (acao === 'assumir' && texto) return null
+  return { acao, codigo, texto, resto: semComeco(resto) }
+}
+
+/**
+ * Respondendo ao aviso do chamado, só a forma que não deixa dúvida vira pedido; o resto é a mensagem de
+ * sempre a quem abriu: "assumo", "resolvido…" e "resolver:" (com os dois-pontos — "resolver amanhã" é
+ * conversa), "transferir para …". null para a conversa.
+ */
+export function lerAtendimentoNoAviso(entrada: string): PedidoDeAtendimento | null {
+  const pedido = lerAtendimento(entrada)
+  if (!pedido) return null
+  const t = String(entrada ?? '')
+  if (pedido.acao === 'resolver' && /^\s*resolver(?![\p{L}\d])/iu.test(t) && !/^\s*resolver\s*:/i.test(t)) return null
+  if (pedido.acao === 'transferir' && !pedido.codigo && !/^\s*(?:para|pra|p\/)\s/i.test(pedido.resto)) return null
+  return pedido
+}
+
+/** "para Manutenção: o ar da sala dos servidores" → a equipe escrita e o motivo (depois dos dois-pontos ou do travessão). */
+export function lerTransferencia(texto: string): { fila: string; motivo: string } {
+  const t = String(texto ?? '').replace(/^\s*(?:para|pra|p\/)\s+(?:(?:a\s+)?(?:fila|equipe)\s+(?:de\s+|da\s+|do\s+)?)?/i, '')
+  const corte = /\s*(?::|\s[-–—]\s)\s*/.exec(t)
+  const fila = (corte ? t.slice(0, corte.index) : t).replace(/\s+/g, ' ').trim().slice(0, 80)
+  const motivo = corte ? t.slice(corte.index + corte[0].length).trim().slice(0, 2000) : ''
+  return { fila, motivo }
+}
+
+/**
+ * As opções que batem com o que a pessoa escreveu, sem acento nem maiúscula. O nome (ou um apelido, como o
+ * prefixo da fila) igual ao escrito vem sozinho; senão, cada palavra escrita começa uma palavra do nome
+ * ("ana li" acha "Ana Lima"; "manut" acha "Manutenção"). Nada escrito, nada achado.
+ */
+export function acharPeloNome<T extends { nome: string; apelidos?: string[] }>(opcoes: T[], busca: string): T[] {
+  const q = normalizar(busca)
+  if (!q) return []
+  const iguais = opcoes.filter((o) => [o.nome, ...(o.apelidos ?? [])].some((n) => normalizar(n) === q))
+  if (iguais.length) return iguais
+  const termos = q.split(' ')
+  return opcoes.filter((o) => {
+    const palavras = normalizar(o.nome).split(' ')
+    return termos.every((t) => palavras.some((w) => w.startsWith(t)))
+  })
+}
+
+const citado = (t: string, max: number) => limpo(t, max).split('\n').map((l) => `> ${l}`).join('\n')
+
+export const TEXTO_PEDE_SOLUCAO = `Como foi resolvido? Escreva a solução: é o que quem abriu vai ler para confirmar. Ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+export const TEXTO_PEDE_MOTIVO_DA_TRANSFERENCIA = `Por que está transferindo? Responda em poucas palavras, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+
+/**
+ * A conferência antes de resolver ou transferir pelo WhatsApp: o que vai acontecer, e *confirmo* ou *cancelar*
+ * (como a do voto). `doAviso`: o "resolvido: …" veio respondendo ao aviso, e pode ter sido só uma mensagem a quem abriu.
+ */
+export function textoDaConferenciaDoChamado(p:
+  | { acao: 'resolver'; codigo: string; titulo: string; nota: string; doAviso?: boolean }
+  | { acao: 'transferir'; codigo: string; titulo: string; de: string; para: string; assunto: string; motivo: string }): string {
+  const qual = `*${limpo(p.codigo, 20)}* · ${limpo(p.titulo, 120)}`
+  const fim = `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+  if (p.acao === 'resolver') {
+    return [
+      `Marcar ${qual} como *resolvido*, com esta solução?`,
+      citado(p.nota, 500),
+      'Quem abriu lê a solução para confirmar e avaliar, ou reabre se o problema continuar.',
+      fim,
+      p.doAviso ? '_Era só uma mensagem para quem abriu? Responda *cancelar* e mande de novo sem começar com “resolvido”._' : null,
+    ].filter(Boolean).join('\n\n')
+  }
+  return [
+    `Transferir ${qual} de *${limpo(p.de, 60)}* para *${limpo(p.para, 60)}* (assunto: ${limpo(p.assunto, 80)})?`,
+    `Motivo:\n${citado(p.motivo, 400)}`,
+    'O chamado ganha um código novo na outra fila e fica sem responsável; a equipe de destino e quem abriu são avisados.',
+    fim,
+  ].join('\n\n')
+}
+
+// ------------------------------------------------------------------ portaria (as visitas do dia e registrar quem chegou)
+//
+// Quem tem a portaria (a mesma regra da tela: membro do Palácio, menos a equipe da Escola) vê as visitas
+// abertas do dia — só o nome do visitante, para quem, a hora e a situação — e registra a chegada em etapas
+// (lib/whatsapp/portaria.ts). Documento e foto ficam na tela.
+
+export type VisitaNaLista = { nome: string; para: string; hora: string; situacao: string }
+export const VISITAS_NA_RESPOSTA = 10
+
+/** A situação de uma visita aberta, em poucas palavras (o recado de quem é visitado fica na tela). */
+export function situacaoDaVisitaNaLista(v: { entrada_em: string | null; visitado_id: string | null; resposta: RespostaDaVisita | null }): string {
+  if (!v.entrada_em) return 'Chegou pelo QR: falta confirmar a entrada'
+  const r = situacaoDaResposta(v)
+  if (r === 'sem_pessoa') return 'Na filial (ninguém foi avisado)'
+  if (r === 'esperando') return 'Esperando a resposta'
+  return RESPOSTAS[r].rotulo
+}
+
+/** A resposta ao "portaria": as visitas abertas de hoje, da mais recente para a mais antiga. `registra`: ensina o "visitante:". */
+export function textoDaPortaria(p: { visitas: VisitaNaLista[]; total: number; urlBase: string; registra: boolean }): string {
+  const rodape = [p.registra ? 'Para registrar quem chegou, escreva *visitante:* e o nome.' : null, `A portaria completa: ${p.urlBase}/portaria`].filter(Boolean).join(' ')
+  if (!p.total || !p.visitas.length) return ['Nenhuma visita aberta hoje na portaria.', rodape].join('\n\n')
+  const mostradas = p.visitas.slice(0, VISITAS_NA_RESPOSTA)
+  const cabeca = p.total === 1
+    ? '*1 visita* aberta hoje na portaria:'
+    : `*${p.total} visitas* abertas hoje na portaria${p.total > mostradas.length ? `. As ${mostradas.length} mais recentes` : ''}:`
+  const itens = mostradas.map((v) => `• ${limpo(v.hora, 5)} – *${limpo(v.nome, 80)}*${v.para.trim() ? ` → ${limpo(v.para, 80)}` : ''}\n   _${limpo(v.situacao, 60)}_`)
+  return [cabeca, itens.join('\n'), rodape].join('\n\n')
+}
+
+/** "setor: Financeiro": a visita é para um setor (ou alguém sem conta), em texto livre — como "Setor ou pessoa" da tela, ninguém é avisado. */
+export function lerSetorDaVisita(entrada: string): string | null {
+  const m = /^\s*setor(?![\p{L}\d])[\s:,.;\-–—]*([\s\S]*)$/iu.exec(String(entrada ?? ''))
+  const setor = m?.[1].replace(/\s+/g, ' ').trim().slice(0, 120) ?? ''
+  return setor.length >= 2 ? setor : null
+}
+
+export const TEXTO_PEDE_NOME_DO_VISITANTE = `Qual é o nome do visitante? Responda com o nome, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+
+export function textoPedeVisitado(nome: string): string {
+  return [
+    `Para quem é a visita de *${limpo(nome, 80)}*? Escreva o nome de quem vai receber (basta parte do nome).`,
+    'Se não for uma pessoa do Palácio, escreva *setor:* e o setor (aí ninguém é avisado). Ou *cancelar*.',
+  ].join('\n\n')
+}
+
+export const TEXTO_PEDE_MOTIVO_DA_VISITA = `Qual é o motivo da visita? Escreva em poucas palavras, ou responda *pular*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
+
+/** A conferência antes de registrar a entrada: quem chegou, para quem (e se a pessoa é avisada) e o motivo. */
+export function textoDaConferenciaDaVisita(p: { nome: string; pessoa: { nome: string; setor: string | null } | null; setor: string | null; motivo: string | null }): string {
+  const para = p.pessoa
+    ? `Para: *${limpo(p.pessoa.nome, 80)}*${p.pessoa.setor ? ` (${limpo(p.pessoa.setor, 60)})` : ''}, que recebe o aviso e responde se a visita pode subir.`
+    : `Para: ${limpo(p.setor ?? '', 120) || 'ninguém'} (ninguém é avisado).`
+  return [
+    `Registrar a entrada de *${limpo(p.nome, 80)}*?`,
+    [para, p.motivo ? `Motivo: ${limpo(p.motivo, 200)}` : null].filter(Boolean).join('\n'),
+    'Foto e crachá de visitante, se precisar, ficam na tela da portaria.',
+    `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}

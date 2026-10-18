@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
-import { pode } from '@/lib/permissoes'
+import { ehEquipeDaEscola, pode } from '@/lib/permissoes'
+import { filasQueAtendo } from '@/lib/chamados/servidor'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
 import { auditarConta, avisarTrocaDeWhatsapp } from '@/lib/contas/servidor'
@@ -167,10 +168,14 @@ export async function confirmarCodigoDoWhatsapp(formData: FormData): Promise<Res
       throw new Error(r.motivo === 'usado' ? 'Esse código já foi usado. Peça um novo.'
         : r.motivo === 'outra_conta' ? 'Esse número acabou de ser confirmado em outra conta.' : 'Não foi possível guardar o número.')
     }
-    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz.
+    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz (o mesmo menu do bot, com a portaria e a fila que ela atende).
+    const escola = ehEquipeDaEscola(context.role)
+    const atende = !escola && (await filasQueAtendo(admin, context.workspace.id, context.user.id, context.role).catch(() => new Set<string>())).size > 0
     await entregar(admin, context.workspace.id, {
       numero, tipo: 'bot', userId: context.user.id,
-      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase(), admin: pode(context.role, 'integracoes.configurar') })}`,
+      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({
+        nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase(), admin: pode(context.role, 'integracoes.configurar'), portaria: !escola, atende,
+      })}`,
     })
     revalidatePath('/perfil')
     return { recado: `WhatsApp confirmado: ${formatarNumero(numero)}.` }

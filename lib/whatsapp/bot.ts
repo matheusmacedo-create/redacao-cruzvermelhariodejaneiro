@@ -5,7 +5,6 @@ import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 import { lerCamadas } from '@/lib/agenda/camadas'
 import { agoraEmBrasilia, somarDias } from '@/lib/agenda/datas'
 import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
-import { ABERTOS, ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, ehStatus } from '@/lib/chamados/regras'
 import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
 import { ehPapel, type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
@@ -16,18 +15,20 @@ import {
 } from './confirmacao'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita, seguirPendencia,
-  type Pendencia, type Pessoa, type Resposta,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita,
+  seguirPendencia, type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
+import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
+import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
 import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
 import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
-  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
+  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda,
-  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados,
+  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
@@ -39,9 +40,11 @@ type Admin = ReturnType<typeof createAdminClient>
  * Quem é da equipe e confirmou o número (whatsapp_contas) vê os avisos sem
  * abrir, marca como lidos e pausa ou retoma os avisos por aqui; quem
  * administra o espaço também pede o "status" do canal e faz a fila andar
- * (lib/whatsapp/admin.ts). Quem não é recebe uma apresentação (no máximo uma
- * por dia) com o caminho dos canais oficiais: este número não é atendimento
- * ao público.
+ * (lib/whatsapp/admin.ts). Quem atende uma fila assume, resolve e transfere
+ * chamados (lib/whatsapp/atendimento.ts); quem tem a portaria vê as visitas do
+ * dia e registra quem chegou (lib/whatsapp/portaria.ts). Quem não é recebe
+ * uma apresentação (no máximo uma por dia) com o caminho dos canais oficiais:
+ * este número não é atendimento ao público.
  *
  * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
  * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
@@ -163,8 +166,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       }
       const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
       if (!id) {
-        const onde = r.pergunta.tipo === 'aprovar' ? `/aprovacoes/${String(r.pergunta.dados.approvalId ?? '')}` : '/chamados/novo'
-        await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${onde}`)
+        // Sem a tabela, ou com o tipo da pergunta ainda fora do CHECK (a migração dele não foi aplicada).
+        await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
         return
       }
       // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
@@ -219,6 +222,25 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    if (comando === 'atender_chamado' && pedido) {
+      await enviar(await atenderPeloCodigo(admin, workspaceId, pessoa, pedido.resto, base))
+      return
+    }
+
+    // A portaria é de quem a tela deixa (a equipe da Escola, não): para os outros, "portaria" cai no menu.
+    if (comando === 'portaria') {
+      const resposta = await visitasDeHoje(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
+    if (comando === 'registrar_visita' && pedido && temPortaria(pessoa)) {
+      await enviar(await comecarVisita(admin, workspaceId, pessoa, pedido.resto, base))
+      return
+    }
+
     if (comando === 'avisos') {
       const [{ data: avisos }, { count: total }] = await Promise.all([
         admin.from('notifications').select('title, message, link').eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
@@ -256,7 +278,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'chamados') {
-      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa.id, base))
+      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa, base))
       return
     }
 
@@ -279,9 +301,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, admin: administra })
+    const quem = { admin: administra, portaria: temPortaria(pessoa), atende: await atendeAlgumaFila(admin, workspaceId, pessoa) }
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, ...quem })
     await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu, {
-      interativo: interativoDoMenu({ pausado, admin: administra }), comando: 'menu',
+      interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu',
     })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
@@ -357,28 +380,6 @@ async function agendaDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa,
   // Só o que começa no dia: a campanha que dura o mês inteiro não enche a lista de todo dia.
   const doDia = (dia: string): ItemDoDia[] => itens.filter((i) => i.dia === dia).map((i) => ({ titulo: i.titulo, hora: i.hora ?? null, detalhe: i.detalhe ?? null }))
   return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou: falhas.length > 0 })
-}
-
-/** Os chamados abertos que a pessoa abriu ou que estão com ela. */
-async function chamadosDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
-  const deQuem = `solicitante_id.eq.${userId},responsavel_id.eq.${userId}`
-  const [{ data, error }, { count }] = await Promise.all([
-    admin.from('chamados').select('id, codigo, titulo, status, solicitante_id').eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS])
-      .order('atualizado_em', { ascending: false }).limit(CHAMADOS_NA_RESPOSTA),
-    admin.from('chamados').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS]),
-  ])
-  if (error) return `Não consegui ler os seus chamados agora. Veja em ${base}/chamados`
-  return textoDosChamados({
-    chamados: (data ?? []).map((c) => {
-      const status = ehStatus(c.status) ? c.status : 'novo'
-      const deOutro = c.solicitante_id !== userId
-      return {
-        id: c.id as string, codigo: (c.codigo as string) || 'Chamado', titulo: (c.titulo as string) ?? '',
-        situacao: deOutro ? `${ROTULO_DO_STATUS_PARA_EQUIPE[status]} · com você` : ROTULO_DO_STATUS[status],
-      }
-    }),
-    total: count ?? data?.length ?? 0, urlBase: base,
-  })
 }
 
 /** As rodadas de aprovação em aberto em que o voto da pessoa ainda falta. */

@@ -15,13 +15,17 @@ import {
   interativoDaEscolha, lerDecisao, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato, type Interativo, type Opcao,
 } from './regras'
 import { seguirEnvio } from './envio'
+import { atenderPeloAviso, seguirAtendimento } from './atendimento'
+import { seguirVisita } from './portaria'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
 
 /**
  * O que o bot do WhatsApp FAZ em nome de quem escreveu: responder o aviso de
  * um chamado, do Chat ou de uma mensagem direta citando o próprio aviso,
- * votar numa aprovação e abrir um chamado.
+ * votar numa aprovação e abrir um chamado. Quem atende uma fila também
+ * assume, resolve e transfere o chamado (lib/whatsapp/atendimento.ts), e quem
+ * tem a portaria registra a chegada de um visitante (lib/whatsapp/portaria.ts).
  *
  * Quem é a pessoa, o bot já sabe pelo número confirmado (whatsapp_contas).
  * Daí em diante valem as mesmas regras da tela: os chamados passam por
@@ -31,9 +35,10 @@ import { aposResposta } from '@/lib/portaria/servidor'
  * actions.
  *
  * O WhatsApp não pede o código do app autenticador: quem usa a verificação
- * em duas etapas (ou é obrigado a usar) consulta e abre chamado por aqui; o
- * resto (responder, votar, mandar fotos) fica no Palácio. O banco confere de
- * novo no Chat e no voto (a sessão simulada é aal1).
+ * em duas etapas (ou é obrigado a usar) consulta, abre chamado e responde à
+ * portaria por aqui; o resto (responder, votar, atender chamado, registrar
+ * visita, mandar fotos) fica no Palácio. O banco confere de novo no Chat, no
+ * voto e no registro da visita (a sessão simulada é aal1).
  *
  * Nada aqui envia mensagem: cada função devolve o texto da resposta e, quando
  * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias).
@@ -43,7 +48,8 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export type Pessoa = { id: string; nome: string | null; papel: Papel }
 
-export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio'
+/** `atender_chamado` e `registrar_visita` vêm da migração 20261018213700: antes dela, o banco recusa a pergunta e o bot manda para o Palácio. */
+export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
 /**
@@ -57,9 +63,18 @@ export type Resposta = {
   interativo?: Interativo | null
 }
 
-const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
+export const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
 /** A função do banco não existe: a migração das ações ainda não foi aplicada. */
-const semFuncao = (error: { code?: string } | null) => error?.code === 'PGRST202' || error?.code === '42883'
+export const semFuncao = (error: { code?: string } | null) => error?.code === 'PGRST202' || error?.code === '42883'
+
+/** Onde fazer pelo Palácio o que a pergunta faria (a pergunta não pôde ser guardada: a migração dela ainda não foi aplicada). */
+export function ondeNoPalacio(p: { tipo: TipoDePendencia; dados: Record<string, unknown> }): string {
+  if (p.tipo === 'aprovar') return `/aprovacoes/${String(p.dados.approvalId ?? '')}`
+  if (p.tipo === 'atender_chamado') return `/chamados/${String(p.dados.chamadoId ?? '')}`
+  if (p.tipo === 'registrar_visita') return '/portaria'
+  if (p.tipo === 'envio') return '/enviar'
+  return '/chamados/novo'
+}
 
 // ------------------------------------------------------------------ quem pode agir
 
@@ -107,6 +122,9 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
     const c = await carregarChamado(admin, workspaceId, alvo.id)
     const papeis = c ? papeisNoChamado(c, pessoa.id, await filasQueAtendo(admin, workspaceId, pessoa.id, pessoa.papel)) : []
     if (!c || !papeis.length) return { texto: 'Chamado não encontrado.' }
+    // Quem atende pode assumir, resolver ou transferir respondendo o próprio aviso ("resolvido: troquei o toner").
+    const atendimento = await atenderPeloAviso(admin, workspaceId, pessoa, c, papeis, corpo, base)
+    if (atendimento) return atendimento
     try {
       await comentarNoChamado(admin, { c, papeis, autor, texto: corpo })
     } catch (causa) {
@@ -260,12 +278,20 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
-  // Na pergunta dos detalhes, "não" quer dizer "sem detalhes", não "desisto do chamado".
-  const pulandoDetalhes = p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes' && ehPular(texto)
+  // Na pergunta dos detalhes (e na do motivo da visita), "não" quer dizer "sem detalhes", não "desisto".
+  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes') || (p.tipo === 'registrar_visita' && p.dados.etapa === 'motivo')) && ehPular(texto)
   if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
-    return { texto: p.tipo === 'aprovar' ? 'Pronto: nenhum voto registrado.' : 'Pronto: o chamado não foi aberto.' }
+    const desistiu: Record<Exclude<TipoDePendencia, 'envio'>, string> = {
+      aprovar: 'Pronto: nenhum voto registrado.',
+      abrir_chamado: 'Pronto: o chamado não foi aberto.',
+      atender_chamado: 'Pronto: nada mudou no chamado.',
+      registrar_visita: 'Pronto: a entrada não foi registrada.',
+    }
+    return { texto: desistiu[p.tipo] }
   }
+  if (p.tipo === 'atender_chamado') return seguirAtendimento(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'registrar_visita') return seguirVisita(admin, workspaceId, pessoa, p, texto, base, estrita)
 
   if (p.tipo === 'aprovar') {
     const approvalId = String(p.dados.approvalId ?? '')
@@ -399,8 +425,13 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
   }
 }
 
-/** A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio)? Aí até frase com "agenda" é resposta. */
+/**
+ * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
+ * motivo da transferência, o nome, quem visita e o motivo da visita)? Aí até frase com "agenda" é resposta.
+ */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
   return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
+    || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
+    || (p?.tipo === 'registrar_visita' && (etapa === 'nome' || etapa === 'pessoa' || etapa === 'escolher_pessoa' || etapa === 'motivo'))
 }

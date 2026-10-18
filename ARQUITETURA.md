@@ -688,6 +688,17 @@ GLPI, Freshservice e Zendesk). Peças:
 - **Escrita só pelo servidor** (`app/actions/chamados.ts`, service role): o
   banco não aceita insert/update dessas tabelas pela Data API. Cada action
   descobre o papel da pessoa no chamado (`papeisNoChamado`) antes de agir.
+  O que cada escrita faz mora em `lib/chamados/nucleo.ts` (`criarChamado`,
+  `comentarNoChamado`, `mudarStatusNoChamado`, `atribuirNoChamado`,
+  `transferirNoChamado`): as actions e o bot do WhatsApp chamam as mesmas
+  funções, com as mesmas conferências, o mesmo evento e os mesmos avisos
+  (o WhatsApp marca o evento com `canal: 'whatsapp'`).
+- **Pelo WhatsApp (18/10/2026):** quem abre chamado (`chamado:`) e responde
+  citando o aviso; quem atende a fila também **assume**, **resolve** (com a
+  solução) e **transfere**, pelo comando com o código (`resolver TI-0042:
+  troquei o toner`) ou respondendo ao aviso; resolver e transferir pedem
+  `confirmo`. O `5` de quem atende traz também os abertos da fila. §8.5,
+  "Quem atende chamado pelo WhatsApp".
   **Leitura por RLS** (`private.atende_fila`, `ve_chamado`): quem abriu vê o
   seu; a equipe da fila (e admin) vê os da fila; nota interna e anexo interno,
   só a equipe.
@@ -1338,6 +1349,14 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
     visitante nunca leva o recado: ele é para a portaria.
   - A lista "Na filial agora" mostra a situação ao lado de cada visitante e se
     atualiza sozinha.
+- **Pelo WhatsApp (18/10/2026)** (`lib/whatsapp/portaria.ts`; §8.5, "A portaria
+  pelo WhatsApp"): `portaria` lista as visitas abertas do dia (nome, para quem,
+  hora e situação; nada de telefone, empresa, motivo, recado ou foto), e
+  `visitante:` registra a chegada em etapas (nome → para quem, na equipe ativa
+  ou `setor:` → motivo opcional → `confirmo`) pela mesma `portaria_registrar_entrada`,
+  chamada como a pessoa (`whatsapp_portaria_registrar_entrada`, migração
+  `20261018213700`), e pelo mesmo `avisarVisitado`. Foto, crachá e documento
+  ficam na tela.
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
   aparece com alerta. Os crachás para imprimir (`/portaria/crachas`) saem deitados (86 × 54 mm,
@@ -1987,6 +2006,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
+  `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
+  `portaria.ts` (as visitas do dia e registrar quem chegou),
   `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
   `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
   `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
@@ -2054,7 +2075,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   respondido duas vezes. O registro guarda só o comando reconhecido, nunca o texto recebido.
 - **Bot:** equipe com número confirmado: `1` avisos sem abrir, `2` marcar como lidos, `3`/`parar`/`voltar`
   pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
-  `5` chamados abertos (que a pessoa abriu ou estão com ela), `6` aprovações esperando o voto dela,
+  `5` chamados abertos (que a pessoa abriu ou estão com ela e, para quem atende uma fila, os abertos da
+  fila — veja “Quem atende chamado”), `6` aprovações esperando o voto dela, `portaria` as visitas abertas
+  do dia (veja “A portaria pelo WhatsApp”),
   `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
   achados com esforço baixo, e sem chave vão os trechos). O menu vai também como lista (“Botões e
   listas”, abaixo); digitar o número continua valendo. Número desconhecido recebe uma
@@ -2071,9 +2094,12 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   como `interactive.button_reply.id` / `list_reply.id` (`lerMensagemDaKapso` já os lia como o texto; agora
   marca `toque`) e segue por `lerPedido`, `lerDecisao`, `lerEscolha`, `ehConfirmacao`, `ehPular`,
   `lerRespostaDaVisita` sem caminho novo. O corpo é o texto inteiro, que continua dizendo o que digitar.
-  Onde há: o **menu** (lista “Ver as opções”: `1`–`6` e, para quem administra, `status` e `fila`, numa
-  seção “Da administração”; `interativoDoMenu`, das mesmas opções de `textoDoMenu`); a **conferência do
-  voto** (`confirmo` / `cancelar`, `BOTOES_DA_CONFERENCIA`); os passos do **chamado** — equipe, assunto e
+  Onde há: o **menu** (lista “Ver as opções”: `1`–`6`, `portaria` para quem tem a portaria e, para quem
+  administra, `status` e `fila`, numa seção “Da administração” — no máximo 9 linhas; `interativoDoMenu`,
+  das mesmas opções de `textoDoMenu`, cujo texto mais longo, pausado e com tudo, ainda cabe nos 1024); a
+  **conferência do voto** e as de resolver, transferir e registrar visita (`confirmo` / `cancelar`,
+  `BOTOES_DA_CONFERENCIA`); as escolhas de equipe e assunto da transferência e de pessoa da visita (lista,
+  `interativoDaEscolha`), e o motivo da visita (`pular` / `cancelar`, `BOTOES_DOS_DETALHES`); os passos do **chamado** — equipe, assunto e
   urgência em lista (`interativoDaEscolha`: `1`…`n` com o nome e o detalhe, mais a linha `cancelar` quando
   cabe; a urgência é lista, não botões, porque “Atrapalha meu trabalho” passa dos 20 caracteres e a ajuda
   de cada uma vai na descrição) e os detalhes com `pular` / `cancelar` (`BOTOES_DOS_DETALHES`); e o
@@ -2116,10 +2142,50 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
   pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
   `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
-  usa (ou é obrigado a usar) a verificação em duas etapas só consulta e abre chamado pelo WhatsApp
-  (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de quem escreveu):
-  responder, votar e mandar fotos, o servidor recusa antes (`podeAgirPeloWhatsapp`), e o banco
-  recusa de novo no Chat e no voto.
+  usa (ou é obrigado a usar) a verificação em duas etapas só consulta, abre chamado e responde à
+  portaria pelo WhatsApp (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de
+  quem escreveu): responder, votar, atender chamado, registrar visita e mandar fotos, o servidor
+  recusa antes (`podeAgirPeloWhatsapp`), e o banco recusa de novo no Chat, no voto e no registro
+  da visita. Não há exceção para quem atende chamado.
+- **Quem atende chamado pelo WhatsApp (18/10/2026)** (`lib/whatsapp/atendimento.ts`): quem atende a
+  fila do chamado (`filasQueAtendo`/`papeisNoChamado`: a equipe da fila e quem tem `chamados.ver_todos`)
+  age pelo comando com o código — `assumir TI-0042`, `resolver TI-0042: troquei o toner`, `transferir
+  TI-0042 para Manutenção: motivo` (`lerAtendimento` e `lerTransferencia`, puros; o código digitado
+  `ti-42` vira `TI-0042`; sem código, não é comando; pergunta, como “Resolvido?”, nunca é) — ou respondendo
+  ao aviso do chamado, só na forma que não deixa dúvida (`lerAtendimentoNoAviso`: `assumo`, `resolvido…`,
+  `resolver:` com os dois-pontos — “resolver amanhã” é conversa —, `transferir para …`; ali um “código” que
+  não é o do aviso faz parte do texto, e o resto continua indo ao chamado como mensagem). Tudo passa pelas funções da tela
+  em `lib/chamados/nucleo.ts`, com `canal: 'whatsapp'` no evento: **assumir** é o “Atender” (novo → em
+  atendimento, que faz da pessoa a responsável se não havia) e, se o chamado estava com outra pessoa ou
+  já andava, o responsável da triagem (`atribuirNoChamado`); vai direto. **Resolver** pede a solução (5+
+  letras, como a tela) e a conferência; **transferir** acha a equipe pelo nome ou prefixo
+  (`acharPeloNome`; senão, a lista das outras filas ativas), pergunta o assunto (se houver mais de um) e
+  o motivo, e termina na conferência. Respondendo ao aviso, a conferência de “resolvido” lembra que podia
+  ser só uma mensagem. As etapas ficam em `whatsapp_pendencias` (tipo `atender_chamado`, migração
+  `20261018213700`); o chamado é relido a cada passo e a pergunta acaba se ele sair da fila da pessoa.
+  Quem só abriu o chamado recebe a orientação de responder o aviso; quem não tem papel nele, “não
+  achei”. O `5` de quem atende traz, depois dos dele, os abertos da fila que não estão com ele (sem
+  responsável primeiro, depois a prioridade e o mais antigo; até 5) e a dica dos comandos
+  (`DICA_DO_ATENDIMENTO`); o menu diz isso no `5`.
+- **A portaria pelo WhatsApp (18/10/2026)** (`lib/whatsapp/portaria.ts`): para quem tem a portaria (a
+  regra da tela e de `private.pode_portaria`: membro do Palácio, menos a equipe da Escola; para os
+  outros, as palavras caem no menu), `portaria` (ou `quem está aqui`, `visitas`, `visitantes`, só como a
+  mensagem inteira) lista as visitas abertas de hoje — entrou hoje e não saiu, ou chegou pelo QR e falta
+  confirmar —, da mais recente para a mais antiga, até 10, só com o nome do visitante, para quem
+  (`quemVisita`), a hora e a situação (`situacaoDaVisitaNaLista`); é consulta, vale com a verificação em
+  duas etapas. `visitante: <nome>` (ou `registrar visita`) registra a chegada em etapas: o nome (se não
+  veio), para quem (`acharPeloNome` em `pessoasParaVisitar`, a equipe ativa; uma pessoa segue, até 9 viram
+  a lista para escolher, mais do que isso pede mais do nome; `setor: …` grava em `visitado_texto`, sem
+  aviso), o motivo (`pular`) e a conferência. O registro é a mesma `portaria_registrar_entrada` da tela,
+  chamada como a pessoa por `whatsapp_portaria_registrar_entrada` (só service role, sessão aal1: o banco
+  confere de novo a portaria e a verificação, e `registrado_por` é a pessoa), e o aviso é o mesmo
+  `avisarVisitado` — quem é visitado responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
+  Telefone, empresa, crachá, foto e documento ficam na tela. As etapas usam `whatsapp_pendencias` (tipo
+  `registrar_visita`).
+- **Antes da migração `20261018213700`:** o CHECK de `whatsapp_pendencias.tipo` não aceita os tipos
+  novos, `guardarPendencia` falha e o bot responde “Isto ainda não está ligado…” com o link do lugar
+  certo (`ondeNoPalacio`: o chamado ou a portaria). Assumir e a lista `portaria` não dependem dela. A
+  migração lê a lista em vigor e só acrescenta (como `notifications_categoria_valida`).
 - **Fotos e vídeos viram envio** (`lib/whatsapp/envio.ts`, regras em `envio-regras.ts`): mídia de
   quem é da equipe (e pode agir pelo WhatsApp) abre um envio `recebendo` e uma pendência `envio` (índice único: uma aberta por
   pessoa, então fotos em entregas paralelas caem no mesmo). Cada arquivo é baixado pela Kapso
