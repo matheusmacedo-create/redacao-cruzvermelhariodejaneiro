@@ -61,17 +61,6 @@ export function numeroCanonico(entrada: string | null | undefined): string | nul
   return digitos.length >= 10 && digitos.length <= 15 ? digitos : null
 }
 
-/**
- * O número de um JID do WhatsApp ("5521987654321@s.whatsapp.net", às vezes
- * com ":12" do aparelho). Grupo, lista de transmissão, canal e o endereço
- * anônimo (@lid) não têm número: null.
- */
-export function numeroDoJid(jid: unknown): string | null {
-  if (typeof jid !== 'string') return null
-  const m = /^(\d{8,15})(?::\d+)?@(?:s\.whatsapp\.net|c\.us)$/.exec(jid.trim())
-  return m ? numeroCanonico(`+${m[1]}`) : null
-}
-
 /** "+55 (21) 98765-4321" — para a tela. */
 export function formatarNumero(numero: string): string {
   const d = numero.replace(/\D/g, '')
@@ -94,61 +83,17 @@ export function mascararNumero(numero: string | null | undefined): string {
   return `+${d.slice(0, 2)} ••••${d.slice(-4)}`
 }
 
-// ------------------------------------------------------------------ configuração
+// ------------------------------------------------------------------ conexão
 
-/** Endereço do servidor da Evolution API, sem barra no fim; null se não serve. */
-export function urlDoServidor(valor: string | null | undefined): string | null {
-  let bruto = String(valor ?? '').trim()
-  if (!bruto) return null
-  // "evolution.exemplo.org" (sem protocolo) vira https: foi assim que o primeiro cadastro travou.
-  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(bruto)) bruto = `https://${bruto}`
-  try {
-    const u = new URL(bruto)
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
-    if (u.username || u.password || u.search || u.hash) return null
-    return `${u.origin}${u.pathname}`.replace(/\/+$/, '')
-  } catch {
-    return null
-  }
-}
-
-/**
- * Endereço que só existe dentro de um computador ou da rede local (localhost,
- * 127.x, 10.x, 192.168.x, 172.16–31.x). O Palácio roda na internet e nunca
- * alcança esses endereços: é preciso o endereço público (ex.: o do ngrok).
- */
-export function enderecoLocal(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.toLowerCase()
-    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '[::1]' || host === '0.0.0.0') return true
-    const ip = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host)
-    if (!ip) return false
-    const [a, b] = [Number(ip[1]), Number(ip[2])]
-    return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254)
-  } catch {
-    return false
-  }
-}
-
-/** Nome da instância na Evolution: vai no caminho da URL, então só o seguro. */
-export const instanciaValida = (nome: string | null | undefined): boolean => /^[A-Za-z0-9._-]{1,64}$/.test(String(nome ?? '').trim())
-
+/** Na Kapso o número fica conectado no painel dela: "sem_instancia" é o Phone number ID que ela não acha. */
 export type EstadoDaConexao = 'conectado' | 'conectando' | 'desconectado' | 'sem_instancia' | 'erro'
-
-/** O `state` da Evolution (open, connecting, close) em português. */
-export function estadoDaEvolution(state: unknown): EstadoDaConexao {
-  if (state === 'open') return 'conectado'
-  if (state === 'connecting') return 'conectando'
-  if (state === 'close' || state === 'refused') return 'desconectado'
-  return 'erro'
-}
 
 export const ROTULO_DO_ESTADO: Record<EstadoDaConexao, string> = {
   conectado: 'Conectado',
-  conectando: 'Esperando a leitura do QR code',
+  conectando: 'Conectando',
   desconectado: 'Desconectado',
-  sem_instancia: 'Instância não encontrada no servidor',
-  erro: 'Sem resposta do servidor',
+  sem_instancia: 'Número não encontrado na Kapso',
+  erro: 'Sem resposta da Kapso',
 }
 
 // ------------------------------------------------------------------ avisos
@@ -214,7 +159,7 @@ export function dicaDeResposta(link: string | null | undefined): string | null {
 //
 // Controle de volume comum, não disfarce: o Palácio não manda mais do que
 // isto, para não virar enxurrada no celular de ninguém nem sobrecarregar o
-// servidor da Evolution. O que passa do limite espera na fila.
+// número na Meta (que limita quem manda demais). O que passa do limite espera na fila.
 
 /** Espera fixa entre dois envios seguidos da mesma leva (ms). */
 export const INTERVALO_ENTRE_ENVIOS_MS = 3000
@@ -341,134 +286,26 @@ export type MensagemRecebida = {
   nome: string | null
   /** O id da mensagem que a pessoa citou ao responder (o aviso, a pergunta do bot); null sem citação. */
   citada: string | null
-  /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Evolution). */
+  /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Kapso, pelo id da mídia). */
   midia: MidiaRecebida | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
 }
 
 export type EventoDoWebhook = {
-  /** Normalizado: "messages.upsert", "connection.update"… */
+  /** O evento da Kapso (cabeçalho X-Webhook-Event), como "whatsapp.message.received". */
   evento: string
-  instancia: string | null
   mensagens: MensagemRecebida[]
-  /** Em connection.update: open, connecting, close. */
-  estado: string | null
 }
 
 const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null)
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null)
 
-/** O texto de uma mensagem do Baileys, onde quer que ele esteja. */
-export function textoDaMensagem(mensagem: unknown, profundidade = 0): string {
-  const m = objeto(mensagem)
-  if (!m || profundidade > 3) return ''
-  const direto = texto(m.conversation)
-    ?? texto(objeto(m.extendedTextMessage)?.text)
-    ?? texto(objeto(m.imageMessage)?.caption)
-    ?? texto(objeto(m.videoMessage)?.caption)
-    ?? texto(objeto(m.buttonsResponseMessage)?.selectedButtonId)
-    ?? texto(objeto(objeto(m.listResponseMessage)?.singleSelectReply)?.selectedRowId)
-    ?? texto(objeto(m.templateButtonReplyMessage)?.selectedId)
-  if (direto) return direto
-  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'editedMessage', 'documentWithCaptionMessage']) {
-    const dentro = textoDaMensagem(objeto(m[embrulho])?.message, profundidade + 1)
-    if (dentro) return dentro
-  }
-  return ''
-}
-
 export type CategoriaDaMidia = 'foto' | 'video' | 'audio' | 'documento'
 export type MidiaRecebida = {
   categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null
-  /** Na Kapso, o id da mídia na Meta (é por ele que se baixa); na Evolution, ausente (baixa-se pelo id da mensagem). */
+  /** O id da mídia na Meta: é por ele que se baixa. */
   arquivo?: string
-}
-
-/** fileLength do Baileys: número, texto ou Long ({ low, high }). */
-function tamanhoDaMidia(v: unknown): number | null {
-  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v
-  if (typeof v === 'string' && /^\d{1,12}$/.test(v)) return Number(v)
-  const longo = objeto(v)
-  if (longo && typeof longo.low === 'number') return (longo.low >>> 0) + (typeof longo.high === 'number' ? longo.high * 2 ** 32 : 0)
-  return null
-}
-
-/** A mídia da mensagem, se houver (figurinha não conta). */
-export function midiaDaMensagem(mensagem: unknown, profundidade = 0): MidiaRecebida | null {
-  const m = objeto(mensagem)
-  if (!m || profundidade > 3) return null
-  const tipos: [string, CategoriaDaMidia][] = [['imageMessage', 'foto'], ['videoMessage', 'video'], ['audioMessage', 'audio'], ['documentMessage', 'documento']]
-  for (const [chave, categoria] of tipos) {
-    const d = objeto(m[chave])
-    if (!d) continue
-    const mime = (texto(d.mimetype) ?? '').split(';')[0].trim().toLowerCase().slice(0, 120)
-    // Foto e vídeo mandados "como documento" continuam foto e vídeo.
-    const real: CategoriaDaMidia = categoria === 'documento' && mime.startsWith('image/') ? 'foto' : categoria === 'documento' && mime.startsWith('video/') ? 'video' : categoria
-    return { categoria: real, mime: mime || 'application/octet-stream', tamanho: tamanhoDaMidia(d.fileLength), nome: texto(d.fileName)?.slice(0, 200) ?? null }
-  }
-  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
-    const dentro = midiaDaMensagem(objeto(m[embrulho])?.message, profundidade + 1)
-    if (dentro) return dentro
-  }
-  return null
-}
-
-const TIPOS_COM_CONTEXTO = ['extendedTextMessage', 'imageMessage', 'videoMessage', 'audioMessage', 'documentMessage', 'stickerMessage', 'buttonsResponseMessage', 'listResponseMessage', 'templateButtonReplyMessage']
-
-/** O id da mensagem citada (contextInfo.stanzaId), onde quer que ele esteja. */
-export function citadaNaMensagem(dado: unknown, profundidade = 0): string | null {
-  const d = objeto(dado)
-  if (!d || profundidade > 3) return null
-  const direto = texto(objeto(d.contextInfo)?.stanzaId)
-  if (direto) return direto.slice(0, 128)
-  const m = objeto(d.message) ?? d
-  for (const tipo of TIPOS_COM_CONTEXTO) {
-    const id = texto(objeto(objeto(m[tipo])?.contextInfo)?.stanzaId)
-    if (id) return id.slice(0, 128)
-  }
-  for (const embrulho of ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'documentWithCaptionMessage']) {
-    const dentro = objeto(m[embrulho])
-    if (dentro) {
-      const id = citadaNaMensagem({ message: dentro.message }, profundidade + 1)
-      if (id) return id
-    }
-  }
-  return null
-}
-
-function lerMensagem(dado: unknown): MensagemRecebida | null {
-  const d = objeto(dado)
-  const chave = objeto(d?.key)
-  if (!d || !chave) return null
-  const remoto = typeof chave.remoteJid === 'string' ? chave.remoteJid : ''
-  const grupo = remoto.endsWith('@g.us') || remoto.endsWith('@broadcast') || remoto.endsWith('@newsletter')
-  // Com o endereçamento anônimo (@lid), o número vem num campo ao lado.
-  const numero = [chave.remoteJidAlt, chave.senderPn, chave.remoteJid, d.remoteJidAlt, d.senderPn].map(numeroDoJid).find(Boolean) ?? null
-  return {
-    id: texto(chave.id)?.slice(0, 128) ?? null,
-    numero: grupo ? null : numero,
-    // Cabe uma resposta de chamado ou do Chat; comando é curto de todo jeito.
-    texto: textoDaMensagem(d.message).slice(0, 4000),
-    nome: texto(d.pushName)?.slice(0, 80) ?? null,
-    citada: citadaNaMensagem(d),
-    midia: midiaDaMensagem(d.message),
-    ignorar: chave.fromMe === true ? 'de_mim' : grupo ? 'grupo' : numero ? null : 'sem_numero',
-  }
-}
-
-/** Lê o corpo que a Evolution manda ao webhook. Nunca lança. */
-export function lerEventoDoWebhook(corpo: unknown): EventoDoWebhook {
-  const c = objeto(corpo) ?? {}
-  const evento = String(c.event ?? '').trim().toLowerCase().replace(/_/g, '.')
-  const dados = Array.isArray(c.data) ? c.data : [c.data]
-  const estado = evento === 'connection.update' ? texto(objeto(c.data)?.state) : null
-  return {
-    evento,
-    instancia: texto(c.instance)?.slice(0, 64) ?? null,
-    mensagens: evento === 'messages.upsert' ? dados.map(lerMensagem).filter((m): m is MensagemRecebida => m !== null) : [],
-    estado,
-  }
 }
 
 /** Os tipos de mensagem da API oficial que têm arquivo, na categoria do Palácio (figurinha não conta). */
@@ -532,11 +369,8 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
   const itens = c.batch === true && Array.isArray(c.data) ? c.data : [c]
   const recebida = evento === 'whatsapp.message.received'
   return {
-    // O mesmo nome do evento da Evolution: a rota trata os dois igual daí em diante.
-    evento: recebida ? 'messages.upsert' : evento,
-    instancia: null,
+    evento,
     mensagens: recebida ? itens.map((i) => lerMensagemDaKapso(i, idDoNumero)).filter((m): m is MensagemRecebida => m !== null) : [],
-    estado: null,
   }
 }
 

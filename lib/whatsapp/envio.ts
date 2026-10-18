@@ -20,7 +20,7 @@ import { podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from
  *  1. a primeira mídia abre um envio "recebendo" (invisível para quem avalia)
  *     e uma pendência "envio" — uma por pessoa (índice único), então fotos
  *     que chegam juntas, em entregas paralelas do webhook, caem no mesmo;
- *  2. cada mídia é baixada da Evolution e gravada no R2 com o nome canônico,
+ *  2. cada mídia é baixada da Kapso e gravada no R2 com o nome canônico,
  *     já como "recebida"; a legenda entra no relato;
  *  3. "pronto" pede o título e depois a autorização de imagem; a resposta
  *     conclui o envio e avisa quem avalia, como o botão "concluir" do link.

@@ -10,12 +10,11 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { CATEGORIAS, type Categoria } from '@/lib/notificacoes/regras'
 import {
   CODIGOS_POR_JANELA, CODIGO_TENTATIVAS, CODIGO_VALIDADE_MIN, JANELA_DOS_CODIGOS_MIN, WHATSAPP_PADRAO,
-  codigoNoFormato, formatarNumero, mascararNumero, numeroCanonico, textoDoCodigo, textoDoMenu, type EstadoDaConexao,
+  codigoNoFormato, formatarNumero, mascararNumero, numeroCanonico, textoDoCodigo, textoDoMenu,
 } from '@/lib/whatsapp/regras'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import {
-  codigoConfere, configDoWhatsapp, criarInstancia, desconectar, gerarCodigo, hashDoCodigo, ligarWebhook, mandar, pedirQr,
-  situacaoDaConexao, temWhatsapp,
+  codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, ligarWebhook, mandar,
 } from '@/lib/whatsapp/servidor'
 
 /**
@@ -48,8 +47,6 @@ export async function pedirCodigoDoWhatsapp(formData: FormData): Promise<Resulta
     const desde = new Date(Date.now() - JANELA_DOS_CODIGOS_MIN * 60_000).toISOString()
     const { count } = await admin.from('whatsapp_codigos').select('id', { count: 'exact', head: true }).eq('user_id', context.user.id).gte('criado_em', desde)
     if ((count ?? 0) >= CODIGOS_POR_JANELA) throw new Error(`Você já pediu ${CODIGOS_POR_JANELA} códigos nos últimos ${JANELA_DOS_CODIGOS_MIN} minutos. Espere um pouco e tente de novo.`)
-
-    if (await temWhatsapp(config, numero) === false) throw new Error(`${formatarNumero(numero)} não tem WhatsApp. Confira os dígitos.`)
 
     // Só o último código vale.
     await admin.from('whatsapp_codigos').update({ usado_em: new Date().toISOString() }).eq('user_id', context.user.id).is('usado_em', null)
@@ -167,65 +164,12 @@ async function exigirAdmin() {
   const context = await requireWorkspace()
   if (!pode(context.role, 'integracoes.configurar')) throw new Error('Só administradores conectam o WhatsApp do Palácio Virtual.')
   const config = await configDoWhatsapp(context.workspace.id)
-  if (!config) throw new Error('Configure primeiro o endereço, a instância e a chave em Configurações → Integrações.')
+  if (!config) throw new Error('Configure primeiro a chave da Kapso e o Phone number ID em Configurações → Integrações.')
   return { context, config }
 }
 
 async function registrarNaAtividade(workspaceId: string, atorId: string, acao: string) {
-  await createAdminClient().from('activity_log').insert({ workspace_id: workspaceId, actor_id: atorId, action: acao, entity_type: 'integracao', metadata: { servico: 'evolution_api' } })
-}
-
-/** Lido pela tela a cada poucos segundos enquanto o QR está aberto. Só lê. */
-export async function estadoDoWhatsapp(): Promise<{ estado?: EstadoDaConexao; erro?: string }> {
-  try {
-    const { config } = await exigirAdmin()
-    const s = await situacaoDaConexao(config)
-    return { estado: s.estado, erro: s.erro ?? undefined }
-  } catch (causa) {
-    return { erro: mensagemDoErro(causa, 'Não foi possível ler a conexão.') }
-  }
-}
-
-/** Pede o QR code (ou, com número, o código de pareamento). */
-export async function conectarWhatsapp(formData: FormData): Promise<Resultado & { imagem?: string | null; codigo?: string | null; conectado?: boolean }> {
-  try {
-    const { context, config } = await exigirAdmin()
-    const bruto = String(formData.get('numero') ?? '').trim()
-    const numero = bruto ? numeroCanonico(bruto) : null
-    if (bruto && !numero) throw new Error('Número inválido para o código de pareamento. Use DDD e número.')
-    const qr = await pedirQr(config, numero)
-    if (qr.erro) throw new Error(qr.erro)
-    if (!qr.conectado) await registrarNaAtividade(context.workspace.id, context.user.id, 'whatsapp_qr_pedido')
-    return { imagem: qr.imagem, codigo: qr.codigo, conectado: qr.conectado }
-  } catch (causa) {
-    return { erro: mensagemDoErro(causa, 'Não foi possível pedir o QR code.') }
-  }
-}
-
-export async function criarInstanciaDoWhatsapp(): Promise<Resultado> {
-  try {
-    const { context, config } = await exigirAdmin()
-    const r = await criarInstancia(config)
-    if (r.erro) throw new Error(r.erro)
-    await registrarNaAtividade(context.workspace.id, context.user.id, 'whatsapp_instancia_criada')
-    revalidatePath('/configuracoes/whatsapp')
-    return { recado: `Instância "${config.provedor === 'evolution' ? config.instancia : ''}" criada. Agora conecte o número pelo QR code.` }
-  } catch (causa) {
-    return { erro: mensagemDoErro(causa, 'Não foi possível criar a instância.') }
-  }
-}
-
-export async function desconectarWhatsapp(): Promise<Resultado> {
-  try {
-    const { context, config } = await exigirAdmin()
-    const r = await desconectar(config)
-    if (r.erro) throw new Error(r.erro)
-    await registrarNaAtividade(context.workspace.id, context.user.id, 'whatsapp_desconectado')
-    revalidatePath('/configuracoes/whatsapp')
-    return { recado: 'WhatsApp desconectado. Os avisos param de sair por lá até conectar de novo.' }
-  } catch (causa) {
-    return { erro: mensagemDoErro(causa, 'Não foi possível desconectar.') }
-  }
+  await createAdminClient().from('activity_log').insert({ workspace_id: workspaceId, actor_id: atorId, action: acao, entity_type: 'integracao', metadata: { servico: 'kapso' } })
 }
 
 export async function ligarRecebimentoDoWhatsapp(): Promise<Resultado> {

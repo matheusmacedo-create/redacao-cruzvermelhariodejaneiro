@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, Clock, Loader2, LogOut, PlugZap, QrCode, RefreshCw, Send, Webhook } from 'lucide-react'
+import { CheckCircle2, Clock, Loader2, RefreshCw, Send, Webhook } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { conectarWhatsapp, criarInstanciaDoWhatsapp, desconectarWhatsapp, enviarFilaAgora, estadoDoWhatsapp, ligarRecebimentoDoWhatsapp, testarWhatsapp } from '@/app/actions/whatsapp'
+import { enviarFilaAgora, ligarRecebimentoDoWhatsapp, testarWhatsapp } from '@/app/actions/whatsapp'
 import { ROTULO_DO_ESTADO, type EstadoDaConexao } from '@/lib/whatsapp/regras'
 
 export type LinhaDoRegistroNaTela = {
@@ -22,7 +22,6 @@ export type LinhaDoRegistroNaTela = {
 type Recado = { tom: 'ok' | 'erro'; texto: string } | null
 
 const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
-const campo = 'h-10 min-w-56 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/30'
 
 const TIPO: Record<string, string> = { aviso: 'Aviso', seguranca: 'Segurança da conta', codigo: 'Código de confirmação', bot: 'Bot', teste: 'Teste' }
 const SITUACAO: Record<string, string> = { recebida: 'Recebida', enviada: 'Enviada', falhou: 'Falhou', ignorada: 'Ignorada' }
@@ -30,7 +29,7 @@ const WEBHOOK: Record<string, string> = {
   ligado: 'Ligado: o que chega ao número vem para o Palácio Virtual, e o bot responde.',
   outro_endereco: 'Configurado para outro endereço (ou sem a senha do Palácio). O bot não recebe nada até ligar por aqui.',
   desligado: 'Desligado: o bot não recebe as mensagens.',
-  desconhecido: 'Não deu para ler a configuração no servidor.',
+  desconhecido: 'Não deu para ler a configuração na Kapso.',
 }
 
 function MostrarRecado({ recado }: { recado: Recado }) {
@@ -39,19 +38,17 @@ function MostrarRecado({ recado }: { recado: Recado }) {
 }
 
 /**
- * A conexão do número do Palácio: estado, QR code, recebimento (webhook),
- * teste e as últimas mensagens. Tudo passa pelas actions de
+ * A conexão do número do Palácio (pela Kapso): estado, recebimento (webhook),
+ * fila, teste e as últimas mensagens. Tudo passa pelas actions de
  * app/actions/whatsapp.ts, que conferem de novo que quem clicou é admin.
  */
 export function PainelDoWhatsapp(p: {
-  /** Kapso: sem QR nem instância (o número é conectado no painel da Kapso). */
-  provedor: 'evolution' | 'kapso'
-  /** Na Kapso, o Phone number ID. */
-  instancia: string
-  servidor: string
-  semHttps: boolean
+  /** O Phone number ID do número na Kapso. */
+  numeroId: string
   estado: EstadoDaConexao
   erro: string | null
+  /** Há um modelo aprovado para avisar fora da janela de 24 h. */
+  temModelo: boolean
   webhook: string
   numeroConectado: string | null
   nomeConectado: string | null
@@ -62,61 +59,19 @@ export function PainelDoWhatsapp(p: {
   fila: { silencio: number; volume: number; falha: number } | null
 }) {
   const router = useRouter()
-  // O que a tela descobriu sozinha (conectou pelo QR) vale até a próxima leitura do servidor.
-  const [estadoVisto, setEstado] = useState<EstadoDaConexao | null>(null)
-  const estado = estadoVisto ?? p.estado
-  const [qr, setQr] = useState<{ imagem: string | null; codigo: string | null } | null>(null)
-  const [numeroDoPareamento, setNumeroDoPareamento] = useState('')
   const [recado, setRecado] = useState<Recado>(null)
   const [ocupado, rodar] = useTransition()
-  const renovacoes = useRef(0)
 
-  // Com o QR aberto: confere a conexão a cada 4 s e troca o QR a cada 30 s (ele vence).
-  useEffect(() => {
-    if (!qr) return
-    const conferir = setInterval(async () => {
-      const r = await estadoDoWhatsapp()
-      if (r.estado === 'conectado') {
-        setQr(null)
-        setEstado('conectado')
-        setRecado({ tom: 'ok', texto: 'Conectado. Agora ligue o recebimento de mensagens, logo abaixo, se ainda não estiver ligado.' })
-        router.refresh()
-      }
-    }, 4000)
-    const renovar = setInterval(async () => {
-      if (renovacoes.current >= 6) { setQr(null); setRecado({ tom: 'erro', texto: 'O QR code venceu. Toque em “Conectar pelo QR code” de novo.' }); return }
-      renovacoes.current++
-      const form = new FormData()
-      const r = await conectarWhatsapp(form)
-      if (r.imagem) setQr((atual) => (atual ? { ...atual, imagem: r.imagem ?? null } : atual))
-    }, 30_000)
-    return () => { clearInterval(conferir); clearInterval(renovar) }
-  }, [qr, router])
-
-  function acao(fn: () => Promise<{ erro?: string; recado?: string }>, depois?: () => void) {
+  function acao(fn: () => Promise<{ erro?: string; recado?: string }>) {
     setRecado(null)
     rodar(async () => {
       const r = await fn()
       setRecado(r.erro ? { tom: 'erro', texto: r.erro } : { tom: 'ok', texto: r.recado ?? 'Pronto.' })
-      if (!r.erro) { depois?.(); setEstado(null); router.refresh() }
+      if (!r.erro) router.refresh()
     })
   }
 
-  function conectar(comNumero: boolean) {
-    setRecado(null)
-    renovacoes.current = 0
-    rodar(async () => {
-      const form = new FormData()
-      if (comNumero) form.set('numero', numeroDoPareamento)
-      const r = await conectarWhatsapp(form)
-      if (r.erro) return setRecado({ tom: 'erro', texto: r.erro })
-      if (r.conectado) { setEstado('conectado'); router.refresh(); return setRecado({ tom: 'ok', texto: 'Este número já está conectado.' }) }
-      setQr({ imagem: r.imagem ?? null, codigo: r.codigo ?? null })
-    })
-  }
-
-  const conectado = estado === 'conectado'
-  const kapso = p.provedor === 'kapso'
+  const conectado = p.estado === 'conectado'
 
   return (
     <div className="flex flex-col gap-6">
@@ -124,72 +79,29 @@ export function PainelDoWhatsapp(p: {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Conexão</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {kapso ? <>Pela Kapso (API oficial do WhatsApp), número <strong className="text-foreground">{p.instancia}</strong>.</> : <>Instância <strong className="text-foreground">{p.instancia}</strong> em {p.servidor}.</>}
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Pela Kapso (API oficial do WhatsApp), número <strong className="text-foreground">{p.numeroId}</strong>.</p>
           </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${conectado ? 'bg-success/10 text-success' : estado === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-warning/15 text-foreground'}`}>
-            {conectado && <CheckCircle2 className="size-3.5" aria-hidden="true" />}{ROTULO_DO_ESTADO[estado]}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${conectado ? 'bg-success/10 text-success' : p.estado === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-warning/15 text-foreground'}`}>
+            {conectado && <CheckCircle2 className="size-3.5" aria-hidden="true" />}{ROTULO_DO_ESTADO[p.estado]}
           </span>
         </div>
-        {p.semHttps && <p className="rounded-lg bg-warning/15 px-3 py-2 text-sm">O endereço do servidor é <strong>http</strong>, sem cadeado: a chave da API viaja sem criptografia. Use https no servidor da Evolution assim que puder.</p>}
-        {estado === 'erro' && p.erro && <p className="text-sm text-destructive">{p.erro}</p>}
-
-        {conectado && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm">
-              {p.numeroConectado ? <>Número conectado: <strong>{p.numeroConectado}</strong>{p.nomeConectado ? ` (${p.nomeConectado})` : ''}.</> : 'Conectado ao WhatsApp.'}
-            </p>
-            {!kapso && <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm('Desconectar o WhatsApp do Palácio? Os avisos e o bot param até conectar de novo pelo QR code.')) acao(desconectarWhatsapp) }}>
-              <LogOut className="size-4" />Desconectar
-            </Button>}
-          </div>
-        )}
-
-        {kapso && conectado && (
-          <p className="text-sm text-muted-foreground">
-            Pela API oficial, o Palácio só manda texto livre para quem escreveu ao número nas últimas 24 horas. Para os outros avisos, aprove um modelo de mensagem na Kapso (com uma variável no corpo) e informe o nome dele em Configurações → Integrações.
-          </p>
-        )}
-        {kapso && estado === 'sem_instancia' && (
+        {p.estado === 'erro' && p.erro && <p className="text-sm text-destructive">{p.erro}</p>}
+        {p.estado === 'sem_instancia' && (
           <p className="text-sm text-muted-foreground">A Kapso não achou esse número. Confira o Phone number ID em Configurações → Integrações (está na tela do número no painel da Kapso).</p>
         )}
-
-        {!kapso && estado === 'sem_instancia' && (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">O servidor não tem uma instância com esse nome. Crie aqui (a chave precisa ser a global do servidor) ou no painel da Evolution, e confira o nome em Configurações → Integrações.</p>
-            <div><Button disabled={ocupado} onClick={() => acao(criarInstanciaDoWhatsapp)}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : <PlugZap className="size-4" />}Criar a instância</Button></div>
-          </div>
+        {conectado && (
+          <p className="text-sm">
+            {p.numeroConectado ? <>Número conectado: <strong>{p.numeroConectado}</strong>{p.nomeConectado ? ` (${p.nomeConectado})` : ''}.</> : 'Conectado ao WhatsApp.'}
+          </p>
         )}
-
-        {!kapso && (estado === 'desconectado' || estado === 'conectando') && !qr && (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">
-              Use um celular com o chip do Palácio (não um número pessoal). No WhatsApp desse celular: <strong>Configurações → Dispositivos conectados → Conectar um dispositivo</strong>, e aponte a câmera para o QR code.
-            </p>
-            <div><Button disabled={ocupado} onClick={() => conectar(false)}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : <QrCode className="size-4" />}Conectar pelo QR code</Button></div>
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted-foreground">Não consegue ler o QR code? Receba um código de pareamento</summary>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <input className={campo} inputMode="tel" autoComplete="off" placeholder="Número do chip do Palácio, com DDD" aria-label="Número do chip do Palácio" value={numeroDoPareamento} onChange={(e) => setNumeroDoPareamento(e.target.value)} disabled={ocupado} />
-                <Button variant="outline" disabled={ocupado || numeroDoPareamento.replace(/\D/g, '').length < 10} onClick={() => conectar(true)}>Gerar código</Button>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">No celular: Dispositivos conectados → Conectar um dispositivo → “Conectar com número de telefone”, e digite o código.</p>
-            </details>
-          </div>
+        {conectado && (
+          <p className="text-sm text-muted-foreground">
+            {p.temModelo
+              ? 'Para quem não escreveu ao número nas últimas 24 horas, os avisos saem pelo modelo aprovado informado em Integrações.'
+              : 'Pela API oficial, o Palácio só manda texto livre para quem escreveu ao número nas últimas 24 horas. Para os outros avisos, aprove um modelo de mensagem na Kapso (com uma variável no corpo) e informe o nome dele em Configurações → Integrações.'}
+          </p>
         )}
-
-        {qr && (
-          <div className="flex flex-col items-start gap-3">
-            {qr.imagem && (
-              // O QR vem da Evolution como data URL; next/image não serve para isso.
-              <img src={qr.imagem} alt="QR code para conectar o WhatsApp do Palácio Virtual" className="size-64 rounded-lg border border-border bg-white p-2" />
-            )}
-            {qr.codigo && <p className="text-sm">Código de pareamento: <strong className="font-mono text-lg tracking-widest">{qr.codigo}</strong></p>}
-            <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" aria-hidden="true" />Esperando a leitura. O QR code se renova sozinho a cada 30 segundos.</p>
-            <Button variant="ghost" size="sm" onClick={() => setQr(null)}>Cancelar</Button>
-          </div>
-        )}
+        <p className="text-xs text-muted-foreground">O número se conecta e se desconecta no painel da Kapso, não aqui.</p>
         <MostrarRecado recado={recado} />
       </Card>
 
@@ -197,9 +109,8 @@ export function PainelDoWhatsapp(p: {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Receber mensagens (bot)</h2>
         <p className="text-sm">{WEBHOOK[p.webhook] ?? WEBHOOK.desconhecido}</p>
         <p className="text-sm text-muted-foreground">
-          {kapso
-            ? 'O botão cria na Kapso o webhook deste número, só com as mensagens recebidas, assinadas com uma senha que o Palácio confere. Não cadastre a URL à mão no painel da Kapso: sem a senha certa, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.'
-            : 'O botão configura o servidor da Evolution para mandar ao Palácio só as mensagens recebidas e as mudanças de conexão, com uma senha num cabeçalho. Não preencha a URL do webhook à mão no painel da Evolution: sem a senha, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.'}
+          O botão cria na Kapso o webhook deste número, só com as mensagens recebidas, assinadas com uma senha que o Palácio confere.
+          Não cadastre a URL à mão no painel da Kapso: sem a senha certa, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.
         </p>
         <div><Button variant={p.webhook === 'ligado' ? 'outline' : 'default'} disabled={ocupado} onClick={() => acao(ligarRecebimentoDoWhatsapp)}>
           {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Webhook className="size-4" />}{p.webhook === 'ligado' ? 'Ligar de novo' : 'Ligar o recebimento de mensagens'}
@@ -210,7 +121,7 @@ export function PainelDoWhatsapp(p: {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Fila e horário de silêncio</h2>
         <p className="text-sm text-muted-foreground">
           De 22h às 7h, os avisos comuns esperam e saem às 7h; portaria, segurança da conta, códigos e respostas do bot saem na hora.
-          Saem no máximo 12 mensagens por minuto, e o que passar espera a vez. O que falhou porque o servidor estava fora volta a ser tentado sozinho quando a conexão voltar.
+          Saem no máximo 12 mensagens por minuto, e o que passar espera a vez. O que falhou porque a Kapso estava fora volta a ser tentado sozinho quando a conexão voltar.
         </p>
         {p.fila === null
           ? <p className="text-sm text-muted-foreground">A fila ainda não existe no banco (falta aplicar a migração da fila).</p>

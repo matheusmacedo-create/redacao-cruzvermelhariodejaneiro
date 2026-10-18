@@ -5,7 +5,7 @@ import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from '
 
 /**
  * O WhatsApp do Palácio pela Kapso (API oficial da Meta, número gerenciado
- * pela Kapso). As mesmas três regras de servidor.ts: nunca lança, a chave
+ * pela Kapso). Quem chama usa servidor.ts. As mesmas três regras de lá: nunca lança, a chave
  * não sai daqui, e só a tela de conexão liga o webhook.
  *
  * Contrato conferido em docs.kapso.ai (outubro de 2026):

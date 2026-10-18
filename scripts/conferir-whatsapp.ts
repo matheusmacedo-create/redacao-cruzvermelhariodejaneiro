@@ -3,10 +3,10 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  numeroCanonico, numeroDoJid, formatarNumero, mascararNumero, urlDoServidor, instanciaValida, estadoDaEvolution,
-  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, lerEventoDaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
+  numeroCanonico, formatarNumero, mascararNumero,
+  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
-  categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
+  categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
 } from '../lib/whatsapp/regras'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
@@ -41,42 +41,11 @@ igual(numeroCanonico(''), null, 'vazio')
 igual(numeroCanonico('abc'), null, 'lixo')
 igual(numeroCanonico('+55 21 98765-43210'), null, 'brasileiro com dígito a mais')
 
-igual(numeroDoJid('5521987654321@s.whatsapp.net'), '5521987654321', 'jid comum')
-igual(numeroDoJid('552187654321@s.whatsapp.net'), '5521987654321', 'jid antigo sem o nono dígito')
-igual(numeroDoJid('5521987654321:12@s.whatsapp.net'), '5521987654321', 'jid com aparelho')
-igual(numeroDoJid('120363025246125244@g.us'), null, 'grupo')
-igual(numeroDoJid('203958476372912@lid'), null, 'lid')
-igual(numeroDoJid(undefined), null, 'sem jid')
-
 igual(formatarNumero('5521987654321'), '+55 (21) 98765-4321', 'formata celular')
 igual(formatarNumero('552123456789'), '+55 (21) 2345-6789', 'formata fixo')
 igual(mascararNumero('5521987654321'), '+55 21 9••••-4321', 'mascara celular')
 igual(mascararNumero('552123456789'), '+55 21 ••••-6789', 'mascara fixo')
 igual(mascararNumero(null), '—', 'mascara vazio')
-
-// ---------------------------------------------------------------- configuração
-igual(urlDoServidor('https://evo.exemplo.org/'), 'https://evo.exemplo.org', 'tira a barra')
-igual(urlDoServidor('http://10.0.0.5:8080'), 'http://10.0.0.5:8080', 'http com porta')
-igual(urlDoServidor('https://exemplo.org/evolution/'), 'https://exemplo.org/evolution', 'com caminho')
-igual(urlDoServidor('ftp://exemplo.org'), null, 'protocolo errado')
-igual(urlDoServidor('https://user:senha@exemplo.org'), null, 'credencial na URL')
-igual(urlDoServidor('https://exemplo.org/?apikey=x'), null, 'chave na URL')
-igual(urlDoServidor('exemplo.org'), 'https://exemplo.org', 'sem protocolo vira https')
-igual(urlDoServidor('gently-jaws-denim.ngrok-free.dev'), 'https://gently-jaws-denim.ngrok-free.dev', 'o caso que travou o primeiro cadastro')
-igual(urlDoServidor('localhost:8080'), 'https://localhost:8080', 'localhost ganha protocolo…')
-igual(enderecoLocal('https://localhost:8080'), true, '…mas é endereço local')
-igual(enderecoLocal('http://192.168.0.10:8080'), true, 'rede de casa é local')
-igual(enderecoLocal('http://172.20.1.5'), true, 'rede do Docker é local')
-igual(enderecoLocal('https://gently-jaws-denim.ngrok-free.dev'), false, 'ngrok é público')
-igual(enderecoLocal('https://8.8.8.8'), false, 'IP público não é local')
-igual(instanciaValida('palacio'), true, 'instância simples')
-igual(instanciaValida('Palacio-Virtual_1'), true, 'instância com traço')
-igual(instanciaValida('com espaço'), false, 'instância com espaço')
-igual(instanciaValida('../x'), false, 'instância com barra')
-igual(estadoDaEvolution('open'), 'conectado', 'open')
-igual(estadoDaEvolution('connecting'), 'conectando', 'connecting')
-igual(estadoDaEvolution('close'), 'desconectado', 'close')
-igual(estadoDaEvolution(undefined), 'erro', 'sem estado')
 
 // ---------------------------------------------------------------- avisos
 const cats = lerCategoriasDoWhatsapp({ chat: false, financeiro: 'sim', lixo: true })
@@ -105,34 +74,11 @@ contem(aviso, '> linha 1\n> linha 2', 'citação')
 contem(aviso, 'Abrir: https://palacio.x/aprovacoes', 'link')
 contem(textoDoAviso({ urlBase: 'https://palacio.x', titulo: 't', mensagem: 'm', link: null }), 'https://palacio.x/notificacoes', 'sem link vai ao sino')
 
-// ---------------------------------------------------------------- webhook
-const mensagem = lerEventoDoWebhook({
-  event: 'messages.upsert', instance: 'palacio',
-  data: { key: { remoteJid: '552187654321@s.whatsapp.net', fromMe: false, id: 'ABC123' }, pushName: 'Ana', message: { conversation: 'Oi' } },
-})
-igual(mensagem.evento, 'messages.upsert', 'evento')
-igual(mensagem.instancia, 'palacio', 'instância')
-igual(mensagem.mensagens, [{ id: 'ABC123', numero: '5521987654321', texto: 'Oi', nome: 'Ana', citada: null, midia: null, ignorar: null }], 'mensagem comum')
-
-const maiusculo = lerEventoDoWebhook({ event: 'MESSAGES_UPSERT', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'X' }, message: { extendedTextMessage: { text: 'avisos' } } } })
-igual(maiusculo.evento, 'messages.upsert', 'evento em maiúsculas')
-igual(maiusculo.mensagens[0]?.texto, 'avisos', 'texto estendido')
-
-const lid = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '203958476372912@lid', remoteJidAlt: '5521987654321@s.whatsapp.net', id: 'L' }, message: { conversation: '1' } } })
-igual(lid.mensagens[0]?.numero, '5521987654321', 'lid com o número ao lado')
-const lidSemNumero = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '203958476372912@lid', id: 'L2' }, message: { conversation: '1' } } })
-igual(lidSemNumero.mensagens[0]?.ignorar, 'sem_numero', 'lid sem número')
-const grupo = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '120363025246125244@g.us', participant: '5521987654321@s.whatsapp.net', id: 'G' }, message: { conversation: 'oi' } } })
-igual(grupo.mensagens[0]?.ignorar, 'grupo', 'grupo')
-igual(grupo.mensagens[0]?.numero, null, 'grupo sem número')
-const minha = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', fromMe: true, id: 'M' }, message: { conversation: 'x' } } })
-igual(minha.mensagens[0]?.ignorar, 'de_mim', 'mensagem do próprio número')
-const efemera = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'E' }, message: { ephemeralMessage: { message: { extendedTextMessage: { text: '2' } } } } } })
-igual(efemera.mensagens[0]?.texto, '2', 'mensagem temporária')
-const conexao = lerEventoDoWebhook({ event: 'connection.update', instance: 'palacio', data: { instance: 'palacio', state: 'open', statusReason: 200 } })
-igual([conexao.evento, conexao.estado, conexao.mensagens.length], ['connection.update', 'open', 0], 'conexão')
-igual(lerEventoDoWebhook(null).mensagens, [], 'corpo vazio')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: 'x' }).mensagens, [], 'dado inválido')
+// ---------------------------------------------------------------- webhook (o payload da Kapso tem os casos mais abaixo)
+const mensagem = lerEventoDaKapso({ message: { id: 'ABC123', type: 'text', from: '552187654321', text: { body: 'Oi' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587')
+igual(mensagem.evento, 'whatsapp.message.received', 'evento')
+igual(mensagem.mensagens[0]?.numero, '5521987654321', 'número sem o nono dígito vira o canônico')
+igual(lerEventoDaKapso(null, 'whatsapp.message.received', '1401089659754587').mensagens, [], 'corpo vazio')
 
 // ---------------------------------------------------------------- bot
 const cmd = (t: string, pausado = false) => interpretarComando(t, { pausado })
@@ -234,15 +180,10 @@ igual(respostaParaWhatsapp('## Passos\n1. Abra **Meu perfil** e veja [a ajuda](h
 igual(respostaParaWhatsapp('linha um\nlinha dois muito comprida', 15), 'linha um…', 'corta na quebra de linha')
 
 // ---------------------------------------------------------------- ações: citação, alvo do aviso, decisão e escolha
-const citando = lerEventoDoWebhook({ event: 'messages.upsert', data: {
-  key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R1' },
-  message: { extendedTextMessage: { text: 'Já reiniciei o roteador', contextInfo: { stanzaId: '3EB0AVISO', participant: '552192368473@s.whatsapp.net' } } },
-} })
-igual(citando.mensagens[0]?.citada, '3EB0AVISO', 'resposta citando o aviso')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R2' }, contextInfo: { stanzaId: 'TOPO' }, message: { conversation: 'ok' } } }).mensagens[0]?.citada, 'TOPO', 'citação no contextInfo de fora (Evolution v2)')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'R3' }, message: { ephemeralMessage: { message: { extendedTextMessage: { text: 'x', contextInfo: { stanzaId: 'EFE' } } } } } } }).mensagens[0]?.citada, 'EFE', 'citação em mensagem temporária')
+const citando = lerEventoDaKapso({ message: { id: 'R1', type: 'text', from: '5521987654321', text: { body: 'Já reiniciei o roteador' }, context: { id: 'wamid.AVISO', from: '12053412375' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587')
+igual(citando.mensagens[0]?.citada, 'wamid.AVISO', 'resposta citando o aviso')
 igual(mensagem.mensagens[0]?.citada, null, 'sem citação')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'L' }, message: { conversation: 'x'.repeat(5000) } } }).mensagens[0]?.texto.length, 4000, 'texto longo cabe numa resposta de chamado')
+igual(lerEventoDaKapso({ message: { id: 'L', type: 'text', from: '5521987654321', text: { body: 'x'.repeat(5000) } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587').mensagens[0]?.texto.length, 4000, 'texto longo cabe numa resposta de chamado')
 
 const id1 = '0f8fad5b-d9cb-469f-a165-70867728950e'
 const id2 = '7c9e6679-7425-40de-944b-e07fc1f90ae7'
@@ -298,15 +239,14 @@ igual(tituloDoRelato('ar pinga'), 'ar pinga', 'relato curto')
 igual(tituloDoRelato('x'.repeat(200)).length, 138, 'título longo é cortado')
 
 // ---------------------------------------------------------------- fotos e vídeos viram envio
-const foto = lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'F1' },
-  message: { imageMessage: { mimetype: 'image/jpeg', fileLength: { low: 245760, high: 0, unsigned: true }, caption: 'Ação na Central' } } } })
-igual(foto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 245760, nome: null }, 'foto com tamanho em Long')
+const foto = lerEventoDaKapso({ message: { id: 'F1', type: 'image', from: '5521987654321', image: { id: 'm1', mime_type: 'image/jpeg', caption: 'Ação na Central' }, kapso: { media_data: { byte_size: 245760 } } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587')
+igual(foto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 245760, nome: null, arquivo: 'm1' }, 'foto com o tamanho da Kapso')
 igual(foto.mensagens[0]?.texto, 'Ação na Central', 'a legenda vem como texto')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'V1' }, message: { videoMessage: { mimetype: 'video/mp4', fileLength: '1048576' } } } }).mensagens[0]?.midia,
-  { categoria: 'video', mime: 'video/mp4', tamanho: 1048576, nome: null }, 'vídeo com tamanho em texto')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'D1' }, message: { documentWithCaptionMessage: { message: { documentMessage: { mimetype: 'image/png', fileName: 'cartaz.png', fileLength: 10 } } } } } }).mensagens[0]?.midia,
-  { categoria: 'foto', mime: 'image/png', tamanho: 10, nome: 'cartaz.png' }, 'foto mandada como documento continua foto')
-igual(lerEventoDoWebhook({ event: 'messages.upsert', data: { key: { remoteJid: '5521987654321@s.whatsapp.net', id: 'S1' }, message: { stickerMessage: { mimetype: 'image/webp' } } } }).mensagens[0]?.midia, null, 'figurinha não é envio')
+igual(lerEventoDaKapso({ message: { id: 'V1', type: 'video', from: '5521987654321', video: { id: 'm2', mime_type: 'video/mp4' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587').mensagens[0]?.midia,
+  { categoria: 'video', mime: 'video/mp4', tamanho: null, nome: null, arquivo: 'm2' }, 'vídeo')
+igual(lerEventoDaKapso({ message: { id: 'D1', type: 'document', from: '5521987654321', document: { id: 'm3', mime_type: 'image/png', filename: 'cartaz.png' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587').mensagens[0]?.midia,
+  { categoria: 'foto', mime: 'image/png', tamanho: null, nome: 'cartaz.png', arquivo: 'm3' }, 'foto mandada como documento continua foto')
+igual(lerEventoDaKapso({ message: { id: 'S1', type: 'sticker', from: '5521987654321', sticker: { id: 'm4', mime_type: 'image/webp' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587').mensagens[0]?.midia, null, 'figurinha não é envio')
 igual(ehFimDaColeta('Pronto!'), true, 'pronto fecha a coleta')
 igual(ehFimDaColeta('só isso'), true, 'só isso fecha a coleta')
 igual(ehFimDaColeta('pronto, mais uma foto'), false, 'frase com pronto não fecha')
@@ -399,7 +339,7 @@ const kapsoTexto = lerEventoDaKapso({
   conversation: { id: 'c1', contact_name: 'Ana', phone_number: '5521987654321', phone_number_id: NUMERO_ID },
   phone_number_id: NUMERO_ID,
 }, 'whatsapp.message.received', NUMERO_ID)
-igual(kapsoTexto.evento, 'messages.upsert', 'kapso: mensagem recebida vira messages.upsert')
+igual(kapsoTexto.evento, 'whatsapp.message.received', 'kapso: o evento vem do cabeçalho')
 igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', midia: null, ignorar: null }], 'kapso: texto, nome e citação')
 const kapsoSemNono = lerEventoDaKapso({ message: { id: 'w2', type: 'text', from: '552187654321', text: { body: 'oi' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoSemNono.mensagens[0]?.numero, '5521987654321', 'kapso: wa_id sem o nono dígito vira o canônico')

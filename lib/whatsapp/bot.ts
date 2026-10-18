@@ -37,7 +37,7 @@ type Admin = ReturnType<typeof createAdminClient>
  * oficiais: este número não é atendimento ao público.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
- * trava por id; a Evolution reentrega quando demora). Um robô do outro lado
+ * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
  * também não vira conversa infinita: há um teto de respostas por número.
  */
 export async function atenderMensagem(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: MensagemRecebida): Promise<void> {

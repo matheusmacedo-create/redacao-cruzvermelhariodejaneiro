@@ -117,7 +117,7 @@ async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linh
 
 /**
  * O mesmo aviso no WhatsApp de quem confirmou o número, não pausou e deixou o
- * assunto ligado. Antes da migração do WhatsApp (ou sem a Evolution
+ * assunto ligado. Antes da migração do WhatsApp (ou sem a Kapso
  * configurada), a primeira leitura volta vazia e nada acontece.
  */
 async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], linhas: { id: string; user_id: string }[],

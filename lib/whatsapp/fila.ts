@@ -15,11 +15,11 @@ type Admin = ReturnType<typeof createAdminClient>
  *  - horário de silêncio (22h–7h): o aviso comum espera e sai às 7h;
  *  - volume: no máximo TETO_POR_MINUTO mensagens por minuto, com espera fixa
  *    entre uma e outra; o que passar espera na fila;
- *  - queda: o que falhou por o servidor estar fora (rede, 5xx, chave ou
- *    instância) volta para a fila com espera crescente e sai quando a
+ *  - queda: o que falhou por a Kapso estar fora (rede, 5xx, chave ou
+ *    número) volta para a fila com espera crescente e sai quando a
  *    conexão voltar. O que pode já ter saído (tempo esgotado) não é repetido.
  *
- * A fila (whatsapp_fila) anda quando: a Evolution avisa que reconectou (rota
+ * A fila (whatsapp_fila) anda quando: alguém escreve para o número (rota
  * do webhook), um aviso novo acaba de sair (notificar), a rotina diária roda
  * (/api/whatsapp/rotina, às 7h05) e alguém toca em "Enviar a fila agora".
  *
@@ -49,7 +49,7 @@ const dormir = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms
 /** Com o teto do minuto batido, espera tanto e confere de novo. */
 const ESPERA_DO_TETO_MS = 5_000
 
-/** Folga para um envio no pior caso (a Evolution tem até 40 s para confirmar): sem ela, não começa outro. */
+/** Folga para um envio no pior caso (a Kapso tem até 30 s para confirmar, e o modelo pode ser uma 2ª tentativa): sem ela, não começa outro. */
 const FOLGA_POR_ENVIO_MS = 42_000
 
 /** Mensagens que saíram no último minuto (todo o espaço), para o teto de volume. */

@@ -1,48 +1,33 @@
 import 'server-only'
-import { createHash, createHmac, randomInt, timingSafeEqual } from 'node:crypto'
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { estadoDaEvolution, instanciaValida, numeroCanonico, urlDoServidor, type EstadoDaConexao, type MotivoDaFalha } from './regras'
+import type { EstadoDaConexao, MotivoDaFalha } from './regras'
 import {
   baixarMidiaKapso, enviarTextoKapso, ligarWebhookKapso, numeroIdValido, perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso,
   type ConfigDaKapso,
 } from './kapso'
 
 /**
- * O WhatsApp do Palácio Virtual, por um de dois provedores: a Kapso (API
- * oficial da Meta, lib/whatsapp/kapso.ts), quando configurada, ou a
- * Evolution API (v2), que segue como reserva. Quem chama não sabe qual é:
- * as funções daqui escolhem pelo `provedor` da configuração.
+ * O WhatsApp do Palácio Virtual, pela Kapso (API oficial da Meta; o contrato
+ * está em lib/whatsapp/kapso.ts). Quem chama usa só o que está aqui.
  *
  * Três regras, as mesmas das outras integrações:
  *  - Nunca lança. WhatsApp fora do ar não derruba o que chamou (o aviso é
  *    consequência de algo que já foi salvo).
  *  - A chave nunca sai daqui: nem para a tela, nem para o log, nem no texto
- *    de erro (limparErro tira a chave e a URL antes).
- *  - Diagnóstico só lê. Criar instância, conectar, desconectar e ligar o
- *    webhook são ações que alguém pediu na tela de conexão (ARQUITETURA §10.4).
- *
- * Contrato da Evolution conferido no código da v2.3.7: cabeçalho `apikey`
- * (a chave global ou o token da instância; só /instance/create exige a
- * global); corpo do /webhook/set ANINHADO em `webhook` e `events` obrigatório.
+ *    de erro.
+ *  - Diagnóstico só lê. Ligar o webhook é ação que alguém pediu na tela de
+ *    conexão (ARQUITETURA §10.4).
  */
 
 type Admin = ReturnType<typeof createAdminClient>
 
-export type ConfigDaEvolution = { provedor: 'evolution'; url: string; instancia: string; chave: string }
-export type { ConfigDaKapso }
-export type ConfigDoWhatsapp = ConfigDaEvolution | ConfigDaKapso
+export type ConfigDoWhatsapp = ConfigDaKapso
 
-/**
- * A configuração do espaço: cofre (Configurações → Integrações) primeiro,
- * ambiente depois. A Kapso, se configurada, tem a preferência.
- */
+/** A configuração do espaço: cofre (Configurações → Integrações) primeiro, ambiente (KAPSO_WHATSAPP, em JSON) depois. */
 export async function configDoWhatsapp(workspaceId: string): Promise<ConfigDoWhatsapp | null> {
-  return (await configDaKapso(workspaceId)) ?? configDaEvolution(workspaceId)
-}
-
-async function configDaKapso(workspaceId: string): Promise<ConfigDaKapso | null> {
   try {
     const campos = await obterCampos(workspaceId, 'kapso')
     const chave = String(campos?.chave ?? '').trim()
@@ -54,258 +39,44 @@ async function configDaKapso(workspaceId: string): Promise<ConfigDaKapso | null>
   }
 }
 
-async function configDaEvolution(workspaceId: string): Promise<ConfigDaEvolution | null> {
-  try {
-    const doCofre = await obterCampos(workspaceId, 'evolution_api')
-    const bruto = doCofre ?? {
-      url: process.env.EVOLUTION_API_URL ?? '',
-      instancia: process.env.EVOLUTION_INSTANCIA ?? '',
-      chave: process.env.EVOLUTION_API_KEY ?? '',
-    }
-    const url = urlDoServidor(bruto.url)
-    const instancia = String(bruto.instancia ?? '').trim()
-    const chave = String(bruto.chave ?? '').trim()
-    if (!url || !instanciaValida(instancia) || chave.length < 8) return null
-    return { provedor: 'evolution', url, instancia, chave }
-  } catch {
-    return null
-  }
-}
-
-const TEMPO_MAXIMO_MS = 15_000
-/**
- * O envio espera mais: logo depois de conectar pelo QR code, a Evolution
- * sincroniza o histórico do número e cada envio leva bem mais que 15 s (visto
- * em produção, 27/09/2026). Cabe na duração das actions e da rota do webhook.
- */
-const TEMPO_DO_ENVIO_MS = 40_000
-
-type Resposta = { ok: boolean; status: number; dados: unknown; erro: string | null; semResposta?: boolean; motivo?: MotivoDaFalha }
-
-/** O que a resposta diz sobre a falha (a fila decide se reenvia; a conexão decide se alerta). */
-function motivoDoStatus(status: number, dados: unknown): MotivoDaFalha {
-  if (status === 401 || status === 403) return 'chave'
-  if (status === 404) return 'instancia'
-  if (status >= 500) return 'servidor'
-  if (status === 400 && mensagemDoCorpo(dados) === 'Esse número não tem WhatsApp.') return 'numero'
-  return 'outro'
-}
-
-function limparErro(config: ConfigDaEvolution, texto: string): string {
-  return texto.split(config.chave).join('[chave]').split(config.url).join('[servidor]').slice(0, 300)
-}
-
-/** Mensagem legível de um corpo de erro da Evolution ({ response: { message } }, { message }, { error }). */
-function mensagemDoCorpo(dados: unknown): string | null {
-  const d = dados && typeof dados === 'object' ? dados as Record<string, unknown> : null
-  if (!d) return null
-  const resposta = d.response && typeof d.response === 'object' ? d.response as Record<string, unknown> : null
-  const candidata = resposta?.message ?? d.message ?? d.error
-  if (Array.isArray(candidata)) {
-    const primeiro = candidata[0]
-    if (primeiro && typeof primeiro === 'object' && (primeiro as Record<string, unknown>).exists === false) return 'Esse número não tem WhatsApp.'
-    return candidata.map((c) => (typeof c === 'string' ? c : JSON.stringify(c))).join('; ')
-  }
-  return typeof candidata === 'string' ? candidata : null
-}
-
-async function chamar(config: ConfigDaEvolution, metodo: 'GET' | 'POST' | 'DELETE', caminho: string, corpo?: unknown, tempoMs = TEMPO_MAXIMO_MS): Promise<Resposta> {
-  try {
-    const resposta = await fetch(`${config.url}${caminho}`, {
-      method: metodo,
-      headers: { apikey: config.chave, ...(corpo === undefined ? {} : { 'content-type': 'application/json' }) },
-      body: corpo === undefined ? undefined : JSON.stringify(corpo),
-      signal: AbortSignal.timeout(tempoMs),
-      cache: 'no-store',
-    })
-    const bruto = await resposta.text()
-    let dados: unknown = null
-    try { dados = bruto ? JSON.parse(bruto) : null } catch { dados = bruto }
-    // A Evolution devolve alguns erros com 200 e { error: true, message }.
-    const erroNoCorpo = dados && typeof dados === 'object' && (dados as Record<string, unknown>).error === true
-    if (resposta.ok && !erroNoCorpo) return { ok: true, status: resposta.status, dados, erro: null }
-    const motivo = resposta.status === 401 || resposta.status === 403
-      ? 'O servidor recusou a chave. Confira a chave da API em Configurações → Integrações.'
-      : resposta.status === 404 ? `Não encontrado no servidor (${mensagemDoCorpo(dados) ?? 'confira o nome da instância'}).`
-        : mensagemDoCorpo(dados) ?? `O servidor respondeu ${resposta.status}.`
-    return { ok: false, status: resposta.status, dados, erro: limparErro(config, motivo), motivo: motivoDoStatus(resposta.status, dados) }
-  } catch (causa) {
-    const nome = causa instanceof Error ? causa.name : ''
-    const semResposta = nome === 'TimeoutError' || nome === 'AbortError'
-    const motivo = semResposta
-      ? 'O servidor da Evolution não respondeu a tempo.'
-      : `Não consegui falar com o servidor da Evolution (${causa instanceof Error ? causa.message : 'erro de rede'}).`
-    return { ok: false, status: 0, dados: null, erro: limparErro(config, motivo), semResposta, motivo: semResposta ? 'tempo' : 'rede' }
-  }
-}
-
-const inst = (config: ConfigDaEvolution) => encodeURIComponent(config.instancia)
-const objeto = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null)
-
 // ------------------------------------------------------------------ mensagens
 
 /**
- * `semResposta`: o tempo acabou antes de a Evolution confirmar. A mensagem
- * pode ter saído mesmo assim (o envio segue no servidor dela): quem chama não
- * trata isso como "não chegou".
+ * `semResposta`: o tempo acabou antes de a Kapso confirmar. A mensagem pode
+ * ter saído mesmo assim: quem chama não trata isso como "não chegou".
  */
 export type Envio = { ok: true; id: string | null } | { ok: false; erro: string; motivo: MotivoDaFalha; semResposta?: boolean }
 
-/** Manda um texto. `numero` em dígitos (a Evolution resolve o nono dígito). */
-export async function enviarTexto(config: ConfigDoWhatsapp, numero: string, texto: string): Promise<Envio> {
-  if (config.provedor === 'kapso') return enviarTextoKapso(config, numero, texto)
-  const r = await chamar(config, 'POST', `/message/sendText/${inst(config)}`, { number: numero, text: texto, linkPreview: false }, TEMPO_DO_ENVIO_MS)
-  if (r.semResposta) return { ok: false, erro: 'A Evolution não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', motivo: 'tempo', semResposta: true }
-  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.', motivo: r.motivo ?? 'outro' }
-  const id = objeto(objeto(r.dados)?.key)?.id
-  return { ok: true, id: typeof id === 'string' ? id.slice(0, 128) : null }
-}
+/** Manda um texto. `numero` em dígitos. Fora da janela de 24 h, vai pelo modelo aprovado (kapso.ts). */
+export const enviarTexto = (config: ConfigDoWhatsapp, numero: string, texto: string): Promise<Envio> => enviarTextoKapso(config, numero, texto)
 
 export type MidiaBaixada = { ok: true; conteudo: Buffer; mime: string | null; nome: string | null } | { ok: false; erro: string }
 
-/**
- * O arquivo de uma mensagem recebida. `mensagemId`: na Kapso, o id da mídia
- * (MidiaRecebida.arquivo); na Evolution, o da mensagem — ela baixa do
- * WhatsApp e devolve em base64. O webhook não traz o arquivo: ligar "base64" no webhook
- * estouraria o limite de corpo da Vercel com qualquer vídeo.
- */
-export async function baixarMidia(config: ConfigDoWhatsapp, mensagemId: string, tetoBytes: number): Promise<MidiaBaixada> {
-  if (config.provedor === 'kapso') return baixarMidiaKapso(config, mensagemId, tetoBytes)
-  const r = await chamar(config, 'POST', `/chat/getBase64FromMediaMessage/${inst(config)}`, { message: { key: { id: mensagemId } }, convertToMp4: false }, 120_000)
-  if (!r.ok) return { ok: false, erro: r.semResposta ? 'O servidor do WhatsApp demorou demais para entregar o arquivo.' : r.erro ?? 'Não foi possível baixar o arquivo.' }
-  const d = objeto(r.dados)
-  const base64 = typeof d?.base64 === 'string' ? d.base64.replace(/^data:[^,]*,/, '') : ''
-  // base64 tem 4 letras para cada 3 bytes: confere o teto antes de decodificar.
-  if (!base64 || base64.length * 0.75 > tetoBytes + 4) return { ok: false, erro: base64 ? 'Arquivo grande demais.' : 'O arquivo veio vazio.' }
-  const conteudo = Buffer.from(base64, 'base64')
-  if (!conteudo.length) return { ok: false, erro: 'O arquivo veio vazio.' }
-  const mime = typeof d?.mimetype === 'string' ? d.mimetype.split(';')[0].trim().toLowerCase().slice(0, 120) : null
-  const nome = typeof d?.fileName === 'string' ? d.fileName.slice(0, 200) : null
-  return { ok: true, conteudo, mime, nome }
-}
-
-/** O número tem WhatsApp? null = não deu para conferir (segue e deixa o envio dizer). */
-export async function temWhatsapp(config: ConfigDoWhatsapp, numero: string): Promise<boolean | null> {
-  // A API oficial não tem consulta de número: o envio é que diz.
-  if (config.provedor === 'kapso') return null
-  const r = await chamar(config, 'POST', `/chat/whatsappNumbers/${inst(config)}`, { numbers: [numero] })
-  if (!r.ok || !Array.isArray(r.dados)) return null
-  const primeiro = objeto(r.dados[0])
-  return typeof primeiro?.exists === 'boolean' ? primeiro.exists : null
-}
+/** O arquivo de uma mensagem recebida, pelo id da mídia (MidiaRecebida.arquivo). O webhook não traz o arquivo. */
+export const baixarMidia = (config: ConfigDoWhatsapp, midiaId: string, tetoBytes: number): Promise<MidiaBaixada> => baixarMidiaKapso(config, midiaId, tetoBytes)
 
 // ------------------------------------------------------------------ conexão
 
 export type SituacaoDaConexao = { estado: EstadoDaConexao; erro: string | null }
 
-export async function situacaoDaConexao(config: ConfigDoWhatsapp): Promise<SituacaoDaConexao> {
-  if (config.provedor === 'kapso') return situacaoDaConexaoKapso(config)
-  const r = await chamar(config, 'GET', `/instance/connectionState/${inst(config)}`)
-  if (!r.ok) return { estado: r.status === 404 ? 'sem_instancia' : 'erro', erro: r.status === 404 ? null : r.erro }
-  const state = objeto(objeto(r.dados)?.instance)?.state
-  return { estado: state === undefined ? 'sem_instancia' : estadoDaEvolution(state), erro: null }
-}
+export const situacaoDaConexao = (config: ConfigDoWhatsapp): Promise<SituacaoDaConexao> => situacaoDaConexaoKapso(config)
 
-/** Número e nome do WhatsApp conectado. Com o token da instância, depende de o servidor guardar as instâncias; na falta, vazio. */
-export async function perfilConectado(config: ConfigDoWhatsapp): Promise<{ numero: string | null; nome: string | null }> {
-  if (config.provedor === 'kapso') return perfilConectadoKapso(config)
-  const r = await chamar(config, 'GET', `/instance/fetchInstances?instanceName=${inst(config)}`)
-  const linha = r.ok && Array.isArray(r.dados) ? objeto(r.dados.find((l) => objeto(l)?.name === config.instancia) ?? r.dados[0]) : null
-  const jid = typeof linha?.ownerJid === 'string' ? linha.ownerJid : ''
-  const numero = numeroCanonico(`+${jid.split('@')[0].split(':')[0]}`) ?? (typeof linha?.number === 'string' ? numeroCanonico(`+${linha.number}`) : null)
-  return { numero, nome: typeof linha?.profileName === 'string' ? linha.profileName.slice(0, 80) : null }
-}
-
-export type Qr = { imagem: string | null; codigo: string | null; conectado: boolean; erro: string | null }
-
-/**
- * Pede o QR code (e, com número, o código de pareamento de 8 caracteres,
- * para quem não consegue ler QR). Se já estiver conectado, diz isso.
- */
-export async function pedirQr(config: ConfigDoWhatsapp, numero?: string | null): Promise<Qr> {
-  if (config.provedor === 'kapso') return { imagem: null, codigo: null, conectado: true, erro: null }
-  const consulta = numero ? `?number=${encodeURIComponent(numero)}` : ''
-  const r = await chamar(config, 'GET', `/instance/connect/${inst(config)}${consulta}`)
-  if (!r.ok) return { imagem: null, codigo: null, conectado: false, erro: r.erro }
-  const d = objeto(r.dados) ?? {}
-  if (objeto(d.instance)?.state === 'open') return { imagem: null, codigo: null, conectado: true, erro: null }
-  const base64 = typeof d.base64 === 'string' && d.base64.startsWith('data:image/') ? d.base64 : null
-  const codigo = typeof d.pairingCode === 'string' && /^[A-Z0-9-]{4,16}$/i.test(d.pairingCode) ? d.pairingCode : null
-  if (!base64 && !codigo) return { imagem: null, codigo: null, conectado: false, erro: 'O servidor não devolveu o QR code. Tente de novo em alguns segundos.' }
-  return { imagem: base64, codigo, conectado: false, erro: null }
-}
-
-/** Cria a instância no servidor. Exige a chave GLOBAL da Evolution (o token de uma instância não cria outra). */
-export async function criarInstancia(config: ConfigDoWhatsapp): Promise<{ erro: string | null }> {
-  if (config.provedor === 'kapso') return { erro: 'Na Kapso não há instância: o número é conectado no painel da Kapso.' }
-  const r = await chamar(config, 'POST', '/instance/create', { instanceName: config.instancia, qrcode: false, integration: 'WHATSAPP-BAILEYS' })
-  if (r.ok) return { erro: null }
-  if (r.status === 401 || r.status === 403) return { erro: 'Para criar a instância, a chave precisa ser a chave global do servidor (AUTHENTICATION_API_KEY), não o token de uma instância. Ou crie a instância no painel da Evolution (/manager).' }
-  return { erro: r.erro }
-}
-
-export async function desconectar(config: ConfigDoWhatsapp): Promise<{ erro: string | null }> {
-  if (config.provedor === 'kapso') return { erro: 'Na Kapso, o número se desconecta no painel da Kapso (ou tirando a chave em Configurações → Integrações).' }
-  const r = await chamar(config, 'DELETE', `/instance/logout/${inst(config)}`)
-  return { erro: r.ok ? null : r.erro }
-}
+/** Número e nome verificado do WhatsApp do Palácio. */
+export const perfilConectado = (config: ConfigDoWhatsapp): Promise<{ numero: string | null; nome: string | null }> => perfilConectadoKapso(config)
 
 // ------------------------------------------------------------------ webhook
 
-/** Nome do cabeçalho que a Evolution manda em toda entrega (configurado no /webhook/set). A Kapso assina o corpo (kapso.ts). */
-export const CABECALHO_DO_WEBHOOK = 'x-palacio-whatsapp'
+/** O endereço do webhook (o `p=kapso` fica: é o endereço já cadastrado na Kapso). */
+export const urlDoWebhook = (workspaceId: string) => `${urlBase()}/api/webhooks/whatsapp?w=${encodeURIComponent(workspaceId)}&p=kapso`
 
-/**
- * A senha do webhook, derivada da chave (nada novo para guardar). Trocou a
- * chave, a senha muda: é preciso ligar o recebimento de novo na tela.
- */
-export function segredoDoWebhook(config: ConfigDaEvolution, workspaceId: string): string {
-  return createHmac('sha256', config.chave).update(`palacio-whatsapp-webhook:${workspaceId}:${config.instancia}`).digest('hex')
-}
-
-export function segredoConfere(config: ConfigDaEvolution, workspaceId: string, recebido: string | null): boolean {
-  if (!recebido) return false
-  const a = Buffer.from(recebido)
-  const b = Buffer.from(segredoDoWebhook(config, workspaceId))
-  return a.length === b.length && timingSafeEqual(a, b)
-}
-
-/** O endereço do webhook. A Kapso ganha `p=kapso`: a rota confere a assinatura dela, não o cabeçalho da Evolution. */
-export const urlDoWebhook = (workspaceId: string, provedor: ConfigDoWhatsapp['provedor'] = 'evolution') =>
-  `${urlBase()}/api/webhooks/whatsapp?w=${encodeURIComponent(workspaceId)}${provedor === 'kapso' ? '&p=kapso' : ''}`
-
-const EVENTOS = ['MESSAGES_UPSERT', 'CONNECTION_UPDATE']
-
-export async function ligarWebhook(config: ConfigDoWhatsapp, workspaceId: string): Promise<{ erro: string | null }> {
-  if (config.provedor === 'kapso') return ligarWebhookKapso(config, workspaceId, urlDoWebhook(workspaceId, 'kapso'))
-  const r = await chamar(config, 'POST', `/webhook/set/${inst(config)}`, {
-    webhook: {
-      enabled: true,
-      url: urlDoWebhook(workspaceId),
-      headers: { [CABECALHO_DO_WEBHOOK]: segredoDoWebhook(config, workspaceId) },
-      byEvents: false,
-      base64: false,
-      events: EVENTOS,
-    },
-  })
-  return { erro: r.ok ? null : r.erro }
-}
+export const ligarWebhook = (config: ConfigDoWhatsapp, workspaceId: string): Promise<{ erro: string | null }> =>
+  ligarWebhookKapso(config, workspaceId, urlDoWebhook(workspaceId))
 
 export type SituacaoDoWebhook = 'ligado' | 'outro_endereco' | 'desligado' | 'desconhecido'
 
-/** O webhook da instância aponta para cá, ligado e com a senha certa? */
-export async function situacaoDoWebhook(config: ConfigDoWhatsapp, workspaceId: string): Promise<SituacaoDoWebhook> {
-  if (config.provedor === 'kapso') return situacaoDoWebhookKapso(config, workspaceId, urlDoWebhook(workspaceId, 'kapso'))
-  const r = await chamar(config, 'GET', `/webhook/find/${inst(config)}`)
-  if (!r.ok) return 'desconhecido'
-  const w = objeto(r.dados)
-  if (!w || w.enabled !== true) return 'desligado'
-  if (w.url !== urlDoWebhook(workspaceId)) return 'outro_endereco'
-  const cabecalhos = objeto(w.headers)
-  const eventos = Array.isArray(w.events) ? w.events : []
-  const temEventos = eventos.length === 0 || eventos.includes('MESSAGES_UPSERT')
-  return cabecalhos?.[CABECALHO_DO_WEBHOOK] === segredoDoWebhook(config, workspaceId) && temEventos ? 'ligado' : 'outro_endereco'
-}
+/** O webhook do número aponta para cá, ligado e com a senha certa? */
+export const situacaoDoWebhook = (config: ConfigDoWhatsapp, workspaceId: string): Promise<SituacaoDoWebhook> =>
+  situacaoDoWebhookKapso(config, workspaceId, urlDoWebhook(workspaceId))
 
 // ------------------------------------------------------------------ registro e envio com registro
 

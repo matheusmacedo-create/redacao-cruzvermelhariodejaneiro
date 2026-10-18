@@ -630,9 +630,9 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Guardar ou trocar a chave de uma integração',
       quem: 'Só administradores',
       passos: [
-        'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)”, “Google Analytics (conta de serviço)”, “WhatsApp (Kapso — API oficial)” ou “WhatsApp (Evolution API)”.',
+        'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)”, “Google Analytics (conta de serviço)” ou “WhatsApp (Kapso — API oficial)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
-        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, o nome do modelo aprovado. No da Evolution, o endereço do servidor, o nome da instância e a chave da API. No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
+        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, o nome do modelo aprovado. No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
         'Toque em “Salvar no cofre”.',
         'O cartão passa a mostrar “Configurada no cofre em …”, com a data.',
       ],
@@ -839,7 +839,7 @@ const CONFIGURACOES: GuiaDaArea = {
 
 const WHATSAPP: GuiaDaArea = {
   href: '/configuracoes/whatsapp',
-  paraQueServe: 'WhatsApp liga um número de WhatsApp ao Palácio Virtual, pela Kapso (a API oficial do WhatsApp) ou por um servidor da Evolution API. Com ele conectado, os avisos do sino chegam também no WhatsApp de quem confirmou o número em “Meu perfil”, e um bot responde a quem escreve: mostra os avisos sem abrir, marca como lidos e pausa os avisos.',
+  paraQueServe: 'WhatsApp liga um número de WhatsApp ao Palácio Virtual, pela Kapso (a API oficial do WhatsApp). Com ele conectado, os avisos do sino chegam também no WhatsApp de quem confirmou o número em “Meu perfil”, e um bot responde a quem escreve: mostra os avisos sem abrir, marca como lidos e pausa os avisos.',
   quemUsa: 'Só administradores abrem esta aba. Cada pessoa liga o próprio WhatsApp em “Meu perfil”, sem depender da administração.',
   naPratica: {
     titulo: 'O WhatsApp do Palácio no ar',
@@ -860,19 +860,19 @@ const WHATSAPP: GuiaDaArea = {
     {
       alvo: 'whatsapp.conexao',
       titulo: 'Conexão',
-      texto: 'Mostra se o número está conectado. Pela Kapso, a conexão é feita no painel da Kapso e aqui só se confere. Pela Evolution, “Conectar pelo QR code” mostra o QR para ler em Dispositivos conectados, no celular do chip do Palácio.',
+      texto: 'Mostra se o número está conectado na Kapso, com o número e o nome verificado. O número se conecta no painel da Kapso; aqui só se confere.',
       seAusente: 'pular',
     },
     {
       alvo: 'whatsapp.recebimento',
       titulo: 'Receber mensagens (bot)',
-      texto: 'Sem isto ligado, o número só manda. “Ligar o recebimento de mensagens” faz a Kapso (ou o servidor da Evolution) entregar ao Palácio o que chega, e o bot responde.',
+      texto: 'Sem isto ligado, o número só manda. “Ligar o recebimento de mensagens” faz a Kapso entregar ao Palácio o que chega, e o bot responde.',
       seAusente: 'pular',
     },
     {
       alvo: 'whatsapp.fila',
       titulo: 'Fila e horário de silêncio',
-      texto: 'De 22h às 7h os avisos comuns esperam e saem às 7h. O que falhou porque o servidor estava fora volta a ser tentado sozinho; “Enviar a fila agora” adianta o que já pode sair.',
+      texto: 'De 22h às 7h os avisos comuns esperam e saem às 7h. O que falhou porque a Kapso estava fora volta a ser tentado sozinho; “Enviar a fila agora” adianta o que já pode sair.',
       seAusente: 'pular',
     },
     {
@@ -892,18 +892,14 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'conectar-whatsapp',
       titulo: 'Conectar o número do Palácio',
-      exemplo: 'A administração conecta o chip do Palácio numa segunda de manhã; na mesma hora, quem já confirmou o WhatsApp em “Meu perfil” começa a receber os pedidos de aprovação por lá.',
+      exemplo: 'A administração cola a chave da Kapso numa segunda de manhã; na mesma hora, quem já confirmou o WhatsApp em “Meu perfil” começa a receber os pedidos de aprovação por lá.',
       quem: 'Só administradores',
       passos: [
-        'Pela Kapso: em Integrações, no cartão “WhatsApp (Kapso — API oficial)”, cole a “Chave da API (X-API-Key)” (app.kapso.ai → Integrations → API keys) e o “Phone number ID” (na tela do número, no painel da Kapso). Toque em “Salvar no cofre”.',
-        'Abra a aba “WhatsApp”: a conexão aparece como “Conectado”, com o número. Toque em “Ligar o recebimento de mensagens”. Pronto, não há QR code.',
-        'Pela Evolution (servidor próprio), em vez disso: no cartão “WhatsApp (Evolution API)”, preencha “Endereço do servidor (https://…)”, “Nome da instância” e “Chave da API (apikey)” e toque em “Salvar no cofre”.',
-        'Abra a aba “WhatsApp”. Se aparecer “Instância não encontrada no servidor”, toque em “Criar a instância” ou crie pelo painel da Evolution.',
-        'Toque em “Conectar pelo QR code”.',
-        'No celular do chip do Palácio, abra o WhatsApp em Configurações → Dispositivos conectados → Conectar um dispositivo e leia o QR. O QR se renova sozinho a cada 30 segundos.',
-        'Quando a tela mostrar “Conectado”, toque em “Ligar o recebimento de mensagens”.',
+        'Em Integrações, no cartão “WhatsApp (Kapso — API oficial)”, cole a “Chave da API (X-API-Key)” (app.kapso.ai → Integrations → API keys) e o “Phone number ID” (na tela do número, no painel da Kapso). Toque em “Salvar no cofre”.',
+        'Abra a aba “WhatsApp”: a conexão aparece como “Conectado”, com o número e o nome verificado.',
+        'Toque em “Ligar o recebimento de mensagens”. Pronto: não há QR code nem celular para manter ligado.',
       ],
-      dica: 'Se os dois cartões estiverem preenchidos, vale a Kapso. Na Evolution, use um chip só do Palácio, não um número pessoal. Se a câmera não ler o QR, abra “Não consegue ler o QR code?”, digite o número do chip e toque em “Gerar código”.',
+      dica: 'Para os avisos chegarem a quem não escreveu ao número nas últimas 24 horas, aprove um modelo de mensagem na Kapso e informe o nome dele no mesmo cartão (veja a pergunta sobre a janela de 24 horas).',
     },
     {
       id: 'testar-whatsapp',
@@ -920,15 +916,15 @@ const WHATSAPP: GuiaDaArea = {
   perguntas: [
     {
       id: 'janela-de-24-horas',
-      pergunta: 'Pela Kapso, por que um aviso falhou com “Fora da janela de 24 horas”?',
+      pergunta: 'Por que um aviso falhou com “Fora da janela de 24 horas”?',
       resposta: 'É uma regra da API oficial do WhatsApp: o número só manda texto livre para quem escreveu para ele nas últimas 24 horas. Para os outros, só sai um modelo de mensagem aprovado pela Meta.\n\nNo painel da Kapso, crie um modelo em português com uma variável no corpo (por exemplo, “Aviso do Palácio Virtual: {{1}}”) e espere a aprovação. Depois, em Integrações, informe o nome dele no campo “Modelo aprovado para fora das 24 h”. A partir daí, o aviso fora da janela sai pelo modelo, com o texto inteiro no lugar da variável.\n\nQuem responde ao bot abre a janela de novo por 24 horas.',
       termos: ['24 horas', 'janela', 'modelo', 'template', 'kapso', '131047'],
     },
     {
       id: 'url-do-webhook',
-      pergunta: 'Preciso colar a URL do webhook no painel da Kapso ou da Evolution?',
-      resposta: 'Não. “Ligar o recebimento de mensagens” configura o endereço, a senha e os eventos na Kapso ou no servidor da Evolution. Uma URL colada à mão no painel vai sem a senha, e o Palácio recusa as entregas.\n\nSe a chave mudar em Integrações, toque em “Ligar de novo”.',
-      termos: ['webhook', 'url', 'eventos', 'manager', 'painel da evolution', 'painel da kapso'],
+      pergunta: 'Preciso colar a URL do webhook no painel da Kapso?',
+      resposta: 'Não. “Ligar o recebimento de mensagens” configura o endereço, a senha e os eventos na Kapso. Uma URL colada à mão no painel vai sem a senha, e o Palácio recusa as entregas.\n\nSe a chave mudar em Integrações, toque em “Ligar de novo”.',
+      termos: ['webhook', 'url', 'eventos', 'painel da kapso'],
     },
     {
       id: 'aviso-nao-chegou',
@@ -939,7 +935,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'avisos-a-noite',
       pergunta: 'Os avisos saem à noite?',
-      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se o servidor estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se a Kapso estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
       termos: ['madrugada', 'horário', 'fila', 'atrasado', 'de manhã'],
     },
     {
@@ -951,13 +947,13 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-caiu-no-sino',
       pergunta: 'Como fico sabendo que o WhatsApp do Palácio caiu?',
-      resposta: 'Os administradores recebem no sino e no e-mail o aviso “O WhatsApp do Palácio caiu”, uma vez, e “O WhatsApp do Palácio voltou” quando a conexão volta. Nunca pelo WhatsApp, que é justamente o que caiu. O Palácio percebe pela própria Evolution, por um envio que falhou (também na Kapso) ou pela conferência de todo dia às 7h05.',
-      termos: ['caiu', 'fora do ar', 'alerta', 'computador desligado', 'ngrok'],
+      resposta: 'Os administradores recebem no sino e no e-mail o aviso “O WhatsApp do Palácio caiu”, uma vez, e “O WhatsApp do Palácio voltou” quando a conexão volta. Nunca pelo WhatsApp, que é justamente o que caiu. O Palácio percebe por um envio que falhou ou pela conferência de todo dia às 7h05.',
+      termos: ['caiu', 'fora do ar', 'alerta', 'créditos'],
     },
     {
       id: 'desconectou-sozinho',
       pergunta: 'O número desconectou sozinho. O que faço?',
-      resposta: 'Pela Kapso, confira o número no painel da Kapso e a chave em Integrações. Pela Evolution, toque em “Conectar pelo QR code” e leia o QR de novo com o celular do chip do Palácio. Enquanto estiver desconectado, nada sai pelo WhatsApp; os avisos continuam no sino e no e-mail.',
+      resposta: 'Confira o número no painel da Kapso e a chave e o Phone number ID em Integrações. Enquanto estiver desconectado, nada sai pelo WhatsApp; os avisos continuam no sino e no e-mail.',
       termos: ['desconectado', 'caiu', 'parou'],
     },
   ],
