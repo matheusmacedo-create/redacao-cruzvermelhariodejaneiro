@@ -1,6 +1,6 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { numeroCanonico, type EstadoDaConexao, type MotivoDaFalha } from './regras'
+import { estadoDoNumeroNaKapso, numeroCanonico, type MotivoDaFalha } from './regras'
 import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
 
 /**
@@ -135,19 +135,28 @@ export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t:
   return { ok: true, id: idDoEnvio(r.dados) }
 }
 
-/** O arquivo de uma mensagem recebida, pelo id da mídia (vem no webhook). */
-export async function baixarMidiaKapso(config: ConfigDaKapso, midiaId: string, tetoBytes: number): Promise<MidiaBaixada> {
-  if (!/^[\w.-]{1,128}$/.test(midiaId)) return { ok: false, erro: 'Mensagem sem arquivo.' }
-  const r = await chamar(config, 'GET', `${META}/${encodeURIComponent(midiaId)}?phone_number_id=${numeroNaUrl(config)}`)
-  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível achar o arquivo.' }
-  const d = objeto(r.dados)
+/**
+ * O arquivo de uma mensagem recebida: pelo id da mídia no proxy da Meta (download_url de 4
+ * minutos) e, se o proxy falhar, pelo endereço que a Kapso mandou no webhook (`reserva`, sempre
+ * em api.kapso.ai, com a chave).
+ */
+export async function baixarMidiaKapso(config: ConfigDaKapso, midiaId: string, tetoBytes: number, reserva?: string | null): Promise<MidiaBaixada> {
+  const daReserva = reserva?.startsWith('https://api.kapso.ai/') ? reserva : null
+  if (!/^[\w.-]{1,128}$/.test(midiaId) && !daReserva) return { ok: false, erro: 'Mensagem sem arquivo.' }
+  const r = /^[\w.-]{1,128}$/.test(midiaId) ? await chamar(config, 'GET', `${META}/${encodeURIComponent(midiaId)}?phone_number_id=${numeroNaUrl(config)}`) : null
+  const d = r?.ok ? objeto(r.dados) : null
   const tamanho = Number(d?.file_size)
   if (Number.isFinite(tamanho) && tamanho > tetoBytes) return { ok: false, erro: 'Arquivo grande demais.' }
   const link = texto(d?.download_url)
-  if (!link || !link.startsWith('https://')) return { ok: false, erro: 'A Kapso não devolveu o endereço do arquivo.' }
+  if (link?.startsWith('https://')) return baixarDe(link, d, tetoBytes, null)
+  if (daReserva) return baixarDe(daReserva, null, tetoBytes, config.chave)
+  return { ok: false, erro: r?.erro ?? 'A Kapso não devolveu o endereço do arquivo.' }
+}
+
+/** Baixa respeitando o teto. `chave`: só para o endereço de reserva (o download_url já leva a autorização no token). */
+async function baixarDe(link: string, d: Record<string, unknown> | null, tetoBytes: number, chave: string | null): Promise<MidiaBaixada> {
   try {
-    // O download_url já leva a autorização no token: a chave não vai junto.
-    const resposta = await fetch(link, { signal: AbortSignal.timeout(120_000), cache: 'no-store' })
+    const resposta = await fetch(link, { headers: chave ? { 'X-API-Key': chave } : {}, signal: AbortSignal.timeout(120_000), cache: 'no-store' })
     if (!resposta.ok) return { ok: false, erro: `A Kapso não entregou o arquivo (${resposta.status}).` }
     const declarado = Number(resposta.headers.get('content-length'))
     if (Number.isFinite(declarado) && declarado > tetoBytes) return { ok: false, erro: 'Arquivo grande demais.' }
@@ -164,23 +173,29 @@ export async function baixarMidiaKapso(config: ConfigDaKapso, midiaId: string, t
 
 // ------------------------------------------------------------------ conexão
 
-const CAMPOS_DO_NUMERO = 'id,verified_name,display_phone_number,quality_rating'
+/**
+ * O número, pela API da plataforma da Kapso. Não pelo proxy da Meta: no número gerenciado pela
+ * Kapso, GET /{phone_number_id} no proxy volta 401 da Meta (código 190, "Cannot parse access
+ * token") mesmo com a chave certa e o envio funcionando (visto em 18/10/2026).
+ */
+async function lerNumero(config: ConfigDaKapso): Promise<Resposta> {
+  return chamar(config, 'GET', `${PLATAFORMA}/whatsapp/phone_numbers/${numeroNaUrl(config)}`)
+}
 
-/** O número responde na Kapso? Lá não há "conectando": ou está, ou a chave/o id estão errados. */
 export async function situacaoDaConexaoKapso(config: ConfigDaKapso): Promise<SituacaoDaConexao> {
-  const r = await chamar(config, 'GET', `${META}/${numeroNaUrl(config)}?fields=${CAMPOS_DO_NUMERO}`)
-  if (r.ok) return { estado: 'conectado', erro: null }
-  const estado: EstadoDaConexao = r.status === 404 ? 'sem_instancia' : 'erro'
-  return { estado, erro: r.erro }
+  const r = await lerNumero(config)
+  if (!r.ok) return { estado: r.status === 404 ? 'sem_instancia' : 'erro', erro: r.status === 404 ? null : r.erro }
+  const estado = estadoDoNumeroNaKapso(objeto(objeto(r.dados)?.data)?.status)
+  return { estado, erro: estado === 'erro' ? 'A Kapso não disse o estado do número.' : null }
 }
 
 export async function perfilConectadoKapso(config: ConfigDaKapso): Promise<{ numero: string | null; nome: string | null }> {
-  const r = await chamar(config, 'GET', `${META}/${numeroNaUrl(config)}?fields=${CAMPOS_DO_NUMERO}`)
-  const d = r.ok ? objeto(r.dados) : null
-  const exibido = texto(d?.display_phone_number)
+  const r = await lerNumero(config)
+  const d = r.ok ? objeto(objeto(r.dados)?.data) : null
+  const exibido = texto(d?.display_phone_number_normalized) ?? texto(d?.display_phone_number)
   return {
     numero: exibido ? numeroCanonico(`+${exibido.replace(/\D/g, '')}`) : null,
-    nome: texto(d?.verified_name)?.slice(0, 80) ?? null,
+    nome: (texto(d?.verified_name) ?? texto(d?.display_name))?.slice(0, 80) ?? null,
   }
 }
 

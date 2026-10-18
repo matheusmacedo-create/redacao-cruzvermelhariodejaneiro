@@ -4,7 +4,7 @@
  */
 import {
   numeroCanonico, formatarNumero, mascararNumero,
-  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
+  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
@@ -349,6 +349,12 @@ const kapsoFoto = lerEventoDaKapso({
 }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoFoto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 2048, nome: 'foto.jpg', arquivo: 'midia_123' }, 'kapso: foto com id da mídia')
 igual(kapsoFoto.mensagens[0]?.texto, 'pronto', 'kapso: legenda vira texto')
+const kapsoComEndereco = lerEventoDaKapso({ message: { id: 'w4', type: 'document', from: '5521987654321', document: { id: 'm9', mime_type: 'application/pdf' }, kapso: { media_url: 'https://api.kapso.ai/media/abc', media_data: { url: 'https://outro.site/x' } } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoComEndereco.mensagens[0]?.midia?.endereco, 'https://api.kapso.ai/media/abc', 'kapso: endereço de reserva só de api.kapso.ai')
+igual(estadoDoNumeroNaKapso('CONNECTED'), 'conectado', 'kapso: CONNECTED')
+igual(estadoDoNumeroNaKapso('PENDING'), 'conectando', 'kapso: PENDING')
+igual(estadoDoNumeroNaKapso('DISCONNECTED'), 'desconectado', 'kapso: DISCONNECTED')
+igual(estadoDoNumeroNaKapso(undefined), 'erro', 'kapso: sem estado')
 const kapsoLote = lerEventoDaKapso({ type: 'whatsapp.message.received', batch: true, data: [
   { message: { id: 'a', type: 'text', from: '5521987654321', text: { body: '1' } }, phone_number_id: NUMERO_ID },
   { message: { id: 'b', type: 'interactive', from: '5521987654321', interactive: { button_reply: { id: '2' } } }, phone_number_id: NUMERO_ID },

@@ -88,6 +88,14 @@ export function mascararNumero(numero: string | null | undefined): string {
 /** Na Kapso o número fica conectado no painel dela: "sem_instancia" é o Phone number ID que ela não acha. */
 export type EstadoDaConexao = 'conectado' | 'conectando' | 'desconectado' | 'sem_instancia' | 'erro'
 
+/** O `status` do número na Kapso (CONNECTED, PENDING…) em português. */
+export function estadoDoNumeroNaKapso(status: unknown): EstadoDaConexao {
+  const s = String(status ?? '').toUpperCase()
+  if (s === 'CONNECTED') return 'conectado'
+  if (s === 'PENDING' || s === 'CONNECTING' || s === 'IN_PROGRESS') return 'conectando'
+  return s ? 'desconectado' : 'erro'
+}
+
 export const ROTULO_DO_ESTADO: Record<EstadoDaConexao, string> = {
   conectado: 'Conectado',
   conectando: 'Conectando',
@@ -306,6 +314,8 @@ export type MidiaRecebida = {
   categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null
   /** O id da mídia na Meta: é por ele que se baixa. */
   arquivo?: string
+  /** O endereço da mídia na própria Kapso (kapso.media_url): o caminho de reserva para baixar. */
+  endereco?: string
 }
 
 /** Os tipos de mensagem da API oficial que têm arquivo, na categoria do Palácio (figurinha não conta). */
@@ -341,9 +351,10 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemR
     const real: CategoriaDaMidia = categoria === 'documento' && mime.startsWith('image/') ? 'foto' : categoria === 'documento' && mime.startsWith('video/') ? 'video' : categoria
     const tamanho = Number(dadosDaKapso?.byte_size ?? md?.file_size)
     const arquivo = texto(md?.id)?.slice(0, 128)
+    const endereco = [texto(dadosDaKapso?.url), texto(kapso?.media_url)].find((u) => u?.startsWith('https://api.kapso.ai/'))?.slice(0, 2000)
     midia = {
       categoria: real, mime: mime || 'application/octet-stream', tamanho: Number.isFinite(tamanho) && tamanho > 0 ? tamanho : null,
-      nome: (texto(md?.filename) ?? texto(dadosDaKapso?.filename))?.slice(0, 200) ?? null, ...(arquivo ? { arquivo } : {}),
+      nome: (texto(md?.filename) ?? texto(dadosDaKapso?.filename))?.slice(0, 200) ?? null, ...(arquivo ? { arquivo } : {}), ...(endereco ? { endereco } : {}),
     }
     legenda = texto(md?.caption)
   }

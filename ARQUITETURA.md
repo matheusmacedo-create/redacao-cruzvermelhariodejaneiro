@@ -1957,6 +1957,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (`https://api.kapso.ai/meta/whatsapp/v24.0/{phone_number_id}/messages`, formato da Cloud API);
   mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
   webhook por número em `https://api.kapso.ai/platform/v1/whatsapp/phone_numbers/{id}/webhooks`.
+- **Conexão pela plataforma, não pelo proxy:** no número gerenciado pela Kapso, as leituras pelo proxy da Meta
+  (`GET /{phone_number_id}`, templates) voltam 401 da Meta (190, "Cannot parse access token") mesmo com a chave
+  certa — o envio funciona. Estado, número e nome vêm de `GET /platform/v1/whatsapp/phone_numbers/{id}` (`status`
+  CONNECTED). A mídia tenta o proxy e, se falhar, o `kapso.media_url` do webhook (só `api.kapso.ai`, com a chave).
 - **Janela de 24 h:** texto livre só para quem escreveu ao número nas últimas 24 h. Fora dela a Meta
   recusa (131047) e o envio recai no modelo aprovado do cofre, com o texto achatado na variável
   `{{1}}` (sem quebras de linha, até 1000 caracteres). Sem modelo, a falha fica registrada com o
