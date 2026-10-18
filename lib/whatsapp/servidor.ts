@@ -52,8 +52,9 @@ export const enviarTexto = (config: ConfigDoWhatsapp, numero: string, texto: str
 
 export type MidiaBaixada = { ok: true; conteudo: Buffer; mime: string | null; nome: string | null } | { ok: false; erro: string }
 
-/** O arquivo de uma mensagem recebida, pelo id da mídia (MidiaRecebida.arquivo). O webhook não traz o arquivo. */
-export const baixarMidia = (config: ConfigDoWhatsapp, midiaId: string, tetoBytes: number): Promise<MidiaBaixada> => baixarMidiaKapso(config, midiaId, tetoBytes)
+/** O arquivo de uma mensagem recebida, pelo id da mídia (MidiaRecebida.arquivo; `reserva` = MidiaRecebida.endereco). O webhook não traz o arquivo. */
+export const baixarMidia = (config: ConfigDoWhatsapp, midiaId: string, tetoBytes: number, reserva?: string | null): Promise<MidiaBaixada> =>
+  baixarMidiaKapso(config, midiaId, tetoBytes, reserva)
 
 // ------------------------------------------------------------------ conexão
 
