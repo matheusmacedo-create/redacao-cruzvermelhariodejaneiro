@@ -11,8 +11,8 @@ import { avisarMensagemDireta } from '@/lib/mensagens/avisos'
 import { ehEquipeDaEscola, type Papel } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 import {
-  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular, lerDecisao, lerEscolha, textoDaConferencia,
-  textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
+  BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES, PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular,
+  interativoDaEscolha, lerDecisao, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato, type Interativo, type Opcao,
 } from './regras'
 import { seguirEnvio } from './envio'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
@@ -46,10 +46,15 @@ export type Pessoa = { id: string; nome: string | null; papel: Papel }
 export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
-/** A resposta do bot e, se houver, a pergunta que fica esperando (`id` = a pendência que continua). */
+/**
+ * A resposta do bot e, se houver, a pergunta que fica esperando (`id` = a pendência que continua).
+ * `interativo`: os botões ou a lista da pergunta (só valem com `pergunta`: o toque é reconhecido pela
+ * pendência da mensagem tocada; em mensagem sem pergunta, o bot leria o toque como pergunta vencida).
+ */
 export type Resposta = {
   texto: string
   pergunta?: { tipo: TipoDePendencia; dados: Record<string, unknown>; id?: number }
+  interativo?: Interativo | null
 }
 
 const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
@@ -188,6 +193,7 @@ async function decidirAprovacao(admin: Admin, workspaceId: string, pessoa: Pesso
   return {
     texto: textoDaConferencia({ titulo: rodada.titulo, blocos: rodada.blocos.map((b) => ({ setor: b.setor.nome, itens: b.itens })) }),
     pergunta: { tipo: 'aprovar', dados: { approvalId } },
+    interativo: BOTOES_DA_CONFERENCIA,
   }
 }
 
@@ -297,16 +303,23 @@ export async function comecarChamado(admin: Admin, workspaceId: string, pessoa: 
   return proximoPasso(admin, workspaceId, pessoa, { relato: relato.trim().slice(0, 4000) }, base)
 }
 
+/** A descrição da linha "Cancelar" nas listas do chamado. */
+const NAO_ABRIR = 'Não abrir o chamado'
+
 async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d: DadosDoChamado, base: string, pendenciaId?: number): Promise<Resposta> {
-  const perguntar = (dados: DadosDoChamado, texto: string): Resposta => ({ texto, pergunta: { tipo: 'abrir_chamado', dados, id: pendenciaId } })
+  const perguntar = (dados: DadosDoChamado, texto: string, interativo: Interativo | null = null): Resposta =>
+    ({ texto, pergunta: { tipo: 'abrir_chamado', dados, id: pendenciaId }, interativo })
+  // A escolha numerada vai também como lista (dentro da janela): cada linha leva o número, como a resposta digitada.
+  const escolher = (dados: DadosDoChamado, pergunta: string, opcoes: Opcao[]) =>
+    perguntar(dados, textoDaEscolha({ pergunta, opcoes }), interativoDaEscolha(opcoes, { cancelar: NAO_ABRIR }))
 
   if (!d.filaId) {
     const { data } = await admin.from('chamado_filas').select('id, nome, descricao').eq('workspace_id', workspaceId).eq('ativa', true).order('ordem').limit(9)
     const filas = (data ?? []) as { id: string; nome: string; descricao: string | null }[]
     if (!filas.length) return { texto: 'Nenhuma equipe está recebendo chamados agora.' }
     if (filas.length > 1) {
-      return perguntar({ ...d, etapa: 'fila', filas: filas.map((f) => ({ id: f.id, nome: f.nome })) },
-        textoDaEscolha({ pergunta: `Vou abrir o chamado: _${tituloDoRelato(d.relato)}_\n\nPara qual equipe?`, opcoes: filas.map((f) => ({ nome: f.nome, detalhe: f.descricao })) }))
+      return escolher({ ...d, etapa: 'fila', filas: filas.map((f) => ({ id: f.id, nome: f.nome })) },
+        `Vou abrir o chamado: _${tituloDoRelato(d.relato)}_\n\nPara qual equipe?`, filas.map((f) => ({ nome: f.nome, detalhe: f.descricao })))
     }
     d = { ...d, filaId: filas[0].id }
   }
@@ -315,9 +328,7 @@ async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d
     const { data } = await admin.from('chamado_categorias').select('id, nome, pede_local').eq('workspace_id', workspaceId).eq('fila_id', d.filaId).eq('ativa', true).order('ordem').limit(9)
     const categorias = (data ?? []).map((c) => ({ id: c.id as string, nome: c.nome as string, pedeLocal: Boolean(c.pede_local) }))
     if (!categorias.length) return { texto: `Esta equipe ainda não tem assuntos para chamado. Abra pelo Palácio: ${base}/chamados/novo` }
-    if (categorias.length > 1) {
-      return perguntar({ ...d, etapa: 'categoria', categorias }, textoDaEscolha({ pergunta: 'Qual é o assunto?', opcoes: categorias.map((c) => ({ nome: c.nome })) }))
-    }
+    if (categorias.length > 1) return escolher({ ...d, etapa: 'categoria', categorias }, 'Qual é o assunto?', categorias.map((c) => ({ nome: c.nome })))
     d = { ...d, categoriaId: categorias[0].id, pedeLocal: categorias[0].pedeLocal }
   }
 
@@ -325,15 +336,13 @@ async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d
     return perguntar({ ...d, etapa: 'local' }, `Onde é? Responda com a sala, o andar ou o setor (ou *cancelar*). Vale por ${PENDENCIA_VALE_MIN} minutos.`)
   }
 
+  // As três urgências como lista, não botões: "Atrapalha meu trabalho" passa dos 20 caracteres do botão, e a ajuda vai na descrição.
   if (!d.urgencia) {
-    return perguntar({ ...d, etapa: 'urgencia' }, textoDaEscolha({
-      pergunta: 'Quanto isso atrapalha?',
-      opcoes: ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })),
-    }))
+    return escolher({ ...d, etapa: 'urgencia' }, 'Quanto isso atrapalha?', ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })))
   }
 
   // A última pergunta é opcional: quem atende lê o relato, e "wifi da sala 2" diz pouco.
-  return perguntar({ ...d, etapa: 'detalhes' }, textoPedeDetalhes())
+  return perguntar({ ...d, etapa: 'detalhes' }, textoPedeDetalhes(), BOTOES_DOS_DETALHES)
 }
 
 async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {

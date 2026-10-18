@@ -12,7 +12,11 @@ import {
   modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido, TEXTO_PAUSADO, textoDeSeguranca,
   tipoDaFalha, resumoDasFalhas, falhasSemModelo, decidirAlerta, quandoEmSaoPaulo, textoDoStatus, textoDaRodadaDaFila, textoDoComandoFila, FALHAS_SEM_MODELO_PARA_ALERTAR,
   soOCodigo, ROTULO_DO_BOT_FORA_DA_JANELA, AVISO_AO_NUMERO_ANTIGO, type StatusDoCanal, type FalhaDeEnvio,
+  objetoInterativo, interativoCaiNoTexto, interativoDoMenu, interativoDoAviso, interativoDaEscolha, BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES,
+  LIMITES_DO_INTERATIVO, type Interativo,
 } from '../lib/whatsapp/regras'
+import { lerRespostaDaVisita, respostaClaraDaVisita } from '../lib/portaria/regras'
+import { URGENCIA } from '../lib/chamados/regras'
 import { corpoParaWhatsapp, emailDeAviso } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
@@ -416,7 +420,7 @@ const kapsoTexto = lerEventoDaKapso({
   phone_number_id: NUMERO_ID,
 }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoTexto.evento, 'whatsapp.message.received', 'kapso: o evento vem do cabeçalho')
-igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', midia: null, ignorar: null }], 'kapso: texto, nome e citação')
+igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', toque: false, midia: null, ignorar: null }], 'kapso: texto, nome e citação')
 const kapsoSemNono = lerEventoDaKapso({ message: { id: 'w2', type: 'text', from: '552187654321', text: { body: 'oi' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoSemNono.mensagens[0]?.numero, '5521987654321', 'kapso: wa_id sem o nono dígito vira o canônico')
 const kapsoFoto = lerEventoDaKapso({
@@ -443,6 +447,14 @@ const kapsoLote = lerEventoDaKapso({ type: 'whatsapp.message.received', batch: t
   { message: { id: 'b', type: 'interactive', from: '5521987654321', interactive: { button_reply: { id: '2' } } }, phone_number_id: NUMERO_ID },
 ] }, null, NUMERO_ID)
 igual(kapsoLote.mensagens.map((m) => `${m.id}:${m.texto}`), ['a:1', 'b:2'], 'kapso: lote e resposta de botão')
+igual(kapsoLote.mensagens.map((m) => m.toque), [false, true], 'kapso: o texto digitado não é toque; a resposta de botão é')
+const kapsoLista = lerEventoDaKapso({
+  message: { id: 'w5', type: 'interactive', from: '5521987654321', context: { id: 'wamid.menu' }, interactive: { type: 'list_reply', list_reply: { id: 'status', title: 'Status do WhatsApp' } } },
+  phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID)
+igual([kapsoLista.mensagens[0]?.texto, kapsoLista.mensagens[0]?.citada, kapsoLista.mensagens[0]?.toque], ['status', 'wamid.menu', true], 'kapso: linha da lista vira o id (o comando), citando a mensagem tocada')
+const kapsoBotaoDoModelo = lerEventoDaKapso({ message: { id: 'w6', type: 'button', from: '5521987654321', button: { payload: 'parar', text: 'Parar' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
+igual([kapsoBotaoDoModelo.mensagens[0]?.texto, kapsoBotaoDoModelo.mensagens[0]?.toque], ['parar', true], 'kapso: botão de modelo vira o payload')
 const kapsoOutroNumero = lerEventoDaKapso({ message: { id: 'x', type: 'text', from: '5521987654321', text: { body: 'oi' } }, phone_number_id: '999999' }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoOutroNumero.mensagens.length, 0, 'kapso: outro número do projeto é ignorado')
 const kapsoSaida = lerEventoDaKapso({ message: { id: 'y', type: 'text', from: '5521987654321', text: { body: 'oi' }, kapso: { direction: 'outbound' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
@@ -503,6 +515,86 @@ contem(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Templ
 igual(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Phone number not found' }), null, '404 do número continua sendo do número')
 igual(problemaDoModelo({ nome: 'x', codigo: 190, status: 401, mensagem: 'Invalid OAuth access token' }), null, 'token da Meta não é do modelo')
 igual(problemaDoModelo({ nome: 'x', codigo: null, status: 402, mensagem: 'template credits' }), null, 'créditos não é do modelo')
+
+// ---------------------------------------------------------------- botões e listas (mensagens interativas)
+const botoesOk: Interativo = { tipo: 'botoes', botoes: [{ id: 'confirmo', titulo: 'Confirmo' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+igual(objetoInterativo('Confira e confirme.', botoesOk), {
+  type: 'button', body: { text: 'Confira e confirme.' },
+  action: { buttons: [{ type: 'reply', reply: { id: 'confirmo', title: 'Confirmo' } }, { type: 'reply', reply: { id: 'cancelar', title: 'Cancelar' } }] },
+}, 'interativo: botões no formato da Cloud API')
+const botaoCortado = objetoInterativo('x', { tipo: 'botoes', botoes: [{ id: '2', titulo: 'Atrapalha meu *trabalho* hoje' }] })
+igual(botaoCortado?.type === 'button' ? botaoCortado.action.buttons : null, [{ type: 'reply', reply: { id: '2', title: 'Atrapalha meu traba…' } }], 'interativo: título do botão sem formatação e cortado em 20')
+igual(objetoInterativo('x', { tipo: 'botoes', botoes: [1, 2, 3, 4].map((n) => ({ id: String(n), titulo: `Opção ${n}` })) }), null, 'interativo: mais de 3 botões vai só o texto')
+igual(objetoInterativo('x', { tipo: 'botoes', botoes: [{ id: '1', titulo: 'A' }, { id: '1', titulo: 'B' }] }), null, 'interativo: id repetido vai só o texto')
+igual(objetoInterativo('x', { tipo: 'botoes', botoes: [{ id: '1', titulo: 'Sim' }, { id: '2', titulo: 'sim' }] }), null, 'interativo: título repetido vai só o texto')
+igual(objetoInterativo('x', { tipo: 'botoes', botoes: [{ id: ' ', titulo: 'A' }] }), null, 'interativo: id vazio vai só o texto')
+igual(objetoInterativo('x', { tipo: 'botoes', botoes: [{ id: 'x'.repeat(41), titulo: 'A' }] }), null, 'interativo: id longo não é cortado (seria outro comando): vai só o texto')
+igual(objetoInterativo('x'.repeat(LIMITES_DO_INTERATIVO.corpo + 1), botoesOk), null, 'interativo: corpo acima de 1024 vai só o texto, inteiro')
+igual(objetoInterativo('x'.repeat(LIMITES_DO_INTERATIVO.corpo), botoesOk) !== null, true, 'interativo: corpo de 1024 cabe')
+igual(objetoInterativo('  ', botoesOk), null, 'interativo: corpo vazio')
+const listaLonga = objetoInterativo('Escolha.', {
+  tipo: 'lista', botao: 'Ver todas as opções possíveis',
+  secoes: [{ titulo: null, linhas: [{ id: '1', titulo: 'Uma equipe com nome comprido demais', descricao: 'd'.repeat(100) }, { id: '2', titulo: 'TI', descricao: null }] }],
+})
+igual(listaLonga, {
+  type: 'list', body: { text: 'Escolha.' },
+  action: { button: 'Ver todas as opções…', sections: [{ rows: [{ id: '1', title: 'Uma equipe com nome com…', description: `${'d'.repeat(71)}…` }, { id: '2', title: 'TI' }] }] },
+}, 'interativo: lista com título (24), descrição (72) e botão (20) cortados; seção única sem título')
+igual(objetoInterativo('x', { tipo: 'lista', botao: 'Ver', secoes: [{ linhas: Array.from({ length: 11 }, (_, i) => ({ id: String(i + 1), titulo: `L${i}` })) }] }), null, 'interativo: mais de 10 linhas vai só o texto')
+igual(objetoInterativo('x', { tipo: 'lista', botao: 'Ver', secoes: [{ titulo: 'A', linhas: [{ id: '1', titulo: 'a' }] }, { linhas: [{ id: '2', titulo: 'b' }] }] }), null, 'interativo: duas seções, uma sem título')
+igual(objetoInterativo('x', { tipo: 'lista', botao: 'Ver', secoes: [{ titulo: 'A', linhas: [{ id: '1', titulo: 'a' }] }, { titulo: 'B', linhas: [{ id: '1', titulo: 'b' }] }] }), null, 'interativo: id repetido entre seções')
+igual(objetoInterativo('x', { tipo: 'lista', botao: 'Ver', secoes: [{ titulo: 'Vazia', linhas: [] }, { titulo: 'A', linhas: [{ id: '1', titulo: 'a' }] }] })?.type, 'list', 'interativo: seção vazia sai da lista')
+igual(objetoInterativo('x', { tipo: 'lista', botao: 'Ver', secoes: [{ linhas: [] }] }), null, 'interativo: lista sem linhas')
+
+igual(interativoCaiNoTexto({ ok: false, motivo: 'outro' }), true, 'interativo recusado pelo formato: vai o texto')
+igual(interativoCaiNoTexto({ ok: false, motivo: 'numero' }), true, 'interativo não entregue (WhatsApp antigo): vai o texto')
+igual(interativoCaiNoTexto({ ok: false, motivo: 'outro', foraDaJanela: true }), false, 'interativo fora da janela: direto para o modelo')
+igual(interativoCaiNoTexto({ ok: false, motivo: 'tempo', semResposta: true }), false, 'interativo sem confirmação: não repete (pode ter saído)')
+igual(interativoCaiNoTexto({ ok: false, motivo: 'chave' }), false, 'interativo com a chave recusada: o texto cairia igual')
+igual(interativoCaiNoTexto({ ok: false, motivo: 'servidor' }), false, 'interativo com a Kapso fora: o texto cairia igual')
+igual(interativoCaiNoTexto({ ok: true }), false, 'interativo que saiu')
+
+// O menu: cada linha é o que se digita, e o toque dá o mesmo comando que o número digitado.
+const linhasDoMenu = (i: Interativo) => (i.tipo === 'lista' ? i.secoes.flatMap((x) => x.linhas) : [])
+const menuDaEquipe = interativoDoMenu({ pausado: false })
+igual(linhasDoMenu(menuDaEquipe).map((l) => lerPedido(l.id, { pausado: false }).comando), ['avisos', 'lidas', 'parar', 'agenda', 'chamados', 'aprovacoes'], 'menu em lista: o toque é o comando digitado')
+igual(linhasDoMenu(interativoDoMenu({ pausado: true }))[2], { id: '3', titulo: 'Voltar a receber', descricao: 'Voltar a receber os avisos por aqui' }, 'menu em lista: o 3 de quem pausou é voltar')
+const menuDoAdmin = interativoDoMenu({ pausado: false, admin: true })
+igual(linhasDoMenu(menuDoAdmin).map((l) => lerPedido(l.id, { pausado: false, admin: true }).comando).slice(6), ['status', 'fila'], 'menu do admin em lista: status e fila')
+igual(menuDoAdmin.tipo === 'lista' && menuDoAdmin.secoes.map((x) => x.titulo), ['Opções', 'Da administração'], 'menu do admin em lista: duas seções com título')
+igual(linhasDoMenu(menuDaEquipe).some((l) => l.id === 'status'), false, 'menu em lista: sem status para quem não administra')
+contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }), 'Responda com o número:\n*1* – os avisos que você ainda não abriu\n*2* – marcar todos os avisos como lidos\n*3* – parar de receber os avisos por aqui\n*4* – sua agenda de hoje e amanhã\n*5* – seus chamados abertos\n*6* – o que espera o seu voto', 'menu: o texto de sempre, das mesmas opções da lista')
+contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', admin: true }), 'Da administração:\n*status* – a saúde do WhatsApp do Palácio e das integrações\n*fila* – fazer a fila do WhatsApp andar agora', 'menu do admin: o texto de sempre')
+const menuMaisLongo = `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${textoDoMenu({ nome: 'Maria Aparecida', pausado: true, urlBase: 'https://palacio.cruzvermelhario.org.br', admin: true })}`
+const objetoDoMenu = objetoInterativo(menuMaisLongo, menuDoAdmin)
+igual(objetoDoMenu?.type, 'list', 'menu do admin, pausado e com "não entendi": cabe no corpo de 1024')
+igual(objetoDoMenu?.type === 'list' && objetoDoMenu.action.sections.flatMap((x) => x.rows).every((r) => r.title.length <= 24 && (r.description ?? '').length <= 72 && !r.title.endsWith('…')), true, 'menu em lista: nenhum título cortado')
+
+// A conferência do voto e os detalhes do chamado: o toque é a palavra que a pergunta já aceita.
+igual(BOTOES_DA_CONFERENCIA.tipo === 'botoes' && BOTOES_DA_CONFERENCIA.botoes.map((b) => [ehConfirmacao(b.id), ehCancelamento(b.id)]), [[true, false], [false, true]], 'conferência: Confirmo confirma, Cancelar cancela')
+igual(objetoInterativo(conferencia, BOTOES_DA_CONFERENCIA)?.type, 'button', 'conferência: cabe em botões')
+igual(BOTOES_DOS_DETALHES.tipo === 'botoes' && BOTOES_DOS_DETALHES.botoes.map((b) => [ehPular(b.id), ehCancelamento(b.id)]), [[true, false], [false, true]], 'detalhes do chamado: Pular pula, Cancelar desiste')
+
+// A visita na portaria: 1, 2 e 3, como a resposta digitada.
+const botoesDaVisita = interativoDoAviso(`/portaria/visita/${id1}`)
+igual(botoesDaVisita, { tipo: 'botoes', botoes: [{ id: '1', titulo: 'Pode subir' }, { id: '2', titulo: 'Aguarde na recepção' }, { id: '3', titulo: 'Não pode agora' }] }, 'visita: os três botões')
+igual(botoesDaVisita?.tipo === 'botoes' && botoesDaVisita.botoes.map((b) => lerRespostaDaVisita(b.id)?.resposta), ['subir', 'aguardar', 'recusar'], 'visita: o toque é a resposta digitada')
+igual(botoesDaVisita?.tipo === 'botoes' && botoesDaVisita.botoes.every((b) => respostaClaraDaVisita(b.id) !== null), true, 'visita: o toque é resposta clara')
+igual(objetoInterativo(textoDoAviso({ urlBase: 'https://p', titulo: 'Ana chegou para falar com você', mensagem: 'm'.repeat(400), link: `/portaria/visita/${id1}` }), botoesDaVisita!)?.type, 'button', 'visita: o aviso cabe no corpo dos botões')
+igual(interativoDoAviso(`/chamados/${id1}`), null, 'aviso de chamado: sem botões (a resposta é texto)')
+igual(interativoDoAviso(null), null, 'aviso sem link: sem botões')
+
+// A escolha do chamado em lista: as urgências e a linha de cancelar.
+const opcoesDaUrgencia = ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda }))
+const urgencia = interativoDaEscolha(opcoesDaUrgencia, { cancelar: 'Não abrir o chamado' })
+igual(linhasDoMenu(urgencia!).map((l) => l.id), ['1', '2', '3', 'cancelar'], 'urgência em lista: 1, 2, 3 e cancelar')
+igual(linhasDoMenu(urgencia!).slice(0, 3).map((l) => lerEscolha(l.id, 3)), [1, 2, 3], 'urgência em lista: o toque é o número que lerEscolha lê')
+igual(ehCancelamento(linhasDoMenu(urgencia!)[3].id), true, 'urgência em lista: a última linha cancela')
+const objetoDaUrgencia = objetoInterativo(textoDaEscolha({ pergunta: 'Quanto isso atrapalha?', opcoes: opcoesDaUrgencia }), urgencia!)
+igual(objetoDaUrgencia?.type === 'list' && objetoDaUrgencia.action.sections[0].rows.slice(0, 3).map((r) => r.title), ['Consigo esperar', 'Atrapalha meu trabalho', 'Parou tudo'], 'urgência em lista: os rótulos inteiros (o do meio não caberia num botão)')
+igual(linhasDoMenu(interativoDaEscolha(Array.from({ length: 10 }, (_, i) => ({ nome: `Fila ${i}` })), { cancelar: 'x' })!).length, 10, 'escolha com 10 opções: sem lugar para cancelar')
+igual(interativoDaEscolha(Array.from({ length: 11 }, (_, i) => ({ nome: `Fila ${i}` }))), null, 'escolha com 11 opções: só o texto')
+igual(interativoDaEscolha([]), null, 'escolha vazia')
 
 // ---------------------------------------------------------------- administração pelo WhatsApp (status e fila)
 const adm = (t: string, pausado = false) => interpretarComando(t, { pausado, admin: true })

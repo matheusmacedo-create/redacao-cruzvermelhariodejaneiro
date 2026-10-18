@@ -1323,7 +1323,9 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
     `portaria_responder` (quem é visitado ou a portaria, que registra o que
     chegou por telefone pelo botão "Resposta" da lista);
   - pelo WhatsApp, respondendo a mensagem do aviso com 1, 2 ou 3
-    (`alvoDoLink` reconhece `/portaria/visita/<id>`), pela função
+    (`alvoDoLink` reconhece `/portaria/visita/<id>`) ou tocando nos botões
+    "Pode subir", "Aguarde na recepção" e "Não pode agora", que o aviso leva
+    dentro da janela de 24 h (`interativoDoAviso`, ids `1`, `2` e `3`; §8.5), pela função
     `portaria_responder_whatsapp` (só `service_role`, confere que quem responde é
     o visitado). Sem citar a mensagem, só vale resposta clara
     (`respostaClaraDaVisita`) e só se houver uma única visita esperando a pessoa
@@ -2054,9 +2056,41 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
   `5` chamados abertos (que a pessoa abriu ou estão com ela), `6` aprovações esperando o voto dela,
   `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
-  achados com esforço baixo, e sem chave vão os trechos). Número desconhecido recebe uma
+  achados com esforço baixo, e sem chave vão os trechos). O menu vai também como lista (“Botões e
+  listas”, abaixo); digitar o número continua valendo. Número desconhecido recebe uma
   apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
   do outro lado não vira conversa infinita).
+- **Botões e listas (18/10/2026):** dentro da janela de 24 h, a resposta do bot e o aviso da visita na
+  portaria podem levar botões de resposta ou uma lista (`type: "interactive"` da Cloud API, pelo mesmo
+  proxy da Kapso). O vocabulário é `Interativo` (`regras.ts`); `objetoInterativo` (puro, testado) monta o
+  objeto da Meta cortando títulos (botão 20, linha 24, seção 24, botão da lista 20) e descrições (72) com
+  “…”, sem a formatação do WhatsApp, e devolve null — vai só o texto — quando algo não cabe sem perda:
+  corpo vazio ou acima de 1024, mais de 3 botões ou 10 linhas, id vazio, acima de 40 ou repetido (o id
+  nunca é cortado: cortado, seria outro comando), título repetido entre botões, mais de uma seção sem
+  título. **O id de cada botão ou linha é exatamente o texto que o comando digitado aceita**: o toque chega
+  como `interactive.button_reply.id` / `list_reply.id` (`lerMensagemDaKapso` já os lia como o texto; agora
+  marca `toque`) e segue por `lerPedido`, `lerDecisao`, `lerEscolha`, `ehConfirmacao`, `ehPular`,
+  `lerRespostaDaVisita` sem caminho novo. O corpo é o texto inteiro, que continua dizendo o que digitar.
+  Onde há: o **menu** (lista “Ver as opções”: `1`–`6` e, para quem administra, `status` e `fila`, numa
+  seção “Da administração”; `interativoDoMenu`, das mesmas opções de `textoDoMenu`); a **conferência do
+  voto** (`confirmo` / `cancelar`, `BOTOES_DA_CONFERENCIA`); os passos do **chamado** — equipe, assunto e
+  urgência em lista (`interativoDaEscolha`: `1`…`n` com o nome e o detalhe, mais a linha `cancelar` quando
+  cabe; a urgência é lista, não botões, porque “Atrapalha meu trabalho” passa dos 20 caracteres e a ajuda
+  de cada uma vai na descrição) e os detalhes com `pular` / `cancelar` (`BOTOES_DOS_DETALHES`); e o
+  **aviso da visita** (`interativoDoAviso`: `1`, `2`, `3`, com o rótulo de `RESPOSTAS` quando cabe em 20,
+  senão o curto). No envio (`enviarTextoKapso`), o interativo vai antes, com a mesma segunda tentativa sem
+  o nono dígito; recusado pelo formato (motivo `outro`, ou `numero` — a Meta dá “não entregue” a WhatsApp
+  antigo demais para botões), vai o mesmo texto (`interativoCaiNoTexto`); fora da janela, segue direto para
+  o modelo da finalidade, sem botão (o texto cairia igual); sem confirmação a tempo, não repete. `mandar`,
+  `entregar` e `registrar` seguem iguais (`interativo` é opcional; o registro é o de sempre). A fila guarda
+  só o texto: o que espera nela sai sem botões, menos o aviso da visita, que `enviarAgora` remonta pelo
+  link. **O toque nunca cai na pergunta mais nova:** a Meta manda a mensagem tocada (`context.id`), então o
+  bot só usa a pendência daquela mensagem (`estrita`); na lista do menu (a saída é registrada com
+  `whatsapp_mensagens.comando = 'menu'`, `citouOMenu`), vale o comando, e o atalho da portaria sem citar
+  não roda (o “1” do menu são os avisos); em qualquer outra mensagem que não é a pergunta aberta (a lista
+  de equipes de um chamado que já passou dessa etapa, a conferência respondida), responde que a pergunta
+  não vale mais — o “2” dela não escolhe o assunto nem marca os avisos como lidos. Por isso só leva botões
+  a mensagem com pergunta guardada (`Resposta.interativo` só vale com `pergunta`) e o menu. Sem migração.
 - **Comandos da administração (18/10/2026)** (`lib/whatsapp/admin.ts`): para quem tem
   `integracoes.configurar` (a permissão de `/configuracoes/whatsapp`) e número confirmado, `lerPedido`
   reconhece `status` (ou `diagnóstico`, `saúde`) e `fila` (ou `fila agora`, `enviar fila`) — só como a
@@ -2074,9 +2108,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
   link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
   saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
-  do setor e só vota depois de `confirmo`; `ajustes: …` vota na hora. `chamado: …` abre chamado
+  do setor e só vota depois de `confirmo` (ou do botão “Confirmo”); `ajustes: …` vota na hora. `chamado: …` abre chamado
   perguntando equipe, assunto, local (se pedir), urgência e, por fim, detalhes opcionais
-  (`pular` ou `não` abre só com o relato; `cancelar` desiste). As perguntas em aberto ficam em
+  (`pular` ou `não` abre só com o relato; `cancelar` desiste) — equipe, assunto e urgência também em lista,
+  e os detalhes com os botões “Pular” e “Cancelar” (veja “Botões e listas”). As perguntas em aberto ficam em
   `whatsapp_pendencias` (15 min). Tudo passa pelas mesmas regras da tela: `lib/chamados/nucleo.ts`,
   `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
   pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
@@ -2155,7 +2190,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
   `responderAoAviso` desvia para `responderVisita` antes da conferência da verificação em duas
-  etapas, e `atenderMensagem` aceita "1", "2" ou "3" sem citar quando só uma visita espera a pessoa.
+  etapas, e `atenderMensagem` aceita "1", "2" ou "3" sem citar quando só uma visita espera a pessoa
+  (digitado; o toque numa lista não). Dentro da janela, o aviso leva os botões “Pode subir”, “Aguarde
+  na recepção” e “Não pode agora”; o toque cita o aviso e segue o mesmo caminho.
 - **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
   quem confirmou o número, com teto por link. Use um chip só do Palácio.
 

@@ -26,8 +26,9 @@ import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda, textoDaApresentacao,
-  textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda,
+  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados,
+  type Interativo, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -48,6 +49,12 @@ type Admin = ReturnType<typeof createAdminClient>
  * — e, se o número já é de alguém da equipe, só a mensagem que é o código
  * (regras.ts, soOCodigo), para o chamado com um número de patrimônio não se
  * perder ali; o resto segue como sempre.
+ *
+ * Dentro da janela de 24 h, o menu sai como lista e as perguntas do bot (a
+ * conferência do voto, os passos do chamado) com botões ou lista (regras.ts,
+ * Interativo). O toque chega como o comando digitado, citando a mensagem
+ * tocada: vale para a pergunta daquela mensagem ou, na lista do menu, como
+ * comando — nunca cai na pergunta mais nova nem na visita da portaria.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -93,13 +100,19 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Citou uma pergunta que já foi respondida, venceu ou foi trocada: nunca cai na pergunta mais nova
     // (a conferência antiga não pode aprovar outra matéria).
     let vencida = false
+    // Tocou num botão ou numa linha de lista: a mensagem tocada vem junto, então o toque nunca cai na pergunta
+    // mais nova. Na lista do menu, vale o comando; em outra mensagem que não é a pergunta aberta (a lista de
+    // equipes de um chamado que já passou dessa etapa), vale como pergunta vencida — o "2" dela não escolhe o
+    // assunto, nem marca os avisos como lidos.
+    const tocou = m.toque && Boolean(m.citada)
     if (pessoa && !aviso) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
         vencida = !pendencia && await perguntaVencida(admin, workspaceId, pessoa.id, m.citada)
+        if (tocou && !pendencia && !vencida) vencida = !(await citouOMenu(admin, workspaceId, pessoa.id, m.citada))
       }
-      if (!vencida) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
+      if (!vencida && !tocou) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
     // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
     const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
@@ -115,7 +128,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     const noTeto = await noTetoDeRespostas(admin, workspaceId, numero)
 
-    const responder = (texto: string) => entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null }, { config })
+    // `interativo`: botões ou lista (só dentro da janela; fora, ou na fila, sai o texto). `comando`: a marca no registro da saída.
+    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string } = {}) =>
+      entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...extra }, { config })
     const base = urlBase()
 
     // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
@@ -152,7 +167,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
         await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${onde}`)
         return
       }
-      const entrega = await responder(r.texto)
+      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
+      const entrega = await responder(r.texto, { interativo: r.interativo })
       if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
     }
 
@@ -189,7 +205,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // Respondeu à portaria sem citar o aviso ("1", "pode subir"): vale para a única visita de agora que espera esta pessoa.
-    if (!m.midia && respostaClaraDaVisita(m.texto)) {
+    // O toque não: o "1" da lista do menu são os avisos (o toque no botão da visita já veio pelo aviso citado).
+    if (!m.midia && !tocou && respostaClaraDaVisita(m.texto)) {
       const visita = await visitaEsperandoResposta(admin, workspaceId, pessoa.id)
       if (visita) {
         await enviar(await responderVisita(admin, workspaceId, pessoa, visita.id, m.texto, base))
@@ -261,11 +278,21 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
     const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, admin: administra })
-    await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu)
+    await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu, {
+      interativo: interativoDoMenu({ pausado, admin: administra }), comando: 'menu',
+    })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
   }
+}
+
+/** A mensagem citada é um menu que o bot mandou a esta pessoa (a saída marcada "menu")? Na dúvida, não. */
+async function citouOMenu(admin: Admin, workspaceId: string, userId: string, citada: string): Promise<boolean> {
+  const { data } = await admin.from('whatsapp_mensagens').select('id').eq('workspace_id', workspaceId).eq('direcao', 'saida')
+    .eq('mensagem_id', citada).eq('user_id', userId).eq('comando', 'menu').limit(1).maybeSingle()
+  return Boolean(data)
 }
 
 /** O teto de respostas por número na janela: um robô do outro lado não vira enxurrada. */

@@ -1245,12 +1245,12 @@ const PORTARIA: GuiaDaArea = {
       exemplo: 'O representante da empresa de manutenção chega às 10h; a coordenadora está numa ligação, responde 2 (aguarde na recepção) e, ao terminar, responde 1 (pode subir).',
       passos: [
         'Chega o aviso “Fulano chegou para falar com você”, no sino e no WhatsApp.',
-        'No WhatsApp, responda a mensagem do aviso com 1 (pode subir), 2 (aguarde na recepção) ou 3 (não posso receber agora). Pode escrever um recado depois do número, como “2 estou terminando uma reunião”.',
+        'No WhatsApp, toque em “Pode subir”, “Aguarde na recepção” ou “Não pode agora”, embaixo do aviso, ou responda a mensagem com 1, 2 ou 3. Para mandar um recado, escreva depois do número, como “2 estou terminando uma reunião”.',
         'Pelo Palácio, toque no aviso e escolha “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”, com o recado se quiser.',
         'A portaria vê a resposta na hora. Se o visitante pediu, ele recebe a mesma resposta no WhatsApp.',
         'Pediu para aguardar? Quando puder receber, responda de novo com 1.',
       ],
-      dica: 'Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
+      dica: 'Os botões só vêm se você escreveu ao número do Palácio nas últimas 24 horas (regra do WhatsApp); sem eles, responda com o número. Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
     },
     {
       id: 'registrar-visitante',

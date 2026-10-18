@@ -3,8 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp } from './servidor'
 import { registrarEstado } from './estado'
 import {
-  INTERVALO_ENTRE_ENVIOS_MS, TETO_POR_MINUTO, emSilencio, falhaDerrubaConexao, falhaMereceReenvio, fimDoSilencio, proximaTentativa,
-  silencioSeAplica, type MotivoDaFalha,
+  INTERVALO_ENTRE_ENVIOS_MS, TETO_POR_MINUTO, emSilencio, falhaDerrubaConexao, falhaMereceReenvio, fimDoSilencio, interativoDoAviso, proximaTentativa,
+  silencioSeAplica, type Interativo, type MotivoDaFalha,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -37,6 +37,13 @@ export type Mensagem = {
   notificacaoId?: string | null
   categoria?: string | null
   link?: string | null
+  /**
+   * Botões ou lista junto do texto (regras.ts, Interativo). A fila guarda só o texto: o que espera nela sai sem
+   * eles — menos o aviso da visita na portaria, que monta os botões de novo pelo link (enviarAgora).
+   */
+  interativo?: Interativo | null
+  /** A marca no registro da saída (LinhaDoRegistro.comando): "menu" para a lista do menu do bot. */
+  comando?: string | null
 }
 
 export type Entrega =
@@ -85,11 +92,13 @@ export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem,
 
 /** Envia agora e registra; atualiza o estado da conexão pelo resultado. */
 async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: Mensagem) {
-  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo).
-  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo })
+  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo). O aviso
+  // da visita na portaria leva os botões pelo link, saia agora ou da fila; fora da janela, vai pelo modelo, sem eles.
+  const interativo = m.interativo ?? (m.tipo === 'aviso' ? interativoDoAviso(m.link) : null)
+  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo, interativo })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero,
-    userId: m.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
+    userId: m.userId, mensagemId: envio.ok ? envio.id : null, comando: m.comando, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
   })
   if (envio.ok) await registrarEstado(admin, workspaceId, 'conectado')
   else if (falhaDerrubaConexao(envio.motivo)) await registrarEstado(admin, workspaceId, envio.motivo === 'instancia' ? 'sem_instancia' : 'erro')

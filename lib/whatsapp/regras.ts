@@ -1,5 +1,5 @@
 import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from '@/lib/notificacoes/regras'
-import { PERGUNTA_DA_VISITA } from '@/lib/portaria/regras'
+import { PERGUNTA_DA_VISITA, RESPOSTAS } from '@/lib/portaria/regras'
 
 /**
  * Regras do WhatsApp do Palácio Virtual, sem banco nem rede — conferidas por
@@ -192,6 +192,20 @@ export function dicaDeResposta(link: string | null | undefined): string | null {
   if (alvo.tipo === 'aprovacao') return '_Para votar por aqui, responda esta mensagem com *aprovar* ou com *ajustes:* e o que precisa mudar._'
   if (alvo.tipo === 'visita') return `_${PERGUNTA_DA_VISITA}_`
   return '_Para responder por aqui, responda esta mensagem._'
+}
+
+/**
+ * Os botões do aviso que se responde com um toque: hoje, a visita na portaria — "1", "2" e "3", como a
+ * resposta digitada (lerRespostaDaVisita), com o rótulo da tela quando cabe no botão. Só dentro da
+ * janela de 24 h: fora dela o aviso sai pelo modelo, sem botão, e a dica do texto continua valendo.
+ */
+export function interativoDoAviso(link: string | null | undefined): Interativo | null {
+  if (alvoDoLink(link)?.tipo !== 'visita') return null
+  const respostas = Object.values(RESPOSTAS).sort((a, b) => a.numero - b.numero)
+  return {
+    tipo: 'botoes',
+    botoes: respostas.map((r) => ({ id: String(r.numero), titulo: r.rotulo.length <= LIMITES_DO_INTERATIVO.tituloDoBotao ? r.rotulo : r.curto })),
+  }
 }
 
 // ------------------------------------------------------------------ volume
@@ -709,6 +723,108 @@ export function problemaDoModelo(p: { nome: string; codigo: number | null; statu
   return null
 }
 
+// ------------------------------------------------------------------ botões e listas (mensagens interativas)
+//
+// Dentro da janela de 24 h, a resposta do bot e o aviso da visita na portaria podem levar botões de
+// resposta (até 3) ou uma lista (até 10 linhas). O id de cada botão ou linha é exatamente o texto que o
+// comando digitado já aceita ("1", "confirmo", "cancelar", "status"…): o toque chega ao webhook como esse
+// texto (lerMensagemDaKapso, com `toque`) e segue por lerPedido, lerDecisao, lerEscolha e cia., como se a
+// pessoa tivesse digitado. O texto da mensagem vai inteiro no corpo e continua dizendo o que digitar:
+// fora da janela, ou se a Meta recusar o formato, sai o mesmo texto sem os botões (e, fora da janela, o
+// modelo da finalidade — kapso.ts, enviarTextoKapso).
+
+/** Os limites da Cloud API para mensagens interativas (`id`: o nosso teto, bem abaixo do da Meta — são palavras de comando). */
+export const LIMITES_DO_INTERATIVO = {
+  corpo: 1024, botoes: 3, tituloDoBotao: 20, linhas: 10, tituloDaLinha: 24, descricaoDaLinha: 72, botaoDaLista: 20, tituloDaSecao: 24, id: 40,
+} as const
+
+export type BotaoDeResposta = { id: string; titulo: string }
+export type LinhaDaLista = { id: string; titulo: string; descricao?: string | null }
+export type SecaoDaLista = { titulo?: string | null; linhas: LinhaDaLista[] }
+
+/** Botões de resposta ou lista, no vocabulário do Palácio; objetoInterativo monta o objeto da Cloud API. */
+export type Interativo =
+  | { tipo: 'botoes'; botoes: BotaoDeResposta[] }
+  | { tipo: 'lista'; botao: string; secoes: SecaoDaLista[] }
+
+type LinhaDaMeta = { id: string; title: string; description?: string }
+
+/** O objeto `interactive` da Cloud API (POST /{phone_number_id}/messages com type "interactive"). */
+export type ObjetoInterativo =
+  | { type: 'button'; body: { text: string }; action: { buttons: { type: 'reply'; reply: { id: string; title: string } }[] } }
+  | { type: 'list'; body: { text: string }; action: { button: string; sections: { title?: string; rows: LinhaDaMeta[] }[] } }
+
+/** Uma linha só, sem a formatação do WhatsApp (que não vale em botão nem em linha de lista), cortada com "…". */
+function rotuloCurto(t: string | null | undefined, max: number): string {
+  const linha = String(t ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim()
+  return linha.length <= max ? linha : `${linha.slice(0, max - 1).trimEnd()}…`
+}
+
+/** O id do botão ou da linha: o comando como é digitado. Nunca é cortado (cortado, seria outro comando). */
+const idDoToque = (id: string): string | null => {
+  const t = String(id ?? '').trim()
+  return t && t.length <= LIMITES_DO_INTERATIVO.id ? t : null
+}
+
+const repetidos = (lista: string[]) => new Set(lista).size < lista.length
+
+/**
+ * Os botões ou a lista prontos para a Cloud API, com os títulos, as descrições e o botão da lista cortados
+ * no tamanho que a Meta aceita; null quando não dá para mandar sem perder algo — corpo vazio ou com mais de
+ * 1024 caracteres, mais de 3 botões ou de 10 linhas, id vazio, longo ou repetido, título vazio ou repetido
+ * entre os botões, mais de uma seção sem título. Aí sai só o texto, que diz o que digitar.
+ */
+export function objetoInterativo(corpo: string, i: Interativo): ObjetoInterativo | null {
+  const L = LIMITES_DO_INTERATIVO
+  const texto = String(corpo ?? '').trim()
+  if (!texto || texto.length > L.corpo) return null
+  if (i.tipo === 'botoes') {
+    if (!i.botoes.length || i.botoes.length > L.botoes) return null
+    const botoes: { id: string; title: string }[] = []
+    for (const b of i.botoes) {
+      const id = idDoToque(b.id)
+      const title = rotuloCurto(b.titulo, L.tituloDoBotao)
+      if (!id || !title) return null
+      botoes.push({ id, title })
+    }
+    if (repetidos(botoes.map((b) => b.id)) || repetidos(botoes.map((b) => b.title.toLowerCase()))) return null
+    return { type: 'button', body: { text: texto }, action: { buttons: botoes.map((reply) => ({ type: 'reply', reply })) } }
+  }
+  const secoes = i.secoes.filter((s) => s.linhas.length)
+  const total = secoes.reduce((n, s) => n + s.linhas.length, 0)
+  const botao = rotuloCurto(i.botao, L.botaoDaLista)
+  if (!total || total > L.linhas || !botao) return null
+  const sections: { title?: string; rows: LinhaDaMeta[] }[] = []
+  for (const s of secoes) {
+    const title = rotuloCurto(s.titulo, L.tituloDaSecao)
+    if (!title && secoes.length > 1) return null
+    const rows: LinhaDaMeta[] = []
+    for (const l of s.linhas) {
+      const id = idDoToque(l.id)
+      const titulo = rotuloCurto(l.titulo, L.tituloDaLinha)
+      if (!id || !titulo) return null
+      const description = rotuloCurto(l.descricao, L.descricaoDaLinha)
+      rows.push({ id, title: titulo, ...(description ? { description } : {}) })
+    }
+    sections.push({ ...(title ? { title } : {}), rows })
+  }
+  if (repetidos(sections.flatMap((s) => s.rows.map((r) => r.id)))) return null
+  return { type: 'list', body: { text: texto }, action: { button: botao, sections } }
+}
+
+/**
+ * O interativo recusado cai no texto (o mesmo, sem os botões)? Sim quando a recusa pode ser do formato:
+ * erro comum ("outro") ou de entrega ("numero" — a Meta dá "não entregue" a WhatsApp antigo demais para
+ * botões, e o texto ainda pode chegar). Não fora da janela (o texto ficaria de fora igual: segue direto
+ * para o modelo), quando a Kapso não confirmou a tempo (pode ter saído: seria mensagem repetida) nem
+ * quando a conexão caiu (chave, número do Palácio, servidor, rede: o texto cairia igual).
+ */
+export function interativoCaiNoTexto(r: { ok: boolean; motivo?: MotivoDaFalha; foraDaJanela?: boolean; semResposta?: boolean }): boolean {
+  if (r.ok || r.semResposta || r.foraDaJanela) return false
+  const motivo = r.motivo ?? 'outro'
+  return motivo === 'outro' || motivo === 'numero'
+}
+
 // ------------------------------------------------------------------ webhook
 
 export type MensagemRecebida = {
@@ -718,6 +834,11 @@ export type MensagemRecebida = {
   nome: string | null
   /** O id da mensagem que a pessoa citou ao responder (o aviso, a pergunta do bot); null sem citação. */
   citada: string | null
+  /**
+   * Veio de um toque num botão ou numa linha de lista: `texto` é o id do botão (o comando como se digita),
+   * e `citada`, a mensagem tocada (a Meta sempre manda junto).
+   */
+  toque: boolean
   /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Kapso, pelo id da mídia). */
   midia: MidiaRecebida | null
   /** Motivo para não responder; null = responder. */
@@ -761,9 +882,11 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemR
   const numero = remetente ? numeroCanonico(`+${remetente.replace(/\D/g, '')}`) : null
 
   const interativo = objeto(m.interactive)
-  const textoDireto = texto(objeto(m.text)?.body)
-    ?? texto(objeto(interativo?.button_reply)?.id) ?? texto(objeto(interativo?.list_reply)?.id)
+  const digitado = texto(objeto(m.text)?.body)
+  // O toque num botão de resposta, numa linha de lista ou num botão de modelo traz o id (o comando), não o título.
+  const doToque = texto(objeto(interativo?.button_reply)?.id) ?? texto(objeto(interativo?.list_reply)?.id)
     ?? texto(objeto(m.button)?.payload) ?? texto(objeto(m.button)?.text)
+  const textoDireto = digitado ?? doToque
 
   let midia: MidiaRecebida | null = null
   let legenda: string | null = null
@@ -789,6 +912,7 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemR
     texto: (textoDireto ?? legenda ?? '').slice(0, 4000),
     nome: texto(conversa?.contact_name)?.slice(0, 80) ?? null,
     citada: texto(objeto(m.context)?.id)?.slice(0, 128) ?? null,
+    toque: !digitado && doToque !== null,
     midia,
     ignorar: deMim ? 'de_mim' : numero ? null : 'sem_numero',
   }
@@ -881,20 +1005,59 @@ export const JANELA_DAS_RESPOSTAS_MIN = 10
 /** Número que não é de ninguém da equipe recebe a apresentação no máximo uma vez neste intervalo. */
 export const APRESENTACAO_A_CADA_HORAS = 24
 
+/** Uma opção do menu da equipe: o mesmo `id` (o que se digita) no texto (*1* – …) e na lista. */
+type OpcaoDoMenu = { id: string; titulo: string; texto: string }
+
+function opcoesDoMenu(pausado: boolean): OpcaoDoMenu[] {
+  return [
+    { id: '1', titulo: 'Avisos sem abrir', texto: 'os avisos que você ainda não abriu' },
+    { id: '2', titulo: 'Marcar como lidos', texto: 'marcar todos os avisos como lidos' },
+    pausado
+      ? { id: '3', titulo: 'Voltar a receber', texto: 'voltar a receber os avisos por aqui' }
+      : { id: '3', titulo: 'Parar os avisos', texto: 'parar de receber os avisos por aqui' },
+    { id: '4', titulo: 'Agenda', texto: 'sua agenda de hoje e amanhã' },
+    { id: '5', titulo: 'Meus chamados', texto: 'seus chamados abertos' },
+    { id: '6', titulo: 'Aprovações', texto: 'o que espera o seu voto' },
+  ]
+}
+
+/** Os comandos de quem administra o espaço, como a mensagem inteira (DA_ADMINISTRACAO). */
+const OPCOES_DA_ADMINISTRACAO: OpcaoDoMenu[] = [
+  { id: 'status', titulo: 'Status do WhatsApp', texto: 'a saúde do WhatsApp do Palácio e das integrações' },
+  { id: 'fila', titulo: 'Fazer a fila andar', texto: 'fazer a fila do WhatsApp andar agora' },
+]
+
+const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`
+
 /** `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). */
 export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; admin?: boolean }): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   return [
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
-    ['Responda com o número:', '*1* – os avisos que você ainda não abriu', '*2* – marcar todos os avisos como lidos',
-      p.pausado ? '*3* – voltar a receber os avisos por aqui' : '*3* – parar de receber os avisos por aqui',
-      '*4* – sua agenda de hoje e amanhã', '*5* – seus chamados abertos', '*6* – o que espera o seu voto'].join('\n'),
+    ['Responda com o número:', ...opcoesDoMenu(p.pausado).map(linhaDoMenu)].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
       'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].join('\n'),
-    p.admin ? ['Da administração:', '*status* – a saúde do WhatsApp do Palácio e das integrações', '*fila* – fazer a fila do WhatsApp andar agora'].join('\n') : null,
+    p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
+}
+
+/**
+ * O menu como lista (dentro da janela): as opções 1 a 6 e, para quem administra, "status" e "fila". Cada
+ * linha leva o que se digita, então o toque segue por lerPedido como o número digitado (o "3" continua
+ * alternando parar e voltar pelo estado da hora). "chamado:" e "ajuda" pedem texto: ficam só no corpo.
+ */
+export function interativoDoMenu(p: { pausado: boolean; admin?: boolean }): Interativo {
+  const linha = (o: OpcaoDoMenu): LinhaDaLista => ({ id: o.id, titulo: o.titulo, descricao: `${o.texto.charAt(0).toUpperCase()}${o.texto.slice(1)}` })
+  return {
+    tipo: 'lista',
+    botao: 'Ver as opções',
+    secoes: [
+      { titulo: 'Opções', linhas: opcoesDoMenu(p.pausado).map(linha) },
+      ...(p.admin ? [{ titulo: 'Da administração', linhas: OPCOES_DA_ADMINISTRACAO.map(linha) }] : []),
+    ],
+  }
 }
 
 export type AvisoNaLista = { titulo: string; mensagem: string; link: string | null }
@@ -1081,6 +1244,9 @@ export function textoPedeDetalhes(): string {
   ].join('\n\n')
 }
 
+/** Os botões da pergunta dos detalhes: "pular" (ehPular) abre só com o relato; "cancelar" desiste do chamado. */
+export const BOTOES_DOS_DETALHES: Interativo = { tipo: 'botoes', botoes: [{ id: 'pular', titulo: 'Pular' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+
 /** "2", "2.", "opção 2", "*2*": o número escolhido entre 1 e `quantas`; null para o resto. */
 export function lerEscolha(entrada: string, quantas: number): number | null {
   const t = normalizar(entrada).replace(/^(opcao|numero|n|no) /, '')
@@ -1101,12 +1267,27 @@ export function textoDaConferencia(p: { titulo: string; blocos: { setor: string;
   ].join('\n\n')
 }
 
+/** Os botões da conferência antes do voto: tocar é responder a conferência com a palavra (ehConfirmacao, ehCancelamento). */
+export const BOTOES_DA_CONFERENCIA: Interativo = { tipo: 'botoes', botoes: [{ id: 'confirmo', titulo: 'Confirmo' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+
 export type Opcao = { nome: string; detalhe?: string | null }
 
 /** Uma lista numerada para a pessoa escolher respondendo o número. */
 export function textoDaEscolha(p: { pergunta: string; opcoes: Opcao[]; rodape?: string | null }): string {
   const linhas = p.opcoes.map((o, i) => `*${i + 1}* – ${limpo(o.nome, 80)}${o.detalhe ? ` _(${limpo(o.detalhe, 80)})_` : ''}`)
   return [p.pergunta, linhas.join('\n'), p.rodape ?? `Responda com o número, ou *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`].join('\n\n')
+}
+
+/**
+ * A escolha numerada (textoDaEscolha) como lista: cada linha leva o número ("1", "2"…, o que lerEscolha
+ * lê), o nome e o detalhe. `cancelar`: a descrição da linha "Cancelar" no fim, se couber. null com mais
+ * opções do que cabem numa lista (vale o texto).
+ */
+export function interativoDaEscolha(opcoes: Opcao[], p: { botao?: string; cancelar?: string | null } = {}): Interativo | null {
+  if (!opcoes.length || opcoes.length > LIMITES_DO_INTERATIVO.linhas) return null
+  const linhas: LinhaDaLista[] = opcoes.map((o, i) => ({ id: String(i + 1), titulo: o.nome, descricao: o.detalhe ?? null }))
+  if (p.cancelar && linhas.length < LIMITES_DO_INTERATIVO.linhas) linhas.push({ id: 'cancelar', titulo: 'Cancelar', descricao: p.cancelar })
+  return { tipo: 'lista', botao: p.botao ?? 'Escolher', secoes: [{ linhas }] }
 }
 
 /** Título do chamado a partir do relato: a primeira frase, até 140 letras. */

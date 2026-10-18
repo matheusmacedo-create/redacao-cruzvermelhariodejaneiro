@@ -933,7 +933,7 @@ const WHATSAPP: GuiaDaArea = {
       passos: [
         'Confirme antes o seu WhatsApp em “Meu perfil”.',
         'Aqui, em “Testar”, toque em “Mandar mensagem de teste”.',
-        'No seu WhatsApp, responda “menu”. O bot responde com as opções.',
+        'No seu WhatsApp, responda “menu”. O bot responde com as opções e o botão “Ver as opções”.',
         'Em “Últimas mensagens”, toque em “Atualizar” e confira o envio e a resposta.',
       ],
     },
@@ -986,6 +986,12 @@ const WHATSAPP: GuiaDaArea = {
       pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
       resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: a resposta traz a conexão com a Kapso, o recebimento de mensagens, a fila, as falhas de envio das últimas 24 horas agrupadas pelo motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google com a autorização expirada e quando a conferência diária rodou pela última vez.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas ainda esperam.\n\nOs dois aparecem no “menu” só de quem é administrador; para os outros, o bot só responde que não entendeu. Ficam em “Últimas mensagens” como os demais comandos.',
       termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot'],
+    },
+    {
+      id: 'botoes-no-whatsapp',
+      pergunta: 'Por que algumas mensagens do bot vêm com botões e outras não?',
+      resposta: 'Para quem escreveu ao número nas últimas 24 horas, o Palácio manda botões e listas: o menu (“Ver as opções”), a conferência do voto (“Confirmo” e “Cancelar”), a equipe, o assunto e a urgência de um chamado, os detalhes (“Pular”) e, no aviso da portaria, “Pode subir”, “Aguarde na recepção” e “Não pode agora”. Tocar é o mesmo que digitar: o botão manda a resposta que o bot já entende, e digitar continua valendo.\n\nVão sem botões o aviso para quem não escreveu nas últimas 24 horas (sai pelo modelo, que não leva botão), o que esperou na fila (menos o aviso da portaria), o texto longo demais para caber com eles e o que a Meta recusar com botões (sai o mesmo texto). Um botão de uma pergunta que já passou responde que ela não vale mais.',
+      termos: ['botões', 'lista', 'ver as opções', 'confirmo', 'pode subir', 'interativo', 'sem botão'],
     },
     {
       id: 'desconectou-sozinho',
@@ -1213,13 +1219,13 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda. Administradores têm também “status” e “fila” (veja a ajuda do WhatsApp, em Configurações).\n\nOs avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
-      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp'],
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e toque em “Ver as opções”, ou responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre. A agenda segue as camadas ligadas na Agenda. Administradores têm também “status” e “fila”.\n\nAs perguntas do Palácio por lá (a conferência do voto, os passos do chamado) vêm com botões ou com uma lista: tocar é o mesmo que digitar a resposta. Os avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
+      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp', 'botões do whatsapp', 'ver as opções'],
     },
     {
       id: 'responder-pelo-whatsapp',
       pergunta: 'Como respondo um aviso pelo WhatsApp?',
-      resposta: 'Para responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você confirma com “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e, por fim, se você quer detalhar o que está acontecendo (responda “pular” para abrir só com o que já disse).\n\nNo aviso de visitante na portaria, responda a mensagem com “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
+      resposta: 'Para responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você toca em “Confirmo” ou responde “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e, por fim, se você quer detalhar o que está acontecendo (responda “pular” para abrir só com o que já disse).\n\nNo aviso de visitante na portaria, responda a mensagem com “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
       termos: ['aprovação pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'portaria pelo whatsapp', 'pode subir'],
     },
     {
