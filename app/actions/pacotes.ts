@@ -9,7 +9,7 @@ import { adapter, formatoDoAdapter, ehCanalDeRede, type Mestre } from '@/lib/pub
 import { textoParaRede } from '@/lib/publicacao/texto-plano'
 import { enviarEdicao } from '@/lib/newsletter/envio'
 import { gerarVariante, validarVariante, temErro, separarHashtags, type DadosDoArquivo } from '@/lib/publicacao/variantes'
-import { corpoComMidias, lerLegendas } from '@/lib/publicacao/legendas'
+import { corpoComMidias, lerLegendas, type LegendaDaMidia } from '@/lib/publicacao/legendas'
 import { normalizarQuebras } from '@/lib/content-blocks'
 
 /**
@@ -1473,6 +1473,81 @@ async function publicarSiteDoPacote(
 }
 
 /**
+ * Por que a página do site não pode ser atualizada agora, ou null se pode.
+ *
+ * A mesma conferência da publicação: o que muda na página em nome da
+ * instituição passou pela aprovação, se o pacote tem uma.
+ */
+async function bloqueioPelaAprovacao(contentId: string | null | undefined): Promise<string | null> {
+  if (!contentId) return null
+  const supabase = await createClient()
+  const { data: aprovacao } = await supabase
+    .from('approvals').select('status')
+    .eq('content_id', contentId)
+    .order('created_at', { ascending: false })
+    .limit(1).maybeSingle()
+  if (!aprovacao || aprovacao.status === 'approved') return null
+  return aprovacao.status === 'pending'
+    ? 'Este pacote está em aprovação. Aguarde a decisão antes de atualizar a página.'
+    : 'A aprovação deste pacote pediu ajustes. Revise e envie de novo antes de atualizar a página.'
+}
+
+/**
+ * Republica a página do site com o que está no pacote agora. Lança se não
+ * der; quem chama já conferiu arquivamento e aprovação.
+ *
+ * Usada pelo botão "Atualizar a página no site" e pela importação no modo
+ * "atualizar" (corrigirPacotePorImportacao): as duas têm de sair iguais.
+ */
+async function republicarPaginaDoSite(
+  pacote: Awaited<ReturnType<typeof pacoteDoEspaco>>,
+  workspaceId: string,
+  userId: string,
+): Promise<{ url?: string; aviso?: string }> {
+  const supabase = await createClient()
+  const { data: destino } = await supabase
+    .from('package_destinations')
+    .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado,descolada')
+    .eq('package_id', pacote.id).eq('workspace_id', workspaceId).eq('canal', 'site_web')
+    .maybeSingle()
+  if (!destino) throw new Error('Este pacote não tem página no site.')
+  if (destino.estado !== 'publicada') throw new Error('A página ainda não foi publicada. Use “Publicar”.')
+
+  // O texto volta a acompanhar o pacote (a não ser que o destino tenha
+  // texto próprio, escrito à mão); fotos, legendas e posições vêm sempre do
+  // pacote, que é onde a tela as edita.
+  const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
+  const { variante, avisos } = gerarVariante(mestre, 'site_web', destino.formato || FORMATO_BASE_DO_SITE)
+  if (!destino.descolada && temErro(avisos)) {
+    throw new Error(avisos.find((a) => a.nivel === 'erro')?.mensagem ?? 'A notícia tem um erro a corrigir antes de atualizar a página.')
+  }
+  const guardados = (destino.extras ?? {}) as Record<string, string>
+  const corpo = destino.descolada ? destino.corpo ?? '' : variante.corpo
+  const extras: Record<string, string> = {
+    ...(destino.descolada ? guardados : variante.extras),
+    ...(guardados.contentId ? { contentId: guardados.contentId } : {}),
+    ...(guardados.slug ? { slug: guardados.slug } : {}),
+  }
+  const atualizado: DestinoParaDisparo = {
+    id: destino.id, canal: destino.canal, formato: destino.formato, corpo, extras,
+    file_ids: variante.fileIds, crops: (destino.crops ?? {}) as Record<string, CaixaDeRecorte>, agendar_para: destino.agendar_para,
+  }
+
+  const resultado = await publicarSiteDoPacote(atualizado, pacote, workspaceId, userId)
+  // Falhou? A versão anterior continua no ar, e o destino segue publicado.
+  if (resultado.erro) throw new Error(resultado.erro)
+
+  const { error } = await supabase.from('package_destinations').update({
+    corpo, extras, file_ids: variante.fileIds,
+    external_url: resultado.url ?? null,
+    erro: resultado.aviso?.slice(0, 500) ?? null,
+  }).eq('id', destino.id).eq('workspace_id', workspaceId)
+  if (error) console.error('[pacotes] página atualizada, mas o destino não acompanhou', destino.id, error.message)
+
+  return { url: resultado.url ?? undefined, aviso: resultado.aviso ?? undefined }
+}
+
+/**
  * Atualiza a página que já está no ar com o que está no pacote agora.
  *
  * Publicado trava o destino do site — e com ele qualquer conserto: uma foto
@@ -1484,69 +1559,181 @@ async function publicarSiteDoPacote(
 export async function atualizarPaginaDoSite(formData: FormData): Promise<ResultadoDoHub> {
   try {
     const context = await requireWorkspace()
-    const supabase = await createClient()
     const pacoteId = texto(formData, 'pacoteId')
     const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
     if (pacote.status === 'arquivado') throw new Error('Este pacote foi arquivado. Duplique-o para reaproveitar o conteúdo.')
 
-    // A mesma conferência da publicação: o que muda na página em nome da
-    // instituição passou pela aprovação, se o pacote tem uma.
-    if (pacote.content_id) {
-      const { data: aprovacao } = await supabase
-        .from('approvals').select('status')
-        .eq('content_id', pacote.content_id)
-        .order('created_at', { ascending: false })
-        .limit(1).maybeSingle()
-      if (aprovacao && aprovacao.status !== 'approved') {
-        throw new Error(aprovacao.status === 'pending'
-          ? 'Este pacote está em aprovação. Aguarde a decisão antes de atualizar a página.'
-          : 'A aprovação deste pacote pediu ajustes. Revise e envie de novo antes de atualizar a página.')
-      }
-    }
+    const bloqueio = await bloqueioPelaAprovacao(pacote.content_id)
+    if (bloqueio) throw new Error(bloqueio)
 
-    const { data: destino } = await supabase
-      .from('package_destinations')
-      .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado,descolada')
-      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id).eq('canal', 'site_web')
-      .maybeSingle()
-    if (!destino) throw new Error('Este pacote não tem página no site.')
-    if (destino.estado !== 'publicada') throw new Error('A página ainda não foi publicada. Use “Publicar”.')
-
-    // O texto volta a acompanhar o pacote (a não ser que o destino tenha
-    // texto próprio, escrito à mão); fotos, legendas e posições vêm sempre do
-    // pacote, que é onde a tela as edita.
-    const mestre: Mestre = { ...lerMestre(pacote.mestre), fileIds: pacote.mestre_file_ids ?? [] }
-    const { variante, avisos } = gerarVariante(mestre, 'site_web', destino.formato || FORMATO_BASE_DO_SITE)
-    if (!destino.descolada && temErro(avisos)) {
-      throw new Error(avisos.find((a) => a.nivel === 'erro')?.mensagem ?? 'A notícia tem um erro a corrigir antes de atualizar a página.')
-    }
-    const guardados = (destino.extras ?? {}) as Record<string, string>
-    const corpo = destino.descolada ? destino.corpo ?? '' : variante.corpo
-    const extras: Record<string, string> = {
-      ...(destino.descolada ? guardados : variante.extras),
-      ...(guardados.contentId ? { contentId: guardados.contentId } : {}),
-      ...(guardados.slug ? { slug: guardados.slug } : {}),
-    }
-    const atualizado: DestinoParaDisparo = {
-      id: destino.id, canal: destino.canal, formato: destino.formato, corpo, extras,
-      file_ids: variante.fileIds, crops: (destino.crops ?? {}) as Record<string, CaixaDeRecorte>, agendar_para: destino.agendar_para,
-    }
-
-    const resultado = await publicarSiteDoPacote(atualizado, pacote, context.workspace.id, context.user.id)
-    // Falhou? A versão anterior continua no ar, e o destino segue publicado.
-    if (resultado.erro) throw new Error(resultado.erro)
-
-    const { error } = await supabase.from('package_destinations').update({
-      corpo, extras, file_ids: variante.fileIds,
-      external_url: resultado.url ?? null,
-      erro: resultado.aviso?.slice(0, 500) ?? null,
-    }).eq('id', destino.id).eq('workspace_id', context.workspace.id)
-    if (error) console.error('[pacotes] página atualizada, mas o destino não acompanhou', destino.id, error.message)
+    const resultado = await republicarPaginaDoSite(pacote, context.workspace.id, context.user.id)
 
     revalidatePath('/redes')
     return { id: pacoteId, estado: resultado.aviso ? `Página atualizada, com um aviso: ${resultado.aviso}` : 'Página atualizada no site.' }
   } catch (causa) {
     return comoErro(causa, 'Não foi possível atualizar a página no site.')
+  }
+}
+
+// ------------------------------------------------- correção por importação
+
+/** Situação da página do site de um pacote, como a importação "atualizar" precisa ver. */
+export type SituacaoDaPaginaDoSite = {
+  /** A página está no ar (publicada e não tirada do ar). */
+  publicada: boolean
+  endereco?: string
+  /** O destino do site tem texto próprio, escrito à mão: o texto do pacote não chega nele. */
+  descolada: boolean
+  /** Motivo pelo qual a página não pode ser atualizada agora (aprovação pendente ou pedindo ajustes). */
+  bloqueio?: string
+}
+
+/** Só lê. Uma página "publicada" cuja matéria perdeu o site_url foi tirada do ar (ver reabrirSeSaiuDoAr). */
+async function lerSituacaoDaPagina(
+  pacote: Awaited<ReturnType<typeof pacoteDoEspaco>>,
+  workspaceId: string,
+): Promise<SituacaoDaPaginaDoSite> {
+  const supabase = await createClient()
+  const { data: destino } = await supabase
+    .from('package_destinations').select('estado,descolada,extras,external_url')
+    .eq('package_id', pacote.id).eq('workspace_id', workspaceId).eq('canal', 'site_web')
+    .maybeSingle()
+  let publicada = destino?.estado === 'publicada'
+  const contentId = String(((destino?.extras ?? {}) as Record<string, unknown>).contentId ?? '')
+  let endereco = destino?.external_url ?? undefined
+  if (publicada && contentId) {
+    const { data: peca } = await supabase
+      .from('content_pieces').select('site_url')
+      .eq('id', contentId).eq('workspace_id', workspaceId).maybeSingle()
+    if (peca && !peca.site_url) publicada = false
+    endereco = peca?.site_url || endereco
+  }
+  const bloqueio = publicada ? await bloqueioPelaAprovacao(pacote.content_id) : null
+  return { publicada, descolada: Boolean(destino?.descolada), ...(publicada && endereco ? { endereco } : {}), ...(bloqueio ? { bloqueio } : {}) }
+}
+
+/** Para a conferência da importação "atualizar". Só lê. */
+export async function situacaoDaPaginaDoSite(pacoteId: string): Promise<SituacaoDaPaginaDoSite & { erro?: string }> {
+  try {
+    const context = await requireWorkspace()
+    const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
+    return await lerSituacaoDaPagina(pacote, context.workspace.id)
+  } catch (causa) {
+    return { publicada: false, descolada: false, erro: mensagemDoErro(causa, 'Não foi possível ver a página do site.') }
+  }
+}
+
+/** A correção que a importação "atualizar" aplica (já validada em lib/publicacao/atualizar-pacote.ts). */
+export type CorrecaoDoPacote = {
+  titulo: string
+  corpo: string
+  /** undefined = manter. */
+  subtitulo?: string
+  notas?: string
+  /** undefined = manter fotos e legendas. */
+  midias?: { fileIds: string[]; legendas: Record<string, LegendaDaMidia> }
+}
+
+export type ResultadoDaCorrecao = { erro?: string; id?: string; republicada?: boolean; endereco?: string; aviso?: string }
+
+/**
+ * Corrige o mestre de um pacote e, se a página do site está no ar,
+ * republica-a no mesmo endereço — sem voltar para aprovação (decisão da
+ * Comunicação, 10/2026: correção de matéria publicada não passa de novo pela
+ * rodada). Aprovação pendente ou pedindo ajustes continua bloqueando, como no
+ * botão "Atualizar a página no site". As redes não são tocadas.
+ *
+ * Tudo o que pode barrar é conferido ANTES de gravar: arquivamento,
+ * aprovação, fotos do espaço e erro de validação da notícia. Sem isso o
+ * pacote mudaria e a página no ar ficaria com o texto velho.
+ *
+ * Endpoint exportado: recebe objeto do navegador. Os limites de texto são os
+ * da validação do arquivo; aqui os tipos e os arquivos são conferidos de novo
+ * (não dá mais poder do que salvarMestre + atualizarPaginaDoSite já dão).
+ */
+export async function corrigirPacotePorImportacao(pacoteId: string, correcao: CorrecaoDoPacote): Promise<ResultadoDaCorrecao> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const ws = context.workspace.id
+    const pacote = await pacoteDoEspaco(String(pacoteId), ws)
+    if (pacote.status === 'arquivado') throw new Error('Este pacote foi arquivado. Nada foi alterado.')
+
+    const str = (v: unknown) => (typeof v === 'string' ? v : '')
+    const titulo = str(correcao?.titulo).trim()
+    const corpo = str(correcao?.corpo).trim()
+    if (!titulo || !corpo) throw new Error('Título e texto são obrigatórios. Nada foi alterado.')
+
+    let fileIds: string[] | undefined
+    let legendas: Record<string, LegendaDaMidia> | undefined
+    if (correcao?.midias) {
+      fileIds = (Array.isArray(correcao.midias.fileIds) ? correcao.midias.fileIds : []).filter((id): id is string => typeof id === 'string' && !!id)
+      if (fileIds.length) {
+        const { data: encontrados, error: erroArquivos } = await supabase
+          .from('files').select('id')
+          .eq('workspace_id', ws).neq('status', 'deleted').in('id', fileIds)
+        if (erroArquivos || (encontrados?.length ?? 0) !== new Set(fileIds).size) {
+          throw new Error('Alguma foto não foi encontrada na Biblioteca. Nada foi alterado.')
+        }
+      }
+      legendas = lerLegendas(correcao.midias.legendas)
+    }
+
+    const guardado = (pacote.mestre ?? {}) as Record<string, unknown>
+    // O slug, a chave da importação e o que mais estiver no mestre ficam.
+    const novoMestre: Record<string, unknown> = {
+      ...guardado,
+      titulo,
+      corpo,
+      ...(correcao.subtitulo !== undefined ? { subtitulo: str(correcao.subtitulo).trim() } : {}),
+      ...(correcao.notas !== undefined ? { notas: str(correcao.notas).trim() } : {}),
+      ...(legendas ? { legendas } : {}),
+    }
+    const novosFileIds = fileIds ?? pacote.mestre_file_ids ?? []
+
+    const situacao = await lerSituacaoDaPagina(pacote, ws)
+    if (situacao.publicada) {
+      if (situacao.bloqueio) throw new Error(`${situacao.bloqueio} Nada foi alterado.`)
+      const { data: destino } = await supabase
+        .from('package_destinations').select('formato,descolada')
+        .eq('package_id', pacote.id).eq('workspace_id', ws).eq('canal', 'site_web').maybeSingle()
+      if (destino && !destino.descolada) {
+        const { avisos } = gerarVariante({ ...lerMestre(novoMestre), fileIds: novosFileIds }, 'site_web', destino.formato || FORMATO_BASE_DO_SITE)
+        if (temErro(avisos)) {
+          throw new Error(`${avisos.find((a) => a.nivel === 'erro')?.mensagem ?? 'A notícia teria um erro.'} Nada foi alterado.`)
+        }
+      }
+    }
+
+    const { error } = await supabase.from('social_packages').update({
+      mestre: novoMestre,
+      mestre_file_ids: novosFileIds,
+    }).eq('id', pacote.id).eq('workspace_id', ws)
+    if (error) throw new Error('Não foi possível salvar a correção no pacote. Nada foi alterado.')
+
+    // Página tirada do ar volta a ser rascunho (e a acompanhar o pacote).
+    await garantirBaseNoSite(pacote.id, ws)
+    // Os rascunhos das redes acompanham, como no autosave; o que já saiu não muda.
+    await regerarAcompanhantes(pacote.id, ws, { ...lerMestre(novoMestre), fileIds: novosFileIds })
+
+    revalidatePath('/redes')
+    revalidatePath(`/redes/${pacote.id}`)
+    if (!situacao.publicada) return { id: pacote.id, republicada: false }
+
+    try {
+      const atualizado = await pacoteDoEspaco(pacote.id, ws)
+      const r = await republicarPaginaDoSite(atualizado, ws, context.user.id)
+      return { id: pacote.id, republicada: true, endereco: r.url ?? situacao.endereco, ...(r.aviso ? { aviso: r.aviso } : {}) }
+    } catch (causa) {
+      // O pacote já mudou; a página no ar segue com a versão anterior.
+      return {
+        id: pacote.id,
+        republicada: false,
+        erro: `O pacote foi corrigido, mas a página no site não foi atualizada: ${mensagemDoErro(causa, 'erro ao publicar')}. Abra o pacote e use “Atualizar a página no site”.`,
+      }
+    }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível aplicar a correção.') }
   }
 }
 

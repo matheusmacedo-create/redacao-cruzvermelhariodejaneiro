@@ -79,6 +79,11 @@ export function validarImportacao(conteudo: string): { pacote?: PacoteImportado;
   if (bruto.versao !== VERSAO_DA_IMPORTACAO) {
     problemas.push({ campo: 'versao', mensagem: `deve ser ${VERSAO_DA_IMPORTACAO} (recebi ${JSON.stringify(bruto.versao) ?? 'nada'}).` })
   }
+  // "atualizar" tem validação e caminho próprios (lib/publicacao/atualizar-pacote.ts):
+  // passar por aqui criaria uma segunda matéria em vez de corrigir a que existe.
+  if (bruto.modo !== undefined && bruto.modo !== null && bruto.modo !== 'criar') {
+    problemas.push({ campo: 'modo', mensagem: bruto.modo === 'atualizar' ? 'este arquivo é de atualização, não de criação.' : 'deve ser "criar" ou "atualizar".' })
+  }
   // Por ora só o texto livre; origem de pauta ou matéria tem fluxo próprio.
   if (bruto.origem !== 'livre') problemas.push({ campo: 'origem', mensagem: 'por ora só "livre" é aceito.' })
   // Agendar é decisão de quem aprova, não de quem importa.
