@@ -9,7 +9,7 @@ import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
 import { ehPapel, type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
-import { ehAdministracao, respostaDaAdministracao } from './admin'
+import { ehAdministracao, gerenciaUsuarios, pedirDesativacao, respostaDaAdministracao } from './admin'
 import {
   codigosPendentesDoNumero, confirmarNumeroDaEquipe, confirmarNumeroDoVoluntario, contarTentativaErrada, donoDoVoluntario, type CodigoPendente,
 } from './confirmacao'
@@ -20,6 +20,8 @@ import {
 } from './acoes'
 import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
 import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
+import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
+import { conversaDeProtecao } from './protecao'
 import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
@@ -42,9 +44,17 @@ type Admin = ReturnType<typeof createAdminClient>
  * administra o espaço também pede o "status" do canal e faz a fila andar
  * (lib/whatsapp/admin.ts). Quem atende uma fila assume, resolve e transfere
  * chamados (lib/whatsapp/atendimento.ts); quem tem a portaria vê as visitas do
- * dia e registra quem chegou (lib/whatsapp/portaria.ts). Quem não é recebe
- * uma apresentação (no máximo uma por dia) com o caminho dos canais oficiais:
- * este número não é atendimento ao público.
+ * dia e registra quem chegou (lib/whatsapp/portaria.ts); quem decide despesas
+ * ou compras vê o que espera a decisão dele (lib/whatsapp/financeiro.ts). O
+ * que é sensível — decidir, o voto de quem usa a verificação em duas etapas,
+ * desativar uma conta — sai daqui como um link de confirmar no Palácio
+ * (lib/whatsapp/confirmacoes.ts). Quem não é recebe uma apresentação (no
+ * máximo uma por dia) com o caminho dos canais oficiais: este número não é
+ * atendimento ao público.
+ *
+ * Logo depois do código de ida, o "Não fui eu" (lib/whatsapp/protecao.ts): a
+ * resposta a um aviso de segurança, e a conferência dela, valem pelo número —
+ * até do número antigo da conta — e mesmo com a verificação em duas etapas.
  *
  * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
  * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
@@ -85,6 +95,18 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // "Não fui eu" citando o aviso de segurança (ou até 24 h depois dele) e a conferência que vem em seguida: pelo número.
+    const donoDoNumero = (conta?.user_id as string | undefined) ?? null
+    const protecao = m.midia ? null : await conversaDeProtecao(admin, workspaceId, numero, m, donoDoNumero)
+    if (protecao) {
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando })
+      if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
+      const r = await protecao.responder()
+      const entrega = await entregar(admin, workspaceId, { numero, texto: r.texto, tipo: 'bot', userId: donoDoNumero, interativo: r.interativo }, { config })
+      if (r.pergunta && entrega.situacao === 'enviada') await marcarPergunta(admin, r.pergunta, entrega.id)
+      return
+    }
+
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
@@ -92,7 +114,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const voluntario = achado?.workspaceId === workspaceId ? achado : null
     // Quem administra o espaço tem também "status" e "fila" (lib/whatsapp/admin.ts); para o resto, são "desconhecido".
     const administra = ehAdministracao(pessoa)
-    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra }) : null
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa) }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -167,7 +189,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
       if (!id) {
         // Sem a tabela, ou com o tipo da pergunta ainda fora do CHECK (a migração dele não foi aplicada).
-        await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
+        await responder(r.semPergunta ?? `Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
         return
       }
       // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
@@ -241,6 +263,22 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // As decisões do Financeiro e de Compras são de quem a tela deixa decidir: para os outros, as palavras caem no menu.
+    if ((comando === 'financeiro' || comando === 'decidir_financeiro') && pedido && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
+      if (comando === 'financeiro') await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
+      // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima).
+      else await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
+      return
+    }
+
+    if (comando === 'desativar_conta' && pedido) {
+      const resposta = await pedirDesativacao(admin, workspaceId, pessoa, pedido.resto, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
     if (comando === 'avisos') {
       const [{ data: avisos }, { count: total }] = await Promise.all([
         admin.from('notifications').select('title, message, link').eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
@@ -301,7 +339,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
-    const quem = { admin: administra, portaria: temPortaria(pessoa), atende: await atendeAlgumaFila(admin, workspaceId, pessoa) }
+    const [atende, financeiro] = await Promise.all([atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa)])
+    const quem = { admin: administra, portaria: temPortaria(pessoa), atende, financeiro }
     const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, ...quem })
     await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu, {
       interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu',

@@ -105,7 +105,10 @@ export type LinhaDoRegistro = {
   numero?: string | null
   userId?: string | null
   mensagemId?: string | null
-  /** Na entrada, o comando reconhecido (nunca o texto); na saída, só a marca "menu" (a lista do menu: o toque nela vale como comando — bot.ts). */
+  /**
+   * Na entrada, o comando reconhecido (nunca o texto); na saída, só as marcas "menu" (a lista do menu: o toque nela vale
+   * como comando — bot.ts) e "nao_fui_eu" (o aviso de segurança que aceita a resposta "NÃO FUI EU" — protecao.ts).
+   */
   comando?: string | null
   notificacaoId?: string | null
   erro?: string | null

@@ -1,5 +1,6 @@
 import { CATEGORIAS, ONLINE_MIN, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from '@/lib/notificacoes/regras'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, situacaoDaResposta, type RespostaDaVisita } from '@/lib/portaria/regras'
+import { reais } from '@/lib/financeiro/regras'
 
 /**
  * Regras do WhatsApp do Palácio Virtual, sem banco nem rede — conferidas por
@@ -494,22 +495,46 @@ export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url:
 }
 
 /**
+ * A linha do "Não fui eu" no aviso de segurança que o oferece (lib/whatsapp/protecao.ts). É por ela que a
+ * entrega remonta o botão e marca o registro da saída (interativoDaSeguranca), saia o aviso agora ou da fila.
+ */
+export const LINHA_DO_NAO_FUI_EU = 'Responda *NÃO FUI EU* se não foi você: o Palácio encerra na hora todas as sessões da conta e avisa a administração.'
+
+/**
  * Aviso de segurança da conta (senha, verificação, e-mail, acesso novo, bloqueio, troca ou remoção do
  * WhatsApp): sai sempre, mesmo pausado e de madrugada (lib/contas/servidor.ts, avisarPorWhatsapp).
+ * `naoFuiEu`: o aviso de algo que a própria pessoa faria (acesso novo, bloqueio, senha, número trocado)
+ * ensina a responder "NÃO FUI EU"; o do que a administração fez, não (lib/contas/emails.ts, ofereceNaoFuiEu).
  */
-export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
-  return [`*${limpo(p.titulo, 200)}*`, limpo(p.texto, 900), '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._'].join('\n\n')
+export function textoDeSeguranca(p: { titulo: string; texto: string; naoFuiEu?: boolean }): string {
+  return [
+    `*${limpo(p.titulo, 200)}*`,
+    limpo(p.texto, 900),
+    p.naoFuiEu ? `_${LINHA_DO_NAO_FUI_EU}_` : null,
+    '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._',
+  ].filter(Boolean).join('\n\n')
 }
 
 /**
  * O recado ao número que saiu da conta (trocado ou removido pela própria pessoa): o número pode já
  * ser de outra pessoa, então vai sem nome, sem quem fez, sem data e sem "sua conta" ou "sua senha". O
- * aviso completo vai só ao e-mail confirmado (lib/contas/servidor.ts, avisarTrocaDeWhatsapp).
+ * aviso completo vai só ao e-mail confirmado (lib/contas/servidor.ts, avisarTrocaDeWhatsapp). Leva o
+ * "Não fui eu": se a troca não foi da pessoa, é por este número que ela derruba quem entrou na conta.
  */
 export const AVISO_AO_NUMERO_ANTIGO = {
   titulo: 'Avisos do Palácio Virtual',
   texto: 'Este número deixou de receber os avisos de uma conta do Palácio Virtual. Se não foi você que pediu, fale com a administração.',
+  naoFuiEu: true,
 } as const
+
+/** O botão do "Não fui eu": o id é o que se digita (ehNaoFuiEu). Só dentro da janela; fora dela, o modelo leva o texto, que ensina a responder. */
+export const BOTAO_DO_NAO_FUI_EU: Interativo = { tipo: 'botoes', botoes: [{ id: 'nao fui eu', titulo: 'Não fui eu' }] }
+
+/** A marca no registro da saída (whatsapp_mensagens.comando) do aviso que oferece o "Não fui eu": é por ela que a resposta acha o aviso. */
+export const MARCA_DO_NAO_FUI_EU = 'nao_fui_eu'
+
+/** O aviso oferece o "Não fui eu"? Pelo texto, para valer também no que esperou na fila (que guarda só o texto). */
+export const ofereceNaoFuiEu = (texto: string): boolean => texto.includes(LINHA_DO_NAO_FUI_EU)
 
 // ------------------------------------------------------------------ confirmação do número
 //
@@ -937,7 +962,7 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 
 export type Comando =
   | 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado'
-  | 'atender_chamado' | 'portaria' | 'registrar_visita' | ComandoDaAdministracao | 'desconhecido'
+  | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta' | ComandoDaAdministracao | 'desconhecido'
 
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
 export type ComandoDaAdministracao = 'status' | 'fila'
@@ -973,6 +998,15 @@ const DA_PORTARIA = new Set(['portaria', 'quem esta aqui', 'quem ta aqui', 'quem
 /** Registrar quem chegou: "visitante: João Silva", "registrar visita". O nome é opcional (o bot pergunta); "visitantes" é a lista. */
 const REGISTRAR_VISITA = /^\s*(?:registrar\s+(?:a\s+|uma\s+)?(?:visita|visitante|entrada)|nova\s+visita|novo\s+visitante|visitante)(?![\p{L}\d])[\s:,.;\-–—]*/iu
 
+/**
+ * A lista das despesas e compras que esperam a decisão da pessoa (lib/whatsapp/financeiro.ts): só como a
+ * mensagem inteira, como a portaria. Quem não decide no Financeiro nem em Compras cai no menu.
+ */
+const DA_FINANCEIRO = new Set([
+  'financeiro', 'despesas', 'compras', 'pagamentos', 'despesas e compras', 'aprovar despesas', 'aprovar compras', 'decisoes do financeiro',
+  'pendencias do financeiro', 'pendencias financeiras', 'aprovacoes do financeiro', 'aprovacoes financeiras', 'aprovacoes de compras',
+])
+
 export type Pedido = { comando: Comando; resto: string }
 
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
@@ -986,8 +1020,10 @@ function depoisDe(entrada: string, prefixo: RegExp): string {
  * toner"). O "3" do menu alterna: para quem recebe, é parar; para quem
  * pausou, é voltar. "status" e "fila" são só de quem administra o espaço
  * (`admin`); para o resto seguem o caminho de sempre e dão "desconhecido".
+ * "desativar conta: …" é só de quem gerencia usuários (`usuarios`); para o
+ * resto, "desativar" continua pausando os avisos, como sempre.
  */
-export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean }): Pedido {
+export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean }): Pedido {
   const t = normalizar(entrada)
   if (!t) return { comando: 'desconhecido', resto: '' }
   if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
@@ -1000,6 +1036,13 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   // (respondendo ao aviso do chamado, o código vem do aviso: lib/whatsapp/atendimento.ts).
   if (lerAtendimento(entrada)?.codigo) return { comando: 'atender_chamado', resto: entrada.trim().slice(0, 4000) }
   if (DA_PORTARIA.has(t)) return { comando: 'portaria', resto: '' }
+  // As decisões do Financeiro e de Compras: a lista, e "aprovar 2" / "recusar 2: motivo" sobre ela.
+  if (DA_FINANCEIRO.has(t)) return { comando: 'financeiro', resto: '' }
+  if (lerDecisaoFinanceira(entrada)) return { comando: 'decidir_financeiro', resto: entrada.trim().slice(0, 2000) }
+  if (p.usuarios) {
+    const nome = lerDesativarConta(entrada)
+    if (nome !== null) return { comando: 'desativar_conta', resto: nome }
+  }
   const visita = REGISTRAR_VISITA.exec(entrada)
   if (visita) return { comando: 'registrar_visita', resto: entrada.slice(visita[0].length).replace(/\s+/g, ' ').trim().slice(0, 120) }
   const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
@@ -1014,7 +1057,7 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   return { comando: 'desconhecido', resto: '' }
 }
 
-export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean }): Comando => lerPedido(entrada, p).comando
+export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean }): Comando => lerPedido(entrada, p).comando
 
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
 export const RESPOSTAS_POR_JANELA = 10
@@ -1048,15 +1091,21 @@ const OPCOES_DA_ADMINISTRACAO: OpcaoDoMenu[] = [
 /** A lista das visitas de hoje, na lista do menu de quem tem a portaria (no texto, é a linha do "Ou escreva"). */
 const OPCAO_DA_PORTARIA: OpcaoDoMenu = { id: 'portaria', titulo: 'Visitas de hoje', texto: 'quem está na portaria hoje' }
 
+/** As despesas e compras esperando a decisão, na lista do menu de quem decide (no texto, é a linha do "Ou escreva"). */
+const OPCAO_DO_FINANCEIRO: OpcaoDoMenu = { id: 'financeiro', titulo: 'Despesas e compras', texto: 'o que espera a sua decisão no Financeiro' }
+
 const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`
 
-/** O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria e quem atende chamados. */
-export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean }
+/**
+ * O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria, quem atende chamados e
+ * quem decide despesas ou compras (`financeiro`: a mesma permissão das telas, lib/whatsapp/financeiro.ts).
+ */
+export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean; financeiro?: boolean }
 
 /**
  * `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). `portaria`: a linha
- * de "portaria" e "visitante:". `atende`: o 5 diz que traz também a fila. O texto mais longo (pausado, com
- * tudo e o "Não entendi") ainda cabe no corpo de 1024 da lista.
+ * de "portaria" e "visitante:". `atende`: o 5 diz que traz também a fila. `financeiro`: a linha do
+ * "financeiro". O texto mais longo (pausado, com tudo e o "Não entendi") ainda cabe no corpo de 1024 da lista.
  */
 export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
@@ -1064,19 +1113,21 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
     ['Responda com o número:', ...opcoesDoMenu(p.pausado, p.atende).map(linhaDoMenu)].join('\n'),
-    ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
+    ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_)',
       p.portaria ? '*portaria* para as visitas de hoje e registrar quem chegou' : null,
-      'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].filter(Boolean).join('\n'),
+      p.financeiro ? '*financeiro* para decidir despesas e compras' : null,
+      'Para responder um aviso, responda a própria mensagem dele.'].filter(Boolean).join('\n'),
     p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
 }
 
 /**
- * O menu como lista (dentro da janela): as opções 1 a 6, "portaria" para quem tem a portaria e, para quem
- * administra, "status" e "fila" (no máximo 9 linhas). Cada linha leva o que se digita, então o toque segue
- * por lerPedido como o número digitado (o "3" continua alternando parar e voltar pelo estado da hora).
- * "chamado:", "ajuda" e "visitante:" pedem texto: ficam só no corpo.
+ * O menu como lista (dentro da janela): as opções 1 a 6, "portaria" para quem tem a portaria, "financeiro" para
+ * quem decide despesas ou compras e, para quem administra, "status" e "fila" (no máximo 10 linhas, o teto da
+ * Meta). Cada linha leva o que se digita, então o toque segue por lerPedido como o número digitado (o "3"
+ * continua alternando parar e voltar pelo estado da hora). "chamado:", "ajuda" e "visitante:" pedem texto:
+ * ficam só no corpo.
  */
 export function interativoDoMenu(p: { pausado: boolean } & QuemNoMenu): Interativo {
   const linha = (o: OpcaoDoMenu): LinhaDaLista => ({ id: o.id, titulo: o.titulo, descricao: `${o.texto.charAt(0).toUpperCase()}${o.texto.slice(1)}` })
@@ -1084,7 +1135,10 @@ export function interativoDoMenu(p: { pausado: boolean } & QuemNoMenu): Interati
     tipo: 'lista',
     botao: 'Ver as opções',
     secoes: [
-      { titulo: 'Opções', linhas: [...opcoesDoMenu(p.pausado, p.atende), ...(p.portaria ? [OPCAO_DA_PORTARIA] : [])].map(linha) },
+      {
+        titulo: 'Opções',
+        linhas: [...opcoesDoMenu(p.pausado, p.atende), ...(p.portaria ? [OPCAO_DA_PORTARIA] : []), ...(p.financeiro ? [OPCAO_DO_FINANCEIRO] : [])].map(linha),
+      },
       ...(p.admin ? [{ titulo: 'Da administração', linhas: OPCOES_DA_ADMINISTRACAO.map(linha) }] : []),
     ],
   }
@@ -1362,7 +1416,7 @@ export function tituloDoRelato(relato: string): string {
 }
 
 export const TEXTO_SEM_ACAO_PELO_WHATSAPP =
-  'Sua conta usa a verificação em duas etapas, então responder, votar, atender chamados, registrar visitas e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
+  'Sua conta usa a verificação em duas etapas, então responder, atender chamados, registrar visitas e mandar fotos ficam só no Palácio (o WhatsApp não pede o código do app). O voto e as decisões do Financeiro saem por aqui com um link para confirmar no Palácio. As consultas, a abertura de chamado e a resposta à portaria (1, 2 ou 3) por aqui continuam valendo.'
 
 // ------------------------------------------------------------------ quem atende chamado (assumir, resolver, transferir)
 //
@@ -1538,3 +1592,183 @@ export function textoDaConferenciaDaVisita(p: { nome: string; pessoa: { nome: st
     `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
   ].join('\n\n')
 }
+
+// ------------------------------------------------------------------ confirmar no Palácio (lib/whatsapp/confirmacoes.ts)
+//
+// O que é sensível e foi pedido pelo WhatsApp (decidir uma despesa ou uma compra, o voto de quem usa a verificação
+// em duas etapas, desativar uma conta) não acontece por aqui: vira um link de uso único, amarrado a quem pediu, que
+// abre no Palácio com a sessão e a verificação das telas. Lá, "Confirmar" executa pela MESMA função da tela.
+
+/** Quanto vale o link de confirmar no Palácio. */
+export const CONFIRMACAO_VALE_MIN = 15
+
+/** A resposta com o link: o que vai acontecer, o link e as regras dele. */
+export function textoDoLinkDeConfirmacao(p: { oQue: string; url: string }): string {
+  return [
+    p.oQue,
+    `Confirme no Palácio: ${p.url}`,
+    `_O link vale por ${CONFIRMACAO_VALE_MIN} minutos e uma vez só, e abre só na sua conta, com a verificação em duas etapas se você usa. Não repasse. Se desistiu, é só deixar vencer._`,
+  ].join('\n\n')
+}
+
+/**
+ * O voto de quem usa a verificação em duas etapas (lib/whatsapp/acoes.ts): o que o link vai confirmar. Aprovar
+ * pede a conferência do setor, que fica na tela de confirmar, antes do botão (como na tela da aprovação).
+ */
+export function oQueDoVoto(p: { titulo: string; decisao: 'approved' | 'changes_requested'; nota: string }): string {
+  return p.decisao === 'approved'
+    ? `Aprovar *${limpo(p.titulo, 140)}*? A conferência do setor aparece no Palácio, antes do botão.`
+    : [`Pedir ajustes em *${limpo(p.titulo, 140)}*?`, citado(p.nota, 600)].join('\n\n')
+}
+
+// ------------------------------------------------------------------ decisões do Financeiro e de Compras (lib/whatsapp/financeiro.ts)
+//
+// Quem decide despesas (nível "aprovar" ou "gestão" no Financeiro da empresa) ou compras (o Financeiro da empresa do
+// pedido e, acima do limite, a Diretoria) pede a lista com "financeiro" e responde "aprovar 2" ou "recusar 2: motivo".
+// O pedido vira o link de confirmar no Palácio; pagar, conciliar e fechar o mês continuam só na tela.
+
+/** Uma despesa ou compra esperando a decisão da pessoa. */
+export type ItemParaDecidir = {
+  tipo: 'despesa' | 'compra'
+  /** A descrição da despesa ou o título do pedido de compra. */
+  titulo: string
+  valor: number
+  /** O favorecido da despesa ou o fornecedor da proposta escolhida. */
+  fornecedor: string | null
+  /** Quem lançou a despesa ou pediu a compra. */
+  quem: string | null
+  /** O número do pedido de compra (PC-2026-0003). */
+  codigo?: string | null
+  /** A etapa da compra que é a vez da pessoa (a da Diretoria vem marcada). */
+  papel?: 'financeiro' | 'diretoria'
+  /** Onde fica no Palácio (o lançamento ou o pedido). */
+  link: string
+}
+
+export const DECISOES_NA_RESPOSTA = 8
+/** O motivo da recusa: o que a tela da compra pede (a da despesa pede menos). */
+export const MOTIVO_MINIMO = 5
+
+/**
+ * A lista numerada (valor, descrição e fornecedor, quem pediu). `comLinks`: sem a pergunta guardada (a migração
+ * 20261018223000 ainda não foi aplicada), "aprovar 2" não teria como achar o item — vai o link de cada um.
+ */
+export function textoDasDecisoes(p: { itens: ItemParaDecidir[]; total: number; urlBase: string; comLinks?: boolean }): string {
+  if (!p.total || !p.itens.length) return 'Nada espera a sua decisão no Financeiro nem em Compras agora.'
+  const mostrados = p.itens.slice(0, DECISOES_NA_RESPOSTA)
+  const cabeca = p.total === 1
+    ? '*1 decisão* espera por você:'
+    : `*${p.total} decisões* esperam por você${p.total > mostrados.length ? `. As ${mostrados.length} primeiras` : ''}:`
+  const itens = mostrados.map((i, n) => [
+    `*${n + 1}.* ${i.tipo === 'despesa' ? 'Despesa' : `Compra ${limpo(i.codigo ?? '', 20)}`.trim()} · *${reais(i.valor)}*${i.tipo === 'compra' && i.papel === 'diretoria' ? ' _(pela Diretoria)_' : ''}`,
+    [limpo(i.titulo, 120), i.fornecedor ? limpo(i.fornecedor, 80) : null].filter(Boolean).join(' — '),
+    i.quem ? `_${i.tipo === 'despesa' ? 'Lançada' : 'Pedida'} por ${limpo(i.quem, 60)}_` : null,
+    p.comLinks ? `${p.urlBase}${i.link}` : null,
+  ].filter(Boolean).join('\n'))
+  const fim = p.comLinks
+    ? 'Para decidir, abra no Palácio.'
+    : `Para decidir, responda *aprovar 1* ou *recusar 1:* e o motivo. A decisão se confirma no Palácio, por um link que vale ${CONFIRMACAO_VALE_MIN} minutos.`
+  return [cabeca, ...itens, fim].join('\n\n')
+}
+
+export type DecisaoFinanceira = { decisao: 'aprovar' | 'recusar'; n: number; motivo: string }
+
+const DECISAO_FINANCEIRA = /^\s*(aprovar|aprovo|aprova|recusar|recuso|recusa)\s+(?:(?:o|a|item|n[º°o]?\.?|n[uú]mero)\s*)?(\d{1,2})(?!\d)(?:\s*[:,;.\-–—]\s*|\s+|\s*$)([\s\S]*)$/iu
+
+/**
+ * "aprovar 2", "recusar 2: o valor está acima do orçado", "aprovo o 3". O número é o da lista do "financeiro";
+ * o resto é o motivo da recusa (ou a observação da aprovação da compra). Sem o número, não é isto (o "aprovar"
+ * solto é o voto, respondendo ao aviso da aprovação). null para o resto.
+ */
+export function lerDecisaoFinanceira(entrada: string): DecisaoFinanceira | null {
+  const m = DECISAO_FINANCEIRA.exec(String(entrada ?? '').slice(0, 2000))
+  if (!m) return null
+  const n = Number(m[2])
+  if (!n) return null
+  return { decisao: normalizar(m[1]).startsWith('aprov') ? 'aprovar' : 'recusar', n, motivo: m[3].replace(/\s+/g, ' ').trim().slice(0, 600) }
+}
+
+/** O que o link vai confirmar: aprovar ou recusar qual item, por quanto, e o motivo (ou a observação). */
+export function oQueDaDecisao(i: ItemParaDecidir, d: DecisaoFinanceira): string {
+  const qual = i.tipo === 'despesa' ? `a despesa *${limpo(i.titulo, 120)}*` : `a compra *${limpo(i.codigo ?? '', 20)}* (${limpo(i.titulo, 120)})`
+  const verbo = d.decisao === 'recusar' ? 'Recusar' : i.tipo === 'compra' && i.papel === 'diretoria' ? 'Aprovar pela Diretoria' : 'Aprovar'
+  const nota = d.decisao === 'recusar' ? `Motivo:\n${citado(d.motivo, 400)}` : i.tipo === 'compra' && d.motivo ? `Observação:\n${citado(d.motivo, 400)}` : null
+  return [`${verbo} ${qual}, de ${reais(i.valor)}?`, nota].filter(Boolean).join('\n\n')
+}
+
+// ------------------------------------------------------------------ desativar conta (quem gerencia usuários)
+
+const DESATIVAR_CONTA = /^\s*desativar\s+(?:a\s+|o\s+)?(?:conta|acesso|usu[aá]rio)(?:\s+d[aeo])?(?![\p{L}\d])[\s:,.;\-–—]*([\s\S]*)$/iu
+
+/**
+ * "desativar conta: Ana Lima", "desativar o acesso do ana.lima": o nome ou o usuário (pode vir vazio: o bot
+ * pergunta). Só de quem gerencia usuários (lerPedido, `usuarios`). null quando não é isto.
+ */
+export function lerDesativarConta(entrada: string): string | null {
+  const m = DESATIVAR_CONTA.exec(String(entrada ?? '').slice(0, 300))
+  return m ? m[1].replace(/\s+/g, ' ').trim().slice(0, 80) : null
+}
+
+export const TEXTO_PEDE_QUEM_DESATIVAR = 'Escreva *desativar conta:* e o nome ou o usuário de quem vai perder o acesso (ex.: _desativar conta: ana.lima_). A confirmação é no Palácio.'
+
+/** O que o link vai confirmar: de quem é o acesso e o que acontece (o mesmo aviso da tela de Usuários). */
+export function oQueDaDesativacao(p: { nome: string; usuario: string; papel: string }): string {
+  return `Desativar o acesso de *${limpo(p.nome, 80)}* (${limpo(p.usuario, 40)}, ${limpo(p.papel, 40)})? A pessoa perde o acesso na hora, sai de todas as sessões e o WhatsApp dela é liberado. O histórico continua no Palácio, e dá para reativar.`
+}
+
+/** Ninguém ativo com o nome escrito (a própria pessoa não entra na busca). */
+export function textoDeNinguemParaDesativar(nome: string): string {
+  return `Não achei ninguém ativo na equipe com “${limpo(nome, 80)}”. Escreva o nome como está no Palácio ou o usuário (ex.: _desativar conta: ana.lima_).`
+}
+
+/** Mais de uma pessoa com o nome escrito: o usuário desfaz a dúvida. */
+export function textoDeQuemDesativar(opcoes: { nome: string; usuario: string }[]): string {
+  return [
+    'Achei mais de uma pessoa com esse nome:',
+    opcoes.map((o) => `• ${limpo(o.nome, 80)} (${limpo(o.usuario, 40)})`).join('\n'),
+    'Escreva *desativar conta:* e o usuário de quem vai perder o acesso.',
+  ].join('\n\n')
+}
+
+// ------------------------------------------------------------------ "Não fui eu" (lib/whatsapp/protecao.ts)
+//
+// O aviso de segurança de algo que a própria pessoa faria (acesso novo, bloqueio, senha, número trocado) ensina a
+// responder "NÃO FUI EU". A resposta, citando o aviso ou até 24 h depois dele, é PROTEÇÃO: vale com a verificação
+// em duas etapas e até do número antigo da conta. Depois do "confirmo", o Palácio encerra todas as sessões, cancela
+// os links de senha e de convite pendentes e avisa a administração e a pessoa. Não troca a senha nem desativa a conta.
+
+const NAO_FUI_EU = ['nao fui eu', 'nao foi eu', 'nao era eu', 'nao sou eu', 'nao fui eu nao', 'nao foi eu nao', 'nao reconheco', 'nao fiz isso', 'nao fui eu que fiz']
+
+/** "Não fui eu", "não foi eu", "NÃO FUI EU!", o toque no botão. */
+export const ehNaoFuiEu = (entrada: string): boolean => NAO_FUI_EU.includes(normalizar(entrada))
+
+/** Sem citar o aviso, a resposta vale até tanto depois dele. */
+export const NAO_FUI_EU_VALE_HORAS = 24
+/** Citando o aviso, até tanto (o número antigo pode mudar de dono; depois disso, fale com a administração). */
+export const NAO_FUI_EU_CITANDO_DIAS = 7
+
+/** A conferência antes de proteger. `daConta`: o número é o da conta hoje (do número antigo, sem "sua"). */
+export function textoDaConferenciaDoNaoFuiEu(p: { daConta: boolean }): string {
+  return [
+    p.daConta ? '*Proteger a sua conta do Palácio Virtual?*' : '*Proteger a conta que recebia os avisos neste número?*',
+    'O Palácio encerra *todas as sessões* abertas da conta, em qualquer aparelho, cancela os links de senha e de convite que ainda valem e avisa a administração. A senha não muda e a conta continua ativa.',
+    `Para proteger agora, responda *esta mensagem* com *confirmo*. Se foi engano, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
+  ].join('\n\n')
+}
+
+/** Depois de proteger: o que foi feito e o próximo passo (a senha, que só a pessoa troca). */
+export function textoDoNaoFuiEuFeito(p: { daConta: boolean }): string {
+  return [
+    'Pronto: todas as sessões da conta foram encerradas, os links de senha e de convite pendentes deixaram de valer e a administração foi avisada.',
+    p.daConta
+      ? 'Agora troque a senha: na tela de entrada do Palácio, toque em “Esqueci minha senha” (o link vai ao seu e-mail confirmado), ou peça uma senha nova à administração.'
+      : 'Se a conta é sua, troque a senha pela tela de entrada do Palácio (“Esqueci minha senha”) e fale com a administração.',
+  ].join('\n\n')
+}
+
+export const TEXTO_NAO_FUI_EU_SEM_AVISO =
+  'Não achei um aviso de segurança recente para este número. Se alguém mexeu na sua conta, troque a senha em Meu perfil (ou pela tela de entrada, em “Esqueci minha senha”) e fale com a administração.'
+
+/** Antes da migração 20261018223000 (a conferência não tem onde ficar): o caminho de sempre. */
+export const TEXTO_NAO_FUI_EU_INDISPONIVEL =
+  'Ainda não consigo proteger a conta por aqui. Agora mesmo: troque a senha pela tela de entrada do Palácio (“Esqueci minha senha”) e fale com a administração.'

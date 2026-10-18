@@ -1,12 +1,16 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { situacaoDasChaves } from '@/lib/integracoes/chaves'
-import { pode } from '@/lib/permissoes'
+import { PAPEL, ehPapel, pode } from '@/lib/permissoes'
 import { situacaoDaConexao, situacaoDoWebhook, type ConfigDoWhatsapp } from './servidor'
 import { processarFila, resumoDaFila } from './fila'
 import { falhasRecentes, ultimaRotina } from './estado'
-import { resumoDasFalhas, textoDoComandoFila, textoDoStatus, type ComandoDaAdministracao } from './regras'
-import type { Pessoa } from './acoes'
+import { criarConfirmacao } from './confirmacoes'
+import {
+  TEXTO_PEDE_QUEM_DESATIVAR, acharPeloNome, oQueDaDesativacao, resumoDasFalhas, textoDeNinguemParaDesativar, textoDeQuemDesativar, textoDoComandoFila,
+  textoDoLinkDeConfirmacao, textoDoStatus, type ComandoDaAdministracao,
+} from './regras'
+import { INDISPONIVEL, type Pessoa } from './acoes'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -24,6 +28,13 @@ type Admin = ReturnType<typeof createAdminClient>
  *    a fila andar (rota do webhook) —, por isso vale também para quem usa a
  *    verificação em duas etapas, ao contrário das ações de lib/whatsapp/acoes.ts.
  *
+ * E, para quem gerencia usuários ("usuarios.gerenciar", a permissão da tela
+ * de Usuários), "desativar conta: <nome ou usuário>": nada é desativado por
+ * aqui — sai o link de confirmar no Palácio (lib/whatsapp/confirmacoes.ts), e
+ * lá a desativação é a MESMA da tela (desativarUsuario: sessões encerradas,
+ * login bloqueado, WhatsApp liberado, aviso e auditoria). Mudar papel, tirar
+ * a verificação em duas etapas e mexer em chaves não têm caminho por aqui.
+ *
  * Para quem não administra, as palavras nem viram comando (regras.ts,
  * lerPedido); aqui a permissão é conferida de novo. O registro do comando em
  * whatsapp_mensagens é o de sempre, feito pelo bot. Nunca lança.
@@ -34,6 +45,42 @@ const ORCAMENTO_DA_FILA_MS = 90_000
 const LIMITE_DA_FILA = 20
 
 export const ehAdministracao = (pessoa: Pessoa | null): boolean => Boolean(pessoa && pode(pessoa.papel, 'integracoes.configurar'))
+
+/** Quem gerencia usuários (a tela de Usuários): só para estes "desativar conta: …" é comando. */
+export const gerenciaUsuarios = (pessoa: Pessoa | null): boolean => Boolean(pessoa && pode(pessoa.papel, 'usuarios.gerenciar'))
+
+/** Até tantas pessoas na lista de "achei mais de uma" (o usuário desfaz a dúvida). */
+const QUEM_DESATIVAR_NA_LISTA = 9
+
+/**
+ * "desativar conta: Ana Lima": acha a pessoa ativa da equipe pelo nome ou pelo usuário (a própria pessoa fica
+ * de fora: ninguém desativa a si mesmo, como na tela) e responde com o link de confirmar no Palácio. Mais de uma
+ * com o nome, a lista com os usuários. null para quem não gerencia usuários (o bot segue como sempre).
+ */
+export async function pedirDesativacao(admin: Admin, workspaceId: string, pessoa: Pessoa, nome: string, base: string): Promise<string | null> {
+  if (!gerenciaUsuarios(pessoa)) return null
+  if (nome.trim().length < 2) return TEXTO_PEDE_QUEM_DESATIVAR
+  try {
+    const { data, error } = await admin.from('workspace_members').select('user_id, role, profiles(full_name, username, active)').eq('workspace_id', workspaceId)
+    if (error) return `Não consegui ler a equipe agora. Desative pelo Palácio: ${base}/usuarios`
+    const equipe = (data ?? []).flatMap((m) => {
+      const perfil = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string | null; username?: string | null; active?: boolean } | null
+      if (!perfil || perfil.active === false || m.user_id === pessoa.id || !perfil.username) return []
+      return [{ id: m.user_id as string, nome: perfil.full_name?.trim() || perfil.username, usuario: perfil.username, papel: m.role as string, apelidos: [perfil.username] }]
+    })
+    const achados = acharPeloNome(equipe, nome)
+    if (!achados.length) return textoDeNinguemParaDesativar(nome)
+    if (achados.length > 1) return textoDeQuemDesativar(achados.slice(0, QUEM_DESATIVAR_NA_LISTA))
+    const alvo = achados[0]
+    const link = await criarConfirmacao(admin, { workspaceId, userId: pessoa.id, acao: 'desativar_conta', alvoId: alvo.id, dados: { nome: alvo.nome, usuario: alvo.usuario } })
+    if ('erro' in link) return link.erro === 'limite' ? `Muitos links pedidos na última hora. Desative pelo Palácio: ${base}/usuarios` : `${INDISPONIVEL}: ${base}/usuarios`
+    const papel = ehPapel(alvo.papel) ? PAPEL[alvo.papel].rotulo : alvo.papel
+    return textoDoLinkDeConfirmacao({ oQue: oQueDaDesativacao({ nome: alvo.nome, usuario: alvo.usuario, papel }), url: link.url })
+  } catch (causa) {
+    console.error('[whatsapp] pedido de desativação não montado:', causa instanceof Error ? causa.message : causa)
+    return `Não consegui montar o pedido agora. Desative pelo Palácio: ${base}/usuarios`
+  }
+}
 
 /** A resposta ao comando; null para quem não administra (o bot segue como "desconhecido"). */
 export async function respostaDaAdministracao(admin: Admin, workspaceId: string, pessoa: Pessoa, comando: ComandoDaAdministracao, config: ConfigDoWhatsapp, base: string): Promise<string | null> {

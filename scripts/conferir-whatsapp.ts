@@ -16,10 +16,13 @@ import {
   LIMITES_DO_INTERATIVO, type Interativo,
   lerAtendimento, lerAtendimentoNoAviso, lerTransferencia, acharPeloNome, textoDaConferenciaDoChamado, DICA_DO_ATENDIMENTO, TEXTO_SEM_ACAO_PELO_WHATSAPP,
   situacaoDaVisitaNaLista, textoDaPortaria, lerSetorDaVisita, textoDaConferenciaDaVisita, textoPedeVisitado,
+  LINHA_DO_NAO_FUI_EU, BOTAO_DO_NAO_FUI_EU, MARCA_DO_NAO_FUI_EU, ofereceNaoFuiEu, ehNaoFuiEu, textoDaConferenciaDoNaoFuiEu, textoDoNaoFuiEuFeito,
+  CONFIRMACAO_VALE_MIN, textoDoLinkDeConfirmacao, textoDasDecisoes, lerDecisaoFinanceira, oQueDaDecisao, lerDesativarConta, oQueDaDesativacao,
+  textoDeQuemDesativar, textoDeNinguemParaDesativar, oQueDoVoto, DECISOES_NA_RESPOSTA, type ItemParaDecidir,
 } from '../lib/whatsapp/regras'
 import { lerRespostaDaVisita, respostaClaraDaVisita } from '../lib/portaria/regras'
 import { URGENCIA } from '../lib/chamados/regras'
-import { corpoParaWhatsapp, emailDeAviso } from '../lib/contas/emails'
+import { corpoParaWhatsapp, emailDeAviso, ofereceNaoFuiEu as avisoOfereceNaoFuiEu } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
 import {
@@ -824,6 +827,101 @@ const listaCompleta = interativoDoMenu({ pausado: false, portaria: true, atende:
 igual(linhasDoMenu(listaCompleta).map((l) => lerPedido(l.id, { pausado: false, admin: true }).comando), ['avisos', 'lidas', 'parar', 'agenda', 'chamados', 'aprovacoes', 'portaria', 'status', 'fila'], 'menu em lista: a portaria depois do 6')
 const menuMaisLongoDeTodos = `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${textoDoMenu({ nome: 'Maria Aparecida', pausado: true, urlBase: 'https://palacio.cruzvermelhario.org.br', admin: true, portaria: true, atende: true })}`
 igual(objetoInterativo(menuMaisLongoDeTodos, interativoDoMenu({ pausado: true, admin: true, portaria: true, atende: true }))?.type, 'list', 'menu com tudo, pausado e com "não entendi": ainda cabe no corpo de 1024')
+
+// ---------------------------------------------------------------- "Não fui eu" (lib/whatsapp/protecao.ts)
+const comNaoFuiEu = textoDeSeguranca({ titulo: 'Novo acesso', texto: 'Linha.', naoFuiEu: true })
+contem(comNaoFuiEu, `_${LINHA_DO_NAO_FUI_EU}_`, 'segurança: ensina a responder NÃO FUI EU')
+contem(comNaoFuiEu, 'Responda *NÃO FUI EU* se não foi você', 'segurança: a frase pedida')
+igual(ofereceNaoFuiEu(comNaoFuiEu), true, 'segurança: a entrega reconhece o aviso que oferece (pelo texto, também na fila)')
+igual(ofereceNaoFuiEu(textoDeSeguranca({ titulo: 'Senha alterada', texto: 'Linha.' })), false, 'segurança: sem a linha, sem botão nem marca')
+igual(comNaoFuiEu.endsWith('por aqui ou por telefone._'), true, 'segurança: o rodapé continua no fim')
+igual(ofereceNaoFuiEu(textoDeSeguranca(AVISO_AO_NUMERO_ANTIGO)), true, 'número antigo: oferece o NÃO FUI EU (é por ele que a pessoa derruba quem trocou o número)')
+igual(objetoInterativo(comNaoFuiEu, BOTAO_DO_NAO_FUI_EU)?.type, 'button', 'segurança: o botão cabe')
+igual(BOTAO_DO_NAO_FUI_EU.tipo === 'botoes' && ehNaoFuiEu(BOTAO_DO_NAO_FUI_EU.botoes[0].id), true, 'segurança: o toque no botão é o NÃO FUI EU digitado')
+igual(MARCA_DO_NAO_FUI_EU.length <= 40, true, 'segurança: a marca cabe no registro')
+for (const t of ['não fui eu', 'NÃO FUI EU!', 'Nao foi eu', 'não fui eu não', 'Não reconheço']) igual(ehNaoFuiEu(t), true, `"não fui eu": ${t}`)
+for (const t of ['fui eu', 'não', 'eu não fui na reunião', 'confirmo', '']) igual(ehNaoFuiEu(t), false, `não é "não fui eu": ${t}`)
+igual(avisoOfereceNaoFuiEu({ tipo: 'conta_bloqueada', lugar: 'Rio' }), true, 'oferece: bloqueio')
+igual(avisoOfereceNaoFuiEu({ tipo: 'senha_alterada', como: 'propria' }), true, 'oferece: senha trocada pela pessoa')
+igual(avisoOfereceNaoFuiEu({ tipo: 'senha_alterada', como: 'link' }), true, 'oferece: senha trocada pelo link')
+igual(avisoOfereceNaoFuiEu({ tipo: 'senha_alterada', como: 'admin', adminNome: 'M' }), false, 'não oferece: senha trocada pela administração')
+igual(avisoOfereceNaoFuiEu({ tipo: 'verificacao_removida', porAdmin: 'M' }), false, 'não oferece: verificação tirada pela administração')
+igual(avisoOfereceNaoFuiEu({ tipo: 'verificacao_removida' }), true, 'oferece: verificação tirada pela pessoa')
+igual(avisoOfereceNaoFuiEu({ tipo: 'conta_desativada', adminNome: 'M' }), false, 'não oferece: conta desativada')
+igual(avisoOfereceNaoFuiEu({ tipo: 'papel_alterado', de: 'a', para: 'b', adminNome: 'M' }), false, 'não oferece: papel mudado')
+const encerradas = avisoDe({ tipo: 'sessoes_encerradas' })
+contem(encerradas.assunto, 'sessões da sua conta', 'e-mail do "não fui eu": o assunto')
+contem(encerradas.texto, 'A sua senha não mudou e a conta continua ativa', 'e-mail do "não fui eu": não troca a senha nem desativa')
+contem(avisoDe({ tipo: 'sessoes_encerradas', numeroAntigo: true }).texto, 'do número que a conta usava antes', 'e-mail do "não fui eu": veio do número antigo')
+const conferenciaDaProtecao = textoDaConferenciaDoNaoFuiEu({ daConta: true })
+contem(conferenciaDaProtecao, '*todas as sessões*', 'conferência do "não fui eu": o que vai acontecer')
+contem(conferenciaDaProtecao, 'A senha não muda e a conta continua ativa', 'conferência do "não fui eu": o que não acontece')
+contem(conferenciaDaProtecao, '*confirmo*', 'conferência do "não fui eu": pede o confirmo')
+igual(objetoInterativo(conferenciaDaProtecao, BOTOES_DA_CONFERENCIA)?.type, 'button', 'conferência do "não fui eu": cabe nos botões')
+igual(/\bsua\b/.test(textoDaConferenciaDoNaoFuiEu({ daConta: false })), false, 'conferência do número antigo: sem "sua" (o número pode já ser de outra pessoa)')
+contem(textoDoNaoFuiEuFeito({ daConta: true }), 'Esqueci minha senha', 'feito: o próximo passo é a senha')
+igual(/sua conta|seu e-mail/.test(textoDoNaoFuiEuFeito({ daConta: false })), false, 'feito, do número antigo: sem "sua conta" nem "seu e-mail"')
+
+// ---------------------------------------------------------------- confirmar no Palácio, decisões do Financeiro e desativar conta
+igual(CONFIRMACAO_VALE_MIN, 15, 'o link de confirmar vale 15 minutos')
+const linkDeConfirmar = textoDoLinkDeConfirmacao({ oQue: 'Aprovar?', url: 'https://p/confirmar/abc' })
+contem(linkDeConfirmar, 'Confirme no Palácio: https://p/confirmar/abc', 'link de confirmar: a frase e o endereço')
+contem(linkDeConfirmar, 'vale por 15 minutos e uma vez só', 'link de confirmar: as regras')
+igual(cmdAdm('financeiro').comando, 'financeiro', 'financeiro: a lista')
+igual(cmdAdm('Pendências financeiras').comando, 'financeiro', 'financeiro: "pendências financeiras" não são os avisos')
+igual(cmdAdm('compras').comando, 'financeiro', 'financeiro: "compras"')
+igual(cmdAdm('o financeiro ligou').comando, 'desconhecido', 'financeiro: no meio da frase não roda nada')
+igual(cmdAdm('aprovar 2'), { comando: 'decidir_financeiro', resto: 'aprovar 2' }, 'financeiro: aprovar e o número')
+igual(cmdAdm('recusar 1: acima do orçado').comando, 'decidir_financeiro', 'financeiro: recusar com motivo')
+igual(cmdAdm('aprovar').comando, 'desconhecido', 'financeiro: aprovar sem número não é decisão (é o voto, respondendo ao aviso)')
+igual(lerDecisaoFinanceira('aprovar 2'), { decisao: 'aprovar', n: 2, motivo: '' }, 'decisão: aprovar 2')
+igual(lerDecisaoFinanceira('Aprovo o 3'), { decisao: 'aprovar', n: 3, motivo: '' }, 'decisão: aprovo o 3')
+igual(lerDecisaoFinanceira('recusar 2: valor   acima do orçado'), { decisao: 'recusar', n: 2, motivo: 'valor acima do orçado' }, 'decisão: recusar com dois-pontos')
+igual(lerDecisaoFinanceira('recusa 10 fornecedor sem nota'), { decisao: 'recusar', n: 10, motivo: 'fornecedor sem nota' }, 'decisão: recusa sem dois-pontos')
+igual(lerDecisaoFinanceira('aprovar 2: entregar até sexta'), { decisao: 'aprovar', n: 2, motivo: 'entregar até sexta' }, 'decisão: aprovar com observação')
+igual(lerDecisaoFinanceira('aprovar 0'), null, 'decisão: zero não é item')
+igual(lerDecisaoFinanceira('aprovar 2x'), null, 'decisão: número colado em texto não é item')
+igual(lerDecisaoFinanceira('aprovar a matéria'), null, 'decisão: sem número, não')
+igual(lerDecisaoFinanceira('aprovado 2'), null, 'decisão: "aprovado" não é o verbo')
+const despesa: ItemParaDecidir = { tipo: 'despesa', titulo: 'Conta de luz *junho*', valor: 1234.5, fornecedor: 'Light S.A.', quem: 'Ana Lima', link: '/financeiro/l1' }
+const compra: ItemParaDecidir = { tipo: 'compra', titulo: 'Notebooks', valor: 8900, fornecedor: 'Loja X', quem: 'João', codigo: 'PC-2026-0012', papel: 'diretoria', link: '/financeiro/compras/p1' }
+const decisoes = textoDasDecisoes({ itens: [despesa, compra], total: 2, urlBase: 'https://p' })
+contem(decisoes, '*2 decisões* esperam por você:', 'decisões: a contagem')
+contem(decisoes, '*1.* Despesa · *R$', 'decisões: o número e o valor')
+contem(decisoes, 'Conta de luz junho — Light S.A.\n_Lançada por Ana Lima_', 'decisões: descrição, favorecido e quem lançou (sem a marcação de quem escreveu)')
+contem(decisoes, '*2.* Compra PC-2026-0012 · *R$', 'decisões: a compra com o número do pedido')
+contem(decisoes, '_(pela Diretoria)_', 'decisões: a vez da Diretoria aparece')
+contem(decisoes, '*aprovar 1* ou *recusar 1:*', 'decisões: como decidir')
+igual(decisoes.includes('https://p/financeiro'), false, 'decisões: com a pergunta guardada, sem os links')
+contem(textoDasDecisoes({ itens: [despesa], total: 1, urlBase: 'https://p', comLinks: true }), 'https://p/financeiro/l1', 'decisões sem a migração: o link de cada item')
+igual(textoDasDecisoes({ itens: [despesa], total: 1, urlBase: 'https://p', comLinks: true }).includes('aprovar 1'), false, 'decisões sem a migração: sem o "aprovar 1"')
+contem(textoDasDecisoes({ itens: [], total: 0, urlBase: 'https://p' }), 'Nada espera a sua decisão', 'decisões: nada esperando')
+contem(textoDasDecisoes({ itens: Array.from({ length: 12 }, () => despesa), total: 12, urlBase: 'https://p' }), `As ${DECISOES_NA_RESPOSTA} primeiras`, 'decisões: corta a lista')
+const recusa = oQueDaDecisao(despesa, { decisao: 'recusar', n: 1, motivo: 'sem nota fiscal' })
+contem(recusa, 'Recusar a despesa *Conta de luz junho*, de R$', 'decisão: recusar diz qual e quanto')
+contem(recusa, 'Motivo:\n> sem nota fiscal', 'decisão: o motivo citado')
+contem(oQueDaDecisao(compra, { decisao: 'aprovar', n: 2, motivo: '' }), 'Aprovar pela Diretoria a compra *PC-2026-0012* (Notebooks)', 'decisão: a compra pela Diretoria')
+const menuDoFinanceiro = textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', financeiro: true })
+contem(menuDoFinanceiro, '*financeiro* para decidir despesas e compras', 'menu: a linha do financeiro')
+igual(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }).includes('*financeiro*'), false, 'menu de quem não decide: sem a linha')
+const listaComTudo = interativoDoMenu({ pausado: false, portaria: true, atende: true, admin: true, financeiro: true })
+igual(linhasDoMenu(listaComTudo).map((l) => lerPedido(l.id, { pausado: false, admin: true }).comando), ['avisos', 'lidas', 'parar', 'agenda', 'chamados', 'aprovacoes', 'portaria', 'financeiro', 'status', 'fila'], 'menu em lista: o financeiro depois da portaria (10 linhas, o teto)')
+const menuMaisLongoComFinanceiro = `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${textoDoMenu({ nome: 'Maria Aparecida', pausado: true, urlBase: 'https://palacio.cruzvermelhario.org.br', admin: true, portaria: true, atende: true, financeiro: true })}`
+igual(objetoInterativo(menuMaisLongoComFinanceiro, listaComTudo)?.type, 'list', 'menu com tudo e o financeiro, pausado e com "não entendi": ainda cabe no corpo de 1024')
+igual(lerPedido('desativar conta: Ana Lima', { pausado: false, admin: true, usuarios: true }), { comando: 'desativar_conta', resto: 'Ana Lima' }, 'desativar: quem gerencia usuários')
+igual(lerPedido('desativar conta: Ana Lima', { pausado: false }).comando, 'parar', 'desativar: para os outros, "desativar" continua pausando os avisos')
+igual(lerPedido('desativar', { pausado: false, usuarios: true }).comando, 'parar', 'desativar sozinho: pausa os avisos, mesmo para quem gerencia usuários')
+igual(lerDesativarConta('desativar o acesso do ana.lima'), 'ana.lima', 'desativar: o acesso do usuário')
+igual(lerDesativarConta('Desativar conta da Daniela Souza'), 'Daniela Souza', 'desativar: conta da')
+igual(lerDesativarConta('desativar conta Daniel'), 'Daniel', 'desativar: o nome que começa com "da" não vira preposição')
+igual(lerDesativarConta('desativar conta'), '', 'desativar: sem o nome (o bot pergunta)')
+igual(lerDesativarConta('desativar avisos'), null, 'desativar avisos não é desativar conta')
+contem(oQueDaDesativacao({ nome: 'Ana Lima', usuario: 'ana.lima', papel: 'Editor' }), 'Desativar o acesso de *Ana Lima* (ana.lima, Editor)?', 'desativar: quem e o papel')
+contem(textoDeQuemDesativar([{ nome: 'Ana Lima', usuario: 'ana.lima' }, { nome: 'Ana Souza', usuario: 'ana.souza' }]), '• Ana Souza (ana.souza)', 'desativar: a lista com os usuários')
+contem(textoDeNinguemParaDesativar('Zé'), 'Não achei ninguém ativo na equipe com “Zé”', 'desativar: ninguém')
+contem(oQueDoVoto({ titulo: 'Matéria', decisao: 'approved', nota: '' }), 'A conferência do setor aparece no Palácio', 'voto pelo link: a conferência fica na tela')
+contem(oQueDoVoto({ titulo: 'Matéria', decisao: 'changes_requested', nota: 'trocar a foto' }), 'Pedir ajustes em *Matéria*?\n\n> trocar a foto', 'voto pelo link: os ajustes citados')
+contem(TEXTO_SEM_ACAO_PELO_WHATSAPP, 'link para confirmar no Palácio', 'verificação em duas etapas: o voto e as decisões vêm com o link')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

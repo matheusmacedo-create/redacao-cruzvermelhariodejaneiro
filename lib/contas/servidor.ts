@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { corpoParaWhatsapp, emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
+import { corpoParaWhatsapp, emailDeAviso, ofereceNaoFuiEu, type AvisoDeSeguranca, type EmailPronto } from './emails'
 import { entregar } from '@/lib/whatsapp/fila'
 import { AVISO_AO_NUMERO_ANTIGO, mascararNumero, textoDeSeguranca } from '@/lib/whatsapp/regras'
 
@@ -52,6 +52,40 @@ export async function emitirToken(admin: Admin, p: { userId: string; finalidade:
 export async function revogarLinksDeSenha(admin: Admin, userId: string) {
   await admin.from('tokens_de_conta').update({ usado_em: new Date().toISOString() })
     .eq('user_id', userId).in('finalidade', ['definir_senha', 'redefinir_senha']).is('usado_em', null)
+}
+
+/**
+ * Invalida todos os links de conta pendentes — senha, convite e confirmação de e-mail — e os códigos de
+ * confirmação do WhatsApp em aberto: o "Não fui eu" (lib/whatsapp/protecao.ts). Quem tomou a conta pode estar
+ * trocando o e-mail ou o número dela. Devolve quantos links caíram; nunca lança.
+ */
+export async function revogarLinksDaConta(admin: Admin, userId: string): Promise<number> {
+  try {
+    const agora = new Date().toISOString()
+    const [{ data }] = await Promise.all([
+      admin.from('tokens_de_conta').update({ usado_em: agora }).eq('user_id', userId).is('usado_em', null).select('id'),
+      admin.from('whatsapp_codigos').update({ usado_em: agora }).eq('user_id', userId).is('usado_em', null),
+    ])
+    return data?.length ?? 0
+  } catch (causa) {
+    console.error('[contas] links não revogados:', causa instanceof Error ? causa.message : causa)
+    return 0
+  }
+}
+
+/**
+ * Encerra todas as sessões da pessoa, em qualquer aparelho (encerrar_sessoes_do_usuario: apagar as sessões
+ * invalida os refresh tokens na hora). Devolve quantas caíram, ou null se o banco recusou; nunca lança.
+ */
+export async function encerrarSessoesDaConta(admin: Admin, userId: string): Promise<number | null> {
+  try {
+    const { data, error } = await admin.rpc('encerrar_sessoes_do_usuario', { p_user_id: userId })
+    if (error) { console.error('[contas] sessões não encerradas:', error.message); return null }
+    return typeof data === 'number' ? data : 0
+  } catch (causa) {
+    console.error('[contas] sessões não encerradas:', causa instanceof Error ? causa.message : causa)
+    return null
+  }
 }
 
 export type TokenLido = {
@@ -134,7 +168,8 @@ export type DestinosDoAviso = { email?: string; whatsapp?: string | null }
 /**
  * Aviso de segurança para o e-mail CONFIRMADO da pessoa (sem e-mail, nada) e,
  * se ela confirmou um WhatsApp, o mesmo aviso por lá — mesmo com os avisos
- * pausados (avisarPorWhatsapp).
+ * pausados (avisarPorWhatsapp). No WhatsApp, o aviso de algo que a própria
+ * pessoa faria ensina a responder "NÃO FUI EU" (ofereceNaoFuiEu).
  */
 export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguranca, destinos: DestinosDoAviso = {}): Promise<boolean> {
   const { data: p } = await admin.from('profiles').select('full_name, email, email_confirmado_em').eq('id', userId).maybeSingle()
@@ -144,7 +179,8 @@ export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguran
   // Lado a lado: o WhatsApp lento não atrasa o e-mail nem a resposta de quem trocou a senha.
   const [enviado] = await Promise.all([
     destino ? enviarComSeguranca(destino, pronto) : Promise.resolve(false),
-    destinos.whatsapp === null ? Promise.resolve() : avisarPorWhatsapp(admin, userId, { titulo: pronto.assunto, texto: corpoParaWhatsapp(pronto) }, destinos.whatsapp),
+    destinos.whatsapp === null ? Promise.resolve()
+      : avisarPorWhatsapp(admin, userId, { titulo: pronto.assunto, texto: corpoParaWhatsapp(pronto), naoFuiEu: ofereceNaoFuiEu(aviso) }, destinos.whatsapp),
   ])
   return enviado
 }
@@ -161,10 +197,13 @@ export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguran
  * é descartado por o número ter mudado — só se ele foi confirmado em outra
  * conta enquanto esperava (fila.ts, desistirAntes).
  *
+ * `naoFuiEu`: o texto ensina a responder "NÃO FUI EU" e, dentro da janela, vai
+ * com o botão (a entrega remonta pelo texto: lib/whatsapp/fila.ts).
+ *
  * Nunca lança; sem a tabela (antes da migração), sem número ou sem a Kapso,
  * não faz nada.
  */
-export async function avisarPorWhatsapp(admin: Admin, userId: string, aviso: { titulo: string; texto: string }, numero?: string): Promise<void> {
+export async function avisarPorWhatsapp(admin: Admin, userId: string, aviso: { titulo: string; texto: string; naoFuiEu?: boolean }, numero?: string): Promise<void> {
   try {
     let destino = numero ?? null
     if (!destino) {

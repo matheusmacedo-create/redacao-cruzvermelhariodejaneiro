@@ -4,6 +4,7 @@ import { BrandMark } from '@/components/app/brand-mark'
 import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import { EtapaDeVerificacao } from './etapa'
 import { PedirAjudaBotao } from '@/components/auth/contas'
+import { destinoSeguro } from '@/lib/chamados/cartaz'
 
 /**
  * Segunda etapa do login: digitar o código do app autenticador, ou
@@ -11,12 +12,17 @@ import { PedirAjudaBotao } from '@/components/auth/contas'
  *
  * Fora do grupo (app) pelo mesmo motivo de /trocar-senha: o layout de lá
  * manda para cá quem ainda deve o código, e dentro dele seria um laço.
+ *
+ * `?voltar=`: depois do código, volta para lá (a confirmação no Palácio de
+ * um pedido feito pelo WhatsApp, app/confirmar/[token]). Só caminho do
+ * próprio Palácio (destinoSeguro, o mesmo da entrada).
  */
-export default async function VerificacaoPage() {
+export default async function VerificacaoPage({ searchParams }: { searchParams: Promise<{ voltar?: string }> }) {
+  const voltar = destinoSeguro((await searchParams).voltar)
   const context = await obterWorkspaceSemVerificacao()
-  if (!context) redirect('/')
+  if (!context) redirect(voltar ? `/?voltar=${encodeURIComponent(voltar)}` : '/')
   if (context.profile?.trocar_senha) redirect('/trocar-senha')
-  if (context.verificacao === 'em_dia') redirect('/dashboard')
+  if (context.verificacao === 'em_dia') redirect(voltar ?? '/dashboard')
 
   const primeiroNome = context.profile?.full_name?.split(' ')[0] || context.profile?.username
   const cadastrar = context.verificacao === 'cadastrar'
@@ -36,6 +42,7 @@ export default async function VerificacaoPage() {
           <EtapaDeVerificacao
             modo={cadastrar ? 'cadastrar' : 'codigo'}
             fatores={context.fatores.map((f) => ({ id: f.id, nome: f.friendly_name || 'Aparelho' }))}
+            destino={voltar}
           />
         </div>
         {!cadastrar && <div className="mt-4"><PedirAjudaBotao /></div>}

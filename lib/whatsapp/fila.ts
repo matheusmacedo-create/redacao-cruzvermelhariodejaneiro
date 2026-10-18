@@ -3,8 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp } from './servidor'
 import { registrarEstado } from './estado'
 import {
-  INTERVALO_ENTRE_ENVIOS_MS, TETO_POR_MINUTO, emSilencio, falhaDerrubaConexao, falhaMereceReenvio, fimDoSilencio, interativoDoAviso, proximaTentativa,
-  silencioSeAplica, type Interativo, type MotivoDaFalha,
+  BOTAO_DO_NAO_FUI_EU, INTERVALO_ENTRE_ENVIOS_MS, MARCA_DO_NAO_FUI_EU, TETO_POR_MINUTO, emSilencio, falhaDerrubaConexao, falhaMereceReenvio, fimDoSilencio,
+  interativoDoAviso, ofereceNaoFuiEu, proximaTentativa, silencioSeAplica, type Interativo, type MotivoDaFalha,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -39,10 +39,14 @@ export type Mensagem = {
   link?: string | null
   /**
    * Botões ou lista junto do texto (regras.ts, Interativo). A fila guarda só o texto: o que espera nela sai sem
-   * eles — menos o aviso da visita na portaria, que monta os botões de novo pelo link (enviarAgora).
+   * eles — menos o aviso da visita na portaria, que monta os botões de novo pelo link, e o aviso de segurança com o
+   * "Não fui eu", que monta o botão pelo texto (enviarAgora).
    */
   interativo?: Interativo | null
-  /** A marca no registro da saída (LinhaDoRegistro.comando): "menu" para a lista do menu do bot. */
+  /**
+   * A marca no registro da saída (LinhaDoRegistro.comando): "menu" para a lista do menu do bot; o aviso de segurança
+   * com o "Não fui eu" ganha a dele sozinho (enviarAgora), e é por ela que a resposta acha o aviso.
+   */
   comando?: string | null
 }
 
@@ -94,11 +98,13 @@ export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem,
 async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: Mensagem) {
   // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo). O aviso
   // da visita na portaria leva os botões pelo link, saia agora ou da fila; fora da janela, vai pelo modelo, sem eles.
-  const interativo = m.interativo ?? (m.tipo === 'aviso' ? interativoDoAviso(m.link) : null)
+  // O aviso de segurança que ensina o "NÃO FUI EU" leva o botão e a marca no registro, pelo texto (a fila guarda só ele).
+  const naoFuiEu = m.tipo === 'seguranca' && ofereceNaoFuiEu(m.texto)
+  const interativo = m.interativo ?? (m.tipo === 'aviso' ? interativoDoAviso(m.link) : naoFuiEu ? BOTAO_DO_NAO_FUI_EU : null)
   const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo, interativo })
   await registrar(admin, {
-    workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero,
-    userId: m.userId, mensagemId: envio.ok ? envio.id : null, comando: m.comando, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
+    workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero, userId: m.userId,
+    mensagemId: envio.ok ? envio.id : null, comando: m.comando ?? (naoFuiEu ? MARCA_DO_NAO_FUI_EU : null), notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
   })
   if (envio.ok) await registrarEstado(admin, workspaceId, 'conectado')
   else if (falhaDerrubaConexao(envio.motivo)) await registrarEstado(admin, workspaceId, envio.motivo === 'instancia' ? 'sem_instancia' : 'erro')

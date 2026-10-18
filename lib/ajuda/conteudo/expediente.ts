@@ -1196,6 +1196,12 @@ const COMPRAS: GuiaDaArea = {
       resposta: 'A gestão do Financeiro, em Financeiro → Cadastros → “Regras de compra”. Lá também se escolhe o setor da Diretoria. As regras novas valem para os próximos envios para aprovação.',
       termos: ['regras de compra', 'limite simples', 'limite da diretoria', 'configurar'],
     },
+    {
+      id: 'aprovar-compra-pelo-whatsapp',
+      pergunta: 'Dá para aprovar uma compra pelo WhatsApp?',
+      resposta: 'Dá começar por lá, para quem é a vez: o Financeiro da empresa do pedido e, acima do limite, a Diretoria (nunca quem pediu, e a mesma pessoa não aprova pelas duas). Mande “financeiro” ao WhatsApp do Palácio: as compras em aprovação aparecem na lista com o número do pedido, o valor, o fornecedor e quem pediu, e a vez da Diretoria vem marcada. Responda “aprovar 3” (com uma observação depois, se quiser) ou “recusar 3:” e o motivo, com pelo menos 5 letras.\n\nChega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta. “Confirmar” decide pelo mesmo caminho do botão do pedido, com as mesmas regras, e quem pediu é avisado. Pedir propostas, emitir a ordem e receber continuam na tela.',
+      termos: ['whatsapp', 'aprovar compra pelo whatsapp', 'recusar compra', 'diretoria pelo whatsapp', 'confirme no palácio'],
+    },
   ],
   relacionadas: ['/financeiro', '/patrimonio'],
 }

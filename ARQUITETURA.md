@@ -152,6 +152,7 @@ app/
     ficha/                ficha do RH preenchida pela própria pessoa
     participe/            inscrição de voluntário
     verificacao/[token]   documentos da verificação do candidato (§7.36)
+    confirmar/[token]     confirmar no Palácio o que foi pedido pelo WhatsApp (com sessão; §8.5)
     verificar/ cracha/ diploma/ certificado/          conferência de ofício, crachá e diplomas
     newsletter/ comunicados/
     not-found.tsx         endereço que não existe
@@ -339,6 +340,15 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   manda para outro endereço ou número (o endereço antigo, quando o e-mail muda)
   ou, com `whatsapp: null`, só ao e-mail. São best-effort: nunca desfazem a
   ação; a falha vai para o log.
+- **“Não fui eu” (18/10/2026):** no WhatsApp, o aviso de algo que a própria
+  pessoa faria (`ofereceNaoFuiEu` em `lib/contas/emails.ts`: senha trocada por
+  ela ou pelo link, verificação mexida por ela, e-mail trocado, entrada
+  bloqueada; mais o acesso novo e o recado ao número antigo) termina com
+  “Responda NÃO FUI EU se não foi você” e, dentro da janela, o botão. A
+  resposta encerra todas as sessões (`encerrarSessoesDaConta`), cancela os
+  links de conta e os códigos do WhatsApp pendentes (`revogarLinksDaConta`),
+  avisa a administração e a pessoa e audita `nao_fui_eu` — sem trocar a senha
+  nem desativar. Detalhes em §8.5.
 - **WhatsApp da conta (18/10/2026):** confirmar outro número
   (`confirmarNumeroDaEquipe`, pela tela ou pelo bot; e o convite só pelo
   WhatsApp) ou tirar o número (Meu perfil, ou o admin em `/usuarios` com
@@ -346,8 +356,9 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   (`avisarTrocaDeWhatsapp`, números mascarados) só o e-mail confirmado com o
   aviso completo. O número ANTIGO pode já ser de outra pessoa (é o caso da
   remoção pelo admin), então recebe só um recado sem nome, sem quem fez e sem
-  “sua conta” (`AVISO_AO_NUMERO_ANTIGO`, tipo `seguranca`) — e, na remoção pelo
-  admin, nada. **Desativar libera o número**: cancela o que esperava na fila
+  “sua conta” (`AVISO_AO_NUMERO_ANTIGO`, tipo `seguranca`, com o “Não fui eu”:
+  é por ele que a pessoa derruba quem trocou o número dela) — e, na remoção
+  pelo admin, nada. **Desativar libera o número**: cancela o que esperava na fila
   para a pessoa (`desistiu`, menos os avisos de segurança) e o convite de acesso
   que ainda não saiu (entra sem `user_id`; é achado pelo número da marca do
   último convite, `lerMarcaDoConvite`, e o texto com o link é apagado), manda o
@@ -363,6 +374,10 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   `whatsapp_fila_cancelada`.
 - **Perdi o celular** (`/verificacao`): avisa os admins por e-mail, 1 vez por
   hora. Não remove nada sozinho — senão a 2ª etapa valeria o mesmo que a senha.
+- **`/verificacao?voltar=`** (18/10/2026): depois do código, volta para o
+  caminho pedido (`destinoSeguro`, o mesmo da entrada). É o que leva de volta à
+  confirmação no Palácio de um pedido feito pelo WhatsApp (`/confirmar/[token]`,
+  §8.5) quem entrou pelo link e ainda devia o código.
 
 A equipe oficial e os setores ficam em `lib/equipe.ts`. É a fonte do campo
 Coordenação e da lista "da equipe, ainda sem acesso" em `/usuarios` — estar lá
@@ -481,7 +496,10 @@ ninguém aprova o próprio texto.
 rodada com o setor da pauta (`pautas.coordination`), o prazo do setor e o
 atraso. Na hora de votar aparece a conferência do setor (e a do setor de quem
 vota); **aprovar exige a lista inteira marcada, conferida de novo em
-`decideApproval`**, e o que foi conferido vai no comentário do voto. Perfis,
+`decideApproval`**, e o que foi conferido vai no comentário do voto. O voto em
+si é `votarNaRodada` (`lib/aprovacoes/voto.ts`), a mesma função da confirmação
+no Palácio do voto pedido pelo WhatsApp por quem usa a verificação em duas
+etapas (§8.5). Perfis,
 prazos e listas em `lib/aprovacoes/setores.ts`; regras da fila em
 `lib/aprovacoes/fila.ts` (puros). Benchmark e fontes em
 [`docs/APROVACOES.md`](docs/APROVACOES.md). Setor novo sem perfil usa o
@@ -901,6 +919,10 @@ O caminho segue o manual de compras da Cruz Vermelha (IFRC): pedido → cotaçã
 
   As regras moram nas funções `compras_*` do banco, e `lib/compras/regras.ts`
   é o espelho puro para a tela.
+- **Pelo WhatsApp (18/10/2026):** quem é a vez vê as compras em aprovação no
+  “financeiro” do bot e pede “aprovar 3” / “recusar 3: motivo”; sai o link de
+  confirmar no Palácio, e “Confirmar” chama o mesmo `decidirPedido` da tela
+  (§8.5, “Decisões do Financeiro e de Compras”).
 - **Pedir propostas** (`docs/compras-cotacao-automatica.md`): o Financeiro
   convida os fornecedores habituais (quem vende a categoria, em
   `fin_favorecido_categorias`, e quem já cotou compras dela) e cada um recebe
@@ -1472,6 +1494,11 @@ confere do mesmo jeito.
 - **Por quê**: antes o cookie `fin_empresa` guardava a empresa aberta, e duas
   abas trocavam os livros uma da outra sem aviso.
 - **Conferência**: `npx tsx scripts/conferir-livros-do-financeiro.ts`.
+- **Aprovar despesa pelo WhatsApp (18/10/2026)**: o “financeiro” do bot lista
+  as despesas esperando aprovação de quem aprova; “aprovar 2” vira o link de
+  confirmar no Palácio (`/confirmar/[token]`, fora dos livros: sem cabeçalho de
+  livro, `decidirAprovacao` vale pela empresa do lançamento, como numa rota de
+  API). Pagar, conciliar e fechar o mês não têm caminho pelo WhatsApp (§8.5).
 
 ### 7.29 E-mail do setor: caixa de entrada (`/correio`)
 
@@ -2008,9 +2035,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
   `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
   `portaria.ts` (as visitas do dia e registrar quem chegou),
+  `financeiro.ts` (as decisões do Financeiro e de Compras), `confirmacoes.ts` (o link de confirmar no Palácio),
+  `confirmar-no-palacio.ts` (a tela do link: o que vai ser feito e a execução), `protecao.ts` (o “Não fui eu”),
   `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
   `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
-  `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
+  `app/actions/whatsapp.ts`, `app/api/webhooks/whatsapp` e `app/confirmar/[token]`.
 - **Confirmação do número (18/10/2026):** dois caminhos, nos mesmos limites (3 códigos a cada 30 min,
   10 min de validade, 5 tentativas). O **padrão é o código de ida**: “Gerar código” mostra na tela um código
   de 6 dígitos e o botão “Abrir o WhatsApp” (`https://wa.me/<número do Palácio>?text=Confirmar meu WhatsApp no
@@ -2077,7 +2106,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   pausa ou retoma, `4` agenda de hoje e amanhã (camadas ligadas, mesmo crivo do resumo semanal),
   `5` chamados abertos (que a pessoa abriu ou estão com ela e, para quem atende uma fila, os abertos da
   fila — veja “Quem atende chamado”), `6` aprovações esperando o voto dela, `portaria` as visitas abertas
-  do dia (veja “A portaria pelo WhatsApp”),
+  do dia (veja “A portaria pelo WhatsApp”), `financeiro` o que espera a decisão dela (veja “Decisões do
+  Financeiro e de Compras”),
   `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
   achados com esforço baixo, e sem chave vão os trechos). O menu vai também como lista (“Botões e
   listas”, abaixo); digitar o número continua valendo. Número desconhecido recebe uma
@@ -2116,7 +2146,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   não roda (o “1” do menu são os avisos); em qualquer outra mensagem que não é a pergunta aberta (a lista
   de equipes de um chamado que já passou dessa etapa, a conferência respondida), responde que a pergunta
   não vale mais — o “2” dela não escolhe o assunto nem marca os avisos como lidos. Por isso só leva botões
-  a mensagem com pergunta guardada (`Resposta.interativo` só vale com `pergunta`) e o menu. Sem migração.
+  a mensagem com pergunta guardada (`Resposta.interativo` só vale com `pergunta`) e o menu. O aviso de
+  segurança que ensina o “NÃO FUI EU” leva o botão dele, remontado pelo texto (veja “Não fui eu”). Sem migração.
 - **Comandos da administração (18/10/2026)** (`lib/whatsapp/admin.ts`): para quem tem
   `integracoes.configurar` (a permissão de `/configuracoes/whatsapp`) e número confirmado, `lerPedido`
   reconhece `status` (ou `diagnóstico`, `saúde`) e `fila` (ou `fila agora`, `enviar fila`) — só como a
@@ -2146,7 +2177,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   portaria pelo WhatsApp (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de
   quem escreveu): responder, votar, atender chamado, registrar visita e mandar fotos, o servidor
   recusa antes (`podeAgirPeloWhatsapp`), e o banco recusa de novo no Chat, no voto e no registro
-  da visita. Não há exceção para quem atende chamado.
+  da visita. Não há exceção para quem atende chamado. O voto dessa pessoa (`aprovar` / `ajustes: …`
+  respondendo o aviso) vira o link de confirmar no Palácio (`votarPeloPalacio`; veja “Confirmar no
+  Palácio”).
 - **Quem atende chamado pelo WhatsApp (18/10/2026)** (`lib/whatsapp/atendimento.ts`): quem atende a
   fila do chamado (`filasQueAtendo`/`papeisNoChamado`: a equipe da fila e quem tem `chamados.ver_todos`)
   age pelo comando com o código — `assumir TI-0042`, `resolver TI-0042: troquei o toner`, `transferir
@@ -2182,6 +2215,71 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `avisarVisitado` — quem é visitado responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
   Telefone, empresa, crachá, foto e documento ficam na tela. As etapas usam `whatsapp_pendencias` (tipo
   `registrar_visita`).
+- **Confirmar no Palácio (18/10/2026)** (`lib/whatsapp/confirmacoes.ts`, tela `app/confirmar/[token]`,
+  tabela `whatsapp_confirmacoes`, migração `20261018223000`): o que é sensível e foi pedido pelo WhatsApp
+  não acontece no bot — decidir uma despesa (`decidir_despesa`) ou uma compra (`decidir_compra`), o voto
+  de quem usa a verificação em duas etapas (`votar_aprovacao`) e o “desativar conta:” de quem gerencia
+  usuários (`desativar_conta`). O bot responde com “Confirme no Palácio: <link>”
+  (`textoDoLinkDeConfirmacao`). O link: código de 32 bytes (base64url), no banco só o sha-256 com prefixo
+  próprio (`hashDaConfirmacao`); vale 15 min (`CONFIRMACAO_VALE_MIN`); uso único (`consumirConfirmacao`,
+  UPDATE condicional: dois cliques, só um passa); amarrado a quem pediu (a tela lê pela sessão, e a
+  policy de `whatsapp_confirmacoes` só deixa o dono ler — o link de outra pessoa é “não vale para a sua
+  conta”); um pedido novo para a mesma ação e alvo invalida o anterior; até 20 links por pessoa por hora.
+  A página fica fora do grupo `(app)`, como `/verificacao`: sem sessão, vai à entrada com `?voltar=`; com
+  o código do app pendente, a `/verificacao?voltar=` (o mesmo portão de `requireWorkspace`, a mesma
+  verificação das telas); a equipe da Escola não abre voto nem desativação. Mostra o que vai ser feito
+  lido AGORA (`descrever`, pela sessão: despesa já decidida, rodada encerrada, conta já desativada viram
+  “não dá para confirmar”), e “Confirmar” (`confirmarNoPalacio`) gasta o link e executa pela MESMA função
+  da tela (`executar`): `decidirAprovacao`, `decidirPedido`, `votarNaRodada` (a conferência do setor é
+  marcada na própria tela e conferida antes de gastar o link) e `desativarUsuario`. Grava `usado_em` e
+  `resultado`, deixa `whatsapp_confirmado` (ou `whatsapp_confirmacao_recusada`) em `activity_log` e
+  responde pelo WhatsApp (tipo `bot`). Pagar, conciliar, fechar o mês, assinar ofício, mudar papel,
+  remover a verificação em duas etapas, mexer em chaves e recuperar senha não têm caminho pelo WhatsApp.
+- **Decisões do Financeiro e de Compras (18/10/2026)** (`lib/whatsapp/financeiro.ts`): `financeiro` (ou
+  `despesas`, `compras`, `pendências financeiras`…, só como a mensagem inteira; quem não decide cai no
+  menu) lista, numerado, o que espera a decisão da pessoa — até 8, com valor, descrição e fornecedor e
+  quem pediu (`textoDasDecisoes`). Quem decide é quem a tela deixa, lido sem sessão como o banco lê
+  (`private.nivel_fin`: admin tudo; a equipe da Escola, só o acesso aos livros da Escola; os outros, o de
+  todas as empresas ou o daquela): despesa pendente com nível ≥ 3 e que a pessoa não lançou; compra em
+  aprovação na vez do Financeiro (nível ≥ 3, não aprovou pela Diretoria) ou da Diretoria (`pessoasDaDiretoria`,
+  não aprovou pelo Financeiro), nunca quem pediu. A lista fica em `whatsapp_pendencias` (tipo
+  `financeiro`, só os ids e a vez); `aprovar 2` / `recusar 2: motivo` (`lerDecisaoFinanceira`; recusa com
+  5+ letras; na compra, o texto depois do aprovar vai como observação) relê o item — se mudou, “não espera
+  mais a sua decisão” — e vira o link de confirmar. O número sozinho ensina o comando (não vira o `2`
+  dos avisos lidos). Vale com a verificação em duas etapas: daqui só sai o link. O menu ganha a linha e a
+  linha da lista `financeiro` para quem decide (`QuemNoMenu.financeiro`; a lista chega às 10 linhas da
+  Meta com tudo).
+- **Desativar conta pelo WhatsApp (18/10/2026)** (`pedirDesativacao`, em `lib/whatsapp/admin.ts`): para
+  quem tem `usuarios.gerenciar`, `desativar conta: <nome ou usuário>` (`lerDesativarConta`; para os
+  outros, “desativar” continua pausando os avisos) acha a pessoa ativa (`acharPeloNome`, com o usuário
+  como apelido; a própria pessoa fica de fora) e responde com o link; mais de uma, a lista com os
+  usuários. A desativação é a da tela, ao confirmar.
+- **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
+  pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
+  ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva
+  `LINHA_DO_NAO_FUI_EU` (“Responda NÃO FUI EU se não foi você…”). A entrega (`enviarAgora`) reconhece o
+  aviso pelo texto — também o que esperou na fila — e põe o botão “Não fui eu” (`BOTAO_DO_NAO_FUI_EU`, id
+  `nao fui eu`, só dentro da janela) e a marca `nao_fui_eu` em `whatsapp_mensagens.comando`. A resposta
+  (`ehNaoFuiEu`: “não fui eu”, “não foi eu”, “não reconheço”…, ou o toque) é tratada logo depois do código
+  de ida, **pelo número**: acha o aviso marcado que saiu para ele, citado (até 7 dias) ou o mais novo das
+  últimas 24 h, e a conta é a `user_id` dele — vale do número antigo, que já não está em `whatsapp_contas`,
+  e mesmo com a verificação em duas etapas (é proteção, não ação em nome da pessoa); não vale se o número
+  foi confirmado em outra conta depois. Antes, a conferência (`textoDaConferenciaDoNaoFuiEu`, botões
+  Confirmo/Cancelar), em `whatsapp_pendencias` tipo `nao_fui_eu` com o número em `dados`: só esse número a
+  responde (`pendenciaAberta` nunca a devolve, e uma pergunta nova não a encerra), e o “confirmo” sem citar
+  só vale se ela é a pergunta mais nova da pessoa. Confirmado, `protegerConta`: `encerrarSessoesDaConta`
+  (`encerrar_sessoes_do_usuario`), `revogarLinksDaConta` (todos os `tokens_de_conta` pendentes — senha,
+  convite, confirmação de e-mail — e os `whatsapp_codigos` em aberto), auditoria `nao_fui_eu` (número
+  mascarado, se era o da conta, quantas sessões e links), sino e e-mail (categoria `auditoria`, a dos
+  alertas de acesso) para os administradores e quem lê o registro de acessos, e o e-mail
+  `sessoes_encerradas` à pessoa. Não troca a senha nem desativa: a resposta manda trocar a senha.
+  Sem aviso recente, quem é da equipe ouve o que fazer; número desconhecido segue para a apresentação.
+- **Antes da migração `20261018223000`:** `whatsapp_confirmacoes` não existe e o CHECK de
+  `whatsapp_pendencias.tipo` não aceita `financeiro` nem `nao_fui_eu`: o pedido sensível responde com o
+  link da tela de sempre (o voto, com o texto da verificação em duas etapas), a lista do `financeiro` sai
+  com o link de cada item (`Resposta.semPergunta`) e o “Não fui eu” orienta a trocar a senha e falar com a
+  administração (`TEXTO_NAO_FUI_EU_INDISPONIVEL`). A marca e a linha do “Não fui eu” nos avisos não
+  dependem dela.
 - **Antes da migração `20261018213700`:** o CHECK de `whatsapp_pendencias.tipo` não aceita os tipos
   novos, `guardarPendencia` falha e o bot responde “Isto ainda não está ligado…” com o link do lugar
   certo (`ondeNoPalacio`: o chamado ou a portaria). Assumir e a lista `portaria` não dependem dela. A

@@ -12,11 +12,14 @@ import { ehEquipeDaEscola, type Papel } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 import {
   BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES, PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular,
-  interativoDaEscolha, lerDecisao, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato, type Interativo, type Opcao,
+  interativoDaEscolha, lerDecisao, lerEscolha, oQueDoVoto, textoDaConferencia, textoDaEscolha, textoDoLinkDeConfirmacao, textoPedeDetalhes, tituloDoRelato,
+  type Interativo, type Opcao,
 } from './regras'
 import { seguirEnvio } from './envio'
 import { atenderPeloAviso, seguirAtendimento } from './atendimento'
 import { seguirVisita } from './portaria'
+import { seguirDecisoes } from './financeiro'
+import { criarConfirmacao } from './confirmacoes'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
 
@@ -36,9 +39,11 @@ import { aposResposta } from '@/lib/portaria/servidor'
  *
  * O WhatsApp não pede o código do app autenticador: quem usa a verificação
  * em duas etapas (ou é obrigado a usar) consulta, abre chamado e responde à
- * portaria por aqui; o resto (responder, votar, atender chamado, registrar
- * visita, mandar fotos) fica no Palácio. O banco confere de novo no Chat, no
- * voto e no registro da visita (a sessão simulada é aal1).
+ * portaria por aqui; o resto (responder, atender chamado, registrar visita,
+ * mandar fotos) fica no Palácio. O voto dele sai com o link de confirmar no
+ * Palácio (lib/whatsapp/confirmacoes.ts), onde a sessão tem o código. O banco
+ * confere de novo no Chat, no voto e no registro da visita (a sessão simulada
+ * é aal1).
  *
  * Nada aqui envia mensagem: cada função devolve o texto da resposta e, quando
  * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias).
@@ -48,8 +53,12 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export type Pessoa = { id: string; nome: string | null; papel: Papel }
 
-/** `atender_chamado` e `registrar_visita` vêm da migração 20261018213700: antes dela, o banco recusa a pergunta e o bot manda para o Palácio. */
-export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita'
+/**
+ * `atender_chamado` e `registrar_visita` vêm da migração 20261018213700; `financeiro` (a lista das decisões, para o
+ * "aprovar 2") e `nao_fui_eu` (a conferência do "Não fui eu", achada pelo número: lib/whatsapp/protecao.ts), da
+ * 20261018223000. Antes delas, o banco recusa a pergunta e o bot manda para o Palácio.
+ */
+export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita' | 'financeiro' | 'nao_fui_eu'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
 /**
@@ -61,6 +70,8 @@ export type Resposta = {
   texto: string
   pergunta?: { tipo: TipoDePendencia; dados: Record<string, unknown>; id?: number }
   interativo?: Interativo | null
+  /** O texto que vai no lugar quando a pergunta não pôde ser guardada (a migração dela ainda não foi aplicada); sem ele, "Isto ainda não está ligado…". */
+  semPergunta?: string
 }
 
 export const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
@@ -73,6 +84,8 @@ export function ondeNoPalacio(p: { tipo: TipoDePendencia; dados: Record<string, 
   if (p.tipo === 'atender_chamado') return `/chamados/${String(p.dados.chamadoId ?? '')}`
   if (p.tipo === 'registrar_visita') return '/portaria'
   if (p.tipo === 'envio') return '/enviar'
+  if (p.tipo === 'financeiro') return '/financeiro?aba=aprovacao'
+  if (p.tipo === 'nao_fui_eu') return '/perfil'
   return '/chamados/novo'
 }
 
@@ -113,8 +126,12 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
   if (alvo.tipo === 'visita') return responderVisita(admin, workspaceId, pessoa, alvo.id, texto, base)
   const corpo = texto.trim()
   if (corpo.length < 2) return { texto: 'Escreva a resposta respondendo a mensagem do aviso.' }
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
   const escola = ehEquipeDaEscola(pessoa.papel)
+  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) {
+    // O voto de quem usa a verificação em duas etapas: o link de confirmar no Palácio, onde a sessão tem o código.
+    if (alvo.tipo === 'aprovacao' && !escola) return votarPeloPalacio(admin, workspaceId, pessoa, alvo.id, corpo, base)
+    return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
+  }
   const autor = { id: pessoa.id, nome: pessoa.nome }
 
   if (alvo.tipo === 'chamado') {
@@ -215,6 +232,27 @@ async function decidirAprovacao(admin: Admin, workspaceId: string, pessoa: Pesso
   }
 }
 
+/**
+ * O voto de quem usa (ou é obrigado a usar) a verificação em duas etapas: "aprovar" ou "ajustes: …", como
+ * sempre, mas o voto não sai daqui — vira o link de confirmar no Palácio (lib/whatsapp/confirmacoes.ts). Lá,
+ * com a sessão verificada, a conferência do setor aparece antes do botão, e o voto passa pela mesma função
+ * da tela da aprovação (lib/aprovacoes/voto.ts, votarNaRodada).
+ */
+async function votarPeloPalacio(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, texto: string, base: string): Promise<Resposta> {
+  const abrir = `${base}/aprovacoes/${approvalId}`
+  const decisao = lerDecisao(texto)
+  if (!decisao) {
+    return { texto: `Para votar, responda o aviso com *aprovar* ou com *ajustes:* e o que precisa mudar: chega um link para você confirmar no Palácio (a sua conta usa a verificação em duas etapas). Ou abra: ${abrir}` }
+  }
+  if (decisao.decisao === 'ajustes' && decisao.nota.length < 5) return { texto: 'Diga o que precisa mudar, respondendo o aviso com *ajustes:* e o texto.' }
+  const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
+  if ('erro' in rodada) return { texto: `${rodada.erro} ${abrir}` }
+  const voto = decisao.decisao === 'aprovar' ? { decisao: 'approved' as const, nota: '' } : { decisao: 'changes_requested' as const, nota: decisao.nota }
+  const link = await criarConfirmacao(admin, { workspaceId, userId: pessoa.id, acao: 'votar_aprovacao', alvoId: approvalId, dados: voto })
+  if ('erro' in link) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
+  return { texto: textoDoLinkDeConfirmacao({ oQue: oQueDoVoto({ titulo: rodada.titulo, ...voto }), url: link.url }) }
+}
+
 async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, decisao: 'approved' | 'changes_requested', nota: string, base: string, conferencia?: string): Promise<string> {
   const abrir = `${base}/aprovacoes/${approvalId}`
   const comentario = [nota, conferencia, 'Voto dado pelo WhatsApp.'].filter(Boolean).join('\n\n')
@@ -228,10 +266,16 @@ async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approval
 
 // ------------------------------------------------------------------ pendências (o passo que falta)
 
-/** A pergunta aberta: a citada (se a pessoa respondeu citando) ou a mais recente dos últimos 15 minutos. */
-export async function pendenciaAberta(admin: Admin, workspaceId: string, userId: string, citada: string | null): Promise<Pendencia | null> {
+/**
+ * A pergunta aberta: a citada (se a pessoa respondeu citando) ou a mais recente dos últimos 15 minutos; com `tipo`,
+ * só daquele tipo (a lista do "financeiro" para o "aprovar 2"). A conferência do "Não fui eu" nunca vem por aqui:
+ * ela é do número que respondeu ao aviso (lib/whatsapp/protecao.ts), e quem está com o número de agora da conta
+ * não a responde nem a cancela.
+ */
+export async function pendenciaAberta(admin: Admin, workspaceId: string, userId: string, citada: string | null, tipo?: TipoDePendencia): Promise<Pendencia | null> {
   let consulta = admin.from('whatsapp_pendencias').select('id, tipo, dados').eq('workspace_id', workspaceId).eq('user_id', userId)
     .is('encerrada_em', null).gt('expira_em', new Date().toISOString())
+  consulta = tipo ? consulta.eq('tipo', tipo) : consulta.neq('tipo', 'nao_fui_eu')
   if (citada) consulta = consulta.eq('mensagem_id', citada)
   const { data, error } = await consulta.order('criado_em', { ascending: false }).limit(1).maybeSingle()
   if (error || !data) return null
@@ -261,8 +305,10 @@ export async function guardarPendencia(admin: Admin, workspaceId: string, userId
     const { error } = await admin.from('whatsapp_pendencias').update({ dados: p.dados, expira_em: expira, mensagem_id: null }).eq('id', p.id)
     return error ? null : p.id
   }
-  // Uma pergunta por vez: a nova substitui as que ficaram abertas (o envio de fotos aberto continua).
-  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null).neq('tipo', 'envio')
+  // Uma pergunta por vez: a nova substitui as que ficaram abertas (o envio de fotos aberto continua, e a conferência
+  // do "Não fui eu", que é do número que respondeu ao aviso, também: uma pergunta nova não a cancela).
+  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null)
+    .not('tipo', 'in', '(envio,nao_fui_eu)')
   const { data, error } = await admin.from('whatsapp_pendencias').insert({ workspace_id: workspaceId, user_id: userId, tipo: p.tipo, dados: p.dados, expira_em: expira }).select('id').single()
   return error || !data ? null : (data.id as number)
 }
@@ -287,17 +333,23 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
       abrir_chamado: 'Pronto: o chamado não foi aberto.',
       atender_chamado: 'Pronto: nada mudou no chamado.',
       registrar_visita: 'Pronto: a entrada não foi registrada.',
+      financeiro: 'Pronto: nada foi decidido.',
+      nao_fui_eu: 'Pronto: nada mudou na conta.',
     }
     return { texto: desistiu[p.tipo] }
   }
   if (p.tipo === 'atender_chamado') return seguirAtendimento(admin, workspaceId, pessoa, p, texto, base, estrita)
   if (p.tipo === 'registrar_visita') return seguirVisita(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'financeiro') return seguirDecisoes(admin, workspaceId, pessoa, p, texto, base, estrita)
+  // A conferência do "Não fui eu" é respondida pelo número, antes de tudo (lib/whatsapp/protecao.ts); aqui não chega.
+  if (p.tipo === 'nao_fui_eu') return null
 
   if (p.tipo === 'aprovar') {
     const approvalId = String(p.dados.approvalId ?? '')
     if (!ehConfirmacao(texto)) return estrita ? { texto: 'Para aprovar, responda a conferência com *confirmo*; para desistir, *cancelar*.' } : null
     if (!await encerrarPendencia(admin, p.id)) return { texto: 'Esta conferência já foi respondida.' }
-    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: TEXTO_SEM_ACAO_PELO_WHATSAPP }
+    // Ligou a verificação em duas etapas depois da conferência: o voto vira o link de confirmar no Palácio.
+    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return votarPeloPalacio(admin, workspaceId, pessoa, approvalId, 'aprovar', base)
     const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
     if ('erro' in rodada) return { texto: `${rodada.erro} ${base}/aprovacoes/${approvalId}` }
     return { texto: await votar(admin, workspaceId, pessoa, approvalId, 'approved', '', base, registroDaConferencia(rodada.blocos)) }
