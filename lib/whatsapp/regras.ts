@@ -286,11 +286,74 @@ export function proximaTentativa(tentativas: number, agora: Date): Date | null {
   return espera === undefined ? null : new Date(agora.getTime() + espera * 60_000)
 }
 
-/** Categoria que não vai pelo WhatsApp: o alerta de "WhatsApp caiu" iria justamente por onde caiu. */
+/**
+ * Categoria que não vai pelo WhatsApp: o alerta de "WhatsApp caiu" iria justamente por onde caiu. O alerta das
+ * outras integrações ("integracoes": conta Google expirada, e-mail ou armazenamento parados) vai, como qualquer aviso.
+ */
 export const categoriaVaiPorWhatsapp = (categoria: string): boolean => categoria !== 'sistema'
 
 /** Alerta de queda repetido no máximo a cada tantas horas. */
 export const ALERTA_A_CADA_HORAS = 6
+
+// ------------------------------------------------------------------ cota diária de conversas iniciadas
+//
+// A Meta limita quantas pessoas DIFERENTES o número procura em 24 h (janela móvel) com conversa que a
+// empresa inicia: a mensagem a quem não escreveu ao número nas últimas 24 h, que só sai por modelo. O
+// número começa no TIER_250 (250 por dia), e o teto sobe sozinho com o uso e a qualidade; passou dele, a
+// Meta recusa o que sobrar. O Palácio conta pela aproximação (fila.ts, cotaDeConversas; a função
+// whatsapp_cota_de_conversas no banco): números distintos que receberam saída enviada nas últimas 24 h sem
+// ter escrito nas 24 h antes dela. A resposta do bot não conta (vai sempre dentro da janela).
+//
+// Chegando em teto − reserva, o que pode esperar espera um dia; a reserva fica para o que não espera. E só
+// espera quem abriria conversa nova: com a janela aberta (escreveu nas últimas 24 h) ou já contado hoje, sai.
+
+/** O teto do número na Meta (TIER_250) e a reserva para o que não espera. Subiu o teto na Meta, suba aqui. */
+export const COTA_DE_CONVERSAS = { teto: 250, reserva: 30 } as const
+
+/** A partir de quantas conversas iniciadas em 24 h o que pode esperar fica para o dia seguinte. */
+export const limiteDaCota = (teto: number = COTA_DE_CONVERSAS.teto, reserva: number = COTA_DE_CONVERSAS.reserva) => Math.max(0, teto - reserva)
+
+export type PrioridadeNaCota = 'alta' | 'baixa'
+
+/** Avisos que não esperam a cota: a visita na porta, os alertas de acesso e da trilha (auditoria) e os das integrações. */
+const AVISOS_QUE_NAO_ESPERAM_A_COTA = new Set<string>(['portaria', 'auditoria', 'integracoes'])
+
+/**
+ * Alta: segurança da conta, código, resposta do bot, teste e os avisos de AVISOS_QUE_NAO_ESPERAM_A_COTA. Baixa:
+ * o resto dos avisos — os comuns do sino, o anúncio aos voluntários, os convites (o de acesso e o da ficha) e o
+ * pedido de documentos ao candidato.
+ */
+export function prioridadeNaCota(m: { tipo: Finalidade; categoria?: string | null }): PrioridadeNaCota {
+  if (m.tipo !== 'aviso') return 'alta'
+  return AVISOS_QUE_NAO_ESPERAM_A_COTA.has(m.categoria ?? '') ? 'alta' : 'baixa'
+}
+
+/** A cota do espaço e, para um número, se ele está com a janela aberta ou já foi contado nas últimas 24 h. */
+export type CotaDoNumero = { usadas: number; janelaAberta: boolean; jaContado: boolean }
+
+/** A mensagem espera pela cota? `usadas` null = não deu para contar (antes da migração): nada espera. */
+export function esperaPelaCota(p: { prioridade: PrioridadeNaCota; usadas: number | null; janelaAberta: boolean; jaContado: boolean; limite?: number }): boolean {
+  if (p.prioridade === 'alta' || p.usadas === null || p.janelaAberta || p.jaContado) return false
+  return p.usadas >= (p.limite ?? limiteDaCota())
+}
+
+/**
+ * Quando o que esperou pela cota tenta de novo: 24 h depois — a janela da Meta é móvel, então o que contou até
+ * agora já saiu da conta. Caindo no silêncio da noite, às 7h. Lá, confere de novo (e, no limite, espera mais um dia).
+ */
+export function fimDaEsperaDaCota(agora: Date): Date {
+  const amanha = new Date(agora.getTime() + 24 * 3_600_000)
+  return emSilencio(amanha) ? fimDoSilencio(amanha) : amanha
+}
+
+/** "37 de 250"; no limite, o que acontece; sem a contagem, "não deu para ler agora". */
+export function textoDaCota(usadas: number | null, teto: number = COTA_DE_CONVERSAS.teto): string {
+  if (usadas === null) return 'não deu para ler agora'
+  return `${usadas} de ${teto}${usadas >= limiteDaCota(teto) ? ' – no limite: avisos comuns, convites e anúncios esperam o dia seguinte' : ''}`
+}
+
+/** O fim do recado de quem mandou um convite ou um link que ficou para o dia seguinte pela cota. */
+export const TEXTO_DA_ESPERA_DA_COTA = 'amanhã: a cota diária de conversas que o WhatsApp deixa o Palácio começar está no limite'
 
 // ------------------------------------------------------------------ saúde do canal (o "status" da administração e os alertas da rotina)
 //
@@ -388,17 +451,19 @@ export function quandoEmSaoPaulo(iso: string | null | undefined): string | null 
   return `${rotuloDoDia(`${p.year}-${p.month}-${p.day}`)} às ${p.hour}:${p.minute}`
 }
 
-export type EsperaNaFila = { silencio: number; volume: number; falha: number }
+/** O que espera na fila, por motivo; `cota`: o que ficou para o dia seguinte pela cota diária de conversas. */
+export type EsperaNaFila = { silencio: number; volume: number; falha: number; cota: number }
 
 /** "3 mensagens (2 no silêncio até as 7h, 1 para reenviar)"; "vazia"; sem a contagem, "não deu para ler agora". */
 function textoDaEspera(f: EsperaNaFila | null): string {
   if (!f) return 'não deu para ler agora'
-  const total = f.silencio + f.volume + f.falha
+  const total = f.silencio + f.volume + f.falha + f.cota
   if (!total) return 'vazia'
   const partes = [
     f.silencio ? `${f.silencio} no silêncio até as 7h` : null,
     f.volume ? `${f.volume} esperando a vez` : null,
     f.falha ? `${f.falha} para reenviar` : null,
+    f.cota ? `${f.cota} para amanhã pela cota diária` : null,
   ].filter(Boolean)
   return `${total} ${total === 1 ? 'mensagem' : 'mensagens'} (${partes.join(', ')})`
 }
@@ -422,6 +487,8 @@ export type StatusDoCanal = {
   semChave: string[] | null
   /** As autorizações do Google que expiraram: onde são usadas e a conta. */
   googleExpiradas: { onde: string; conta: string }[]
+  /** As conversas que o Palácio iniciou nas últimas 24 h (a cota diária da Meta); null = não deu para contar. */
+  conversas: number | null
   /** Quando a rotina diária do WhatsApp terminou pela última vez; null = sem registro. */
   rotina: string | null
   urlBase: string
@@ -450,6 +517,7 @@ export function textoDoStatus(s: StatusDoCanal): string {
       conexao,
       `*Recebimento (bot):* ${WEBHOOK_NO_STATUS[s.webhook]}`,
       `*Fila:* ${textoDaEspera(s.fila)}`,
+      `*Conversas iniciadas em 24 h:* ${textoDaCota(s.conversas)}`,
       ...linhasDasFalhas,
       `*Integrações sem chave:* ${semChave}`,
       `*Contas Google:* ${google}`,
@@ -464,7 +532,7 @@ export type RodadaDaFila = { enviadas: number; adiadas: number; desistiu: number
 /** O que uma rodada da fila fez (o botão "Enviar a fila agora" e o comando "fila"). */
 export function textoDaRodadaDaFila(r: RodadaDaFila): string {
   if (!r.enviadas && !r.adiadas && !r.desistiu && !r.restam) {
-    return 'Nada saiu agora: a fila está vazia, ou o que espera ainda não pode sair (o silêncio das 22h às 7h, ou o reenvio marcado para mais tarde).'
+    return 'Nada saiu agora: a fila está vazia, ou o que espera ainda não pode sair (o silêncio das 22h às 7h, o reenvio marcado para mais tarde ou a cota diária).'
   }
   const partes = [`${r.enviadas} ${r.enviadas === 1 ? 'mensagem enviada' : 'mensagens enviadas'}`]
   if (r.adiadas) partes.push(`${r.adiadas} para tentar de novo mais tarde`)

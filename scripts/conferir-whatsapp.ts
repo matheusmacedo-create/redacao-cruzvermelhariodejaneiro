@@ -19,7 +19,12 @@ import {
   LINHA_DO_NAO_FUI_EU, BOTAO_DO_NAO_FUI_EU, MARCA_DO_NAO_FUI_EU, ofereceNaoFuiEu, ehNaoFuiEu, textoDaConferenciaDoNaoFuiEu, textoDoNaoFuiEuFeito,
   CONFIRMACAO_VALE_MIN, textoDoLinkDeConfirmacao, textoDasDecisoes, lerDecisaoFinanceira, oQueDaDecisao, lerDesativarConta, oQueDaDesativacao,
   textoDeQuemDesativar, textoDeNinguemParaDesativar, oQueDoVoto, DECISOES_NA_RESPOSTA, type ItemParaDecidir,
+  COTA_DE_CONVERSAS, limiteDaCota, prioridadeNaCota, esperaPelaCota, fimDaEsperaDaCota, textoDaCota, TEXTO_DA_ESPERA_DA_COTA,
 } from '../lib/whatsapp/regras'
+import { CATEGORIAS, ROTULO_DA_CATEGORIA } from '../lib/notificacoes/regras'
+import {
+  ALERTA_DE_INTEGRACAO_A_CADA_HORAS, INTEGRACOES_ALERTADAS, alertaDeIntegracaoSai, motivoDaFalhaDoEmail, motivoDaFalhaDoR2, textoDoAlertaDeIntegracao,
+} from '../lib/integracoes/alertas-regras'
 import { lerRespostaDaVisita, respostaClaraDaVisita } from '../lib/portaria/regras'
 import { URGENCIA } from '../lib/chamados/regras'
 import { corpoParaWhatsapp, emailDeAviso, ofereceNaoFuiEu as avisoOfereceNaoFuiEu } from '../lib/contas/emails'
@@ -669,22 +674,23 @@ igual(quandoEmSaoPaulo(null), null, 'quando: sem data')
 igual(quandoEmSaoPaulo('lixo'), null, 'quando: data inválida')
 
 const statusBase: StatusDoCanal = {
-  conexao: { estado: 'conectado', erro: null }, webhook: 'ligado', fila: { silencio: 0, volume: 0, falha: 0 },
+  conexao: { estado: 'conectado', erro: null }, webhook: 'ligado', fila: { silencio: 0, volume: 0, falha: 0, cota: 0 }, conversas: 12,
   falhas: { total: 0, grupos: [] }, semChave: [], googleExpiradas: [], rotina: '2026-10-18T10:05:00Z', urlBase: 'https://p',
 }
 const statusEmDia = textoDoStatus(statusBase)
 contem(statusEmDia, '*Status do WhatsApp do Palácio*', 'status: título')
-contem(statusEmDia, '*Kapso:* Conectado\n*Recebimento (bot):* ligado\n*Fila:* vazia\n*Falhas em 24 h:* nenhuma\n*Integrações sem chave:* nenhuma\n*Contas Google:* em dia\n*Rotina diária:* dom, 18/10 às 07:05', 'status em dia: uma linha por assunto')
+contem(statusEmDia, '*Kapso:* Conectado\n*Recebimento (bot):* ligado\n*Fila:* vazia\n*Conversas iniciadas em 24 h:* 12 de 250\n*Falhas em 24 h:* nenhuma\n*Integrações sem chave:* nenhuma\n*Contas Google:* em dia\n*Rotina diária:* dom, 18/10 às 07:05', 'status em dia: uma linha por assunto')
 contem(statusEmDia, 'Detalhes: https://p/configuracoes/whatsapp', 'status: link da tela')
 const statusComProblema = textoDoStatus({
   ...statusBase,
-  conexao: { estado: 'erro', erro: 'A Kapso aponta *problema* no número.' }, webhook: 'desligado', fila: { silencio: 2, volume: 0, falha: 1 },
+  conexao: { estado: 'erro', erro: 'A Kapso aponta *problema* no número.' }, webhook: 'desligado', fila: { silencio: 2, volume: 0, falha: 1, cota: 4 }, conversas: 231,
   falhas: { total: 9, grupos: resumoDasFalhas(deAviso([foraDaJanela, foraDaJanela, foraDaJanela, modeloPausado, 'a', 'b', 'c', 'd'])) },
   semChave: ['Hunter.io', 'Meta Ads'], googleExpiradas: [{ onde: 'E-mail dos setores', conta: 'comunicacao@cvb.org' }], rotina: null,
 })
 contem(statusComProblema, '*Kapso:* Sem resposta da Kapso – A Kapso aponta problema no número.', 'status: o erro da conexão, sem a marcação')
 contem(statusComProblema, '*Recebimento (bot):* desligado', 'status: recebimento desligado')
-contem(statusComProblema, '*Fila:* 3 mensagens (2 no silêncio até as 7h, 1 para reenviar)', 'status: a fila por motivo')
+contem(statusComProblema, '*Fila:* 7 mensagens (2 no silêncio até as 7h, 1 para reenviar, 4 para amanhã pela cota diária)', 'status: a fila por motivo, com a cota')
+contem(statusComProblema, '*Conversas iniciadas em 24 h:* 231 de 250 – no limite: avisos comuns, convites e anúncios esperam o dia seguinte', 'status: a cota no limite')
 contem(statusComProblema, '*Falhas em 24 h:* 9\n• 3 – Fora da janela de 24 h, sem modelo aprovado\n• 1 – ', 'status: falhas agrupadas')
 contem(statusComProblema, '_e mais 2 motivos_', 'status: corta os motivos em 4')
 contem(statusComProblema, 'Configurações → Integrações', 'status: falha sem modelo diz onde configurar')
@@ -692,6 +698,7 @@ contem(statusComProblema, '*Integrações sem chave:* Hunter.io, Meta Ads', 'sta
 contem(statusComProblema, 'E-mail dos setores (comunicacao@cvb.org) – a autorização expirou', 'status: Google expirado')
 contem(statusComProblema, '*Rotina diária:* sem registro ainda', 'status: rotina sem registro')
 contem(textoDoStatus({ ...statusBase, fila: null, falhas: null, semChave: null, webhook: 'desconhecido' }), '*Fila:* não deu para ler agora', 'status: o que não deu para ler')
+contem(textoDoStatus({ ...statusBase, conversas: null }), '*Conversas iniciadas em 24 h:* não deu para ler agora', 'status: a cota sem a contagem (antes da migração)')
 const statusDoBot = textoDoStatus({ ...statusBase, falhas: { total: 2, grupos: resumoDasFalhas(deAviso([foraDaJanelaDoBot, foraDaJanelaDoBot], 'bot')) } })
 contem(statusDoBot, `*Falhas em 24 h:* 2\n• 2 – ${ROTULO_DO_BOT_FORA_DA_JANELA}`, 'status: resposta do bot fora da janela com rótulo próprio')
 igual(statusDoBot.includes('Os modelos aprovados'), false, 'status: resposta do bot fora da janela não puxa a dica dos modelos')
@@ -700,7 +707,7 @@ igual(textoDaRodadaDaFila({ enviadas: 1, adiadas: 0, desistiu: 0, restam: 0 }), 
 igual(textoDaRodadaDaFila({ enviadas: 3, adiadas: 1, desistiu: 2, restam: 4 }),
   '3 mensagens enviadas; 1 para tentar de novo mais tarde; 2 descartadas (aviso já lido, número removido ou falha sem volta); 4 ainda esperando a vez.', 'rodada: tudo junto (o texto de sempre da tela)')
 contem(textoDaRodadaDaFila({ enviadas: 0, adiadas: 0, desistiu: 0, restam: 0 }), 'Nada saiu agora', 'rodada: nada para sair')
-const comandoFila = textoDoComandoFila({ rodada: { enviadas: 2, adiadas: 0, desistiu: 0, restam: 0 }, fila: { silencio: 2, volume: 0, falha: 0 } })
+const comandoFila = textoDoComandoFila({ rodada: { enviadas: 2, adiadas: 0, desistiu: 0, restam: 0 }, fila: { silencio: 2, volume: 0, falha: 0, cota: 0 } })
 contem(comandoFila, '*Fila do WhatsApp*\n\n2 mensagens enviadas.', 'comando fila: a rodada')
 contem(comandoFila, 'Na fila agora: 2 mensagens (2 no silêncio até as 7h).', 'comando fila: o que ficou')
 
@@ -922,6 +929,70 @@ contem(textoDeNinguemParaDesativar('Zé'), 'Não achei ninguém ativo na equipe 
 contem(oQueDoVoto({ titulo: 'Matéria', decisao: 'approved', nota: '' }), 'A conferência do setor aparece no Palácio', 'voto pelo link: a conferência fica na tela')
 contem(oQueDoVoto({ titulo: 'Matéria', decisao: 'changes_requested', nota: 'trocar a foto' }), 'Pedir ajustes em *Matéria*?\n\n> trocar a foto', 'voto pelo link: os ajustes citados')
 contem(TEXTO_SEM_ACAO_PELO_WHATSAPP, 'link para confirmar no Palácio', 'verificação em duas etapas: o voto e as decisões vêm com o link')
+
+// ---------------------------------------------------------------- cota diária de conversas iniciadas
+igual(COTA_DE_CONVERSAS, { teto: 250, reserva: 30 }, 'cota: o TIER_250 da Meta, com 30 de reserva')
+igual(limiteDaCota(), 220, 'cota: o que pode esperar espera a partir de 220')
+igual(limiteDaCota(1000, 30), 970, 'cota: o teto sobe, o limite acompanha')
+igual(limiteDaCota(20, 30), 0, 'cota: reserva maior que o teto não fica negativa')
+igual(prioridadeNaCota({ tipo: 'seguranca' }), 'alta', 'cota: segurança da conta não espera')
+igual(prioridadeNaCota({ tipo: 'codigo' }), 'alta', 'cota: código não espera')
+igual(prioridadeNaCota({ tipo: 'bot' }), 'alta', 'cota: resposta do bot não espera')
+igual(prioridadeNaCota({ tipo: 'teste' }), 'alta', 'cota: teste não espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'portaria' }), 'alta', 'cota: portaria (o visitante está na porta) não espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'auditoria' }), 'alta', 'cota: alerta de acesso e da trilha não espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'integracoes' }), 'alta', 'cota: alerta de integração não espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'chamados' }), 'baixa', 'cota: aviso comum espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'voluntariado' }), 'baixa', 'cota: anúncio aos voluntários espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'conta' }), 'baixa', 'cota: convite de acesso espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'equipe' }), 'baixa', 'cota: convite da ficha espera')
+igual(prioridadeNaCota({ tipo: 'aviso', categoria: 'aprovacoes' }), 'baixa', 'cota: pedido de documentos ao candidato espera')
+igual(prioridadeNaCota({ tipo: 'aviso' }), 'baixa', 'cota: aviso sem categoria espera')
+const naCota = { prioridade: 'baixa' as const, janelaAberta: false, jaContado: false }
+igual(esperaPelaCota({ ...naCota, usadas: 219 }), false, 'cota: abaixo do limite, sai')
+igual(esperaPelaCota({ ...naCota, usadas: 220 }), true, 'cota: no limite, o que pode esperar espera')
+igual(esperaPelaCota({ ...naCota, usadas: 260 }), true, 'cota: acima do teto, espera')
+igual(esperaPelaCota({ ...naCota, usadas: 240, prioridade: 'alta' }), false, 'cota: o que não espera sai mesmo no limite')
+igual(esperaPelaCota({ ...naCota, usadas: 240, janelaAberta: true }), false, 'cota: quem escreveu nas últimas 24 h não abre conversa nova')
+igual(esperaPelaCota({ ...naCota, usadas: 240, jaContado: true }), false, 'cota: quem já foi contado hoje não conta de novo')
+igual(esperaPelaCota({ ...naCota, usadas: null }), false, 'cota: sem a contagem (antes da migração), nada espera')
+igual(esperaPelaCota({ ...naCota, usadas: 50, limite: 50 }), true, 'cota: limite informado')
+// 12h em SP: volta 24 h depois. 23h em SP: 24 h depois é 23h de novo (silêncio), então espera as 7h.
+igual(fimDaEsperaDaCota(new Date('2026-10-18T15:00:00Z')).toISOString(), '2026-10-19T15:00:00.000Z', 'cota: tenta de novo 24 h depois')
+igual(fimDaEsperaDaCota(new Date('2026-10-18T02:00:00Z')).toISOString(), '2026-10-19T10:00:00.000Z', 'cota: 24 h depois cai no silêncio, sai às 7h')
+igual(textoDaCota(37), '37 de 250', 'cota: o texto do status')
+contem(textoDaCota(220), '220 de 250 – no limite', 'cota: no limite, o status diz')
+igual(textoDaCota(null), 'não deu para ler agora', 'cota: sem a contagem')
+contem(TEXTO_DA_ESPERA_DA_COTA, 'amanhã', 'cota: o recado do convite que ficou para o dia seguinte')
+
+// ---------------------------------------------------------------- alertas de integrações (lib/integracoes/alertas-regras.ts)
+igual(CATEGORIAS.includes('integracoes'), true, 'integrações: a categoria existe')
+igual(categoriaVaiPorWhatsapp('integracoes'), true, 'integrações: o alerta vai pelo WhatsApp (o de queda do WhatsApp, não)')
+contem(ROTULO_DA_CATEGORIA.integracoes.exemplos, 'Só para a administração', 'integrações: o rótulo nas preferências')
+igual(lerCategoriasDoWhatsapp({}).integracoes, true, 'integrações: ligada por padrão no WhatsApp')
+igual(ALERTA_DE_INTEGRACAO_A_CADA_HORAS, 6, 'integrações: um alerta a cada 6 h')
+const agoraDaIntegracao = new Date('2026-10-18T12:00:00Z')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: null, agora: agoraDaIntegracao }), true, 'integrações: primeiro alerta sai')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T10:00:00Z', agora: agoraDaIntegracao }), false, 'integrações: outro em menos de 6 h não sai')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T06:00:00Z', agora: agoraDaIntegracao }), true, 'integrações: 6 h depois, sai de novo')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2099-01-01T00:00:00Z', agora: agoraDaIntegracao }), true, 'integrações: marco com data futura não cala o alerta')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: 'lixo', agora: agoraDaIntegracao }), true, 'integrações: marco ilegível não cala o alerta')
+igual([401, 403, 500, 503, 0, 422, 400].map((s) => motivoDaFalhaDoEmail(s)), ['chave', 'chave', 'servico', 'servico', 'servico', null, null], 'integrações: as falhas do Resend que alertam')
+igual(motivoDaFalhaDoEmail(429, 'You have reached your daily email sending quota.'), 'servico', 'integrações: Resend sem cota no plano alerta')
+igual(motivoDaFalhaDoEmail(429, 'Too many requests. You can only make 2 requests per second.'), null, 'integrações: chamadas demais por segundo passam sozinhas')
+igual([null, 0, 401, 403, 404, 500, 412, 409, 400].map(motivoDaFalhaDoR2), ['servico', 'servico', 'chave', 'chave', 'chave', 'servico', null, null, null], 'integrações: as falhas do R2 que alertam')
+for (const integracao of INTEGRACOES_ALERTADAS) {
+  for (const motivo of ['chave', 'servico'] as const) {
+    const a = textoDoAlertaDeIntegracao(integracao, { conta: 'x'.repeat(200), motivo })
+    if (a.mensagem.length > 280) { falhas++; console.log(`FALHOU: alerta ${integracao}/${motivo} com ${a.mensagem.length} letras (notificar corta em 280)`) }
+    if (!a.link.startsWith('/configuracoes/')) { falhas++; console.log(`FALHOU: alerta ${integracao} com link fora das Configurações: ${a.link}`) }
+  }
+}
+contem(textoDoAlertaDeIntegracao('google_gmail', { conta: 'contato@cvb.org' }).mensagem, 'de contato@cvb.org foi revogada ou expirou', 'integrações: Google com a conta')
+contem(textoDoAlertaDeIntegracao('google_admin').mensagem, 'da conta de administrador do Google foi revogada', 'integrações: Google de administrador sem a conta')
+contem(textoDoAlertaDeIntegracao('resend', { motivo: 'chave' }).mensagem, 'RESEND_API_KEY', 'integrações: Resend com a chave recusada diz o que conferir')
+igual(textoDoAlertaDeIntegracao('resend', { motivo: 'servico' }).mensagem.includes('RESEND_API_KEY'), false, 'integrações: Resend fora do ar não manda trocar a chave')
+contem(textoDoAlertaDeIntegracao('r2', { motivo: 'chave' }).mensagem, 'R2_*', 'integrações: R2 com a credencial recusada diz o que conferir')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

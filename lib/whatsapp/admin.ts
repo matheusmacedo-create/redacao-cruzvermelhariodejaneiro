@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { situacaoDasChaves } from '@/lib/integracoes/chaves'
 import { PAPEL, ehPapel, pode } from '@/lib/permissoes'
 import { situacaoDaConexao, situacaoDoWebhook, type ConfigDoWhatsapp } from './servidor'
-import { processarFila, resumoDaFila } from './fila'
+import { cotaDeConversas, processarFila, resumoDaFila } from './fila'
 import { falhasRecentes, ultimaRotina } from './estado'
 import { criarConfirmacao } from './confirmacoes'
 import {
@@ -20,7 +20,8 @@ type Admin = ReturnType<typeof createAdminClient>
  * "integracoes.configurar") com o número confirmado em Meu perfil:
  *
  *  - "status" só lê: a conexão com a Kapso (com o exame de saúde), o
- *    recebimento (webhook), a fila, as falhas de envio das últimas 24 h por
+ *    recebimento (webhook), a fila, as conversas iniciadas nas últimas 24 h
+ *    (a cota diária da Meta), as falhas de envio das últimas 24 h por
  *    motivo, as integrações sem chave (só os nomes, nunca os valores), as
  *    autorizações do Google expiradas e a última rotina diária;
  *  - "fila" faz a fila andar agora, como "Enviar a fila agora". Não age em
@@ -99,10 +100,11 @@ export async function respostaDaAdministracao(admin: Admin, workspaceId: string,
 
 /** O "status": tudo em paralelo; o que não der para ler sai como "não deu para ler agora". */
 async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, base: string): Promise<string> {
-  const [conexao, webhook, fila, falhas, chaves, gmail, googleAdmin, rotina] = await Promise.all([
+  const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, workspaceId),
     resumoDaFila(admin, workspaceId),
+    cotaDeConversas(admin, workspaceId),
     falhasRecentes(admin, workspaceId),
     // Só o nome do serviço e se há chave (lib/integracoes/chaves.ts nunca lê o valor aqui).
     situacaoDasChaves(admin, workspaceId).catch(() => null),
@@ -115,7 +117,7 @@ async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDo
     googleAdmin.data?.estado === 'expirada' ? { onde: 'Criar e-mails (conta de administrador)', conta: String(googleAdmin.data.email_conta ?? '') } : null,
   ].filter((g): g is { onde: string; conta: string } => g !== null)
   return textoDoStatus({
-    conexao, webhook, fila,
+    conexao, webhook, fila, conversas: cota?.usadas ?? null,
     falhas: falhas ? { total: falhas.total, grupos: resumoDasFalhas(falhas.falhas) } : null,
     semChave: chaves ? chaves.filter((c) => !c.origem).map((c) => nomeCurto(c.nome)) : null,
     googleExpiradas, rotina, urlBase: base,

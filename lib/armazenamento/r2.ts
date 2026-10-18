@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createHash, createHmac } from 'node:crypto'
+import { motivoDaFalhaDoR2 } from '@/lib/integracoes/alertas-regras'
 
 /**
  * Cloudflare R2 pela API compatível com S3 (docs/armazenamento-r2.md). A
@@ -11,6 +12,9 @@ import { createHash, createHmac } from 'node:crypto'
  * Variáveis: R2_ACCOUNT_ID (ou R2_ENDPOINT, para jurisdição), R2_ACCESS_KEY_ID
  * e R2_SECRET_ACCESS_KEY. Sem elas, configDoR2() devolve null e quem chama
  * segue sem o R2.
+ *
+ * A gravação que falha por credencial, bucket ou R2 fora do ar avisa a
+ * administração (avisarFalha; um alerta a cada 6 h, lib/integracoes/alertas.ts).
  */
 
 export type ConfigDoR2 = { endpoint: string; chave: string; segredo: string }
@@ -112,17 +116,38 @@ export type OpcoesDeEnvio = {
   soSeNaoExistir?: boolean
 }
 
+/** A gravação que falhou por credencial, bucket ou R2 fora do ar (motivoDaFalhaDoR2) vira alerta à administração. Nunca lança. */
+async function avisarFalha(status: number | null) {
+  const motivo = motivoDaFalhaDoR2(status)
+  if (!motivo) return
+  try {
+    // Import tardio: o alerta passa por notificar() e o resto do Palácio, que este conector não precisa carregar.
+    const { alertarIntegracao } = await import('@/lib/integracoes/alertas')
+    await alertarIntegracao({ integracao: 'r2', motivo })
+  } catch { /* o alerta é melhor esforço: o erro da gravação segue para quem chamou */ }
+}
+
 export async function enviarObjeto(config: ConfigDoR2, bucket: string, chave: string, conteudo: Buffer | string, opcoes: OpcoesDeEnvio): Promise<'enviado' | 'ja_existia'> {
   const corpo = typeof conteudo === 'string' ? Buffer.from(conteudo, 'utf8') : conteudo
   const cabecalhos: Record<string, string> = { 'content-type': opcoes.tipo }
   if (opcoes.cache) cabecalhos['cache-control'] = opcoes.cache
   if (opcoes.soSeNaoExistir) cabecalhos['if-none-match'] = '*'
-  const r = await pedir(config, { metodo: 'PUT', bucket, chave, corpo, cabecalhos })
+  // O nome de bucket inválido é erro nosso, não do R2: sai antes, sem alerta.
+  bucketValido(bucket)
+  let r: Response
+  try {
+    r = await pedir(config, { metodo: 'PUT', bucket, chave, corpo, cabecalhos })
+  } catch (causa) {
+    // Sem resposta (rede, tempo).
+    await avisarFalha(null)
+    throw causa
+  }
   if (r.ok) return 'enviado'
   if (opcoes.soSeNaoExistir && r.status === 412) return 'ja_existia'
   const erro = await erroDaResposta(r, `o envio de ${chave}`)
   // Sob trava do bucket, o R2 responde 409 antes de olhar o If-None-Match: o objeto existe.
   if (opcoes.soSeNaoExistir && erro.status === 409 && erro.codigo === 'ObjectLockedByBucketPolicy') return 'ja_existia'
+  await avisarFalha(erro.status)
   throw erro
 }
 

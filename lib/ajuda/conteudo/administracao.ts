@@ -441,7 +441,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'O convite não chegou. E agora?',
-      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã. Para mandar um link novo, toque na pessoa aqui e em “Enviar convite de primeiro acesso” (dá para trocar o WhatsApp), ou use “Reenviar” em “Convites pendentes”, na tela de “Convidar várias pessoas”. O link anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
+      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã, e, com a cota diária do WhatsApp no limite, no dia seguinte (o recado da tela diz). Para mandar um link novo, toque na pessoa aqui e em “Enviar convite de primeiro acesso” (dá para trocar o WhatsApp), ou use “Reenviar” em “Convites pendentes”, na tela de “Convidar várias pessoas”. O link anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
       termos: ['reenviar convite', 'convite expirou', 'link expirou', 'o convite NÃO saiu'],
     },
     {
@@ -913,6 +913,12 @@ const WHATSAPP: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'whatsapp.cota',
+      titulo: 'Cota diária de conversas',
+      texto: 'Quantas pessoas o Palácio procurou nas últimas 24 horas sem que tivessem escrito antes, de 250 (o limite da Meta). A partir de 220, avisos comuns, convites e anúncios ficam para o dia seguinte; segurança, códigos, portaria, alertas e respostas do bot continuam saindo.',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'whatsapp.teste',
       titulo: 'Testar',
       texto: '“Mandar mensagem de teste” manda uma mensagem para o seu WhatsApp confirmado. Responda “menu” por lá para ver o bot.',
@@ -966,13 +972,13 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-nao-chegou',
       pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
-      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp. As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp e, com a cota diária no limite, o aviso comum fica para o dia seguinte (veja a pergunta sobre a cota). As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.',
       termos: ['não chegou', 'não recebi', 'mensagem não chega'],
     },
     {
       id: 'avisos-a-noite',
       pergunta: 'Os avisos saem à noite?',
-      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se a Kapso estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se a Kapso estava fora, o aviso fica na fila e sai quando a conexão voltar. Com a cota diária no limite, o aviso comum fica para o dia seguinte (veja a pergunta sobre a cota). Falhas aparecem em “Últimas mensagens”.',
       termos: ['madrugada', 'horário', 'fila', 'atrasado', 'de manhã'],
     },
     {
@@ -994,9 +1000,21 @@ const WHATSAPP: GuiaDaArea = {
       termos: ['parou de receber mensagens', 'voltou a receber mensagens', 'sem modelo aprovado', 'webhook', 'recebimento', 'alerta', '7h05'],
     },
     {
+      id: 'cota-diaria',
+      pergunta: 'Por que um aviso ficou “para amanhã pela cota diária”?',
+      resposta: 'A Meta limita quantas pessoas diferentes o número do Palácio procura por dia sem que elas tenham escrito ao número nas últimas 24 horas: hoje, 250 em 24 horas. Passou disso, a Meta recusa o resto.\n\nO Palácio conta essas conversas e, a partir de 220, segura o que pode esperar: avisos comuns do sino, anúncios de oportunidades aos voluntários, convites de acesso e da ficha e pedidos de documentos. Eles ficam na fila e tentam de novo 24 horas depois (de madrugada, às 7h). A reserva fica para o que não espera: segurança da conta, códigos, portaria, alertas da administração e respostas do bot. Quem escreveu ao número nas últimas 24 horas, ou já recebeu algo do Palácio nesse tempo, não conta de novo e recebe na hora.\n\nA contagem aparece em “Fila e horário de silêncio” e no “status”.',
+      termos: ['cota', 'cota diária', 'limite diário', '250', 'para amanhã', 'tier', 'conversas iniciadas', 'limite da meta'],
+    },
+    {
+      id: 'alertas-de-integracoes',
+      pergunta: 'Que alertas de integrações chegam pelo WhatsApp?',
+      resposta: 'Quando uma integração para, os administradores recebem um aviso no assunto “Integrações”, no sino, no e-mail e também no WhatsApp, com o que fazer: a conta Google do e-mail dos setores ou a de administrador expirou ou foi revogada (reconecte em Configurações → E-mail dos setores); o Google recusou o cliente OAuth (confira em Integrações); o Resend recusou a chave ou o domínio, saiu do ar ou limitou os envios (os e-mails não saem); o Cloudflare R2 não gravou (as fotos que chegam pelo WhatsApp e o espelho da trilha pública).\n\nÉ no máximo um aviso por integração a cada 6 horas, e o da conta Google só na hora em que ela expira. A queda do próprio WhatsApp continua no assunto “Sistema”, só no sino e no e-mail.',
+      termos: ['integrações', 'alerta', 'google expirou', 'conta google', 'resend', 'e-mail parou', 'r2', 'armazenamento'],
+    },
+    {
       id: 'comandos-de-administrador',
       pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
-      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: a resposta traz a conexão com a Kapso, o recebimento de mensagens, a fila, as falhas de envio das últimas 24 horas agrupadas pelo motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google com a autorização expirada e quando a conferência diária rodou pela última vez.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas ainda esperam.\n\nOs dois aparecem no “menu” só de quem é administrador; para os outros, o bot só responde que não entendeu. Ficam em “Últimas mensagens” como os demais comandos.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja a pergunta sobre o link “Confirme no Palácio”).',
+      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: a resposta traz a conexão com a Kapso, o recebimento de mensagens, a fila, as conversas iniciadas nas últimas 24 horas (a cota diária), as falhas de envio das últimas 24 horas agrupadas pelo motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google com a autorização expirada e quando a conferência diária rodou pela última vez.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas ainda esperam.\n\nOs dois aparecem no “menu” só de quem é administrador; para os outros, o bot só responde que não entendeu. Ficam em “Últimas mensagens” como os demais comandos.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja a pergunta sobre o link “Confirme no Palácio”).',
       termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot'],
     },
     {

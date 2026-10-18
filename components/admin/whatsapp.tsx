@@ -7,7 +7,7 @@ import { CheckCircle2, Clock, Loader2, RefreshCw, Send, Webhook } from 'lucide-r
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { enviarFilaAgora, ligarRecebimentoDoWhatsapp, testarWhatsapp } from '@/app/actions/whatsapp'
-import { ROTULO_DO_ESTADO, type EstadoDaConexao } from '@/lib/whatsapp/regras'
+import { COTA_DE_CONVERSAS, ROTULO_DO_ESTADO, limiteDaCota, type EstadoDaConexao } from '@/lib/whatsapp/regras'
 
 export type LinhaDoRegistroNaTela = {
   id: number
@@ -79,8 +79,10 @@ export function PainelDoWhatsapp(p: {
   meuNumero: string | null
   registro: LinhaDoRegistroNaTela[]
   registroIndisponivel: boolean
-  /** null: a fila ainda não existe no banco. */
-  fila: { silencio: number; volume: number; falha: number } | null
+  /** null: a fila ainda não existe no banco. `cota`: o que ficou para o dia seguinte pela cota diária. */
+  fila: { silencio: number; volume: number; falha: number; cota: number } | null
+  /** As conversas que o Palácio iniciou nas últimas 24 h (a cota diária da Meta); null: não deu para contar. */
+  conversas: number | null
 }) {
   const router = useRouter()
   const [recado, setRecado] = useState<Recado>(null)
@@ -143,13 +145,28 @@ export function PainelDoWhatsapp(p: {
         </p>
         {p.fila === null
           ? <p className="text-sm text-muted-foreground">A fila ainda não existe no banco (falta aplicar a migração da fila).</p>
-          : p.fila.silencio + p.fila.volume + p.fila.falha === 0
+          : p.fila.silencio + p.fila.volume + p.fila.falha + p.fila.cota === 0
             ? <p className="text-sm">A fila está vazia.</p>
-            : <p className="text-sm">Na fila agora: <strong>{p.fila.silencio}</strong> esperando o fim do silêncio, <strong>{p.fila.volume}</strong> esperando a vez e <strong>{p.fila.falha}</strong> para reenviar.</p>}
+            : <p className="text-sm">
+              Na fila agora: <strong>{p.fila.silencio}</strong> esperando o fim do silêncio, <strong>{p.fila.volume}</strong> esperando a vez
+              {p.fila.cota ? <>, <strong>{p.fila.falha}</strong> para reenviar e <strong>{p.fila.cota}</strong> para amanhã pela cota diária.</> : <> e <strong>{p.fila.falha}</strong> para reenviar.</>}
+            </p>}
+        <div data-ajuda="whatsapp.cota" className="flex flex-col gap-1 rounded-lg border border-border p-3">
+          {p.conversas === null
+            ? <p className="text-sm text-muted-foreground">Não deu para contar as conversas iniciadas agora. Sem a migração da cota, nada espera por ela.</p>
+            : <p className="text-sm">
+              Conversas que o Palácio iniciou nas últimas 24 horas: <strong>{p.conversas}</strong> de {COTA_DE_CONVERSAS.teto}
+              {p.conversas >= limiteDaCota() && <span className="text-destructive"> — no limite: avisos comuns, convites e anúncios ficam para amanhã.</span>}
+            </p>}
+          <p className="text-xs text-muted-foreground">
+            A Meta limita quantas pessoas diferentes o número procura por dia, fora da janela de 24 horas (quem escreveu ao número nas últimas 24 horas não conta).
+            A partir de {limiteDaCota()}, avisos comuns, convites e anúncios aos voluntários esperam o dia seguinte; segurança da conta, códigos, portaria, alertas e respostas do bot continuam saindo.
+          </p>
+        </div>
         <div><Button variant="outline" disabled={ocupado || !p.fila || p.fila.volume + p.fila.falha === 0} onClick={() => acao(enviarFilaAgora)}>
           {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}Enviar a fila agora
         </Button></div>
-        <p className="text-xs text-muted-foreground">O botão manda o que já pode sair. O que espera o fim do silêncio continua esperando.</p>
+        <p className="text-xs text-muted-foreground">O botão manda o que já pode sair. O que espera o fim do silêncio ou a cota diária continua esperando.</p>
       </Card>
 
       <Card data-ajuda="whatsapp.teste" className="flex flex-col gap-3 p-6">

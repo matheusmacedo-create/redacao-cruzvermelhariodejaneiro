@@ -1,4 +1,5 @@
 import 'server-only'
+import { motivoDaFalhaDoEmail } from '@/lib/integracoes/alertas-regras'
 
 /**
  * O conector do Resend: entregar e-mail.
@@ -8,6 +9,11 @@ import 'server-only'
  * pode ganhar o prefixo NEXT_PUBLIC_: quem tem a chave envia e-mail em nome da
  * Cruz Vermelha, e um remetente humanitário sequestrado é um estrago que não
  * se desfaz com um deploy.
+ *
+ * A chamada que falha por chave ou domínio recusados, Resend fora do ar ou
+ * limite do plano avisa a administração (avisarFalha; um alerta a cada 6 h).
+ * A falta da chave não: ela já aparece em Integrações e em Usuários, e um
+ * ambiente sem e-mail não precisa de alerta a cada envio.
  */
 
 const BASE = 'https://api.resend.com'
@@ -80,6 +86,17 @@ export function semChave(texto: string): string {
   return chave ? limpo.split(chave).join('***') : limpo
 }
 
+/** A falha que para o envio de todos (motivoDaFalhaDoEmail) vira alerta à administração. Nunca lança. */
+async function avisarFalha(status: number, mensagem?: string | null) {
+  const motivo = motivoDaFalhaDoEmail(status, mensagem)
+  if (!motivo) return
+  try {
+    // Import tardio: o alerta passa por notificar(), que manda e-mail por aqui.
+    const { alertarIntegracao } = await import('@/lib/integracoes/alertas')
+    await alertarIntegracao({ integracao: 'resend', motivo })
+  } catch { /* o alerta é melhor esforço: o erro do envio segue para quem chamou */ }
+}
+
 async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): Promise<T> {
   const chave = chaveDoResend()
   const controle = new AbortController()
@@ -97,6 +114,7 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): P
     const motivo = causa instanceof Error && causa.name === 'AbortError'
       ? 'O Resend demorou demais para responder.'
       : semChave(causa instanceof Error ? causa.message : String(causa))
+    await avisarFalha(0)
     throw new EmailError(motivo, 0)
   } finally {
     clearTimeout(relogio)
@@ -119,6 +137,7 @@ async function chamar<T>(caminho: string, corpo: unknown, timeoutMs = 20_000): P
       : res.status === 429 ? ' Limite de envio atingido no plano do Resend.'
       : !daApi ? ' A resposta não veio do Resend: há algo na rede entre o servidor e api.resend.com.'
       : ''
+    await avisarFalha(res.status, motivo)
     throw new EmailError(`${semChave(motivo)}${dica}`, res.status)
   }
   return dados as T

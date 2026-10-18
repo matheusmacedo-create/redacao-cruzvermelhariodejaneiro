@@ -817,6 +817,11 @@ Para um evento novo, chame `notificar()` depois de salvar, com uma das
 categorias. Se precisar de outra categoria, acrescente-a em `CATEGORIAS` e no
 `check` de `notifications.categoria`.
 
+Duas categorias são só da administração: `sistema` (o WhatsApp do Palácio
+caiu, voltou ou parou de receber; nunca vai pelo WhatsApp) e `integracoes`
+(18/10/2026: a conta Google expirou, o Resend ou o R2 falharam — vai também
+pelo WhatsApp; §8.5, "Alertas de integrações").
+
 ### 7.9 Trilha pública, portal de transparência e canais oficiais
 
 Especificação: `docs/auditoria-publica.md` (o modelo) e `docs/auditoria-publica-benchmark.md` (de
@@ -1434,7 +1439,9 @@ Uma tela por assunto, com o submenu (`SubmenuDasConfiguracoes`) no layout de
   (`/api/google/conectar` e `/api/google/retorno`) voltam para cá.
 - **Integrações** (`/configuracoes/integracoes`): as chaves do cofre, o
   botão das redes (Upload-Post, que volta para cá) e o estado das chaves
-  que ficam na Vercel (só ligada ou desligada, nunca o valor).
+  que ficam na Vercel (só ligada ou desligada, nunca o valor). É o destino
+  dos alertas de integração do cliente OAuth, do Resend e do R2 (§8.5); os
+  da conta Google vão para E-mail dos setores.
 - **Site** (`/configuracoes/site`) e **Zona de risco**
   (`/configuracoes/zona-de-risco`).
 
@@ -2154,7 +2161,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   mensagem inteira, para "fila" numa frase não rodar nada; para os outros, seguem o caminho de sempre e dão
   `desconhecido` (e `respostaDaAdministracao` confere a permissão de novo). O menu ganha a linha deles só
   para quem administra. `status` só lê, em paralelo: `situacaoDaConexao` (com o exame de saúde),
-  `situacaoDoWebhook`, `resumoDaFila`, as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
+  `situacaoDoWebhook`, `resumoDaFila`, `cotaDeConversas` (as conversas iniciadas em 24 h, `textoDaCota`),
+  as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
   por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
   conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
   `google_conexao`/`google_admin_conexao` com estado `expirada` e a última execução da rotina; a resposta sai
@@ -2326,6 +2334,46 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de
   resposta do bot, segurança e avisos da equipe. Só controle de volume:
   **não há variação de texto nem “digitando” para despistar o WhatsApp**.
+- **Cota diária de conversas (18/10/2026)** (`fila.ts`, regras em `regras.ts`): a Meta limita quantas
+  pessoas diferentes o número procura em 24 h (janela móvel) fora da janela de atendimento — o número
+  está no TIER_250 (`COTA_DE_CONVERSAS = { teto: 250, reserva: 30 }`; subiu na Meta, suba a constante).
+  `cotaDeConversas` chama `whatsapp_cota_de_conversas` (security definer, só service role): números
+  distintos com saída `enviada` nas últimas 24 h, sem `tipo` `bot`, sem entrada do mesmo número nas 24 h
+  antes da saída (a aproximação: o Palácio não sabe se a Kapso mandou texto livre ou modelo); com um
+  número, diz também se ele está com a janela aberta (entrada nas últimas 24 h) ou já foi contado.
+  `prioridadeNaCota` (puro): alta para segurança, código, bot, teste e os avisos `portaria`, `auditoria` e
+  `integracoes`; baixa para o resto dos avisos (os comuns, `voluntariado`, os convites `conta` e `equipe`, o
+  pedido de documentos). `esperaPelaCota`: só a baixa, com a cota em `limiteDaCota()` (220) ou mais, para
+  número com a janela fechada e ainda não contado. `entregar()` confere depois do silêncio (uma chamada,
+  só para a baixa) e põe na fila com motivo `cota` e `enviar_apos` = `fimDaEsperaDaCota` (24 h depois — a
+  janela da Meta é móvel —, ou as 7h se cair no silêncio); `processarFila()` lê a cota uma vez por espaço
+  e rodada, soma por cima a cada envio e, no limite, confere cada número (o que traz a conta certa) antes
+  de devolver o item com motivo `cota`. Os recados de convite e de pedido de documentos dizem "amanhã"
+  (`TEXTO_DA_ESPERA_DA_COTA`). A tela de conexão mostra "Conversas que o Palácio iniciou nas últimas 24
+  horas: N de 250" (alvo `whatsapp.cota`) e a fila por motivo, com o da cota; o `status` traz a linha
+  "Conversas iniciadas em 24 h".
+- **Alertas de integrações (18/10/2026)** (`lib/integracoes/alertas.ts`, regras e textos em
+  `lib/integracoes/alertas-regras.ts`, conferidos em `scripts/conferir-whatsapp.ts`): categoria
+  `integracoes`, no sino, no e-mail e no WhatsApp dos administradores (`categoriaVaiPorWhatsapp` só barra
+  `sistema`; a queda do próprio WhatsApp continua `sistema`). Disparam: `tokenDeAcesso` (Gmail) e
+  `tokenDeAdmin` (Diretório) quando a autorização passa de `ativa` a `expirada` (o `update` agora filtra
+  `estado = 'ativa'` e devolve a linha: só a troca alerta, com a conta) e quando o Google recusa o cliente
+  OAuth (`CLIENTE_RECUSADO`); `chamar()` do Resend em 401/403 (chave ou domínio), 429 da cota do plano
+  (o de chamadas por segundo, não), 5xx e sem resposta (`motivoDaFalhaDoEmail`; a falta da chave não
+  alerta — já aparece em Integrações e Usuários); e
+  `enviarObjeto()` do R2 sem resposta, em 401/403/404 e 5xx (`motivoDaFalhaDoR2`; cobre as fotos do WhatsApp
+  e o espelho da trilha). O Resend e o R2 são da hospedagem: o alerta vai ao espaço de produção. Um por
+  integração a cada 6 h (`alertaDeIntegracaoSai`), sem migração: o marco `integracao_alertada` em
+  `activity_log` (`entity_type` `integracao`, `metadata.servico`), gravado antes do aviso, com a mesma
+  ressalva dos marcos da rotina (data futura não vale; um membro ainda consegue calar por 6 h). A mesma
+  instância só reconfere a cada 10 min: o alerta manda e-mail pelo Resend, e a falha dele não vira outro
+  alerta. As outras integrações do cofre (Meta Ads, Conversões, Analytics, Safe Browsing, Portal da
+  Transparência, Hunter) já mostram o erro a quem usa ou gravam no banco e ficaram de fora.
+- **Antes da migração `20261018231000`:** a função da cota não existe, `cotaDeConversas` devolve null e
+  nada espera pela cota (a tela e o `status` dizem que não deu para contar); o CHECK de
+  `whatsapp_fila.motivo` não aceita `cota` (nunca chega a ser pedido); e o alerta de integração entra no
+  sino como `geral` (o caminho de sempre de `notificar()` quando o banco recusa a categoria), saindo pelo
+  e-mail e pelo WhatsApp como `integracoes`. A migração lê as listas em vigor e só acrescenta.
 - **Alerta de queda** (`lib/whatsapp/estado.ts`, tabela `whatsapp_estado`): quando a conexão cai
   (connection.update, envio que falhou por servidor fora ou a rotina diária), os administradores
   recebem “O WhatsApp do Palácio caiu” no sino e no e-mail (categoria `sistema`, que nunca vai pelo
