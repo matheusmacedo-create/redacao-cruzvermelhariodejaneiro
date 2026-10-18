@@ -57,7 +57,7 @@ export default async function WhatsappPage() {
   return <div className="mx-auto max-w-3xl"><Cabecalho />
     <PainelDoWhatsapp
       numeroId={config.numeroId}
-      temModelo={Boolean(config.modelo)}
+      modelos={{ aviso: config.modelo, codigo: config.modeloCodigo, seguranca: config.modeloSeguranca }}
       estado={conexao.estado}
       erro={conexao.erro}
       webhook={webhook}

@@ -4,7 +4,8 @@ import { createContext, useContext, useMemo, useState, useTransition } from 'rea
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, Minus, Search, Send, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus, UserX, Users, X,
+  Check, ChevronDown, Copy, KeyRound, Loader2, Mail, MailWarning, MessageCircle, MessageCircleOff, Minus, Search, Send, ShieldCheck, ShieldOff, Smartphone, UserCheck, UserPlus,
+  UserX, Users, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -18,7 +19,7 @@ import { NOMES_DOS_SETORES, usuarioSugerido } from '@/lib/equipe'
 const Setores = createContext<string[]>(NOMES_DOS_SETORES)
 import { problemaDaSenha, SENHA_MINIMO } from '@/lib/usuarios/senha'
 import { emailValido } from '@/lib/contas/emails'
-import { atualizarUsuario, criarUsuario, desativarUsuario, enviarConvite, reativarUsuario, redefinirSenha } from '@/app/actions/usuarios'
+import { atualizarUsuario, criarUsuario, desativarUsuario, enviarConvite, reativarUsuario, redefinirSenha, removerWhatsappDoUsuario } from '@/app/actions/usuarios'
 import { definirVerificacaoObrigatoria, removerVerificacaoDoUsuario } from '@/app/actions/verificacao'
 
 export type UsuarioNaTela = {
@@ -34,6 +35,8 @@ export type UsuarioNaTela = {
   ultimoConvite: { whatsapp: string | null; porEmail: boolean } | null
   /** Para o convite de primeiro acesso: o WhatsApp do último convite ou o celular pessoal da ficha do RH. */
   whatsappSugerido: string | null
+  /** O WhatsApp confirmado, já mascarado no servidor (mascararNumero). */
+  whatsapp: { numero: string; pausado: boolean } | null
 }
 export type PessoaSemAcesso = { nome: string; cargo: string; setor: string; papel: Papel; usuario: string }
 export type EventoNaTela = { id: string; acao: string; detalhes: Record<string, unknown>; quando: string; ator: string; alvo: string | null }
@@ -395,6 +398,7 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, whatsappConfigurado, ao
         <span>{u.ultimoAcesso ? `Último acesso ${dataHora.format(new Date(u.ultimoAcesso))}` : 'Nunca entrou'}</span>
         {u.desativadoEm && <span>Desativado em {data.format(new Date(u.desativadoEm))}</span>}
         <span className="flex items-center gap-1"><Smartphone className="size-3.5" />{u.aparelhos ? `Verificação em duas etapas: ${u.aparelhos} ${u.aparelhos === 1 ? 'aparelho' : 'aparelhos'}` : 'Sem verificação em duas etapas'}</span>
+        {(u.whatsapp || whatsappConfigurado) && <span className="flex items-center gap-1"><MessageCircle className="size-3.5" />{u.whatsapp ? `WhatsApp ${u.whatsapp.numero}${u.whatsapp.pausado ? ' (avisos pausados)' : ''}` : 'Sem WhatsApp confirmado'}</span>}
       </div>
 
       {u.ativo && <>
@@ -456,11 +460,13 @@ function PainelDoUsuario({ usuario: u, envioConfigurado, whatsappConfigurado, ao
 
       {!u.souEu && (
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+          {/* Também na conta desativada: as desativadas antes da liberação automática ainda prendem o número. */}
+          {u.whatsapp && <Button variant="outline" disabled={ocupado} onClick={() => { if (u.whatsapp && confirm(`Remover o WhatsApp de ${u.nome} (${u.whatsapp.numero})? Os avisos param de ir para esse número, que fica livre para ser confirmado em outra conta. A pessoa é avisada pelo e-mail confirmado; o número não recebe nada, porque pode já ser de outra pessoa.`)) executar(removerWhatsappDoUsuario, {}) }}><MessageCircleOff className="size-4" />Remover WhatsApp</Button>}
           {u.ativo ? <>
             {u.aparelhos > 0 && <Button variant="outline" disabled={ocupado} onClick={() => { if (confirm(`Remover a verificação em duas etapas de ${u.nome}? Use quando a pessoa perdeu ou trocou de celular. As sessões abertas dela são encerradas.`)) executar(removerVerificacaoDoUsuario, {}) }}><ShieldOff className="size-4" />Remover verificação em 2 etapas</Button>}
             {podeConvidar && !convidando && <Button onClick={() => { setConvidando(true); setRedefinindo(false) }}><Send className="size-4" />Enviar convite de primeiro acesso</Button>}
             {!redefinindo && <Button variant="outline" onClick={() => { setRedefinindo(true); setConvidando(false) }}><KeyRound className="size-4" />Redefinir senha</Button>}
-            <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
+            <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm(`Desativar ${u.nome}? A pessoa perde o acesso na hora e sai de todas as sessões${u.whatsapp ? ', e o WhatsApp dela é liberado' : ''}. O histórico dela continua no sistema.`)) executar(desativarUsuario, {}) }}><UserX className="size-4" />Desativar acesso</Button>
           </> : (
             <Button disabled={ocupado} onClick={() => { if (confirm(podeLink ? `Reativar ${u.nome}? Enviaremos para ${u.email} um link para escolher uma senha nova.` : `Reativar ${u.nome}? Uma senha temporária nova será gerada.`)) executar(reativarUsuario, {}) }}><UserCheck className="size-4" />{podeLink ? 'Reativar e enviar link de senha' : 'Reativar com senha temporária'}</Button>
           )}
@@ -523,10 +529,17 @@ const ROTULO_DA_ACAO: Record<string, string> = {
   confirmacao_de_email_enviada: 'pediu a confirmação de um e-mail novo',
   email_confirmado: 'confirmou o e-mail da conta',
   ajuda_com_verificacao_pedida: 'pediu ajuda: perdeu ou trocou o celular do app autenticador',
+  whatsapp_confirmado: 'confirmou o WhatsApp da conta',
+  whatsapp_removido: 'removeu o WhatsApp da própria conta',
+  whatsapp_removido_pelo_admin: 'removeu o WhatsApp de',
+  conta_bloqueada_por_tentativas: 'bloqueou por tentativas erradas a entrada de',
 }
 
 // Ações sobre a própria conta: o alvo é o próprio ator, não se repete o nome.
-const PROPRIAS = new Set(['senha_trocada', 'verificacao_ativada', 'verificacao_removida', 'senha_definida_pelo_convite', 'senha_redefinida_pelo_link', 'confirmacao_de_email_enviada', 'email_confirmado', 'ajuda_com_verificacao_pedida'])
+const PROPRIAS = new Set([
+  'senha_trocada', 'verificacao_ativada', 'verificacao_removida', 'senha_definida_pelo_convite', 'senha_redefinida_pelo_link', 'confirmacao_de_email_enviada', 'email_confirmado',
+  'ajuda_com_verificacao_pedida', 'whatsapp_confirmado', 'whatsapp_removido',
+])
 
 function detalheDoEvento(e: EventoNaTela): string {
   const d = e.detalhes
@@ -535,6 +548,11 @@ function detalheDoEvento(e: EventoNaTela): string {
   if (e.acao === 'coordenacao_alterada') return `${d.de || 'sem coordenação'} → ${d.para || 'sem coordenação'}`
   if (e.acao === 'usuario_criado' || e.acao === 'vinculo_criado') return papel(d.papel)
   if (e.acao === 'dados_alterados') return `nome: ${d.nome_anterior} → ${d.nome_novo}`
+  // Os números já foram gravados mascarados.
+  if (e.acao === 'whatsapp_confirmado') return d.anterior ? `${d.anterior} → ${d.numero}` : String(d.numero ?? '')
+  if (e.acao === 'whatsapp_removido' || e.acao === 'whatsapp_removido_pelo_admin') return String(d.numero ?? '')
+  if ((e.acao === 'usuario_desativado' || e.acao === 'convite_cancelado') && d.whatsapp_liberado) return `WhatsApp ${d.whatsapp_liberado} liberado`
+  if (e.acao === 'conta_bloqueada_por_tentativas') return String(d.lugar ?? '')
   if (e.acao === 'verificacao_exigencia_alterada') {
     const lista = (v: unknown) => (Array.isArray(v) && v.length ? v.map(papel).join(', ') : 'ninguém')
     return `${lista(d.de)} → ${lista(d.para)}`

@@ -1,13 +1,13 @@
 import 'server-only'
 import { createHash, randomBytes } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { enviarComSeguranca } from '@/lib/contas/servidor'
+import { auditarConta, avisar, avisarPorWhatsapp, enviarComSeguranca } from '@/lib/contas/servidor'
 import { emailDeNotificacao } from '@/lib/notificacoes/emails'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { lugar, rotuloDoAparelho, type DadosDaRequisicao } from './agente'
 import {
-  JANELA_MIN, LIMITE_POR_CONTA, LIMITE_POR_IP, ROTULO_DO_SINAL, sinaisDaEntrada, situacaoDoBloqueio,
+  AVISO_DE_BLOQUEIO_A_CADA_HORAS, JANELA_MIN, LIMITE_POR_CONTA, LIMITE_POR_IP, ROTULO_DO_SINAL, sinaisDaEntrada, situacaoDoBloqueio,
   type Bloqueio, type SinaisDoNavegador, type SinalDeRisco,
 } from './regras'
 
@@ -125,7 +125,7 @@ export async function conferirBloqueio(identificador: string, ip: string | null)
 
 // ------------------------------------------------------------ equipe
 
-/** Tentativa com senha errada ou conta desativada. Avisa quem lê o registro quando a conta é bloqueada. */
+/** Tentativa com senha errada ou conta desativada. Avisa quem lê o registro e a própria pessoa quando a conta é bloqueada. */
 export async function registrarFalhaDaEquipe(identificador: string, motivo: string, requisicao: DadosDaRequisicao, sinais: SinaisDoNavegador | null) {
   try {
     const admin = createAdminClient()
@@ -141,11 +141,36 @@ export async function registrarFalhaDaEquipe(identificador: string, motivo: stri
     const { count } = await admin.from('acessos_eventos').select('id', { count: 'exact', head: true })
       .eq('identificador_hash', hashDoIdentificador(identificador)).eq('evento', 'entrada_falhou').gte('ocorrido_em', desde)
     if ((count ?? 0) !== LIMITE_POR_CONTA) return
-    await avisarLeitores(admin, conta?.workspaceId ?? await espacoPrincipal(admin), {
-      titulo: 'Conta bloqueada por tentativas erradas',
-      mensagem: `${LIMITE_POR_CONTA} senhas erradas em ${JANELA_MIN} minutos para "${identificador.slice(0, 60)}", de ${lugar(requisicao)} (${requisicao.ip ?? 'IP desconhecido'}).`,
-    })
+    await Promise.all([
+      avisarLeitores(admin, conta?.workspaceId ?? await espacoPrincipal(admin), {
+        titulo: 'Conta bloqueada por tentativas erradas',
+        mensagem: `${LIMITE_POR_CONTA} senhas erradas em ${JANELA_MIN} minutos para "${identificador.slice(0, 60)}", de ${lugar(requisicao)} (${requisicao.ip ?? 'IP desconhecido'}).`,
+      }),
+      conta ? avisarBloqueioAPessoa(admin, conta.id, requisicao) : Promise.resolve(),
+    ])
   } catch (causa) { log('falha não registrada', causa) }
+}
+
+/**
+ * A conta foi bloqueada por tentativas erradas: a própria pessoa fica sabendo
+ * pelo e-mail e pelo WhatsApp confirmados (avisar; o WhatsApp sai mesmo
+ * pausado), com o local aproximado e a hora — sem o IP e sem os números do
+ * bloqueio. No máximo um aviso a cada AVISO_DE_BLOQUEIO_A_CADA_HORAS por
+ * conta (a marca é a linha da auditoria): quem digita o usuário dos outros só
+ * para incomodar não transforma o bloqueio numa enxurrada de mensagens. Conta
+ * desativada não é avisada: o login dela já não funciona.
+ */
+async function avisarBloqueioAPessoa(admin: Admin, userId: string, r: DadosDaRequisicao) {
+  try {
+    const { data: pessoa } = await admin.from('profiles').select('active').eq('id', userId).maybeSingle()
+    if (!pessoa?.active) return
+    const desde = new Date(Date.now() - AVISO_DE_BLOQUEIO_A_CADA_HORAS * 60 * 60_000).toISOString()
+    const { data: recente, error } = await admin.from('auditoria_de_acesso').select('id')
+      .eq('alvo_id', userId).eq('acao', 'conta_bloqueada_por_tentativas').gte('criado_em', desde).limit(1).maybeSingle()
+    if (error || recente) return
+    const enviado = await avisar(admin, userId, { tipo: 'conta_bloqueada', lugar: lugar(r) })
+    await auditarConta(admin, { userId, atorId: null, acao: 'conta_bloqueada_por_tentativas', detalhes: { lugar: lugar(r), email_enviado: enviado } })
+  } catch (causa) { log('aviso do bloqueio à pessoa não enviado', causa) }
 }
 
 /**
@@ -253,25 +278,35 @@ export async function registrarVerificacaoDaEquipe(userId: string, ok: boolean, 
 // ------------------------------------------------------------ alertas
 
 /**
- * E-mail direto à própria pessoa, fora das preferências de notificação:
- * aviso de segurança não pode depender de alguém ter desligado o e-mail.
+ * Aviso direto à própria pessoa, fora das preferências de notificação: aviso
+ * de segurança não pode depender de alguém ter desligado o e-mail ou pausado
+ * o WhatsApp. Vai ao e-mail confirmado e ao WhatsApp confirmado, lado a lado;
+ * nos dois, só o aparelho, o local aproximado e a hora — nunca o IP.
  */
 async function avisarAPessoa(admin: Admin, userId: string, r: DadosDaRequisicao, sinais: SinalDeRisco[]) {
   try {
     const { data: pessoa } = await admin.from('profiles').select('full_name, email, email_confirmado_em, active').eq('id', userId).maybeSingle()
-    if (!pessoa?.active || !pessoa.email || !pessoa.email_confirmado_em) return
+    if (!pessoa?.active) return
     const quando = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }).format(new Date())
     const motivo = sinais.filter((s) => s === 'aparelho_novo' || s === 'pais_novo').map((s) => ROTULO_DO_SINAL[s].toLowerCase()).join(' e ')
-    await enviarComSeguranca(pessoa.email, emailDeNotificacao({
-      urlBase: urlBase(),
-      nome: pessoa.full_name ?? '',
-      titulo: 'Novo acesso à sua conta do Palácio Virtual',
-      mensagem: `Sua conta do Palácio Virtual acabou de ser acessada (${motivo}): ${rotuloDoAparelho(r)}, em ${lugar(r)}, em ${quando}.`,
-      citacao: 'Se foi você, não precisa fazer nada. Se não foi, troque sua senha agora em Meu perfil e avise a administração.',
-      link: '/perfil',
-      botao: 'Abrir Meu perfil',
-      nota: 'Este aviso de segurança é enviado sempre, independentemente das suas preferências de notificação.',
-    }))
+    const titulo = 'Novo acesso à sua conta do Palácio Virtual'
+    const mensagem = `Sua conta do Palácio Virtual acabou de ser acessada (${motivo}): ${rotuloDoAparelho(r)}, em ${lugar(r)}, em ${quando}.`
+    const citacao = 'Se foi você, não precisa fazer nada. Se não foi, troque sua senha agora em Meu perfil e avise a administração.'
+    await Promise.all([
+      pessoa.email && pessoa.email_confirmado_em
+        ? enviarComSeguranca(pessoa.email, emailDeNotificacao({
+          urlBase: urlBase(),
+          nome: pessoa.full_name ?? '',
+          titulo,
+          mensagem,
+          citacao,
+          link: '/perfil',
+          botao: 'Abrir Meu perfil',
+          nota: 'Este aviso de segurança é enviado sempre, independentemente das suas preferências de notificação.',
+        }))
+        : Promise.resolve(false),
+      avisarPorWhatsapp(admin, userId, { titulo, texto: `${mensagem}\n\n${citacao}` }),
+    ])
   } catch (causa) { log('aviso à pessoa não enviado', causa) }
 }
 

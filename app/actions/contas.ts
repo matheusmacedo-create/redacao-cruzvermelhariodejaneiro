@@ -12,7 +12,7 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { emailDeConfirmacao, emailDePedidoDeAjuda, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
 import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 import {
-  auditarConta, avisar, consumirToken, emitirToken, enviarComSeguranca, hashDoIp, lerToken, revogarLinksDeSenha,
+  auditarConta, avisar, avisarTrocaDeWhatsapp, consumirToken, emitirToken, enviarComSeguranca, hashDoIp, lerToken, revogarLinksDeSenha,
   urlDoLink, VALIDADE_MIN,
 } from '@/lib/contas/servidor'
 import { oQueOLinkProva } from '@/lib/contas/convite'
@@ -115,10 +115,13 @@ export async function definirSenhaPeloLink(formData: FormData): Promise<Resultad
     }).eq('id', userId)
     if (prova.whatsapp) {
       // Os avisos passam a chegar por lá desde o primeiro dia. Número já confirmado em outra conta: fica de fora.
+      // Se a conta já tinha outro número (um convite anterior aberto), o antigo fica sabendo da troca.
       const agora = new Date().toISOString()
+      const { data: antes } = await admin.from('whatsapp_contas').select('numero').eq('user_id', userId).maybeSingle()
       const { error: erroDoNumero } = await admin.from('whatsapp_contas')
         .upsert({ user_id: userId, numero: prova.whatsapp, confirmado_em: agora, pausado_em: null, atualizado_em: agora }, { onConflict: 'user_id' })
       if (erroDoNumero && erroDoNumero.code !== '23505') console.error('[contas] WhatsApp do convite não ligado:', erroDoNumero.message)
+      if (!erroDoNumero) await avisarTrocaDeWhatsapp(admin, userId, { anterior: (antes?.numero as string | undefined) ?? null, novo: prova.whatsapp })
     }
     await revogarLinksDeSenha(admin, userId)
     await admin.rpc('encerrar_sessoes_do_usuario', { p_user_id: userId })
@@ -176,7 +179,7 @@ export async function confirmarEmail(formData: FormData): Promise<Resultado> {
 
     await auditarConta(admin, { userId: lido.pessoa.id, atorId: lido.pessoa.id, acao: 'email_confirmado', detalhes: { trocou: Boolean(anterior && anterior !== lido.email) } })
     // O endereço antigo fica sabendo: se não foi a pessoa, é por ele que ela descobre.
-    if (anterior && anterior !== lido.email) await avisar(admin, lido.pessoa.id, { tipo: 'email_alterado', novo: lido.email }, anterior)
+    if (anterior && anterior !== lido.email) await avisar(admin, lido.pessoa.id, { tipo: 'email_alterado', novo: lido.email }, { email: anterior })
     revalidatePath('/perfil')
     revalidatePath('/usuarios')
     return { recado: `E-mail ${lido.email} confirmado. Os avisos da sua conta passam a chegar nele.` }

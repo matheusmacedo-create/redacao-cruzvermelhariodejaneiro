@@ -297,7 +297,7 @@ const DIRETORIO: GuiaDaArea = {
         'Em “Convites pendentes”, ache a pessoa.',
         'Toque em “Reenviar” para mandar um link novo, ou em “Cancelar” para desfazer o convite.',
       ],
-      dica: 'Reenviar usa o mesmo caminho do convite (WhatsApp e/ou e-mail) e invalida o link anterior. Cancelar desativa a conta; se precisar, ela é reativada em “Usuários e permissões”.',
+      dica: 'Reenviar usa o mesmo caminho do convite (WhatsApp e/ou e-mail) e invalida o link anterior. Cancelar desativa a conta: o convite que ainda esperava para sair pelo WhatsApp (de 22h às 7h, por exemplo) não sai mais, e o WhatsApp que o convite já tinha confirmado fica livre para outra conta. Se precisar, a conta é reativada em “Usuários e permissões”.',
     },
     {
       id: 'editar-setores',

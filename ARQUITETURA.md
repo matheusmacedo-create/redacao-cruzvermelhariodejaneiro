@@ -87,7 +87,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
-| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcional, `modelo` (§8.5) |
+| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo` e `modeloSeguranca` (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -331,8 +331,36 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   mensagem** do convite. Falha na ficha não desfaz a conta: o resultado da
   linha diz o que faltou.
 - **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
-  papel alterado, conta desativada/reativada e e-mail trocado. São
-  best-effort: nunca desfazem a ação; a falha vai para o log.
+  papel alterado, conta desativada/reativada, e-mail trocado, WhatsApp trocado
+  ou removido e entrada bloqueada por tentativas erradas. Vão ao e-mail
+  confirmado e ao WhatsApp confirmado (`avisarPorWhatsapp`, tipo `seguranca`)
+  **mesmo com os avisos pausados** — pausar vale para os avisos comuns, como
+  promete `textoDeSeguranca`. `avisar(admin, userId, aviso, { email, whatsapp })`
+  manda para outro endereço ou número (o endereço antigo, quando o e-mail muda)
+  ou, com `whatsapp: null`, só ao e-mail. São best-effort: nunca desfazem a
+  ação; a falha vai para o log.
+- **WhatsApp da conta (18/10/2026):** confirmar outro número
+  (`confirmarNumeroDaEquipe`, pela tela ou pelo bot; e o convite só pelo
+  WhatsApp) ou tirar o número (Meu perfil, ou o admin em `/usuarios` com
+  “Remover WhatsApp”, `removerWhatsappDoUsuario`) avisa
+  (`avisarTrocaDeWhatsapp`, números mascarados) só o e-mail confirmado com o
+  aviso completo. O número ANTIGO pode já ser de outra pessoa (é o caso da
+  remoção pelo admin), então recebe só um recado sem nome, sem quem fez e sem
+  “sua conta” (`AVISO_AO_NUMERO_ANTIGO`, tipo `seguranca`) — e, na remoção pelo
+  admin, nada. **Desativar libera o número**: cancela o que esperava na fila
+  para a pessoa (`desistiu`, menos os avisos de segurança) e o convite de acesso
+  que ainda não saiu (entra sem `user_id`; é achado pelo número da marca do
+  último convite, `lerMarcaDoConvite`, e o texto com o link é apagado), manda o
+  aviso de conta desativada e só então apaga a linha de `whatsapp_contas` e
+  invalida os códigos — o número pode ser confirmado em outra conta; reativada,
+  a pessoa confirma de novo. **Cancelar o convite** faz o mesmo (o convite
+  aberto só pelo WhatsApp já confirmou o número sem abrir sessão, e a conta
+  segue “sem primeiro acesso”). O link avulso da ficha do RH na fila fica: é do
+  RH, não da conta. `/usuarios` mostra o número mascarado (o inteiro não vai ao
+  navegador). Auditoria em `auditoria_de_acesso`: `whatsapp_confirmado` (com
+  `anterior` na troca), `whatsapp_removido`, `whatsapp_removido_pelo_admin` e,
+  em `usuario_desativado` e `convite_cancelado`, `whatsapp_liberado` e
+  `whatsapp_fila_cancelada`.
 - **Perdi o celular** (`/verificacao`): avisa os admins por e-mail, 1 vez por
   hora. Não remove nada sozinho — senão a 2ª etapa valeria o mesmo que a senha.
 
@@ -719,7 +747,7 @@ e saem sempre (`avisar()` em `lib/contas/servidor.ts`).
 
 **WhatsApp** (§8.5). Depois do e-mail, `notificar()` manda o mesmo aviso ao
 WhatsApp de quem confirmou o número em `/perfil#whatsapp` (código de 6
-dígitos; `whatsapp_contas`, fora de `profiles` para o celular não ficar
+dígitos, §8.5; `whatsapp_contas`, fora de `profiles` para o celular não ficar
 visível a todo o espaço). Sai se a pessoa não pausou, deixou o assunto ligado
 (`notificacao_preferencias.whatsapp`, padrão ligado) e não está com o Palácio
 aberto; no mesmo link, no máximo uma mensagem a cada 15 min
@@ -916,6 +944,11 @@ Quem entrou, quando, de onde e com qual aparelho. A especificação e as decisõ
   `lib/acessos/regras.ts` (bloqueio, sinais de risco, leitura dos sinais do navegador).
 - **Regra de ouro:** nada do registro pode impedir alguém de entrar. A exceção é o bloqueio por
   tentativas, que é deliberado.
+- **A própria pessoa é avisada** no e-mail e no WhatsApp confirmados (este mesmo pausado): entrada de
+  aparelho ou país novo (`avisarAPessoa`: aparelho, local aproximado e hora, nunca o IP) e conta
+  bloqueada por tentativas (`avisarBloqueioAPessoa` → `avisar` com `conta_bloqueada`: local e hora,
+  sem os números do bloqueio; só conta ativa e no máximo um a cada `AVISO_DE_BLOQUEIO_A_CADA_HORAS`,
+  com a linha `conta_bloqueada_por_tentativas` de `auditoria_de_acesso` como marca, sem migração).
 - Toda consulta à tela grava `acessos.consultados` em `activity_log`.
 
 ### 7.14 Envio de ações pela equipe (`/enviar` → `/envios`)
@@ -1945,14 +1978,38 @@ Limites que valem conhecer:
 
 O número do Palácio no WhatsApp, pela [Kapso](https://docs.kapso.ai) (API oficial da Meta, número
 gerenciado pela Kapso). Configuração no cofre (cartão “WhatsApp (Kapso — API oficial)”: chave
-`X-API-Key`, Phone number ID e, opcional, o nome de um modelo aprovado); conferência da conexão,
+`X-API-Key`, Phone number ID e, opcionais, os nomes dos modelos aprovados — avisos, código e segurança); conferência da conexão,
 recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, usada até outubro de
 2026, saiu do código.
 
 - **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
+  `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
+  `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
   `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
+- **Confirmação do número (18/10/2026):** dois caminhos, nos mesmos limites (3 códigos a cada 30 min,
+  10 min de validade, 5 tentativas). O **padrão é o código de ida**: “Gerar código” mostra na tela um código
+  de 6 dígitos e o botão “Abrir o WhatsApp” (`https://wa.me/<número do Palácio>?text=Confirmar meu WhatsApp no
+  Palácio: 123456`; o número vem de `perfilConectado`, e sem ele a tela mostra só o código e a instrução). A
+  pessoa manda do próprio número; `atenderMensagem`, antes de tudo, acha o código na mensagem
+  (`codigoNaMensagem`: um grupo só de 6 dígitos, sem outro número junto; se o número já está em
+  `whatsapp_contas`, só a leitura estrita `soOCodigo` — a mensagem que é só o código ou exatamente a
+  mensagem pronta —, para “chamado: patrimônio 123456 sem toner” seguir para o chamado) e, havendo código
+  em aberto para o número canônico (`codigosPendentesDoNumero`), confere o hash e confirma pela mesma função do caminho de
+  digitar (`confirmarNumeroDaEquipe` / `confirmarNumeroDoVoluntario`: consome o código de forma atômica, grava
+  `whatsapp_contas` ou `participantes_whatsapp`, 23505 = número de outra conta, auditoria `whatsapp_confirmado`
+  com `caminho`). Responde por lá (confirmado, com a linha do menu; código errado conta tentativa em cada
+  código em aberto do número). A tela pergunta a cada 4 s (`conferirConfirmacaoDoWhatsapp` /
+  `conferirConfirmacaoDoVoluntario`, só leitura) até confirmar ou o código deixar de valer. Como quem escreve é
+  a pessoa, não depende da janela de 24 h nem de modelo. A **alternativa** (“Prefiro receber o código pelo
+  WhatsApp”) é a de antes: o Palácio manda o código e a pessoa digita — só chega dentro da janela ou pelo modelo
+  de Autenticação (`mandar` com `tipo: 'codigo'` e o próprio `codigo`). O código novo toma o lugar do de ida
+  antes do envio: se não sai, a action devolve `codigoTrocado` e a tela volta ao formulário do número (onde está
+  o “Gerar código”), em vez de seguir mostrando um código que não vale mais.
+  Não há coluna que diga o sentido: o hash leva um sal por sentido (`whatsapp-ida:` × `whatsapp:`, o de volta
+  no formato antigo), então o código da tela nunca serve para digitar e o que chegou no número nunca confirma
+  mandado ao bot (o bot responde que ele é para digitar, sem contar tentativa).
 - **Contrato (docs.kapso.ai, outubro de 2026):** envio pelo proxy da Meta
   (`https://api.kapso.ai/meta/whatsapp/v24.0/{phone_number_id}/messages`, formato da Cloud API);
   mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
@@ -1968,10 +2025,21 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Nono dígito:** a Kapso confere a janela de 24 h pelo número exato da conversa, e o WhatsApp ainda identifica
   muitos celulares antigos sem o 9 (554898032197). O Palácio guarda e manda com o 9; se a Kapso disser "fora da
   janela", o envio tenta de novo sem o 9 (`numeroSemNonoDigito`) antes de recorrer ao modelo.
-- **Janela de 24 h:** texto livre só para quem escreveu ao número nas últimas 24 h. Fora dela a Meta
-  recusa (131047) e o envio recai no modelo aprovado do cofre, com o texto achatado na variável
-  `{{1}}` (sem quebras de linha, até 1000 caracteres). Sem modelo, a falha fica registrada com o
-  motivo e não é reenviada.
+- **Janela de 24 h e modelos por finalidade (18/10/2026):** texto livre só para quem escreveu ao número nas
+  últimas 24 h. Fora dela a Kapso recusa (422, "outside the 24-hour window"; na Meta, 131047) e o envio recai
+  no modelo aprovado da **finalidade**, que é o tipo do registro (`mandar`/`entregar` passam `tipo` como
+  `finalidade` a `enviarTexto(config, numero, texto, { finalidade, codigo })`). Os objetos `template` saem de
+  `modeloParaEnviar` (puro, em `regras.ts`): **aviso** e **teste** → `modelo` (o id antigo do cofre), com o texto
+  achatado na variável `{{1}}` (sem quebras de linha, até 1000 caracteres); **codigo** → `modeloCodigo`, da
+  categoria AUTHENTICATION da Meta (a que a Meta exige para códigos): texto fixo da Meta, `components` = corpo
+  com o código e botão `url` de índice `0` com o código (botão de copiar), `pt_BR` — sem ele, o código não sai
+  fora da janela, nunca pelo modelo dos avisos (e o cartão recusa o mesmo nome nos dois); **seguranca** →
+  `modeloSeguranca` ou, vazio, `modelo` (o cartão recusa nele o nome do de Autenticação, que só leva o
+  código); **bot** → nunca por modelo (inclusive as boas-vindas depois de
+  confirmar pelo código digitado). Sem o modelo, a falha fica registrada com o motivo e não é reenviada. Recusa
+  do modelo (132000–132016, 132068, 132069, ou 400/404/422 da Kapso que fala de template) vira texto legível
+  (`problemaDoModelo`), motivo `outro`: sem reenvio e sem alerta de queda (o 404 do modelo não vira "número não
+  achado"). `/configuracoes/whatsapp` mostra quais modelos estão no cofre e o que acontece sem cada um.
 - **Número canônico:** só dígitos, com 55 e o nono dígito do celular. O WhatsApp ainda identifica
   muitos celulares antigos sem o nono dígito; é pela forma canônica que o bot reconhece quem escreveu.
 - **Webhook:** o botão “Ligar o recebimento de mensagens” cria (ou acerta) na Kapso o webhook do
@@ -1989,6 +2057,20 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   achados com esforço baixo, e sem chave vão os trechos). Número desconhecido recebe uma
   apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
   do outro lado não vira conversa infinita).
+- **Comandos da administração (18/10/2026)** (`lib/whatsapp/admin.ts`): para quem tem
+  `integracoes.configurar` (a permissão de `/configuracoes/whatsapp`) e número confirmado, `lerPedido`
+  reconhece `status` (ou `diagnóstico`, `saúde`) e `fila` (ou `fila agora`, `enviar fila`) — só como a
+  mensagem inteira, para "fila" numa frase não rodar nada; para os outros, seguem o caminho de sempre e dão
+  `desconhecido` (e `respostaDaAdministracao` confere a permissão de novo). O menu ganha a linha deles só
+  para quem administra. `status` só lê, em paralelo: `situacaoDaConexao` (com o exame de saúde),
+  `situacaoDoWebhook`, `resumoDaFila`, as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
+  por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
+  conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
+  `google_conexao`/`google_admin_conexao` com estado `expirada` e a última execução da rotina; a resposta sai
+  de `textoDoStatus` (puro). `fila` roda `processarFila` (90 s, 20 itens) e responde com `textoDaRodadaDaFila`,
+  o mesmo texto do botão “Enviar a fila agora”. `fila` não age em nome de ninguém (qualquer mensagem ao número
+  já faz a fila andar), então vale também com verificação em duas etapas. O registro é o de sempre
+  (`whatsapp_mensagens.comando` = `status`/`fila`).
 - **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
   link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
   saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
@@ -2013,7 +2095,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
   link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
 - **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
-  confirma o número na Área do Voluntário (código ao próprio WhatsApp) marcando a autorização, cujo
+  confirma o número na Área do Voluntário (os mesmos dois caminhos de Meu perfil) marcando a autorização, cujo
   texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
   oportunidade (`oportunidades.avisada_por_whatsapp_em`, marca atômica) põe na fila uma mensagem
   por voluntário ativo que autorizou e não saiu, com o controle de volume de sempre; antes de sair,
@@ -2037,7 +2119,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
   fila anda quando chega mensagem (webhook), a cada aviso novo, na rotina diária
   `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
-  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Batido o teto do minuto,
+  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número — menos o aviso de
+  segurança da conta, que vai ao número a que foi endereçado, pausado ou não (o recado da troca ou
+  remoção vai justamente ao número antigo; §5, “WhatsApp da conta”), a não ser que, enquanto
+  esperava, o número tenha sido confirmado em outra conta (`whatsapp_contas` de outro `user_id`;
+  `participantes_whatsapp` não conta: a mesma pessoa pode ser voluntária). Batido o teto do minuto,
   a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de
   resposta do bot, segurança e avisos da equipe. Só controle de volume:
   **não há variação de texto nem “digitando” para despistar o WhatsApp**.
@@ -2045,6 +2131,26 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (connection.update, envio que falhou por servidor fora ou a rotina diária), os administradores
   recebem “O WhatsApp do Palácio caiu” no sino e no e-mail (categoria `sistema`, que nunca vai pelo
   WhatsApp), no máximo a cada 6 h; e “voltou” quando reconecta.
+- **Rotina: recebimento e modelos (18/10/2026):** `/api/whatsapp/rotina` também confere o webhook
+  (`situacaoDoWebhook`): `desligado` ou `outro_endereco` alertam “O WhatsApp do Palácio parou de receber
+  mensagens” (`conferirWebhook`; `desconhecido` não conta — é a Kapso sem responder, e a queda tem o alerta
+  dela). E conta as falhas das últimas 24 h por “fora da janela” sem modelo ou recusa do modelo
+  (`falhasSemModelo`, que lê o erro e o tipo do registro: a resposta do bot fora da janela — as
+  boas-vindas depois de confirmar pelo código digitado — nunca vai por modelo, então não conta; no
+  `status` ela sai à parte, “Resposta do bot fora da janela de 24 h (não usa modelo)”, sem a dica dos
+  modelos): a partir de 5 (`FALHAS_SEM_MODELO_PARA_ALERTAR`), “Mensagens do WhatsApp sem modelo
+  aprovado” (`conferirFalhasSemModelo`). Os dois vão como o de queda (sino e e-mail, categoria `sistema`) e
+  seguem `decidirAlerta` (puro): uma vez por episódio, nunca de novo antes de 6 h. Sem migração, a memória fica
+  em `activity_log` (`entity_type` `integracao`, sem ator): `whatsapp_webhook_alertado` abre o episódio, e
+  `whatsapp_webhook_voltou` (a rotina viu ligado; avisa “voltou a receber mensagens”) ou
+  `whatsapp_webhook_ligado` (o botão da tela, que já gravava isso) fecham; `whatsapp_modelos_alertado` /
+  `whatsapp_modelos_em_dia` (fecha sem aviso). No fim, a rotina grava `whatsapp_rotina` por espaço conferido
+  (estado, webhook e a contagem; é a “Rotina diária” do `status`). `activity_log` aceita inserção de qualquer
+  membro (RLS), com a data que ele quiser: a leitura dos marcos e da última rotina ignora data futura
+  (`created_at <= agora`), senão uma linha “para 2099” calaria o alerta para sempre. Um membro ainda abre um
+  episódio com a data de agora, até o próximo “resolvido”; a memória definitiva vai para `whatsapp_estado`
+  (só service role) numa migração futura. O painel não mostra essas linhas
+  (`fraseDaAtividade` devolve null). A frequência do cron não mudou (uma vez por dia).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):

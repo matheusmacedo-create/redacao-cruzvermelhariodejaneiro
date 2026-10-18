@@ -217,7 +217,7 @@ export const EMAIL_DE_AVISO_NAO_CHEGOU: Omit<Pergunta, 'id'> = {
 
 export const AVISOS_NO_WHATSAPP: Omit<Pergunta, 'id'> = {
   pergunta: 'Dá para receber os avisos no WhatsApp?',
-  resposta: 'Dá. Em “Meu perfil”, na parte “WhatsApp”, digite o seu número com DDD, toque em “Mandar código” e confirme com o código de 6 números que chega por lá. A partir daí, os avisos do sino chegam também no WhatsApp, e em “O que chega pelo WhatsApp” você desliga os assuntos que não quer receber por lá.\n\nPara não repetir o que você já está vendo, o aviso não sai no WhatsApp enquanto você está com o Palácio Virtual aberto, e de 22h às 7h ele espera até de manhã. As exceções são as que não podem esperar: a chegada de um visitante na portaria sai na hora, mesmo à noite, e a resposta do seu chamado sai mesmo com o Palácio aberto.',
+  resposta: 'Dá. Em “Meu perfil”, na parte “WhatsApp”, digite o seu número com DDD, toque em “Gerar código” e mande o código que aparece ao WhatsApp do Palácio pelo botão “Abrir o WhatsApp” (a mensagem já vai pronta); a tela confirma sozinha. A partir daí, os avisos do sino chegam também no WhatsApp, e em “O que chega pelo WhatsApp” você desliga os assuntos que não quer receber por lá.\n\nPara não repetir o que você já está vendo, o aviso não sai no WhatsApp enquanto você está com o Palácio Virtual aberto, e de 22h às 7h ele espera até de manhã. As exceções são as que não podem esperar: a chegada de um visitante na portaria sai na hora, mesmo à noite, e a resposta do seu chamado sai mesmo com o Palácio aberto.',
   termos: ['whatsapp', 'zap', 'celular', 'mensagem no celular', 'aviso no whatsapp', 'não chegou no whatsapp'],
 }
 

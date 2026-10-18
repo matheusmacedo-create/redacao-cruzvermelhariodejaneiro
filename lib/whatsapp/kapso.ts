@@ -1,7 +1,10 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { estadoDoNumeroNaKapso, numeroCanonico, numeroSemNonoDigito, problemaNaSaude, type MotivoDaFalha } from './regras'
-import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
+import {
+  estadoDoNumeroNaKapso, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, problemaDoModelo, problemaNaSaude,
+  type ModelosDoWhatsapp, type MotivoDaFalha, type ObjetoDoModelo,
+} from './regras'
+import type { Envio, MidiaBaixada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
 
 /**
  * O WhatsApp do Palácio pela Kapso (API oficial da Meta, número gerenciado
@@ -12,7 +15,8 @@ import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from '
  *  - envio pelo proxy da Meta, com o cabeçalho X-API-Key, no formato da Cloud
  *    API (POST /{phone_number_id}/messages);
  *  - texto livre só dentro da janela de 24 h desde a última mensagem da
- *    pessoa; fora dela a Meta recusa (131047) e só sai modelo aprovado;
+ *    pessoa; fora dela a Meta recusa (131047) e só sai modelo aprovado, um
+ *    por finalidade (regras.ts, modeloParaEnviar);
  *  - webhook por número (kind "kapso", payload v2), assinado com HMAC-SHA256
  *    do corpo cru no cabeçalho X-Webhook-Signature;
  *  - mídia recebida: GET /{media_id} devolve um download_url de 4 minutos.
@@ -20,14 +24,13 @@ import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from '
  * Não há QR code nem instância: o número fica conectado no painel da Kapso.
  */
 
-export type ConfigDaKapso = { provedor: 'kapso'; numeroId: string; chave: string; modelo: string | null }
+/** Os modelos (regras.ts): `modelo` o dos avisos, `modeloCodigo` o de Autenticação, `modeloSeguranca` (vazio usa o dos avisos). */
+export type ConfigDaKapso = { provedor: 'kapso'; numeroId: string; chave: string } & ModelosDoWhatsapp
 
 const META = 'https://api.kapso.ai/meta/whatsapp/v24.0'
 const PLATAFORMA = 'https://api.kapso.ai/platform/v1'
 const TEMPO_MAXIMO_MS = 15_000
 const TEMPO_DO_ENVIO_MS = 30_000
-/** Idioma dos modelos aprovados do Palácio. */
-const IDIOMA_DO_MODELO = 'pt_BR'
 
 /** O id do número na Meta: só dígitos. */
 export const numeroIdValido = (v: string) => /^\d{5,30}$/.test(v)
@@ -76,6 +79,11 @@ async function chamar(config: ConfigDaKapso, metodo: 'GET' | 'POST' | 'PATCH', u
 
     const { mensagem, codigo, subcodigo } = erroDoCorpo(dados)
     const s = resposta.status
+    // Recusa do modelo (inexistente, pausado, variáveis erradas) é coisa de arrumar na Kapso: falha comum,
+    // sem reenvio e sem alerta de queda, antes de o 404 virar "número não achado".
+    const nomeDoModelo = texto(objeto(objeto(corpo)?.template)?.name)
+    const doModelo = nomeDoModelo ? problemaDoModelo({ nome: nomeDoModelo, codigo, status: s, mensagem }) : null
+    if (doModelo) return { ok: false, status: s, dados, erro: limparErro(config, doModelo), motivo: 'outro', foraDaJanela: false }
     const foraDaJanela = codigo === 131047 || /24.?h|window|janela/i.test(mensagem ?? '') && s === 422
     let motivo: MotivoDaFalha = 'outro'
     let legivel = mensagem ?? `A Kapso respondeu ${s}.`
@@ -105,26 +113,19 @@ function idDoEnvio(dados: unknown): string | null {
   return typeof primeiro?.id === 'string' ? primeiro.id.slice(0, 128) : null
 }
 
-/**
- * O texto de um aviso cabendo num parâmetro de modelo: a Meta não aceita
- * quebra de linha, tabulação nem mais de 4 espaços seguidos ali.
- */
-export function textoParaModelo(t: string): string {
-  return t.replace(/\s*\n+\s*/g, ' · ').replace(/[\t ]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000)
-}
-
-async function enviarModelo(config: ConfigDaKapso, numero: string, t: string): Promise<Resposta> {
+async function enviarModelo(config: ConfigDaKapso, numero: string, modelo: ObjetoDoModelo): Promise<Resposta> {
   return chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
-    messaging_product: 'whatsapp', recipient_type: 'individual', to: numero, type: 'template',
-    template: { name: config.modelo, language: { code: IDIOMA_DO_MODELO }, components: [{ type: 'body', parameters: [{ type: 'text', text: textoParaModelo(t) }] }] },
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: numero, type: 'template', template: modelo,
   }, TEMPO_DO_ENVIO_MS)
 }
 
 /**
- * Manda um texto. Fora da janela de 24 h, cai no modelo aprovado (se houver
- * um em Configurações → Integrações), com o texto inteiro no parâmetro.
+ * Manda um texto. Fora da janela de 24 h, cai no modelo aprovado da finalidade
+ * (Configurações → Integrações; regras.ts, modeloParaEnviar): o dos avisos com
+ * o texto inteiro no parâmetro, o de Autenticação só com o código, e a resposta
+ * do bot nunca. Sem `finalidade`, vale como aviso.
  */
-export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t: string): Promise<Envio> {
+export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t: string, opcoes: OpcoesDoEnvio = {}): Promise<Envio> {
   const texto = (para: string) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
     messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'text', text: { body: t.slice(0, 4096), preview_url: false },
   }, TEMPO_DO_ENVIO_MS)
@@ -133,8 +134,9 @@ export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t:
   const semNono = numeroSemNonoDigito(numero)
   if (!r.ok && r.foraDaJanela && semNono) r = await texto(semNono)
   if (!r.ok && r.foraDaJanela) {
-    if (!config.modelo) return { ok: false, erro: `${r.erro} Para avisar fora da janela, aprove um modelo de mensagem na Kapso e informe o nome em Configurações → Integrações.`, motivo: 'outro' }
-    r = await enviarModelo(config, numero, t)
+    const modelo = modeloParaEnviar({ finalidade: opcoes.finalidade ?? 'aviso', modelos: config, texto: t, codigo: opcoes.codigo })
+    if (!modelo.ok) return { ok: false, erro: `${r.erro} ${modelo.falta}`, motivo: 'outro' }
+    r = await enviarModelo(config, numero, modelo.modelo)
   }
   if (r.semResposta) return { ok: false, erro: 'A Kapso não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', motivo: 'tempo', semResposta: true }
   if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.', motivo: r.motivo ?? 'outro' }

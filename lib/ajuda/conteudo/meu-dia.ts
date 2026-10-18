@@ -678,7 +678,7 @@ const NOTIFICACOES: GuiaDaArea = {
     {
       id: 'avisos-de-seguranca',
       pergunta: 'Os avisos de segurança da conta aparecem aqui?',
-      resposta: 'Não. Os avisos de segurança (senha trocada, verificação em duas etapas ativada ou removida, papel mudado, conta desativada ou reativada) vão direto para o seu e-mail de recuperação confirmado, qualquer que seja a sua escolha, e não aparecem no sino. Quando o e-mail de recuperação muda, o aviso vai para o endereço antigo.',
+      resposta: 'Não. Os avisos de segurança (senha trocada, verificação em duas etapas ativada ou removida, papel mudado, conta desativada ou reativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas, WhatsApp trocado ou removido) vão direto para o seu e-mail de recuperação confirmado e para o seu WhatsApp confirmado, qualquer que seja a sua escolha (mesmo com o WhatsApp pausado), e não aparecem no sino. Quando o e-mail de recuperação muda, o aviso vai para o endereço antigo. Quando o WhatsApp muda ou sai, o aviso vai ao e-mail confirmado, e o número antigo recebe só um recado curto, sem o seu nome (ele pode já ser de outra pessoa).',
       termos: ['segurança', 'senha', '2fa', 'verificação'],
     },
   ],

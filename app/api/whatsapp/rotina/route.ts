@@ -1,7 +1,8 @@
 import { timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { configDoWhatsapp, situacaoDaConexao } from '@/lib/whatsapp/servidor'
-import { registrarEstado } from '@/lib/whatsapp/estado'
+import { configDoWhatsapp, situacaoDaConexao, situacaoDoWebhook } from '@/lib/whatsapp/servidor'
+import { conferirFalhasSemModelo, conferirWebhook, falhasRecentes, registrarEstado, registrarRotina } from '@/lib/whatsapp/estado'
+import { falhasSemModelo } from '@/lib/whatsapp/regras'
 import { processarFila } from '@/lib/whatsapp/fila'
 import { concluirEsquecidos } from '@/lib/whatsapp/envio'
 import { lembrarFichas } from '@/lib/rh/convites'
@@ -11,9 +12,13 @@ export const maxDuration = 300
 
 /**
  * Rotina diária do WhatsApp (vercel.json, 10h05 UTC = 7h05 em Brasília):
- * confere se o número do Palácio está conectado (alerta a administração se
- * não estiver) e faz a fila andar — é aqui que saem os avisos que esperaram o
- * fim do horário de silêncio e os reenvios do que falhou de madrugada.
+ * confere se o número do Palácio está conectado, se o recebimento (webhook)
+ * continua ligado para cá e se as falhas por falta de modelo passaram do
+ * limite nas últimas 24 h — e alerta a administração no sino e no e-mail,
+ * uma vez por episódio (lib/whatsapp/estado.ts). Depois faz a fila andar — é
+ * aqui que saem os avisos que esperaram o fim do horário de silêncio e os
+ * reenvios do que falhou de madrugada. No fim, registra a execução em cada
+ * espaço (é a "Rotina diária" do comando "status").
  *
  * Protegida por CRON_SECRET, como /api/notificacoes/resumo.
  */
@@ -27,17 +32,34 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
   const { data: espacos } = await admin.from('workspaces').select('id')
   const conexoes: Record<string, string> = {}
+  const recebimento: Record<string, string> = {}
+  const semModelo: Record<string, number | null> = {}
+  const alertas: Record<string, string[]> = {}
+  const conferidos: { workspaceId: string; detalhes: Record<string, unknown> }[] = []
   for (const { id } of espacos ?? []) {
-    const config = await configDoWhatsapp(id as string)
+    const workspaceId = id as string
+    const config = await configDoWhatsapp(workspaceId)
     if (!config) continue
-    const { estado } = await situacaoDaConexao(config)
-    conexoes[id as string] = estado
-    if (estado !== 'conectando') await registrarEstado(admin, id as string, estado)
+    const [{ estado }, webhook] = await Promise.all([situacaoDaConexao(config), situacaoDoWebhook(config, workspaceId)])
+    conexoes[workspaceId] = estado
+    recebimento[workspaceId] = webhook
+    if (estado !== 'conectando') await registrarEstado(admin, workspaceId, estado)
+    // Desligado ou com outro endereço, o bot fica mudo sem ninguém perceber: alerta (nunca pelo WhatsApp).
+    const doWebhook = await conferirWebhook(admin, workspaceId, webhook)
+    // Muitas falhas por fora da janela ou recusa do modelo: falta configurar os modelos aprovados.
+    // A resposta do bot fora da janela não conta: ela nunca vai por modelo (falhasSemModelo olha o tipo).
+    const falhas = await falhasRecentes(admin, workspaceId)
+    const quantas = falhas ? falhasSemModelo(falhas.falhas) : null
+    semModelo[workspaceId] = quantas
+    const dosModelos = quantas === null ? null : await conferirFalhasSemModelo(admin, workspaceId, quantas)
+    alertas[workspaceId] = [doWebhook ? `recebimento_${doWebhook}` : null, dosModelos ? `modelos_${dosModelos}` : null].filter((a): a is string => a !== null)
+    conferidos.push({ workspaceId, detalhes: { estado, webhook, falhasSemModelo: quantas } })
   }
   // Fotos mandadas pelo WhatsApp num envio que a pessoa não fechou: vão para a caixa como estão.
   const enviosFechados = await concluirEsquecidos(admin)
   // Ficha da Equipe pedida pelo WhatsApp e ainda não preenchida: lembra (com link novo), no máximo 2 vezes.
   const fichasLembradas = await lembrarFichas(admin)
   const fila = await processarFila(admin, null, { orcamentoMs: 240_000, limite: 200 })
-  return Response.json({ ok: true, conexoes, fila, enviosFechados, fichasLembradas })
+  await registrarRotina(admin, conferidos)
+  return Response.json({ ok: true, conexoes, recebimento, semModelo, alertas, fila, enviosFechados, fichasLembradas })
 }

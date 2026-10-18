@@ -85,7 +85,8 @@ export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem,
 
 /** Envia agora e registra; atualiza o estado da conexão pelo resultado. */
 async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: Mensagem) {
-  const envio = await enviarTexto(config, m.numero, m.texto)
+  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo).
+  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero,
     userId: m.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
@@ -234,9 +235,18 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
 
 /**
  * Enquanto esperava, a situação pode ter mudado: a pessoa leu o aviso no sino,
- * pausou ou tirou o número. Nesses casos a mensagem não sai mais.
+ * pausou ou tirou o número. Nesses casos a mensagem não sai mais — menos o
+ * aviso de segurança da conta, que vai ao número a que foi endereçado, com ou
+ * sem pausa: o recado da troca ou remoção do número vai justamente ao número
+ * antigo (lib/contas/servidor.ts, avisarPorWhatsapp). Só não sai se, enquanto
+ * isso, o número foi confirmado em outra conta: ali já é de outra pessoa.
  */
 async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
+  if (item.user_id && item.tipo === 'seguranca') {
+    // Só whatsapp_contas: a mesma pessoa pode ter o número também como voluntária.
+    const { data: dono } = await admin.from('whatsapp_contas').select('user_id').eq('numero', item.numero).maybeSingle()
+    if (dono && dono.user_id !== item.user_id) return 'O número passou para outra conta.'
+  }
   if (item.notificacao_id) {
     const { data: aviso } = await admin.from('notifications').select('read_at').eq('id', item.notificacao_id).maybeSingle()
     if (aviso?.read_at) return 'O aviso já foi lido no Palácio.'
@@ -247,7 +257,7 @@ async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
     const { desistirDoVoluntario } = await import('./voluntarios')
     return desistirDoVoluntario(admin, item)
   }
-  if (item.user_id && item.tipo !== 'teste') {
+  if (item.user_id && item.tipo !== 'teste' && item.tipo !== 'seguranca') {
     const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', item.user_id).maybeSingle()
     if (!conta || conta.numero !== item.numero) return 'O número não está mais confirmado.'
     if (conta.pausado_em && item.tipo === 'aviso') return 'A pessoa pausou os avisos por WhatsApp.'

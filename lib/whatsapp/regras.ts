@@ -245,7 +245,7 @@ export function fimDoSilencio(agora: Date): Date {
  * de pedir (código, resposta do bot, teste), para a segurança da conta e para
  * a portaria (a visita está na porta agora).
  */
-export function silencioSeAplica(p: { tipo: 'aviso' | 'seguranca' | 'codigo' | 'bot' | 'teste'; categoria?: string | null }): boolean {
+export function silencioSeAplica(p: { tipo: Finalidade; categoria?: string | null }): boolean {
   return p.tipo === 'aviso' && p.categoria !== 'portaria'
 }
 
@@ -277,6 +277,192 @@ export const categoriaVaiPorWhatsapp = (categoria: string): boolean => categoria
 /** Alerta de queda repetido no máximo a cada tantas horas. */
 export const ALERTA_A_CADA_HORAS = 6
 
+// ------------------------------------------------------------------ saúde do canal (o "status" da administração e os alertas da rotina)
+//
+// Além da conexão, a rotina diária confere o recebimento (o webhook na Kapso) e as falhas por falta
+// de modelo, e alerta a administração no sino e no e-mail (lib/whatsapp/estado.ts). O "status" mostra
+// tudo isso de uma vez pelo próprio WhatsApp (lib/whatsapp/admin.ts).
+
+/** O webhook do número na Kapso aponta para o Palácio, ligado e com a senha certa? (servidor.ts, situacaoDoWebhook) */
+export type EstadoDoWebhook = 'ligado' | 'outro_endereco' | 'desligado' | 'desconhecido'
+
+/** Tantas falhas por "fora da janela" ou por recusa do modelo em 24 h já pedem os modelos aprovados: a rotina avisa. */
+export const FALHAS_SEM_MODELO_PARA_ALERTAR = 5
+
+export type TipoDeFalha = 'janela' | 'modelo' | 'meta' | 'chave' | 'creditos' | 'numero_do_palacio' | 'sem_resposta' | 'rede' | 'outro'
+
+/**
+ * Os erros que kapso.ts grava em whatsapp_mensagens.erro, reconhecidos pelo texto. A ordem conta: o
+ * de fora da janela termina com o que falta ("aprove um modelo…"), e a recusa do modelo pausado fala
+ * em "fora da janela" no meio — por isso a janela é só a que COMEÇA assim.
+ */
+const FALHAS: [TipoDeFalha, RegExp, string][] = [
+  ['janela', /^fora da janela/i, 'Fora da janela de 24 h, sem modelo aprovado'],
+  ['modelo', /\bmodelo\b/i, 'Modelo recusado pela Meta ou pela Kapso'],
+  ['meta', /ligação da Kapso com a Meta/i, 'Ligação da Kapso com a Meta caiu'],
+  ['chave', /recusou a chave/i, 'Chave da Kapso recusada'],
+  ['creditos', /créditos/i, 'Kapso sem créditos'],
+  ['numero_do_palacio', /não achou o número/i, 'Número do Palácio não achado na Kapso'],
+  ['sem_resposta', /\ba tempo\b/i, 'Kapso sem resposta a tempo (pode ter saído)'],
+  ['rede', /falar com a Kapso/i, 'Sem conexão com a Kapso'],
+]
+
+/** A resposta do bot que caiu fora da janela: nunca vai por modelo (modeloParaEnviar), então nenhum modelo aprovado a faz sair. */
+export const ROTULO_DO_BOT_FORA_DA_JANELA = 'Resposta do bot fora da janela de 24 h (não usa modelo)'
+
+/**
+ * O motivo de uma falha de envio, resumido para agrupar. O que não é conhecido agrupa pelo próprio erro, cortado.
+ * `tipoDaMensagem` é o tipo do registro (whatsapp_mensagens.tipo): a resposta do bot fora da janela (as
+ * boas-vindas depois de confirmar o número, por exemplo) vira "outro", com rótulo próprio — não conta como
+ * falta de modelo nem puxa a dica dos modelos.
+ */
+export function tipoDaFalha(erro: string | null | undefined, tipoDaMensagem?: string | null): { tipo: TipoDeFalha; rotulo: string } {
+  const t = String(erro ?? '').replace(/\s+/g, ' ').trim()
+  if (!t) return { tipo: 'outro', rotulo: 'Sem motivo registrado' }
+  for (const [tipo, padrao, rotulo] of FALHAS) {
+    if (!padrao.test(t)) continue
+    if (tipoDaMensagem === 'bot' && (tipo === 'janela' || tipo === 'modelo')) return { tipo: 'outro', rotulo: ROTULO_DO_BOT_FORA_DA_JANELA }
+    return { tipo, rotulo }
+  }
+  const curto = t.replace(/\.$/, '')
+  return { tipo: 'outro', rotulo: curto.length > 80 ? `${curto.slice(0, 79).trimEnd()}…` : curto }
+}
+
+/** Uma saída que falhou: o erro gravado e o tipo do registro (a finalidade: aviso, bot, código…). */
+export type FalhaDeEnvio = { erro: string | null; tipo?: string | null }
+
+export type GrupoDeFalhas = { rotulo: string; tipo: TipoDeFalha; quantas: number }
+
+/** As falhas agrupadas pelo motivo, da mais comum para a menos. */
+export function resumoDasFalhas(falhas: FalhaDeEnvio[]): GrupoDeFalhas[] {
+  const grupos = new Map<string, GrupoDeFalhas>()
+  for (const f of falhas) {
+    const { tipo, rotulo } = tipoDaFalha(f.erro, f.tipo)
+    const g = grupos.get(rotulo)
+    if (g) g.quantas++
+    else grupos.set(rotulo, { rotulo, tipo, quantas: 1 })
+  }
+  return [...grupos.values()].sort((a, b) => b.quantas - a.quantas || a.rotulo.localeCompare(b.rotulo))
+}
+
+/** Quantas falharam por estar fora da janela sem modelo ou por recusa do modelo: as que os modelos aprovados resolvem (a resposta do bot, não). */
+export const falhasSemModelo = (falhas: FalhaDeEnvio[]): number =>
+  falhas.filter((f) => { const { tipo } = tipoDaFalha(f.erro, f.tipo); return tipo === 'janela' || tipo === 'modelo' }).length
+
+/**
+ * O alerta de um problema que a rotina confere (recebimento desligado, falhas sem modelo): uma vez
+ * por episódio, como o de queda (estado.ts), e nunca de novo antes de ALERTA_A_CADA_HORAS. `aberto` =
+ * já houve alerta e nada o resolveu depois; `problema` null = não deu para saber (nada muda).
+ */
+export function decidirAlerta(p: { problema: boolean | null; aberto: boolean; ultimoAlertaEm: string | null; agora: Date }): 'alertar' | 'resolvido' | null {
+  if (p.problema === null) return null
+  if (!p.problema) return p.aberto ? 'resolvido' : null
+  if (p.aberto) return null
+  const ultimo = p.ultimoAlertaEm ? new Date(p.ultimoAlertaEm).getTime() : NaN
+  if (Number.isFinite(ultimo) && p.agora.getTime() - ultimo < ALERTA_A_CADA_HORAS * 3_600_000) return null
+  return 'alertar'
+}
+
+/** "dom, 18/10 às 07:05" (relógio de São Paulo); null se a data não serve. */
+export function quandoEmSaoPaulo(iso: string | null | undefined): string | null {
+  const d = new Date(String(iso ?? ''))
+  if (!iso || !Number.isFinite(d.getTime())) return null
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d).map((x) => [x.type, x.value]))
+  return `${rotuloDoDia(`${p.year}-${p.month}-${p.day}`)} às ${p.hour}:${p.minute}`
+}
+
+export type EsperaNaFila = { silencio: number; volume: number; falha: number }
+
+/** "3 mensagens (2 no silêncio até as 7h, 1 para reenviar)"; "vazia"; sem a contagem, "não deu para ler agora". */
+function textoDaEspera(f: EsperaNaFila | null): string {
+  if (!f) return 'não deu para ler agora'
+  const total = f.silencio + f.volume + f.falha
+  if (!total) return 'vazia'
+  const partes = [
+    f.silencio ? `${f.silencio} no silêncio até as 7h` : null,
+    f.volume ? `${f.volume} esperando a vez` : null,
+    f.falha ? `${f.falha} para reenviar` : null,
+  ].filter(Boolean)
+  return `${total} ${total === 1 ? 'mensagem' : 'mensagens'} (${partes.join(', ')})`
+}
+
+const WEBHOOK_NO_STATUS: Record<EstadoDoWebhook, string> = {
+  ligado: 'ligado',
+  outro_endereco: 'aponta para outro endereço (ou sem a senha do Palácio)',
+  desligado: 'desligado: o bot não recebe as mensagens',
+  desconhecido: 'não deu para ler na Kapso',
+}
+
+export const GRUPOS_DE_FALHAS_NO_STATUS = 4
+
+export type StatusDoCanal = {
+  conexao: { estado: EstadoDaConexao; erro: string | null }
+  webhook: EstadoDoWebhook
+  fila: EsperaNaFila | null
+  /** As falhas de envio das últimas 24 h (`total` conta todas; os grupos, as lidas). null = não deu para ler. */
+  falhas: { total: number; grupos: GrupoDeFalhas[] } | null
+  /** Os nomes das integrações sem chave (nunca os valores). null = não deu para ler. */
+  semChave: string[] | null
+  /** As autorizações do Google que expiraram: onde são usadas e a conta. */
+  googleExpiradas: { onde: string; conta: string }[]
+  /** Quando a rotina diária do WhatsApp terminou pela última vez; null = sem registro. */
+  rotina: string | null
+  urlBase: string
+}
+
+/** A resposta ao "status": curta, uma linha por assunto, no formato do WhatsApp. */
+export function textoDoStatus(s: StatusDoCanal): string {
+  const conexao = `*Kapso:* ${ROTULO_DO_ESTADO[s.conexao.estado]}${s.conexao.erro ? ` – ${limpo(s.conexao.erro, 160)}` : ''}`
+  const linhasDasFalhas = (() => {
+    if (!s.falhas) return ['*Falhas em 24 h:* não deu para ler agora']
+    if (!s.falhas.total) return ['*Falhas em 24 h:* nenhuma']
+    const mostrados = s.falhas.grupos.slice(0, GRUPOS_DE_FALHAS_NO_STATUS)
+    const linhas = [`*Falhas em 24 h:* ${s.falhas.total}`, ...mostrados.map((g) => `• ${g.quantas} – ${limpo(g.rotulo, 90)}`)]
+    const outros = s.falhas.grupos.length - mostrados.length
+    if (outros > 0) linhas.push(`_e mais ${outros} ${outros === 1 ? 'motivo' : 'motivos'}_`)
+    if (s.falhas.grupos.some((g) => g.tipo === 'janela' || g.tipo === 'modelo')) linhas.push('_Os modelos aprovados ficam em Configurações → Integrações._')
+    return linhas
+  })()
+  const semChave = !s.semChave ? 'não deu para ler agora' : s.semChave.length ? s.semChave.map((n) => limpo(n, 60)).join(', ') : 'nenhuma'
+  const google = s.googleExpiradas.length
+    ? `${s.googleExpiradas.map((g) => `${limpo(g.onde, 60)} (${limpo(g.conta, 80)})`).join('; ')} – a autorização expirou; reconecte em Configurações → E-mail dos setores`
+    : 'em dia'
+  return [
+    '*Status do WhatsApp do Palácio*',
+    [
+      conexao,
+      `*Recebimento (bot):* ${WEBHOOK_NO_STATUS[s.webhook]}`,
+      `*Fila:* ${textoDaEspera(s.fila)}`,
+      ...linhasDasFalhas,
+      `*Integrações sem chave:* ${semChave}`,
+      `*Contas Google:* ${google}`,
+      `*Rotina diária:* ${quandoEmSaoPaulo(s.rotina) ?? 'sem registro ainda'}`,
+    ].join('\n'),
+    `Detalhes: ${s.urlBase}/configuracoes/whatsapp`,
+  ].join('\n\n')
+}
+
+export type RodadaDaFila = { enviadas: number; adiadas: number; desistiu: number; restam: number }
+
+/** O que uma rodada da fila fez (o botão "Enviar a fila agora" e o comando "fila"). */
+export function textoDaRodadaDaFila(r: RodadaDaFila): string {
+  if (!r.enviadas && !r.adiadas && !r.desistiu && !r.restam) {
+    return 'Nada saiu agora: a fila está vazia, ou o que espera ainda não pode sair (o silêncio das 22h às 7h, ou o reenvio marcado para mais tarde).'
+  }
+  const partes = [`${r.enviadas} ${r.enviadas === 1 ? 'mensagem enviada' : 'mensagens enviadas'}`]
+  if (r.adiadas) partes.push(`${r.adiadas} para tentar de novo mais tarde`)
+  if (r.desistiu) partes.push(`${r.desistiu} ${r.desistiu === 1 ? 'descartada' : 'descartadas'} (aviso já lido, número removido ou falha sem volta)`)
+  if (r.restam) partes.push(`${r.restam} ainda esperando a vez`)
+  return `${partes.join('; ')}.`
+}
+
+/** A resposta ao "fila": a rodada e o que ficou esperando. */
+export function textoDoComandoFila(p: { rodada: RodadaDaFila; fila: EsperaNaFila | null }): string {
+  return ['*Fila do WhatsApp*', textoDaRodadaDaFila(p.rodada), `Na fila agora: ${textoDaEspera(p.fila)}.`].join('\n\n')
+}
+
 /**
  * O convite de acesso ao Palácio pelo WhatsApp: o usuário e o link para criar
  * a senha (uso único) e, quando o RH também pediu, o link da ficha — tudo numa
@@ -293,12 +479,33 @@ export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url:
   ].filter(Boolean).join('\n\n')
 }
 
-/** Aviso de segurança da conta (senha, verificação, e-mail): sai sempre, mesmo pausado. */
+/**
+ * Aviso de segurança da conta (senha, verificação, e-mail, acesso novo, bloqueio, troca ou remoção do
+ * WhatsApp): sai sempre, mesmo pausado e de madrugada (lib/contas/servidor.ts, avisarPorWhatsapp).
+ */
 export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
   return [`*${limpo(p.titulo, 200)}*`, limpo(p.texto, 900), '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._'].join('\n\n')
 }
 
+/**
+ * O recado ao número que saiu da conta (trocado ou removido pela própria pessoa): o número pode já
+ * ser de outra pessoa, então vai sem nome, sem quem fez, sem data e sem "sua conta" ou "sua senha". O
+ * aviso completo vai só ao e-mail confirmado (lib/contas/servidor.ts, avisarTrocaDeWhatsapp).
+ */
+export const AVISO_AO_NUMERO_ANTIGO = {
+  titulo: 'Avisos do Palácio Virtual',
+  texto: 'Este número deixou de receber os avisos de uma conta do Palácio Virtual. Se não foi você que pediu, fale com a administração.',
+} as const
+
 // ------------------------------------------------------------------ confirmação do número
+//
+// Dois caminhos, e o código de um nunca serve no outro (o sentido entra no hash):
+//  - ida (o padrão): o Palácio mostra o código na tela e a pessoa manda ao número do Palácio
+//    (link wa.me com o texto pronto). Quem escreve é que abre a conversa, então não depende da
+//    janela de 24 h nem de modelo aprovado. O bot confere e confirma (lib/whatsapp/confirmacao.ts);
+//  - volta: o Palácio manda o código ao número e a pessoa digita na tela. Só chega a quem escreveu
+//    ao número nas últimas 24 h, ou pelo modelo de Autenticação do cofre (modeloParaEnviar, abaixo).
+// Os limites (códigos por janela, validade, tentativas) são os mesmos e contam juntos.
 
 export const CODIGO_VALIDADE_MIN = 10
 export const CODIGO_TENTATIVAS = 5
@@ -308,12 +515,198 @@ export const JANELA_DOS_CODIGOS_MIN = 30
 
 export const codigoNoFormato = (codigo: string) => /^\d{6}$/.test(codigo)
 
+export type SentidoDoCodigo = 'ida' | 'volta'
+
+/**
+ * O que entra no hash do código: o sentido, o dono (a pessoa da equipe ou `voluntario:<id>`), o
+ * número e o código. O de volta é o formato de sempre: os códigos já pedidos continuam valendo.
+ */
+export const baseDoHashDoCodigo = (sentido: SentidoDoCodigo, dono: string, numero: string, codigo: string) =>
+  `${sentido === 'ida' ? 'whatsapp-ida' : 'whatsapp'}:${dono}:${numero}:${codigo}`
+
 export function textoDoCodigo(codigo: string): string {
   return [
     `Seu código do Palácio Virtual: *${codigo}*`,
     `Digite no seu perfil para ligar os avisos por WhatsApp. Vale por ${CODIGO_VALIDADE_MIN} minutos.`,
     '_Se não foi você que pediu, ignore esta mensagem: nada muda sem o código._',
   ].join('\n\n')
+}
+
+/** A tela do código de ida pergunta a cada tanto se o bot já confirmou (só lê). */
+export const INTERVALO_DA_CONFERENCIA_MS = 4_000
+
+/** A mensagem pronta do link, com o código de ida. Sem outro número no texto: o bot acha o código sem confusão. */
+export function textoDoCodigoDeIda(codigo: string, onde: 'palacio' | 'voluntariado' = 'palacio'): string {
+  return `Confirmar meu WhatsApp ${onde === 'voluntariado' ? 'na Área do Voluntário' : 'no Palácio'}: ${codigo}`
+}
+
+/** Link do WhatsApp (wa.me) para o número, com a mensagem pronta; null sem um número que sirva. */
+export function linkDoWhatsapp(numero: string | null | undefined, texto: string): string | null {
+  const d = String(numero ?? '').replace(/\D/g, '')
+  if (d.length < 10 || d.length > 15) return null
+  return `https://wa.me/${d}?text=${encodeURIComponent(texto)}`
+}
+
+/**
+ * O código de 6 números numa mensagem ao bot: a mensagem pronta do link, só o código ou
+ * "123 456". null se não há, se há outro número junto (um telefone, uma data, o "10 minutos" do
+ * código que o Palácio mandou) ou se a mensagem é longa demais para ser o código.
+ */
+export function codigoNaMensagem(entrada: string | null | undefined): string | null {
+  const t = String(entrada ?? '').trim()
+  if (!t || t.length > 160) return null
+  const grupos = t.match(/\d(?:[\d .-]*\d)?/g) ?? []
+  if (grupos.length !== 1) return null
+  const digitos = grupos[0].replace(/\D/g, '')
+  return codigoNoFormato(digitos) ? digitos : null
+}
+
+/**
+ * A leitura estrita do código, para o número que já é de alguém da equipe: só a mensagem que é o
+ * código ("123456", "123 456") ou exatamente a mensagem pronta do link. "chamado: patrimônio 123456
+ * sem toner" segue para o chamado — codigoNaMensagem acharia ali um código.
+ */
+export function soOCodigo(entrada: string | null | undefined): string | null {
+  const t = String(entrada ?? '').trim()
+  const m = /^(\d{3})[ .-]?(\d{3})$/.exec(t) ?? /^Confirmar meu WhatsApp (?:no Palácio|na Área do Voluntário):\s*(\d{3})[ .-]?(\d{3})$/i.exec(t)
+  return m ? `${m[1]}${m[2]}` : null
+}
+
+/** A resposta do bot quando o código de ida confere. */
+export function textoDoNumeroConfirmado(onde: 'palacio' | 'voluntariado'): string {
+  return onde === 'voluntariado'
+    ? 'Pronto: número confirmado. As oportunidades de voluntariado passam a chegar por aqui.\n\nResponda *menu* para ver as opções.'
+    : 'Pronto: número confirmado. Os avisos do Palácio Virtual passam a chegar por aqui.\n\nResponda *menu* para ver o que dá para fazer por aqui.'
+}
+
+/** Código de ida errado: curto, com o que resta. */
+export function textoDoCodigoDeIdaErrado(restam: number): string {
+  if (restam <= 0) return 'Esse código não confere, e as tentativas acabaram. Gere um código novo na tela.'
+  return `Esse código não confere. Confira o código na tela e mande de novo (${restam === 1 ? 'resta 1 tentativa' : `restam ${restam} tentativas`}).`
+}
+
+/** O código de ida conferiu, mas o número não se confirmou: por quê. */
+export function textoDaFalhaDoCodigoDeIda(motivo: 'usado' | 'outra_conta' | 'falhou', quem: 'equipe' | 'voluntario'): string {
+  if (motivo === 'usado') return 'Esse código já foi usado. Gere um código novo na tela.'
+  if (motivo === 'outra_conta') {
+    return quem === 'equipe' ? 'Esse número já está confirmado em outra conta do Palácio Virtual. Nada mudou.' : 'Esse número já está confirmado por outro voluntário. Nada mudou.'
+  }
+  return 'Não consegui confirmar o número agora. Gere um código novo na tela e tente de novo.'
+}
+
+/** O código que o Palácio mandou (o de digitar na tela) chegou de volta aqui: não conta tentativa. */
+export const TEXTO_DO_CODIGO_DE_VOLTA = 'Este código é para digitar na tela em que você o pediu, não para mandar aqui.'
+
+// ------------------------------------------------------------------ modelos (fora da janela de 24 h)
+//
+// Pela API oficial, texto livre só sai para quem escreveu ao número nas últimas 24 h. Fora disso,
+// só modelo aprovado pela Meta, um por finalidade (os nomes ficam no cofre, Configurações → Integrações):
+//  - aviso e teste: o modelo dos avisos, com uma variável no corpo ({{1}}) que leva o texto inteiro;
+//  - código de confirmação: um modelo da categoria AUTHENTICATION da Meta (é a categoria que a Meta
+//    exige para códigos). O texto é fixo da Meta, com o botão de copiar; o código vai no corpo e no
+//    botão. Sem ele, o código não sai fora da janela — nunca pelo modelo dos avisos;
+//  - segurança da conta: o modelo de segurança, se houver; senão, o dos avisos;
+//  - resposta do bot: nunca por modelo (quem escreveu acabou de abrir a janela).
+
+/** Para que a mensagem sai. É o tipo do registro (whatsapp_mensagens.tipo) e da fila. */
+export type Finalidade = 'aviso' | 'seguranca' | 'codigo' | 'bot' | 'teste'
+
+/** Os nomes dos modelos aprovados, como estão no cofre (null = não informado). */
+export type ModelosDoWhatsapp = { modelo: string | null; modeloCodigo: string | null; modeloSeguranca: string | null }
+
+/** Idioma dos modelos aprovados do Palácio. */
+export const IDIOMA_DO_MODELO = 'pt_BR'
+
+/** O nome de um modelo como a Meta grava: letras minúsculas, números e sublinhado. */
+export const nomeDeModeloValido = (nome: string) => /^[a-z0-9_]{1,512}$/.test(nome)
+
+/** O modelo que leva a mensagem fora da janela; null = nenhum serve. */
+export function modeloDaFinalidade(finalidade: Finalidade, m: ModelosDoWhatsapp): string | null {
+  if (finalidade === 'bot') return null
+  if (finalidade === 'codigo') return m.modeloCodigo
+  if (finalidade === 'seguranca') return m.modeloSeguranca ?? m.modelo
+  return m.modelo
+}
+
+/**
+ * O texto de um aviso cabendo num parâmetro de modelo: a Meta não aceita
+ * quebra de linha, tabulação nem mais de 4 espaços seguidos ali.
+ */
+export function textoParaModelo(t: string): string {
+  return t.replace(/\s*\n+\s*/g, ' · ').replace(/[\t\u00a0]+/g, ' ').replace(/ {2,}/g, ' ').trim().slice(0, 1000)
+}
+
+type ParametroDeTexto = { type: 'text'; text: string }
+
+/** O objeto `template` da Cloud API (POST /{phone_number_id}/messages com type "template"). */
+export type ObjetoDoModelo = {
+  name: string
+  language: { code: string }
+  components: ({ type: 'body'; parameters: ParametroDeTexto[] } | { type: 'button'; sub_type: 'url'; index: string; parameters: ParametroDeTexto[] })[]
+}
+
+/**
+ * O modelo para mandar fora da janela, ou o que falta para haver um. `texto` é a mensagem que
+ * sairia como texto livre; `codigo`, o código de confirmação (só na finalidade "codigo": o modelo
+ * de Autenticação não leva o nosso texto, só o código, no corpo e no botão de copiar).
+ */
+export function modeloParaEnviar(p: { finalidade: Finalidade; modelos: ModelosDoWhatsapp; texto: string; codigo?: string | null }):
+  { ok: true; modelo: ObjetoDoModelo } | { ok: false; falta: string } {
+  if (p.finalidade === 'bot') return { ok: false, falta: 'Resposta do bot não sai por modelo.' }
+  const nome = modeloDaFinalidade(p.finalidade, p.modelos)
+  if (!nome) {
+    return {
+      ok: false,
+      falta: p.finalidade === 'codigo'
+        ? 'Para mandar o código fora da janela, aprove na Kapso um modelo da categoria Autenticação e informe o nome em Configurações → Integrações.'
+        : 'Para avisar fora da janela, aprove um modelo de mensagem na Kapso e informe o nome em Configurações → Integrações.',
+    }
+  }
+  const idioma = { code: IDIOMA_DO_MODELO }
+  if (p.finalidade === 'codigo') {
+    const codigo = String(p.codigo ?? '')
+    if (!codigoNoFormato(codigo)) return { ok: false, falta: 'O código não veio para o modelo de Autenticação.' }
+    const parametros: ParametroDeTexto[] = [{ type: 'text', text: codigo }]
+    return { ok: true, modelo: { name: nome, language: idioma, components: [{ type: 'body', parameters: parametros }, { type: 'button', sub_type: 'url', index: '0', parameters: parametros }] } }
+  }
+  return { ok: true, modelo: { name: nome, language: idioma, components: [{ type: 'body', parameters: [{ type: 'text', text: textoParaModelo(p.texto) }] }] } }
+}
+
+/**
+ * Erro da Meta que é do modelo, não da conexão: 132000–132016 (modelo que não existe no idioma,
+ * pausado, desativado, variáveis erradas) e 132068/132069 (fluxo do modelo bloqueado ou limitado).
+ */
+export const ehErroDeModelo = (codigo: number | null | undefined): boolean =>
+  typeof codigo === 'number' && (codigo >= 132000 && codigo <= 132016 || codigo === 132068 || codigo === 132069)
+
+/**
+ * A recusa de um envio por modelo, legível; null se a recusa não é do modelo (chave, créditos,
+ * volume, número). Quem chama trata como falha comum ("outro"): sem reenvio e sem alerta de queda,
+ * porque quem arruma é a administração, na Kapso. A Kapso pode recusar antes de chegar à Meta, sem
+ * o código: 400, 404 ou 422 que fala do modelo também conta (o 404 não vira "número não achado").
+ */
+export function problemaDoModelo(p: { nome: string; codigo: number | null; status: number; mensagem: string | null }): string | null {
+  const nome = p.nome.slice(0, 80)
+  const qual = `o modelo “${nome}”`
+  const Qual = `O modelo “${nome}”`
+  if (ehErroDeModelo(p.codigo)) {
+    const c = p.codigo as number
+    const meta = ` (erro ${c} da Meta)`
+    if (c === 132000) return `${Qual} espera outro número de variáveis${meta}. O dos avisos e o de segurança têm uma variável só, no corpo; o de código é da categoria Autenticação, com o botão de copiar.`
+    if (c === 132001) return `${Qual} não existe na Kapso em português (pt_BR) ou ainda não foi aprovado pela Meta${meta}. Confira o nome em Configurações → Integrações.`
+    if (c === 132005) return `O texto ficou longo demais para ${qual}${meta}.`
+    if (c === 132007) return `A Meta recusou o texto em ${qual} pelas regras de formatação${meta}.`
+    if (c === 132012) return `As variáveis não estão no formato que ${qual} espera${meta}. O de código precisa ser da categoria Autenticação, com o botão de copiar.`
+    if (c === 132015) return `${Qual} foi pausado pela Meta por baixa qualidade${meta}. Veja no painel da Kapso; até lá, o que depende dele não sai fora da janela.`
+    if (c === 132016) return `${Qual} foi desativado pela Meta${meta}. Aprove outro na Kapso e troque o nome em Configurações → Integrações.`
+    if (c === 132068) return `O fluxo ligado a ${qual} está bloqueado na Meta${meta}.`
+    if (c === 132069) return `O fluxo ligado a ${qual} está limitado pela Meta agora${meta}. Tente mais tarde.`
+    return `A Meta recusou ${qual}${meta}. Confira o modelo no painel da Kapso.`
+  }
+  if ((p.status === 400 || p.status === 404 || p.status === 422) && /template|modelo/i.test(p.mensagem ?? '')) {
+    return `A Kapso recusou ${qual}: ${String(p.mensagem).replace(/\s+/g, ' ').trim().slice(0, 160)}. Confira o nome em Configurações → Integrações e o modelo no painel da Kapso.`
+  }
+  return null
 }
 
 // ------------------------------------------------------------------ webhook
@@ -418,7 +811,10 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 
 // ------------------------------------------------------------------ bot
 
-export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado' | 'desconhecido'
+export type Comando = 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado' | ComandoDaAdministracao | 'desconhecido'
+
+/** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
+export type ComandoDaAdministracao = 'status' | 'fila'
 
 const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 
@@ -433,6 +829,15 @@ const PALAVRAS: Record<'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agend
   aprovacoes: ['6', 'aprovacoes', 'aprovacao', 'votos', 'votar'],
 }
 
+/**
+ * Os da administração valem só como a mensagem inteira: "fila" ou "status" no meio de uma frase
+ * ("a fila do chamado não anda") nunca roda nada. Nenhuma destas palavras é de outro comando.
+ */
+const DA_ADMINISTRACAO: Record<string, ComandoDaAdministracao> = {
+  status: 'status', diagnostico: 'status', saude: 'status', 'status do whatsapp': 'status',
+  fila: 'fila', 'fila agora': 'fila', 'enviar fila': 'fila',
+}
+
 export type Pedido = { comando: Comando; resto: string }
 
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
@@ -444,12 +849,14 @@ function depoisDe(entrada: string, prefixo: RegExp): string {
  * O que a pessoa pediu, e o resto do texto quando o comando leva um
  * complemento ("ajuda como abrir um chamado", "chamado: impressora sem
  * toner"). O "3" do menu alterna: para quem recebe, é parar; para quem
- * pausou, é voltar.
+ * pausou, é voltar. "status" e "fila" são só de quem administra o espaço
+ * (`admin`); para o resto seguem o caminho de sempre e dão "desconhecido".
  */
-export function lerPedido(entrada: string, p: { pausado: boolean }): Pedido {
+export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean }): Pedido {
   const t = normalizar(entrada)
   if (!t) return { comando: 'desconhecido', resto: '' }
   if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
+  if (p.admin && DA_ADMINISTRACAO[t]) return { comando: DA_ADMINISTRACAO[t], resto: '' }
   const palavras = t.split(' ')
   // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
   if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
@@ -466,7 +873,7 @@ export function lerPedido(entrada: string, p: { pausado: boolean }): Pedido {
   return { comando: 'desconhecido', resto: '' }
 }
 
-export const interpretarComando = (entrada: string, p: { pausado: boolean }): Comando => lerPedido(entrada, p).comando
+export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean }): Comando => lerPedido(entrada, p).comando
 
 /** Respostas do bot a cada ~10 min por número, no máximo: um robô do outro lado não vira enxurrada. */
 export const RESPOSTAS_POR_JANELA = 10
@@ -474,7 +881,8 @@ export const JANELA_DAS_RESPOSTAS_MIN = 10
 /** Número que não é de ninguém da equipe recebe a apresentação no máximo uma vez neste intervalo. */
 export const APRESENTACAO_A_CADA_HORAS = 24
 
-export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string }): string {
+/** `admin`: quem administra o espaço vê também a linha dos comandos dele (status e fila). */
+export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; admin?: boolean }): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   return [
     `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`,
@@ -484,6 +892,7 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
       '*4* – sua agenda de hoje e amanhã', '*5* – seus chamados abertos', '*6* – o que espera o seu voto'].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida sobre o Palácio (ex.: _ajuda como trocar a senha_)',
       'E, para responder um aviso de chamado, do Chat ou de aprovação, responda a própria mensagem do aviso.'].join('\n'),
+    p.admin ? ['Da administração:', '*status* – a saúde do WhatsApp do Palácio e das integrações', '*fila* – fazer a fila do WhatsApp andar agora'].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
 }
@@ -509,6 +918,7 @@ export function textoDasLidas(quantas: number): string {
 
 export const TEXTO_PAUSADO = [
   'Combinado: os avisos do Palácio Virtual não vêm mais por aqui. Eles continuam no sino e, se você escolheu, no e-mail.',
+  'Só os avisos de segurança da sua conta (senha trocada, acesso novo, número trocado) continuam chegando por aqui.',
   'Para voltar, responda *voltar* ou ligue de novo em Meu perfil.',
 ].join('\n\n')
 

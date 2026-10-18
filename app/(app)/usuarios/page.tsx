@@ -11,7 +11,7 @@ import { emailConfigurado } from '@/lib/newsletter/resend'
 import { tituloDaArea } from '@/lib/navegacao'
 import { nomesDosSetores } from '@/lib/setores'
 import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
-import { formatarNumero, numeroCanonico } from '@/lib/whatsapp/regras'
+import { formatarNumero, mascararNumero, numeroCanonico } from '@/lib/whatsapp/regras'
 import { lerMarcaDoConvite } from '@/lib/contas/convite'
 
 export const metadata = { title: tituloDaArea('/usuarios') }
@@ -47,6 +47,11 @@ export default async function UsuariosPage() {
   const ultimoAcesso = new Map((contas.data?.users ?? []).map((u) => [u.id, u.last_sign_in_at ?? null]))
   const aparelhos = new Map((contas.data?.users ?? []).map((u) => [u.id, (u.factors ?? []).filter((f) => f.status === 'verified').length]))
 
+  // O WhatsApp confirmado de cada um, já mascarado aqui: o número inteiro não vai ao navegador. Sem a tabela, ninguém tem.
+  const ids = (membros ?? []).map((m) => m.user_id as string)
+  const { data: zaps } = ids.length ? await admin.from('whatsapp_contas').select('user_id, numero, pausado_em').in('user_id', ids) : { data: [] }
+  const whatsappDe = new Map((zaps ?? []).map((z) => [z.user_id as string, { numero: mascararNumero(z.numero as string), pausado: Boolean(z.pausado_em) }]))
+
   // Quem nunca entrou pode receber o convite de primeiro acesso: o WhatsApp vem
   // sugerido do último convite ou, sem ele, do celular pessoal da ficha do RH.
   const nuncaEntraram = (membros ?? []).map((m) => m.user_id as string).filter((id) => !ultimoAcesso.get(id))
@@ -78,6 +83,7 @@ export default async function UsuariosPage() {
       aparelhos: aparelhos.get(p.id) ?? 0,
       email: p.email ?? null, emailConfirmado: Boolean(p.email && p.email_confirmado_em),
       ultimoConvite: conviteDe.get(p.id) ?? null, whatsappSugerido: whatsappSugerido.get(p.id) ?? null,
+      whatsapp: whatsappDe.get(p.id) ?? null,
     }]
   }).sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR'))
 

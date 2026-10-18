@@ -8,8 +8,12 @@ import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
 import { ABERTOS, ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, ehStatus } from '@/lib/chamados/regras'
 import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
 import { ehPapel, type Papel } from '@/lib/permissoes'
-import { registrar, type ConfigDoWhatsapp } from './servidor'
+import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
+import { ehAdministracao, respostaDaAdministracao } from './admin'
+import {
+  codigosPendentesDoNumero, confirmarNumeroDaEquipe, confirmarNumeroDoVoluntario, contarTentativaErrada, donoDoVoluntario, type CodigoPendente,
+} from './confirmacao'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
   avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita, seguirPendencia,
@@ -22,8 +26,8 @@ import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_PAUSADO, TEXTO_VOLTOU, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, textoDaAgenda, textoDaAjuda, textoDaApresentacao, textoDasAprovacoes, textoDasLidas, textoDoMenu,
-  textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda, textoDaApresentacao,
+  textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -32,9 +36,18 @@ type Admin = ReturnType<typeof createAdminClient>
  * O bot do WhatsApp: responde a quem escreve para o número do Palácio.
  *
  * Quem é da equipe e confirmou o número (whatsapp_contas) vê os avisos sem
- * abrir, marca como lidos e pausa ou retoma os avisos por aqui. Quem não é
- * recebe uma apresentação (no máximo uma por dia) com o caminho dos canais
- * oficiais: este número não é atendimento ao público.
+ * abrir, marca como lidos e pausa ou retoma os avisos por aqui; quem
+ * administra o espaço também pede o "status" do canal e faz a fila andar
+ * (lib/whatsapp/admin.ts). Quem não é recebe uma apresentação (no máximo uma
+ * por dia) com o caminho dos canais oficiais: este número não é atendimento
+ * ao público.
+ *
+ * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
+ * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
+ * caminho a mensagem com um código quando há código em aberto para o número
+ * — e, se o número já é de alguém da equipe, só a mensagem que é o código
+ * (regras.ts, soOCodigo), para o chamado com um número de patrimônio não se
+ * perder ali; o resto segue como sempre.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -47,12 +60,29 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const numero = m.numero
 
     const { data: conta } = await admin.from('whatsapp_contas').select('user_id, pausado_em').eq('numero', numero).maybeSingle()
+
+    // O código de ida vem antes de tudo: o número ainda é desconhecido, ou é de quem pediu para confirmar de novo.
+    // Número que já é de alguém da equipe só entra aqui com a mensagem que é só o código (ou a mensagem pronta):
+    // "chamado: patrimônio 123456 sem toner" segue para o chamado, mesmo com um código em aberto para o número.
+    const codigo = m.midia ? null : conta ? soOCodigo(m.texto) : codigoNaMensagem(m.texto)
+    const pendentes = codigo ? await codigosPendentesDoNumero(admin, workspaceId, numero) : []
+    if (codigo && pendentes.length) {
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida' })
+      if (!nova) return
+      // A tentativa conta (e o número se confirma) mesmo com o teto de respostas batido: só a resposta fica de fora.
+      const resposta = await respostaAoCodigoDeIda(admin, workspaceId, numero, codigo, pendentes)
+      if (!(await noTetoDeRespostas(admin, workspaceId, numero))) await entregar(admin, workspaceId, { numero, texto: resposta.texto, tipo: 'bot', userId: resposta.userId }, { config })
+      return
+    }
+
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
     const achado = pessoa ? null : await voluntarioDoNumero(admin, numero)
     const voluntario = achado?.workspaceId === workspaceId ? achado : null
-    const pedido = pessoa ? lerPedido(m.texto, { pausado }) : null
+    // Quem administra o espaço tem também "status" e "fila" (lib/whatsapp/admin.ts); para o resto, são "desconhecido".
+    const administra = ehAdministracao(pessoa)
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -83,10 +113,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     })
     if (!nova) return
 
-    const desde = new Date(Date.now() - JANELA_DAS_RESPOSTAS_MIN * 60_000).toISOString()
-    const { count: respostas } = await admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
-      .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', desde)
-    const noTeto = (respostas ?? 0) >= RESPOSTAS_POR_JANELA
+    const noTeto = await noTetoDeRespostas(admin, workspaceId, numero)
 
     const responder = (texto: string) => entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null }, { config })
     const base = urlBase()
@@ -221,16 +248,59 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    if (comando === 'status' || comando === 'fila') {
+      const resposta = await respostaDaAdministracao(admin, workspaceId, pessoa, comando, config, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
     if (comando === 'ajuda' && pedido) {
       await responder(await responderDuvida(pedido.resto, pessoa.papel, base))
       return
     }
 
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base })
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, admin: administra })
     await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu)
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
   }
+}
+
+/** O teto de respostas por número na janela: um robô do outro lado não vira enxurrada. */
+async function noTetoDeRespostas(admin: Admin, workspaceId: string, numero: string): Promise<boolean> {
+  const desde = new Date(Date.now() - JANELA_DAS_RESPOSTAS_MIN * 60_000).toISOString()
+  const { count } = await admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', desde)
+  return (count ?? 0) >= RESPOSTAS_POR_JANELA
+}
+
+// ------------------------------------------------------------------ código de ida
+
+/**
+ * O código de ida chegou do próprio número: confere com cada código em aberto
+ * para ele e, conferindo, confirma como o caminho de digitar confirma
+ * (lib/whatsapp/confirmacao.ts). O código de volta mandado aqui não confirma
+ * nem conta tentativa; qualquer outro conta uma tentativa.
+ */
+async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: string, codigo: string, pendentes: CodigoPendente[]): Promise<{ texto: string; userId: string | null }> {
+  for (const p of pendentes) {
+    if (p.quem === 'equipe') {
+      if (!codigoConfere(p.hash, p.userId, numero, codigo, 'ida')) continue
+      // Como a tela exige a sessão no espaço: conta desativada ou de fora não confirma.
+      const pessoa = await pessoaDoEspaco(admin, workspaceId, p.userId)
+      if (!pessoa) return { texto: textoDaFalhaDoCodigoDeIda('falhou', 'equipe'), userId: null }
+      const r = await confirmarNumeroDaEquipe(admin, { codigoId: p.id, userId: p.userId, numero, workspaceId, sentido: 'ida' })
+      return { texto: r.ok ? textoDoNumeroConfirmado('palacio') : textoDaFalhaDoCodigoDeIda(r.motivo, 'equipe'), userId: r.ok ? p.userId : null }
+    }
+    if (!codigoConfere(p.hash, donoDoVoluntario(p.participanteId), numero, codigo, 'ida')) continue
+    const r = await confirmarNumeroDoVoluntario(admin, { participanteId: p.participanteId, numero, codigoHash: p.hash })
+    return { texto: r.ok ? textoDoNumeroConfirmado('voluntariado') : textoDaFalhaDoCodigoDeIda(r.motivo, 'voluntario'), userId: null }
+  }
+  const deVolta = pendentes.some((p) => codigoConfere(p.hash, p.quem === 'equipe' ? p.userId : donoDoVoluntario(p.participanteId), numero, codigo, 'volta'))
+  if (deVolta) return { texto: TEXTO_DO_CODIGO_DE_VOLTA, userId: null }
+  return { texto: textoDoCodigoDeIdaErrado(await contarTentativaErrada(admin, pendentes)), userId: null }
 }
 
 /** A pessoa ativa, membro deste espaço; null para o resto (conta desativada vira "número desconhecido"). */
