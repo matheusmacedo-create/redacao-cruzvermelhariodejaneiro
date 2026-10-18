@@ -59,7 +59,7 @@ export default async function ConfiguracoesPage() {
   const ativas = (caixas ?? []).filter((c) => c.ativa && c.no_gmail).length
   const google = conexao.data
   const faltam = chaves.filter((c) => !c.origem)
-  const whatsapp = chaves.some((c) => c.servico === 'evolution_api' && c.origem)
+  const whatsapp = chaves.some((c) => (c.servico === 'evolution_api' || c.servico === 'kapso') && c.origem)
 
   const espaco: Atalho[] = [
     {
@@ -77,7 +77,7 @@ export default async function ConfiguracoesPage() {
     {
       // Só se a chave existe: conferir a conexão de verdade é na própria tela (pede o servidor da Evolution).
       href: '/configuracoes/whatsapp', titulo: 'WhatsApp', icone: Smartphone,
-      texto: whatsapp ? 'Conexão pelo QR code, recebimento de mensagens (bot) e teste.' : 'Falta o endereço, a instância e a chave da Evolution API em Integrações.',
+      texto: whatsapp ? 'Conexão, recebimento de mensagens (bot) e teste.' : 'Falta a chave da Kapso (ou os dados da Evolution API) em Integrações.',
       tom: whatsapp ? undefined : 'atencao',
     },
     { href: '/configuracoes/site', titulo: 'Site', icone: Globe, texto: 'Google Analytics, páginas do site e matérias no ar em /noticias/.' },

@@ -44,6 +44,9 @@ function MostrarRecado({ recado }: { recado: Recado }) {
  * app/actions/whatsapp.ts, que conferem de novo que quem clicou é admin.
  */
 export function PainelDoWhatsapp(p: {
+  /** Kapso: sem QR nem instância (o número é conectado no painel da Kapso). */
+  provedor: 'evolution' | 'kapso'
+  /** Na Kapso, o Phone number ID. */
   instancia: string
   servidor: string
   semHttps: boolean
@@ -113,6 +116,7 @@ export function PainelDoWhatsapp(p: {
   }
 
   const conectado = estado === 'conectado'
+  const kapso = p.provedor === 'kapso'
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,7 +124,9 @@ export function PainelDoWhatsapp(p: {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Conexão</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Instância <strong className="text-foreground">{p.instancia}</strong> em {p.servidor}.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {kapso ? <>Pela Kapso (API oficial do WhatsApp), número <strong className="text-foreground">{p.instancia}</strong>.</> : <>Instância <strong className="text-foreground">{p.instancia}</strong> em {p.servidor}.</>}
+            </p>
           </div>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${conectado ? 'bg-success/10 text-success' : estado === 'erro' ? 'bg-destructive/10 text-destructive' : 'bg-warning/15 text-foreground'}`}>
             {conectado && <CheckCircle2 className="size-3.5" aria-hidden="true" />}{ROTULO_DO_ESTADO[estado]}
@@ -134,20 +140,29 @@ export function PainelDoWhatsapp(p: {
             <p className="text-sm">
               {p.numeroConectado ? <>Número conectado: <strong>{p.numeroConectado}</strong>{p.nomeConectado ? ` (${p.nomeConectado})` : ''}.</> : 'Conectado ao WhatsApp.'}
             </p>
-            <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm('Desconectar o WhatsApp do Palácio? Os avisos e o bot param até conectar de novo pelo QR code.')) acao(desconectarWhatsapp) }}>
+            {!kapso && <Button variant="destructive" disabled={ocupado} onClick={() => { if (confirm('Desconectar o WhatsApp do Palácio? Os avisos e o bot param até conectar de novo pelo QR code.')) acao(desconectarWhatsapp) }}>
               <LogOut className="size-4" />Desconectar
-            </Button>
+            </Button>}
           </div>
         )}
 
-        {estado === 'sem_instancia' && (
+        {kapso && conectado && (
+          <p className="text-sm text-muted-foreground">
+            Pela API oficial, o Palácio só manda texto livre para quem escreveu ao número nas últimas 24 horas. Para os outros avisos, aprove um modelo de mensagem na Kapso (com uma variável no corpo) e informe o nome dele em Configurações → Integrações.
+          </p>
+        )}
+        {kapso && estado === 'sem_instancia' && (
+          <p className="text-sm text-muted-foreground">A Kapso não achou esse número. Confira o Phone number ID em Configurações → Integrações (está na tela do número no painel da Kapso).</p>
+        )}
+
+        {!kapso && estado === 'sem_instancia' && (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted-foreground">O servidor não tem uma instância com esse nome. Crie aqui (a chave precisa ser a global do servidor) ou no painel da Evolution, e confira o nome em Configurações → Integrações.</p>
             <div><Button disabled={ocupado} onClick={() => acao(criarInstanciaDoWhatsapp)}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : <PlugZap className="size-4" />}Criar a instância</Button></div>
           </div>
         )}
 
-        {(estado === 'desconectado' || estado === 'conectando') && !qr && (
+        {!kapso && (estado === 'desconectado' || estado === 'conectando') && !qr && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-muted-foreground">
               Use um celular com o chip do Palácio (não um número pessoal). No WhatsApp desse celular: <strong>Configurações → Dispositivos conectados → Conectar um dispositivo</strong>, e aponte a câmera para o QR code.
@@ -182,8 +197,9 @@ export function PainelDoWhatsapp(p: {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Receber mensagens (bot)</h2>
         <p className="text-sm">{WEBHOOK[p.webhook] ?? WEBHOOK.desconhecido}</p>
         <p className="text-sm text-muted-foreground">
-          O botão configura o servidor da Evolution para mandar ao Palácio só as mensagens recebidas e as mudanças de conexão, com uma senha num cabeçalho.
-          Não preencha a URL do webhook à mão no painel da Evolution: sem a senha, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.
+          {kapso
+            ? 'O botão cria na Kapso o webhook deste número, só com as mensagens recebidas, assinadas com uma senha que o Palácio confere. Não cadastre a URL à mão no painel da Kapso: sem a senha certa, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.'
+            : 'O botão configura o servidor da Evolution para mandar ao Palácio só as mensagens recebidas e as mudanças de conexão, com uma senha num cabeçalho. Não preencha a URL do webhook à mão no painel da Evolution: sem a senha, o Palácio recusa. Trocou a chave em Integrações? Ligue de novo.'}
         </p>
         <div><Button variant={p.webhook === 'ligado' ? 'outline' : 'default'} disabled={ocupado} onClick={() => acao(ligarRecebimentoDoWhatsapp)}>
           {ocupado ? <Loader2 className="size-4 animate-spin" /> : <Webhook className="size-4" />}{p.webhook === 'ligado' ? 'Ligar de novo' : 'Ligar o recebimento de mensagens'}

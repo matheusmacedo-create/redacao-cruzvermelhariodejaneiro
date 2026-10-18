@@ -4,7 +4,7 @@
  */
 import {
   numeroCanonico, numeroDoJid, formatarNumero, mascararNumero, urlDoServidor, instanciaValida, estadoDaEvolution,
-  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, interpretarComando, textoDosAvisos, textoDasLidas,
+  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDoWebhook, lerEventoDaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, enderecoLocal, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
@@ -391,6 +391,35 @@ igual(falhaMereceReenvio('tempo'), false, 'tempo esgotado pode ter saído: não 
 igual(falhaMereceReenvio('numero'), false, 'número sem WhatsApp: não reenvia')
 igual(categoriaVaiPorWhatsapp('sistema'), false, 'alerta de queda não vai pelo WhatsApp')
 igual(categoriaVaiPorWhatsapp('chamados'), true, 'chamados vão')
+
+// ---------------------------------------------------------------- Kapso (payload v2)
+const NUMERO_ID = '1401089659754587'
+const kapsoTexto = lerEventoDaKapso({
+  message: { id: 'wamid.1', timestamp: '1730092800', type: 'text', from: '5521987654321', text: { body: 'menu' }, context: { id: 'wamid.aviso' }, kapso: { direction: 'inbound' } },
+  conversation: { id: 'c1', contact_name: 'Ana', phone_number: '5521987654321', phone_number_id: NUMERO_ID },
+  phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoTexto.evento, 'messages.upsert', 'kapso: mensagem recebida vira messages.upsert')
+igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', midia: null, ignorar: null }], 'kapso: texto, nome e citação')
+const kapsoSemNono = lerEventoDaKapso({ message: { id: 'w2', type: 'text', from: '552187654321', text: { body: 'oi' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoSemNono.mensagens[0]?.numero, '5521987654321', 'kapso: wa_id sem o nono dígito vira o canônico')
+const kapsoFoto = lerEventoDaKapso({
+  message: { id: 'w3', type: 'image', from: '5521987654321', image: { id: 'midia_123', caption: 'pronto', mime_type: 'image/jpeg' }, kapso: { media_data: { filename: 'foto.jpg', content_type: 'image/jpeg', byte_size: 2048 } } },
+  phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoFoto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', tamanho: 2048, nome: 'foto.jpg', arquivo: 'midia_123' }, 'kapso: foto com id da mídia')
+igual(kapsoFoto.mensagens[0]?.texto, 'pronto', 'kapso: legenda vira texto')
+const kapsoLote = lerEventoDaKapso({ type: 'whatsapp.message.received', batch: true, data: [
+  { message: { id: 'a', type: 'text', from: '5521987654321', text: { body: '1' } }, phone_number_id: NUMERO_ID },
+  { message: { id: 'b', type: 'interactive', from: '5521987654321', interactive: { button_reply: { id: '2' } } }, phone_number_id: NUMERO_ID },
+] }, null, NUMERO_ID)
+igual(kapsoLote.mensagens.map((m) => `${m.id}:${m.texto}`), ['a:1', 'b:2'], 'kapso: lote e resposta de botão')
+const kapsoOutroNumero = lerEventoDaKapso({ message: { id: 'x', type: 'text', from: '5521987654321', text: { body: 'oi' } }, phone_number_id: '999999' }, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoOutroNumero.mensagens.length, 0, 'kapso: outro número do projeto é ignorado')
+const kapsoSaida = lerEventoDaKapso({ message: { id: 'y', type: 'text', from: '5521987654321', text: { body: 'oi' }, kapso: { direction: 'outbound' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
+igual(kapsoSaida.mensagens[0]?.ignorar, 'de_mim', 'kapso: mensagem que o número mandou não é respondida')
+igual(lerEventoDaKapso({ message: { id: 'z' } }, 'whatsapp.message.delivered', NUMERO_ID).mensagens.length, 0, 'kapso: outros eventos não viram mensagem')
+igual(lerEventoDaKapso('lixo', 'whatsapp.message.received', NUMERO_ID).mensagens.length, 0, 'kapso: corpo estranho não lança')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

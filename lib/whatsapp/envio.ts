@@ -104,7 +104,7 @@ export async function receberMidia(admin: Admin, workspaceId: string, pessoa: Pe
     if (limite) return { texto: limite }
   }
 
-  const baixado = await baixarMidia(config, m.id, TAMANHO_MAXIMO_PELO_WHATSAPP)
+  const baixado = await baixarMidia(config, midia.arquivo ?? m.id, TAMANHO_MAXIMO_PELO_WHATSAPP)
   if (!baixado.ok) return { texto: `Não consegui pegar este arquivo (${baixado.erro}). Mande de novo, ou ${pelaLink.charAt(0).toLowerCase()}${pelaLink.slice(1)}` }
   const mime = baixado.mime || midia.mime
   const nome = nomeDoArquivoRecebido({ nome: baixado.nome ?? midia.nome, mime, mensagemId: m.id, categoria: midia.categoria })

@@ -209,7 +209,7 @@ export async function criarInstanciaDoWhatsapp(): Promise<Resultado> {
     if (r.erro) throw new Error(r.erro)
     await registrarNaAtividade(context.workspace.id, context.user.id, 'whatsapp_instancia_criada')
     revalidatePath('/configuracoes/whatsapp')
-    return { recado: `Instância "${config.instancia}" criada. Agora conecte o número pelo QR code.` }
+    return { recado: `Instância "${config.provedor === 'evolution' ? config.instancia : ''}" criada. Agora conecte o número pelo QR code.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível criar a instância.') }
   }

@@ -379,7 +379,11 @@ export function textoDaMensagem(mensagem: unknown, profundidade = 0): string {
 }
 
 export type CategoriaDaMidia = 'foto' | 'video' | 'audio' | 'documento'
-export type MidiaRecebida = { categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null }
+export type MidiaRecebida = {
+  categoria: CategoriaDaMidia; mime: string; tamanho: number | null; nome: string | null
+  /** Na Kapso, o id da mídia na Meta (é por ele que se baixa); na Evolution, ausente (baixa-se pelo id da mensagem). */
+  arquivo?: string
+}
 
 /** fileLength do Baileys: número, texto ou Long ({ low, high }). */
 function tamanhoDaMidia(v: unknown): number | null {
@@ -464,6 +468,75 @@ export function lerEventoDoWebhook(corpo: unknown): EventoDoWebhook {
     instancia: texto(c.instance)?.slice(0, 64) ?? null,
     mensagens: evento === 'messages.upsert' ? dados.map(lerMensagem).filter((m): m is MensagemRecebida => m !== null) : [],
     estado,
+  }
+}
+
+/** Os tipos de mensagem da API oficial que têm arquivo, na categoria do Palácio (figurinha não conta). */
+const MIDIAS_DA_META: [string, CategoriaDaMidia][] = [['image', 'foto'], ['video', 'video'], ['audio', 'audio'], ['document', 'documento']]
+
+/** Uma mensagem recebida no payload v2 da Kapso (`whatsapp.message.received`). */
+function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemRecebida | null {
+  const d = objeto(dado)
+  const m = objeto(d?.message)
+  if (!d || !m) return null
+  const conversa = objeto(d.conversation)
+  const kapso = objeto(m.kapso)
+  // Outro número do mesmo projeto apontado para cá por engano: não é conosco.
+  const doNumero = texto(d.phone_number_id) ?? texto(conversa?.phone_number_id)
+  if (idDoNumero && doNumero && doNumero !== idDoNumero) return null
+  const tipo = texto(m.type) ?? ''
+  const deMim = kapso?.direction === 'outbound'
+  const remetente = texto(m.from) ?? texto(conversa?.phone_number)
+  const numero = remetente ? numeroCanonico(`+${remetente.replace(/\D/g, '')}`) : null
+
+  const interativo = objeto(m.interactive)
+  const textoDireto = texto(objeto(m.text)?.body)
+    ?? texto(objeto(interativo?.button_reply)?.id) ?? texto(objeto(interativo?.list_reply)?.id)
+    ?? texto(objeto(m.button)?.payload) ?? texto(objeto(m.button)?.text)
+
+  let midia: MidiaRecebida | null = null
+  let legenda: string | null = null
+  for (const [chave, categoria] of MIDIAS_DA_META) {
+    if (tipo !== chave) continue
+    const md = objeto(m[chave])
+    const dadosDaKapso = objeto(kapso?.media_data)
+    const mime = (texto(md?.mime_type) ?? texto(dadosDaKapso?.content_type) ?? '').split(';')[0].trim().toLowerCase().slice(0, 120)
+    const real: CategoriaDaMidia = categoria === 'documento' && mime.startsWith('image/') ? 'foto' : categoria === 'documento' && mime.startsWith('video/') ? 'video' : categoria
+    const tamanho = Number(dadosDaKapso?.byte_size ?? md?.file_size)
+    const arquivo = texto(md?.id)?.slice(0, 128)
+    midia = {
+      categoria: real, mime: mime || 'application/octet-stream', tamanho: Number.isFinite(tamanho) && tamanho > 0 ? tamanho : null,
+      nome: (texto(md?.filename) ?? texto(dadosDaKapso?.filename))?.slice(0, 200) ?? null, ...(arquivo ? { arquivo } : {}),
+    }
+    legenda = texto(md?.caption)
+  }
+
+  return {
+    id: texto(m.id)?.slice(0, 128) ?? null,
+    numero,
+    texto: (textoDireto ?? legenda ?? '').slice(0, 4000),
+    nome: texto(conversa?.contact_name)?.slice(0, 80) ?? null,
+    citada: texto(objeto(m.context)?.id)?.slice(0, 128) ?? null,
+    midia,
+    ignorar: deMim ? 'de_mim' : numero ? null : 'sem_numero',
+  }
+}
+
+/**
+ * Lê o corpo que a Kapso manda ao webhook (payload v2, avulso ou em lote).
+ * O nome do evento vem no cabeçalho X-Webhook-Event. Nunca lança.
+ */
+export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | null, idDoNumero: string | null): EventoDoWebhook {
+  const c = objeto(corpo) ?? {}
+  const evento = String(eventoDoCabecalho ?? c.type ?? c.event ?? '').trim().toLowerCase()
+  const itens = c.batch === true && Array.isArray(c.data) ? c.data : [c]
+  const recebida = evento === 'whatsapp.message.received'
+  return {
+    // O mesmo nome do evento da Evolution: a rota trata os dois igual daí em diante.
+    evento: recebida ? 'messages.upsert' : evento,
+    instancia: null,
+    mensagens: recebida ? itens.map((i) => lerMensagemDaKapso(i, idDoNumero)).filter((m): m is MensagemRecebida => m !== null) : [],
+    estado: null,
   }
 }
 
