@@ -52,7 +52,7 @@ const PUBLICACOES: GuiaDaArea = {
     {
       alvo: 'publicacoes.importar',
       titulo: 'Importar um pacote',
-      texto: '“Importar pacote” cria o rascunho a partir de um arquivo .json: escolha o arquivo e as fotos juntos. Nada é publicado nem agendado, e as fotos entram na Biblioteca sem autorização — quem autoriza é uma pessoa.',
+      texto: '“Importar pacote” cria o rascunho a partir de um arquivo .json: escolha o arquivo e as fotos juntos. Nada é publicado nem agendado, e as fotos entram na Biblioteca sem autorização — quem autoriza é uma pessoa. Arquivo de correção (“modo”: “atualizar”) corrige a matéria que já existe com o mesmo endereço, depois de você confirmar.',
       lado: 'bottom',
     },
     {
@@ -208,6 +208,18 @@ const PUBLICACOES: GuiaDaArea = {
         'Espere o aviso “Página atualizada no site.” na barra de baixo.',
       ],
       dica: 'O endereço e a data de publicação continuam os mesmos, e o que já saiu nas redes não muda.',
+    },
+    {
+      id: 'corrigir-por-arquivo',
+      titulo: 'Corrigir uma matéria por arquivo .json',
+      exemplo: 'O Bruno recebe a versão revista da matéria da ação na Central do Brasil num arquivo com “modo”: “atualizar” e o mesmo endereço (slug) da página no ar.',
+      passos: [
+        'Em “Publicações”, toque em “Importar pacote” e escolha o arquivo .json (e as fotos novas, se o arquivo trouxer mídias).',
+        'Leia o aviso: “Isto vai atualizar a matéria publicada em …” (ou “vai atualizar o rascunho”) e a lista do que muda.',
+        'Toque em “Atualizar no site” (ou “Atualizar o rascunho”). Para desistir, “Cancelar”.',
+        'Espere a mensagem dizendo o que aconteceu e use “Abrir o pacote” para conferir.',
+      ],
+      dica: 'O endereço e a data de publicação não mudam, a correção não volta para aprovação e as redes não são tocadas. Sem mídias no arquivo, as fotos e legendas atuais ficam. Se o pacote estiver em aprovação ou com ajustes pedidos, nada é alterado.',
     },
     {
       id: 'reprocessar-destino',

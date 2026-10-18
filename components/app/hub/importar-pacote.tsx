@@ -6,6 +6,8 @@ import { FileJson } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { conferirImportacao, importarPacote } from '@/app/actions/importar-pacote'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
+import { modoDoArquivo } from '@/lib/publicacao/modo-da-importacao'
+import { useAtualizacaoPorArquivo } from '@/components/app/hub/atualizar-pacote'
 
 /**
  * "Importar pacote": escolha o JSON e as fotos juntos; o pacote nasce em
@@ -22,10 +24,13 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
   const [andamento, setAndamento] = useState('')
   const [erros, setErros] = useState<string[]>([])
   const [existente, setExistente] = useState<{ id: string; motivo: string } | null>(null)
+  // Arquivo com "modo": "atualizar" corrige uma matéria que já existe (atualizar-pacote.tsx).
+  const atualizacao = useAtualizacaoPorArquivo(workspaceId, { setAndamento, setErros })
 
   async function importar(escolhidos: File[]) {
     setErros([])
     setExistente(null)
+    atualizacao.limpar()
     const json = escolhidos.find((f) => f.name.toLowerCase().endsWith('.json'))
     if (!json) { setErros(['Escolha o arquivo .json junto com as fotos.']); return }
     const fotos = new Map(escolhidos.filter((f) => f !== json).map((f) => [f.name, f]))
@@ -33,6 +38,7 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
     try {
       setAndamento('Conferindo o arquivo…')
       const conteudo = await json.text()
+      if (modoDoArquivo(conteudo) === 'atualizar') { await atualizacao.conferir(conteudo, fotos); return }
       const form = new FormData()
       form.set('json', conteudo)
       const conferencia = await conferirImportacao(form)
@@ -98,6 +104,7 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
           <button type="button" className="underline" onClick={() => router.push(`/redes/${existente.id}`)}>Abrir o pacote</button>
         </span>
       )}
+      {atualizacao.painel}
       {erros.length > 0 && (
         <ul className="max-w-sm list-disc pl-4 text-left text-xs text-destructive">
           {erros.map((e) => <li key={e}>{e}</li>)}
