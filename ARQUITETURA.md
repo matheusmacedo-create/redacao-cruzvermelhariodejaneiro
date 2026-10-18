@@ -331,8 +331,26 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   mensagem** do convite. Falha na ficha não desfaz a conta: o resultado da
   linha diz o que faltou.
 - **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
-  papel alterado, conta desativada/reativada e e-mail trocado. São
-  best-effort: nunca desfazem a ação; a falha vai para o log.
+  papel alterado, conta desativada/reativada, e-mail trocado, WhatsApp trocado
+  ou removido e entrada bloqueada por tentativas erradas. Vão ao e-mail
+  confirmado e ao WhatsApp confirmado (`avisarPorWhatsapp`, tipo `seguranca`)
+  **mesmo com os avisos pausados** — pausar vale para os avisos comuns, como
+  promete `textoDeSeguranca`. `avisar(admin, userId, aviso, { email, whatsapp })`
+  manda para outro endereço ou número: o antigo, quando o e-mail ou o WhatsApp
+  muda. São best-effort: nunca desfazem a ação; a falha vai para o log.
+- **WhatsApp da conta (18/10/2026):** confirmar outro número
+  (`confirmarNumeroDaEquipe`, pela tela ou pelo bot; e o convite só pelo
+  WhatsApp) ou tirar o número (Meu perfil, ou o admin em `/usuarios` com
+  “Remover WhatsApp”, `removerWhatsappDoUsuario`) avisa o e-mail confirmado e o
+  número ANTIGO (`avisarTrocaDeWhatsapp`, números mascarados). **Desativar libera
+  o número**: cancela o que esperava na fila para a pessoa (`desistiu`, menos os
+  avisos de segurança), manda o aviso de conta desativada e só então apaga a
+  linha de `whatsapp_contas` e invalida os códigos — o número pode ser
+  confirmado em outra conta; reativada, a pessoa confirma de novo. `/usuarios`
+  mostra o número mascarado (o inteiro não vai ao navegador). Auditoria em
+  `auditoria_de_acesso`: `whatsapp_confirmado` (com `anterior` na troca),
+  `whatsapp_removido`, `whatsapp_removido_pelo_admin` e, em
+  `usuario_desativado`, `whatsapp_liberado` e `whatsapp_fila_cancelada`.
 - **Perdi o celular** (`/verificacao`): avisa os admins por e-mail, 1 vez por
   hora. Não remove nada sozinho — senão a 2ª etapa valeria o mesmo que a senha.
 
@@ -916,6 +934,11 @@ Quem entrou, quando, de onde e com qual aparelho. A especificação e as decisõ
   `lib/acessos/regras.ts` (bloqueio, sinais de risco, leitura dos sinais do navegador).
 - **Regra de ouro:** nada do registro pode impedir alguém de entrar. A exceção é o bloqueio por
   tentativas, que é deliberado.
+- **A própria pessoa é avisada** no e-mail e no WhatsApp confirmados (este mesmo pausado): entrada de
+  aparelho ou país novo (`avisarAPessoa`: aparelho, local aproximado e hora, nunca o IP) e conta
+  bloqueada por tentativas (`avisarBloqueioAPessoa` → `avisar` com `conta_bloqueada`: local e hora,
+  sem os números do bloqueio; só conta ativa e no máximo um a cada `AVISO_DE_BLOQUEIO_A_CADA_HORAS`,
+  com a linha `conta_bloqueada_por_tentativas` de `auditoria_de_acesso` como marca, sem migração).
 - Toda consulta à tela grava `acessos.consultados` em `activity_log`.
 
 ### 7.14 Envio de ações pela equipe (`/enviar` → `/envios`)
@@ -2066,7 +2089,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
   fila anda quando chega mensagem (webhook), a cada aviso novo, na rotina diária
   `/api/whatsapp/rotina` (10h05 UTC, `CRON_SECRET`) e pelo botão “Enviar a fila agora”. Antes de
-  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número. Batido o teto do minuto,
+  sair, desiste se o aviso já foi lido ou a pessoa pausou ou tirou o número — menos o aviso de
+  segurança da conta, que vai ao número a que foi endereçado, pausado ou não (o da troca ou remoção
+  vai justamente ao número antigo; §5, “WhatsApp da conta”). Batido o teto do minuto,
   a rodada espera a janela abrir (dentro do orçamento), e o anúncio aos voluntários vai depois de
   resposta do bot, segurança e avisos da equipe. Só controle de volume:
   **não há variação de texto nem “digitando” para despistar o WhatsApp**.

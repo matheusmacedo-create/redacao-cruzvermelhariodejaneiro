@@ -235,7 +235,10 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
 
 /**
  * Enquanto esperava, a situação pode ter mudado: a pessoa leu o aviso no sino,
- * pausou ou tirou o número. Nesses casos a mensagem não sai mais.
+ * pausou ou tirou o número. Nesses casos a mensagem não sai mais — menos o
+ * aviso de segurança da conta, que vai ao número a que foi endereçado, com ou
+ * sem pausa: o da troca ou remoção do número vai justamente ao número antigo
+ * (lib/contas/servidor.ts, avisarPorWhatsapp).
  */
 async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
   if (item.notificacao_id) {
@@ -248,7 +251,7 @@ async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
     const { desistirDoVoluntario } = await import('./voluntarios')
     return desistirDoVoluntario(admin, item)
   }
-  if (item.user_id && item.tipo !== 'teste') {
+  if (item.user_id && item.tipo !== 'teste' && item.tipo !== 'seguranca') {
     const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', item.user_id).maybeSingle()
     if (!conta || conta.numero !== item.numero) return 'O número não está mais confirmado.'
     if (conta.pausado_em && item.tipo === 'aviso') return 'A pessoa pausou os avisos por WhatsApp.'

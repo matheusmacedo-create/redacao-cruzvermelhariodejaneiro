@@ -9,8 +9,9 @@ import {
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
   baseDoHashDoCodigo, textoDoCodigo, textoDoCodigoDeIda, linkDoWhatsapp, codigoNaMensagem, textoDoNumeroConfirmado, textoDoCodigoDeIdaErrado, textoDaFalhaDoCodigoDeIda,
-  modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido,
+  modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido, TEXTO_PAUSADO, textoDeSeguranca,
 } from '../lib/whatsapp/regras'
+import { corpoParaWhatsapp, emailDeAviso } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
 import { ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio } from '../lib/whatsapp/envio-regras'
 import {
@@ -341,6 +342,27 @@ contem(conviteZap, 'Seu usuário: *carla.dias*', 'convite: usuário')
 contem(conviteZap, '*1.* Crie a sua senha', 'convite com a ficha numera os passos')
 contem(conviteZap, '*2.* Complete a sua ficha no RH', 'convite leva a ficha junto')
 igual(textoDoConviteDoPalacio({ nome: 'Carla', usuario: 'c', url: 'u', horas: 72, convidadoPor: 'M' }).includes('*1.*'), false, 'sem ficha, sem numeração')
+
+// ---------------------------------------------------------------- segurança da conta pelo WhatsApp
+// O aviso sai mesmo pausado (lib/contas/servidor.ts, avisarPorWhatsapp): quem pausa fica sabendo.
+contem(TEXTO_PAUSADO, 'segurança da sua conta', 'pausar avisa que a segurança continua chegando')
+const seguranca = textoDeSeguranca({ titulo: 'Novo *acesso*', texto: 'Linha 1.\n\nLinha 2.' })
+contem(seguranca, '*Novo acesso*\n\nLinha 1.\n\nLinha 2.', 'título em negrito, sem a marcação de quem escreveu, e as quebras ficam')
+const quandoDoAviso = new Date('2026-10-18T18:30:00Z')
+const avisoDe = (aviso: Parameters<typeof emailDeAviso>[0]['aviso']) => emailDeAviso({ nome: 'Carla Dias', quando: quandoDoAviso, aviso, urlDeLogin: 'https://p/' })
+const trocado = avisoDe({ tipo: 'whatsapp_trocado', de: mascararNumero('5521987654321'), para: mascararNumero('5521912345678') })
+const corpoTrocado = corpoParaWhatsapp(trocado)
+contem(corpoTrocado, 'trocado de +55 21 9••••-4321 para +55 21 9••••-5678', 'troca: os dois números, mascarados')
+contem(corpoTrocado, 'Se não foi você, fale com a administração', 'troca: o que fazer se não foi você')
+igual(/\d{8}/.test(corpoTrocado), false, 'troca: nenhum número inteiro no texto')
+igual(corpoTrocado.startsWith('Olá, Carla.'), true, 'o corpo do WhatsApp começa sem o título do e-mail')
+igual(corpoTrocado.includes('Mensagem automática'), false, 'o corpo do WhatsApp sai sem o rodapé do e-mail')
+contem(corpoParaWhatsapp(avisoDe({ tipo: 'whatsapp_removido', numero: mascararNumero('5521987654321') })), 'Se não foi você, fale com a administração', 'remoção pela pessoa: o que fazer se não foi ela')
+contem(corpoParaWhatsapp(avisoDe({ tipo: 'whatsapp_removido', numero: mascararNumero('5521987654321'), porAdmin: 'Matheus' })), 'removido da sua conta no Palácio Virtual por Matheus', 'remoção pela administração diz quem')
+const bloqueada = corpoParaWhatsapp(avisoDe({ tipo: 'conta_bloqueada', lugar: 'Rio de Janeiro/RJ, BR' }))
+contem(bloqueada, 'de Rio de Janeiro/RJ, BR (local aproximado)', 'bloqueio: o local aproximado')
+contem(bloqueada, 'Em 18 de outubro de 2026', 'bloqueio: a data')
+igual(/\d+ (tentativas|minutos)/.test(bloqueada), false, 'bloqueio: sem os números do bloqueio')
 
 // ---------------------------------------------------------------- silêncio, fila e reenvio
 // Brasília é UTC−3: 01h UTC = 22h do dia anterior; 10h UTC = 7h.

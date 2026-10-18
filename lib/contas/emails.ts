@@ -162,6 +162,13 @@ export type AvisoDeSeguranca =
   | { tipo: 'conta_reativada'; adminNome: string }
   | { tipo: 'papel_alterado'; de: string; para: string; adminNome: string }
   | { tipo: 'email_alterado'; novo: string }
+  // Os números chegam já mascarados (lib/whatsapp/regras.ts, mascararNumero): o aviso vai também ao número antigo.
+  | { tipo: 'whatsapp_trocado'; de: string; para: string }
+  | { tipo: 'whatsapp_removido'; numero: string; porAdmin?: string }
+  | { tipo: 'conta_bloqueada'; lugar: string }
+
+/** O fecho dos avisos do WhatsApp da conta: o texto vai também ao número antigo, que não necessariamente entra no Palácio. */
+const SE_NAO_FOI_VOCE_NO_WHATSAPP = 'Se não foi você, fale com a administração do Palácio Virtual e troque a sua senha em Meu perfil.'
 
 export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSeguranca; urlDeLogin: string }): EmailPronto {
   const a = p.aviso
@@ -236,9 +243,49 @@ export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSegu
         { tipo: 'nota', texto: SE_NAO_FOI_VOCE },
       ],
     }),
+    // O mesmo texto vai ao e-mail e ao número antigo: nada de "este número" nem de "este endereço".
+    whatsapp_trocado: () => {
+      const s = a as Extract<AvisoDeSeguranca, { tipo: 'whatsapp_trocado' }>
+      return {
+        assunto: 'O WhatsApp da sua conta no Palácio Virtual foi trocado',
+        titulo: 'WhatsApp da conta trocado',
+        blocos: [
+          { tipo: 'p', texto: `${ola} O WhatsApp que recebe os avisos da sua conta no Palácio Virtual foi trocado de ${s.de} para ${s.para}. ${data}` },
+          { tipo: 'nota', texto: SE_NAO_FOI_VOCE_NO_WHATSAPP },
+        ],
+      }
+    },
+    whatsapp_removido: () => {
+      const s = a as Extract<AvisoDeSeguranca, { tipo: 'whatsapp_removido' }>
+      return {
+        assunto: 'O WhatsApp da sua conta no Palácio Virtual foi removido',
+        titulo: 'WhatsApp da conta removido',
+        blocos: [
+          { tipo: 'p', texto: `${ola} O WhatsApp ${s.numero} foi removido da sua conta no Palácio Virtual${s.porAdmin ? ` por ${s.porAdmin}` : ''}. Os avisos deixam de chegar por lá e continuam no sino e no e-mail. ${data}` },
+          { tipo: 'nota', texto: s.porAdmin ? 'Dúvidas? Fale com a administração do Palácio Virtual.' : SE_NAO_FOI_VOCE_NO_WHATSAPP },
+        ],
+      }
+    },
+    // Sem os números do bloqueio (quantas tentativas, quantos minutos): o aviso não ensina a contorná-lo.
+    conta_bloqueada: () => ({
+      assunto: 'Tentativas de entrar na sua conta do Palácio Virtual',
+      titulo: 'Entrada bloqueada por tentativas erradas',
+      blocos: [
+        { tipo: 'p', texto: `${ola} Alguém tentou entrar na sua conta do Palácio Virtual várias vezes com a senha errada, de ${(a as { lugar: string }).lugar} (local aproximado). Por segurança, novas tentativas ficam bloqueadas por alguns minutos. ${data}` },
+        { tipo: 'nota', texto: 'Se foi você, espere um pouco e tente de novo, ou use “Esqueci minha senha” na tela de entrada. Se não foi, troque a sua senha em Meu perfil e fale com a administração do Palácio Virtual.' },
+      ],
+    }),
   }
   const c = casos[a.tipo]()
   return montar({ assunto: c.assunto, preheader: c.titulo, titulo: c.titulo, blocos: c.blocos })
+}
+
+/**
+ * O mesmo aviso para o WhatsApp: o texto puro do e-mail sem o título (vai em
+ * negrito, à parte) e sem o rodapé (textoDeSeguranca põe o dele).
+ */
+export function corpoParaWhatsapp(pronto: EmailPronto): string {
+  return pronto.texto.split('\n—\n')[0].split('\n').slice(2).join('\n').trim()
 }
 
 // ------------------------------------------------------------------ pedido de ajuda (2FA)

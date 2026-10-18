@@ -293,7 +293,10 @@ export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url:
   ].filter(Boolean).join('\n\n')
 }
 
-/** Aviso de segurança da conta (senha, verificação, e-mail): sai sempre, mesmo pausado. */
+/**
+ * Aviso de segurança da conta (senha, verificação, e-mail, acesso novo, bloqueio, troca ou remoção do
+ * WhatsApp): sai sempre, mesmo pausado e de madrugada (lib/contas/servidor.ts, avisarPorWhatsapp).
+ */
 export function textoDeSeguranca(p: { titulo: string; texto: string }): string {
   return [`*${limpo(p.titulo, 200)}*`, limpo(p.texto, 900), '_Palácio Virtual · Cruz Vermelha Brasileira – RJ. A equipe nunca pede sua senha nem códigos, por aqui ou por telefone._'].join('\n\n')
 }
@@ -692,6 +695,7 @@ export function textoDasLidas(quantas: number): string {
 
 export const TEXTO_PAUSADO = [
   'Combinado: os avisos do Palácio Virtual não vêm mais por aqui. Eles continuam no sino e, se você escolheu, no e-mail.',
+  'Só os avisos de segurança da sua conta (senha trocada, acesso novo, número trocado) continuam chegando por aqui.',
   'Para voltar, responda *voltar* ou ligue de novo em Meu perfil.',
 ].join('\n\n')
 

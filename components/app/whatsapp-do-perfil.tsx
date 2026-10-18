@@ -172,14 +172,14 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
         <div className="flex flex-col gap-3 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">{conta.numero}</p>
-            <p className={cn('text-xs', conta.pausado ? 'text-foreground' : 'text-success')}>{conta.pausado ? 'Pausado: nada chega por lá até você retomar.' : 'Confirmado. Os avisos chegam por lá.'}</p>
+            <p className={cn('text-xs', conta.pausado ? 'text-foreground' : 'text-success')}>{conta.pausado ? 'Pausado: até você retomar, só os avisos de segurança da conta chegam por lá.' : 'Confirmado. Os avisos chegam por lá.'}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={ocupado} onClick={() => simples(() => pausarMeuWhatsapp(!conta.pausado))}>
               {conta.pausado ? <Play className="size-4" /> : <Pause className="size-4" />}{conta.pausado ? 'Retomar' : 'Pausar'}
             </Button>
             {disponivel && <Button variant="ghost" size="sm" disabled={ocupado} onClick={() => { setTrocando(true); setRecado(null) }}>Trocar número</Button>}
-            <Button variant="ghost" size="sm" className="text-destructive" disabled={ocupado} onClick={() => { if (confirm('Remover o seu WhatsApp? Os avisos continuam no sino e no e-mail.')) simples(removerMeuWhatsapp) }}>
+            <Button variant="ghost" size="sm" className="text-destructive" disabled={ocupado} onClick={() => { if (confirm('Remover o seu WhatsApp? Os avisos continuam no sino e no e-mail. Por segurança, este número e o seu e-mail confirmado recebem um aviso da remoção.')) simples(removerMeuWhatsapp) }}>
               <Trash2 className="size-4" />Remover
             </Button>
           </div>
@@ -194,7 +194,7 @@ export function WhatsappDoPerfil({ disponivel, conta, categorias }: {
             <Button type="submit" disabled={ocupado || !serve(numero)}>{ocupado ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}Gerar código</Button>
             {conta && <Button type="button" variant="ghost" disabled={ocupado} onClick={() => { setTrocando(false); setRecado(null) }}>Cancelar</Button>}
           </div>
-          <p className="text-xs text-muted-foreground">Com DDD. De fora do Brasil, comece com + e o código do país. A tela mostra um código de 6 números para você mandar, deste número, ao WhatsApp do Palácio.</p>
+          <p className="text-xs text-muted-foreground">Com DDD. De fora do Brasil, comece com + e o código do país. A tela mostra um código de 6 números para você mandar, deste número, ao WhatsApp do Palácio.{conta && ' Confirmado o novo, o número antigo e o seu e-mail confirmado recebem um aviso da troca.'}</p>
           {prefiroReceber(numero)}
         </form>
       )}

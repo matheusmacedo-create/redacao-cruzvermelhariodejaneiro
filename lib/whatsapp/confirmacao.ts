@@ -1,6 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { auditarConta } from '@/lib/contas/servidor'
+import { auditarConta, avisarTrocaDeWhatsapp } from '@/lib/contas/servidor'
 import { CODIGO_TENTATIVAS, mascararNumero, type SentidoDoCodigo } from './regras'
 import { consentimentoGuardado } from './voluntarios-regras'
 
@@ -10,7 +10,8 @@ type Admin = ReturnType<typeof createAdminClient>
  * A confirmação do número, a mesma nos dois caminhos (regras.ts, "confirmação do número"): a tela
  * chama ao conferir o código digitado (volta; app/actions/whatsapp.ts e membro-whatsapp.ts) e o
  * bot, ao conferir o código que a pessoa mandou ao Palácio (ida; lib/whatsapp/bot.ts). As mesmas
- * gravações, a mesma auditoria e a mesma regra de "um número, uma conta" (índice único: 23505).
+ * gravações, a mesma auditoria, o mesmo aviso de troca de número e a mesma regra de "um número, uma
+ * conta" (índice único: 23505).
  *
  * Os códigos ficam onde sempre ficaram: whatsapp_codigos (equipe, uma linha por código) e
  * participantes_whatsapp (voluntário, o código em andamento na própria linha). Nenhuma coluna diz
@@ -22,7 +23,10 @@ export const donoDoVoluntario = (participanteId: string) => `voluntario:${partic
 
 export type Confirmacao = { ok: true } | { ok: false; motivo: 'usado' | 'outra_conta' | 'falhou' }
 
-/** Consome o código de forma atômica (dois cliques ou duas entregas não confirmam duas vezes) e guarda o número de quem é da equipe. */
+/**
+ * Consome o código de forma atômica (dois cliques ou duas entregas não confirmam duas vezes) e guarda o número de quem é da equipe.
+ * Se havia outro número confirmado, o e-mail da pessoa e o número antigo ficam sabendo da troca (avisarTrocaDeWhatsapp).
+ */
 export async function confirmarNumeroDaEquipe(admin: Admin, p: {
   codigoId: string; userId: string; numero: string; workspaceId: string; sentido: SentidoDoCodigo
 }): Promise<Confirmacao> {
@@ -31,15 +35,22 @@ export async function confirmarNumeroDaEquipe(admin: Admin, p: {
     .eq('id', p.codigoId).is('usado_em', null).gt('expira_em', agora).select('id').maybeSingle()
   if (!consumido) return { ok: false, motivo: 'usado' }
 
+  const { data: antes } = await admin.from('whatsapp_contas').select('numero').eq('user_id', p.userId).maybeSingle()
+  const anterior = (antes?.numero as string | undefined) ?? null
   const { error } = await admin.from('whatsapp_contas')
     .upsert({ user_id: p.userId, numero: p.numero, confirmado_em: agora, pausado_em: null, atualizado_em: agora }, { onConflict: 'user_id' })
   if (error?.code === '23505') return { ok: false, motivo: 'outra_conta' }
   if (error) return { ok: false, motivo: 'falhou' }
 
+  const trocou = Boolean(anterior && anterior !== p.numero)
   await auditarConta(admin, {
     userId: p.userId, atorId: p.userId, acao: 'whatsapp_confirmado', workspaceId: p.workspaceId,
-    detalhes: { numero: mascararNumero(p.numero), caminho: p.sentido === 'ida' ? 'codigo_mandado_ao_palacio' : 'codigo_digitado' },
+    detalhes: {
+      numero: mascararNumero(p.numero), caminho: p.sentido === 'ida' ? 'codigo_mandado_ao_palacio' : 'codigo_digitado',
+      ...(trocou ? { anterior: mascararNumero(anterior) } : {}),
+    },
   })
+  if (trocou) await avisarTrocaDeWhatsapp(admin, p.userId, { anterior, novo: p.numero })
   return { ok: true }
 }
 

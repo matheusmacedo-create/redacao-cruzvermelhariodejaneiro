@@ -5,12 +5,12 @@ import { requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
-import { auditarConta } from '@/lib/contas/servidor'
+import { auditarConta, avisarTrocaDeWhatsapp } from '@/lib/contas/servidor'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { CATEGORIAS, type Categoria } from '@/lib/notificacoes/regras'
 import {
   CODIGOS_POR_JANELA, CODIGO_TENTATIVAS, CODIGO_VALIDADE_MIN, JANELA_DOS_CODIGOS_MIN, WHATSAPP_PADRAO,
-  codigoNoFormato, formatarNumero, linkDoWhatsapp, numeroCanonico, textoDoCodigo, textoDoCodigoDeIda, textoDoMenu, type SentidoDoCodigo,
+  codigoNoFormato, formatarNumero, linkDoWhatsapp, mascararNumero, numeroCanonico, textoDoCodigo, textoDoCodigoDeIda, textoDoMenu, type SentidoDoCodigo,
 } from '@/lib/whatsapp/regras'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { confirmarNumeroDaEquipe } from '@/lib/whatsapp/confirmacao'
@@ -187,16 +187,26 @@ export async function pausarMeuWhatsapp(pausar: boolean): Promise<Resultado> {
   }
 }
 
+/**
+ * Tira o número da conta. O e-mail confirmado e o próprio número removido
+ * recebem o aviso de segurança: se quem removeu não foi a pessoa (uma sessão
+ * esquecida aberta), é por eles que ela descobre.
+ */
 export async function removerMeuWhatsapp(): Promise<Resultado> {
   try {
     const context = await requireWorkspace({ escola: true })
     const admin = createAdminClient()
-    const { error } = await admin.from('whatsapp_contas').delete().eq('user_id', context.user.id)
+    const { data: removida, error } = await admin.from('whatsapp_contas').delete().eq('user_id', context.user.id).select('numero').maybeSingle()
     if (error) throw new Error('Não foi possível remover o número.')
     await admin.from('whatsapp_codigos').update({ usado_em: new Date().toISOString() }).eq('user_id', context.user.id).is('usado_em', null)
-    await auditarConta(admin, { userId: context.user.id, atorId: context.user.id, acao: 'whatsapp_removido', workspaceId: context.workspace.id })
+    const anterior = (removida?.numero as string | undefined) ?? null
+    await auditarConta(admin, {
+      userId: context.user.id, atorId: context.user.id, acao: 'whatsapp_removido', workspaceId: context.workspace.id,
+      detalhes: anterior ? { numero: mascararNumero(anterior) } : {},
+    })
+    await avisarTrocaDeWhatsapp(admin, context.user.id, { anterior, novo: null })
     revalidatePath('/perfil')
-    return { recado: 'Número removido. Os avisos continuam no sino e no e-mail.' }
+    return { recado: `Número removido. Os avisos continuam no sino e no e-mail.${anterior ? ' Por segurança, avisamos o número removido e o seu e-mail confirmado.' : ''}` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível remover o número.') }
   }

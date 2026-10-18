@@ -15,13 +15,13 @@ import { gerarSenhaTemporaria, problemaDaSenha } from '@/lib/usuarios/senha'
 import { randomBytes } from 'node:crypto'
 import { emailConfigurado } from '@/lib/newsletter/resend'
 import { emailDeConfirmacao, emailDeConvite, emailDeRedefinicao, emailValido } from '@/lib/contas/emails'
-import { avisar, emitirToken, enviarComSeguranca, revogarLinksDeSenha, urlDoLink, VALIDADE_MIN } from '@/lib/contas/servidor'
+import { avisar, avisarTrocaDeWhatsapp, emitirToken, enviarComSeguranca, revogarLinksDeSenha, urlDoLink, VALIDADE_MIN } from '@/lib/contas/servidor'
 import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 import { marcaDoConvite, lerMarcaDoConvite } from '@/lib/contas/convite'
 import { entregar } from '@/lib/whatsapp/fila'
 import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
 import { criarConviteDaFicha } from '@/lib/rh/convites'
-import { formatarNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/whatsapp/regras'
+import { formatarNumero, mascararNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/whatsapp/regras'
 
 /**
  * Gestão de usuários e acessos.
@@ -36,13 +36,15 @@ import { formatarNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/w
  *     de onde vier (gatilhos em 20260924160000_cvrj_usuarios_e_permissoes).
  *
  * O service role só entra no que o RLS não alcança por desenho: criar a conta
- * no Auth, trocar senha de terceiro, desativar e escrever a auditoria.
+ * no Auth, trocar senha de terceiro, desativar, tirar o WhatsApp de alguém e
+ * escrever a auditoria.
  *
  * Senha nunca vai para log, auditoria, mensagem de erro nem e-mail. Com e-mail
  * confirmado, o caminho preferido é o LINK de uso único (convite, redefinição,
  * reativação); a senha temporária mostrada uma vez na tela fica para quem não
- * tem e-mail. Toda mudança sensível avisa a pessoa por e-mail
- * (lib/contas/servidor.ts → avisar), sem nunca desfazer a ação se o envio falhar.
+ * tem e-mail. Toda mudança sensível avisa a pessoa por e-mail e pelo WhatsApp
+ * confirmado (lib/contas/servidor.ts → avisar), sem nunca desfazer a ação se o
+ * envio falhar.
  */
 
 type Resultado = { erro?: string; recado?: string; senhaTemporaria?: string; usuario?: string }
@@ -146,6 +148,40 @@ async function encerrarSessoes(admin: Admin, userId: string): Promise<boolean> {
   const { error } = await admin.rpc('encerrar_sessoes_do_usuario', { p_user_id: userId })
   if (error) console.error('[usuarios] não foi possível encerrar as sessões:', error.message)
   return !error
+}
+
+/**
+ * Tira o WhatsApp confirmado da pessoa (o número fica livre para outra conta:
+ * um número, uma conta) e invalida os códigos dela em aberto. Devolve o número
+ * que saiu, ou null se não havia. Lança se o banco recusar.
+ */
+async function liberarWhatsapp(admin: Admin, userId: string): Promise<string | null> {
+  const { data, error } = await admin.from('whatsapp_contas').delete().eq('user_id', userId).select('numero').maybeSingle()
+  if (error) throw new Error('Não foi possível remover o WhatsApp.')
+  await admin.from('whatsapp_codigos').update({ usado_em: new Date().toISOString() }).eq('user_id', userId).is('usado_em', null)
+  return (data?.numero as string | undefined) ?? null
+}
+
+/**
+ * O que espera na fila do WhatsApp para a pessoa deixa de sair (situação
+ * "desistiu", com o motivo). O aviso de segurança da conta fica: ele vai ao
+ * número a que foi endereçado (lib/whatsapp/fila.ts, desistirAntes). O texto
+ * com link de token (convite, ficha do RH) é apagado, como a fila faz depois
+ * do envio. Nunca lança; devolve quantas mensagens saíram da fila.
+ */
+async function cancelarFilaDoWhatsapp(admin: Admin, userId: string, motivo: string): Promise<number> {
+  try {
+    const agora = new Date().toISOString()
+    const pendentes = (campos: Record<string, unknown>) => admin.from('whatsapp_fila')
+      .update({ situacao: 'desistiu', ultimo_erro: motivo, atualizado_em: agora, ...campos })
+      .eq('user_id', userId).eq('situacao', 'pendente').neq('tipo', 'seguranca')
+    const { data: comLink } = await pendentes({ texto: '[link apagado ao cancelar]' }).in('categoria', ['equipe', 'conta']).select('id')
+    const { data: resto } = await pendentes({}).select('id')
+    return (comLink?.length ?? 0) + (resto?.length ?? 0)
+  } catch (causa) {
+    console.error('[usuarios] fila do WhatsApp não cancelada:', causa instanceof Error ? causa.message : causa)
+    return 0
+  }
 }
 
 function revalidar() {
@@ -458,14 +494,26 @@ export async function desativarUsuario(formData: FormData): Promise<Resultado> {
     if (erroBan) console.error('[usuarios] ban não aplicado:', erroBan.message)
     const encerradas = await encerrarSessoes(admin, alvo.id)
     await revogarLinksDeSenha(admin, alvo.id)
+    // Antes do aviso: o que esperava na fila do WhatsApp para a pessoa não sai mais (o aviso de segurança, sim).
+    const filaCancelada = await cancelarFilaDoWhatsapp(admin, alvo.id, 'A conta foi desativada.')
+    // O aviso sai antes de liberar o número: é por ele (e pelo e-mail) que a pessoa fica sabendo.
     await avisar(admin, alvo.id, { tipo: 'conta_desativada', adminNome: context.profile?.full_name ?? 'Um administrador' })
+    // A conta já está desativada: uma falha aqui vai para o log, sem dizer que a desativação falhou.
+    const numeroLiberado = await liberarWhatsapp(admin, alvo.id).catch((causa) => {
+      console.error('[usuarios] WhatsApp não liberado:', causa instanceof Error ? causa.message : causa)
+      return null
+    })
 
     await auditar(admin, {
       workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'usuario_desativado',
-      detalhes: { login_bloqueado: !erroBan, sessoes_encerradas: encerradas },
+      detalhes: {
+        login_bloqueado: !erroBan, sessoes_encerradas: encerradas,
+        ...(numeroLiberado ? { whatsapp_liberado: mascararNumero(numeroLiberado) } : {}),
+        ...(filaCancelada ? { whatsapp_fila_cancelada: filaCancelada } : {}),
+      },
     })
     revalidar()
-    return { recado: `${alvo.full_name} foi desativado e não consegue mais entrar.` }
+    return { recado: `${alvo.full_name} foi desativado e não consegue mais entrar.${numeroLiberado ? ' O WhatsApp da conta foi liberado: os avisos param de ir para ele, e o número pode ser confirmado em outra conta.' : ''}` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível desativar a conta.') }
   }
@@ -512,6 +560,38 @@ export async function reativarUsuario(formData: FormData): Promise<Resultado> {
     return { recado: `${alvo.full_name} foi reativado com uma senha temporária.`, usuario: alvo.username, senhaTemporaria: senha }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível reativar a conta.') }
+  }
+}
+
+// ------------------------------------------------------------------ WhatsApp de alguém
+
+/**
+ * Tira o WhatsApp confirmado de alguém: a pessoa trocou de celular sem tirar o
+ * antigo, ou o número passou a ser de outra pessoa, que só consegue confirmá-lo
+ * depois que ele sai daqui (um número, uma conta). Vale também para conta
+ * desativada: as desativadas antes da liberação automática ainda prendem o
+ * número. A pessoa fica sabendo pelo e-mail confirmado e pelo próprio número
+ * removido; o que esperava na fila para ele, a fila descarta sozinha
+ * (desistirAntes), menos os avisos de segurança.
+ */
+export async function removerWhatsappDoUsuario(formData: FormData): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('usuarios.gerenciar')
+    const admin = createAdminClient()
+    const alvo = await carregarAlvo(admin, context.workspace.id, texto(formData, 'userId'))
+    if (alvo.id === context.user.id) throw new Error('Para o seu próprio número, use Meu perfil → WhatsApp.')
+    const numero = await liberarWhatsapp(admin, alvo.id)
+    if (!numero) return { recado: `${alvo.full_name} não tinha WhatsApp confirmado.` }
+
+    await auditar(admin, {
+      workspace_id: context.workspace.id, ator_id: context.user.id, alvo_id: alvo.id, acao: 'whatsapp_removido_pelo_admin',
+      detalhes: { numero: mascararNumero(numero) },
+    })
+    await avisarTrocaDeWhatsapp(admin, alvo.id, { anterior: numero, novo: null, porAdmin: context.profile?.full_name ?? 'Um administrador' })
+    revalidar()
+    return { recado: `WhatsApp de ${alvo.full_name} (${mascararNumero(numero)}) removido: os avisos param de ir para ele, e o número pode ser confirmado em outra conta. Avisamos a pessoa pelo e-mail confirmado e pelo número removido.` }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível remover o WhatsApp.') }
   }
 }
 

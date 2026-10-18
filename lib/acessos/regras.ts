@@ -9,6 +9,8 @@ export const LIMITE_POR_CONTA = 5
 /** Do mesmo IP, contando todas as contas: quem testa senha em várias contas. */
 export const LIMITE_POR_IP = 20
 export const JANELA_MIN = 15
+/** A própria pessoa é avisada do bloqueio da conta no máximo uma vez nesse intervalo (quem só quer incomodar não vira enxurrada). */
+export const AVISO_DE_BLOQUEIO_A_CADA_HORAS = 6
 
 export type Bloqueio = { bloqueado: false } | { bloqueado: true; liberaEm: Date; minutos: number }
 

@@ -3,9 +3,9 @@ import { createHash, randomBytes } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { emailConfigurado, enviarEmailDeConta } from '@/lib/newsletter/resend'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
+import { corpoParaWhatsapp, emailDeAviso, type AvisoDeSeguranca, type EmailPronto } from './emails'
 import { entregar } from '@/lib/whatsapp/fila'
-import { textoDeSeguranca } from '@/lib/whatsapp/regras'
+import { mascararNumero, textoDeSeguranca } from '@/lib/whatsapp/regras'
 
 /**
  * Links de uso único e avisos por e-mail da conta.
@@ -124,31 +124,72 @@ export async function enviarComSeguranca(para: string, email: EmailPronto): Prom
 }
 
 /**
- * Aviso de segurança para o e-mail CONFIRMADO da pessoa (sem e-mail, nada) e,
- * se ela confirmou um WhatsApp e não pausou, o mesmo aviso por lá.
+ * Para onde vai o aviso. `email`: outro endereço (o antigo, quando o e-mail
+ * muda). `whatsapp`: sem ele, o número confirmado; com um número, aquele (o
+ * antigo, quando o WhatsApp muda ou sai); null, nenhum.
  */
-export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguranca, paraEmail?: string): Promise<boolean> {
+export type DestinosDoAviso = { email?: string; whatsapp?: string | null }
+
+/**
+ * Aviso de segurança para o e-mail CONFIRMADO da pessoa (sem e-mail, nada) e,
+ * se ela confirmou um WhatsApp, o mesmo aviso por lá — mesmo com os avisos
+ * pausados (avisarPorWhatsapp).
+ */
+export async function avisar(admin: Admin, userId: string, aviso: AvisoDeSeguranca, destinos: DestinosDoAviso = {}): Promise<boolean> {
   const { data: p } = await admin.from('profiles').select('full_name, email, email_confirmado_em').eq('id', userId).maybeSingle()
   if (!p) return false
   const pronto = emailDeAviso({ nome: p.full_name, quando: new Date(), aviso, urlDeLogin: urlDeLogin() })
-  const destino = paraEmail ?? (p.email && p.email_confirmado_em ? p.email : null)
+  const destino = destinos.email ?? (p.email && p.email_confirmado_em ? p.email : null)
   // Lado a lado: o WhatsApp lento não atrasa o e-mail nem a resposta de quem trocou a senha.
-  const [enviado] = await Promise.all([destino ? enviarComSeguranca(destino, pronto) : Promise.resolve(false), avisarPorWhatsapp(admin, userId, pronto)])
+  const [enviado] = await Promise.all([
+    destino ? enviarComSeguranca(destino, pronto) : Promise.resolve(false),
+    destinos.whatsapp === null ? Promise.resolve() : avisarPorWhatsapp(admin, userId, { titulo: pronto.assunto, texto: corpoParaWhatsapp(pronto) }, destinos.whatsapp),
+  ])
   return enviado
 }
 
-/** Nunca lança; sem a tabela (antes da migração) ou sem a Kapso, não faz nada. */
-async function avisarPorWhatsapp(admin: Admin, userId: string, pronto: EmailPronto) {
+/**
+ * O aviso de segurança pelo WhatsApp: para o número confirmado da pessoa ou,
+ * com `numero`, para aquele (o que estava confirmado antes de uma troca ou
+ * remoção — é por ele que a pessoa descobre, se não foi ela).
+ *
+ * Sai mesmo com os avisos pausados, como promete textoDeSeguranca: pausar
+ * vale para os avisos comuns, não para a segurança da conta. Também não
+ * espera o fim do silêncio das 22h (silencioSeAplica) e, se cair na fila, não
+ * é descartado por o número ter mudado (fila.ts, desistirAntes).
+ *
+ * Nunca lança; sem a tabela (antes da migração), sem número ou sem a Kapso,
+ * não faz nada.
+ */
+export async function avisarPorWhatsapp(admin: Admin, userId: string, aviso: { titulo: string; texto: string }, numero?: string): Promise<void> {
   try {
-    const { data: conta } = await admin.from('whatsapp_contas').select('numero, pausado_em').eq('user_id', userId).maybeSingle()
-    if (!conta || conta.pausado_em) return
+    let destino = numero ?? null
+    if (!destino) {
+      const { data: conta } = await admin.from('whatsapp_contas').select('numero').eq('user_id', userId).maybeSingle()
+      destino = (conta?.numero as string | undefined) ?? null
+    }
+    if (!destino) return
     const workspaceId = await espacoDaPessoa(admin, userId)
     if (!workspaceId) return
-    // O texto do e-mail sem o título (vai em negrito) e sem o rodapé.
-    const corpo = pronto.texto.split('\n—\n')[0].split('\n').slice(2).join('\n')
-    await entregar(admin, workspaceId, { numero: conta.numero as string, texto: textoDeSeguranca({ titulo: pronto.assunto, texto: corpo }), tipo: 'seguranca', userId })
+    await entregar(admin, workspaceId, { numero: destino, texto: textoDeSeguranca(aviso), tipo: 'seguranca', userId })
   } catch (causa) {
     console.error('[contas] aviso por WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
+  }
+}
+
+/**
+ * O WhatsApp da conta mudou (outro número confirmado) ou saiu (`novo` null):
+ * avisa o e-mail confirmado e o número ANTIGO. Na primeira confirmação (sem
+ * número antigo) ou com o mesmo número, nada. Nunca lança.
+ */
+export async function avisarTrocaDeWhatsapp(admin: Admin, userId: string, p: { anterior: string | null; novo: string | null; porAdmin?: string }): Promise<void> {
+  if (!p.anterior || p.anterior === p.novo) return
+  try {
+    await avisar(admin, userId, p.novo
+      ? { tipo: 'whatsapp_trocado', de: mascararNumero(p.anterior), para: mascararNumero(p.novo) }
+      : { tipo: 'whatsapp_removido', numero: mascararNumero(p.anterior), porAdmin: p.porAdmin }, { whatsapp: p.anterior })
+  } catch (causa) {
+    console.error('[contas] aviso da troca de WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
   }
 }
 
