@@ -1,6 +1,6 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { estadoDoNumeroNaKapso, numeroCanonico, type MotivoDaFalha } from './regras'
+import { estadoDoNumeroNaKapso, numeroCanonico, numeroSemNonoDigito, problemaNaSaude, type MotivoDaFalha } from './regras'
 import type { Envio, MidiaBaixada, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
 
 /**
@@ -79,7 +79,9 @@ async function chamar(config: ConfigDaKapso, metodo: 'GET' | 'POST' | 'PATCH', u
     const foraDaJanela = codigo === 131047 || /24.?h|window|janela/i.test(mensagem ?? '') && s === 422
     let motivo: MotivoDaFalha = 'outro'
     let legivel = mensagem ?? `A Kapso respondeu ${s}.`
-    if (s === 401 || s === 403) { motivo = 'chave'; legivel = 'A Kapso recusou a chave. Confira a chave da API em Configurações → Integrações.' }
+    // 190 vem da Meta, repassado pela Kapso: a chave do Palácio passou, o que caiu foi a ligação da Kapso com a Meta.
+    if (codigo === 190) { motivo = 'chave'; legivel = 'A ligação da Kapso com a Meta para este número caiu (token inválido). Reconecte o número no painel da Kapso; a chave do Palácio está certa.' }
+    else if (s === 401 || s === 403) { motivo = 'chave'; legivel = 'A Kapso recusou a chave. Confira a chave da API em Configurações → Integrações.' }
     else if (s === 402) { motivo = 'chave'; legivel = 'A Kapso recusou o envio por falta de créditos. Confira o plano no painel da Kapso.' }
     else if (s === 404) { motivo = 'instancia'; legivel = `A Kapso não achou o número (${mensagem ?? 'confira o Phone number ID'}).` }
     else if (s === 409 || s === 429 || s >= 500) motivo = 'servidor'
@@ -123,9 +125,13 @@ async function enviarModelo(config: ConfigDaKapso, numero: string, t: string): P
  * um em Configurações → Integrações), com o texto inteiro no parâmetro.
  */
 export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t: string): Promise<Envio> {
-  let r = await chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
-    messaging_product: 'whatsapp', recipient_type: 'individual', to: numero, type: 'text', text: { body: t.slice(0, 4096), preview_url: false },
+  const texto = (para: string) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'text', text: { body: t.slice(0, 4096), preview_url: false },
   }, TEMPO_DO_ENVIO_MS)
+  let r = await texto(numero)
+  // A conversa pode estar aberta com o número sem o nono dígito (como o WhatsApp identifica muitos celulares antigos).
+  const semNono = numeroSemNonoDigito(numero)
+  if (!r.ok && r.foraDaJanela && semNono) r = await texto(semNono)
   if (!r.ok && r.foraDaJanela) {
     if (!config.modelo) return { ok: false, erro: `${r.erro} Para avisar fora da janela, aprove um modelo de mensagem na Kapso e informe o nome em Configurações → Integrações.`, motivo: 'outro' }
     r = await enviarModelo(config, numero, t)
@@ -186,7 +192,12 @@ export async function situacaoDaConexaoKapso(config: ConfigDaKapso): Promise<Sit
   const r = await lerNumero(config)
   if (!r.ok) return { estado: r.status === 404 ? 'sem_instancia' : 'erro', erro: r.status === 404 ? null : r.erro }
   const estado = estadoDoNumeroNaKapso(objeto(objeto(r.dados)?.data)?.status)
-  return { estado, erro: estado === 'erro' ? 'A Kapso não disse o estado do número.' : null }
+  if (estado !== 'conectado') return { estado, erro: estado === 'erro' ? 'A Kapso não disse o estado do número.' : null }
+  // "Conectado" na Kapso não garante a ligação com a Meta: o exame de saúde é que diz. Se o exame
+  // não responder (a Kapso limita a um a cada 5 minutos), vale o estado.
+  const saude = await chamar(config, 'GET', `${PLATAFORMA}/whatsapp/phone_numbers/${numeroNaUrl(config)}/health`)
+  const problema = saude.ok ? problemaNaSaude(saude.dados) : null
+  return problema ? { estado: 'erro', erro: problema } : { estado, erro: null }
 }
 
 export async function perfilConectadoKapso(config: ConfigDaKapso): Promise<{ numero: string | null; nome: string | null }> {

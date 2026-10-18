@@ -61,6 +61,16 @@ export function numeroCanonico(entrada: string | null | undefined): string | nul
   return digitos.length >= 10 && digitos.length <= 15 ? digitos : null
 }
 
+/**
+ * O mesmo celular brasileiro sem o nono dígito (5521987654321 → 552187654321), como o WhatsApp
+ * ainda identifica muitos números antigos; null se não for celular brasileiro com o 9. A Kapso
+ * confere a janela de 24 h pelo número exato da conversa: é a segunda tentativa do envio.
+ */
+export function numeroSemNonoDigito(numero: string): string | null {
+  const m = /^55(\d{2})9(\d{8})$/.exec(numero)
+  return m ? `55${m[1]}${m[2]}` : null
+}
+
 /** "+55 (21) 98765-4321" — para a tela. */
 export function formatarNumero(numero: string): string {
   const d = numero.replace(/\D/g, '')
@@ -94,6 +104,27 @@ export function estadoDoNumeroNaKapso(status: unknown): EstadoDaConexao {
   if (s === 'CONNECTED') return 'conectado'
   if (s === 'PENDING' || s === 'CONNECTING' || s === 'IN_PROGRESS') return 'conectando'
   return s ? 'desconectado' : 'erro'
+}
+
+/**
+ * O problema que o exame de saúde da Kapso (GET …/phone_numbers/{id}/health) aponta no envio ou
+ * no acesso ao número; null se está saudável ou se a resposta não diz. O `status` do número fica
+ * CONNECTED mesmo com a ligação com a Meta quebrada (visto em 18/10/2026): é o exame que mostra.
+ */
+export function problemaNaSaude(dados: unknown): string | null {
+  const d = dados && typeof dados === 'object' ? dados as Record<string, unknown> : null
+  if (!d || d.status !== 'unhealthy') return null
+  const checks = d.checks && typeof d.checks === 'object' ? d.checks as Record<string, unknown> : {}
+  for (const nome of ['messaging_health', 'phone_number_access']) {
+    const c = checks[nome] && typeof checks[nome] === 'object' ? checks[nome] as Record<string, unknown> : null
+    if (c?.passed === false) {
+      const erro = typeof c.error === 'string' ? c.error : ''
+      return /access token|OAuth/i.test(erro)
+        ? 'A ligação da Kapso com a Meta para este número caiu (token inválido). Reconecte o número no painel da Kapso.'
+        : `A Kapso aponta problema no número${erro ? ` (${erro.slice(0, 160)})` : ''}.`
+    }
+  }
+  return null
 }
 
 export const ROTULO_DO_ESTADO: Record<EstadoDaConexao, string> = {

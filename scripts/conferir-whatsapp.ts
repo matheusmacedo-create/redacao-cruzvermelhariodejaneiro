@@ -4,7 +4,7 @@
  */
 import {
   numeroCanonico, formatarNumero, mascararNumero,
-  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, interpretarComando, textoDosAvisos, textoDasLidas,
+  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, numeroSemNonoDigito, problemaNaSaude, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
@@ -355,6 +355,13 @@ igual(estadoDoNumeroNaKapso('CONNECTED'), 'conectado', 'kapso: CONNECTED')
 igual(estadoDoNumeroNaKapso('PENDING'), 'conectando', 'kapso: PENDING')
 igual(estadoDoNumeroNaKapso('DISCONNECTED'), 'desconectado', 'kapso: DISCONNECTED')
 igual(estadoDoNumeroNaKapso(undefined), 'erro', 'kapso: sem estado')
+igual(numeroSemNonoDigito('5548998032197'), '554898032197', 'celular sem o nono dígito')
+igual(numeroSemNonoDigito('552123456789'), null, 'fixo não muda')
+igual(numeroSemNonoDigito('12053412375'), null, 'fora do Brasil não muda')
+igual(problemaNaSaude({ status: 'healthy', checks: {} }), null, 'saúde boa')
+contem(problemaNaSaude({ status: 'unhealthy', checks: { phone_number_access: { passed: false, error: 'Meta Graph API error: 400 - Invalid OAuth access token - Cannot parse access token' } } }) ?? '', 'Reconecte o número', 'token quebrado pede reconexão')
+igual(problemaNaSaude({ status: 'unhealthy', checks: { webhook_verified: { passed: true } } }), null, 'sem falha no envio ou no acesso')
+igual(problemaNaSaude('lixo'), null, 'resposta estranha')
 const kapsoLote = lerEventoDaKapso({ type: 'whatsapp.message.received', batch: true, data: [
   { message: { id: 'a', type: 'text', from: '5521987654321', text: { body: '1' } }, phone_number_id: NUMERO_ID },
   { message: { id: 'b', type: 'interactive', from: '5521987654321', interactive: { button_reply: { id: '2' } } }, phone_number_id: NUMERO_ID },
