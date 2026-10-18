@@ -10,7 +10,7 @@ import { formatarNumero, mascararNumero } from '@/lib/whatsapp/regras'
 
 export const metadata = { title: 'WhatsApp — Configurações' }
 
-const Cabecalho = () => <p className="mb-6 text-sm text-muted-foreground">O número do Palácio Virtual no WhatsApp, pela Evolution API: os avisos do sino chegam por lá para quem confirmou o número em Meu perfil, e o bot responde a quem escreve.</p>
+const Cabecalho = () => <p className="mb-6 text-sm text-muted-foreground">O número do Palácio Virtual no WhatsApp, pela Kapso (API oficial) ou pela Evolution API: os avisos do sino chegam por lá para quem confirmou o número em Meu perfil, e o bot responde a quem escreve.</p>
 
 export default async function WhatsappPage() {
   const context = await exigirAdministracao()
@@ -19,12 +19,13 @@ export default async function WhatsappPage() {
   if (!config) {
     return <div className="mx-auto max-w-3xl"><Cabecalho />
       <Card data-ajuda="whatsapp.configurar" className="flex flex-col gap-3 p-6">
-        <h2 className="font-semibold">Falta configurar a Evolution API</h2>
+        <h2 className="font-semibold">Falta configurar o WhatsApp</h2>
         <ol className="list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>Abra <Link href="/configuracoes/integracoes" className="text-primary hover:underline">Integrações</Link>, no submenu, e ache o cartão “WhatsApp (Evolution API)”.</li>
-          <li>Preencha o endereço do servidor (ex.: https://evolution.seudominio.org), o nome da instância e a chave da API.</li>
-          <li>Toque em “Salvar no cofre” e volte a esta tela para conectar o número pelo QR code.</li>
+          <li>Abra <Link href="/configuracoes/integracoes" className="text-primary hover:underline">Integrações</Link>, no submenu, e ache o cartão “WhatsApp (Kapso — API oficial)”.</li>
+          <li>Cole a chave da API da Kapso (app.kapso.ai → Integrations → API keys) e o Phone number ID do número.</li>
+          <li>Toque em “Salvar no cofre” e volte a esta tela para ligar o recebimento de mensagens.</li>
         </ol>
+        <p className="text-xs text-muted-foreground">Usa um servidor próprio da Evolution API? Preencha o cartão “WhatsApp (Evolution API)” e conecte pelo QR code. Se os dois estiverem preenchidos, vale a Kapso.</p>
         <p className="text-xs text-muted-foreground">A chave vai direto para o cofre e não aparece mais para ninguém. Nunca a mande por chat, e-mail ou print.</p>
       </Card>
     </div>
@@ -54,13 +55,14 @@ export default async function WhatsappPage() {
       detalhe: (l.erro as string | null) ?? (l.comando ? `Comando: ${l.comando}` : null),
     }
   })
-  const servidor = new URL(config.url)
+  const servidor = config.provedor === 'evolution' ? new URL(config.url) : null
 
   return <div className="mx-auto max-w-3xl"><Cabecalho />
     <PainelDoWhatsapp
-      instancia={config.instancia}
-      servidor={servidor.host}
-      semHttps={servidor.protocol === 'http:'}
+      provedor={config.provedor}
+      instancia={config.provedor === 'evolution' ? config.instancia : config.numeroId}
+      servidor={servidor?.host ?? 'api.kapso.ai'}
+      semHttps={servidor?.protocol === 'http:'}
       estado={conexao.estado}
       erro={conexao.erro}
       webhook={webhook}

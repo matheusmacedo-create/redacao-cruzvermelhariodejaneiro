@@ -1,7 +1,8 @@
 import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CABECALHO_DO_WEBHOOK, configDoWhatsapp, segredoConfere } from '@/lib/whatsapp/servidor'
-import { estadoDaEvolution, lerEventoDoWebhook } from '@/lib/whatsapp/regras'
+import { assinaturaConfere, CABECALHO_DA_ASSINATURA } from '@/lib/whatsapp/kapso'
+import { estadoDaEvolution, lerEventoDaKapso, lerEventoDoWebhook, type EventoDoWebhook } from '@/lib/whatsapp/regras'
 import { atenderMensagem } from '@/lib/whatsapp/bot'
 import { concluirEsquecidos } from '@/lib/whatsapp/envio'
 import { registrarEstado } from '@/lib/whatsapp/estado'
@@ -13,8 +14,13 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 /**
- * Recebe da Evolution API o que chega ao WhatsApp do Palácio e passa ao bot
- * (lib/whatsapp/bot.ts).
+ * Recebe o que chega ao WhatsApp do Palácio (da Kapso ou da Evolution API) e
+ * passa ao bot (lib/whatsapp/bot.ts).
+ *
+ * Kapso (`?p=kapso`): cada entrega vem assinada (HMAC-SHA256 do corpo cru com
+ * a senha que a tela de conexão deu ao criar o webhook). Assinatura errada,
+ * 401. A Kapso tenta de novo duas vezes se não receber 200 em 10 s: o trabalho
+ * vai para depois da resposta, como na Evolution.
  *
  * Segurança: a Evolution não assina as entregas. Por isso o webhook é ligado
  * pela tela de conexão (/configuracoes/whatsapp) com um cabeçalho próprio
@@ -37,18 +43,25 @@ export async function POST(req: Request) {
 
   const config = await configDoWhatsapp(workspaceId)
   if (!config) return new NextResponse(null, { status: 404 })
-  if (!segredoConfere(config, workspaceId, req.headers.get(CABECALHO_DO_WEBHOOK))) return new NextResponse(null, { status: 401 })
+  // Entrega de um provedor que não é o configurado agora (trocou de Evolution para Kapso): não é mais conosco.
+  const daKapso = new URL(req.url).searchParams.get('p') === 'kapso'
+  if (daKapso !== (config.provedor === 'kapso')) return new NextResponse(null, { status: 404 })
 
-  let corpo: unknown
-  try {
-    corpo = await req.json()
-  } catch {
-    return new NextResponse(null, { status: 400 })
+  let evento: EventoDoWebhook
+  if (config.provedor === 'kapso') {
+    const cru = await req.text()
+    if (!assinaturaConfere(config, workspaceId, cru, req.headers.get(CABECALHO_DA_ASSINATURA))) return new NextResponse(null, { status: 401 })
+    let corpo: unknown
+    try { corpo = JSON.parse(cru) } catch { return new NextResponse(null, { status: 400 }) }
+    evento = lerEventoDaKapso(corpo, req.headers.get('x-webhook-event'), config.numeroId)
+  } else {
+    if (!segredoConfere(config, workspaceId, req.headers.get(CABECALHO_DO_WEBHOOK))) return new NextResponse(null, { status: 401 })
+    let corpo: unknown
+    try { corpo = await req.json() } catch { return new NextResponse(null, { status: 400 }) }
+    evento = lerEventoDoWebhook(corpo)
+    // Outra instância no mesmo servidor com este endereço por engano: não é conosco.
+    if (evento.instancia && evento.instancia !== config.instancia) return NextResponse.json({ ok: true, ignorado: 'outra instância' })
   }
-
-  const evento = lerEventoDoWebhook(corpo)
-  // Outra instância no mesmo servidor com este endereço por engano: não é conosco.
-  if (evento.instancia && evento.instancia !== config.instancia) return NextResponse.json({ ok: true, ignorado: 'outra instância' })
 
   if (evento.evento === 'connection.update') {
     console.info('[whatsapp] conexão:', evento.estado)

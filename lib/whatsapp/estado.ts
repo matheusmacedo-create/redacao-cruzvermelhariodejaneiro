@@ -23,8 +23,8 @@ const FORA: EstadoDaConexao[] = ['desconectado', 'sem_instancia', 'erro']
 
 const TEXTO_DA_QUEDA: Record<string, string> = {
   desconectado: 'O número do Palácio saiu do WhatsApp (desconectado). Os avisos por WhatsApp estão parados até conectar de novo pelo QR code.',
-  sem_instancia: 'A instância do WhatsApp não existe mais no servidor da Evolution. Os avisos por WhatsApp estão parados.',
-  erro: 'O Palácio não consegue falar com o servidor da Evolution (computador desligado, sem internet ou túnel do ngrok parado). Os avisos por WhatsApp estão parados e ficam na fila até voltar.',
+  sem_instancia: 'O número do WhatsApp não foi encontrado no provedor (a instância na Evolution ou o Phone number ID na Kapso). Os avisos por WhatsApp estão parados.',
+  erro: 'O Palácio não consegue falar com o provedor do WhatsApp (na Kapso: chave recusada ou sem créditos; na Evolution: computador desligado, sem internet ou túnel do ngrok parado). Os avisos por WhatsApp estão parados e ficam na fila até voltar.',
 }
 
 export async function registrarEstado(admin: Admin, workspaceId: string, estado: EstadoDaConexao): Promise<void> {

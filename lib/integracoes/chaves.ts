@@ -14,7 +14,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * código de servidor, na chamada à ferramenta.
  */
 
-type Campo = { id: string; rotulo: string; secreto: boolean; /** Tamanho mínimo aceito na tela (padrão 8). */ minimo?: number }
+type Campo = {
+  id: string; rotulo: string; secreto: boolean
+  /** Tamanho mínimo aceito na tela (padrão 8). */ minimo?: number
+  /** Pode ficar vazio (o mínimo só vale para o que foi preenchido). */ opcional?: boolean
+}
 type DefinicaoDeServico = {
   nome: string
   variavel: string
@@ -67,6 +71,21 @@ export const SERVICOS = {
   // serpro: { nome: 'Serpro (Consulta CPF)', variavel: 'SERPRO_CONSULTA_CPF', painel: 'https://loja.serpro.gov.br/consultacpf', campos: [{ id: 'consumerKey', rotulo: 'Consumer key', secreto: false }, { id: 'consumerSecret', rotulo: 'Consumer secret', secreto: true }] },
   // O WhatsApp do Palácio (lib/whatsapp). A chave pode ser a global do servidor ou o token da instância;
   // só "Criar a instância" exige a global. Reserva no ambiente: EVOLUTION_API_URL, _KEY e EVOLUTION_INSTANCIA.
+  // O WhatsApp do Palácio pela Kapso (API oficial da Meta; lib/whatsapp/kapso.ts). Configurada, tem a
+  // preferência sobre a Evolution. A chave é a do projeto (painel → Integrations → API keys); o id é o
+  // "Phone number ID" do número na tela WhatsApp do painel. O modelo é um modelo de mensagem aprovado pela
+  // Meta, com uma variável no corpo, usado para avisar quem não escreveu nas últimas 24 h.
+  kapso: {
+    nome: 'WhatsApp (Kapso — API oficial)',
+    variavel: 'KAPSO_WHATSAPP',
+    painel: 'https://app.kapso.ai',
+    campos: [
+      { id: 'chave', rotulo: 'Chave da API (X-API-Key)', secreto: true },
+      { id: 'numeroId', rotulo: 'Phone number ID', secreto: false, minimo: 5 },
+      { id: 'modelo', rotulo: 'Modelo aprovado para fora das 24 h (opcional)', secreto: false, minimo: 1, opcional: true },
+    ],
+    dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
+  },
   evolution_api: {
     nome: 'WhatsApp (Evolution API)',
     variavel: 'EVOLUTION_API',
@@ -151,6 +170,7 @@ export async function obterCampos(workspaceId: string, servico: Servico): Promis
     const saida: Record<string, string> = {}
     for (const c of campos) {
       const v = typeof dados[c.id] === 'string' ? (dados[c.id] as string).trim() : ''
+      if (!v && c.opcional) continue
       if (!v) return null
       saida[c.id] = v
     }

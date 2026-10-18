@@ -10,7 +10,7 @@ import { removerChaveDeIntegracao, salvarChaveDeIntegracao } from '@/app/actions
 export type ChaveNaTela = {
   servico: string
   nome: string
-  campos: readonly { id: string; rotulo: string; secreto: boolean; minimo?: number }[]
+  campos: readonly { id: string; rotulo: string; secreto: boolean; minimo?: number; opcional?: boolean }[]
   origem: 'cofre' | 'ambiente' | null
   atualizadaEm: string | null
   painel: string
@@ -45,7 +45,7 @@ function CartaoDaChave({ chave }: { chave: ChaveNaTela }) {
   const [valor, setValor] = useState('')
   const [campos, setCampos] = useState<Record<string, string>>({})
   const multiplo = chave.campos.length > 0
-  const pronto = multiplo ? chave.campos.every((c) => (campos[c.id] ?? '').trim().length >= (c.minimo ?? 8)) : valor.trim().length >= 8
+  const pronto = multiplo ? chave.campos.every((c) => { const v = (campos[c.id] ?? '').trim(); return (c.opcional && !v) || v.length >= (c.minimo ?? 8) }) : valor.trim().length >= 8
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null)
   const [ocupado, rodar] = useTransition()
 
