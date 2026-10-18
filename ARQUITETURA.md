@@ -1961,6 +1961,13 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (`GET /{phone_number_id}`, templates) voltam 401 da Meta (190, "Cannot parse access token") mesmo com a chave
   certa — o envio funciona. Estado, número e nome vêm de `GET /platform/v1/whatsapp/phone_numbers/{id}` (`status`
   CONNECTED). A mídia tenta o proxy e, se falhar, o `kapso.media_url` do webhook (só `api.kapso.ai`, com a chave).
+- **Saúde:** CONNECTED não garante a ligação com a Meta. A conferência da conexão consulta também
+  `GET …/phone_numbers/{id}/health` (limitado a um a cada 5 min; sem resposta, vale o status) e mostra "erro" com o
+  motivo quando o envio ou o acesso ao número falham (`problemaNaSaude`). O 190 da Meta repassado pela Kapso vira
+  "reconecte o número no painel da Kapso", não "chave errada".
+- **Nono dígito:** a Kapso confere a janela de 24 h pelo número exato da conversa, e o WhatsApp ainda identifica
+  muitos celulares antigos sem o 9 (554898032197). O Palácio guarda e manda com o 9; se a Kapso disser "fora da
+  janela", o envio tenta de novo sem o 9 (`numeroSemNonoDigito`) antes de recorrer ao modelo.
 - **Janela de 24 h:** texto livre só para quem escreveu ao número nas últimas 24 h. Fora dela a Meta
   recusa (131047) e o envio recai no modelo aprovado do cofre, com o texto achatado na variável
   `{{1}}` (sem quebras de linha, até 1000 caracteres). Sem modelo, a falha fica registrada com o
