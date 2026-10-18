@@ -10,6 +10,8 @@ import {
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
   baseDoHashDoCodigo, textoDoCodigo, textoDoCodigoDeIda, linkDoWhatsapp, codigoNaMensagem, textoDoNumeroConfirmado, textoDoCodigoDeIdaErrado, textoDaFalhaDoCodigoDeIda,
   modeloDaFinalidade, modeloParaEnviar, textoParaModelo, ehErroDeModelo, problemaDoModelo, nomeDeModeloValido, TEXTO_PAUSADO, textoDeSeguranca,
+  tipoDaFalha, resumoDasFalhas, falhasSemModelo, decidirAlerta, quandoEmSaoPaulo, textoDoStatus, textoDaRodadaDaFila, textoDoComandoFila, FALHAS_SEM_MODELO_PARA_ALERTAR,
+  type StatusDoCanal,
 } from '../lib/whatsapp/regras'
 import { corpoParaWhatsapp, emailDeAviso } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
@@ -482,6 +484,96 @@ contem(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Templ
 igual(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Phone number not found' }), null, '404 do número continua sendo do número')
 igual(problemaDoModelo({ nome: 'x', codigo: 190, status: 401, mensagem: 'Invalid OAuth access token' }), null, 'token da Meta não é do modelo')
 igual(problemaDoModelo({ nome: 'x', codigo: null, status: 402, mensagem: 'template credits' }), null, 'créditos não é do modelo')
+
+// ---------------------------------------------------------------- administração pelo WhatsApp (status e fila)
+const adm = (t: string, pausado = false) => interpretarComando(t, { pausado, admin: true })
+igual(adm('status'), 'status', 'admin: status')
+igual(adm(' Status! '), 'status', 'admin: status com maiúscula e pontuação')
+igual(adm('diagnóstico'), 'status', 'admin: diagnóstico com acento')
+igual(adm('status', true), 'status', 'admin: status com os avisos pausados')
+igual(adm('fila'), 'fila', 'admin: fila')
+igual(adm('FILA'), 'fila', 'admin: fila em maiúsculas')
+igual(adm('enviar fila'), 'fila', 'admin: enviar fila')
+igual(cmd('status'), 'desconhecido', 'quem não administra: status é desconhecido')
+igual(cmd('fila'), 'desconhecido', 'quem não administra: fila é desconhecido')
+igual(cmd('enviar fila'), 'desconhecido', 'quem não administra: enviar fila é desconhecido')
+igual(adm('a fila do RH não anda'), 'desconhecido', 'admin: "fila" no meio da frase não roda a fila')
+igual(adm('qual o status do meu chamado'), 'chamados', 'admin: "status" no meio da frase segue o caminho de sempre')
+igual(lerPedido('chamado: a fila da impressora travou', { pausado: false, admin: true }), { comando: 'abrir_chamado', resto: 'a fila da impressora travou' }, 'admin: chamado que fala de fila continua abrindo chamado')
+igual(lerPedido('ajuda como ver o status', { pausado: false, admin: true }).comando, 'ajuda', 'admin: dúvida que fala de status continua dúvida')
+igual(adm('1'), 'avisos', 'admin: 1 continua avisos')
+igual(adm('3'), 'parar', 'admin: 3 continua parar')
+igual(adm('3', true), 'voltar', 'admin: 3 pausado continua voltar')
+igual(adm('menu'), 'menu', 'admin: menu continua menu')
+igual(adm('6'), 'aprovacoes', 'admin: 6 continua aprovações')
+contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', admin: true }), 'Da administração:\n*status* – ', 'menu do admin: a linha dos comandos dele')
+contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p', admin: true }), '*fila* – fazer a fila', 'menu do admin: fila')
+igual(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }).includes('*status*'), false, 'menu de quem não administra: sem a linha')
+
+const foraDaJanela = 'Fora da janela de 24 horas do WhatsApp: a pessoa não escreveu para o número do Palácio nas últimas 24 horas. Para avisar fora da janela, aprove um modelo de mensagem na Kapso e informe o nome em Configurações → Integrações.'
+const modeloPausado = problemaDoModelo({ nome: 'aviso_do_palacio', codigo: 132015, status: 400, mensagem: null }) ?? ''
+igual(tipoDaFalha(foraDaJanela).tipo, 'janela', 'falha: fora da janela (mesmo terminando com "modelo")')
+igual(tipoDaFalha(modeloPausado).tipo, 'modelo', 'falha: modelo pausado (fala em "fora da janela" no meio)')
+igual(tipoDaFalha(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Template not found' })).tipo, 'modelo', 'falha: a Kapso recusou o modelo')
+igual(tipoDaFalha('A Kapso recusou a chave. Confira a chave da API em Configurações → Integrações.').tipo, 'chave', 'falha: chave')
+igual(tipoDaFalha('A ligação da Kapso com a Meta para este número caiu (token inválido). Reconecte o número no painel da Kapso; a chave do Palácio está certa.').tipo, 'meta', 'falha: ligação com a Meta')
+igual(tipoDaFalha('A Kapso recusou o envio por falta de créditos. Confira o plano no painel da Kapso.').tipo, 'creditos', 'falha: créditos')
+igual(tipoDaFalha('A Kapso não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.').tipo, 'sem_resposta', 'falha: sem resposta a tempo')
+igual(tipoDaFalha('Não consegui falar com a Kapso (fetch failed).').tipo, 'rede', 'falha: rede')
+igual(tipoDaFalha('Message Undeliverable.'), { tipo: 'outro', rotulo: 'Message Undeliverable' }, 'falha desconhecida agrupa pelo próprio erro')
+igual(tipoDaFalha('x'.repeat(200)).rotulo.length, 80, 'falha desconhecida longa é cortada')
+igual(tipoDaFalha(null).rotulo, 'Sem motivo registrado', 'falha sem erro')
+const grupos = resumoDasFalhas([foraDaJanela, 'Message Undeliverable.', foraDaJanela, modeloPausado, foraDaJanela, null])
+igual(grupos.map((g) => `${g.quantas}:${g.tipo}`), ['3:janela', '1:outro', '1:modelo', '1:outro'], 'falhas agrupadas: a mais comum primeiro, o empate em ordem alfabética')
+igual(falhasSemModelo([foraDaJanela, modeloPausado, 'Message Undeliverable.', null]), 2, 'falhas sem modelo: janela e modelo')
+igual(FALHAS_SEM_MODELO_PARA_ALERTAR, 5, 'o limite do alerta de modelos')
+
+const agoraDoAlerta = new Date('2026-10-18T10:05:00Z')
+igual(decidirAlerta({ problema: true, aberto: false, ultimoAlertaEm: null, agora: agoraDoAlerta }), 'alertar', 'alerta: problema novo')
+igual(decidirAlerta({ problema: true, aberto: true, ultimoAlertaEm: '2026-10-15T10:05:00Z', agora: agoraDoAlerta }), null, 'alerta: o mesmo episódio não repete a cada execução')
+igual(decidirAlerta({ problema: true, aberto: false, ultimoAlertaEm: '2026-10-18T08:05:00Z', agora: agoraDoAlerta }), null, 'alerta: voltou e caiu de novo em menos de 6 h')
+igual(decidirAlerta({ problema: true, aberto: false, ultimoAlertaEm: '2026-10-18T03:05:00Z', agora: agoraDoAlerta }), 'alertar', 'alerta: episódio novo depois de 6 h')
+igual(decidirAlerta({ problema: false, aberto: true, ultimoAlertaEm: '2026-10-17T10:05:00Z', agora: agoraDoAlerta }), 'resolvido', 'alerta: resolvido fecha o episódio')
+igual(decidirAlerta({ problema: false, aberto: false, ultimoAlertaEm: null, agora: agoraDoAlerta }), null, 'alerta: tudo em dia, nada muda')
+igual(decidirAlerta({ problema: null, aberto: true, ultimoAlertaEm: null, agora: agoraDoAlerta }), null, 'alerta: sem saber, nada muda')
+
+igual(quandoEmSaoPaulo('2026-10-18T10:05:00Z'), 'dom, 18/10 às 07:05', 'quando: relógio de São Paulo')
+igual(quandoEmSaoPaulo('2026-10-19T02:30:00Z'), 'dom, 18/10 às 23:30', 'quando: ainda é o dia anterior em São Paulo')
+igual(quandoEmSaoPaulo(null), null, 'quando: sem data')
+igual(quandoEmSaoPaulo('lixo'), null, 'quando: data inválida')
+
+const statusBase: StatusDoCanal = {
+  conexao: { estado: 'conectado', erro: null }, webhook: 'ligado', fila: { silencio: 0, volume: 0, falha: 0 },
+  falhas: { total: 0, grupos: [] }, semChave: [], googleExpiradas: [], rotina: '2026-10-18T10:05:00Z', urlBase: 'https://p',
+}
+const statusEmDia = textoDoStatus(statusBase)
+contem(statusEmDia, '*Status do WhatsApp do Palácio*', 'status: título')
+contem(statusEmDia, '*Kapso:* Conectado\n*Recebimento (bot):* ligado\n*Fila:* vazia\n*Falhas em 24 h:* nenhuma\n*Integrações sem chave:* nenhuma\n*Contas Google:* em dia\n*Rotina diária:* dom, 18/10 às 07:05', 'status em dia: uma linha por assunto')
+contem(statusEmDia, 'Detalhes: https://p/configuracoes/whatsapp', 'status: link da tela')
+const statusComProblema = textoDoStatus({
+  ...statusBase,
+  conexao: { estado: 'erro', erro: 'A Kapso aponta *problema* no número.' }, webhook: 'desligado', fila: { silencio: 2, volume: 0, falha: 1 },
+  falhas: { total: 9, grupos: resumoDasFalhas([foraDaJanela, foraDaJanela, foraDaJanela, modeloPausado, 'a', 'b', 'c', 'd']) },
+  semChave: ['Hunter.io', 'Meta Ads'], googleExpiradas: [{ onde: 'E-mail dos setores', conta: 'comunicacao@cvb.org' }], rotina: null,
+})
+contem(statusComProblema, '*Kapso:* Sem resposta da Kapso – A Kapso aponta problema no número.', 'status: o erro da conexão, sem a marcação')
+contem(statusComProblema, '*Recebimento (bot):* desligado', 'status: recebimento desligado')
+contem(statusComProblema, '*Fila:* 3 mensagens (2 no silêncio até as 7h, 1 para reenviar)', 'status: a fila por motivo')
+contem(statusComProblema, '*Falhas em 24 h:* 9\n• 3 – Fora da janela de 24 h, sem modelo aprovado\n• 1 – ', 'status: falhas agrupadas')
+contem(statusComProblema, '_e mais 2 motivos_', 'status: corta os motivos em 4')
+contem(statusComProblema, 'Configurações → Integrações', 'status: falha sem modelo diz onde configurar')
+contem(statusComProblema, '*Integrações sem chave:* Hunter.io, Meta Ads', 'status: integrações sem chave, só os nomes')
+contem(statusComProblema, 'E-mail dos setores (comunicacao@cvb.org) – a autorização expirou', 'status: Google expirado')
+contem(statusComProblema, '*Rotina diária:* sem registro ainda', 'status: rotina sem registro')
+contem(textoDoStatus({ ...statusBase, fila: null, falhas: null, semChave: null, webhook: 'desconhecido' }), '*Fila:* não deu para ler agora', 'status: o que não deu para ler')
+
+igual(textoDaRodadaDaFila({ enviadas: 1, adiadas: 0, desistiu: 0, restam: 0 }), '1 mensagem enviada.', 'rodada: uma enviada')
+igual(textoDaRodadaDaFila({ enviadas: 3, adiadas: 1, desistiu: 2, restam: 4 }),
+  '3 mensagens enviadas; 1 para tentar de novo mais tarde; 2 descartadas (aviso já lido, número removido ou falha sem volta); 4 ainda esperando a vez.', 'rodada: tudo junto (o texto de sempre da tela)')
+contem(textoDaRodadaDaFila({ enviadas: 0, adiadas: 0, desistiu: 0, restam: 0 }), 'Nada saiu agora', 'rodada: nada para sair')
+const comandoFila = textoDoComandoFila({ rodada: { enviadas: 2, adiadas: 0, desistiu: 0, restam: 0 }, fila: { silencio: 2, volume: 0, falha: 0 } })
+contem(comandoFila, '*Fila do WhatsApp*\n\n2 mensagens enviadas.', 'comando fila: a rodada')
+contem(comandoFila, 'Na fila agora: 2 mensagens (2 no silêncio até as 7h).', 'comando fila: o que ficou')
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('WhatsApp: tudo certo.')

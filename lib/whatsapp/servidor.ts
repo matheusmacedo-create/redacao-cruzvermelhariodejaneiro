@@ -3,7 +3,7 @@ import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { baseDoHashDoCodigo, type EstadoDaConexao, type Finalidade, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
+import { baseDoHashDoCodigo, type EstadoDaConexao, type EstadoDoWebhook, type Finalidade, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
 import {
   baixarMidiaKapso, enviarTextoKapso, ligarWebhookKapso, numeroIdValido, perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso,
   type ConfigDaKapso,
@@ -85,7 +85,7 @@ export const urlDoWebhook = (workspaceId: string) => `${urlBase()}/api/webhooks/
 export const ligarWebhook = (config: ConfigDoWhatsapp, workspaceId: string): Promise<{ erro: string | null }> =>
   ligarWebhookKapso(config, workspaceId, urlDoWebhook(workspaceId))
 
-export type SituacaoDoWebhook = 'ligado' | 'outro_endereco' | 'desligado' | 'desconhecido'
+export type SituacaoDoWebhook = EstadoDoWebhook
 
 /** O webhook do número aponta para cá, ligado e com a senha certa? */
 export const situacaoDoWebhook = (config: ConfigDoWhatsapp, workspaceId: string): Promise<SituacaoDoWebhook> =>

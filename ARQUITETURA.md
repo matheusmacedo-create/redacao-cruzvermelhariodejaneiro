@@ -1975,6 +1975,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Código:** `lib/whatsapp/regras.ts` (puro: número canônico, textos, leitura do webhook, comandos
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
+  `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
   `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
   `app/actions/whatsapp.ts` e `app/api/webhooks/whatsapp`.
 - **Confirmação do número (18/10/2026):** dois caminhos, nos mesmos limites (3 códigos a cada 30 min,
@@ -2041,6 +2042,20 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   achados com esforço baixo, e sem chave vão os trechos). Número desconhecido recebe uma
   apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
   do outro lado não vira conversa infinita).
+- **Comandos da administração (18/10/2026)** (`lib/whatsapp/admin.ts`): para quem tem
+  `integracoes.configurar` (a permissão de `/configuracoes/whatsapp`) e número confirmado, `lerPedido`
+  reconhece `status` (ou `diagnóstico`, `saúde`) e `fila` (ou `fila agora`, `enviar fila`) — só como a
+  mensagem inteira, para "fila" numa frase não rodar nada; para os outros, seguem o caminho de sempre e dão
+  `desconhecido` (e `respostaDaAdministracao` confere a permissão de novo). O menu ganha a linha deles só
+  para quem administra. `status` só lê, em paralelo: `situacaoDaConexao` (com o exame de saúde),
+  `situacaoDoWebhook`, `resumoDaFila`, as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
+  por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
+  conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
+  `google_conexao`/`google_admin_conexao` com estado `expirada` e a última execução da rotina; a resposta sai
+  de `textoDoStatus` (puro). `fila` roda `processarFila` (90 s, 20 itens) e responde com `textoDaRodadaDaFila`,
+  o mesmo texto do botão “Enviar a fila agora”. `fila` não age em nome de ninguém (qualquer mensagem ao número
+  já faz a fila andar), então vale também com verificação em duas etapas. O registro é o de sempre
+  (`whatsapp_mensagens.comando` = `status`/`fila`).
 - **Ações pelo bot** (`lib/whatsapp/acoes.ts`): responder citando o aviso manda o texto para onde o
   link do aviso aponta (`alvoDoLink`: chamado, Chat, mensagem direta, aprovação) — a mensagem de
   saída guarda o id do WhatsApp e o `notificacao_id`. Na aprovação, `aprovar` manda a conferência
@@ -2099,6 +2114,19 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (connection.update, envio que falhou por servidor fora ou a rotina diária), os administradores
   recebem “O WhatsApp do Palácio caiu” no sino e no e-mail (categoria `sistema`, que nunca vai pelo
   WhatsApp), no máximo a cada 6 h; e “voltou” quando reconecta.
+- **Rotina: recebimento e modelos (18/10/2026):** `/api/whatsapp/rotina` também confere o webhook
+  (`situacaoDoWebhook`): `desligado` ou `outro_endereco` alertam “O WhatsApp do Palácio parou de receber
+  mensagens” (`conferirWebhook`; `desconhecido` não conta — é a Kapso sem responder, e a queda tem o alerta
+  dela). E conta as falhas das últimas 24 h por “fora da janela” sem modelo ou recusa do modelo
+  (`falhasSemModelo`): a partir de 5 (`FALHAS_SEM_MODELO_PARA_ALERTAR`), “Mensagens do WhatsApp sem modelo
+  aprovado” (`conferirFalhasSemModelo`). Os dois vão como o de queda (sino e e-mail, categoria `sistema`) e
+  seguem `decidirAlerta` (puro): uma vez por episódio, nunca de novo antes de 6 h. Sem migração, a memória fica
+  em `activity_log` (`entity_type` `integracao`, sem ator): `whatsapp_webhook_alertado` abre o episódio, e
+  `whatsapp_webhook_voltou` (a rotina viu ligado; avisa “voltou a receber mensagens”) ou
+  `whatsapp_webhook_ligado` (o botão da tela, que já gravava isso) fecham; `whatsapp_modelos_alertado` /
+  `whatsapp_modelos_em_dia` (fecha sem aviso). No fim, a rotina grava `whatsapp_rotina` por espaço conferido
+  (estado, webhook e a contagem; é a “Rotina diária” do `status`). O painel não mostra essas linhas
+  (`fraseDaAtividade` devolve null). A frequência do cron não mudou (uma vez por dia).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):

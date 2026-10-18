@@ -10,6 +10,7 @@ import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
 import { ehPapel, type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
+import { ehAdministracao, respostaDaAdministracao } from './admin'
 import {
   codigosPendentesDoNumero, confirmarNumeroDaEquipe, confirmarNumeroDoVoluntario, contarTentativaErrada, donoDoVoluntario, type CodigoPendente,
 } from './confirmacao'
@@ -35,9 +36,11 @@ type Admin = ReturnType<typeof createAdminClient>
  * O bot do WhatsApp: responde a quem escreve para o número do Palácio.
  *
  * Quem é da equipe e confirmou o número (whatsapp_contas) vê os avisos sem
- * abrir, marca como lidos e pausa ou retoma os avisos por aqui. Quem não é
- * recebe uma apresentação (no máximo uma por dia) com o caminho dos canais
- * oficiais: este número não é atendimento ao público.
+ * abrir, marca como lidos e pausa ou retoma os avisos por aqui; quem
+ * administra o espaço também pede o "status" do canal e faz a fila andar
+ * (lib/whatsapp/admin.ts). Quem não é recebe uma apresentação (no máximo uma
+ * por dia) com o caminho dos canais oficiais: este número não é atendimento
+ * ao público.
  *
  * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
  * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
@@ -72,7 +75,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
     const achado = pessoa ? null : await voluntarioDoNumero(admin, numero)
     const voluntario = achado?.workspaceId === workspaceId ? achado : null
-    const pedido = pessoa ? lerPedido(m.texto, { pausado }) : null
+    // Quem administra o espaço tem também "status" e "fila" (lib/whatsapp/admin.ts); para o resto, são "desconhecido".
+    const administra = ehAdministracao(pessoa)
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -238,12 +243,20 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    if (comando === 'status' || comando === 'fila') {
+      const resposta = await respostaDaAdministracao(admin, workspaceId, pessoa, comando, config, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
     if (comando === 'ajuda' && pedido) {
       await responder(await responderDuvida(pedido.resto, pessoa.papel, base))
       return
     }
 
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base })
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, admin: administra })
     await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu)
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)

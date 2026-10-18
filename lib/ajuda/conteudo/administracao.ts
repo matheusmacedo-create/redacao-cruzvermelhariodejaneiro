@@ -858,7 +858,7 @@ const CONFIGURACOES: GuiaDaArea = {
 
 const WHATSAPP: GuiaDaArea = {
   href: '/configuracoes/whatsapp',
-  paraQueServe: 'WhatsApp liga um número de WhatsApp ao Palácio Virtual, pela Kapso (a API oficial do WhatsApp). Com ele conectado, os avisos do sino chegam também no WhatsApp de quem confirmou o número em “Meu perfil”, e um bot responde a quem escreve: mostra os avisos sem abrir, marca como lidos e pausa os avisos.',
+  paraQueServe: 'WhatsApp liga um número de WhatsApp ao Palácio Virtual, pela Kapso (a API oficial do WhatsApp). Com ele conectado, os avisos do sino chegam também no WhatsApp de quem confirmou o número em “Meu perfil”, e um bot responde a quem escreve: mostra os avisos sem abrir, marca como lidos e pausa os avisos. Administradores também conferem o canal por lá, com “status”.',
   quemUsa: 'Só administradores abrem esta aba. Cada pessoa liga o próprio WhatsApp em “Meu perfil”, sem depender da administração.',
   naPratica: {
     titulo: 'O WhatsApp do Palácio no ar',
@@ -897,7 +897,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       alvo: 'whatsapp.fila',
       titulo: 'Fila e horário de silêncio',
-      texto: 'De 22h às 7h os avisos comuns esperam e saem às 7h. O que falhou porque a Kapso estava fora volta a ser tentado sozinho; “Enviar a fila agora” adianta o que já pode sair.',
+      texto: 'De 22h às 7h os avisos comuns esperam e saem às 7h. O que falhou porque a Kapso estava fora volta a ser tentado sozinho; “Enviar a fila agora” adianta o que já pode sair (pelo WhatsApp, mande “fila” ao número do Palácio).',
       seAusente: 'pular',
     },
     {
@@ -972,8 +972,20 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-caiu-no-sino',
       pergunta: 'Como fico sabendo que o WhatsApp do Palácio caiu?',
-      resposta: 'Os administradores recebem no sino e no e-mail o aviso “O WhatsApp do Palácio caiu”, uma vez, e “O WhatsApp do Palácio voltou” quando a conexão volta. Nunca pelo WhatsApp, que é justamente o que caiu. O Palácio percebe por um envio que falhou ou pela conferência de todo dia às 7h05.',
+      resposta: 'Os administradores recebem no sino e no e-mail o aviso “O WhatsApp do Palácio caiu”, uma vez, e “O WhatsApp do Palácio voltou” quando a conexão volta. Nunca pelo WhatsApp, que é justamente o que caiu. O Palácio percebe por um envio que falhou ou pela conferência de todo dia às 7h05, que também confere o recebimento de mensagens e as falhas por falta de modelo (veja a pergunta seguinte).',
       termos: ['caiu', 'fora do ar', 'alerta', 'créditos'],
+    },
+    {
+      id: 'alertas-da-conferencia-diaria',
+      pergunta: 'Que outros alertas a conferência das 7h05 manda?',
+      resposta: 'Dois, também só no sino e no e-mail dos administradores, uma vez por problema (enquanto ele continua, não repete todo dia):\n\n“O WhatsApp do Palácio parou de receber mensagens”: o recebimento está desligado na Kapso ou aponta para outro endereço. O bot fica mudo e o código mandado ao Palácio não confirma ninguém. Toque em “Ligar o recebimento de mensagens” (ou “Ligar de novo”) nesta aba. Se voltar sem ninguém tocar no botão, chega “voltou a receber mensagens”.\n\n“Mensagens do WhatsApp sem modelo aprovado”: nas últimas 24 horas, 5 ou mais mensagens não saíram por estarem fora da janela de 24 horas ou por recusa do modelo. É a hora de aprovar os modelos (veja a pergunta sobre a janela de 24 horas).',
+      termos: ['parou de receber mensagens', 'voltou a receber mensagens', 'sem modelo aprovado', 'webhook', 'recebimento', 'alerta', '7h05'],
+    },
+    {
+      id: 'comandos-de-administrador',
+      pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
+      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: a resposta traz a conexão com a Kapso, o recebimento de mensagens, a fila, as falhas de envio das últimas 24 horas agrupadas pelo motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google com a autorização expirada e quando a conferência diária rodou pela última vez.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas ainda esperam.\n\nOs dois aparecem no “menu” só de quem é administrador; para os outros, o bot só responde que não entendeu. Ficam em “Últimas mensagens” como os demais comandos.',
+      termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot'],
     },
     {
       id: 'desconectou-sozinho',
@@ -1201,7 +1213,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda.\n\nOs avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda. Administradores têm também “status” e “fila” (veja a ajuda do WhatsApp, em Configurações).\n\nOs avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
       termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp'],
     },
     {

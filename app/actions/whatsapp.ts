@@ -10,7 +10,7 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { CATEGORIAS, type Categoria } from '@/lib/notificacoes/regras'
 import {
   CODIGOS_POR_JANELA, CODIGO_TENTATIVAS, CODIGO_VALIDADE_MIN, JANELA_DOS_CODIGOS_MIN, WHATSAPP_PADRAO,
-  codigoNoFormato, formatarNumero, linkDoWhatsapp, mascararNumero, numeroCanonico, textoDoCodigo, textoDoCodigoDeIda, textoDoMenu, type SentidoDoCodigo,
+  codigoNoFormato, formatarNumero, linkDoWhatsapp, mascararNumero, numeroCanonico, textoDaRodadaDaFila, textoDoCodigo, textoDoCodigoDeIda, textoDoMenu, type SentidoDoCodigo,
 } from '@/lib/whatsapp/regras'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { confirmarNumeroDaEquipe } from '@/lib/whatsapp/confirmacao'
@@ -164,7 +164,7 @@ export async function confirmarCodigoDoWhatsapp(formData: FormData): Promise<Res
     // Boas-vindas com o menu: a pessoa vê na hora o que o número faz.
     await entregar(admin, context.workspace.id, {
       numero, tipo: 'bot', userId: context.user.id,
-      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase() })}`,
+      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase(), admin: pode(context.role, 'integracoes.configurar') })}`,
     })
     revalidatePath('/perfil')
     return { recado: `WhatsApp confirmado: ${formatarNumero(numero)}.` }
@@ -260,11 +260,8 @@ export async function enviarFilaAgora(): Promise<Resultado> {
     const { context } = await exigirAdmin()
     const r = await processarFila(createAdminClient(), context.workspace.id, { orcamentoMs: 120_000, limite: 30 })
     revalidatePath('/configuracoes/whatsapp')
-    const partes = [`${r.enviadas} ${r.enviadas === 1 ? 'mensagem enviada' : 'mensagens enviadas'}`]
-    if (r.adiadas) partes.push(`${r.adiadas} para tentar de novo mais tarde`)
-    if (r.desistiu) partes.push(`${r.desistiu} ${r.desistiu === 1 ? 'descartada' : 'descartadas'} (aviso já lido, número removido ou falha sem volta)`)
-    if (r.restam) partes.push(`${r.restam} ainda esperando a vez`)
-    return { recado: `${partes.join('; ')}.` }
+    // O mesmo texto do comando "fila" pelo WhatsApp (lib/whatsapp/admin.ts).
+    return { recado: textoDaRodadaDaFila(r) }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível fazer a fila andar.') }
   }
