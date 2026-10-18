@@ -20,7 +20,7 @@ import {
   CONFIRMACAO_VALE_MIN, textoDoLinkDeConfirmacao, textoDasDecisoes, lerDecisaoFinanceira, oQueDaDecisao, lerDesativarConta, oQueDaDesativacao,
   textoDeQuemDesativar, textoDeNinguemParaDesativar, oQueDoVoto, DECISOES_NA_RESPOSTA, type ItemParaDecidir,
   COTA_DE_CONVERSAS, limiteDaCota, prioridadeNaCota, esperaPelaCota, fimDaEsperaDaCota, textoDaCota, TEXTO_DA_ESPERA_DA_COTA,
-  lerEstoque, lerViagem, pareceViagem, TEXTO_NAO_ENTENDI, situacaoDaSincronizacao, ESCOLA_ATRASADA_HORAS, textoDoOficioPeloWhatsapp, type SincronizacaoDaEscola,
+  lerEstoque, lerViagem, pareceViagem, COMANDOS_DE_AREA, TEXTO_NAO_ENTENDI, situacaoDaSincronizacao, ESCOLA_ATRASADA_HORAS, textoDoOficioPeloWhatsapp, type SincronizacaoDaEscola,
   horasNoTexto, textoDaChamada, BOTOES_DA_CHAMADA, lerMarcacaoDePresenca, textoDaConferenciaDaPresenca, textoDaPresencaMarcada, textoSemAcaoHoje,
   nomeDoVeiculo, textoDaFrota, acharVeiculo, lerHodometroDaConversa, textoPedeHodometro, botoesDoHodometro, textoDaConferenciaDaSaida, textoDaConferenciaDoRetorno,
   textoDoRetornoRegistrado, FINALIDADES_NA_CONVERSA, acharNoEstoque, textoDoSaldo, TEXTO_PEDE_MATERIAL, type MaterialNoSaldo,
@@ -573,7 +573,10 @@ igual(interativoCaiNoTexto({ ok: true }), false, 'interativo que saiu')
 const linhasDoMenu = (i: Interativo) => (i.tipo === 'lista' ? i.secoes.flatMap((x) => x.linhas) : [])
 const menuDaEquipe = interativoDoMenu({ pausado: false })
 igual(linhasDoMenu(menuDaEquipe).map((l) => lerPedido(l.id, { pausado: false }).comando), ['avisos', 'lidas', 'parar', 'agenda', 'chamados', 'aprovacoes'], 'menu em lista: o toque é o comando digitado')
-igual(linhasDoMenu(interativoDoMenu({ pausado: true }))[2], { id: '3', titulo: 'Voltar a receber', descricao: 'Voltar a receber os avisos por aqui' }, 'menu em lista: o 3 de quem pausou é voltar')
+igual(linhasDoMenu(interativoDoMenu({ pausado: true }))[2], { id: 'voltar', titulo: 'Voltar a receber', descricao: 'Voltar a receber os avisos por aqui' }, 'menu em lista: o 3 de quem pausou é voltar')
+// A linha do 3 leva a palavra do rótulo: o toque numa lista antiga nunca faz o contrário do que ela diz.
+igual(lerPedido(linhasDoMenu(interativoDoMenu({ pausado: true }))[2].id, { pausado: false }).comando, 'voltar', 'menu em lista antiga: "Voltar a receber" volta mesmo com os avisos já ligados')
+igual(lerPedido(linhasDoMenu(interativoDoMenu({ pausado: false }))[2].id, { pausado: true }).comando, 'parar', 'menu em lista antiga: "Parar os avisos" para mesmo com os avisos já pausados')
 const menuDoAdmin = interativoDoMenu({ pausado: false, admin: true })
 igual(linhasDoMenu(menuDoAdmin).map((l) => lerPedido(l.id, { pausado: false, admin: true }).comando).slice(6), ['status', 'fila'], 'menu do admin em lista: status e fila')
 igual(menuDoAdmin.tipo === 'lista' && menuDoAdmin.secoes.map((x) => x.titulo), ['Opções', 'Da administração'], 'menu do admin em lista: duas seções com título')
@@ -1013,6 +1016,11 @@ igual(lerEstoque('estoque de máscaras'), 'máscaras', 'estoque: "de" não entra
 igual(lerEstoque('estoque dentifrício'), 'dentifrício', 'estoque: material que começa com "de" fica inteiro')
 igual(lerEstoque('estoque'), '', 'estoque: sozinho (o bot pergunta o material)')
 igual(lerEstoque('estoques da filial'), null, 'estoque: outra palavra não é comando')
+// Nome de setor que é comando de área: com uma pergunta de texto livre aberta ("Onde é?"), é a resposta (lib/whatsapp/bot.ts).
+for (const setor of ['Financeiro', 'Portaria', 'Chamada', 'Veículos', 'Estoque central', 'Compras', 'Visitantes', 'Ambulâncias']) {
+  igual(COMANDOS_DE_AREA.has(lerPedido(setor, { pausado: false }).comando), true, `comando de área: "${setor}" responde a pergunta de texto livre`)
+}
+igual(COMANDOS_DE_AREA.has(lerPedido('menu', { pausado: false }).comando), false, 'comando de área: "menu" continua valendo com a pergunta aberta')
 igual(lerPedido('saída ABC1D23', operador), { comando: 'saida_veiculo', resto: 'ABC1D23' }, 'saída: com a placa')
 igual(lerPedido('Saída da ambulância 1', operador), { comando: 'saida_veiculo', resto: 'ambulância 1' }, 'saída: sem o artigo')
 igual(lerPedido('registrar saída', operador), { comando: 'saida_veiculo', resto: '' }, 'saída: sem o veículo (o bot pergunta)')

@@ -2124,9 +2124,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `retorno` o diário de bordo e `estoque <material>` o saldo (veja “As outras áreas pelo WhatsApp”),
   `ajuda <dúvida>` (busca na Central de ajuda, só nas áreas que ela abre; o Claude resume os trechos
   achados com esforço baixo, e sem chave vão os trechos). O menu vai também como lista (“Botões e
-  listas”, abaixo); digitar o número continua valendo. Número desconhecido recebe uma
-  apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por número (um robô
-  do outro lado não vira conversa infinita).
+  listas”, abaixo); digitar o número continua valendo. As boas-vindas depois de confirmar pelo código
+  digitado trazem o mesmo menu, com as áreas da pessoa (`quemNoMenu`, o cálculo do bot). Número
+  desconhecido recebe uma apresentação, no máximo uma vez por dia. Teto de 10 respostas a cada 10 min por
+  número (um robô do outro lado não vira conversa infinita).
 - **Botões e listas (18/10/2026):** dentro da janela de 24 h, a resposta do bot e o aviso da visita na
   portaria podem levar botões de resposta ou uma lista (`type: "interactive"` da Cloud API, pelo mesmo
   proxy da Kapso). O vocabulário é `Interativo` (`regras.ts`); `objetoInterativo` (puro, testado) monta o
@@ -2138,7 +2139,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   como `interactive.button_reply.id` / `list_reply.id` (`lerMensagemDaKapso` já os lia como o texto; agora
   marca `toque`) e segue por `lerPedido`, `lerDecisao`, `lerEscolha`, `ehConfirmacao`, `ehPular`,
   `lerRespostaDaVisita` sem caminho novo. O corpo é o texto inteiro, que continua dizendo o que digitar.
-  Onde há: o **menu** (lista “Ver as opções”: `1`–`6`, depois `portaria`, `financeiro`, `presenca` e
+  Onde há: o **menu** (lista “Ver as opções”: `1`, `2`, `parar` ou `voltar` (a linha do 3 leva a palavra do
+  rótulo, não o `3` que alterna pelo estado da hora: o toque numa lista antiga nunca faz o contrário do que a
+  linha diz), `4`–`6`, depois `portaria`, `financeiro`, `presenca` e
   `veiculos` para quem tem a área — nessa ordem, enquanto cabem — e, para quem administra, `status` e `fila`,
   numa seção “Da administração” — no máximo 10 linhas, o teto da Meta; `interativoDoMenu`, das mesmas opções
   de `textoDoMenu`; a área que não cabe na lista continua no corpo, e o corpo cabe sempre nos 1024: com áreas
@@ -2194,10 +2197,15 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   perguntando equipe, assunto, local (se pedir), urgência e, por fim, detalhes opcionais
   (`pular` ou `não` abre só com o relato; `cancelar` desiste) — equipe, assunto e urgência também em lista,
   e os detalhes com os botões “Pular” e “Cancelar” (veja “Botões e listas”). As perguntas em aberto ficam em
-  `whatsapp_pendencias` (15 min). Tudo passa pelas mesmas regras da tela: `lib/chamados/nucleo.ts`,
-  `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`, `lib/mensagens/avisos.ts`, e o Chat e o voto
-  pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só service role), que chamam
-  `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**. Por isso quem
+  `whatsapp_pendencias` (15 min). Sem citar, a pergunta aberta só leva o que parece resposta a ela (a escolha,
+  `confirmo`/`cancelar`, o que não é comando e, na de texto livre — `esperaTextoLivre`: o local e os detalhes
+  do chamado, o nome e o motivo da visita, o veículo e o destino da viagem —, três palavras ou mais ou o nome
+  de setor que também é comando de área, `COMANDOS_DE_AREA`: “Financeiro”, “Portaria”, “Chamada”,
+  “Veículos”, “Estoque central”); `menu`, `avisos` e cia. seguem valendo, e `cancelar` desiste. Tudo passa
+  pelas mesmas regras da tela: `lib/chamados/nucleo.ts`, `lib/chat/avisos.ts`, `lib/aprovacoes/avisos.ts`,
+  `lib/mensagens/avisos.ts`, e o Chat e o voto pelas funções `whatsapp_chat_enviar` / `whatsapp_votar` (só
+  service role), que chamam `chat_enviar` e `vote_on_approval` como a pessoa, numa sessão simulada **aal1**.
+  Por isso quem
   usa (ou é obrigado a usar) a verificação em duas etapas só consulta, abre chamado e responde à
   portaria pelo WhatsApp (abrir chamado ficou liberado em 27/09/2026: só cria o pedido no nome de
   quem escreveu): responder, votar, atender chamado, registrar visita, marcar presença, registrar saída e
@@ -2250,6 +2258,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   UPDATE condicional: dois cliques, só um passa); amarrado a quem pediu (a tela lê pela sessão, e a
   policy de `whatsapp_confirmacoes` só deixa o dono ler — o link de outra pessoa é “não vale para a sua
   conta”); um pedido novo para a mesma ação e alvo invalida o anterior; até 20 links por pessoa por hora.
+  A resposta com o link que esperou na fila (teto do minuto, falha com reenvio) tem o texto apagado de
+  `whatsapp_fila` depois do envio ou da desistência, como o convite.
   A página fica fora do grupo `(app)`, como `/verificacao`: sem sessão, vai à entrada com `?voltar=`; com
   o código do app pendente, a `/verificacao?voltar=` (o mesmo portão de `requireWorkspace`, a mesma
   verificação das telas); a equipe da Escola não abre voto nem desativação. Mostra o que vai ser feito
@@ -2286,18 +2296,24 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   aviso pelo texto — também o que esperou na fila — e põe o botão “Não fui eu” (`BOTAO_DO_NAO_FUI_EU`, id
   `nao fui eu`, só dentro da janela) e a marca `nao_fui_eu` em `whatsapp_mensagens.comando`. A resposta
   (`ehNaoFuiEu`: “não fui eu”, “não foi eu”, “não reconheço”…, ou o toque) é tratada logo depois do código
-  de ida, **pelo número**: acha o aviso marcado que saiu para ele, citado (até 7 dias) ou o mais novo das
-  últimas 24 h, e a conta é a `user_id` dele — vale do número antigo, que já não está em `whatsapp_contas`,
-  e mesmo com a verificação em duas etapas (é proteção, não ação em nome da pessoa); não vale se o número
-  foi confirmado em outra conta depois. Antes, a conferência (`textoDaConferenciaDoNaoFuiEu`, botões
-  Confirmo/Cancelar), em `whatsapp_pendencias` tipo `nao_fui_eu` com o número em `dados`: só esse número a
-  responde (`pendenciaAberta` nunca a devolve, e uma pergunta nova não a encerra), e o “confirmo” sem citar
-  só vale se ela é a pergunta mais nova da pessoa. Confirmado, `protegerConta`: `encerrarSessoesDaConta`
-  (`encerrar_sessoes_do_usuario`), `revogarLinksDaConta` (todos os `tokens_de_conta` pendentes — senha,
-  convite, confirmação de e-mail — e os `whatsapp_codigos` em aberto), auditoria `nao_fui_eu` (número
-  mascarado, se era o da conta, quantas sessões e links), sino e e-mail (categoria `auditoria`, a dos
-  alertas de acesso) para os administradores e quem lê o registro de acessos, e o e-mail
-  `sessoes_encerradas` à pessoa. Não troca a senha nem desativa: a resposta manda trocar a senha.
+  de ida, **pelo número**: acha o aviso marcado que saiu para ele, citado (até 7 dias) ou, sem citar, o mais
+  novo das últimas 24 h — citando outra mensagem (o aviso do Chat, de um chamado), segue o caminho de sempre
+  (`responderAoAviso`) —, e a conta é a `user_id` dele — vale do número antigo, que já não está em
+  `whatsapp_contas`, e mesmo com a verificação em duas etapas (é proteção, não ação em nome da pessoa); não
+  vale se o número foi confirmado em outra conta depois. Cada aviso protege uma vez só, e do número que já
+  não é da conta uma proteção a cada 24 h basta (`jaProtegida`, pela auditoria `nao_fui_eu`, que guarda o
+  id do aviso): quem ficou com o número antigo não derruba as sessões e os links de senha da pessoa a cada
+  rodada; a resposta é `TEXTO_NAO_FUI_EU_JA_FEITO`. Do número antigo, a conferência nova só encerra a
+  anterior do mesmo número, não as perguntas que a pessoa tem abertas pelo número de agora. Antes, a
+  conferência (`textoDaConferenciaDoNaoFuiEu`, botões Confirmo/Cancelar), em `whatsapp_pendencias` tipo
+  `nao_fui_eu` com o número em `dados`: só esse número a responde (`pendenciaAberta` nunca a devolve, e uma
+  pergunta nova não a encerra), e o “confirmo” sem citar só vale se ela é a pergunta mais nova da pessoa.
+  Confirmado, `protegerConta`: `encerrarSessoesDaConta` (`encerrar_sessoes_do_usuario`), `revogarLinksDaConta`
+  (todos os `tokens_de_conta` pendentes — senha, convite, confirmação de e-mail — e os `whatsapp_codigos` em
+  aberto), auditoria `nao_fui_eu` (número mascarado, se era o da conta, o aviso, quantas sessões e links),
+  sino, e-mail e WhatsApp conforme as preferências (categoria `auditoria`, a dos alertas de acesso) para os
+  administradores e quem lê o registro de acessos, e o e-mail `sessoes_encerradas` à pessoa. Não troca a
+  senha nem desativa: a resposta manda trocar a senha.
   Sem aviso recente, quem é da equipe ouve o que fazer; número desconhecido segue para a apresentação.
 - **As outras áreas pelo WhatsApp (18/10/2026)**: cada uma só onde a função da tela já existe e com a
   permissão da tela dela, lida sem sessão como o banco lê; para quem não tem, as palavras caem no menu, e o

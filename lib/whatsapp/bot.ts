@@ -31,11 +31,11 @@ import { comandoDoVoluntario } from './voluntarios-regras'
 import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
-  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
+  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
-  type Interativo, type ItemDoDia, type MensagemRecebida,
+  type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -149,9 +149,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       }
       if (!vencida && !tocou) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
-    // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
+    // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo. Na
+    // pergunta de texto livre, o nome de setor que também é comando de área ("Financeiro", "Portaria", "Estoque
+    // central") é a resposta: o "Onde é?" do chamado não se perde na lista do Financeiro.
     const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
-      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && m.texto.trim().split(/\s+/).length >= 3))
+      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando)))))
     // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
     const midia = Boolean(pessoa && m.midia && !aviso)
 
@@ -382,18 +384,26 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
-    const [atende, financeiro, presenca, patrimonio] = await Promise.all([
-      atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa),
-      coordenaAcoes(admin, workspaceId, pessoa), nivelNoPatrimonio(admin, workspaceId, pessoa),
-    ])
-    const quem = {
-      admin: administra, portaria: temPortaria(pessoa), atende, financeiro, presenca,
-      frota: patrimonio >= 2 ? 'operar' as const : patrimonio >= 1 ? 'ver' as const : null, estoque: patrimonio >= 1,
-    }
+    const quem = await quemNoMenu(admin, workspaceId, pessoa)
     const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', ...quem })
     await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
+  }
+}
+
+/**
+ * O que muda o menu desta pessoa (QuemNoMenu), cada área com a permissão da tela dela. É o mesmo cálculo do menu do
+ * bot e das boas-vindas depois de confirmar o número (app/actions/whatsapp.ts).
+ */
+export async function quemNoMenu(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<QuemNoMenu> {
+  const [atende, financeiro, presenca, patrimonio] = await Promise.all([
+    atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa),
+    coordenaAcoes(admin, workspaceId, pessoa), nivelNoPatrimonio(admin, workspaceId, pessoa),
+  ])
+  return {
+    admin: ehAdministracao(pessoa), portaria: temPortaria(pessoa), atende, financeiro, presenca,
+    frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1,
   }
 }
 

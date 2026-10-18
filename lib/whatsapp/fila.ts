@@ -232,9 +232,11 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
       if (!pego) continue
 
       const agora = new Date()
-      // O link da ficha da Equipe e o convite de acesso carregam token: saiu (ou desistiu), o texto não fica guardado.
+      // O link da ficha da Equipe, o convite de acesso e o link de confirmar no Palácio que a resposta do bot leva
+      // (lib/whatsapp/confirmacoes.ts, caminhoDaConfirmacao) carregam token: saiu (ou desistiu), o texto não fica guardado.
       const semSegredo = (campos: Record<string, unknown>) =>
-        (item.categoria === 'equipe' || item.categoria === 'conta') && (campos.situacao === 'enviada' || campos.situacao === 'desistiu')
+        (item.categoria === 'equipe' || item.categoria === 'conta' || (item.tipo === 'bot' && item.texto.includes('/confirmar/')))
+          && (campos.situacao === 'enviada' || campos.situacao === 'desistiu')
           ? { ...campos, texto: '[link apagado depois do envio]' } : campos
       const devolver = (campos: Record<string, unknown>) =>
         admin.from('whatsapp_fila').update({ ...semSegredo(campos), atualizado_em: new Date().toISOString() }).eq('id', item.id)

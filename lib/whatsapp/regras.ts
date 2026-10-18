@@ -618,7 +618,7 @@ export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url:
  * A linha do "Não fui eu" no aviso de segurança que o oferece (lib/whatsapp/protecao.ts). É por ela que a
  * entrega remonta o botão e marca o registro da saída (interativoDaSeguranca), saia o aviso agora ou da fila.
  */
-export const LINHA_DO_NAO_FUI_EU = 'Responda *NÃO FUI EU* se não foi você: o Palácio encerra na hora todas as sessões da conta e avisa a administração.'
+export const LINHA_DO_NAO_FUI_EU = 'Responda *NÃO FUI EU* se não foi você: depois de confirmar, o Palácio encerra todas as sessões da conta e avisa a administração.'
 
 /**
  * Aviso de segurança da conta (senha, verificação, e-mail, acesso novo, bloqueio, troca ou remoção do
@@ -1244,6 +1244,15 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
 
 export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean }): Comando => lerPedido(entrada, p).comando
 
+/**
+ * Os comandos das áreas que são nome de setor ou de lugar ("Financeiro", "Portaria", "Chamada", "Veículos",
+ * "Estoque central"): com uma pergunta de texto livre aberta ("Onde é?" do chamado, o motivo da visita, o destino
+ * da viagem), a mensagem sem citar é a resposta a ela, não o comando (lib/whatsapp/bot.ts). "cancelar" desiste.
+ */
+export const COMANDOS_DE_AREA: ReadonlySet<Comando> = new Set<Comando>([
+  'portaria', 'registrar_visita', 'financeiro', 'presenca', 'frota', 'saida_veiculo', 'retorno_veiculo', 'estoque',
+])
+
 /** A mensagem pode ser do diário de bordo? Só então o bot lê o nível da pessoa na Frota (lib/whatsapp/frota.ts). */
 export const pareceViagem = (entrada: string): boolean => lerViagem(entrada) !== null
 
@@ -1253,7 +1262,10 @@ export const JANELA_DAS_RESPOSTAS_MIN = 10
 /** Número que não é de ninguém da equipe recebe a apresentação no máximo uma vez neste intervalo. */
 export const APRESENTACAO_A_CADA_HORAS = 24
 
-/** Uma opção do menu da equipe: o mesmo `id` (o que se digita) no texto (*1* – …) e na lista. */
+/**
+ * Uma opção do menu da equipe: o mesmo `id` (o que se digita) no texto (*1* – …) e na lista — menos o 3, que na
+ * lista vai como a palavra do rótulo, "parar" ou "voltar" (interativoDoMenu).
+ */
 type OpcaoDoMenu = { id: string; titulo: string; texto: string }
 
 /** `atende`: quem atende uma fila de chamados vê no 5 também os chamados da fila (lib/whatsapp/atendimento.ts). */
@@ -1352,13 +1364,15 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
  * quem decide despesas ou compras, "presenca" para quem coordena as oportunidades, "veiculos" para quem vê a
  * Frota e, para quem administra, "status" e "fila" — no máximo 10 linhas, o teto da Meta: as áreas entram nessa
  * ordem enquanto cabem (as que sobram ficam no corpo, que diz o que digitar). Cada linha leva o que se digita,
- * então o toque segue por lerPedido como o número digitado (o "3" continua alternando parar e voltar pelo estado
- * da hora). "chamado:", "ajuda", "visitante:", "saída", "retorno" e "estoque" pedem texto: ficam só no corpo.
+ * então o toque segue por lerPedido como o número digitado. Só a linha do 3 leva a palavra do rótulo ("parar" ou
+ * "voltar"), não o "3", que alterna pelo estado da hora: o rótulo fica congelado no envio, e o toque numa lista
+ * antiga nunca faz o contrário do que a linha diz (repetido, não muda nada). "chamado:", "ajuda", "visitante:",
+ * "saída", "retorno" e "estoque" pedem texto: ficam só no corpo.
  */
 export function interativoDoMenu(p: { pausado: boolean } & QuemNoMenu): Interativo {
   const linha = (o: OpcaoDoMenu): LinhaDaLista => ({ id: o.id, titulo: o.titulo, descricao: `${o.texto.charAt(0).toUpperCase()}${o.texto.slice(1)}` })
   const daAdministracao = p.admin ? OPCOES_DA_ADMINISTRACAO : []
-  const opcoes = opcoesDoMenu(p.pausado, p.atende)
+  const opcoes = opcoesDoMenu(p.pausado, p.atende).map((o) => (o.id === '3' ? { ...o, id: p.pausado ? 'voltar' : 'parar' } : o))
   const areas = [
     ...(p.portaria ? [OPCAO_DA_PORTARIA] : []), ...(p.financeiro ? [OPCAO_DO_FINANCEIRO] : []),
     ...(p.presenca ? [OPCAO_DA_PRESENCA] : []), ...(p.frota ? [OPCAO_DA_FROTA] : []),
@@ -1968,6 +1982,7 @@ export function textoDeQuemDesativar(opcoes: { nome: string; usuario: string }[]
 // responder "NÃO FUI EU". A resposta, citando o aviso ou até 24 h depois dele, é PROTEÇÃO: vale com a verificação
 // em duas etapas e até do número antigo da conta. Depois do "confirmo", o Palácio encerra todas as sessões, cancela
 // os links de senha e de convite pendentes e avisa a administração e a pessoa. Não troca a senha nem desativa a conta.
+// Cada aviso protege uma vez só; do número antigo, uma vez a cada 24 h.
 
 const NAO_FUI_EU = ['nao fui eu', 'nao foi eu', 'nao era eu', 'nao sou eu', 'nao fui eu nao', 'nao foi eu nao', 'nao reconheco', 'nao fiz isso', 'nao fui eu que fiz']
 
@@ -2000,6 +2015,13 @@ export function textoDoNaoFuiEuFeito(p: { daConta: boolean }): string {
 
 export const TEXTO_NAO_FUI_EU_SEM_AVISO =
   'Não achei um aviso de segurança recente para este número. Se alguém mexeu na sua conta, troque a senha em Meu perfil (ou pela tela de entrada, em “Esqueci minha senha”) e fale com a administração.'
+
+/**
+ * O "Não fui eu" que já valeu: o aviso que já protegeu a conta não vale de novo, e do número que já não é da conta
+ * uma proteção nas últimas NAO_FUI_EU_VALE_HORAS basta (lib/whatsapp/protecao.ts, jaProtegida).
+ */
+export const TEXTO_NAO_FUI_EU_JA_FEITO =
+  'A conta já foi protegida por um “Não fui eu”: as sessões foram encerradas e a administração foi avisada. Se ainda houver algo estranho, fale com a administração.'
 
 /** Antes da migração 20261018223000 (a conferência não tem onde ficar): o caminho de sempre. */
 export const TEXTO_NAO_FUI_EU_INDISPONIVEL =

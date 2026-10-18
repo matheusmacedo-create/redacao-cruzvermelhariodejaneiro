@@ -570,7 +570,7 @@ const FINANCEIRO: GuiaDaArea = {
     {
       id: 'aprovar-pelo-whatsapp',
       pergunta: 'Dá para aprovar uma despesa pelo WhatsApp?',
-      resposta: 'Dá começar por lá, para quem aprova (nível Aprovar ou Gestão na empresa, e nunca quem lançou). Mande “financeiro” ao WhatsApp do Palácio: chega a lista numerada das despesas e compras que esperam a sua decisão, com o valor, a descrição, o favorecido e quem lançou. Responda “aprovar 2” ou “recusar 2:” e o motivo.\n\nO Palácio responde com um link “Confirme no Palácio”, que vale 15 minutos, uma vez só, e só abre na sua conta (com a verificação em duas etapas, se você usa). A tela mostra a despesa como ela está agora, e “Confirmar” decide pelo mesmo caminho do botão desta tela; quem lançou é avisado. Pagar, conciliar e fechar o mês continuam só aqui.',
+      resposta: 'Dá começar por lá, para quem aprova (nível Aprovar ou Gestão na empresa, e nunca quem lançou). Mande “financeiro” ao WhatsApp do Palácio: chega a lista numerada das despesas e compras que esperam a sua decisão, com o valor, a descrição, o favorecido e quem lançou. Responda “aprovar 2” ou “recusar 2:” e o motivo.\n\nO Palácio responde com um link “Confirme no Palácio”, que vale 15 minutos, uma vez só, e só abre na sua conta (com a verificação em duas etapas, se você usa). A tela mostra a despesa como ela está agora, e “Confirmar a aprovação” (ou “Confirmar a recusa”) decide pelo mesmo caminho do botão desta tela; quem lançou é avisado. Pagar, conciliar e fechar o mês continuam só aqui.',
       termos: ['whatsapp', 'aprovar pelo whatsapp', 'recusar pelo whatsapp', 'financeiro pelo whatsapp', 'confirme no palácio', 'link de confirmação'],
     },
   ],

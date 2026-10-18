@@ -2,8 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireWorkspace } from '@/lib/session'
-import { ehEquipeDaEscola, pode } from '@/lib/permissoes'
-import { filasQueAtendo } from '@/lib/chamados/servidor'
+import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
 import { auditarConta, avisarTrocaDeWhatsapp } from '@/lib/contas/servidor'
@@ -15,6 +14,7 @@ import {
 } from '@/lib/whatsapp/regras'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { confirmarNumeroDaEquipe } from '@/lib/whatsapp/confirmacao'
+import { quemNoMenu } from '@/lib/whatsapp/bot'
 import {
   codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, ligarWebhook, mandar, perfilConectado,
 } from '@/lib/whatsapp/servidor'
@@ -168,14 +168,12 @@ export async function confirmarCodigoDoWhatsapp(formData: FormData): Promise<Res
       throw new Error(r.motivo === 'usado' ? 'Esse código já foi usado. Peça um novo.'
         : r.motivo === 'outra_conta' ? 'Esse número acabou de ser confirmado em outra conta.' : 'Não foi possível guardar o número.')
     }
-    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz (o mesmo menu do bot, com a portaria e a fila que ela atende).
-    const escola = ehEquipeDaEscola(context.role)
-    const atende = !escola && (await filasQueAtendo(admin, context.workspace.id, context.user.id, context.role).catch(() => new Set<string>())).size > 0
+    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz (o mesmo menu do bot, com as áreas dela: quemNoMenu).
+    const nome = context.profile?.full_name ?? null
+    const quem = await quemNoMenu(admin, context.workspace.id, { id: context.user.id, nome, papel: context.role })
     await entregar(admin, context.workspace.id, {
       numero, tipo: 'bot', userId: context.user.id,
-      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({
-        nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase(), admin: pode(context.role, 'integracoes.configurar'), portaria: !escola, atende,
-      })}`,
+      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome, pausado: false, urlBase: urlBase(), ...quem })}`,
     })
     revalidatePath('/perfil')
     return { recado: `WhatsApp confirmado: ${formatarNumero(numero)}.` }

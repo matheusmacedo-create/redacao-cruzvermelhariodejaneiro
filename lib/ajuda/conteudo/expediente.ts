@@ -1199,7 +1199,7 @@ const COMPRAS: GuiaDaArea = {
     {
       id: 'aprovar-compra-pelo-whatsapp',
       pergunta: 'Dá para aprovar uma compra pelo WhatsApp?',
-      resposta: 'Dá começar por lá, para quem é a vez: o Financeiro da empresa do pedido e, acima do limite, a Diretoria (nunca quem pediu, e a mesma pessoa não aprova pelas duas). Mande “financeiro” ao WhatsApp do Palácio: as compras em aprovação aparecem na lista com o número do pedido, o valor, o fornecedor e quem pediu, e a vez da Diretoria vem marcada. Responda “aprovar 3” (com uma observação depois, se quiser) ou “recusar 3:” e o motivo, com pelo menos 5 letras.\n\nChega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta. “Confirmar” decide pelo mesmo caminho do botão do pedido, com as mesmas regras, e quem pediu é avisado. Pedir propostas, emitir a ordem e receber continuam na tela.',
+      resposta: 'Dá começar por lá, para quem é a vez: o Financeiro da empresa do pedido e, acima do limite, a Diretoria (nunca quem pediu, e a mesma pessoa não aprova pelas duas). Mande “financeiro” ao WhatsApp do Palácio: as compras em aprovação aparecem na lista com o número do pedido, o valor, o fornecedor e quem pediu, e a vez da Diretoria vem marcada. Responda “aprovar 3” (com uma observação depois, se quiser) ou “recusar 3:” e o motivo, com pelo menos 5 letras.\n\nChega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta. “Confirmar a aprovação” (ou “Confirmar a recusa”) decide pelo mesmo caminho do botão do pedido, com as mesmas regras, e quem pediu é avisado. Pedir propostas, emitir a ordem e receber continuam na tela.',
       termos: ['whatsapp', 'aprovar compra pelo whatsapp', 'recusar compra', 'diretoria pelo whatsapp', 'confirme no palácio'],
     },
   ],
