@@ -15,8 +15,8 @@ import {
 } from '../lib/portaria/regras'
 import {
   BOTOES_DA_ETAPA_OPCIONAL, BOTOES_DA_FOTO, BOTOES_DO_CONSENTIMENTO, ETAPAS_DE_TEXTO_LIVRE, ETAPAS_EM_QUE_NAO_RESPONDE, LIMITES_DA_VISITA, comFoto, dadosRedigidos,
-  destinoDaImagem, ehPularNaVisita, ehRegistrarJa, fotoRecebida, lerConsentimento, lerCracha, perguntaDaVisita, proximaEtapa, resultadoDaBusca, seguirNoRegistro,
-  textoDaEntradaRegistrada, type DadosDaVisita, type FotoNaConversa, type PassoDoRegistro, type PerguntaDaVisita, type PessoaNaConversa,
+  destinoDaImagem, ehPularNaVisita, ehRegistrarJa, fotoMantemAPergunta, fotoRecebida, lerConsentimento, lerCracha, lerLegendaDeVisita, perguntaDaVisita, perguntaSemFila,
+  proximaEtapa, resultadoDaBusca, seguirNoRegistro, textoDaEntradaRegistrada, textoDaFotoNaPergunta, type DadosDaVisita, type FotoNaConversa, type PassoDoRegistro, type PerguntaDaVisita, type PessoaNaConversa,
   RESPOSTAS_DA_FICHA, idDoBotaoDaFicha, interativoDaFicha, lerBotaoDaFicha, modeloDaFichaForaDaJanela, montagemDaFicha, parametrosDaFicha, podeResponderPelaFicha,
   sobeAFotoDaFicha, textoDaFicha, tituloDoBotaoDaFicha, type FichaDaVisita,
 } from '../lib/whatsapp/portaria-regras'
@@ -180,6 +180,8 @@ r = responder(r.dados, 'crachá V-07')
 igual([r.dados.cracha, r.dados.etapa], ['V-07', 'foto'], 'registro: o crachá; vem a foto')
 igual(botoes(r.pergunta?.interativo), ['Sem foto', 'Cancelar'], 'registro: a foto tem Sem foto e Cancelar')
 contem(r.pergunta?.texto ?? '', 'câmera do WhatsApp', 'registro: a foto pede a câmera do WhatsApp')
+contem(r.pergunta?.texto ?? '', 'A foto entra no registro da visita, no Palácio, e vai na ficha que a pessoa visitada recebe no WhatsApp', 'registro: a foto diz onde fica e que vai na ficha')
+igual(perguntaDaVisita({ nome: 'X', setor: 'Financeiro', telefone: '', empresa: '', motivo: '', cracha: '' }).texto.includes('ficha'), false, 'registro: com o setor, a foto não fala em ficha (não há)')
 const comAFoto = comFoto(r.dados, fotoDeTeste)
 const conferencia = perguntaDaVisita(comAFoto.dados, comAFoto.antes)
 igual([conferencia.etapa, conferencia.interativo], ['conferencia', BOTOES_DA_CONFERENCIA], 'registro: com a foto, vem a conferência com Confirmo e Cancelar')
@@ -240,6 +242,23 @@ igual(responder({ nome: 'Pedro', pessoa: equipe[0], etapa: 'telefone' }, 'não t
 // Nome, para quem e os textos livres.
 igual(seguirNoRegistro({ etapa: 'nome' }, '1').tipo, 'repetir', 'nome: número não é nome')
 igual(responder({ etapa: 'nome' }, '  Carlos   *Pereira* ').dados.nome, 'Carlos Pereira', 'nome: limpo')
+igual(responder({ etapa: 'nome' }, 'visitante: Maria Souza').dados.nome, 'Maria Souza', 'nome: "visitante: Maria" responde com o nome que vem depois')
+// "visitante: Maria" no meio de outro registro: não vira a empresa, o motivo, o crachá, o telefone nem a busca do visitante em
+// curso — pede de novo só citando (sem `sempre`); sem citar, o bot segue para o registro novo (comecarVisita).
+const emCurso: DadosDaVisita = { nome: 'João', pessoa: equipe[0], telefone: '', empresa: '', motivo: '' }
+const outroNoMeio: [string, DadosDaVisita][] = [
+  ['pessoa', { nome: 'João', etapa: 'pessoa' }], ['escolher_pessoa', { nome: 'João', opcoes: equipe.slice(0, 2), etapa: 'escolher_pessoa' }],
+  ['telefone', { nome: 'João', pessoa: equipe[0], etapa: 'telefone' }], ['empresa', { ...emCurso, empresa: undefined, motivo: undefined, etapa: 'empresa' }],
+  ['motivo', { ...emCurso, motivo: undefined, etapa: 'motivo' }], ['cracha', { ...emCurso, etapa: 'cracha' }],
+]
+for (const [etapa, d] of outroNoMeio) {
+  const passo = seguirNoRegistro(d, 'visitante: Maria Souza')
+  igual([passo.tipo, passo.tipo === 'repetir' && Boolean(passo.sempre)], ['repetir', false], `outro visitante na etapa ${etapa}: não é a resposta, e sem citar segue para o registro novo`)
+}
+const oOutro = seguirNoRegistro({ ...emCurso, motivo: undefined, etapa: 'motivo' }, 'visitante: Maria Souza')
+contem(oOutro.tipo === 'repetir' ? oOutro.texto : '', 'termine ou cancele este registro primeiro', 'outro visitante citando a pergunta: diz o que fazer')
+igual(seguirNoRegistro({ ...emCurso, etapa: 'cracha' }, 'visitante: Ana').tipo, 'repetir', 'crachá: "visitante: Ana" (curto) não vira o crachá')
+igual(responder({ ...emCurso, empresa: undefined, motivo: undefined, etapa: 'empresa' }, 'Visitante da prefeitura').dados.empresa, 'Visitante da prefeitura', 'de onde vem: sem os dois-pontos, é a resposta')
 igual(responder({ nome: 'X Y', etapa: 'pessoa' }, 'setor: Financeiro').dados.setor, 'Financeiro', 'para quem: o setor')
 igual(responder({ nome: 'X Y', etapa: 'pessoa' }, 'Zé Ninguém').dados.etapa, 'pessoa', 'para quem: ninguém achado, pergunta de novo')
 igual(responder({ nome: 'X Y', etapa: 'pessoa' }, 'carlos').dados.pessoa?.id, 'u-carlos', 'para quem: uma pessoa achada segue')
@@ -289,6 +308,22 @@ fluxo = responder(fluxo.dados, 'pular')
 fluxo = responder(fluxo.dados, 'pular')
 igual(fluxo.dados.etapa, 'conferencia', 'foto no meio: a pergunta da foto não vem depois')
 igual(comFoto(noTelefone.dados, { midia: 'outra', mime: 'image/png' }).antes, 'Foto trocada ✓ (vale a última).', 'foto de novo: a última vale')
+// A foto no meio de uma pergunta que continua: só o recibo — a mensagem da pergunta (os botões, o "confirmo" citando) segue
+// valendo; mandar a pergunta de novo trocaria a mensagem da pendência. Só a pergunta da foto avança.
+const semFotoNaConferencia: DadosDaVisita = { nome: 'Maria', pessoa: equipe[2], telefone: '', empresa: '', motivo: '', cracha: '', foto: null, etapa: 'conferencia' }
+const naPerguntaDaFoto: DadosDaVisita = { nome: 'Maria', pessoa: equipe[2], telefone: '', empresa: '', motivo: '', cracha: '', etapa: 'foto' }
+igual([
+  fotoMantemAPergunta({ nome: 'Lia', pessoa: equipe[0], etapa: 'telefone' }, noTelefone.dados),
+  fotoMantemAPergunta({ etapa: 'nome' }, comFoto({ etapa: 'nome' }, fotoDeTeste).dados),
+  fotoMantemAPergunta(semFotoNaConferencia, comFoto(semFotoNaConferencia, fotoDeTeste).dados),
+  fotoMantemAPergunta(naPerguntaDaFoto, comFoto(naPerguntaDaFoto, fotoDeTeste).dados),
+  fotoMantemAPergunta({ nome: 'Lia' }, comFoto({ nome: 'Lia' }, fotoDeTeste).dados),
+], [true, true, true, false, false], 'foto no meio: a pergunta de agora continua (telefone, nome, conferência); na pergunta da foto, vem a seguinte')
+igual(perguntaDaVisita(comFoto(naPerguntaDaFoto, fotoDeTeste).dados).etapa, 'conferencia', 'foto na pergunta da foto: vem a conferência')
+igual([textoDaFotoNaPergunta('Foto recebida ✓', 'telefone'), textoDaFotoNaPergunta('Foto trocada ✓ (vale a última).', 'conferencia')],
+  ['Foto recebida ✓ Siga respondendo a pergunta acima.', 'Foto trocada ✓ (vale a última). Agora toque em *Confirmo* na conferência acima.'], 'foto no meio: o recibo, e na conferência o Confirmo dela')
+// As perguntas do registro levam o telefone do visitante: nunca esperam na fila (whatsapp_fila guardaria o texto).
+igual([perguntaSemFila('registrar_visita'), perguntaSemFila('abrir_chamado'), perguntaSemFila(null)], [true, false, false], 'fila: a pergunta do registro da visita sai sem fila')
 igual(comecar({ foto: fotoDeTeste }).pergunta?.texto.startsWith('Qual é o nome do visitante?'), true, 'foto sem nome na legenda: pergunta o nome')
 igual(perguntaDaVisita({ foto: fotoDeTeste }, comFoto({}, fotoDeTeste).antes).texto.startsWith('Foto recebida ✓'), true, 'foto abrindo o registro: recebida')
 const destino = (aberto: DadosDaVisita | null, legenda: string | null, extra: Partial<Parameters<typeof destinoDaImagem>[0]> = {}) =>
@@ -302,6 +337,14 @@ const imagem = (m: Record<string, unknown>) => lerEventoDaKapso({ message: { id:
   'whatsapp.message.received', null).mensagens[0]
 const comLegenda = imagem({ caption: 'visitante: João Silva' })
 igual([lerPedido(comLegenda.texto, { pausado: false }), comLegenda.midia?.categoria], [{ comando: 'registrar_visita', resto: 'João Silva' }, 'foto'], 'a legenda "visitante:" chega como o pedido')
+igual(lerLegendaDeVisita(comLegenda.texto), 'João Silva', 'a legenda "visitante:" dá o nome')
+// Só com os dois-pontos: a legenda de foto para a comunicação ("Nova visita do governador…") segue para o envio de fotos.
+igual(['visitante: João', 'visitante:', 'Registrar visita: Maria  *Souza*', 'Nova visita : Ana', 'novo visitante:Carlos'].map((t) => lerLegendaDeVisita(t)),
+  ['João', '', 'Maria Souza', 'Ana', 'Carlos'], 'legenda: com os dois-pontos, o nome (ou vazio)')
+igual(['Nova visita do governador ao hospital', 'Visitante ilustre na sede hoje', 'Novo visitante no abrigo', 'Registrar visita técnica ao hospital', 'visitante', '', 'Ação no abrigo: visitante']
+  .map((t) => lerLegendaDeVisita(t)), [null, null, null, null, null, null, null], 'legenda: sem os dois-pontos logo depois, não é registro')
+igual([destino(null, lerLegendaDeVisita('Nova visita do governador ao hospital')), destino(null, lerLegendaDeVisita('Visitante ilustre na sede hoje'))], [null, null],
+  'legenda da comunicação, sem registro aberto: a foto segue para o envio de fotos')
 const midia = (m: Partial<MidiaRecebida>): MidiaRecebida => ({ categoria: 'foto', mime: 'image/jpeg', tamanho: 200_000, nome: null, arquivo: 'midia_9', ...m })
 igual(fotoRecebida(midia({})), { foto: { midia: 'midia_9', mime: 'image/jpeg' } }, 'foto: JPEG da câmera, o id da mídia')
 igual(fotoRecebida(midia({ mime: 'image/png', endereco: 'https://api.kapso.ai/m/1' })), { foto: { midia: 'midia_9', mime: 'image/png', endereco: 'https://api.kapso.ai/m/1' } }, 'foto: PNG, com o endereço de reserva')
@@ -349,7 +392,8 @@ const BASE = 'https://palaciovirtual.cruzvermelharj.org.br'
 const textoFicha = textoDaFicha(ficha, BASE)
 contem(textoFicha, '*Visita para você na portaria*', 'ficha: o título')
 contem(textoFicha, 'Visitante: *João Silva* (Gráfica Boa)\nMotivo: Entrega de cartazes\nChegada: 14:05, registrada por Maria Souza', 'ficha: quem é, de onde vem, o motivo e a chegada')
-contem(textoFicha, 'Responda esta mensagem com *1* (pode subir)', 'ficha: sem os botões, o 1, 2 ou 3 de sempre')
+contem(textoFicha, 'Para responder à portaria: _Responda esta mensagem com *1* (pode subir)', 'ficha: o 1, 2 ou 3 de sempre, que vale com os botões e sem eles')
+igual(textoFicha.toLowerCase().includes('toque'), false, 'ficha: o texto não manda tocar em botão (pode sair sem eles)')
 contem(textoFicha, `Abrir: ${BASE}/portaria/visita/${VISITA}`, 'ficha: o link da visita')
 const fichaSem = textoDaFicha({ ...ficha, empresa: null, motivo: null, registradaPor: null, visitante: '*José*' }, BASE)
 contem(fichaSem, 'Visitante: *José*\nMotivo: não informado\nChegada: 14:05\n', 'ficha: sem empresa, motivo e quem registrou; o nome sem a formatação de quem escreveu')

@@ -19,7 +19,7 @@ import {
 import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
-import { destinoDaImagem, lerBotaoDaFicha, type DadosDaVisita } from './portaria-regras'
+import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
 import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
@@ -224,9 +224,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // jurídico") vai a ele, que vê o documento no contexto e prepara o plano; o caminho e o "cancelar" ficam com o bot.
     if (paraPendencia && pendencia?.tipo === 'guardar_documento' && ia.disponivel && ia.escrita && !m.midia && !ehCancelamento(m.texto) && !lerPastaDaResposta(m.texto)) paraPendencia = false
     // A foto do visitante (lib/whatsapp/portaria.ts): com o registro da visita aberto, a imagem é a foto dele — antes do
-    // envio de fotos e do Drive, mesmo com um envio aberto; a imagem com a legenda "visitante: Nome" de quem tem a
-    // portaria abre o registro, já com a foto. O resto das imagens segue como sempre.
-    const legendaDeVisita = pessoa && m.midia && pedido?.comando === 'registrar_visita' ? pedido.resto : null
+    // envio de fotos e do Drive, mesmo com um envio aberto; a imagem com a legenda "visitante: Nome" (com os dois-pontos:
+    // "Nova visita do governador" é legenda para a comunicação) de quem tem a portaria abre o registro, já com a foto. O
+    // resto das imagens segue como sempre.
+    const legendaDeVisita = pessoa && m.midia ? lerLegendaDeVisita(m.texto) : null
     const registroDaVisita = pessoa && !aviso && m.midia?.categoria === 'foto'
       ? (pendencia?.tipo === 'registrar_visita' ? pendencia : await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'registrar_visita'))
       : null
@@ -303,8 +304,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
         await responder(r.semPergunta ?? `Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
         return
       }
-      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
-      const entrega = await responder(r.texto, { interativo: r.interativo })
+      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta. A do
+      // registro da visita nunca espera na fila: leva o telefone do visitante (na autorização e na conferência), e
+      // whatsapp_fila guardaria o texto (perguntaSemFila).
+      const entrega = await responder(r.texto, { interativo: r.interativo, semFila: perguntaSemFila(r.pergunta.tipo) })
       if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
     }
 

@@ -7,11 +7,11 @@ import { apagarFotoDoVisitante, avisarVisitado, guardarFotoDoVisitante, pessoasP
 import { normalizarFotoDoVisitante } from '@/lib/portaria/foto-servidor'
 import { baixarMidia, configDoWhatsapp } from './servidor'
 import {
-  TEXTO_SEM_ACAO_PELO_WHATSAPP, acharPeloNome, formatarNumero, situacaoDaVisitaNaLista, textoDaPortaria, type MensagemRecebida, type VisitaNaLista,
+  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, acharPeloNome, formatarNumero, situacaoDaVisitaNaLista, textoDaPortaria, type MensagemRecebida, type VisitaNaLista,
 } from './regras'
 import {
-  TETO_DA_FOTO_DO_VISITANTE, comFoto, dadosRedigidos, fotoRecebida, nomeLimpo, perguntaDaVisita, resultadoDaBusca, seguirNoRegistro, textoDaEntradaRegistrada,
-  type DadosDaVisita, type FotoNaConversa, type PerguntaDaVisita,
+  TETO_DA_FOTO_DO_VISITANTE, comFoto, dadosRedigidos, fotoMantemAPergunta, fotoRecebida, nomeLimpo, perguntaDaVisita, resultadoDaBusca, seguirNoRegistro,
+  textoDaEntradaRegistrada, textoDaFotoNaPergunta, type DadosDaVisita, type FotoNaConversa, type PerguntaDaVisita,
 } from './portaria-regras'
 import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type Pendencia, type Pessoa, type Resposta, type ResultadoDaAcao } from './acoes'
 
@@ -214,8 +214,10 @@ export async function gravarEntrada(admin: Admin, workspaceId: string, pessoa: P
 /**
  * Uma imagem de quem tem a portaria, já desviada pelo bot (portaria-regras.ts, destinoDaImagem): `foto` entra no
  * registro aberto, `comecar` abre um registro novo com ela (a legenda "visitante: Nome"). Na chegada, só o tipo é
- * conferido e o id da mídia fica na pendência — gravado já, mesmo que a resposta não saia (o teto de respostas do
- * bot); a pergunta de agora sai de novo, com "Foto recebida ✓" na frente. O arquivo só vem depois do "confirmo".
+ * conferido e o id da mídia fica na pendência — gravado já (com o prazo renovado), mesmo que a resposta não saia (o
+ * teto de respostas do bot). Na pergunta da foto, vem a seguinte, com "Foto recebida ✓" na frente; nas outras, a
+ * pergunta de agora continua valendo (os botões e o "confirmo" dela) e sai só o recibo (fotoMantemAPergunta) — a
+ * pergunta sai de novo só se a mensagem dela não ficou guardada (não chegou a sair). O arquivo só vem depois do "confirmo".
  */
 export async function receberFotoDaVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, m: MensagemRecebida, p: {
   destino: 'foto' | 'comecar'; aberto: Pendencia | null; legenda: string | null; base: string
@@ -224,9 +226,14 @@ export async function receberFotoDaVisita(admin: Admin, workspaceId: string, pes
   if (!lida) return null
   if ('erro' in lida) return { texto: lida.erro }
   if (p.destino === 'comecar' || !p.aberto) return comecarVisita(admin, workspaceId, pessoa, p.legenda ?? '', p.base, lida.foto)
-  const { dados, antes } = comFoto(p.aberto.dados as unknown as DadosDaVisita, lida.foto)
-  const { data } = await admin.from('whatsapp_pendencias').update({ dados }).eq('id', p.aberto.id).is('encerrada_em', null).select('id').maybeSingle()
+  const atual = p.aberto.dados as unknown as DadosDaVisita
+  const { dados, antes } = comFoto(atual, lida.foto)
+  // Sem tocar na mensagem da pergunta (guardarPendencia a zeraria): o toque nos botões dela continua achando o registro.
+  const expira = new Date(Date.now() + PENDENCIA_VALE_MIN * 60_000).toISOString()
+  const { data } = await admin.from('whatsapp_pendencias').update({ dados, expira_em: expira }).eq('id', p.aberto.id).is('encerrada_em', null)
+    .select('id, mensagem_id').maybeSingle()
   if (!data) return { texto: 'Este registro já foi encerrado. Para registrar outra chegada, mande a foto com a legenda *visitante:* e o nome.' }
+  if (fotoMantemAPergunta(atual, dados) && data.mensagem_id) return { texto: textoDaFotoNaPergunta(antes, atual.etapa) }
   return proximoPasso(admin, workspaceId, dados, p.base, p.aberto.id, undefined, antes)
 }
 

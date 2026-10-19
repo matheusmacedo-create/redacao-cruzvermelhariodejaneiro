@@ -1286,6 +1286,12 @@ igual([lerModelosDaMeta(null), lerModelosDaMeta({ data: 'x' }), lerModelosDaMeta
 igual(proximaPaginaDosModelos(listaDeHoje), null, 'lista da Meta: sem paging.next, é a última página')
 igual(proximaPaginaDosModelos({ data: [], paging: { cursors: { after: 'MjQZD' }, next: 'https://graph.facebook.com/…' } }), 'MjQZD', 'lista da Meta: o cursor da próxima página')
 igual(proximaPaginaDosModelos({ paging: { cursors: { after: 'a&b' }, next: 'x' } }), null, 'lista da Meta: cursor estranho não vai para o endereço')
+// O cursor da Kapso é Base64 padrão (com "+", "/" e "="), e ela documenta só os cursores, sem paging.next: vale a página cheia.
+const cursorDaKapso = 'eyJ2YWx1ZXMiOlsiMjAyNC0wMS0xNFQwOToyMTozMi43ODkwMTJaIiwiMTIzMjAiXX0+/ab='
+igual(proximaPaginaDosModelos({ paging: { cursors: { after: cursorDaKapso }, next: 'x' } }), cursorDaKapso, 'lista da Meta: cursor em Base64 com "+" e "/" serve')
+const paginaCheia = { data: Array.from({ length: 100 }, (_, i) => ({ name: `m${i}` })), paging: { cursors: { before: 'MAZDZD', after: cursorDaKapso } } }
+igual([proximaPaginaDosModelos(paginaCheia), proximaPaginaDosModelos({ ...paginaCheia, data: paginaCheia.data.slice(1) })], [cursorDaKapso, null],
+  'lista da Kapso (só cursores): página cheia segue; a que não encheu é a última')
 
 const comoNaMeta = (mudancas: Record<string, Partial<ModeloNaMeta>>): ModeloNaMeta[] =>
   [...naMetaHoje, ...['portaria_visita_foto_v2', 'portaria_visita_foto'].map((nome) => ({ nome, status: 'PENDING', categoria: 'UTILITY', idioma: 'pt_BR' }))]
@@ -1477,8 +1483,9 @@ async function conferirEnvioPelaKapso() {
     const pagina2 = { data: [{ name: 'portaria_visita', status: 'APPROVED', category: 'MARKETING', language: 'pt_BR' }], paging: { cursors: { before: 'MAZDZD' } } }
     const lidos = await rodar([{ status: 200, corpo: { data: { business_account_id: '99999' } } }, { status: 200, corpo: pagina1 }, { status: 200, corpo: pagina2 }], () => kapso.modelosDaMetaKapso(config4))
     igual(lidos.map((m) => `${m.nome}:${m.status}:${m.categoria}`), ['portaria_visita_v2:APPROVED:UTILITY', 'portaria_visita:APPROVED:MARKETING'], 'kapso: os modelos das duas páginas')
-    igual(pedidos.slice(1).map((x) => x.url), [`${META}/99999/message_templates?fields=name,status,category,language&limit=100`, `${META}/99999/message_templates?fields=name,status,category,language&limit=100&after=MjQZD`],
-      'kapso: a lista pelo WABA, com os campos, e a página seguinte pelo cursor')
+    const daLista = `${META}/99999/message_templates?fields=name,status,category,language&status=APPROVED&category=UTILITY&language=pt_BR&limit=100`
+    igual(pedidos.slice(1).map((x) => x.url), [daLista, `${daLista}&after=MjQZD`],
+      'kapso: a lista pelo WABA, só os aprovados de Utilidade em português, com os campos, e a página seguinte pelo cursor')
     igual([(await rodar([], () => kapso.modelosDaMetaKapso(config4))).length, pedidos.length], [2, 0], 'kapso: a lista fica guardada')
     igual(modeloDaSituacao('visita', lidos, montagemDaFicha)?.name, 'portaria_visita_v2', 'kapso: o v2 aprovado serve (o v1 virou Marketing)')
     const config5 = { ...config, numeroId: '5555555555' }

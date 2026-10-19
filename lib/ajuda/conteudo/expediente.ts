@@ -1302,7 +1302,7 @@ const PORTARIA: GuiaDaArea = {
         'Para registrar uma chegada, mande “visitante:” e o nome. O Palácio pergunta para quem é: escreva o nome (ou parte dele) e, se houver mais de uma pessoa, escolha na lista. Se não for uma pessoa do Palácio, escreva “setor:” e o setor.',
         'Depois vêm, uma de cada vez, as perguntas do cadastro do QR: o telefone do visitante, de onde vem, o motivo e o número do crachá. Responda, ou toque em “Pular”. “Registrar já” pula o resto e vai direto ao resumo.',
         'Se você der o telefone, o Palácio pergunta se o visitante aceita receber no WhatsApp a resposta de quem vai recebê-lo. Pergunte a ele e toque em “Sim” ou “Não”: só com o “Sim” o número dele recebe mensagem.',
-        'Por último, mande a foto do visitante pela câmera do WhatsApp, ou toque em “Sem foto”. A foto pode ir em qualquer momento do registro, e também pode começar o registro: foto com a legenda “visitante:” e o nome.',
+        'Por último, mande a foto do visitante pela câmera do WhatsApp, ou toque em “Sem foto”. A foto pode ir em qualquer momento do registro, e também pode começar o registro: foto com a legenda “visitante:” e o nome (com os dois-pontos: sem registro aberto, foto com outra legenda vai para o envio de fotos, como sempre).',
         'Confira o resumo e toque em “Confirmo” (ou responda “confirmo”). A pessoa recebe o aviso no sino e a ficha da visita no WhatsApp, com a foto, para responder se o visitante pode subir, e a resposta chega para você.',
       ],
       dica: 'A foto só entra depois do “Confirmo”. Se ela não entrar, a resposta avisa: tire pela tela da portaria. Documento não vai por aqui. Com “setor:”, ninguém é avisado nem há resposta ao visitante. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela. Pelo assistente do WhatsApp também dá para registrar, mas sem telefone, autorização e foto: para isso, use o “visitante:”.',
@@ -1377,13 +1377,13 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'foto-pelo-whatsapp',
       pergunta: 'Onde fica a foto do visitante mandada pelo WhatsApp?',
-      resposta: 'Na ficha da visita, no Palácio, como a foto tirada na tela: no armazenamento privado, vista só por quem usa a portaria. Antes de guardar, o Palácio reduz a foto e tira os dados escondidos da câmera, como a localização. O registro das mensagens do WhatsApp do Palácio não guarda a foto nem o telefone do visitante. Remover a foto na tela tira a foto do Palácio, não dos celulares: ela continua na conversa de quem mandou e na ficha de quem foi visitado. Apague por lá, se precisar.',
-      termos: ['foto', 'imagem', 'whatsapp', 'lgpd', 'privacidade', 'apagar'],
+      resposta: 'No registro da visita, no Palácio, como a foto tirada na tela: no armazenamento privado, vista só por quem usa a portaria. Antes de guardar, o Palácio reduz a foto e tira os dados escondidos da câmera, como a localização. O registro das mensagens do WhatsApp do Palácio não guarda a foto nem o telefone do visitante. Remover a foto na tela tira a foto do Palácio, não dos celulares: ela continua na conversa de quem mandou e na ficha de quem foi visitado (apague por lá, se precisar). Fica também uma cópia na conversa do número do Palácio, no painel da Kapso: para apagar de vez, a administração apaga a conversa por lá.',
+      termos: ['foto', 'imagem', 'whatsapp', 'lgpd', 'privacidade', 'apagar', 'kapso'],
     },
     {
       id: 'ficha-no-whatsapp',
       pergunta: 'Quem recebe a ficha da visita com a foto no WhatsApp?',
-      resposta: 'Só a pessoa visitada, no WhatsApp confirmado dela (e se ela deixou o assunto “Portaria” ligado). Ninguém mais recebe a foto: nem quem é avisado da resposta, nem o visitante. A ficha fica no celular dessa pessoa, como qualquer mensagem: remover a foto na tela da portaria tira a foto do Palácio, não do celular dela. Por isso, a ficha não leva telefone nem crachá, só o nome, de onde vem, o motivo, a hora e quem registrou.\n\nOs botões “Pode subir”, “Aguarde na recepção” e “Não pode agora” respondem à portaria, mas só valem tocados por quem é visitado. Sem a foto, a ficha sai do mesmo jeito; com o setor em vez da pessoa, não há ficha.',
+      resposta: 'Só a pessoa visitada, no WhatsApp confirmado dela (e se ela deixou o assunto “Portaria” ligado). Ninguém mais recebe a foto: nem quem é avisado da resposta, nem o visitante. A ficha fica no celular dessa pessoa, como qualquer mensagem: remover a foto na tela da portaria tira a foto do Palácio, não do celular dela (nem da conversa do número do Palácio no painel da Kapso, que a administração apaga por lá). Por isso, a ficha não leva telefone nem crachá, só o nome, de onde vem, o motivo, a hora e quem registrou.\n\nOs botões “Pode subir”, “Aguarde na recepção” e “Não pode agora” respondem à portaria, mas só valem tocados por quem é visitado. Sem a foto, a ficha sai do mesmo jeito; com o setor em vez da pessoa, não há ficha.',
       termos: ['ficha', 'foto', 'whatsapp', 'lgpd', 'privacidade', 'pode subir', 'botões'],
     },
     {

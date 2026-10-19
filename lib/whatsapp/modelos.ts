@@ -103,12 +103,21 @@ export function lerModelosDaMeta(dados: unknown): ModeloNaMeta[] {
   })
 }
 
-/** O cursor da página seguinte (paging.cursors.after), só quando a Meta diz que há mais (paging.next); null na última. */
-export function proximaPaginaDosModelos(dados: unknown): string | null {
-  const paging = objeto(objeto(dados)?.paging)
-  if (!texto(paging?.next)) return null
+/** Modelos por página na leitura da lista (o teto da Kapso). */
+export const MODELOS_POR_PAGINA = 100
+
+/**
+ * O cursor da página seguinte (paging.cursors.after; Base64, que pode ter "+", "/" e "=" — vai pelo encodeURIComponent
+ * de quem chama), quando há mais: a Meta diz com paging.next; a Kapso documenta só os cursores, e aí vale a página
+ * cheia (`porPagina`). null na última.
+ */
+export function proximaPaginaDosModelos(dados: unknown, porPagina: number = MODELOS_POR_PAGINA): string | null {
+  const d = objeto(dados)
+  const paging = objeto(d?.paging)
+  const lista = d?.data
+  if (!texto(paging?.next) && !(Array.isArray(lista) && lista.length >= porPagina)) return null
   const depois = texto(objeto(paging?.cursors)?.after)
-  return depois && /^[\w=-]{1,512}$/.test(depois) ? depois : null
+  return depois && /^[\w+/=-]{1,512}$/.test(depois) ? depois : null
 }
 
 /** Aprovado, em português e de Utilidade: só esse sai. MARKETING, AUTHENTICATION, PENDING, REJECTED, PAUSED e cia., nunca. */

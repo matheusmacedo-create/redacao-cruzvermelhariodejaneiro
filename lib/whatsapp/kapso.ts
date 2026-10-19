@@ -1,11 +1,11 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import {
-  estadoDoNumeroNaKapso, interativoCaiNoTexto, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, objetoInterativo, problemaDoModelo, problemaNaSaude,
+  IDIOMA_DO_MODELO, estadoDoNumeroNaKapso, interativoCaiNoTexto, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, objetoInterativo, problemaDoModelo, problemaNaSaude,
   wabaDoNumero, wabaValido, type ModelosDoWhatsapp, type MotivoDaFalha, type ObjetoDoModelo,
 } from './regras'
 import {
-  VALIDADE_DA_FALHA_MS, cacheDosModelos, idDeMidiaValido, lerModelosDaMeta, modeloDoCatalogo, proximaPaginaDosModelos, type ModeloNaMeta,
+  MODELOS_POR_PAGINA, VALIDADE_DA_FALHA_MS, cacheDosModelos, idDeMidiaValido, lerModelosDaMeta, modeloDoCatalogo, proximaPaginaDosModelos, type ModeloNaMeta,
 } from './modelos'
 import type { Envio, MidiaBaixada, MidiaEnviada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
 
@@ -312,14 +312,17 @@ export async function wabaDoNumeroKapso(config: ConfigDaKapso): Promise<string |
   return lido ?? reserva
 }
 
-/** Páginas de 100 modelos lidas no máximo (o Palácio tem algumas dezenas). */
+/** Páginas de MODELOS_POR_PAGINA modelos lidas no máximo (o Palácio tem algumas dezenas, e só os aprovados vêm). */
 const PAGINAS_DE_MODELOS = 5
 const modelosLidos = cacheDosModelos()
 
 /**
  * Os modelos da conta como estão na Meta (nome, situação, categoria e idioma), guardados em memória por
- * VALIDADE_DOS_MODELOS_MS (modelos.ts, cacheDosModelos). Sem o WABA ou com a leitura falhando, a lista vem
- * vazia — nenhum aprovado — e quem chama segue pelo caminho de antes. Nunca lança.
+ * VALIDADE_DOS_MODELOS_MS (modelos.ts, cacheDosModelos). Só os que o Palácio pode usar — aprovados, de Utilidade, em
+ * português —, com os filtros que a Kapso documenta (e a Meta aceita): uma página basta quase sempre, e um modelo da
+ * portaria nunca fica para uma página que não foi lida. modeloUtilAprovado confere de novo do lado de cá (um filtro
+ * ignorado não muda a escolha). Sem o WABA ou com a leitura falhando, a lista vem vazia — nenhum aprovado — e quem
+ * chama segue pelo caminho de antes. Nunca lança.
  */
 export function modelosDaMetaKapso(config: ConfigDaKapso): Promise<ModeloNaMeta[]> {
   return modelosLidos.modelos(config.numeroId, async () => {
@@ -327,8 +330,9 @@ export function modelosDaMetaKapso(config: ConfigDaKapso): Promise<ModeloNaMeta[
     if (!waba) return null
     const lista: ModeloNaMeta[] = []
     let depois: string | null = null
+    const filtros = `fields=name,status,category,language&status=APPROVED&category=UTILITY&language=${IDIOMA_DO_MODELO}&limit=${MODELOS_POR_PAGINA}`
     for (let pagina = 0; pagina < PAGINAS_DE_MODELOS; pagina++) {
-      const r = await chamar(config, 'GET', `${META}/${encodeURIComponent(waba)}/message_templates?fields=name,status,category,language&limit=100${depois ? `&after=${encodeURIComponent(depois)}` : ''}`)
+      const r = await chamar(config, 'GET', `${META}/${encodeURIComponent(waba)}/message_templates?${filtros}${depois ? `&after=${encodeURIComponent(depois)}` : ''}`)
       if (!r.ok) return null
       lista.push(...lerModelosDaMeta(r.dados))
       depois = proximaPaginaDosModelos(r.dados)

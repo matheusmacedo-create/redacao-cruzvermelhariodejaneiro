@@ -89,7 +89,7 @@ export const SERVICOS = {
       { id: 'modelo', rotulo: 'Modelo dos avisos, para fora das 24 h (opcional)', secreto: false, minimo: 1, opcional: true },
       { id: 'modeloCodigo', rotulo: 'Modelo do código, categoria Autenticação (opcional)', secreto: false, minimo: 1, opcional: true },
       { id: 'modeloSeguranca', rotulo: 'Modelo de segurança da conta (opcional; vazio usa o dos avisos)', secreto: false, minimo: 1, opcional: true },
-      { id: 'wabaId', rotulo: 'ID da conta do WhatsApp Business — WABA (opcional; o Palácio descobre pelo número)', secreto: false, minimo: 5, opcional: true },
+      { id: 'wabaId', rotulo: 'ID da conta do WhatsApp Business — WABA (recomendado; está no painel da Kapso ou da Meta)', secreto: false, minimo: 5, opcional: true },
     ],
     dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Os modelos são os nomes aprovados na Kapso para quem não escreveu nas últimas 24 h: o dos avisos tem uma variável no corpo; o do código é da categoria Autenticação. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
   },

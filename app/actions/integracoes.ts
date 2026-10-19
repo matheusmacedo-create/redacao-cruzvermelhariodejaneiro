@@ -57,7 +57,7 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
         // A conta do WhatsApp Business (onde ficam os modelos por situação): só dígitos, como o Phone number ID.
         if (dados.wabaId) {
           dados.wabaId = dados.wabaId.replace(/\s/g, '')
-          if (!wabaValido(dados.wabaId)) throw new Error('O ID da conta do WhatsApp Business (WABA) tem só números. Deixe vazio: o Palácio descobre pelo número.')
+          if (!wabaValido(dados.wabaId)) throw new Error('O ID da conta do WhatsApp Business (WABA) tem só números, como aparece no painel da Kapso ou da Meta.')
         }
       }
       valor = JSON.stringify(dados)

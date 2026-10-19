@@ -1405,9 +1405,9 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   `avisar_visitante` (e com o setor, sem quem responda, nem se pergunta). O
   telefone vai ao livro formatado (`numeroCanonico` → `formatarNumero`). A
   **foto** chega como imagem em qualquer etapa, ou abre o registro (a legenda
-  `visitante: Nome`); na chegada só o tipo é conferido (JPEG, PNG ou WebP; HEIC
-  recusado com a orientação de usar a câmera) e o id da mídia fica na
-  pendência. Depois do `confirmo`, com a visita criada e **antes** do aviso, a
+  `visitante: Nome`, só com os dois-pontos); na chegada só o tipo é conferido
+  (JPEG, PNG ou WebP; HEIC recusado com a orientação de usar a câmera) e o id
+  da mídia fica na pendência. Depois do `confirmo`, com a visita criada e **antes** do aviso, a
   foto é baixada da Kapso, normalizada (`lib/portaria/foto-servidor.ts`: só o
   que o conteúdo confirma ser foto, teto de 120 MP na entrada, girada pelo
   EXIF, no máximo 1024 px, JPEG 80 sem metadados), gravada no Blob privado e
@@ -1443,7 +1443,10 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
     (`sobeAFotoDaFicha`: janela aberta pela `whatsapp_cota_de_conversas`, ou sem
     saber, ou com modelo de foto aprovado) e é apagada de lá
     `ESPERA_PARA_APAGAR_A_FOTO_MS` (20 s) depois do envio, por melhor esforço
-    (a Meta guarda 30 dias se a função acabar antes). Na tela, a foto sobe depois
+    (a Meta guarda 30 dias se a função acabar antes). A Kapso guarda cópia da
+    mídia recebida e da enviada na conversa do número, e o Palácio não a apaga:
+    num pedido de exclusão, a administração apaga a conversa no painel da Kapso
+    (a ajuda diz isso). Na tela, a foto sobe depois
     do registro: o formulário manda `foto_a_seguir`, e a ficha espera por ela
     até `ESPERA_DA_FOTO_MS` (20 s; a página tem `maxDuration` 60).
   - **Os botões** "Pode subir", "Aguarde na recepção" e "Não pode agora" têm o id
@@ -2215,7 +2218,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
   mídia enviada por `POST /{phone_number_id}/media` (multipart, JPEG ou PNG até 5 MB), que devolve o id, e
   apagada por `DELETE /{media_id}?phone_number_id=…`; a lista dos modelos da conta por
-  `GET /{WABA}/message_templates?fields=name,status,category,language&limit=100` (até 100 por página);
+  `GET /{WABA}/message_templates?fields=name,status,category,language&status=APPROVED&category=UTILITY&language=pt_BR&limit=100`
+  (até 100 por página; a Kapso documenta só `paging.cursors`, sem `next`);
   webhook por número em `https://api.kapso.ai/platform/v1/whatsapp/phone_numbers/{id}/webhooks`.
 - **Conexão pela plataforma, não pelo proxy:** no número gerenciado pela Kapso, as leituras pelo proxy da Meta
   (`GET /{phone_number_id}`, templates) voltam 401 da Meta (190, "Cannot parse access token") mesmo com a chave
@@ -2947,13 +2951,19 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     viram “—”, cortadas para o corpo preenchido caber em 1024, e o payload de cada botão de resposta rápida (o
     que volta no webhook como o toque). Sem nenhum aprovado, null: quem chama segue pelo caminho de antes. Em
     19/10/2026 todos ainda estavam PENDING.
-  - **A situação na Meta** (`modelosDaMetaKapso`, em `kapso.ts`): a lista pelo WABA, página a página (até 5),
+  - **A situação na Meta** (`modelosDaMetaKapso`, em `kapso.ts`): a lista pelo WABA, só os aprovados, de Utilidade
+    e em pt_BR (`status=APPROVED&category=UTILITY&language=pt_BR`, os filtros que a Kapso documenta; o código confere
+    de novo), página a página (até 5; a seguinte pelo `paging.next` ou, como a Kapso documenta só os cursores, pela
+    página cheia; cursor em Base64),
     guardada em memória por 10 min (`cacheDosModelos`; quem pede junto espera a mesma leitura); a falha vale
     “nenhum aprovado” por 1 min. O WABA vem do número (`wabaDoNumeroKapso`: o mesmo
     `GET /platform/v1/whatsapp/phone_numbers/{id}`, campo `business_account_id` ou variações — `wabaDoNumero`,
     puro), guardado por 6 h; se a Kapso não diz, vale o campo opcional “ID da conta do WhatsApp Business —
-    WABA” do cartão da Kapso (`wabaId`). O cadastro dos modelos (19/10/2026) passou pelo endpoint do WABA no
-    proxy; se a leitura voltar 401 como o `GET` do número (acima), a lista vem vazia e nada muda.
+    WABA” do cartão da Kapso (`wabaId`). O nome do campo na resposta da plataforma não foi conferido (nenhuma
+    documentação mostra), então o cartão e a ajuda **recomendam preencher o WABA**; nenhuma tela mostra ainda o
+    WABA usado nem a situação lida (próximo passo: mostrá-los no `status` do bot ou em Configurações → WhatsApp).
+    O cadastro dos modelos (19/10/2026) passou pelo endpoint do WABA no proxy; se a leitura voltar 401 como o `GET`
+    do número (acima), a lista vem vazia e nada muda.
   - **Envio** (`kapso.ts`, fachada em `servidor.ts`): `subirMidia` (multipart, devolve o id), `apagarMidia`
     (melhor esforço), `enviarModelo` (o modelo montado, com qualquer componente; não depende da janela),
     `modeloAprovado` (o da situação, já montado). `Interativo` de botões ganhou `imagem` (o id da mídia vira o
@@ -2981,10 +2991,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   - **A imagem no bot** (`bot.ts`): antes do envio de fotos e do Drive, `destinoDaImagem` decide — com o registro
     aberto (`registrar_visita`, a citada ou a mais nova desse tipo, mesmo com um envio aberto), a imagem é a foto
     dele (`foto`); com a legenda `visitante: Nome` de quem tem a portaria (e sem registro aberto, ou aberto para
-    outro nome), abre um registro com ela (`comecar`); o resto (vídeo, imagem citando aviso, quem não tem a
-    portaria) segue como sempre. `receberFotoDaVisita` confere o tipo (`fotoRecebida`), grava o id da mídia na
-    pendência na hora (vale com o teto de respostas batido) e repete a pergunta de agora com “Foto recebida ✓” (ou
-    “Foto trocada ✓”: vale a última). O registro marca `visita_foto`.
+    outro nome), abre um registro com ela (`comecar`) — só com os dois-pontos (`lerLegendaDeVisita`): “Nova visita
+    do governador ao hospital” é legenda de foto para a comunicação e vai ao envio de fotos —; o resto (vídeo,
+    imagem citando aviso, quem não tem a portaria) segue como sempre. `receberFotoDaVisita` confere o tipo
+    (`fotoRecebida`), grava o id da mídia na pendência na hora, com o prazo renovado (vale com o teto de respostas
+    batido); na pergunta da foto, vem a seguinte com “Foto recebida ✓” (ou “Foto trocada ✓”: vale a última); nas
+    outras, só o recibo (“Siga respondendo a pergunta acima”, ou o “Confirmo” da conferência acima), sem mexer no
+    `mensagem_id` da pendência (`fotoMantemAPergunta`): os botões da pergunta que saiu continuam valendo — mandá-la
+    de novo os invalidaria. O registro marca `visita_foto`. No meio do registro, `visitante: Maria` nas perguntas
+    de texto livre não vira a empresa nem o motivo do visitante em curso: sem citar, abre o registro novo; citando,
+    a pergunta se repete. As perguntas do registro nunca esperam na fila (`perguntaSemFila`): levam o telefone do
+    visitante, e `whatsapp_fila.texto` o guardaria sem prazo.
   - **Depois do `confirmo`:** `gravarEntrada` passa telefone (formatado), empresa, motivo, `cracha_numero`,
     `avisar_visitante` e o visitado à mesma `portaria_registrar_entrada`; com a visita criada, `guardarFotoDaConversa`
     baixa, normaliza, grava e registra a foto (acima e §7.24) **antes** de `avisarVisitado`. A resposta

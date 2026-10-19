@@ -70,6 +70,21 @@ export const nomeLimpo = (t: string) => String(t ?? '').replace(/[*_~`]/g, '').r
 /** Uma linha, sem a formatação do WhatsApp nem controles, até `max`. */
 const umaLinha = (t: string, max: number) => String(t ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max)
 
+/** "visitante: Nome" (e "registrar visita:", "nova visita:", "novo visitante:"): só com os dois-pontos. */
+const LEGENDA_DE_VISITA = /^\s*(?:visitante|registrar\s+(?:a\s+|uma\s+)?(?:visita|visitante|entrada)|nova\s+visita|novo\s+visitante)\s*:\s*/iu
+
+/**
+ * O nome depois de "visitante:" — na legenda da imagem que abre o registro (bot.ts) ou no texto que começa outro
+ * visitante no meio de um registro (seguirNoRegistro) —, "" sem o nome; null se não é isso. Só com os dois-pontos:
+ * "Nova visita do governador ao hospital" e "Visitante ilustre na sede" são legendas de foto para a comunicação (o
+ * envio de fotos), não um registro na portaria.
+ */
+export function lerLegendaDeVisita(texto: string | null | undefined): string | null {
+  const t = String(texto ?? '')
+  const m = LEGENDA_DE_VISITA.exec(t)
+  return m ? nomeLimpo(t.slice(m[0].length)) : null
+}
+
 // ------------------------------------------------------------------ as respostas curtas
 
 /** Além do "pular" de sempre (ehPular), o que a portaria escreve quando o visitante não tem ou não quis dizer. */
@@ -163,10 +178,13 @@ export const textoPedeEmpresa = (nome: string) => `De onde vem *${limpo(nome, 80
 
 export const TEXTO_PEDE_CRACHA = `Qual é o número do crachá de visitante entregue (ex.: _V-07_)? Ou *pular*. ${vale}`
 
-export function textoPedeFoto(nome: string): string {
+/** `ficha`: há uma pessoa visitada (a foto vai também na ficha dela no WhatsApp); com o setor, não há ficha. */
+export function textoPedeFoto(nome: string, ficha = true): string {
   return [
     `Mande agora a foto de *${limpo(nome, 80)}*, tirada pela câmera do WhatsApp 📷. Ou toque em *Sem foto*.`,
-    `A foto fica na ficha da visita, no Palácio, e só entra depois do *confirmo*. ${vale}`,
+    ficha
+      ? `A foto entra no registro da visita, no Palácio, e vai na ficha que a pessoa visitada recebe no WhatsApp. Só entra depois do *confirmo*. ${vale}`
+      : `A foto entra no registro da visita, no Palácio, só depois do *confirmo*. ${vale}`,
   ].join('\n\n')
 }
 
@@ -192,7 +210,7 @@ export function perguntaDaVisita(d: DadosDaVisita, antes?: string | null): Pergu
     case 'empresa': return com(textoPedeEmpresa(nome), BOTOES_DA_ETAPA_OPCIONAL)
     case 'motivo': return com(TEXTO_PEDE_MOTIVO_DA_VISITA, BOTOES_DA_ETAPA_OPCIONAL)
     case 'cracha': return com(TEXTO_PEDE_CRACHA, BOTOES_DA_ETAPA_OPCIONAL)
-    case 'foto': return com(textoPedeFoto(nome), BOTOES_DA_FOTO)
+    case 'foto': return com(textoPedeFoto(nome, Boolean(d.pessoa)), BOTOES_DA_FOTO)
     default: return com(textoDaConferencia(d), BOTOES_DA_CONFERENCIA)
   }
 }
@@ -254,9 +272,15 @@ export function seguirNoRegistro(d: DadosDaVisita, texto: string): PassoDoRegist
   const etapa = d.etapa
 
   if (etapa === 'nome') {
-    const nome = nomeLimpo(texto)
+    // "visitante: Maria" respondendo ao nome: o nome é o que vem depois.
+    const nome = nomeLimpo(lerLegendaDeVisita(texto) ?? texto)
     if (nome.length < 2 || numero) return repetir('Escreva o nome do visitante, ou *cancelar*.')
     return seguir({ ...d, nome })
+  }
+  // "visitante: Maria" nas outras perguntas de texto livre é outro visitante, não a resposta (a empresa, o motivo, o
+  // crachá…): sem citar, o bot segue para o registro novo (comecarVisita, que substitui este); citando, pede de novo.
+  if (ETAPAS_DE_TEXTO_LIVRE.has(String(etapa)) && lerLegendaDeVisita(texto) !== null) {
+    return repetir('Para registrar outro visitante, termine ou cancele este registro primeiro.')
   }
   if (etapa === 'pessoa' || etapa === 'escolher_pessoa') {
     const n = etapa === 'escolher_pessoa' && d.opcoes ? lerEscolha(texto, d.opcoes.length) : null
@@ -339,10 +363,23 @@ export function fotoRecebida(midia: MidiaRecebida | null): { foto: FotoNaConvers
   return { foto: { midia: id, mime, ...(midia.endereco ? { endereco: midia.endereco } : {}) } }
 }
 
-/** A foto entra no registro aberto (a mais nova vale); `antes` vai na frente da pergunta que continua. */
+/** A foto entra no registro aberto (a mais nova vale); `antes` vai na frente da pergunta seguinte, ou do recibo. */
 export function comFoto(d: DadosDaVisita, foto: FotoNaConversa): { dados: DadosDaVisita; antes: string } {
   return { dados: { ...d, foto }, antes: d.foto ? 'Foto trocada ✓ (vale a última).' : 'Foto recebida ✓' }
 }
+
+/**
+ * A foto que chegou no meio do registro deixa a pergunta de agora no lugar? Só a pergunta da foto avança. Nas outras
+ * (o nome, o telefone, a autorização, a conferência…), a mensagem da pergunta segue valendo — os botões dela e o
+ * "confirmo" citando — e sai só o recibo (textoDaFotoNaPergunta): mandar a pergunta de novo trocaria a mensagem da
+ * pendência, e o toque nos botões da anterior responderia que ela não vale mais (lib/whatsapp/portaria.ts).
+ */
+export const fotoMantemAPergunta = (antes: DadosDaVisita, depois: DadosDaVisita): boolean =>
+  Boolean(antes.etapa) && antes.etapa !== 'foto' && proximaEtapa(depois) === antes.etapa
+
+/** O recibo da foto quando a pergunta de agora continua (fotoMantemAPergunta). */
+export const textoDaFotoNaPergunta = (antes: string, etapa: EtapaDaVisita | undefined): string =>
+  etapa === 'conferencia' ? `${antes} Agora toque em *Confirmo* na conferência acima.` : `${antes} Siga respondendo a pergunta acima.`
 
 /** O outro visitante da legenda "visitante: Nome", com um registro aberto para outro nome? Sem nome, é a foto do aberto. */
 export function outroVisitante(aberto: DadosDaVisita, legenda: string): boolean {
@@ -353,8 +390,8 @@ export function outroVisitante(aberto: DadosDaVisita, legenda: string): boolean 
 /**
  * Para onde vai uma imagem de quem é da equipe: a foto do registro aberto (`foto`), um registro novo com ela (a
  * legenda "visitante: Nome" de quem tem a portaria: `comecar`) ou o caminho de sempre (null: o envio de fotos, o
- * Drive). `legenda`: o nome depois de "visitante:" (lerPedido), ou null se a legenda não é isso. Citando um aviso, a
- * imagem nunca é da visita (o bot responde o que sempre respondeu).
+ * Drive). `legenda`: o nome depois de "visitante:" (lerLegendaDeVisita, só com os dois-pontos), ou null se a legenda
+ * não é isso. Citando um aviso, a imagem nunca é da visita (o bot responde o que sempre respondeu).
  */
 export function destinoDaImagem(p: { categoria: CategoriaDaMidia | null; citouAviso: boolean; aberto: DadosDaVisita | null; legenda: string | null; temPortaria: boolean }): 'foto' | 'comecar' | null {
   if (p.categoria !== 'foto' || p.citouAviso) return null
@@ -385,6 +422,13 @@ export const dadosRedigidos = (d: unknown): DadosDaVisita => {
   const etapa = d && typeof d === 'object' ? (d as DadosDaVisita).etapa : undefined
   return { ...(etapa ? { etapa } : {}), redigida: true }
 }
+
+/**
+ * A pergunta que nunca espera na fila (bot.ts, enviar): a do registro da visita leva o telefone do visitante (na
+ * autorização e na conferência), e whatsapp_fila guardaria o texto sem prazo. Sem fila, ela sai na hora ou não sai
+ * (a pessoa manda de novo); a pendência fica guardada do mesmo jeito.
+ */
+export const perguntaSemFila = (tipo: string | null | undefined): boolean => tipo === 'registrar_visita'
 
 // ------------------------------------------------------------------ a ficha de quem é visitado
 
@@ -456,15 +500,16 @@ const chegadaDaFicha = (f: FichaDaVisita) =>
 
 /**
  * O corpo da ficha (com os botões, dentro da janela; e o texto que sai sem eles, se a Meta recusar o formato ou a ficha
- * esperar na fila): quem é e de onde vem, o motivo, a chegada, como responder — tocando, ou com 1, 2 ou 3, como o aviso
- * de sempre — e o link da visita. Sempre cabe em LIMITES_DO_INTERATIVO.corpo (sem o rodapé, se precisar).
+ * esperar na fila): quem é e de onde vem, o motivo, a chegada, como responder — o 1, 2 ou 3 do aviso de sempre, que
+ * vale com os botões e sem eles (o texto não manda tocar no que pode não estar lá) — e o link da visita. Sempre cabe
+ * em LIMITES_DO_INTERATIVO.corpo (sem o rodapé, se precisar).
  */
 export function textoDaFicha(f: FichaDaVisita, urlBase: string): string {
   const q = quemNaFicha(f)
   const partes = [
     '*Visita para você na portaria*',
     [`Visitante: *${q.nome}*${q.empresa ? ` (${q.empresa})` : ''}`, `Motivo: ${f.motivo ? limpo(f.motivo, NA_FICHA.motivo) : 'não informado'}`, `Chegada: ${chegadaDaFicha(f)}`].join('\n'),
-    `Toque em um dos botões para responder à portaria. _${PERGUNTA_DA_VISITA}_`,
+    `Para responder à portaria: _${PERGUNTA_DA_VISITA}_`,
     `Abrir: ${urlBase}${linkDaVisita(f.visitaId)}`,
   ]
   const comRodape = [...partes, RODAPE].join('\n\n')
