@@ -72,7 +72,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `SUPABASE_SERVICE_ROLE_KEY` | server | **segredo** — ignora RLS |
 | `BLOB_READ_WRITE_TOKEN` | server | Vercel Blob — injetada pela própria Vercel, não está no `.env.example` |
 | `UPLOAD_POST_API_KEY` | server | **segredo** — publicação nas redes |
-| `UPLOAD_POST_PROFILE` | server | perfil no Upload-Post (`@cruzvermelhabrasileirj`) |
+| `UPLOAD_POST_PROFILE` | server | perfil no Upload-Post (`@cruzvermelhabrasileirarj`) |
 | `UPLOAD_POST_FACEBOOK_PAGE_ID` | server | **obrigatória** — ver §8.1 |
 | `FTP_HOST` `FTP_USER` `FTP_PASSWORD` `FTP_BASE_DIR` | server | publicação no site |
 | `SITE_PUBLIC_BASE_URL` | server | opcional; sem ela o `ftp-check` não confere se a pasta é publicada |
