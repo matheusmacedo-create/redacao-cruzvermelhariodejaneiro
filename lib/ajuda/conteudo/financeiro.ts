@@ -601,7 +601,7 @@ const TRANSPARENCIA: GuiaDaArea = {
     {
       alvo: 'transparencia.lancamento',
       titulo: 'A página pública',
-      texto: 'O aviso do topo diz se a página já está aberta ao público ou em lançamento oculto, fora dos buscadores e sem link no site. “Atualizar a página no site” refaz a página.',
+      texto: 'O aviso do topo diz se a página já está aberta ao público ou em lançamento oculto, fora dos buscadores e sem link no site. “Atualizar a página no site” refaz a página. O portal explica a relação financeira com a escola e oferece pedido de documentos. Não ter parcerias publicadas não significa que não existam parcerias vigentes. A trilha confere o arquivo e o histórico; não substitui auditoria contábil nem consulta cadastral.',
       lado: 'bottom',
       seAusente: 'pular',
     },

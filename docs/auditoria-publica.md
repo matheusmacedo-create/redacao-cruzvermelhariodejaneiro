@@ -20,6 +20,8 @@ e testado. Mudança de contrato muda este arquivo no mesmo commit.
 
 Benchmark que embasa o modelo: `docs/auditoria-publica-benchmark.md`.
 
+Revisão de 19/10/2026: o portal explica o financiamento da filial e a relação com a empresa da escola, com link para a explicação institucional e para o pedido de documentos. Ausência de parcerias cadastradas é descrita como ausência de registros publicados, sem afirmar que não existam parcerias vigentes. A conferência da trilha verifica integridade e histórico; não certifica a exatidão do conteúdo, a situação cadastral ou as contas da entidade. As alterações entram no site depois do deploy e de “Atualizar a página no site”; nenhum documento ou registro precisa ser alterado.
+
 ## 2. Modelo
 
 ### 2.1 Classes de visibilidade

@@ -308,9 +308,7 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
           <ul class="pt-docs">${docsDe(c).map(documentoDoPortal).join('')}
           </ul>
         </section>`).join('')
-    // Sem parceria, a nota "Nenhuma parceria em vigor" continua: é informação
-    // (Lei nº 13.019/2014, art. 11), não seção vazia — e só aparece quando o
-    // grupo tem documento, portanto quando a seção está na página.
+    // Ausência de registros publicados não comprova ausência de parcerias vigentes.
     const parcerias = !g.parcerias ? '' : p.parcerias.length ? `
         <section id="parcerias" aria-labelledby="pt-cat-parcerias">
           <h3 id="pt-cat-parcerias" class="pt-sub">Parcerias com o poder público</h3>
@@ -319,7 +317,7 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
           ${p.parcerias.map(parceriaDoPortal).join('')}
         </section>` : `
         <div class="pt-vazio" id="parcerias"><strong>Parcerias com o poder público</strong>
-          Nenhuma parceria em vigor. Quando houver, cada uma aparece aqui com os dados que a Lei nº 13.019/2014 (art. 11) manda divulgar: órgão, objeto, valores, vigência e situação da prestação de contas.</div>`
+          Não há parcerias publicadas neste portal. Para consultar informações que não estão aqui, use o <a href="/pedido-de-documentos/">pedido de documentos</a>.</div>`
     const corpoDoGrupo = `${categorias}${parcerias}`
     return {
       nav: `<li><a href="#${g.id}">${escapar(g.nome)} <span class="pt-conta">${total}</span></a></li>`,
@@ -345,8 +343,8 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
       <div class="pt-topo-dentro">
         <p class="pt-olho">Portal da transparência</p>
         <h1 id="pt-titulo">Transparência</h1>
-        <p class="pt-compromisso">Tudo o que a Filial publica como oficial vem com prova. Cada documento tem uma impressão digital e um código de
-        verificação registrados numa trilha pública de auditoria: nada é trocado em silêncio, nem pela própria Filial.</p>
+        <p class="pt-compromisso">Consulte os documentos oficiais publicados pela Filial e suas versões.
+        A impressão digital e o código de verificação permitem conferir o arquivo e o histórico de cada registro.</p>
         <p class="pt-atualizada">Atualizada em ${diaPorExtenso(agora)}.</p>
         <ul class="pt-numeros" aria-label="O portal em números">
           <li><b>${p.documentos.length}</b><span>${p.documentos.length === 1 ? 'documento publicado' : 'documentos publicados'}, todos verificáveis</span></li>
@@ -363,15 +361,29 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
       <nav class="pt-nav" aria-label="Seções do portal">
         <p>Seções</p>
         <ul>${grupos.map((g) => g.nav).join('')}
+          <li><a href="#financiamento">Como a filial se financia</a></li>
           <li><a href="#como-conferir">Como conferir</a></li>
         </ul>
       </nav>
       <div>
         ${destaque}
         ${grupos.map((g) => g.html).join('')}
+        <section class="pt-grupo" id="financiamento" aria-labelledby="pt-financiamento">
+          <h2 id="pt-financiamento">Como a filial se financia</h2>
+          <p>A Filial é uma associação sem fins lucrativos. A O-CVB Filial Rio de Janeiro Ensino Ltda, CNPJ 67.733.551/0001-35,
+          é a empresa ligada à Filial que vende os cursos pagos. Seus sistemas são independentes. O resultado da escola é destinado
+          à manutenção do Palácio da Cruz Vermelha e às atividades da Filial.</p>
+          <p><a href="/quem-somos/#como-nos-financiamos">Conheça as fontes de financiamento e a relação com a escola</a>.
+          Para solicitar demonstrações contábeis ou outros documentos que não estejam publicados aqui, faça um
+          <a href="/pedido-de-documentos/">pedido de documentos</a>.</p>
+          <a class="pt-botao" href="/doe/">Doe para a Filial</a>
+          <a class="pt-botao" href="/voluntariado/">Seja voluntário</a>
+        </section>
         <section class="pt-metodo" id="como-conferir" aria-labelledby="pt-metodo-titulo">
           <h2 id="pt-metodo-titulo">Como conferir um documento</h2>
           <p>A conferência não depende da Filial: as provas ficam em arquivos públicos e se conferem com ferramentas livres.</p>
+          <p>Esses registros permitem conferir a integridade e o histórico do arquivo. Eles não substituem a análise do conteúdo,
+          a auditoria contábil nem a consulta da situação cadastral nos órgãos competentes.</p>
           <ol>
             <li><b>Baixe o PDF</b>Use o botão "Baixar PDF" do documento. O arquivo é o mesmo registrado na trilha.</li>
             <li><b>Calcule a impressão digital</b>No Windows: <code>certutil -hashfile arquivo.pdf SHA256</code>. No Mac ou Linux: <code>shasum -a 256 arquivo.pdf</code>. O resultado tem de ser igual ao publicado aqui.</li>
