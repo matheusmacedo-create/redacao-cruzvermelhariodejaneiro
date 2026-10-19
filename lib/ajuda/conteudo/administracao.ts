@@ -669,7 +669,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)”, “Google Analytics (conta de serviço)” ou “WhatsApp (Kapso — API oficial)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
-        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, os nomes dos modelos aprovados (avisos, código e segurança da conta). No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
+        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, os nomes dos modelos aprovados (avisos, código e segurança da conta); o “ID da conta do WhatsApp Business — WABA” fica vazio, a não ser que o Palácio não ache sozinho a conta pelo número. No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
         'Toque em “Salvar no cofre”.',
         'O cartão passa a mostrar “Configurada no cofre em …”, com a data.',
       ],

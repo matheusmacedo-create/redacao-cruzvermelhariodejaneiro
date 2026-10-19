@@ -24,7 +24,12 @@ import {
   horasNoTexto, textoDaChamada, BOTOES_DA_CHAMADA, lerMarcacaoDePresenca, textoDaConferenciaDaPresenca, textoDaPresencaMarcada, textoSemAcaoHoje,
   nomeDoVeiculo, textoDaFrota, acharVeiculo, lerHodometroDaConversa, textoPedeHodometro, botoesDoHodometro, textoDaConferenciaDaSaida, textoDaConferenciaDoRetorno,
   textoDoRetornoRegistrado, FINALIDADES_NA_CONVERSA, acharNoEstoque, textoDoSaldo, TEXTO_PEDE_MATERIAL, type MaterialNoSaldo,
+  wabaDoNumero, wabaValido, type ObjetoDoModelo,
 } from '../lib/whatsapp/regras'
+import {
+  CATALOGO_DOS_MODELOS, LIMITES_DO_MODELO, VALIDADE_DA_FALHA_MS, VALIDADE_DOS_MODELOS_MS, cacheDosModelos, corpoPreenchido, escolherModelo, idDeMidiaValido,
+  lerModelosDaMeta, modeloDaSituacao, modeloDoCatalogo, modeloUtilAprovado, montarModelo, parametroDoModelo, proximaPaginaDosModelos, type ModeloNaMeta,
+} from '../lib/whatsapp/modelos'
 import { lerHodometro, pedidoDeRetorno, pedidoDeSaida } from '../lib/patrimonio/frota'
 import { CATEGORIAS, ROTULO_DA_CATEGORIA } from '../lib/notificacoes/regras'
 import {
@@ -548,6 +553,8 @@ contem(problemaDoModelo({ nome: 'aviso_do_palacio', codigo: 132001, status: 400,
 contem(problemaDoModelo({ nome: 'x', codigo: 132015, status: 400, mensagem: null }) ?? '', 'pausado', '132015: pausado')
 contem(problemaDoModelo({ nome: 'x', codigo: 132000, status: 400, mensagem: null }) ?? '', 'número de variáveis', '132000: variáveis')
 contem(problemaDoModelo({ nome: 'x', codigo: 132010, status: 400, mensagem: null }) ?? '', 'erro 132010 da Meta', 'outro da faixa: genérico com o código')
+contem(problemaDoModelo({ nome: 'portaria_visita_v2', codigo: 132000, status: 400, mensagem: null, doCatalogo: true }) ?? '', 'catálogo do Palácio', '132000 de modelo do catálogo: aponta o catálogo, não o cofre')
+igual((problemaDoModelo({ nome: 'portaria_visita_v2', codigo: 132001, status: 400, mensagem: null, doCatalogo: true }) ?? '').includes('Integrações'), false, '132001 de modelo do catálogo: o nome não está em Integrações')
 contem(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Template not found' }) ?? '', 'A Kapso recusou', '404 da Kapso que fala do modelo não vira "número não achado"')
 igual(problemaDoModelo({ nome: 'x', codigo: null, status: 404, mensagem: 'Phone number not found' }), null, '404 do número continua sendo do número')
 igual(problemaDoModelo({ nome: 'x', codigo: 190, status: 401, mensagem: 'Invalid OAuth access token' }), null, 'token da Meta não é do modelo')
@@ -1240,5 +1247,275 @@ contem(escolaComProblema, '• Únicopag · Pós técnico – Chave recusada pel
 contem(escolaComProblema, '• Meta · Anúncios – ainda não leu nenhuma vez', 'escola: a conta que nunca leu')
 contem(textoDoStatus({ ...statusBase, escola: [{ ...contaEmDia, sincronizadaEm: '2026-10-16T09:00:00Z', situacao: 'atrasada' }] }), `sem leitura há mais de ${ESCOLA_ATRASADA_HORAS} h (última: sex, 16/10 às 06:00)`, 'escola: atrasada')
 
-if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
-console.log('WhatsApp: tudo certo.')
+// ---------------------------------------------------------------- modelos por situação (lib/whatsapp/modelos.ts)
+// O catálogo é o que o Palácio cadastrou na Meta: o corpo de cada modelo, letra por letra.
+igual(Object.fromEntries(Object.values(CATALOGO_DOS_MODELOS).flat().map((m) => [m.nome, m.corpo])), {
+  portaria_visita_foto_v2: 'Chegou uma visita para você na recepção da Cruz Vermelha RJ.\n\nQuem é: {{1}}\nAssunto: {{2}}\nHorário: {{3}}\n\nToque em uma das opções para responder à portaria.',
+  portaria_visita_foto: 'Visita na portaria da Cruz Vermelha RJ para você.\n\nVisitante: {{1}}\nMotivo: {{2}}\nChegada: {{3}}\n\nResponda pelos botões abaixo.',
+  portaria_visita_v2: 'Chegou uma visita para você na recepção da Cruz Vermelha RJ.\n\nQuem é: {{1}}\nAssunto: {{2}}\nHorário: {{3}}\n\nToque em uma das opções para responder à portaria.',
+  portaria_visita: 'Visita na portaria da Cruz Vermelha RJ para você.\n\nVisitante: {{1}}\nMotivo: {{2}}\nChegada: {{3}}\n\nResponda pelos botões abaixo.',
+  portaria_resposta_visitante_v2: 'Recepção da Cruz Vermelha RJ: atualização sobre a sua visita a {{1}}.\n\nSituação: {{2}}\n\nEm caso de dúvida, procure a recepção.',
+  portaria_resposta_visitante: 'Portaria da Cruz Vermelha RJ: sua visita para {{1}}.\n\nResposta: {{2}}\n\nQualquer dúvida, fale com a recepção.',
+}, 'catálogo: os corpos exatamente como cadastrados na Meta, na ordem de preferência')
+igual(Object.values(CATALOGO_DOS_MODELOS).flat().every((m) => (m.corpo.match(/\{\{\d+\}\}/g) ?? []).length === m.parametros), true, 'catálogo: o número de variáveis bate com o corpo')
+igual(CATALOGO_DOS_MODELOS.visita.map((m) => [m.nome, m.cabecalho]), [['portaria_visita_foto_v2', 'IMAGE'], ['portaria_visita_foto', 'IMAGE'], ['portaria_visita_v2', null], ['portaria_visita', null]], 'catálogo: a visita, com os de foto antes')
+igual(CATALOGO_DOS_MODELOS.visita.every((m) => JSON.stringify(m.botoes.map((b) => b.texto)) === JSON.stringify(botoesDaVisita?.tipo === 'botoes' ? botoesDaVisita.botoes.map((b) => b.titulo) : [])), true,
+  'catálogo: os botões do modelo são os mesmos da ficha dentro da janela (1, 2 e 3)')
+igual(Object.values(CATALOGO_DOS_MODELOS).flat().every((m) => m.botoes.length <= LIMITES_DO_INTERATIVO.botoes && m.botoes.every((b) => b.texto.length <= LIMITES_DO_INTERATIVO.tituloDoBotao)), true, 'catálogo: até 3 botões, títulos de até 20')
+igual(CATALOGO_DOS_MODELOS.resposta_ao_visitante.map((m) => [m.nome, m.botoes.length]), [['portaria_resposta_visitante_v2', 0], ['portaria_resposta_visitante', 0]], 'catálogo: a resposta ao visitante, sem botões')
+igual([modeloDoCatalogo('portaria_visita')?.parametros, modeloDoCatalogo('aviso_do_palacio')], [3, null], 'catálogo: achar pelo nome')
+
+// A lista da Meta (GET /{WABA}/message_templates), como veio em 19/10/2026: tudo ainda PENDING.
+const listaDeHoje = {
+  data: [
+    { name: 'portaria_visita_v2', status: 'PENDING', category: 'UTILITY', language: 'pt_BR', id: '1742339420173567' },
+    { name: 'portaria_visita', status: 'PENDING', category: 'UTILITY', language: 'pt_BR', id: '1139779765189766' },
+    { name: 'portaria_resposta_visitante_v2', status: 'PENDING', category: 'UTILITY', language: 'pt_BR' },
+    { name: 'portaria_resposta_visitante', status: 'pending', category: 'utility', language: 'pt_BR' },
+    { name: 'palacio_pendencias_do_dia_v2', status: 'PENDING', category: 'MARKETING', language: 'pt_BR' },
+    { name: 'Nome Inválido', status: 'APPROVED', category: 'UTILITY', language: 'pt_BR' },
+    'lixo', null, { status: 'APPROVED' },
+  ],
+  paging: { cursors: { before: 'MAZDZD', after: 'MjQZD' } },
+}
+const naMetaHoje = lerModelosDaMeta(listaDeHoje)
+igual(naMetaHoje.map((m) => m.nome), ['portaria_visita_v2', 'portaria_visita', 'portaria_resposta_visitante_v2', 'portaria_resposta_visitante', 'palacio_pendencias_do_dia_v2'], 'lista da Meta: só os de nome válido')
+igual(naMetaHoje[3], { nome: 'portaria_resposta_visitante', status: 'PENDING', categoria: 'UTILITY', idioma: 'pt_BR' }, 'lista da Meta: situação e categoria em maiúsculas')
+igual([lerModelosDaMeta(null), lerModelosDaMeta({ data: 'x' }), lerModelosDaMeta('lixo')], [[], [], []], 'lista da Meta: corpo estranho não lança')
+igual(proximaPaginaDosModelos(listaDeHoje), null, 'lista da Meta: sem paging.next, é a última página')
+igual(proximaPaginaDosModelos({ data: [], paging: { cursors: { after: 'MjQZD' }, next: 'https://graph.facebook.com/…' } }), 'MjQZD', 'lista da Meta: o cursor da próxima página')
+igual(proximaPaginaDosModelos({ paging: { cursors: { after: 'a&b' }, next: 'x' } }), null, 'lista da Meta: cursor estranho não vai para o endereço')
+
+const comoNaMeta = (mudancas: Record<string, Partial<ModeloNaMeta>>): ModeloNaMeta[] =>
+  [...naMetaHoje, ...['portaria_visita_foto_v2', 'portaria_visita_foto'].map((nome) => ({ nome, status: 'PENDING', categoria: 'UTILITY', idioma: 'pt_BR' }))]
+    .map((m) => ({ ...m, ...mudancas[m.nome] }))
+const aprovado = { status: 'APPROVED' }
+igual(modeloUtilAprovado({ nome: 'x', status: 'APPROVED', categoria: 'UTILITY', idioma: 'pt_BR' }), true, 'modelo: aprovado, de Utilidade, em português')
+igual([
+  modeloUtilAprovado({ nome: 'x', status: 'APPROVED', categoria: 'MARKETING', idioma: 'pt_BR' }),
+  modeloUtilAprovado({ nome: 'x', status: 'APPROVED', categoria: 'AUTHENTICATION', idioma: 'pt_BR' }),
+  modeloUtilAprovado({ nome: 'x', status: 'PENDING', categoria: 'UTILITY', idioma: 'pt_BR' }),
+  modeloUtilAprovado({ nome: 'x', status: 'PAUSED', categoria: 'UTILITY', idioma: 'pt_BR' }),
+  modeloUtilAprovado({ nome: 'x', status: 'APPROVED', categoria: 'UTILITY', idioma: 'en_US' }),
+], [false, false, false, false, false], 'modelo: Marketing, Autenticação, pendente, pausado ou em outro idioma, nunca')
+igual([escolherModelo('visita', naMetaHoje), escolherModelo('resposta_ao_visitante', naMetaHoje)], [null, null], 'escolha: hoje (tudo pendente), nenhum serve')
+igual(escolherModelo('visita', comoNaMeta({ portaria_visita: aprovado }))?.nome, 'portaria_visita', 'escolha: só o primeiro aprovado, o portaria_visita')
+igual(escolherModelo('visita', comoNaMeta({ portaria_visita: aprovado, portaria_visita_v2: aprovado }))?.nome, 'portaria_visita_v2', 'escolha: os dois aprovados, o v2 antes')
+igual(escolherModelo('visita', comoNaMeta({ portaria_visita: aprovado, portaria_visita_v2: { status: 'APPROVED', categoria: 'MARKETING' } }))?.nome, 'portaria_visita',
+  'escolha: o v2 reclassificado como Marketing fica de fora')
+igual(escolherModelo('visita', comoNaMeta({ portaria_visita_foto_v2: aprovado, portaria_visita_v2: aprovado }))?.nome, 'portaria_visita_v2', 'escolha: sem a foto, o de cabeçalho de imagem não serve')
+igual(escolherModelo('visita', comoNaMeta({ portaria_visita_foto_v2: aprovado, portaria_visita_v2: aprovado }), { comImagem: true })?.nome, 'portaria_visita_foto_v2', 'escolha: com a foto, o de imagem vem antes')
+igual(escolherModelo('resposta_ao_visitante', comoNaMeta({ portaria_resposta_visitante: aprovado, portaria_resposta_visitante_v2: aprovado }))?.nome, 'portaria_resposta_visitante_v2', 'escolha: resposta ao visitante, o v2 antes')
+
+igual(parametroDoModelo('João\n\tda     Silva\u00a0Jr.'), 'João da Silva Jr.', 'variável: sem quebra de linha, tabulação nem espaços seguidos')
+igual(parametroDoModelo('*Ana* _Lima_ ~x~ `y`'), 'Ana Lima x y', 'variável: sem a formatação do WhatsApp')
+igual([parametroDoModelo(''), parametroDoModelo('   '), parametroDoModelo(null)], ['—', '—', '—'], 'variável vazia vira "—" (a Meta recusa vazia)')
+igual(parametroDoModelo('x'.repeat(50), 10), `${'x'.repeat(9)}…`, 'variável: cortada com reticências no tamanho pedido')
+igual(/[\n\t]| {4,}/.test(parametroDoModelo('a \n\n\n b\t\t\tc          d')), false, 'variável: nunca quebra de linha, tabulação ou 4 espaços (erro 132018)')
+
+const visitaV2 = CATALOGO_DOS_MODELOS.visita[2]
+const fichaPorModelo = montarModelo(visitaV2, { parametros: ['João da Silva (Empresa XYZ)', 'entrega de documentos', '14:32, registrado por Ana'], respostas: ['r1', 'r2', 'r3'] })
+igual(fichaPorModelo, {
+  name: 'portaria_visita_v2', language: { code: 'pt_BR' },
+  components: [
+    { type: 'body', parameters: [{ type: 'text', text: 'João da Silva (Empresa XYZ)' }, { type: 'text', text: 'entrega de documentos' }, { type: 'text', text: '14:32, registrado por Ana' }] },
+    { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: 'r1' }] },
+    { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'r2' }] },
+    { type: 'button', sub_type: 'quick_reply', index: '2', parameters: [{ type: 'payload', payload: 'r3' }] },
+  ],
+} satisfies ObjetoDoModelo, 'montagem: a ficha por modelo, com o corpo e o payload de cada botão')
+igual(corpoPreenchido(visitaV2, ['João', 'reunião', '14:32']), 'Chegou uma visita para você na recepção da Cruz Vermelha RJ.\n\nQuem é: João\nAssunto: reunião\nHorário: 14:32\n\nToque em uma das opções para responder à portaria.', 'montagem: o corpo como chega ao celular')
+igual(montarModelo(visitaV2, { parametros: ['João', 'reunião'] }), null, 'montagem: variáveis a menos, não monta')
+igual(montarModelo(visitaV2, { parametros: ['a', 'b', 'c', 'd'] }), null, 'montagem: variáveis a mais, não monta')
+igual(montarModelo(visitaV2, { parametros: ['a', 'b', 'c'] })?.components.length, 1, 'montagem: sem respostas, os botões voltam com o texto (sem componente de botão)')
+igual(montarModelo(visitaV2, { parametros: ['a', 'b', 'c'], respostas: ['r1', 'r2'] }), null, 'montagem: payload faltando para um botão')
+igual(montarModelo(visitaV2, { parametros: ['a', 'b', 'c'], respostas: ['r1', ' ', 'r3'] }), null, 'montagem: payload vazio')
+igual(montarModelo(visitaV2, { parametros: ['a', 'b', 'c'], respostas: ['r1', 'r2', 'x'.repeat(LIMITES_DO_MODELO.payload + 1)] }), null, 'montagem: payload longo')
+const enorme = montarModelo(visitaV2, { parametros: ['y'.repeat(2000), 'z'.repeat(2000), 'w'.repeat(2000)] })
+const variaveisEnormes = enorme?.components[0].type === 'body' ? enorme.components[0].parameters.map((x) => x.text) : []
+igual(corpoPreenchido(visitaV2, variaveisEnormes).length <= LIMITES_DO_MODELO.corpo && variaveisEnormes.every((t) => t.endsWith('…')), true, 'montagem: variáveis enormes cortadas, o corpo cabe em 1024')
+const fotoV2 = CATALOGO_DOS_MODELOS.visita[0]
+igual(montarModelo(fotoV2, { parametros: ['a', 'b', 'c'] }), null, 'montagem: cabeçalho de imagem sem a imagem, não monta')
+igual(montarModelo(fotoV2, { parametros: ['a', 'b', 'c'], imagem: 'id com espaço' }), null, 'montagem: id de imagem fora do formato')
+igual(montarModelo(fotoV2, { parametros: ['a', 'b', 'c'], imagem: '4490709327384033' })?.components[0], { type: 'header', parameters: [{ type: 'image', image: { id: '4490709327384033' } }] }, 'montagem: a foto no cabeçalho, pelo id')
+igual(montarModelo(CATALOGO_DOS_MODELOS.resposta_ao_visitante[0], { parametros: ['Ana Lima (Comunicação Social)', 'pode subir'] }), {
+  name: 'portaria_resposta_visitante_v2', language: { code: 'pt_BR' },
+  components: [{ type: 'body', parameters: [{ type: 'text', text: 'Ana Lima (Comunicação Social)' }, { type: 'text', text: 'pode subir' }] }],
+}, 'montagem: a resposta ao visitante, só o corpo')
+const comLink = { nome: 'teste_link', cabecalho: null, corpo: 'Abra: {{1}}', parametros: 1, botoes: [{ tipo: 'URL' as const, texto: 'Abrir', url: 'https://p/{{1}}' }] }
+igual(montarModelo(comLink, { parametros: ['x'], links: ['chamados/1'] })?.components[1], { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: 'chamados/1' }] }, 'montagem: o pedaço do link no botão')
+igual([montarModelo(comLink, { parametros: ['x'] }), montarModelo(comLink, { parametros: ['x'], links: ['a b'] })], [null, null], 'montagem: link faltando ou com espaço')
+
+const montagemDaFicha = { parametros: ['João', 'reunião', '14:32'], respostas: ['r1', 'r2', 'r3'] }
+igual([modeloDaSituacao('visita', naMetaHoje, montagemDaFicha), modeloDaSituacao('resposta_ao_visitante', naMetaHoje, { parametros: ['Ana', 'pode subir'] })], [null, null], 'situação: hoje, nenhum modelo (quem chama segue pelo caminho de antes)')
+igual(modeloDaSituacao('visita', comoNaMeta({ portaria_visita_foto_v2: aprovado, portaria_visita: aprovado }), montagemDaFicha)?.name, 'portaria_visita', 'situação: o de foto aprovado, mas sem a foto: o sem foto')
+igual(modeloDaSituacao('visita', comoNaMeta({ portaria_visita_foto_v2: aprovado, portaria_visita: aprovado }), { ...montagemDaFicha, imagem: '4490709327384033' })?.name, 'portaria_visita_foto_v2', 'situação: com a foto, o de foto')
+igual(modeloDaSituacao('visita', comoNaMeta({ portaria_visita: aprovado }), { parametros: ['João'] }), null, 'situação: o aprovado que não monta não sai')
+igual([idDeMidiaValido('4490709327384033'), idDeMidiaValido(''), idDeMidiaValido('a/b'), idDeMidiaValido(42)], [true, false, false, false], 'id da mídia')
+
+// A conta do WhatsApp Business (WABA), pela resposta da plataforma da Kapso.
+igual(wabaDoNumero({ data: { id: 'uuid', phone_number_id: '1401089659754587', business_account_id: '1104970675472629' } }), '1104970675472629', 'WABA: business_account_id')
+igual(wabaDoNumero({ data: { waba_id: 1104970675472629 } }), '1104970675472629', 'WABA: em número também')
+igual(wabaDoNumero({ data: { business_account: { id: '1104970675472629' } } }), '1104970675472629', 'WABA: dentro de business_account')
+igual([wabaDoNumero({ data: { business_account_id: 'abc' } }), wabaDoNumero({ data: {} }), wabaDoNumero({ data: [] }), wabaDoNumero(null)], [null, null, null, null], 'WABA: sem o campo, null (vale o do cofre)')
+igual([wabaValido('12345'), wabaValido('1234'), wabaValido(' 12345'), wabaValido(12345)], [true, false, false, false], 'WABA: só dígitos')
+
+// A ficha dentro da janela: os mesmos botões, com a foto no cabeçalho (pelo id da mídia).
+const botoesDaFicha = botoesDaVisita?.tipo === 'botoes' ? botoesDaVisita.botoes : []
+igual(objetoInterativo('Ficha', { tipo: 'botoes', botoes: botoesDaFicha, imagem: '4490709327384033' }), {
+  type: 'button', header: { type: 'image', image: { id: '4490709327384033' } }, body: { text: 'Ficha' },
+  action: { buttons: [{ type: 'reply', reply: { id: '1', title: 'Pode subir' } }, { type: 'reply', reply: { id: '2', title: 'Aguarde na recepção' } }, { type: 'reply', reply: { id: '3', title: 'Não pode agora' } }] },
+}, 'interativo: botões com a foto no cabeçalho')
+igual(objetoInterativo('Ficha', { tipo: 'botoes', botoes: botoesDaFicha, imagem: null }), objetoInterativo('Ficha', { tipo: 'botoes', botoes: botoesDaFicha }), 'interativo: sem a foto, sem cabeçalho')
+igual(objetoInterativo('Ficha', { tipo: 'botoes', botoes: botoesDaFicha, imagem: '../x' }), null, 'interativo: id da imagem fora do formato vai só o texto')
+
+// ---------------------------------------------------------------- o envio pela Kapso, com um fetch de mentira (sem rede)
+type PedidoFalso = { url: string; metodo: string; cabecalhos: Record<string, string>; corpo: unknown }
+type RespostaFalsa = { status: number; corpo: unknown }
+
+/**
+ * lib/whatsapp/kapso.ts de verdade, contra uma Kapso de mentira: o fetch global vira uma fila de respostas, e cada
+ * pedido fica guardado para conferir o endereço, o método, a chave e o corpo. Pedido a mais (sem resposta na fila) vira
+ * erro de rede — nunca sai para a internet.
+ */
+async function conferirEnvioPelaKapso() {
+  // kapso.ts começa com import 'server-only', que só existe dentro do Next: aqui vira um arquivo vazio.
+  const { writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const Module = (await import('node:module')).default as unknown as { _resolveFilename: (pedido: string, ...resto: unknown[]) => string }
+  const vazio = join(tmpdir(), 'server-only-vazio.js')
+  writeFileSync(vazio, '')
+  const resolver = Module._resolveFilename
+  Module._resolveFilename = function (pedido: string, ...resto: unknown[]) { return pedido === 'server-only' ? vazio : resolver.call(this, pedido, ...resto) }
+  const kapso = await import('../lib/whatsapp/kapso')
+
+  const pedidos: PedidoFalso[] = []
+  let fila: RespostaFalsa[] = []
+  const original = globalThis.fetch
+  globalThis.fetch = (async (entrada: string | URL | Request, init?: RequestInit) => {
+    const corpo = init?.body instanceof FormData ? init.body : typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body ?? null
+    pedidos.push({ url: String(entrada), metodo: init?.method ?? 'GET', cabecalhos: Object.fromEntries(new Headers(init?.headers).entries()), corpo })
+    const r = fila.shift()
+    if (!r) throw new TypeError('pedido não esperado (a Kapso de mentira não tem resposta)')
+    return new Response(JSON.stringify(r.corpo), { status: r.status, headers: { 'content-type': 'application/json' } })
+  }) as typeof fetch
+  const rodar = async <T>(respostas: RespostaFalsa[], f: () => Promise<T>): Promise<T> => { pedidos.length = 0; fila = [...respostas]; return f() }
+  const META = 'https://api.kapso.ai/meta/whatsapp/v24.0'
+  const config = { provedor: 'kapso' as const, numeroId: '1401089659754587', chave: 'chave-de-teste-123', modelo: 'aviso_do_palacio', modeloCodigo: null, modeloSeguranca: null }
+  const foraDaJanela = { status: 400, corpo: { error: { message: 'Re-engagement message', code: 131047 } } }
+  const enviada = (id: string) => ({ status: 200, corpo: { messaging_product: 'whatsapp', messages: [{ id }] } })
+
+  try {
+    // O upload da foto (POST /{phone_number_id}/media, multipart).
+    const subida = await rodar([{ status: 200, corpo: { id: '4490709327384033' } }], () => kapso.subirMidiaKapso(config, new Uint8Array([0xff, 0xd8, 0xff, 1, 2, 3])))
+    igual(subida, { ok: true, id: '4490709327384033' }, 'kapso: a foto sobe e volta o id')
+    const p0 = pedidos[0]
+    const form = p0?.corpo instanceof FormData ? p0.corpo : null
+    const arquivo = form?.get('file')
+    igual([p0?.url, p0?.metodo, p0?.cabecalhos['x-api-key'], 'content-type' in (p0?.cabecalhos ?? {})], [`${META}/1401089659754587/media`, 'POST', 'chave-de-teste-123', false],
+      'kapso: upload no proxy da Meta, com a chave e sem content-type fixo (o boundary é do fetch)')
+    igual([form?.get('messaging_product'), form?.get('type'), arquivo instanceof Blob ? [arquivo.type, arquivo.size, (arquivo as File).name] : null], ['whatsapp', 'image/jpeg', ['image/jpeg', 6, 'foto.jpg']], 'kapso: o formulário do upload')
+    igual((await rodar([], () => kapso.subirMidiaKapso(config, new Uint8Array([1]), 'image/gif'))).ok, false, 'kapso: GIF não sobe')
+    igual((await rodar([], () => kapso.subirMidiaKapso(config, new Uint8Array(kapso.TETO_DA_IMAGEM_NA_META + 1)))).ok, false, 'kapso: imagem acima de 5 MB não sobe')
+    igual(pedidos.length, 0, 'kapso: o que não sobe nem chega à Kapso')
+    const recusada = await rodar([{ status: 400, corpo: { error: { message: 'Invalid file type', code: 100 } } }], () => kapso.subirMidiaKapso(config, new Uint8Array([1, 2])))
+    igual(recusada, { ok: false, erro: 'Invalid file type', motivo: 'outro' }, 'kapso: upload recusado, o motivo da Meta')
+    igual((await rodar([{ status: 200, corpo: {} }], () => kapso.subirMidiaKapso(config, new Uint8Array([1, 2])))).ok, false, 'kapso: upload sem id na resposta')
+
+    // Apagar a mídia depois de usar.
+    igual(await rodar([{ status: 200, corpo: { success: true } }], () => kapso.apagarMidiaKapso(config, '4490709327384033')), true, 'kapso: a mídia apagada')
+    igual([pedidos[0]?.metodo, pedidos[0]?.url], ['DELETE', `${META}/4490709327384033?phone_number_id=1401089659754587`], 'kapso: DELETE com o número')
+    igual(await rodar([], () => kapso.apagarMidiaKapso(config, '../x')), false, 'kapso: id estranho nem chega à Kapso')
+
+    // O modelo montado, com qualquer componente.
+    const envioDoModelo = await rodar([enviada('wamid.M1')], () => kapso.enviarModeloKapso(config, '5521987654321', fichaPorModelo!))
+    igual(envioDoModelo, { ok: true, id: 'wamid.M1', modelo: 'portaria_visita_v2' }, 'kapso: o modelo sai e diz qual foi')
+    igual(pedidos[0]?.corpo, { messaging_product: 'whatsapp', recipient_type: 'individual', to: '5521987654321', type: 'template', template: fichaPorModelo }, 'kapso: o corpo do envio do modelo')
+    const modeloRecusado = await rodar([{ status: 400, corpo: { error: { message: 'Template name does not exist in the translation', code: 132001 } } }],
+      () => kapso.enviarModeloKapso(config, '5521987654321', fichaPorModelo!))
+    igual([modeloRecusado.ok, !modeloRecusado.ok && modeloRecusado.motivo, !modeloRecusado.ok && modeloRecusado.erro.includes('“portaria_visita_v2”'), !modeloRecusado.ok && modeloRecusado.erro.includes('painel da Kapso')],
+      [false, 'outro', true, true], 'kapso: modelo do catálogo recusado é falha comum, com o nome e onde conferir')
+
+    // A ficha dentro da janela: botões com a foto; a foto recusada não leva os botões junto.
+    const ficha = { tipo: 'botoes' as const, botoes: botoesDaFicha, imagem: '4490709327384033' }
+    const comFoto = await rodar([enviada('wamid.F1')], () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha da visita', { finalidade: 'aviso', interativo: ficha }))
+    const interativoEnviado = (i: number) => (pedidos[i]?.corpo as { interactive?: { header?: unknown; action?: { buttons?: unknown[] } } } | undefined)?.interactive
+    igual([comFoto, interativoEnviado(0)?.header, interativoEnviado(0)?.action?.buttons?.length], [{ ok: true, id: 'wamid.F1' }, { type: 'image', image: { id: '4490709327384033' } }, 3], 'kapso: a ficha com a foto no cabeçalho')
+    const semAFoto = await rodar([{ status: 400, corpo: { error: { message: 'Media upload error', code: 131053 } } }, enviada('wamid.F2')],
+      () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha da visita', { finalidade: 'aviso', interativo: ficha }))
+    igual([semAFoto.ok, pedidos.length, interativoEnviado(1)?.header, interativoEnviado(1)?.action?.buttons?.length], [true, 2, undefined, 3], 'kapso: a foto recusada, de novo sem ela e com os botões')
+
+    // Fora da janela: o modelo da situação, pedido só quando precisa.
+    let pediuOModelo = 0
+    const modeloDaFicha = async () => { pediuOModelo++; return fichaPorModelo }
+    const porModelo = await rodar([foraDaJanela, foraDaJanela, enviada('wamid.T1')],
+      () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha da visita', { finalidade: 'aviso', interativo: ficha, modeloForaDaJanela: modeloDaFicha }))
+    igual([porModelo, pediuOModelo], [{ ok: true, id: 'wamid.T1', modelo: 'portaria_visita_v2' }, 1], 'kapso: fora da janela, o modelo da situação')
+    igual(pedidos.map((x) => (x.corpo as { to?: string; type?: string }).to + ':' + (x.corpo as { type?: string }).type), ['5521987654321:interactive', '552187654321:interactive', '5521987654321:template'],
+      'kapso: tenta sem o nono dígito antes do modelo; o modelo vai ao número inteiro')
+    const semModelo = await rodar([foraDaJanela, foraDaJanela], () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha da visita', { finalidade: 'aviso', interativo: ficha, modeloForaDaJanela: async () => null }))
+    igual([semModelo.ok, !semModelo.ok && semModelo.foraDaJanela, !semModelo.ok && semModelo.erro.includes('Não há modelo aprovado'), pedidos.length], [false, true, true, 2],
+      'kapso: sem modelo aprovado, não sai (nem pelo modelo dos avisos) e diz que foi a janela')
+    const dentroDaJanela = await rodar([enviada('wamid.J1')], async () => { pediuOModelo = 0; return kapso.enviarTextoKapso(config, '5521987654321', 'oi', { modeloForaDaJanela: modeloDaFicha }) })
+    igual([dentroDaJanela.ok, pediuOModelo], [true, 0], 'kapso: dentro da janela, o modelo nem é pedido')
+    const doCofre = await rodar([foraDaJanela, foraDaJanela, enviada('wamid.A1')], () => kapso.enviarTextoKapso(config, '5521987654321', 'Aviso qualquer', { finalidade: 'aviso' }))
+    igual([doCofre, (pedidos[2]?.corpo as { template?: { name?: string } } | undefined)?.template?.name], [{ ok: true, id: 'wamid.A1', modelo: 'aviso_do_palacio' }, 'aviso_do_palacio'], 'kapso: sem o da situação, o modelo do cofre, como antes')
+
+    // O WABA pelo número (API da plataforma), guardado; sem ele, o do cofre.
+    const PLATAFORMA = 'https://api.kapso.ai/platform/v1/whatsapp/phone_numbers'
+    igual(await rodar([{ status: 200, corpo: { data: { phone_number_id: '1401089659754587', business_account_id: '1104970675472629' } } }], () => kapso.wabaDoNumeroKapso(config)), '1104970675472629', 'kapso: o WABA pelo número')
+    igual(pedidos[0]?.url, `${PLATAFORMA}/1401089659754587`, 'kapso: o mesmo GET do número na plataforma')
+    igual([await rodar([], () => kapso.wabaDoNumeroKapso(config)), pedidos.length], ['1104970675472629', 0], 'kapso: o WABA fica guardado')
+    igual(await rodar([{ status: 200, corpo: { data: { status: 'CONNECTED' } } }], () => kapso.wabaDoNumeroKapso({ ...config, numeroId: '2222222222', wabaId: '1104970675472629' })), '1104970675472629', 'kapso: a Kapso não diz, vale o do cofre')
+    igual(await rodar([{ status: 404, corpo: { error: 'not found' } }], () => kapso.wabaDoNumeroKapso({ ...config, numeroId: '3333333333' })), null, 'kapso: sem WABA nenhum, null')
+
+    // Os modelos da conta: as páginas, o cache e a falha (nenhum aprovado).
+    const config4 = { ...config, numeroId: '4444444444' }
+    const pagina1 = { data: [{ name: 'portaria_visita_v2', status: 'APPROVED', category: 'UTILITY', language: 'pt_BR' }], paging: { cursors: { after: 'MjQZD' }, next: 'https://x' } }
+    const pagina2 = { data: [{ name: 'portaria_visita', status: 'APPROVED', category: 'MARKETING', language: 'pt_BR' }], paging: { cursors: { before: 'MAZDZD' } } }
+    const lidos = await rodar([{ status: 200, corpo: { data: { business_account_id: '99999' } } }, { status: 200, corpo: pagina1 }, { status: 200, corpo: pagina2 }], () => kapso.modelosDaMetaKapso(config4))
+    igual(lidos.map((m) => `${m.nome}:${m.status}:${m.categoria}`), ['portaria_visita_v2:APPROVED:UTILITY', 'portaria_visita:APPROVED:MARKETING'], 'kapso: os modelos das duas páginas')
+    igual(pedidos.slice(1).map((x) => x.url), [`${META}/99999/message_templates?fields=name,status,category,language&limit=100`, `${META}/99999/message_templates?fields=name,status,category,language&limit=100&after=MjQZD`],
+      'kapso: a lista pelo WABA, com os campos, e a página seguinte pelo cursor')
+    igual([(await rodar([], () => kapso.modelosDaMetaKapso(config4))).length, pedidos.length], [2, 0], 'kapso: a lista fica guardada')
+    igual(modeloDaSituacao('visita', lidos, montagemDaFicha)?.name, 'portaria_visita_v2', 'kapso: o v2 aprovado serve (o v1 virou Marketing)')
+    const config5 = { ...config, numeroId: '5555555555' }
+    igual(await rodar([{ status: 200, corpo: { data: { business_account_id: '99999' } } }, { status: 500, corpo: { error: { message: 'Erro' } } }], () => kapso.modelosDaMetaKapso(config5)), [], 'kapso: a leitura falhou, nenhum aprovado')
+    igual([await rodar([], () => kapso.modelosDaMetaKapso(config5)), pedidos.length], [[], 0], 'kapso: a falha também espera um pouco antes de ler de novo')
+  } finally {
+    globalThis.fetch = original
+  }
+
+  // O cache em si, com o relógio de mentira.
+  let relogio = 0
+  let leituras = 0
+  const cache = cacheDosModelos({ agora: () => relogio })
+  const lerUm = async () => { leituras++; return [{ nome: 'portaria_visita', status: 'APPROVED', categoria: 'UTILITY', idioma: 'pt_BR' }] }
+  const [a, b] = await Promise.all([cache.modelos('n', lerUm), cache.modelos('n', lerUm)])
+  igual([a.length, b.length, leituras], [1, 1, 1], 'cache: quem pede junto espera a mesma leitura')
+  relogio = VALIDADE_DOS_MODELOS_MS - 1
+  await cache.modelos('n', lerUm)
+  igual(leituras, 1, 'cache: dentro da validade, não lê')
+  relogio = VALIDADE_DOS_MODELOS_MS + 1
+  await cache.modelos('n', lerUm)
+  igual(leituras, 2, 'cache: vencida, lê de novo')
+  let falhasDaLeitura = 0
+  const falhar = async () => { falhasDaLeitura++; return null }
+  igual(await cache.modelos('m', falhar), [], 'cache: a leitura que falhou vale nenhum aprovado')
+  relogio += VALIDADE_DA_FALHA_MS - 1
+  await cache.modelos('m', falhar)
+  igual(falhasDaLeitura, 1, 'cache: a falha espera um pouco')
+  relogio += 2
+  await cache.modelos('m', falhar)
+  igual(falhasDaLeitura, 2, 'cache: depois, tenta de novo')
+  igual(await cache.modelos('x', async () => { throw new Error('rede') }), [], 'cache: a leitura que lança também vale nenhum')
+  cache.esquecer('n')
+  await cache.modelos('n', lerUm)
+  igual(leituras, 3, 'cache: esquecida, lê de novo')
+}
+
+conferirEnvioPelaKapso().catch((causa) => { falhas++; console.log('FALHOU: o envio pela Kapso lançou', causa) }).finally(() => {
+  if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
+  console.log('WhatsApp: tudo certo.')
+})

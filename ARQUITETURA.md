@@ -87,7 +87,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
-| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo` e `modeloSeguranca` (§8.5) |
+| `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo`, `modeloSeguranca` e `wabaId` (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -1391,6 +1391,16 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   chamada como a pessoa (`whatsapp_portaria_registrar_entrada`, migração
   `20261018213700`), e pelo mesmo `avisarVisitado`. Foto, crachá e documento
   ficam na tela.
+- **Foto pelo WhatsApp — fundação (19/10/2026, migração `20261019040000`):**
+  `whatsapp_portaria_definir_foto(p_user_id, p_id, p_foto_path)` é a mesma
+  `portaria_definir_foto` da tela, chamada como a pessoa (sessão aal1, só
+  `service_role`): só põe foto (tirar é pela tela) e só na visita que a própria
+  pessoa registrou ou confirmou; devolve o caminho anterior. O telefone, a
+  empresa, o crachá e a autorização do visitante já passavam pela entrada do
+  WhatsApp (`portaria_registrar_entrada` grava `avisar_visitante` só com
+  telefone). Ainda não ligada ao fluxo do `visitante:` (próximas etapas; §8.5,
+  "Portaria pelo WhatsApp com foto"). Testes em
+  `supabase/tests/whatsapp-portaria-foto.test.sql`.
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
   aparece com alerta. Os crachás para imprimir (`/portaria/crachas`) saem deitados (86 × 54 mm,
@@ -2094,7 +2104,8 @@ Limites que valem conhecer:
 
 O número do Palácio no WhatsApp, pela [Kapso](https://docs.kapso.ai) (API oficial da Meta, número
 gerenciado pela Kapso). Configuração no cofre (cartão “WhatsApp (Kapso — API oficial)”: chave
-`X-API-Key`, Phone number ID e, opcionais, os nomes dos modelos aprovados — avisos, código e segurança); conferência da conexão,
+`X-API-Key`, Phone number ID e, opcionais, os nomes dos modelos aprovados — avisos, código e segurança — e o ID da conta,
+o WABA); conferência da conexão,
 recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, usada até outubro de
 2026, saiu do código.
 
@@ -2102,7 +2113,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
   `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
-  `portaria.ts` (as visitas do dia e registrar quem chegou),
+  `portaria.ts` (as visitas do dia e registrar quem chegou), `modelos.ts` (puro: o catálogo dos modelos da Meta
+  por situação, a escolha do aprovado e a montagem — veja “Portaria pelo WhatsApp com foto”),
   `financeiro.ts` (as decisões do Financeiro e de Compras), `presenca.ts` (a chamada da ação de hoje),
   `frota.ts` (a frota agora e o diário de bordo), `estoque.ts` (o saldo de um material),
   `confirmacoes.ts` (o link de confirmar no Palácio),
@@ -2135,6 +2147,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Contrato (docs.kapso.ai, outubro de 2026):** envio pelo proxy da Meta
   (`https://api.kapso.ai/meta/whatsapp/v24.0/{phone_number_id}/messages`, formato da Cloud API);
   mídia recebida por `GET /{media_id}?phone_number_id=…`, que devolve um `download_url` de 4 minutos;
+  mídia enviada por `POST /{phone_number_id}/media` (multipart, JPEG ou PNG até 5 MB), que devolve o id, e
+  apagada por `DELETE /{media_id}?phone_number_id=…`; a lista dos modelos da conta por
+  `GET /{WABA}/message_templates?fields=name,status,category,language&limit=100` (até 100 por página);
   webhook por número em `https://api.kapso.ai/platform/v1/whatsapp/phone_numbers/{id}/webhooks`.
 - **Conexão pela plataforma, não pelo proxy:** no número gerenciado pela Kapso, as leituras pelo proxy da Meta
   (`GET /{phone_number_id}`, templates) voltam 401 da Meta (190, "Cannot parse access token") mesmo com a chave
@@ -2850,6 +2865,38 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   - **Testes:** `scripts/conferir-assistente.ts` ganhou os casos ("aprova a 2" sem lista, o plano no Palácio pela rota,
     a revisão que termina em texto, o nome com tags e com "(@outro · Setor)", o e-mail no status);
     `scripts/conferir-whatsapp.ts`, o aviso com emoji composto e m².
+- **Portaria pelo WhatsApp com foto — fundação (19/10/2026, etapa 1):** a base para registrar o visitante com
+  foto pelo WhatsApp e mandar a ficha a quem é visitado (pedido do Matheus). Nada muda para quem usa ainda:
+  - **Modelos por situação** (`lib/whatsapp/modelos.ts`, puro, `scripts/conferir-whatsapp.ts`): o catálogo dos
+    modelos que o Palácio cadastrou na Meta, com corpo, variáveis e botões copiados letra por letra
+    (`CATALOGO_DOS_MODELOS`): a visita (`portaria_visita_foto_v2`, `portaria_visita_foto` — com cabeçalho de
+    imagem, que a Meta ainda não aceitou cadastrar —, `portaria_visita_v2`, `portaria_visita`; 3 variáveis e
+    os botões “Pode subir”, “Aguarde na recepção” e “Não pode agora”) e a resposta ao visitante
+    (`portaria_resposta_visitante_v2`, `portaria_resposta_visitante`; 2 variáveis). `modeloDaSituacao` usa o
+    primeiro da lista que está **APPROVED, UTILITY e pt_BR** (`modeloUtilAprovado`: nunca MARKETING nem
+    AUTHENTICATION; o de imagem só com a foto) e monta o objeto `template` (`montarModelo`): cabeçalho de imagem
+    pelo id da mídia, variáveis sem quebra de linha, tabulação ou 4 espaços seguidos (erro 132018), vazias
+    viram “—”, cortadas para o corpo preenchido caber em 1024, e o payload de cada botão de resposta rápida (o
+    que volta no webhook como o toque). Sem nenhum aprovado, null: quem chama segue pelo caminho de antes. Em
+    19/10/2026 todos ainda estavam PENDING.
+  - **A situação na Meta** (`modelosDaMetaKapso`, em `kapso.ts`): a lista pelo WABA, página a página (até 5),
+    guardada em memória por 10 min (`cacheDosModelos`; quem pede junto espera a mesma leitura); a falha vale
+    “nenhum aprovado” por 1 min. O WABA vem do número (`wabaDoNumeroKapso`: o mesmo
+    `GET /platform/v1/whatsapp/phone_numbers/{id}`, campo `business_account_id` ou variações — `wabaDoNumero`,
+    puro), guardado por 6 h; se a Kapso não diz, vale o campo opcional “ID da conta do WhatsApp Business —
+    WABA” do cartão da Kapso (`wabaId`). O cadastro dos modelos (19/10/2026) passou pelo endpoint do WABA no
+    proxy; se a leitura voltar 401 como o `GET` do número (acima), a lista vem vazia e nada muda.
+  - **Envio** (`kapso.ts`, fachada em `servidor.ts`): `subirMidia` (multipart, devolve o id), `apagarMidia`
+    (melhor esforço), `enviarModelo` (o modelo montado, com qualquer componente; não depende da janela),
+    `modeloAprovado` (o da situação, já montado). `Interativo` de botões ganhou `imagem` (o id da mídia vira o
+    cabeçalho); recusado, tenta de novo sem a imagem antes de cair no texto. `OpcoesDoEnvio.modeloForaDaJanela`
+    troca o modelo da finalidade pelo da situação, pedido só quando a janela está fechada; sem ele, a falha
+    volta com `foraDaJanela` (e o modelo dos avisos não é usado). O `Envio` que saiu por modelo diz qual
+    (`modelo`). Conferido contra uma Kapso de mentira (o `fetch` trocado em `scripts/conferir-whatsapp.ts`, sem
+    rede): o formulário do upload, o DELETE, o nono dígito antes do modelo, a página seguinte da lista, o cache.
+  - **Próximo passo:** os outros recuos de modelo (avisos, segurança, aprovações…) continuam pelo modelo do
+    cofre; catalogar os demais modelos cadastrados (`palacio_*`) em `modelos.ts`, por situação, e trocar o
+    recuo genérico pelo da situação.
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):

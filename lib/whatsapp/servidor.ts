@@ -3,10 +3,14 @@ import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { baseDoHashDoCodigo, type EstadoDaConexao, type EstadoDoWebhook, type Finalidade, type Interativo, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
 import {
-  baixarMidiaKapso, enviarTextoKapso, ligarWebhookKapso, numeroIdValido, perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso,
-  type ConfigDaKapso,
+  baseDoHashDoCodigo, wabaValido, type EstadoDaConexao, type EstadoDoWebhook, type Finalidade, type Interativo, type MotivoDaFalha, type ObjetoDoModelo,
+  type SentidoDoCodigo,
+} from './regras'
+import { modeloDaSituacao, type MontagemDoModelo, type ModeloNaMeta, type SituacaoDoModelo } from './modelos'
+import {
+  apagarMidiaKapso, baixarMidiaKapso, enviarModeloKapso, enviarTextoKapso, ligarWebhookKapso, modelosDaMetaKapso, numeroIdValido, perfilConectadoKapso,
+  situacaoDaConexaoKapso, situacaoDoWebhookKapso, subirMidiaKapso, type ConfigDaKapso,
 } from './kapso'
 
 /**
@@ -29,7 +33,8 @@ export type ConfigDoWhatsapp = ConfigDaKapso
 /**
  * A configuração do espaço: cofre (Configurações → Integrações) primeiro, ambiente (KAPSO_WHATSAPP, em JSON) depois.
  * Os três modelos são opcionais: o dos avisos (`modelo`), o de Autenticação para códigos (`modeloCodigo`) e o de
- * segurança da conta (`modeloSeguranca`; vazio, a segurança usa o dos avisos).
+ * segurança da conta (`modeloSeguranca`; vazio, a segurança usa o dos avisos). `wabaId`, também opcional: a conta do
+ * WhatsApp Business, só usada quando a Kapso não diz qual é (os modelos por situação — kapso.ts, wabaDoNumeroKapso).
  */
 export async function configDoWhatsapp(workspaceId: string): Promise<ConfigDoWhatsapp | null> {
   try {
@@ -38,7 +43,11 @@ export async function configDoWhatsapp(workspaceId: string): Promise<ConfigDoWha
     const numeroId = String(campos?.numeroId ?? '').replace(/\s/g, '')
     if (chave.length < 8 || !numeroIdValido(numeroId)) return null
     const nome = (id: 'modelo' | 'modeloCodigo' | 'modeloSeguranca') => String(campos?.[id] ?? '').trim() || null
-    return { provedor: 'kapso', chave, numeroId, modelo: nome('modelo'), modeloCodigo: nome('modeloCodigo'), modeloSeguranca: nome('modeloSeguranca') }
+    const wabaId = String(campos?.wabaId ?? '').replace(/\s/g, '')
+    return {
+      provedor: 'kapso', chave, numeroId, modelo: nome('modelo'), modeloCodigo: nome('modeloCodigo'), modeloSeguranca: nome('modeloSeguranca'),
+      wabaId: wabaValido(wabaId) ? wabaId : null,
+    }
   } catch {
     return null
   }
@@ -49,15 +58,25 @@ export async function configDoWhatsapp(workspaceId: string): Promise<ConfigDoWha
 /**
  * `semResposta`: o tempo acabou antes de a Kapso confirmar. A mensagem pode
  * ter saído mesmo assim: quem chama não trata isso como "não chegou".
+ * `modelo`: saiu por modelo (o nome dele), fora da janela de 24 h.
+ * `foraDaJanela`: não saiu porque a pessoa não escreveu nas últimas 24 h e
+ * não havia modelo para a mensagem — quem chama pode seguir por outro caminho.
  */
-export type Envio = { ok: true; id: string | null } | { ok: false; erro: string; motivo: MotivoDaFalha; semResposta?: boolean }
+export type Envio =
+  | { ok: true; id: string | null; modelo?: string | null }
+  | { ok: false; erro: string; motivo: MotivoDaFalha; semResposta?: boolean; foraDaJanela?: boolean }
 
 /**
  * `finalidade` escolhe o modelo fora da janela de 24 h (regras.ts, modeloParaEnviar; sem ela, aviso): a resposta do
  * bot nunca vai por modelo, e o código vai pelo de Autenticação com o próprio `codigo`. `interativo`: botões ou lista
  * junto do texto (regras.ts, Interativo), só dentro da janela; o id de cada um é o comando que o bot já lê digitado.
+ * `modeloForaDaJanela`: em vez do modelo da finalidade, o modelo da situação (modeloAprovado), pedido só quando a
+ * janela está fechada; null, a mensagem não sai (Envio.foraDaJanela).
  */
-export type OpcoesDoEnvio = { finalidade?: Finalidade; codigo?: string | null; interativo?: Interativo | null }
+export type OpcoesDoEnvio = {
+  finalidade?: Finalidade; codigo?: string | null; interativo?: Interativo | null
+  modeloForaDaJanela?: (() => Promise<ObjetoDoModelo | null>) | null
+}
 
 /**
  * Manda um texto. `numero` em dígitos. Com `interativo`, tenta antes com os botões ou a lista; se não couberem ou a Meta
@@ -66,11 +85,44 @@ export type OpcoesDoEnvio = { finalidade?: Finalidade; codigo?: string | null; i
 export const enviarTexto = (config: ConfigDoWhatsapp, numero: string, texto: string, opcoes?: OpcoesDoEnvio): Promise<Envio> =>
   enviarTextoKapso(config, numero, texto, opcoes)
 
+/**
+ * Manda um modelo já montado (modeloAprovado), com cabeçalho, corpo e botões. Não depende da janela de 24 h: é o
+ * caminho para quem nunca escreveu ao número (kapso.ts, enviarModeloKapso). Sem registro: quem chama registra.
+ */
+export const enviarModelo = (config: ConfigDoWhatsapp, numero: string, modelo: ObjetoDoModelo): Promise<Envio> =>
+  enviarModeloKapso(config, numero, modelo)
+
 export type MidiaBaixada = { ok: true; conteudo: Buffer; mime: string | null; nome: string | null } | { ok: false; erro: string }
 
 /** O arquivo de uma mensagem recebida, pelo id da mídia (MidiaRecebida.arquivo; `reserva` = MidiaRecebida.endereco). O webhook não traz o arquivo. */
 export const baixarMidia = (config: ConfigDoWhatsapp, midiaId: string, tetoBytes: number, reserva?: string | null): Promise<MidiaBaixada> =>
   baixarMidiaKapso(config, midiaId, tetoBytes, reserva)
+
+export type MidiaEnviada = { ok: true; id: string } | { ok: false; erro: string; motivo: MotivoDaFalha }
+
+/** Sobe uma imagem (JPEG ou PNG, até 5 MB) para a Meta; o id vai no cabeçalho dos botões ou do modelo (kapso.ts, subirMidiaKapso). */
+export const subirMidia = (config: ConfigDoWhatsapp, conteudo: Uint8Array, mime?: string): Promise<MidiaEnviada> =>
+  subirMidiaKapso(config, conteudo, mime)
+
+/** Apaga da Meta a mídia que o Palácio subiu, depois de usada. Melhor esforço; nunca lança. */
+export const apagarMidia = (config: ConfigDoWhatsapp, midiaId: string): Promise<boolean> => apagarMidiaKapso(config, midiaId)
+
+// ------------------------------------------------------------------ modelos por situação (lib/whatsapp/modelos.ts)
+
+/** Os modelos da conta como estão na Meta, com cache de alguns minutos; vazio se não deu para ler. */
+export const modelosDaMeta = (config: ConfigDoWhatsapp): Promise<ModeloNaMeta[]> => modelosDaMetaKapso(config)
+
+/**
+ * O modelo aprovado da situação, já montado (modelos.ts, modeloDaSituacao): aprovado na Meta, de Utilidade, em
+ * português. null se nenhum serve agora — quem chama segue pelo caminho de antes. Nunca lança.
+ */
+export async function modeloAprovado(config: ConfigDoWhatsapp, situacao: SituacaoDoModelo, montagem: MontagemDoModelo): Promise<ObjetoDoModelo | null> {
+  try {
+    return modeloDaSituacao(situacao, await modelosDaMeta(config), montagem)
+  } catch {
+    return null
+  }
+}
 
 // ------------------------------------------------------------------ conexão
 
@@ -154,15 +206,18 @@ export async function registrar(admin: Admin, l: LinhaDoRegistro): Promise<boole
 /**
  * Envia e registra. Sem configuração, não faz nada (e diz). O tipo é a finalidade do envio; no tipo "codigo",
  * `codigo` é o código de confirmação, que vai sozinho no modelo de Autenticação fora da janela de 24 h.
- * `interativo`: botões ou lista junto do texto (OpcoesDoEnvio); o registro é o mesmo.
+ * `interativo` e `modeloForaDaJanela`: como em OpcoesDoEnvio; o registro é o mesmo (só o número e o resultado,
+ * nunca o texto).
  */
 export async function mandar(admin: Admin, workspaceId: string, p: {
   numero: string; texto: string; tipo: LinhaDoRegistro['tipo']; codigo?: string | null; userId?: string | null; notificacaoId?: string | null; config?: ConfigDoWhatsapp | null
-  interativo?: Interativo | null
+  interativo?: Interativo | null; modeloForaDaJanela?: OpcoesDoEnvio['modeloForaDaJanela']
 }): Promise<Envio> {
   const config = p.config ?? await configDoWhatsapp(workspaceId)
   if (!config) return { ok: false, erro: 'O WhatsApp do Palácio Virtual não está configurado.', motivo: 'chave' }
-  const envio = await enviarTexto(config, p.numero, p.texto, { finalidade: p.tipo, codigo: p.tipo === 'codigo' ? p.codigo : null, interativo: p.interativo })
+  const envio = await enviarTexto(config, p.numero, p.texto, {
+    finalidade: p.tipo, codigo: p.tipo === 'codigo' ? p.codigo : null, interativo: p.interativo, modeloForaDaJanela: p.modeloForaDaJanela,
+  })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: p.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: p.numero,
     userId: p.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: p.notificacaoId, erro: envio.ok ? null : envio.erro,

@@ -2,9 +2,12 @@ import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import {
   estadoDoNumeroNaKapso, interativoCaiNoTexto, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, objetoInterativo, problemaDoModelo, problemaNaSaude,
-  type ModelosDoWhatsapp, type MotivoDaFalha, type ObjetoDoModelo,
+  wabaDoNumero, wabaValido, type ModelosDoWhatsapp, type MotivoDaFalha, type ObjetoDoModelo,
 } from './regras'
-import type { Envio, MidiaBaixada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
+import {
+  VALIDADE_DA_FALHA_MS, cacheDosModelos, idDeMidiaValido, lerModelosDaMeta, modeloDoCatalogo, proximaPaginaDosModelos, type ModeloNaMeta,
+} from './modelos'
+import type { Envio, MidiaBaixada, MidiaEnviada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
 
 /**
  * O WhatsApp do Palácio pela Kapso (API oficial da Meta, número gerenciado
@@ -21,13 +24,22 @@ import type { Envio, MidiaBaixada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoW
  *    o toque volta no webhook como interactive.button_reply / list_reply;
  *  - webhook por número (kind "kapso", payload v2), assinado com HMAC-SHA256
  *    do corpo cru no cabeçalho X-Webhook-Signature;
- *  - mídia recebida: GET /{media_id} devolve um download_url de 4 minutos.
+ *  - mídia recebida: GET /{media_id} devolve um download_url de 4 minutos;
+ *  - mídia enviada: POST /{phone_number_id}/media (multipart, imagem JPEG ou
+ *    PNG de até 5 MB) devolve o id, que vai no cabeçalho dos botões ou do
+ *    modelo; DELETE /{media_id}?phone_number_id= apaga;
+ *  - modelos: GET /{WABA}/message_templates lista os modelos da conta com a
+ *    situação e a categoria (até 100 por página). O WABA vem do número, pela
+ *    API da plataforma, ou do campo opcional do cofre (wabaDoNumeroKapso).
  *
  * Não há QR code nem instância: o número fica conectado no painel da Kapso.
  */
 
-/** Os modelos (regras.ts): `modelo` o dos avisos, `modeloCodigo` o de Autenticação, `modeloSeguranca` (vazio usa o dos avisos). */
-export type ConfigDaKapso = { provedor: 'kapso'; numeroId: string; chave: string } & ModelosDoWhatsapp
+/**
+ * Os modelos (regras.ts): `modelo` o dos avisos, `modeloCodigo` o de Autenticação, `modeloSeguranca` (vazio usa o dos avisos).
+ * `wabaId`: a conta do WhatsApp Business, opcional — só vale quando a Kapso não diz qual é (wabaDoNumeroKapso).
+ */
+export type ConfigDaKapso = { provedor: 'kapso'; numeroId: string; chave: string; wabaId?: string | null } & ModelosDoWhatsapp
 
 const META = 'https://api.kapso.ai/meta/whatsapp/v24.0'
 const PLATAFORMA = 'https://api.kapso.ai/platform/v1'
@@ -65,12 +77,14 @@ function limparErro(config: ConfigDaKapso, t: string): string {
   return t.split(config.chave).join('[chave]').slice(0, 300)
 }
 
-async function chamar(config: ConfigDaKapso, metodo: 'GET' | 'POST' | 'PATCH', url: string, corpo?: unknown, tempoMs = TEMPO_MAXIMO_MS): Promise<Resposta> {
+/** Chama a Kapso. `corpo` em JSON, ou FormData para o upload de mídia (o fetch põe o content-type com o boundary). */
+async function chamar(config: ConfigDaKapso, metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, corpo?: unknown, tempoMs = TEMPO_MAXIMO_MS): Promise<Resposta> {
   try {
+    const formulario = corpo instanceof FormData
     const resposta = await fetch(url, {
       method: metodo,
-      headers: { 'X-API-Key': config.chave, ...(corpo === undefined ? {} : { 'content-type': 'application/json' }) },
-      body: corpo === undefined ? undefined : JSON.stringify(corpo),
+      headers: { 'X-API-Key': config.chave, ...(corpo === undefined || formulario ? {} : { 'content-type': 'application/json' }) },
+      body: corpo === undefined ? undefined : formulario ? corpo : JSON.stringify(corpo),
       signal: AbortSignal.timeout(tempoMs),
       cache: 'no-store',
     })
@@ -84,7 +98,7 @@ async function chamar(config: ConfigDaKapso, metodo: 'GET' | 'POST' | 'PATCH', u
     // Recusa do modelo (inexistente, pausado, variáveis erradas) é coisa de arrumar na Kapso: falha comum,
     // sem reenvio e sem alerta de queda, antes de o 404 virar "número não achado".
     const nomeDoModelo = texto(objeto(objeto(corpo)?.template)?.name)
-    const doModelo = nomeDoModelo ? problemaDoModelo({ nome: nomeDoModelo, codigo, status: s, mensagem }) : null
+    const doModelo = nomeDoModelo ? problemaDoModelo({ nome: nomeDoModelo, codigo, status: s, mensagem, doCatalogo: modeloDoCatalogo(nomeDoModelo) !== null }) : null
     if (doModelo) return { ok: false, status: s, dados, erro: limparErro(config, doModelo), motivo: 'outro', foraDaJanela: false }
     const foraDaJanela = codigo === 131047 || /24.?h|window|janela/i.test(mensagem ?? '') && s === 422
     let motivo: MotivoDaFalha = 'outro'
@@ -121,14 +135,36 @@ async function enviarModelo(config: ConfigDaKapso, numero: string, modelo: Objet
   }, TEMPO_DO_ENVIO_MS)
 }
 
+/** A resposta da Kapso como Envio. `modelo`: o nome do modelo, quando saiu por modelo. */
+function paraEnvio(r: Resposta, modelo: string | null): Envio {
+  if (r.semResposta) return { ok: false, erro: 'A Kapso não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', motivo: 'tempo', semResposta: true }
+  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.', motivo: r.motivo ?? 'outro' }
+  return { ok: true, id: idDoEnvio(r.dados), ...(modelo ? { modelo } : {}) }
+}
+
+/**
+ * Manda um modelo já montado (modelos.ts, montarModelo; ou regras.ts, modeloParaEnviar), com qualquer
+ * componente: cabeçalho de imagem, corpo, botões de resposta rápida com payload, botão de link. Modelo
+ * não depende da janela de 24 h: é o caminho para quem nunca escreveu ao número (o visitante da portaria).
+ * A recusa do modelo é falha comum, sem reenvio (chamar, problemaDoModelo).
+ */
+export async function enviarModeloKapso(config: ConfigDaKapso, numero: string, modelo: ObjetoDoModelo): Promise<Envio> {
+  return paraEnvio(await enviarModelo(config, numero, modelo), modelo.name)
+}
+
 /**
  * Manda um texto. Com `interativo` (botões ou lista; regras.ts, objetoInterativo),
  * tenta antes a mensagem interativa, com o texto inteiro no corpo; se ela não
  * cabe ou a Meta recusa o formato (interativoCaiNoTexto), vai o mesmo texto sem
- * os botões. Fora da janela de 24 h, cai no modelo aprovado da finalidade
+ * os botões. Os botões com a imagem no cabeçalho (a ficha da visita), recusados,
+ * tentam antes sem a imagem: a mídia que a Meta não aceitou não leva os botões
+ * junto. Fora da janela de 24 h, cai no modelo aprovado da finalidade
  * (Configurações → Integrações; regras.ts, modeloParaEnviar): o dos avisos com
  * o texto inteiro no parâmetro, o de Autenticação só com o código, e a resposta
- * do bot nunca. Sem `finalidade`, vale como aviso.
+ * do bot nunca. Sem `finalidade`, vale como aviso. Com `modeloForaDaJanela`, é
+ * ele que diz o modelo (o da situação, já montado: modelos.ts), só quando
+ * precisa; sem modelo, não sai, e a falha diz `foraDaJanela` para quem chama
+ * seguir por outro caminho.
  */
 export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t: string, opcoes: OpcoesDoEnvio = {}): Promise<Envio> {
   const enviar = (para: string, conteudo: Record<string, unknown>) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
@@ -142,16 +178,59 @@ export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t:
   }
   const interativo = opcoes.interativo ? objetoInterativo(t, opcoes.interativo) : null
   let r = interativo ? await tentar({ type: 'interactive', interactive: interativo }) : null
+  if (r && interativoCaiNoTexto(r) && interativo?.type === 'button' && interativo.header) {
+    r = await tentar({ type: 'interactive', interactive: { type: 'button', body: interativo.body, action: interativo.action } })
+  }
   // Fora da janela o texto ficaria de fora igual: segue direto para o modelo, sem os botões.
   if (!r || interativoCaiNoTexto(r)) r = await tentar({ type: 'text', text: { body: t.slice(0, 4096), preview_url: false } })
+  let porModelo: string | null = null
   if (!r.ok && r.foraDaJanela) {
-    const modelo = modeloParaEnviar({ finalidade: opcoes.finalidade ?? 'aviso', modelos: config, texto: t, codigo: opcoes.codigo })
-    if (!modelo.ok) return { ok: false, erro: `${r.erro} ${modelo.falta}`, motivo: 'outro' }
-    r = await enviarModelo(config, numero, modelo.modelo)
+    if (opcoes.modeloForaDaJanela) {
+      let daSituacao: ObjetoDoModelo | null = null
+      try { daSituacao = await opcoes.modeloForaDaJanela() } catch { daSituacao = null }
+      if (!daSituacao) return { ok: false, erro: `${r.erro} Não há modelo aprovado para esta mensagem.`, motivo: 'outro', foraDaJanela: true }
+      r = await enviarModelo(config, numero, daSituacao)
+      porModelo = daSituacao.name
+    } else {
+      const modelo = modeloParaEnviar({ finalidade: opcoes.finalidade ?? 'aviso', modelos: config, texto: t, codigo: opcoes.codigo })
+      if (!modelo.ok) return { ok: false, erro: `${r.erro} ${modelo.falta}`, motivo: 'outro', foraDaJanela: true }
+      r = await enviarModelo(config, numero, modelo.modelo)
+      porModelo = modelo.modelo.name
+    }
   }
-  if (r.semResposta) return { ok: false, erro: 'A Kapso não confirmou o envio a tempo; a mensagem pode ter saído mesmo assim.', motivo: 'tempo', semResposta: true }
-  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar.', motivo: r.motivo ?? 'outro' }
-  return { ok: true, id: idDoEnvio(r.dados) }
+  return paraEnvio(r, porModelo)
+}
+
+/** O teto da Meta para imagem enviada (POST /{phone_number_id}/media): 5 MB, JPEG ou PNG. */
+export const TETO_DA_IMAGEM_NA_META = 5 * 1024 * 1024
+const IMAGENS_DA_META = new Map([['image/jpeg', 'foto.jpg'], ['image/png', 'foto.png']])
+
+/**
+ * Sobe uma imagem para a Meta e devolve o id da mídia: é por ele que a foto vai no cabeçalho dos botões
+ * (regras.ts, Interativo.imagem) ou do modelo (modelos.ts, MontagemDoModelo.imagem). Só JPEG ou PNG, até
+ * 5 MB — a foto do visitante já sai normalizada em JPEG. A Meta guarda a mídia por 30 dias; quem sobe apaga
+ * depois de usar (apagarMidiaKapso), por melhor esforço.
+ */
+export async function subirMidiaKapso(config: ConfigDaKapso, conteudo: Uint8Array, mime = 'image/jpeg'): Promise<MidiaEnviada> {
+  const nome = IMAGENS_DA_META.get(mime)
+  if (!nome) return { ok: false, erro: 'Só imagem JPEG ou PNG sobe para o WhatsApp.', motivo: 'outro' }
+  if (!conteudo.length || conteudo.length > TETO_DA_IMAGEM_NA_META) return { ok: false, erro: 'A imagem está vazia ou passa de 5 MB.', motivo: 'outro' }
+  const formulario = new FormData()
+  formulario.append('messaging_product', 'whatsapp')
+  formulario.append('type', mime)
+  formulario.append('file', new Blob([new Uint8Array(conteudo)], { type: mime }), nome)
+  const r = await chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/media`, formulario, TEMPO_DO_ENVIO_MS)
+  if (r.semResposta) return { ok: false, erro: 'A Kapso não confirmou o envio da imagem a tempo.', motivo: 'tempo' }
+  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar a imagem.', motivo: r.motivo ?? 'outro' }
+  const id = objeto(r.dados)?.id
+  return idDeMidiaValido(id) ? { ok: true, id } : { ok: false, erro: 'A Kapso não devolveu o id da imagem.', motivo: 'outro' }
+}
+
+/** Apaga da Meta uma mídia que o Palácio subiu. Melhor esforço: true se a Kapso confirmou; nunca lança. */
+export async function apagarMidiaKapso(config: ConfigDaKapso, midiaId: string): Promise<boolean> {
+  if (!idDeMidiaValido(midiaId)) return false
+  const r = await chamar(config, 'DELETE', `${META}/${encodeURIComponent(midiaId)}?phone_number_id=${numeroNaUrl(config)}`)
+  return r.ok
 }
 
 /**
@@ -211,6 +290,52 @@ export async function situacaoDaConexaoKapso(config: ConfigDaKapso): Promise<Sit
   const saude = await chamar(config, 'GET', `${PLATAFORMA}/whatsapp/phone_numbers/${numeroNaUrl(config)}/health`)
   const problema = saude.ok ? problemaNaSaude(saude.dados) : null
   return problema ? { estado: 'erro', erro: problema } : { estado, erro: null }
+}
+
+/** Quanto tempo vale o WABA lido do número (a conta de um número não muda). */
+const VALIDADE_DO_WABA_MS = 6 * 3_600_000
+const wabasLidos = new Map<string, { ate: number; waba: string | null }>()
+
+/**
+ * A conta do WhatsApp Business (WABA) do número, onde ficam os modelos: pela API da plataforma (o mesmo
+ * GET do número; regras.ts, wabaDoNumero), guardada em memória; se a Kapso não diz, o campo opcional do
+ * cofre (`wabaId`). null se nenhum dos dois: aí nenhum modelo do catálogo serve. Nunca lança.
+ */
+export async function wabaDoNumeroKapso(config: ConfigDaKapso): Promise<string | null> {
+  const reserva = wabaValido(config.wabaId) ? config.wabaId : null
+  const guardado = wabasLidos.get(config.numeroId)
+  if (guardado && guardado.ate > Date.now()) return guardado.waba ?? reserva
+  const r = await lerNumero(config)
+  const lido = r.ok ? wabaDoNumero(r.dados) : null
+  // A resposta que não traz o WABA vale tanto quanto a que traz (o formato não muda de uma hora para outra); a falha, pouco.
+  wabasLidos.set(config.numeroId, { ate: Date.now() + (r.ok ? VALIDADE_DO_WABA_MS : VALIDADE_DA_FALHA_MS), waba: lido })
+  return lido ?? reserva
+}
+
+/** Páginas de 100 modelos lidas no máximo (o Palácio tem algumas dezenas). */
+const PAGINAS_DE_MODELOS = 5
+const modelosLidos = cacheDosModelos()
+
+/**
+ * Os modelos da conta como estão na Meta (nome, situação, categoria e idioma), guardados em memória por
+ * VALIDADE_DOS_MODELOS_MS (modelos.ts, cacheDosModelos). Sem o WABA ou com a leitura falhando, a lista vem
+ * vazia — nenhum aprovado — e quem chama segue pelo caminho de antes. Nunca lança.
+ */
+export function modelosDaMetaKapso(config: ConfigDaKapso): Promise<ModeloNaMeta[]> {
+  return modelosLidos.modelos(config.numeroId, async () => {
+    const waba = await wabaDoNumeroKapso(config)
+    if (!waba) return null
+    const lista: ModeloNaMeta[] = []
+    let depois: string | null = null
+    for (let pagina = 0; pagina < PAGINAS_DE_MODELOS; pagina++) {
+      const r = await chamar(config, 'GET', `${META}/${encodeURIComponent(waba)}/message_templates?fields=name,status,category,language&limit=100${depois ? `&after=${encodeURIComponent(depois)}` : ''}`)
+      if (!r.ok) return null
+      lista.push(...lerModelosDaMeta(r.dados))
+      depois = proximaPaginaDosModelos(r.dados)
+      if (!depois) break
+    }
+    return lista
+  })
 }
 
 export async function perfilConectadoKapso(config: ConfigDaKapso): Promise<{ numero: string | null; nome: string | null }> {

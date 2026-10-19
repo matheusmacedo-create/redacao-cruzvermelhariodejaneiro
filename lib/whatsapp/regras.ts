@@ -130,6 +130,27 @@ export function problemaNaSaude(dados: unknown): string | null {
   return null
 }
 
+/** O id de uma conta do WhatsApp Business (WABA) na Meta: só dígitos, como o do número. */
+export const wabaValido = (v: unknown): v is string => typeof v === 'string' && /^\d{5,30}$/.test(v)
+
+/**
+ * A conta do WhatsApp Business (WABA) do número, na resposta da API da plataforma da Kapso
+ * (GET …/whatsapp/phone_numbers/{id}, `{ data: { … } }`): é nela que ficam os modelos (GET
+ * /{WABA}/message_templates). Lê os nomes que a Kapso usa para a conta (business_account_id e as
+ * variações); null se a resposta não traz — aí vale o campo opcional do cofre (kapso.ts).
+ */
+export function wabaDoNumero(dados: unknown): string | null {
+  const d = dados && typeof dados === 'object' ? (dados as Record<string, unknown>).data : null
+  const n = d && typeof d === 'object' && !Array.isArray(d) ? d as Record<string, unknown> : null
+  if (!n) return null
+  const conta = n.business_account && typeof n.business_account === 'object' ? (n.business_account as Record<string, unknown>).id : null
+  for (const v of [n.business_account_id, n.whatsapp_business_account_id, n.waba_id, conta]) {
+    const id = typeof v === 'number' && Number.isSafeInteger(v) ? String(v) : typeof v === 'string' ? v.trim() : null
+    if (wabaValido(id)) return id
+  }
+  return null
+}
+
 export const ROTULO_DO_ESTADO: Record<EstadoDaConexao, string> = {
   conectado: 'Conectado',
   conectando: 'Conectando',
@@ -864,11 +885,20 @@ export function textoParaModelo(t: string): string {
 
 type ParametroDeTexto = { type: 'text'; text: string }
 
-/** O objeto `template` da Cloud API (POST /{phone_number_id}/messages com type "template"). */
+/**
+ * O objeto `template` da Cloud API (POST /{phone_number_id}/messages com type "template"). O do cofre leva só o corpo
+ * (e o botão de copiar, no de Autenticação); os do catálogo por situação (modelos.ts, montarModelo) podem levar o
+ * cabeçalho de imagem, pelo id da mídia, e o payload de cada botão de resposta rápida.
+ */
 export type ObjetoDoModelo = {
   name: string
   language: { code: string }
-  components: ({ type: 'body'; parameters: ParametroDeTexto[] } | { type: 'button'; sub_type: 'url'; index: string; parameters: ParametroDeTexto[] })[]
+  components: (
+    | { type: 'header'; parameters: { type: 'image'; image: { id: string } }[] }
+    | { type: 'body'; parameters: ParametroDeTexto[] }
+    | { type: 'button'; sub_type: 'url'; index: string; parameters: ParametroDeTexto[] }
+    | { type: 'button'; sub_type: 'quick_reply'; index: string; parameters: { type: 'payload'; payload: string }[] }
+  )[]
 }
 
 /**
@@ -910,27 +940,30 @@ export const ehErroDeModelo = (codigo: number | null | undefined): boolean =>
  * volume, número). Quem chama trata como falha comum ("outro"): sem reenvio e sem alerta de queda,
  * porque quem arruma é a administração, na Kapso. A Kapso pode recusar antes de chegar à Meta, sem
  * o código: 400, 404 ou 422 que fala do modelo também conta (o 404 não vira "número não achado").
+ * `doCatalogo`: o modelo é do catálogo por situação (modelos.ts), não do cofre — o nome não está em
+ * Configurações → Integrações, e as variáveis são as do catálogo.
  */
-export function problemaDoModelo(p: { nome: string; codigo: number | null; status: number; mensagem: string | null }): string | null {
+export function problemaDoModelo(p: { nome: string; codigo: number | null; status: number; mensagem: string | null; doCatalogo?: boolean }): string | null {
   const nome = p.nome.slice(0, 80)
   const qual = `o modelo “${nome}”`
   const Qual = `O modelo “${nome}”`
+  const catalogo = 'O texto e as variáveis dele estão no catálogo do Palácio (lib/whatsapp/modelos.ts) e precisam ser iguais aos aprovados na Meta.'
   if (ehErroDeModelo(p.codigo)) {
     const c = p.codigo as number
     const meta = ` (erro ${c} da Meta)`
-    if (c === 132000) return `${Qual} espera outro número de variáveis${meta}. O dos avisos e o de segurança têm uma variável só, no corpo; o de código é da categoria Autenticação, com o botão de copiar.`
-    if (c === 132001) return `${Qual} não existe na Kapso em português (pt_BR) ou ainda não foi aprovado pela Meta${meta}. Confira o nome em Configurações → Integrações.`
+    if (c === 132000) return `${Qual} espera outro número de variáveis${meta}. ${p.doCatalogo ? catalogo : 'O dos avisos e o de segurança têm uma variável só, no corpo; o de código é da categoria Autenticação, com o botão de copiar.'}`
+    if (c === 132001) return `${Qual} não existe na Kapso em português (pt_BR) ou ainda não foi aprovado pela Meta${meta}. ${p.doCatalogo ? 'Confira no painel da Kapso.' : 'Confira o nome em Configurações → Integrações.'}`
     if (c === 132005) return `O texto ficou longo demais para ${qual}${meta}.`
     if (c === 132007) return `A Meta recusou o texto em ${qual} pelas regras de formatação${meta}.`
-    if (c === 132012) return `As variáveis não estão no formato que ${qual} espera${meta}. O de código precisa ser da categoria Autenticação, com o botão de copiar.`
+    if (c === 132012) return `As variáveis não estão no formato que ${qual} espera${meta}. ${p.doCatalogo ? catalogo : 'O de código precisa ser da categoria Autenticação, com o botão de copiar.'}`
     if (c === 132015) return `${Qual} foi pausado pela Meta por baixa qualidade${meta}. Veja no painel da Kapso; até lá, o que depende dele não sai fora da janela.`
-    if (c === 132016) return `${Qual} foi desativado pela Meta${meta}. Aprove outro na Kapso e troque o nome em Configurações → Integrações.`
+    if (c === 132016) return `${Qual} foi desativado pela Meta${meta}. ${p.doCatalogo ? 'Até outro ser aprovado, vale o próximo da lista do catálogo.' : 'Aprove outro na Kapso e troque o nome em Configurações → Integrações.'}`
     if (c === 132068) return `O fluxo ligado a ${qual} está bloqueado na Meta${meta}.`
     if (c === 132069) return `O fluxo ligado a ${qual} está limitado pela Meta agora${meta}. Tente mais tarde.`
     return `A Meta recusou ${qual}${meta}. Confira o modelo no painel da Kapso.`
   }
   if ((p.status === 400 || p.status === 404 || p.status === 422) && /template|modelo/i.test(p.mensagem ?? '')) {
-    return `A Kapso recusou ${qual}: ${String(p.mensagem).replace(/\s+/g, ' ').trim().slice(0, 160)}. Confira o nome em Configurações → Integrações e o modelo no painel da Kapso.`
+    return `A Kapso recusou ${qual}: ${String(p.mensagem).replace(/\s+/g, ' ').trim().slice(0, 160)}. ${p.doCatalogo ? 'Confira o modelo no painel da Kapso.' : 'Confira o nome em Configurações → Integrações e o modelo no painel da Kapso.'}`
   }
   return null
 }
@@ -954,16 +987,22 @@ export type BotaoDeResposta = { id: string; titulo: string }
 export type LinhaDaLista = { id: string; titulo: string; descricao?: string | null }
 export type SecaoDaLista = { titulo?: string | null; linhas: LinhaDaLista[] }
 
-/** Botões de resposta ou lista, no vocabulário do Palácio; objetoInterativo monta o objeto da Cloud API. */
+/**
+ * Botões de resposta ou lista, no vocabulário do Palácio; objetoInterativo monta o objeto da Cloud API. `imagem`: o id
+ * da mídia já enviada à Meta (kapso.ts, subirMidiaKapso) para o cabeçalho dos botões — a ficha da visita com a foto.
+ */
 export type Interativo =
-  | { tipo: 'botoes'; botoes: BotaoDeResposta[] }
+  | { tipo: 'botoes'; botoes: BotaoDeResposta[]; imagem?: string | null }
   | { tipo: 'lista'; botao: string; secoes: SecaoDaLista[] }
 
 type LinhaDaMeta = { id: string; title: string; description?: string }
 
 /** O objeto `interactive` da Cloud API (POST /{phone_number_id}/messages com type "interactive"). */
 export type ObjetoInterativo =
-  | { type: 'button'; body: { text: string }; action: { buttons: { type: 'reply'; reply: { id: string; title: string } }[] } }
+  | {
+    type: 'button'; header?: { type: 'image'; image: { id: string } }; body: { text: string }
+    action: { buttons: { type: 'reply'; reply: { id: string; title: string } }[] }
+  }
   | { type: 'list'; body: { text: string }; action: { button: string; sections: { title?: string; rows: LinhaDaMeta[] }[] } }
 
 /** Uma linha só, sem a formatação do WhatsApp (que não vale em botão nem em linha de lista), cortada com "…". */
@@ -984,7 +1023,8 @@ const repetidos = (lista: string[]) => new Set(lista).size < lista.length
  * Os botões ou a lista prontos para a Cloud API, com os títulos, as descrições e o botão da lista cortados
  * no tamanho que a Meta aceita; null quando não dá para mandar sem perder algo — corpo vazio ou com mais de
  * 1024 caracteres, mais de 3 botões ou de 10 linhas, id vazio, longo ou repetido, título vazio ou repetido
- * entre os botões, mais de uma seção sem título. Aí sai só o texto, que diz o que digitar.
+ * entre os botões, mais de uma seção sem título, id da imagem do cabeçalho fora do formato. Aí sai só o
+ * texto, que diz o que digitar.
  */
 export function objetoInterativo(corpo: string, i: Interativo): ObjetoInterativo | null {
   const L = LIMITES_DO_INTERATIVO
@@ -1000,7 +1040,11 @@ export function objetoInterativo(corpo: string, i: Interativo): ObjetoInterativo
       botoes.push({ id, title })
     }
     if (repetidos(botoes.map((b) => b.id)) || repetidos(botoes.map((b) => b.title.toLowerCase()))) return null
-    return { type: 'button', body: { text: texto }, action: { buttons: botoes.map((reply) => ({ type: 'reply', reply })) } }
+    if (i.imagem && !/^[\w.-]{1,128}$/.test(i.imagem)) return null
+    return {
+      type: 'button', ...(i.imagem ? { header: { type: 'image' as const, image: { id: i.imagem } } } : {}),
+      body: { text: texto }, action: { buttons: botoes.map((reply) => ({ type: 'reply', reply })) },
+    }
   }
   const secoes = i.secoes.filter((s) => s.linhas.length)
   const total = secoes.reduce((n, s) => n + s.linhas.length, 0)

@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import { camposDo, ehServico, SERVICOS } from '@/lib/integracoes/chaves'
 import { numeroIdValido } from '@/lib/whatsapp/kapso'
-import { nomeDeModeloValido } from '@/lib/whatsapp/regras'
+import { nomeDeModeloValido, wabaValido } from '@/lib/whatsapp/regras'
 import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta-de-servico-regras'
 import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
 import { lerChaveDaCgu } from '@/lib/participantes/verificacao/regras'
@@ -54,6 +54,11 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
         if (dados.modeloCodigo && dados.modeloCodigo === dados.modelo) throw new Error('O modelo do código precisa ser outro, da categoria Autenticação: o dos avisos não serve para mandar códigos.')
         // "Segurança" lembra "Autenticação", mas o modelo de Autenticação só leva o código: com o aviso inteiro, a Meta recusa.
         if (dados.modeloCodigo && dados.modeloSeguranca === dados.modeloCodigo) throw new Error('O modelo de segurança precisa ser outro: o de Autenticação só leva o código. Deixe vazio para usar o dos avisos.')
+        // A conta do WhatsApp Business (onde ficam os modelos por situação): só dígitos, como o Phone number ID.
+        if (dados.wabaId) {
+          dados.wabaId = dados.wabaId.replace(/\s/g, '')
+          if (!wabaValido(dados.wabaId)) throw new Error('O ID da conta do WhatsApp Business (WABA) tem só números. Deixe vazio: o Palácio descobre pelo número.')
+        }
       }
       valor = JSON.stringify(dados)
     } else if (valor.length < 8) {
