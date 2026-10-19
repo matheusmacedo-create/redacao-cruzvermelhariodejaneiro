@@ -92,9 +92,14 @@ revoke all on public.whatsapp_confirmacoes from anon;
 revoke insert, update, delete, truncate, references, trigger on public.whatsapp_confirmacoes from authenticated;
 grant select on public.whatsapp_confirmacoes to authenticated;
 
-drop policy if exists whatsapp_confirmacoes_select_dono on public.whatsapp_confirmacoes;
-create policy whatsapp_confirmacoes_select_dono on public.whatsapp_confirmacoes for select to authenticated
-  using (user_id = (select auth.uid()));
+-- Criada só se ainda não existe: idempotente sem precisar de drop policy.
+do $$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'whatsapp_confirmacoes' and policyname = 'whatsapp_confirmacoes_select_dono') then
+    create policy whatsapp_confirmacoes_select_dono on public.whatsapp_confirmacoes for select to authenticated
+      using (user_id = (select auth.uid()));
+  end if;
+end $$;
 
 comment on table public.whatsapp_confirmacoes is
   'Pedidos sensíveis feitos pelo WhatsApp (decidir despesa ou compra, votar com a verificação em duas etapas, desativar conta) que só acontecem confirmados no Palácio, pelo link de uso único (15 min, só o hash do código). A pessoa lê só os dela; escrita só pelo servidor.';
