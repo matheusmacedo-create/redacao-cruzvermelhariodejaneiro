@@ -31,13 +31,13 @@ export function paginasFixas(origem: string = ORIGEM_DO_SITE): EntradaDoMapa[] {
     { url: `${origem}/equipe.html` },
     // cursos.html e doacao.html saíram do ar e respondem 301: o sitemap não deve
     // listar endereço que redireciona — o Google conta como página incorreta no mapa.
-    // /doe/ também saiu: a doação online está fora do ar (responde 503) desde 25/09/2026.
+    // /doe/ fica de fora daqui: é do mapa de páginas do site (sitemap-paginas.xml, no
+    // repositório do site), que sabe quando a doação está no ar.
     { url: `${origem}/matricula-cursos-presenciais/` },
     { url: `${origem}/campanha-agasalho.html` },
     { url: `${origem}/bio/` },
-    // O acervo entra com as coleções e os itens públicos (lib/acervo/paginas.ts); este é o
-    // endereço fixo, que existe mesmo sem item nenhum.
-    { url: `${origem}/acervo/` },
+    // O acervo NÃO é página fixa: entra só com item público (entradasDoAcervoNoMapa,
+    // lib/acervo/paginas.ts). Sem item, /acervo/ sai com noindex e fora do mapa.
     { url: `${origem}/privacidade/` },
     { url: `${origem}/termos/` },
   ]
@@ -47,7 +47,7 @@ const dataDoMapa = (d: Date) => d.toISOString().slice(0, 10)
 
 export function gerarSitemap(entradas: EntradaDoMapa[]): string {
   // Endereço repetido some: o mapa é um conjunto, e o Google reclama de eco.
-  // A mesma página pode chegar duas vezes (ex.: /acervo/ fixa e com data): fica a que tem mais dados.
+  // A mesma página pode chegar duas vezes: fica a que tem mais dados.
   const porUrl = new Map<string, EntradaDoMapa>()
   for (const e of entradas) {
     const antes = porUrl.get(e.url)

@@ -88,6 +88,10 @@ O que cada página leva, gerado em `lib/acervo/paginas.ts` sobre o esqueleto do 
   `/es/acervo/` do repositório do site (o catálogo é em português, a língua do material);
 - `sitemap.xml` com a apresentação, as páginas das coleções e os itens, cada um com a data de
   atualização e a maior imagem (extensão de imagem do Google);
+- enquanto não houver **nenhum** item público, a apresentação sai com `noindex`, fica fora do
+  `sitemap.xml` e do rodapé do site, e não mostra coleção vazia nem "em breve" (o Google Ad Grants
+  recusa página "em construção"). Coleção sem item nunca aparece na apresentação. O link "acesse o
+  acervo completo" para a porta da equipe saiu da página pública (19/10/2026);
 - PDF com o cabeçalho `Link: <página do item>; rel="canonical"` (no `.htaccess`): a busca junta o
   PDF e a página em vez de indexar o PDF solto;
 - "Como citar" em cada item, no formato da ABNT, para quem usa o material em trabalhos.
