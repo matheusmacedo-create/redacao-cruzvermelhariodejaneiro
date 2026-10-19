@@ -9,14 +9,19 @@ import { conferenciaDoVoto, votarNaRodada } from '@/lib/aprovacoes/voto'
 import { numeroDoPedido } from '@/lib/compras/regras'
 import { dataCurta, reais } from '@/lib/financeiro/regras'
 import { PAPEL, ehEquipeDaEscola, ehPapel, pode, type Papel } from '@/lib/permissoes'
+import { revalidarContas } from '@/lib/contas/cadastro'
 import type { Confirmacao } from './confirmacoes'
+import { descreverCadastro, executarCadastro, faltaNoCadastro } from './colaborador-confirmar'
+import type { AjustesDoCadastro } from './colaborador-regras'
 
 /**
  * A tela de confirmar no Palácio (app/confirmar/[token]): o que vai ser feito,
  * lido AGORA (não o que o WhatsApp mostrou: a despesa pode ter sido decidida
  * por outra pessoa no meio-tempo), e a execução pela MESMA função da tela de
  * cada área — decidirAprovacao (Financeiro), decidirPedido (Compras),
- * votarNaRodada (Aprovações) e desativarUsuario (Usuários). Essas funções
+ * votarNaRodada (Aprovações), desativarUsuario (Usuários) e — no cadastro de
+ * colaborador — cadastrar, o núcleo de "Adicionar pessoas" (lib/contas/cadastro.ts,
+ * por ./colaborador-confirmar.ts). Essas funções
  * leem a sessão de quem está logado e conferem tudo de novo, como na tela; o
  * banco confere mais uma vez.
  *
@@ -41,6 +46,8 @@ export type Descricao = {
   destrutivo?: boolean
   /** A tela do item, para fazer por lá. */
   link: string
+  /** O cadastro de colaborador: o usuário e o papel, que dá para mudar antes de confirmar (o resto, pela tela). */
+  cadastro?: { usuario: string; papel: Papel; papeis: { valor: Papel; rotulo: string }[] }
 }
 
 const texto = (v: unknown) => (typeof v === 'string' ? v : '')
@@ -52,18 +59,21 @@ export function linkDaConfirmacao(c: Pick<Confirmacao, 'acao' | 'alvoId'>): stri
   if (c.acao === 'votar_aprovacao') return `/aprovacoes/${c.alvoId}`
   // O plano do assistente não tem uma tela só: o início (cada passo tem o link dele no recibo).
   if (c.acao === 'plano') return '/dashboard'
+  if (c.acao === 'cadastrar_colaborador') return '/pessoas/adicionar'
   return '/usuarios'
 }
 
 /** Ações que ficam fora do portão da equipe da Escola (Aprovações e Usuários): para ela, a confirmação não abre. */
 export const foraDoAcessoDaEscola = (c: Pick<Confirmacao, 'acao'>, papel: Papel) =>
-  ehEquipeDaEscola(papel) && (c.acao === 'votar_aprovacao' || c.acao === 'desativar_conta' || c.acao === 'plano')
+  ehEquipeDaEscola(papel) && (c.acao === 'votar_aprovacao' || c.acao === 'desativar_conta' || c.acao === 'plano' || c.acao === 'cadastrar_colaborador')
 
 /** O que vai ser feito, ou por que não dá mais (já decidido, fora do acesso). */
 export async function descrever(supabase: SupabaseClient, admin: Admin, c: Confirmacao, quem: QuemConfirma): Promise<Descricao | { erro: string; link: string }> {
   const link = linkDaConfirmacao(c)
   // O plano do assistente tem a página e a execução dele (lib/whatsapp/assistente/palacio.ts): nunca cai nos ramos daqui.
   if (c.acao === 'plano') return { erro: 'Este link é de um plano do assistente.', link }
+  // O cadastro de colaborador pedido pelo WhatsApp tem o ramo dele (./colaborador-confirmar.ts): nunca cai no de desativar conta.
+  if (c.acao === 'cadastrar_colaborador') return descreverCadastro(admin, c, quem)
   const d = c.dados
   const nomeDe = async (id: string | null | undefined) => {
     if (!id) return null
@@ -171,8 +181,12 @@ export async function descrever(supabase: SupabaseClient, admin: Admin, c: Confi
   }
 }
 
-/** A conferência marcada antes de gastar o link: faltando item, o link continua valendo (a pessoa marca e confirma). */
-export async function faltaNaConferencia(supabase: SupabaseClient, c: Confirmacao, quem: QuemConfirma, conferidos: string[]): Promise<string | null> {
+/**
+ * A conferência marcada antes de gastar o link: faltando item, o link continua valendo (a pessoa marca e confirma).
+ * No cadastro de colaborador, as conferências do pedido com o usuário e o papel escolhidos (`ajustes`).
+ */
+export async function faltaNaConferencia(supabase: SupabaseClient, c: Confirmacao, quem: QuemConfirma, conferidos: string[], ajustes?: AjustesDoCadastro | null): Promise<string | null> {
+  if (c.acao === 'cadastrar_colaborador') return faltaNoCadastro(createAdminClient(), c, quem, ajustes)
   if (c.acao !== 'votar_aprovacao' || c.dados.decisao !== 'approved') return null
   const { data: aprovacao } = await supabase.from('approvals').select('content_id').eq('id', c.alvoId).eq('workspace_id', quem.workspaceId).maybeSingle()
   if (!aprovacao) return null
@@ -181,10 +195,18 @@ export async function faltaNaConferencia(supabase: SupabaseClient, c: Confirmaca
   return faltam.length ? `Confira antes de aprovar: ${faltam.join('; ')}.` : null
 }
 
-/** Executa pela função da tela. `ok` falso: a função recusou (a mensagem é a dela). */
-export async function executar(supabase: SupabaseClient, c: Confirmacao, quem: QuemConfirma, conferidos: string[]): Promise<{ ok: boolean; mensagem: string }> {
+/**
+ * Executa pela função da tela. `ok` falso: a função recusou (a mensagem é a dela). O cadastro de colaborador usa os
+ * dados de `c` lidos antes de gastar o link (o banco já tirou o contato da linha) e o usuário e o papel escolhidos.
+ */
+export async function executar(supabase: SupabaseClient, c: Confirmacao, quem: QuemConfirma, conferidos: string[], ajustes?: AjustesDoCadastro | null): Promise<{ ok: boolean; mensagem: string }> {
   // O plano do assistente executa pelos passos dele (lib/whatsapp/assistente/palacio.ts), nunca pelo ramo de desativar conta.
   if (c.acao === 'plano') return { ok: false, mensagem: 'Este link é de um plano do assistente.' }
+  if (c.acao === 'cadastrar_colaborador') {
+    const r = await executarCadastro(createAdminClient(), supabase, c, quem, ajustes)
+    if (r.ok) revalidarContas({ equipe: true })
+    return r
+  }
   const d = c.dados
   if (c.acao === 'decidir_despesa') {
     const aprovar = d.aprovar === true

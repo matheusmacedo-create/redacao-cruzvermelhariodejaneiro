@@ -24,6 +24,9 @@ import { seguirDecisoes } from './financeiro'
 import { seguirPresenca } from './presenca'
 import { seguirViagem } from './frota'
 import { seguirGuardarDocumento } from './drive'
+import { seguirCadastro } from './colaborador'
+import { redigirCadastrosEncerrados } from './colaborador-faxina'
+import { ETAPAS_DO_CADASTRO_DE_TEXTO_LIVRE, ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE } from './colaborador-regras'
 import { criarConfirmacao } from './confirmacoes'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita, type RespostaDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
@@ -71,12 +74,13 @@ export type Pessoa = { id: string; nome: string | null; papel: Papel }
  * `atender_chamado` e `registrar_visita` vêm da migração 20261018213700; `financeiro` (a lista das decisões, para o
  * "aprovar 2") e `nao_fui_eu` (a conferência do "Não fui eu", achada pelo número: lib/whatsapp/protecao.ts), da
  * 20261018223000; `marcar_presenca`, `frota_saida` e `frota_retorno`, da 20261018233000; `guardar_documento` (a
- * pasta do Drive de um documento: lib/whatsapp/drive.ts), da 20261019030000. Antes delas, o banco recusa a pergunta
- * e o bot manda para o Palácio (ou, no documento, pede a pasta na legenda).
+ * pasta do Drive de um documento: lib/whatsapp/drive.ts), da 20261019030000; `cadastrar_colaborador` (as etapas do
+ * "colaborador:": lib/whatsapp/colaborador.ts), da 20261019050000. Antes delas, o banco recusa a pergunta e o bot
+ * manda para o Palácio (ou, no documento, pede a pasta na legenda).
  */
 export type TipoDePendencia =
   | 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita' | 'financeiro' | 'nao_fui_eu'
-  | 'marcar_presenca' | 'frota_saida' | 'frota_retorno' | 'guardar_documento'
+  | 'marcar_presenca' | 'frota_saida' | 'frota_retorno' | 'guardar_documento' | 'cadastrar_colaborador'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
 /**
@@ -90,6 +94,8 @@ export type Resposta = {
   interativo?: Interativo | null
   /** O texto que vai no lugar quando a pergunta não pôde ser guardada (a migração dela ainda não foi aplicada); sem ele, "Isto ainda não está ligado…". */
   semPergunta?: string
+  /** A resposta leva o link de confirmar no Palácio: sai na hora, nunca espera na fila (o link vence em 15 minutos). */
+  semFila?: boolean
 }
 
 export const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
@@ -104,6 +110,7 @@ export function ondeNoPalacio(p: { tipo: TipoDePendencia; dados: Record<string, 
   if (p.tipo === 'envio') return '/enviar'
   if (p.tipo === 'financeiro') return '/financeiro?aba=aprovacao'
   if (p.tipo === 'nao_fui_eu') return '/perfil'
+  if (p.tipo === 'cadastrar_colaborador') return '/pessoas/adicionar'
   // O documento: a resposta leva sempre o semPergunta (a pasta na legenda); o Palácio não tem tela de guardar no Drive.
   if (p.tipo === 'guardar_documento') return '/ajuda'
   if (p.tipo === 'marcar_presenca') {
@@ -437,11 +444,14 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
   // foto — e na das ocorrências do retorno), "não" quer dizer "sem isso" (ou, na autorização, "não aceita"), não "desisto".
   const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes')
     || (p.tipo === 'registrar_visita' && ETAPAS_EM_QUE_NAO_RESPONDE.has(String(p.dados.etapa)))
-    || (p.tipo === 'frota_retorno' && p.dados.etapa === 'ocorrencias')) && ehPular(texto)
+    || (p.tipo === 'frota_retorno' && p.dados.etapa === 'ocorrencias')
+    || (p.tipo === 'cadastrar_colaborador' && ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE.has(String(p.dados.etapa)))) && ehPular(texto)
   if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
     // O registro da visita cancelado: o telefone e o resto do visitante saem da pendência.
     if (p.tipo === 'registrar_visita') await redigirRegistrosEncerrados(admin)
+    // O cadastro cancelado: o e-mail e o WhatsApp da pessoa nova saem (o banco já os tira ao encerrar; aqui sai o resto).
+    if (p.tipo === 'cadastrar_colaborador') await redigirCadastrosEncerrados(admin)
     const desistiu: Record<Exclude<TipoDePendencia, 'envio'>, string> = {
       aprovar: 'Pronto: nenhum voto registrado.',
       abrir_chamado: 'Pronto: o chamado não foi aberto.',
@@ -453,6 +463,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
       frota_saida: 'Pronto: a saída não foi registrada.',
       frota_retorno: 'Pronto: o retorno não foi registrado.',
       guardar_documento: 'Pronto: o documento não foi guardado.',
+      cadastrar_colaborador: 'Pronto: ninguém foi cadastrado.',
     }
     return { texto: desistiu[p.tipo] }
   }
@@ -462,6 +473,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
   if (p.tipo === 'frota_saida' || p.tipo === 'frota_retorno') return seguirViagem(admin, workspaceId, pessoa, p, texto, base, estrita)
   if (p.tipo === 'financeiro') return seguirDecisoes(admin, workspaceId, pessoa, p, texto, base, estrita)
   if (p.tipo === 'guardar_documento') return seguirGuardarDocumento(admin, workspaceId, pessoa, p, texto, estrita)
+  if (p.tipo === 'cadastrar_colaborador') return seguirCadastro(admin, workspaceId, pessoa, p, texto, base, estrita)
   // A conferência do "Não fui eu" é respondida pelo número, antes de tudo (lib/whatsapp/protecao.ts); aqui não chega.
   if (p.tipo === 'nao_fui_eu') return null
 
@@ -601,8 +613,8 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
 /**
  * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
  * motivo da transferência, o nome, quem visita, o telefone, de onde vem, o motivo e o crachá da visita, o veículo,
- * quem dirige, o destino e as ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é
- * resposta.
+ * quem dirige, o destino e as ocorrências da viagem, a pasta do Drive de um documento, o nome, o e-mail, o WhatsApp,
+ * a coordenação e o cargo do colaborador)? Aí até frase com "agenda" é resposta.
  */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
@@ -611,4 +623,5 @@ export function esperaTextoLivre(p: Pendencia | null): boolean {
     || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
     || (p?.tipo === 'registrar_visita' && ETAPAS_DE_TEXTO_LIVRE.has(String(etapa)))
     || ((p?.tipo === 'frota_saida' || p?.tipo === 'frota_retorno') && (etapa === 'veiculo' || etapa === 'condutor' || etapa === 'destino' || etapa === 'ocorrencias'))
+    || (p?.tipo === 'cadastrar_colaborador' && ETAPAS_DO_CADASTRO_DE_TEXTO_LIVRE.has(String(etapa)))
 }

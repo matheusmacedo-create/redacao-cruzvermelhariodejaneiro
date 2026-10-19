@@ -18,7 +18,9 @@ export const dynamic = 'force-dynamic'
 /**
  * Confirmar no Palácio o que foi pedido pelo WhatsApp (lib/whatsapp/confirmacoes.ts):
  * decidir uma despesa ou uma compra, o voto de quem usa a verificação em duas
- * etapas, desativar uma conta — e o plano do assistente que tem um passo
+ * etapas, desativar uma conta, cadastrar um colaborador (a conta só nasce
+ * aqui, pelo núcleo de "Adicionar pessoas"; dá para mudar o usuário e o
+ * papel antes de confirmar) — e o plano do assistente que tem um passo
  * sensível (lib/whatsapp/assistente/palacio.ts): a página mostra os mesmos
  * passos do texto do WhatsApp e executa tudo pela sessão.
  *
@@ -85,7 +87,8 @@ export default async function ConfirmarPage({ params }: { params: Promise<{ toke
           ))}
         </dl>
         <p className="text-sm text-muted-foreground">{descricao.efeito}</p>
-        <Confirmar token={token} botao={descricao.botao} destrutivo={descricao.destrutivo} conferencia={descricao.conferencia ?? []} link={descricao.link} />
+        <Confirmar token={token} botao={descricao.botao} destrutivo={descricao.destrutivo} conferencia={descricao.conferencia ?? []} link={descricao.link}
+          cadastro={descricao.cadastro} rotuloDoLink={descricao.cadastro ? 'Cadastrar pela tela "Adicionar pessoas"' : undefined} />
       </div>
     </Moldura>
   )
