@@ -435,7 +435,15 @@ const kapsoTexto = lerEventoDaKapso({
   phone_number_id: NUMERO_ID,
 }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoTexto.evento, 'whatsapp.message.received', 'kapso: o evento vem do cabeçalho')
-igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', toque: false, midia: null, ignorar: null }], 'kapso: texto, nome e citação')
+igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', toque: false, midia: null, ignorar: null, enviadaEm: null }], 'kapso: texto, nome e citação')
+// A hora de envio (timestamp da Meta, em segundos) só vale perto de agora: a de 2024 acima fica null.
+const kapsoComHora = (agora: number) => lerEventoDaKapso({
+  message: { id: 'wamid.1', timestamp: '1730092800', type: 'text', from: '5521987654321', text: { body: 'confirmo' }, kapso: { direction: 'inbound' } },
+  conversation: { id: 'c1', phone_number: '5521987654321', phone_number_id: NUMERO_ID }, phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID, agora).mensagens[0]?.enviadaEm
+igual(kapsoComHora(1_730_092_800_000 + 3_000), 1_730_092_800_000, 'kapso: a hora de envio vem em ms')
+igual(kapsoComHora(1_730_092_800_000 - 6 * 60_000), null, 'kapso: hora de envio mais de 5 min no futuro não vale')
+igual(kapsoComHora(1_730_092_800_000 + 8 * 86_400_000), null, 'kapso: hora de envio de mais de 7 dias não vale')
 const kapsoSemNono = lerEventoDaKapso({ message: { id: 'w2', type: 'text', from: '552187654321', text: { body: 'oi' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoSemNono.mensagens[0]?.numero, '5521987654321', 'kapso: wa_id sem o nono dígito vira o canônico')
 const kapsoFoto = lerEventoDaKapso({

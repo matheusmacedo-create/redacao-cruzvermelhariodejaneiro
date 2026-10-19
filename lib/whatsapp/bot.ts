@@ -2,11 +2,9 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
-import { lerCamadas } from '@/lib/agenda/camadas'
 import { agoraEmBrasilia, somarDias } from '@/lib/agenda/datas'
-import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
 import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
-import { ehPapel, type Papel } from '@/lib/permissoes'
+import { type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { ehAdministracao, gerenciaUsuarios, pedirDesativacao, respostaDaAdministracao } from './admin'
@@ -18,7 +16,8 @@ import {
   avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita,
   seguirPendencia, type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
-import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
+import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
+import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -95,10 +94,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const codigo = m.midia ? null : conta ? soOCodigo(m.texto) : codigoNaMensagem(m.texto)
     const pendentes = codigo ? await codigosPendentesDoNumero(admin, workspaceId, numero) : []
     if (codigo && pendentes.length) {
-      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida' })
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida', enviadaEm: m.enviadaEm })
       if (!nova) return
       // A tentativa conta (e o número se confirma) mesmo com o teto de respostas batido: só a resposta fica de fora.
-      const resposta = await respostaAoCodigoDeIda(admin, workspaceId, numero, codigo, pendentes)
+      const resposta = await respostaAoCodigoDeIda(admin, workspaceId, numero, codigo, pendentes, m.nome)
       if (!(await noTetoDeRespostas(admin, workspaceId, numero))) await entregar(admin, workspaceId, { numero, texto: resposta.texto, tipo: 'bot', userId: resposta.userId }, { config })
       return
     }
@@ -107,7 +106,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const donoDoNumero = (conta?.user_id as string | undefined) ?? null
     const protecao = m.midia ? null : await conversaDeProtecao(admin, workspaceId, numero, m, donoDoNumero)
     if (protecao) {
-      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando })
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando, enviadaEm: m.enviadaEm })
       if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
       const r = await protecao.responder()
       const entrega = await entregar(admin, workspaceId, { numero, texto: r.texto, tipo: 'bot', userId: donoDoNumero, interativo: r.interativo }, { config })
@@ -160,14 +159,19 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
       comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+      enviadaEm: m.enviadaEm,
     })
     if (!nova) return
 
     const noTeto = await noTetoDeRespostas(admin, workspaceId, numero)
 
     // `interativo`: botões ou lista (só dentro da janela; fora, ou na fila, sai o texto). `comando`: a marca no registro da saída.
-    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string } = {}) =>
-      entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...extra }, { config })
+    // `categoria` e `semFila`: as respostas do assistente (lib/whatsapp/assistente) nunca esperam na fila; o recibo vai
+    // como "assistente" (o texto some da fila depois do envio).
+    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string; categoria?: string; semFila?: boolean } = {}) => {
+      const { semFila, ...resto } = extra
+      return entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...resto }, { config, semFila })
+    }
     const base = urlBase()
 
     // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
@@ -325,15 +329,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'avisos') {
-      const [{ data: avisos }, { count: total }] = await Promise.all([
-        admin.from('notifications').select('title, message, link').eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
-          .order('created_at', { ascending: false }).limit(AVISOS_NA_RESPOSTA),
-        admin.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null),
-      ])
-      await responder(textoDosAvisos({
-        avisos: (avisos ?? []).map((a) => ({ titulo: a.title as string, mensagem: (a.message as string) ?? '', link: (a.link as string | null) ?? null })),
-        total: total ?? 0, urlBase: base,
-      }))
+      const { avisos, total } = await avisosDaPessoa(admin, workspaceId, pessoa.id, { soNaoLidos: true, limite: AVISOS_NA_RESPOSTA })
+      await responder(textoDosAvisos({ avisos: avisos.map((a) => ({ titulo: a.titulo, mensagem: a.mensagem, link: a.link })), total, urlBase: base }))
       return
     }
 
@@ -356,17 +353,20 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'agenda') {
-      await responder(await agendaDaPessoa(admin, workspaceId, pessoa, base))
+      await responder(await respostaDaAgenda(admin, workspaceId, pessoa, base))
       return
     }
 
     if (comando === 'chamados') {
-      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa, base))
+      await responder(await respostaDosChamados(admin, workspaceId, pessoa, base))
       return
     }
 
     if (comando === 'aprovacoes') {
-      await responder(await aprovacoesDaPessoa(admin, workspaceId, pessoa.id, base))
+      const pendentes = await aprovacoesPendentes(admin, workspaceId, pessoa.id, { limite: APROVACOES_NA_RESPOSTA })
+      await responder(pendentes
+        ? textoDasAprovacoes({ aprovacoes: pendentes.aprovacoes.map((a) => ({ id: a.id, titulo: a.titulo })), total: pendentes.total, urlBase: base })
+        : `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`)
       return
     }
 
@@ -430,14 +430,15 @@ async function noTetoDeRespostas(admin: Admin, workspaceId: string, numero: stri
  * (lib/whatsapp/confirmacao.ts). O código de volta mandado aqui não confirma
  * nem conta tentativa; qualquer outro conta uma tentativa.
  */
-async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: string, codigo: string, pendentes: CodigoPendente[]): Promise<{ texto: string; userId: string | null }> {
+async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: string, codigo: string, pendentes: CodigoPendente[], nome: string | null): Promise<{ texto: string; userId: string | null }> {
   for (const p of pendentes) {
     if (p.quem === 'equipe') {
       if (!codigoConfere(p.hash, p.userId, numero, codigo, 'ida')) continue
       // Como a tela exige a sessão no espaço: conta desativada ou de fora não confirma.
       const pessoa = await pessoaDoEspaco(admin, workspaceId, p.userId)
       if (!pessoa) return { texto: textoDaFalhaDoCodigoDeIda('falhou', 'equipe'), userId: null }
-      const r = await confirmarNumeroDaEquipe(admin, { codigoId: p.id, userId: p.userId, numero, workspaceId, sentido: 'ida' })
+      // O nome de perfil que veio com o código fica como o nome visto (o assistente para no número se ele mudar).
+      const r = await confirmarNumeroDaEquipe(admin, { codigoId: p.id, userId: p.userId, numero, workspaceId, sentido: 'ida', nome })
       return { texto: r.ok ? textoDoNumeroConfirmado('palacio') : textoDaFalhaDoCodigoDeIda(r.motivo, 'equipe'), userId: r.ok ? p.userId : null }
     }
     if (!codigoConfere(p.hash, donoDoVoluntario(p.participanteId), numero, codigo, 'ida')) continue
@@ -449,52 +450,18 @@ async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: 
   return { texto: textoDoCodigoDeIdaErrado(await contarTentativaErrada(admin, pendentes)), userId: null }
 }
 
-/** A pessoa ativa, membro deste espaço; null para o resto (conta desativada vira "número desconhecido"). */
-async function pessoaDoEspaco(admin: Admin, workspaceId: string, userId: string): Promise<Pessoa | null> {
-  const { data } = await admin.from('workspace_members').select('user_id, role, profiles(full_name, active)').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
-  const perfil = (Array.isArray(data?.profiles) ? data?.profiles[0] : data?.profiles) as { full_name?: string | null; active?: boolean } | null | undefined
-  if (!data || !perfil || perfil.active === false || !ehPapel(data.role)) return null
-  return { id: userId, nome: perfil.full_name ?? null, papel: data.role }
-}
-
 // ------------------------------------------------------------------ consultas
 //
-// O cliente é o de serviço (não há sessão no WhatsApp), então cada consulta
-// filtra pela pessoa e pelo espaço, e a agenda passa pelo mesmo crivo de
-// acesso do resumo semanal por e-mail (camadasDisponiveis com semSessao).
+// Os dados vêm de lib/whatsapp/consultas.ts (os mesmos que o assistente usa); aqui só a formatação.
 
 /** Hoje e amanhã, com as camadas que a pessoa deixou ligadas na Agenda. */
-async function agendaDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
+async function respostaDaAgenda(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
   const hoje = agoraEmBrasilia().dia
   const amanha = somarDias(hoje, 1)
-  const [disponiveis, { data: preferencias }] = await Promise.all([
-    camadasDisponiveis(admin, workspaceId, pessoa.id, pessoa.papel, { semSessao: true }),
-    admin.from('agenda_preferencias').select('camadas_ocultas').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle(),
-  ])
-  const ocultas = lerCamadas(preferencias?.camadas_ocultas)
-  const { itens, falhas } = await itensDaAgenda(admin, workspaceId, pessoa.id, { de: hoje, ate: amanha }, [...disponiveis].filter((c) => !ocultas.includes(c)))
+  const { itens, falhou } = await agendaDaPessoa(admin, workspaceId, pessoa, { de: hoje, ate: amanha })
   // Só o que começa no dia: a campanha que dura o mês inteiro não enche a lista de todo dia.
   const doDia = (dia: string): ItemDoDia[] => itens.filter((i) => i.dia === dia).map((i) => ({ titulo: i.titulo, hora: i.hora ?? null, detalhe: i.detalhe ?? null }))
-  return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou: falhas.length > 0 })
-}
-
-/** As rodadas de aprovação em aberto em que o voto da pessoa ainda falta. */
-async function aprovacoesDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
-  const { data: votos, error } = await admin.from('approval_voters').select('approval_id').eq('workspace_id', workspaceId).eq('user_id', userId).eq('decision', 'pending').limit(200)
-  if (error) return `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`
-  const ids = [...new Set((votos ?? []).map((v) => v.approval_id as string))]
-  if (!ids.length) return textoDasAprovacoes({ aprovacoes: [], total: 0, urlBase: base })
-  const { data: abertas } = await admin.from('approvals').select('id, content_id').eq('workspace_id', workspaceId).eq('status', 'pending').in('id', ids)
-    .order('created_at', { ascending: false })
-  const lista = abertas ?? []
-  const mostrar = lista.slice(0, APROVACOES_NA_RESPOSTA)
-  const pecas = [...new Set(mostrar.map((a) => a.content_id as string))]
-  const { data: titulos } = pecas.length ? await admin.from('content_pieces').select('id, title').in('id', pecas) : { data: [] }
-  const tituloDe = new Map((titulos ?? []).map((t) => [t.id as string, (t.title as string | null)?.trim() || 'Matéria sem título']))
-  return textoDasAprovacoes({
-    aprovacoes: mostrar.map((a) => ({ id: a.id as string, titulo: tituloDe.get(a.content_id as string) ?? 'Matéria sem título' })),
-    total: lista.length, urlBase: base,
-  })
+  return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou })
 }
 
 /**

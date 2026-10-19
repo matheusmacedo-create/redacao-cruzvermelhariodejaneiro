@@ -46,6 +46,45 @@ export function esforcoDoClaude(): 'low' | 'medium' | 'high' | 'xhigh' | 'max' {
   return bruto && ESFORCOS_VALIDOS.has(bruto) ? (bruto as ReturnType<typeof esforcoDoClaude>) : 'high'
 }
 
+// ------------------------------------------------------------------ o assistente do WhatsApp
+//
+// O assistente (lib/whatsapp/assistente) usa a mesma chave, com modelo, esforço e cache próprios, trocáveis pelo
+// ambiente sem deploy de código. Sem chave, o assistente fica indisponível e o bot responde como sempre.
+
+/** O padrão do assistente do WhatsApp: Opus 5.5 (decisão do dono, 18/10/2026); o Sonnet 5.5 corta o custo pela metade. */
+export const MODELO_DO_ASSISTENTE_PADRAO = 'claude-opus-5-5'
+
+export const modeloDoAssistente = () => process.env.WHATSAPP_IA_MODELO?.trim() || MODELO_DO_ASSISTENTE_PADRAO
+
+/**
+ * O esforço do assistente: 'low' (menos chamadas, respostas curtas). Mudar invalida o cache do prefixo. Não se
+ * manda `thinking`: no Opus 5.5 o raciocínio é sempre adaptativo e { type: 'disabled' } dá 400.
+ */
+export function esforcoDoAssistente(): 'low' | 'medium' | 'high' | 'xhigh' | 'max' {
+  const bruto = process.env.WHATSAPP_IA_ESFORCO?.trim().toLowerCase()
+  return bruto && ESFORCOS_VALIDOS.has(bruto) ? (bruto as ReturnType<typeof esforcoDoAssistente>) : 'low'
+}
+
+/** O tempo de vida do cache do prefixo (ferramentas + sistema): 1 h para o tráfego em rajadas; '5m' com tráfego contínuo. */
+export function ttlDoCacheDoAssistente(): '1h' | '5m' {
+  return process.env.WHATSAPP_IA_CACHE_TTL?.trim().toLowerCase() === '5m' ? '5m' : '1h'
+}
+
+/**
+ * O cliente da Anthropic com a chave do Palácio, para quem monta a própria chamada (o laço do assistente). Sem
+ * chave, IaError com o status 0, como os irmãos. `maxRetries: 0` quando quem chama faz a própria repetição.
+ */
+export function clienteDoClaude(p: { timeoutMs: number; maxRetries: number }): Anthropic {
+  const chave = chaveDoClaude()
+  if (!chave) {
+    throw new IaError(
+      'Falta a chave da Anthropic. Cadastre ANTHROPIC_API_KEY nas variáveis de ambiente da Vercel — nunca com o prefixo NEXT_PUBLIC_ — e republique.',
+      0,
+    )
+  }
+  return new Anthropic({ apiKey: chave, timeout: p.timeoutMs, maxRetries: p.maxRetries })
+}
+
 /** Tira a chave de qualquer mensagem que vá parar no banco ou na tela. */
 export function semChaveDoClaude(texto: string): string {
   let limpo = texto
@@ -307,13 +346,16 @@ export async function verImagensComClaude(pedido: {
   }
 }
 
-/** Erro do SDK vira IaError com status e a dica que poupa a caçada. */
-function traduzirErro(causa: unknown): IaError {
+/**
+ * Erro do SDK vira IaError com status e a dica que poupa a caçada. `modelo` e `variavel`: o modelo pedido e a
+ * variável que o escolhe, citados no 404 (o assistente do WhatsApp usa WHATSAPP_IA_MODELO; o resto, ANTHROPIC_TEXT_MODEL).
+ */
+export function traduzirErro(causa: unknown, p: { modelo?: string; variavel?: string } = {}): IaError {
   if (causa instanceof Anthropic.AuthenticationError) {
     return new IaError('A Anthropic recusou a chave. Confira ANTHROPIC_API_KEY — chave revogada precisa ser trocada na Vercel e republicada.', 401)
   }
   if (causa instanceof Anthropic.NotFoundError) {
-    return new IaError(`O modelo "${modeloDoClaude()}" não existe nesta conta. Confira ANTHROPIC_TEXT_MODEL na Vercel.`, 404)
+    return new IaError(`O modelo "${p.modelo ?? modeloDoClaude()}" não existe nesta conta. Confira ${p.variavel ?? 'ANTHROPIC_TEXT_MODEL'} na Vercel.`, 404)
   }
   if (causa instanceof Anthropic.RateLimitError) {
     return new IaError('Limite de uso da Anthropic atingido. Espere um pouco ou confira a cota no console.anthropic.com.', 429)

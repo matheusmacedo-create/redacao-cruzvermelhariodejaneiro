@@ -169,9 +169,18 @@ export function decidirWhatsapp(p: {
   return true
 }
 
-/** Tira o que o WhatsApp leria como formatação (*negrito*, _itálico_…) e os controles. */
-const limpo = (texto: string, max: number) =>
-  texto.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').replace(/[*_~`]/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
+/**
+ * Tira os caracteres invisíveis de formatação (\p{Cf}: a inversão de direção U+202E, o espaço de largura zero
+ * U+200B…) e normaliza a compatibilidade (NFKC: a letra de largura cheia vira a comum). Um nome ou título não
+ * imita outro, nem esconde um pedaço do texto. º, ª e … ficam como estão: o NFKC os trocaria por o, a e "..."
+ * ("2º andar" virando "2o andar").
+ */
+export const semInvisiveis = (texto: string): string =>
+  String(texto ?? '').split(/([ºª…])/).map((p) => (p === 'º' || p === 'ª' || p === '…' ? p : p.normalize('NFKC'))).join('').replace(/\p{Cf}/gu, '')
+
+/** Tira o que o WhatsApp leria como formatação (*negrito*, _itálico_…), os controles e os invisíveis (semInvisiveis). */
+export const limpo = (texto: string, max: number) =>
+  semInvisiveis(texto).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').replace(/[*_~`]/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
 
 export const primeiroNome = (nome: string | null | undefined) => String(nome ?? '').trim().split(/\s+/)[0] || ''
 
@@ -988,6 +997,12 @@ export type MensagemRecebida = {
   midia: MidiaRecebida | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
+  /**
+   * A hora em que a pessoa enviou (ms), pelo `timestamp` da Meta (segundos). É ela que ordena o "confirmo" do
+   * assistente e as correções (lib/whatsapp/assistente/regras.ts). null sem a hora, ou com uma hora fora de
+   * [agora − 7 dias, agora + 5 min] (relógio errado do outro lado não passa por mensagem nova).
+   */
+  enviadaEm: number | null
 }
 
 export type EventoDoWebhook = {
@@ -1011,8 +1026,20 @@ export type MidiaRecebida = {
 /** Os tipos de mensagem da API oficial que têm arquivo, na categoria do Palácio (figurinha não conta). */
 const MIDIAS_DA_META: [string, CategoriaDaMidia][] = [['image', 'foto'], ['video', 'video'], ['audio', 'audio'], ['document', 'documento']]
 
+/** Quanto a hora de envio pode estar no passado (reentrega da Kapso, celular sem rede) e no futuro (relógio adiantado). */
+export const ENVIADA_EM_PASSADO_MS = 7 * 86_400_000
+export const ENVIADA_EM_FUTURO_MS = 5 * 60_000
+
+/** O `timestamp` da Meta (segundos Unix, em texto ou número) em ms; null fora da faixa que faz sentido. */
+export function lerEnviadaEm(valor: unknown, agora: number): number | null {
+  const bruto = typeof valor === 'number' ? valor : typeof valor === 'string' && /^\d{9,11}$/.test(valor.trim()) ? Number(valor.trim()) : NaN
+  if (!Number.isFinite(bruto) || bruto <= 0) return null
+  const ms = Math.round(bruto * 1000)
+  return ms >= agora - ENVIADA_EM_PASSADO_MS && ms <= agora + ENVIADA_EM_FUTURO_MS ? ms : null
+}
+
 /** Uma mensagem recebida no payload v2 da Kapso (`whatsapp.message.received`). */
-function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemRecebida | null {
+function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null, agora: number): MensagemRecebida | null {
   const d = objeto(dado)
   const m = objeto(d?.message)
   if (!d || !m) return null
@@ -1060,21 +1087,23 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null): MensagemR
     toque: !digitado && doToque !== null,
     midia,
     ignorar: deMim ? 'de_mim' : numero ? null : 'sem_numero',
+    enviadaEm: lerEnviadaEm(m.timestamp, agora),
   }
 }
 
 /**
  * Lê o corpo que a Kapso manda ao webhook (payload v2, avulso ou em lote).
  * O nome do evento vem no cabeçalho X-Webhook-Event. Nunca lança.
+ * `agora`: a hora de referência para a hora de envio (lerEnviadaEm).
  */
-export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | null, idDoNumero: string | null): EventoDoWebhook {
+export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | null, idDoNumero: string | null, agora: number = Date.now()): EventoDoWebhook {
   const c = objeto(corpo) ?? {}
   const evento = String(eventoDoCabecalho ?? c.type ?? c.event ?? '').trim().toLowerCase()
   const itens = c.batch === true && Array.isArray(c.data) ? c.data : [c]
   const recebida = evento === 'whatsapp.message.received'
   return {
     evento,
-    mensagens: recebida ? itens.map((i) => lerMensagemDaKapso(i, idDoNumero)).filter((m): m is MensagemRecebida => m !== null) : [],
+    mensagens: recebida ? itens.map((i) => lerMensagemDaKapso(i, idDoNumero, agora)).filter((m): m is MensagemRecebida => m !== null) : [],
   }
 }
 
@@ -1088,7 +1117,8 @@ export type Comando =
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
 export type ComandoDaAdministracao = 'status' | 'fila'
 
-const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+/** Sem acento, minúsculo, só letras, números e um espaço entre as palavras: é a forma que os comandos comparam. */
+export const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 
 const PALAVRAS: Record<'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes', string[]> = {
   menu: ['menu', 'oi', 'ola', 'oie', 'opa', 'bom', 'boa', 'ajuda', 'inicio', 'opcoes', 'help', '0'],
@@ -1183,6 +1213,25 @@ export function lerViagem(entrada: string): PedidoDeViagem | null {
 
 export type Pedido = { comando: Comando; resto: string }
 
+/**
+ * Com o assistente (lib/whatsapp/assistente), os comandos que ESCREVEM valem só pela frase exata: "cancelar o
+ * plano" não pausa os avisos, "li, confirmo" não marca tudo como lido, "continuar" não retoma. O "2" e o "3" do
+ * menu continuam (a rota do plano os intercepta logo depois de uma escolha).
+ */
+const EXATOS: Record<'parar' | 'lidas' | 'voltar', string[]> = {
+  parar: ['parar', 'pare', 'sair', 'stop', 'quero sair', 'parar avisos', 'parar os avisos', 'descadastrar'],
+  lidas: ['lidas', 'marcar como lidas', 'marcar todas como lidas'],
+  voltar: ['voltar', 'ativar', 'reativar', 'voltar a receber'],
+}
+
+/** Com o assistente, o menu só sai quando TODAS as palavras são de saudação ou de menu: "oi aprova tudo" vai para ele. */
+const SO_SAUDACAO = new Set([
+  'oi', 'ola', 'oie', 'opa', 'bom', 'boa', 'dia', 'tarde', 'noite', 'tudo', 'bem', 'e', 'ai', 'blz', 'beleza', 'menu', 'inicio', 'opcoes', 'help', 'ajuda', '0',
+])
+
+/** Com o assistente, as consultas (só leitura) valem em até tantas palavras, com a palavra do comando entre elas. */
+export const PALAVRAS_DA_CONSULTA = 3
+
 /** O texto depois da palavra do comando, com acentos e maiúsculas originais. */
 function depoisDe(entrada: string, prefixo: RegExp): string {
   return entrada.trim().replace(prefixo, '').replace(/^[\s:,.-]+/, '').trim().slice(0, 4000)
@@ -1199,7 +1248,7 @@ function depoisDe(entrada: string, prefixo: RegExp): string {
  * "retorno…" são só de quem opera a frota (`frota`); para o resto, "sair
  * com…" pausa e "volta…" retoma, como sempre.
  */
-export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean }): Pedido {
+export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean; assistente?: boolean }): Pedido {
   const t = normalizar(entrada)
   if (!t) return { comando: 'desconhecido', resto: '' }
   if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
@@ -1207,7 +1256,8 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   const palavras = t.split(' ')
   // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
   if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
-  if (palavras[0] === 'como' && palavras.length > 2) return { comando: 'ajuda', resto: entrada.trim().slice(0, 1000) }
+  // Com o assistente, "como está meu chamado?" e "como troco a senha?" vão para ele (que busca na ajuda).
+  if (palavras[0] === 'como' && palavras.length > 2 && !p.assistente) return { comando: 'ajuda', resto: entrada.trim().slice(0, 1000) }
   // Quem atende: "assumir TI-0042", "resolver TI-0042: …", "transferir TI-0042 para …". Sem o código, não é comando
   // (respondendo ao aviso do chamado, o código vem do aviso: lib/whatsapp/atendimento.ts).
   if (lerAtendimento(entrada)?.codigo) return { comando: 'atender_chamado', resto: entrada.trim().slice(0, 4000) }
@@ -1231,9 +1281,13 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   const visita = REGISTRAR_VISITA.exec(entrada)
   if (visita) return { comando: 'registrar_visita', resto: entrada.slice(visita[0].length).replace(/\s+/g, ' ').trim().slice(0, 120) }
   const abrir = /^\s*(abrir\s+(um\s+)?chamado|novo\s+chamado|chamado)\b/i
-  if ((palavras[0] === 'chamado' || (palavras[0] === 'abrir' && palavras.includes('chamado')) || (palavras[0] === 'novo' && palavras[1] === 'chamado')) && depoisDe(entrada, abrir).length >= 8) {
+  // Com o assistente, "chamado" no começo só abre com os dois-pontos ("chamado: impressora sem toner"): "chamado da
+  // impressora, como está?" é pergunta para ele.
+  const chamadoNoComeco = palavras[0] === 'chamado' && (!p.assistente || /^\s*chamado\s*:/i.test(entrada))
+  if ((chamadoNoComeco || (palavras[0] === 'abrir' && palavras.includes('chamado')) || (palavras[0] === 'novo' && palavras[1] === 'chamado')) && depoisDe(entrada, abrir).length >= 8) {
     return { comando: 'abrir_chamado', resto: depoisDe(entrada, abrir) }
   }
+  if (p.assistente) return lerComAssistente(t, palavras)
   // "marcar como lidas", "ver avisos": vale a palavra que decide, não a primeira.
   for (const comando of ['parar', 'voltar', 'lidas', 'avisos', 'agenda', 'chamados', 'aprovacoes'] as const) {
     if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return { comando, resto: '' }
@@ -1242,7 +1296,26 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   return { comando: 'desconhecido', resto: '' }
 }
 
-export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean }): Comando => lerPedido(entrada, p).comando
+/**
+ * O resto de lerPedido com o assistente ligado para a pessoa: os que escrevem (parar, lidas, voltar) só pela frase
+ * exata (EXATOS) ou pelo número do menu; as consultas em até PALAVRAS_DA_CONSULTA palavras; o menu só com saudação
+ * pura. O que sobra é "desconhecido": vai para o assistente.
+ */
+function lerComAssistente(t: string, palavras: string[]): Pedido {
+  if (t === '2') return { comando: 'lidas', resto: '' }
+  for (const comando of ['parar', 'voltar', 'lidas'] as const) {
+    if (EXATOS[comando].includes(t)) return { comando, resto: '' }
+  }
+  if (palavras.length <= PALAVRAS_DA_CONSULTA) {
+    for (const comando of ['avisos', 'agenda', 'chamados', 'aprovacoes'] as const) {
+      if (palavras.some((w) => PALAVRAS[comando].includes(w) && (w.length > 1 || palavras.length === 1))) return { comando, resto: '' }
+    }
+  }
+  if (palavras.every((w) => SO_SAUDACAO.has(w))) return { comando: 'menu', resto: '' }
+  return { comando: 'desconhecido', resto: '' }
+}
+
+export const interpretarComando = (entrada: string, p: { pausado: boolean; admin?: boolean; usuarios?: boolean; frota?: boolean; assistente?: boolean }): Comando => lerPedido(entrada, p).comando
 
 /**
  * Os comandos das áreas que são nome de setor ou de lugar ("Financeiro", "Portaria", "Chamada", "Veículos",
@@ -1341,7 +1414,10 @@ function linhaCurtaDasAreas(p: QuemNoMenu): string | null {
  * traz também a fila. `naoEntendi`: começa com TEXTO_NAO_ENTENDI. O menu cabe sempre no corpo de 1024 da
  * lista: com áreas demais (quem administra tem todas), elas vão numa linha só.
  */
-export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; naoEntendi?: boolean } & QuemNoMenu): string {
+/** A linha do menu de quem tem o assistente ligado (lib/whatsapp/assistente): escrever do jeito da pessoa. */
+export const LINHA_DO_ASSISTENTE = 'Ou escreva do seu jeito, ex.: _o que tenho pra aprovar?_, _avisa a Ana que…_'
+
+export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; naoEntendi?: boolean; assistente?: boolean } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   const montar = (areas: string[]) => [
     p.naoEntendi ? TEXTO_NAO_ENTENDI : null,
@@ -1350,6 +1426,7 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
     ['Responda com o número:', ...opcoesDoMenu(p.pausado, p.atende).map(linhaDoMenu)].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_)',
       ...areas, 'Para responder um aviso, responda a própria mensagem dele.'].join('\n'),
+    p.assistente ? LINHA_DO_ASSISTENTE : null,
     p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
@@ -1538,6 +1615,16 @@ export function textoDaAjuda(p: { pergunta: string; achados: AchadoDaAjuda[]; re
 }
 
 // ------------------------------------------------------------------ ações (responder citando o aviso, votar, abrir chamado)
+
+/**
+ * O resultado de uma ação feita em nome de quem escreveu (votar, responder à portaria, mandar no Chat, mandar uma
+ * mensagem direta): quem chama decide por `ok`, não pelo texto — o plano do assistente para no primeiro `ok: false`
+ * (lib/whatsapp/assistente). `texto`: a frase para a pessoa, escrita pelo código. `codigo`: por que não deu —
+ * já votou, rodada encerrada, matéria mudou, sem permissão, função ausente (migração não aplicada), limite ou erro.
+ */
+export type ResultadoDaAcao =
+  | { ok: true; codigo: 'feito'; texto: string; link?: string }
+  | { ok: false; codigo: 'ja_votou' | 'encerrada' | 'mudou' | 'sem_permissao' | 'indisponivel' | 'limite' | 'erro'; texto: string }
 
 /** O que um aviso aponta, pelo link dele: é para lá que vai a resposta que cita o aviso. */
 export type AlvoDoAviso =

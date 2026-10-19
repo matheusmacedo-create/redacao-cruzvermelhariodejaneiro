@@ -13,7 +13,7 @@ import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 import {
   BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES, PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular,
   interativoDaEscolha, lerDecisao, lerEscolha, oQueDoVoto, textoDaConferencia, textoDaEscolha, textoDoLinkDeConfirmacao, textoDoOficioPeloWhatsapp, textoPedeDetalhes,
-  tituloDoRelato, type Interativo, type Opcao,
+  tituloDoRelato, type Interativo, type Opcao, type ResultadoDaAcao,
 } from './regras'
 import { seguirEnvio } from './envio'
 import { atenderPeloAviso, seguirAtendimento } from './atendimento'
@@ -22,8 +22,11 @@ import { seguirDecisoes } from './financeiro'
 import { seguirPresenca } from './presenca'
 import { seguirViagem } from './frota'
 import { criarConfirmacao } from './confirmacoes'
-import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
+import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita, type RespostaDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
+import { redigirVencidos } from './assistente/faxina'
+
+export type { ResultadoDaAcao }
 
 /**
  * O que o bot do WhatsApp FAZ em nome de quem escreveu: responder o aviso de
@@ -51,7 +54,10 @@ import { aposResposta } from '@/lib/portaria/servidor'
  * é aal1).
  *
  * Nada aqui envia mensagem: cada função devolve o texto da resposta e, quando
- * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias).
+ * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias). As
+ * ações em si (votar, gravarRespostaDaVisita, enviarNoChat) devolvem
+ * ResultadoDaAcao: quem chama decide por `ok` — é assim que o plano do
+ * assistente (lib/whatsapp/assistente) para no primeiro passo que não deu.
  */
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -168,14 +174,7 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
     return { texto: `Enviado no chamado *${c.codigo}*. ${base}/chamados/${c.id}` }
   }
 
-  if (alvo.tipo === 'chat') {
-    const { data, error } = await admin.rpc('whatsapp_chat_enviar', { p_user_id: pessoa.id, p_canal_id: alvo.canalId, p_corpo: corpo.slice(0, 8000), p_resposta_de: alvo.fio })
-    if (semFuncao(error)) return { texto: `${INDISPONIVEL}: ${abrir}` }
-    if (error || !data) return { texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar.'} ${abrir}` }
-    const { data: mensagem } = await admin.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('id', (data as { id: string }).id).single()
-    if (mensagem) await avisarSobreMensagem(workspaceId, alvo.canalId, pessoa.id, mensagem as MensagemDoChat)
-    return { texto: `${alvo.fio ? 'Respondido no fio' : 'Enviado na conversa'}. ${abrir}` }
-  }
+  if (alvo.tipo === 'chat') return { texto: (await enviarNoChat(admin, workspaceId, pessoa, alvo.canalId, alvo.fio, corpo, abrir)).texto }
 
   if (alvo.tipo === 'mensagem') {
     if (escola || alvo.pessoaId === pessoa.id) return { texto: `Responda pelo Palácio: ${abrir}` }
@@ -192,6 +191,19 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
   return { texto: `Este aviso não aceita resposta por aqui. Abra no Palácio: ${abrir}` }
 }
 
+/**
+ * Manda no Chat (canal ou fio) em nome de quem escreveu, pela função do banco (whatsapp_chat_enviar, que chama
+ * chat_enviar como a pessoa: quem não pode lá não pode aqui), e avisa os membros. `abrir`: o link da conversa.
+ */
+export async function enviarNoChat(admin: Admin, workspaceId: string, pessoa: Pessoa, canalId: string, fio: string | null, corpo: string, abrir: string): Promise<ResultadoDaAcao> {
+  const { data, error } = await admin.rpc('whatsapp_chat_enviar', { p_user_id: pessoa.id, p_canal_id: canalId, p_corpo: corpo.slice(0, 8000), p_resposta_de: fio })
+  if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
+  if (error || !data) return { ok: false, codigo: error?.code === '42501' ? 'sem_permissao' : 'erro', texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar.'} ${abrir}` }
+  const { data: mensagem } = await admin.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('id', (data as { id: string }).id).single()
+  if (mensagem) await avisarSobreMensagem(workspaceId, canalId, pessoa.id, mensagem as MensagemDoChat)
+  return { ok: true, codigo: 'feito', texto: `${fio ? 'Respondido no fio' : 'Enviado na conversa'}. ${abrir}`, link: abrir }
+}
+
 // ------------------------------------------------------------------ visita na portaria
 
 /**
@@ -204,21 +216,34 @@ export async function responderVisita(admin: Admin, workspaceId: string, pessoa:
   const abrir = `${base}${linkDaVisita(visitaId)}`
   const lida = lerRespostaDaVisita(texto)
   if (!lida) return { texto: `Não entendi a resposta. ${PERGUNTA_DA_VISITA}\n\nOu responda pelo Palácio: ${abrir}` }
-  const { error } = await admin.rpc('portaria_responder_whatsapp', { p_user_id: pessoa.id, p_id: visitaId, p_resposta: lida.resposta, p_recado: lida.recado })
-  if (semFuncao(error)) return { texto: `${INDISPONIVEL}: ${abrir}` }
-  if (error) return { texto: `${error.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a resposta.'} ${abrir}` }
+  return { texto: (await gravarRespostaDaVisita(admin, workspaceId, pessoa, visitaId, lida.resposta, lida.recado, base)).texto }
+}
+
+/**
+ * Grava a resposta à portaria (portaria_responder_whatsapp: o banco confere que a visita é desta pessoa e espera
+ * resposta) e avisa a portaria e o visitante (aposResposta).
+ */
+export async function gravarRespostaDaVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, visitaId: string, resposta: RespostaDaVisita, recado: string | null, base: string): Promise<ResultadoDaAcao> {
+  const abrir = `${base}${linkDaVisita(visitaId)}`
+  const { error } = await admin.rpc('portaria_responder_whatsapp', { p_user_id: pessoa.id, p_id: visitaId, p_resposta: resposta, p_recado: recado })
+  if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
+  if (error) return { ok: false, codigo: 'erro', texto: `${error.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a resposta.'} ${abrir}` }
   const { visitanteAvisado } = await aposResposta(visitaId, pessoa.id)
   return {
+    ok: true,
+    codigo: 'feito',
     texto: [
-      `Pronto: *${RESPOSTAS[lida.resposta].rotulo}*. A portaria foi avisada${visitanteAvisado ? ' e o visitante recebeu a resposta no WhatsApp' : ''}.`,
-      lida.resposta === 'aguardar' ? 'Quando puder receber, responda de novo com *1*.' : null,
+      `Pronto: *${RESPOSTAS[resposta].rotulo}*. A portaria foi avisada${visitanteAvisado ? ' e o visitante recebeu a resposta no WhatsApp' : ''}.`,
+      resposta === 'aguardar' ? 'Quando puder receber, responda de novo com *1*.' : null,
     ].filter(Boolean).join(' '),
+    link: abrir,
   }
 }
 
 // ------------------------------------------------------------------ aprovação
 
-async function rodadaDoVoto(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string) {
+/** A rodada em que a pessoa vai votar: aberta, com ela convidada e ainda sem o voto dela; o título e a conferência do setor. */
+export async function rodadaDoVoto(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string) {
   const { data: aprovacao } = await admin.from('approvals').select('id, status, content_id').eq('id', approvalId).eq('workspace_id', workspaceId).maybeSingle()
   if (!aprovacao || aprovacao.status !== 'pending') return { erro: 'Esta rodada já foi encerrada.' } as const
   const { data: voto } = await admin.from('approval_voters').select('decision').eq('approval_id', approvalId).eq('user_id', pessoa.id).maybeSingle()
@@ -243,7 +268,7 @@ async function decidirAprovacao(admin: Admin, workspaceId: string, pessoa: Pesso
   if (decisao.decisao === 'ajustes' && decisao.nota.length < 5) return { texto: 'Diga o que precisa mudar, respondendo o aviso com *ajustes:* e o texto.' }
   const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
   if ('erro' in rodada) return { texto: `${rodada.erro} ${abrir}` }
-  if (decisao.decisao === 'ajustes') return { texto: await votar(admin, workspaceId, pessoa, approvalId, 'changes_requested', decisao.nota, base) }
+  if (decisao.decisao === 'ajustes') return { texto: (await votar(admin, workspaceId, pessoa, approvalId, 'changes_requested', decisao.nota, base)).texto }
   return {
     texto: textoDaConferencia({ titulo: rodada.titulo, blocos: rodada.blocos.map((b) => ({ setor: b.setor.nome, itens: b.itens })) }),
     pergunta: { tipo: 'aprovar', dados: { approvalId } },
@@ -272,15 +297,40 @@ async function votarPeloPalacio(admin: Admin, workspaceId: string, pessoa: Pesso
   return { texto: textoDoLinkDeConfirmacao({ oQue: oQueDoVoto({ titulo: rodada.titulo, ...voto }), url: link.url }) }
 }
 
-async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, decisao: 'approved' | 'changes_requested', nota: string, base: string, conferencia?: string): Promise<string> {
+/** O código de erro do voto conferido (whatsapp_votar_uma_vez) no vocabulário de ResultadoDaAcao. */
+const CODIGO_DO_VOTO: Record<string, Extract<ResultadoDaAcao, { ok: false }>['codigo']> = {
+  WA001: 'ja_votou', WA002: 'mudou', WA003: 'encerrada', 42501: 'sem_permissao',
+}
+
+/**
+ * O voto em nome de quem escreveu. Sem `extra`, pela função de sempre (whatsapp_votar). Com `extra` (o plano do
+ * assistente), pela conferida (whatsapp_votar_uma_vez): trava a rodada e a linha do votante, recusa voto repetido
+ * (inclusive o dado na tela no meio do caminho) e matéria mudada depois do plano (o hash do conteúdo). Nunca
+ * lança: devolve ResultadoDaAcao, e o `texto` é o mesmo que o bot sempre mandou.
+ */
+export async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, decisao: 'approved' | 'changes_requested', nota: string, base: string, conferencia?: string,
+  extra?: { via: 'assistente'; plano_id: string; hashConteudo: string }): Promise<ResultadoDaAcao> {
   const abrir = `${base}/aprovacoes/${approvalId}`
   const comentario = [nota, conferencia, 'Voto dado pelo WhatsApp.'].filter(Boolean).join('\n\n')
-  const { error } = await admin.rpc('whatsapp_votar', { p_user_id: pessoa.id, p_approval_id: approvalId, p_decision: decisao, p_comment: comentario })
-  if (semFuncao(error)) return `${INDISPONIVEL}: ${abrir}`
-  if (error) return `${(error.code === 'P0001' || error.code === '42501') && error.message ? error.message : 'Não foi possível registrar o voto.'} ${abrir}`
-  await admin.from('activity_log').insert({ workspace_id: workspaceId, actor_id: pessoa.id, action: decisao, entity_type: 'approval', entity_id: approvalId, metadata: { note: comentario, canal: 'whatsapp' } })
+  const { error } = extra
+    ? await admin.rpc('whatsapp_votar_uma_vez', { p_user_id: pessoa.id, p_approval_id: approvalId, p_decision: decisao, p_comment: comentario, p_hash_conteudo: extra.hashConteudo })
+    : await admin.rpc('whatsapp_votar', { p_user_id: pessoa.id, p_approval_id: approvalId, p_decision: decisao, p_comment: comentario })
+  if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
+  if (error) {
+    const conhecido = error.code === 'P0001' || error.code === '42501' || (extra && /^WA00[123]$/.test(error.code ?? ''))
+    return { ok: false, codigo: CODIGO_DO_VOTO[error.code ?? ''] ?? 'erro', texto: `${conhecido && error.message ? error.message : 'Não foi possível registrar o voto.'} ${abrir}` }
+  }
+  await admin.from('activity_log').insert({
+    workspace_id: workspaceId, actor_id: pessoa.id, action: decisao, entity_type: 'approval', entity_id: approvalId,
+    metadata: { note: comentario, canal: 'whatsapp', ...(extra ? { via: extra.via, plano_id: extra.plano_id } : {}) },
+  })
   await avisarQuemPediu({ approvalId, workspaceId, atorId: pessoa.id, quem: pessoa.nome || 'Um colega', decisao, nota })
-  return decisao === 'approved' ? `Voto registrado: *aprovado*. ${abrir}` : `Pedido de ajustes registrado; quem pediu a aprovação foi avisado. ${abrir}`
+  return {
+    ok: true,
+    codigo: 'feito',
+    texto: decisao === 'approved' ? `Voto registrado: *aprovado*. ${abrir}` : `Pedido de ajustes registrado; quem pediu a aprovação foi avisado. ${abrir}`,
+    link: abrir,
+  }
 }
 
 // ------------------------------------------------------------------ pendências (o passo que falta)
@@ -328,6 +378,11 @@ export async function guardarPendencia(admin: Admin, workspaceId: string, userId
   // do "Não fui eu", que é do número que respondeu ao aviso, também: uma pergunta nova não a cancela).
   await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null)
     .not('tipo', 'in', '(envio,nao_fui_eu)')
+  // O plano ou a pergunta do assistente também cedem a vez (os dois nunca ficam abertos juntos) e são redigidos.
+  // Sem a tabela (migração do assistente ainda não aplicada), o erro é ignorado.
+  const { data: substituidos } = await admin.from('whatsapp_ia_planos').update({ situacao: 'substituido', atualizado_em: new Date().toISOString() })
+    .eq('user_id', userId).in('situacao', ['pergunta', 'aberto', 'em_revisao']).select('id')
+  if (substituidos?.length) await redigirVencidos(admin, { limite: 10, userId })
   const { data, error } = await admin.from('whatsapp_pendencias').insert({ workspace_id: workspaceId, user_id: userId, tipo: p.tipo, dados: p.dados, expira_em: expira }).select('id').single()
   return error || !data ? null : (data.id as number)
 }
@@ -377,7 +432,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
     if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return votarPeloPalacio(admin, workspaceId, pessoa, approvalId, 'aprovar', base)
     const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
     if ('erro' in rodada) return { texto: `${rodada.erro} ${base}/aprovacoes/${approvalId}` }
-    return { texto: await votar(admin, workspaceId, pessoa, approvalId, 'approved', '', base, registroDaConferencia(rodada.blocos)) }
+    return { texto: (await votar(admin, workspaceId, pessoa, approvalId, 'approved', '', base, registroDaConferencia(rodada.blocos))).texto }
   }
 
   return seguirChamado(admin, workspaceId, pessoa, p, texto, base, estrita)

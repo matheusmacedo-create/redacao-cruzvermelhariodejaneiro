@@ -2,6 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp } from './servidor'
 import { registrarEstado } from './estado'
+import { redigirVencidos } from './assistente/faxina'
 import {
   BOTAO_DO_NAO_FUI_EU, INTERVALO_ENTRE_ENVIOS_MS, MARCA_DO_NAO_FUI_EU, TETO_POR_MINUTO, emSilencio, esperaPelaCota, falhaDerrubaConexao, falhaMereceReenvio,
   fimDaEsperaDaCota, fimDoSilencio, interativoDoAviso, limiteDaCota, ofereceNaoFuiEu, prioridadeNaCota, proximaTentativa, silencioSeAplica,
@@ -141,8 +142,11 @@ async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWh
 /**
  * Entrega uma mensagem com as regras de silêncio, cota diária, volume e queda.
  * "teste" nunca vai para a fila: quem tocou no botão quer a resposta agora.
+ * `semFila`: nunca enfileira — nem pelo teto de volume (a resposta já tem o teto de respostas por número), nem
+ * para reenviar a falha (devolve "falhou"). É o caso das respostas do assistente (lib/whatsapp/assistente): o
+ * plano que não saiu na hora é cancelado, e o texto dele nunca espera na fila.
  */
-export async function entregar(admin: Admin, workspaceId: string, m: Mensagem, opcoes: { config?: ConfigDoWhatsapp | null } = {}): Promise<Entrega> {
+export async function entregar(admin: Admin, workspaceId: string, m: Mensagem, opcoes: { config?: ConfigDoWhatsapp | null; semFila?: boolean } = {}): Promise<Entrega> {
   try {
     const agora = new Date()
     if (silencioSeAplica(m) && emSilencio(agora) && await enfileirar(admin, workspaceId, m, { motivo: 'silencio', enviarApos: fimDoSilencio(agora) })) {
@@ -155,7 +159,7 @@ export async function entregar(admin: Admin, workspaceId: string, m: Mensagem, o
         return { situacao: 'na_fila', motivo: 'cota' }
       }
     }
-    if (m.tipo !== 'teste' && await saidasNoUltimoMinuto(admin, workspaceId) >= TETO_POR_MINUTO
+    if (m.tipo !== 'teste' && !opcoes.semFila && await saidasNoUltimoMinuto(admin, workspaceId) >= TETO_POR_MINUTO
       && await enfileirar(admin, workspaceId, m, { motivo: 'volume', enviarApos: new Date(agora.getTime() + 60_000) })) {
       return { situacao: 'na_fila', motivo: 'volume' }
     }
@@ -164,7 +168,7 @@ export async function entregar(admin: Admin, workspaceId: string, m: Mensagem, o
     const envio = await enviarAgora(admin, workspaceId, config, m)
     if (envio.ok) return { situacao: 'enviada', id: envio.id }
     const quando = proximaTentativa(1, new Date())
-    if (m.tipo !== 'teste' && quando && falhaMereceReenvio(envio.motivo)
+    if (m.tipo !== 'teste' && !opcoes.semFila && quando && falhaMereceReenvio(envio.motivo)
       && await enfileirar(admin, workspaceId, m, { motivo: 'falha', enviarApos: quando, tentativas: 1, erro: envio.erro })) {
       return { situacao: 'na_fila', motivo: 'falha' }
     }
@@ -191,6 +195,10 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
   const resultado: ResultadoDaFila = { enviadas: 0, adiadas: 0, desistiu: 0, restam: 0 }
   const fim = Date.now() + (opcoes.orcamentoMs ?? 60_000)
   try {
+    // A faxina dos planos do assistente vem junto (os textos de ação vencidos saem do banco): a fila anda a cada aviso
+    // emitido em qualquer parte do Palácio, e isso basta para nenhum plano abandonado esperar a rotina do dia.
+    await redigirVencidos(admin, { limite: 20 })
+
     // Quem ficou "processando" por mais de 10 min (a função caiu no meio) volta para a fila.
     await admin.from('whatsapp_fila').update({ situacao: 'pendente', atualizado_em: new Date().toISOString() })
       .eq('situacao', 'processando').lt('atualizado_em', new Date(Date.now() - 10 * 60_000).toISOString())
@@ -234,8 +242,9 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
       const agora = new Date()
       // O link da ficha da Equipe, o convite de acesso e o link de confirmar no Palácio que a resposta do bot leva
       // (lib/whatsapp/confirmacoes.ts, caminhoDaConfirmacao) carregam token: saiu (ou desistiu), o texto não fica guardado.
+      // A resposta do assistente (o recibo, a única que pode esperar aqui) também não: o Palácio não guarda a conversa.
       const semSegredo = (campos: Record<string, unknown>) =>
-        (item.categoria === 'equipe' || item.categoria === 'conta' || (item.tipo === 'bot' && item.texto.includes('/confirmar/')))
+        (item.categoria === 'equipe' || item.categoria === 'conta' || item.categoria === 'assistente' || (item.tipo === 'bot' && item.texto.includes('/confirmar/')))
           && (campos.situacao === 'enviada' || campos.situacao === 'desistiu')
           ? { ...campos, texto: '[link apagado depois do envio]' } : campos
       const devolver = (campos: Record<string, unknown>) =>

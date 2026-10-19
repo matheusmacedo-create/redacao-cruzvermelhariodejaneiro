@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { auditarConta, avisarTrocaDeWhatsapp } from '@/lib/contas/servidor'
 import { CODIGO_TENTATIVAS, mascararNumero, type SentidoDoCodigo } from './regras'
 import { consentimentoGuardado } from './voluntarios-regras'
+import { semColuna } from './servidor'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -26,9 +27,14 @@ export type Confirmacao = { ok: true } | { ok: false; motivo: 'usado' | 'outra_c
 /**
  * Consome o código de forma atômica (dois cliques ou duas entregas não confirmam duas vezes) e guarda o número de quem é da equipe.
  * Se havia outro número confirmado, o e-mail da pessoa e o número antigo ficam sabendo da troca (avisarTrocaDeWhatsapp).
+ *
+ * `nome`: o nome de perfil do WhatsApp que veio com o código de ida (MensagemRecebida.nome). A confirmação grava o
+ * nome visto (nome_no_whatsapp; null pelo caminho de digitar, que não traz nome: o assistente grava no primeiro uso)
+ * e zera a suspensão do assistente por troca de nome (lib/whatsapp/assistente/uso.ts): confirmar exige o login no
+ * Palácio e o número na mão. Antes da migração do assistente, grava sem essas colunas.
  */
 export async function confirmarNumeroDaEquipe(admin: Admin, p: {
-  codigoId: string; userId: string; numero: string; workspaceId: string; sentido: SentidoDoCodigo
+  codigoId: string; userId: string; numero: string; workspaceId: string; sentido: SentidoDoCodigo; nome?: string | null
 }): Promise<Confirmacao> {
   const agora = new Date().toISOString()
   const { data: consumido } = await admin.from('whatsapp_codigos').update({ usado_em: agora })
@@ -37,8 +43,10 @@ export async function confirmarNumeroDaEquipe(admin: Admin, p: {
 
   const { data: antes } = await admin.from('whatsapp_contas').select('numero').eq('user_id', p.userId).maybeSingle()
   const anterior = (antes?.numero as string | undefined) ?? null
-  const { error } = await admin.from('whatsapp_contas')
-    .upsert({ user_id: p.userId, numero: p.numero, confirmado_em: agora, pausado_em: null, atualizado_em: agora }, { onConflict: 'user_id' })
+  const linha = { user_id: p.userId, numero: p.numero, confirmado_em: agora, pausado_em: null, atualizado_em: agora }
+  const doAssistente = { nome_no_whatsapp: p.nome?.trim().slice(0, 80) || null, assistente_suspenso_em: null }
+  let { error } = await admin.from('whatsapp_contas').upsert({ ...linha, ...doAssistente }, { onConflict: 'user_id' })
+  if (semColuna(error)) ({ error } = await admin.from('whatsapp_contas').upsert(linha, { onConflict: 'user_id' }))
   if (error?.code === '23505') return { ok: false, motivo: 'outra_conta' }
   if (error) return { ok: false, motivo: 'falhou' }
 

@@ -2487,6 +2487,61 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   episódio com a data de agora, até o próximo “resolvido”; a memória definitiva vai para `whatsapp_estado`
   (só service role) numa migração futura. O painel não mostra essas linhas
   (`fraseDaAtividade` devolve null). A frequência do cron não mudou (uma vez por dia).
+- **Assistente do Palácio no WhatsApp — fundação (19/10/2026, etapa 1 de 4, sem modelo e DESLIGADO):** o número
+  vai entender linguagem natural (o Claude) e preparar ações que a pessoa confirma. Nesta etapa só a base, sem
+  mudança visível: sem configuração, o bot responde exatamente como antes (o `bot.ts` ainda não chama o assistente).
+  - **Desenho:** nenhuma frase do modelo, nenhum texto de terceiro e nenhum dado guardado basta para escrever. O
+    modelo não terá ferramenta que escreva — `preparar_*` só acrescenta um passo a um plano; o código escreve o
+    plano exato a partir do banco (`textoDoPlano`, pessoas sempre `Nome (@usuário · Setor)` e ⚠ de homônimo, o
+    texto que sai inteiro e citado com `> `), e só executa depois do *confirmo* escrito DEPOIS da entrega do plano
+    (pela hora da Meta, `MensagemRecebida.enviadaEm`) ou do botão com o hash. "sim" e "ok" não confirmam. O
+    modelo só aponta para itens que o código mostrou (marcadores `apr_1`, `pes_3`; texto de terceiro com `[ ]`
+    vira `⟦ ⟧` e nunca imita um marcador). Um `preparar_*` só vale se a mensagem DA PRÓPRIA PESSOA pediu aquele
+    tipo de ação (`acoesPermitidas`, por radicais, nunca pelo contexto). Quem usa a verificação em duas etapas lê
+    só o que é dele; as escritas não isentas dele terminam no Palácio (etapa 4).
+  - **Código (pasta `lib/whatsapp/assistente/`):** `regras.ts` (puro: rotas, resposta ao plano, portão,
+    quantidade, `pareceInstrucao`, saneamento, validação das ferramentas, plano, hash, recibo, redação, custo,
+    tetos, confiança do número, recuo da API), `marcadores.ts` (puro), `fluxo.ts` (puro com repositório injetado:
+    guardar, entregar, revisão e rearme, cancelar, substituir, confirmar com assentamento de 3 s, "mensagem no
+    meio", consumo atômico, hash, revalidação de todos os passos e execução que para no primeiro `ok: false`),
+    `faxina.ts` (`redigirVencidos`: vence, redige, solta os presos em "executando" e fecha o uso sem desfecho; roda
+    no início de `processarFila`, no máximo a cada 30 s por instância, e em `guardarPendencia`; não importa
+    `fila.ts`) e `uso.ts` (`disponibilidadeDoAssistente`: configuração, modo, chave, disjuntor, papel ≠ escola,
+    `confiancaDoNumero` — confirmado há menos de 180 dias ou login há menos de 60, e a troca do nome de perfil
+    do WhatsApp suspende o assistente no número até reconfirmar). Conferido por
+    `npx tsx scripts/conferir-assistente.ts` (sem banco, sem rede, sem modelo; inclui a corrida "tira a segunda" ×
+    "confirmo" no repositório em memória).
+  - **Fora da pasta:** `lib/whatsapp/consultas.ts` (os dados de avisos, aprovações pendentes e pedidas, chamados,
+    agenda e `pessoaDoEspaco`; o bot só formata); `acoes.ts` (`votar`, `gravarRespostaDaVisita` e `enviarNoChat`
+    devolvem `ResultadoDaAcao` — `{ ok, codigo, texto }` —; `votar` com `extra` usa `whatsapp_votar_uma_vez`, e
+    `guardarPendencia` substitui o plano aberto do assistente); `lib/mensagens/enviar.ts`
+    (`enviarMensagemDireta` pela `whatsapp_mensagem_direta`; o aviso diz "pelo WhatsApp do Palácio");
+    `fila.ts` (`entregar(…, { semFila })`: a resposta do assistente nunca espera na fila; o texto da categoria
+    `assistente` some da fila depois do envio); `servidor.ts` (`registrar` grava `enviada_em`);
+    `confirmacao.ts` (a confirmação grava o nome de perfil visto e zera a suspensão); `regras.ts`
+    (`semInvisiveis` em `limpo` — NFKC e sem `\p{Cf}`, guardando º, ª e … —, `lerPedido` com `assistente`: os
+    comandos que escrevem só pela frase exata, consultas em até 3 palavras, o menu só com saudação pura,
+    "chamado" só com os dois-pontos; `textoDoMenu` com a linha "Ou escreva do seu jeito"); `lib/ia/anthropic.ts`
+    (`modeloDoAssistente` = `WHATSAPP_IA_MODELO` ou `claude-opus-5-5`, `esforcoDoAssistente` =
+    `WHATSAPP_IA_ESFORCO` ou `low`, `ttlDoCacheDoAssistente` = `WHATSAPP_IA_CACHE_TTL` ou `1h`,
+    `clienteDoClaude`, `traduzirErro` com a variável certa no 404).
+  - **Migração `20261019010000` (só acrescenta):** `whatsapp_mensagens.enviada_em`;
+    `whatsapp_contas.nome_no_whatsapp` e `assistente_suspenso_em`; `whatsapp_ia_config` (o interruptor por
+    espaço: modo `desligado`/`piloto`/`admins`/`equipe`, `escrita`, tetos e o disjuntor; sem linha = desligado; só
+    a administração lê); `whatsapp_ia_planos` (um aberto por pessoa, índice único; só o servidor); `whatsapp_ia_memoria`
+    (só marcador → tipo e uuid, a ordem da última lista, a trava e o HMAC do último texto; o CHECK recusa texto);
+    `whatsapp_ia_uso` (uma linha por turno, só números e nomes); as somas `whatsapp_ia_gasto_desde` e
+    `whatsapp_ia_leituras_desde`; a trava `whatsapp_ia_tomar_vez`; `whatsapp_hash_do_conteudo` (sha-256 de
+    título ‖ subtítulo ‖ corpo — a versão da matéria não serve de trava); `whatsapp_votar_uma_vez` (servidor,
+    aal1) e `votar_conferido` (sessão), que travam a rodada e a linha e recusam voto repetido (WA001), matéria
+    mudada (WA002) e rodada encerrada (WA003); e `whatsapp_mensagem_direta`. Os validadores de array e jsonb são
+    funções imutáveis em `private` (o CHECK não aceita subconsulta), executáveis pelo service role (o CHECK roda
+    com o papel de quem grava). Testes em `supabase/tests/whatsapp-assistente.test.sql`. Antes dela, o código
+    degrada: sem a configuração o assistente fica indisponível; o registro e a confirmação gravam sem as colunas
+    novas; a faxina não faz nada.
+  - **Ligar (depois das etapas 2 e 3):** uma linha em `whatsapp_ia_config` com `modo = 'piloto'` e os ids do
+    piloto; `escrita` só depois da etapa 3. O "Não fui eu" no recibo e a confirmação no Palácio do plano sensível
+    são da etapa 4.
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -2796,6 +2851,9 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
+- **Assistente do WhatsApp, etapas 2 a 4** (§8.5) — a fundação está no código, desligada. Faltam: a leitura com o
+  modelo (ferramentas, prompt, laço, cotas, o cartão em Configurações → WhatsApp, a rotina), a escrita confirmada
+  pelo WhatsApp (preparos, executores, recibo) e a integração com a confirmação no Palácio e o "Não fui eu".
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

@@ -10,6 +10,7 @@ import {
   textoDosChamados, type AcaoNoChamado, type ChamadoNaLista, type Interativo, type Opcao,
 } from './regras'
 import { encerrarPendencia, podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from './acoes'
+import { chamadosDaPessoa } from './consultas'
 
 /**
  * Quem atende uma fila de chamados, pelo WhatsApp: assumir, resolver (com a
@@ -83,31 +84,28 @@ async function chamadoPeloCodigo(admin: Admin, workspaceId: string, codigo: stri
 // ------------------------------------------------------------------ o 5
 
 /**
- * Os chamados abertos que a pessoa abriu ou que estão com ela e, para quem
- * atende uma fila, os abertos da fila que não estão com ela: sem responsável
- * primeiro, depois a prioridade mais alta e o mais antigo.
+ * O 5: os chamados abertos que a pessoa abriu ou que estão com ela (consultas.ts, chamadosDaPessoa) e, para quem
+ * atende uma fila, os abertos da fila que não estão com ela: sem responsável primeiro, depois a prioridade mais
+ * alta e o mais antigo.
  */
-export async function chamadosDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
+export async function respostaDosChamados(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
   const userId = pessoa.id
-  const deQuem = `solicitante_id.eq.${userId},responsavel_id.eq.${userId}`
   const atendo = ehEquipeDaEscola(pessoa.papel) ? new Set<string>() : await filasQueAtendo(admin, workspaceId, userId, pessoa.papel)
-  const [{ data, error }, { count }, daFila] = await Promise.all([
-    admin.from('chamados').select('id, codigo, titulo, status, solicitante_id').eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS])
-      .order('atualizado_em', { ascending: false }).limit(CHAMADOS_NA_RESPOSTA),
-    admin.from('chamados').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS]),
+  const [meus, daFila] = await Promise.all([
+    chamadosDaPessoa(admin, workspaceId, userId, { limite: CHAMADOS_NA_RESPOSTA }),
     atendo.size ? chamadosDaFila(admin, workspaceId, userId, atendo) : Promise.resolve(null),
   ])
-  if (error) return `Não consegui ler os seus chamados agora. Veja em ${base}/chamados`
+  if (!meus) return `Não consegui ler os seus chamados agora. Veja em ${base}/chamados`
   return textoDosChamados({
-    chamados: (data ?? []).map((c) => {
+    chamados: meus.chamados.map((c) => {
       const status = ehStatus(c.status) ? c.status : 'novo'
-      const deOutro = c.solicitante_id !== userId
+      const deOutro = c.solicitanteId !== userId
       return {
-        id: c.id as string, codigo: (c.codigo as string) || 'Chamado', titulo: (c.titulo as string) ?? '',
+        id: c.id, codigo: c.codigo, titulo: c.titulo,
         situacao: deOutro ? `${ROTULO_DO_STATUS_PARA_EQUIPE[status]} · com você` : ROTULO_DO_STATUS[status],
       }
     }),
-    total: count ?? data?.length ?? 0, urlBase: base,
+    total: meus.total, urlBase: base,
     // Quem atende e a leitura da fila falhou: o aviso de que não carregou (não "em dia") e a dica de como agir.
     daFila: atendo.size ? daFila ?? { chamados: [], total: 0, falhou: true } : null,
   })
