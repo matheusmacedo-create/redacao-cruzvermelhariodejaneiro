@@ -6,6 +6,7 @@ import { IaError } from '@/lib/ia/openai'
 import type { Interativo, MensagemRecebida } from '../regras'
 import type { Entrega } from '../fila'
 import type { Pessoa } from '../acoes'
+import type { DocumentoRecebido } from '../drive-regras'
 import { chamarClaude, paramsDoAssistente } from './claude'
 import { criarExecutar, criarRascunho, rodarTurno, type Desfecho, type Handlers, type PerguntaPronta } from './laco'
 import { criarLeitor, dadosDoContexto, decisaoDaPessoa, novoTurnoDeLeitura, quadroDePessoas, rotulosDasOpcoes, type TurnoDeLeitura } from './leituras'
@@ -91,7 +92,13 @@ export function classeDoErro(causa: unknown): string {
 /** Os tipos de ação dos passos de um plano (o portão do turno soma os do plano em revisão). */
 const TIPO_DO_PASSO: Record<Passo['acao'], TipoDeAcao> = {
   votar: 'voto', mensagem_direta: 'mensagem', comentar_chamado: 'comentario', responder_chat: 'chat', abrir_chamado: 'chamado', responder_visita: 'visita', marcar_lidos: 'lidos',
-  atender_chamado: 'atendimento', registrar_visita: 'registro_visita', decidir_financeiro: 'financeiro',
+  atender_chamado: 'atendimento', registrar_visita: 'registro_visita', decidir_financeiro: 'financeiro', guardar_no_drive: 'drive',
+}
+
+/** O documento do passo de guardar no Drive do plano em revisão (a correção da pasta acha o documento por aqui). */
+function documentoDoPlano(passos: Passo[] | undefined): DocumentoRecebido | null {
+  const p = (passos ?? []).find((x): x is Extract<Passo, { acao: 'guardar_no_drive' }> => x.acao === 'guardar_no_drive')
+  return p ? { mensagemId: p.mensagemId, arquivo: p.arquivo, endereco: p.endereco, nome: p.nome, mime: p.mime, tamanho: p.tamanho, tipo: p.tipo, extensao: p.extensao } : null
 }
 
 /** A pergunta do modelo vira a do código: só opções que o código mostrou, com os rótulos relidos no banco. */
@@ -181,6 +188,7 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
       fonte: fonteDoSupabase(admin, workspaceId, pessoa, { quadro: () => quadroDePessoas(turno), decisao: (tipo, id) => decisaoDaPessoa(admin, workspaceId, pessoa, tipo, id) }),
       tabela: memoria.tabela, rascunho, pessoaId: pessoa.id, podeAgir: ia.podeAgir, noPalacio: ia.noPalacio, escrita: ia.escrita, recente: ia.recente, base: e.base,
       mensagensDia: config?.mensagens_dia ?? TETOS_PADRAO.mensagens_dia, rotuloDe: (m) => turno.itens[m]?.rotulo ?? null,
+      documentoEmRevisao: documentoDoPlano(emRevisao?.passos),
     })
     const handlers: Handlers = {
       ler: criarLeitor(turno),

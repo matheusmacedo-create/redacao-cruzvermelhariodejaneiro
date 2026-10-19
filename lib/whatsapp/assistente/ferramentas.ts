@@ -15,8 +15,9 @@ import { NOMES_DAS_FERRAMENTAS, type NomeDaFerramenta } from './regras'
  * ficam em validarEntrada, regras.ts). Item é sempre marcador (apr_1, pes_3), nunca uuid, número, e-mail ou URL.
  *
  * São 20, o teto: as 17 da v1 com as da onda 2 (o atendimento do chamado, o registro de visita, a decisão do
- * Financeiro, sempre no Palácio, e consultar_area no lugar de ver_status_do_whatsapp). A troca reescreveu o prefixo
- * do cache uma vez; daqui em diante ele volta a ser lido.
+ * Financeiro, sempre no Palácio, e consultar_area no lugar de ver_status_do_whatsapp) e o guardar no Google Drive
+ * (preparar_guardar_no_drive), que entrou no lugar de ler_filas_de_chamado — as filas viraram uma área de
+ * consultar_area (filas_de_chamado). Cada troca reescreve o prefixo do cache uma vez; depois ele volta a ser lido.
  */
 
 type Ferramenta = Anthropic.Beta.BetaTool & { name: NomeDaFerramenta; strict: true }
@@ -38,9 +39,9 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   },
   {
     name: 'consultar_area', strict: true,
-    description: 'Consulta uma área do Palácio que esta pessoa abre: financeiro (despesas e compras que esperam a decisão dela, com marcadores des_ e com_), frota (veículos agora), estoque (saldo de um material: diga o material em busca), portaria (visitas de hoje) ou whatsapp (a saúde do canal, só para quem administra). Sem valores, telefones nem endereços.',
+    description: 'Consulta uma área do Palácio que esta pessoa abre: filas_de_chamado (as filas que recebem chamados e os assuntos de cada uma, com fil_ e ass_ e se o assunto pede local: chame antes de preparar_chamado ou de transferir um chamado), financeiro (despesas e compras que esperam a decisão dela, com marcadores des_ e com_), frota (veículos agora), estoque (saldo de um material: diga o material em busca), portaria (visitas de hoje) ou whatsapp (a saúde do canal, só para quem administra). Sem valores, telefones nem endereços.',
     input_schema: objeto({
-      area: { type: 'string', enum: ['financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] },
+      area: { type: 'string', enum: ['filas_de_chamado', 'financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] },
       busca: { type: 'string', description: 'O material, no estoque (2 a 80 caracteres); "" nas outras áreas.' },
     }),
   },
@@ -69,11 +70,6 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     }),
   },
   {
-    name: 'ler_filas_de_chamado', strict: true,
-    description: 'Lista as filas que recebem chamados e os assuntos de cada uma (e se o assunto pede local). Chame antes de preparar_chamado.',
-    input_schema: objeto({}),
-  },
-  {
     name: 'perguntar', strict: true,
     description: 'Faz uma pergunta curta à pessoa quando falta algo sem o qual a ação não faz sentido (qual de duas pessoas, qual chamado, quais aprovações). Termina a sua vez: o sistema mostra as opções e o resumo do pedido. Use só marcadores do contexto ou de resultados.',
     input_schema: objeto({
@@ -84,7 +80,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   },
   {
     name: 'preparar_atendimento_do_chamado', strict: true,
-    description: 'Prepara, para quem atende a fila do chamado, assumir (fica com a pessoa), resolver (a nota é a solução que quem abriu vai ler) ou transferir para outra fila (fila e assunto de ler_filas_de_chamado; a nota é o motivo). Não faz: acrescenta um passo ao plano.',
+    description: 'Prepara, para quem atende a fila do chamado, assumir (fica com a pessoa), resolver (a nota é a solução que quem abriu vai ler) ou transferir para outra fila (fila e assunto de consultar_area filas_de_chamado; a nota é o motivo). Não faz: acrescenta um passo ao plano.',
     input_schema: objeto({
       chamado: { type: 'string' },
       acao: { type: 'string', enum: ['assumir', 'resolver', 'transferir'] },
@@ -116,6 +112,14 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
       item: { type: 'string' },
       decisao: { type: 'string', enum: ['aprovar', 'recusar'] },
       motivo: { type: 'string', description: 'Obrigatório para recusar (quem pediu recebe), nas palavras dela; "" para aprovar.' },
+    }),
+  },
+  {
+    name: 'preparar_guardar_no_drive', strict: true,
+    description: 'Prepara guardar no Google Drive do Palácio o documento que a pessoa acabou de mandar por aqui (o contexto o mostra como esperando a pasta). A pasta vai como ela disse, começando pelo setor dela, ex.: "Financeiro/Contratos" (até 4 níveis). Não guarda: acrescenta um passo ao plano.',
+    input_schema: objeto({
+      pasta: { type: 'string', description: 'O caminho dentro de "Palácio – Arquivos", com / entre os níveis, começando pelo setor (até 300 caracteres).' },
+      nome: { type: 'string', description: 'Outro nome para o arquivo, só se a pessoa pediu; "" mantém o nome que veio.' },
     }),
   },
   {

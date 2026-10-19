@@ -342,7 +342,7 @@ function roteiro(respostas: Anthropic.Beta.BetaMessage[]) {
 /** As leituras de mentira (as do turno real ficam em leituras.ts; aqui só o que os casos pedem). */
 const leiturasDeMentira: Handlers['ler'] = async (nome, e) => {
   if (nome === 'buscar_pessoa') return { ok: true, conteudo: JSON.stringify({ pessoas: [{ pessoa: 'pes_5', rotulo: 'Ana Souza (@ana.souza · RH)' }, { pessoa: 'pes_6', rotulo: 'Ana Lima (@ana.lima · Comunicação)' }] }) }
-  if (nome === 'ler_filas_de_chamado') return { ok: true, conteudo: JSON.stringify({ filas: [{ fila: 'fil_8', nome: 'TI', assuntos: [{ assunto: 'ass_9', nome: 'Impressora', pede_local: true }] }] }) }
+  if (nome === 'consultar_area' && e.area === 'filas_de_chamado') return { ok: true, conteudo: JSON.stringify({ filas: [{ fila: 'fil_8', nome: 'TI', assuntos: [{ assunto: 'ass_9', nome: 'Impressora', pede_local: true }] }] }) }
   return { ok: true, conteudo: JSON.stringify({ itens: [], pedido: e }) }
 }
 
@@ -548,7 +548,7 @@ async function conferirRoteiro() {
   {
     // 9: o relato de defeito → filas → o chamado com urgência e local.
     const t = await turno('a impressora do 3º andar parou de novo, urgente', [
-      respostaDoModelo([usoDe('ler_filas_de_chamado', {})]),
+      respostaDoModelo([usoDe('consultar_area', { area: 'filas_de_chamado', busca: '' })]),
       respostaDoModelo([usoDe('preparar_chamado', { fila: 'fil_8', assunto: 'ass_9', relato: 'A impressora do 3º andar parou de novo.', local: '3º andar', urgencia: 3 })]),
     ])
     igual([t.desfecho.tipo, t.corpos.length], ['plano', 2], 'roteiro 9: ler as filas e depois preparar (terminal)')

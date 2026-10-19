@@ -15,6 +15,8 @@ import { decisoesDaPessoa, podeDecidirNoFinanceiro } from '../financeiro'
 import { frotaAgora } from '../frota'
 import { saldoNoEstoque } from '../estoque'
 import { visitasDeHoje } from '../portaria'
+import { documentoEsperando, quemGuarda } from '../drive'
+import { tamanhoLegivel } from '@/lib/google/drive-regras'
 import { alvoDoLink, normalizar, semInvisiveis, type AlvoDoAviso } from '../regras'
 import type { Pessoa } from '../acoes'
 import type { TabelaDeMarcadores, TipoDeItem } from './marcadores'
@@ -203,7 +205,6 @@ export function criarLeitor(t: TurnoDeLeitura): (nome: NomeDaFerramenta, e: Reco
         case 'ver_aprovacao': return await verAprovacao(t, String(e.aprovacao))
         case 'ler_chamados': return await lerChamados(t, String(e.escopo), String(e.situacao), String(e.busca ?? ''))
         case 'ver_chamado': return await verChamado(t, String(e.chamado))
-        case 'ler_filas_de_chamado': return await lerFilas(t)
         case 'ler_agenda': return await lerAgenda(t, String(e.de), String(e.ate))
         case 'buscar_pessoa': return await buscarPessoa(t, String(e.nome))
         case 'buscar_ajuda': return buscarAjuda(t, String(e.pergunta))
@@ -431,11 +432,13 @@ const FORA_DO_ACESSO = 'Isso fica fora do acesso desta pessoa; só pelo Palácio
 
 /**
  * Uma área do Palácio que a pessoa abre (cada uma com a permissão da tela dela, pelas mesmas funções dos comandos do
- * bot): o que espera a decisão dela no Financeiro (com os marcadores des_ e com_, sem valores), a frota, o saldo de
- * um material, as visitas de hoje e, para quem administra, a saúde do canal. Só no nível amplo; conta como leitura
- * de detalhe.
+ * bot): as filas que recebem chamados e os assuntos (a antiga ler_filas_de_chamado: em qualquer nível, sem contar
+ * como detalhe — abrir chamado vale até com a verificação em duas etapas), o que espera a decisão dela no Financeiro
+ * (com os marcadores des_ e com_, sem valores), a frota, o saldo de um material, as visitas de hoje e, para quem
+ * administra, a saúde do canal. Essas, só no nível amplo, e contam como leitura de detalhe.
  */
 async function consultarArea(t: TurnoDeLeitura, area: string, busca: string): Promise<ResultadoDaLeitura> {
+  if (area === 'filas_de_chamado') return lerFilas(t)
   if (t.nivel !== 'amplo') return erro(TEXTOS_FIXOS.so_no_palacio)
   const teto = semDetalhe(t)
   if (teto) return teto
@@ -619,6 +622,7 @@ async function linhasDoPlanoEmRevisao(t: TurnoDeLeitura, passos: Passo[]): Promi
       const item = emitir(t, p.tipo, p.itemId, `${p.tipo} ${tituloEntreAspas(p.titulo)}`, p.tipo === 'despesa' ? `/financeiro/${p.itemId}` : `/financeiro/compras/${p.itemId}`)
       return `${p.decisao} [${item}]${p.decisao === 'recusar' ? `: “${dadoDeTerceiro(p.motivo, 200)}”` : ''}`
     }
+    if (p.acao === 'guardar_no_drive') return `guardar no Drive o documento “${dadoDeTerceiro(p.nome, 120)}” em ${dadoDeTerceiro(p.partes.join('/'), 200)}`
     return `marcar como lidos ${p.avisoIds === 'todos' ? 'todos os avisos' : `${p.quantos} aviso(s)`}`
   }))
 }
@@ -626,7 +630,8 @@ async function linhasDoPlanoEmRevisao(t: TurnoDeLeitura, passos: Passo[]): Promi
 /**
  * O contexto do turno, lido no banco a cada mensagem (nada da conversa fica guardado): os avisos que chegaram à
  * pessoa pelo WhatsApp nas últimas 24 h (classificados), a mensagem citada, a última lista (ou a lista citada),
- * o plano em revisão ou a pergunta aberta (com a escolha), e as pessoas citadas com o rótulo.
+ * o plano em revisão ou a pergunta aberta (com a escolha), as pessoas citadas com o rótulo e o documento que espera
+ * a pasta do Drive (com os setores onde ela guarda).
  */
 export async function dadosDoContexto(t: TurnoDeLeitura, p: {
   texto: string; citada: string | null
@@ -666,6 +671,13 @@ export async function dadosDoContexto(t: TurnoDeLeitura, p: {
     planoEmRevisao = await linhasDoPlanoEmRevisao(t, p.plano.passos)
   }
 
+  // O documento que espera a pasta do Drive (a pergunta do bot, ou o documento que veio com a legenda para cá).
+  const doc = await documentoEsperando(t.admin, t.workspaceId, t.pessoa.id)
+  const ondeGuarda = doc ? await quemGuarda(t.admin, t.workspaceId, t.pessoa) : null
+  const documento = doc && ondeGuarda
+    ? { nome: doc.nome, tipo: doc.tipo, tamanho: tamanhoLegivel(doc.tamanho), setores: [...ondeGuarda.setores], administra: ondeGuarda.administra }
+    : null
+
   const pessoas = Object.entries(t.itens).filter(([m]) => m.startsWith('pes_')).map(([marcador, i]) => ({ marcador, rotulo: i.rotulo }))
-  return { avisos, pessoas, ultimaLista, planoEmRevisao, pergunta, citada, mensagem: p.texto }
+  return { avisos, pessoas, ultimaLista, planoEmRevisao, pergunta, citada, documento, mensagem: p.texto }
 }

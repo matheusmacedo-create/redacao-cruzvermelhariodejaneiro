@@ -41,6 +41,8 @@ export const LIMITES = {
   textoDoPlano: 3_800, mensagensDoPlano: 4,
   /** O registro de visita (os tamanhos da tela da portaria) e o motivo de uma decisão do Financeiro (recusar exige MOTIVO_MINIMO letras). */
   visitante: 120, empresa: 120, motivoDaVisita: 300, motivoFinanceiro: 500, motivoMinimo: MOTIVO_MINIMO,
+  /** O nome que a pessoa pediu para o documento guardado no Drive (o mesmo teto de lib/google/drive-regras.ts). */
+  nomeDoArquivo: 120,
   /** O plano sensível espera a confirmação no Palácio por tanto (o link vale o mesmo: CONFIRMACAO_VALE_MIN). */
   noPalacioMin: CONFIRMACAO_VALE_MIN,
   /** O eco do áudio (o que o código entendeu da transcrição da Kapso). */
@@ -290,15 +292,16 @@ export function rotuloDaPessoa(p: { nome: string | null | undefined; username: s
 
 // ------------------------------------------------------------------ portão de intenção
 
-export type TipoDeAcao = 'voto' | 'mensagem' | 'comentario' | 'lidos' | 'chamado' | 'visita' | 'chat' | 'atendimento' | 'registro_visita' | 'financeiro'
-export const TIPOS_DE_ACAO: readonly TipoDeAcao[] = ['voto', 'mensagem', 'comentario', 'lidos', 'chamado', 'visita', 'chat', 'atendimento', 'registro_visita', 'financeiro']
+export type TipoDeAcao = 'voto' | 'mensagem' | 'comentario' | 'lidos' | 'chamado' | 'visita' | 'chat' | 'atendimento' | 'registro_visita' | 'financeiro' | 'drive'
+export const TIPOS_DE_ACAO: readonly TipoDeAcao[] = ['voto', 'mensagem', 'comentario', 'lidos', 'chamado', 'visita', 'chat', 'atendimento', 'registro_visita', 'financeiro', 'drive']
 
 const DE_MENSAGEM = 'mand|avis|fala|fale|diz|diga|dizer|escrev|msg|mensag|zap|whats|respond|recado|lembra'
 
 /**
  * Os radicais que ligam cada tipo de ação (lista fechada, conferida no script). Começo de palavra, no texto sem
- * acento e minúsculo. "atendimento" liga preparar_atendimento_do_chamado (assumir, resolver, transferir) e
- * "registro_visita", preparar_registro_de_visita.
+ * acento e minúsculo. "atendimento" liga preparar_atendimento_do_chamado (assumir, resolver, transferir),
+ * "registro_visita", preparar_registro_de_visita, e "drive", preparar_guardar_no_drive (o documento que a pessoa
+ * mandou, na pasta que ela disse).
  */
 const RADICAIS: [TipoDeAcao, RegExp][] = [
   ['voto', /\b(aprov|ajust|vot|libera|reprov)/],
@@ -309,6 +312,7 @@ const RADICAIS: [TipoDeAcao, RegExp][] = [
   ['visita', /\b(sobe|subir|aguard|espera|recus|portaria|visita)/],
   ['atendimento', /\b(assum|resolv|transfer|pega)/],
   ['registro_visita', /\b(registr|chegou|visitante)/],
+  ['drive', /\b(guard|salv|arquiv|drive|pasta|coloc|bota|poe|ponha)/],
 ]
 
 /**
@@ -332,12 +336,13 @@ export function unirPermitidas(...grupos: (readonly TipoDeAcao[] | null | undefi
 /**
  * A lista fechada, em ordem de nome (é o começo do prefixo do cache). As 17 da v1, com a onda 2: o atendimento do
  * chamado, o registro de visita e a decisão do Financeiro (sempre no Palácio), e consultar_area no lugar de
- * ver_status_do_whatsapp — 20, o teto (LIMITES.ferramentas).
+ * ver_status_do_whatsapp; depois, guardar no Google Drive, com ler_filas_de_chamado dentro de consultar_area (a área
+ * filas_de_chamado) — 20, o teto (LIMITES.ferramentas).
  */
 export const NOMES_DAS_FERRAMENTAS = [
-  'buscar_ajuda', 'buscar_pessoa', 'consultar_area', 'ler_agenda', 'ler_aprovacoes', 'ler_avisos', 'ler_chamados', 'ler_filas_de_chamado', 'perguntar',
-  'preparar_atendimento_do_chamado', 'preparar_chamado', 'preparar_comentario_no_chamado', 'preparar_decisao_financeira', 'preparar_marcar_avisos_lidos',
-  'preparar_mensagem_direta', 'preparar_registro_de_visita', 'preparar_resposta_a_visita', 'preparar_voto', 'ver_aprovacao', 'ver_chamado',
+  'buscar_ajuda', 'buscar_pessoa', 'consultar_area', 'ler_agenda', 'ler_aprovacoes', 'ler_avisos', 'ler_chamados', 'perguntar',
+  'preparar_atendimento_do_chamado', 'preparar_chamado', 'preparar_comentario_no_chamado', 'preparar_decisao_financeira', 'preparar_guardar_no_drive',
+  'preparar_marcar_avisos_lidos', 'preparar_mensagem_direta', 'preparar_registro_de_visita', 'preparar_resposta_a_visita', 'preparar_voto', 'ver_aprovacao', 'ver_chamado',
 ] as const
 export type NomeDaFerramenta = (typeof NOMES_DAS_FERRAMENTAS)[number]
 export const ehFerramenta = (nome: unknown): nome is NomeDaFerramenta => NOMES_DAS_FERRAMENTAS.includes(nome as NomeDaFerramenta)
@@ -355,10 +360,14 @@ const TIPO_DA_FERRAMENTA: Partial<Record<NomeDaFerramenta, TipoDeAcao>> = {
   preparar_atendimento_do_chamado: 'atendimento',
   preparar_registro_de_visita: 'registro_visita',
   preparar_decisao_financeira: 'financeiro',
+  preparar_guardar_no_drive: 'drive',
 }
 
-/** As áreas que consultar_area lê (cada uma com a permissão da tela dela). */
-export const AREAS_DA_CONSULTA = ['financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] as const
+/**
+ * As áreas que consultar_area lê (cada uma com a permissão da tela dela). filas_de_chamado é a antiga ler_filas_de_chamado
+ * (as filas e os assuntos, com fil_ e ass_): vale em qualquer nível de leitura e não conta como leitura de detalhe.
+ */
+export const AREAS_DA_CONSULTA = ['filas_de_chamado', 'financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] as const
 export type AreaDaConsulta = (typeof AREAS_DA_CONSULTA)[number]
 
 /** O tipo de ação de um preparar_*; null para as leituras e o perguntar (que não escrevem). */
@@ -626,7 +635,6 @@ const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
     escopo: { tipo: 'enum', valores: ['abri', 'comigo', 'minhas_filas'] }, situacao: { tipo: 'enum', valores: ['abertos', 'encerrados_7_dias'] },
     busca: { tipo: 'texto', min: 0, max: 80 },
   },
-  ler_filas_de_chamado: {},
   perguntar: {
     pergunta: { tipo: 'texto', min: 2, max: LIMITES.pergunta }, opcoes: { tipo: 'marcadores', prefixo: null, min: LIMITES.opcoesMin, max: LIMITES.opcoesMax },
     pedido_em_aberto: { tipo: 'texto', min: 0, max: LIMITES.pedidoEmAberto },
@@ -647,6 +655,7 @@ const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
     item: { tipo: 'marcador', prefixo: null, prefixos: ['des', 'com'] }, decisao: { tipo: 'enum', valores: ['aprovar', 'recusar'] },
     motivo: { tipo: 'texto', min: 0, max: LIMITES.motivoFinanceiro, semLink: true, semSegredo: true },
   },
+  preparar_guardar_no_drive: { pasta: { tipo: 'texto', min: 1, max: 300 }, nome: { tipo: 'texto', min: 0, max: LIMITES.nomeDoArquivo } },
   preparar_marcar_avisos_lidos: { escopo: { tipo: 'enum', valores: ['todos', 'estes'] }, avisos: { tipo: 'marcadores', prefixo: 'avi', min: 0, max: 10 } },
   preparar_mensagem_direta: { para: { tipo: 'marcador', prefixo: 'pes' }, texto: { tipo: 'texto', min: 1, max: LIMITES.mensagem, semLink: true, semSegredo: true } },
   preparar_registro_de_visita: {
@@ -751,7 +760,7 @@ export function validarEntrada(nome: string, entrada: unknown, contexto: { assun
     // A fila e o assunto só valem na transferência; nas outras ações, ficam vazios.
     if (valor.acao !== 'transferir') Object.assign(valor, { fila: '', assunto: '' })
     if (valor.acao === 'resolver' && letras(String(valor.nota)) < 5) return { ok: false, erro: 'Resolver exige a solução na nota (pelo menos 5 letras): é o que quem abriu vai ler.' }
-    if (valor.acao === 'transferir' && (!valor.fila || !valor.assunto)) return { ok: false, erro: 'Transferir exige a fila (fil_) e o assunto (ass_) de destino, de ler_filas_de_chamado.' }
+    if (valor.acao === 'transferir' && (!valor.fila || !valor.assunto)) return { ok: false, erro: 'Transferir exige a fila (fil_) e o assunto (ass_) de destino, de consultar_area filas_de_chamado.' }
     if (valor.acao === 'transferir' && letras(String(valor.nota)) < 3) return { ok: false, erro: 'Transferir exige o motivo na nota (pelo menos 3 letras).' }
   }
   if (nome === 'preparar_decisao_financeira' && valor.decisao === 'recusar' && letras(String(valor.motivo)) < LIMITES.motivoMinimo) {
@@ -791,6 +800,15 @@ export type Passo =
   | {
     acao: 'decidir_financeiro'; tipo: 'despesa' | 'compra'; itemId: string; titulo: string; codigo: string | null; valor: number; fornecedor: string | null
     papel: 'financeiro' | 'diretoria' | null; decisao: 'aprovar' | 'recusar'; motivo: string; isento: false
+  }
+  /**
+   * Guardar no Google Drive o documento que a pessoa mandou ao WhatsApp (lib/whatsapp/drive.ts): `nome` é o nome final
+   * do arquivo, `partes` o caminho dentro de "Palácio – Arquivos" (já conferido: o setor dela, ou qualquer um para quem
+   * administra) e o resto é o que baixa o arquivo da Kapso na hora (a mensagem, o id da mídia e o endereço de reserva).
+   */
+  | {
+    acao: 'guardar_no_drive'; nome: string; tipo: string; tamanho: number | null; mime: string; extensao: string
+    mensagemId: string; arquivo: string; endereco: string | null; partes: string[]; isento: false
   }
 
 /** Valem com a verificação em duas etapas (só criam ou respondem o que é da pessoa): abrir chamado, responder à portaria, marcar lidos. */
@@ -851,6 +869,12 @@ const nomeCurto = (t: string) => umaLinha(limpo(String(t ?? ''), 400), 80) || 'S
 const HOMONIMO = '⚠ há outra pessoa com este nome no espaço'
 const ROTULO_DA_RESPOSTA_A_VISITA: Record<'subir' | 'aguardar' | 'recusar', string> = { subir: RESPOSTAS.subir.rotulo, aguardar: RESPOSTAS.aguardar.rotulo, recusar: RESPOSTAS.recusar.rotulo }
 const ROTULO_DA_URGENCIA: Record<1 | 2 | 3, string> = { 1: 'baixa', 2: 'média', 3: 'alta' }
+/** "2,3 MB", "180 KB" (o documento guardado no Drive). */
+function tamanhoDoArquivo(bytes: number | null): string {
+  const b = Number(bytes)
+  if (!Number.isFinite(b) || b <= 0) return ''
+  return b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`
+}
 /** O valor em reais, como as telas do Financeiro (o texto do plano é da pessoa; o valor nunca vai ao modelo). */
 const emReais = (valor: number) => (Number.isFinite(valor) ? valor : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 /** "Ana Souza (@ana.souza · RH)", no texto do plano (o nome em negrito). */
@@ -927,6 +951,10 @@ export function linhasDoPlano(passos: Passo[]): string[] {
       linhas.push(`${n} ${p.decisao === 'aprovar' ? '*Aprovar*' : '*Recusar*'} ${oQue} ${titulo(p.titulo)} — ${emReais(p.valor)}${fornecedor}${etapa}${p.decisao === 'recusar' ? ', com o motivo:' : ''}`)
       if (p.decisao === 'recusar') linhas.push(citacao(p.motivo))
       linhas.push('_A decisão é confirmada no Palácio, com a sua sessão: o WhatsApp nunca decide despesa nem compra._')
+    } else if (p.acao === 'guardar_no_drive') {
+      const tamanho = tamanhoDoArquivo(p.tamanho)
+      linhas.push(`${n} Guardar no Google Drive o documento *${nomeCurto(p.nome)}* (${[umaLinha(p.tipo, 20), tamanho].filter(Boolean).join(', ')}) em _${umaLinha(limpo(['Palácio – Arquivos', ...p.partes].join('/'), 600), 300)}_`)
+      linhas.push('_A pasta é criada se ainda não existir; o link do arquivo vem no recibo._')
     } else {
       linhas.push(`${n} Marcar como lidos ${p.avisoIds === 'todos' ? 'todos os avisos sem abrir' : p.quantos === 1 ? '1 aviso' : `${p.quantos} avisos`}`)
     }
@@ -1017,6 +1045,7 @@ function linkDoPasso(p: Passo, base: string): string | null {
   if (p.acao === 'atender_chamado') return `${base}/chamados/${p.chamadoId}`
   if (p.acao === 'registrar_visita') return `${base}/portaria`
   if (p.acao === 'decidir_financeiro') return p.tipo === 'despesa' ? `${base}/financeiro/${p.itemId}` : `${base}/financeiro/compras/${p.itemId}`
+  // O documento guardado no Drive: o link do arquivo vem do resultado da execução.
   return null
 }
 
@@ -1040,6 +1069,8 @@ function feitoDoPasso(p: Passo): string {
     const oQue = p.tipo === 'despesa' ? 'Despesa' : `Compra *${umaLinha(limpo(p.codigo ?? '', 40), 20)}*`
     return `${oQue} ${titulo(p.titulo)} ${p.decisao === 'aprovar' ? '*aprovada*' : '*recusada*'}`
   }
+  // O nome do arquivo é redigido junto com o plano: o recibo, que pode esperar na fila, fala só da pasta.
+  if (p.acao === 'guardar_no_drive') return `Documento guardado no Google Drive em _${umaLinha(limpo(p.partes.join('/'), 400), 200)}_`
   return p.avisoIds === 'todos' ? 'Avisos marcados como lidos' : `${p.quantos === 1 ? '1 aviso marcado' : `${p.quantos} avisos marcados`} como lido${p.quantos === 1 ? '' : 's'}`
 }
 
@@ -1224,9 +1255,10 @@ const resumoDoTexto = (t: string | null) => (t === null || t === '' || REDIGIDO.
 
 /**
  * Apaga os textos de ação de um plano que saiu de "aberto" (executado, falhou, cancelado, substituído, vencido):
- * mensagem, nota, relato, recado, local, a solução ou o motivo do chamado, o visitante (nome, empresa, motivo) e o
- * motivo da decisão viram um sha-256 curto (dá para conferir, não para ler), e o pedido em aberto some. Títulos e
- * nomes do banco ficam: o sino já os guarda. Idempotente.
+ * mensagem, nota, relato, recado, local, a solução ou o motivo do chamado, o visitante (nome, empresa, motivo), o
+ * motivo da decisão e o nome do documento guardado no Drive viram um sha-256 curto (dá para conferir, não para ler;
+ * o id da mídia do documento some), e o pedido em aberto some. Títulos e nomes do banco ficam: o sino já os guarda.
+ * Idempotente.
  */
 export function redigirPassos(passos: Passo[]): { passos: Passo[]; pedidoEmAberto: null } {
   const redigidos = passos.map((p): Passo => {
@@ -1237,6 +1269,8 @@ export function redigirPassos(passos: Passo[]): { passos: Passo[]; pedidoEmAbert
     if (p.acao === 'atender_chamado') return { ...p, nota: resumoDoTexto(p.nota) ?? '' }
     if (p.acao === 'registrar_visita') return { ...p, visitante: resumoDoTexto(p.visitante) ?? '', empresa: resumoDoTexto(p.empresa), motivo: resumoDoTexto(p.motivo) }
     if (p.acao === 'decidir_financeiro') return { ...p, motivo: resumoDoTexto(p.motivo) ?? '' }
+    // O documento: o nome some, e o que baixava o arquivo também (o plano não serve mais para buscá-lo).
+    if (p.acao === 'guardar_no_drive') return { ...p, nome: resumoDoTexto(p.nome) ?? '', arquivo: '', endereco: null }
     return p
   })
   return { passos: redigidos, pedidoEmAberto: null }

@@ -67,11 +67,15 @@ export function repoSupabase(admin: Admin): RepositorioDePlanos {
   const tabela = () => admin.from('whatsapp_ia_planos')
   return {
     async inserir(p) {
-      const { data, error } = await tabela().insert({
+      const linha = (permitidas: string[]) => ({
         workspace_id: p.workspaceId, user_id: p.userId, numero: p.numero, papel: p.papel, situacao: p.situacao, passos: p.passos, opcoes: p.opcoes,
-        permitidas: p.permitidas, pedido_em_aberto: p.pedidoEmAberto, hash: p.hash, sensivel: p.sensivel, mensagens: p.mensagens, entregue_em: p.entregueEm,
+        permitidas, pedido_em_aberto: p.pedidoEmAberto, hash: p.hash, sensivel: p.sensivel, mensagens: p.mensagens, entregue_em: p.entregueEm,
         resultado: p.resultado, redigido_em: p.redigidoEm, expira_em: p.expiraEm,
-      }).select('*').single()
+      })
+      let { data, error } = await tabela().insert(linha(p.permitidas)).select('*').single()
+      // Antes da migração do Drive (20261019030000), o banco não conhece "drive" no portão: guarda sem ele (o pedido
+      // de guardar no Drive deixa de valer só numa correção ou na escolha, que pedem de novo).
+      if (error?.code === '23514' && p.permitidas.includes('drive')) ({ data, error } = await tabela().insert(linha(p.permitidas.filter((x) => x !== 'drive'))).select('*').single())
       if (error && error.code !== '23505') console.error('[whatsapp] assistente: plano não guardado:', error.code)
       return error ? null : linhaOuNull(data)
     },

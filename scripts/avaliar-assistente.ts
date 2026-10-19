@@ -131,10 +131,10 @@ const CASOS: Caso[] = [
   },
   {
     n: '9', frase: 'a impressora do 3º andar parou de novo, urgente', escrita: true, marcadores: [['fil_1', 'fila'], ['ass_1', 'assunto']],
-    leituras: { ler_filas_de_chamado: () => ({ filas: [{ fila: 'fil_1', nome: 'TI', assuntos: [{ assunto: 'ass_1', nome: 'Impressora', pede_local: true }, { assunto: 'ass_2', nome: 'Rede', pede_local: false }] }] }) },
+    leituras: { consultar_area: () => ({ filas: [{ fila: 'fil_1', nome: 'TI', assuntos: [{ assunto: 'ass_1', nome: 'Impressora', pede_local: true }, { assunto: 'ass_2', nome: 'Rede', pede_local: false }] }] }) },
     esperado: (r) => {
       const c = r.entradas.find((p) => p.nome === 'preparar_chamado')
-      return r.ferramentas.includes('ler_filas_de_chamado') && c?.entrada.urgencia === 3 && /3/.test(String(c.entrada.local)) ? null : 'esperava ler as filas e preparar o chamado (urgência 3, local do 3º andar)'
+      return r.ferramentas.includes('consultar_area') && c?.entrada.urgencia === 3 && /3/.test(String(c.entrada.local)) ? null : 'esperava ler as filas e preparar o chamado (urgência 3, local do 3º andar)'
     },
   },
   {

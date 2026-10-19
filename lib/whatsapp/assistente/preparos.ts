@@ -1,3 +1,5 @@
+import { nomeDoArquivoNoDrive, normalizarCaminho, podeGuardarEm, type QuemGuarda } from '@/lib/google/drive-regras'
+import type { DocumentoRecebido } from '../drive-regras'
 import type { TabelaDeMarcadores } from './marcadores'
 import type { Handlers, Rascunho, ResultadoDoPreparo } from './laco'
 import { LIMITES, TEXTOS_FIXOS, motivoDoCodigo, pedeSegredo, temLink, umaLinha, type NomeDaFerramenta, type Passo, type ResultadoDaAcao } from './regras'
@@ -17,7 +19,7 @@ import { LIMITES, TEXTOS_FIXOS, motivoDoCodigo, pedeSegredo, temLink, umaLinha, 
  *     marcar lidos valem (isentos). A decisão do Financeiro nasce sempre sensível — e, sem a confirmação no
  *     Palácio, nem nasce;
  *  4. a permissão e o estado, pela fonte (rodada aberta e sem o voto dela, destinatário ativo, chamado com papel,
- *     fila e assunto ativos, visita esperando, avisos sem ler);
+ *     fila e assunto ativos, visita esperando, avisos sem ler, o Drive conectado e a pasta do setor dela);
  *  5. os limites do plano e do dia (3 votos, 3 destinatários e uma mensagem por destinatário, as mensagens diretas
  *     de hoje, 8 passos);
  *  6. as referências de integridade (o hash do conteúdo da matéria: na confirmação, a matéria mudada não recebe voto);
@@ -67,6 +69,10 @@ export interface FonteDosPreparos {
   temPortaria(): Promise<boolean>
   /** A despesa ou a compra que espera a decisão desta pessoa AGORA (outra pessoa pode ter decidido); null se não espera. */
   decisao(tipo: 'despesa' | 'compra', id: string): Promise<{ titulo: string; codigo: string | null; valor: number; fornecedor: string | null; papel: 'financeiro' | 'diretoria' | null } | null>
+  /** O documento que a pessoa mandou ao WhatsApp e espera a pasta do Drive (lib/whatsapp/drive.ts); sem ela, nenhum. */
+  documentoParaGuardar?(): Promise<DocumentoRecebido | null>
+  /** O Drive está conectado, e onde a pessoa guarda (os setores dela, ou tudo para quem administra); sem ela, desconectado. */
+  quemGuarda?(): Promise<QuemGuarda & { conectado: boolean }>
 }
 
 export type ContextoDoPreparo = {
@@ -89,6 +95,11 @@ export type ContextoDoPreparo = {
   mensagensDia: number
   /** O rótulo que o código já escreveu para o marcador (contexto ou leituras), para o "Ficou de fora" sem ler o banco de novo. */
   rotuloDe?: (marcador: string) => string | null
+  /**
+   * O documento do passo de guardar no Drive do plano em revisão: na correção ("muda para a pasta 2025"), a pergunta
+   * da pasta já foi encerrada pelo plano, e o documento vem do plano que está sendo corrigido.
+   */
+  documentoEmRevisao?: DocumentoRecebido | null
 }
 
 /** Um link do Palácio que a resposta em texto leva (posProcessarResposta): o preparo recusado de quem usa a verificação em duas etapas. */
@@ -203,9 +214,9 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     const oQue = 'abrir um chamado'
     const filaId = c.tabela.resolver(String(e.fila), 'fila')
     const assuntoId = c.tabela.resolver(String(e.assunto), 'assunto')
-    if (!filaId || !assuntoId) return falha('Use a fila (fil_) e o assunto (ass_) que ler_filas_de_chamado devolveu.')
+    if (!filaId || !assuntoId) return falha('Use a fila (fil_) e o assunto (ass_) que consultar_area filas_de_chamado devolveu.')
     const a = await c.fonte.assunto(filaId, assuntoId)
-    if (!a) return falha('Essa fila ou esse assunto não recebe chamados agora; confira com ler_filas_de_chamado.', { oQue })
+    if (!a) return falha('Essa fila ou esse assunto não recebe chamados agora; confira com consultar_area filas_de_chamado.', { oQue })
     const local = String(e.local ?? '').trim()
     if (a.pedeLocal && !local) return falha('Este assunto pede o local (sala, andar ou setor): pergunte à pessoa, se ela não disse.', { oQue })
     const relato = String(e.relato ?? '').trim()
@@ -268,10 +279,10 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     if (tipo === 'transferir') {
       const filaId = c.tabela.resolver(String(e.fila), 'fila')
       const assuntoId = c.tabela.resolver(String(e.assunto), 'assunto')
-      if (!filaId || !assuntoId) return falha('Use a fila (fil_) e o assunto (ass_) de destino que ler_filas_de_chamado devolveu.', { oQue })
+      if (!filaId || !assuntoId) return falha('Use a fila (fil_) e o assunto (ass_) de destino que consultar_area filas_de_chamado devolveu.', { oQue })
       if (filaId === ch.filaId) return falha('O chamado já está nessa fila; escolha outra.', { oQue })
       const a = await c.fonte.assunto(filaId, assuntoId)
-      if (!a) return falha('Essa fila ou esse assunto não recebe chamados agora; confira com ler_filas_de_chamado.', { oQue })
+      if (!a) return falha('Essa fila ou esse assunto não recebe chamados agora; confira com consultar_area filas_de_chamado.', { oQue })
       destino = { filaId, filaNome: a.filaNome, categoriaId: assuntoId, categoriaNome: a.assuntoNome }
     }
     return {
@@ -336,10 +347,41 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     }
   }
 
+  /**
+   * Guardar no Drive o documento que a pessoa mandou: o que espera a pasta (ou o do plano em revisão), o Drive
+   * conectado, o caminho normalizado e a pasta do setor dela (quem administra, qualquer uma). Quem usa a verificação
+   * em duas etapas fica de fora, como na chegada do documento (o Palácio não tem tela de guardar no Drive).
+   */
+  async function guardarNoDrive(e: Record<string, unknown>): Promise<ResultadoDoPreparo> {
+    const oQue = 'guardar o documento no Drive'
+    if (!c.podeAgir) {
+      return falha('A conta desta pessoa usa a verificação em duas etapas: guardar arquivos no Drive pelo WhatsApp fica de fora. Diga isso em uma frase.', {
+        oQue, motivo: 'sua conta usa a verificação em duas etapas; guarde direto no Google Drive',
+      })
+    }
+    if (c.rascunho.passos.some((p) => p.acao === 'guardar_no_drive')) return falha('Já há um documento para guardar no plano: um por vez.', { oQue })
+    const doc = c.documentoEmRevisao ?? (await c.fonte.documentoParaGuardar?.()) ?? null
+    if (!doc) return falha('Não há documento esperando a pasta: diga à pessoa para mandar o documento por aqui (PDF, planilha ou texto).', { oQue, motivo: 'nenhum documento esperando a pasta; mande o documento por aqui' })
+    const quem = await c.fonte.quemGuarda?.()
+    if (!quem?.conectado) return falha('O Google Drive do Palácio não está conectado agora; diga que um administrador precisa conectar.', { oQue, motivo: 'o Google Drive do Palácio não está conectado' })
+    const caminho = normalizarCaminho(String(e.pasta ?? ''))
+    if (!caminho.ok) return falha(caminho.erro, { oQue, motivo: motivoDoCodigo(caminho.erro) })
+    const pode = podeGuardarEm(caminho.partes, quem)
+    if (!pode.ok) return falha(pode.erro, { oQue, motivo: motivoDoCodigo(pode.erro) })
+    return {
+      ok: true,
+      passo: {
+        acao: 'guardar_no_drive', nome: nomeDoArquivoNoDrive(doc.nome, String(e.nome ?? ''), doc.extensao), tipo: doc.tipo, tamanho: doc.tamanho, mime: doc.mime,
+        extensao: doc.extensao, mensagemId: doc.mensagemId, arquivo: doc.arquivo, endereco: doc.endereco, partes: pode.partes, isento: false,
+      },
+    }
+  }
+
   const PREPAROS: Partial<Record<NomeDaFerramenta, (e: Record<string, unknown>) => Promise<ResultadoDoPreparo>>> = {
     preparar_voto: voto, preparar_mensagem_direta: mensagem, preparar_comentario_no_chamado: comentario,
     preparar_chamado: chamado, preparar_resposta_a_visita: visita, preparar_marcar_avisos_lidos: lidos,
     preparar_atendimento_do_chamado: atendimento, preparar_registro_de_visita: registroDeVisita, preparar_decisao_financeira: decisaoFinanceira,
+    preparar_guardar_no_drive: guardarNoDrive,
   }
 
   return {
@@ -367,8 +409,8 @@ const confere: ResultadoDaAcao = { ok: true, codigo: 'feito', texto: 'confere' }
  * Cada passo de novo, antes de qualquer escrita: a rodada ainda aberta e sem o voto da pessoa, e a matéria com o
  * MESMO conteúdo do plano (o hash; a versão da matéria não serve de trava); o destinatário ativo; o chamado com papel
  * e aberto; a fila e o assunto ativos; a visita ainda esperando; a conversa do Chat aceitando mensagem; quem atende
- * ainda na equipe do chamado; a portaria e a pessoa visitada; o item do Financeiro ainda esperando a decisão. O
- * texto é o motivo, que entra em "Nada foi feito: …". Nunca lança.
+ * ainda na equipe do chamado; a portaria e a pessoa visitada; o item do Financeiro ainda esperando a decisão; o Drive
+ * conectado e a pasta ainda do setor da pessoa. O texto é o motivo, que entra em "Nada foi feito: …". Nunca lança.
  */
 export async function revalidarPasso(passo: Passo, fonte: FonteDosPreparos, pessoaId: string): Promise<ResultadoDaAcao> {
   try {
@@ -417,6 +459,12 @@ export async function revalidarPasso(passo: Passo, fonte: FonteDosPreparos, pess
     }
     if (passo.acao === 'decidir_financeiro') {
       return (await fonte.decisao(passo.tipo, passo.itemId)) ? confere : { ok: false, codigo: 'encerrada', texto: `${entreAspas(passo.titulo)} não espera mais a sua decisão` }
+    }
+    if (passo.acao === 'guardar_no_drive') {
+      const quem = await fonte.quemGuarda?.()
+      if (!quem?.conectado) return { ok: false, codigo: 'indisponivel', texto: 'o Google Drive do Palácio não está conectado agora' }
+      const pode = podeGuardarEm(passo.partes, quem)
+      return pode.ok ? confere : { ok: false, codigo: 'sem_permissao', texto: pode.erro }
     }
     return confere
   } catch {

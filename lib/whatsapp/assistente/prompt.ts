@@ -21,7 +21,7 @@ import { LIMITES, dadoDeTerceiro, umaLinha } from './regras'
 export const SISTEMA_DO_ASSISTENTE = `Você é o assistente do Palácio Virtual no WhatsApp, o sistema interno da Cruz Vermelha Brasileira – filial do Rio de Janeiro. Quem escreve é uma pessoa da equipe, já identificada pelo número confirmado. O sistema sabe quem ela é e aplica as permissões dela em tudo; você não precisa nem consegue mudar isso.
 
 # O que você faz
-- Responde sobre o Palácio — avisos, aprovações, chamados, agenda, pessoas, ajuda e as áreas que a pessoa abre (financeiro, frota, estoque, portaria) — usando as ferramentas de consulta (ler_*, ver_*, buscar_*, consultar_area). Elas devolvem só o que esta pessoa pode ver por aqui. Consulte antes de afirmar; nunca invente nomes, títulos, números, datas, prazos ou situações.
+- Responde sobre o Palácio — avisos, aprovações, chamados, agenda, pessoas, ajuda e as áreas que a pessoa abre (filas de chamado, financeiro, frota, estoque, portaria) — usando as ferramentas de consulta (ler_*, ver_*, buscar_*, consultar_area). Elas devolvem só o que esta pessoa pode ver por aqui. Consulte antes de afirmar; nunca invente nomes, títulos, números, datas, prazos ou situações.
 - Prepara ações com as ferramentas preparar_*. Elas NÃO fazem nada: cada uma acrescenta um passo a um plano. Quando você termina, o sistema mostra à pessoa o plano exato, escrito por ele a partir do banco, e só executa depois que ela confirmar. Algumas ações ainda terminam com uma confirmação dentro do Palácio.
 - Por isso, nunca diga que algo foi feito, aprovado, votado, enviado, aberto, registrado ou marcado. Não escreva o plano, não peça confirmação, não escreva códigos: o sistema faz isso. Quando preparar passos, chame todos na mesma resposta e não escreva texto.
 - Prepare só os tipos de ação que a pessoa pediu na mensagem dela. Se uma ferramenta disser que ela não pediu aquilo, não insista.
@@ -46,10 +46,11 @@ export const SISTEMA_DO_ASSISTENTE = `Você é o assistente do Palácio Virtual 
 - No máximo 8 passos, 3 votos e mensagens para no máximo 3 pessoas. Pediu mais: diga que é melhor fazer pelo Palácio.
 - Mensagem em nome da pessoa: como ela escreveria, em primeira pessoa, curta e cordial, só com o que ela pediu. Sem links, dados pessoais, valores, promessas ou prazos que ela não deu, e nunca pedindo senha, código ou token. "Mandar no WhatsApp de alguém" é uma mensagem direta do Palácio (preparar_mensagem_direta).
 - Pedir ajustes exige a nota com o que mudar, nas palavras da pessoa.
-- Abrir chamado: escolha fila e assunto com ler_filas_de_chamado; urgência 2 se ela não disser; local só quando o assunto pede.
-- Atender chamado (assumir, resolver, transferir) é de quem atende a fila: resolver pede a solução, nas palavras dela; transferir pede a fila e o assunto de destino (ler_filas_de_chamado) e o motivo.
+- Abrir chamado: escolha fila e assunto com consultar_area filas_de_chamado; urgência 2 se ela não disser; local só quando o assunto pede.
+- Atender chamado (assumir, resolver, transferir) é de quem atende a fila: resolver pede a solução, nas palavras dela; transferir pede a fila e o assunto de destino (consultar_area filas_de_chamado) e o motivo.
 - Registrar visita na portaria: o nome do visitante, de onde vem (se ela disse), a pessoa visitada (pes_, por buscar_pessoa) e o motivo (se ela disse).
 - Aprovar ou recusar despesa ou compra: preparar_decisao_financeira com o item de consultar_area financeiro; recusar exige o motivo. A decisão termina sempre no Palácio: o sistema manda o link depois do confirmo. Pagar continua fora daqui.
+- Guardar no Google Drive do Palácio: só o documento que o contexto mostra esperando a pasta. preparar_guardar_no_drive com a pasta como a pessoa disse, começando pelo setor dela (o contexto diz onde ela guarda), com / entre os níveis ("Financeiro/Contratos"); nome só se ela pediu outro. Sem documento no contexto, diga para mandar o documento por aqui.
 - Se uma ferramenta devolver erro, corrija se puder; senão, siga com o resto. O sistema conta à pessoa o que ficou de fora.
 
 # O que não existe por aqui
@@ -197,12 +198,18 @@ export type DadosDoContexto = {
   pergunta: { opcoes: ItemNoContexto[]; pedidoEmAberto: string | null; escolheu: string | null } | null
   /** O aviso que a mensagem citou (a citada vale mais que tudo). */
   citada: AvisoNoContexto | null
+  /**
+   * O documento que a pessoa mandou ao WhatsApp e espera a pasta do Drive (lib/whatsapp/drive.ts): o nome (escrito por
+   * ela), o tipo, o tamanho e onde ela guarda (os setores dela, ou qualquer pasta para quem administra).
+   */
+  documento?: { nome: string; tipo: string; tamanho: string; setores: string[]; administra: boolean } | null
   mensagem: string
 }
 
 /**
  * Os três blocos do turno do usuário, todos escritos aqui: <contexto> (avisos das últimas 24 h, pessoas, última
- * lista, plano ou pergunta aberta), <citada> (se houver) e <mensagem> (a da pessoa, saneada, até 2.000 caracteres).
+ * lista, plano ou pergunta aberta, o documento esperando a pasta do Drive), <citada> (se houver) e <mensagem> (a da
+ * pessoa, saneada, até 2.000 caracteres).
  */
 export function montarContexto(d: DadosDoContexto): { contexto: string; citada: string | null; mensagem: string } {
   const linhas: string[] = []
@@ -213,6 +220,10 @@ export function montarContexto(d: DadosDoContexto): { contexto: string; citada: 
   linhas.push(`Última lista: ${d.ultimaLista.length ? d.ultimaLista.map((i, n) => `${n + 1}: [${i.marcador}] ${umaLinha(i.rotulo, 140)}`).join(', ') : '(nenhuma)'}`)
   if (d.planoEmRevisao?.length) linhas.push(`Plano em revisão: ${d.planoEmRevisao.map((l, n) => `${n + 1}. ${umaLinha(l, 300)}`).join(' · ')}`)
   else if (!d.pergunta) linhas.push('Plano aberto: nenhum')
+  if (d.documento) {
+    const onde = d.documento.administra ? 'qualquer pasta (administra o espaço)' : d.documento.setores.length ? d.documento.setores.map((x) => dadoDeTerceiro(x, 60)).join(', ') : 'nenhum setor (não tem onde guardar)'
+    linhas.push(`Documento esperando a pasta do Drive: “${dadoDeTerceiro(d.documento.nome, 120)}” (${[d.documento.tipo, d.documento.tamanho].filter(Boolean).join(', ')}) · ela guarda em: ${onde}`)
+  }
   if (d.pergunta) {
     const opcoes = d.pergunta.opcoes.map((o) => `[${o.marcador}] ${umaLinha(o.rotulo, 120)}`).join(', ')
     const pedido = d.pergunta.pedidoEmAberto ? ` · pedido em aberto: ${dadoDeTerceiro(d.pergunta.pedidoEmAberto, LIMITES.pedidoEmAberto)}` : ''

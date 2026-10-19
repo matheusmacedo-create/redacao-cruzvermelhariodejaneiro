@@ -111,6 +111,7 @@ const O_QUE: Partial<Record<NomeDaFerramenta, string>> = {
   preparar_voto: 'um voto', preparar_mensagem_direta: 'uma mensagem', preparar_comentario_no_chamado: 'um comentário no chamado',
   preparar_chamado: 'abrir um chamado', preparar_resposta_a_visita: 'a resposta à portaria', preparar_marcar_avisos_lidos: 'marcar avisos como lidos',
   preparar_atendimento_do_chamado: 'atender o chamado', preparar_registro_de_visita: 'registrar uma visita', preparar_decisao_financeira: 'uma decisão do Financeiro',
+  preparar_guardar_no_drive: 'guardar o documento no Drive',
 }
 
 /** O alvo de um preparo (a última tentativa por alvo é a que entra em "Ficou de fora"). */

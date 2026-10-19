@@ -1003,6 +1003,9 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
   e copia para a Biblioteca só o que foi marcado.
 - Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
   `publicarMateria`).
+- **Cópia no Google Drive** (§7.29c): o envio que chegou pelo WhatsApp, ao fechar, é copiado do R2 para
+  "Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título> (ENV-…)"; a ficha mostra "Cópia no Google Drive"
+  quando todos os arquivos chegaram (`envios.drive_pasta_link`, lido à parte para a tela não depender da migração).
 - **Álbum do evento** (`docs/envio-de-acoes.md` §9): `envio_eventos` dá a cada evento um link de
   envio (`/enviar/<codigo>`) e um álbum por link secreto (`/album/<token>`, sem login), com .zip em
   fluxo e "Esconder do álbum". Os arquivos são servidos por `/api/publico/album/...`, que confere o
@@ -1692,6 +1695,56 @@ Admin do Google, um administrador gera um link e a pessoa cria a própria.
   (`google_convite_criado`, `google_convite_revogado`, `google_conta_criada`
   sem ator, `google_admin_conectado`/`_desconectado`).
 
+### 7.29c Google Drive da filial (`lib/google/drive.ts`, 19/10/2026)
+
+Uma pasta só, "Palácio – Arquivos", no Drive da conta Google da filial (hoje a do
+contato@, a mesma do Gmail e da conta de administrador), onde o Palácio guarda a
+cópia dos envios que chegam pelo WhatsApp e os documentos que a equipe guarda por
+lá (§8.5). Sem o Drive conectado (ou sem a migração), nada muda.
+- **Conexão própria, no padrão da de administrador** (`google_drive_conexao` +
+  chave `google_drive` no cofre, oculta em `SERVICOS`; `/api/google/conectar-drive`,
+  mesma volta `/api/google/retorno` com `state` começando em `drive.`). Escopo
+  ÚNICO: `drive.file` — o Palácio só enxerga o que ele mesmo criou (a raiz, as
+  subpastas e os arquivos que mandou), e a autorização pede `include_granted_scopes=false`
+  (`urlDeAutorizacao(…, { somenteEstes: true })`): mesmo na conta do Gmail, o token do
+  Drive não carrega os escopos do Gmail. Sem openid, a conta vem do `about` do Drive
+  com o token da volta (`trocarCodigo` devolve também o `accessToken`). A volta já
+  garante a pasta raiz e guarda o id e o link. Sem a tabela (migração pendente), a
+  volta tira a chave do cofre e avisa.
+- **O cartão "6. Google Drive"** em Configurações › E-mail dos setores
+  (`components/admin/drive-google.tsx`): situação (ativa/expirada), conta, link da
+  pasta raiz, "Conectar Google Drive"/"Reconectar" e "Desconectar"
+  (`app/actions/google-drive.ts`, `integracoes.configurar` conferido na action; tira a
+  chave e a linha, os arquivos ficam). Não se revoga em myaccount.google.com: lá a
+  revogação derruba todas as conexões do mesmo cliente OAuth.
+- **`lib/google/drive.ts` (nunca lança):** token renovado como as outras conexões (cache
+  por instância); `invalid_grant`, 401 de novo depois do token novo e o escopo que falta
+  marcam `expirada` — só a troca de `ativa` para `expirada` dispara o alerta
+  `google_drive` (categoria `integracoes`, um a cada 6 h); o Drive cheio
+  (`storageQuotaExceeded`) também alerta. `garantirPastaRaiz` (a guardada, se ainda
+  existe e não está na lixeira; senão a que o Palácio já criou no Meu Drive; senão uma
+  nova), `garantirPasta` (cada nível achado ou criado; duas cópias ao mesmo tempo não
+  criam a mesma pasta duas vezes na instância), `enviarAoDrive` (envio em partes,
+  `uploadType=resumable`, 8 MB por vez até 64 MB, retomado pelo `Range` do 308 depois de
+  queda ou 5xx; sessão vencida recomeça uma vez), `copiarDoR2ParaODrive` (os bytes já
+  guardados no R2) e `contaDoDrive`.
+- **Regras puras** (`lib/google/drive-regras.ts`, conferidas por
+  `npx tsx scripts/conferir-drive.ts`): `normalizarCaminho` (sem "." nem "..", sem barras
+  extras, "/" ou ">" entre os níveis, até 4 níveis de até 80 caracteres; a raiz escrita
+  junto não conta), `podeGuardarEm` (cada pessoa só sob a pasta de um setor dela — o nome
+  do setor no Palácio, sem diferença de acento ou caixa; quem administra, em qualquer
+  lugar; "Envios do WhatsApp" é só das cópias), `caminhoDoEnvio`
+  ("Envios do WhatsApp/AAAA-MM/<título> (ENV-…)", o mês em Brasília),
+  `descricaoDoArquivoDoEnvio` (de onde veio, quem mandou, a autorização de imagem),
+  `tipoDoDocumento`, `nomeDoArquivoNoDrive`, os pedidos à API (a busca com o nome
+  escapado, a criação, o começo do envio em partes, as faixas) e as falhas
+  (`motivoDaFalhaDoDrive`, `textoDaFalhaDoDrive`).
+- **Migração** `20261019030000_cvrj_google_drive.sql` (só acrescenta, a aplicar):
+  `google_drive_conexao` (RLS forçado, leitura só de administradores, policy criada só
+  se não existe), `envios.drive_pasta_link` e `drive_copia_em`,
+  `envio_arquivos.drive_arquivo_id`, o tipo `guardar_documento` em
+  `whatsapp_pendencias` e "drive" em `private.whatsapp_permitidas_validas`.
+
 ### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
 
 O modelo da p. 24 do Manual de Identidade Institucional, desenhado por
@@ -2180,7 +2233,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
   por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
   conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
-  `google_conexao`/`google_admin_conexao` com estado `expirada`, a última sincronização de cada conta ativa da
+  `google_conexao`/`google_admin_conexao` com estado `expirada`, o Google Drive (`driveNoStatus`: conectado com a
+  pasta raiz, expirado ou sem conexão — §7.29c), a última sincronização de cada conta ativa da
   Escola (`escola_contas` e `escola_meta_contas`: `sincronizada_em` e `sincronizacao_erro`, o texto que
   `lib/escola` grava, sem chave nem dado de aluno; `situacaoDaSincronizacao`: o erro manda, depois nunca leu,
   mais de 30 h sem leitura certa — a rotina é diária — ou em dia; uma linha quando está tudo em dia, até 4
@@ -2389,7 +2443,27 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   imagem → conclui como o botão do link (`avisarAvaliadores`, link de assinatura quando cabe). Sem
   resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
   a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
-  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
+  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`. Com o Google Drive conectado (§7.29c), o envio
+  concluído é copiado para o Drive depois da resposta (`agendarCopiaDoEnvio`: `after`, e na hora fora de uma
+  requisição): só a conclusão que virou o estado agenda; a vez de quem copia (`drive_copia_em`, retomável depois de
+  15 min) e a marca de cada arquivo (`drive_arquivo_id`) não deixam duplicar; o link da pasta só é gravado no fim; a
+  rotina diária retoma os dos últimos 7 dias (`copiarEnviosPendentes`, 5 por vez).
+- **Documentos para o Google Drive (19/10/2026)** (`lib/whatsapp/drive.ts`, regras em `drive-regras.ts`): com o Drive
+  conectado, o DOCUMENTO de quem é da equipe (PDF, planilha, texto, apresentação — foto e vídeo continuam virando
+  envio; documento com envio aberto e sem a legenda de pasta continua entrando no envio) vai para o Drive. Antes do
+  registro, `destinoDoDocumento` decide (o comando no registro: `drive_guardar`, `drive_perguntar` ou `ia`): a
+  legenda "guardar em Financeiro/2026" (`lerLegendaDeGuardar`: verbo de guardar + caminho com barra ou de até 3
+  palavras) guarda na hora; sem legenda (ou sem o assistente), o bot pergunta a pasta (pendência
+  `guardar_documento`, 15 min, `textoPedeAPasta`; sem a migração, a resposta ensina a legenda); a legenda com outras
+  palavras vai ao assistente, que lê o documento no contexto e prepara `preparar_guardar_no_drive`. As cercas de
+  sempre: a equipe da Escola fica de fora, quem usa a verificação em duas etapas também (`podeAgirPeloWhatsapp`),
+  tipo e 64 MB. A resposta à pergunta (`seguirGuardarDocumento`): o caminho, com ou sem o verbo; o que não tem cara
+  de caminho, com o assistente, vai a ele (`paraPendencia` falso); "cancelar" desiste; a pendência encerrada de forma
+  atômica guarda uma vez só. `guardarDocumento` baixa da Kapso na hora (nada fica no R2 esperando), garante as pastas
+  (`podeGuardarEm`: o setor da pessoa — `setor_membros` e a coordenação que bate com um setor — ou qualquer lugar para
+  quem administra), manda ao Drive, deixa `drive_documento_guardado` no `activity_log` e responde com o link. O
+  "status" de quem administra ganha a linha do Drive (conectado com a pasta raiz, expirado ou sem conexão;
+  `linhaDoDriveNoStatus`).
 - **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
   confirma o número na Área do Voluntário (os mesmos dois caminhos de Meu perfil) marcando a autorização, cujo
   texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
@@ -2447,7 +2521,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `sistema`; a queda do próprio WhatsApp continua `sistema`). Disparam: `tokenDeAcesso` (Gmail) e
   `tokenDeAdmin` (Diretório) quando a autorização passa de `ativa` a `expirada` (o `update` agora filtra
   `estado = 'ativa'` e devolve a linha: só a troca alerta, com a conta) e quando o Google recusa o cliente
-  OAuth (`CLIENTE_RECUSADO`); `chamar()` do Resend em 401/403 (chave ou domínio), 429 da cota do plano
+  OAuth (`CLIENTE_RECUSADO`); o Google Drive (`lib/google/drive.ts`, alerta `google_drive`, §7.29c) do mesmo
+  jeito, e também quando o Drive da conta enche (`storageQuotaExceeded`, motivo `servico`); `chamar()` do Resend em 401/403 (chave ou domínio), 429 da cota do plano
   (o de chamadas por segundo, não), 5xx e sem resposta (`motivoDaFalhaDoEmail`; a falta da chave não
   alerta — já aparece em Integrações e Usuários); e
   `enviarObjeto()` do R2 sem resposta, em 401/403/404 e 5xx (`motivoDaFalhaDoR2`; cobre as fotos do WhatsApp
@@ -2721,6 +2796,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     `whatsapp_confirmacoes` (FK para o plano, `on delete cascade`, índice), a ação `plano` na restrição de `acao`
     (lida da que está em vigor) e `whatsapp_confirmacoes_plano_coerente` (acao `plano` ⇔ `plano_id`, alvo = o plano).
     Testes em `supabase/tests/whatsapp-assistente-confirmacao.test.sql`.
+  - **Guardar no Google Drive (19/10/2026, etapa 5):** `preparar_guardar_no_drive` (`pasta`, `nome` — o documento é o
+    que espera a pasta: a pergunta `guardar_documento`, ou, na correção, o do plano em revisão) entrou no lugar de
+    `ler_filas_de_chamado`, que virou a área `filas_de_chamado` de `consultar_area` (em qualquer nível, sem contar como
+    detalhe) — continuam 20, o teto; o prefixo do cache foi reescrito uma vez. Tipo `drive` no portão
+    (`guard|salv|arquiv|drive|pasta…` na mensagem dela; o banco aceita "drive" depois da migração `20261019030000`;
+    antes, o plano é guardado sem ele). O contexto mostra "Documento esperando a pasta do Drive" com os setores onde
+    ela guarda. O preparo confere o Drive conectado, o caminho (`normalizarCaminho`) e a pasta do setor
+    (`podeGuardarEm`), recusa quem usa a verificação em duas etapas e um documento por plano; o passo
+    (`guardar_no_drive`) leva o nome final, o caminho e o que baixa o arquivo. A revalidação refaz o Drive e a pasta;
+    o executor é o mesmo `guardarDocumento` (nos dois canais), o recibo traz a pasta e o link do arquivo, e a redação
+    apaga o nome e o id da mídia. Testes em `scripts/conferir-drive.ts`.
   - **Testes:** `npx tsx scripts/conferir-assistente-palacio.ts` (novo; sem banco, rede nem modelo): as 20
     ferramentas, as entradas novas, o portão, a sensibilidade, o texto do plano (valor, motivo citado, a linha do
     Palácio), a redação, o recibo com e sem o "Não fui eu", botões e listas (hash velho e plano antigo recusados,

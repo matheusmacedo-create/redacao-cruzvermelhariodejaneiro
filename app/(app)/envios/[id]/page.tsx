@@ -62,10 +62,13 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
     ? await supabase.from('content_pieces').select('site_url').eq('workspace_id', ws).eq('pauta_id', envio.pauta_id).not('site_url', 'is', null).limit(1).maybeSingle()
     : { data: null }
   // O evento do envio (álbum): lido à parte para a tela funcionar mesmo sem a migração dos álbuns.
-  const [{ data: doEnvio }, { data: eventos }] = await Promise.all([
+  // A cópia no Google Drive (envios do WhatsApp, com o Drive conectado): lida à parte, como o evento, para a tela não depender da migração do Drive.
+  const [{ data: doEnvio }, { data: eventos }, { data: noDrive }] = await Promise.all([
     supabase.from('envios').select('evento_id').eq('id', id).maybeSingle(),
     supabase.from('envio_eventos').select('id, nome, data_do_evento').eq('workspace_id', ws).order('criado_em', { ascending: false }).limit(50),
+    supabase.from('envios').select('drive_pasta_link').eq('id', id).maybeSingle(),
   ])
+  const pastaNoDrive = typeof noDrive?.drive_pasta_link === 'string' && noDrive.drive_pasta_link.startsWith('https://') ? noDrive.drive_pasta_link : null
   const autorizacao = AUTORIZACOES[envio.autorizacao_imagem]
   // As assinaturas do termo de imagem feitas pelo link deste envio (Biblioteca → Autorizações de imagem).
   const { data: coleta } = await supabase.from('imagem_coletas').select('id, imagem_autorizacoes(revogada_em)').eq('workspace_id', ws).eq('envio_id', id).maybeSingle()
@@ -128,6 +131,13 @@ export default async function EnvioPage({ params }: { params: Promise<{ id: stri
               )}
               {envio.pessoas_atendidas !== null && <Linha rotulo="Pessoas atendidas">{envio.pessoas_atendidas.toLocaleString('pt-BR')}</Linha>}
               {envio.parceiros && <Linha rotulo="Parceiros">{envio.parceiros}</Linha>}
+              {pastaNoDrive && (
+                <Linha rotulo="Cópia no Google Drive">
+                  <a href={pastaNoDrive} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline">
+                    <ExternalLink className="size-3.5" aria-hidden="true" />abrir a pasta do envio
+                  </a>
+                </Linha>
+              )}
               <Linha rotulo="Imagem das pessoas">
                 <span className={autorizacao.podePublicar ? '' : 'inline-flex items-start gap-1 text-amber-700'}>
                   {!autorizacao.podePublicar && <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />}{autorizacao.rotulo}

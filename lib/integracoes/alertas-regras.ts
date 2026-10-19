@@ -6,7 +6,7 @@
  * Quando uma integração para em silêncio, o primeiro a saber é o Palácio:
  * a troca do token do Google volta "invalid_grant", o Resend recusa a chave,
  * o R2 não grava, a Anthropic recusa a chave ou o modelo do assistente do
- * WhatsApp. Antes, isso ia só ao log (e ao estado "expirada" do Google,
+ * WhatsApp, o Google Drive da filial expira ou enche. Antes, isso ia só ao log (e ao estado "expirada" do Google,
  * que só o "status" do WhatsApp mostrava). Agora vira um aviso curto, com o
  * que fazer, no sino, no e-mail e no WhatsApp dos administradores
  * (lib/integracoes/alertas.ts). A queda do próprio WhatsApp continua sendo
@@ -18,7 +18,7 @@
  * prazo são o mesmo episódio.
  */
 
-export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'resend', 'r2', 'claude'] as const
+export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'google_drive', 'resend', 'r2', 'claude'] as const
 export type IntegracaoAlertada = (typeof INTEGRACOES_ALERTADAS)[number]
 
 /** No máximo um alerta por integração neste intervalo (o mesmo dos alertas do WhatsApp). */
@@ -76,6 +76,20 @@ export function textoDoAlertaDeIntegracao(integracao: IntegracaoAlertada, p: { c
       mensagem: `A autorização${conta ? ` de ${conta}` : ' da conta de administrador do Google'} foi revogada ou expirou: criar e-mails pelo link não funciona até reconectar. Abra Configurações → E-mail dos setores e toque em “Reconectar”.`,
       link: '/configuracoes/email', botao: 'Reconectar a conta de administrador',
     }
+  }
+  if (integracao === 'google_drive') {
+    // A conexão do Drive (lib/google/drive.ts): a autorização que caiu (sem motivo, ou "chave") ou o Drive cheio ("servico").
+    return p.motivo === 'servico'
+      ? {
+        titulo: 'O Google Drive do Palácio está sem espaço',
+        mensagem: `O Drive${conta ? ` de ${conta}` : ' da conta conectada'} recusou por falta de espaço: as cópias dos envios e os documentos do WhatsApp não estão entrando. Libere espaço ou troque a conta em Configurações → E-mail dos setores.`,
+        link: '/configuracoes/email', botao: 'Ver o Google Drive',
+      }
+      : {
+        titulo: 'A conexão do Google Drive expirou',
+        mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Drive'} expirou ou foi revogada: as cópias dos envios e os documentos do WhatsApp param até reconectar. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Drive.`,
+        link: '/configuracoes/email', botao: 'Reconectar o Google Drive',
+      }
   }
   if (integracao === 'google_oauth') {
     return {

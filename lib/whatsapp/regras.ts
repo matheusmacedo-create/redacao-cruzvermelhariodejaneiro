@@ -508,7 +508,21 @@ export type StatusDoCanal = {
   escola?: SincronizacaoDaEscola[] | null
   /** O assistente do WhatsApp (lib/whatsapp/assistente): sem a configuração (ou sem o campo), a linha não sai. */
   assistente?: AssistenteNoStatus | null
+  /** O Google Drive da filial (lib/whatsapp/drive.ts): null = não deu para ler; sem o campo, a linha não sai. */
+  drive?: DriveNoStatus | null
   urlBase: string
+}
+
+/** O Google Drive no "status": conectado ou expirado (a conta e se a pasta raiz já existe), ou sem conexão. */
+export type DriveNoStatus = { estado: 'ativa' | 'expirada'; conta: string; pastaRaiz: boolean } | 'sem_conexao'
+
+/** A linha do Drive no "status" (a pasta raiz é "Palácio – Arquivos": lib/google/drive-regras.ts). */
+export function linhaDoDriveNoStatus(d: DriveNoStatus | null): string {
+  if (d === null) return '*Google Drive:* não deu para ler agora'
+  if (d === 'sem_conexao') return '*Google Drive:* sem conexão (um administrador conecta em Configurações → E-mail dos setores)'
+  const conta = d.conta ? ` (${limpo(d.conta, 80)})` : ''
+  if (d.estado === 'expirada') return `*Google Drive:* expirado${conta} – a autorização caiu; reconecte em Configurações → E-mail dos setores`
+  return `*Google Drive:* conectado${conta} · ${d.pastaRaiz ? 'pasta “Palácio – Arquivos” criada' : 'a pasta “Palácio – Arquivos” nasce no primeiro arquivo'}`
 }
 
 /** O assistente no "status" (lib/whatsapp/assistente/uso.ts, assistenteNoStatus): só a configuração e as contagens de hoje. */
@@ -614,6 +628,7 @@ export function textoDoStatus(s: StatusDoCanal): string {
       ...linhasDasFalhas,
       `*Integrações sem chave:* ${semChave}`,
       `*Contas Google:* ${google}`,
+      ...(s.drive !== undefined ? [linhaDoDriveNoStatus(s.drive)] : []),
       ...linhasDaEscola(s.escola),
       ...(s.assistente ? [linhaDoAssistenteNoStatus(s.assistente)] : []),
       `*Rotina diária:* ${quandoEmSaoPaulo(s.rotina) ?? 'sem registro ainda'}`,

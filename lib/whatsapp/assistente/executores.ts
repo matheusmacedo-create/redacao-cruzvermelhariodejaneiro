@@ -11,6 +11,7 @@ import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import { CODIGO_DO_VOTO, enviarNoChat, gravarRespostaDaVisita, rodadaDoVoto, votar, type Pessoa } from '../acoes'
 import { assumirChamado } from '../atendimento'
 import { gravarEntrada } from '../portaria'
+import { documentoEsperando, guardarDocumento, ondeGuarda } from '../drive'
 import { tituloDoRelato } from '../regras'
 import { lerQuadroDePessoas, temHomonimo, type PessoaDoQuadro } from './leituras'
 import { acoesDeHoje } from './uso'
@@ -25,8 +26,8 @@ type Admin = ReturnType<typeof createAdminClient>
  *    pessoa — não há sessão no WhatsApp, o cliente é o de serviço;
  *  - executarPasso: cada passo confirmado, pelas MESMAS funções do bot e da tela, que o banco reconfere —
  *    whatsapp_votar_uma_vez (trava a rodada e a linha, recusa voto repetido e matéria mudada), whatsapp_mensagem_direta,
- *    portaria_responder_whatsapp, whatsapp_chat_enviar, lib/chamados/nucleo.ts —, devolvendo ResultadoDaAcao: o fluxo
- *    (fluxo.ts) para no primeiro `ok: false`.
+ *    portaria_responder_whatsapp, whatsapp_chat_enviar, lib/chamados/nucleo.ts, e o guardar no Drive de
+ *    lib/whatsapp/drive.ts —, devolvendo ResultadoDaAcao: o fluxo (fluxo.ts) para no primeiro `ok: false`.
  *
  * Dois canais:
  *  - `whatsapp`: o "confirmo" no WhatsApp (sessão simulada aal1: quem usa a verificação em duas etapas cai no banco);
@@ -111,6 +112,9 @@ export function fonteDoSupabase(admin: Admin, workspaceId: string, pessoa: Pesso
     // A portaria é de quem a tela e o banco dizem (private.pode_portaria): membro do Palácio, menos a equipe da Escola.
     temPortaria: async () => !ehEquipeDaEscola(pessoa.papel),
     decisao: opcoes.decisao ?? (async () => null),
+    // O documento que espera a pasta do Drive (a pergunta guardada pelo bot) e onde a pessoa guarda (lib/whatsapp/drive.ts).
+    documentoParaGuardar: () => documentoEsperando(admin, workspaceId, pessoa.id),
+    quemGuarda: () => ondeGuarda(admin, workspaceId, pessoa),
   }
 }
 
@@ -239,6 +243,15 @@ export async function executarPasso(passo: Passo, canal: CanalDoPasso, ctx: Cont
       const r = await gravarRespostaDaVisita(admin, workspaceId, pessoa, passo.visitaId, passo.resposta, passo.recado, base)
       if (r.ok) await registrarPasso(admin, ctx, canal.via, 'visita', { tipo: 'portaria_visita', id: passo.visitaId })
       return semLinkNoFim(r)
+    }
+    if (passo.acao === 'guardar_no_drive') {
+      // O mesmo caminho da legenda e da pergunta do bot: baixa da Kapso, garante as pastas e manda ao Drive (com o link).
+      const r = await guardarDocumento(admin, workspaceId, pessoa, {
+        mensagemId: passo.mensagemId, arquivo: passo.arquivo, endereco: passo.endereco, nome: passo.nome, mime: passo.mime, tamanho: passo.tamanho,
+        tipo: passo.tipo, extensao: passo.extensao,
+      }, passo.partes, { nome: passo.nome, via: 'assistente', planoId: ctx.planoId })
+      if (r.ok) await registrarPasso(admin, ctx, canal.via, 'drive', { tipo: 'drive_arquivo', id: null })
+      return r.ok ? { ...r, texto: 'Documento guardado no Google Drive.' } : r
     }
     if (passo.acao === 'responder_chat') {
       const r = await enviarNoChat(admin, workspaceId, pessoa, passo.canalId, passo.fio, passo.texto, `${base}/chat/${passo.canalId}${passo.fio ? `?fio=${passo.fio}` : ''}`, sessao)

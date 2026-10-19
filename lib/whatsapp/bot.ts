@@ -25,6 +25,8 @@ import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
 import { saldoNoEstoque } from './estoque'
 import { conversaDeProtecao } from './protecao'
 import { envioAberto, receberMidia } from './envio'
+import { destinoDoDocumento, receberDocumento } from './drive'
+import { lerPastaDaResposta } from './drive-regras'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
 import { respostaClaraDaVisita } from '@/lib/portaria/regras'
@@ -96,6 +98,11 @@ type Admin = ReturnType<typeof createAdminClient>
  * e nunca escreve sem um plano confirmado por escrito ou pelo botão. Sem a configuração, nada disso existe: o bot é
  * exatamente o de antes (o áudio inclusive).
  *
+ * Com o Google Drive conectado (lib/whatsapp/drive.ts), o documento de quem é da equipe vai para o Drive: a legenda
+ * "guardar em Financeiro/2026" guarda na hora (com o link na resposta); sem ela, o bot pergunta a pasta; e a legenda
+ * com outras palavras vai ao assistente (que prepara o plano de guardar). Sem o Drive, o documento solto recebe a
+ * resposta de sempre.
+ *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
  * também não vira conversa infinita: há um teto de respostas por número.
@@ -138,8 +145,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     // O áudio com a transcrição da Kapso só interessa ao assistente (o bot de comandos não ouve).
     const transcricao = pessoa && m.midia?.categoria === 'audio' && m.transcricao ? m.transcricao : null
+    // O documento com legenda pode ir ao assistente (a pasta do Drive dita com outras palavras: lib/whatsapp/drive.ts).
+    const legendaDeDocumento = Boolean(pessoa && m.midia?.categoria === 'documento' && m.texto.trim())
     // O assistente atende esta pessoa agora? Sem a configuração (ou sem a tabela), não: o bot de sempre.
-    const ia = pessoa && (!m.midia || transcricao) ? await disponibilidadeDoAssistente(admin, workspaceId, pessoa, { numero, nome: m.nome }) : ASSISTENTE_INDISPONIVEL
+    const ia = pessoa && (!m.midia || transcricao || legendaDeDocumento) ? await disponibilidadeDoAssistente(admin, workspaceId, pessoa, { numero, nome: m.nome }) : ASSISTENTE_INDISPONIVEL
     // Com o assistente (e sem envio de fotos aberto: com ele, o áudio é parte do envio, como sempre), o áudio segue como
     // a transcrição — e áudio nunca escreve sem plano: nada de comando fixo, de pergunta do bot, de resposta direta a
     // aviso ou à portaria; só o assistente (que lê ou prepara um plano) e os textos fixos do plano (o "confirmo" falado
@@ -188,10 +197,17 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo. Na
     // pergunta de texto livre, o nome de setor que também é comando de área ("Financeiro", "Portaria", "Estoque
     // central") é a resposta: o "Onde é?" do chamado não se perde na lista do Financeiro.
-    const paraPendencia = !doAudio && Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
+    let paraPendencia = !doAudio && Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
       || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando)))))
-    // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
+    // A pergunta da pasta do Drive, com o assistente: o que não tem cara de caminho ("coloca na pasta de contratos do
+    // jurídico") vai a ele, que vê o documento no contexto e prepara o plano; o caminho e o "cancelar" ficam com o bot.
+    if (paraPendencia && pendencia?.tipo === 'guardar_documento' && ia.disponivel && ia.escrita && !m.midia && !ehCancelamento(m.texto) && !lerPastaDaResposta(m.texto)) paraPendencia = false
+    // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação. O documento, com o Google
+    // Drive conectado, vai para o Drive (a pasta na legenda, na pergunta do bot ou pelo assistente).
     const midia = Boolean(pessoa && m.midia && !aviso)
+    const paraODrive = midia && pessoa && m.midia?.categoria === 'documento'
+      ? await destinoDoDocumento(admin, workspaceId, pessoa, m, { assistente: ia.disponivel && ia.escrita && ia.podeAgir && ia.recente })
+      : null
 
     // O assistente: o plano ou a pergunta aberta da pessoa, a resposta a eles (lida pelo código) e a rota.
     let aberto: AbertoDaPessoa | null = null
@@ -221,7 +237,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
       comando: rota !== 'bot' ? rota
-        : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+        : paraODrive ? (paraODrive === 'assistente' ? 'ia' : `drive_${paraODrive}`)
+          : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
       enviadaEm: m.enviadaEm,
     })
     if (!nova) return
@@ -237,8 +254,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
     const base = urlBase()
 
-    // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
-    if (midia && pessoa) {
+    // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora. O documento para o Drive
+    // também (a legenda que diz a pasta guarda na hora); a resposta dele sai mais abaixo, com a pergunta guardada.
+    const documento = midia && pessoa && paraODrive ? await receberDocumento(admin, workspaceId, pessoa, m, config, paraODrive) : null
+    if (midia && pessoa && !documento) {
       const resposta = await receberMidia(admin, workspaceId, pessoa, m, config, base)
       if (resposta && !noTeto) await responder(resposta.texto)
       return
@@ -325,6 +344,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
       const entrega = await responder(r.texto, { interativo: r.interativo })
       if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
+    }
+
+    // O documento para o Drive: guardado (o link), a pergunta da pasta, ou a legenda com outras palavras para o assistente.
+    if (documento) {
+      if (documento.tipo === 'resposta') await enviar(documento.resposta)
+      else await assistente()
+      return
     }
 
     if (aviso) {

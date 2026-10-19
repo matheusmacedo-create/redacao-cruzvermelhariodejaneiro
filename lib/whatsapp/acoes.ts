@@ -22,6 +22,7 @@ import { seguirVisita } from './portaria'
 import { seguirDecisoes } from './financeiro'
 import { seguirPresenca } from './presenca'
 import { seguirViagem } from './frota'
+import { seguirGuardarDocumento } from './drive'
 import { criarConfirmacao } from './confirmacoes'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita, type RespostaDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
@@ -68,12 +69,13 @@ export type Pessoa = { id: string; nome: string | null; papel: Papel }
 /**
  * `atender_chamado` e `registrar_visita` vêm da migração 20261018213700; `financeiro` (a lista das decisões, para o
  * "aprovar 2") e `nao_fui_eu` (a conferência do "Não fui eu", achada pelo número: lib/whatsapp/protecao.ts), da
- * 20261018223000; `marcar_presenca`, `frota_saida` e `frota_retorno`, da 20261018233000. Antes delas, o banco
- * recusa a pergunta e o bot manda para o Palácio.
+ * 20261018223000; `marcar_presenca`, `frota_saida` e `frota_retorno`, da 20261018233000; `guardar_documento` (a
+ * pasta do Drive de um documento: lib/whatsapp/drive.ts), da 20261019030000. Antes delas, o banco recusa a pergunta
+ * e o bot manda para o Palácio (ou, no documento, pede a pasta na legenda).
  */
 export type TipoDePendencia =
   | 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita' | 'financeiro' | 'nao_fui_eu'
-  | 'marcar_presenca' | 'frota_saida' | 'frota_retorno'
+  | 'marcar_presenca' | 'frota_saida' | 'frota_retorno' | 'guardar_documento'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
 /**
@@ -101,6 +103,8 @@ export function ondeNoPalacio(p: { tipo: TipoDePendencia; dados: Record<string, 
   if (p.tipo === 'envio') return '/enviar'
   if (p.tipo === 'financeiro') return '/financeiro?aba=aprovacao'
   if (p.tipo === 'nao_fui_eu') return '/perfil'
+  // O documento: a resposta leva sempre o semPergunta (a pasta na legenda); o Palácio não tem tela de guardar no Drive.
+  if (p.tipo === 'guardar_documento') return '/ajuda'
   if (p.tipo === 'marcar_presenca') {
     const acao = p.dados.acao as { id?: unknown } | undefined
     return typeof acao?.id === 'string' ? `/voluntariado/oportunidades/${acao.id}#inscritos` : '/voluntariado/oportunidades'
@@ -424,6 +428,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
       marcar_presenca: 'Pronto: nenhuma presença foi marcada.',
       frota_saida: 'Pronto: a saída não foi registrada.',
       frota_retorno: 'Pronto: o retorno não foi registrado.',
+      guardar_documento: 'Pronto: o documento não foi guardado.',
     }
     return { texto: desistiu[p.tipo] }
   }
@@ -432,6 +437,7 @@ export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa:
   if (p.tipo === 'marcar_presenca') return seguirPresenca(admin, workspaceId, pessoa, p, texto, base, estrita)
   if (p.tipo === 'frota_saida' || p.tipo === 'frota_retorno') return seguirViagem(admin, workspaceId, pessoa, p, texto, base, estrita)
   if (p.tipo === 'financeiro') return seguirDecisoes(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'guardar_documento') return seguirGuardarDocumento(admin, workspaceId, pessoa, p, texto, estrita)
   // A conferência do "Não fui eu" é respondida pelo número, antes de tudo (lib/whatsapp/protecao.ts); aqui não chega.
   if (p.tipo === 'nao_fui_eu') return null
 
@@ -571,11 +577,12 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
 /**
  * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
  * motivo da transferência, o nome, quem visita e o motivo da visita, o veículo, quem dirige, o destino e as
- * ocorrências da viagem)? Aí até frase com "agenda" é resposta.
+ * ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é resposta.
  */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
   return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
+    || p?.tipo === 'guardar_documento'
     || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
     || (p?.tipo === 'registrar_visita' && (etapa === 'nome' || etapa === 'pessoa' || etapa === 'escolher_pessoa' || etapa === 'motivo'))
     || ((p?.tipo === 'frota_saida' || p?.tipo === 'frota_retorno') && (etapa === 'veiculo' || etapa === 'condutor' || etapa === 'destino' || etapa === 'ocorrencias'))
