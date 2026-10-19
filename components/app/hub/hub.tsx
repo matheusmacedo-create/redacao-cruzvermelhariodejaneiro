@@ -3950,7 +3950,7 @@ function PreviaRede({ destino, arquivoPorId }: {
         <div className="flex items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">CV</span>
           <div className="leading-tight">
-            <p className="text-xs font-semibold">cruzvermelhabrasileirj</p>
+            <p className="text-xs font-semibold">cruzvermelhabrasileirarj</p>
             <p className="text-[10px] text-muted-foreground">agora · {formato.rotulo}</p>
           </div>
         </div>
@@ -3978,7 +3978,7 @@ function PreviaRede({ destino, arquivoPorId }: {
         )}
         {destino.extras.firstComment && (
           <p className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 text-xs text-muted-foreground">
-            <span className="font-semibold">cruzvermelhabrasileirj</span> {destino.extras.firstComment}
+            <span className="font-semibold">cruzvermelhabrasileirarj</span> {destino.extras.firstComment}
             <span className="ml-1 text-[10px]">(primeiro comentário)</span>
           </p>
         )}
