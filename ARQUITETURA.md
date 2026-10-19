@@ -2457,8 +2457,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   usuários. A desativação é a da tela, ao confirmar.
 - **Cadastro de colaborador pelo WhatsApp (19/10/2026)** (`lib/whatsapp/colaborador.ts`, regras puras em
   `lib/whatsapp/colaborador-regras.ts` — `npx tsx scripts/conferir-colaborador.ts`): para quem tem
-  `usuarios.gerenciar` e pode agir pelo WhatsApp (`podeAgirPeloWhatsapp`; com a verificação em duas etapas, vai a
-  tela), `colaborador: <nome>` (também “novo colaborador”, “cadastrar colaborador”; `lerColaborador` — “colaborador”
+  `usuarios.gerenciar` e o número confirmado — inclusive com a verificação em duas etapas (decisão do dono,
+  19/10/2026: a conversa não cria nada, e o link de confirmar exige a sessão com a verificação em dia),
+  `colaborador: <nome>` (também “novo colaborador”, “cadastrar colaborador”; `lerColaborador` — “colaborador”
   sozinho no começo só com os dois-pontos; para os outros, não é comando; sem o nome, o bot pergunta) é a semântica
   de “Adicionar pessoas” para UMA pessoa, em etapas guardadas em `whatsapp_pendencias` (tipo
   `cadastrar_colaborador`): o nome (nome e sobrenome, sem número nem pergunta) → a busca na equipe (o Diretório

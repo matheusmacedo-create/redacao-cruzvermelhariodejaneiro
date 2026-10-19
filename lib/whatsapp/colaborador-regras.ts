@@ -480,9 +480,6 @@ export const textoDoCadastroParaConfirmar = (c: CadastroConferido & { usuario: s
 
 // ------------------------------------------------------------------ os textos fora das etapas
 
-export const TEXTO_DO_CADASTRO_COM_DUAS_ETAPAS =
-  'Sua conta usa a verificação em duas etapas, então o cadastro de colaboradores fica na tela "Adicionar pessoas" (o WhatsApp não pede o código do app).'
-
 export const textoDoCadastroPelaTela = (base: string) => `O cadastro de colaborador pelo WhatsApp ainda não está ligado. Cadastre pela tela "Adicionar pessoas": ${base}/pessoas/adicionar`
 
 /** A pendência que acabou: fica só a etapa (o nome, o contato e o resto saem do banco). */

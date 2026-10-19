@@ -8,8 +8,8 @@
  *    (número, nome, "Sem coordenação", "Usar o da ficha"), o cargo (Pular), o papel (o sugerido, administrador
  *    recusado), o pedido da ficha (só com WhatsApp), o "não" que responde e o "cancelar" que desiste, os botões, o
  *    recibo e o resumo mascarados, os dados do link (o contato só nas chaves que o banco tira) e a faxina;
- *  - o servidor (lib/whatsapp/colaborador.ts) contra um banco de mentira, sem rede: quem não gerencia usuários, a
- *    verificação em duas etapas, a conversa inteira até o link (nada criado: nenhuma conta, só o link), o e-mail em
+ *  - o servidor (lib/whatsapp/colaborador.ts) contra um banco de mentira, sem rede: quem não gerencia usuários, quem
+ *    usa a verificação em duas etapas (conversa igual), a conversa inteira até o link (nada criado: nenhuma conta, só o link), o e-mail em
  *    uso, quem já tem conta, a ficha reaproveitada com o contato lido dela, e a pergunta recusada antes da migração;
  *  - a confirmação no Palácio: o link lido de volta (pedidoDoLink), o usuário e o papel que dá para mudar
  *    (conferirAjustes: administrador recusado) e, contra um banco de mentira, a tela (o resumo mascarado, o usuário
@@ -387,13 +387,14 @@ async function servidor() {
     return saidas
   }
 
-  // 1) Quem não gerencia usuários: nem é comando (null); quem usa a verificação em duas etapas vai para a tela.
+  // 1) Quem não gerencia usuários: nem é comando (null). Quem usa a verificação em duas etapas conversa como os outros:
+  //    a conta só nasce no link de confirmar no Palácio, que exige a sessão com a verificação em dia.
   {
     const e = espaco()
     igual(await comecarCadastro(e.admin, WS, { ...QUEM, papel: 'colaborador' }, 'Ana Lima', BASE), null, 'servidor: quem não gerencia usuários')
     const duas = await comecarCadastro(espaco({ fatores: true }).admin, WS, QUEM, 'Ana Lima', BASE)
-    contem(duas?.texto ?? '', 'verificação em duas etapas', 'servidor: verificação em duas etapas, a tela')
-    contem(duas?.texto ?? '', `${BASE}/pessoas/adicionar`, 'servidor: verificação em duas etapas, com o link da tela')
+    igual(duas?.pergunta?.tipo ?? null, 'cadastrar_colaborador', 'servidor: com a verificação em duas etapas, a conversa começa')
+    igual((duas?.texto ?? '').includes('verificação em duas etapas'), false, 'servidor: com a verificação em duas etapas, sem mandar para a tela')
   }
 
   // 2) A conversa inteira de uma pessoa nova: e-mail, WhatsApp, coordenação, cargo, papel e o link. Nada criado.
