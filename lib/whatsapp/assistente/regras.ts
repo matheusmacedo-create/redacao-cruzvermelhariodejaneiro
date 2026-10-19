@@ -39,6 +39,8 @@ export const LIMITES = {
   /** Por plano. */
   passos: 8, votos: 3, destinatarios: 3, mensagem: 1_000, comentario: 4_000, relato: 4_000, recado: 200, local: 140, nota: 2_000,
   textoDoPlano: 3_800, mensagensDoPlano: 4,
+  /** Por pessoa, por dia: planos executados (as mensagens diretas ficam em whatsapp_ia_config.mensagens_dia). */
+  planosDia: 20,
   /** Pergunta e busca. */
   pergunta: 120, pedidoEmAberto: 300, opcoesMin: 2, opcoesMax: 10, buscaMin: 3, buscaMax: 60, agendaDias: 14, ajuda: 300,
   /** Prazos (min). */
@@ -195,13 +197,19 @@ export const TEXTOS_FIXOS = {
   nao_fiz: 'Não fiz nada ainda. Diga o que quer que eu prepare.',
   plano_nao_saiu: 'Não consegui mandar o plano; peça de novo.',
   mensagem_no_meio: 'Recebi outra mensagem sua antes deste *confirmo*; confira o plano e responda de novo.',
-  escrita_desligada: 'A escrita pelo assistente ainda está desligada; faça pelo Palácio.',
+  escrita_desligada: 'Pedir ações por aqui não está ligado para esta pessoa; faça pelo Palácio ou pelos comandos do menu.',
   numero_antigo: 'Faz tempo que este número não é confirmado nem há login no Palácio; confirme o número em Meu perfil para pedir ações por aqui.',
   so_no_palacio: 'Isso só pelo Palácio.',
   limite_de_detalhe: 'Limite de consultas detalhadas de hoje; veja no Palácio.',
   limite_do_turno: 'Limite de consultas desta mensagem.',
   nao_pediu: 'A pessoa não pediu esse tipo de ação nesta mensagem.',
-  conta_mudou: 'sua conta mudou; peça de novo',
+  conta_mudou: 'sua conta mudou desde o plano (a verificação em duas etapas, o papel ou o número)',
+  /** O preparo de quem usa a verificação em duas etapas (até a confirmação no Palácio): ao modelo, e o motivo à pessoa, com o link do código. */
+  dois_fatores: 'A conta desta pessoa usa a verificação em duas etapas: votos, mensagens e comentários dela são feitos pelo Palácio (o sistema manda o link). Diga isso em uma frase e não insista.',
+  dois_fatores_motivo: 'sua conta usa a verificação em duas etapas; faça pelo Palácio',
+  limite_de_planos: 'você chegou ao limite de planos por dia pelo WhatsApp; faça pelo Palácio',
+  limite_de_mensagens: 'você chegou ao limite de mensagens diretas por dia pelo WhatsApp; mande pelo Palácio',
+  sem_confirmacao_no_palacio: 'Nada foi feito: a confirmação no Palácio ainda não está ligada. Faça pelo Palácio.',
   lembrete: '_O plano acima continua valendo: responda *confirmo* para fazer, ou *cancelar*._',
   pergunta_desconhecida: 'Use só marcadores que apareceram no contexto ou em resultados de ferramentas.',
   nome_mudou: 'O nome de perfil do WhatsApp do seu número mudou. Por segurança, o assistente ficou parado neste número até você confirmar o número de novo em Meu perfil → WhatsApp. Os comandos do menu continuam.',
@@ -723,8 +731,8 @@ export function hashDoPlano(p: { userId: string; workspaceId: string; passos: Pa
   return sha256(jsonCanonico({ v: 2, userId: p.userId, workspaceId: p.workspaceId, passos: p.passos }))
 }
 
-/** O que ficou de fora no preparo (o código escreve o quê e o porquê). */
-export type FicouDeFora = { oQue: string; motivo: string }
+/** O que ficou de fora no preparo (o código escreve o quê e o porquê; `link`: onde fazer no Palácio, já com o endereço inteiro). */
+export type FicouDeFora = { oQue: string; motivo: string; link?: string }
 
 /** "18/10" a partir de um instante, em Brasília. */
 function diaEMes(iso: string): string {
@@ -744,6 +752,11 @@ function citacao(texto: string): string {
 }
 
 const titulo = (t: string) => `“${umaLinha(limpo(String(t ?? ''), 600), 140) || 'Sem título'}”`
+/** "no canal *#geral*", ou "na conversa" (a conversa direta não tem nome); no fio, "do canal". */
+const ondeNoChat = (canalNome: string, fio: boolean) => {
+  const nome = umaLinha(limpo(String(canalNome ?? ''), 200), 60).replace(/^#/, '')
+  return nome ? `${fio ? 'do' : 'no'} canal *#${nome}*` : fio ? 'da conversa' : 'na conversa'
+}
 const nomeCurto = (t: string) => umaLinha(limpo(String(t ?? ''), 400), 80) || 'Sem nome'
 const HOMONIMO = '⚠ há outra pessoa com este nome no espaço'
 const ROTULO_DA_RESPOSTA_A_VISITA: Record<'subir' | 'aguardar' | 'recusar', string> = { subir: RESPOSTAS.subir.rotulo, aguardar: RESPOSTAS.aguardar.rotulo, recusar: RESPOSTAS.recusar.rotulo }
@@ -788,7 +801,7 @@ export function linhasDoPlano(passos: Passo[]): string[] {
     } else if (p.acao === 'comentar_chamado') {
       linhas.push(`${n} Comentar no chamado *${umaLinha(limpo(p.codigo, 40), 20)}* ${titulo(p.titulo)}:`, citacao(p.texto))
     } else if (p.acao === 'responder_chat') {
-      linhas.push(`${n} Responder ${p.fio ? 'no fio do canal' : 'no canal'} *#${umaLinha(limpo(p.canalNome, 200), 60).replace(/^#/, '')}*:`, citacao(p.texto))
+      linhas.push(`${n} Responder ${p.fio ? 'no fio ' : ''}${ondeNoChat(p.canalNome, p.fio !== null)}:`, citacao(p.texto))
     } else if (p.acao === 'abrir_chamado') {
       linhas.push(`${n} Abrir chamado em *${umaLinha(limpo(p.filaNome, 200), 60)}* · ${umaLinha(limpo(p.categoriaNome, 200), 60)} (urgência ${ROTULO_DA_URGENCIA[p.urgencia] ?? 'média'})${p.local ? ` — local: ${umaLinha(limpo(p.local, 400), LIMITES.local)}` : ''}:`)
       linhas.push(citacao(p.relato))
@@ -812,7 +825,10 @@ export const LINHA_DO_PLANO_SENSIVEL =
  * LIMITES.textoDoPlano — aí o texto é a recusa (TEXTOS_FIXOS.grande).
  */
 export function textoDoPlano(p: { passos: Passo[]; ficouDeFora?: FicouDeFora[]; sensivel?: boolean }): { texto: string; cabe: boolean } {
-  const fora = (p.ficouDeFora ?? []).map((f) => `Ficou de fora: ${umaLinha(f.oQue, 200)} — ${umaLinha(f.motivo, 200)}`)
+  const fora = (p.ficouDeFora ?? []).map((f) => {
+    const motivo = umaLinha(f.motivo, 200)
+    return `Ficou de fora: ${umaLinha(f.oQue, 200)} — ${f.link ? `${motivo.replace(/[.\s]+$/, '')}: ${umaLinha(f.link, 300)}` : motivo}`
+  })
   const texto = [
     CABECALHO_DO_PLANO,
     linhasDoPlano(p.passos).join('\n'),
@@ -884,7 +900,7 @@ function feitoDoPasso(p: Passo): string {
   if (p.acao === 'votar') return p.decisao === 'approved' ? `Voto *aprovado* em ${titulo(p.titulo)}` : `Pedido de *ajustes* em ${titulo(p.titulo)}`
   if (p.acao === 'mensagem_direta') return `Mensagem enviada a *${nomeCurto(p.para.nome)}* (@${String(p.para.username).replace(/[^a-z0-9._-]/gi, '').slice(0, 40)})`
   if (p.acao === 'comentar_chamado') return `Comentário no chamado *${umaLinha(limpo(p.codigo, 40), 20)}*`
-  if (p.acao === 'responder_chat') return `Resposta no canal *#${umaLinha(limpo(p.canalNome, 200), 60).replace(/^#/, '')}*`
+  if (p.acao === 'responder_chat') return `Resposta ${ondeNoChat(p.canalNome, false)}`
   if (p.acao === 'abrir_chamado') return `Chamado aberto em *${umaLinha(limpo(p.filaNome, 200), 60)}*`
   if (p.acao === 'responder_visita') return `Resposta à portaria sobre *${nomeCurto(p.visitante)}*: *${ROTULO_DA_RESPOSTA_A_VISITA[p.resposta]}*`
   return p.avisoIds === 'todos' ? 'Avisos marcados como lidos' : `${p.quantos === 1 ? '1 aviso marcado' : `${p.quantos} avisos marcados`} como lido${p.quantos === 1 ? '' : 's'}`
@@ -916,9 +932,37 @@ export function textoDoRecibo(p: { passos: Passo[]; resultados: (ResultadoDoPass
   return [cabeca, ...linhas].join('\n')
 }
 
+/**
+ * O que a pessoa já fez hoje pelo assistente, a partir dos planos executados (executado ou parcial) desde a
+ * meia-noite de Brasília: quantos planos e quantas mensagens diretas saíram de verdade (o passo com resultado ok).
+ * As cotas do dia (LIMITES.planosDia, whatsapp_ia_config.mensagens_dia) contam por aqui.
+ */
+export function contarAcoesDoDia(linhas: { passos: unknown; resultado: unknown }[]): { planos: number; mensagens: number } {
+  let mensagens = 0
+  for (const l of linhas) {
+    const passos = Array.isArray(l.passos) ? l.passos as { acao?: unknown }[] : []
+    const resultado = Array.isArray(l.resultado) ? l.resultado as Partial<ResultadoDoPasso>[] : []
+    passos.forEach((p, i) => {
+      if (p?.acao === 'mensagem_direta' && resultado.some((r) => r?.n === i + 1 && r.ok === true)) mensagens++
+    })
+  }
+  return { planos: linhas.length, mensagens }
+}
+
+/** O registro da conferência que a pessoa declarou ao confirmar o plano (o mesmo formato de registroDaConferencia, de lib/aprovacoes/setores.ts). */
+export function registroDaConferenciaDoPlano(conferencia: { setor: string; itens: string[] }[]): string {
+  return conferencia.filter((b) => b.itens.length).map((b) => `Conferido (${b.setor}): ${b.itens.join('; ')}.`).join('\n')
+}
+
+/** O motivo do código como entra em "Ficou de fora" e no "Nada foi feito": minúscula no começo (o resto como está). */
+export function motivoDoCodigo(texto: string): string {
+  const t = umaLinha(String(texto ?? ''), 300)
+  return t ? `${t.charAt(0).toLocaleLowerCase('pt-BR')}${t.slice(1)}` : 'não deu certo'
+}
+
 /** A revalidação na confirmação achou um passo que não vale mais: nada é feito. */
 export function textoDaRevalidacao(n: number, motivo: string, total: number): string {
-  const porque = umaLinha(limpo(motivo, 400), 200).replace(/[.\s]+$/, '')
+  const porque = motivoDoCodigo(umaLinha(limpo(motivo, 400), 200)).replace(/[.\s]+$/, '')
   return `Nada foi feito: ${total > 1 ? `passo ${n}, ` : ''}${porque}. Peça de novo se quiser.`
 }
 

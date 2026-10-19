@@ -506,7 +506,40 @@ export type StatusDoCanal = {
   rotina: string | null
   /** A última sincronização de cada conta ativa da Escola (Únicopag e Meta); null = não deu para ler; sem conta (ou sem o campo), a linha não sai. */
   escola?: SincronizacaoDaEscola[] | null
+  /** O assistente do WhatsApp (lib/whatsapp/assistente): sem a configuração (ou sem o campo), a linha não sai. */
+  assistente?: AssistenteNoStatus | null
   urlBase: string
+}
+
+/** O assistente no "status" (lib/whatsapp/assistente/uso.ts, assistenteNoStatus): só a configuração e as contagens de hoje. */
+export type AssistenteNoStatus = {
+  modo: 'desligado' | 'piloto' | 'admins' | 'equipe'
+  /** Prepara ações para a pessoa confirmar (whatsapp_ia_config.escrita). */
+  escrita: boolean
+  /** A pausa do disjuntor (ou da chave, ou do modelo) em vigor. */
+  pausado: boolean
+  /** O teto de gasto do espaço por dia, em US$. */
+  teto: number
+  /** null = não deu para ler agora (ou desligado). */
+  numeros: { conversas: number; gasto: number; comCache: number; recusas: number; noTeto: number } | null
+}
+
+const MODO_NO_STATUS: Record<AssistenteNoStatus['modo'], string> = { desligado: 'desligado', piloto: 'piloto', admins: 'administradores', equipe: 'toda a equipe' }
+const dolares = (n: number, casas: boolean) => `US$ ${casas || !Number.isInteger(n) ? n.toFixed(2).replace('.', ',') : String(n)}`
+const quantas = (n: number, uma: string, varias: string) => `${n} ${n === 1 ? uma : varias}`
+
+/** "*Assistente:* piloto, com ações · hoje 37 conversas · US$ 1,12 de US$ 10 · cache 92% · 0 recusas · 1 pessoa no teto de consultas". */
+export function linhaDoAssistenteNoStatus(a: AssistenteNoStatus): string {
+  if (a.modo === 'desligado') return '*Assistente:* desligado'
+  const partes = [`${MODO_NO_STATUS[a.modo] ?? a.modo}, ${a.escrita ? 'com ações' : 'só consultas'}`]
+  if (a.pausado) partes.push('pausado agora (o bot de comandos responde sozinho)')
+  if (!a.numeros) partes.push('números de hoje: não deu para ler agora')
+  else {
+    const n = a.numeros
+    partes.push(`hoje ${quantas(n.conversas, 'conversa', 'conversas')}`, `${dolares(n.gasto, true)} de ${dolares(a.teto, false)}`, `cache ${n.comCache}%`, quantas(n.recusas, 'recusa', 'recusas'))
+    if (n.noTeto) partes.push(`${quantas(n.noTeto, 'pessoa', 'pessoas')} no teto de consultas`)
+  }
+  return `*Assistente:* ${partes.join(' · ')}`
 }
 
 // A Escola no "status": a sincronização diária de cada conta da Únicopag (saldo e transações) e do Meta
@@ -582,6 +615,7 @@ export function textoDoStatus(s: StatusDoCanal): string {
       `*Integrações sem chave:* ${semChave}`,
       `*Contas Google:* ${google}`,
       ...linhasDaEscola(s.escola),
+      ...(s.assistente ? [linhaDoAssistenteNoStatus(s.assistente)] : []),
       `*Rotina diária:* ${quandoEmSaoPaulo(s.rotina) ?? 'sem registro ainda'}`,
     ].join('\n'),
     `Detalhes: ${s.urlBase}/configuracoes/whatsapp`,

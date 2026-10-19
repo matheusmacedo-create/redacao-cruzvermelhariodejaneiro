@@ -557,7 +557,7 @@ async function conferirFluxo() {
     const A = (await t.fluxo.guardar(novoPlano(planoDoDono)))!
     await t.fluxo.marcarEntrega(A.id, 'wamid.planoA')
     const r = await t.confirmarComo((await t.repo.buscar(A.id))!, { conferirIdentidade: async () => TEXTOS_FIXOS.conta_mudou })
-    igual([r.tipo, 'texto' in r ? r.texto : ''], ['falhou', 'Nada foi feito: sua conta mudou; peça de novo. Peça de novo se quiser.'], 'identidade: conta mudou, nada feito')
+    igual([r.tipo, 'texto' in r ? r.texto : ''], ['falhou', 'Nada foi feito: sua conta mudou desde o plano (a verificação em duas etapas, o papel ou o número). Peça de novo se quiser.'], 'identidade: conta mudou, nada feito')
   }
   {
     const t = await fluxoDosTestes()
@@ -874,11 +874,11 @@ const arquivos = readdirSync(PASTA).filter((a) => a.endsWith('.ts'))
 igual(importsDe(fonte('faxina.ts')).filter((i) => /(^|\/)fila$/.test(i)), [], 'imports: faxina.ts não importa fila.ts')
 // Os puros: sem server-only, sem banco e sem o SDK em tempo de execução (os tipos do SDK, com import type, somem na compilação).
 const importsDeVerdade = (codigo: string) => [...codigo.matchAll(/^\s*import\s+(?!type\s)[^'"]*['"]([^'"]+)['"]/gm), ...codigo.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1])
-for (const puro of ['regras.ts', 'marcadores.ts', 'fluxo.ts', 'ferramentas.ts', 'prompt.ts', 'laco.ts', 'cartao.ts']) {
+for (const puro of ['regras.ts', 'marcadores.ts', 'fluxo.ts', 'ferramentas.ts', 'prompt.ts', 'laco.ts', 'cartao.ts', 'preparos.ts']) {
   igual(importsDeVerdade(fonte(puro)).filter((i) => i === 'server-only' || i.includes('supabase') || i.includes('@anthropic-ai')), [], `imports: ${puro} é puro`)
 }
 igual(importsDeVerdade(fonte('cartao.ts')).filter((i) => i.startsWith('node:')), [], 'imports: cartao.ts não puxa o Node (a tela usa)')
-for (const servidor of ['claude.ts', 'leituras.ts', 'memoria.ts', 'plano.ts', 'index.ts', 'uso.ts', 'faxina.ts', 'rotina.ts']) {
+for (const servidor of ['claude.ts', 'leituras.ts', 'memoria.ts', 'plano.ts', 'index.ts', 'uso.ts', 'faxina.ts', 'rotina.ts', 'executores.ts']) {
   contem(fonte(servidor), "import 'server-only'", `imports: ${servidor} é só do servidor`)
 }
 const PROIBIDOS = /lib\/financeiro|lib\/oficios|lib\/usuarios|lib\/integracoes|lib\/contas|chaves/

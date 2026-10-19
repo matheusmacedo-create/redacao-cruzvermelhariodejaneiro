@@ -8,14 +8,16 @@ import type { Entrega } from '../fila'
 import type { Pessoa } from '../acoes'
 import { chamarClaude, paramsDoAssistente } from './claude'
 import { criarExecutar, criarRascunho, rodarTurno, type Desfecho, type Handlers, type PerguntaPronta } from './laco'
-import { criarLeitor, dadosDoContexto, novoTurnoDeLeitura, rotulosDasOpcoes, type TurnoDeLeitura } from './leituras'
+import { criarLeitor, dadosDoContexto, novoTurnoDeLeitura, quadroDePessoas, rotulosDasOpcoes, type TurnoDeLeitura } from './leituras'
 import { esperarAVez, gravarMemoria, hashDoTexto, lerMemoria, soltarVez, textoRepetido, type ListaGuardada } from './memoria'
-import { entregaFalhou, fecharPergunta, guardarPergunta, marcarEmRevisao, marcarEntrega, rearmar, type AbertoDaPessoa } from './plano'
+import { entregaFalhou, fecharPergunta, guardarPergunta, guardarPlano, marcarEmRevisao, marcarEntrega, rearmar, type AbertoDaPessoa } from './plano'
 import type { PlanoGuardado } from './fluxo'
+import { criarPreparador } from './preparos'
+import { fonteDoSupabase } from './executores'
 import { montarContexto, textoDaSituacao } from './prompt'
 import {
-  LIMITES, TETOS_PADRAO, TEXTOS_FIXOS, acoesPermitidas, decidirTeto, marcadoresNaResposta, posProcessarResposta, quantidadePedida, textoDaPergunta,
-  unirPermitidas, type Passo, type TipoDeAcao,
+  LIMITES, TETOS_PADRAO, TEXTOS_FIXOS, acoesPermitidas, decidirTeto, marcadoresNaResposta, planoSensivel, posProcessarResposta, quantidadePedida, textoDaPergunta,
+  textoDoPlano, unirPermitidas, validarRascunho, type Passo, type TipoDeAcao,
 } from './regras'
 import {
   ERROS_DE_FORA, alertarAdmins, contarTurnos, criarRegistroDoUso, gastoDeHoje, leiturasDeHoje, pausarPorConfiguracao, registrarFalha, zerarFalhas,
@@ -35,16 +37,16 @@ type Admin = ReturnType<typeof createAdminClient>
  *  2. a vez da pessoa (um turno por vez), esperando de 1 em 1 s até 15 s;
  *  3. a mesma mensagem há menos de 10 min: o texto fixo, sem modelo;
  *  4. o contexto, lido no banco agora (nada da conversa fica guardado), e o portão de intenção (só da mensagem);
- *  5. o laço (laco.ts) com as leituras desta pessoa; os preparar_* respondem "escrita desligada" nesta etapa;
- *  6. o desfecho: a resposta pós-processada (sem URL do modelo, marcadores trocados por nomes e links do
- *     código), a pergunta escrita pelo código, ou um texto fixo (recusa, teto, prazo, fora do ar);
+ *  5. o laço (laco.ts) com as leituras desta pessoa e os preparos (preparos.ts: com a escrita ligada para ela, cada
+ *     preparar_* confere tudo no banco e acrescenta um passo ao rascunho; nada é feito aqui);
+ *  6. o desfecho: o plano (validado, guardado com o hash e mostrado pelo código — o texto do modelo é descartado; o
+ *     plano em revisão é substituído), a resposta pós-processada (sem URL do modelo, marcadores trocados por nomes e
+ *     links do código), a pergunta escrita pelo código, ou um texto fixo (recusa, teto, prazo, fora do ar);
  *  7. a memória (só marcadores e o HMAC do texto), o registro do uso (sem texto) e a vez solta.
  *
- * Toda resposta sai sem fila (`semFila`): o assistente nunca deixa texto esperando em whatsapp_fila. Nunca lança.
+ * Toda resposta sai sem fila (`semFila`): o assistente nunca deixa texto esperando em whatsapp_fila — só o aviso curto
+ * "não consegui mandar o plano", que não traz dado nenhum, pode esperar nela. Nunca lança.
  */
-
-/** A escrita pelo assistente (preparos, executores e confirmação) é da etapa 3: até lá, desligada mesmo com a configuração ligada. */
-export const ESCRITA_NO_AR = false
 
 export type Responder = (texto: string, extra?: { interativo?: Interativo | null; comando?: string; categoria?: string; semFila?: boolean }) => Promise<Entrega>
 
@@ -156,13 +158,18 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
     // 5. As mensagens, escritas pelo código: o contexto e a mensagem no turno do usuário; a situação depois.
     const { contexto, citada, mensagem } = montarContexto(dados)
     const situacao = textoDaSituacao({
-      agora: new Date(), papel: pessoa.papel, nivel: ia.nivel, podeAgir: ia.podeAgir, confirmacaoNoPalacio: false, escrita: ESCRITA_NO_AR && ia.escrita,
+      agora: new Date(), papel: pessoa.papel, nivel: ia.nivel, podeAgir: ia.podeAgir, confirmacaoNoPalacio: false, escrita: ia.escrita,
     })
     const rascunho = criarRascunho()
+    // Os preparos: a escrita ligada para a pessoa (e o número recente), as conferências no banco e os limites do dia.
+    const preparador = criarPreparador({
+      fonte: fonteDoSupabase(admin, workspaceId, pessoa, { quadro: () => quadroDePessoas(turno) }),
+      tabela: memoria.tabela, rascunho, pessoaId: pessoa.id, podeAgir: ia.podeAgir, escrita: ia.escrita, recente: ia.recente, base: e.base,
+      mensagensDia: config?.mensagens_dia ?? TETOS_PADRAO.mensagens_dia, rotuloDe: (m) => turno.itens[m]?.rotulo ?? null,
+    })
     const handlers: Handlers = {
       ler: criarLeitor(turno),
-      // Etapa da leitura: nenhum preparo passa. O número sem confiança recente ouve o motivo dele.
-      preparar: async () => ({ ok: false, erro: ia.recente ? TEXTOS_FIXOS.escrita_desligada : TEXTOS_FIXOS.numero_antigo }),
+      preparar: preparador.preparar,
       perguntar: (entrada) => montarPergunta(turno, entrada),
     }
     const desfecho: Desfecho = await rodarTurno({
@@ -201,10 +208,35 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
         await zerarFalhas(admin, workspaceId, config)
       }
     } else if (desfecho.tipo === 'plano') {
-      // Nesta etapa nenhum preparo passa, então não há plano; por garantia, nada é guardado nem feito.
-      await fixo(TEXTOS_FIXOS.escrita_desligada, 'erro', { erro: 'plano_sem_escrita' })
+      // O texto do modelo é descartado: quem escreve o plano é o código, a partir do banco.
+      const sensivel = planoSensivel(rascunho.passos, ia.podeAgir)
+      const valido = validarRascunho(rascunho.passos, { ficouDeFora: rascunho.ficouDeFora, sensivel })
+      // [etapa 4] O plano sensível vai ao Palácio; até lá, os preparos nem deixam nascer um (por garantia, nada é guardado).
+      if (!valido.ok || sensivel || !m.numero) {
+        await fixo(!valido.ok ? valido.erro : TEXTOS_FIXOS.sem_confirmacao_no_palacio, 'plano', { erro: 'plano_recusado' })
+      } else {
+        const guardado = await guardarPlano(admin, { workspaceId, userId: pessoa.id, numero: m.numero, papel: pessoa.papel, passos: valido.passos, permitidas, sensivel })
+        // O plano em revisão já foi substituído (e redigido) ao guardar o novo, mesmo se o banco recusou a linha nova.
+        substituido = true
+        if (!guardado) {
+          await fixo(TEXTOS_FIXOS.sem_tempo, 'erro', { erro: 'plano_nao_guardado' })
+        } else {
+          const entrega = await responder(textoDoPlano({ passos: valido.passos, ficouDeFora: rascunho.ficouDeFora, sensivel }).texto)
+          if (entrega.situacao === 'enviada') {
+            await marcarEntrega(admin, guardado.id, entrega.id)
+          } else {
+            // O plano nunca espera na fila: não saiu, cancelado e redigido; o aviso curto, sem dados, vai pela fila normal.
+            await entregaFalhou(admin, guardado.id)
+            await e.responder(TEXTOS_FIXOS.plano_nao_saiu, { categoria: 'assistente' })
+          }
+          await registro.fechar('plano', { planoId: guardado.id })
+          await zerarFalhas(admin, workspaceId, config)
+        }
+      }
     } else if (desfecho.tipo === 'resposta') {
-      const texto = desfecho.fixo ? desfecho.texto : posProcessarResposta(desfecho.texto, { itens: turno.itens, ajuda: turno.ajuda, urlBase: e.base })
+      // Os links do Palácio do que ficou de fora (o voto, a mensagem ou o comentário de quem usa a verificação em duas etapas) vão junto.
+      const links = [...turno.ajuda, ...preparador.links]
+      const texto = desfecho.fixo ? desfecho.texto : posProcessarResposta(desfecho.texto, { itens: turno.itens, ajuda: links, urlBase: e.base })
       const entrega = await responder(texto)
       const citados = desfecho.fixo ? [] : marcadoresNaResposta(desfecho.texto, turno.itens)
       if (entrega.situacao === 'enviada' && entrega.id && citados.length >= 2) lista = { m: entrega.id, r: citados }

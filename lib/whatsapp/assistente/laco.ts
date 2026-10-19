@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import {
-  AVISO_NADA_FOI_FEITO, LIMITES, TEXTOS_FIXOS, afirmaQueFez, conferirIntencao, conferirQuantidade, depoisDoUltimoRecuo, ehFerramenta, paraReenviar,
+  AVISO_NADA_FOI_FEITO, LIMITES, TEXTOS_FIXOS, afirmaQueFez, conferirIntencao, conferirQuantidade, depoisDoUltimoRecuo, ehFerramenta, jsonCanonico, paraReenviar,
   tipoDaFerramenta, validarEntrada, type FicouDeFora, type NomeDaFerramenta, type Passo, type TipoDeAcao,
 } from './regras'
 
@@ -51,9 +51,10 @@ export type Rascunho = {
   /** O que ficou de fora no preparo: a última tentativa por alvo (o código escreve o quê e o porquê). */
   readonly ficouDeFora: FicouDeFora[]
   temPassos(): boolean
-  /** Acrescenta e devolve a chave do passo (para retirar depois, se a conferência de quantidade mandar). */
+  /** Acrescenta e devolve a chave do passo (para retirar depois, se a conferência de quantidade mandar). O passo igual a um que já está não entra de novo. */
   acrescentar(passo: Passo, alvo: string): number
   retirar(chaves: number[]): void
+  /** O que ficou de fora; o alvo que já está no plano não conta (a segunda tentativa recusada não apaga a primeira que passou). */
   ficou(alvo: string, f: FicouDeFora): void
   descartar(): void
 }
@@ -67,13 +68,16 @@ export function criarRascunho(): Rascunho {
     get ficouDeFora() { return [...fora.values()] },
     temPassos: () => itens.length > 0,
     acrescentar(passo, alvo) {
+      fora.delete(alvo)
+      const igual = itens.find((i) => jsonCanonico(i.passo) === jsonCanonico(passo))
+      if (igual) return igual.chave
       const chave = proxima++
       itens.push({ chave, passo, alvo })
-      fora.delete(alvo)
       return chave
     },
     retirar(chaves) { itens = itens.filter((i) => !chaves.includes(i.chave)) },
     ficou(alvo, f) {
+      if (itens.some((i) => i.alvo === alvo)) return
       fora.delete(alvo)
       fora.set(alvo, f)
     },
@@ -87,9 +91,13 @@ export function criarRascunho(): Rascunho {
 // ------------------------------------------------------------------ as ferramentas de uma resposta
 
 export type ResultadoDaLeitura = { ok: true; conteudo: string } | { ok: false; erro: string }
-export type ResultadoDoPreparo = { ok: true; passo: Passo } | { ok: false; erro: string; oQue?: string }
+/**
+ * O preparo: o passo resolvido, ou o erro. `erro` vai ao modelo (is_error); `motivo` é o que a pessoa lê em "Ficou de
+ * fora" (sem ele, o próprio erro); `link`: onde fazer no Palácio, quando dá (a conta com a verificação em duas etapas).
+ */
+export type ResultadoDoPreparo = { ok: true; passo: Passo } | { ok: false; erro: string; oQue?: string; motivo?: string; link?: string }
 
-/** O que cada ferramenta faz de verdade (leituras.ts e, na etapa 3, preparos.ts). A entrada já vem validada. */
+/** O que cada ferramenta faz de verdade (leituras.ts e preparos.ts). A entrada já vem validada. */
 export type Handlers = {
   ler(nome: NomeDaFerramenta, entrada: Record<string, unknown>): Promise<ResultadoDaLeitura>
   preparar(nome: NomeDaFerramenta, entrada: Record<string, unknown>): Promise<ResultadoDoPreparo>
@@ -196,11 +204,11 @@ export function criarExecutar(c: {
         c.rascunho.ficou(alvo, { oQue, motivo: 'você não pediu isso nesta mensagem' })
         continue
       }
-      const r = await c.handlers.preparar(u.name, v.valor).catch(() => ({ ok: false as const, erro: 'Não deu para preparar agora.', oQue: undefined }))
+      const r: ResultadoDoPreparo = await c.handlers.preparar(u.name, v.valor).catch(() => ({ ok: false as const, erro: 'Não deu para preparar agora.' }))
       if (!r.ok) {
         todosPassaram = false
         resultados[i] = comoErro(u.id, r.erro)
-        c.rascunho.ficou(alvo, { oQue: r.oQue ?? oQue, motivo: r.erro })
+        c.rascunho.ficou(alvo, { oQue: r.oQue ?? oQue, motivo: r.motivo ?? r.erro, ...(r.link ? { link: r.link } : {}) })
         continue
       }
       const chave = c.rascunho.acrescentar(r.passo, alvo)

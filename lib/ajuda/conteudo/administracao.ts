@@ -952,8 +952,9 @@ const WHATSAPP: GuiaDaArea = {
       passos: [
         'No cartão “Assistente”, confira que a chave da Anthropic aparece como configurada.',
         'Em “Quem o assistente atende”, escolha “Piloto” e marque as pessoas (só funciona para quem confirmou o WhatsApp em Meu perfil).',
+        'Para o piloto também pedir ações (votos, mensagens, chamados), marque “Deixar o assistente preparar ações para a pessoa confirmar”. Nada é feito sem o *confirmo* da pessoa a um plano exato.',
         'Ajuste os tetos, se quiser, e toque em “Salvar o assistente”. Vale a partir da próxima mensagem, sem publicar nada.',
-        'Para desligar, escolha “Desligado” e salve: o bot volta a responder só aos comandos do menu no mesmo minuto.',
+        'Para desligar, escolha “Desligado” e salve: o bot volta a responder só aos comandos do menu no mesmo minuto. Desmarcar as ações deixa o assistente só consultando.',
       ],
       dica: 'O assistente usa a mesma chave da Anthropic do resto do Palácio. O modelo e o esforço mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO, na Vercel.',
     },
@@ -1051,8 +1052,14 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'assistente-do-whatsapp',
       pergunta: 'O que o assistente do WhatsApp faz, e quanto custa?',
-      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas e a Central de ajuda. Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Por enquanto ele não faz nada em nome de ninguém: pedidos de ação continuam pelos comandos ou pelo Palácio. Trocou o nome de perfil do WhatsApp, o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos (por pessoa e por dia, e o do espaço) ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados no sino e no e-mail. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos. Nada do que se escreve fica guardado: só o comando e os números de uso.',
+      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas e a Central de ajuda. Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp, o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados no sino e no e-mail. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
       termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'anthropic', 'custo', 'teto', 'piloto', 'linguagem natural'],
+    },
+    {
+      id: 'assistente-faz-acoes',
+      pergunta: 'O assistente do WhatsApp pode fazer coisas em nome da pessoa?',
+      resposta: 'Só com “Deixar o assistente preparar ações para a pessoa confirmar” marcado no cartão, e sempre por um plano exato, escrito pelo Palácio, que só é feito com o *confirmo* da pessoa: votos, mensagens diretas, comentários em chamados, chamados novos, a resposta à portaria e marcar avisos como lidos. Na hora de fazer, o Palácio confere tudo de novo (a rodada aberta, a matéria sem mudança, o destinatário ativo) e para no primeiro passo que não der.\n\nOs limites: 3 votos por plano, as mensagens diretas do teto por dia e 20 planos por dia por pessoa. Quem usa a verificação em duas etapas recebe o link para votar, mandar mensagem e comentar pelo Palácio. Cada passo feito fica no histórico da atividade, marcado como vindo do assistente. Confirmar não custa nada.',
+      termos: ['assistente', 'plano', 'confirmo', 'ações', 'votar pelo assistente', 'mensagem pelo assistente', 'escrita'],
     },
     {
       id: 'desconectou-sozinho',

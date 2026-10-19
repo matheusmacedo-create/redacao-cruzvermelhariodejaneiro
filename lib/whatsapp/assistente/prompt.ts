@@ -119,7 +119,7 @@ export type SituacaoDaMensagem = {
   podeAgir: boolean
   /** [onda 2] A confirmação do plano sensível no Palácio (/confirmar). Antes da etapa 4, indisponível. */
   confirmacaoNoPalacio: boolean
-  /** A escrita pelo assistente (whatsapp_ia_config.escrita, número recente e a etapa da escrita no ar). */
+  /** A escrita pelo assistente (whatsapp_ia_config.escrita, com o número recente). */
   escrita: boolean
 }
 
@@ -138,7 +138,11 @@ export function textoDaSituacao(s: SituacaoDaMensagem): string {
     s.nivel === 'amplo'
       ? 'Leitura: ampla (as permissões da tela).'
       : 'Leitura: só o que é da própria pessoa (filas, notas internas, texto de matérias e busca de pessoas, só no Palácio).',
-    s.podeAgir ? 'Pode agir pelo WhatsApp: sim.' : 'Pode agir pelo WhatsApp: não — votos, mensagens e comentários dela terminam com confirmação no Palácio.',
+    s.podeAgir
+      ? 'Pode agir pelo WhatsApp: sim.'
+      : s.confirmacaoNoPalacio
+        ? 'Pode agir pelo WhatsApp: não — votos, mensagens e comentários dela terminam com confirmação no Palácio.'
+        : 'Pode agir pelo WhatsApp: não — votos, mensagens e comentários dela são feitos pelo Palácio (o sistema manda o link); abrir chamado, responder à portaria e marcar avisos como lidos valem por aqui.',
     `Confirmação no Palácio: ${s.confirmacaoNoPalacio ? 'disponível' : 'indisponível'}. Escrita pelo assistente: ${s.escrita ? 'ligada' : 'desligada'}.`,
   ].join('\n')
 }

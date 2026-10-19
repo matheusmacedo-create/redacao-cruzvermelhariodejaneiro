@@ -2607,6 +2607,56 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     verdade (com teto de US$ e a segunda rodada exigindo cache lido) — manual, nunca no CI.
   - **Sem migração nova:** usa a da etapa 1 (`20261019010000`). Sem ela, o assistente fica indisponível e o cartão
     diz que falta aplicá-la.
+- **Assistente do Palácio no WhatsApp — escrita confirmada (19/10/2026, etapa 3 de 4, DESLIGADA por padrão):** com
+  o assistente ligado para a pessoa E a caixa "Deixar o assistente preparar ações para a pessoa confirmar"
+  (`whatsapp_ia_config.escrita`) marcada no cartão, os `preparar_*` deixam de responder "escrita desligada" e o
+  pedido vira um plano exato, que só é feito com o *confirmo*. Sem a caixa (o padrão), tudo fica como na etapa 2.
+  - **Preparos** (`preparos.ts`, puro, com a fonte dos dados injetada — `fonteDoSupabase` em `executores.ts`): depois
+    da validação e do portão de intenção (laço), cada preparo resolve o marcador no tipo certo, confere a permissão e
+    o estado no banco (rodada aberta e sem o voto da pessoa, destinatário ativo e diferente dela, chamado com papel e
+    aberto, fila e assunto ativos e o local quando o assunto pede, a visita que espera a resposta, avisos sem ler) e
+    os limites (3 votos e um por aprovação, uma mensagem por destinatário e 3 destinatários, as mensagens diretas
+    do dia em `mensagens_dia`, 8 passos), guarda o hash do conteúdo da matéria (`whatsapp_hash_do_conteudo`; sem a
+    função, o voto é pelo Palácio) e devolve o `Passo` com as pessoas do quadro (`@usuário`, ⚠ de homônimo). Quem
+    usa a verificação em duas etapas: voto, mensagem e comentário ficam de fora, com o link do Palácio no "Ficou de
+    fora" do plano ou na resposta em texto (até a etapa 4); abrir chamado, responder à portaria e marcar lidos valem
+    (isentos). O erro vai ao modelo; o motivo, à pessoa ("Ficou de fora: … — …").
+  - **O plano** (`index.ts` e `plano.ts`): o texto do modelo é descartado; `validarRascunho`, `guardarPlano` (hash,
+    15 min; substitui e redige o que estava aberto, inclusive o plano em revisão, e encerra a pergunta do bot) e o
+    `textoDoPlano` sem fila — não saiu, cancelado e redigido, e o aviso curto vai pela fila normal. O plano sensível
+    não nasce nesta etapa.
+  - **A confirmação** (`bot.ts` → `confirmarPlano`, com a vez da pessoa): só "confirmo" escrito depois da entrega
+    (pela hora da Meta) ou citando o plano; "sim", "ok", "pode" recebem a orientação fixa, sem modelo. O fluxo
+    (`fluxo.ts`) assenta 3 s, recusa se chegou outra mensagem ao assistente no meio, consome o plano de forma
+    atômica, confere o hash e a pessoa, e `conferirIdentidade` refaz no banco: o número do plano e desta mensagem,
+    sem suspensão; a escrita ainda ligada; a pessoa ativa com o mesmo papel; a verificação em duas etapas (lida de
+    novo); o número recente; e as cotas do dia (20 planos executados, `LIMITES.planosDia`, e as mensagens diretas,
+    contadas nos planos executados de hoje com o passo ok — `contarAcoesDoDia`). Depois `revalidarPasso` para TODOS
+    os passos (as mesmas conferências do preparo com leituras novas; a matéria mudada não recebe voto) e só então
+    `executarPasso`, em ordem, parando no primeiro `ok: false`: `votar` com `extra` (`whatsapp_votar_uma_vez`, com o
+    hash, e a conferência declarada no comentário), `enviarMensagemDireta` (`whatsapp_mensagem_direta`; o aviso diz
+    "pelo WhatsApp do Palácio"), `comentarNoChamado`, `criarChamado`, `gravarRespostaDaVisita`, `enviarNoChat` e o
+    update dos avisos da própria pessoa. Os textos de ação são redigidos na hora; o recibo (o que foi feito, com os
+    links, e onde parou — sem os textos) pode esperar na fila, categoria `assistente`. O uso fica com o desfecho
+    `confirmado`, custo zero e o plano.
+  - **Trilha:** o voto, no `activity_log` de sempre com `{ canal: 'whatsapp', via: 'assistente', plano_id }`; os
+    outros passos, com `action` `whatsapp_assistente_<passo>` e o mesmo `metadata` (o painel não mostra essas linhas).
+  - **O plano do Chat** (`guardarPlanoDoChat`, sem modelo): a resposta citando o aviso de um canal do Chat, sem cara
+    de pedido ao assistente (`pareceInstrucao` falso), vira um plano de um passo com o texto da pessoa inteiro e
+    citado; com a verificação em duas etapas, ou sem a escrita, a resposta segue o caminho de sempre.
+  - **O `status`** ganhou a linha do assistente (`assistenteNoStatus` em `uso.ts`, `linhaDoAssistenteNoStatus` em
+    `regras.ts`): o modo, se prepara ações, a pausa e os números de hoje (conversas, gasto e teto, cache, recusas,
+    pessoas no teto de consultas). Sem a configuração do assistente, a linha não sai.
+  - **Testes:** `npx tsx scripts/conferir-assistente-escrita.ts` (novo; sem banco, rede nem modelo): cada preparo com
+    uma fonte de mentira (escrita desligada, número antigo, verificação em duas etapas com o link, limites, estados),
+    a revalidação (matéria mudada, voto pela tela no meio, destinatário desativado, visita respondida, canal
+    arquivado), o caso do dono de ponta a ponta com o modelo roteirizado (UMA chamada, plano de 3 passos escrito pelo
+    código, "sim"/"ok" e o "confirmo" antes da entrega não fazem nada, o "confirmo" executa os três em ordem, o
+    segundo não executa de novo, o texto some na hora; a matéria mudada não recebe voto; a cota de planos; a mesma
+    frase com 2FA dá os links) e os casos do roteiro §12.3 que dependem do código (2, 3, 4, 5–6, 9, 10, 11, 13–17, 19,
+    21, 22, 23, 26, 27, 30 e o plano do Chat). `scripts/avaliar-assistente.ts --gastar` ganhou os casos de escrita
+    contra a API de verdade (manual).
+  - **Sem migração nova:** usa a da etapa 1 (`20261019010000`).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -2916,10 +2966,13 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
-- **Assistente do WhatsApp, etapas 3 e 4** (§8.5) — a fundação e a leitura com o modelo estão no código, desligadas
-  por padrão (liga-se pelo cartão em Configurações → WhatsApp). Faltam: a escrita confirmada pelo WhatsApp
-  (preparos, executores, recibo, o plano do Chat, a linha no `status`) e a integração com a confirmação no Palácio
-  e o "Não fui eu". A conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp.
+- **Assistente do WhatsApp, etapa 4** (§8.5) — a fundação, a leitura com o modelo e a escrita confirmada pelo
+  WhatsApp estão no código, desligadas por padrão (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela
+  caixa "preparar ações"). Falta a integração com a onda 2: o plano sensível (quem usa a verificação em duas etapas,
+  e as decisões do Financeiro) confirmado em `/confirmar/[token]` (coluna `plano_id` em `whatsapp_confirmacoes`),
+  botões e listas no plano e na pergunta, o "Não fui eu" no recibo e as ferramentas da onda 2. A conferir no piloto:
+  se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp; rodar `scripts/avaliar-assistente.ts
+  --gastar` (os casos de escrita) antes de ligar as ações para o piloto.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

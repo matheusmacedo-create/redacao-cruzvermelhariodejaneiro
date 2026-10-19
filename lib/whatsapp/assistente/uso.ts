@@ -5,8 +5,9 @@ import { claudeConfigurado, esforcoDoAssistente, modeloDoAssistente } from '@/li
 import { notificar } from '@/lib/notificacoes/servidor'
 import { podeAgirPeloWhatsapp, type Pessoa } from '../acoes'
 import {
-  TETOS_PADRAO, TEXTOS_FIXOS, custoEstimado, decidirConfianca, inicioDoDiaEmBrasilia, modoCobre, ehFerramenta, type ModoDoAssistente, type UsoDaChamada,
+  TETOS_PADRAO, TEXTOS_FIXOS, contarAcoesDoDia, custoEstimado, decidirConfianca, inicioDoDiaEmBrasilia, modoCobre, ehFerramenta, type ModoDoAssistente, type UsoDaChamada,
 } from './regras'
+import type { AssistenteNoStatus } from '../regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -159,6 +160,20 @@ export async function leiturasDeHoje(admin: Admin, userId: string, agora: Date =
   try {
     const { data, error } = await admin.rpc('whatsapp_ia_leituras_desde', { p_user_id: userId, p_desde: inicioDoDiaEmBrasilia(agora).toISOString() })
     return error ? null : Number(data ?? 0)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Os planos que a pessoa executou hoje (executado ou parcial, desde a meia-noite de Brasília) e as mensagens diretas
+ * que saíram por eles: as cotas do dia (LIMITES.planosDia e whatsapp_ia_config.mensagens_dia). null se não deu para contar.
+ */
+export async function acoesDeHoje(admin: Admin, userId: string, agora: Date = new Date()): Promise<{ planos: number; mensagens: number } | null> {
+  try {
+    const { data, error } = await admin.from('whatsapp_ia_planos').select('passos, resultado').eq('user_id', userId).in('situacao', ['executado', 'parcial'])
+      .gte('atualizado_em', inicioDoDiaEmBrasilia(agora).toISOString()).limit(200)
+    return error ? null : contarAcoesDoDia(data ?? [])
   } catch {
     return null
   }
@@ -384,4 +399,30 @@ export async function estadoDoAssistente(admin: Admin, workspaceId: string): Pro
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   const pausa = config?.pausada_ate && Date.parse(config.pausada_ate) > Date.now() ? { ate: config.pausada_ate, motivo: config.motivo_pausa } : null
   return { ...base, pronto: true, config, numeros, pessoas, pausa }
+}
+
+/**
+ * A linha do assistente no "status" da administração (lib/whatsapp/admin.ts): o modo, se prepara ações, a pausa
+ * e os números de hoje (conversas, gasto e teto, cache, recusas, pessoas no teto de consultas detalhadas). Sem a
+ * configuração (ou sem a tabela), null: o "status" sai como sempre. Nunca lança.
+ */
+export async function assistenteNoStatus(admin: Admin, workspaceId: string, agora: Date = new Date()): Promise<AssistenteNoStatus | null> {
+  try {
+    const config = await lerConfig(admin, workspaceId)
+    if (!config) return null
+    const pausado = Boolean(config.pausada_ate && Date.parse(config.pausada_ate) > agora.getTime())
+    const base = { modo: config.modo, escrita: config.escrita, pausado, teto: Number(config.teto_usd_dia) }
+    if (config.modo === 'desligado') return { ...base, numeros: null }
+    const [numeros, { data: detalhes }] = await Promise.all([
+      numerosDeHoje(admin, workspaceId, agora),
+      admin.from('whatsapp_ia_uso').select('user_id, leituras_detalhe').eq('workspace_id', workspaceId).gt('leituras_detalhe', 0)
+        .gte('criado_em', inicioDoDiaEmBrasilia(agora).toISOString()).limit(5000),
+    ])
+    const porPessoa = new Map<string, number>()
+    for (const d of detalhes ?? []) if (d.user_id) porPessoa.set(d.user_id as string, (porPessoa.get(d.user_id as string) ?? 0) + (Number(d.leituras_detalhe) || 0))
+    const noTeto = [...porPessoa.values()].filter((n) => n >= config.leituras_detalhe_dia).length
+    return { ...base, numeros: numeros ? { conversas: numeros.conversas, gasto: numeros.gasto, comCache: numeros.comCache, recusas: numeros.recusas, noTeto } : null }
+  } catch {
+    return null
+  }
 }

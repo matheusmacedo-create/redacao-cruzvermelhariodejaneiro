@@ -11,6 +11,7 @@ import {
   textoDoComandoFila, textoDoLinkDeConfirmacao, textoDoStatus, type ComandoDaAdministracao, type OrigemDaEscola, type SincronizacaoDaEscola,
 } from './regras'
 import { INDISPONIVEL, type Pessoa } from './acoes'
+import { assistenteNoStatus } from './assistente/uso'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -24,8 +25,9 @@ type Admin = ReturnType<typeof createAdminClient>
  *    (a cota diária da Meta), as falhas de envio das últimas 24 h por
  *    motivo, as integrações sem chave (só os nomes, nunca os valores), as
  *    autorizações do Google expiradas, a última sincronização de cada conta
- *    da Escola (Únicopag e Meta: em dia, atrasada ou com o erro gravado) e a
- *    última rotina diária;
+ *    da Escola (Únicopag e Meta: em dia, atrasada ou com o erro gravado), o
+ *    assistente (modo, se prepara ações, pausa e os números de hoje, quando
+ *    ele tem configuração) e a última rotina diária;
  *  - "fila" faz a fila andar agora, como "Enviar a fila agora". Não age em
  *    nome de ninguém nem manda nada novo — qualquer mensagem ao número já faz
  *    a fila andar (rota do webhook) —, por isso vale também para quem usa a
@@ -102,7 +104,7 @@ export async function respostaDaAdministracao(admin: Admin, workspaceId: string,
 
 /** O "status": tudo em paralelo; o que não der para ler sai como "não deu para ler agora". Também é a leitura ver_status_do_whatsapp do assistente. */
 export async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, base: string): Promise<string> {
-  const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina, escola] = await Promise.all([
+  const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina, escola, assistente] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, workspaceId),
     resumoDaFila(admin, workspaceId),
@@ -114,6 +116,8 @@ export async function statusDoCanal(admin: Admin, workspaceId: string, config: C
     admin.from('google_admin_conexao').select('email_conta, estado').eq('workspace_id', workspaceId).maybeSingle(),
     ultimaRotina(admin, workspaceId),
     sincronizacoesDaEscola(admin, workspaceId),
+    // O assistente do WhatsApp: sem a configuração dele, null (e a linha não sai).
+    assistenteNoStatus(admin, workspaceId),
   ])
   const googleExpiradas = [
     gmail.data?.estado === 'expirada' ? { onde: 'E-mail dos setores', conta: String(gmail.data.email_conta ?? '') } : null,
@@ -123,7 +127,7 @@ export async function statusDoCanal(admin: Admin, workspaceId: string, config: C
     conexao, webhook, fila, conversas: cota?.usadas ?? null,
     falhas: falhas ? { total: falhas.total, grupos: resumoDasFalhas(falhas.falhas) } : null,
     semChave: chaves ? chaves.filter((c) => !c.origem).map((c) => nomeCurto(c.nome)) : null,
-    googleExpiradas, rotina, escola, urlBase: base,
+    googleExpiradas, rotina, escola, assistente, urlBase: base,
   })
 }
 

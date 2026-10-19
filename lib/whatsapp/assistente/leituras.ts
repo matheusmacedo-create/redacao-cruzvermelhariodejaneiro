@@ -63,7 +63,7 @@ export type TurnoDeLeitura = {
   quadro?: Promise<Map<string, PessoaDoQuadro>>
 }
 
-type PessoaDoQuadro = { nome: string; username: string; setor: string | null; ativo: boolean; papel: string }
+export type PessoaDoQuadro = { nome: string; username: string; setor: string | null; ativo: boolean; papel: string }
 
 export function novoTurnoDeLeitura(p: Omit<TurnoDeLeitura, 'itens' | 'ajuda' | 'agora' | 'detalhe'> & { detalhe: { hoje: number; teto: number } }): TurnoDeLeitura {
   return { ...p, itens: {}, ajuda: [], agora: Date.now(), detalhe: { ...p.detalhe, noTurno: 0 } }
@@ -84,10 +84,10 @@ function emitir(t: TurnoDeLeitura, tipo: TipoDeItem, id: string | null | undefin
 
 const tituloEntreAspas = (titulo: string | null | undefined) => `“${umaLinha(dadoDeTerceiro(titulo ?? '', 140), 140) || 'Sem título'}”`
 
-/** O quadro de pessoas do espaço (nome, @usuário, setor), uma vez por turno: rótulos e homônimos. */
-function quadroDePessoas(t: TurnoDeLeitura): Promise<Map<string, PessoaDoQuadro>> {
-  t.quadro ??= (async () => {
-    const { data } = await t.admin.from('workspace_members').select('user_id, role, coordination, profiles(full_name, username, active)').eq('workspace_id', t.workspaceId).limit(3000)
+/** O quadro de pessoas do espaço (nome, @usuário, setor, ativa), lido de uma vez: rótulos e homônimos. Vazio se não deu para ler. */
+export async function lerQuadroDePessoas(admin: Admin, workspaceId: string): Promise<Map<string, PessoaDoQuadro>> {
+  try {
+    const { data } = await admin.from('workspace_members').select('user_id, role, coordination, profiles(full_name, username, active)').eq('workspace_id', workspaceId).limit(3000)
     const mapa = new Map<string, PessoaDoQuadro>()
     for (const m of data ?? []) {
       const perfil = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string | null; username?: string | null; active?: boolean } | null
@@ -98,12 +98,19 @@ function quadroDePessoas(t: TurnoDeLeitura): Promise<Map<string, PessoaDoQuadro>
       })
     }
     return mapa
-  })().catch(() => new Map())
+  } catch {
+    return new Map()
+  }
+}
+
+/** O quadro de pessoas do espaço, uma vez por turno (os preparos usam o mesmo). */
+export function quadroDePessoas(t: TurnoDeLeitura): Promise<Map<string, PessoaDoQuadro>> {
+  t.quadro ??= lerQuadroDePessoas(t.admin, t.workspaceId)
   return t.quadro
 }
 
 /** Há outra pessoa ativa com o mesmo nome no espaço? (o ⚠ do rótulo) */
-function temHomonimo(quadro: Map<string, PessoaDoQuadro>, id: string): boolean {
+export function temHomonimo(quadro: Map<string, PessoaDoQuadro>, id: string): boolean {
   const eu = quadro.get(id)
   if (!eu) return false
   const nome = normalizar(semInvisiveis(eu.nome))

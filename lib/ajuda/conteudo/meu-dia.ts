@@ -1,5 +1,5 @@
 import type { GuiaDaArea, Pergunta } from '../tipos'
-import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS, WHATSAPP_DO_SEU_JEITO } from './geral'
+import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS, WHATSAPP_DO_SEU_JEITO, WHATSAPP_PLANO_E_CONFIRMO } from './geral'
 
 /**
  * A ajuda do grupo sem título do menu — o que é do dia de cada pessoa:
@@ -549,8 +549,8 @@ const APROVACOES: GuiaDaArea = {
     {
       id: 'votar-pelo-whatsapp',
       pergunta: 'Dá para votar pelo WhatsApp?',
-      resposta: 'Dá, respondendo a mensagem do aviso de aprovação: “aprovar” (o Palácio manda a conferência do setor, e você responde “confirmo” ou toca no botão) ou “ajustes:” e o que precisa mudar.\n\nQuem usa a verificação em duas etapas (ou é obrigado a usar) responde do mesmo jeito, mas o voto não sai do WhatsApp: chega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta, depois do código do app. Para aprovar, a conferência do setor aparece na tela, antes do botão. O voto fica no histórico com a conferência, como o voto dado aqui.',
-      termos: ['whatsapp', 'votar pelo whatsapp', 'aprovar pelo whatsapp', 'confirme no palácio', 'verificação em duas etapas'],
+      resposta: 'Dá, respondendo a mensagem do aviso de aprovação: “aprovar” (o Palácio manda a conferência do setor, e você responde “confirmo” ou toca no botão) ou “ajustes:” e o que precisa mudar.\n\nQuem usa a verificação em duas etapas (ou é obrigado a usar) responde do mesmo jeito, mas o voto não sai do WhatsApp: chega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta, depois do código do app. Para aprovar, a conferência do setor aparece na tela, antes do botão. O voto fica no histórico com a conferência, como o voto dado aqui.\n\nCom o assistente do WhatsApp ligado para você (e as ações ligadas pela administração), dá também para pedir do seu jeito, como “aprova as duas do Daniel”: chega um plano com a conferência do setor, e o voto só sai com o *confirmo*.',
+      termos: ['whatsapp', 'votar pelo whatsapp', 'aprovar pelo whatsapp', 'confirme no palácio', 'verificação em duas etapas', 'assistente'],
     },
   ],
   relacionadas: ['/pautas', '/dashboard', '/redes', '/notificacoes'],
@@ -675,6 +675,7 @@ const NOTIFICACOES: GuiaDaArea = {
     { id: 'email-nao-chegou', ...EMAIL_DE_AVISO_NAO_CHEGOU },
     { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
     { id: 'whatsapp-do-seu-jeito', ...WHATSAPP_DO_SEU_JEITO },
+    { id: 'whatsapp-plano-e-confirmo', ...WHATSAPP_PLANO_E_CONFIRMO },
     { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',

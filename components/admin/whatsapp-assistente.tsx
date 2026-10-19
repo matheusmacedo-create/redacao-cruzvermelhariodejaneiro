@@ -124,8 +124,8 @@ export function CartaoDoAssistente({ a }: { a: AssistenteNaTela }) {
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1 size-4" checked={escrita} onChange={(e) => setEscrita(e.target.checked)} />
             <span>
-              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, chamados).
-              <span className="block text-xs text-muted-foreground">Ainda não está no ar: por enquanto, os pedidos de ação respondem que é pelo Palácio. Quando chegar, nada é feito sem a pessoa responder <em>confirmo</em> a um plano exato.</span>
+              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, comentários, chamados, resposta à portaria, marcar lidos).
+              <span className="block text-xs text-muted-foreground">Nada é feito sem a pessoa responder <em>confirmo</em> ao plano exato que o Palácio escreve (até 3 votos por plano; as mensagens diretas no teto abaixo). Quem usa a verificação em duas etapas recebe o link para votar, mandar mensagem e comentar pelo Palácio. Comece pelo piloto.</span>
             </span>
           </label>
 

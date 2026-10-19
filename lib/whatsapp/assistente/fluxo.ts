@@ -5,9 +5,9 @@ import {
 
 /**
  * O ciclo de vida do plano do assistente (e da pergunta), sem banco: as transições, a confirmação e a execução,
- * sobre um repositório injetado. No servidor, o repositório é o do Supabase (plano.ts, etapa 3); nos testes,
- * repoEmMemoria(). Conferido por `npx tsx scripts/conferir-assistente.ts`, inclusive a corrida "tira a segunda" ×
- * "confirmo".
+ * sobre um repositório injetado. No servidor, o repositório é o do Supabase (plano.ts); nos testes,
+ * repoEmMemoria(). Conferido por `npx tsx scripts/conferir-assistente.ts` (inclusive a corrida "tira a segunda" ×
+ * "confirmo") e, o caso do dono de ponta a ponta, por `npx tsx scripts/conferir-assistente-escrita.ts`.
  *
  *   guardar (hash, 15 min) → entregar (sem fila) ─┬─ não saiu → cancelado + redigido
  *                                                  └─ saiu → aberto (mensagens, entregueEm)
@@ -187,6 +187,14 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
     /** Uma pergunta do bot (ou um plano novo) toma o lugar: "substituido", redigido. */
     substituir(userId: string): Promise<PlanoGuardado[]> {
       return encerrarDaPessoa(userId, 'substituido')
+    },
+
+    /**
+     * O plano sensível que seguiu para o Palácio quando a confirmação de lá ainda não está ligada (até a etapa 4, os
+     * preparos nem deixam nascer um): falhou, redigido na hora.
+     */
+    falharNoPalacio(id: string): Promise<PlanoGuardado | null> {
+      return encerrarUm(id, ['no_palacio'], 'falhou')
     },
 
     /** Um turno que acabou sem plano e sem pergunta nova fecha a pergunta aberta (o plano aberto, não: ele rearma). */

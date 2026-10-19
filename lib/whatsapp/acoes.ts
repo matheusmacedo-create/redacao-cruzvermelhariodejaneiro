@@ -242,13 +242,16 @@ export async function gravarRespostaDaVisita(admin: Admin, workspaceId: string, 
 
 // ------------------------------------------------------------------ aprovação
 
-/** A rodada em que a pessoa vai votar: aberta, com ela convidada e ainda sem o voto dela; o título e a conferência do setor. */
+/**
+ * A rodada em que a pessoa vai votar: aberta, com ela convidada e ainda sem o voto dela; o título e a conferência do
+ * setor, e (para o plano do assistente) a matéria, quem pediu e quando. No erro, o `codigo` de ResultadoDaAcao.
+ */
 export async function rodadaDoVoto(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string) {
-  const { data: aprovacao } = await admin.from('approvals').select('id, status, content_id').eq('id', approvalId).eq('workspace_id', workspaceId).maybeSingle()
-  if (!aprovacao || aprovacao.status !== 'pending') return { erro: 'Esta rodada já foi encerrada.' } as const
+  const { data: aprovacao } = await admin.from('approvals').select('id, status, content_id, requested_by, created_at').eq('id', approvalId).eq('workspace_id', workspaceId).maybeSingle()
+  if (!aprovacao || aprovacao.status !== 'pending') return { erro: 'Esta rodada já foi encerrada.', codigo: 'encerrada' } as const
   const { data: voto } = await admin.from('approval_voters').select('decision').eq('approval_id', approvalId).eq('user_id', pessoa.id).maybeSingle()
-  if (!voto) return { erro: 'Você não está entre as pessoas convidadas para aprovar este conteúdo.' } as const
-  if (voto.decision !== 'pending') return { erro: 'Você já votou nesta rodada.' } as const
+  if (!voto) return { erro: 'Você não está entre as pessoas convidadas para aprovar este conteúdo.', codigo: 'sem_permissao' } as const
+  if (voto.decision !== 'pending') return { erro: 'Você já votou nesta rodada.', codigo: 'ja_votou' } as const
   const [{ data: peca }, { data: vinculo }] = await Promise.all([
     admin.from('content_pieces').select('title, pauta_id').eq('id', aprovacao.content_id).eq('workspace_id', workspaceId).maybeSingle(),
     admin.from('workspace_members').select('coordination').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle(),
@@ -258,6 +261,9 @@ export async function rodadaDoVoto(admin: Admin, workspaceId: string, pessoa: Pe
     titulo: (peca?.title as string | null)?.trim() || 'Conteúdo editorial',
     // A mesma conferência da tela (lib/aprovacoes/setores.ts), calculada aqui no servidor.
     blocos: conferenciaDaRodada((pauta?.coordination as string | null) ?? null, (vinculo?.coordination as string | null) ?? null),
+    contentId: aprovacao.content_id as string,
+    pedidaPor: (aprovacao.requested_by as string | null) ?? null,
+    pedidaEm: aprovacao.created_at as string,
   } as const
 }
 

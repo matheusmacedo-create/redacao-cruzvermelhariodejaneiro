@@ -36,9 +36,9 @@ import {
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
-import { ESCRITA_NO_AR, responderComAssistente } from './assistente'
+import { responderComAssistente } from './assistente'
 import { ASSISTENTE_INDISPONIVEL, disponibilidadeDoAssistente } from './assistente/uso'
-import { cancelarPlano, planoAberto, type AbertoDaPessoa } from './assistente/plano'
+import { cancelarPlano, confirmarPlano, guardarPlanoDoChat, planoAberto, type AbertoDaPessoa } from './assistente/plano'
 import { esperarAVez, esquecer, lembrarLista, soltarVez } from './assistente/memoria'
 import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, lerRespostaAoPlano, rotaDaMensagem, type AvisoCitado, type Rota } from './assistente/regras'
 import type { TipoDeItem } from './assistente/marcadores'
@@ -83,10 +83,13 @@ type Admin = ReturnType<typeof createAdminClient>
  * comando — nunca cai na pergunta mais nova nem na visita da portaria.
  *
  * Com o assistente ligado para a pessoa (lib/whatsapp/assistente: whatsapp_ia_config, sem deploy), o que o bot
- * não entende vai para ele — o Claude, que lê o Palácio com as permissões da pessoa e responde do jeito dela —,
- * e os comandos que escrevem passam a valer só pela frase exata ("cancelar o chamado" não pausa os avisos).
- * Antes de tudo isso, a resposta à pergunta ou ao plano do assistente é lida pelo código (lerRespostaAoPlano),
- * e "valeu" e "esquece" saem sem modelo. Sem a configuração, nada disso existe: o bot é exatamente o de antes.
+ * não entende vai para ele — o Claude, que lê o Palácio com as permissões da pessoa, responde do jeito dela e, com a
+ * escrita ligada, prepara um plano exato —, e os comandos que escrevem passam a valer só pela frase exata ("cancelar
+ * o chamado" não pausa os avisos). Antes de tudo isso, a resposta à pergunta ou ao plano do assistente é lida pelo
+ * código (lerRespostaAoPlano): só "confirmo" escrito depois de o plano chegar (ou citando o plano) faz o plano, com a
+ * vez da pessoa; "cancelar", "sim", "valeu" e "esquece" saem sem modelo. A resposta citando o aviso de um canal do
+ * Chat, sem cara de pedido ao assistente, vira um plano de um passo. Sem a configuração, nada disso existe: o bot é
+ * exatamente o de antes.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -189,8 +192,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       // outra pergunta: a do bot, aberta (a conferência do voto, os passos do chamado), ou a visita esperando a resposta.
       if (respostaAoPlano && aberto && !aberto.aberto.plano && aberto.aberto.citacao !== 'plano_velho' && (pendencia || visitaEsperando)) respostaAoPlano = null
       rota = rotaDaMensagem({ disponivel: true, midia: false, comando: pedido?.comando ?? 'desconhecido', texto: m.texto, resposta: respostaAoPlano, aviso: aviso ? tipoDoAviso(aviso.link) : null, paraPendencia })
-      // O plano de um passo para o Chat é escrita: sem a escrita do assistente, a resposta citando o canal sai como sempre.
-      if (rota === 'chat_plano' && !(ESCRITA_NO_AR && ia.escrita)) rota = 'bot'
+      // O plano de um passo para o Chat é escrita: sem a escrita do assistente para a pessoa, com a verificação em duas
+      // etapas (a regra de sempre responde) ou sem texto, a resposta citando o canal sai como sempre.
+      if (rota === 'chat_plano' && !(ia.escrita && ia.podeAgir && m.texto.trim().length >= 2)) rota = 'bot'
       // A pergunta do bot que já passou e a resposta clara à visita que espera ("pode subir") seguem o caminho de sempre,
       // antes do assistente (e o registro diz isso, não "ia").
       if (rota === 'ia' && !aviso && (vencida || (!tocou && respostaClaraDaVisita(m.texto) && await visitaEsperandoResposta(admin, workspaceId, pessoa.id)))) rota = 'bot'
@@ -251,19 +255,22 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
     if (rota === 'ia_cancelar' || rota === 'ia_confirmo') {
-      // Com a vez da pessoa: um turno que estava no meio termina antes. A confirmação de plano é da etapa da
-      // escrita; até lá, nenhum plano nasce — e, se algum estiver aberto, nada é feito com ele.
+      // Com a vez da pessoa: um turno que estava no meio (uma correção esperando o modelo) termina antes, e o plano
+      // que ele trocou não é confirmado (o consumo é condicional: só o plano "aberto" lido aqui executa).
       const vez = await esperarAVez(admin, workspaceId, pessoa.id, prazo)
       if (!vez) {
         await doAssistente(TEXTOS_FIXOS.ocupado)
         return
       }
+      let saida: { texto: string; recibo: boolean } = { texto: TEXTOS_FIXOS.cancelado, recibo: false }
       try {
-        await cancelarPlano(admin, pessoa.id)
+        if (rota === 'ia_confirmo' && aberto?.plano) saida = await confirmarPlano(admin, { workspaceId, pessoa, m, plano: aberto.plano, base, recente: ia.recente })
+        else await cancelarPlano(admin, pessoa.id)
       } finally {
         await soltarVez(admin, pessoa.id)
       }
-      await doAssistente(rota === 'ia_cancelar' ? TEXTOS_FIXOS.cancelado : `${TEXTOS_FIXOS.escrita_desligada} ${TEXTOS_FIXOS.cancelado}`)
+      // O recibo (sem os textos de ação: só o que foi feito e os links) pode esperar na fila; o resto sai na hora.
+      await (saida.recibo ? responder(saida.texto, { categoria: 'assistente' }) : doAssistente(saida.texto))
       return
     }
     const textoDaRota = rota === 'ia_obrigado' ? undefined : TEXTO_DA_ROTA[rota]
@@ -298,6 +305,24 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       // Citou o aviso pedindo algo ao assistente ("do que se trata?", "quem é o responsável disso?"): vai a ele, com o aviso no contexto.
       if (rota === 'ia') {
         await assistente()
+        return
+      }
+      // Citou o aviso de um canal do Chat com a resposta ("ok, combinado"): o plano de um passo, que sai no canal com o "confirmo".
+      const doChat = rota === 'chat_plano' ? alvoDoLink(aviso.link) : null
+      if (doChat?.tipo === 'chat') {
+        const vez = await esperarAVez(admin, workspaceId, pessoa.id, prazo)
+        if (!vez) {
+          await doAssistente(TEXTOS_FIXOS.ocupado)
+          return
+        }
+        try {
+          await guardarPlanoDoChat(admin, {
+            workspaceId, pessoa, numero, alvo: { canalId: doChat.canalId, fio: doChat.fio }, texto: m.texto, base,
+            saida: { semFila: doAssistente, naFila: (texto) => responder(texto, { categoria: 'assistente' }) },
+          })
+        } finally {
+          await soltarVez(admin, pessoa.id)
+        }
         return
       }
       await enviar(await responderAoAviso(admin, workspaceId, pessoa, aviso.link, m.texto, base))

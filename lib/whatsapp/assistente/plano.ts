@@ -1,22 +1,34 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { podeAgirPeloWhatsapp, type Pessoa } from '../acoes'
+import { pessoaDoEspaco } from '../consultas'
+import type { Entrega } from '../fila'
+import type { MensagemRecebida } from '../regras'
 import {
   criarFluxoDoPlano, type FluxoDoPlano, type MudancaDoPlano, type PlanoGuardado, type RepositorioDePlanos, type SituacaoDoPlano,
   SITUACOES_ABERTAS, SITUACOES_ENCERRADAS,
 } from './fluxo'
 import { redigirVencidos } from './faxina'
-import type { PlanoAberto, TipoDeAcao } from './regras'
+import { executarPasso, fonteDoSupabase } from './executores'
+import { revalidarPasso } from './preparos'
+import { acoesDeHoje, criarRegistroDoUso, lerConfig } from './uso'
+import {
+  LIMITES, TEXTOS_FIXOS, modoCobre, passoIsento, textoDoPlano, validarRascunho, type Passo, type PlanoAberto, type TipoDeAcao,
+} from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
 /**
  * Os planos e as perguntas do assistente no banco (whatsapp_ia_planos, só o service role): o repositório do
- * Supabase para o fluxo de fluxo.ts (o mesmo contrato do repositório em memória dos testes) e o que o turno
- * precisa dele.
- *
- * Nesta etapa (leitura), só a PERGUNTA chega a ser guardada: os preparar_* respondem "escrita desligada", então
- * nenhum plano nasce. A revisão e o rearme do plano aberto já passam por aqui, prontos para a etapa da escrita
- * (guardar o plano, confirmar e executar).
+ * Supabase para o fluxo de fluxo.ts (o mesmo contrato do repositório em memória dos testes) e o que o turno e o bot
+ * precisam dele:
+ *  - guardarPlano e guardarPergunta: o que estava aberto da pessoa é substituído (e redigido na hora), e a pergunta
+ *    do bot que estivesse aberta é encerrada — as duas nunca ficam abertas juntas;
+ *  - guardarPlanoDoChat: a resposta citando o aviso de um canal do Chat, sem cara de pedido ao assistente, vira um
+ *    plano de um passo (sem modelo), confirmado como os outros;
+ *  - confirmarPlano: o "confirmo" (já com a vez da pessoa), pelo fluxo — assenta, confere a mensagem no meio,
+ *    consome o plano, confere a pessoa, o número, a verificação em duas etapas e as cotas do dia, revalida todos os
+ *    passos e só então executa (executores.ts), parando no primeiro que não deu; redige na hora e devolve o recibo.
  *
  * Nunca lança: sem a tabela (migração ainda não aplicada) ou com erro, devolve null ou [] — e o assistente nem
  * chega a ficar disponível sem a configuração, que é da mesma migração.
@@ -122,8 +134,7 @@ export async function guardarPergunta(admin: Admin, p: {
 }): Promise<PlanoGuardado | null> {
   try {
     await redigirVencidos(admin, { limite: 10, userId: p.userId })
-    await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', p.userId).is('encerrada_em', null)
-      .not('tipo', 'in', '(envio,nao_fui_eu)')
+    await encerrarPerguntasDoBot(admin, p.userId)
     return await fluxoDoPlano(admin).guardar({
       workspaceId: p.workspaceId, userId: p.userId, numero: p.numero, papel: p.papel, tipo: 'pergunta',
       passos: [], opcoes: p.opcoes, permitidas: p.permitidas, pedidoEmAberto: p.pedidoEmAberto, sensivel: false,
@@ -131,6 +142,127 @@ export async function guardarPergunta(admin: Admin, p: {
   } catch (causa) {
     console.error('[whatsapp] assistente: pergunta não guardada:', causa instanceof Error ? causa.message : causa)
     return null
+  }
+}
+
+/** A pergunta do bot aberta da pessoa cede a vez (o envio de fotos e a conferência do "Não fui eu" seguem, como em guardarPendencia). */
+async function encerrarPerguntasDoBot(admin: Admin, userId: string): Promise<void> {
+  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null)
+    .not('tipo', 'in', '(envio,nao_fui_eu)')
+}
+
+/**
+ * Guarda o plano do assistente (já validado: validarRascunho), com o hash e 15 minutos: o que estava aberto da
+ * pessoa vira "substituido" e é redigido, e a pergunta do bot aberta é encerrada. `permitidas`: o portão do pedido
+ * (vale de novo numa correção). null se o banco recusou.
+ */
+export async function guardarPlano(admin: Admin, p: {
+  workspaceId: string; userId: string; numero: string; papel: string; passos: Passo[]; permitidas: TipoDeAcao[]; sensivel: boolean
+}): Promise<PlanoGuardado | null> {
+  try {
+    await redigirVencidos(admin, { limite: 10, userId: p.userId })
+    await encerrarPerguntasDoBot(admin, p.userId)
+    return await fluxoDoPlano(admin).guardar({
+      workspaceId: p.workspaceId, userId: p.userId, numero: p.numero, papel: p.papel, tipo: 'plano',
+      passos: p.passos, opcoes: [], permitidas: p.permitidas, pedidoEmAberto: null, sensivel: p.sensivel,
+    })
+  } catch (causa) {
+    console.error('[whatsapp] assistente: plano não guardado:', causa instanceof Error ? causa.message : causa)
+    return null
+  }
+}
+
+/** Como as mensagens saem: o plano e o que depende de ser visto agora, sem fila; o aviso curto (sem textos de ação), pela fila normal. */
+export type SaidaDoPlano = { semFila: (texto: string) => Promise<Entrega>; naFila: (texto: string) => Promise<Entrega> }
+
+/**
+ * A resposta citando o aviso de um canal do Chat, sem cara de pedido ao assistente ("ok, combinado"), vira um plano
+ * de um passo, sem modelo: o texto da pessoa, inteiro e citado, e o canal. Sai como os outros planos (sem fila; se não
+ * saiu, cancelado e redigido) e só vai ao canal com o "confirmo". Quem chama já conferiu a escrita e a verificação em
+ * duas etapas (com ela, o caminho de sempre responde).
+ */
+export async function guardarPlanoDoChat(admin: Admin, p: {
+  workspaceId: string; pessoa: Pessoa; numero: string; alvo: { canalId: string; fio: string | null }; texto: string; base: string; saida: SaidaDoPlano
+}): Promise<void> {
+  const abrir = `${p.base}/chat/${p.alvo.canalId}${p.alvo.fio ? `?fio=${p.alvo.fio}` : ''}`
+  const canal = await fonteDoSupabase(admin, p.workspaceId, p.pessoa).canal(p.alvo.canalId).catch(() => null)
+  if (!canal) {
+    await p.saida.semFila(`Esta conversa não aceita mensagens agora. Abra no Palácio: ${abrir}`)
+    return
+  }
+  const passo: Passo = { acao: 'responder_chat', canalId: p.alvo.canalId, fio: p.alvo.fio, canalNome: canal.nome, texto: p.texto.trim(), isento: false }
+  const valido = validarRascunho([passo])
+  if (!valido.ok) {
+    await p.saida.semFila(`${valido.erro} ${abrir}`)
+    return
+  }
+  const guardado = await guardarPlano(admin, { workspaceId: p.workspaceId, userId: p.pessoa.id, numero: p.numero, papel: p.pessoa.papel, passos: valido.passos, permitidas: ['chat'], sensivel: false })
+  if (!guardado) {
+    await p.saida.semFila(`${TEXTOS_FIXOS.plano_nao_saiu} Ou responda pelo Palácio: ${abrir}`)
+    return
+  }
+  const entrega = await p.saida.semFila(textoDoPlano({ passos: valido.passos }).texto)
+  if (entrega.situacao === 'enviada') {
+    await marcarEntrega(admin, guardado.id, entrega.id)
+  } else {
+    await entregaFalhou(admin, guardado.id)
+    await p.saida.naFila(TEXTOS_FIXOS.plano_nao_saiu)
+  }
+}
+
+/**
+ * Na confirmação, tudo de novo antes de qualquer escrita: o número é o do plano e o desta mensagem, e não está
+ * suspenso; a escrita continua ligada para a pessoa; a pessoa ativa e com o mesmo papel; a verificação em duas
+ * etapas (um passo não isento de quem passou a usar não sai); o número de confiança recente; e as cotas do dia
+ * (planos executados e mensagens diretas, contando as do plano). null = confere; senão, o motivo (minúsculo).
+ */
+async function conferirIdentidade(admin: Admin, p: { workspaceId: string; pessoa: Pessoa; numero: string | null; recente: boolean }, linha: PlanoGuardado): Promise<string | null> {
+  const [{ data: conta }, config, atual, podeAgir, hoje] = await Promise.all([
+    admin.from('whatsapp_contas').select('numero, assistente_suspenso_em').eq('user_id', p.pessoa.id).maybeSingle(),
+    lerConfig(admin, p.workspaceId),
+    pessoaDoEspaco(admin, p.workspaceId, p.pessoa.id),
+    podeAgirPeloWhatsapp(admin, p.workspaceId, p.pessoa),
+    acoesDeHoje(admin, p.pessoa.id),
+  ])
+  if (!conta || conta.numero !== linha.numero || conta.numero !== p.numero || conta.assistente_suspenso_em) return 'o número não é mais o do plano'
+  if (!config?.escrita || !modoCobre(config, p.pessoa)) return 'pedir ações por aqui foi desligado'
+  if (!atual || atual.papel !== linha.papel) return TEXTOS_FIXOS.conta_mudou
+  if (!podeAgir && linha.passos.some((x) => !passoIsento(x))) return TEXTOS_FIXOS.conta_mudou
+  if (!p.recente) return 'faz tempo que este número não é confirmado nem há login no Palácio'
+  if (hoje && hoje.planos >= LIMITES.planosDia) return TEXTOS_FIXOS.limite_de_planos
+  const mensagensDoPlano = linha.passos.filter((x) => x.acao === 'mensagem_direta').length
+  if (mensagensDoPlano && (hoje?.mensagens ?? 0) + mensagensDoPlano > config.mensagens_dia) return TEXTOS_FIXOS.limite_de_mensagens
+  return null
+}
+
+/**
+ * O "confirmo" do plano aberto (a rota já conferiu que foi escrito depois da entrega, ou citando o plano, e quem
+ * chama já tem a vez da pessoa). `recibo`: o texto é o recibo (ou o "Nada foi feito" da revalidação), sem textos de
+ * ação — pode esperar na fila; senão, é um dos textos fixos. O uso fica registrado com o desfecho "confirmado",
+ * custo zero e o plano.
+ */
+export async function confirmarPlano(admin: Admin, p: {
+  workspaceId: string; pessoa: Pessoa; m: Pick<MensagemRecebida, 'id' | 'numero' | 'enviadaEm'>; plano: PlanoGuardado; base: string; recente: boolean
+}): Promise<{ texto: string; recibo: boolean }> {
+  try {
+    const fluxo = fluxoDoPlano(admin)
+    const fonte = fonteDoSupabase(admin, p.workspaceId, p.pessoa)
+    const r = await fluxo.confirmar({
+      plano: p.plano, pessoaId: p.pessoa.id, mensagem: { id: p.m.id, enviadaEm: p.m.enviadaEm }, urlBase: p.base,
+      conferirIdentidade: (linha) => conferirIdentidade(admin, { workspaceId: p.workspaceId, pessoa: p.pessoa, numero: p.m.numero, recente: p.recente }, linha),
+      revalidar: (passo) => revalidarPasso(passo, fonte, p.pessoa.id),
+      executar: (passo) => executarPasso(passo, { via: 'whatsapp', admin }, { workspaceId: p.workspaceId, pessoa: p.pessoa, planoId: p.plano.id, base: p.base }),
+    })
+    if (r.tipo === 'nada') return { texto: r.texto, recibo: false }
+    if (r.tipo === 'no_palacio') {
+      await fluxo.falharNoPalacio(r.plano.id)
+      return { texto: TEXTOS_FIXOS.sem_confirmacao_no_palacio, recibo: false }
+    }
+    await criarRegistroDoUso(admin, p.workspaceId, p.pessoa.id).fechar('confirmado', { planoId: r.plano.id })
+    return { texto: r.texto, recibo: true }
+  } catch (causa) {
+    console.error('[whatsapp] assistente: confirmação falhou:', p.pessoa.id, causa instanceof Error ? causa.name : '')
+    return { texto: TEXTOS_FIXOS.fora_do_ar, recibo: false }
   }
 }
 
