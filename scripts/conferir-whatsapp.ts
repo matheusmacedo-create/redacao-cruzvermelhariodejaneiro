@@ -36,6 +36,7 @@ import {
   ALERTA_DE_INTEGRACAO_A_CADA_HORAS, INTEGRACOES_ALERTADAS, alertaDeIntegracaoSai, motivoDaFalhaDoEmail, motivoDaFalhaDoR2, textoDoAlertaDeIntegracao,
 } from '../lib/integracoes/alertas-regras'
 import { lerRespostaDaVisita, respostaClaraDaVisita } from '../lib/portaria/regras'
+import { interativoDaFicha, lerBotaoDaFicha, modeloDaFichaForaDaJanela, montagemDaFicha as montagemDaFichaReal, textoDaFicha, type FichaDaVisita } from '../lib/whatsapp/portaria-regras'
 import { URGENCIA } from '../lib/chamados/regras'
 import { corpoParaWhatsapp, emailDeAviso, ofereceNaoFuiEu as avisoOfereceNaoFuiEu } from '../lib/contas/emails'
 import { buscarDuvida, palavrasDaDuvida, pedidoDaDuvida } from '../lib/whatsapp/duvidas'
@@ -1483,6 +1484,33 @@ async function conferirEnvioPelaKapso() {
     const config5 = { ...config, numeroId: '5555555555' }
     igual(await rodar([{ status: 200, corpo: { data: { business_account_id: '99999' } } }, { status: 500, corpo: { error: { message: 'Erro' } } }], () => kapso.modelosDaMetaKapso(config5)), [], 'kapso: a leitura falhou, nenhum aprovado')
     igual([await rodar([], () => kapso.modelosDaMetaKapso(config5)), pedidos.length], [[], 0], 'kapso: a falha também espera um pouco antes de ler de novo')
+
+    // A ficha de verdade (lib/whatsapp/portaria-regras.ts), como lib/portaria/servidor.ts manda: dentro da janela, os
+    // botões com a foto e o id da visita; fora dela, o modelo aprovado com o MESMO id em cada resposta rápida — o toque,
+    // de um jeito ou de outro, volta à mesma visita; sem modelo aprovado, o aviso de antes pelo modelo do cofre.
+    const visitaId = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+    const fichaReal: FichaDaVisita = { visitaId, visitante: 'João Silva', empresa: 'Gráfica Boa', motivo: 'Entrega de cartazes', chegada: '14:05', registradaPor: 'Maria Souza' }
+    const botoesReais = interativoDaFicha(visitaId, '4490709327384033')
+    const naMetaAprovado = (nomes: string[]): ModeloNaMeta[] => nomes.map((nome) => ({ nome, status: 'APPROVED', categoria: 'UTILITY', idioma: 'pt_BR' }))
+    const modeloRealDaFicha = (naMeta: ModeloNaMeta[]) => async () =>
+      modeloDaFichaForaDaJanela({ naMeta, montagem: montagemDaFichaReal(fichaReal, '4490709327384033'), cofre: config, textoDoAviso: '*João Silva chegou para falar com você*' })
+    const naJanela = await rodar([enviada('wamid.R1')], () => kapso.enviarTextoKapso(config, '5521987654321', textoDaFicha(fichaReal, 'https://p'), { finalidade: 'aviso', interativo: botoesReais }))
+    const idsNaJanela = (interativoEnviado(0)?.action?.buttons as { reply: { id: string } }[] | undefined)?.map((b) => b.reply.id) ?? []
+    igual([naJanela.ok, interativoEnviado(0)?.header, idsNaJanela.map((id) => lerBotaoDaFicha(id)?.visitaId)], [true, { type: 'image', image: { id: '4490709327384033' } }, [visitaId, visitaId, visitaId]],
+      'ficha real: na janela, a foto e os três botões com o id da visita')
+    const foraReal = await rodar([foraDaJanela, foraDaJanela, enviada('wamid.R2')],
+      () => kapso.enviarTextoKapso(config, '5521987654321', textoDaFicha(fichaReal, 'https://p'), { finalidade: 'aviso', interativo: botoesReais, modeloForaDaJanela: modeloRealDaFicha(naMetaAprovado(['portaria_visita_v2'])) }))
+    const modeloEnviado = (pedidos[2]?.corpo as { template?: ObjetoDoModelo } | undefined)?.template
+    const payloads = (modeloEnviado?.components ?? []).flatMap((c) => (c.type === 'button' && c.sub_type === 'quick_reply' ? [c.parameters[0].payload] : []))
+    igual([foraReal, payloads], [{ ok: true, id: 'wamid.R2', modelo: 'portaria_visita_v2' }, idsNaJanela], 'ficha real: fora da janela, o v2 aprovado com o mesmo id em cada resposta rápida')
+    const comFotoAprovado = await rodar([foraDaJanela, foraDaJanela, enviada('wamid.R3')],
+      () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha', { finalidade: 'aviso', interativo: botoesReais, modeloForaDaJanela: modeloRealDaFicha(naMetaAprovado(['portaria_visita_foto_v2', 'portaria_visita_v2'])) }))
+    igual([comFotoAprovado.ok && comFotoAprovado.modelo, (pedidos[2]?.corpo as { template?: ObjetoDoModelo } | undefined)?.template?.components[0]],
+      ['portaria_visita_foto_v2', { type: 'header', parameters: [{ type: 'image', image: { id: '4490709327384033' } }] }], 'ficha real: com o de foto aprovado, a foto vai no cabeçalho do modelo')
+    const recuo = await rodar([foraDaJanela, foraDaJanela, enviada('wamid.R4')],
+      () => kapso.enviarTextoKapso(config, '5521987654321', 'Ficha', { finalidade: 'aviso', interativo: botoesReais, modeloForaDaJanela: modeloRealDaFicha(naMetaHoje) }))
+    igual([recuo.ok && recuo.modelo, (pedidos[2]?.corpo as { template?: ObjetoDoModelo } | undefined)?.template?.components],
+      ['aviso_do_palacio', [{ type: 'body', parameters: [{ type: 'text', text: textoParaModelo('*João Silva chegou para falar com você*') }] }]], 'ficha real: hoje (nada aprovado), o aviso de antes pelo modelo do cofre')
   } finally {
     globalThis.fetch = original
   }

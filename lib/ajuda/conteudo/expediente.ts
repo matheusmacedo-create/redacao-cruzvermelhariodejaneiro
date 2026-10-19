@@ -1221,8 +1221,8 @@ const PORTARIA: GuiaDaArea = {
       'A representante da Prefeitura lê o QR na entrada, preenche o nome e escreve “Presidência” em quem vai visitar.',
       'O cadastro aparece em “Chegaram pelo QR” na tela da portaria, que recarrega sozinha.',
       'A portaria toca em “Confirmar entrada”, escolhe a pessoa visitada, anota o crachá V-07 e tira a foto.',
-      'A Presidência recebe no sino e no WhatsApp: “Ana Lima chegou para falar com você”, e responde a mensagem com 2, “aguarde na recepção”.',
-      'Na tela da portaria aparece “Aguarde na recepção”; dez minutos depois, a Presidência responde 1 e a tela muda para “Pode subir”. A representante recebe a mesma resposta no WhatsApp, porque marcou esse pedido no QR.',
+      'A Presidência recebe o aviso no sino e, no WhatsApp, a ficha da visita: a foto, quem é, de onde vem, o motivo e a hora. Ela toca em “Aguarde na recepção”.',
+      'Na tela da portaria aparece “Aguarde na recepção”; dez minutos depois, a Presidência toca em “Pode subir” na mesma ficha e a tela muda. A representante recebe a mesma resposta no WhatsApp, porque marcou esse pedido no QR.',
       'Ela sobe ao hall e espera a Presidência. Na saída, a portaria toca em “Saída” e confirma que o crachá V-07 voltou.',
     ],
     resultado: 'O livro fica completo, com hora de entrada e saída, sem caderno e sem crachá perdido.',
@@ -1243,7 +1243,7 @@ const PORTARIA: GuiaDaArea = {
     {
       alvo: 'portaria.nova',
       titulo: 'Registrar entrada',
-      texto: 'Nome, de onde vem, quem vai visitar, o motivo e o número do crachá de visitante. Quem é escolhido em “Quem vai visitar” recebe o aviso no sino e no WhatsApp e responde se o visitante pode subir. Se o visitante quiser, marque para ele receber essa resposta no WhatsApp.',
+      texto: 'Nome, de onde vem, quem vai visitar, o motivo e o número do crachá de visitante. Quem é escolhido em “Quem vai visitar” recebe o aviso no sino e, no WhatsApp, a ficha da visita (com a foto, se você tirar) e responde se o visitante pode subir. Se o visitante quiser, marque para ele receber essa resposta no WhatsApp.',
     },
     {
       alvo: 'portaria.dentro',
@@ -1267,15 +1267,15 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'responder-visita',
       titulo: 'Responder à portaria quando chega uma visita para você',
-      exemplo: 'O representante da empresa de manutenção chega às 10h; a coordenadora está numa ligação, responde 2 (aguarde na recepção) e, ao terminar, responde 1 (pode subir).',
+      exemplo: 'O representante da empresa de manutenção chega às 10h; a coordenadora está numa ligação, vê a foto dele na ficha, toca em “Aguarde na recepção” e, ao terminar, toca em “Pode subir”.',
       passos: [
-        'Chega o aviso “Fulano chegou para falar com você”, no sino e no WhatsApp.',
-        'No WhatsApp, toque em “Pode subir”, “Aguarde na recepção” ou “Não pode agora”, embaixo do aviso, ou responda a mensagem com 1, 2 ou 3. Para mandar um recado, escreva depois do número, como “2 estou terminando uma reunião”.',
+        'Chega o aviso “Fulano chegou para falar com você” no sino e, no WhatsApp, a ficha da visita: a foto do visitante (quando a portaria tirou), quem é, de onde vem, o motivo, a hora da chegada e quem registrou.',
+        'No WhatsApp, toque em “Pode subir”, “Aguarde na recepção” ou “Não pode agora”, embaixo da ficha, ou responda a mensagem com 1, 2 ou 3. Para mandar um recado, responda com o número e o recado, como “2 estou terminando uma reunião”.',
         'Pelo Palácio, toque no aviso e escolha “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”, com o recado se quiser.',
         'A portaria vê a resposta na hora. Se o visitante pediu, ele recebe a mesma resposta no WhatsApp.',
-        'Pediu para aguardar? Quando puder receber, responda de novo com 1.',
+        'Pediu para aguardar? Quando puder receber, toque em “Pode subir” na mesma ficha, ou responda de novo com 1.',
       ],
-      dica: 'Os botões só vêm se você escreveu ao número do Palácio nas últimas 24 horas (regra do WhatsApp); sem eles, responda com o número. Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
+      dica: 'A ficha com a foto e os botões vem quando você escreveu ao número do Palácio nas últimas 24 horas (regra do WhatsApp). Fora disso, ela chega por uma mensagem aprovada pela Meta, com os mesmos três botões e sem a foto; enquanto essa mensagem não for aprovada, chega o aviso de sempre: responda com o número. Só quem é visitado responde pela ficha: o botão tocado por outra pessoa (numa ficha encaminhada, por exemplo) não vale. Sem responder a mensagem, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
     },
     {
       id: 'registrar-visitante',
@@ -1295,7 +1295,7 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'portaria-pelo-whatsapp',
       titulo: 'Ver quem está aqui e registrar uma chegada pelo WhatsApp',
-      exemplo: 'Com a recepção cheia, a portaria tira a foto do visitante pela câmera do WhatsApp com a legenda “visitante: Carlos Pereira”, responde “Ana”, escolhe a Ana Lima na lista, dá o telefone (o Carlos aceita receber a resposta), a empresa e o crachá V-03, e confirma. A Ana recebe o aviso como se a entrada tivesse sido feita na tela.',
+      exemplo: 'Com a recepção cheia, a portaria tira a foto do visitante pela câmera do WhatsApp com a legenda “visitante: Carlos Pereira”, responde “Ana”, escolhe a Ana Lima na lista, dá o telefone (o Carlos aceita receber a resposta), a empresa e o crachá V-03, e confirma. A Ana recebe no WhatsApp a ficha da visita, com a foto do Carlos, e toca em “Pode subir”; a portaria é avisada, e o Carlos recebe a resposta.',
       passos: [
         'Confirme o seu WhatsApp em “Meu perfil”.',
         'Para ver as visitas abertas de hoje, mande “portaria” (ou “quem está aqui”) ao número do Palácio: vêm o nome do visitante, para quem, a hora e a situação.',
@@ -1303,9 +1303,9 @@ const PORTARIA: GuiaDaArea = {
         'Depois vêm, uma de cada vez, as perguntas do cadastro do QR: o telefone do visitante, de onde vem, o motivo e o número do crachá. Responda, ou toque em “Pular”. “Registrar já” pula o resto e vai direto ao resumo.',
         'Se você der o telefone, o Palácio pergunta se o visitante aceita receber no WhatsApp a resposta de quem vai recebê-lo. Pergunte a ele e toque em “Sim” ou “Não”: só com o “Sim” o número dele recebe mensagem.',
         'Por último, mande a foto do visitante pela câmera do WhatsApp, ou toque em “Sem foto”. A foto pode ir em qualquer momento do registro, e também pode começar o registro: foto com a legenda “visitante:” e o nome.',
-        'Confira o resumo e toque em “Confirmo” (ou responda “confirmo”). A pessoa recebe o aviso para responder se o visitante pode subir, e a resposta chega para você.',
+        'Confira o resumo e toque em “Confirmo” (ou responda “confirmo”). A pessoa recebe o aviso no sino e a ficha da visita no WhatsApp, com a foto, para responder se o visitante pode subir, e a resposta chega para você.',
       ],
-      dica: 'A foto só entra depois do “Confirmo”. Se ela não entrar, a resposta avisa: tire pela tela da portaria. Documento não vai por aqui. Com “setor:”, ninguém é avisado nem há resposta ao visitante. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela.',
+      dica: 'A foto só entra depois do “Confirmo”. Se ela não entrar, a resposta avisa: tire pela tela da portaria. Documento não vai por aqui. Com “setor:”, ninguém é avisado nem há resposta ao visitante. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela. Pelo assistente do WhatsApp também dá para registrar, mas sem telefone, autorização e foto: para isso, use o “visitante:”.',
     },
     {
       id: 'confirmar-qr',
@@ -1359,7 +1359,7 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'quem-recebe-aviso',
       pergunta: 'Quem fica sabendo que o visitante chegou?',
-      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe o aviso no sino, no WhatsApp confirmado e por e-mail, conforme as preferências dela no assunto “Portaria”. O aviso sai na hora, mesmo à noite e com o Palácio aberto, e também quando quem registrou é a própria pessoa visitada. Quando ela responde, quem registrou ou confirmou a entrada é avisado. O visitante recebe a resposta no WhatsApp só se pediu. O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
+      resposta: 'A pessoa escolhida em “Quem vai visitar” recebe o aviso no sino e por e-mail e, no WhatsApp confirmado, a ficha da visita com a foto e os botões de resposta, conforme as preferências dela no assunto “Portaria”. O aviso sai na hora, mesmo à noite e com o Palácio aberto, e também quando quem registrou é a própria pessoa visitada. Quando ela responde, quem registrou ou confirmou a entrada é avisado. O visitante recebe a resposta no WhatsApp só se pediu. O texto livre de setor não avisa ninguém: escolha a pessoa quando souber quem é.',
       termos: ['notificação', 'avisar', 'chegou'],
     },
     {
@@ -1371,14 +1371,20 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'visitante-whatsapp',
       pergunta: 'O visitante recebe mensagem no WhatsApp?',
-      resposta: 'Só se ele pediu: no QR da entrada, marcando a opção, ou na portaria, que marca depois de perguntar (na tela, ou tocando em “Sim” no registro pelo WhatsApp do Palácio). Ele recebe só a resposta sobre a visita daquele dia (“Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”); o recado fica só com a portaria. Sem telefone, ou com o “Não”, nada sai.',
+      resposta: 'Só se ele pediu: no QR da entrada, marcando a opção, ou na portaria, que marca depois de perguntar (na tela, ou tocando em “Sim” no registro pelo WhatsApp do Palácio). Ele recebe só a resposta sobre a visita daquele dia (“Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”); o recado fica só com a portaria. Sem telefone, ou com o “Não”, nada sai.\n\nComo o visitante nunca escreveu ao número do Palácio, a resposta vai por uma mensagem aprovada pela Meta. Se ela não sair (ainda não aprovada, ou recusada), quem registrou recebe “O visitante não pôde ser avisado pelo WhatsApp: dê a resposta a ele”.',
       termos: ['visitante', 'whatsapp', 'mensagem', 'lgpd', 'consentimento'],
     },
     {
       id: 'foto-pelo-whatsapp',
       pergunta: 'Onde fica a foto do visitante mandada pelo WhatsApp?',
-      resposta: 'Na ficha da visita, no Palácio, como a foto tirada na tela: no armazenamento privado, vista só por quem usa a portaria. Antes de guardar, o Palácio reduz a foto e tira os dados escondidos da câmera, como a localização. O registro das mensagens do WhatsApp do Palácio não guarda a foto nem o telefone do visitante. Remover a foto na tela tira a foto do Palácio, não dos celulares: ela continua na conversa de quem mandou. Apague por lá, se precisar.',
+      resposta: 'Na ficha da visita, no Palácio, como a foto tirada na tela: no armazenamento privado, vista só por quem usa a portaria. Antes de guardar, o Palácio reduz a foto e tira os dados escondidos da câmera, como a localização. O registro das mensagens do WhatsApp do Palácio não guarda a foto nem o telefone do visitante. Remover a foto na tela tira a foto do Palácio, não dos celulares: ela continua na conversa de quem mandou e na ficha de quem foi visitado. Apague por lá, se precisar.',
       termos: ['foto', 'imagem', 'whatsapp', 'lgpd', 'privacidade', 'apagar'],
+    },
+    {
+      id: 'ficha-no-whatsapp',
+      pergunta: 'Quem recebe a ficha da visita com a foto no WhatsApp?',
+      resposta: 'Só a pessoa visitada, no WhatsApp confirmado dela (e se ela deixou o assunto “Portaria” ligado). Ninguém mais recebe a foto: nem quem é avisado da resposta, nem o visitante. A ficha fica no celular dessa pessoa, como qualquer mensagem: remover a foto na tela da portaria tira a foto do Palácio, não do celular dela. Por isso, a ficha não leva telefone nem crachá, só o nome, de onde vem, o motivo, a hora e quem registrou.\n\nOs botões “Pode subir”, “Aguarde na recepção” e “Não pode agora” respondem à portaria, mas só valem tocados por quem é visitado. Sem a foto, a ficha sai do mesmo jeito; com o setor em vez da pessoa, não há ficha.',
+      termos: ['ficha', 'foto', 'whatsapp', 'lgpd', 'privacidade', 'pode subir', 'botões'],
     },
     {
       id: 'qr-nao-funciona',

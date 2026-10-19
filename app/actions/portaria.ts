@@ -25,6 +25,9 @@ function erroDoBanco(error: { message?: string; code?: string } | null, padrao: 
 
 const revalidar = () => revalidatePath('/portaria')
 
+/** A tela vai subir a foto logo depois (components/app/portaria/acoes.tsx): a ficha do WhatsApp espera um pouco por ela. */
+const fotoASeguir = (f: FormData) => f.get('foto_a_seguir') === '1'
+
 /** A portaria registra quem chegou. Devolve o id, para a foto subir em seguida. */
 export async function registrarEntrada(formData: FormData): Promise<Resultado<{ id?: string }>> {
   try {
@@ -34,7 +37,10 @@ export async function registrarEntrada(formData: FormData): Promise<Resultado<{ 
     const supabase = await createClient()
     const { data, error } = await supabase.rpc('portaria_registrar_entrada', { p_workspace_id: context.workspace.id, p: dados })
     if (error || !data) erroDoBanco(error, 'Não foi possível registrar a entrada.')
-    await avisarVisitado({ workspaceId: context.workspace.id, visitaId: data as string, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
+    await avisarVisitado({
+      workspaceId: context.workspace.id, visitaId: data as string, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null,
+      fotoASeguir: fotoASeguir(formData),
+    }, context.user.id)
     revalidar()
     return { id: data as string }
   } catch (causa) {
@@ -52,7 +58,10 @@ export async function confirmarEntrada(id: string, formData: FormData): Promise<
     const supabase = await createClient()
     const { error } = await supabase.rpc('portaria_confirmar', { p_id: id, p: dados })
     if (error) erroDoBanco(error, 'Não foi possível confirmar a entrada.')
-    await avisarVisitado({ workspaceId: context.workspace.id, visitaId: id, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null }, context.user.id)
+    await avisarVisitado({
+      workspaceId: context.workspace.id, visitaId: id, visitadoId: dados.visitado_id ?? null, nome: dados.nome, empresa: dados.empresa || null, motivo: dados.motivo || null,
+      fotoASeguir: fotoASeguir(formData),
+    }, context.user.id)
     revalidar()
     return {}
   } catch (causa) {
@@ -105,9 +114,10 @@ export async function trocarLinkDaEntrada(): Promise<Resultado> {
  * A resposta de quem é visitado (ou a que a portaria recebeu por telefone):
  * pode subir, aguarde na recepção ou não pode agora. O banco confere quem
  * pode (portaria_responder); depois avisa a portaria e, se ele autorizou, o
- * visitante. Vale também para a equipe da Escola, que recebe visita.
+ * visitante (`visitanteSemAviso`: autorizou, mas a resposta não saiu). Vale
+ * também para a equipe da Escola, que recebe visita.
  */
-export async function responderVisita(id: string, resposta: string, recado: string): Promise<Resultado<{ visitanteAvisado?: boolean }>> {
+export async function responderVisita(id: string, resposta: string, recado: string): Promise<Resultado<{ visitanteAvisado?: boolean; visitanteSemAviso?: boolean }>> {
   try {
     const context = await requireWorkspace({ escola: true })
     if (!UUID.test(id)) throw new Error('Visita inválida.')
@@ -115,10 +125,10 @@ export async function responderVisita(id: string, resposta: string, recado: stri
     const supabase = await createClient()
     const { error } = await supabase.rpc('portaria_responder', { p_id: id, p_resposta: resposta, p_recado: recado.trim().slice(0, 280) || null })
     if (error) erroDoBanco(error, 'Não foi possível registrar a resposta.')
-    const { visitanteAvisado } = await aposResposta(id, context.user.id)
+    const { visitanteAvisado, visitanteSemAviso } = await aposResposta(id, context.user.id)
     revalidar()
     revalidatePath(`/portaria/visita/${id}`)
-    return { visitanteAvisado }
+    return { visitanteAvisado, visitanteSemAviso }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível registrar a resposta.') }
   }

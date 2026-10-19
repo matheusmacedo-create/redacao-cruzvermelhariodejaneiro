@@ -13,13 +13,13 @@ import {
 } from './confirmacao'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita,
-  seguirPendencia, type Pendencia, type Pessoa, type Resposta,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderPelaFicha,
+  responderVisita, seguirPendencia, type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
 import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
-import { destinoDaImagem, type DadosDaVisita } from './portaria-regras'
+import { destinoDaImagem, lerBotaoDaFicha, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
 import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
@@ -108,6 +108,10 @@ type Admin = ReturnType<typeof createAdminClient>
  * foto dele (mesmo com um envio de fotos aberto); a imagem com a legenda "visitante: Nome" de quem tem a portaria abre
  * o registro com ela. Só o id da mídia fica na pergunta; o arquivo vem depois do "confirmo".
  *
+ * O toque num botão da ficha da visita (lib/portaria/servidor.ts, avisarVisitado) também vem antes: o id traz a
+ * resposta e a visita, e vale só para quem é visitado nela (acoes.ts, responderPelaFicha) — sem passar pelo aviso
+ * citado, pela pergunta aberta nem pelo assistente.
+ *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
  * também não vira conversa infinita: há um teto de respostas por número.
@@ -180,8 +184,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       : undefined
     const decisaoSemLista = listaDoFinanceiro === null
 
+    // Tocou num botão da ficha da visita (ou na resposta rápida do modelo dela): o id diz a resposta e a visita. Quem
+    // pode responder é conferido depois (responderPelaFicha); o título sem o id segue pelo aviso citado, como o "1".
+    const botaoDaFicha = pessoa && m.toque && !m.midia ? lerBotaoDaFicha(m.texto) : null
+    const fichaTocada = botaoDaFicha?.visitaId ? { resposta: botaoDaFicha.resposta, visitaId: botaoDaFicha.visitaId } : null
+
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
-    const aviso = pessoa && m.citada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
+    const aviso = pessoa && m.citada && !fichaTocada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
     // Ou respondeu a uma pergunta do bot (a conferência antes de aprovar, os passos do chamado).
     let pendencia: Pendencia | null = null
     let estrita = false
@@ -194,7 +203,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // assunto, nem marca os avisos como lidos.
     const tocou = m.toque && Boolean(m.citada)
     let citouMenu = false
-    if (pessoa && !aviso) {
+    if (pessoa && !aviso && !fichaTocada) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
@@ -236,7 +245,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     let aberto: AbertoDaPessoa | null = null
     let rota: Rota = 'bot'
     let respostaAoPlano: ReturnType<typeof lerRespostaAoPlano> = null
-    if (pessoa && ia.disponivel && !m.midia) {
+    if (pessoa && ia.disponivel && !m.midia && !fichaTocada) {
       aberto = await planoAberto(admin, pessoa.id, m.citada, { citacaoResolvida: Boolean(aviso || estrita || vencida || citouMenu) })
       // A visita na portaria também responde com número: só se pergunta quando o número pode ser da pergunta do assistente.
       const comNumero = lerEscolha(m.texto, 99) !== null && Boolean(aberto?.aberto.plano?.situacao === 'pergunta' || (aberto && !aberto.aberto.plano && aberto.aberto.recente))
@@ -262,6 +271,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
       comando: rota !== 'bot' ? rota
+        : fichaTocada ? 'ficha_da_visita'
         : fotoDaVisita ? 'visita_foto'
         : paraODrive ? (paraODrive === 'assistente' ? 'ia' : `drive_${paraODrive}`)
           : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}`
@@ -328,6 +338,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
         .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('tipo', 'bot').eq('numero', numero).gte('criado_em', umDia)
       if ((count ?? 0) > 0) return
       await responder(textoDaApresentacao({ urlBase: base, site: ORIGEM_DO_SITE }))
+      return
+    }
+
+    // O toque na ficha da visita: a resposta à portaria, só de quem é visitado nela.
+    if (fichaTocada) {
+      await enviar(await responderPelaFicha(admin, workspaceId, pessoa, fichaTocada, base))
       return
     }
 

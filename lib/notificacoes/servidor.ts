@@ -5,7 +5,7 @@ import { urlBase } from '@/lib/newsletter/contexto'
 import { enviarComSeguranca } from '@/lib/contas/servidor'
 import { emailDeNotificacao } from './emails'
 import { decidirEmail, lerModos, linkInterno, INTERVALO_NO_MESMO_LINK_MIN, type Categoria } from './regras'
-import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { configDoWhatsapp, type ConfigDoWhatsapp } from '@/lib/whatsapp/servidor'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { INTERVALO_ENTRE_ENVIOS_MS, TETO_DIARIO_POR_PESSOA, categoriaVaiPorWhatsapp, decidirWhatsapp, lerCategoriasDoWhatsapp, textoDoAviso } from '@/lib/whatsapp/regras'
 
@@ -36,7 +36,16 @@ export type Aviso = {
    * da noite e teto diário continuam valendo.
    */
   importante?: boolean
+  /**
+   * Quem não recebe ESTE aviso pelo WhatsApp (o sino e o e-mail continuam):
+   * a mensagem dele vai por outro caminho — a ficha da visita, com a foto e os
+   * botões (lib/portaria/servidor.ts, avisarVisitado). Sem WhatsApp repetido.
+   */
+  semWhatsapp?: (string | null | undefined)[]
 }
+
+/** Uma linha gravada no sino: o id vai junto da mensagem do WhatsApp que sai por outro caminho (a resposta que a cita volta ao aviso). */
+export type LinhaDoSino = { id: string; user_id: string }
 
 /**
  * O único jeito de avisar alguém na Redação: grava no sino e, conforme a
@@ -46,12 +55,13 @@ export type Aviso = {
  *
  * Nunca lança: o aviso é consequência de algo que já foi salvo, e falhar o
  * aviso não pode desfazer nem esconder aquilo. O e-mail sai depois da
- * resposta (after), para quem clicou não esperar o provedor.
+ * resposta (after), para quem clicou não esperar o provedor. Devolve as
+ * linhas gravadas no sino (vazio se nada foi gravado).
  */
-export async function notificar(admin: Admin, aviso: Aviso): Promise<void> {
+export async function notificar(admin: Admin, aviso: Aviso): Promise<LinhaDoSino[]> {
   try {
     const destinos = [...new Set(aviso.para.filter((u): u is string => Boolean(u) && u !== aviso.atorId))]
-    if (!destinos.length) return
+    if (!destinos.length) return []
     const link = linkInterno(aviso.link)
     const titulo = aviso.titulo.trim().slice(0, 200)
     const mensagem = aviso.mensagem.trim().slice(0, 280)
@@ -64,24 +74,30 @@ export async function notificar(admin: Admin, aviso: Aviso): Promise<void> {
       // Banco ainda sem a migração das notificações: grava do jeito antigo.
       console.error('[notificacoes] gravando sem categoria:', error.message)
       ;({ data: linhas, error } = await admin.from('notifications').insert(destinos.map((user_id) => ({ ...base, user_id }))).select('id, user_id'))
-      if (error) { console.error('[notificacoes] aviso não gravado:', error.message); return }
+      if (error) { console.error('[notificacoes] aviso não gravado:', error.message); return [] }
     }
 
+    // Quem recebe a mensagem por outro caminho (a ficha da visita) fica fora do WhatsApp deste aviso.
+    const pular = new Set((aviso.semWhatsapp ?? []).filter((u): u is string => Boolean(u)))
+    const noWhatsapp = destinos.filter((u) => !pular.has(u))
     const enviar = async () => {
       try { await enviarEmails(admin, aviso, destinos, linhas ?? [], { titulo, mensagem, link }) } catch (causa) {
         console.error('[notificacoes] e-mails não enviados:', causa instanceof Error ? causa.message : causa)
       }
-      try { await enviarWhatsapps(admin, aviso, destinos, linhas ?? [], { titulo, mensagem, link }) } catch (causa) {
+      if (!noWhatsapp.length) return
+      try { await enviarWhatsapps(admin, aviso, noWhatsapp, linhas ?? [], { titulo, mensagem, link }) } catch (causa) {
         console.error('[notificacoes] WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
       }
     }
     try { after(enviar) } catch { await enviar() }
+    return (linhas ?? []) as LinhaDoSino[]
   } catch (causa) {
     console.error('[notificacoes] falha ao avisar:', causa instanceof Error ? causa.message : causa)
+    return []
   }
 }
 
-async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linhas: { id: string; user_id: string }[],
+async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linhas: LinhaDoSino[],
   texto: { titulo: string; mensagem: string; link: string | null }) {
   const agora = new Date()
   const desde = new Date(agora.getTime() - INTERVALO_NO_MESMO_LINK_MIN * 60_000).toISOString()
@@ -115,18 +131,24 @@ async function enviarEmails(admin: Admin, aviso: Aviso, destinos: string[], linh
   }
 }
 
+/** Uma conta que recebe o aviso no WhatsApp agora (quemRecebeNoWhatsapp). */
+export type ContaNoWhatsapp = { user_id: string; numero: string }
+
 /**
- * O mesmo aviso no WhatsApp de quem confirmou o número, não pausou e deixou o
- * assunto ligado. Antes da migração do WhatsApp (ou sem a Kapso
- * configurada), a primeira leitura volta vazia e nada acontece.
+ * Quem recebe agora, no WhatsApp, um aviso desta categoria: confirmou o número, não pausou, deixou o assunto ligado,
+ * está com a conta ativa e não passou do teto do dia (TETO_DIARIO_POR_PESSOA); sem `importante`, também não quem está
+ * com o Palácio aberto nem quem acabou de receber outro aviso do mesmo link (regras.ts, decidirWhatsapp). null antes da
+ * migração do WhatsApp, sem a Kapso configurada ou sem ninguém. É a mesma conta do aviso comum (enviarWhatsapps) e da
+ * ficha da visita, que a portaria manda no lugar dele (lib/portaria/servidor.ts, avisarVisitado). Pode lançar: quem
+ * chama segura.
  */
-async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], linhas: { id: string; user_id: string }[],
-  texto: { titulo: string; mensagem: string; link: string | null }) {
-  if (!categoriaVaiPorWhatsapp(aviso.categoria)) return
-  const { data: contas, error } = await admin.from('whatsapp_contas').select('user_id, numero, pausado_em').in('user_id', destinos)
-  if (error || !contas?.length) return
-  const config = await configDoWhatsapp(aviso.workspaceId)
-  if (!config) return
+export async function quemRecebeNoWhatsapp(admin: Admin, p: { workspaceId: string; categoria: Categoria; destinos: string[]; link: string | null; importante?: boolean }):
+  Promise<{ config: ConfigDoWhatsapp; contas: ContaNoWhatsapp[] } | null> {
+  if (!categoriaVaiPorWhatsapp(p.categoria) || !p.destinos.length) return null
+  const { data: contas, error } = await admin.from('whatsapp_contas').select('user_id, numero, pausado_em').in('user_id', p.destinos)
+  if (error || !contas?.length) return null
+  const config = await configDoWhatsapp(p.workspaceId)
+  if (!config) return null
 
   const ids = contas.map((c) => c.user_id as string)
   const agora = new Date()
@@ -134,40 +156,57 @@ async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], l
   const [{ data: pessoas }, { data: preferencias }, recentes] = await Promise.all([
     admin.from('profiles').select('id, active, visto_em').in('id', ids),
     admin.from('notificacao_preferencias').select('user_id, whatsapp').in('user_id', ids),
-    texto.link
-      ? admin.from('notifications').select('user_id, whatsapp_em').in('user_id', ids).eq('link', texto.link).gte('whatsapp_em', desde)
+    p.link
+      ? admin.from('notifications').select('user_id, whatsapp_em').in('user_id', ids).eq('link', p.link).gte('whatsapp_em', desde)
       : Promise.resolve({ data: [] as { user_id: string; whatsapp_em: string }[] }),
   ])
-  const perfis = new Map(((pessoas ?? []) as { id: string; active: boolean; visto_em: string | null }[]).map((p) => [p.id, p]))
-  const categorias = new Map((preferencias ?? []).map((p) => [p.user_id as string, lerCategoriasDoWhatsapp(p.whatsapp)]))
+  const perfis = new Map(((pessoas ?? []) as { id: string; active: boolean; visto_em: string | null }[]).map((x) => [x.id, x]))
+  const categorias = new Map((preferencias ?? []).map((x) => [x.user_id as string, lerCategoriasDoWhatsapp(x.whatsapp)]))
   const ultimo = new Map<string, string>()
   for (const r of recentes.data ?? []) if (!ultimo.has(r.user_id) || r.whatsapp_em > ultimo.get(r.user_id)!) ultimo.set(r.user_id, r.whatsapp_em)
-  const corpo = textoDoAviso({ urlBase: urlBase(), titulo: texto.titulo, mensagem: aviso.textoDoEmail ?? texto.mensagem, link: texto.link, citacao: aviso.citacao })
 
   const umDia = new Date(agora.getTime() - 86_400_000).toISOString()
-  let enviouAntes = false
+  const recebem: ContaNoWhatsapp[] = []
   for (const conta of contas as { user_id: string; numero: string; pausado_em: string | null }[]) {
     const perfil = perfis.get(conta.user_id)
     if (!perfil?.active) continue
     const vai = decidirWhatsapp({
       temNumero: true,
       pausado: Boolean(conta.pausado_em),
-      categoriaLigada: (categorias.get(conta.user_id) ?? lerCategoriasDoWhatsapp(null))[aviso.categoria],
+      categoriaLigada: (categorias.get(conta.user_id) ?? lerCategoriasDoWhatsapp(null))[p.categoria],
       vistoEm: perfil.visto_em,
       ultimoNoMesmoLink: ultimo.get(conta.user_id),
       agora,
-      importante: aviso.importante,
+      importante: p.importante,
     })
     if (!vai) continue
     // Teto diário por pessoa: passou disso, o aviso fica só no sino e no e-mail.
     const { count: hoje } = await admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
       .eq('user_id', conta.user_id).eq('direcao', 'saida').eq('tipo', 'aviso').eq('situacao', 'enviada').gte('criado_em', umDia)
     if ((hoje ?? 0) >= TETO_DIARIO_POR_PESSOA) continue
+    recebem.push({ user_id: conta.user_id, numero: conta.numero })
+  }
+  return recebem.length ? { config, contas: recebem } : null
+}
+
+/**
+ * O mesmo aviso no WhatsApp de quem confirmou o número, não pausou e deixou o
+ * assunto ligado (quemRecebeNoWhatsapp). Antes da migração do WhatsApp (ou sem
+ * a Kapso configurada), a primeira leitura volta vazia e nada acontece.
+ */
+async function enviarWhatsapps(admin: Admin, aviso: Aviso, destinos: string[], linhas: LinhaDoSino[],
+  texto: { titulo: string; mensagem: string; link: string | null }) {
+  const quem = await quemRecebeNoWhatsapp(admin, { workspaceId: aviso.workspaceId, categoria: aviso.categoria, destinos, link: texto.link, importante: aviso.importante })
+  if (!quem) return
+  const corpo = textoDoAviso({ urlBase: urlBase(), titulo: texto.titulo, mensagem: aviso.textoDoEmail ?? texto.mensagem, link: texto.link, citacao: aviso.citacao })
+
+  let enviouAntes = false
+  for (const conta of quem.contas) {
     const linha = linhas.find((l) => l.user_id === conta.user_id)
     if (enviouAntes) await new Promise((resolver) => setTimeout(resolver, INTERVALO_ENTRE_ENVIOS_MS))
     const entrega = await entregar(admin, aviso.workspaceId, {
       numero: conta.numero, texto: corpo, tipo: 'aviso', userId: conta.user_id, notificacaoId: linha?.id ?? null, categoria: aviso.categoria, link: texto.link,
-    }, { config })
+    }, { config: quem.config })
     if (entrega.situacao === 'enviada') {
       enviouAntes = true
       if (linha) await admin.from('notifications').update({ whatsapp_em: new Date().toISOString() }).eq('id', linha.id)

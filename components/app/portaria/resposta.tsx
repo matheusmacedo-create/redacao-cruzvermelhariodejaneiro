@@ -63,7 +63,7 @@ export function ResponderVisita({ id, atual, compacto = false, nomeDoVisitante }
     setErro(''); setFeito(''); setEscolhida(r)
     const res = await responderVisita(id, r, recado)
     if (res.erro) { setErro(res.erro); return }
-    setFeito(`Resposta enviada: ${RESPOSTAS[r].rotulo}. A portaria foi avisada${res.visitanteAvisado ? ' e o visitante recebeu no WhatsApp' : ''}.`)
+    setFeito(`Resposta enviada: ${RESPOSTAS[r].rotulo}. A portaria foi avisada${res.visitanteAvisado ? ' e o visitante recebeu no WhatsApp' : ''}.${res.visitanteSemAviso ? ' O visitante não pôde ser avisado pelo WhatsApp: a portaria dá a resposta a ele.' : ''}`)
     setRecado('')
     if (compacto) setAberto(false)
     router.refresh()

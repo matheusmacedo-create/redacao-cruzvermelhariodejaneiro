@@ -242,6 +242,8 @@ export function dicaDeResposta(link: string | null | undefined): string | null {
  * Os botões do aviso que se responde com um toque: hoje, a visita na portaria — "1", "2" e "3", como a
  * resposta digitada (lerRespostaDaVisita), com o rótulo da tela quando cabe no botão. Só dentro da
  * janela de 24 h: fora dela o aviso sai pelo modelo, sem botão, e a dica do texto continua valendo.
+ * A ficha da visita que sai na hora leva os dela, com o id da visita (portaria-regras.ts, interativoDaFicha);
+ * estes ficam para a ficha que esperou na fila (fila.ts, enviarAgora), que volta como o aviso de antes.
  */
 export function interativoDoAviso(link: string | null | undefined): Interativo | null {
   if (alvoDoLink(link)?.tipo !== 'visita') return null

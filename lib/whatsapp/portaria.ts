@@ -45,8 +45,10 @@ import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type 
  * função da tela, portaria_registrar_entrada, chamada como quem escreveu
  * (whatsapp_portaria_registrar_entrada, sessão simulada aal1 — o banco confere
  * de novo a portaria e a verificação em duas etapas, e grava quem registrou),
- * e o aviso a quem é visitado sai pelo mesmo avisarVisitado: a pessoa
- * responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
+ * e o aviso a quem é visitado sai pelo mesmo avisarVisitado — no WhatsApp, a
+ * ficha da visita com a foto e os botões (lib/portaria/servidor.ts) —: a
+ * pessoa responde pelos botões ou com 1, 2 ou 3, e quem registrou recebe a
+ * resposta.
  *
  * Listar é consulta (vale com a verificação em duas etapas); registrar é
  * ação (podeAgirPeloWhatsapp). As etapas ficam em whatsapp_pendencias (tipo

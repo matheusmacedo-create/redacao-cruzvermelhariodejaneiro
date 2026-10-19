@@ -140,7 +140,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   },
   {
     name: 'preparar_registro_de_visita', strict: true,
-    description: 'Prepara, para quem cuida da portaria, registrar a entrada de um visitante para uma pessoa do Palácio (marcador pes_), que recebe o aviso e responde à portaria. Não registra: acrescenta um passo ao plano.',
+    description: 'Prepara, para quem cuida da portaria, registrar a entrada de um visitante para uma pessoa do Palácio (marcador pes_), que recebe a ficha da visita e responde à portaria. Sem telefone, autorização nem foto do visitante: para eles, o registro guiado (*visitante:* e o nome). Não registra: acrescenta um passo ao plano.',
     input_schema: objeto({
       visitante: { type: 'string', description: 'Nome do visitante (2 a 120 caracteres).' },
       empresa: { type: 'string', description: 'De onde ele vem; "" se a pessoa não disse.' },

@@ -1,6 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp } from './servidor'
+import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp, type OpcoesDoEnvio } from './servidor'
 import { registrarEstado } from './estado'
 import { redigirVencidos } from './assistente/faxina'
 import {
@@ -55,6 +55,11 @@ export type Mensagem = {
    * com o "Não fui eu" ganha a dele sozinho (enviarAgora), e é por ela que a resposta acha o aviso.
    */
   comando?: string | null
+  /**
+   * O modelo da situação para fora da janela de 24 h, no lugar do modelo da finalidade (servidor.ts, OpcoesDoEnvio): a
+   * ficha da visita (lib/portaria/servidor.ts). A fila não o guarda — o que espera nela sai como o aviso de sempre.
+   */
+  modeloForaDaJanela?: OpcoesDoEnvio['modeloForaDaJanela']
 }
 
 /** Por que a mensagem espera na fila (whatsapp_fila.motivo). "cota": ficou para o dia seguinte pela cota diária. */
@@ -129,7 +134,7 @@ async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWh
   // O aviso de segurança que ensina o "NÃO FUI EU" leva o botão e a marca no registro, pelo texto (a fila guarda só ele).
   const naoFuiEu = m.tipo === 'seguranca' && ofereceNaoFuiEu(m.texto)
   const interativo = m.interativo ?? (m.tipo === 'aviso' ? interativoDoAviso(m.link) : naoFuiEu ? BOTAO_DO_NAO_FUI_EU : null)
-  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo, interativo })
+  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo, interativo, modeloForaDaJanela: m.modeloForaDaJanela })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero, userId: m.userId,
     mensagemId: envio.ok ? envio.id : null, comando: m.comando ?? (naoFuiEu ? MARCA_DO_NAO_FUI_EU : null), notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,

@@ -21,6 +21,8 @@ import { ResponderVisita, SeloDaResposta } from '@/components/app/portaria/respo
 
 export const metadata = { title: tituloDaArea('/portaria') }
 export const dynamic = 'force-dynamic'
+// A ficha que vai ao WhatsApp de quem é visitado sai depois da resposta (after) e espera a foto que a tela sobe em seguida.
+export const maxDuration = 60
 
 const inputClass = 'rounded-lg border border-border bg-background px-3 py-2 text-sm'
 /** Meia-noite de hoje em Brasília, em UTC (o fuso é fixo, UTC−3). */

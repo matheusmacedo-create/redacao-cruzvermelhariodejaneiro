@@ -2,22 +2,28 @@
  * Confere as regras da Portaria virtual: `npx tsx scripts/conferir-portaria.ts`.
  * Também o registro da visita pelo WhatsApp em etapas (lib/whatsapp/portaria-regras.ts: as etapas, Pular, Registrar
  * já, a autorização do visitante, a foto em qualquer etapa e na abertura, o telefone inválido, os botões e a
- * conferência) e a foto do visitante normalizada no servidor (lib/portaria/foto-servidor.ts, com o sharp de
- * verdade e imagens geradas aqui — sem rede).
+ * conferência), a ficha que quem é visitado recebe (o texto, os botões com o id que amarra a visita, quem pode
+ * responder, o modelo de fora da janela e o recuo para o aviso de antes), a resposta ao visitante pelo modelo e a
+ * foto do visitante normalizada no servidor (lib/portaria/foto-servidor.ts, com o sharp de verdade e imagens geradas
+ * aqui — sem rede).
  * Sai com código 1 se algo estiver errado.
  */
 import {
   crachaPendente, diaEmSaoPaulo, entrouEmOutroDia, ehTokenDaEntrada, fotoDaVisita, haQuanto, lerVisitante, linkDaEntrada, quemVisita,
   situacaoDaVisita, urlDaFotoDoVisitante, caminhoDaFotoDoVisitante, numerosDeCracha, prefixoDoCracha, folhasDeCrachas, formatoDoCracha, crachasPorFolha,
-  lerRespostaDaVisita, respostaClaraDaVisita, linkDaVisita, mensagemParaVisitante, avisoParaPortaria, situacaoDaResposta,
+  lerRespostaDaVisita, respostaClaraDaVisita, linkDaVisita, parametrosParaVisitante, SITUACAO_PARA_VISITANTE, avisoParaPortaria, situacaoDaResposta,
 } from '../lib/portaria/regras'
 import {
   BOTOES_DA_ETAPA_OPCIONAL, BOTOES_DA_FOTO, BOTOES_DO_CONSENTIMENTO, ETAPAS_DE_TEXTO_LIVRE, ETAPAS_EM_QUE_NAO_RESPONDE, LIMITES_DA_VISITA, comFoto, dadosRedigidos,
   destinoDaImagem, ehPularNaVisita, ehRegistrarJa, fotoRecebida, lerConsentimento, lerCracha, perguntaDaVisita, proximaEtapa, resultadoDaBusca, seguirNoRegistro,
   textoDaEntradaRegistrada, type DadosDaVisita, type FotoNaConversa, type PassoDoRegistro, type PerguntaDaVisita, type PessoaNaConversa,
+  RESPOSTAS_DA_FICHA, idDoBotaoDaFicha, interativoDaFicha, lerBotaoDaFicha, modeloDaFichaForaDaJanela, montagemDaFicha, parametrosDaFicha, podeResponderPelaFicha,
+  sobeAFotoDaFicha, textoDaFicha, tituloDoBotaoDaFicha, type FichaDaVisita,
 } from '../lib/whatsapp/portaria-regras'
+import { CATALOGO_DOS_MODELOS, LIMITES_DO_MODELO, corpoPreenchido, modeloDaSituacao, modeloDoCatalogo, type ModeloNaMeta } from '../lib/whatsapp/modelos'
 import {
-  BOTOES_DA_CONFERENCIA, LIMITES_DO_INTERATIVO, acharPeloNome, ehCancelamento, ehPular, lerEventoDaKapso, lerPedido, objetoInterativo, type Interativo, type MidiaRecebida,
+  BOTOES_DA_CONFERENCIA, LIMITES_DO_INTERATIVO, acharPeloNome, ehCancelamento, ehPular, lerEventoDaKapso, lerPedido, objetoInterativo, textoParaModelo, type Interativo,
+  type MidiaRecebida, type ObjetoDoModelo,
 } from '../lib/whatsapp/regras'
 
 let falhas = 0
@@ -109,13 +115,16 @@ igual(respostaClaraDaVisita('ok'), null, 'sem citar, "ok" solto não vale')
 igual(respostaClaraDaVisita('1')?.resposta, 'subir', 'sem citar, "1" vale')
 igual(respostaClaraDaVisita('não posso, estou fora')?.resposta, 'recusar', 'sem citar, "não posso" vale')
 igual(linkDaVisita('a'.repeat(8)), '/portaria/visita/aaaaaaaa', 'link da visita')
-const paraVisitante = mensagemParaVisitante({ visitante: 'José Pereira', quem: 'Ana Lima', setor: 'Comunicação Social', resposta: 'subir' })
-igual(paraVisitante.startsWith('Olá, José! *Pode subir.* Ana Lima (Comunicação Social)'), true, 'mensagem ao visitante: pode subir, com o setor')
-igual(paraVisitante.includes('Recado'), false, 'mensagem ao visitante não leva o recado (é para a portaria)')
-igual(mensagemParaVisitante({ visitante: 'José', quem: '*Ana*', setor: null, resposta: 'aguardar' }).includes('*Ana*'), false, 'nome sem formatação do WhatsApp')
+igual(parametrosParaVisitante({ quem: 'Ana Lima', setor: 'Comunicação Social', resposta: 'subir' }), ['Ana Lima (Comunicação Social)', SITUACAO_PARA_VISITANTE.subir], 'ao visitante: quem e o setor, e a situação')
+igual(parametrosParaVisitante({ quem: '*Ana*\nLima', setor: null, resposta: 'aguardar' })[0], 'Ana Lima', 'ao visitante: o nome sem formatação nem quebra de linha')
+igual(Object.values(SITUACAO_PARA_VISITANTE).every((t) => !/[\n\t*_~]| {4}/.test(t) && t.length <= LIMITES_DO_MODELO.parametro), true, 'ao visitante: cada situação cabe numa variável de modelo')
+igual(Object.values(SITUACAO_PARA_VISITANTE).some((t) => /recado/i.test(t)), false, 'ao visitante: nunca o recado (é para a portaria)')
 const aviso = avisoParaPortaria({ visitante: 'José Pereira', quemRespondeu: 'Ana Lima', resposta: 'recusar', recado: 'fora hoje', visitanteAvisado: true })
 igual(aviso.titulo, 'Não pode receber agora: José Pereira', 'aviso à portaria: título')
-igual(aviso.mensagem.includes('Recado: fora hoje. O visitante') && aviso.mensagem.includes('recebeu a resposta pelo WhatsApp'), true, 'aviso à portaria: recado e visitante avisado')
+contem(aviso.mensagem, 'O visitante também recebeu a resposta pelo WhatsApp. Recado: fora hoje.', 'aviso à portaria: o visitante avisado, antes do recado')
+const semAviso = avisoParaPortaria({ visitante: 'José', quemRespondeu: 'Ana', resposta: 'subir', recado: 'x'.repeat(280), visitanteAvisado: false, visitanteSemAviso: true })
+igual(semAviso.mensagem.slice(0, 280).includes('O visitante não pôde ser avisado pelo WhatsApp: dê a resposta a ele.'), true, 'aviso à portaria: o visitante sem aviso cabe nas 280 letras do sino, mesmo com recado longo')
+igual(avisoParaPortaria({ visitante: 'José', quemRespondeu: 'Ana', resposta: 'subir', recado: null, visitanteAvisado: false }).mensagem.includes('WhatsApp'), false, 'aviso à portaria: sem autorização, nada sobre o WhatsApp do visitante')
 igual(situacaoDaResposta({ visitado_id: null, resposta: null }), 'sem_pessoa', 'sem pessoa do Palácio, sem resposta')
 igual(situacaoDaResposta({ visitado_id: 'x', resposta: null }), 'esperando', 'esperando a resposta')
 const autorizou = (tel: string, marca: string | null) => lerVisitante({ get: (n: string) => ({ nome: 'José', telefone: tel, motivo: 'reunião', avisar_visitante: marca } as Record<string, unknown>)[n] ?? null }, true).dados.avisar_visitante
@@ -315,6 +324,99 @@ igual(semAFoto.includes('autorizou'), false, 'registrada: com o setor, nada de r
 const redigidos = dadosRedigidos({ ...cheia, etapa: 'conferencia', telefone: '5521999991234', opcoes: equipe })
 igual(redigidos, { etapa: 'conferencia', redigida: true }, 'redigida: só a etapa fica')
 igual(JSON.stringify(redigidos).includes('5521'), false, 'redigida: o telefone do visitante sai')
+
+// ---------------------------------------------------------------- a ficha de quem é visitado
+const VISITA = '1b4e28ba-2fa1-41d2-883f-0016d3cca427'
+const idsDaFicha = RESPOSTAS_DA_FICHA.map((r) => idDoBotaoDaFicha(VISITA, r))
+igual(idsDaFicha, ['ficha:1:1b4e28ba2fa141d2883f0016d3cca427', 'ficha:2:1b4e28ba2fa141d2883f0016d3cca427', 'ficha:3:1b4e28ba2fa141d2883f0016d3cca427'], 'ficha: o id de cada botão diz a resposta e a visita')
+igual(idsDaFicha.every((id) => typeof id === 'string' && id.length <= LIMITES_DO_INTERATIVO.id && id.length <= LIMITES_DO_MODELO.payload), true, 'ficha: o id cabe nos 40 do interativo e no payload do modelo')
+igual(idDoBotaoDaFicha(VISITA.toUpperCase(), 'subir'), idsDaFicha[0], 'ficha: o id da visita em maiúsculas dá o mesmo botão')
+igual([idDoBotaoDaFicha('x', 'subir'), idDoBotaoDaFicha('', 'aguardar'), interativoDaFicha('x'), montagemDaFicha({ visitaId: 'x', visitante: 'J', empresa: null, motivo: null, chegada: '1', registradaPor: null })],
+  [null, null, null, null], 'ficha: sem uuid da visita, sem botões nem modelo')
+igual(idsDaFicha.map((id) => lerBotaoDaFicha(id ?? '')), RESPOSTAS_DA_FICHA.map((resposta) => ({ resposta, visitaId: VISITA })), 'ficha: o toque volta à resposta e à visita')
+igual(['Pode subir', 'Aguarde na recepção', 'Não pode agora', 'não pode receber agora'].map((t) => lerBotaoDaFicha(t)),
+  [{ resposta: 'subir', visitaId: null }, { resposta: 'aguardar', visitaId: null }, { resposta: 'recusar', visitaId: null }, { resposta: 'recusar', visitaId: null }],
+  'ficha: pelo título (a resposta rápida sem o payload), a resposta sem recado; a visita vem da mensagem citada')
+igual(['ficha:4:1b4e28ba2fa141d2883f0016d3cca427', `ficha:1:${'g'.repeat(32)}`, 'ficha:1:1b4e28ba', '1', '2', 'pode subir agora', 'Aguarde', ''].map((t) => lerBotaoDaFicha(t)),
+  [null, null, null, null, null, null, null, null], 'ficha: o que não é botão da ficha (nem o "1" de sempre, que segue pelo aviso citado)')
+igual(RESPOSTAS_DA_FICHA.map(tituloDoBotaoDaFicha), CATALOGO_DOS_MODELOS.visita.map((m) => m.botoes.map((b) => b.texto))[2], 'ficha: os títulos dos botões são os do modelo cadastrado')
+igual(podeResponderPelaFicha({ visitado_id: 'u-ana' }, 'u-ana'), true, 'ficha: quem é visitado responde')
+igual([podeResponderPelaFicha({ visitado_id: 'u-ana' }, 'u-carlos'), podeResponderPelaFicha({ visitado_id: null }, 'u-ana'), podeResponderPelaFicha(null, 'u-ana'), podeResponderPelaFicha({ visitado_id: 'u-ana' }, '')],
+  [false, false, false, false], 'ficha: o id do botão não autoriza — outra pessoa, visita para o setor ou que não existe, nunca')
+
+const ficha: FichaDaVisita = { visitaId: VISITA, visitante: 'João Silva', empresa: 'Gráfica Boa', motivo: 'Entrega de cartazes', chegada: '14:05', registradaPor: 'Maria Souza' }
+const BASE = 'https://palaciovirtual.cruzvermelharj.org.br'
+const textoFicha = textoDaFicha(ficha, BASE)
+contem(textoFicha, '*Visita para você na portaria*', 'ficha: o título')
+contem(textoFicha, 'Visitante: *João Silva* (Gráfica Boa)\nMotivo: Entrega de cartazes\nChegada: 14:05, registrada por Maria Souza', 'ficha: quem é, de onde vem, o motivo e a chegada')
+contem(textoFicha, 'Responda esta mensagem com *1* (pode subir)', 'ficha: sem os botões, o 1, 2 ou 3 de sempre')
+contem(textoFicha, `Abrir: ${BASE}/portaria/visita/${VISITA}`, 'ficha: o link da visita')
+const fichaSem = textoDaFicha({ ...ficha, empresa: null, motivo: null, registradaPor: null, visitante: '*José*' }, BASE)
+contem(fichaSem, 'Visitante: *José*\nMotivo: não informado\nChegada: 14:05\n', 'ficha: sem empresa, motivo e quem registrou; o nome sem a formatação de quem escreveu')
+const enorme: FichaDaVisita = { visitaId: VISITA, visitante: 'A'.repeat(500), empresa: 'B'.repeat(500), motivo: 'C'.repeat(3000), chegada: '14:05'.repeat(10), registradaPor: 'D'.repeat(500) }
+const textoEnorme = textoDaFicha(enorme, BASE)
+igual(textoEnorme.length <= LIMITES_DO_INTERATIVO.corpo, true, 'ficha: com tudo no máximo, o corpo cabe em 1.024')
+const fichaComFoto = objetoInterativo(textoFicha, interativoDaFicha(VISITA, '4490709327384033') as Interativo)
+igual(fichaComFoto?.type === 'button' ? [fichaComFoto.header, fichaComFoto.action.buttons.map((b) => [b.reply.id, b.reply.title])] : null,
+  [{ type: 'image', image: { id: '4490709327384033' } }, idsDaFicha.map((id, i) => [id ?? '', ['Pode subir', 'Aguarde na recepção', 'Não pode agora'][i]])], 'ficha: a foto no cabeçalho e os três botões')
+const fichaSemFoto = objetoInterativo(textoEnorme, interativoDaFicha(VISITA) as Interativo)
+igual(fichaSemFoto?.type === 'button' ? [fichaSemFoto.header, fichaSemFoto.action.buttons.length] : null, [undefined, 3], 'ficha: sem foto, sem cabeçalho; e a enorme ainda vai com os botões')
+
+// Fora da janela: o modelo aprovado da visita, com o mesmo id nos botões; sem ele, o aviso de antes pelo modelo do cofre.
+const naMeta = (aprovados: Record<string, string>): ModeloNaMeta[] => Object.values(CATALOGO_DOS_MODELOS).flat()
+  .map((m) => ({ nome: m.nome, status: aprovados[m.nome] ? 'APPROVED' : 'PENDING', categoria: aprovados[m.nome] ?? 'UTILITY', idioma: 'pt_BR' }))
+const cofre = { modelo: 'aviso_do_palacio', modeloCodigo: null, modeloSeguranca: null }
+const montagem = montagemDaFicha(ficha)
+igual([montagem?.parametros, montagem?.respostas, montagem?.imagem], [['João Silva (Gráfica Boa)', 'Entrega de cartazes', '14:05, registrada por Maria Souza'], idsDaFicha, null], 'ficha: as variáveis do modelo e o payload de cada botão')
+igual(parametrosDaFicha({ ...ficha, empresa: null, motivo: null, registradaPor: null }), ['João Silva', 'Não informado', '14:05'], 'ficha: as variáveis sem empresa, motivo e quem registrou')
+const foraV2 = modeloDaFichaForaDaJanela({ naMeta: naMeta({ portaria_visita_v2: 'UTILITY', portaria_visita: 'UTILITY' }), montagem, cofre, textoDoAviso: 'aviso' })
+const botoesDoModelo = (m: ObjetoDoModelo | null) => (m?.components ?? []).flatMap((c) => (c.type === 'button' && c.sub_type === 'quick_reply' ? [[c.index, c.parameters[0].payload]] : []))
+igual([foraV2?.name, botoesDoModelo(foraV2)], ['portaria_visita_v2', idsDaFicha.map((id, i) => [String(i), id])], 'ficha fora da janela: o v2 aprovado, com o id da visita em cada resposta rápida')
+const corpoV2 = foraV2?.components.find((c) => c.type === 'body')
+igual(corpoV2?.type === 'body' ? corpoPreenchido(modeloDoCatalogo('portaria_visita_v2')!, corpoV2.parameters.map((x) => x.text)) : '',
+  'Chegou uma visita para você na recepção da Cruz Vermelha RJ.\n\nQuem é: João Silva (Gráfica Boa)\nAssunto: Entrega de cartazes\nHorário: 14:05, registrada por Maria Souza\n\nToque em uma das opções para responder à portaria.',
+  'ficha fora da janela: o corpo como chega ao celular')
+igual(modeloDaFichaForaDaJanela({ naMeta: naMeta({ portaria_visita: 'UTILITY' }), montagem, cofre, textoDoAviso: 'aviso' })?.name, 'portaria_visita', 'ficha fora da janela: só o v1 aprovado, ele')
+igual(modeloDaFichaForaDaJanela({ naMeta: naMeta({ portaria_visita_v2: 'MARKETING', portaria_visita: 'UTILITY' }), montagem, cofre, textoDoAviso: 'aviso' })?.name, 'portaria_visita',
+  'ficha fora da janela: o v2 reclassificado como Marketing fica de fora')
+const fotoAprovada = naMeta({ portaria_visita_foto_v2: 'UTILITY', portaria_visita_v2: 'UTILITY' })
+igual(modeloDaFichaForaDaJanela({ naMeta: fotoAprovada, montagem, cofre, textoDoAviso: 'aviso' })?.name, 'portaria_visita_v2', 'ficha fora da janela: sem a foto, o de foto não serve')
+const modeloComAFoto = modeloDaFichaForaDaJanela({ naMeta: fotoAprovada, montagem: montagemDaFicha(ficha, '4490709327384033'), cofre, textoDoAviso: 'aviso' })
+igual([modeloComAFoto?.name, modeloComAFoto?.components[0]], ['portaria_visita_foto_v2', { type: 'header', parameters: [{ type: 'image', image: { id: '4490709327384033' } }] }], 'ficha fora da janela: com a foto, o de foto')
+const doAvisoAntigo = '*João Silva chegou para falar com você*\n\nDe Gráfica Boa.\n\nAbrir: https://p/portaria/visita/1'
+const hoje = modeloDaFichaForaDaJanela({ naMeta: naMeta({}), montagem, cofre, textoDoAviso: doAvisoAntigo })
+igual([hoje?.name, hoje?.components], ['aviso_do_palacio', [{ type: 'body', parameters: [{ type: 'text', text: textoParaModelo(doAvisoAntigo) }] }]], 'ficha fora da janela: hoje (tudo pendente), o aviso de antes pelo modelo do cofre')
+igual(modeloDaFichaForaDaJanela({ naMeta: naMeta({}), montagem, cofre: { ...cofre, modelo: null }, textoDoAviso: doAvisoAntigo }), null, 'ficha fora da janela: sem modelo nenhum, não sai (como o aviso de antes)')
+igual(modeloDaFichaForaDaJanela({ naMeta: naMeta({ portaria_visita_v2: 'UTILITY' }), montagem: null, cofre, textoDoAviso: 'aviso' })?.name, 'aviso_do_palacio', 'ficha fora da janela: sem montagem, o do cofre')
+
+// A resposta ao visitante: só o modelo aprovado (ele nunca escreveu ao número).
+const paraOVisitante = modeloDaSituacao('resposta_ao_visitante', naMeta({ portaria_resposta_visitante_v2: 'UTILITY', portaria_resposta_visitante: 'UTILITY' }),
+  { parametros: parametrosParaVisitante({ quem: 'Ana Lima', setor: 'Comunicação Social', resposta: 'aguardar' }) })
+const corpoAoVisitante = paraOVisitante?.components.find((c) => c.type === 'body')
+igual(corpoAoVisitante?.type === 'body' ? corpoPreenchido(modeloDoCatalogo('portaria_resposta_visitante_v2')!, corpoAoVisitante.parameters.map((x) => x.text)) : '',
+  'Recepção da Cruz Vermelha RJ: atualização sobre a sua visita a Ana Lima (Comunicação Social).\n\nSituação: Aguarde na recepção, por favor. Avisaremos por aqui quando puder subir.\n\nEm caso de dúvida, procure a recepção.',
+  'ao visitante: o v2, como chega ao celular')
+igual(modeloDaSituacao('resposta_ao_visitante', naMeta({ portaria_resposta_visitante_v2: 'MARKETING' }), { parametros: ['Ana', SITUACAO_PARA_VISITANTE.subir] }), null,
+  'ao visitante: sem modelo de Utilidade aprovado, nada sai (a portaria fica sabendo)')
+
+// A foto só sobe para a Meta quando pode aparecer.
+igual([
+  sobeAFotoDaFicha({ temFoto: true, janelaAberta: true, modeloComFoto: false }), sobeAFotoDaFicha({ temFoto: true, janelaAberta: null, modeloComFoto: false }),
+  sobeAFotoDaFicha({ temFoto: true, janelaAberta: false, modeloComFoto: true }), sobeAFotoDaFicha({ temFoto: true, janelaAberta: false, modeloComFoto: false }),
+  sobeAFotoDaFicha({ temFoto: false, janelaAberta: true, modeloComFoto: true }),
+], [true, true, true, false, false], 'ficha: a foto sobe com a janela aberta (ou sem saber) ou com modelo de foto aprovado; fechada e sem ele, não')
+
+// O toque chega ao webhook: o botão da ficha (button_reply) e a resposta rápida do modelo (button), sempre citando a ficha.
+const toque = (message: Record<string, unknown>) => lerEventoDaKapso({ message: { id: 'wt', from: '5521987654321', context: { id: 'wamid.FICHA' }, ...message } },
+  'whatsapp.message.received', null).mensagens[0]
+const noBotao = toque({ type: 'interactive', interactive: { type: 'button_reply', button_reply: { id: idsDaFicha[1], title: 'Aguarde na recepção' } } })
+igual([noBotao.toque, noBotao.citada, lerBotaoDaFicha(noBotao.texto)], [true, 'wamid.FICHA', { resposta: 'aguardar', visitaId: VISITA }], 'ficha: o toque no botão traz o id e cita a ficha')
+const noModelo = toque({ type: 'button', button: { payload: idsDaFicha[2], text: 'Não pode agora' } })
+igual([noModelo.toque, lerBotaoDaFicha(noModelo.texto)], [true, { resposta: 'recusar', visitaId: VISITA }], 'ficha: a resposta rápida do modelo, pelo payload')
+const semPayload = toque({ type: 'button', button: { text: 'Pode subir' } })
+igual([semPayload.toque, lerBotaoDaFicha(semPayload.texto)], [true, { resposta: 'subir', visitaId: null }], 'ficha: sem o payload, o título — a visita vem da ficha citada')
+const digitado = toque({ type: 'text', text: { body: idsDaFicha[0] } })
+igual(digitado.toque, false, 'ficha: o id digitado não é toque (o bot só lê a ficha pelo toque)')
 
 // ---------------------------------------------------------------- a foto do visitante no servidor (sharp de verdade, sem rede)
 async function conferirFotoDoServidor() {

@@ -1,8 +1,10 @@
 import {
-  BOTOES_DA_CONFERENCIA, PENDENCIA_VALE_MIN, TEXTO_PEDE_MOTIVO_DA_VISITA, TEXTO_PEDE_NOME_DO_VISITANTE, ehConfirmacao, ehPular, formatarNumero,
-  interativoDaEscolha, lerEscolha, lerSetorDaVisita, limpo, normalizar, numeroCanonico, primeiroNome, textoDaConferenciaDaVisita, textoDaEscolha,
-  textoPedeVisitado, type CategoriaDaMidia, type Interativo, type MidiaRecebida, type Opcao,
+  BOTOES_DA_CONFERENCIA, LIMITES_DO_INTERATIVO, PENDENCIA_VALE_MIN, RODAPE, TEXTO_PEDE_MOTIVO_DA_VISITA, TEXTO_PEDE_NOME_DO_VISITANTE, ehConfirmacao, ehPular,
+  formatarNumero, interativoDaEscolha, lerEscolha, lerSetorDaVisita, limpo, normalizar, numeroCanonico, primeiroNome, textoDaConferenciaDaVisita,
+  modeloParaEnviar, textoDaEscolha, textoPedeVisitado, type CategoriaDaMidia, type Interativo, type MidiaRecebida, type ModelosDoWhatsapp, type ObjetoDoModelo, type Opcao,
 } from './regras'
+import { modeloDaSituacao, type ModeloNaMeta, type MontagemDoModelo } from './modelos'
+import { PERGUNTA_DA_VISITA, RESPOSTAS, linkDaVisita, type RespostaDaVisita } from '@/lib/portaria/regras'
 
 /**
  * O registro da visita pelo WhatsApp em etapas (lib/whatsapp/portaria.ts), como o cadastro do QR da entrada — só as
@@ -20,6 +22,9 @@ import {
  *    privado vem só depois do "confirmo", com a visita já criada (lib/portaria/foto-servidor.ts).
  *  - Nada do visitante vai ao registro do bot (whatsapp_mensagens guarda só o comando) nem aos logs. A pendência
  *    guarda o que a conversa precisa e é redigida quando acaba (dadosRedigidos).
+ *
+ * Aqui também a ficha que quem é visitado recebe (lib/portaria/servidor.ts, avisarVisitado): o texto, os três botões
+ * com o id que amarra a visita, os parâmetros do modelo de fora da janela e quem pode responder por ela.
  */
 
 export type EtapaDaVisita = 'nome' | 'pessoa' | 'escolher_pessoa' | 'telefone' | 'consentimento' | 'empresa' | 'motivo' | 'cracha' | 'foto' | 'conferencia'
@@ -380,3 +385,131 @@ export const dadosRedigidos = (d: unknown): DadosDaVisita => {
   const etapa = d && typeof d === 'object' ? (d as DadosDaVisita).etapa : undefined
   return { ...(etapa ? { etapa } : {}), redigida: true }
 }
+
+// ------------------------------------------------------------------ a ficha de quem é visitado
+
+/**
+ * A ficha da visita, que quem é visitado recebe no WhatsApp no lugar do aviso comum (lib/portaria/servidor.ts,
+ * avisarVisitado): dentro da janela de 24 h, a mensagem com os três botões — e a foto no cabeçalho, quando há —; fora
+ * dela, o modelo aprovado da situação "visita" (lib/whatsapp/modelos.ts), com os mesmos três botões de resposta rápida.
+ *
+ * O id de cada botão (e o payload de cada resposta rápida do modelo) diz a resposta e a visita:
+ * `ficha:<1|2|3>:<o id da visita sem hífens>`, 40 caracteres — o teto do id interativo (LIMITES_DO_INTERATIVO.id).
+ * Ele só diz QUAL visita: responder, só quem é visitado nela (podeResponderPelaFicha, conferido em lib/whatsapp/acoes.ts,
+ * responderPelaFicha, e de novo no banco, portaria_responder_whatsapp). O id sozinho não autoriza nada.
+ */
+
+/** As três respostas na ordem dos botões: a mesma do modelo cadastrado e dos números 1, 2 e 3 (RESPOSTAS). */
+export const RESPOSTAS_DA_FICHA: readonly RespostaDaVisita[] = ['subir', 'aguardar', 'recusar']
+
+/** O título do botão: o rótulo da tela quando cabe, senão o curto — "Pode subir", "Aguarde na recepção" e "Não pode agora", os do modelo. */
+export const tituloDoBotaoDaFicha = (r: RespostaDaVisita): string =>
+  (RESPOSTAS[r].rotulo.length <= LIMITES_DO_INTERATIVO.tituloDoBotao ? RESPOSTAS[r].rotulo : RESPOSTAS[r].curto)
+
+const ID_DA_VISITA = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const BOTAO_DA_FICHA = /^ficha:([123]):([0-9a-f]{32})$/
+
+/** O id do botão da ficha (e o payload da resposta rápida do modelo); null se o id da visita não é um uuid. */
+export function idDoBotaoDaFicha(visitaId: string, resposta: RespostaDaVisita): string | null {
+  const id = String(visitaId ?? '').toLowerCase()
+  return ID_DA_VISITA.test(id) ? `ficha:${RESPOSTAS[resposta].numero}:${id.replace(/-/g, '')}` : null
+}
+
+/**
+ * O toque num botão da ficha: pelo id (a resposta e a visita) ou, na resposta rápida do modelo que voltasse sem o
+ * payload, pelo título exato do botão (só a resposta: a visita vem da mensagem citada — lib/whatsapp/acoes.ts,
+ * responderVisita). null se não é botão da ficha. Pelo título, sem recado: "Aguarde na recepção" não deixa "na recepção"
+ * de recado, nem "Não pode agora" um "pode agora".
+ */
+export function lerBotaoDaFicha(texto: string): { resposta: RespostaDaVisita; visitaId: string | null } | null {
+  const t = String(texto ?? '').trim()
+  const m = BOTAO_DA_FICHA.exec(t)
+  if (m) {
+    const h = m[2]
+    return { resposta: RESPOSTAS_DA_FICHA[Number(m[1]) - 1], visitaId: `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}` }
+  }
+  const n = normalizar(t)
+  const resposta = n ? RESPOSTAS_DA_FICHA.find((r) => normalizar(tituloDoBotaoDaFicha(r)) === n || normalizar(RESPOSTAS[r].rotulo) === n) : undefined
+  return resposta ? { resposta, visitaId: null } : null
+}
+
+/** Quem pode responder pela ficha: só quem é visitado naquela visita. O id do botão diz qual é a visita, nunca quem responde. */
+export const podeResponderPelaFicha = (visita: { visitado_id: string | null } | null | undefined, pessoaId: string): boolean =>
+  Boolean(visita?.visitado_id && pessoaId && visita.visitado_id === pessoaId)
+
+/** Os três botões da ficha, com a foto (o id da mídia na Meta) no cabeçalho quando há. null se o id da visita não serve. */
+export function interativoDaFicha(visitaId: string, imagem?: string | null): Interativo | null {
+  const botoes = RESPOSTAS_DA_FICHA.map((r) => ({ id: idDoBotaoDaFicha(visitaId, r), titulo: tituloDoBotaoDaFicha(r) }))
+  if (botoes.some((b) => !b.id)) return null
+  return { tipo: 'botoes', botoes: botoes.map((b) => ({ id: b.id as string, titulo: b.titulo })), ...(imagem ? { imagem } : {}) }
+}
+
+/** O que a ficha mostra. `chegada`: a hora ("14:05"); `registradaPor`: quem registrou ou confirmou a entrada ("você", quando foi a própria pessoa). */
+export type FichaDaVisita = { visitaId: string; visitante: string; empresa: string | null; motivo: string | null; chegada: string; registradaPor: string | null }
+
+/** O teto de cada campo na ficha: o corpo inteiro cabe no do interativo (1.024). O resto está na tela da visita. */
+const NA_FICHA = { visitante: 80, empresa: 80, motivo: 200, chegada: 20, registradaPor: 60 } as const
+
+const quemNaFicha = (f: FichaDaVisita) => ({ nome: limpo(f.visitante, NA_FICHA.visitante), empresa: f.empresa ? limpo(f.empresa, NA_FICHA.empresa) : '' })
+const chegadaDaFicha = (f: FichaDaVisita) =>
+  [limpo(f.chegada, NA_FICHA.chegada), f.registradaPor ? `registrada por ${limpo(f.registradaPor, NA_FICHA.registradaPor)}` : null].filter(Boolean).join(', ')
+
+/**
+ * O corpo da ficha (com os botões, dentro da janela; e o texto que sai sem eles, se a Meta recusar o formato ou a ficha
+ * esperar na fila): quem é e de onde vem, o motivo, a chegada, como responder — tocando, ou com 1, 2 ou 3, como o aviso
+ * de sempre — e o link da visita. Sempre cabe em LIMITES_DO_INTERATIVO.corpo (sem o rodapé, se precisar).
+ */
+export function textoDaFicha(f: FichaDaVisita, urlBase: string): string {
+  const q = quemNaFicha(f)
+  const partes = [
+    '*Visita para você na portaria*',
+    [`Visitante: *${q.nome}*${q.empresa ? ` (${q.empresa})` : ''}`, `Motivo: ${f.motivo ? limpo(f.motivo, NA_FICHA.motivo) : 'não informado'}`, `Chegada: ${chegadaDaFicha(f)}`].join('\n'),
+    `Toque em um dos botões para responder à portaria. _${PERGUNTA_DA_VISITA}_`,
+    `Abrir: ${urlBase}${linkDaVisita(f.visitaId)}`,
+  ]
+  const comRodape = [...partes, RODAPE].join('\n\n')
+  return comRodape.length <= LIMITES_DO_INTERATIVO.corpo ? comRodape : partes.join('\n\n').slice(0, LIMITES_DO_INTERATIVO.corpo)
+}
+
+/**
+ * As variáveis do modelo da visita (lib/whatsapp/modelos.ts, CATALOGO_DOS_MODELOS.visita): {{1}} quem é (o nome e, entre
+ * parênteses, de onde vem), {{2}} o motivo e {{3}} a chegada (a hora e quem registrou). montarModelo ainda limpa cada
+ * uma (uma linha, sem a formatação do WhatsApp) e corta para o corpo caber.
+ */
+export function parametrosDaFicha(f: FichaDaVisita): [string, string, string] {
+  const q = quemNaFicha(f)
+  return [`${q.nome}${q.empresa ? ` (${q.empresa})` : ''}`, f.motivo ? limpo(f.motivo, NA_FICHA.motivo) : 'Não informado', chegadaDaFicha(f)]
+}
+
+/**
+ * A montagem do modelo da visita (lib/whatsapp/modelos.ts, MontagemDoModelo): as variáveis, a foto (o id da mídia; só
+ * os modelos com cabeçalho de imagem a usam) e o payload de cada resposta rápida — o mesmo id dos botões da ficha.
+ * null se o id da visita não serve.
+ */
+export function montagemDaFicha(f: FichaDaVisita, imagem?: string | null): MontagemDoModelo | null {
+  const respostas = RESPOSTAS_DA_FICHA.map((r) => idDoBotaoDaFicha(f.visitaId, r))
+  if (respostas.some((r) => !r)) return null
+  return { parametros: parametrosDaFicha(f), imagem: imagem ?? null, respostas: respostas.map((r) => r as string) }
+}
+
+/**
+ * O modelo da ficha para fora da janela de 24 h: o primeiro aprovado da situação "visita" que monta (modelos.ts,
+ * modeloDaSituacao — portaria_visita_v2, depois portaria_visita; só APPROVED e UTILITY; o de foto, só com ela) e, sem
+ * nenhum, o aviso de antes pelo modelo dos avisos do cofre (`textoDoAviso`, o texto que o notificar mandaria —
+ * regras.ts, modeloParaEnviar): ninguém fica sem aviso porque o modelo da visita ainda não foi aprovado. null se nem
+ * esse existe (a ficha não sai, como o aviso de antes não sairia).
+ */
+export function modeloDaFichaForaDaJanela(p: { naMeta: readonly ModeloNaMeta[]; montagem: MontagemDoModelo | null; cofre: ModelosDoWhatsapp; textoDoAviso: string }): ObjetoDoModelo | null {
+  const daVisita = p.montagem ? modeloDaSituacao('visita', p.naMeta, p.montagem) : null
+  if (daVisita) return daVisita
+  const doCofre = modeloParaEnviar({ finalidade: 'aviso', modelos: p.cofre, texto: p.textoDoAviso })
+  return doCofre.ok ? doCofre.modelo : null
+}
+
+/**
+ * Vale subir a foto para a Meta antes de mandar a ficha? Só quando ela pode aparecer: com a janela de 24 h aberta (ou
+ * sem saber: `janelaAberta` null) ou com um modelo aprovado de cabeçalho de imagem para fora dela. Com a janela fechada
+ * e sem esse modelo, a foto não sai do Palácio à toa.
+ */
+export const sobeAFotoDaFicha = (p: { temFoto: boolean; janelaAberta: boolean | null; modeloComFoto: boolean }): boolean =>
+  p.temFoto && (p.janelaAberta !== false || p.modeloComFoto)

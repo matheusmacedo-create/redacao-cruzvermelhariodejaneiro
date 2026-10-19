@@ -1360,6 +1360,8 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   (`avisarVisitado`), `importante` (sai no WhatsApp mesmo com o Palácio aberto e
   à noite). O aviso sai também quando quem registrou é a própria pessoa visitada:
   `notificar()` nunca avisa o autor, então nesse caso o aviso vai sem `atorId`.
+  Desde 19/10/2026 (etapa 3), no WhatsApp vai a **ficha da visita** no lugar do
+  aviso comum (abaixo, "Ficha e resposta pelo WhatsApp"); o sino e o e-mail não mudam.
 - **Resposta de quem é visitado** (migração `20260929160000`). Três respostas,
   `subir` (pode subir e aguardar no hall), `aguardar` (na recepção) e `recusar`
   (não pode receber agora), com recado opcional (até 280 caracteres), que podem
@@ -1367,10 +1369,11 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   - pelo Palácio, em `/portaria/visita/[id]` (o link do aviso), pela função
     `portaria_responder` (quem é visitado ou a portaria, que registra o que
     chegou por telefone pelo botão "Resposta" da lista);
-  - pelo WhatsApp, respondendo a mensagem do aviso com 1, 2 ou 3
+  - pelo WhatsApp, respondendo a mensagem do aviso (ou da ficha) com 1, 2 ou 3
     (`alvoDoLink` reconhece `/portaria/visita/<id>`) ou tocando nos botões
-    "Pode subir", "Aguarde na recepção" e "Não pode agora", que o aviso leva
-    dentro da janela de 24 h (`interativoDoAviso`, ids `1`, `2` e `3`; §8.5), pela função
+    "Pode subir", "Aguarde na recepção" e "Não pode agora" — os da ficha (ids
+    `ficha:<n>:<visita>`, etapa 3) ou, no aviso que esperou na fila, os de
+    `interativoDoAviso` (ids `1`, `2` e `3`; §8.5) —, pela função
     `portaria_responder_whatsapp` (só `service_role`, confere que quem responde é
     o visitado). Sem citar a mensagem, só vale resposta clara
     (`respostaClaraDaVisita`) e só se houver uma única visita esperando a pessoa
@@ -1380,7 +1383,10 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
     entrada recebem o aviso com o recado, e o visitante recebe a situação no
     WhatsApp **só se autorizou** (`avisar_visitante`, marcado por ele no QR ou
     pela portaria depois de perguntar, e só com telefone). A mensagem ao
-    visitante nunca leva o recado: ele é para a portaria.
+    visitante nunca leva o recado: ele é para a portaria. Desde a etapa 3, ela
+    sai só pelo modelo aprovado (abaixo); sem ele, não sai, e o aviso da
+    portaria diz "O visitante não pôde ser avisado pelo WhatsApp: dê a resposta
+    a ele" (`visitanteSemAviso`, antes do recado: o sino corta em 280 letras).
   - A lista "Na filial agora" mostra a situação ao lado de cada visitante e se
     atualiza sozinha.
 - **Pelo WhatsApp (18/10/2026)** (`lib/whatsapp/portaria.ts`; §8.5, "A portaria
@@ -1417,6 +1423,49 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
   etapa (`redigirRegistrosEncerrados`, no começo e no fim de cada registro).
   Testes em `scripts/conferir-portaria.ts` e
   `supabase/tests/whatsapp-portaria-foto.test.sql`.
+- **Ficha e resposta pelo WhatsApp (19/10/2026, etapa 3):** sem migração nova.
+  - **A ficha** (`avisarVisitado` → `mandarFicha`, em `lib/portaria/servidor.ts`;
+    regras puras em `lib/whatsapp/portaria-regras.ts`): quem receberia o aviso no
+    WhatsApp (`quemRecebeNoWhatsapp`, a mesma conta do `notificar`: número
+    confirmado, sem pausa, assunto ligado, conta ativa, teto do dia) recebe, no
+    lugar dele, a ficha — e o `notificar` pula o WhatsApp dessa pessoa
+    (`Aviso.semWhatsapp`), sem mensagem repetida; se a conta não pôde ser lida,
+    vai o aviso de sempre. A ficha sai em `after()` pela `entregar` de sempre
+    (volume, reenvio; registrada com o id do aviso do sino, para a resposta que
+    a cita voltar à visita): dentro da janela de 24 h, botões com a foto no
+    cabeçalho (`interativoDaFicha`; corpo `textoDaFicha`, até 1024: visitante e
+    empresa, motivo, chegada e quem registrou, a dica do 1/2/3 e o link — nunca
+    telefone nem crachá); fora dela, `modeloDaFichaForaDaJanela`: o modelo
+    aprovado da visita (`portaria_visita_v2`, depois `portaria_visita`; os de
+    foto só com ela; só APPROVED + UTILITY), com o mesmo id em cada resposta
+    rápida, ou, sem nenhum, o aviso de antes pelo modelo dos avisos do cofre.
+    A foto sobe à Meta (`subirMidia`) só quando pode aparecer
+    (`sobeAFotoDaFicha`: janela aberta pela `whatsapp_cota_de_conversas`, ou sem
+    saber, ou com modelo de foto aprovado) e é apagada de lá
+    `ESPERA_PARA_APAGAR_A_FOTO_MS` (20 s) depois do envio, por melhor esforço
+    (a Meta guarda 30 dias se a função acabar antes). Na tela, a foto sobe depois
+    do registro: o formulário manda `foto_a_seguir`, e a ficha espera por ela
+    até `ESPERA_DA_FOTO_MS` (20 s; a página tem `maxDuration` 60).
+  - **Os botões** "Pode subir", "Aguarde na recepção" e "Não pode agora" têm o id
+    `ficha:<1|2|3>:<uuid sem hífens>` (40 caracteres, o teto do id interativo;
+    o mesmo é o payload da resposta rápida do modelo). O bot lê o toque antes do
+    aviso citado, da pergunta aberta e do assistente (`lerBotaoDaFicha`, só com
+    `toque`; registro `ficha_da_visita`) e responde por `responderPelaFicha`: o
+    id diz **qual** visita, nunca quem pode — só quem é visitado nela
+    (`podeResponderPelaFicha`; e o banco de novo, `portaria_responder_whatsapp`).
+    A resposta rápida que voltasse sem o payload traz o título, que vale pela
+    ficha citada (sem recado: "Aguarde na recepção" não deixa "na recepção").
+  - **A resposta ao visitante** (`avisarOVisitante`): o visitante nunca escreveu
+    ao número, então só o modelo (`portaria_resposta_visitante_v2`, depois
+    `portaria_resposta_visitante`; {{1}} quem e o setor, {{2}} a situação —
+    `parametrosParaVisitante`), sem fila. O registro em `whatsapp_mensagens` vai
+    **sem o número** do visitante (LGPD; a cota diária deixa de contar essas
+    conversas) e com os dígitos longos tirados do erro.
+  - Testes: `scripts/conferir-portaria.ts` (ids, título, quem responde, o texto
+    no máximo, o interativo, a escolha do modelo, o recuo, o toque no webhook,
+    a resposta ao visitante) e `scripts/conferir-whatsapp.ts` (a ficha de
+    verdade contra a Kapso de mentira: dentro e fora da janela, o de foto e o
+    recuo para o cofre).
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
   aparece com alerta. Os crachás para imprimir (`/portaria/crachas`) saem deitados (86 × 54 mm,
@@ -2130,7 +2179,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
   `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
   `portaria.ts` (as visitas do dia e registrar quem chegou, com a foto), `portaria-regras.ts` (puro: as etapas do
-  registro — `npx tsx scripts/conferir-portaria.ts`), `modelos.ts` (puro: o catálogo dos modelos da Meta
+  registro e a ficha de quem é visitado — `npx tsx scripts/conferir-portaria.ts`), `modelos.ts` (puro: o catálogo dos modelos da Meta
   por situação, a escolha do aprovado e a montagem — veja “Portaria pelo WhatsApp com foto”),
   `financeiro.ts` (as decisões do Financeiro e de Compras), `presenca.ts` (a chamada da ação de hoje),
   `frota.ts` (a frota agora e o diário de bordo), `estoque.ts` (o saldo de um material),
@@ -2337,7 +2386,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   mesma `portaria_registrar_entrada` da tela,
   chamada como a pessoa por `whatsapp_portaria_registrar_entrada` (só service role, sessão aal1: o banco
   confere de novo a portaria e a verificação, e `registrado_por` é a pessoa), e o aviso é o mesmo
-  `avisarVisitado` — quem é visitado responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
+  `avisarVisitado` — quem é visitado recebe a ficha (desde a etapa 3) e responde pelos botões ou com 1, 2 ou 3,
+  e quem registrou recebe a resposta.
   Documento fica na tela. As etapas usam `whatsapp_pendencias` (tipo `registrar_visita`).
 - **Confirmar no Palácio (18/10/2026)** (`lib/whatsapp/confirmacoes.ts`, tela `app/confirmar/[token]`,
   tabela `whatsapp_confirmacoes`, migração `20261018223000`): o que é sensível e foi pedido pelo WhatsApp
@@ -2941,16 +2991,30 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     (`textoDaEntradaRegistrada`) diz a hora, quem foi avisado, a autorização e se a foto entrou. Sem a migração
     `20261019040000`, a foto não entra (o arquivo sai do Blob) e a entrada vale. O assistente não muda: o
     `preparar_registro_de_visita` já tinha `empresa`; telefone, autorização e foto ficam no fluxo guiado.
-  - **Próximo passo (etapa 3):** a ficha para quem é visitado (o interativo com a foto no cabeçalho, ou o modelo
-    `portaria_visita_v2` / `portaria_visita` fora da janela) no lugar do aviso de WhatsApp de `avisarVisitado`, e a
-    resposta ao visitante pelos modelos `portaria_resposta_visitante*` em `aposResposta`.
+  - **Etapa 3 (feita, abaixo):** a ficha para quem é visitado e a resposta ao visitante pelos modelos.
+- **Portaria pelo WhatsApp com foto — a ficha e a resposta (19/10/2026, etapa 3):** §7.24, "Ficha e resposta pelo
+  WhatsApp", tem o desenho. O que mudou no WhatsApp em si:
+  - `notificar` devolve as linhas gravadas no sino (`LinhaDoSino[]`) e aceita `semWhatsapp` (quem recebe a
+    mensagem por outro caminho); a decisão de quem recebe no WhatsApp saiu para `quemRecebeNoWhatsapp`
+    (exportada, a mesma para o aviso comum e a ficha).
+  - `Mensagem.modeloForaDaJanela` (`fila.ts`): a `entregar` passa o modelo da situação ao envio; o que espera na
+    fila não o guarda e sai como o aviso de antes (os botões 1, 2 e 3 pelo link, o modelo do cofre).
+  - `bot.ts` lê o toque na ficha antes do aviso citado, da pergunta e do assistente (`fichaTocada`);
+    `responderVisita` (o caminho do aviso citado) recusa o botão de outra visita e lê o título do botão sem recado.
+  - O assistente (`preparar_registro_de_visita`, o prompt e o texto do plano) manda o telefone, a autorização e a
+    foto para o registro guiado (`visitante:` e o nome); a ferramenta já tinha `empresa`.
+  - **Próximo passo:** os outros recuos de modelo (avisos, segurança, aprovações…) continuam pelo modelo do cofre
+    (catalogar os `palacio_*` em `modelos.ts`, como na etapa 1); e conferir em produção, quando os modelos da
+    portaria forem aprovados, se a leitura da lista pelo WABA volta (e não 401).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
   `responderAoAviso` desvia para `responderVisita` antes da conferência da verificação em duas
   etapas, e `atenderMensagem` aceita "1", "2" ou "3" sem citar quando só uma visita espera a pessoa
-  (digitado; o toque numa lista não). Dentro da janela, o aviso leva os botões “Pode subir”, “Aguarde
-  na recepção” e “Não pode agora”; o toque cita o aviso e segue o mesmo caminho.
+  (digitado; o toque numa lista não). Os botões “Pode subir”, “Aguarde na recepção” e “Não pode agora”
+  vêm na ficha (ids `ficha:<n>:<visita>`, lidos antes de tudo e só para quem é visitado:
+  `responderPelaFicha`) ou, no aviso que esperou na fila, com os ids 1, 2 e 3, que citam o aviso e seguem
+  o mesmo caminho do número digitado.
 - **Baileys é não oficial:** o WhatsApp pode bloquear número que pareça spam. Por isso só mandamos para
   quem confirmou o número, com teto por link. Use um chip só do Palácio.
 

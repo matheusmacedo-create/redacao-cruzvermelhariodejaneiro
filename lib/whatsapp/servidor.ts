@@ -9,8 +9,8 @@ import {
 } from './regras'
 import { modeloDaSituacao, type MontagemDoModelo, type ModeloNaMeta, type SituacaoDoModelo } from './modelos'
 import {
-  apagarMidiaKapso, baixarMidiaKapso, enviarModeloKapso, enviarTextoKapso, ligarWebhookKapso, modelosDaMetaKapso, numeroIdValido, perfilConectadoKapso,
-  situacaoDaConexaoKapso, situacaoDoWebhookKapso, subirMidiaKapso, type ConfigDaKapso,
+  TETO_DA_IMAGEM_NA_META, apagarMidiaKapso, baixarMidiaKapso, enviarModeloKapso, enviarTextoKapso, ligarWebhookKapso, modelosDaMetaKapso, numeroIdValido,
+  perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso, subirMidiaKapso, type ConfigDaKapso,
 } from './kapso'
 
 /**
@@ -99,6 +99,9 @@ export const baixarMidia = (config: ConfigDoWhatsapp, midiaId: string, tetoBytes
   baixarMidiaKapso(config, midiaId, tetoBytes, reserva)
 
 export type MidiaEnviada = { ok: true; id: string } | { ok: false; erro: string; motivo: MotivoDaFalha }
+
+/** O teto da Meta para a imagem que o Palácio sobe (5 MB, JPEG ou PNG). */
+export { TETO_DA_IMAGEM_NA_META }
 
 /** Sobe uma imagem (JPEG ou PNG, até 5 MB) para a Meta; o id vai no cabeçalho dos botões ou do modelo (kapso.ts, subirMidiaKapso). */
 export const subirMidia = (config: ConfigDoWhatsapp, conteudo: Uint8Array, mime?: string): Promise<MidiaEnviada> =>
