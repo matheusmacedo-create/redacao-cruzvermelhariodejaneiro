@@ -55,8 +55,12 @@ export async function clienteOAuth(workspaceId: string): Promise<{ clientId: str
   return { clientId: c.clientId, clientSecret: c.clientSecret }
 }
 
-/** `escopos`: os do Gmail por padrão; a conexão de administrador (lib/google/diretorio.ts) passa os dela. */
-export function urlDeAutorizacao(clientId: string, estado: string, escopos: readonly string[] = ESCOPOS): string {
+/**
+ * `escopos`: os do Gmail por padrão; a conexão de administrador (lib/google/diretorio.ts) e a do Drive
+ * (lib/google/drive.ts) passam os delas. `somenteEstes`: a autorização vale só para os escopos pedidos, sem somar os
+ * que a mesma conta já deu ao Palácio em outra conexão (a do Drive fica só com o drive.file, mesmo na conta do Gmail).
+ */
+export function urlDeAutorizacao(clientId: string, estado: string, escopos: readonly string[] = ESCOPOS, opcoes: { somenteEstes?: boolean } = {}): string {
   const u = new URL('https://accounts.google.com/o/oauth2/v2/auth')
   u.searchParams.set('client_id', clientId)
   u.searchParams.set('redirect_uri', urlDeRetorno())
@@ -66,7 +70,7 @@ export function urlDeAutorizacao(clientId: string, estado: string, escopos: read
   // reconexão (sem consent o Google devolve só token de acesso).
   u.searchParams.set('access_type', 'offline')
   u.searchParams.set('prompt', 'consent')
-  u.searchParams.set('include_granted_scopes', 'true')
+  u.searchParams.set('include_granted_scopes', opcoes.somenteEstes ? 'false' : 'true')
   u.searchParams.set('state', estado)
   return u.toString()
 }
@@ -98,8 +102,11 @@ export async function chamarToken(corpo: Record<string, string>) {
   return dados
 }
 
-/** Troca o código da volta do consentimento pela autorização duradoura. */
-export async function trocarCodigo(workspaceId: string, codigo: string): Promise<{ refreshToken: string; email: string }> {
+/**
+ * Troca o código da volta do consentimento pela autorização duradoura. `accessToken`: o token de agora, de curta
+ * duração — a conexão do Drive, sem openid, lê com ele qual conta autorizou (lib/google/drive.ts, contaDoDrive).
+ */
+export async function trocarCodigo(workspaceId: string, codigo: string): Promise<{ refreshToken: string; email: string; accessToken: string }> {
   const { clientId, clientSecret } = await clienteOAuth(workspaceId)
   const dados = await chamarToken({
     code: codigo, client_id: clientId, client_secret: clientSecret,
@@ -111,7 +118,7 @@ export async function trocarCodigo(workspaceId: string, codigo: string): Promise
   const idToken = typeof dados.id_token === 'string' ? dados.id_token : ''
   let email = ''
   try { email = String(JSON.parse(Buffer.from(idToken.split('.')[1] ?? '', 'base64url').toString('utf8')).email ?? '') } catch { email = '' }
-  return { refreshToken, email }
+  return { refreshToken, email, accessToken: typeof dados.access_token === 'string' ? dados.access_token : '' }
 }
 
 const cache = new Map<string, { token: string; expira: number }>()

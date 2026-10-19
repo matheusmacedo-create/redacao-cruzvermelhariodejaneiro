@@ -8,9 +8,14 @@ import { obterWorkspaceSemVerificacao } from '@/lib/session'
 import {
   avisarResultadoPeloWhatsapp, consumirConfirmacao, lerConfirmacao, registrarResultado, situacaoDaConfirmacao,
 } from '@/lib/whatsapp/confirmacoes'
-import { executar, faltaNaConferencia, foraDoAcessoDaEscola, linkDaConfirmacao } from '@/lib/whatsapp/confirmar-no-palacio'
+import { executar, faltaNaConferencia, foraDoAcessoDaEscola, linkDaConfirmacao, type QuemConfirma } from '@/lib/whatsapp/confirmar-no-palacio'
+import { executarPlanoNoPalacio as executarPlano } from '@/lib/whatsapp/assistente/palacio'
+import type { Confirmacao } from '@/lib/whatsapp/confirmacoes'
 
 export type ResultadoDaConfirmacao = { erro?: string; feito?: string; link?: string }
+
+/** O recibo na tela: o mesmo texto do WhatsApp, sem a marcação de negrito. */
+const paraATela = (texto: string) => texto.replace(/\*/g, '')
 
 /**
  * "Confirmar" na tela do link (app/confirmar/[token]): só quem pediu pelo
@@ -34,6 +39,8 @@ export async function confirmarNoPalacio(token: string, conferidos: string[] = [
     if (foraDoAcessoDaEscola(c, context.role)) return { erro: 'Isto fica fora do seu acesso no Palácio.', link }
     const quem = { userId: context.user.id, workspaceId: context.workspace.id, papel: context.role, nome: (context.profile?.full_name as string | null) ?? null }
     const conferencia = (Array.isArray(conferidos) ? conferidos : []).map(String).slice(0, 50)
+    // O plano do assistente tem o caminho dele: os passos pela sessão, começando pela transição atômica do plano.
+    if (c.acao === 'plano') return executarPlanoNoPalacio(supabase, c, quem, conferencia)
     const falta = await faltaNaConferencia(supabase, c, quem, conferencia)
     if (falta) return { erro: falta }
 
@@ -53,4 +60,32 @@ export async function confirmarNoPalacio(token: string, conferidos: string[] = [
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível confirmar.') }
   }
+}
+
+/**
+ * O "Confirmar" do plano do assistente (lib/whatsapp/assistente/palacio.ts): a conferência do setor antes de tudo;
+ * depois, a transição atômica do plano (no_palacio → executando: dois cliques ou duas abas não executam duas vezes),
+ * os passos pela sessão e o recibo — na tela, no histórico da confirmação e no WhatsApp de quem pediu. O link só marca
+ * o uso (consumirConfirmacao), depois da transição.
+ */
+async function executarPlanoNoPalacio(supabase: Awaited<ReturnType<typeof createClient>>, c: Confirmacao, quem: QuemConfirma, conferidos: string[]): Promise<ResultadoDaConfirmacao> {
+  const admin = createAdminClient()
+  const link = linkDaConfirmacao(c)
+  const r = await executarPlano({ supabase, admin, c, quem, conferidos })
+  if ('erro' in r) return { erro: r.erro }
+  const { desfecho } = r
+  // O plano já não esperava o Palácio (confirmado em outra aba, cancelado, vencido): nada foi feito agora.
+  if (desfecho.tipo === 'nada' || desfecho.tipo === 'no_palacio') return { erro: desfecho.tipo === 'nada' ? desfecho.texto : 'Este plano ainda espera a confirmação.', link }
+  await consumirConfirmacao(admin, c.id, quem.userId)
+  const feito = desfecho.tipo === 'executado'
+  // O recibo já começa por "Feito:", "Feito em parte:" ou "Nada foi feito:".
+  await registrarResultado(admin, c.id, paraATela(desfecho.texto))
+  const { error } = await admin.from('activity_log').insert({
+    workspace_id: c.workspaceId, actor_id: quem.userId, action: feito ? 'whatsapp_confirmado' : 'whatsapp_confirmacao_recusada',
+    entity_type: 'whatsapp_confirmacao', entity_id: c.id, metadata: { acao: c.acao, alvo_id: c.alvoId, plano_id: c.alvoId, via: 'assistente', resultado: desfecho.tipo },
+  })
+  if (error) console.error('[confirmar] histórico do plano não gravado:', error.message)
+  // O recibo também vai ao WhatsApp de quem pediu (sem textos de ação: só o que foi feito e os links).
+  await avisarResultadoPeloWhatsapp(admin, c.workspaceId, quem.userId, `Confirmado no Palácio.\n\n${desfecho.texto}`)
+  return feito ? { feito: paraATela(desfecho.texto), link } : { erro: paraATela(desfecho.texto), link }
 }

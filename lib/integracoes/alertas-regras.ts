@@ -5,7 +5,8 @@
  *
  * Quando uma integração para em silêncio, o primeiro a saber é o Palácio:
  * a troca do token do Google volta "invalid_grant", o Resend recusa a chave,
- * o R2 não grava. Antes, isso ia só ao log (e ao estado "expirada" do Google,
+ * o R2 não grava, a Anthropic recusa a chave ou o modelo do assistente do
+ * WhatsApp, o Google Drive da filial expira ou enche. Antes, isso ia só ao log (e ao estado "expirada" do Google,
  * que só o "status" do WhatsApp mostrava). Agora vira um aviso curto, com o
  * que fazer, no sino, no e-mail e no WhatsApp dos administradores
  * (lib/integracoes/alertas.ts). A queda do próprio WhatsApp continua sendo
@@ -17,14 +18,14 @@
  * prazo são o mesmo episódio.
  */
 
-export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'resend', 'r2'] as const
+export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'google_drive', 'resend', 'r2', 'claude'] as const
 export type IntegracaoAlertada = (typeof INTEGRACOES_ALERTADAS)[number]
 
 /** No máximo um alerta por integração neste intervalo (o mesmo dos alertas do WhatsApp). */
 export const ALERTA_DE_INTEGRACAO_A_CADA_HORAS = 6
 
-/** Chave (ou domínio) recusada, ou o serviço fora do ar ou limitando. */
-export type MotivoDoAlerta = 'chave' | 'servico'
+/** Chave (ou domínio) recusada, o serviço fora do ar ou limitando, ou (no assistente do WhatsApp) o modelo que não existe. */
+export type MotivoDoAlerta = 'chave' | 'servico' | 'modelo'
 
 /** O alerta sai? Só se não houve outro da mesma integração nas últimas horas (data futura não vale: activity_log aceita qualquer data). */
 export function alertaDeIntegracaoSai(p: { ultimoAlertaEm: string | null; agora: Date }): boolean {
@@ -76,6 +77,20 @@ export function textoDoAlertaDeIntegracao(integracao: IntegracaoAlertada, p: { c
       link: '/configuracoes/email', botao: 'Reconectar a conta de administrador',
     }
   }
+  if (integracao === 'google_drive') {
+    // A conexão do Drive (lib/google/drive.ts): a autorização que caiu (sem motivo, ou "chave") ou o Drive cheio ("servico").
+    return p.motivo === 'servico'
+      ? {
+        titulo: 'O Google Drive do Palácio está sem espaço',
+        mensagem: `O Drive${conta ? ` de ${conta}` : ' da conta conectada'} recusou por falta de espaço: as cópias dos envios e os documentos do WhatsApp não estão entrando. Libere espaço ou troque a conta em Configurações → E-mail dos setores.`,
+        link: '/configuracoes/email', botao: 'Ver o Google Drive',
+      }
+      : {
+        titulo: 'A conexão do Google Drive expirou',
+        mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Drive'} expirou ou foi revogada: as cópias dos envios e os documentos do WhatsApp param até reconectar. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Drive.`,
+        link: '/configuracoes/email', botao: 'Reconectar o Google Drive',
+      }
+  }
   if (integracao === 'google_oauth') {
     return {
       titulo: 'O Google recusou o cliente OAuth',
@@ -95,6 +110,28 @@ export function textoDoAlertaDeIntegracao(integracao: IntegracaoAlertada, p: { c
         mensagem: 'O Resend não respondeu ou limitou os envios: avisos, links de senha e convites por e-mail podem não estar saindo. Veja o status e o plano no painel do Resend.',
         link: '/configuracoes/integracoes', botao: 'Ver as integrações',
       }
+  }
+  if (integracao === 'claude') {
+    // O assistente do WhatsApp (lib/whatsapp/assistente/uso.ts): pausado, e o bot de comandos responde sozinho.
+    if (p.motivo === 'chave') {
+      return {
+        titulo: 'O assistente do WhatsApp parou: a Anthropic recusou a chave',
+        mensagem: 'A Anthropic recusou a chave do Claude: o assistente do WhatsApp ficou pausado e o bot de comandos responde sozinho. Confira ANTHROPIC_API_KEY (ou CLAUDE_API) na Vercel e os créditos no console da Anthropic.',
+        link: '/configuracoes/whatsapp', botao: 'Ver o assistente',
+      }
+    }
+    if (p.motivo === 'modelo') {
+      return {
+        titulo: 'O assistente do WhatsApp parou: o modelo não existe',
+        mensagem: 'A Anthropic não achou o modelo do assistente do WhatsApp (ou ele não está liberado para a conta): o assistente ficou pausado e o bot de comandos responde sozinho. Confira WHATSAPP_IA_MODELO na Vercel.',
+        link: '/configuracoes/whatsapp', botao: 'Ver o assistente',
+      }
+    }
+    return {
+      titulo: 'O assistente do WhatsApp está falhando',
+      mensagem: 'A Anthropic não respondeu ao assistente do WhatsApp: ele pausa sozinho por alguns minutos e o bot de comandos continua respondendo. Veja o status no console da Anthropic.',
+      link: '/configuracoes/whatsapp', botao: 'Ver o assistente',
+    }
   }
   return p.motivo === 'chave'
     ? {

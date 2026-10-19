@@ -5,7 +5,9 @@ import { conferirFalhasSemModelo, conferirWebhook, falhasRecentes, registrarEsta
 import { falhasSemModelo } from '@/lib/whatsapp/regras'
 import { processarFila } from '@/lib/whatsapp/fila'
 import { concluirEsquecidos } from '@/lib/whatsapp/envio'
+import { copiarEnviosPendentes } from '@/lib/whatsapp/drive'
 import { lembrarFichas } from '@/lib/rh/convites'
+import { rotinaDoAssistente } from '@/lib/whatsapp/assistente/rotina'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -18,7 +20,10 @@ export const maxDuration = 300
  * uma vez por episódio (lib/whatsapp/estado.ts). Depois faz a fila andar — é
  * aqui que saem os avisos que esperaram o fim do horário de silêncio e os
  * reenvios do que falhou de madrugada. No fim, registra a execução em cada
- * espaço (é a "Rotina diária" do comando "status").
+ * espaço (é a "Rotina diária" do comando "status"). O assistente do WhatsApp
+ * tem a parte dele: apaga o que venceu e avisa a administração do que pede
+ * atenção nas últimas 24 h (lib/whatsapp/assistente/rotina.ts). E a cópia dos
+ * envios no Google Drive que não terminou é retomada (lib/whatsapp/drive.ts).
  *
  * Protegida por CRON_SECRET, como /api/notificacoes/resumo.
  */
@@ -57,9 +62,13 @@ export async function GET(request: Request) {
   }
   // Fotos mandadas pelo WhatsApp num envio que a pessoa não fechou: vão para a caixa como estão.
   const enviosFechados = await concluirEsquecidos(admin)
+  // A cópia no Google Drive que caiu no meio (ou esperou o Drive voltar): retomada aqui, sem duplicar arquivo.
+  const enviosNoDrive = await copiarEnviosPendentes(admin)
   // Ficha da Equipe pedida pelo WhatsApp e ainda não preenchida: lembra (com link novo), no máximo 2 vezes.
   const fichasLembradas = await lembrarFichas(admin)
   const fila = await processarFila(admin, null, { orcamentoMs: 240_000, limite: 200 })
+  // O assistente: limpeza (memória, planos e uso vencidos) e os alertas das últimas 24 h.
+  const assistente = await rotinaDoAssistente(admin)
   await registrarRotina(admin, conferidos)
-  return Response.json({ ok: true, conexoes, recebimento, semModelo, alertas, fila, enviosFechados, fichasLembradas })
+  return Response.json({ ok: true, conexoes, recebimento, semModelo, alertas, fila, enviosFechados, enviosNoDrive, fichasLembradas, assistente })
 }

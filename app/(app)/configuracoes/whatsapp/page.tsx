@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { PainelDoWhatsapp, type LinhaDoRegistroNaTela } from '@/components/admin/whatsapp'
+import { CartaoDoAssistente } from '@/components/admin/whatsapp-assistente'
 import { exigirAdministracao } from '@/lib/configuracoes/servidor'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { cotaDeConversas, resumoDaFila } from '@/lib/whatsapp/fila'
 import { configDoWhatsapp, perfilConectado, situacaoDaConexao, situacaoDoWebhook } from '@/lib/whatsapp/servidor'
+import { estadoDoAssistente } from '@/lib/whatsapp/assistente/uso'
 import { formatarNumero, mascararNumero } from '@/lib/whatsapp/regras'
 
 export const metadata = { title: 'WhatsApp — Configurações' }
@@ -32,7 +34,7 @@ export default async function WhatsappPage() {
 
   const supabase = await createClient()
   const admin = createAdminClient()
-  const [conexao, webhook, meu, registro, fila, cota] = await Promise.all([
+  const [conexao, webhook, meu, registro, fila, cota, assistente] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, context.workspace.id),
     supabase.from('whatsapp_contas').select('numero').eq('user_id', context.user.id).maybeSingle(),
@@ -42,6 +44,8 @@ export default async function WhatsappPage() {
     resumoDaFila(admin, context.workspace.id),
     // As conversas iniciadas nas últimas 24 h (a cota diária da Meta): só a contagem.
     cotaDeConversas(admin, context.workspace.id),
+    // O assistente (whatsapp_ia_config): a configuração e os números de hoje, sem nada de conversa.
+    estadoDoAssistente(admin, context.workspace.id),
   ])
   const conectado = conexao.estado === 'conectado' ? await perfilConectado(config) : { numero: null, nome: null }
 
@@ -72,5 +76,8 @@ export default async function WhatsappPage() {
       fila={fila}
       conversas={cota?.usadas ?? null}
     />
+    <div className="mt-6">
+      <CartaoDoAssistente a={assistente} />
+    </div>
   </div>
 }

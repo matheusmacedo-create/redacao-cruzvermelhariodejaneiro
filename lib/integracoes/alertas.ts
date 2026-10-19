@@ -10,9 +10,9 @@ type Admin = ReturnType<typeof createAdminClient>
  * e no WhatsApp dos administradores do espaço, como qualquer aviso de
  * notificar(). Quem chama:
  *
- *  - lib/google/gmail.ts e diretorio.ts: a autorização passou de "ativa" a
- *    "expirada" (só na troca, não a cada leitura que falha) e o cliente OAuth
- *    recusado;
+ *  - lib/google/gmail.ts, diretorio.ts e drive.ts: a autorização passou de
+ *    "ativa" a "expirada" (só na troca, não a cada leitura que falha), o
+ *    cliente OAuth recusado e o Drive sem espaço;
  *  - lib/newsletter/resend.ts: a chave ou o domínio recusados, o Resend fora
  *    do ar ou no limite do plano;
  *  - lib/armazenamento/r2.ts: a gravação que falhou por credencial, bucket ou

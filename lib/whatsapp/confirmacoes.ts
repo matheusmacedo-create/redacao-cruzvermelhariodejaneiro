@@ -19,6 +19,12 @@ import { CONFIRMACAO_VALE_MIN } from './regras'
  * executa pela mesma função da tela (decidirAprovacao, decidirPedido,
  * votarNaRodada, desativarUsuario), com as mesmas conferências do banco.
  *
+ * O plano do assistente (acao "plano", migração 20261019020000) também vem
+ * por aqui: o plano inteiro que tem um passo sensível — o voto, a mensagem
+ * ou o comentário de quem usa a verificação em duas etapas, a decisão de
+ * despesa ou compra — vira um link só, e a página executa os passos pela
+ * sessão (lib/whatsapp/assistente/palacio.ts). O alvo é o próprio plano.
+ *
  * O link:
  *  - é de uso único: a gravação de `usado_em` é condicional, e só uma
  *    confirmação passa (consumirConfirmacao);
@@ -34,7 +40,7 @@ import { CONFIRMACAO_VALE_MIN } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
-export type AcaoConfirmavel = 'decidir_despesa' | 'decidir_compra' | 'votar_aprovacao' | 'desativar_conta'
+export type AcaoConfirmavel = 'decidir_despesa' | 'decidir_compra' | 'votar_aprovacao' | 'desativar_conta' | 'plano'
 
 export type Confirmacao = {
   id: string
@@ -49,7 +55,7 @@ export type Confirmacao = {
   resultado: string | null
 }
 
-const ACOES: readonly AcaoConfirmavel[] = ['decidir_despesa', 'decidir_compra', 'votar_aprovacao', 'desativar_conta']
+const ACOES: readonly AcaoConfirmavel[] = ['decidir_despesa', 'decidir_compra', 'votar_aprovacao', 'desativar_conta', 'plano']
 
 /** No máximo tantos links por pessoa por hora: o WhatsApp não vira fábrica de links. */
 const LINKS_POR_HORA = 20
@@ -60,7 +66,10 @@ export const tokenNoFormato = (token: string) => /^[A-Za-z0-9_-]{43}$/.test(toke
 export const hashDaConfirmacao = (token: string) => createHash('sha256').update(`whatsapp-confirmacao:${token}`, 'utf8').digest('hex')
 export const caminhoDaConfirmacao = (token: string) => `/confirmar/${token}`
 
-/** O link de confirmar no Palácio. "limite": muitos links na última hora; "indisponivel": sem a tabela (ou o banco recusou). */
+/**
+ * O link de confirmar no Palácio. "limite": muitos links na última hora; "indisponivel": sem a tabela (ou o banco
+ * recusou — o plano antes da migração 20261019020000, por exemplo). O link do plano leva plano_id (= alvoId).
+ */
 export async function criarConfirmacao(admin: Admin, p: {
   workspaceId: string; userId: string; acao: AcaoConfirmavel; alvoId: string; dados: Record<string, unknown>
 }): Promise<{ url: string } | { erro: 'limite' | 'indisponivel' }> {
@@ -77,6 +86,7 @@ export async function criarConfirmacao(admin: Admin, p: {
     const { error } = await admin.from('whatsapp_confirmacoes').insert({
       workspace_id: p.workspaceId, user_id: p.userId, acao: p.acao, alvo_id: p.alvoId, dados: p.dados, token_hash: hashDaConfirmacao(token),
       expira_em: new Date(agora.getTime() + CONFIRMACAO_VALE_MIN * 60_000).toISOString(),
+      ...(p.acao === 'plano' ? { plano_id: p.alvoId } : {}),
     })
     if (error) {
       console.error('[whatsapp] confirmação não criada:', error.message)

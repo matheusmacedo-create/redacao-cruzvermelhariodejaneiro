@@ -1003,6 +1003,9 @@ estão em `docs/envio-de-acoes.md`. Em resumo:
   e copia para a Biblioteca só o que foi marcado.
 - Quem enviou é avisado na primeira publicação da matéria (`avisarQuemEnviou`, chamado de
   `publicarMateria`).
+- **Cópia no Google Drive** (§7.29c): o envio que chegou pelo WhatsApp, ao fechar, é copiado do R2 para
+  "Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título> (ENV-…)"; a ficha mostra "Cópia no Google Drive"
+  quando todos os arquivos chegaram (`envios.drive_pasta_link`, lido à parte para a tela não depender da migração).
 - **Álbum do evento** (`docs/envio-de-acoes.md` §9): `envio_eventos` dá a cada evento um link de
   envio (`/enviar/<codigo>`) e um álbum por link secreto (`/album/<token>`, sem login), com .zip em
   fluxo e "Esconder do álbum". Os arquivos são servidos por `/api/publico/album/...`, que confere o
@@ -1692,6 +1695,60 @@ Admin do Google, um administrador gera um link e a pessoa cria a própria.
   (`google_convite_criado`, `google_convite_revogado`, `google_conta_criada`
   sem ator, `google_admin_conectado`/`_desconectado`).
 
+### 7.29c Google Drive da filial (`lib/google/drive.ts`, 19/10/2026)
+
+Uma pasta só, "Palácio – Arquivos", no Drive da conta Google da filial (hoje a do
+contato@, a mesma do Gmail e da conta de administrador), onde o Palácio guarda a
+cópia dos envios que chegam pelo WhatsApp e os documentos que a equipe guarda por
+lá (§8.5). Sem o Drive conectado (ou sem a migração), nada muda. O Palácio não grava
+permissão nenhuma: o que ele cria nasce privado da conta conectada, e a administração
+compartilha "Palácio – Arquivos" com a equipe no Google Drive (o que nasce dentro herda o
+acesso) — sem isso, o link que o WhatsApp devolve e o da ficha do envio só abrem para
+essa conta. A ajuda ("Conectar o Google Drive da filial") e o cartão dizem isso.
+- **Conexão própria, no padrão da de administrador** (`google_drive_conexao` +
+  chave `google_drive` no cofre, oculta em `SERVICOS`; `/api/google/conectar-drive`,
+  mesma volta `/api/google/retorno` com `state` começando em `drive.`). Escopo
+  ÚNICO: `drive.file` — o Palácio só enxerga o que ele mesmo criou (a raiz, as
+  subpastas e os arquivos que mandou), e a autorização pede `include_granted_scopes=false`
+  (`urlDeAutorizacao(…, { somenteEstes: true })`): mesmo na conta do Gmail, o token do
+  Drive não carrega os escopos do Gmail. Sem openid, a conta vem do `about` do Drive
+  com o token da volta (`trocarCodigo` devolve também o `accessToken`). A volta já
+  garante a pasta raiz e guarda o id e o link. Sem a tabela (migração pendente), a
+  volta tira a chave do cofre e avisa.
+- **O cartão "6. Google Drive"** em Configurações › E-mail dos setores
+  (`components/admin/drive-google.tsx`): situação (ativa/expirada), conta, link da
+  pasta raiz, "Conectar Google Drive"/"Reconectar" e "Desconectar"
+  (`app/actions/google-drive.ts`, `integracoes.configurar` conferido na action; tira a
+  chave e a linha, os arquivos ficam). Não se revoga em myaccount.google.com: lá a
+  revogação derruba todas as conexões do mesmo cliente OAuth.
+- **`lib/google/drive.ts` (nunca lança):** token renovado como as outras conexões (cache
+  por instância); `invalid_grant`, 401 de novo depois do token novo e o escopo que falta
+  marcam `expirada` — só a troca de `ativa` para `expirada` dispara o alerta
+  `google_drive` (categoria `integracoes`, um a cada 6 h); o Drive cheio
+  (`storageQuotaExceeded`) também alerta. `garantirPastaRaiz` (a guardada, se ainda
+  existe e não está na lixeira; senão a que o Palácio já criou no Meu Drive; senão uma
+  nova), `garantirPasta` (cada nível achado ou criado; duas cópias ao mesmo tempo não
+  criam a mesma pasta duas vezes na instância), `enviarAoDrive` (envio em partes,
+  `uploadType=resumable`, 8 MB por vez até 64 MB, retomado pelo `Range` do 308 depois de
+  queda ou 5xx; sessão vencida recomeça uma vez), `copiarDoR2ParaODrive` (os bytes já
+  guardados no R2) e `contaDoDrive`.
+- **Regras puras** (`lib/google/drive-regras.ts`, conferidas por
+  `npx tsx scripts/conferir-drive.ts`): `normalizarCaminho` (sem "." nem "..", sem barras
+  extras, "/" ou ">" entre os níveis, até 4 níveis de até 80 caracteres; a raiz escrita
+  junto não conta), `podeGuardarEm` (cada pessoa só sob a pasta de um setor dela — o nome
+  do setor no Palácio, sem diferença de acento ou caixa; quem administra, em qualquer
+  lugar; "Envios do WhatsApp" é só das cópias), `caminhoDoEnvio`
+  ("Envios do WhatsApp/AAAA-MM/<título> (ENV-…)", o mês em Brasília),
+  `descricaoDoArquivoDoEnvio` (de onde veio, quem mandou, a autorização de imagem),
+  `tipoDoDocumento`, `nomeDoArquivoNoDrive`, os pedidos à API (a busca com o nome
+  escapado, a criação, o começo do envio em partes, as faixas) e as falhas
+  (`motivoDaFalhaDoDrive`, `textoDaFalhaDoDrive`).
+- **Migração** `20261019030000_cvrj_google_drive.sql` (só acrescenta, a aplicar):
+  `google_drive_conexao` (RLS forçado, leitura só de administradores, policy criada só
+  se não existe), `envios.drive_pasta_link` e `drive_copia_em`,
+  `envio_arquivos.drive_arquivo_id`, o tipo `guardar_documento` em
+  `whatsapp_pendencias` e "drive" em `private.whatsapp_permitidas_validas`.
+
 ### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
 
 O modelo da p. 24 do Manual de Identidade Institucional, desenhado por
@@ -2180,7 +2237,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   as falhas de saída das últimas 24 h em `whatsapp_mensagens` agrupadas
   por motivo (`tipoDaFalha`/`resumoDasFalhas`, pelo começo do texto de erro que `kapso.ts` grava; o que não é
   conhecido agrupa pelo próprio erro, cortado), `situacaoDasChaves` (só os nomes sem chave, nunca valores),
-  `google_conexao`/`google_admin_conexao` com estado `expirada`, a última sincronização de cada conta ativa da
+  `google_conexao`/`google_admin_conexao` com estado `expirada`, o Google Drive (`driveNoStatus`: conectado com a
+  pasta raiz, expirado ou sem conexão — §7.29c), a última sincronização de cada conta ativa da
   Escola (`escola_contas` e `escola_meta_contas`: `sincronizada_em` e `sincronizacao_erro`, o texto que
   `lib/escola` grava, sem chave nem dado de aluno; `situacaoDaSincronizacao`: o erro manda, depois nunca leu,
   mais de 30 h sem leitura certa — a rotina é diária — ou em dia; uma linha quando está tudo em dia, até 4
@@ -2389,7 +2447,27 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   imagem → conclui como o botão do link (`avisarAvaliadores`, link de assinatura quando cabe). Sem
   resposta por 30 min, fecha sozinho com o título provisório e `nao_sei` (webhook, rotina diária e
   a próxima foto da pessoa). Áudio e documento soltos não abrem envio. O limite por origem é o do
-  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`.
+  link (`conferirLimites`), com a origem `whatsapp:<pessoa>`. Com o Google Drive conectado (§7.29c), o envio
+  concluído é copiado para o Drive depois da resposta (`agendarCopiaDoEnvio`: `after`, e na hora fora de uma
+  requisição): só a conclusão que virou o estado agenda; a vez de quem copia (`drive_copia_em`, retomável depois de
+  15 min) e a marca de cada arquivo (`drive_arquivo_id`) não deixam duplicar; o link da pasta só é gravado no fim; a
+  rotina diária retoma os dos últimos 7 dias (`copiarEnviosPendentes`, 5 por vez).
+- **Documentos para o Google Drive (19/10/2026)** (`lib/whatsapp/drive.ts`, regras em `drive-regras.ts`): com o Drive
+  conectado, o DOCUMENTO de quem é da equipe (PDF, planilha, texto, apresentação — foto e vídeo continuam virando
+  envio; documento com envio aberto e sem a legenda de pasta continua entrando no envio) vai para o Drive. Antes do
+  registro, `destinoDoDocumento` decide (o comando no registro: `drive_guardar`, `drive_perguntar` ou `ia`): a
+  legenda "guardar em Financeiro/2026" (`lerLegendaDeGuardar`: verbo de guardar + caminho com barra ou de até 3
+  palavras) guarda na hora; sem legenda (ou sem o assistente), o bot pergunta a pasta (pendência
+  `guardar_documento`, 15 min, `textoPedeAPasta`; sem a migração, a resposta ensina a legenda); a legenda com outras
+  palavras vai ao assistente, que lê o documento no contexto e prepara `preparar_guardar_no_drive`. As cercas de
+  sempre: a equipe da Escola fica de fora, quem usa a verificação em duas etapas também (`podeAgirPeloWhatsapp`),
+  tipo e 64 MB. A resposta à pergunta (`seguirGuardarDocumento`): o caminho, com ou sem o verbo; o que não tem cara
+  de caminho, com o assistente, vai a ele (`paraPendencia` falso); "cancelar" desiste; a pendência encerrada de forma
+  atômica guarda uma vez só. `guardarDocumento` baixa da Kapso na hora (nada fica no R2 esperando), garante as pastas
+  (`podeGuardarEm`: o setor da pessoa — `setor_membros` e a coordenação que bate com um setor — ou qualquer lugar para
+  quem administra), manda ao Drive, deixa `drive_documento_guardado` no `activity_log` e responde com o link. O
+  "status" de quem administra ganha a linha do Drive (conectado com a pasta raiz, expirado ou sem conexão;
+  `linhaDoDriveNoStatus`).
 - **Voluntários** (`lib/whatsapp/voluntarios.ts`, tabela `participantes_whatsapp`): o voluntário
   confirma o número na Área do Voluntário (os mesmos dois caminhos de Meu perfil) marcando a autorização, cujo
   texto e data ficam guardados (LGPD; `VERSAO_DO_CONSENTIMENTO`). A primeira publicação de uma
@@ -2447,7 +2525,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `sistema`; a queda do próprio WhatsApp continua `sistema`). Disparam: `tokenDeAcesso` (Gmail) e
   `tokenDeAdmin` (Diretório) quando a autorização passa de `ativa` a `expirada` (o `update` agora filtra
   `estado = 'ativa'` e devolve a linha: só a troca alerta, com a conta) e quando o Google recusa o cliente
-  OAuth (`CLIENTE_RECUSADO`); `chamar()` do Resend em 401/403 (chave ou domínio), 429 da cota do plano
+  OAuth (`CLIENTE_RECUSADO`); o Google Drive (`lib/google/drive.ts`, alerta `google_drive`, §7.29c) do mesmo
+  jeito, e também quando o Drive da conta enche (`storageQuotaExceeded`, motivo `servico`); `chamar()` do Resend em 401/403 (chave ou domínio), 429 da cota do plano
   (o de chamadas por segundo, não), 5xx e sem resposta (`motivoDaFalhaDoEmail`; a falta da chave não
   alerta — já aparece em Integrações e Usuários); e
   `enviarObjeto()` do R2 sem resposta, em 401/403/404 e 5xx (`motivoDaFalhaDoR2`; cobre as fotos do WhatsApp
@@ -2487,6 +2566,290 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   episódio com a data de agora, até o próximo “resolvido”; a memória definitiva vai para `whatsapp_estado`
   (só service role) numa migração futura. O painel não mostra essas linhas
   (`fraseDaAtividade` devolve null). A frequência do cron não mudou (uma vez por dia).
+- **Assistente do Palácio no WhatsApp — fundação (19/10/2026, etapa 1 de 4, sem modelo e DESLIGADO):** o número
+  vai entender linguagem natural (o Claude) e preparar ações que a pessoa confirma. Nesta etapa só a base, sem
+  mudança visível: sem configuração, o bot responde exatamente como antes (o `bot.ts` ainda não chama o assistente).
+  - **Desenho:** nenhuma frase do modelo, nenhum texto de terceiro e nenhum dado guardado basta para escrever. O
+    modelo não terá ferramenta que escreva — `preparar_*` só acrescenta um passo a um plano; o código escreve o
+    plano exato a partir do banco (`textoDoPlano`, pessoas sempre `Nome (@usuário · Setor)` e ⚠ de homônimo, o
+    texto que sai inteiro e citado com `> `), e só executa depois do *confirmo* escrito DEPOIS da entrega do plano
+    (pela hora da Meta, `MensagemRecebida.enviadaEm`) ou do botão com o hash. "sim" e "ok" não confirmam. O
+    modelo só aponta para itens que o código mostrou (marcadores `apr_1`, `pes_3`; texto de terceiro com `[ ]`
+    vira `⟦ ⟧` e nunca imita um marcador). Um `preparar_*` só vale se a mensagem DA PRÓPRIA PESSOA pediu aquele
+    tipo de ação (`acoesPermitidas`, por radicais, nunca pelo contexto). Quem usa a verificação em duas etapas lê
+    só o que é dele; as escritas não isentas dele terminam no Palácio (etapa 4).
+  - **Código (pasta `lib/whatsapp/assistente/`):** `regras.ts` (puro: rotas, resposta ao plano, portão,
+    quantidade, `pareceInstrucao`, saneamento, validação das ferramentas, plano, hash, recibo, redação, custo,
+    tetos, confiança do número, recuo da API), `marcadores.ts` (puro), `fluxo.ts` (puro com repositório injetado:
+    guardar, entregar, revisão e rearme, cancelar, substituir, confirmar com assentamento de 3 s, "mensagem no
+    meio", consumo atômico, hash, revalidação de todos os passos e execução que para no primeiro `ok: false`),
+    `faxina.ts` (`redigirVencidos`: vence, redige, solta os presos em "executando" e fecha o uso sem desfecho; roda
+    no início de `processarFila`, no máximo a cada 30 s por instância, e em `guardarPendencia`; não importa
+    `fila.ts`) e `uso.ts` (`disponibilidadeDoAssistente`: configuração, modo, chave, disjuntor, papel ≠ escola,
+    `confiancaDoNumero` — confirmado há menos de 180 dias ou login há menos de 60, e a troca do nome de perfil
+    do WhatsApp suspende o assistente no número até reconfirmar). Conferido por
+    `npx tsx scripts/conferir-assistente.ts` (sem banco, sem rede, sem modelo; inclui a corrida "tira a segunda" ×
+    "confirmo" no repositório em memória).
+  - **Fora da pasta:** `lib/whatsapp/consultas.ts` (os dados de avisos, aprovações pendentes e pedidas, chamados,
+    agenda e `pessoaDoEspaco`; o bot só formata); `acoes.ts` (`votar`, `gravarRespostaDaVisita` e `enviarNoChat`
+    devolvem `ResultadoDaAcao` — `{ ok, codigo, texto }` —; `votar` com `extra` usa `whatsapp_votar_uma_vez`, e
+    `guardarPendencia` substitui o plano aberto do assistente); `lib/mensagens/enviar.ts`
+    (`enviarMensagemDireta` pela `whatsapp_mensagem_direta`; o aviso diz "pelo WhatsApp do Palácio");
+    `fila.ts` (`entregar(…, { semFila })`: a resposta do assistente nunca espera na fila; o texto da categoria
+    `assistente` some da fila depois do envio); `servidor.ts` (`registrar` grava `enviada_em`);
+    `confirmacao.ts` (a confirmação grava o nome de perfil visto e zera a suspensão); `regras.ts`
+    (`semInvisiveis` — NFKC e sem `\p{Cf}`, guardando º, ª e … — nas comparações e nos nomes do assistente;
+    `limpo` tira só os invisíveis que enganam, sem NFKC: o emoji composto, a bandeira e o m² dos avisos ficam;
+    `lerPedido` com `assistente`: os comandos que escrevem só pela frase exata, consultas em até 3 palavras, o menu
+    só com saudação pura, "chamado" só com os dois-pontos; `textoDoMenu` com a linha "Ou escreva do seu jeito");
+    `lib/ia/anthropic.ts` (`modeloDoAssistente` = `WHATSAPP_IA_MODELO` ou `claude-opus-5-5`, `esforcoDoAssistente` =
+    `WHATSAPP_IA_ESFORCO` ou `low`, `ttlDoCacheDoAssistente` = `WHATSAPP_IA_CACHE_TTL` ou `1h`,
+    `clienteDoClaude`, `traduzirErro` com a variável certa no 404).
+  - **Migração `20261019010000` (só acrescenta):** `whatsapp_mensagens.enviada_em`;
+    `whatsapp_contas.nome_no_whatsapp` e `assistente_suspenso_em`; `whatsapp_ia_config` (o interruptor por
+    espaço: modo `desligado`/`piloto`/`admins`/`equipe`, `escrita`, tetos e o disjuntor; sem linha = desligado; só
+    a administração lê); `whatsapp_ia_planos` (um aberto por pessoa, índice único; só o servidor); `whatsapp_ia_memoria`
+    (só marcador → tipo e uuid, a ordem da última lista, a trava e o HMAC do último texto; o CHECK recusa texto);
+    `whatsapp_ia_uso` (uma linha por turno, só números e nomes); as somas `whatsapp_ia_gasto_desde` e
+    `whatsapp_ia_leituras_desde`; a trava `whatsapp_ia_tomar_vez`; `whatsapp_hash_do_conteudo` (sha-256 de
+    título ‖ subtítulo ‖ corpo — a versão da matéria não serve de trava); `whatsapp_votar_uma_vez` (servidor,
+    aal1) e `votar_conferido` (sessão), que travam a rodada e a linha e recusam voto repetido (WA001), matéria
+    mudada (WA002) e rodada encerrada (WA003); e `whatsapp_mensagem_direta`. Os validadores de array e jsonb são
+    funções imutáveis em `private` (o CHECK não aceita subconsulta), executáveis pelo service role (o CHECK roda
+    com o papel de quem grava). Testes em `supabase/tests/whatsapp-assistente.test.sql`. Antes dela, o código
+    degrada: sem a configuração o assistente fica indisponível; o registro e a confirmação gravam sem as colunas
+    novas; a faxina não faz nada.
+  - **Ligar:** pelo cartão "Assistente" de Configurações → WhatsApp (abaixo, etapa 2), começando pelo piloto;
+    `escrita` só vale depois da etapa 3. O "Não fui eu" no recibo e a confirmação no Palácio do plano sensível
+    são da etapa 4.
+- **Assistente do Palácio no WhatsApp — leitura com IA (19/10/2026, etapa 2 de 4, piloto, DESLIGADO por padrão):**
+  com o assistente ligado para a pessoa (`whatsapp_ia_config`: modo `piloto`/`admins`/`equipe`, sem deploy), o que
+  o bot de comandos não entende vai ao Claude, que consulta o Palácio com as permissões dela e responde por lá. Sem
+  a configuração (ou sem a chave da Anthropic, ou com a pausa do disjuntor), o bot é exatamente o de antes.
+  - **O turno** (`lib/whatsapp/assistente/index.ts`, `responderComAssistente`): revisão do plano aberto antes de
+    qualquer espera (rearmado no `finally`, com o lembrete; pronto para a etapa 3); cotas (turnos da pessoa por hora
+    e por dia, US$ da pessoa e do espaço desde a meia-noite de Brasília, somados no SQL; aviso único aos
+    administradores aos 80% e aos 100% do teto do espaço); a vez da pessoa (`whatsapp_ia_tomar_vez`, espera de 1 em
+    1 s até 15 s); texto repetido em 10 min sem modelo (HMAC do texto normalizado com a chave do service role); o
+    contexto relido no banco (avisos das últimas 24 h classificados pelo estado — "pedida por" sempre de
+    `requested_by` —, a citada, a última lista ou a lista citada, a pergunta aberta com a escolha); o portão de
+    intenção só da mensagem; o laço; o desfecho; a memória (só marcadores e o HMAC) e o registro (sem texto).
+  - **A chamada** (`claude.ts` e `prompt.ts`, `montarParams`): `client.beta.messages.create` com o modelo
+    `WHATSAPP_IA_MODELO` (padrão `claude-opus-5-5`), `output_config.effort` = `WHATSAPP_IA_ESFORCO` (padrão `low`),
+    SEM `thinking` (no Opus 5.5, `disabled` dá 400), `tool_choice` `auto` (any/tool dão 400) com as 17 ferramentas
+    `strict: true` (`ferramentas.ts`, em ordem de nome, iguais para todos), o ponto de cache no fim das ferramentas e
+    no fim do sistema (TTL `WHATSAPP_IA_CACHE_TTL`, padrão `1h`) e o automático de 5 min para a cauda,
+    `fallbacks: 'default'` com o beta `server-side-fallback-2026-07-01`. O sistema (`SISTEMA_DO_ASSISTENTE`) é
+    congelado: sem data, nome, papel ou modo; a situação (data, papel, nível, escrita) vai numa mensagem
+    `role: "system"` depois do turno do usuário — o modelo que recusar isso com BadRequestError ganha uma repetição
+    com a situação em `<situacao>` no turno do usuário, e a instância passa a usar esse formato. Cliente com
+    `maxRetries: 0`: a repetição é nossa e única (529, 5xx, conexão, tempo, se sobram 12 s). Erros pelas classes do
+    SDK.
+  - **O laço** (`laco.ts`, puro, com o cliente injetado): até 4 chamadas, prazo de 40 s (menos no fim do lote: a rota
+    dá 240 s ao lote e cada turno termina 20 s antes; com menos de 15 s nem começa), `refusal` e `max_tokens` antes de
+    qualquer ferramenta, só os blocos depois do último `fallback` valem (e o que vem antes volta sem raciocínio nem
+    tool_use), só blocos `text` na resposta final; leituras em paralelo (8 s cada, 8 por turno), `perguntar` terminal,
+    `preparar_*` em ordem pelo portão e pela quantidade (terminal quando todos passam); "disse que fez" sem plano
+    ganha um aviso e, se insistir, o texto fixo. Nesta etapa os `preparar_*` respondem "escrita desligada" (ou o
+    texto do número antigo), mesmo com `escrita` ligada no cartão (`ESCRITA_NO_AR = false`).
+  - **As leituras** (`leituras.ts`), nos níveis da especificação: `amplo` = pode agir pelo WhatsApp (sem 2FA) e
+    número de confiança recente; os outros, `pessoal` — avisos próprios, chamados que abriu ou que estão com ela
+    (sem nota interna), aprovações em que vota ou que pediu sem o texto da matéria, agenda e ajuda; filas, notas
+    internas, trecho da matéria, busca de colegas e o status do canal respondem "Isso só pelo Palácio.". As de
+    detalhe (`ver_aprovacao`, `ver_chamado`, `buscar_pessoa`) contam no teto diário (`leituras_detalhe_dia`). Saída
+    em JSON compacto (até 10 itens e 3.000 caracteres), texto de terceiros por `dadoDeTerceiro`, itens só por
+    marcador, nunca telefone, e-mail, valor nem URL; os links entram na resposta pelo código
+    (`posProcessarResposta`).
+  - **O bot** (`bot.ts`): a disponibilidade logo depois de achar a pessoa; `lerPedido` com `assistente`;
+    `planoAberto` e `lerRespostaAoPlano` (a janela de 2 min depois do plano não passa por cima da pergunta aberta do
+    bot nem da visita esperando); a rota (`rotaDaMensagem`) vai para o registro (`whatsapp_mensagens.comando` = `ia`,
+    `ia_escolha`, `ia_obrigado`…); "cancelar" com pergunta aberta, a escolha "2", os textos fixos, "valeu" e
+    "esquece" sem modelo; aviso citado com cara de pedido ("do que se trata?") vai ao assistente; o plano de um
+    passo do Chat fica para a etapa 3 (sem a escrita, a resposta citando o canal sai como sempre); as listas de
+    "avisos" e "aprovações" entram na memória curta; o menu ganha a linha "Ou escreva do seu jeito".
+  - **Cotas, registro e disjuntor** (`uso.ts`): uma linha de `whatsapp_ia_uso` por turno, gravada a cada chamada
+    (tokens, cache, custo por iteração do recuo, modelo, nomes das ferramentas, leituras de detalhe, ms, desfecho,
+    classe do erro — nunca texto); 3 falhas de fora (ou 400 que se repetem: `ERROS_DO_DISJUNTOR`) em 10 min pausam
+    10 min; chave recusada, cobrança recusada (402, sem crédito: `BillingError`, o SDK não tem classe própria) ou
+    modelo inexistente pausam 30 min e avisam a administração (sino e e-mail, uma vez por dia — conferido pelos
+    próprios avisos).
+  - **Configurações → WhatsApp, cartão "Assistente"** (`components/admin/whatsapp-assistente.tsx`, só para quem tem
+    `integracoes.configurar`; as actions começam com `requirePermissao`): modo, piloto (pessoas da equipe, até 50),
+    escrita, os tetos e os números de hoje (conversas, gasto, % com cache, recusas, erros); "Retomar agora" tira a
+    pausa. Grava em `whatsapp_ia_config` e no `activity_log` (`whatsapp_assistente_configurado`).
+  - **Rotina diária** (`rotina.ts`): apaga memória vencida há mais de 1 dia, planos com mais de 90 dias e uso com
+    mais de 13 meses; passa a faxina; e avisa a administração (uma vez por dia cada) de cache quase não lido, recusas
+    acima de 5%, P95 acima de 20 s, pessoas no teto e números parados pela troca do nome de perfil. A rota do webhook
+    roda a faxina (`redigirVencidos`, 50) depois de cada lote.
+  - **Testes:** `npx tsx scripts/conferir-assistente.ts` ganhou as ferramentas (strict, campos, sem propriedade
+    proibida, JSON estável), o sistema e os parâmetros (sem data, sem `thinking`, `auto`, beta, cache igual para
+    todos), o contexto, o cartão, a rotina e o laço com um modelo roteirizado (preparo terminal em UMA chamada,
+    leitura e texto, falha no preparo, portão, quantidade, recusa, teto, recuo, prazo, 4 chamadas, 9 leituras,
+    "disse que fez", `perguntar`). `scripts/avaliar-assistente.ts --gastar` roda os casos de leitura contra a API de
+    verdade (com teto de US$ e a segunda rodada exigindo cache lido) — manual, nunca no CI.
+  - **Sem migração nova:** usa a da etapa 1 (`20261019010000`). Sem ela, o assistente fica indisponível e o cartão
+    diz que falta aplicá-la.
+- **Assistente do Palácio no WhatsApp — escrita confirmada (19/10/2026, etapa 3 de 4, DESLIGADA por padrão):** com
+  o assistente ligado para a pessoa E a caixa "Deixar o assistente preparar ações para a pessoa confirmar"
+  (`whatsapp_ia_config.escrita`) marcada no cartão, os `preparar_*` deixam de responder "escrita desligada" e o
+  pedido vira um plano exato, que só é feito com o *confirmo*. Sem a caixa (o padrão), tudo fica como na etapa 2.
+  - **Preparos** (`preparos.ts`, puro, com a fonte dos dados injetada — `fonteDoSupabase` em `executores.ts`): depois
+    da validação e do portão de intenção (laço), cada preparo resolve o marcador no tipo certo, confere a permissão e
+    o estado no banco (rodada aberta e sem o voto da pessoa, destinatário ativo e diferente dela, chamado com papel e
+    aberto, fila e assunto ativos e o local quando o assunto pede, a visita que espera a resposta, avisos sem ler) e
+    os limites (3 votos e um por aprovação, uma mensagem por destinatário e 3 destinatários, as mensagens diretas
+    do dia em `mensagens_dia`, 8 passos), guarda o hash do conteúdo da matéria (`whatsapp_hash_do_conteudo`; sem a
+    função, o voto é pelo Palácio) e devolve o `Passo` com as pessoas do quadro (`@usuário`, ⚠ de homônimo). Quem
+    usa a verificação em duas etapas: voto, mensagem e comentário ficam de fora, com o link do Palácio no "Ficou de
+    fora" do plano ou na resposta em texto (com a confirmação no Palácio, etapa 4, entram no plano sensível); abrir chamado, responder à portaria e marcar lidos valem
+    (isentos). O erro vai ao modelo; o motivo, à pessoa ("Ficou de fora: … — …").
+  - **O plano** (`index.ts` e `plano.ts`): o texto do modelo é descartado; `validarRascunho`, `guardarPlano` (hash,
+    15 min; substitui e redige o que estava aberto, inclusive o plano em revisão, e encerra a pergunta do bot) e o
+    `textoDoPlano` sem fila — não saiu, cancelado e redigido, e o aviso curto vai pela fila normal. O plano sensível
+    não nasce nesta etapa.
+  - **A confirmação** (`bot.ts` → `confirmarPlano`, com a vez da pessoa): só "confirmo" escrito depois da entrega
+    (pela hora da Meta) ou citando o plano; "sim", "ok", "pode" recebem a orientação fixa, sem modelo. O fluxo
+    (`fluxo.ts`) assenta 3 s, recusa se chegou outra mensagem ao assistente no meio, consome o plano de forma
+    atômica, confere o hash e a pessoa, e `conferirIdentidade` refaz no banco: o número do plano e desta mensagem,
+    sem suspensão; a escrita ainda ligada; a pessoa ativa com o mesmo papel; a verificação em duas etapas (lida de
+    novo); o número recente; e as cotas do dia (20 planos executados, `LIMITES.planosDia`, e as mensagens diretas,
+    contadas nos planos executados de hoje com o passo ok — `contarAcoesDoDia`). Depois `revalidarPasso` para TODOS
+    os passos (as mesmas conferências do preparo com leituras novas; a matéria mudada não recebe voto) e só então
+    `executarPasso`, em ordem, parando no primeiro `ok: false`: `votar` com `extra` (`whatsapp_votar_uma_vez`, com o
+    hash, e a conferência declarada no comentário), `enviarMensagemDireta` (`whatsapp_mensagem_direta`; o aviso diz
+    "pelo WhatsApp do Palácio"), `comentarNoChamado`, `criarChamado`, `gravarRespostaDaVisita`, `enviarNoChat` e o
+    update dos avisos da própria pessoa. Os textos de ação são redigidos na hora; o recibo (o que foi feito, com os
+    links, e onde parou — sem os textos) pode esperar na fila, categoria `assistente`. O uso fica com o desfecho
+    `confirmado`, custo zero e o plano.
+  - **Trilha:** o voto, no `activity_log` de sempre com `{ canal: 'whatsapp', via: 'assistente', plano_id }`; os
+    outros passos, com `action` `whatsapp_assistente_<passo>` e o mesmo `metadata` (o painel não mostra essas linhas).
+  - **O plano do Chat** (`guardarPlanoDoChat`, sem modelo): a resposta citando o aviso de um canal do Chat, sem cara
+    de pedido ao assistente (`pareceInstrucao` falso), vira um plano de um passo com o texto da pessoa inteiro e
+    citado; com a verificação em duas etapas, ou sem a escrita, a resposta segue o caminho de sempre.
+  - **O `status`** ganhou a linha do assistente (`assistenteNoStatus` em `uso.ts`, `linhaDoAssistenteNoStatus` em
+    `regras.ts`): o modo, se prepara ações, a pausa e os números de hoje (conversas, gasto e teto, cache, recusas,
+    pessoas no teto de consultas). Sem a configuração do assistente, a linha não sai.
+  - **Testes:** `npx tsx scripts/conferir-assistente-escrita.ts` (novo; sem banco, rede nem modelo): cada preparo com
+    uma fonte de mentira (escrita desligada, número antigo, verificação em duas etapas com o link, limites, estados),
+    a revalidação (matéria mudada, voto pela tela no meio, destinatário desativado, visita respondida, canal
+    arquivado), o caso do dono de ponta a ponta com o modelo roteirizado (UMA chamada, plano de 3 passos escrito pelo
+    código, "sim"/"ok" e o "confirmo" antes da entrega não fazem nada, o "confirmo" executa os três em ordem, o
+    segundo não executa de novo, o texto some na hora; a matéria mudada não recebe voto; a cota de planos; a mesma
+    frase com 2FA dá os links) e os casos do roteiro §12.3 que dependem do código (2, 3, 4, 5–6, 9, 10, 11, 13–17, 19,
+    21, 22, 23, 26, 27, 30 e o plano do Chat). `scripts/avaliar-assistente.ts --gastar` ganhou os casos de escrita
+    contra a API de verdade (manual).
+  - **Sem migração nova:** usa a da etapa 1 (`20261019010000`).
+- **Assistente do Palácio no WhatsApp — integração com a onda 2 (19/10/2026, etapa 4 de 4, DESLIGADA por padrão):**
+  o plano sensível termina no Palácio, os planos e as perguntas ganham botões e listas, o recibo ganha o "Não fui
+  eu", e as ferramentas cobrem o atendimento do chamado, a portaria, o Financeiro e as áreas. Sem a configuração do
+  assistente, nada disso existe (o bot é o de antes, inclusive com áudio); sem a migração B, o plano sensível não
+  nasce (como na etapa 3).
+  - **As 20 ferramentas (o teto):** as 17 da v1, `preparar_atendimento_do_chamado` (assumir, resolver com a solução,
+    transferir com a fila, o assunto e o motivo — só a equipe da fila; `assumirChamado`, `mudarStatusNoChamado` e
+    `transferirNoChamado`, as funções da tela), `preparar_registro_de_visita` (visitante, empresa, a pessoa visitada
+    `pes_`, motivo — `gravarEntrada`, a mesma `portaria_registrar_entrada`; avisa quem é visitado),
+    `preparar_decisao_financeira` (item `des_`/`com_`, aprovar ou recusar com motivo — SEMPRE no Palácio) e
+    `consultar_area` no lugar de `ver_status_do_whatsapp` (financeiro, com os marcadores e sem valores; frota;
+    estoque com a busca; portaria; whatsapp, só para quem administra — só no nível amplo, conta como leitura de
+    detalhe). Os tipos do portão (`atendimento`, `registro_visita`, `financeiro` só com aprovar/recusar junto de
+    despesa ou compra NA mensagem) estavam prontos desde a etapa 1. A troca reescreveu o prefixo do cache uma vez.
+  - **O plano sensível vai ao Palácio** (§5.7): `sensivel` = a decisão do Financeiro (sempre) ou um passo não isento
+    de quem não pode agir pelo WhatsApp. Com a confirmação no Palácio disponível (`confirmacaoNoPalacioDisponivel`
+    em `uso.ts`: a coluna `plano_id` existe; conferido a cada 10 min por instância), o preparo de quem usa a
+    verificação em duas etapas entra no rascunho em vez de ficar de fora, e `buscar_pessoa` abre no nível pessoal
+    (até 3 resultados). O plano mostra a linha do Palácio (a da verificação em duas etapas ou a do Financeiro). No
+    *confirmo*, `fluxo.confirmar` leva o plano a `no_palacio` com o prazo do link (15 min contados dali) e
+    `confirmarPlano` cria a confirmação (`criarConfirmacao`, ação `plano`, alvo = o plano) e manda o link
+    (`textoDoLinkNoPalacio`, sem fila, categoria `conta`). Sem a migração ou com links demais na hora, o plano falha e
+    é redigido.
+  - **`/confirmar/[token]`, ramo "plano"** (`lib/whatsapp/assistente/palacio.ts`, só importado pela página): o mesmo
+    portão das telas (requireWorkspace: aal2 para quem usa a verificação em duas etapas); o plano lido pelo serviço e
+    conferido (dono, espaço, `no_palacio`, prazo, hash); os passos em HTML pela mesma função do texto do WhatsApp
+    (`linhasDoPlano` → `blocosDaTela`) e a conferência do setor dos votos "aprovado" como caixas para marcar
+    (`conferenciaDoPlano`). O "Confirmar" (`confirmarNoPalacio` → `executarPlanoNoPalacio`) confere a conferência
+    antes de tudo e o fluxo (`executarNoPalacio`) COMEÇA pela transição atômica `no_palacio → executando` — dois
+    cliques ou duas abas executam uma vez; o link só marca o uso depois. Confere a pessoa, o papel, a escrita do
+    assistente e as cotas do dia (`conferirNaSessao`), revalida todos os passos e executa pela sessão
+    (`executarPasso` com o canal `sessao`): o voto por `votar_conferido` (o hash do conteúdo vale aqui também: matéria
+    mudada entre o plano e o clique, `WA002`), a mensagem por `enviarMensagemDireta({ via: 'sessao' })`, o Chat por
+    `chat_enviar`, a portaria por `portaria_registrar_entrada`, o chamado pelas funções da tela; a decisão do
+    Financeiro pela MESMA função do link do comando "financeiro" (`executar` de `confirmar-no-palacio.ts`:
+    `decidirAprovacao`, `decidirPedido`). O recibo aparece na tela, fica no resultado da confirmação e vai ao
+    WhatsApp. `descrever` e `executar` da onda 2 recusam a ação `plano` antes de cair no ramo de desativar conta.
+  - **`sendDirectMessage`** (`app/actions/editorial.ts`) passou a usar `enviarMensagemDireta({ via: 'sessao' })`, a
+    mesma função do plano no Palácio (as regras da tela continuam: destinatário do espaço, 10 s sem repetir).
+  - **Botões e listas:** o plano sai com Confirmar e Cancelar (`interativoDoPlano`, ids `plano:<id curto>:<hash8>:sim|
+    nao`: o botão de um plano antigo ou com o hash velho dá "não vale mais"); a pergunta, com a lista das opções
+    (`interativoDaPergunta`, ids `esc:<id curto>:<marcador>`; o número digitado continua valendo). Acima de 1.024
+    caracteres, o texto sai sozinho e os botões vêm numa segunda mensagem curta (`mensagensComInterativo`,
+    `entregarComInterativo`); as duas entram em `whatsapp_ia_planos.mensagens`. O toque no botão não espera o
+    assentamento de 3 s (é do *confirmo* por texto). O plano do Chat também sai com os botões.
+  - **"Não fui eu" no recibo:** o recibo do plano confirmado pelo WhatsApp termina com a linha do "Não fui eu" e sai
+    como aviso de segurança (botão e marca no registro, `fila.ts`), então a resposta a ele protege a conta
+    (`protecao.ts`). Protegida a conta, o assistente também para no número dela (`assistente_suspenso_em`, até
+    reconfirmar o número) e o plano aberto ou esperando o Palácio é cancelado. O recibo da página não leva a linha.
+  - **Áudio** (só com a transcrição que a Kapso manda: `message.kapso.transcript.text` → `MensagemRecebida.
+    transcricao`): com o assistente disponível e sem envio de fotos aberto, o áudio segue como a transcrição, sempre
+    ao assistente (`rotaDaMensagem` com `audio`): nada de comando fixo, pergunta do bot, resposta direta a aviso ou à
+    portaria, plano do Chat; o "confirmo" ou "sim" falado recebe "Áudio não confirma plano" (`ia_audio_nao_confirma`).
+    A resposta começa pelo eco "_Entendi do áudio:_ “…”" (`textoDoEcoDoAudio`). Sem o assistente, o áudio é o de antes.
+  - **Alertas de integração:** chave recusada, falta de crédito (402) ou modelo inexistente pausam o assistente e
+    viram o alerta `claude` (`lib/integracoes/alertas.ts`, categoria `integracoes`, um a cada 6 h, também pelo WhatsApp).
+  - **Cota:** a da onda 2 é a das conversas que a Meta deixa o número começar (fora da janela); as respostas do
+    assistente são respostas do bot dentro da janela e não entram nela — não houve o que unificar.
+  - **Cartão:** a linha "Confirmação no Palácio" diz se a migração B foi aplicada; o texto das ações lista o que o
+    assistente prepara agora.
+  - **Migração B** (`20261019020000_cvrj_whatsapp_assistente_confirmacao.sql`, só acrescenta): `plano_id` em
+    `whatsapp_confirmacoes` (FK para o plano, `on delete cascade`, índice), a ação `plano` na restrição de `acao`
+    (lida da que está em vigor) e `whatsapp_confirmacoes_plano_coerente` (acao `plano` ⇔ `plano_id`, alvo = o plano).
+    Testes em `supabase/tests/whatsapp-assistente-confirmacao.test.sql`.
+  - **Guardar no Google Drive (19/10/2026, etapa 5):** `preparar_guardar_no_drive` (`pasta`, `nome` — o documento é o
+    que espera a pasta: a pergunta `guardar_documento`, ou, na correção, o do plano em revisão) entrou no lugar de
+    `ler_filas_de_chamado`, que virou a área `filas_de_chamado` de `consultar_area` (em qualquer nível, sem contar como
+    detalhe) — continuam 20, o teto; o prefixo do cache foi reescrito uma vez. Tipo `drive` no portão
+    (`guard|salv|arquiv|drive|pasta…` na mensagem dela; o banco aceita "drive" depois da migração `20261019030000`;
+    antes, o plano é guardado sem ele). O contexto mostra "Documento esperando a pasta do Drive" com os setores onde
+    ela guarda. O preparo confere o Drive conectado, o caminho (`normalizarCaminho`) e a pasta do setor
+    (`podeGuardarEm`), recusa quem usa a verificação em duas etapas e um documento por plano; o passo
+    (`guardar_no_drive`) leva o nome final, o caminho e o que baixa o arquivo. A revalidação refaz o Drive e a pasta;
+    o executor é o mesmo `guardarDocumento` (nos dois canais), o recibo traz a pasta e o link do arquivo, e a redação
+    apaga o nome e o id da mídia. Testes em `scripts/conferir-drive.ts`.
+  - **Testes:** `npx tsx scripts/conferir-assistente-palacio.ts` (novo; sem banco, rede nem modelo): as 20
+    ferramentas, as entradas novas, o portão, a sensibilidade, o texto do plano (valor, motivo citado, a linha do
+    Palácio), a redação, o recibo com e sem o "Não fui eu", botões e listas (hash velho e plano antigo recusados,
+    a divisão acima de 1.024), o áudio (o "confirmo" falado não confirma), a página (blocos e conferência), o fluxo
+    no Palácio (dois cliques executam uma vez; matéria mudada não recebe voto; plano vencido, de outra pessoa ou com
+    o assistente desligado não executa; "cancelar" alcança o plano no Palácio), os preparos novos e a revalidação
+    deles, e os imports (o executor do WhatsApp não puxa o Financeiro; a rota não puxa `palacio.ts`).
+- **Assistente do Palácio no WhatsApp — correções da revisão (19/10/2026):**
+  - **"aprova a 2" com o assistente:** a decisão do Financeiro só é comando com a lista do "financeiro" aberta, de
+    quem decide (`comandoDaRota`; `bot.ts` lê a lista uma vez); sem ela, o "2" é o da última lista da memória curta
+    ("avisos", "aprovações") e a mensagem vai ao assistente.
+  - **O plano que espera o Palácio** (`no_palacio`): `abertoPara` o devolve (`PlanoAberto.noPalacio`) quando não há
+    plano aberto, e citar as mensagens dele é citar o plano. "cancelar" (sem citar, citando ou o botão Cancelar dele)
+    o cancela; "confirmo" (ou o botão Confirmar) responde o texto fixo que manda ao link. Como as outras respostas ao
+    plano que já saiu, sem citar ele cede a vez à pergunta mais nova do bot.
+  - **"Não fui eu" × plano:** o "confirmo" ou "cancelar" sem citar só vai à conferência do "Não fui eu" se não há
+    pergunta mais nova da pessoa — agora contando o plano ou a pergunta do assistente (`whatsapp_ia_planos`).
+  - **A revisão que termina em texto do modelo:** o texto sai sozinho (sem o lembrete) e o código manda o plano em
+    revisão de novo, com os botões, numa mensagem própria; só ela rearma o plano (`mensagensDaRevisao` em `fluxo.ts`;
+    `rearmar` aceita as duas mensagens). "Tirei a segunda", "troquei", "acrescentei"… sem `preparar_*` caem no
+    "Nada foi feito" (`afirmaQueFez`).
+  - **Nomes:** `nomeMostrado` tira "(", ")", "@" e "·" do full_name no rótulo, no plano e no "pedida por" (o nome
+    não imita o `@usuário` que o código põe depois); o ⚠ de homônimo compara o esqueleto do nome (o que vem antes do
+    primeiro "(", "@" ou "·": `esqueletoDoNome`, `temHomonimo` em `regras.ts`); o rótulo da pessoa e os nomes de fila,
+    assunto e visitante vão ao modelo como dado de terceiro (`</contexto>` num nome fica inerte).
+  - **`consultar_area('whatsapp')`:** os e-mails das contas Google saem como "e-mail oculto" (`textoDeArea`, agora em
+    `regras.ts`).
+  - **Marcar todos como lidos:** o passo guarda `ate` (a hora do preparo) e o executor marca só os avisos criados até
+    ela: o aviso que chega entre o plano e o *confirmo* continua sem ler.
+  - **Textos:** "confirme o número de novo" passou a dizer como (em Meu perfil → WhatsApp, "Trocar número" e o mesmo
+    número); a ajuda cita "Confirmar e fazer tudo" (ou "Confirmar e fazer"); o cartão do Drive, a ajuda e o §11 pedem
+    para compartilhar "Palácio – Arquivos" com a equipe (o que o Palácio cria nasce privado da conta conectada).
+  - **Migração B** falha (em vez de terminar sem efeito) se vier antes da `20261019010000`.
+  - **Testes:** `scripts/conferir-assistente.ts` ganhou os casos ("aprova a 2" sem lista, o plano no Palácio pela rota,
+    a revisão que termina em texto, o nome com tags e com "(@outro · Setor)", o e-mail no status);
+    `scripts/conferir-whatsapp.ts`, o aviso com emoji composto e m².
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -2796,6 +3159,16 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
+- **Assistente do WhatsApp, implantação** (§8.5) — as quatro etapas estão no código, desligadas por padrão
+  (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela caixa "preparar ações"). Falta aplicar,
+  nesta ordem, `20261019010000` (o assistente), `20261019020000` (a confirmação do plano no Palácio, que depende
+  da anterior e falha se vier antes dela) e `20261019030000` (o Google Drive), e seguir a ordem: piloto com
+  escrita; depois do "Não fui eu" visto funcionando, `modo='admins'` com escrita; uma semana sem incidente,
+  `modo='equipe'`. A conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp (o
+  payload v2 também traz `business_scoped_user_id`, que poderia substituir o nome); se a transcrição do áudio chega
+  mesmo no payload; rodar `scripts/avaliar-assistente.ts --gastar` antes de ligar as ações. No Google Drive da conta
+  conectada, compartilhar "Palácio – Arquivos" com a equipe (o que o Palácio cria nasce privado da conta: sem isso,
+  os links do WhatsApp e da ficha do envio não abrem para ninguém mais).
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

@@ -112,19 +112,36 @@ export type LinhaDoRegistro = {
   comando?: string | null
   notificacaoId?: string | null
   erro?: string | null
+  /** Na entrada, a hora em que a pessoa enviou (MensagemRecebida.enviadaEm, em ms): ordena o "confirmo" do assistente. */
+  enviadaEm?: number | null
 }
+
+/** A coluna não existe no banco (a migração dela ainda não foi aplicada): grava de novo sem ela. */
+export const semColuna = (error: { code?: string } | null) => error?.code === 'PGRST204' || error?.code === '42703'
+
+/** Até quando esta instância grava o registro sem a hora de envio (a coluna não existia na última vez). */
+let semEnviadaEmAte = 0
 
 /**
  * Grava no registro. Devolve false se a mensagem de entrada já estava lá
  * (reentrega do webhook) — é o que evita responder duas vezes. Nunca lança.
+ * Antes da migração do assistente (whatsapp_mensagens.enviada_em), grava sem
+ * a hora de envio: a trava por id continua valendo.
  */
 export async function registrar(admin: Admin, l: LinhaDoRegistro): Promise<boolean> {
   try {
-    const { error } = await admin.from('whatsapp_mensagens').insert({
+    const linha = {
       workspace_id: l.workspaceId, direcao: l.direcao, tipo: l.tipo, situacao: l.situacao,
       numero: l.numero ?? null, user_id: l.userId ?? null, mensagem_id: l.mensagemId ?? null,
       comando: l.comando?.slice(0, 40) ?? null, notificacao_id: l.notificacaoId ?? null, erro: l.erro?.slice(0, 500) ?? null,
-    })
+    }
+    const enviada = typeof l.enviadaEm === 'number' && Number.isFinite(l.enviadaEm) && Date.now() >= semEnviadaEmAte ? new Date(l.enviadaEm).toISOString() : null
+    const comHora: typeof linha & { enviada_em?: string } = enviada ? { ...linha, enviada_em: enviada } : linha
+    let { error } = await admin.from('whatsapp_mensagens').insert(comHora)
+    if (enviada && semColuna(error)) {
+      semEnviadaEmAte = Date.now() + 5 * 60_000
+      ;({ error } = await admin.from('whatsapp_mensagens').insert(linha))
+    }
     if (error?.code === '23505') return false
     if (error) console.error('[whatsapp] registro não gravado:', error.message)
     return true

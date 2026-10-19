@@ -7,16 +7,19 @@ import { Button } from '@/components/ui/button'
 import { confirmarNoPalacio } from './acoes'
 
 /**
- * O botão da tela de confirmar (e, no voto de aprovar, a conferência do setor
- * para marcar antes, como na tela da aprovação). Confirmado, mostra o que foi
- * feito e o caminho para a tela do item; o link não vale mais.
+ * O botão da tela de confirmar (e, no voto de aprovar — também o do plano do
+ * assistente —, a conferência do setor para marcar antes, como na tela da
+ * aprovação). Confirmado, mostra o que foi feito (no plano, o recibo) e o
+ * caminho para a tela do item; o link não vale mais.
  */
-export function Confirmar({ token, botao, destrutivo, conferencia, link }: {
+export function Confirmar({ token, botao, destrutivo, conferencia, link, rotuloDoLink = 'Fazer pela tela de sempre' }: {
   token: string
   botao: string
   destrutivo?: boolean
   conferencia: { setor: string; itens: string[] }[]
   link: string
+  /** O caminho alternativo ao lado do botão (o plano do assistente não tem uma tela só: volta ao início). */
+  rotuloDoLink?: string
 }) {
   const [marcados, setMarcados] = useState<Set<string>>(new Set())
   const [erro, setErro] = useState('')
@@ -28,7 +31,7 @@ export function Confirmar({ token, botao, destrutivo, conferencia, link }: {
   if (feito) {
     return (
       <div className="flex flex-col gap-3" role="status">
-        <p className="flex items-start gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm text-success"><CheckCircle2 className="mt-0.5 size-4 shrink-0" />{feito}</p>
+        <p className="flex items-start gap-2 whitespace-pre-line break-words rounded-lg bg-success/10 px-3 py-2 text-sm text-success"><CheckCircle2 className="mt-0.5 size-4 shrink-0" />{feito}</p>
         <p className="text-sm text-muted-foreground">A resposta também foi para o seu WhatsApp. Este link não vale mais.</p>
         <Button variant="outline" render={<Link href={link} />}>Abrir no Palácio</Button>
       </div>
@@ -60,9 +63,9 @@ export function Confirmar({ token, botao, destrutivo, conferencia, link }: {
           ))}
         </fieldset>
       )}
-      {erro && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{erro}</p>}
+      {erro && <p className="whitespace-pre-line break-words rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{erro}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={link} className="text-sm text-muted-foreground underline-offset-4 hover:underline">Fazer pela tela de sempre</Link>
+        <Link href={link} className="text-sm text-muted-foreground underline-offset-4 hover:underline">{rotuloDoLink}</Link>
         <Button variant={destrutivo ? 'destructive' : 'default'} disabled={ocupado || falta}
           onClick={() => iniciar(async () => {
             setErro('')

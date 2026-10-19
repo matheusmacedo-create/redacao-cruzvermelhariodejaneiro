@@ -1041,6 +1041,12 @@ const ENVIOS_DA_EQUIPE: GuiaDaArea = {
       termos: ['whatsapp', 'envio pelo whatsapp', 'fotos pelo whatsapp', 'fechado sozinho'],
     },
     {
+      id: 'copia-no-drive',
+      pergunta: 'O que é a “Cópia no Google Drive” na ficha do envio?',
+      resposta: 'Com o Google Drive conectado (Configurações › E-mail dos setores), o envio que chegou pelo WhatsApp é copiado, logo depois de fechar, para “Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/título do envio (ENV-…)”, no Drive da filial. A descrição de cada arquivo diz de onde ele veio, quem mandou e a autorização de imagem. O link da pasta aparece na ficha quando todos os arquivos chegaram; ele abre para quem tem acesso a “Palácio – Arquivos”, que a administração compartilha com a equipe no Google Drive.\n\nSe a cópia cair no meio (o Drive fora do ar, a autorização expirada), a conferência diária termina sem repetir arquivo. Envios do link público não são copiados.',
+      termos: ['google drive', 'drive', 'cópia no drive', 'pasta do envio', 'envios do whatsapp'],
+    },
+    {
       id: 'aviso-de-envio-novo',
       pergunta: 'Quando sou avisado de um envio novo?',
       resposta: 'Quando os arquivos de um envio terminam de chegar, quem avalia recebe um aviso no sino, com o resumo do que veio, e outro quando a pessoa manda mais arquivos para o mesmo envio. Se o aviso vai também por e-mail, você escolhe em Meu perfil, no assunto “Pautas e conteúdos”.\n\nEnvio só com texto, sem arquivo, entra direto em “Para avaliar”, sem aviso: vale olhar a aba de vez em quando.',

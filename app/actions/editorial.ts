@@ -1,7 +1,7 @@
 'use server'
 
 import { votarNaRodada } from '@/lib/aprovacoes/voto'
-import { avisarMensagemDireta } from '@/lib/mensagens/avisos'
+import { enviarMensagemDireta } from '@/lib/mensagens/enviar'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireWorkspace } from '@/lib/session'
@@ -1018,33 +1018,12 @@ export async function sendDirectMessage(formData: FormData) {
   if (!recipientId || body.length < 1 || body.length > 2000) throw new Error('Escreva uma mensagem com até 2.000 caracteres.')
   if (recipientId === context.user.id) throw new Error('Selecione outra pessoa do espaço.')
 
-  const { data: member } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', context.workspace.id).eq('user_id', recipientId).maybeSingle()
-  if (!member) throw new Error('A pessoa selecionada não pertence a este espaço.')
-
-  const { data: duplicate } = await supabase
-    .from('messages')
-    .select('id')
-    .is('pauta_id', null)
-    .eq('author_id', context.user.id)
-    .eq('recipient_id', recipientId)
-    .eq('body', body)
-    .gte('created_at', new Date(Date.now() - 10_000).toISOString())
-    .limit(1)
-    .maybeSingle()
-  if (duplicate) { revalidatePath(`/mensagens/pessoa/${recipientId}`); return }
-
-  // A mensagem vem primeiro: é ela que fica. A notificação só avisa que chegou.
-  const { error } = await supabase.from('messages').insert({
-    workspace_id: context.workspace.id,
-    pauta_id: null,
-    author_id: context.user.id,
-    recipient_id: recipientId,
-    body,
+  // A mesma função do plano do assistente confirmado no Palácio (lib/mensagens/enviar.ts, pela sessão): o destinatário
+  // do espaço, a mesma mensagem em 10 s não repete, a mensagem vem primeiro e o aviso só avisa que chegou.
+  const r = await enviarMensagemDireta({ via: 'sessao', supabase, admin: createAdminClient() }, {
+    workspaceId: context.workspace.id, autor: { id: context.user.id, nome: context.profile?.full_name ?? null }, paraId: recipientId, corpo: body,
   })
-  if (error) throw new Error('Não foi possível enviar a mensagem.')
-
-  // Falhar o aviso não pode apagar a mensagem, que já está salva (notificar não lança).
-  await avisarMensagemDireta(createAdminClient(), { workspaceId: context.workspace.id, autorId: context.user.id, nome: context.profile?.full_name || 'Um colega', para: recipientId, corpo: body })
+  if (!r.ok) throw new Error(r.texto)
 
   revalidatePath('/mensagens')
   revalidatePath(`/mensagens/pessoa/${recipientId}`)

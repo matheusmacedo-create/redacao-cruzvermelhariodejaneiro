@@ -1,4 +1,5 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { diaEmSaoPaulo, hora, quemVisita, type DadosDoVisitante, type RespostaDaVisita } from '@/lib/portaria/regras'
@@ -8,7 +9,7 @@ import {
   acharPeloNome, ehConfirmacao, ehPular, interativoDaEscolha, lerEscolha, lerSetorDaVisita, primeiroNome, situacaoDaVisitaNaLista,
   textoDaConferenciaDaVisita, textoDaEscolha, textoDaPortaria, textoPedeVisitado, type Interativo, type Opcao, type VisitaNaLista,
 } from './regras'
-import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type Pendencia, type Pessoa, type Resposta } from './acoes'
+import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type Pendencia, type Pessoa, type Resposta, type ResultadoDaAcao } from './acoes'
 
 /**
  * A portaria pelo WhatsApp (o livro de visitantes, §7.24):
@@ -189,18 +190,41 @@ export async function seguirVisita(admin: Admin, workspaceId: string, pessoa: Pe
  */
 async function registrarEntrada(admin: Admin, workspaceId: string, pessoa: Pessoa, d: DadosDaVisita & { nome: string }, base: string): Promise<Resposta> {
   const abrir = `${base}/portaria`
-  const dados: DadosDoVisitante = {
-    nome: d.nome, telefone: '', empresa: '', motivo: d.motivo ?? '', visitado_texto: d.setor ?? '', avisar_visitante: false,
-    ...(d.pessoa ? { visitado_id: d.pessoa.id } : {}),
-  }
-  const { data, error } = await admin.rpc('whatsapp_portaria_registrar_entrada', { p_user_id: pessoa.id, p_workspace_id: workspaceId, p: dados })
-  if (semFuncao(error)) return { texto: `${INDISPONIVEL}: ${abrir}` }
-  if (error || !data) return { texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a entrada.'} ${abrir}` }
-  await avisarVisitado({ workspaceId, visitaId: data as string, visitadoId: d.pessoa?.id ?? null, nome: d.nome, empresa: null, motivo: d.motivo || null }, pessoa.id)
+  const r = await gravarEntrada(admin, workspaceId, pessoa, { nome: d.nome, empresa: null, motivo: d.motivo || null, visitadoId: d.pessoa?.id ?? null, setor: d.setor ?? null }, abrir)
+  if (!r.ok) return { texto: r.texto }
   const agora = hora(new Date().toISOString())
   return {
     texto: d.pessoa
       ? `Pronto: entrada de *${d.nome}* registrada às ${agora}. ${primeiroNome(d.pessoa.nome) || 'Quem vai receber'} recebeu o aviso; quando responder, você é avisado. Foto e crachá, na tela da portaria: ${abrir}`
       : `Pronto: entrada de *${d.nome}* registrada às ${agora}, para ${d.setor ?? 'o setor'}. Ninguém foi avisado: confirme com o setor. Foto e crachá, na tela da portaria: ${abrir}`,
+  }
+}
+
+/**
+ * A entrada no livro de visitantes, pela MESMA função da tela (portaria_registrar_entrada): pelo WhatsApp, como quem
+ * escreveu (whatsapp_portaria_registrar_entrada, sessão simulada aal1); com `sessao`, pela sessão de quem está logado
+ * (o plano do assistente confirmado no Palácio). Avisa quem é visitado pelo mesmo avisarVisitado. Sem telefone, crachá
+ * nem foto. Nunca lança: devolve ResultadoDaAcao (o plano do assistente decide por `ok`).
+ */
+export async function gravarEntrada(admin: Admin, workspaceId: string, pessoa: Pessoa, d: {
+  nome: string; empresa: string | null; motivo: string | null; visitadoId: string | null; setor?: string | null
+}, abrir: string, sessao?: SupabaseClient): Promise<ResultadoDaAcao> {
+  try {
+    const dados: DadosDoVisitante = {
+      nome: d.nome, telefone: '', empresa: d.empresa ?? '', motivo: d.motivo ?? '', visitado_texto: d.setor ?? '', avisar_visitante: false,
+      ...(d.visitadoId ? { visitado_id: d.visitadoId } : {}),
+    }
+    const { data, error } = sessao
+      ? await sessao.rpc('portaria_registrar_entrada', { p_workspace_id: workspaceId, p: dados })
+      : await admin.rpc('whatsapp_portaria_registrar_entrada', { p_user_id: pessoa.id, p_workspace_id: workspaceId, p: dados })
+    if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
+    if (error || !data) {
+      return { ok: false, codigo: error?.code === '42501' ? 'sem_permissao' : 'erro', texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a entrada.'} ${abrir}` }
+    }
+    await avisarVisitado({ workspaceId, visitaId: data as string, visitadoId: d.visitadoId, nome: d.nome, empresa: d.empresa, motivo: d.motivo }, pessoa.id)
+    return { ok: true, codigo: 'feito', texto: `Entrada de *${d.nome}* registrada. ${abrir}`, link: abrir }
+  } catch (causa) {
+    console.error('[whatsapp] portaria: entrada não registrada:', causa instanceof Error ? causa.message : causa)
+    return { ok: false, codigo: 'erro', texto: `Não foi possível registrar a entrada. ${abrir}` }
   }
 }

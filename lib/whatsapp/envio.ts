@@ -12,6 +12,7 @@ import {
   ehFimDaColeta, nomeDoArquivoRecebido, opcoesDeAutorizacao, tituloProvisorio,
 } from './envio-regras'
 import { podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from './acoes'
+import { agendarCopiaDoEnvio } from './drive'
 
 /**
  * Fotos e vídeos mandados ao WhatsApp do Palácio viram um envio da equipe,
@@ -29,6 +30,10 @@ import { podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from
  * rotina diária (ou a próxima foto da pessoa) conclui o envio com o título
  * provisório e "não sei" na autorização — a comunicação confere antes de
  * publicar.
+ *
+ * Com o Google Drive conectado, o envio concluído é copiado para a pasta
+ * "Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título> (ENV-…)" depois da resposta
+ * (lib/whatsapp/drive.ts); sem ele, nada muda.
  */
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -60,7 +65,8 @@ export async function receberMidia(admin: Admin, workspaceId: string, pessoa: Pe
 
   let aberto = await envioAberto(admin, pessoa.id)
   let comecou = false
-  // Áudio e documento soltos não abrem envio: quase sempre é alguém falando com o bot, não mandando uma ação.
+  // Áudio e documento soltos não abrem envio: quase sempre é alguém falando com o bot, não mandando uma ação (com o
+  // Google Drive conectado, o documento já foi para lib/whatsapp/drive.ts antes de chegar aqui).
   if (!aberto && (midia.categoria === 'audio' || midia.categoria === 'documento')) {
     return { texto: 'Por aqui eu não ouço áudio nem abro documento solto. Para mandar uma ação, comece pelas fotos ou vídeos; para o resto, escreva *menu*.' }
   }
@@ -177,6 +183,8 @@ async function concluir(admin: Admin, p: Pendencia, d: DadosDoEnvio, autorizacao
   const { data: virou } = await admin.from('envios').update(patch).eq('id', d.envioId).eq('estado', 'recebendo')
     .select('id, workspace_id, protocolo, titulo, nome, setor, relato, autorizacao_imagem').maybeSingle()
   if (!virou) return { texto: 'Este envio já tinha sido fechado.' }
+  // A cópia no Google Drive, depois da resposta: só quem virou o estado agenda (reentrega e resposta dupla não copiam duas vezes).
+  await agendarCopiaDoEnvio(admin, virou.id as string)
   const { data: arquivos } = await admin.from('envio_arquivos').select('categoria').eq('envio_id', virou.id).eq('estado', 'recebido')
   await avisarAvaliadores(admin, virou.workspace_id as string, {
     envioId: virou.id as string,

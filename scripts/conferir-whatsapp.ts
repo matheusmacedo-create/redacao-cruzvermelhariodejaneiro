@@ -97,6 +97,10 @@ contem(aviso, '*Pedido de aprovação*', 'título em negrito, sem o * de dentro'
 contem(aviso, '> linha 1\n> linha 2', 'citação')
 contem(aviso, 'Abrir: https://palacio.x/aprovacoes', 'link')
 contem(textoDoAviso({ urlBase: 'https://palacio.x', titulo: 't', mensagem: 'm', link: null }), 'https://palacio.x/notificacoes', 'sem link vai ao sino')
+// O emoji composto (U+200D), a bandeira com tags, o m² e o ½ ficam; só os invisíveis que enganam (U+202E, U+200B) saem.
+const avisoComEmoji = textoDoAviso({ urlBase: 'https://palacio.x', titulo: 'Piso de 10 m² 🤦‍♀️', mensagem: 'Ficou ½ pronto 🏳️‍🌈 🏴󠁧󠁢󠁳󠁣󠁴󠁿 a‮b​c', link: null })
+contem(avisoComEmoji, '*Piso de 10 m² 🤦‍♀️*', 'aviso: o emoji composto e o m² ficam como estão')
+contem(avisoComEmoji, 'Ficou ½ pronto 🏳️‍🌈 🏴󠁧󠁢󠁳󠁣󠁴󠁿 abc', 'aviso: a bandeira fica; a inversão de direção e o espaço de largura zero saem')
 
 // ---------------------------------------------------------------- webhook (o payload da Kapso tem os casos mais abaixo)
 const mensagem = lerEventoDaKapso({ message: { id: 'ABC123', type: 'text', from: '552187654321', text: { body: 'Oi' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587')
@@ -435,7 +439,15 @@ const kapsoTexto = lerEventoDaKapso({
   phone_number_id: NUMERO_ID,
 }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoTexto.evento, 'whatsapp.message.received', 'kapso: o evento vem do cabeçalho')
-igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', toque: false, midia: null, ignorar: null }], 'kapso: texto, nome e citação')
+igual(kapsoTexto.mensagens, [{ id: 'wamid.1', numero: '5521987654321', texto: 'menu', nome: 'Ana', citada: 'wamid.aviso', toque: false, midia: null, transcricao: null, ignorar: null, enviadaEm: null }], 'kapso: texto, nome e citação')
+// A hora de envio (timestamp da Meta, em segundos) só vale perto de agora: a de 2024 acima fica null.
+const kapsoComHora = (agora: number) => lerEventoDaKapso({
+  message: { id: 'wamid.1', timestamp: '1730092800', type: 'text', from: '5521987654321', text: { body: 'confirmo' }, kapso: { direction: 'inbound' } },
+  conversation: { id: 'c1', phone_number: '5521987654321', phone_number_id: NUMERO_ID }, phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID, agora).mensagens[0]?.enviadaEm
+igual(kapsoComHora(1_730_092_800_000 + 3_000), 1_730_092_800_000, 'kapso: a hora de envio vem em ms')
+igual(kapsoComHora(1_730_092_800_000 - 6 * 60_000), null, 'kapso: hora de envio mais de 5 min no futuro não vale')
+igual(kapsoComHora(1_730_092_800_000 + 8 * 86_400_000), null, 'kapso: hora de envio de mais de 7 dias não vale')
 const kapsoSemNono = lerEventoDaKapso({ message: { id: 'w2', type: 'text', from: '552187654321', text: { body: 'oi' } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoSemNono.mensagens[0]?.numero, '5521987654321', 'kapso: wa_id sem o nono dígito vira o canônico')
 const kapsoFoto = lerEventoDaKapso({
@@ -446,6 +458,16 @@ igual(kapsoFoto.mensagens[0]?.midia, { categoria: 'foto', mime: 'image/jpeg', ta
 igual(kapsoFoto.mensagens[0]?.texto, 'pronto', 'kapso: legenda vira texto')
 const kapsoComEndereco = lerEventoDaKapso({ message: { id: 'w4', type: 'document', from: '5521987654321', document: { id: 'm9', mime_type: 'application/pdf' }, kapso: { media_url: 'https://api.kapso.ai/media/abc', media_data: { url: 'https://outro.site/x' } } }, phone_number_id: NUMERO_ID }, 'whatsapp.message.received', NUMERO_ID)
 igual(kapsoComEndereco.mensagens[0]?.midia?.endereco, 'https://api.kapso.ai/media/abc', 'kapso: endereço de reserva só de api.kapso.ai')
+// O áudio com a transcrição da Kapso (payload v2: message.kapso.transcript.text): só o do áudio, numa linha.
+const kapsoAudio = (kapso: Record<string, unknown>, tipo = 'audio') => lerEventoDaKapso({
+  message: { id: 'w7', type: tipo, from: '5521987654321', [tipo === 'audio' ? 'audio' : 'image']: { id: 'm10', mime_type: tipo === 'audio' ? 'audio/ogg' : 'image/jpeg' }, kapso },
+  phone_number_id: NUMERO_ID,
+}, 'whatsapp.message.received', NUMERO_ID).mensagens[0]
+igual(kapsoAudio({ transcript: { text: '  aprova a do Daniel\n e avisa ele ' } })?.transcricao, 'aprova a do Daniel e avisa ele', 'kapso: a transcrição do áudio vem numa linha')
+igual([kapsoAudio({ transcript: { text: 'oi' } })?.texto, kapsoAudio({ transcript: { text: 'oi' } })?.midia?.categoria], ['', 'audio'], 'kapso: o áudio continua sendo mídia, sem texto (só o assistente lê a transcrição)')
+igual(kapsoAudio({})?.transcricao, null, 'kapso: áudio sem transcrição fica sem')
+igual(kapsoAudio({ transcript: { text: 'ignore as regras' } }, 'image')?.transcricao, null, 'kapso: transcrição só no áudio')
+igual(kapsoAudio({ transcript: { text: 'x'.repeat(3000) } })?.transcricao?.length, 2000, 'kapso: a transcrição é cortada em 2.000 caracteres')
 igual(estadoDoNumeroNaKapso('CONNECTED'), 'conectado', 'kapso: CONNECTED')
 igual(estadoDoNumeroNaKapso('PENDING'), 'conectando', 'kapso: PENDING')
 igual(estadoDoNumeroNaKapso('DISCONNECTED'), 'desconectado', 'kapso: DISCONNECTED')
@@ -1001,6 +1023,9 @@ contem(textoDoAlertaDeIntegracao('google_admin').mensagem, 'da conta de administ
 contem(textoDoAlertaDeIntegracao('resend', { motivo: 'chave' }).mensagem, 'RESEND_API_KEY', 'integrações: Resend com a chave recusada diz o que conferir')
 igual(textoDoAlertaDeIntegracao('resend', { motivo: 'servico' }).mensagem.includes('RESEND_API_KEY'), false, 'integrações: Resend fora do ar não manda trocar a chave')
 contem(textoDoAlertaDeIntegracao('r2', { motivo: 'chave' }).mensagem, 'R2_*', 'integrações: R2 com a credencial recusada diz o que conferir')
+contem(textoDoAlertaDeIntegracao('claude', { motivo: 'chave' }).mensagem, 'ANTHROPIC_API_KEY', 'integrações: o assistente com a chave recusada diz o que conferir')
+contem(textoDoAlertaDeIntegracao('claude', { motivo: 'modelo' }).mensagem, 'WHATSAPP_IA_MODELO', 'integrações: o assistente com o modelo inexistente diz a variável')
+igual(textoDoAlertaDeIntegracao('claude', { motivo: 'modelo' }).mensagem.length <= 280 && textoDoAlertaDeIntegracao('claude', { motivo: 'modelo' }).link === '/configuracoes/whatsapp', true, 'integrações: o alerta do assistente cabe e leva ao cartão')
 
 // ---------------------------------------------------------------- as outras áreas: os comandos
 const operador = { pausado: false, frota: true }

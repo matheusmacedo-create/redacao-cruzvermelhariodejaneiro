@@ -2,11 +2,9 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
-import { lerCamadas } from '@/lib/agenda/camadas'
 import { agoraEmBrasilia, somarDias } from '@/lib/agenda/datas'
-import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
 import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
-import { ehPapel, type Papel } from '@/lib/permissoes'
+import { type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { ehAdministracao, gerenciaUsuarios, pedirDesativacao, respostaDaAdministracao } from './admin'
@@ -18,7 +16,8 @@ import {
   avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita,
   seguirPendencia, type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
-import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
+import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
+import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -26,17 +25,26 @@ import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
 import { saldoNoEstoque } from './estoque'
 import { conversaDeProtecao } from './protecao'
 import { envioAberto, receberMidia } from './envio'
+import { destinoDoDocumento, receberDocumento } from './drive'
+import { lerPastaDaResposta } from './drive-regras'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
 import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, alvoDoLink, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, ofereceNaoFuiEu,
+  pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
+import { responderComAssistente } from './assistente'
+import { ASSISTENTE_INDISPONIVEL, disponibilidadeDoAssistente } from './assistente/uso'
+import { cancelarPlano, confirmarPlano, guardarPlanoDoChat, planoAberto, type AbertoDaPessoa } from './assistente/plano'
+import { esperarAVez, esquecer, lembrarLista, soltarVez } from './assistente/memoria'
+import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, comandoDaRota, lerRespostaAoPlano, rotaDaMensagem, textoDoEcoDoAudio, type AvisoCitado, type Rota } from './assistente/regras'
+import type { TipoDeItem } from './assistente/marcadores'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -77,11 +85,30 @@ type Admin = ReturnType<typeof createAdminClient>
  * tocada: vale para a pergunta daquela mensagem ou, na lista do menu, como
  * comando — nunca cai na pergunta mais nova nem na visita da portaria.
  *
+ * Com o assistente ligado para a pessoa (lib/whatsapp/assistente: whatsapp_ia_config, sem deploy), o que o bot
+ * não entende vai para ele — o Claude, que lê o Palácio com as permissões da pessoa, responde do jeito dela e, com a
+ * escrita ligada, prepara um plano exato —, e os comandos que escrevem passam a valer só pela frase exata ("cancelar
+ * o chamado" não pausa os avisos). Antes de tudo isso, a resposta à pergunta ou ao plano do assistente é lida pelo
+ * código (lerRespostaAoPlano): só "confirmo" escrito depois de o plano chegar (ou citando o plano) faz o plano, com a
+ * vez da pessoa; "cancelar", "sim", "valeu" e "esquece" saem sem modelo. A resposta citando o aviso de um canal do
+ * Chat, sem cara de pedido ao assistente, vira um plano de um passo. O plano sai com os botões Confirmar e Cancelar
+ * (o toque traz o id e o hash do plano); o sensível — a decisão de despesa ou compra, ou o passo de quem usa a
+ * verificação em duas etapas — ganha, no "confirmo", o link de confirmar no Palácio; o recibo do plano confirmado por
+ * aqui oferece o "Não fui eu". O áudio com a transcrição da Kapso vai ao assistente (com o eco do que foi entendido)
+ * e nunca escreve sem um plano confirmado por escrito ou pelo botão. Sem a configuração, nada disso existe: o bot é
+ * exatamente o de antes (o áudio inclusive).
+ *
+ * Com o Google Drive conectado (lib/whatsapp/drive.ts), o documento de quem é da equipe vai para o Drive: a legenda
+ * "guardar em Financeiro/2026" guarda na hora (com o link na resposta); sem ela, o bot pergunta a pasta; e a legenda
+ * com outras palavras vai ao assistente (que prepara o plano de guardar). Sem o Drive, o documento solto recebe a
+ * resposta de sempre.
+ *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
  * também não vira conversa infinita: há um teto de respostas por número.
+ * `prazoDoLote`: até quando a rota do webhook pode esperar (o assistente termina antes).
  */
-export async function atenderMensagem(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: MensagemRecebida): Promise<void> {
+export async function atenderMensagem(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: MensagemRecebida, opcoes: { prazoDoLote?: number } = {}): Promise<void> {
   try {
     // Grupo, mensagem do próprio número e endereço sem número: nem registra.
     if (m.ignorar || !m.numero) return
@@ -95,10 +122,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const codigo = m.midia ? null : conta ? soOCodigo(m.texto) : codigoNaMensagem(m.texto)
     const pendentes = codigo ? await codigosPendentesDoNumero(admin, workspaceId, numero) : []
     if (codigo && pendentes.length) {
-      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida' })
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'codigo_de_ida', enviadaEm: m.enviadaEm })
       if (!nova) return
       // A tentativa conta (e o número se confirma) mesmo com o teto de respostas batido: só a resposta fica de fora.
-      const resposta = await respostaAoCodigoDeIda(admin, workspaceId, numero, codigo, pendentes)
+      const resposta = await respostaAoCodigoDeIda(admin, workspaceId, numero, codigo, pendentes, m.nome)
       if (!(await noTetoDeRespostas(admin, workspaceId, numero))) await entregar(admin, workspaceId, { numero, texto: resposta.texto, tipo: 'bot', userId: resposta.userId }, { config })
       return
     }
@@ -107,7 +134,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const donoDoNumero = (conta?.user_id as string | undefined) ?? null
     const protecao = m.midia ? null : await conversaDeProtecao(admin, workspaceId, numero, m, donoDoNumero)
     if (protecao) {
-      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando })
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando, enviadaEm: m.enviadaEm })
       if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
       const r = await protecao.responder()
       const entrega = await entregar(admin, workspaceId, { numero, texto: r.texto, tipo: 'bot', userId: donoDoNumero, interativo: r.interativo }, { config })
@@ -116,6 +143,19 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
+    // O áudio com a transcrição da Kapso só interessa ao assistente (o bot de comandos não ouve).
+    const transcricao = pessoa && m.midia?.categoria === 'audio' && m.transcricao ? m.transcricao : null
+    // O documento com legenda pode ir ao assistente (a pasta do Drive dita com outras palavras: lib/whatsapp/drive.ts).
+    const legendaDeDocumento = Boolean(pessoa && m.midia?.categoria === 'documento' && m.texto.trim())
+    // O assistente atende esta pessoa agora? Sem a configuração (ou sem a tabela), não: o bot de sempre.
+    const ia = pessoa && (!m.midia || transcricao || legendaDeDocumento) ? await disponibilidadeDoAssistente(admin, workspaceId, pessoa, { numero, nome: m.nome }) : ASSISTENTE_INDISPONIVEL
+    // Com o assistente (e sem envio de fotos aberto: com ele, o áudio é parte do envio, como sempre), o áudio segue como
+    // a transcrição — e áudio nunca escreve sem plano: nada de comando fixo, de pergunta do bot, de resposta direta a
+    // aviso ou à portaria; só o assistente (que lê ou prepara um plano) e os textos fixos do plano (o "confirmo" falado
+    // não confirma). O eco do que foi entendido vai na frente da resposta.
+    const doAudio = Boolean(transcricao && pessoa && ia.disponivel && !(await envioAberto(admin, pessoa.id)))
+    if (doAudio && transcricao) m = { ...m, texto: transcricao, midia: null }
+    const ecoDoAudio = doAudio ? textoDoEcoDoAudio(m.texto) : null
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
     const achado = pessoa ? null : await voluntarioDoNumero(admin, numero)
@@ -124,8 +164,16 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const administra = ehAdministracao(pessoa)
     // "saída…" e "retorno…" só são comando para quem opera a frota: o nível é lido só quando a mensagem parece do diário de bordo.
     const operaFrota = pessoa && !m.midia && pareceViagem(m.texto) ? (await nivelNoPatrimonio(admin, workspaceId, pessoa)) >= 2 : false
-    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota }) : null
+    const pedido = !pessoa ? null : doAudio ? { comando: 'desconhecido' as const, resto: m.texto }
+      : lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota, assistente: ia.disponivel })
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
+    // Com o assistente, "aprova a 2" só é a decisão do Financeiro com a lista do "financeiro" aberta, de quem decide
+    // (lida uma vez aqui; undefined = não precisou ler): sem ela, o "2" é o da última lista da memória curta ("avisos",
+    // "aprovacoes"), e a mensagem vai ao assistente (assistente/regras.ts, comandoDaRota).
+    const listaDoFinanceiro = pessoa && ia.disponivel && pedido?.comando === 'decidir_financeiro'
+      ? (await podeDecidirNoFinanceiro(admin, workspaceId, pessoa) ? await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro') : null)
+      : undefined
+    const decisaoSemLista = listaDoFinanceiro === null
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
     const aviso = pessoa && m.citada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
@@ -140,38 +188,86 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // equipes de um chamado que já passou dessa etapa), vale como pergunta vencida — o "2" dela não escolhe o
     // assunto, nem marca os avisos como lidos.
     const tocou = m.toque && Boolean(m.citada)
+    let citouMenu = false
     if (pessoa && !aviso) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
         vencida = !pendencia && await perguntaVencida(admin, workspaceId, pessoa.id, m.citada)
-        if (tocou && !pendencia && !vencida) vencida = !(await citouOMenu(admin, workspaceId, pessoa.id, m.citada))
+        if (tocou && !pendencia && !vencida) {
+          citouMenu = await citouOMenu(admin, workspaceId, pessoa.id, m.citada)
+          vencida = !citouMenu
+        }
       }
       if (!vencida && !tocou) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
     // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo. Na
     // pergunta de texto livre, o nome de setor que também é comando de área ("Financeiro", "Portaria", "Estoque
     // central") é a resposta: o "Onde é?" do chamado não se perde na lista do Financeiro.
-    const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
+    let paraPendencia = !doAudio && Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
       || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando)))))
-    // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
+    // A pergunta da pasta do Drive, com o assistente: o que não tem cara de caminho ("coloca na pasta de contratos do
+    // jurídico") vai a ele, que vê o documento no contexto e prepara o plano; o caminho e o "cancelar" ficam com o bot.
+    if (paraPendencia && pendencia?.tipo === 'guardar_documento' && ia.disponivel && ia.escrita && !m.midia && !ehCancelamento(m.texto) && !lerPastaDaResposta(m.texto)) paraPendencia = false
+    // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação. O documento, com o Google
+    // Drive conectado, vai para o Drive (a pasta na legenda, na pergunta do bot ou pelo assistente).
     const midia = Boolean(pessoa && m.midia && !aviso)
+    const paraODrive = midia && pessoa && m.midia?.categoria === 'documento'
+      ? await destinoDoDocumento(admin, workspaceId, pessoa, m, { assistente: ia.disponivel && ia.escrita && ia.podeAgir && ia.recente })
+      : null
+
+    // O assistente: o plano ou a pergunta aberta da pessoa, a resposta a eles (lida pelo código) e a rota.
+    let aberto: AbertoDaPessoa | null = null
+    let rota: Rota = 'bot'
+    let respostaAoPlano: ReturnType<typeof lerRespostaAoPlano> = null
+    if (pessoa && ia.disponivel && !m.midia) {
+      aberto = await planoAberto(admin, pessoa.id, m.citada, { citacaoResolvida: Boolean(aviso || estrita || vencida || citouMenu) })
+      // A visita na portaria também responde com número: só se pergunta quando o número pode ser da pergunta do assistente.
+      const comNumero = lerEscolha(m.texto, 99) !== null && Boolean(aberto?.aberto.plano?.situacao === 'pergunta' || (aberto && !aberto.aberto.plano && aberto.aberto.recente))
+      const visitaEsperando = comNumero ? Boolean(await visitaEsperandoResposta(admin, workspaceId, pessoa.id)) : false
+      respostaAoPlano = aberto ? lerRespostaAoPlano(m.texto, aberto.aberto, { visitaEsperando, enviadaEm: m.enviadaEm }) : null
+      // A janela de 2 min depois do plano (o "cancelar" atrasado, o "2" repetido, o "confirmo" tardio) não passa por cima de
+      // outra pergunta: a do bot, aberta (a conferência do voto, os passos do chamado), ou a visita esperando a resposta.
+      // O plano que espera o Palácio também cede a vez à pergunta mais nova, a menos que a mensagem cite o plano.
+      if (respostaAoPlano && aberto && !aberto.aberto.plano && aberto.aberto.citacao !== 'plano_velho' && aberto.aberto.citacao !== 'plano' && (pendencia || visitaEsperando)) respostaAoPlano = null
+      rota = rotaDaMensagem({
+        disponivel: true, midia: false, comando: comandoDaRota(pedido?.comando ?? 'desconhecido', Boolean(listaDoFinanceiro)), texto: m.texto, resposta: respostaAoPlano,
+        aviso: aviso ? tipoDoAviso(aviso.link) : null, paraPendencia,
+        audio: doAudio,
+      })
+      // O plano de um passo para o Chat é escrita: sem a escrita do assistente para a pessoa, com a verificação em duas
+      // etapas (a regra de sempre responde) ou sem texto, a resposta citando o canal sai como sempre.
+      if (rota === 'chat_plano' && !(ia.escrita && ia.podeAgir && m.texto.trim().length >= 2)) rota = 'bot'
+      // A pergunta do bot que já passou e a resposta clara à visita que espera ("pode subir") seguem o caminho de sempre,
+      // antes do assistente (e o registro diz isso, não "ia").
+      if (rota === 'ia' && !aviso && !doAudio && (vencida || (!tocou && respostaClaraDaVisita(m.texto) && await visitaEsperandoResposta(admin, workspaceId, pessoa.id)))) rota = 'bot'
+    }
 
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
-      comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+      comando: rota !== 'bot' ? rota
+        : paraODrive ? (paraODrive === 'assistente' ? 'ia' : `drive_${paraODrive}`)
+          : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}`
+            : decisaoSemLista ? 'desconhecido' : comando,
+      enviadaEm: m.enviadaEm,
     })
     if (!nova) return
 
     const noTeto = await noTetoDeRespostas(admin, workspaceId, numero)
 
     // `interativo`: botões ou lista (só dentro da janela; fora, ou na fila, sai o texto). `comando`: a marca no registro da saída.
-    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string } = {}) =>
-      entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...extra }, { config })
+    // `categoria` e `semFila`: as respostas do assistente (lib/whatsapp/assistente) nunca esperam na fila; o recibo vai
+    // como "assistente" (o texto some da fila depois do envio).
+    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string; categoria?: string; semFila?: boolean } = {}) => {
+      const { semFila, ...resto } = extra
+      return entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...resto }, { config, semFila })
+    }
     const base = urlBase()
 
-    // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
-    if (midia && pessoa) {
+    // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora. O documento para o Drive
+    // também (a legenda que diz a pasta guarda na hora); a resposta dele sai mais abaixo, com a pergunta guardada.
+    const documento = midia && pessoa && paraODrive ? await receberDocumento(admin, workspaceId, pessoa, m, config, paraODrive) : null
+    if (midia && pessoa && !documento) {
       const resposta = await receberMidia(admin, workspaceId, pessoa, m, config, base)
       if (resposta && !noTeto) await responder(resposta.texto)
       return
@@ -192,6 +288,57 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // As respostas do assistente e as dele sem modelo: nunca esperam na fila (e o texto some dela se esperasse).
+    const doAssistente = (texto: string) => responder(texto, { categoria: 'assistente', semFila: true })
+    // O prazo do turno do assistente: 40 s, ou menos no fim do lote da rota (que tem 300 s para tudo).
+    const prazo = Math.min(Date.now() + LIMITES.prazoMs, (opcoes.prazoDoLote ?? Number.POSITIVE_INFINITY) - 20_000)
+    const assistente = (extra: { escolha?: string } = {}) => responderComAssistente({
+      admin, workspaceId, pessoa, m, base, prazo, ia, aberto, responder: (texto, x) => responder(texto, x), eco: ecoDoAudio, ...extra,
+    })
+
+    // A resposta ao plano ou à pergunta do assistente (o código lê; o modelo nunca).
+    if (rota === 'ia_escolha' && respostaAoPlano?.tipo === 'escolha') {
+      // O toque na lista traz o id da linha (esc:…); ao modelo vai o número da opção, como se tivesse sido digitado.
+      const n = (aberto?.plano?.opcoes ?? []).indexOf(respostaAoPlano.marcador) + 1
+      if (m.toque && n > 0) m = { ...m, texto: String(n) }
+      await assistente({ escolha: respostaAoPlano.marcador })
+      return
+    }
+    if (rota === 'ia_cancelar' || rota === 'ia_confirmo') {
+      // Com a vez da pessoa: um turno que estava no meio (uma correção esperando o modelo) termina antes, e o plano
+      // que ele trocou não é confirmado (o consumo é condicional: só o plano "aberto" lido aqui executa).
+      const vez = await esperarAVez(admin, workspaceId, pessoa.id, prazo)
+      if (!vez) {
+        await doAssistente(TEXTOS_FIXOS.ocupado)
+        return
+      }
+      let saida: Awaited<ReturnType<typeof confirmarPlano>> = { texto: TEXTOS_FIXOS.cancelado, saida: 'fixo' }
+      try {
+        if (rota === 'ia_confirmo' && aberto?.plano) saida = await confirmarPlano(admin, { workspaceId, pessoa, m, plano: aberto.plano, base, recente: ia.recente })
+        else await cancelarPlano(admin, pessoa.id)
+      } finally {
+        await soltarVez(admin, pessoa.id)
+      }
+      if (saida.saida === 'recibo' && ofereceNaoFuiEu(saida.texto)) {
+        // O recibo com o "Não fui eu" sai como os avisos de segurança: o botão e a marca no registro (lib/whatsapp/fila.ts),
+        // e a resposta a ele protege a conta (lib/whatsapp/protecao.ts). Sem textos de ação: pode esperar na fila.
+        await entregar(admin, workspaceId, { numero, texto: saida.texto, tipo: 'seguranca', userId: pessoa.id, categoria: 'assistente' }, { config })
+      } else if (saida.saida === 'recibo') {
+        await responder(saida.texto, { categoria: 'assistente' })
+      } else if (saida.saida === 'link') {
+        // O link de confirmar no Palácio sai na hora, como os links da conta (o texto some da fila se esperasse).
+        await responder(saida.texto, { categoria: 'conta', semFila: true })
+      } else {
+        await doAssistente(saida.texto)
+      }
+      return
+    }
+    const textoDaRota = rota === 'ia_obrigado' ? undefined : TEXTO_DA_ROTA[rota]
+    if (textoDaRota) {
+      await doAssistente(ecoDoAudio ? `${ecoDoAudio}\n\n${textoDaRota}` : textoDaRota)
+      return
+    }
+
     // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
     const enviar = async (r: Resposta) => {
       if (!r.pergunta) {
@@ -209,10 +356,40 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
     }
 
+    // O documento para o Drive: guardado (o link), a pergunta da pasta, ou a legenda com outras palavras para o assistente.
+    if (documento) {
+      if (documento.tipo === 'resposta') await enviar(documento.resposta)
+      else await assistente()
+      return
+    }
+
     if (aviso) {
       // Anexo respondendo um aviso: o arquivo não entra no chamado nem na conversa por aqui (só o texto entraria, sem ele).
       if (m.midia) {
         await responder(`Arquivo respondendo um aviso ainda não entra por aqui. Anexe pelo Palácio: ${base}${aviso.link ?? '/notificacoes'}`)
+        return
+      }
+      // Citou o aviso pedindo algo ao assistente ("do que se trata?", "quem é o responsável disso?"): vai a ele, com o aviso no contexto.
+      if (rota === 'ia') {
+        await assistente()
+        return
+      }
+      // Citou o aviso de um canal do Chat com a resposta ("ok, combinado"): o plano de um passo, que sai no canal com o "confirmo".
+      const doChat = rota === 'chat_plano' ? alvoDoLink(aviso.link) : null
+      if (doChat?.tipo === 'chat') {
+        const vez = await esperarAVez(admin, workspaceId, pessoa.id, prazo)
+        if (!vez) {
+          await doAssistente(TEXTOS_FIXOS.ocupado)
+          return
+        }
+        try {
+          await guardarPlanoDoChat(admin, {
+            workspaceId, pessoa, numero, alvo: { canalId: doChat.canalId, fio: doChat.fio }, texto: m.texto, base,
+            saida: { semFila: (texto, interativo) => responder(texto, { categoria: 'assistente', semFila: true, interativo }), naFila: (texto) => responder(texto, { categoria: 'assistente' }) },
+          })
+        } finally {
+          await soltarVez(admin, pessoa.id)
+        }
         return
       }
       await enviar(await responderAoAviso(admin, workspaceId, pessoa, aviso.link, m.texto, base))
@@ -242,8 +419,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // Respondeu à portaria sem citar o aviso ("1", "pode subir"): vale para a única visita de agora que espera esta pessoa.
-    // O toque não: o "1" da lista do menu são os avisos (o toque no botão da visita já veio pelo aviso citado).
-    if (!m.midia && !tocou && respostaClaraDaVisita(m.texto)) {
+    // O toque não: o "1" da lista do menu são os avisos (o toque no botão da visita já veio pelo aviso citado). O áudio
+    // também não (vai ao assistente, que prepara o plano).
+    if (!m.midia && !tocou && !doAudio && respostaClaraDaVisita(m.texto)) {
       const visita = await visitaEsperandoResposta(admin, workspaceId, pessoa.id)
       if (visita) {
         await enviar(await responderVisita(admin, workspaceId, pessoa, visita.id, m.texto, base))
@@ -276,10 +454,14 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // As decisões do Financeiro e de Compras são de quem a tela deixa decidir: para os outros, as palavras caem no menu.
-    if ((comando === 'financeiro' || comando === 'decidir_financeiro') && pedido && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
-      if (comando === 'financeiro') await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
-      // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima).
-      else await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
+    if (comando === 'financeiro' && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
+      await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
+      return
+    }
+    // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima). Com o assistente, ela já
+    // foi lida (listaDoFinanceiro); sem ela, a mensagem foi ao assistente e não chega aqui.
+    if (comando === 'decidir_financeiro' && pedido && !decisaoSemLista && (listaDoFinanceiro || await podeDecidirNoFinanceiro(admin, workspaceId, pessoa))) {
+      await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, listaDoFinanceiro ?? await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
       return
     }
 
@@ -325,15 +507,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'avisos') {
-      const [{ data: avisos }, { count: total }] = await Promise.all([
-        admin.from('notifications').select('title, message, link').eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
-          .order('created_at', { ascending: false }).limit(AVISOS_NA_RESPOSTA),
-        admin.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null),
-      ])
-      await responder(textoDosAvisos({
-        avisos: (avisos ?? []).map((a) => ({ titulo: a.title as string, mensagem: (a.message as string) ?? '', link: (a.link as string | null) ?? null })),
-        total: total ?? 0, urlBase: base,
-      }))
+      const { avisos, total } = await avisosDaPessoa(admin, workspaceId, pessoa.id, { soNaoLidos: true, limite: AVISOS_NA_RESPOSTA })
+      const entrega = await responder(textoDosAvisos({ avisos: avisos.map((a) => ({ titulo: a.titulo, mensagem: a.mensagem, link: a.link })), total, urlBase: base }))
+      // Com o assistente, a lista entra na memória curta: "aprova a 2" logo depois aponta para o segundo aviso.
+      if (ia.disponivel && entrega.situacao === 'enviada') await lembrarLista(admin, workspaceId, pessoa.id, avisos.map((a) => itemDoAviso(a.id, a.link)), entrega.id)
       return
     }
 
@@ -356,17 +533,23 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'agenda') {
-      await responder(await agendaDaPessoa(admin, workspaceId, pessoa, base))
+      await responder(await respostaDaAgenda(admin, workspaceId, pessoa, base))
       return
     }
 
     if (comando === 'chamados') {
-      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa, base))
+      await responder(await respostaDosChamados(admin, workspaceId, pessoa, base))
       return
     }
 
     if (comando === 'aprovacoes') {
-      await responder(await aprovacoesDaPessoa(admin, workspaceId, pessoa.id, base))
+      const pendentes = await aprovacoesPendentes(admin, workspaceId, pessoa.id, { limite: APROVACOES_NA_RESPOSTA })
+      const entrega = await responder(pendentes
+        ? textoDasAprovacoes({ aprovacoes: pendentes.aprovacoes.map((a) => ({ id: a.id, titulo: a.titulo })), total: pendentes.total, urlBase: base })
+        : `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`)
+      if (ia.disponivel && pendentes && entrega.situacao === 'enviada') {
+        await lembrarLista(admin, workspaceId, pessoa.id, pendentes.aprovacoes.map((a) => ({ tipo: 'aprovacao' as const, id: a.id })), entrega.id)
+      }
       return
     }
 
@@ -383,9 +566,27 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // O assistente, sem modelo: "valeu" e "esquece" (a memória curta volta ao zero, e o plano ou a pergunta aberta é cancelada).
+    if (rota === 'ia_obrigado') {
+      await doAssistente(TEXTOS_FIXOS.obrigado)
+      return
+    }
+    if (rota === 'ia_esquecer') {
+      await esquecer(admin, pessoa.id)
+      await cancelarPlano(admin, pessoa.id)
+      await doAssistente(TEXTOS_FIXOS.esquecido)
+      return
+    }
+
+    // O que o bot não entendeu, com o assistente ligado para a pessoa: vai a ele.
+    if (rota === 'ia') {
+      await assistente()
+      return
+    }
+
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
     const quem = await quemNoMenu(admin, workspaceId, pessoa)
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', ...quem })
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido' || decisaoSemLista, assistente: ia.disponivel, ...quem })
     await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
@@ -405,6 +606,21 @@ export async function quemNoMenu(admin: Admin, workspaceId: string, pessoa: Pess
     admin: ehAdministracao(pessoa), portaria: temPortaria(pessoa), atende, financeiro, presenca,
     frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1,
   }
+}
+
+/** O tipo do aviso citado, para a rota do assistente (o pedido de assinatura de ofício e o que não se reconhece: "outro"). */
+function tipoDoAviso(link: string | null): AvisoCitado {
+  const alvo = alvoDoLink(link)
+  return alvo && alvo.tipo !== 'oficio' ? alvo.tipo : 'outro'
+}
+
+/** O item de um aviso na lista do "avisos", para a memória do assistente: a aprovação, o chamado ou a visita dele; senão, o próprio aviso. */
+function itemDoAviso(id: string, link: string | null): { tipo: TipoDeItem; id: string } {
+  const alvo = alvoDoLink(link)
+  if (alvo?.tipo === 'aprovacao') return { tipo: 'aprovacao', id: alvo.id }
+  if (alvo?.tipo === 'chamado') return { tipo: 'chamado', id: alvo.id }
+  if (alvo?.tipo === 'visita') return { tipo: 'visita', id: alvo.id }
+  return { tipo: 'aviso', id }
 }
 
 /** A mensagem citada é um menu que o bot mandou a esta pessoa (a saída marcada "menu")? Na dúvida, não. */
@@ -430,14 +646,15 @@ async function noTetoDeRespostas(admin: Admin, workspaceId: string, numero: stri
  * (lib/whatsapp/confirmacao.ts). O código de volta mandado aqui não confirma
  * nem conta tentativa; qualquer outro conta uma tentativa.
  */
-async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: string, codigo: string, pendentes: CodigoPendente[]): Promise<{ texto: string; userId: string | null }> {
+async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: string, codigo: string, pendentes: CodigoPendente[], nome: string | null): Promise<{ texto: string; userId: string | null }> {
   for (const p of pendentes) {
     if (p.quem === 'equipe') {
       if (!codigoConfere(p.hash, p.userId, numero, codigo, 'ida')) continue
       // Como a tela exige a sessão no espaço: conta desativada ou de fora não confirma.
       const pessoa = await pessoaDoEspaco(admin, workspaceId, p.userId)
       if (!pessoa) return { texto: textoDaFalhaDoCodigoDeIda('falhou', 'equipe'), userId: null }
-      const r = await confirmarNumeroDaEquipe(admin, { codigoId: p.id, userId: p.userId, numero, workspaceId, sentido: 'ida' })
+      // O nome de perfil que veio com o código fica como o nome visto (o assistente para no número se ele mudar).
+      const r = await confirmarNumeroDaEquipe(admin, { codigoId: p.id, userId: p.userId, numero, workspaceId, sentido: 'ida', nome })
       return { texto: r.ok ? textoDoNumeroConfirmado('palacio') : textoDaFalhaDoCodigoDeIda(r.motivo, 'equipe'), userId: r.ok ? p.userId : null }
     }
     if (!codigoConfere(p.hash, donoDoVoluntario(p.participanteId), numero, codigo, 'ida')) continue
@@ -449,52 +666,18 @@ async function respostaAoCodigoDeIda(admin: Admin, workspaceId: string, numero: 
   return { texto: textoDoCodigoDeIdaErrado(await contarTentativaErrada(admin, pendentes)), userId: null }
 }
 
-/** A pessoa ativa, membro deste espaço; null para o resto (conta desativada vira "número desconhecido"). */
-async function pessoaDoEspaco(admin: Admin, workspaceId: string, userId: string): Promise<Pessoa | null> {
-  const { data } = await admin.from('workspace_members').select('user_id, role, profiles(full_name, active)').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
-  const perfil = (Array.isArray(data?.profiles) ? data?.profiles[0] : data?.profiles) as { full_name?: string | null; active?: boolean } | null | undefined
-  if (!data || !perfil || perfil.active === false || !ehPapel(data.role)) return null
-  return { id: userId, nome: perfil.full_name ?? null, papel: data.role }
-}
-
 // ------------------------------------------------------------------ consultas
 //
-// O cliente é o de serviço (não há sessão no WhatsApp), então cada consulta
-// filtra pela pessoa e pelo espaço, e a agenda passa pelo mesmo crivo de
-// acesso do resumo semanal por e-mail (camadasDisponiveis com semSessao).
+// Os dados vêm de lib/whatsapp/consultas.ts (os mesmos que o assistente usa); aqui só a formatação.
 
 /** Hoje e amanhã, com as camadas que a pessoa deixou ligadas na Agenda. */
-async function agendaDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
+async function respostaDaAgenda(admin: Admin, workspaceId: string, pessoa: Pessoa, base: string): Promise<string> {
   const hoje = agoraEmBrasilia().dia
   const amanha = somarDias(hoje, 1)
-  const [disponiveis, { data: preferencias }] = await Promise.all([
-    camadasDisponiveis(admin, workspaceId, pessoa.id, pessoa.papel, { semSessao: true }),
-    admin.from('agenda_preferencias').select('camadas_ocultas').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).maybeSingle(),
-  ])
-  const ocultas = lerCamadas(preferencias?.camadas_ocultas)
-  const { itens, falhas } = await itensDaAgenda(admin, workspaceId, pessoa.id, { de: hoje, ate: amanha }, [...disponiveis].filter((c) => !ocultas.includes(c)))
+  const { itens, falhou } = await agendaDaPessoa(admin, workspaceId, pessoa, { de: hoje, ate: amanha })
   // Só o que começa no dia: a campanha que dura o mês inteiro não enche a lista de todo dia.
   const doDia = (dia: string): ItemDoDia[] => itens.filter((i) => i.dia === dia).map((i) => ({ titulo: i.titulo, hora: i.hora ?? null, detalhe: i.detalhe ?? null }))
-  return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou: falhas.length > 0 })
-}
-
-/** As rodadas de aprovação em aberto em que o voto da pessoa ainda falta. */
-async function aprovacoesDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
-  const { data: votos, error } = await admin.from('approval_voters').select('approval_id').eq('workspace_id', workspaceId).eq('user_id', userId).eq('decision', 'pending').limit(200)
-  if (error) return `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`
-  const ids = [...new Set((votos ?? []).map((v) => v.approval_id as string))]
-  if (!ids.length) return textoDasAprovacoes({ aprovacoes: [], total: 0, urlBase: base })
-  const { data: abertas } = await admin.from('approvals').select('id, content_id').eq('workspace_id', workspaceId).eq('status', 'pending').in('id', ids)
-    .order('created_at', { ascending: false })
-  const lista = abertas ?? []
-  const mostrar = lista.slice(0, APROVACOES_NA_RESPOSTA)
-  const pecas = [...new Set(mostrar.map((a) => a.content_id as string))]
-  const { data: titulos } = pecas.length ? await admin.from('content_pieces').select('id, title').in('id', pecas) : { data: [] }
-  const tituloDe = new Map((titulos ?? []).map((t) => [t.id as string, (t.title as string | null)?.trim() || 'Matéria sem título']))
-  return textoDasAprovacoes({
-    aprovacoes: mostrar.map((a) => ({ id: a.id as string, titulo: tituloDe.get(a.content_id as string) ?? 'Matéria sem título' })),
-    total: lista.length, urlBase: base,
-  })
+  return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou })
 }
 
 /**

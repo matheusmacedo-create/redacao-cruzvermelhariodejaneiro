@@ -612,6 +612,12 @@ const CONFIGURACOES: GuiaDaArea = {
           texto: 'Os endereços dos setores são da mesma conta do Gmail. Para levar a uma caixa e-mails de outro endereço (como contato@), ligue uma etiqueta à caixa e crie filtros que a ponham: tudo o que tem a etiqueta aparece também na caixa do setor.',
           seAusente: 'pular',
         },
+        {
+          alvo: 'configuracoes.google-drive',
+          titulo: 'Google Drive',
+          texto: '“Conectar Google Drive” liga a conta Google da filial onde o Palácio guarda arquivos, na pasta “Palácio – Arquivos”: a cópia dos envios que chegam pelo WhatsApp e os documentos que a equipe guarda por lá. O Palácio só enxerga o que ele mesmo criou. O cartão mostra a situação, a conta e a pasta raiz; “Desconectar” para tudo.',
+          seAusente: 'pular',
+        },
       ],
     },
     {
@@ -680,6 +686,19 @@ const CONFIGURACOES: GuiaDaArea = {
         'De volta ao Palácio Virtual, o cartão mostra “Conectada:” com a conta, e os endereços do Gmail já aparecem em “3. Endereços (aliases do Gmail)”.',
       ],
       dica: 'Se a autorização vencer ou for revogada, o cartão avisa, e nenhum setor envia até alguém tocar em “Reconectar”. Conta conectada antes da caixa de entrada existir: toque em “Reconectar” uma vez para liberar a leitura.',
+    },
+    {
+      id: 'conectar-google-drive',
+      titulo: 'Conectar o Google Drive da filial',
+      quem: 'Só administradores',
+      passos: [
+        'Com o cliente OAuth do Google já em “Integrações” (o mesmo do e-mail dos setores), abra Configurações › E-mail dos setores e desça até “6. Google Drive”.',
+        'Toque em “Conectar Google Drive” e entre com a conta Google da filial (hoje, a do contato@). O Google pede uma permissão só: ver e guardar os arquivos que o Palácio criar.',
+        'De volta ao Palácio, o cartão mostra “Ativa”, a conta conectada e o link da pasta “Palácio – Arquivos”, que já nasce no Meu Drive dessa conta.',
+        'No Google Drive da conta conectada, abra “Palácio – Arquivos”, toque em “Compartilhar” e dê acesso à equipe (o grupo ou o domínio da filial; ou, quando as pastas dos setores existirem, cada uma com o seu setor). O que o Palácio cria lá dentro herda o acesso; sem isso, o link que o WhatsApp devolve e o da ficha do envio só abrem para a conta conectada.',
+        'Pronto: os envios que chegam pelo WhatsApp passam a ser copiados para “Envios do WhatsApp”, e a equipe guarda documentos pelo WhatsApp nas pastas dos setores.',
+      ],
+      dica: 'Se a autorização vencer, os administradores recebem um alerta de integração e o cartão pede “Reconectar”. Desconectar para as cópias, mas o que já está no Drive continua lá. Não revogue o acesso em myaccount.google.com se o e-mail dos setores usa a mesma conta: lá a revogação derruba todas as conexões do Palácio.',
     },
     {
       id: 'criar-setor',
@@ -827,6 +846,18 @@ const CONFIGURACOES: GuiaDaArea = {
       termos: ['nome do remetente', 'de quem vem o e-mail'],
     },
     {
+      id: 'o-que-vai-para-o-drive',
+      pergunta: 'O que o Palácio guarda no Google Drive, e o que ele enxerga lá?',
+      resposta: 'Tudo fica dentro da pasta “Palácio – Arquivos”, no Drive da conta conectada. Em “Envios do WhatsApp/AAAA-MM/título do envio (ENV-…)” cai a cópia de cada envio de fotos e vídeos que chegou pelo WhatsApp, com a autorização de imagem na descrição de cada arquivo; a ficha do envio ganha o link “Cópia no Google Drive”. Nas pastas dos setores ficam os documentos que a equipe guarda pelo WhatsApp: cada pessoa só na pasta do próprio setor (o nome do setor no Palácio), e quem administra em qualquer lugar.\n\nA permissão é a menor que o Google oferece: o Palácio vê e mexe só no que ele mesmo criou. O resto do Drive da conta continua invisível para ele, e nada é apagado por ele.',
+      termos: ['google drive', 'drive', 'pasta', 'palácio – arquivos', 'cópia dos envios', 'drive.file', 'documentos'],
+    },
+    {
+      id: 'link-do-drive-pede-acesso',
+      pergunta: 'O link do Google Drive pede “Solicitar acesso”. O que fazer?',
+      resposta: 'O que o Palácio cria no Drive nasce privado da conta conectada: o link que o WhatsApp devolve e o da ficha do envio só abrem para quem tem acesso à pasta. No Google Drive dessa conta, abra “Palácio – Arquivos”, toque em “Compartilhar” e dê acesso à equipe (o grupo ou o domínio da filial, ou a pasta de cada setor com o seu setor). O que nasce lá dentro herda o acesso.',
+      termos: ['solicitar acesso', 'compartilhar', 'permissão', 'link não abre', 'google drive', 'acesso negado'],
+    },
+    {
       id: 'autorizacao-expirou',
       pergunta: 'Apareceu que a autorização da conta Google “expirou ou foi revogada”. O que faço?',
       resposta: 'Toque em “Reconectar” e entre de novo com a conta dona dos endereços. Até lá, nenhum setor consegue enviar.\n\n“Desconectar” tem o mesmo efeito: ninguém envia até reconectar.',
@@ -945,6 +976,20 @@ const WHATSAPP: GuiaDaArea = {
       dica: 'Para os avisos chegarem a quem não escreveu ao número nas últimas 24 horas, aprove os modelos de mensagem na Kapso (o dos avisos e, para o código, um da categoria Autenticação) e informe os nomes no mesmo cartão (veja a pergunta sobre a janela de 24 horas).',
     },
     {
+      id: 'ligar-o-assistente',
+      titulo: 'Ligar o assistente para um piloto',
+      exemplo: 'A administração liga o assistente só para a Carla e o Rafael numa segunda; na quarta, depois de três dias sem problema, passa para todos os administradores.',
+      quem: 'Só administradores',
+      passos: [
+        'No cartão “Assistente”, confira que a chave da Anthropic aparece como configurada.',
+        'Em “Quem o assistente atende”, escolha “Piloto” e marque as pessoas (só funciona para quem confirmou o WhatsApp em Meu perfil).',
+        'Para o piloto também pedir ações (votos, mensagens, chamados, portaria, decisões do Financeiro), marque “Deixar o assistente preparar ações para a pessoa confirmar”. Nada é feito sem o *confirmo* (ou o botão Confirmar) da pessoa a um plano exato; a decisão de despesa ou compra termina sempre no Palácio.',
+        'Ajuste os tetos, se quiser, e toque em “Salvar o assistente”. Vale a partir da próxima mensagem, sem publicar nada.',
+        'Para desligar, escolha “Desligado” e salve: o bot volta a responder só aos comandos do menu no mesmo minuto. Desmarcar as ações deixa o assistente só consultando.',
+      ],
+      dica: 'O assistente usa a mesma chave da Anthropic do resto do Palácio. O modelo e o esforço mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO, na Vercel. Passe as ações para todos os administradores só depois de ver, no piloto, o recibo com o “Não fui eu” e a confirmação no Palácio (a linha “Confirmação no Palácio” do cartão diz se ela está ligada).',
+    },
+    {
       id: 'testar-whatsapp',
       titulo: 'Testar se está funcionando',
       quem: 'Só administradores',
@@ -1008,13 +1053,13 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'alertas-de-integracoes',
       pergunta: 'Que alertas de integrações chegam pelo WhatsApp?',
-      resposta: 'Quando uma integração para, os administradores recebem um aviso no assunto “Integrações”, no sino, no e-mail e também no WhatsApp, com o que fazer: a conta Google do e-mail dos setores ou a de administrador expirou ou foi revogada (reconecte em Configurações → E-mail dos setores); o Google recusou o cliente OAuth (confira em Integrações); o Resend recusou a chave ou o domínio, saiu do ar ou limitou os envios (os e-mails não saem); o Cloudflare R2 não gravou (as fotos que chegam pelo WhatsApp e o espelho da trilha pública).\n\nÉ no máximo um aviso por integração a cada 6 horas, e o da conta Google só na hora em que ela expira. A queda do próprio WhatsApp continua no assunto “Sistema”, só no sino e no e-mail.',
-      termos: ['integrações', 'alerta', 'google expirou', 'conta google', 'resend', 'e-mail parou', 'r2', 'armazenamento'],
+      resposta: 'Quando uma integração para, os administradores recebem um aviso no assunto “Integrações”, no sino, no e-mail e também no WhatsApp, com o que fazer: a conta Google do e-mail dos setores, a de administrador ou a do Google Drive expirou ou foi revogada (reconecte em Configurações → E-mail dos setores); o Drive ficou sem espaço; o Google recusou o cliente OAuth (confira em Integrações); o Resend recusou a chave ou o domínio, saiu do ar ou limitou os envios (os e-mails não saem); o Cloudflare R2 não gravou (as fotos que chegam pelo WhatsApp e o espelho da trilha pública).\n\nÉ no máximo um aviso por integração a cada 6 horas, e o da conta Google só na hora em que ela expira. A queda do próprio WhatsApp continua no assunto “Sistema”, só no sino e no e-mail.',
+      termos: ['integrações', 'alerta', 'google expirou', 'conta google', 'resend', 'e-mail parou', 'r2', 'armazenamento', 'google drive'],
     },
     {
       id: 'comandos-de-administrador',
       pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
-      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: vêm a conexão com a Kapso, o recebimento, a fila, as conversas iniciadas em 24 horas (a cota diária), as falhas de envio de 24 horas por motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google expiradas, a última leitura de cada conta da Escola (Únicopag e Meta: em dia, atrasada ou com o erro) e a última conferência diária.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas esperam.\n\nOs dois aparecem no “menu” só de administrador; para os outros, o bot responde que não entendeu. Ficam em “Últimas mensagens” como os demais.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja “Confirme no Palácio”).',
+      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: vêm a conexão com a Kapso, o recebimento, a fila, as conversas iniciadas em 24 horas (a cota diária), as falhas de envio de 24 horas por motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google expiradas, o Google Drive, o assistente (o modo e os números de hoje), a última leitura de cada conta da Escola (em dia, atrasada ou com o erro) e a última conferência diária.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas esperam.\n\nOs dois aparecem no “menu” só de administrador; para os outros, o bot responde que não entendeu. Ficam em “Últimas mensagens” como os demais.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja “Confirme no Palácio”).',
       termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot', 'sincronização da escola', 'únicopag'],
     },
     {
@@ -1034,6 +1079,24 @@ const WHATSAPP: GuiaDaArea = {
       pergunta: 'Como funciona o “Não fui eu” nos avisos de segurança?',
       resposta: 'O aviso de segurança de algo que a própria pessoa faria (acesso de um aparelho ou país novo, entrada bloqueada, senha trocada, verificação em duas etapas mexida, e-mail trocado e o recado ao número antigo quando o WhatsApp da conta muda) termina com “Responda NÃO FUI EU se não foi você” e, para quem escreveu ao número nas últimas 24 horas, com o botão “Não fui eu”. Vale respondendo o aviso ou até 24 horas depois dele, mesmo com a verificação em duas etapas e do número antigo.\n\nDepois do “confirmo”, o Palácio encerra todas as sessões da conta, cancela os links de senha e de convite pendentes, avisa os administradores (no sino e, conforme as preferências, no e-mail e no WhatsApp, no assunto “Trilha pública”) e a pessoa, por e-mail, e registra no “Registro de acessos”. A senha não muda e a conta não é desativada. Cada aviso protege uma vez só; do número antigo, uma vez a cada 24 horas.',
       termos: ['não fui eu', 'nao fui eu', 'aviso de segurança', 'sessões encerradas', 'alguém entrou na minha conta', 'número trocado'],
+    },
+    {
+      id: 'assistente-do-whatsapp',
+      pergunta: 'O que o assistente do WhatsApp faz?',
+      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas, a Central de ajuda e as áreas que ela abre (Financeiro, frota, estoque, portaria). Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp (ou respondeu “Não fui eu”), o assistente para naquele número até a pessoa confirmar o número de novo: em “Meu perfil”, no WhatsApp, ela toca em “Trocar número” e confirma o mesmo número.',
+      termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'piloto', 'linguagem natural', 'parou no número', 'trocar número'],
+    },
+    {
+      id: 'quanto-custa-o-assistente',
+      pergunta: 'Quanto custa o assistente do WhatsApp, e o que acontece se a Anthropic falhar?',
+      resposta: 'Cada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos; chave recusada, falta de crédito na Anthropic ou modelo inexistente pausam o assistente e viram alerta de integração. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
+      termos: ['assistente', 'anthropic', 'custo', 'teto', 'crédito', 'pausado', 'alerta de integração'],
+    },
+    {
+      id: 'assistente-faz-acoes',
+      pergunta: 'O assistente do WhatsApp pode fazer coisas em nome da pessoa?',
+      resposta: 'Só com “Deixar o assistente preparar ações para a pessoa confirmar” marcado no cartão, e sempre por um plano exato, escrito pelo Palácio, feito só com o *confirmo* da pessoa ou o botão Confirmar (o de um plano antigo não vale): votos, mensagens diretas, comentários, chamados novos, assumir, resolver e transferir chamados (quem atende a fila), registrar visitas e responder à portaria, marcar avisos como lidos, decidir despesas e compras e guardar documentos no Drive. Na hora de fazer, o Palácio confere tudo de novo e para no primeiro passo que não der.\n\nA decisão de despesa ou compra, e o plano de quem usa a verificação em duas etapas, terminam no Palácio, por um link de uso único (15 minutos) que faz tudo com a sessão da pessoa. Limites: 3 votos por plano, as mensagens diretas do teto e 20 planos por dia. O recibo traz o “Não fui eu”, e cada passo fica no histórico da atividade.',
+      termos: ['assistente', 'plano', 'confirmo', 'ações', 'votar pelo assistente', 'mensagem pelo assistente', 'escrita', 'confirmar no palácio', 'despesa pelo whatsapp', 'não fui eu'],
     },
     {
       id: 'desconectou-sozinho',
@@ -1261,7 +1324,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e toque em “Ver as opções”, ou responda com o número: “1” os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” a sua agenda de hoje e amanhã, “5” os seus chamados abertos (e os da fila, para quem atende) e “6” o que espera o seu voto.\n\nPara uma dúvida, escreva “ajuda” e a pergunta (“ajuda como troco a senha”): a resposta vem da Central de ajuda, só das áreas que você abre. Cada área entra no menu de quem a tela dela deixa: “portaria”, “financeiro”, “presença” (a chamada da ação de hoje), “veículos”, “saída” e “retorno” (a Frota) e “estoque” e o material; administradores têm “status” e “fila”.\n\nAs perguntas por lá vêm com botões ou lista: tocar é o mesmo que digitar. Os avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as perguntas seguintes.',
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e toque em “Ver as opções”, ou responda com o número: “1” os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” a sua agenda de hoje e amanhã, “5” os seus chamados abertos (e os da fila, para quem atende) e “6” o que espera o seu voto.\n\nPara uma dúvida, escreva “ajuda” e a pergunta (“ajuda como troco a senha”): a resposta vem da Central de ajuda, só das áreas que você abre. Cada área entra no menu de quem a tela dela deixa: “portaria”, “financeiro”, “presença” (a chamada da ação de hoje), “veículos”, “saída” e “retorno” (a Frota) e “estoque” e o material; administradores têm “status” e “fila”.\n\nAs perguntas por lá vêm com botões ou lista: tocar é o mesmo que digitar. Os avisos também se respondem por lá; fotos viram envio e documentos, o Drive: veja as perguntas seguintes.',
       termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp', 'botões do whatsapp', 'ver as opções', 'portaria pelo whatsapp', 'quem está aqui', 'presença pelo whatsapp', 'frota pelo whatsapp', 'estoque pelo whatsapp'],
     },
     {
@@ -1272,14 +1335,14 @@ const PERFIL: GuiaDaArea = {
     },
     {
       id: 'fotos-pelo-whatsapp',
-      pergunta: 'Dá para mandar as fotos de uma ação pelo WhatsApp?',
-      resposta: 'Dá. Fotos e vídeos mandados para o número do Palácio viram um envio para a comunicação: mande todos, escreva “pronto” e responda o título e se as pessoas autorizaram o uso da imagem. Arquivos de até 64 MB; maiores, pelo link de envio.',
-      termos: ['fotos pelo whatsapp', 'envio pelo whatsapp', 'vídeo pelo whatsapp', 'mandar fotos'],
+      pergunta: 'Dá para mandar fotos ou guardar documentos pelo WhatsApp?',
+      resposta: 'Dá. Fotos e vídeos mandados para o número do Palácio viram um envio para a comunicação: mande todos, escreva “pronto” e responda o título e se as pessoas autorizaram o uso da imagem. Arquivos de até 64 MB; maiores, pelo link de envio.\n\nCom o Google Drive conectado pela administração, um documento (PDF, planilha, texto ou apresentação) com a legenda “guardar em Financeiro/2026” vai para a pasta “Palácio – Arquivos”, que é criada se não existir, e a resposta traz o link. Sem a legenda, o Palácio pergunta a pasta; com o assistente ligado, dá para dizer do seu jeito, e só o *confirmo* guarda. Cada pessoa guarda só sob a pasta do próprio setor; quem administra, em qualquer lugar. Com a verificação em duas etapas, isso fica de fora.',
+      termos: ['fotos pelo whatsapp', 'envio pelo whatsapp', 'vídeo pelo whatsapp', 'mandar fotos', 'google drive', 'guardar documento', 'guardar em', 'pdf pelo whatsapp', 'pasta do setor'],
     },
     {
       id: 'whatsapp-com-verificacao',
       pergunta: 'Por que o WhatsApp não me deixa responder, e o voto vem com um link?',
-      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp consulta (avisos, agenda, chamados, aprovações, visitas da portaria, veículos, saldo do estoque e dúvidas), abre chamado e responde à portaria (1, 2 ou 3).\n\nPara votar, responda o aviso de aprovação com “aprovar” ou “ajustes:”, como sempre: chega um link “Confirme no Palácio”, e o voto se confirma lá, depois do código do app. As decisões do “financeiro” vêm do mesmo jeito. Responder os outros avisos, atender chamados (assumir, resolver, transferir), registrar visitas, marcar presença, registrar saída e retorno de veículo e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio).',
+      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp consulta (avisos, agenda, chamados, aprovações, visitas da portaria, veículos, saldo do estoque e dúvidas), abre chamado e responde à portaria (1, 2 ou 3).\n\nPara votar, responda o aviso de aprovação com “aprovar” ou “ajustes:”, como sempre: chega um link “Confirme no Palácio”, e o voto se confirma lá, depois do código do app. As decisões do “financeiro” vêm do mesmo jeito. Responder os outros avisos, atender chamados (assumir, resolver, transferir), registrar visitas, marcar presença, registrar saída e retorno de veículo e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio); guardar documentos no Google Drive pelo WhatsApp também fica de fora.',
       termos: ['verificação em duas etapas', 'não deixa responder', 'não consigo votar pelo whatsapp', '2fa whatsapp', 'confirme no palácio'],
     },
     {
