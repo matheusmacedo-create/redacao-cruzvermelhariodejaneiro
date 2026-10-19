@@ -13,8 +13,10 @@ import { ENDERECO_DO_PALACIO } from '../dominio'
  *
  * Tudo estático, com o esqueleto do site, JSON-LD (CollectionPage, ItemList, ImageObject com os
  * dados de licença que o Google Imagens lê, DigitalDocument, VideoObject e BreadcrumbList), cartão
- * de compartilhamento e endereço canônico. Coleção sem item público não ganha página (página vazia
- * não entra no Google); o início mostra "em breve".
+ * de compartilhamento e endereço canônico. Coleção sem item público não ganha página nem aparece
+ * no início (página vazia não entra no Google, e "em breve" é o que o Google Ad Grants recusa).
+ * Sem item público nenhum, o início sai com noindex e fora do sitemap, e o rodapé do site não o
+ * liga: existe só para quem tiver o endereço.
  */
 
 export const ORIGEM_DO_ACERVO = 'https://cruzvermelhariodejaneiro.org'
@@ -106,12 +108,11 @@ const CSS_DO_ACERVO = `
 .acervo-secao{margin:0 0 44px}
 .acervo-colecoes{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px;margin:0;padding:0}
 .acervo-colecoes li{border:1px solid var(--line);border-radius:14px;background:#fff;display:flex}
-.acervo-colecoes a,.acervo-colecoes .acervo-breve{display:flex;flex-direction:column;gap:6px;padding:18px 20px;width:100%}
+.acervo-colecoes a{display:flex;flex-direction:column;gap:6px;padding:18px 20px;width:100%}
 .acervo-colecoes a:hover{background:var(--soft)}
 .acervo-colecoes strong{font-size:1.05rem;color:var(--black)}
 .acervo-colecoes span{color:var(--muted);font-size:.9rem}
 .acervo-colecoes em{font-style:normal;font-weight:700;font-size:.85rem;color:var(--red)}
-.acervo-breve em{color:var(--muted)}
 .acervo-grade{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;margin:0;padding:0}
 .acervo-cartao{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;height:100%}
 .acervo-cartao a{display:flex;flex-direction:column;height:100%}
@@ -148,8 +149,6 @@ const CSS_DO_ACERVO = `
 .acervo-etiquetas li{background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.85rem;color:#3d4550}
 .acervo-citacao{background:var(--soft);border-left:4px solid var(--red);padding:14px 18px;font-size:.9rem;border-radius:0 10px 10px 0;margin:0}
 .acervo-nota{color:var(--muted);font-size:.9rem;max-width:760px}
-.acervo-equipe{margin-top:40px;font-size:.85rem;color:var(--muted)}
-.acervo-equipe a{color:var(--muted);text-decoration:underline}
 @media (max-width:860px){.acervo-item{grid-template-columns:1fr;gap:24px}}
 `
 
@@ -191,11 +190,9 @@ export function paginaInicialDoAcervo(p: { itens: ItemPublico[]; origem?: string
   const porColecao = new Map<Colecao, ItemPublico[]>(COLECOES.map((c) => [c, p.itens.filter((i) => i.colecao === c)]))
   const recentes = [...p.itens].sort(ordemDoAcervo).slice(0, 12)
   const descricao = 'Acervo da Cruz Vermelha Brasileira Rio de Janeiro: documentos, fotografias, vídeos, recortes de imprensa e a história da filial, para consulta pública.'
-  const colecoes = COLECOES.map((c) => {
+  const colecoes = COLECOES.filter((c) => porColecao.get(c)!.length).map((c) => {
     const n = porColecao.get(c)!.length
-    return n
-      ? `<li><a href="${e(origem + caminhoDaColecao(c))}"><strong>${e(COLECAO[c].nome)}</strong><span>${e(COLECAO[c].resumo)}</span><em>${n} ${n === 1 ? 'item' : 'itens'}</em></a></li>`
-      : `<li><div class="acervo-breve"><strong>${e(COLECAO[c].nome)}</strong><span>${e(COLECAO[c].resumo)}</span><em>Em breve</em></div></li>`
+    return `<li><a href="${e(origem + caminhoDaColecao(c))}"><strong>${e(COLECAO[c].nome)}</strong><span>${e(COLECAO[c].resumo)}</span><em>${n} ${n === 1 ? 'item' : 'itens'}</em></a></li>`
   }).join('')
   const passos = [{ nome: 'Início', url: `${origem}/` }, { nome: 'Acervo', url }]
   const corpo = `<main class="acervo" id="conteudo">
@@ -206,10 +203,10 @@ export function paginaInicialDoAcervo(p: { itens: ItemPublico[]; origem?: string
         <p class="acervo-intro">Documentos, fotografias, vídeos, o que a imprensa publicou e os registros da história da filial, organizados para consulta. É a memória da ação humanitária da Cruz Vermelha Brasileira no Rio de Janeiro, guardada com a data, a autoria e as condições de uso de cada item.</p>
         <p class="acervo-idiomas">Also in <a href="${e(origem)}/en/archive/" hreflang="en" lang="en">English</a> · También en <a href="${e(origem)}/es/acervo/" hreflang="es" lang="es">español</a></p>
       </header>
-      <section class="acervo-secao" aria-labelledby="colecoes">
+      ${colecoes ? `<section class="acervo-secao" aria-labelledby="colecoes">
         <h2 id="colecoes">Coleções</h2>
         <ul class="acervo-colecoes">${colecoes}</ul>
-      </section>
+      </section>` : ''}
       ${recentes.length ? `<section class="acervo-secao" aria-labelledby="recentes">
         <h2 id="recentes">Chegaram ao acervo</h2>
         <ul class="acervo-grade">${recentes.map((i, n) => cartao(i, origem, n < 4)).join('')}</ul>
@@ -223,7 +220,6 @@ export function paginaInicialDoAcervo(p: { itens: ItemPublico[]; origem?: string
         <p>Cada item informa a autoria, o crédito e as condições de uso. Itens em Creative Commons ou em domínio público podem ser usados como a licença indica, sempre com o crédito. Para reproduzir um item com todos os direitos reservados, peça autorização por <a href="mailto:${EMAIL}">${EMAIL}</a>, informando o endereço da página do item.</p>
         <p>Cada página de item traz também a forma de citar o material em trabalhos e reportagens.</p>
       </section>
-      <p class="acervo-equipe">Faz parte da equipe da filial? <a href="${e(origem)}/acervo/equipe/" rel="nofollow">Acesse o acervo completo</a>.</p>
     </main>`
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -246,6 +242,8 @@ export function paginaInicialDoAcervo(p: { itens: ItemPublico[]; origem?: string
   return montarPaginaDoSite({
     titulo: 'Acervo', descricao, caminho: '/acervo/', origem, corpo, cssExtra: CSS_DO_ACERVO, jsonLd, agora: p.agora, ativo: 'acervo',
     imagem: IMAGEM_PADRAO,
+    // Sem item público, a página fica fora da busca (e do sitemap: entradasDoAcervoNoMapa).
+    indexar: p.itens.length > 0,
     alternativas: [
       { hreflang: 'pt-BR', url }, { hreflang: 'en', url: `${origem}/en/archive/` },
       { hreflang: 'es', url: `${origem}/es/acervo/` }, { hreflang: 'x-default', url },
@@ -497,7 +495,8 @@ ${canonicos.join('\n')}
 
 /** As entradas do acervo no sitemap.xml, com a imagem de cada item (Google Imagens). */
 export function entradasDoAcervoNoMapa(itens: ItemPublico[], origem = ORIGEM_DO_ACERVO): EntradaDoMapa[] {
-  if (!itens.length) return [{ url: `${origem}/acervo/` }]
+  // Sem item público, o acervo não entra no mapa: a página sai com noindex.
+  if (!itens.length) return []
   const maisRecente = (lista: ItemPublico[]) => new Date(lista.map((i) => i.atualizado_no_site_em ?? i.publicado_em).sort().reverse()[0])
   const entradas: EntradaDoMapa[] = [{ url: `${origem}/acervo/`, modificadaEm: maisRecente(itens) }]
   for (const c of COLECOES) {

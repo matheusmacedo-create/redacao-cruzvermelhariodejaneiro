@@ -864,6 +864,12 @@ const ACERVO: GuiaDaArea = {
       termos: ['privado', 'público', 'site', 'quem acessa'],
     },
     {
+      id: 'acervo-fora-do-google',
+      pergunta: 'Por que o acervo não aparece no Google nem no rodapé do site?',
+      resposta: 'Enquanto nenhum item estiver “No site”, a página cruzvermelhariodejaneiro.org/acervo fica fora do Google e do mapa do site, e o rodapé não tem link para ela: página vazia conta contra o site. Coleção sem item também não aparece na página. Com o primeiro item publicado, a página e a coleção dele entram no Google e no mapa sozinhas; o link no rodapé volta só quando alguém o puser de novo no site.',
+      termos: ['acervo vazio', 'Google', 'rodapé', 'em breve', 'coleção não aparece'],
+    },
+    {
       id: 'sem-botao-enviar',
       pergunta: 'Por que não aparece “Enviar arquivos” para mim?',
       resposta: 'Enviar, catalogar e publicar é de editores e administradores. Quem é colaborador vê e baixa tudo; para pôr algo no acervo, fale com um editor ou um administrador. Se o topo da tela avisa que o acervo não está configurado, o envio e o download ficam desligados para todo mundo.',
