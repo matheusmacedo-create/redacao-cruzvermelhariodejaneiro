@@ -3,6 +3,8 @@
  * Módulo puro, sem banco: não grava nada.
  */
 import { chaveDaImportacao, legendasDaImportacao, validarImportacao } from '../lib/publicacao/importar-pacote'
+import { resumoDasMudancas, validarAtualizacao } from '../lib/publicacao/atualizar-pacote'
+import { modoDoArquivo } from '../lib/publicacao/modo-da-importacao'
 
 let falhas = 0
 function confere(nome: string, ok: boolean, detalhe = '') {
@@ -42,6 +44,52 @@ confere('chave muda com o conteúdo', chaveDaImportacao('a') !== chaveDaImportac
 
 const l = legendasDaImportacao(v.pacote!.midias, { a: 'id-1' })
 confere('legendas chaveadas pelo id do arquivo', l['id-1']?.legenda === 'Legenda' && l['id-1']?.posicao === 'inicio', como(l))
+
+// ------------------------------------------------------------ modo "atualizar"
+const atu = {
+  versao: 1, modo: 'atualizar',
+  mestre: { slug: 'acao-na-central', titulo: 'Título corrigido', subtitulo: 'Linha fina nova', corpo: 'Texto corrigido.', notas: '' },
+}
+const camposA = (o: unknown) => validarAtualizacao(como(o)).problemas.map((p) => p.campo)
+
+confere('modo: sem modo = criar', modoDoArquivo(como(base)) === 'criar')
+confere('modo: "atualizar"', modoDoArquivo(como(atu)) === 'atualizar')
+confere('modo: JSON quebrado = criar', modoDoArquivo('{') === 'criar')
+confere('modo inventado segue pela criação, que recusa', modoDoArquivo(como({ ...base, modo: 'apagar' })) === 'criar' && campos({ ...base, modo: 'apagar' }).includes('modo'))
+confere('criação recusa arquivo de atualização', campos({ ...base, modo: 'atualizar' }).includes('modo'))
+confere('criação aceita "modo": "criar"', validarImportacao(como({ ...base, modo: 'criar' })).problemas.length === 0)
+
+const a = validarAtualizacao(como(atu))
+confere('atualização válida passa', !!a.atualizacao && a.problemas.length === 0, como(a.problemas))
+confere('atualização: slug é o do arquivo', a.atualizacao?.slug === 'acao-na-central')
+confere('atualização: notas vazias presentes substituem', a.atualizacao?.notas === '')
+confere('atualização: sem mídias = manter', a.atualizacao?.midias.length === 0)
+confere('atualização: dispensa origem e agendarPara', !camposA(atu).some((c) => c === 'origem' || c === 'agendarPara'))
+confere('atualização: ignora agendarPara preenchido', camposA({ ...atu, agendarPara: '2026-10-20T09:00' }).length === 0)
+confere('atualização: ignora tituloInterno longo', camposA({ ...atu, tituloInterno: 'x'.repeat(500) }).length === 0)
+confere('atualização: slug obrigatório', camposA({ ...atu, mestre: { ...atu.mestre, slug: '' } }).includes('mestre.slug'))
+confere('atualização: slug ausente não nasce do título', camposA({ ...atu, mestre: { titulo: 'T', corpo: 'C' } }).includes('mestre.slug'))
+confere('atualização: slug com acento', camposA({ ...atu, mestre: { ...atu.mestre, slug: 'ação' } }).includes('mestre.slug'))
+confere('atualização: título acima de 120', camposA({ ...atu, mestre: { ...atu.mestre, titulo: 'x'.repeat(121) } }).includes('mestre.titulo'))
+confere('atualização: corpo obrigatório', camposA({ ...atu, mestre: { ...atu.mestre, corpo: '' } }).includes('mestre.corpo'))
+confere('atualização: versão errada', camposA({ ...atu, versao: 2 }).includes('versao'))
+confere('atualização: mais de 10 mídias', camposA({ ...atu, midias: Array.from({ length: 11 }, (_, i) => ({ ref: `r${i}`, arquivo: `${i}.jpg`, tipo: 'foto' })) }).includes('midias'))
+confere('atualização: legenda acima de 300', camposA({ ...atu, midias: [{ ...base.midias[0], legenda: 'x'.repeat(301) }] }).includes('midias[0].legenda'))
+confere('atualização: JSON quebrado', validarAtualizacao('{').problemas[0]?.campo === 'arquivo')
+confere('atualização: recusa arquivo sem modo', validarAtualizacao(como(base)).problemas[0]?.campo === 'modo')
+const semOpcionais = validarAtualizacao(como({ ...atu, mestre: { slug: 'x', titulo: 'T', corpo: 'C' } }))
+confere('atualização: subtítulo e notas ausentes = manter', !!semOpcionais.atualizacao && semOpcionais.atualizacao.subtitulo === undefined && semOpcionais.atualizacao.notas === undefined, como(semOpcionais))
+const comFotos = validarAtualizacao(como({ ...atu, midias: base.midias }))
+confere('atualização: com mídias = substituir', comFotos.atualizacao?.midias.length === 1)
+
+const atual = { titulo: 'Título antigo', subtitulo: 'Linha fina nova', corpo: 'Texto.', notas: 'nota', fotos: 3 }
+const r = resumoDasMudancas(atual, a.atualizacao!)
+confere('resumo: título muda', r.some((l) => l.startsWith('Título:')), como(r))
+confere('resumo: linha fina igual não aparece', !r.some((l) => l.startsWith('Linha fina')), como(r))
+confere('resumo: notas apagadas avisadas', r.includes('Notas internas: serão apagadas.'), como(r))
+confere('resumo: fotos mantidas', r.includes('Fotos e legendas: ficam como estão.'), como(r))
+const rf = resumoDasMudancas(atual, comFotos.atualizacao!)
+confere('resumo: fotos substituídas', rf.some((l) => l.startsWith('Fotos: as 3 atuais saem')), como(rf))
 
 if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 console.log('\nTudo certo.')

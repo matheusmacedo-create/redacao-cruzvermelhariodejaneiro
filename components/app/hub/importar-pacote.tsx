@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation'
 import { FileJson } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { conferirImportacao, importarPacote } from '@/app/actions/importar-pacote'
+import { conferirAdvertorial, importarAdvertorial } from '@/app/actions/importar-advertorial'
 import { enviarParaBiblioteca } from '@/lib/upload-cliente'
+import { modoDoArquivo } from '@/lib/publicacao/modo-da-importacao'
+import { useAtualizacaoPorArquivo } from '@/components/app/hub/atualizar-pacote'
 
 /**
  * "Importar pacote": escolha o JSON e as fotos juntos; o pacote nasce em
@@ -15,17 +18,30 @@ import { enviarParaBiblioteca } from '@/lib/upload-cliente'
  * Biblioteca como `pending` → cria o rascunho e abre. Qualquer problema para
  * antes de gravar; só a falha de uma foto no meio deixa as anteriores na
  * Biblioteca, onde ficam à vista e sem autorização.
+ *
+ * O JSON com `"tipo": "advertorial"` segue o mesmo caminho, mas nasce como
+ * advertorial da escola (matéria no editor, com o botão rastreado).
  */
+/** O arquivo pede advertorial? Só olha o campo: a validação é do servidor. */
+function ehAdvertorial(conteudo: string): boolean {
+  try { const bruto = JSON.parse(conteudo); return !!bruto && typeof bruto === 'object' && bruto.tipo === 'advertorial' } catch { return false }
+}
+
 export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
   const router = useRouter()
   const entrada = useRef<HTMLInputElement>(null)
   const [andamento, setAndamento] = useState('')
   const [erros, setErros] = useState<string[]>([])
-  const [existente, setExistente] = useState<{ id: string; motivo: string } | null>(null)
+  const [existente, setExistente] = useState<{ rota: string; motivo: string } | null>(null)
+  const [aviso, setAviso] = useState('')
+  // Arquivo com "modo": "atualizar" corrige uma matéria que já existe (atualizar-pacote.tsx).
+  const atualizacao = useAtualizacaoPorArquivo(workspaceId, { setAndamento, setErros })
 
   async function importar(escolhidos: File[]) {
     setErros([])
     setExistente(null)
+    setAviso('')
+    atualizacao.limpar()
     const json = escolhidos.find((f) => f.name.toLowerCase().endsWith('.json'))
     if (!json) { setErros(['Escolha o arquivo .json junto com as fotos.']); return }
     const fotos = new Map(escolhidos.filter((f) => f !== json).map((f) => [f.name, f]))
@@ -33,16 +49,20 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
     try {
       setAndamento('Conferindo o arquivo…')
       const conteudo = await json.text()
+      if (modoDoArquivo(conteudo) === 'atualizar') { await atualizacao.conferir(conteudo, fotos); return }
       const form = new FormData()
       form.set('json', conteudo)
-      const conferencia = await conferirImportacao(form)
+      const advertorial = ehAdvertorial(conteudo)
+      const conferencia = advertorial ? await conferirAdvertorial(form) : await conferirImportacao(form)
       if (conferencia.erro) { setErros([conferencia.erro]); return }
       if (conferencia.problemas?.length) {
         setErros(conferencia.problemas.map((p) => `${p.campo}: ${p.mensagem}`))
         return
       }
-      if (conferencia.duplicadoId) {
-        setExistente({ id: conferencia.duplicadoId, motivo: conferencia.duplicadoMotivo ?? 'Este pacote já existe.' })
+      const rotaExistente = 'duplicadoRota' in conferencia ? conferencia.duplicadoRota
+        : 'duplicadoId' in conferencia && conferencia.duplicadoId ? `/redes/${conferencia.duplicadoId}` : undefined
+      if (rotaExistente || conferencia.duplicadoMotivo) {
+        setExistente({ rota: rotaExistente ?? '', motivo: conferencia.duplicadoMotivo ?? 'Este pacote já existe.' })
         return
       }
 
@@ -55,7 +75,7 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
         setAndamento(`Enviando a mídia ${i + 1} de ${midias.length}…`)
         const salvo = await enviarParaBiblioteca(fotos.get(m.arquivo)!, {
           workspaceId,
-          tags: ['redes', 'importado'],
+          tags: [advertorial ? 'conteudo' : 'redes', 'importado'],
           // Quem autoriza o uso da imagem é uma pessoa, na Biblioteca.
           autorizacao: 'pending',
         })
@@ -66,6 +86,23 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
       const envio = new FormData()
       envio.set('json', conteudo)
       envio.set('arquivos', JSON.stringify(ids))
+      if (advertorial) {
+        const a = await importarAdvertorial(envio)
+        if (a.problemas?.length) { setErros(a.problemas.map((p) => `${p.campo}: ${p.mensagem}`)); return }
+        if (a.erro) {
+          setErros([a.erro])
+          if (a.contentId) setExistente({ rota: `/conteudos/${a.contentId}`, motivo: 'O advertorial foi criado.' })
+          return
+        }
+        if (a.aviso && a.contentId) {
+          // Fica na tela para ser lido; o link abre a matéria.
+          setAviso(a.aviso)
+          setExistente({ rota: `/conteudos/${a.contentId}`, motivo: 'Advertorial criado.' })
+          return
+        }
+        if (a.contentId) router.push(`/conteudos/${a.contentId}`)
+        return
+      }
       const r = await importarPacote(envio)
       if (r.problemas?.length) { setErros(r.problemas.map((p) => `${p.campo}: ${p.mensagem}`)); return }
       if (r.erro) { setErros([r.erro]); return }
@@ -95,9 +132,11 @@ export function ImportarPacoteBotao({ workspaceId }: { workspaceId: string }) {
       {existente && (
         <span className="text-xs text-muted-foreground">
           {existente.motivo}{' '}
-          <button type="button" className="underline" onClick={() => router.push(`/redes/${existente.id}`)}>Abrir o pacote</button>
+          {existente.rota && <button type="button" className="underline" onClick={() => router.push(existente.rota)}>Abrir</button>}
         </span>
       )}
+      {aviso && <span className="max-w-sm text-xs text-muted-foreground">{aviso}</span>}
+      {atualizacao.painel}
       {erros.length > 0 && (
         <ul className="max-w-sm list-disc pl-4 text-left text-xs text-destructive">
           {erros.map((e) => <li key={e}>{e}</li>)}
