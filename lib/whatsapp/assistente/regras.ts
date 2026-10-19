@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 import { agoraEmBrasilia, diferencaEmDias } from '@/lib/agenda/datas'
 import { RESPOSTAS } from '@/lib/portaria/regras'
 import {
-  CONFIRMACAO_VALE_MIN, ehConfirmacao, lerDecisao, lerEscolha, limpo, normalizar, respostaParaWhatsapp, semInvisiveis, textoDoLinkDeConfirmacao,
-  type Comando, type ResultadoDaAcao,
+  CONFIRMACAO_VALE_MIN, LIMITES_DO_INTERATIVO, LINHA_DO_NAO_FUI_EU, MOTIVO_MINIMO, ehConfirmacao, lerDecisao, lerEscolha, limpo, normalizar, respostaParaWhatsapp, semInvisiveis,
+  textoDoLinkDeConfirmacao, type Comando, type Interativo, type ResultadoDaAcao,
 } from '../regras'
 
 export { semInvisiveis }
@@ -39,6 +39,12 @@ export const LIMITES = {
   /** Por plano. */
   passos: 8, votos: 3, destinatarios: 3, mensagem: 1_000, comentario: 4_000, relato: 4_000, recado: 200, local: 140, nota: 2_000,
   textoDoPlano: 3_800, mensagensDoPlano: 4,
+  /** O registro de visita (os tamanhos da tela da portaria) e o motivo de uma decisão do Financeiro (recusar exige MOTIVO_MINIMO letras). */
+  visitante: 120, empresa: 120, motivoDaVisita: 300, motivoFinanceiro: 500, motivoMinimo: MOTIVO_MINIMO,
+  /** O plano sensível espera a confirmação no Palácio por tanto (o link vale o mesmo: CONFIRMACAO_VALE_MIN). */
+  noPalacioMin: CONFIRMACAO_VALE_MIN,
+  /** O eco do áudio (o que o código entendeu da transcrição da Kapso). */
+  eco: 300,
   /** Por pessoa, por dia: planos executados (as mensagens diretas ficam em whatsapp_ia_config.mensagens_dia). */
   planosDia: 20,
   /** Pergunta e busca. */
@@ -213,6 +219,15 @@ export const TEXTOS_FIXOS = {
   lembrete: '_O plano acima continua valendo: responda *confirmo* para fazer, ou *cancelar*._',
   pergunta_desconhecida: 'Use só marcadores que apareceram no contexto ou em resultados de ferramentas.',
   nome_mudou: 'O nome de perfil do WhatsApp do seu número mudou. Por segurança, o assistente ficou parado neste número até você confirmar o número de novo em Meu perfil → WhatsApp. Os comandos do menu continuam.',
+  /** O plano maior que o corpo de uma mensagem com botões: o texto sai sozinho, e os botões vêm logo depois, nesta. */
+  confirma_o_plano: 'Confirma o plano acima?',
+  /** A pergunta maior que o corpo de uma mensagem com lista: a lista vem logo depois, nesta. */
+  escolha_acima: 'Qual das opções acima?',
+  /** "confirmo" (ou "sim") falado: áudio nunca faz nada sem o plano confirmado por escrito ou pelo botão. */
+  audio_nao_confirma: 'Áudio não confirma plano: para fazer, responda *confirmo* por escrito (ou toque em Confirmar). Para desistir, *cancelar*.',
+  /** Muitos links de confirmação na última hora (o teto das confirmações da onda 2). */
+  limite_de_links: 'Nada foi feito: muitos links de confirmação pedidos na última hora. Faça pelo Palácio.',
+  so_quem_atende: 'Só quem atende a fila do chamado assume, resolve ou transfere; para falar com a equipe, use preparar_comentario_no_chamado.',
 } as const
 
 /** O aviso ao modelo que disse que fez sem ter preparado nada (uma repetição só; depois, TEXTOS_FIXOS.nao_fiz). */
@@ -282,7 +297,8 @@ const DE_MENSAGEM = 'mand|avis|fala|fale|diz|diga|dizer|escrev|msg|mensag|zap|wh
 
 /**
  * Os radicais que ligam cada tipo de ação (lista fechada, conferida no script). Começo de palavra, no texto sem
- * acento e minúsculo. [onda 2] atendimento e registro de visita ainda não têm ferramenta: ligar o tipo não faz nada.
+ * acento e minúsculo. "atendimento" liga preparar_atendimento_do_chamado (assumir, resolver, transferir) e
+ * "registro_visita", preparar_registro_de_visita.
  */
 const RADICAIS: [TipoDeAcao, RegExp][] = [
   ['voto', /\b(aprov|ajust|vot|libera|reprov)/],
@@ -297,8 +313,8 @@ const RADICAIS: [TipoDeAcao, RegExp][] = [
 
 /**
  * Os tipos de ação que a MENSAGEM DA PESSOA pede — só o texto dela, nunca o contexto, a citação ou os resultados
- * das ferramentas: dado de terceiro não liga tipo de ação. [onda 2] "financeiro" só com aprovar/recusar junto de
- * despesa, compra, pagamento ou reembolso na própria mensagem.
+ * das ferramentas: dado de terceiro não liga tipo de ação. "financeiro" (preparar_decisao_financeira, que termina
+ * sempre no Palácio) só com aprovar/recusar junto de despesa, compra, pagamento ou reembolso na própria mensagem.
  */
 export function acoesPermitidas(texto: string): TipoDeAcao[] {
   const t = normalizar(String(texto ?? ''))
@@ -313,16 +329,21 @@ export function unirPermitidas(...grupos: (readonly TipoDeAcao[] | null | undefi
   return TIPOS_DE_ACAO.filter((x) => todos.has(x))
 }
 
+/**
+ * A lista fechada, em ordem de nome (é o começo do prefixo do cache). As 17 da v1, com a onda 2: o atendimento do
+ * chamado, o registro de visita e a decisão do Financeiro (sempre no Palácio), e consultar_area no lugar de
+ * ver_status_do_whatsapp — 20, o teto (LIMITES.ferramentas).
+ */
 export const NOMES_DAS_FERRAMENTAS = [
-  'buscar_ajuda', 'buscar_pessoa', 'ler_agenda', 'ler_aprovacoes', 'ler_avisos', 'ler_chamados', 'ler_filas_de_chamado', 'perguntar',
-  'preparar_chamado', 'preparar_comentario_no_chamado', 'preparar_marcar_avisos_lidos', 'preparar_mensagem_direta', 'preparar_resposta_a_visita',
-  'preparar_voto', 'ver_aprovacao', 'ver_chamado', 'ver_status_do_whatsapp',
+  'buscar_ajuda', 'buscar_pessoa', 'consultar_area', 'ler_agenda', 'ler_aprovacoes', 'ler_avisos', 'ler_chamados', 'ler_filas_de_chamado', 'perguntar',
+  'preparar_atendimento_do_chamado', 'preparar_chamado', 'preparar_comentario_no_chamado', 'preparar_decisao_financeira', 'preparar_marcar_avisos_lidos',
+  'preparar_mensagem_direta', 'preparar_registro_de_visita', 'preparar_resposta_a_visita', 'preparar_voto', 'ver_aprovacao', 'ver_chamado',
 ] as const
 export type NomeDaFerramenta = (typeof NOMES_DAS_FERRAMENTAS)[number]
 export const ehFerramenta = (nome: unknown): nome is NomeDaFerramenta => NOMES_DAS_FERRAMENTAS.includes(nome as NomeDaFerramenta)
 
-/** As leituras de detalhe, que contam no teto diário (leituras_detalhe_dia). */
-export const LEITURAS_DE_DETALHE: readonly NomeDaFerramenta[] = ['buscar_pessoa', 'ver_aprovacao', 'ver_chamado']
+/** As leituras de detalhe, que contam no teto diário (leituras_detalhe_dia). A consulta de uma área também conta. */
+export const LEITURAS_DE_DETALHE: readonly NomeDaFerramenta[] = ['buscar_pessoa', 'consultar_area', 'ver_aprovacao', 'ver_chamado']
 
 const TIPO_DA_FERRAMENTA: Partial<Record<NomeDaFerramenta, TipoDeAcao>> = {
   preparar_voto: 'voto',
@@ -331,7 +352,14 @@ const TIPO_DA_FERRAMENTA: Partial<Record<NomeDaFerramenta, TipoDeAcao>> = {
   preparar_marcar_avisos_lidos: 'lidos',
   preparar_chamado: 'chamado',
   preparar_resposta_a_visita: 'visita',
+  preparar_atendimento_do_chamado: 'atendimento',
+  preparar_registro_de_visita: 'registro_visita',
+  preparar_decisao_financeira: 'financeiro',
 }
+
+/** As áreas que consultar_area lê (cada uma com a permissão da tela dela). */
+export const AREAS_DA_CONSULTA = ['financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] as const
+export type AreaDaConsulta = (typeof AREAS_DA_CONSULTA)[number]
 
 /** O tipo de ação de um preparar_*; null para as leituras e o perguntar (que não escrevem). */
 export const tipoDaFerramenta = (nome: string): TipoDeAcao | null => TIPO_DA_FERRAMENTA[nome as NomeDaFerramenta] ?? null
@@ -522,6 +550,7 @@ export type Rota =
   | 'bot' | 'ia' | 'chat_plano' | 'ia_obrigado' | 'ia_esquecer'
   | 'ia_confirmo' | 'ia_cancelar' | 'ia_quase' | 'ia_escolha'
   | 'ia_plano_velho' | 'ia_revisao' | 'ia_antes_do_plano' | 'ia_cite_o_plano' | 'ia_ja_escolheu' | 'ia_nada_aberto'
+  | 'ia_audio_nao_confirma'
 
 export const ROTA_DA_RESPOSTA: Record<RespostaAoPlano['tipo'], Rota> = {
   confirmar: 'ia_confirmo', cancelar: 'ia_cancelar', quase: 'ia_quase', escolha: 'ia_escolha', velho: 'ia_plano_velho', revisao: 'ia_revisao',
@@ -532,7 +561,7 @@ export const ROTA_DA_RESPOSTA: Record<RespostaAoPlano['tipo'], Rota> = {
 export const TEXTO_DA_ROTA: Partial<Record<Rota, string>> = {
   ia_plano_velho: TEXTOS_FIXOS.velho, ia_revisao: TEXTOS_FIXOS.revisao, ia_antes_do_plano: TEXTOS_FIXOS.antes_do_plano,
   ia_cite_o_plano: TEXTOS_FIXOS.cite_o_plano, ia_ja_escolheu: TEXTOS_FIXOS.ja_escolheu, ia_nada_aberto: TEXTOS_FIXOS.nada_aberto,
-  ia_quase: TEXTOS_FIXOS.quase, ia_obrigado: TEXTOS_FIXOS.obrigado,
+  ia_quase: TEXTOS_FIXOS.quase, ia_obrigado: TEXTOS_FIXOS.obrigado, ia_audio_nao_confirma: TEXTOS_FIXOS.audio_nao_confirma,
 }
 
 export type AvisoCitado = 'aprovacao' | 'chamado' | 'chat' | 'mensagem' | 'visita' | 'outro'
@@ -542,14 +571,26 @@ export type AvisoCitado = 'aprovacao' | 'chamado' | 'chat' | 'mensagem' | 'visit
  * dela; aviso de aprovação com "aprovar"/"ajustes:", o bot (com a conferência de hoje); aviso de chamado, Chat ou
  * mensagem com cara de instrução, o assistente; Chat sem instrução, o plano de um passo; pergunta do bot, o bot;
  * "esquece" e "valeu", sem modelo; o que o bot não entende, o assistente; os comandos, o bot.
+ *
+ * `audio`: o texto é a transcrição de um áudio (a Kapso a manda no payload). Áudio nunca escreve sem plano: nada de
+ * comando fixo (nem "parar"), resposta direta a aviso, pergunta do bot ou plano do Chat — vai sempre ao assistente,
+ * que só lê ou prepara um plano; e o "confirmo" (ou "sim") falado não confirma.
  */
 export function rotaDaMensagem(e: {
   disponivel: boolean; midia: boolean; comando: Comando; texto: string
   resposta: RespostaAoPlano | null
   aviso: AvisoCitado | null
   paraPendencia: boolean
+  audio?: boolean
 }): Rota {
   if (!e.disponivel || e.midia) return 'bot'
+  if (e.audio) {
+    if (e.resposta?.tipo === 'confirmar' || e.resposta?.tipo === 'quase') return 'ia_audio_nao_confirma'
+    if (e.resposta) return ROTA_DA_RESPOSTA[e.resposta.tipo]
+    if (ehEsquecer(e.texto)) return 'ia_esquecer'
+    if (ehAgradecimento(e.texto)) return 'ia_obrigado'
+    return 'ia'
+  }
   if (e.resposta) return ROTA_DA_RESPOSTA[e.resposta.tipo]
   if (e.aviso === 'aprovacao') return lerDecisao(e.texto) ? 'bot' : 'ia'
   if (e.aviso === 'chat') return pareceInstrucao(e.texto) ? 'ia' : 'chat_plano'
@@ -566,7 +607,9 @@ export function rotaDaMensagem(e: {
 
 type Campo =
   | { tipo: 'texto'; min: number; max: number; semLink?: boolean; semSegredo?: boolean }
-  | { tipo: 'marcador'; prefixo: string | null }
+  | { tipo: 'marcador'; prefixo: string | null; prefixos?: readonly string[] }
+  /** Marcador ou "" (o campo que só vale em parte das ações: a fila e o assunto da transferência). */
+  | { tipo: 'marcadorOuVazio'; prefixo: string }
   | { tipo: 'marcadores'; prefixo: string | null; min: number; max: number }
   | { tipo: 'enum'; valores: readonly (string | number)[] }
   | { tipo: 'booleano' }
@@ -575,6 +618,7 @@ type Campo =
 const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
   buscar_ajuda: { pergunta: { tipo: 'texto', min: 2, max: LIMITES.ajuda } },
   buscar_pessoa: { nome: { tipo: 'texto', min: 1, max: 200 } },
+  consultar_area: { area: { tipo: 'enum', valores: AREAS_DA_CONSULTA }, busca: { tipo: 'texto', min: 0, max: 80 } },
   ler_agenda: { de: { tipo: 'data' }, ate: { tipo: 'data' } },
   ler_aprovacoes: { situacao: { tipo: 'enum', valores: ['esperando_meu_voto', 'que_eu_pedi'] } },
   ler_avisos: { so_nao_lidos: { tipo: 'booleano' } },
@@ -587,6 +631,11 @@ const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
     pergunta: { tipo: 'texto', min: 2, max: LIMITES.pergunta }, opcoes: { tipo: 'marcadores', prefixo: null, min: LIMITES.opcoesMin, max: LIMITES.opcoesMax },
     pedido_em_aberto: { tipo: 'texto', min: 0, max: LIMITES.pedidoEmAberto },
   },
+  preparar_atendimento_do_chamado: {
+    chamado: { tipo: 'marcador', prefixo: 'cha' }, acao: { tipo: 'enum', valores: ['assumir', 'resolver', 'transferir'] },
+    fila: { tipo: 'marcadorOuVazio', prefixo: 'fil' }, assunto: { tipo: 'marcadorOuVazio', prefixo: 'ass' },
+    nota: { tipo: 'texto', min: 0, max: LIMITES.nota, semLink: true, semSegredo: true },
+  },
   preparar_chamado: {
     fila: { tipo: 'marcador', prefixo: 'fil' }, assunto: { tipo: 'marcador', prefixo: 'ass' }, relato: { tipo: 'texto', min: 5, max: LIMITES.relato, semSegredo: true },
     local: { tipo: 'texto', min: 0, max: LIMITES.local }, urgencia: { tipo: 'enum', valores: [1, 2, 3] },
@@ -594,8 +643,16 @@ const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
   preparar_comentario_no_chamado: {
     chamado: { tipo: 'marcador', prefixo: 'cha' }, texto: { tipo: 'texto', min: 2, max: LIMITES.comentario, semLink: true, semSegredo: true },
   },
+  preparar_decisao_financeira: {
+    item: { tipo: 'marcador', prefixo: null, prefixos: ['des', 'com'] }, decisao: { tipo: 'enum', valores: ['aprovar', 'recusar'] },
+    motivo: { tipo: 'texto', min: 0, max: LIMITES.motivoFinanceiro, semLink: true, semSegredo: true },
+  },
   preparar_marcar_avisos_lidos: { escopo: { tipo: 'enum', valores: ['todos', 'estes'] }, avisos: { tipo: 'marcadores', prefixo: 'avi', min: 0, max: 10 } },
   preparar_mensagem_direta: { para: { tipo: 'marcador', prefixo: 'pes' }, texto: { tipo: 'texto', min: 1, max: LIMITES.mensagem, semLink: true, semSegredo: true } },
+  preparar_registro_de_visita: {
+    visitante: { tipo: 'texto', min: 2, max: LIMITES.visitante, semLink: true, semSegredo: true }, empresa: { tipo: 'texto', min: 0, max: LIMITES.empresa, semLink: true },
+    visitado: { tipo: 'marcador', prefixo: 'pes' }, motivo: { tipo: 'texto', min: 0, max: LIMITES.motivoDaVisita, semLink: true, semSegredo: true },
+  },
   preparar_resposta_a_visita: {
     visita: { tipo: 'marcador', prefixo: 'vis' }, resposta: { tipo: 'enum', valores: ['subir', 'aguardar', 'recusar'] },
     recado: { tipo: 'texto', min: 0, max: LIMITES.recado, semLink: true, semSegredo: true },
@@ -606,7 +663,6 @@ const ESQUEMAS: Record<NomeDaFerramenta, Record<string, Campo>> = {
   },
   ver_aprovacao: { aprovacao: { tipo: 'marcador', prefixo: 'apr' } },
   ver_chamado: { chamado: { tipo: 'marcador', prefixo: 'cha' } },
-  ver_status_do_whatsapp: {},
 }
 
 /** Os campos que cada ferramenta recebe (o mesmo das definições strict; ferramentas.ts confere contra isto). */
@@ -644,8 +700,14 @@ export function validarEntrada(nome: string, entrada: unknown, contexto: { assun
       if (regra.semSegredo && pedeSegredo(t)) return { ok: false, erro: `${campo} não pode pedir nem trazer senha, código ou token.` }
       valor[campo] = t
     } else if (regra.tipo === 'marcador') {
-      if (!marcadorValido(v)) return { ok: false, erro: `${campo} deve ser um marcador do contexto, como ${regra.prefixo ?? 'apr'}_1.` }
+      const exemplo = regra.prefixo ?? regra.prefixos?.[0] ?? 'apr'
+      if (!marcadorValido(v)) return { ok: false, erro: `${campo} deve ser um marcador do contexto, como ${exemplo}_1.` }
       if (regra.prefixo && !v.startsWith(`${regra.prefixo}_`)) return { ok: false, erro: `${campo} deve ser um marcador ${regra.prefixo}_.` }
+      if (regra.prefixos && !regra.prefixos.some((x) => v.startsWith(`${x}_`))) return { ok: false, erro: `${campo} deve ser um marcador ${regra.prefixos.map((x) => `${x}_`).join(' ou ')}.` }
+      valor[campo] = v
+    } else if (regra.tipo === 'marcadorOuVazio') {
+      if (v === '') { valor[campo] = ''; continue }
+      if (!marcadorValido(v) || !v.startsWith(`${regra.prefixo}_`)) return { ok: false, erro: `${campo} deve ser um marcador ${regra.prefixo}_ do contexto, ou "".` }
       valor[campo] = v
     } else if (regra.tipo === 'marcadores') {
       if (!Array.isArray(v) || !v.every(marcadorValido)) return { ok: false, erro: `${campo} deve ser uma lista de marcadores do contexto.` }
@@ -685,6 +747,16 @@ export function validarEntrada(nome: string, entrada: unknown, contexto: { assun
   if (nome === 'preparar_chamado' && contexto.assuntoPedeLocal && !String(valor.local).trim()) {
     return { ok: false, erro: 'Este assunto pede o local (sala, andar ou setor).' }
   }
+  if (nome === 'preparar_atendimento_do_chamado') {
+    // A fila e o assunto só valem na transferência; nas outras ações, ficam vazios.
+    if (valor.acao !== 'transferir') Object.assign(valor, { fila: '', assunto: '' })
+    if (valor.acao === 'resolver' && letras(String(valor.nota)) < 5) return { ok: false, erro: 'Resolver exige a solução na nota (pelo menos 5 letras): é o que quem abriu vai ler.' }
+    if (valor.acao === 'transferir' && (!valor.fila || !valor.assunto)) return { ok: false, erro: 'Transferir exige a fila (fil_) e o assunto (ass_) de destino, de ler_filas_de_chamado.' }
+    if (valor.acao === 'transferir' && letras(String(valor.nota)) < 3) return { ok: false, erro: 'Transferir exige o motivo na nota (pelo menos 3 letras).' }
+  }
+  if (nome === 'preparar_decisao_financeira' && valor.decisao === 'recusar' && letras(String(valor.motivo)) < LIMITES.motivoMinimo) {
+    return { ok: false, erro: `Recusar exige o motivo (pelo menos ${LIMITES.motivoMinimo} letras), nas palavras da pessoa: quem pediu recebe o motivo.` }
+  }
   return { ok: true, valor }
 }
 
@@ -708,12 +780,30 @@ export type Passo =
   }
   | { acao: 'responder_visita'; visitaId: string; visitante: string; resposta: 'subir' | 'aguardar' | 'recusar'; recado: string | null; isento: true }
   | { acao: 'marcar_lidos'; avisoIds: string[] | 'todos'; quantos: number; isento: true }
+  /** Quem atende a fila: assumir, resolver (a nota é a solução) ou transferir (a nota é o motivo), pelas funções da tela. */
+  | {
+    acao: 'atender_chamado'; chamadoId: string; codigo: string; titulo: string; tipo: 'assumir' | 'resolver' | 'transferir'
+    filaId: string | null; filaNome: string | null; categoriaId: string | null; categoriaNome: string | null; nota: string; isento: false
+  }
+  /** A portaria registra quem chegou; a pessoa visitada recebe o aviso e responde como sempre. */
+  | { acao: 'registrar_visita'; visitante: string; empresa: string | null; visitadoId: string; visitado: PessoaNoPlano; motivo: string | null; isento: false }
+  /** A decisão de uma despesa ou de uma compra: SEMPRE confirmada no Palácio, pela função da tela (nunca pelo WhatsApp). */
+  | {
+    acao: 'decidir_financeiro'; tipo: 'despesa' | 'compra'; itemId: string; titulo: string; codigo: string | null; valor: number; fornecedor: string | null
+    papel: 'financeiro' | 'diretoria' | null; decisao: 'aprovar' | 'recusar'; motivo: string; isento: false
+  }
 
 /** Valem com a verificação em duas etapas (só criam ou respondem o que é da pessoa): abrir chamado, responder à portaria, marcar lidos. */
 export const passoIsento = (p: Passo): boolean => p.isento === true
 
-/** O plano vai inteiro ao Palácio se algum passo não isento for de quem não pode agir pelo WhatsApp. [onda 2] Financeiro, sempre. */
-export const planoSensivel = (passos: Passo[], podeAgir: boolean): boolean => passos.some((p) => !passoIsento(p) && !podeAgir)
+/** A decisão do Financeiro: nunca sai pelo WhatsApp, nem de quem pode agir por lá. */
+export const passoSempreNoPalacio = (p: Passo): boolean => p.acao === 'decidir_financeiro'
+
+/**
+ * O plano vai inteiro ao Palácio se algum passo é sensível: a decisão do Financeiro (sempre) ou um passo não isento de
+ * quem não pode agir pelo WhatsApp (a verificação em duas etapas).
+ */
+export const planoSensivel = (passos: Passo[], podeAgir: boolean): boolean => passos.some((p) => passoSempreNoPalacio(p) || (!passoIsento(p) && !podeAgir))
 
 /** JSON com as chaves em ordem: o mesmo plano dá sempre o mesmo texto (e o mesmo hash), venha da memória ou do jsonb. */
 export function jsonCanonico(v: unknown): string {
@@ -761,6 +851,15 @@ const nomeCurto = (t: string) => umaLinha(limpo(String(t ?? ''), 400), 80) || 'S
 const HOMONIMO = '⚠ há outra pessoa com este nome no espaço'
 const ROTULO_DA_RESPOSTA_A_VISITA: Record<'subir' | 'aguardar' | 'recusar', string> = { subir: RESPOSTAS.subir.rotulo, aguardar: RESPOSTAS.aguardar.rotulo, recusar: RESPOSTAS.recusar.rotulo }
 const ROTULO_DA_URGENCIA: Record<1 | 2 | 3, string> = { 1: 'baixa', 2: 'média', 3: 'alta' }
+/** O valor em reais, como as telas do Financeiro (o texto do plano é da pessoa; o valor nunca vai ao modelo). */
+const emReais = (valor: number) => (Number.isFinite(valor) ? valor : 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+/** "Ana Souza (@ana.souza · RH)", no texto do plano (o nome em negrito). */
+function pessoaNoTexto(p: PessoaNoPlano): string {
+  const usuario = String(p.username ?? '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40)
+  const setor = p.setor ? umaLinha(limpo(p.setor, 200), 40) : ''
+  const dentro = [usuario ? `@${usuario}` : null, setor || null].filter(Boolean).join(' · ')
+  return `*${nomeCurto(p.nome)}*${dentro ? ` (${dentro})` : ''}`
+}
 
 function blocoDaConferencia(conferencia: { setor: string; itens: string[] }[]): string[] {
   return conferencia.filter((b) => b.itens.length).flatMap((b) => [
@@ -791,10 +890,7 @@ export function linhasDoPlano(passos: Passo[]): string[] {
       if (p.decisao === 'changes_requested') linhas.push(citacao(p.nota))
       if (p.decisao === 'approved' && (!agrupar || p === ultimoAprovado)) linhas.push(...blocoDaConferencia(p.conferencia))
     } else if (p.acao === 'mensagem_direta') {
-      const usuario = String(p.para.username ?? '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40)
-      const setor = p.para.setor ? umaLinha(limpo(p.para.setor, 200), 40) : ''
-      const dentro = [usuario ? `@${usuario}` : null, setor || null].filter(Boolean).join(' · ')
-      linhas.push(`${n} Mensagem no Palácio para *${nomeCurto(p.para.nome)}*${dentro ? ` (${dentro})` : ''}:`)
+      linhas.push(`${n} Mensagem no Palácio para ${pessoaNoTexto(p.para)}:`)
       if (p.para.homonimo) linhas.push(HOMONIMO)
       linhas.push(citacao(p.texto))
       linhas.push(`_Chega no sino da pessoa (marcada como enviada pelo WhatsApp do Palácio) e, se ela recebe os avisos pelo WhatsApp, por lá.${temVoto ? ' O Palácio também avisa cada voto a quem pediu a aprovação.' : ''}_`)
@@ -808,6 +904,29 @@ export function linhasDoPlano(passos: Passo[]): string[] {
     } else if (p.acao === 'responder_visita') {
       linhas.push(`${n} Responder à portaria sobre *${nomeCurto(p.visitante)}*: *${ROTULO_DA_RESPOSTA_A_VISITA[p.resposta]}*${p.recado ? ', com o recado:' : ''}`)
       if (p.recado) linhas.push(citacao(p.recado))
+    } else if (p.acao === 'atender_chamado') {
+      const chamado = `o chamado *${umaLinha(limpo(p.codigo, 40), 20)}* ${titulo(p.titulo)}`
+      if (p.tipo === 'assumir') {
+        linhas.push(`${n} Assumir ${chamado} (ele fica com você)`)
+      } else if (p.tipo === 'resolver') {
+        linhas.push(`${n} Resolver ${chamado}, com a solução:`, citacao(p.nota), '_Quem abriu é avisado para confirmar e avaliar (ou reabrir)._')
+      } else {
+        const destino = `*${umaLinha(limpo(p.filaNome ?? '', 200), 60) || 'outra fila'}*${p.categoriaNome ? ` · ${umaLinha(limpo(p.categoriaNome, 200), 60)}` : ''}`
+        linhas.push(`${n} Transferir ${chamado} para ${destino}, com o motivo:`, citacao(p.nota))
+      }
+    } else if (p.acao === 'registrar_visita') {
+      const empresa = p.empresa ? ` (de ${umaLinha(limpo(p.empresa, 400), LIMITES.empresa)})` : ''
+      linhas.push(`${n} Registrar na portaria a entrada de *${nomeCurto(p.visitante)}*${empresa} para ${pessoaNoTexto(p.visitado)}${p.motivo ? ', motivo:' : ''}`)
+      if (p.visitado.homonimo) linhas.push(HOMONIMO)
+      if (p.motivo) linhas.push(citacao(p.motivo))
+      linhas.push('_A pessoa recebe o aviso e responde à portaria; você é avisado da resposta._')
+    } else if (p.acao === 'decidir_financeiro') {
+      const oQue = p.tipo === 'despesa' ? 'a despesa' : `a compra *${umaLinha(limpo(p.codigo ?? '', 40), 20)}*`
+      const fornecedor = p.fornecedor ? ` · ${umaLinha(limpo(p.fornecedor, 400), 80)}` : ''
+      const etapa = p.papel === 'diretoria' ? ' (pela Diretoria)' : p.tipo === 'compra' ? ' (pelo Financeiro)' : ''
+      linhas.push(`${n} ${p.decisao === 'aprovar' ? '*Aprovar*' : '*Recusar*'} ${oQue} ${titulo(p.titulo)} — ${emReais(p.valor)}${fornecedor}${etapa}${p.decisao === 'recusar' ? ', com o motivo:' : ''}`)
+      if (p.decisao === 'recusar') linhas.push(citacao(p.motivo))
+      linhas.push('_A decisão é confirmada no Palácio, com a sua sessão: o WhatsApp nunca decide despesa nem compra._')
     } else {
       linhas.push(`${n} Marcar como lidos ${p.avisoIds === 'todos' ? 'todos os avisos sem abrir' : p.quantos === 1 ? '1 aviso' : `${p.quantos} avisos`}`)
     }
@@ -818,6 +937,9 @@ export function linhasDoPlano(passos: Passo[]): string[] {
 export const CABECALHO_DO_PLANO = '*Confira o plano* — nada foi feito ainda.'
 export const LINHA_DO_PLANO_SENSIVEL =
   'Como sua conta usa a verificação em duas etapas, a confirmação é no Palácio: responda *confirmo* e eu mando o link (uso único, 15 minutos).'
+/** O plano com uma decisão do Financeiro (de qualquer pessoa): a confirmação é sempre no Palácio. */
+export const LINHA_DO_PLANO_NO_PALACIO =
+  'Decisão de despesa ou compra se confirma no Palácio: responda *confirmo* e eu mando o link (uso único, 15 minutos).'
 
 /**
  * O texto do plano, todo escrito aqui: os passos (linhasDoPlano), o que ficou de fora, a linha do Palácio quando é
@@ -835,7 +957,7 @@ export function textoDoPlano(p: { passos: Passo[]; ficouDeFora?: FicouDeFora[]; 
     fora.length ? fora.join('\n') : null,
     [
       p.passos.length > 1 ? 'Se um passo falhar, os seguintes não são feitos.' : null,
-      p.sensivel ? LINHA_DO_PLANO_SENSIVEL : null,
+      p.sensivel ? (p.passos.some(passoSempreNoPalacio) ? LINHA_DO_PLANO_NO_PALACIO : LINHA_DO_PLANO_SENSIVEL) : null,
       `Responda *confirmo* para fazer${p.passos.length > 1 ? ' tudo' : ''}, ou *cancelar*. Vale por ${LIMITES.planoValeMin} minutos.`,
     ].filter(Boolean).join('\n'),
   ].filter(Boolean).join('\n\n')
@@ -892,6 +1014,9 @@ function linkDoPasso(p: Passo, base: string): string | null {
   if (p.acao === 'responder_chat') return `${base}/chat/${p.canalId}${p.fio ? `?fio=${p.fio}` : ''}`
   if (p.acao === 'responder_visita') return null
   if (p.acao === 'marcar_lidos') return `${base}/notificacoes`
+  if (p.acao === 'atender_chamado') return `${base}/chamados/${p.chamadoId}`
+  if (p.acao === 'registrar_visita') return `${base}/portaria`
+  if (p.acao === 'decidir_financeiro') return p.tipo === 'despesa' ? `${base}/financeiro/${p.itemId}` : `${base}/financeiro/compras/${p.itemId}`
   return null
 }
 
@@ -903,6 +1028,18 @@ function feitoDoPasso(p: Passo): string {
   if (p.acao === 'responder_chat') return `Resposta ${ondeNoChat(p.canalNome, false)}`
   if (p.acao === 'abrir_chamado') return `Chamado aberto em *${umaLinha(limpo(p.filaNome, 200), 60)}*`
   if (p.acao === 'responder_visita') return `Resposta à portaria sobre *${nomeCurto(p.visitante)}*: *${ROTULO_DA_RESPOSTA_A_VISITA[p.resposta]}*`
+  if (p.acao === 'atender_chamado') {
+    const codigo = `*${umaLinha(limpo(p.codigo, 40), 20)}*`
+    if (p.tipo === 'assumir') return `Chamado ${codigo} assumido`
+    if (p.tipo === 'resolver') return `Chamado ${codigo} resolvido; quem abriu foi avisado`
+    return `Chamado ${codigo} transferido para *${umaLinha(limpo(p.filaNome ?? '', 200), 60) || 'outra fila'}*`
+  }
+  // O nome do visitante é texto de ação (é redigido): o recibo, que pode esperar na fila, fala só de quem foi avisado.
+  if (p.acao === 'registrar_visita') return `Entrada registrada na portaria; *${nomeCurto(p.visitado.nome)}* recebeu o aviso`
+  if (p.acao === 'decidir_financeiro') {
+    const oQue = p.tipo === 'despesa' ? 'Despesa' : `Compra *${umaLinha(limpo(p.codigo ?? '', 40), 20)}*`
+    return `${oQue} ${titulo(p.titulo)} ${p.decisao === 'aprovar' ? '*aprovada*' : '*recusada*'}`
+  }
   return p.avisoIds === 'todos' ? 'Avisos marcados como lidos' : `${p.quantos === 1 ? '1 aviso marcado' : `${p.quantos} avisos marcados`} como lido${p.quantos === 1 ? '' : 's'}`
 }
 
@@ -913,7 +1050,11 @@ const juntarNumeros = (ns: number[]) => (ns.length > 1 ? `${ns.slice(0, -1).join
  * do item), e onde parou. Sem textos de ação: pode ir pela fila. `resultados`: os da execução, em ordem, com o
  * texto do código para o passo que falhou.
  */
-export function textoDoRecibo(p: { passos: Passo[]; resultados: (ResultadoDoPasso & { texto?: string; link?: string })[]; urlBase: string }): string {
+export function textoDoRecibo(p: {
+  passos: Passo[]; resultados: (ResultadoDoPasso & { texto?: string; link?: string })[]; urlBase: string
+  /** O recibo do plano confirmado pelo WhatsApp oferece o "Não fui eu" (lib/whatsapp/protecao.ts): é a linha que ensina e marca o aviso. */
+  naoFuiEu?: boolean
+}): string {
   const feitos = p.resultados.filter((r) => r.ok)
   const falhou = p.resultados.find((r) => !r.ok && r.codigo !== 'nao_feito')
   const cabeca = !falhou ? 'Feito:' : feitos.length ? 'Feito em parte:' : 'Nada foi feito:'
@@ -929,7 +1070,8 @@ export function textoDoRecibo(p: { passos: Passo[]; resultados: (ResultadoDoPass
     const seguintes = p.passos.map((_, i) => i + 1).filter((n) => n > falhou.n)
     if (seguintes.length) linhas.push(seguintes.length === 1 ? `O passo ${seguintes[0]} não foi feito.` : `Os passos ${juntarNumeros(seguintes)} não foram feitos.`)
   }
-  return [cabeca, ...linhas].join('\n')
+  const recibo = [cabeca, ...linhas].join('\n')
+  return p.naoFuiEu && feitos.length ? `${recibo}\n\n_${LINHA_DO_NAO_FUI_EU}_` : recibo
 }
 
 /**
@@ -966,9 +1108,115 @@ export function textoDaRevalidacao(n: number, motivo: string, total: number): st
   return `Nada foi feito: ${total > 1 ? `passo ${n}, ` : ''}${porque}. Peça de novo se quiser.`
 }
 
-/** [onda 2] O plano sensível: o link de confirmar no Palácio. */
+/** O plano sensível: o link de confirmar no Palácio (app/confirmar/[token], ramo "plano"). */
 export function textoDoLinkNoPalacio(url: string): string {
   return textoDoLinkDeConfirmacao({ oQue: `O plano está pronto para confirmar no Palácio (vale por ${CONFIRMACAO_VALE_MIN} minutos).`, url })
+}
+
+/** O plano que a página de confirmar no Palácio (ou um botão atrasado) não acha mais esperando: por quê, numa frase. */
+export function textoDoPlanoQueNaoVale(situacao: string | null | undefined): string {
+  if (situacao === 'executando' || situacao === 'executado' || situacao === 'parcial' || situacao === 'falhou') return 'Este plano já foi confirmado: veja o recibo no WhatsApp.'
+  if (situacao === 'vencido') return 'Este plano venceu. Peça de novo pelo WhatsApp do Palácio, ou faça pela tela de sempre.'
+  if (situacao === 'cancelado' || situacao === 'substituido') return 'Este plano foi cancelado ou trocado por outro: nada foi feito.'
+  return TEXTOS_FIXOS.velho
+}
+
+// ------------------------------------------------------------------ botões e listas (o toque é lido pelo código)
+
+/** Os botões do plano: Confirmar e Cancelar, com o id curto e o hash (o botão de um plano antigo, ou com outro hash, não confirma). */
+export function interativoDoPlano(planoId: string, hash: string): Interativo {
+  return { tipo: 'botoes', botoes: [{ id: idDoBotao(planoId, hash, true), titulo: 'Confirmar' }, { id: idDoBotao(planoId, hash, false), titulo: 'Cancelar' }] }
+}
+
+/** "Ana Souza (@ana.souza · RH) ⚠" → o nome no título da linha e o resto na descrição; o que não é pessoa, inteiro. */
+function partesDoRotulo(rotulo: string): { titulo: string; descricao: string | null } {
+  const r = umaLinha(rotulo, 120)
+  const m = /^(.+?) \((@[^)]*)\)( ⚠)?$/.exec(r)
+  if (m) return { titulo: m[1], descricao: `${m[2]}${m[3] ? ' · ⚠ há outra pessoa com este nome' : ''}` }
+  return { titulo: r, descricao: r.length > LIMITES_DO_INTERATIVO.tituloDaLinha - 3 ? r : null }
+}
+
+/** A lista da pergunta do assistente: uma linha por opção, com o id `esc:<id curto>:<marcador>` (o toque escolhe aquela opção). */
+export function interativoDaPergunta(perguntaId: string, opcoes: string[], rotulos: string[]): Interativo | null {
+  if (!opcoes.length || opcoes.length !== rotulos.length || opcoes.length > LIMITES_DO_INTERATIVO.linhas) return null
+  return {
+    tipo: 'lista', botao: 'Escolher',
+    secoes: [{ linhas: opcoes.map((m, i) => ({ id: idDaEscolha(perguntaId, m), titulo: `${i + 1}. ${partesDoRotulo(rotulos[i]).titulo}`, descricao: partesDoRotulo(rotulos[i]).descricao })) }],
+  }
+}
+
+/**
+ * O texto com os botões (ou a lista), no limite do corpo de uma mensagem interativa (LIMITES_DO_INTERATIVO.corpo):
+ * até ele, uma mensagem só; acima, o texto sai sozinho e os botões vêm numa segunda mensagem curta (`chamada`). As
+ * duas mostram o plano: citar qualquer uma é citar o plano.
+ */
+export function mensagensComInterativo(texto: string, interativo: Interativo | null, chamada: string): { texto: string; interativo: Interativo | null }[] {
+  if (!interativo || texto.trim().length <= LIMITES_DO_INTERATIVO.corpo) return [{ texto, interativo }]
+  return [{ texto, interativo: null }, { texto: chamada, interativo }]
+}
+
+// ------------------------------------------------------------------ o áudio (só com a transcrição da Kapso)
+
+/** O eco do que o código entendeu do áudio, na frente da resposta: a pessoa confere antes de qualquer plano. */
+export function textoDoEcoDoAudio(transcricao: string): string {
+  return `_Entendi do áudio:_ “${limpo(dadoDeTerceiro(transcricao, LIMITES.eco), LIMITES.eco) || '…'}”`
+}
+
+// ------------------------------------------------------------------ a página de confirmar no Palácio (as mesmas linhas, em HTML)
+
+export type ParteDoTexto = { texto: string; negrito: boolean }
+export type BlocoDaTela = { tipo: 'passo' | 'citacao' | 'nota' | 'aviso'; partes: ParteDoTexto[] }
+
+/** "Votar *aprovado* em “X”" → as partes, com o negrito do WhatsApp marcado (a página não interpreta mais nada). */
+export function partesComNegrito(linha: string): ParteDoTexto[] {
+  const partes: ParteDoTexto[] = []
+  let resto = String(linha ?? '')
+  for (let m = /\*([^*\n]+)\*/.exec(resto); m; m = /\*([^*\n]+)\*/.exec(resto)) {
+    if (m.index > 0) partes.push({ texto: resto.slice(0, m.index), negrito: false })
+    partes.push({ texto: m[1], negrito: true })
+    resto = resto.slice(m.index + m[0].length)
+  }
+  if (resto) partes.push({ texto: resto, negrito: false })
+  return partes
+}
+
+/**
+ * As linhas do plano (linhasDoPlano, as mesmas do WhatsApp) como blocos para a página de confirmar no Palácio: o
+ * passo, o texto que vai sair (as linhas "> " juntas), a nota em itálico e o ⚠. A conferência do setor não entra
+ * aqui: a página a mostra como caixas para marcar (conferenciaDoPlano), como a tela da aprovação.
+ */
+export function blocosDaTela(linhas: string[]): BlocoDaTela[] {
+  const blocos: BlocoDaTela[] = []
+  for (const linha of linhas.flatMap((l) => l.split('\n'))) {
+    if (linha.startsWith('☐ ') || linha.startsWith('_Ao confirmar, você declara que conferiu')) continue
+    if (linha === '>' || linha.startsWith('> ')) {
+      const texto = linha === '>' ? '' : linha.slice(2)
+      const ultimo = blocos[blocos.length - 1]
+      if (ultimo?.tipo === 'citacao') ultimo.partes[0].texto += `\n${texto}`
+      else blocos.push({ tipo: 'citacao', partes: [{ texto, negrito: false }] })
+    } else if (/^_.+_$/.test(linha)) {
+      blocos.push({ tipo: 'nota', partes: [{ texto: linha.slice(1, -1), negrito: false }] })
+    } else if (linha.startsWith('⚠')) {
+      blocos.push({ tipo: 'aviso', partes: [{ texto: linha, negrito: false }] })
+    } else if (linha.trim()) {
+      blocos.push({ tipo: 'passo', partes: partesComNegrito(linha) })
+    }
+  }
+  return blocos
+}
+
+/** A conferência que a página pede marcada: a dos votos "aprovado" do plano, por setor, sem repetir item. */
+export function conferenciaDoPlano(passos: Passo[]): { setor: string; itens: string[] }[] {
+  const porSetor = new Map<string, string[]>()
+  for (const p of passos) {
+    if (p.acao !== 'votar' || p.decisao !== 'approved') continue
+    for (const b of p.conferencia) {
+      const itens = porSetor.get(b.setor) ?? []
+      for (const i of b.itens) if (!itens.includes(i)) itens.push(i)
+      porSetor.set(b.setor, itens)
+    }
+  }
+  return [...porSetor.entries()].filter(([, itens]) => itens.length).map(([setor, itens]) => ({ setor, itens }))
 }
 
 const REDIGIDO = /^h:[0-9a-f]{12}$/
@@ -976,8 +1224,9 @@ const resumoDoTexto = (t: string | null) => (t === null || t === '' || REDIGIDO.
 
 /**
  * Apaga os textos de ação de um plano que saiu de "aberto" (executado, falhou, cancelado, substituído, vencido):
- * mensagem, nota, relato, recado e local viram um sha-256 curto (dá para conferir, não para ler), e o pedido em
- * aberto some. Títulos e nomes ficam: vêm do banco e o sino já os guarda. Idempotente.
+ * mensagem, nota, relato, recado, local, a solução ou o motivo do chamado, o visitante (nome, empresa, motivo) e o
+ * motivo da decisão viram um sha-256 curto (dá para conferir, não para ler), e o pedido em aberto some. Títulos e
+ * nomes do banco ficam: o sino já os guarda. Idempotente.
  */
 export function redigirPassos(passos: Passo[]): { passos: Passo[]; pedidoEmAberto: null } {
   const redigidos = passos.map((p): Passo => {
@@ -985,6 +1234,9 @@ export function redigirPassos(passos: Passo[]): { passos: Passo[]; pedidoEmAbert
     if (p.acao === 'mensagem_direta' || p.acao === 'comentar_chamado' || p.acao === 'responder_chat') return { ...p, texto: resumoDoTexto(p.texto) ?? '' }
     if (p.acao === 'abrir_chamado') return { ...p, relato: resumoDoTexto(p.relato) ?? '', local: resumoDoTexto(p.local) }
     if (p.acao === 'responder_visita') return { ...p, recado: resumoDoTexto(p.recado) }
+    if (p.acao === 'atender_chamado') return { ...p, nota: resumoDoTexto(p.nota) ?? '' }
+    if (p.acao === 'registrar_visita') return { ...p, visitante: resumoDoTexto(p.visitante) ?? '', empresa: resumoDoTexto(p.empresa), motivo: resumoDoTexto(p.motivo) }
+    if (p.acao === 'decidir_financeiro') return { ...p, motivo: resumoDoTexto(p.motivo) ?? '' }
     return p
   })
   return { passos: redigidos, pedidoEmAberto: null }

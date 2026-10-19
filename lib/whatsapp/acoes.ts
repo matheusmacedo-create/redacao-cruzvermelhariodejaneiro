@@ -1,4 +1,5 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { avisarQuemPediu } from '@/lib/aprovacoes/avisos'
 import { conferenciaDaRodada, registroDaConferencia } from '@/lib/aprovacoes/setores'
@@ -194,9 +195,13 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
 /**
  * Manda no Chat (canal ou fio) em nome de quem escreveu, pela função do banco (whatsapp_chat_enviar, que chama
  * chat_enviar como a pessoa: quem não pode lá não pode aqui), e avisa os membros. `abrir`: o link da conversa.
+ * `sessao`: pela sessão de quem está logado (o plano do assistente confirmado no Palácio), direto em chat_enviar,
+ * como a tela do Chat — sem menção a todos.
  */
-export async function enviarNoChat(admin: Admin, workspaceId: string, pessoa: Pessoa, canalId: string, fio: string | null, corpo: string, abrir: string): Promise<ResultadoDaAcao> {
-  const { data, error } = await admin.rpc('whatsapp_chat_enviar', { p_user_id: pessoa.id, p_canal_id: canalId, p_corpo: corpo.slice(0, 8000), p_resposta_de: fio })
+export async function enviarNoChat(admin: Admin, workspaceId: string, pessoa: Pessoa, canalId: string, fio: string | null, corpo: string, abrir: string, sessao?: SupabaseClient): Promise<ResultadoDaAcao> {
+  const { data, error } = sessao
+    ? await sessao.rpc('chat_enviar', { p_canal_id: canalId, p_corpo: corpo.slice(0, 8000), p_mencoes: [], p_todos: false, p_resposta_de: fio, p_anexos: [] })
+    : await admin.rpc('whatsapp_chat_enviar', { p_user_id: pessoa.id, p_canal_id: canalId, p_corpo: corpo.slice(0, 8000), p_resposta_de: fio })
   if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
   if (error || !data) return { ok: false, codigo: error?.code === '42501' ? 'sem_permissao' : 'erro', texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível enviar.'} ${abrir}` }
   const { data: mensagem } = await admin.from('chat_mensagens').select(COLUNAS_DA_MENSAGEM).eq('id', (data as { id: string }).id).single()
@@ -304,7 +309,7 @@ async function votarPeloPalacio(admin: Admin, workspaceId: string, pessoa: Pesso
 }
 
 /** O código de erro do voto conferido (whatsapp_votar_uma_vez) no vocabulário de ResultadoDaAcao. */
-const CODIGO_DO_VOTO: Record<string, Extract<ResultadoDaAcao, { ok: false }>['codigo']> = {
+export const CODIGO_DO_VOTO: Record<string, Extract<ResultadoDaAcao, { ok: false }>['codigo']> = {
   WA001: 'ja_votou', WA002: 'mudou', WA003: 'encerrada', 42501: 'sem_permissao',
 }
 

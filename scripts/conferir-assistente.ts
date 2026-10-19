@@ -239,7 +239,7 @@ igual(validarEntrada('ler_filas_de_chamado', {}).ok, true, 'entrada: ferramenta 
 // ---------------------------------------------------------------- ferramentas: lista fechada
 const nomes = [...NOMES_DAS_FERRAMENTAS]
 igual(nomes, [...nomes].sort(), 'ferramentas: em ordem de nome (o prefixo do cache não muda)')
-igual(nomes.length <= LIMITES.ferramentas && nomes.length === 17, true, 'ferramentas: as 17 da v1, até 20')
+igual(nomes.length <= LIMITES.ferramentas && nomes.length === 20, true, 'ferramentas: as 17 da v1 com as da onda 2 (consultar_area no lugar do status): 20, o teto')
 igual(Object.keys(CAMPOS_DAS_FERRAMENTAS).sort(), nomes, 'ferramentas: um esquema por nome')
 const PROIBIDAS = ['user_id', 'workspace_id', 'numero', 'email', 'id', 'uuid', 'url', 'sql']
 igual(Object.values(CAMPOS_DAS_FERRAMENTAS).flat().filter((c) => PROIBIDAS.includes(c)), [], 'ferramentas: nenhuma propriedade proibida')
@@ -579,7 +579,7 @@ async function conferirFluxo() {
 
 // ---------------------------------------------------------------- ferramentas: as definições enviadas à API
 igual(ferramentasConferem(), true, 'definições: os mesmos nomes, na mesma ordem, de NOMES_DAS_FERRAMENTAS')
-igual(FERRAMENTAS.length, 17, 'definições: as 17 da v1')
+igual(FERRAMENTAS.length, 20, 'definições: as 20 (o teto)')
 igual(FERRAMENTAS.every((f) => f.strict === true), true, 'definições: todas com strict: true')
 const PROIBIDO_NO_ESQUEMA = ['null', 'anyOf', 'oneOf', 'minLength', 'maxLength', 'minimum', 'maximum', 'pattern', 'minItems', 'maxItems']
 function conferirObjeto(o: unknown, onde: string): string[] {

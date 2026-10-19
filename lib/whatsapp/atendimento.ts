@@ -194,19 +194,9 @@ async function assumir(admin: Admin, pessoa: Pessoa, c: ChamadoCarregado, papeis
     return { texto: `O chamado *${c.codigo}* já está ${ROTULO_DO_STATUS_PARA_EQUIPE[c.status].toLowerCase()}. ${abrir}` }
   }
   if (c.responsavel_id === pessoa.id && c.status !== 'novo') return { texto: `O chamado *${c.codigo}* já está com você. ${abrir}` }
-  const autor = { id: pessoa.id, nome: pessoa.nome }
-  const comOutro = c.responsavel_id && c.responsavel_id !== pessoa.id ? c.responsavel_id : null
   let nomeDoOutro: string | null = null
-  if (comOutro) {
-    const { data } = await admin.from('profiles').select('full_name').eq('id', comOutro).maybeSingle()
-    nomeDoOutro = (data?.full_name as string | null)?.trim() || null
-  }
   try {
-    // "Atender": sem responsável, quem atende passa a ser o responsável (mudarStatusNoChamado).
-    if (c.status === 'novo') await mudarStatusNoChamado(admin, { c, papeis, autor, para: 'em_atendimento', nota: '', canal: 'whatsapp' })
-    if (comOutro || (c.status !== 'novo' && c.responsavel_id !== pessoa.id)) {
-      await atribuirNoChamado(admin, { c, papeis, autor, responsavelId: pessoa.id, canal: 'whatsapp' })
-    }
+    nomeDoOutro = (await assumirChamado(admin, { id: pessoa.id, nome: pessoa.nome }, c, papeis, 'whatsapp')).nomeDoOutro
   } catch (causa) {
     return { texto: `${mensagemDe(causa, 'Não foi possível assumir o chamado.')} ${abrir}` }
   }
@@ -218,6 +208,27 @@ async function assumir(admin: Admin, pessoa: Pessoa, c: ChamadoCarregado, papeis
       abrir,
     ].join('\n\n'),
   }
+}
+
+/**
+ * O "assumir" pelas funções da tela: "Atender" (novo → em atendimento, que já faz da pessoa a responsável quando
+ * não havia) e, se o chamado estava com outra pessoa ou já em andamento, o responsável da triagem. Lança o erro da
+ * função (quem chama traduz). Também é o passo "assumir" do plano do assistente (lib/whatsapp/assistente/executores.ts),
+ * pelo WhatsApp (`canal`) ou confirmado no Palácio (sem canal, como a tela).
+ */
+export async function assumirChamado(admin: Admin, autor: { id: string; nome: string | null }, c: ChamadoCarregado, papeis: Quem[], canal?: 'whatsapp'): Promise<{ nomeDoOutro: string | null }> {
+  const comOutro = c.responsavel_id && c.responsavel_id !== autor.id ? c.responsavel_id : null
+  let nomeDoOutro: string | null = null
+  if (comOutro) {
+    const { data } = await admin.from('profiles').select('full_name').eq('id', comOutro).maybeSingle()
+    nomeDoOutro = (data?.full_name as string | null)?.trim() || null
+  }
+  // "Atender": sem responsável, quem atende passa a ser o responsável (mudarStatusNoChamado).
+  if (c.status === 'novo') await mudarStatusNoChamado(admin, { c, papeis, autor, para: 'em_atendimento', nota: '', ...(canal ? { canal } : {}) })
+  if (comOutro || (c.status !== 'novo' && c.responsavel_id !== autor.id)) {
+    await atribuirNoChamado(admin, { c, papeis, autor, responsavelId: autor.id, ...(canal ? { canal } : {}) })
+  }
+  return { nomeDoOutro }
 }
 
 // ------------------------------------------------------------------ resolver e transferir (em etapas)

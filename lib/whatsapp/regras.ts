@@ -1029,6 +1029,12 @@ export type MensagemRecebida = {
   toque: boolean
   /** Foto, vídeo, áudio ou documento que veio junto (o arquivo em si se baixa da Kapso, pelo id da mídia). */
   midia: MidiaRecebida | null
+  /**
+   * A transcrição do áudio, quando a Kapso a manda no payload v2 (message.kapso.transcript.text); null sem áudio ou
+   * sem transcrição. Só o assistente a usa — e áudio nunca escreve sem um plano confirmado por escrito ou pelo botão
+   * (lib/whatsapp/assistente/regras.ts, rotaDaMensagem).
+   */
+  transcricao: string | null
   /** Motivo para não responder; null = responder. */
   ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
   /**
@@ -1096,6 +1102,7 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null, agora: num
 
   let midia: MidiaRecebida | null = null
   let legenda: string | null = null
+  let transcricao: string | null = null
   for (const [chave, categoria] of MIDIAS_DA_META) {
     if (tipo !== chave) continue
     const md = objeto(m[chave])
@@ -1110,6 +1117,8 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null, agora: num
       nome: (texto(md?.filename) ?? texto(dadosDaKapso?.filename))?.slice(0, 200) ?? null, ...(arquivo ? { arquivo } : {}), ...(endereco ? { endereco } : {}),
     }
     legenda = texto(md?.caption)
+    // A Kapso transcreve o áudio e manda junto (message.kapso.transcript.text): só do áudio, numa linha, até 2.000 caracteres.
+    if (real === 'audio') transcricao = texto(objeto(kapso?.transcript)?.text)?.replace(/\s+/g, ' ').trim().slice(0, 2000) || null
   }
 
   return {
@@ -1120,6 +1129,7 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null, agora: num
     citada: texto(objeto(m.context)?.id)?.slice(0, 128) ?? null,
     toque: !digitado && doToque !== null,
     midia,
+    transcricao,
     ignorar: deMim ? 'de_mim' : numero ? null : 'sem_numero',
     enviadaEm: lerEnviadaEm(m.timestamp, agora),
   }

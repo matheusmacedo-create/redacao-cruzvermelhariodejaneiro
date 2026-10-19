@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { auditarConta, avisar, encerrarSessoesDaConta, revogarLinksDaConta } from '@/lib/contas/servidor'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { encerrarPendencia } from './acoes'
+import { redigirVencidos } from './assistente/faxina'
 import {
   BOTOES_DA_CONFERENCIA, MARCA_DO_NAO_FUI_EU, NAO_FUI_EU_CITANDO_DIAS, NAO_FUI_EU_VALE_HORAS, PENDENCIA_VALE_MIN, TEXTO_NAO_FUI_EU_INDISPONIVEL,
   TEXTO_NAO_FUI_EU_JA_FEITO, TEXTO_NAO_FUI_EU_SEM_AVISO, ehCancelamento, ehConfirmacao, ehNaoFuiEu, mascararNumero, textoDaConferenciaDoNaoFuiEu, textoDoNaoFuiEuFeito,
@@ -46,6 +47,13 @@ import {
  *
  * Antes da migração, a conferência não tem onde ficar e o bot orienta a
  * trocar a senha e falar com a administração. Nada aqui lança.
+ *
+ * O recibo de um plano do assistente confirmado pelo WhatsApp também oferece o
+ * "Não fui eu" (sai como aviso de segurança, com a mesma linha e a mesma
+ * marca): quem pegou o celular destravado não age em nome da pessoa em
+ * silêncio. Protegida a conta, o assistente também para no número dela (até
+ * ela confirmar o número de novo, com login) e o plano que estiver aberto ou
+ * esperando o Palácio é cancelado.
  */
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -196,6 +204,7 @@ export async function protegerConta(admin: Admin, workspaceId: string, userId: s
     encerrarSessoesDaConta(admin, userId),
     revogarLinksDaConta(admin, userId),
     admin.from('profiles').select('full_name, username').eq('id', userId).maybeSingle(),
+    pararOAssistente(admin, userId),
   ])
   const nome = (pessoa?.full_name as string | null)?.trim() || (pessoa?.username as string | null) || 'Alguém da equipe'
   await auditarConta(admin, {
@@ -207,6 +216,23 @@ export async function protegerConta(admin: Admin, workspaceId: string, userId: s
     // Só o e-mail: a resposta no WhatsApp já diz o que foi feito.
     avisar(admin, userId, { tipo: 'sessoes_encerradas', numeroAntigo: !p.daConta }, { whatsapp: null }).catch(() => false),
   ])
+}
+
+/**
+ * O assistente do WhatsApp para no número da conta (assistente_suspenso_em, como na troca do nome de perfil: volta
+ * quando a pessoa confirma o número de novo, o que exige login) e o plano aberto, ou esperando o Palácio, é cancelado
+ * e redigido. Sem as colunas e a tabela do assistente (migração ainda não aplicada), não faz nada. Nunca lança.
+ */
+async function pararOAssistente(admin: Admin, userId: string): Promise<void> {
+  try {
+    const agora = new Date().toISOString()
+    await admin.from('whatsapp_contas').update({ assistente_suspenso_em: agora }).eq('user_id', userId).is('assistente_suspenso_em', null)
+    const { data: cancelados } = await admin.from('whatsapp_ia_planos').update({ situacao: 'cancelado', atualizado_em: agora })
+      .eq('user_id', userId).in('situacao', ['pergunta', 'aberto', 'em_revisao', 'no_palacio']).select('id')
+    if (cancelados?.length) await redigirVencidos(admin, { limite: 10, userId })
+  } catch (causa) {
+    console.error('[whatsapp] "não fui eu": assistente não parado:', causa instanceof Error ? causa.message : causa)
+  }
 }
 
 /** Sino, e-mail e WhatsApp (conforme a preferência, na categoria dos alertas de acesso) para os administradores e quem lê o registro de acessos. */

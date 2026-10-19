@@ -2619,7 +2619,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     do dia em `mensagens_dia`, 8 passos), guarda o hash do conteúdo da matéria (`whatsapp_hash_do_conteudo`; sem a
     função, o voto é pelo Palácio) e devolve o `Passo` com as pessoas do quadro (`@usuário`, ⚠ de homônimo). Quem
     usa a verificação em duas etapas: voto, mensagem e comentário ficam de fora, com o link do Palácio no "Ficou de
-    fora" do plano ou na resposta em texto (até a etapa 4); abrir chamado, responder à portaria e marcar lidos valem
+    fora" do plano ou na resposta em texto (com a confirmação no Palácio, etapa 4, entram no plano sensível); abrir chamado, responder à portaria e marcar lidos valem
     (isentos). O erro vai ao modelo; o motivo, à pessoa ("Ficou de fora: … — …").
   - **O plano** (`index.ts` e `plano.ts`): o texto do modelo é descartado; `validarRascunho`, `guardarPlano` (hash,
     15 min; substitui e redige o que estava aberto, inclusive o plano em revisão, e encerra a pergunta do bot) e o
@@ -2657,6 +2657,77 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     21, 22, 23, 26, 27, 30 e o plano do Chat). `scripts/avaliar-assistente.ts --gastar` ganhou os casos de escrita
     contra a API de verdade (manual).
   - **Sem migração nova:** usa a da etapa 1 (`20261019010000`).
+- **Assistente do Palácio no WhatsApp — integração com a onda 2 (19/10/2026, etapa 4 de 4, DESLIGADA por padrão):**
+  o plano sensível termina no Palácio, os planos e as perguntas ganham botões e listas, o recibo ganha o "Não fui
+  eu", e as ferramentas cobrem o atendimento do chamado, a portaria, o Financeiro e as áreas. Sem a configuração do
+  assistente, nada disso existe (o bot é o de antes, inclusive com áudio); sem a migração B, o plano sensível não
+  nasce (como na etapa 3).
+  - **As 20 ferramentas (o teto):** as 17 da v1, `preparar_atendimento_do_chamado` (assumir, resolver com a solução,
+    transferir com a fila, o assunto e o motivo — só a equipe da fila; `assumirChamado`, `mudarStatusNoChamado` e
+    `transferirNoChamado`, as funções da tela), `preparar_registro_de_visita` (visitante, empresa, a pessoa visitada
+    `pes_`, motivo — `gravarEntrada`, a mesma `portaria_registrar_entrada`; avisa quem é visitado),
+    `preparar_decisao_financeira` (item `des_`/`com_`, aprovar ou recusar com motivo — SEMPRE no Palácio) e
+    `consultar_area` no lugar de `ver_status_do_whatsapp` (financeiro, com os marcadores e sem valores; frota;
+    estoque com a busca; portaria; whatsapp, só para quem administra — só no nível amplo, conta como leitura de
+    detalhe). Os tipos do portão (`atendimento`, `registro_visita`, `financeiro` só com aprovar/recusar junto de
+    despesa ou compra NA mensagem) estavam prontos desde a etapa 1. A troca reescreveu o prefixo do cache uma vez.
+  - **O plano sensível vai ao Palácio** (§5.7): `sensivel` = a decisão do Financeiro (sempre) ou um passo não isento
+    de quem não pode agir pelo WhatsApp. Com a confirmação no Palácio disponível (`confirmacaoNoPalacioDisponivel`
+    em `uso.ts`: a coluna `plano_id` existe; conferido a cada 10 min por instância), o preparo de quem usa a
+    verificação em duas etapas entra no rascunho em vez de ficar de fora, e `buscar_pessoa` abre no nível pessoal
+    (até 3 resultados). O plano mostra a linha do Palácio (a da verificação em duas etapas ou a do Financeiro). No
+    *confirmo*, `fluxo.confirmar` leva o plano a `no_palacio` com o prazo do link (15 min contados dali) e
+    `confirmarPlano` cria a confirmação (`criarConfirmacao`, ação `plano`, alvo = o plano) e manda o link
+    (`textoDoLinkNoPalacio`, sem fila, categoria `conta`). Sem a migração ou com links demais na hora, o plano falha e
+    é redigido.
+  - **`/confirmar/[token]`, ramo "plano"** (`lib/whatsapp/assistente/palacio.ts`, só importado pela página): o mesmo
+    portão das telas (requireWorkspace: aal2 para quem usa a verificação em duas etapas); o plano lido pelo serviço e
+    conferido (dono, espaço, `no_palacio`, prazo, hash); os passos em HTML pela mesma função do texto do WhatsApp
+    (`linhasDoPlano` → `blocosDaTela`) e a conferência do setor dos votos "aprovado" como caixas para marcar
+    (`conferenciaDoPlano`). O "Confirmar" (`confirmarNoPalacio` → `executarPlanoNoPalacio`) confere a conferência
+    antes de tudo e o fluxo (`executarNoPalacio`) COMEÇA pela transição atômica `no_palacio → executando` — dois
+    cliques ou duas abas executam uma vez; o link só marca o uso depois. Confere a pessoa, o papel, a escrita do
+    assistente e as cotas do dia (`conferirNaSessao`), revalida todos os passos e executa pela sessão
+    (`executarPasso` com o canal `sessao`): o voto por `votar_conferido` (o hash do conteúdo vale aqui também: matéria
+    mudada entre o plano e o clique, `WA002`), a mensagem por `enviarMensagemDireta({ via: 'sessao' })`, o Chat por
+    `chat_enviar`, a portaria por `portaria_registrar_entrada`, o chamado pelas funções da tela; a decisão do
+    Financeiro pela MESMA função do link do comando "financeiro" (`executar` de `confirmar-no-palacio.ts`:
+    `decidirAprovacao`, `decidirPedido`). O recibo aparece na tela, fica no resultado da confirmação e vai ao
+    WhatsApp. `descrever` e `executar` da onda 2 recusam a ação `plano` antes de cair no ramo de desativar conta.
+  - **`sendDirectMessage`** (`app/actions/editorial.ts`) passou a usar `enviarMensagemDireta({ via: 'sessao' })`, a
+    mesma função do plano no Palácio (as regras da tela continuam: destinatário do espaço, 10 s sem repetir).
+  - **Botões e listas:** o plano sai com Confirmar e Cancelar (`interativoDoPlano`, ids `plano:<id curto>:<hash8>:sim|
+    nao`: o botão de um plano antigo ou com o hash velho dá "não vale mais"); a pergunta, com a lista das opções
+    (`interativoDaPergunta`, ids `esc:<id curto>:<marcador>`; o número digitado continua valendo). Acima de 1.024
+    caracteres, o texto sai sozinho e os botões vêm numa segunda mensagem curta (`mensagensComInterativo`,
+    `entregarComInterativo`); as duas entram em `whatsapp_ia_planos.mensagens`. O toque no botão não espera o
+    assentamento de 3 s (é do *confirmo* por texto). O plano do Chat também sai com os botões.
+  - **"Não fui eu" no recibo:** o recibo do plano confirmado pelo WhatsApp termina com a linha do "Não fui eu" e sai
+    como aviso de segurança (botão e marca no registro, `fila.ts`), então a resposta a ele protege a conta
+    (`protecao.ts`). Protegida a conta, o assistente também para no número dela (`assistente_suspenso_em`, até
+    reconfirmar o número) e o plano aberto ou esperando o Palácio é cancelado. O recibo da página não leva a linha.
+  - **Áudio** (só com a transcrição que a Kapso manda: `message.kapso.transcript.text` → `MensagemRecebida.
+    transcricao`): com o assistente disponível e sem envio de fotos aberto, o áudio segue como a transcrição, sempre
+    ao assistente (`rotaDaMensagem` com `audio`): nada de comando fixo, pergunta do bot, resposta direta a aviso ou à
+    portaria, plano do Chat; o "confirmo" ou "sim" falado recebe "Áudio não confirma plano" (`ia_audio_nao_confirma`).
+    A resposta começa pelo eco "_Entendi do áudio:_ “…”" (`textoDoEcoDoAudio`). Sem o assistente, o áudio é o de antes.
+  - **Alertas de integração:** chave recusada ou modelo inexistente pausam o assistente e viram o alerta `claude`
+    (`lib/integracoes/alertas.ts`, categoria `integracoes`, um a cada 6 h, também pelo WhatsApp).
+  - **Cota:** a da onda 2 é a das conversas que a Meta deixa o número começar (fora da janela); as respostas do
+    assistente são respostas do bot dentro da janela e não entram nela — não houve o que unificar.
+  - **Cartão:** a linha "Confirmação no Palácio" diz se a migração B foi aplicada; o texto das ações lista o que o
+    assistente prepara agora.
+  - **Migração B** (`20261019020000_cvrj_whatsapp_assistente_confirmacao.sql`, só acrescenta): `plano_id` em
+    `whatsapp_confirmacoes` (FK para o plano, `on delete cascade`, índice), a ação `plano` na restrição de `acao`
+    (lida da que está em vigor) e `whatsapp_confirmacoes_plano_coerente` (acao `plano` ⇔ `plano_id`, alvo = o plano).
+    Testes em `supabase/tests/whatsapp-assistente-confirmacao.test.sql`.
+  - **Testes:** `npx tsx scripts/conferir-assistente-palacio.ts` (novo; sem banco, rede nem modelo): as 20
+    ferramentas, as entradas novas, o portão, a sensibilidade, o texto do plano (valor, motivo citado, a linha do
+    Palácio), a redação, o recibo com e sem o "Não fui eu", botões e listas (hash velho e plano antigo recusados,
+    a divisão acima de 1.024), o áudio (o "confirmo" falado não confirma), a página (blocos e conferência), o fluxo
+    no Palácio (dois cliques executam uma vez; matéria mudada não recebe voto; plano vencido, de outra pessoa ou com
+    o assistente desligado não executa; "cancelar" alcança o plano no Palácio), os preparos novos e a revalidação
+    deles, e os imports (o executor do WhatsApp não puxa o Financeiro; a rota não puxa `palacio.ts`).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -2966,13 +3037,13 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
-- **Assistente do WhatsApp, etapa 4** (§8.5) — a fundação, a leitura com o modelo e a escrita confirmada pelo
-  WhatsApp estão no código, desligadas por padrão (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela
-  caixa "preparar ações"). Falta a integração com a onda 2: o plano sensível (quem usa a verificação em duas etapas,
-  e as decisões do Financeiro) confirmado em `/confirmar/[token]` (coluna `plano_id` em `whatsapp_confirmacoes`),
-  botões e listas no plano e na pergunta, o "Não fui eu" no recibo e as ferramentas da onda 2. A conferir no piloto:
-  se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp; rodar `scripts/avaliar-assistente.ts
-  --gastar` (os casos de escrita) antes de ligar as ações para o piloto.
+- **Assistente do WhatsApp, implantação** (§8.5) — as quatro etapas estão no código, desligadas por padrão
+  (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela caixa "preparar ações"). Falta aplicar a
+  migração B (`20261019020000`, a confirmação do plano no Palácio) e seguir a ordem: piloto com escrita; depois
+  do "Não fui eu" visto funcionando, `modo='admins'` com escrita; uma semana sem incidente, `modo='equipe'`. A
+  conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp (o payload v2 também
+  traz `business_scoped_user_id`, que poderia substituir o nome); se a transcrição do áudio chega mesmo no payload;
+  rodar `scripts/avaliar-assistente.ts --gastar` antes de ligar as ações.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

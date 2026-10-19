@@ -223,14 +223,26 @@ export const AVISOS_NO_WHATSAPP: Omit<Pergunta, 'id'> = {
 
 export const WHATSAPP_DO_SEU_JEITO: Omit<Pergunta, 'id'> = {
   pergunta: 'Dá para pedir coisas ao WhatsApp do Palácio escrevendo normalmente?',
-  resposta: 'Dá, se a administração ligou o assistente para você (começa por um piloto). Além dos comandos do menu, você escreve do seu jeito ao número do Palácio — “o que tenho pra aprovar?”, “como está meu chamado do ar?”, “o que tenho amanhã?”, “como troco a senha?” — e o assistente consulta o Palácio com as suas permissões e responde por lá, com os links. Com a verificação em duas etapas, ele lê só o que é seu. Se as ações também estão ligadas, dá para pedir votos, mensagens e chamados (veja a pergunta sobre o plano e o *confirmo*).\n\nCom ele ligado, “cancelar” e “li” soltos não pausam nem marcam os avisos: use “parar” e “marcar como lidas” (ou “3” e “2”). “esquece” recomeça a conversa. O Palácio não guarda o texto das conversas, só o comando e os números de uso. A equipe da escola fica de fora por enquanto.',
+  resposta: 'Dá, se a administração ligou o assistente para você (começa por um piloto). Além dos comandos do menu, você escreve do seu jeito ao número do Palácio — “o que tenho pra aprovar?”, “como está meu chamado do ar?”, “tem despesa pra eu aprovar?”, “como troco a senha?” — e o assistente consulta o Palácio com as suas permissões (inclusive as áreas que você abre) e responde por lá, com os links. Com a verificação em duas etapas, ele lê só o que é seu. Se as ações também estão ligadas, dá para pedir votos, mensagens e chamados (veja a pergunta sobre o plano e o *confirmo*).\n\nCom ele ligado, “cancelar” e “li” soltos não pausam nem marcam os avisos: use “parar” e “marcar como lidas” (ou “3” e “2”). “esquece” recomeça a conversa. O Palácio não guarda o texto das conversas, só o comando e os números de uso. A equipe da escola fica de fora por enquanto.',
   termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'escrever do meu jeito', 'linguagem natural', 'conversar com o whatsapp', 'bot entende'],
 }
 
 export const WHATSAPP_PLANO_E_CONFIRMO: Omit<Pergunta, 'id'> = {
   pergunta: 'Pedi uma ação ao WhatsApp do Palácio e chegou um plano. O que faço?',
-  resposta: 'Com as ações do assistente ligadas para você, um pedido como “aprova as duas e avisa o Daniel que foi aprovado” não é feito na hora: chega um plano escrito pelo Palácio, com cada passo, as pessoas com o @usuário e o texto exato das mensagens. Confira e responda *confirmo* (depois de o plano chegar) para fazer tudo; “sim” e “ok” não confirmam, e *cancelar* desiste. Vale por 15 minutos. Se um passo não der, os seguintes não são feitos, e o recibo diz onde parou.\n\nAté 3 votos por plano e 10 mensagens diretas por dia; a mensagem chega no sino do colega marcada “pelo WhatsApp do Palácio”. Respondendo o aviso de um canal do Chat, a resposta também vira um plano. Com a verificação em duas etapas, votar, mandar mensagem e comentar ficam de fora, com o link do Palácio. O texto do plano é apagado quando ele sai.',
-  termos: ['confirmo', 'plano', 'pedir pelo whatsapp', 'assistente', 'aprovar pelo whatsapp', 'mensagem pelo whatsapp', 'cancelar plano'],
+  resposta: 'Com as ações do assistente ligadas para você, um pedido como “aprova as duas e avisa o Daniel que foi aprovado” não é feito na hora: chega um plano escrito pelo Palácio, com cada passo, as pessoas com o @usuário, o texto exato das mensagens e os botões Confirmar e Cancelar. Toque em Confirmar (ou responda *confirmo* depois de o plano chegar) para fazer tudo; “sim” e “ok” não confirmam, e *cancelar* desiste. Vale por 15 minutos, e o botão de um plano antigo não vale mais. Se um passo não der, os seguintes não são feitos, e o recibo diz onde parou.\n\nAté 3 votos por plano e 10 mensagens diretas por dia; a mensagem chega no sino do colega marcada “pelo WhatsApp do Palácio”. O texto do plano é apagado quando ele sai. A equipe da escola fica de fora por enquanto.',
+  termos: ['confirmo', 'plano', 'pedir pelo whatsapp', 'assistente', 'aprovar pelo whatsapp', 'mensagem pelo whatsapp', 'cancelar plano', 'botão confirmar'],
+}
+
+export const WHATSAPP_PLANO_NO_PALACIO: Omit<Pergunta, 'id'> = {
+  pergunta: 'O plano do WhatsApp mandou um link para confirmar no Palácio. Por quê?',
+  resposta: 'Aprovar ou recusar despesa ou compra, e o plano de quem usa a verificação em duas etapas, nunca são feitos pelo WhatsApp, que não pede o código do app. Nesses casos, o *confirmo* manda um link de uso único, que vale 15 minutos e só abre na sua conta: lá aparecem os mesmos passos do plano (e a conferência do setor, se tem voto “aprovado”), e “Confirmar” faz tudo com a sua sessão. Dois cliques não fazem duas vezes, e se a matéria mudou no meio-tempo, nada é feito. O recibo aparece na tela e no WhatsApp.\n\nO recibo do plano confirmado pelo WhatsApp traz o “Não fui eu”: se não foi você quem confirmou, responda e o Palácio encerra as sessões da conta, avisa a administração e para o assistente no seu número até você confirmar o número de novo.',
+  termos: ['confirmar no palácio', 'link do plano', 'não fui eu', 'despesa pelo whatsapp', 'compra pelo whatsapp', 'verificação em duas etapas', 'assistente'],
+}
+
+export const WHATSAPP_AUDIO: Omit<Pergunta, 'id'> = {
+  pergunta: 'Posso mandar áudio para o WhatsApp do Palácio?',
+  resposta: 'Com o assistente ligado para você, sim — quando o WhatsApp traz a transcrição do áudio. A resposta começa por “Entendi do áudio: …”, para você conferir o que foi entendido. Áudio nunca faz nada sozinho: no máximo prepara um plano, que só é feito com o *confirmo* por escrito ou o botão Confirmar (o “confirmo” falado não vale). Sem o assistente, ou durante um envio de fotos, o áudio segue como sempre.',
+  termos: ['áudio', 'audio', 'mensagem de voz', 'gravar áudio', 'transcrição', 'assistente'],
 }
 
 export const TOPICOS_GERAIS: TopicoGeral[] = [
@@ -525,6 +537,8 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
       { id: 'whatsapp-do-seu-jeito', ...WHATSAPP_DO_SEU_JEITO },
       { id: 'whatsapp-plano-e-confirmo', ...WHATSAPP_PLANO_E_CONFIRMO },
+      { id: 'whatsapp-plano-no-palacio', ...WHATSAPP_PLANO_NO_PALACIO },
+      { id: 'whatsapp-audio', ...WHATSAPP_AUDIO },
       {
         id: 'nomes-antigos',
         pergunta: 'Os nomes das áreas mudaram. Os links antigos ainda funcionam?',

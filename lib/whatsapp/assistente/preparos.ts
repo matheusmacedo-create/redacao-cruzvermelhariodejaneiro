@@ -11,8 +11,11 @@ import { LIMITES, TEXTOS_FIXOS, motivoDoCodigo, pedeSegredo, temLink, umaLinha, 
  * Cada preparo, em ordem (a entrada já veio validada e passou pelo portão de intenção, em laco.ts):
  *  1. a escrita ligada para a pessoa e o número de confiança recente (sem isso, o texto fixo);
  *  2. o marcador resolvido para o tipo certo (marcador desconhecido, vencido ou de outro tipo é recusado);
- *  3. quem usa a verificação em duas etapas: voto, mensagem e comentário ficam de fora, com o link do Palácio
- *     (até a confirmação no Palácio, etapa 4); abrir chamado, responder à portaria e marcar lidos valem (isentos);
+ *  3. quem usa a verificação em duas etapas: com a confirmação no Palácio disponível (a migração das confirmações
+ *     do plano), o passo entra e o plano INTEIRO vai ao Palácio (sensível); sem ela, voto, mensagem, comentário,
+ *     atendimento e registro de visita ficam de fora, com o link do Palácio. Abrir chamado, responder à portaria e
+ *     marcar lidos valem (isentos). A decisão do Financeiro nasce sempre sensível — e, sem a confirmação no
+ *     Palácio, nem nasce;
  *  4. a permissão e o estado, pela fonte (rodada aberta e sem o voto dela, destinatário ativo, chamado com papel,
  *     fila e assunto ativos, visita esperando, avisos sem ler);
  *  5. os limites do plano e do dia (3 votos, 3 destinatários e uma mensagem por destinatário, as mensagens diretas
@@ -55,6 +58,15 @@ export interface FonteDosPreparos {
   mensagensDeHoje(): Promise<number | null>
   /** A conversa do Chat aceita mensagem (é do espaço e não está arquivada); o nome do canal, "" na conversa direta. */
   canal(canalId: string): Promise<{ nome: string } | null>
+  /**
+   * O chamado para atender: código, título, situação, se a pessoa é da equipe que atende (a fila dela, ou quem
+   * administra), quem é o responsável e a fila. null se não existe ou se a pessoa não tem papel nele.
+   */
+  chamadoParaAtender(id: string): Promise<{ codigo: string; titulo: string; status: string; equipe: boolean; responsavelId: string | null; filaId: string } | null>
+  /** Cuida da portaria (a regra da tela: membro do Palácio, menos a equipe da Escola). */
+  temPortaria(): Promise<boolean>
+  /** A despesa ou a compra que espera a decisão desta pessoa AGORA (outra pessoa pode ter decidido); null se não espera. */
+  decisao(tipo: 'despesa' | 'compra', id: string): Promise<{ titulo: string; codigo: string | null; valor: number; fornecedor: string | null; papel: 'financeiro' | 'diretoria' | null } | null>
 }
 
 export type ContextoDoPreparo = {
@@ -65,6 +77,8 @@ export type ContextoDoPreparo = {
   pessoaId: string
   /** Pode agir pelo WhatsApp (sem a verificação em duas etapas, nem obrigação de usar). */
   podeAgir: boolean
+  /** A confirmação do plano no Palácio está disponível (a migração das confirmações do plano foi aplicada). */
+  noPalacio: boolean
   /** A escrita pelo assistente ligada para a pessoa (whatsapp_ia_config.escrita, com o número recente). */
   escrita: boolean
   /** O número de confiança recente (confirmado há menos de 180 dias ou login há menos de 60). */
@@ -94,17 +108,20 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
   const links: LinkDoPalacio[] = []
   const rotulo = (marcador: unknown, reserva: string) => (c.rotuloDe?.(String(marcador)) ?? null) || reserva
 
-  /** Voto, mensagem e comentário de quem usa a verificação em duas etapas: de fora, com o link de onde fazer. */
-  const peloPalacio = (oQue: string, titulo: string, href: string): Falha => {
+  /**
+   * Sem a confirmação no Palácio: o voto, a mensagem, o comentário, o atendimento e o registro de visita de quem usa
+   * a verificação em duas etapas — e a decisão do Financeiro de qualquer pessoa — ficam de fora, com o link de onde fazer.
+   */
+  const peloPalacio = (oQue: string, titulo: string, href: string, porque: { erro: string; motivo: string } = { erro: TEXTOS_FIXOS.dois_fatores, motivo: TEXTOS_FIXOS.dois_fatores_motivo }): Falha => {
     if (!links.some((l) => l.href === href)) links.push({ titulo, href })
-    return falha(TEXTOS_FIXOS.dois_fatores, { oQue, motivo: TEXTOS_FIXOS.dois_fatores_motivo, link: `${c.base}${href}` })
+    return falha(porque.erro, { oQue, motivo: porque.motivo, link: `${c.base}${href}` })
   }
 
   async function voto(e: Record<string, unknown>): Promise<ResultadoDoPreparo> {
     const id = c.tabela.resolver(String(e.aprovacao), 'aprovacao')
     if (!id) return desconhecido('apr', 'ler_aprovacoes')
     const nome = rotulo(e.aprovacao, 'a aprovação')
-    if (!c.podeAgir) return peloPalacio(`votar em ${nome}`, `Votar em ${nome}`, `/aprovacoes/${id}`)
+    if (!c.podeAgir && !c.noPalacio) return peloPalacio(`votar em ${nome}`, `Votar em ${nome}`, `/aprovacoes/${id}`)
     const decisao = e.decisao === 'pedir_ajustes' ? 'changes_requested' as const : 'approved' as const
     const votos = c.rascunho.passos.filter((p): p is Extract<Passo, { acao: 'votar' }> => p.acao === 'votar')
     const mesma = votos.find((v) => v.aprovacaoId === id)
@@ -146,7 +163,7 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     const nome = rotulo(e.para, 'a pessoa')
     const oQue = `mensagem para ${nome}`
     if (id === c.pessoaId) return falha('A mensagem direta é para um colega, não para a própria pessoa.', { oQue })
-    if (!c.podeAgir) return peloPalacio(oQue, `Mensagem para ${nome}`, `/mensagens/pessoa/${id}`)
+    if (!c.podeAgir && !c.noPalacio) return peloPalacio(oQue, `Mensagem para ${nome}`, `/mensagens/pessoa/${id}`)
     const para = await c.fonte.pessoa(id)
     if (!para?.ativa) return falha('Essa pessoa não está mais no espaço.', { oQue })
     const mensagens = c.rascunho.passos.filter((p): p is Extract<Passo, { acao: 'mensagem_direta' }> => p.acao === 'mensagem_direta')
@@ -173,7 +190,7 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     if (!id) return desconhecido('cha', 'ler_chamados')
     const nome = rotulo(e.chamado, 'o chamado')
     const oQue = `comentar no chamado ${nome}`
-    if (!c.podeAgir) return peloPalacio(oQue, `Chamado ${nome}`, `/chamados/${id}`)
+    if (!c.podeAgir && !c.noPalacio) return peloPalacio(oQue, `Chamado ${nome}`, `/chamados/${id}`)
     const ch = await c.fonte.chamado(id)
     if (!ch?.temPapel) return falha('Esse chamado não é desta pessoa (nem da fila que ela atende); só pelo Palácio.', { oQue, motivo: 'esse chamado não é seu nem da sua fila' })
     if (ch.encerrado) return falha('Este chamado está encerrado; se precisar, abra um novo.', { oQue, motivo: 'o chamado está encerrado' })
@@ -231,9 +248,98 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     return { ok: true, passo: { acao: 'marcar_lidos', avisoIds: unicos, quantos, isento: true } }
   }
 
+  async function atendimento(e: Record<string, unknown>): Promise<ResultadoDoPreparo> {
+    const id = c.tabela.resolver(String(e.chamado), 'chamado')
+    if (!id) return desconhecido('cha', 'ler_chamados')
+    const nome = rotulo(e.chamado, 'o chamado')
+    const tipo = e.acao === 'resolver' || e.acao === 'transferir' ? e.acao : 'assumir'
+    const oQue = `${tipo === 'assumir' ? 'assumir' : tipo === 'resolver' ? 'resolver' : 'transferir'} o chamado ${nome}`
+    if (!c.podeAgir && !c.noPalacio) return peloPalacio(oQue, `Chamado ${nome}`, `/chamados/${id}`)
+    if (c.rascunho.passos.some((p) => p.acao === 'atender_chamado' && p.chamadoId === id)) return falha('Já há uma ação neste chamado no plano.', { oQue })
+    const ch = await c.fonte.chamadoParaAtender(id)
+    if (!ch?.equipe) return falha(TEXTOS_FIXOS.so_quem_atende, { oQue, motivo: 'só quem atende a fila do chamado assume, resolve ou transfere' })
+    if (ch.status === 'resolvido' || ch.status === 'fechado' || ch.status === 'cancelado') {
+      return falha('Este chamado já está resolvido ou encerrado.', { oQue, motivo: 'o chamado já está resolvido ou encerrado' })
+    }
+    if (tipo === 'assumir' && ch.responsavelId === c.pessoaId && ch.status !== 'novo') return falha('O chamado já está com esta pessoa.', { oQue, motivo: 'o chamado já está com você' })
+    const nota = String(e.nota ?? '').trim()
+    if (tipo !== 'assumir' && (temLink(nota) || pedeSegredo(nota))) return falha('A nota não pode ter link nem pedir senha, código ou token.', { oQue })
+    let destino: { filaId: string; filaNome: string; categoriaId: string; categoriaNome: string } | null = null
+    if (tipo === 'transferir') {
+      const filaId = c.tabela.resolver(String(e.fila), 'fila')
+      const assuntoId = c.tabela.resolver(String(e.assunto), 'assunto')
+      if (!filaId || !assuntoId) return falha('Use a fila (fil_) e o assunto (ass_) de destino que ler_filas_de_chamado devolveu.', { oQue })
+      if (filaId === ch.filaId) return falha('O chamado já está nessa fila; escolha outra.', { oQue })
+      const a = await c.fonte.assunto(filaId, assuntoId)
+      if (!a) return falha('Essa fila ou esse assunto não recebe chamados agora; confira com ler_filas_de_chamado.', { oQue })
+      destino = { filaId, filaNome: a.filaNome, categoriaId: assuntoId, categoriaNome: a.assuntoNome }
+    }
+    return {
+      ok: true,
+      passo: {
+        acao: 'atender_chamado', chamadoId: id, codigo: ch.codigo, titulo: ch.titulo, tipo,
+        filaId: destino?.filaId ?? null, filaNome: destino?.filaNome ?? null, categoriaId: destino?.categoriaId ?? null, categoriaNome: destino?.categoriaNome ?? null,
+        nota: tipo === 'assumir' ? '' : nota, isento: false,
+      },
+    }
+  }
+
+  async function registroDeVisita(e: Record<string, unknown>): Promise<ResultadoDoPreparo> {
+    const visitante = umaLinha(String(e.visitante ?? '').replace(/[*_~`]/g, ''), LIMITES.visitante)
+    const oQue = `registrar a entrada de ${visitante || 'um visitante'}`
+    if (!await c.fonte.temPortaria()) return falha('A portaria não é desta pessoa; só pelo Palácio.', { oQue, motivo: 'a portaria fica fora do seu acesso' })
+    if (!c.podeAgir && !c.noPalacio) return peloPalacio(oQue, 'Portaria', '/portaria')
+    const id = c.tabela.resolver(String(e.visitado), 'pessoa')
+    if (!id) return desconhecido('pes', 'buscar_pessoa')
+    if (visitante.length < 2 || temLink(visitante) || pedeSegredo(visitante)) return falha('Diga o nome do visitante (sem links).', { oQue })
+    if (c.rascunho.passos.some((p) => p.acao === 'registrar_visita')) return falha('Já há um registro de visita no plano: um por vez.', { oQue })
+    const visitado = await c.fonte.pessoa(id)
+    if (!visitado?.ativa) return falha('Essa pessoa não está mais no espaço.', { oQue })
+    const empresa = umaLinha(String(e.empresa ?? ''), LIMITES.empresa)
+    const motivo = String(e.motivo ?? '').replace(/\s+/g, ' ').trim().slice(0, LIMITES.motivoDaVisita)
+    return {
+      ok: true,
+      passo: {
+        acao: 'registrar_visita', visitante, empresa: empresa || null, visitadoId: id,
+        visitado: { nome: visitado.nome, username: visitado.username, setor: visitado.setor, homonimo: visitado.homonimo }, motivo: motivo || null, isento: false,
+      },
+    }
+  }
+
+  async function decisaoFinanceira(e: Record<string, unknown>): Promise<ResultadoDoPreparo> {
+    const marcador = String(e.item)
+    const tipo = marcador.startsWith('com_') ? 'compra' as const : 'despesa' as const
+    const id = c.tabela.resolver(marcador, tipo)
+    if (!id) return desconhecido(tipo === 'compra' ? 'com' : 'des', 'consultar_area financeiro')
+    const nome = rotulo(marcador, tipo === 'compra' ? 'a compra' : 'a despesa')
+    const oQue = `decidir ${nome}`
+    const href = tipo === 'despesa' ? `/financeiro/${id}` : `/financeiro/compras/${id}`
+    // Sempre no Palácio: sem a confirmação de lá, a decisão nem nasce aqui (o comando "financeiro" manda o link de sempre).
+    if (!c.noPalacio) {
+      return peloPalacio(oQue, `Decidir ${nome}`, href, {
+        erro: 'A decisão de despesa ou compra pelo assistente ainda não está ligada; diga em uma frase que é pelo Palácio (o sistema manda o link).',
+        motivo: 'a decisão de despesa ou compra é pelo Palácio',
+      })
+    }
+    if (c.rascunho.passos.some((p) => p.acao === 'decidir_financeiro' && p.itemId === id)) return falha('Já há uma decisão sobre este item no plano.', { oQue })
+    const d = await c.fonte.decisao(tipo, id)
+    if (!d) return falha('Este item não espera mais a decisão desta pessoa (já foi decidido, ou mudou).', { oQue, motivo: 'o item não espera mais a sua decisão', link: `${c.base}${href}` })
+    const decisao = e.decisao === 'recusar' ? 'recusar' as const : 'aprovar' as const
+    const motivo = String(e.motivo ?? '').trim()
+    if (decisao === 'recusar' && (temLink(motivo) || pedeSegredo(motivo))) return falha('O motivo não pode ter link nem pedir senha, código ou token.', { oQue })
+    return {
+      ok: true,
+      passo: {
+        acao: 'decidir_financeiro', tipo, itemId: id, titulo: d.titulo, codigo: d.codigo, valor: d.valor, fornecedor: d.fornecedor, papel: d.papel,
+        decisao, motivo: decisao === 'recusar' ? motivo : '', isento: false,
+      },
+    }
+  }
+
   const PREPAROS: Partial<Record<NomeDaFerramenta, (e: Record<string, unknown>) => Promise<ResultadoDoPreparo>>> = {
     preparar_voto: voto, preparar_mensagem_direta: mensagem, preparar_comentario_no_chamado: comentario,
     preparar_chamado: chamado, preparar_resposta_a_visita: visita, preparar_marcar_avisos_lidos: lidos,
+    preparar_atendimento_do_chamado: atendimento, preparar_registro_de_visita: registroDeVisita, preparar_decisao_financeira: decisaoFinanceira,
   }
 
   return {
@@ -260,8 +366,9 @@ const confere: ResultadoDaAcao = { ok: true, codigo: 'feito', texto: 'confere' }
 /**
  * Cada passo de novo, antes de qualquer escrita: a rodada ainda aberta e sem o voto da pessoa, e a matéria com o
  * MESMO conteúdo do plano (o hash; a versão da matéria não serve de trava); o destinatário ativo; o chamado com papel
- * e aberto; a fila e o assunto ativos; a visita ainda esperando; a conversa do Chat aceitando mensagem. O texto é o
- * motivo, que entra em "Nada foi feito: …". Nunca lança.
+ * e aberto; a fila e o assunto ativos; a visita ainda esperando; a conversa do Chat aceitando mensagem; quem atende
+ * ainda na equipe do chamado; a portaria e a pessoa visitada; o item do Financeiro ainda esperando a decisão. O
+ * texto é o motivo, que entra em "Nada foi feito: …". Nunca lança.
  */
 export async function revalidarPasso(passo: Passo, fonte: FonteDosPreparos, pessoaId: string): Promise<ResultadoDaAcao> {
   try {
@@ -292,6 +399,24 @@ export async function revalidarPasso(passo: Passo, fonte: FonteDosPreparos, pess
     }
     if (passo.acao === 'responder_chat') {
       return (await fonte.canal(passo.canalId)) ? confere : { ok: false, codigo: 'sem_permissao', texto: 'a conversa não aceita mais mensagens' }
+    }
+    if (passo.acao === 'atender_chamado') {
+      const ch = await fonte.chamadoParaAtender(passo.chamadoId)
+      if (!ch?.equipe) return { ok: false, codigo: 'sem_permissao', texto: `você não atende mais a fila do chamado ${umaLinha(passo.codigo, 20)}` }
+      if (ch.status === 'resolvido' || ch.status === 'fechado' || ch.status === 'cancelado') return { ok: false, codigo: 'encerrada', texto: `o chamado ${umaLinha(passo.codigo, 20)} já foi resolvido ou encerrado` }
+      if (passo.tipo === 'transferir') {
+        const a = passo.filaId && passo.categoriaId ? await fonte.assunto(passo.filaId, passo.categoriaId) : null
+        if (!a || passo.filaId === ch.filaId) return { ok: false, codigo: 'erro', texto: 'a fila de destino não recebe mais chamados (ou o chamado já está nela)' }
+      }
+      return confere
+    }
+    if (passo.acao === 'registrar_visita') {
+      if (!await fonte.temPortaria()) return { ok: false, codigo: 'sem_permissao', texto: 'a portaria ficou fora do seu acesso' }
+      const p = await fonte.pessoa(passo.visitadoId)
+      return p?.ativa ? confere : { ok: false, codigo: 'erro', texto: 'a pessoa visitada não está mais no espaço' }
+    }
+    if (passo.acao === 'decidir_financeiro') {
+      return (await fonte.decisao(passo.tipo, passo.itemId)) ? confere : { ok: false, codigo: 'encerrada', texto: `${entreAspas(passo.titulo)} não espera mais a sua decisão` }
     }
     return confere
   } catch {

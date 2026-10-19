@@ -2,8 +2,9 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { podeAgirPeloWhatsapp, type Pessoa } from '../acoes'
 import { pessoaDoEspaco } from '../consultas'
+import { criarConfirmacao } from '../confirmacoes'
 import type { Entrega } from '../fila'
-import type { MensagemRecebida } from '../regras'
+import type { Interativo, MensagemRecebida } from '../regras'
 import {
   criarFluxoDoPlano, type FluxoDoPlano, type MudancaDoPlano, type PlanoGuardado, type RepositorioDePlanos, type SituacaoDoPlano,
   SITUACOES_ABERTAS, SITUACOES_ENCERRADAS,
@@ -13,7 +14,8 @@ import { executarPasso, fonteDoSupabase } from './executores'
 import { revalidarPasso } from './preparos'
 import { acoesDeHoje, criarRegistroDoUso, lerConfig } from './uso'
 import {
-  LIMITES, TEXTOS_FIXOS, modoCobre, passoIsento, textoDoPlano, validarRascunho, type Passo, type PlanoAberto, type TipoDeAcao,
+  LIMITES, TEXTOS_FIXOS, interativoDoPlano, mensagensComInterativo, modoCobre, passoIsento, textoDoLinkNoPalacio, textoDoPlano, validarRascunho,
+  type Passo, type PlanoAberto, type TipoDeAcao,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -28,7 +30,9 @@ type Admin = ReturnType<typeof createAdminClient>
  *    plano de um passo (sem modelo), confirmado como os outros;
  *  - confirmarPlano: o "confirmo" (já com a vez da pessoa), pelo fluxo — assenta, confere a mensagem no meio,
  *    consome o plano, confere a pessoa, o número, a verificação em duas etapas e as cotas do dia, revalida todos os
- *    passos e só então executa (executores.ts), parando no primeiro que não deu; redige na hora e devolve o recibo.
+ *    passos e só então executa (executores.ts), parando no primeiro que não deu; redige na hora e devolve o recibo
+ *    (com o "Não fui eu"). O plano sensível não executa aqui: ganha o link de confirmar no Palácio (uso único,
+ *    15 min; app/confirmar/[token], ramo "plano"), e a página executa pela sessão (palacio.ts).
  *
  * Nunca lança: sem a tabela (migração ainda não aplicada) ou com erro, devolve null ou [] — e o assistente nem
  * chega a ficar disponível sem a configuração, que é da mesma migração.
@@ -50,7 +54,7 @@ const daLinha = (l: Record<string, unknown>): PlanoGuardado => ({
 
 const COLUNA: Record<keyof MudancaDoPlano, string> = {
   situacao: 'situacao', passos: 'passos', pedidoEmAberto: 'pedido_em_aberto', mensagens: 'mensagens', entregueEm: 'entregue_em',
-  resultado: 'resultado', redigidoEm: 'redigido_em', atualizadoEm: 'atualizado_em',
+  resultado: 'resultado', redigidoEm: 'redigido_em', atualizadoEm: 'atualizado_em', expiraEm: 'expira_em',
 }
 
 const paraLinha = (m: MudancaDoPlano): Record<string, unknown> =>
@@ -172,8 +176,42 @@ export async function guardarPlano(admin: Admin, p: {
   }
 }
 
-/** Como as mensagens saem: o plano e o que depende de ser visto agora, sem fila; o aviso curto (sem textos de ação), pela fila normal. */
-export type SaidaDoPlano = { semFila: (texto: string) => Promise<Entrega>; naFila: (texto: string) => Promise<Entrega> }
+/** A entrega de várias mensagens em ordem: `ids`, as que saíram. */
+export type EntregaEmPartes = Entrega & { ids: (string | null)[] }
+
+/**
+ * O texto com os botões (ou a lista), no limite do corpo interativo: até 1.024 caracteres, uma mensagem; acima, o
+ * texto sozinho e depois a `chamada` com os botões (mensagensComInterativo). Se a primeira não sai, é a falha; se a
+ * segunda não sai, o texto já saiu e vale (dá para responder *confirmo* ou o número).
+ */
+export async function entregarComInterativo(enviar: (texto: string, interativo: Interativo | null) => Promise<Entrega>, texto: string, interativo: Interativo | null, chamada: string): Promise<EntregaEmPartes> {
+  const ids: (string | null)[] = []
+  let saiu: Entrega | null = null
+  for (const parte of mensagensComInterativo(texto, interativo, chamada)) {
+    const entrega = await enviar(parte.texto, parte.interativo)
+    if (entrega.situacao !== 'enviada') {
+      if (!saiu) return { ...entrega, ids }
+      break
+    }
+    ids.push(entrega.id)
+    saiu = entrega
+  }
+  return { ...(saiu as Entrega), ids }
+}
+
+/** O plano com os botões Confirmar e Cancelar (o id curto e o hash: o toque num plano antigo, ou trocado, não confirma). */
+export const entregarPlano = (enviar: (texto: string, interativo: Interativo | null) => Promise<Entrega>, texto: string, plano: Pick<PlanoGuardado, 'id' | 'hash'>) =>
+  entregarComInterativo(enviar, texto, plano.hash ? interativoDoPlano(plano.id, plano.hash) : null, TEXTOS_FIXOS.confirma_o_plano)
+
+/**
+ * Como as mensagens saem: o plano e o que depende de ser visto agora, sem fila (com `plano`, com os botões Confirmar e
+ * Cancelar; acima de 1.024 caracteres, numa segunda mensagem — `ids` traz as duas); o aviso curto (sem textos de
+ * ação), pela fila normal.
+ */
+export type SaidaDoPlano = {
+  semFila: (texto: string, interativo?: Interativo | null) => Promise<Entrega>
+  naFila: (texto: string) => Promise<Entrega>
+}
 
 /**
  * A resposta citando o aviso de um canal do Chat, sem cara de pedido ao assistente ("ok, combinado"), vira um plano
@@ -201,9 +239,9 @@ export async function guardarPlanoDoChat(admin: Admin, p: {
     await p.saida.semFila(`${TEXTOS_FIXOS.plano_nao_saiu} Ou responda pelo Palácio: ${abrir}`)
     return
   }
-  const entrega = await p.saida.semFila(textoDoPlano({ passos: valido.passos }).texto)
+  const entrega = await entregarPlano((texto, interativo) => p.saida.semFila(texto, interativo), textoDoPlano({ passos: valido.passos }).texto, guardado)
   if (entrega.situacao === 'enviada') {
-    await marcarEntrega(admin, guardado.id, entrega.id)
+    await marcarEntrega(admin, guardado.id, entrega.ids)
   } else {
     await entregaFalhou(admin, guardado.id)
     await p.saida.naFila(TEXTOS_FIXOS.plano_nao_saiu)
@@ -213,8 +251,9 @@ export async function guardarPlanoDoChat(admin: Admin, p: {
 /**
  * Na confirmação, tudo de novo antes de qualquer escrita: o número é o do plano e o desta mensagem, e não está
  * suspenso; a escrita continua ligada para a pessoa; a pessoa ativa e com o mesmo papel; a verificação em duas
- * etapas (um passo não isento de quem passou a usar não sai); o número de confiança recente; e as cotas do dia
- * (planos executados e mensagens diretas, contando as do plano). null = confere; senão, o motivo (minúsculo).
+ * etapas (um passo não isento de quem passou a usar não sai pelo WhatsApp; o plano sensível segue para o Palácio);
+ * o número de confiança recente; e as cotas do dia (planos executados e mensagens diretas, contando as do plano).
+ * null = confere; senão, o motivo (minúsculo).
  */
 async function conferirIdentidade(admin: Admin, p: { workspaceId: string; pessoa: Pessoa; numero: string | null; recente: boolean }, linha: PlanoGuardado): Promise<string | null> {
   const [{ data: conta }, config, atual, podeAgir, hoje] = await Promise.all([
@@ -227,7 +266,8 @@ async function conferirIdentidade(admin: Admin, p: { workspaceId: string; pessoa
   if (!conta || conta.numero !== linha.numero || conta.numero !== p.numero || conta.assistente_suspenso_em) return 'o número não é mais o do plano'
   if (!config?.escrita || !modoCobre(config, p.pessoa)) return 'pedir ações por aqui foi desligado'
   if (!atual || atual.papel !== linha.papel) return TEXTOS_FIXOS.conta_mudou
-  if (!podeAgir && linha.passos.some((x) => !passoIsento(x))) return TEXTOS_FIXOS.conta_mudou
+  // O plano feito para sair pelo WhatsApp não sai se a pessoa passou a usar a verificação em duas etapas (o sensível vai ao Palácio).
+  if (!linha.sensivel && !podeAgir && linha.passos.some((x) => !passoIsento(x))) return TEXTOS_FIXOS.conta_mudou
   if (!p.recente) return 'faz tempo que este número não é confirmado nem há login no Palácio'
   if (hoje && hoje.planos >= LIMITES.planosDia) return TEXTOS_FIXOS.limite_de_planos
   const mensagensDoPlano = linha.passos.filter((x) => x.acao === 'mensagem_direta').length
@@ -236,33 +276,45 @@ async function conferirIdentidade(admin: Admin, p: { workspaceId: string; pessoa
 }
 
 /**
- * O "confirmo" do plano aberto (a rota já conferiu que foi escrito depois da entrega, ou citando o plano, e quem
- * chama já tem a vez da pessoa). `recibo`: o texto é o recibo (ou o "Nada foi feito" da revalidação), sem textos de
- * ação — pode esperar na fila; senão, é um dos textos fixos. O uso fica registrado com o desfecho "confirmado",
- * custo zero e o plano.
+ * O que sai depois do "confirmo": `recibo` (o recibo, ou o "Nada foi feito" da revalidação, sem textos de ação — pode
+ * esperar na fila, e oferece o "Não fui eu"), `link` (o link de confirmar no Palácio do plano sensível: sai na hora,
+ * como os avisos da conta) ou `fixo` (um dos textos fixos).
+ */
+export type SaidaDaConfirmacao = { texto: string; saida: 'recibo' | 'link' | 'fixo' }
+
+/**
+ * O "confirmo" do plano aberto (a rota já conferiu que foi escrito depois da entrega, citando o plano, ou o toque no
+ * botão com o hash, e quem chama já tem a vez da pessoa). O plano sensível ganha o link de confirmar no Palácio (sem a
+ * migração das confirmações do plano, ou com links demais na última hora, falha e é redigido). O uso fica registrado
+ * com o desfecho "confirmado", custo zero e o plano.
  */
 export async function confirmarPlano(admin: Admin, p: {
-  workspaceId: string; pessoa: Pessoa; m: Pick<MensagemRecebida, 'id' | 'numero' | 'enviadaEm'>; plano: PlanoGuardado; base: string; recente: boolean
-}): Promise<{ texto: string; recibo: boolean }> {
+  workspaceId: string; pessoa: Pessoa; m: Pick<MensagemRecebida, 'id' | 'numero' | 'enviadaEm' | 'toque'>; plano: PlanoGuardado; base: string; recente: boolean
+}): Promise<SaidaDaConfirmacao> {
   try {
     const fluxo = fluxoDoPlano(admin)
     const fonte = fonteDoSupabase(admin, p.workspaceId, p.pessoa)
     const r = await fluxo.confirmar({
-      plano: p.plano, pessoaId: p.pessoa.id, mensagem: { id: p.m.id, enviadaEm: p.m.enviadaEm }, urlBase: p.base,
+      plano: p.plano, pessoaId: p.pessoa.id, mensagem: { id: p.m.id, enviadaEm: p.m.enviadaEm, toque: p.m.toque }, urlBase: p.base,
       conferirIdentidade: (linha) => conferirIdentidade(admin, { workspaceId: p.workspaceId, pessoa: p.pessoa, numero: p.m.numero, recente: p.recente }, linha),
       revalidar: (passo) => revalidarPasso(passo, fonte, p.pessoa.id),
       executar: (passo) => executarPasso(passo, { via: 'whatsapp', admin }, { workspaceId: p.workspaceId, pessoa: p.pessoa, planoId: p.plano.id, base: p.base }),
     })
-    if (r.tipo === 'nada') return { texto: r.texto, recibo: false }
+    if (r.tipo === 'nada') return { texto: r.texto, saida: 'fixo' }
     if (r.tipo === 'no_palacio') {
-      await fluxo.falharNoPalacio(r.plano.id)
-      return { texto: TEXTOS_FIXOS.sem_confirmacao_no_palacio, recibo: false }
+      const link = await criarConfirmacao(admin, { workspaceId: p.workspaceId, userId: p.pessoa.id, acao: 'plano', alvoId: r.plano.id, dados: {} })
+      if ('erro' in link) {
+        await fluxo.falharNoPalacio(r.plano.id)
+        return { texto: link.erro === 'limite' ? TEXTOS_FIXOS.limite_de_links : TEXTOS_FIXOS.sem_confirmacao_no_palacio, saida: 'fixo' }
+      }
+      await criarRegistroDoUso(admin, p.workspaceId, p.pessoa.id).fechar('confirmado', { planoId: r.plano.id })
+      return { texto: textoDoLinkNoPalacio(link.url), saida: 'link' }
     }
     await criarRegistroDoUso(admin, p.workspaceId, p.pessoa.id).fechar('confirmado', { planoId: r.plano.id })
-    return { texto: r.texto, recibo: true }
+    return { texto: r.texto, saida: 'recibo' }
   } catch (causa) {
     console.error('[whatsapp] assistente: confirmação falhou:', p.pessoa.id, causa instanceof Error ? causa.name : '')
-    return { texto: TEXTOS_FIXOS.fora_do_ar, recibo: false }
+    return { texto: TEXTOS_FIXOS.fora_do_ar, saida: 'fixo' }
   }
 }
 
@@ -276,7 +328,8 @@ async function semLancar<T>(reserva: T, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export const marcarEntrega = (admin: Admin, id: string, mensagemId: string | null) => semLancar(null, () => fluxoDoPlano(admin).marcarEntrega(id, mensagemId))
+/** Saiu: as mensagens que mostraram o plano ou a pergunta (com os botões numa segunda, as duas) e a hora da entrega. */
+export const marcarEntrega = (admin: Admin, id: string, mensagens: (string | null)[]) => semLancar(null, () => fluxoDoPlano(admin).marcarEntrega(id, mensagens))
 export const entregaFalhou = (admin: Admin, id: string) => semLancar(null, () => fluxoDoPlano(admin).entregaFalhou(id))
 export const cancelarPlano = (admin: Admin, userId: string) => semLancar([], () => fluxoDoPlano(admin).cancelar(userId))
 export const fecharPergunta = (admin: Admin, userId: string) => semLancar([], () => fluxoDoPlano(admin).fecharPergunta(userId))

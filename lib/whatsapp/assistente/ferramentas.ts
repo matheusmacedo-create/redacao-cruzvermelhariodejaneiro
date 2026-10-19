@@ -8,12 +8,15 @@ import { NOMES_DAS_FERRAMENTAS, type NomeDaFerramenta } from './regras'
  * A lista é a MESMA para todo mundo e fica em ordem de nome: ela é o começo do prefixo do cache (ferramentas e
  * depois o sistema), e qualquer byte diferente invalida o cache de todos. Por isso a permissão, o nível de leitura,
  * a escrita ligada ou não e o portão de intenção são conferidos no handler (leituras.ts, laco.ts), nunca tirando
- * ferramenta da lista. Nesta etapa os preparar_* respondem "escrita desligada" — mas as definições já são as
- * finais, para o prefixo nascer definitivo.
+ * ferramenta da lista (sem a escrita ligada para a pessoa, os preparar_* respondem "escrita desligada").
  *
  * Regras do modo strict (e da segurança): todo objeto com additionalProperties: false e toda propriedade em
  * required; sem null nem uniões (o opcional é "" ou []); sem minLength, maximum ou pattern (tamanhos e formatos
  * ficam em validarEntrada, regras.ts). Item é sempre marcador (apr_1, pes_3), nunca uuid, número, e-mail ou URL.
+ *
+ * São 20, o teto: as 17 da v1 com as da onda 2 (o atendimento do chamado, o registro de visita, a decisão do
+ * Financeiro, sempre no Palácio, e consultar_area no lugar de ver_status_do_whatsapp). A troca reescreveu o prefixo
+ * do cache uma vez; daqui em diante ele volta a ser lido.
  */
 
 type Ferramenta = Anthropic.Beta.BetaTool & { name: NomeDaFerramenta; strict: true }
@@ -32,6 +35,14 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     name: 'buscar_pessoa', strict: true,
     description: 'Procura colegas ativos do espaço pelo nome e devolve marcadores pes_ com nome, @usuário e setor. Chame quando a pessoa citar alguém pelo nome e o marcador dessa pessoa ainda não estiver no contexto.',
     input_schema: objeto({ nome: { type: 'string', description: 'Nome ou parte do nome (3 a 60 caracteres).' } }),
+  },
+  {
+    name: 'consultar_area', strict: true,
+    description: 'Consulta uma área do Palácio que esta pessoa abre: financeiro (despesas e compras que esperam a decisão dela, com marcadores des_ e com_), frota (veículos agora), estoque (saldo de um material: diga o material em busca), portaria (visitas de hoje) ou whatsapp (a saúde do canal, só para quem administra). Sem valores, telefones nem endereços.',
+    input_schema: objeto({
+      area: { type: 'string', enum: ['financeiro', 'frota', 'estoque', 'portaria', 'whatsapp'] },
+      busca: { type: 'string', description: 'O material, no estoque (2 a 80 caracteres); "" nas outras áreas.' },
+    }),
   },
   {
     name: 'ler_agenda', strict: true,
@@ -72,6 +83,17 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     }),
   },
   {
+    name: 'preparar_atendimento_do_chamado', strict: true,
+    description: 'Prepara, para quem atende a fila do chamado, assumir (fica com a pessoa), resolver (a nota é a solução que quem abriu vai ler) ou transferir para outra fila (fila e assunto de ler_filas_de_chamado; a nota é o motivo). Não faz: acrescenta um passo ao plano.',
+    input_schema: objeto({
+      chamado: { type: 'string' },
+      acao: { type: 'string', enum: ['assumir', 'resolver', 'transferir'] },
+      fila: { type: 'string', description: 'Marcador fil_ da fila de destino, só para transferir; "" nas outras.' },
+      assunto: { type: 'string', description: 'Marcador ass_ do assunto na fila de destino, só para transferir; "" nas outras.' },
+      nota: { type: 'string', description: 'A solução (resolver) ou o motivo (transferir), nas palavras da pessoa, sem links; "" para assumir.' },
+    }),
+  },
+  {
     name: 'preparar_chamado', strict: true,
     description: 'Prepara a abertura de um chamado em nome da pessoa. Não abre: acrescenta um passo ao plano que ela vai confirmar. Chame quando ela relatar um problema para a equipe de apoio resolver.',
     input_schema: objeto({
@@ -88,6 +110,15 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     input_schema: objeto({ chamado: { type: 'string' }, texto: { type: 'string', description: '2 a 4.000 caracteres, sem links.' } }),
   },
   {
+    name: 'preparar_decisao_financeira', strict: true,
+    description: 'Prepara aprovar ou recusar uma despesa (des_) ou uma compra (com_) de consultar_area financeiro, que espera a decisão desta pessoa. Não decide: acrescenta um passo ao plano, e a decisão termina sempre no Palácio, com a sessão dela.',
+    input_schema: objeto({
+      item: { type: 'string' },
+      decisao: { type: 'string', enum: ['aprovar', 'recusar'] },
+      motivo: { type: 'string', description: 'Obrigatório para recusar (quem pediu recebe), nas palavras dela; "" para aprovar.' },
+    }),
+  },
+  {
     name: 'preparar_marcar_avisos_lidos', strict: true,
     description: 'Prepara marcar avisos do sino como lidos (todos ou os indicados). Não marca: acrescenta um passo ao plano.',
     input_schema: objeto({
@@ -101,6 +132,16 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     input_schema: objeto({
       para: { type: 'string' },
       texto: { type: 'string', description: 'Primeira pessoa, curto e cordial, 1 a 1.000 caracteres, sem links e sem pedir senha ou código.' },
+    }),
+  },
+  {
+    name: 'preparar_registro_de_visita', strict: true,
+    description: 'Prepara, para quem cuida da portaria, registrar a entrada de um visitante para uma pessoa do Palácio (marcador pes_), que recebe o aviso e responde à portaria. Não registra: acrescenta um passo ao plano.',
+    input_schema: objeto({
+      visitante: { type: 'string', description: 'Nome do visitante (2 a 120 caracteres).' },
+      empresa: { type: 'string', description: 'De onde ele vem; "" se a pessoa não disse.' },
+      visitado: { type: 'string' },
+      motivo: { type: 'string', description: 'Até 300 caracteres; "" se a pessoa não disse.' },
     }),
   },
   {
@@ -130,11 +171,6 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     name: 'ver_chamado', strict: true,
     description: 'Detalha um chamado do contexto ou de ler_chamados: situação, fila, prazos e as últimas interações. Aceita só o marcador cha_.',
     input_schema: objeto({ chamado: { type: 'string' } }),
-  },
-  {
-    name: 'ver_status_do_whatsapp', strict: true,
-    description: 'Mostra a saúde do WhatsApp do Palácio e das integrações. Só para quem administra o espaço.',
-    input_schema: objeto({}),
   },
 ]
 

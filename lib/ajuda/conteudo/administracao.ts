@@ -952,11 +952,11 @@ const WHATSAPP: GuiaDaArea = {
       passos: [
         'No cartão “Assistente”, confira que a chave da Anthropic aparece como configurada.',
         'Em “Quem o assistente atende”, escolha “Piloto” e marque as pessoas (só funciona para quem confirmou o WhatsApp em Meu perfil).',
-        'Para o piloto também pedir ações (votos, mensagens, chamados), marque “Deixar o assistente preparar ações para a pessoa confirmar”. Nada é feito sem o *confirmo* da pessoa a um plano exato.',
+        'Para o piloto também pedir ações (votos, mensagens, chamados, portaria, decisões do Financeiro), marque “Deixar o assistente preparar ações para a pessoa confirmar”. Nada é feito sem o *confirmo* (ou o botão Confirmar) da pessoa a um plano exato; a decisão de despesa ou compra termina sempre no Palácio.',
         'Ajuste os tetos, se quiser, e toque em “Salvar o assistente”. Vale a partir da próxima mensagem, sem publicar nada.',
         'Para desligar, escolha “Desligado” e salve: o bot volta a responder só aos comandos do menu no mesmo minuto. Desmarcar as ações deixa o assistente só consultando.',
       ],
-      dica: 'O assistente usa a mesma chave da Anthropic do resto do Palácio. O modelo e o esforço mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO, na Vercel.',
+      dica: 'O assistente usa a mesma chave da Anthropic do resto do Palácio. O modelo e o esforço mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO, na Vercel. Passe as ações para todos os administradores só depois de ver, no piloto, o recibo com o “Não fui eu” e a confirmação no Palácio (a linha “Confirmação no Palácio” do cartão diz se ela está ligada).',
     },
     {
       id: 'testar-whatsapp',
@@ -1052,14 +1052,14 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'assistente-do-whatsapp',
       pergunta: 'O que o assistente do WhatsApp faz, e quanto custa?',
-      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas e a Central de ajuda. Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp, o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados no sino e no e-mail. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
+      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas, a Central de ajuda e as áreas que ela abre (Financeiro, frota, estoque, portaria). Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp (ou respondeu “Não fui eu”), o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos; chave recusada ou modelo inexistente viram alerta de integração. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
       termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'anthropic', 'custo', 'teto', 'piloto', 'linguagem natural'],
     },
     {
       id: 'assistente-faz-acoes',
       pergunta: 'O assistente do WhatsApp pode fazer coisas em nome da pessoa?',
-      resposta: 'Só com “Deixar o assistente preparar ações para a pessoa confirmar” marcado no cartão, e sempre por um plano exato, escrito pelo Palácio, que só é feito com o *confirmo* da pessoa: votos, mensagens diretas, comentários em chamados, chamados novos, a resposta à portaria e marcar avisos como lidos. Na hora de fazer, o Palácio confere tudo de novo (a rodada aberta, a matéria sem mudança, o destinatário ativo) e para no primeiro passo que não der.\n\nOs limites: 3 votos por plano, as mensagens diretas do teto por dia e 20 planos por dia por pessoa. Quem usa a verificação em duas etapas recebe o link para votar, mandar mensagem e comentar pelo Palácio. Cada passo feito fica no histórico da atividade, marcado como vindo do assistente. Confirmar não custa nada.',
-      termos: ['assistente', 'plano', 'confirmo', 'ações', 'votar pelo assistente', 'mensagem pelo assistente', 'escrita'],
+      resposta: 'Só com “Deixar o assistente preparar ações para a pessoa confirmar” marcado no cartão, e sempre por um plano exato, escrito pelo Palácio, feito só com o *confirmo* da pessoa ou o botão Confirmar (o de um plano antigo não vale): votos, mensagens diretas, comentários, chamados novos, assumir, resolver e transferir chamados (quem atende a fila), registrar visitas e responder à portaria, marcar avisos como lidos e decidir despesas e compras. Na hora de fazer, o Palácio confere tudo de novo e para no primeiro passo que não der.\n\nA decisão de despesa ou compra, e o plano de quem usa a verificação em duas etapas, terminam no Palácio, por um link de uso único (15 minutos) que faz tudo com a sessão da pessoa. Limites: 3 votos por plano, as mensagens diretas do teto e 20 planos por dia. O recibo traz o “Não fui eu”, e cada passo fica no histórico da atividade. Confirmar não custa nada.',
+      termos: ['assistente', 'plano', 'confirmo', 'ações', 'votar pelo assistente', 'mensagem pelo assistente', 'escrita', 'confirmar no palácio', 'despesa pelo whatsapp', 'não fui eu'],
     },
     {
       id: 'desconectou-sozinho',

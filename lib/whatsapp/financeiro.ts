@@ -43,7 +43,7 @@ type Admin = ReturnType<typeof createAdminClient>
 /** O item da lista guardada na pergunta: só o que acha o lançamento ou o pedido (e a vez, na compra). */
 type ItemNaPergunta = { tipo: 'despesa' | 'compra'; id: string; papel: 'financeiro' | 'diretoria' | null }
 
-type ItemComId = ItemParaDecidir & { id: string }
+export type ItemComId = ItemParaDecidir & { id: string }
 
 const um = <T>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null)
 
@@ -84,9 +84,10 @@ export async function podeDecidirNoFinanceiro(admin: Admin, workspaceId: string,
 
 /**
  * O que espera a decisão da pessoa: as despesas (da que vence antes) e depois as compras (da que foi para
- * aprovação antes). null quando não deu para ler.
+ * aprovação antes). null quando não deu para ler. Também é o que o assistente lê (consultar_area financeiro) e
+ * reconfere (preparar_decisao_financeira) — a decisão em si é sempre no Palácio.
  */
-async function decisoesDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<ItemComId[] | null> {
+export async function decisoesDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<ItemComId[] | null> {
   try {
     const [nivel, diretoria, { data: despesas, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
       niveisNoFinanceiro(admin, workspaceId, pessoa),

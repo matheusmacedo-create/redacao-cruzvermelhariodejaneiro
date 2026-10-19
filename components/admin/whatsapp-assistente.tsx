@@ -26,6 +26,8 @@ export type AssistenteNaTela = {
   esforco: string
   /** A pausa em vigor, decidida no servidor (disjuntor, chave ou modelo). */
   pausa: { ate: string; motivo: string | null } | null
+  /** A confirmação do plano no Palácio está disponível (a migração das confirmações do plano foi aplicada). */
+  noPalacio: boolean
 }
 
 const PADRAO: ConfigDoCartao = {
@@ -82,6 +84,9 @@ export function CartaoDoAssistente({ a }: { a: AssistenteNaTela }) {
           <ul className="space-y-0.5 text-sm text-muted-foreground">
             <li>Chave da Anthropic: {a.chave ? <span className="text-foreground">configurada</span> : <span className="text-destructive">falta (sem ela, o assistente não liga)</span>}.</li>
             <li>Modelo: <strong className="font-mono text-xs text-foreground">{a.modelo}</strong>, esforço <strong className="font-mono text-xs text-foreground">{a.esforco}</strong> (mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO).</li>
+            <li>Confirmação no Palácio: {a.noPalacio
+              ? <span className="text-foreground">ligada (a decisão de despesa ou compra e os planos de quem usa a verificação em duas etapas terminam com o link do Palácio)</span>
+              : <span>indisponível (falta aplicar a migração das confirmações do plano; até lá, esses pedidos ficam de fora, com o link da tela)</span>}.</li>
             {n && <li>Hoje: <span className="text-foreground">{n.conversas} {n.conversas === 1 ? 'conversa' : 'conversas'}</span> de {n.pessoas} {n.pessoas === 1 ? 'pessoa' : 'pessoas'} · {dolar(n.gasto)} de {dolar(Number(inicial.teto_usd_dia))} · {n.comCache}% com cache · {n.recusas} {n.recusas === 1 ? 'recusa' : 'recusas'} · {n.erros} {n.erros === 1 ? 'erro' : 'erros'}.</li>}
           </ul>
 
@@ -124,8 +129,8 @@ export function CartaoDoAssistente({ a }: { a: AssistenteNaTela }) {
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1 size-4" checked={escrita} onChange={(e) => setEscrita(e.target.checked)} />
             <span>
-              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, comentários, chamados, resposta à portaria, marcar lidos).
-              <span className="block text-xs text-muted-foreground">Nada é feito sem a pessoa responder <em>confirmo</em> ao plano exato que o Palácio escreve (até 3 votos por plano; as mensagens diretas no teto abaixo). Quem usa a verificação em duas etapas recebe o link para votar, mandar mensagem e comentar pelo Palácio. Comece pelo piloto.</span>
+              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, comentários, abrir, assumir, resolver e transferir chamados, resposta e registro na portaria, marcar lidos, e a decisão de despesa ou compra).
+              <span className="block text-xs text-muted-foreground">Nada é feito sem a pessoa responder <em>confirmo</em> (ou tocar em Confirmar) no plano exato que o Palácio escreve (até 3 votos por plano; as mensagens diretas no teto abaixo). A decisão de despesa ou compra e os planos de quem usa a verificação em duas etapas terminam no Palácio, pelo link. O recibo traz o “Não fui eu”. Comece pelo piloto; administradores só depois de ver o recibo funcionando.</span>
             </span>
           </label>
 

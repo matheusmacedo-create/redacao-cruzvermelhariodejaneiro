@@ -11,6 +11,10 @@ import { configDoWhatsapp } from '../servidor'
 import { ehAdministracao, statusDoCanal } from '../admin'
 import { agendaDaPessoa, aprovacoesPendentes, aprovacoesQuePedi, avisosDaPessoa, type AprovacaoDaPessoa } from '../consultas'
 import { buscarDuvida } from '../duvidas'
+import { decisoesDaPessoa, podeDecidirNoFinanceiro } from '../financeiro'
+import { frotaAgora } from '../frota'
+import { saldoNoEstoque } from '../estoque'
+import { visitasDeHoje } from '../portaria'
 import { alvoDoLink, normalizar, semInvisiveis, type AlvoDoAviso } from '../regras'
 import type { Pessoa } from '../acoes'
 import type { TabelaDeMarcadores, TipoDeItem } from './marcadores'
@@ -29,10 +33,11 @@ type Admin = ReturnType<typeof createAdminClient>
  *
  *  - `pessoal` (quem usa a verificação em duas etapas, ou número sem confiança recente): só o que é da pessoa —
  *    os avisos dela, os chamados que abriu ou que estão com ela (sem nota interna), as aprovações dela sem o
- *    texto da matéria, a agenda e a ajuda. Filas, notas internas, corpo de matérias, busca de pessoas e o status
- *    do canal: "Isso só pelo Palácio.";
+ *    texto da matéria, a agenda e a ajuda; com a confirmação no Palácio disponível, a busca de colegas com até 3
+ *    resultados (para o plano que termina lá). Filas, notas internas, corpo de matérias e as áreas
+ *    (consultar_area): "Isso só pelo Palácio.";
  *  - `amplo`: as permissões da tela (as filas que atende, a nota interna para a equipe, um trecho do texto da
- *    matéria para quem vota, pediu ou gerencia, a busca de colegas).
+ *    matéria para quem vota, pediu ou gerencia, a busca de colegas, as áreas que a pessoa abre).
  *
  * O que vai ao modelo: JSON compacto, até LIMITES.itensNoResultado itens e LIMITES.caracteresNoResultado
  * caracteres; todo texto escrito por alguém passa por dadoDeTerceiro; itens só por marcador (o código emite e
@@ -61,6 +66,8 @@ export type TurnoDeLeitura = {
   agora: number
   /** O quadro de pessoas do espaço, lido uma vez por turno. */
   quadro?: Promise<Map<string, PessoaDoQuadro>>
+  /** A confirmação do plano no Palácio disponível: no nível pessoal, abre a busca de colegas (até 3). */
+  noPalacio: boolean
 }
 
 export type PessoaDoQuadro = { nome: string; username: string; setor: string | null; ativo: boolean; papel: string }
@@ -200,7 +207,7 @@ export function criarLeitor(t: TurnoDeLeitura): (nome: NomeDaFerramenta, e: Reco
         case 'ler_agenda': return await lerAgenda(t, String(e.de), String(e.ate))
         case 'buscar_pessoa': return await buscarPessoa(t, String(e.nome))
         case 'buscar_ajuda': return buscarAjuda(t, String(e.pergunta))
-        case 'ver_status_do_whatsapp': return await verStatus(t)
+        case 'consultar_area': return await consultarArea(t, String(e.area), String(e.busca ?? ''))
         default: return erro('Ferramenta desconhecida.')
       }
     } catch (causa) {
@@ -382,9 +389,11 @@ async function lerAgenda(t: TurnoDeLeitura, de: string, ate: string): Promise<Re
   return resultado({ de, ate, ...(falhou ? { aviso: 'Alguma camada da agenda não carregou agora.' } : {}) }, { chave: 'itens', itens: lista })
 }
 
+/** A busca de colegas: até 8 no nível amplo; no pessoal, só com a confirmação no Palácio (o plano termina lá), até 3. */
+const BUSCA_DE_PESSOAS = { amplo: 8, pessoal: 3 } as const
+
 async function buscarPessoa(t: TurnoDeLeitura, nome: string): Promise<ResultadoDaLeitura> {
-  // [onda 2] No nível pessoal, a busca vem com a confirmação no Palácio (até 3 resultados); antes dela, só pelo Palácio.
-  if (t.nivel !== 'amplo') return erro(TEXTOS_FIXOS.so_no_palacio)
+  if (t.nivel !== 'amplo' && !t.noPalacio) return erro(TEXTOS_FIXOS.so_no_palacio)
   const teto = semDetalhe(t)
   if (teto) return teto
   contarDetalhe(t)
@@ -393,7 +402,7 @@ async function buscarPessoa(t: TurnoDeLeitura, nome: string): Promise<ResultadoD
   const achados = [...quadro.entries()]
     .filter(([id, p]) => id !== t.pessoa.id && p.ativo && (normalizar(semInvisiveis(p.nome)).includes(busca) || normalizar(p.username).replace(/ /g, '').includes(busca.replace(/ /g, ''))))
     .sort(([, a], [, b]) => a.nome.localeCompare(b.nome, 'pt-BR'))
-  const itens = achados.slice(0, 8).map(([id, p]) => {
+  const itens = achados.slice(0, BUSCA_DE_PESSOAS[t.nivel]).map(([id, p]) => {
     const homonimo = temHomonimo(quadro, id)
     const rotulo = rotuloDaPessoa({ nome: p.nome, username: p.username, setor: p.setor, homonimo })
     return { pessoa: emitir(t, 'pessoa', id, rotulo, null), rotulo, homonimo }
@@ -408,15 +417,63 @@ function buscarAjuda(t: TurnoDeLeitura, pergunta: string): ResultadoDaLeitura {
   return resultado({}, { chave: 'trechos', itens: achados.map((a) => ({ titulo: dadoDeTerceiro(a.titulo, 120), trecho: dadoDeTerceiro(a.trecho, 280) })) })
 }
 
-async function verStatus(t: TurnoDeLeitura): Promise<ResultadoDaLeitura> {
+/**
+ * O texto de um comando fixo de área (o "status", a frota, o estoque, a portaria) como vai ao modelo: sem nenhum
+ * endereço (os links vêm do código, na resposta final), cada linha como dado de terceiro (nomes de visitantes,
+ * materiais e veículos foram escritos por alguém).
+ */
+function textoDeArea(texto: string): string {
+  return semInvisiveis(texto).replace(/https?:\/\/\S+/gi, '').replace(/(^|\s)\/[a-z0-9/_?=&#.-]+/gi, '$1')
+    .split('\n').map((l) => dadoDeTerceiro(l, 240)).filter(Boolean).join('\n').slice(0, LIMITES.caracteresNoResultado - 60)
+}
+
+const FORA_DO_ACESSO = 'Isso fica fora do acesso desta pessoa; só pelo Palácio.'
+
+/**
+ * Uma área do Palácio que a pessoa abre (cada uma com a permissão da tela dela, pelas mesmas funções dos comandos do
+ * bot): o que espera a decisão dela no Financeiro (com os marcadores des_ e com_, sem valores), a frota, o saldo de
+ * um material, as visitas de hoje e, para quem administra, a saúde do canal. Só no nível amplo; conta como leitura
+ * de detalhe.
+ */
+async function consultarArea(t: TurnoDeLeitura, area: string, busca: string): Promise<ResultadoDaLeitura> {
   if (t.nivel !== 'amplo') return erro(TEXTOS_FIXOS.so_no_palacio)
-  if (!ehAdministracao(t.pessoa)) return erro('Só para quem administra o espaço.')
-  const config = await configDoWhatsapp(t.workspaceId)
-  if (!config) return erro('O WhatsApp do Palácio não está configurado.')
-  // O texto do comando "status", sem nenhum endereço (os links vêm do código, na resposta final).
-  const texto = semInvisiveis(await statusDoCanal(t.admin, t.workspaceId, config, ''))
-    .replace(/https?:\/\/\S+/gi, '').replace(/(^|\s)\/[a-z0-9/_?=&#.-]+/gi, '$1').replace(/[[\]<>]/g, ' ').slice(0, LIMITES.caracteresNoResultado - 40)
-  return ok({ status: texto })
+  const teto = semDetalhe(t)
+  if (teto) return teto
+  if (area === 'estoque' && busca.trim().length < 2) return erro('Diga o material em busca (2 a 80 caracteres).')
+  contarDetalhe(t)
+  if (area === 'whatsapp') {
+    if (!ehAdministracao(t.pessoa)) return erro('Só para quem administra o espaço.')
+    const config = await configDoWhatsapp(t.workspaceId)
+    if (!config) return erro('O WhatsApp do Palácio não está configurado.')
+    return ok({ area, status: textoDeArea(await statusDoCanal(t.admin, t.workspaceId, config, '')) })
+  }
+  if (area === 'financeiro') {
+    if (!await podeDecidirNoFinanceiro(t.admin, t.workspaceId, t.pessoa)) return erro('Esta pessoa não decide despesas nem compras; só pelo Palácio.')
+    const itens = await decisoesDaPessoa(t.admin, t.workspaceId, t.pessoa)
+    if (!itens) return erro('Não deu para ler o Financeiro agora.')
+    const lista = itens.slice(0, LIMITES.itensNoResultado).map((i) => ({
+      item: emitir(t, i.tipo, i.id, i.tipo === 'despesa' ? `despesa ${tituloEntreAspas(i.titulo)}` : `compra ${umaLinha(i.codigo ?? '', 20)} ${tituloEntreAspas(i.titulo)}`, i.link),
+      tipo: i.tipo, titulo: dadoDeTerceiro(i.titulo, 140), ...(i.codigo ? { codigo: dadoDeTerceiro(i.codigo, 20) } : {}),
+      ...(i.fornecedor ? { fornecedor: dadoDeTerceiro(i.fornecedor, 80) } : {}), ...(i.quem ? { quem_pediu: dadoDeTerceiro(i.quem, 80) } : {}),
+      ...(i.papel ? { etapa: i.papel === 'diretoria' ? 'Diretoria' : 'Financeiro' } : {}),
+    }))
+    return resultado({ area, aviso: 'Valores só no plano e no Palácio. A decisão termina sempre no Palácio.' }, { chave: 'esperando_sua_decisao', itens: lista, total: itens.length })
+  }
+  const texto = area === 'frota' ? await frotaAgora(t.admin, t.workspaceId, t.pessoa, '')
+    : area === 'estoque' ? await saldoNoEstoque(t.admin, t.workspaceId, t.pessoa, busca, '')
+      : area === 'portaria' ? await visitasDeHoje(t.admin, t.workspaceId, t.pessoa, '')
+        : null
+  return texto === null ? erro(FORA_DO_ACESSO) : ok({ area, texto: textoDeArea(texto) })
+}
+
+/**
+ * A despesa ou a compra que espera a decisão desta pessoa agora (o preparo e a revalidação da decisão do
+ * Financeiro): relida pela mesma função do comando "financeiro". null se não espera mais (ou não deu para ler).
+ */
+export async function decisaoDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa, tipo: 'despesa' | 'compra', id: string) {
+  const itens = await decisoesDaPessoa(admin, workspaceId, pessoa)
+  const item = itens?.find((i) => i.tipo === tipo && i.id === id)
+  return item ? { titulo: item.titulo, codigo: item.codigo ?? null, valor: item.valor, fornecedor: item.fornecedor, papel: item.papel ?? null } : null
 }
 
 // ------------------------------------------------------------------ o contexto do turno
@@ -551,6 +608,17 @@ async function linhasDoPlanoEmRevisao(t: TurnoDeLeitura, passos: Passo[]): Promi
     if (p.acao === 'abrir_chamado') return `abrir chamado em [${emitir(t, 'fila', p.filaId, p.filaNome, null)}] · [${emitir(t, 'assunto', p.categoriaId, p.categoriaNome, null)}], urgência ${p.urgencia}: “${dadoDeTerceiro(p.relato, 200)}”`
     if (p.acao === 'responder_visita') return `responder à portaria [${emitir(t, 'visita', p.visitaId, `visita de ${p.visitante}`, linkDaVisita(p.visitaId))}]: ${p.resposta}`
     if (p.acao === 'responder_chat') return `responder no canal #${dadoDeTerceiro(p.canalNome, 60)}: “${dadoDeTerceiro(p.texto, 200)}”`
+    if (p.acao === 'atender_chamado') {
+      const chamado = `[${emitir(t, 'chamado', p.chamadoId, `${umaLinha(p.codigo, 20)} ${tituloEntreAspas(p.titulo)}`, `/chamados/${p.chamadoId}`)}]`
+      if (p.tipo === 'assumir') return `assumir o chamado ${chamado}`
+      if (p.tipo === 'resolver') return `resolver o chamado ${chamado}: “${dadoDeTerceiro(p.nota, 200)}”`
+      return `transferir o chamado ${chamado} para [${p.filaId ? emitir(t, 'fila', p.filaId, p.filaNome ?? '', null) : '?'}] · [${p.categoriaId ? emitir(t, 'assunto', p.categoriaId, p.categoriaNome ?? '', null) : '?'}]: “${dadoDeTerceiro(p.nota, 200)}”`
+    }
+    if (p.acao === 'registrar_visita') return `registrar a visita de “${dadoDeTerceiro(p.visitante, 80)}” para [${await marcadorDaPessoa(t, p.visitadoId) ?? 'alguém'}]${p.motivo ? `: “${dadoDeTerceiro(p.motivo, 200)}”` : ''}`
+    if (p.acao === 'decidir_financeiro') {
+      const item = emitir(t, p.tipo, p.itemId, `${p.tipo} ${tituloEntreAspas(p.titulo)}`, p.tipo === 'despesa' ? `/financeiro/${p.itemId}` : `/financeiro/compras/${p.itemId}`)
+      return `${p.decisao} [${item}]${p.decisao === 'recusar' ? `: “${dadoDeTerceiro(p.motivo, 200)}”` : ''}`
+    }
     return `marcar como lidos ${p.avisoIds === 'todos' ? 'todos os avisos' : `${p.quantos} aviso(s)`}`
   }))
 }

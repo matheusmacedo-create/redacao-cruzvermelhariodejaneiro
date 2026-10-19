@@ -102,6 +102,10 @@ function fonteDe(m: Mundo): FonteDosPreparos {
     avisosSemLer: async (ids) => (ids === 'todos' ? m.avisosSemLer : ids.length),
     mensagensDeHoje: async () => m.mensagensHoje,
     canal: async (canalId) => m.canais[canalId] ?? null,
+    // A onda 2 (conferida em scripts/conferir-assistente-palacio.ts): aqui, nada para atender nem decidir.
+    chamadoParaAtender: async () => null,
+    temPortaria: async () => true,
+    decisao: async () => null,
   }
 }
 
@@ -130,13 +134,13 @@ function tabelaDoTurno(): { tabela: TabelaDeMarcadores; itens: Record<string, It
 }
 igual(Object.keys(tabelaDoTurno().itens), ['apr_1', 'apr_2', 'pes_3', 'apr_4', 'pes_5', 'pes_6', 'cha_7', 'fil_8', 'ass_9', 'vis_10', 'avi_11', 'pes_12'], 'mundo: os marcadores do turno')
 
-type OpcoesDoPreparador = { podeAgir?: boolean; escrita?: boolean; recente?: boolean; mensagensDia?: number; rascunho?: Rascunho; mundo?: Mundo }
+type OpcoesDoPreparador = { podeAgir?: boolean; noPalacio?: boolean; escrita?: boolean; recente?: boolean; mensagensDia?: number; rascunho?: Rascunho; mundo?: Mundo }
 function preparadorDe(o: OpcoesDoPreparador = {}) {
   const { tabela, itens } = tabelaDoTurno()
   const rascunho = o.rascunho ?? criarRascunho()
   const mundo = o.mundo ?? mundoNovo()
   const p = criarPreparador({
-    fonte: fonteDe(mundo), tabela, rascunho, pessoaId: EU, podeAgir: o.podeAgir ?? true, escrita: o.escrita ?? true, recente: o.recente ?? true, base: BASE,
+    fonte: fonteDe(mundo), tabela, rascunho, pessoaId: EU, podeAgir: o.podeAgir ?? true, noPalacio: o.noPalacio ?? false, escrita: o.escrita ?? true, recente: o.recente ?? true, base: BASE,
     mensagensDia: o.mensagensDia ?? 10, rotuloDe: (m) => itens[m]?.rotulo ?? null,
   })
   return { ...p, rascunho, mundo, itens, tabela }

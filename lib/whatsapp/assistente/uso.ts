@@ -3,6 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { claudeConfigurado, esforcoDoAssistente, modeloDoAssistente } from '@/lib/ia/anthropic'
 import { notificar } from '@/lib/notificacoes/servidor'
+import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { podeAgirPeloWhatsapp, type Pessoa } from '../acoes'
 import {
   TETOS_PADRAO, TEXTOS_FIXOS, contarAcoesDoDia, custoEstimado, decidirConfianca, inicioDoDiaEmBrasilia, modoCobre, ehFerramenta, type ModoDoAssistente, type UsoDaChamada,
@@ -98,11 +99,35 @@ export type MotivoDaIndisponibilidade = 'sem_config' | 'fora_do_modo' | 'sem_cha
 
 export type Disponibilidade = {
   disponivel: boolean; nivel: NivelDeLeitura; escrita: boolean; podeAgir: boolean; recente: boolean
+  /** A confirmação do plano no Palácio (app/confirmar/[token], ramo "plano") está disponível: a migração dela foi aplicada. */
+  noPalacio: boolean
   motivo: MotivoDaIndisponibilidade | null; config: ConfigDoAssistente | null
 }
 
 /** O assistente fora: o bot de hoje responde. */
-export const ASSISTENTE_INDISPONIVEL: Disponibilidade = { disponivel: false, nivel: 'pessoal', escrita: false, podeAgir: false, recente: false, motivo: 'sem_config', config: null }
+export const ASSISTENTE_INDISPONIVEL: Disponibilidade = {
+  disponivel: false, nivel: 'pessoal', escrita: false, podeAgir: false, recente: false, noPalacio: false, motivo: 'sem_config', config: null,
+}
+
+/** A resposta da conferência da confirmação no Palácio, por instância (a migração não volta atrás; a falta dela é reconferida). */
+let noPalacioConferido: { disponivel: boolean; em: number } | null = null
+const RECONFERIR_NO_PALACIO_MS = 10 * 60_000
+
+/**
+ * A confirmação do plano no Palácio existe? É a coluna plano_id de whatsapp_confirmacoes (migração
+ * 20261019020000, que também põe "plano" nas ações): sem ela, o plano sensível não nasce e o preparo de quem usa
+ * a verificação em duas etapas fica de fora com o link da tela, como antes. Conferido a cada 10 min por instância.
+ */
+export async function confirmacaoNoPalacioDisponivel(admin: Admin): Promise<boolean> {
+  if (noPalacioConferido && (noPalacioConferido.disponivel || Date.now() - noPalacioConferido.em < RECONFERIR_NO_PALACIO_MS)) return noPalacioConferido.disponivel
+  try {
+    const { error } = await admin.from('whatsapp_confirmacoes').select('plano_id').limit(1)
+    noPalacioConferido = { disponivel: !error, em: Date.now() }
+  } catch {
+    noPalacioConferido = { disponivel: false, em: Date.now() }
+  }
+  return noPalacioConferido.disponivel
+}
 
 const indisponivel = (motivo: MotivoDaIndisponibilidade, config: ConfigDoAssistente | null = null): Disponibilidade => ({ ...ASSISTENTE_INDISPONIVEL, motivo, config })
 
@@ -118,11 +143,13 @@ export async function disponibilidadeDoAssistente(admin: Admin, workspaceId: str
     if (!modoCobre(config, pessoa)) return indisponivel('fora_do_modo', config)
     if (!claudeConfigurado()) return indisponivel('sem_chave', config)
     if (config.pausada_ate && Date.parse(config.pausada_ate) > Date.now()) return indisponivel('pausado', config)
-    const [confianca, podeAgir] = await Promise.all([confiancaDoNumero(admin, workspaceId, pessoa, m), podeAgirPeloWhatsapp(admin, workspaceId, pessoa)])
+    const [confianca, podeAgir, noPalacio] = await Promise.all([
+      confiancaDoNumero(admin, workspaceId, pessoa, m), podeAgirPeloWhatsapp(admin, workspaceId, pessoa), confirmacaoNoPalacioDisponivel(admin),
+    ])
     if (confianca.suspenso) return indisponivel('suspenso', config)
     return {
       disponivel: true, nivel: podeAgir && confianca.recente ? 'amplo' : 'pessoal', escrita: config.escrita && confianca.recente,
-      podeAgir, recente: confianca.recente, motivo: null, config,
+      podeAgir, recente: confianca.recente, noPalacio, motivo: null, config,
     }
   } catch {
     return indisponivel('erro')
@@ -301,17 +328,15 @@ export async function zerarFalhas(admin: Admin, workspaceId: string, config: Con
 
 /**
  * Chave recusada (401/403) ou modelo que não existe (404): pausa o assistente por PAUSA_DE_CONFIGURACAO_MIN, com o
- * motivo (sem segredo), e avisa a administração uma vez por dia (sino e e-mail; nunca pelo WhatsApp).
+ * motivo (sem segredo), e avisa a administração como alerta de integração (lib/integracoes/alertas.ts: categoria
+ * "integracoes", no sino, no e-mail e no WhatsApp, no máximo um a cada 6 h) — o bot de comandos segue respondendo.
  */
 export async function pausarPorConfiguracao(admin: Admin, workspaceId: string, qual: 'chave' | 'modelo', motivo: string): Promise<void> {
   try {
     await admin.from('whatsapp_ia_config').update({
       pausada_ate: new Date(Date.now() + PAUSA_DE_CONFIGURACAO_MIN * 60_000).toISOString(), motivo_pausa: `${qual}: ${motivo}`.slice(0, 200),
     }).eq('workspace_id', workspaceId)
-    await alertarAdmins(admin, workspaceId, {
-      titulo: qual === 'chave' ? 'O assistente do WhatsApp parou: a Anthropic recusou a chave' : 'O assistente do WhatsApp parou: o modelo não existe',
-      mensagem: `${motivo.slice(0, 200)} Enquanto isso, o bot de comandos responde sozinho.`,
-    })
+    await alertarIntegracao({ integracao: 'claude', workspaceId, motivo: qual })
   } catch (causa) {
     console.error('[whatsapp] assistente: pausa não gravada:', causa instanceof Error ? causa.message : causa)
   }
@@ -378,18 +403,21 @@ export type EstadoDoAssistente = {
   esforco: string
   /** A pausa em vigor (disjuntor, chave ou modelo): até quando e por quê; null sem pausa. */
   pausa: { ate: string; motivo: string | null } | null
+  /** A confirmação do plano no Palácio (a migração das confirmações do plano): o plano sensível termina lá. */
+  noPalacio: boolean
 }
 
 /** Tudo o que o cartão "Assistente" mostra (só para quem tem integracoes.configurar: a página confere antes). */
 export async function estadoDoAssistente(admin: Admin, workspaceId: string): Promise<EstadoDoAssistente> {
   const base = { chave: claudeConfigurado(), modelo: modeloDoAssistente(), esforco: esforcoDoAssistente() }
   const { error } = await admin.from('whatsapp_ia_config').select('workspace_id').eq('workspace_id', workspaceId).maybeSingle()
-  if (error) return { ...base, pronto: false, config: null, numeros: null, pessoas: [], pausa: null }
-  const [config, numeros, { data: membros }, { data: contas }] = await Promise.all([
+  if (error) return { ...base, pronto: false, config: null, numeros: null, pessoas: [], pausa: null, noPalacio: false }
+  const [config, numeros, { data: membros }, { data: contas }, noPalacio] = await Promise.all([
     lerConfig(admin, workspaceId),
     numerosDeHoje(admin, workspaceId),
     admin.from('workspace_members').select('user_id, role, profiles(full_name, username, active)').eq('workspace_id', workspaceId).neq('role', 'escola').limit(3000),
     admin.from('whatsapp_contas').select('user_id'),
+    confirmacaoNoPalacioDisponivel(admin),
   ])
   const comWhatsapp = new Set((contas ?? []).map((c) => c.user_id as string))
   const pessoas = (membros ?? []).flatMap((m) => {
@@ -398,7 +426,7 @@ export async function estadoDoAssistente(admin: Admin, workspaceId: string): Pro
     return [{ id: m.user_id as string, nome: perfil.full_name?.trim() || perfil.username || 'Sem nome', usuario: perfil.username ?? '', papel: String(m.role), whatsapp: comWhatsapp.has(m.user_id as string) }]
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   const pausa = config?.pausada_ate && Date.parse(config.pausada_ate) > Date.now() ? { ate: config.pausada_ate, motivo: config.motivo_pausa } : null
-  return { ...base, pronto: true, config, numeros, pessoas, pausa }
+  return { ...base, pronto: true, config, numeros, pessoas, pausa, noPalacio }
 }
 
 /**

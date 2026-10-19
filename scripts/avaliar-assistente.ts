@@ -259,7 +259,8 @@ function leitorDeMentira(caso: Caso): Handlers['ler'] {
     const nivel = caso.nivel ?? 'amplo'
     if (nome === 'ler_chamados' && e.escopo === 'minhas_filas' && nivel !== 'amplo') return { ok: false, erro: TEXTOS_FIXOS.so_no_palacio }
     if (nome === 'buscar_pessoa' && nivel !== 'amplo') return { ok: false, erro: TEXTOS_FIXOS.so_no_palacio }
-    if (nome === 'ver_status_do_whatsapp') return nivel !== 'amplo' ? { ok: false, erro: TEXTOS_FIXOS.so_no_palacio } : caso.administra ? { ok: true, conteudo: '{"status":"Conectado"}' } : { ok: false, erro: 'Só para quem administra o espaço.' }
+    if (nome === 'consultar_area' && nivel !== 'amplo') return { ok: false, erro: TEXTOS_FIXOS.so_no_palacio }
+    if (nome === 'consultar_area' && e.area === 'whatsapp') return caso.administra ? { ok: true, conteudo: '{"area":"whatsapp","status":"Conectado"}' } : { ok: false, erro: 'Só para quem administra o espaço.' }
     const f = caso.leituras?.[nome]
     return { ok: true, conteudo: JSON.stringify(f ? so(f(e)) : { itens: [] }) }
   }

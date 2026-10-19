@@ -8,16 +8,18 @@ import type { Entrega } from '../fila'
 import type { Pessoa } from '../acoes'
 import { chamarClaude, paramsDoAssistente } from './claude'
 import { criarExecutar, criarRascunho, rodarTurno, type Desfecho, type Handlers, type PerguntaPronta } from './laco'
-import { criarLeitor, dadosDoContexto, novoTurnoDeLeitura, quadroDePessoas, rotulosDasOpcoes, type TurnoDeLeitura } from './leituras'
+import { criarLeitor, dadosDoContexto, decisaoDaPessoa, novoTurnoDeLeitura, quadroDePessoas, rotulosDasOpcoes, type TurnoDeLeitura } from './leituras'
 import { esperarAVez, gravarMemoria, hashDoTexto, lerMemoria, soltarVez, textoRepetido, type ListaGuardada } from './memoria'
-import { entregaFalhou, fecharPergunta, guardarPergunta, guardarPlano, marcarEmRevisao, marcarEntrega, rearmar, type AbertoDaPessoa } from './plano'
+import {
+  entregaFalhou, entregarComInterativo, fecharPergunta, guardarPergunta, guardarPlano, marcarEmRevisao, marcarEntrega, rearmar, type AbertoDaPessoa, type EntregaEmPartes,
+} from './plano'
 import type { PlanoGuardado } from './fluxo'
 import { criarPreparador } from './preparos'
 import { fonteDoSupabase } from './executores'
 import { montarContexto, textoDaSituacao } from './prompt'
 import {
-  LIMITES, TETOS_PADRAO, TEXTOS_FIXOS, acoesPermitidas, decidirTeto, marcadoresNaResposta, planoSensivel, posProcessarResposta, quantidadePedida, textoDaPergunta,
-  textoDoPlano, unirPermitidas, validarRascunho, type Passo, type TipoDeAcao,
+  LIMITES, TETOS_PADRAO, TEXTOS_FIXOS, acoesPermitidas, decidirTeto, interativoDaPergunta, interativoDoPlano, marcadoresNaResposta, planoSensivel,
+  posProcessarResposta, quantidadePedida, textoDaPergunta, textoDoPlano, unirPermitidas, validarRascunho, type Passo, type TipoDeAcao,
 } from './regras'
 import {
   ERROS_DE_FORA, alertarAdmins, contarTurnos, criarRegistroDoUso, gastoDeHoje, leiturasDeHoje, pausarPorConfiguracao, registrarFalha, zerarFalhas,
@@ -39,13 +41,16 @@ type Admin = ReturnType<typeof createAdminClient>
  *  4. o contexto, lido no banco agora (nada da conversa fica guardado), e o portão de intenção (só da mensagem);
  *  5. o laço (laco.ts) com as leituras desta pessoa e os preparos (preparos.ts: com a escrita ligada para ela, cada
  *     preparar_* confere tudo no banco e acrescenta um passo ao rascunho; nada é feito aqui);
- *  6. o desfecho: o plano (validado, guardado com o hash e mostrado pelo código — o texto do modelo é descartado; o
- *     plano em revisão é substituído), a resposta pós-processada (sem URL do modelo, marcadores trocados por nomes e
- *     links do código), a pergunta escrita pelo código, ou um texto fixo (recusa, teto, prazo, fora do ar);
+ *  6. o desfecho: o plano (validado, guardado com o hash e mostrado pelo código, com os botões Confirmar e Cancelar —
+ *     o texto do modelo é descartado; o plano em revisão é substituído; o sensível só com a confirmação no Palácio
+ *     disponível), a resposta pós-processada (sem URL do modelo, marcadores trocados por nomes e links do código), a
+ *     pergunta escrita pelo código (com a lista das opções), ou um texto fixo (recusa, teto, prazo, fora do ar);
  *  7. a memória (só marcadores e o HMAC do texto), o registro do uso (sem texto) e a vez solta.
  *
  * Toda resposta sai sem fila (`semFila`): o assistente nunca deixa texto esperando em whatsapp_fila — só o aviso curto
- * "não consegui mandar o plano", que não traz dado nenhum, pode esperar nela. Nunca lança.
+ * "não consegui mandar o plano", que não traz dado nenhum, pode esperar nela. Botões e lista têm corpo de até 1.024
+ * caracteres: acima disso, o texto sai sozinho e os botões (ou a lista) vêm numa segunda mensagem curta. A mensagem
+ * que veio de um áudio (com a transcrição da Kapso) recebe o eco do que foi entendido na frente da resposta. Nunca lança.
  */
 
 export type Responder = (texto: string, extra?: { interativo?: Interativo | null; comando?: string; categoria?: string; semFila?: boolean }) => Promise<Entrega>
@@ -63,6 +68,8 @@ export type EntradaDoAssistente = {
   responder: Responder
   /** A opção que a pessoa escolheu na pergunta aberta ("2" ou o toque), já lida pelo código. */
   escolha?: string | null
+  /** A mensagem veio de um áudio: o eco do que foi entendido ("_Entendi do áudio:_ “…”"), na frente da primeira resposta. */
+  eco?: string | null
 }
 
 /** A classe do erro, pelas classes do SDK (nunca pela mensagem): é o que vai ao registro e ao log. */
@@ -84,6 +91,7 @@ export function classeDoErro(causa: unknown): string {
 /** Os tipos de ação dos passos de um plano (o portão do turno soma os do plano em revisão). */
 const TIPO_DO_PASSO: Record<Passo['acao'], TipoDeAcao> = {
   votar: 'voto', mensagem_direta: 'mensagem', comentar_chamado: 'comentario', responder_chat: 'chat', abrir_chamado: 'chamado', responder_visita: 'visita', marcar_lidos: 'lidos',
+  atender_chamado: 'atendimento', registrar_visita: 'registro_visita', decidir_financeiro: 'financeiro',
 }
 
 /** A pergunta do modelo vira a do código: só opções que o código mostrou, com os rótulos relidos no banco. */
@@ -103,12 +111,19 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
   let substituido = false
   let mensagemDaResposta: string | null = null
   let temAVez = false
+  let eco = e.eco ?? null
 
-  /** Toda resposta do assistente: sem fila; com o plano em revisão de pé, o lembrete na mesma mensagem. */
-  const responder = async (texto: string): Promise<Entrega> => {
-    const comLembrete = emRevisao && !substituido ? `${texto}\n\n${TEXTOS_FIXOS.lembrete}` : texto
-    const entrega = await e.responder(comLembrete, { categoria: 'assistente', semFila: true })
-    if (entrega.situacao === 'enviada') mensagemDaResposta = entrega.id
+  /**
+   * Toda resposta do assistente: sem fila; com o eco do áudio na frente da primeira; com o plano em revisão de pé, o
+   * lembrete no fim. Com botões ou lista: acima do corpo interativo, o texto sozinho e depois a `chamada` com eles
+   * (se a segunda não sair, o texto já saiu e vale). `ids`: as mensagens que saíram, em ordem.
+   */
+  const responder = async (texto: string, interativo: Interativo | null = null, chamada: string = TEXTOS_FIXOS.confirma_o_plano): Promise<EntregaEmPartes> => {
+    const comEco = eco ? `${eco}\n\n${texto}` : texto
+    eco = null
+    const corpo = emRevisao && !substituido ? `${comEco}\n\n${TEXTOS_FIXOS.lembrete}` : comEco
+    const entrega = await entregarComInterativo((t, i) => e.responder(t, { categoria: 'assistente', semFila: true, interativo: i }), corpo, interativo, chamada)
+    mensagemDaResposta = entrega.ids[entrega.ids.length - 1] ?? null
     return entrega
   }
   const fixo = async (texto: string, desfecho: Parameters<RegistroDoUso['fechar']>[0], extra: Parameters<RegistroDoUso['fechar']>[1] = {}) => {
@@ -141,7 +156,7 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
 
     // 4. O contexto e o portão.
     const turno = novoTurnoDeLeitura({
-      admin, workspaceId, pessoa, nivel: ia.nivel, tabela: memoria.tabela, aoDetalhe: () => registro.detalhe(),
+      admin, workspaceId, pessoa, nivel: ia.nivel, tabela: memoria.tabela, aoDetalhe: () => registro.detalhe(), noPalacio: ia.noPalacio,
       detalhe: { hoje: detalheDeHoje ?? 0, teto: config?.leituras_detalhe_dia ?? TETOS_PADRAO.leituras_detalhe_dia },
     })
     const atual = emRevisao ?? (plano0?.situacao === 'pergunta' ? plano0 : null)
@@ -158,13 +173,13 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
     // 5. As mensagens, escritas pelo código: o contexto e a mensagem no turno do usuário; a situação depois.
     const { contexto, citada, mensagem } = montarContexto(dados)
     const situacao = textoDaSituacao({
-      agora: new Date(), papel: pessoa.papel, nivel: ia.nivel, podeAgir: ia.podeAgir, confirmacaoNoPalacio: false, escrita: ia.escrita,
+      agora: new Date(), papel: pessoa.papel, nivel: ia.nivel, podeAgir: ia.podeAgir, confirmacaoNoPalacio: ia.noPalacio, escrita: ia.escrita,
     })
     const rascunho = criarRascunho()
     // Os preparos: a escrita ligada para a pessoa (e o número recente), as conferências no banco e os limites do dia.
     const preparador = criarPreparador({
-      fonte: fonteDoSupabase(admin, workspaceId, pessoa, { quadro: () => quadroDePessoas(turno) }),
-      tabela: memoria.tabela, rascunho, pessoaId: pessoa.id, podeAgir: ia.podeAgir, escrita: ia.escrita, recente: ia.recente, base: e.base,
+      fonte: fonteDoSupabase(admin, workspaceId, pessoa, { quadro: () => quadroDePessoas(turno), decisao: (tipo, id) => decisaoDaPessoa(admin, workspaceId, pessoa, tipo, id) }),
+      tabela: memoria.tabela, rascunho, pessoaId: pessoa.id, podeAgir: ia.podeAgir, noPalacio: ia.noPalacio, escrita: ia.escrita, recente: ia.recente, base: e.base,
       mensagensDia: config?.mensagens_dia ?? TETOS_PADRAO.mensagens_dia, rotuloDe: (m) => turno.itens[m]?.rotulo ?? null,
     })
     const handlers: Handlers = {
@@ -197,10 +212,12 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
         await fixo(TEXTOS_FIXOS.sem_tempo, 'erro', { erro: 'pergunta_nao_guardada' })
       } else {
         substituido = true
-        const entrega = await responder(textoDaPergunta({ pergunta: p.pergunta, opcoes: p.rotulos, pedidoEmAberto: p.pedidoEmAberto || null }))
+        // A lista das opções (o toque traz `esc:<id>:<marcador>`); o número digitado continua valendo.
+        const entrega = await responder(textoDaPergunta({ pergunta: p.pergunta, opcoes: p.rotulos, pedidoEmAberto: p.pedidoEmAberto || null }),
+          interativoDaPergunta(guardada.id, p.opcoes, p.rotulos), TEXTOS_FIXOS.escolha_acima)
         if (entrega.situacao === 'enviada') {
-          await marcarEntrega(admin, guardada.id, entrega.id)
-          lista = entrega.id ? { m: entrega.id, r: p.opcoes } : null
+          await marcarEntrega(admin, guardada.id, entrega.ids)
+          lista = entrega.ids[0] ? { m: entrega.ids[0], r: p.opcoes } : null
         } else {
           await entregaFalhou(admin, guardada.id)
         }
@@ -211,8 +228,8 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
       // O texto do modelo é descartado: quem escreve o plano é o código, a partir do banco.
       const sensivel = planoSensivel(rascunho.passos, ia.podeAgir)
       const valido = validarRascunho(rascunho.passos, { ficouDeFora: rascunho.ficouDeFora, sensivel })
-      // [etapa 4] O plano sensível vai ao Palácio; até lá, os preparos nem deixam nascer um (por garantia, nada é guardado).
-      if (!valido.ok || sensivel || !m.numero) {
+      // O plano sensível vai ao Palácio — e só nasce com a confirmação de lá disponível (sem ela, os preparos já o deixam de fora).
+      if (!valido.ok || (sensivel && !ia.noPalacio) || !m.numero) {
         await fixo(!valido.ok ? valido.erro : TEXTOS_FIXOS.sem_confirmacao_no_palacio, 'plano', { erro: 'plano_recusado' })
       } else {
         const guardado = await guardarPlano(admin, { workspaceId, userId: pessoa.id, numero: m.numero, papel: pessoa.papel, passos: valido.passos, permitidas, sensivel })
@@ -221,9 +238,11 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
         if (!guardado) {
           await fixo(TEXTOS_FIXOS.sem_tempo, 'erro', { erro: 'plano_nao_guardado' })
         } else {
-          const entrega = await responder(textoDoPlano({ passos: valido.passos, ficouDeFora: rascunho.ficouDeFora, sensivel }).texto)
+          // Os botões levam o id curto e o hash: o toque num plano antigo, ou trocado, não confirma.
+          const entrega = await responder(textoDoPlano({ passos: valido.passos, ficouDeFora: rascunho.ficouDeFora, sensivel }).texto,
+            guardado.hash ? interativoDoPlano(guardado.id, guardado.hash) : null, TEXTOS_FIXOS.confirma_o_plano)
           if (entrega.situacao === 'enviada') {
-            await marcarEntrega(admin, guardado.id, entrega.id)
+            await marcarEntrega(admin, guardado.id, entrega.ids)
           } else {
             // O plano nunca espera na fila: não saiu, cancelado e redigido; o aviso curto, sem dados, vai pela fila normal.
             await entregaFalhou(admin, guardado.id)

@@ -1,5 +1,5 @@
 import {
-  LIMITES, TEXTOS_FIXOS, hashDoPlano, redigirPassos, textoDaRevalidacao, textoDoRecibo,
+  LIMITES, TEXTOS_FIXOS, hashDoPlano, redigirPassos, textoDaRevalidacao, textoDoPlanoQueNaoVale, textoDoRecibo,
   type Passo, type PlanoAberto, type ResultadoDaAcao, type ResultadoDoPasso, type TipoDeAcao,
 } from './regras'
 
@@ -14,6 +14,7 @@ import {
  *   aberto ── mensagem ao assistente → em_revisao ─┬─ plano ou pergunta nova → substituido + redigido
  *                                                  └─ texto, erro ou prazo → rearmar → aberto (com o lembrete)
  *   aberto ── confirmo válido → (sensível ? no_palacio : executando) → revalidar → executar → executado | parcial | falhou → redigido
+ *   no_palacio (o link, mais 15 min) ── "Confirmar" na página → executando (pela sessão) → o mesmo caminho; vencido (faxina)
  *   pergunta / aberto / em_revisao ── cancelar → cancelado; plano ou pergunta nova → substituido; vencido (faxina)
  *
  * Toda transição é um update condicional pela situação (o repositório devolve a linha só se mudou): dois
@@ -49,7 +50,7 @@ export type NovoPlano = {
   passos: Passo[]; opcoes: string[]; permitidas: TipoDeAcao[]; pedidoEmAberto: string | null; sensivel: boolean
 }
 
-export type MudancaDoPlano = Partial<Pick<PlanoGuardado, 'situacao' | 'passos' | 'pedidoEmAberto' | 'mensagens' | 'entregueEm' | 'resultado' | 'redigidoEm' | 'atualizadoEm'>>
+export type MudancaDoPlano = Partial<Pick<PlanoGuardado, 'situacao' | 'passos' | 'pedidoEmAberto' | 'mensagens' | 'entregueEm' | 'resultado' | 'redigidoEm' | 'atualizadoEm' | 'expiraEm'>>
 
 /** O que o fluxo precisa do banco. Cada `mudar` é um update condicional: devolve a linha só se ela estava numa das situações `de`. */
 export interface RepositorioDePlanos {
@@ -74,10 +75,23 @@ export type EntradaDaConfirmacao = {
   /** O plano aberto como foi lido na rota (a confirmação relê e confere tudo). */
   plano: PlanoGuardado
   pessoaId: string
-  mensagem: { id: string | null; enviadaEm: number | null }
+  /** `toque`: veio do botão Confirmar (com o id e o hash do plano): sem a espera de assentamento, que é do "confirmo" por texto. */
+  mensagem: { id: string | null; enviadaEm: number | null; toque?: boolean }
   /** Pessoa ativa, papel, número, confiança do número e cotas de hoje (o servidor confere); o motivo se não vale, null se vale. */
   conferirIdentidade: (p: PlanoGuardado) => Promise<string | null>
   /** Cada passo de novo, com leituras novas (rodada aberta e sem voto, hash do conteúdo, destinatário ativo…). */
+  revalidar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
+  executar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
+  urlBase: string
+}
+
+/** A confirmação na página do Palácio (app/confirmar/[token]): o plano que esperava o Palácio, pela sessão de quem pediu. */
+export type EntradaNoPalacio = {
+  planoId: string
+  pessoaId: string
+  workspaceId: string
+  /** Pessoa ativa, papel, a escrita do assistente e as cotas de hoje (o servidor confere); o motivo se não vale, null se vale. */
+  conferirIdentidade: (p: PlanoGuardado) => Promise<string | null>
   revalidar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
   executar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
   urlBase: string
@@ -105,6 +119,41 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
     const linhas = await repo.mudarDaPessoa(userId, de, { situacao: para, atualizadoEm: iso() })
     return Promise.all(linhas.map(async (l) => (await repo.mudar(l.id, [para], redigido(l.passos))) ?? l))
   }
+
+  /**
+   * O plano já consumido (em "executando"): revalida TODOS os passos com leituras novas antes de executar o primeiro,
+   * executa em ordem e para no primeiro `ok: false` (os seguintes ficam "nao_feito"), e redige na hora. É o mesmo
+   * caminho do "confirmo" pelo WhatsApp e do "Confirmar" na página do Palácio.
+   */
+  async function executarConsumido(linha: PlanoGuardado, e: Pick<EntradaDaConfirmacao, 'revalidar' | 'executar' | 'urlBase'>, falhar: (texto: string) => Promise<DesfechoDaConfirmacao>, naoFuiEu: boolean): Promise<DesfechoDaConfirmacao> {
+    const total = linha.passos.length
+    for (const [i, passo] of linha.passos.entries()) {
+      let r: ResultadoDaAcao
+      try { r = await e.revalidar(passo, i + 1) } catch { r = { ok: false, codigo: 'erro', texto: 'não deu para conferir agora' } }
+      if (!r.ok) return falhar(textoDaRevalidacao(i + 1, r.texto, total))
+    }
+
+    const resultados: (ResultadoDoPasso & { texto?: string; link?: string })[] = []
+    for (const [i, passo] of linha.passos.entries()) {
+      let r: ResultadoDaAcao
+      try { r = await e.executar(passo, i + 1) } catch { r = { ok: false, codigo: 'erro', texto: 'Erro inesperado.' } }
+      resultados.push(r.ok ? { n: i + 1, ok: true, codigo: r.codigo, ...(r.link ? { link: r.link } : {}) } : { n: i + 1, ok: false, codigo: r.codigo, texto: r.texto })
+      await repo.mudar(linha.id, ['executando'], { resultado: resultados.map(({ n, ok, codigo }) => ({ n, ok, codigo })), atualizadoEm: iso() })
+      if (!r.ok) {
+        for (let n = i + 2; n <= total; n++) resultados.push({ n, ok: false, codigo: 'nao_feito' })
+        break
+      }
+    }
+    const feitos = resultados.filter((r) => r.ok).length
+    const situacao: 'executado' | 'parcial' | 'falhou' = feitos === total ? 'executado' : feitos ? 'parcial' : 'falhou'
+    const final = await encerrarUm(linha.id, ['executando'], situacao, { resultado: resultados.map(({ n, ok, codigo }) => ({ n, ok, codigo })) })
+    return { tipo: situacao, texto: textoDoRecibo({ passos: linha.passos, resultados, urlBase: e.urlBase, naoFuiEu }), plano: final ?? linha }
+  }
+
+  /** O plano não confere com quem confirma (outra pessoa, outro espaço, ou os passos mexidos depois do hash). */
+  const naoConfere = (linha: PlanoGuardado, pessoaId: string, workspaceId?: string) =>
+    linha.userId !== pessoaId || (workspaceId !== undefined && linha.workspaceId !== workspaceId) || !linha.hash
+    || hashDoPlano({ userId: linha.userId, workspaceId: linha.workspaceId, passos: linha.passos }) !== linha.hash
 
   return {
     /**
@@ -152,9 +201,13 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
       })
     },
 
-    /** Saiu: a mensagem que mostrou o plano e a hora da entrega (o "confirmo" só vale escrito depois dela). */
-    marcarEntrega(id: string, mensagemId: string | null): Promise<PlanoGuardado | null> {
-      return repo.mudar(id, ['aberto', 'pergunta'], { mensagens: mensagemId ? [mensagemId] : [], entregueEm: iso(), atualizadoEm: iso() })
+    /**
+     * Saiu: as mensagens que mostraram o plano (o texto e, acima de 1.024 caracteres, a dos botões) e a hora da
+     * entrega (o "confirmo" só vale escrito depois dela). Citar qualquer uma é citar o plano.
+     */
+    marcarEntrega(id: string, mensagens: string | null | (string | null)[]): Promise<PlanoGuardado | null> {
+      const ids = (Array.isArray(mensagens) ? mensagens : [mensagens]).filter((m): m is string => Boolean(m)).slice(0, LIMITES.mensagensDoPlano)
+      return repo.mudar(id, ['aberto', 'pergunta'], { mensagens: [...new Set(ids)], entregueEm: iso(), atualizadoEm: iso() })
     },
 
     /** Não saiu na hora: cancelado e redigido (o plano nunca espera na fila). */
@@ -179,9 +232,9 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
       })
     },
 
-    /** "cancelar": o que estiver aberto (pergunta, plano ou em revisão) vira "cancelado", redigido. */
+    /** "cancelar" (e "esquece"): o que estiver aberto (pergunta, plano ou em revisão) ou esperando o Palácio vira "cancelado", redigido. */
     cancelar(userId: string): Promise<PlanoGuardado[]> {
-      return encerrarDaPessoa(userId, 'cancelado')
+      return encerrarDaPessoa(userId, 'cancelado', [...SITUACOES_ABERTAS, 'no_palacio'])
     },
 
     /** Uma pergunta do bot (ou um plano novo) toma o lugar: "substituido", redigido. */
@@ -190,8 +243,8 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
     },
 
     /**
-     * O plano sensível que seguiu para o Palácio quando a confirmação de lá ainda não está ligada (até a etapa 4, os
-     * preparos nem deixam nascer um): falhou, redigido na hora.
+     * O plano sensível que seguiu para o Palácio e não ganhou o link (a confirmação no Palácio indisponível, ou links
+     * demais na última hora): falhou, redigido na hora.
      */
     falharNoPalacio(id: string): Promise<PlanoGuardado | null> {
       return encerrarUm(id, ['no_palacio'], 'falhou')
@@ -210,7 +263,7 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
      */
     async confirmar(e: EntradaDaConfirmacao): Promise<DesfechoDaConfirmacao> {
       const { plano } = e
-      if (e.mensagem.enviadaEm !== null) {
+      if (e.mensagem.enviadaEm !== null && !e.mensagem.toque) {
         const espera = Math.min(LIMITES.assentarMs, e.mensagem.enviadaEm + LIMITES.assentarMs - relogio())
         if (espera > 0) await dormir(espera)
       }
@@ -218,7 +271,10 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
         return { tipo: 'nada', texto: TEXTOS_FIXOS.mensagem_no_meio }
       }
 
-      const linha = await repo.mudar(plano.id, ['aberto'], { situacao: plano.sensivel ? 'no_palacio' : 'executando', atualizadoEm: iso() }, { vigenteEm: iso() })
+      // O sensível espera o Palácio pelo tempo do link (CONFIRMACAO_VALE_MIN), contado do "confirmo".
+      const linha = await repo.mudar(plano.id, ['aberto'], plano.sensivel
+        ? { situacao: 'no_palacio', atualizadoEm: iso(), expiraEm: iso(relogio() + LIMITES.noPalacioMin * 60_000) }
+        : { situacao: 'executando', atualizadoEm: iso() }, { vigenteEm: iso() })
       if (!linha) {
         const atual = await repo.buscar(plano.id)
         return { tipo: 'nada', texto: atual?.situacao === 'em_revisao' ? TEXTOS_FIXOS.revisao : TEXTOS_FIXOS.velho }
@@ -228,35 +284,30 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
         return { tipo: 'falhou', texto, plano: final ?? linha }
       }
 
-      if (linha.userId !== e.pessoaId || !linha.hash || hashDoPlano({ userId: linha.userId, workspaceId: linha.workspaceId, passos: linha.passos }) !== linha.hash) {
-        return falhar('Nada foi feito: o plano não confere. Peça de novo se quiser.')
-      }
+      if (naoConfere(linha, e.pessoaId)) return falhar('Nada foi feito: o plano não confere. Peça de novo se quiser.')
       const motivo = await e.conferirIdentidade(linha)
       if (motivo) return falhar(`Nada foi feito: ${motivo.replace(/[.\s]+$/, '')}. Peça de novo se quiser.`)
       if (linha.sensivel) return { tipo: 'no_palacio', plano: linha }
+      // Confirmado pelo WhatsApp: o recibo oferece o "Não fui eu" (quem pegou o celular não age em silêncio).
+      return executarConsumido(linha, e, falhar, true)
+    },
 
-      const total = linha.passos.length
-      for (const [i, passo] of linha.passos.entries()) {
-        let r: ResultadoDaAcao
-        try { r = await e.revalidar(passo, i + 1) } catch { r = { ok: false, codigo: 'erro', texto: 'não deu para conferir agora' } }
-        if (!r.ok) return falhar(textoDaRevalidacao(i + 1, r.texto, total))
+    /**
+     * O "Confirmar" na página do Palácio (já com a sessão de quem pediu, no nível das telas): COMEÇA pela transição
+     * atômica no_palacio → executando (dois cliques ou duas abas não executam duas vezes; o link só marca o uso),
+     * confere o hash, a pessoa e o espaço, e segue o mesmo caminho do "confirmo": revalida tudo, executa, redige.
+     */
+    async executarNoPalacio(e: EntradaNoPalacio): Promise<DesfechoDaConfirmacao> {
+      const linha = await repo.mudar(e.planoId, ['no_palacio'], { situacao: 'executando', atualizadoEm: iso() }, { vigenteEm: iso() })
+      if (!linha) return { tipo: 'nada', texto: textoDoPlanoQueNaoVale((await repo.buscar(e.planoId))?.situacao) }
+      const falhar = async (texto: string): Promise<DesfechoDaConfirmacao> => {
+        const final = await encerrarUm(linha.id, ['executando'], 'falhou')
+        return { tipo: 'falhou', texto, plano: final ?? linha }
       }
-
-      const resultados: (ResultadoDoPasso & { texto?: string; link?: string })[] = []
-      for (const [i, passo] of linha.passos.entries()) {
-        let r: ResultadoDaAcao
-        try { r = await e.executar(passo, i + 1) } catch { r = { ok: false, codigo: 'erro', texto: 'Erro inesperado.' } }
-        resultados.push(r.ok ? { n: i + 1, ok: true, codigo: r.codigo, ...(r.link ? { link: r.link } : {}) } : { n: i + 1, ok: false, codigo: r.codigo, texto: r.texto })
-        await repo.mudar(linha.id, ['executando'], { resultado: resultados.map(({ n, ok, codigo }) => ({ n, ok, codigo })), atualizadoEm: iso() })
-        if (!r.ok) {
-          for (let n = i + 2; n <= total; n++) resultados.push({ n, ok: false, codigo: 'nao_feito' })
-          break
-        }
-      }
-      const feitos = resultados.filter((r) => r.ok).length
-      const situacao: 'executado' | 'parcial' | 'falhou' = feitos === total ? 'executado' : feitos ? 'parcial' : 'falhou'
-      const final = await encerrarUm(linha.id, ['executando'], situacao, { resultado: resultados.map(({ n, ok, codigo }) => ({ n, ok, codigo })) })
-      return { tipo: situacao, texto: textoDoRecibo({ passos: linha.passos, resultados, urlBase: e.urlBase }), plano: final ?? linha }
+      if (naoConfere(linha, e.pessoaId, e.workspaceId)) return falhar('Nada foi feito: o plano não confere. Peça de novo se quiser.')
+      const motivo = await e.conferirIdentidade(linha)
+      if (motivo) return falhar(`Nada foi feito: ${motivo.replace(/[.\s]+$/, '')}. Peça de novo se quiser.`)
+      return executarConsumido(linha, e, falhar, false)
     },
   }
 }
