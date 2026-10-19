@@ -14,7 +14,7 @@ import { montarPaginaDoSite, escapar } from '@/lib/site/esqueleto'
 import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 import { codigoEmGrupos } from '@/lib/auditoria/catalogo'
 import {
-  CATEGORIAS, ROTULO_DA_CATEGORIA, ROTULO_DA_SITUACAO, ROTULO_DO_INSTRUMENTO, formatarCnpj, reais, tamanhoLegivel,
+  ROTULO_DA_CATEGORIA, ROTULO_DA_SITUACAO, ROTULO_DO_INSTRUMENTO, formatarCnpj, reais, tamanhoLegivel,
   type Canal, type Categoria, type Instrumento, type SituacaoDaPrestacao,
 } from './regras'
 
@@ -120,7 +120,7 @@ const CSS_DA_TRANSPARENCIA = `
 .pt h1{font-size:clamp(30px,4.6vw,46px);line-height:1.08;letter-spacing:-.6px;margin:0 0 14px;color:var(--ink)}
 .pt-compromisso{font-size:18px;line-height:1.6;max-width:62ch;margin:0 0 6px;color:#2d3748}
 .pt-atualizada{color:var(--pt-suave);font-size:14px;margin:0}
-.pt-numeros{list-style:none;padding:0;margin:26px 0 0;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.pt-numeros{list-style:none;padding:0;margin:26px 0 0;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .pt-numeros li{background:#fff;border:1px solid var(--pt-borda);border-radius:12px;padding:14px 16px}
 .pt-numeros b{display:block;font-size:26px;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
 .pt-numeros span{display:block;color:var(--pt-suave);font-size:13.5px;line-height:1.35;margin-top:4px}
@@ -291,12 +291,16 @@ function parceriaDoPortal(x: ParceriaNoPortal): string {
 export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parcerias: ParceriaNoPortal[]; agora?: Date; indexar?: boolean }): string {
   const agora = p.agora ?? new Date()
   const docsDe = (c: Categoria) => p.documentos.filter((d) => d.categoria === c)
-  const comDocumento = CATEGORIAS.filter((c) => docsDe(c).length).length
   const maisRecente = [...p.documentos].sort((a, b) => b.atual.publicadoEm.localeCompare(a.atual.publicadoEm))[0]
 
-  const grupos = GRUPOS_DO_PORTAL.map((g) => {
+  // A página pública mostra só o que tem documento (pedido do Google Ad Grants,
+  // 19/10/2026): seção vazia, lista do que "ainda não foi publicado" e o
+  // contador "X de 10 seções" liam como portal em construção. Os dados não
+  // mudam — a seção volta sozinha quando ganhar o primeiro documento. Quem
+  // procura algo que não está aqui tem o pedido de documentos no fim da página.
+  const gruposComDocumento = GRUPOS_DO_PORTAL.filter((g) => g.categorias.some((c) => docsDe(c).length) || (g.parcerias && p.parcerias.length))
+  const grupos = gruposComDocumento.map((g) => {
     const cheias = g.categorias.filter((c) => docsDe(c).length)
-    const vazias = g.categorias.filter((c) => !docsDe(c).length)
     const total = cheias.reduce((n, c) => n + docsDe(c).length, 0) + (g.parcerias ? p.parcerias.length : 0)
     const categorias = cheias.map((c) => `
         <section class="pt-categoria" id="${c}" aria-labelledby="pt-cat-${c}">
@@ -304,6 +308,9 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
           <ul class="pt-docs">${docsDe(c).map(documentoDoPortal).join('')}
           </ul>
         </section>`).join('')
+    // Sem parceria, a nota "Nenhuma parceria em vigor" continua: é informação
+    // (Lei nº 13.019/2014, art. 11), não seção vazia — e só aparece quando o
+    // grupo tem documento, portanto quando a seção está na página.
     const parcerias = !g.parcerias ? '' : p.parcerias.length ? `
         <section id="parcerias" aria-labelledby="pt-cat-parcerias">
           <h3 id="pt-cat-parcerias" class="pt-sub">Parcerias com o poder público</h3>
@@ -313,11 +320,7 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
         </section>` : `
         <div class="pt-vazio" id="parcerias"><strong>Parcerias com o poder público</strong>
           Nenhuma parceria em vigor. Quando houver, cada uma aparece aqui com os dados que a Lei nº 13.019/2014 (art. 11) manda divulgar: órgão, objeto, valores, vigência e situação da prestação de contas.</div>`
-    const vaziasHtml = vazias.length ? `
-        <p class="pt-vazios"><b>Ainda não publicados nesta seção:</b> ${vazias.map((c) => escapar(ROTULO_DA_CATEGORIA[c].nome)).join(' · ')}. Precisa de algum? Faça um <a href="/pedido-de-documentos/">pedido de documentos</a>.</p>` : ''
-    const corpoDoGrupo = cheias.length || g.parcerias
-      ? `${categorias}${parcerias}${vaziasHtml ? `<div class="pt-categoria">${vaziasHtml}</div>` : ''}`
-      : `<div class="pt-vazio"><strong>Ainda não há documentos publicados nesta seção.</strong>Aqui entram: ${vazias.map((c) => escapar(ROTULO_DA_CATEGORIA[c].nome)).join(', ')}. Precisa de algum? Faça um <a href="/pedido-de-documentos/">pedido de documentos</a>.</div>`
+    const corpoDoGrupo = `${categorias}${parcerias}`
     return {
       nav: `<li><a href="#${g.id}">${escapar(g.nome)} <span class="pt-conta">${total}</span></a></li>`,
       html: `
@@ -347,7 +350,6 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
         <p class="pt-atualizada">Atualizada em ${diaPorExtenso(agora)}.</p>
         <ul class="pt-numeros" aria-label="O portal em números">
           <li><b>${p.documentos.length}</b><span>${p.documentos.length === 1 ? 'documento publicado' : 'documentos publicados'}, todos verificáveis</span></li>
-          <li><b>${comDocumento} de ${CATEGORIAS.length}</b><span>seções com documento publicado</span></li>
           <li><b data-pt-dias>—</b><span>dias seguidos com o selo diário da trilha</span></li>
           <li><b>${maisRecente ? escapar(dia(maisRecente.atual.publicadoEm)) : '—'}</b><span>última publicação</span></li>
         </ul>
@@ -400,11 +402,12 @@ export function paginaDaTransparencia(p: { documentos: DocumentoNoPortal[]; parc
 
   return montarPaginaDoSite({
     titulo: 'Transparência',
-    descricao: 'Estatuto, diretoria, demonstrações contábeis, pareceres, relatórios e parcerias da Cruz Vermelha Brasileira — Filial do Rio de Janeiro.',
+    descricao: 'Os documentos oficiais da Cruz Vermelha Brasileira — Filial do Rio de Janeiro, cada um com impressão digital e código de verificação.',
     caminho: '/transparencia/',
     corpo,
     cssExtra: CSS_DO_PORTAL + CSS_DA_TRANSPARENCIA,
     agora,
+    ativo: 'transparencia',
     indexar: p.indexar ?? portalAberto(),
   })
 }
