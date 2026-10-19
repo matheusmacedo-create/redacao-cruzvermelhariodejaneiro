@@ -6,7 +6,7 @@ import {
 } from '@/lib/publicacao/ftp'
 import { candidatosDeIndex } from '@/lib/site/formulario-newsletter'
 import { temAnalytics } from '@/lib/site/analytics'
-import { paginaDeNoticias, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
+import { paginaDeNoticias, versoesDaCapa, type NoticiaDoIndice } from '@/lib/site/indice-noticias'
 import { fundirLinhaDoTempo, type ItemDaLinha } from '@/lib/site/linha-do-tempo'
 import { gerarSitemap, gerarRobots, paginasFixas, ORIGEM_DO_SITE, type EntradaDoMapa } from '@/lib/site/sitemap'
 import { HTACCESS_DAS_NOTICIAS } from '@/lib/site/cache-do-site'
@@ -116,6 +116,41 @@ export async function medidasDaImagemRemota(url: string, tempoLimiteMs = 3000): 
   } catch {
     return null
   }
+}
+
+/** O arquivo existe no site? HEAD rápido; qualquer falha conta como não. */
+async function existeNoSite(url: string, tempoLimiteMs = 3000): Promise<boolean> {
+  try {
+    const resposta = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(tempoLimiteMs) })
+    return resposta.ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * As medidas e as versões WebP da capa de cada matéria, para o índice servir a
+ * foto no tamanho da tela (com width/height) em vez do JPEG de 1600 px.
+ *
+ * O banco guarda só o endereço do JPEG: as medidas vêm do cabeçalho do arquivo
+ * publicado, e as versões são deduzidas do nome (versoesDaCapa) e só entram se
+ * a menor delas responder — matéria antiga, publicada antes das versões, ou
+ * foto que foi como veio, ficam com o JPEG. Tudo em paralelo e com tempo
+ * limite: uma capa que não responde sai sem as versões, não segura o índice.
+ */
+export async function prepararCapasDoIndice<T extends NoticiaDoIndice>(noticias: T[]): Promise<T[]> {
+  return Promise.all(noticias.map(async (n) => {
+    const capa = n.capa?.trim()
+    if (!capa) return n
+    let { capaLargura, capaAltura } = n
+    if (!(capaLargura && capaAltura)) {
+      const medidas = await medidasDaImagemRemota(capa)
+      if (medidas) ({ largura: capaLargura, altura: capaAltura } = medidas)
+    }
+    const versoes = versoesDaCapa(capa, capaLargura)
+    const capaVersoes = versoes.length && await existeNoSite(versoes[0].url) ? versoes : undefined
+    return { ...n, capaLargura, capaAltura, ...(capaVersoes ? { capaVersoes } : {}) }
+  }))
 }
 
 /**
@@ -262,13 +297,9 @@ export async function atualizarVitrine(
     let linhaDoTempo: ItemDaLinha[] = []
     try { linhaDoTempo = await publicacoesDaLinhaDoTempo(workspaceId) } catch { /* jornal sai sem a linha */ }
 
-    // O og:image do índice é a capa da matéria mais nova, com as medidas: as
-    // da publicação que acabou de acontecer ou, na falta, lidas do arquivo.
-    const mancheteAtual = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())[0]
-    if (mancheteAtual?.capa && !(mancheteAtual.capaLargura && mancheteAtual.capaAltura)) {
-      const medidas = await medidasDaImagemRemota(mancheteAtual.capa)
-      if (medidas) noticias = noticias.map((n) => (n === mancheteAtual ? { ...n, capaLargura: medidas.largura, capaAltura: medidas.altura } : n))
-    }
+    // As capas com medidas e versões WebP: o og:image do índice (a capa da
+    // matéria mais nova) leva as medidas, e os cartões, o srcset.
+    noticias = await prepararCapasDoIndice(noticias)
 
     // O índice mora na própria pasta de notícias (FTP_BASE_DIR).
     try {
@@ -323,7 +354,7 @@ export async function regerarMapaDoSite(
   // Sem a lista de matérias, o mapa sairia sem as notícias: melhor não mexer nele.
   const lista = noticias ?? await noticiasPublicadas(workspaceId)
   let acervo: EntradaDoMapa[] = []
-  try { acervo = entradasDoAcervoNoMapa(await itensPublicosDoAcervo(workspaceId)) } catch { /* o /acervo/ fixo continua no mapa */ }
+  try { acervo = entradasDoAcervoNoMapa(await itensPublicosDoAcervo(workspaceId)) } catch { /* o mapa sai sem o acervo desta vez */ }
   const entradas: EntradaDoMapa[] = [
     ...paginasFixas(),
     ...lista.map((n) => ({ url: n.url, modificadaEm: n.atualizadaEm })),

@@ -30,10 +30,39 @@ export type NoticiaDoIndice = {
   publicadaEm: Date
   /** Capa publicada (a mesma do og:image). Falta nas matérias sem imagem. */
   capa?: string | null
-  /** Medidas da capa, quando conhecidas — vão no og:image do índice. */
+  /** Medidas da capa, quando conhecidas — vão no og:image do índice e no width/height do cartão. */
   capaLargura?: number
   capaAltura?: number
+  /**
+   * As versões WebP da capa que a publicação gerou (imagens-da-materia.ts),
+   * da menor para a maior. Sem elas o cartão usa o JPEG canônico.
+   */
+  capaVersoes?: { largura: number; url: string }[]
 }
+
+/** As larguras das versões WebP (as mesmas de LARGURAS_WEBP em imagens-da-materia.ts, que é só do servidor). */
+const LARGURAS_DAS_VERSOES = [480, 960, 1600] as const
+
+/**
+ * Os endereços das versões WebP de uma capa, deduzidos do JPEG canônico:
+ * a publicação grava "<nome>.jpg" e, ao lado, "<nome>-<largura>.webp" para
+ * cada largura, nunca maior que a foto (uma foto de 700 px vira -480 e
+ * -700). Só vale para o JPEG que a Redação gerou e com a largura conhecida —
+ * fora disso, vazio, e quem chama confere se a menor existe antes de usar.
+ */
+export function versoesDaCapa(capa: string, largura?: number): { largura: number; url: string }[] {
+  if (!largura || !/\.jpg$/i.test(capa)) return []
+  const raiz = capa.slice(0, -'.jpg'.length)
+  return [...new Set(LARGURAS_DAS_VERSOES.map((w) => Math.min(w, largura)))].map((w) => ({ largura: w, url: `${raiz}-${w}.webp` }))
+}
+
+/**
+ * Quanto a capa ocupa na tela (a folha CSS_INDICE): a manchete tem uma coluna
+ * de .95fr ao lado do texto e vira coluna única até 860 px; os cartões da grade
+ * são 3, 2 ou 1 por linha. Folga de 24 px de cada lado (.jornal).
+ */
+const TAMANHO_DA_MANCHETE = '(max-width: 860px) calc(100vw - 48px), (max-width: 1180px) calc((100vw - 80px) * .475), 524px'
+const TAMANHO_DO_CARTAO = '(max-width: 680px) calc(100vw - 48px), (max-width: 1023px) calc((100vw - 80px) / 2), (max-width: 1180px) calc((100vw - 112px) / 3), 356px'
 
 const CSS_INDICE = `
 body{background:var(--news-paper)}
@@ -105,13 +134,22 @@ export function paginaDeNoticias(
   // sem sombra, título serifado, data pequena — filete no lugar de caixa.
   // A capa é decorativa AQUI: o título da matéria é o texto do mesmo link, e
   // repeti-lo no alt faria o leitor de tela ouvir a manchete duas vezes.
+  // A capa sai num <picture> com as versões WebP (480/960 px no celular, em
+  // vez do JPEG de 1600 px), com width/height para a página não pular
+  // enquanto as fotos chegam. Só a da manchete vem logo; as da grade, que
+  // ficam abaixo da primeira dobra no celular, esperam a rolagem.
   const capaDe = (n: NoticiaDoIndice, manchete: boolean) => {
     const url = n.capa?.trim()
     if (!url) return ''
     const carga = manchete
       ? 'fetchpriority="high" decoding="async"'   // a capa da manchete é o LCP
       : 'loading="lazy" decoding="async"'
-    return `<figure><img src="${escapar(url)}" alt="" ${carga}></figure>`
+    const medidas = n.capaLargura && n.capaAltura ? ` width="${n.capaLargura}" height="${n.capaAltura}"` : ''
+    const img = `<img src="${escapar(url)}"${medidas} alt="" ${carga}>`
+    const versoes = n.capaVersoes ?? []
+    if (!versoes.length) return `<figure>${img}</figure>`
+    const srcset = versoes.map((v) => `${escapar(v.url)} ${v.largura}w`).join(', ')
+    return `<figure><picture><source type="image/webp" srcset="${srcset}" sizes="${manchete ? TAMANHO_DA_MANCHETE : TAMANHO_DO_CARTAO}">${img}</picture></figure>`
   }
 
   const miolo = !manchete

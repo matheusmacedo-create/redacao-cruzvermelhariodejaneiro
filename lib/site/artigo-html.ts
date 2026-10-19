@@ -349,6 +349,11 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   const corpoBlocos = iCapa >= 0 ? blocos.filter((_, i) => i !== iCapa) : blocos
   const arquivoDaCapa = blocoCapa ? arquivos.get(blocoCapa.url) : undefined
   const htmlDaCapa = blocoCapa && arquivoDaCapa ? renderMidia(blocoCapa, arquivoDaCapa, ctx, 'news-hero') : ''
+  // A foto de abertura é o LCP da matéria: o <head> já pede a versão certa
+  // para a largura da tela, antes de o navegador chegar ao <picture>.
+  const imagemPrioritaria = blocoCapa?.type === 'image' && arquivoDaCapa?.webp?.length
+    ? { srcset: arquivoDaCapa.webp.map((v) => `${v.nome} ${v.largura}w`).join(', '), sizes: TAMANHOS, tipo: 'image/webp' }
+    : undefined
   const htmlDoCorpo = renderBlocos(corpoBlocos, ctx, dados.rastreio?.botao)
 
   // As fotos da página, na ordem, com o endereço público e as medidas. A
@@ -458,7 +463,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
             <li>A filial forma os próprios voluntários, na sede, no Centro do Rio.</li>
           </ul>
         </section>
-        <p class="rail-cta"><a href="/#contato">Seja voluntário no Rio →</a></p>
+        <p class="rail-cta"><a href="/voluntariado/">Seja voluntário no Rio →</a><br><a href="/doe/">Doe para a filial →</a></p>
       </aside>`
 
   const maisNoticias = daFaixa.length
@@ -525,6 +530,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     modificadoEm,
     classeDoCorpo: 'single-noticia',
     scriptsDoFim: scripts,
+    ...(imagemPrioritaria ? { imagemPrioritaria } : {}),
     ...(dados.chat !== undefined ? { chat: dados.chat } : {}),
   })
 }
