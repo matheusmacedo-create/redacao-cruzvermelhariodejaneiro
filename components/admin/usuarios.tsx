@@ -547,7 +547,9 @@ function detalheDoEvento(e: EventoNaTela): string {
   const papel = (v: unknown) => (typeof v === 'string' && v in PAPEL ? PAPEL[v as Papel].rotulo : String(v ?? '—'))
   if (e.acao === 'papel_alterado') return `${papel(d.de)} → ${papel(d.para)}`
   if (e.acao === 'coordenacao_alterada') return `${d.de || 'sem coordenação'} → ${d.para || 'sem coordenação'}`
-  if (e.acao === 'usuario_criado' || e.acao === 'vinculo_criado') return papel(d.papel)
+  // A conta pedida pelo WhatsApp do Palácio (e confirmada no Palácio) grava origem "whatsapp" (lib/contas/cadastro.ts).
+  if (e.acao === 'usuario_criado') return d.origem === 'whatsapp' ? `${papel(d.papel)} · pedido pelo WhatsApp` : papel(d.papel)
+  if (e.acao === 'vinculo_criado') return papel(d.papel)
   if (e.acao === 'dados_alterados') return `nome: ${d.nome_anterior} → ${d.nome_novo}`
   // Os números já foram gravados mascarados.
   if (e.acao === 'whatsapp_confirmado') return d.anterior ? `${d.anterior} → ${d.numero}` : String(d.numero ?? '')

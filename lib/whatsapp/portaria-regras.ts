@@ -425,10 +425,11 @@ export const dadosRedigidos = (d: unknown): DadosDaVisita => {
 
 /**
  * A pergunta que nunca espera na fila (bot.ts, enviar): a do registro da visita leva o telefone do visitante (na
- * autorização e na conferência), e whatsapp_fila guardaria o texto sem prazo. Sem fila, ela sai na hora ou não sai
- * (a pessoa manda de novo); a pendência fica guardada do mesmo jeito.
+ * autorização e na conferência), e a do cadastro de colaborador, o e-mail e o WhatsApp mascarados da pessoa nova
+ * (lib/whatsapp/colaborador.ts); whatsapp_fila guardaria o texto sem prazo. Sem fila, ela sai na hora ou não sai (a
+ * pessoa manda de novo); a pendência fica guardada do mesmo jeito.
  */
-export const perguntaSemFila = (tipo: string | null | undefined): boolean => tipo === 'registrar_visita'
+export const perguntaSemFila = (tipo: string | null | undefined): boolean => tipo === 'registrar_visita' || tipo === 'cadastrar_colaborador'
 
 // ------------------------------------------------------------------ a ficha de quem é visitado
 

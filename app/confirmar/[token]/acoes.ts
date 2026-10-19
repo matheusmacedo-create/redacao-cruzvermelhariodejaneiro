@@ -11,6 +11,7 @@ import {
 import { executar, faltaNaConferencia, foraDoAcessoDaEscola, linkDaConfirmacao, type QuemConfirma } from '@/lib/whatsapp/confirmar-no-palacio'
 import { executarPlanoNoPalacio as executarPlano } from '@/lib/whatsapp/assistente/palacio'
 import type { Confirmacao } from '@/lib/whatsapp/confirmacoes'
+import type { AjustesDoCadastro } from '@/lib/whatsapp/colaborador-regras'
 
 export type ResultadoDaConfirmacao = { erro?: string; feito?: string; link?: string }
 
@@ -23,9 +24,11 @@ const paraATela = (texto: string) => texto.replace(/\*/g, '')
  * requireWorkspace), dentro dos 15 minutos e uma vez só. Gasta o link antes
  * de executar (dois cliques: só um passa) e executa pela função da tela de
  * cada área; grava o resultado, deixa a linha no histórico e responde pelo
- * WhatsApp. A conferência do voto é conferida antes de gastar o link.
+ * WhatsApp. A conferência do voto é conferida antes de gastar o link; no
+ * cadastro de colaborador, o pedido com o usuário e o papel escolhidos na tela
+ * (`ajustes`) também — o que não serve volta sem gastar o link.
  */
-export async function confirmarNoPalacio(token: string, conferidos: string[] = []): Promise<ResultadoDaConfirmacao> {
+export async function confirmarNoPalacio(token: string, conferidos: string[] = [], ajustes: AjustesDoCadastro | null = null): Promise<ResultadoDaConfirmacao> {
   try {
     const context = await obterWorkspaceSemVerificacao()
     if (!context || context.profile?.trocar_senha || context.verificacao !== 'em_dia') return { erro: 'A sua sessão não está em dia. Entre no Palácio e abra o link de novo.' }
@@ -41,22 +44,27 @@ export async function confirmarNoPalacio(token: string, conferidos: string[] = [
     const conferencia = (Array.isArray(conferidos) ? conferidos : []).map(String).slice(0, 50)
     // O plano do assistente tem o caminho dele: os passos pela sessão, começando pela transição atômica do plano.
     if (c.acao === 'plano') return executarPlanoNoPalacio(supabase, c, quem, conferencia)
-    const falta = await faltaNaConferencia(supabase, c, quem, conferencia)
+    // Só o usuário e o papel, como texto (o resto do pedido vem do link, nunca do navegador).
+    const escolha: AjustesDoCadastro | null = c.acao === 'cadastrar_colaborador' && ajustes && typeof ajustes === 'object'
+      ? { usuario: typeof ajustes.usuario === 'string' ? ajustes.usuario.slice(0, 60) : undefined, papel: typeof ajustes.papel === 'string' ? ajustes.papel.slice(0, 30) : undefined }
+      : null
+    const falta = await faltaNaConferencia(supabase, c, quem, conferencia, escolha)
     if (falta) return { erro: falta }
 
     const admin = createAdminClient()
+    // `c` (com os dados do link) foi lido antes: ao gastar, o banco tira o contato do cadastro de colaborador da linha.
     if (!await consumirConfirmacao(admin, c.id, context.user.id)) return { erro: 'Este link já foi usado ou venceu.' }
-    const r = await executar(supabase, c, quem, conferencia)
-    await registrarResultado(admin, c.id, `${r.ok ? 'Feito' : 'Recusado'}: ${r.mensagem}`)
+    const r = await executar(supabase, c, quem, conferencia, escolha)
+    await registrarResultado(admin, c.id, `${r.ok ? 'Feito' : 'Recusado'}: ${paraATela(r.mensagem)}`)
     // No diário do espaço, como as outras ações (o painel não mostra esta linha: fraseDaAtividade não a conhece).
     const { error } = await admin.from('activity_log').insert({
       workspace_id: c.workspaceId, actor_id: context.user.id, action: r.ok ? 'whatsapp_confirmado' : 'whatsapp_confirmacao_recusada',
-      entity_type: 'whatsapp_confirmacao', entity_id: c.id, metadata: { acao: c.acao, alvo_id: c.alvoId, resultado: r.mensagem.slice(0, 300) },
+      entity_type: 'whatsapp_confirmacao', entity_id: c.id, metadata: { acao: c.acao, alvo_id: c.alvoId, resultado: paraATela(r.mensagem).slice(0, 300) },
     })
     if (error) console.error('[confirmar] histórico não gravado:', error.message)
     await avisarResultadoPeloWhatsapp(admin, c.workspaceId, context.user.id,
       r.ok ? `Feito no Palácio: ${r.mensagem}\n\n${urlBase()}${link}` : `Não deu para confirmar no Palácio: ${r.mensagem}\n\n${urlBase()}${link}`)
-    return r.ok ? { feito: r.mensagem, link } : { erro: r.mensagem, link }
+    return r.ok ? { feito: paraATela(r.mensagem), link } : { erro: paraATela(r.mensagem), link }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível confirmar.') }
   }
