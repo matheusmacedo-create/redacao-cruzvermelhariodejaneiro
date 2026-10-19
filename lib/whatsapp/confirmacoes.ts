@@ -25,6 +25,10 @@ import { CONFIRMACAO_VALE_MIN } from './regras'
  * despesa ou compra — vira um link só, e a página executa os passos pela
  * sessão (lib/whatsapp/assistente/palacio.ts). O alvo é o próprio plano.
  *
+ * O cadastro de colaborador (acao "cadastrar_colaborador", migração 20261019050000: lib/whatsapp/colaborador.ts)
+ * também: a conta só nasce confirmada no Palácio. Ela ainda não existe, então o alvo é a ficha do RH reaproveitada
+ * ou um id só do pedido; o e-mail e o WhatsApp da pessoa nova ficam nos dados até o link ser usado (o banco os tira).
+ *
  * O link:
  *  - é de uso único: a gravação de `usado_em` é condicional, e só uma
  *    confirmação passa (consumirConfirmacao);
@@ -40,7 +44,7 @@ import { CONFIRMACAO_VALE_MIN } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
-export type AcaoConfirmavel = 'decidir_despesa' | 'decidir_compra' | 'votar_aprovacao' | 'desativar_conta' | 'plano'
+export type AcaoConfirmavel = 'decidir_despesa' | 'decidir_compra' | 'votar_aprovacao' | 'desativar_conta' | 'plano' | 'cadastrar_colaborador'
 
 export type Confirmacao = {
   id: string
@@ -55,7 +59,7 @@ export type Confirmacao = {
   resultado: string | null
 }
 
-const ACOES: readonly AcaoConfirmavel[] = ['decidir_despesa', 'decidir_compra', 'votar_aprovacao', 'desativar_conta', 'plano']
+const ACOES: readonly AcaoConfirmavel[] = ['decidir_despesa', 'decidir_compra', 'votar_aprovacao', 'desativar_conta', 'plano', 'cadastrar_colaborador']
 
 /** No máximo tantos links por pessoa por hora: o WhatsApp não vira fábrica de links. */
 const LINKS_POR_HORA = 20

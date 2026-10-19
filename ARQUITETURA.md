@@ -343,7 +343,9 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   dele. É o mesmo caminho que vai criar a conta pedida pelo WhatsApp e
   confirmada no Palácio (§8.5, "Cadastro de colaborador pelo WhatsApp"):
   `cadastrar` aceita o usuário escolhido na confirmação (`usuario`) e recusa o
-  papel de administrador (`semAdmin`).
+  papel de administrador (`semAdmin`). A conversa no WhatsApp
+  (`lib/whatsapp/colaborador.ts`) só junta o pedido e manda o link: não cria
+  conta.
 - **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
   papel alterado, conta desativada/reativada, e-mail trocado, WhatsApp trocado
   ou removido e entrada bloqueada por tentativas erradas. Vão ao e-mail
@@ -2201,7 +2203,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   `frota.ts` (a frota agora e o diário de bordo), `estoque.ts` (o saldo de um material),
   `confirmacoes.ts` (o link de confirmar no Palácio),
   `confirmar-no-palacio.ts` (a tela do link: o que vai ser feito e a execução), `protecao.ts` (o “Não fui eu”),
-  `admin.ts` (os comandos da administração), `estado.ts` (estado da conexão e alertas da rotina),
+  `admin.ts` (os comandos da administração), `colaborador.ts` (o cadastro de colaborador em etapas, até o link),
+  `colaborador-regras.ts` (puro: as etapas e o resumo — `npx tsx scripts/conferir-colaborador.ts`),
+  `colaborador-faxina.ts` (o contato da pessoa nova que venceu sai do banco), `estado.ts` (estado da conexão e alertas da rotina),
   `confirmacao.ts` (a gravação da confirmação do número, a mesma para a tela e o bot),
   `app/actions/whatsapp.ts`, `app/api/webhooks/whatsapp` e `app/confirmar/[token]`.
 - **Confirmação do número (18/10/2026):** dois caminhos, nos mesmos limites (3 códigos a cada 30 min,
@@ -2409,8 +2413,9 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 - **Confirmar no Palácio (18/10/2026)** (`lib/whatsapp/confirmacoes.ts`, tela `app/confirmar/[token]`,
   tabela `whatsapp_confirmacoes`, migração `20261018223000`): o que é sensível e foi pedido pelo WhatsApp
   não acontece no bot — decidir uma despesa (`decidir_despesa`) ou uma compra (`decidir_compra`), o voto
-  de quem usa a verificação em duas etapas (`votar_aprovacao`) e o “desativar conta:” de quem gerencia
-  usuários (`desativar_conta`). O bot responde com “Confirme no Palácio: <link>”
+  de quem usa a verificação em duas etapas (`votar_aprovacao`), o “desativar conta:” de quem gerencia
+  usuários (`desativar_conta`) e o cadastro de colaborador (`cadastrar_colaborador`, migração `20261019050000`).
+  O bot responde com “Confirme no Palácio: <link>”
   (`textoDoLinkDeConfirmacao`). O link: código de 32 bytes (base64url), no banco só o sha-256 com prefixo
   próprio (`hashDaConfirmacao`); vale 15 min (`CONFIRMACAO_VALE_MIN`); uso único (`consumirConfirmacao`,
   UPDATE condicional: dois cliques, só um passa); amarrado a quem pediu (a tela lê pela sessão, e a
@@ -2447,19 +2452,47 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   outros, “desativar” continua pausando os avisos) acha a pessoa ativa (`acharPeloNome`, com o usuário
   como apelido; a própria pessoa fica de fora) e responde com o link; mais de uma, a lista com os
   usuários. A desativação é a da tela, ao confirmar.
-- **Cadastro de colaborador pelo WhatsApp (em construção, 19/10/2026):** para quem tem `usuarios.gerenciar`,
-  a conversa “colaborador: Nome” vai guardar as etapas em `whatsapp_pendencias` (tipo `cadastrar_colaborador`) e
-  terminar no link de confirmar (`whatsapp_confirmacoes`, ação `cadastrar_colaborador`; o alvo é a ficha do RH
-  reaproveitada ou um id novo do pedido, porque a conta ainda não existe). A conta só nasce confirmada no Palácio,
-  pelo núcleo do cadastro (`cadastrar` em `lib/contas/cadastro.ts`, §5), nunca com o papel de administrador. Já
-  está pronta a fundação: a migração `20261019050000` (o tipo e a ação, lidos das restrições em vigor e só
-  acrescentados, e o gatilho `private.whatsapp_cadastro_sem_contato`, que tira o e-mail e o WhatsApp da pessoa
-  nova — as chaves `email` e `whatsapp`, `CHAVES_DE_CONTATO` — dos dados da pergunta quando ela se encerra e do
-  link quando ele é usado ou substituído; o que vence sem encerrar fica para a faxina do servidor) e as regras e
-  textos puros (`lib/contas/cadastro-regras.ts`: o contato mascarado com `mascararEmail` e `mascararNumero`, o
-  resumo `linhasDoCadastro` e o resultado `textoDoResultadoDoCadastro`). Teste do banco:
-  `supabase/tests/whatsapp-cadastro-colaborador.test.sql`. A conversa e o ramo da página de confirmar vêm
-  depois; até lá, nada muda para quem usa o WhatsApp.
+- **Cadastro de colaborador pelo WhatsApp (19/10/2026)** (`lib/whatsapp/colaborador.ts`, regras puras em
+  `lib/whatsapp/colaborador-regras.ts` — `npx tsx scripts/conferir-colaborador.ts`): para quem tem
+  `usuarios.gerenciar` e pode agir pelo WhatsApp (`podeAgirPeloWhatsapp`; com a verificação em duas etapas, vai a
+  tela), `colaborador: <nome>` (também “novo colaborador”, “cadastrar colaborador”; `lerColaborador` — “colaborador”
+  sozinho no começo só com os dois-pontos; para os outros, não é comando; sem o nome, o bot pergunta) é a semântica
+  de “Adicionar pessoas” para UMA pessoa, em etapas guardadas em `whatsapp_pendencias` (tipo
+  `cadastrar_colaborador`): o nome (nome e sobrenome, sem número nem pergunta) → a busca na equipe (o Diretório
+  montado pelo serviço com `montarDiretorio`: as contas do espaço, as fichas do RH sem login e a lista oficial;
+  `quemTemONome`) — quem JÁ tem conta com o nome igual para o cadastro, sem duplicar (com o caminho do convite
+  pendente ou da reativação); quem está sem acesso com o nome (igual ou pelo começo das palavras, até 9) vira o
+  “é esta pessoa?” (botões com uma, lista com “Outra pessoa” com várias), e a escolhida reaproveita a ficha e o
+  nome do RH → e-mail (`emailValido`; o em uso por outra conta volta, como na tela) → WhatsApp (`numeroCanonico`;
+  ligado a outra conta é só aviso, que vai ao recibo e ao resumo) — um dos dois, porque o convite precisa de um
+  canal (sem e-mail, o endereço escrito na pergunta do WhatsApp vale; só e-mail sem o Resend, pede o WhatsApp) —
+  → coordenação (a lista oficial `nomesDosSetores`, pelo número ou pelo nome; como lista do WhatsApp quando cabe,
+  senão numerada no texto com os botões; “Sem coordenação” vale) → cargo → papel (o sugerido pela coordenação,
+  `papelSugerido` com `semAdmin`; três botões; administrador recusado: só pela tela) → com WhatsApp, o pedido da
+  ficha do RH no convite. Da ficha escolhida, “Usar o da ficha” pega o e-mail, o celular, a coordenação e o cargo:
+  o e-mail e o celular são lidos dela na hora (`contatoDaFicha`), nunca guardados antes da escolha. “Pular” e
+  “Cancelar” onde cabe; o “não” responde (outra pessoa, sem e-mail, sem WhatsApp, sem cargo, não pedir a ficha)
+  nas etapas de `ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE`. As perguntas nunca esperam na fila (`perguntaSemFila`).
+  O bot NÃO cria nada: no fim, a pergunta encerra (só uma entrega passa), o pedido passa por `conferirCadastro`
+  (os canais ligados agora, `semAdmin`), o usuário sugerido sai de `usuarioLivre` (como a tela gera) e vai o
+  resumo mascarado (`oQueDoCadastro`: `linhasDoCadastro`, `mascararEmail`, `mascararNumero`) com o link de
+  confirmar (`whatsapp_confirmacoes`, ação `cadastrar_colaborador`, 15 min, uso único; os dados levam o pedido de
+  “Adicionar pessoas”, o usuário sugerido e o contato nas chaves `email` e `whatsapp`; o alvo é a ficha
+  reaproveitada ou um id novo, porque a conta ainda não existe), que sai na hora (`Resposta.semFila`). A conta só
+  vai nascer confirmada no Palácio, pelo núcleo do cadastro (`cadastrar` em `lib/contas/cadastro.ts`, §5, com
+  `semAdmin`). Até o ramo da página de confirmar ficar pronto, `descrever` e `executar` recusam a ação (“cadastre
+  pela tela”) antes de cair no ramo de desativar conta. Sem a migração `20261019050000`, o banco recusa a pergunta
+  e o bot responde que o cadastro é pela tela “Adicionar pessoas”, com o link.
+  Privacidade: o e-mail e o WhatsApp da pessoa nova vivem só nos dados da pergunta e do link. O gatilho
+  `private.whatsapp_cadastro_sem_contato` (migração `20261019050000`) tira as chaves `email` e `whatsapp`
+  (`CHAVES_DE_CONTATO`) quando a pergunta se encerra (por qualquer caminho, inclusive os que encerram todas as
+  perguntas da pessoa) e quando o link é usado ou substituído; o que vence sem encerrar sai pela faxina
+  (`redigirCadastrosEncerrados`, `lib/whatsapp/colaborador-faxina.ts`: a pergunta fica só com a etapa, o link
+  vencido perde o contato), no começo e no fim de cada cadastro e quando a fila anda (no máximo a cada 30 s). Nos
+  textos, só mascarado; nada disso vai a `whatsapp_mensagens` (só o comando) nem a log. O menu de quem gerencia
+  usuários ganha a linha `LINHA_DO_CADASTRO` (só no corpo: pede texto). O assistente não tem ferramenta para isso
+  (o teto é 20): o prompt manda ensinar o `colaborador:` e o nome. Teste do banco:
+  `supabase/tests/whatsapp-cadastro-colaborador.test.sql`.
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

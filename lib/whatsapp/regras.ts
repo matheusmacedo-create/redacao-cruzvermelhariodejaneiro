@@ -1225,7 +1225,7 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 
 export type Comando =
   | 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado'
-  | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta'
+  | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta' | 'cadastrar_colaborador'
   | 'presenca' | 'frota' | 'saida_veiculo' | 'retorno_veiculo' | 'estoque' | ComandoDaAdministracao | 'desconhecido'
 
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
@@ -1357,8 +1357,9 @@ function depoisDe(entrada: string, prefixo: RegExp): string {
  * toner"). O "3" do menu alterna: para quem recebe, é parar; para quem
  * pausou, é voltar. "status" e "fila" são só de quem administra o espaço
  * (`admin`); para o resto seguem o caminho de sempre e dão "desconhecido".
- * "desativar conta: …" é só de quem gerencia usuários (`usuarios`); para o
- * resto, "desativar" continua pausando os avisos, como sempre. "saída…" e
+ * "desativar conta: …" e "colaborador: …" são só de quem gerencia usuários
+ * (`usuarios`); para o resto, "desativar" continua pausando os avisos, como
+ * sempre, e "colaborador" não é comando. "saída…" e
  * "retorno…" são só de quem opera a frota (`frota`); para o resto, "sair
  * com…" pausa e "volta…" retoma, como sempre.
  */
@@ -1382,6 +1383,9 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   if (p.usuarios) {
     const nome = lerDesativarConta(entrada)
     if (nome !== null) return { comando: 'desativar_conta', resto: nome }
+    // O cadastro de colaborador: o nome é opcional (o bot pergunta), e a conta só nasce confirmada no Palácio.
+    const colaborador = lerColaborador(entrada)
+    if (colaborador !== null) return { comando: 'cadastrar_colaborador', resto: colaborador }
   }
   // As outras áreas: a chamada da ação de hoje, a frota, o diário de bordo (só de quem opera) e o saldo do estoque.
   if (DA_PRESENCA.has(t)) return { comando: 'presenca', resto: '' }
@@ -1496,9 +1500,13 @@ const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`
  * O que muda o menu de cada pessoa: quem administra (status e fila), quem tem a portaria, quem atende chamados,
  * quem decide despesas ou compras (`financeiro`: a mesma permissão das telas, lib/whatsapp/financeiro.ts), quem
  * coordena as oportunidades do Voluntariado (`presenca`), quem vê ou opera a Frota (`frota`) e quem vê o
- * Estoque (`estoque`) — cada um com a permissão da tela da área.
+ * Estoque (`estoque`) — cada um com a permissão da tela da área — e quem gerencia usuários (`usuarios`).
  */
-export type QuemNoMenu = { admin?: boolean; portaria?: boolean; atende?: boolean; financeiro?: boolean; presenca?: boolean; frota?: 'ver' | 'operar' | null; estoque?: boolean }
+export type QuemNoMenu = {
+  admin?: boolean; portaria?: boolean; atende?: boolean; financeiro?: boolean; presenca?: boolean; frota?: 'ver' | 'operar' | null; estoque?: boolean
+  /** Quem gerencia usuários ("usuarios.gerenciar"): o "colaborador:" (lib/whatsapp/colaborador.ts). */
+  usuarios?: boolean
+}
 
 /** As linhas das áreas no "Ou escreva", uma por área (a forma longa). */
 function linhasDasAreas(p: QuemNoMenu): string[] {
@@ -1531,6 +1539,9 @@ function linhaCurtaDasAreas(p: QuemNoMenu): string | null {
 /** A linha do menu de quem tem o assistente ligado (lib/whatsapp/assistente): escrever do jeito da pessoa. */
 export const LINHA_DO_ASSISTENTE = 'Ou escreva do seu jeito, ex.: _o que tenho pra aprovar?_, _avisa a Ana que…_'
 
+/** A linha de quem gerencia usuários no menu: o cadastro pede texto (o nome), então fica só no corpo, não na lista. */
+export const LINHA_DO_CADASTRO = '*colaborador:* e o nome, para cadastrar alguém (a conta nasce confirmada no Palácio)'
+
 export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; naoEntendi?: boolean; assistente?: boolean } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   const montar = (areas: string[]) => [
@@ -1541,7 +1552,7 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_)',
       ...areas, 'Para responder um aviso, responda a própria mensagem dele.'].join('\n'),
     p.assistente ? LINHA_DO_ASSISTENTE : null,
-    p.admin ? ['Da administração:', ...OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu)].join('\n') : null,
+    p.admin || p.usuarios ? ['Da administração:', ...(p.admin ? OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu) : []), ...(p.usuarios ? [LINHA_DO_CADASTRO] : [])].join('\n') : null,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
   const longo = montar(linhasDasAreas(p))
@@ -2190,6 +2201,22 @@ export function textoDeQuemDesativar(opcoes: { nome: string; usuario: string }[]
     opcoes.map((o) => `• ${limpo(o.nome, 80)} (${limpo(o.usuario, 40)})`).join('\n'),
     'Escreva *desativar conta:* e o usuário de quem vai perder o acesso.',
   ].join('\n\n')
+}
+
+// ------------------------------------------------------------------ cadastrar colaborador (quem gerencia usuários)
+
+/**
+ * "colaborador: Ana Lima", "novo colaborador Ana Lima", "cadastrar colaborador", "nova colaboradora: …": o nome
+ * (pode vir vazio: o bot pergunta). "colaborador" sozinho no começo só com os dois-pontos (ou sozinho): "colaborador
+ * do mês saiu?" não é cadastro. Só de quem gerencia usuários (lerPedido, `usuarios`); as etapas ficam em
+ * lib/whatsapp/colaborador-regras.ts. null quando não é isto.
+ */
+const CADASTRAR_COLABORADOR = /^\s*(?:(?:novo|nova)\s+colaborador(?:a)?|cadastrar\s+(?:o\s+|a\s+|um\s+|uma\s+)?(?:(?:novo|nova)\s+)?colaborador(?:a)?|colaborador(?:a)?\s*(?=:|$))(?![\p{L}\d])[\s:,.;\-–—]*/iu
+
+export function lerColaborador(entrada: string): string | null {
+  const t = String(entrada ?? '').slice(0, 300)
+  const m = CADASTRAR_COLABORADOR.exec(t)
+  return m ? t.slice(m[0].length).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120) : null
 }
 
 // ------------------------------------------------------------------ "Não fui eu" (lib/whatsapp/protecao.ts)

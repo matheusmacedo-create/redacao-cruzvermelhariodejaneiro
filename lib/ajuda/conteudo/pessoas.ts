@@ -15,7 +15,8 @@ import type { GuiaDaArea } from '../tipos'
  *   lib/pessoas/diretorio.ts, perfil.ts e perfil-servidor.ts,
  *   app/actions/usuarios.ts (convidarEmLote, reenviarConvite,
  *   cancelarConvite), o núcleo do cadastro (lib/contas/cadastro.ts e
- *   cadastro-regras.ts), app/actions/setores.ts e setor_salvar
+ *   cadastro-regras.ts; pelo WhatsApp, lib/whatsapp/colaborador.ts e
+ *   colaborador-regras.ts), app/actions/setores.ts e setor_salvar
  *   (*_cvrj_diretorio.sql); validade do convite em lib/contas/servidor.ts;
  * - Recursos humanos: app/(app)/equipe/**, components/app/equipe/**,
  *   lib/rh/regras.ts e acesso.ts, app/actions/equipe.ts,
@@ -392,6 +393,12 @@ const DIRETORIO: GuiaDaArea = {
       pergunta: 'Por que não vejo “Adicionar pessoas”?',
       resposta: 'Dar acesso ao Palácio Virtual é só de administradores. Se alguém precisa de login, peça a um administrador.',
       termos: ['convidar', 'criar usuário', 'novo login'],
+    },
+    {
+      id: 'cadastrar-pelo-whatsapp',
+      pergunta: 'Dá para cadastrar alguém pelo WhatsApp do Palácio?',
+      resposta: 'Dá começar por lá, para quem gerencia os usuários (os administradores) com o WhatsApp confirmado em “Meu perfil”: mande “colaborador:” e o nome completo (ex.: “colaborador: Ana Paula Lima”). O Palácio pergunta uma coisa por vez, como “Adicionar pessoas” faz: se é alguém da equipe que ainda está sem acesso (aí a ficha do RH é aproveitada), o e-mail, o WhatsApp da pessoa (um dos dois é obrigatório, porque o convite precisa de um caminho), a coordenação (ou “Sem coordenação”), o cargo, o papel (o sugerido pela coordenação; administrador só por aqui, na tela) e, com WhatsApp, se o pedido para completar a ficha vai junto do convite. “Pular” e “Cancelar” valem nas perguntas.\n\nNo fim chega o resumo, com o e-mail e o número escondidos no meio e o usuário sugerido, e o link “Confirme no Palácio”, que vale 15 minutos e uma vez só. Nada é criado antes: a conta só nasce quando você confirma no Palácio, logado, e aí o convite sai como sai daqui. Se o nome já é de alguém com conta, o cadastro para, para não duplicar. Com a verificação em duas etapas, o cadastro é só por esta tela.',
+      termos: ['cadastrar pelo whatsapp', 'colaborador:', 'novo colaborador', 'criar conta pelo whatsapp', 'dar acesso pelo whatsapp', 'whatsapp'],
     },
     {
       id: 'convite-nao-chegou',

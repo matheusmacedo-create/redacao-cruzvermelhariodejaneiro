@@ -19,6 +19,7 @@ import {
 import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
+import { comecarCadastro } from './colaborador'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -64,8 +65,9 @@ type Admin = ReturnType<typeof createAdminClient>
  * opera registra a saída e o retorno (lib/whatsapp/frota.ts); quem vê o
  * Estoque consulta o saldo de um material (lib/whatsapp/estoque.ts). O
  * que é sensível — decidir, o voto de quem usa a verificação em duas etapas,
- * desativar uma conta — sai daqui como um link de confirmar no Palácio
- * (lib/whatsapp/confirmacoes.ts). Quem não é recebe uma apresentação (no
+ * desativar uma conta, cadastrar um colaborador (as etapas em
+ * lib/whatsapp/colaborador.ts) — sai daqui como um link de confirmar no
+ * Palácio (lib/whatsapp/confirmacoes.ts). Quem não é recebe uma apresentação (no
  * máximo uma por dia) com o caminho dos canais oficiais: este número não é
  * atendimento ao público.
  *
@@ -295,7 +297,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
     const enviar = async (r: Resposta) => {
       if (!r.pergunta || !pessoa) {
-        await responder(r.texto)
+        // O link de confirmar no Palácio (o cadastro de colaborador) sai na hora, como os links da conta.
+        await responder(r.texto, r.semFila ? { categoria: 'conta', semFila: true } : {})
         return
       }
       const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
@@ -510,6 +513,15 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // O cadastro de colaborador é de quem gerencia usuários (lerPedido já filtra; comecarCadastro confere de novo).
+    if (comando === 'cadastrar_colaborador' && pedido) {
+      const resposta = await comecarCadastro(admin, workspaceId, pessoa, pedido.resto, base)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
     if (comando === 'desativar_conta' && pedido) {
       const resposta = await pedirDesativacao(admin, workspaceId, pessoa, pedido.resto, base)
       if (resposta) {
@@ -649,7 +661,7 @@ export async function quemNoMenu(admin: Admin, workspaceId: string, pessoa: Pess
   ])
   return {
     admin: ehAdministracao(pessoa), portaria: temPortaria(pessoa), atende, financeiro, presenca,
-    frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1,
+    frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1, usuarios: gerenciaUsuarios(pessoa),
   }
 }
 

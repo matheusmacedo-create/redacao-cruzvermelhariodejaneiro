@@ -52,18 +52,22 @@ export function linkDaConfirmacao(c: Pick<Confirmacao, 'acao' | 'alvoId'>): stri
   if (c.acao === 'votar_aprovacao') return `/aprovacoes/${c.alvoId}`
   // O plano do assistente não tem uma tela só: o início (cada passo tem o link dele no recibo).
   if (c.acao === 'plano') return '/dashboard'
+  if (c.acao === 'cadastrar_colaborador') return '/pessoas/adicionar'
   return '/usuarios'
 }
 
 /** Ações que ficam fora do portão da equipe da Escola (Aprovações e Usuários): para ela, a confirmação não abre. */
 export const foraDoAcessoDaEscola = (c: Pick<Confirmacao, 'acao'>, papel: Papel) =>
-  ehEquipeDaEscola(papel) && (c.acao === 'votar_aprovacao' || c.acao === 'desativar_conta' || c.acao === 'plano')
+  ehEquipeDaEscola(papel) && (c.acao === 'votar_aprovacao' || c.acao === 'desativar_conta' || c.acao === 'plano' || c.acao === 'cadastrar_colaborador')
 
 /** O que vai ser feito, ou por que não dá mais (já decidido, fora do acesso). */
 export async function descrever(supabase: SupabaseClient, admin: Admin, c: Confirmacao, quem: QuemConfirma): Promise<Descricao | { erro: string; link: string }> {
   const link = linkDaConfirmacao(c)
   // O plano do assistente tem a página e a execução dele (lib/whatsapp/assistente/palacio.ts): nunca cai nos ramos daqui.
   if (c.acao === 'plano') return { erro: 'Este link é de um plano do assistente.', link }
+  // O cadastro de colaborador pedido pelo WhatsApp: a confirmação dele ainda não está nesta tela. Nunca cai no ramo de
+  // desativar conta: até lá, o cadastro é pela tela "Adicionar pessoas".
+  if (c.acao === 'cadastrar_colaborador') return { erro: 'A confirmação do cadastro pelo WhatsApp ainda não está ligada. Cadastre pela tela "Adicionar pessoas".', link }
   const d = c.dados
   const nomeDe = async (id: string | null | undefined) => {
     if (!id) return null
@@ -185,6 +189,7 @@ export async function faltaNaConferencia(supabase: SupabaseClient, c: Confirmaca
 export async function executar(supabase: SupabaseClient, c: Confirmacao, quem: QuemConfirma, conferidos: string[]): Promise<{ ok: boolean; mensagem: string }> {
   // O plano do assistente executa pelos passos dele (lib/whatsapp/assistente/palacio.ts), nunca pelo ramo de desativar conta.
   if (c.acao === 'plano') return { ok: false, mensagem: 'Este link é de um plano do assistente.' }
+  if (c.acao === 'cadastrar_colaborador') return { ok: false, mensagem: 'A confirmação do cadastro pelo WhatsApp ainda não está ligada. Cadastre pela tela "Adicionar pessoas".' }
   const d = c.dados
   if (c.acao === 'decidir_despesa') {
     const aprovar = d.aprovar === true

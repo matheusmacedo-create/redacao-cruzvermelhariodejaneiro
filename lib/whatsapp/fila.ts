@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp, type OpcoesDoEnvio } from './servidor'
 import { registrarEstado } from './estado'
 import { redigirVencidos } from './assistente/faxina'
+import { redigirCadastrosEncerrados } from './colaborador-faxina'
 import {
   BOTAO_DO_NAO_FUI_EU, INTERVALO_ENTRE_ENVIOS_MS, MARCA_DO_NAO_FUI_EU, TETO_POR_MINUTO, emSilencio, esperaPelaCota, falhaDerrubaConexao, falhaMereceReenvio,
   fimDaEsperaDaCota, fimDoSilencio, interativoDoAviso, limiteDaCota, ofereceNaoFuiEu, prioridadeNaCota, proximaTentativa, silencioSeAplica,
@@ -203,6 +204,9 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
     // A faxina dos planos do assistente vem junto (os textos de ação vencidos saem do banco): a fila anda a cada aviso
     // emitido em qualquer parte do Palácio, e isso basta para nenhum plano abandonado esperar a rotina do dia.
     await redigirVencidos(admin, { limite: 20 })
+    // E a do cadastro de colaborador pelo WhatsApp: o contato da pessoa nova não espera o próximo cadastro para sair
+    // da pergunta ou do link que venceu (no máximo a cada 30 s por instância).
+    await redigirCadastrosEncerrados(admin, { geral: true })
 
     // Quem ficou "processando" por mais de 10 min (a função caiu no meio) volta para a fila.
     await admin.from('whatsapp_fila').update({ situacao: 'pendente', atualizado_em: new Date().toISOString() })
