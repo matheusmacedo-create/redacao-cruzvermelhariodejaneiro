@@ -6,6 +6,7 @@ import { lerEventoDaKapso } from '@/lib/whatsapp/regras'
 import { atenderMensagem } from '@/lib/whatsapp/bot'
 import { concluirEsquecidos } from '@/lib/whatsapp/envio'
 import { processarFila } from '@/lib/whatsapp/fila'
+import { redigirVencidos } from '@/lib/whatsapp/assistente/faxina'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,14 @@ export const maxDuration = 300
  * trabalho em si responde 200 na hora e segue depois da resposta (after) — o
  * registro com trava por id impede resposta dupla se, mesmo assim, a entrega
  * vier de novo.
+ *
+ * O lote inteiro tem PRAZO_DO_LOTE_MS (o maxDuration é 300 s): cada turno do
+ * assistente termina 20 s antes disso, no máximo, e com menos de 15 s nem
+ * começa (sai o texto fixo). No fim, a faxina do assistente redige os planos
+ * vencidos (o texto das ações não espera a rotina do dia).
  */
+
+const PRAZO_DO_LOTE_MS = 240_000
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -45,10 +53,13 @@ export async function POST(req: Request) {
   if (!evento.mensagens.length) return NextResponse.json({ ok: true, ignorado: evento.evento || 'sem evento' })
 
   const admin = createAdminClient()
+  const prazoDoLote = Date.now() + PRAZO_DO_LOTE_MS
   after(async () => {
-    for (const mensagem of evento.mensagens.slice(0, 20)) await atenderMensagem(admin, workspaceId, config, mensagem)
+    for (const mensagem of evento.mensagens.slice(0, 20)) await atenderMensagem(admin, workspaceId, config, mensagem, { prazoDoLote })
     // Envio de fotos que ficou aberto mais de 30 min sem resposta: fecha agora, não só na rotina do dia.
     await concluirEsquecidos(admin)
+    // Os planos e as perguntas do assistente que venceram: o texto das ações some agora (no máximo 50 por vez).
+    await redigirVencidos(admin, { limite: 50 })
     // E a fila anda um pouco (uma lista grande de oportunidades não espera a rotina do dia).
     await processarFila(admin, workspaceId, { orcamentoMs: 60_000, limite: 12 })
   })

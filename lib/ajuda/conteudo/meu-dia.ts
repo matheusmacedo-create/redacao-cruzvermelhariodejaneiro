@@ -1,5 +1,5 @@
 import type { GuiaDaArea, Pergunta } from '../tipos'
-import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS } from './geral'
+import { AVISOS_NO_WHATSAPP, EMAIL_DE_AVISO_NAO_CHEGOU, ESCOLHER_OS_EMAILS, WHATSAPP_DO_SEU_JEITO } from './geral'
 
 /**
  * A ajuda do grupo sem título do menu — o que é do dia de cada pessoa:
@@ -674,6 +674,7 @@ const NOTIFICACOES: GuiaDaArea = {
     },
     { id: 'email-nao-chegou', ...EMAIL_DE_AVISO_NAO_CHEGOU },
     { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
+    { id: 'whatsapp-do-seu-jeito', ...WHATSAPP_DO_SEU_JEITO },
     { id: 'resumo-diario', ...RESUMO_DIARIO },
     {
       id: 'so-no-sino',

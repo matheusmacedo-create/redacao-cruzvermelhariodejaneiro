@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { requireWorkspace } from '@/lib/session'
+import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { pode } from '@/lib/permissoes'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext, mensagemDoErro } from '@/lib/erro-de-acao'
@@ -15,6 +15,7 @@ import {
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { confirmarNumeroDaEquipe } from '@/lib/whatsapp/confirmacao'
 import { quemNoMenu } from '@/lib/whatsapp/bot'
+import { lerConfigDoCartao } from '@/lib/whatsapp/assistente/cartao'
 import {
   codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, ligarWebhook, mandar, perfilConectado,
 } from '@/lib/whatsapp/servidor'
@@ -292,5 +293,58 @@ export async function testarWhatsapp(): Promise<Resultado> {
     return { recado: `Teste enviado para ${formatarNumero(conta.numero as string)}.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível mandar o teste.') }
+  }
+}
+
+// ------------------------------------------------------------------ Configurações → WhatsApp → Assistente
+
+/** A tabela do assistente ainda não existe: a migração dele não foi aplicada. */
+const semTabelaDoAssistente = (error: { code?: string; message?: string } | null) =>
+  error?.code === 'PGRST205' || error?.code === '42P01' || /does not exist|schema cache/i.test(error?.message ?? '')
+
+/**
+ * O cartão "Assistente": liga, desliga e ajusta o assistente do WhatsApp (whatsapp_ia_config) sem deploy. Vale a
+ * partir da próxima mensagem. Só quem configura as integrações; as pessoas do piloto têm de ser da equipe do
+ * espaço (a da escola fica de fora da v1).
+ */
+export async function salvarAssistenteDoWhatsapp(entrada: unknown): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('integracoes.configurar')
+    const lido = lerConfigDoCartao(entrada)
+    if (!lido.ok) throw new Error(lido.erro)
+    const admin = createAdminClient()
+    const c = lido.valor
+    if (c.piloto.length) {
+      const { data: membros } = await admin.from('workspace_members').select('user_id, role').eq('workspace_id', context.workspace.id).in('user_id', c.piloto)
+      const daEquipe = new Set((membros ?? []).filter((m) => m.role !== 'escola').map((m) => m.user_id as string))
+      if (c.piloto.some((id) => !daEquipe.has(id))) throw new Error('Alguém do piloto não é da equipe deste espaço.')
+    }
+    const { error } = await admin.from('whatsapp_ia_config').upsert({
+      workspace_id: context.workspace.id, ...c, atualizado_por: context.user.id, atualizado_em: new Date().toISOString(),
+    }, { onConflict: 'workspace_id' })
+    if (error) throw new Error(semTabelaDoAssistente(error) ? 'O assistente ainda não está pronto no banco (falta aplicar a migração dele).' : 'Não foi possível salvar o assistente.')
+    await admin.from('activity_log').insert({
+      workspace_id: context.workspace.id, actor_id: context.user.id, action: 'whatsapp_assistente_configurado', entity_type: 'integracao',
+      metadata: { servico: 'assistente', modo: c.modo, escrita: c.escrita, piloto: c.piloto.length },
+    })
+    revalidatePath('/configuracoes/whatsapp')
+    return { recado: c.modo === 'desligado' ? 'Assistente desligado: o bot responde só aos comandos do menu, como antes.' : 'Assistente salvo. Vale a partir da próxima mensagem.' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível salvar o assistente.') }
+  }
+}
+
+/** Tira a pausa do assistente (o disjuntor, a chave recusada ou o modelo inexistente) depois de resolver a causa. */
+export async function retomarAssistenteDoWhatsapp(): Promise<Resultado> {
+  try {
+    const context = await requirePermissao('integracoes.configurar')
+    const { error } = await createAdminClient().from('whatsapp_ia_config')
+      .update({ pausada_ate: null, motivo_pausa: null, falhas_seguidas: 0, atualizado_por: context.user.id, atualizado_em: new Date().toISOString() })
+      .eq('workspace_id', context.workspace.id)
+    if (error) throw new Error('Não foi possível retomar o assistente.')
+    revalidatePath('/configuracoes/whatsapp')
+    return { recado: 'Pausa encerrada: o assistente volta na próxima mensagem.' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível retomar o assistente.') }
   }
 }

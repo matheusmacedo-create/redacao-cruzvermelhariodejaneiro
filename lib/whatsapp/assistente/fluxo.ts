@@ -101,8 +101,8 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
     return (await repo.mudar(id, [para], redigido(linha.passos))) ?? linha
   }
 
-  async function encerrarDaPessoa(userId: string, para: SituacaoDoPlano): Promise<PlanoGuardado[]> {
-    const linhas = await repo.mudarDaPessoa(userId, SITUACOES_ABERTAS, { situacao: para, atualizadoEm: iso() })
+  async function encerrarDaPessoa(userId: string, para: SituacaoDoPlano, de: readonly SituacaoDoPlano[] = SITUACOES_ABERTAS): Promise<PlanoGuardado[]> {
+    const linhas = await repo.mudarDaPessoa(userId, de, { situacao: para, atualizadoEm: iso() })
     return Promise.all(linhas.map(async (l) => (await repo.mudar(l.id, [para], redigido(l.passos))) ?? l))
   }
 
@@ -187,6 +187,11 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
     /** Uma pergunta do bot (ou um plano novo) toma o lugar: "substituido", redigido. */
     substituir(userId: string): Promise<PlanoGuardado[]> {
       return encerrarDaPessoa(userId, 'substituido')
+    },
+
+    /** Um turno que acabou sem plano e sem pergunta nova fecha a pergunta aberta (o plano aberto, não: ele rearma). */
+    fecharPergunta(userId: string): Promise<PlanoGuardado[]> {
+      return encerrarDaPessoa(userId, 'substituido', ['pergunta'])
     },
 
     /**

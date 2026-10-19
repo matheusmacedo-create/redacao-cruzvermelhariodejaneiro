@@ -221,6 +221,12 @@ export const AVISOS_NO_WHATSAPP: Omit<Pergunta, 'id'> = {
   termos: ['whatsapp', 'zap', 'celular', 'mensagem no celular', 'aviso no whatsapp', 'não chegou no whatsapp'],
 }
 
+export const WHATSAPP_DO_SEU_JEITO: Omit<Pergunta, 'id'> = {
+  pergunta: 'Dá para pedir coisas ao WhatsApp do Palácio escrevendo normalmente?',
+  resposta: 'Dá, se a administração ligou o assistente para você (começa por um piloto). Além dos comandos do menu, você escreve do seu jeito ao número do Palácio — “o que tenho pra aprovar?”, “como está meu chamado do ar?”, “o que tenho amanhã?”, “como troco a senha?” — e o assistente consulta o Palácio com as suas permissões e responde por lá, com os links. Com a verificação em duas etapas, ele lê só o que é seu.\n\nPor enquanto ele só consulta: votar, mandar mensagem e abrir chamado continuam pelos comandos de sempre ou pelo Palácio. Com ele ligado, “cancelar” e “li” soltos não pausam nem marcam os avisos: use “parar” e “marcar como lidas” (ou “3” e “2”). “esquece” recomeça a conversa. O Palácio não guarda o texto das conversas, só o comando e os números de uso. A equipe da escola fica de fora por enquanto.',
+  termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'escrever do meu jeito', 'linguagem natural', 'conversar com o whatsapp', 'bot entende'],
+}
+
 export const TOPICOS_GERAIS: TopicoGeral[] = [
   {
     id: 'como-o-palacio-funciona',
@@ -511,6 +517,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       },
       { id: 'sem-email-de-aviso', ...EMAIL_DE_AVISO_NAO_CHEGOU },
       { id: 'avisos-no-whatsapp', ...AVISOS_NO_WHATSAPP },
+      { id: 'whatsapp-do-seu-jeito', ...WHATSAPP_DO_SEU_JEITO },
       {
         id: 'nomes-antigos',
         pergunta: 'Os nomes das áreas mudaram. Os links antigos ainda funcionam?',

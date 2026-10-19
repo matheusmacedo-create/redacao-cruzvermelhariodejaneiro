@@ -945,6 +945,19 @@ const WHATSAPP: GuiaDaArea = {
       dica: 'Para os avisos chegarem a quem não escreveu ao número nas últimas 24 horas, aprove os modelos de mensagem na Kapso (o dos avisos e, para o código, um da categoria Autenticação) e informe os nomes no mesmo cartão (veja a pergunta sobre a janela de 24 horas).',
     },
     {
+      id: 'ligar-o-assistente',
+      titulo: 'Ligar o assistente para um piloto',
+      exemplo: 'A administração liga o assistente só para a Carla e o Rafael numa segunda; na quarta, depois de três dias sem problema, passa para todos os administradores.',
+      quem: 'Só administradores',
+      passos: [
+        'No cartão “Assistente”, confira que a chave da Anthropic aparece como configurada.',
+        'Em “Quem o assistente atende”, escolha “Piloto” e marque as pessoas (só funciona para quem confirmou o WhatsApp em Meu perfil).',
+        'Ajuste os tetos, se quiser, e toque em “Salvar o assistente”. Vale a partir da próxima mensagem, sem publicar nada.',
+        'Para desligar, escolha “Desligado” e salve: o bot volta a responder só aos comandos do menu no mesmo minuto.',
+      ],
+      dica: 'O assistente usa a mesma chave da Anthropic do resto do Palácio. O modelo e o esforço mudam nas variáveis WHATSAPP_IA_MODELO e WHATSAPP_IA_ESFORCO, na Vercel.',
+    },
+    {
       id: 'testar-whatsapp',
       titulo: 'Testar se está funcionando',
       quem: 'Só administradores',
@@ -1034,6 +1047,12 @@ const WHATSAPP: GuiaDaArea = {
       pergunta: 'Como funciona o “Não fui eu” nos avisos de segurança?',
       resposta: 'O aviso de segurança de algo que a própria pessoa faria (acesso de um aparelho ou país novo, entrada bloqueada, senha trocada, verificação em duas etapas mexida, e-mail trocado e o recado ao número antigo quando o WhatsApp da conta muda) termina com “Responda NÃO FUI EU se não foi você” e, para quem escreveu ao número nas últimas 24 horas, com o botão “Não fui eu”. Vale respondendo o aviso ou até 24 horas depois dele, mesmo com a verificação em duas etapas e do número antigo.\n\nDepois do “confirmo”, o Palácio encerra todas as sessões da conta, cancela os links de senha e de convite pendentes, avisa os administradores (no sino e, conforme as preferências, no e-mail e no WhatsApp, no assunto “Trilha pública”) e a pessoa, por e-mail, e registra no “Registro de acessos”. A senha não muda e a conta não é desativada. Cada aviso protege uma vez só; do número antigo, uma vez a cada 24 horas.',
       termos: ['não fui eu', 'nao fui eu', 'aviso de segurança', 'sessões encerradas', 'alguém entrou na minha conta', 'número trocado'],
+    },
+    {
+      id: 'assistente-do-whatsapp',
+      pergunta: 'O que o assistente do WhatsApp faz, e quanto custa?',
+      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas e a Central de ajuda. Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Por enquanto ele não faz nada em nome de ninguém: pedidos de ação continuam pelos comandos ou pelo Palácio. Trocou o nome de perfil do WhatsApp, o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos (por pessoa e por dia, e o do espaço) ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados no sino e no e-mail. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos. Nada do que se escreve fica guardado: só o comando e os números de uso.',
+      termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'anthropic', 'custo', 'teto', 'piloto', 'linguagem natural'],
     },
     {
       id: 'desconectou-sozinho',

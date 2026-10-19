@@ -30,6 +30,12 @@ export const LIMITES = {
   /** Por turno (uma mensagem da pessoa). */
   chamadas: 4, leituras: 8, prazoMs: 40_000, folgaMs: 6_000, maxTokens: 8_000, entrada: 2_000,
   itensNoResultado: 10, caracteresNoResultado: 3_000, ferramentas: 20,
+  /** Cada leitura (ms), cada chamada ao modelo (ms) e o que tem de sobrar do prazo para repetir uma chamada que falhou. */
+  leituraMs: 8_000, chamadaMs: 25_000, repetirComMs: 12_000,
+  /** Menos que isso até o fim do lote: nem começa o turno (sai o texto fixo de "não consegui terminar"). */
+  turnoMinimoMs: 15_000,
+  /** A vez de cada pessoa (um turno por vez): segura por tanto, e quem chega espera até tanto, de 1 em 1 s. */
+  vezSegundos: 60, esperaDaVezMs: 15_000,
   /** Por plano. */
   passos: 8, votos: 3, destinatarios: 3, mensagem: 1_000, comentario: 4_000, relato: 4_000, recado: 200, local: 140, nota: 2_000,
   textoDoPlano: 3_800, mensagensDoPlano: 4,
@@ -196,6 +202,8 @@ export const TEXTOS_FIXOS = {
   limite_do_turno: 'Limite de consultas desta mensagem.',
   nao_pediu: 'A pessoa não pediu esse tipo de ação nesta mensagem.',
   conta_mudou: 'sua conta mudou; peça de novo',
+  lembrete: '_O plano acima continua valendo: responda *confirmo* para fazer, ou *cancelar*._',
+  pergunta_desconhecida: 'Use só marcadores que apareceram no contexto ou em resultados de ferramentas.',
   nome_mudou: 'O nome de perfil do WhatsApp do seu número mudou. Por segurança, o assistente ficou parado neste número até você confirmar o número de novo em Meu perfil → WhatsApp. Os comandos do menu continuam.',
 } as const
 
@@ -482,13 +490,16 @@ export function lerRespostaAoPlano(texto: string, aberto: PlanoAberto, opcoes: {
   const n = lerEscolha(texto, 99)
   if (n !== null) {
     if (p?.situacao === 'pergunta') {
-      if (aberto.citacao === 'plano' || !opcoes.visitaEsperando) {
+      // Citando outra mensagem (a lista do menu, a pergunta do bot), o número é dela, não da pergunta.
+      if (aberto.citacao === 'plano' || (aberto.citacao === 'nenhuma' && !opcoes.visitaEsperando)) {
         const marcador = p.opcoes[n - 1]
         return marcador ? { tipo: 'escolha', marcador } : null
       }
       return null
     }
-    if (!p && (aberto.recente || citouVelho) && (n === 2 || n === 3)) return so('ja_escolheu')
+    // O "2" repetido logo depois da escolha (sem citar, ou citando a pergunta que já passou); citando outra
+    // mensagem (a lista do menu), o número é dela.
+    if (!p && (aberto.recente || citouVelho) && (n === 2 || n === 3) && (aberto.citacao === 'nenhuma' || citouVelho)) return so('ja_escolheu')
     return null
   }
   if (ehQuaseConfirmacao(texto)) {
@@ -967,6 +978,18 @@ export function posProcessarResposta(texto: string, p: { itens: Record<string, I
 }
 
 /**
+ * Os marcadores que a resposta citou, na ordem em que aparecem, sem repetir e só os conhecidos ("⟦pes_1⟧" de
+ * terceiro não conta). Dois ou mais viram a "última lista": "a 2" na mensagem seguinte é o segundo.
+ */
+export function marcadoresNaResposta(texto: string, conhecidos: Record<string, unknown>): string[] {
+  const vistos: string[] = []
+  for (const m of semInvisiveis(String(texto ?? '')).matchAll(/(?<!⟦)\[?\b([a-z]{3}_[0-9]{1,3})\b\]?(?!⟧)/g)) {
+    if (Object.prototype.hasOwnProperty.call(conhecidos, m[1]) && !vistos.includes(m[1])) vistos.push(m[1])
+  }
+  return vistos.slice(0, 10)
+}
+
+/**
  * O modelo disse que fez sem ter preparado nada? Primeira pessoa no passado ("aprovei", "mandei"), "pronto"/"feito"
  * no começo, ou "sua mensagem foi enviada". "O chamado foi aberto em 12/10" é leitura, não conta.
  */
@@ -1002,6 +1025,63 @@ export function paraReenviar<B extends Bloco>(content: B[]): B[] {
     || (b.type === 'server_tool_use' && Boolean(b.id) && pares.has(b.id as string))
     || (b.type.endsWith('_tool_result') && Boolean(b.tool_use_id) && pares.has(b.tool_use_id as string)))
   return [...ficam, ...content.slice(i)]
+}
+
+// ------------------------------------------------------------------ a rotina diária (rotina.ts lê o banco; aqui, a conta)
+
+/** Os limiares dos alertas da rotina diária (últimas 24 h de um espaço). */
+export const LIMIAR_DOS_ALERTAS = { minimoDeChamadas: 10, semCache: 0.5, recusas: 0.05, minimoParaRecusas: 20, p95Ms: 20_000 } as const
+
+/** O P95 de uma lista de tempos (ms); 0 sem dados. */
+export function percentil95(tempos: number[]): number {
+  const t = tempos.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)
+  return t.length ? t[Math.min(t.length - 1, Math.ceil(t.length * 0.95) - 1)] : 0
+}
+
+export type LinhaDoUsoNaRotina = { user_id: string | null; chamadas: number; cache_lida: number; desfecho: string; ms: number | null; custo_usd: number | string; leituras_detalhe: number }
+
+/** Os pontos de atenção de um espaço nas últimas 24 h (puro sobre as linhas; o texto de cada alerta é escrito aqui). */
+export function pontosDeAtencao(linhas: LinhaDoUsoNaRotina[], tetos: { leituras_detalhe_dia: number; teto_usd_pessoa_dia: number }, suspensos: number): { titulo: string; mensagem: string }[] {
+  const comModelo = linhas.filter((l) => l.chamadas > 0)
+  const chamadas = comModelo.reduce((s, l) => s + l.chamadas, 0)
+  const pontos: { titulo: string; mensagem: string }[] = []
+  const semCache = comModelo.filter((l) => !l.cache_lida).length
+  if (chamadas > LIMIAR_DOS_ALERTAS.minimoDeChamadas && comModelo.length && semCache / comModelo.length > LIMIAR_DOS_ALERTAS.semCache) {
+    pontos.push({
+      titulo: 'Assistente do WhatsApp: o cache quase não foi lido',
+      mensagem: `Nas últimas 24 h, ${semCache} de ${comModelo.length} conversas não leram o cache do prompt (o custo sobe). Algo mudou no começo do prompt, ou o tráfego ficou espaçado demais para o tempo do cache.`,
+    })
+  }
+  const recusas = comModelo.filter((l) => l.desfecho === 'recusa').length
+  if (comModelo.length >= LIMIAR_DOS_ALERTAS.minimoParaRecusas && recusas / comModelo.length > LIMIAR_DOS_ALERTAS.recusas) {
+    pontos.push({ titulo: 'Assistente do WhatsApp: muitas recusas', mensagem: `Nas últimas 24 h, ${recusas} de ${comModelo.length} conversas terminaram em recusa do modelo. Vale olhar o que está sendo pedido.` })
+  }
+  const p95 = percentil95(comModelo.map((l) => Number(l.ms)))
+  if (comModelo.length >= LIMIAR_DOS_ALERTAS.minimoDeChamadas && p95 > LIMIAR_DOS_ALERTAS.p95Ms) {
+    pontos.push({ titulo: 'Assistente do WhatsApp: respostas lentas', mensagem: `Nas últimas 24 h, 5% das conversas levaram mais de ${Math.round(p95 / 1000)} s para responder.` })
+  }
+  const porPessoa = new Map<string, { detalhe: number; usd: number }>()
+  for (const l of linhas) {
+    if (!l.user_id) continue
+    const p = porPessoa.get(l.user_id) ?? { detalhe: 0, usd: 0 }
+    p.detalhe += l.leituras_detalhe ?? 0
+    p.usd += Number(l.custo_usd) || 0
+    porPessoa.set(l.user_id, p)
+  }
+  const noTeto = [...porPessoa.values()].filter((p) => p.detalhe >= tetos.leituras_detalhe_dia || p.usd >= tetos.teto_usd_pessoa_dia).length
+  if (noTeto) {
+    pontos.push({
+      titulo: 'Assistente do WhatsApp: pessoas no teto do dia',
+      mensagem: `Nas últimas 24 h, ${noTeto === 1 ? '1 pessoa bateu' : `${noTeto} pessoas bateram`} o teto de consultas detalhadas ou de gasto do assistente. Os tetos ficam em Configurações → WhatsApp.`,
+    })
+  }
+  if (suspensos) {
+    pontos.push({
+      titulo: 'Assistente do WhatsApp: números parados pela troca de nome',
+      mensagem: `${suspensos === 1 ? '1 número está' : `${suspensos} números estão`} com o assistente parado porque o nome de perfil do WhatsApp mudou. Volta quando a pessoa confirmar o número de novo em Meu perfil.`,
+    })
+  }
+  return pontos
 }
 
 // ------------------------------------------------------------------ resultado de ação (re-exportado para os executores)

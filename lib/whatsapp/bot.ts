@@ -31,11 +31,17 @@ import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, alvoDoLink, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
+import { ESCRITA_NO_AR, responderComAssistente } from './assistente'
+import { ASSISTENTE_INDISPONIVEL, disponibilidadeDoAssistente } from './assistente/uso'
+import { cancelarPlano, planoAberto, type AbertoDaPessoa } from './assistente/plano'
+import { esperarAVez, esquecer, lembrarLista, soltarVez } from './assistente/memoria'
+import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, lerRespostaAoPlano, rotaDaMensagem, type AvisoCitado, type Rota } from './assistente/regras'
+import type { TipoDeItem } from './assistente/marcadores'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -76,11 +82,18 @@ type Admin = ReturnType<typeof createAdminClient>
  * tocada: vale para a pergunta daquela mensagem ou, na lista do menu, como
  * comando — nunca cai na pergunta mais nova nem na visita da portaria.
  *
+ * Com o assistente ligado para a pessoa (lib/whatsapp/assistente: whatsapp_ia_config, sem deploy), o que o bot
+ * não entende vai para ele — o Claude, que lê o Palácio com as permissões da pessoa e responde do jeito dela —,
+ * e os comandos que escrevem passam a valer só pela frase exata ("cancelar o chamado" não pausa os avisos).
+ * Antes de tudo isso, a resposta à pergunta ou ao plano do assistente é lida pelo código (lerRespostaAoPlano),
+ * e "valeu" e "esquece" saem sem modelo. Sem a configuração, nada disso existe: o bot é exatamente o de antes.
+ *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
  * também não vira conversa infinita: há um teto de respostas por número.
+ * `prazoDoLote`: até quando a rota do webhook pode esperar (o assistente termina antes).
  */
-export async function atenderMensagem(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: MensagemRecebida): Promise<void> {
+export async function atenderMensagem(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: MensagemRecebida, opcoes: { prazoDoLote?: number } = {}): Promise<void> {
   try {
     // Grupo, mensagem do próprio número e endereço sem número: nem registra.
     if (m.ignorar || !m.numero) return
@@ -115,6 +128,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
+    // O assistente atende esta pessoa agora? Sem a configuração (ou sem a tabela), não: o bot de sempre.
+    const ia = pessoa && !m.midia ? await disponibilidadeDoAssistente(admin, workspaceId, pessoa, { numero, nome: m.nome }) : ASSISTENTE_INDISPONIVEL
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
     const achado = pessoa ? null : await voluntarioDoNumero(admin, numero)
@@ -123,7 +138,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const administra = ehAdministracao(pessoa)
     // "saída…" e "retorno…" só são comando para quem opera a frota: o nível é lido só quando a mensagem parece do diário de bordo.
     const operaFrota = pessoa && !m.midia && pareceViagem(m.texto) ? (await nivelNoPatrimonio(admin, workspaceId, pessoa)) >= 2 : false
-    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota }) : null
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota, assistente: ia.disponivel }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -139,12 +154,16 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // equipes de um chamado que já passou dessa etapa), vale como pergunta vencida — o "2" dela não escolhe o
     // assunto, nem marca os avisos como lidos.
     const tocou = m.toque && Boolean(m.citada)
+    let citouMenu = false
     if (pessoa && !aviso) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
         vencida = !pendencia && await perguntaVencida(admin, workspaceId, pessoa.id, m.citada)
-        if (tocou && !pendencia && !vencida) vencida = !(await citouOMenu(admin, workspaceId, pessoa.id, m.citada))
+        if (tocou && !pendencia && !vencida) {
+          citouMenu = await citouOMenu(admin, workspaceId, pessoa.id, m.citada)
+          vencida = !citouMenu
+        }
       }
       if (!vencida && !tocou) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
@@ -156,9 +175,31 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
     const midia = Boolean(pessoa && m.midia && !aviso)
 
+    // O assistente: o plano ou a pergunta aberta da pessoa, a resposta a eles (lida pelo código) e a rota.
+    let aberto: AbertoDaPessoa | null = null
+    let rota: Rota = 'bot'
+    let respostaAoPlano: ReturnType<typeof lerRespostaAoPlano> = null
+    if (pessoa && ia.disponivel && !m.midia) {
+      aberto = await planoAberto(admin, pessoa.id, m.citada, { citacaoResolvida: Boolean(aviso || estrita || vencida || citouMenu) })
+      // A visita na portaria também responde com número: só se pergunta quando o número pode ser da pergunta do assistente.
+      const comNumero = lerEscolha(m.texto, 99) !== null && Boolean(aberto?.aberto.plano?.situacao === 'pergunta' || (aberto && !aberto.aberto.plano && aberto.aberto.recente))
+      const visitaEsperando = comNumero ? Boolean(await visitaEsperandoResposta(admin, workspaceId, pessoa.id)) : false
+      respostaAoPlano = aberto ? lerRespostaAoPlano(m.texto, aberto.aberto, { visitaEsperando, enviadaEm: m.enviadaEm }) : null
+      // A janela de 2 min depois do plano (o "cancelar" atrasado, o "2" repetido, o "confirmo" tardio) não passa por cima de
+      // outra pergunta: a do bot, aberta (a conferência do voto, os passos do chamado), ou a visita esperando a resposta.
+      if (respostaAoPlano && aberto && !aberto.aberto.plano && aberto.aberto.citacao !== 'plano_velho' && (pendencia || visitaEsperando)) respostaAoPlano = null
+      rota = rotaDaMensagem({ disponivel: true, midia: false, comando: pedido?.comando ?? 'desconhecido', texto: m.texto, resposta: respostaAoPlano, aviso: aviso ? tipoDoAviso(aviso.link) : null, paraPendencia })
+      // O plano de um passo para o Chat é escrita: sem a escrita do assistente, a resposta citando o canal sai como sempre.
+      if (rota === 'chat_plano' && !(ESCRITA_NO_AR && ia.escrita)) rota = 'bot'
+      // A pergunta do bot que já passou e a resposta clara à visita que espera ("pode subir") seguem o caminho de sempre,
+      // antes do assistente (e o registro diz isso, não "ia").
+      if (rota === 'ia' && !aviso && (vencida || (!tocou && respostaClaraDaVisita(m.texto) && await visitaEsperandoResposta(admin, workspaceId, pessoa.id)))) rota = 'bot'
+    }
+
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
-      comando: midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+      comando: rota !== 'bot' ? rota
+        : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
       enviadaEm: m.enviadaEm,
     })
     if (!nova) return
@@ -196,6 +237,41 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // As respostas do assistente e as dele sem modelo: nunca esperam na fila (e o texto some dela se esperasse).
+    const doAssistente = (texto: string) => responder(texto, { categoria: 'assistente', semFila: true })
+    // O prazo do turno do assistente: 40 s, ou menos no fim do lote da rota (que tem 300 s para tudo).
+    const prazo = Math.min(Date.now() + LIMITES.prazoMs, (opcoes.prazoDoLote ?? Number.POSITIVE_INFINITY) - 20_000)
+    const assistente = (extra: { escolha?: string } = {}) => responderComAssistente({
+      admin, workspaceId, pessoa, m, base, prazo, ia, aberto, responder: (texto, x) => responder(texto, x), ...extra,
+    })
+
+    // A resposta ao plano ou à pergunta do assistente (o código lê; o modelo nunca).
+    if (rota === 'ia_escolha' && respostaAoPlano?.tipo === 'escolha') {
+      await assistente({ escolha: respostaAoPlano.marcador })
+      return
+    }
+    if (rota === 'ia_cancelar' || rota === 'ia_confirmo') {
+      // Com a vez da pessoa: um turno que estava no meio termina antes. A confirmação de plano é da etapa da
+      // escrita; até lá, nenhum plano nasce — e, se algum estiver aberto, nada é feito com ele.
+      const vez = await esperarAVez(admin, workspaceId, pessoa.id, prazo)
+      if (!vez) {
+        await doAssistente(TEXTOS_FIXOS.ocupado)
+        return
+      }
+      try {
+        await cancelarPlano(admin, pessoa.id)
+      } finally {
+        await soltarVez(admin, pessoa.id)
+      }
+      await doAssistente(rota === 'ia_cancelar' ? TEXTOS_FIXOS.cancelado : `${TEXTOS_FIXOS.escrita_desligada} ${TEXTOS_FIXOS.cancelado}`)
+      return
+    }
+    const textoDaRota = rota === 'ia_obrigado' ? undefined : TEXTO_DA_ROTA[rota]
+    if (textoDaRota) {
+      await doAssistente(textoDaRota)
+      return
+    }
+
     // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
     const enviar = async (r: Resposta) => {
       if (!r.pergunta) {
@@ -217,6 +293,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       // Anexo respondendo um aviso: o arquivo não entra no chamado nem na conversa por aqui (só o texto entraria, sem ele).
       if (m.midia) {
         await responder(`Arquivo respondendo um aviso ainda não entra por aqui. Anexe pelo Palácio: ${base}${aviso.link ?? '/notificacoes'}`)
+        return
+      }
+      // Citou o aviso pedindo algo ao assistente ("do que se trata?", "quem é o responsável disso?"): vai a ele, com o aviso no contexto.
+      if (rota === 'ia') {
+        await assistente()
         return
       }
       await enviar(await responderAoAviso(admin, workspaceId, pessoa, aviso.link, m.texto, base))
@@ -330,7 +411,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     if (comando === 'avisos') {
       const { avisos, total } = await avisosDaPessoa(admin, workspaceId, pessoa.id, { soNaoLidos: true, limite: AVISOS_NA_RESPOSTA })
-      await responder(textoDosAvisos({ avisos: avisos.map((a) => ({ titulo: a.titulo, mensagem: a.mensagem, link: a.link })), total, urlBase: base }))
+      const entrega = await responder(textoDosAvisos({ avisos: avisos.map((a) => ({ titulo: a.titulo, mensagem: a.mensagem, link: a.link })), total, urlBase: base }))
+      // Com o assistente, a lista entra na memória curta: "aprova a 2" logo depois aponta para o segundo aviso.
+      if (ia.disponivel && entrega.situacao === 'enviada') await lembrarLista(admin, workspaceId, pessoa.id, avisos.map((a) => itemDoAviso(a.id, a.link)), entrega.id)
       return
     }
 
@@ -364,9 +447,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     if (comando === 'aprovacoes') {
       const pendentes = await aprovacoesPendentes(admin, workspaceId, pessoa.id, { limite: APROVACOES_NA_RESPOSTA })
-      await responder(pendentes
+      const entrega = await responder(pendentes
         ? textoDasAprovacoes({ aprovacoes: pendentes.aprovacoes.map((a) => ({ id: a.id, titulo: a.titulo })), total: pendentes.total, urlBase: base })
         : `Não consegui ler as suas aprovações agora. Veja em ${base}/aprovacoes`)
+      if (ia.disponivel && pendentes && entrega.situacao === 'enviada') {
+        await lembrarLista(admin, workspaceId, pessoa.id, pendentes.aprovacoes.map((a) => ({ tipo: 'aprovacao' as const, id: a.id })), entrega.id)
+      }
       return
     }
 
@@ -383,9 +469,27 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // O assistente, sem modelo: "valeu" e "esquece" (a memória curta volta ao zero, e o plano ou a pergunta aberta é cancelada).
+    if (rota === 'ia_obrigado') {
+      await doAssistente(TEXTOS_FIXOS.obrigado)
+      return
+    }
+    if (rota === 'ia_esquecer') {
+      await esquecer(admin, pessoa.id)
+      await cancelarPlano(admin, pessoa.id)
+      await doAssistente(TEXTOS_FIXOS.esquecido)
+      return
+    }
+
+    // O que o bot não entendeu, com o assistente ligado para a pessoa: vai a ele.
+    if (rota === 'ia') {
+      await assistente()
+      return
+    }
+
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
     const quem = await quemNoMenu(admin, workspaceId, pessoa)
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', ...quem })
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', assistente: ia.disponivel, ...quem })
     await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
@@ -405,6 +509,21 @@ export async function quemNoMenu(admin: Admin, workspaceId: string, pessoa: Pess
     admin: ehAdministracao(pessoa), portaria: temPortaria(pessoa), atende, financeiro, presenca,
     frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1,
   }
+}
+
+/** O tipo do aviso citado, para a rota do assistente (o pedido de assinatura de ofício e o que não se reconhece: "outro"). */
+function tipoDoAviso(link: string | null): AvisoCitado {
+  const alvo = alvoDoLink(link)
+  return alvo && alvo.tipo !== 'oficio' ? alvo.tipo : 'outro'
+}
+
+/** O item de um aviso na lista do "avisos", para a memória do assistente: a aprovação, o chamado ou a visita dele; senão, o próprio aviso. */
+function itemDoAviso(id: string, link: string | null): { tipo: TipoDeItem; id: string } {
+  const alvo = alvoDoLink(link)
+  if (alvo?.tipo === 'aprovacao') return { tipo: 'aprovacao', id: alvo.id }
+  if (alvo?.tipo === 'chamado') return { tipo: 'chamado', id: alvo.id }
+  if (alvo?.tipo === 'visita') return { tipo: 'visita', id: alvo.id }
+  return { tipo: 'aviso', id }
 }
 
 /** A mensagem citada é um menu que o bot mandou a esta pessoa (a saída marcada "menu")? Na dúvida, não. */

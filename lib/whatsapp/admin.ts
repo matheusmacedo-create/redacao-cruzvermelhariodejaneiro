@@ -100,8 +100,8 @@ export async function respostaDaAdministracao(admin: Admin, workspaceId: string,
   }
 }
 
-/** O "status": tudo em paralelo; o que não der para ler sai como "não deu para ler agora". */
-async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, base: string): Promise<string> {
+/** O "status": tudo em paralelo; o que não der para ler sai como "não deu para ler agora". Também é a leitura ver_status_do_whatsapp do assistente. */
+export async function statusDoCanal(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, base: string): Promise<string> {
   const [conexao, webhook, fila, cota, falhas, chaves, gmail, googleAdmin, rotina, escola] = await Promise.all([
     situacaoDaConexao(config),
     situacaoDoWebhook(config, workspaceId),

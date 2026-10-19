@@ -2539,9 +2539,74 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     com o papel de quem grava). Testes em `supabase/tests/whatsapp-assistente.test.sql`. Antes dela, o código
     degrada: sem a configuração o assistente fica indisponível; o registro e a confirmação gravam sem as colunas
     novas; a faxina não faz nada.
-  - **Ligar (depois das etapas 2 e 3):** uma linha em `whatsapp_ia_config` com `modo = 'piloto'` e os ids do
-    piloto; `escrita` só depois da etapa 3. O "Não fui eu" no recibo e a confirmação no Palácio do plano sensível
+  - **Ligar:** pelo cartão "Assistente" de Configurações → WhatsApp (abaixo, etapa 2), começando pelo piloto;
+    `escrita` só vale depois da etapa 3. O "Não fui eu" no recibo e a confirmação no Palácio do plano sensível
     são da etapa 4.
+- **Assistente do Palácio no WhatsApp — leitura com IA (19/10/2026, etapa 2 de 4, piloto, DESLIGADO por padrão):**
+  com o assistente ligado para a pessoa (`whatsapp_ia_config`: modo `piloto`/`admins`/`equipe`, sem deploy), o que
+  o bot de comandos não entende vai ao Claude, que consulta o Palácio com as permissões dela e responde por lá. Sem
+  a configuração (ou sem a chave da Anthropic, ou com a pausa do disjuntor), o bot é exatamente o de antes.
+  - **O turno** (`lib/whatsapp/assistente/index.ts`, `responderComAssistente`): revisão do plano aberto antes de
+    qualquer espera (rearmado no `finally`, com o lembrete; pronto para a etapa 3); cotas (turnos da pessoa por hora
+    e por dia, US$ da pessoa e do espaço desde a meia-noite de Brasília, somados no SQL; aviso único aos
+    administradores aos 80% e aos 100% do teto do espaço); a vez da pessoa (`whatsapp_ia_tomar_vez`, espera de 1 em
+    1 s até 15 s); texto repetido em 10 min sem modelo (HMAC do texto normalizado com a chave do service role); o
+    contexto relido no banco (avisos das últimas 24 h classificados pelo estado — "pedida por" sempre de
+    `requested_by` —, a citada, a última lista ou a lista citada, a pergunta aberta com a escolha); o portão de
+    intenção só da mensagem; o laço; o desfecho; a memória (só marcadores e o HMAC) e o registro (sem texto).
+  - **A chamada** (`claude.ts` e `prompt.ts`, `montarParams`): `client.beta.messages.create` com o modelo
+    `WHATSAPP_IA_MODELO` (padrão `claude-opus-5-5`), `output_config.effort` = `WHATSAPP_IA_ESFORCO` (padrão `low`),
+    SEM `thinking` (no Opus 5.5, `disabled` dá 400), `tool_choice` `auto` (any/tool dão 400) com as 17 ferramentas
+    `strict: true` (`ferramentas.ts`, em ordem de nome, iguais para todos), o ponto de cache no fim das ferramentas e
+    no fim do sistema (TTL `WHATSAPP_IA_CACHE_TTL`, padrão `1h`) e o automático de 5 min para a cauda,
+    `fallbacks: 'default'` com o beta `server-side-fallback-2026-07-01`. O sistema (`SISTEMA_DO_ASSISTENTE`) é
+    congelado: sem data, nome, papel ou modo; a situação (data, papel, nível, escrita) vai numa mensagem
+    `role: "system"` depois do turno do usuário — o modelo que recusar isso com BadRequestError ganha uma repetição
+    com a situação em `<situacao>` no turno do usuário, e a instância passa a usar esse formato. Cliente com
+    `maxRetries: 0`: a repetição é nossa e única (529, 5xx, conexão, tempo, se sobram 12 s). Erros pelas classes do
+    SDK.
+  - **O laço** (`laco.ts`, puro, com o cliente injetado): até 4 chamadas, prazo de 40 s (menos no fim do lote: a rota
+    dá 240 s ao lote e cada turno termina 20 s antes; com menos de 15 s nem começa), `refusal` e `max_tokens` antes de
+    qualquer ferramenta, só os blocos depois do último `fallback` valem (e o que vem antes volta sem raciocínio nem
+    tool_use), só blocos `text` na resposta final; leituras em paralelo (8 s cada, 8 por turno), `perguntar` terminal,
+    `preparar_*` em ordem pelo portão e pela quantidade (terminal quando todos passam); "disse que fez" sem plano
+    ganha um aviso e, se insistir, o texto fixo. Nesta etapa os `preparar_*` respondem "escrita desligada" (ou o
+    texto do número antigo), mesmo com `escrita` ligada no cartão (`ESCRITA_NO_AR = false`).
+  - **As leituras** (`leituras.ts`), nos níveis da especificação: `amplo` = pode agir pelo WhatsApp (sem 2FA) e
+    número de confiança recente; os outros, `pessoal` — avisos próprios, chamados que abriu ou que estão com ela
+    (sem nota interna), aprovações em que vota ou que pediu sem o texto da matéria, agenda e ajuda; filas, notas
+    internas, trecho da matéria, busca de colegas e o status do canal respondem "Isso só pelo Palácio.". As de
+    detalhe (`ver_aprovacao`, `ver_chamado`, `buscar_pessoa`) contam no teto diário (`leituras_detalhe_dia`). Saída
+    em JSON compacto (até 10 itens e 3.000 caracteres), texto de terceiros por `dadoDeTerceiro`, itens só por
+    marcador, nunca telefone, e-mail, valor nem URL; os links entram na resposta pelo código
+    (`posProcessarResposta`).
+  - **O bot** (`bot.ts`): a disponibilidade logo depois de achar a pessoa; `lerPedido` com `assistente`;
+    `planoAberto` e `lerRespostaAoPlano` (a janela de 2 min depois do plano não passa por cima da pergunta aberta do
+    bot nem da visita esperando); a rota (`rotaDaMensagem`) vai para o registro (`whatsapp_mensagens.comando` = `ia`,
+    `ia_escolha`, `ia_obrigado`…); "cancelar" com pergunta aberta, a escolha "2", os textos fixos, "valeu" e
+    "esquece" sem modelo; aviso citado com cara de pedido ("do que se trata?") vai ao assistente; o plano de um
+    passo do Chat fica para a etapa 3 (sem a escrita, a resposta citando o canal sai como sempre); as listas de
+    "avisos" e "aprovações" entram na memória curta; o menu ganha a linha "Ou escreva do seu jeito".
+  - **Cotas, registro e disjuntor** (`uso.ts`): uma linha de `whatsapp_ia_uso` por turno, gravada a cada chamada
+    (tokens, cache, custo por iteração do recuo, modelo, nomes das ferramentas, leituras de detalhe, ms, desfecho,
+    classe do erro — nunca texto); 3 falhas de fora em 10 min pausam 10 min; chave recusada ou modelo inexistente
+    pausam 30 min e avisam a administração (sino e e-mail, uma vez por dia — conferido pelos próprios avisos).
+  - **Configurações → WhatsApp, cartão "Assistente"** (`components/admin/whatsapp-assistente.tsx`, só para quem tem
+    `integracoes.configurar`; as actions começam com `requirePermissao`): modo, piloto (pessoas da equipe, até 50),
+    escrita, os tetos e os números de hoje (conversas, gasto, % com cache, recusas, erros); "Retomar agora" tira a
+    pausa. Grava em `whatsapp_ia_config` e no `activity_log` (`whatsapp_assistente_configurado`).
+  - **Rotina diária** (`rotina.ts`): apaga memória vencida há mais de 1 dia, planos com mais de 90 dias e uso com
+    mais de 13 meses; passa a faxina; e avisa a administração (uma vez por dia cada) de cache quase não lido, recusas
+    acima de 5%, P95 acima de 20 s, pessoas no teto e números parados pela troca do nome de perfil. A rota do webhook
+    roda a faxina (`redigirVencidos`, 50) depois de cada lote.
+  - **Testes:** `npx tsx scripts/conferir-assistente.ts` ganhou as ferramentas (strict, campos, sem propriedade
+    proibida, JSON estável), o sistema e os parâmetros (sem data, sem `thinking`, `auto`, beta, cache igual para
+    todos), o contexto, o cartão, a rotina e o laço com um modelo roteirizado (preparo terminal em UMA chamada,
+    leitura e texto, falha no preparo, portão, quantidade, recusa, teto, recuo, prazo, 4 chamadas, 9 leituras,
+    "disse que fez", `perguntar`). `scripts/avaliar-assistente.ts --gastar` roda os casos de leitura contra a API de
+    verdade (com teto de US$ e a segunda rodada exigindo cache lido) — manual, nunca no CI.
+  - **Sem migração nova:** usa a da etapa 1 (`20261019010000`). Sem ela, o assistente fica indisponível e o cartão
+    diz que falta aplicá-la.
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -2851,9 +2916,10 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   banco e o `remove`, o objeto fica no bucket (`equipe-arquivos`,
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
-- **Assistente do WhatsApp, etapas 2 a 4** (§8.5) — a fundação está no código, desligada. Faltam: a leitura com o
-  modelo (ferramentas, prompt, laço, cotas, o cartão em Configurações → WhatsApp, a rotina), a escrita confirmada
-  pelo WhatsApp (preparos, executores, recibo) e a integração com a confirmação no Palácio e o "Não fui eu".
+- **Assistente do WhatsApp, etapas 3 e 4** (§8.5) — a fundação e a leitura com o modelo estão no código, desligadas
+  por padrão (liga-se pelo cartão em Configurações → WhatsApp). Faltam: a escrita confirmada pelo WhatsApp
+  (preparos, executores, recibo, o plano do Chat, a linha no `status`) e a integração com a confirmação no Palácio
+  e o "Não fui eu". A conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

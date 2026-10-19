@@ -38,11 +38,11 @@ const tabelaAusente = (error: { code?: string; message?: string } | null) =>
 
 export type ResultadoDaFaxina = { vencidos: number; redigidos: number; presos: number; usoEncerrado: number }
 
-/** `userId`: só os planos desta pessoa (no acesso dela ao plano). */
-export async function redigirVencidos(admin: Admin, opcoes: { limite: number; userId?: string | null }): Promise<ResultadoDaFaxina> {
+/** `userId`: só os planos desta pessoa (no acesso dela ao plano). `forcar`: a geral sem o intervalo (a rotina diária). */
+export async function redigirVencidos(admin: Admin, opcoes: { limite: number; userId?: string | null; forcar?: boolean }): Promise<ResultadoDaFaxina> {
   const r: ResultadoDaFaxina = { vencidos: 0, redigidos: 0, presos: 0, usoEncerrado: 0 }
   if (Date.now() < semTabelaAte) return r
-  if (!opcoes.userId) {
+  if (!opcoes.userId && !opcoes.forcar) {
     if (Date.now() - ultimaGeral < INTERVALO_DA_GERAL_MS) return r
     ultimaGeral = Date.now()
   }
