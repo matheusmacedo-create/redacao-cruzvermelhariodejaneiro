@@ -866,6 +866,12 @@ export const guias: GuiaDaArea[] = [
         termos: ['transferência', 'mudar de lugar', 'mover estoque', 'almoxarifado', 'base'],
       },
       {
+        id: 'frota-e-estoque-pelo-whatsapp',
+        pergunta: 'Dá para usar a Frota e o Estoque pelo WhatsApp?',
+        resposta: 'Dá, com o WhatsApp confirmado em “Meu perfil”. Quem vê a Frota manda “veículos” ao número do Palácio: vêm os disponíveis com o hodômetro, os em viagem (com quem e para onde) e os parados. Quem tem “Operar” ou “Gestão” faz o diário de bordo: “saída” e a placa ou o apelido (“saída ABC1D23”) — o Palácio pergunta quem dirige (só quem pode levar o veículo hoje), o hodômetro, a finalidade e o destino — e “retorno ABC1D23”, com o hodômetro na chegada e as ocorrências. Tudo termina numa conferência (“Confirmo”) e grava como os botões da tela, com as mesmas regras; projeto da viagem, abastecimento e serviço ficam na tela.\n\nQuem vê o Estoque manda “estoque” e o material (“estoque luva”): vêm o saldo, o mínimo, onde está e a validade mais próxima. É só consulta. Com a verificação em duas etapas, o WhatsApp só consulta.',
+        termos: ['whatsapp', 'saída pelo whatsapp', 'retorno pelo whatsapp', 'diário de bordo', 'saldo pelo whatsapp', 'veículos disponíveis'],
+      },
+      {
         id: 'apagar-lancamento-da-frota',
         pergunta: 'Lancei um abastecimento ou um serviço errado. Dá para apagar?',
         resposta: 'Só a gestão: na página do veículo, o ícone de lixeira (“Excluir”) ao lado do abastecimento, do serviço ou do documento. O registro some do histórico do veículo, então use só para corrigir um lançamento errado. Viagem do diário de bordo não se apaga.',

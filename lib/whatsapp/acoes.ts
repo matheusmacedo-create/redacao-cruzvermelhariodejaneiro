@@ -11,17 +11,29 @@ import { avisarMensagemDireta } from '@/lib/mensagens/avisos'
 import { ehEquipeDaEscola, type Papel } from '@/lib/permissoes'
 import { situacaoDaVerificacao } from '@/lib/usuarios/verificacao'
 import {
-  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular, lerDecisao, lerEscolha, textoDaConferencia,
-  textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
+  BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES, PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, alvoDoLink, ehCancelamento, ehConfirmacao, ehPular,
+  interativoDaEscolha, lerDecisao, lerEscolha, oQueDoVoto, textoDaConferencia, textoDaEscolha, textoDoLinkDeConfirmacao, textoDoOficioPeloWhatsapp, textoPedeDetalhes,
+  tituloDoRelato, type Interativo, type Opcao,
 } from './regras'
 import { seguirEnvio } from './envio'
+import { atenderPeloAviso, seguirAtendimento } from './atendimento'
+import { seguirVisita } from './portaria'
+import { seguirDecisoes } from './financeiro'
+import { seguirPresenca } from './presenca'
+import { seguirViagem } from './frota'
+import { criarConfirmacao } from './confirmacoes'
 import { PERGUNTA_DA_VISITA, RESPOSTAS, lerRespostaDaVisita, linkDaVisita } from '@/lib/portaria/regras'
 import { aposResposta } from '@/lib/portaria/servidor'
 
 /**
  * O que o bot do WhatsApp FAZ em nome de quem escreveu: responder o aviso de
  * um chamado, do Chat ou de uma mensagem direta citando o próprio aviso,
- * votar numa aprovação e abrir um chamado.
+ * votar numa aprovação e abrir um chamado. Quem atende uma fila também
+ * assume, resolve e transfere o chamado (lib/whatsapp/atendimento.ts), quem
+ * tem a portaria registra a chegada de um visitante (lib/whatsapp/portaria.ts),
+ * quem coordena as oportunidades marca a presença da ação de hoje
+ * (lib/whatsapp/presenca.ts) e quem opera a frota registra a saída e o
+ * retorno dos veículos (lib/whatsapp/frota.ts).
  *
  * Quem é a pessoa, o bot já sabe pelo número confirmado (whatsapp_contas).
  * Daí em diante valem as mesmas regras da tela: os chamados passam por
@@ -31,9 +43,12 @@ import { aposResposta } from '@/lib/portaria/servidor'
  * actions.
  *
  * O WhatsApp não pede o código do app autenticador: quem usa a verificação
- * em duas etapas (ou é obrigado a usar) consulta e abre chamado por aqui; o
- * resto (responder, votar, mandar fotos) fica no Palácio. O banco confere de
- * novo no Chat e no voto (a sessão simulada é aal1).
+ * em duas etapas (ou é obrigado a usar) consulta, abre chamado e responde à
+ * portaria por aqui; o resto (responder, atender chamado, registrar visita,
+ * mandar fotos) fica no Palácio. O voto dele sai com o link de confirmar no
+ * Palácio (lib/whatsapp/confirmacoes.ts), onde a sessão tem o código. O banco
+ * confere de novo no Chat, no voto e no registro da visita (a sessão simulada
+ * é aal1).
  *
  * Nada aqui envia mensagem: cada função devolve o texto da resposta e, quando
  * precisa de mais um passo, a pergunta a guardar (whatsapp_pendencias).
@@ -43,18 +58,52 @@ type Admin = ReturnType<typeof createAdminClient>
 
 export type Pessoa = { id: string; nome: string | null; papel: Papel }
 
-export type TipoDePendencia = 'aprovar' | 'abrir_chamado' | 'envio'
+/**
+ * `atender_chamado` e `registrar_visita` vêm da migração 20261018213700; `financeiro` (a lista das decisões, para o
+ * "aprovar 2") e `nao_fui_eu` (a conferência do "Não fui eu", achada pelo número: lib/whatsapp/protecao.ts), da
+ * 20261018223000; `marcar_presenca`, `frota_saida` e `frota_retorno`, da 20261018233000. Antes delas, o banco
+ * recusa a pergunta e o bot manda para o Palácio.
+ */
+export type TipoDePendencia =
+  | 'aprovar' | 'abrir_chamado' | 'envio' | 'atender_chamado' | 'registrar_visita' | 'financeiro' | 'nao_fui_eu'
+  | 'marcar_presenca' | 'frota_saida' | 'frota_retorno'
 export type Pendencia = { id: number; tipo: TipoDePendencia; dados: Record<string, unknown> }
 
-/** A resposta do bot e, se houver, a pergunta que fica esperando (`id` = a pendência que continua). */
+/**
+ * A resposta do bot e, se houver, a pergunta que fica esperando (`id` = a pendência que continua).
+ * `interativo`: os botões ou a lista da pergunta (só valem com `pergunta`: o toque é reconhecido pela
+ * pendência da mensagem tocada; em mensagem sem pergunta, o bot leria o toque como pergunta vencida).
+ */
 export type Resposta = {
   texto: string
   pergunta?: { tipo: TipoDePendencia; dados: Record<string, unknown>; id?: number }
+  interativo?: Interativo | null
+  /** O texto que vai no lugar quando a pergunta não pôde ser guardada (a migração dela ainda não foi aplicada); sem ele, "Isto ainda não está ligado…". */
+  semPergunta?: string
 }
 
-const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
+export const INDISPONIVEL = 'Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio'
 /** A função do banco não existe: a migração das ações ainda não foi aplicada. */
-const semFuncao = (error: { code?: string } | null) => error?.code === 'PGRST202' || error?.code === '42883'
+export const semFuncao = (error: { code?: string } | null) => error?.code === 'PGRST202' || error?.code === '42883'
+
+/** Onde fazer pelo Palácio o que a pergunta faria (a pergunta não pôde ser guardada: a migração dela ainda não foi aplicada). */
+export function ondeNoPalacio(p: { tipo: TipoDePendencia; dados: Record<string, unknown> }): string {
+  if (p.tipo === 'aprovar') return `/aprovacoes/${String(p.dados.approvalId ?? '')}`
+  if (p.tipo === 'atender_chamado') return `/chamados/${String(p.dados.chamadoId ?? '')}`
+  if (p.tipo === 'registrar_visita') return '/portaria'
+  if (p.tipo === 'envio') return '/enviar'
+  if (p.tipo === 'financeiro') return '/financeiro?aba=aprovacao'
+  if (p.tipo === 'nao_fui_eu') return '/perfil'
+  if (p.tipo === 'marcar_presenca') {
+    const acao = p.dados.acao as { id?: unknown } | undefined
+    return typeof acao?.id === 'string' ? `/voluntariado/oportunidades/${acao.id}#inscritos` : '/voluntariado/oportunidades'
+  }
+  if (p.tipo === 'frota_saida' || p.tipo === 'frota_retorno') {
+    const veiculo = p.dados.veiculo as { id?: unknown } | undefined
+    return typeof veiculo?.id === 'string' ? `/patrimonio/frota/${veiculo.id}` : '/patrimonio/frota'
+  }
+  return '/chamados/novo'
+}
 
 // ------------------------------------------------------------------ quem pode agir
 
@@ -91,10 +140,16 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
   if (!alvo) return { texto: `Este aviso não aceita resposta por aqui. Abra no Palácio: ${abrir}` }
   // A visita na portaria: "1", "2" ou "3" já são a resposta inteira.
   if (alvo.tipo === 'visita') return responderVisita(admin, workspaceId, pessoa, alvo.id, texto, base)
+  // O pedido de assinatura de um ofício: nada se assina por aqui (nem se recusa), só o caminho.
+  if (alvo.tipo === 'oficio') return { texto: textoDoOficioPeloWhatsapp(abrir) }
   const corpo = texto.trim()
   if (corpo.length < 2) return { texto: 'Escreva a resposta respondendo a mensagem do aviso.' }
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
   const escola = ehEquipeDaEscola(pessoa.papel)
+  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) {
+    // O voto de quem usa a verificação em duas etapas: o link de confirmar no Palácio, onde a sessão tem o código.
+    if (alvo.tipo === 'aprovacao' && !escola) return votarPeloPalacio(admin, workspaceId, pessoa, alvo.id, corpo, base)
+    return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
+  }
   const autor = { id: pessoa.id, nome: pessoa.nome }
 
   if (alvo.tipo === 'chamado') {
@@ -102,6 +157,9 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
     const c = await carregarChamado(admin, workspaceId, alvo.id)
     const papeis = c ? papeisNoChamado(c, pessoa.id, await filasQueAtendo(admin, workspaceId, pessoa.id, pessoa.papel)) : []
     if (!c || !papeis.length) return { texto: 'Chamado não encontrado.' }
+    // Quem atende pode assumir, resolver ou transferir respondendo o próprio aviso ("resolvido: troquei o toner").
+    const atendimento = await atenderPeloAviso(admin, workspaceId, pessoa, c, papeis, corpo, base)
+    if (atendimento) return atendimento
     try {
       await comentarNoChamado(admin, { c, papeis, autor, texto: corpo })
     } catch (causa) {
@@ -130,7 +188,8 @@ export async function responderAoAviso(admin: Admin, workspaceId: string, pessoa
     return { texto: `Mensagem enviada. ${base}/mensagens/pessoa/${alvo.pessoaId}` }
   }
 
-  return decidirAprovacao(admin, workspaceId, pessoa, alvo.id, corpo, base)
+  if (alvo.tipo === 'aprovacao') return decidirAprovacao(admin, workspaceId, pessoa, alvo.id, corpo, base)
+  return { texto: `Este aviso não aceita resposta por aqui. Abra no Palácio: ${abrir}` }
 }
 
 // ------------------------------------------------------------------ visita na portaria
@@ -188,7 +247,29 @@ async function decidirAprovacao(admin: Admin, workspaceId: string, pessoa: Pesso
   return {
     texto: textoDaConferencia({ titulo: rodada.titulo, blocos: rodada.blocos.map((b) => ({ setor: b.setor.nome, itens: b.itens })) }),
     pergunta: { tipo: 'aprovar', dados: { approvalId } },
+    interativo: BOTOES_DA_CONFERENCIA,
   }
+}
+
+/**
+ * O voto de quem usa (ou é obrigado a usar) a verificação em duas etapas: "aprovar" ou "ajustes: …", como
+ * sempre, mas o voto não sai daqui — vira o link de confirmar no Palácio (lib/whatsapp/confirmacoes.ts). Lá,
+ * com a sessão verificada, a conferência do setor aparece antes do botão, e o voto passa pela mesma função
+ * da tela da aprovação (lib/aprovacoes/voto.ts, votarNaRodada).
+ */
+async function votarPeloPalacio(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, texto: string, base: string): Promise<Resposta> {
+  const abrir = `${base}/aprovacoes/${approvalId}`
+  const decisao = lerDecisao(texto)
+  if (!decisao) {
+    return { texto: `Para votar, responda o aviso com *aprovar* ou com *ajustes:* e o que precisa mudar: chega um link para você confirmar no Palácio (a sua conta usa a verificação em duas etapas). Ou abra: ${abrir}` }
+  }
+  if (decisao.decisao === 'ajustes' && decisao.nota.length < 5) return { texto: 'Diga o que precisa mudar, respondendo o aviso com *ajustes:* e o texto.' }
+  const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
+  if ('erro' in rodada) return { texto: `${rodada.erro} ${abrir}` }
+  const voto = decisao.decisao === 'aprovar' ? { decisao: 'approved' as const, nota: '' } : { decisao: 'changes_requested' as const, nota: decisao.nota }
+  const link = await criarConfirmacao(admin, { workspaceId, userId: pessoa.id, acao: 'votar_aprovacao', alvoId: approvalId, dados: voto })
+  if ('erro' in link) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${abrir}` }
+  return { texto: textoDoLinkDeConfirmacao({ oQue: oQueDoVoto({ titulo: rodada.titulo, ...voto }), url: link.url }) }
 }
 
 async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approvalId: string, decisao: 'approved' | 'changes_requested', nota: string, base: string, conferencia?: string): Promise<string> {
@@ -204,10 +285,16 @@ async function votar(admin: Admin, workspaceId: string, pessoa: Pessoa, approval
 
 // ------------------------------------------------------------------ pendências (o passo que falta)
 
-/** A pergunta aberta: a citada (se a pessoa respondeu citando) ou a mais recente dos últimos 15 minutos. */
-export async function pendenciaAberta(admin: Admin, workspaceId: string, userId: string, citada: string | null): Promise<Pendencia | null> {
+/**
+ * A pergunta aberta: a citada (se a pessoa respondeu citando) ou a mais recente dos últimos 15 minutos; com `tipo`,
+ * só daquele tipo (a lista do "financeiro" para o "aprovar 2"). A conferência do "Não fui eu" nunca vem por aqui:
+ * ela é do número que respondeu ao aviso (lib/whatsapp/protecao.ts), e quem está com o número de agora da conta
+ * não a responde nem a cancela.
+ */
+export async function pendenciaAberta(admin: Admin, workspaceId: string, userId: string, citada: string | null, tipo?: TipoDePendencia): Promise<Pendencia | null> {
   let consulta = admin.from('whatsapp_pendencias').select('id, tipo, dados').eq('workspace_id', workspaceId).eq('user_id', userId)
     .is('encerrada_em', null).gt('expira_em', new Date().toISOString())
+  consulta = tipo ? consulta.eq('tipo', tipo) : consulta.neq('tipo', 'nao_fui_eu')
   if (citada) consulta = consulta.eq('mensagem_id', citada)
   const { data, error } = await consulta.order('criado_em', { ascending: false }).limit(1).maybeSingle()
   if (error || !data) return null
@@ -237,8 +324,10 @@ export async function guardarPendencia(admin: Admin, workspaceId: string, userId
     const { error } = await admin.from('whatsapp_pendencias').update({ dados: p.dados, expira_em: expira, mensagem_id: null }).eq('id', p.id)
     return error ? null : p.id
   }
-  // Uma pergunta por vez: a nova substitui as que ficaram abertas (o envio de fotos aberto continua).
-  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null).neq('tipo', 'envio')
+  // Uma pergunta por vez: a nova substitui as que ficaram abertas (o envio de fotos aberto continua, e a conferência
+  // do "Não fui eu", que é do número que respondeu ao aviso, também: uma pergunta nova não a cancela).
+  await admin.from('whatsapp_pendencias').update({ encerrada_em: new Date().toISOString() }).eq('user_id', userId).is('encerrada_em', null)
+    .not('tipo', 'in', '(envio,nao_fui_eu)')
   const { data, error } = await admin.from('whatsapp_pendencias').insert({ workspace_id: workspaceId, user_id: userId, tipo: p.tipo, dados: p.dados, expira_em: expira }).select('id').single()
   return error || !data ? null : (data.id as number)
 }
@@ -254,18 +343,38 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
-  // Na pergunta dos detalhes, "não" quer dizer "sem detalhes", não "desisto do chamado".
-  const pulandoDetalhes = p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes' && ehPular(texto)
+  // Na pergunta dos detalhes (e na do motivo da visita e na das ocorrências do retorno), "não" quer dizer "sem detalhes", não "desisto".
+  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes') || (p.tipo === 'registrar_visita' && p.dados.etapa === 'motivo')
+    || (p.tipo === 'frota_retorno' && p.dados.etapa === 'ocorrencias')) && ehPular(texto)
   if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
-    return { texto: p.tipo === 'aprovar' ? 'Pronto: nenhum voto registrado.' : 'Pronto: o chamado não foi aberto.' }
+    const desistiu: Record<Exclude<TipoDePendencia, 'envio'>, string> = {
+      aprovar: 'Pronto: nenhum voto registrado.',
+      abrir_chamado: 'Pronto: o chamado não foi aberto.',
+      atender_chamado: 'Pronto: nada mudou no chamado.',
+      registrar_visita: 'Pronto: a entrada não foi registrada.',
+      financeiro: 'Pronto: nada foi decidido.',
+      nao_fui_eu: 'Pronto: nada mudou na conta.',
+      marcar_presenca: 'Pronto: nenhuma presença foi marcada.',
+      frota_saida: 'Pronto: a saída não foi registrada.',
+      frota_retorno: 'Pronto: o retorno não foi registrado.',
+    }
+    return { texto: desistiu[p.tipo] }
   }
+  if (p.tipo === 'atender_chamado') return seguirAtendimento(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'registrar_visita') return seguirVisita(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'marcar_presenca') return seguirPresenca(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'frota_saida' || p.tipo === 'frota_retorno') return seguirViagem(admin, workspaceId, pessoa, p, texto, base, estrita)
+  if (p.tipo === 'financeiro') return seguirDecisoes(admin, workspaceId, pessoa, p, texto, base, estrita)
+  // A conferência do "Não fui eu" é respondida pelo número, antes de tudo (lib/whatsapp/protecao.ts); aqui não chega.
+  if (p.tipo === 'nao_fui_eu') return null
 
   if (p.tipo === 'aprovar') {
     const approvalId = String(p.dados.approvalId ?? '')
     if (!ehConfirmacao(texto)) return estrita ? { texto: 'Para aprovar, responda a conferência com *confirmo*; para desistir, *cancelar*.' } : null
     if (!await encerrarPendencia(admin, p.id)) return { texto: 'Esta conferência já foi respondida.' }
-    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: TEXTO_SEM_ACAO_PELO_WHATSAPP }
+    // Ligou a verificação em duas etapas depois da conferência: o voto vira o link de confirmar no Palácio.
+    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return votarPeloPalacio(admin, workspaceId, pessoa, approvalId, 'aprovar', base)
     const rodada = await rodadaDoVoto(admin, workspaceId, pessoa, approvalId)
     if ('erro' in rodada) return { texto: `${rodada.erro} ${base}/aprovacoes/${approvalId}` }
     return { texto: await votar(admin, workspaceId, pessoa, approvalId, 'approved', '', base, registroDaConferencia(rodada.blocos)) }
@@ -297,16 +406,23 @@ export async function comecarChamado(admin: Admin, workspaceId: string, pessoa: 
   return proximoPasso(admin, workspaceId, pessoa, { relato: relato.trim().slice(0, 4000) }, base)
 }
 
+/** A descrição da linha "Cancelar" nas listas do chamado. */
+const NAO_ABRIR = 'Não abrir o chamado'
+
 async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d: DadosDoChamado, base: string, pendenciaId?: number): Promise<Resposta> {
-  const perguntar = (dados: DadosDoChamado, texto: string): Resposta => ({ texto, pergunta: { tipo: 'abrir_chamado', dados, id: pendenciaId } })
+  const perguntar = (dados: DadosDoChamado, texto: string, interativo: Interativo | null = null): Resposta =>
+    ({ texto, pergunta: { tipo: 'abrir_chamado', dados, id: pendenciaId }, interativo })
+  // A escolha numerada vai também como lista (dentro da janela): cada linha leva o número, como a resposta digitada.
+  const escolher = (dados: DadosDoChamado, pergunta: string, opcoes: Opcao[]) =>
+    perguntar(dados, textoDaEscolha({ pergunta, opcoes }), interativoDaEscolha(opcoes, { cancelar: NAO_ABRIR }))
 
   if (!d.filaId) {
     const { data } = await admin.from('chamado_filas').select('id, nome, descricao').eq('workspace_id', workspaceId).eq('ativa', true).order('ordem').limit(9)
     const filas = (data ?? []) as { id: string; nome: string; descricao: string | null }[]
     if (!filas.length) return { texto: 'Nenhuma equipe está recebendo chamados agora.' }
     if (filas.length > 1) {
-      return perguntar({ ...d, etapa: 'fila', filas: filas.map((f) => ({ id: f.id, nome: f.nome })) },
-        textoDaEscolha({ pergunta: `Vou abrir o chamado: _${tituloDoRelato(d.relato)}_\n\nPara qual equipe?`, opcoes: filas.map((f) => ({ nome: f.nome, detalhe: f.descricao })) }))
+      return escolher({ ...d, etapa: 'fila', filas: filas.map((f) => ({ id: f.id, nome: f.nome })) },
+        `Vou abrir o chamado: _${tituloDoRelato(d.relato)}_\n\nPara qual equipe?`, filas.map((f) => ({ nome: f.nome, detalhe: f.descricao })))
     }
     d = { ...d, filaId: filas[0].id }
   }
@@ -315,9 +431,7 @@ async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d
     const { data } = await admin.from('chamado_categorias').select('id, nome, pede_local').eq('workspace_id', workspaceId).eq('fila_id', d.filaId).eq('ativa', true).order('ordem').limit(9)
     const categorias = (data ?? []).map((c) => ({ id: c.id as string, nome: c.nome as string, pedeLocal: Boolean(c.pede_local) }))
     if (!categorias.length) return { texto: `Esta equipe ainda não tem assuntos para chamado. Abra pelo Palácio: ${base}/chamados/novo` }
-    if (categorias.length > 1) {
-      return perguntar({ ...d, etapa: 'categoria', categorias }, textoDaEscolha({ pergunta: 'Qual é o assunto?', opcoes: categorias.map((c) => ({ nome: c.nome })) }))
-    }
+    if (categorias.length > 1) return escolher({ ...d, etapa: 'categoria', categorias }, 'Qual é o assunto?', categorias.map((c) => ({ nome: c.nome })))
     d = { ...d, categoriaId: categorias[0].id, pedeLocal: categorias[0].pedeLocal }
   }
 
@@ -325,15 +439,13 @@ async function proximoPasso(admin: Admin, workspaceId: string, pessoa: Pessoa, d
     return perguntar({ ...d, etapa: 'local' }, `Onde é? Responda com a sala, o andar ou o setor (ou *cancelar*). Vale por ${PENDENCIA_VALE_MIN} minutos.`)
   }
 
+  // As três urgências como lista, não botões: "Atrapalha meu trabalho" passa dos 20 caracteres do botão, e a ajuda vai na descrição.
   if (!d.urgencia) {
-    return perguntar({ ...d, etapa: 'urgencia' }, textoDaEscolha({
-      pergunta: 'Quanto isso atrapalha?',
-      opcoes: ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })),
-    }))
+    return escolher({ ...d, etapa: 'urgencia' }, 'Quanto isso atrapalha?', ([1, 2, 3] as const).map((n) => ({ nome: URGENCIA[n].rotulo, detalhe: URGENCIA[n].ajuda })))
   }
 
   // A última pergunta é opcional: quem atende lê o relato, e "wifi da sala 2" diz pouco.
-  return perguntar({ ...d, etapa: 'detalhes' }, textoPedeDetalhes())
+  return perguntar({ ...d, etapa: 'detalhes' }, textoPedeDetalhes(), BOTOES_DOS_DETALHES)
 }
 
 async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
@@ -390,8 +502,15 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
   }
 }
 
-/** A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio)? Aí até frase com "agenda" é resposta. */
+/**
+ * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
+ * motivo da transferência, o nome, quem visita e o motivo da visita, o veículo, quem dirige, o destino e as
+ * ocorrências da viagem)? Aí até frase com "agenda" é resposta.
+ */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
   return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
+    || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
+    || (p?.tipo === 'registrar_visita' && (etapa === 'nome' || etapa === 'pessoa' || etapa === 'escolher_pessoa' || etapa === 'motivo'))
+    || ((p?.tipo === 'frota_saida' || p?.tipo === 'frota_retorno') && (etapa === 'veiculo' || etapa === 'condutor' || etapa === 'destino' || etapa === 'ocorrencias'))
 }

@@ -14,6 +14,7 @@ import {
 } from '@/lib/whatsapp/regras'
 import { entregar, processarFila } from '@/lib/whatsapp/fila'
 import { confirmarNumeroDaEquipe } from '@/lib/whatsapp/confirmacao'
+import { quemNoMenu } from '@/lib/whatsapp/bot'
 import {
   codigoConfere, configDoWhatsapp, gerarCodigo, hashDoCodigo, ligarWebhook, mandar, perfilConectado,
 } from '@/lib/whatsapp/servidor'
@@ -167,10 +168,12 @@ export async function confirmarCodigoDoWhatsapp(formData: FormData): Promise<Res
       throw new Error(r.motivo === 'usado' ? 'Esse código já foi usado. Peça um novo.'
         : r.motivo === 'outra_conta' ? 'Esse número acabou de ser confirmado em outra conta.' : 'Não foi possível guardar o número.')
     }
-    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz.
+    // Boas-vindas com o menu: a pessoa vê na hora o que o número faz (o mesmo menu do bot, com as áreas dela: quemNoMenu).
+    const nome = context.profile?.full_name ?? null
+    const quem = await quemNoMenu(admin, context.workspace.id, { id: context.user.id, nome, papel: context.role })
     await entregar(admin, context.workspace.id, {
       numero, tipo: 'bot', userId: context.user.id,
-      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome: context.profile?.full_name ?? null, pausado: false, urlBase: urlBase(), admin: pode(context.role, 'integracoes.configurar') })}`,
+      texto: `Pronto: os avisos do Palácio Virtual passam a chegar por aqui.\n\n${textoDoMenu({ nome, pausado: false, urlBase: urlBase(), ...quem })}`,
     })
     revalidatePath('/perfil')
     return { recado: `WhatsApp confirmado: ${formatarNumero(numero)}.` }

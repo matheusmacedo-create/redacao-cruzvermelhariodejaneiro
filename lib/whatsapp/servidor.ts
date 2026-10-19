@@ -3,7 +3,7 @@ import { createHash, randomInt, timingSafeEqual } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos } from '@/lib/integracoes/chaves'
 import { urlBase } from '@/lib/newsletter/contexto'
-import { baseDoHashDoCodigo, type EstadoDaConexao, type EstadoDoWebhook, type Finalidade, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
+import { baseDoHashDoCodigo, type EstadoDaConexao, type EstadoDoWebhook, type Finalidade, type Interativo, type MotivoDaFalha, type SentidoDoCodigo } from './regras'
 import {
   baixarMidiaKapso, enviarTextoKapso, ligarWebhookKapso, numeroIdValido, perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso,
   type ConfigDaKapso,
@@ -54,11 +54,15 @@ export type Envio = { ok: true; id: string | null } | { ok: false; erro: string;
 
 /**
  * `finalidade` escolhe o modelo fora da janela de 24 h (regras.ts, modeloParaEnviar; sem ela, aviso): a resposta do
- * bot nunca vai por modelo, e o código vai pelo de Autenticação com o próprio `codigo`.
+ * bot nunca vai por modelo, e o código vai pelo de Autenticação com o próprio `codigo`. `interativo`: botões ou lista
+ * junto do texto (regras.ts, Interativo), só dentro da janela; o id de cada um é o comando que o bot já lê digitado.
  */
-export type OpcoesDoEnvio = { finalidade?: Finalidade; codigo?: string | null }
+export type OpcoesDoEnvio = { finalidade?: Finalidade; codigo?: string | null; interativo?: Interativo | null }
 
-/** Manda um texto. `numero` em dígitos. Fora da janela de 24 h, vai pelo modelo aprovado da finalidade (kapso.ts). */
+/**
+ * Manda um texto. `numero` em dígitos. Com `interativo`, tenta antes com os botões ou a lista; se não couberem ou a Meta
+ * recusar, vai o mesmo texto. Fora da janela de 24 h, vai pelo modelo aprovado da finalidade, sem botão (kapso.ts).
+ */
 export const enviarTexto = (config: ConfigDoWhatsapp, numero: string, texto: string, opcoes?: OpcoesDoEnvio): Promise<Envio> =>
   enviarTextoKapso(config, numero, texto, opcoes)
 
@@ -101,6 +105,10 @@ export type LinhaDoRegistro = {
   numero?: string | null
   userId?: string | null
   mensagemId?: string | null
+  /**
+   * Na entrada, o comando reconhecido (nunca o texto); na saída, só as marcas "menu" (a lista do menu: o toque nela vale
+   * como comando — bot.ts) e "nao_fui_eu" (o aviso de segurança que aceita a resposta "NÃO FUI EU" — protecao.ts).
+   */
   comando?: string | null
   notificacaoId?: string | null
   erro?: string | null
@@ -129,13 +137,15 @@ export async function registrar(admin: Admin, l: LinhaDoRegistro): Promise<boole
 /**
  * Envia e registra. Sem configuração, não faz nada (e diz). O tipo é a finalidade do envio; no tipo "codigo",
  * `codigo` é o código de confirmação, que vai sozinho no modelo de Autenticação fora da janela de 24 h.
+ * `interativo`: botões ou lista junto do texto (OpcoesDoEnvio); o registro é o mesmo.
  */
 export async function mandar(admin: Admin, workspaceId: string, p: {
   numero: string; texto: string; tipo: LinhaDoRegistro['tipo']; codigo?: string | null; userId?: string | null; notificacaoId?: string | null; config?: ConfigDoWhatsapp | null
+  interativo?: Interativo | null
 }): Promise<Envio> {
   const config = p.config ?? await configDoWhatsapp(workspaceId)
   if (!config) return { ok: false, erro: 'O WhatsApp do Palácio Virtual não está configurado.', motivo: 'chave' }
-  const envio = await enviarTexto(config, p.numero, p.texto, { finalidade: p.tipo, codigo: p.tipo === 'codigo' ? p.codigo : null })
+  const envio = await enviarTexto(config, p.numero, p.texto, { finalidade: p.tipo, codigo: p.tipo === 'codigo' ? p.codigo : null, interativo: p.interativo })
   await registrar(admin, {
     workspaceId, direcao: 'saida', tipo: p.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: p.numero,
     userId: p.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: p.notificacaoId, erro: envio.ok ? null : envio.erro,

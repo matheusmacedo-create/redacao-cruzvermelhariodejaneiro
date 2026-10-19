@@ -983,7 +983,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'whatsapp-o-que-chega',
       pergunta: 'O que chega pelo WhatsApp, e como paro?',
-      resposta: 'Só as oportunidades de voluntariado, quando são publicadas, e só se você confirmou o número e marcou a autorização no Perfil. Elas saem aos poucos e nunca entre 22h e 7h. Para parar, responda “sair” no WhatsApp, ou toque em “Pausar” ou “Remover o número” no Perfil. O número não é usado para mais nada nem compartilhado.',
+      resposta: 'Só as oportunidades de voluntariado, quando são publicadas, e só se você confirmou o número e marcou a autorização no Perfil. Elas saem aos poucos e nunca entre 22h e 7h; num dia de muitos avisos, podem chegar no dia seguinte. Para parar, responda “sair” no WhatsApp, ou toque em “Pausar” ou “Remover o número” no Perfil. O número não é usado para mais nada nem compartilhado.',
       termos: ['whatsapp', 'oportunidades no whatsapp', 'parar whatsapp', 'sair', 'lgpd', 'autorização'],
     },
     {

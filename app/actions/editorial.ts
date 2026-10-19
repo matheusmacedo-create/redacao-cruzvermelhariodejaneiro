@@ -1,7 +1,6 @@
 'use server'
 
-import { conferenciaDaRodada, registroDaConferencia } from '@/lib/aprovacoes/setores'
-import { avisarQuemPediu } from '@/lib/aprovacoes/avisos'
+import { votarNaRodada } from '@/lib/aprovacoes/voto'
 import { avisarMensagemDireta } from '@/lib/mensagens/avisos'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -1001,34 +1000,11 @@ async function decideApprovalInterno(formData: FormData) {
   const context = await requireWorkspace()
   const supabase = await createClient()
   const id = text(formData, 'id')
-  const decision = text(formData, 'decision')
-  const note = text(formData, 'note')
-  if (!['approved', 'changes_requested'].includes(decision)) throw new Error('Selecione uma decisão.')
-  if (decision === 'changes_requested' && !note) throw new Error('Explique quais ajustes são necessários.')
-  const { data: approval } = await supabase.from('approvals').select('id,content_id,status').eq('id', id).eq('workspace_id', context.workspace.id).single()
-  if (!approval) throw new Error('Aprovação não encontrada.')
-  // Rodada encerrada (inclusive a matéria arquivada) não recebe voto: o voto
-  // devolveria ao conteúdo o estado "aprovado".
-  if (approval.status !== 'pending') throw new Error('Esta rodada já foi encerrada.')
-  // Aprovar exige a conferência do setor inteira marcada (lib/aprovacoes/setores.ts).
-  // A tela já trava o botão; aqui é a autoridade. O que foi conferido vai junto do voto.
-  let comentario = note
-  if (decision === 'approved') {
-    const [{ data: peca }, { data: vinculo }] = await Promise.all([
-      supabase.from('content_pieces').select('pauta_id').eq('id', approval.content_id).eq('workspace_id', context.workspace.id).maybeSingle(),
-      supabase.from('workspace_members').select('coordination').eq('workspace_id', context.workspace.id).eq('user_id', context.user.id).maybeSingle(),
-    ])
-    const { data: pauta } = peca?.pauta_id ? await supabase.from('pautas').select('coordination').eq('id', peca.pauta_id).maybeSingle() : { data: null }
-    const blocos = conferenciaDaRodada(pauta?.coordination ?? null, vinculo?.coordination ?? null)
-    const marcados = new Set(formData.getAll('conferido').map(String))
-    const faltam = blocos.flatMap((b) => b.itens).filter((i) => !marcados.has(i))
-    if (faltam.length) throw new Error(`Confira antes de aprovar: ${faltam.join('; ')}.`)
-    comentario = [note, registroDaConferencia(blocos)].filter(Boolean).join('\n\n')
-  }
-  const { error: voteError } = await supabase.rpc('vote_on_approval', { p_approval_id: id, p_decision: decision, p_comment: comentario || null })
-  if (voteError) throw new Error(voteError.message)
-  await supabase.from('activity_log').insert({ workspace_id: context.workspace.id, actor_id: context.user.id, action: decision, entity_type: 'approval', entity_id: id, metadata: { note: comentario } })
-  await avisarQuemPediu({ approvalId: id, workspaceId: context.workspace.id, atorId: context.user.id, quem: context.profile?.full_name || 'Um colega', decisao: decision as 'approved' | 'changes_requested', nota: note })
+  // A mesma função do voto confirmado no Palácio pelo WhatsApp (lib/aprovacoes/voto.ts): conferência, voto, histórico e aviso.
+  await votarNaRodada({
+    supabase, workspaceId: context.workspace.id, userId: context.user.id, nome: context.profile?.full_name ?? null, approvalId: id,
+    decisao: text(formData, 'decision'), nota: text(formData, 'note'), conferidos: formData.getAll('conferido').map(String),
+  })
   revalidatePath('/aprovacoes')
   revalidatePath(`/aprovacoes/${id}`)
   redirect('/aprovacoes')

@@ -546,6 +546,12 @@ const APROVACOES: GuiaDaArea = {
       resposta: 'É a conversa sobre um conteúdo enviado para aprovação: quem pediu, quem vota e o voto de cada pessoa, com os comentários. As mensagens são as mesmas da tela do conteúdo, e “Abrir tela de aprovação” leva à rodada. Só quem pediu, quem vota e os administradores abrem essa conversa.',
       termos: ['mensagens', 'conversa', 'comentários', 'link antigo'],
     },
+    {
+      id: 'votar-pelo-whatsapp',
+      pergunta: 'Dá para votar pelo WhatsApp?',
+      resposta: 'Dá, respondendo a mensagem do aviso de aprovação: “aprovar” (o Palácio manda a conferência do setor, e você responde “confirmo” ou toca no botão) ou “ajustes:” e o que precisa mudar.\n\nQuem usa a verificação em duas etapas (ou é obrigado a usar) responde do mesmo jeito, mas o voto não sai do WhatsApp: chega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta, depois do código do app. Para aprovar, a conferência do setor aparece na tela, antes do botão. O voto fica no histórico com a conferência, como o voto dado aqui.',
+      termos: ['whatsapp', 'votar pelo whatsapp', 'aprovar pelo whatsapp', 'confirme no palácio', 'verificação em duas etapas'],
+    },
   ],
   relacionadas: ['/pautas', '/dashboard', '/redes', '/notificacoes'],
 }
@@ -678,8 +684,8 @@ const NOTIFICACOES: GuiaDaArea = {
     {
       id: 'avisos-de-seguranca',
       pergunta: 'Os avisos de segurança da conta aparecem aqui?',
-      resposta: 'Não. Os avisos de segurança (senha trocada, verificação em duas etapas ativada ou removida, papel mudado, conta desativada ou reativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas, WhatsApp trocado ou removido) vão direto para o seu e-mail de recuperação confirmado e para o seu WhatsApp confirmado, qualquer que seja a sua escolha (mesmo com o WhatsApp pausado), e não aparecem no sino. Quando o e-mail de recuperação muda, o aviso vai para o endereço antigo. Quando o WhatsApp muda ou sai, o aviso vai ao e-mail confirmado, e o número antigo recebe só um recado curto, sem o seu nome (ele pode já ser de outra pessoa).',
-      termos: ['segurança', 'senha', '2fa', 'verificação'],
+      resposta: 'Não. Os avisos de segurança (senha trocada, verificação em duas etapas ativada ou removida, papel mudado, conta desativada ou reativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas, WhatsApp trocado ou removido) vão direto para o seu e-mail de recuperação confirmado e para o seu WhatsApp confirmado, qualquer que seja a sua escolha (mesmo com o WhatsApp pausado), e não aparecem no sino. Quando o e-mail de recuperação muda, o aviso vai para o endereço antigo. Quando o WhatsApp muda ou sai, o aviso vai ao e-mail confirmado, e o número antigo recebe só um recado curto, sem o seu nome (ele pode já ser de outra pessoa). No WhatsApp, o aviso de algo que você mesmo faria termina com “Responda NÃO FUI EU se não foi você” (veja a ajuda de Meu perfil).',
+      termos: ['segurança', 'senha', '2fa', 'verificação', 'não fui eu'],
     },
   ],
   relacionadas: ['/perfil', '/aprovacoes', '/chat'],

@@ -21,7 +21,7 @@ import { marcaDoConvite, lerMarcaDoConvite } from '@/lib/contas/convite'
 import { entregar } from '@/lib/whatsapp/fila'
 import { configDoWhatsapp } from '@/lib/whatsapp/servidor'
 import { criarConviteDaFicha } from '@/lib/rh/convites'
-import { formatarNumero, mascararNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/whatsapp/regras'
+import { TEXTO_DA_ESPERA_DA_COTA, formatarNumero, mascararNumero, numeroCanonico, textoDoConviteDoPalacio } from '@/lib/whatsapp/regras'
 
 /**
  * Gestão de usuários e acessos.
@@ -249,7 +249,8 @@ async function criarConta(admin: Admin, workspaceId: string, d: {
   return userId
 }
 
-type EnvioDoConvite = { email: boolean; whatsapp: 'enviada' | 'na_fila' | 'falhou' | null; erroDoWhatsapp?: string }
+/** `pelaCota`: o WhatsApp ficou para o dia seguinte pela cota diária de conversas (lib/whatsapp/fila.ts). */
+type EnvioDoConvite = { email: boolean; whatsapp: 'enviada' | 'na_fila' | 'falhou' | null; erroDoWhatsapp?: string; pelaCota?: boolean }
 
 /**
  * Manda o link para criar a senha por e-mail e/ou WhatsApp. O link é um só;
@@ -278,6 +279,7 @@ async function mandarConvite(admin: Admin, p: {
     })
     envio.whatsapp = entrega.situacao
     if (entrega.situacao === 'falhou') envio.erroDoWhatsapp = entrega.erro
+    if (entrega.situacao === 'na_fila' && entrega.motivo === 'cota') envio.pelaCota = true
   }
   return envio
 }
@@ -287,7 +289,9 @@ function comoSaiu(e: EnvioDoConvite, email: string | null, numero: string | null
   const partes: string[] = []
   if (e.email && email) partes.push(`por e-mail (${email})`)
   if (e.whatsapp === 'enviada' && numero) partes.push(`pelo WhatsApp (${formatarNumero(numero)})`)
-  if (e.whatsapp === 'na_fila' && numero) partes.push(`pelo WhatsApp (${formatarNumero(numero)}, assim que a fila andar; de 22h às 7h, de manhã)`)
+  if (e.whatsapp === 'na_fila' && numero) {
+    partes.push(`pelo WhatsApp (${formatarNumero(numero)}, ${e.pelaCota ? `${TEXTO_DA_ESPERA_DA_COTA}; o link de senha conta as horas desde agora` : 'assim que a fila andar; de 22h às 7h, de manhã'})`)
+  }
   return partes.join(' e ')
 }
 

@@ -7,7 +7,7 @@ import { notificar } from '@/lib/notificacoes/servidor'
 import { enviarAoVoluntario, gerentesDoVoluntariado } from '@/lib/membro/comunicacao'
 import { emailDoPedidoDeDocumentos } from '@/lib/membro/emails'
 import { entregar } from '@/lib/whatsapp/fila'
-import { formatarNumero, mascararNumero, numeroCanonico } from '@/lib/whatsapp/regras'
+import { TEXTO_DA_ESPERA_DA_COTA, formatarNumero, mascararNumero, numeroCanonico } from '@/lib/whatsapp/regras'
 import {
   DIAS_DO_LINK, DIAS_ENTRE_LEMBRETES, LEMBRETES_NO_MAXIMO, textoDoPedidoDeDocumentos, type CanalDoPedido, type CategoriaDeDocumento, type Escopo, type Lado, type RegistroProfissional,
 } from './regras'
@@ -68,7 +68,10 @@ export async function pedirDocumentos(supabase: SupabaseClient, p: { workspaceId
     const entrega = await entregar(admin, p.workspaceId, { numero, tipo: 'aviso', categoria: 'aprovacoes', userId: null, texto })
     if (entrega.situacao === 'falhou') return { link, enviadoPara: null, recado: `O WhatsApp não saiu (${entrega.erro}). Copie o link e mande de outro jeito.` }
     const para = formatarNumero(numero)
-    return { link: null, enviadoPara: mascararNumero(numero), recado: entrega.situacao === 'na_fila' ? `O link vai para ${para} pelo WhatsApp assim que a fila andar (de 22h às 7h, espera a manhã).` : `Link mandado para ${para} pelo WhatsApp.` }
+    const naFila = entrega.situacao === 'na_fila'
+      ? entrega.motivo === 'cota' ? `O link vai para ${para} pelo WhatsApp ${TEXTO_DA_ESPERA_DA_COTA}.` : `O link vai para ${para} pelo WhatsApp assim que a fila andar (de 22h às 7h, espera a manhã).`
+      : null
+    return { link: null, enviadoPara: mascararNumero(numero), recado: naFila ?? `Link mandado para ${para} pelo WhatsApp.` }
   }
   return { link, enviadoPara: null, recado: `Link gerado. Copie e mande ao candidato: vale ${DIAS_DO_LINK} dias.` }
 }

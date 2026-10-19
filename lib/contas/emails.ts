@@ -167,6 +167,20 @@ export type AvisoDeSeguranca =
   | { tipo: 'whatsapp_trocado'; de: string; para: string }
   | { tipo: 'whatsapp_removido'; numero: string; porAdmin?: string }
   | { tipo: 'conta_bloqueada'; lugar: string }
+  // O "Não fui eu" respondido no WhatsApp (lib/whatsapp/protecao.ts). `numeroAntigo`: veio do número que a conta usava antes.
+  | { tipo: 'sessoes_encerradas'; numeroAntigo?: boolean }
+
+/**
+ * O aviso pelo WhatsApp ensina a responder "NÃO FUI EU" (lib/whatsapp/protecao.ts)? Só o de algo que a própria
+ * pessoa faria — se não foi ela, alguém está na conta: senha trocada por ela ou pelo link, verificação mexida por
+ * ela, e-mail trocado e entrada bloqueada (o acesso novo e o recado ao número antigo têm o deles). O que a
+ * administração fez (papel, desativação, senha ou verificação pelo admin) não: quem fez foi outra pessoa, de propósito.
+ */
+export function ofereceNaoFuiEu(a: AvisoDeSeguranca): boolean {
+  if (a.tipo === 'senha_alterada') return a.como !== 'admin'
+  if (a.tipo === 'verificacao_removida') return !a.porAdmin
+  return a.tipo === 'verificacao_ativada' || a.tipo === 'email_alterado' || a.tipo === 'conta_bloqueada'
+}
 
 /** O fecho dos avisos do WhatsApp da conta (troca e remoção pela própria pessoa: se não foi ela, alguém mexeu na conta). */
 const SE_NAO_FOI_VOCE_NO_WHATSAPP = 'Se não foi você, fale com a administração do Palácio Virtual e troque a sua senha em Meu perfil.'
@@ -275,6 +289,17 @@ export function emailDeAviso(p: { nome: string; quando: Date; aviso: AvisoDeSegu
       blocos: [
         { tipo: 'p', texto: `${ola} Alguém tentou entrar na sua conta do Palácio Virtual várias vezes com a senha errada, de ${(a as { lugar: string }).lugar} (local aproximado). Por segurança, novas tentativas ficam bloqueadas por alguns minutos. ${data}` },
         { tipo: 'nota', texto: 'Se foi você, espere um pouco e tente de novo, ou use “Esqueci minha senha” na tela de entrada. Se não foi, troque a sua senha em Meu perfil e fale com a administração do Palácio Virtual.' },
+      ],
+    }),
+    // Vai só ao e-mail: a resposta no WhatsApp já diz o que foi feito.
+    sessoes_encerradas: () => ({
+      assunto: 'As sessões da sua conta do Palácio Virtual foram encerradas',
+      titulo: 'Sessões encerradas pelo “Não fui eu”',
+      blocos: [
+        { tipo: 'p', texto: `${ola} Pelo WhatsApp, alguém respondeu “Não fui eu” a um aviso de segurança da sua conta${(a as { numeroAntigo?: boolean }).numeroAntigo ? ', do número que a conta usava antes' : ''}. Por segurança, todas as sessões abertas foram encerradas, em qualquer aparelho, e os links de senha e de convite pendentes deixaram de valer. A administração foi avisada. ${data}` },
+        { tipo: 'p', texto: 'A sua senha não mudou e a conta continua ativa. Troque a senha agora: na tela de entrada, use “Esqueci minha senha”, ou peça uma senha nova à administração.' },
+        { tipo: 'botao', rotulo: 'Abrir o Palácio Virtual', url: p.urlDeLogin },
+        { tipo: 'nota', texto: 'Não foi você que respondeu? Fale com a administração do Palácio Virtual: alguém pode estar com o seu celular ou com o seu número antigo.' },
       ],
     }),
   }

@@ -1,7 +1,7 @@
 import 'server-only'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import {
-  estadoDoNumeroNaKapso, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, problemaDoModelo, problemaNaSaude,
+  estadoDoNumeroNaKapso, interativoCaiNoTexto, modeloParaEnviar, numeroCanonico, numeroSemNonoDigito, objetoInterativo, problemaDoModelo, problemaNaSaude,
   type ModelosDoWhatsapp, type MotivoDaFalha, type ObjetoDoModelo,
 } from './regras'
 import type { Envio, MidiaBaixada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoWebhook } from './servidor'
@@ -17,6 +17,8 @@ import type { Envio, MidiaBaixada, OpcoesDoEnvio, SituacaoDaConexao, SituacaoDoW
  *  - texto livre só dentro da janela de 24 h desde a última mensagem da
  *    pessoa; fora dela a Meta recusa (131047) e só sai modelo aprovado, um
  *    por finalidade (regras.ts, modeloParaEnviar);
+ *  - botões de resposta e listas (type "interactive") seguem a mesma janela;
+ *    o toque volta no webhook como interactive.button_reply / list_reply;
  *  - webhook por número (kind "kapso", payload v2), assinado com HMAC-SHA256
  *    do corpo cru no cabeçalho X-Webhook-Signature;
  *  - mídia recebida: GET /{media_id} devolve um download_url de 4 minutos.
@@ -120,19 +122,28 @@ async function enviarModelo(config: ConfigDaKapso, numero: string, modelo: Objet
 }
 
 /**
- * Manda um texto. Fora da janela de 24 h, cai no modelo aprovado da finalidade
+ * Manda um texto. Com `interativo` (botões ou lista; regras.ts, objetoInterativo),
+ * tenta antes a mensagem interativa, com o texto inteiro no corpo; se ela não
+ * cabe ou a Meta recusa o formato (interativoCaiNoTexto), vai o mesmo texto sem
+ * os botões. Fora da janela de 24 h, cai no modelo aprovado da finalidade
  * (Configurações → Integrações; regras.ts, modeloParaEnviar): o dos avisos com
  * o texto inteiro no parâmetro, o de Autenticação só com o código, e a resposta
  * do bot nunca. Sem `finalidade`, vale como aviso.
  */
 export async function enviarTextoKapso(config: ConfigDaKapso, numero: string, t: string, opcoes: OpcoesDoEnvio = {}): Promise<Envio> {
-  const texto = (para: string) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
-    messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'text', text: { body: t.slice(0, 4096), preview_url: false },
+  const enviar = (para: string, conteudo: Record<string, unknown>) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: para, ...conteudo,
   }, TEMPO_DO_ENVIO_MS)
-  let r = await texto(numero)
   // A conversa pode estar aberta com o número sem o nono dígito (como o WhatsApp identifica muitos celulares antigos).
   const semNono = numeroSemNonoDigito(numero)
-  if (!r.ok && r.foraDaJanela && semNono) r = await texto(semNono)
+  const tentar = async (conteudo: Record<string, unknown>) => {
+    const r = await enviar(numero, conteudo)
+    return !r.ok && r.foraDaJanela && semNono ? enviar(semNono, conteudo) : r
+  }
+  const interativo = opcoes.interativo ? objetoInterativo(t, opcoes.interativo) : null
+  let r = interativo ? await tentar({ type: 'interactive', interactive: interativo }) : null
+  // Fora da janela o texto ficaria de fora igual: segue direto para o modelo, sem os botões.
+  if (!r || interativoCaiNoTexto(r)) r = await tentar({ type: 'text', text: { body: t.slice(0, 4096), preview_url: false } })
   if (!r.ok && r.foraDaJanela) {
     const modelo = modeloParaEnviar({ finalidade: opcoes.finalidade ?? 'aviso', modelos: config, texto: t, codigo: opcoes.codigo })
     if (!modelo.ok) return { ok: false, erro: `${r.erro} ${modelo.falta}`, motivo: 'outro' }

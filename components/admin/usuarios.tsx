@@ -533,12 +533,13 @@ const ROTULO_DA_ACAO: Record<string, string> = {
   whatsapp_removido: 'removeu o WhatsApp da própria conta',
   whatsapp_removido_pelo_admin: 'removeu o WhatsApp de',
   conta_bloqueada_por_tentativas: 'bloqueou por tentativas erradas a entrada de',
+  nao_fui_eu: 'respondeu “Não fui eu” no WhatsApp: as sessões da conta foram encerradas',
 }
 
 // Ações sobre a própria conta: o alvo é o próprio ator, não se repete o nome.
 const PROPRIAS = new Set([
   'senha_trocada', 'verificacao_ativada', 'verificacao_removida', 'senha_definida_pelo_convite', 'senha_redefinida_pelo_link', 'confirmacao_de_email_enviada', 'email_confirmado',
-  'ajuda_com_verificacao_pedida', 'whatsapp_confirmado', 'whatsapp_removido',
+  'ajuda_com_verificacao_pedida', 'whatsapp_confirmado', 'whatsapp_removido', 'nao_fui_eu',
 ])
 
 function detalheDoEvento(e: EventoNaTela): string {
@@ -553,6 +554,8 @@ function detalheDoEvento(e: EventoNaTela): string {
   if (e.acao === 'whatsapp_removido' || e.acao === 'whatsapp_removido_pelo_admin') return String(d.numero ?? '')
   if ((e.acao === 'usuario_desativado' || e.acao === 'convite_cancelado') && d.whatsapp_liberado) return `WhatsApp ${d.whatsapp_liberado} liberado`
   if (e.acao === 'conta_bloqueada_por_tentativas') return String(d.lugar ?? '')
+  // O número já foi gravado mascarado; do número antigo, diz que foi dele.
+  if (e.acao === 'nao_fui_eu') return d.numero_da_conta === false ? `pelo número antigo ${d.numero ?? ''}` : String(d.numero ?? '')
   if (e.acao === 'verificacao_exigencia_alterada') {
     const lista = (v: unknown) => (Array.isArray(v) && v.length ? v.map(papel).join(', ') : 'ninguém')
     return `${lista(d.de)} → ${lista(d.para)}`

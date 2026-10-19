@@ -1,8 +1,9 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterChave } from '@/lib/integracoes/chaves'
+import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
-import { chamarToken, clienteOAuth, GmailError } from './gmail'
+import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
 
 /**
  * A API de Diretório do Google Workspace (Admin SDK): criar a conta de uma
@@ -49,9 +50,13 @@ async function tokenDeAdmin(workspaceId: string): Promise<string> {
     return token
   } catch (causa) {
     if (causa instanceof GmailError && causa.reconectar) {
-      await createAdminClient().from('google_admin_conexao').update({ estado: 'expirada' }).eq('workspace_id', workspaceId)
+      // Como no Gmail: só a troca de "ativa" para "expirada" avisa a administração.
+      const { data: virou } = await createAdminClient().from('google_admin_conexao').update({ estado: 'expirada' })
+        .eq('workspace_id', workspaceId).eq('estado', 'ativa').select('email_conta').maybeSingle()
+      if (virou) await alertarIntegracao({ integracao: 'google_admin', workspaceId, conta: (virou.email_conta as string | null) ?? null })
       throw new ErroDoDiretorio('A autorização da conta de administrador do Google expirou ou foi revogada. Reconecte em Configurações → E-mail dos setores.', 0, true)
     }
+    if (causa instanceof GmailError && causa.message === CLIENTE_RECUSADO) await alertarIntegracao({ integracao: 'google_oauth', workspaceId, motivo: 'chave' })
     throw causa
   }
 }

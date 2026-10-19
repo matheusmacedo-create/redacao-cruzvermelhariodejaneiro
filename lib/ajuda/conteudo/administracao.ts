@@ -209,7 +209,7 @@ const ACESSOS: GuiaDaArea = {
     {
       id: 'a-pessoa-sabe',
       pergunta: 'A pessoa sabe que o acesso dela é registrado?',
-      resposta: 'A tela de entrada da equipe avisa: “Por segurança, registramos data, local aproximado e dados do aparelho de cada acesso.” A pessoa não vê o próprio registro: recebe só o aviso de segurança, no e-mail e no WhatsApp confirmados, quando entra de um aparelho novo ou de um país novo e quando a conta é bloqueada por tentativas erradas.\n\nA tela de entrada da Área do Voluntário não traz esse aviso, e os voluntários não recebem o aviso de segurança.',
+      resposta: 'A tela de entrada da equipe avisa: “Por segurança, registramos data, local aproximado e dados do aparelho de cada acesso.” A pessoa não vê o próprio registro: recebe só o aviso de segurança, no e-mail e no WhatsApp confirmados, quando entra de um aparelho novo ou de um país novo e quando a conta é bloqueada por tentativas erradas. No WhatsApp, se não foi ela, a resposta “NÃO FUI EU”, confirmada, encerra todas as sessões da conta e avisa a administração.\n\nA tela de entrada da Área do Voluntário não traz esse aviso, e os voluntários não recebem o aviso de segurança.',
       termos: ['LGPD', 'privacidade', 'transparência', 'meus acessos', 'aviso'],
     },
   ],
@@ -441,7 +441,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'convite-nao-chegou',
       pergunta: 'O convite não chegou. E agora?',
-      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã. Para mandar um link novo, toque na pessoa aqui e em “Enviar convite de primeiro acesso” (dá para trocar o WhatsApp), ou use “Reenviar” em “Convites pendentes”, na tela de “Convidar várias pessoas”. O link anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
+      resposta: 'Pelo e-mail, peça para a pessoa olhar o spam; pelo WhatsApp, convite criado entre 22h e 7h sai de manhã, e, com a cota diária do WhatsApp no limite, no dia seguinte (o recado da tela diz). Para mandar um link novo, toque na pessoa aqui e em “Enviar convite de primeiro acesso” (dá para trocar o WhatsApp), ou use “Reenviar” em “Convites pendentes”, na tela de “Convidar várias pessoas”. O link anterior deixa de valer.\n\nSe o convite não sair de jeito nenhum, abra a pessoa aqui, toque em “Redefinir senha” e gere uma senha temporária.',
       termos: ['reenviar convite', 'convite expirou', 'link expirou', 'o convite NÃO saiu'],
     },
     {
@@ -515,6 +515,18 @@ const USUARIOS: GuiaDaArea = {
       pergunta: 'Por que o botão “Salvar alterações” está apagado?',
       resposta: 'Ele só acende quando algo mudou nos dados, no papel, na coordenação ou no e-mail. A exceção é o e-mail “(não confirmado)”: aí dá para salvar sem mudar nada, e a confirmação é reenviada. Com um e-mail em formato inválido no campo, ele também fica apagado.',
       termos: ['não consigo salvar', 'botão desabilitado', 'botão cinza'],
+    },
+    {
+      id: 'nao-fui-eu-recebido',
+      pergunta: 'Recebi “Não fui eu: sessões de … encerradas”. O que faço?',
+      resposta: 'Alguém respondeu “NÃO FUI EU” a um aviso de segurança da conta pelo WhatsApp (do número dela ou do número que ela usava antes), e o Palácio já encerrou todas as sessões da conta, em qualquer aparelho, e cancelou os links de senha e de convite pendentes. A senha não mudou e a conta continua ativa.\n\nFale com a pessoa por outro canal (pessoalmente ou por telefone). Se alguém mesmo entrou na conta, redefina a senha dela aqui e, se precisar, desative o acesso. O evento fica no “Registro de acessos”, com o número (o meio escondido).',
+      termos: ['não fui eu', 'sessões encerradas', 'alerta de segurança', 'conta invadida', 'alguém entrou na conta'],
+    },
+    {
+      id: 'desativar-pelo-whatsapp',
+      pergunta: 'Dá para desativar um acesso pelo WhatsApp?',
+      resposta: 'Dá começar por lá: mande “desativar conta:” e o nome ou o usuário ao WhatsApp do Palácio (só quem gerencia os usuários). O Palácio responde com um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta, com a verificação em duas etapas se você usa. A tela mostra a pessoa, o usuário e o papel, e “Confirmar a desativação” faz o mesmo que “Desativar acesso” aqui. Com mais de uma pessoa com o nome, ele lista os usuários.\n\nMudar papel, redefinir senha e tirar a verificação em duas etapas continuam só aqui.',
+      termos: ['desativar pelo whatsapp', 'desativar conta', 'whatsapp', 'confirme no palácio'],
     },
   ],
   relacionadas: ['/pessoas', '/configuracoes', '/perfil'],
@@ -901,6 +913,12 @@ const WHATSAPP: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'whatsapp.cota',
+      titulo: 'Cota diária de conversas',
+      texto: 'Quantas pessoas o Palácio procurou nas últimas 24 horas sem que tivessem escrito antes, de 250 (o limite da Meta). A partir de 220, avisos comuns, convites e anúncios ficam para o dia seguinte; segurança, códigos, portaria, alertas e respostas do bot continuam saindo.',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'whatsapp.teste',
       titulo: 'Testar',
       texto: '“Mandar mensagem de teste” manda uma mensagem para o seu WhatsApp confirmado. Responda “menu” por lá para ver o bot.',
@@ -933,7 +951,7 @@ const WHATSAPP: GuiaDaArea = {
       passos: [
         'Confirme antes o seu WhatsApp em “Meu perfil”.',
         'Aqui, em “Testar”, toque em “Mandar mensagem de teste”.',
-        'No seu WhatsApp, responda “menu”. O bot responde com as opções.',
+        'No seu WhatsApp, responda “menu”. O bot responde com as opções e o botão “Ver as opções”.',
         'Em “Últimas mensagens”, toque em “Atualizar” e confira o envio e a resposta.',
       ],
     },
@@ -954,13 +972,13 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'aviso-nao-chegou',
       pergunta: 'Por que um aviso não chegou no WhatsApp de alguém?',
-      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, e cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp. As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.',
+      resposta: 'O aviso só vai para quem confirmou o número em “Meu perfil”, não pausou e deixou o assunto ligado. Não sai para quem está com o Palácio aberto naquela hora (já está vendo o sino), numa conversa movimentada sai no máximo uma mensagem a cada 15 minutos, cada pessoa recebe no máximo 40 avisos por dia pelo WhatsApp e, com a cota diária no limite, o aviso comum fica para o dia seguinte (veja a pergunta sobre a cota). As exceções são o desfecho do chamado para quem abriu (resolvido, pedido de informação, cancelado) e a portaria (a chegada do visitante e a resposta de quem é visitado): esses saem mesmo com o Palácio aberto.\n\nNinguém é avisado do que ele mesmo fez: quem resolve o próprio chamado não recebe a réplica. Só a visita registrada na portaria para quem registrou avisa a própria pessoa.',
       termos: ['não chegou', 'não recebi', 'mensagem não chega'],
     },
     {
       id: 'avisos-a-noite',
       pergunta: 'Os avisos saem à noite?',
-      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se a Kapso estava fora, o aviso fica na fila e sai quando a conexão voltar. Falhas aparecem em “Últimas mensagens”.',
+      resposta: 'Os comuns, não: de 22h às 7h eles esperam na fila e saem às 7h. Os da portaria saem na hora. Se a Kapso estava fora, o aviso fica na fila e sai quando a conexão voltar. Com a cota diária no limite, o aviso comum fica para o dia seguinte (veja a pergunta sobre a cota). Falhas aparecem em “Últimas mensagens”.',
       termos: ['madrugada', 'horário', 'fila', 'atrasado', 'de manhã'],
     },
     {
@@ -982,10 +1000,40 @@ const WHATSAPP: GuiaDaArea = {
       termos: ['parou de receber mensagens', 'voltou a receber mensagens', 'sem modelo aprovado', 'webhook', 'recebimento', 'alerta', '7h05'],
     },
     {
+      id: 'cota-diaria',
+      pergunta: 'Por que um aviso ficou “para amanhã pela cota diária”?',
+      resposta: 'A Meta limita quantas pessoas diferentes o número do Palácio procura por dia sem que elas tenham escrito ao número nas últimas 24 horas: hoje, 250 em 24 horas. Passou disso, a Meta recusa o resto.\n\nO Palácio conta essas conversas e, a partir de 220, segura o que pode esperar: avisos comuns do sino, anúncios de oportunidades aos voluntários, convites de acesso e da ficha e pedidos de documentos. Eles ficam na fila e tentam de novo 24 horas depois (de madrugada, às 7h). A reserva fica para o que não espera: segurança da conta, códigos, portaria, alertas da administração e respostas do bot. Quem escreveu ao número nas últimas 24 horas, ou já recebeu algo do Palácio nesse tempo, não conta de novo e recebe na hora.\n\nA contagem aparece em “Fila e horário de silêncio” e no “status”.',
+      termos: ['cota', 'cota diária', 'limite diário', '250', 'para amanhã', 'tier', 'conversas iniciadas', 'limite da meta'],
+    },
+    {
+      id: 'alertas-de-integracoes',
+      pergunta: 'Que alertas de integrações chegam pelo WhatsApp?',
+      resposta: 'Quando uma integração para, os administradores recebem um aviso no assunto “Integrações”, no sino, no e-mail e também no WhatsApp, com o que fazer: a conta Google do e-mail dos setores ou a de administrador expirou ou foi revogada (reconecte em Configurações → E-mail dos setores); o Google recusou o cliente OAuth (confira em Integrações); o Resend recusou a chave ou o domínio, saiu do ar ou limitou os envios (os e-mails não saem); o Cloudflare R2 não gravou (as fotos que chegam pelo WhatsApp e o espelho da trilha pública).\n\nÉ no máximo um aviso por integração a cada 6 horas, e o da conta Google só na hora em que ela expira. A queda do próprio WhatsApp continua no assunto “Sistema”, só no sino e no e-mail.',
+      termos: ['integrações', 'alerta', 'google expirou', 'conta google', 'resend', 'e-mail parou', 'r2', 'armazenamento'],
+    },
+    {
       id: 'comandos-de-administrador',
       pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
-      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: a resposta traz a conexão com a Kapso, o recebimento de mensagens, a fila, as falhas de envio das últimas 24 horas agrupadas pelo motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google com a autorização expirada e quando a conferência diária rodou pela última vez.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas ainda esperam.\n\nOs dois aparecem no “menu” só de quem é administrador; para os outros, o bot só responde que não entendeu. Ficam em “Últimas mensagens” como os demais comandos.',
-      termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot'],
+      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: vêm a conexão com a Kapso, o recebimento, a fila, as conversas iniciadas em 24 horas (a cota diária), as falhas de envio de 24 horas por motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google expiradas, a última leitura de cada conta da Escola (Únicopag e Meta: em dia, atrasada ou com o erro) e a última conferência diária.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas esperam.\n\nOs dois aparecem no “menu” só de administrador; para os outros, o bot responde que não entendeu. Ficam em “Últimas mensagens” como os demais.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja “Confirme no Palácio”).',
+      termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot', 'sincronização da escola', 'únicopag'],
+    },
+    {
+      id: 'botoes-no-whatsapp',
+      pergunta: 'Por que algumas mensagens do bot vêm com botões e outras não?',
+      resposta: 'Para quem escreveu ao número nas últimas 24 horas, o Palácio manda botões e listas: o menu (“Ver as opções”), as conferências (“Confirmo” e “Cancelar”), as escolhas numeradas (equipe, assunto e urgência do chamado, pessoa visitada, ação, veículo, condutor e finalidade), “Pular” nos detalhes, “Todos vieram” na chamada da ação, “Manter” no hodômetro, no aviso da portaria “Pode subir”, “Aguarde na recepção” e “Não pode agora” e, nos avisos de segurança, “Não fui eu”. Tocar é o mesmo que digitar: o botão manda a resposta que o bot já entende, e digitar continua valendo.\n\nVão sem botões o aviso para quem não escreveu nas últimas 24 horas (sai pelo modelo, que não leva botão), o que esperou na fila (menos o aviso da portaria e o “Não fui eu”), o texto longo demais e o que a Meta recusar com botões (sai o mesmo texto). Um botão de uma pergunta que já passou responde que ela não vale mais.',
+      termos: ['botões', 'lista', 'ver as opções', 'confirmo', 'pode subir', 'interativo', 'sem botão'],
+    },
+    {
+      id: 'confirmar-no-palacio',
+      pergunta: 'O que é o link “Confirme no Palácio” que o WhatsApp manda?',
+      resposta: 'É como o Palácio faz o que é sensível e foi pedido pelo WhatsApp: decidir uma despesa ou uma compra (“financeiro”, depois “aprovar 2” ou “recusar 2:” e o motivo), o voto de quem usa a verificação em duas etapas e o “desativar conta:” da administração. Nada disso acontece no WhatsApp: o link abre uma tela do Palácio com o que vai ser feito e o botão de confirmar (“Confirmar a aprovação”, “Confirmar o voto”, “Confirmar a desativação”…).\n\nO link vale por 15 minutos e uma vez só, e só abre na conta de quem pediu, logada, com a mesma verificação das telas (com o app autenticador, o Palácio pede o código antes). Confirmado, vale o mesmo caminho da tela da área, com as mesmas regras, e a resposta volta pelo WhatsApp. Pagar, conciliar, fechar o mês, assinar ofício, mudar papel e mexer em chaves não têm caminho pelo WhatsApp.',
+      termos: ['confirme no palácio', 'link de confirmação', 'confirmar', 'financeiro pelo whatsapp', 'desativar conta', 'aprovar pelo whatsapp'],
+    },
+    {
+      id: 'nao-fui-eu',
+      pergunta: 'Como funciona o “Não fui eu” nos avisos de segurança?',
+      resposta: 'O aviso de segurança de algo que a própria pessoa faria (acesso de um aparelho ou país novo, entrada bloqueada, senha trocada, verificação em duas etapas mexida, e-mail trocado e o recado ao número antigo quando o WhatsApp da conta muda) termina com “Responda NÃO FUI EU se não foi você” e, para quem escreveu ao número nas últimas 24 horas, com o botão “Não fui eu”. Vale respondendo o aviso ou até 24 horas depois dele, mesmo com a verificação em duas etapas e do número antigo.\n\nDepois do “confirmo”, o Palácio encerra todas as sessões da conta, cancela os links de senha e de convite pendentes, avisa os administradores (no sino e, conforme as preferências, no e-mail e no WhatsApp, no assunto “Trilha pública”) e a pessoa, por e-mail, e registra no “Registro de acessos”. A senha não muda e a conta não é desativada. Cada aviso protege uma vez só; do número antigo, uma vez a cada 24 horas.',
+      termos: ['não fui eu', 'nao fui eu', 'aviso de segurança', 'sessões encerradas', 'alguém entrou na minha conta', 'número trocado'],
     },
     {
       id: 'desconectou-sozinho',
@@ -1183,7 +1231,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'so-no-sino',
       pergunta: 'Com “Só no sino” ou com o WhatsApp pausado, eu deixo de receber algum aviso?',
-      resposta: 'Não. Tudo continua aparecendo no sino e em “Notificações”; só deixa de chegar por e-mail (ou pelo WhatsApp).\n\nOs avisos de segurança da conta chegam sempre no seu e-mail confirmado e no seu WhatsApp confirmado, pausado ou não, até de madrugada: senha trocada, verificação em duas etapas, papel mudado, conta desativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas e WhatsApp trocado ou removido. Quando o número é trocado ou removido, o aviso vai ao e-mail confirmado; o número antigo, que pode já ser de outra pessoa, recebe só um recado curto, sem o seu nome (e, se foi a administração que removeu, nem isso). Se um desses avisos fala de algo que você não fez, troque a sua senha aqui e fale com a administração.',
+      resposta: 'Não. Tudo continua aparecendo no sino e em “Notificações”; só deixa de chegar por e-mail (ou pelo WhatsApp).\n\nOs avisos de segurança da conta chegam sempre no seu e-mail confirmado e no seu WhatsApp confirmado, pausado ou não, até de madrugada: senha trocada, verificação em duas etapas, papel mudado, conta desativada, acesso de um aparelho ou país novo, entrada bloqueada por tentativas erradas e WhatsApp trocado ou removido. Quando o número é trocado ou removido, o aviso vai ao e-mail confirmado; o número antigo, que pode já ser de outra pessoa, recebe só um recado curto, sem o seu nome (e, se foi a administração que removeu, nem isso). Se um desses avisos fala de algo que você não fez, responda “NÃO FUI EU” no WhatsApp (confirmando, o Palácio encerra todas as sessões da conta e avisa a administração), troque a sua senha aqui e fale com a administração.',
       termos: ['desligar e-mails', 'parar de receber e-mail', 'sino', 'whatsapp pausado', 'chegou mesmo pausado', 'aviso de segurança', 'WhatsApp da conta trocado', 'WhatsApp da conta removido', 'não fui eu'],
     },
     {
@@ -1213,14 +1261,14 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'o-que-faz-o-whatsapp',
       pergunta: 'O que dá para fazer pelo WhatsApp do Palácio?',
-      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e responda com o número da opção: “1” mostra os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” traz a sua agenda de hoje e amanhã, “5” os seus chamados abertos e “6” o que espera o seu voto nas aprovações.\n\nPara uma dúvida, escreva “ajuda” e a pergunta, como “ajuda como troco a senha”: a resposta vem da Central de ajuda, só das áreas que você abre, com o link para ler inteira. A agenda segue as camadas que você deixou ligadas na Agenda. Administradores têm também “status” e “fila” (veja a ajuda do WhatsApp, em Configurações).\n\nOs avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as duas perguntas seguintes.',
-      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp'],
+      resposta: 'Depois de confirmar o número aqui, mande “menu” para o número do Palácio e toque em “Ver as opções”, ou responda com o número: “1” os avisos que você não abriu, “2” marca todos como lidos, “3” pausa ou retoma os avisos, “4” a sua agenda de hoje e amanhã, “5” os seus chamados abertos (e os da fila, para quem atende) e “6” o que espera o seu voto.\n\nPara uma dúvida, escreva “ajuda” e a pergunta (“ajuda como troco a senha”): a resposta vem da Central de ajuda, só das áreas que você abre. Cada área entra no menu de quem a tela dela deixa: “portaria”, “financeiro”, “presença” (a chamada da ação de hoje), “veículos”, “saída” e “retorno” (a Frota) e “estoque” e o material; administradores têm “status” e “fila”.\n\nAs perguntas por lá vêm com botões ou lista: tocar é o mesmo que digitar. Os avisos também se respondem por lá, e fotos de uma ação viram um envio: veja as perguntas seguintes.',
+      termos: ['bot', 'menu do whatsapp', 'agenda pelo whatsapp', 'chamados pelo whatsapp', 'dúvida pelo whatsapp', 'botões do whatsapp', 'ver as opções', 'portaria pelo whatsapp', 'quem está aqui', 'presença pelo whatsapp', 'frota pelo whatsapp', 'estoque pelo whatsapp'],
     },
     {
       id: 'responder-pelo-whatsapp',
       pergunta: 'Como respondo um aviso pelo WhatsApp?',
-      resposta: 'Para responder um aviso de chamado, do Chat ou de mensagem, responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você confirma com “confirmo”) ou “ajustes:” e o que precisa mudar. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e, por fim, se você quer detalhar o que está acontecendo (responda “pular” para abrir só com o que já disse).\n\nNo aviso de visitante na portaria, responda a mensagem com “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
-      termos: ['aprovação pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'portaria pelo whatsapp', 'pode subir'],
+      resposta: 'Responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): num aviso de chamado, do Chat ou de mensagem, o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você toca em “Confirmo”) ou “ajustes:” e o que precisa mudar. Ofício não se assina por lá: o aviso traz o link do Palácio. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e se quer detalhar (“pular” abre só com o que já disse). Quem atende a fila também assume, resolve e transfere por lá (ajuda de Chamados).\n\nNo aviso da portaria, responda “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
+      termos: ['aprovação pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'portaria pelo whatsapp', 'pode subir', 'assumir chamado pelo whatsapp', 'resolver chamado pelo whatsapp'],
     },
     {
       id: 'fotos-pelo-whatsapp',
@@ -1230,9 +1278,9 @@ const PERFIL: GuiaDaArea = {
     },
     {
       id: 'whatsapp-com-verificacao',
-      pergunta: 'Por que o WhatsApp não me deixa responder nem votar?',
-      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp consulta (avisos, agenda, chamados, aprovações e dúvidas), abre chamado e responde à portaria (1, 2 ou 3). Responder os outros avisos, votar e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio).',
-      termos: ['verificação em duas etapas', 'não deixa responder', 'não consigo votar pelo whatsapp', '2fa whatsapp'],
+      pergunta: 'Por que o WhatsApp não me deixa responder, e o voto vem com um link?',
+      resposta: 'Porque a sua conta usa a verificação em duas etapas (ou o seu papel é obrigado a usar), e o WhatsApp não pede o código do app autenticador. Para quem é assim, o WhatsApp consulta (avisos, agenda, chamados, aprovações, visitas da portaria, veículos, saldo do estoque e dúvidas), abre chamado e responde à portaria (1, 2 ou 3).\n\nPara votar, responda o aviso de aprovação com “aprovar” ou “ajustes:”, como sempre: chega um link “Confirme no Palácio”, e o voto se confirma lá, depois do código do app. As decisões do “financeiro” vêm do mesmo jeito. Responder os outros avisos, atender chamados (assumir, resolver, transferir), registrar visitas, marcar presença, registrar saída e retorno de veículo e mandar fotos de uma ação ficam no Palácio (as fotos, pelo link de envio).',
+      termos: ['verificação em duas etapas', 'não deixa responder', 'não consigo votar pelo whatsapp', '2fa whatsapp', 'confirme no palácio'],
     },
     {
       id: 'perfil-publico',

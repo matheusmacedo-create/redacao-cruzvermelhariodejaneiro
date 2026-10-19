@@ -1,6 +1,7 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterCampos, obterChave } from '@/lib/integracoes/chaves'
+import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { apiDoGoogle } from './api'
 import type { Criterio } from '@/lib/correio/filtros'
@@ -70,6 +71,9 @@ export function urlDeAutorizacao(clientId: string, estado: string, escopos: read
   return u.toString()
 }
 
+/** A recusa do cliente OAuth (ID ou chave secreta errados): é por este texto que a troca do token vira alerta. */
+export const CLIENTE_RECUSADO = 'O Google recusou o cliente OAuth: confira o ID e a chave secreta em Configurações → Integrações.'
+
 export async function chamarToken(corpo: Record<string, string>) {
   const res = await fetch(apiDoGoogle('https://oauth2.googleapis.com/token'), {
     method: 'POST',
@@ -85,7 +89,7 @@ export async function chamarToken(corpo: Record<string, string>) {
       codigo === 'invalid_grant'
         ? 'A autorização do Google foi revogada ou expirou. Um administrador precisa reconectar a conta em Configurações.'
         : codigo === 'invalid_client'
-          ? 'O Google recusou o cliente OAuth: confira o ID e a chave secreta em Configurações → Integrações.'
+          ? CLIENTE_RECUSADO
           : `O Google recusou a autorização (${codigo || res.status}).`,
       res.status,
       codigo === 'invalid_grant',
@@ -127,7 +131,13 @@ export async function tokenDeAcesso(workspaceId: string): Promise<string> {
     return token
   } catch (causa) {
     if (causa instanceof GmailError && causa.reconectar) {
-      await createAdminClient().from('google_conexao').update({ estado: 'expirada' }).eq('workspace_id', workspaceId)
+      // Só a troca de "ativa" para "expirada" avisa a administração (lib/integracoes/alertas.ts): cada leitura
+      // seguinte que falha encontra a conexão já expirada e não repete o alerta.
+      const { data: virou } = await createAdminClient().from('google_conexao').update({ estado: 'expirada' })
+        .eq('workspace_id', workspaceId).eq('estado', 'ativa').select('email_conta').maybeSingle()
+      if (virou) await alertarIntegracao({ integracao: 'google_gmail', workspaceId, conta: (virou.email_conta as string | null) ?? null })
+    } else if (causa instanceof GmailError && causa.message === CLIENTE_RECUSADO) {
+      await alertarIntegracao({ integracao: 'google_oauth', workspaceId, motivo: 'chave' })
     }
     throw causa
   }

@@ -1379,6 +1379,7 @@ const VOLUNTARIOS: GuiaDaArea = {
       passos: [
         'Abra a oportunidade.',
         'Presença, a partir do início da atividade: em “Inscritos”, confira as horas ao lado de cada pessoa e toque em “Presente” ou em “Ausente”. “Presente” lança as horas no cadastro; trocar para “Ausente” tira.',
+        'No dia, dá também pelo WhatsApp do Palácio: mande “presença”, escolha a ação, responda com os números de quem veio (“1 3 4”, “todos” ou “todos menos 3”) e confirme. Vale o mesmo “Presente” e “Ausente” da tela, com as horas da atividade; com a verificação em duas etapas, só pela tela.',
         'Para cancelar: toque em “Cancelar atividade”, escreva o “Motivo” (ele vai no aviso) e toque em “Cancelar e avisar”.',
       ],
       dica: 'Ao cancelar uma oportunidade publicada, quem se inscreveu e quem estava na espera recebem um e-mail com o motivo; ela continua na lista, marcada como cancelada. “Excluir” só existe enquanto ninguém se inscreveu.',
@@ -1439,7 +1440,7 @@ const VOLUNTARIOS: GuiaDaArea = {
     {
       id: 'oportunidade-no-whatsapp',
       pergunta: 'Quem recebe a oportunidade pelo WhatsApp?',
-      resposta: 'Na primeira vez que você toca em “Publicar”, a oportunidade vai pelo WhatsApp do Palácio aos voluntários ativos que confirmaram o número e marcaram a autorização na Área do Voluntário, com o link para se inscrever. Despublicar e publicar de novo não manda outra vez, e oportunidade que já começou ou com inscrição encerrada não é anunciada.\n\nSai aos poucos, no máximo 12 mensagens por minuto e nunca entre 22h e 7h: numa lista grande, os últimos recebem mais tarde. Se a oportunidade for cancelada antes, quem ainda não recebeu não recebe mais.',
+      resposta: 'Na primeira vez que você toca em “Publicar”, a oportunidade vai pelo WhatsApp do Palácio aos voluntários ativos que confirmaram o número e marcaram a autorização na Área do Voluntário, com o link para se inscrever. Despublicar e publicar de novo não manda outra vez, e oportunidade que já começou ou com inscrição encerrada não é anunciada.\n\nSai aos poucos, no máximo 12 mensagens por minuto e nunca entre 22h e 7h: numa lista grande, os últimos recebem mais tarde. Se a cota diária de conversas do WhatsApp (o limite da Meta de pessoas procuradas por dia) chegar perto do fim, o resto sai no dia seguinte; quem escreveu ao número nas últimas 24 horas recebe na hora. Se a oportunidade for cancelada antes, quem ainda não recebeu não recebe mais.',
       termos: ['whatsapp', 'anunciar oportunidade', 'mandar para os voluntários', 'divulgar'],
     },
     {

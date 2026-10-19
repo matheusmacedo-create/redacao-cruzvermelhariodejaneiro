@@ -5,13 +5,15 @@ import { requirePermissao, requireWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
 import {
-  ehNivel, ehStatus, podeMudar, podeReabrir, prazos, prioridade, ROTULO_DA_PRIORIDADE,
-  ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, slaDaFila, PRIORIDADES, ENCERRADOS, type Status,
+  ehNivel, ehStatus, prazos, prioridade, ROTULO_DA_PRIORIDADE,
+  ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, PRIORIDADES, ENCERRADOS,
 } from '@/lib/chamados/regras'
 import {
-  avisarSobreChamado, carregarChamado, equipeDaFila, filasQueAtendo, lerAnexos, papeisNoChamado, setoresParaChamados,
+  avisarSobreChamado, carregarChamado, filasQueAtendo, lerAnexos, papeisNoChamado, setoresParaChamados,
 } from '@/lib/chamados/servidor'
-import { comentarNoChamado, criarChamado, evento, feriadosPerto, patchDeStatus } from '@/lib/chamados/nucleo'
+import {
+  atribuirNoChamado, comentarNoChamado, criarChamado, evento, feriadosPerto, mudarStatusNoChamado, patchDeStatus, transferirNoChamado,
+} from '@/lib/chamados/nucleo'
 import { ehIconeDeFila, propostasDeFila } from '@/lib/chamados/setores'
 
 /**
@@ -21,12 +23,13 @@ import { ehIconeDeFila, propostasDeFila } from '@/lib/chamados/setores'
  * insert/update das tabelas de chamados pela Data API. Então CADA action
  * confere quem é a pessoa neste chamado (quem abriu, equipe da fila, admin)
  * antes de mudar qualquer coisa — é esta conferência que substitui o RLS de
- * escrita. As regras de status, prioridade e prazo vêm de lib/chamados/regras.ts.
+ * escrita. As regras de status, prioridade e prazo vêm de lib/chamados/regras.ts;
+ * mudar o status, o responsável e a fila passam por lib/chamados/nucleo.ts, o
+ * mesmo caminho de quem atende pelo WhatsApp.
  */
 
 type Resultado = { erro?: string; recado?: string; id?: string }
 const texto = (f: FormData, k: string, max = 10_000) => String(f.get(k) ?? '').trim().slice(0, max)
-type Admin = ReturnType<typeof createAdminClient>
 
 function revalidar(id?: string) {
   revalidatePath('/chamados')
@@ -93,43 +96,10 @@ export async function mudarStatusDoChamado(formData: FormData): Promise<Resultad
     const { context, admin, c, papeis, equipe } = await contextoDoChamado(formData)
     const para = texto(formData, 'status', 40)
     if (!ehStatus(para)) throw new Error('Status desconhecido.')
-    if (para === c.status) return { recado: 'Nada mudou.' }
-    if (!podeMudar(c.status, para, papeis)) throw new Error(`Não é possível passar de "${ROTULO_DO_STATUS[c.status]}" para "${ROTULO_DO_STATUS[para]}".`)
-
-    const nota = texto(formData, 'texto', 5000)
-    const reabrindo = c.status === 'resolvido' && para === 'em_atendimento'
-    if (para === 'resolvido' && nota.length < 5) throw new Error('Descreva a solução: é o que quem abriu vai ler para confirmar.')
-    if (reabrindo && !equipe) {
-      if (!podeReabrir(c.resolvido_em ? new Date(c.resolvido_em) : null)) throw new Error('O prazo para reabrir passou. Abra um novo chamado e cite este.')
-      if (nota.length < 3) throw new Error('Diga o que ainda não foi resolvido.')
-    }
-    if (para === 'cancelado' && nota.length < 3) throw new Error('Diga o motivo do cancelamento.')
-
-    const agora = new Date()
-    const patch = await patchDeStatus(c, para, agora, equipe && c.solicitante_id !== context.user.id)
-    if (para === 'resolvido') patch.solucao = nota
-    // Quem da equipe começa a atender um chamado sem dono passa a ser o dono.
-    if (equipe && para === 'em_atendimento' && !c.responsavel_id && !reabrindo) patch.responsavel_id = context.user.id
-
-    // Só muda se ninguém mudou antes (duas pessoas clicando ao mesmo tempo).
-    const { data: mudou, error } = await admin.from('chamados').update(patch).eq('id', c.id).eq('status', c.status).select('id').maybeSingle()
-    if (error) throw new Error('Não foi possível mudar o status.')
-    if (!mudou) throw new Error('O chamado mudou enquanto você olhava. Recarregue a página.')
-    await evento(admin, c, context.user.id, { acao: 'status', de: c.status, para, reabertura: reabrindo || undefined }, nota || null)
-
-    const nome = context.profile?.full_name ?? 'Alguém'
-    // O que responde a quem abriu é "importante": no WhatsApp, chega mesmo com o Palácio aberto (notificar()).
-    const aviso: Partial<Record<Status, { para: (string | null)[]; titulo: string; mensagem: string; botao?: string; importante?: boolean }>> = {
-      aguardando_solicitante: { para: [c.solicitante_id], titulo: 'A equipe precisa de você', mensagem: `${nome} pediu uma informação para continuar o atendimento. O prazo fica pausado até você responder.`, botao: 'Responder', importante: true },
-      resolvido: { para: [c.solicitante_id], titulo: 'Chamado resolvido', mensagem: `${nome} marcou o chamado como resolvido. Confirme e avalie o atendimento — ou reabra, se o problema continuar.`, botao: 'Confirmar ou reabrir', importante: true },
-      cancelado: { para: equipe ? [c.solicitante_id] : [c.responsavel_id], titulo: 'Chamado cancelado', mensagem: `${nome} cancelou o chamado.`, importante: equipe },
-      em_atendimento: reabrindo ? { para: [c.responsavel_id ?? null], titulo: 'Chamado reaberto', mensagem: `${nome} reabriu o chamado.` } : undefined,
-    }
-    const a = aviso[para]
-    if (a) await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: a.para, titulo: a.titulo, mensagem: a.mensagem, citacao: nota || null, botao: a.botao, importante: a.importante })
-    if (reabrindo && !c.responsavel_id) {
-      await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: await equipeDaFila(admin, c.workspace_id, c.fila_id), titulo: 'Chamado reaberto', mensagem: `${nome} reabriu o chamado.`, citacao: nota })
-    }
+    const mudou = await mudarStatusNoChamado(admin, {
+      c, papeis, autor: { id: context.user.id, nome: context.profile?.full_name ?? null }, para, nota: texto(formData, 'texto', 5000),
+    })
+    if (!mudou) return { recado: 'Nada mudou.' }
     revalidar(c.id)
     return { recado: `Status: ${(equipe ? ROTULO_DO_STATUS_PARA_EQUIPE : ROTULO_DO_STATUS)[para]}.` }
   } catch (causa) {
@@ -170,29 +140,15 @@ export async function avaliarChamado(formData: FormData): Promise<Resultado> {
 
 export async function atribuirChamado(formData: FormData): Promise<Resultado> {
   try {
-    const { context, admin, c, equipe } = await contextoDoChamado(formData)
-    if (!equipe) throw new Error('Só a equipe que atende define o responsável.')
-    if (ENCERRADOS.includes(c.status)) throw new Error('Chamado encerrado.')
+    const { context, admin, c, papeis } = await contextoDoChamado(formData)
     const novo = texto(formData, 'responsavelId', 60) || null
-    if (novo === c.responsavel_id) return { recado: 'Nada mudou.' }
-    if (novo) {
-      const atendeFila = await filasQueAtendo(admin, c.workspace_id, novo, await papelDe(admin, c.workspace_id, novo))
-      if (!atendeFila.has(c.fila_id)) throw new Error('Essa pessoa não faz parte da equipe desta fila.')
-    }
-    const { error: erroDoResponsavel } = await admin.from('chamados').update({ responsavel_id: novo, atualizado_em: new Date().toISOString() }).eq('id', c.id)
-    if (erroDoResponsavel) throw new Error('Não foi possível definir o responsável.')
-    await evento(admin, c, context.user.id, { acao: 'responsavel', de: c.responsavel_id, para: novo })
-    if (novo) await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: c, atorId: context.user.id, para: [novo], titulo: 'Chamado atribuído a você', mensagem: `${context.profile?.full_name ?? 'Alguém'} deixou o chamado com você (prioridade ${ROTULO_DA_PRIORIDADE[c.prioridade].toLowerCase()}).` })
+    const mudou = await atribuirNoChamado(admin, { c, papeis, autor: { id: context.user.id, nome: context.profile?.full_name ?? null }, responsavelId: novo })
+    if (!mudou) return { recado: 'Nada mudou.' }
     revalidar(c.id)
     return { recado: novo ? 'Responsável definido.' : 'Chamado sem responsável.' }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível definir o responsável.') }
   }
-}
-
-async function papelDe(admin: Admin, workspaceId: string, userId: string) {
-  const { data } = await admin.from('workspace_members').select('role').eq('workspace_id', workspaceId).eq('user_id', userId).maybeSingle()
-  return (data?.role ?? 'colaborador') as 'admin' | 'editor' | 'colaborador'
 }
 
 /** A equipe avalia o impacto (GLPI): recalcula prioridade e prazos. */
@@ -219,26 +175,13 @@ export async function definirImpacto(formData: FormData): Promise<Resultado> {
 /** Mandar para outra fila (ex.: o ar-condicionado da sala dos servidores). */
 export async function transferirChamado(formData: FormData): Promise<Resultado> {
   try {
-    const { context, admin, c, equipe } = await contextoDoChamado(formData)
-    if (!equipe) throw new Error('Só a equipe que atende transfere o chamado.')
-    if (ENCERRADOS.includes(c.status) || c.status === 'resolvido') throw new Error('Só dá para transferir chamado em aberto.')
-    const { data: destino } = await admin.from('chamado_filas').select('id, nome, ativa, sla, atendimento_24h').eq('workspace_id', c.workspace_id).eq('id', texto(formData, 'filaId', 60)).maybeSingle()
-    if (!destino || !destino.ativa || destino.id === c.fila_id) throw new Error('Escolha outra fila.')
-    const { data: categoria } = await admin.from('chamado_categorias').select('id, tipo').eq('fila_id', destino.id).eq('id', texto(formData, 'categoriaId', 60)).maybeSingle()
-    if (!categoria) throw new Error('Escolha o assunto na fila de destino.')
-    const motivo = texto(formData, 'texto', 2000)
-    if (motivo.length < 3) throw new Error('Diga por que está transferindo.')
-    const pz = prazos(new Date(c.criado_em), c.prioridade, slaDaFila(destino.sla), destino.atendimento_24h, c.minutos_pausados, await feriadosPerto())
-    const { data: novo, error } = await admin.from('chamados').update({
-      fila_id: destino.id, categoria_id: categoria.id, tipo: categoria.tipo, responsavel_id: null,
-      prazo_resposta: pz.resposta.toISOString(), prazo_solucao: pz.solucao.toISOString(), atualizado_em: new Date().toISOString(),
-    }).eq('id', c.id).select('codigo').single()
-    if (error || !novo) throw new Error('Não foi possível transferir.')
-    await evento(admin, c, context.user.id, { acao: 'transferido', de: c.fila.nome, para: destino.nome, codigo_anterior: c.codigo, codigo_novo: novo.codigo }, motivo)
-    await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: { ...c, codigo: novo.codigo }, atorId: context.user.id, para: await equipeDaFila(admin, c.workspace_id, destino.id), titulo: 'Chamado transferido para a sua fila', mensagem: `${context.profile?.full_name ?? 'Alguém'} transferiu o chamado ${c.codigo} de ${c.fila.nome} para ${destino.nome}.`, citacao: motivo })
-    await avisarSobreChamado(admin, { workspaceId: c.workspace_id, chamado: { ...c, codigo: novo.codigo }, atorId: context.user.id, para: [c.solicitante_id], titulo: 'Seu chamado mudou de equipe', mensagem: `O chamado foi encaminhado para ${destino.nome} e agora se chama ${novo.codigo}.` })
+    const { context, admin, c, papeis } = await contextoDoChamado(formData)
+    const novo = await transferirNoChamado(admin, {
+      c, papeis, autor: { id: context.user.id, nome: context.profile?.full_name ?? null },
+      filaId: texto(formData, 'filaId', 60), categoriaId: texto(formData, 'categoriaId', 60), motivo: texto(formData, 'texto', 2000),
+    })
     revalidar(c.id)
-    return { recado: `Transferido para ${destino.nome} como ${novo.codigo}.` }
+    return { recado: `Transferido para ${novo.fila} como ${novo.codigo}.` }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível transferir.') }
   }

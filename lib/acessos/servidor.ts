@@ -305,7 +305,8 @@ async function avisarAPessoa(admin: Admin, userId: string, r: DadosDaRequisicao,
           nota: 'Este aviso de segurança é enviado sempre, independentemente das suas preferências de notificação.',
         }))
         : Promise.resolve(false),
-      avisarPorWhatsapp(admin, userId, { titulo, texto: `${mensagem}\n\n${citacao}` }),
+      // No WhatsApp, com o "NÃO FUI EU" (lib/whatsapp/protecao.ts): quem não entrou derruba a sessão nova por lá mesmo.
+      avisarPorWhatsapp(admin, userId, { titulo, texto: `${mensagem}\n\n${citacao}`, naoFuiEu: true }),
     ])
   } catch (causa) { log('aviso à pessoa não enviado', causa) }
 }

@@ -298,8 +298,8 @@ const OFICIOS: GuiaDaArea = {
     {
       id: 'aviso-de-assinatura',
       pergunta: 'Como fico sabendo que tenho um ofício para assinar?',
-      resposta: 'Chega um aviso no sino (e por e-mail, conforme as suas preferências de notificação), e o ofício aparece em “Esperando a sua assinatura”, no alto de “Ofícios”.',
-      termos: ['notificação', 'e-mail', 'pendente'],
+      resposta: 'Chega um aviso no sino (e por e-mail e no WhatsApp confirmado, conforme as suas preferências de notificação), e o ofício aparece em “Esperando a sua assinatura”, no alto de “Ofícios”.\n\nPelo WhatsApp não se assina nem se recusa: o aviso traz o link do ofício, e a assinatura é no Palácio, com a sua senha ou pelo gov.br. Responder a mensagem só devolve esse link.',
+      termos: ['notificação', 'e-mail', 'pendente', 'whatsapp', 'assinar pelo whatsapp'],
     },
     {
       id: 'alguem-recusou',
@@ -620,6 +620,19 @@ const CHAMADOS: GuiaDaArea = {
       dica: 'Ao transferir, o chamado ganha um código novo na outra fila (o antigo fica na linha do tempo) e fica sem responsável. A equipe de destino e quem abriu são avisados.',
     },
     {
+      id: 'atender-pelo-whatsapp',
+      titulo: 'Assumir, resolver ou transferir pelo WhatsApp',
+      quem: 'Quem atende a fila',
+      exemplo: 'Às 8h, a TI recebe no WhatsApp o aviso do TI-0042, “Impressora sem toner”. A técnica responde “assumo”, troca o toner e responde o mesmo aviso com “resolvido: troquei o toner da sala 3”; toca em “Confirmo”, e quem abriu recebe a solução.',
+      passos: [
+        'Confirme o seu WhatsApp em “Meu perfil”. No número do Palácio, “5” mostra os seus chamados e os abertos da sua fila, os sem responsável primeiro.',
+        'Para assumir, responda a mensagem do aviso do chamado com “assumo”, ou mande “assumir” e o código (ex.: “assumir TI-0042”). O chamado passa para “Em atendimento” e fica com você.',
+        'Para resolver, responda o aviso com “resolvido:” e a solução, ou mande “resolver TI-0042: troquei o toner”. O Palácio mostra a conferência: toque em “Confirmo” (ou responda “confirmo”).',
+        'Para transferir, mande “transferir TI-0042 para” e a equipe, com o motivo depois dos dois-pontos (ex.: “transferir TI-0042 para Manutenção: o ar pinga”). O Palácio pergunta o assunto e o motivo, se faltarem, e pede a conferência.',
+      ],
+      dica: 'Vale o mesmo que na tela: quem abriu é avisado da solução, e a equipe de destino e quem abriu, da transferência. O que mais você responder no aviso continua indo para quem abriu como mensagem. Quem usa a verificação em duas etapas atende pelo Palácio.',
+    },
+    {
       id: 'criar-fila',
       titulo: 'Criar ou ajustar uma fila',
       quem: 'Só administradores',
@@ -732,6 +745,12 @@ const CHAMADOS: GuiaDaArea = {
       pergunta: 'Por que o código do chamado mudou?',
       resposta: 'O chamado foi transferido para outra fila, e cada fila tem a sua numeração (TI-0042, MAN-0007…). O código antigo fica registrado na linha do tempo.',
       termos: ['transferido', 'número mudou', 'mudou de equipe'],
+    },
+    {
+      id: 'whatsapp-nao-deixa-atender',
+      pergunta: 'Por que o WhatsApp não me deixa assumir ou resolver um chamado?',
+      resposta: 'Três motivos comuns: o chamado não é da fila que você atende (só a equipe da fila e os administradores assumem, resolvem e transferem; quem abriu responde o aviso); o código mudou porque o chamado foi transferido (cada fila tem a sua numeração, e o “5” mostra o código atual); ou a sua conta usa a verificação em duas etapas, e o WhatsApp não pede o código do app: aí o atendimento fica no Palácio.',
+      termos: ['whatsapp', 'assumir pelo whatsapp', 'resolver pelo whatsapp', 'transferir pelo whatsapp', 'Não achei o chamado', 'verificação em duas etapas'],
     },
     {
       id: 'sem-aba-atendimento',
@@ -1177,6 +1196,12 @@ const COMPRAS: GuiaDaArea = {
       resposta: 'A gestão do Financeiro, em Financeiro → Cadastros → “Regras de compra”. Lá também se escolhe o setor da Diretoria. As regras novas valem para os próximos envios para aprovação.',
       termos: ['regras de compra', 'limite simples', 'limite da diretoria', 'configurar'],
     },
+    {
+      id: 'aprovar-compra-pelo-whatsapp',
+      pergunta: 'Dá para aprovar uma compra pelo WhatsApp?',
+      resposta: 'Dá começar por lá, para quem é a vez: o Financeiro da empresa do pedido e, acima do limite, a Diretoria (nunca quem pediu, e a mesma pessoa não aprova pelas duas). Mande “financeiro” ao WhatsApp do Palácio: as compras em aprovação aparecem na lista com o número do pedido, o valor, o fornecedor e quem pediu, e a vez da Diretoria vem marcada. Responda “aprovar 3” (com uma observação depois, se quiser) ou “recusar 3:” e o motivo, com pelo menos 5 letras.\n\nChega um link “Confirme no Palácio”, que vale 15 minutos e só abre na sua conta. “Confirmar a aprovação” (ou “Confirmar a recusa”) decide pelo mesmo caminho do botão do pedido, com as mesmas regras, e quem pediu é avisado. Pedir propostas, emitir a ordem e receber continuam na tela.',
+      termos: ['whatsapp', 'aprovar compra pelo whatsapp', 'recusar compra', 'diretoria pelo whatsapp', 'confirme no palácio'],
+    },
   ],
   relacionadas: ['/financeiro', '/patrimonio'],
 }
@@ -1245,12 +1270,12 @@ const PORTARIA: GuiaDaArea = {
       exemplo: 'O representante da empresa de manutenção chega às 10h; a coordenadora está numa ligação, responde 2 (aguarde na recepção) e, ao terminar, responde 1 (pode subir).',
       passos: [
         'Chega o aviso “Fulano chegou para falar com você”, no sino e no WhatsApp.',
-        'No WhatsApp, responda a mensagem do aviso com 1 (pode subir), 2 (aguarde na recepção) ou 3 (não posso receber agora). Pode escrever um recado depois do número, como “2 estou terminando uma reunião”.',
+        'No WhatsApp, toque em “Pode subir”, “Aguarde na recepção” ou “Não pode agora”, embaixo do aviso, ou responda a mensagem com 1, 2 ou 3. Para mandar um recado, escreva depois do número, como “2 estou terminando uma reunião”.',
         'Pelo Palácio, toque no aviso e escolha “Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”, com o recado se quiser.',
         'A portaria vê a resposta na hora. Se o visitante pediu, ele recebe a mesma resposta no WhatsApp.',
         'Pediu para aguardar? Quando puder receber, responda de novo com 1.',
       ],
-      dica: 'Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
+      dica: 'Os botões só vêm se você escreveu ao número do Palácio nas últimas 24 horas (regra do WhatsApp); sem eles, responda com o número. Sem responder a mensagem do aviso, um “1”, “2” ou “3” solto no WhatsApp também vale, se houver só uma visita esperando por você nas últimas duas horas.',
     },
     {
       id: 'registrar-visitante',
@@ -1266,6 +1291,19 @@ const PORTARIA: GuiaDaArea = {
       ],
       dica: 'Esqueceu a foto? Na lista “Na filial agora”, o botão “Foto” tira depois.',
       exemplo: 'Exemplo: o técnico da empresa de ar-condicionado chega às 9h para a manutenção; a portaria registra “Refrigeração Rio”, escolhe o setor de Patrimônio e entrega o crachá V-03.',
+    },
+    {
+      id: 'portaria-pelo-whatsapp',
+      titulo: 'Ver quem está aqui e registrar uma chegada pelo WhatsApp',
+      exemplo: 'Com a recepção cheia, a portaria manda “visitante: Carlos Pereira” ao número do Palácio, responde “Ana” e escolhe a Ana Lima na lista; ela recebe o aviso como se a entrada tivesse sido feita na tela.',
+      passos: [
+        'Confirme o seu WhatsApp em “Meu perfil”.',
+        'Para ver as visitas abertas de hoje, mande “portaria” (ou “quem está aqui”) ao número do Palácio: vêm o nome do visitante, para quem, a hora e a situação.',
+        'Para registrar uma chegada, mande “visitante:” e o nome. O Palácio pergunta para quem é: escreva o nome (ou parte dele) e, se houver mais de uma pessoa, escolha na lista. Se não for uma pessoa do Palácio, escreva “setor:” e o setor.',
+        'Diga o motivo, ou toque em “Pular”.',
+        'Confira o resumo e toque em “Confirmo” (ou responda “confirmo”). A pessoa recebe o aviso para responder se o visitante pode subir, e a resposta chega para você.',
+      ],
+      dica: 'Foto, telefone, crachá e documento ficam na tela da portaria: complete por lá, se precisar. Com “setor:”, ninguém é avisado. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela.',
     },
     {
       id: 'confirmar-qr',

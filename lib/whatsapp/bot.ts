@@ -5,29 +5,37 @@ import { ORIGEM_DO_SITE } from '@/lib/site/sitemap'
 import { lerCamadas } from '@/lib/agenda/camadas'
 import { agoraEmBrasilia, somarDias } from '@/lib/agenda/datas'
 import { camadasDisponiveis, itensDaAgenda } from '@/lib/agenda/fontes'
-import { ABERTOS, ROTULO_DO_STATUS, ROTULO_DO_STATUS_PARA_EQUIPE, ehStatus } from '@/lib/chamados/regras'
 import { claudeConfigurado, reescreverComClaude } from '@/lib/ia/anthropic'
 import { ehPapel, type Papel } from '@/lib/permissoes'
 import { codigoConfere, registrar, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
-import { ehAdministracao, respostaDaAdministracao } from './admin'
+import { ehAdministracao, gerenciaUsuarios, pedirDesativacao, respostaDaAdministracao } from './admin'
 import {
   codigosPendentesDoNumero, confirmarNumeroDaEquipe, confirmarNumeroDoVoluntario, contarTentativaErrada, donoDoVoluntario, type CodigoPendente,
 } from './confirmacao'
 import { SISTEMA_DA_DUVIDA, buscarDuvida, pedidoDaDuvida } from './duvidas'
 import {
-  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita, seguirPendencia,
-  type Pendencia, type Pessoa, type Resposta,
+  avisoCitado, comecarChamado, esperaTextoLivre, guardarPendencia, marcarPergunta, ondeNoPalacio, pendenciaAberta, perguntaVencida, responderAoAviso, responderVisita,
+  seguirPendencia, type Pendencia, type Pessoa, type Resposta,
 } from './acoes'
+import { atendeAlgumaFila, atenderPeloCodigo, chamadosDaPessoa } from './atendimento'
+import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
+import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
+import { comecarPresenca, coordenaAcoes } from './presenca'
+import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
+import { saldoNoEstoque } from './estoque'
+import { conversaDeProtecao } from './protecao'
 import { envioAberto, receberMidia } from './envio'
 import { respostaAoVoluntario, voluntarioDoNumero } from './voluntarios'
 import { comandoDoVoluntario } from './voluntarios-regras'
 import { respostaClaraDaVisita } from '@/lib/portaria/regras'
 import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
-  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, CHAMADOS_NA_RESPOSTA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
-  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, lerEscolha, lerPedido, soOCodigo, textoDaAgenda, textoDaAjuda, textoDaApresentacao,
-  textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos, textoDosChamados, type ItemDoDia, type MensagemRecebida,
+  APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
+  TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, pareceViagem, soOCodigo,
+  textoDaAgenda, textoDaAjuda,
+  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
+  type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -38,9 +46,23 @@ type Admin = ReturnType<typeof createAdminClient>
  * Quem é da equipe e confirmou o número (whatsapp_contas) vê os avisos sem
  * abrir, marca como lidos e pausa ou retoma os avisos por aqui; quem
  * administra o espaço também pede o "status" do canal e faz a fila andar
- * (lib/whatsapp/admin.ts). Quem não é recebe uma apresentação (no máximo uma
- * por dia) com o caminho dos canais oficiais: este número não é atendimento
- * ao público.
+ * (lib/whatsapp/admin.ts). Quem atende uma fila assume, resolve e transfere
+ * chamados (lib/whatsapp/atendimento.ts); quem tem a portaria vê as visitas do
+ * dia e registra quem chegou (lib/whatsapp/portaria.ts); quem decide despesas
+ * ou compras vê o que espera a decisão dele (lib/whatsapp/financeiro.ts);
+ * quem coordena as oportunidades marca a presença da ação de hoje
+ * (lib/whatsapp/presenca.ts); quem vê a Frota consulta os veículos e quem a
+ * opera registra a saída e o retorno (lib/whatsapp/frota.ts); quem vê o
+ * Estoque consulta o saldo de um material (lib/whatsapp/estoque.ts). O
+ * que é sensível — decidir, o voto de quem usa a verificação em duas etapas,
+ * desativar uma conta — sai daqui como um link de confirmar no Palácio
+ * (lib/whatsapp/confirmacoes.ts). Quem não é recebe uma apresentação (no
+ * máximo uma por dia) com o caminho dos canais oficiais: este número não é
+ * atendimento ao público.
+ *
+ * Logo depois do código de ida, o "Não fui eu" (lib/whatsapp/protecao.ts): a
+ * resposta a um aviso de segurança, e a conferência dela, valem pelo número —
+ * até do número antigo da conta — e mesmo com a verificação em duas etapas.
  *
  * Antes de tudo, o código de ida: quem está confirmando o número manda daqui
  * o código que a tela mostrou (lib/whatsapp/confirmacao.ts). Só entra nesse
@@ -48,6 +70,12 @@ type Admin = ReturnType<typeof createAdminClient>
  * — e, se o número já é de alguém da equipe, só a mensagem que é o código
  * (regras.ts, soOCodigo), para o chamado com um número de patrimônio não se
  * perder ali; o resto segue como sempre.
+ *
+ * Dentro da janela de 24 h, o menu sai como lista e as perguntas do bot (a
+ * conferência do voto, os passos do chamado) com botões ou lista (regras.ts,
+ * Interativo). O toque chega como o comando digitado, citando a mensagem
+ * tocada: vale para a pergunta daquela mensagem ou, na lista do menu, como
+ * comando — nunca cai na pergunta mais nova nem na visita da portaria.
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -75,6 +103,18 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // "Não fui eu" citando o aviso de segurança (ou até 24 h depois dele) e a conferência que vem em seguida: pelo número.
+    const donoDoNumero = (conta?.user_id as string | undefined) ?? null
+    const protecao = m.midia ? null : await conversaDeProtecao(admin, workspaceId, numero, m, donoDoNumero)
+    if (protecao) {
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: donoDoNumero, mensagemId: m.id, comando: protecao.comando })
+      if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
+      const r = await protecao.responder()
+      const entrega = await entregar(admin, workspaceId, { numero, texto: r.texto, tipo: 'bot', userId: donoDoNumero, interativo: r.interativo }, { config })
+      if (r.pergunta && entrega.situacao === 'enviada') await marcarPergunta(admin, r.pergunta, entrega.id)
+      return
+    }
+
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
     const pausado = Boolean(conta?.pausado_em)
     // Quem não é da equipe pode ser voluntário que confirmou o número na Área do Voluntário.
@@ -82,7 +122,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const voluntario = achado?.workspaceId === workspaceId ? achado : null
     // Quem administra o espaço tem também "status" e "fila" (lib/whatsapp/admin.ts); para o resto, são "desconhecido".
     const administra = ehAdministracao(pessoa)
-    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra }) : null
+    // "saída…" e "retorno…" só são comando para quem opera a frota: o nível é lido só quando a mensagem parece do diário de bordo.
+    const operaFrota = pessoa && !m.midia && pareceViagem(m.texto) ? (await nivelNoPatrimonio(admin, workspaceId, pessoa)) >= 2 : false
+    const pedido = pessoa ? lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota }) : null
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
@@ -93,17 +135,25 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // Citou uma pergunta que já foi respondida, venceu ou foi trocada: nunca cai na pergunta mais nova
     // (a conferência antiga não pode aprovar outra matéria).
     let vencida = false
+    // Tocou num botão ou numa linha de lista: a mensagem tocada vem junto, então o toque nunca cai na pergunta
+    // mais nova. Na lista do menu, vale o comando; em outra mensagem que não é a pergunta aberta (a lista de
+    // equipes de um chamado que já passou dessa etapa), vale como pergunta vencida — o "2" dela não escolhe o
+    // assunto, nem marca os avisos como lidos.
+    const tocou = m.toque && Boolean(m.citada)
     if (pessoa && !aviso) {
       if (m.citada) {
         pendencia = await pendenciaAberta(admin, workspaceId, pessoa.id, m.citada)
         estrita = Boolean(pendencia)
         vencida = !pendencia && await perguntaVencida(admin, workspaceId, pessoa.id, m.citada)
+        if (tocou && !pendencia && !vencida) vencida = !(await citouOMenu(admin, workspaceId, pessoa.id, m.citada))
       }
-      if (!vencida) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
+      if (!vencida && !tocou) pendencia ??= await pendenciaAberta(admin, workspaceId, pessoa.id, null)
     }
-    // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo.
+    // Sem citar, a pergunta aberta só leva o que parece resposta a ela; "menu", "avisos" e cia. seguem valendo. Na
+    // pergunta de texto livre, o nome de setor que também é comando de área ("Financeiro", "Portaria", "Estoque
+    // central") é a resposta: o "Onde é?" do chamado não se perde na lista do Financeiro.
     const paraPendencia = Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
-      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && m.texto.trim().split(/\s+/).length >= 3))
+      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando)))))
     // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação.
     const midia = Boolean(pessoa && m.midia && !aviso)
 
@@ -115,7 +165,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     const noTeto = await noTetoDeRespostas(admin, workspaceId, numero)
 
-    const responder = (texto: string) => entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null }, { config })
+    // `interativo`: botões ou lista (só dentro da janela; fora, ou na fila, sai o texto). `comando`: a marca no registro da saída.
+    const responder = (texto: string, extra: { interativo?: Interativo | null; comando?: string } = {}) =>
+      entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...extra }, { config })
     const base = urlBase()
 
     // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora.
@@ -148,11 +200,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       }
       const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
       if (!id) {
-        const onde = r.pergunta.tipo === 'aprovar' ? `/aprovacoes/${String(r.pergunta.dados.approvalId ?? '')}` : '/chamados/novo'
-        await responder(`Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${onde}`)
+        // Sem a tabela, ou com o tipo da pergunta ainda fora do CHECK (a migração dele não foi aplicada).
+        await responder(r.semPergunta ?? `Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
         return
       }
-      const entrega = await responder(r.texto)
+      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
+      const entrega = await responder(r.texto, { interativo: r.interativo })
       if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
     }
 
@@ -189,7 +242,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // Respondeu à portaria sem citar o aviso ("1", "pode subir"): vale para a única visita de agora que espera esta pessoa.
-    if (!m.midia && respostaClaraDaVisita(m.texto)) {
+    // O toque não: o "1" da lista do menu são os avisos (o toque no botão da visita já veio pelo aviso citado).
+    if (!m.midia && !tocou && respostaClaraDaVisita(m.texto)) {
       const visita = await visitaEsperandoResposta(admin, workspaceId, pessoa.id)
       if (visita) {
         await enviar(await responderVisita(admin, workspaceId, pessoa, visita.id, m.texto, base))
@@ -200,6 +254,74 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     if (comando === 'abrir_chamado' && pedido) {
       await enviar(await comecarChamado(admin, workspaceId, pessoa, pedido.resto, base))
       return
+    }
+
+    if (comando === 'atender_chamado' && pedido) {
+      await enviar(await atenderPeloCodigo(admin, workspaceId, pessoa, pedido.resto, base))
+      return
+    }
+
+    // A portaria é de quem a tela deixa (a equipe da Escola, não): para os outros, "portaria" cai no menu.
+    if (comando === 'portaria') {
+      const resposta = await visitasDeHoje(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
+    if (comando === 'registrar_visita' && pedido && temPortaria(pessoa)) {
+      await enviar(await comecarVisita(admin, workspaceId, pessoa, pedido.resto, base))
+      return
+    }
+
+    // As decisões do Financeiro e de Compras são de quem a tela deixa decidir: para os outros, as palavras caem no menu.
+    if ((comando === 'financeiro' || comando === 'decidir_financeiro') && pedido && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
+      if (comando === 'financeiro') await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
+      // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima).
+      else await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
+      return
+    }
+
+    if (comando === 'desativar_conta' && pedido) {
+      const resposta = await pedirDesativacao(admin, workspaceId, pessoa, pedido.resto, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
+    // As outras áreas, cada uma com a permissão da tela dela: para quem não tem, as palavras caem no menu.
+    if (comando === 'presenca') {
+      const resposta = await comecarPresenca(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
+    if (comando === 'frota') {
+      const resposta = await frotaAgora(admin, workspaceId, pessoa, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
+    }
+
+    if ((comando === 'saida_veiculo' || comando === 'retorno_veiculo') && pedido) {
+      const resposta = await comecarViagem(admin, workspaceId, pessoa, comando === 'saida_veiculo' ? 'saida' : 'retorno', pedido.resto, base)
+      if (resposta) {
+        await enviar(resposta)
+        return
+      }
+    }
+
+    if (comando === 'estoque' && pedido) {
+      const resposta = await saldoNoEstoque(admin, workspaceId, pessoa, pedido.resto, base)
+      if (resposta) {
+        await responder(resposta)
+        return
+      }
     }
 
     if (comando === 'avisos') {
@@ -239,7 +361,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     if (comando === 'chamados') {
-      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa.id, base))
+      await responder(await chamadosDaPessoa(admin, workspaceId, pessoa, base))
       return
     }
 
@@ -261,11 +383,35 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, admin: administra })
-    await responder(comando === 'desconhecido' ? `_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._\n\n${menu}` : menu)
+    // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
+    const quem = await quemNoMenu(admin, workspaceId, pessoa)
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', ...quem })
+    await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
   }
+}
+
+/**
+ * O que muda o menu desta pessoa (QuemNoMenu), cada área com a permissão da tela dela. É o mesmo cálculo do menu do
+ * bot e das boas-vindas depois de confirmar o número (app/actions/whatsapp.ts).
+ */
+export async function quemNoMenu(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<QuemNoMenu> {
+  const [atende, financeiro, presenca, patrimonio] = await Promise.all([
+    atendeAlgumaFila(admin, workspaceId, pessoa), podeDecidirNoFinanceiro(admin, workspaceId, pessoa),
+    coordenaAcoes(admin, workspaceId, pessoa), nivelNoPatrimonio(admin, workspaceId, pessoa),
+  ])
+  return {
+    admin: ehAdministracao(pessoa), portaria: temPortaria(pessoa), atende, financeiro, presenca,
+    frota: patrimonio >= 2 ? 'operar' : patrimonio >= 1 ? 'ver' : null, estoque: patrimonio >= 1,
+  }
+}
+
+/** A mensagem citada é um menu que o bot mandou a esta pessoa (a saída marcada "menu")? Na dúvida, não. */
+async function citouOMenu(admin: Admin, workspaceId: string, userId: string, citada: string): Promise<boolean> {
+  const { data } = await admin.from('whatsapp_mensagens').select('id').eq('workspace_id', workspaceId).eq('direcao', 'saida')
+    .eq('mensagem_id', citada).eq('user_id', userId).eq('comando', 'menu').limit(1).maybeSingle()
+  return Boolean(data)
 }
 
 /** O teto de respostas por número na janela: um robô do outro lado não vira enxurrada. */
@@ -330,28 +476,6 @@ async function agendaDaPessoa(admin: Admin, workspaceId: string, pessoa: Pessoa,
   // Só o que começa no dia: a campanha que dura o mês inteiro não enche a lista de todo dia.
   const doDia = (dia: string): ItemDoDia[] => itens.filter((i) => i.dia === dia).map((i) => ({ titulo: i.titulo, hora: i.hora ?? null, detalhe: i.detalhe ?? null }))
   return textoDaAgenda({ hoje, amanha, itensHoje: doDia(hoje), itensAmanha: doDia(amanha), urlBase: base, falhou: falhas.length > 0 })
-}
-
-/** Os chamados abertos que a pessoa abriu ou que estão com ela. */
-async function chamadosDaPessoa(admin: Admin, workspaceId: string, userId: string, base: string): Promise<string> {
-  const deQuem = `solicitante_id.eq.${userId},responsavel_id.eq.${userId}`
-  const [{ data, error }, { count }] = await Promise.all([
-    admin.from('chamados').select('id, codigo, titulo, status, solicitante_id').eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS])
-      .order('atualizado_em', { ascending: false }).limit(CHAMADOS_NA_RESPOSTA),
-    admin.from('chamados').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).or(deQuem).in('status', [...ABERTOS]),
-  ])
-  if (error) return `Não consegui ler os seus chamados agora. Veja em ${base}/chamados`
-  return textoDosChamados({
-    chamados: (data ?? []).map((c) => {
-      const status = ehStatus(c.status) ? c.status : 'novo'
-      const deOutro = c.solicitante_id !== userId
-      return {
-        id: c.id as string, codigo: (c.codigo as string) || 'Chamado', titulo: (c.titulo as string) ?? '',
-        situacao: deOutro ? `${ROTULO_DO_STATUS_PARA_EQUIPE[status]} · com você` : ROTULO_DO_STATUS[status],
-      }
-    }),
-    total: count ?? data?.length ?? 0, urlBase: base,
-  })
 }
 
 /** As rodadas de aprovação em aberto em que o voto da pessoa ainda falta. */

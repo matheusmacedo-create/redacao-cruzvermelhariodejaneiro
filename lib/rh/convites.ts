@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { notificar } from '@/lib/notificacoes/servidor'
 import { entregar } from '@/lib/whatsapp/fila'
-import { formatarNumero, mascararNumero, numeroCanonico } from '@/lib/whatsapp/regras'
+import { TEXTO_DA_ESPERA_DA_COTA, formatarNumero, mascararNumero, numeroCanonico } from '@/lib/whatsapp/regras'
 import { CAMPOS_DA_FICHA, DIAS_DO_CONVITE, DIAS_ENTRE_LEMBRETES, LEMBRETES_NO_MAXIMO, textoDoConviteDaFicha, type CampoDaFicha } from './ficha'
 
 /**
@@ -71,7 +71,9 @@ export async function criarConviteDaFicha(p: {
   if (entrega.situacao === 'falhou') return { link, enviadoPara: null, recado: `O WhatsApp não saiu (${entrega.erro}). Copie o link e mande de outro jeito.` }
   return {
     link: null, enviadoPara: mascararNumero(destino),
-    recado: entrega.situacao === 'na_fila' ? `O link vai para ${para} pelo WhatsApp assim que a fila andar (de 22h às 7h, espera a manhã).` : `Link mandado para ${para} pelo WhatsApp.`,
+    recado: entrega.situacao === 'na_fila'
+      ? entrega.motivo === 'cota' ? `O link vai para ${para} pelo WhatsApp ${TEXTO_DA_ESPERA_DA_COTA}.` : `O link vai para ${para} pelo WhatsApp assim que a fila andar (de 22h às 7h, espera a manhã).`
+      : `Link mandado para ${para} pelo WhatsApp.`,
   }
 }
 

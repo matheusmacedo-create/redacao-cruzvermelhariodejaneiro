@@ -3,18 +3,24 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { configDoWhatsapp, enviarTexto, registrar, type ConfigDoWhatsapp } from './servidor'
 import { registrarEstado } from './estado'
 import {
-  INTERVALO_ENTRE_ENVIOS_MS, TETO_POR_MINUTO, emSilencio, falhaDerrubaConexao, falhaMereceReenvio, fimDoSilencio, proximaTentativa,
-  silencioSeAplica, type MotivoDaFalha,
+  BOTAO_DO_NAO_FUI_EU, INTERVALO_ENTRE_ENVIOS_MS, MARCA_DO_NAO_FUI_EU, TETO_POR_MINUTO, emSilencio, esperaPelaCota, falhaDerrubaConexao, falhaMereceReenvio,
+  fimDaEsperaDaCota, fimDoSilencio, interativoDoAviso, limiteDaCota, ofereceNaoFuiEu, prioridadeNaCota, proximaTentativa, silencioSeAplica,
+  type CotaDoNumero, type EsperaNaFila, type Interativo, type MotivoDaFalha,
 } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
 /**
- * A entrega das mensagens do Palácio pelo WhatsApp, com três proteções:
+ * A entrega das mensagens do Palácio pelo WhatsApp, com quatro proteções:
  *
  *  - horário de silêncio (22h–7h): o aviso comum espera e sai às 7h;
  *  - volume: no máximo TETO_POR_MINUTO mensagens por minuto, com espera fixa
  *    entre uma e outra; o que passar espera na fila;
+ *  - cota diária: a Meta limita quantas pessoas diferentes o número procura
+ *    por dia fora da janela de 24 h (regras.ts, COTA_DE_CONVERSAS). Perto do
+ *    teto, o que pode esperar (avisos comuns, anúncios, convites) fica para o
+ *    dia seguinte, e a reserva vai para segurança, código, portaria, alertas
+ *    e respostas do bot (prioridadeNaCota);
  *  - queda: o que falhou por a Kapso estar fora (rede, 5xx, chave ou
  *    número) volta para a fila com espera crescente e sai quando a
  *    conexão voltar. O que pode já ter saído (tempo esgotado) não é repetido.
@@ -37,11 +43,25 @@ export type Mensagem = {
   notificacaoId?: string | null
   categoria?: string | null
   link?: string | null
+  /**
+   * Botões ou lista junto do texto (regras.ts, Interativo). A fila guarda só o texto: o que espera nela sai sem
+   * eles — menos o aviso da visita na portaria, que monta os botões de novo pelo link, e o aviso de segurança com o
+   * "Não fui eu", que monta o botão pelo texto (enviarAgora).
+   */
+  interativo?: Interativo | null
+  /**
+   * A marca no registro da saída (LinhaDoRegistro.comando): "menu" para a lista do menu do bot; o aviso de segurança
+   * com o "Não fui eu" ganha a dele sozinho (enviarAgora), e é por ela que a resposta acha o aviso.
+   */
+  comando?: string | null
 }
+
+/** Por que a mensagem espera na fila (whatsapp_fila.motivo). "cota": ficou para o dia seguinte pela cota diária. */
+export type MotivoNaFila = 'silencio' | 'volume' | 'falha' | 'cota'
 
 export type Entrega =
   | { situacao: 'enviada'; id: string | null }
-  | { situacao: 'na_fila'; motivo: 'silencio' | 'volume' | 'falha' }
+  | { situacao: 'na_fila'; motivo: MotivoNaFila }
   | { situacao: 'falhou'; erro: string; motivo: MotivoDaFalha }
 
 const dormir = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms))
@@ -59,9 +79,27 @@ async function saidasNoUltimoMinuto(admin: Admin, workspaceId: string): Promise<
   return count ?? 0
 }
 
+/**
+ * As conversas que o Palácio iniciou nas últimas 24 h e, com `numero`, se ele está com a janela aberta ou já foi
+ * contado (regras.ts, CotaDoNumero), pela função whatsapp_cota_de_conversas. null = não deu para contar: antes
+ * da migração da cota, a função não existe e nada espera por ela.
+ */
+export async function cotaDeConversas(admin: Admin, workspaceId: string, numero?: string | null): Promise<CotaDoNumero | null> {
+  try {
+    const { data, error } = await admin.rpc('whatsapp_cota_de_conversas', { p_workspace_id: workspaceId, p_numero: numero ?? null })
+    if (error || !data || typeof data !== 'object') return null
+    const d = data as Record<string, unknown>
+    const usadas = Number(d.usadas)
+    if (!Number.isFinite(usadas)) return null
+    return { usadas, janelaAberta: d.janela_aberta === true, jaContado: d.ja_contado === true }
+  } catch {
+    return null
+  }
+}
+
 /** Põe na fila. Não repete um aviso do mesmo link que já espera para a mesma pessoa. false = sem fila (tabela ausente). */
 export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem, p: {
-  motivo: 'silencio' | 'volume' | 'falha'; enviarApos: Date; tentativas?: number; erro?: string | null
+  motivo: MotivoNaFila; enviarApos: Date; tentativas?: number; erro?: string | null
 }): Promise<boolean> {
   try {
     if (m.tipo === 'aviso' && m.userId && m.link && p.motivo !== 'falha') {
@@ -85,11 +123,15 @@ export async function enfileirar(admin: Admin, workspaceId: string, m: Mensagem,
 
 /** Envia agora e registra; atualiza o estado da conexão pelo resultado. */
 async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, m: Mensagem) {
-  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo).
-  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo })
+  // O tipo é a finalidade: escolhe o modelo fora da janela de 24 h (a resposta do bot nunca vai por modelo). O aviso
+  // da visita na portaria leva os botões pelo link, saia agora ou da fila; fora da janela, vai pelo modelo, sem eles.
+  // O aviso de segurança que ensina o "NÃO FUI EU" leva o botão e a marca no registro, pelo texto (a fila guarda só ele).
+  const naoFuiEu = m.tipo === 'seguranca' && ofereceNaoFuiEu(m.texto)
+  const interativo = m.interativo ?? (m.tipo === 'aviso' ? interativoDoAviso(m.link) : naoFuiEu ? BOTAO_DO_NAO_FUI_EU : null)
+  const envio = await enviarTexto(config, m.numero, m.texto, { finalidade: m.tipo, interativo })
   await registrar(admin, {
-    workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero,
-    userId: m.userId, mensagemId: envio.ok ? envio.id : null, notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
+    workspaceId, direcao: 'saida', tipo: m.tipo, situacao: envio.ok ? 'enviada' : 'falhou', numero: m.numero, userId: m.userId,
+    mensagemId: envio.ok ? envio.id : null, comando: m.comando ?? (naoFuiEu ? MARCA_DO_NAO_FUI_EU : null), notificacaoId: m.notificacaoId, erro: envio.ok ? null : envio.erro,
   })
   if (envio.ok) await registrarEstado(admin, workspaceId, 'conectado')
   else if (falhaDerrubaConexao(envio.motivo)) await registrarEstado(admin, workspaceId, envio.motivo === 'instancia' ? 'sem_instancia' : 'erro')
@@ -97,14 +139,21 @@ async function enviarAgora(admin: Admin, workspaceId: string, config: ConfigDoWh
 }
 
 /**
- * Entrega uma mensagem com as regras de silêncio, volume e queda. "teste" nunca
- * vai para a fila: quem tocou no botão quer a resposta agora.
+ * Entrega uma mensagem com as regras de silêncio, cota diária, volume e queda.
+ * "teste" nunca vai para a fila: quem tocou no botão quer a resposta agora.
  */
 export async function entregar(admin: Admin, workspaceId: string, m: Mensagem, opcoes: { config?: ConfigDoWhatsapp | null } = {}): Promise<Entrega> {
   try {
     const agora = new Date()
     if (silencioSeAplica(m) && emSilencio(agora) && await enfileirar(admin, workspaceId, m, { motivo: 'silencio', enviarApos: fimDoSilencio(agora) })) {
       return { situacao: 'na_fila', motivo: 'silencio' }
+    }
+    // Só o que pode esperar pergunta pela cota (uma consulta): o resto nem conta.
+    if (prioridadeNaCota(m) === 'baixa') {
+      const cota = await cotaDeConversas(admin, workspaceId, m.numero)
+      if (cota && esperaPelaCota({ prioridade: 'baixa', ...cota }) && await enfileirar(admin, workspaceId, m, { motivo: 'cota', enviarApos: fimDaEsperaDaCota(agora) })) {
+        return { situacao: 'na_fila', motivo: 'cota' }
+      }
     }
     if (m.tipo !== 'teste' && await saidasNoUltimoMinuto(admin, workspaceId) >= TETO_POR_MINUTO
       && await enfileirar(admin, workspaceId, m, { motivo: 'volume', enviarApos: new Date(agora.getTime() + 60_000) })) {
@@ -135,8 +184,8 @@ type Item = {
 
 /**
  * Faz a fila andar: o que já pode sair (enviar_apos vencido), respeitando o
- * silêncio, o teto por minuto e o tempo disponível. Sem `workspaceId`, todos
- * os espaços (rotina diária).
+ * silêncio, a cota diária, o teto por minuto e o tempo disponível. Sem
+ * `workspaceId`, todos os espaços (rotina diária).
  */
 export async function processarFila(admin: Admin, workspaceId?: string | null, opcoes: { orcamentoMs?: number; limite?: number } = {}): Promise<ResultadoDaFila> {
   const resultado: ResultadoDaFila = { enviadas: 0, adiadas: 0, desistiu: 0, restam: 0 }
@@ -162,6 +211,9 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
     if (!itens.length) return resultado
 
     const configs = new Map<string, ConfigDoWhatsapp | null>()
+    // A cota de cada espaço, lida uma vez por rodada e somada a cada envio (por cima: quem tinha a janela aberta
+    // não conta de verdade). No limite, cada número é conferido de novo, e a conferência traz a conta certa.
+    const cotas = new Map<string, number | null>()
     const derrubados = new Set<string>()
     let enviouAntes = false
 
@@ -180,9 +232,11 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
       if (!pego) continue
 
       const agora = new Date()
-      // O link da ficha da Equipe e o convite de acesso carregam token: saiu (ou desistiu), o texto não fica guardado.
+      // O link da ficha da Equipe, o convite de acesso e o link de confirmar no Palácio que a resposta do bot leva
+      // (lib/whatsapp/confirmacoes.ts, caminhoDaConfirmacao) carregam token: saiu (ou desistiu), o texto não fica guardado.
       const semSegredo = (campos: Record<string, unknown>) =>
-        (item.categoria === 'equipe' || item.categoria === 'conta') && (campos.situacao === 'enviada' || campos.situacao === 'desistiu')
+        (item.categoria === 'equipe' || item.categoria === 'conta' || (item.tipo === 'bot' && item.texto.includes('/confirmar/')))
+          && (campos.situacao === 'enviada' || campos.situacao === 'desistiu')
           ? { ...campos, texto: '[link apagado depois do envio]' } : campos
       const devolver = (campos: Record<string, unknown>) =>
         admin.from('whatsapp_fila').update({ ...semSegredo(campos), atualizado_em: new Date().toISOString() }).eq('id', item.id)
@@ -198,6 +252,19 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
         resultado.desistiu++
         continue
       }
+      if (prioridadeNaCota(item) === 'baixa') {
+        if (!cotas.has(item.workspace_id)) cotas.set(item.workspace_id, (await cotaDeConversas(admin, item.workspace_id))?.usadas ?? null)
+        const usadas = cotas.get(item.workspace_id) ?? null
+        if (usadas !== null && usadas >= limiteDaCota()) {
+          const doNumero = await cotaDeConversas(admin, item.workspace_id, item.numero)
+          if (doNumero) cotas.set(item.workspace_id, doNumero.usadas)
+          if (doNumero && esperaPelaCota({ prioridade: 'baixa', ...doNumero })) {
+            await devolver({ situacao: 'pendente', motivo: 'cota', enviar_apos: fimDaEsperaDaCota(agora).toISOString() })
+            resultado.adiadas++
+            continue
+          }
+        }
+      }
 
       if (!configs.has(item.workspace_id)) configs.set(item.workspace_id, await configDoWhatsapp(item.workspace_id))
       const config = configs.get(item.workspace_id)
@@ -210,6 +277,8 @@ export async function processarFila(admin: Admin, workspaceId?: string | null, o
       enviouAntes = true
 
       if (envio.ok) {
+        const usadas = cotas.get(item.workspace_id)
+        if (typeof usadas === 'number' && item.tipo !== 'bot') cotas.set(item.workspace_id, usadas + 1)
         await devolver({ situacao: 'enviada', ultimo_erro: null })
         if (item.notificacao_id) await admin.from('notifications').update({ whatsapp_em: new Date().toISOString() }).eq('id', item.notificacao_id)
         resultado.enviadas++
@@ -266,12 +335,12 @@ async function desistirAntes(admin: Admin, item: Item): Promise<string | null> {
 }
 
 /** Quantas mensagens esperam na fila, por motivo (para a tela de conexão). */
-export async function resumoDaFila(admin: Admin, workspaceId: string): Promise<{ silencio: number; volume: number; falha: number } | null> {
+export async function resumoDaFila(admin: Admin, workspaceId: string): Promise<EsperaNaFila | null> {
   try {
     const { data, error } = await admin.from('whatsapp_fila').select('motivo').eq('workspace_id', workspaceId).eq('situacao', 'pendente').limit(1000)
     if (error) return null
-    const r = { silencio: 0, volume: 0, falha: 0 }
-    for (const l of data ?? []) if (l.motivo === 'silencio' || l.motivo === 'volume' || l.motivo === 'falha') r[l.motivo as keyof typeof r]++
+    const r: EsperaNaFila = { silencio: 0, volume: 0, falha: 0, cota: 0 }
+    for (const l of data ?? []) if (l.motivo === 'silencio' || l.motivo === 'volume' || l.motivo === 'falha' || l.motivo === 'cota') r[l.motivo as keyof EsperaNaFila]++
     return r
   } catch {
     return null
