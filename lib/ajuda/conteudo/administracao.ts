@@ -669,7 +669,7 @@ const CONFIGURACOES: GuiaDaArea = {
       passos: [
         'Em Configurações, abra “Integrações” no submenu e ache o cartão da ferramenta: “Hunter.io”, “Google (cliente OAuth do Gmail)”, “Meta Ads (token do usuário do sistema)”, “Google Analytics (conta de serviço)” ou “WhatsApp (Kapso — API oficial)”.',
         'Pegue a chave no painel da ferramenta. O endereço dele está no pé do cartão, em “A chave fica em …”.',
-        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, os nomes dos modelos aprovados (avisos, código e segurança da conta). No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
+        'Cole no campo. No cartão do Google, preencha “ID do cliente” e “Chave secreta do cliente”. No da Kapso, a chave da API, o Phone number ID e, se houver, os nomes dos modelos aprovados (avisos, código e segurança da conta); preencha também o “ID da conta do WhatsApp Business — WABA”, que está no painel da Kapso: com ele, o Palácio lê a situação dos modelos da portaria mesmo se não achar a conta pelo número. No do Google Analytics, o conteúdo inteiro do arquivo JSON da conta de serviço.',
         'Toque em “Salvar no cofre”.',
         'O cartão passa a mostrar “Configurada no cofre em …”, com a data.',
       ],
@@ -1009,6 +1009,18 @@ const WHATSAPP: GuiaDaArea = {
       termos: ['24 horas', 'janela', 'modelo', 'template', 'kapso', '131047', 'autenticação', 'código', 'segurança', '132001', '132015'],
     },
     {
+      id: 'modelos-da-portaria',
+      pergunta: 'Quais modelos a portaria usa fora da janela de 24 horas?',
+      resposta: 'Os dela, cadastrados pelo Palácio na Kapso: não há nome de modelo a informar (mas preencha o WABA no cartão da Kapso; veja a próxima pergunta). A ficha da visita, para quem é visitado, vai pelo portaria_visita_v2 ou, sem ele, pelo portaria_visita, com os três botões (“Pode subir”, “Aguarde na recepção”, “Não pode agora”) e sem a foto. A resposta ao visitante vai pelo portaria_resposta_visitante_v2 ou pelo portaria_resposta_visitante.\n\nSó vale o que a Meta aprovou como Utilidade; o que ela passar para Marketing, ou ainda espera aprovação, não sai. Sem a ficha aprovada, quem é visitado recebe o aviso de sempre pelo modelo dos avisos. Sem a resposta aprovada, o visitante não recebe nada, e quem registrou é avisado de que ele não pôde ser avisado. A aprovação chega ao Palácio em até 10 minutos.',
+      termos: ['portaria', 'modelo', 'template', 'ficha', 'visitante', 'utilidade', 'marketing', 'portaria_visita'],
+    },
+    {
+      id: 'waba-dos-modelos',
+      pergunta: 'Onde o Palácio vê se os modelos da portaria foram aprovados?',
+      resposta: 'Na conta do WhatsApp Business (WABA) do número do Palácio. Para garantir a leitura, preencha o “ID da conta do WhatsApp Business — WABA” no cartão da Kapso, em Configurações → Integrações: ele está no painel da Kapso (ou no da Meta). Sem ele, o Palácio tenta achar a conta pelo número.\n\nSe não achar a conta, ou se a leitura falhar, vale como se nenhum modelo da portaria estivesse aprovado: a ficha vai pelo caminho de antes (o aviso de sempre) e o visitante não recebe a resposta.',
+      termos: ['waba', 'conta do whatsapp business', 'modelo', 'aprovado', 'portaria', 'kapso'],
+    },
+    {
       id: 'url-do-webhook',
       pergunta: 'Preciso colar a URL do webhook no painel da Kapso?',
       resposta: 'Não. “Ligar o recebimento de mensagens” configura o endereço, a senha e os eventos na Kapso. Uma URL colada à mão no painel vai sem a senha, e o Palácio recusa as entregas.\n\nSe a chave mudar em Integrações, toque em “Ligar de novo”.',
@@ -1065,7 +1077,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'botoes-no-whatsapp',
       pergunta: 'Por que algumas mensagens do bot vêm com botões e outras não?',
-      resposta: 'Para quem escreveu ao número nas últimas 24 horas, o Palácio manda botões e listas: o menu (“Ver as opções”), as conferências (“Confirmo” e “Cancelar”), as escolhas numeradas (equipe, assunto e urgência do chamado, pessoa visitada, ação, veículo, condutor e finalidade), “Pular” nos detalhes, “Todos vieram” na chamada da ação, “Manter” no hodômetro, no aviso da portaria “Pode subir”, “Aguarde na recepção” e “Não pode agora” e, nos avisos de segurança, “Não fui eu”. Tocar é o mesmo que digitar: o botão manda a resposta que o bot já entende, e digitar continua valendo.\n\nVão sem botões o aviso para quem não escreveu nas últimas 24 horas (sai pelo modelo, que não leva botão), o que esperou na fila (menos o aviso da portaria e o “Não fui eu”), o texto longo demais e o que a Meta recusar com botões (sai o mesmo texto). Um botão de uma pergunta que já passou responde que ela não vale mais.',
+      resposta: 'Para quem escreveu ao número nas últimas 24 horas, o Palácio manda botões e listas: o menu (“Ver as opções”), as conferências (“Confirmo” e “Cancelar”), as escolhas numeradas (equipe, assunto e urgência do chamado, pessoa visitada, ação, veículo, condutor e finalidade), “Pular” nos detalhes, “Todos vieram” na chamada da ação, “Manter” no hodômetro, na ficha da portaria “Pode subir”, “Aguarde na recepção” e “Não pode agora” e, nos avisos de segurança, “Não fui eu”. Tocar é o mesmo que digitar: o botão manda a resposta que o bot já entende, e digitar continua valendo.\n\nVão sem botões o aviso a quem não escreveu nas últimas 24 horas (vai pelo modelo dos avisos; só o da ficha da portaria tem botões), o que esperou na fila (menos a ficha e o “Não fui eu”), o texto longo demais e o que a Meta recusar com botões (sai o mesmo texto). Botão de pergunta que já passou diz que ela não vale mais.',
       termos: ['botões', 'lista', 'ver as opções', 'confirmo', 'pode subir', 'interativo', 'sem botão'],
     },
     {
@@ -1330,7 +1342,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'responder-pelo-whatsapp',
       pergunta: 'Como respondo um aviso pelo WhatsApp?',
-      resposta: 'Responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): num aviso de chamado, do Chat ou de mensagem, o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você toca em “Confirmo”) ou “ajustes:” e o que precisa mudar. Ofício não se assina por lá: o aviso traz o link do Palácio. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e se quer detalhar (“pular” abre só com o que já disse). Quem atende a fila também assume, resolve e transfere por lá (ajuda de Chamados).\n\nNo aviso da portaria, responda “1” (pode subir), “2” (aguarde na recepção) ou “3” (não posso receber agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
+      resposta: 'Responda a própria mensagem do aviso no WhatsApp (segure a mensagem e toque em “Responder”): num aviso de chamado, do Chat ou de mensagem, o texto entra no chamado ou na conversa com o seu nome. No aviso de aprovação, responda “aprovar” (o Palácio manda a conferência do setor e você toca em “Confirmo”) ou “ajustes:” e o que precisa mudar. Ofício não se assina por lá: o aviso traz o link do Palácio. Para abrir um chamado, escreva “chamado:” e o problema; o Palácio pergunta a equipe, o assunto, o quanto atrapalha e se quer detalhar (“pular” abre só com o que já disse). Quem atende a fila também assume, resolve e transfere por lá (ajuda de Chamados).\n\nNa ficha da portaria, toque no botão ou responda “1” (pode subir), “2” (aguarde) ou “3” (não posso agora), com um recado depois do número se quiser. Se só uma visita espera por você, vale mandar o número sem responder a mensagem.',
       termos: ['aprovação pelo whatsapp', 'responder pelo whatsapp', 'abrir chamado pelo whatsapp', 'votar pelo whatsapp', 'portaria pelo whatsapp', 'pode subir', 'assumir chamado pelo whatsapp', 'resolver chamado pelo whatsapp'],
     },
     {

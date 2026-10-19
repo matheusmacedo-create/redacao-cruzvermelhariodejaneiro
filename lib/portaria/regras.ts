@@ -256,39 +256,42 @@ export function respostaClaraDaVisita(texto: string): ReturnType<typeof lerRespo
 /** A pergunta que vai no aviso de quem é visitado (no WhatsApp, abaixo do aviso). */
 export const PERGUNTA_DA_VISITA = 'Responda esta mensagem com *1* (pode subir), *2* (aguarde na recepção) ou *3* (não posso receber agora). Pode escrever um recado depois do número.'
 
-const nomeCurto = (nome: string | null | undefined) => String(nome ?? '').trim().split(/\s+/)[0] || ''
 const semFormatacao = (t: string, max: number) => t.replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim().slice(0, max)
 
-/** O aviso para a portaria (quem registrou a entrada): o que fazer com o visitante. */
-export function avisoParaPortaria(p: { visitante: string; quemRespondeu: string; resposta: RespostaDaVisita; recado: string | null; visitanteAvisado: boolean }) {
+/**
+ * O aviso para a portaria (quem registrou a entrada): o que fazer com o visitante. `visitanteSemAviso`: ele autorizou a
+ * resposta no WhatsApp, mas ela não saiu (sem modelo aprovado, ou a Meta recusou) — a portaria dá a resposta a ele. O
+ * que é do visitante vem antes do recado: o sino corta a mensagem em 280 letras, e o recado longo não esconde isso.
+ */
+export function avisoParaPortaria(p: { visitante: string; quemRespondeu: string; resposta: RespostaDaVisita; recado: string | null; visitanteAvisado: boolean; visitanteSemAviso?: boolean }) {
   const r = RESPOSTAS[p.resposta]
   return {
     titulo: `${r.rotulo}: ${semFormatacao(p.visitante, 80)}`,
     mensagem: [
       `${semFormatacao(p.quemRespondeu, 80)} respondeu. ${r.orientacao}`,
+      p.visitanteAvisado ? 'O visitante também recebeu a resposta pelo WhatsApp.'
+        : p.visitanteSemAviso ? 'O visitante não pôde ser avisado pelo WhatsApp: dê a resposta a ele.' : null,
       p.recado ? `Recado: ${semFormatacao(p.recado, 280).replace(/[^.!?…]$/, '$&.')}` : null,
-      p.visitanteAvisado ? 'O visitante também recebeu a resposta pelo WhatsApp.' : null,
     ].filter(Boolean).join(' '),
   }
 }
 
+/** A situação que o visitante lê (a variável {{2}} do modelo): uma linha, sem a formatação do WhatsApp. */
+export const SITUACAO_PARA_VISITANTE: Record<RespostaDaVisita, string> = {
+  subir: 'Pode subir. Suba até o hall e aguarde: você será chamado para o atendimento.',
+  aguardar: 'Aguarde na recepção, por favor. Avisaremos por aqui quando puder subir.',
+  recusar: 'Não poderá receber você agora. Por favor, fale com a recepção.',
+}
+
 /**
- * A mensagem para o visitante, no WhatsApp que ele autorizou na entrada. Só a
- * situação: o recado é para a portaria (quem escreveu não conta que o visitante
- * vai ler, e a observação de quem registrou pelo telefone é interna).
+ * A resposta para o visitante, no WhatsApp que ele autorizou na entrada. Ele nunca escreveu ao número do Palácio (a
+ * janela de 24 h está fechada), então só o modelo aprovado chega (lib/whatsapp/modelos.ts, "resposta_ao_visitante"):
+ * estas são as variáveis dele — {{1}} quem ele veio visitar (e o setor), {{2}} a situação. Só a situação: o recado é
+ * para a portaria (quem escreveu não conta que o visitante vai ler, e a observação de quem registrou pelo telefone é
+ * interna).
  */
-export function mensagemParaVisitante(p: { visitante: string; quem: string; setor: string | null; resposta: RespostaDaVisita }): string {
-  const ola = nomeCurto(p.visitante) ? `Olá, ${semFormatacao(nomeCurto(p.visitante), 40)}!` : 'Olá!'
-  const quem = `${semFormatacao(p.quem, 80)}${p.setor ? ` (${semFormatacao(p.setor, 60)})` : ''}`
-  const corpo = {
-    subir: `*Pode subir.* ${quem} já pode receber você. Suba até o hall e aguarde: você será chamado para o atendimento.`,
-    aguardar: `*Aguarde na recepção, por favor.* ${quem} pediu um momento. Avisaremos por aqui quando puder subir.`,
-    recusar: `${quem} não poderá receber você agora. Por favor, fale com a portaria.`,
-  }[p.resposta]
-  return [
-    `${ola} ${corpo}`,
-    '_Cruz Vermelha Brasileira – RJ · Portaria. Mensagem automática sobre a sua visita de hoje._',
-  ].join('\n\n')
+export function parametrosParaVisitante(p: { quem: string; setor: string | null; resposta: RespostaDaVisita }): [string, string] {
+  return [`${semFormatacao(p.quem, 80)}${p.setor ? ` (${semFormatacao(p.setor, 60)})` : ''}`, SITUACAO_PARA_VISITANTE[p.resposta]]
 }
 
 /** A situação da resposta na tela da portaria: o que mostrar ao lado do visitante. */

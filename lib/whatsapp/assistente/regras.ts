@@ -1015,7 +1015,7 @@ export function linhasDoPlano(passos: Passo[]): string[] {
       linhas.push(`${n} Registrar na portaria a entrada de *${nomeCurto(p.visitante)}*${empresa} para ${pessoaNoTexto(p.visitado)}${p.motivo ? ', motivo:' : ''}`)
       if (p.visitado.homonimo) linhas.push(HOMONIMO)
       if (p.motivo) linhas.push(citacao(p.motivo))
-      linhas.push('_A pessoa recebe o aviso e responde à portaria; você é avisado da resposta._')
+      linhas.push('_A pessoa recebe a ficha da visita e responde à portaria; você é avisado da resposta. Para o telefone, a autorização ou a foto do visitante, cancele e escreva *visitante:* e o nome: o registro guiado pergunta tudo._')
     } else if (p.acao === 'decidir_financeiro') {
       const oQue = p.tipo === 'despesa' ? 'a despesa' : `a compra *${umaLinha(limpo(p.codigo ?? '', 40), 20)}*`
       const fornecedor = p.fornecedor ? ` · ${umaLinha(limpo(p.fornecedor, 400), 80)}` : ''

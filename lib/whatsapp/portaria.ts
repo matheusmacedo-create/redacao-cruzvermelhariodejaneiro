@@ -3,12 +3,16 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehEquipeDaEscola } from '@/lib/permissoes'
 import { diaEmSaoPaulo, hora, quemVisita, type DadosDoVisitante, type RespostaDaVisita } from '@/lib/portaria/regras'
-import { avisarVisitado, pessoasParaVisitar } from '@/lib/portaria/servidor'
+import { apagarFotoDoVisitante, avisarVisitado, guardarFotoDoVisitante, pessoasParaVisitar } from '@/lib/portaria/servidor'
+import { normalizarFotoDoVisitante } from '@/lib/portaria/foto-servidor'
+import { baixarMidia, configDoWhatsapp } from './servidor'
 import {
-  BOTOES_DA_CONFERENCIA, BOTOES_DOS_DETALHES, TEXTO_PEDE_MOTIVO_DA_VISITA, TEXTO_PEDE_NOME_DO_VISITANTE, TEXTO_SEM_ACAO_PELO_WHATSAPP,
-  acharPeloNome, ehConfirmacao, ehPular, interativoDaEscolha, lerEscolha, lerSetorDaVisita, primeiroNome, situacaoDaVisitaNaLista,
-  textoDaConferenciaDaVisita, textoDaEscolha, textoDaPortaria, textoPedeVisitado, type Interativo, type Opcao, type VisitaNaLista,
+  PENDENCIA_VALE_MIN, TEXTO_SEM_ACAO_PELO_WHATSAPP, acharPeloNome, formatarNumero, situacaoDaVisitaNaLista, textoDaPortaria, type MensagemRecebida, type VisitaNaLista,
 } from './regras'
+import {
+  TETO_DA_FOTO_DO_VISITANTE, comFoto, dadosRedigidos, fotoMantemAPergunta, fotoRecebida, nomeLimpo, perguntaDaVisita, resultadoDaBusca, seguirNoRegistro,
+  textoDaEntradaRegistrada, textoDaFotoNaPergunta, type DadosDaVisita, type FotoNaConversa, type PerguntaDaVisita,
+} from './portaria-regras'
 import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type Pendencia, type Pessoa, type Resposta, type ResultadoDaAcao } from './acoes'
 
 /**
@@ -18,50 +22,46 @@ import { INDISPONIVEL, encerrarPendencia, podeAgirPeloWhatsapp, semFuncao, type 
  *    entrou hoje e não saiu, e quem se cadastrou pelo QR e espera a
  *    confirmação —, só com o nome do visitante, para quem, a hora e a
  *    situação. Telefone, empresa, motivo, recado e foto ficam na tela;
- *  - "visitante: João Silva" registra a chegada em etapas: o nome, para quem
- *    (busca na equipe ativa; com mais de uma pessoa, a lista para escolher; ou
- *    "setor:" e o setor, sem aviso, como o "Setor ou pessoa" da tela), o
- *    motivo (opcional) e a conferência ("confirmo"). Documento e foto não vão
- *    por aqui.
+ *  - "visitante: João Silva" registra a chegada em etapas, como o cadastro do
+ *    QR: o nome, para quem (busca na equipe ativa; com mais de uma pessoa, a
+ *    lista para escolher; ou "setor:" e o setor, sem aviso, como o "Setor ou
+ *    pessoa" da tela), o telefone do visitante e, com ele, se o visitante
+ *    aceita receber a resposta no WhatsApp (a portaria pergunta; só o "Sim"
+ *    autoriza), de onde vem, o motivo, o crachá e a foto — tudo opcional,
+ *    com Pular e Registrar já — e a conferência ("confirmo"). As etapas são
+ *    puras: lib/whatsapp/portaria-regras.ts;
+ *  - a foto chega como imagem em qualquer etapa do registro aberto, ou abre o
+ *    registro com a legenda "visitante: Nome" (o bot desvia a imagem para cá
+ *    antes do envio de fotos e do Drive: receberFotoDaVisita). Na chegada, só
+ *    o tipo é conferido e o id da mídia fica na pendência; depois do
+ *    "confirmo", com a visita criada, a foto é baixada, normalizada
+ *    (lib/portaria/foto-servidor.ts) e gravada no Blob privado, registrada
+ *    como quem escreveu (whatsapp_portaria_definir_foto, migração
+ *    20261019040000). Foto que não entra não impede o registro: a resposta
+ *    diz, e manda tirar pela tela.
  *
  * Quem tem a portaria é quem a tela e o banco dizem (private.pode_portaria):
  * membro do Palácio, menos a equipe da Escola. O registro passa pela MESMA
  * função da tela, portaria_registrar_entrada, chamada como quem escreveu
  * (whatsapp_portaria_registrar_entrada, sessão simulada aal1 — o banco confere
  * de novo a portaria e a verificação em duas etapas, e grava quem registrou),
- * e o aviso a quem é visitado sai pelo mesmo avisarVisitado: a pessoa
- * responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
+ * e o aviso a quem é visitado sai pelo mesmo avisarVisitado — no WhatsApp, a
+ * ficha da visita com a foto e os botões (lib/portaria/servidor.ts) —: a
+ * pessoa responde pelos botões ou com 1, 2 ou 3, e quem registrou recebe a
+ * resposta.
  *
  * Listar é consulta (vale com a verificação em duas etapas); registrar é
  * ação (podeAgirPeloWhatsapp). As etapas ficam em whatsapp_pendencias (tipo
  * "registrar_visita", migração 20261018213700): antes dela, o banco recusa a
- * pergunta e o bot manda para a tela da portaria.
+ * pergunta e o bot manda para a tela da portaria. Nada do visitante vai ao
+ * registro do bot nem aos logs, e a pendência que acabou é redigida
+ * (redigirRegistrosEncerrados).
  */
 
 type Admin = ReturnType<typeof createAdminClient>
 
-type PessoaNaConversa = { id: string; nome: string; setor: string | null }
-type DadosDaVisita = {
-  etapa?: 'nome' | 'pessoa' | 'escolher_pessoa' | 'motivo' | 'conferencia'
-  nome?: string
-  /** A pessoa do Palácio visitada (recebe o aviso)… */
-  pessoa?: PessoaNaConversa
-  /** …ou o setor em texto livre (ninguém é avisado). */
-  setor?: string
-  /** As pessoas da lista mostrada, quando a busca achou mais de uma. */
-  opcoes?: PessoaNaConversa[]
-  /** "" = pulou. */
-  motivo?: string
-}
-
-/** Na lista para escolher a pessoa, no máximo tantas (cabe numa lista do WhatsApp, com a linha de cancelar). */
-const PESSOAS_NA_ESCOLHA = 9
-
 /** Quem tem a portaria: a mesma regra da tela e do banco (membro do Palácio, menos a equipe da Escola). */
 export const temPortaria = (pessoa: Pessoa): boolean => !ehEquipeDaEscola(pessoa.papel)
-
-/** O nome como vai ao livro: uma linha, sem a formatação do WhatsApp. */
-const nomeLimpo = (t: string) => t.replace(/[*_~`]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120)
 
 /** Meia-noite de hoje em Brasília, em UTC (o fuso é fixo, UTC−3), como a tela da portaria. */
 const inicioDeHoje = () => new Date(`${diaEmSaoPaulo(new Date())}T00:00:00-03:00`).toISOString()
@@ -97,42 +97,30 @@ export async function visitasDeHoje(admin: Admin, workspaceId: string, pessoa: P
 
 // ------------------------------------------------------------------ registrar quem chegou (em etapas)
 
-/** "visitante: João Silva" (o nome é opcional: o bot pergunta). */
-export async function comecarVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, nome: string, base: string): Promise<Resposta> {
+/** "visitante: João Silva" (o nome é opcional: o bot pergunta). `foto`: a imagem com essa legenda abriu o registro. */
+export async function comecarVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, nome: string, base: string, foto?: FotoNaConversa): Promise<Resposta> {
   if (!temPortaria(pessoa)) return { texto: `A portaria fica no Palácio: ${base}/portaria` }
   if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${base}/portaria` }
+  // O que sobrou de registros que acabaram (cancelados, vencidos) sai do banco antes de abrir outro.
+  await redigirRegistrosEncerrados(admin)
   const n = nomeLimpo(nome)
-  return proximoPasso(admin, workspaceId, n.length >= 2 ? { nome: n } : {}, base)
+  const d: DadosDaVisita = { ...(n.length >= 2 ? { nome: n } : {}), ...(foto ? { foto } : {}) }
+  return proximoPasso(admin, workspaceId, d, base, undefined, undefined, foto ? comFoto({}, foto).antes : null)
 }
 
-/** A próxima pergunta, até a conferência. `busca`: o que a pessoa escreveu para achar quem é visitado. */
-async function proximoPasso(admin: Admin, workspaceId: string, d: DadosDaVisita, base: string, pendenciaId?: number, busca?: string): Promise<Resposta> {
-  const perguntar = (dados: DadosDaVisita, texto: string, interativo: Interativo | null = null): Resposta =>
-    ({ texto, pergunta: { tipo: 'registrar_visita', dados, id: pendenciaId }, interativo })
-
-  if (!d.nome) return perguntar({ ...d, etapa: 'nome' }, TEXTO_PEDE_NOME_DO_VISITANTE)
-  const nome = d.nome
-
-  if (!d.pessoa && !d.setor) {
-    if (!busca) return perguntar({ ...d, etapa: 'pessoa' }, textoPedeVisitado(nome))
-    const achadas = acharPeloNome(await pessoasParaVisitar(workspaceId, admin), busca)
-    if (achadas.length === 1) {
-      d = { ...d, pessoa: achadas[0], opcoes: undefined }
-    } else if (achadas.length > 1 && achadas.length <= PESSOAS_NA_ESCOLHA) {
-      const opcoes: Opcao[] = achadas.map((p) => ({ nome: p.nome, detalhe: p.setor }))
-      return perguntar({ ...d, etapa: 'escolher_pessoa', opcoes: achadas },
-        textoDaEscolha({ pergunta: `Achei mais de uma pessoa com “${busca}”. Qual delas vai receber *${nome}*?`, opcoes }),
-        interativoDaEscolha(opcoes, { cancelar: 'Não registrar a entrada' }))
-    } else {
-      return perguntar({ ...d, etapa: 'pessoa', opcoes: undefined }, achadas.length
-        ? `Achei ${achadas.length} pessoas com “${busca}”. Escreva mais do nome (o sobrenome, por exemplo), ou *setor:* e o setor.`
-        : `Não achei “${busca}” na equipe do Palácio. Escreva de outro jeito (o primeiro nome ou o sobrenome), ou *setor:* e o setor (aí ninguém é avisado).`)
-    }
+/**
+ * A próxima pergunta, até a conferência (portaria-regras.ts, perguntaDaVisita). `busca`: o que a pessoa escreveu para
+ * achar quem é visitado; `antes`: o que vai na frente da pergunta ("Foto recebida ✓").
+ */
+async function proximoPasso(admin: Admin, workspaceId: string, d: DadosDaVisita, base: string, pendenciaId?: number, busca?: string, antes?: string | null): Promise<Resposta> {
+  const perguntar = (dados: DadosDaVisita, p: PerguntaDaVisita): Resposta =>
+    ({ texto: p.texto, pergunta: { tipo: 'registrar_visita', dados: { ...dados, etapa: p.etapa }, id: pendenciaId }, interativo: p.interativo })
+  if (busca && d.nome && !d.pessoa && !d.setor) {
+    const achou = resultadoDaBusca(d, busca, acharPeloNome(await pessoasParaVisitar(workspaceId, admin), busca))
+    if (achou.pergunta) return perguntar(achou.dados, achou.pergunta)
+    d = achou.dados
   }
-
-  // O motivo é opcional: "pular" (ou "não") registra sem ele.
-  if (d.motivo === undefined) return perguntar({ ...d, etapa: 'motivo' }, TEXTO_PEDE_MOTIVO_DA_VISITA, BOTOES_DOS_DETALHES)
-  return perguntar({ ...d, etapa: 'conferencia' }, textoDaConferenciaDaVisita({ nome, pessoa: d.pessoa ?? null, setor: d.setor ?? null, motivo: d.motivo || null }), BOTOES_DA_CONFERENCIA)
+  return perguntar(d, perguntaDaVisita(d, antes))
 }
 
 /**
@@ -141,78 +129,67 @@ async function proximoPasso(admin: Admin, workspaceId: string, d: DadosDaVisita,
  */
 export async function seguirVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   const d = p.dados as unknown as DadosDaVisita
-  const deNovo = (t: string) => (estrita ? { texto: t } : null)
-  const avancar = async (dados: DadosDaVisita, busca?: string) => {
-    const r = await proximoPasso(admin, workspaceId, dados, base, p.id, busca)
+  const passo = seguirNoRegistro(d, texto)
+  if (passo.tipo === 'repetir') return estrita || passo.sempre ? { texto: passo.texto } : null
+  if (passo.tipo === 'seguir' || passo.tipo === 'buscar') {
+    const r = await proximoPasso(admin, workspaceId, passo.dados, base, p.id, passo.tipo === 'buscar' ? passo.busca : undefined)
     if (!r.pergunta) await encerrarPendencia(admin, p.id)
     return r
   }
-  const numero = lerEscolha(texto, 99) !== null
-
-  if (d.etapa === 'nome') {
-    const nome = nomeLimpo(texto)
-    if (nome.length < 2 || numero) return deNovo('Escreva o nome do visitante, ou *cancelar*.')
-    return avancar({ ...d, nome })
-  }
-  if (d.etapa === 'pessoa' || d.etapa === 'escolher_pessoa') {
-    const n = d.etapa === 'escolher_pessoa' && d.opcoes ? lerEscolha(texto, d.opcoes.length) : null
-    if (n && d.opcoes) return avancar({ ...d, pessoa: d.opcoes[n - 1], opcoes: undefined })
-    const setor = lerSetorDaVisita(texto)
-    if (setor) return avancar({ ...d, setor: nomeLimpo(setor), opcoes: undefined })
-    // Na lista, também vale escrever outro nome em vez do número.
-    const busca = texto.replace(/\s+/g, ' ').trim().slice(0, 80)
-    if (busca.length < 2 || numero) {
-      return deNovo(d.opcoes ? `Responda com o número da pessoa (1 a ${d.opcoes.length}), ou *cancelar*.` : 'Escreva o nome de quem vai receber, ou *setor:* e o setor.')
-    }
-    return avancar({ ...d, opcoes: undefined }, busca)
-  }
-  if (d.etapa === 'motivo') {
-    const pula = ehPular(texto)
-    const motivo = pula ? '' : texto.replace(/\s+/g, ' ').trim().slice(0, 300)
-    if (!pula && (motivo.length < 2 || numero)) return deNovo('Escreva o motivo em poucas palavras, ou responda *pular*.')
-    return avancar({ ...d, motivo })
-  }
-  if (d.etapa !== 'conferencia' || !d.nome) {
+  if (passo.tipo === 'perdido' || !d.nome) {
     await encerrarPendencia(admin, p.id)
+    await redigirRegistrosEncerrados(admin)
     return { texto: `Não consegui continuar. Registre pela tela da portaria: ${base}/portaria` }
   }
 
-  if (!ehConfirmacao(texto)) return estrita ? { texto: 'Para registrar, responda a conferência com *confirmo*; para desistir, *cancelar*.' } : null
   if (!await encerrarPendencia(admin, p.id)) return { texto: 'Esta entrada já foi registrada.' }
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${base}/portaria` }
-  return registrarEntrada(admin, workspaceId, pessoa, { ...d, nome: d.nome }, base)
+  try {
+    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_SEM_ACAO_PELO_WHATSAPP}\n\n${base}/portaria` }
+    return await registrarEntrada(admin, workspaceId, pessoa, { ...d, nome: d.nome }, base)
+  } finally {
+    // A pendência acabou: o telefone, o id da foto e o resto do visitante saem dela (a visita, se entrou, está no livro).
+    await redigirRegistrosEncerrados(admin)
+  }
 }
 
 /**
- * Grava pela mesma função da tela (portaria_registrar_entrada, como quem
- * escreveu) e avisa quem é visitado pelo mesmo avisarVisitado. Sem telefone,
- * empresa, crachá nem foto: isso fica na tela.
+ * Grava pela mesma função da tela (portaria_registrar_entrada, como quem escreveu), com o telefone, a autorização,
+ * de onde vem, o motivo e o crachá; põe a foto, se veio; e avisa quem é visitado pelo mesmo avisarVisitado.
  */
 async function registrarEntrada(admin: Admin, workspaceId: string, pessoa: Pessoa, d: DadosDaVisita & { nome: string }, base: string): Promise<Resposta> {
   const abrir = `${base}/portaria`
-  const r = await gravarEntrada(admin, workspaceId, pessoa, { nome: d.nome, empresa: null, motivo: d.motivo || null, visitadoId: d.pessoa?.id ?? null, setor: d.setor ?? null }, abrir)
+  // A autorização só vale com telefone e com quem responda (a pessoa avisada): com o setor, não há resposta a mandar.
+  const avisar = Boolean(d.telefone && d.pessoa && d.avisar)
+  const r = await gravarEntrada(admin, workspaceId, pessoa, {
+    nome: d.nome, empresa: d.empresa || null, motivo: d.motivo || null, visitadoId: d.pessoa?.id ?? null, setor: d.setor ?? null,
+    telefone: d.telefone || null, avisar, cracha: d.cracha || null, foto: d.foto ?? null,
+  }, abrir)
   if (!r.ok) return { texto: r.texto }
-  const agora = hora(new Date().toISOString())
   return {
-    texto: d.pessoa
-      ? `Pronto: entrada de *${d.nome}* registrada às ${agora}. ${primeiroNome(d.pessoa.nome) || 'Quem vai receber'} recebeu o aviso; quando responder, você é avisado. Foto e crachá, na tela da portaria: ${abrir}`
-      : `Pronto: entrada de *${d.nome}* registrada às ${agora}, para ${d.setor ?? 'o setor'}. Ninguém foi avisado: confirme com o setor. Foto e crachá, na tela da portaria: ${abrir}`,
+    texto: textoDaEntradaRegistrada({
+      nome: d.nome, hora: hora(new Date().toISOString()), pessoa: d.pessoa ?? null, setor: d.setor ?? null, foto: r.foto ?? null, avisar, abrir,
+    }),
   }
 }
 
 /**
  * A entrada no livro de visitantes, pela MESMA função da tela (portaria_registrar_entrada): pelo WhatsApp, como quem
  * escreveu (whatsapp_portaria_registrar_entrada, sessão simulada aal1); com `sessao`, pela sessão de quem está logado
- * (o plano do assistente confirmado no Palácio). Avisa quem é visitado pelo mesmo avisarVisitado. Sem telefone, crachá
- * nem foto. Nunca lança: devolve ResultadoDaAcao (o plano do assistente decide por `ok`).
+ * (o plano do assistente confirmado no Palácio). Do registro em etapas vêm também o telefone do visitante (canônico;
+ * vai ao livro formatado, como a tela mostra), a autorização (`avisar`, que o banco só grava com telefone), o crachá
+ * e a foto mandada ao WhatsApp — esta entra antes do aviso, com a visita criada (guardarFotoDaConversa). Avisa quem
+ * é visitado pelo mesmo avisarVisitado. Nunca lança: devolve ResultadoDaAcao (o plano do assistente decide por
+ * `ok`); `foto`: 'ok', 'falhou' ou null (não veio foto).
  */
 export async function gravarEntrada(admin: Admin, workspaceId: string, pessoa: Pessoa, d: {
   nome: string; empresa: string | null; motivo: string | null; visitadoId: string | null; setor?: string | null
-}, abrir: string, sessao?: SupabaseClient): Promise<ResultadoDaAcao> {
+  telefone?: string | null; avisar?: boolean; cracha?: string | null; foto?: FotoNaConversa | null
+}, abrir: string, sessao?: SupabaseClient): Promise<ResultadoDaAcao & { foto?: 'ok' | 'falhou' | null }> {
   try {
+    const telefone = d.telefone ? formatarNumero(d.telefone) : ''
     const dados: DadosDoVisitante = {
-      nome: d.nome, telefone: '', empresa: d.empresa ?? '', motivo: d.motivo ?? '', visitado_texto: d.setor ?? '', avisar_visitante: false,
-      ...(d.visitadoId ? { visitado_id: d.visitadoId } : {}),
+      nome: d.nome, telefone, empresa: d.empresa ?? '', motivo: d.motivo ?? '', visitado_texto: d.setor ?? '', avisar_visitante: Boolean(telefone && d.avisar),
+      ...(d.visitadoId ? { visitado_id: d.visitadoId } : {}), ...(d.cracha ? { cracha_numero: d.cracha } : {}),
     }
     const { data, error } = sessao
       ? await sessao.rpc('portaria_registrar_entrada', { p_workspace_id: workspaceId, p: dados })
@@ -221,10 +198,96 @@ export async function gravarEntrada(admin: Admin, workspaceId: string, pessoa: P
     if (error || !data) {
       return { ok: false, codigo: error?.code === '42501' ? 'sem_permissao' : 'erro', texto: `${error?.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a entrada.'} ${abrir}` }
     }
-    await avisarVisitado({ workspaceId, visitaId: data as string, visitadoId: d.visitadoId, nome: d.nome, empresa: d.empresa, motivo: d.motivo }, pessoa.id)
-    return { ok: true, codigo: 'feito', texto: `Entrada de *${d.nome}* registrada. ${abrir}`, link: abrir }
+    const visitaId = data as string
+    // A foto do WhatsApp só existe no registro em etapas (sem sessão): entra antes do aviso, para quem é visitado já a ter.
+    const foto = d.foto && !sessao ? (await guardarFotoDaConversa(admin, workspaceId, pessoa, visitaId, d.foto) ? 'ok' as const : 'falhou' as const) : null
+    await avisarVisitado({ workspaceId, visitaId, visitadoId: d.visitadoId, nome: d.nome, empresa: d.empresa, motivo: d.motivo }, pessoa.id)
+    return { ok: true, codigo: 'feito', texto: `Entrada de *${d.nome}* registrada. ${abrir}`, link: abrir, foto }
   } catch (causa) {
     console.error('[whatsapp] portaria: entrada não registrada:', causa instanceof Error ? causa.message : causa)
     return { ok: false, codigo: 'erro', texto: `Não foi possível registrar a entrada. ${abrir}` }
+  }
+}
+
+// ------------------------------------------------------------------ a foto do visitante
+
+/**
+ * Uma imagem de quem tem a portaria, já desviada pelo bot (portaria-regras.ts, destinoDaImagem): `foto` entra no
+ * registro aberto, `comecar` abre um registro novo com ela (a legenda "visitante: Nome"). Na chegada, só o tipo é
+ * conferido e o id da mídia fica na pendência — gravado já (com o prazo renovado), mesmo que a resposta não saia (o
+ * teto de respostas do bot). Na pergunta da foto, vem a seguinte, com "Foto recebida ✓" na frente; nas outras, a
+ * pergunta de agora continua valendo (os botões e o "confirmo" dela) e sai só o recibo (fotoMantemAPergunta) — a
+ * pergunta sai de novo só se a mensagem dela não ficou guardada (não chegou a sair). O arquivo só vem depois do "confirmo".
+ */
+export async function receberFotoDaVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, m: MensagemRecebida, p: {
+  destino: 'foto' | 'comecar'; aberto: Pendencia | null; legenda: string | null; base: string
+}): Promise<Resposta | null> {
+  const lida = fotoRecebida(m.midia)
+  if (!lida) return null
+  if ('erro' in lida) return { texto: lida.erro }
+  if (p.destino === 'comecar' || !p.aberto) return comecarVisita(admin, workspaceId, pessoa, p.legenda ?? '', p.base, lida.foto)
+  const atual = p.aberto.dados as unknown as DadosDaVisita
+  const { dados, antes } = comFoto(atual, lida.foto)
+  // Sem tocar na mensagem da pergunta (guardarPendencia a zeraria): o toque nos botões dela continua achando o registro.
+  const expira = new Date(Date.now() + PENDENCIA_VALE_MIN * 60_000).toISOString()
+  const { data } = await admin.from('whatsapp_pendencias').update({ dados, expira_em: expira }).eq('id', p.aberto.id).is('encerrada_em', null)
+    .select('id, mensagem_id').maybeSingle()
+  if (!data) return { texto: 'Este registro já foi encerrado. Para registrar outra chegada, mande a foto com a legenda *visitante:* e o nome.' }
+  if (fotoMantemAPergunta(atual, dados) && data.mensagem_id) return { texto: textoDaFotoNaPergunta(antes, atual.etapa) }
+  return proximoPasso(admin, workspaceId, dados, p.base, p.aberto.id, undefined, antes)
+}
+
+/**
+ * A foto mandada ao WhatsApp, depois do "confirmo" e com a visita criada: baixa da Kapso, normaliza
+ * (normalizarFotoDoVisitante: girada pelo EXIF, até 1024 px, JPEG sem metadados), grava no Blob privado e registra
+ * como quem escreveu (whatsapp_portaria_definir_foto: a mesma portaria_definir_foto da tela). Se o banco recusar
+ * (ou a migração não estiver aplicada), o arquivo sai do Blob. Nunca lança; false = a foto não entrou (a entrada
+ * vale do mesmo jeito). No log, só a etapa que falhou — nada do visitante.
+ */
+async function guardarFotoDaConversa(admin: Admin, workspaceId: string, pessoa: Pessoa, visitaId: string, foto: FotoNaConversa): Promise<boolean> {
+  const falhou = (etapa: string) => {
+    console.error('[whatsapp] portaria: a foto do visitante não entrou:', etapa)
+    return false
+  }
+  let caminho: string | null = null
+  try {
+    const config = await configDoWhatsapp(workspaceId)
+    if (!config) return falhou('sem a configuração do WhatsApp')
+    const baixada = await baixarMidia(config, foto.midia, TETO_DA_FOTO_DO_VISITANTE, foto.endereco)
+    if (!baixada.ok) return falhou('download')
+    const bytes = await normalizarFotoDoVisitante(baixada.conteudo)
+    if (!bytes) return falhou('imagem que não abre')
+    caminho = await guardarFotoDoVisitante(workspaceId, visitaId, bytes)
+    const { data, error } = await admin.rpc('whatsapp_portaria_definir_foto', { p_user_id: pessoa.id, p_id: visitaId, p_foto_path: caminho })
+    if (error) {
+      await apagarFotoDoVisitante(caminho)
+      return falhou(semFuncao(error) ? 'função ausente (migração 20261019040000)' : `banco ${error.code ?? ''}`.trim())
+    }
+    const anterior = (data as string | null) ?? null
+    if (anterior && anterior !== caminho) await apagarFotoDoVisitante(anterior)
+    return true
+  } catch (causa) {
+    await apagarFotoDoVisitante(caminho)
+    return falhou(causa instanceof Error ? causa.name : 'erro')
+  }
+}
+
+// ------------------------------------------------------------------ a faxina
+
+/**
+ * O registro em etapas guarda na pendência o que a conversa precisa (o nome, o telefone, o id da foto do visitante…).
+ * Quando ela acaba — registrada, cancelada, trocada por outra pergunta ou vencida —, isso sai do banco: fica só a
+ * etapa (portaria-regras.ts, dadosRedigidos). Roda no começo e no fim de cada registro, até 50 por vez, e alcança as
+ * de todo o espaço (a portaria registra todo dia). Melhor esforço; nunca lança.
+ */
+export async function redigirRegistrosEncerrados(admin: Admin): Promise<void> {
+  try {
+    const agora = new Date().toISOString()
+    const { data, error } = await admin.from('whatsapp_pendencias').select('id, dados').eq('tipo', 'registrar_visita')
+      .or(`encerrada_em.not.is.null,expira_em.lt.${agora}`).is('dados->>redigida', null).limit(50)
+    if (error) return
+    await Promise.all((data ?? []).map((l) => admin.from('whatsapp_pendencias').update({ dados: dadosRedigidos(l.dados) }).eq('id', l.id as number)))
+  } catch {
+    // Melhor esforço: o próximo registro tenta de novo.
   }
 }

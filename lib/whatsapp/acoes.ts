@@ -18,7 +18,8 @@ import {
 } from './regras'
 import { seguirEnvio } from './envio'
 import { atenderPeloAviso, seguirAtendimento } from './atendimento'
-import { seguirVisita } from './portaria'
+import { redigirRegistrosEncerrados, seguirVisita } from './portaria'
+import { ETAPAS_DE_TEXTO_LIVRE, ETAPAS_EM_QUE_NAO_RESPONDE, lerBotaoDaFicha, podeResponderPelaFicha } from './portaria-regras'
 import { seguirDecisoes } from './financeiro'
 import { seguirPresenca } from './presenca'
 import { seguirViagem } from './frota'
@@ -219,13 +220,31 @@ export async function enviarNoChat(admin: Admin, workspaceId: string, pessoa: Pe
  * Quem é visitado responde à portaria: pode subir, aguarde na recepção ou não
  * pode agora (lib/portaria/regras.ts). Vale com a verificação em duas etapas,
  * como abrir chamado: é só a resposta à visita dele, e o banco confere que a
- * visita é mesmo para esta pessoa (portaria_responder_whatsapp).
+ * visita é mesmo para esta pessoa (portaria_responder_whatsapp). O toque num
+ * botão da ficha que cita a ficha também chega aqui (o título, se o modelo
+ * voltasse sem o payload): o botão de outra visita não responde esta.
  */
 export async function responderVisita(admin: Admin, workspaceId: string, pessoa: Pessoa, visitaId: string, texto: string, base: string): Promise<Resposta> {
   const abrir = `${base}${linkDaVisita(visitaId)}`
-  const lida = lerRespostaDaVisita(texto)
+  const botao = lerBotaoDaFicha(texto)
+  if (botao?.visitaId && botao.visitaId !== visitaId) return { texto: `Este botão é de outra visita. Responda pela ficha dela, ou pelo Palácio: ${abrir}` }
+  const lida = botao ? { resposta: botao.resposta, recado: null } : lerRespostaDaVisita(texto)
   if (!lida) return { texto: `Não entendi a resposta. ${PERGUNTA_DA_VISITA}\n\nOu responda pelo Palácio: ${abrir}` }
   return { texto: (await gravarRespostaDaVisita(admin, workspaceId, pessoa, visitaId, lida.resposta, lida.recado, base)).texto }
+}
+
+/**
+ * O toque num botão da ficha da visita, ou na resposta rápida do modelo dela (lib/whatsapp/portaria-regras.ts,
+ * lerBotaoDaFicha): o id diz a resposta e QUAL visita, mas não autoriza ninguém — só quem é visitado nela responde
+ * (podeResponderPelaFicha aqui, e o banco confere de novo em portaria_responder_whatsapp). Vale com a verificação em
+ * duas etapas, como o "1", "2" ou "3" de sempre.
+ */
+export async function responderPelaFicha(admin: Admin, workspaceId: string, pessoa: Pessoa, toque: { resposta: RespostaDaVisita; visitaId: string }, base: string): Promise<Resposta> {
+  const { data: visita, error } = await admin.from('portaria_visitas').select('id, visitado_id').eq('workspace_id', workspaceId).eq('id', toque.visitaId).maybeSingle()
+  if (error || !podeResponderPelaFicha(visita as { visitado_id: string | null } | null, pessoa.id)) {
+    return { texto: `Esta ficha não é de uma visita para você. Veja os seus avisos no Palácio: ${base}/notificacoes` }
+  }
+  return { texto: (await gravarRespostaDaVisita(admin, workspaceId, pessoa, toque.visitaId, toque.resposta, null, base)).texto }
 }
 
 /**
@@ -237,13 +256,14 @@ export async function gravarRespostaDaVisita(admin: Admin, workspaceId: string, 
   const { error } = await admin.rpc('portaria_responder_whatsapp', { p_user_id: pessoa.id, p_id: visitaId, p_resposta: resposta, p_recado: recado })
   if (semFuncao(error)) return { ok: false, codigo: 'indisponivel', texto: `${INDISPONIVEL}: ${abrir}` }
   if (error) return { ok: false, codigo: 'erro', texto: `${error.code === 'P0001' && error.message ? error.message : 'Não foi possível registrar a resposta.'} ${abrir}` }
-  const { visitanteAvisado } = await aposResposta(visitaId, pessoa.id)
+  const { visitanteAvisado, visitanteSemAviso } = await aposResposta(visitaId, pessoa.id)
   return {
     ok: true,
     codigo: 'feito',
     texto: [
       `Pronto: *${RESPOSTAS[resposta].rotulo}*. A portaria foi avisada${visitanteAvisado ? ' e o visitante recebeu a resposta no WhatsApp' : ''}.`,
-      resposta === 'aguardar' ? 'Quando puder receber, responda de novo com *1*.' : null,
+      visitanteSemAviso ? 'O visitante não pôde ser avisado pelo WhatsApp: a portaria dá a resposta a ele.' : null,
+      resposta === 'aguardar' ? 'Quando puder receber, responda de novo com *1* (ou toque em *Pode subir* na ficha).' : null,
     ].filter(Boolean).join(' '),
     link: abrir,
   }
@@ -413,11 +433,15 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
-  // Na pergunta dos detalhes (e na do motivo da visita e na das ocorrências do retorno), "não" quer dizer "sem detalhes", não "desisto".
-  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes') || (p.tipo === 'registrar_visita' && p.dados.etapa === 'motivo')
+  // Na pergunta dos detalhes (e nas opcionais da visita — o telefone, a autorização, de onde vem, o motivo, o crachá, a
+  // foto — e na das ocorrências do retorno), "não" quer dizer "sem isso" (ou, na autorização, "não aceita"), não "desisto".
+  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes')
+    || (p.tipo === 'registrar_visita' && ETAPAS_EM_QUE_NAO_RESPONDE.has(String(p.dados.etapa)))
     || (p.tipo === 'frota_retorno' && p.dados.etapa === 'ocorrencias')) && ehPular(texto)
   if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
+    // O registro da visita cancelado: o telefone e o resto do visitante saem da pendência.
+    if (p.tipo === 'registrar_visita') await redigirRegistrosEncerrados(admin)
     const desistiu: Record<Exclude<TipoDePendencia, 'envio'>, string> = {
       aprovar: 'Pronto: nenhum voto registrado.',
       abrir_chamado: 'Pronto: o chamado não foi aberto.',
@@ -576,14 +600,15 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
 
 /**
  * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
- * motivo da transferência, o nome, quem visita e o motivo da visita, o veículo, quem dirige, o destino e as
- * ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é resposta.
+ * motivo da transferência, o nome, quem visita, o telefone, de onde vem, o motivo e o crachá da visita, o veículo,
+ * quem dirige, o destino e as ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é
+ * resposta.
  */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
   return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
     || p?.tipo === 'guardar_documento'
     || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
-    || (p?.tipo === 'registrar_visita' && (etapa === 'nome' || etapa === 'pessoa' || etapa === 'escolher_pessoa' || etapa === 'motivo'))
+    || (p?.tipo === 'registrar_visita' && ETAPAS_DE_TEXTO_LIVRE.has(String(etapa)))
     || ((p?.tipo === 'frota_saida' || p?.tipo === 'frota_retorno') && (etapa === 'veiculo' || etapa === 'condutor' || etapa === 'destino' || etapa === 'ocorrencias'))
 }

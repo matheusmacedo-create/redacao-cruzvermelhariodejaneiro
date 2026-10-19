@@ -88,6 +88,8 @@ export function NovaEntrada({ pessoas }: { pessoas: Pessoa[] }) {
     <form ref={form} className="flex flex-col gap-3" onSubmit={(e) => {
       e.preventDefault()
       const dados = new FormData(e.currentTarget)
+      // A foto sobe logo depois do registro: a ficha que vai ao WhatsApp de quem é visitado espera por ela.
+      if (foto) dados.set('foto_a_seguir', '1')
       iniciar(async () => {
         setErro(''); setOk('')
         const r = await registrarEntrada(dados)
@@ -128,6 +130,7 @@ export function ConfirmarCadastro({ id, pessoas, inicial }: { id: string; pessoa
           <form className="flex flex-col gap-3 p-6" onSubmit={(e) => {
             e.preventDefault()
             const dados = new FormData(e.currentTarget)
+            if (foto) dados.set('foto_a_seguir', '1')
             iniciar(async () => {
               setErro('')
               const r = await confirmarEntrada(id, dados)
