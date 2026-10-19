@@ -1295,15 +1295,17 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'portaria-pelo-whatsapp',
       titulo: 'Ver quem está aqui e registrar uma chegada pelo WhatsApp',
-      exemplo: 'Com a recepção cheia, a portaria manda “visitante: Carlos Pereira” ao número do Palácio, responde “Ana” e escolhe a Ana Lima na lista; ela recebe o aviso como se a entrada tivesse sido feita na tela.',
+      exemplo: 'Com a recepção cheia, a portaria tira a foto do visitante pela câmera do WhatsApp com a legenda “visitante: Carlos Pereira”, responde “Ana”, escolhe a Ana Lima na lista, dá o telefone (o Carlos aceita receber a resposta), a empresa e o crachá V-03, e confirma. A Ana recebe o aviso como se a entrada tivesse sido feita na tela.',
       passos: [
         'Confirme o seu WhatsApp em “Meu perfil”.',
         'Para ver as visitas abertas de hoje, mande “portaria” (ou “quem está aqui”) ao número do Palácio: vêm o nome do visitante, para quem, a hora e a situação.',
         'Para registrar uma chegada, mande “visitante:” e o nome. O Palácio pergunta para quem é: escreva o nome (ou parte dele) e, se houver mais de uma pessoa, escolha na lista. Se não for uma pessoa do Palácio, escreva “setor:” e o setor.',
-        'Diga o motivo, ou toque em “Pular”.',
+        'Depois vêm, uma de cada vez, as perguntas do cadastro do QR: o telefone do visitante, de onde vem, o motivo e o número do crachá. Responda, ou toque em “Pular”. “Registrar já” pula o resto e vai direto ao resumo.',
+        'Se você der o telefone, o Palácio pergunta se o visitante aceita receber no WhatsApp a resposta de quem vai recebê-lo. Pergunte a ele e toque em “Sim” ou “Não”: só com o “Sim” o número dele recebe mensagem.',
+        'Por último, mande a foto do visitante pela câmera do WhatsApp, ou toque em “Sem foto”. A foto pode ir em qualquer momento do registro, e também pode começar o registro: foto com a legenda “visitante:” e o nome.',
         'Confira o resumo e toque em “Confirmo” (ou responda “confirmo”). A pessoa recebe o aviso para responder se o visitante pode subir, e a resposta chega para você.',
       ],
-      dica: 'Foto, telefone, crachá e documento ficam na tela da portaria: complete por lá, se precisar. Com “setor:”, ninguém é avisado. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela.',
+      dica: 'A foto só entra depois do “Confirmo”. Se ela não entrar, a resposta avisa: tire pela tela da portaria. Documento não vai por aqui. Com “setor:”, ninguém é avisado nem há resposta ao visitante. Quem usa a verificação em duas etapas vê a lista pelo WhatsApp, mas registra pela tela.',
     },
     {
       id: 'confirmar-qr',
@@ -1369,8 +1371,14 @@ const PORTARIA: GuiaDaArea = {
     {
       id: 'visitante-whatsapp',
       pergunta: 'O visitante recebe mensagem no WhatsApp?',
-      resposta: 'Só se ele pediu: no QR da entrada, marcando a opção, ou na portaria, que marca depois de perguntar. Ele recebe só a resposta sobre a visita daquele dia (“Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”); o recado fica só com a portaria. Sem telefone, nada sai.',
+      resposta: 'Só se ele pediu: no QR da entrada, marcando a opção, ou na portaria, que marca depois de perguntar (na tela, ou tocando em “Sim” no registro pelo WhatsApp do Palácio). Ele recebe só a resposta sobre a visita daquele dia (“Pode subir”, “Aguarde na recepção” ou “Não pode receber agora”); o recado fica só com a portaria. Sem telefone, ou com o “Não”, nada sai.',
       termos: ['visitante', 'whatsapp', 'mensagem', 'lgpd', 'consentimento'],
+    },
+    {
+      id: 'foto-pelo-whatsapp',
+      pergunta: 'Onde fica a foto do visitante mandada pelo WhatsApp?',
+      resposta: 'Na ficha da visita, no Palácio, como a foto tirada na tela: no armazenamento privado, vista só por quem usa a portaria. Antes de guardar, o Palácio reduz a foto e tira os dados escondidos da câmera, como a localização. O registro das mensagens do WhatsApp do Palácio não guarda a foto nem o telefone do visitante. Remover a foto na tela tira a foto do Palácio, não dos celulares: ela continua na conversa de quem mandou. Apague por lá, se precisar.',
+      termos: ['foto', 'imagem', 'whatsapp', 'lgpd', 'privacidade', 'apagar'],
     },
     {
       id: 'qr-nao-funciona',

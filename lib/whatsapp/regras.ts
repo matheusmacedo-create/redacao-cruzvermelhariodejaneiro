@@ -1980,8 +1980,9 @@ export function textoDaConferenciaDoChamado(p:
 // ------------------------------------------------------------------ portaria (as visitas do dia e registrar quem chegou)
 //
 // Quem tem a portaria (a mesma regra da tela: membro do Palácio, menos a equipe da Escola) vê as visitas
-// abertas do dia — só o nome do visitante, para quem, a hora e a situação — e registra a chegada em etapas
-// (lib/whatsapp/portaria.ts). Documento e foto ficam na tela.
+// abertas do dia — só o nome do visitante, para quem, a hora e a situação — e registra a chegada em etapas,
+// como o cadastro do QR, com telefone, autorização, de onde vem, motivo, crachá e foto (lib/whatsapp/portaria.ts;
+// as etapas em lib/whatsapp/portaria-regras.ts). Documento fica de fora.
 
 export type VisitaNaLista = { nome: string; para: string; hora: string; situacao: string }
 export const VISITAS_NA_RESPOSTA = 10
@@ -2025,17 +2026,31 @@ export function textoPedeVisitado(nome: string): string {
 
 export const TEXTO_PEDE_MOTIVO_DA_VISITA = `Qual é o motivo da visita? Escreva em poucas palavras, ou responda *pular*. Vale por ${PENDENCIA_VALE_MIN} minutos.`
 
-/** A conferência antes de registrar a entrada: quem chegou, para quem (e se a pessoa é avisada) e o motivo. */
-export function textoDaConferenciaDaVisita(p: { nome: string; pessoa: { nome: string; setor: string | null } | null; setor: string | null; motivo: string | null }): string {
+/**
+ * A conferência antes de registrar a entrada: quem chegou, para quem (e se a pessoa é avisada), o telefone (e se o
+ * visitante autorizou a resposta no WhatsApp), de onde vem, o motivo, o crachá e a foto. Só aparece o que foi dito;
+ * sem foto, lembra que ainda dá para mandar antes do *confirmo*. `telefone`: canônico (numeroCanonico).
+ */
+export function textoDaConferenciaDaVisita(p: {
+  nome: string; pessoa: { nome: string; setor: string | null } | null; setor: string | null; motivo: string | null
+  telefone?: string | null; avisar?: boolean; empresa?: string | null; cracha?: string | null; foto?: boolean
+}): string {
   const para = p.pessoa
     ? `Para: *${limpo(p.pessoa.nome, 80)}*${p.pessoa.setor ? ` (${limpo(p.pessoa.setor, 60)})` : ''}, que recebe o aviso e responde se a visita pode subir.`
     : `Para: ${limpo(p.setor ?? '', 120) || 'ninguém'} (ninguém é avisado).`
+  // A resposta só existe quando há pessoa avisada: com o setor, o "autorizou" não teria o que mandar.
+  const telefone = p.telefone
+    ? `Telefone: ${formatarNumero(p.telefone)} (${p.avisar && p.pessoa ? 'autorizou: recebe a resposta no WhatsApp' : 'não recebe mensagem do Palácio'})`
+    : null
   return [
     `Registrar a entrada de *${limpo(p.nome, 80)}*?`,
-    [para, p.motivo ? `Motivo: ${limpo(p.motivo, 200)}` : null].filter(Boolean).join('\n'),
-    'Foto e crachá de visitante, se precisar, ficam na tela da portaria.',
+    [
+      para, telefone, p.empresa ? `De: ${limpo(p.empresa, 80)}` : null, p.motivo ? `Motivo: ${limpo(p.motivo, 200)}` : null,
+      p.cracha ? `Crachá: ${limpo(p.cracha, 20)}` : null, p.foto ? 'Foto: recebida ✓' : null,
+    ].filter(Boolean).join('\n'),
+    p.foto ? null : 'Sem foto: mande agora pela câmera do WhatsApp, antes do *confirmo*, ou tire depois na tela da portaria.',
     `Se está certo, responda *esta mensagem* com *confirmo*. Para desistir, *cancelar*. Vale por ${PENDENCIA_VALE_MIN} minutos.`,
-  ].join('\n\n')
+  ].filter(Boolean).join('\n\n')
 }
 
 // ------------------------------------------------------------------ confirmar no Palácio (lib/whatsapp/confirmacoes.ts)

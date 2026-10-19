@@ -18,7 +18,8 @@ import {
 } from './regras'
 import { seguirEnvio } from './envio'
 import { atenderPeloAviso, seguirAtendimento } from './atendimento'
-import { seguirVisita } from './portaria'
+import { redigirRegistrosEncerrados, seguirVisita } from './portaria'
+import { ETAPAS_DE_TEXTO_LIVRE, ETAPAS_EM_QUE_NAO_RESPONDE } from './portaria-regras'
 import { seguirDecisoes } from './financeiro'
 import { seguirPresenca } from './presenca'
 import { seguirViagem } from './frota'
@@ -413,11 +414,15 @@ export async function marcarPergunta(admin: Admin, id: number, mensagemId: strin
  */
 export async function seguirPendencia(admin: Admin, workspaceId: string, pessoa: Pessoa, p: Pendencia, texto: string, base: string, estrita: boolean): Promise<Resposta | null> {
   if (p.tipo === 'envio') return seguirEnvio(admin, pessoa, p, texto, base, estrita)
-  // Na pergunta dos detalhes (e na do motivo da visita e na das ocorrências do retorno), "não" quer dizer "sem detalhes", não "desisto".
-  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes') || (p.tipo === 'registrar_visita' && p.dados.etapa === 'motivo')
+  // Na pergunta dos detalhes (e nas opcionais da visita — o telefone, a autorização, de onde vem, o motivo, o crachá, a
+  // foto — e na das ocorrências do retorno), "não" quer dizer "sem isso" (ou, na autorização, "não aceita"), não "desisto".
+  const pulandoDetalhes = ((p.tipo === 'abrir_chamado' && p.dados.etapa === 'detalhes')
+    || (p.tipo === 'registrar_visita' && ETAPAS_EM_QUE_NAO_RESPONDE.has(String(p.dados.etapa)))
     || (p.tipo === 'frota_retorno' && p.dados.etapa === 'ocorrencias')) && ehPular(texto)
   if (ehCancelamento(texto) && !pulandoDetalhes) {
     await encerrarPendencia(admin, p.id)
+    // O registro da visita cancelado: o telefone e o resto do visitante saem da pendência.
+    if (p.tipo === 'registrar_visita') await redigirRegistrosEncerrados(admin)
     const desistiu: Record<Exclude<TipoDePendencia, 'envio'>, string> = {
       aprovar: 'Pronto: nenhum voto registrado.',
       abrir_chamado: 'Pronto: o chamado não foi aberto.',
@@ -576,14 +581,15 @@ async function seguirChamado(admin: Admin, workspaceId: string, pessoa: Pessoa, 
 
 /**
  * A pergunta aberta espera texto livre (o local ou os detalhes do chamado, o título do envio, a solução ou o
- * motivo da transferência, o nome, quem visita e o motivo da visita, o veículo, quem dirige, o destino e as
- * ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é resposta.
+ * motivo da transferência, o nome, quem visita, o telefone, de onde vem, o motivo e o crachá da visita, o veículo,
+ * quem dirige, o destino e as ocorrências da viagem, a pasta do Drive de um documento)? Aí até frase com "agenda" é
+ * resposta.
  */
 export function esperaTextoLivre(p: Pendencia | null): boolean {
   const etapa = p?.dados.etapa
   return (p?.tipo === 'abrir_chamado' && (etapa === 'local' || etapa === 'detalhes')) || (p?.tipo === 'envio' && etapa === 'titulo')
     || p?.tipo === 'guardar_documento'
     || (p?.tipo === 'atender_chamado' && (etapa === 'nota' || etapa === 'motivo' || etapa === 'fila'))
-    || (p?.tipo === 'registrar_visita' && (etapa === 'nome' || etapa === 'pessoa' || etapa === 'escolher_pessoa' || etapa === 'motivo'))
+    || (p?.tipo === 'registrar_visita' && ETAPAS_DE_TEXTO_LIVRE.has(String(etapa)))
     || ((p?.tipo === 'frota_saida' || p?.tipo === 'frota_retorno') && (etapa === 'veiculo' || etapa === 'condutor' || etapa === 'destino' || etapa === 'ocorrencias'))
 }

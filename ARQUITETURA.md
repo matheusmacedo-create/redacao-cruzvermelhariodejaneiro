@@ -1386,20 +1386,36 @@ O livro de visitantes da filial (migração `20260929060000`, `lib/portaria/`).
 - **Pelo WhatsApp (18/10/2026)** (`lib/whatsapp/portaria.ts`; §8.5, "A portaria
   pelo WhatsApp"): `portaria` lista as visitas abertas do dia (nome, para quem,
   hora e situação; nada de telefone, empresa, motivo, recado ou foto), e
-  `visitante:` registra a chegada em etapas (nome → para quem, na equipe ativa
-  ou `setor:` → motivo opcional → `confirmo`) pela mesma `portaria_registrar_entrada`,
+  `visitante:` registra a chegada em etapas pela mesma `portaria_registrar_entrada`,
   chamada como a pessoa (`whatsapp_portaria_registrar_entrada`, migração
-  `20261018213700`), e pelo mesmo `avisarVisitado`. Foto, crachá e documento
-  ficam na tela.
-- **Foto pelo WhatsApp — fundação (19/10/2026, migração `20261019040000`):**
-  `whatsapp_portaria_definir_foto(p_user_id, p_id, p_foto_path)` é a mesma
-  `portaria_definir_foto` da tela, chamada como a pessoa (sessão aal1, só
-  `service_role`): só põe foto (tirar é pela tela) e só na visita que a própria
-  pessoa registrou ou confirmou; devolve o caminho anterior. O telefone, a
-  empresa, o crachá e a autorização do visitante já passavam pela entrada do
-  WhatsApp (`portaria_registrar_entrada` grava `avisar_visitante` só com
-  telefone). Ainda não ligada ao fluxo do `visitante:` (próximas etapas; §8.5,
-  "Portaria pelo WhatsApp com foto"). Testes em
+  `20261018213700`), e pelo mesmo `avisarVisitado`. Documento fica na tela.
+- **Registro completo pelo WhatsApp (19/10/2026, etapa 2):** as etapas são as
+  do cadastro do QR (`lib/whatsapp/portaria-regras.ts`, puro): nome → para quem
+  → telefone → (com telefone e pessoa avisada) a autorização do visitante →
+  de onde vem → motivo → crachá → foto → conferência → `confirmo`. Tudo depois
+  de "para quem" é opcional, com os botões Pular, Registrar já (o resto em
+  branco, direto à conferência) e Cancelar. A **autorização** é explícita: a
+  portaria pergunta ao visitante e toca em Sim ou Não; só o Sim grava
+  `avisar_visitante` (e com o setor, sem quem responda, nem se pergunta). O
+  telefone vai ao livro formatado (`numeroCanonico` → `formatarNumero`). A
+  **foto** chega como imagem em qualquer etapa, ou abre o registro (a legenda
+  `visitante: Nome`); na chegada só o tipo é conferido (JPEG, PNG ou WebP; HEIC
+  recusado com a orientação de usar a câmera) e o id da mídia fica na
+  pendência. Depois do `confirmo`, com a visita criada e **antes** do aviso, a
+  foto é baixada da Kapso, normalizada (`lib/portaria/foto-servidor.ts`: só o
+  que o conteúdo confirma ser foto, teto de 120 MP na entrada, girada pelo
+  EXIF, no máximo 1024 px, JPEG 80 sem metadados), gravada no Blob privado e
+  registrada por `whatsapp_portaria_definir_foto(p_user_id, p_id, p_foto_path)`
+  (migração `20261019040000`: a mesma `portaria_definir_foto` da tela, como a
+  pessoa, sessão aal1, só `service_role`; só põe foto — tirar é pela tela — e
+  só na visita que a própria pessoa registrou ou confirmou; devolve o caminho
+  anterior). Se o banco recusar ou a função não existir, o arquivo sai do Blob
+  e a resposta diz que a foto não entrou (tirar pela tela); a entrada vale do
+  mesmo jeito. **LGPD:** nada do visitante vai a `whatsapp_mensagens` (só o
+  comando, `visita_foto` na imagem) nem aos logs (só a etapa que falhou); a
+  pendência que acaba (registrada, cancelada, vencida) é redigida — fica só a
+  etapa (`redigirRegistrosEncerrados`, no começo e no fim de cada registro).
+  Testes em `scripts/conferir-portaria.ts` e
   `supabase/tests/whatsapp-portaria-foto.test.sql`.
 - **Crachá.** O crachá de visitante devolvido é marcado na saída ou depois
   (`portaria_devolver_cracha`). Quem entrou em outro dia e segue "dentro"
@@ -2113,7 +2129,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   do bot — `npx tsx scripts/conferir-whatsapp.ts`), `kapso.ts` (cliente da Kapso, nunca lança, tira
   a chave do texto de erro), `servidor.ts` (o que o resto do Palácio chama), `bot.ts` (respostas),
   `acoes.ts` (o que o bot faz em nome de quem escreveu), `atendimento.ts` (quem atende chamado),
-  `portaria.ts` (as visitas do dia e registrar quem chegou), `modelos.ts` (puro: o catálogo dos modelos da Meta
+  `portaria.ts` (as visitas do dia e registrar quem chegou, com a foto), `portaria-regras.ts` (puro: as etapas do
+  registro — `npx tsx scripts/conferir-portaria.ts`), `modelos.ts` (puro: o catálogo dos modelos da Meta
   por situação, a escolha do aprovado e a montagem — veja “Portaria pelo WhatsApp com foto”),
   `financeiro.ts` (as decisões do Financeiro e de Compras), `presenca.ts` (a chamada da ação de hoje),
   `frota.ts` (a frota agora e o diário de bordo), `estoque.ts` (o saldo de um material),
@@ -2315,12 +2332,13 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   duas etapas. `visitante: <nome>` (ou `registrar visita`) registra a chegada em etapas: o nome (se não
   veio), para quem (`acharPeloNome` em `pessoasParaVisitar`, a equipe ativa; uma pessoa segue, até 9 viram
   a lista para escolher, mais do que isso pede mais do nome; `setor: …` grava em `visitado_texto`, sem
-  aviso), o motivo (`pular`) e a conferência. O registro é a mesma `portaria_registrar_entrada` da tela,
+  aviso), as opcionais do cadastro do QR (desde 19/10/2026: telefone, autorização do visitante, de onde vem,
+  motivo, crachá e foto — veja “Portaria pelo WhatsApp com foto — o registro”) e a conferência. O registro é a
+  mesma `portaria_registrar_entrada` da tela,
   chamada como a pessoa por `whatsapp_portaria_registrar_entrada` (só service role, sessão aal1: o banco
   confere de novo a portaria e a verificação, e `registrado_por` é a pessoa), e o aviso é o mesmo
   `avisarVisitado` — quem é visitado responde 1, 2 ou 3 como sempre, e quem registrou recebe a resposta.
-  Telefone, empresa, crachá, foto e documento ficam na tela. As etapas usam `whatsapp_pendencias` (tipo
-  `registrar_visita`).
+  Documento fica na tela. As etapas usam `whatsapp_pendencias` (tipo `registrar_visita`).
 - **Confirmar no Palácio (18/10/2026)** (`lib/whatsapp/confirmacoes.ts`, tela `app/confirmar/[token]`,
   tabela `whatsapp_confirmacoes`, migração `20261018223000`): o que é sensível e foi pedido pelo WhatsApp
   não acontece no bot — decidir uma despesa (`decidir_despesa`) ou uma compra (`decidir_compra`), o voto
@@ -2897,6 +2915,35 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   - **Próximo passo:** os outros recuos de modelo (avisos, segurança, aprovações…) continuam pelo modelo do
     cofre; catalogar os demais modelos cadastrados (`palacio_*`) em `modelos.ts`, por situação, e trocar o
     recuo genérico pelo da situação.
+- **Portaria pelo WhatsApp com foto — o registro (19/10/2026, etapa 2):** o `visitante:` virou o cadastro do QR
+  (§7.24). As etapas são puras (`lib/whatsapp/portaria-regras.ts`, `scripts/conferir-portaria.ts`): `proximaEtapa`
+  (a ordem: nome, para quem, telefone, autorização — só com telefone e pessoa avisada —, de onde vem, motivo,
+  crachá, foto, conferência), `perguntaDaVisita` (a pergunta e os botões), `seguirNoRegistro` (a resposta vira
+  `seguir`, `buscar`, `confirmar`, `repetir` — com `sempre` no telefone com cara de telefone, que não cai no menu
+  — ou `perdido`) e `resultadoDaBusca`; o servidor (`portaria.ts`) só busca a equipe, guarda a pendência e grava.
+  - **Botões e palavras:** as opcionais levam Pular (`pular`, `ehPularNaVisita`, que aceita também “não tem”,
+    “sem telefone”…), Registrar já (`registrar ja`, `ehRegistrarJa`: “pronto” e “só isso” também fecham) e
+    Cancelar; a autorização, Sim e Não (ids `aceita` e `nao aceita`, lidos por `lerConsentimento` — “ok” solto não
+    autoriza); a foto, Sem foto e Cancelar. Nessas etapas o “não” responde em vez de desistir
+    (`ETAPAS_EM_QUE_NAO_RESPONDE`, em `seguirPendencia`), e as de texto livre (`ETAPAS_DE_TEXTO_LIVRE`) aceitam até
+    nome de setor que é comando. A conferência (`textoDaConferenciaDaVisita`, com os campos novos opcionais) mostra
+    só o que foi dito e, sem foto, lembra que dá para mandar antes do `confirmo`; o maior caso cabe no corpo de 1024.
+  - **A imagem no bot** (`bot.ts`): antes do envio de fotos e do Drive, `destinoDaImagem` decide — com o registro
+    aberto (`registrar_visita`, a citada ou a mais nova desse tipo, mesmo com um envio aberto), a imagem é a foto
+    dele (`foto`); com a legenda `visitante: Nome` de quem tem a portaria (e sem registro aberto, ou aberto para
+    outro nome), abre um registro com ela (`comecar`); o resto (vídeo, imagem citando aviso, quem não tem a
+    portaria) segue como sempre. `receberFotoDaVisita` confere o tipo (`fotoRecebida`), grava o id da mídia na
+    pendência na hora (vale com o teto de respostas batido) e repete a pergunta de agora com “Foto recebida ✓” (ou
+    “Foto trocada ✓”: vale a última). O registro marca `visita_foto`.
+  - **Depois do `confirmo`:** `gravarEntrada` passa telefone (formatado), empresa, motivo, `cracha_numero`,
+    `avisar_visitante` e o visitado à mesma `portaria_registrar_entrada`; com a visita criada, `guardarFotoDaConversa`
+    baixa, normaliza, grava e registra a foto (acima e §7.24) **antes** de `avisarVisitado`. A resposta
+    (`textoDaEntradaRegistrada`) diz a hora, quem foi avisado, a autorização e se a foto entrou. Sem a migração
+    `20261019040000`, a foto não entra (o arquivo sai do Blob) e a entrada vale. O assistente não muda: o
+    `preparar_registro_de_visita` já tinha `empresa`; telefone, autorização e foto ficam no fluxo guiado.
+  - **Próximo passo (etapa 3):** a ficha para quem é visitado (o interativo com a foto no cabeçalho, ou o modelo
+    `portaria_visita_v2` / `portaria_visita` fora da janela) no lugar do aviso de WhatsApp de `avisarVisitado`, e a
+    resposta ao visitante pelos modelos `portaria_resposta_visitante*` em `aposResposta`.
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):

@@ -18,7 +18,8 @@ import {
 } from './acoes'
 import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './atendimento'
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
-import { comecarVisita, temPortaria, visitasDeHoje } from './portaria'
+import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
+import { destinoDaImagem, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
 import { comecarViagem, frotaAgora, nivelNoPatrimonio } from './frota'
@@ -102,6 +103,10 @@ type Admin = ReturnType<typeof createAdminClient>
  * "guardar em Financeiro/2026" guarda na hora (com o link na resposta); sem ela, o bot pergunta a pasta; e a legenda
  * com outras palavras vai ao assistente (que prepara o plano de guardar). Sem o Drive, o documento solto recebe a
  * resposta de sempre.
+ *
+ * A foto do visitante vem antes disso tudo (lib/whatsapp/portaria.ts): com o registro da visita aberto, a imagem é a
+ * foto dele (mesmo com um envio de fotos aberto); a imagem com a legenda "visitante: Nome" de quem tem a portaria abre
+ * o registro com ela. Só o id da mídia fica na pergunta; o arquivo vem depois do "confirmo".
  *
  * Nunca lança, e nunca responde duas vezes à mesma mensagem (o registro tem
  * trava por id; a Kapso reentrega quando demora). Um robô do outro lado
@@ -209,9 +214,20 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // A pergunta da pasta do Drive, com o assistente: o que não tem cara de caminho ("coloca na pasta de contratos do
     // jurídico") vai a ele, que vê o documento no contexto e prepara o plano; o caminho e o "cancelar" ficam com o bot.
     if (paraPendencia && pendencia?.tipo === 'guardar_documento' && ia.disponivel && ia.escrita && !m.midia && !ehCancelamento(m.texto) && !lerPastaDaResposta(m.texto)) paraPendencia = false
+    // A foto do visitante (lib/whatsapp/portaria.ts): com o registro da visita aberto, a imagem é a foto dele — antes do
+    // envio de fotos e do Drive, mesmo com um envio aberto; a imagem com a legenda "visitante: Nome" de quem tem a
+    // portaria abre o registro, já com a foto. O resto das imagens segue como sempre.
+    const legendaDeVisita = pessoa && m.midia && pedido?.comando === 'registrar_visita' ? pedido.resto : null
+    const registroDaVisita = pessoa && !aviso && m.midia?.categoria === 'foto'
+      ? (pendencia?.tipo === 'registrar_visita' ? pendencia : await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'registrar_visita'))
+      : null
+    const fotoDaVisita = pessoa && m.midia ? destinoDaImagem({
+      categoria: m.midia.categoria, citouAviso: Boolean(aviso), aberto: registroDaVisita ? registroDaVisita.dados as unknown as DadosDaVisita : null,
+      legenda: legendaDeVisita, temPortaria: temPortaria(pessoa),
+    }) : null
     // Foto ou vídeo de quem é da equipe (sem citar um aviso): vira envio para a comunicação. O documento, com o Google
     // Drive conectado, vai para o Drive (a pasta na legenda, na pergunta do bot ou pelo assistente).
-    const midia = Boolean(pessoa && m.midia && !aviso)
+    const midia = Boolean(pessoa && m.midia && !aviso && !fotoDaVisita)
     const paraODrive = midia && pessoa && m.midia?.categoria === 'documento'
       ? await destinoDoDocumento(admin, workspaceId, pessoa, m, { assistente: ia.disponivel && ia.escrita && ia.podeAgir && ia.recente })
       : null
@@ -246,6 +262,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const nova = await registrar(admin, {
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
       comando: rota !== 'bot' ? rota
+        : fotoDaVisita ? 'visita_foto'
         : paraODrive ? (paraODrive === 'assistente' ? 'ia' : `drive_${paraODrive}`)
           : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}`
             : decisaoSemLista ? 'desconhecido' : comando,
@@ -263,6 +280,32 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return entregar(admin, workspaceId, { numero, texto, tipo: 'bot', userId: pessoa?.id ?? null, ...resto }, { config, semFila })
     }
     const base = urlBase()
+
+    // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
+    const enviar = async (r: Resposta) => {
+      if (!r.pergunta || !pessoa) {
+        await responder(r.texto)
+        return
+      }
+      const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
+      if (!id) {
+        // Sem a tabela, ou com o tipo da pergunta ainda fora do CHECK (a migração dele não foi aplicada).
+        await responder(r.semPergunta ?? `Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
+        return
+      }
+      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
+      const entrega = await responder(r.texto, { interativo: r.interativo })
+      if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
+    }
+
+    // A foto do visitante: o id da mídia entra no registro aberto mesmo com o teto de respostas batido (só a resposta
+    // fica de fora); o registro novo pela legenda, não (sem a resposta, ninguém veria a pergunta).
+    if (fotoDaVisita && pessoa) {
+      if (noTeto && fotoDaVisita === 'comecar') return
+      const r = await receberFotoDaVisita(admin, workspaceId, pessoa, m, { destino: fotoDaVisita, aberto: registroDaVisita, legenda: legendaDeVisita, base })
+      if (r && !noTeto) await enviar(r)
+      return
+    }
 
     // A mídia é guardada mesmo com o teto de respostas batido: só a resposta fica de fora. O documento para o Drive
     // também (a legenda que diz a pasta guarda na hora); a resposta dele sai mais abaixo, com a pergunta guardada.
@@ -337,23 +380,6 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     if (textoDaRota) {
       await doAssistente(ecoDoAudio ? `${ecoDoAudio}\n\n${textoDaRota}` : textoDaRota)
       return
-    }
-
-    // A pergunta fica guardada antes de sair: a resposta que cita ela acha o caminho de volta.
-    const enviar = async (r: Resposta) => {
-      if (!r.pergunta) {
-        await responder(r.texto)
-        return
-      }
-      const id = await guardarPendencia(admin, workspaceId, pessoa.id, r.pergunta)
-      if (!id) {
-        // Sem a tabela, ou com o tipo da pergunta ainda fora do CHECK (a migração dele não foi aplicada).
-        await responder(r.semPergunta ?? `Isto ainda não está ligado no WhatsApp do Palácio. Faça pelo Palácio: ${base}${ondeNoPalacio(r.pergunta)}`)
-        return
-      }
-      // Os botões da pergunta saem só aqui, com a pendência guardada: o toque cita esta mensagem e acha a pergunta.
-      const entrega = await responder(r.texto, { interativo: r.interativo })
-      if (entrega.situacao === 'enviada') await marcarPergunta(admin, id, entrega.id)
     }
 
     // O documento para o Drive: guardado (o link), a pergunta da pasta, ou a legenda com outras palavras para o assistente.
