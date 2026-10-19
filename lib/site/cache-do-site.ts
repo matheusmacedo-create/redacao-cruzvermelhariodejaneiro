@@ -31,6 +31,8 @@ export const REDIRECIONAMENTOS_DAS_NOTICIAS: { de: string; para: string }[] = [
   { de: 'o-7-de-setembro-esta-chegando', para: '/noticias/7-de-setembro/' },
   // 19/10/2026: a matéria está no ar com o endereço cortado; o endereço longo dava 404 (Search Console).
   { de: 'recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da-associacao-de-bombeiros-civis', para: '/noticias/recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da/' },
+  // 19/10/2026: fundida ao pilar de Primeiros Socorros Básico (canibalizavam a busca "curso de primeiros socorros"); o conteúdo útil foi para o pilar.
+  { de: 'curso-de-primeiros-socorros-domine-com-poucas-aulas', para: '/noticias/curso-de-primeiros-socorros-basico-para-o-dia-a-dia-em-casa/' },
 ]
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
