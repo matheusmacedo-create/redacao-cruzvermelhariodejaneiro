@@ -29,6 +29,8 @@ export const REDIRECIONAMENTOS_DAS_NOTICIAS: { de: string; para: string }[] = [
   // 7 de Setembro (evento já passado). Fica /noticias/7-de-setembro/.
   { de: 'desfile-de-7-de-setembro-cruz-vermelha-rj-abre-cadastro-para-voluntarios', para: '/noticias/7-de-setembro/' },
   { de: 'o-7-de-setembro-esta-chegando', para: '/noticias/7-de-setembro/' },
+  // 19/10/2026: a matéria está no ar com o endereço cortado; o endereço longo dava 404 (Search Console).
+  { de: 'recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da-associacao-de-bombeiros-civis', para: '/noticias/recebemos-na-sede-da-cruz-vermelha-do-rio-de-janeiro-os-representantes-da/' },
 ]
 
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
