@@ -307,8 +307,8 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
 - **Admin**: criação por **convite** (a pessoa define a senha pelo link),
   redefinição e reativação por **link** quando há e-mail confirmado; senha
   temporária na tela continua para quem não tem.
-- **Convite pelo WhatsApp e/ou por e-mail** (`mandarConvite` em
-  `app/actions/usuarios.ts`, regras em `lib/contas/convite.ts`). O link sai por
+- **Convite pelo WhatsApp e/ou por e-mail** (`mandarConvite` no núcleo do
+  cadastro, `lib/contas/cadastro.ts`; regras em `lib/contas/convite.ts`). O link sai por
   todo canal preenchido; pelo WhatsApp vai pela fila (`categoria 'conta'`,
   silêncio de 22h às 7h, texto apagado depois do envio). O **primeiro acesso
   prova o canal que recebeu o link**, e só ele: a marca fica em
@@ -331,6 +331,19 @@ um **e-mail de contato** (`profiles.email`), que só vale **confirmado**
   `porWhatsapp: false` e `numeroDoConvite`, para o lembrete) na **mesma
   mensagem** do convite. Falha na ficha não desfaz a conta: o resultado da
   linha diz o que faltou.
+- **O núcleo do cadastro (19/10/2026)** (`lib/contas/cadastro.ts`, com as
+  regras puras em `lib/contas/cadastro-regras.ts` — `npx tsx
+  scripts/conferir-cadastro.ts`): `cadastrar` é o cadastro de UMA pessoa —
+  confere o pedido (as mensagens de sempre da tela), cria a conta em modo
+  convite (`criarConta`: Auth e perfil pelo service role, o vínculo com o
+  espaço pela sessão de quem está logado), liga ou cria a ficha do RH, põe o
+  pedido da ficha no convite, manda o convite (`mandarConvite`) e audita
+  `usuario_criado`. `convidarEmLote` passa cada pessoa por ele, e "Novo
+  usuário" em `/usuarios` (`criarUsuario`) usa `criarConta` e `mandarConvite`
+  dele. É o mesmo caminho que vai criar a conta pedida pelo WhatsApp e
+  confirmada no Palácio (§8.5, "Cadastro de colaborador pelo WhatsApp"):
+  `cadastrar` aceita o usuário escolhido na confirmação (`usuario`) e recusa o
+  papel de administrador (`semAdmin`).
 - **Avisos de segurança** (`avisar`) em senha alterada, 2FA ativada/removida,
   papel alterado, conta desativada/reativada, e-mail trocado, WhatsApp trocado
   ou removido e entrada bloqueada por tentativas erradas. Vão ao e-mail
@@ -2434,6 +2447,19 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   outros, “desativar” continua pausando os avisos) acha a pessoa ativa (`acharPeloNome`, com o usuário
   como apelido; a própria pessoa fica de fora) e responde com o link; mais de uma, a lista com os
   usuários. A desativação é a da tela, ao confirmar.
+- **Cadastro de colaborador pelo WhatsApp (em construção, 19/10/2026):** para quem tem `usuarios.gerenciar`,
+  a conversa “colaborador: Nome” vai guardar as etapas em `whatsapp_pendencias` (tipo `cadastrar_colaborador`) e
+  terminar no link de confirmar (`whatsapp_confirmacoes`, ação `cadastrar_colaborador`; o alvo é a ficha do RH
+  reaproveitada ou um id novo do pedido, porque a conta ainda não existe). A conta só nasce confirmada no Palácio,
+  pelo núcleo do cadastro (`cadastrar` em `lib/contas/cadastro.ts`, §5), nunca com o papel de administrador. Já
+  está pronta a fundação: a migração `20261019050000` (o tipo e a ação, lidos das restrições em vigor e só
+  acrescentados, e o gatilho `private.whatsapp_cadastro_sem_contato`, que tira o e-mail e o WhatsApp da pessoa
+  nova — as chaves `email` e `whatsapp`, `CHAVES_DE_CONTATO` — dos dados da pergunta quando ela se encerra e do
+  link quando ele é usado ou substituído; o que vence sem encerrar fica para a faxina do servidor) e as regras e
+  textos puros (`lib/contas/cadastro-regras.ts`: o contato mascarado com `mascararEmail` e `mascararNumero`, o
+  resumo `linhasDoCadastro` e o resultado `textoDoResultadoDoCadastro`). Teste do banco:
+  `supabase/tests/whatsapp-cadastro-colaborador.test.sql`. A conversa e o ramo da página de confirmar vêm
+  depois; até lá, nada muda para quem usa o WhatsApp.
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

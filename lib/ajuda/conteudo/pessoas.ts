@@ -14,7 +14,8 @@ import type { GuiaDaArea } from '../tipos'
  * - Diretório: app/(app)/pessoas/**, components/app/pessoas/**,
  *   lib/pessoas/diretorio.ts, perfil.ts e perfil-servidor.ts,
  *   app/actions/usuarios.ts (convidarEmLote, reenviarConvite,
- *   cancelarConvite), app/actions/setores.ts e setor_salvar
+ *   cancelarConvite), o núcleo do cadastro (lib/contas/cadastro.ts e
+ *   cadastro-regras.ts), app/actions/setores.ts e setor_salvar
  *   (*_cvrj_diretorio.sql); validade do convite em lib/contas/servidor.ts;
  * - Recursos humanos: app/(app)/equipe/**, components/app/equipe/**,
  *   lib/rh/regras.ts e acesso.ts, app/actions/equipe.ts,
