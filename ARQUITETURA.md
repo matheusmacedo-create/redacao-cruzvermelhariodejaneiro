@@ -2219,7 +2219,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   mídia enviada por `POST /{phone_number_id}/media` (multipart, JPEG ou PNG até 5 MB), que devolve o id, e
   apagada por `DELETE /{media_id}?phone_number_id=…`; a lista dos modelos da conta por
   `GET /{WABA}/message_templates?fields=name,status,category,language&status=APPROVED&category=UTILITY&language=pt_BR&limit=100`
-  (até 100 por página; a Kapso documenta só `paging.cursors`, sem `next`);
+  (até 100 por página; a Kapso documenta só `paging.cursors`, e na prática `next` só vem quando há outra página);
   webhook por número em `https://api.kapso.ai/platform/v1/whatsapp/phone_numbers/{id}/webhooks`.
 - **Conexão pela plataforma, não pelo proxy:** no número gerenciado pela Kapso, as leituras pelo proxy da Meta
   (`GET /{phone_number_id}`, templates) voltam 401 da Meta (190, "Cannot parse access token") mesmo com a chave
@@ -2959,11 +2959,12 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     “nenhum aprovado” por 1 min. O WABA vem do número (`wabaDoNumeroKapso`: o mesmo
     `GET /platform/v1/whatsapp/phone_numbers/{id}`, campo `business_account_id` ou variações — `wabaDoNumero`,
     puro), guardado por 6 h; se a Kapso não diz, vale o campo opcional “ID da conta do WhatsApp Business —
-    WABA” do cartão da Kapso (`wabaId`). O nome do campo na resposta da plataforma não foi conferido (nenhuma
-    documentação mostra), então o cartão e a ajuda **recomendam preencher o WABA**; nenhuma tela mostra ainda o
-    WABA usado nem a situação lida (próximo passo: mostrá-los no `status` do bot ou em Configurações → WhatsApp).
-    O cadastro dos modelos (19/10/2026) passou pelo endpoint do WABA no proxy; se a leitura voltar 401 como o `GET`
-    do número (acima), a lista vem vazia e nada muda.
+    WABA” do cartão da Kapso (`wabaId`). Conferido em produção em 19/10/2026: a plataforma devolve o WABA em
+    `business_account_id`, e a lista pelo WABA no proxy volta 200 (inclusive com `status=APPROVED&category=UTILITY&
+    language=pt_BR`; a página traz `paging.cursors.after` e só traz `next` quando há outra). O cartão e a ajuda
+    ainda recomendam preencher o WABA, por garantia; nenhuma tela mostra ainda o WABA usado nem a situação lida
+    (próximo passo: mostrá-los no `status` do bot ou em Configurações → WhatsApp). Se a leitura algum dia voltar
+    401 como o `GET` do número (acima), a lista vem vazia e nada muda.
   - **Envio** (`kapso.ts`, fachada em `servidor.ts`): `subirMidia` (multipart, devolve o id), `apagarMidia`
     (melhor esforço), `enviarModelo` (o modelo montado, com qualquer componente; não depende da janela),
     `modeloAprovado` (o da situação, já montado). `Interativo` de botões ganhou `imagem` (o id da mídia vira o
@@ -3022,7 +3023,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     foto para o registro guiado (`visitante:` e o nome); a ferramenta já tinha `empresa`.
   - **Próximo passo:** os outros recuos de modelo (avisos, segurança, aprovações…) continuam pelo modelo do cofre
     (catalogar os `palacio_*` em `modelos.ts`, como na etapa 1); e conferir em produção, quando os modelos da
-    portaria forem aprovados, se a leitura da lista pelo WABA volta (e não 401).
+    portaria forem aprovados, o primeiro envio por modelo (a leitura da lista pelo WABA já volta 200).
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
