@@ -214,9 +214,10 @@ export function perguntaDoCadastro(d: DadosDoCadastro, antes?: string | null): P
       `Qual é o WhatsApp de *${nome}*, com DDD?`,
       d.email
         ? `${d.daEquipe?.temWhatsapp ? 'Toque em *Usar o da ficha* para o celular que está no RH, ou' : 'Ou'} *pular*: o convite vai pelo e-mail. ${vale}`
-        : `Sem e-mail, o convite só tem o WhatsApp${d.daEquipe?.temWhatsapp ? ' (*Usar o da ficha* pega o celular do RH)' : ''}. Para dar o e-mail, escreva o endereço aqui. ${vale}`,
+        : `Sem e-mail, o convite só tem o WhatsApp${d.daEquipe?.temWhatsapp ? ' (*Usar o da ficha* pega o celular do RH)' : ''}. Para dar o e-mail, escreva o endereço aqui. Ou *cancelar*. ${vale}`,
     ].join('\n\n'), d.email ? BOTOES_OPCIONAIS(Boolean(d.daEquipe?.temWhatsapp))
-      : d.daEquipe?.temWhatsapp ? { tipo: 'botoes', botoes: [{ id: 'usar o da ficha', titulo: 'Usar o da ficha' }, { id: 'cancelar', titulo: 'Cancelar' }] } : null)
+      : d.daEquipe?.temWhatsapp ? { tipo: 'botoes', botoes: [{ id: 'usar o da ficha', titulo: 'Usar o da ficha' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+        : { tipo: 'botoes', botoes: [{ id: 'cancelar', titulo: 'Cancelar' }] })
     case 'coordenacao': return com(...perguntaDaCoordenacao(d))
     case 'cargo': {
       const daFicha = Boolean(d.daEquipe?.cargo)
@@ -340,7 +341,8 @@ export function seguirNoCadastro(d: DadosDoCadastro, texto: string): PassoDoCada
   if (etapa === 'nome') {
     // "colaborador: Ana Lima" respondendo ao nome: o nome é o que vem depois.
     const nome = nomeDoColaborador(lerColaborador(texto) ?? texto)
-    if (!nome) return repetir('Escreva o nome e o sobrenome da pessoa (ex.: _Ana Paula Lima_), ou *cancelar*.')
+    // Sem citar a pergunta, o que tem cara de nome ("Ana", sem o sobrenome) é tentativa de resposta: pede de novo.
+    if (!nome) return repetir('Escreva o nome e o sobrenome da pessoa (ex.: _Ana Paula Lima_), ou *cancelar*.', /^[\p{L}' .-]{2,60}$/u.test(umaLinha(texto, 80)))
     return { tipo: 'buscar', dados: { ...d, nome, candidatos: undefined, daEquipe: undefined } }
   }
 
@@ -540,7 +542,7 @@ export const PAPEIS_DA_CONFIRMACAO = PAPEIS_PELO_WHATSAPP.map((p) => ({ valor: p
 
 /** O cadastro que não saiu (a conta não nasceu): o motivo é o do núcleo, com as mensagens de sempre da tela. */
 export const textoDoCadastroNaoFeito = (nome: string, motivo: string) =>
-  `Não deu para cadastrar *${limpo(nome, 80) || 'esta pessoa'}*: ${limpo(motivo, 300)}. Confira em Pessoas → Adicionar.`
+  `O cadastro de *${limpo(nome, 80) || 'esta pessoa'}* não foi feito: ${limpo(motivo, 300)}. Confira em Pessoas → Adicionar.`
 
 /** O aviso no sino de quem pediu: o mesmo resultado do WhatsApp, sem a marcação. */
 export const tituloDoAvisoDoCadastro = (nome: string) => `Conta de ${limpo(nome, 80)} criada pelo WhatsApp do Palácio`

@@ -1,5 +1,5 @@
 import 'server-only'
-import { randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PESSOAS_DA_EQUIPE } from '@/lib/equipe'
 import { nomesDosSetores } from '@/lib/setores'
@@ -164,8 +164,9 @@ async function pedirConfirmacao(admin: Admin, workspaceId: string, pessoa: Pesso
     const usuario = await usuarioLivre(admin, conferido.cadastro.nome, new Set())
     const link = await criarConfirmacao(admin, {
       workspaceId, userId: pessoa.id, acao: 'cadastrar_colaborador',
-      // A conta ainda não existe: o alvo é a ficha reaproveitada ou um id só deste pedido.
-      alvoId: conferido.cadastro.fichaId ?? randomUUID(),
+      // A conta ainda não existe: o alvo é a ficha reaproveitada ou um id fixo do nome no espaço — o pedido novo para
+      // a mesma pessoa toma o lugar do link anterior (criarConfirmacao), e dois links não criam duas contas.
+      alvoId: conferido.cadastro.fichaId ?? alvoDaPessoaNova(workspaceId, conferido.cadastro.nome),
       dados: dadosDoLink(pedido, { usuario, numeroEmUso: d.numeroEmUso }),
     })
     if ('erro' in link) return { texto: link.erro === 'limite' ? `Muitos links pedidos na última hora. Cadastre pela tela: ${tela}` : textoDoCadastroPelaTela(base) }
@@ -177,6 +178,12 @@ async function pedirConfirmacao(admin: Admin, workspaceId: string, pessoa: Pesso
     // A pergunta acabou: o nome, o contato e o resto saem dela (o pedido, agora, está só no link).
     await redigirCadastrosEncerrados(admin)
   }
+}
+
+/** O id fixo (no formato de UUID) do cadastro de pessoa nova: o espaço e o nome sem acento nem caixa. */
+function alvoDaPessoaNova(workspaceId: string, nome: string): string {
+  const h = createHash('sha256').update(`${workspaceId}:${normalizar(nome)}`).digest('hex')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`
 }
 
 // ------------------------------------------------------------------ a equipe

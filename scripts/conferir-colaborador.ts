@@ -117,7 +117,8 @@ igual(seguirNoCadastro(dEmail, 'ana.lima@usuarios.cvrj.local').tipo, 'repetir', 
 const semEmail = seguirNoCadastro(dEmail, 'pular')
 igual(semEmail.tipo === 'seguir' ? semEmail.dados.email : null, '', 'e-mail: "pular"')
 const dZap: DadosDoCadastro = { ...dEmail, email: '', etapa: 'whatsapp' }
-igual(perguntaDoCadastro(dZap)?.interativo, null, 'WhatsApp sem e-mail e sem celular na ficha: sem "Pular"')
+igual(perguntaDoCadastro(dZap)?.interativo, { tipo: 'botoes', botoes: [{ id: 'cancelar', titulo: 'Cancelar' }] }, 'WhatsApp sem e-mail e sem celular na ficha: sem "Pular", só "Cancelar"')
+contem(perguntaDoCadastro(dZap)?.texto ?? '', 'Ou *cancelar*.', 'WhatsApp sem e-mail e sem celular na ficha: o texto cita o cancelar')
 const nenhum = seguirNoCadastro(dZap, 'pular')
 igual(nenhum.tipo === 'repetir' ? [nenhum.sempre, nenhum.texto.startsWith('Sem e-mail e sem WhatsApp')] : null, [true, true], 'nenhum canal: não segue')
 const emailNoZap = seguirNoCadastro(dZap, 'ana@exemplo.org')
@@ -167,6 +168,8 @@ const admin = seguirNoCadastro(dPapel, 'administrador')
 igual(admin.tipo === 'repetir' ? [admin.sempre, admin.texto.startsWith('Administrador só se dá pela tela')] : null, [true, true], 'papel: administrador recusado pelo WhatsApp')
 const manter = seguirNoCadastro(dPapel, 'manter')
 igual(manter.tipo === 'seguir' ? manter.dados.papel : null, 'colaborador', 'papel: "manter" é o sugerido')
+const papelColab = seguirNoCadastro(dPapel, 'Colaborador')
+igual(papelColab.tipo === 'seguir' ? papelColab.dados.papel : null, 'colaborador', 'papel: "Colaborador" escrito é o papel')
 const editor = seguirNoCadastro(dPapel, 'equipe da escola')
 igual(editor.tipo === 'seguir' ? editor.dados.papel : null, 'escola', 'papel: pelo nome do botão')
 
@@ -184,7 +187,8 @@ igual(semFicha.tipo === 'seguir' ? semFicha.dados.pedirFicha : null, false, 'fic
 igual([...ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE].sort(), ['cargo', 'email', 'ficha', 'quem_e', 'whatsapp'], 'etapas em que "não" responde (na coordenação e no papel, "não" desiste)')
 igual([...ETAPAS_DO_CADASTRO_DE_TEXTO_LIVRE].sort(), ['cargo', 'coordenacao', 'email', 'nome', 'whatsapp'], 'etapas de texto livre')
 igual(seguirNoCadastro({ etapa: 'nome', ...inicio() }, 'colaborador: Ana Lima'), { tipo: 'buscar', dados: { etapa: 'nome', ...inicio(), nome: 'Ana Lima' } }, 'nome: "colaborador: Ana Lima" respondendo ao nome')
-igual(seguirNoCadastro({ ...inicio(), etapa: 'nome' }, 'Ana').tipo, 'repetir', 'nome: sem sobrenome pede de novo')
+igual(seguirNoCadastro({ ...inicio(), etapa: 'nome' }, 'Ana'), { tipo: 'repetir', texto: 'Escreva o nome e o sobrenome da pessoa (ex.: _Ana Paula Lima_), ou *cancelar*.', sempre: true }, 'nome: sem sobrenome pede de novo, mesmo sem citar')
+igual(seguirNoCadastro({ ...inicio(), etapa: 'nome' }, 'Ana 2024').tipo === 'repetir' && !('sempre' in seguirNoCadastro({ ...inicio(), etapa: 'nome' }, 'Ana 2024')), true, 'nome: o que não tem cara de nome, sem citar, segue como mensagem comum')
 igual(seguirNoCadastro({ ...inicio(), etapa: 'qualquer' as never }, 'x').tipo, 'perdido', 'etapa desconhecida: perdido')
 
 // ------------------------------------------------------------------ recibo, resumo e o link (mascarados)
@@ -249,7 +253,8 @@ igual(conferirAjustes({ papel: 'dono' }, { usuario: 'ana.lima', papel: 'editor' 
 igual(conferirAjustes({ usuario: 'a b' }, { usuario: 'ana.lima', papel: 'editor' }).ok, false, 'ajustes: usuário fora do formato')
 igual(conferirAjustes(null, { usuario: 'ana.lima', papel: 'admin' }).ok, false, 'ajustes: administrador gravado no link também é recusado')
 igual(PAPEIS_DA_CONFIRMACAO.map((p) => p.valor), ['colaborador', 'editor', 'escola'], 'ajustes: a lista da tela não tem administrador')
-contem(textoDoCadastroNaoFeito('Ana Lima', 'e-mail inválido'), 'Não deu para cadastrar *Ana Lima*: e-mail inválido.', 'confirmação: o texto do que não saiu')
+contem(textoDoCadastroNaoFeito('Ana Lima', 'e-mail inválido'), 'O cadastro de *Ana Lima* não foi feito: e-mail inválido.', 'confirmação: o texto do que não saiu')
+naoContem(textoDoCadastroNaoFeito('Ana Lima', 'e-mail inválido'), 'Não deu', 'confirmação: sem "Não deu" repetido no WhatsApp')
 
 // ------------------------------------------------------------------ o código
 
@@ -258,6 +263,8 @@ const importsDe = (codigo: string) => [...codigo.matchAll(/^\s*import\s+(?!type\
 igual(importsDe(ler('lib/whatsapp/colaborador-regras.ts')).filter((i) => i === 'server-only' || i.includes('supabase') || i.startsWith('node:') || i.startsWith('next/')), [], 'código: as regras do cadastro pelo WhatsApp são puras')
 const bot = ler('lib/whatsapp/bot.ts')
 contem(bot, "comando === 'cadastrar_colaborador'", 'código: o bot liga o comando')
+contem(bot, "(pendencia?.tipo === 'cadastrar_colaborador' && pedido?.comando === 'cadastrar_colaborador' && !pedido.resto)", 'código: "Colaborador" sem nome, com o cadastro aberto, é resposta (não recomeça)')
+contem(ler('lib/whatsapp/colaborador.ts'), 'alvoDaPessoaNova(workspaceId, conferido.cadastro.nome)', 'código: o link da pessoa nova tem alvo fixo pelo nome (o novo toma o lugar do anterior)')
 contem(bot, 'usuarios: gerenciaUsuarios(pessoa)', 'código: o menu sabe quem gerencia usuários')
 const acoes = ler('lib/whatsapp/acoes.ts')
 contem(acoes, "if (p.tipo === 'cadastrar_colaborador') return seguirCadastro(", 'código: a pendência segue pelo cadastro')
@@ -462,7 +469,7 @@ async function noPalacio() {
     criadoEm: '2026-10-19T12:00:00Z', expiraEm: '2099-01-01T00:00:00Z', usadoEm: null, resultado: null,
   })
 
-  function palacio(o: { usados?: string[]; emails?: string[]; fichaLigada?: boolean } = {}) {
+  function palacio(o: { usados?: string[]; emails?: string[]; fichaLigada?: boolean; contas?: { nome: string; usuario: string; active?: boolean }[] } = {}) {
     const criados: unknown[] = []
     const auth = { admin: {
       createUser: async (d: unknown) => { criados.push(d); return { data: { user: { id: NOVO } }, error: null } },
@@ -470,6 +477,7 @@ async function noPalacio() {
     } }
     const admin = clienteDeMentira((c) => {
       if (c.tabela === 'workspaces') return { data: { mfa_obrigatorio_para: [] } }
+      if (c.tabela === 'workspace_members' && c.op === 'select') return { data: (o.contas ?? []).map((p) => ({ profiles: { full_name: p.nome, username: p.usuario, active: p.active ?? true } })) }
       if (c.tabela === 'setores') return { data: SETORES.map((nome, i) => ({ id: `s${i}`, nome, ativo: true })) }
       if (c.tabela === 'profiles' && c.op === 'select' && filtroDe(c, 'username') !== undefined) return { data: (o.usados ?? []).includes(String(filtroDe(c, 'username'))) ? { id: 'x' } : null }
       if (c.tabela === 'profiles' && c.op === 'select' && filtroDe(c, 'email') !== undefined) return { data: (o.emails ?? []).includes(String(filtroDe(c, 'email'))) ? { id: 'y' } : null }
@@ -514,6 +522,9 @@ async function noPalacio() {
     // Só WhatsApp, com o WhatsApp do Palácio desligado: nenhum canal para o convite.
     contem(await faltaNoCadastro(palacio().admin, link({ email: undefined, whatsapp: '5521987654321' }), QUEM, null) ?? '', 'o WhatsApp do Palácio não está ligado: informe o e-mail', 'antes: nenhum canal ligado')
     igual(e.criados.length, 0, 'antes: nada criado')
+    // Pessoa nova que ganhou conta no meio-tempo (outro link, ou a tela): o link não cria a segunda.
+    contem(await faltaNoCadastro(palacio({ contas: [{ nome: 'pedro ALVES', usuario: 'pedro.alves' }] }).admin, link(), QUEM, { usuario: 'pedro.alves2', papel: 'editor' }) ?? '', 'Pedro Alves já tem acesso ao Palácio (@pedro.alves)', 'antes: homônimo com conta, recusado na confirmação')
+    igual(await faltaNoCadastro(palacio({ contas: [{ nome: 'Pedro Alves', usuario: 'pedro.alves', active: false }] }).admin, link(), QUEM, { usuario: 'pedro.alves2', papel: 'editor' }), null, 'antes: a conta desativada com o nome não barra')
   }
 
   // A execução pelo núcleo: a conta pela sessão, a auditoria com a origem, o sino de quem pediu e o resultado mascarado.
@@ -527,7 +538,7 @@ async function noPalacio() {
     naoContem(r.mensagem, 'pedro.alves@exemplo.org', 'execução: o e-mail inteiro não vai ao resultado')
     const vinculo = e.daSessao.find((c) => c.tabela === 'workspace_members' && c.op === 'insert')?.valores as Record<string, unknown> | undefined
     igual([vinculo?.role, vinculo?.coordination], ['colaborador', 'Voluntariado'], 'execução: o vínculo pela sessão, com o papel escolhido')
-    igual(e.consultas.some((c) => c.tabela === 'workspace_members'), false, 'execução: o vínculo nunca pelo service role')
+    igual(e.consultas.some((c) => c.tabela === 'workspace_members' && c.op !== 'select'), false, 'execução: o vínculo nunca pelo service role')
     igual((e.daSessao.find((c) => c.tabela === 'rpc:salvar_membro_equipe')?.valores as { p_id?: string } | undefined)?.p_id, FICHA, 'execução: a ficha do RH reaproveitada ganha o login')
     const auditoria = e.consultas.find((c) => c.tabela === 'auditoria_de_acesso')?.valores as { acao?: string; detalhes?: Record<string, unknown> } | undefined
     igual([auditoria?.acao, auditoria?.detalhes?.origem, auditoria?.detalhes?.usuario], ['usuario_criado', 'whatsapp', 'pedro.a'], 'execução: a auditoria de sempre, com a origem')
@@ -541,6 +552,9 @@ async function noPalacio() {
     const comAdmin = palacio()
     const r3 = await executarCadastro(comAdmin.admin, comAdmin.sessao, link({ papel: 'admin' }), QUEM, null)
     igual([r3.ok, comAdmin.criados.length], [false, 0], 'execução: administrador no link, nada é criado')
+    const dobrado = palacio({ contas: [{ nome: 'Pedro Alves', usuario: 'pedro.alves' }] })
+    const r4 = await executarCadastro(dobrado.admin, dobrado.sessao, link(), QUEM, { usuario: 'pedro.alves2', papel: 'editor' })
+    igual([r4.ok, dobrado.criados.length], [false, 0], 'execução: o segundo link da mesma pessoa nova não cria outra conta')
   }
 }
 

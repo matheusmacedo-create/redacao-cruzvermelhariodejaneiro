@@ -215,8 +215,20 @@ export function textoDoResultadoDoCadastro(p: {
     // O e-mail salvo em Usuários só vale depois de confirmado pela pessoa (atualizarUsuario); aí o convite vai por ele.
     linhas.push('Sem e-mail, o convite depende só do WhatsApp, que pode demorar ou não chegar a quem nunca escreveu ao Palácio. Se puder, cadastre o e-mail da pessoa em Usuários: depois de confirmado, o convite pode ir por ele (“Enviar convite de primeiro acesso”).')
   }
-  if (p.sobreAFicha) linhas.push(`Ficha do RH: ${limpo(p.sobreAFicha, 300)}.`)
+  if (p.sobreAFicha) linhas.push(`Ficha do RH: ${limpo(sobreAFichaPeloEnvio(p.sobreAFicha, p.envio), 300)}.`)
   return linhas.join('\n\n')
+}
+
+/**
+ * O pedido da ficha só viaja dentro do convite pelo WhatsApp: com ele na fila ou sem sair, "junto" não é verdade —
+ * o texto de fora da tela diz o que houve (a tela segue com a linha de sempre, mensagemDoCadastro).
+ */
+function sobreAFichaPeloEnvio(sobreAFicha: string, envio: EnvioDoConvite): string {
+  const junto = 'pedido para completar a ficha junto'
+  if (!sobreAFicha.includes(junto) || envio.whatsapp === 'enviada') return sobreAFicha
+  return sobreAFicha.replace(junto, envio.whatsapp === 'na_fila'
+    ? 'o pedido da ficha vai junto do convite na fila'
+    : 'o pedido da ficha ia no WhatsApp e não saiu: mande por Recursos humanos')
 }
 
 /** Rótulo da coordenação: vazia é "Sem coordenação" (como a tela de Usuários deixa). */

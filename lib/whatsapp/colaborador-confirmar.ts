@@ -9,6 +9,7 @@ import {
   PAPEIS_DA_CONFIRMACAO, TEXTO_DO_NUMERO_EM_USO, conferirAjustes, pedidoDoLink, textoDoCadastroNaoFeito, tituloDoAvisoDoCadastro,
   type AjustesDoCadastro,
 } from './colaborador-regras'
+import { normalizar } from './regras'
 import type { Confirmacao } from './confirmacoes'
 import type { Descricao, QuemConfirma } from './confirmar-no-palacio'
 
@@ -60,6 +61,14 @@ async function preparar(admin: Admin, c: Confirmacao, quem: QuemConfirma, ajuste
     const { data: ficha } = await admin.from('equipe_membros').select('user_id').eq('id', cadastro.fichaId).eq('workspace_id', quem.workspaceId).maybeSingle()
     if (!ficha) return { erro: `A ficha do RH de ${cadastro.nome} não foi achada. ${PELA_TELA}` }
     if (ficha.user_id) return { erro: `${cadastro.nome} ganhou acesso ao Palácio no meio-tempo: a ficha do RH já está ligada a um login. Confira em Pessoas.` }
+  } else {
+    // Pessoa nova: a conversa já parou quem tem conta com o nome, mas outro link (ou a tela) pode ter criado no
+    // meio-tempo — a mesma regra (o nome sem acento nem caixa, conta ativa no espaço) vale de novo aqui.
+    const { data: membros } = await admin.from('workspace_members').select('profiles(full_name, username, active)').eq('workspace_id', quem.workspaceId)
+    const chave = normalizar(cadastro.nome)
+    const ja = (membros ?? []).map((m) => (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { full_name?: string | null; username?: string | null; active?: boolean } | null)
+      .find((p) => p && p.active !== false && normalizar(p.full_name?.trim() || p.username || '') === chave)
+    if (ja) return { erro: `${cadastro.nome} já tem acesso ao Palácio${ja.username ? ` (@${ja.username})` : ''}. Confira em Pessoas; para outra pessoa com o mesmo nome, ${PELA_TELA.charAt(0).toLowerCase()}${PELA_TELA.slice(1)}` }
   }
   if (cadastro.email && await emailEmUso(admin, cadastro.email)) return { erro: `O e-mail informado já está em uso por outra conta. ${PELA_TELA}` }
   return { pedido, cadastro, ambiente, usuario: escolha.usuario, numeroEmUso: lido.numeroEmUso }

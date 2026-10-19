@@ -221,7 +221,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     // pergunta de texto livre, o nome de setor que também é comando de área ("Financeiro", "Portaria", "Estoque
     // central") é a resposta: o "Onde é?" do chamado não se perde na lista do Financeiro.
     let paraPendencia = !doAudio && Boolean(pendencia) && (estrita || comando === 'desconhecido' || lerEscolha(m.texto, 99) !== null || ehConfirmacao(m.texto)
-      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando)))))
+      || ehCancelamento(m.texto) || (esperaTextoLivre(pendencia) && (m.texto.trim().split(/\s+/).length >= 3 || Boolean(pedido && COMANDOS_DE_AREA.has(pedido.comando))))
+      // Com um cadastro aberto, "Colaborador" sozinho é a resposta (o papel, o cargo), não um cadastro novo do zero.
+      || (pendencia?.tipo === 'cadastrar_colaborador' && pedido?.comando === 'cadastrar_colaborador' && !pedido.resto))
     // A pergunta da pasta do Drive, com o assistente: o que não tem cara de caminho ("coloca na pasta de contratos do
     // jurídico") vai a ele, que vê o documento no contexto e prepara o plano; o caminho e o "cancelar" ficam com o bot.
     if (paraPendencia && pendencia?.tipo === 'guardar_documento' && ia.disponivel && ia.escrita && !m.midia && !ehCancelamento(m.texto) && !lerPastaDaResposta(m.texto)) paraPendencia = false

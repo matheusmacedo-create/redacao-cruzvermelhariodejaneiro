@@ -146,6 +146,15 @@ const naoSaiu = textoDoResultadoDoCadastro({ nome: 'Ana *Lima*', usuario: 'ana.l
 contem(naoSaiu, 'o WhatsApp (+55 21 9••••-4321) não saiu (Fora da janela de 24 h.)', 'resultado: o WhatsApp que falhou, com o motivo')
 contem(naoSaiu, 'O convite NÃO saiu: use “Reenviar”', 'resultado: o convite que não saiu e o que fazer')
 contem(naoSaiu, 'Conta de *Ana Lima* criada', 'resultado: o nome sem a marcação do WhatsApp')
+// O pedido da ficha só viaja no convite pelo WhatsApp: com ele falhando ou na fila, o "junto" não é dito.
+const JUNTO = 'ficha do RH criada; pedido para completar a ficha junto'
+const fichaFalhou = textoDoResultadoDoCadastro({ nome: 'Ana Lima', usuario: 'ana.lima', envio: so({ email: true, whatsapp: 'falhou' }), email: EMAIL, numeroDoConvite: ZAP, sobreAFicha: JUNTO })
+contem(fichaFalhou, 'Ficha do RH: ficha do RH criada; o pedido da ficha ia no WhatsApp e não saiu: mande por Recursos humanos.', 'resultado: o pedido da ficha com o WhatsApp que falhou')
+naoContem(fichaFalhou, 'ficha junto', 'resultado: com o WhatsApp que falhou, sem o "junto"')
+const fichaNaFila = textoDoResultadoDoCadastro({ nome: 'Ana Lima', usuario: 'ana.lima', envio: so({ whatsapp: 'na_fila' }), email: null, numeroDoConvite: ZAP, sobreAFicha: JUNTO })
+contem(fichaNaFila, 'Ficha do RH: ficha do RH criada; o pedido da ficha vai junto do convite na fila.', 'resultado: o pedido da ficha com o WhatsApp na fila')
+contem(textoDoResultadoDoCadastro({ nome: 'Ana Lima', usuario: 'ana.lima', envio: so({ whatsapp: 'enviada' }), email: null, numeroDoConvite: ZAP, sobreAFicha: JUNTO }), `Ficha do RH: ${JUNTO}.`, 'resultado: com o WhatsApp entregue, o pedido foi junto')
+igual(mensagemDoCadastro({ envio: so({ whatsapp: 'falhou' }), email: null, numeroDoConvite: ZAP, usuario: 'ana.lima', sobreAFicha: JUNTO }).endsWith(JUNTO), true, 'tela: a linha de sempre, sem mudança')
 const linhas = linhasDoCadastro({ ...(ok.ok ? ok.cadastro : ({} as CadastroConferido)), coordenacao: '', cargo: '', criarFicha: true, pedirFicha: true, usuario: 'ana.lima' })
 igual(linhas.map((l) => `${l.rotulo}: ${l.valor}`), [
   'Nome: Ana Paula Lima', 'Usuário: @ana.lima', 'E-mail: a•••a@exemplo.org', 'WhatsApp: +55 21 9••••-4321', 'Coordenação: Sem coordenação', 'Cargo: —', 'Papel: Colaborador',
