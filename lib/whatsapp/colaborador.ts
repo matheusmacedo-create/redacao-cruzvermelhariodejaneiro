@@ -12,10 +12,10 @@ import { configDoWhatsapp } from './servidor'
 import { criarConfirmacao } from './confirmacoes'
 import { acharPeloNome, normalizar, numeroCanonico } from './regras'
 import { gerenciaUsuarios } from './admin'
-import { encerrarPendencia, podeAgirPeloWhatsapp, type Pendencia, type Pessoa, type Resposta } from './acoes'
+import { encerrarPendencia, type Pendencia, type Pessoa, type Resposta } from './acoes'
 import { redigirCadastrosEncerrados } from './colaborador-faxina'
 import {
-  TEXTO_DO_CADASTRO_COM_DUAS_ETAPAS, TEXTO_DO_EMAIL_EM_USO, TEXTO_SEM_O_DA_FICHA, dadosDoLink, nomeDoColaborador, pedidoDoCadastro, perguntaDoCadastro, quemTemONome,
+  TEXTO_DO_EMAIL_EM_USO, TEXTO_SEM_O_DA_FICHA, dadosDoLink, nomeDoColaborador, pedidoDoCadastro, perguntaDoCadastro, quemTemONome,
   reciboDoPasso, resultadoDaBuscaNaEquipe, seguirNoCadastro, textoDoCadastroParaConfirmar, textoDoCadastroPelaTela,
   type DadosDoCadastro, type PessoaNaBusca,
 } from './colaborador-regras'
@@ -26,9 +26,10 @@ type Admin = ReturnType<typeof createAdminClient>
  * O cadastro de colaborador pelo WhatsApp do Palácio: "colaborador: Ana Lima"
  * (também "novo colaborador", "cadastrar colaborador" e o nome; sem o nome, o
  * bot pergunta), só para quem gerencia usuários ("usuarios.gerenciar", a
- * permissão de "Adicionar pessoas") com o número confirmado e sem a
- * verificação em duas etapas (podeAgirPeloWhatsapp; quem usa é mandado para a
- * tela). A mesma semântica de "Adicionar pessoas", para UMA pessoa, em etapas
+ * permissão de "Adicionar pessoas") com o número confirmado — inclusive quem
+ * usa a verificação em duas etapas (decisão do dono, 19/10/2026): a conversa
+ * não cria nada, e a conta só nasce no link de confirmar no Palácio, que exige
+ * a sessão com a verificação em dia (app/confirmar/[token]). A mesma semântica de "Adicionar pessoas", para UMA pessoa, em etapas
  * (lib/whatsapp/colaborador-regras.ts, puro):
  *
  *   nome → "é esta pessoa?" (quem da equipe está sem acesso com o nome: a ficha
@@ -71,7 +72,6 @@ function perguntar(d: DadosDoCadastro, base: string, pendenciaId?: number, antes
 export async function comecarCadastro(admin: Admin, workspaceId: string, pessoa: Pessoa, nome: string, base: string): Promise<Resposta | null> {
   if (!gerenciaUsuarios(pessoa)) return null
   const tela = `${base}/pessoas/adicionar`
-  if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_DO_CADASTRO_COM_DUAS_ETAPAS}\n\n${tela}` }
   // O que sobrou de cadastros que acabaram (cancelados, vencidos) sai do banco antes de abrir outro.
   await redigirCadastrosEncerrados(admin)
   try {
@@ -155,8 +155,6 @@ async function pedirConfirmacao(admin: Admin, workspaceId: string, pessoa: Pesso
   const tela = `${base}/pessoas/adicionar`
   if (!await encerrarPendencia(admin, p.id)) return { texto: 'Este cadastro já foi enviado para confirmar no Palácio.' }
   try {
-    // Ligou a verificação em duas etapas no meio da conversa: o cadastro vai para a tela.
-    if (!await podeAgirPeloWhatsapp(admin, workspaceId, pessoa)) return { texto: `${TEXTO_DO_CADASTRO_COM_DUAS_ETAPAS}\n\n${tela}` }
     const [setores, whatsapp] = await Promise.all([nomesDosSetores(admin, workspaceId), configDoWhatsapp(workspaceId)])
     const pedido = pedidoDoCadastro(d)
     const conferido = conferirCadastro(pedido, { setores, canais: { whatsapp: Boolean(whatsapp), email: emailConfigurado() }, semAdmin: true })
