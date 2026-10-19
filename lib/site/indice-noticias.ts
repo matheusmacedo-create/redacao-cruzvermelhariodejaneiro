@@ -119,6 +119,30 @@ body{background:var(--news-paper)}
 const dataLegivel = (d: Date) =>
   new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).format(d)
 
+/**
+ * Matérias que vendem curso da escola (achado C7 da auditoria do Ad Grants,
+ * 19/10/2026), pelo slug — que não muda quando o título é revisto. Elas
+ * continuam no índice, na grade, mas não abrem /noticias/ como manchete: o
+ * site da ONG não pode receber o visitante com um anúncio de curso. É a mesma
+ * lista de FORA_DA_HOME em scripts/gerar_noticias_home.py (repositório do
+ * site), que tira essas matérias da home; mantenha as duas iguais.
+ */
+export const MATERIAS_DE_CURSO = new Set([
+  'homologacao-de-bombeiro-civil-no-cbmerj-como-funciona',
+  'curso-de-socorrista-o-que-e-e-o-que-um-curso-livre-ensina',
+  'conhecimento-tambem-salva-vidas-cruz-vermelha-brasileira-rio-de-janeiro-leva',
+  'curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas',
+  'curso-de-suporte-basico-de-vida-o-que-e-e-quem-deveria-fazer',
+  'curso-de-puncao-venosa-para-quem-e-e-o-que-aprofunda',
+  'curso-de-primeiros-socorros-basico-para-o-dia-a-dia-em-casa',
+  'curso-de-micropigmentacao-labial-o-que-e-e-como-se-especializar',
+  'curso-de-cuidador-de-idosos-o-que-faz-e-como-se-capacitar',
+  'curso-de-bombeiro-civil-o-que-faz-e-como-se-formar',
+  'curso-de-primeiros-socorros-domine-com-poucas-aulas',
+])
+
+const ehDeCurso = (n: NoticiaDoIndice) => MATERIAS_DE_CURSO.has(n.url.replace(/\/+$/, '').split('/').pop() ?? '')
+
 export function paginaDeNoticias(
   noticias: NoticiaDoIndice[],
   agora: Date = new Date(),
@@ -128,7 +152,10 @@ export function paginaDeNoticias(
   chat?: string,
 ): string {
   const ordenadas = [...noticias].sort((a, b) => b.publicadaEm.getTime() - a.publicadaEm.getTime())
-  const [manchete, ...fila] = ordenadas
+  // A manchete é a mais recente que não vende curso; sem nenhuma, a mais recente mesmo.
+  const iManchete = Math.max(0, ordenadas.findIndex((n) => !ehDeCurso(n)))
+  const manchete = ordenadas[iManchete]
+  const fila = ordenadas.filter((_, i) => i !== iManchete)
 
   // Destaque full-width + grade 3×N, como pede o briefing do jornal. Cards
   // sem sombra, título serifado, data pequena — filete no lugar de caixa.

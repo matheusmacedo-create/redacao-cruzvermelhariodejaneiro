@@ -35,7 +35,8 @@ export function paginasFixas(origem: string = ORIGEM_DO_SITE): EntradaDoMapa[] {
     // repositório do site), que sabe quando a doação está no ar.
     { url: `${origem}/matricula-cursos-presenciais/` },
     { url: `${origem}/campanha-agasalho.html` },
-    { url: `${origem}/bio/` },
+    // /bio/ também fica de fora: a página sai com noindex (link da bio das redes), e
+    // listar no mapa uma página noindex é sinal contraditório para o Google.
     // O acervo NÃO é página fixa: entra só com item público (entradasDoAcervoNoMapa,
     // lib/acervo/paginas.ts). Sem item, /acervo/ sai com noindex e fora do mapa.
     { url: `${origem}/privacidade/` },
