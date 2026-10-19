@@ -209,21 +209,22 @@ export type ResultadoDoCadastro = {
  * do WhatsApp), cria a conta em modo convite (usuário livre a partir do nome, ou `usuario`, o que foi escolhido na
  * confirmação), liga a ficha do RH que existia ou cria uma (pela mesma função do RH, salvar_membro_equipe, pela
  * sessão — ela audita), põe o pedido para completar a ficha na mesma mensagem do convite, se pedido, manda o convite
- * e registra "usuario_criado" na auditoria de acesso. A ficha que não sai não desfaz o acesso: a linha diz o que
- * faltou. Nunca lança (menos o controle do Next): o que não deu volta em `mensagem`.
+ * e registra "usuario_criado" na auditoria de acesso (`origem: 'whatsapp'`: o pedido veio do WhatsApp e foi
+ * confirmado no Palácio; a auditoria diz). A ficha que não sai não desfaz o acesso: a linha diz o que faltou. Nunca
+ * lança (menos o controle do Next): o que não deu volta em `mensagem`.
  */
-export async function cadastrar(admin: Admin, sessao: SupabaseClient, ambiente: AmbienteDoCadastro, pedido: PedidoDeCadastro, opcoes: { usuario?: string; semAdmin?: boolean } = {}): Promise<ResultadoDoCadastro> {
+export async function cadastrar(admin: Admin, sessao: SupabaseClient, ambiente: AmbienteDoCadastro, pedido: PedidoDeCadastro, opcoes: { usuario?: string; semAdmin?: boolean; origem?: 'whatsapp' } = {}): Promise<ResultadoDoCadastro> {
   const conferido = conferirCadastro(pedido, { setores: ambiente.setores, canais: ambiente.canais, semAdmin: opcoes.semAdmin })
   if (!conferido.ok) return { nome: conferido.nome || '(sem nome)', ok: false, mensagem: conferido.erro }
   const c = conferido.cadastro
   try {
-    return await criarComFichaEConvite(admin, sessao, ambiente, c, opcoes.usuario)
+    return await criarComFichaEConvite(admin, sessao, ambiente, c, opcoes.usuario, opcoes.origem)
   } catch (causa) {
     return { nome: c.nome || '(sem nome)', ok: false, mensagem: mensagemDoErro(causa, 'não foi possível convidar') }
   }
 }
 
-async function criarComFichaEConvite(admin: Admin, sessao: SupabaseClient, ambiente: AmbienteDoCadastro, c: CadastroConferido, escolhido?: string): Promise<ResultadoDoCadastro> {
+async function criarComFichaEConvite(admin: Admin, sessao: SupabaseClient, ambiente: AmbienteDoCadastro, c: CadastroConferido, escolhido?: string, origem?: 'whatsapp'): Promise<ResultadoDoCadastro> {
   const ws = ambiente.workspaceId
   const { nome, email, numero, numeroDoConvite } = c
   let usuario: string
@@ -290,7 +291,7 @@ async function criarComFichaEConvite(admin: Admin, sessao: SupabaseClient, ambie
     workspace_id: ws, ator_id: ambiente.adminId, alvo_id: userId, acao: 'usuario_criado',
     detalhes: {
       usuario, papel: c.papel, coordenacao: c.coordenacao, senha: modoDoConvite(email, numeroDoConvite),
-      email_enviado: envio.email, whatsapp: envio.whatsapp, ficha: sobreAFicha || null,
+      email_enviado: envio.email, whatsapp: envio.whatsapp, ficha: sobreAFicha || null, ...(origem ? { origem } : {}),
     },
   })
   return {

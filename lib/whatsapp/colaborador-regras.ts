@@ -4,7 +4,7 @@ import {
 } from './regras'
 import { emailValido } from '@/lib/contas/emails'
 import {
-  CHAVES_DE_CONTATO, linhasDoCadastro, mascararEmail, papelSugerido, type CadastroConferido, type CanaisLigados, type PedidoDeCadastro,
+  CHAVES_DE_CONTATO, linhasDoCadastro, mascararEmail, papelSugerido, problemaDoUsuario, type CadastroConferido, type CanaisLigados, type PedidoDeCadastro,
 } from '@/lib/contas/cadastro-regras'
 import { PAPEL, type Papel } from '@/lib/permissoes'
 
@@ -495,3 +495,52 @@ export function dadosDoLinkRedigidos(d: unknown): Record<string, unknown> {
   for (const chave of CHAVES_DE_CONTATO) delete copia[chave]
   return { ...copia, redigida: true }
 }
+
+// ------------------------------------------------------------------ a confirmação no Palácio (app/confirmar/[token])
+
+const textoDe = (v: unknown) => (typeof v === 'string' ? v : '')
+
+/**
+ * O link lido de volta (whatsapp_confirmacoes.dados, o que dadosDoLink gravou): o pedido para o núcleo, o usuário
+ * sugerido e o aviso do número. Os dados vêm do banco, então nada é confiado: o núcleo confere tudo de novo
+ * (conferirCadastro). Lido ANTES de gastar o link — ao gastar, o banco tira o e-mail e o WhatsApp.
+ */
+export function pedidoDoLink(dados: Record<string, unknown>): { pedido: PedidoDeCadastro; usuario: string; numeroEmUso: boolean } {
+  const fichaId = textoDe(dados.fichaId)
+  return {
+    pedido: {
+      nome: textoDe(dados.nome), email: textoDe(dados.email), whatsapp: textoDe(dados.whatsapp), papel: textoDe(dados.papel),
+      coordenacao: textoDe(dados.coordenacao), cargo: textoDe(dados.cargo),
+      ...(fichaId ? { fichaId } : { criarFicha: dados.criarFicha === true }), pedirFicha: dados.pedirFicha === true,
+    },
+    usuario: textoDe(dados.usuario), numeroEmUso: dados.numeroEmUso === true,
+  }
+}
+
+/** O que dá para mudar na tela de confirmar: só o usuário e o papel (o resto, pela tela "Adicionar pessoas"). */
+export type AjustesDoCadastro = { usuario?: unknown; papel?: unknown }
+
+/**
+ * Confere o usuário e o papel escolhidos na tela de confirmar (sem eles, os do link): o usuário no formato de
+ * sempre (problemaDoUsuario, sem o "@" da frente) e o papel entre os do WhatsApp — administrador, nunca.
+ */
+export function conferirAjustes(ajustes: AjustesDoCadastro | null | undefined, padrao: { usuario: string; papel: string }):
+  { ok: true; usuario: string; papel: Papel } | { ok: false; erro: string } {
+  const usuario = String(ajustes?.usuario ?? padrao.usuario).trim().toLowerCase().replace(/^@/, '')
+  const problema = problemaDoUsuario(usuario)
+  if (problema) return { ok: false, erro: problema }
+  const papel = String(ajustes?.papel ?? padrao.papel)
+  if (papel === 'admin') return { ok: false, erro: 'O papel de administrador só se dá pela tela "Adicionar pessoas".' }
+  if (!PAPEIS_PELO_WHATSAPP.includes(papel as Papel)) return { ok: false, erro: 'Escolha um papel da lista.' }
+  return { ok: true, usuario, papel: papel as Papel }
+}
+
+/** Os papéis da tela de confirmar, com o rótulo de sempre. */
+export const PAPEIS_DA_CONFIRMACAO = PAPEIS_PELO_WHATSAPP.map((p) => ({ valor: p, rotulo: PAPEL[p].rotulo }))
+
+/** O cadastro que não saiu (a conta não nasceu): o motivo é o do núcleo, com as mensagens de sempre da tela. */
+export const textoDoCadastroNaoFeito = (nome: string, motivo: string) =>
+  `Não deu para cadastrar *${limpo(nome, 80) || 'esta pessoa'}*: ${limpo(motivo, 300)}. Confira em Pessoas → Adicionar.`
+
+/** O aviso no sino de quem pediu: o mesmo resultado do WhatsApp, sem a marcação. */
+export const tituloDoAvisoDoCadastro = (nome: string) => `Conta de ${limpo(nome, 80)} criada pelo WhatsApp do Palácio`

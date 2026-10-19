@@ -15,8 +15,9 @@ import type { GuiaDaArea } from '../tipos'
  *   lib/pessoas/diretorio.ts, perfil.ts e perfil-servidor.ts,
  *   app/actions/usuarios.ts (convidarEmLote, reenviarConvite,
  *   cancelarConvite), o núcleo do cadastro (lib/contas/cadastro.ts e
- *   cadastro-regras.ts; pelo WhatsApp, lib/whatsapp/colaborador.ts e
- *   colaborador-regras.ts), app/actions/setores.ts e setor_salvar
+ *   cadastro-regras.ts; pelo WhatsApp, lib/whatsapp/colaborador.ts,
+ *   colaborador-regras.ts e, na confirmação, colaborador-confirmar.ts com
+ *   app/confirmar/[token]), app/actions/setores.ts e setor_salvar
  *   (*_cvrj_diretorio.sql); validade do convite em lib/contas/servidor.ts;
  * - Recursos humanos: app/(app)/equipe/**, components/app/equipe/**,
  *   lib/rh/regras.ts e acesso.ts, app/actions/equipe.ts,
@@ -399,6 +400,12 @@ const DIRETORIO: GuiaDaArea = {
       pergunta: 'Dá para cadastrar alguém pelo WhatsApp do Palácio?',
       resposta: 'Dá começar por lá, para quem gerencia os usuários (os administradores) com o WhatsApp confirmado em “Meu perfil”: mande “colaborador:” e o nome completo (ex.: “colaborador: Ana Paula Lima”). O Palácio pergunta uma coisa por vez, como “Adicionar pessoas” faz: se é alguém da equipe que ainda está sem acesso (aí a ficha do RH é aproveitada), o e-mail, o WhatsApp da pessoa (um dos dois é obrigatório, porque o convite precisa de um caminho), a coordenação (ou “Sem coordenação”), o cargo, o papel (o sugerido pela coordenação; administrador só por aqui, na tela) e, com WhatsApp, se o pedido para completar a ficha vai junto do convite. “Pular” e “Cancelar” valem nas perguntas.\n\nNo fim chega o resumo, com o e-mail e o número escondidos no meio e o usuário sugerido, e o link “Confirme no Palácio”, que vale 15 minutos e uma vez só. Nada é criado antes: a conta só nasce quando você confirma no Palácio, logado, e aí o convite sai como sai daqui. Se o nome já é de alguém com conta, o cadastro para, para não duplicar. Com a verificação em duas etapas, o cadastro é só por esta tela.',
       termos: ['cadastrar pelo whatsapp', 'colaborador:', 'novo colaborador', 'criar conta pelo whatsapp', 'dar acesso pelo whatsapp', 'whatsapp'],
+    },
+    {
+      id: 'confirmar-cadastro-no-palacio',
+      pergunta: 'O que acontece quando confirmo no Palácio o cadastro pedido pelo WhatsApp?',
+      resposta: 'O link abre a tela com o pedido, com o e-mail e o número escondidos no meio. Ali dá para mudar o usuário e o papel (administrador, nunca); para mudar o resto, cadastre por esta tela. Ao tocar em “Confirmar o cadastro”, a conta nasce como nasce daqui: em modo convite, com a ficha do RH ligada ou criada, e o convite sai.\n\nA resposta chega no WhatsApp e no sino: a conta, o usuário e por onde o convite foi. Quem nunca escreveu ao WhatsApp do Palácio pode não receber o convite por lá, ou recebê-lo mais tarde; a resposta diz se ficou na fila ou não saiu. Por isso, prefira informar o e-mail. O link usado não vale de novo: dois toques não criam duas contas.',
+      termos: ['Confirmar o cadastro', 'criada pelo WhatsApp do Palácio', 'confirme no palácio', 'colaborador:', 'convite pelo whatsapp'],
     },
     {
       id: 'convite-nao-chegou',

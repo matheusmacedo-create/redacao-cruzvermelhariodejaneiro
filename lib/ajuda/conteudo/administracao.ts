@@ -499,6 +499,12 @@ const USUARIOS: GuiaDaArea = {
       termos: ['Esse número já está confirmado em outra conta do Palácio Virtual', 'número de outra pessoa', 'remover whatsapp', 'liberar número'],
     },
     {
+      id: 'conta-criada-pelo-whatsapp',
+      pergunta: 'Apareceu “Conta de … criada pelo WhatsApp do Palácio”. O que é?',
+      resposta: 'É o cadastro que alguém que gerencia os usuários pediu pelo WhatsApp do Palácio (“colaborador:” e o nome) e confirmou no Palácio, com “Confirmar o cadastro”. A conta é igual à de “Adicionar pessoas”: nasce em modo convite, com a ficha do RH ligada ou criada, e fica no “Registro de acessos” como qualquer conta criada, com a indicação de que veio do WhatsApp.\n\nO aviso diz por onde o convite foi. Se disser que o convite não saiu, ou que só foi pelo WhatsApp a quem nunca escreveu ao Palácio, cadastre o e-mail da pessoa aqui e, depois de confirmado, use “Enviar convite de primeiro acesso”.',
+      termos: ['criada pelo WhatsApp do Palácio', 'colaborador:', 'cadastro pelo whatsapp', 'Confirmar o cadastro'],
+    },
+    {
       id: 'convidar-varias-pessoas',
       pergunta: 'Dá para dar acesso a várias pessoas de uma vez?',
       resposta: 'Dá, por convite: toque em “Convidar várias pessoas”. Na tela “Adicionar pessoas ao Palácio Virtual”, você marca quem vai receber acesso, confere WhatsApp e/ou e-mail, setor e papel e envia os convites, até 30 de uma vez; as fichas no RH são criadas junto. Quem não tem nem WhatsApp nem e-mail entra por aqui, com senha temporária.',
@@ -1083,7 +1089,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'confirmar-no-palacio',
       pergunta: 'O que é o link “Confirme no Palácio” que o WhatsApp manda?',
-      resposta: 'É como o Palácio faz o que é sensível e foi pedido pelo WhatsApp: decidir uma despesa ou uma compra (“financeiro”, depois “aprovar 2” ou “recusar 2:” e o motivo), o voto de quem usa a verificação em duas etapas, o “desativar conta:” e o cadastro de colaborador (“colaborador:” e o nome) da administração. Nada disso acontece no WhatsApp: o link abre uma tela do Palácio com o que vai ser feito e o botão de confirmar (“Confirmar a aprovação”, “Confirmar o voto”, “Confirmar a desativação”…). No cadastro, a conta só nasce aí.\n\nO link vale por 15 minutos e uma vez só, e só abre na conta de quem pediu, logada, com a mesma verificação das telas (com o app autenticador, o Palácio pede o código antes). Confirmado, vale o mesmo caminho da tela da área, com as mesmas regras, e a resposta volta pelo WhatsApp. Pagar, conciliar, fechar o mês, assinar ofício, mudar papel e mexer em chaves não têm caminho pelo WhatsApp.',
+      resposta: 'É como o Palácio faz o que é sensível e foi pedido pelo WhatsApp: decidir uma despesa ou uma compra (“financeiro”, depois “aprovar 2” ou “recusar 2:” e o motivo), o voto de quem usa a verificação em duas etapas, o “desativar conta:” e o cadastro de colaborador (“colaborador:” e o nome) da administração. Nada disso acontece no WhatsApp: o link abre uma tela do Palácio com o que vai ser feito e o botão de confirmar (“Confirmar a aprovação”, “Confirmar o voto”, “Confirmar a desativação”, “Confirmar o cadastro”…). No cadastro, a conta só nasce aí (dá para mudar o usuário e o papel antes).\n\nO link vale por 15 minutos e uma vez só, e só abre na conta de quem pediu, logada, com a mesma verificação das telas (com o app autenticador, o Palácio pede o código antes). Confirmado, vale o mesmo caminho da tela da área, com as mesmas regras, e a resposta volta pelo WhatsApp. Pagar, conciliar, fechar o mês, assinar ofício, mudar papel e mexer em chaves não têm caminho pelo WhatsApp.',
       termos: ['confirme no palácio', 'link de confirmação', 'confirmar', 'financeiro pelo whatsapp', 'desativar conta', 'aprovar pelo whatsapp', 'cadastrar colaborador'],
     },
     {

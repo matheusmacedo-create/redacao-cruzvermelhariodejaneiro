@@ -11,6 +11,11 @@
  *  - o servidor (lib/whatsapp/colaborador.ts) contra um banco de mentira, sem rede: quem não gerencia usuários, a
  *    verificação em duas etapas, a conversa inteira até o link (nada criado: nenhuma conta, só o link), o e-mail em
  *    uso, quem já tem conta, a ficha reaproveitada com o contato lido dela, e a pergunta recusada antes da migração;
+ *  - a confirmação no Palácio: o link lido de volta (pedidoDoLink), o usuário e o papel que dá para mudar
+ *    (conferirAjustes: administrador recusado) e, contra um banco de mentira, a tela (o resumo mascarado, o usuário
+ *    sugerido ainda livre), as conferências antes de gastar o link (usuário em uso, ficha já ligada, e-mail em uso,
+ *    nenhum canal, quem não gerencia usuários) e a execução pelo núcleo de "Adicionar pessoas" (a conta pela sessão,
+ *    a auditoria com a origem, o sino de quem pediu, o resultado mascarado e honesto sobre o convite);
  *  - o código: as regras são puras, o bot e as ações ligam o comando e a pendência, a página de confirmar nunca
  *    cai no ramo de desativar conta, o menu e o assistente ensinam o "colaborador:".
  * Sai com código 1 se algo estiver errado.
@@ -20,7 +25,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Module from 'node:module'
 import {
-  BOTOES_DA_FICHA, BOTOES_DE_QUEM_E, CHAVES_DO_CONTATO_NA_CONVERSA, ETAPAS_DO_CADASTRO_DE_TEXTO_LIVRE, ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE, TEXTO_DO_NUMERO_EM_USO,
+  BOTOES_DA_FICHA, BOTOES_DE_QUEM_E, CHAVES_DO_CONTATO_NA_CONVERSA, PAPEIS_DA_CONFIRMACAO, conferirAjustes, pedidoDoLink, textoDoCadastroNaoFeito, ETAPAS_DO_CADASTRO_DE_TEXTO_LIVRE, ETAPAS_DO_CADASTRO_EM_QUE_NAO_RESPONDE, TEXTO_DO_NUMERO_EM_USO,
   dadosDoLink, dadosDoLinkRedigidos, dadosRedigidos, nomeDoColaborador, oQueDoCadastro, ordemDosPapeis, papelDoCadastro, pedidoDoCadastro, perguntaDoCadastro,
   proximaEtapa, quemTemONome, reciboDoPasso, resultadoDaBuscaNaEquipe, seguirNoCadastro, textoDeQuemJaTemConta,
   type CandidatoDaEquipe, type DadosDoCadastro, type PessoaNaBusca,
@@ -224,6 +229,28 @@ contem(menu, LINHA_DO_CADASTRO, 'menu: a linha do cadastro para quem gerencia us
 igual(menu.length <= 1024, true, 'menu: cabe no corpo da lista (1024)')
 naoContem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: BASE }), 'colaborador:', 'menu: para os outros, sem a linha')
 
+// ------------------------------------------------------------------ a confirmação no Palácio (regras)
+
+{
+  const pedido = pedidoDoCadastro(inicio({ nome: 'Ana Lima', email: 'ana.lima@exemplo.org', whatsapp: '5521987654321', coordenacao: 'Voluntariado', cargo: 'Assistente', papel: 'editor', pedirFicha: true }))
+  const volta = pedidoDoLink(dadosDoLink(pedido, { usuario: 'ana.lima', numeroEmUso: true }))
+  igual(volta, { pedido, usuario: 'ana.lima', numeroEmUso: true }, 'confirmação: o link lido de volta é o pedido gravado')
+  const comFicha = pedidoDoCadastro(inicio({ nome: 'Ana Lima', email: 'a@exemplo.org', daEquipe: { nome: 'Ana Lima', fichaId: FICHA } as CandidatoDaEquipe }))
+  igual([pedidoDoLink(dadosDoLink(comFicha, { usuario: 'ana.lima' })).pedido.fichaId, pedidoDoLink(dadosDoLink(comFicha, { usuario: 'ana.lima' })).pedido.criarFicha], [FICHA, undefined], 'confirmação: a ficha reaproveitada volta (sem criar outra)')
+  const redigido = pedidoDoLink(dadosDoLinkRedigidos(dadosDoLink(pedido, { usuario: 'ana.lima' })))
+  igual([redigido.pedido.email, redigido.pedido.whatsapp], ['', ''], 'confirmação: o link redigido não tem mais contato (o núcleo recusaria: nenhum canal)')
+  igual(pedidoDoLink({ nome: 7, papel: ['admin'], criarFicha: 'sim' }).pedido, { nome: '', email: '', whatsapp: '', papel: '', coordenacao: '', cargo: '', criarFicha: false, pedirFicha: false }, 'confirmação: dados estranhos viram vazio')
+}
+igual(conferirAjustes(null, { usuario: 'ana.lima', papel: 'editor' }), { ok: true, usuario: 'ana.lima', papel: 'editor' }, 'ajustes: sem mudar, os do link')
+igual(conferirAjustes({ usuario: ' @Ana.P ', papel: 'escola' }, { usuario: 'ana.lima', papel: 'editor' }), { ok: true, usuario: 'ana.p', papel: 'escola' }, 'ajustes: o usuário sem o @ e minúsculo')
+igual(conferirAjustes({ papel: 'admin' }, { usuario: 'ana.lima', papel: 'editor' }).ok, false, 'ajustes: administrador recusado')
+contem(JSON.stringify(conferirAjustes({ papel: 'admin' }, { usuario: 'ana.lima', papel: 'editor' })), 'só se dá pela tela', 'ajustes: administrador, pela tela')
+igual(conferirAjustes({ papel: 'dono' }, { usuario: 'ana.lima', papel: 'editor' }), { ok: false, erro: 'Escolha um papel da lista.' }, 'ajustes: papel fora da lista')
+igual(conferirAjustes({ usuario: 'a b' }, { usuario: 'ana.lima', papel: 'editor' }).ok, false, 'ajustes: usuário fora do formato')
+igual(conferirAjustes(null, { usuario: 'ana.lima', papel: 'admin' }).ok, false, 'ajustes: administrador gravado no link também é recusado')
+igual(PAPEIS_DA_CONFIRMACAO.map((p) => p.valor), ['colaborador', 'editor', 'escola'], 'ajustes: a lista da tela não tem administrador')
+contem(textoDoCadastroNaoFeito('Ana Lima', 'e-mail inválido'), 'Não deu para cadastrar *Ana Lima*: e-mail inválido.', 'confirmação: o texto do que não saiu')
+
 // ------------------------------------------------------------------ o código
 
 const ler = (arquivo: string) => readFileSync(join(process.cwd(), arquivo), 'utf8')
@@ -242,6 +269,17 @@ naoContem(doServidor, 'cadastrar(', 'código: o bot não cria conta (o núcleo s
 naoContem(doServidor, 'criarConta', 'código: o bot não cria conta')
 const pagina = ler('lib/whatsapp/confirmar-no-palacio.ts')
 igual((pagina.match(/c\.acao === 'cadastrar_colaborador'/g) ?? []).length >= 3, true, 'código: a página de confirmar nunca cai no ramo de desativar conta com o cadastro')
+contem(pagina, 'return descreverCadastro(admin, c, quem)', 'código: a tela de confirmar descreve o cadastro')
+contem(pagina, 'executarCadastro(createAdminClient(), supabase, c, quem, ajustes)', 'código: confirmar executa pela sessão de quem confirma')
+contem(pagina, 'revalidarContas({ equipe: true })', 'código: depois do cadastro, as telas de contas e a Equipe')
+naoContem(pagina, 'ainda não está ligada', 'código: a trava provisória saiu')
+const confirmarAcao = ler('app/confirmar/[token]/acoes.ts')
+igual(confirmarAcao.indexOf('lerConfirmacao(supabase') < confirmarAcao.indexOf('consumirConfirmacao(admin') && confirmarAcao.indexOf('faltaNaConferencia(supabase, c, quem, conferencia, escolha)') < confirmarAcao.indexOf('consumirConfirmacao(admin')
+  && confirmarAcao.indexOf('consumirConfirmacao(admin') < confirmarAcao.indexOf('executar(supabase, c, quem, conferencia, escolha)'), true, 'código: lê o link e confere antes de gastar; executa só depois de gastar (uso único)')
+contem(ler('app/confirmar/[token]/page.tsx'), 'cadastro={descricao.cadastro}', 'código: a página leva o usuário e o papel para mudar')
+const doConfirmar = ler('lib/whatsapp/colaborador-confirmar.ts')
+contem(doConfirmar, "cadastrar(admin, sessao, p.ambiente, p.pedido, { usuario: p.usuario, semAdmin: true, origem: 'whatsapp' })", 'código: o mesmo núcleo de "Adicionar pessoas", sem administrador')
+naoContem(doConfirmar, 'console.', 'código: nada da confirmação do cadastro vai a log')
 contem(ler('lib/whatsapp/portaria-regras.ts'), "tipo === 'cadastrar_colaborador'", 'código: as perguntas do cadastro não esperam na fila')
 contem(ler('lib/whatsapp/fila.ts'), 'redigirCadastrosEncerrados(admin, { geral: true })', 'código: a faxina roda quando a fila anda')
 contem(ler('lib/whatsapp/assistente/prompt.ts'), '*colaborador:* e o nome completo', 'código: o assistente ensina o comando')
@@ -283,7 +321,13 @@ function clienteDeMentira(responder: (c: Consulta) => Resposta, extra: Record<st
     }
     return q
   }
-  const rpc = async (nome: string) => ({ data: null, error: { code: 'PGRST202', message: `sem ${nome}` } })
+  // As funções do banco respondem pelo `responder` (tabela "rpc:nome"); sem resposta, como se não existissem.
+  const rpc = async (nome: string, args?: unknown) => {
+    const c: Consulta = { tabela: `rpc:${nome}`, op: 'select', valores: args, filtros: [] }
+    consultas.push(c)
+    const r = responder(c)
+    return Object.keys(r).length ? { data: null, error: null, ...r } : { data: null, error: { code: 'PGRST202', message: `sem ${nome}` } }
+  }
   return { cliente: { from, rpc, ...extra }, consultas }
 }
 const filtroDe = (c: Consulta, k: string, op = 'eq') => c.filtros.find((f) => f[0] === op && f[1] === k)?.[2]
@@ -394,11 +438,109 @@ async function servidor() {
       ['00000000-0000-4000-8000-0000000000f1', '00000000-0000-4000-8000-0000000000f1', 'Voluntariado', 'Assistente', 'colaborador'], 'servidor: a ficha é o alvo e vai no pedido')
   }
 
+  // 7) A confirmação no Palácio (lib/whatsapp/colaborador-confirmar.ts): a tela, as conferências antes de gastar e a execução.
+  await noPalacio()
+
   // 6) Antes da migração: o texto de ir à tela, que o bot manda no lugar da pergunta recusada.
   {
     const r = await comecarCadastro(espaco().admin, WS, QUEM, '', BASE)
     contem(r?.semPergunta ?? '', `ainda não está ligado. Cadastre pela tela "Adicionar pessoas": ${BASE}/pessoas/adicionar`, 'servidor: sem a migração, a tela "Adicionar pessoas"')
     igual((r?.pergunta?.dados as DadosDoCadastro | undefined)?.etapa, 'nome', 'servidor: sem o nome, pergunta o nome')
+  }
+}
+
+/** A confirmação no Palácio, contra um banco de mentira (sem rede: o e-mail falha, o WhatsApp do Palácio está desligado). */
+async function noPalacio() {
+  const { descreverCadastro, executarCadastro, faltaNoCadastro } = await import('../lib/whatsapp/colaborador-confirmar')
+  const WS = '00000000-0000-4000-8000-000000000001'
+  const NOVO = '00000000-0000-4000-8000-0000000000c1'
+  const NOVA_FICHA = '00000000-0000-4000-8000-0000000000f9'
+  const QUEM = { userId: '00000000-0000-4000-8000-0000000000a1', workspaceId: WS, papel: 'admin' as const, nome: 'Matheus Macedo' }
+  const link = (m: Partial<DadosDoCadastro> = {}, usuario = 'pedro.alves') => ({
+    id: '00000000-0000-4000-8000-0000000000d1', workspaceId: WS, userId: QUEM.userId, acao: 'cadastrar_colaborador' as const, alvoId: '00000000-0000-4000-8000-0000000000d2',
+    dados: dadosDoLink(pedidoDoCadastro(inicio({ nome: 'Pedro Alves', email: 'pedro.alves@exemplo.org', coordenacao: 'Voluntariado', cargo: 'Assistente', papel: 'editor', ...m })), { usuario }),
+    criadoEm: '2026-10-19T12:00:00Z', expiraEm: '2099-01-01T00:00:00Z', usadoEm: null, resultado: null,
+  })
+
+  function palacio(o: { usados?: string[]; emails?: string[]; fichaLigada?: boolean } = {}) {
+    const criados: unknown[] = []
+    const auth = { admin: {
+      createUser: async (d: unknown) => { criados.push(d); return { data: { user: { id: NOVO } }, error: null } },
+      deleteUser: async () => ({ data: null, error: null }),
+    } }
+    const admin = clienteDeMentira((c) => {
+      if (c.tabela === 'workspaces') return { data: { mfa_obrigatorio_para: [] } }
+      if (c.tabela === 'setores') return { data: SETORES.map((nome, i) => ({ id: `s${i}`, nome, ativo: true })) }
+      if (c.tabela === 'profiles' && c.op === 'select' && filtroDe(c, 'username') !== undefined) return { data: (o.usados ?? []).includes(String(filtroDe(c, 'username'))) ? { id: 'x' } : null }
+      if (c.tabela === 'profiles' && c.op === 'select' && filtroDe(c, 'email') !== undefined) return { data: (o.emails ?? []).includes(String(filtroDe(c, 'email'))) ? { id: 'y' } : null }
+      if (c.tabela === 'profiles' && c.op === 'select' && filtroDe(c, 'username', 'like') !== undefined) return { data: (o.usados ?? []).map((username) => ({ username })) }
+      if (c.tabela === 'profiles' && c.op === 'select') return { data: [] }
+      if (c.tabela === 'equipe_membros') return { data: { id: FICHA, user_id: o.fichaLigada ? 'outro' : null } }
+      if (c.tabela === 'equipe_pessoais') return { data: { telefone_pessoal: '' } }
+      return {}
+    }, { auth })
+    const sessao = clienteDeMentira((c) => (c.tabela === 'rpc:salvar_membro_equipe' ? { data: NOVA_FICHA } : {}))
+    return { admin: admin.cliente as never, sessao: sessao.cliente as never, consultas: admin.consultas, daSessao: sessao.consultas, criados }
+  }
+
+  // A tela: o resumo mascarado, sem usuário e papel nas linhas (vão nos campos), administrador fora da lista.
+  {
+    const e = palacio()
+    const d = await descreverCadastro(e.admin, link(), QUEM)
+    if ('erro' in d) { falhas++; console.log('FALHOU: palácio: a tela deu erro', d.erro) } else {
+      igual([d.titulo, d.botao, d.link, d.cadastro?.usuario, d.cadastro?.papel], ['Cadastrar Pedro Alves', 'Confirmar o cadastro', '/pessoas/adicionar', 'pedro.alves', 'editor'], 'palácio: a tela do cadastro')
+      contem(JSON.stringify(d.linhas), 'p•••s@exemplo.org', 'palácio: o e-mail mascarado na tela')
+      naoContem(JSON.stringify(d), 'pedro.alves@exemplo.org', 'palácio: o e-mail inteiro não aparece')
+      igual(d.linhas.some((l) => l.rotulo === 'Usuário' || l.rotulo === 'Papel'), false, 'palácio: o usuário e o papel vão nos campos para mudar')
+      contem(JSON.stringify(d.linhas), 'Voluntariado', 'palácio: a coordenação no resumo')
+      igual(d.cadastro?.papeis.some((p) => p.valor === 'admin'), false, 'palácio: administrador fora da lista')
+    }
+    const tomado = await descreverCadastro(palacio({ usados: ['pedro.alves'] }).admin, link(), QUEM)
+    igual('erro' in tomado ? tomado.erro : tomado.cadastro?.usuario, 'pedro.alves2', 'palácio: o usuário sugerido tomado no meio-tempo, o próximo livre')
+    const semCoordenacao = await descreverCadastro(palacio().admin, link({ coordenacao: '' }), QUEM)
+    contem(JSON.stringify(semCoordenacao), 'Sem coordenação', 'palácio: "Sem coordenação" vale')
+    const naoGerencia = await descreverCadastro(palacio().admin, link(), { ...QUEM, papel: 'colaborador' })
+    igual('erro' in naoGerencia ? naoGerencia.erro : null, 'Cadastrar colaboradores é só de quem gerencia os usuários.', 'palácio: quem não gerencia usuários não confirma')
+  }
+
+  // Antes de gastar o link: o que não serve volta (e nada é criado).
+  {
+    const e = palacio({ usados: ['pedro.alves'] })
+    igual(await faltaNoCadastro(e.admin, link(), QUEM, { usuario: 'pedro.alves', papel: 'editor' }), 'O usuário @pedro.alves já existe. Escolha outro.', 'antes: usuário em uso')
+    igual(await faltaNoCadastro(e.admin, link(), QUEM, { usuario: 'pedro.a', papel: 'editor' }), null, 'antes: outro usuário, livre, passa')
+    contem(await faltaNoCadastro(e.admin, link(), QUEM, { usuario: 'pedro.a', papel: 'admin' }) ?? '', 'administrador só se dá pela tela', 'antes: administrador recusado')
+    contem(await faltaNoCadastro(palacio({ fichaLigada: true }).admin, link({ daEquipe: { nome: 'Pedro Alves', fichaId: FICHA } as CandidatoDaEquipe }), QUEM, null) ?? '', 'ganhou acesso ao Palácio no meio-tempo', 'antes: a ficha já ganhou login')
+    contem(await faltaNoCadastro(palacio({ emails: ['pedro.alves@exemplo.org'] }).admin, link(), QUEM, null) ?? '', 'já está em uso por outra conta', 'antes: e-mail em uso')
+    // Só WhatsApp, com o WhatsApp do Palácio desligado: nenhum canal para o convite.
+    contem(await faltaNoCadastro(palacio().admin, link({ email: undefined, whatsapp: '5521987654321' }), QUEM, null) ?? '', 'o WhatsApp do Palácio não está ligado: informe o e-mail', 'antes: nenhum canal ligado')
+    igual(e.criados.length, 0, 'antes: nada criado')
+  }
+
+  // A execução pelo núcleo: a conta pela sessão, a auditoria com a origem, o sino de quem pediu e o resultado mascarado.
+  {
+    const e = palacio()
+    const r = await executarCadastro(e.admin, e.sessao, link({ daEquipe: { nome: 'Pedro Alves', fichaId: FICHA } as CandidatoDaEquipe }), QUEM, { usuario: 'pedro.a', papel: 'colaborador' })
+    igual(r.ok, true, 'execução: a conta nasceu')
+    contem(r.mensagem, 'Conta de *Pedro Alves* criada, usuário *@pedro.a*', 'execução: o usuário escolhido na tela')
+    contem(r.mensagem, 'o e-mail (p•••s@exemplo.org) não saiu', 'execução: o e-mail que falhou, dito com honestidade (mascarado)')
+    contem(r.mensagem, 'O convite NÃO saiu', 'execução: sem convite, o caminho para reenviar')
+    naoContem(r.mensagem, 'pedro.alves@exemplo.org', 'execução: o e-mail inteiro não vai ao resultado')
+    const vinculo = e.daSessao.find((c) => c.tabela === 'workspace_members' && c.op === 'insert')?.valores as Record<string, unknown> | undefined
+    igual([vinculo?.role, vinculo?.coordination], ['colaborador', 'Voluntariado'], 'execução: o vínculo pela sessão, com o papel escolhido')
+    igual(e.consultas.some((c) => c.tabela === 'workspace_members'), false, 'execução: o vínculo nunca pelo service role')
+    igual((e.daSessao.find((c) => c.tabela === 'rpc:salvar_membro_equipe')?.valores as { p_id?: string } | undefined)?.p_id, FICHA, 'execução: a ficha do RH reaproveitada ganha o login')
+    const auditoria = e.consultas.find((c) => c.tabela === 'auditoria_de_acesso')?.valores as { acao?: string; detalhes?: Record<string, unknown> } | undefined
+    igual([auditoria?.acao, auditoria?.detalhes?.origem, auditoria?.detalhes?.usuario], ['usuario_criado', 'whatsapp', 'pedro.a'], 'execução: a auditoria de sempre, com a origem')
+    const sino = e.consultas.find((c) => c.tabela === 'notifications' && c.op === 'insert')?.valores as Record<string, unknown>[] | undefined
+    igual([sino?.[0]?.user_id, sino?.[0]?.title], [QUEM.userId, 'Conta de Pedro Alves criada pelo WhatsApp do Palácio'], 'execução: o sino de quem pediu')
+    naoContem(String(sino?.[0]?.message), '*', 'execução: o sino sem a marcação do WhatsApp')
+    naoContem(String(sino?.[0]?.message), 'pedro.alves@exemplo.org', 'execução: o sino sem o e-mail inteiro')
+    const semCanal = palacio()
+    const r2 = await executarCadastro(semCanal.admin, semCanal.sessao, link({ email: undefined, whatsapp: '5521987654321' }), QUEM, null)
+    igual([r2.ok, semCanal.criados.length], [false, 0], 'execução: sem canal, nada é criado')
+    const comAdmin = palacio()
+    const r3 = await executarCadastro(comAdmin.admin, comAdmin.sessao, link({ papel: 'admin' }), QUEM, null)
+    igual([r3.ok, comAdmin.criados.length], [false, 0], 'execução: administrador no link, nada é criado')
   }
 }
 

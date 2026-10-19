@@ -142,6 +142,15 @@ select ok((select not (dados ? 'email') and not (dados ? 'whatsapp') from public
 insert into public.whatsapp_confirmacoes (workspace_id, user_id, acao, alvo_id, dados, token_hash, expira_em, criado_em)
   values (:'ws', :'admin', 'cadastrar_colaborador', gen_random_uuid(), pg_temp.dados(), repeat('f', 64), now() - interval '1 minute', now() - interval '16 minutes');
 select ok((select dados ? 'email' from public.whatsapp_confirmacoes where token_hash = repeat('f', 64)), 'vencido sem uso: a faxina do servidor é que redige');
+-- A gravação da faxina (lib/whatsapp/colaborador-faxina.ts, dadosDoLinkRedigidos), pelo serviço: nenhuma restrição recusa.
+select lives_ok($$update public.whatsapp_confirmacoes set dados = (dados - 'email' - 'whatsapp') || '{"redigida": true}'::jsonb
+                   where acao = 'cadastrar_colaborador' and usado_em is null and expira_em < now() and dados ->> 'redigida' is null$$,
+                'a faxina do link vencido grava pelo serviço');
+select ok((select not (dados ? 'email') and not (dados ? 'whatsapp') and dados ->> 'nome' = 'Ana Paula Lima' and usado_em is null
+             from public.whatsapp_confirmacoes where token_hash = repeat('f', 64)), 'vencido, depois da faxina: sem o contato, o resto fica para o histórico');
+with u as (update public.whatsapp_confirmacoes set usado_em = now()
+            where token_hash = repeat('f', 64) and usado_em is null and expira_em > now() returning 1)
+select is((select count(*)::int from u), 0, 'o link vencido continua sem uso possível');
 
 -- Os outros links não passam pelo trigger.
 update public.whatsapp_confirmacoes set usado_em = now() where token_hash = repeat('e', 64);
