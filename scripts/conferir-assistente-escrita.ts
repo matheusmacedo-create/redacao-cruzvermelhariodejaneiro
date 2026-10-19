@@ -134,6 +134,8 @@ function tabelaDoTurno(): { tabela: TabelaDeMarcadores; itens: Record<string, It
 }
 igual(Object.keys(tabelaDoTurno().itens), ['apr_1', 'apr_2', 'pes_3', 'apr_4', 'pes_5', 'pes_6', 'cha_7', 'fil_8', 'ass_9', 'vis_10', 'avi_11', 'pes_12'], 'mundo: os marcadores do turno')
 
+/** O relógio dos preparos (o "marcar todos como lidos" guarda a hora do preparo). */
+const HORA_DO_PREPARO = Date.parse('2026-10-19T14:30:00Z')
 type OpcoesDoPreparador = { podeAgir?: boolean; noPalacio?: boolean; escrita?: boolean; recente?: boolean; mensagensDia?: number; rascunho?: Rascunho; mundo?: Mundo }
 function preparadorDe(o: OpcoesDoPreparador = {}) {
   const { tabela, itens } = tabelaDoTurno()
@@ -141,7 +143,7 @@ function preparadorDe(o: OpcoesDoPreparador = {}) {
   const mundo = o.mundo ?? mundoNovo()
   const p = criarPreparador({
     fonte: fonteDe(mundo), tabela, rascunho, pessoaId: EU, podeAgir: o.podeAgir ?? true, noPalacio: o.noPalacio ?? false, escrita: o.escrita ?? true, recente: o.recente ?? true, base: BASE,
-    mensagensDia: o.mensagensDia ?? 10, rotuloDe: (m) => itens[m]?.rotulo ?? null,
+    mensagensDia: o.mensagensDia ?? 10, rotuloDe: (m) => itens[m]?.rotulo ?? null, relogio: () => HORA_DO_PREPARO,
   })
   return { ...p, rascunho, mundo, itens, tabela }
 }
@@ -198,7 +200,7 @@ async function conferirPreparos() {
     igual(comentario.ok ? 'passou' : comentario.link, `${BASE}/chamados/${CHAMADO}`, 'preparo 2FA: o comentário fica de fora, com o link do chamado')
     igual(p.links.map((l) => l.href), [`/aprovacoes/${APR_A}`, `/mensagens/pessoa/${DANIEL}`, `/chamados/${CHAMADO}`], 'preparo 2FA: os links vão para a resposta em texto')
     const lidos = await p.preparar('preparar_marcar_avisos_lidos', { escopo: 'todos', avisos: [] })
-    igual(lidos.ok && lidos.passo, { acao: 'marcar_lidos', avisoIds: 'todos', quantos: 7, isento: true }, 'preparo 2FA: marcar lidos é isento')
+    igual(lidos.ok && lidos.passo, { acao: 'marcar_lidos', avisoIds: 'todos', ate: '2026-10-19T14:30:00.000Z', quantos: 7, isento: true }, 'preparo 2FA: marcar lidos é isento (todos os sem ler até a hora do preparo)')
     const chamado = await p.preparar('preparar_chamado', { fila: 'fil_8', assunto: 'ass_9', relato: 'A impressora parou de novo', local: '3º andar', urgencia: 3 })
     igual(chamado.ok, true, 'preparo 2FA: abrir chamado é isento')
     const visita = await p.preparar('preparar_resposta_a_visita', { visita: 'vis_10', resposta: 'subir', recado: '' })

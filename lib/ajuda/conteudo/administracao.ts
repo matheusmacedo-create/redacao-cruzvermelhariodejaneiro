@@ -695,6 +695,7 @@ const CONFIGURACOES: GuiaDaArea = {
         'Com o cliente OAuth do Google já em “Integrações” (o mesmo do e-mail dos setores), abra Configurações › E-mail dos setores e desça até “6. Google Drive”.',
         'Toque em “Conectar Google Drive” e entre com a conta Google da filial (hoje, a do contato@). O Google pede uma permissão só: ver e guardar os arquivos que o Palácio criar.',
         'De volta ao Palácio, o cartão mostra “Ativa”, a conta conectada e o link da pasta “Palácio – Arquivos”, que já nasce no Meu Drive dessa conta.',
+        'No Google Drive da conta conectada, abra “Palácio – Arquivos”, toque em “Compartilhar” e dê acesso à equipe (o grupo ou o domínio da filial; ou, quando as pastas dos setores existirem, cada uma com o seu setor). O que o Palácio cria lá dentro herda o acesso; sem isso, o link que o WhatsApp devolve e o da ficha do envio só abrem para a conta conectada.',
         'Pronto: os envios que chegam pelo WhatsApp passam a ser copiados para “Envios do WhatsApp”, e a equipe guarda documentos pelo WhatsApp nas pastas dos setores.',
       ],
       dica: 'Se a autorização vencer, os administradores recebem um alerta de integração e o cartão pede “Reconectar”. Desconectar para as cópias, mas o que já está no Drive continua lá. Não revogue o acesso em myaccount.google.com se o e-mail dos setores usa a mesma conta: lá a revogação derruba todas as conexões do Palácio.',
@@ -847,8 +848,14 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'o-que-vai-para-o-drive',
       pergunta: 'O que o Palácio guarda no Google Drive, e o que ele enxerga lá?',
-      resposta: 'Tudo fica dentro da pasta “Palácio – Arquivos”, no Drive da conta conectada. Em “Envios do WhatsApp/AAAA-MM/título do envio” cai a cópia de cada envio de fotos e vídeos que chegou pelo WhatsApp, com a autorização de imagem na descrição de cada arquivo; a ficha do envio ganha o link “Cópia no Google Drive”. Nas pastas dos setores ficam os documentos que a equipe guarda pelo WhatsApp: cada pessoa só na pasta do próprio setor (o nome do setor no Palácio), e quem administra em qualquer lugar.\n\nA permissão é a menor que o Google oferece: o Palácio vê e mexe só no que ele mesmo criou. O resto do Drive da conta continua invisível para ele, e nada é apagado por ele.',
+      resposta: 'Tudo fica dentro da pasta “Palácio – Arquivos”, no Drive da conta conectada. Em “Envios do WhatsApp/AAAA-MM/título do envio (ENV-…)” cai a cópia de cada envio de fotos e vídeos que chegou pelo WhatsApp, com a autorização de imagem na descrição de cada arquivo; a ficha do envio ganha o link “Cópia no Google Drive”. Nas pastas dos setores ficam os documentos que a equipe guarda pelo WhatsApp: cada pessoa só na pasta do próprio setor (o nome do setor no Palácio), e quem administra em qualquer lugar.\n\nA permissão é a menor que o Google oferece: o Palácio vê e mexe só no que ele mesmo criou. O resto do Drive da conta continua invisível para ele, e nada é apagado por ele.',
       termos: ['google drive', 'drive', 'pasta', 'palácio – arquivos', 'cópia dos envios', 'drive.file', 'documentos'],
+    },
+    {
+      id: 'link-do-drive-pede-acesso',
+      pergunta: 'O link do Google Drive pede “Solicitar acesso”. O que fazer?',
+      resposta: 'O que o Palácio cria no Drive nasce privado da conta conectada: o link que o WhatsApp devolve e o da ficha do envio só abrem para quem tem acesso à pasta. No Google Drive dessa conta, abra “Palácio – Arquivos”, toque em “Compartilhar” e dê acesso à equipe (o grupo ou o domínio da filial, ou a pasta de cada setor com o seu setor). O que nasce lá dentro herda o acesso.',
+      termos: ['solicitar acesso', 'compartilhar', 'permissão', 'link não abre', 'google drive', 'acesso negado'],
     },
     {
       id: 'autorizacao-expirou',
@@ -1052,7 +1059,7 @@ const WHATSAPP: GuiaDaArea = {
     {
       id: 'comandos-de-administrador',
       pergunta: 'Dá para conferir o WhatsApp do Palácio pelo próprio WhatsApp?',
-      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: vêm a conexão com a Kapso, o recebimento, a fila, as conversas iniciadas em 24 horas (a cota diária), as falhas de envio de 24 horas por motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google expiradas, o Google Drive, a última leitura de cada conta da Escola (Únicopag e Meta: em dia, atrasada ou com o erro) e a última conferência diária.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas esperam.\n\nOs dois aparecem no “menu” só de administrador; para os outros, o bot responde que não entendeu. Ficam em “Últimas mensagens” como os demais.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja “Confirme no Palácio”).',
+      resposta: 'Dá, para administradores com o WhatsApp confirmado em “Meu perfil”. Mande “status” ao número do Palácio: vêm a conexão com a Kapso, o recebimento, a fila, as conversas iniciadas em 24 horas (a cota diária), as falhas de envio de 24 horas por motivo, as integrações sem chave (só quais, nunca as chaves), as contas Google expiradas, o Google Drive, o assistente (o modo e os números de hoje), a última leitura de cada conta da Escola (em dia, atrasada ou com o erro) e a última conferência diária.\n\n“fila” faz a fila andar na hora, como “Enviar a fila agora”, e diz quantas saíram e quantas esperam.\n\nOs dois aparecem no “menu” só de administrador; para os outros, o bot responde que não entendeu. Ficam em “Últimas mensagens” como os demais.\n\nQuem gerencia os usuários também manda “desativar conta:” e o nome ou o usuário: chega o link para confirmar no Palácio (veja “Confirme no Palácio”).',
       termos: ['status', 'fila', 'comandos de administrador', 'diagnóstico', 'saúde do whatsapp', 'bot', 'sincronização da escola', 'únicopag'],
     },
     {
@@ -1075,9 +1082,15 @@ const WHATSAPP: GuiaDaArea = {
     },
     {
       id: 'assistente-do-whatsapp',
-      pergunta: 'O que o assistente do WhatsApp faz, e quanto custa?',
-      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas, a Central de ajuda e as áreas que ela abre (Financeiro, frota, estoque, portaria). Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp (ou respondeu “Não fui eu”), o assistente para naquele número até a pessoa confirmar o número de novo.\n\nCada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos; chave recusada ou modelo inexistente viram alerta de integração. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
-      termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'anthropic', 'custo', 'teto', 'piloto', 'linguagem natural'],
+      pergunta: 'O que o assistente do WhatsApp faz?',
+      resposta: 'Ligado, ele responde a quem escreve do próprio jeito, consultando o Palácio com as permissões da pessoa: avisos, aprovações, chamados, agenda, colegas, a Central de ajuda e as áreas que ela abre (Financeiro, frota, estoque, portaria). Quem usa a verificação em duas etapas, ou não confirma o número nem entra no Palácio há muito tempo, só lê o que é seu. Trocou o nome de perfil do WhatsApp (ou respondeu “Não fui eu”), o assistente para naquele número até a pessoa confirmar o número de novo: em “Meu perfil”, no WhatsApp, ela toca em “Trocar número” e confirma o mesmo número.',
+      termos: ['assistente', 'inteligência artificial', 'ia', 'claude', 'piloto', 'linguagem natural', 'parou no número', 'trocar número'],
+    },
+    {
+      id: 'quanto-custa-o-assistente',
+      pergunta: 'Quanto custa o assistente do WhatsApp, e o que acontece se a Anthropic falhar?',
+      resposta: 'Cada conversa custa uns poucos centavos de dólar. Os tetos ficam no cartão; aos 80% e aos 100% do teto do espaço, os administradores são avisados. Se a Anthropic falha três vezes em 10 minutos, ele pausa sozinho por 10 minutos; chave recusada, falta de crédito na Anthropic ou modelo inexistente pausam o assistente e viram alerta de integração. Nada do que se escreve fica guardado: só o comando e os números de uso, que o comando “status” também mostra.',
+      termos: ['assistente', 'anthropic', 'custo', 'teto', 'crédito', 'pausado', 'alerta de integração'],
     },
     {
       id: 'assistente-faz-acoes',

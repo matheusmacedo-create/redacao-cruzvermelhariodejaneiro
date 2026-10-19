@@ -178,9 +178,18 @@ export function decidirWhatsapp(p: {
 export const semInvisiveis = (texto: string): string =>
   String(texto ?? '').split(/([ºª…])/).map((p) => (p === 'º' || p === 'ª' || p === '…' ? p : p.normalize('NFKC'))).join('').replace(/\p{Cf}/gu, '')
 
-/** Tira o que o WhatsApp leria como formatação (*negrito*, _itálico_…), os controles e os invisíveis (semInvisiveis). */
+/**
+ * Só os invisíveis que enganam a leitura (a inversão de direção U+202A–202E e U+2066–2069, as marcas de direção, o
+ * espaço de largura zero, o hífen invisível, o U+FEFF…), sem o NFKC: o emoji composto (🤦‍♀️, 🏳️‍🌈, com o U+200D),
+ * a bandeira com os caracteres de tag, o m² e o ½ ficam como estão. É o de limpo (os textos de todo dia do bot);
+ * a comparação e os nomes do assistente usam semInvisiveis inteiro.
+ */
+const semInvisiveisDeRisco = (texto: string): string =>
+  String(texto ?? '').replace(/[­؜​‎‏‪-‮⁠-⁤⁦-⁩﻿]/g, '')
+
+/** Tira o que o WhatsApp leria como formatação (*negrito*, _itálico_…), os controles e os invisíveis que enganam (semInvisiveisDeRisco). */
 export const limpo = (texto: string, max: number) =>
-  semInvisiveis(texto).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').replace(/[*_~`]/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
+  semInvisiveisDeRisco(texto).replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '').replace(/[*_~`]/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
 
 export const primeiroNome = (nome: string | null | undefined) => String(nome ?? '').trim().split(/\s+/)[0] || ''
 

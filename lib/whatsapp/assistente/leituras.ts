@@ -24,7 +24,7 @@ import type { ResultadoDaLeitura } from './laco'
 import type { NivelDeLeitura } from './uso'
 import type { Passo } from './regras'
 import { diaCurto, diaEHora, haQuanto, type AvisoNoContexto, type DadosDoContexto, type ItemNoContexto } from './prompt'
-import { LIMITES, TEXTOS_FIXOS, dadoDeTerceiro, rotuloDaPessoa, umaLinha, type ItemCitavel, type NomeDaFerramenta } from './regras'
+import { LIMITES, TEXTOS_FIXOS, dadoDeTerceiro, rotuloDaPessoa, temHomonimo, textoDeArea, umaLinha, type ItemCitavel, type NomeDaFerramenta } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -116,15 +116,6 @@ export async function lerQuadroDePessoas(admin: Admin, workspaceId: string): Pro
 export function quadroDePessoas(t: TurnoDeLeitura): Promise<Map<string, PessoaDoQuadro>> {
   t.quadro ??= lerQuadroDePessoas(t.admin, t.workspaceId)
   return t.quadro
-}
-
-/** Há outra pessoa ativa com o mesmo nome no espaço? (o ⚠ do rótulo) */
-export function temHomonimo(quadro: Map<string, PessoaDoQuadro>, id: string): boolean {
-  const eu = quadro.get(id)
-  if (!eu) return false
-  const nome = normalizar(semInvisiveis(eu.nome))
-  for (const [outro, p] of quadro) if (outro !== id && p.ativo && normalizar(semInvisiveis(p.nome)) === nome) return true
-  return false
 }
 
 /** O marcador de uma pessoa do espaço, com o rótulo "Nome (@usuário · Setor)" e o ⚠ de homônimo. */
@@ -368,10 +359,10 @@ async function lerFilas(t: TurnoDeLeitura): Promise<ResultadoDaLeitura> {
     ? await t.admin.from('chamado_categorias').select('id, nome, pede_local, fila_id').eq('workspace_id', t.workspaceId).in('fila_id', ids).eq('ativa', true).order('ordem').limit(60)
     : { data: [] }
   const itens = (filas ?? []).map((f) => ({
-    fila: emitir(t, 'fila', f.id as string, umaLinha(String(f.nome ?? ''), 60), null), nome: dadoDeTerceiro(f.nome as string, 60),
+    fila: emitir(t, 'fila', f.id as string, dadoDeTerceiro(f.nome as string, 60), null), nome: dadoDeTerceiro(f.nome as string, 60),
     ...(f.descricao ? { descricao: dadoDeTerceiro(f.descricao as string, 120) } : {}),
     assuntos: (assuntos ?? []).filter((a) => a.fila_id === f.id).slice(0, 9).map((a) => ({
-      assunto: emitir(t, 'assunto', a.id as string, umaLinha(String(a.nome ?? ''), 60), null), nome: dadoDeTerceiro(a.nome as string, 60), pede_local: Boolean(a.pede_local),
+      assunto: emitir(t, 'assunto', a.id as string, dadoDeTerceiro(a.nome as string, 60), null), nome: dadoDeTerceiro(a.nome as string, 60), pede_local: Boolean(a.pede_local),
     })),
   }))
   return resultado({}, { chave: 'filas', itens })
@@ -416,16 +407,6 @@ function buscarAjuda(t: TurnoDeLeitura, pergunta: string): ResultadoDaLeitura {
   for (const a of achados) if (!t.ajuda.some((x) => x.href === a.href)) t.ajuda.push({ titulo: a.titulo, href: a.href })
   if (!achados.length) return ok({ trechos: [], aviso: 'Nada na Central de ajuda com essas palavras.' })
   return resultado({}, { chave: 'trechos', itens: achados.map((a) => ({ titulo: dadoDeTerceiro(a.titulo, 120), trecho: dadoDeTerceiro(a.trecho, 280) })) })
-}
-
-/**
- * O texto de um comando fixo de área (o "status", a frota, o estoque, a portaria) como vai ao modelo: sem nenhum
- * endereço (os links vêm do código, na resposta final), cada linha como dado de terceiro (nomes de visitantes,
- * materiais e veículos foram escritos por alguém).
- */
-function textoDeArea(texto: string): string {
-  return semInvisiveis(texto).replace(/https?:\/\/\S+/gi, '').replace(/(^|\s)\/[a-z0-9/_?=&#.-]+/gi, '$1')
-    .split('\n').map((l) => dadoDeTerceiro(l, 240)).filter(Boolean).join('\n').slice(0, LIMITES.caracteresNoResultado - 60)
 }
 
 const FORA_DO_ACESSO = 'Isso fica fora do acesso desta pessoa; só pelo Palácio.'
@@ -588,12 +569,12 @@ async function rotulosDosMarcadores(t: TurnoDeLeitura, marcadores: string[]): Pr
     (async () => {
       if (!ids('fila').length) return
       const { data } = await t.admin.from('chamado_filas').select('id, nome').eq('workspace_id', ws).in('id', ids('fila'))
-      for (const f of data ?? []) emitir(t, 'fila', f.id as string, umaLinha(String(f.nome ?? ''), 60), null)
+      for (const f of data ?? []) emitir(t, 'fila', f.id as string, dadoDeTerceiro(f.nome as string, 60), null)
     })(),
     (async () => {
       if (!ids('assunto').length) return
       const { data } = await t.admin.from('chamado_categorias').select('id, nome').eq('workspace_id', ws).in('id', ids('assunto'))
-      for (const a of data ?? []) emitir(t, 'assunto', a.id as string, umaLinha(String(a.nome ?? ''), 60), null)
+      for (const a of data ?? []) emitir(t, 'assunto', a.id as string, dadoDeTerceiro(a.nome as string, 60), null)
     })(),
   ])
   return marcadores.filter((m) => t.itens[m]).map((m) => ({ marcador: m, rotulo: t.itens[m].rotulo }))
@@ -608,8 +589,8 @@ async function linhasDoPlanoEmRevisao(t: TurnoDeLeitura, passos: Passo[]): Promi
     if (p.acao === 'votar') return `votar ${p.decisao === 'approved' ? 'aprovado' : 'pedir ajustes'} [${emitir(t, 'aprovacao', p.aprovacaoId, tituloEntreAspas(p.titulo), `/aprovacoes/${p.aprovacaoId}`)}]`
     if (p.acao === 'mensagem_direta') return `mensagem para [${await marcadorDaPessoa(t, p.paraId) ?? 'alguém'}]: “${dadoDeTerceiro(p.texto, 200)}”`
     if (p.acao === 'comentar_chamado') return `comentar no chamado [${emitir(t, 'chamado', p.chamadoId, `${umaLinha(p.codigo, 20)} ${tituloEntreAspas(p.titulo)}`, `/chamados/${p.chamadoId}`)}]: “${dadoDeTerceiro(p.texto, 200)}”`
-    if (p.acao === 'abrir_chamado') return `abrir chamado em [${emitir(t, 'fila', p.filaId, p.filaNome, null)}] · [${emitir(t, 'assunto', p.categoriaId, p.categoriaNome, null)}], urgência ${p.urgencia}: “${dadoDeTerceiro(p.relato, 200)}”`
-    if (p.acao === 'responder_visita') return `responder à portaria [${emitir(t, 'visita', p.visitaId, `visita de ${p.visitante}`, linkDaVisita(p.visitaId))}]: ${p.resposta}`
+    if (p.acao === 'abrir_chamado') return `abrir chamado em [${emitir(t, 'fila', p.filaId, dadoDeTerceiro(p.filaNome, 60), null)}] · [${emitir(t, 'assunto', p.categoriaId, dadoDeTerceiro(p.categoriaNome, 60), null)}], urgência ${p.urgencia}: “${dadoDeTerceiro(p.relato, 200)}”`
+    if (p.acao === 'responder_visita') return `responder à portaria [${emitir(t, 'visita', p.visitaId, `visita de ${dadoDeTerceiro(p.visitante, 80)}`, linkDaVisita(p.visitaId))}]: ${p.resposta}`
     if (p.acao === 'responder_chat') return `responder no canal #${dadoDeTerceiro(p.canalNome, 60)}: “${dadoDeTerceiro(p.texto, 200)}”`
     if (p.acao === 'atender_chamado') {
       const chamado = `[${emitir(t, 'chamado', p.chamadoId, `${umaLinha(p.codigo, 20)} ${tituloEntreAspas(p.titulo)}`, `/chamados/${p.chamadoId}`)}]`

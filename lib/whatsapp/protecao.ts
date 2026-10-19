@@ -130,11 +130,20 @@ async function perguntaDoNumero(admin: Admin, workspaceId: string, numero: strin
   return { id: data.id as number, userId: data.user_id as string, aberta, criadoEm: data.criado_em as string, aviso: typeof aviso === 'string' ? aviso : null }
 }
 
-/** A pessoa tem outra pergunta aberta, feita depois desta (a conferência de um voto, um chamado em etapas)? */
+/**
+ * A pessoa tem outra pergunta aberta, feita depois desta (a conferência de um voto, um chamado em etapas, ou o plano
+ * ou a pergunta do assistente: o "confirmo" do plano que chegou depois é dele)? Sem a tabela do assistente (migração
+ * ainda não aplicada), a consulta dela falha e só as perguntas do bot contam.
+ */
 async function temPerguntaMaisNova(admin: Admin, workspaceId: string, userId: string, desde: string): Promise<boolean> {
-  const { data } = await admin.from('whatsapp_pendencias').select('id').eq('workspace_id', workspaceId).eq('user_id', userId)
-    .is('encerrada_em', null).gt('expira_em', new Date().toISOString()).neq('tipo', 'nao_fui_eu').gt('criado_em', desde).limit(1).maybeSingle()
-  return Boolean(data)
+  const agora = new Date().toISOString()
+  const [{ data }, { data: doAssistente }] = await Promise.all([
+    admin.from('whatsapp_pendencias').select('id').eq('workspace_id', workspaceId).eq('user_id', userId)
+      .is('encerrada_em', null).gt('expira_em', agora).neq('tipo', 'nao_fui_eu').gt('criado_em', desde).limit(1).maybeSingle(),
+    admin.from('whatsapp_ia_planos').select('id').eq('workspace_id', workspaceId).eq('user_id', userId)
+      .in('situacao', ['pergunta', 'aberto', 'em_revisao']).gt('criado_em', desde).gt('expira_em', agora).limit(1).maybeSingle(),
+  ])
+  return Boolean(data || doAssistente)
 }
 
 /**

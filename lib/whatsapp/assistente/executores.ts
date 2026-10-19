@@ -13,10 +13,10 @@ import { assumirChamado } from '../atendimento'
 import { gravarEntrada } from '../portaria'
 import { documentoEsperando, guardarDocumento, ondeGuarda } from '../drive'
 import { tituloDoRelato } from '../regras'
-import { lerQuadroDePessoas, temHomonimo, type PessoaDoQuadro } from './leituras'
+import { lerQuadroDePessoas, type PessoaDoQuadro } from './leituras'
 import { acoesDeHoje } from './uso'
 import type { FonteDosPreparos } from './preparos'
-import { registroDaConferenciaDoPlano, type Passo, type ResultadoDaAcao } from './regras'
+import { registroDaConferenciaDoPlano, temHomonimo, type Passo, type ResultadoDaAcao } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -258,9 +258,10 @@ export async function executarPasso(passo: Passo, canal: CanalDoPasso, ctx: Cont
       if (r.ok) await registrarPasso(admin, ctx, canal.via, 'chat', { tipo: 'chat_canal', id: passo.canalId })
       return semLinkNoFim(r)
     }
-    // Marcar como lidos: só os avisos da própria pessoa (todos os sem ler, ou os do plano).
+    // Marcar como lidos: só os avisos da própria pessoa (os do plano, ou todos os sem ler que já existiam no preparo).
     let q = admin.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', pessoa.id).eq('workspace_id', workspaceId).is('read_at', null)
     if (passo.avisoIds !== 'todos') q = q.in('id', passo.avisoIds)
+    else if (passo.ate) q = q.lte('created_at', passo.ate)
     const { error } = await q
     if (error) return { ok: false, codigo: 'erro', texto: 'Não foi possível marcar os avisos como lidos.' }
     await registrarPasso(admin, ctx, canal.via, 'lidos', { tipo: 'notificacao', id: null })

@@ -97,6 +97,10 @@ contem(aviso, '*Pedido de aprovação*', 'título em negrito, sem o * de dentro'
 contem(aviso, '> linha 1\n> linha 2', 'citação')
 contem(aviso, 'Abrir: https://palacio.x/aprovacoes', 'link')
 contem(textoDoAviso({ urlBase: 'https://palacio.x', titulo: 't', mensagem: 'm', link: null }), 'https://palacio.x/notificacoes', 'sem link vai ao sino')
+// O emoji composto (U+200D), a bandeira com tags, o m² e o ½ ficam; só os invisíveis que enganam (U+202E, U+200B) saem.
+const avisoComEmoji = textoDoAviso({ urlBase: 'https://palacio.x', titulo: 'Piso de 10 m² 🤦‍♀️', mensagem: 'Ficou ½ pronto 🏳️‍🌈 🏴󠁧󠁢󠁳󠁣󠁴󠁿 a‮b​c', link: null })
+contem(avisoComEmoji, '*Piso de 10 m² 🤦‍♀️*', 'aviso: o emoji composto e o m² ficam como estão')
+contem(avisoComEmoji, 'Ficou ½ pronto 🏳️‍🌈 🏴󠁧󠁢󠁳󠁣󠁴󠁿 abc', 'aviso: a bandeira fica; a inversão de direção e o espaço de largura zero saem')
 
 // ---------------------------------------------------------------- webhook (o payload da Kapso tem os casos mais abaixo)
 const mensagem = lerEventoDaKapso({ message: { id: 'ABC123', type: 'text', from: '552187654321', text: { body: 'Oi' } }, phone_number_id: '1401089659754587' }, 'whatsapp.message.received', '1401089659754587')

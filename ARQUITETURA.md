@@ -1700,7 +1700,11 @@ Admin do Google, um administrador gera um link e a pessoa cria a própria.
 Uma pasta só, "Palácio – Arquivos", no Drive da conta Google da filial (hoje a do
 contato@, a mesma do Gmail e da conta de administrador), onde o Palácio guarda a
 cópia dos envios que chegam pelo WhatsApp e os documentos que a equipe guarda por
-lá (§8.5). Sem o Drive conectado (ou sem a migração), nada muda.
+lá (§8.5). Sem o Drive conectado (ou sem a migração), nada muda. O Palácio não grava
+permissão nenhuma: o que ele cria nasce privado da conta conectada, e a administração
+compartilha "Palácio – Arquivos" com a equipe no Google Drive (o que nasce dentro herda o
+acesso) — sem isso, o link que o WhatsApp devolve e o da ficha do envio só abrem para
+essa conta. A ajuda ("Conectar o Google Drive da filial") e o cartão dizem isso.
 - **Conexão própria, no padrão da de administrador** (`google_drive_conexao` +
   chave `google_drive` no cofre, oculta em `SERVICOS`; `/api/google/conectar-drive`,
   mesma volta `/api/google/retorno` com `state` começando em `drive.`). Escopo
@@ -2594,10 +2598,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     `fila.ts` (`entregar(…, { semFila })`: a resposta do assistente nunca espera na fila; o texto da categoria
     `assistente` some da fila depois do envio); `servidor.ts` (`registrar` grava `enviada_em`);
     `confirmacao.ts` (a confirmação grava o nome de perfil visto e zera a suspensão); `regras.ts`
-    (`semInvisiveis` em `limpo` — NFKC e sem `\p{Cf}`, guardando º, ª e … —, `lerPedido` com `assistente`: os
-    comandos que escrevem só pela frase exata, consultas em até 3 palavras, o menu só com saudação pura,
-    "chamado" só com os dois-pontos; `textoDoMenu` com a linha "Ou escreva do seu jeito"); `lib/ia/anthropic.ts`
-    (`modeloDoAssistente` = `WHATSAPP_IA_MODELO` ou `claude-opus-5-5`, `esforcoDoAssistente` =
+    (`semInvisiveis` — NFKC e sem `\p{Cf}`, guardando º, ª e … — nas comparações e nos nomes do assistente;
+    `limpo` tira só os invisíveis que enganam, sem NFKC: o emoji composto, a bandeira e o m² dos avisos ficam;
+    `lerPedido` com `assistente`: os comandos que escrevem só pela frase exata, consultas em até 3 palavras, o menu
+    só com saudação pura, "chamado" só com os dois-pontos; `textoDoMenu` com a linha "Ou escreva do seu jeito");
+    `lib/ia/anthropic.ts` (`modeloDoAssistente` = `WHATSAPP_IA_MODELO` ou `claude-opus-5-5`, `esforcoDoAssistente` =
     `WHATSAPP_IA_ESFORCO` ou `low`, `ttlDoCacheDoAssistente` = `WHATSAPP_IA_CACHE_TTL` ou `1h`,
     `clienteDoClaude`, `traduzirErro` com a variável certa no 404).
   - **Migração `20261019010000` (só acrescenta):** `whatsapp_mensagens.enviada_em`;
@@ -2664,8 +2669,10 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     "avisos" e "aprovações" entram na memória curta; o menu ganha a linha "Ou escreva do seu jeito".
   - **Cotas, registro e disjuntor** (`uso.ts`): uma linha de `whatsapp_ia_uso` por turno, gravada a cada chamada
     (tokens, cache, custo por iteração do recuo, modelo, nomes das ferramentas, leituras de detalhe, ms, desfecho,
-    classe do erro — nunca texto); 3 falhas de fora em 10 min pausam 10 min; chave recusada ou modelo inexistente
-    pausam 30 min e avisam a administração (sino e e-mail, uma vez por dia — conferido pelos próprios avisos).
+    classe do erro — nunca texto); 3 falhas de fora (ou 400 que se repetem: `ERROS_DO_DISJUNTOR`) em 10 min pausam
+    10 min; chave recusada, cobrança recusada (402, sem crédito: `BillingError`, o SDK não tem classe própria) ou
+    modelo inexistente pausam 30 min e avisam a administração (sino e e-mail, uma vez por dia — conferido pelos
+    próprios avisos).
   - **Configurações → WhatsApp, cartão "Assistente"** (`components/admin/whatsapp-assistente.tsx`, só para quem tem
     `integracoes.configurar`; as actions começam com `requirePermissao`): modo, piloto (pessoas da equipe, até 50),
     escrita, os tetos e os números de hoje (conversas, gasto, % com cache, recusas, erros); "Retomar agora" tira a
@@ -2786,8 +2793,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     ao assistente (`rotaDaMensagem` com `audio`): nada de comando fixo, pergunta do bot, resposta direta a aviso ou à
     portaria, plano do Chat; o "confirmo" ou "sim" falado recebe "Áudio não confirma plano" (`ia_audio_nao_confirma`).
     A resposta começa pelo eco "_Entendi do áudio:_ “…”" (`textoDoEcoDoAudio`). Sem o assistente, o áudio é o de antes.
-  - **Alertas de integração:** chave recusada ou modelo inexistente pausam o assistente e viram o alerta `claude`
-    (`lib/integracoes/alertas.ts`, categoria `integracoes`, um a cada 6 h, também pelo WhatsApp).
+  - **Alertas de integração:** chave recusada, falta de crédito (402) ou modelo inexistente pausam o assistente e
+    viram o alerta `claude` (`lib/integracoes/alertas.ts`, categoria `integracoes`, um a cada 6 h, também pelo WhatsApp).
   - **Cota:** a da onda 2 é a das conversas que a Meta deixa o número começar (fora da janela); as respostas do
     assistente são respostas do bot dentro da janela e não entram nela — não houve o que unificar.
   - **Cartão:** a linha "Confirmação no Palácio" diz se a migração B foi aplicada; o texto das ações lista o que o
@@ -2814,6 +2821,35 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     no Palácio (dois cliques executam uma vez; matéria mudada não recebe voto; plano vencido, de outra pessoa ou com
     o assistente desligado não executa; "cancelar" alcança o plano no Palácio), os preparos novos e a revalidação
     deles, e os imports (o executor do WhatsApp não puxa o Financeiro; a rota não puxa `palacio.ts`).
+- **Assistente do Palácio no WhatsApp — correções da revisão (19/10/2026):**
+  - **"aprova a 2" com o assistente:** a decisão do Financeiro só é comando com a lista do "financeiro" aberta, de
+    quem decide (`comandoDaRota`; `bot.ts` lê a lista uma vez); sem ela, o "2" é o da última lista da memória curta
+    ("avisos", "aprovações") e a mensagem vai ao assistente.
+  - **O plano que espera o Palácio** (`no_palacio`): `abertoPara` o devolve (`PlanoAberto.noPalacio`) quando não há
+    plano aberto, e citar as mensagens dele é citar o plano. "cancelar" (sem citar, citando ou o botão Cancelar dele)
+    o cancela; "confirmo" (ou o botão Confirmar) responde o texto fixo que manda ao link. Como as outras respostas ao
+    plano que já saiu, sem citar ele cede a vez à pergunta mais nova do bot.
+  - **"Não fui eu" × plano:** o "confirmo" ou "cancelar" sem citar só vai à conferência do "Não fui eu" se não há
+    pergunta mais nova da pessoa — agora contando o plano ou a pergunta do assistente (`whatsapp_ia_planos`).
+  - **A revisão que termina em texto do modelo:** o texto sai sozinho (sem o lembrete) e o código manda o plano em
+    revisão de novo, com os botões, numa mensagem própria; só ela rearma o plano (`mensagensDaRevisao` em `fluxo.ts`;
+    `rearmar` aceita as duas mensagens). "Tirei a segunda", "troquei", "acrescentei"… sem `preparar_*` caem no
+    "Nada foi feito" (`afirmaQueFez`).
+  - **Nomes:** `nomeMostrado` tira "(", ")", "@" e "·" do full_name no rótulo, no plano e no "pedida por" (o nome
+    não imita o `@usuário` que o código põe depois); o ⚠ de homônimo compara o esqueleto do nome (o que vem antes do
+    primeiro "(", "@" ou "·": `esqueletoDoNome`, `temHomonimo` em `regras.ts`); o rótulo da pessoa e os nomes de fila,
+    assunto e visitante vão ao modelo como dado de terceiro (`</contexto>` num nome fica inerte).
+  - **`consultar_area('whatsapp')`:** os e-mails das contas Google saem como "e-mail oculto" (`textoDeArea`, agora em
+    `regras.ts`).
+  - **Marcar todos como lidos:** o passo guarda `ate` (a hora do preparo) e o executor marca só os avisos criados até
+    ela: o aviso que chega entre o plano e o *confirmo* continua sem ler.
+  - **Textos:** "confirme o número de novo" passou a dizer como (em Meu perfil → WhatsApp, "Trocar número" e o mesmo
+    número); a ajuda cita "Confirmar e fazer tudo" (ou "Confirmar e fazer"); o cartão do Drive, a ajuda e o §11 pedem
+    para compartilhar "Palácio – Arquivos" com a equipe (o que o Palácio cria nasce privado da conta conectada).
+  - **Migração B** falha (em vez de terminar sem efeito) se vier antes da `20261019010000`.
+  - **Testes:** `scripts/conferir-assistente.ts` ganhou os casos ("aprova a 2" sem lista, o plano no Palácio pela rota,
+    a revisão que termina em texto, o nome com tags e com "(@outro · Setor)", o e-mail no status);
+    `scripts/conferir-whatsapp.ts`, o aviso com emoji composto e m².
 - **Endereço do servidor:** o cartão de Integrações completa o `https://` e recusa endereço local
   (localhost, 192.168…, 172.16–31…): a Vercel não alcança o computador de ninguém.
 - **Resposta à portaria:** a visita é um alvo de resposta como chamado e aprovação (§7.24):
@@ -3124,12 +3160,15 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   `voluntarios-arquivos`); uma rotina que compare `storage.objects` com as
   tabelas resolve.
 - **Assistente do WhatsApp, implantação** (§8.5) — as quatro etapas estão no código, desligadas por padrão
-  (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela caixa "preparar ações"). Falta aplicar a
-  migração B (`20261019020000`, a confirmação do plano no Palácio) e seguir a ordem: piloto com escrita; depois
-  do "Não fui eu" visto funcionando, `modo='admins'` com escrita; uma semana sem incidente, `modo='equipe'`. A
-  conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp (o payload v2 também
-  traz `business_scoped_user_id`, que poderia substituir o nome); se a transcrição do áudio chega mesmo no payload;
-  rodar `scripts/avaliar-assistente.ts --gastar` antes de ligar as ações.
+  (liga-se pelo cartão em Configurações → WhatsApp; as ações, pela caixa "preparar ações"). Falta aplicar,
+  nesta ordem, `20261019010000` (o assistente), `20261019020000` (a confirmação do plano no Palácio, que depende
+  da anterior e falha se vier antes dela) e `20261019030000` (o Google Drive), e seguir a ordem: piloto com
+  escrita; depois do "Não fui eu" visto funcionando, `modo='admins'` com escrita; uma semana sem incidente,
+  `modo='equipe'`. A conferir no piloto: se `conversation.contact_name` da Kapso é o nome de perfil do WhatsApp (o
+  payload v2 também traz `business_scoped_user_id`, que poderia substituir o nome); se a transcrição do áudio chega
+  mesmo no payload; rodar `scripts/avaliar-assistente.ts --gastar` antes de ligar as ações. No Google Drive da conta
+  conectada, compartilhar "Palácio – Arquivos" com a equipe (o que o Palácio cria nasce privado da conta: sem isso,
+  os links do WhatsApp e da ficha do envio não abrem para ninguém mais).
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

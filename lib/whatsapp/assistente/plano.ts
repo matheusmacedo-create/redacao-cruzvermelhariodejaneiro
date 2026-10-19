@@ -95,6 +95,10 @@ export function repoSupabase(admin: Admin): RepositorioDePlanos {
       const { data } = await tabela().select('*').eq('user_id', userId).in('situacao', [...SITUACOES_ENCERRADAS]).order('atualizado_em', { ascending: false }).limit(1).maybeSingle()
       return linhaOuNull(data)
     },
+    async noPalacioDaPessoa(userId, vigenteEm) {
+      const { data } = await tabela().select('*').eq('user_id', userId).eq('situacao', 'no_palacio').gt('expira_em', vigenteEm).order('criado_em', { ascending: false }).limit(1).maybeSingle()
+      return linhaOuNull(data)
+    },
     async mudar(id, de, mudanca, condicao = {}) {
       let q = tabela().update(paraLinha(mudanca)).eq('id', id).in('situacao', [...de])
       if (condicao.vigenteEm) q = q.gt('expira_em', condicao.vigenteEm)
@@ -338,4 +342,4 @@ export const entregaFalhou = (admin: Admin, id: string) => semLancar(null, () =>
 export const cancelarPlano = (admin: Admin, userId: string) => semLancar([], () => fluxoDoPlano(admin).cancelar(userId))
 export const fecharPergunta = (admin: Admin, userId: string) => semLancar([], () => fluxoDoPlano(admin).fecharPergunta(userId))
 export const marcarEmRevisao = (admin: Admin, id: string) => semLancar(null, () => fluxoDoPlano(admin).marcarEmRevisao(id))
-export const rearmar = (admin: Admin, id: string, mensagemId: string | null) => semLancar(null, () => fluxoDoPlano(admin).rearmar(id, mensagemId))
+export const rearmar = (admin: Admin, id: string, mensagens: (string | null)[]) => semLancar(null, () => fluxoDoPlano(admin).rearmar(id, mensagens))

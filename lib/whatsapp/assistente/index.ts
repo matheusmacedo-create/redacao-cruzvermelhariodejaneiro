@@ -14,7 +14,7 @@ import { esperarAVez, gravarMemoria, hashDoTexto, lerMemoria, soltarVez, textoRe
 import {
   entregaFalhou, entregarComInterativo, fecharPergunta, guardarPergunta, guardarPlano, marcarEmRevisao, marcarEntrega, rearmar, type AbertoDaPessoa, type EntregaEmPartes,
 } from './plano'
-import type { PlanoGuardado } from './fluxo'
+import { mensagensDaRevisao, type PlanoGuardado } from './fluxo'
 import { criarPreparador } from './preparos'
 import { fonteDoSupabase } from './executores'
 import { montarContexto, textoDaSituacao } from './prompt'
@@ -23,7 +23,7 @@ import {
   posProcessarResposta, quantidadePedida, textoDaPergunta, textoDoPlano, unirPermitidas, validarRascunho, type Passo, type TipoDeAcao,
 } from './regras'
 import {
-  ERROS_DE_FORA, alertarAdmins, contarTurnos, criarRegistroDoUso, gastoDeHoje, leiturasDeHoje, pausarPorConfiguracao, registrarFalha, zerarFalhas,
+  ERROS_DO_DISJUNTOR, alertarAdmins, contarTurnos, criarRegistroDoUso, gastoDeHoje, leiturasDeHoje, pausarPorConfiguracao, registrarFalha, zerarFalhas,
   type Disponibilidade, type RegistroDoUso,
 } from './uso'
 
@@ -34,7 +34,8 @@ type Admin = ReturnType<typeof createAdminClient>
  * conversa curta com o Claude, que consulta o Palácio com as permissões da pessoa e responde no WhatsApp.
  *
  *  0. revisão: com um plano aberto, ele vira "em revisão" ANTES de qualquer espera (um "confirmo" em paralelo
- *     não executa) e, no fim, se nada o substituiu, volta a "aberto" com o lembrete na mesma resposta;
+ *     não executa) e, no fim, se nada o substituiu, volta a "aberto": com o lembrete no texto fixo, ou com o plano
+ *     mostrado de novo pelo código depois do texto do modelo (fluxo.ts, mensagensDaRevisao);
  *  1. cotas (turnos da pessoa por hora e por dia, US$ da pessoa e do espaço desde a meia-noite de Brasília): batido
  *     um teto, o texto fixo — o da pessoa barra só ela; aos 80% e aos 100% do espaço, a administração é avisada;
  *  2. a vez da pessoa (um turno por vez), esperando de 1 em 1 s até 15 s;
@@ -84,6 +85,8 @@ export function classeDoErro(causa: unknown): string {
   if (causa instanceof Anthropic.NotFoundError) return 'NotFoundError'
   if (causa instanceof Anthropic.BadRequestError) return 'BadRequestError'
   if (causa instanceof Anthropic.InternalServerError) return 'InternalServerError'
+  // O 402 (sem crédito) não tem classe própria no SDK: vem como APIError, com o status e o `type` do corpo.
+  if (causa instanceof Anthropic.APIError && (causa.status === 402 || causa.type === 'billing_error')) return 'BillingError'
   if (causa instanceof Anthropic.APIError) return 'APIError'
   if (causa instanceof IaError) return 'SemChave'
   return 'Outro'
@@ -116,21 +119,24 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
   const plano0 = e.aberto?.plano ?? null
   let emRevisao: PlanoGuardado | null = null
   let substituido = false
-  let mensagemDaResposta: string | null = null
+  // As mensagens do código que rearmam o plano em revisão (nunca o texto do modelo: mensagensDaRevisao).
+  let mensagensDaResposta: (string | null)[] = []
   let temAVez = false
   let eco = e.eco ?? null
 
   /**
    * Toda resposta do assistente: sem fila; com o eco do áudio na frente da primeira; com o plano em revisão de pé, o
-   * lembrete no fim. Com botões ou lista: acima do corpo interativo, o texto sozinho e depois a `chamada` com eles
-   * (se a segunda não sair, o texto já saiu e vale). `ids`: as mensagens que saíram, em ordem.
+   * lembrete no fim (menos onde `revisao.lembrete` é false). Com botões ou lista: acima do corpo interativo, o texto
+   * sozinho e depois a `chamada` com eles (se a segunda não sair, o texto já saiu e vale). `ids`: as mensagens que
+   * saíram, em ordem; `revisao.rearma` false (o texto do modelo): elas não rearmam o plano em revisão.
    */
-  const responder = async (texto: string, interativo: Interativo | null = null, chamada: string = TEXTOS_FIXOS.confirma_o_plano): Promise<EntregaEmPartes> => {
+  const responder = async (texto: string, interativo: Interativo | null = null, chamada: string = TEXTOS_FIXOS.confirma_o_plano,
+    revisao: { lembrete: boolean; rearma: boolean } = { lembrete: true, rearma: true }): Promise<EntregaEmPartes> => {
     const comEco = eco ? `${eco}\n\n${texto}` : texto
     eco = null
-    const corpo = emRevisao && !substituido ? `${comEco}\n\n${TEXTOS_FIXOS.lembrete}` : comEco
+    const corpo = emRevisao && !substituido && revisao.lembrete ? `${comEco}\n\n${TEXTOS_FIXOS.lembrete}` : comEco
     const entrega = await entregarComInterativo((t, i) => e.responder(t, { categoria: 'assistente', semFila: true, interativo: i }), corpo, interativo, chamada)
-    mensagemDaResposta = entrega.ids[entrega.ids.length - 1] ?? null
+    if (revisao.rearma) mensagensDaResposta = entrega.ids
     return entrega
   }
   const fixo = async (texto: string, desfecho: Parameters<RegistroDoUso['fechar']>[0], extra: Parameters<RegistroDoUso['fechar']>[1] = {}) => {
@@ -264,9 +270,15 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
       // Os links do Palácio do que ficou de fora (o voto, a mensagem ou o comentário de quem usa a verificação em duas etapas) vão junto.
       const links = [...turno.ajuda, ...preparador.links]
       const texto = desfecho.fixo ? desfecho.texto : posProcessarResposta(desfecho.texto, { itens: turno.itens, ajuda: links, urlBase: e.base })
-      const entrega = await responder(texto)
+      // Com o plano em revisão de pé, o texto do modelo sai sozinho e o código manda o plano de novo (só ele rearma).
+      const saidas = emRevisao && !substituido ? mensagensDaRevisao({ texto, fixo: Boolean(desfecho.fixo) }, emRevisao) : [{ texto, interativo: null, lembrete: true, rearma: true }]
+      let entrega: EntregaEmPartes | null = null
+      for (const s of saidas) {
+        const saiu = await responder(s.texto, s.interativo, TEXTOS_FIXOS.confirma_o_plano, s)
+        entrega ??= saiu
+      }
       const citados = desfecho.fixo ? [] : marcadoresNaResposta(desfecho.texto, turno.itens)
-      if (entrega.situacao === 'enviada' && entrega.id && citados.length >= 2) lista = { m: entrega.id, r: citados }
+      if (entrega?.situacao === 'enviada' && entrega.id && citados.length >= 2) lista = { m: entrega.id, r: citados }
       // Um turno sem plano e sem pergunta nova fecha a pergunta aberta (o plano em revisão rearma no finally).
       if (atual?.situacao === 'pergunta') await fecharPergunta(admin, pessoa.id)
       await registro.fechar('resposta')
@@ -287,25 +299,27 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
     await registro.fechar('erro', { erro: 'turno' })
     await responder(TEXTOS_FIXOS.fora_do_ar).catch(() => undefined)
   } finally {
-    if (emRevisao && !substituido) await rearmar(admin, emRevisao.id, mensagemDaResposta)
+    if (emRevisao && !substituido) await rearmar(admin, emRevisao.id, mensagensDaResposta)
     if (temAVez) await soltarVez(admin, pessoa.id)
   }
 }
 
 /**
  * O erro da chamada, pela classe: o texto fixo à pessoa (o mesmo em todos), o registro com a classe e o efeito no
- * disjuntor — falha de fora conta (3 em 10 min pausam por 10 min); chave recusada ou modelo inexistente pausam
- * por mais tempo e avisam a administração.
+ * disjuntor — falha de fora e 400 contam (3 em 10 min pausam por 10 min); chave recusada, cobrança recusada (402,
+ * sem crédito) ou modelo inexistente pausam por mais tempo e avisam a administração.
  */
 async function tratarErro(e: EntradaDoAssistente, causa: unknown, fixo: (texto: string, d: 'erro', x: { erro: string }) => Promise<void>): Promise<void> {
   const classe = classeDoErro(causa)
   console.error('[whatsapp] assistente: chamada falhou:', e.pessoa.id, classe)
   await fixo(TEXTOS_FIXOS.fora_do_ar, 'erro', { erro: classe })
-  if (classe === 'AuthenticationError' || classe === 'PermissionDeniedError' || classe === 'SemChave') {
-    await pausarPorConfiguracao(e.admin, e.workspaceId, 'chave', traduzirErro(causa).message)
+  if (classe === 'AuthenticationError' || classe === 'PermissionDeniedError' || classe === 'SemChave' || classe === 'BillingError') {
+    await pausarPorConfiguracao(e.admin, e.workspaceId, 'chave', classe === 'BillingError'
+      ? 'A Anthropic recusou a cobrança (402): confira os créditos e o pagamento no console da Anthropic.'
+      : traduzirErro(causa).message)
   } else if (classe === 'NotFoundError') {
     await pausarPorConfiguracao(e.admin, e.workspaceId, 'modelo', traduzirErro(causa, { modelo: modeloDoAssistente(), variavel: 'WHATSAPP_IA_MODELO' }).message)
-  } else if ((ERROS_DE_FORA as readonly string[]).includes(classe)) {
+  } else if ((ERROS_DO_DISJUNTOR as readonly string[]).includes(classe)) {
     await registrarFalha(e.admin, e.workspaceId, e.ia.config)
   }
 }

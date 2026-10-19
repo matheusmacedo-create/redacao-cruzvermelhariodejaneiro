@@ -1,5 +1,6 @@
+import type { Interativo } from '../regras'
 import {
-  LIMITES, TEXTOS_FIXOS, hashDoPlano, redigirPassos, textoDaRevalidacao, textoDoPlanoQueNaoVale, textoDoRecibo,
+  LIMITES, TEXTOS_FIXOS, hashDoPlano, interativoDoPlano, redigirPassos, textoDaRevalidacao, textoDoPlano, textoDoPlanoQueNaoVale, textoDoRecibo,
   type Passo, type PlanoAberto, type ResultadoDaAcao, type ResultadoDoPasso, type TipoDeAcao,
 } from './regras'
 
@@ -12,10 +13,12 @@ import {
  *   guardar (hash, 15 min) → entregar (sem fila) ─┬─ não saiu → cancelado + redigido
  *                                                  └─ saiu → aberto (mensagens, entregueEm)
  *   aberto ── mensagem ao assistente → em_revisao ─┬─ plano ou pergunta nova → substituido + redigido
- *                                                  └─ texto, erro ou prazo → rearmar → aberto (com o lembrete)
+ *                                                  ├─ erro, prazo ou texto fixo → rearmar → aberto (com o lembrete)
+ *                                                  └─ texto do modelo → o plano de novo, pelo código → rearmar → aberto
  *   aberto ── confirmo válido → (sensível ? no_palacio : executando) → revalidar → executar → executado | parcial | falhou → redigido
  *   no_palacio (o link, mais 15 min) ── "Confirmar" na página → executando (pela sessão) → o mesmo caminho; vencido (faxina)
  *   pergunta / aberto / em_revisao ── cancelar → cancelado; plano ou pergunta nova → substituido; vencido (faxina)
+ *   no_palacio ── "cancelar" (escrito, citando o plano, ou o botão Cancelar dele) → cancelado; o "confirmo" manda ao link
  *
  * Toda transição é um update condicional pela situação (o repositório devolve a linha só se mudou): dois
  * "confirmo" seguidos, ou "confirmo" junto de uma correção, não executam nada duas vezes nem um plano em revisão.
@@ -63,6 +66,8 @@ export interface RepositorioDePlanos {
   daMensagem(userId: string, mensagemId: string): Promise<PlanoGuardado | null>
   /** O último plano ou pergunta encerrado da pessoa (para a janela de LIMITES.recenteMin). */
   ultimoEncerrado(userId: string): Promise<PlanoGuardado | null>
+  /** O plano da pessoa que espera a confirmação no Palácio e ainda vale (expiraEm > vigenteEm): o "cancelar" o alcança. */
+  noPalacioDaPessoa(userId: string, vigenteEm: string): Promise<PlanoGuardado | null>
   /** `vigenteEm`: só se expiraEm > vigenteEm (o plano vencido não confirma, mesmo antes da faxina). */
   mudar(id: string, de: readonly SituacaoDoPlano[], mudanca: MudancaDoPlano, condicao?: { vigenteEm?: string }): Promise<PlanoGuardado | null>
   /** Todas as da pessoa numa das situações `de`; devolve as que mudaram. */
@@ -95,6 +100,24 @@ export type EntradaNoPalacio = {
   revalidar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
   executar: (passo: Passo, n: number) => Promise<ResultadoDaAcao>
   urlBase: string
+}
+
+/** Uma mensagem do fim de um turno de revisão: o texto, os botões, se leva o lembrete e se rearma o plano. */
+export type MensagemDaRevisao = { texto: string; interativo: Interativo | null; lembrete: boolean; rearma: boolean }
+
+/**
+ * O que sai quando um turno de revisão acaba em resposta e nada substituiu o plano. O texto fixo (do código: o erro,
+ * o "Não fiz nada ainda") sai com o lembrete e rearma o plano. O texto do modelo sai sozinho — sem o lembrete e sem
+ * rearmar: "Tirei a segunda" não tirou nada — e o código manda o plano em revisão de novo, com os botões, numa
+ * mensagem própria; só ela rearma (citá-la é citar o plano, e a hora dela vale para o "confirmo"). O que leva à
+ * confirmação é sempre o texto do código.
+ */
+export function mensagensDaRevisao(resposta: { texto: string; fixo: boolean }, plano: Pick<PlanoGuardado, 'id' | 'hash' | 'passos' | 'sensivel'>): MensagemDaRevisao[] {
+  if (resposta.fixo) return [{ texto: resposta.texto, interativo: null, lembrete: true, rearma: true }]
+  return [
+    { texto: resposta.texto, interativo: null, lembrete: false, rearma: false },
+    { texto: textoDoPlano({ passos: plano.passos, sensivel: plano.sensivel }).texto, interativo: plano.hash ? interativoDoPlano(plano.id, plano.hash) : null, lembrete: false, rearma: true },
+  ]
 }
 
 export type DesfechoDaConfirmacao =
@@ -158,16 +181,18 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
   return {
     /**
      * O plano ou a pergunta da pessoa e o que a mensagem citou (lerRespostaAoPlano decide o resto). Plano vencido
-     * pela hora conta como fechado, mesmo antes da faxina. `citacaoResolvida`: o bot reconheceu a citada (um
-     * aviso, uma pendência, uma pergunta vencida).
+     * pela hora conta como fechado, mesmo antes da faxina. Sem plano aberto, o que espera o Palácio (`noPalacio`):
+     * citar as mensagens dele é citar o plano, e o "cancelar" chega a ele. `citacaoResolvida`: o bot reconheceu a
+     * citada (um aviso, uma pendência, uma pergunta vencida).
      */
     async abertoPara(userId: string, citada: string | null, opcoes: { citacaoResolvida?: boolean } = {}): Promise<{ aberto: PlanoAberto; plano: PlanoGuardado | null }> {
       const agora = relogio()
       const lido = await repo.abertoDaPessoa(userId)
       const plano = lido && Date.parse(lido.expiraEm) > agora ? lido : null
+      const noPalacio = plano ? null : await repo.noPalacioDaPessoa(userId, iso(agora))
       let citacao: PlanoAberto['citacao'] = 'nenhuma'
       if (citada) {
-        if (plano?.mensagens.includes(citada)) citacao = 'plano'
+        if (plano?.mensagens.includes(citada) || noPalacio?.mensagens.includes(citada)) citacao = 'plano'
         else if (await repo.daMensagem(userId, citada)) citacao = 'plano_velho'
         else citacao = opcoes.citacaoResolvida ? 'outra' : 'desconhecida'
       }
@@ -184,6 +209,7 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
           } : null,
           citacao,
           recente,
+          noPalacio: noPalacio ? { id: noPalacio.id } : null,
         },
       }
     },
@@ -220,14 +246,18 @@ export function criarFluxoDoPlano(repo: RepositorioDePlanos, relogio: () => numb
       return repo.mudar(id, ['aberto'], { situacao: 'em_revisao', atualizadoEm: iso() })
     },
 
-    /** O turno acabou sem plano novo: volta a "aberto", com o lembrete na lista de mensagens e a entrega nova. A expiração fica. */
-    async rearmar(id: string, mensagemId: string | null): Promise<PlanoGuardado | null> {
+    /**
+     * O turno acabou sem plano novo: volta a "aberto", com as mensagens do código que saíram agora (o lembrete, ou o
+     * plano de novo e os botões: mensagensDaRevisao) na lista e a entrega nova. A expiração fica.
+     */
+    async rearmar(id: string, mensagens: string | null | (string | null)[]): Promise<PlanoGuardado | null> {
       const atual = await repo.buscar(id)
       if (!atual || atual.situacao !== 'em_revisao') return null
+      const ids = [...new Set((Array.isArray(mensagens) ? mensagens : [mensagens]).filter((m): m is string => Boolean(m)))]
       return repo.mudar(id, ['em_revisao'], {
         situacao: 'aberto',
-        mensagens: mensagemId ? [...atual.mensagens.filter((m) => m !== mensagemId), mensagemId].slice(-LIMITES.mensagensDoPlano) : atual.mensagens,
-        entregueEm: mensagemId ? iso() : atual.entregueEm,
+        mensagens: ids.length ? [...atual.mensagens.filter((m) => !ids.includes(m)), ...ids].slice(-LIMITES.mensagensDoPlano) : atual.mensagens,
+        entregueEm: ids.length ? iso() : atual.entregueEm,
         atualizadoEm: iso(),
       })
     },
@@ -353,6 +383,10 @@ export function repoEmMemoria(relogio: () => number = Date.now): RepositorioDePl
     },
     async ultimoEncerrado(userId) {
       const l = linhas.filter((x) => x.userId === userId && SITUACOES_ENCERRADAS.includes(x.situacao)).sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))[0]
+      return l ? copia(l) : null
+    },
+    async noPalacioDaPessoa(userId, vigenteEm) {
+      const l = linhas.filter((x) => x.userId === userId && x.situacao === 'no_palacio' && x.expiraEm > vigenteEm).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))[0]
       return l ? copia(l) : null
     },
     async mudar(id, de, mudanca, condicao = {}) {

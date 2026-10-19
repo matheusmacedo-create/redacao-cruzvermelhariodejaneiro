@@ -129,7 +129,7 @@ export function CartaoDoAssistente({ a }: { a: AssistenteNaTela }) {
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1 size-4" checked={escrita} onChange={(e) => setEscrita(e.target.checked)} />
             <span>
-              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, comentários, abrir, assumir, resolver e transferir chamados, resposta e registro na portaria, marcar lidos, e a decisão de despesa ou compra).
+              <strong className="font-medium">Deixar o assistente preparar ações para a pessoa confirmar</strong> (votos, mensagens, comentários, abrir, assumir, resolver e transferir chamados, resposta e registro na portaria, marcar lidos, guardar documentos no Google Drive e a decisão de despesa ou compra).
               <span className="block text-xs text-muted-foreground">Nada é feito sem a pessoa responder <em>confirmo</em> (ou tocar em Confirmar) no plano exato que o Palácio escreve (até 3 votos por plano; as mensagens diretas no teto abaixo). A decisão de despesa ou compra e os planos de quem usa a verificação em duas etapas terminam no Palácio, pelo link. O recibo traz o “Não fui eu”. Comece pelo piloto; administradores só depois de ver o recibo funcionando.</span>
             </span>
           </label>

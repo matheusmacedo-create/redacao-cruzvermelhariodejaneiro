@@ -32,10 +32,13 @@ declare
   v_def text;
   v_lista text[];
 begin
-  -- As duas tabelas existem? Sem alguma delas (migração anterior ainda não aplicada), nada a fazer.
-  if to_regclass('public.whatsapp_confirmacoes') is null or to_regclass('public.whatsapp_ia_planos') is null then
-    raise notice 'whatsapp_confirmacoes ou whatsapp_ia_planos ausente: nada a fazer.';
-    return;
+  -- As duas tabelas existem? Sem alguma delas (migração anterior ainda não aplicada), a aplicação falha: fora de
+  -- ordem, ela não pode ficar registrada como aplicada sem ter feito nada.
+  if to_regclass('public.whatsapp_confirmacoes') is null then
+    raise exception 'whatsapp_confirmacoes ausente: aplique antes 20261018223000 (as confirmações da onda 2).';
+  end if;
+  if to_regclass('public.whatsapp_ia_planos') is null then
+    raise exception 'whatsapp_ia_planos ausente: aplique antes 20261019010000 (o assistente).';
   end if;
 
   -- O plano que o link confirma.

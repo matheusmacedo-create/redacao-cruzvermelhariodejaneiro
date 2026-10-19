@@ -18,7 +18,7 @@
 --     "Desconectar", depois de conferir integracoes.configurar).
 --  2. envios.drive_pasta_link e envios.drive_copia_em: a cópia automática do
 --     envio que chegou pelo WhatsApp para "Palácio – Arquivos/Envios do
---     WhatsApp/AAAA-MM/<título>". drive_copia_em é a vez de quem copia (outra
+--     WhatsApp/AAAA-MM/<título> (ENV-…)". drive_copia_em é a vez de quem copia (outra
 --     cópia só começa 15 minutos depois, se a primeira caiu no meio); o link
 --     da pasta só é gravado quando todos os arquivos chegaram.
 --     envio_arquivos.drive_arquivo_id marca cada arquivo já copiado: a
@@ -72,7 +72,7 @@ create index if not exists envios_drive_pendente_idx on public.envios (concluido
   where drive_pasta_link is null and concluido_em is not null and user_agent = 'WhatsApp (bot do Palácio Virtual)';
 
 comment on column public.envios.drive_pasta_link is
-  'A pasta do envio no Google Drive (Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título>), gravada quando todos os arquivos foram copiados. Só o servidor grava.';
+  'A pasta do envio no Google Drive (Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título> (ENV-…)), gravada quando todos os arquivos foram copiados. Só o servidor grava.';
 comment on column public.envios.drive_copia_em is
   'Quando a cópia para o Drive começou (a vez de quem copia; outra só depois de 15 minutos).';
 comment on column public.envio_arquivos.drive_arquivo_id is

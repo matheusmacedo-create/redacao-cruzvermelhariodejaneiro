@@ -32,7 +32,7 @@ import { agendarCopiaDoEnvio } from './drive'
  * publicar.
  *
  * Com o Google Drive conectado, o envio concluído é copiado para a pasta
- * "Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título>" depois da resposta
+ * "Palácio – Arquivos/Envios do WhatsApp/AAAA-MM/<título> (ENV-…)" depois da resposta
  * (lib/whatsapp/drive.ts); sem ele, nada muda.
  */
 

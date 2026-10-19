@@ -191,6 +191,8 @@ export const TEXTOS_FIXOS = {
   cite_o_plano: 'Para confirmar, responda *confirmo* citando o plano (ou toque em Confirmar).',
   ja_escolheu: 'Você já escolheu; confira o plano acima.',
   nada_aberto: 'Não há plano aberto; nada foi feito.',
+  /** O "confirmo" do plano que já espera o Palácio (o link saiu): a confirmação é lá; "cancelar" ainda desiste dele. */
+  no_palacio: `Este plano já espera a confirmação no Palácio: use o link que mandei (vale ${CONFIRMACAO_VALE_MIN} minutos desde o *confirmo*). Para desistir, responda *cancelar*.`,
   quase: 'Para fazer, responda *confirmo* (ou toque em Confirmar). Para desistir, *cancelar*.',
   cancelado: 'Pronto: nada foi feito.',
   ocupado: 'Ainda estou cuidando da sua mensagem anterior; responda de novo em instantes.',
@@ -206,7 +208,7 @@ export const TEXTOS_FIXOS = {
   plano_nao_saiu: 'Não consegui mandar o plano; peça de novo.',
   mensagem_no_meio: 'Recebi outra mensagem sua antes deste *confirmo*; confira o plano e responda de novo.',
   escrita_desligada: 'Pedir ações por aqui não está ligado para esta pessoa; faça pelo Palácio ou pelos comandos do menu.',
-  numero_antigo: 'Faz tempo que este número não é confirmado nem há login no Palácio; confirme o número em Meu perfil para pedir ações por aqui.',
+  numero_antigo: 'Faz tempo que este número não é confirmado nem há login no Palácio. Para pedir ações por aqui, confirme o número de novo: em Meu perfil → WhatsApp, toque em “Trocar número” e confirme o mesmo número.',
   so_no_palacio: 'Isso só pelo Palácio.',
   limite_de_detalhe: 'Limite de consultas detalhadas de hoje; veja no Palácio.',
   limite_do_turno: 'Limite de consultas desta mensagem.',
@@ -220,7 +222,7 @@ export const TEXTOS_FIXOS = {
   sem_confirmacao_no_palacio: 'Nada foi feito: a confirmação no Palácio ainda não está ligada. Faça pelo Palácio.',
   lembrete: '_O plano acima continua valendo: responda *confirmo* para fazer, ou *cancelar*._',
   pergunta_desconhecida: 'Use só marcadores que apareceram no contexto ou em resultados de ferramentas.',
-  nome_mudou: 'O nome de perfil do WhatsApp do seu número mudou. Por segurança, o assistente ficou parado neste número até você confirmar o número de novo em Meu perfil → WhatsApp. Os comandos do menu continuam.',
+  nome_mudou: 'O nome de perfil do WhatsApp do seu número mudou. Por segurança, o assistente ficou parado neste número até você confirmar o número de novo: em Meu perfil → WhatsApp, toque em “Trocar número” e confirme o mesmo número. Os comandos do menu continuam.',
   /** O plano maior que o corpo de uma mensagem com botões: o texto sai sozinho, e os botões vêm logo depois, nesta. */
   confirma_o_plano: 'Confirma o plano acima?',
   /** A pergunta maior que o corpo de uma mensagem com lista: a lista vem logo depois, nesta. */
@@ -263,6 +265,16 @@ export function dadoDeTerceiro(texto: string | null | undefined, max = 300): str
   return corte(linha.replace(/</g, '‹').replace(/>/g, '›').replace(/\[/g, '⟦').replace(/\]/g, '⟧'), max)
 }
 
+/**
+ * O texto de um comando fixo de área (o "status", a frota, o estoque, a portaria) como vai ao modelo: sem nenhum
+ * endereço (os links vêm do código, na resposta final) nem e-mail (as contas Google do "status"), cada linha como
+ * dado de terceiro (nomes de visitantes, materiais e veículos foram escritos por alguém).
+ */
+export function textoDeArea(texto: string): string {
+  return semInvisiveis(texto).replace(/https?:\/\/\S+/gi, '').replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, 'e-mail oculto').replace(/(^|\s)\/[a-z0-9/_?=&#.-]+/gi, '$1')
+    .split('\n').map((l) => dadoDeTerceiro(l, 240)).filter(Boolean).join('\n').slice(0, LIMITES.caracteresNoResultado - 60)
+}
+
 const TLDS = 'com|net|org|br|ly|io|me|co|info|xyz|app|link|site|online|top|gov|edu|ai|gg|to|tk|cc|us|biz|dev|page|club|live|shop|store|click|ru|cn|in|pt|uk|de|fr|es|it|tv|so|sh|mx|ar|cl'
 const DOMINIO_SOLTO = new RegExp(`(^|[^a-z0-9@._-])((?:[a-z0-9][a-z0-9-]*\\.)+(?:${TLDS}))(?![a-z0-9-])(\\/\\S*)?`, 'gi')
 
@@ -281,11 +293,41 @@ export function pedeSegredo(texto: string | null | undefined): boolean {
   return /\b(senha|senhas|codigo|codigos|token|tokens|pin|2fa|otp|autenticador|autenticacao|duas etapas)\b/.test(normalizar(bruto))
 }
 
-/** "Ana Souza (@ana.souza · RH)", com ⚠ quando há outra pessoa ativa com o mesmo nome no espaço. */
+/**
+ * O nome de uma pessoa como o código mostra (o rótulo, o plano, o "pedida por"): numa linha, sem a formatação do
+ * WhatsApp e sem "(", ")", "@" e "·". O full_name é editável por quem é dono dele: "Carla Souza (@carla.souza · RH)"
+ * no nome imitaria o @usuário e o setor que o código põe depois (e sumiria com o ⚠ do homônimo).
+ */
+export function nomeMostrado(nome: string | null | undefined, max = 80): string {
+  return umaLinha(umaLinha(limpo(String(nome ?? ''), 400), 400).replace(/[()@·•∙‧・]/g, ' '), max)
+}
+
+/**
+ * O esqueleto do nome para o ⚠ de homônimo: o que vem antes do primeiro "(", "@" ou "·", sem acento nem pontuação.
+ * "Carla Souza (@carla.souza · RH)" no full_name é a Carla Souza; sem nada antes, o nome inteiro.
+ */
+export function esqueletoDoNome(nome: string | null | undefined): string {
+  const inteiro = semInvisiveis(String(nome ?? ''))
+  return normalizar(inteiro.split(/[(@·]/)[0]) || normalizar(inteiro)
+}
+
+/** Há outra pessoa ativa com o mesmo nome (pelo esqueleto: esqueletoDoNome) no quadro do espaço? É o ⚠ do rótulo. */
+export function temHomonimo(quadro: Map<string, { nome: string; ativo: boolean }>, id: string): boolean {
+  const eu = quadro.get(id)
+  if (!eu) return false
+  const nome = esqueletoDoNome(eu.nome)
+  for (const [outro, p] of quadro) if (outro !== id && p.ativo && esqueletoDoNome(p.nome) === nome) return true
+  return false
+}
+
+/**
+ * "Ana Souza (@ana.souza · RH)", com ⚠ quando há outra pessoa ativa com o mesmo nome no espaço. Vai ao modelo (o
+ * contexto e as leituras): o nome e o setor entram como dado de terceiro — "</contexto>" num full_name fica inerte.
+ */
 export function rotuloDaPessoa(p: { nome: string | null | undefined; username: string | null | undefined; setor?: string | null; homonimo?: boolean }): string {
-  const nome = umaLinha(limpo(String(p.nome ?? ''), 400), 80) || 'Sem nome'
+  const nome = dadoDeTerceiro(nomeMostrado(p.nome), 80) || 'Sem nome'
   const usuario = String(p.username ?? '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40)
-  const setor = p.setor ? umaLinha(limpo(p.setor, 200), 40) : ''
+  const setor = p.setor ? dadoDeTerceiro(limpo(p.setor, 200), 40) : ''
   const dentro = [usuario ? `@${usuario}` : null, setor || null].filter(Boolean).join(' · ')
   return `${nome}${dentro ? ` (${dentro})` : ''}${p.homonimo ? ' ⚠' : ''}`
 }
@@ -489,11 +531,17 @@ export type PlanoAberto = {
   citacao: 'plano' | 'plano_velho' | 'outra' | 'desconhecida' | 'nenhuma'
   /** Um plano ou pergunta encerrado há menos de LIMITES.recenteMin (o "2" repetido, o "cancelar" atrasado). */
   recente: { situacao: string; atualizadoEm: number } | null
+  /**
+   * Sem plano aberto, o plano que espera a confirmação no Palácio (o link saiu e ainda vale): citar as mensagens dele
+   * é citar o plano (`citacao` "plano"); o "cancelar" desiste dele, e o "confirmo" manda ao link.
+   */
+  noPalacio?: { id: string } | null
 }
 
 export type RespostaAoPlano =
   | { tipo: 'confirmar' } | { tipo: 'cancelar' } | { tipo: 'quase' } | { tipo: 'escolha'; marcador: string }
   | { tipo: 'velho' } | { tipo: 'revisao' } | { tipo: 'antes_do_plano' } | { tipo: 'cite_o_plano' } | { tipo: 'ja_escolheu' } | { tipo: 'nada_aberto' }
+  | { tipo: 'no_palacio' }
 
 const so = <T extends RespostaAoPlano['tipo']>(tipo: T) => ({ tipo }) as Extract<RespostaAoPlano, { tipo: T }>
 
@@ -501,15 +549,20 @@ const so = <T extends RespostaAoPlano['tipo']>(tipo: T) => ({ tipo }) as Extract
  * A mensagem é resposta ao plano ou à pergunta do assistente? Só o código lê: "confirmo" (ehConfirmacao) vale só
  * para um plano já entregue e escrito DEPOIS da entrega (pela hora da Meta), ou citando o plano; "sim" e "ok" não
  * confirmam. null: não é resposta ao plano (segue o caminho de sempre, ou vai ao assistente com o plano no contexto).
+ * O plano que já espera o Palácio (sem citar, ou citando o plano): "cancelar" (e o botão Cancelar dele) desiste, e
+ * "confirmo" (e o botão Confirmar) ouve que a confirmação é pelo link.
  */
 export function lerRespostaAoPlano(texto: string, aberto: PlanoAberto, opcoes: { visitaEsperando: boolean; enviadaEm: number | null }): RespostaAoPlano | null {
   const p = aberto.plano
+  const noPalacio = p ? null : aberto.noPalacio ?? null
+  const paraONoPalacio = Boolean(noPalacio) && (aberto.citacao === 'plano' || aberto.citacao === 'nenhuma')
   const botao = lerBotao(texto)
   if (botao?.tipo === 'plano') {
     if (p && idCurto(p.id) === botao.id) {
       if (p.situacao === 'aberto' && p.hash && p.hash.slice(0, 8) === botao.hash8) return so(botao.sim ? 'confirmar' : 'cancelar')
       if (p.situacao === 'em_revisao') return so('revisao')
     }
+    if (noPalacio && idCurto(noPalacio.id) === botao.id) return so(botao.sim ? 'no_palacio' : 'cancelar')
     return so('velho')
   }
   if (botao?.tipo === 'escolha') {
@@ -519,6 +572,7 @@ export function lerRespostaAoPlano(texto: string, aberto: PlanoAberto, opcoes: {
   const citouVelho = aberto.citacao === 'plano_velho'
   if (ehConfirmacao(texto)) {
     if (citouVelho) return so('velho')
+    if (paraONoPalacio) return so('no_palacio')
     if (!p) return aberto.recente ? so('velho') : null
     if (p.situacao === 'em_revisao') return so('revisao')
     if (p.situacao === 'pergunta') return null
@@ -529,7 +583,7 @@ export function lerRespostaAoPlano(texto: string, aberto: PlanoAberto, opcoes: {
     return so('confirmar')
   }
   if (ehCancelamentoAmplo(texto)) {
-    if (p) return so('cancelar')
+    if (p || paraONoPalacio) return so('cancelar')
     return aberto.recente || citouVelho ? so('nada_aberto') : null
   }
   const n = lerEscolha(texto, 99)
@@ -559,11 +613,12 @@ export type Rota =
   | 'bot' | 'ia' | 'chat_plano' | 'ia_obrigado' | 'ia_esquecer'
   | 'ia_confirmo' | 'ia_cancelar' | 'ia_quase' | 'ia_escolha'
   | 'ia_plano_velho' | 'ia_revisao' | 'ia_antes_do_plano' | 'ia_cite_o_plano' | 'ia_ja_escolheu' | 'ia_nada_aberto'
-  | 'ia_audio_nao_confirma'
+  | 'ia_audio_nao_confirma' | 'ia_no_palacio'
 
 export const ROTA_DA_RESPOSTA: Record<RespostaAoPlano['tipo'], Rota> = {
   confirmar: 'ia_confirmo', cancelar: 'ia_cancelar', quase: 'ia_quase', escolha: 'ia_escolha', velho: 'ia_plano_velho', revisao: 'ia_revisao',
   antes_do_plano: 'ia_antes_do_plano', cite_o_plano: 'ia_cite_o_plano', ja_escolheu: 'ia_ja_escolheu', nada_aberto: 'ia_nada_aberto',
+  no_palacio: 'ia_no_palacio',
 }
 
 /** O texto fixo das rotas que respondem sem modelo e sem trava. */
@@ -571,9 +626,19 @@ export const TEXTO_DA_ROTA: Partial<Record<Rota, string>> = {
   ia_plano_velho: TEXTOS_FIXOS.velho, ia_revisao: TEXTOS_FIXOS.revisao, ia_antes_do_plano: TEXTOS_FIXOS.antes_do_plano,
   ia_cite_o_plano: TEXTOS_FIXOS.cite_o_plano, ia_ja_escolheu: TEXTOS_FIXOS.ja_escolheu, ia_nada_aberto: TEXTOS_FIXOS.nada_aberto,
   ia_quase: TEXTOS_FIXOS.quase, ia_obrigado: TEXTOS_FIXOS.obrigado, ia_audio_nao_confirma: TEXTOS_FIXOS.audio_nao_confirma,
+  ia_no_palacio: TEXTOS_FIXOS.no_palacio,
 }
 
 export type AvisoCitado = 'aprovacao' | 'chamado' | 'chat' | 'mensagem' | 'visita' | 'outro'
+
+/**
+ * O comando que a rota do assistente vê. A decisão do Financeiro ("aprova a 2", "recusa a 1") só é comando com a
+ * lista do "financeiro" aberta, de quem decide (`listaDoFinanceiro`): sem ela, o "2" é o da última lista que a
+ * memória curta guardou (os "avisos", as "aprovacoes"), e a mensagem vai ao assistente como "desconhecido".
+ */
+export function comandoDaRota(comando: Comando, listaDoFinanceiro: boolean): Comando {
+  return comando === 'decidir_financeiro' && !listaDoFinanceiro ? 'desconhecido' : comando
+}
 
 /**
  * Para onde vai a mensagem, com o assistente: indisponível ou com mídia, o bot de sempre; resposta ao plano, a rota
@@ -788,7 +853,11 @@ export type Passo =
     relato: string; local: string | null; urgencia: 1 | 2 | 3; isento: true
   }
   | { acao: 'responder_visita'; visitaId: string; visitante: string; resposta: 'subir' | 'aguardar' | 'recusar'; recado: string | null; isento: true }
-  | { acao: 'marcar_lidos'; avisoIds: string[] | 'todos'; quantos: number; isento: true }
+  /**
+   * Marcar como lidos: os avisos do plano, ou "todos" os sem ler até `ate` (a hora do preparo, em ISO: o aviso que
+   * chega depois do plano não fica lido sem ser visto). Sem `ate` (planos de antes), todos os sem ler.
+   */
+  | { acao: 'marcar_lidos'; avisoIds: string[] | 'todos'; ate?: string; quantos: number; isento: true }
   /** Quem atende a fila: assumir, resolver (a nota é a solução) ou transferir (a nota é o motivo), pelas funções da tela. */
   | {
     acao: 'atender_chamado'; chamadoId: string; codigo: string; titulo: string; tipo: 'assumir' | 'resolver' | 'transferir'
@@ -865,7 +934,10 @@ const ondeNoChat = (canalNome: string, fio: boolean) => {
   const nome = umaLinha(limpo(String(canalNome ?? ''), 200), 60).replace(/^#/, '')
   return nome ? `${fio ? 'do' : 'no'} canal *#${nome}*` : fio ? 'da conversa' : 'na conversa'
 }
-const nomeCurto = (t: string) => umaLinha(limpo(String(t ?? ''), 400), 80) || 'Sem nome'
+/** O nome de uma pessoa (ou de quem visita) no plano e no recibo: sem os sinais que imitariam o @usuário (nomeMostrado). */
+const nomeCurto = (t: string) => nomeMostrado(t) || 'Sem nome'
+/** O nome do documento guardado no Drive (os parênteses do nome do arquivo ficam). */
+const arquivoCurto = (t: string) => umaLinha(limpo(String(t ?? ''), 400), 80) || 'Sem nome'
 const HOMONIMO = '⚠ há outra pessoa com este nome no espaço'
 const ROTULO_DA_RESPOSTA_A_VISITA: Record<'subir' | 'aguardar' | 'recusar', string> = { subir: RESPOSTAS.subir.rotulo, aguardar: RESPOSTAS.aguardar.rotulo, recusar: RESPOSTAS.recusar.rotulo }
 const ROTULO_DA_URGENCIA: Record<1 | 2 | 3, string> = { 1: 'baixa', 2: 'média', 3: 'alta' }
@@ -953,7 +1025,7 @@ export function linhasDoPlano(passos: Passo[]): string[] {
       linhas.push('_A decisão é confirmada no Palácio, com a sua sessão: o WhatsApp nunca decide despesa nem compra._')
     } else if (p.acao === 'guardar_no_drive') {
       const tamanho = tamanhoDoArquivo(p.tamanho)
-      linhas.push(`${n} Guardar no Google Drive o documento *${nomeCurto(p.nome)}* (${[umaLinha(p.tipo, 20), tamanho].filter(Boolean).join(', ')}) em _${umaLinha(limpo(['Palácio – Arquivos', ...p.partes].join('/'), 600), 300)}_`)
+      linhas.push(`${n} Guardar no Google Drive o documento *${arquivoCurto(p.nome)}* (${[umaLinha(p.tipo, 20), tamanho].filter(Boolean).join(', ')}) em _${umaLinha(limpo(['Palácio – Arquivos', ...p.partes].join('/'), 600), 300)}_`)
       linhas.push('_A pasta é criada se ainda não existir; o link do arquivo vem no recibo._')
     } else {
       linhas.push(`${n} Marcar como lidos ${p.avisoIds === 'todos' ? 'todos os avisos sem abrir' : p.quantos === 1 ? '1 aviso' : `${p.quantos} avisos`}`)
@@ -1320,13 +1392,16 @@ export function marcadoresNaResposta(texto: string, conhecidos: Record<string, u
 }
 
 /**
- * O modelo disse que fez sem ter preparado nada? Primeira pessoa no passado ("aprovei", "mandei"), "pronto"/"feito"
- * no começo, ou "sua mensagem foi enviada". "O chamado foi aberto em 12/10" é leitura, não conta.
+ * O modelo disse que fez sem ter preparado nada? Primeira pessoa no passado ("aprovei", "mandei" — e as mudanças de
+ * plano: "tirei", "troquei", "acrescentei"), "pronto"/"feito" no começo, ou "sua mensagem foi enviada". "O chamado foi
+ * aberto em 12/10" é leitura, não conta; "incluí" e "substituí" só com o acento ("o plano inclui dois passos" é leitura).
  */
 export function afirmaQueFez(texto: string): boolean {
   const t = normalizar(String(texto ?? ''))
   if (/^(pronto|prontinho|feito|tudo certo|ok feito)\b/.test(t)) return true
   if (/\b(aprovei|votei|enviei|mandei|registrei|marquei|comentei|respondi|avisei|encaminhei|abri o chamado|abri um chamado|abri seu chamado)\b/.test(t)) return true
+  if (/\b(tirei|retirei|removi|troquei|mudei|alterei|atualizei|corrigi|acrescentei|adicionei|ajustei)\b/.test(t)) return true
+  if (/(?<!\p{L})(incluí|substituí)(?!\p{L})/u.test(String(texto ?? '').normalize('NFC').toLowerCase())) return true
   return /\b(sua mensagem|a mensagem|seu voto|o voto|os votos|seu comentario|o comentario|o recado|seu recado) (foi|foram|ja foi|ja foram) (enviad|registrad|computad|dad|feit)/.test(t)
 }
 
@@ -1408,7 +1483,7 @@ export function pontosDeAtencao(linhas: LinhaDoUsoNaRotina[], tetos: { leituras_
   if (suspensos) {
     pontos.push({
       titulo: 'Assistente do WhatsApp: números parados pela troca de nome',
-      mensagem: `${suspensos === 1 ? '1 número está' : `${suspensos} números estão`} com o assistente parado porque o nome de perfil do WhatsApp mudou. Volta quando a pessoa confirmar o número de novo em Meu perfil.`,
+      mensagem: `${suspensos === 1 ? '1 número está' : `${suspensos} números estão`} com o assistente parado porque o nome de perfil do WhatsApp mudou. Volta quando a pessoa confirmar o número de novo: em Meu perfil → WhatsApp, ela toca em “Trocar número” e confirma o mesmo número.`,
     })
   }
   return pontos

@@ -96,7 +96,8 @@ export function DriveDoGoogle({ conexao, clienteConfigurado, disponivel, aviso }
 
       {conexao && (
         <p className="text-xs text-muted-foreground">
-          Dentro da pasta: “Envios do WhatsApp/AAAA-MM/título do envio” (a cópia de cada envio, com a autorização de imagem na descrição de cada arquivo) e as pastas dos setores, onde cada pessoa guarda pelo WhatsApp só na do próprio setor (quem administra, em qualquer lugar). O WhatsApp responde com o link do arquivo.
+          Dentro da pasta: “Envios do WhatsApp/AAAA-MM/título do envio (ENV-…)” (a cópia de cada envio, com a autorização de imagem na descrição de cada arquivo) e as pastas dos setores, onde cada pessoa guarda pelo WhatsApp só na do próprio setor (quem administra, em qualquer lugar). O WhatsApp responde com o link do arquivo.
+          {' '}O que o Palácio cria nasce privado desta conta: no Google Drive, compartilhe “Palácio – Arquivos” com a equipe (o que nasce dentro herda o acesso), senão o link que o WhatsApp devolve e o da ficha do envio só abrem para esta conta.
         </p>
       )}
     </Card>

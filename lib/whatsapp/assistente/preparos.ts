@@ -100,6 +100,8 @@ export type ContextoDoPreparo = {
    * da pasta já foi encerrada pelo plano, e o documento vem do plano que está sendo corrigido.
    */
   documentoEmRevisao?: DocumentoRecebido | null
+  /** O relógio (ms), para os testes; sem ele, Date.now. */
+  relogio?: () => number
 }
 
 /** Um link do Palácio que a resposta em texto leva (posProcessarResposta): o preparo recusado de quem usa a verificação em duas etapas. */
@@ -249,7 +251,8 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     if (e.escopo === 'todos') {
       const quantos = await c.fonte.avisosSemLer('todos')
       if (!quantos) return falha('Não há avisos sem ler.', { oQue, motivo: 'não há avisos sem ler' })
-      return { ok: true, passo: { acao: 'marcar_lidos', avisoIds: 'todos', quantos, isento: true } }
+      // A foto deste momento: o que chegar depois do plano continua sem ler (executores.ts corta pela hora).
+      return { ok: true, passo: { acao: 'marcar_lidos', avisoIds: 'todos', ate: new Date((c.relogio ?? Date.now)()).toISOString(), quantos, isento: true } }
     }
     const ids = (Array.isArray(e.avisos) ? e.avisos : []).map((m) => c.tabela.resolver(String(m), 'aviso'))
     if (!ids.length || ids.some((i) => !i)) return desconhecido('avi', 'ler_avisos')
@@ -389,7 +392,7 @@ export function criarPreparador(c: ContextoDoPreparo): { preparar: Handlers['pre
     async preparar(nome, e) {
       const preparo = PREPAROS[nome]
       if (!preparo) return falha('Ferramenta desconhecida.')
-      if (!c.recente) return falha(TEXTOS_FIXOS.numero_antigo, { motivo: 'confirme o número de novo em Meu perfil para pedir ações por aqui' })
+      if (!c.recente) return falha(TEXTOS_FIXOS.numero_antigo, { motivo: 'confirme o número de novo para pedir ações por aqui (em Meu perfil → WhatsApp, toque em “Trocar número” e confirme o mesmo número)' })
       if (!c.escrita) return falha(TEXTOS_FIXOS.escrita_desligada, { motivo: 'pedir ações por aqui não está ligado para você' })
       if (c.rascunho.passos.length >= LIMITES.passos) return falha(`No máximo ${LIMITES.passos} passos por plano; diga à pessoa que o resto é pelo Palácio.`, { motivo: `no máximo ${LIMITES.passos} passos por plano` })
       try {

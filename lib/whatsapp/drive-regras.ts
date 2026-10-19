@@ -93,9 +93,9 @@ export function textoDoGuardado(p: { nome: string; partes: readonly string[]; li
 }
 
 export const TEXTO_DRIVE_TIPO = 'Pelo WhatsApp eu guardo no Drive só PDF, planilhas, textos e apresentações. Foto e vídeo viram envio para a comunicação (mande sem a legenda de pasta).'
-export const TEXTO_DRIVE_GRANDE = 'Este documento é grande demais para vir pelo WhatsApp (até 64 MB). Guarde direto no Google Drive.'
+export const TEXTO_DRIVE_GRANDE = 'Este documento é grande demais para vir pelo WhatsApp (até 64 MB). Guarde direto na pasta do seu setor em “Palácio – Arquivos”, no Google Drive.'
 export const TEXTO_DRIVE_DOIS_FATORES =
-  'Sua conta usa a verificação em duas etapas, então guardar arquivos no Drive pelo WhatsApp fica de fora (o WhatsApp não pede o código do app). Guarde direto no Google Drive, ou peça a alguém do seu setor.'
-export const TEXTO_DRIVE_ESCOLA = 'Guardar no Drive pelo WhatsApp é da equipe do Palácio; a equipe da Escola guarda direto no Google Drive.'
+  'Sua conta usa a verificação em duas etapas, então guardar arquivos no Drive pelo WhatsApp fica de fora (o WhatsApp não pede o código do app). Guarde direto na pasta do seu setor em “Palácio – Arquivos”, no Google Drive, ou peça a alguém do seu setor.'
+export const TEXTO_DRIVE_ESCOLA = 'Guardar no Drive pelo WhatsApp é da equipe do Palácio; a equipe da Escola guarda direto no Google Drive, na pasta que a administração compartilhar com ela.'
 export const TEXTO_DRIVE_JA_GUARDADO = 'Este documento já foi guardado (ou a pergunta já foi respondida).'
 export const TEXTO_DRIVE_RESPONDA = 'Responda com a pasta (ex.: *Financeiro/2026*), ou *cancelar*.'

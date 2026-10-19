@@ -288,24 +288,31 @@ export type RegistroDoUso = ReturnType<typeof criarRegistroDoUso>
 
 // ------------------------------------------------------------------ disjuntor e alertas
 
-/** As classes de erro de quem está do outro lado (o disjuntor conta só estas). */
+/** As classes de erro de quem está do outro lado. */
 export const ERROS_DE_FORA = ['RateLimitError', 'InternalServerError', 'APIConnectionError', 'APIConnectionTimeoutError'] as const
+
+/**
+ * O que o disjuntor conta: as falhas de fora e o 400 que se repete (o beta do recuo não liberado, um
+ * WHATSAPP_IA_MODELO que recusa o esforço ou o recuo). Um 400 só não pausa (pode vir de uma mensagem); três em
+ * DISJUNTOR.janelaMin, sim.
+ */
+export const ERROS_DO_DISJUNTOR = [...ERROS_DE_FORA, 'BadRequestError'] as const
 
 /** O disjuntor abre com tantas falhas de fora em tantos minutos, e fica aberto por tantos minutos. */
 const DISJUNTOR = { falhas: 3, janelaMin: 10, pausaMin: 10 } as const
-/** Chave recusada ou modelo inexistente: pausa mais longa (não adianta tentar a cada mensagem). */
+/** Chave ou cobrança recusada, ou modelo inexistente: pausa mais longa (não adianta tentar a cada mensagem). */
 const PAUSA_DE_CONFIGURACAO_MIN = 30
 
 /**
- * Uma falha de fora (429, 529, 5xx, conexão, tempo): soma no contador e, com DISJUNTOR.falhas em
- * DISJUNTOR.janelaMin (contadas no registro do uso), abre o disjuntor — o assistente fica fora por
+ * Uma falha de fora (429, 529, 5xx, conexão, tempo) ou um 400 (ERROS_DO_DISJUNTOR): soma no contador e, com
+ * DISJUNTOR.falhas em DISJUNTOR.janelaMin (contadas no registro do uso), abre o disjuntor — o assistente fica fora por
  * DISJUNTOR.pausaMin e o bot de comandos responde sozinho.
  */
 export async function registrarFalha(admin: Admin, workspaceId: string, config: ConfigDoAssistente | null): Promise<void> {
   try {
     const agora = Date.now()
     const { count } = await admin.from('whatsapp_ia_uso').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).eq('desfecho', 'erro')
-      .in('erro', [...ERROS_DE_FORA]).gte('criado_em', new Date(agora - DISJUNTOR.janelaMin * 60_000).toISOString())
+      .in('erro', [...ERROS_DO_DISJUNTOR]).gte('criado_em', new Date(agora - DISJUNTOR.janelaMin * 60_000).toISOString())
     const abrir = (count ?? 0) >= DISJUNTOR.falhas
     await admin.from('whatsapp_ia_config').update({
       falhas_seguidas: Math.min(32_000, (config?.falhas_seguidas ?? 0) + 1),
@@ -327,7 +334,7 @@ export async function zerarFalhas(admin: Admin, workspaceId: string, config: Con
 }
 
 /**
- * Chave recusada (401/403) ou modelo que não existe (404): pausa o assistente por PAUSA_DE_CONFIGURACAO_MIN, com o
+ * Chave recusada (401/403), cobrança recusada (402: sem crédito) ou modelo que não existe (404): pausa o assistente por PAUSA_DE_CONFIGURACAO_MIN, com o
  * motivo (sem segredo), e avisa a administração como alerta de integração (lib/integracoes/alertas.ts: categoria
  * "integracoes", no sino, no e-mail e no WhatsApp, no máximo um a cada 6 h) — o bot de comandos segue respondendo.
  */

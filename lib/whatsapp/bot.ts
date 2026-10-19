@@ -43,7 +43,7 @@ import { responderComAssistente } from './assistente'
 import { ASSISTENTE_INDISPONIVEL, disponibilidadeDoAssistente } from './assistente/uso'
 import { cancelarPlano, confirmarPlano, guardarPlanoDoChat, planoAberto, type AbertoDaPessoa } from './assistente/plano'
 import { esperarAVez, esquecer, lembrarLista, soltarVez } from './assistente/memoria'
-import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, lerRespostaAoPlano, rotaDaMensagem, textoDoEcoDoAudio, type AvisoCitado, type Rota } from './assistente/regras'
+import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, comandoDaRota, lerRespostaAoPlano, rotaDaMensagem, textoDoEcoDoAudio, type AvisoCitado, type Rota } from './assistente/regras'
 import type { TipoDeItem } from './assistente/marcadores'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -167,6 +167,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedido = !pessoa ? null : doAudio ? { comando: 'desconhecido' as const, resto: m.texto }
       : lerPedido(m.texto, { pausado, admin: administra, usuarios: gerenciaUsuarios(pessoa), frota: operaFrota, assistente: ia.disponivel })
     const comando = pedido?.comando ?? (voluntario ? `voluntario_${comandoDoVoluntario(m.texto, { pausado: voluntario.pausado })}` : 'apresentacao')
+    // Com o assistente, "aprova a 2" só é a decisão do Financeiro com a lista do "financeiro" aberta, de quem decide
+    // (lida uma vez aqui; undefined = não precisou ler): sem ela, o "2" é o da última lista da memória curta ("avisos",
+    // "aprovacoes"), e a mensagem vai ao assistente (assistente/regras.ts, comandoDaRota).
+    const listaDoFinanceiro = pessoa && ia.disponivel && pedido?.comando === 'decidir_financeiro'
+      ? (await podeDecidirNoFinanceiro(admin, workspaceId, pessoa) ? await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro') : null)
+      : undefined
+    const decisaoSemLista = listaDoFinanceiro === null
 
     // Respondeu citando um aviso: a resposta vai para o chamado, o Chat ou a aprovação dele.
     const aviso = pessoa && m.citada ? await avisoCitado(admin, workspaceId, pessoa.id, m.citada) : null
@@ -221,9 +228,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       respostaAoPlano = aberto ? lerRespostaAoPlano(m.texto, aberto.aberto, { visitaEsperando, enviadaEm: m.enviadaEm }) : null
       // A janela de 2 min depois do plano (o "cancelar" atrasado, o "2" repetido, o "confirmo" tardio) não passa por cima de
       // outra pergunta: a do bot, aberta (a conferência do voto, os passos do chamado), ou a visita esperando a resposta.
-      if (respostaAoPlano && aberto && !aberto.aberto.plano && aberto.aberto.citacao !== 'plano_velho' && (pendencia || visitaEsperando)) respostaAoPlano = null
+      // O plano que espera o Palácio também cede a vez à pergunta mais nova, a menos que a mensagem cite o plano.
+      if (respostaAoPlano && aberto && !aberto.aberto.plano && aberto.aberto.citacao !== 'plano_velho' && aberto.aberto.citacao !== 'plano' && (pendencia || visitaEsperando)) respostaAoPlano = null
       rota = rotaDaMensagem({
-        disponivel: true, midia: false, comando: pedido?.comando ?? 'desconhecido', texto: m.texto, resposta: respostaAoPlano, aviso: aviso ? tipoDoAviso(aviso.link) : null, paraPendencia,
+        disponivel: true, midia: false, comando: comandoDaRota(pedido?.comando ?? 'desconhecido', Boolean(listaDoFinanceiro)), texto: m.texto, resposta: respostaAoPlano,
+        aviso: aviso ? tipoDoAviso(aviso.link) : null, paraPendencia,
         audio: doAudio,
       })
       // O plano de um passo para o Chat é escrita: sem a escrita do assistente para a pessoa, com a verificação em duas
@@ -238,7 +247,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id,
       comando: rota !== 'bot' ? rota
         : paraODrive ? (paraODrive === 'assistente' ? 'ia' : `drive_${paraODrive}`)
-          : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}` : comando,
+          : midia ? `midia_${m.midia?.categoria}` : aviso ? 'responder_aviso' : vencida ? 'pergunta_vencida' : paraPendencia ? `pendencia_${pendencia?.tipo}`
+            : decisaoSemLista ? 'desconhecido' : comando,
       enviadaEm: m.enviadaEm,
     })
     if (!nova) return
@@ -444,10 +454,14 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     // As decisões do Financeiro e de Compras são de quem a tela deixa decidir: para os outros, as palavras caem no menu.
-    if ((comando === 'financeiro' || comando === 'decidir_financeiro') && pedido && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
-      if (comando === 'financeiro') await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
-      // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima).
-      else await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
+    if (comando === 'financeiro' && await podeDecidirNoFinanceiro(admin, workspaceId, pessoa)) {
+      await enviar(await listarDecisoes(admin, workspaceId, pessoa, base))
+      return
+    }
+    // Vale a lista do "financeiro" mais nova (a citada, se aberta, já veio pela pendência acima). Com o assistente, ela já
+    // foi lida (listaDoFinanceiro); sem ela, a mensagem foi ao assistente e não chega aqui.
+    if (comando === 'decidir_financeiro' && pedido && !decisaoSemLista && (listaDoFinanceiro || await podeDecidirNoFinanceiro(admin, workspaceId, pessoa))) {
+      await enviar(await decidirPeloWhatsapp(admin, workspaceId, pessoa, listaDoFinanceiro ?? await pendenciaAberta(admin, workspaceId, pessoa.id, null, 'financeiro'), pedido.resto, base))
       return
     }
 
@@ -572,7 +586,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
 
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
     const quem = await quemNoMenu(admin, workspaceId, pessoa)
-    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido', assistente: ia.disponivel, ...quem })
+    const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido' || decisaoSemLista, assistente: ia.disponivel, ...quem })
     await responder(menu, { interativo: interativoDoMenu({ pausado, ...quem }), comando: 'menu' })
   } catch (causa) {
     console.error('[whatsapp] bot não respondeu:', causa instanceof Error ? causa.message : causa)
