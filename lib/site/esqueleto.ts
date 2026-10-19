@@ -1,5 +1,6 @@
 import { blocoDoAnalytics } from '@/lib/site/analytics'
 import { svgDaMarca } from '@/lib/marcas'
+import { DADOS_DA_FILIAL } from '@/lib/site/juridico'
 
 /**
  * O esqueleto das páginas do site institucional: tokens, cabeçalho, rodapé,
@@ -18,7 +19,13 @@ import { svgDaMarca } from '@/lib/marcas'
  * Abertura da trilha pública (05/10/2026): "História" e "Transparência" no
  * menu; no rodapé, o portal, os canais oficiais e "Verificar um documento".
  * A home recebe os mesmos links no repositório do site.
- * Nada de convite a doar: a doação online saiu do ar em 25/09/2026.
+ * Menu do pedido do Google Ad Grants (19/10/2026), o mesmo da home: seis
+ * itens — "Quem somos" e "Como ajudar" em grupo, Notícias, Transparência,
+ * Escola (link único para a matrícula) e Contato — e o botão vermelho "Doe"
+ * no lugar de "Plataforma", com a doação online religada. No rodapé, o CNPJ e
+ * o endereço completo em toda página; saíram a Wikipédia (verbete escrito
+ * pela própria filial, não é prova independente) e o Acervo, que não tem
+ * item publicado.
  *
  * Módulo puro, sem nada de servidor: a prévia do hub (no navegador) monta a
  * matéria com ele.
@@ -88,7 +95,6 @@ export function noDoSite(): Record<string, unknown> {
 const CAMINHOS = {
   bars: ['0 0 448 512', 'M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z'],
   xmark: ['0 0 384 512', 'M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z'],
-  'graduation-cap': ['0 0 640 512', 'M320 32c-8.1 0-16.1 1.4-23.7 4.1L15.8 137.4C6.3 140.9 0 149.9 0 160s6.3 19.1 15.8 22.6l57.9 20.9C57.3 229.3 48 259.8 48 291.9v28.1c0 28.4-10.8 57.7-22.3 80.8c-6.5 13-13.9 25.8-22.5 37.6C0 442.7-.9 448.3 .9 453.4s6 8.9 11.2 10.2l64 16c4.2 1.1 8.7 .3 12.4-2s6.3-6.1 7.1-10.4c8.6-42.8 4.3-81.2-2.1-108.7C90.3 344.3 86 329.8 80 316.5V291.9c0-30.2 10.2-58.7 27.9-81.5c12.9-15.5 29.6-28 49.2-35.7l157-61.7c8.2-3.2 17.5 .8 20.7 9s-.8 17.5-9 20.7l-157 61.7c-12.4 4.9-23.3 12.4-32.2 21.6l159.6 57.6c7.6 2.7 15.6 4.1 23.7 4.1s16.1-1.4 23.7-4.1L624.2 182.6c9.5-3.4 15.8-12.5 15.8-22.6s-6.3-19.1-15.8-22.6L343.7 36.1C336.1 33.4 328.1 32 320 32zM128 408c0 35.3 86 72 192 72s192-36.7 192-72L496.7 262.6 354.5 314c-11.1 4-22.8 6-34.5 6s-23.5-2-34.5-6L143.3 262.6 128 408z'],
   'location-dot': ['0 0 384 512', 'M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z'],
   phone: ['0 0 512 512', 'M164.9 24.6c-7.7-18.6-28-28.5-47.4-23.2l-88 24C12.1 30.2 0 46 0 64C0 311.4 200.6 512 448 512c18 0 33.8-12.1 38.6-29.5l24-88c5.3-19.4-4.6-39.7-23.2-47.4l-96-40c-16.3-6.8-35.2-2.1-46.3 11.6L304.7 368C234.3 334.7 177.3 277.7 144 207.3L193.3 167c13.7-11.2 18.4-30 11.6-46.3l-40-96z'],
   envelope: ['0 0 512 512', 'M64 112c-8.8 0-16 7.2-16 16v22.1L220.5 291.7c20.7 17 50.4 17 71.1 0L464 150.1V128c0-8.8-7.2-16-16-16H64zM48 212.2V384c0 8.8 7.2 16 16 16H448c8.8 0 16-7.2 16-16V212.2L322 328.8c-38.4 31.5-93.7 31.5-132 0L48 212.2zM0 128C0 92.7 28.7 64 64 64H448c35.3 0 64 28.7 64 64V384c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128z'],
@@ -252,19 +258,37 @@ a{color:inherit;text-decoration:none}
 .main-header.nav-open .nav-toggle .ico-xmark{display:inline-block}
 .header-collapse{display:flex;align-items:center;gap:24px;margin-left:auto}
 .header-actions{display:flex;gap:12px;align-items:center}
-.btn-login-sutil{color:var(--red);font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;transition:background .2s}
-.btn-login-sutil:hover{background:rgba(204,0,0,.08)}
 /* Seletor de idioma, o mesmo da home e das páginas internas do site: EN e ES levam às versões traduzidas da home. */
 .seletor-idioma{display:flex;gap:2px;align-items:center;font-size:.78rem;font-weight:800;letter-spacing:.04em}
 .seletor-idioma a,.seletor-idioma .idioma-atual{padding:5px 9px;border-radius:8px;text-decoration:none;line-height:1}
 .seletor-idioma a{color:var(--muted)}
 .seletor-idioma a:hover,.seletor-idioma a:focus-visible{color:var(--red);background:rgba(204,0,0,.08)}
 .seletor-idioma .idioma-atual{color:var(--red);background:rgba(204,0,0,.08)}
-/* Menu completo compacto em telas médias: cabe com o item "Matrícula cursos presenciais". */
-@media(max-width:1366px){
-  .nav-links{gap:16px}
-  .nav-links a{font-size:.86rem}
+/* O botão de destaque do cabeçalho: "Doe", em vermelho. */
+.btn-doe{background:var(--red);color:#fff;font-weight:700;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;padding:9px 20px;border-radius:999px;transition:background .2s;white-space:nowrap}
+.btn-doe:hover,.btn-doe:focus-visible{background:var(--red-dark);color:#fff}
+/* Menu em grupos, como o da home: "Quem somos" e "Como ajudar" abrem uma
+   lista — no computador ao passar o mouse, focar ou clicar; no menu sanfona
+   (até 1180 px), por clique, dentro da lista. */
+.nav-links{align-items:center}
+.nav-links>a,.nav-grupo-botao{line-height:1.5}
+.nav-grupo{position:relative}
+.nav-grupo-botao{font:inherit;font-weight:600;font-size:13.5px;letter-spacing:.2px;color:var(--muted);background:none;border:0;padding:0 0 2px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.nav-grupo-botao::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-2px) rotate(45deg);transition:transform .2s}
+.nav-grupo-botao:hover,.nav-grupo.aberto .nav-grupo-botao,.nav-grupo-botao[aria-current="true"]{color:var(--red)}
+.nav-grupo.aberto .nav-grupo-botao::after{transform:translateY(1px) rotate(-135deg)}
+.nav-sub{display:none;position:absolute;top:calc(100% + 14px);left:50%;transform:translateX(-50%);min-width:260px;padding:10px;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(11,18,32,.14);z-index:1001}
+.nav-sub::before{content:"";position:absolute;left:0;right:0;top:-16px;height:16px}
+.nav-grupo.aberto .nav-sub{display:grid}
+@media(min-width:1181px) and (hover:hover){
+  .nav-grupo:hover .nav-sub{display:grid}
+  /* Um grupo aberto por clique some quando o mouse passa para o outro: nunca duas listas ao mesmo tempo. */
+  .nav-links:has(.nav-grupo:hover) .nav-grupo.aberto:not(:hover) .nav-sub{display:none}
 }
+.nav-links .nav-sub a{display:block;padding:9px 12px;border-radius:9px;color:var(--text);font-size:13.5px;white-space:nowrap}
+.nav-links .nav-sub a::after{display:none}
+.nav-links .nav-sub a:hover,.nav-links .nav-sub a:focus-visible{background:rgba(204,0,0,.07);color:var(--red)}
+.nav-links .nav-sub a[aria-current="page"]{color:var(--red);background:rgba(204,0,0,.07)}
 /* Abaixo de 1500px o menu centralizado na página encostaria no seletor de
    idioma (na home, entre 1181 e 1280px, ele passa por cima): aqui ele segue
    o fluxo, entre o logo e as ações, e nunca as cobre. */
@@ -276,7 +300,7 @@ a{color:inherit;text-decoration:none}
   .header-container{padding-left:20px;padding-right:20px}
   .nav-links{gap:12px}
   .seletor-idioma a,.seletor-idioma .idioma-atual{padding:5px 6px}
-  .btn-login-sutil{padding:8px 8px}
+  .btn-doe{padding:8px 14px}
 }
 @media(max-width:1180px){
   .header-container{flex-wrap:nowrap;justify-content:space-between;gap:10px;padding:14px 20px}
@@ -287,7 +311,15 @@ a{color:inherit;text-decoration:none}
   .nav-links a{padding:14px 4px;border-bottom:1px solid var(--line);width:100%}
   .nav-links a::after{display:none}
   .header-actions{display:flex;flex-direction:column;align-items:stretch;width:100%;gap:10px;margin-top:10px}
-  .header-actions .btn-login-sutil{justify-content:center;width:100%}
+  .header-actions .btn-doe{width:100%;padding:12px 20px}
+  .nav-links{align-items:stretch}
+  .nav-grupo{width:100%;border-bottom:1px solid var(--line)}
+  .nav-grupo-botao{width:100%;justify-content:space-between;padding:14px 4px;font-size:.95rem}
+  .nav-sub{position:static;transform:none;min-width:0;box-shadow:none;border:0;border-radius:0;padding:0 0 10px 10px}
+  .nav-sub::before{display:none}
+  .nav-links .nav-sub a{padding:10px 8px;border-bottom:0;white-space:normal}
+  /* Com os dois grupos abertos, a lista passa da altura da tela: o painel rola sozinho, sem rolar a página. */
+  .main-header.nav-open .header-collapse{max-height:calc(100vh - 76px);max-height:calc(100dvh - 76px);overflow-y:auto;overscroll-behavior:contain}
   .logo-img{height:48px}
 }
 .materia{background:var(--paper);padding-bottom:72px}
@@ -362,7 +394,7 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
 .single-noticia .logo-img{height:44px}
 .single-noticia .nav-links a{font-size:13px}
 .single-noticia .nav-links a[aria-current="page"]{color:var(--brand)}
-.single-noticia .btn-login-sutil{font-size:13px}
+.single-noticia .btn-doe{font-size:13px}
 .news-folio{max-width:var(--max-folio);margin:0 auto;padding:0 24px 56px}
 .news-masthead{border-top:3px solid var(--brand);padding:14px 0 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .news-masthead .dot{color:var(--news-line)}
@@ -450,27 +482,52 @@ footer{background:var(--stone);border-top:3px solid var(--red);color:var(--muted
 
 const LOGO = (o: string) => `${o}/assets/otim/logo-cvb-rj-520.webp`
 
-/** O cabeçalho com o menu — o mesmo da home. `ativo` marca a página atual (aria-current + filete). */
-export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): string {
+/** As páginas que o menu marca como a atual (aria-current + filete). */
+export type ItemDoMenu = 'noticias' | 'acervo' | 'transparencia'
+
+/**
+ * O cabeçalho com o menu — o mesmo da home. `ativo` marca a página atual.
+ *
+ * Seis itens no primeiro nível, nesta ordem: Quem somos (grupo), Como ajudar
+ * (grupo), Notícias, Transparência, Escola e Contato. A escola é um link só,
+ * para a matrícula; a plataforma dela fica fora do menu da filial.
+ */
+export function cabecalhoDoSite(origem: string, ativo?: ItemDoMenu): string {
   const o = escapar(origem)
-  const atual = ativo === 'noticias' ? ' aria-current="page"' : ''
+  const atual = (item: ItemDoMenu) => (ativo === item ? ' aria-current="page"' : '')
   return `<header class="main-header">
       <div class="header-container">
         <a href="${o}/" class="logo-area">
           <img src="${escapar(LOGO(origem))}" width="520" height="156" alt="${NOME_DO_SITE}" class="logo-img">
         </a>
-        <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false">${icone('bars')}${icone('xmark')}</button>
-        <div class="header-collapse">
+        <button class="nav-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-painel">${icone('bars')}${icone('xmark')}</button>
+        <div class="header-collapse" id="menu-painel">
           <nav class="nav-links" aria-label="Menu principal">
-            <a href="${o}/#institucional">Sobre</a>
-            <a href="${o}/historia/">História</a>
-            <a href="${o}/noticias/"${atual}>Notícias</a>
-            <a href="${o}/matricula-cursos-presenciais/" class="nav-nowrap">Matrícula cursos presenciais</a>
-            <a href="${o}/#campanhas">Campanhas</a>
-            <a href="${o}/#parceiros">Parceiros</a>
-            <a href="${o}/#faq">FAQ</a>
-            <a href="${o}/equipe.html">Equipe</a>
-            <a href="${o}/transparencia/">Transparência</a>
+            <div class="nav-grupo">
+              <button class="nav-grupo-botao" type="button" aria-expanded="false" aria-controls="menu-quem-somos">Quem somos</button>
+              <div class="nav-sub" id="menu-quem-somos">
+                <a href="${o}/quem-somos/">Quem somos</a>
+                <a href="${o}/historia/">Nossa história</a>
+                <a href="${o}/equipe.html">Equipe</a>
+                <a href="${o}/principios-fundamentais/">Princípios Fundamentais</a>
+                <a href="${o}/emblema/">O emblema</a>
+                <a href="${o}/movimento-internacional/">Movimento Internacional</a>
+                <a href="${o}/direito-internacional-humanitario/">Direito Internacional Humanitário</a>
+                <a href="${o}/base-legal/">Base legal</a>
+              </div>
+            </div>
+            <div class="nav-grupo">
+              <button class="nav-grupo-botao" type="button" aria-expanded="false" aria-controls="menu-como-ajudar">Como ajudar</button>
+              <div class="nav-sub" id="menu-como-ajudar">
+                <a href="${o}/doe/">Doe</a>
+                <a href="${o}/voluntariado/">Seja voluntário</a>
+                <a href="${o}/cursos-gratuitos/">Formação de voluntários</a>
+                <a href="${o}/#campanhas">Campanhas</a>
+              </div>
+            </div>
+            <a href="${o}/noticias/"${atual('noticias')}>Notícias</a>
+            <a href="${o}/transparencia/"${atual('transparencia')}>Transparência</a>
+            <a href="${o}/matricula-cursos-presenciais/">Escola</a>
             <a href="${o}/#contato">Contato</a>
           </nav>
           <div class="header-actions">
@@ -479,7 +536,7 @@ export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): 
               <a href="${o}/en/" hreflang="en" lang="en" aria-label="English">EN</a>
               <a href="${o}/es/" hreflang="es" lang="es" aria-label="Español">ES</a>
             </div>
-            <a href="https://escola.cursoscruzvermelha.org" class="btn-login-sutil">${icone('graduation-cap')} Plataforma</a>
+            <a href="${o}/doe/" class="btn-doe">Doe</a>
           </div>
         </div>
       </div>
@@ -487,13 +544,20 @@ export function cabecalhoDoSite(origem: string, ativo?: 'noticias' | 'acervo'): 
 }
 
 /**
- * O rodapé — as mesmas colunas e os mesmos links da home. Na faixa de baixo, as
- * políticas (do repositório do site) e "Preferências de cookies": o aviso de
- * cookies transforma o clique em qualquer [data-cvrj-cookies] na abertura das
- * preferências; sem o aviso, o link leva à Política de Cookies.
+ * O rodapé — as mesmas colunas da home. CNPJ e endereço completo em toda
+ * página (é o que um revisor procura para saber quem responde pelo site). Na
+ * faixa de baixo, as políticas (do repositório do site) e "Preferências de
+ * cookies": o aviso de cookies transforma o clique em qualquer
+ * [data-cvrj-cookies] na abertura das preferências; sem o aviso, o link leva à
+ * Política de Cookies.
+ *
+ * Fora daqui de propósito: a Wikipédia (o verbete foi escrito pela conta da
+ * própria filial e cita o site como fonte — não é prova independente) e o
+ * Acervo, enquanto não houver item publicado (lib/acervo/paginas.ts).
  */
 export function rodapeDoSite(origem: string, ano: number | string): string {
   const o = escapar(origem)
+  const f = DADOS_DA_FILIAL
   return `<footer>
       <div class="footer-grid">
         <div class="footer-brand">
@@ -502,19 +566,19 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
         </div>
         <div class="footer-col">
           <h4>Sobre</h4>
-          <p>Cruz Vermelha Brasileira<br>Filial Rio de Janeiro</p>
-          <p><a href="${o}/matricula-cursos-presenciais/">Matrícula cursos presenciais</a></p>
-          <p><a href="https://escola.cursoscruzvermelha.org" target="_blank" rel="noopener">Plataforma da escola</a></p>
-          <p><a href="${o}/bio/">Links oficiais</a></p>
+          <p>Cruz Vermelha Brasileira<br>Filial do Estado do Rio de Janeiro<br>CNPJ ${f.cnpj}</p>
+          <p><a href="${o}/quem-somos/">Quem somos</a></p>
           <p><a href="${o}/transparencia/">Portal da transparência</a></p>
+          <p><a href="${o}/canais-oficiais/">Canais oficiais</a></p>
           <p><a href="${o}/verificar/">Verificar um documento</a></p>
-          <p><a href="https://pt.wikipedia.org/wiki/Cruz_Vermelha_Brasileira_-_Rio_de_Janeiro" target="_blank" rel="noopener">Wikipédia</a></p>
+          <p><a href="${o}/bio/">Links oficiais</a></p>
+          <p><a href="${o}/matricula-cursos-presenciais/">Escola de Educação e Saúde</a></p>
         </div>
         <div class="footer-col">
           <h4>Contato</h4>
-          <p>${icone('location-dot')} Praça da Cruz Vermelha, 10</p>
-          <p>${icone('phone')} (21) 99992-2864</p>
-          <p>${icone('envelope')} contato@cruzvermelhariodejaneiro.org</p>
+          <p>${icone('location-dot')} Praça da Cruz Vermelha, 10 · Centro · Rio de Janeiro – RJ · CEP 20230-130</p>
+          <p>${icone('phone')} ${f.telefone}</p>
+          <p>${icone('envelope')} ${f.email}</p>
         </div>
         <div class="footer-col">
           <h4>Siga-nos</h4>
@@ -526,11 +590,9 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
       </div>
       <div class="footer-bottom">
         <div class="footer-inner">
-          <span>&copy; ${escapar(String(ano))} ${NOME_DO_SITE}</span>
+          <span>&copy; ${escapar(String(ano))} Cruz Vermelha Brasileira – Filial do Estado do Rio de Janeiro · CNPJ ${f.cnpj}</span>
           <span class="sep">|</span>
           <a href="${o}/noticias/">Notícias</a>
-          <span class="sep">|</span>
-          <a href="${o}/acervo/">Acervo</a>
           <span class="sep">|</span>
           <a href="${o}/transparencia/">Transparência</a>
           <span class="sep">|</span>
@@ -538,9 +600,7 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <span class="sep">|</span>
           <a href="${o}/verificar/">Verificar documento</a>
           <span class="sep">|</span>
-          <a href="https://escola.cursoscruzvermelha.org" target="_blank" rel="noopener">Escola de Educação e Saúde</a>
-          <span class="sep">|</span>
-          <a href="${o}/matricula-cursos-presenciais/">Matrícula cursos presenciais</a>
+          <a href="${o}/matricula-cursos-presenciais/">Escola de Educação e Saúde</a>
           <span class="sep">|</span>
           <a href="${o}/privacidade/">Política de Privacidade</a>
           <span class="sep">|</span>
@@ -570,8 +630,38 @@ export function scriptDoMenu(): string {
           const header = link.closest('.main-header');
           header?.classList.remove('nav-open');
           document.querySelector('.nav-toggle')?.setAttribute('aria-expanded', 'false');
+          document.querySelector('.nav-toggle')?.setAttribute('aria-label', 'Abrir menu');
         });
       });
+      // Grupos do menu ("Quem somos", "Como ajudar"): abrem por clique ou teclado; Esc ou clique fora fecham.
+      (function() {
+        const grupos = Array.from(document.querySelectorAll('.nav-grupo'));
+        const mouse = window.matchMedia('(min-width: 1181px) and (hover: hover)');
+        function fechar(exceto) {
+          grupos.forEach(function(g) { if (g !== exceto) { g.classList.remove('aberto'); g.querySelector('.nav-grupo-botao')?.setAttribute('aria-expanded', 'false'); } });
+        }
+        grupos.forEach(function(g) {
+          const botao = g.querySelector('.nav-grupo-botao');
+          botao?.addEventListener('click', function() {
+            const abrir = !g.classList.contains('aberto');
+            fechar(g);
+            g.classList.toggle('aberto', abrir);
+            botao.setAttribute('aria-expanded', String(abrir));
+          });
+          if (g.querySelector('a[aria-current="page"]')) botao?.setAttribute('aria-current', 'true');
+          // No computador, passar o mouse num grupo fecha o outro; sair com o Tab de um grupo o fecha.
+          g.addEventListener('mouseenter', function() { if (mouse.matches) fechar(g); });
+          g.addEventListener('focusout', function(e) {
+            if (e.relatedTarget && !g.contains(e.relatedTarget)) { g.classList.remove('aberto'); botao?.setAttribute('aria-expanded', 'false'); }
+          });
+        });
+        document.addEventListener('click', function(e) { if (!e.target.closest('.nav-grupo')) fechar(null); });
+        document.addEventListener('keydown', function(e) {
+          if (e.key !== 'Escape') return;
+          const aberto = grupos.find(function(g) { return g.classList.contains('aberto'); });
+          if (aberto) { fechar(null); aberto.querySelector('.nav-grupo-botao')?.focus(); }
+        });
+      })();
     </script>`
 }
 
@@ -594,7 +684,7 @@ export type DadosDaPagina = {
   jsonLd?: object
   agora?: Date
   /** Item do menu a marcar como página atual. */
-  ativo?: 'noticias' | 'acervo'
+  ativo?: ItemDoMenu
   /** false: a página sai com noindex (lançamento oculto; o sitemap também não a lista). */
   indexar?: boolean
   /** Imagem de compartilhamento (og:image e cartão grande do X). Sem ela, vale a da home. */
@@ -612,12 +702,31 @@ export type DadosDaPagina = {
   scriptsDoFim?: string
   /** As tags do chat; sem isto, vale o que `prepararChatDoSite()` deixou pronto. */
   chat?: string
+  /**
+   * A foto que é o LCP da página (a de abertura da matéria): sai num
+   * <link rel=preload> no <head>, com o mesmo srcset/sizes do <picture>, para
+   * o celular começar a baixá-la antes de ler o CSS e o resto do cabeçalho.
+   */
+  imagemPrioritaria?: { srcset: string; sizes: string; tipo?: string }
 }
 
-/** As fontes das páginas: Inter no chrome/UI, Source Serif 4 na leitura —
- * duas famílias, quatro pesos, como o briefing editorial pede. */
+/**
+ * As fontes das páginas: Inter no chrome/UI, Source Serif 4 na leitura, só
+ * nos pesos que a folha usa (Inter 400/600/700/800; Serif 400/700/800 e o
+ * itálico 400 das citações — o navegador só baixa o itálico se houver citação
+ * na página).
+ *
+ * Sem o eixo de tamanho óptico (opsz) da Source Serif: era ele que fazia o
+ * arquivo da serifada pesar 122 KB. E sem bloquear a pintura: a folha do
+ * Google entra por preload e vira stylesheet quando chega (como na home);
+ * com display=swap o texto aparece na fonte do sistema até lá. O <noscript>
+ * cobre quem navega sem JavaScript.
+ */
+export const URL_DAS_FONTES =
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Source+Serif+4:ital,wght@0,400;0,700;0,800;1,400&display=swap'
 export const LINK_DAS_FONTES =
-  `<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;0,8..60,800;1,8..60,400&display=swap" rel="stylesheet">`
+  `<link rel="preload" href="${URL_DAS_FONTES}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="${URL_DAS_FONTES}"></noscript>`
 
 /** Uma página institucional completa, vestida com o esqueleto do site. */
 export function montarPaginaDoSite(dados: DadosDaPagina): string {
@@ -655,6 +764,7 @@ export function montarPaginaDoSite(dados: DadosDaPagina): string {
     `<meta name="twitter:description" content="${escapar(descricao)}">`,
     `<meta name="twitter:image" content="${escapar(imagem.url)}">`,
     `<meta name="twitter:image:alt" content="${escapar(altDaImagem)}">`,
+    ...(dados.imagemPrioritaria ? [`<link rel="preload" as="image"${dados.imagemPrioritaria.tipo ? ` type="${escapar(dados.imagemPrioritaria.tipo)}"` : ''} imagesrcset="${escapar(dados.imagemPrioritaria.srcset)}" imagesizes="${escapar(dados.imagemPrioritaria.sizes)}" fetchpriority="high">`] : []),
     `<link rel="preconnect" href="https://fonts.googleapis.com">`,
     `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`,
     LINK_DAS_FONTES,
