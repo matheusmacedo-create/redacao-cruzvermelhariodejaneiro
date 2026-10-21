@@ -5,6 +5,7 @@ import { withFtp, enviarArquivo } from '@/lib/publicacao/ftp'
 import { slugValido } from '@/lib/site/slug'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { atualizarVitrine, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
+import { relacionadasPorTema } from '@/lib/site/relacionadas'
 import {
   COLUNAS_DA_PECA, baseDoSite, gerarPaginaDaMateria, leitorDaBiblioteca, mensagemDaPublicacao, rastreioDaMateria, resumoDoRegistro,
   type PecaNoSite,
@@ -142,7 +143,7 @@ export async function regerarNoticias(p: {
           base,
           publicadoEm,
           modificadoEm,
-          relacionadas: noAr.filter((n) => n.url !== url).slice(0, 8).map((n) => ({ titulo: n.titulo, url: n.url, publicadaEm: n.publicadaEm })),
+          relacionadas: relacionadasPorTema({ url, titulo, descricao: peca.subtitle, corpo: peca.body }, noAr),
           rastreio: await rastreioDaMateria(p.workspaceId, peca.id),
           chat,
         })
