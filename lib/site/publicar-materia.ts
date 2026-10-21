@@ -11,6 +11,7 @@ import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { conteudoCanonicoDaMateria } from '@/lib/site/trilha-da-materia'
 import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
 import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
+import { relacionadasPorTema, type MateriaAtual } from '@/lib/site/relacionadas'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { urlBase } from '@/lib/newsletter/contexto'
 import { linkDoBotao, linkDoPixel } from '@/lib/escola/advertoriais'
@@ -242,13 +243,10 @@ export async function gerarPaginaDaMateria(a: {
   return { html, paraSubir, capa, imagens, registro: [...new Set(registro)] }
 }
 
-/** As outras matérias no ar, para o rail "Leia também" e a faixa final. */
-export async function relacionadasDaMateria(workspaceId: string, url: string): Promise<NoticiaRelacionada[]> {
+/** As outras matérias no ar do mesmo tema, para o rail "Leia também" e a faixa final. */
+export async function relacionadasDaMateria(workspaceId: string, atual: MateriaAtual): Promise<NoticiaRelacionada[]> {
   try {
-    return (await noticiasPublicadas(workspaceId))
-      .filter((n) => n.url !== url)
-      .slice(0, 8)
-      .map((n) => ({ titulo: n.titulo, url: n.url, publicadaEm: n.publicadaEm }))
+    return relacionadasPorTema(atual, await noticiasPublicadas(workspaceId))
   } catch {
     return []
   }
@@ -367,7 +365,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
 
     const chat = await prepararChatDoSite()
     const [relacionadas, rastreio] = await Promise.all([
-      relacionadasDaMateria(pedido.workspaceId, url),
+      relacionadasDaMateria(pedido.workspaceId, { url, titulo: peca.title, descricao: peca.subtitle, corpo: peca.body }),
       rastreioDaMateria(pedido.workspaceId, pedido.contentId),
     ])
 
