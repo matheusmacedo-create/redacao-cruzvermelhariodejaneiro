@@ -118,6 +118,8 @@ type Contexto = {
   porCaminho: Map<string, ArquivoLocal>
   registro?: string[]
   prioridadeUsada: boolean
+  /** O link rastreado de matrícula do advertorial (passa pelo Palácio, mas é público). */
+  botao?: string
 }
 
 /**
@@ -206,6 +208,12 @@ function renderLink(t: Extract<InlineToken, { type: 'link' }>, ctx: Contexto): s
     if (arquivo) return `<a href="${escapar(arquivo.nome)}">${conteudo}</a>`
     ctx.registro?.push(`link para arquivo interno removido (ficou o texto "${t.text}")`)
     return conteudo
+  }
+  // O link de matrícula do advertorial no meio do texto: é rota /api do
+  // Palácio, mas pública (conta o clique e redireciona). Sem esta exceção, o
+  // importador trocava o link do curso pelo rastreado e a página o perdia.
+  if (ctx.botao && t.href.startsWith(ctx.botao) && hrefSeguro(t.href)) {
+    return `<a href="${escapar(t.href)}" rel="nofollow">${conteudo}</a>`
   }
   if (hrefInterno(t.href)) {
     ctx.registro?.push(`link para endereço interno do Palácio Virtual removido (ficou o texto "${t.text}")`)
@@ -337,6 +345,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     porCaminho: new Map([...arquivos].map(([url, a]) => [caminhoDoBlobPrivado(url) ?? url, a])),
     registro: dados.registro,
     prioridadeUsada: false,
+    botao: dados.rastreio?.botao,
   }
 
   // A foto de abertura do noticiário: ela só sobe para o topo se o autor já a
