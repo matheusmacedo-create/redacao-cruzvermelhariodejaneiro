@@ -624,6 +624,12 @@ const CONFIGURACOES: GuiaDaArea = {
           texto: '“Conectar Google Drive” liga a conta Google da filial onde o Palácio guarda arquivos, na pasta “Palácio – Arquivos”: a cópia dos envios que chegam pelo WhatsApp e os documentos que a equipe guarda por lá. O Palácio só enxerga o que ele mesmo criou. O cartão mostra a situação, a conta e a pasta raiz; “Desconectar” para tudo.',
           seAusente: 'pular',
         },
+        {
+          alvo: 'configuracoes.google-ads',
+          titulo: 'Google Ads',
+          texto: '“Conectar Google Ads” liga a conta Google que administra o Google Ads da filial (a do Ad Grants). Com a conta de anúncios escolhida, “Conferir o plano” pede ao Google que valide a campanha institucional sem gravar nada, e “Criar campanha (pausada)” a cria de verdade — pausada: ativar é no painel do Google, depois de revisar.',
+          seAusente: 'pular',
+        },
       ],
     },
     {
@@ -705,6 +711,20 @@ const CONFIGURACOES: GuiaDaArea = {
         'Pronto: os envios que chegam pelo WhatsApp passam a ser copiados para “Envios do WhatsApp”, e a equipe guarda documentos pelo WhatsApp nas pastas dos setores.',
       ],
       dica: 'Se a autorização vencer, os administradores recebem um alerta de integração e o cartão pede “Reconectar”. Desconectar para as cópias, mas o que já está no Drive continua lá. Não revogue o acesso em myaccount.google.com se o e-mail dos setores usa a mesma conta: lá a revogação derruba todas as conexões do Palácio.',
+    },
+    {
+      id: 'conectar-google-ads',
+      titulo: 'Conectar o Google Ads e criar a campanha do Ad Grants',
+      quem: 'Só administradores',
+      passos: [
+        'No Google Cloud, no projeto do cliente OAuth que está em “Integrações”, ative a “Google Ads API” e, na página “Google Ads API › Visão geral”, peça o acesso Explorer (sem ele a API só fala com contas de teste). Não existe mais developer token: o acesso é do projeto.',
+        'Abra Configurações › E-mail dos setores e desça até “7. Google Ads”. Toque em “Conectar Google Ads” e entre com a conta Google que administra o Google Ads da filial (hoje, a do contato@). O Google pede a permissão de gerenciar as campanhas e o e-mail da conta.',
+        'De volta ao Palácio, o cartão mostra “Ativa”, a conta e as contas de anúncios que a autorização alcança. Se houver mais de uma, digite a do Ad Grants (10 dígitos, como no painel) e toque em “Usar esta conta”.',
+        'Toque em “Conferir o plano no Google”: o mesmo pedido da criação vai com validateOnly, e o Google confere limites, políticas e segmentação sem gravar nada. Se recusar, o cartão diz o quê.',
+        'Toque em “Criar campanha (pausada)”. A campanha, os grupos, as palavras-chave, os anúncios e os sitelinks nascem pausados. Revise tudo no painel do Google Ads e ative por lá.',
+        'No GA4, marque “purchase” e “generate_lead” como eventos principais e vincule a propriedade à conta do Google Ads; no Google Ads, importe os dois como conversões. Com conversão medida, dá para trocar o lance para “Maximizar conversões”.',
+      ],
+      dica: 'A conta do Ad Grants é em dólar e tem regras próprias: só pesquisa, lance de até US$ 2, dois grupos por campanha e dois anúncios por grupo, e 5% de taxa de cliques ao mês — abaixo disso o Google suspende a conta. Os cursos pagos ficam fora dessa campanha de propósito: a política do programa aceita venda só quando não é o foco do site.',
     },
     {
       id: 'criar-setor',
@@ -856,6 +876,12 @@ const CONFIGURACOES: GuiaDaArea = {
       pergunta: 'O que o Palácio guarda no Google Drive, e o que ele enxerga lá?',
       resposta: 'Tudo fica dentro da pasta “Palácio – Arquivos”, no Drive da conta conectada. Em “Envios do WhatsApp/AAAA-MM/título do envio (ENV-…)” cai a cópia de cada envio de fotos e vídeos que chegou pelo WhatsApp, com a autorização de imagem na descrição de cada arquivo; a ficha do envio ganha o link “Cópia no Google Drive”. Nas pastas dos setores ficam os documentos que a equipe guarda pelo WhatsApp: cada pessoa só na pasta do próprio setor (o nome do setor no Palácio), e quem administra em qualquer lugar.\n\nA permissão é a menor que o Google oferece: o Palácio vê e mexe só no que ele mesmo criou. O resto do Drive da conta continua invisível para ele, e nada é apagado por ele.',
       termos: ['google drive', 'drive', 'pasta', 'palácio – arquivos', 'cópia dos envios', 'drive.file', 'documentos'],
+    },
+    {
+      id: 'campanha-do-google-ads',
+      pergunta: 'O Palácio liga anúncios no Google sozinho?',
+      resposta: 'Não. Ele só confere e cria a campanha institucional do Ad Grants, e ela nasce pausada: nada é veiculado até alguém revisar e ativar no painel do Google Ads. A campanha é de pesquisa, para a cidade do Rio de Janeiro, com seis grupos (marca, voluntariado, doação, Campanha do Agasalho, princípios e emblema, história e direito humanitário), cada um levando à página do site que responde à busca. Os cursos pagos ficam fora de propósito: o programa aceita venda só quando ela não é o foco do site.\n\nSe a autorização expirar, os administradores recebem um alerta e o cartão pede “Reconectar”; as campanhas continuam no Google como estão.',
+      termos: ['google ads', 'ad grants', 'campanha', 'anúncio', 'palavras-chave', 'conferir o plano', 'criar campanha', 'pausada'],
     },
     {
       id: 'link-do-drive-pede-acesso',

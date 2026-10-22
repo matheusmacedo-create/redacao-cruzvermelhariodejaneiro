@@ -85,6 +85,8 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `R2_ACCOUNT_ID` `R2_ACCESS_KEY_ID` `R2_SECRET_ACCESS_KEY` | server | **segredo** — token do Cloudflare R2 só com leitura e escrita de objetos nos buckets da trilha e do acervo; sem elas, o espelho da trilha e o acervo ficam desligados (§7.9, §7.10, `docs/armazenamento-r2.md`) |
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
+| `GOOGLE_ADS_REFRESH` | server | **segredo**, opcional — reserva da autorização do Google Ads (o lugar é o cofre, pelo botão "Conectar Google Ads"; §7.29d) |
+| `GOOGLE_ADS_CUSTOMER_ID` | server | opcional — a conta de anúncios (o Ad Grants, 10 dígitos) que a conexão usa quando a conta Google alcança mais de uma; também se escolhe no cartão (§7.29d) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
 | `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo`, `modeloSeguranca` e `wabaId` (§8.5) |
@@ -1842,6 +1844,67 @@ essa conta. A ajuda ("Conectar o Google Drive da filial") e o cartão dizem isso
   se não existe), `envios.drive_pasta_link` e `drive_copia_em`,
   `envio_arquivos.drive_arquivo_id`, o tipo `guardar_documento` em
   `whatsapp_pendencias` e "drive" em `private.whatsapp_permitidas_validas`.
+
+### 7.29d Google Ads da filial (`lib/google/ads.ts`, 22/10/2026)
+
+A conta do **Google Ad Grants** (a verba que o Google doa a organizações sem fins
+lucrativos, em dólar) onde rodam as campanhas de pesquisa que levam ao site da
+filial. O Palácio não liga anúncio: ele confere e cria, **pausada**, a campanha
+institucional do plano, e quem ativa é uma pessoa, no painel do Google, depois de
+revisar. Sem o Ads conectado (ou sem a migração), nada muda.
+- **Conexão própria, no padrão da do Drive** (`google_ads_conexao` + chave
+  `google_ads` no cofre, oculta em `SERVICOS`; `/api/google/conectar-ads`, mesma
+  volta `/api/google/retorno` com `state` começando em `ads.`). Escopos: `adwords`
+  mais `openid`/`userinfo.email` (o do Ads não traz quem autorizou), com
+  `somenteEstes`. A volta lista as contas de anúncios que a autorização alcança
+  (`customers:listAccessibleCustomers`) e escolhe a única, ou a de
+  `GOOGLE_ADS_CUSTOMER_ID` se a alcança; com mais de uma, o cartão pede a escolha
+  (`escolherContaDoAds`, conferida contra a lista). A reconexão da mesma conta
+  mantém a escolha e a campanha já criada.
+- **Sem developer token.** O Google o aposentou em 9/9/2026: o nível de acesso
+  (Test → Explorer → Basic) é do projeto do Google Cloud dono do cliente OAuth, e se
+  pede em "Google Ads API → Visão geral" do console. Com Test, a API só fala com
+  contas de teste e a lista de contas vem vazia — o cartão diz isso. O cabeçalho
+  `developer-token` não é enviado (é ignorado hoje e será recusado).
+- **O cartão "7. Google Ads"** em Configurações › E-mail dos setores
+  (`components/admin/ads-google.tsx`): situação, conta Google, contas de anúncios
+  alcançadas e a escolhida, o resumo do plano, "Conferir o plano no Google" (o
+  pedido com `validateOnly`: o Google confere limites, políticas e segmentação sem
+  gravar), "Criar campanha (pausada)" e "Desconectar" (`app/actions/google-ads.ts`,
+  `integracoes.configurar` conferido em cada action). Criada, o cartão mostra a
+  data e o link no painel; a campanha fica registrada em `campanha_recurso`.
+- **`lib/google/ads.ts` (nunca lança):** token renovado como as outras conexões;
+  `invalid_grant` e 401 marcam `expirada` — só a troca de `ativa` para `expirada`
+  dispara o alerta `google_ads`. `lerConta` (moeda, fuso, se é de administrador),
+  `listarCampanhas` e `criarCampanha` — que recusa se já há campanha com o mesmo
+  nome, resolve a cidade e o idioma na hora por GAQL (`geo_target_constant` por nome,
+  tipo e país; `language_constant` por código: as constantes mudam, o nome não) e
+  manda **um pedido só** (`googleAds:mutate`, `partialFailure: false`): ou tudo
+  entra ou nada entra.
+- **Regras puras** (`lib/google/ads-regras.ts`, sem import nenhum, conferidas por
+  `npx tsx scripts/conferir-google-ads.ts`): `PLANO_DO_GRANTS` (seis grupos —
+  marca, voluntariado, doação, Campanha do Agasalho, princípios e emblema, história
+  e DIH —, cada anúncio levando à página do site que responde à busca; 48 palavras
+  em correspondência de frase, 12 anúncios responsivos, 28 negativas, 4 sitelinks;
+  cidade do Rio de Janeiro, português, "Maximizar cliques" com teto de US$ 2,
+  US$ 100 por dia; UTMs no `finalUrlSuffix`), `problemasDoPlano` (30 letras por
+  título, 90 por descrição, 15 por caminho, mínimos do anúncio responsivo e as
+  regras do Grants: dois grupos, dois anúncios por grupo, nada de palavra única,
+  palavra que a negativa derrubaria), `operacoesDaCampanha` (ids temporários
+  negativos, tudo `PAUSED`, só a pesquisa do Google, `PRESENCE` na geografia,
+  `containsEuPoliticalAdvertising` declarado), `motivoDaFalhaDoAds` (a leitura de
+  `error.details[].errors[]` da API: reconectar, acesso do projeto, conta,
+  pedido, serviço).
+- **Os cursos pagos ficam fora** de propósito: a política de site do Ad Grants
+  aceita venda só quando não é o foco e a página de matrícula é de venda. Vender
+  curso por anúncio é com conta paga comum, em reais, se um dia houver.
+- **Conversões** vêm do GA4 do site (`purchase` na doação, `generate_lead` no
+  cadastro de voluntário), importadas no painel depois de vincular a propriedade à
+  conta — a vinculação é manual, com o login do Google. Com conversão medida, o lance
+  pode passar a "Maximizar conversões".
+- **Migração** `20261022120000_cvrj_google_ads.sql` (só acrescenta, a aplicar):
+  `google_ads_conexao` (RLS forçado, leitura só de administradores, policy criada só
+  se não existe).
 
 ### 7.30 Papel timbrado (`lib/pdf/timbrado.ts`)
 

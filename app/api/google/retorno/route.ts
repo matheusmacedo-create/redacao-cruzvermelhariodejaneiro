@@ -6,26 +6,32 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { esquecerToken, trocarCodigo } from '@/lib/google/gmail'
 import { esquecerTokenDeAdmin } from '@/lib/google/diretorio'
 import { contaDoDrive, esquecerTokenDoDrive, garantirPastaRaiz } from '@/lib/google/drive'
+import { contasAcessiveis, esquecerTokenDoAds } from '@/lib/google/ads'
+import { contaEscolhida, idDaConta, idDaContaNoPainel } from '@/lib/google/ads-regras'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 /**
- * A volta do consentimento do Google, para as três conexões: a do Gmail
+ * A volta do consentimento do Google, para as quatro conexões: a do Gmail
  * (state comum), a da conta de administrador que cria usuários (state
- * "admin.…", começado em /api/google/conectar-admin) e a do Google Drive
- * (state "drive.…", de /api/google/conectar-drive). Confere o state, troca
- * o código pela autorização e guarda no cofre (com a sessão do admin — a
- * função do banco exige admin). A do Gmail ainda sincroniza os aliases; a do
- * Drive lê a conta pelo about (sem openid) e já cria a pasta raiz.
+ * "admin.…", começado em /api/google/conectar-admin), a do Google Drive
+ * (state "drive.…", de /api/google/conectar-drive) e a do Google Ads (state
+ * "ads.…", de /api/google/conectar-ads). Confere o state, troca o código pela
+ * autorização e guarda no cofre (com a sessão do admin — a função do banco
+ * exige admin). A do Gmail ainda sincroniza os aliases; a do Drive lê a conta
+ * pelo about (sem openid) e já cria a pasta raiz; a do Ads lista as contas de
+ * anúncios que a autorização alcança e escolhe a única (ou a de
+ * GOOGLE_ADS_CUSTOMER_ID, se a alcança).
  */
 export async function GET(request: NextRequest) {
   const origem = request.nextUrl.origin
   const estado = request.nextUrl.searchParams.get('state') ?? ''
   const deAdmin = estado.startsWith('admin.')
   const doDrive = estado.startsWith('drive.')
-  const parametro = deAdmin ? 'google_admin' : doDrive ? 'google_drive' : 'google'
+  const doAds = estado.startsWith('ads.')
+  const parametro = deAdmin ? 'google_admin' : doDrive ? 'google_drive' : doAds ? 'google_ads' : 'google'
   const voltar = (status: string, motivo?: string) => {
     const res = NextResponse.redirect(new URL(`/configuracoes/email?${parametro}=${status}${motivo ? `&motivo=${encodeURIComponent(motivo)}` : ''}`, origem))
     res.cookies.set('google_oauth_estado', '', { path: '/api/google', maxAge: 0 })
@@ -40,7 +46,7 @@ export async function GET(request: NextRequest) {
 
   const esperado = request.cookies.get('google_oauth_estado')?.value ?? ''
   const bate = estado.length === esperado.length && estado.length > 0 && timingSafeEqual(Buffer.from(estado), Buffer.from(esperado))
-  if (!bate) return voltar('erro', `A conexão expirou ou não começou aqui. Clique em "${deAdmin ? 'Conectar conta de administrador' : doDrive ? 'Conectar Google Drive' : 'Conectar conta Google'}" de novo.`)
+  if (!bate) return voltar('erro', `A conexão expirou ou não começou aqui. Clique em "${deAdmin ? 'Conectar conta de administrador' : doDrive ? 'Conectar Google Drive' : doAds ? 'Conectar Google Ads' : 'Conectar conta Google'}" de novo.`)
 
   const codigo = q.get('code') ?? ''
   if (!codigo) return voltar('erro', 'O Google não devolveu o código de autorização.')
@@ -50,10 +56,36 @@ export async function GET(request: NextRequest) {
     const { refreshToken, email: doIdToken, accessToken } = await trocarCodigo(workspaceId, codigo)
     const supabase = await createClient()
     const { error } = await supabase.rpc('definir_chave_de_integracao', {
-      p_workspace_id: workspaceId, p_servico: deAdmin ? 'google_admin' : doDrive ? 'google_drive' : 'google_gmail', p_valor: refreshToken,
+      p_workspace_id: workspaceId, p_servico: deAdmin ? 'google_admin' : doDrive ? 'google_drive' : doAds ? 'google_ads' : 'google_gmail', p_valor: refreshToken,
     })
     if (error) throw new Error('Não foi possível guardar a autorização no cofre.')
     const admin = createAdminClient()
+
+    if (doAds) {
+      // As contas de anúncios que esta autorização alcança, com o token de agora; a escolhida é a única, ou a da variável.
+      const acessiveis = await contasAcessiveis(accessToken)
+      const escolhida = contaEscolhida({ acessiveis, preferida: idDaConta(process.env.GOOGLE_ADS_CUSTOMER_ID) })
+      esquecerTokenDoAds(workspaceId)
+      const { data: antes } = await admin.from('google_ads_conexao').select('customer_id,campanha_recurso,campanha_criada_em').eq('workspace_id', workspaceId).maybeSingle()
+      // A reconexão da mesma conta mantém a escolha e a campanha já criada.
+      const mantida = antes?.customer_id && acessiveis.includes(String(antes.customer_id)) ? String(antes.customer_id) : escolhida
+      const { error: semTabela } = await admin.from('google_ads_conexao').upsert({
+        workspace_id: workspaceId, email_conta: doIdToken || '(conta sem e-mail)', estado: 'ativa', contas_acessiveis: acessiveis, customer_id: mantida,
+        campanha_recurso: mantida && mantida === antes?.customer_id ? antes?.campanha_recurso ?? null : null,
+        campanha_criada_em: mantida && mantida === antes?.customer_id ? antes?.campanha_criada_em ?? null : null,
+        conectada_por: contexto.user.id, conectada_em: new Date().toISOString(),
+      })
+      if (semTabela) {
+        await supabase.rpc('remover_chave_de_integracao', { p_workspace_id: workspaceId, p_servico: 'google_ads' })
+        return voltar('erro', 'O banco ainda não tem a tabela da conexão do Google Ads (a migração do Google Ads precisa ser aplicada). Nada foi guardado.')
+      }
+      await admin.from('activity_log').insert({
+        workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_ads_conectado',
+        entity_type: 'integracao', metadata: { conta: doIdToken, contas: acessiveis, escolhida: mantida },
+      })
+      const quais = acessiveis.length ? `Contas de anúncios alcançadas: ${acessiveis.map(idDaContaNoPainel).join(', ')}.` : 'A autorização não alcançou nenhuma conta de anúncios: confira se o projeto do Google Cloud tem acesso Explorer à API e se a conta Google é administradora no Google Ads.'
+      return voltar('ok', `Google Ads ${doIdToken ? `de ${doIdToken} ` : ''}conectado. ${quais}${mantida ? ` Em uso: ${idDaContaNoPainel(mantida)}.` : acessiveis.length > 1 ? ' Escolha qual usar no cartão.' : ''}`)
+    }
 
     if (doDrive) {
       // Sem openid, o id_token não vem: a conta é lida no about do Drive, com o token de agora.
