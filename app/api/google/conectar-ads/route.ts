@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { requirePermissao } from '@/lib/session'
-import { clienteOAuth, urlDeAutorizacao } from '@/lib/google/gmail'
+import { urlDeAutorizacao } from '@/lib/google/gmail'
+import { clienteDoAds } from '@/lib/google/ads'
 import { ESCOPOS_ADS } from '@/lib/google/ads-regras'
 
 export const runtime = 'nodejs'
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/configuracoes/email?google_ads=restrito', request.nextUrl.origin))
   }
   try {
-    const { clientId } = await clienteOAuth(workspaceId)
+    // O cliente do Google Ads (o próprio, se houver): a volta troca o código com o mesmo cliente.
+    const { clientId } = await clienteDoAds(workspaceId)
     const estado = `ads.${randomBytes(24).toString('hex')}`
     const res = NextResponse.redirect(urlDeAutorizacao(clientId, estado, ESCOPOS_ADS, { somenteEstes: true }))
     res.cookies.set('google_oauth_estado', estado, {

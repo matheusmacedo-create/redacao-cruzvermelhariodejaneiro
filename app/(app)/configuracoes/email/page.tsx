@@ -25,7 +25,7 @@ export default async function EmailDosSetoresPage({
   const context = await exigirAdministracao()
   const supabase = await createClient()
   const workspaceId = context.workspace.id
-  const [{ data: members }, clienteGoogle, conexao, setores, membrosDeSetor, caixas, conexaoAdmin, convites, contasGoogle, conexaoDrive, conexaoAds] = await Promise.all([
+  const [{ data: members }, clienteGoogle, conexao, setores, membrosDeSetor, caixas, conexaoAdmin, convites, contasGoogle, conexaoDrive, conexaoAds, clienteDoAds] = await Promise.all([
     supabase.from('workspace_members').select('user_id,profiles(full_name,username)').eq('workspace_id', workspaceId),
     obterCampos(workspaceId, 'google_oauth'),
     supabase.from('google_conexao').select('email_conta,estado,sincronizada_em').eq('workspace_id', workspaceId).maybeSingle(),
@@ -39,6 +39,8 @@ export default async function EmailDosSetoresPage({
     supabase.from('google_drive_conexao').select('email_conta,estado,conectada_em,pasta_raiz_link').eq('workspace_id', workspaceId).maybeSingle(),
     // O Google Ads (passo 7): como o Drive, com erro a tabela ainda não existe.
     supabase.from('google_ads_conexao').select('email_conta,estado,conectada_em,customer_id,contas_acessiveis').eq('workspace_id', workspaceId).maybeSingle(),
+    // O cliente OAuth próprio do Google Ads (Integrações), se houver; sem ele, o Ads usa o do Gmail.
+    obterCampos(workspaceId, 'google_ads_oauth'),
   ])
 
   // Etiquetas e filtros vêm do Gmail na hora (passo 4); sem conexão ou com erro, a seção diz o motivo e o resto da tela segue.
@@ -148,7 +150,8 @@ export default async function EmailDosSetoresPage({
       />
       <AdsDoGoogle
         aviso={avisoDoAds}
-        clienteConfigurado={Boolean(clienteGoogle)}
+        clienteConfigurado={Boolean(clienteGoogle || clienteDoAds)}
+        clienteProprio={Boolean(clienteDoAds)}
         disponivel={!conexaoAds.error}
         conexao={ads ? {
           email: String(ads.email_conta), estado: ads.estado === 'expirada' ? 'expirada' : 'ativa', conectadaEm: String(ads.conectada_em),

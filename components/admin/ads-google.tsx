@@ -32,9 +32,11 @@ const comTracos = (id: string) => id.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$
  * é no painel do Google). `disponivel`: a tabela da
  * conexão existe (a migração do Google Ads foi aplicada).
  */
-export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, planos, registroIndisponivel = false }: {
+export function AdsDoGoogle({ conexao, clienteConfigurado, clienteProprio = false, disponivel, aviso, planos, registroIndisponivel = false }: {
   conexao: ConexaoDoAdsNaTela
   clienteConfigurado: boolean
+  /** O Google Ads tem cliente OAuth próprio em Integrações (senão usa o do Gmail). */
+  clienteProprio?: boolean
   disponivel: boolean
   aviso: { tom: 'ok' | 'erro'; texto: string } | null
   planos: PlanoNaTela[]
@@ -68,6 +70,13 @@ export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, pl
                   : conexao.estado === 'expirada'
                     ? `A autorização de ${conexao.email} expirou ou foi revogada. Reconecte para o Palácio voltar a mexer nas campanhas.`
                     : `Conectado: ${conexao.email} (desde ${quando.format(new Date(conexao.conectadaEm))}).`}
+            {disponivel && clienteConfigurado && (
+              <span className="mt-0.5 block text-xs">
+                {clienteProprio
+                  ? 'Cliente OAuth: o próprio do Google Ads (Integrações). Trocou o cliente? Toque em “Reconectar”.'
+                  : 'Cliente OAuth: o do Gmail. Se o projeto dele não tiver acesso à API do Google Ads, cadastre um cliente próprio em Integrações → “Google Ads (cliente OAuth…)”.'}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

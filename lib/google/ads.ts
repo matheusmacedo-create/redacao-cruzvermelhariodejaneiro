@@ -1,6 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { obterChave } from '@/lib/integracoes/chaves'
+import { obterCampos, obterChave } from '@/lib/integracoes/chaves'
 import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
 import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
@@ -38,6 +38,17 @@ const falha = (erro: string, reconectar = false): FalhaDoAds => ({ ok: false, er
 
 // ------------------------------------------------------------------ o token
 
+/**
+ * O cliente OAuth do Google Ads: o próprio (google_ads_oauth), se configurado, senão o do Gmail. O acesso à API do Ads
+ * (Explorer, Basic) é do projeto do Google Cloud dono do cliente, e o projeto do Gmail pode não ter sido aprovado.
+ * A autorização (refresh token) vale só para o cliente que a gerou: trocar o cliente pede "Reconectar".
+ */
+export async function clienteDoAds(workspaceId: string): Promise<{ clientId: string; clientSecret: string; proprio: boolean }> {
+  const proprio = await obterCampos(workspaceId, 'google_ads_oauth')
+  if (proprio?.clientId && proprio.clientSecret) return { clientId: proprio.clientId, clientSecret: proprio.clientSecret, proprio: true }
+  return { ...(await clienteOAuth(workspaceId)), proprio: false }
+}
+
 const cache = new Map<string, { token: string; expira: number }>()
 
 async function marcarExpirada(workspaceId: string): Promise<void> {
@@ -55,8 +66,8 @@ async function tokenDoAds(workspaceId: string): Promise<string> {
   if (guardado && guardado.expira > Date.now() + 60_000) return guardado.token
   const refresh = await obterChave(workspaceId, 'google_ads')
   if (!refresh) throw new ErroDoAds(SEM_CONEXAO, true)
-  let cliente: { clientId: string; clientSecret: string }
-  try { cliente = await clienteOAuth(workspaceId) } catch (causa) { throw new ErroDoAds(causa instanceof Error ? causa.message : SEM_CONEXAO) }
+  let cliente: { clientId: string; clientSecret: string; proprio: boolean }
+  try { cliente = await clienteDoAds(workspaceId) } catch (causa) { throw new ErroDoAds(causa instanceof Error ? causa.message : SEM_CONEXAO) }
   try {
     const dados = await chamarToken({ refresh_token: refresh, client_id: cliente.clientId, client_secret: cliente.clientSecret, grant_type: 'refresh_token' })
     const token = String(dados.access_token ?? '')
@@ -67,7 +78,11 @@ async function tokenDoAds(workspaceId: string): Promise<string> {
       await marcarExpirada(workspaceId)
       throw new ErroDoAds('A autorização do Google Ads expirou ou foi revogada. Reconecte em Configurações → E-mail dos setores.', true)
     }
-    if (causa instanceof GmailError && causa.message === CLIENTE_RECUSADO) await alertarIntegracao({ integracao: 'google_oauth', workspaceId, motivo: 'chave' })
+    // O cliente do Gmail recusado alerta como sempre; o próprio do Google Ads recusado diz onde trocar.
+    if (causa instanceof GmailError && causa.message === CLIENTE_RECUSADO) {
+      if (!cliente.proprio) await alertarIntegracao({ integracao: 'google_oauth', workspaceId, motivo: 'chave' })
+      else throw new ErroDoAds('O Google recusou o cliente OAuth do Google Ads: confira o ID e a chave secreta no cartão “Google Ads (cliente OAuth…)” em Configurações → Integrações.')
+    }
     throw new ErroDoAds(causa instanceof Error ? causa.message : 'Não foi possível renovar a autorização do Google Ads.')
   }
 }

@@ -190,6 +190,10 @@ for (const acao of ['escolherContaDoAds', 'validarCampanhaDoGrants', 'criarCampa
 }
 contem(ler('lib/integracoes/chaves.ts'), "google_ads: { nome: 'Autorização do Google Ads', variavel: 'GOOGLE_ADS_REFRESH', painel: '', oculto: true }", 'código: a chave do Ads é oculta (fora da tela de Integrações)')
 contem(ler('lib/integracoes/alertas-regras.ts'), "'google_ads'", 'código: o Ads alerta quando expira')
+contem(ler('lib/integracoes/chaves.ts'), "google_ads_oauth: {", 'código: o Ads pode ter cliente OAuth próprio')
+contem(ler('app/api/google/conectar-ads/route.ts'), 'await clienteDoAds(workspaceId)', 'código: a conexão do Ads começa com o cliente do Ads')
+contem(ler('app/api/google/retorno/route.ts'), 'doAds ? await clienteDoAds(workspaceId) : undefined', 'código: a volta do Ads troca o código com o mesmo cliente')
+contem(ler('lib/google/ads.ts'), 'cliente = await clienteDoAds(workspaceId)', 'código: a renovação do token usa o cliente do Ads')
 contem(ler('components/admin/ads-google.tsx'), 'data-ajuda="configuracoes.google-ads"', 'código: o cartão tem a âncora da ajuda')
 verdade(!/developer-token/i.test(ler('lib/google/ads.ts')), 'código: sem developer token (aposentado em 9/9/2026)')
 
