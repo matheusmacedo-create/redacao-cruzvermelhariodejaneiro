@@ -388,9 +388,16 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   const publicadoEm = dados.publicadoEm
   const modificadoEm = dados.atualizadoEm && dados.atualizadoEm.getTime() > publicadoEm.getTime() ? dados.atualizadoEm : publicadoEm
   const publicado = publicadoEm.toISOString()
-  const dataLegivel = new Intl.DateTimeFormat('pt-BR', {
+  const formatoLongo = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo',
-  }).format(publicadoEm)
+  })
+  const dataLegivel = formatoLongo.format(publicadoEm)
+  // "Atualizada em" só quando o conteúdo mudou num dia depois do da publicação:
+  // a página "Como produzimos nosso conteúdo" promete que a data aparece.
+  const atualizadaLegivel = formatoLongo.format(modificadoEm)
+  const atualizada = atualizadaLegivel !== dataLegivel
+    ? `<span class="dot">·</span><span>Atualizada em <time datetime="${modificadoEm.toISOString()}">${atualizadaLegivel}</time></span>`
+    : ''
 
   const organizacao = noDaOrganizacao()
   const jsonLd = {
@@ -431,7 +438,9 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   const dataTestata = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Sao_Paulo',
   }).format(publicadoEm).replace(/\. de /g, ' ').replace('.', '').toUpperCase()
-  const kicker = dados.kicker?.trim() || 'Notícias'
+  // Advertorial da escola sai identificado como divulgação de curso (promessa
+  // da página "Como produzimos nosso conteúdo").
+  const kicker = dados.kicker?.trim() || (dados.rastreio ? 'Divulgação de curso' : 'Notícias')
 
   // Os ícones de share saem das marcas oficiais embutidas (é o que garante o
   // X no lugar do pássaro, sem depender de biblioteca de ícones).
@@ -497,7 +506,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
             <h1>${escapar(titulo)}</h1>
             ${dados.subtitulo?.trim() ? `<p class="deck">${escapar(dados.subtitulo.trim())}</p>` : ''}
             <div class="meta-bar">
-              <p class="byline"><b>Por ${escapar(dados.autor?.trim() || assinatura)}</b><span class="dot">·</span><time datetime="${publicado}">${dataLegivel}</time><span class="dot">·</span><span>${minutos} min de leitura</span></p>
+              <p class="byline"><b>Por ${escapar(dados.autor?.trim() || assinatura)}</b><span class="dot">·</span><time datetime="${publicado}">${dataLegivel}</time>${atualizada}<span class="dot">·</span><span>${minutos} min de leitura</span></p>
               ${share}
             </div>
           </header>
@@ -505,7 +514,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
           <div class="news-body">
       ${htmlDoCorpo}
           </div>
-          <footer class="news-source">Publicado por ${escapar(assinatura)}. <a href="/">Ver mais do nosso trabalho</a>.</footer>
+          <footer class="news-source">Publicado por ${escapar(assinatura)}. <a href="/como-produzimos-nosso-conteudo/">Como produzimos nosso conteúdo</a>. <a href="/">Ver mais do nosso trabalho</a>.</footer>
         </article>
         ${rail}
       </div>

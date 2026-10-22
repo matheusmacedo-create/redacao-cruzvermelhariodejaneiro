@@ -610,6 +610,8 @@ export function rodapeDoSite(origem: string, ano: number | string): string {
           <span class="sep">|</span>
           <a href="${o}/reembolso/">Cancelamento e reembolso</a>
           <span class="sep">|</span>
+          <a href="${o}/como-produzimos-nosso-conteudo/">Como produzimos nosso conteúdo</a>
+          <span class="sep">|</span>
           <a href="${o}/cookies/#preferencias" data-cvrj-cookies>Preferências de cookies</a>
         </div>
       </div>
