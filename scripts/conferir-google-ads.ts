@@ -161,7 +161,7 @@ contem(ler('lib/integracoes/alertas-regras.ts'), "'google_ads'", 'código: o Ads
 contem(ler('components/admin/ads-google.tsx'), 'data-ajuda="configuracoes.google-ads"', 'código: o cartão tem a âncora da ajuda')
 verdade(!/developer-token/i.test(ler('lib/google/ads.ts')), 'código: sem developer token (aposentado em 9/9/2026)')
 
-const migracao = ler('supabase/migrations/20261022120000_cvrj_google_ads.sql')
+const migracao = ler('supabase/migrations/20261022135046_cvrj_google_ads.sql')
 contem(migracao, 'create table if not exists public.google_ads_conexao', 'migração: a tabela da conexão')
 contem(migracao, 'enable row level security', 'migração: RLS ligada')
 contem(migracao, 'force row level security', 'migração: RLS forçada')
