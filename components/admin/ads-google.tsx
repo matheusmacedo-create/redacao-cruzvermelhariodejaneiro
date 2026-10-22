@@ -128,7 +128,7 @@ export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, pl
           <div>
             <p className="font-medium">Campanha do plano: {plano.nome}</p>
             <p className="text-muted-foreground">
-              Rede de pesquisa, {plano.local}, português. {plano.grupos} grupos, {plano.palavras} palavras-chave, {plano.anuncios} anúncios responsivos, {plano.negativas} palavras negativas e {plano.sitelinks} sitelinks.
+              Rede de pesquisa, {plano.local}. {plano.grupos} grupos, {plano.palavras} palavras-chave, {plano.anuncios} anúncios responsivos, {plano.negativas} palavras negativas e {plano.sitelinks} sitelinks.
               {' '}Orçamento de {plano.orcamentoDiario} por dia e “Maximizar cliques” com lance de até {plano.lanceMaximo} (as regras do Ad Grants). Os cursos pagos ficam de fora.
             </p>
           </div>

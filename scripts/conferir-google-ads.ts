@@ -8,9 +8,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ANUNCIOS_POR_GRUPO_MIN, API_DO_ADS, DESCRICAO_MAX, ESCOPOS_ADS, GRUPOS_MIN, LANCE_MAXIMO_MICROS, PLANO_DO_GRANTS, TITULO_MAX, consultaDoIdioma, consultaDoLocal,
+  ANUNCIOS_POR_GRUPO_MIN, API_DO_ADS, DESCRICAO_MAX, ESCOPOS_ADS, GRUPOS_MIN, LANCE_MAXIMO_MICROS, PLANO_DO_GRANTS, TITULO_MAX, consultaDoLocal,
   contaEscolhida, idDaCampanha, idDaConta, idDaContaNoPainel, lerCampanhaCriada, lerContasAcessiveis, linkDaCampanha, motivoDaFalhaDoAds, operacoesDaCampanha,
-  pedidoDeConsulta, pedidoDeMutacao, problemasDoPlano, resumoDoPlano, type Plano,
+  pedidoDeConsulta, pedidoDeMutacao, problemaDoLocal, problemasDoPlano, resumoDoPlano, type Plano,
 } from '../lib/google/ads-regras'
 
 let falhas = 0
@@ -61,10 +61,22 @@ contem(problemas.join('\n'), 'pelo menos 2', 'conferência: um sitelink só')
 const longo: Plano = { ...plano, grupos: plano.grupos.map((g) => ({ ...g, anuncios: g.anuncios.map((a) => ({ ...a, titulos: [...a.titulos.slice(0, 2), 'x'.repeat(TITULO_MAX + 1)], descricoes: [...a.descricoes.slice(0, 1), 'y'.repeat(DESCRICAO_MAX + 1)] })) })) }
 contem(problemasDoPlano(longo).join('\n'), `máximo ${TITULO_MAX}`, 'conferência: título comprido')
 contem(problemasDoPlano(longo).join('\n'), `máximo ${DESCRICAO_MAX}`, 'conferência: descrição comprida')
+const comTelefone: Plano = { ...plano, grupos: plano.grupos.map((g, i) => (i ? g : { ...g, anuncios: g.anuncios.map((a, j) => (j ? a : { ...a, descricoes: [...a.descricoes, 'Ligue (21) 97036-0264 e saiba mais.'] })) })) }
+contem(problemasDoPlano(comTelefone).join('\n'), 'telefone no texto', 'conferência: telefone no texto do anúncio')
+const sitelinkRepetido: Plano = { ...plano, sitelinks: [{ ...plano.sitelinks[0], descricao1: plano.grupos[0].anuncios[0].titulos[1] }, ...plano.sitelinks.slice(1)] }
+contem(problemasDoPlano(sitelinkRepetido).join('\n'), 'repete o texto de um anúncio', 'conferência: sitelink que repete título')
+contem(problemasDoPlano({ ...plano, negativas: [...plano.negativas, 'Curso'] }).join('\n'), 'negativa repetida', 'conferência: negativa repetida')
+verdade(!plano.negativas.includes('vaga') && !plano.negativas.includes('vagas'), 'plano: "vagas de voluntariado" não fica bloqueada')
+for (const [com, sem] of [['matrícula', 'matricula'], ['salário', 'salario'], ['são paulo', 'sao paulo'], ['brasília', 'brasilia'], ['punção venosa', 'puncao venosa']]) {
+  verdade(plano.negativas.includes(com) && plano.negativas.includes(sem), `plano: negativa com e sem acento (${sem})`)
+}
+verdade(['sangue', 'medula', 'inca'].every((n) => plano.negativas.includes(n)), 'plano: doação de sangue/medula e o INCA ficam de fora')
+verdade(!plano.grupos.some((g) => g.palavras.includes('praça da cruz vermelha')), 'plano: nome de praça sozinho não é palavra-chave')
 
 // ---------------------------------------------------------------- o pedido
 
-const alvos = { local: 'geoTargetConstants/1001762', idioma: 'languageConstants/1014' }
+const alvos = { local: plano.local.constante }
+igual(plano.local.constante, 'geoTargetConstants/1001655', 'local: a cidade do Rio (1001655), não a localidade 9198038')
 const ops = operacoesDaCampanha({ customerId: '6304775709', plano, alvos })
 const tipos = ops.map((o) => Object.keys(o)[0])
 igual(tipos[0], 'campaignBudgetOperation', 'pedido: o orçamento vem primeiro')
@@ -79,7 +91,18 @@ igual(campanha.resourceName, 'customers/6304775709/campaigns/-2', 'pedido: id te
 contem(String(campanha.finalUrlSuffix), 'utm_campaign=grants-institucional', 'pedido: as UTMs no sufixo da URL')
 const criterios = ops.filter((o) => 'campaignCriterionOperation' in o).map((o) => (o.campaignCriterionOperation as { create: Record<string, unknown> }).create)
 igual(criterios[0], { campaign: 'customers/6304775709/campaigns/-2', location: { geoTargetConstant: alvos.local } }, 'pedido: a cidade')
-igual(criterios[1], { campaign: 'customers/6304775709/campaigns/-2', language: { languageConstant: alvos.idioma } }, 'pedido: o idioma')
+verdade(!criterios.some((c) => 'language' in c), 'pedido: sem critério de idioma (recusado em campanha de pesquisa)')
+// Agrupado por tipo, pai antes de filho: oito blocos contíguos, um por tipo.
+const blocos = tipos.filter((t, i) => t !== tipos[i - 1])
+igual(blocos, ['campaignBudgetOperation', 'campaignOperation', 'campaignCriterionOperation', 'assetOperation', 'campaignAssetOperation', 'adGroupOperation', 'adGroupCriterionOperation', 'adGroupAdOperation'], 'pedido: operações agrupadas por tipo, na ordem pai → filho')
+const definidos = new Set<string>()
+let referenciaAntes = false
+for (const o of ops) {
+  const c = (Object.values(o)[0] as { create: Record<string, unknown> }).create
+  for (const v of Object.values(c)) if (typeof v === 'string' && /\/-\d+$/.test(v) && !definidos.has(v) && v !== c.resourceName) referenciaAntes = true
+  if (typeof c.resourceName === 'string') definidos.add(c.resourceName)
+}
+verdade(!referenciaAntes, 'pedido: nenhum nome temporário usado antes de ser definido')
 igual(criterios.filter((c) => c.negative === true).length, plano.negativas.length, 'pedido: uma negativa por palavra')
 igual(ops.filter((o) => 'assetOperation' in o).length, plano.sitelinks.length, 'pedido: um asset por sitelink')
 igual(ops.filter((o) => 'campaignAssetOperation' in o).length, plano.sitelinks.length, 'pedido: cada sitelink ligado à campanha')
@@ -104,9 +127,11 @@ igual(mutacao.corpo.validateOnly, true, 'pedido: validateOnly quando é só conf
 igual(mutacao.corpo.partialFailure, false, 'pedido: ou tudo ou nada')
 igual(pedidoDeMutacao('6304775709', ops, false).corpo.validateOnly, false, 'pedido: sem validateOnly na criação')
 igual(pedidoDeConsulta('6304775709', 'SELECT customer.id FROM customer'), { url: `${API_DO_ADS}/customers/6304775709/googleAds:search`, corpo: { query: 'SELECT customer.id FROM customer' } }, 'pedido: a consulta')
-contem(consultaDoLocal(plano.local), "geo_target_constant.name = 'Rio de Janeiro' AND geo_target_constant.target_type = 'City' AND geo_target_constant.country_code = 'BR'", 'consulta: a cidade do Rio')
-contem(consultaDoLocal({ nome: "Sant'Ana", tipo: 'City', pais: 'BR' }), "Sant\\'Ana", 'consulta: aspas escapadas')
-contem(consultaDoIdioma('pt'), "language_constant.code = 'pt'", 'consulta: o idioma')
+contem(consultaDoLocal(plano.local), "geo_target_constant.resource_name = 'geoTargetConstants/1001655'", 'consulta: a constante fixa da cidade')
+igual(problemaDoLocal(plano.local, { resourceName: 'geoTargetConstants/1001655', canonicalName: 'Rio de Janeiro,State of Rio de Janeiro,Brazil', status: 'ENABLED' }), null, 'local: a constante bate')
+contem(String(problemaDoLocal(plano.local, { resourceName: 'geoTargetConstants/1001655', canonicalName: 'Ribeirao Pires,State of Sao Paulo,Brazil', status: 'ENABLED' })), 'confira o local', 'local: nome canônico diferente é recusado')
+contem(String(problemaDoLocal(plano.local, { resourceName: 'geoTargetConstants/1001655', canonicalName: plano.local.canonico, status: 'REMOVAL_PLANNED' })), 'não está ativa', 'local: constante inativa é recusada')
+contem(String(problemaDoLocal(plano.local, undefined)), 'não achou', 'local: sem resposta é recusado')
 igual(ESCOPOS_ADS[0], 'https://www.googleapis.com/auth/adwords', 'escopo: o do Google Ads')
 verdade(ESCOPOS_ADS.includes('openid'), 'escopo: openid, para saber a conta')
 

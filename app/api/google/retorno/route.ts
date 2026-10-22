@@ -63,12 +63,14 @@ export async function GET(request: NextRequest) {
 
     if (doAds) {
       // As contas de anúncios que esta autorização alcança, com o token de agora; a escolhida é a única, ou a da variável.
-      const acessiveis = await contasAcessiveis(accessToken)
-      const escolhida = contaEscolhida({ acessiveis, preferida: idDaConta(process.env.GOOGLE_ADS_CUSTOMER_ID) })
+      // Se a lista falhar (tempo, 5xx), vale a que já estava guardada: uma falha passageira não apaga a escolha nem a campanha.
+      const listadas = await contasAcessiveis(accessToken)
       esquecerTokenDoAds(workspaceId)
-      const { data: antes } = await admin.from('google_ads_conexao').select('customer_id,campanha_recurso,campanha_criada_em').eq('workspace_id', workspaceId).maybeSingle()
+      const { data: antes } = await admin.from('google_ads_conexao').select('customer_id,contas_acessiveis,campanha_recurso,campanha_criada_em').eq('workspace_id', workspaceId).maybeSingle()
+      const acessiveis = listadas ?? ((antes?.contas_acessiveis as string[] | null) ?? [])
+      const escolhida = contaEscolhida({ acessiveis, preferida: idDaConta(process.env.GOOGLE_ADS_CUSTOMER_ID) })
       // A reconexão da mesma conta mantém a escolha e a campanha já criada.
-      const mantida = antes?.customer_id && acessiveis.includes(String(antes.customer_id)) ? String(antes.customer_id) : escolhida
+      const mantida = antes?.customer_id && (listadas === null || acessiveis.includes(String(antes.customer_id))) ? String(antes.customer_id) : escolhida
       const { error: semTabela } = await admin.from('google_ads_conexao').upsert({
         workspace_id: workspaceId, email_conta: doIdToken || '(conta sem e-mail)', estado: 'ativa', contas_acessiveis: acessiveis, customer_id: mantida,
         campanha_recurso: mantida && mantida === antes?.customer_id ? antes?.campanha_recurso ?? null : null,
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
         workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_ads_conectado',
         entity_type: 'integracao', metadata: { conta: doIdToken, contas: acessiveis, escolhida: mantida },
       })
-      const quais = acessiveis.length ? `Contas de anúncios alcançadas: ${acessiveis.map(idDaContaNoPainel).join(', ')}.` : 'A autorização não alcançou nenhuma conta de anúncios: confira se o projeto do Google Cloud tem acesso Explorer à API e se a conta Google é administradora no Google Ads.'
+      const quais = listadas === null ? 'Não deu para listar as contas de anúncios agora (o Google não respondeu); ficou a lista de antes. Reconecte daqui a pouco para atualizar.' : acessiveis.length ? `Contas de anúncios alcançadas: ${acessiveis.map(idDaContaNoPainel).join(', ')}.` : 'A autorização não alcançou nenhuma conta de anúncios: confira se o projeto do Google Cloud tem acesso Explorer à API e se a conta Google é administradora no Google Ads.'
       return voltar('ok', `Google Ads ${doIdToken ? `de ${doIdToken} ` : ''}conectado. ${quais}${mantida ? ` Em uso: ${idDaContaNoPainel(mantida)}.` : acessiveis.length > 1 ? ' Escolha qual usar no cartão.' : ''}`)
     }
 
