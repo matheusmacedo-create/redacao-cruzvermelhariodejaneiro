@@ -1902,7 +1902,7 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
   cadastro de voluntário), importadas no painel depois de vincular a propriedade à
   conta — a vinculação é manual, com o login do Google. Com conversão medida, o lance
   pode passar a "Maximizar conversões".
-- **Migração** `20261022120000_cvrj_google_ads.sql` (só acrescenta, a aplicar):
+- **Migração** `20261022135046_cvrj_google_ads.sql` (só acrescenta, a aplicar):
   `google_ads_conexao` (RLS forçado, leitura só de administradores, policy criada só
   se não existe).
 
