@@ -5,8 +5,8 @@ import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
 import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
 import {
-  API_DO_ADS, CONSULTA_DA_CONTA, CONSULTA_DAS_CAMPANHAS, PLANO_DO_GRANTS, consultaDoIdioma, consultaDoLocal, idDaCampanha, idDaConta, lerCampanhaCriada,
-  lerContasAcessiveis, motivoDaFalhaDoAds, operacoesDaCampanha, pedidoDeConsulta, pedidoDeMutacao, problemasDoPlano, type AlvosResolvidos, type Plano,
+  API_DO_ADS, CONSULTA_DA_CONTA, CONSULTA_DAS_CAMPANHAS, PLANO_DO_GRANTS, consultaDoLocal, idDaCampanha, idDaConta, lerCampanhaCriada,
+  lerContasAcessiveis, motivoDaFalhaDoAds, operacoesDaCampanha, pedidoDeConsulta, pedidoDeMutacao, problemaDoLocal, problemasDoPlano, type AlvosResolvidos, type Plano,
 } from './ads-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -114,10 +114,13 @@ const recusa = (r: Resposta) => { const { texto, motivo } = motivoDaFalhaDoAds(r
 
 // ------------------------------------------------------------------ a conexão
 
-/** As contas que uma autorização alcança, com o token da volta do consentimento (antes de existir conexão). */
-export async function contasAcessiveis(accessToken: string): Promise<string[]> {
+/**
+ * As contas que uma autorização alcança, com o token da volta do consentimento (antes de existir conexão). null = não
+ * deu para listar (tempo, 5xx, acesso do projeto): diferente de uma lista vazia, e quem chama mantém o que já tinha.
+ */
+export async function contasAcessiveis(accessToken: string): Promise<string[] | null> {
   const r = await pedir(accessToken, `${API_DO_ADS}/customers:listAccessibleCustomers`)
-  return r.ok ? lerContasAcessiveis(r.dados) : []
+  return r.ok ? lerContasAcessiveis(r.dados) : null
 }
 
 type Conexao = { customer_id: string | null; estado: 'ativa' | 'expirada'; email_conta: string; contas_acessiveis: string[] | null; campanha_recurso: string | null }
@@ -170,26 +173,29 @@ export async function listarCampanhas(workspaceId: string): Promise<{ ok: true; 
 
 // ------------------------------------------------------------------ a campanha
 
+/** A constante do local, conferida no Google antes de criar (existe, ativa, com o nome canônico do plano). */
 async function resolverAlvos(workspaceId: string, customerId: string, plano: Plano): Promise<AlvosResolvidos> {
-  const local = await pedirComoAds(workspaceId, pedidoDeConsulta(customerId, consultaDoLocal(plano.local)).url, pedidoDeConsulta(customerId, consultaDoLocal(plano.local)).corpo)
-  if (!local.ok) throw recusa(local)
-  const geo = linhas(local.dados).map((l) => l.geoTargetConstant ?? {})
-  // "Rio de Janeiro" é cidade e estado; com o tipo na consulta sobra a cidade, mas o nome canônico desempata se vier mais de uma.
-  const cidade = geo.find((g) => String(g.canonicalName ?? '').includes(`${plano.local.nome},`)) ?? geo[0]
-  const localRecurso = String(cidade?.resourceName ?? '')
-  if (!localRecurso) throw new ErroDoAds(`O Google não achou "${plano.local.nome}" como ${plano.local.tipo === 'City' ? 'cidade' : 'estado'} do Brasil para segmentar.`)
-  const idioma = await pedirComoAds(workspaceId, pedidoDeConsulta(customerId, consultaDoIdioma(plano.idioma)).url, pedidoDeConsulta(customerId, consultaDoIdioma(plano.idioma)).corpo)
-  if (!idioma.ok) throw recusa(idioma)
-  const idiomaRecurso = String(linhas(idioma.dados)[0]?.languageConstant?.resourceName ?? '')
-  if (!idiomaRecurso) throw new ErroDoAds(`O Google não achou o idioma "${plano.idioma}".`)
-  return { local: localRecurso, idioma: idiomaRecurso }
+  const { url, corpo } = pedidoDeConsulta(customerId, consultaDoLocal(plano.local))
+  const r = await pedirComoAds(workspaceId, url, corpo)
+  if (!r.ok) throw recusa(r)
+  const problema = problemaDoLocal(plano.local, linhas(r.dados)[0]?.geoTargetConstant)
+  if (problema) throw new ErroDoAds(problema)
+  return { local: plano.local.constante }
 }
 
-export type ResultadoDaCampanha = { ok: true; validada: true } | { ok: true; validada: false; campanhaId: string; recurso: string } | FalhaDoAds
+/** `adotada`: a campanha já existia no Google com o nome do plano e o Palácio só passou a registrá-la (a resposta da criação se perdeu). */
+export type ResultadoDaCampanha = { ok: true; validada: true } | { ok: true; validada: false; campanhaId: string; recurso: string; adotada?: boolean } | FalhaDoAds
+
+async function registrarCampanha(workspaceId: string, recurso: string): Promise<string | null> {
+  const { error } = await createAdminClient().from('google_ads_conexao').update({ campanha_recurso: recurso, campanha_criada_em: new Date().toISOString() }).eq('workspace_id', workspaceId)
+  return error ? error.message : null
+}
 
 /**
  * Cria a campanha do plano na conta conectada — ou só a confere (`validar`: o mesmo pedido com validateOnly, nada é
- * gravado). Recusa se já existe campanha com o mesmo nome. O que entra, entra PAUSADO; quem liga é uma pessoa, no painel.
+ * gravado). Já existindo campanha com o mesmo nome: se o Palácio não a tem registrada (a resposta da criação se perdeu —
+ * o pedido é uma transação só, então ela entrou inteira), passa a registrá-la; se tem, recusa. O que entra, entra
+ * PAUSADO; quem liga é uma pessoa, no painel.
  */
 export async function criarCampanha(workspaceId: string, p: { validar: boolean; plano?: Plano }): Promise<ResultadoDaCampanha> {
   const plano = p.plano ?? PLANO_DO_GRANTS
@@ -199,7 +205,17 @@ export async function criarCampanha(workspaceId: string, p: { validar: boolean; 
     const customerId = await contaDaConexao(workspaceId)
     const existentes = await listarCampanhas(workspaceId)
     if (!existentes.ok) return existentes
-    if (existentes.campanhas.some((c) => c.nome === plano.nome)) return falha(`Já existe uma campanha chamada "${plano.nome}" nesta conta. Para criar outra, renomeie ou remova a atual no painel do Google Ads.`)
+    const mesma = existentes.campanhas.find((c) => c.nome === plano.nome)
+    if (mesma) {
+      const conexao = await conexaoDoAds(createAdminClient(), workspaceId)
+      const id = idDaCampanha(mesma.recurso)
+      if (!p.validar && !conexao?.campanha_recurso && id) {
+        const naoGravou = await registrarCampanha(workspaceId, mesma.recurso)
+        if (naoGravou) return falha(`A campanha "${plano.nome}" existe no Google, mas não foi registrada aqui (${naoGravou}). Tente de novo.`)
+        return { ok: true, validada: false, campanhaId: id, recurso: mesma.recurso, adotada: true }
+      }
+      return falha(`Já existe uma campanha chamada "${plano.nome}" nesta conta. Para criar outra, renomeie ou remova a atual no painel do Google Ads.`)
+    }
     const alvos = await resolverAlvos(workspaceId, customerId, plano)
     const { url, corpo } = pedidoDeMutacao(customerId, operacoesDaCampanha({ customerId, plano, alvos }), p.validar)
     const r = await pedirComoAds(workspaceId, url, corpo)
@@ -208,7 +224,8 @@ export async function criarCampanha(workspaceId: string, p: { validar: boolean; 
     const recurso = lerCampanhaCriada(r.dados)
     const campanhaId = recurso ? idDaCampanha(recurso) : null
     if (!recurso || !campanhaId) return falha('O Google criou, mas não devolveu o id da campanha. Confira no painel do Google Ads antes de tentar de novo.')
-    await createAdminClient().from('google_ads_conexao').update({ campanha_recurso: recurso, campanha_criada_em: new Date().toISOString() }).eq('workspace_id', workspaceId)
+    const naoGravou = await registrarCampanha(workspaceId, recurso)
+    if (naoGravou) return falha(`A campanha foi criada no Google (${recurso}), mas não foi registrada aqui (${naoGravou}). Toque em "Criar campanha" de novo: o Palácio a reconhece pelo nome e só registra, sem criar outra.`)
     return { ok: true, validada: false, campanhaId, recurso }
   } catch (causa) {
     return causa instanceof ErroDoAds ? falha(causa.message, causa.reconectar) : falha(causa instanceof Error ? causa.message : 'Não foi possível criar a campanha.')

@@ -147,7 +147,7 @@ export default async function EmailDosSetoresPage({
           } : null,
         } : null}
         plano={{
-          nome: PLANO_DO_GRANTS.nome, ...resumo, local: PLANO_DO_GRANTS.local.nome,
+          nome: PLANO_DO_GRANTS.nome, ...resumo, local: PLANO_DO_GRANTS.local.rotulo,
           orcamentoDiario: dolares(PLANO_DO_GRANTS.orcamentoDiarioMicros), lanceMaximo: dolares(PLANO_DO_GRANTS.lanceMaximoMicros),
         }}
       />

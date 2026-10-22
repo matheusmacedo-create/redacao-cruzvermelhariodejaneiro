@@ -47,9 +47,14 @@ export type Plano = {
   sufixoDaUrl: string
   orcamentoDiarioMicros: number
   lanceMaximoMicros: number
-  /** A cidade (ou região) onde o anúncio aparece, pelo nome canônico do Google; a constante é resolvida na hora. */
-  local: { nome: string; tipo: 'City' | 'State'; pais: 'BR' }
-  idioma: 'pt'
+  /**
+   * Onde o anúncio aparece: a constante do Google e o nome canônico que ela precisa ter. Fixa, não buscada por nome:
+   * "Rio de Janeiro" como City no Brasil são DUAS constantes (1001655, a cidade, e 9198038, uma localidade dentro dela),
+   * e a consulta por nome não diz qual vem primeiro. Antes de criar, a constante é conferida (existe, ativa, com este
+   * nome canônico). Sem idioma: desde set/2026 a API recusa critério de idioma em campanha de pesquisa
+   * (ContextError.OPERATION_NOT_PERMITTED_FOR_CONTEXT); o Google casa pela língua da busca e do anúncio.
+   */
+  local: { constante: string; canonico: string; rotulo: string }
   grupos: Grupo[]
   negativas: string[]
   sitelinks: Sitelink[]
@@ -62,14 +67,13 @@ export const PLANO_DO_GRANTS: Plano = {
   sufixoDaUrl: 'utm_source=google&utm_medium=cpc&utm_campaign=grants-institucional&utm_term={keyword}&utm_content={adgroupid}',
   orcamentoDiarioMicros: ORCAMENTO_DIARIO_MICROS,
   lanceMaximoMicros: LANCE_MAXIMO_MICROS,
-  local: { nome: 'Rio de Janeiro', tipo: 'City', pais: 'BR' },
-  idioma: 'pt',
+  local: { constante: 'geoTargetConstants/1001655', canonico: 'Rio de Janeiro,State of Rio de Janeiro,Brazil', rotulo: 'cidade do Rio de Janeiro' },
   grupos: [
     {
       nome: 'Marca',
       palavras: [
         'cruz vermelha rio de janeiro', 'cruz vermelha rj', 'cruz vermelha brasileira rio de janeiro', 'cruz vermelha brasileira rj',
-        'cruz vermelha do rio', 'palácio da cruz vermelha', 'cruz vermelha centro rio', 'praça da cruz vermelha',
+        'cruz vermelha do rio', 'palácio da cruz vermelha', 'cruz vermelha centro rio',
       ],
       anuncios: [
         {
@@ -112,7 +116,7 @@ export const PLANO_DO_GRANTS: Plano = {
           titulos: ['Quero ser voluntário', 'Cruz Vermelha Rio de Janeiro', 'Cadastro online em minutos', 'Entrevista e formação', 'Tire dúvidas no WhatsApp'],
           descricoes: [
             'Preencha o cadastro e a equipe do voluntariado entra em contato para a entrevista.',
-            'Dúvidas antes de se cadastrar: WhatsApp exclusivo do voluntariado, (21) 97036-0264.',
+            'Dúvidas antes de se cadastrar? Fale com a equipe no WhatsApp exclusivo do voluntariado.',
           ],
         },
       ],
@@ -161,7 +165,7 @@ export const PLANO_DO_GRANTS: Plano = {
         },
         {
           url: url('/campanha-agasalho.html'), caminho1: 'agasalho', caminho2: 'onde-doar',
-          titulos: ['Onde doar roupas no Rio', 'Cruz Vermelha, no Centro', 'Agasalhos e cobertores', 'Perto do metrô Carioca', 'Doação de roupas de frio'],
+          titulos: ['Onde doar roupas no Rio', 'Cruz Vermelha, no Centro', 'Agasalhos e cobertores', 'Entrega de segunda a sexta', 'Doação de roupas de frio'],
           descricoes: [
             'Leve agasalhos, cobertores e calçados à Praça da Cruz Vermelha, 10, de segunda a sexta.',
             'A filial recebe e distribui a quem precisa. Horário: das 10h às 17h.',
@@ -199,7 +203,7 @@ export const PLANO_DO_GRANTS: Plano = {
       nome: 'História e direito humanitário',
       palavras: [
         'história da cruz vermelha', 'história da cruz vermelha no brasil', 'cruz vermelha brasileira 1908', 'fundação da cruz vermelha brasileira',
-        'convenções de genebra', 'direito internacional humanitário', 'o que é direito internacional humanitário', 'movimento internacional da cruz vermelha',
+        'convenções de genebra cruz vermelha', 'direito internacional humanitário', 'o que é direito internacional humanitário', 'movimento internacional da cruz vermelha',
       ],
       anuncios: [
         {
@@ -222,25 +226,31 @@ export const PLANO_DO_GRANTS: Plano = {
       ],
     },
   ],
-  // Fora desta campanha: os cursos pagos (outra campanha, se um dia houver), vagas e concursos, serviços de saúde e as
-  // Cruzes Vermelhas de outros lugares.
+  // Fora desta campanha: os cursos pagos (outra campanha, se um dia houver), emprego e concursos, serviços de saúde (a
+  // filial não coleta sangue nem atende; na Praça da Cruz Vermelha ficam o INCA e hospitais) e as Cruzes Vermelhas de
+  // outros lugares. Negativa não casa variante: com acento e sem acento são duas, e o plural também — por isso os pares.
+  // "vaga" não entra: "vagas de voluntariado" é a busca que o grupo Voluntariado quer.
   negativas: [
-    'curso', 'cursos', 'primeiros socorros', 'bombeiro civil', 'cuidador de idosos', 'punção venosa', 'enfermagem', 'matrícula',
-    'emprego', 'vaga', 'vagas', 'concurso', 'salário', 'estágio',
-    'hospital', 'samu', 'ambulância', 'consulta', 'atendimento médico',
-    'portuguesa', 'espanhola', 'argentina', 'americana', 'são paulo', 'curitiba', 'belo horizonte', 'salvador', 'brasília',
+    'curso', 'cursos', 'primeiros socorros', 'bombeiro civil', 'cuidador de idosos', 'punção venosa', 'puncao venosa', 'enfermagem',
+    'matrícula', 'matricula',
+    'emprego', 'empregos', 'concurso', 'concursos', 'salário', 'salario', 'estágio', 'estagio', 'estágios', 'estagios',
+    'hospital', 'hospitais', 'samu', 'ambulância', 'ambulancia', 'consulta', 'consultas', 'atendimento médico', 'atendimento medico',
+    'sangue', 'medula', 'inca', 'câncer', 'cancer',
+    'portuguesa', 'espanhola', 'argentina', 'americana', 'são paulo', 'sao paulo', 'curitiba', 'belo horizonte', 'salvador', 'brasília', 'brasilia',
   ],
   sitelinks: [
-    { texto: 'Doe', descricao1: 'PIX ou cartão, a partir de R$ 5', descricao2: 'Comprovante no e-mail', url: url('/doe/') },
-    { texto: 'Seja voluntário', descricao1: 'Cadastro, entrevista e formação', descricao2: 'Quatro turmas por ano', url: url('/voluntariado/') },
-    { texto: 'Quem somos', descricao1: 'A filial do Rio de Janeiro', descricao2: 'Missão, sede e diretoria', url: url('/quem-somos/') },
-    { texto: 'Campanha do Agasalho', descricao1: 'Roupas de frio e cobertores', descricao2: 'Entrega na sede, no Centro', url: url('/campanha-agasalho.html') },
+    { texto: 'Doe', descricao1: 'Doação pelo site da filial', descricao2: 'Mantém o Palácio e as ações', url: url('/doe/') },
+    { texto: 'Seja voluntário', descricao1: 'Veja as etapas para entrar', descricao2: 'Turmas ao longo do ano', url: url('/voluntariado/') },
+    { texto: 'Quem somos', descricao1: 'O que a filial faz hoje', descricao2: 'Reconhecimentos e diretoria', url: url('/quem-somos/') },
+    { texto: 'Campanha do Agasalho', descricao1: 'O que doar e onde entregar', descricao2: 'Horário e endereço da sede', url: url('/campanha-agasalho.html') },
   ],
 }
 
 // ---------------------------------------------------------------- a conferência do plano
 
 const letras = (s: string) => [...s].length
+/** Um telefone no texto: 8 dígitos ou mais, com ou sem DDD, parênteses, espaço ou hífen. */
+const TELEFONE = /(?:\(?\d{2}\)?[\s-]?)?\d{4,5}[\s-]?\d{4}/
 
 /** Tudo o que impede o plano de entrar no Google Ads (limites do anúncio responsivo e regras do Ad Grants). Vazio = pode ir. */
 export function problemasDoPlano(plano: Plano): string[] {
@@ -275,13 +285,17 @@ export function problemasDoPlano(plano: Plano): string[] {
         if (c && /[^a-z0-9-]/.test(c)) p.push(`${anuncio}: o caminho "${c}" só pode ter letras minúsculas sem acento, números e hífen.`)
       }
       if (a.caminho2 && !a.caminho1) p.push(`${anuncio}: caminho 2 sem o caminho 1.`)
+      for (const t of [...a.titulos, ...a.descricoes]) if (TELEFONE.test(t)) p.push(`${anuncio}: telefone no texto (a política do Google Ads proíbe; use extensão de chamada): "${t}".`)
     })
   }
   for (const n of plano.negativas) if (!n.trim()) p.push('Há uma palavra negativa vazia.')
+  if (new Set(plano.negativas.map((n) => n.toLowerCase())).size !== plano.negativas.length) p.push('Palavra negativa repetida.')
+  const textosDosAnuncios = new Set(plano.grupos.flatMap((g) => g.anuncios.flatMap((a) => [...a.titulos, ...a.descricoes])).map((t) => t.trim().toLowerCase()))
   for (const s of plano.sitelinks) {
     if (letras(s.texto) > SITELINK_TEXTO_MAX) p.push(`Sitelink "${s.texto}": texto com mais de ${SITELINK_TEXTO_MAX} letras.`)
     for (const d of [s.descricao1, s.descricao2]) if (letras(d) > SITELINK_DESCRICAO_MAX) p.push(`Sitelink "${s.texto}": descrição com mais de ${SITELINK_DESCRICAO_MAX} letras: "${d}".`)
     if (!/^https:\/\//.test(s.url)) p.push(`Sitelink "${s.texto}": a URL precisa começar com https://.`)
+    for (const d of [s.descricao1, s.descricao2]) if (textosDosAnuncios.has(d.trim().toLowerCase())) p.push(`Sitelink "${s.texto}": a descrição "${d}" repete o texto de um anúncio (política de Repetição).`)
   }
   if (plano.sitelinks.length && plano.sitelinks.length < 2) p.push('Com sitelinks, o Google pede pelo menos 2.')
   return p
@@ -298,36 +312,45 @@ export function idDaConta(valor: string | null | undefined): string | null {
 /** O id com traços, como aparece no painel: 630-477-5709. */
 export const idDaContaNoPainel = (id: string) => id.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3')
 
-/** As consultas que resolvem a cidade e o idioma na hora (as constantes do Google mudam; o nome não). */
+/** A conferência da constante do local antes de criar: ela existe, está ativa e tem o nome canônico esperado. */
 export function consultaDoLocal(local: Plano['local']): string {
-  const nome = local.nome.replace(/'/g, "\\'")
-  return `SELECT geo_target_constant.resource_name, geo_target_constant.name, geo_target_constant.canonical_name FROM geo_target_constant WHERE geo_target_constant.name = '${nome}' AND geo_target_constant.target_type = '${local.tipo}' AND geo_target_constant.country_code = '${local.pais}' AND geo_target_constant.status = 'ENABLED'`
+  return `SELECT geo_target_constant.resource_name, geo_target_constant.canonical_name, geo_target_constant.status FROM geo_target_constant WHERE geo_target_constant.resource_name = '${local.constante.replace(/'/g, '')}'`
 }
-export const consultaDoIdioma = (codigo: string) => `SELECT language_constant.resource_name, language_constant.code FROM language_constant WHERE language_constant.code = '${codigo}'`
+
+/** A linha devolvida bate com o local do plano? null = sim; senão, o que está errado. */
+export function problemaDoLocal(local: Plano['local'], linha: { resourceName?: unknown; canonicalName?: unknown; status?: unknown } | null | undefined): string | null {
+  if (!linha || String(linha.resourceName ?? '') !== local.constante) return `O Google não achou a constante ${local.constante} (${local.rotulo}).`
+  if (String(linha.status ?? '') !== 'ENABLED') return `A constante ${local.constante} (${local.rotulo}) não está ativa no Google (${String(linha.status ?? 'sem status')}).`
+  if (String(linha.canonicalName ?? '') !== local.canonico) return `A constante ${local.constante} agora é "${String(linha.canonicalName ?? '')}", não "${local.canonico}": confira o local do plano.`
+  return null
+}
 /** A própria conta: moeda, fuso e se é de administrador (o Grants é conta de anunciante, em dólar). */
 export const CONSULTA_DA_CONTA = 'SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone, customer.manager, customer.test_account FROM customer'
 /** As campanhas que já existem, para não criar a mesma duas vezes. */
 export const CONSULTA_DAS_CAMPANHAS = "SELECT campaign.id, campaign.name, campaign.status, campaign.resource_name FROM campaign WHERE campaign.status != 'REMOVED'"
 
-export type AlvosResolvidos = { local: string; idioma: string }
+export type AlvosResolvidos = { local: string }
 type Operacao = Record<string, unknown>
 
 /**
- * As operações do pedido único: orçamento → campanha → critérios da campanha (cidade, idioma, negativas) → sitelinks
- * → grupos → palavras e anúncios. Os ids temporários são negativos e únicos no pedido; o Google os troca pelos reais
- * conforme cria, na ordem. Tudo PAUSADO.
+ * As operações do pedido único, agrupadas por tipo e com quem define o nome temporário antes de quem o referencia:
+ * orçamento → campanha → critérios da campanha (cidade e negativas) → assets dos sitelinks → ligação deles à campanha →
+ * grupos → palavras → anúncios. O Google lê as operações em sequência e junta numa chamada de back-end as contíguas do
+ * mesmo tipo; intercalar abre uma por troca e pode estourar o tempo (boas práticas do mutate). Os ids temporários são
+ * negativos e únicos no pedido. Tudo PAUSADO.
  */
 export function operacoesDaCampanha(p: { customerId: string; plano: Plano; alvos: AlvosResolvidos }): Operacao[] {
   const { customerId: c, plano, alvos } = p
-  const ops: Operacao[] = []
   let proximo = -1
   const temp = (tipo: string) => `customers/${c}/${tipo}/${proximo--}`
+  const orcamentos: Operacao[] = [], campanhas: Operacao[] = [], criterios: Operacao[] = [], assets: Operacao[] = [], assetsDaCampanha: Operacao[] = []
+  const grupos: Operacao[] = [], palavras: Operacao[] = [], anuncios: Operacao[] = []
 
   const orcamento = temp('campaignBudgets')
-  ops.push({ campaignBudgetOperation: { create: { resourceName: orcamento, name: `Orçamento — ${plano.nome}`, amountMicros: String(plano.orcamentoDiarioMicros), deliveryMethod: 'STANDARD', explicitlyShared: false } } })
+  orcamentos.push({ campaignBudgetOperation: { create: { resourceName: orcamento, name: `Orçamento — ${plano.nome}`, amountMicros: String(plano.orcamentoDiarioMicros), deliveryMethod: 'STANDARD', explicitlyShared: false } } })
 
   const campanha = temp('campaigns')
-  ops.push({
+  campanhas.push({
     campaignOperation: {
       create: {
         resourceName: campanha, name: plano.nome, status: 'PAUSED', advertisingChannelType: 'SEARCH', campaignBudget: orcamento,
@@ -343,24 +366,23 @@ export function operacoesDaCampanha(p: { customerId: string; plano: Plano; alvos
     },
   })
 
-  ops.push({ campaignCriterionOperation: { create: { campaign: campanha, location: { geoTargetConstant: alvos.local } } } })
-  ops.push({ campaignCriterionOperation: { create: { campaign: campanha, language: { languageConstant: alvos.idioma } } } })
-  for (const texto of plano.negativas) ops.push({ campaignCriterionOperation: { create: { campaign: campanha, negative: true, keyword: { text: texto, matchType: 'PHRASE' } } } })
+  criterios.push({ campaignCriterionOperation: { create: { campaign: campanha, location: { geoTargetConstant: alvos.local } } } })
+  for (const texto of plano.negativas) criterios.push({ campaignCriterionOperation: { create: { campaign: campanha, negative: true, keyword: { text: texto, matchType: 'PHRASE' } } } })
 
   for (const s of plano.sitelinks) {
     const asset = temp('assets')
-    ops.push({ assetOperation: { create: { resourceName: asset, finalUrls: [s.url], sitelinkAsset: { linkText: s.texto, description1: s.descricao1, description2: s.descricao2 } } } })
-    ops.push({ campaignAssetOperation: { create: { campaign: campanha, asset, fieldType: 'SITELINK' } } })
+    assets.push({ assetOperation: { create: { resourceName: asset, finalUrls: [s.url], sitelinkAsset: { linkText: s.texto, description1: s.descricao1, description2: s.descricao2 } } } })
+    assetsDaCampanha.push({ campaignAssetOperation: { create: { campaign: campanha, asset, fieldType: 'SITELINK' } } })
   }
 
   for (const g of plano.grupos) {
     const grupo = temp('adGroups')
-    ops.push({ adGroupOperation: { create: { resourceName: grupo, campaign: campanha, name: g.nome, status: 'PAUSED', type: 'SEARCH_STANDARD' } } })
+    grupos.push({ adGroupOperation: { create: { resourceName: grupo, campaign: campanha, name: g.nome, status: 'PAUSED', type: 'SEARCH_STANDARD' } } })
     for (const palavra of g.palavras) {
-      ops.push({ adGroupCriterionOperation: { create: { adGroup: grupo, status: 'ENABLED', keyword: { text: palavra, matchType: 'PHRASE' } } } })
+      palavras.push({ adGroupCriterionOperation: { create: { adGroup: grupo, status: 'ENABLED', keyword: { text: palavra, matchType: 'PHRASE' } } } })
     }
     for (const a of g.anuncios) {
-      ops.push({
+      anuncios.push({
         adGroupAdOperation: {
           create: {
             adGroup: grupo, status: 'PAUSED',
@@ -378,7 +400,7 @@ export function operacoesDaCampanha(p: { customerId: string; plano: Plano; alvos
       })
     }
   }
-  return ops
+  return [...orcamentos, ...campanhas, ...criterios, ...assets, ...assetsDaCampanha, ...grupos, ...palavras, ...anuncios]
 }
 
 /** O pedido HTTP do `googleAds:mutate`. `validar`: só confere, não grava (validateOnly). */
@@ -428,7 +450,8 @@ export type MotivoDaFalhaDoAds = 'reconectar' | 'acesso' | 'conta' | 'pedido' | 
 
 /**
  * O que a API devolveu, em uma frase. A API do Google Ads responde com `error.details[].errors[]`, cada um com o
- * código (ex.: `authorizationError: 'DEVELOPER_TOKEN_NOT_APPROVED'`) e a mensagem; sem detalhes, vale `error.message`.
+ * código (ex.: `authorizationError: 'CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION'`, o projeto do Google Cloud só com acesso de
+ * teste) e a mensagem; sem detalhes, vale `error.message`.
  */
 export function motivoDaFalhaDoAds(status: number, corpo: unknown): { motivo: MotivoDaFalhaDoAds; texto: string } {
   const erro = (corpo as { error?: { message?: unknown; status?: unknown; details?: unknown } })?.error ?? {}

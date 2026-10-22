@@ -1876,25 +1876,41 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
 - **`lib/google/ads.ts` (nunca lança):** token renovado como as outras conexões;
   `invalid_grant` e 401 marcam `expirada` — só a troca de `ativa` para `expirada`
   dispara o alerta `google_ads`. `lerConta` (moeda, fuso, se é de administrador),
-  `listarCampanhas` e `criarCampanha` — que recusa se já há campanha com o mesmo
-  nome, resolve a cidade e o idioma na hora por GAQL (`geo_target_constant` por nome,
-  tipo e país; `language_constant` por código: as constantes mudam, o nome não) e
-  manda **um pedido só** (`googleAds:mutate`, `partialFailure: false`): ou tudo
-  entra ou nada entra.
+  `listarCampanhas` e `criarCampanha` — que, achando campanha com o mesmo nome, só a
+  registra se o Palácio ainda não a tinha (a resposta da criação se perdeu; o pedido é
+  uma transação, então ela entrou inteira) e recusa se já tinha; confere a constante
+  do local por GAQL (existe, `ENABLED`, com o nome canônico do plano) e manda **um
+  pedido só** (`googleAds:mutate`, `partialFailure: false`): ou tudo entra ou nada
+  entra. A volta do consentimento distingue "não deu para listar as contas" (null:
+  mantém a lista, a escolha e a campanha de antes) de "lista vazia"; trocar de conta
+  no cartão esquece a campanha registrada, que é da conta anterior.
 - **Regras puras** (`lib/google/ads-regras.ts`, sem import nenhum, conferidas por
   `npx tsx scripts/conferir-google-ads.ts`): `PLANO_DO_GRANTS` (seis grupos —
   marca, voluntariado, doação, Campanha do Agasalho, princípios e emblema, história
-  e DIH —, cada anúncio levando à página do site que responde à busca; 48 palavras
-  em correspondência de frase, 12 anúncios responsivos, 28 negativas, 4 sitelinks;
-  cidade do Rio de Janeiro, português, "Maximizar cliques" com teto de US$ 2,
-  US$ 100 por dia; UTMs no `finalUrlSuffix`), `problemasDoPlano` (30 letras por
-  título, 90 por descrição, 15 por caminho, mínimos do anúncio responsivo e as
-  regras do Grants: dois grupos, dois anúncios por grupo, nada de palavra única,
-  palavra que a negativa derrubaria), `operacoesDaCampanha` (ids temporários
-  negativos, tudo `PAUSED`, só a pesquisa do Google, `PRESENCE` na geografia,
-  `containsEuPoliticalAdvertising` declarado), `motivoDaFalhaDoAds` (a leitura de
-  `error.details[].errors[]` da API: reconectar, acesso do projeto, conta,
-  pedido, serviço).
+  e DIH —, cada anúncio levando à página do site que responde à busca; 47 palavras
+  em correspondência de frase, 12 anúncios responsivos, 45 negativas, 4 sitelinks;
+  cidade do Rio de Janeiro, "Maximizar cliques" com teto de US$ 2, US$ 100 por dia;
+  UTMs no `finalUrlSuffix`), `problemasDoPlano` (30 letras por título, 90 por
+  descrição, 15 por caminho, mínimos do anúncio responsivo, telefone no texto do
+  anúncio, sitelink que repete texto de anúncio, negativa repetida e as regras do
+  Grants: dois grupos, dois anúncios por grupo, nada de palavra única, palavra que a
+  negativa derrubaria), `operacoesDaCampanha` (ids temporários negativos, tudo
+  `PAUSED`, só a pesquisa do Google, `PRESENCE` na geografia,
+  `containsEuPoliticalAdvertising` declarado, operações **agrupadas por tipo**, pai
+  antes de filho), `motivoDaFalhaDoAds` (a leitura de `error.details[].errors[]` da
+  API: reconectar, acesso do projeto — `CLOUD_PROJECT_NOT_APPROVED_FOR_PRODUCTION` —,
+  conta, pedido, serviço).
+- **Armadilhas já pagas na revisão (22/10/2026):**
+  - **Sem critério de idioma.** Desde set/2026 a API recusa `LanguageInfo` em campanha
+    de pesquisa (`ContextError.OPERATION_NOT_PERMITTED_FOR_CONTEXT`), e com
+    `partialFailure: false` uma recusa derruba o pedido inteiro.
+  - **A cidade é constante fixa**, `geoTargetConstants/1001655`, conferida pelo nome
+    canônico: "Rio de Janeiro" como City no Brasil são duas constantes (1001655 e
+    9198038), e a consulta por nome não diz qual vem primeiro.
+  - **Telefone não vai no texto do anúncio** (política editorial); vai em extensão de
+    chamada. Sitelink não repete título de anúncio (política de Repetição).
+  - **Negativa não casa variante**: com e sem acento são duas, plural também. "vaga"
+    não é negativa: bloquearia "vagas de voluntariado".
 - **Os cursos pagos ficam fora** de propósito: a política de site do Ad Grants
   aceita venda só quando não é o foco e a página de matrícula é de venda. Vender
   curso por anúncio é com conta paga comum, em reais, se um dia houver.
