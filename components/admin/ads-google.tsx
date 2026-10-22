@@ -10,10 +10,15 @@ import { criarCampanhaDoGrants, desconectarGoogleAds, escolherContaDoAds, valida
 export type ConexaoDoAdsNaTela = {
   email: string; estado: 'ativa' | 'expirada'; conectadaEm: string
   contaEscolhida: string | null; contasAcessiveis: string[]
-  campanha: { link: string | null; criadaEm: string } | null
 } | null
 
-export type PlanoNaTela = { nome: string; grupos: number; palavras: number; anuncios: number; negativas: number; sitelinks: number; orcamentoDiario: string; lanceMaximo: string; local: string }
+/** Um plano de campanha (uma por página de destino) e, se já existe, a campanha que o Palácio criou para ele. */
+export type PlanoNaTela = {
+  id: string; nome: string; destino: string
+  grupos: number; palavras: number; anuncios: number; negativas: number; sitelinks: number
+  orcamentoDiario: string; lanceMaximo: string; local: string
+  campanha: { link: string | null; criadaEm: string } | null
+}
 
 type Resultado = { erro?: string; recado?: string; link?: string }
 const quando = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' })
@@ -22,16 +27,19 @@ const comTracos = (id: string) => id.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$
 /**
  * 7. Google Ads: a conexão da conta Google da filial que administra o Google Ads (lib/google/ads.ts) — a conta do Ad
  * Grants onde rodam as campanhas de pesquisa que levam ao site. Outra conexão, separada das dos passos 1, 5 e 6, com
- * os escopos do Ads. Daqui saem "Conferir o plano" (o pedido com validateOnly: o Google confere e não grava) e
- * "Criar campanha (pausada)" (o mesmo pedido, gravado; ligar é no painel do Google). `disponivel`: a tabela da
+ * os escopos do Ads. Uma campanha por página de destino (PLANOS_DO_GRANTS), cada uma com "Conferir no Google" (o
+ * pedido com validateOnly: o Google confere e não grava) e "Criar campanha (pausada)" (o mesmo pedido, gravado; ligar
+ * é no painel do Google). `disponivel`: a tabela da
  * conexão existe (a migração do Google Ads foi aplicada).
  */
-export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, plano }: {
+export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, planos, registroIndisponivel = false }: {
   conexao: ConexaoDoAdsNaTela
   clienteConfigurado: boolean
   disponivel: boolean
   aviso: { tom: 'ok' | 'erro'; texto: string } | null
-  plano: PlanoNaTela
+  planos: PlanoNaTela[]
+  /** O registro das campanhas criadas não pôde ser lido: sem ele, "Criar" fica desligado. */
+  registroIndisponivel?: boolean
 }) {
   const router = useRouter()
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string; link?: string } | null>(aviso)
@@ -123,35 +131,48 @@ export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, pl
         </form>
       )}
 
-      {conectada && (
-        <div className="flex flex-col gap-3 rounded-lg border border-border p-3 text-sm">
-          <div>
-            <p className="font-medium">Campanha do plano: {plano.nome}</p>
-            <p className="text-muted-foreground">
-              Rede de pesquisa, {plano.local}. {plano.grupos} grupos, {plano.palavras} palavras-chave, {plano.anuncios} anúncios responsivos, {plano.negativas} palavras negativas e {plano.sitelinks} sitelinks.
-              {' '}Orçamento de {plano.orcamentoDiario} por dia e “Maximizar cliques” com lance de até {plano.lanceMaximo} (as regras do Ad Grants). Os cursos pagos ficam de fora.
-            </p>
-          </div>
-          {conexao?.campanha ? (
-            <p className="flex items-center gap-2 text-emerald-700">
-              <CheckCircle2 className="size-4 shrink-0" />Criada pelo Palácio em {quando.format(new Date(conexao.campanha.criadaEm))}.
-              {conexao.campanha.link && <a href={conexao.campanha.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4">Abrir no Google Ads<ExternalLink className="size-3.5" aria-hidden="true" /></a>}
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={!pronta || ocupado} onClick={() => executar(validarCampanhaDoGrants)}>
-                <ShieldCheck className="size-4" />Conferir o plano no Google
-              </Button>
-              <Button disabled={!pronta || ocupado}
-                onClick={() => { if (confirm(`Criar a campanha "${plano.nome}" na conta ${conexao?.contaEscolhida ? comTracos(conexao.contaEscolhida) : ''}? Ela nasce pausada: nada é veiculado até alguém ativar no painel do Google Ads.`)) executar(criarCampanhaDoGrants) }}>
-                <PlayCircle className="size-4" />Criar campanha (pausada)
-              </Button>
+      {conectada && registroIndisponivel && (
+        <p className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />Não deu para ler quais campanhas o Palácio já criou. Recarregue a página antes de criar alguma.
+        </p>
+      )}
+
+      {conectada && planos.map((plano) => {
+        const comPlano = (acao: (dados: FormData) => Promise<Resultado>) => () => { const dados = new FormData(); dados.set('plano', plano.id); return acao(dados) }
+        return (
+          <div key={plano.id} className="flex flex-col gap-3 rounded-lg border border-border p-3 text-sm">
+            <div className="min-w-0">
+              <p className="font-medium">{plano.nome}</p>
+              <p className="text-muted-foreground">
+                Leva a <a href={plano.destino} target="_blank" rel="noreferrer" className="break-all underline underline-offset-4">{plano.destino.replace(/^https:\/\//, '')}</a>.
+                {' '}Rede de pesquisa, {plano.local}: {plano.grupos} grupos, {plano.palavras} palavras-chave, {plano.anuncios} anúncios, {plano.negativas} negativas e {plano.sitelinks} sitelinks.
+                {' '}Orçamento de {plano.orcamentoDiario} por dia, “Maximizar cliques” com lance de até {plano.lanceMaximo}.
+              </p>
             </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            “Conferir” manda o mesmo pedido da criação com validateOnly: o Google confere tudo (limites, políticas, segmentação) e não grava nada. Criada, a campanha fica pausada: revise grupos, palavras e anúncios no painel e ative por lá. As conversões (doação e cadastro de voluntário) vêm do GA4, importadas no painel depois de vincular o Analytics ao Ads.
-          </p>
-        </div>
+            {plano.campanha ? (
+              <p className="flex flex-wrap items-center gap-2 text-emerald-700">
+                <CheckCircle2 className="size-4 shrink-0" />Criada pelo Palácio em {quando.format(new Date(plano.campanha.criadaEm))}.
+                {plano.campanha.link && <a href={plano.campanha.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline underline-offset-4">Abrir no Google Ads<ExternalLink className="size-3.5" aria-hidden="true" /></a>}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" disabled={!pronta || ocupado} onClick={() => executar(comPlano(validarCampanhaDoGrants))}>
+                  <ShieldCheck className="size-4" />Conferir no Google
+                </Button>
+                <Button disabled={!pronta || ocupado || registroIndisponivel}
+                  onClick={() => { if (confirm(`Criar a campanha "${plano.nome}" na conta ${conexao?.contaEscolhida ? comTracos(conexao.contaEscolhida) : ''}? Ela nasce pausada: nada é veiculado até alguém ativar no painel do Google Ads.`)) executar(comPlano(criarCampanhaDoGrants)) }}>
+                  <PlayCircle className="size-4" />Criar campanha (pausada)
+                </Button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {conectada && (
+        <p className="text-xs text-muted-foreground">
+          “Conferir” manda o mesmo pedido da criação com validateOnly: o Google confere tudo (limites, políticas, segmentação) e não grava nada. Criada, a campanha fica pausada: revise grupos, palavras e anúncios no painel e ative por lá. Nenhum anúncio leva à página de matrícula: os guias apresentam o curso e a doação no fim do texto.
+        </p>
       )}
     </Card>
   )

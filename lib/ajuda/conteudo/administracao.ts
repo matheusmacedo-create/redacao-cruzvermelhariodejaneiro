@@ -627,7 +627,7 @@ const CONFIGURACOES: GuiaDaArea = {
         {
           alvo: 'configuracoes.google-ads',
           titulo: 'Google Ads',
-          texto: '“Conectar Google Ads” liga a conta Google que administra o Google Ads da filial (a do Ad Grants). Com a conta de anúncios escolhida, “Conferir o plano” pede ao Google que valide a campanha institucional sem gravar nada, e “Criar campanha (pausada)” a cria de verdade — pausada: ativar é no painel do Google, depois de revisar.',
+          texto: '“Conectar Google Ads” liga a conta Google que administra o Google Ads da filial (a do Ad Grants). Com a conta de anúncios escolhida, aparece uma campanha por página (hoje, os guias de primeiros socorros e da Lei Lucas): “Conferir no Google” pede ao Google que valide a campanha sem gravar nada, e “Criar campanha (pausada)” a cria de verdade — pausada: ativar é no painel do Google, depois de revisar.',
           seAusente: 'pular',
         },
       ],
@@ -720,11 +720,11 @@ const CONFIGURACOES: GuiaDaArea = {
         'No Google Cloud, no projeto do cliente OAuth que está em “Integrações”, ative a “Google Ads API” e, na página “Google Ads API › Visão geral”, peça o acesso Explorer (sem ele a API só fala com contas de teste). Não existe mais developer token: o acesso é do projeto.',
         'Abra Configurações › E-mail dos setores e desça até “7. Google Ads”. Toque em “Conectar Google Ads” e entre com a conta Google que administra o Google Ads da filial (hoje, a do contato@). O Google pede a permissão de gerenciar as campanhas e o e-mail da conta.',
         'De volta ao Palácio, o cartão mostra “Ativa”, a conta e as contas de anúncios que a autorização alcança. Se houver mais de uma, digite a do Ad Grants (10 dígitos, como no painel) e toque em “Usar esta conta”.',
-        'Toque em “Conferir o plano no Google”: o mesmo pedido da criação vai com validateOnly, e o Google confere limites, políticas e segmentação sem gravar nada. Se recusar, o cartão diz o quê.',
-        'Toque em “Criar campanha (pausada)”. A campanha, os grupos, as palavras-chave, os anúncios e os sitelinks nascem pausados. Revise tudo no painel do Google Ads e ative por lá.',
+        'Cada página tem a sua campanha, com orçamento próprio. No bloco da campanha, toque em “Conferir no Google”: o mesmo pedido da criação vai com validateOnly, e o Google confere limites, políticas e segmentação sem gravar nada. Se recusar, o cartão diz o quê.',
+        'Toque em “Criar campanha (pausada)” no mesmo bloco. A campanha, os grupos, as palavras-chave, os anúncios e os sitelinks nascem pausados. Revise tudo no painel do Google Ads e ative por lá. Repita para cada página.',
         'No GA4, marque “purchase” e “generate_lead” como eventos principais e vincule a propriedade à conta do Google Ads; no Google Ads, importe os dois como conversões. Com conversão medida, dá para trocar o lance para “Maximizar conversões”.',
       ],
-      dica: 'A conta do Ad Grants é em dólar e tem regras próprias: só pesquisa, lance de até US$ 2, dois grupos por campanha e dois anúncios por grupo, e 5% de taxa de cliques ao mês — abaixo disso o Google suspende a conta. Os cursos pagos ficam fora dessa campanha de propósito: a política do programa aceita venda só quando não é o foco do site.',
+      dica: 'A conta do Ad Grants é em dólar e tem regras próprias: só pesquisa, lance de até US$ 2, dois grupos por campanha e dois anúncios por grupo, e 5% de taxa de cliques ao mês — abaixo disso o Google suspende a conta. Nenhuma campanha leva à página de matrícula: a política do programa aceita venda só quando não é o foco da página, e por isso os anúncios levam aos guias, que apresentam o curso e a doação no fim.',
     },
     {
       id: 'criar-setor',
@@ -880,8 +880,8 @@ const CONFIGURACOES: GuiaDaArea = {
     {
       id: 'campanha-do-google-ads',
       pergunta: 'O Palácio liga anúncios no Google sozinho?',
-      resposta: 'Não. Ele só confere e cria a campanha institucional do Ad Grants, e ela nasce pausada: nada é veiculado até alguém revisar e ativar no painel do Google Ads. A campanha é de pesquisa, para a cidade do Rio de Janeiro, com seis grupos (marca, voluntariado, doação, Campanha do Agasalho, princípios e emblema, história e direito humanitário), cada um levando à página do site que responde à busca. Os cursos pagos ficam fora de propósito: o programa aceita venda só quando ela não é o foco do site.\n\nSe a autorização expirar, os administradores recebem um alerta e o cartão pede “Reconectar”; as campanhas continuam no Google como estão.',
-      termos: ['google ads', 'ad grants', 'campanha', 'anúncio', 'palavras-chave', 'conferir o plano', 'criar campanha', 'pausada'],
+      resposta: 'Não. Ele só confere e cria as campanhas do Ad Grants, e elas nascem pausadas: nada é veiculado até alguém revisar e ativar no painel do Google Ads. É uma campanha por página, cada uma com o seu orçamento diário: hoje, o guia de primeiros socorros e o guia da Lei Lucas na prática, com anúncios de pesquisa para a cidade do Rio de Janeiro que respondem a dúvidas como “o que fazer em caso de convulsão” ou “lei lucas escolas”. Nenhuma leva à página de matrícula: os guias apresentam o curso e a doação no fim do texto.\n\nSe a autorização expirar, os administradores recebem um alerta e o cartão pede “Reconectar”; as campanhas continuam no Google como estão.',
+      termos: ['google ads', 'ad grants', 'campanha', 'anúncio', 'palavras-chave', 'conferir no google', 'criar campanha', 'pausada', 'orçamento'],
     },
     {
       id: 'link-do-drive-pede-acesso',

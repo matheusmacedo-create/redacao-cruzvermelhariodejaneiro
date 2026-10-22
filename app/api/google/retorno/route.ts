@@ -63,18 +63,16 @@ export async function GET(request: NextRequest) {
 
     if (doAds) {
       // As contas de anúncios que esta autorização alcança, com o token de agora; a escolhida é a única, ou a da variável.
-      // Se a lista falhar (tempo, 5xx), vale a que já estava guardada: uma falha passageira não apaga a escolha nem a campanha.
+      // Se a lista falhar (tempo, 5xx), vale a que já estava guardada: uma falha passageira não apaga a escolha.
       const listadas = await contasAcessiveis(accessToken)
       esquecerTokenDoAds(workspaceId)
-      const { data: antes } = await admin.from('google_ads_conexao').select('customer_id,contas_acessiveis,campanha_recurso,campanha_criada_em').eq('workspace_id', workspaceId).maybeSingle()
+      const { data: antes } = await admin.from('google_ads_conexao').select('customer_id,contas_acessiveis').eq('workspace_id', workspaceId).maybeSingle()
       const acessiveis = listadas ?? ((antes?.contas_acessiveis as string[] | null) ?? [])
       const escolhida = contaEscolhida({ acessiveis, preferida: idDaConta(process.env.GOOGLE_ADS_CUSTOMER_ID) })
-      // A reconexão da mesma conta mantém a escolha e a campanha já criada.
+      // A reconexão da mesma conta mantém a escolha (as campanhas criadas ficam no registro, por conta).
       const mantida = antes?.customer_id && (listadas === null || acessiveis.includes(String(antes.customer_id))) ? String(antes.customer_id) : escolhida
       const { error: semTabela } = await admin.from('google_ads_conexao').upsert({
         workspace_id: workspaceId, email_conta: doIdToken || '(conta sem e-mail)', estado: 'ativa', contas_acessiveis: acessiveis, customer_id: mantida,
-        campanha_recurso: mantida && mantida === antes?.customer_id ? antes?.campanha_recurso ?? null : null,
-        campanha_criada_em: mantida && mantida === antes?.customer_id ? antes?.campanha_criada_em ?? null : null,
         conectada_por: contexto.user.id, conectada_em: new Date().toISOString(),
       })
       if (semTabela) {
