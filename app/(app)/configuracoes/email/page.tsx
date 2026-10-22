@@ -8,7 +8,7 @@ import { ContasDoGoogle, type ContaGoogleNaTela, type ConviteNaTela } from '@/co
 import { DriveDoGoogle } from '@/components/admin/drive-google'
 import { AdsDoGoogle } from '@/components/admin/ads-google'
 import { PLANOS_DO_GRANTS, idDaCampanha, idDaConta, linkDaCampanha, resumoDoPlano } from '@/lib/google/ads-regras'
-import { campanhasRegistradas } from '@/lib/google/ads'
+import { campanhasRegistradas, type CampanhaRegistrada } from '@/lib/google/ads'
 
 export const metadata = { title: 'E-mail dos setores — Configurações' }
 
@@ -76,10 +76,11 @@ export default async function EmailDosSetoresPage({
   const ads = conexaoAds.data
   const contaDoAds = idDaConta((ads?.customer_id as string | null) ?? null)
   // As campanhas que o Palácio já criou nesta conta, por plano (o registro fica em activity_log).
-  const registradas = contaDoAds ? await campanhasRegistradas(workspaceId, contaDoAds) : new Map()
+  // null = o registro não pôde ser lido: o cartão avisa e não oferece "Criar" (não dá para saber o que já existe).
+  const registradas = contaDoAds ? await campanhasRegistradas(workspaceId, contaDoAds) : new Map<string, CampanhaRegistrada>()
   const dolares = (micros: number) => `US$ ${(micros / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
   const planosNaTela = PLANOS_DO_GRANTS.map((pl) => {
-    const feita = registradas.get(pl.id)
+    const feita = registradas?.get(pl.id)
     const campanhaId = feita ? idDaCampanha(feita.recurso) : null
     return {
       id: pl.id, nome: pl.nome, destino: pl.destino, ...resumoDoPlano(pl), local: pl.local.rotulo,
@@ -154,6 +155,7 @@ export default async function EmailDosSetoresPage({
           contaEscolhida: contaDoAds, contasAcessiveis: ((ads.contas_acessiveis as string[] | null) ?? []),
         } : null}
         planos={planosNaTela}
+        registroIndisponivel={registradas === null}
       />
     </div>
   )

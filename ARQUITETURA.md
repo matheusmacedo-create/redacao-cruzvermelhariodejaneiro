@@ -1881,8 +1881,10 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
   dispara o alerta `google_ads`. `lerConta` (moeda, fuso, se é de administrador),
   `listarCampanhas`, `campanhasRegistradas` (por plano, da conta em uso) e
   `criarCampanha(plano)` — que, achando campanha com o mesmo nome, só a
-  registra se o Palácio ainda não a tinha (a resposta da criação se perdeu; o pedido é
-  uma transação, então ela entrou inteira) e recusa se já tinha; confere a constante
+  registra se o Palácio ainda não a tinha e ela está pausada, como a criação a deixa
+  (a resposta da criação se perdeu; o pedido é uma transação, então ela entrou
+  inteira), e recusa nos outros casos; o registro que não pode ser lido (null) trava a
+  criação e o cartão avisa; confere a constante
   do local por GAQL (existe, `ENABLED`, com o nome canônico do plano) e manda **um
   pedido só** (`googleAds:mutate`, `partialFailure: false`): ou tudo entra ou nada
   entra. A volta do consentimento distingue "não deu para listar as contas" (null:
@@ -1894,8 +1896,13 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
   o que fazer nas emergências mais comuns", com os grupos Convulsão, Queimadura e
   Emergências comuns, e o "Lei Lucas na prática", com Lei Lucas: o que é e Lei Lucas:
   escolas e creches; palavras de dúvida em correspondência de frase, dois anúncios
-  por grupo, sitelinks para outros guias e para /doe/; cidade do Rio de Janeiro,
-  "Maximizar cliques" com teto de US$ 2; UTMs `grants-guia-…` no `finalUrlSuffix`),
+  por grupo com até 10 títulos e 4 descrições, seis sitelinks (outros guias, voluntariado
+  e /doe/, só "por PIX": o cartão está desligado na /doe/); negativas de animais,
+  material de estudo, sangramento que não é ferimento e queimadura de sol; cidade do
+  Rio de Janeiro, "Maximizar cliques" com teto de US$ 2 só para começar — a política
+  pede lance por conversão quando a conta tiver conversões; UTMs `grants-guia-…` no
+  `finalUrlSuffix`). Os textos só prometem o que a página entrega: os guias ajudam a
+  reconhecer e a pedir ajuda, as manobras se aprendem com prática.
   `planoPorId`, `problemasDoPlano` (30 letras por título, 90 por
   descrição, 15 por caminho, mínimos do anúncio responsivo, telefone no texto do
   anúncio, sitelink que repete texto de anúncio, negativa repetida, anúncio fora da

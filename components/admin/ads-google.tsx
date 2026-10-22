@@ -32,12 +32,14 @@ const comTracos = (id: string) => id.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$
  * é no painel do Google). `disponivel`: a tabela da
  * conexão existe (a migração do Google Ads foi aplicada).
  */
-export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, planos }: {
+export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, planos, registroIndisponivel = false }: {
   conexao: ConexaoDoAdsNaTela
   clienteConfigurado: boolean
   disponivel: boolean
   aviso: { tom: 'ok' | 'erro'; texto: string } | null
   planos: PlanoNaTela[]
+  /** O registro das campanhas criadas não pôde ser lido: sem ele, "Criar" fica desligado. */
+  registroIndisponivel?: boolean
 }) {
   const router = useRouter()
   const [recado, setRecado] = useState<{ tom: 'ok' | 'erro'; texto: string; link?: string } | null>(aviso)
@@ -129,6 +131,12 @@ export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, pl
         </form>
       )}
 
+      {conectada && registroIndisponivel && (
+        <p className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />Não deu para ler quais campanhas o Palácio já criou. Recarregue a página antes de criar alguma.
+        </p>
+      )}
+
       {conectada && planos.map((plano) => {
         const comPlano = (acao: (dados: FormData) => Promise<Resultado>) => () => { const dados = new FormData(); dados.set('plano', plano.id); return acao(dados) }
         return (
@@ -151,7 +159,7 @@ export function AdsDoGoogle({ conexao, clienteConfigurado, disponivel, aviso, pl
                 <Button variant="outline" disabled={!pronta || ocupado} onClick={() => executar(comPlano(validarCampanhaDoGrants))}>
                   <ShieldCheck className="size-4" />Conferir no Google
                 </Button>
-                <Button disabled={!pronta || ocupado}
+                <Button disabled={!pronta || ocupado || registroIndisponivel}
                   onClick={() => { if (confirm(`Criar a campanha "${plano.nome}" na conta ${conexao?.contaEscolhida ? comTracos(conexao.contaEscolhida) : ''}? Ela nasce pausada: nada é veiculado até alguém ativar no painel do Google Ads.`)) executar(comPlano(criarCampanhaDoGrants)) }}>
                   <PlayCircle className="size-4" />Criar campanha (pausada)
                 </Button>

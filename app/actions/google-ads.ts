@@ -26,13 +26,12 @@ export async function escolherContaDoAds(dados: FormData): Promise<Resultado> {
     const id = idDaConta(String(dados.get('customer_id') ?? ''))
     if (!id) return { erro: 'Informe o id da conta de anúncios: 10 dígitos, como 123-456-7890.' }
     const admin = createAdminClient()
-    const { data: conexao } = await admin.from('google_ads_conexao').select('contas_acessiveis,customer_id').eq('workspace_id', ctx.workspace.id).maybeSingle()
+    const { data: conexao } = await admin.from('google_ads_conexao').select('contas_acessiveis').eq('workspace_id', ctx.workspace.id).maybeSingle()
     if (!conexao) return { erro: 'Conecte o Google Ads antes de escolher a conta.' }
     const acessiveis = (conexao.contas_acessiveis as string[] | null) ?? []
     if (acessiveis.length && !acessiveis.includes(id)) return { erro: `A conta Google conectada não alcança ${idDaContaNoPainel(id)}. As que ela alcança: ${acessiveis.map(idDaContaNoPainel).join(', ')}.` }
-    // Trocar de conta esquece a campanha registrada: ela é da conta anterior (o link e a trava por nome são por conta).
-    const mudou = String(conexao.customer_id ?? '') !== id
-    const { error } = await admin.from('google_ads_conexao').update({ customer_id: id, ...(mudou ? { campanha_recurso: null, campanha_criada_em: null } : {}) }).eq('workspace_id', ctx.workspace.id)
+    // O registro das campanhas criadas é por conta de anúncios (activity_log): trocar de conta mostra só as da nova.
+    const { error } = await admin.from('google_ads_conexao').update({ customer_id: id }).eq('workspace_id', ctx.workspace.id)
     if (error) throw new Error('Não foi possível guardar a conta escolhida.')
     revalidatePath(caminho)
     return { recado: `Conta de anúncios ${idDaContaNoPainel(id)} escolhida.` }

@@ -73,6 +73,14 @@ const utms = (campanha: string) => `utm_source=google&utm_medium=cpc&utm_campaig
 const GUIA_PRIMEIROS_SOCORROS = url('/noticias/primeiros-socorros-o-que-fazer-nas-emergencias-mais-comuns/')
 const GUIA_LEI_LUCAS = url('/noticias/lei-lucas-na-pratica-checklist-para-escolas-e-creches/')
 
+// Os textos dos anúncios só dizem o que a página entrega: os guias ajudam a reconhecer a emergência e a pedir ajuda, e
+// as manobras se aprendem com prática (é o que a página e a política editorial do site dizem). A doação hoje é só
+// por PIX (a /doe/ desligou o cartão): o sitelink não promete cartão.
+const SITELINK_DOACAO: Sitelink = { texto: 'Apoie a Cruz Vermelha', descricao1: 'Doe por PIX em 1 minuto', descricao2: 'Ajude a filial do Rio', url: url('/doe/') }
+const SITELINK_BEBE: Sitelink = { texto: 'Bebê engasgou?', descricao1: 'Sinais e quando chamar ajuda', descricao2: 'Engasgo leve ou grave', url: url('/noticias/o-que-fazer-quando-o-bebe-engasga/') }
+// Material de estudo e emprego: quem busca isso não quer o guia.
+const NEGATIVAS_DE_ESTUDO = ['pdf', 'apostila', 'apostilas', 'slide', 'slides', 'concurso', 'concursos', 'emprego', 'empregos', 'questões', 'questoes']
+
 export const PLANOS_DO_GRANTS: Plano[] = [
   {
     id: 'guia-primeiros-socorros',
@@ -85,43 +93,47 @@ export const PLANOS_DO_GRANTS: Plano[] = [
     grupos: [
       {
         nome: 'Convulsão',
-        palavras: ['o que fazer em caso de convulsão', 'como ajudar alguém tendo convulsão', 'pessoa tendo convulsão o que fazer', 'primeiros socorros convulsão', 'convulsão o que fazer'],
+        palavras: ['o que fazer em caso de convulsão', 'convulsão o que fazer', 'como ajudar alguém tendo convulsão', 'primeiros socorros convulsão', 'crise convulsiva o que fazer'],
         anuncios: [
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'convulsao',
-            titulos: ['Convulsão: o que fazer', 'Como ajudar numa convulsão', 'Não coloque nada na boca', 'Quando ligar para o 192', 'Guia da Cruz Vermelha RJ'],
+            titulos: ['Convulsão: o que fazer', 'O que fazer numa convulsão', 'Primeiros socorros convulsão', 'Como ajudar numa convulsão', 'Não coloque nada na boca', 'Não segure a pessoa', 'Quando ligar para o 192', 'Proteja a cabeça da pessoa', 'Orientações oficiais', 'Guia da Cruz Vermelha RJ'],
             descricoes: [
               'O que as orientações oficiais dizem sobre a convulsão e quando chamar o SAMU (192).',
+              'Afaste objetos, proteja a cabeça e não segure a pessoa. Saiba quando ligar para o 192.',
               'Guia de primeiros socorros da Cruz Vermelha Brasileira Rio de Janeiro, sem custo.',
+              'Primeira crise, crise longa ou pessoa machucada: ligue 192. Veja os outros casos.',
             ],
           },
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'convulsao',
-            titulos: ['Alguém teve uma convulsão?', 'Saiba agir com calma', 'Proteja a cabeça da pessoa', 'Orientações oficiais', 'Primeiros socorros no RJ'],
+            titulos: ['Alguém teve uma convulsão?', 'O que fazer e o que evitar', 'Crise convulsiva: o que fazer', 'Anote a hora da crise', 'Febre pode causar convulsão', 'Quando chamar o SAMU 192', 'Primeiros socorros no RJ', 'Cruz Vermelha Brasileira RJ'],
             descricoes: [
-              'Afaste objetos, proteja a cabeça e não segure a pessoa. Saiba quando ligar para o 192.',
               'Leia o guia completo com as emergências mais comuns em casa, na escola e na rua.',
+              'Saiba reconhecer a crise e pedir ajuda. As manobras se aprendem com prática.',
+              'Orientações da Federação Internacional da Cruz Vermelha, explicadas em português.',
             ],
           },
         ],
       },
       {
         nome: 'Queimadura',
-        palavras: ['o que fazer em caso de queimadura', 'queimadura o que passar', 'primeiros socorros queimadura', 'queimadura de óleo o que fazer', 'queimadura com água quente o que fazer'],
+        palavras: ['o que fazer em caso de queimadura', 'primeiros socorros queimadura', 'queimadura o que passar', 'queimadura com bolha o que fazer'],
         anuncios: [
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'queimadura',
-            titulos: ['Queimadura: o que fazer', 'Água corrente, não manteiga', 'Não estoure as bolhas', 'Quando ligar para o 192', 'Guia da Cruz Vermelha RJ'],
+            titulos: ['Queimadura: o que fazer', 'Primeiros socorros queimadura', 'Água corrente, não manteiga', 'Não estoure as bolhas', 'Queimadura com bolha', 'Quando ligar para o 192', 'Orientações oficiais', 'Guia da Cruz Vermelha RJ'],
             descricoes: [
               'Resfrie com água corrente e não use receitas caseiras. Veja quando chamar o SAMU (192).',
               'Guia de primeiros socorros da Cruz Vermelha Brasileira RJ com orientações oficiais.',
+              'Bolhas não devem ser estouradas. Saiba como proteger a queimadura até o atendimento.',
             ],
           },
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'queimadura',
-            titulos: ['Se queimou? Veja o que fazer', 'Primeiros socorros em casa', 'O que não passar na pele', 'Orientações oficiais', 'Cruz Vermelha Brasileira RJ'],
+            titulos: ['Se queimou? Veja o que fazer', 'O que não passar na pele', 'Nada de receita caseira', 'Queimadura no rosto é grave', 'Primeiros socorros em casa', 'Cruz Vermelha Brasileira RJ'],
             descricoes: [
-              'Manteiga, pasta de dente e pó de café atrapalham. Saiba o que dizem as orientações.',
+              'Manteiga, pasta de dente e pó de café não devem ir na pele queimada. Leia o guia.',
               'Queimadura grande, no rosto ou por choque é emergência: ligue 192. Leia o guia completo.',
             ],
           },
@@ -129,19 +141,20 @@ export const PLANOS_DO_GRANTS: Plano[] = [
       },
       {
         nome: 'Emergências comuns',
-        palavras: ['primeiros socorros o que fazer', 'o que fazer em caso de engasgo', 'como ajudar pessoa engasgada', 'pessoa desmaiou o que fazer', 'sangramento forte o que fazer', 'números de emergência'],
+        palavras: ['primeiros socorros o que fazer', 'o que fazer em caso de engasgo', 'sangramento forte o que fazer', 'para quem ligar numa emergência'],
         anuncios: [
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros',
-            titulos: ['Primeiros socorros: o guia', 'Engasgo, desmaio, sangramento', 'Quando ligar para o 192', 'SAMU 192 e Bombeiros 193', 'Guia da Cruz Vermelha RJ'],
+            titulos: ['Primeiros socorros: o guia', 'Engasgo e sangramento forte', 'Sangramento forte: o que fazer', 'Engasgo grave é emergência', 'Quando ligar para o 192', 'SAMU 192 e Bombeiros 193', 'Guia da Cruz Vermelha RJ'],
             descricoes: [
               'As emergências mais comuns e o que as orientações oficiais dizem para cada uma.',
-              'Saiba reconhecer a emergência, pedir ajuda e agir até o socorro chegar ao local.',
+              'Saiba reconhecer a emergência e pedir ajuda. As manobras se aprendem com prática.',
+              'Sangramento grave: pressão direta no local e ligação para o 192. Veja o guia.',
             ],
           },
           {
             url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'guia',
-            titulos: ['O que fazer numa emergência', 'Peça ajuda primeiro', 'Engasgo grave é emergência', 'Orientações oficiais', 'Cruz Vermelha Brasileira RJ'],
+            titulos: ['O que fazer numa emergência', 'Segurança e pedido de ajuda', 'Para quem ligar: 192 ou 193', 'Orientações oficiais', 'Cruz Vermelha Brasileira RJ'],
             descricoes: [
               'Segurança, 192, parada cardíaca, engasgo, sangramento, queimadura e convulsão num guia.',
               'Leia o guia e veja onde aprender primeiros socorros com prática no Centro do Rio.',
@@ -150,13 +163,24 @@ export const PLANOS_DO_GRANTS: Plano[] = [
         ],
       },
     ],
-    // Fora: pets (convulsão e queimadura de animal), material de estudo e concurso, emprego.
-    negativas: ['cachorro', 'cachorros', 'cão', 'gato', 'gatos', 'pet', 'pdf', 'apostila', 'slides', 'concurso', 'concursos', 'emprego', 'empregos', 'questões', 'questoes'],
+    negativas: [
+      ...NEGATIVAS_DE_ESTUDO, 'online', 'ead',
+      // Animais.
+      'cachorro', 'cachorros', 'cachorra', 'cachorrinho', 'cadela', 'filhote', 'cão', 'cao', 'cães', 'caes', 'gato', 'gatos', 'gata', 'gatinho', 'pet', 'pets', 'animal', 'animais', 'veterinário', 'veterinario',
+      // Queimadura de sol, de bicho e pedido de remédio (a página não indica produto).
+      'sol', 'solar', 'água viva', 'agua viva', 'taturana', 'pomada', 'pomadas', 'remédio', 'remedio', 'remédios', 'remedios', 'medicamento', 'medicamentos',
+      // Sangramentos que não são de ferimento.
+      'menstruação', 'menstruacao', 'menstrual', 'menstruada', 'nariz', 'nasal', 'gengiva', 'útero', 'utero', 'vaginal', 'fezes', 'urina',
+      // Temas que a página não trata, e a Lei Lucas, que tem campanha própria.
+      'fratura', 'cobra', 'intoxicação', 'intoxicacao', 'envenenamento', 'lei lucas',
+    ],
     sitelinks: [
       { texto: 'Lei Lucas na prática', descricao1: 'Checklist para escolas e creches', descricao2: 'O que a Lei 13.722 pede', url: GUIA_LEI_LUCAS },
-      { texto: 'Bebê engasgou?', descricao1: 'Sinais e quando chamar ajuda', descricao2: 'Engasgo leve ou grave', url: url('/noticias/o-que-fazer-quando-o-bebe-engasga/') },
+      SITELINK_BEBE,
+      { texto: 'Alguém desmaiou?', descricao1: 'Os sinais e a hora de pedir ajuda', descricao2: 'Guia específico de desmaio', url: url('/noticias/o-que-fazer-quando-alguem-desmaia/') },
       { texto: 'Sinais de AVC', descricao1: 'Como reconhecer a tempo', descricao2: 'E quando chamar o socorro', url: url('/noticias/sinais-de-avc-como-reconhecer-e-quando-ligar-192/') },
-      { texto: 'Apoie a Cruz Vermelha', descricao1: 'Doação por PIX ou cartão', descricao2: 'Ajude a filial do Rio', url: url('/doe/') },
+      { texto: 'Sinais de infarto', descricao1: 'O que não ignorar', descricao2: 'Ligue 192 ao primeiro sinal', url: url('/noticias/sinais-de-infarto-o-que-nao-ignorar/') },
+      SITELINK_DOACAO,
     ],
   },
   {
@@ -170,19 +194,20 @@ export const PLANOS_DO_GRANTS: Plano[] = [
     grupos: [
       {
         nome: 'Lei Lucas: o que é',
-        palavras: ['lei lucas o que é', 'o que diz a lei lucas', 'lei lucas primeiros socorros', 'lei 13.722 de 2018', 'lei 13722', 'lei lucas 2018'],
+        palavras: ['lei lucas o que é', 'o que diz a lei lucas', 'o que a lei lucas exige', 'lei lucas primeiros socorros', 'lei 13.722 de 2018', 'lei 13722', 'lei lucas 2018'],
         anuncios: [
           {
             url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas',
-            titulos: ['Lei Lucas: o que é', 'Lei 13.722/2018 explicada', 'O que a lei pede, item a item', 'Checklist para escolas', 'Guia da Cruz Vermelha RJ'],
+            titulos: ['Lei Lucas: o que é', 'O que diz a Lei Lucas', 'O que a Lei Lucas exige', 'Lei 13.722/2018 explicada', 'Lei Lucas primeiros socorros', 'O que a lei pede, item a item', 'Checklist para escolas', 'Guia da Cruz Vermelha RJ'],
             descricoes: [
               'O que a Lei Lucas exige de escolas e creches, artigo por artigo, e as penalidades.',
               'Guia prático da Cruz Vermelha Brasileira Rio de Janeiro para diretores e equipes.',
+              'Curso anual, kit, certificado à vista e rede de urgência, com o artigo de cada item.',
             ],
           },
           {
             url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'na-pratica',
-            titulos: ['Lei Lucas na prática', 'Primeiros socorros na escola', 'Curso anual e certificado', 'Plano de emergência', 'Cruz Vermelha Brasileira RJ'],
+            titulos: ['Lei Lucas na prática', 'Primeiros socorros na escola', 'Curso anual e certificado', 'Plano de emergência', 'A história por trás da lei', 'Cruz Vermelha Brasileira RJ'],
             descricoes: [
               'Curso todo ano, kit, certificado à vista e rede de urgência: veja o que a lei pede.',
               'Leia o checklist e organize quem faz o quê numa emergência com crianças na escola.',
@@ -192,19 +217,20 @@ export const PLANOS_DO_GRANTS: Plano[] = [
       },
       {
         nome: 'Lei Lucas: escolas e creches',
-        palavras: ['lei lucas escolas', 'lei lucas creche', 'o que a lei lucas exige', 'como cumprir a lei lucas', 'lei lucas obrigatoriedade', 'lei lucas certificado', 'lei lucas multa'],
+        palavras: ['lei lucas escolas', 'lei lucas creche', 'como cumprir a lei lucas', 'lei lucas obrigatoriedade', 'lei lucas certificado', 'lei lucas multa'],
         anuncios: [
           {
             url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'escolas',
-            titulos: ['Sua escola cumpre a Lei Lucas?', 'Checklist da Lei 13.722', 'Escolas e creches no RJ', 'Evite notificação e multa', 'Guia da Cruz Vermelha RJ'],
+            titulos: ['Sua escola cumpre a Lei Lucas?', 'Como cumprir a Lei Lucas', 'Lei Lucas: creche e escola', 'Lei Lucas: obrigatoriedade', 'Lei Lucas: multa e penalidades', 'Checklist da Lei 13.722', 'Escolas e creches no RJ', 'Guia da Cruz Vermelha RJ'],
             descricoes: [
               'Confira item por item o que a Lei Lucas pede e o que acontece se a escola não cumprir.',
               'Guia gratuito para diretores, coordenadores e mantenedores de escolas e creches.',
+              'Notificação, multa em dobro e cassação do alvará: as penalidades da Lei Lucas.',
             ],
           },
           {
             url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'checklist',
-            titulos: ['Lei Lucas para creches', 'O que a lei exige da escola', 'Certificado em local visível', 'Equipe treinada todo ano', 'Cruz Vermelha Brasileira RJ'],
+            titulos: ['Lei Lucas para creches', 'Lei Lucas: certificado', 'O que a lei exige da escola', 'Certificado em local visível', 'Parte da equipe, todo ano', 'Cruz Vermelha Brasileira RJ'],
             descricoes: [
               'Quem treinar, quem ministra, kit e certificado: o checklist completo da Lei Lucas.',
               'Veja também como capacitar professores e funcionários no Centro do Rio de Janeiro.',
@@ -213,12 +239,14 @@ export const PLANOS_DO_GRANTS: Plano[] = [
         ],
       },
     ],
-    negativas: ['pdf', 'apostila', 'slides', 'concurso', 'concursos', 'emprego', 'empregos', 'vaga', 'vagas', 'questões', 'questoes'],
+    negativas: [...NEGATIVAS_DE_ESTUDO, 'vaga', 'vagas', 'ppt', 'powerpoint', 'tcc', 'monografia', 'trabalho escolar', 'trabalho de escola', 'mapa mental', 'grátis', 'gratis', 'gratuito', 'gratuita'],
     sitelinks: [
       { texto: 'Primeiros socorros', descricao1: 'As emergências mais comuns', descricao2: 'E quando ligar para o 192', url: GUIA_PRIMEIROS_SOCORROS },
-      { texto: 'Bebê engasgou?', descricao1: 'Sinais e quando chamar ajuda', descricao2: 'Engasgo leve ou grave', url: url('/noticias/o-que-fazer-quando-o-bebe-engasga/') },
+      SITELINK_BEBE,
       { texto: 'A origem da Lei Lucas', descricao1: 'Quem foi Lucas e por que a lei', descricao2: 'O que muda para as escolas', url: url('/noticias/curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas/') },
-      { texto: 'Apoie a Cruz Vermelha', descricao1: 'Doação por PIX ou cartão', descricao2: 'Ajude a filial do Rio', url: url('/doe/') },
+      { texto: 'Quem pode dar o curso', descricao1: 'Rede pública e rede particular', descricao2: 'O que diz o art. 2º', url: url('/noticias/quem-pode-ministrar-o-curso-de-primeiros-socorros-da-lei-lucas/') },
+      { texto: 'Seja voluntário no Rio', descricao1: 'Cadastro, entrevista e formação', descricao2: 'Faça parte da filial', url: url('/voluntariado/') },
+      SITELINK_DOACAO,
     ],
   },
 ]
@@ -257,6 +285,9 @@ export function problemasDoPlano(plano: Plano): string[] {
       if (!/^https:\/\//.test(a.url)) p.push(`${anuncio}: a URL precisa começar com https://.`)
       if (a.titulos.length < TITULOS_MIN) p.push(`${anuncio}: menos de ${TITULOS_MIN} títulos.`)
       if (a.descricoes.length < DESCRICOES_MIN) p.push(`${anuncio}: menos de ${DESCRICOES_MIN} descrições.`)
+      if (a.titulos.length > 15) p.push(`${anuncio}: mais de 15 títulos (o máximo do anúncio responsivo).`)
+      if (a.descricoes.length > 4) p.push(`${anuncio}: mais de 4 descrições (o máximo do anúncio responsivo).`)
+      if (new Set(a.descricoes.map((d) => d.toLowerCase())).size !== a.descricoes.length) p.push(`${anuncio}: descrição repetida.`)
       if (new Set(a.titulos.map((t) => t.toLowerCase())).size !== a.titulos.length) p.push(`${anuncio}: título repetido.`)
       for (const t of a.titulos) if (letras(t) > TITULO_MAX) p.push(`${anuncio}: título com ${letras(t)} letras (máximo ${TITULO_MAX}): "${t}".`)
       for (const d of a.descricoes) if (letras(d) > DESCRICAO_MAX) p.push(`${anuncio}: descrição com ${letras(d)} letras (máximo ${DESCRICAO_MAX}): "${d}".`)
@@ -335,7 +366,8 @@ export function operacoesDaCampanha(p: { customerId: string; plano: Plano; alvos
     campaignOperation: {
       create: {
         resourceName: campanha, name: plano.nome, status: 'PAUSED', advertisingChannelType: 'SEARCH', campaignBudget: orcamento,
-        // Maximizar cliques com teto de lance: o que o Ad Grants aceita sem conversão configurada.
+        // Maximizar cliques com teto de lance só para começar: o Ad Grants o tolera sem dados de conversão, mas a política
+        // pede lance inteligente por conversão. Com conversões registradas na conta, trocar no painel para Maximizar conversões.
         targetSpend: { cpcBidCeilingMicros: String(plano.lanceMaximoMicros) },
         // Só a pesquisa do Google: sem parceiros de pesquisa nem Display (regra do programa).
         networkSettings: { targetGoogleSearch: true, targetSearchNetwork: false, targetContentNetwork: false, targetPartnerSearchNetwork: false },

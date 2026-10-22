@@ -193,14 +193,16 @@ const ACAO_DO_REGISTRO = 'google_ads_campanha_criada'
 
 /**
  * As campanhas que o Palácio já criou nesta conta de anúncios, por plano (a mais recente de cada). O registro mora em
- * activity_log, sem migração: um plano por página, e a coluna campanha_recurso da conexão só guardava uma.
+ * activity_log, sem migração: um plano por página, e a coluna campanha_recurso da conexão só guardava uma. null = não
+ * deu para ler: diferente de "nenhuma criada", e quem chama não cria nada às cegas.
  */
-export async function campanhasRegistradas(workspaceId: string, customerId: string): Promise<Map<string, CampanhaRegistrada>> {
+export async function campanhasRegistradas(workspaceId: string, customerId: string): Promise<Map<string, CampanhaRegistrada> | null> {
   const saida = new Map<string, CampanhaRegistrada>()
   try {
-    const { data } = await createAdminClient().from('activity_log').select('created_at, metadata')
+    const { data, error } = await createAdminClient().from('activity_log').select('created_at, metadata')
       .eq('workspace_id', workspaceId).eq('entity_type', 'integracao').eq('action', ACAO_DO_REGISTRO)
       .eq('metadata->>conta', customerId).order('created_at', { ascending: false }).limit(200)
+    if (error) { console.error('[ads] registro das campanhas não lido:', error.message); return null }
     for (const linha of data ?? []) {
       const m = (linha.metadata ?? {}) as Record<string, unknown>
       const plano = typeof m.plano === 'string' ? m.plano : ''
@@ -209,6 +211,7 @@ export async function campanhasRegistradas(workspaceId: string, customerId: stri
     }
   } catch (causa) {
     console.error('[ads] registro das campanhas não lido:', causa instanceof Error ? causa.message : causa)
+    return null
   }
   return saida
 }
@@ -238,14 +241,23 @@ export async function criarCampanha(workspaceId: string, p: { validar: boolean; 
     if (!existentes.ok) return existentes
     const mesma = existentes.campanhas.find((c) => c.nome === plano.nome)
     if (mesma) {
-      const registrada = (await campanhasRegistradas(workspaceId, customerId)).get(plano.id)
+      const registro = await campanhasRegistradas(workspaceId, customerId)
+      if (!registro) return falha('Não foi possível ler o registro das campanhas no Palácio. Nada foi criado; tente de novo.')
+      const registrada = registro.get(plano.id)
       const id = idDaCampanha(mesma.recurso)
-      if (!p.validar && !registrada && id) {
+      // Só se reconhece o que a criação do Palácio produz: com o nome do plano e pausada. Ativa ou removida, é de outra mão.
+      const reconhecivel = !registrada && id && mesma.status === 'PAUSED'
+      if (p.validar && reconhecivel) {
+        return falha(`Já existe no Google uma campanha pausada chamada "${plano.nome}" que o Palácio não registrou. Se ela foi criada por aqui e a resposta se perdeu, toque em "Criar campanha (pausada)": o Palácio só a registra, sem criar outra.`)
+      }
+      if (!p.validar && reconhecivel && id) {
         const naoGravou = await registrarCampanha(workspaceId, { atorId: p.atorId, plano, customerId, recurso: mesma.recurso, reconhecida: true })
         if (naoGravou) return falha(`A campanha "${plano.nome}" existe no Google, mas não foi registrada aqui (${naoGravou}). Tente de novo.`)
         return { ok: true, validada: false, campanhaId: id, recurso: mesma.recurso, adotada: true }
       }
-      return falha(`Já existe uma campanha chamada "${plano.nome}" nesta conta. Para criar outra, renomeie ou remova a atual no painel do Google Ads.`)
+      return falha(registrada
+        ? `Já existe uma campanha chamada "${plano.nome}" nesta conta, criada pelo Palácio. Para criar outra, renomeie ou remova a atual no painel do Google Ads.`
+        : `Já existe uma campanha chamada "${plano.nome}" (${mesma.status}) que não foi criada pelo Palácio; ela não será adotada. Renomeie-a no painel do Google Ads para criar a do plano.`)
     }
     const alvos = await resolverAlvos(workspaceId, customerId, plano)
     const { url, corpo } = pedidoDeMutacao(customerId, operacoesDaCampanha({ customerId, plano, alvos }), p.validar)
