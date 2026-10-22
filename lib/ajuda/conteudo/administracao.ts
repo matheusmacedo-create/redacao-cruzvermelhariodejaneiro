@@ -717,7 +717,7 @@ const CONFIGURACOES: GuiaDaArea = {
       titulo: 'Conectar o Google Ads e criar a campanha do Ad Grants',
       quem: 'Só administradores',
       passos: [
-        'No Google Cloud, no projeto do cliente OAuth que está em “Integrações”, ative a “Google Ads API” e, na página “Google Ads API › Visão geral”, peça o acesso Explorer (sem ele a API só fala com contas de teste). Não existe mais developer token: o acesso é do projeto.',
+        'No Google Cloud, ative a “Google Ads API” e, na página “Google Ads API › Visão geral”, peça o acesso Explorer (sem ele a API só fala com contas de teste). Não existe mais developer token: o acesso é do projeto. Se o projeto do cliente do Gmail não for aprovado, peça num projeto da filial, crie nele um cliente OAuth (Aplicativo da Web, com o mesmo endereço de retorno do Gmail) e cole em Integrações → “Google Ads (cliente OAuth do projeto com acesso à API)”.',
         'Abra Configurações › E-mail dos setores e desça até “7. Google Ads”. Toque em “Conectar Google Ads” e entre com a conta Google que administra o Google Ads da filial (hoje, a do contato@). O Google pede a permissão de gerenciar as campanhas e o e-mail da conta.',
         'De volta ao Palácio, o cartão mostra “Ativa”, a conta e as contas de anúncios que a autorização alcança. Se houver mais de uma, digite a do Ad Grants (10 dígitos, como no painel) e toque em “Usar esta conta”.',
         'Cada página tem a sua campanha, com orçamento próprio. No bloco da campanha, toque em “Conferir no Google”: o mesmo pedido da criação vai com validateOnly, e o Google confere limites, políticas e segmentação sem gravar nada. Se recusar, o cartão diz o quê.',

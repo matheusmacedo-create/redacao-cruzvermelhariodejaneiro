@@ -95,7 +95,7 @@ export function textoDoAlertaDeIntegracao(integracao: IntegracaoAlertada, p: { c
     // A conexão do Google Ads (lib/google/ads.ts): a autorização que caiu. As campanhas seguem no Google; o Palácio só deixa de mexer.
     return {
       titulo: 'A conexão do Google Ads expirou',
-      mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Ads'} expirou ou foi revogada: as campanhas continuam no Google, mas o Palácio não confere nem cria nada até reconectar. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Ads.`,
+      mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Ads'} expirou: as campanhas seguem no Google, mas o Palácio não confere nem cria nada. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Ads.`,
       link: '/configuracoes/email', botao: 'Reconectar o Google Ads',
     }
   }

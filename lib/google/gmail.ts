@@ -106,8 +106,9 @@ export async function chamarToken(corpo: Record<string, string>) {
  * Troca o código da volta do consentimento pela autorização duradoura. `accessToken`: o token de agora, de curta
  * duração — a conexão do Drive, sem openid, lê com ele qual conta autorizou (lib/google/drive.ts, contaDoDrive).
  */
-export async function trocarCodigo(workspaceId: string, codigo: string): Promise<{ refreshToken: string; email: string; accessToken: string }> {
-  const { clientId, clientSecret } = await clienteOAuth(workspaceId)
+export async function trocarCodigo(workspaceId: string, codigo: string, cliente?: { clientId: string; clientSecret: string }): Promise<{ refreshToken: string; email: string; accessToken: string }> {
+  // `cliente`: o da conexão que começou o consentimento (o Google Ads pode ter o seu); sem ele, o do Gmail.
+  const { clientId, clientSecret } = cliente ?? await clienteOAuth(workspaceId)
   const dados = await chamarToken({
     code: codigo, client_id: clientId, client_secret: clientSecret,
     redirect_uri: urlDeRetorno(), grant_type: 'authorization_code',

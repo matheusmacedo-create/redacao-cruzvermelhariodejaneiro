@@ -52,6 +52,18 @@ export const SERVICOS = {
   // O Google Ads da filial (lib/google/ads.ts): a conta do Ad Grants onde rodam as campanhas de pesquisa que levam ao site.
   // Outra conexão, com os escopos do Ads (mais o e-mail da conta); a conta de anúncios escolhida fica em google_ads_conexao.
   google_ads: { nome: 'Autorização do Google Ads', variavel: 'GOOGLE_ADS_REFRESH', painel: '', oculto: true },
+  // O cliente OAuth PRÓPRIO do Google Ads (lib/google/ads.ts, clienteDoAds): o acesso à API do Ads (Explorer) é do projeto
+  // do Google Cloud dono do cliente, e pode não ser o do Gmail. Vazio, vale o cliente do Gmail (google_oauth).
+  google_ads_oauth: {
+    nome: 'Google Ads (cliente OAuth do projeto com acesso à API)',
+    variavel: 'GOOGLE_ADS_OAUTH',
+    painel: 'https://console.cloud.google.com/apis/credentials',
+    campos: [
+      { id: 'clientId', rotulo: 'ID do cliente', secreto: false },
+      { id: 'clientSecret', rotulo: 'Chave secreta do cliente', secreto: true },
+    ],
+    dica: 'Só se o projeto do Google Cloud do cliente do Gmail não tiver acesso à API do Google Ads. Crie o cliente (Aplicativo da Web) no projeto aprovado, com o mesmo endereço de retorno do Gmail, cole aqui e toque em “Reconectar” no cartão do Google Ads. Vazio, o Google Ads usa o cliente do Gmail.',
+  },
   // Token de um usuário do sistema (Business Manager) com ads_read: o marketing da escola lê os anúncios por ele.
   // Gerada pela própria Redação (tela Trilha pública) e lida por lib/auditoria/chave.ts; fora da tela de Integrações.
   auditoria_trilha: { nome: 'Chave de assinatura da trilha pública', variavel: 'AUDITORIA_CHAVE_PRIVADA', painel: '', oculto: true },

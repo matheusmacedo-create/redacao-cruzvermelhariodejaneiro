@@ -86,6 +86,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `R2_BUCKET_TRILHA` | server | bucket do espelho da trilha (`cvrj-trilha`) |
 | `GOOGLE_SAFE_BROWSING_KEY` | server | opcional — reserva da chave do Safe Browsing (o lugar preferido é Configurações → Integrações); sem ela, os links não são conferidos (§8.4) |
 | `GOOGLE_ADS_REFRESH` | server | **segredo**, opcional — reserva da autorização do Google Ads (o lugar é o cofre, pelo botão "Conectar Google Ads"; §7.29d) |
+| `GOOGLE_ADS_OAUTH` | server | **segredo**, opcional — reserva do cliente OAuth próprio do Google Ads (`google_ads_oauth` em Configurações → Integrações), para quando o projeto do cliente do Gmail não tem acesso à API do Ads; vazio, o Ads usa o do Gmail (§7.29d) |
 | `GOOGLE_ADS_CUSTOMER_ID` | server | opcional — a conta de anúncios (o Ad Grants, 10 dígitos) que a conexão usa quando a conta Google alcança mais de uma; também se escolhe no cartão (§7.29d) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
@@ -1861,6 +1862,14 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
   `GOOGLE_ADS_CUSTOMER_ID` se a alcança; com mais de uma, o cartão pede a escolha
   (`escolherContaDoAds`, conferida contra a lista). A reconexão da mesma conta
   mantém a escolha e a campanha já criada.
+- **Cliente OAuth próprio (opcional).** O acesso à API é do projeto do Google Cloud
+  dono do cliente OAuth. O "My First Project" do cliente do Gmail teve o Explorer negado
+  duas vezes (22/10/2026), e trocar o cliente geral derrubaria Gmail, Drive e conta de
+  administrador. Por isso `clienteDoAds` lê `google_ads_oauth` (Integrações; reserva
+  `GOOGLE_ADS_OAUTH`) e só na falta dele usa o do Gmail; a conexão (`conectar-ads`), a
+  volta (`trocarCodigo(…, cliente)`) e a renovação do token usam o mesmo cliente. A
+  autorização vale só para o cliente que a gerou: trocar o cliente pede "Reconectar". O
+  cartão diz qual cliente está em uso.
 - **Sem developer token.** O Google o aposentou em 9/9/2026: o nível de acesso
   (Test → Explorer → Basic) é do projeto do Google Cloud dono do cliente OAuth, e se
   pede em "Google Ads API → Visão geral" do console. Com Test, a API só fala com

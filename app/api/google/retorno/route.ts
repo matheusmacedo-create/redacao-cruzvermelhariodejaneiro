@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { esquecerToken, trocarCodigo } from '@/lib/google/gmail'
 import { esquecerTokenDeAdmin } from '@/lib/google/diretorio'
 import { contaDoDrive, esquecerTokenDoDrive, garantirPastaRaiz } from '@/lib/google/drive'
-import { contasAcessiveis, esquecerTokenDoAds } from '@/lib/google/ads'
+import { clienteDoAds, contasAcessiveis, esquecerTokenDoAds } from '@/lib/google/ads'
 import { contaEscolhida, idDaConta, idDaContaNoPainel } from '@/lib/google/ads-regras'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
 
@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
 
   const workspaceId = contexto.workspace.id
   try {
-    const { refreshToken, email: doIdToken, accessToken } = await trocarCodigo(workspaceId, codigo)
+    // O Google Ads troca o código com o cliente que começou o consentimento (o próprio dele, se houver).
+    const { refreshToken, email: doIdToken, accessToken } = await trocarCodigo(workspaceId, codigo, doAds ? await clienteDoAds(workspaceId) : undefined)
     const supabase = await createClient()
     const { error } = await supabase.rpc('definir_chave_de_integracao', {
       p_workspace_id: workspaceId, p_servico: deAdmin ? 'google_admin' : doDrive ? 'google_drive' : doAds ? 'google_ads' : 'google_gmail', p_valor: refreshToken,
