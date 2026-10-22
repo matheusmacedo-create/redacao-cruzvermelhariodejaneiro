@@ -49,6 +49,9 @@ export const SERVICOS = {
   // O Google Drive da filial (lib/google/drive.ts): a cópia dos envios do WhatsApp e os documentos guardados por lá. Outra
   // conexão, com um escopo só (drive.file: o Palácio enxerga só o que ele mesmo criou).
   google_drive: { nome: 'Autorização do Google Drive', variavel: 'GOOGLE_DRIVE_REFRESH', painel: '', oculto: true },
+  // O Google Ads da filial (lib/google/ads.ts): a conta do Ad Grants onde rodam as campanhas de pesquisa que levam ao site.
+  // Outra conexão, com os escopos do Ads (mais o e-mail da conta); a conta de anúncios escolhida fica em google_ads_conexao.
+  google_ads: { nome: 'Autorização do Google Ads', variavel: 'GOOGLE_ADS_REFRESH', painel: '', oculto: true },
   // Token de um usuário do sistema (Business Manager) com ads_read: o marketing da escola lê os anúncios por ele.
   // Gerada pela própria Redação (tela Trilha pública) e lida por lib/auditoria/chave.ts; fora da tela de Integrações.
   auditoria_trilha: { nome: 'Chave de assinatura da trilha pública', variavel: 'AUDITORIA_CHAVE_PRIVADA', painel: '', oculto: true },

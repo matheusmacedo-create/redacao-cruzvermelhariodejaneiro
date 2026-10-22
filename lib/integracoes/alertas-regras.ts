@@ -18,7 +18,7 @@
  * prazo são o mesmo episódio.
  */
 
-export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'google_drive', 'resend', 'r2', 'claude'] as const
+export const INTEGRACOES_ALERTADAS = ['google_gmail', 'google_admin', 'google_oauth', 'google_drive', 'google_ads', 'resend', 'r2', 'claude'] as const
 export type IntegracaoAlertada = (typeof INTEGRACOES_ALERTADAS)[number]
 
 /** No máximo um alerta por integração neste intervalo (o mesmo dos alertas do WhatsApp). */
@@ -90,6 +90,14 @@ export function textoDoAlertaDeIntegracao(integracao: IntegracaoAlertada, p: { c
         mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Drive'} expirou ou foi revogada: as cópias dos envios e os documentos do WhatsApp param até reconectar. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Drive.`,
         link: '/configuracoes/email', botao: 'Reconectar o Google Drive',
       }
+  }
+  if (integracao === 'google_ads') {
+    // A conexão do Google Ads (lib/google/ads.ts): a autorização que caiu. As campanhas seguem no Google; o Palácio só deixa de mexer.
+    return {
+      titulo: 'A conexão do Google Ads expirou',
+      mensagem: `A autorização${conta ? ` de ${conta}` : ' do Google Ads'} expirou ou foi revogada: as campanhas continuam no Google, mas o Palácio não confere nem cria nada até reconectar. Em Configurações → E-mail dos setores, toque em “Reconectar” no Google Ads.`,
+      link: '/configuracoes/email', botao: 'Reconectar o Google Ads',
+    }
   }
   if (integracao === 'google_oauth') {
     return {
