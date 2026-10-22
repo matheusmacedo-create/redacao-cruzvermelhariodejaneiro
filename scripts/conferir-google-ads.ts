@@ -8,9 +8,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  ANUNCIOS_POR_GRUPO_MIN, API_DO_ADS, DESCRICAO_MAX, ESCOPOS_ADS, GRUPOS_MIN, LANCE_MAXIMO_MICROS, PLANO_DO_GRANTS, TITULO_MAX, consultaDoLocal,
+  ANUNCIOS_POR_GRUPO_MIN, API_DO_ADS, DESCRICAO_MAX, ESCOPOS_ADS, GRUPOS_MIN, LANCE_MAXIMO_MICROS, ORCAMENTO_DIARIO_MICROS, PLANOS_DO_GRANTS, TITULO_MAX, consultaDoLocal,
   contaEscolhida, idDaCampanha, idDaConta, idDaContaNoPainel, lerCampanhaCriada, lerContasAcessiveis, linkDaCampanha, motivoDaFalhaDoAds, operacoesDaCampanha,
-  pedidoDeConsulta, pedidoDeMutacao, problemaDoLocal, problemasDoPlano, resumoDoPlano, type Plano,
+  pedidoDeConsulta, pedidoDeMutacao, planoPorId, problemaDoLocal, problemasDoPlano, resumoDoPlano, type Plano,
 } from '../lib/google/ads-regras'
 
 let falhas = 0
@@ -26,23 +26,32 @@ function verdade(valor: boolean, caso: string) {
 
 // ---------------------------------------------------------------- o plano
 
-const plano = PLANO_DO_GRANTS
-igual(problemasDoPlano(plano), [], 'plano: passa na conferência inteira')
-verdade(plano.grupos.length >= GRUPOS_MIN, 'plano: grupos suficientes para o Grants')
-verdade(plano.grupos.every((g) => g.anuncios.length >= ANUNCIOS_POR_GRUPO_MIN), 'plano: dois anúncios por grupo')
-verdade(plano.lanceMaximoMicros <= LANCE_MAXIMO_MICROS, 'plano: lance dentro do teto do Grants')
-verdade(plano.grupos.every((g) => g.anuncios.every((a) => a.url.startsWith('https://cruzvermelhariodejaneiro.org/'))), 'plano: todo anúncio leva ao site da filial')
-verdade(!plano.grupos.some((g) => g.anuncios.some((a) => a.url.includes('matricula') || a.url.includes('cursos'))), 'plano: nenhum anúncio leva aos cursos pagos')
-verdade(plano.negativas.includes('curso') && plano.negativas.includes('emprego'), 'plano: cursos e empregos são negativas')
-igual(resumoDoPlano(plano).grupos, 6, 'plano: seis grupos')
-verdade(resumoDoPlano(plano).anuncios === 12, 'plano: doze anúncios')
+// Uma campanha por página, cada uma com US$ 5 por dia.
+igual(PLANOS_DO_GRANTS.map((p) => p.id), ['guia-primeiros-socorros', 'guia-lei-lucas'], 'planos: um por guia')
+igual(new Set(PLANOS_DO_GRANTS.map((p) => p.nome)).size, PLANOS_DO_GRANTS.length, 'planos: nomes de campanha diferentes (é pelo nome que a campanha é reconhecida)')
+for (const pl of PLANOS_DO_GRANTS) {
+  igual(problemasDoPlano(pl), [], `${pl.id}: passa na conferência inteira`)
+  igual(pl.orcamentoDiarioMicros, 5_000_000, `${pl.id}: US$ 5 por dia`)
+  verdade(pl.grupos.length >= GRUPOS_MIN, `${pl.id}: grupos suficientes para o Grants`)
+  verdade(pl.grupos.every((g) => g.anuncios.length >= ANUNCIOS_POR_GRUPO_MIN), `${pl.id}: dois anúncios por grupo`)
+  verdade(pl.sitelinks.length >= 2, `${pl.id}: ao menos dois sitelinks`)
+  verdade(pl.lanceMaximoMicros <= LANCE_MAXIMO_MICROS, `${pl.id}: lance dentro do teto do Grants`)
+  verdade(pl.destino.startsWith('https://cruzvermelhariodejaneiro.org/noticias/'), `${pl.id}: leva a um guia do site`)
+  verdade(pl.grupos.every((g) => g.anuncios.every((a) => a.url === pl.destino)), `${pl.id}: todo anúncio leva à página da campanha`)
+  verdade(![pl.destino, ...pl.sitelinks.map((s) => s.url)].some((u) => u.includes('matricula')), `${pl.id}: nada leva à página de matrícula`)
+  igual(planoPorId(pl.id), pl, `${pl.id}: achado pelo id`)
+}
+igual(ORCAMENTO_DIARIO_MICROS, 5_000_000, 'orçamento padrão: US$ 5')
+igual(planoPorId('nao-existe'), null, 'plano desconhecido: null')
+const plano = PLANOS_DO_GRANTS[0]
+verdade(['cachorro', 'gato', 'pdf'].every((n) => plano.negativas.includes(n)), 'primeiros socorros: pets e material de estudo ficam de fora')
 
 // O que a conferência pega.
 const quebrado: Plano = {
   ...plano,
   lanceMaximoMicros: 3_000_000,
   grupos: [
-    { nome: 'Um', palavras: ['doação', 'curso de primeiros socorros'], anuncios: [{ url: 'http://x', titulos: ['a', 'b'], descricoes: ['c'], caminho2: 'x' }] },
+    { nome: 'Um', palavras: ['doação', 'primeiros socorros pdf'], anuncios: [{ url: 'http://x', titulos: ['a', 'b'], descricoes: ['c'], caminho2: 'x' }] },
   ],
   sitelinks: [{ texto: 'Um sitelink com texto comprido demais', descricao1: 'ok', descricao2: 'ok', url: 'https://x' }],
 }
@@ -57,7 +66,9 @@ contem(problemas.join('\n'), 'menos de 3 títulos', 'conferência: poucos títul
 contem(problemas.join('\n'), 'menos de 2 descrições', 'conferência: poucas descrições')
 contem(problemas.join('\n'), 'caminho 2 sem o caminho 1', 'conferência: caminho 2 solto')
 contem(problemas.join('\n'), 'texto com mais de', 'conferência: sitelink comprido')
-contem(problemas.join('\n'), 'pelo menos 2', 'conferência: um sitelink só')
+contem(problemas.join('\n'), 'pelo menos 2 sitelinks', 'conferência: um sitelink só')
+contem(problemas.join('\n'), 'fora da página da campanha', 'conferência: anúncio levando a outra página')
+contem(problemasDoPlano({ ...plano, sitelinks: [] }).join('\n'), 'pelo menos 2 sitelinks', 'conferência: campanha sem sitelink')
 const longo: Plano = { ...plano, grupos: plano.grupos.map((g) => ({ ...g, anuncios: g.anuncios.map((a) => ({ ...a, titulos: [...a.titulos.slice(0, 2), 'x'.repeat(TITULO_MAX + 1)], descricoes: [...a.descricoes.slice(0, 1), 'y'.repeat(DESCRICAO_MAX + 1)] })) })) }
 contem(problemasDoPlano(longo).join('\n'), `máximo ${TITULO_MAX}`, 'conferência: título comprido')
 contem(problemasDoPlano(longo).join('\n'), `máximo ${DESCRICAO_MAX}`, 'conferência: descrição comprida')
@@ -65,13 +76,7 @@ const comTelefone: Plano = { ...plano, grupos: plano.grupos.map((g, i) => (i ? g
 contem(problemasDoPlano(comTelefone).join('\n'), 'telefone no texto', 'conferência: telefone no texto do anúncio')
 const sitelinkRepetido: Plano = { ...plano, sitelinks: [{ ...plano.sitelinks[0], descricao1: plano.grupos[0].anuncios[0].titulos[1] }, ...plano.sitelinks.slice(1)] }
 contem(problemasDoPlano(sitelinkRepetido).join('\n'), 'repete o texto de um anúncio', 'conferência: sitelink que repete título')
-contem(problemasDoPlano({ ...plano, negativas: [...plano.negativas, 'Curso'] }).join('\n'), 'negativa repetida', 'conferência: negativa repetida')
-verdade(!plano.negativas.includes('vaga') && !plano.negativas.includes('vagas'), 'plano: "vagas de voluntariado" não fica bloqueada')
-for (const [com, sem] of [['matrícula', 'matricula'], ['salário', 'salario'], ['são paulo', 'sao paulo'], ['brasília', 'brasilia'], ['punção venosa', 'puncao venosa']]) {
-  verdade(plano.negativas.includes(com) && plano.negativas.includes(sem), `plano: negativa com e sem acento (${sem})`)
-}
-verdade(['sangue', 'medula', 'inca'].every((n) => plano.negativas.includes(n)), 'plano: doação de sangue/medula e o INCA ficam de fora')
-verdade(!plano.grupos.some((g) => g.palavras.includes('praça da cruz vermelha')), 'plano: nome de praça sozinho não é palavra-chave')
+contem(problemasDoPlano({ ...plano, negativas: [...plano.negativas, 'PDF'] }).join('\n'), 'negativa repetida', 'conferência: negativa repetida')
 
 // ---------------------------------------------------------------- o pedido
 
@@ -88,7 +93,7 @@ igual(campanha.networkSettings, { targetGoogleSearch: true, targetSearchNetwork:
 igual(campanha.targetSpend, { cpcBidCeilingMicros: String(LANCE_MAXIMO_MICROS) }, 'pedido: maximizar cliques com teto de US$ 2')
 igual(campanha.campaignBudget, 'customers/6304775709/campaignBudgets/-1', 'pedido: a campanha aponta para o orçamento temporário')
 igual(campanha.resourceName, 'customers/6304775709/campaigns/-2', 'pedido: id temporário da campanha')
-contem(String(campanha.finalUrlSuffix), 'utm_campaign=grants-institucional', 'pedido: as UTMs no sufixo da URL')
+contem(String(campanha.finalUrlSuffix), 'utm_campaign=grants-guia-primeiros-socorros', 'pedido: as UTMs no sufixo da URL')
 const criterios = ops.filter((o) => 'campaignCriterionOperation' in o).map((o) => (o.campaignCriterionOperation as { create: Record<string, unknown> }).create)
 igual(criterios[0], { campaign: 'customers/6304775709/campaigns/-2', location: { geoTargetConstant: alvos.local } }, 'pedido: a cidade')
 verdade(!criterios.some((c) => 'language' in c), 'pedido: sem critério de idioma (recusado em campanha de pesquisa)')
@@ -112,9 +117,11 @@ const anuncios = ops.filter((o) => 'adGroupAdOperation' in o).map((o) => (o.adGr
 igual(anuncios.length, resumoDoPlano(plano).anuncios, 'pedido: um anúncio por anúncio do plano')
 verdade(anuncios.every((a) => a.status === 'PAUSED'), 'pedido: todo anúncio nasce pausado')
 const primeiroAnuncio = anuncios[0].ad as { finalUrls: string[]; responsiveSearchAd: { headlines: { text: string }[]; path1?: string } }
-igual(primeiroAnuncio.finalUrls, ['https://cruzvermelhariodejaneiro.org/'], 'pedido: a URL final do primeiro anúncio')
-igual(primeiroAnuncio.responsiveSearchAd.headlines[0], { text: 'Cruz Vermelha Rio de Janeiro' }, 'pedido: o primeiro título')
-igual(primeiroAnuncio.responsiveSearchAd.path1, 'rio-de-janeiro', 'pedido: o caminho 1')
+igual(primeiroAnuncio.finalUrls, [plano.destino], 'pedido: a URL final do primeiro anúncio')
+igual(primeiroAnuncio.responsiveSearchAd.headlines[0], { text: plano.grupos[0].anuncios[0].titulos[0] }, 'pedido: o primeiro título')
+igual(primeiroAnuncio.responsiveSearchAd.path1, 'socorros', 'pedido: o caminho 1')
+const orcamentoNoPedido = (ops[0].campaignBudgetOperation as { create: { amountMicros: string } }).create.amountMicros
+igual(orcamentoNoPedido, '5000000', 'pedido: orçamento de US$ 5 por dia')
 const grupos = ops.filter((o) => 'adGroupOperation' in o).map((o) => (o.adGroupOperation as { create: Record<string, unknown> }).create)
 verdade(grupos.every((g) => g.status === 'PAUSED' && g.type === 'SEARCH_STANDARD' && g.campaign === 'customers/6304775709/campaigns/-2'), 'pedido: grupos pausados, de pesquisa, na campanha')
 const temporarios = ops.flatMap((o) => { const c = (Object.values(o)[0] as { create: { resourceName?: string } }).create; return c.resourceName ? [c.resourceName] : [] })

@@ -1868,32 +1868,39 @@ revisar. Sem o Ads conectado (ou sem a migração), nada muda.
   `developer-token` não é enviado (é ignorado hoje e será recusado).
 - **O cartão "7. Google Ads"** em Configurações › E-mail dos setores
   (`components/admin/ads-google.tsx`): situação, conta Google, contas de anúncios
-  alcançadas e a escolhida, o resumo do plano, "Conferir o plano no Google" (o
-  pedido com `validateOnly`: o Google confere limites, políticas e segmentação sem
-  gravar), "Criar campanha (pausada)" e "Desconectar" (`app/actions/google-ads.ts`,
-  `integracoes.configurar` conferido em cada action). Criada, o cartão mostra a
-  data e o link no painel; a campanha fica registrada em `campanha_recurso`.
+  alcançadas e a escolhida, e um bloco por plano (uma campanha por página de
+  destino) com o resumo, "Conferir no Google" (o pedido com `validateOnly`: o Google
+  confere limites, políticas e segmentação sem gravar) e "Criar campanha (pausada)",
+  além de "Desconectar" (`app/actions/google-ads.ts`, `integracoes.configurar`
+  conferido em cada action; o id do plano vem do botão). Criada, o bloco mostra a
+  data e o link no painel. O registro de cada campanha mora em `activity_log`
+  (`google_ads_campanha_criada`, com plano, nome, campanha e conta), sem migração:
+  a coluna `campanha_recurso` da conexão guardava uma só e deixou de ser usada.
 - **`lib/google/ads.ts` (nunca lança):** token renovado como as outras conexões;
   `invalid_grant` e 401 marcam `expirada` — só a troca de `ativa` para `expirada`
   dispara o alerta `google_ads`. `lerConta` (moeda, fuso, se é de administrador),
-  `listarCampanhas` e `criarCampanha` — que, achando campanha com o mesmo nome, só a
+  `listarCampanhas`, `campanhasRegistradas` (por plano, da conta em uso) e
+  `criarCampanha(plano)` — que, achando campanha com o mesmo nome, só a
   registra se o Palácio ainda não a tinha (a resposta da criação se perdeu; o pedido é
   uma transação, então ela entrou inteira) e recusa se já tinha; confere a constante
   do local por GAQL (existe, `ENABLED`, com o nome canônico do plano) e manda **um
   pedido só** (`googleAds:mutate`, `partialFailure: false`): ou tudo entra ou nada
   entra. A volta do consentimento distingue "não deu para listar as contas" (null:
-  mantém a lista, a escolha e a campanha de antes) de "lista vazia"; trocar de conta
-  no cartão esquece a campanha registrada, que é da conta anterior.
+  mantém a lista e a escolha de antes) de "lista vazia". O registro é por conta de
+  anúncios: trocar de conta mostra só as campanhas criadas na nova.
 - **Regras puras** (`lib/google/ads-regras.ts`, sem import nenhum, conferidas por
-  `npx tsx scripts/conferir-google-ads.ts`): `PLANO_DO_GRANTS` (seis grupos —
-  marca, voluntariado, doação, Campanha do Agasalho, princípios e emblema, história
-  e DIH —, cada anúncio levando à página do site que responde à busca; 47 palavras
-  em correspondência de frase, 12 anúncios responsivos, 45 negativas, 4 sitelinks;
-  cidade do Rio de Janeiro, "Maximizar cliques" com teto de US$ 2, US$ 100 por dia;
-  UTMs no `finalUrlSuffix`), `problemasDoPlano` (30 letras por título, 90 por
+  `npx tsx scripts/conferir-google-ads.ts`): `PLANOS_DO_GRANTS`, uma campanha por
+  página de destino com US$ 5 por dia cada (23/10/2026: o guia "Primeiros socorros:
+  o que fazer nas emergências mais comuns", com os grupos Convulsão, Queimadura e
+  Emergências comuns, e o "Lei Lucas na prática", com Lei Lucas: o que é e Lei Lucas:
+  escolas e creches; palavras de dúvida em correspondência de frase, dois anúncios
+  por grupo, sitelinks para outros guias e para /doe/; cidade do Rio de Janeiro,
+  "Maximizar cliques" com teto de US$ 2; UTMs `grants-guia-…` no `finalUrlSuffix`),
+  `planoPorId`, `problemasDoPlano` (30 letras por título, 90 por
   descrição, 15 por caminho, mínimos do anúncio responsivo, telefone no texto do
-  anúncio, sitelink que repete texto de anúncio, negativa repetida e as regras do
-  Grants: dois grupos, dois anúncios por grupo, nada de palavra única, palavra que a
+  anúncio, sitelink que repete texto de anúncio, negativa repetida, anúncio fora da
+  página da campanha e as regras do Grants: dois grupos, dois anúncios por grupo, dois
+  sitelinks, nada de palavra única, palavra que a
   negativa derrubaria), `operacoesDaCampanha` (ids temporários negativos, tudo
   `PAUSED`, só a pesquisa do Google, `PRESENCE` na geografia,
   `containsEuPoliticalAdvertising` declarado, operações **agrupadas por tipo**, pai

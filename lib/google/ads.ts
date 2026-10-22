@@ -5,8 +5,8 @@ import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
 import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
 import {
-  API_DO_ADS, CONSULTA_DA_CONTA, CONSULTA_DAS_CAMPANHAS, PLANO_DO_GRANTS, consultaDoLocal, idDaCampanha, idDaConta, lerCampanhaCriada,
-  lerContasAcessiveis, motivoDaFalhaDoAds, operacoesDaCampanha, pedidoDeConsulta, pedidoDeMutacao, problemaDoLocal, problemasDoPlano, type AlvosResolvidos, type Plano,
+  API_DO_ADS, CONSULTA_DA_CONTA, CONSULTA_DAS_CAMPANHAS, consultaDoLocal, idDaCampanha, idDaConta, lerCampanhaCriada,
+  lerContasAcessiveis, motivoDaFalhaDoAds, operacoesDaCampanha, pedidoDeConsulta, pedidoDeMutacao, planoPorId, problemaDoLocal, problemasDoPlano, type AlvosResolvidos, type Plano,
 } from './ads-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -123,10 +123,10 @@ export async function contasAcessiveis(accessToken: string): Promise<string[] | 
   return r.ok ? lerContasAcessiveis(r.dados) : null
 }
 
-type Conexao = { customer_id: string | null; estado: 'ativa' | 'expirada'; email_conta: string; contas_acessiveis: string[] | null; campanha_recurso: string | null }
+type Conexao = { customer_id: string | null; estado: 'ativa' | 'expirada'; email_conta: string; contas_acessiveis: string[] | null }
 
 async function conexaoDoAds(admin: Admin, workspaceId: string): Promise<Conexao | null> {
-  const { data } = await admin.from('google_ads_conexao').select('customer_id,estado,email_conta,contas_acessiveis,campanha_recurso').eq('workspace_id', workspaceId).maybeSingle()
+  const { data } = await admin.from('google_ads_conexao').select('customer_id,estado,email_conta,contas_acessiveis').eq('workspace_id', workspaceId).maybeSingle()
   return (data as Conexao | null) ?? null
 }
 
@@ -186,19 +186,50 @@ async function resolverAlvos(workspaceId: string, customerId: string, plano: Pla
 /** `adotada`: a campanha já existia no Google com o nome do plano e o Palácio só passou a registrá-la (a resposta da criação se perdeu). */
 export type ResultadoDaCampanha = { ok: true; validada: true } | { ok: true; validada: false; campanhaId: string; recurso: string; adotada?: boolean } | FalhaDoAds
 
-async function registrarCampanha(workspaceId: string, recurso: string): Promise<string | null> {
-  const { error } = await createAdminClient().from('google_ads_conexao').update({ campanha_recurso: recurso, campanha_criada_em: new Date().toISOString() }).eq('workspace_id', workspaceId)
+/** Uma campanha criada (ou reconhecida) pelo Palácio, como fica no registro de atividade. */
+export type CampanhaRegistrada = { plano: string; recurso: string; criadaEm: string }
+
+const ACAO_DO_REGISTRO = 'google_ads_campanha_criada'
+
+/**
+ * As campanhas que o Palácio já criou nesta conta de anúncios, por plano (a mais recente de cada). O registro mora em
+ * activity_log, sem migração: um plano por página, e a coluna campanha_recurso da conexão só guardava uma.
+ */
+export async function campanhasRegistradas(workspaceId: string, customerId: string): Promise<Map<string, CampanhaRegistrada>> {
+  const saida = new Map<string, CampanhaRegistrada>()
+  try {
+    const { data } = await createAdminClient().from('activity_log').select('created_at, metadata')
+      .eq('workspace_id', workspaceId).eq('entity_type', 'integracao').eq('action', ACAO_DO_REGISTRO)
+      .eq('metadata->>conta', customerId).order('created_at', { ascending: false }).limit(200)
+    for (const linha of data ?? []) {
+      const m = (linha.metadata ?? {}) as Record<string, unknown>
+      const plano = typeof m.plano === 'string' ? m.plano : ''
+      const recurso = typeof m.campanha === 'string' ? m.campanha : ''
+      if (plano && recurso && !saida.has(plano)) saida.set(plano, { plano, recurso, criadaEm: String(linha.created_at) })
+    }
+  } catch (causa) {
+    console.error('[ads] registro das campanhas não lido:', causa instanceof Error ? causa.message : causa)
+  }
+  return saida
+}
+
+async function registrarCampanha(workspaceId: string, p: { atorId: string | null; plano: Plano; customerId: string; recurso: string; reconhecida: boolean }): Promise<string | null> {
+  const { error } = await createAdminClient().from('activity_log').insert({
+    workspace_id: workspaceId, actor_id: p.atorId, action: ACAO_DO_REGISTRO, entity_type: 'integracao',
+    metadata: { plano: p.plano.id, nome: p.plano.nome, campanha: p.recurso, conta: p.customerId, reconhecida: p.reconhecida },
+  })
   return error ? error.message : null
 }
 
 /**
- * Cria a campanha do plano na conta conectada — ou só a confere (`validar`: o mesmo pedido com validateOnly, nada é
+ * Cria a campanha de um plano na conta conectada — ou só a confere (`validar`: o mesmo pedido com validateOnly, nada é
  * gravado). Já existindo campanha com o mesmo nome: se o Palácio não a tem registrada (a resposta da criação se perdeu —
  * o pedido é uma transação só, então ela entrou inteira), passa a registrá-la; se tem, recusa. O que entra, entra
  * PAUSADO; quem liga é uma pessoa, no painel.
  */
-export async function criarCampanha(workspaceId: string, p: { validar: boolean; plano?: Plano }): Promise<ResultadoDaCampanha> {
-  const plano = p.plano ?? PLANO_DO_GRANTS
+export async function criarCampanha(workspaceId: string, p: { validar: boolean; planoId: string; atorId: string | null; plano?: Plano }): Promise<ResultadoDaCampanha> {
+  const plano = p.plano ?? planoPorId(p.planoId)
+  if (!plano) return falha('Plano de campanha desconhecido.')
   try {
     const problemas = problemasDoPlano(plano)
     if (problemas.length) return falha(`O plano não passa na conferência: ${problemas.slice(0, 3).join(' ')}${problemas.length > 3 ? ` (e mais ${problemas.length - 3})` : ''}`)
@@ -207,10 +238,10 @@ export async function criarCampanha(workspaceId: string, p: { validar: boolean; 
     if (!existentes.ok) return existentes
     const mesma = existentes.campanhas.find((c) => c.nome === plano.nome)
     if (mesma) {
-      const conexao = await conexaoDoAds(createAdminClient(), workspaceId)
+      const registrada = (await campanhasRegistradas(workspaceId, customerId)).get(plano.id)
       const id = idDaCampanha(mesma.recurso)
-      if (!p.validar && !conexao?.campanha_recurso && id) {
-        const naoGravou = await registrarCampanha(workspaceId, mesma.recurso)
+      if (!p.validar && !registrada && id) {
+        const naoGravou = await registrarCampanha(workspaceId, { atorId: p.atorId, plano, customerId, recurso: mesma.recurso, reconhecida: true })
         if (naoGravou) return falha(`A campanha "${plano.nome}" existe no Google, mas não foi registrada aqui (${naoGravou}). Tente de novo.`)
         return { ok: true, validada: false, campanhaId: id, recurso: mesma.recurso, adotada: true }
       }
@@ -224,7 +255,7 @@ export async function criarCampanha(workspaceId: string, p: { validar: boolean; 
     const recurso = lerCampanhaCriada(r.dados)
     const campanhaId = recurso ? idDaCampanha(recurso) : null
     if (!recurso || !campanhaId) return falha('O Google criou, mas não devolveu o id da campanha. Confira no painel do Google Ads antes de tentar de novo.')
-    const naoGravou = await registrarCampanha(workspaceId, recurso)
+    const naoGravou = await registrarCampanha(workspaceId, { atorId: p.atorId, plano, customerId, recurso, reconhecida: false })
     if (naoGravou) return falha(`A campanha foi criada no Google (${recurso}), mas não foi registrada aqui (${naoGravou}). Toque em "Criar campanha" de novo: o Palácio a reconhece pelo nome e só registra, sem criar outra.`)
     return { ok: true, validada: false, campanhaId, recurso }
   } catch (causa) {

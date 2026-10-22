@@ -5,10 +5,10 @@
  * A conta é a do Google Ad Grants (a verba doada pelo Google a organizações sem fins lucrativos): só rede de
  * pesquisa, anúncios de texto, lance de até US$ 2 por clique, pelo menos dois grupos por campanha e dois anúncios
  * por grupo, segmentação geográfica, nada de palavra-chave de uma palavra só, e uma taxa de cliques de 5% ao mês
- * para a conta não ser suspensa. O plano abaixo (PLANO_DO_GRANTS) é a campanha institucional que leva quem busca
- * ao site da filial: a marca, o voluntariado, a doação, a Campanha do Agasalho, os princípios e a história. Os
- * cursos pagos da Escola ficam de fora de propósito: a política do programa aceita venda só quando não é o foco,
- * e a página de matrícula é uma página de venda.
+ * para a conta não ser suspensa. Os planos abaixo (PLANOS_DO_GRANTS) são uma campanha por página de destino, cada
+ * uma com o seu orçamento diário: hoje, os dois guias informativos de 22/10/2026 (primeiros socorros e Lei Lucas na
+ * prática), que respondem à dúvida de quem busca e só no fim apresentam o curso e a doação. Nenhum anúncio leva à
+ * página de matrícula: a política do programa aceita venda só quando ela não é o foco, e aquela é uma página de venda.
  *
  * O que mora aqui: os limites do anúncio responsivo (30 letras por título, 90 por descrição, 15 por caminho), a
  * conferência do plano contra esses limites e as regras do Grants (`problemasDoPlano`), e a montagem do pedido
@@ -33,8 +33,8 @@ export const GRUPOS_MIN = 2
 export const ANUNCIOS_POR_GRUPO_MIN = 2
 /** O teto de lance do Ad Grants com "Maximizar cliques": US$ 2 por clique. */
 export const LANCE_MAXIMO_MICROS = 2_000_000
-/** O programa libera até US$ 329 por dia; começa com menos, até a conta mostrar a taxa de cliques. */
-export const ORCAMENTO_DIARIO_MICROS = 100_000_000
+/** Começo de cada campanha: US$ 5 por dia por página (o programa libera até US$ 329 por dia na conta toda). */
+export const ORCAMENTO_DIARIO_MICROS = 5_000_000
 
 export const SITE = 'https://cruzvermelhariodejaneiro.org'
 
@@ -42,7 +42,12 @@ export type Anuncio = { titulos: string[]; descricoes: string[]; url: string; ca
 export type Grupo = { nome: string; palavras: string[]; anuncios: Anuncio[] }
 export type Sitelink = { texto: string; descricao1: string; descricao2: string; url: string }
 export type Plano = {
+  /** O identificador do plano no Palácio (o botão manda este id). */
+  id: string
+  /** O nome da campanha no Google Ads: é por ele que o Palácio reconhece a campanha já criada. */
   nome: string
+  /** A página que a campanha promove: todo anúncio leva a ela. */
+  destino: string
   /** O que vai no fim de toda URL final (o site lê as UTMs no GA4; {keyword} e {adgroupid} o Google preenche). */
   sufixoDaUrl: string
   orcamentoDiarioMicros: number
@@ -62,189 +67,164 @@ export type Plano = {
 
 const url = (caminho: string) => `${SITE}${caminho}`
 
-export const PLANO_DO_GRANTS: Plano = {
-  nome: 'Grants — Institucional (Rio de Janeiro)',
-  sufixoDaUrl: 'utm_source=google&utm_medium=cpc&utm_campaign=grants-institucional&utm_term={keyword}&utm_content={adgroupid}',
-  orcamentoDiarioMicros: ORCAMENTO_DIARIO_MICROS,
-  lanceMaximoMicros: LANCE_MAXIMO_MICROS,
-  local: { constante: 'geoTargetConstants/1001655', canonico: 'Rio de Janeiro,State of Rio de Janeiro,Brazil', rotulo: 'cidade do Rio de Janeiro' },
-  grupos: [
-    {
-      nome: 'Marca',
-      palavras: [
-        'cruz vermelha rio de janeiro', 'cruz vermelha rj', 'cruz vermelha brasileira rio de janeiro', 'cruz vermelha brasileira rj',
-        'cruz vermelha do rio', 'palácio da cruz vermelha', 'cruz vermelha centro rio',
-      ],
-      anuncios: [
-        {
-          url: url('/'), caminho1: 'rio-de-janeiro',
-          titulos: ['Cruz Vermelha Rio de Janeiro', 'Filial do Rio desde 1908', 'Palácio da Cruz Vermelha', 'Site oficial da filial RJ', 'No Centro do Rio de Janeiro', 'Quem somos e o que fazemos'],
-          descricoes: [
-            'Formação de voluntários, campanhas de apoio e educação preventiva no Rio de Janeiro.',
-            'Associação sem fins lucrativos, parte do Movimento Internacional da Cruz Vermelha.',
-            'Sede na Praça da Cruz Vermelha, 10, Centro. Veja como ajudar e como falar com a gente.',
-          ],
-        },
-        {
-          url: url('/quem-somos/'), caminho1: 'quem-somos',
-          titulos: ['Cruz Vermelha Brasileira RJ', 'Conheça a filial do Rio', 'Missão, sede e diretoria', 'Como a filial se financia', 'Utilidade pública no Rio'],
-          descricoes: [
-            'O que a filial faz no Rio, onde fica a sede, os reconhecimentos e quem dirige.',
-            'Prevenir e aliviar o sofrimento humano, com imparcialidade. Saiba como participar.',
-          ],
-        },
-      ],
-    },
-    {
-      nome: 'Voluntariado',
-      palavras: [
-        'voluntário cruz vermelha', 'voluntariado cruz vermelha', 'ser voluntário cruz vermelha', 'como ser voluntário no rio de janeiro',
-        'voluntariado rio de janeiro', 'trabalho voluntário rio de janeiro', 'ong para ser voluntário rio', 'voluntariado centro rio',
-      ],
-      anuncios: [
-        {
-          url: url('/voluntariado/'), caminho1: 'voluntariado',
-          titulos: ['Seja voluntário no Rio', 'Voluntariado Cruz Vermelha', 'Cadastro de voluntários', 'Formação gratuita interna', 'Quatro turmas por ano', 'Como entrar e o que esperar'],
-          descricoes: [
-            'Cadastre-se, faça a entrevista e a formação inicial. Quatro turmas por ano, no Centro.',
-            'Voluntariado pela Lei 9.608/1998, com termo de adesão. Formação só para quem é aceito.',
-            'Primeiros socorros, campanhas e apoio comunitário. Entre para a Cruz Vermelha RJ.',
-          ],
-        },
-        {
-          url: url('/voluntariado/cadastro/'), caminho1: 'voluntariado', caminho2: 'cadastro',
-          titulos: ['Quero ser voluntário', 'Cruz Vermelha Rio de Janeiro', 'Cadastro online em minutos', 'Entrevista e formação', 'Tire dúvidas no WhatsApp'],
-          descricoes: [
-            'Preencha o cadastro e a equipe do voluntariado entra em contato para a entrevista.',
-            'Dúvidas antes de se cadastrar? Fale com a equipe no WhatsApp exclusivo do voluntariado.',
-          ],
-        },
-      ],
-    },
-    {
-      nome: 'Doação',
-      palavras: [
-        'doar para cruz vermelha', 'doação cruz vermelha', 'cruz vermelha doação pix', 'como ajudar a cruz vermelha',
-        'doar pix ong rio de janeiro', 'doação para ong rio de janeiro', 'doar para instituição no rio', 'doação online rio de janeiro',
-      ],
-      anuncios: [
-        {
-          url: url('/doe/'), caminho1: 'doe',
-          titulos: ['Doe para a Cruz Vermelha RJ', 'Doação por PIX ou cartão', 'A partir de R$ 5', 'Comprovante por e-mail', 'Ajude a filial do Rio', 'Recibo com o CNPJ da filial'],
-          descricoes: [
-            'Doe por PIX ou cartão, a partir de R$ 5. O comprovante chega no e-mail com o CNPJ.',
-            'A doação mantém o Palácio da Cruz Vermelha e as atividades da filial no Rio.',
-            'Associação sem fins lucrativos, utilidade pública municipal e estadual.',
-          ],
-        },
-        {
-          url: url('/doe/'), caminho1: 'doe', caminho2: 'pix',
-          titulos: ['Doação por PIX em 1 minuto', 'Cruz Vermelha Rio de Janeiro', 'Qualquer valor ajuda', 'Transparência nos documentos', 'Doe com segurança'],
-          descricoes: [
-            'Escolha o valor, pague pelo PIX e receba o comprovante no e-mail. Sem cadastro longo.',
-            'Veja no portal da transparência os documentos da filial e para onde vai a doação.',
-          ],
-        },
-      ],
-    },
-    {
-      nome: 'Campanha do Agasalho',
-      palavras: [
-        'campanha do agasalho rio de janeiro', 'campanha do agasalho rj', 'doar roupas rio de janeiro', 'onde doar roupas no rio',
-        'doação de cobertores rio de janeiro', 'doar agasalho rio', 'onde doar roupas de frio rj', 'doação de roupas centro rio',
-      ],
-      anuncios: [
-        {
-          url: url('/campanha-agasalho.html'), caminho1: 'agasalho',
-          titulos: ['Campanha do Agasalho RJ', 'Doe roupas de frio no Rio', 'Cobertores e calçados', 'Entrega na sede, no Centro', 'Segunda a sexta, 10h às 17h', 'Cruz Vermelha Rio de Janeiro'],
-          descricoes: [
-            'Entregue roupas de frio, cobertores e calçados na sede: Praça da Cruz Vermelha, 10.',
-            'De segunda a sexta, das 10h às 17h. A Cruz Vermelha RJ encaminha a quem precisa.',
-            'Roupas limpas e em bom estado. Veja o que doar e como chegar à sede, no Centro.',
-          ],
-        },
-        {
-          url: url('/campanha-agasalho.html'), caminho1: 'agasalho', caminho2: 'onde-doar',
-          titulos: ['Onde doar roupas no Rio', 'Cruz Vermelha, no Centro', 'Agasalhos e cobertores', 'Entrega de segunda a sexta', 'Doação de roupas de frio'],
-          descricoes: [
-            'Leve agasalhos, cobertores e calçados à Praça da Cruz Vermelha, 10, de segunda a sexta.',
-            'A filial recebe e distribui a quem precisa. Horário: das 10h às 17h.',
-          ],
-        },
-      ],
-    },
-    {
-      nome: 'Princípios e emblema',
-      palavras: [
-        'princípios da cruz vermelha', 'sete princípios fundamentais cruz vermelha', 'princípios fundamentais do movimento', 'emblema da cruz vermelha',
-        'símbolo da cruz vermelha', 'quem pode usar a cruz vermelha', 'cruz vermelha significado', 'o que é a cruz vermelha',
-      ],
-      anuncios: [
-        {
-          url: url('/principios-fundamentais/'), caminho1: 'principios',
-          titulos: ['Os 7 princípios fundamentais', 'Cruz Vermelha Rio de Janeiro', 'Humanidade e imparcialidade', 'Texto oficial do Estatuto', 'Neutralidade e independência', 'O que guia a Cruz Vermelha'],
-          descricoes: [
-            'Humanidade, imparcialidade, neutralidade, independência, voluntariado e unidade.',
-            'O texto oficial dos princípios, do Estatuto da Cruz Vermelha Brasileira, explicado.',
-            'Entenda o que cada princípio significa no dia a dia da filial do Rio de Janeiro.',
-          ],
-        },
-        {
-          url: url('/emblema/'), caminho1: 'emblema',
-          titulos: ['O emblema da Cruz Vermelha', 'Quem pode usar o símbolo', 'Cruz, crescente e cristal', 'Uso protetor e indicativo', 'Avise sobre uso indevido'],
-          descricoes: [
-            'De onde vem a cruz vermelha, o que significa e quem pode usar no Brasil.',
-            'Os emblemas do Movimento no mundo, com imagens históricas, e como avisar a filial.',
-          ],
-        },
-      ],
-    },
-    {
-      nome: 'História e direito humanitário',
-      palavras: [
-        'história da cruz vermelha', 'história da cruz vermelha no brasil', 'cruz vermelha brasileira 1908', 'fundação da cruz vermelha brasileira',
-        'convenções de genebra cruz vermelha', 'direito internacional humanitário', 'o que é direito internacional humanitário', 'movimento internacional da cruz vermelha',
-      ],
-      anuncios: [
-        {
-          url: url('/historia/'), caminho1: 'historia',
-          titulos: ['História da Cruz Vermelha', 'No Brasil desde 1908', 'Fundada no Rio de Janeiro', 'O Palácio e a Escola', 'Linha do tempo com fontes', 'Cruz Vermelha Rio de Janeiro'],
-          descricoes: [
-            'Da fundação da Cruz Vermelha Brasileira, em 1908, no Rio, ao Palácio da Cruz Vermelha.',
-            'Linha do tempo com fontes: a Escola de Enfermagem, as guerras, as campanhas no Rio.',
-            'Conheça a história da filial do Rio de Janeiro e do Movimento Internacional.',
-          ],
-        },
-        {
-          url: url('/direito-internacional-humanitario/'), caminho1: 'dih',
-          titulos: ['Direito Humanitário (DIH)', 'As Convenções de Genebra', 'Protocolos e decretos', 'Explicado pela Cruz Vermelha', 'O que o DIH protege'],
-          descricoes: [
-            'As Convenções de Genebra, os Protocolos e os decretos que os promulgaram no Brasil.',
-            'O papel da Cruz Vermelha no direito internacional humanitário, em linguagem simples.',
-          ],
-        },
-      ],
-    },
-  ],
-  // Fora desta campanha: os cursos pagos (outra campanha, se um dia houver), emprego e concursos, serviços de saúde (a
-  // filial não coleta sangue nem atende; na Praça da Cruz Vermelha ficam o INCA e hospitais) e as Cruzes Vermelhas de
-  // outros lugares. Negativa não casa variante: com acento e sem acento são duas, e o plural também — por isso os pares.
-  // "vaga" não entra: "vagas de voluntariado" é a busca que o grupo Voluntariado quer.
-  negativas: [
-    'curso', 'cursos', 'primeiros socorros', 'bombeiro civil', 'cuidador de idosos', 'punção venosa', 'puncao venosa', 'enfermagem',
-    'matrícula', 'matricula',
-    'emprego', 'empregos', 'concurso', 'concursos', 'salário', 'salario', 'estágio', 'estagio', 'estágios', 'estagios',
-    'hospital', 'hospitais', 'samu', 'ambulância', 'ambulancia', 'consulta', 'consultas', 'atendimento médico', 'atendimento medico',
-    'sangue', 'medula', 'inca', 'câncer', 'cancer',
-    'portuguesa', 'espanhola', 'argentina', 'americana', 'são paulo', 'sao paulo', 'curitiba', 'belo horizonte', 'salvador', 'brasília', 'brasilia',
-  ],
-  sitelinks: [
-    { texto: 'Doe', descricao1: 'Doação pelo site da filial', descricao2: 'Mantém o Palácio e as ações', url: url('/doe/') },
-    { texto: 'Seja voluntário', descricao1: 'Veja as etapas para entrar', descricao2: 'Turmas ao longo do ano', url: url('/voluntariado/') },
-    { texto: 'Quem somos', descricao1: 'O que a filial faz hoje', descricao2: 'Reconhecimentos e diretoria', url: url('/quem-somos/') },
-    { texto: 'Campanha do Agasalho', descricao1: 'O que doar e onde entregar', descricao2: 'Horário e endereço da sede', url: url('/campanha-agasalho.html') },
-  ],
-}
+const RIO: Plano['local'] = { constante: 'geoTargetConstants/1001655', canonico: 'Rio de Janeiro,State of Rio de Janeiro,Brazil', rotulo: 'cidade do Rio de Janeiro' }
+const utms = (campanha: string) => `utm_source=google&utm_medium=cpc&utm_campaign=${campanha}&utm_term={keyword}&utm_content={adgroupid}`
+
+const GUIA_PRIMEIROS_SOCORROS = url('/noticias/primeiros-socorros-o-que-fazer-nas-emergencias-mais-comuns/')
+const GUIA_LEI_LUCAS = url('/noticias/lei-lucas-na-pratica-checklist-para-escolas-e-creches/')
+
+export const PLANOS_DO_GRANTS: Plano[] = [
+  {
+    id: 'guia-primeiros-socorros',
+    nome: 'Grants — Guia de primeiros socorros (RJ)',
+    destino: GUIA_PRIMEIROS_SOCORROS,
+    sufixoDaUrl: utms('grants-guia-primeiros-socorros'),
+    orcamentoDiarioMicros: ORCAMENTO_DIARIO_MICROS,
+    lanceMaximoMicros: LANCE_MAXIMO_MICROS,
+    local: RIO,
+    grupos: [
+      {
+        nome: 'Convulsão',
+        palavras: ['o que fazer em caso de convulsão', 'como ajudar alguém tendo convulsão', 'pessoa tendo convulsão o que fazer', 'primeiros socorros convulsão', 'convulsão o que fazer'],
+        anuncios: [
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'convulsao',
+            titulos: ['Convulsão: o que fazer', 'Como ajudar numa convulsão', 'Não coloque nada na boca', 'Quando ligar para o 192', 'Guia da Cruz Vermelha RJ'],
+            descricoes: [
+              'O que as orientações oficiais dizem sobre a convulsão e quando chamar o SAMU (192).',
+              'Guia de primeiros socorros da Cruz Vermelha Brasileira Rio de Janeiro, sem custo.',
+            ],
+          },
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'convulsao',
+            titulos: ['Alguém teve uma convulsão?', 'Saiba agir com calma', 'Proteja a cabeça da pessoa', 'Orientações oficiais', 'Primeiros socorros no RJ'],
+            descricoes: [
+              'Afaste objetos, proteja a cabeça e não segure a pessoa. Saiba quando ligar para o 192.',
+              'Leia o guia completo com as emergências mais comuns em casa, na escola e na rua.',
+            ],
+          },
+        ],
+      },
+      {
+        nome: 'Queimadura',
+        palavras: ['o que fazer em caso de queimadura', 'queimadura o que passar', 'primeiros socorros queimadura', 'queimadura de óleo o que fazer', 'queimadura com água quente o que fazer'],
+        anuncios: [
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'queimadura',
+            titulos: ['Queimadura: o que fazer', 'Água corrente, não manteiga', 'Não estoure as bolhas', 'Quando ligar para o 192', 'Guia da Cruz Vermelha RJ'],
+            descricoes: [
+              'Resfrie com água corrente e não use receitas caseiras. Veja quando chamar o SAMU (192).',
+              'Guia de primeiros socorros da Cruz Vermelha Brasileira RJ com orientações oficiais.',
+            ],
+          },
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'queimadura',
+            titulos: ['Se queimou? Veja o que fazer', 'Primeiros socorros em casa', 'O que não passar na pele', 'Orientações oficiais', 'Cruz Vermelha Brasileira RJ'],
+            descricoes: [
+              'Manteiga, pasta de dente e pó de café atrapalham. Saiba o que dizem as orientações.',
+              'Queimadura grande, no rosto ou por choque é emergência: ligue 192. Leia o guia completo.',
+            ],
+          },
+        ],
+      },
+      {
+        nome: 'Emergências comuns',
+        palavras: ['primeiros socorros o que fazer', 'o que fazer em caso de engasgo', 'como ajudar pessoa engasgada', 'pessoa desmaiou o que fazer', 'sangramento forte o que fazer', 'números de emergência'],
+        anuncios: [
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros',
+            titulos: ['Primeiros socorros: o guia', 'Engasgo, desmaio, sangramento', 'Quando ligar para o 192', 'SAMU 192 e Bombeiros 193', 'Guia da Cruz Vermelha RJ'],
+            descricoes: [
+              'As emergências mais comuns e o que as orientações oficiais dizem para cada uma.',
+              'Saiba reconhecer a emergência, pedir ajuda e agir até o socorro chegar ao local.',
+            ],
+          },
+          {
+            url: GUIA_PRIMEIROS_SOCORROS, caminho1: 'socorros', caminho2: 'guia',
+            titulos: ['O que fazer numa emergência', 'Peça ajuda primeiro', 'Engasgo grave é emergência', 'Orientações oficiais', 'Cruz Vermelha Brasileira RJ'],
+            descricoes: [
+              'Segurança, 192, parada cardíaca, engasgo, sangramento, queimadura e convulsão num guia.',
+              'Leia o guia e veja onde aprender primeiros socorros com prática no Centro do Rio.',
+            ],
+          },
+        ],
+      },
+    ],
+    // Fora: pets (convulsão e queimadura de animal), material de estudo e concurso, emprego.
+    negativas: ['cachorro', 'cachorros', 'cão', 'gato', 'gatos', 'pet', 'pdf', 'apostila', 'slides', 'concurso', 'concursos', 'emprego', 'empregos', 'questões', 'questoes'],
+    sitelinks: [
+      { texto: 'Lei Lucas na prática', descricao1: 'Checklist para escolas e creches', descricao2: 'O que a Lei 13.722 pede', url: GUIA_LEI_LUCAS },
+      { texto: 'Bebê engasgou?', descricao1: 'Sinais e quando chamar ajuda', descricao2: 'Engasgo leve ou grave', url: url('/noticias/o-que-fazer-quando-o-bebe-engasga/') },
+      { texto: 'Sinais de AVC', descricao1: 'Como reconhecer a tempo', descricao2: 'E quando chamar o socorro', url: url('/noticias/sinais-de-avc-como-reconhecer-e-quando-ligar-192/') },
+      { texto: 'Apoie a Cruz Vermelha', descricao1: 'Doação por PIX ou cartão', descricao2: 'Ajude a filial do Rio', url: url('/doe/') },
+    ],
+  },
+  {
+    id: 'guia-lei-lucas',
+    nome: 'Grants — Guia Lei Lucas na prática (RJ)',
+    destino: GUIA_LEI_LUCAS,
+    sufixoDaUrl: utms('grants-guia-lei-lucas'),
+    orcamentoDiarioMicros: ORCAMENTO_DIARIO_MICROS,
+    lanceMaximoMicros: LANCE_MAXIMO_MICROS,
+    local: RIO,
+    grupos: [
+      {
+        nome: 'Lei Lucas: o que é',
+        palavras: ['lei lucas o que é', 'o que diz a lei lucas', 'lei lucas primeiros socorros', 'lei 13.722 de 2018', 'lei 13722', 'lei lucas 2018'],
+        anuncios: [
+          {
+            url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas',
+            titulos: ['Lei Lucas: o que é', 'Lei 13.722/2018 explicada', 'O que a lei pede, item a item', 'Checklist para escolas', 'Guia da Cruz Vermelha RJ'],
+            descricoes: [
+              'O que a Lei Lucas exige de escolas e creches, artigo por artigo, e as penalidades.',
+              'Guia prático da Cruz Vermelha Brasileira Rio de Janeiro para diretores e equipes.',
+            ],
+          },
+          {
+            url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'na-pratica',
+            titulos: ['Lei Lucas na prática', 'Primeiros socorros na escola', 'Curso anual e certificado', 'Plano de emergência', 'Cruz Vermelha Brasileira RJ'],
+            descricoes: [
+              'Curso todo ano, kit, certificado à vista e rede de urgência: veja o que a lei pede.',
+              'Leia o checklist e organize quem faz o quê numa emergência com crianças na escola.',
+            ],
+          },
+        ],
+      },
+      {
+        nome: 'Lei Lucas: escolas e creches',
+        palavras: ['lei lucas escolas', 'lei lucas creche', 'o que a lei lucas exige', 'como cumprir a lei lucas', 'lei lucas obrigatoriedade', 'lei lucas certificado', 'lei lucas multa'],
+        anuncios: [
+          {
+            url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'escolas',
+            titulos: ['Sua escola cumpre a Lei Lucas?', 'Checklist da Lei 13.722', 'Escolas e creches no RJ', 'Evite notificação e multa', 'Guia da Cruz Vermelha RJ'],
+            descricoes: [
+              'Confira item por item o que a Lei Lucas pede e o que acontece se a escola não cumprir.',
+              'Guia gratuito para diretores, coordenadores e mantenedores de escolas e creches.',
+            ],
+          },
+          {
+            url: GUIA_LEI_LUCAS, caminho1: 'lei-lucas', caminho2: 'checklist',
+            titulos: ['Lei Lucas para creches', 'O que a lei exige da escola', 'Certificado em local visível', 'Equipe treinada todo ano', 'Cruz Vermelha Brasileira RJ'],
+            descricoes: [
+              'Quem treinar, quem ministra, kit e certificado: o checklist completo da Lei Lucas.',
+              'Veja também como capacitar professores e funcionários no Centro do Rio de Janeiro.',
+            ],
+          },
+        ],
+      },
+    ],
+    negativas: ['pdf', 'apostila', 'slides', 'concurso', 'concursos', 'emprego', 'empregos', 'vaga', 'vagas', 'questões', 'questoes'],
+    sitelinks: [
+      { texto: 'Primeiros socorros', descricao1: 'As emergências mais comuns', descricao2: 'E quando ligar para o 192', url: GUIA_PRIMEIROS_SOCORROS },
+      { texto: 'Bebê engasgou?', descricao1: 'Sinais e quando chamar ajuda', descricao2: 'Engasgo leve ou grave', url: url('/noticias/o-que-fazer-quando-o-bebe-engasga/') },
+      { texto: 'A origem da Lei Lucas', descricao1: 'Quem foi Lucas e por que a lei', descricao2: 'O que muda para as escolas', url: url('/noticias/curso-de-primeiros-socorros-lei-lucas-o-que-a-lei-exige-das-escolas/') },
+      { texto: 'Apoie a Cruz Vermelha', descricao1: 'Doação por PIX ou cartão', descricao2: 'Ajude a filial do Rio', url: url('/doe/') },
+    ],
+  },
+]
+
+/** O plano pelo id do botão; null se não existir. */
+export const planoPorId = (id: string): Plano | null => PLANOS_DO_GRANTS.find((p) => p.id === id) ?? null
 
 // ---------------------------------------------------------------- a conferência do plano
 
@@ -297,7 +277,8 @@ export function problemasDoPlano(plano: Plano): string[] {
     if (!/^https:\/\//.test(s.url)) p.push(`Sitelink "${s.texto}": a URL precisa começar com https://.`)
     for (const d of [s.descricao1, s.descricao2]) if (textosDosAnuncios.has(d.trim().toLowerCase())) p.push(`Sitelink "${s.texto}": a descrição "${d}" repete o texto de um anúncio (política de Repetição).`)
   }
-  if (plano.sitelinks.length && plano.sitelinks.length < 2) p.push('Com sitelinks, o Google pede pelo menos 2.')
+  if (plano.sitelinks.length < 2) p.push('O Ad Grants pede pelo menos 2 sitelinks por campanha.')
+  for (const g of plano.grupos) for (const a of g.anuncios) if (a.url !== plano.destino) p.push(`Grupo "${g.nome}": anúncio levando a ${a.url}, fora da página da campanha (${plano.destino}).`)
   return p
 }
 

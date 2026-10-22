@@ -7,7 +7,8 @@ import { EtiquetasDosSetores, type EtiquetaNaTela, type FiltroNaTela } from '@/c
 import { ContasDoGoogle, type ContaGoogleNaTela, type ConviteNaTela } from '@/components/admin/contas-google'
 import { DriveDoGoogle } from '@/components/admin/drive-google'
 import { AdsDoGoogle } from '@/components/admin/ads-google'
-import { PLANO_DO_GRANTS, idDaCampanha, linkDaCampanha, resumoDoPlano } from '@/lib/google/ads-regras'
+import { PLANOS_DO_GRANTS, idDaCampanha, idDaConta, linkDaCampanha, resumoDoPlano } from '@/lib/google/ads-regras'
+import { campanhasRegistradas } from '@/lib/google/ads'
 
 export const metadata = { title: 'E-mail dos setores — Configurações' }
 
@@ -37,7 +38,7 @@ export default async function EmailDosSetoresPage({
     // O Drive (passo 6): com erro, a tabela ainda não existe (a migração do Drive não foi aplicada) e o cartão diz isso.
     supabase.from('google_drive_conexao').select('email_conta,estado,conectada_em,pasta_raiz_link').eq('workspace_id', workspaceId).maybeSingle(),
     // O Google Ads (passo 7): como o Drive, com erro a tabela ainda não existe.
-    supabase.from('google_ads_conexao').select('email_conta,estado,conectada_em,customer_id,contas_acessiveis,campanha_recurso,campanha_criada_em').eq('workspace_id', workspaceId).maybeSingle(),
+    supabase.from('google_ads_conexao').select('email_conta,estado,conectada_em,customer_id,contas_acessiveis').eq('workspace_id', workspaceId).maybeSingle(),
   ])
 
   // Etiquetas e filtros vêm do Gmail na hora (passo 4); sem conexão ou com erro, a seção diz o motivo e o resto da tela segue.
@@ -73,10 +74,19 @@ export default async function EmailDosSetoresPage({
     : googleAds === 'erro' ? { tom: 'erro' as const, texto: motivo || 'Não foi possível conectar o Google Ads.' }
       : googleAds === 'restrito' ? { tom: 'erro' as const, texto: 'Só administradores conectam o Google Ads.' } : null
   const ads = conexaoAds.data
-  const contaDoAds = (ads?.customer_id as string | null) ?? null
-  const campanhaDoAds = ads?.campanha_recurso ? idDaCampanha(String(ads.campanha_recurso)) : null
-  const resumo = resumoDoPlano(PLANO_DO_GRANTS)
+  const contaDoAds = idDaConta((ads?.customer_id as string | null) ?? null)
+  // As campanhas que o Palácio já criou nesta conta, por plano (o registro fica em activity_log).
+  const registradas = contaDoAds ? await campanhasRegistradas(workspaceId, contaDoAds) : new Map()
   const dolares = (micros: number) => `US$ ${(micros / 1e6).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+  const planosNaTela = PLANOS_DO_GRANTS.map((pl) => {
+    const feita = registradas.get(pl.id)
+    const campanhaId = feita ? idDaCampanha(feita.recurso) : null
+    return {
+      id: pl.id, nome: pl.nome, destino: pl.destino, ...resumoDoPlano(pl), local: pl.local.rotulo,
+      orcamentoDiario: dolares(pl.orcamentoDiarioMicros), lanceMaximo: dolares(pl.lanceMaximoMicros),
+      campanha: feita ? { link: contaDoAds && campanhaId ? linkDaCampanha(contaDoAds, campanhaId) : null, criadaEm: feita.criadaEm } : null,
+    }
+  })
   const nomeDe = (p: unknown) => { const x = (Array.isArray(p) ? p[0] : p) as { full_name?: string; username?: string } | null; return x?.full_name || x?.username || '—' }
   const convitesNaTela: ConviteNaTela[] = (convites.data ?? []).map((c) => ({
     id: c.id as string, rotulo: String(c.rotulo ?? ''), setor: c.setor_id ? nomeDoSetor.get(c.setor_id as string) ?? null : null,
@@ -142,14 +152,8 @@ export default async function EmailDosSetoresPage({
         conexao={ads ? {
           email: String(ads.email_conta), estado: ads.estado === 'expirada' ? 'expirada' : 'ativa', conectadaEm: String(ads.conectada_em),
           contaEscolhida: contaDoAds, contasAcessiveis: ((ads.contas_acessiveis as string[] | null) ?? []),
-          campanha: ads.campanha_recurso && ads.campanha_criada_em ? {
-            link: contaDoAds && campanhaDoAds ? linkDaCampanha(contaDoAds, campanhaDoAds) : null, criadaEm: String(ads.campanha_criada_em),
-          } : null,
         } : null}
-        plano={{
-          nome: PLANO_DO_GRANTS.nome, ...resumo, local: PLANO_DO_GRANTS.local.rotulo,
-          orcamentoDiario: dolares(PLANO_DO_GRANTS.orcamentoDiarioMicros), lanceMaximo: dolares(PLANO_DO_GRANTS.lanceMaximoMicros),
-        }}
+        planos={planosNaTela}
       />
     </div>
   )
