@@ -4,7 +4,7 @@ import { obterChave } from '@/lib/integracoes/chaves'
 import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
 import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
-import { colocarNoGrupo, type Chamar, type PapelNoGrupo } from './grupos-regras'
+import { colocarSeForGrupo, type Chamar, type PapelNoGrupo } from './grupos-regras'
 
 /**
  * A API de Diretório do Google Workspace (Admin SDK): criar a conta de uma
@@ -89,11 +89,14 @@ export async function permissoesDoAdmin(workspaceId: string): Promise<{ email: s
 }
 
 /** O que dizer quando o Google nega o acesso: se o token não tem as permissões, ou se as tem e o problema é a conta. */
-export async function dicaDeAcessoNegado(workspaceId: string): Promise<string | null> {
+export async function dicaDeAcessoNegado(workspaceId: string, contexto?: { metodo: string; caminho: string }): Promise<string | null> {
   const p = await permissoesDoAdmin(workspaceId)
   if (!p) return null
   if (p.faltam.length) return `A autorização guardada NÃO tem: ${p.faltam.map(curto).join(', ')}. Reconecte o administrador em Configurações → E-mail dos setores e, na tela do Google, marque TODAS as permissões.`
-  return `A autorização tem todas as permissões${p.email ? ` (conta ${p.email})` : ''}. Então a conta não tem o privilégio de Grupos no Admin do Google (use um superadministrador), ou o acesso do app à API do Admin SDK está restrito (Admin Console → Segurança → Controles de API).`
+  // Consulta de UM grupo pela chave: com o endereço de um apelido o Google responde 403 em vez de 404 (visto em 23/10/2026).
+  const umGrupo = contexto?.metodo === 'GET' && /^\/groups\/[^/?]+$/.test(contexto.caminho)
+  if (umGrupo) return `A autorização tem todas as permissões${p.email ? ` (conta ${p.email})` : ''}. O Google costuma responder 403 (e não 404) a esta consulta quando o endereço é APELIDO de um usuário e não um grupo: confira o endereço pela consulta de usuários.`
+  return `A autorização tem todas as permissões${p.email ? ` (conta ${p.email})` : ''}. Então a conta pode não ter o privilégio de Grupos no Admin do Google (use um superadministrador), ou o acesso do app à API pode estar restrito (Admin Console → Segurança → Controles de API).`
 }
 
 type Resposta = { ok: boolean; status: number; dados: Record<string, unknown> }
@@ -111,7 +114,11 @@ async function diretorio(workspaceId: string, caminho: string, init?: RequestIni
   return { ok: res.ok, status: res.status, dados }
 }
 
-const motivo = (r: Resposta) => String((r.dados.error as { message?: string } | undefined)?.message ?? `HTTP ${r.status}`)
+const motivo = (r: Resposta) => {
+  const e = r.dados.error as { message?: string; errors?: { reason?: string }[]; status?: string } | undefined
+  const reason = e?.errors?.[0]?.reason ?? e?.status
+  return `${e?.message ?? `HTTP ${r.status}`}${reason ? ` (reason: ${reason})` : ''}`
+}
 
 function falha(r: Resposta, padrao: string): never {
   if (r.status === 401) throw new ErroDoDiretorio('O Google recusou a autorização de administrador. Reconecte em Configurações → E-mail dos setores.', 401, true)
@@ -162,7 +169,9 @@ export async function criarUsuarioNoGoogle(workspaceId: string, c: NovaContaDoGo
  * e a tela de acompanhamento mostra quem ficou de fora.
  */
 export async function adicionarAoGrupo(workspaceId: string, grupo: string, email: string, papel: PapelNoGrupo = 'MEMBER'): Promise<boolean> {
-  return colocarNoGrupo(chamarGoogleAdmin(workspaceId), grupo, email, papel)
+  // Só entra se o endereço já é grupo: apelido e caixa real devolvem false sem tocar em nada (a chamada direta ao grupo de
+  // um apelido dá 403, não 404).
+  return (await colocarSeForGrupo(chamarGoogleAdmin(workspaceId), grupo, email, papel)) === 'ok'
 }
 
 /**
@@ -170,10 +179,9 @@ export async function adicionarAoGrupo(workspaceId: string, grupo: string, email
  * recebe: o Directory (Admin SDK) e as Configurações de grupo. Mesma conta de administrador, mesmo token.
  */
 export function chamarGoogleAdmin(workspaceId: string): Chamar {
-  return async (api, caminho, init) => {
+  const uma: Chamar = async (api, caminho, init) => {
     if (api === 'diretorio') {
-      const r = await diretorio(workspaceId, caminho, { method: init?.method, ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}) })
-      return r.status === 403 ? comDica(workspaceId, r) : r
+      return diretorio(workspaceId, caminho, { method: init?.method, ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}) })
     }
     const token = await tokenDeAdmin(workspaceId)
     // O servidor de teste (GOOGLE_API_TESTE) troca só o endereço; o caminho de /groups/v1 continua o mesmo.
@@ -186,15 +194,24 @@ export function chamarGoogleAdmin(workspaceId: string): Chamar {
       signal: AbortSignal.timeout(20_000),
     })
     const dados = await res.json().catch(() => ({})) as Record<string, unknown>
-    if (res.status === 401) esquecerTokenDeAdmin(workspaceId)
-    const r = { ok: res.ok, status: res.status, dados }
-    return r.status === 403 ? comDica(workspaceId, r) : r
+    return { ok: res.ok, status: res.status, dados }
+  }
+  return async (api, caminho, init) => {
+    let r = await uma(api, caminho, init)
+    // O token de acesso fica em memória por instância e sobrevive a uma reconexão: um 401 ou 403 pode ser de um token
+    // anterior, sem os escopos novos. Descarta e tenta UMA vez com um token novo (negado não executou, repetir é seguro).
+    if (r.status === 401 || r.status === 403) {
+      esquecerTokenDeAdmin(workspaceId)
+      r = await uma(api, caminho, init)
+    }
+    if (r.status === 401) esquecerTokenDeAdmin(workspaceId)
+    return r.status === 403 ? comDica(workspaceId, r, { metodo: init?.method ?? 'GET', caminho }) : r
   }
 }
 
 /** O 403 do Google ("Not Authorized to access this resource/api") não diz a causa: acrescenta o que o token tem. */
-async function comDica(workspaceId: string, r: Resposta): Promise<Resposta> {
-  const dica = await dicaDeAcessoNegado(workspaceId)
+async function comDica(workspaceId: string, r: Resposta, contexto: { metodo: string; caminho: string }): Promise<Resposta> {
+  const dica = await dicaDeAcessoNegado(workspaceId, contexto)
   if (!dica) return r
-  return { ...r, dados: { ...r.dados, error: { message: `${motivo(r)} — ${dica}` } } }
+  return { ...r, dados: { ...r.dados, error: { ...(r.dados.error as object | undefined), message: `${motivo(r)} — ${dica}` } } }
 }

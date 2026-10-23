@@ -25,7 +25,7 @@ const contem = (texto: string, trecho: string, caso: string) => { if (!String(te
 // ------------------------------------------------------------------ o Google de mentira
 
 type Grupo = { membros: Map<string, string>; config: Record<string, unknown> | null }
-type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number }
+type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number; mensagem?: string; reason?: string }
 
 function novoGoogle() {
   const usuarios = new Map<string, { principal: string; apelidos: Set<string> }>()
@@ -38,21 +38,22 @@ function novoGoogle() {
   let demoraNaCriacao = 0
   const donoDe = (e: string) => [...usuarios.values()].find((u) => u.principal === e || u.apelidos.has(e))
   const ok = (dados: Record<string, unknown> = {}): Resposta => ({ ok: true, status: 200, dados })
-  const erro = (status: number, message = 'erro do Google'): Resposta => ({ ok: false, status, dados: { error: { message } } })
+  const erro = (status: number, message = 'erro do Google', reason?: string): Resposta => ({ ok: false, status, dados: { error: { message, ...(reason ? { errors: [{ reason }] } : {}) } } })
 
   const chamar: Chamar = async (api, caminho, init) => {
     const metodo = init?.method ?? 'GET'
     chamadas.push(`${metodo} ${api}:${caminho}`)
     const f = falhasPlanejadas.find((x) => x.quando(api, metodo, caminho) && (x.vezes ?? 1) > 0)
-    if (f) { f.vezes = (f.vezes ?? 1) - 1; return erro(f.status) }
+    if (f) { f.vezes = (f.vezes ?? 1) - 1; return erro(f.status, f.mensagem, f.reason) }
     const corpo = (init?.corpo ?? {}) as Record<string, string>
     const dec = decodeURIComponent
     let m: RegExpMatchArray | null
     if (api === 'configuracoes') {
       m = caminho.match(/^\/groups\/v1\/groups\/([^?]+)\?alt=json$/)
-      if (!m || metodo !== 'PATCH') return erro(400, 'caminho sem alt=json')
+      if (!m || (metodo !== 'PATCH' && metodo !== 'GET')) return erro(400, 'caminho sem alt=json')
       const g = grupos.get(dec(m[1]))
       if (!g) return erro(404)
+      if (metodo === 'GET') return ok({})
       if (configuracoesQueNaoAchamAinda > 0) { configuracoesQueNaoAchamAinda--; return erro(404) }
       g.config = corpo
       return ok()
@@ -206,6 +207,73 @@ async function main() {
     igual(await colocarSeForGrupo(g.chamar, CONTATO, 'ana@x.org', 'MEMBER'), 'nao_e_grupo', 'coordenador: caixa real não é grupo')
   }
 
+  // a checagem prévia aborta ANTES de tocar no apelido
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.falhasPlanejadas.push({ quando: (a, m, c) => a === 'configuracoes' && m === 'GET', status: 403, mensagem: 'Groups Settings API has not been used in project 123 before or it is disabled.', reason: 'accessNotConfigured' })
+    const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera }))
+    igual(r instanceof ErroDeGrupo, true, 'prévia: API de configurações fora: aborta')
+    contem((r as ErroDeGrupo).message, 'nada foi alterado', 'prévia: diz que nada foi alterado')
+    contem((r as ErroDeGrupo).message, 'accessNotConfigured', 'prévia: mostra o reason do Google')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE') || (c.startsWith('POST') && c.includes('/groups'))), false, 'prévia: não tirou o apelido nem criou grupo')
+    igual(g.usuarios.get(CONTATO)?.apelidos.has(TI), true, 'prévia: o apelido continua no lugar')
+  }
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.falhasPlanejadas.push({ quando: (a, m, c) => c.startsWith('/groups?'), status: 403 })
+    const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera }))
+    igual(r instanceof ErroDeGrupo, true, 'prévia: leitura de grupos negada: aborta')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE')), false, 'prévia: leitura negada, o apelido nem foi tocado')
+  }
+  // 403 comum das configurações (sem ser "API não ligada") NÃO bloqueia a prévia: a volta atrás cobre
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.falhasPlanejadas.push({ quando: (a, m) => a === 'configuracoes' && m === 'GET', status: 403, mensagem: 'Forbidden' })
+    const r = await converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera })
+    igual(r, { feito: 'convertido', dono: CONTATO }, 'prévia: um 403 qualquer na sonda das configurações não bloqueia a troca')
+  }
+
+  // a volta atrás confere o resultado e tenta de novo
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/groups', status: 500 })
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 500, vezes: 2 })
+    const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera }))
+    igual(r instanceof ErroDeGrupo, true, 'volta atrás com falhas passageiras: a troca falha')
+    igual(g.usuarios.get(CONTATO)?.apelidos.has(TI), true, 'volta atrás com falhas passageiras: o apelido VOLTA mesmo assim')
+    igual((r as ErroDeGrupo).restauracaoFalhou, null, 'volta atrás com falhas passageiras: nada a restaurar à mão')
+  }
+  // ... e quando a volta atrás NÃO consegue, o aviso é alto e diz o que restaurar
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/groups', status: 500 })
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 500, vezes: 99 })
+    const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera })) as ErroDeGrupo
+    igual(r instanceof ErroDeGrupo, true, 'volta atrás impossível: lança')
+    contem(r.restauracaoFalhou ?? '', `devolver o apelido ${TI}`, 'volta atrás impossível: guarda o que ficou por fazer')
+    contem(r.message, 'ATENÇÃO', 'volta atrás impossível: mensagem com destaque')
+    contem(r.message, 'Apelidos de e-mail', 'volta atrás impossível: diz onde restaurar à mão')
+    igual(g.usuarios.get(CONTATO)?.apelidos.has(TI), false, 'volta atrás impossível: o teste confirma que de fato ficou sem apelido')
+  }
+
+  // a sonda também olha a API de configurações
+  {
+    const g = novoGoogle()
+    const ok3 = await sondarAcesso(g.chamar, 'x.org')
+    igual(ok3.length, 3, 'sonda: três linhas (usuários, grupos, configurações)')
+    igual(ok3.every((l) => l.startsWith('✅')), true, 'sonda: as três ok')
+    const g2 = novoGoogle()
+    g2.falhasPlanejadas.push({ quando: (a) => a === 'configuracoes', status: 403, mensagem: 'API has not been used', reason: 'accessNotConfigured' })
+    const sem = await sondarAcesso(g2.chamar, 'x.org')
+    igual(sem[2].startsWith('❌'), true, 'sonda: configurações negadas')
+    contem(sem.join('\n'), 'Groups Settings API', 'sonda: manda ligar a Groups Settings API')
+  }
+
   // falha ao criar o grupo: o apelido volta
   {
     const g = novoGoogle()
@@ -298,7 +366,7 @@ async function main() {
   {
     const g = novoGoogle()
     const tudo = await sondarAcesso(g.chamar)
-    igual(tudo.length, 2, 'sonda: tudo certo, duas linhas')
+    igual(tudo.length, 3, 'sonda: tudo certo, três linhas')
     igual(tudo.every((l) => l.startsWith('✅')), true, 'sonda: usuários e grupos ok')
     const g2 = novoGoogle()
     g2.falhasPlanejadas.push({ quando: (a, m, c) => c.startsWith('/groups?'), status: 403 })

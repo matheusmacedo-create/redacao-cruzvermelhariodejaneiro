@@ -306,10 +306,10 @@ export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator:
     ? '⚠️ Não consegui ler as permissões da autorização do Google (administrador não conectado ou expirado).'
     : perm.faltam.length
       ? `🔴 A autorização do Google NÃO tem: ${perm.faltam.map((e) => e.replace('https://www.googleapis.com/auth/', '')).join(', ')}. Reconecte o administrador e marque TODAS as permissões na tela do Google.`
-      : `🟢 A autorização do Google tem todas as permissões${perm.email ? ` (conta ${perm.email})` : ''}.`
+      : `🟢 A autorização do Google tem todos os escopos pedidos${perm.email ? ` (conta ${perm.email})` : ''}. Os testes abaixo mostram o que de fato responde.`
   const { data: setores } = await admin.from('setores').select('nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome')
   const chamar = chamarGoogleAdmin(workspaceId)
-  const sonda = await sondarAcesso(chamar)
+  const sonda = await sondarAcesso(chamar, DOMINIO_DAS_CONTAS)
   const linhas: string[] = []
   let erro: string | null = null
   for (const st of setores ?? []) {

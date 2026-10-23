@@ -31,10 +31,17 @@ export type EstadoDoEndereco =
   | { tipo: 'livre' }
 
 const enc = encodeURIComponent
-const msg = (r: Resposta) => String((r.dados.error as { message?: string } | undefined)?.message ?? `HTTP ${r.status}`)
+/** A mensagem do Google com o `reason` (forbidden, accessNotConfigured, insufficientPermissions…): é ele que separa as causas de um 403. */
+const msg = (r: Resposta) => {
+  const e = r.dados.error as { message?: string; errors?: { reason?: string }[]; status?: string } | undefined
+  const reason = e?.errors?.[0]?.reason ?? e?.status
+  return `${e?.message ?? `HTTP ${r.status}`}${reason ? ` (reason: ${reason})` : ''}`
+}
 
 /** Uma falha do Google que não é "não achei": quem chama decide o texto. */
 export class ErroDeGrupo extends Error {
+  /** Só quando a volta atrás falhou: o que o administrador precisa restaurar à mão. Nunca fica em silêncio. */
+  restauracaoFalhou: string | null = null
   constructor(message: string, public status = 0) {
     super(message)
     this.name = 'ErroDeGrupo'
@@ -131,13 +138,35 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
   if (estado.tipo === 'grupo') return { feito: 'ja_era_grupo' }
   if (estado.tipo === 'caixa_real') return { feito: 'nao_converteu', motivo: 'caixa_real' }
 
+  // Só leitura, ANTES de mexer no apelido: se o Google nega a leitura de grupos ou a API de configurações ainda não está
+  // ligada (ou propagando), aborta sem tocar no e-mail do setor — em vez de tirar o apelido e descobrir depois.
+  await verificarAntesDeConverter(chamar, p.endereco)
+
   const dono = estado.tipo === 'apelido' ? estado.dono : null
+  const espera = p.espera ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
   let apelidoTirado = false
   let grupoCriado = false
-  const desfazer = async () => {
-    // Melhor esforço, na ordem inversa: sem o grupo, o apelido volta e o e-mail do setor chega como antes.
-    if (grupoCriado) await chamar('diretorio', `/groups/${enc(p.endereco)}`, { method: 'DELETE' }).catch(() => undefined)
-    if (apelidoTirado && dono) await chamar('diretorio', `/users/${enc(dono)}/aliases`, { method: 'POST', corpo: { alias: p.endereco } }).catch(() => undefined)
+
+  // A volta atrás é a parte que não pode falhar em silêncio: o apelido tirado e não devolvido deixa o endereço do setor
+  // sem existir. Cada passo é conferido (o Google devolve { ok: false }, não lança), o apelido é tentado de novo, e o
+  // que importa é o resultado: o endereço voltou a ser apelido do dono? Devolve o que ficou por fazer, ou null.
+  const desfazer = async (): Promise<string | null> => {
+    const ficou: string[] = []
+    if (grupoCriado) {
+      const d = await chamar('diretorio', `/groups/${enc(p.endereco)}`, { method: 'DELETE' }).catch(() => null)
+      if (!d || (!d.ok && d.status !== 404)) ficou.push(`apagar o grupo ${p.endereco}`)
+    }
+    if (apelidoTirado && dono) {
+      let voltou = false
+      for (let i = 0; i < 6 && !voltou; i++) {
+        await chamar('diretorio', `/users/${enc(dono)}/aliases`, { method: 'POST', corpo: { alias: p.endereco } }).catch(() => null)
+        const e = await consultarEndereco(chamar, p.endereco).catch(() => null)
+        voltou = e?.tipo === 'apelido' && e.dono === dono
+        if (!voltou) await espera(1500 * (i + 1))
+      }
+      if (!voltou) ficou.push(`devolver o apelido ${p.endereco} a ${dono}`)
+    }
+    return ficou.length ? ficou.join(' e ') : null
   }
 
   try {
@@ -147,7 +176,6 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
       apelidoTirado = true
     }
     // Logo depois de tirar o apelido, o Google ainda pode responder 409 ("já existe") por alguns segundos: espera e tenta de novo.
-    const espera = p.espera ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
     let c: Resposta | null = null
     for (let i = 0; i < 6; i++) {
       c = await chamar('diretorio', '/groups', { method: 'POST', corpo: { email: p.endereco, name: p.nome, description: `Endereço do setor ${p.nome} (criado pelo Palácio Virtual)` } })
@@ -160,10 +188,30 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
     // A caixa que recebia por apelido segue recebendo: entra como membro.
     if (dono && !(await colocarNoGrupo(chamar, p.endereco, dono, 'MEMBER'))) throw new ErroDeGrupo('O Google não pôs a caixa do setor no grupo novo.')
   } catch (causa) {
-    await desfazer()
-    throw causa
+    const erro = causa instanceof ErroDeGrupo ? causa : new ErroDeGrupo(`Falha ao falar com o Google: ${causa instanceof Error ? causa.message : 'erro'}`)
+    const ficou = await desfazer()
+    if (ficou) {
+      erro.restauracaoFalhou = ficou
+      erro.message = `${erro.message} 🚨 ATENÇÃO: não consegui ${ficou}. Restaure à mão no Admin do Google${dono ? ` (Usuários → ${dono} → Apelidos de e-mail)` : ''}.`
+    }
+    throw erro
   }
   return dono ? { feito: 'convertido', dono } : { feito: 'criado' }
+}
+
+/**
+ * A checagem que vem ANTES de qualquer mudança: lê os grupos e olha se a API de configurações de grupo responde. O
+ * endereço de sonda não existe no Google; com a API ligada e autorizada a resposta é 404 (ou 200), nunca 401/403.
+ * Só 401 e o 403 de "API não ligada / ainda propagando" abortam; outros 403 seguem (a volta atrás cobre o resto).
+ */
+export async function verificarAntesDeConverter(chamar: Chamar, endereco: string): Promise<void> {
+  const lista = await chamar('diretorio', '/groups?customer=my_customer&maxResults=1')
+  if (!lista.ok) falha(lista, 'O Google não deixou ler os grupos (nada foi alterado)')
+  const dominio = endereco.split('@')[1] ?? ''
+  const cfg = await chamar('configuracoes', `/groups/v1/groups/${enc(`palacio-sonda-inexistente@${dominio}`)}?alt=json`)
+  if (cfg.status === 401 || (cfg.status === 403 && /not been used|disabled|accessNotConfigured|SERVICE_DISABLED|not enabled/i.test(msg(cfg)))) {
+    falha(cfg, 'A API de configurações de grupo ainda não está liberada, e pode estar propagando (nada foi alterado; tente de novo em alguns minutos)')
+  }
 }
 
 /**
@@ -171,7 +219,7 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
  * página de usuários e uma de grupos (só leitura). Se usuários vai e grupos não, o problema é do serviço de Grupos na
  * organização (Admin Console → Apps → Google Workspace → Grupos para empresas), não do token nem da conta.
  */
-export async function sondarAcesso(chamar: Chamar): Promise<string[]> {
+export async function sondarAcesso(chamar: Chamar, dominio = 'example.org'): Promise<string[]> {
   const um = async (rotulo: string, caminho: string): Promise<{ linha: string; ok: boolean }> => {
     try {
       const r = await chamar('diretorio', caminho)
@@ -182,7 +230,18 @@ export async function sondarAcesso(chamar: Chamar): Promise<string[]> {
   }
   const usuarios = await um('Ler usuários', '/users?customer=my_customer&maxResults=1')
   const grupos = await um('Ler grupos', '/groups?customer=my_customer&maxResults=1')
-  const linhas = [usuarios.linha, grupos.linha]
+  // A API de configurações de grupo (a que libera o recebimento de fora): endereço inexistente responde 404 se ela está ligada e autorizada.
+  let configuracoes: { linha: string; ok: boolean }
+  try {
+    const r = await chamar('configuracoes', `/groups/v1/groups/${enc(`palacio-sonda-inexistente@${dominio}`)}?alt=json`)
+    configuracoes = r.ok || r.status === 404
+      ? { linha: '✅ API de configurações de grupo', ok: true }
+      : { linha: `❌ API de configurações de grupo (HTTP ${r.status}: ${msg(r).slice(0, 120)})`, ok: false }
+  } catch (causa) {
+    configuracoes = { linha: `❌ API de configurações de grupo (${causa instanceof Error ? causa.message.slice(0, 120) : 'erro'})`, ok: false }
+  }
+  const linhas = [usuarios.linha, grupos.linha, configuracoes.linha]
+  if (!configuracoes.ok) linhas.push('→ Ligue a *Groups Settings API* no projeto do Google Cloud (e espere alguns minutos): sem ela a troca de apelido por grupo não libera o recebimento de e-mail de fora.')
   if (usuarios.ok && !grupos.ok) linhas.push('→ Usuários funcionam e grupos não: o serviço *Grupos para empresas* provavelmente está desativado na organização (Admin Console → Apps → Google Workspace → Grupos para empresas → Status do serviço).')
   return linhas
 }

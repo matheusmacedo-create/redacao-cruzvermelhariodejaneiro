@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   try {
     const { clientId } = await clienteOAuth(workspaceId)
     const estado = `admin.${randomBytes(24).toString('hex')}`
-    const res = NextResponse.redirect(urlDeAutorizacao(clientId, estado, ESCOPOS_ADMIN))
+    const res = NextResponse.redirect(urlDeAutorizacao(clientId, estado, ESCOPOS_ADMIN, { somenteEstes: true }))
     res.cookies.set('google_oauth_estado', estado, {
       httpOnly: true, secure: true, sameSite: 'lax', path: '/api/google', maxAge: 600,
     })
