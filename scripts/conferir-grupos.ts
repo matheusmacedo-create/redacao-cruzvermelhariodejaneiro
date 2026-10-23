@@ -13,7 +13,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  ErroDeGrupo, avisoDaConversao, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
+  ErroDeGrupo, avisoDaConversao, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
 } from '../lib/google/grupos-regras'
 
 let falhas = 0
@@ -55,6 +55,8 @@ function novoGoogle() {
       g.config = corpo
       return ok()
     }
+    if (caminho.startsWith('/users?')) return ok({ users: [] })
+    if (caminho.startsWith('/groups?')) return ok({ groups: [] })
     if ((m = caminho.match(/^\/groups\/([^/]+)$/))) {
       const e = dec(m[1])
       if (metodo === 'GET') return grupos.has(e) ? ok({ email: e }) : erro(404)
@@ -240,6 +242,23 @@ async function main() {
     g.grupos.set(TI, { membros: new Map(), config: null })
     await configurarGrupoDoSetor(g.chamar, TI, 1, semEspera)
     igual(g.chamadas.some((c) => c.includes('?alt=json')), true, 'configurações: pede JSON (sem alt=json a API responde XML)')
+  }
+
+  // a sonda: separa o serviço de grupos negado de um endereço
+  {
+    const g = novoGoogle()
+    const tudo = await sondarAcesso(g.chamar)
+    igual(tudo.length, 2, 'sonda: tudo certo, duas linhas')
+    igual(tudo.every((l) => l.startsWith('✅')), true, 'sonda: usuários e grupos ok')
+    const g2 = novoGoogle()
+    g2.falhasPlanejadas.push({ quando: (a, m, c) => c.startsWith('/groups?'), status: 403 })
+    const semGrupos = await sondarAcesso(g2.chamar)
+    igual(semGrupos[0].startsWith('✅'), true, 'sonda: usuários ok')
+    igual(semGrupos[1].startsWith('❌'), true, 'sonda: grupos negados')
+    contem(semGrupos.join('\n'), 'Grupos para empresas', 'sonda: aponta o serviço de Grupos')
+    const g3 = novoGoogle()
+    g3.falhasPlanejadas.push({ quando: (a, m, c) => c.startsWith('/users?'), status: 403 })
+    igual(!(await sondarAcesso(g3.chamar)).join('\n').includes('Grupos para empresas'), true, 'sonda: sem usuários, não culpa o serviço de grupos')
   }
 
   // o aviso da confirmação

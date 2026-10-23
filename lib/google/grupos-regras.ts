@@ -134,6 +134,27 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
   return dono ? { feito: 'convertido', dono } : { feito: 'criado' }
 }
 
+/**
+ * A sonda do comando "grupos": separa "o serviço de grupos inteiro nega o acesso" de "só este endereço". Pede uma
+ * página de usuários e uma de grupos (só leitura). Se usuários vai e grupos não, o problema é do serviço de Grupos na
+ * organização (Admin Console → Apps → Google Workspace → Grupos para empresas), não do token nem da conta.
+ */
+export async function sondarAcesso(chamar: Chamar): Promise<string[]> {
+  const um = async (rotulo: string, caminho: string): Promise<{ linha: string; ok: boolean }> => {
+    try {
+      const r = await chamar('diretorio', caminho)
+      return r.ok ? { linha: `✅ ${rotulo}`, ok: true } : { linha: `❌ ${rotulo} (HTTP ${r.status}: ${msg(r).slice(0, 120)})`, ok: false }
+    } catch (causa) {
+      return { linha: `❌ ${rotulo} (${causa instanceof Error ? causa.message.slice(0, 120) : 'erro'})`, ok: false }
+    }
+  }
+  const usuarios = await um('Ler usuários', '/users?customer=my_customer&maxResults=1')
+  const grupos = await um('Ler grupos', '/groups?customer=my_customer&maxResults=1')
+  const linhas = [usuarios.linha, grupos.linha]
+  if (usuarios.ok && !grupos.ok) linhas.push('→ Usuários funcionam e grupos não: o serviço *Grupos para empresas* provavelmente está desativado na organização (Admin Console → Apps → Google Workspace → Grupos para empresas → Status do serviço).')
+  return linhas
+}
+
 /** Texto de uma linha sobre o que vai mudar, para a confirmação de quem aprova. null = nada muda. */
 export function avisoDaConversao(estado: EstadoDoEndereco, endereco: string): string | null {
   if (estado.tipo === 'apelido') return `⚠️ O endereço *${endereco}* hoje é apelido de ${estado.dono}. Ao confirmar, ele vira um *grupo do Google*: as mensagens continuam chegando em ${estado.dono}, e a equipe passa a ser membro do grupo. O envio pelo Palácio como ${endereco} pode precisar ser reverificado no Gmail.`
