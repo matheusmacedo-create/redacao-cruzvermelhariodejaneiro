@@ -5,6 +5,7 @@ import {
 } from '@/lib/site/esqueleto'
 import { svgDaMarca } from '@/lib/marcas'
 import { alternativasDaPagina } from '@/lib/site/traducoes'
+import { ehAudioDeNarracao } from '@/lib/voz/regras'
 export { escapar } from '@/lib/site/esqueleto'
 
 /**
@@ -320,6 +321,11 @@ export type DadosDoArtigo = {
   registro?: string[]
   /** As tags do chat do site (sem isto, vale o que o servidor deixou pronto). */
   chat?: string
+  /**
+   * A narração da matéria (lib/voz): o MP3 na pasta da matéria. Presente, a página ganha o "Ouça esta matéria" logo
+   * abaixo do cabeçalho, com o aviso de que a voz é gerada por inteligência artificial.
+   */
+  audio?: { nome: string }
 }
 
 const formatoCurto = (d: Date) =>
@@ -399,6 +405,16 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     ? `<span class="dot">·</span><span>Atualizada em <time datetime="${modificadoEm.toISOString()}">${atualizadaLegivel}</time></span>`
     : ''
 
+  // O nome passa pelo mesmo crivo do arquivo que a publicação sobe (lib/voz/nome-do-audio.ts): nada de caminho.
+  const audioDaMateria = dados.audio && ehAudioDeNarracao(dados.audio.nome) ? dados.audio.nome : null
+  const ouca = audioDaMateria
+    ? `<section class="news-ouvir" aria-label="Ouça esta matéria">
+            <p class="news-ouvir-titulo">Ouça esta matéria</p>
+            <audio controls preload="none" src="${escapar(audioDaMateria)}"></audio>
+            <p class="news-ouvir-nota">Narração com voz gerada por inteligência artificial, a partir do texto publicado.</p>
+          </section>`
+    : ''
+
   const organizacao = noDaOrganizacao()
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -420,6 +436,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
         mainEntityOfPage: { '@type': 'WebPage', '@id': canonica },
         inLanguage: 'pt-BR',
         isAccessibleForFree: true,
+        ...(audioDaMateria ? { audio: { '@type': 'AudioObject', contentUrl: `${canonica}${audioDaMateria}`, encodingFormat: 'audio/mpeg', inLanguage: 'pt-BR' } } : {}),
       },
       {
         '@type': 'BreadcrumbList',
@@ -510,6 +527,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
               ${share}
             </div>
           </header>
+          ${ouca}
           ${htmlDaCapa}
           <div class="news-body">
       ${htmlDoCorpo}
@@ -537,7 +555,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     caminho: `${canonica.slice(origem.length)}`,
     origem,
     corpo,
-    cssExtra: dados.rastreio ? CSS_DO_BOTAO : '',
+    cssExtra: `${dados.rastreio ? CSS_DO_BOTAO : ''}${audioDaMateria ? CSS_DO_OUVIR : ''}`,
     jsonLd,
     ...(alternativas ? { alternativas } : {}),
     ativo: 'noticias',
@@ -552,6 +570,9 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     ...(dados.chat !== undefined ? { chat: dados.chat } : {}),
   })
 }
+
+/** O "Ouça esta matéria": discreto, na largura do texto, com o filete vermelho da marca. */
+const CSS_DO_OUVIR = `.news-ouvir{margin:1.25rem 0 1.5rem;padding:.85rem 1rem;border-left:3px solid var(--brand);background:rgba(0,0,0,.03);border-radius:.4rem}.news-ouvir-titulo{margin:0 0 .5rem;font-weight:700;font-size:.95rem}.news-ouvir audio{display:block;width:100%;max-width:32rem}.news-ouvir-nota{margin:.5rem 0 0;font-size:.8rem;opacity:.75}`
 
 /** O botão de matrícula do advertorial, na cor da marca. */
 const CSS_DO_BOTAO = `.news-cta{margin:2rem 0;text-align:center}.news-body a.news-cta-botao{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;font-weight:700;padding:.95rem 1.6rem;border-radius:.6rem;font-size:1.05rem;line-height:1.3;max-width:100%}.news-body a.news-cta-botao:hover{background:var(--brand-dark);color:#fff}`

@@ -1399,4 +1399,98 @@ const PERFIL: GuiaDaArea = {
   relacionadas: ['/notificacoes', '/pessoas'],
 }
 
-export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, WHATSAPP, PERFIL]
+// -------------------------------------------------------------------- Voz
+
+const VOZ: GuiaDaArea = {
+  href: '/configuracoes/voz',
+  paraQueServe: 'Voz dá à filial uma voz própria, pela ElevenLabs. Com ela ligada, as matérias publicadas no site ganham o “Ouça esta matéria”, e o assistente do WhatsApp responde também em áudio a quem falou com ele por áudio. Os dois usos começam desligados e ligam separados.',
+  quemUsa: 'Só administradores abrem esta aba. Quem publica matérias não precisa fazer nada: com a narração ligada, o áudio sai junto com a página.',
+  naPratica: {
+    titulo: 'A matéria que também se ouve',
+    passos: [
+      'A administração guarda a chave da ElevenLabs no cartão “ElevenLabs (voz da instituição)”, em Integrações.',
+      'Nesta aba, escolhe a voz, ouve a amostra em português e marca “Narrar as matérias do site”.',
+      'A Carla publica a matéria da campanha de inverno. A página sai com o “Ouça esta matéria” logo abaixo do título.',
+      'Quem lê pelo celular no ônibus toca no play e ouve a matéria inteira.',
+    ],
+    resultado: 'A matéria chega também a quem enxerga mal, a quem lê com dificuldade e a quem está com as mãos ocupadas.',
+  },
+  tour: [
+    {
+      titulo: 'A voz da instituição',
+      texto: 'Aqui a administração escolhe a voz da filial e onde ela fala: nas matérias do site e nas respostas em áudio do WhatsApp.',
+    },
+    {
+      alvo: 'voz.escolha',
+      titulo: 'Voz e modelo',
+      texto: 'As vozes são as da conta da ElevenLabs. A amostra da própria ElevenLabs não gasta crédito; “Ouvir em português com este modelo” gasta uns 100 caracteres.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'voz.materias',
+      titulo: 'Narrar as matérias',
+      texto: 'Ligado, publicar ou republicar uma matéria gera o áudio e a página ganha o “Ouça esta matéria”. Republicar sem mudar o texto não gasta crédito de novo.',
+      seAusente: 'pular',
+    },
+    {
+      alvo: 'voz.whatsapp',
+      titulo: 'Áudio no WhatsApp',
+      texto: 'Ligado, quem fala com o assistente por áudio recebe a resposta por escrito e, logo depois, a mesma resposta falada. Links, códigos e planos ficam só no texto.',
+      seAusente: 'pular',
+    },
+  ],
+  tarefas: [
+    {
+      id: 'ligar-a-voz',
+      titulo: 'Ligar a voz da instituição',
+      exemplo: 'A administração cola a chave da ElevenLabs, escolhe uma voz feminina pronta, ouve a amostra e liga a narração das matérias numa segunda de manhã.',
+      quem: 'Só administradores',
+      passos: [
+        'Em elevenlabs.io → Developers → API keys, crie uma chave com acesso a “Text to Speech” e “Voices”.',
+        'Em Integrações, no cartão “ElevenLabs (voz da instituição)”, cole a chave e toque em “Salvar no cofre”. O Palácio testa a chave antes de guardar.',
+        'Abra a aba “Voz”, escolha a voz e o modelo e toque em “Ouvir em português com este modelo”.',
+        'Marque onde a voz fala (as matérias, o WhatsApp ou os dois) e toque em “Salvar a voz”. Vale na próxima publicação ou na próxima mensagem.',
+      ],
+      dica: 'Use uma voz pronta da ElevenLabs ou uma criada para a filial. Voz clonada de uma pessoa real só com a autorização dela por escrito, e nunca imitando alguém.',
+    },
+    {
+      id: 'dar-voz-a-materia-antiga',
+      titulo: 'Dar voz a uma matéria que já estava no ar',
+      quem: 'Quem publica no site',
+      passos: [
+        'Com a narração ligada, abra a publicação da matéria (onde ela foi publicada no site).',
+        'Toque em “Atualizar a página no site”. A página volta no mesmo endereço, agora com o “Ouça esta matéria”.',
+      ],
+      dica: '“Regerar tudo” mantém os áudios que já existem, mas não cria novos: assim ele não gasta crédito em lote.',
+    },
+  ],
+  perguntas: [
+    {
+      id: 'materia-sem-audio',
+      pergunta: 'Por que a matéria saiu sem o “Ouça esta matéria”?',
+      resposta: 'O aviso da publicação diz o motivo, em “Ficou fora da página: a narração em áudio (…)”. Os mais comuns: a conta da ElevenLabs está sem créditos, a chave foi recusada, a voz não está mais na conta, ou a matéria passa de 30 mil caracteres. Sem aviso nenhum, a narração está desligada nesta aba (ou falta a chave em Integrações). Corrigido o motivo, republique a matéria.',
+      termos: ['sem áudio', 'ouça esta matéria', 'narração', 'não narrou', 'elevenlabs', 'créditos'],
+    },
+    {
+      id: 'audio-gasta-credito',
+      pergunta: 'Quanto crédito a voz gasta?',
+      resposta: 'A ElevenLabs cobra por caractere. Uma matéria de 4 mil caracteres gasta uns 4 mil na primeira publicação; republicar sem mudar o texto não gasta nada, porque o áudio que está no ar é reaproveitado. Mudou o texto, a voz ou o modelo, o áudio é gerado de novo. No WhatsApp, cada resposta falada gasta o tamanho dela (no máximo 700 caracteres) e só sai para quem mandou áudio.',
+      termos: ['crédito', 'custo', 'caracteres', 'saldo', 'preço da voz'],
+    },
+    {
+      id: 'audio-no-whatsapp',
+      pergunta: 'Quando o WhatsApp responde em áudio?',
+      resposta: 'Só quando quatro coisas valem juntas: o assistente está ligado para a pessoa (Configurações → WhatsApp), “Responder em áudio no WhatsApp” está ligado aqui, a pessoa falou por áudio, e a resposta é uma resposta comum do assistente, com até 700 caracteres. A resposta escrita sai sempre antes e vale sozinha. Plano para confirmar, pergunta com opções, link, código e lista longa ficam só no texto. O áudio nunca confirma nada, e o “confirmo” falado também não vale.',
+      termos: ['áudio no whatsapp', 'mensagem de voz', 'responder em áudio', 'voz no whatsapp', 'resposta falada'],
+    },
+    {
+      id: 'voz-e-privacidade',
+      pergunta: 'O que vai para a ElevenLabs?',
+      resposta: 'Só o texto que vira voz: o da matéria publicada (que já é público) e, com o áudio no WhatsApp ligado, o texto da resposta do assistente, que pode citar colegas, chamados e avisos. A ElevenLabs guarda o histórico dos áudios na conta; dá para apagar o histórico no painel dela. A página da matéria avisa que a narração é feita com voz gerada por inteligência artificial.',
+      termos: ['privacidade', 'elevenlabs', 'dados', 'lgpd', 'histórico'],
+    },
+  ],
+  relacionadas: ['/configuracoes', '/configuracoes/whatsapp'],
+}
+
+export const guias: GuiaDaArea[] = [ACESSOS, USUARIOS, CONFIGURACOES, WHATSAPP, VOZ, PERFIL]

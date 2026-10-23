@@ -9,7 +9,7 @@ import {
 } from './regras'
 import { modeloDaSituacao, type MontagemDoModelo, type ModeloNaMeta, type SituacaoDoModelo } from './modelos'
 import {
-  TETO_DA_IMAGEM_NA_META, apagarMidiaKapso, baixarMidiaKapso, enviarModeloKapso, enviarTextoKapso, ligarWebhookKapso, modelosDaMetaKapso, numeroIdValido,
+  TETO_DA_IMAGEM_NA_META, apagarMidiaKapso, baixarMidiaKapso, enviarAudioKapso, enviarModeloKapso, subirAudioKapso, enviarTextoKapso, ligarWebhookKapso, modelosDaMetaKapso, numeroIdValido,
   perfilConectadoKapso, situacaoDaConexaoKapso, situacaoDoWebhookKapso, subirMidiaKapso, type ConfigDaKapso,
 } from './kapso'
 
@@ -106,6 +106,14 @@ export { TETO_DA_IMAGEM_NA_META }
 /** Sobe uma imagem (JPEG ou PNG, até 5 MB) para a Meta; o id vai no cabeçalho dos botões ou do modelo (kapso.ts, subirMidiaKapso). */
 export const subirMidia = (config: ConfigDoWhatsapp, conteudo: Uint8Array, mime?: string): Promise<MidiaEnviada> =>
   subirMidiaKapso(config, conteudo, mime)
+
+/** Sobe um áudio (OGG Opus, que vira mensagem de voz, ou MP3) para a Meta (kapso.ts, subirAudioKapso). */
+export const subirAudio = (config: ConfigDoWhatsapp, conteudo: Uint8Array, mime: 'audio/ogg' | 'audio/mpeg'): Promise<MidiaEnviada> =>
+  subirAudioKapso(config, conteudo, mime)
+
+/** Manda um áudio já subido, só dentro da janela de 24 h; `voz`: como mensagem de voz (kapso.ts, enviarAudioKapso). Sem registro: quem chama registra. */
+export const enviarAudio = (config: ConfigDoWhatsapp, numero: string, midiaId: string, voz: boolean): Promise<Envio> =>
+  enviarAudioKapso(config, numero, midiaId, voz)
 
 /** Apaga da Meta a mídia que o Palácio subiu, depois de usada. Melhor esforço; nunca lança. */
 export const apagarMidia = (config: ConfigDoWhatsapp, midiaId: string): Promise<boolean> => apagarMidiaKapso(config, midiaId)

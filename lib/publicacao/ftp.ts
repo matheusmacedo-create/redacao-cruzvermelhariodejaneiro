@@ -1,6 +1,7 @@
 import 'server-only'
 import { Client } from 'basic-ftp'
 import { Readable, Writable } from 'node:stream'
+import { ehAudioDeNarracao } from '@/lib/voz/regras'
 
 export type FtpConfig = { host: string; user: string; password: string; baseDir: string }
 
@@ -363,6 +364,24 @@ export async function removerPastaDeMateria(
   const destino = caminhoSeguro(config.baseDir, slug)
   await client.removeDir(destino)
   await client.cd('/')
+}
+
+/**
+ * Apaga as narrações antigas da pasta de uma matéria (lib/voz): só arquivos `ouvir-<12 hex>.mp3`, nunca outro nome,
+ * e nunca o atual. Melhor esforço: devolve quantos saíram e não lança (o MP3 velho esquecido só ocupa espaço).
+ */
+export async function removerNarracoesAntigas(client: Client, config: FtpConfig, slug: string, manter: string): Promise<number> {
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) return 0
+  let removidos = 0
+  try {
+    const pasta = caminhoSeguro(config.baseDir, slug)
+    for (const item of await client.list(pasta)) {
+      if (!item.isFile || item.name === manter || !ehAudioDeNarracao(item.name)) continue
+      try { await client.remove(`${pasta}/${item.name}`); removidos++ } catch { /* fica para a próxima */ }
+    }
+  } catch { /* sem listar, nada sai */ }
+  await client.cd('/').catch(() => undefined)
+  return removidos
 }
 
 /**

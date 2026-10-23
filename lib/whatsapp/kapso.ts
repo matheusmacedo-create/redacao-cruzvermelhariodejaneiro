@@ -226,6 +226,47 @@ export async function subirMidiaKapso(config: ConfigDaKapso, conteudo: Uint8Arra
   return idDeMidiaValido(id) ? { ok: true, id } : { ok: false, erro: 'A Kapso não devolveu o id da imagem.', motivo: 'outro' }
 }
 
+/** O teto da Meta para áudio enviado: 16 MB. A resposta falada do assistente tem bem menos (TETO_DO_WHATSAPP, lib/voz). */
+const TETO_DO_AUDIO_NA_META = 16 * 1024 * 1024
+const AUDIOS_DA_META = new Map([['audio/ogg', 'voz.ogg'], ['audio/mpeg', 'voz.mp3']])
+
+/**
+ * Sobe um áudio (lib/voz/whatsapp.ts) e devolve o id da mídia. `audio/ogg` (Opus) é o único que o WhatsApp mostra
+ * como mensagem de voz; `audio/mpeg` chega como arquivo de áudio. A Meta apaga a mídia sozinha em 30 dias.
+ */
+export async function subirAudioKapso(config: ConfigDaKapso, conteudo: Uint8Array, mime: 'audio/ogg' | 'audio/mpeg'): Promise<MidiaEnviada> {
+  const nome = AUDIOS_DA_META.get(mime)
+  if (!nome) return { ok: false, erro: 'Só áudio OGG (Opus) ou MP3 sobe para o WhatsApp.', motivo: 'outro' }
+  if (!conteudo.length || conteudo.length > TETO_DO_AUDIO_NA_META) return { ok: false, erro: 'O áudio está vazio ou passa de 16 MB.', motivo: 'outro' }
+  const formulario = new FormData()
+  formulario.append('messaging_product', 'whatsapp')
+  formulario.append('type', mime)
+  formulario.append('file', new Blob([new Uint8Array(conteudo)], { type: mime }), nome)
+  const r = await chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/media`, formulario, TEMPO_DO_ENVIO_MS)
+  if (r.semResposta) return { ok: false, erro: 'A Kapso não confirmou o envio do áudio a tempo.', motivo: 'tempo' }
+  if (!r.ok) return { ok: false, erro: r.erro ?? 'Não foi possível enviar o áudio.', motivo: r.motivo ?? 'outro' }
+  const id = objeto(r.dados)?.id
+  return idDeMidiaValido(id) ? { ok: true, id } : { ok: false, erro: 'A Kapso não devolveu o id do áudio.', motivo: 'outro' }
+}
+
+/**
+ * Manda um áudio já subido. `voz`: como mensagem de voz (só com OGG Opus). Só dentro da janela de 24 h — modelo
+ * aprovado não leva áudio, e quem chama só manda áudio em resposta a um áudio que acabou de chegar. Fora da janela,
+ * a falha volta com `foraDaJanela` e nada mais é tentado.
+ */
+export async function enviarAudioKapso(config: ConfigDaKapso, numero: string, midiaId: string, voz: boolean): Promise<Envio> {
+  const enviar = (para: string, comoVoz = voz) => chamar(config, 'POST', `${META}/${numeroNaUrl(config)}/messages`, {
+    messaging_product: 'whatsapp', recipient_type: 'individual', to: para, type: 'audio', audio: { id: midiaId, ...(comoVoz ? { voice: true } : {}) },
+  }, TEMPO_DO_ENVIO_MS)
+  let r = await enviar(numero)
+  const semNono = numeroSemNonoDigito(numero)
+  if (!r.ok && r.foraDaJanela && semNono) r = await enviar(semNono)
+  // O campo `voice` é recente na Cloud API: recusado o formato (400), vai o mesmo áudio sem ele, como arquivo de áudio.
+  if (!r.ok && voz && r.status === 400 && !r.foraDaJanela) r = await enviar(numero, false)
+  if (!r.ok && r.foraDaJanela) return { ok: false, erro: r.erro ?? 'Fora da janela de 24 horas.', motivo: 'outro', foraDaJanela: true }
+  return paraEnvio(r, null)
+}
+
 /** Apaga da Meta uma mídia que o Palácio subiu. Melhor esforço: true se a Kapso confirmou; nunca lança. */
 export async function apagarMidiaKapso(config: ConfigDaKapso, midiaId: string): Promise<boolean> {
   if (!idDeMidiaValido(midiaId)) return false

@@ -83,6 +83,12 @@ export const SERVICOS = {
     nome: 'Portal da Transparência (CGU — sanções e PEP)', variavel: 'PORTAL_TRANSPARENCIA_KEY', painel: 'https://portaldatransparencia.gov.br/api-de-dados/cadastrar-email',
     dica: 'Cadastre com a conta gov.br da filial (prata ou ouro, ou CPF e senha com verificação em duas etapas): a chave, de 32 letras e números, chega por e-mail. Cole só ela; é testada na CGU antes de ir para o cofre.',
   },
+  // A voz da instituição (lib/voz): a narração das matérias do site e a resposta em áudio do assistente do WhatsApp.
+  // A voz, o modelo e onde ela fala ficam em Configurações › Voz (voz_config); aqui, só a chave. Testada antes de ir ao cofre.
+  elevenlabs: {
+    nome: 'ElevenLabs (voz da instituição)', variavel: 'ELEVENLABS_API_KEY', painel: 'https://elevenlabs.io/app/developers/api-keys',
+    dica: 'Crie a chave em elevenlabs.io → Developers → API keys, com acesso a "Text to Speech" e "Voices" (o resto pode ficar desligado). Depois de salvar, escolha a voz em Configurações › Voz.',
+  },
   // Serpro (Consulta CPF / Datavalid): confirma nome, nascimento e situação do CPF na Receita, e a biometria
   // facial. É pago por consulta e exige contrato com o CNPJ da filial. Fica preparado: ligar esta entrada
   // quando lib/participantes/verificacao/serpro.ts existir (docs/verificacao-de-voluntarios.md).

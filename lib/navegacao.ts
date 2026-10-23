@@ -1,7 +1,7 @@
 import {
   Archive, AtSign, BadgeCheck, Bell, CircleHelp, Fingerprint, GraduationCap, Landmark, Megaphone, ShieldCheck, Wallet, Package, CalendarDays, ChartColumn, FileSignature, FolderKanban, HeartHandshake, History, House, IdCard, Images, Inbox,
   KeyRound, LifeBuoy, ListChecks, Mail, MessageCircleHeart, MessagesSquare, Newspaper, PiggyBank, PlugZap, Radar, ScrollText, Send, Settings, SquareCheckBig, Upload, UserRound, Contact,
-  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, ClockCheck, Waypoints, type LucideIcon,
+  ReceiptText, ShoppingCart, DoorOpen, BookOpen, Smartphone, AudioLines, ClockCheck, Waypoints, type LucideIcon,
 } from 'lucide-react'
 import type { Permissao } from './permissoes'
 
@@ -184,6 +184,7 @@ export const ADMINISTRACAO: Grupo = {
     { href: '/configuracoes', rotulo: 'Configurações', resumo: 'Sua conta, os ajustes de cada área, e-mail dos setores, integrações e site', icone: Settings, termos: ['integrações', 'preferências', 'e-mail dos setores', 'chaves', 'site', 'redes sociais'] },
     // Uma seção das Configurações (o submenu delas mostra); a linha existe para a busca e a ajuda acharem.
     { href: '/configuracoes/whatsapp', rotulo: 'WhatsApp', resumo: 'O número do Palácio no WhatsApp (Kapso): conexão, avisos e bot', icone: Smartphone, termos: ['whatsapp', 'zap', 'kapso', 'bot', 'celular'], permissao: 'integracoes.configurar', dentroDe: '/configuracoes' },
+    { href: '/configuracoes/voz', rotulo: 'Voz da instituição', resumo: 'A voz da ElevenLabs que narra as matérias do site e responde em áudio no WhatsApp', icone: AudioLines, termos: ['voz', 'áudio', 'audio', 'elevenlabs', 'narração', 'ouvir matéria', 'locução', 'podcast'], permissao: 'integracoes.configurar', dentroDe: '/configuracoes' },
     { href: '/perfil', rotulo: 'Meu perfil', resumo: 'Foto, dados, senha e segurança da sua conta', icone: UserRound, termos: ['perfil', 'conta', 'senha', 'foto'] },
     // A Central de ajuda (lib/ajuda). O botão "?" do topo abre a ajuda da tela; aqui fica tudo junto.
     { href: '/ajuda', rotulo: 'Ajuda', resumo: 'Tutoriais, passo a passo e perguntas frequentes de cada área', icone: CircleHelp, termos: ['faq', 'tutorial', 'como usar', 'dúvidas', 'manual', 'onboarding', 'suporte'] },
