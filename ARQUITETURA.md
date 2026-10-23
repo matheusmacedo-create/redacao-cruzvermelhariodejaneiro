@@ -2681,7 +2681,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   O grupo do setor nasce **fechado por dentro** (`whoCanViewGroup` e `whoCanDiscoverGroup` só para membros): o padrão da
   organização deixaria todos os usuários verem as conversas, e setores como Psicologia, Jurídico e Ouvidoria recebem
   mensagem sensível. Recebe de fora (`ANYONE_CAN_POST`; exige "proprietários podem permitir e-mails de fora" marcado
-  em Grupos para empresas) e só entra por convite. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  em Grupos para empresas) e só entra por convite.
+  **Endurecimentos antes da primeira troca real (23/10/2026, achados da investigação do 403):** (1)
+  `verificarAntesDeConverter` lê os grupos e a API de configurações ANTES de tirar o apelido: se a leitura é negada ou a
+  Groups Settings API não está ligada (ou propagando), aborta sem tocar no e-mail do setor; (2) a volta atrás confere o
+  RESULTADO (o endereço voltou a ser apelido do dono?), tenta o apelido de novo (6×) e, se não volta, a mensagem traz
+  🚨 ATENÇÃO e onde restaurar à mão (`ErroDeGrupo.restauracaoFalhou`) — nunca em silêncio; (3) o token de acesso do
+  administrador fica em memória por instância e sobrevivia à reconexão: um 401 ou 403 descarta e tenta UMA vez com token
+  novo; (4) as mensagens do Google levam o `reason` (forbidden, accessNotConfigured…); (5) `adicionarAoGrupo` (link de
+  criação de conta) só entra se o endereço é grupo (`colocarSeForGrupo`); (6) a conexão de administrador pede só os
+  escopos necessários (`somenteEstes`, vale na próxima reconexão); (7) a sonda do `grupos` também testa a API de
+  configurações. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"
