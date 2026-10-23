@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, ID_DO_CARGO_COORDENADOR, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, ID_DO_CARGO_COORDENADOR, ehCoordenador, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -142,6 +142,34 @@ igual(conta.length < 4000, true, 'conta: cabe numa mensagem do WhatsApp (4096)')
 sem(textoDaContaCriada({ nome: 'Ana Lima', email: 'a@x.org', senha: 'S' }), 'você entrou no grupo', 'conta: sem grupo, não promete grupo')
 contem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'WhatsApp dela', 'segunda confirmação diz que a senha vai por WhatsApp')
 sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda confirmação não fala mais em e-mail pessoal')
+
+// o link do time e a autorização do coordenador
+{
+  const lista = ['Redação', 'Tecnologia da Informação']
+  igual(lerAutocadastro('Quero me cadastrar em Tecnologia da Informação'), true, 'entrada com setor')
+  igual(setorDaEntrada('Quero me cadastrar em Tecnologia da Informação', lista), 'Tecnologia da Informação', 'setor do link')
+  igual(setorDaEntrada('quero me cadastrar em tecnologia da informacao', lista), 'Tecnologia da Informação', 'setor do link sem acento nem maiúscula')
+  igual(setorDaEntrada('quero me cadastrar em Marte', lista), null, 'setor que não existe: a pessoa escolhe')
+  igual(setorDaEntrada('quero me cadastrar', lista), null, 'sem setor')
+  igual(linkDoBot('+55 21 99999-0000', 'Redação'), 'https://wa.me/5521999990000?text=quero%20me%20cadastrar%20em%20Reda%C3%A7%C3%A3o', 'link do time')
+  contem(perguntaDoAutocadastro({ setores: lista, coordenacao: 'Redação' })?.texto ?? '', 'Seu setor: *Redação*', 'setor pré-escolhido aparece')
+  igual(proximaEtapa({ setores: lista, coordenacao: 'Redação', nome: 'Ana Lima' }), 'cargo', 'com o setor do link, pula a pergunta da coordenação')
+  contem(textoDoLinkDoTime([{ setor: 'Redação', link: 'https://wa.me/x' }]), 'https://wa.me/x', 'texto do link do time')
+  contem(textoDoLinkDoTime([]), 'não coordena', 'quem não coordena não recebe link')
+  igual([ehCoordenador('Coordenador(a) de TI'), ehCoordenador('Coordenadora'), ehCoordenador('Enfermeira'), ehCoordenador(undefined)], [true, true, false, false], 'ehCoordenador')
+  const equipe: DadosDoAutocadastro = { coordenacao: 'Redação', cargo: 'Enfermeira' }
+  const outroSetor: DadosDoAutocadastro = { coordenacao: 'Jurídico', cargo: 'Enfermeira' }
+  const novoCoord: DadosDoAutocadastro = { coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação' }
+  const coord = { admin: false, setores: ['Redação'] }
+  igual(podeDecidir(coord, equipe), true, 'coordenador aprova a equipe do próprio setor')
+  igual(podeDecidir(coord, outroSetor), false, 'coordenador NÃO aprova outro setor')
+  igual(podeDecidir(coord, novoCoord), false, 'coordenador NÃO aprova outro coordenador')
+  igual(podeDecidir({ admin: false, setores: [] }, equipe), false, 'sem setor nenhum não aprova nada')
+  igual(podeDecidir({ admin: true, setores: [] }, novoCoord), true, 'administrador aprova qualquer pedido')
+  igual(podeDecidir({ admin: false, setores: ['Redação'] }, { cargo: 'Enfermeira' }), false, 'pedido sem setor não é de coordenador')
+  contem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo avisa que coordenador vira gerente')
+  sem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Enfermeira', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo comum não fala em gerente')
+}
 
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')
 process.exit(falhas ? 1 : 0)

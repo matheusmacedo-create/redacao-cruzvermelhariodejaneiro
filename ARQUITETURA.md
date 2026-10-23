@@ -2638,7 +2638,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   desfecho (aprovado, recusado, falha com o motivo), menos quem acabou de agir; só nome e resultado, nunca dado pessoal
   (`avisarAcompanhamento`). O cargo oferece o botão "Coordenador(a)", que vira "Coordenador(a) de <setor>". O endereço do
   setor (`setores.email`) só recebe a pessoa se já for **grupo** do Google; hoje eles são apelidos do Gmail (a conta nasce
-  e o aviso diz que ela não entrou no grupo). Criar o grupo no lugar do apelido muda a entrega do setor: é decisão à parte. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  e o aviso diz que ela não entrou no grupo). Criar o grupo no lugar do apelido muda a entrega do setor: é decisão à parte.
+  **Coordenador de setor (23/10/2026, migração `20261023140000`, tabela `setor_coordenadores`):** quem coordena um setor
+  é guardado **pelo número do WhatsApp** (pode ainda não ter login no Palácio). Entra por conta própria: no
+  autocadastro escolhe o cargo "Coordenador(a)" (`ehCoordenador`), um **administrador** aprova (o resumo avisa que a
+  pessoa vira gerente do grupo e passa a aprovar a equipe) e `executarCriacao` o registra. Daí em diante ele recebe e
+  aprova — com os mesmos dois toques — **só o cadastro da equipe do próprio setor** (`podeDecidir`: nunca outro setor,
+  nunca outro coordenador; o cargo de coordenador é só de administrador). `atorDeAprovacao` junta as duas fontes
+  (administrador pela conta, coordenador pelo número); a ficha, a conta e a auditoria seguem o mesmo caminho, com
+  `aprovado_por` em `activity_log`. O comando `link do time` devolve, a quem coordena, o `wa.me` com o setor já
+  escolhido (`quero me cadastrar em <setor>`: a pessoa pula a pergunta da coordenação). Sem a migração, só o
+  administrador aprova. Revogar: `revogado_em` (sem tela ainda). Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"

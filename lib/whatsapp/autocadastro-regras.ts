@@ -66,15 +66,50 @@ export const CHAVES_PESSOAIS: readonly (keyof DadosDoAutocadastro)[] = [
 
 // ------------------------------------------------------------------ a entrada
 
-/** "quero me cadastrar" (ou “me cadastrar”), vindo de quem ainda não tem conta. "cadastro" solto não vale: é palavra comum. */
+/**
+ * "quero me cadastrar" (ou “me cadastrar”), vindo de quem ainda não tem conta; "cadastro" solto não vale: é palavra
+ * comum. Com o setor depois do "em" ("quero me cadastrar em Tecnologia da Informação"), é o link do time do
+ * coordenador: o setor já vem escolhido (`setorDaEntrada`).
+ */
 export function lerAutocadastro(texto: string): boolean {
   const n = normalizar(texto)
-  return n === 'me cadastrar' || n === FRASE_DE_ENTRADA || n === 'quero me cadastrar como colaborador'
+  return n === 'me cadastrar' || n === FRASE_DE_ENTRADA || n.startsWith(`${FRASE_DE_ENTRADA} em `) || n.startsWith('me cadastrar em ')
 }
 
-/** O link que vai no grupo, no cartaz ou na assinatura: um toque abre a conversa com o texto pronto. */
-export function linkDoBot(numeroDoBot: string): string {
-  return `https://wa.me/${numeroDoBot.replace(/\D/g, '')}?text=${encodeURIComponent(FRASE_DE_ENTRADA)}`
+/** O setor do link do time, se a mensagem traz um que existe na lista; senão null (a pessoa escolhe na conversa). */
+export function setorDaEntrada(texto: string, setores: string[]): string | null {
+  const n = normalizar(texto)
+  const resto = n.startsWith(`${FRASE_DE_ENTRADA} em `) ? n.slice(FRASE_DE_ENTRADA.length + 4) : n.startsWith('me cadastrar em ') ? n.slice('me cadastrar em '.length) : ''
+  return resto ? setores.find((x) => normalizar(x) === resto) ?? null : null
+}
+
+/** Quem se cadastra como coordenador: o cargo começa por "Coordenador(a)" (o botão, ou escrito à mão). */
+export const ehCoordenador = (cargo: string | null | undefined): boolean => normalizar(cargo ?? '').startsWith('coordenador')
+
+/**
+ * Este ator decide este pedido? O administrador, qualquer um; o coordenador, só o pedido do próprio setor e que não
+ * seja de outro coordenador (o cargo de coordenador, que dá poder sobre o setor, é só de administrador).
+ */
+export const podeDecidir = (a: { admin: boolean; setores: string[] }, d: DadosDoAutocadastro): boolean =>
+  a.admin || (Boolean(d.coordenacao) && a.setores.includes(d.coordenacao ?? '') && !ehCoordenador(d.cargo))
+
+/**
+ * O link que vai no grupo, no cartaz ou na assinatura: um toque abre a conversa com o texto pronto. Com `setor`, é o
+ * link do time de um coordenador: a pessoa já entra no setor dele.
+ */
+export function linkDoBot(numeroDoBot: string, setor?: string): string {
+  const texto = setor ? `${FRASE_DE_ENTRADA} em ${setor}` : FRASE_DE_ENTRADA
+  return `https://wa.me/${numeroDoBot.replace(/\D/g, '')}?text=${encodeURIComponent(texto)}`
+}
+
+/** A resposta ao "link do time" do coordenador: um link por setor que ele coordena. */
+export function textoDoLinkDoTime(links: { setor: string; link: string }[]): string {
+  if (!links.length) return 'Você não coordena nenhum setor no Palácio ainda. Cadastre-se como coordenador(a) e peça a aprovação de um administrador.'
+  return [
+    links.length === 1 ? 'Este é o link do seu time. Mande para quem vai se cadastrar em seu setor:' : 'Estes são os links dos seus times. Mande cada um a quem vai se cadastrar no setor:',
+    ...links.map((l) => `*${l.setor}*\n${l.link}`),
+    'Cada pessoa abre o link, responde as perguntas aqui no WhatsApp e você recebe o pedido para aprovar com um toque. Você aprova só o cadastro do seu setor.',
+  ].join('\n\n')
 }
 
 // ------------------------------------------------------------------ leitura de cada resposta
@@ -169,7 +204,7 @@ export function perguntaDoAutocadastro(d: DadosDoAutocadastro, antes?: string | 
   const primeiro = (d.nome ?? '').split(' ')[0]
   const com = (texto: string, interativo: Interativo | null = null): PerguntaDoAutocadastro => ({ etapa, texto: antes ? `${antes}\n\n${texto}` : texto, interativo })
   switch (etapa) {
-    case 'nome': return com(`Olá! Vou fazer o seu cadastro de colaborador da Cruz Vermelha RJ, aqui mesmo, em poucos minutos.\n\nQual é o seu *nome completo* (nome e sobrenome)? ${LINHA_DE_PARAR}`)
+    case 'nome': return com(`Olá! Vou fazer o seu cadastro de colaborador da Cruz Vermelha RJ, aqui mesmo, em poucos minutos.${d.coordenacao ? `\n\nSeu setor: *${d.coordenacao}*.` : ''}\n\nQual é o seu *nome completo* (nome e sobrenome)? ${LINHA_DE_PARAR}`)
     case 'coordenacao': {
       const setores = d.setores ?? []
       const lista = setores.map((s, i) => `${i + 1}. ${s}`).join('\n')
@@ -290,9 +325,13 @@ export function resumoParaAprovador(d: DadosDoAutocadastro): string {
     `Cidade: ${d.cidade}/${d.uf}`,
     `Emergência: ${d.emergenciaNome} (${d.emergenciaParentesco}) ${mascararTel(d.emergenciaTelefone ?? '')}`,
     `E-mail institucional previsto: *${usuarioSugeridoDoGoogle(d.nome ?? '')}@…*`,
+    ...(ehCoordenador(d.cargo) ? [AVISO_DE_COORDENADOR] : []),
     'Os dados completos ficam na ficha do RH depois da aprovação.',
   ].join('\n')
 }
+
+/** O que muda com o cargo de coordenador: só um administrador aprova, e a pessoa ganha poder sobre o setor. */
+export const AVISO_DE_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa vira *gerente do grupo do setor* e passa a aprovar o cadastro da própria equipe.'
 
 export const BOTOES_DE_APROVACAO = (id: string): Interativo => ({
   tipo: 'botoes', imagem: null,
@@ -303,7 +342,7 @@ export const BOTOES_DA_SEGUNDA_CONFIRMACAO = (id: string): Interativo => ({
   tipo: 'botoes', botoes: [{ id: idDoBotao('sim', id), titulo: 'Sim, criar' }, { id: idDoBotao('voltar', id), titulo: 'Voltar' }],
 })
 export const textoDaSegundaConfirmacao = (d: DadosDoAutocadastro) =>
-  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o WhatsApp dela, com o passo a passo.`
+  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o WhatsApp dela, com o passo a passo.${ehCoordenador(d.cargo) ? `\n\n${AVISO_DE_COORDENADOR}` : ''}`
 
 // ------------------------------------------------------------------ o destino dos dados
 

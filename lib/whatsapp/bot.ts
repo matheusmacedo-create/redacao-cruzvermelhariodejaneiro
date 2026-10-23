@@ -20,7 +20,7 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, pendentesDeAprovacao, type Saida } from './autocadastro'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, linkDoTime, pendentesDeAprovacao, type Saida } from './autocadastro'
 import { lerAutocadastro, lerBotaoDeAprovacao } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
@@ -158,21 +158,26 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
 
     // O autocadastro de colaborador (lib/whatsapp/autocadastro.ts): quem ainda não tem conta se cadastra pela conversa
-    // (só texto e a foto do rosto), e quem gerencia usuários decide pelos botões ou por "cadastros". Vem antes do resto:
-    // o número ainda é desconhecido, e o toque nos botões traz o id do pedido.
-    const decideCadastro = pessoa && !m.midia ? (m.toque ? lerBotaoDeAprovacao(m.texto) : null) : null
-    const listaCadastros = pessoa && !m.midia && !m.toque && gerenciaUsuarios(pessoa) && normalizar(m.texto) === 'cadastros'
-    const doAutocadastro = !pessoa && await ehDoAutocadastro(admin, workspaceId, m)
-    if (doAutocadastro || decideCadastro || listaCadastros) {
+    // (só texto e a foto do rosto); quem decide — um administrador ou o coordenador do setor, este pelo número — usa os
+    // botões, "cadastros" e (coordenador) "link do time". Vem antes do resto: o número ainda é desconhecido, e o toque
+    // nos botões traz o id do pedido.
+    const textoLivre = !m.midia && !m.toque ? normalizar(m.texto) : ''
+    const botaoCadastro = m.toque && !m.midia ? lerBotaoDeAprovacao(m.texto) : null
+    const pedeCadastros = textoLivre === 'cadastros'
+    const pedeLinkDoTime = ['link do time', 'meu time', 'link do meu time'].includes(textoLivre)
+    const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
+    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    if (doAutocadastro || ator) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
       if (!nova) return
       // A conversa aberta não tem o teto de respostas (são ~15 trocas, uma por mensagem da pessoa); a abertura, sim.
       const aberta = doAutocadastro && !m.midia && lerAutocadastro(m.texto) ? false : doAutocadastro
-      if (!aberta && !decideCadastro && await noTetoDeRespostas(admin, workspaceId, numero)) return
+      if (!aberta && !botaoCadastro && await noTetoDeRespostas(admin, workspaceId, numero)) return
       let saidas: Saida[] = []
       if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
-      else if (pessoa && decideCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, pessoa, decideCadastro)
-      else if (pessoa) saidas = await pendentesDeAprovacao(admin, workspaceId, pessoa)
+      else if (ator && botaoCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, ator, botaoCadastro)
+      else if (ator && pedeLinkDoTime) saidas = await linkDoTime(admin, workspaceId, config, ator)
+      else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)
       for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa?.id ?? null, interativo: s.interativo }, { config, semFila: true })
       return
     }
