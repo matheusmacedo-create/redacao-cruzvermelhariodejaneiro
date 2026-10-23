@@ -20,6 +20,8 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
+import { conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, pendentesDeAprovacao, type Saida } from './autocadastro'
+import { lerAutocadastro, lerBotaoDeAprovacao } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -36,7 +38,7 @@ import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, alvoDoLink, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, ofereceNaoFuiEu,
-  pareceViagem, soOCodigo,
+  normalizar, pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
@@ -154,6 +156,26 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     }
 
     const pessoa = conta ? await pessoaDoEspaco(admin, workspaceId, conta.user_id as string) : null
+
+    // O autocadastro de colaborador (lib/whatsapp/autocadastro.ts): quem ainda não tem conta se cadastra pela conversa
+    // (só texto e a foto do rosto), e quem gerencia usuários decide pelos botões ou por "cadastros". Vem antes do resto:
+    // o número ainda é desconhecido, e o toque nos botões traz o id do pedido.
+    const decideCadastro = pessoa && !m.midia ? (m.toque ? lerBotaoDeAprovacao(m.texto) : null) : null
+    const listaCadastros = pessoa && !m.midia && !m.toque && gerenciaUsuarios(pessoa) && normalizar(m.texto) === 'cadastros'
+    const doAutocadastro = !pessoa && await ehDoAutocadastro(admin, workspaceId, m)
+    if (doAutocadastro || decideCadastro || listaCadastros) {
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
+      if (!nova) return
+      // A conversa aberta não tem o teto de respostas (são ~15 trocas, uma por mensagem da pessoa); a abertura, sim.
+      const aberta = doAutocadastro && !m.midia && lerAutocadastro(m.texto) ? false : doAutocadastro
+      if (!aberta && !decideCadastro && await noTetoDeRespostas(admin, workspaceId, numero)) return
+      let saidas: Saida[] = []
+      if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
+      else if (pessoa && decideCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, pessoa, decideCadastro)
+      else if (pessoa) saidas = await pendentesDeAprovacao(admin, workspaceId, pessoa)
+      for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa?.id ?? null, interativo: s.interativo }, { config, semFila: true })
+      return
+    }
     // O áudio com a transcrição da Kapso só interessa ao assistente (o bot de comandos não ouve).
     const transcricao = pessoa && m.midia?.categoria === 'audio' && m.transcricao ? m.transcricao : null
     // O documento com legenda pode ir ao assistente (a pasta do Drive dita com outras palavras: lib/whatsapp/drive.ts).

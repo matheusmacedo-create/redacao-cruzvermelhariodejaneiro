@@ -66,10 +66,10 @@ export const CHAVES_PESSOAIS: readonly (keyof DadosDoAutocadastro)[] = [
 
 // ------------------------------------------------------------------ a entrada
 
-/** "quero me cadastrar" (ou “cadastro”, “me cadastrar”), vindo de quem ainda não tem conta. */
+/** "quero me cadastrar" (ou “me cadastrar”), vindo de quem ainda não tem conta. "cadastro" solto não vale: é palavra comum. */
 export function lerAutocadastro(texto: string): boolean {
   const n = normalizar(texto)
-  return n === 'cadastro' || n === 'me cadastrar' || n === 'cadastrar' || n === FRASE_DE_ENTRADA || n === 'quero me cadastrar como colaborador'
+  return n === 'me cadastrar' || n === FRASE_DE_ENTRADA || n === 'quero me cadastrar como colaborador'
 }
 
 /** O link que vai no grupo, no cartaz ou na assinatura: um toque abre a conversa com o texto pronto. */
