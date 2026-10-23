@@ -234,6 +234,21 @@ async function lerDoBlob(caminho: string): Promise<Uint8Array | null> {
   } catch { return null }
 }
 
+/**
+ * O acompanhamento: todo aprovador (quem gerencia usuários, com o número confirmado) recebe o que acontece com um
+ * pedido, menos quem acabou de agir (esse já leu a resposta). Só o nome e o resultado, nunca dado pessoal. Melhor esforço.
+ */
+async function avisarAcompanhamento(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, texto: string, exceto?: string) {
+  try {
+    for (const a of await aprovadores(admin, workspaceId)) {
+      if (a.userId === exceto) continue
+      await entregar(admin, workspaceId, { numero: a.numero, userId: a.userId, tipo: 'aviso', categoria: 'equipe', texto }, { config })
+    }
+  } catch (causa) {
+    console.error('[whatsapp] autocadastro: acompanhamento não enviado:', causa instanceof Error ? causa.message : causa)
+  }
+}
+
 /** "cadastros": os pedidos que esperam, cada um com os botões. */
 export async function pendentesDeAprovacao(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<Saida[]> {
   if (!pode(pessoa.papel, 'usuarios.gerenciar')) return []
@@ -263,6 +278,7 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
       if (!ok) return [{ texto: 'Este cadastro já foi decidido.' }]
       await apagarFoto(l.foto_path)
       await avisarPessoa(admin, workspaceId, config, l.numero, TEXTO_DE_RECUSADO)
+      await avisarAcompanhamento(admin, workspaceId, config, `${pessoa.nome ?? 'Um aprovador'} recusou o cadastro de ${l.dados.nome ?? 'um colaborador'}.`, pessoa.id)
       return [{ texto: 'Cadastro recusado. A pessoa foi avisada e os dados dela foram apagados.' }]
     }
 
@@ -311,13 +327,19 @@ async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhat
     await admin.from('colaborador_autocadastros').update({ status: 'aguardando' }).eq('id', l.id).eq('status', 'aprovando')
     return `${motivo} Nada ficou pela metade: o cadastro continua esperando. Corrija e responda *cadastros* para tentar de novo.`
   }
+  const quem = aprovador.nome ?? 'Um aprovador'
+  const nomeDoPedido = l.dados.nome ?? 'um colaborador'
   try {
-    return await executarCriacao(admin, workspaceId, config, l, aprovador, voltar)
+    const texto = await executarCriacao(admin, workspaceId, config, l, aprovador, voltar)
+    await avisarAcompanhamento(admin, workspaceId, config, `${quem} aprovou o cadastro de ${nomeDoPedido}.\n${texto}`, aprovador.id)
+    return texto
   } catch (causa) {
     console.error('[whatsapp] autocadastro: criação:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
     // As mensagens do diretório do Google já dizem o que fazer ("Reconecte em Configurações → E-mail dos setores").
-    if (causa instanceof ErroDoDiretorio) return await voltar(causa.message)
-    return await voltar('Aconteceu um erro inesperado ao criar a conta.')
+    const motivo = causa instanceof ErroDoDiretorio ? causa.message : 'Aconteceu um erro inesperado ao criar a conta.'
+    const texto = await voltar(motivo)
+    await avisarAcompanhamento(admin, workspaceId, config, `${quem} tentou aprovar o cadastro de ${nomeDoPedido}, mas não deu certo.\n${texto}`, aprovador.id)
+    return texto
   }
 }
 
