@@ -246,6 +246,47 @@ export async function sondarAcesso(chamar: Chamar, dominio = 'example.org'): Pro
   return linhas
 }
 
+export type ItemDeEndereco = { nome: string; endereco: string }
+export type ApelidoAchado = ItemDeEndereco & { dono: string }
+export type ResultadoDoApelido = { nome: string; endereco: string; resultado: 'removido' | 'nao_era_apelido' | 'falhou'; dono?: string; motivo?: string }
+
+/**
+ * Só leitura: quais destes endereços são hoje APELIDO de uma caixa (e de qual), e o que são os outros (grupo, caixa
+ * real, inexistente). Para a prévia do comando "apelidos": o administrador vê o que vai ser apagado antes de confirmar.
+ */
+export async function apelidosEntre(chamar: Chamar, itens: ItemDeEndereco[]): Promise<{ apelidos: ApelidoAchado[]; outros: (ItemDeEndereco & { tipo: EstadoDoEndereco['tipo'] })[] }> {
+  const apelidos: ApelidoAchado[] = []
+  const outros: (ItemDeEndereco & { tipo: EstadoDoEndereco['tipo'] })[] = []
+  for (const it of itens) {
+    const e = await consultarEndereco(chamar, it.endereco)
+    if (e.tipo === 'apelido') apelidos.push({ ...it, dono: e.dono })
+    else outros.push({ ...it, tipo: e.tipo })
+  }
+  return { apelidos, outros }
+}
+
+/**
+ * Apaga o APELIDO de cada endereço, e só ele: confere de novo, na hora, que o endereço ainda é apelido de alguém — caixa
+ * real (contato@), grupo e endereço que não existe nunca são tocados. Um item que falha não impede os outros; o resultado
+ * diz o que houve em cada um. Apagar o apelido não apaga e-mail nenhum: o histórico fica na caixa do dono; só deixa de
+ * chegar nela o que for enviado a esse endereço depois (até alguém criar a caixa própria do setor).
+ */
+export async function removerApelidos(chamar: Chamar, itens: ItemDeEndereco[]): Promise<ResultadoDoApelido[]> {
+  const saida: ResultadoDoApelido[] = []
+  for (const it of itens) {
+    try {
+      const e = await consultarEndereco(chamar, it.endereco)
+      if (e.tipo !== 'apelido') { saida.push({ ...it, resultado: 'nao_era_apelido' }); continue }
+      const r = await chamar('diretorio', `/users/${enc(e.dono)}/aliases/${enc(it.endereco)}`, { method: 'DELETE' })
+      if (r.ok || r.status === 404) saida.push({ ...it, resultado: 'removido', dono: e.dono })
+      else saida.push({ ...it, resultado: 'falhou', dono: e.dono, motivo: msg(r).slice(0, 160) })
+    } catch (causa) {
+      saida.push({ ...it, resultado: 'falhou', motivo: (causa instanceof Error ? causa.message : 'erro').slice(0, 160) })
+    }
+  }
+  return saida
+}
+
 /** Texto de uma linha sobre o que vai mudar, para a confirmação de quem aprova. null = nada muda. */
 export function avisoDaConversao(estado: EstadoDoEndereco, endereco: string): string | null {
   if (estado.tipo === 'apelido') return `⚠️ O endereço *${endereco}* hoje é apelido de ${estado.dono}. Ao confirmar, ele vira um *grupo do Google*: as mensagens continuam chegando em ${estado.dono}, e a equipe passa a ser membro do grupo. O envio pelo Palácio como ${endereco} pode precisar ser reverificado no Gmail.`
