@@ -4,6 +4,7 @@ import { obterChave } from '@/lib/integracoes/chaves'
 import { alertarIntegracao } from '@/lib/integracoes/alertas'
 import { apiDoGoogle } from './api'
 import { CLIENTE_RECUSADO, chamarToken, clienteOAuth, GmailError } from './gmail'
+import { colocarNoGrupo, type Chamar, type PapelNoGrupo } from './grupos-regras'
 
 /**
  * A API de Diretório do Google Workspace (Admin SDK): criar a conta de uma
@@ -24,6 +25,9 @@ export const ESCOPOS_ADMIN = [
   'email',
   'https://www.googleapis.com/auth/admin.directory.user',
   'https://www.googleapis.com/auth/admin.directory.group.member',
+  // A troca do apelido de um setor por grupo (lib/google/grupos-regras.ts): criar o grupo e liberar o recebimento de fora.
+  'https://www.googleapis.com/auth/admin.directory.group',
+  'https://www.googleapis.com/auth/apps.groups.settings',
 ]
 
 export class ErroDoDiretorio extends Error {
@@ -128,9 +132,31 @@ export async function criarUsuarioNoGoogle(workspaceId: string, c: NovaContaDoGo
  * ainda não é um grupo (é apelido do contato@): a conta existe mesmo assim,
  * e a tela de acompanhamento mostra quem ficou de fora.
  */
-export async function adicionarAoGrupo(workspaceId: string, grupo: string, email: string): Promise<boolean> {
-  const r = await diretorio(workspaceId, `/groups/${encodeURIComponent(grupo)}/members`, { method: 'POST', body: JSON.stringify({ email, role: 'MEMBER' }) })
-  if (r.ok || r.status === 409) return true
-  if (r.status === 404) return false
-  return falha(r, 'O Google não pôs a pessoa no grupo')
+export async function adicionarAoGrupo(workspaceId: string, grupo: string, email: string, papel: PapelNoGrupo = 'MEMBER'): Promise<boolean> {
+  return colocarNoGrupo(chamarGoogleAdmin(workspaceId), grupo, email, papel)
+}
+
+/**
+ * A chamada ao Google que a lógica da troca de grupos (lib/google/grupos-regras.ts, testada contra um Google de mentira)
+ * recebe: o Directory (Admin SDK) e as Configurações de grupo. Mesma conta de administrador, mesmo token.
+ */
+export function chamarGoogleAdmin(workspaceId: string): Chamar {
+  return async (api, caminho, init) => {
+    if (api === 'diretorio') {
+      return diretorio(workspaceId, caminho, { method: init?.method, ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}) })
+    }
+    const token = await tokenDeAdmin(workspaceId)
+    // O servidor de teste (GOOGLE_API_TESTE) troca só o endereço; o caminho de /groups/v1 continua o mesmo.
+    const base = apiDoGoogle('https://www.googleapis.com/groups/v1').replace(/\/groups\/v1$/, '')
+    const res = await fetch(`${base}${caminho}`, {
+      method: init?.method ?? 'GET',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20_000),
+    })
+    const dados = await res.json().catch(() => ({})) as Record<string, unknown>
+    if (res.status === 401) esquecerTokenDeAdmin(workspaceId)
+    return { ok: res.ok, status: res.status, dados }
+  }
 }

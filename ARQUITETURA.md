@@ -2648,7 +2648,21 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   (administrador pela conta, coordenador pelo número); a ficha, a conta e a auditoria seguem o mesmo caminho, com
   `aprovado_por` em `activity_log`. O comando `link do time` devolve, a quem coordena, o `wa.me` com o setor já
   escolhido (`quero me cadastrar em <setor>`: a pessoa pula a pergunta da coordenação). Sem a migração, só o
-  administrador aprova. Revogar: `revogado_em` (sem tela ainda). Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  administrador aprova. Revogar: `revogado_em` (sem tela ainda).
+  **Endereço do setor como grupo do Google (23/10/2026, `lib/google/grupos-regras.ts` — `npx tsx
+  scripts/conferir-grupos.ts`, contra um Google de mentira):** os endereços dos setores eram APELIDOS de uma caixa
+  (contato@); apelido e grupo não convivem com o mesmo endereço. Quando um **administrador** aprova um cadastro num setor
+  cujo endereço ainda é apelido, `converterEmGrupo` tira o apelido, cria o grupo e o **libera para receber de fora**
+  (`whoCanPostMessage: ANYONE_CAN_POST`, `alt=json` — sem isso o endereço público do setor deixaria de receber), e põe a
+  caixa antiga como membro (o e-mail segue chegando onde chegava). Qualquer falha desfaz o que já foi feito (apaga o grupo,
+  devolve o apelido). Caixa real (o endereço é o principal de um usuário, como contato@) nunca se converte; grupo que já
+  existe não se mexe. A confirmação do administrador mostra o que vai mudar (`avisoDaConversao`). Coordenador aprovando
+  NÃO converte (só administrador): se o endereço ainda é apelido, a conta nasce, a pessoa não entra no grupo e os
+  administradores são avisados. Quem entra como coordenador(a) é **gerente** do grupo (`MANAGER`), os demais **membros**;
+  membro que vira coordenador é promovido e dono/gerente nunca é rebaixado. A conversão exige duas permissões novas da
+  conexão de administrador — `admin.directory.group` e `apps.groups.settings` (e a API Groups Settings ligada no projeto
+  do Google Cloud): reconectar o administrador depois do deploy. Efeito colateral conhecido: o envio pelo Palácio "como
+  ti@" (send-as no Gmail da caixa dona do apelido) pode precisar ser reverificado. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"
