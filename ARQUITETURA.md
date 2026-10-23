@@ -2671,7 +2671,13 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   real ou inexistente.
   O comando também roda uma **sonda** (`sondarAcesso`): lê uma página de usuários e uma de grupos. Se usuários vai e grupos
   não, o problema é o serviço *Grupos para empresas* desativado na organização (Admin Console → Apps → Google Workspace),
-  não o token nem a conta. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  não o token nem a conta.
+  **O 403 que travou a primeira troca (23/10/2026):** com o endereço de um APELIDO, o Google responde 403 ("Not Authorized
+  to access this resource/api") a `groups.get` — não 404. A sonda provou: ler usuários ✅, ler grupos ✅, só o `groups.get`
+  do apelido caía. Por isso `consultarEndereco` pergunta primeiro pelo USUÁRIO (o apelido aparece, `primaryEmail`
+  diferente) e só depois pelo grupo, e o coordenador (que não converte) usa `colocarSeForGrupo`: apelido nunca recebe
+  chamada de grupo. Logo depois de tirar o apelido o Google ainda pode responder 409 à criação do grupo: tenta de novo
+  (6×, com espera) e, se nunca libera, devolve o apelido. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"

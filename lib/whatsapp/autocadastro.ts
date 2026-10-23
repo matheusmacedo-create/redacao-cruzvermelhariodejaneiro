@@ -11,7 +11,7 @@ import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
 import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle, permissoesDoAdmin } from '@/lib/google/diretorio'
-import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, consultarEndereco, converterEmGrupo, sondarAcesso } from '@/lib/google/grupos-regras'
+import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, colocarSeForGrupo, consultarEndereco, converterEmGrupo, sondarAcesso } from '@/lib/google/grupos-regras'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
@@ -482,7 +482,9 @@ async function executarCriacao(
       if (conversao?.feito === 'nao_converteu') {
         grupoNota = ` O endereço ${grupo} é uma caixa real, não um grupo: a pessoa não entrou nele.`
       } else {
-        grupoOk = await colocarNoGrupo(chamar, grupo, email, ehCoordenador(d.cargo) ? 'MANAGER' : 'MEMBER')
+        const papel = ehCoordenador(d.cargo) ? 'MANAGER' : 'MEMBER'
+        // Com conversão (administrador) o endereço já é grupo; sem ela (coordenador) só entra se já era: apelido não se toca.
+        grupoOk = conversao ? await colocarNoGrupo(chamar, grupo, email, papel) : (await colocarSeForGrupo(chamar, grupo, email, papel)) === 'ok'
         if (conversao?.feito === 'convertido') grupoNota = ` O endereço ${grupo} virou um grupo do Google (as mensagens continuam chegando em ${conversao.dono}).`
         else if (conversao?.feito === 'criado') grupoNota = ` O endereço ${grupo} foi criado como grupo do Google.`
         if (grupoOk && ehCoordenador(d.cargo)) grupoNota += ' A pessoa é gerente do grupo.'
