@@ -48,16 +48,25 @@ const falha = (r: Resposta, o: string): never => {
   throw new ErroDeGrupo(`${o}: ${msg(r)}`, r.status)
 }
 
-/** O que é este endereço no Google: um grupo, um apelido (de quem), uma caixa real, ou nada. */
+/**
+ * O que é este endereço no Google: um grupo, um apelido (de quem), uma caixa real, ou nada.
+ *
+ * Pergunta primeiro pelo USUÁRIO, e só depois pelo grupo: com o endereço de um apelido, o Google responde 403 ("Not
+ * Authorized to access this resource/api") a `groups.get`, e não 404 como se esperaria — foi o que travou a primeira
+ * tentativa de troca (a leitura de usuários e a de grupos funcionavam; só o `groups.get` do apelido caía). Pelo usuário
+ * o apelido aparece (`primaryEmail` diferente do endereço) e nem se chega a perguntar pelo grupo.
+ */
 export async function consultarEndereco(chamar: Chamar, email: string): Promise<EstadoDoEndereco> {
+  const u = await chamar('diretorio', `/users/${enc(email)}`)
+  if (u.ok) {
+    const principal = String(u.dados.primaryEmail ?? '').toLowerCase()
+    return principal && principal !== email.toLowerCase() ? { tipo: 'apelido', dono: principal } : { tipo: 'caixa_real' }
+  }
   const g = await chamar('diretorio', `/groups/${enc(email)}`)
   if (g.ok) return { tipo: 'grupo' }
-  if (g.status !== 404) falha(g, 'Não foi possível consultar o grupo')
-  const u = await chamar('diretorio', `/users/${enc(email)}`)
-  if (u.status === 404) return { tipo: 'livre' }
-  if (!u.ok) falha(u, 'Não foi possível consultar o endereço')
-  const principal = String(u.dados.primaryEmail ?? '').toLowerCase()
-  return principal && principal !== email.toLowerCase() ? { tipo: 'apelido', dono: principal } : { tipo: 'caixa_real' }
+  if (u.status === 404 && g.status === 404) return { tipo: 'livre' }
+  // Qualquer outra combinação é falha de verdade (token, permissão, serviço fora): mostra a que não foi "não achei".
+  return falha(u.status !== 404 ? u : g, 'Não foi possível consultar o endereço')
 }
 
 /** Pôs a pessoa no grupo com o papel; se já estava, ajusta o papel. false = o grupo não existe. */
@@ -74,6 +83,16 @@ export async function colocarNoGrupo(chamar: Chamar, grupo: string, email: strin
     return true
   }
   return falha(r, 'O Google não pôs a pessoa no grupo')
+}
+
+/**
+ * Pôs a pessoa no grupo do setor SÓ se o endereço já é grupo: apelido e caixa real devolvem 'nao_e_grupo' sem tocar em
+ * nada (a chamada direta ao grupo de um apelido dá 403, não 404). É o caminho de quem não converte (o coordenador).
+ */
+export async function colocarSeForGrupo(chamar: Chamar, endereco: string, email: string, papel: PapelNoGrupo): Promise<'ok' | 'nao_e_grupo'> {
+  const estado = await consultarEndereco(chamar, endereco)
+  if (estado.tipo !== 'grupo') return 'nao_e_grupo'
+  return (await colocarNoGrupo(chamar, endereco, email, papel)) ? 'ok' : 'nao_e_grupo'
 }
 
 /** O que um grupo de endereço de setor precisa: receber de fora, entrar só por convite. Tenta de novo (o grupo novo leva segundos para aparecer). */
@@ -121,8 +140,15 @@ export async function converterEmGrupo(chamar: Chamar, p: { endereco: string; no
       if (!t.ok) falha(t, 'O Google não tirou o apelido do endereço')
       apelidoTirado = true
     }
-    const c = await chamar('diretorio', '/groups', { method: 'POST', corpo: { email: p.endereco, name: p.nome, description: `Endereço do setor ${p.nome} (criado pelo Palácio Virtual)` } })
-    if (!c.ok) falha(c, 'O Google não criou o grupo')
+    // Logo depois de tirar o apelido, o Google ainda pode responder 409 ("já existe") por alguns segundos: espera e tenta de novo.
+    const espera = p.espera ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+    let c: Resposta | null = null
+    for (let i = 0; i < 6; i++) {
+      c = await chamar('diretorio', '/groups', { method: 'POST', corpo: { email: p.endereco, name: p.nome, description: `Endereço do setor ${p.nome} (criado pelo Palácio Virtual)` } })
+      if (c.ok || c.status !== 409) break
+      await espera(1500 * (i + 1))
+    }
+    if (!c?.ok) falha(c as Resposta, 'O Google não criou o grupo')
     grupoCriado = true
     await configurarGrupoDoSetor(chamar, p.endereco, 5, p.espera)
     // A caixa que recebia por apelido segue recebendo: entra como membro.

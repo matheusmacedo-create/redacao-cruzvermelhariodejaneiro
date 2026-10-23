@@ -13,7 +13,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  ErroDeGrupo, avisoDaConversao, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
+  ErroDeGrupo, avisoDaConversao, colocarSeForGrupo, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
 } from '../lib/google/grupos-regras'
 
 let falhas = 0
@@ -34,6 +34,8 @@ function novoGoogle() {
   const chamadas: string[] = []
   // O grupo recém-criado só aparece para as configurações na N-ésima tentativa (a propagação do Google).
   let configuracoesQueNaoAchamAinda = 0
+  // Logo depois de tirar o apelido, a criação do grupo ainda responde 409 por alguns instantes.
+  let demoraNaCriacao = 0
   const donoDe = (e: string) => [...usuarios.values()].find((u) => u.principal === e || u.apelidos.has(e))
   const ok = (dados: Record<string, unknown> = {}): Resposta => ({ ok: true, status: 200, dados })
   const erro = (status: number, message = 'erro do Google'): Resposta => ({ ok: false, status, dados: { error: { message } } })
@@ -59,11 +61,13 @@ function novoGoogle() {
     if (caminho.startsWith('/groups?')) return ok({ groups: [] })
     if ((m = caminho.match(/^\/groups\/([^/]+)$/))) {
       const e = dec(m[1])
-      if (metodo === 'GET') return grupos.has(e) ? ok({ email: e }) : erro(404)
+      // O Google de verdade responde 403 (e não 404) a groups.get de um endereço que é apelido/caixa de um usuário.
+      if (metodo === 'GET') return grupos.has(e) ? ok({ email: e }) : donoDe(e) ? erro(403, 'Not Authorized to access this resource/api') : erro(404)
       if (metodo === 'DELETE') { grupos.delete(e); return ok() }
     }
     if (caminho === '/groups' && metodo === 'POST') {
       const e = corpo.email
+      if (demoraNaCriacao > 0) { demoraNaCriacao--; return erro(409, 'Entity already exists.') }
       if (grupos.has(e) || donoDe(e)) return erro(409, 'Entity already exists.')
       grupos.set(e, { membros: new Map(), config: null })
       return ok({ email: e })
@@ -85,7 +89,7 @@ function novoGoogle() {
     }
     if ((m = caminho.match(/^\/groups\/([^/]+)\/members$/)) && metodo === 'POST') {
       const g = grupos.get(dec(m[1]))
-      if (!g) return erro(404)
+      if (!g) return donoDe(dec(m[1])) ? erro(403, 'Not Authorized to access this resource/api') : erro(404)
       if (g.membros.has(corpo.email)) return erro(409, 'Member already exists.')
       g.membros.set(corpo.email, corpo.role)
       return ok()
@@ -104,6 +108,7 @@ function novoGoogle() {
     comApelido: (dono: string, apelido: string) => { const u = usuarios.get(dono) ?? { principal: dono, apelidos: new Set<string>() }; u.apelidos.add(apelido); usuarios.set(dono, u) },
     comCaixa: (e: string) => usuarios.set(e, { principal: e, apelidos: new Set() }),
     demoraNasConfiguracoes: (n: number) => { configuracoesQueNaoAchamAinda = n },
+    demoraNaCriacaoDoGrupo: (n: number) => { demoraNaCriacao = n },
   }
 }
 const semEspera = async () => undefined
@@ -154,6 +159,49 @@ async function main() {
     const r = await converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera })
     igual(r, { feito: 'convertido', dono: CONTATO }, 'propagação: espera e conclui')
     igual((g.grupos.get(TI)?.config as { whoCanPostMessage?: string } | null)?.whoCanPostMessage, 'ANYONE_CAN_POST', 'propagação: configurado no fim')
+  }
+
+  // o 403 do Google ao consultar o grupo de um apelido (a causa do primeiro teste de verdade) não derruba a consulta
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    const sondaDireta = await g.chamar('diretorio', `/groups/${encodeURIComponent(TI)}`)
+    igual(sondaDireta.status, 403, 'o Google de mentira imita o 403 de groups.get num apelido')
+    igual(await consultarEndereco(g.chamar, TI), { tipo: 'apelido', dono: CONTATO }, 'consulta: apelido apesar do 403 em groups.get')
+    igual(g.chamadas.filter((c) => c.includes('/groups/')).length, 1, 'consulta: nem perguntou pelo grupo do apelido (só a sonda direta acima)')
+  }
+
+  // logo depois de tirar o apelido o Google ainda responde 409 por alguns instantes: espera e conclui
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.demoraNaCriacaoDoGrupo(3)
+    const r = await converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera })
+    igual(r, { feito: 'convertido', dono: CONTATO }, 'propagação do apelido: tenta de novo e conclui')
+    igual(g.grupos.has(TI), true, 'propagação do apelido: o grupo nasceu')
+  }
+  // ... e se nunca libera, desiste e devolve o apelido
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    g.demoraNaCriacaoDoGrupo(99)
+    const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera }))
+    igual(r instanceof ErroDeGrupo, true, 'propagação que não vem: lança')
+    igual(g.usuarios.get(CONTATO)?.apelidos.has(TI), true, 'propagação que não vem: o apelido VOLTA')
+    igual(g.grupos.has(TI), false, 'propagação que não vem: nenhum grupo')
+  }
+
+  // quem não converte (coordenador): só entra se o endereço já é grupo; apelido não é tocado
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, TI)
+    igual(await colocarSeForGrupo(g.chamar, TI, 'ana@x.org', 'MEMBER'), 'nao_e_grupo', 'coordenador: apelido não vira grupo nem recebe membro')
+    igual(g.chamadas.some((c) => c.startsWith('POST') || c.startsWith('DELETE')), false, 'coordenador: não mexeu em nada no apelido')
+    g.grupos.set('juridico@x.org', { membros: new Map(), config: null })
+    igual(await colocarSeForGrupo(g.chamar, 'juridico@x.org', 'ana@x.org', 'MEMBER'), 'ok', 'coordenador: grupo que já existe recebe o membro')
+    igual(g.grupos.get('juridico@x.org')?.membros.get('ana@x.org'), 'MEMBER', 'coordenador: entrou como membro')
+    g.comCaixa(CONTATO)
+    igual(await colocarSeForGrupo(g.chamar, CONTATO, 'ana@x.org', 'MEMBER'), 'nao_e_grupo', 'coordenador: caixa real não é grupo')
   }
 
   // falha ao criar o grupo: o apelido volta
