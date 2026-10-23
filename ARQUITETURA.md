@@ -2613,6 +2613,28 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   usuários ganha a linha `LINHA_DO_CADASTRO` (só no corpo: pede texto). O assistente não tem ferramenta para isso
   (o teto é 20): o prompt manda ensinar o `colaborador:` e o nome. Teste do banco:
   `supabase/tests/whatsapp-cadastro-colaborador.test.sql`.
+- **Autocadastro de colaborador pelo WhatsApp (23/10/2026)** (`lib/whatsapp/autocadastro.ts`, regras puras em
+  `lib/whatsapp/autocadastro-regras.ts` — `npx tsx scripts/conferir-autocadastro.ts`; migração
+  `20261023120000`): quem ainda NÃO tem conta manda `quero me cadastrar` (o link `wa.me/<bot>?text=…`, de
+  `linkDoBot`, vai onde quiserem — a conversa é sempre privada, o bot não lê grupo) e o bot conduz, só por
+  mensagem: nome → coordenação (lista oficial) → cargo → e-mail pessoal → nascimento → CEP (BrasilAPI/ViaCEP; a rua
+  só é perguntada se o CEP não achar) → número → complemento → contato de emergência → **foto do rosto** (a imagem
+  vai já ao Blob privado `equipe-cadastro/…`, pois a mídia da Meta não dura até a aprovação) → ciência (LGPD).
+  O estado vive em `colaborador_autocadastros` (um aberto por número; vence em 7 dias; no máximo 3 pedidos por
+  número em 24 h e 30 por hora no espaço; RLS forçada, sem policy). Dados pessoais e foto saem quando o pedido
+  acaba (`private.autocadastro_sem_dados_pessoais`; chaves = `CHAVES_PESSOAIS`, mudou lá, muda no gatilho).
+  **Aprovação (decisão do responsável, 23/10/2026 — contraria o "só no link do Palácio" do cadastro pelo
+  `colaborador:`):** quem tem `usuarios.gerenciar` e número confirmado recebe o resumo mascarado com a foto e os
+  botões Aprovar/Recusar (ou escreve `cadastros`); "Aprovar" pede um segundo toque ("Sim, criar") e o primeiro a
+  tocar trava o pedido (`aprovando`). Os ids dos botões são `cad:<a|r|s|v>:<uuid sem hífens>` (38 caracteres; o teto
+  da Meta é 40). Depois: a ficha do RH (`whatsapp_autocadastro_criar_ficha`, só service role, mais
+  `equipe_preencher_pelo_convite` — a mesma função da página pública, que cifra e valida), a conta do Google
+  (`nome.sobrenome@`, com 2, 3… se ocupado) e o aviso à pessoa. A senha provisória vai ao **e-mail pessoal**, nunca
+  ao WhatsApp (regra de 15/10). Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
+  login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
+  `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"
+  cai na apresentação de sempre.
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

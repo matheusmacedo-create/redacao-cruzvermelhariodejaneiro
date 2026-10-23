@@ -25,7 +25,8 @@ const sem = (texto: string, trecho: string, caso: string) => { if (String(texto)
 
 // a entrada
 igual(lerAutocadastro('Quero me cadastrar'), true, 'entrada: a frase do link')
-igual(lerAutocadastro('cadastro'), true, 'entrada: só cadastro')
+igual(lerAutocadastro('me cadastrar'), true, 'entrada: me cadastrar')
+igual(lerAutocadastro('cadastro'), false, 'entrada: palavra solta não abre')
 igual(lerAutocadastro('oi, tudo bem?'), false, 'entrada: conversa comum não abre cadastro')
 igual(linkDoBot('+55 21 99999-0000'), 'https://wa.me/5521999990000?text=quero%20me%20cadastrar', 'link do bot')
 
