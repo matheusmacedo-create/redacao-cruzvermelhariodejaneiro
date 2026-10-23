@@ -17,10 +17,11 @@ import { entregar } from './fila'
 import { fotoRecebida, TETO_DA_FOTO_DO_VISITANTE } from './portaria-regras'
 import type { Interativo, MensagemRecebida } from './regras'
 import type { Pessoa } from './acoes'
+import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  textoDaContaCriada, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -111,7 +112,10 @@ export async function conversarNoAutocadastro(admin: Admin, workspaceId: string,
       ])
       if ((noEspaco ?? 0) >= PEDIDOS_POR_HORA_NO_ESPACO) return [{ texto: 'Estamos recebendo muitos cadastros agora. Tente de novo em uma hora.' }]
       if ((doNumero ?? 0) >= PEDIDOS_POR_NUMERO_EM_24H) return [{ texto: 'Você já fez alguns pedidos hoje. Fale com a sua coordenação para acompanhar o cadastro.' }]
-      const dados: DadosDoAutocadastro = { setores: await nomesDosSetores(admin, workspaceId) }
+      const setores = await nomesDosSetores(admin, workspaceId)
+      // O link do time de um coordenador já traz o setor ("quero me cadastrar em Tecnologia da Informação").
+      const doLink = setorDaEntrada(m.texto, setores)
+      const dados: DadosDoAutocadastro = { setores, ...(doLink ? { coordenacao: doLink } : {}) }
       const { data, error } = await admin.from('colaborador_autocadastros').insert({ workspace_id: workspaceId, numero, dados }).select(COLUNAS).single()
       if (error || !data) return [{ texto: 'O cadastro pelo WhatsApp ainda não está ligado. Fale com a sua coordenação.' }]
       const p = perguntaDoAutocadastro(data.dados as DadosDoAutocadastro)
@@ -181,18 +185,48 @@ function saidaDa(d: DadosDoAutocadastro, antes?: string | null): Saida[] {
 
 // ------------------------------------------------------------------ quem aprova
 
-type Aprovador = { userId: string; numero: string }
+type Aprovador = { userId: string | null; numero: string }
 
-/** Quem gerencia usuários e tem o número confirmado. */
-async function aprovadores(admin: Admin, workspaceId: string): Promise<Aprovador[]> {
+/**
+ * Quem decide o cadastro: um administrador (usuarios.gerenciar, qualquer pedido) ou o coordenador do setor (pelo número,
+ * só o pedido do próprio setor e nunca o de outro coordenador). `userId` é null para o coordenador sem login no Palácio.
+ */
+export type Ator = { userId: string | null; nome: string | null; numero: string; admin: boolean; setores: string[] }
+
+/** O ator desta mensagem, ou null se o número não decide cadastro nenhum (o bot segue como sempre). Sem a tabela, só o administrador. */
+export async function atorDeAprovacao(admin: Admin, workspaceId: string, numero: string, pessoa: Pessoa | null): Promise<Ator | null> {
+  const ehAdmin = Boolean(pessoa && pode(pessoa.papel, 'usuarios.gerenciar'))
+  let setores: string[] = []
+  const { data, error } = await admin.from('setor_coordenadores').select('setores(nome)').eq('workspace_id', workspaceId).eq('numero', numero).is('revogado_em', null)
+  if (!error) {
+    setores = (data ?? []).flatMap((c) => {
+      const s = (Array.isArray(c.setores) ? c.setores[0] : c.setores) as { nome?: string } | null
+      return s?.nome ? [s.nome] : []
+    })
+  }
+  if (!ehAdmin && !setores.length) return null
+  return { userId: pessoa?.id ?? null, nome: pessoa?.nome ?? null, numero, admin: ehAdmin, setores }
+}
+
+/** Quem recebe o pedido: os administradores com o número confirmado e, quando o pedido é de uma equipe, os coordenadores do setor. */
+async function aprovadores(admin: Admin, workspaceId: string, d?: DadosDoAutocadastro): Promise<Aprovador[]> {
   const { data: membros } = await admin.from('workspace_members').select('user_id, role, profiles(active)').eq('workspace_id', workspaceId)
   const ids = (membros ?? []).filter((m) => {
     const perfil = (Array.isArray(m.profiles) ? m.profiles[0] : m.profiles) as { active?: boolean } | null
     return perfil?.active !== false && pode(m.role as string, 'usuarios.gerenciar')
   }).map((m) => m.user_id as string)
-  if (!ids.length) return []
-  const { data: contas } = await admin.from('whatsapp_contas').select('user_id, numero').in('user_id', ids)
-  return (contas ?? []).map((c) => ({ userId: c.user_id as string, numero: c.numero as string }))
+  const quem: Aprovador[] = []
+  if (ids.length) {
+    const { data: contas } = await admin.from('whatsapp_contas').select('user_id, numero').in('user_id', ids)
+    for (const c of contas ?? []) quem.push({ userId: c.user_id as string, numero: c.numero as string })
+  }
+  // O coordenador só recebe o pedido da própria equipe (o de outro coordenador é só de administrador).
+  if (d?.coordenacao && !ehCoordenador(d.cargo)) {
+    const { data, error } = await admin.from('setor_coordenadores').select('numero, setores!inner(nome)')
+      .eq('workspace_id', workspaceId).eq('setores.nome', d.coordenacao).is('revogado_em', null)
+    if (!error) for (const c of data ?? []) if (!quem.some((q) => q.numero === c.numero)) quem.push({ userId: null, numero: c.numero as string })
+  }
+  return quem
 }
 
 async function enviarParaAprovacao(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, d: DadosDoAutocadastro): Promise<Saida[]> {
@@ -206,7 +240,7 @@ async function enviarParaAprovacao(admin: Admin, workspaceId: string, config: Co
 /** A foto vai no cabeçalho dos botões, dentro da janela de 24 h; fora dela, o texto, e o aprovador pede "cadastros". Melhor esforço. */
 async function avisarAprovadores(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, id: string, d: DadosDoAutocadastro, fotoPath: string | null) {
   try {
-    const quem = await aprovadores(admin, workspaceId)
+    const quem = await aprovadores(admin, workspaceId, d)
     let imagem: string | null = null
     if (fotoPath) {
       const bytes = await lerDoBlob(fotoPath)
@@ -238,10 +272,10 @@ async function lerDoBlob(caminho: string): Promise<Uint8Array | null> {
  * O acompanhamento: todo aprovador (quem gerencia usuários, com o número confirmado) recebe o que acontece com um
  * pedido, menos quem acabou de agir (esse já leu a resposta). Só o nome e o resultado, nunca dado pessoal. Melhor esforço.
  */
-async function avisarAcompanhamento(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, texto: string, exceto?: string) {
+async function avisarAcompanhamento(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, texto: string, d: DadosDoAutocadastro, exceto?: string) {
   try {
-    for (const a of await aprovadores(admin, workspaceId)) {
-      if (a.userId === exceto) continue
+    for (const a of await aprovadores(admin, workspaceId, d)) {
+      if (a.numero === exceto) continue
       await entregar(admin, workspaceId, { numero: a.numero, userId: a.userId, tipo: 'aviso', categoria: 'equipe', texto }, { config })
     }
   } catch (causa) {
@@ -249,44 +283,53 @@ async function avisarAcompanhamento(admin: Admin, workspaceId: string, config: C
   }
 }
 
-/** "cadastros": os pedidos que esperam, cada um com os botões. */
-export async function pendentesDeAprovacao(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<Saida[]> {
-  if (!pode(pessoa.papel, 'usuarios.gerenciar')) return []
+/** "cadastros": os pedidos que esperam e que este ator pode decidir, cada um com os botões. */
+export async function pendentesDeAprovacao(admin: Admin, workspaceId: string, ator: Ator): Promise<Saida[]> {
   await soltarPedidosPresos(admin)
   const { data } = await admin.from('colaborador_autocadastros').select(COLUNAS).eq('workspace_id', workspaceId).eq('status', 'aguardando')
-    .gt('expira_em', new Date().toISOString()).order('criado_em').limit(5)
-  if (!data?.length) return [{ texto: 'Nenhum cadastro esperando aprovação. ✓' }]
-  return data.map((l) => ({ texto: resumoParaAprovador((l as Linha).dados), interativo: BOTOES_DE_APROVACAO((l as Linha).id) }))
+    .gt('expira_em', new Date().toISOString()).order('criado_em').limit(20)
+  const meus = ((data ?? []) as Linha[]).filter((l) => podeDecidir(ator, l.dados)).slice(0, 5)
+  if (!meus.length) return [{ texto: 'Nenhum cadastro esperando a sua aprovação. ✓' }]
+  return meus.map((l) => ({ texto: resumoParaAprovador(l.dados), interativo: BOTOES_DE_APROVACAO(l.id) }))
+}
+
+/** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
+export async function linkDoTime(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator): Promise<Saida[]> {
+  if (!ator.setores.length) return [{ texto: 'O link do time é de quem coordena um setor. Para o link geral, peça o "quero me cadastrar" ao bot.' }]
+  const numero = (await perfilConectado(config).catch(() => null))?.numero
+  if (!numero) return [{ texto: 'Não consegui ler o número do WhatsApp do Palácio agora. Tente de novo em instantes.' }]
+  return [{ texto: textoDoLinkDoTime(ator.setores.map((setor) => ({ setor, link: linkDoBot(numero, setor) }))) }]
 }
 
 const uuidDe = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 
-export async function decidirAutocadastro(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, pessoa: Pessoa, botao: { acao: 'aprovar' | 'recusar' | 'sim' | 'voltar'; id: string }): Promise<Saida[]> {
-  if (!pode(pessoa.papel, 'usuarios.gerenciar')) return [{ texto: 'Só quem gerencia os usuários decide os cadastros.' }]
+export async function decidirAutocadastro(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator, botao: { acao: 'aprovar' | 'recusar' | 'sim' | 'voltar'; id: string }): Promise<Saida[]> {
   try {
     const id = uuidDe(botao.id)
     if (botao.acao === 'voltar') return [{ texto: 'Certo, nada foi criado. Responda *cadastros* quando quiser decidir.' }]
     const { data } = await admin.from('colaborador_autocadastros').select(COLUNAS).eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
     const l = data as Linha | null
     if (!l || l.status !== 'aguardando') return [{ texto: 'Este cadastro já foi decidido ou venceu.' }]
+    // O coordenador decide só a equipe do próprio setor; cargo de coordenador é só de administrador.
+    if (!podeDecidir(ator, l.dados)) return [{ texto: 'Este cadastro não é do seu setor. Quem decide é um administrador.' }]
 
     if (botao.acao === 'aprovar') return [{ texto: textoDaSegundaConfirmacao(l.dados), interativo: BOTOES_DA_SEGUNDA_CONFIRMACAO(l.id) }]
 
     if (botao.acao === 'recusar') {
-      const { data: ok } = await admin.from('colaborador_autocadastros').update({ status: 'recusado', decidido_por: pessoa.id, decidido_em: new Date().toISOString() })
+      const { data: ok } = await admin.from('colaborador_autocadastros').update({ status: 'recusado', decidido_por: ator.userId, decidido_em: new Date().toISOString() })
         .eq('id', l.id).eq('status', 'aguardando').select('id').maybeSingle()
       if (!ok) return [{ texto: 'Este cadastro já foi decidido.' }]
       await apagarFoto(l.foto_path)
       await avisarPessoa(admin, workspaceId, config, l.numero, TEXTO_DE_RECUSADO)
-      await avisarAcompanhamento(admin, workspaceId, config, `${pessoa.nome ?? 'Um aprovador'} recusou o cadastro de ${l.dados.nome ?? 'um colaborador'}.`, pessoa.id)
+      await avisarAcompanhamento(admin, workspaceId, config, `${ator.nome ?? 'Um aprovador'} recusou o cadastro de ${l.dados.nome ?? 'um colaborador'}.`, l.dados, ator.numero)
       return [{ texto: 'Cadastro recusado. A pessoa foi avisada e os dados dela foram apagados.' }]
     }
 
     // "Sim, criar": o primeiro a tocar trava o pedido (dois cliques, uma conta).
-    const { data: preso } = await admin.from('colaborador_autocadastros').update({ status: 'aprovando', decidido_por: pessoa.id })
+    const { data: preso } = await admin.from('colaborador_autocadastros').update({ status: 'aprovando', decidido_por: ator.userId })
       .eq('id', l.id).eq('status', 'aguardando').select(COLUNAS).maybeSingle()
     if (!preso) return [{ texto: 'Este cadastro já está sendo decidido.' }]
-    return [{ texto: await criarTudo(admin, workspaceId, config, preso as Linha, pessoa) }]
+    return [{ texto: await criarTudo(admin, workspaceId, config, preso as Linha, ator) }]
   } catch (causa) {
     console.error('[whatsapp] autocadastro: decisão:', causa instanceof Error ? causa.message : causa)
     // O pedido que travou em "aprovando" (o "Sim, criar" já tinha gasto a vez) volta para o aprovador tentar de novo.
@@ -322,7 +365,7 @@ async function usuarioLivreNoGoogle(admin: Admin, workspaceId: string, nome: str
  * Se a ficha ou o Google falham — inclusive por exceção, como a conexão de administrador que expirou —, o pedido volta
  * a "aguardando" com o motivo (a ficha já criada é reaproveitada na próxima tentativa).
  */
-async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Pessoa): Promise<string> {
+async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Ator): Promise<string> {
   const voltar = async (motivo: string) => {
     await admin.from('colaborador_autocadastros').update({ status: 'aguardando' }).eq('id', l.id).eq('status', 'aprovando')
     return `${motivo} Nada ficou pela metade: o cadastro continua esperando. Corrija e responda *cadastros* para tentar de novo.`
@@ -331,20 +374,20 @@ async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhat
   const nomeDoPedido = l.dados.nome ?? 'um colaborador'
   try {
     const texto = await executarCriacao(admin, workspaceId, config, l, aprovador, voltar)
-    await avisarAcompanhamento(admin, workspaceId, config, `${quem} aprovou o cadastro de ${nomeDoPedido}.\n${texto}`, aprovador.id)
+    await avisarAcompanhamento(admin, workspaceId, config, `${quem} aprovou o cadastro de ${nomeDoPedido}.\n${texto}`, l.dados, aprovador.numero)
     return texto
   } catch (causa) {
     console.error('[whatsapp] autocadastro: criação:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
     // As mensagens do diretório do Google já dizem o que fazer ("Reconecte em Configurações → E-mail dos setores").
     const motivo = causa instanceof ErroDoDiretorio ? causa.message : 'Aconteceu um erro inesperado ao criar a conta.'
     const texto = await voltar(motivo)
-    await avisarAcompanhamento(admin, workspaceId, config, `${quem} tentou aprovar o cadastro de ${nomeDoPedido}, mas não deu certo.\n${texto}`, aprovador.id)
+    await avisarAcompanhamento(admin, workspaceId, config, `${quem} tentou aprovar o cadastro de ${nomeDoPedido}, mas não deu certo.\n${texto}`, l.dados, aprovador.numero)
     return texto
   }
 }
 
 async function executarCriacao(
-  admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Pessoa, voltar: (motivo: string) => Promise<string>,
+  admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Ator, voltar: (motivo: string) => Promise<string>,
 ): Promise<string> {
   const d = l.dados
   const nome = separarNome(d.nome ?? '')
@@ -354,7 +397,7 @@ async function executarCriacao(
   // 1. A ficha do RH, pelas mesmas funções da página pública.
   const token = randomBytes(32).toString('base64url')
   const hash = hashDoConvite(token)
-  const { data: membroId, error: erroFicha } = await admin.rpc('whatsapp_autocadastro_criar_ficha', { p_autocadastro_id: l.id, p_token_hash: hash, p_aprovador: aprovador.id })
+  const { data: membroId, error: erroFicha } = await admin.rpc('whatsapp_autocadastro_criar_ficha', { p_autocadastro_id: l.id, p_token_hash: hash, p_aprovador: aprovador.userId })
   if (erroFicha || !membroId) return await voltar('Não consegui criar a ficha do RH.')
   const { error: erroDados } = await admin.rpc('equipe_preencher_pelo_convite', { p_token_hash: hash, p: fichaDoAutocadastro(d, `+${l.numero}`) })
   if (erroDados) return await voltar(`A ficha foi criada, mas os dados não entraram (${erroDados.message.slice(0, 120)}).`)
@@ -387,6 +430,14 @@ async function executarCriacao(
   })
   await admin.from('equipe_membros').update({ email_trabalho: email }).eq('id', membroId as string).eq('workspace_id', workspaceId)
 
+  // Quem entrou como coordenador(a) passa a aprovar a equipe do próprio setor (só um administrador chega aqui com esse cargo).
+  if (ehCoordenador(d.cargo) && setor?.id && aprovador.admin) {
+    const { error: erroCoord } = await admin.from('setor_coordenadores').insert({
+      workspace_id: workspaceId, setor_id: setor.id, numero: l.numero, membro_id: membroId as string, criado_por: aprovador.userId,
+    })
+    if (erroCoord && erroCoord.code !== '23505') console.error('[whatsapp] autocadastro: coordenador não registrado:', erroCoord.message)
+  }
+
   // 4. A senha provisória vai ao WhatsApp da pessoa (decisão do responsável, 23/10/2026), com o passo a passo; nunca é
   // gravada. "categoria conta": o texto some da fila depois do envio. Se o WhatsApp falhar, o mesmo vai ao e-mail pessoal.
   const entrega = await entregar(admin, workspaceId, {
@@ -396,8 +447,8 @@ async function executarCriacao(
   const peloWhatsapp = entrega.situacao !== 'falhou'
   const peloEmail = peloWhatsapp ? false : await enviarComSeguranca(emailPessoal, emailDeContaDoGoogle({ nome: nomeCompleto, email, senha, setor: d.coordenacao ?? '', grupo: grupoOk ? grupo : null }))
   await admin.from('activity_log').insert({
-    workspace_id: workspaceId, actor_id: aprovador.id, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null,
-    metadata: { email, origem: 'autocadastro_whatsapp', autocadastro: l.id, grupo, grupo_ok: grupoOk, whatsapp: entrega.situacao, email_enviado: peloEmail },
+    workspace_id: workspaceId, actor_id: aprovador.userId, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null,
+    metadata: { email, origem: 'autocadastro_whatsapp', autocadastro: l.id, aprovado_por: aprovador.admin ? 'administrador' : 'coordenador', grupo, grupo_ok: grupoOk, whatsapp: entrega.situacao, email_enviado: peloEmail },
   })
   // A foto passou para a ficha (foto_cadastro_path); sair do pedido apaga os dados pessoais dele (gatilho do banco).
   await admin.from('colaborador_autocadastros').update({ status: 'aprovado', decidido_em: new Date().toISOString() }).eq('id', l.id)
