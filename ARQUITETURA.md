@@ -2633,7 +2633,12 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   a passo (`textoDaContaCriada`; decisão do responsável em 23/10/2026, que reverte a de 15/10: o e-mail pessoal só
   recebe se o WhatsApp falhar). Sai uma vez, nunca é gravada (categoria `conta`: o texto some da fila depois do envio)
   e o Google obriga a trocá-la no primeiro acesso. Pedido preso em `aprovando` por mais de 10 min volta a `aguardando`
-  (`soltarPedidosPresos`). Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  (`soltarPedidosPresos`).
+  **Acompanhamento:** todo aprovador (`usuarios.gerenciar` com número confirmado) recebe a cada pedido novo e a cada
+  desfecho (aprovado, recusado, falha com o motivo), menos quem acabou de agir; só nome e resultado, nunca dado pessoal
+  (`avisarAcompanhamento`). O cargo oferece o botão "Coordenador(a)", que vira "Coordenador(a) de <setor>". O endereço do
+  setor (`setores.email`) só recebe a pessoa se já for **grupo** do Google; hoje eles são apelidos do Gmail (a conta nasce
+  e o aviso diz que ela não entrou no grupo). Criar o grupo no lugar do apelido muda a entrega do setor: é decisão à parte. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"

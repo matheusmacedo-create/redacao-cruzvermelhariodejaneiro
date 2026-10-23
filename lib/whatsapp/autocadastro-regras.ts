@@ -149,6 +149,9 @@ export const BOTOES_DE_CIENCIA: Interativo = {
   tipo: 'botoes', botoes: [{ id: 'confirmo', titulo: 'Confirmo' }, { id: 'cancelar', titulo: 'Cancelar' }],
 }
 const BOTAO_PULAR: Interativo = { tipo: 'botoes', botoes: [{ id: 'pular', titulo: 'Pular' }, { id: 'cancelar', titulo: 'Cancelar' }] }
+/** O cargo mais comum no começo: quem coordena um setor. O toque vira "Coordenador(a) de <setor>". */
+export const ID_DO_CARGO_COORDENADOR = 'Coordenador(a)'
+const BOTOES_DO_CARGO: Interativo = { tipo: 'botoes', botoes: [{ id: ID_DO_CARGO_COORDENADOR, titulo: 'Coordenador(a)' }, { id: 'pular', titulo: 'Pular' }, { id: 'cancelar', titulo: 'Cancelar' }] }
 
 export const TEXTO_DA_CIENCIA = [
   'Última etapa. Confirme que:',
@@ -172,7 +175,7 @@ export function perguntaDoAutocadastro(d: DadosDoAutocadastro, antes?: string | 
       const lista = setores.map((s, i) => `${i + 1}. ${s}`).join('\n')
       return com(`Prazer, ${primeiro}! Em qual *coordenação* você vai atuar? Responda com o número:\n${lista}`)
     }
-    case 'cargo': return com('Qual é o seu *cargo ou função*? Ou toque em *Pular*.', BOTAO_PULAR)
+    case 'cargo': return com('Qual é o seu *cargo ou função*? Se você coordena o setor, toque em *Coordenador(a)*. Ou toque em *Pular*.', BOTOES_DO_CARGO)
     case 'email': return com('Qual é o seu *e-mail pessoal* (Gmail, Outlook…)? É nele que chegam a senha provisória e o passo a passo do seu e-mail institucional.')
     case 'nascimento': return com('Qual é a sua *data de nascimento*? Escreva assim: 25/03/1990')
     case 'cep': return com('Qual é o *CEP* da sua residência?')
@@ -210,7 +213,12 @@ export function seguirNoAutocadastro(d: DadosDoAutocadastro, texto: string): Pas
       const c = lerCoordenacao(texto, d.setores ?? [])
       return c ? ok({ coordenacao: c }, `Coordenação: ${c} ✓`) : de('Não reconheci. Responda com o *número* da coordenação da lista.')
     }
-    case 'cargo': return ok({ cargo: pulou(texto) ? '' : umaLinha(texto, 80) })
+    case 'cargo': {
+      if (pulou(texto)) return ok({ cargo: '' })
+      // Só o toque no botão (o texto exato) vira "Coordenador(a) de <setor>"; escrito à mão, vale o que a pessoa escreveu.
+      if (texto.trim() === ID_DO_CARGO_COORDENADOR) return ok({ cargo: umaLinha(`Coordenador(a) de ${d.coordenacao ?? ''}`, 80) })
+      return ok({ cargo: umaLinha(texto, 80) })
+    }
     case 'email': {
       const e = texto.trim().toLowerCase()
       const problema = problemaDoEmailPessoal(e)

@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, ID_DO_CARGO_COORDENADOR, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -116,6 +116,18 @@ igual(ficha.complemento, 'apto 3', 'ficha: complemento')
 const red = dadosRedigidos(d)
 igual(red.redigida, true, 'redigida marcada')
 igual(JSON.stringify(red).includes('Ana') || JSON.stringify(red).includes('gmail') || JSON.stringify(red).includes('midia-1'), false, 'nada pessoal depois de redigir')
+
+// o cargo de coordenador: o toque no botão vira "Coordenador(a) de <setor>", o texto escrito vale como escrito
+{
+  const base: DadosDoAutocadastro = { setores, nome: 'Ana Lima', coordenacao: 'Redação' }
+  const toque = seguirNoAutocadastro(base, ID_DO_CARGO_COORDENADOR)
+  igual(toque.tipo === 'avancar' ? toque.dados.cargo : null, 'Coordenador(a) de Redação', 'cargo: botão Coordenador(a)')
+  const livre = seguirNoAutocadastro(base, 'Enfermeira')
+  igual(livre.tipo === 'avancar' ? livre.dados.cargo : null, 'Enfermeira', 'cargo: texto livre')
+  const ped = perguntaDoAutocadastro({ ...base, emailPessoal: undefined, cargo: undefined, coordenacao: 'Redação' })
+  contem(ped?.texto ?? '', 'Coordenador(a)', 'cargo: a pergunta oferece o botão')
+  igual(ped?.interativo?.tipo === 'botoes' && ped.interativo.botoes.every((b) => b.titulo.length <= 20 && b.id.length <= 40), true, 'cargo: botões cabem na Meta')
+}
 
 // a mensagem com a senha provisória e o passo a passo (pelo WhatsApp)
 const conta = textoDaContaCriada({ nome: 'Ana Lima', email: 'ana.lima@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-9xQ', grupo: 'redacao@cruzvermelhariodejaneiro.org' })
