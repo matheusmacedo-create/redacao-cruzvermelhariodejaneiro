@@ -67,6 +67,35 @@ async function tokenDeAdmin(workspaceId: string): Promise<string> {
 
 export const esquecerTokenDeAdmin = (workspaceId: string) => cache.delete(workspaceId)
 
+const curto = (escopo: string) => escopo.replace('https://www.googleapis.com/auth/', '')
+
+/** O que o token de administrador guardado de fato recebeu do Google (a tela de consentimento deixa desmarcar permissões). null = não deu para saber. */
+export async function permissoesDoAdmin(workspaceId: string): Promise<{ email: string | null; concedidas: string[]; faltam: string[] } | null> {
+  try {
+    const token = await tokenDeAdmin(workspaceId)
+    // POST: o token não vai na URL.
+    const res = await fetch(apiDoGoogle('https://oauth2.googleapis.com/tokeninfo'), {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ access_token: token }),
+      cache: 'no-store', signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return null
+    const d = await res.json() as { scope?: string; email?: string }
+    const concedidas = String(d.scope ?? '').split(/\s+/).filter(Boolean)
+    const faltam = ESCOPOS_ADMIN.filter((e) => !['openid', 'email'].includes(e) && !concedidas.includes(e))
+    return { email: d.email ?? null, concedidas, faltam }
+  } catch {
+    return null
+  }
+}
+
+/** O que dizer quando o Google nega o acesso: se o token não tem as permissões, ou se as tem e o problema é a conta. */
+export async function dicaDeAcessoNegado(workspaceId: string): Promise<string | null> {
+  const p = await permissoesDoAdmin(workspaceId)
+  if (!p) return null
+  if (p.faltam.length) return `A autorização guardada NÃO tem: ${p.faltam.map(curto).join(', ')}. Reconecte o administrador em Configurações → E-mail dos setores e, na tela do Google, marque TODAS as permissões.`
+  return `A autorização tem todas as permissões${p.email ? ` (conta ${p.email})` : ''}. Então a conta não tem o privilégio de Grupos no Admin do Google (use um superadministrador), ou o acesso do app à API do Admin SDK está restrito (Admin Console → Segurança → Controles de API).`
+}
+
 type Resposta = { ok: boolean; status: number; dados: Record<string, unknown> }
 
 async function diretorio(workspaceId: string, caminho: string, init?: RequestInit): Promise<Resposta> {
@@ -143,7 +172,8 @@ export async function adicionarAoGrupo(workspaceId: string, grupo: string, email
 export function chamarGoogleAdmin(workspaceId: string): Chamar {
   return async (api, caminho, init) => {
     if (api === 'diretorio') {
-      return diretorio(workspaceId, caminho, { method: init?.method, ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}) })
+      const r = await diretorio(workspaceId, caminho, { method: init?.method, ...(init?.corpo !== undefined ? { body: JSON.stringify(init.corpo) } : {}) })
+      return r.status === 403 ? comDica(workspaceId, r) : r
     }
     const token = await tokenDeAdmin(workspaceId)
     // O servidor de teste (GOOGLE_API_TESTE) troca só o endereço; o caminho de /groups/v1 continua o mesmo.
@@ -157,6 +187,14 @@ export function chamarGoogleAdmin(workspaceId: string): Chamar {
     })
     const dados = await res.json().catch(() => ({})) as Record<string, unknown>
     if (res.status === 401) esquecerTokenDeAdmin(workspaceId)
-    return { ok: res.ok, status: res.status, dados }
+    const r = { ok: res.ok, status: res.status, dados }
+    return r.status === 403 ? comDica(workspaceId, r) : r
   }
+}
+
+/** O 403 do Google ("Not Authorized to access this resource/api") não diz a causa: acrescenta o que o token tem. */
+async function comDica(workspaceId: string, r: Resposta): Promise<Resposta> {
+  const dica = await dicaDeAcessoNegado(workspaceId)
+  if (!dica) return r
+  return { ...r, dados: { ...r.dados, error: { message: `${motivo(r)} — ${dica}` } } }
 }

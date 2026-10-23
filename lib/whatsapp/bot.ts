@@ -20,7 +20,7 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, linkDoTime, pendentesDeAprovacao, type Saida } from './autocadastro'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, linkDoTime, pendentesDeAprovacao, situacaoDosGrupos, type Saida } from './autocadastro'
 import { lerAutocadastro, lerBotaoDeAprovacao } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
@@ -165,8 +165,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const botaoCadastro = m.toque && !m.midia ? lerBotaoDeAprovacao(m.texto) : null
     const pedeCadastros = textoLivre === 'cadastros'
     const pedeLinkDoTime = ['link do time', 'meu time', 'link do meu time'].includes(textoLivre)
+    const pedeGrupos = textoLivre === 'grupos'
     const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
-    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
     if (doAutocadastro || ator) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
       if (!nova) return
@@ -176,6 +177,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       let saidas: Saida[] = []
       if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
       else if (ator && botaoCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, ator, botaoCadastro)
+      else if (ator && pedeGrupos) saidas = await situacaoDosGrupos(admin, workspaceId, ator)
       else if (ator && pedeLinkDoTime) saidas = await linkDoTime(admin, workspaceId, config, ator)
       else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)
       for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa?.id ?? null, interativo: s.interativo }, { config, semFila: true })

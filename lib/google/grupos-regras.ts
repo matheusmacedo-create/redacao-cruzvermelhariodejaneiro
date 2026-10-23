@@ -43,7 +43,8 @@ export class ErroDeGrupo extends Error {
 
 const falha = (r: Resposta, o: string): never => {
   if (r.status === 401) throw new ErroDeGrupo('O Google recusou a autorização de administrador. Reconecte em Configurações → E-mail dos setores.', 401)
-  if (r.status === 403) throw new ErroDeGrupo(`${o}: a conta de administrador conectada não tem a permissão necessária (${msg(r)}). Reconecte em Configurações → E-mail dos setores e aceite as permissões novas.`, 403)
+  // O texto do Google já vem com o diagnóstico da conexão (lib/google/diretorio.ts, dicaDeAcessoNegado): o que o token tem e o que falta.
+  if (r.status === 403) throw new ErroDeGrupo(`${o}: o Google negou o acesso. ${msg(r)}`, 403)
   throw new ErroDeGrupo(`${o}: ${msg(r)}`, r.status)
 }
 
