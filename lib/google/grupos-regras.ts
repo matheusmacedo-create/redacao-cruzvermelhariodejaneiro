@@ -97,7 +97,13 @@ export async function colocarSeForGrupo(chamar: Chamar, endereco: string, email:
 
 /** O que um grupo de endereço de setor precisa: receber de fora, entrar só por convite. Tenta de novo (o grupo novo leva segundos para aparecer). */
 export async function configurarGrupoDoSetor(chamar: Chamar, grupo: string, tentativas = 5, espera: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<void> {
-  const corpo = { whoCanPostMessage: 'ANYONE_CAN_POST', whoCanJoin: 'INVITED_CAN_JOIN', whoCanContactOwner: 'ANYONE_CAN_CONTACT', allowExternalMembers: 'false' }
+  // Receber de fora (ANYONE_CAN_POST), entrar só por convite — e FECHADO por dentro: um endereço de setor (Psicologia,
+  // Jurídico, Ouvidoria…) recebe mensagens sensíveis, e o padrão da organização deixaria "todos os usuários" verem e
+  // encontrarem o grupo. Só os membros veem e descobrem.
+  const corpo = {
+    whoCanPostMessage: 'ANYONE_CAN_POST', whoCanJoin: 'INVITED_CAN_JOIN', whoCanContactOwner: 'ANYONE_CAN_CONTACT', allowExternalMembers: 'false',
+    whoCanViewGroup: 'ALL_MEMBERS_CAN_VIEW', whoCanViewMembership: 'ALL_MEMBERS_CAN_VIEW', whoCanDiscoverGroup: 'ALL_MEMBERS_CAN_DISCOVER',
+  }
   let ultima: Resposta | null = null
   for (let i = 0; i < tentativas; i++) {
     // alt=json: sem isso a API de configurações responde em Atom/XML.

@@ -139,6 +139,8 @@ async function main() {
     igual(g.grupos.has(TI), true, 'troca: o grupo nasceu')
     igual((g.grupos.get(TI)?.config as { whoCanPostMessage?: string } | null)?.whoCanPostMessage, 'ANYONE_CAN_POST', 'troca: grupo libera mensagens de fora')
     igual((g.grupos.get(TI)?.config as { whoCanJoin?: string } | null)?.whoCanJoin, 'INVITED_CAN_JOIN', 'troca: só entra por convite')
+    igual((g.grupos.get(TI)?.config as { whoCanViewGroup?: string } | null)?.whoCanViewGroup, 'ALL_MEMBERS_CAN_VIEW', 'troca: só os membros veem as conversas (setor sensível)')
+    igual((g.grupos.get(TI)?.config as { whoCanDiscoverGroup?: string } | null)?.whoCanDiscoverGroup, 'ALL_MEMBERS_CAN_DISCOVER', 'troca: só os membros encontram o grupo')
     igual(g.grupos.get(TI)?.membros.get(CONTATO), 'MEMBER', 'troca: a caixa antiga continua recebendo (membro)')
     igual(g.chamadas.findIndex((c) => c.startsWith('DELETE diretorio:/users')) < g.chamadas.findIndex((c) => c.startsWith('POST diretorio:/groups')), true, 'troca: tira o apelido ANTES de criar o grupo')
   }
