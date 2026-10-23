@@ -10,7 +10,7 @@ import { hashDoConvite } from '@/lib/rh/convites'
 import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
-import { adicionarAoGrupo, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle } from '@/lib/google/diretorio'
+import { ErroDoDiretorio, adicionarAoGrupo, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle } from '@/lib/google/diretorio'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
@@ -20,7 +20,7 @@ import type { Pessoa } from './acoes'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  textoDeAprovado, type DadosDoAutocadastro,
+  textoDaContaCriada, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -53,8 +53,20 @@ async function apagarFoto(caminho: string | null | undefined) {
   try { await del(caminho) } catch (causa) { console.error('[whatsapp] autocadastro: foto não apagada:', causa instanceof Error ? causa.name : 'erro') }
 }
 
+/**
+ * Um pedido que ficou em "aprovando" por mais de 10 minutos travou no meio (queda do servidor, erro que não voltou o
+ * pedido): volta a "aguardando" para o aprovador tentar de novo. A ficha já criada é reaproveitada.
+ */
+export async function soltarPedidosPresos(admin: Admin): Promise<void> {
+  try {
+    await admin.from('colaborador_autocadastros').update({ status: 'aguardando' })
+      .eq('status', 'aprovando').lt('atualizado_em', new Date(Date.now() - 10 * 60_000).toISOString())
+  } catch { /* sem a tabela: nada a soltar */ }
+}
+
 /** Os pedidos que passaram do prazo saem: o dado pessoal e a foto vão embora (até 50 por vez). Melhor esforço. */
 export async function expirarAutocadastros(admin: Admin): Promise<void> {
+  await soltarPedidosPresos(admin)
   try {
     const { data } = await admin.from('colaborador_autocadastros').select('id, foto_path').in('status', [...ABERTOS])
       .lt('expira_em', new Date().toISOString()).limit(50)
@@ -225,6 +237,7 @@ async function lerDoBlob(caminho: string): Promise<Uint8Array | null> {
 /** "cadastros": os pedidos que esperam, cada um com os botões. */
 export async function pendentesDeAprovacao(admin: Admin, workspaceId: string, pessoa: Pessoa): Promise<Saida[]> {
   if (!pode(pessoa.papel, 'usuarios.gerenciar')) return []
+  await soltarPedidosPresos(admin)
   const { data } = await admin.from('colaborador_autocadastros').select(COLUNAS).eq('workspace_id', workspaceId).eq('status', 'aguardando')
     .gt('expira_em', new Date().toISOString()).order('criado_em').limit(5)
   if (!data?.length) return [{ texto: 'Nenhum cadastro esperando aprovação. ✓' }]
@@ -260,7 +273,9 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
     return [{ texto: await criarTudo(admin, workspaceId, config, preso as Linha, pessoa) }]
   } catch (causa) {
     console.error('[whatsapp] autocadastro: decisão:', causa instanceof Error ? causa.message : causa)
-    return [{ texto: 'Não consegui concluir agora. Responda *cadastros* e tente de novo.' }]
+    // O pedido que travou em "aprovando" (o "Sim, criar" já tinha gasto a vez) volta para o aprovador tentar de novo.
+    await admin.from('colaborador_autocadastros').update({ status: 'aguardando' }).eq('id', uuidDe(botao.id)).eq('status', 'aprovando')
+    return [{ texto: 'Não consegui concluir agora. O cadastro continua esperando: responda *cadastros* e tente de novo.' }]
   }
 }
 
@@ -287,14 +302,28 @@ async function usuarioLivreNoGoogle(admin: Admin, workspaceId: string, nome: str
 }
 
 /**
- * Depois do "Sim, criar": a ficha (banco), a conta do Google e o aviso. Devolve o texto para quem aprovou. Se a
- * ficha ou o Google falham, o pedido volta a "aguardando" (a ficha já criada é reaproveitada na próxima tentativa).
+ * Depois do "Sim, criar": a ficha (banco), a conta do Google e o aviso com a senha. Devolve o texto para quem aprovou.
+ * Se a ficha ou o Google falham — inclusive por exceção, como a conexão de administrador que expirou —, o pedido volta
+ * a "aguardando" com o motivo (a ficha já criada é reaproveitada na próxima tentativa).
  */
 async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Pessoa): Promise<string> {
   const voltar = async (motivo: string) => {
     await admin.from('colaborador_autocadastros').update({ status: 'aguardando' }).eq('id', l.id).eq('status', 'aprovando')
-    return `${motivo} Nada ficou pela metade: o cadastro continua esperando. Responda *cadastros* para tentar de novo.`
+    return `${motivo} Nada ficou pela metade: o cadastro continua esperando. Corrija e responda *cadastros* para tentar de novo.`
   }
+  try {
+    return await executarCriacao(admin, workspaceId, config, l, aprovador, voltar)
+  } catch (causa) {
+    console.error('[whatsapp] autocadastro: criação:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    // As mensagens do diretório do Google já dizem o que fazer ("Reconecte em Configurações → E-mail dos setores").
+    if (causa instanceof ErroDoDiretorio) return await voltar(causa.message)
+    return await voltar('Aconteceu um erro inesperado ao criar a conta.')
+  }
+}
+
+async function executarCriacao(
+  admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, l: Linha, aprovador: Pessoa, voltar: (motivo: string) => Promise<string>,
+): Promise<string> {
   const d = l.dados
   const nome = separarNome(d.nome ?? '')
   const emailPessoal = (d.emailPessoal ?? '').toLowerCase()
@@ -308,7 +337,7 @@ async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhat
   const { error: erroDados } = await admin.rpc('equipe_preencher_pelo_convite', { p_token_hash: hash, p: fichaDoAutocadastro(d, `+${l.numero}`) })
   if (erroDados) return await voltar(`A ficha foi criada, mas os dados não entraram (${erroDados.message.slice(0, 120)}).`)
 
-  // 2. O e-mail institucional.
+  // 2. O e-mail institucional (a primeira ida ao Google: sem a conexão de administrador em dia, a exceção sai daqui).
   const usuario = await usuarioLivreNoGoogle(admin, workspaceId, d.nome ?? '')
   if (!usuario) return await voltar('Não achei um endereço livre para esse nome.')
   const email = `${usuario}@${DOMINIO_DAS_CONTAS}`
@@ -335,19 +364,27 @@ async function criarTudo(admin: Admin, workspaceId: string, config: ConfigDoWhat
     google_id: googleId || null, ip_hash: hashDoIp(`autocadastro:${l.id}`),
   })
   await admin.from('equipe_membros').update({ email_trabalho: email }).eq('id', membroId as string).eq('workspace_id', workspaceId)
-  const enviado = await enviarComSeguranca(emailPessoal, emailDeContaDoGoogle({ nome: nomeCompleto, email, senha, setor: d.coordenacao ?? '', grupo: grupoOk ? grupo : null }))
+
+  // 4. A senha provisória vai ao WhatsApp da pessoa (decisão do responsável, 23/10/2026), com o passo a passo; nunca é
+  // gravada. "categoria conta": o texto some da fila depois do envio. Se o WhatsApp falhar, o mesmo vai ao e-mail pessoal.
+  const entrega = await entregar(admin, workspaceId, {
+    numero: l.numero, userId: null, tipo: 'aviso', categoria: 'conta',
+    texto: textoDaContaCriada({ nome: nomeCompleto, email, senha, grupo: grupoOk ? grupo : null }),
+  }, { config })
+  const peloWhatsapp = entrega.situacao !== 'falhou'
+  const peloEmail = peloWhatsapp ? false : await enviarComSeguranca(emailPessoal, emailDeContaDoGoogle({ nome: nomeCompleto, email, senha, setor: d.coordenacao ?? '', grupo: grupoOk ? grupo : null }))
   await admin.from('activity_log').insert({
     workspace_id: workspaceId, actor_id: aprovador.id, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null,
-    metadata: { email, origem: 'autocadastro_whatsapp', autocadastro: l.id, grupo, grupo_ok: grupoOk, email_enviado: enviado },
+    metadata: { email, origem: 'autocadastro_whatsapp', autocadastro: l.id, grupo, grupo_ok: grupoOk, whatsapp: entrega.situacao, email_enviado: peloEmail },
   })
   // A foto passou para a ficha (foto_cadastro_path); sair do pedido apaga os dados pessoais dele (gatilho do banco).
   await admin.from('colaborador_autocadastros').update({ status: 'aprovado', decidido_em: new Date().toISOString() }).eq('id', l.id)
 
-  await avisarPessoa(admin, workspaceId, config, l.numero, enviado
-    ? textoDeAprovado(email, mascarar(emailPessoal))
-    : `Seu cadastro foi aprovado! 🎉 Seu e-mail institucional é *${email}*. Não consegui enviar a senha provisória: a coordenação vai falar com você.`)
-  return enviado
-    ? `Pronto ✓ ${nomeCompleto} foi cadastrado(a). E-mail: ${email}. A senha provisória foi para ${mascarar(emailPessoal)}.${grupo && !grupoOk ? ' O grupo do setor ainda não é um grupo do Google: ela não entrou nele.' : ''}`
-    : `A conta ${email} foi criada, mas o e-mail com a senha NÃO saiu. Peça uma senha nova pelo Admin do Google e avise a pessoa.`
+  const grupoAviso = grupo && !grupoOk ? ' O endereço do setor ainda não é um grupo do Google: a pessoa não entrou nele.' : ''
+  if (peloWhatsapp) {
+    return `Pronto ✓ ${nomeCompleto} foi cadastrado(a). E-mail: ${email}. ${entrega.situacao === 'na_fila' ? 'A senha provisória e o passo a passo estão na fila e saem em instantes' : TEXTO_DA_SENHA_NO_WHATSAPP}${grupoAviso}`
+  }
+  return peloEmail
+    ? `A conta ${email} foi criada. O WhatsApp da pessoa não recebeu, então a senha provisória foi para ${mascarar(emailPessoal)}.${grupoAviso}`
+    : `A conta ${email} foi criada, mas a senha NÃO chegou à pessoa (WhatsApp e e-mail falharam). Peça uma senha nova pelo Admin do Google e avise a pessoa.`
 }
-
