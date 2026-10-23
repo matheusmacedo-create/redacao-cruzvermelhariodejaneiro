@@ -2642,7 +2642,7 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   **Coordenador de setor (23/10/2026, migração `20261023140000`, tabela `setor_coordenadores`):** quem coordena um setor
   é guardado **pelo número do WhatsApp** (pode ainda não ter login no Palácio). Entra por conta própria: no
   autocadastro escolhe o cargo "Coordenador(a)" (`ehCoordenador`), um **administrador** aprova (o resumo avisa que a
-  pessoa vira gerente do grupo e passa a aprovar a equipe) e `executarCriacao` o registra. Daí em diante ele recebe e
+  pessoa passa a aprovar a equipe e recebe a senha da caixa própria do setor) e `executarCriacao` o registra. Daí em diante ele recebe e
   aprova — com os mesmos dois toques — **só o cadastro da equipe do próprio setor** (`podeDecidir`: nunca outro setor,
   nunca outro coordenador; o cargo de coordenador é só de administrador). `atorDeAprovacao` junta as duas fontes
   (administrador pela conta, coordenador pelo número); a ficha, a conta e a auditoria seguem o mesmo caminho, com
@@ -2721,8 +2721,25 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   caixa de setor. `criarCaixaParaOSetor` nunca lança: a falha vira uma nota no resultado e **não desfaz** a conta
   pessoal. Cada caixa fica em `google_contas` e em `activity_log` (`google_conta_criada`, `origem`
   `whatsapp_caixa_do_setor` ou `autocadastro_whatsapp` com `caixa_do_setor`). A senha não é gravada em lugar nenhum.
-  Ordem para quem tem setor com apelido hoje: `apelidos` → "Sim, apagar" → cadastrar a coordenação (ou
-  `caixa do setor: <nome>`); entre o apagar e a caixa nascer, e-mail enviado ao setor volta com erro.
+  **Ordem para quem tem setor com apelido hoje** (revisão de 23/10/2026): (1) aprovar a coordenação ANTES — a conta
+  pessoal nasce e o número entra em `setor_coordenadores`; a caixa do setor ainda não sai, porque o endereço segue
+  apelido, e o aviso da confirmação diz isso; (2) `apelidos` → "Sim, apagar"; (3) `caixa do setor: <nome>` de cada setor,
+  em seguida, sem pausa. Entre (2) e (3) e-mail enviado ao setor volta com erro (550, sem nova tentativa do remetente),
+  por isso a janela tem de ser de minutos, não de dias — cadastrar a coordenação *depois* de apagar a deixaria de dias.
+  Pontos que a revisão fechou: a pergunta do "Sim, apagar" vai em mensagem própria (a prévia com 7+ setores passa de 1024
+  caracteres e perderia os botões); o comando **exige os dois-pontos e o nome inteiro do setor** (cria conta de verdade;
+  pergunta solta ou pedaço de nome não pode virar criação); `criarCaixaDoSetor` repete o POST até 3 vezes em 409
+  (o Google ainda mostra o apelido por alguns segundos depois de apagado); 404 ao apagar apelido é `nao_era_apelido`, não
+  "removido"; apagar um apelido já marca `caixas_de_email.no_gmail = false` desse endereço (o que a sincronização do
+  /correio faria depois), para o Palácio não oferecer mais um remetente que já não vale; na mensagem de boas-vindas o
+  aviso de apagar a mensagem vem logo depois das senhas (fora das 24 h o modelo da Meta corta em 1000 caracteres);
+  `na_fila` no comando não é dito como "enviada"; e se WhatsApp e e-mail falham, o resultado diz que a senha da caixa do
+  setor também não chegou (sem a senha: o texto vai a todos os administradores).
+  **Fica para depois (conhecido):** nada revoga `setor_coordenadores` (não há comando; `revogado_em` existe, sem UI) nem
+  olha `equipe_membros.situacao`: quem sai da equipe segue aprovando e recebendo a senha de uma caixa nova; a tela de
+  criar conta por link e a ajuda (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao grupo do setor"; o botão
+  "Sim, apagar" vale por tempo, não por lista (relê o que é apelido na hora e apaga isso, que pode incluir um apelido
+  surgido depois da prévia).
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

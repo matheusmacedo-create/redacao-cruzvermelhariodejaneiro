@@ -331,7 +331,7 @@ export function resumoParaAprovador(d: DadosDoAutocadastro): string {
 }
 
 /** O que muda com o cargo de coordenador: só um administrador aprova, e a pessoa ganha poder sobre o setor. */
-export const AVISO_DE_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa vira *gerente do grupo do setor* e passa a aprovar o cadastro da própria equipe.'
+export const AVISO_DE_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa passa a aprovar o cadastro da própria equipe e, se o endereço do setor estiver livre, recebe a senha da *caixa própria* (privada) do setor.'
 
 export const BOTOES_DE_APROVACAO = (id: string): Interativo => ({
   tipo: 'botoes', imagem: null,
@@ -376,6 +376,9 @@ export function textoDaContaCriada(p: { nome: string; email: string; senha: stri
     `Seu cadastro foi aprovado${primeiro ? `, ${primeiro}` : ''}! 🎉`,
     `*Seu e-mail institucional:*\n${p.email}\n\n*Senha provisória:*\n${p.senha}`,
     ...(p.caixaDoSetor ? [`*E, como coordenador(a), a caixa do setor ${p.caixaDoSetor.nome} (conta própria, caixa privada):*\n${p.caixaDoSetor.email}\n\n*Senha provisória da caixa do setor:*\n${p.caixaDoSetor.senha}`] : []),
+    // Logo depois das senhas, não no fim: fora da janela de 24 h o texto vai por modelo da Meta, que corta em 1000 caracteres,
+    // e o que se perde primeiro tem de ser o passo a passo, nunca o aviso de apagar a mensagem.
+    '_Depois de trocar as senhas, apague esta mensagem. A Cruz Vermelha nunca pede a sua senha por mensagem nem por ligação._',
     [
       '*Como entrar (leva 2 minutos):*',
       '1. No celular, abra o app *Gmail* → toque na sua foto → *Adicionar outra conta* → *Google*. No computador, entre em mail.google.com.',
@@ -385,7 +388,6 @@ export function textoDaContaCriada(p: { nome: string; email: string; senha: stri
       ...(p.caixaDoSetor ? [`5. Repita os passos 1 a 4 com *${p.caixaDoSetor.email}* e a senha provisória da caixa do setor. Cada caixa é uma conta separada, com a sua própria senha.`] : []),
       `${p.caixaDoSetor ? '6' : '5'}. Pronto: o e-mail institucional já funciona.`,
     ].join('\n'),
-    '_Depois de trocar as senhas, apague esta mensagem. A Cruz Vermelha nunca pede a sua senha por mensagem nem por ligação._',
   ].join('\n\n')
 }
 
@@ -415,10 +417,12 @@ export function textoDaPreviaDosApelidos(apelidos: { nome: string; endereco: str
   return [
     `Vou *apagar ${apelidos.length} apelido${apelidos.length === 1 ? '' : 's'}* de setor no Google:`,
     apelidos.map((a) => `• ${a.nome}: ${a.endereco} (apelido de ${a.dono})`).join('\n'),
-    '*O que muda:* e-mails enviados a esses endereços passam a *voltar com erro* até a caixa própria de cada setor ser criada (ela nasce junto com o cadastro do(a) coordenador(a)). O que já está no histórico do contato@ *não é apagado*. O Atendimento (contato@) não é tocado. Não dá para desfazer pelo Palácio.',
-    'Confirma?',
+    '*O que muda:* e-mails enviados a esses endereços passam a *voltar com erro* até a caixa própria de cada setor ser criada (logo depois de apagar, mande *caixa do setor: <nome>* para cada setor; se a coordenação ainda não foi aprovada, aprove antes). As caixas desses setores também deixam de aparecer no /correio e no /email do Palácio. O que já está no histórico do contato@ *não é apagado*. O Atendimento (contato@) não é tocado. Não dá para desfazer pelo Palácio.',
   ].join('\n\n')
 }
+
+/** A pergunta do botão vai em mensagem própria: a prévia, com muitos setores, passa de 1024 caracteres e perderia os botões. */
+export const PERGUNTA_DOS_APELIDOS = 'Apagar esses apelidos?'
 
 export function textoDoResultadoDosApelidos(r: { nome: string; endereco: string; resultado: 'removido' | 'nao_era_apelido' | 'falhou'; motivo?: string }[]): string {
   const ok = r.filter((x) => x.resultado === 'removido')
@@ -428,22 +432,24 @@ export function textoDoResultadoDosApelidos(r: { nome: string; endereco: string;
     ok.length ? `✅ Apelidos apagados (${ok.length}):\n${ok.map((x) => `• ${x.nome}: ${x.endereco}`).join('\n')}` : 'Nenhum apelido foi apagado.',
     falhou.length ? `❌ Não consegui apagar (${falhou.length}):\n${falhou.map((x) => `• ${x.nome}: ${x.endereco} — ${x.motivo ?? 'erro'}`).join('\n')}` : '',
     jaNao.length ? `Já não eram apelido (${jaNao.length}): ${jaNao.map((x) => x.nome).join(', ')}.` : '',
-    ok.length ? 'Próximo passo: cadastre o(a) coordenador(a) de cada setor; a caixa própria do setor nasce junto.' : '',
+    ok.length ? 'Próximo passo, agora e um setor por vez (até a caixa existir, e-mail enviado ao setor volta com erro): mande *caixa do setor: <nome>*. Se a coordenação já está cadastrada, a senha vai para ela; se não, volta para você. Não peça novo cadastro a quem já se cadastrou.' : '',
   ].filter(Boolean).join('\n\n')
 }
 
 // ------------------------------------------------------------------ "caixa do setor: <nome>"
 
-/** "caixa do setor: Comunicação Social" → "comunicacao social" (normalizado), ou null se não é o comando. */
+/**
+ * "caixa do setor: Comunicação Social" → "comunicacao social" (normalizado), ou null se não é o comando. Exige os dois-pontos:
+ * o comando cria uma conta de verdade, e uma pergunta solta ("caixa do setor de comunicação está recebendo?") não pode virar isso.
+ */
 export function lerCaixaDoSetor(texto: string): string | null {
-  const m = normalizar(texto).match(/^caixa do setor (.+)$/)
-  return m ? m[1].trim() : null
+  const m = texto.trim().match(/^caixa\s+do\s+setor\s*:\s*(.+)$/i)
+  if (!m) return null
+  const nome = normalizar(m[1])
+  return nome || null
 }
 
-/** O setor da lista cujo nome normalizado é o pedido (igual, ou o único que começa por ele). */
+/** O setor da lista cujo nome normalizado é o pedido. Só o nome inteiro: pela metade não se cria conta. */
 export function setorDoPedido(pedido: string, setores: string[]): string | null {
-  const exato = setores.find((x) => normalizar(x) === pedido)
-  if (exato) return exato
-  const comecando = setores.filter((x) => normalizar(x).startsWith(pedido))
-  return comecando.length === 1 ? comecando[0] : null
+  return setores.find((x) => normalizar(x) === pedido) ?? null
 }

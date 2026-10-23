@@ -10,11 +10,12 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, PERGUNTA_DOS_APELIDOS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
 import { CAMPOS_DA_FICHA } from '../lib/rh/ficha'
+import { objetoInterativo, textoParaModelo } from '../lib/whatsapp/regras'
 
 let falhas = 0
 function igual<T>(obtido: T, esperado: T, caso: string) {
@@ -167,8 +168,10 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   igual(podeDecidir({ admin: false, setores: [] }, equipe), false, 'sem setor nenhum não aprova nada')
   igual(podeDecidir({ admin: true, setores: [] }, novoCoord), true, 'administrador aprova qualquer pedido')
   igual(podeDecidir({ admin: false, setores: ['Redação'] }, { cargo: 'Enfermeira' }), false, 'pedido sem setor não é de coordenador')
-  contem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo avisa que coordenador vira gerente')
-  sem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Enfermeira', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo comum não fala em gerente')
+  contem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'caixa própria', 'resumo avisa que coordenador recebe a caixa própria do setor')
+  sem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Enfermeira', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'caixa própria', 'resumo comum não fala em caixa do setor')
+  sem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'grupo', 'resumo do coordenador não fala mais em grupo')
+  sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação' }), 'grupo', 'segunda confirmação do coordenador não fala mais em grupo')
 }
 
 // o botão de apagar apelidos tem validade
@@ -194,6 +197,17 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(res, 'Não consegui apagar (1)', 'apelidos: resultado conta os que falharam')
   contem(res, 'erro 500', 'apelidos: resultado mostra o motivo')
   contem(res, 'Próximo passo', 'apelidos: resultado indica o próximo passo')
+  contem(res, 'caixa do setor: <nome>', 'apelidos: o próximo passo é o comando que fecha a janela em minutos')
+  contem(res, 'Não peça novo cadastro', 'apelidos: não manda recadastrar quem já se cadastrou')
+  contem(previa, '/correio', 'apelidos: a prévia avisa que o Correio do Palácio deixa de ver o setor')
+  contem(previa, 'caixa do setor: <nome>', 'apelidos: a prévia já diz o comando que vem depois')
+  // com os 12 setores semeados a prévia passa de 1024 caracteres: a pergunta tem de ir em mensagem própria, com os botões
+  const doze = Array.from({ length: 12 }, (_, i) => ({ nome: `Setor número ${i + 1} de teste`, endereco: `setor${i + 1}.cruzvermelha@cruzvermelhariodejaneiro.org`, dono: 'contato@cruzvermelhariodejaneiro.org' }))
+  const previaDoze = textoDaPreviaDosApelidos(doze)
+  igual(previaDoze.length > 1024, true, 'apelidos: (premissa) a prévia de 12 setores passa do limite de 1024 dos botões')
+  igual(previaDoze.length < 4000, true, 'apelidos: a prévia de 12 setores cabe numa mensagem de texto')
+  sem(previaDoze, 'Confirma?', 'apelidos: a pergunta não fica na prévia (sem botão, não haveria como responder)')
+  igual(objetoInterativo(PERGUNTA_DOS_APELIDOS, BOTOES_DE_APELIDOS()) !== null, true, 'apelidos: a pergunta curta mantém os botões')
 }
 
 // a caixa própria do setor na mensagem de boas-vindas e o comando
@@ -206,13 +220,28 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(com, 'Cada caixa é uma conta separada', 'boas-vindas: explica que são duas contas')
   contem(com, '6. Pronto', 'boas-vindas: a numeração acompanha a caixa do setor')
   igual(com.length < 4000, true, 'boas-vindas: duas caixas ainda cabem numa mensagem do WhatsApp')
+  // fora da janela de 24 h o texto vai por modelo da Meta, que corta em 1000: perde-se o fim do passo a passo, nunca o aviso nem as senhas
+  // com nomes e endereços do tamanho dos reais (o setor de nome mais longo, uma pessoa de nome composto), para o corte acontecer de verdade
+  const longa = textoDaContaCriada({
+    nome: 'Maria Fernanda Albuquerque de Souza', email: 'maria.albuquerque@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-9xQkLm2',
+    caixaDoSetor: { nome: 'Psicologia / Serviço Social', email: 'psicologia@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-7abCdEf1' },
+  })
+  igual(textoParaModelo(longa).length, 1000, 'boas-vindas: (premissa) o texto com duas caixas passa do corte de 1000 do modelo')
+  const pelaModelo = textoParaModelo(longa)
+  contem(pelaModelo, 'Tmp#Senha-9xQkLm2', 'boas-vindas: a senha pessoal sobrevive ao corte do modelo')
+  contem(pelaModelo, 'Tmp#Senha-7abCdEf1', 'boas-vindas: a senha da caixa do setor sobrevive ao corte do modelo')
+  contem(pelaModelo, 'nem por ligação', 'boas-vindas: o aviso de apagar a mensagem sobrevive inteiro ao corte do modelo')
   igual(lerCaixaDoSetor('Caixa do setor: Comunicação Social'), 'comunicacao social', 'comando: lê o setor')
-  igual(lerCaixaDoSetor('caixa do setor educacao e saude'), 'educacao e saude', 'comando: sem dois-pontos')
+  igual(lerCaixaDoSetor('caixa do setor educacao e saude'), null, 'comando: sem dois-pontos não cria conta')
+  igual(lerCaixaDoSetor('caixa do setor de comunicação está recebendo e-mail?'), null, 'comando: pergunta solta não vira criação de conta')
+  igual(lerCaixaDoSetor('caixa do setor:'), null, 'comando: sem nome não é comando')
+  igual(lerCaixaDoSetor('  CAIXA  DO  SETOR :  Educação e Saúde  '), 'educacao e saude', 'comando: espaços e caixa alta não atrapalham')
   igual(lerCaixaDoSetor('caixa'), null, 'comando: só a palavra não é comando')
   igual(lerCaixaDoSetor('quero a caixa do setor'), null, 'comando: frase solta não é comando')
   const lista = ['Comunicação Social', 'Educação e Saúde', 'Esportes', 'Psicologia / Serviço Social']
   igual(setorDoPedido('comunicacao social', lista), 'Comunicação Social', 'comando: setor exato')
-  igual(setorDoPedido('psicologia', lista), 'Psicologia / Serviço Social', 'comando: começo único do nome')
+  igual(setorDoPedido('psicologia', lista), null, 'comando: pedaço do nome não escolhe setor (cria conta de verdade)')
+  igual(setorDoPedido(lerCaixaDoSetor('caixa do setor: Psicologia / Serviço Social') ?? '', lista), 'Psicologia / Serviço Social', 'comando: o nome inteiro, com a barra, acha o setor')
   igual(setorDoPedido('e', lista), null, 'comando: começo ambíguo não escolhe')
   igual(setorDoPedido('marte', lista), null, 'comando: setor que não existe')
 }

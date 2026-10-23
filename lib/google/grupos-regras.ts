@@ -278,7 +278,9 @@ export async function removerApelidos(chamar: Chamar, itens: ItemDeEndereco[]): 
       const e = await consultarEndereco(chamar, it.endereco)
       if (e.tipo !== 'apelido') { saida.push({ ...it, resultado: 'nao_era_apelido' }); continue }
       const r = await chamar('diretorio', `/users/${enc(e.dono)}/aliases/${enc(it.endereco)}`, { method: 'DELETE' })
-      if (r.ok || r.status === 404) saida.push({ ...it, resultado: 'removido', dono: e.dono })
+      if (r.ok) saida.push({ ...it, resultado: 'removido', dono: e.dono })
+      // 404: o apelido já não existe (outro toque, outro administrador) — não fomos nós que o apagamos, e dizer que sim engana.
+      else if (r.status === 404) saida.push({ ...it, resultado: 'nao_era_apelido' })
       else saida.push({ ...it, resultado: 'falhou', dono: e.dono, motivo: msg(r).slice(0, 160) })
     } catch (causa) {
       saida.push({ ...it, resultado: 'falhou', motivo: (causa instanceof Error ? causa.message : 'erro').slice(0, 160) })
@@ -298,7 +300,7 @@ export type CaixaDoSetor =
  * tocados (apelido e conta não convivem com o mesmo endereço: apague os apelidos antes). Quem chama passa a senha e as
  * formas de recuperação (o e-mail e o celular de quem vai cuidar da caixa).
  */
-export async function criarCaixaDoSetor(chamar: Chamar, p: { endereco: string; nome: string; senha: string; recuperacaoEmail?: string; recuperacaoCelular?: string }): Promise<CaixaDoSetor> {
+export async function criarCaixaDoSetor(chamar: Chamar, p: { endereco: string; nome: string; senha: string; recuperacaoEmail?: string; recuperacaoCelular?: string; espera?: (ms: number) => Promise<void> }): Promise<CaixaDoSetor> {
   const estado = await consultarEndereco(chamar, p.endereco)
   if (estado.tipo === 'apelido') return { feito: 'nao_criada', motivo: 'apelido', dono: estado.dono }
   if (estado.tipo === 'caixa_real') return { feito: 'nao_criada', motivo: 'caixa_real' }
@@ -314,9 +316,16 @@ export async function criarCaixaDoSetor(chamar: Chamar, p: { endereco: string; n
   }
   if (p.recuperacaoEmail) corpo.recoveryEmail = p.recuperacaoEmail
   if (p.recuperacaoCelular) corpo.recoveryPhone = p.recuperacaoCelular
-  const r = await chamar('diretorio', '/users', { method: 'POST', corpo })
+  const espera = p.espera ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)))
+  let r = await chamar('diretorio', '/users', { method: 'POST', corpo })
+  // Logo depois de apagar o apelido, o Google ainda pode dizer 409 ("já existe") por alguns segundos, mesmo com a consulta
+  // acima dizendo "livre": espera e tenta de novo, como a troca por grupo já fazia. Um 409 que não passa é o endereço ocupado de verdade.
+  for (let i = 0; i < 3 && r.status === 409; i++) {
+    await espera(1500 * (i + 1))
+    r = await chamar('diretorio', '/users', { method: 'POST', corpo })
+  }
   if (r.ok) return { feito: 'criada' }
-  if (r.status === 409) throw new ErroDeGrupo(`O Google diz que ${p.endereco} já existe (conta, apelido ou grupo). Confira com o comando *grupos*.`, 409)
+  if (r.status === 409) throw new ErroDeGrupo(`O Google ainda diz que ${p.endereco} existe (liberar um apelido pode levar um minuto). Tente de novo com *caixa do setor: ${p.nome}*; se continuar, mande *grupos* para ver o que o Google mostra.`, 409)
   if (r.status === 412 || /limit|licens/i.test(msg(r))) throw new ErroDeGrupo('O Google não deixou criar mais contas: a filial chegou ao limite de usuários do Workspace.', r.status)
   return falha(r, 'O Google não criou a caixa do setor')
 }

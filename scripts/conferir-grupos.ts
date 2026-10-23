@@ -466,6 +466,31 @@ async function main() {
     igual(lim instanceof ErroDeGrupo, true, 'caixa do setor: limite de usuários vira erro claro')
     contem((lim as ErroDeGrupo).message, 'limite de usuários', 'caixa do setor: mensagem do limite')
   }
+  // logo depois de apagar o apelido o Google ainda diz 409 por alguns segundos: espera e tenta de novo; se não passa, erro claro
+  {
+    const esperas: number[] = []
+    const passageiro = novoGoogle()
+    passageiro.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 409, mensagem: 'Entity already exists.', vezes: 2 })
+    const r = await criarCaixaDoSetor(passageiro.chamar, { endereco: 'novo@x.org', nome: 'Novo', senha: 'x', espera: async (ms) => { esperas.push(ms) } })
+    igual(r, { feito: 'criada' }, 'caixa do setor: 409 passageiro (propagação do apelido) é repetido até passar')
+    igual(esperas, [1500, 3000], 'caixa do setor: espera cada vez mais entre as tentativas')
+    igual(passageiro.usuarios.has('novo@x.org'), true, 'caixa do setor: a conta existe depois da nova tentativa')
+    const duradouro = novoGoogle()
+    duradouro.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 409, mensagem: 'Entity already exists.', vezes: 99 })
+    const tentativas: number[] = []
+    const erroDuradouro = await tenta(() => criarCaixaDoSetor(duradouro.chamar, { endereco: 'novo@x.org', nome: 'Novo', senha: 'x', espera: async (ms) => { tentativas.push(ms) } }))
+    igual(erroDuradouro instanceof ErroDeGrupo, true, 'caixa do setor: 409 que não passa vira erro')
+    igual(tentativas.length, 3, 'caixa do setor: desiste depois de três esperas')
+    contem((erroDuradouro as ErroDeGrupo).message, 'caixa do setor: Novo', 'caixa do setor: a mensagem diz o comando para tentar de novo')
+  }
+  // 404 ao apagar: o apelido já não existia (outro toque, outro administrador) — não é "removido" por nós
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, 'a@x.org')
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'DELETE' && c.endsWith(encodeURIComponent('a@x.org')), status: 404, mensagem: 'Resource Not Found: alias' })
+    const r = await removerApelidos(g.chamar, [{ nome: 'A', endereco: 'a@x.org' }])
+    igual(r.map((x) => x.resultado), ['nao_era_apelido'], 'apelidos: 404 ao apagar não conta como removido')
+  }
   // o aviso da confirmação
   contem(avisoDaCaixaDoSetor({ tipo: 'livre' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'caixa do setor TI', 'aviso da caixa: endereço livre será criado')
   contem(avisoDaCaixaDoSetor({ tipo: 'apelido', dono: 'contato@x.org' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'não* será criada', 'aviso da caixa: apelido bloqueia a criação')

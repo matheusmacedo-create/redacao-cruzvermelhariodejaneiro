@@ -22,7 +22,7 @@ import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  BOTOES_DE_APELIDOS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_APELIDOS, PERGUNTA_DOS_APELIDOS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -341,7 +341,7 @@ export async function previaDosApelidos(admin: Admin, workspaceId: string, ator:
   if (!ator.admin) return [{ texto: 'Apagar apelidos dos setores é só de administrador.' }]
   try {
     const { apelidos } = await apelidosEntre(chamarGoogleAdmin(workspaceId), await enderecosDosSetores(admin, workspaceId))
-    return [{ texto: textoDaPreviaDosApelidos(apelidos), interativo: apelidos.length ? BOTOES_DE_APELIDOS() : null }]
+    return [{ texto: textoDaPreviaDosApelidos(apelidos) }, ...(apelidos.length ? [{ texto: PERGUNTA_DOS_APELIDOS, interativo: BOTOES_DE_APELIDOS() }] : [])]
   } catch (causa) {
     console.error('[whatsapp] apelidos: prévia:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
     return [{ texto: `Não consegui consultar o Google agora: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}` }]
@@ -365,6 +365,13 @@ export async function apagarApelidosDosSetores(admin: Admin, workspaceId: string
       workspace_id: workspaceId, actor_id: ator.userId, action: 'google_apelidos_removidos', entity_type: 'google_conta', entity_id: null,
       metadata: { origem: 'whatsapp', resultados: resultados.map((r) => ({ endereco: r.endereco, resultado: r.resultado, dono: r.dono ?? null, motivo: r.motivo ?? null })) },
     })
+    // O Palácio lê e envia pelo "enviar como" do contato@: sem o apelido, a caixa do setor deixa de existir lá. Alinha agora, em
+    // vez de esperar a sincronização (1 h ao abrir o /correio, ou o cron diário), para não oferecer um remetente que já não vale.
+    const removidos = resultados.filter((r) => r.resultado === 'removido').map((r) => r.endereco)
+    if (removidos.length) {
+      const { error: erroCaixas } = await admin.from('caixas_de_email').update({ no_gmail: false, sincronizada_em: new Date().toISOString() }).eq('workspace_id', workspaceId).in('email', removidos)
+      if (erroCaixas) console.error('[whatsapp] apelidos: caixas do Palácio não atualizadas:', erroCaixas.message)
+    }
     return [{ texto: textoDoResultadoDosApelidos(resultados) }]
   } catch (causa) {
     console.error('[whatsapp] apelidos: apagar:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
@@ -425,14 +432,19 @@ export async function criarCaixaDoSetorPeloComando(admin: Admin, workspaceId: st
     'No Gmail: foto → *Adicionar outra conta* → esse endereço e essa senha. O Google pede uma senha nova na hora. Depois de trocar, apague esta mensagem.',
   ].join('\n\n')
   if (!numeros.length) return [{ texto: `${texto}\n\nO setor ainda não tem coordenador(a) registrado: repasse a senha a quem vai cuidar da caixa.` }]
-  let entregues = 0
+  let enviadas = 0
+  let naFila = 0
   for (const numero of numeros) {
     const e = await entregar(admin, workspaceId, { numero, userId: null, tipo: 'aviso', categoria: 'conta', texto }, { config })
-    if (e.situacao !== 'falhou') entregues++
+    if (e.situacao === 'enviada') enviadas++
+    else if (e.situacao === 'na_fila') naFila++
   }
-  return entregues === numeros.length
-    ? [{ texto: `Pronto ✓ A caixa do setor ${setor.nome} (${endereco}) foi criada e a senha provisória foi enviada ao WhatsApp d${numeros.length === 1 ? 'o(a) coordenador(a)' : 'os coordenadores'} do setor.` }]
-    : [{ texto: `A caixa ${endereco} foi criada, mas a senha NÃO chegou a todos os coordenadores. Repasse: ${resultado.caixa.senha}` }]
+  const quem = `d${numeros.length === 1 ? 'o(a) coordenador(a)' : 'os coordenadores'} do setor`
+  if (enviadas + naFila < numeros.length) return [{ texto: `A caixa ${endereco} foi criada, mas a senha NÃO chegou a todos os coordenadores. Repasse: ${resultado.caixa.senha}` }]
+  // "na fila" (silêncio da noite, cota): sai quando o WhatsApp liberar. Dizer "enviada" seria prometer o que ainda não aconteceu.
+  return [{ texto: naFila
+    ? `A caixa do setor ${setor.nome} (${endereco}) foi criada. A senha provisória está na fila do WhatsApp ${quem} e chega quando ele liberar${enviadas ? ` (já foi a ${enviadas})` : ''}. Se não chegar, redefina a senha no Admin do Google.`
+    : `Pronto ✓ A caixa do setor ${setor.nome} (${endereco}) foi criada e a senha provisória foi enviada ao WhatsApp ${quem}.` }]
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
@@ -635,5 +647,5 @@ async function executarCriacao(
   }
   return peloEmail
     ? `A conta ${email} foi criada. O WhatsApp da pessoa não recebeu, então a senha provisória foi para ${mascarar(emailPessoal)}.${grupoAviso}`
-    : `A conta ${email} foi criada, mas a senha NÃO chegou à pessoa (WhatsApp e e-mail falharam). Peça uma senha nova pelo Admin do Google e avise a pessoa.`
+    : `A conta ${email} foi criada, mas a senha NÃO chegou à pessoa (WhatsApp e e-mail falharam). Peça uma senha nova pelo Admin do Google e avise a pessoa.${grupoAviso}${caixaDoSetor ? ` A senha da caixa ${caixaDoSetor.email} também NÃO chegou: redefina-a no Admin do Google.` : ''}`
 }
