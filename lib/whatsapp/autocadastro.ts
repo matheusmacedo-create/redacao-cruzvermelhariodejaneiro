@@ -11,7 +11,7 @@ import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
 import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle, permissoesDoAdmin } from '@/lib/google/diretorio'
-import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, consultarEndereco, converterEmGrupo } from '@/lib/google/grupos-regras'
+import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, consultarEndereco, converterEmGrupo, sondarAcesso } from '@/lib/google/grupos-regras'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
@@ -309,6 +309,7 @@ export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator:
       : `🟢 A autorização do Google tem todas as permissões${perm.email ? ` (conta ${perm.email})` : ''}.`
   const { data: setores } = await admin.from('setores').select('nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome')
   const chamar = chamarGoogleAdmin(workspaceId)
+  const sonda = await sondarAcesso(chamar)
   const linhas: string[] = []
   let erro: string | null = null
   for (const st of setores ?? []) {
@@ -323,7 +324,7 @@ export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator:
       break
     }
   }
-  return [{ texto: [cabecalho, erro ? `Parei na consulta dos setores: ${erro}` : linhas.length ? linhas.join('\n') : 'Nenhum setor com endereço.'].join('\n\n') }]
+  return [{ texto: [cabecalho, `*Teste de acesso ao Google:*\n${sonda.join('\n')}`, erro ? `Parei na consulta dos setores: ${erro}` : linhas.length ? linhas.join('\n') : 'Nenhum setor com endereço.'].join('\n\n') }]
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
