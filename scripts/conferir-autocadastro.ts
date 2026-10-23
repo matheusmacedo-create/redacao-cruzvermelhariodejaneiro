@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, lerBotaoDeAprovacao, lerCep,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -116,6 +116,20 @@ igual(ficha.complemento, 'apto 3', 'ficha: complemento')
 const red = dadosRedigidos(d)
 igual(red.redigida, true, 'redigida marcada')
 igual(JSON.stringify(red).includes('Ana') || JSON.stringify(red).includes('gmail') || JSON.stringify(red).includes('midia-1'), false, 'nada pessoal depois de redigir')
+
+// a mensagem com a senha provisória e o passo a passo (pelo WhatsApp)
+const conta = textoDaContaCriada({ nome: 'Ana Lima', email: 'ana.lima@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-9xQ', grupo: 'redacao@cruzvermelhariodejaneiro.org' })
+contem(conta, 'ana.lima@cruzvermelhariodejaneiro.org', 'conta: e-mail')
+contem(conta, 'Tmp#Senha-9xQ', 'conta: senha')
+contem(conta, 'Adicionar outra conta', 'conta: passo a passo no celular')
+contem(conta, 'senha nova', 'conta: manda trocar a senha')
+contem(conta, 'apague esta mensagem', 'conta: manda apagar a mensagem')
+contem(conta, 'redacao@cruzvermelhariodejaneiro.org', 'conta: grupo do setor')
+contem(conta, 'Seu cadastro foi aprovado, Ana', 'conta: chama pelo primeiro nome')
+igual(conta.length < 4000, true, 'conta: cabe numa mensagem do WhatsApp (4096)')
+sem(textoDaContaCriada({ nome: 'Ana Lima', email: 'a@x.org', senha: 'S' }), 'você entrou no grupo', 'conta: sem grupo, não promete grupo')
+contem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'WhatsApp dela', 'segunda confirmação diz que a senha vai por WhatsApp')
+sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda confirmação não fala mais em e-mail pessoal')
 
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')
 process.exit(falhas ? 1 : 0)

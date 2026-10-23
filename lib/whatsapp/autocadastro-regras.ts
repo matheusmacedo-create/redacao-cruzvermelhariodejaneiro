@@ -295,7 +295,7 @@ export const BOTOES_DA_SEGUNDA_CONFIRMACAO = (id: string): Interativo => ({
   tipo: 'botoes', botoes: [{ id: idDoBotao('sim', id), titulo: 'Sim, criar' }, { id: idDoBotao('voltar', id), titulo: 'Voltar' }],
 })
 export const textoDaSegundaConfirmacao = (d: DadosDoAutocadastro) =>
-  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o e-mail pessoal dela.`
+  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o WhatsApp dela, com o passo a passo.`
 
 // ------------------------------------------------------------------ o destino dos dados
 
@@ -318,5 +318,27 @@ export function dadosRedigidos(d: DadosDoAutocadastro): DadosDoAutocadastro {
 
 export const TEXTO_DE_ENVIADO = 'Pronto! Seu cadastro foi enviado à coordenação para aprovação. Assim que aprovarem, você recebe aqui o seu e-mail institucional. 💚'
 export const TEXTO_DE_RECUSADO = 'Seu cadastro não foi aprovado desta vez. Fale com a sua coordenação para entender o motivo e, se for o caso, envie *quero me cadastrar* de novo.'
-export const textoDeAprovado = (email: string, paraOnde: string) =>
-  `Seu cadastro foi aprovado! 🎉\n\nSeu e-mail institucional: *${email}*\nA senha provisória foi enviada para ${paraOnde}; o Google pede para trocá-la no primeiro acesso.`
+/**
+ * A mensagem que a pessoa recebe quando o cadastro é aprovado: o e-mail, a senha provisória e o passo a passo. É a
+ * única cópia da senha (decisão do responsável, 23/10/2026: pelo WhatsApp, no lugar do e-mail pessoal): sai uma vez,
+ * nunca é gravada, e o Google obriga a trocá-la no primeiro acesso.
+ */
+export function textoDaContaCriada(p: { nome: string; email: string; senha: string; grupo?: string | null }): string {
+  const primeiro = p.nome.trim().split(/\s+/)[0] ?? ''
+  return [
+    `Seu cadastro foi aprovado${primeiro ? `, ${primeiro}` : ''}! 🎉`,
+    `*Seu e-mail institucional:*\n${p.email}\n\n*Senha provisória:*\n${p.senha}`,
+    [
+      '*Como entrar (leva 2 minutos):*',
+      '1. No celular, abra o app *Gmail* → toque na sua foto → *Adicionar outra conta* → *Google*. No computador, entre em mail.google.com.',
+      `2. Digite *${p.email}* e a senha provisória acima.`,
+      '3. O Google vai pedir uma *senha nova*: crie uma só sua, com 12 ou mais caracteres. A provisória deixa de valer.',
+      '4. Se o Google pedir um telefone ou e-mail de recuperação, confirme os que você já informou.',
+      '5. Pronto: o e-mail institucional já funciona' + (p.grupo ? `, e você entrou no grupo ${p.grupo}.` : '.'),
+    ].join('\n'),
+    '_Depois de trocar a senha, apague esta mensagem. A Cruz Vermelha nunca pede a sua senha por mensagem nem por ligação._',
+  ].join('\n\n')
+}
+
+/** Se o WhatsApp falhar, o mesmo conteúdo vai ao e-mail pessoal (lib/google/contas-emails.ts), sem duplicar a senha em dois canais. */
+export const TEXTO_DA_SENHA_NO_WHATSAPP = 'A senha provisória foi enviada ao WhatsApp da pessoa.'
