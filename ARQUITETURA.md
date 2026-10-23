@@ -2677,7 +2677,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   do apelido caía. Por isso `consultarEndereco` pergunta primeiro pelo USUÁRIO (o apelido aparece, `primaryEmail`
   diferente) e só depois pelo grupo, e o coordenador (que não converte) usa `colocarSeForGrupo`: apelido nunca recebe
   chamada de grupo. Logo depois de tirar o apelido o Google ainda pode responder 409 à criação do grupo: tenta de novo
-  (6×, com espera) e, se nunca libera, devolve o apelido. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  (6×, com espera) e, se nunca libera, devolve o apelido.
+  O grupo do setor nasce **fechado por dentro** (`whoCanViewGroup` e `whoCanDiscoverGroup` só para membros): o padrão da
+  organização deixaria todos os usuários verem as conversas, e setores como Psicologia, Jurídico e Ouvidoria recebem
+  mensagem sensível. Recebe de fora (`ANYONE_CAN_POST`; exige "proprietários podem permitir e-mails de fora" marcado
+  em Grupos para empresas) e só entra por convite. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"
