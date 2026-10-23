@@ -10,7 +10,8 @@ import { hashDoConvite } from '@/lib/rh/convites'
 import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
-import { ErroDoDiretorio, adicionarAoGrupo, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle } from '@/lib/google/diretorio'
+import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle } from '@/lib/google/diretorio'
+import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, consultarEndereco, converterEmGrupo } from '@/lib/google/grupos-regras'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
@@ -313,7 +314,10 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
     // O coordenador decide só a equipe do próprio setor; cargo de coordenador é só de administrador.
     if (!podeDecidir(ator, l.dados)) return [{ texto: 'Este cadastro não é do seu setor. Quem decide é um administrador.' }]
 
-    if (botao.acao === 'aprovar') return [{ texto: textoDaSegundaConfirmacao(l.dados), interativo: BOTOES_DA_SEGUNDA_CONFIRMACAO(l.id) }]
+    if (botao.acao === 'aprovar') {
+      const aviso = ator.admin ? await avisoDoEnderecoDoSetor(admin, workspaceId, l.dados.coordenacao) : null
+      return [{ texto: `${textoDaSegundaConfirmacao(l.dados)}${aviso ? `\n\n${aviso}` : ''}`, interativo: BOTOES_DA_SEGUNDA_CONFIRMACAO(l.id) }]
+    }
 
     if (botao.acao === 'recusar') {
       const { data: ok } = await admin.from('colaborador_autocadastros').update({ status: 'recusado', decidido_por: ator.userId, decidido_em: new Date().toISOString() })
@@ -335,6 +339,21 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
     // O pedido que travou em "aprovando" (o "Sim, criar" já tinha gasto a vez) volta para o aprovador tentar de novo.
     await admin.from('colaborador_autocadastros').update({ status: 'aguardando' }).eq('id', uuidDe(botao.id)).eq('status', 'aprovando')
     return [{ texto: 'Não consegui concluir agora. O cadastro continua esperando: responda *cadastros* e tente de novo.' }]
+  }
+}
+
+/**
+ * O que a aprovação vai mudar no endereço do setor (apelido que vira grupo, endereço que será criado). Só para quem pode
+ * converter (administrador). Se o Google não responde, sem aviso: a confirmação segue, e a conversão diz o que houve.
+ */
+async function avisoDoEnderecoDoSetor(admin: Admin, workspaceId: string, setor: string | undefined): Promise<string | null> {
+  if (!setor) return null
+  try {
+    const { data } = await admin.from('setores').select('email').eq('workspace_id', workspaceId).eq('ativo', true).eq('nome', setor).maybeSingle()
+    const endereco = typeof data?.email === 'string' && data.email.includes('@') ? data.email.toLowerCase() : null
+    return endereco ? avisoDaConversao(await consultarEndereco(chamarGoogleAdmin(workspaceId), endereco), endereco) : null
+  } catch {
+    return null
   }
 }
 
@@ -418,9 +437,30 @@ async function executarCriacao(
   } catch (causa) {
     return await voltar(`O Google não criou a conta (${causa instanceof Error ? causa.message.slice(0, 160) : 'erro'}).`)
   }
+  // O endereço do setor: se ainda é apelido, só um administrador o converte em grupo (muda a entrega do e-mail do setor);
+  // quem entra como coordenador(a) é gerente do grupo, os demais são membros. Falha aqui nunca desfaz a conta.
   const grupo = typeof setor?.email === 'string' && setor.email.includes('@') ? setor.email.toLowerCase() : null
   let grupoOk = false
-  if (grupo) { try { grupoOk = await adicionarAoGrupo(workspaceId, grupo, email) } catch { /* a conta existe; o painel mostra quem ficou fora */ } }
+  let grupoNota = ''
+  if (grupo) {
+    const chamar = chamarGoogleAdmin(workspaceId)
+    try {
+      const conversao = aprovador.admin ? await converterEmGrupo(chamar, { endereco: grupo, nome: String(setor?.nome ?? d.coordenacao ?? grupo) }) : null
+      if (conversao?.feito === 'nao_converteu') {
+        grupoNota = ` O endereço ${grupo} é uma caixa real, não um grupo: a pessoa não entrou nele.`
+      } else {
+        grupoOk = await colocarNoGrupo(chamar, grupo, email, ehCoordenador(d.cargo) ? 'MANAGER' : 'MEMBER')
+        if (conversao?.feito === 'convertido') grupoNota = ` O endereço ${grupo} virou um grupo do Google (as mensagens continuam chegando em ${conversao.dono}).`
+        else if (conversao?.feito === 'criado') grupoNota = ` O endereço ${grupo} foi criado como grupo do Google.`
+        if (grupoOk && ehCoordenador(d.cargo)) grupoNota += ' A pessoa é gerente do grupo.'
+        if (!grupoOk) grupoNota = ` O endereço ${grupo} ainda é apelido, não um grupo: a pessoa não entrou nele. Um administrador precisa aprovar um cadastro desse setor para ele virar grupo.`
+      }
+    } catch (causa) {
+      grupoOk = false
+      grupoNota = ` O grupo ${grupo} não foi alterado: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}`
+      console.error('[whatsapp] autocadastro: grupo do setor:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    }
+  }
 
   // 3. Daqui em diante a conta existe: o que falhar vira aviso, nunca desfaz.
   const nomeCompleto = d.nome ?? ''
@@ -453,9 +493,9 @@ async function executarCriacao(
   // A foto passou para a ficha (foto_cadastro_path); sair do pedido apaga os dados pessoais dele (gatilho do banco).
   await admin.from('colaborador_autocadastros').update({ status: 'aprovado', decidido_em: new Date().toISOString() }).eq('id', l.id)
 
-  const grupoAviso = grupo && !grupoOk ? ' O endereço do setor ainda não é um grupo do Google: a pessoa não entrou nele.' : ''
+  const grupoAviso = grupoNota
   if (peloWhatsapp) {
-    return `Pronto ✓ ${nomeCompleto} foi cadastrado(a). E-mail: ${email}. ${entrega.situacao === 'na_fila' ? 'A senha provisória e o passo a passo estão na fila e saem em instantes' : TEXTO_DA_SENHA_NO_WHATSAPP}${grupoAviso}`
+    return `Pronto ✓ ${nomeCompleto} foi cadastrado(a). E-mail: ${email}. ${entrega.situacao === 'na_fila' ? 'A senha provisória e o passo a passo estão na fila e saem em instantes.' : TEXTO_DA_SENHA_NO_WHATSAPP}${grupoAviso}`
   }
   return peloEmail
     ? `A conta ${email} foi criada. O WhatsApp da pessoa não recebeu, então a senha provisória foi para ${mascarar(emailPessoal)}.${grupoAviso}`
