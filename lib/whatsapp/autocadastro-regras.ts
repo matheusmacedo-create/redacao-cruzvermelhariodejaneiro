@@ -370,20 +370,22 @@ export const TEXTO_DE_RECUSADO = 'Seu cadastro não foi aprovado desta vez. Fale
  * única cópia da senha (decisão do responsável, 23/10/2026: pelo WhatsApp, no lugar do e-mail pessoal): sai uma vez,
  * nunca é gravada, e o Google obriga a trocá-la no primeiro acesso.
  */
-export function textoDaContaCriada(p: { nome: string; email: string; senha: string; grupo?: string | null }): string {
+export function textoDaContaCriada(p: { nome: string; email: string; senha: string; caixaDoSetor?: { nome: string; email: string; senha: string } | null }): string {
   const primeiro = p.nome.trim().split(/\s+/)[0] ?? ''
   return [
     `Seu cadastro foi aprovado${primeiro ? `, ${primeiro}` : ''}! 🎉`,
     `*Seu e-mail institucional:*\n${p.email}\n\n*Senha provisória:*\n${p.senha}`,
+    ...(p.caixaDoSetor ? [`*E, como coordenador(a), a caixa do setor ${p.caixaDoSetor.nome} (conta própria, caixa privada):*\n${p.caixaDoSetor.email}\n\n*Senha provisória da caixa do setor:*\n${p.caixaDoSetor.senha}`] : []),
     [
       '*Como entrar (leva 2 minutos):*',
       '1. No celular, abra o app *Gmail* → toque na sua foto → *Adicionar outra conta* → *Google*. No computador, entre em mail.google.com.',
       `2. Digite *${p.email}* e a senha provisória acima.`,
       '3. O Google vai pedir uma *senha nova*: crie uma só sua, com 12 ou mais caracteres. A provisória deixa de valer.',
       '4. Se o Google pedir um telefone ou e-mail de recuperação, confirme os que você já informou.',
-      '5. Pronto: o e-mail institucional já funciona' + (p.grupo ? `, e você entrou no grupo ${p.grupo}.` : '.'),
+      ...(p.caixaDoSetor ? [`5. Repita os passos 1 a 4 com *${p.caixaDoSetor.email}* e a senha provisória da caixa do setor. Cada caixa é uma conta separada, com a sua própria senha.`] : []),
+      `${p.caixaDoSetor ? '6' : '5'}. Pronto: o e-mail institucional já funciona.`,
     ].join('\n'),
-    '_Depois de trocar a senha, apague esta mensagem. A Cruz Vermelha nunca pede a sua senha por mensagem nem por ligação._',
+    '_Depois de trocar as senhas, apague esta mensagem. A Cruz Vermelha nunca pede a sua senha por mensagem nem por ligação._',
   ].join('\n\n')
 }
 
@@ -428,4 +430,20 @@ export function textoDoResultadoDosApelidos(r: { nome: string; endereco: string;
     jaNao.length ? `Já não eram apelido (${jaNao.length}): ${jaNao.map((x) => x.nome).join(', ')}.` : '',
     ok.length ? 'Próximo passo: cadastre o(a) coordenador(a) de cada setor; a caixa própria do setor nasce junto.' : '',
   ].filter(Boolean).join('\n\n')
+}
+
+// ------------------------------------------------------------------ "caixa do setor: <nome>"
+
+/** "caixa do setor: Comunicação Social" → "comunicacao social" (normalizado), ou null se não é o comando. */
+export function lerCaixaDoSetor(texto: string): string | null {
+  const m = normalizar(texto).match(/^caixa do setor (.+)$/)
+  return m ? m[1].trim() : null
+}
+
+/** O setor da lista cujo nome normalizado é o pedido (igual, ou o único que começa por ele). */
+export function setorDoPedido(pedido: string, setores: string[]): string | null {
+  const exato = setores.find((x) => normalizar(x) === pedido)
+  if (exato) return exato
+  const comecando = setores.filter((x) => normalizar(x).startsWith(pedido))
+  return comecando.length === 1 ? comecando[0] : null
 }

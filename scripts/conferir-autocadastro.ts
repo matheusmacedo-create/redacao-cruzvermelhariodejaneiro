@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, ID_DO_CARGO_COORDENADOR, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -130,16 +130,16 @@ igual(JSON.stringify(red).includes('Ana') || JSON.stringify(red).includes('gmail
 }
 
 // a mensagem com a senha provisória e o passo a passo (pelo WhatsApp)
-const conta = textoDaContaCriada({ nome: 'Ana Lima', email: 'ana.lima@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-9xQ', grupo: 'redacao@cruzvermelhariodejaneiro.org' })
+const conta = textoDaContaCriada({ nome: 'Ana Lima', email: 'ana.lima@cruzvermelhariodejaneiro.org', senha: 'Tmp#Senha-9xQ' })
 contem(conta, 'ana.lima@cruzvermelhariodejaneiro.org', 'conta: e-mail')
 contem(conta, 'Tmp#Senha-9xQ', 'conta: senha')
 contem(conta, 'Adicionar outra conta', 'conta: passo a passo no celular')
 contem(conta, 'senha nova', 'conta: manda trocar a senha')
 contem(conta, 'apague esta mensagem', 'conta: manda apagar a mensagem')
-contem(conta, 'redacao@cruzvermelhariodejaneiro.org', 'conta: grupo do setor')
+sem(conta, 'grupo', 'conta: sem caixa do setor, não fala em grupo nem em caixa de setor')
+sem(conta, 'caixa do setor', 'conta: sem caixa do setor, não promete caixa de setor')
 contem(conta, 'Seu cadastro foi aprovado, Ana', 'conta: chama pelo primeiro nome')
 igual(conta.length < 4000, true, 'conta: cabe numa mensagem do WhatsApp (4096)')
-sem(textoDaContaCriada({ nome: 'Ana Lima', email: 'a@x.org', senha: 'S' }), 'você entrou no grupo', 'conta: sem grupo, não promete grupo')
 contem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'WhatsApp dela', 'segunda confirmação diz que a senha vai por WhatsApp')
 sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda confirmação não fala mais em e-mail pessoal')
 
@@ -194,6 +194,27 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(res, 'Não consegui apagar (1)', 'apelidos: resultado conta os que falharam')
   contem(res, 'erro 500', 'apelidos: resultado mostra o motivo')
   contem(res, 'Próximo passo', 'apelidos: resultado indica o próximo passo')
+}
+
+// a caixa própria do setor na mensagem de boas-vindas e o comando
+{
+  const caixa = { nome: 'Comunicação Social', email: 'comunicacao@x.org', senha: 'Setor#Senha-7' }
+  const com = textoDaContaCriada({ nome: 'Ana Lima', email: 'ana.lima@x.org', senha: 'Pessoal#1', caixaDoSetor: caixa })
+  contem(com, 'comunicacao@x.org', 'boas-vindas: endereço da caixa do setor')
+  contem(com, 'Setor#Senha-7', 'boas-vindas: senha da caixa do setor')
+  contem(com, 'Pessoal#1', 'boas-vindas: senha pessoal continua')
+  contem(com, 'Cada caixa é uma conta separada', 'boas-vindas: explica que são duas contas')
+  contem(com, '6. Pronto', 'boas-vindas: a numeração acompanha a caixa do setor')
+  igual(com.length < 4000, true, 'boas-vindas: duas caixas ainda cabem numa mensagem do WhatsApp')
+  igual(lerCaixaDoSetor('Caixa do setor: Comunicação Social'), 'comunicacao social', 'comando: lê o setor')
+  igual(lerCaixaDoSetor('caixa do setor educacao e saude'), 'educacao e saude', 'comando: sem dois-pontos')
+  igual(lerCaixaDoSetor('caixa'), null, 'comando: só a palavra não é comando')
+  igual(lerCaixaDoSetor('quero a caixa do setor'), null, 'comando: frase solta não é comando')
+  const lista = ['Comunicação Social', 'Educação e Saúde', 'Esportes', 'Psicologia / Serviço Social']
+  igual(setorDoPedido('comunicacao social', lista), 'Comunicação Social', 'comando: setor exato')
+  igual(setorDoPedido('psicologia', lista), 'Psicologia / Serviço Social', 'comando: começo único do nome')
+  igual(setorDoPedido('e', lista), null, 'comando: começo ambíguo não escolhe')
+  igual(setorDoPedido('marte', lista), null, 'comando: setor que não existe')
 }
 
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')

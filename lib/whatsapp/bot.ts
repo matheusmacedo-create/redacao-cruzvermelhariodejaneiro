@@ -20,8 +20,8 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, apagarApelidosDosSetores, linkDoTime, pendentesDeAprovacao, previaDosApelidos, situacaoDosGrupos, type Saida } from './autocadastro'
-import { lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeApelidos } from './autocadastro-regras'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, apagarApelidosDosSetores, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDosApelidos, situacaoDosGrupos, type Saida } from './autocadastro'
+import { lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeApelidos, lerCaixaDoSetor } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -168,8 +168,9 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedeGrupos = textoLivre === 'grupos'
     const pedeApelidos = textoLivre === 'apelidos' || textoLivre === 'apelidos dos setores'
     const botaoApelidos = m.toque && !m.midia ? lerBotaoDeApelidos(m.texto) : null
+    const pedidoDaCaixa = textoLivre ? lerCaixaDoSetor(m.texto) : null
     const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
-    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeApelidos || botaoApelidos) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeApelidos || botaoApelidos || pedidoDaCaixa) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
     if (doAutocadastro || ator) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
       if (!nova) return
@@ -182,6 +183,7 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       else if (ator && pedeGrupos) saidas = await situacaoDosGrupos(admin, workspaceId, ator)
       else if (ator && pedeApelidos) saidas = await previaDosApelidos(admin, workspaceId, ator)
       else if (ator && botaoApelidos) saidas = await apagarApelidosDosSetores(admin, workspaceId, ator, botaoApelidos)
+      else if (ator && pedidoDaCaixa) saidas = await criarCaixaDoSetorPeloComando(admin, workspaceId, config, ator, pedidoDaCaixa)
       else if (ator && pedeLinkDoTime) saidas = await linkDoTime(admin, workspaceId, config, ator)
       else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)
       for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa?.id ?? null, interativo: s.interativo }, { config, semFila: true })

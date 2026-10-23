@@ -2699,14 +2699,30 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 
   **Mudança de rumo (23/10/2026, decisão do responsável): nada de grupo nem de apelido.** Cada endereço — o do setor e o
   profissional de cada pessoa — é uma **conta própria, com caixa privada** (o Workspace for Nonprofits não cobra por
-  usuário). A troca por grupo (`converterEmGrupo`) ficou no repositório, testada, mas **desligada**
-  (`CONVERTE_APELIDO_EM_GRUPO = false` em `lib/whatsapp/autocadastro.ts`) e nada a chama. Para os endereços dos setores
+  usuário). A troca por grupo (`converterEmGrupo`) ficou no repositório, testada, mas **nada a chama** (o bloco de grupo e a
+  chave `CONVERTE_APELIDO_EM_GRUPO` saíram de `lib/whatsapp/autocadastro.ts`). Para os endereços dos setores
   deixarem de ser apelidos do contato@: comando **`apelidos`** (só administrador; `previaDosApelidos` mostra o que será
   apagado, só leitura; "Sim, apagar" — botão válido por 15 minutos — chama `apagarApelidosDosSetores`, que relê o que é
   apelido na hora e apaga SÓ isso: caixa real (contato@), grupo e endereço inexistente nunca são tocados; um item que
   falha não impede os outros; fica em `activity_log` como `google_apelidos_removidos`). Efeito: e-mail enviado a esses
   endereços volta com erro até a caixa própria do setor existir; o histórico no contato@ não é apagado. O /correio do
   Palácio (que lê a caixa dos setores pelo contato@, por etiqueta) deixa de ver esses setores.
+
+  **Caixa própria do setor.** `criarCaixaDoSetor` (`lib/google/grupos-regras.ts`, regra pura com `Chamar` injetável)
+  cria um usuário de verdade no endereço do setor (nome = o setor, sobrenome "Cruz Vermelha RJ", senha provisória, troca
+  no primeiro acesso, recuperação pelo e-mail e celular de quem coordena) e **só** se `consultarEndereco` diz `livre`:
+  apelido, caixa real e grupo recusam sem tocar em nada. Quem a aciona: (1) o administrador que aprova o cadastro de
+  alguém com cargo **Coordenador(a)** — além do `nome.sobrenome@`, nasce a caixa do setor, e a senha das duas vai na mesma
+  mensagem de WhatsApp (`textoDaContaCriada`, que numera as caixas); a confirmação (`avisoDaCaixaNaConfirmacao`, só para
+  administrador e cargo de coordenação) diz de antemão se a caixa do setor será criada ou por que não (ainda apelido →
+  mande *apelidos* primeiro); (2) o comando **`caixa do setor: <nome>`** (`criarCaixaDoSetorPeloComando`, só
+  administrador), para quando o endereço ainda era apelido no cadastro: a senha vai ao WhatsApp dos coordenadores
+  registrados em `setor_coordenadores` (sem nenhum, volta ao administrador). Coordenador aprovando a equipe nunca cria
+  caixa de setor. `criarCaixaParaOSetor` nunca lança: a falha vira uma nota no resultado e **não desfaz** a conta
+  pessoal. Cada caixa fica em `google_contas` e em `activity_log` (`google_conta_criada`, `origem`
+  `whatsapp_caixa_do_setor` ou `autocadastro_whatsapp` com `caixa_do_setor`). A senha não é gravada em lugar nenhum.
+  Ordem para quem tem setor com apelido hoje: `apelidos` → "Sim, apagar" → cadastrar a coordenação (ou
+  `caixa do setor: <nome>`); entre o apagar e a caixa nascer, e-mail enviado ao setor volta com erro.
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

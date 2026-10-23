@@ -12,7 +12,7 @@ import { montar, type EmailPronto } from '@/lib/contas/emails'
 
 const primeiroNome = (nome: string) => nome.trim().split(/\s+/)[0] || nome
 
-export function emailDeContaDoGoogle(p: { nome: string; email: string; senha: string; setor: string; grupo: string | null }): EmailPronto {
+export function emailDeContaDoGoogle(p: { nome: string; email: string; senha: string; setor: string; grupo: string | null; caixaDoSetor?: { nome: string; email: string; senha: string } | null }): EmailPronto {
   return montar({
     assunto: 'Seu e-mail da Cruz Vermelha RJ está pronto',
     preheader: `${p.email} já existe. Aqui está a senha provisória e como entrar.`,
@@ -27,6 +27,13 @@ export function emailDeContaDoGoogle(p: { nome: string; email: string; senha: st
       { tipo: 'item', titulo: '2. Crie a sua senha', texto: 'O Google pede uma senha nova na hora. Escolha uma só sua, com pelo menos 8 caracteres, e guarde num lugar seguro. Depois disso, apague este e-mail.' },
       { tipo: 'item', titulo: '3. No celular', texto: 'Baixe o app do Gmail (Android ou iPhone) e entre com o mesmo endereço. Os e-mails chegam como notificação.' },
       ...(p.grupo ? [{ tipo: 'item' as const, titulo: '4. O e-mail do seu setor', texto: `Você já recebe na sua caixa o que chega em ${p.grupo}. Para responder em nome do setor, no Gmail abra Configurações › Contas › "Enviar e-mail como" e adicione ${p.grupo}.` }] : []),
+      ...(p.caixaDoSetor ? [
+        { tipo: 'p' as const, texto: `Como coordenador(a), você também cuida da caixa própria do setor ${p.caixaDoSetor.nome}. É uma conta à parte, com caixa privada:` },
+        { tipo: 'destaque' as const, texto: p.caixaDoSetor.email },
+        { tipo: 'p' as const, texto: 'Senha provisória da caixa do setor (também só para o primeiro acesso):' },
+        { tipo: 'destaque' as const, texto: p.caixaDoSetor.senha },
+        { tipo: 'item' as const, titulo: 'Entrar na caixa do setor', texto: 'No Gmail, use "Adicionar outra conta" e entre com esse endereço e essa senha. Troque a senha na hora, como na sua conta.' },
+      ] : []),
       { tipo: 'nota', texto: 'Esqueceu a senha depois de trocar? Na tela de entrada do Google, "Esqueceu a senha?" manda um código para o celular que você informou. Ninguém da equipe vai pedir a sua senha por e-mail ou telefone.' },
     ],
   })
