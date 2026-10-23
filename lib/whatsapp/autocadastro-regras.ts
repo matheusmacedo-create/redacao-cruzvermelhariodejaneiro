@@ -389,3 +389,43 @@ export function textoDaContaCriada(p: { nome: string; email: string; senha: stri
 
 /** Se o WhatsApp falhar, o mesmo conteúdo vai ao e-mail pessoal (lib/google/contas-emails.ts), sem duplicar a senha em dois canais. */
 export const TEXTO_DA_SENHA_NO_WHATSAPP = 'A senha provisória foi enviada ao WhatsApp da pessoa.'
+
+// ------------------------------------------------------------------ "apelidos": apagar os apelidos dos setores
+
+/** O id do botão carrega a hora (minutos, base 36): o botão de uma prévia antiga não apaga nada depois de 15 minutos. */
+export const VALIDADE_DO_BOTAO_DE_APELIDOS_MIN = 15
+export const idDoBotaoDeApelidos = (acao: 'sim' | 'nao', agora = Date.now()) => `ap:${acao === 'sim' ? 's' : 'n'}:${Math.floor(agora / 60_000).toString(36)}`
+
+export function lerBotaoDeApelidos(texto: string, agora = Date.now()): { acao: 'sim' | 'nao'; vencido: boolean } | null {
+  const m = texto.trim().match(/^ap:([sn]):([0-9a-z]{4,8})$/)
+  if (!m) return null
+  const minutos = parseInt(m[2], 36)
+  const vencido = !Number.isFinite(minutos) || Math.floor(agora / 60_000) - minutos > VALIDADE_DO_BOTAO_DE_APELIDOS_MIN || minutos > Math.floor(agora / 60_000) + 1
+  return { acao: m[1] === 's' ? 'sim' : 'nao', vencido }
+}
+
+export const BOTOES_DE_APELIDOS = (agora = Date.now()): Interativo => ({
+  tipo: 'botoes', botoes: [{ id: idDoBotaoDeApelidos('sim', agora), titulo: 'Sim, apagar' }, { id: idDoBotaoDeApelidos('nao', agora), titulo: 'Não' }],
+})
+
+export function textoDaPreviaDosApelidos(apelidos: { nome: string; endereco: string; dono: string }[]): string {
+  if (!apelidos.length) return 'Nenhum endereço de setor é apelido: não há o que apagar. ✓'
+  return [
+    `Vou *apagar ${apelidos.length} apelido${apelidos.length === 1 ? '' : 's'}* de setor no Google:`,
+    apelidos.map((a) => `• ${a.nome}: ${a.endereco} (apelido de ${a.dono})`).join('\n'),
+    '*O que muda:* e-mails enviados a esses endereços passam a *voltar com erro* até a caixa própria de cada setor ser criada (ela nasce junto com o cadastro do(a) coordenador(a)). O que já está no histórico do contato@ *não é apagado*. O Atendimento (contato@) não é tocado. Não dá para desfazer pelo Palácio.',
+    'Confirma?',
+  ].join('\n\n')
+}
+
+export function textoDoResultadoDosApelidos(r: { nome: string; endereco: string; resultado: 'removido' | 'nao_era_apelido' | 'falhou'; motivo?: string }[]): string {
+  const ok = r.filter((x) => x.resultado === 'removido')
+  const falhou = r.filter((x) => x.resultado === 'falhou')
+  const jaNao = r.filter((x) => x.resultado === 'nao_era_apelido')
+  return [
+    ok.length ? `✅ Apelidos apagados (${ok.length}):\n${ok.map((x) => `• ${x.nome}: ${x.endereco}`).join('\n')}` : 'Nenhum apelido foi apagado.',
+    falhou.length ? `❌ Não consegui apagar (${falhou.length}):\n${falhou.map((x) => `• ${x.nome}: ${x.endereco} — ${x.motivo ?? 'erro'}`).join('\n')}` : '',
+    jaNao.length ? `Já não eram apelido (${jaNao.length}): ${jaNao.map((x) => x.nome).join(', ')}.` : '',
+    ok.length ? 'Próximo passo: cadastre o(a) coordenador(a) de cada setor; a caixa própria do setor nasce junto.' : '',
+  ].filter(Boolean).join('\n\n')
+}

@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, ID_DO_CARGO_COORDENADOR, ehCoordenador, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, ID_DO_CARGO_COORDENADOR, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -169,6 +169,31 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   igual(podeDecidir({ admin: false, setores: ['Redação'] }, { cargo: 'Enfermeira' }), false, 'pedido sem setor não é de coordenador')
   contem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo avisa que coordenador vira gerente')
   sem(resumoParaAprovador({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Enfermeira', emailPessoal: 'a@x.com', cidade: 'Rio', uf: 'RJ', emergenciaNome: 'Carlos', emergenciaParentesco: 'pai', emergenciaTelefone: '+5521988887777' }), 'gerente do grupo', 'resumo comum não fala em gerente')
+}
+
+// o botão de apagar apelidos tem validade
+{
+  const agora = Date.parse('2026-10-23T22:00:00Z')
+  const sim = idDoBotaoDeApelidos('sim', agora)
+  igual(sim.length <= 40, true, 'apelidos: o id cabe no limite da Meta')
+  igual(lerBotaoDeApelidos(sim, agora), { acao: 'sim', vencido: false }, 'apelidos: botão recém-criado vale')
+  igual(lerBotaoDeApelidos(sim, agora + (VALIDADE_DO_BOTAO_DE_APELIDOS_MIN - 1) * 60_000)?.vencido, false, 'apelidos: ainda vale perto do fim do prazo')
+  igual(lerBotaoDeApelidos(sim, agora + (VALIDADE_DO_BOTAO_DE_APELIDOS_MIN + 2) * 60_000)?.vencido, true, 'apelidos: botão velho NÃO apaga nada')
+  igual(lerBotaoDeApelidos(sim, agora - 10 * 60_000)?.vencido, true, 'apelidos: id com hora do futuro não vale')
+  igual(lerBotaoDeApelidos(idDoBotaoDeApelidos('nao', agora), agora)?.acao, 'nao', 'apelidos: o botão Não é lido')
+  igual(lerBotaoDeApelidos('apelidos'), null, 'apelidos: texto solto não é botão')
+  igual(lerBotaoDeApelidos('ap:s:'), null, 'apelidos: id incompleto não é botão')
+  igual((BOTOES_DE_APELIDOS(agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'apelidos: títulos cabem na Meta')
+  const previa = textoDaPreviaDosApelidos([{ nome: 'TI', endereco: 'ti@x.org', dono: 'contato@x.org' }])
+  contem(previa, 'ti@x.org (apelido de contato@x.org)', 'apelidos: a prévia lista endereço e dono')
+  contem(previa, 'não é apagado', 'apelidos: a prévia diz que o histórico fica')
+  contem(previa, 'voltar com erro', 'apelidos: a prévia avisa que o e-mail vai voltar com erro')
+  contem(textoDaPreviaDosApelidos([]), 'não há o que apagar', 'apelidos: nada a apagar')
+  const res = textoDoResultadoDosApelidos([{ nome: 'TI', endereco: 'ti@x.org', resultado: 'removido' }, { nome: 'Jurídico', endereco: 'j@x.org', resultado: 'falhou', motivo: 'erro 500' }, { nome: 'Esportes', endereco: 'e@x.org', resultado: 'nao_era_apelido' }])
+  contem(res, 'Apelidos apagados (1)', 'apelidos: resultado conta os apagados')
+  contem(res, 'Não consegui apagar (1)', 'apelidos: resultado conta os que falharam')
+  contem(res, 'erro 500', 'apelidos: resultado mostra o motivo')
+  contem(res, 'Próximo passo', 'apelidos: resultado indica o próximo passo')
 }
 
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')

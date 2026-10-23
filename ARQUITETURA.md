@@ -2696,6 +2696,17 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"
   cai na apresentação de sempre.
+
+  **Mudança de rumo (23/10/2026, decisão do responsável): nada de grupo nem de apelido.** Cada endereço — o do setor e o
+  profissional de cada pessoa — é uma **conta própria, com caixa privada** (o Workspace for Nonprofits não cobra por
+  usuário). A troca por grupo (`converterEmGrupo`) ficou no repositório, testada, mas **desligada**
+  (`CONVERTE_APELIDO_EM_GRUPO = false` em `lib/whatsapp/autocadastro.ts`) e nada a chama. Para os endereços dos setores
+  deixarem de ser apelidos do contato@: comando **`apelidos`** (só administrador; `previaDosApelidos` mostra o que será
+  apagado, só leitura; "Sim, apagar" — botão válido por 15 minutos — chama `apagarApelidosDosSetores`, que relê o que é
+  apelido na hora e apaga SÓ isso: caixa real (contato@), grupo e endereço inexistente nunca são tocados; um item que
+  falha não impede os outros; fica em `activity_log` como `google_apelidos_removidos`). Efeito: e-mail enviado a esses
+  endereços volta com erro até a caixa própria do setor existir; o histórico no contato@ não é apagado. O /correio do
+  Palácio (que lê a caixa dos setores pelo contato@, por etiqueta) deixa de ver esses setores.
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

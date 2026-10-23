@@ -11,7 +11,7 @@ import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
 import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle, permissoesDoAdmin } from '@/lib/google/diretorio'
-import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, colocarSeForGrupo, consultarEndereco, converterEmGrupo, sondarAcesso } from '@/lib/google/grupos-regras'
+import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, apelidosEntre, colocarSeForGrupo, consultarEndereco, converterEmGrupo, removerApelidos, sondarAcesso } from '@/lib/google/grupos-regras'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
@@ -22,7 +22,7 @@ import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_APELIDOS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -38,6 +38,13 @@ type Admin = ReturnType<typeof createAdminClient>
  */
 
 export type Saida = { texto: string; interativo?: Interativo | null }
+
+/**
+ * DESLIGADO em 23/10/2026 por decisão do responsável: o endereço de um setor NÃO vira grupo nem apelido. Cada endereço
+ * (o do setor e o profissional de cada pessoa) é uma conta própria, com caixa privada — o fluxo novo substitui este.
+ * O código da troca (lib/google/grupos-regras.ts) fica, testado, mas nada o chama enquanto isto for false.
+ */
+const CONVERTE_APELIDO_EM_GRUPO = false
 
 const PEDIDOS_POR_HORA_NO_ESPACO = 30
 const PEDIDOS_POR_NUMERO_EM_24H = 3
@@ -327,6 +334,51 @@ export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator:
   return [{ texto: [cabecalho, `*Teste de acesso ao Google:*\n${sonda.join('\n')}`, erro ? `Parei na consulta dos setores: ${erro}` : linhas.length ? linhas.join('\n') : 'Nenhum setor com endereço.'].join('\n\n') }]
 }
 
+/** Os setores ativos com endereço, para o comando "apelidos". */
+async function enderecosDosSetores(admin: Admin, workspaceId: string): Promise<{ nome: string; endereco: string }[]> {
+  const { data } = await admin.from('setores').select('nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome')
+  return (data ?? []).flatMap((st) => (typeof st.email === 'string' && st.email.includes('@') ? [{ nome: String(st.nome), endereco: st.email.toLowerCase() }] : []))
+}
+
+/**
+ * "apelidos": a PRÉVIA, só leitura, para o administrador. Lista os endereços de setor que hoje são apelido de uma caixa e
+ * o que muda se forem apagados, com os botões "Sim, apagar" e "Não". Nada é apagado aqui.
+ */
+export async function previaDosApelidos(admin: Admin, workspaceId: string, ator: Ator): Promise<Saida[]> {
+  if (!ator.admin) return [{ texto: 'Apagar apelidos dos setores é só de administrador.' }]
+  try {
+    const { apelidos } = await apelidosEntre(chamarGoogleAdmin(workspaceId), await enderecosDosSetores(admin, workspaceId))
+    return [{ texto: textoDaPreviaDosApelidos(apelidos), interativo: apelidos.length ? BOTOES_DE_APELIDOS() : null }]
+  } catch (causa) {
+    console.error('[whatsapp] apelidos: prévia:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    return [{ texto: `Não consegui consultar o Google agora: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}` }]
+  }
+}
+
+/**
+ * O "Sim, apagar" (válido por 15 minutos desde a prévia): relê o que é apelido AGORA, apaga só isso — o Atendimento, grupo
+ * e endereço inexistente nunca —, registra em activity_log e responde o que foi feito em cada setor.
+ */
+export async function apagarApelidosDosSetores(admin: Admin, workspaceId: string, ator: Ator, botao: { acao: 'sim' | 'nao'; vencido: boolean }): Promise<Saida[]> {
+  if (!ator.admin) return [{ texto: 'Apagar apelidos dos setores é só de administrador.' }]
+  if (botao.acao === 'nao') return [{ texto: 'Certo, nada foi apagado.' }]
+  if (botao.vencido) return [{ texto: 'Essa confirmação venceu (vale 15 minutos). Mande *apelidos* de novo para ver a lista e confirmar.' }]
+  try {
+    const chamar = chamarGoogleAdmin(workspaceId)
+    const { apelidos } = await apelidosEntre(chamar, await enderecosDosSetores(admin, workspaceId))
+    if (!apelidos.length) return [{ texto: textoDaPreviaDosApelidos([]) }]
+    const resultados = await removerApelidos(chamar, apelidos.map(({ nome, endereco }) => ({ nome, endereco })))
+    await admin.from('activity_log').insert({
+      workspace_id: workspaceId, actor_id: ator.userId, action: 'google_apelidos_removidos', entity_type: 'google_conta', entity_id: null,
+      metadata: { origem: 'whatsapp', resultados: resultados.map((r) => ({ endereco: r.endereco, resultado: r.resultado, dono: r.dono ?? null, motivo: r.motivo ?? null })) },
+    })
+    return [{ texto: textoDoResultadoDosApelidos(resultados) }]
+  } catch (causa) {
+    console.error('[whatsapp] apelidos: apagar:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    return [{ texto: `Não consegui concluir: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}. Mande *apelidos* para ver o que sobrou.` }]
+  }
+}
+
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
 export async function linkDoTime(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator): Promise<Saida[]> {
   if (!ator.setores.length) return [{ texto: 'O link do time é de quem coordena um setor. Para o link geral, peça o "quero me cadastrar" ao bot.' }]
@@ -380,7 +432,7 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
  * converter (administrador). Se o Google não responde, sem aviso: a confirmação segue, e a conversão diz o que houve.
  */
 async function avisoDoEnderecoDoSetor(admin: Admin, workspaceId: string, setor: string | undefined): Promise<string | null> {
-  if (!setor) return null
+  if (!setor || !CONVERTE_APELIDO_EM_GRUPO) return null
   try {
     const { data } = await admin.from('setores').select('email').eq('workspace_id', workspaceId).eq('ativo', true).eq('nome', setor).maybeSingle()
     const endereco = typeof data?.email === 'string' && data.email.includes('@') ? data.email.toLowerCase() : null
@@ -478,7 +530,7 @@ async function executarCriacao(
   if (grupo) {
     const chamar = chamarGoogleAdmin(workspaceId)
     try {
-      const conversao = aprovador.admin ? await converterEmGrupo(chamar, { endereco: grupo, nome: String(setor?.nome ?? d.coordenacao ?? grupo) }) : null
+      const conversao = aprovador.admin && CONVERTE_APELIDO_EM_GRUPO ? await converterEmGrupo(chamar, { endereco: grupo, nome: String(setor?.nome ?? d.coordenacao ?? grupo) }) : null
       if (conversao?.feito === 'nao_converteu') {
         grupoNota = ` O endereço ${grupo} é uma caixa real, não um grupo: a pessoa não entrou nele.`
       } else {
@@ -488,7 +540,7 @@ async function executarCriacao(
         if (conversao?.feito === 'convertido') grupoNota = ` O endereço ${grupo} virou um grupo do Google (as mensagens continuam chegando em ${conversao.dono}).`
         else if (conversao?.feito === 'criado') grupoNota = ` O endereço ${grupo} foi criado como grupo do Google.`
         if (grupoOk && ehCoordenador(d.cargo)) grupoNota += ' A pessoa é gerente do grupo.'
-        if (!grupoOk) grupoNota = ` O endereço ${grupo} ainda é apelido, não um grupo: a pessoa não entrou nele. Um administrador precisa aprovar um cadastro desse setor para ele virar grupo.`
+        if (!grupoOk) grupoNota = ` O endereço ${grupo} não é um grupo do Google: nada foi feito nele.`
       }
     } catch (causa) {
       grupoOk = false

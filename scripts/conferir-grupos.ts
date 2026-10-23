@@ -13,7 +13,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  ErroDeGrupo, avisoDaConversao, colocarSeForGrupo, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
+  ErroDeGrupo, apelidosEntre, avisoDaConversao, colocarSeForGrupo, removerApelidos, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
 } from '../lib/google/grupos-regras'
 
 let falhas = 0
@@ -377,6 +377,52 @@ async function main() {
     const g3 = novoGoogle()
     g3.falhasPlanejadas.push({ quando: (a, m, c) => c.startsWith('/users?'), status: 403 })
     igual(!(await sondarAcesso(g3.chamar)).join('\n').includes('Grupos para empresas'), true, 'sonda: sem usuários, não culpa o serviço de grupos')
+  }
+
+  // apagar os apelidos dos setores: só apelido, e só o apelido
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, 'comunicacao@cruzvermelhariodejaneiro.org')
+    g.comApelido(CONTATO, 'ti@cruzvermelhariodejaneiro.org')
+    g.comApelido(CONTATO, 'juridico@cruzvermelhariodejaneiro.org')
+    g.grupos.set('ouvidoria@cruzvermelhariodejaneiro.org', { membros: new Map(), config: null })
+    const itens = [
+      { nome: 'Atendimento', endereco: CONTATO },
+      { nome: 'Comunicação', endereco: 'comunicacao@cruzvermelhariodejaneiro.org' },
+      { nome: 'TI', endereco: 'ti@cruzvermelhariodejaneiro.org' },
+      { nome: 'Jurídico', endereco: 'juridico@cruzvermelhariodejaneiro.org' },
+      { nome: 'Ouvidoria', endereco: 'ouvidoria@cruzvermelhariodejaneiro.org' },
+      { nome: 'Esportes', endereco: 'esportes@cruzvermelhariodejaneiro.org' },
+    ]
+    const previa = await apelidosEntre(g.chamar, itens)
+    igual(previa.apelidos.map((a) => a.nome), ['Comunicação', 'TI', 'Jurídico'], 'apelidos: a prévia lista só o que é apelido')
+    igual(previa.apelidos.every((a) => a.dono === CONTATO), true, 'apelidos: a prévia diz de quem é cada apelido')
+    igual(previa.outros.map((o) => `${o.nome}:${o.tipo}`), ['Atendimento:caixa_real', 'Ouvidoria:grupo', 'Esportes:livre'], 'apelidos: o resto é caixa real, grupo ou inexistente')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE') || c.startsWith('POST') || c.startsWith('PUT')), false, 'apelidos: a prévia não altera nada')
+
+    const r = await removerApelidos(g.chamar, itens)
+    igual(r.map((x) => `${x.nome}:${x.resultado}`), ['Atendimento:nao_era_apelido', 'Comunicação:removido', 'TI:removido', 'Jurídico:removido', 'Ouvidoria:nao_era_apelido', 'Esportes:nao_era_apelido'], 'apelidos: remove só os apelidos')
+    igual([...(g.usuarios.get(CONTATO)?.apelidos ?? [])], [], 'apelidos: nenhum apelido sobra no contato@')
+    igual(g.usuarios.has(CONTATO), true, 'apelidos: contato@ (a caixa real) continua existindo')
+    igual(g.grupos.has('ouvidoria@cruzvermelhariodejaneiro.org'), true, 'apelidos: o grupo existente não foi tocado')
+    igual(g.chamadas.filter((c) => c.startsWith('DELETE')).length, 3, 'apelidos: exatamente 3 DELETEs, um por apelido')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE') && c.includes(encodeURIComponent(CONTATO) + '/aliases/' + encodeURIComponent(CONTATO))), false, 'apelidos: nunca tenta apagar o contato@ como apelido')
+    igual((await consultarEndereco(g.chamar, 'comunicacao@cruzvermelhariodejaneiro.org')).tipo, 'livre', 'apelidos: depois de apagado o endereço fica livre')
+
+    const de_novo = await removerApelidos(g.chamar, itens)
+    igual(de_novo.every((x) => x.resultado === 'nao_era_apelido'), true, 'apelidos: rodar de novo não faz nada (idempotente)')
+  }
+  // um item que falha não impede os outros
+  {
+    const g = novoGoogle()
+    g.comApelido(CONTATO, 'a@x.org')
+    g.comApelido(CONTATO, 'b@x.org')
+    g.comApelido(CONTATO, 'c@x.org')
+    g.falhasPlanejadas.push({ quando: (a, m, c) => m === 'DELETE' && c.endsWith(encodeURIComponent('b@x.org')), status: 500, mensagem: 'Internal error', reason: 'backendError' })
+    const r = await removerApelidos(g.chamar, [{ nome: 'A', endereco: 'a@x.org' }, { nome: 'B', endereco: 'b@x.org' }, { nome: 'C', endereco: 'c@x.org' }])
+    igual(r.map((x) => `${x.nome}:${x.resultado}`), ['A:removido', 'B:falhou', 'C:removido'], 'apelidos: a falha de um não derruba os outros')
+    contem(r[1].motivo ?? '', 'backendError', 'apelidos: a falha traz o motivo do Google')
+    igual(g.usuarios.get(CONTATO)?.apelidos.has('b@x.org'), true, 'apelidos: o que falhou continua apelido')
   }
 
   // o aviso da confirmação
