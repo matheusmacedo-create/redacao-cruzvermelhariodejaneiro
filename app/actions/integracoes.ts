@@ -13,6 +13,7 @@ import { contaDeServicoParaGuardar, lerContaDeServico } from '@/lib/google/conta
 import { ID_DA_PROPRIEDADE } from '@/lib/site/analytics'
 import { lerChaveDaCgu } from '@/lib/participantes/verificacao/regras'
 import { testarChaveDaCgu } from '@/lib/participantes/verificacao/cgu'
+import { testarChaveDaElevenlabs } from '@/lib/voz/elevenlabs'
 
 /**
  * Gravar e remover chaves de integração. A regra "só admin" mora no banco
@@ -75,6 +76,15 @@ export async function salvarChaveDeIntegracao(formData: FormData): Promise<Resul
         recadoExtra = ' A CGU aceitou a chave.'
       }
       valor = chave
+    } else if (servico === 'elevenlabs') {
+      // Testada antes do cofre: só a recusa da chave (401) impede guardar; o resto vira recado.
+      const teste = await testarChaveDaElevenlabs(valor)
+      if ('erro' in teste) {
+        if (teste.definitivo) throw new Error(teste.erro)
+        recadoExtra = ` ${teste.erro} Ela foi guardada mesmo assim: a tela Configurações › Voz diz se funciona.`
+      } else {
+        recadoExtra = ' A ElevenLabs aceitou a chave. Agora escolha a voz em Configurações › Voz.'
+      }
     } else if (servico === 'google_analytics') {
       // O arquivo JSON inteiro da conta de serviço: confere e guarda só o que o Palácio usa.
       const guardar = contaDeServicoParaGuardar(valor)

@@ -6,6 +6,7 @@ import { slugValido } from '@/lib/site/slug'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { atualizarVitrine, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
 import { relacionadasPorTema } from '@/lib/site/relacionadas'
+import { vozPara } from '@/lib/voz/elevenlabs'
 import {
   COLUNAS_DA_PECA, baseDoSite, gerarPaginaDaMateria, leitorDaBiblioteca, mensagemDaPublicacao, rastreioDaMateria, resumoDoRegistro,
   type PecaNoSite,
@@ -106,6 +107,9 @@ export async function regerarNoticias(p: {
   let noAr: NoticiaPublicada[] = []
   try { noAr = await noticiasPublicadas(p.workspaceId) } catch { noAr = [] }
   const chat = await prepararChatDoSite()
+  // A narração que já está no ar continua tocando (mesmo texto, mesma voz); a regeração não gera áudio novo — gastaria
+  // crédito em lote e estouraria a rodada. A matéria sem áudio ganha o dela ao ser republicada.
+  const voz = lote.length ? await vozPara(p.workspaceId, 'materias') : null
 
   let ultimoVisto: string | null = depoisDe
   let loteInteiro = true
@@ -146,6 +150,7 @@ export async function regerarNoticias(p: {
           relacionadas: relacionadasPorTema({ url, titulo, descricao: peca.subtitle, corpo: peca.body }, noAr),
           rastreio: await rastreioDaMateria(p.workspaceId, peca.id),
           chat,
+          narracao: voz ? { voz, gerar: false } : null,
         })
         for (const arquivo of pagina.paraSubir) await enviarArquivo(client, config, `${slug}/${arquivo.nome}`, arquivo.bytes)
         await enviarArquivo(client, config, `${slug}/index.html`, pagina.html)

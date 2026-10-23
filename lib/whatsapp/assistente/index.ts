@@ -72,6 +72,11 @@ export type EntradaDoAssistente = {
   escolha?: string | null
   /** A mensagem veio de um áudio: o eco do que foi entendido ("_Entendi do áudio:_ “…”"), na frente da primeira resposta. */
   eco?: string | null
+  /**
+   * A mensagem veio de um áudio e a voz da instituição está ligada para o WhatsApp (lib/voz/whatsapp.ts): a resposta
+   * comum do modelo, depois de sair por escrito, sai também falada. Plano, pergunta e texto fixo nunca.
+   */
+  emAudio?: ((texto: string) => Promise<unknown>) | null
 }
 
 /** A classe do erro, pelas classes do SDK (nunca pela mensagem): é o que vai ao registro e ao log. */
@@ -277,6 +282,8 @@ export async function responderComAssistente(e: EntradaDoAssistente): Promise<vo
         const saiu = await responder(s.texto, s.interativo, TEXTOS_FIXOS.confirma_o_plano, s)
         entrega ??= saiu
       }
+      // A mesma resposta falada, só depois do texto (que vale sozinho) e só quando ela saiu inteira numa mensagem.
+      if (e.emAudio && !desfecho.fixo && saidas.length === 1 && entrega?.situacao === 'enviada') await e.emAudio(texto)
       const citados = desfecho.fixo ? [] : marcadoresNaResposta(desfecho.texto, turno.itens)
       if (entrega?.situacao === 'enviada' && entrega.id && citados.length >= 2) lista = { m: entrega.id, r: citados }
       // Um turno sem plano e sem pergunta nova fecha a pergunta aberta (o plano em revisão rearma no finally).

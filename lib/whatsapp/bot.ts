@@ -49,6 +49,7 @@ import { cancelarPlano, confirmarPlano, guardarPlanoDoChat, planoAberto, type Ab
 import { esperarAVez, esquecer, lembrarLista, soltarVez } from './assistente/memoria'
 import { LIMITES, TEXTOS_FIXOS, TEXTO_DA_ROTA, comandoDaRota, lerRespostaAoPlano, rotaDaMensagem, textoDoEcoDoAudio, type AvisoCitado, type Rota } from './assistente/regras'
 import type { TipoDeItem } from './assistente/marcadores'
+import { responderEmAudio } from '@/lib/voz/whatsapp'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -392,8 +393,10 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const doAssistente = (texto: string) => responder(texto, { categoria: 'assistente', semFila: true })
     // O prazo do turno do assistente: 40 s, ou menos no fim do lote da rota (que tem 300 s para tudo).
     const prazo = Math.min(Date.now() + LIMITES.prazoMs, (opcoes.prazoDoLote ?? Number.POSITIVE_INFINITY) - 20_000)
+    // Quem falou por áudio recebe a resposta também falada, se a voz da instituição estiver ligada para o WhatsApp.
+    const emAudio = doAudio ? (texto: string) => responderEmAudio({ admin, workspaceId, config, numero, userId: pessoa.id, texto, prazo }) : null
     const assistente = (extra: { escolha?: string } = {}) => responderComAssistente({
-      admin, workspaceId, pessoa, m, base, prazo, ia, aberto, responder: (texto, x) => responder(texto, x), eco: ecoDoAudio, ...extra,
+      admin, workspaceId, pessoa, m, base, prazo, ia, aberto, responder: (texto, x) => responder(texto, x), eco: ecoDoAudio, emAudio, ...extra,
     })
 
     // A resposta ao plano ou à pergunta do assistente (o código lê; o modelo nunca).

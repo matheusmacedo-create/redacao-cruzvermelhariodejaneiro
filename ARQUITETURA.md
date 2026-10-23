@@ -90,6 +90,7 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `GOOGLE_ADS_CUSTOMER_ID` | server | opcional — a conta de anúncios (o Ad Grants, 10 dígitos) que a conexão usa quando a conta Google alcança mais de uma; também se escolhe no cartão (§7.29d) |
 | `PORTAL_TRANSPARENCIA_KEY` | server | opcional — reserva da chave gratuita da CGU para a verificação do candidato (§7.36); `PORTAL_TRANSPARENCIA_URL` só em testes |
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
+| `ELEVENLABS_API_KEY` | server | **segredo**, opcional — reserva do cartão “ElevenLabs (voz da instituição)” de Configurações → Integrações, que é o lugar preferido; a voz e onde ela fala ficam em Configurações → Voz (§8.7) |
 | `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo`, `modeloSeguranca` e `wabaId` (§8.5) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
@@ -175,7 +176,7 @@ lib/                      regras e acesso a dados, uma pasta por área:
   chamados/ oficios/ compras/ portaria/ financeiro/ patrimonio/ transparencia/ auditoria/
   equipe.ts rh/ participantes/ membro/ cursos/ oportunidades/ cracha/ escola/
   pdf/                    timbrado, folha, fontes (§7.30)
-  analytics/ google/ integracoes/ ia/ apis-publicas/ armazenamento/
+  analytics/ google/ integracoes/ ia/ apis-publicas/ armazenamento/ voz/
   ajuda/                  o texto de ajuda de cada área (§7.15)
 scripts/                  conferir-*.ts (um por área, npx tsx) · backup-banco.sh · restaurar-arquivos.sh
 supabase/migrations/      o schema, em ordem cronológica (108 arquivos em 28/09/2026)
@@ -645,6 +646,11 @@ confira em `/api/admin/ftp-check`.
    endereço interno (`/api/private-blob`, Blob, workspace, localhost), Markdown que não
    virou HTML (`![`, `**`, `](`) ou o domínio antigo.
 4. **Subida** por FTPS e, depois, índice, sitemap e `.htaccess` (`vitrine.ts`).
+
+**Narração** (§8.7): com a voz ligada para as matérias, `gerarPaginaDaMateria` pede a
+`narracaoDaMateria` o MP3 do texto (`ouvir-<hash>.mp3` na pasta da matéria) e a página ganha
+o “Ouça esta matéria” abaixo do cabeçalho, com o aviso de voz gerada por IA e o `AudioObject`
+no JSON-LD. A publicação gera; a regeração só reaproveita o que já está no ar.
 
 **Datas.** `site_published_at` é a primeira publicação e não muda mais; o
 `dateModified` e o `lastmod` do sitemap são a última edição do texto (`updated_at`,
@@ -3405,6 +3411,42 @@ banco em `20261002150000` e `20261004170000` (`supabase/tests/conversoes.test.sq
 - **Teste local.** `META_GRAPH_URL` e `UNICOPAG_URL` apontam os dois clientes
   para servidores de mentira.
 
+### 8.7 Voz da instituição: ElevenLabs (23/10/2026)
+
+A voz da filial, pela ElevenLabs (`lib/voz/`), em dois usos que começam **desligados** e ligam
+separados em Configurações → Voz (`/configuracoes/voz`, só `integracoes.configurar`). A chave mora
+no cofre (serviço `elevenlabs`, testada na ElevenLabs antes de guardar; reserva `ELEVENLABS_API_KEY`);
+a voz (id e nome), o modelo (padrão `eleven_v4`) e os dois interruptores, em `voz_config`
+(migração `20261023160000`, só acrescenta; leitura só de admin, escrita só do servidor por
+`app/actions/voz.ts`, que confere que a voz é da conta). Sem a migração, a tela diz que falta
+aplicá-la e nada muda: a matéria sai sem áudio e o WhatsApp responde só por escrito.
+
+- **Matérias do site** (§7.6): o texto que se lê (`textoParaNarrar`: título, linha fina, corpo;
+  sem foto, legenda, crédito nem endereço de link) vira um MP3 em trechos de até 4.500 caracteres,
+  cortados em fim de parágrafo, cada um com o vizinho como contexto (`previous_text`/`next_text`),
+  dois por vez, emendados quadro a quadro (`narrar`). O nome do arquivo é o hash do texto, da voz e
+  do modelo (`nomeDoAudio`): republicar sem mudar nada acha o arquivo no ar (HEAD) e não gasta
+  crédito; mudou, gera outro, e os `ouvir-*.mp3` antigos da pasta saem (`removerNarracoesAntigas`,
+  só esse padrão). Matéria com mais de 30 mil caracteres não é narrada. Falha (sem crédito, chave,
+  voz que saiu da conta) não impede a publicação: a página sai sem o player, e o motivo vai em
+  “Ficou fora da página”. **Regerar tudo** não gera áudio novo (crédito em lote e o tempo da
+  rodada); só mantém o que já existe.
+- **WhatsApp** (§8.5): quem falou com o assistente por **áudio** recebe a resposta por escrito,
+  como sempre, e logo depois a mesma resposta falada (`responderEmAudio`, passado ao turno como
+  `emAudio` pelo `bot.ts`). Só a resposta comum do modelo, inteira numa mensagem: plano, pergunta,
+  recibo, link de confirmação e texto fixo nunca. O texto falado sai sem link, marcação nem emoji
+  (`textoParaFalarNoWhatsapp`), e não sai se tiver menos de 20 ou mais de 700 caracteres ou for
+  quase só número (código, protocolo). Pede Opus à ElevenLabs e confere `OggS` nos primeiros
+  bytes: só OGG Opus vira mensagem de voz (`audio.voice: true`); se não vier Ogg, vai MP3 como
+  arquivo de áudio. Só dentro da janela de 24 h (modelo não leva áudio), nunca pela fila, com pelo
+  menos 12 s sobrando no turno; registrado em `whatsapp_mensagens` com `comando = 'voz'`, sem texto.
+- **O que vai para a ElevenLabs:** o texto da matéria publicada e, com o WhatsApp ligado, o texto
+  da resposta do assistente. A ElevenLabs guarda o histórico na conta (`enable_logging=false` é só
+  do plano Enterprise).
+- **Testes:** `npx tsx scripts/conferir-voz.ts` (sem rede nem banco): texto narrado, trechos sem
+  perda, nome do arquivo, texto falado, formatos, leitura da configuração e a página com e sem o
+  player (inclusive nome fora do padrão e a guarda da página).
+
 ## 9. Convenções
 
 **Marca.** O emblema (a cruz) é **sempre vermelho sobre fundo branco** — nunca
@@ -3618,6 +3660,10 @@ para a tela podem ter teto, desde que a tela diga que cortou.
   mesmo no payload; rodar `scripts/avaliar-assistente.ts --gastar` antes de ligar as ações. No Google Drive da conta
   conectada, compartilhar "Palácio – Arquivos" com a equipe (o que o Palácio cria nasce privado da conta: sem isso,
   os links do WhatsApp e da ficha do envio não abrem para ninguém mais).
+- **Voz da instituição, implantação** (§8.7) — aplicar `20261023160000_cvrj_voz.sql`, guardar a chave
+  da ElevenLabs em Integrações, escolher a voz em Configurações → Voz. A conferir no primeiro uso: se o
+  `opus_48000_64` da ElevenLabs chega em Ogg (o código cai para MP3 se não chegar) e se a Kapso aceita
+  `audio.voice` no envio.
 - **Plano do Upload-Post** — o gratuito dá 10 publicações/mês. O pago (~US$16/mês
   no anual) é ilimitado. Decisão da instituição, ainda não tomada.
 

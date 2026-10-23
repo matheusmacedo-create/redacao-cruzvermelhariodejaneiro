@@ -9,7 +9,9 @@ import { problemasDaPagina } from '@/lib/site/guarda-da-pagina'
 import { medidasDaImagem, processarFotoDaMateria, TIPOS_PROCESSADOS, TIPOS_QUE_O_NAVEGADOR_MOSTRA } from '@/lib/site/imagens-da-materia'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { conteudoCanonicoDaMateria } from '@/lib/site/trilha-da-materia'
-import { withFtp, enviarArquivo, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
+import { withFtp, enviarArquivo, removerNarracoesAntigas, removerPastaDeMateria, FtpConfigError } from '@/lib/publicacao/ftp'
+import { narracaoDaMateria, type PedidoDeNarracao } from '@/lib/voz/narracao'
+import { vozPara } from '@/lib/voz/elevenlabs'
 import { atualizarVitrine, noticiasPublicadas } from '@/lib/site/vitrine'
 import { relacionadasPorTema, type MateriaAtual } from '@/lib/site/relacionadas'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -91,6 +93,8 @@ export type PaginaDaMateria = {
   imagens: string[]
   /** Mídias e links que não puderam ir para a página, em português. */
   registro: string[]
+  /** A narração que a página toca (lib/voz), se houver: o nome do MP3 na pasta. */
+  audio: string | null
 }
 
 /** A publicação parou antes de subir: a página teria algo que não pode ir ao ar. */
@@ -209,9 +213,14 @@ export async function gerarPaginaDaMateria(a: {
   rastreio?: { pixel: string; botao: string }
   /** As tags do chat do site (prepararChatDoSite). */
   chat?: string
+  /** A voz da instituição, ligada para as matérias (vozPara): a página ganha o "Ouça esta matéria". */
+  narracao?: PedidoDeNarracao | null
 }): Promise<PaginaDaMateria> {
   const registro: string[] = []
   const { arquivos, paraSubir, imagens } = await prepararMidias(a.lerArquivo, a.peca, registro)
+  const narracao = a.narracao ? await narracaoDaMateria({ ...a.narracao, peca: a.peca, base: a.base, slug: a.slug }) : {}
+  if (narracao.arquivo) paraSubir.push(narracao.arquivo)
+  if (narracao.aviso) registro.push(narracao.aviso)
   const html = montarPaginaDoArtigo({
     titulo: a.peca.title,
     subtitulo: a.peca.subtitle,
@@ -225,6 +234,7 @@ export async function gerarPaginaDaMateria(a: {
     rastreio: a.rastreio,
     registro,
     chat: a.chat,
+    audio: narracao.audio,
   })
   const problemas = problemasDaPagina(html)
   if (problemas.length) throw new PaginaRecusada(problemas)
@@ -240,7 +250,7 @@ export async function gerarPaginaDaMateria(a: {
     break
   }
   if (registro.length) console.warn(`[site] ${a.slug}: ${registro.join(' | ')}`)
-  return { html, paraSubir, capa, imagens, registro: [...new Set(registro)] }
+  return { html, paraSubir, capa, imagens, registro: [...new Set(registro)], audio: narracao.audio?.nome ?? null }
 }
 
 /** As outras matérias no ar do mesmo tema, para o rail "Leia também" e a faixa final. */
@@ -364,13 +374,15 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
     const modificadoEm = primeiraPublicacao || editadoEm.getTime() < publicadoEm.getTime() ? publicadoEm : editadoEm
 
     const chat = await prepararChatDoSite()
-    const [relacionadas, rastreio] = await Promise.all([
+    const [relacionadas, rastreio, voz] = await Promise.all([
       relacionadasDaMateria(pedido.workspaceId, { url, titulo: peca.title, descricao: peca.subtitle, corpo: peca.body }),
       rastreioDaMateria(pedido.workspaceId, pedido.contentId),
+      vozPara(pedido.workspaceId, 'materias'),
     ])
 
     const pagina = await gerarPaginaDaMateria({
       lerArquivo: leitorDaBiblioteca(supabase, pedido.workspaceId), peca, slug, base, publicadoEm, modificadoEm, relacionadas, rastreio, chat,
+      narracao: voz ? { voz, gerar: true } : null,
     })
 
     let vitrine: Awaited<ReturnType<typeof atualizarVitrine>> | undefined
@@ -379,6 +391,8 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
         await enviarArquivo(client, config, `${slug}/${arquivo.nome}`, arquivo.bytes)
       }
       await enviarArquivo(client, config, `${slug}/index.html`, pagina.html)
+      // A narração do texto anterior não é mais tocada por página nenhuma.
+      if (pagina.audio) await removerNarracoesAntigas(client, config, slug, pagina.audio)
 
       // A vitrine sobe no mesmo fôlego: a notícia entra no ar e o índice já a
       // empilha, o sitemap já a registra. Falha aqui não desfaz a publicação —
@@ -470,7 +484,7 @@ export async function publicarMateria(pedido: PedidoDePublicacao): Promise<Resul
       action: 'site_published',
       entity_type: 'content',
       entity_id: pedido.contentId,
-      metadata: { url, midias: pagina.paraSubir.length, primeira: primeiraPublicacao, fora_da_pagina: pagina.registro.slice(0, 10) },
+      metadata: { url, midias: pagina.paraSubir.length, primeira: primeiraPublicacao, fora_da_pagina: pagina.registro.slice(0, 10), narracao: Boolean(pagina.audio) },
     })
 
     return {
