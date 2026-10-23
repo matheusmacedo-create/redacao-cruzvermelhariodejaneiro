@@ -10,7 +10,7 @@ import { hashDoConvite } from '@/lib/rh/convites'
 import { enviarComSeguranca, hashDoIp } from '@/lib/contas/servidor'
 import { emailDeContaDoGoogle } from '@/lib/google/contas-emails'
 import { gerarSenhaTemporaria } from '@/lib/usuarios/senha'
-import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle } from '@/lib/google/diretorio'
+import { ErroDoDiretorio, chamarGoogleAdmin, criarUsuarioNoGoogle, enderecoOcupadoNoGoogle, permissoesDoAdmin } from '@/lib/google/diretorio'
 import { ErroDeGrupo, avisoDaConversao, colocarNoGrupo, consultarEndereco, converterEmGrupo } from '@/lib/google/grupos-regras'
 import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
@@ -292,6 +292,38 @@ export async function pendentesDeAprovacao(admin: Admin, workspaceId: string, at
   const meus = ((data ?? []) as Linha[]).filter((l) => podeDecidir(ator, l.dados)).slice(0, 5)
   if (!meus.length) return [{ texto: 'Nenhum cadastro esperando a sua aprovação. ✓' }]
   return meus.map((l) => ({ texto: resumoParaAprovador(l.dados), interativo: BOTOES_DE_APROVACAO(l.id) }))
+}
+
+/**
+ * "grupos": o diagnóstico para o administrador, só leitura. Diz o que a autorização do Google guardada tem (e o que falta)
+ * e, para cada setor, o que o endereço dele é hoje no Google: grupo, apelido (de quem), caixa real ou inexistente.
+ * Não altera nada. Para na primeira falha do Google e mostra o motivo.
+ */
+export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator: Ator): Promise<Saida[]> {
+  if (!ator.admin) return [{ texto: 'O diagnóstico dos grupos é só de administrador.' }]
+  const perm = await permissoesDoAdmin(workspaceId)
+  const cabecalho = !perm
+    ? '⚠️ Não consegui ler as permissões da autorização do Google (administrador não conectado ou expirado).'
+    : perm.faltam.length
+      ? `🔴 A autorização do Google NÃO tem: ${perm.faltam.map((e) => e.replace('https://www.googleapis.com/auth/', '')).join(', ')}. Reconecte o administrador e marque TODAS as permissões na tela do Google.`
+      : `🟢 A autorização do Google tem todas as permissões${perm.email ? ` (conta ${perm.email})` : ''}.`
+  const { data: setores } = await admin.from('setores').select('nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome')
+  const chamar = chamarGoogleAdmin(workspaceId)
+  const linhas: string[] = []
+  let erro: string | null = null
+  for (const st of setores ?? []) {
+    const endereco = typeof st.email === 'string' && st.email.includes('@') ? st.email.toLowerCase() : null
+    if (!endereco) continue
+    try {
+      const e = await consultarEndereco(chamar, endereco)
+      const rotulo = e.tipo === 'grupo' ? '✅ já é grupo' : e.tipo === 'apelido' ? `🔁 apelido de ${e.dono}` : e.tipo === 'caixa_real' ? '📥 caixa real (não se converte)' : '⚪ não existe no Google'
+      linhas.push(`• ${st.nome} (${endereco}): ${rotulo}`)
+    } catch (causa) {
+      erro = causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado ao consultar o Google'
+      break
+    }
+  }
+  return [{ texto: [cabecalho, erro ? `Parei na consulta dos setores: ${erro}` : linhas.length ? linhas.join('\n') : 'Nenhum setor com endereço.'].join('\n\n') }]
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */

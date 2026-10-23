@@ -2662,7 +2662,13 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   membro que vira coordenador é promovido e dono/gerente nunca é rebaixado. A conversão exige duas permissões novas da
   conexão de administrador — `admin.directory.group` e `apps.groups.settings` (e a API Groups Settings ligada no projeto
   do Google Cloud): reconectar o administrador depois do deploy. Efeito colateral conhecido: o envio pelo Palácio "como
-  ti@" (send-as no Gmail da caixa dona do apelido) pode precisar ser reverificado. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
+  ti@" (send-as no Gmail da caixa dona do apelido) pode precisar ser reverificado.
+  **Diagnóstico do 403 (23/10/2026):** o Google responde "Not Authorized to access this resource/api" tanto quando o
+  token não recebeu as permissões (a tela de consentimento deixa desmarcar) quanto quando a conta não tem o privilégio de
+  Grupos no Admin do Google. `dicaDeAcessoNegado` (lib/google/diretorio.ts) consulta o `tokeninfo` e diz qual: lista o que
+  FALTA no token ou, se está completo, aponta a conta/os Controles de API. O comando `grupos` (só administrador, só
+  leitura; `situacaoDosGrupos`) mostra esse diagnóstico e, para cada setor, se o endereço é grupo, apelido de quem, caixa
+  real ou inexistente. Falha na ficha ou no Google devolve o pedido a `aguardando` (a ficha criada é
   reaproveitada); depois que a conta do Google existe, o que falhar vira aviso, nunca desfaz. Ainda NÃO cria
   login do Palácio (isso segue por `colaborador:` / "Adicionar pessoas") e a foto fica em
   `equipe_membros.foto_cadastro_path` (o crachá e a ficha ainda não a leem). Sem a migração, "quero me cadastrar"

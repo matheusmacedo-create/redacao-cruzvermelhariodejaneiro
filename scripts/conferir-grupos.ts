@@ -172,7 +172,7 @@ async function main() {
     g.falhasPlanejadas.push({ quando: (a) => a === 'configuracoes', status: 403, vezes: 99 })
     const r = await tenta(() => converterEmGrupo(g.chamar, { endereco: TI, nome: 'TI', espera: semEspera }))
     igual(r instanceof ErroDeGrupo, true, 'falha nas configurações: lança')
-    contem((r as ErroDeGrupo).message, 'permissão', 'falha nas configurações: mensagem de permissão')
+    contem((r as ErroDeGrupo).message, 'o Google negou o acesso', 'falha nas configurações: mensagem de acesso negado')
     igual(g.grupos.has(TI), false, 'falha nas configurações: o grupo é desfeito')
     igual(g.usuarios.get(CONTATO)?.apelidos.has(TI), true, 'falha nas configurações: o apelido VOLTA')
   }
