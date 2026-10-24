@@ -4,7 +4,7 @@
  */
 import {
   numeroCanonico, formatarNumero, mascararNumero,
-  ehCortesia, TEXTO_NAO_ENTENDI_CURTO, lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, numeroSemNonoDigito, problemaNaSaude, interpretarComando, textoDosAvisos, textoDasLidas,
+  ehCortesia, TEXTO_NAO_ENTENDI_CURTO, LINHA_DAS_FUNCOES, textoDasFuncoes, lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, numeroSemNonoDigito, problemaNaSaude, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
@@ -1575,6 +1575,22 @@ conferirEnvioPelaKapso().catch((causa) => { falhas++; console.log('FALHOU: o env
     igual(reacao.mensagens[0]?.ignorar, 'sem_conteudo', 'reação com emoji: ignorada, o bot não responde')
     const texto = lerEventoDaKapso({ type: 'whatsapp.message.received', message: { id: 'wamid.T', from: '5521970360264', type: 'text', timestamp: '1788000000', text: { body: 'oi' } }, conversation: { phone_number: '+5521970360264' } }, 'whatsapp.message.received', null)
     igual(texto.mensagens[0]?.ignorar, null, 'mensagem de texto: não é ignorada')
+  }
+  // o passeio "funções": só como a mensagem inteira, e o menu aponta para ele
+  for (const t of ['funções', 'Funcoes', 'o que você faz?', 'tour', 'comandos']) igual(lerPedido(t, { pausado: false }).comando, 'funcoes', `funções: "${t}" abre o passeio`)
+  for (const t of ['funções', 'o que você faz']) igual(lerPedido(t, { pausado: false, assistente: true }).comando, 'funcoes', `funções: "${t}" abre o passeio também com o assistente`)
+  igual(lerPedido('quais as funções do chamado 12 que abri', { pausado: false }).comando === 'funcoes', false, 'funções: no meio de uma frase não roda')
+  contem(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }), LINHA_DAS_FUNCOES, 'menu: aponta para o passeio')
+  igual(textoDoMenu({ nome: 'Ana', pausado: false, urlBase: 'https://p' }).includes('Para responder um aviso'), false, 'menu: sem a explicação longa (ela está no passeio)')
+  {
+    const simples = textoDasFuncoes({})
+    contem(simples, '*chamado:* e o problema', 'passeio: chamado')
+    contem(simples, '*ajuda* e a sua dúvida', 'passeio: ajuda')
+    contem(simples, 'responda a própria mensagem dele', 'passeio: como responder um aviso')
+    igual(simples.includes('*portaria*') || simples.includes('*status*') || simples.includes('*financeiro*'), false, 'passeio: sem as áreas que a pessoa não tem')
+    const tudo = textoDasFuncoes({ assistente: true, admin: true, usuarios: true, atende: true, portaria: true, financeiro: true, presenca: true, frota: 'operar', estoque: true })
+    for (const parte of ['*portaria*', '*financeiro*', '*presença*', '*veículos*', '*estoque*', '*status*', '*colaborador:*', 'Escreva do seu jeito']) contem(tudo, parte, `passeio completo: ${parte}`)
+    igual(tudo.length < 3500, true, `passeio completo cabe numa mensagem (${tudo.length})`)
   }
   if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
 

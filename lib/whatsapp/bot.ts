@@ -40,7 +40,7 @@ import {
   TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, alvoDoLink, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, ofereceNaoFuiEu,
   TEXTO_NAO_ENTENDI_CURTO, ehCortesia, normalizar, pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
-  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
+  textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDasFuncoes, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
 } from './regras'
 import { responderComAssistente } from './assistente'
@@ -639,6 +639,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       // Quem é da equipe e também voluntário com o mesmo número: o "sair" do anúncio vale para os dois.
       await admin.from('participantes_whatsapp').update({ pausado_em: comando === 'parar' ? agora : null, atualizado_em: agora }).eq('numero', numero)
       await responder(error ? 'Não consegui mudar agora. Tente de novo daqui a pouco ou mude em Meu perfil.' : comando === 'parar' ? TEXTO_PAUSADO : TEXTO_VOLTOU)
+      return
+    }
+
+    if (comando === 'funcoes') {
+      await responder(textoDasFuncoes({ assistente: ia.disponivel, ...await quemNoMenu(admin, workspaceId, pessoa) }), { comando: 'funcoes' })
       return
     }
 

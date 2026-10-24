@@ -1230,7 +1230,7 @@ export function lerEventoDaKapso(corpo: unknown, eventoDoCabecalho: string | nul
 export type Comando =
   | 'menu' | 'avisos' | 'lidas' | 'parar' | 'voltar' | 'agenda' | 'chamados' | 'aprovacoes' | 'ajuda' | 'abrir_chamado'
   | 'atender_chamado' | 'portaria' | 'registrar_visita' | 'financeiro' | 'decidir_financeiro' | 'desativar_conta' | 'cadastrar_colaborador'
-  | 'presenca' | 'frota' | 'saida_veiculo' | 'retorno_veiculo' | 'estoque' | ComandoDaAdministracao | 'desconhecido'
+  | 'presenca' | 'frota' | 'saida_veiculo' | 'retorno_veiculo' | 'estoque' | 'funcoes' | ComandoDaAdministracao | 'desconhecido'
 
 /** Os comandos de quem administra o espaço (lib/whatsapp/admin.ts). */
 export type ComandoDaAdministracao = 'status' | 'fila'
@@ -1257,6 +1257,12 @@ const DA_ADMINISTRACAO: Record<string, ComandoDaAdministracao> = {
   status: 'status', diagnostico: 'status', saude: 'status', 'status do whatsapp': 'status',
   fila: 'fila', 'fila agora': 'fila', 'enviar fila': 'fila',
 }
+
+/** O passeio por tudo o que o bot faz (textoDasFuncoes): só como a mensagem inteira, para não roubar frase de outro comando. */
+const DAS_FUNCOES = new Set([
+  'funcoes', 'funcao', 'o que voce faz', 'o que voce sabe fazer', 'o que voce pode fazer', 'o que o bot faz', 'o que o bot sabe fazer',
+  'tour', 'conhecer', 'recursos', 'comandos', 'tudo que voce faz',
+])
 
 /**
  * A lista das visitas abertas do dia (lib/whatsapp/portaria.ts): só como a mensagem inteira, como os da
@@ -1372,6 +1378,7 @@ export function lerPedido(entrada: string, p: { pausado: boolean; admin?: boolea
   if (!t) return { comando: 'desconhecido', resto: '' }
   if (t === '3') return { comando: p.pausado ? 'voltar' : 'parar', resto: '' }
   if (p.admin && DA_ADMINISTRACAO[t]) return { comando: DA_ADMINISTRACAO[t], resto: '' }
+  if (DAS_FUNCOES.has(t)) return { comando: 'funcoes', resto: '' }
   const palavras = t.split(' ')
   // Comandos com complemento vêm antes: "ajuda como paro os avisos" é dúvida, não "avisos".
   if ((palavras[0] === 'ajuda' || palavras[0] === 'duvida') && palavras.length > 1) return { comando: 'ajuda', resto: depoisDe(entrada, /^\s*(ajuda|d[uú]vida)\b/i) }
@@ -1562,6 +1569,29 @@ export const LINHA_DO_ASSISTENTE = 'Ou escreva do seu jeito, ex.: _o que tenho p
 /** A linha de quem gerencia usuários no menu: o cadastro pede texto (o nome), então fica só no corpo, não na lista. */
 export const LINHA_DO_CADASTRO = '*colaborador:* e o nome, para cadastrar alguém (a conta nasce confirmada no Palácio)'
 
+/** A porta de entrada do passeio, na última linha antes do sino: quem acabou de chegar descobre o resto sozinho. */
+export const LINHA_DAS_FUNCOES = 'Quer conhecer tudo o que eu faço? Escreva *funções*.'
+
+/**
+ * O passeio por tudo o que o bot faz ("funções"): as mesmas opções do menu, agrupadas e explicadas, e só as áreas que a
+ * pessoa tem. Cabe numa mensagem de texto só (o teto é 4096; o de quem tem tudo fica bem abaixo disso).
+ */
+export function textoDasFuncoes(p: { assistente?: boolean } & QuemNoMenu): string {
+  const areas = linhasDasAreas(p)
+  return [
+    '*O que eu faço por aqui*',
+    ['*Avisos do Palácio*', '*1* – ver os avisos que você ainda não abriu', '*2* – marcar todos como lidos',
+      '*3* – parar de receber os avisos por aqui (e *voltar* quando quiser)', 'Para responder um aviso, responda a própria mensagem dele.'].join('\n'),
+    ['*Seu dia*', '*4* – sua agenda de hoje e amanhã', '*6* – o que espera o seu voto'].join('\n'),
+    ['*Chamados*', `*5* – ${p.atende ? 'seus chamados e os da fila que você atende' : 'seus chamados abertos'}`, '*chamado:* e o problema – abre um chamado novo'].join('\n'),
+    ['*Dúvidas*', '*ajuda* e a sua dúvida – ex.: _ajuda como trocar a senha_'].join('\n'),
+    areas.length ? ['*Das suas áreas*', ...areas].join('\n') : null,
+    p.assistente ? ['*Do seu jeito*', LINHA_DO_ASSISTENTE.replace(/^Ou escreva/, 'Escreva')].join('\n') : null,
+    p.admin || p.usuarios ? ['*Da administração*', ...(p.admin ? OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu) : []), ...(p.usuarios ? [LINHA_DO_CADASTRO] : [])].join('\n') : null,
+    'Escreva *menu* para ver as opções de novo.',
+  ].filter(Boolean).join('\n\n')
+}
+
 export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase: string; naoEntendi?: boolean; assistente?: boolean } & QuemNoMenu): string {
   const ola = p.nome ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
   const montar = (areas: string[]) => [
@@ -1570,9 +1600,10 @@ export function textoDoMenu(p: { nome: string | null; pausado: boolean; urlBase:
     p.pausado ? '_Os avisos por aqui estão pausados._' : null,
     ['Responda com o número:', ...opcoesDoMenu(p.pausado, p.atende).map(linhaDoMenu)].join('\n'),
     ['Ou escreva:', '*chamado:* e o problema, para abrir um chamado', '*ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_)',
-      ...areas, 'Para responder um aviso, responda a própria mensagem dele.'].join('\n'),
+      ...areas].join('\n'),
     p.assistente ? LINHA_DO_ASSISTENTE : null,
     p.admin || p.usuarios ? ['Da administração:', ...(p.admin ? OPCOES_DA_ADMINISTRACAO.map(linhaDoMenu) : []), ...(p.usuarios ? [LINHA_DO_CADASTRO] : [])].join('\n') : null,
+    LINHA_DAS_FUNCOES,
     `Tudo continua no sino do Palácio Virtual: ${p.urlBase}/notificacoes`,
   ].filter(Boolean).join('\n\n')
   const longo = montar(linhasDasAreas(p))

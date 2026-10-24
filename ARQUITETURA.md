@@ -2795,6 +2795,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   "ok" e emoji solto (`ehCortesia`: até 4 palavras só de cortesia, sem "?") não recebem resposta; e o que o bot não entende recebe
   uma linha (`TEXTO_NAO_ENTENDI_CURTO`: "escreva *ajuda* e a sua dúvida, ou *menu*"), sem despejar o menu. O menu continua saindo quando
   a pessoa pede ("menu", "oi"). Quem tem o assistente ligado segue sendo atendido por ele.
+  **Menu mais simples e passeio "funções"** (24/10/2026): o menu de saudação perdeu a frase longa sobre responder avisos e ganhou
+  a última linha `LINHA_DAS_FUNCOES` ("Quer conhecer tudo o que eu faço? Escreva *funções*"), que também sai nas boas-vindas
+  depois de confirmar o número (mesmo `textoDoMenu`). O comando `funcoes` (só como mensagem inteira: "funções", "o que você faz",
+  "tour", "comandos"…) responde `textoDasFuncoes`: as opções agrupadas (Avisos, Seu dia, Chamados, Dúvidas) mais só as áreas que a
+  pessoa tem (portaria, financeiro, presença, frota, estoque, assistente, administração). Área nova no menu entra também aí.
   **`criar email de <nome>`** (24/10/2026, só administrador): o e-mail institucional de quem JÁ tem conta e ficha e ainda não
   tem e-mail (`equipe_membros` ativo, `email_trabalho` nulo, WhatsApp confirmado). `previaDoEmailDePessoa` mostra quem, o endereço e
   o final do WhatsApp; "Sim, criar" (botão `em:`, 15 min, leva 12 dígitos do id da pessoa) chama `criarEmailDePessoa`: cria a conta
