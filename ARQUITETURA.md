@@ -2716,43 +2716,66 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     plano** (`assinaturaDoPlano`: FNV-1a dos endereços que precisam de caixa e do estado de cada um). Na confirmação
     (`criarCaixasDosSetoresPeloBotao`) o plano é recalculado: se a assinatura não bate — algo mudou, ou o segundo toque no
     mesmo botão, quando o plano já é outro — nada é feito.
-  - `criarCaixasDosSetores` (regra pura, `Chamar` injetável) vai setor a setor, em sequência: **apelido** → apaga o apelido
-    e cria a conta logo em seguida (com nova tentativa em 409: o Google ainda mostra o apelido por alguns segundos); se a
-    criação falha, **devolve o apelido** (`restaurarApelido`) e o resultado diz se voltou ou não; **livre** → cria;
-    **caixa real** (contato@) e **grupo** → não mexe. Um setor que falha não impede os outros; depois de `PRAZO_DAS_CAIXAS_MS`
-    (150 s) nenhum setor novo começa (`adiada`: o webhook tem prazo, melhor parar entre um setor e outro). Cada conta
-    nasce com senha aleatória (`gerarSenhaTemporaria`), troca no primeiro acesso, nome = o setor, sobrenome "Cruz
-    Vermelha RJ".
+  - `criarCaixasDosSetores` (regra pura, `Chamar` injetável) vai setor a setor, em sequência, **primeiro os endereços
+    livres** (nada é apagado neles) e só depois os que são apelido. Apelido → apaga o apelido e cria a conta logo em seguida;
+    o POST é a palavra final (`semConsulta`: uma segunda leitura logo depois de apagar pode ainda enxergar o apelido) e
+    repete até 6 vezes em 409 (o Google ainda mostra o endereço por alguns segundos). **Nada é afirmado sem conferir:** se o
+    DELETE estoura, o endereço é reconsultado — `livre` = foi apagado mesmo assim (segue e cria), `apelido` = "continua como
+    estava", sem resposta = "não sei" (`incerto`, manda conferir no Admin do Google); se o POST estoura (timeout, 5xx), a
+    conta pode ter nascido: reconsulta e, se já é caixa real, conta como criada. Se a criação falha, **devolve o apelido**
+    (`restaurarApelido`: 4 tentativas, exceção não interrompe, e só diz "voltou" pela **lista de apelidos do dono**, nunca pela
+    resposta do POST nem pela leitura do endereço). Um setor que falha não impede os outros, **exceto** erro que vale para
+    todos (401/403/412/limite de contas) ou dois setores seguidos falhando: o resto fica `adiada` (motivo na resposta), para
+    não repetir apagar-falhar-devolver em cada um. `ate` (120 s, e no máximo o prazo do lote do webhook menos 90 s): depois
+    dele nenhum setor novo começa. **`aoCriar`** roda logo depois de cada conta, antes do setor seguinte: é onde o
+    Palácio registra a conta em `google_contas`, alinha `caixas_de_email.no_gmail` e entrega a senha — se o processo for
+    cortado depois, o que já nasceu não fica sem registro. Cada conta nasce com senha aleatória, troca no primeiro acesso,
+    nome = o setor, sobrenome "Cruz Vermelha RJ".
+  - **Trava do lote** (`pedirVezDoLote`): o "Sim, criar" grava `google_caixas_dos_setores_inicio` em `activity_log` e só segue
+    se não há outro lote mais antigo (menos de 10 min) sem o `google_caixas_dos_setores` de fim correspondente
+    (`metadata.inicio`). Dois toques seguidos ou dois administradores com a mesma prévia passam os dois pela assinatura; a
+    trava é o que faz o segundo esperar. A assinatura (SHA-256 truncado, 12 hex) cobre endereço, estado, dono do apelido e
+    **quem receberá a senha**; leituras de banco que falham **lançam** (`ErroDeBanco`) em vez de virar "lista vazia".
+    O botão `cx:` não conta no teto de respostas por número (tem validade e assinatura).
   - **A caixa nasce sem dono, a menos que já haja coordenador.** Setor com coordenador registrado em `setor_coordenadores`
-    recebe a senha por WhatsApp na hora (`textoDaSenhaDaCaixa`, categoria `conta`); nos outros a senha é **descartada** —
-    ninguém entra na caixa até a coordenação ser aprovada. Nada de senha no texto da resposta (ele vai a quem pediu e pode
-    ser repassado) nem em lugar nenhum do banco. Cada caixa fica em `google_contas` (e-mail = endereço do setor, `setor_id`)
-    e o lote em `activity_log` (`google_caixas_dos_setores`, sem senha). Apagar o apelido já marca
-    `caixas_de_email.no_gmail = false` do endereço (o que a sincronização do /correio faria depois): o Palácio deixa de ver o
-    setor e de oferecê-lo como remetente.
+    (relido **na hora de criar cada caixa**, não só na prévia) recebe a senha por WhatsApp (`textoDaSenhaDaCaixa`, categoria
+    `conta`); nos outros a senha é **descartada** — ninguém entra na caixa até a coordenação ser aprovada, e **o e-mail que
+    chegar ao setor nesse meio-tempo cai numa caixa que ninguém abre** (a prévia diz isso em letras claras). A senha só
+    existe em memória e, enquanto espera na fila do WhatsApp, no texto da mensagem (a categoria `conta` apaga o texto depois de
+    enviado); nunca vai a `activity_log` nem à resposta. O resultado vem em mensagens de até 3500 caracteres
+    (`emMensagens`), **o que deu errado primeiro**, para o corte da Meta nunca comer um alerta.
+  - **"Sem dono" = a senha ainda não chegou a ninguém**, não "o setor não tem coordenador" (`estadoDaCaixaDoSetor`): há linha
+    em `google_contas` com o endereço do setor E nenhum `activity_log` `google_caixa_do_setor_entregue` (`entity_type =
+    'setor'`, `entity_id` = o setor) — gravado quando a senha chega por WhatsApp/e-mail (lote, comando ou aprovação).
+    Banco que não responde = `desconhecido`, nunca "sem dono" (falhar aberto redefiniria a senha de uma caixa em uso). Sem
+    linha em `google_contas` (o contato@, caixa criada à mão) = `nao_nossa`: nunca é tocada.
   - **Ligar à coordenação = a aprovação.** Quando um administrador aprova alguém com cargo **Coordenador(a)**
-    (`executarCriacao` → `darCaixaAoSetor`): endereço livre → a caixa nasce agora; caixa **sem responsável** (`caixaSemDono`:
-    há linha em `google_contas` com o endereço do setor e nenhum coordenador registrado nele) → é **entregue**
-    (`redefinirSenhaDaCaixa`: PATCH com senha nova, troca no primeiro acesso, recuperação = e-mail e celular de quem
-    entra) e a senha vai na mesma mensagem da conta pessoal (`textoDaContaCriada` numera as duas caixas); caixa que já tem
-    responsável, apelido, grupo e o contato@ (que não é nosso) nunca são tocados. A tela de confirmação
-    (`avisoDaCaixaNaConfirmacao`) diz de antemão qual dos casos é, inclusive "senha redefinida". O coordenador é registrado
-    em `setor_coordenadores` ao fim, então um apelido que sobrou é resolvido depois por `caixas dos setores`, que já entrega a
-    senha a ele.
+    (`executarCriacao` → `darCaixaAoSetor`): endereço livre → a caixa nasce agora; caixa **sem dono** → é **entregue**
+    (`redefinirSenhaDaCaixa`: PATCH com senha nova, troca no primeiro acesso, recuperação = e-mail e celular de quem entra) e
+    a senha vai na mesma mensagem da conta pessoal (`textoDaContaCriada` numera as duas caixas). A redefinição ainda recusa
+    caixa em que **alguém já entrou** (`lastLoginTime` diferente de 1970-01-01 no Directory = `em_uso`): é a segunda trava,
+    por regra e não só por dado — vale também para o contato@. Caixa entregue, apelido, grupo e caixa que não é nossa nunca são
+    tocados. A tela de confirmação (`avisoDaCaixaNaConfirmacao`) diz de antemão qual é o caso, inclusive "senha redefinida".
+    O coordenador é registrado em `setor_coordenadores` ao fim; se a entrega falhou, a caixa segue "sem dono" e
+    `caixa do setor: <nome>` a reenvia (redefine e manda aos coordenadores registrados).
   - **`caixa do setor: <nome>`** continua como atalho de UM setor (nome inteiro e dois-pontos, porque cria conta de verdade):
-    cria a caixa, ou entrega a que já existe sem dono se o setor já tem coordenador; apelido → manda usar `caixas dos
-    setores`. Sem coordenador registrado, ninguém recebe a senha.
+    cria a caixa, ou **reenvia** a que existe sem dono se o setor já tem coordenador registrado (é o caminho de recuperação
+    quando a entrega falhou); apelido → manda usar `caixas dos setores`. Sem coordenador registrado, ninguém recebe a senha.
   - **Ordem de uso:** `caixas dos setores` → "Sim, criar". Depois, cada coordenação se cadastra (link do setor) e um
     administrador aprova — a caixa é entregue na aprovação. Entre apagar o apelido e a conta nascer passam segundos, não
     horas, porque é um passo só.
 
-  Pontos que a revisão independente fechou antes de ir ao ar: 404 ao apagar apelido é `nao_era_apelido`, não "removido";
-  na mensagem de boas-vindas o aviso de apagar a mensagem vem logo depois das senhas (fora das 24 h o modelo da Meta corta em
-  1000 caracteres); `na_fila` não é dito como "enviada"; se WhatsApp e e-mail falham, o resultado diz que a senha da caixa
-  do setor também não chegou (sem a senha: o texto vai a todos os administradores); "caixa do setor" exige os dois-pontos.
+  Revisões independentes (duas rodadas) fecharam: 404 ao apagar apelido = `nao_era_apelido`; boas-vindas com o aviso de apagar
+  a mensagem logo depois das senhas (fora das 24 h o modelo da Meta corta em 1000); `na_fila` nunca dito como "enviada";
+  "caixa do setor" exige os dois-pontos e o nome inteiro; e, na segunda rodada, os caminhos de falha acima (timeout, resposta
+  perdida, leitura atrasada, erro que atinge todos, registro só no fim, lote duplicado). Outros pontos de atenção
+  conhecidos: apagar o apelido provavelmente remove o "enviar como" do contato@ (assinatura, nome de exibição) e devolvê-lo
+  não restaura isso; a primeira criação real merece ser conferida no Admin do Google (campos como `recoveryPhone` em E.164 e a
+  janela de propagação do apelido só se confirmam contra o Google de verdade).
   **Fica para depois (conhecido):** nada revoga `setor_coordenadores` (não há comando; `revogado_em` existe, sem UI) nem
-  olha `equipe_membros.situacao`: quem sai da equipe segue aprovando; a tela de criar conta por link e a ajuda
-  (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao grupo do setor".
+  olha `equipe_membros.situacao`: quem sai da equipe segue aprovando; dois setores com o mesmo endereço contam uma vez (o
+  primeiro por nome); a tela de criar conta por link e a ajuda (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao
+  grupo do setor".
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

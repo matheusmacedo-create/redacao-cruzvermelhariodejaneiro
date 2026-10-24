@@ -404,7 +404,7 @@ export const VALIDADE_DO_BOTAO_DE_CAIXAS_MIN = 15
 export const idDoBotaoDeCaixas = (acao: 'sim' | 'nao', assinatura: string, agora = Date.now()) => `cx:${acao === 'sim' ? 's' : 'n'}:${Math.floor(agora / 60_000).toString(36)}:${assinatura}`
 
 export function lerBotaoDeCaixas(texto: string, agora = Date.now()): { acao: 'sim' | 'nao'; vencido: boolean; assinatura: string } | null {
-  const m = texto.trim().match(/^cx:([sn]):([0-9a-z]{4,8}):([0-9a-z]{1,8})$/)
+  const m = texto.trim().match(/^cx:([sn]):([0-9a-z]{4,8}):([0-9a-f]{12})$/)
   if (!m) return null
   const minutos = parseInt(m[2], 36)
   const vencido = !Number.isFinite(minutos) || Math.floor(agora / 60_000) - minutos > VALIDADE_DO_BOTAO_DE_CAIXAS_MIN || minutos > Math.floor(agora / 60_000) + 1
@@ -417,10 +417,38 @@ export const BOTOES_DE_CAIXAS = (assinatura: string, agora = Date.now()): Intera
 /** A pergunta do botão vai em mensagem própria: a prévia, com muitos setores, passa de 1024 caracteres e perderia os botões. */
 export const PERGUNTA_DAS_CAIXAS = 'Criar essas caixas?'
 
+/**
+ * Junta blocos de texto em mensagens de até `limite` caracteres sem partir um bloco ao meio (um bloco maior que o limite é
+ * partido por linhas). A Meta corta o que passa de 4096 e o corte come justamente o fim, onde ficam os alertas.
+ */
+export function emMensagens(blocos: string[], limite = 3500): string[] {
+  const partes: string[] = []
+  let atual = ''
+  const empurra = (b: string) => {
+    if (!atual) atual = b
+    else if ((atual + '\n\n' + b).length <= limite) atual += '\n\n' + b
+    else { partes.push(atual); atual = b }
+  }
+  for (const b of blocos.filter(Boolean)) {
+    if (b.length <= limite) { empurra(b); continue }
+    let pedaco = ''
+    for (const linha of b.split('\n')) {
+      if (pedaco && (pedaco + '\n' + linha).length > limite) { empurra(pedaco); pedaco = linha } else pedaco = pedaco ? `${pedaco}\n${linha}` : linha
+    }
+    if (pedaco) empurra(pedaco)
+  }
+  if (atual) partes.push(atual)
+  return partes
+}
+
 type SetorNoPlano = { nome: string; endereco: string; estado: 'apelido' | 'livre' | 'caixa_real' | 'grupo'; dono?: string }
 
 /** `comCoordenador`: os endereços (minúsculos) dos setores que já têm coordenador(a) registrado(a). */
-export function textoDaPreviaDasCaixas(plano: SetorNoPlano[], comCoordenador: Set<string> = new Set()): string {
+export const textoDaPreviaDasCaixas = (plano: SetorNoPlano[], comCoordenador: Set<string> = new Set()) => blocosDaPreviaDasCaixas(plano, comCoordenador).join('\n\n')
+/** A prévia em mensagens que cabem no WhatsApp (a lista pode passar de 4096 com muitos setores de nome longo). */
+export const mensagensDaPreviaDasCaixas = (plano: SetorNoPlano[], comCoordenador: Set<string> = new Set()) => emMensagens(blocosDaPreviaDasCaixas(plano, comCoordenador))
+
+function blocosDaPreviaDasCaixas(plano: SetorNoPlano[], comCoordenador: Set<string>): string[] {
   const criar = plano.filter((p) => p.estado === 'apelido' || p.estado === 'livre')
   const jaTem = plano.filter((p) => p.estado === 'caixa_real')
   const grupos = plano.filter((p) => p.estado === 'grupo')
@@ -428,14 +456,16 @@ export function textoDaPreviaDasCaixas(plano: SetorNoPlano[], comCoordenador: Se
     jaTem.length ? `Já têm caixa (não mexo): ${jaTem.map((p) => p.nome).join(', ')}.` : '',
     grupos.length ? `São grupo do Google (não mexo): ${grupos.map((p) => p.nome).join(', ')}.` : '',
   ].filter(Boolean)
-  if (!criar.length) return ['Nenhum setor precisa de caixa nova: todos os endereços já têm caixa. ✓', ...restante].join('\n\n')
+  if (!plano.length) return ['Não achei nenhum setor com endereço cadastrado.']
+  if (!criar.length) return ['Nenhum setor precisa de caixa nova: todos os endereços já têm caixa. ✓', ...restante]
   return [
     `Vou criar a *caixa própria* de ${criar.length} setor${criar.length === 1 ? '' : 'es'} (conta de verdade, caixa privada):`,
     criar.map((p) => `• ${p.nome}: ${p.endereco}${p.estado === 'apelido' ? ` _(hoje apelido de ${p.dono}: o apelido é apagado e a caixa nasce em seguida)_` : ''}${comCoordenador.has(p.endereco.toLowerCase()) ? ' — já tem coordenador(a): recebe a senha agora' : ''}`).join('\n'),
     ...restante,
     '*Quem recebe a senha:* setor com coordenador(a) já registrado(a) recebe por WhatsApp agora. Nos outros ninguém recebe senha: a caixa fica pronta e *sem dono* (ninguém entra nela) até a coordenação do setor ser aprovada — nesse momento ela é entregue à pessoa, com senha nova por WhatsApp.',
+    ...(criar.some((p) => !comCoordenador.has(p.endereco.toLowerCase())) ? ['⚠️ *Atenção:* o e-mail que chegar a um setor sem coordenador(a) cai numa caixa em que *ninguém abre* até a aprovação — hoje, nos setores que são apelido, ele chegaria ao contato@. Se algum desses setores recebe e-mail importante, aprove a coordenação *antes* ou deixe-o de fora.'] : []),
     '*O que muda:* o e-mail enviado a um setor que hoje é apelido passa a cair na caixa nova (o que já chegou continua no contato@, que não é tocado). Esses setores deixam de aparecer no /correio e no /email do Palácio. Se uma caixa não puder ser criada, o apelido volta ao lugar.',
-  ].join('\n\n')
+  ]
 }
 
 /** A mensagem com a senha da caixa de um setor para quem a coordena (a única cópia: sai uma vez e não é gravada). */
@@ -447,22 +477,32 @@ export const textoDaSenhaDaCaixa = (p: { setor: string; email: string; senha: st
 
 export type EntregaDaCaixa = 'enviada' | 'na_fila' | 'falhou' | 'sem_coordenador'
 
-export function textoDoResultadoDasCaixas(r: { nome: string; endereco: string; resultado: 'criada' | 'ja_existe' | 'e_grupo' | 'falhou' | 'adiada'; apelidoApagado?: boolean; apelidoDevolvido?: boolean; motivo?: string; entrega?: EntregaDaCaixa }[]): string {
+type ResultadoParaTexto = { nome: string; endereco: string; resultado: 'criada' | 'ja_existe' | 'e_grupo' | 'falhou' | 'adiada'; apelidoApagado?: boolean; apelidoDevolvido?: boolean; incerto?: boolean; motivo?: string; entrega?: EntregaDaCaixa; registro?: 'ok' | 'falhou' }
+
+export const textoDoResultadoDasCaixas = (r: ResultadoParaTexto[]) => blocosDoResultadoDasCaixas(r).join('\n\n')
+/** O resultado em mensagens que cabem no WhatsApp; o que deu errado vem PRIMEIRO, para o corte nunca comer um alerta. */
+export const mensagensDoResultadoDasCaixas = (r: ResultadoParaTexto[]) => emMensagens(blocosDoResultadoDasCaixas(r))
+
+function blocosDoResultadoDasCaixas(r: ResultadoParaTexto[]): string[] {
   const criadas = r.filter((x) => x.resultado === 'criada')
   const falhou = r.filter((x) => x.resultado === 'falhou')
   const adiadas = r.filter((x) => x.resultado === 'adiada')
   const jaTem = r.filter((x) => x.resultado === 'ja_existe')
   const grupos = r.filter((x) => x.resultado === 'e_grupo')
-  const destino = (e?: EntregaDaCaixa) => e === 'enviada' ? 'senha enviada à coordenação' : e === 'na_fila' ? 'senha na fila do WhatsApp da coordenação' : e === 'falhou' ? '⚠️ a senha NÃO chegou à coordenação: redefina no Admin do Google' : 'sem dono, aguardando a coordenação'
+  const destino = (x: { entrega?: EntregaDaCaixa }) => x.entrega === 'enviada' ? 'senha enviada à coordenação' : x.entrega === 'na_fila' ? 'senha na fila do WhatsApp da coordenação' : x.entrega === 'falhou' ? '⚠️ a senha NÃO chegou à coordenação: use *caixa do setor: <nome>* para reenviar' : 'sem dono, aguardando a coordenação'
   const semDono = criadas.some((x) => x.entrega === 'sem_coordenador' || x.entrega === undefined)
+  const motivosDeParada = [...new Set(adiadas.map((x) => x.motivo).filter((m): m is string => Boolean(m)))]
+  // Com muitas falhas o motivo de cada uma é encurtado: a lista tem de caber, e o que importa é qual endereço ficou como.
+  const tetoDoMotivo = falhou.length > 5 ? 100 : 200
+  const falhaDe = (x: ResultadoParaTexto) => `• ${x.nome}: ${x.endereco} — ${(x.motivo ?? 'erro').slice(0, tetoDoMotivo)}${x.apelidoApagado ? (x.apelidoDevolvido ? ' (o apelido voltou ao lugar)' : ' ⚠️ o apelido foi apagado e NÃO voltou: o endereço está sem destino. Restaure o apelido no Admin do Google ou mande *caixas dos setores* de novo') : ''}${x.incerto && !x.apelidoApagado ? ' ⚠️ confira este endereço no Admin do Google antes de tentar de novo' : ''}`
   return [
-    criadas.length ? `✅ Caixas criadas (${criadas.length}):\n${criadas.map((x) => `• ${x.nome}: ${x.endereco} — ${destino(x.entrega)}`).join('\n')}` : 'Nenhuma caixa foi criada.',
-    falhou.length ? `❌ Não consegui (${falhou.length}):\n${falhou.map((x) => `• ${x.nome}: ${x.endereco} — ${x.motivo ?? 'erro'}${x.apelidoApagado ? (x.apelidoDevolvido ? ' (o apelido voltou ao lugar)' : ' ⚠️ o apelido foi apagado e NÃO voltou: o endereço está sem destino. Restaure o apelido no Admin do Google ou mande *caixas dos setores* de novo') : ''}`).join('\n')}` : '',
-    adiadas.length ? `⏳ Não deu tempo de começar (${adiadas.length}): ${adiadas.map((x) => x.nome).join(', ')}. Mande *caixas dos setores* de novo para continuar.` : '',
+    falhou.length ? `❌ Não consegui (${falhou.length}):\n${falhou.map(falhaDe).join('\n')}` : '',
+    adiadas.length ? `⏳ Não foi feito (${adiadas.length}): ${adiadas.map((x) => x.nome).join(', ')}.${motivosDeParada.length ? ` ${motivosDeParada.join(' ')}.` : ''} Mande *caixas dos setores* de novo para continuar.` : '',
+    criadas.length ? `✅ Caixas criadas (${criadas.length}):\n${criadas.map((x) => `• ${x.nome}: ${x.endereco} — ${destino(x)}${x.registro === 'falhou' ? ' ⚠️ a caixa existe mas NÃO ficou registrada no Palácio: ela não poderá ser entregue à coordenação — avise a TI' : ''}`).join('\n')}` : 'Nenhuma caixa foi criada.',
     jaTem.length ? `Já tinham caixa (${jaTem.length}): ${jaTem.map((x) => x.nome).join(', ')}.` : '',
     grupos.length ? `São grupo do Google (${grupos.length}): ${grupos.map((x) => x.nome).join(', ')}.` : '',
     semDono ? 'Próximo passo: a coordenação de cada setor se cadastra (link do setor) e um administrador aprova — na aprovação a caixa é entregue a ela, com senha nova por WhatsApp. Não precisa criar nada à mão.' : '',
-  ].filter(Boolean).join('\n\n')
+  ].filter(Boolean)
 }
 
 // ------------------------------------------------------------------ "caixa do setor: <nome>"

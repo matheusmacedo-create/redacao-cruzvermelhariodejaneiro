@@ -25,10 +25,11 @@ const contem = (texto: string, trecho: string, caso: string) => { if (!String(te
 // ------------------------------------------------------------------ o Google de mentira
 
 type Grupo = { membros: Map<string, string>; config: Record<string, unknown> | null }
-type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number; mensagem?: string; reason?: string }
+/** `lancar`: a chamada estoura (timeout, queda de rede) em vez de responder. `aplicar`: o Google faz a mudança E ENTÃO a resposta se perde. */
+type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number; mensagem?: string; reason?: string; lancar?: boolean; aplicar?: boolean }
 
 function novoGoogle() {
-  const usuarios = new Map<string, { principal: string; apelidos: Set<string> }>()
+  const usuarios = new Map<string, { principal: string; apelidos: Set<string>; ultimoAcesso?: string }>()
   const grupos = new Map<string, Grupo>()
   const falhasPlanejadas: Falha[] = []
   const chamadas: string[] = []
@@ -45,7 +46,16 @@ function novoGoogle() {
     const metodo = init?.method ?? 'GET'
     chamadas.push(`${metodo} ${api}:${caminho}`)
     const f = falhasPlanejadas.find((x) => x.quando(api, metodo, caminho) && (x.vezes ?? 1) > 0)
-    if (f) { f.vezes = (f.vezes ?? 1) - 1; return erro(f.status, f.mensagem, f.reason) }
+    if (f) {
+      f.vezes = (f.vezes ?? 1) - 1
+      if (f.aplicar) await executar(api, caminho, init)
+      if (f.lancar) throw new Error(f.mensagem ?? 'The operation was aborted due to timeout')
+      return erro(f.status, f.mensagem, f.reason)
+    }
+    return executar(api, caminho, init)
+  }
+  const executar: Chamar = async (api, caminho, init) => {
+    const metodo = init?.method ?? 'GET'
     const corpo = (init?.corpo ?? {}) as Record<string, string>
     if (init?.corpo !== undefined) corposEnviados.push({ rota: `${metodo} ${caminho}`, corpo: init.corpo as Record<string, unknown> })
     const dec = decodeURIComponent
@@ -84,7 +94,11 @@ function novoGoogle() {
     if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'PATCH') return usuarios.has(dec(m[1])) ? ok() : erro(404)
     if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'GET') {
       const u = donoDe(dec(m[1]))
-      return u ? ok({ primaryEmail: u.principal }) : erro(404)
+      return u ? ok({ primaryEmail: u.principal, lastLoginTime: u.ultimoAcesso ?? '1970-01-01T00:00:00.000Z' }) : erro(404)
+    }
+    if ((m = caminho.match(/^\/users\/([^/]+)\/aliases$/)) && metodo === 'GET') {
+      const u = usuarios.get(dec(m[1]))
+      return u ? ok({ aliases: [...u.apelidos].map((alias) => ({ alias, primaryEmail: u.principal })) }) : erro(404)
     }
     if ((m = caminho.match(/^\/users\/([^/]+)\/aliases\/([^/]+)$/)) && metodo === 'DELETE') {
       const u = usuarios.get(dec(m[1]))
@@ -94,6 +108,7 @@ function novoGoogle() {
     if ((m = caminho.match(/^\/users\/([^/]+)\/aliases$/)) && metodo === 'POST') {
       const u = usuarios.get(dec(m[1]))
       if (!u) return erro(404)
+      if (donoDe(corpo.alias) || grupos.has(corpo.alias)) return erro(409, 'Entity already exists.')
       u.apelidos.add(corpo.alias)
       return ok()
     }
@@ -117,6 +132,7 @@ function novoGoogle() {
     chamar, usuarios, grupos, falhasPlanejadas, chamadas, corposEnviados,
     comApelido: (dono: string, apelido: string) => { const u = usuarios.get(dono) ?? { principal: dono, apelidos: new Set<string>() }; u.apelidos.add(apelido); usuarios.set(dono, u) },
     comCaixa: (e: string) => usuarios.set(e, { principal: e, apelidos: new Set() }),
+    comAcesso: (e: string, quando: string) => { const u = usuarios.get(e); if (u) u.ultimoAcesso = quando },
     demoraNasConfiguracoes: (n: number) => { configuracoesQueNaoAchamAinda = n },
     demoraNaCriacaoDoGrupo: (n: number) => { demoraNaCriacao = n },
   }
@@ -410,10 +426,14 @@ async function main() {
     igual(g.chamadas.some((c) => c.startsWith('DELETE') || c.startsWith('POST') || c.startsWith('PUT') || c.startsWith('PATCH')), false, 'plano: a prévia não altera nada')
     // a impressão do plano: vai no botão e é o que impede o segundo toque e o toque numa prévia que já não vale
     const a1 = assinaturaDoPlano(plano)
-    igual(a1.length >= 1 && a1.length <= 8 && /^[0-9a-z]+$/.test(a1), true, 'assinatura: cabe no id do botão (base 36, até 8)')
+    igual(/^[0-9a-f]{12}$/.test(a1), true, 'assinatura: 12 caracteres hexadecimais (SHA-256 truncado) — cabe no id do botão')
     igual(assinaturaDoPlano([...plano].reverse()), a1, 'assinatura: não depende da ordem')
     igual(assinaturaDoPlano(plano.map((p) => (p.nome === 'TI' ? { ...p, estado: 'livre' as const } : p))) === a1, false, 'assinatura: muda se o estado de um setor mudou')
     igual(assinaturaDoPlano(plano.filter((p) => p.nome !== 'Esportes')) === a1, false, 'assinatura: muda se um setor a criar saiu do plano')
+    igual(assinaturaDoPlano(plano.map((p) => (p.nome === 'TI' ? { ...p, dono: 'outro@x.org' } : p))) === a1, false, 'assinatura: muda se o dono do apelido mudou')
+    igual(assinaturaDoPlano(plano, { 'ti@cruzvermelhariodejaneiro.org': ['5548999990000'] }) === a1, false, 'assinatura: muda se entrou um coordenador (quem recebe a senha)')
+    igual(assinaturaDoPlano(plano, { 'ti@cruzvermelhariodejaneiro.org': ['5548999990000', '5521988887777'] }), assinaturaDoPlano(plano, { 'ti@cruzvermelhariodejaneiro.org': ['5521988887777', '5548999990000'] }), 'assinatura: a ordem dos coordenadores não importa')
+    igual(assinaturaDoPlano(plano, { 'contato@cruzvermelhariodejaneiro.org': ['5548999990000'] }), a1, 'assinatura: coordenador de setor que não precisa de caixa não entra')
     igual(assinaturaDoPlano(plano.map((p) => (p.nome === 'Atendimento' ? { ...p, nome: 'Outro' } : p))), a1, 'assinatura: caixa real e grupo não entram')
     igual(assinaturaDoPlano([]), assinaturaDoPlano([{ nome: 'A', endereco: 'a@x.org', estado: 'caixa_real' }]), 'assinatura: sem nada a criar é sempre a mesma (depois de feito, o botão velho não bate)')
 
@@ -509,10 +529,13 @@ async function main() {
       { nome: 'Esportes', endereco: 'esportes@cruzvermelhariodejaneiro.org' },
     ]
     const comSenha = itens.map((i) => ({ ...i, senha: `Senha#${i.nome}-1` }))
+    const so = (...nomes: string[]) => comSenha.filter((i) => nomes.includes(i.nome))
+    const APELIDO_TI = 'ti@cruzvermelhariodejaneiro.org'
+    const APELIDO_COM = 'comunicacao@cruzvermelhariodejaneiro.org'
 
     const g = mundo()
     const r = await criarCaixasDosSetores(g.chamar, comSenha, { espera: semEspera })
-    igual(r.map((x) => `${x.nome}:${x.resultado}`), ['Atendimento:ja_existe', 'Comunicação:criada', 'TI:criada', 'Ouvidoria:e_grupo', 'Esportes:criada'], 'caixas: cria só o que é apelido ou livre')
+    igual(r.map((x) => `${x.nome}:${x.resultado}`), ['Atendimento:ja_existe', 'Comunicação:criada', 'TI:criada', 'Ouvidoria:e_grupo', 'Esportes:criada'], 'caixas: cria só o que é apelido ou livre (e devolve na ordem pedida)')
     igual(r.filter((x) => x.apelidoApagado).map((x) => x.nome), ['Comunicação', 'TI'], 'caixas: diz de quais o apelido foi apagado')
     igual((await planoDasCaixas(g.chamar, itens)).map((p) => p.estado), ['caixa_real', 'caixa_real', 'caixa_real', 'grupo', 'caixa_real'], 'caixas: depois de feito, cada setor tem caixa própria (e o grupo ficou grupo)')
     igual([...(g.usuarios.get(CONTATO)?.apelidos ?? [])], [], 'caixas: nenhum apelido sobra no contato@')
@@ -522,8 +545,17 @@ async function main() {
     igual(g.chamadas.filter((c) => c.startsWith('DELETE')).length, 2, 'caixas: exatamente 2 apelidos apagados')
     igual(g.chamadas.some((c) => c.startsWith('DELETE') && c.includes(encodeURIComponent(CONTATO) + '/aliases/' + encodeURIComponent(CONTATO))), false, 'caixas: nunca apaga o contato@ como apelido')
     const posts = g.corposEnviados.filter((c) => c.rota === 'POST /users').map((c) => c.corpo as { primaryEmail: string; password: string; changePasswordAtNextLogin: boolean })
-    igual(posts.map((c) => c.password), ['Senha#Comunicação-1', 'Senha#TI-1', 'Senha#Esportes-1'], 'caixas: cada caixa nasce com a senha própria que foi passada')
+    igual(posts.map((c) => c.password), ['Senha#Esportes-1', 'Senha#Comunicação-1', 'Senha#TI-1'], 'caixas: cada caixa nasce com a senha própria que foi passada (os livres primeiro)')
     igual(posts.every((c) => c.changePasswordAtNextLogin === true), true, 'caixas: todas obrigam a trocar a senha no primeiro acesso')
+    // o POST é a palavra final: depois de apagar o apelido não há consulta no meio (uma leitura atrasada recusaria à toa)
+    const iDelete = g.chamadas.findIndex((c) => c.startsWith('DELETE') && c.includes(encodeURIComponent(APELIDO_COM)))
+    const iPost = g.chamadas.findIndex((c, k) => k > iDelete && c === 'POST diretorio:/users')
+    igual(g.chamadas.slice(iDelete + 1, iPost).length, 0, 'caixas: entre apagar o apelido e criar a conta não há consulta nenhuma')
+
+    // os livres vêm primeiro: nada é apagado antes de saber que criar funciona
+    const ord = mundo()
+    await criarCaixasDosSetores(ord.chamar, so('TI', 'Esportes'), { espera: semEspera })
+    igual(ord.chamadas.findIndex((c) => c === 'POST diretorio:/users') < ord.chamadas.findIndex((c) => c.startsWith('DELETE')), true, 'caixas: o setor livre é criado antes de qualquer apelido ser apagado')
 
     // rodar de novo não faz nada
     const de_novo = await criarCaixasDosSetores(g.chamar, comSenha, { espera: semEspera })
@@ -533,61 +565,164 @@ async function main() {
     // a criação falha DEPOIS de o apelido ser apagado: o apelido volta
     const f = mundo()
     f.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 1 })
-    const rf = await criarCaixasDosSetores(f.chamar, comSenha.filter((i) => i.nome === 'TI' || i.nome === 'Comunicação'), { espera: semEspera })
+    const rf = await criarCaixasDosSetores(f.chamar, so('TI', 'Comunicação'), { espera: semEspera })
     igual(rf.map((x) => `${x.nome}:${x.resultado}`), ['Comunicação:falhou', 'TI:criada'], 'caixas: a falha de um setor não impede o seguinte')
     igual(rf[0].apelidoApagado === true && rf[0].apelidoDevolvido === true, true, 'caixas: falhou depois de apagar → o apelido foi devolvido')
-    igual(f.usuarios.get(CONTATO)?.apelidos.has('comunicacao@cruzvermelhariodejaneiro.org'), true, 'caixas: o apelido do que falhou voltou ao contato@')
-    igual((await consultarEndereco(f.chamar, 'comunicacao@cruzvermelhariodejaneiro.org')).tipo, 'apelido', 'caixas: o e-mail do setor que falhou continua chegando onde chegava')
+    igual(f.usuarios.get(CONTATO)?.apelidos.has(APELIDO_COM), true, 'caixas: o apelido do que falhou voltou ao contato@')
+    igual((await consultarEndereco(f.chamar, APELIDO_COM)).tipo, 'apelido', 'caixas: o e-mail do setor que falhou continua chegando onde chegava')
     contem(rf[0].motivo ?? '', 'Internal error', 'caixas: o motivo do Google aparece')
 
     // e se nem o apelido volta: o resultado diz, nunca em silêncio
     const ff = mundo()
     ff.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
     ff.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 500, mensagem: 'Backend error', vezes: 99 })
-    const rff = await criarCaixasDosSetores(ff.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
+    const rff = await criarCaixasDosSetores(ff.chamar, so('TI'), { espera: semEspera })
     igual(rff[0].resultado === 'falhou' && rff[0].apelidoApagado === true && rff[0].apelidoDevolvido === false, true, 'caixas: se o apelido não volta, o resultado diz que NÃO voltou')
+    // a restauração que ESTOURA (timeout) não apaga o aviso nem interrompe as tentativas
+    const fl = mundo()
+    fl.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    fl.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 0, lancar: true, vezes: 99 })
+    const rfl = await criarCaixasDosSetores(fl.chamar, so('TI'), { espera: semEspera })
+    igual(rfl[0].resultado === 'falhou' && rfl[0].apelidoApagado === true && rfl[0].apelidoDevolvido === false, true, 'caixas: restauração que estoura → o resultado ainda diz "apagado e NÃO voltou"')
+    igual(fl.chamadas.filter((c) => c.startsWith('POST') && c.includes('/aliases')).length, 4, 'caixas: a restauração tenta quatro vezes mesmo com exceção')
+    // a primeira tentativa de restaurar estoura, a segunda funciona
+    const fl2 = mundo()
+    fl2.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    fl2.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 0, lancar: true, vezes: 1 })
+    const rfl2 = await criarCaixasDosSetores(fl2.chamar, so('TI'), { espera: semEspera })
+    igual(rfl2[0].apelidoDevolvido, true, 'caixas: depois de uma exceção, a restauração tenta de novo e devolve')
+    // a resposta do POST do apelido se perde COM o apelido gravado: a lista do dono é que decide
+    const fl3 = mundo()
+    fl3.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    fl3.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 0, lancar: true, aplicar: true, vezes: 1 })
+    igual((await criarCaixasDosSetores(fl3.chamar, so('TI'), { espera: semEspera }))[0].apelidoDevolvido, true, 'caixas: resposta perdida com o apelido gravado → conta como devolvido (pela lista do dono)')
+    // 409 no apelido sem o apelido estar na lista (o endereço foi tomado por outra coisa): NÃO é "voltou"
+    const f409a = novoGoogle()
+    f409a.comCaixa(CONTATO)
+    igual(await restaurarApelido(f409a.chamar, CONTATO, 'ti@x.org', semEspera), true, 'restaurar: apelido volta quando o endereço está livre')
+    const tomado = novoGoogle()
+    tomado.comCaixa(CONTATO)
+    tomado.comCaixa('ti@x.org')
+    igual(await restaurarApelido(tomado.chamar, CONTATO, 'ti@x.org', semEspera), false, 'restaurar: endereço tomado por uma conta não conta como devolvido (409 sem o apelido na lista)')
 
-    // o apelido não pôde ser apagado: nada é criado e o apelido fica como estava
-    const fd = mundo()
-    fd.falhasPlanejadas.push({ quando: (a, m, c) => m === 'DELETE', status: 500, mensagem: 'Backend error', vezes: 99 })
-    const rd = await criarCaixasDosSetores(fd.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
-    igual(rd[0].resultado, 'falhou', 'caixas: não apagou o apelido → falhou')
-    igual(fd.chamadas.some((c) => c === 'POST diretorio:/users'), false, 'caixas: sem apagar o apelido, nem tenta criar a conta')
-    igual(fd.usuarios.get(CONTATO)?.apelidos.has('ti@cruzvermelhariodejaneiro.org'), true, 'caixas: o apelido segue como estava')
+    // o DELETE estoura mas JÁ foi aplicado no Google: o resultado não pode dizer "continua como estava"
+    const dp = mundo()
+    dp.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 1 })
+    const rdp = await criarCaixasDosSetores(dp.chamar, so('TI'), { espera: semEspera })
+    igual(rdp[0].resultado === 'criada' && rdp[0].apelidoApagado === true, true, 'caixas: DELETE aplicado com resposta perdida → reconsulta, vê livre e cria a caixa')
+    // o DELETE estoura e NÃO foi aplicado: continua apelido, e o resultado diz isso
+    const dn = mundo()
+    dn.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, vezes: 99 })
+    const rdn = await criarCaixasDosSetores(dn.chamar, so('TI'), { espera: semEspera })
+    igual(rdn[0].resultado, 'falhou', 'caixas: DELETE que estoura sem aplicar → falhou')
+    contem(rdn[0].motivo ?? '', 'continua como estava', 'caixas: confirmado que ainda é apelido → "continua como estava"')
+    igual(dn.chamadas.some((c) => c === 'POST diretorio:/users'), false, 'caixas: apelido que não saiu → nem tenta criar a conta')
+    // o DELETE estoura e nem a reconsulta responde: o resultado diz que NÃO SABE
+    const du = mundo()
+    du.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 1 })
+    du.falhasPlanejadas.push({ quando: (a, m, c) => m === 'GET' && c === `/users/${encodeURIComponent(APELIDO_TI)}`, status: 0, lancar: true, vezes: 99 })
+    // (a prévia da própria função também lê o endereço: para o teste isolar o DELETE, a leitura só quebra depois dele)
+    du.falhasPlanejadas[1].quando = ((conta) => (a: string, m: string, c: string) => { if (m === 'GET' && c === `/users/${encodeURIComponent(APELIDO_TI)}`) { conta.n++; return conta.n > 2 } return false })({ n: 0 })
+    const rdu = await criarCaixasDosSetores(du.chamar, so('TI'), { espera: semEspera })
+    igual(rdu[0].resultado === 'falhou' && rdu[0].incerto === true, true, 'caixas: não sei como o endereço ficou → falhou com incerto, nunca "continua como estava"')
+    contem(rdu[0].motivo ?? '', 'não consegui conferir', 'caixas: o motivo diz que não deu para conferir')
+
+    // o POST estoura DEPOIS de o Google criar a conta: reconsulta e conta como criada
+    const pc = mundo()
+    pc.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 0, lancar: true, aplicar: true, vezes: 1 })
+    const rpc = await criarCaixasDosSetores(pc.chamar, so('TI'), { espera: semEspera })
+    igual(rpc[0].resultado, 'criada', 'caixas: POST estourou mas a conta existe → conta como criada')
+    igual(rpc[0].apelidoApagado, true, 'caixas: ... e o apelido consta como apagado')
+    igual(pc.chamadas.some((c) => c.startsWith('POST') && c.includes('/aliases')), false, 'caixas: ... e o apelido NÃO é restaurado por cima da conta que nasceu')
+    // 409 explícito não é "criou": é o Google dizendo que o endereço está ocupado
+    const p409 = mundo()
+    p409.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 409, mensagem: 'Entity already exists.', vezes: 99 })
+    const rp409 = await criarCaixasDosSetores(p409.chamar, so('TI'), { espera: semEspera })
+    igual(rp409[0].resultado === 'falhou' && rp409[0].apelidoDevolvido === true, true, 'caixas: 409 que não passa → falhou e o apelido volta')
 
     // o Google ainda diz 409 por alguns segundos depois de apagar o apelido: espera e cria
     const f409 = mundo()
     f409.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 409, mensagem: 'Entity already exists.', vezes: 2 })
-    const r409 = await criarCaixasDosSetores(f409.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
+    const r409 = await criarCaixasDosSetores(f409.chamar, so('TI'), { espera: semEspera })
     igual(r409[0].resultado, 'criada', 'caixas: 409 passageiro depois de apagar o apelido não impede a caixa')
+
+    // erro que vale para todos (permissão/limite): para no primeiro e não repete o estrago nos outros
+    const sis = mundo()
+    sis.comApelido(CONTATO, 'juridico@cruzvermelhariodejaneiro.org')
+    sis.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 403, mensagem: 'Not Authorized', vezes: 99 })
+    const rs = await criarCaixasDosSetores(sis.chamar, [...so('TI', 'Comunicação'), { nome: 'Jurídico', endereco: 'juridico@cruzvermelhariodejaneiro.org', senha: 'x' }], { espera: semEspera })
+    igual(rs.map((x) => x.resultado), ['falhou', 'adiada', 'adiada'], 'caixas: erro de permissão → o primeiro falha e o resto fica adiado')
+    contem(rs[1].motivo ?? '', 'parei', 'caixas: o adiado diz por que parou')
+    igual(sis.chamadas.filter((c) => c.startsWith('DELETE')).length, 1, 'caixas: erro que vale para todos → só UM apelido foi apagado (e devolvido)')
+    igual([...(sis.usuarios.get(CONTATO)?.apelidos ?? [])].sort(), ['comunicacao@cruzvermelhariodejaneiro.org', 'juridico@cruzvermelhariodejaneiro.org', 'ti@cruzvermelhariodejaneiro.org'], 'caixas: erro que vale para todos → nenhum apelido se perdeu')
+    // criar não funciona nem para um setor LIVRE: nenhum apelido chega a ser apagado
+    const sl = mundo()
+    sl.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 412, mensagem: 'Domain user limit reached', vezes: 99 })
+    const rsl = await criarCaixasDosSetores(sl.chamar, so('TI', 'Comunicação', 'Esportes'), { espera: semEspera })
+    igual(sl.chamadas.some((c) => c.startsWith('DELETE')), false, 'caixas: se nem o setor livre consegue criar, nenhum apelido é apagado')
+    igual(rsl.map((x) => x.resultado), ['adiada', 'adiada', 'falhou'], 'caixas: limite de contas → o livre falha e os apelidos ficam adiados')
+    // dois setores seguidos falham (sem ser um erro sistêmico): para
+    const dois = mundo()
+    dois.comApelido(CONTATO, 'juridico@cruzvermelhariodejaneiro.org')
+    dois.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    const rdois = await criarCaixasDosSetores(dois.chamar, [...so('TI', 'Comunicação'), { nome: 'Jurídico', endereco: 'juridico@cruzvermelhariodejaneiro.org', senha: 'x' }], { espera: semEspera })
+    igual(rdois.map((x) => x.resultado), ['falhou', 'falhou', 'adiada'], 'caixas: dois seguidos falham → o terceiro não é nem tentado')
+
+    // aoCriar: roda logo depois de cada conta, antes do setor seguinte; o que ele devolve entra no resultado; se estoura, o registro falhou
+    const ac = mundo()
+    const vistos: string[] = []
+    const rac = await criarCaixasDosSetores(ac.chamar, so('Comunicação', 'TI'), {
+      espera: semEspera,
+      aoCriar: async (x) => { vistos.push(x.nome); ac.chamadas.push(`AOCRIAR ${x.nome}`); if (x.nome === 'TI') throw new Error('banco fora'); return { entrega: 'sem_coordenador', registro: 'ok' } },
+    })
+    igual(vistos, ['Comunicação', 'TI'], 'caixas: aoCriar roda uma vez por conta criada')
+    igual(rac[0].entrega === 'sem_coordenador' && rac[0].registro === 'ok', true, 'caixas: o que aoCriar devolve entra no resultado')
+    igual(rac[1].resultado === 'criada' && rac[1].registro === 'falhou', true, 'caixas: aoCriar que estoura → a conta consta criada e o registro, falhado')
+    igual(ac.chamadas.indexOf('AOCRIAR Comunicação') < ac.chamadas.findIndex((c) => c.startsWith('DELETE') && c.includes(encodeURIComponent(APELIDO_TI))), true, 'caixas: o registro da primeira conta acontece ANTES de o apelido do setor seguinte ser apagado')
+    const semAc = await criarCaixasDosSetores(mundo().chamar, so('Ouvidoria', 'Atendimento'), { espera: semEspera, aoCriar: async () => { throw new Error('não devia ser chamado') } })
+    igual(semAc.map((x) => x.resultado).sort(), ['e_grupo', 'ja_existe'], 'caixas: aoCriar só roda para conta criada')
+
+    // o apelido não pôde ser apagado: nada é criado e o apelido fica como estava
+    const fd = mundo()
+    fd.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 500, mensagem: 'Backend error', vezes: 99 })
+    const rd = await criarCaixasDosSetores(fd.chamar, so('TI'), { espera: semEspera })
+    igual(rd[0].resultado, 'falhou', 'caixas: não apagou o apelido → falhou')
+    igual(fd.chamadas.some((c) => c === 'POST diretorio:/users'), false, 'caixas: sem apagar o apelido, nem tenta criar a conta')
+    igual(fd.usuarios.get(CONTATO)?.apelidos.has(APELIDO_TI), true, 'caixas: o apelido segue como estava')
 
     // o prazo: depois dele nenhum setor novo começa, e nada é mexido
     const fp = mundo()
     const rp = await criarCaixasDosSetores(fp.chamar, comSenha, { espera: semEspera, ate: 50, agora: () => 100 })
-    igual(rp.every((x) => x.resultado === 'adiada'), true, 'caixas: passou do prazo → tudo adiado')
-    igual(fp.chamadas.length, 0, 'caixas: passou do prazo → não fala com o Google')
+    igual(rp.map((x) => x.resultado), ['ja_existe', 'adiada', 'adiada', 'e_grupo', 'adiada'], 'caixas: passou do prazo → o que precisava de caixa fica adiado')
+    igual(fp.chamadas.some((c) => c.startsWith('POST') || c.startsWith('DELETE')), false, 'caixas: passou do prazo → nada é criado nem apagado')
     let relogio = 0
-    const rm = await criarCaixasDosSetores(mundo().chamar, comSenha.filter((i) => i.nome !== 'Atendimento'), { espera: semEspera, ate: 0, agora: () => relogio++ })
-    igual(rm.map((x) => x.resultado), ['criada', 'adiada', 'adiada', 'adiada'], 'caixas: o prazo estoura no meio: o setor em curso termina, os seguintes ficam adiados')
+    const rm = await criarCaixasDosSetores(mundo().chamar, so('Comunicação', 'TI', 'Ouvidoria', 'Esportes'), { espera: semEspera, ate: 0, agora: () => relogio++ })
+    igual(rm.map((x) => x.resultado), ['adiada', 'adiada', 'e_grupo', 'criada'], 'caixas: o prazo estoura no meio: o setor em curso termina, os seguintes ficam adiados')
   }
 
-  // entregar a caixa que já existe sem dono: redefine a senha (e a recuperação) — e só se for caixa real
+  // entregar a caixa que já existe sem dono: redefine a senha (e a recuperação) — e só se for caixa real que NINGUÉM usou
   {
     const g = novoGoogle()
     g.comCaixa('comunicacao@x.org')
-    igual(await redefinirSenhaDaCaixa(g.chamar, { endereco: 'comunicacao@x.org', senha: 'Nova#Senha-1', recuperacaoEmail: 'ana@gmail.com', recuperacaoCelular: '+5521988887777' }), true, 'redefinir: caixa real é redefinida')
+    igual(await redefinirSenhaDaCaixa(g.chamar, { endereco: 'comunicacao@x.org', senha: 'Nova#Senha-1', recuperacaoEmail: 'ana@gmail.com', recuperacaoCelular: '+5521988887777' }), 'redefinida', 'redefinir: caixa real que ninguém usou é redefinida')
     const corpo = g.corposEnviados.find((c) => c.rota === 'PATCH /users/comunicacao%40x.org')?.corpo as { password?: string; changePasswordAtNextLogin?: boolean; recoveryEmail?: string; recoveryPhone?: string }
     igual(corpo?.password, 'Nova#Senha-1', 'redefinir: a senha nova vai ao Google')
     igual(corpo?.changePasswordAtNextLogin, true, 'redefinir: obriga a trocar no primeiro acesso')
     igual(corpo?.recoveryEmail, 'ana@gmail.com', 'redefinir: a recuperação passa a ser a de quem recebe (e-mail)')
     igual(corpo?.recoveryPhone, '+5521988887777', 'redefinir: a recuperação passa a ser a de quem recebe (celular)')
+    // caixa que já teve acesso: está em uso, a senha não se troca por aqui (protege o contato@ e qualquer caixa usada)
+    const uso = novoGoogle()
+    uso.comCaixa(CONTATO)
+    uso.comAcesso(CONTATO, '2026-10-23T18:30:00.000Z')
+    igual(await redefinirSenhaDaCaixa(uso.chamar, { endereco: CONTATO, senha: 'x' }), 'em_uso', 'redefinir: caixa com acesso (contato@) NUNCA é redefinida')
+    igual(uso.chamadas.some((c) => c.startsWith('PATCH')), false, 'redefinir: em uso → nenhum PATCH sai')
     const ap = novoGoogle()
     ap.comApelido('contato@x.org', 'ti@x.org')
-    igual(await redefinirSenhaDaCaixa(ap.chamar, { endereco: 'ti@x.org', senha: 'x' }), false, 'redefinir: apelido não é redefinido')
-    igual(await redefinirSenhaDaCaixa(novoGoogle().chamar, { endereco: 'nada@x.org', senha: 'x' }), false, 'redefinir: endereço livre não é redefinido')
+    igual(await redefinirSenhaDaCaixa(ap.chamar, { endereco: 'ti@x.org', senha: 'x' }), 'nao_e_caixa', 'redefinir: apelido não é redefinido')
+    igual(await redefinirSenhaDaCaixa(novoGoogle().chamar, { endereco: 'nada@x.org', senha: 'x' }), 'nao_e_caixa', 'redefinir: endereço livre não é redefinido')
     const gr = novoGoogle()
     gr.grupos.set('ouvidoria@x.org', { membros: new Map(), config: null })
-    igual(await redefinirSenhaDaCaixa(gr.chamar, { endereco: 'ouvidoria@x.org', senha: 'x' }), false, 'redefinir: grupo não é redefinido')
+    igual(await redefinirSenhaDaCaixa(gr.chamar, { endereco: 'ouvidoria@x.org', senha: 'x' }), 'nao_e_caixa', 'redefinir: grupo não é redefinido')
     igual([ap, gr].some((x) => x.chamadas.some((c) => c.startsWith('PATCH'))), false, 'redefinir: fora da caixa real nenhum PATCH sai')
     const neg = novoGoogle()
     neg.comCaixa('a@x.org')
