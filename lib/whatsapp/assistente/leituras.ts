@@ -25,6 +25,8 @@ import type { NivelDeLeitura } from './uso'
 import type { Passo } from './regras'
 import { diaCurto, diaEHora, haQuanto, type AvisoNoContexto, type DadosDoContexto, type ItemNoContexto } from './prompt'
 import { LIMITES, TEXTOS_FIXOS, dadoDeTerceiro, rotuloDaPessoa, temHomonimo, textoDeArea, umaLinha, type ItemCitavel, type NomeDaFerramenta } from './regras'
+import { normalizacoesRecentes } from '@/lib/integracoes/alertas'
+import { integracaoDoTitulo } from '@/lib/integracoes/alertas-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -523,12 +525,12 @@ async function avisoNoContexto(t: TurnoDeLeitura, n: Notificacao, a: AlvosDosAvi
   return { tipo: 'outro', marcador: aviso, titulo: n.title, previa: n.message ?? '', ha }
 }
 
-type Notificacao = { id: string; title: string; message: string | null; link: string | null; created_at: string; ator_id: string | null }
+type Notificacao = { id: string; title: string; message: string | null; link: string | null; created_at: string; ator_id: string | null; categoria?: string | null }
 
 /** Os avisos que saíram por estas mensagens do WhatsApp, só da pessoa. */
 async function notificacoesDasSaidas(t: TurnoDeLeitura, ids: string[]): Promise<Notificacao[]> {
   if (!ids.length) return []
-  const { data } = await t.admin.from('notifications').select('id, title, message, link, created_at, ator_id').eq('user_id', t.pessoa.id).in('id', ids)
+  const { data } = await t.admin.from('notifications').select('id, title, message, link, created_at, ator_id, categoria').eq('user_id', t.pessoa.id).in('id', ids)
   return (data ?? []) as Notificacao[]
 }
 
@@ -631,7 +633,16 @@ export async function dadosDoContexto(t: TurnoDeLeitura, p: {
     quadroDePessoas(t),
   ])
   const ids = [...new Set((saidas ?? []).map((s) => s.notificacao_id as string))].slice(0, 8)
-  const notificacoes = await notificacoesDasSaidas(t, [...new Set([...ids, ...(citadaSaida ? [citadaSaida] : [])])])
+  const [todas, normalizadas] = await Promise.all([
+    notificacoesDasSaidas(t, [...new Set([...ids, ...(citadaSaida ? [citadaSaida] : [])])]),
+    normalizacoesRecentes(t.admin, t.workspaceId, new Date(t.agora - 26 * 3_600_000)),
+  ])
+  // O alerta de integração já resolvido (a reconexão que deu certo depois dele: lib/integracoes/alertas.ts) não entra: o
+  // assistente o citava como problema aberto até completar 24 h ("O Google recusou o cliente OAuth", 24/10/2026).
+  const notificacoes = todas.filter((n) => {
+    const integracao = n.categoria === 'integracoes' ? integracaoDoTitulo(n.title) : null
+    return !integracao || (normalizadas.get(integracao) ?? 0) <= new Date(n.created_at).getTime()
+  })
   const alvos = await alvosDosAvisos(t, notificacoes)
   // Em ordem (o mais recente primeiro): os marcadores saem sempre na mesma numeração.
   const recentes = notificacoes.filter((n) => ids.includes(n.id)).sort((a, b) => b.created_at.localeCompare(a.created_at))

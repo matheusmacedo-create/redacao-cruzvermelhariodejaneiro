@@ -2985,6 +2985,16 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   instância só reconfere a cada 10 min: o alerta manda e-mail pelo Resend, e a falha dele não vira outro
   alerta. As outras integrações do cofre (Meta Ads, Conversões, Analytics, Safe Browsing, Portal da
   Transparência, Hunter) já mostram o erro a quem usa ou gravam no banco e ficaram de fora.
+  **O alerta resolvido (24/10/2026):** o alerta não tinha fim. “O Google recusou o cliente OAuth” saiu três
+  vezes em 22–23/10, o cliente foi trocado e as quatro conexões reconectadas às 21h–22h de 23/10, e o aviso
+  continuou não lido no sino de quatro administradores e citado pelo assistente do WhatsApp como problema
+  aberto (ele lê os avisos das últimas 24 h, lidos ou não). Agora a reconexão que dá certo
+  (`app/api/google/retorno`, depois da troca do código) chama `encerrarAlertasDaConexao`: os avisos ainda não
+  lidos dos alertas que ela resolve (`alertasResolvidosPelaConexao`: a autorização da própria conexão e, com o
+  cliente do Gmail, o cliente OAuth recusado; nunca o “Drive sem espaço”) viram lidos para todos, e o marco
+  `integracao_normalizada` encerra a janela de 6 h (`alertaDeIntegracaoSai` com `normalizadaEm`: a falha nova
+  avisa na hora). O assistente deixa de fora o alerta com marco de normalizada depois dele
+  (`normalizacoesRecentes`, `integracaoDoTitulo`: o aviso não guarda outra marca que o título).
 - **Antes da migração `20261018231000`:** a função da cota não existe, `cotaDeConversas` devolve null e
   nada espera pela cota (a tela e o `status` dizem que não deu para contar); o CHECK de
   `whatsapp_fila.motivo` não aceita `cota` (nunca chega a ser pedido); e o alerta de integração entra no

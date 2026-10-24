@@ -27,11 +27,45 @@ export const ALERTA_DE_INTEGRACAO_A_CADA_HORAS = 6
 /** Chave (ou domínio) recusada, o serviço fora do ar ou limitando, ou (no assistente do WhatsApp) o modelo que não existe. */
 export type MotivoDoAlerta = 'chave' | 'servico' | 'modelo'
 
-/** O alerta sai? Só se não houve outro da mesma integração nas últimas horas (data futura não vale: activity_log aceita qualquer data). */
-export function alertaDeIntegracaoSai(p: { ultimoAlertaEm: string | null; agora: Date }): boolean {
+/**
+ * O alerta sai? Só se não houve outro da mesma integração nas últimas horas (data futura não vale: activity_log aceita
+ * qualquer data) — ou se, depois do último, a integração foi dada por normalizada (`normalizadaEm`: a reconexão que deu
+ * certo). Aí a falha nova é outro episódio e avisa na hora, sem esperar o resto da janela.
+ */
+export function alertaDeIntegracaoSai(p: { ultimoAlertaEm: string | null; agora: Date; normalizadaEm?: string | null }): boolean {
   const ultimo = p.ultimoAlertaEm ? new Date(p.ultimoAlertaEm).getTime() : NaN
   if (!Number.isFinite(ultimo) || ultimo > p.agora.getTime()) return true
+  const normalizada = p.normalizadaEm ? new Date(p.normalizadaEm).getTime() : NaN
+  if (Number.isFinite(normalizada) && normalizada > ultimo && normalizada <= p.agora.getTime()) return true
   return p.agora.getTime() - ultimo >= ALERTA_DE_INTEGRACAO_A_CADA_HORAS * 3_600_000
+}
+
+/** As conexões do Google que o retorno do consentimento refaz (app/api/google/retorno). */
+export type ConexaoDoGoogle = 'gmail' | 'admin' | 'drive' | 'ads'
+
+/**
+ * Os alertas que uma reconexão bem-sucedida dá por resolvidos, com os títulos exatos de cada um (é pelo título que o
+ * aviso já entregue é achado). A troca do código só dá certo com o cliente OAuth aceito: a do Gmail, a do administrador
+ * e a do Drive (que usam o cliente do Gmail) resolvem também o "O Google recusou o cliente OAuth"; a do Google Ads, só
+ * quando usou o cliente do Gmail (com o cliente próprio dele, nada prova sobre o do Gmail). "Drive sem espaço" não se
+ * resolve reconectando: fica de fora.
+ */
+export function alertasResolvidosPelaConexao(conexao: ConexaoDoGoogle, usouClienteDoGmail: boolean): { integracoes: IntegracaoAlertada[]; titulos: string[] } {
+  const propria: IntegracaoAlertada = conexao === 'gmail' ? 'google_gmail' : conexao === 'admin' ? 'google_admin' : conexao === 'drive' ? 'google_drive' : 'google_ads'
+  const integracoes: IntegracaoAlertada[] = [propria, ...(conexao !== 'ads' || usouClienteDoGmail ? ['google_oauth' as const] : [])]
+  // Sem motivo: o da autorização que caiu (o do Drive com "servico" é o de espaço, que não entra).
+  return { integracoes, titulos: integracoes.map((i) => textoDoAlertaDeIntegracao(i).titulo) }
+}
+
+/** Todas as variantes de motivo de uma integração, para achar o alerta pelo título. */
+const MOTIVOS: (MotivoDoAlerta | null)[] = [null, 'chave', 'servico', 'modelo']
+
+/** A integração de um aviso, pelo título (os alertas não guardam outra marca na notificação); null se não é alerta de integração. */
+export function integracaoDoTitulo(titulo: string): IntegracaoAlertada | null {
+  for (const i of INTEGRACOES_ALERTADAS) {
+    if (MOTIVOS.some((m) => textoDoAlertaDeIntegracao(i, { motivo: m }).titulo === titulo)) return i
+  }
+  return null
 }
 
 /**

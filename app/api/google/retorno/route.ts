@@ -9,6 +9,7 @@ import { contaDoDrive, esquecerTokenDoDrive, garantirPastaRaiz } from '@/lib/goo
 import { clienteDoAds, contasAcessiveis, esquecerTokenDoAds } from '@/lib/google/ads'
 import { contaEscolhida, idDaConta, idDaContaNoPainel } from '@/lib/google/ads-regras'
 import { resumoDaSincronizacao, sincronizarCaixas } from '@/lib/correio/sincronizar'
+import { encerrarAlertasDaConexao } from '@/lib/integracoes/alertas'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,7 +55,13 @@ export async function GET(request: NextRequest) {
   const workspaceId = contexto.workspace.id
   try {
     // O Google Ads troca o código com o cliente que começou o consentimento (o próprio dele, se houver).
-    const { refreshToken, email: doIdToken, accessToken } = await trocarCodigo(workspaceId, codigo, doAds ? await clienteDoAds(workspaceId) : undefined)
+    const clienteDoAdsAgora = doAds ? await clienteDoAds(workspaceId) : null
+    const { refreshToken, email: doIdToken, accessToken } = await trocarCodigo(workspaceId, codigo, clienteDoAdsAgora ?? undefined)
+    // A troca deu certo: os alertas que esta conexão resolve (a autorização que caiu e, com o cliente do Gmail, o cliente
+    // OAuth recusado) deixam de valer — no sino e no assistente do WhatsApp (lib/integracoes/alertas.ts).
+    const encerrar = () => encerrarAlertasDaConexao({
+      workspaceId, conexao: deAdmin ? 'admin' : doDrive ? 'drive' : doAds ? 'ads' : 'gmail', usouClienteDoGmail: !clienteDoAdsAgora?.proprio, atorId: contexto.user.id,
+    })
     const supabase = await createClient()
     const { error } = await supabase.rpc('definir_chave_de_integracao', {
       p_workspace_id: workspaceId, p_servico: deAdmin ? 'google_admin' : doDrive ? 'google_drive' : doAds ? 'google_ads' : 'google_gmail', p_valor: refreshToken,
@@ -80,6 +87,7 @@ export async function GET(request: NextRequest) {
         await supabase.rpc('remover_chave_de_integracao', { p_workspace_id: workspaceId, p_servico: 'google_ads' })
         return voltar('erro', 'O banco ainda não tem a tabela da conexão do Google Ads (a migração do Google Ads precisa ser aplicada). Nada foi guardado.')
       }
+      await encerrar()
       await admin.from('activity_log').insert({
         workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_ads_conectado',
         entity_type: 'integracao', metadata: { conta: doIdToken, contas: acessiveis, escolhida: mantida },
@@ -101,6 +109,7 @@ export async function GET(request: NextRequest) {
         await supabase.rpc('remover_chave_de_integracao', { p_workspace_id: workspaceId, p_servico: 'google_drive' })
         return voltar('erro', 'O banco ainda não tem a tabela da conexão do Drive (a migração do Google Drive precisa ser aplicada). Nada foi guardado.')
       }
+      await encerrar()
       await admin.from('activity_log').insert({
         workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_drive_conectado',
         entity_type: 'integracao', metadata: { conta: email },
@@ -117,6 +126,7 @@ export async function GET(request: NextRequest) {
         workspace_id: workspaceId, email_conta: email || '(conta sem e-mail)', estado: 'ativa',
         conectada_por: contexto.user.id, conectada_em: new Date().toISOString(),
       })
+      await encerrar()
       await admin.from('activity_log').insert({
         workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_admin_conectado',
         entity_type: 'integracao', metadata: { conta: email },
@@ -129,6 +139,7 @@ export async function GET(request: NextRequest) {
       workspace_id: workspaceId, email_conta: email || '(conta sem e-mail)', estado: 'ativa',
       conectada_por: contexto.user.id, conectada_em: new Date().toISOString(),
     })
+    await encerrar()
     await admin.from('activity_log').insert({
       workspace_id: workspaceId, actor_id: contexto.user.id, action: 'google_conectado',
       entity_type: 'integracao', metadata: { conta: email },

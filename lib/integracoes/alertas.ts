@@ -1,6 +1,6 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { alertaDeIntegracaoSai, textoDoAlertaDeIntegracao, type IntegracaoAlertada, type MotivoDoAlerta } from './alertas-regras'
+import { alertaDeIntegracaoSai, alertasResolvidosPelaConexao, textoDoAlertaDeIntegracao, type ConexaoDoGoogle, type IntegracaoAlertada, type MotivoDoAlerta } from './alertas-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -34,6 +34,8 @@ type Admin = ReturnType<typeof createAdminClient>
  */
 
 const MARCO = 'integracao_alertada'
+/** A integração voltou (a reconexão que deu certo): encerra o episódio — os avisos dele e a janela de 6 h. */
+const MARCO_NORMALIZADA = 'integracao_normalizada'
 const RECONFERIR_APOS_MS = 10 * 60_000
 const conferidoEm = new Map<string, number>()
 
@@ -54,10 +56,13 @@ export async function alertarIntegracao(p: { integracao: IntegracaoAlertada; wor
     const workspaceId = p.workspaceId ?? await espacoPrincipal(admin)
     if (!workspaceId) return false
     const agora = new Date()
-    const { data: ultimo, error } = await admin.from('activity_log').select('created_at').eq('workspace_id', workspaceId).eq('entity_type', 'integracao')
-      .eq('action', MARCO).eq('metadata->>servico', p.integracao).lte('created_at', agora.toISOString())
+    const ultimoMarco = (acao: string) => admin.from('activity_log').select('created_at').eq('workspace_id', workspaceId).eq('entity_type', 'integracao')
+      .eq('action', acao).eq('metadata->>servico', p.integracao).lte('created_at', agora.toISOString())
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
-    if (error || !alertaDeIntegracaoSai({ ultimoAlertaEm: (ultimo?.created_at as string | undefined) ?? null, agora })) return false
+    const [{ data: ultimo, error }, { data: normalizada }] = await Promise.all([ultimoMarco(MARCO), ultimoMarco(MARCO_NORMALIZADA)])
+    if (error || !alertaDeIntegracaoSai({
+      ultimoAlertaEm: (ultimo?.created_at as string | undefined) ?? null, agora, normalizadaEm: (normalizada?.created_at as string | undefined) ?? null,
+    })) return false
     // O marco antes do aviso: sem ele, cada falha seguinte alertaria de novo.
     const { error: semMarco } = await admin.from('activity_log').insert({
       workspace_id: workspaceId, actor_id: null, action: MARCO, entity_type: 'integracao', metadata: { servico: p.integracao, motivo: p.motivo ?? null },
@@ -76,4 +81,43 @@ export async function alertarIntegracao(p: { integracao: IntegracaoAlertada; wor
     console.error('[integracoes] alerta não enviado:', causa instanceof Error ? causa.message : causa)
     return false
   }
+}
+
+/**
+ * A reconexão do Google deu certo (app/api/google/retorno): os alertas que ela resolve (alertasResolvidosPelaConexao)
+ * deixam de valer. Os avisos ainda não lidos desses alertas, de todos os administradores, viram lidos — o sino para de
+ * mostrar um problema que já passou, e o assistente do WhatsApp para de citá-lo —, e o marco "normalizada" encerra a
+ * janela de 6 h: uma falha nova avisa na hora. Só os dos últimos 14 dias. Nunca lança.
+ */
+export async function encerrarAlertasDaConexao(p: { workspaceId: string; conexao: ConexaoDoGoogle; usouClienteDoGmail: boolean; atorId: string | null }): Promise<number> {
+  try {
+    const admin = createAdminClient()
+    const { integracoes, titulos } = alertasResolvidosPelaConexao(p.conexao, p.usouClienteDoGmail)
+    const agora = new Date()
+    const { data: lidos } = await admin.from('notifications').update({ read_at: agora.toISOString() })
+      .eq('workspace_id', p.workspaceId).eq('categoria', 'integracoes').in('title', titulos).is('read_at', null)
+      .gte('created_at', new Date(agora.getTime() - 14 * 86_400_000).toISOString()).select('id')
+    await admin.from('activity_log').insert(integracoes.map((servico) => ({
+      workspace_id: p.workspaceId, actor_id: p.atorId, action: MARCO_NORMALIZADA, entity_type: 'integracao', metadata: { servico, conexao: p.conexao },
+    })))
+    return lidos?.length ?? 0
+  } catch (causa) {
+    console.error('[integracoes] alertas não encerrados:', causa instanceof Error ? causa.message : causa)
+    return 0
+  }
+}
+
+/** Os alertas de integração já encerrados (o marco "normalizada" depois do aviso), para o assistente não citá-los. Nunca lança. */
+export async function normalizacoesRecentes(admin: Admin, workspaceId: string, desde: Date): Promise<Map<IntegracaoAlertada, number>> {
+  const saida = new Map<IntegracaoAlertada, number>()
+  try {
+    const { data } = await admin.from('activity_log').select('created_at, metadata').eq('workspace_id', workspaceId).eq('entity_type', 'integracao')
+      .eq('action', MARCO_NORMALIZADA).gte('created_at', desde.toISOString()).lte('created_at', new Date().toISOString()).limit(50)
+    for (const l of data ?? []) {
+      const servico = (l.metadata as { servico?: string } | null)?.servico as IntegracaoAlertada | undefined
+      const quando = new Date(l.created_at as string).getTime()
+      if (servico && Number.isFinite(quando)) saida.set(servico, Math.max(saida.get(servico) ?? 0, quando))
+    }
+  } catch { /* sem a leitura, nada é escondido */ }
+  return saida
 }
