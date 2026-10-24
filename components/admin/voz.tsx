@@ -137,7 +137,7 @@ export function PainelDaVoz({ pronto, config, vozes, erroDasVozes }: { pronto: b
                 <strong className="font-medium">Responder em áudio no WhatsApp a quem mandou áudio</strong>
                 <span className="block text-xs text-muted-foreground">
                   Vale para o assistente (Configurações › WhatsApp, cartão “Assistente”). Quem fala com ele por áudio recebe a resposta por escrito, como sempre, e logo depois a mesma resposta falada.
-                  Links, códigos, planos para confirmar e respostas longas ficam só no texto. O texto da resposta passa pela ElevenLabs para virar voz.
+                  Para gastar pouco: o áudio lê só o começo da resposta (até uns 350 caracteres) e avisa que o restante está no texto, usa o modelo Flash (metade do crédito), não sai para respostas curtas e tem teto de 15 áudios por pessoa e 150 no total por dia. Links, códigos e planos para confirmar ficam só no texto. O texto da resposta passa pela ElevenLabs para virar voz.
                 </span>
               </span>
             </label>

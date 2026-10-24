@@ -1,8 +1,9 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { enviarAudio, registrar, subirAudio, type ConfigDoWhatsapp } from '@/lib/whatsapp/servidor'
+import { inicioDoDiaEmBrasilia } from '@/lib/whatsapp/assistente/regras'
 import { falar, vozPara } from './elevenlabs'
-import { ehMp3, ehOgg, textoParaFalarNoWhatsapp } from './regras'
+import { MODELO_DO_WHATSAPP, audioNoTeto, ehMp3, ehOgg, textoParaFalarNoWhatsapp } from './regras'
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -22,6 +23,16 @@ type Admin = ReturnType<typeof createAdminClient>
 /** O áudio leva uns 2 a 5 s para ficar pronto e mais 1 a 3 s para subir e sair: sem esse tempo no turno, não começa. */
 export const TEMPO_MINIMO_DO_AUDIO_MS = 12_000
 
+/** Os áudios que o Palácio mandou hoje (desde a meia-noite de Brasília), do espaço ou só para a pessoa; null se não deu para contar. */
+async function audiosDeHoje(admin: Admin, workspaceId: string, userId: string | null): Promise<number | null> {
+  let consulta = admin.from('whatsapp_mensagens').select('id', { count: 'exact', head: true })
+    .eq('workspace_id', workspaceId).eq('direcao', 'saida').eq('comando', 'voz').eq('situacao', 'enviada')
+    .gte('criado_em', inicioDoDiaEmBrasilia(new Date()).toISOString())
+  if (userId) consulta = consulta.eq('user_id', userId)
+  const { count, error } = await consulta
+  return error ? null : count ?? 0
+}
+
 export async function responderEmAudio(p: {
   admin: Admin
   workspaceId: string
@@ -37,8 +48,13 @@ export async function responderEmAudio(p: {
     if (!p.config || p.prazo - Date.now() < TEMPO_MINIMO_DO_AUDIO_MS) return false
     const falavel = textoParaFalarNoWhatsapp(p.texto)
     if (!falavel) return false
-    const voz = await vozPara(p.workspaceId, 'whatsapp')
-    if (!voz) return false
+    const ligada = await vozPara(p.workspaceId, 'whatsapp')
+    if (!ligada) return false
+    // O teto do dia: os áudios que já saíram hoje, da pessoa e do espaço (o registro de sempre, comando "voz").
+    const [daPessoa, doEspaco] = await Promise.all([audiosDeHoje(p.admin, p.workspaceId, p.userId), audiosDeHoje(p.admin, p.workspaceId, null)])
+    if (audioNoTeto({ pessoa: p.userId ? daPessoa : 0, espaco: doEspaco })) return false
+    // A mesma voz, no modelo mais barato e mais rápido (a matéria do site fica no de narração).
+    const voz = { ...ligada, modelo: MODELO_DO_WHATSAPP }
 
     // O áudio nunca passa do prazo do turno: com folga para subir e mandar.
     const prazo = p.prazo - 4000

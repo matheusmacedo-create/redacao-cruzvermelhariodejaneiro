@@ -1475,13 +1475,13 @@ const VOZ: GuiaDaArea = {
     {
       id: 'audio-gasta-credito',
       pergunta: 'Quanto crédito a voz gasta?',
-      resposta: 'A ElevenLabs cobra por caractere. Uma matéria de 4 mil caracteres gasta uns 4 mil na primeira publicação; republicar sem mudar o texto não gasta nada, porque o áudio que está no ar é reaproveitado. Mudou o texto, a voz ou o modelo, o áudio é gerado de novo. No WhatsApp, cada resposta falada gasta o tamanho dela (no máximo 700 caracteres) e só sai para quem mandou áudio.',
+      resposta: 'A ElevenLabs cobra por caractere. Uma matéria de 4 mil caracteres gasta uns 4 mil na primeira publicação; republicar sem mudar o texto não gasta nada, porque o áudio que está no ar é reaproveitado. Mudou o texto, a voz ou o modelo, o áudio é gerado de novo. No WhatsApp, a voz lê só o começo da resposta (até uns 350 caracteres, e avisa que o restante está no texto), num modelo que gasta metade do crédito; sai só para quem mandou áudio, no máximo 15 por pessoa e 150 no total por dia.',
       termos: ['crédito', 'custo', 'caracteres', 'saldo', 'preço da voz'],
     },
     {
       id: 'audio-no-whatsapp',
       pergunta: 'Quando o WhatsApp responde em áudio?',
-      resposta: 'Só quando quatro coisas valem juntas: o assistente está ligado para a pessoa (Configurações → WhatsApp), “Responder em áudio no WhatsApp” está ligado aqui, a pessoa falou por áudio, e a resposta é uma resposta comum do assistente, com até 700 caracteres. A resposta escrita sai sempre antes e vale sozinha. Plano para confirmar, pergunta com opções, link, código e lista longa ficam só no texto. O áudio nunca confirma nada, e o “confirmo” falado também não vale.',
+      resposta: 'Só quando quatro coisas valem juntas: o assistente está ligado para a pessoa (Configurações → WhatsApp), “Responder em áudio no WhatsApp” está ligado aqui, a pessoa falou por áudio, e a resposta é uma resposta comum do assistente, com pelo menos uns 60 caracteres. A resposta escrita sai sempre antes e vale sozinha; o áudio lê só o começo dela (até uns 350 caracteres) e termina com “O restante está na mensagem escrita”. Plano para confirmar, pergunta com opções, link e código ficam só no texto. Cada pessoa recebe no máximo 15 áudios por dia, e o espaço todo, 150; depois disso, só o texto até a meia-noite. O áudio nunca confirma nada, e o “confirmo” falado também não vale.',
       termos: ['áudio no whatsapp', 'mensagem de voz', 'responder em áudio', 'voz no whatsapp', 'resposta falada'],
     },
     {

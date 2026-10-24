@@ -1,7 +1,7 @@
 // Confere as regras puras da voz da instituição (lib/voz) e o "Ouça esta matéria" da página. Sem rede e sem banco.
 // Uso: npx tsx scripts/conferir-voz.ts
 import {
-  TAMANHO_DO_TRECHO, TETO_DO_WHATSAPP, dividirEmTrechos, ehAudioDeNarracao, ehMp3, ehOgg, lerConfigDaVoz, textoParaFalarNoWhatsapp, textoParaNarrar,
+  FECHO_DO_AUDIO_CORTADO, MINIMO_DO_WHATSAPP, MODELO_DO_WHATSAPP, TAMANHO_DO_TRECHO, TETOS_DE_AUDIO_POR_DIA, TETO_DO_WHATSAPP, audioNoTeto, encurtarParaFalar, dividirEmTrechos, ehAudioDeNarracao, ehMp3, ehOgg, lerConfigDaVoz, textoParaFalarNoWhatsapp, textoParaNarrar,
 } from '../lib/voz/regras'
 import { nomeDoAudio } from '../lib/voz/nome-do-audio'
 import { montarPaginaDoArtigo } from '../lib/site/artigo-html'
@@ -62,7 +62,16 @@ const falada = textoParaFalarNoWhatsapp(resposta)
 conferir(falada !== null && !/https?:|\*|👍/.test(falada), `sem link, marcação nem emoji: ${falada}`)
 conferir(Boolean(falada?.includes('Matéria da campanha de inverno. Post do Dia do Voluntário.')), `itens viram frases: ${falada}`)
 conferir(textoParaFalarNoWhatsapp('Pronto.') === null, 'curto demais não vira áudio')
-conferir(textoParaFalarNoWhatsapp('a'.repeat(10) + ' ' + 'Texto comprido de verdade. '.repeat(40)) === null, `acima de ${TETO_DO_WHATSAPP} caracteres não vira áudio`)
+const comprida = Array.from({ length: 30 }, (_, i) => `A frase número ${['um', 'dois', 'três'][i % 3]} da resposta comprida do assistente.`).join(' ')
+const curta = textoParaFalarNoWhatsapp(comprida)
+conferir(curta !== null && curta.length <= TETO_DO_WHATSAPP, `resposta longa vira fala de até ${TETO_DO_WHATSAPP}: ${curta?.length}`)
+conferir(Boolean(curta?.endsWith(FECHO_DO_AUDIO_CORTADO)) && Boolean(curta?.startsWith('A frase número um da resposta comprida do assistente.')), `corta em fim de frase, com o fecho: ${curta}`)
+const semPontoLongo = encurtarParaFalar('palavra '.repeat(80).trim())
+conferir(semPontoLongo.length <= TETO_DO_WHATSAPP && semPontoLongo.includes('…') && semPontoLongo.endsWith(FECHO_DO_AUDIO_CORTADO), `frase única longa corta no espaço, com reticências: ${semPontoLongo.length}`)
+conferir(textoParaFalarNoWhatsapp('Pronto, sua mensagem foi enviada para a Ana.') === null, `abaixo de ${MINIMO_DO_WHATSAPP} caracteres fica só no texto`)
+conferir(!audioNoTeto({ pessoa: 0, espaco: 0 }) && audioNoTeto({ pessoa: TETOS_DE_AUDIO_POR_DIA.pessoa, espaco: 0 }) && audioNoTeto({ pessoa: 0, espaco: TETOS_DE_AUDIO_POR_DIA.espaco }), 'teto do dia: da pessoa e do espaço')
+conferir(audioNoTeto({ pessoa: null, espaco: 0 }) && audioNoTeto({ pessoa: 0, espaco: null }), 'sem conseguir contar, não manda (sem conta, sem gasto)')
+conferir(MODELO_DO_WHATSAPP === 'eleven_flash_v2_5', 'WhatsApp no modelo mais barato')
 conferir(textoParaFalarNoWhatsapp('Seu código é 482 913 e o protocolo 2026-10-23-0042-7781.') === null, 'quase só número não vira áudio')
 conferir(textoParaFalarNoWhatsapp('https://palacio.cruzvermelhariodejaneiro.org/chamados/123') === null, 'só um link não vira áudio')
 
