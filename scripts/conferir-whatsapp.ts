@@ -4,7 +4,7 @@
  */
 import {
   numeroCanonico, formatarNumero, mascararNumero,
-  lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, numeroSemNonoDigito, problemaNaSaude, interpretarComando, textoDosAvisos, textoDasLidas,
+  ehCortesia, TEXTO_NAO_ENTENDI_CURTO, lerCategoriasDoWhatsapp, decidirWhatsapp, textoDoAviso, lerEventoDaKapso, estadoDoNumeroNaKapso, numeroSemNonoDigito, problemaNaSaude, interpretarComando, textoDosAvisos, textoDasLidas,
   textoDoMenu, codigoNoFormato, emSilencio, fimDoSilencio, silencioSeAplica, proximaTentativa, falhaMereceReenvio,
   categoriaVaiPorWhatsapp, horaEmSaoPaulo, lerPedido, rotuloDoDia, textoDaAgenda, textoDosChamados, textoDasAprovacoes, textoDaAjuda, respostaParaWhatsapp,
   textoDoConviteDoPalacio, alvoDoLink, dicaDeResposta, lerDecisao, ehConfirmacao, ehCancelamento, ehPular, lerEscolha, textoDaConferencia, textoDaEscolha, textoPedeDetalhes, tituloDoRelato,
@@ -1566,6 +1566,17 @@ async function conferirEnvioPelaKapso() {
 }
 
 conferirEnvioPelaKapso().catch((causa) => { falhas++; console.log('FALHOU: o envio pela Kapso lançou', causa) }).finally(() => {
+  // cortesia, reação e o "não entendi" curto
+  for (const t of ['ok', 'Obrigada!', 'muito obrigado', 'valeu', '👍', '🙏', 'blz', 'Obrigado, recebi', 'beleza, vi']) igual(ehCortesia(t), true, `cortesia: "${t}" não pede resposta`)
+  for (const t of ['obrigada, mas como troco a senha?', 'ok e agora?', 'não recebi a senha', 'como faço para entrar', 'ok vou fazer isso hoje à tarde ok ok']) igual(ehCortesia(t), false, `cortesia: "${t}" é pergunta ou frase: responde`)
+  igual(TEXTO_NAO_ENTENDI_CURTO.length < 200 && !TEXTO_NAO_ENTENDI_CURTO.includes('1 –'), true, 'não entendi: uma linha, sem lista de opções')
+  {
+    const reacao = lerEventoDaKapso({ type: 'whatsapp.message.received', message: { id: 'wamid.R', from: '5521970360264', type: 'reaction', timestamp: '1788000000', reaction: { emoji: '🙏', message_id: 'wamid.X' } }, conversation: { phone_number: '+5521970360264' } }, 'whatsapp.message.received', null)
+    igual(reacao.mensagens[0]?.ignorar, 'sem_conteudo', 'reação com emoji: ignorada, o bot não responde')
+    const texto = lerEventoDaKapso({ type: 'whatsapp.message.received', message: { id: 'wamid.T', from: '5521970360264', type: 'text', timestamp: '1788000000', text: { body: 'oi' } }, conversation: { phone_number: '+5521970360264' } }, 'whatsapp.message.received', null)
+    igual(texto.mensagens[0]?.ignorar, null, 'mensagem de texto: não é ignorada')
+  }
   if (falhas) { console.log(`\n${falhas} falha(s).`); process.exit(1) }
+
   console.log('WhatsApp: tudo certo.')
 })

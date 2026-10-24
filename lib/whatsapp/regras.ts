@@ -1109,7 +1109,8 @@ export type MensagemRecebida = {
    */
   transcricao: string | null
   /** Motivo para não responder; null = responder. */
-  ignorar: 'de_mim' | 'grupo' | 'sem_numero' | null
+  /** `sem_conteudo`: sem texto, mídia nem toque (reação com emoji, localização, contato…): não é conversa, não se responde. */
+  ignorar: 'de_mim' | 'grupo' | 'sem_numero' | 'sem_conteudo' | null
   /**
    * A hora em que a pessoa enviou (ms), pelo `timestamp` da Meta (segundos). É ela que ordena o "confirmo" do
    * assistente e as correções (lib/whatsapp/assistente/regras.ts). null sem a hora, ou com uma hora fora de
@@ -1203,7 +1204,7 @@ function lerMensagemDaKapso(dado: unknown, idDoNumero: string | null, agora: num
     toque: !digitado && doToque !== null,
     midia,
     transcricao,
-    ignorar: deMim ? 'de_mim' : numero ? null : 'sem_numero',
+    ignorar: deMim ? 'de_mim' : !numero ? 'sem_numero' : !textoDireto && !legenda && !midia ? 'sem_conteudo' : null,
     enviadaEm: lerEnviadaEm(m.timestamp, agora),
   }
 }
@@ -1495,6 +1496,22 @@ const OPCAO_DA_PRESENCA: OpcaoDoMenu = { id: 'presenca', titulo: 'Presença da a
 const OPCAO_DA_FROTA: OpcaoDoMenu = { id: 'veiculos', titulo: 'Veículos', texto: 'a frota agora: disponíveis e em viagem' }
 
 /** O começo do menu que responde ao que o bot não entendeu. */
+/** O que o bot diz quando não entende uma mensagem: direto, sem despejar o menu (o menu sai quando a pessoa pede: "menu", "oi"). */
+export const TEXTO_NAO_ENTENDI_CURTO = 'Não entendi. Escreva *ajuda* e a sua dúvida (ex.: _ajuda como trocar a senha_), ou *menu* para ver as opções.'
+
+const PALAVRAS_DE_CORTESIA = new Set(['ok', 'okay', 'obrigado', 'obrigada', 'obg', 'brigado', 'brigada', 'valeu', 'vlw', 'blz', 'beleza', 'certo', 'entendi', 'entendido', 'perfeito', 'show', 'top', 'legal', 'otimo', 'combinado', 'fechado', 'tranquilo', 'muito', 'de', 'nada', 'tmj', 'amem', 'gracas', 'deus', 'abencoe', 'viu', 'demais', 'tudo', 'bem', 'ta', 'sim', 'isso', 'recebi', 'vi'])
+
+/**
+ * Agradecimento, "ok", emoji solto: não é pergunta, e responder a isso com um menu só confunde. O bot fica quieto.
+ * Só vale para mensagem curta (até 4 palavras), sem "?", feita só de palavras de cortesia — ou só de símbolos/emoji.
+ */
+export function ehCortesia(texto: string): boolean {
+  if (texto.includes('?')) return false
+  const palavras = normalizar(texto).split(' ').filter(Boolean)
+  if (!palavras.length) return true
+  return palavras.length <= 4 && palavras.every((p) => PALAVRAS_DE_CORTESIA.has(p))
+}
+
 export const TEXTO_NAO_ENTENDI = '_Não entendi. Este número responde só às opções abaixo; mensagens soltas não chegam a ninguém._'
 
 const linhaDoMenu = (o: OpcaoDoMenu) => `*${o.id}* – ${o.texto}`

@@ -2790,6 +2790,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   conhecidos: apagar o apelido provavelmente remove o "enviar como" do contato@ (assinatura, nome de exibição) e devolvê-lo
   não restaura isso; a primeira criação real merece ser conferida no Admin do Google (campos como `recoveryPhone` em E.164 e a
   janela de propagação do apelido só se confirmam contra o Google de verdade).
+  **O bot só responde quando perguntado** (24/10/2026): reação com emoji, localização e outras mensagens sem texto, mídia nem
+  toque são ignoradas (`ignorar: 'sem_conteudo'`) — antes a reação 🙏 a uma senha recebia o menu inteiro com "Não entendi"; agradecimento,
+  "ok" e emoji solto (`ehCortesia`: até 4 palavras só de cortesia, sem "?") não recebem resposta; e o que o bot não entende recebe
+  uma linha (`TEXTO_NAO_ENTENDI_CURTO`: "escreva *ajuda* e a sua dúvida, ou *menu*"), sem despejar o menu. O menu continua saindo quando
+  a pessoa pede ("menu", "oi"). Quem tem o assistente ligado segue sendo atendido por ele.
   **`criar email de <nome>`** (24/10/2026, só administrador): o e-mail institucional de quem JÁ tem conta e ficha e ainda não
   tem e-mail (`equipe_membros` ativo, `email_trabalho` nulo, WhatsApp confirmado). `previaDoEmailDePessoa` mostra quem, o endereço e
   o final do WhatsApp; "Sim, criar" (botão `em:`, 15 min, leva 12 dígitos do id da pessoa) chama `criarEmailDePessoa`: cria a conta
