@@ -177,13 +177,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       if (!nova) return
       // A conversa aberta não tem o teto de respostas (são ~15 trocas, uma por mensagem da pessoa); a abertura, sim.
       const aberta = doAutocadastro && !m.midia && lerAutocadastro(m.texto) ? false : doAutocadastro
-      if (!aberta && !botaoCadastro && await noTetoDeRespostas(admin, workspaceId, numero)) return
+      if (!aberta && !botaoCadastro && !botaoCaixas && await noTetoDeRespostas(admin, workspaceId, numero)) return
       let saidas: Saida[] = []
       if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
       else if (ator && botaoCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, ator, botaoCadastro)
       else if (ator && pedeGrupos) saidas = await situacaoDosGrupos(admin, workspaceId, ator)
       else if (ator && pedeCaixas) saidas = await previaDasCaixas(admin, workspaceId, ator)
-      else if (ator && botaoCaixas) saidas = await criarCaixasDosSetoresPeloBotao(admin, workspaceId, config, ator, botaoCaixas)
+      else if (ator && botaoCaixas) saidas = await criarCaixasDosSetoresPeloBotao(admin, workspaceId, config, ator, botaoCaixas, { prazoDoLote: opcoes.prazoDoLote })
       else if (ator && pedidoDaCaixa) saidas = await criarCaixaDoSetorPeloComando(admin, workspaceId, config, ator, pedidoDaCaixa)
       else if (ator && pedeLinkDoTime) saidas = await linkDoTime(admin, workspaceId, config, ator)
       else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)

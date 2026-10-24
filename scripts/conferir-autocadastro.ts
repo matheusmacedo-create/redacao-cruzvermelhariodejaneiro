@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, textoDaSenhaDaCaixa, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -179,18 +179,20 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   for (const t of ['caixas dos setores', 'criar caixas dos setores', 'criar as caixas dos setores', 'apelidos', 'apelidos dos setores']) igual(ehPedidoDeCaixas(t), true, `caixas: "${t}" abre a prévia`)
   for (const t of ['caixa do setor', 'caixas', 'quero criar as caixas dos setores', 'apelido', 'caixas dos setores agora']) igual(ehPedidoDeCaixas(t), false, `caixas: "${t}" não abre a prévia`)
   const agora = Date.parse('2026-10-23T22:00:00Z')
-  const sim = idDoBotaoDeCaixas('sim', '1z141z3', agora)
+  const sim = idDoBotaoDeCaixas('sim', 'a1b2c3d4e5f6', agora)
   igual(sim.length <= 40, true, 'caixas: o id cabe no limite da Meta')
-  igual(lerBotaoDeCaixas(sim, agora), { acao: 'sim', vencido: false, assinatura: '1z141z3' }, 'caixas: o botão recém-criado vale e traz a impressão do plano')
+  igual(lerBotaoDeCaixas(sim, agora), { acao: 'sim', vencido: false, assinatura: 'a1b2c3d4e5f6' }, 'caixas: o botão recém-criado vale e traz a impressão do plano')
   igual(lerBotaoDeCaixas(sim, agora + (VALIDADE_DO_BOTAO_DE_CAIXAS_MIN - 1) * 60_000)?.vencido, false, 'caixas: ainda vale perto do fim do prazo')
   igual(lerBotaoDeCaixas(sim, agora + (VALIDADE_DO_BOTAO_DE_CAIXAS_MIN + 2) * 60_000)?.vencido, true, 'caixas: botão velho NÃO cria nada')
   igual(lerBotaoDeCaixas(sim, agora - 10 * 60_000)?.vencido, true, 'caixas: id com hora do futuro não vale')
-  igual(lerBotaoDeCaixas(idDoBotaoDeCaixas('nao', 'abc', agora), agora)?.acao, 'nao', 'caixas: o botão Não é lido')
+  igual(lerBotaoDeCaixas(idDoBotaoDeCaixas('nao', 'a1b2c3d4e5f6', agora), agora)?.acao, 'nao', 'caixas: o botão Não é lido')
   igual(lerBotaoDeCaixas('caixas dos setores'), null, 'caixas: texto solto não é botão')
   igual(lerBotaoDeCaixas('cx:s:'), null, 'caixas: id incompleto não é botão')
   igual(lerBotaoDeCaixas(`cx:s:${sim.split(':')[2]}`), null, 'caixas: id sem a impressão do plano não é botão (não dá para confirmar sem ela)')
   igual(lerBotaoDeCaixas('ap:s:abcd'), null, 'caixas: o botão antigo de apelidos já não faz nada')
-  igual((BOTOES_DE_CAIXAS('1z141z3', agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'caixas: títulos cabem na Meta')
+  igual(lerBotaoDeCaixas(`${sim.split(':').slice(0, 3).join(':')}:1z141z3`), null, 'caixas: o botão do formato antigo (impressão curta em base 36) já não vale')
+  igual(lerBotaoDeCaixas(`${sim.split(':').slice(0, 3).join(':')}:zzzzzzzzzzzz`), null, 'caixas: impressão que não é hexadecimal não vale')
+  igual((BOTOES_DE_CAIXAS('a1b2c3d4e5f6', agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'caixas: títulos cabem na Meta')
 
   const plano = [
     { nome: 'Atendimento', endereco: 'contato@x.org', estado: 'caixa_real' as const },
@@ -210,6 +212,8 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(previa, '/correio', 'caixas: a prévia avisa que o Correio do Palácio deixa de ver o setor')
   contem(previa, 'apelido volta ao lugar', 'caixas: a prévia diz que o apelido volta se a caixa não nascer')
   sem(previa, 'Ouvidoria: ouvidoria@x.org', 'caixas: o grupo não aparece na lista do que será criado')
+  contem(textoDaPreviaDasCaixas(plano, new Set(['ti@x.org'])), 'ninguém abre', 'caixas: a prévia avisa que o e-mail de setor sem coordenador cai numa caixa que ninguém abre')
+  sem(textoDaPreviaDasCaixas(plano, new Set(['ti@x.org', 'esportes@x.org'])), 'ninguém abre', 'caixas: com todos os setores já com coordenador não há o aviso')
   sem(previa, 'Confirma?', 'caixas: a pergunta não fica na prévia (sem botão, não haveria como responder)')
   contem(textoDaPreviaDasCaixas([{ nome: 'A', endereco: 'a@x.org', estado: 'caixa_real' }]), 'Nenhum setor precisa de caixa nova', 'caixas: nada a criar')
   // com os 15 setores de verdade e nomes longos a prévia passa de 1024 caracteres: a pergunta tem de ir em mensagem própria, com os botões
@@ -217,7 +221,22 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   const previaQuinze = textoDaPreviaDasCaixas(quinze)
   igual(previaQuinze.length > 1024, true, 'caixas: (premissa) a prévia de 15 setores passa do limite de 1024 dos botões')
   igual(previaQuinze.length < 4000, true, 'caixas: a prévia de 15 setores cabe numa mensagem de texto')
-  igual(objetoInterativo(PERGUNTA_DAS_CAIXAS, BOTOES_DE_CAIXAS('1z141z3')) !== null, true, 'caixas: a pergunta curta mantém os botões')
+  igual(objetoInterativo(PERGUNTA_DAS_CAIXAS, BOTOES_DE_CAIXAS('a1b2c3d4e5f6')) !== null, true, 'caixas: a pergunta curta mantém os botões')
+  // nomes bem mais longos que os reais: a prévia e o resultado nunca passam de uma mensagem do WhatsApp (4096) e o alerta não é cortado
+  const longos = Array.from({ length: 15 }, (_, i) => ({ nome: `Coordenação de Atendimento Humanitário e Apoio Psicossocial ${i + 1}`, endereco: `atendimento.humanitario.psicossocial${i + 1}@cruzvermelhariodejaneiro.org`, estado: 'apelido' as const, dono: 'contato@cruzvermelhariodejaneiro.org' }))
+  const msgsPrevia = mensagensDaPreviaDasCaixas(longos)
+  igual(msgsPrevia.every((m) => m.length <= 3500), true, 'caixas: cada mensagem da prévia cabe (até 3500) mesmo com nomes enormes')
+  contem(msgsPrevia[msgsPrevia.length - 1], 'O que muda', 'caixas: o "O que muda" fica na última mensagem, junto da pergunta')
+  const falhas15 = longos.map((x) => ({ nome: x.nome, endereco: x.endereco, resultado: 'falhou' as const, apelidoApagado: true, apelidoDevolvido: false, motivo: 'Internal error '.repeat(30) }))
+  const msgsRes = mensagensDoResultadoDasCaixas(falhas15)
+  igual(msgsRes.length > 1 && msgsRes.every((m) => m.length <= 3500), true, 'caixas: 15 falhas com apelido não devolvido viram várias mensagens, nenhuma passa do limite')
+  igual(msgsRes.join('\n\n').split('NÃO voltou').length - 1, 15, 'caixas: nenhum alerta "NÃO voltou" se perde ao dividir')
+  igual(mensagensDoResultadoDasCaixas([{ nome: 'A', endereco: 'a@x.org', resultado: 'criada', entrega: 'enviada' }, { nome: 'B', endereco: 'b@x.org', resultado: 'falhou', motivo: 'x' }])[0].startsWith('❌'), true, 'caixas: o que deu errado vem PRIMEIRO no resultado')
+  igual(emMensagens(['a'.repeat(100), 'b'.repeat(100)], 150), ['a'.repeat(100), 'b'.repeat(100)], 'emMensagens: dois blocos que não cabem juntos vão em mensagens separadas')
+  igual(emMensagens(['a'.repeat(50), 'b'.repeat(50)], 150), [`${'a'.repeat(50)}\n\n${'b'.repeat(50)}`], 'emMensagens: blocos que cabem juntos ficam juntos')
+  igual(emMensagens([Array.from({ length: 10 }, (_, k) => `linha ${k} ${'x'.repeat(40)}`).join('\n')], 150).every((m) => m.length <= 150), true, 'emMensagens: um bloco maior que o limite é partido por linhas')
+  igual(mensagensDaPreviaDasCaixas([]).length, 1, 'caixas: sem setor nenhum a prévia diz isso (não "tudo certo")')
+  contem(mensagensDaPreviaDasCaixas([])[0], 'nenhum setor com endereço', 'caixas: sem setor com endereço não é "todos têm caixa"')
 
   const res = textoDoResultadoDasCaixas([
     { nome: 'TI', endereco: 'ti@x.org', resultado: 'criada', apelidoApagado: true, entrega: 'sem_coordenador' },
@@ -238,6 +257,15 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(res, 'o apelido voltou ao lugar', 'caixas: diz quando o apelido voltou')
   contem(res, 'o apelido foi apagado e NÃO voltou', 'caixas: diz quando o apelido NÃO voltou')
   contem(res, 'Voluntariado', 'caixas: lista o que não deu tempo')
+  const res2 = textoDoResultadoDasCaixas([
+    { nome: 'TI', endereco: 'ti@x.org', resultado: 'criada', entrega: 'sem_coordenador', registro: 'falhou' },
+    { nome: 'GRD', endereco: 'g@x.org', resultado: 'falhou', incerto: true, motivo: 'o Google não respondeu ao apagar o apelido' },
+    { nome: 'Jurídico', endereco: 'j@x.org', resultado: 'adiada', motivo: 'parei: o Google recusou a criação (Not Authorized) e o mesmo vale para os outros setores' },
+  ])
+  contem(res2, 'NÃO ficou registrada', 'caixas: caixa criada sem registro no banco é dita, nunca em silêncio')
+  contem(res2, 'confira este endereço no Admin do Google', 'caixas: estado incerto manda conferir o endereço antes de tentar de novo')
+  contem(res2, 'parei: o Google recusou a criação', 'caixas: o adiado diz por que o lote parou')
+  contem(textoDoResultadoDasCaixas([{ nome: 'TI', endereco: 'ti@x.org', resultado: 'criada', entrega: 'falhou' }]), 'caixa do setor: <nome>', 'caixas: senha que não chegou manda reenviar pelo comando de um setor')
   contem(res, 'Já tinham caixa (1): Atendimento', 'caixas: lista o que já tinha caixa')
   contem(res, 'a caixa é entregue a ela, com senha nova', 'caixas: o próximo passo é a aprovação da coordenação (nada à mão)')
   sem(res, 'Senha#', 'caixas: o resultado nunca leva senha')

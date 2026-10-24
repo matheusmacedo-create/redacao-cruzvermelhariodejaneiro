@@ -22,7 +22,7 @@ import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, textoDaPreviaDasCaixas, textoDaSenhaDaCaixa, textoDoResultadoDasCaixas, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -329,17 +329,36 @@ export async function situacaoDosGrupos(admin: Admin, workspaceId: string, ator:
 
 type SetorComEndereco = { id: string; nome: string; endereco: string }
 
-/** Os setores ativos com endereço e, de cada um, os números dos coordenadores registrados (não revogados). */
+/** O banco não respondeu: a operação para antes de falar com o Google, em vez de seguir com uma lista vazia que parece "tudo certo". */
+class ErroDeBanco extends Error {}
+const textoDoErro = (causa: unknown) => causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio || causa instanceof ErroDeBanco ? causa.message : 'erro inesperado'
+
+/**
+ * Os setores ativos com endereço e, de cada um, os números dos coordenadores registrados (não revogados). Um erro de leitura
+ * lança (ErroDeBanco): lista vazia por falha pareceria "nenhum setor precisa de caixa", e coordenadores que não vieram fariam a
+ * senha de quem tem coordenação ser descartada. Dois setores com o mesmo endereço contam uma vez só (o primeiro por nome).
+ */
 async function setoresDasCaixas(admin: Admin, workspaceId: string): Promise<{ setores: SetorComEndereco[]; numerosPorSetor: Map<string, string[]> }> {
-  const [{ data: lista }, { data: coords }] = await Promise.all([
+  const [{ data: lista, error: erroSetores }, { data: coords, error: erroCoords }] = await Promise.all([
     admin.from('setores').select('id, nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome'),
     admin.from('setor_coordenadores').select('setor_id, numero').eq('workspace_id', workspaceId).is('revogado_em', null),
   ])
-  const setores = (lista ?? []).flatMap((st) => (typeof st.email === 'string' && st.email.includes('@') ? [{ id: String(st.id), nome: String(st.nome), endereco: st.email.toLowerCase() }] : []))
+  if (erroSetores || erroCoords) throw new ErroDeBanco('Não consegui ler os setores e coordenadores no banco agora. Tente de novo em instantes.')
+  const vistos = new Set<string>()
+  const setores = (lista ?? []).flatMap((st) => {
+    const endereco = typeof st.email === 'string' && st.email.includes('@') ? st.email.toLowerCase() : null
+    if (!endereco || vistos.has(endereco)) return []
+    vistos.add(endereco)
+    return [{ id: String(st.id), nome: String(st.nome), endereco }]
+  })
   const numerosPorSetor = new Map<string, string[]>()
   for (const c of coords ?? []) numerosPorSetor.set(String(c.setor_id), [...(numerosPorSetor.get(String(c.setor_id)) ?? []), String(c.numero)])
   return { setores, numerosPorSetor }
 }
+
+/** Os endereços (minúsculos) dos setores → números dos coordenadores registrados: quem recebe a senha de cada caixa. */
+const destinatariosPorEndereco = (setores: SetorComEndereco[], numerosPorSetor: Map<string, string[]>) =>
+  Object.fromEntries(setores.map((st) => [st.endereco, numerosPorSetor.get(st.id) ?? []]))
 
 /**
  * "caixas dos setores": a PRÉVIA, só leitura, para o administrador. Mostra, setor por setor, o que será feito (apagar o
@@ -351,97 +370,157 @@ export async function previaDasCaixas(admin: Admin, workspaceId: string, ator: A
     const { setores, numerosPorSetor } = await setoresDasCaixas(admin, workspaceId)
     const plano = await planoDasCaixas(chamarGoogleAdmin(workspaceId), setores.map(({ nome, endereco }) => ({ nome, endereco })))
     const comCoordenador = new Set(setores.filter((st) => numerosPorSetor.get(st.id)?.length).map((st) => st.endereco))
-    return [{ texto: textoDaPreviaDasCaixas(plano, comCoordenador) }, ...(plano.some(precisaDeCaixa) ? [{ texto: PERGUNTA_DAS_CAIXAS, interativo: BOTOES_DE_CAIXAS(assinaturaDoPlano(plano)) }] : [])]
+    const assinatura = assinaturaDoPlano(plano, destinatariosPorEndereco(setores, numerosPorSetor))
+    return [...mensagensDaPreviaDasCaixas(plano, comCoordenador).map((texto) => ({ texto })), ...(plano.some(precisaDeCaixa) ? [{ texto: PERGUNTA_DAS_CAIXAS, interativo: BOTOES_DE_CAIXAS(assinatura) }] : [])]
   } catch (causa) {
     console.error('[whatsapp] caixas dos setores: prévia:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
-    return [{ texto: `Não consegui consultar o Google agora: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}` }]
+    return [{ texto: `Não consegui consultar agora: ${textoDoErro(causa)}` }]
   }
 }
 
 /** Depois deste instante nenhum setor novo começa: o webhook tem prazo, e parar entre um setor e outro é melhor que no meio de um. */
-const PRAZO_DAS_CAIXAS_MS = 150_000
+const PRAZO_DAS_CAIXAS_MS = 120_000
+/** Folga que se deixa, no fim do prazo do lote do webhook, para o setor em curso terminar (consultas, apagar, criar, devolver). */
+const FOLGA_DO_LOTE_MS = 90_000
+const JANELA_DO_LOTE_MIN = 10
+const ACAO_LOTE_INICIO = 'google_caixas_dos_setores_inicio'
+const ACAO_LOTE_FIM = 'google_caixas_dos_setores'
+/** A caixa de um setor foi ENTREGUE (a senha chegou a alguém): daí em diante tem responsável e a senha dela nunca mais é redefinida por aqui. */
+const ACAO_CAIXA_ENTREGUE = 'google_caixa_do_setor_entregue'
+
+async function marcarCaixaEntregue(admin: Admin, workspaceId: string, userId: string | null, setorId: string, endereco: string, via: string) {
+  const { error } = await admin.from('activity_log').insert({
+    workspace_id: workspaceId, actor_id: userId, action: ACAO_CAIXA_ENTREGUE, entity_type: 'setor', entity_id: setorId, metadata: { email: endereco, via },
+  })
+  if (error) console.error('[whatsapp] caixa do setor: entrega não registrada:', error.message)
+}
+
+/**
+ * Pede a vez de rodar um lote: grava o início e confere se há outro lote mais antigo, começado há menos de 10 minutos e ainda
+ * sem fim. Dois toques seguidos (ou dois administradores) com a mesma prévia passam os dois pela assinatura do plano — a trava
+ * é o que faz o segundo esperar. `id` null = não deu para gravar (segue sem trava: o Google não deixa duplicar a conta).
+ */
+async function pedirVezDoLote(admin: Admin, workspaceId: string, userId: string | null): Promise<{ id: string | null; ocupado: boolean }> {
+  const { data: meu, error } = await admin.from('activity_log').insert({
+    workspace_id: workspaceId, actor_id: userId, action: ACAO_LOTE_INICIO, entity_type: 'google_conta', entity_id: null, metadata: {},
+  }).select('id, created_at').single()
+  if (error || !meu) { console.error('[whatsapp] caixas dos setores: lote sem trava:', error?.message); return { id: null, ocupado: false } }
+  const desde = new Date(Date.now() - JANELA_DO_LOTE_MIN * 60_000).toISOString()
+  const [{ data: inicios }, { data: fins }] = await Promise.all([
+    admin.from('activity_log').select('id, created_at').eq('workspace_id', workspaceId).eq('action', ACAO_LOTE_INICIO).gte('created_at', desde),
+    admin.from('activity_log').select('metadata').eq('workspace_id', workspaceId).eq('action', ACAO_LOTE_FIM).gte('created_at', desde),
+  ])
+  const terminados = new Set((fins ?? []).map((f) => (f.metadata as { inicio?: string } | null)?.inicio).filter(Boolean))
+  const antes = (inicios ?? []).filter((x) => x.id !== meu.id && !terminados.has(x.id) && (String(x.created_at) < String(meu.created_at) || (String(x.created_at) === String(meu.created_at) && String(x.id) < String(meu.id))))
+  return { id: String(meu.id), ocupado: antes.length > 0 }
+}
 
 /**
  * O "Sim, criar" (válido por 15 minutos desde a prévia): relê o que cada endereço é AGORA e só segue se for exatamente o que
- * a prévia mostrou (a impressão do plano vai no botão — e por isso o segundo toque no mesmo botão não faz nada). Cria a caixa
- * de cada setor; o apelido, quando há, é apagado logo antes e volta se a caixa não nascer. A senha provisória vai ao WhatsApp
- * dos coordenadores já registrados do setor; sem coordenador, é descartada — a caixa fica sem dono e é entregue (senha nova)
- * na aprovação da coordenação. Nunca grava a senha. Registra em activity_log e responde o que houve em cada setor.
+ * a prévia mostrou (a assinatura do plano vai no botão: endereços, estados, donos dos apelidos e quem receberá a senha — por
+ * isso o segundo toque no mesmo botão, depois de concluído, não faz nada). Cria a caixa de cada setor; o apelido, quando há,
+ * é apagado logo antes e volta se a caixa não nascer. A senha provisória vai ao WhatsApp dos coordenadores já registrados do
+ * setor; sem coordenador, é descartada — a caixa fica sem dono e é entregue (senha nova) na aprovação da coordenação. A senha
+ * só existe em memória (e, enquanto espera na fila do WhatsApp, no texto da mensagem, que some depois de enviada — categoria
+ * "conta"); nunca vai a activity_log nem à resposta. Cada conta é registrada e entregue LOGO depois de criada (`aoCriar`), não
+ * no fim do lote: se o processo for cortado, o que já nasceu não fica sem registro.
  */
-export async function criarCaixasDosSetoresPeloBotao(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator, botao: { acao: 'sim' | 'nao'; vencido: boolean; assinatura: string }): Promise<Saida[]> {
+export async function criarCaixasDosSetoresPeloBotao(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator, botao: { acao: 'sim' | 'nao'; vencido: boolean; assinatura: string }, opcoes: { prazoDoLote?: number } = {}): Promise<Saida[]> {
   if (!ator.admin) return [{ texto: 'Criar a caixa dos setores é só de administrador.' }]
   if (botao.acao === 'nao') return [{ texto: 'Certo, nada foi criado.' }]
   if (botao.vencido) return [{ texto: 'Essa confirmação venceu (vale 15 minutos). Mande *caixas dos setores* de novo para ver a lista e confirmar.' }]
+  const vez = await pedirVezDoLote(admin, workspaceId, ator.userId)
+  const encerrar = async (metadata: Record<string, unknown>) => {
+    if (!vez.id) return
+    const { error } = await admin.from('activity_log').insert({ workspace_id: workspaceId, actor_id: ator.userId, action: ACAO_LOTE_FIM, entity_type: 'google_conta', entity_id: null, metadata: { inicio: vez.id, ...metadata } })
+    if (error) console.error('[whatsapp] caixas dos setores: fim do lote não registrado:', error.message)
+  }
+  if (vez.ocupado) {
+    await encerrar({ desistiu: true })
+    return [{ texto: 'Já tem um lote de caixas em andamento (começou há pouco). Espere o resultado dele antes de mandar de novo.' }]
+  }
   try {
     const chamar = chamarGoogleAdmin(workspaceId)
     const { setores, numerosPorSetor } = await setoresDasCaixas(admin, workspaceId)
     const plano = await planoDasCaixas(chamar, setores.map(({ nome, endereco }) => ({ nome, endereco })))
-    if (assinaturaDoPlano(plano) !== botao.assinatura) {
-      return [{ texto: plano.some(precisaDeCaixa) ? 'A situação dos setores mudou desde a prévia. Mande *caixas dos setores* de novo para ver o que vai ser feito e confirmar.' : 'Não há mais nada a criar: as caixas dos setores já foram feitas. ✓' }]
+    if (assinaturaDoPlano(plano, destinatariosPorEndereco(setores, numerosPorSetor)) !== botao.assinatura) {
+      await encerrar({ recusado: 'plano mudou' })
+      return [{ texto: plano.some(precisaDeCaixa) ? 'A situação dos setores mudou desde a prévia (ou mudou quem recebe a senha). Mande *caixas dos setores* de novo para ver o que vai ser feito e confirmar.' : 'Não há mais nada a criar: as caixas dos setores já foram feitas. ✓' }]
     }
     const aCriar = plano.filter(precisaDeCaixa)
     const senhas = new Map(aCriar.map((p) => [p.endereco.toLowerCase(), gerarSenhaTemporaria()]))
-    const resultados = await criarCaixasDosSetores(chamar, aCriar.map((p) => ({ nome: p.nome, endereco: p.endereco, senha: senhas.get(p.endereco.toLowerCase()) as string })), { ate: Date.now() + PRAZO_DAS_CAIXAS_MS })
+    const ate = Math.min(Date.now() + PRAZO_DAS_CAIXAS_MS, (opcoes.prazoDoLote ?? Number.POSITIVE_INFINITY) - FOLGA_DO_LOTE_MS)
 
-    const final: (typeof resultados[number] & { entrega?: EntregaDaCaixa })[] = []
-    for (const r of resultados) {
-      const setor = setores.find((st) => st.endereco === r.endereco.toLowerCase())
-      if (r.resultado !== 'criada' || !setor) { final.push(r); continue }
-      const { error: erroConta } = await admin.from('google_contas').insert({
-        workspace_id: workspaceId, convite_id: null, email: setor.endereco, nome: setor.nome, setor_id: setor.id, grupo_email: null, grupo_ok: false,
-        google_id: null, ip_hash: hashDoIp(`caixa-do-setor:${setor.id}`),
-      })
-      if (erroConta) console.error('[whatsapp] caixas dos setores: google_contas:', erroConta.message)
-      const numeros = numerosPorSetor.get(setor.id) ?? []
-      if (!numeros.length) { final.push({ ...r, entrega: 'sem_coordenador' }); continue }
-      // A senha só existe aqui, em memória: sai para o WhatsApp de quem coordena o setor e não é gravada em lugar nenhum.
-      const texto = textoDaSenhaDaCaixa({ setor: setor.nome, email: setor.endereco, senha: senhas.get(setor.endereco) as string })
-      let entrega: EntregaDaCaixa = 'enviada'
-      for (const numero of numeros) {
-        const e = await entregar(admin, workspaceId, { numero, userId: null, tipo: 'aviso', categoria: 'conta', texto }, { config })
-        if (e.situacao === 'falhou') entrega = 'falhou'
-        else if (e.situacao === 'na_fila' && entrega === 'enviada') entrega = 'na_fila'
-      }
-      final.push({ ...r, entrega })
-    }
-
-    await admin.from('activity_log').insert({
-      workspace_id: workspaceId, actor_id: ator.userId, action: 'google_caixas_dos_setores', entity_type: 'google_conta', entity_id: null,
-      metadata: { origem: 'whatsapp', resultados: final.map((r) => ({ endereco: r.endereco, resultado: r.resultado, apelido_apagado: r.apelidoApagado ?? false, apelido_devolvido: r.apelidoDevolvido ?? null, entrega: r.entrega ?? null, motivo: r.motivo ?? null })) },
+    const resultados = await criarCaixasDosSetores(chamar, aCriar.map((p) => ({ nome: p.nome, endereco: p.endereco, senha: senhas.get(p.endereco.toLowerCase()) as string })), {
+      ate,
+      aoCriar: async (r) => {
+        const setor = setores.find((st) => st.endereco === r.endereco.toLowerCase())
+        if (!setor) return { registro: 'falhou' as const }
+        const { error: erroConta } = await admin.from('google_contas').insert({
+          workspace_id: workspaceId, convite_id: null, email: setor.endereco, nome: setor.nome, setor_id: setor.id, grupo_email: null, grupo_ok: false,
+          google_id: null, ip_hash: hashDoIp(`caixa-do-setor:${setor.id}`),
+        })
+        if (erroConta) console.error('[whatsapp] caixas dos setores: google_contas:', erroConta.message)
+        // O Palácio lê e envia pelo "enviar como" do contato@: sem o apelido, o endereço deixa de existir lá. Alinha agora, em vez de
+        // esperar a sincronização (1 h ao abrir o /correio, ou o cron diário), para não oferecer um remetente que já não vale.
+        if (r.apelidoApagado) {
+          const { error: erroCaixas } = await admin.from('caixas_de_email').update({ no_gmail: false, sincronizada_em: new Date().toISOString() }).eq('workspace_id', workspaceId).eq('email', setor.endereco)
+          if (erroCaixas) console.error('[whatsapp] caixas dos setores: caixa do Palácio não atualizada:', erroCaixas.message)
+        }
+        const registro = erroConta ? ('falhou' as const) : ('ok' as const)
+        // Quem coordena o setor É LIDO DE NOVO agora: o lote leva minutos, e uma coordenação aprovada no meio dele não pode ter a
+        // senha descartada. Se a leitura falha, vale o que a prévia mostrou (e a caixa segue "sem dono", reenviável pelo comando).
+        const { data: agora, error: erroAgora } = await admin.from('setor_coordenadores').select('numero').eq('workspace_id', workspaceId).eq('setor_id', setor.id).is('revogado_em', null)
+        const numeros = erroAgora ? (numerosPorSetor.get(setor.id) ?? []) : (agora ?? []).map((c) => String(c.numero))
+        if (!numeros.length) return { registro, entrega: 'sem_coordenador' as const }
+        // A senha só existe aqui, em memória: sai para o WhatsApp de quem coordena o setor.
+        const texto = textoDaSenhaDaCaixa({ setor: setor.nome, email: setor.endereco, senha: senhas.get(setor.endereco) as string })
+        let entrega: EntregaDaCaixa = 'enviada'
+        let algumaChegou = false
+        for (const numero of numeros) {
+          const e = await entregar(admin, workspaceId, { numero, userId: null, tipo: 'aviso', categoria: 'conta', texto }, { config })
+          if (e.situacao === 'falhou') entrega = 'falhou'
+          else { algumaChegou = true; if (e.situacao === 'na_fila' && entrega === 'enviada') entrega = 'na_fila' }
+        }
+        if (algumaChegou) await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, setor.endereco, 'lote')
+        return { registro, entrega }
+      },
     })
-    // O Palácio lê e envia pelo "enviar como" do contato@: sem o apelido, o endereço deixa de existir lá. Alinha agora, em vez de
-    // esperar a sincronização (1 h ao abrir o /correio, ou o cron diário), para não oferecer um remetente que já não vale.
-    const semApelido = final.filter((r) => r.apelidoApagado && r.resultado === 'criada').map((r) => r.endereco)
-    if (semApelido.length) {
-      const { error: erroCaixas } = await admin.from('caixas_de_email').update({ no_gmail: false, sincronizada_em: new Date().toISOString() }).eq('workspace_id', workspaceId).in('email', semApelido)
-      if (erroCaixas) console.error('[whatsapp] caixas dos setores: caixas do Palácio não atualizadas:', erroCaixas.message)
-    }
-    return [{ texto: textoDoResultadoDasCaixas(final) }]
+
+    // O resultado, sem senha nenhuma. As caixas que existem mas ficaram sem registro são avisadas na própria resposta.
+    await encerrar({ origem: 'whatsapp', resultados: resultados.map((r) => ({ endereco: r.endereco, resultado: r.resultado, apelido_apagado: r.apelidoApagado ?? false, apelido_devolvido: r.apelidoDevolvido ?? null, incerto: r.incerto ?? false, entrega: r.entrega ?? null, registro: r.registro ?? null, motivo: r.motivo ?? null })) })
+    return mensagensDoResultadoDasCaixas(resultados).map((texto) => ({ texto }))
   } catch (causa) {
     console.error('[whatsapp] caixas dos setores: criar:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
-    return [{ texto: `Não consegui concluir: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}. Mande *caixas dos setores* para ver o que sobrou.` }]
+    await encerrar({ erro: true })
+    return [{ texto: `Não consegui concluir: ${textoDoErro(causa)}. Mande *caixas dos setores* para ver o que sobrou — e confira os endereços dos setores no Admin do Google antes, se a falha foi no meio.` }]
   }
 }
 
 /**
- * A caixa de um setor que já existe (criada por "caixas dos setores") e ainda NÃO tem responsável: é uma das nossas (há linha
- * em google_contas com o endereço do setor) e nenhum coordenador está registrado nele. É a única que pode ser entregue por
- * redefinição de senha — o contato@ e qualquer caixa que não criamos nunca passam por esta conferência.
+ * Em que pé está a caixa de um setor que já existe: 'sem_dono' (é uma das nossas — há linha em google_contas com o endereço do
+ * setor — e a senha dela ainda não chegou a ninguém: nenhum registro de entrega), 'entregue' (já tem responsável), 'nao_nossa'
+ * (nenhuma linha em google_contas: criada à mão, ou o contato@) ou 'desconhecido' (o banco não respondeu — NUNCA vale como
+ * "sem dono": decidir "pode redefinir a senha" com uma leitura que falhou seria falhar aberto). Só 'sem_dono' pode ser entregue
+ * por redefinição de senha, e mesmo assim a redefinição recusa caixa em que alguém já entrou (`redefinirSenhaDaCaixa`).
  */
-async function caixaSemDono(admin: Admin, workspaceId: string, setorId: string, endereco: string): Promise<boolean> {
-  const [{ data: conta }, { data: coords }] = await Promise.all([
+async function estadoDaCaixaDoSetor(admin: Admin, workspaceId: string, setorId: string, endereco: string): Promise<'sem_dono' | 'entregue' | 'nao_nossa' | 'desconhecido'> {
+  const [{ data: conta, error: erroConta }, { data: entregue, error: erroEntregue }] = await Promise.all([
     admin.from('google_contas').select('id').eq('workspace_id', workspaceId).eq('setor_id', setorId).eq('email', endereco.toLowerCase()).limit(1),
-    admin.from('setor_coordenadores').select('numero').eq('workspace_id', workspaceId).eq('setor_id', setorId).is('revogado_em', null).limit(1),
+    admin.from('activity_log').select('id').eq('workspace_id', workspaceId).eq('action', ACAO_CAIXA_ENTREGUE).eq('entity_type', 'setor').eq('entity_id', setorId).limit(1),
   ])
-  return Boolean(conta?.length) && !coords?.length
+  if (erroConta || erroEntregue) return 'desconhecido'
+  if (!conta?.length) return 'nao_nossa'
+  return entregue?.length ? 'entregue' : 'sem_dono'
 }
+const caixaSemDono = async (admin: Admin, workspaceId: string, setorId: string, endereco: string) => (await estadoDaCaixaDoSetor(admin, workspaceId, setorId, endereco)) === 'sem_dono'
 
 type CaixaDoSetorPronta = { nome: string; email: string; senha: string }
 
 /**
- * Dá a caixa própria a um setor: cria (endereço livre) ou, com `entregarExistente`, entrega a que já existe sem responsável
- * (senha redefinida). Devolve a caixa com a senha provisória — que sai uma vez e não é gravada — ou só a nota que diz por que
- * nada foi feito. `nova`: a conta acabou de nascer (quem chama registra em google_contas). Nunca lança: a falha vira nota.
+ * Dá a caixa própria a um setor: cria (endereço livre) ou, com `entregarExistente`, entrega a que já existe sem dono (senha
+ * redefinida). Devolve a caixa com a senha provisória — que sai uma vez e não é gravada — ou só a nota que diz por que nada foi
+ * feito. `nova`: a conta acabou de nascer (quem chama registra em google_contas). Nunca lança: a falha vira nota.
  */
 async function darCaixaAoSetor(admin: Admin, workspaceId: string, p: { setorId: string; endereco: string; nome: string; recuperacaoEmail?: string; recuperacaoCelular?: string; entregarExistente: boolean }): Promise<{ caixa?: CaixaDoSetorPronta; nova?: boolean; nota: string }> {
   try {
@@ -451,13 +530,14 @@ async function darCaixaAoSetor(admin: Admin, workspaceId: string, p: { setorId: 
     if (r.feito === 'criada') return { caixa: { nome: p.nome, email: p.endereco, senha }, nova: true, nota: `A caixa do setor ${p.nome} (${p.endereco}) foi criada.` }
     if (r.motivo === 'apelido') return { nota: `A caixa do setor NÃO foi criada: ${p.endereco} ainda é apelido de ${r.dono ?? 'outra caixa'}. Mande *caixas dos setores*: ela cria a caixa e, com a coordenação registrada, a senha vai para ela.` }
     if (r.motivo === 'grupo') return { nota: `${p.endereco} é um grupo do Google: nada foi criado para o setor.` }
-    if (p.entregarExistente && await caixaSemDono(admin, workspaceId, p.setorId, p.endereco)) {
+    const pe = await estadoDaCaixaDoSetor(admin, workspaceId, p.setorId, p.endereco)
+    if (p.entregarExistente && pe === 'sem_dono') {
       const nova = gerarSenhaTemporaria()
-      if (await redefinirSenhaDaCaixa(chamar, { endereco: p.endereco, senha: nova, recuperacaoEmail: p.recuperacaoEmail, recuperacaoCelular: p.recuperacaoCelular })) {
-        return { caixa: { nome: p.nome, email: p.endereco, senha: nova }, nota: `A caixa do setor ${p.nome} (${p.endereco}) já existia sem responsável: foi entregue, com senha nova.` }
-      }
+      const feito = await redefinirSenhaDaCaixa(chamar, { endereco: p.endereco, senha: nova, recuperacaoEmail: p.recuperacaoEmail, recuperacaoCelular: p.recuperacaoCelular })
+      if (feito === 'redefinida') return { caixa: { nome: p.nome, email: p.endereco, senha: nova }, nota: `A caixa do setor ${p.nome} (${p.endereco}) já existia sem responsável: foi entregue, com senha nova.` }
+      if (feito === 'em_uso') return { nota: `A caixa ${p.endereco} já foi usada (alguém entrou nela): não redefini a senha. Se for o caso, redefina no Admin do Google.` }
     }
-    return { nota: `${p.endereco} já é uma caixa real${p.entregarExistente ? ' com responsável' : ''}: nada foi mudado nela.` }
+    return { nota: pe === 'entregue' ? `${p.endereco} já é uma caixa que foi entregue a alguém: nada foi mudado nela.` : pe === 'nao_nossa' ? `${p.endereco} já existe, mas não foi criada pelo Palácio (por exemplo, o contato@): nada foi mudado nela.` : pe === 'desconhecido' ? `${p.endereco} já existe, mas não consegui conferir no banco se ela tem responsável: nada foi mudado nela. Tente de novo em instantes.` : `${p.endereco} já existe sem responsável, mas o setor ainda não tem coordenador(a) registrado(a): nada foi mudado. A caixa é entregue na aprovação da coordenação.` }
   } catch (causa) {
     console.error('[whatsapp] autocadastro: caixa do setor:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
     return { nota: `A caixa do setor ${p.nome} NÃO foi entregue: ${causa instanceof ErroDeGrupo || causa instanceof ErroDoDiretorio ? causa.message : 'erro inesperado'}` }
@@ -465,10 +545,11 @@ async function darCaixaAoSetor(admin: Admin, workspaceId: string, p: { setorId: 
 }
 
 /**
- * "caixa do setor: <nome>" (só administrador): dá a caixa a UM setor — cria, ou entrega a que já existe sem responsável. É o
- * atalho para um setor só (um setor novo, uma coordenação que entrou depois); para todos de uma vez, "caixas dos setores".
- * A senha provisória vai ao WhatsApp de quem coordena o setor (registrado em setor_coordenadores); sem coordenador registrado
- * a caixa é criada sem dono e NINGUÉM recebe senha — entra na aprovação da coordenação, como no comando em lote.
+ * "caixa do setor: <nome>" (só administrador): dá a caixa a UM setor — cria, ou entrega a que já existe sem dono se o setor
+ * já tem coordenador. É o atalho para um setor só (um setor novo, uma coordenação que entrou depois, ou uma entrega que não
+ * chegou); para todos de uma vez, "caixas dos setores". A senha provisória vai ao WhatsApp de quem coordena o setor
+ * (registrado em setor_coordenadores); sem coordenador registrado a caixa é criada sem dono e NINGUÉM recebe senha — entra na
+ * aprovação da coordenação, como no comando em lote.
  */
 export async function criarCaixaDoSetorPeloComando(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator, pedido: string): Promise<Saida[]> {
   if (!ator.admin) return [{ texto: 'Criar a caixa de um setor é só de administrador.' }]
@@ -507,12 +588,13 @@ export async function criarCaixaDoSetorPeloComando(admin: Admin, workspaceId: st
     if (e.situacao === 'enviada') enviadas++
     else if (e.situacao === 'na_fila') naFila++
   }
+  if (enviadas + naFila > 0) await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, endereco, 'comando')
   const quem = `d${numeros.length === 1 ? 'o(a) coordenador(a)' : 'os coordenadores'} do setor`
-  // A senha não volta no texto da resposta: ele pode ser repassado e fica no histórico. Se não chegou, redefine-se no Admin do Google.
-  if (enviadas + naFila < numeros.length) return [{ texto: `${resultado.nota} Mas a senha NÃO chegou a todos os coordenadores: redefina-a no Admin do Google e avise quem coordena.` }]
+  // A senha não volta no texto da resposta: ele pode ser repassado e fica no histórico. Se não chegou, o mesmo comando reenvia.
+  if (enviadas + naFila < numeros.length) return [{ texto: `${resultado.nota} Mas a senha NÃO chegou a todos os coordenadores${enviadas + naFila ? '' : ' (a nenhum deles)'}. ${enviadas + naFila ? 'Redefina a senha no Admin do Google e avise quem coordena.' : 'Mande este comando de novo: a caixa ainda não foi entregue, e a senha é redefinida e reenviada.'}` }]
   // "na fila" (silêncio da noite, cota): sai quando o WhatsApp liberar. Dizer "enviada" seria prometer o que ainda não aconteceu.
   return [{ texto: naFila
-    ? `${resultado.nota} A senha provisória está na fila do WhatsApp ${quem} e chega quando ele liberar${enviadas ? ` (já foi a ${enviadas})` : ''}. Se não chegar, redefina a senha no Admin do Google.`
+    ? `${resultado.nota} A senha provisória está na fila do WhatsApp ${quem} e chega quando ele liberar${enviadas ? ` (já foi a ${enviadas})` : ''}. Se não chegar, mande este comando de novo.`
     : `Pronto ✓ ${resultado.nota} A senha provisória foi enviada ao WhatsApp ${quem}.` }]
 }
 
@@ -675,10 +757,11 @@ async function executarCriacao(
     if (resultado.caixa) caixaDoSetor = resultado.caixa
     setorNota = ` ${resultado.nota}`
     if (resultado.caixa && resultado.nova) {
-      await admin.from('google_contas').insert({
+      const { error: erroCaixa } = await admin.from('google_contas').insert({
         workspace_id: workspaceId, convite_id: null, email: resultado.caixa.email, nome: resultado.caixa.nome, setor_id: setor.id, grupo_email: null, grupo_ok: false,
         google_id: null, ip_hash: hashDoIp(`autocadastro-setor:${l.id}`),
       })
+      if (erroCaixa) { console.error('[whatsapp] autocadastro: google_contas da caixa do setor:', erroCaixa.message); setorNota += ' ⚠️ A caixa foi criada mas NÃO ficou registrada no Palácio: avise a TI, ou ela não poderá ser entregue de novo.' }
     }
   }
 
@@ -706,6 +789,9 @@ async function executarCriacao(
   }, { config })
   const peloWhatsapp = entrega.situacao !== 'falhou'
   const peloEmail = peloWhatsapp ? false : await enviarComSeguranca(emailPessoal, emailDeContaDoGoogle({ nome: nomeCompleto, email, senha, setor: d.coordenacao ?? '', grupo: null, caixaDoSetor }))
+  // A caixa do setor só passa a ter responsável quando a senha dela chegou à pessoa (WhatsApp ou e-mail): sem isso ela segue
+  // "sem dono" e o comando "caixa do setor: <nome>" a reenvia.
+  if (caixaDoSetor && setor?.id && (peloWhatsapp || peloEmail)) await marcarCaixaEntregue(admin, workspaceId, aprovador.userId, String(setor.id), caixaDoSetor.email, 'aprovacao')
   await admin.from('activity_log').insert({
     workspace_id: workspaceId, actor_id: aprovador.userId, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null,
     metadata: { email, origem: 'autocadastro_whatsapp', autocadastro: l.id, aprovado_por: aprovador.admin ? 'administrador' : 'coordenador', caixa_do_setor: caixaDoSetor?.email ?? null, whatsapp: entrega.situacao, email_enviado: peloEmail },
