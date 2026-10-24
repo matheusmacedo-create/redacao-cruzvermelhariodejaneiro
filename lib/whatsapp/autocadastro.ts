@@ -22,7 +22,7 @@ import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, textoDeQuemJaTemConta, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -651,6 +651,14 @@ export async function acompanhamentoDoCadastro(admin: Admin, workspaceId: string
     console.error('[whatsapp] acompanhamento:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
     return [{ texto: `Não consegui montar o andamento agora: ${textoDoErro(causa)}` }]
   }
+}
+
+/** "quero me cadastrar" de quem JÁ tem conta: diz que já está cadastrado(a) e se falta o e-mail institucional (só leitura). */
+export async function jaTemContaNoCadastro(admin: Admin, workspaceId: string, pessoa: { id: string; nome: string | null }): Promise<Saida[]> {
+  const { data, error } = await admin.from('equipe_membros').select('email_trabalho').eq('workspace_id', workspaceId).eq('user_id', pessoa.id).limit(1)
+  if (error) return [{ texto: 'Você já tem conta no Palácio Virtual, então não precisa se cadastrar de novo. Para o e-mail institucional, fale com a sua coordenação.' }]
+  const email = typeof data?.[0]?.email_trabalho === 'string' && data[0].email_trabalho ? data[0].email_trabalho : null
+  return [{ texto: textoDeQuemJaTemConta(pessoa.nome, email) }]
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
