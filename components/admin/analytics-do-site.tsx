@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
-import { Archive, BarChart3, Check, ExternalLink, FileText, Loader2, RefreshCw, Trash2, Undo2 } from 'lucide-react'
+import { Archive, AudioLines, BarChart3, Check, ExternalLink, FileText, Loader2, RefreshCw, Trash2, Undo2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   estadoDoSite, ligarAnalyticsDoSite, materiasArquivadas, materiasNoAr, publicarPaginasDoSite,
@@ -125,6 +125,7 @@ export function AnalyticsDoSite() {
 
 type Balanco = {
   feitas: number
+  narradas: number
   puladas: { titulo: string; motivo: string }[]
   falhas: { titulo: string; erro: string }[]
   avisos: { titulo: string; aviso: string }[]
@@ -142,30 +143,47 @@ type Balanco = {
  * chama de novo até acabar, como em "Atualizar as páginas do acervo".
  */
 function RegerarNoticias() {
-  const [confirmando, setConfirmando] = useState(false)
+  // Qual confirmação está aberta: regerar só, ou regerar narrando as que faltam (lib/voz).
+  const [confirmando, setConfirmando] = useState<'regerar' | 'narrar' | null>(null)
+  const [narrando, setNarrando] = useState(false)
   const [rodando, iniciar] = useTransition()
   const [progresso, setProgresso] = useState<{ vistas: number; total: number } | null>(null)
   const [balanco, setBalanco] = useState<Balanco | null>(null)
   const [erro, setErro] = useState('')
+  // O acompanhamento: a matéria da vez, o que já terminou (a mais nova em cima) e o relógio. Narrar leva perto de um
+  // minuto por matéria; sem isto, a tela parecia travada entre uma rodada e outra.
+  const [atual, setAtual] = useState<string | null>(null)
+  const [concluidas, setConcluidas] = useState<{ titulo: string; situacao: 'narrada' | 'regerada' | 'pulada' | 'falha' }[]>([])
+  const [inicio, setInicio] = useState<number | null>(null)
+  const [agora, setAgora] = useState(() => Date.now())
+  useEffect(() => {
+    if (!rodando) return
+    const relogio = setInterval(() => setAgora(Date.now()), 1000)
+    return () => clearInterval(relogio)
+  }, [rodando])
 
-  function regerar() {
-    setConfirmando(false); setErro(''); setBalanco(null); setProgresso(null)
+  function regerar(narrar: boolean) {
+    setConfirmando(null); setNarrando(narrar); setErro(''); setBalanco(null); setProgresso(null)
+    setConcluidas([]); setAtual(null); setInicio(Date.now()); setAgora(Date.now())
     iniciar(async () => {
-      const soma: Balanco = { feitas: 0, puladas: [], falhas: [], avisos: [], detalhes: [] }
+      const soma: Balanco = { feitas: 0, narradas: 0, puladas: [], falhas: [], avisos: [], detalhes: [] }
       let continuacao: { depoisDe: string | null; soVitrine: boolean } | null = null
       let vistas = 0
       let semAvanco = 0
       try {
         for (;;) {
-          const r = await regerarPaginasDasNoticias(continuacao)
+          const r = await regerarPaginasDasNoticias(continuacao, { narrar })
           if (r.erro) { setErro(r.erro); break }
           soma.feitas += r.feitas ?? 0
+          soma.narradas += r.narradas ?? 0
           soma.puladas.push(...(r.puladas ?? []))
           soma.falhas.push(...(r.falhas ?? []))
           soma.avisos.push(...(r.avisos ?? []))
           if (r.vitrine) soma.detalhes.push(...r.vitrine.detalhes)
           vistas += r.vistas ?? 0
           setProgresso({ vistas, total: Math.max(r.total ?? 0, vistas) })
+          if (r.itens?.length) setConcluidas((antes) => [...[...r.itens!].reverse(), ...antes])
+          setAtual(r.proximo?.soVitrine ? 'a central de notícias e o sitemap' : (r.proximoTitulo ?? null))
           if (!r.proximo) break
           // Rodada que não andou (uma matéria pesada demais para o tempo da
           // função, ou o site sem responder): tenta mais duas vezes e para.
@@ -178,8 +196,18 @@ function RegerarNoticias() {
       }
       setBalanco(soma)
       setProgresso(null)
+      setAtual(null)
     })
   }
+
+  // Tempo decorrido e, depois da primeira matéria, quanto falta pela média até aqui.
+  const decorrido = inicio ? Math.max(0, Math.round((agora - inicio) / 1000)) : 0
+  const relogio = (seg: number) => `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`
+  const falta = progresso && progresso.vistas > 0 && progresso.total > progresso.vistas
+    ? Math.ceil(((decorrido / progresso.vistas) * (progresso.total - progresso.vistas)) / 60)
+    : null
+  const porcento = progresso && progresso.total ? Math.round((progresso.vistas / progresso.total) * 100) : 0
+  const ROTULO_DA_SITUACAO = { narrada: 'narrada', regerada: 'regerada', pulada: 'pulada', falha: 'falhou' } as const
 
   return (
     <div className="mt-6 border-t border-border pt-5">
@@ -191,26 +219,66 @@ function RegerarNoticias() {
         própria tela.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        {confirmando ? (
+        {confirmando === 'regerar' ? (
           <>
             <span className="text-sm text-muted-foreground">Regravar todas as matérias no site?</span>
-            <Button size="sm" disabled={rodando} onClick={regerar}><RefreshCw className="size-3.5" />Regerar agora</Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirmando(false)}>Cancelar</Button>
+            <Button size="sm" disabled={rodando} onClick={() => regerar(false)}><RefreshCw className="size-3.5" />Regerar agora</Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
           </>
-        ) : (
-          <Button variant="outline" disabled={rodando} onClick={() => setConfirmando(true)}>
-            {rodando
-              ? <><Loader2 className="size-4 animate-spin" />{progresso ? `Regerando… ${progresso.vistas} de ${progresso.total}` : 'Regerando…'}</>
-              : 'Regerar as páginas das matérias'}
+        ) : confirmando === 'narrar' ? (
+          <>
+            <span className="text-sm text-muted-foreground">Regravar todas as matérias e narrar as que ainda não têm áudio? Gasta crédito da ElevenLabs (cerca de um caractere por caractere do texto) e leva perto de um minuto por matéria.</span>
+            <Button size="sm" disabled={rodando} onClick={() => regerar(true)}><AudioLines className="size-3.5" />Regerar e narrar</Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmando(null)}>Cancelar</Button>
+          </>
+        ) : rodando ? (
+          <Button variant="outline" disabled>
+            <Loader2 className="size-4 animate-spin" />{`${narrando ? 'Regerando e narrando' : 'Regerando'}…${progresso ? ` ${progresso.vistas} de ${progresso.total}` : ''}`}
           </Button>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => setConfirmando('regerar')}>Regerar as páginas das matérias</Button>
+            <Button variant="outline" onClick={() => setConfirmando('narrar')} data-ajuda="site.narrar-todas"><AudioLines className="size-4" />Regerar e narrar as que faltam</Button>
+          </>
         )}
       </div>
+      {rodando && (
+        <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm" data-ajuda="site.acompanhamento">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Avanço" aria-valuemin={0} aria-valuemax={100} aria-valuenow={porcento}>
+            <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${porcento}%` }} />
+          </div>
+          <p className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>{progresso ? `${progresso.vistas} de ${progresso.total} matéria(s) · ${porcento}%` : 'Começando…'}</span>
+            <span>{relogio(decorrido)} decorridos{falta !== null ? ` · faltam cerca de ${falta} min` : ''}</span>
+          </p>
+          <p className="mt-2" aria-live="polite">
+            <Loader2 className="mr-1.5 inline size-3.5 animate-spin align-[-2px]" aria-hidden="true" />
+            {atual
+              ? <>Agora: <strong className="font-medium">{atual}</strong>{narrando ? ' (narrar leva perto de um minuto)' : ''}</>
+              : progresso ? 'Preparando a próxima…' : (narrando ? 'Preparando a primeira matéria (narrar leva perto de um minuto)…' : 'Preparando…')}
+          </p>
+          {concluidas.length > 0 && (
+            <ul className="mt-2 max-h-48 space-y-0.5 overflow-y-auto text-xs">
+              {concluidas.map((c, i) => (
+                <li key={`${c.titulo}-${i}`} className="flex gap-1.5">
+                  <span className={c.situacao === 'falha' ? 'text-destructive' : c.situacao === 'pulada' ? 'text-muted-foreground' : 'text-success'}>
+                    {c.situacao === 'falha' ? '✗' : c.situacao === 'pulada' ? '–' : '✓'}
+                  </span>
+                  <span className="min-w-0 truncate">{c.titulo}</span>
+                  <span className="shrink-0 text-muted-foreground">· {ROTULO_DA_SITUACAO[c.situacao]}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">Deixe esta aba aberta até terminar. Se fechar, o que já foi feito fica no ar; rode de novo para continuar (o que já tem áudio não é narrado outra vez).</p>
+        </div>
+      )}
       {erro && <p className="mt-3 text-sm text-destructive">{erro}</p>}
       {balanco && !rodando && (
         <div className="mt-3 text-sm">
           <p className="flex items-center gap-1.5 font-medium text-success">
             <Check className="size-4" />
-            {balanco.feitas} matéria(s) regerada(s){balanco.puladas.length ? `, ${balanco.puladas.length} pulada(s)` : ''}{balanco.falhas.length ? `, ${balanco.falhas.length} com falha` : ''}.
+            {balanco.feitas} matéria(s) regerada(s){balanco.narradas ? `, ${balanco.narradas} narrada(s) agora` : ''}{balanco.puladas.length ? `, ${balanco.puladas.length} pulada(s)` : ''}{balanco.falhas.length ? `, ${balanco.falhas.length} com falha` : ''}.
           </p>
           {balanco.detalhes.length > 0 && (
             <ul className="mt-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">

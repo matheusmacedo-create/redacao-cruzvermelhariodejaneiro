@@ -1455,13 +1455,14 @@ const VOZ: GuiaDaArea = {
     },
     {
       id: 'dar-voz-a-materia-antiga',
-      titulo: 'Dar voz a uma matéria que já estava no ar',
-      quem: 'Quem publica no site',
+      titulo: 'Dar voz às matérias que já estavam no ar',
+      quem: 'Administradores (todas de uma vez) ou quem publica (uma a uma)',
       passos: [
-        'Com a narração ligada, abra a publicação da matéria (onde ela foi publicada no site).',
-        'Toque em “Atualizar a página no site”. A página volta no mesmo endereço, agora com o “Ouça esta matéria”.',
+        'Todas de uma vez: com a narração ligada, abra Configurações → Site e toque em “Regerar e narrar as que faltam”. Confirme.',
+        'A tela mostra a barra de avanço, a matéria da vez, o tempo decorrido, quanto falta e cada matéria que terminou (narrada, regerada, pulada ou com falha). Narrar leva perto de um minuto por matéria; deixe a aba aberta até o fim.',
+        'Uma a uma: abra a publicação da matéria e toque em “Atualizar a página no site”. A página volta no mesmo endereço, agora com o “Ouça esta matéria”.',
       ],
-      dica: '“Regerar tudo” mantém os áudios que já existem, mas não cria novos: assim ele não gasta crédito em lote.',
+      dica: 'O que já tem áudio não é narrado de novo, então rodar outra vez só completa o que faltou. O “Regerar” comum mantém os áudios que existem, mas não cria novos: assim ele não gasta crédito em lote. Matéria editada depois da última publicação fica de fora até ser republicada pela própria tela.',
     },
   ],
   perguntas: [

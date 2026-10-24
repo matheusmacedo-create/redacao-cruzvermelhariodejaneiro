@@ -3474,8 +3474,11 @@ aplicá-la e nada muda: a matéria sai sem áudio e o WhatsApp responde só por 
   crédito; mudou, gera outro, e os `ouvir-*.mp3` antigos da pasta saem (`removerNarracoesAntigas`,
   só esse padrão). Matéria com mais de 30 mil caracteres não é narrada. Falha (sem crédito, chave,
   voz que saiu da conta) não impede a publicação: a página sai sem o player, e o motivo vai em
-  “Ficou fora da página”. **Regerar tudo** não gera áudio novo (crédito em lote e o tempo da
-  rodada); só mantém o que já existe.
+  “Ficou fora da página”. O **Regerar** comum não gera áudio novo, só mantém o que existe;
+  **“Regerar e narrar as que faltam”** (Configurações → Site, `regerarPaginasDasNoticias(…, { narrar })`)
+  narra as que não têm, **uma matéria por rodada** (`maximoPorRodada: 1`, rodada de até 250 s), e
+  devolve `itens` (cada matéria com o desfecho) e `proximoTitulo`: a tela mostra barra, matéria da vez,
+  relógio, estimativa e a lista de concluídas, para o trabalho de ~1 min por matéria não parecer travado.
 - **WhatsApp** (§8.5): quem falou com o assistente por **áudio** recebe a resposta por escrito,
   como sempre, e logo depois a mesma resposta falada (`responderEmAudio`, passado ao turno como
   `emAudio` pelo `bot.ts`). Só a resposta comum do modelo, inteira numa mensagem: plano, pergunta,

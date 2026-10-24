@@ -127,7 +127,7 @@ export function PainelDaVoz({ pronto, config, vozes, erroDasVozes }: { pronto: b
                 <strong className="font-medium">Narrar as matérias do site</strong>
                 <span className="block text-xs text-muted-foreground">
                   Ao publicar (ou republicar) uma matéria, o texto vira um áudio e a página ganha o “Ouça esta matéria”, com o aviso de que a voz é gerada por inteligência artificial.
-                  Republicar sem mudar o texto não gasta crédito de novo. Matérias com mais de 30 mil caracteres ficam sem áudio. “Regerar tudo” mantém os áudios que já existem, mas não cria novos: para dar voz a uma matéria antiga, use “Atualizar a página no site” na publicação dela.
+                  Republicar sem mudar o texto não gasta crédito de novo. Matérias com mais de 30 mil caracteres ficam sem áudio. Para dar voz às matérias que já estavam no ar, use “Regerar e narrar as que faltam” em Configurações › Site (todas de uma vez) ou “Atualizar a página no site” na publicação de cada uma. O “Regerar” comum mantém os áudios que já existem, mas não cria novos.
                 </span>
               </span>
             </label>
