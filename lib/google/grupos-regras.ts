@@ -371,8 +371,8 @@ export function avisoDaCaixaDoSetor(estado: EstadoDoEndereco, p: { endereco: str
 /**
  * Redefine a senha de uma caixa que já existe (e a recuperação, se vier) e obriga a trocar no primeiro acesso. É o "entregar"
  * a caixa de um setor que foi criada sem dono: a senha de quando nasceu não foi guardada por ninguém. Só mexe se o endereço é
- * caixa real E ninguém jamais entrou nela (`lastLoginTime` = 1970-01-01 no Directory): uma caixa que já teve acesso está em uso
- * e a senha dela não se troca por aqui, mesmo que o nosso registro diga que não tem responsável. Quem chama garante o resto
+ * caixa real E ninguém jamais entrou nela (`lastLoginTime` = 1970-01-01 no Directory; sem o campo, não se mexe): uma caixa que já
+ * teve acesso está em uso e a senha dela não se troca por aqui, mesmo que o nosso registro diga que não tem responsável. Quem chama garante o resto
  * (que a caixa é uma das nossas e ainda não foi entregue); o contato@ nunca passa por aqui.
  * 'nao_e_caixa': o endereço não é caixa real, nada foi feito. 'em_uso': já houve acesso, nada foi feito.
  */
@@ -381,8 +381,10 @@ export async function redefinirSenhaDaCaixa(chamar: Chamar, p: { endereco: strin
   if (!u.ok) return u.status === 404 ? 'nao_e_caixa' : falha(u, 'Não foi possível consultar a caixa do setor')
   const principal = String(u.dados.primaryEmail ?? '').toLowerCase()
   if (!principal || principal !== p.endereco.toLowerCase()) return 'nao_e_caixa'
+  // Falha FECHADA: só redefine com a prova de que ninguém nunca entrou (1970-01-01). Se o Google não informou o último acesso,
+  // não há prova — 'em_uso' manda redefinir no Admin do Google, que é lento mas não derruba quem usa a caixa.
   const ultimo = u.dados.lastLoginTime
-  if (typeof ultimo === 'string' && ultimo && !ultimo.startsWith('1970-01-01')) return 'em_uso'
+  if (typeof ultimo !== 'string' || !ultimo.startsWith('1970-01-01')) return 'em_uso'
   const corpo: Record<string, unknown> = { password: p.senha, changePasswordAtNextLogin: true }
   if (p.recuperacaoEmail) corpo.recoveryEmail = p.recuperacaoEmail
   if (p.recuperacaoCelular) corpo.recoveryPhone = p.recuperacaoCelular

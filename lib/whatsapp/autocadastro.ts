@@ -437,7 +437,7 @@ export async function criarCaixasDosSetoresPeloBotao(admin: Admin, workspaceId: 
   }
   if (vez.ocupado) {
     await encerrar({ desistiu: true })
-    return [{ texto: 'Já tem um lote de caixas em andamento (começou há pouco). Espere o resultado dele antes de mandar de novo.' }]
+    return [{ texto: 'Já tem um lote de caixas em andamento (começou há pouco). Espere o resultado dele. Se em 10 minutos não chegar nada, mande *caixas dos setores* de novo: o que já foi criado não é refeito.' }]
   }
   try {
     const chamar = chamarGoogleAdmin(workspaceId)
@@ -476,13 +476,14 @@ export async function criarCaixasDosSetoresPeloBotao(admin: Admin, workspaceId: 
         // A senha só existe aqui, em memória: sai para o WhatsApp de quem coordena o setor.
         const texto = textoDaSenhaDaCaixa({ setor: setor.nome, email: setor.endereco, senha: senhas.get(setor.endereco) as string })
         let entrega: EntregaDaCaixa = 'enviada'
-        let algumaChegou = false
         for (const numero of numeros) {
           const e = await entregar(admin, workspaceId, { numero, userId: null, tipo: 'aviso', categoria: 'conta', texto }, { config })
           if (e.situacao === 'falhou') entrega = 'falhou'
-          else { algumaChegou = true; if (e.situacao === 'na_fila' && entrega === 'enviada') entrega = 'na_fila' }
+          else if (e.situacao === 'na_fila' && entrega === 'enviada') entrega = 'na_fila'
         }
-        if (algumaChegou) await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, setor.endereco, 'lote')
+        // Só "entregue" quando TODOS os coordenadores receberam (ou estão na fila): entrega parcial deixa a caixa sem dono, e
+        // "caixa do setor: <nome>" redefine a senha e reenvia a todos (a guarda de uso protege quem já tiver entrado).
+        if (entrega !== 'falhou') await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, setor.endereco, 'lote')
         return { registro, entrega }
       },
     })
@@ -535,7 +536,7 @@ async function darCaixaAoSetor(admin: Admin, workspaceId: string, p: { setorId: 
       const nova = gerarSenhaTemporaria()
       const feito = await redefinirSenhaDaCaixa(chamar, { endereco: p.endereco, senha: nova, recuperacaoEmail: p.recuperacaoEmail, recuperacaoCelular: p.recuperacaoCelular })
       if (feito === 'redefinida') return { caixa: { nome: p.nome, email: p.endereco, senha: nova }, nota: `A caixa do setor ${p.nome} (${p.endereco}) já existia sem responsável: foi entregue, com senha nova.` }
-      if (feito === 'em_uso') return { nota: `A caixa ${p.endereco} já foi usada (alguém entrou nela): não redefini a senha. Se for o caso, redefina no Admin do Google.` }
+      if (feito === 'em_uso') return { nota: `A caixa ${p.endereco} já foi usada (alguém entrou nela, ou o Google não informou o último acesso): não redefini a senha. Se for o caso, redefina no Admin do Google.` }
     }
     return { nota: pe === 'entregue' ? `${p.endereco} já é uma caixa que foi entregue a alguém: nada foi mudado nela.` : pe === 'nao_nossa' ? `${p.endereco} já existe, mas não foi criada pelo Palácio (por exemplo, o contato@): nada foi mudado nela.` : pe === 'desconhecido' ? `${p.endereco} já existe, mas não consegui conferir no banco se ela tem responsável: nada foi mudado nela. Tente de novo em instantes.` : `${p.endereco} já existe sem responsável, mas o setor ainda não tem coordenador(a) registrado(a): nada foi mudado. A caixa é entregue na aprovação da coordenação.` }
   } catch (causa) {
@@ -588,10 +589,10 @@ export async function criarCaixaDoSetorPeloComando(admin: Admin, workspaceId: st
     if (e.situacao === 'enviada') enviadas++
     else if (e.situacao === 'na_fila') naFila++
   }
-  if (enviadas + naFila > 0) await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, endereco, 'comando')
+  if (enviadas + naFila === numeros.length) await marcarCaixaEntregue(admin, workspaceId, ator.userId, setor.id, endereco, 'comando')
   const quem = `d${numeros.length === 1 ? 'o(a) coordenador(a)' : 'os coordenadores'} do setor`
   // A senha não volta no texto da resposta: ele pode ser repassado e fica no histórico. Se não chegou, o mesmo comando reenvia.
-  if (enviadas + naFila < numeros.length) return [{ texto: `${resultado.nota} Mas a senha NÃO chegou a todos os coordenadores${enviadas + naFila ? '' : ' (a nenhum deles)'}. ${enviadas + naFila ? 'Redefina a senha no Admin do Google e avise quem coordena.' : 'Mande este comando de novo: a caixa ainda não foi entregue, e a senha é redefinida e reenviada.'}` }]
+  if (enviadas + naFila < numeros.length) return [{ texto: `${resultado.nota} Mas a senha NÃO chegou a todos os coordenadores${enviadas + naFila ? '' : ' (a nenhum deles)'}. Mande este comando de novo: a caixa ainda não foi entregue, e a senha é redefinida e reenviada a todos. Se alguém já tiver entrado na caixa, o comando recusa — e a redefinição é no Admin do Google.` }]
   // "na fila" (silêncio da noite, cota): sai quando o WhatsApp liberar. Dizer "enviada" seria prometer o que ainda não aconteceu.
   return [{ texto: naFila
     ? `${resultado.nota} A senha provisória está na fila do WhatsApp ${quem} e chega quando ele liberar${enviadas ? ` (já foi a ${enviadas})` : ''}. Se não chegar, mande este comando de novo.`

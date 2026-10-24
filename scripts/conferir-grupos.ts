@@ -716,6 +716,13 @@ async function main() {
     uso.comAcesso(CONTATO, '2026-10-23T18:30:00.000Z')
     igual(await redefinirSenhaDaCaixa(uso.chamar, { endereco: CONTATO, senha: 'x' }), 'em_uso', 'redefinir: caixa com acesso (contato@) NUNCA é redefinida')
     igual(uso.chamadas.some((c) => c.startsWith('PATCH')), false, 'redefinir: em uso → nenhum PATCH sai')
+    // sem o último acesso na resposta do Google não há prova de que ninguém entrou: falha FECHADA
+    const sem = novoGoogle()
+    sem.comCaixa('comunicacao@x.org')
+    sem.falhasPlanejadas.push({ quando: () => false, status: 0 })
+    const chamarSem: Chamar = async (a, c, i) => { const r = await sem.chamar(a, c, i); if (a === 'diretorio' && (i?.method ?? 'GET') === 'GET' && /^\/users\/[^/]+$/.test(c)) { const { lastLoginTime: _ignorado, ...resto } = r.dados; void _ignorado; return { ...r, dados: resto } } return r }
+    igual(await redefinirSenhaDaCaixa(chamarSem, { endereco: 'comunicacao@x.org', senha: 'x' }), 'em_uso', 'redefinir: sem o último acesso na resposta, não redefine (falha fechada)')
+    igual(sem.chamadas.some((c) => c.startsWith('PATCH')), false, 'redefinir: sem o último acesso nenhum PATCH sai')
     const ap = novoGoogle()
     ap.comApelido('contato@x.org', 'ti@x.org')
     igual(await redefinirSenhaDaCaixa(ap.chamar, { endereco: 'ti@x.org', senha: 'x' }), 'nao_e_caixa', 'redefinir: apelido não é redefinido')
