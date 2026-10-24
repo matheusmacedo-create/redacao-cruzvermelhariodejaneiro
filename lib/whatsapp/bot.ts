@@ -20,7 +20,7 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, jaTemContaNoCadastro, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
 import { ehPedidoDeAcompanhamento, ehPedidoDeCaixas, lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeCaixas, lerCaixaDoSetor } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
@@ -173,6 +173,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedidoDaCaixa = textoLivre ? lerCaixaDoSetor(m.texto) : null
     const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
     const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeCaixas || pedeAcompanhamento || botaoCaixas || pedidoDaCaixa) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    // Quem já tem conta e escreve "quero me cadastrar": o cadastro é de quem ainda não tem. Responde o que falta, em vez de "Não entendi".
+    if (pessoa && !ator && textoLivre && lerAutocadastro(m.texto)) {
+      const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa.id, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
+      if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
+      for (const s of await jaTemContaNoCadastro(admin, workspaceId, pessoa)) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa.id, interativo: s.interativo }, { config, semFila: true })
+      return
+    }
     if (doAutocadastro || ator) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
       if (!nova) return

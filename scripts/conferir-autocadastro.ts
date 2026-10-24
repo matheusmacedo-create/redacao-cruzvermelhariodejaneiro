@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, textoDeQuemJaTemConta, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -314,6 +314,20 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   igual(setorDoPedido(lerCaixaDoSetor('caixa do setor: Psicologia / Serviço Social') ?? '', lista), 'Psicologia / Serviço Social', 'comando: o nome inteiro, com a barra, acha o setor')
   igual(setorDoPedido('e', lista), null, 'comando: começo ambíguo não escolhe')
   igual(setorDoPedido('marte', lista), null, 'comando: setor que não existe')
+}
+
+// quem já tem conta e escreve "quero me cadastrar"
+{
+  const semEmail = textoDeQuemJaTemConta('Elisabete Souza', null)
+  contem(semEmail, 'Elisabete, você já tem conta no Palácio Virtual', 'já tem conta: trata pelo primeiro nome e diz que já tem conta')
+  contem(semEmail, 'não precisa se cadastrar de novo', 'já tem conta: diz que não precisa se cadastrar de novo')
+  contem(semEmail, 'e-mail institucional', 'já tem conta: diz o que falta (e-mail institucional)')
+  contem(semEmail, 'coordenação', 'já tem conta: diz a quem pedir')
+  sem(semEmail, 'Não entendi', 'já tem conta: nunca "Não entendi"')
+  const com = textoDeQuemJaTemConta('Elisabete Souza', 'elisabete.souza@cruzvermelhariodejaneiro.org')
+  contem(com, 'já está cadastrado(a)', 'já tem e-mail: diz que já está cadastrado(a)')
+  contem(com, '*elisabete.souza@cruzvermelhariodejaneiro.org*', 'já tem e-mail: mostra o e-mail institucional')
+  contem(textoDeQuemJaTemConta(null, null), 'Você já tem conta', 'já tem conta: sem nome também funciona')
 }
 
 // "acompanhamento": o andamento do cadastro por setor

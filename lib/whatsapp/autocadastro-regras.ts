@@ -512,6 +512,19 @@ function blocosDoResultadoDasCaixas(r: ResultadoParaTexto[]): string[] {
   ].filter(Boolean)
 }
 
+// ------------------------------------------------------------------ quem JÁ tem conta e escreve "quero me cadastrar"
+
+/**
+ * O cadastro pelo WhatsApp é de quem ainda NÃO tem conta no Palácio. Quem já tem (o número está confirmado numa conta) e escreve
+ * "quero me cadastrar" recebe isto, e não o menu ("Não entendi"): já está cadastrado(a), e o que pode faltar é o e-mail institucional.
+ */
+export function textoDeQuemJaTemConta(nome: string | null, emailInstitucional: string | null): string {
+  const primeiro = (nome ?? '').trim().split(/\s+/)[0]
+  const oi = primeiro ? `${primeiro}, você` : 'Você'
+  if (emailInstitucional) return `${oi} já está cadastrado(a) ✅ — não precisa se cadastrar de novo.\n\nSeu e-mail institucional é *${emailInstitucional}*. Se perdeu a senha provisória, fale com a sua coordenação.`
+  return `${oi} já tem conta no Palácio Virtual, então não precisa se cadastrar de novo.\n\nO que ainda falta é o seu *e-mail institucional* (nome.sobrenome@cruzvermelhariodejaneiro.org). Peça à sua coordenação, ou a um administrador, para criá-lo para você.`
+}
+
 // ------------------------------------------------------------------ "acompanhamento": quem já se cadastrou e quem falta
 
 /** "acompanhamento" e jeitos de pedir a mesma coisa. */
