@@ -9,6 +9,9 @@ import { lerLegendas } from '@/lib/publicacao/legendas'
 import { lerOrientacao } from '@/lib/cerebro/orientacao'
 import type { DestinoRegistro, PacoteRegistro } from '@/components/app/hub/tipos'
 
+// Publicar a notícia no site pode narrar o texto (lib/voz, até PRAZO_DA_NARRACAO_MS) antes de subir as fotos e a página.
+export const maxDuration = 300
+
 const paraLocal = (iso: string | null) => {
   if (!iso) return ''
   const d = new Date(iso)
