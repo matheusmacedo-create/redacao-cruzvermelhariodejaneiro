@@ -512,6 +512,30 @@ function blocosDoResultadoDasCaixas(r: ResultadoParaTexto[]): string[] {
   ].filter(Boolean)
 }
 
+// ------------------------------------------------------------------ "criar email de <nome>": o e-mail institucional de quem JÁ tem conta
+
+/** "criar email de Elisabete Souza" → "elisabete souza" (normalizado), ou null se não é o comando. */
+export function lerPedidoDeEmail(texto: string): string | null {
+  const m = normalizar(texto).match(/^(?:criar |gerar )?e ?mail (?:institucional )?(?:de|da|do|para) (.+)$/)
+  return m ? m[1].trim() || null : null
+}
+
+export const VALIDADE_DO_BOTAO_DE_EMAIL_MIN = 15
+/** O id leva a hora e os 12 primeiros dígitos do id da pessoa na equipe (cabe nos 40 da Meta). */
+export const idDoBotaoDeEmail = (acao: 'sim' | 'nao', membroId: string, agora = Date.now()) => `em:${acao === 'sim' ? 's' : 'n'}:${Math.floor(agora / 60_000).toString(36)}:${membroId.replace(/-/g, '').slice(0, 12)}`
+export function lerBotaoDeEmail(texto: string, agora = Date.now()): { acao: 'sim' | 'nao'; vencido: boolean; membro: string } | null {
+  const m = texto.trim().match(/^em:([sn]):([0-9a-z]{4,8}):([0-9a-f]{12})$/)
+  if (!m) return null
+  const minutos = parseInt(m[2], 36)
+  const vencido = !Number.isFinite(minutos) || Math.floor(agora / 60_000) - minutos > VALIDADE_DO_BOTAO_DE_EMAIL_MIN || minutos > Math.floor(agora / 60_000) + 1
+  return { acao: m[1] === 's' ? 'sim' : 'nao', vencido, membro: m[3] }
+}
+export const BOTOES_DE_EMAIL = (membroId: string, agora = Date.now()): Interativo => ({
+  tipo: 'botoes', botoes: [{ id: idDoBotaoDeEmail('sim', membroId, agora), titulo: 'Sim, criar' }, { id: idDoBotaoDeEmail('nao', membroId, agora), titulo: 'Não' }],
+})
+export const textoDaPreviaDoEmail = (p: { nome: string; setor: string | null; email: string; finalDoNumero: string }) =>
+  `Vou criar o e-mail institucional de *${p.nome}*${p.setor ? ` (${p.setor})` : ''}:\n*${p.email}*\n\nA senha provisória e o passo a passo vão para o WhatsApp dela(e), final ${p.finalDoNumero}, como no cadastro de todos. A ficha dela(e) não muda.`
+
 // ------------------------------------------------------------------ quem JÁ tem conta e escreve "quero me cadastrar"
 
 /**

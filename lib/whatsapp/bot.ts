@@ -20,8 +20,8 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, jaTemContaNoCadastro, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
-import { ehPedidoDeAcompanhamento, ehPedidoDeCaixas, lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeCaixas, lerCaixaDoSetor } from './autocadastro-regras'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, jaTemContaNoCadastro, previaDoEmailDePessoa, criarEmailDePessoa, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
+import { lerPedidoDeEmail, lerBotaoDeEmail, ehPedidoDeAcompanhamento, ehPedidoDeCaixas, lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeCaixas, lerCaixaDoSetor } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -169,10 +169,12 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedeGrupos = textoLivre === 'grupos'
     const pedeCaixas = ehPedidoDeCaixas(textoLivre)
     const pedeAcompanhamento = ehPedidoDeAcompanhamento(textoLivre)
+    const pedidoDeEmail = textoLivre ? lerPedidoDeEmail(m.texto) : null
+    const botaoEmail = m.toque && !m.midia ? lerBotaoDeEmail(m.texto) : null
     const botaoCaixas = m.toque && !m.midia ? lerBotaoDeCaixas(m.texto) : null
     const pedidoDaCaixa = textoLivre ? lerCaixaDoSetor(m.texto) : null
     const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
-    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeCaixas || pedeAcompanhamento || botaoCaixas || pedidoDaCaixa) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeCaixas || pedeAcompanhamento || botaoCaixas || pedidoDaCaixa || pedidoDeEmail || botaoEmail) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
     // Quem já tem conta e escreve "quero me cadastrar": o cadastro é de quem ainda não tem. Responde o que falta, em vez de "Não entendi".
     if (pessoa && !ator && textoLivre && lerAutocadastro(m.texto)) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa.id, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
@@ -185,11 +187,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       if (!nova) return
       // A conversa aberta não tem o teto de respostas (são ~15 trocas, uma por mensagem da pessoa); a abertura, sim.
       const aberta = doAutocadastro && !m.midia && lerAutocadastro(m.texto) ? false : doAutocadastro
-      if (!aberta && !botaoCadastro && !botaoCaixas && await noTetoDeRespostas(admin, workspaceId, numero)) return
+      if (!aberta && !botaoCadastro && !botaoCaixas && !botaoEmail && await noTetoDeRespostas(admin, workspaceId, numero)) return
       let saidas: Saida[] = []
       if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
       else if (ator && botaoCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, ator, botaoCadastro)
       else if (ator && pedeGrupos) saidas = await situacaoDosGrupos(admin, workspaceId, ator)
+      else if (ator && pedidoDeEmail) saidas = await previaDoEmailDePessoa(admin, workspaceId, ator, pedidoDeEmail)
+      else if (ator && botaoEmail) saidas = await criarEmailDePessoa(admin, workspaceId, config, ator, botaoEmail)
       else if (ator && pedeAcompanhamento) saidas = await acompanhamentoDoCadastro(admin, workspaceId, ator)
       else if (ator && pedeCaixas) saidas = await previaDasCaixas(admin, workspaceId, ator)
       else if (ator && botaoCaixas) saidas = await criarCaixasDosSetoresPeloBotao(admin, workspaceId, config, ator, botaoCaixas, { prazoDoLote: opcoes.prazoDoLote })

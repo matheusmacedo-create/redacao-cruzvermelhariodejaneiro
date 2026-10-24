@@ -2790,6 +2790,12 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   conhecidos: apagar o apelido provavelmente remove o "enviar como" do contato@ (assinatura, nome de exibição) e devolvê-lo
   não restaura isso; a primeira criação real merece ser conferida no Admin do Google (campos como `recoveryPhone` em E.164 e a
   janela de propagação do apelido só se confirmam contra o Google de verdade).
+  **`criar email de <nome>`** (24/10/2026, só administrador): o e-mail institucional de quem JÁ tem conta e ficha e ainda não
+  tem e-mail (`equipe_membros` ativo, `email_trabalho` nulo, WhatsApp confirmado). `previaDoEmailDePessoa` mostra quem, o endereço e
+  o final do WhatsApp; "Sim, criar" (botão `em:`, 15 min, leva 12 dígitos do id da pessoa) chama `criarEmailDePessoa`: cria a conta
+  no Google (recuperação = o celular do WhatsApp), grava `email_trabalho`, registra em `google_contas` e `activity_log`
+  (`whatsapp_email_de_quem_ja_tem_conta`) e manda a senha provisória ao WhatsApp da pessoa (categoria `conta`), como no cadastro.
+  Sem WhatsApp, sem ficha ou sem nome e sobrenome, nada é criado. A senha nunca vai na resposta ao administrador.
   **Quem já tem conta** (24/10/2026): o cadastro pelo WhatsApp é de quem ainda NÃO tem conta. Quem tem (o número está confirmado
   numa conta) e escreve "quero me cadastrar" recebe `textoDeQuemJaTemConta` — já está cadastrado(a), com o e-mail institucional
   se houver, ou "o que falta é o e-mail institucional: peça à coordenação" — em vez do menu ("Não entendi"). O e-mail de quem já
