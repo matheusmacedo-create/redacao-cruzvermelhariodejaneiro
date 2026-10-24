@@ -23,6 +23,7 @@ import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
   BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, textoDeQuemJaTemConta, BOTOES_DE_EMAIL, textoDaPreviaDoEmail, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  textoDoMenuSemPalacio,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -207,6 +208,19 @@ export async function atorDeAprovacao(admin: Admin, workspaceId: string, numero:
   }
   if (!ehAdmin && !setores.length) return null
   return { userId: pessoa?.id ?? null, nome: pessoa?.nome ?? null, numero, admin: ehAdmin, setores }
+}
+
+/**
+ * O menu de quem se cadastrou pelo WhatsApp e não tem login no Palácio (sem `whatsapp_contas`): coordenador(a) de setor
+ * (`setor_coordenadores`) ou cadastro aprovado deste número. Outro número, ou erro de leitura: null (segue a apresentação de sempre).
+ */
+export async function menuDeQuemSoTemCadastro(admin: Admin, workspaceId: string, numero: string, nomeNoWhatsapp: string | null): Promise<Saida[] | null> {
+  const ator = await atorDeAprovacao(admin, workspaceId, numero, null)
+  if (!ator) {
+    const { data, error } = await admin.from('colaborador_autocadastros').select('id').eq('workspace_id', workspaceId).eq('numero', numero).eq('status', 'aprovado').limit(1)
+    if (error || !data?.length) return null
+  }
+  return [{ texto: textoDoMenuSemPalacio({ nome: nomeNoWhatsapp, setores: ator?.setores ?? [] }) }]
 }
 
 /** Quem recebe o pedido: os administradores com o número confirmado e os coordenadores do setor do pedido. */

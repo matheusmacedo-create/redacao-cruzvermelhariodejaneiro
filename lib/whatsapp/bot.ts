@@ -20,7 +20,7 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, jaTemContaNoCadastro, previaDoEmailDePessoa, criarEmailDePessoa, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, acompanhamentoDoCadastro, jaTemContaNoCadastro, menuDeQuemSoTemCadastro, previaDoEmailDePessoa, criarEmailDePessoa, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
 import { lerPedidoDeEmail, lerBotaoDeEmail, ehPedidoDeAcompanhamento, ehPedidoDeCaixas, lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeCaixas, lerCaixaDoSetor } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
@@ -202,6 +202,17 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)
       for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: pessoa?.id ?? null, interativo: s.interativo }, { config, semFila: true })
       return
+    }
+    // Cadastrado pelo WhatsApp mas sem login no Palácio (coordenador de setor ou cadastro aprovado): "oi", "menu" e "funções"
+    // recebem o que o bot faz por ele(a) — antes, só a apresentação do primeiro dia e depois silêncio.
+    if (!pessoa && !m.midia && !m.toque && ['menu', 'funcoes'].includes(lerPedido(m.texto, { pausado: false }).comando)) {
+      const saidas = await menuDeQuemSoTemCadastro(admin, workspaceId, numero, m.nome)
+      if (saidas) {
+        const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: null, mensagemId: m.id, comando: 'menu_sem_palacio', enviadaEm: m.enviadaEm })
+        if (!nova || await noTetoDeRespostas(admin, workspaceId, numero)) return
+        for (const s of saidas) await entregar(admin, workspaceId, { numero, texto: s.texto, tipo: 'bot', userId: null, interativo: s.interativo }, { config, semFila: true })
+        return
+      }
     }
     // O áudio com a transcrição da Kapso só interessa ao assistente (o bot de comandos não ouve).
     const transcricao = pessoa && m.midia?.categoria === 'audio' && m.transcricao ? m.transcricao : null

@@ -1,4 +1,4 @@
-import { normalizar, type Interativo } from './regras'
+import { normalizar, primeiroNome, type Interativo } from './regras'
 import { celularEmE164, problemaDoEmailPessoal, separarNome, usuarioSugeridoDoGoogle } from '@/lib/google/contas-regras'
 import type { CampoDaFicha } from '@/lib/rh/ficha'
 
@@ -609,4 +609,23 @@ export function lerCaixaDoSetor(texto: string): string | null {
 /** O setor da lista cujo nome normalizado é o pedido. Só o nome inteiro: pela metade não se cria conta. */
 export function setorDoPedido(pedido: string, setores: string[]): string | null {
   return setores.find((x) => normalizar(x) === pedido) ?? null
+}
+
+/**
+ * "oi", "menu" e "funções" de quem tem cadastro pelo WhatsApp mas NÃO tem login no Palácio (o número só se liga a um perfil
+ * com login: whatsapp_contas). Antes, esse número recebia só a apresentação (uma vez por dia) e depois silêncio. Coordenador(a)
+ * vê o que o bot faz por ele(a) — "cadastros" e "link do time", pelo número —; os demais, que o cadastro está concluído.
+ */
+export function textoDoMenuSemPalacio(p: { nome: string | null; setores: string[] }): string {
+  const ola = p.nome && primeiroNome(p.nome) ? `Olá, ${primeiroNome(p.nome)}!` : 'Olá!'
+  const abertura = `${ola} Aqui é o WhatsApp do *Palácio Virtual*, da Cruz Vermelha Brasileira – RJ.`
+  if (!p.setores.length) {
+    return [abertura, 'O seu cadastro está concluído. Os avisos e o acesso ao Palácio vêm pelo e-mail institucional que você recebeu.', 'Dúvidas? Fale com a coordenação do seu setor.'].join('\n\n')
+  }
+  return [
+    abertura,
+    `Você coordena ${p.setores.length > 1 ? 'os setores' : 'o setor'} *${p.setores.join('*, *')}*. Por aqui você pode:`,
+    ['*cadastros* – ver os cadastros da sua equipe que esperam a sua aprovação', '*link do time* – o link para a sua equipe se cadastrar'].join('\n'),
+    'É só escrever uma dessas palavras.',
+  ].join('\n\n')
 }
