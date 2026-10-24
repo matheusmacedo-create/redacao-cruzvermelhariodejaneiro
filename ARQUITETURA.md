@@ -2649,8 +2649,14 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   é guardado **pelo número do WhatsApp** (pode ainda não ter login no Palácio). Entra por conta própria: no
   autocadastro escolhe o cargo "Coordenador(a)" (`ehCoordenador`), um **administrador** aprova (o resumo avisa que a
   pessoa passa a aprovar a equipe e recebe a senha da caixa própria do setor) e `executarCriacao` o registra. Daí em diante ele recebe e
-  aprova — com os mesmos dois toques — **só o cadastro da equipe do próprio setor** (`podeDecidir`: nunca outro setor,
-  nunca outro coordenador; o cargo de coordenador é só de administrador). `atorDeAprovacao` junta as duas fontes
+  aprova — com os mesmos dois toques — **só o cadastro do próprio setor** (`podeDecidir`: nunca outro setor).
+  **Setor com mais de um coordenador (24/10/2026, decisão do responsável):** o coordenador registrado também aprova
+  **outro coordenador do mesmo setor** (Comunicação Social tem vários): o primeiro, que um administrador aprovou, aprova
+  os seguintes, que entram em `setor_coordenadores` do mesmo jeito. O pedido de coordenador passa a chegar também aos
+  coordenadores do setor (`aprovadores`). O que continua só de administrador: o primeiro coordenador de um setor (não há
+  ninguém do setor para aprovar) e a **caixa própria do setor** — coordenador aprovando coordenador não cria nem entrega
+  caixa (`darCaixaAoSetor` só com `aprovador.admin`), e a confirmação diz isso
+  (`AVISO_DE_COORDENADOR_PELO_COORDENADOR`). `atorDeAprovacao` junta as duas fontes
   (administrador pela conta, coordenador pelo número); a ficha, a conta e a auditoria seguem o mesmo caminho, com
   `aprovado_por` em `activity_log`. O comando `link do time` devolve, a quem coordena, o `wa.me` com o setor já
   escolhido (`quero me cadastrar em <setor>`: a pessoa pula a pergunta da coordenação). Sem a migração, só o

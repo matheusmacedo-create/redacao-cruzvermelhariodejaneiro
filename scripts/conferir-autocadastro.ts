@@ -164,7 +164,12 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   const coord = { admin: false, setores: ['Redação'] }
   igual(podeDecidir(coord, equipe), true, 'coordenador aprova a equipe do próprio setor')
   igual(podeDecidir(coord, outroSetor), false, 'coordenador NÃO aprova outro setor')
-  igual(podeDecidir(coord, novoCoord), false, 'coordenador NÃO aprova outro coordenador')
+  igual(podeDecidir(coord, novoCoord), true, 'coordenador aprova outro coordenador do próprio setor')
+  igual(podeDecidir(coord, { coordenacao: 'Jurídico', cargo: 'Coordenador(a) de Jurídico' }), false, 'coordenador NÃO aprova coordenador de outro setor')
+  contem(textoDaSegundaConfirmacao(novoCoord, false), 'não muda', 'coordenador aprovando coordenador: a caixa do setor não muda')
+  sem(textoDaSegundaConfirmacao(novoCoord, false), 'se quem aprova é administrador', 'coordenador aprovando não vê o aviso da caixa de administrador')
+  contem(textoDaSegundaConfirmacao(novoCoord), 'caixa própria', 'administrador aprovando coordenador: aviso da caixa')
+  sem(textoDaSegundaConfirmacao(equipe, false), 'Cargo de coordenador', 'equipe comum: sem aviso de cargo')
   igual(podeDecidir({ admin: false, setores: [] }, equipe), false, 'sem setor nenhum não aprova nada')
   igual(podeDecidir({ admin: true, setores: [] }, novoCoord), true, 'administrador aprova qualquer pedido')
   igual(podeDecidir({ admin: false, setores: ['Redação'] }, { cargo: 'Enfermeira' }), false, 'pedido sem setor não é de coordenador')

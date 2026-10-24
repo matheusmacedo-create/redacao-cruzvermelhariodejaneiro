@@ -87,11 +87,14 @@ export function setorDaEntrada(texto: string, setores: string[]): string | null 
 export const ehCoordenador = (cargo: string | null | undefined): boolean => normalizar(cargo ?? '').startsWith('coordenador')
 
 /**
- * Este ator decide este pedido? O administrador, qualquer um; o coordenador, só o pedido do próprio setor e que não
- * seja de outro coordenador (o cargo de coordenador, que dá poder sobre o setor, é só de administrador).
+ * Este ator decide este pedido? O administrador, qualquer um; o coordenador, só o pedido do próprio setor — o da equipe
+ * e também o de outro coordenador do mesmo setor (decisão do responsável, 24/10/2026: setores como Comunicação Social têm
+ * mais de um coordenador, e o primeiro, que um administrador aprovou, aprova os seguintes). O primeiro coordenador de um
+ * setor continua dependendo de administrador (ainda não há ninguém do setor para aprovar), e coordenador nunca decide
+ * outro setor.
  */
 export const podeDecidir = (a: { admin: boolean; setores: string[] }, d: DadosDoAutocadastro): boolean =>
-  a.admin || (Boolean(d.coordenacao) && a.setores.includes(d.coordenacao ?? '') && !ehCoordenador(d.cargo))
+  a.admin || (Boolean(d.coordenacao) && a.setores.includes(d.coordenacao ?? ''))
 
 /**
  * O link que vai no grupo, no cartaz ou na assinatura: um toque abre a conversa com o texto pronto. Com `setor`, é o
@@ -330,8 +333,11 @@ export function resumoParaAprovador(d: DadosDoAutocadastro): string {
   ].join('\n')
 }
 
-/** O que muda com o cargo de coordenador: só um administrador aprova, e a pessoa ganha poder sobre o setor. */
-export const AVISO_DE_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa passa a aprovar o cadastro da própria equipe e, se o endereço do setor estiver livre, recebe a senha da *caixa própria* (privada) do setor.'
+/** O que muda com o cargo de coordenador: a pessoa ganha poder sobre o setor (aprovar a equipe e outros coordenadores dele). */
+export const AVISO_DE_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa passa a aprovar o cadastro da equipe do setor (e de outros coordenadores dele) e, se quem aprova é administrador e o endereço do setor está livre, recebe a senha da *caixa própria* (privada) do setor.'
+
+/** O mesmo aviso, para o coordenador que aprova outro coordenador do próprio setor: a caixa do setor não muda. */
+export const AVISO_DE_COORDENADOR_PELO_COORDENADOR = '⚠️ Cargo de coordenador(a): ao aprovar, a pessoa passa a coordenar o setor com você e também aprova o cadastro da equipe e de outros coordenadores. A *caixa própria* do setor não muda: quem já tem a senha continua com ela (para entregar a caixa a mais alguém, fale com um administrador).'
 
 export const BOTOES_DE_APROVACAO = (id: string): Interativo => ({
   tipo: 'botoes', imagem: null,
@@ -341,8 +347,9 @@ export const BOTOES_DE_APROVACAO = (id: string): Interativo => ({
 export const BOTOES_DA_SEGUNDA_CONFIRMACAO = (id: string): Interativo => ({
   tipo: 'botoes', botoes: [{ id: idDoBotao('sim', id), titulo: 'Sim, criar' }, { id: idDoBotao('voltar', id), titulo: 'Voltar' }],
 })
-export const textoDaSegundaConfirmacao = (d: DadosDoAutocadastro) =>
-  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o WhatsApp dela, com o passo a passo.${ehCoordenador(d.cargo) ? `\n\n${AVISO_DE_COORDENADOR}` : ''}`
+/** `porAdministrador` false: quem aprova é coordenador do setor (o aviso do cargo muda: a caixa do setor não se mexe). */
+export const textoDaSegundaConfirmacao = (d: DadosDoAutocadastro, porAdministrador = true) =>
+  `Confirma a criação do e-mail institucional (${usuarioSugeridoDoGoogle(d.nome ?? '')}@…) e da ficha de *${d.nome}*? A senha provisória vai para o WhatsApp dela, com o passo a passo.${ehCoordenador(d.cargo) ? `\n\n${porAdministrador ? AVISO_DE_COORDENADOR : AVISO_DE_COORDENADOR_PELO_COORDENADOR}` : ''}`
 
 // ------------------------------------------------------------------ o destino dos dados
 

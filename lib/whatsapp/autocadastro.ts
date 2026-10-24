@@ -190,7 +190,7 @@ type Aprovador = { userId: string | null; numero: string }
 
 /**
  * Quem decide o cadastro: um administrador (usuarios.gerenciar, qualquer pedido) ou o coordenador do setor (pelo número,
- * só o pedido do próprio setor e nunca o de outro coordenador). `userId` é null para o coordenador sem login no Palácio.
+ * só o pedido do próprio setor: o da equipe e o de outro coordenador dele). `userId` é null para o coordenador sem login.
  */
 export type Ator = { userId: string | null; nome: string | null; numero: string; admin: boolean; setores: string[] }
 
@@ -209,7 +209,7 @@ export async function atorDeAprovacao(admin: Admin, workspaceId: string, numero:
   return { userId: pessoa?.id ?? null, nome: pessoa?.nome ?? null, numero, admin: ehAdmin, setores }
 }
 
-/** Quem recebe o pedido: os administradores com o número confirmado e, quando o pedido é de uma equipe, os coordenadores do setor. */
+/** Quem recebe o pedido: os administradores com o número confirmado e os coordenadores do setor do pedido. */
 async function aprovadores(admin: Admin, workspaceId: string, d?: DadosDoAutocadastro): Promise<Aprovador[]> {
   const { data: membros } = await admin.from('workspace_members').select('user_id, role, profiles(active)').eq('workspace_id', workspaceId)
   const ids = (membros ?? []).filter((m) => {
@@ -221,8 +221,9 @@ async function aprovadores(admin: Admin, workspaceId: string, d?: DadosDoAutocad
     const { data: contas } = await admin.from('whatsapp_contas').select('user_id, numero').in('user_id', ids)
     for (const c of contas ?? []) quem.push({ userId: c.user_id as string, numero: c.numero as string })
   }
-  // O coordenador só recebe o pedido da própria equipe (o de outro coordenador é só de administrador).
-  if (d?.coordenacao && !ehCoordenador(d.cargo)) {
+  // O coordenador recebe o pedido do próprio setor: o da equipe e o de outro coordenador (o primeiro do setor, sem ninguém
+  // registrado ainda, chega só aos administradores).
+  if (d?.coordenacao) {
     const { data, error } = await admin.from('setor_coordenadores').select('numero, setores!inner(nome)')
       .eq('workspace_id', workspaceId).eq('setores.nome', d.coordenacao).is('revogado_em', null)
     if (!error) for (const c of data ?? []) if (!quem.some((q) => q.numero === c.numero)) quem.push({ userId: null, numero: c.numero as string })
@@ -625,12 +626,12 @@ export async function decidirAutocadastro(admin: Admin, workspaceId: string, con
     const { data } = await admin.from('colaborador_autocadastros').select(COLUNAS).eq('id', id).eq('workspace_id', workspaceId).maybeSingle()
     const l = data as Linha | null
     if (!l || l.status !== 'aguardando') return [{ texto: 'Este cadastro já foi decidido ou venceu.' }]
-    // O coordenador decide só a equipe do próprio setor; cargo de coordenador é só de administrador.
+    // O coordenador decide só o próprio setor: a equipe e outros coordenadores dele.
     if (!podeDecidir(ator, l.dados)) return [{ texto: 'Este cadastro não é do seu setor. Quem decide é um administrador.' }]
 
     if (botao.acao === 'aprovar') {
       const aviso = await avisoDaCaixaNaConfirmacao(admin, workspaceId, ator, l.dados)
-      return [{ texto: `${textoDaSegundaConfirmacao(l.dados)}${aviso ? `\n\n${aviso}` : ''}`, interativo: BOTOES_DA_SEGUNDA_CONFIRMACAO(l.id) }]
+      return [{ texto: `${textoDaSegundaConfirmacao(l.dados, ator.admin)}${aviso ? `\n\n${aviso}` : ''}`, interativo: BOTOES_DA_SEGUNDA_CONFIRMACAO(l.id) }]
     }
 
     if (botao.acao === 'recusar') {
@@ -783,8 +784,9 @@ async function executarCriacao(
   })
   await admin.from('equipe_membros').update({ email_trabalho: email }).eq('id', membroId as string).eq('workspace_id', workspaceId)
 
-  // Quem entrou como coordenador(a) passa a aprovar a equipe do próprio setor (só um administrador chega aqui com esse cargo).
-  if (ehCoordenador(d.cargo) && setor?.id && aprovador.admin) {
+  // Quem entrou como coordenador(a) passa a aprovar o próprio setor. Aprova esse cargo um administrador ou outro coordenador
+  // do mesmo setor (podeDecidir); a caixa própria do setor, acima, continua só com a aprovação de administrador.
+  if (ehCoordenador(d.cargo) && setor?.id && (aprovador.admin || aprovador.setores.includes(String(setor.nome)))) {
     const { error: erroCoord } = await admin.from('setor_coordenadores').insert({
       workspace_id: workspaceId, setor_id: setor.id, numero: l.numero, membro_id: membroId as string, criado_por: aprovador.userId,
     })
