@@ -20,8 +20,8 @@ import { atendeAlgumaFila, atenderPeloCodigo, respostaDosChamados } from './aten
 import { agendaDaPessoa, aprovacoesPendentes, avisosDaPessoa, pessoaDoEspaco } from './consultas'
 import { comecarVisita, receberFotoDaVisita, temPortaria, visitasDeHoje } from './portaria'
 import { comecarCadastro } from './colaborador'
-import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, apagarApelidosDosSetores, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDosApelidos, situacaoDosGrupos, type Saida } from './autocadastro'
-import { lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeApelidos, lerCaixaDoSetor } from './autocadastro-regras'
+import { atorDeAprovacao, conversarNoAutocadastro, decidirAutocadastro, ehDoAutocadastro, criarCaixasDosSetoresPeloBotao, criarCaixaDoSetorPeloComando, linkDoTime, pendentesDeAprovacao, previaDasCaixas, situacaoDosGrupos, type Saida } from './autocadastro'
+import { ehPedidoDeCaixas, lerAutocadastro, lerBotaoDeAprovacao, lerBotaoDeCaixas, lerCaixaDoSetor } from './autocadastro-regras'
 import { destinoDaImagem, lerBotaoDaFicha, lerLegendaDeVisita, perguntaSemFila, type DadosDaVisita } from './portaria-regras'
 import { decidirPeloWhatsapp, listarDecisoes, podeDecidirNoFinanceiro } from './financeiro'
 import { comecarPresenca, coordenaAcoes } from './presenca'
@@ -167,11 +167,11 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
     const pedeCadastros = textoLivre === 'cadastros'
     const pedeLinkDoTime = ['link do time', 'meu time', 'link do meu time'].includes(textoLivre)
     const pedeGrupos = textoLivre === 'grupos'
-    const pedeApelidos = textoLivre === 'apelidos' || textoLivre === 'apelidos dos setores'
-    const botaoApelidos = m.toque && !m.midia ? lerBotaoDeApelidos(m.texto) : null
+    const pedeCaixas = ehPedidoDeCaixas(textoLivre)
+    const botaoCaixas = m.toque && !m.midia ? lerBotaoDeCaixas(m.texto) : null
     const pedidoDaCaixa = textoLivre ? lerCaixaDoSetor(m.texto) : null
     const doAutocadastro = !pessoa && !botaoCadastro && await ehDoAutocadastro(admin, workspaceId, m)
-    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeApelidos || botaoApelidos || pedidoDaCaixa) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
+    const ator = !doAutocadastro && (botaoCadastro || pedeCadastros || pedeLinkDoTime || pedeGrupos || pedeCaixas || botaoCaixas || pedidoDaCaixa) ? await atorDeAprovacao(admin, workspaceId, numero, pessoa) : null
     if (doAutocadastro || ator) {
       const nova = await registrar(admin, { workspaceId, direcao: 'entrada', tipo: 'bot', situacao: 'recebida', numero, userId: pessoa?.id ?? null, mensagemId: m.id, comando: 'autocadastro', enviadaEm: m.enviadaEm })
       if (!nova) return
@@ -182,8 +182,8 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       if (doAutocadastro) saidas = await conversarNoAutocadastro(admin, workspaceId, config, m)
       else if (ator && botaoCadastro) saidas = await decidirAutocadastro(admin, workspaceId, config, ator, botaoCadastro)
       else if (ator && pedeGrupos) saidas = await situacaoDosGrupos(admin, workspaceId, ator)
-      else if (ator && pedeApelidos) saidas = await previaDosApelidos(admin, workspaceId, ator)
-      else if (ator && botaoApelidos) saidas = await apagarApelidosDosSetores(admin, workspaceId, ator, botaoApelidos)
+      else if (ator && pedeCaixas) saidas = await previaDasCaixas(admin, workspaceId, ator)
+      else if (ator && botaoCaixas) saidas = await criarCaixasDosSetoresPeloBotao(admin, workspaceId, config, ator, botaoCaixas)
       else if (ator && pedidoDaCaixa) saidas = await criarCaixaDoSetorPeloComando(admin, workspaceId, config, ator, pedidoDaCaixa)
       else if (ator && pedeLinkDoTime) saidas = await linkDoTime(admin, workspaceId, config, ator)
       else if (ator) saidas = await pendentesDeAprovacao(admin, workspaceId, ator)

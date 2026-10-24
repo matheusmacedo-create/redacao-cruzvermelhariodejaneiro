@@ -13,7 +13,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  ErroDeGrupo, apelidosEntre, avisoDaCaixaDoSetor, avisoDaConversao, criarCaixaDoSetor, colocarSeForGrupo, removerApelidos, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
+  ErroDeGrupo, assinaturaDoPlano, avisoDaCaixaDoSetor, criarCaixasDosSetores, planoDasCaixas, precisaDeCaixa, redefinirSenhaDaCaixa, restaurarApelido, avisoDaConversao, criarCaixaDoSetor, colocarSeForGrupo, removerApelidos, sondarAcesso, colocarNoGrupo, configurarGrupoDoSetor, consultarEndereco, converterEmGrupo, type Chamar, type Resposta,
 } from '../lib/google/grupos-regras'
 
 let falhas = 0
@@ -81,6 +81,7 @@ function novoGoogle() {
       grupos.set(e, { membros: new Map(), config: null })
       return ok({ email: e })
     }
+    if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'PATCH') return usuarios.has(dec(m[1])) ? ok() : erro(404)
     if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'GET') {
       const u = donoDe(dec(m[1]))
       return u ? ok({ primaryEmail: u.principal }) : erro(404)
@@ -402,11 +403,19 @@ async function main() {
       { nome: 'Ouvidoria', endereco: 'ouvidoria@cruzvermelhariodejaneiro.org' },
       { nome: 'Esportes', endereco: 'esportes@cruzvermelhariodejaneiro.org' },
     ]
-    const previa = await apelidosEntre(g.chamar, itens)
-    igual(previa.apelidos.map((a) => a.nome), ['Comunicação', 'TI', 'Jurídico'], 'apelidos: a prévia lista só o que é apelido')
-    igual(previa.apelidos.every((a) => a.dono === CONTATO), true, 'apelidos: a prévia diz de quem é cada apelido')
-    igual(previa.outros.map((o) => `${o.nome}:${o.tipo}`), ['Atendimento:caixa_real', 'Ouvidoria:grupo', 'Esportes:livre'], 'apelidos: o resto é caixa real, grupo ou inexistente')
-    igual(g.chamadas.some((c) => c.startsWith('DELETE') || c.startsWith('POST') || c.startsWith('PUT')), false, 'apelidos: a prévia não altera nada')
+    const plano = await planoDasCaixas(g.chamar, itens)
+    igual(plano.map((p) => `${p.nome}:${p.estado}`), ['Atendimento:caixa_real', 'Comunicação:apelido', 'TI:apelido', 'Jurídico:apelido', 'Ouvidoria:grupo', 'Esportes:livre'], 'plano: o estado de cada setor')
+    igual(plano.filter((p) => p.estado === 'apelido').every((p) => p.dono === CONTATO), true, 'plano: diz de quem é cada apelido')
+    igual(plano.filter(precisaDeCaixa).map((p) => p.nome), ['Comunicação', 'TI', 'Jurídico', 'Esportes'], 'plano: precisa de caixa quem é apelido ou está livre (caixa real e grupo não)')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE') || c.startsWith('POST') || c.startsWith('PUT') || c.startsWith('PATCH')), false, 'plano: a prévia não altera nada')
+    // a impressão do plano: vai no botão e é o que impede o segundo toque e o toque numa prévia que já não vale
+    const a1 = assinaturaDoPlano(plano)
+    igual(a1.length >= 1 && a1.length <= 8 && /^[0-9a-z]+$/.test(a1), true, 'assinatura: cabe no id do botão (base 36, até 8)')
+    igual(assinaturaDoPlano([...plano].reverse()), a1, 'assinatura: não depende da ordem')
+    igual(assinaturaDoPlano(plano.map((p) => (p.nome === 'TI' ? { ...p, estado: 'livre' as const } : p))) === a1, false, 'assinatura: muda se o estado de um setor mudou')
+    igual(assinaturaDoPlano(plano.filter((p) => p.nome !== 'Esportes')) === a1, false, 'assinatura: muda se um setor a criar saiu do plano')
+    igual(assinaturaDoPlano(plano.map((p) => (p.nome === 'Atendimento' ? { ...p, nome: 'Outro' } : p))), a1, 'assinatura: caixa real e grupo não entram')
+    igual(assinaturaDoPlano([]), assinaturaDoPlano([{ nome: 'A', endereco: 'a@x.org', estado: 'caixa_real' }]), 'assinatura: sem nada a criar é sempre a mesma (depois de feito, o botão velho não bate)')
 
     const r = await removerApelidos(g.chamar, itens)
     igual(r.map((x) => `${x.nome}:${x.resultado}`), ['Atendimento:nao_era_apelido', 'Comunicação:removido', 'TI:removido', 'Jurídico:removido', 'Ouvidoria:nao_era_apelido', 'Esportes:nao_era_apelido'], 'apelidos: remove só os apelidos')
@@ -481,7 +490,115 @@ async function main() {
     const erroDuradouro = await tenta(() => criarCaixaDoSetor(duradouro.chamar, { endereco: 'novo@x.org', nome: 'Novo', senha: 'x', espera: async (ms) => { tentativas.push(ms) } }))
     igual(erroDuradouro instanceof ErroDeGrupo, true, 'caixa do setor: 409 que não passa vira erro')
     igual(tentativas.length, 3, 'caixa do setor: desiste depois de três esperas')
-    contem((erroDuradouro as ErroDeGrupo).message, 'caixa do setor: Novo', 'caixa do setor: a mensagem diz o comando para tentar de novo')
+    contem((erroDuradouro as ErroDeGrupo).message, 'caixas dos setores', 'caixa do setor: a mensagem diz o comando para tentar de novo')
+  }
+  // criar a caixa de todos os setores de uma vez: apelido → apaga e cria; livre → cria; caixa real e grupo ficam como estão
+  {
+    const mundo = () => {
+      const g = novoGoogle()
+      g.comApelido(CONTATO, 'comunicacao@cruzvermelhariodejaneiro.org')
+      g.comApelido(CONTATO, 'ti@cruzvermelhariodejaneiro.org')
+      g.grupos.set('ouvidoria@cruzvermelhariodejaneiro.org', { membros: new Map(), config: null })
+      return g
+    }
+    const itens = [
+      { nome: 'Atendimento', endereco: CONTATO },
+      { nome: 'Comunicação', endereco: 'comunicacao@cruzvermelhariodejaneiro.org' },
+      { nome: 'TI', endereco: 'ti@cruzvermelhariodejaneiro.org' },
+      { nome: 'Ouvidoria', endereco: 'ouvidoria@cruzvermelhariodejaneiro.org' },
+      { nome: 'Esportes', endereco: 'esportes@cruzvermelhariodejaneiro.org' },
+    ]
+    const comSenha = itens.map((i) => ({ ...i, senha: `Senha#${i.nome}-1` }))
+
+    const g = mundo()
+    const r = await criarCaixasDosSetores(g.chamar, comSenha, { espera: semEspera })
+    igual(r.map((x) => `${x.nome}:${x.resultado}`), ['Atendimento:ja_existe', 'Comunicação:criada', 'TI:criada', 'Ouvidoria:e_grupo', 'Esportes:criada'], 'caixas: cria só o que é apelido ou livre')
+    igual(r.filter((x) => x.apelidoApagado).map((x) => x.nome), ['Comunicação', 'TI'], 'caixas: diz de quais o apelido foi apagado')
+    igual((await planoDasCaixas(g.chamar, itens)).map((p) => p.estado), ['caixa_real', 'caixa_real', 'caixa_real', 'grupo', 'caixa_real'], 'caixas: depois de feito, cada setor tem caixa própria (e o grupo ficou grupo)')
+    igual([...(g.usuarios.get(CONTATO)?.apelidos ?? [])], [], 'caixas: nenhum apelido sobra no contato@')
+    igual(g.usuarios.has(CONTATO), true, 'caixas: o contato@ continua existindo')
+    igual(g.grupos.has('ouvidoria@cruzvermelhariodejaneiro.org'), true, 'caixas: o grupo não foi tocado')
+    igual(g.chamadas.filter((c) => c === 'POST diretorio:/users').length, 3, 'caixas: exatamente 3 contas criadas')
+    igual(g.chamadas.filter((c) => c.startsWith('DELETE')).length, 2, 'caixas: exatamente 2 apelidos apagados')
+    igual(g.chamadas.some((c) => c.startsWith('DELETE') && c.includes(encodeURIComponent(CONTATO) + '/aliases/' + encodeURIComponent(CONTATO))), false, 'caixas: nunca apaga o contato@ como apelido')
+    const posts = g.corposEnviados.filter((c) => c.rota === 'POST /users').map((c) => c.corpo as { primaryEmail: string; password: string; changePasswordAtNextLogin: boolean })
+    igual(posts.map((c) => c.password), ['Senha#Comunicação-1', 'Senha#TI-1', 'Senha#Esportes-1'], 'caixas: cada caixa nasce com a senha própria que foi passada')
+    igual(posts.every((c) => c.changePasswordAtNextLogin === true), true, 'caixas: todas obrigam a trocar a senha no primeiro acesso')
+
+    // rodar de novo não faz nada
+    const de_novo = await criarCaixasDosSetores(g.chamar, comSenha, { espera: semEspera })
+    igual(de_novo.map((x) => x.resultado), ['ja_existe', 'ja_existe', 'ja_existe', 'e_grupo', 'ja_existe'], 'caixas: rodar de novo é idempotente')
+    igual(g.chamadas.filter((c) => c === 'POST diretorio:/users').length, 3, 'caixas: rodar de novo não cria conta nenhuma')
+
+    // a criação falha DEPOIS de o apelido ser apagado: o apelido volta
+    const f = mundo()
+    f.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 1 })
+    const rf = await criarCaixasDosSetores(f.chamar, comSenha.filter((i) => i.nome === 'TI' || i.nome === 'Comunicação'), { espera: semEspera })
+    igual(rf.map((x) => `${x.nome}:${x.resultado}`), ['Comunicação:falhou', 'TI:criada'], 'caixas: a falha de um setor não impede o seguinte')
+    igual(rf[0].apelidoApagado === true && rf[0].apelidoDevolvido === true, true, 'caixas: falhou depois de apagar → o apelido foi devolvido')
+    igual(f.usuarios.get(CONTATO)?.apelidos.has('comunicacao@cruzvermelhariodejaneiro.org'), true, 'caixas: o apelido do que falhou voltou ao contato@')
+    igual((await consultarEndereco(f.chamar, 'comunicacao@cruzvermelhariodejaneiro.org')).tipo, 'apelido', 'caixas: o e-mail do setor que falhou continua chegando onde chegava')
+    contem(rf[0].motivo ?? '', 'Internal error', 'caixas: o motivo do Google aparece')
+
+    // e se nem o apelido volta: o resultado diz, nunca em silêncio
+    const ff = mundo()
+    ff.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    ff.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 500, mensagem: 'Backend error', vezes: 99 })
+    const rff = await criarCaixasDosSetores(ff.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
+    igual(rff[0].resultado === 'falhou' && rff[0].apelidoApagado === true && rff[0].apelidoDevolvido === false, true, 'caixas: se o apelido não volta, o resultado diz que NÃO voltou')
+
+    // o apelido não pôde ser apagado: nada é criado e o apelido fica como estava
+    const fd = mundo()
+    fd.falhasPlanejadas.push({ quando: (a, m, c) => m === 'DELETE', status: 500, mensagem: 'Backend error', vezes: 99 })
+    const rd = await criarCaixasDosSetores(fd.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
+    igual(rd[0].resultado, 'falhou', 'caixas: não apagou o apelido → falhou')
+    igual(fd.chamadas.some((c) => c === 'POST diretorio:/users'), false, 'caixas: sem apagar o apelido, nem tenta criar a conta')
+    igual(fd.usuarios.get(CONTATO)?.apelidos.has('ti@cruzvermelhariodejaneiro.org'), true, 'caixas: o apelido segue como estava')
+
+    // o Google ainda diz 409 por alguns segundos depois de apagar o apelido: espera e cria
+    const f409 = mundo()
+    f409.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 409, mensagem: 'Entity already exists.', vezes: 2 })
+    const r409 = await criarCaixasDosSetores(f409.chamar, comSenha.filter((i) => i.nome === 'TI'), { espera: semEspera })
+    igual(r409[0].resultado, 'criada', 'caixas: 409 passageiro depois de apagar o apelido não impede a caixa')
+
+    // o prazo: depois dele nenhum setor novo começa, e nada é mexido
+    const fp = mundo()
+    const rp = await criarCaixasDosSetores(fp.chamar, comSenha, { espera: semEspera, ate: 50, agora: () => 100 })
+    igual(rp.every((x) => x.resultado === 'adiada'), true, 'caixas: passou do prazo → tudo adiado')
+    igual(fp.chamadas.length, 0, 'caixas: passou do prazo → não fala com o Google')
+    let relogio = 0
+    const rm = await criarCaixasDosSetores(mundo().chamar, comSenha.filter((i) => i.nome !== 'Atendimento'), { espera: semEspera, ate: 0, agora: () => relogio++ })
+    igual(rm.map((x) => x.resultado), ['criada', 'adiada', 'adiada', 'adiada'], 'caixas: o prazo estoura no meio: o setor em curso termina, os seguintes ficam adiados')
+  }
+
+  // entregar a caixa que já existe sem dono: redefine a senha (e a recuperação) — e só se for caixa real
+  {
+    const g = novoGoogle()
+    g.comCaixa('comunicacao@x.org')
+    igual(await redefinirSenhaDaCaixa(g.chamar, { endereco: 'comunicacao@x.org', senha: 'Nova#Senha-1', recuperacaoEmail: 'ana@gmail.com', recuperacaoCelular: '+5521988887777' }), true, 'redefinir: caixa real é redefinida')
+    const corpo = g.corposEnviados.find((c) => c.rota === 'PATCH /users/comunicacao%40x.org')?.corpo as { password?: string; changePasswordAtNextLogin?: boolean; recoveryEmail?: string; recoveryPhone?: string }
+    igual(corpo?.password, 'Nova#Senha-1', 'redefinir: a senha nova vai ao Google')
+    igual(corpo?.changePasswordAtNextLogin, true, 'redefinir: obriga a trocar no primeiro acesso')
+    igual(corpo?.recoveryEmail, 'ana@gmail.com', 'redefinir: a recuperação passa a ser a de quem recebe (e-mail)')
+    igual(corpo?.recoveryPhone, '+5521988887777', 'redefinir: a recuperação passa a ser a de quem recebe (celular)')
+    const ap = novoGoogle()
+    ap.comApelido('contato@x.org', 'ti@x.org')
+    igual(await redefinirSenhaDaCaixa(ap.chamar, { endereco: 'ti@x.org', senha: 'x' }), false, 'redefinir: apelido não é redefinido')
+    igual(await redefinirSenhaDaCaixa(novoGoogle().chamar, { endereco: 'nada@x.org', senha: 'x' }), false, 'redefinir: endereço livre não é redefinido')
+    const gr = novoGoogle()
+    gr.grupos.set('ouvidoria@x.org', { membros: new Map(), config: null })
+    igual(await redefinirSenhaDaCaixa(gr.chamar, { endereco: 'ouvidoria@x.org', senha: 'x' }), false, 'redefinir: grupo não é redefinido')
+    igual([ap, gr].some((x) => x.chamadas.some((c) => c.startsWith('PATCH'))), false, 'redefinir: fora da caixa real nenhum PATCH sai')
+    const neg = novoGoogle()
+    neg.comCaixa('a@x.org')
+    neg.falhasPlanejadas.push({ quando: (a, m) => m === 'PATCH', status: 403, mensagem: 'Not Authorized' })
+    igual((await tenta(() => redefinirSenhaDaCaixa(neg.chamar, { endereco: 'a@x.org', senha: 'x' }))) instanceof ErroDeGrupo, true, 'redefinir: negado pelo Google vira erro claro')
+    // devolver um apelido
+    const rest = novoGoogle()
+    rest.comCaixa('contato@x.org')
+    igual(await restaurarApelido(rest.chamar, 'contato@x.org', 'ti@x.org', semEspera), true, 'restaurar: o apelido volta')
+    igual(rest.usuarios.get('contato@x.org')?.apelidos.has('ti@x.org'), true, 'restaurar: o contato@ tem o apelido de novo')
+    igual(await restaurarApelido(rest.chamar, 'contato@x.org', 'ti@x.org', semEspera), true, 'restaurar: se já voltou, também é sucesso')
   }
   // 404 ao apagar: o apelido já não existia (outro toque, outro administrador) — não é "removido" por nós
   {
@@ -493,9 +610,11 @@ async function main() {
   }
   // o aviso da confirmação
   contem(avisoDaCaixaDoSetor({ tipo: 'livre' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'caixa do setor TI', 'aviso da caixa: endereço livre será criado')
-  contem(avisoDaCaixaDoSetor({ tipo: 'apelido', dono: 'contato@x.org' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'não* será criada', 'aviso da caixa: apelido bloqueia a criação')
-  contem(avisoDaCaixaDoSetor({ tipo: 'apelido', dono: 'contato@x.org' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'apelidos', 'aviso da caixa: manda apagar os apelidos')
-  contem(avisoDaCaixaDoSetor({ tipo: 'caixa_real' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'já é uma caixa real', 'aviso da caixa: já é caixa real')
+  contem(avisoDaCaixaDoSetor({ tipo: 'apelido', dono: 'contato@x.org' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'não* será entregue', 'aviso da caixa: apelido bloqueia a entrega')
+  contem(avisoDaCaixaDoSetor({ tipo: 'apelido', dono: 'contato@x.org' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'caixas dos setores', 'aviso da caixa: manda criar as caixas dos setores')
+  contem(avisoDaCaixaDoSetor({ tipo: 'caixa_real' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana' }) ?? '', 'com responsável', 'aviso da caixa: já tem responsável, nada muda')
+  contem(avisoDaCaixaDoSetor({ tipo: 'caixa_real' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana', semDono: true }) ?? '', 'ainda não tem responsável', 'aviso da caixa: sem dono será entregue')
+  contem(avisoDaCaixaDoSetor({ tipo: 'caixa_real' }, { endereco: 'ti@x.org', nome: 'TI', quem: 'Ana', semDono: true }) ?? '', 'redefinida', 'aviso da caixa: avisa que a senha é redefinida')
 
   contem(avisoDaConversao({ tipo: 'apelido', dono: CONTATO }, TI) ?? '', 'vira um *grupo do Google*', 'aviso: apelido vira grupo')
   contem(avisoDaConversao({ tipo: 'apelido', dono: CONTATO }, TI) ?? '', CONTATO, 'aviso: diz quem continua recebendo')

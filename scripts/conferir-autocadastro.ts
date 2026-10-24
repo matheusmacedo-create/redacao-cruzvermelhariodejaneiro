@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_APELIDOS, PERGUNTA_DOS_APELIDOS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_APELIDOS_MIN, ehCoordenador, idDoBotaoDeApelidos, lerBotaoDeApelidos, textoDaPreviaDosApelidos, textoDoResultadoDosApelidos, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, textoDaSenhaDaCaixa, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -174,40 +174,77 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima', coordenacao: 'Redação', cargo: 'Coordenador(a) de Redação' }), 'grupo', 'segunda confirmação do coordenador não fala mais em grupo')
 }
 
-// o botão de apagar apelidos tem validade
+// "caixas dos setores": o comando, o botão (validade e impressão do plano), a prévia e o resultado
 {
+  for (const t of ['caixas dos setores', 'criar caixas dos setores', 'criar as caixas dos setores', 'apelidos', 'apelidos dos setores']) igual(ehPedidoDeCaixas(t), true, `caixas: "${t}" abre a prévia`)
+  for (const t of ['caixa do setor', 'caixas', 'quero criar as caixas dos setores', 'apelido', 'caixas dos setores agora']) igual(ehPedidoDeCaixas(t), false, `caixas: "${t}" não abre a prévia`)
   const agora = Date.parse('2026-10-23T22:00:00Z')
-  const sim = idDoBotaoDeApelidos('sim', agora)
-  igual(sim.length <= 40, true, 'apelidos: o id cabe no limite da Meta')
-  igual(lerBotaoDeApelidos(sim, agora), { acao: 'sim', vencido: false }, 'apelidos: botão recém-criado vale')
-  igual(lerBotaoDeApelidos(sim, agora + (VALIDADE_DO_BOTAO_DE_APELIDOS_MIN - 1) * 60_000)?.vencido, false, 'apelidos: ainda vale perto do fim do prazo')
-  igual(lerBotaoDeApelidos(sim, agora + (VALIDADE_DO_BOTAO_DE_APELIDOS_MIN + 2) * 60_000)?.vencido, true, 'apelidos: botão velho NÃO apaga nada')
-  igual(lerBotaoDeApelidos(sim, agora - 10 * 60_000)?.vencido, true, 'apelidos: id com hora do futuro não vale')
-  igual(lerBotaoDeApelidos(idDoBotaoDeApelidos('nao', agora), agora)?.acao, 'nao', 'apelidos: o botão Não é lido')
-  igual(lerBotaoDeApelidos('apelidos'), null, 'apelidos: texto solto não é botão')
-  igual(lerBotaoDeApelidos('ap:s:'), null, 'apelidos: id incompleto não é botão')
-  igual((BOTOES_DE_APELIDOS(agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'apelidos: títulos cabem na Meta')
-  const previa = textoDaPreviaDosApelidos([{ nome: 'TI', endereco: 'ti@x.org', dono: 'contato@x.org' }])
-  contem(previa, 'ti@x.org (apelido de contato@x.org)', 'apelidos: a prévia lista endereço e dono')
-  contem(previa, 'não é apagado', 'apelidos: a prévia diz que o histórico fica')
-  contem(previa, 'voltar com erro', 'apelidos: a prévia avisa que o e-mail vai voltar com erro')
-  contem(textoDaPreviaDosApelidos([]), 'não há o que apagar', 'apelidos: nada a apagar')
-  const res = textoDoResultadoDosApelidos([{ nome: 'TI', endereco: 'ti@x.org', resultado: 'removido' }, { nome: 'Jurídico', endereco: 'j@x.org', resultado: 'falhou', motivo: 'erro 500' }, { nome: 'Esportes', endereco: 'e@x.org', resultado: 'nao_era_apelido' }])
-  contem(res, 'Apelidos apagados (1)', 'apelidos: resultado conta os apagados')
-  contem(res, 'Não consegui apagar (1)', 'apelidos: resultado conta os que falharam')
-  contem(res, 'erro 500', 'apelidos: resultado mostra o motivo')
-  contem(res, 'Próximo passo', 'apelidos: resultado indica o próximo passo')
-  contem(res, 'caixa do setor: <nome>', 'apelidos: o próximo passo é o comando que fecha a janela em minutos')
-  contem(res, 'Não peça novo cadastro', 'apelidos: não manda recadastrar quem já se cadastrou')
-  contem(previa, '/correio', 'apelidos: a prévia avisa que o Correio do Palácio deixa de ver o setor')
-  contem(previa, 'caixa do setor: <nome>', 'apelidos: a prévia já diz o comando que vem depois')
-  // com os 12 setores semeados a prévia passa de 1024 caracteres: a pergunta tem de ir em mensagem própria, com os botões
-  const doze = Array.from({ length: 12 }, (_, i) => ({ nome: `Setor número ${i + 1} de teste`, endereco: `setor${i + 1}.cruzvermelha@cruzvermelhariodejaneiro.org`, dono: 'contato@cruzvermelhariodejaneiro.org' }))
-  const previaDoze = textoDaPreviaDosApelidos(doze)
-  igual(previaDoze.length > 1024, true, 'apelidos: (premissa) a prévia de 12 setores passa do limite de 1024 dos botões')
-  igual(previaDoze.length < 4000, true, 'apelidos: a prévia de 12 setores cabe numa mensagem de texto')
-  sem(previaDoze, 'Confirma?', 'apelidos: a pergunta não fica na prévia (sem botão, não haveria como responder)')
-  igual(objetoInterativo(PERGUNTA_DOS_APELIDOS, BOTOES_DE_APELIDOS()) !== null, true, 'apelidos: a pergunta curta mantém os botões')
+  const sim = idDoBotaoDeCaixas('sim', '1z141z3', agora)
+  igual(sim.length <= 40, true, 'caixas: o id cabe no limite da Meta')
+  igual(lerBotaoDeCaixas(sim, agora), { acao: 'sim', vencido: false, assinatura: '1z141z3' }, 'caixas: o botão recém-criado vale e traz a impressão do plano')
+  igual(lerBotaoDeCaixas(sim, agora + (VALIDADE_DO_BOTAO_DE_CAIXAS_MIN - 1) * 60_000)?.vencido, false, 'caixas: ainda vale perto do fim do prazo')
+  igual(lerBotaoDeCaixas(sim, agora + (VALIDADE_DO_BOTAO_DE_CAIXAS_MIN + 2) * 60_000)?.vencido, true, 'caixas: botão velho NÃO cria nada')
+  igual(lerBotaoDeCaixas(sim, agora - 10 * 60_000)?.vencido, true, 'caixas: id com hora do futuro não vale')
+  igual(lerBotaoDeCaixas(idDoBotaoDeCaixas('nao', 'abc', agora), agora)?.acao, 'nao', 'caixas: o botão Não é lido')
+  igual(lerBotaoDeCaixas('caixas dos setores'), null, 'caixas: texto solto não é botão')
+  igual(lerBotaoDeCaixas('cx:s:'), null, 'caixas: id incompleto não é botão')
+  igual(lerBotaoDeCaixas(`cx:s:${sim.split(':')[2]}`), null, 'caixas: id sem a impressão do plano não é botão (não dá para confirmar sem ela)')
+  igual(lerBotaoDeCaixas('ap:s:abcd'), null, 'caixas: o botão antigo de apelidos já não faz nada')
+  igual((BOTOES_DE_CAIXAS('1z141z3', agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'caixas: títulos cabem na Meta')
+
+  const plano = [
+    { nome: 'Atendimento', endereco: 'contato@x.org', estado: 'caixa_real' as const },
+    { nome: 'TI', endereco: 'ti@x.org', estado: 'apelido' as const, dono: 'contato@x.org' },
+    { nome: 'Esportes', endereco: 'esportes@x.org', estado: 'livre' as const },
+    { nome: 'Ouvidoria', endereco: 'ouvidoria@x.org', estado: 'grupo' as const },
+  ]
+  const previa = textoDaPreviaDasCaixas(plano, new Set(['ti@x.org']))
+  contem(previa, 'caixa própria* de 2 setores', 'caixas: a prévia conta os setores a criar')
+  contem(previa, 'TI: ti@x.org', 'caixas: a prévia lista o endereço')
+  contem(previa, 'hoje apelido de contato@x.org', 'caixas: a prévia diz que o apelido é apagado e de quem era')
+  contem(previa, 'Esportes: esportes@x.org', 'caixas: a prévia lista também o que está livre')
+  contem(previa, 'já tem coordenador(a): recebe a senha agora', 'caixas: a prévia marca o setor que já tem coordenação')
+  contem(previa, 'Já têm caixa (não mexo): Atendimento', 'caixas: a prévia diz o que fica como está (caixa real)')
+  contem(previa, 'grupo do Google (não mexo): Ouvidoria', 'caixas: a prévia diz o que fica como está (grupo)')
+  contem(previa, 'sem dono', 'caixas: a prévia explica que a caixa fica sem dono até a coordenação ser aprovada')
+  contem(previa, '/correio', 'caixas: a prévia avisa que o Correio do Palácio deixa de ver o setor')
+  contem(previa, 'apelido volta ao lugar', 'caixas: a prévia diz que o apelido volta se a caixa não nascer')
+  sem(previa, 'Ouvidoria: ouvidoria@x.org', 'caixas: o grupo não aparece na lista do que será criado')
+  sem(previa, 'Confirma?', 'caixas: a pergunta não fica na prévia (sem botão, não haveria como responder)')
+  contem(textoDaPreviaDasCaixas([{ nome: 'A', endereco: 'a@x.org', estado: 'caixa_real' }]), 'Nenhum setor precisa de caixa nova', 'caixas: nada a criar')
+  // com os 15 setores de verdade e nomes longos a prévia passa de 1024 caracteres: a pergunta tem de ir em mensagem própria, com os botões
+  const quinze = Array.from({ length: 15 }, (_, i) => ({ nome: `Setor número ${i + 1} de teste longo`, endereco: `setor${i + 1}.cruzvermelha@cruzvermelhariodejaneiro.org`, estado: 'apelido' as const, dono: 'contato@cruzvermelhariodejaneiro.org' }))
+  const previaQuinze = textoDaPreviaDasCaixas(quinze)
+  igual(previaQuinze.length > 1024, true, 'caixas: (premissa) a prévia de 15 setores passa do limite de 1024 dos botões')
+  igual(previaQuinze.length < 4000, true, 'caixas: a prévia de 15 setores cabe numa mensagem de texto')
+  igual(objetoInterativo(PERGUNTA_DAS_CAIXAS, BOTOES_DE_CAIXAS('1z141z3')) !== null, true, 'caixas: a pergunta curta mantém os botões')
+
+  const res = textoDoResultadoDasCaixas([
+    { nome: 'TI', endereco: 'ti@x.org', resultado: 'criada', apelidoApagado: true, entrega: 'sem_coordenador' },
+    { nome: 'Esportes', endereco: 'esportes@x.org', resultado: 'criada', entrega: 'enviada' },
+    { nome: 'Jurídico', endereco: 'j@x.org', resultado: 'criada', entrega: 'na_fila' },
+    { nome: 'Juventude', endereco: 'jv@x.org', resultado: 'criada', entrega: 'falhou' },
+    { nome: 'GRD', endereco: 'g@x.org', resultado: 'falhou', motivo: 'erro 500', apelidoApagado: true, apelidoDevolvido: true },
+    { nome: 'Parcerias', endereco: 'p@x.org', resultado: 'falhou', motivo: 'erro 500', apelidoApagado: true, apelidoDevolvido: false },
+    { nome: 'Voluntariado', endereco: 'v@x.org', resultado: 'adiada' },
+    { nome: 'Atendimento', endereco: 'contato@x.org', resultado: 'ja_existe' },
+  ])
+  contem(res, 'Caixas criadas (4)', 'caixas: o resultado conta as criadas')
+  contem(res, 'TI: ti@x.org — sem dono, aguardando a coordenação', 'caixas: sem coordenador fica sem dono')
+  contem(res, 'Esportes: esportes@x.org — senha enviada à coordenação', 'caixas: senha enviada à coordenação')
+  contem(res, 'senha na fila do WhatsApp', 'caixas: na fila não é dito como enviada')
+  contem(res, 'a senha NÃO chegou à coordenação', 'caixas: senha que não chegou é dita')
+  contem(res, 'Não consegui (2)', 'caixas: o resultado conta as falhas')
+  contem(res, 'o apelido voltou ao lugar', 'caixas: diz quando o apelido voltou')
+  contem(res, 'o apelido foi apagado e NÃO voltou', 'caixas: diz quando o apelido NÃO voltou')
+  contem(res, 'Voluntariado', 'caixas: lista o que não deu tempo')
+  contem(res, 'Já tinham caixa (1): Atendimento', 'caixas: lista o que já tinha caixa')
+  contem(res, 'a caixa é entregue a ela, com senha nova', 'caixas: o próximo passo é a aprovação da coordenação (nada à mão)')
+  sem(res, 'Senha#', 'caixas: o resultado nunca leva senha')
+  const senhaDaCaixa = textoDaSenhaDaCaixa({ setor: 'TI', email: 'ti@x.org', senha: 'Setor#Senha-7' })
+  contem(senhaDaCaixa, 'ti@x.org', 'caixas: a mensagem da senha traz o endereço')
+  contem(senhaDaCaixa, 'Setor#Senha-7', 'caixas: a mensagem da senha traz a senha')
+  contem(senhaDaCaixa, 'apague esta mensagem', 'caixas: a mensagem da senha manda apagá-la')
 }
 
 // a caixa própria do setor na mensagem de boas-vindas e o comando

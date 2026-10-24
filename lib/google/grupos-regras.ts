@@ -1,4 +1,9 @@
 /**
+ * HOJE (24/10/2026) o que vale aqui é a CAIXA PRÓPRIA do setor — `planoDasCaixas`, `criarCaixasDosSetores`,
+ * `criarCaixaDoSetor`, `redefinirSenhaDaCaixa`, `restaurarApelido`, `removerApelidos` —, abaixo do meio do arquivo. Tudo
+ * o que fala de GRUPO (a troca de apelido por grupo, `converterEmGrupo`, `colocarNoGrupo`…) foi desligado por decisão do
+ * responsável e nada o chama; fica testado, à mão, caso volte.
+ *
  * A troca do endereço de um setor — hoje um APELIDO de uma caixa (contato@) — por um GRUPO do Google, e o lugar de cada
  * pessoa nele. Conferido por script avulso contra um Google de mentira: `npx tsx scripts/conferir-grupos.ts`.
  *
@@ -247,22 +252,38 @@ export async function sondarAcesso(chamar: Chamar, dominio = 'example.org'): Pro
 }
 
 export type ItemDeEndereco = { nome: string; endereco: string }
-export type ApelidoAchado = ItemDeEndereco & { dono: string }
 export type ResultadoDoApelido = { nome: string; endereco: string; resultado: 'removido' | 'nao_era_apelido' | 'falhou'; dono?: string; motivo?: string }
 
+/** O que o endereço de um setor é hoje no Google (`dono`: só quando é apelido, de quem). */
+export type PlanoDaCaixa = ItemDeEndereco & { estado: EstadoDoEndereco['tipo']; dono?: string }
+
 /**
- * Só leitura: quais destes endereços são hoje APELIDO de uma caixa (e de qual), e o que são os outros (grupo, caixa
- * real, inexistente). Para a prévia do comando "apelidos": o administrador vê o que vai ser apagado antes de confirmar.
+ * Só leitura: o que é hoje o endereço de cada setor — apelido (de quem), livre, caixa real ou grupo. É a prévia do comando
+ * "caixas dos setores": o administrador vê, setor por setor, o que vai acontecer antes de confirmar.
  */
-export async function apelidosEntre(chamar: Chamar, itens: ItemDeEndereco[]): Promise<{ apelidos: ApelidoAchado[]; outros: (ItemDeEndereco & { tipo: EstadoDoEndereco['tipo'] })[] }> {
-  const apelidos: ApelidoAchado[] = []
-  const outros: (ItemDeEndereco & { tipo: EstadoDoEndereco['tipo'] })[] = []
+export async function planoDasCaixas(chamar: Chamar, itens: ItemDeEndereco[]): Promise<PlanoDaCaixa[]> {
+  const plano: PlanoDaCaixa[] = []
   for (const it of itens) {
     const e = await consultarEndereco(chamar, it.endereco)
-    if (e.tipo === 'apelido') apelidos.push({ ...it, dono: e.dono })
-    else outros.push({ ...it, tipo: e.tipo })
+    plano.push({ ...it, estado: e.tipo, ...(e.tipo === 'apelido' ? { dono: e.dono } : {}) })
   }
-  return { apelidos, outros }
+  return plano
+}
+
+/** Precisa de caixa nova: o endereço é apelido (apaga e cria) ou está livre (cria). Caixa real e grupo ficam como estão. */
+export const precisaDeCaixa = (p: PlanoDaCaixa) => p.estado === 'apelido' || p.estado === 'livre'
+
+/**
+ * Uma impressão curta (FNV-1a de 32 bits, em base 36) do que a confirmação vai fazer: os endereços que precisam de caixa e
+ * em que estado estão. Vai dentro do id do botão: se algo mudou entre a prévia e o toque — outro apelido que surgiu, uma
+ * caixa que já foi criada —, a impressão não bate e nada é feito. É também o que impede o segundo toque no mesmo botão:
+ * depois de feito, o plano é outro.
+ */
+export function assinaturaDoPlano(plano: PlanoDaCaixa[]): string {
+  const texto = plano.filter(precisaDeCaixa).map((p) => `${p.endereco.toLowerCase()}>${p.estado}`).sort().join('|')
+  let h = 0x811c9dc5
+  for (let i = 0; i < texto.length; i++) { h ^= texto.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 }
+  return h.toString(36)
 }
 
 /**
@@ -325,17 +346,104 @@ export async function criarCaixaDoSetor(chamar: Chamar, p: { endereco: string; n
     r = await chamar('diretorio', '/users', { method: 'POST', corpo })
   }
   if (r.ok) return { feito: 'criada' }
-  if (r.status === 409) throw new ErroDeGrupo(`O Google ainda diz que ${p.endereco} existe (liberar um apelido pode levar um minuto). Tente de novo com *caixa do setor: ${p.nome}*; se continuar, mande *grupos* para ver o que o Google mostra.`, 409)
+  if (r.status === 409) throw new ErroDeGrupo(`O Google ainda diz que ${p.endereco} existe (liberar um apelido pode levar um minuto). Tente de novo em instantes com *caixas dos setores*; se continuar, mande *grupos* para ver o que o Google mostra.`, 409)
   if (r.status === 412 || /limit|licens/i.test(msg(r))) throw new ErroDeGrupo('O Google não deixou criar mais contas: a filial chegou ao limite de usuários do Workspace.', r.status)
   return falha(r, 'O Google não criou a caixa do setor')
 }
 
-/** O que a confirmação do administrador diz sobre a caixa do setor (só quando quem entra é coordenador(a)). null = nada a dizer. */
-export function avisoDaCaixaDoSetor(estado: EstadoDoEndereco, p: { endereco: string; nome: string; quem: string }): string | null {
+/**
+ * O que a confirmação do administrador diz sobre a caixa do setor (só quando quem entra é coordenador(a)). null = nada a dizer.
+ * `semDono`: a caixa já existe (criada por "caixas dos setores") e ninguém a coordena ainda — é a que será entregue.
+ */
+export function avisoDaCaixaDoSetor(estado: EstadoDoEndereco, p: { endereco: string; nome: string; quem: string; semDono?: boolean }): string | null {
   if (estado.tipo === 'livre') return `Por ser coordenador(a), também será criada a *caixa do setor ${p.nome}* (${p.endereco}): conta própria, caixa privada, com a senha para ${p.quem}.`
-  if (estado.tipo === 'apelido') return `⚠️ O endereço *${p.endereco}* ainda é apelido de ${estado.dono}: a caixa do setor *não* será criada agora. Mande *apelidos* para apagar os apelidos dos setores e depois *caixa do setor: ${p.nome}*.`
-  if (estado.tipo === 'caixa_real') return `${p.endereco} já é uma caixa real: nada será criado para o setor.`
+  if (estado.tipo === 'apelido') return `⚠️ O endereço *${p.endereco}* ainda é apelido de ${estado.dono}: a caixa do setor *não* será entregue agora. Mande *caixas dos setores* (apaga o apelido e cria a caixa) e só depois aprove.`
+  if (estado.tipo === 'caixa_real' && p.semDono) return `A *caixa do setor ${p.nome}* (${p.endereco}) já existe e ainda não tem responsável: ao confirmar, ela é entregue a ${p.quem} — a senha é redefinida (uma nova vai por WhatsApp) e a recuperação passa a ser a dele(a).`
+  if (estado.tipo === 'caixa_real') return `${p.endereco} já é uma caixa real com responsável: nada será mudado nela.`
   return `${p.endereco} é um grupo do Google: nada será criado para o setor.`
+}
+
+/**
+ * Redefine a senha de uma caixa que já existe (e a recuperação, se vier) e obriga a trocar no primeiro acesso. É o "entregar"
+ * a caixa de um setor que foi criada sem dono: a senha de quando nasceu não foi guardada por ninguém. Só mexe se o endereço é
+ * caixa real; quem chama garante que a caixa é uma das nossas e que não tem responsável (contato@ nunca passa por aqui).
+ * false = o endereço não é caixa real, nada foi feito.
+ */
+export async function redefinirSenhaDaCaixa(chamar: Chamar, p: { endereco: string; senha: string; recuperacaoEmail?: string; recuperacaoCelular?: string }): Promise<boolean> {
+  const estado = await consultarEndereco(chamar, p.endereco)
+  if (estado.tipo !== 'caixa_real') return false
+  const corpo: Record<string, unknown> = { password: p.senha, changePasswordAtNextLogin: true }
+  if (p.recuperacaoEmail) corpo.recoveryEmail = p.recuperacaoEmail
+  if (p.recuperacaoCelular) corpo.recoveryPhone = p.recuperacaoCelular
+  const r = await chamar('diretorio', `/users/${enc(p.endereco)}`, { method: 'PATCH', corpo })
+  if (!r.ok) falha(r, 'O Google não redefiniu a senha da caixa do setor')
+  return true
+}
+
+/** Devolve o apelido `endereco` à caixa `dono`: a volta atrás quando a caixa do setor não nasceu depois de o apelido ser apagado. */
+export async function restaurarApelido(chamar: Chamar, dono: string, endereco: string, espera: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<boolean> {
+  for (let i = 0; i < 4; i++) {
+    const r = await chamar('diretorio', `/users/${enc(dono)}/aliases`, { method: 'POST', corpo: { alias: endereco } })
+    if (r.ok) return true
+    // 409: o apelido já voltou (ou o endereço foi tomado por outra coisa): não insiste em cima do que já está de pé.
+    if (r.status === 409) return (await consultarEndereco(chamar, endereco)).tipo === 'apelido'
+    if (i < 3) await espera(1500 * (i + 1))
+  }
+  return false
+}
+
+export type ResultadoDaCaixa = ItemDeEndereco & {
+  resultado: 'criada' | 'ja_existe' | 'e_grupo' | 'falhou' | 'adiada'
+  /** O endereço era apelido e o apelido foi apagado para a caixa nascer. */
+  apelidoApagado?: boolean
+  /** A caixa não nasceu depois de o apelido ser apagado: se o apelido voltou ao lugar. */
+  apelidoDevolvido?: boolean
+  motivo?: string
+}
+
+/**
+ * Cria a caixa própria de cada setor de uma vez. Por setor, em sequência (nunca em paralelo: a volta atrás de um não pode
+ * atropelar o outro):
+ *  - apelido → apaga o apelido e cria a caixa logo em seguida; se a criação falha, DEVOLVE o apelido (o e-mail do setor não
+ *    fica sem destino por causa de um erro nosso) e diz se a devolução deu certo;
+ *  - livre → cria a caixa;
+ *  - caixa real ou grupo → não mexe.
+ * Um setor que falha não impede os outros. `ate`: depois desse instante (ms) nenhum setor novo começa — ficam `adiada` —,
+ * porque o webhook tem prazo e é melhor parar entre um setor e outro do que no meio de um. Cada item traz a senha
+ * provisória (gerada por quem chama; sai uma vez e não é gravada). Puro: nada aqui toca em banco.
+ */
+export async function criarCaixasDosSetores(chamar: Chamar, itens: (ItemDeEndereco & { senha: string })[], opcoes: { espera?: (ms: number) => Promise<void>; ate?: number; agora?: () => number } = {}): Promise<ResultadoDaCaixa[]> {
+  const agora = opcoes.agora ?? Date.now
+  const saida: ResultadoDaCaixa[] = []
+  for (const it of itens) {
+    const base = { nome: it.nome, endereco: it.endereco }
+    if (opcoes.ate !== undefined && agora() > opcoes.ate) { saida.push({ ...base, resultado: 'adiada' }); continue }
+    try {
+      const e = await consultarEndereco(chamar, it.endereco)
+      if (e.tipo === 'caixa_real') { saida.push({ ...base, resultado: 'ja_existe' }); continue }
+      if (e.tipo === 'grupo') { saida.push({ ...base, resultado: 'e_grupo' }); continue }
+      let dono: string | undefined
+      let apagado = false
+      if (e.tipo === 'apelido') {
+        dono = e.dono
+        const [r] = await removerApelidos(chamar, [base])
+        if (r.resultado === 'falhou') { saida.push({ ...base, resultado: 'falhou', motivo: `não consegui apagar o apelido (${r.motivo ?? 'erro'}); ele continua como estava` }); continue }
+        apagado = r.resultado === 'removido'
+      }
+      try {
+        const c = await criarCaixaDoSetor(chamar, { endereco: it.endereco, nome: it.nome, senha: it.senha, espera: opcoes.espera })
+        if (c.feito === 'criada') saida.push({ ...base, resultado: 'criada', ...(apagado ? { apelidoApagado: true } : {}) })
+        else saida.push({ ...base, resultado: c.motivo === 'grupo' ? 'e_grupo' : 'ja_existe' })
+      } catch (causa) {
+        const motivo = causa instanceof Error ? causa.message : 'erro'
+        const devolvido = apagado && dono ? await restaurarApelido(chamar, dono, it.endereco, opcoes.espera) : undefined
+        saida.push({ ...base, resultado: 'falhou', motivo: motivo.slice(0, 200), ...(apagado ? { apelidoApagado: true, apelidoDevolvido: devolvido === true } : {}) })
+      }
+    } catch (causa) {
+      saida.push({ ...base, resultado: 'falhou', motivo: (causa instanceof Error ? causa.message : 'erro').slice(0, 200) })
+    }
+  }
+  return saida
 }
 
 /** Texto de uma linha sobre o que vai mudar, para a confirmação de quem aprova. null = nada muda. */
