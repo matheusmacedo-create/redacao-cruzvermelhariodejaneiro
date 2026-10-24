@@ -11,7 +11,7 @@
  */
 import {
   BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, textoDeQuemJaTemConta, lerPedidoDeEmail, lerBotaoDeEmail, idDoBotaoDeEmail, BOTOES_DE_EMAIL, textoDaPreviaDoEmail, VALIDADE_DO_BOTAO_DE_EMAIL_MIN, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
-  lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
+  lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDoMenuSemPalacio,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
 import { CAMPOS_DA_FICHA } from '../lib/rh/ficha'
@@ -375,5 +375,15 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   igual(mensagensDoAcompanhamento([])[0], 'Não achei nenhum setor para acompanhar.', 'acompanhamento: sem setor, diz isso')
 }
 
+{
+  const coord = textoDoMenuSemPalacio({ nome: 'Matheus Macedo', setores: ['Comunicação Social'] })
+  contem(coord, 'Olá, Matheus!', 'sem Palácio: o nome')
+  contem(coord, '*Comunicação Social*', 'sem Palácio: o setor')
+  contem(coord, '*cadastros*', 'sem Palácio: coordenador vê cadastros')
+  contem(coord, '*link do time*', 'sem Palácio: coordenador vê o link do time')
+  const outro = textoDoMenuSemPalacio({ nome: null, setores: [] })
+  contem(outro, 'cadastro está concluído', 'sem Palácio: quem não coordena')
+  igual(outro.includes('*cadastros*'), false, 'sem Palácio: quem não coordena não vê cadastros')
+}
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')
 process.exit(falhas ? 1 : 0)

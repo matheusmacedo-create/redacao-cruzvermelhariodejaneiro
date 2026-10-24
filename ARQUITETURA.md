@@ -2800,6 +2800,12 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   depois de confirmar o número (mesmo `textoDoMenu`). O comando `funcoes` (só como mensagem inteira: "funções", "o que você faz",
   "tour", "comandos"…) responde `textoDasFuncoes`: as opções agrupadas (Avisos, Seu dia, Chamados, Dúvidas) mais só as áreas que a
   pessoa tem (portaria, financeiro, presença, frota, estoque, assistente, administração). Área nova no menu entra também aí.
+  **Cadastrado pelo WhatsApp, sem login no Palácio** (24/10/2026): o número só se liga a um perfil com login (`whatsapp_contas`,
+  por `user_id`), e quem se cadastra pelo bot não tem login — o bot o tratava como desconhecido (apresentação uma vez por dia, depois
+  silêncio, inclusive para "oi"). Agora "oi", "menu" e "funções" desse número (coordenador em `setor_coordenadores`, ou cadastro
+  `aprovado` em `colaborador_autocadastros`) recebem `textoDoMenuSemPalacio`: o coordenador vê `cadastros` e `link do time`; os demais,
+  que o cadastro está concluído. Não cria linha em `whatsapp_contas` (isso exigiria um usuário do Palácio). Outras mensagens desse
+  número seguem sem resposta.
   **`criar email de <nome>`** (24/10/2026, só administrador): o e-mail institucional de quem JÁ tem conta e ficha e ainda não
   tem e-mail (`equipe_membros` ativo, `email_trabalho` nulo, WhatsApp confirmado). `previaDoEmailDePessoa` mostra quem, o endereço e
   o final do WhatsApp; "Sim, criar" (botão `em:`, 15 min, leva 12 dígitos do id da pessoa) chama `criarEmailDePessoa`: cria a conta
