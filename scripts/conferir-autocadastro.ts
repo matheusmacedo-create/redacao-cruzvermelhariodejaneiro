@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, textoDeQuemJaTemConta, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, textoDeQuemJaTemConta, lerPedidoDeEmail, lerBotaoDeEmail, idDoBotaoDeEmail, BOTOES_DE_EMAIL, textoDaPreviaDoEmail, VALIDADE_DO_BOTAO_DE_EMAIL_MIN, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -328,6 +328,28 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   contem(com, 'já está cadastrado(a)', 'já tem e-mail: diz que já está cadastrado(a)')
   contem(com, '*elisabete.souza@cruzvermelhariodejaneiro.org*', 'já tem e-mail: mostra o e-mail institucional')
   contem(textoDeQuemJaTemConta(null, null), 'Você já tem conta', 'já tem conta: sem nome também funciona')
+}
+
+// "criar email de <nome>": o e-mail institucional de quem já tem conta
+{
+  igual(lerPedidoDeEmail('Criar e-mail de Elisabete Souza'), 'elisabete souza', 'email: "criar e-mail de <nome>"')
+  igual(lerPedidoDeEmail('email da Elisabete Souza'), 'elisabete souza', 'email: "email da <nome>"')
+  igual(lerPedidoDeEmail('criar email institucional para Ana Lima'), 'ana lima', 'email: "criar email institucional para <nome>"')
+  igual(lerPedidoDeEmail('meu email'), null, 'email: frase solta não é o comando')
+  igual(lerPedidoDeEmail('email de'), null, 'email: sem nome não é o comando')
+  const membro = '3f2a9c1e-77b4-4d0a-9a6e-1c2d3e4f5a6b'
+  const agora = Date.parse('2026-10-24T13:00:00Z')
+  const sim = idDoBotaoDeEmail('sim', membro, agora)
+  igual(sim.length <= 40, true, 'email: o id cabe no limite da Meta')
+  igual(lerBotaoDeEmail(sim, agora), { acao: 'sim', vencido: false, membro: '3f2a9c1e77b4' }, 'email: o botão traz a pessoa e vale')
+  igual(lerBotaoDeEmail(sim, agora + (VALIDADE_DO_BOTAO_DE_EMAIL_MIN + 2) * 60_000)?.vencido, true, 'email: botão velho não cria nada')
+  igual(lerBotaoDeEmail('em:s:abcd'), null, 'email: id sem a pessoa não é botão')
+  igual(lerBotaoDeEmail('cx:s:abcd:a1b2c3d4e5f6'), null, 'email: o botão das caixas não é o do e-mail')
+  igual((BOTOES_DE_EMAIL(membro, agora) as { botoes: { titulo: string }[] }).botoes.every((b) => b.titulo.length <= 20), true, 'email: títulos cabem na Meta')
+  const previa = textoDaPreviaDoEmail({ nome: 'Elisabete Souza', setor: 'Voluntariado', email: 'elisabete.souza@cruzvermelhariodejaneiro.org', finalDoNumero: '0264' })
+  contem(previa, '*elisabete.souza@cruzvermelhariodejaneiro.org*', 'email: a prévia mostra o endereço')
+  contem(previa, 'final 0264', 'email: a prévia mostra para qual WhatsApp vai a senha')
+  sem(previa, 'senha provisória:', 'email: a prévia não leva senha')
 }
 
 // "acompanhamento": o andamento do cadastro por setor

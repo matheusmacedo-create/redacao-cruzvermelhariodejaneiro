@@ -16,13 +16,13 @@ import { DOMINIO_DAS_CONTAS, celularEmE164, separarNome, usuarioSugeridoDoGoogle
 import { baixarMidia, subirMidia, type ConfigDoWhatsapp } from './servidor'
 import { entregar } from './fila'
 import { fotoRecebida, TETO_DA_FOTO_DO_VISITANTE } from './portaria-regras'
-import type { Interativo, MensagemRecebida } from './regras'
+import { normalizar, type Interativo, type MensagemRecebida } from './regras'
 import type { Pessoa } from './acoes'
 import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, textoDeQuemJaTemConta, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, textoDeQuemJaTemConta, BOTOES_DE_EMAIL, textoDaPreviaDoEmail, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -659,6 +659,73 @@ export async function jaTemContaNoCadastro(admin: Admin, workspaceId: string, pe
   if (error) return [{ texto: 'Você já tem conta no Palácio Virtual, então não precisa se cadastrar de novo. Para o e-mail institucional, fale com a sua coordenação.' }]
   const email = typeof data?.[0]?.email_trabalho === 'string' && data[0].email_trabalho ? data[0].email_trabalho : null
   return [{ texto: textoDeQuemJaTemConta(pessoa.nome, email) }]
+}
+
+type MembroSemEmail = { id: string; user_id: string; nome: string; setor: string | null }
+
+/** Quem da equipe tem conta, está ativo e ainda não tem e-mail institucional, achado pelo nome (todas as palavras do pedido). */
+async function membrosSemEmail(admin: Admin, workspaceId: string, pedido: string): Promise<MembroSemEmail[] | null> {
+  const { data, error } = await admin.from('equipe_membros').select('id, user_id, nome, setor').eq('workspace_id', workspaceId).eq('situacao', 'ativo').is('email_trabalho', null).not('user_id', 'is', null)
+  if (error) return null
+  const palavras = normalizar(pedido).split(' ').filter(Boolean)
+  return ((data ?? []) as MembroSemEmail[]).filter((m) => { const n = normalizar(m.nome); return palavras.every((p) => n.split(' ').includes(p)) })
+}
+
+const numeroDaConta = async (admin: Admin, userId: string): Promise<string | null> => {
+  const { data } = await admin.from('whatsapp_contas').select('numero').eq('user_id', userId).not('confirmado_em', 'is', null).limit(1)
+  return typeof data?.[0]?.numero === 'string' ? data[0].numero : null
+}
+
+/**
+ * "criar email de <nome>" (só administrador): o e-mail institucional de quem JÁ tem conta e ficha e ainda não tem e-mail (o
+ * cadastro pelo WhatsApp é de quem não tem conta). A PRÉVIA mostra quem e qual endereço, e pede "Sim, criar". Só leitura.
+ */
+export async function previaDoEmailDePessoa(admin: Admin, workspaceId: string, ator: Ator, pedido: string): Promise<Saida[]> {
+  if (!ator.admin) return [{ texto: 'Criar o e-mail institucional de alguém é só de administrador.' }]
+  const achados = await membrosSemEmail(admin, workspaceId, pedido)
+  if (achados === null) return [{ texto: 'Não consegui ler a equipe no banco agora. Tente de novo em instantes.' }]
+  if (!achados.length) return [{ texto: `Não achei ninguém ativo na equipe com esse nome e sem e-mail institucional ("${pedido}"). Se a pessoa já tem e-mail, ou não tem conta no Palácio, este comando não se aplica.` }]
+  if (achados.length > 1) return [{ texto: `Achei mais de uma pessoa: ${achados.map((m) => m.nome).join('; ')}. Escreva o nome completo.` }]
+  const m = achados[0]
+  const numero = await numeroDaConta(admin, m.user_id)
+  if (!numero) return [{ texto: `${m.nome} não tem WhatsApp confirmado no Palácio, e a senha provisória vai por WhatsApp. Nada foi criado.` }]
+  const usuario = await usuarioLivreNoGoogle(admin, workspaceId, m.nome).catch(() => null)
+  if (!usuario) return [{ texto: `Não achei um endereço livre para "${m.nome}" (ou o Google não respondeu agora). Nada foi criado.` }]
+  return [{ texto: textoDaPreviaDoEmail({ nome: m.nome, setor: m.setor, email: `${usuario}@${DOMINIO_DAS_CONTAS}`, finalDoNumero: numero.slice(-4) }), interativo: BOTOES_DE_EMAIL(m.id) }]
+}
+
+/** O "Sim, criar" do e-mail de quem já tem conta: cria no Google, grava na ficha e manda a senha ao WhatsApp da pessoa. */
+export async function criarEmailDePessoa(admin: Admin, workspaceId: string, config: ConfigDoWhatsapp, ator: Ator, botao: { acao: 'sim' | 'nao'; vencido: boolean; membro: string }): Promise<Saida[]> {
+  if (!ator.admin) return [{ texto: 'Criar o e-mail institucional de alguém é só de administrador.' }]
+  if (botao.acao === 'nao') return [{ texto: 'Certo, nada foi criado.' }]
+  if (botao.vencido) return [{ texto: 'Essa confirmação venceu (vale 15 minutos). Mande *criar email de <nome>* de novo.' }]
+  try {
+    const { data, error } = await admin.from('equipe_membros').select('id, user_id, nome, setor, email_trabalho').eq('workspace_id', workspaceId).eq('situacao', 'ativo').not('user_id', 'is', null)
+    if (error) return [{ texto: 'Não consegui ler a equipe no banco agora; nada foi criado. Tente de novo em instantes.' }]
+    const m = (data ?? []).find((x) => String(x.id).replace(/-/g, '').startsWith(botao.membro))
+    if (!m) return [{ texto: 'Não achei mais essa pessoa na equipe. Nada foi criado.' }]
+    if (m.email_trabalho) return [{ texto: `${m.nome} já tem e-mail institucional (${m.email_trabalho}): nada a criar.` }]
+    const numero = await numeroDaConta(admin, String(m.user_id))
+    const nome = separarNome(String(m.nome))
+    if (!numero || 'erro' in nome) return [{ texto: `Não dá para criar o e-mail de ${m.nome}: ${!numero ? 'sem WhatsApp confirmado' : 'o nome na ficha precisa ter nome e sobrenome'}. Nada foi criado.` }]
+    const usuario = await usuarioLivreNoGoogle(admin, workspaceId, String(m.nome))
+    if (!usuario) return [{ texto: `Não achei um endereço livre para ${m.nome}. Nada foi criado.` }]
+    const email = `${usuario}@${DOMINIO_DAS_CONTAS}`
+    const senha = gerarSenhaTemporaria()
+    const celular = celularEmE164(numero)
+    const googleId = await criarUsuarioNoGoogle(workspaceId, { email, primeiroNome: nome.primeiro, sobrenome: nome.resto, senha, celularDeRecuperacao: typeof celular === 'string' && celular ? celular : undefined, setor: m.setor ? String(m.setor) : undefined })
+    // Daqui em diante a conta existe: o que falhar vira aviso, nunca desfaz.
+    const { error: erroFicha } = await admin.from('equipe_membros').update({ email_trabalho: email }).eq('id', m.id).eq('workspace_id', workspaceId)
+    const setorId = m.setor ? (await admin.from('setores').select('id').eq('workspace_id', workspaceId).eq('nome', String(m.setor)).maybeSingle()).data?.id ?? null : null
+    await admin.from('google_contas').insert({ workspace_id: workspaceId, convite_id: null, email, nome: String(m.nome), setor_id: setorId, grupo_email: null, grupo_ok: false, google_id: googleId || null, ip_hash: hashDoIp(`email-de-quem-ja-tem-conta:${m.id}`) })
+    await admin.from('activity_log').insert({ workspace_id: workspaceId, actor_id: ator.userId, action: 'google_conta_criada', entity_type: 'google_conta', entity_id: null, metadata: { email, origem: 'whatsapp_email_de_quem_ja_tem_conta', membro: m.id } })
+    const entrega = await entregar(admin, workspaceId, { numero, userId: null, tipo: 'aviso', categoria: 'conta', texto: textoDaContaCriada({ nome: String(m.nome), email, senha }) }, { config })
+    const avisos = [erroFicha ? ' ⚠️ O e-mail não ficou gravado na ficha: avise a TI.' : '', entrega.situacao === 'falhou' ? ' ⚠️ A senha NÃO chegou ao WhatsApp dela(e): redefina no Admin do Google e avise.' : ''].join('')
+    return [{ texto: `Pronto ✓ O e-mail ${email} foi criado para ${m.nome}.${entrega.situacao === 'falhou' ? '' : entrega.situacao === 'na_fila' ? ' A senha provisória está na fila e sai em instantes.' : ' A senha provisória e o passo a passo foram enviados ao WhatsApp dela(e).'}${avisos}` }]
+  } catch (causa) {
+    console.error('[whatsapp] email de quem já tem conta:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    return [{ texto: `Não consegui criar o e-mail: ${textoDoErro(causa)}. Confira no Admin do Google se a conta chegou a nascer antes de tentar de novo.` }]
+  }
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */
