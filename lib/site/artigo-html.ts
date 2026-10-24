@@ -411,6 +411,9 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
     ? `<section class="news-ouvir" aria-label="Ouça esta matéria">
             <p class="news-ouvir-titulo">Ouça esta matéria</p>
             <audio controls preload="none" src="${escapar(audioDaMateria)}"></audio>
+            <div class="news-ouvir-velocidade" role="group" aria-label="Velocidade da narração">
+              <span>Velocidade:</span>${VELOCIDADES_DA_NARRACAO.map((v) => `<button type="button" data-velocidade="${v}" aria-pressed="${v === 1 ? 'true' : 'false'}">${String(v).replace('.', ',')}×</button>`).join('')}
+            </div>
             <p class="news-ouvir-nota">Narração com voz gerada por inteligência artificial, a partir do texto publicado.</p>
           </section>`
     : ''
@@ -539,7 +542,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
       ${maisNoticias}
     </div>`
 
-  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}<script>
+  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DA_VELOCIDADE}\n    ` : ''}<script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
         this.classList.add('copiado');
@@ -571,8 +574,29 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
   })
 }
 
+/** As velocidades do "Ouça esta matéria" (o navegador mantém o tom da voz ao acelerar). */
+const VELOCIDADES_DA_NARRACAO = [1, 1.25, 1.5, 2] as const
+
+/**
+ * Os botões de velocidade: trocam o playbackRate do áudio e marcam o escolhido (aria-pressed). A escolha não fica
+ * guardada no navegador de propósito: guardar algo no aparelho do leitor entraria na política de cookies do site.
+ */
+const SCRIPT_DA_VELOCIDADE = `<script>
+      (function(){
+        var caixa = document.querySelector('.news-ouvir'); if (!caixa) return;
+        var audio = caixa.querySelector('audio'), botoes = caixa.querySelectorAll('[data-velocidade]');
+        botoes.forEach(function(b){
+          b.addEventListener('click', function(){
+            var v = Number(b.dataset.velocidade) || 1;
+            audio.playbackRate = v; audio.defaultPlaybackRate = v;
+            botoes.forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+          });
+        });
+      })();
+    </script>`
+
 /** O "Ouça esta matéria": discreto, na largura do texto, com o filete vermelho da marca. */
-const CSS_DO_OUVIR = `.news-ouvir{margin:1.25rem 0 1.5rem;padding:.85rem 1rem;border-left:3px solid var(--brand);background:rgba(0,0,0,.03);border-radius:.4rem}.news-ouvir-titulo{margin:0 0 .5rem;font-weight:700;font-size:.95rem}.news-ouvir audio{display:block;width:100%;max-width:32rem}.news-ouvir-nota{margin:.5rem 0 0;font-size:.8rem;opacity:.75}`
+const CSS_DO_OUVIR = `.news-ouvir-velocidade{display:flex;flex-wrap:wrap;align-items:center;gap:.35rem;margin-top:.55rem;font-size:.82rem}.news-ouvir-velocidade span{opacity:.75;margin-right:.15rem}.news-ouvir-velocidade button{min-width:2.9rem;min-height:2rem;padding:.2rem .6rem;border:1px solid rgba(0,0,0,.18);border-radius:999px;background:#fff;color:inherit;font:inherit;cursor:pointer}.news-ouvir-velocidade button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}.news-ouvir{margin:1.25rem 0 1.5rem;padding:.85rem 1rem;border-left:3px solid var(--brand);background:rgba(0,0,0,.03);border-radius:.4rem}.news-ouvir-titulo{margin:0 0 .5rem;font-weight:700;font-size:.95rem}.news-ouvir audio{display:block;width:100%;max-width:32rem}.news-ouvir-nota{margin:.5rem 0 0;font-size:.8rem;opacity:.75}`
 
 /** O botão de matrícula do advertorial, na cor da marca. */
 const CSS_DO_BOTAO = `.news-cta{margin:2rem 0;text-align:center}.news-body a.news-cta-botao{display:inline-block;background:var(--brand);color:#fff;text-decoration:none;font-weight:700;padding:.95rem 1.6rem;border-radius:.6rem;font-size:1.05rem;line-height:1.3;max-width:100%}.news-body a.news-cta-botao:hover{background:var(--brand-dark);color:#fff}`

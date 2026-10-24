@@ -649,8 +649,8 @@ confira em `/api/admin/ftp-check`.
 
 **Narração** (§8.7): com a voz ligada para as matérias, `gerarPaginaDaMateria` pede a
 `narracaoDaMateria` o MP3 do texto (`ouvir-<hash>.mp3` na pasta da matéria) e a página ganha
-o “Ouça esta matéria” abaixo do cabeçalho, com o aviso de voz gerada por IA e o `AudioObject`
-no JSON-LD. A publicação gera; a regeração só reaproveita o que já está no ar.
+o “Ouça esta matéria” abaixo do cabeçalho, com o aviso de voz gerada por IA, os botões de velocidade
+(1×, 1,25×, 1,5×, 2×; `playbackRate`, sem guardar nada no navegador) e o `AudioObject` no JSON-LD. A publicação gera; a regeração só reaproveita o que já está no ar.
 
 **Datas.** `site_published_at` é a primeira publicação e não muda mais; o
 `dateModified` e o `lastmod` do sitemap são a última edição do texto (`updated_at`,
