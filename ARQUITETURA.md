@@ -3455,9 +3455,14 @@ a voz (id e nome), o modelo (padrão `eleven_v4`) e os dois interruptores, em `v
 aplicá-la e nada muda: a matéria sai sem áudio e o WhatsApp responde só por escrito.
 
 - **Matérias do site** (§7.6): o texto que se lê (`textoParaNarrar`: título, linha fina, corpo;
-  sem foto, legenda, crédito nem endereço de link) vira um MP3 em trechos de até 4.500 caracteres,
+  sem foto, legenda, crédito nem endereço de link) vira um MP3 em trechos de até 2.000 caracteres,
   cortados em fim de parágrafo, cada um com o vizinho como contexto (`previous_text`/`next_text`),
-  dois por vez, emendados quadro a quadro (`narrar`). O nome do arquivo é o hash do texto, da voz e
+  três por vez, emendados quadro a quadro (`narrar`). Os pedidos vão pelo endpoint de **streaming**
+  e só desistem depois de 30 s sem chegar nada (`falar`); a narração inteira tem 150 s
+  (`PRAZO_DA_NARRACAO_MS`), e o trecho que parou ou levou 429 tenta mais uma vez se ainda houver prazo.
+  As páginas que publicam (`/redes/[id]`, `/configuracoes/site`) declaram `maxDuration = 300`.
+  **Pago em 24/10/2026:** com o tempo total fixo de 60 s por pedido e trechos de 4.500, a primeira
+  matéria (8.500 caracteres, `eleven_v4`) saiu sem áudio: “A ElevenLabs não respondeu a tempo”. O nome do arquivo é o hash do texto, da voz e
   do modelo (`nomeDoAudio`): republicar sem mudar nada acha o arquivo no ar (HEAD) e não gasta
   crédito; mudou, gera outro, e os `ouvir-*.mp3` antigos da pasta saem (`removerNarracoesAntigas`,
   só esse padrão). Matéria com mais de 30 mil caracteres não é narrada. Falha (sem crédito, chave,

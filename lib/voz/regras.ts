@@ -32,10 +32,11 @@ export const ehModeloDaVoz = (v: unknown): v is ModeloDaVoz => MODELOS_DA_VOZ.so
 export const vozIdValido = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9]{8,40}$/.test(v)
 
 /**
- * Tamanho de cada pedido. Os modelos aceitam 10.000 (o Flash, 40.000), mas pedidos menores voltam mais rápido, falham
- * menos e, divididos em fim de parágrafo, a emenda não se ouve (cada trecho leva o anterior e o seguinte como contexto).
+ * Tamanho de cada pedido. Os modelos aceitam 10.000 (o Flash, 40.000), mas o eleven_v4 leva mais de um minuto para
+ * gerar 4.300 caracteres: pedidos menores, três por vez, terminam antes e, cortados em fim de parágrafo, a emenda não
+ * se ouve (cada trecho leva o anterior e o seguinte como contexto).
  */
-export const TAMANHO_DO_TRECHO = 4500
+export const TAMANHO_DO_TRECHO = 2000
 
 /** Matéria acima disso não é narrada (custo e tempo da publicação); a página sai sem o áudio, com aviso. */
 export const TETO_DA_MATERIA = 30_000

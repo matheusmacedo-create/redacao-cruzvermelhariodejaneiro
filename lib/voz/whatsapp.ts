@@ -40,10 +40,12 @@ export async function responderEmAudio(p: {
     const voz = await vozPara(p.workspaceId, 'whatsapp')
     if (!voz) return false
 
-    let fala = await falar(voz, falavel, 'opus_48000_64')
+    // O áudio nunca passa do prazo do turno: com folga para subir e mandar.
+    const prazo = p.prazo - 4000
+    let fala = await falar(voz, falavel, 'opus_48000_64', { prazo })
     let mime: 'audio/ogg' | 'audio/mpeg' = 'audio/ogg'
     if (fala.ok && !ehOgg(fala.bytes)) {
-      fala = await falar(voz, falavel, 'mp3_44100_64')
+      fala = await falar(voz, falavel, 'mp3_44100_64', { prazo })
       mime = 'audio/mpeg'
       if (fala.ok && !ehMp3(fala.bytes)) fala = { ok: false, erro: 'A ElevenLabs devolveu um formato de áudio desconhecido.', motivo: 'outro' }
     }
