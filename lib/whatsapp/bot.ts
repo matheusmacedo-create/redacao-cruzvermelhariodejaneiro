@@ -38,7 +38,7 @@ import { visitaEsperandoResposta } from '@/lib/portaria/servidor'
 import {
   APRESENTACAO_A_CADA_HORAS, APROVACOES_NA_RESPOSTA, AVISOS_NA_RESPOSTA, COMANDOS_DE_AREA, JANELA_DAS_RESPOSTAS_MIN, RESPOSTAS_POR_JANELA,
   TEXTO_DO_CODIGO_DE_VOLTA, TEXTO_PAUSADO, TEXTO_VOLTOU, alvoDoLink, codigoNaMensagem, ehCancelamento, ehConfirmacao, interativoDoMenu, lerEscolha, lerPedido, ofereceNaoFuiEu,
-  normalizar, pareceViagem, soOCodigo,
+  TEXTO_NAO_ENTENDI_CURTO, ehCortesia, normalizar, pareceViagem, soOCodigo,
   textoDaAgenda, textoDaAjuda,
   textoDaApresentacao, textoDaFalhaDoCodigoDeIda, textoDasAprovacoes, textoDasLidas, textoDoCodigoDeIdaErrado, textoDoMenu, textoDoNumeroConfirmado, textoDosAvisos,
   type Interativo, type ItemDoDia, type MensagemRecebida, type QuemNoMenu,
@@ -694,6 +694,13 @@ export async function atenderMensagem(admin: Admin, workspaceId: string, config:
       return
     }
 
+    // Agradecimento, "ok", emoji solto: não é pergunta. O bot fica quieto (responder com o menu só confunde).
+    if (comando === 'desconhecido' && !decisaoSemLista && !m.midia && !m.toque && ehCortesia(m.texto)) return
+    // Mensagem que o bot não entendeu: uma linha direta, sem despejar o menu. O menu sai só quando a pessoa pede ("menu", "oi").
+    if (comando === 'desconhecido' && !decisaoSemLista) {
+      await responder(TEXTO_NAO_ENTENDI_CURTO, { comando: 'menu' })
+      return
+    }
     // O menu sai também como lista, marcado no registro: é por essa marca que o toque nele vale como comando (citouOMenu).
     const quem = await quemNoMenu(admin, workspaceId, pessoa)
     const menu = textoDoMenu({ nome: pessoa.nome, pausado, urlBase: base, naoEntendi: comando === 'desconhecido' || decisaoSemLista, assistente: ia.disponivel, ...quem })
