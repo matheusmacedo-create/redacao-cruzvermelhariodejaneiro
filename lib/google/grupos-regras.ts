@@ -352,7 +352,7 @@ export async function criarCaixaDoSetor(chamar: Chamar, p: { endereco: string; n
   }
   if (r.ok) return { feito: 'criada' }
   if (r.status === 409) throw new ErroDeGrupo(`O Google ainda diz que ${p.endereco} existe (liberar um apelido pode levar um minuto). Tente de novo em instantes com *caixas dos setores*; se continuar, mande *grupos* para ver o que o Google mostra.`, 409)
-  if (r.status === 412 || /limit|licens/i.test(msg(r))) throw new ErroDeGrupo('O Google não deixou criar mais contas: a filial chegou ao limite de usuários do Workspace.', r.status)
+  if (r.status === 412 || (/limit|licens/i.test(msg(r)) && !/rate.?limit/i.test(msg(r)))) throw new ErroDeGrupo('O Google não deixou criar mais contas: a filial chegou ao limite de usuários do Workspace.', r.status)
   return falha(r, 'O Google não criou a caixa do setor')
 }
 
@@ -371,8 +371,8 @@ export function avisoDaCaixaDoSetor(estado: EstadoDoEndereco, p: { endereco: str
 /**
  * Redefine a senha de uma caixa que já existe (e a recuperação, se vier) e obriga a trocar no primeiro acesso. É o "entregar"
  * a caixa de um setor que foi criada sem dono: a senha de quando nasceu não foi guardada por ninguém. Só mexe se o endereço é
- * caixa real E ninguém jamais entrou nela (`lastLoginTime` = 1970-01-01 no Directory): uma caixa que já teve acesso está em uso
- * e a senha dela não se troca por aqui, mesmo que o nosso registro diga que não tem responsável. Quem chama garante o resto
+ * caixa real E ninguém jamais entrou nela (`lastLoginTime` = 1970-01-01 no Directory; sem o campo, não se mexe): uma caixa que já
+ * teve acesso está em uso e a senha dela não se troca por aqui, mesmo que o nosso registro diga que não tem responsável. Quem chama garante o resto
  * (que a caixa é uma das nossas e ainda não foi entregue); o contato@ nunca passa por aqui.
  * 'nao_e_caixa': o endereço não é caixa real, nada foi feito. 'em_uso': já houve acesso, nada foi feito.
  */
@@ -381,8 +381,10 @@ export async function redefinirSenhaDaCaixa(chamar: Chamar, p: { endereco: strin
   if (!u.ok) return u.status === 404 ? 'nao_e_caixa' : falha(u, 'Não foi possível consultar a caixa do setor')
   const principal = String(u.dados.primaryEmail ?? '').toLowerCase()
   if (!principal || principal !== p.endereco.toLowerCase()) return 'nao_e_caixa'
+  // Falha FECHADA: só redefine com a prova de que ninguém nunca entrou (1970-01-01). Se o Google não informou o último acesso,
+  // não há prova — 'em_uso' manda redefinir no Admin do Google, que é lento mas não derruba quem usa a caixa.
   const ultimo = u.dados.lastLoginTime
-  if (typeof ultimo === 'string' && ultimo && !ultimo.startsWith('1970-01-01')) return 'em_uso'
+  if (typeof ultimo !== 'string' || !ultimo.startsWith('1970-01-01')) return 'em_uso'
   const corpo: Record<string, unknown> = { password: p.senha, changePasswordAtNextLogin: true }
   if (p.recuperacaoEmail) corpo.recoveryEmail = p.recuperacaoEmail
   if (p.recuperacaoCelular) corpo.recoveryPhone = p.recuperacaoCelular
@@ -487,25 +489,36 @@ export async function criarCaixasDosSetores(chamar: Chamar, itens: (ItemDeEndere
     if (parar) { saida[i] = { ...base, resultado: 'adiada', motivo: parar }; continue }
     if (opcoes.ate !== undefined && agora() > opcoes.ate) { saida[i] = { ...base, resultado: 'adiada' }; continue }
 
-    const dono = e.tipo === 'apelido' ? e.dono : undefined
+    let dono = e.tipo === 'apelido' ? e.dono : undefined
     let apagado = false
     if (e.tipo === 'apelido') {
       const [r] = await removerApelidos(chamar, [base])
+      if (r.dono) dono = r.dono // o dono da releitura: é a ele que o apelido volta, se for preciso
       if (r.resultado === 'removido') apagado = true
       else if (r.resultado === 'falhou') {
-        // O DELETE pode ter sido aplicado mesmo sem resposta (timeout, 5xx): olha como o endereço ficou antes de afirmar qualquer coisa.
-        const depois = await estadoAgora(chamar, it.endereco)
-        if (depois?.tipo === 'livre') apagado = true
-        else if (depois?.tipo === 'apelido') { saida[i] = { ...base, resultado: 'falhou', motivo: `não consegui apagar o apelido (${r.motivo ?? 'erro'}); ele continua como estava` }; continue }
-        else if (depois?.tipo === 'caixa_real') { saida[i] = { ...base, resultado: 'ja_existe' }; continue }
-        else if (depois?.tipo === 'grupo') { saida[i] = { ...base, resultado: 'e_grupo' }; continue }
-        else { saida[i] = { ...base, resultado: 'falhou', incerto: true, motivo: `o Google não respondeu ao apagar o apelido (${r.motivo ?? 'erro'}) e não consegui conferir como o endereço ficou` }; continue }
+        // O DELETE pode ter sido aplicado mesmo sem resposta (timeout, 5xx), e GET /users/{endereco} logo depois ainda mostra o
+        // apelido (leitura atrasada). A palavra final é a lista de apelidos do dono.
+        const naLista = dono ? await apelidoEstaNoDono(chamar, dono, it.endereco) : null
+        if (naLista === false) apagado = true // saiu da lista: o DELETE foi aplicado; segue para o POST
+        else if (naLista === true) { saida[i] = { ...base, resultado: 'falhou', motivo: `não consegui apagar o apelido (${r.motivo ?? 'erro'}); ele continua como estava (ainda está na lista de apelidos de ${dono})` }; continue }
+        else {
+          // Lista ilegível: o estado do endereço só vale quando prova que mudou (um "apelido" aqui pode ser leitura atrasada).
+          const depois = await estadoAgora(chamar, it.endereco)
+          if (depois?.tipo === 'livre') apagado = true
+          else if (depois?.tipo === 'caixa_real') { saida[i] = { ...base, resultado: 'ja_existe' }; continue }
+          else if (depois?.tipo === 'grupo') { saida[i] = { ...base, resultado: 'e_grupo' }; continue }
+          else {
+            saida[i] = { ...base, resultado: 'falhou', incerto: true, motivo: `o Google não respondeu ao apagar o apelido (${r.motivo ?? 'erro'}) e não consegui conferir como o endereço ficou` }
+            parar = 'parei: não consegui confirmar o que houve com o apelido de um setor; confira esse endereço antes de continuar'
+            continue
+          }
+        }
       }
       // 'nao_era_apelido': já não era (outro toque, outro administrador); o POST abaixo decide, e 409 diz se está ocupado.
     }
 
     try {
-      await criarCaixaDoSetor(chamar, { endereco: it.endereco, nome: it.nome, senha: it.senha, espera, semConsulta: true, tentativas409: 6 })
+      await criarCaixaDoSetor(chamar, { endereco: it.endereco, nome: it.nome, senha: it.senha, espera, semConsulta: true, tentativas409: apagado ? 6 : 2 })
       falhasSeguidas = 0
       let criada: ResultadoDaCaixa = { ...base, resultado: 'criada', ...(apagado ? { apelidoApagado: true } : {}) }
       if (opcoes.aoCriar) {
@@ -515,21 +528,28 @@ export async function criarCaixasDosSetores(chamar: Chamar, itens: (ItemDeEndere
     } catch (causa) {
       const motivo = (causa instanceof Error ? causa.message : 'erro').slice(0, 200)
       const explicito409 = causa instanceof ErroDeGrupo && causa.status === 409
-      // Sem resposta (timeout, 5xx, queda): a conta pode ter nascido mesmo assim.
-      const depois = explicito409 ? null : await estadoAgora(chamar, it.endereco)
-      if (depois?.tipo === 'caixa_real') {
+      // Só um erro SEM resposta definitiva (lançou, ou 5xx) deixa a criação em dúvida; 4xx é o Google recusando: nada nasceu.
+      const emDuvida = !(causa instanceof ErroDeGrupo) || causa.status >= 500
+      let depois = explicito409 ? null : await estadoAgora(chamar, it.endereco)
+      // A conta pode ainda estar nascendo (ou a leitura, atrasada): relê algumas vezes antes de concluir "não nasceu".
+      for (let k = 0; emDuvida && depois?.tipo !== 'caixa_real' && k < 3; k++) { await espera(1500 * (k + 1)); depois = await estadoAgora(chamar, it.endereco) }
+      const comoCriada = async () => {
         falhasSeguidas = 0
         let criada: ResultadoDaCaixa = { ...base, resultado: 'criada', motivo: 'o Google deu erro, mas a conta existe', ...(apagado ? { apelidoApagado: true } : {}) }
         if (opcoes.aoCriar) {
           try { criada = { ...criada, ...(await opcoes.aoCriar(criada)) } } catch { criada = { ...criada, registro: 'falhou' } }
         }
         saida[i] = criada
-        continue
       }
-      const devolvido = apagado && dono ? await restaurarApelido(chamar, dono, it.endereco, espera) : undefined
+      if (emDuvida && depois?.tipo === 'caixa_real') { await comoCriada(); continue }
+      let devolvido = apagado && dono ? await restaurarApelido(chamar, dono, it.endereco, espera) : undefined
+      // A volta atrás leva segundos: se a conta apareceu nesse meio-tempo, ela é a resposta (e o apelido não volta por cima).
+      if (devolvido === false && emDuvida && (await estadoAgora(chamar, it.endereco))?.tipo === 'caixa_real') { await comoCriada(); continue }
       saida[i] = { ...base, resultado: 'falhou', motivo, ...(apagado ? { apelidoApagado: true, apelidoDevolvido: devolvido === true } : {}), ...(depois === null && !explicito409 ? { incerto: true } : {}) }
-      falhasSeguidas++
-      if (erroQueAtingeTodos(causa)) parar = `parei: o Google recusou a criação (${motivo}) e o mesmo vale para os outros setores`
+      // 400 é o Google recusando os DADOS deste setor (nome longo, caractere inválido): não prova que o próximo vai falhar também.
+      if (!(causa instanceof ErroDeGrupo && causa.status === 400)) falhasSeguidas++
+      if (apagado && devolvido !== true) parar = 'parei: o apelido de um setor não voltou ao lugar; resolva esse endereço antes de continuar'
+      else if (erroQueAtingeTodos(causa)) parar = `parei: o Google recusou a criação (${motivo}) e o mesmo vale para os outros setores`
       else if (falhasSeguidas >= 2) parar = 'parei: dois setores seguidos falharam; confira o motivo antes de tentar de novo'
     }
   }

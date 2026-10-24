@@ -2731,6 +2731,18 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
     Palácio registra a conta em `google_contas`, alinha `caixas_de_email.no_gmail` e entrega a senha — se o processo for
     cortado depois, o que já nasceu não fica sem registro. Cada conta nasce com senha aleatória, troca no primeiro acesso,
     nome = o setor, sobrenome "Cruz Vermelha RJ".
+    **Segunda rodada de revisão (24/10/2026)** fechou mais: a palavra final sobre "o DELETE foi aplicado?" é a **lista de
+    apelidos do dono** (`apelidoEstaNoDono`), não `GET /users/{endereço}` (leitura atrasada: o DELETE aplicado com a resposta
+    perdida aparecia como "continua como estava" e o lote seguia apagando os outros); o apelido é devolvido ao dono da
+    releitura; erro "em dúvida" (lançou ou 5xx) relê o endereço até 3 vezes antes de concluir "não nasceu" — 4xx é o Google
+    recusando, nada nasceu, e uma conta que apareça depois não é nossa; resultado **incerto** ou apelido que **não voltou**
+    param o lote (só o primeiro setor serve de canário destrutivo); erro 400 (dado inválido só do setor) não conta para o freio
+    de "dois seguidos"; a folga do lote é de 150 s (o último setor começa com ~210 s de sobra); "Rate Limit Exceeded" não é
+    "limite de usuários". A guarda de uso da redefinição **falha fechada** (`lastLoginTime` ausente = não redefine) e a caixa só
+    conta como entregue quando **todos** os coordenadores receberam. Leituras que falham na trava do lote, no comando de um
+    setor e em `setoresDasCaixas` não seguem (nada é mexido no Google). **Estado em produção (24/10/2026 00:00 UTC):** o
+    comando `apelidos` da primeira versão já apagou os 14 apelidos de setor; os 14 endereços estão livres e nenhum setor
+    tem coordenador registrado — o primeiro `caixas dos setores` só cria contas (nada a apagar nem a devolver).
   - **Trava do lote** (`pedirVezDoLote`): o "Sim, criar" grava `google_caixas_dos_setores_inicio` em `activity_log` e só segue
     se não há outro lote mais antigo (menos de 10 min) sem o `google_caixas_dos_setores` de fim correspondente
     (`metadata.inicio`). Dois toques seguidos ou dois administradores com a mesma prévia passam os dois pela assinatura; a
