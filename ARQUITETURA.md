@@ -2705,47 +2705,54 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
 
   **Mudança de rumo (23/10/2026, decisão do responsável): nada de grupo nem de apelido.** Cada endereço — o do setor e o
   profissional de cada pessoa — é uma **conta própria, com caixa privada** (o Workspace for Nonprofits não cobra por
-  usuário). A troca por grupo (`converterEmGrupo`) ficou no repositório, testada, mas **nada a chama** (o bloco de grupo e a
-  chave `CONVERTE_APELIDO_EM_GRUPO` saíram de `lib/whatsapp/autocadastro.ts`). Para os endereços dos setores
-  deixarem de ser apelidos do contato@: comando **`apelidos`** (só administrador; `previaDosApelidos` mostra o que será
-  apagado, só leitura; "Sim, apagar" — botão válido por 15 minutos — chama `apagarApelidosDosSetores`, que relê o que é
-  apelido na hora e apaga SÓ isso: caixa real (contato@), grupo e endereço inexistente nunca são tocados; um item que
-  falha não impede os outros; fica em `activity_log` como `google_apelidos_removidos`). Efeito: e-mail enviado a esses
-  endereços volta com erro até a caixa própria do setor existir; o histórico no contato@ não é apagado. O /correio do
-  Palácio (que lê a caixa dos setores pelo contato@, por etiqueta) deixa de ver esses setores.
+  usuário). A troca por grupo (`converterEmGrupo`) ficou no repositório, testada, mas **nada a chama**.
 
-  **Caixa própria do setor.** `criarCaixaDoSetor` (`lib/google/grupos-regras.ts`, regra pura com `Chamar` injetável)
-  cria um usuário de verdade no endereço do setor (nome = o setor, sobrenome "Cruz Vermelha RJ", senha provisória, troca
-  no primeiro acesso, recuperação pelo e-mail e celular de quem coordena) e **só** se `consultarEndereco` diz `livre`:
-  apelido, caixa real e grupo recusam sem tocar em nada. Quem a aciona: (1) o administrador que aprova o cadastro de
-  alguém com cargo **Coordenador(a)** — além do `nome.sobrenome@`, nasce a caixa do setor, e a senha das duas vai na mesma
-  mensagem de WhatsApp (`textoDaContaCriada`, que numera as caixas); a confirmação (`avisoDaCaixaNaConfirmacao`, só para
-  administrador e cargo de coordenação) diz de antemão se a caixa do setor será criada ou por que não (ainda apelido →
-  mande *apelidos* primeiro); (2) o comando **`caixa do setor: <nome>`** (`criarCaixaDoSetorPeloComando`, só
-  administrador), para quando o endereço ainda era apelido no cadastro: a senha vai ao WhatsApp dos coordenadores
-  registrados em `setor_coordenadores` (sem nenhum, volta ao administrador). Coordenador aprovando a equipe nunca cria
-  caixa de setor. `criarCaixaParaOSetor` nunca lança: a falha vira uma nota no resultado e **não desfaz** a conta
-  pessoal. Cada caixa fica em `google_contas` e em `activity_log` (`google_conta_criada`, `origem`
-  `whatsapp_caixa_do_setor` ou `autocadastro_whatsapp` com `caixa_do_setor`). A senha não é gravada em lugar nenhum.
-  **Ordem para quem tem setor com apelido hoje** (revisão de 23/10/2026): (1) aprovar a coordenação ANTES — a conta
-  pessoal nasce e o número entra em `setor_coordenadores`; a caixa do setor ainda não sai, porque o endereço segue
-  apelido, e o aviso da confirmação diz isso; (2) `apelidos` → "Sim, apagar"; (3) `caixa do setor: <nome>` de cada setor,
-  em seguida, sem pausa. Entre (2) e (3) e-mail enviado ao setor volta com erro (550, sem nova tentativa do remetente),
-  por isso a janela tem de ser de minutos, não de dias — cadastrar a coordenação *depois* de apagar a deixaria de dias.
-  Pontos que a revisão fechou: a pergunta do "Sim, apagar" vai em mensagem própria (a prévia com 7+ setores passa de 1024
-  caracteres e perderia os botões); o comando **exige os dois-pontos e o nome inteiro do setor** (cria conta de verdade;
-  pergunta solta ou pedaço de nome não pode virar criação); `criarCaixaDoSetor` repete o POST até 3 vezes em 409
-  (o Google ainda mostra o apelido por alguns segundos depois de apagado); 404 ao apagar apelido é `nao_era_apelido`, não
-  "removido"; apagar um apelido já marca `caixas_de_email.no_gmail = false` desse endereço (o que a sincronização do
-  /correio faria depois), para o Palácio não oferecer mais um remetente que já não vale; na mensagem de boas-vindas o
-  aviso de apagar a mensagem vem logo depois das senhas (fora das 24 h o modelo da Meta corta em 1000 caracteres);
-  `na_fila` no comando não é dito como "enviada"; e se WhatsApp e e-mail falham, o resultado diz que a senha da caixa do
-  setor também não chegou (sem a senha: o texto vai a todos os administradores).
+  **Caixas dos setores (24/10/2026): um comando só.** Os setores já têm nome e endereço certos; faltava criar a caixa de
+  cada um e ligá-la à coordenação — e fazer isso setor a setor, à mão, não fazia sentido. O comando **`caixas dos
+  setores`** (só administrador; `apelidos` abre o mesmo) faz tudo em dois toques:
+  - `previaDasCaixas` (só leitura) consulta o Google (`planoDasCaixas`: apelido de quem / livre / caixa real / grupo) e mostra,
+    setor por setor, o que será feito; a pergunta "Criar essas caixas?" vai em mensagem própria (a prévia passa de 1024
+    caracteres e perderia os botões). O botão `cx:<s|n>:<minutos>:<assinatura>` vale 15 minutos e leva a **assinatura do
+    plano** (`assinaturaDoPlano`: FNV-1a dos endereços que precisam de caixa e do estado de cada um). Na confirmação
+    (`criarCaixasDosSetoresPeloBotao`) o plano é recalculado: se a assinatura não bate — algo mudou, ou o segundo toque no
+    mesmo botão, quando o plano já é outro — nada é feito.
+  - `criarCaixasDosSetores` (regra pura, `Chamar` injetável) vai setor a setor, em sequência: **apelido** → apaga o apelido
+    e cria a conta logo em seguida (com nova tentativa em 409: o Google ainda mostra o apelido por alguns segundos); se a
+    criação falha, **devolve o apelido** (`restaurarApelido`) e o resultado diz se voltou ou não; **livre** → cria;
+    **caixa real** (contato@) e **grupo** → não mexe. Um setor que falha não impede os outros; depois de `PRAZO_DAS_CAIXAS_MS`
+    (150 s) nenhum setor novo começa (`adiada`: o webhook tem prazo, melhor parar entre um setor e outro). Cada conta
+    nasce com senha aleatória (`gerarSenhaTemporaria`), troca no primeiro acesso, nome = o setor, sobrenome "Cruz
+    Vermelha RJ".
+  - **A caixa nasce sem dono, a menos que já haja coordenador.** Setor com coordenador registrado em `setor_coordenadores`
+    recebe a senha por WhatsApp na hora (`textoDaSenhaDaCaixa`, categoria `conta`); nos outros a senha é **descartada** —
+    ninguém entra na caixa até a coordenação ser aprovada. Nada de senha no texto da resposta (ele vai a quem pediu e pode
+    ser repassado) nem em lugar nenhum do banco. Cada caixa fica em `google_contas` (e-mail = endereço do setor, `setor_id`)
+    e o lote em `activity_log` (`google_caixas_dos_setores`, sem senha). Apagar o apelido já marca
+    `caixas_de_email.no_gmail = false` do endereço (o que a sincronização do /correio faria depois): o Palácio deixa de ver o
+    setor e de oferecê-lo como remetente.
+  - **Ligar à coordenação = a aprovação.** Quando um administrador aprova alguém com cargo **Coordenador(a)**
+    (`executarCriacao` → `darCaixaAoSetor`): endereço livre → a caixa nasce agora; caixa **sem responsável** (`caixaSemDono`:
+    há linha em `google_contas` com o endereço do setor e nenhum coordenador registrado nele) → é **entregue**
+    (`redefinirSenhaDaCaixa`: PATCH com senha nova, troca no primeiro acesso, recuperação = e-mail e celular de quem
+    entra) e a senha vai na mesma mensagem da conta pessoal (`textoDaContaCriada` numera as duas caixas); caixa que já tem
+    responsável, apelido, grupo e o contato@ (que não é nosso) nunca são tocados. A tela de confirmação
+    (`avisoDaCaixaNaConfirmacao`) diz de antemão qual dos casos é, inclusive "senha redefinida". O coordenador é registrado
+    em `setor_coordenadores` ao fim, então um apelido que sobrou é resolvido depois por `caixas dos setores`, que já entrega a
+    senha a ele.
+  - **`caixa do setor: <nome>`** continua como atalho de UM setor (nome inteiro e dois-pontos, porque cria conta de verdade):
+    cria a caixa, ou entrega a que já existe sem dono se o setor já tem coordenador; apelido → manda usar `caixas dos
+    setores`. Sem coordenador registrado, ninguém recebe a senha.
+  - **Ordem de uso:** `caixas dos setores` → "Sim, criar". Depois, cada coordenação se cadastra (link do setor) e um
+    administrador aprova — a caixa é entregue na aprovação. Entre apagar o apelido e a conta nascer passam segundos, não
+    horas, porque é um passo só.
+
+  Pontos que a revisão independente fechou antes de ir ao ar: 404 ao apagar apelido é `nao_era_apelido`, não "removido";
+  na mensagem de boas-vindas o aviso de apagar a mensagem vem logo depois das senhas (fora das 24 h o modelo da Meta corta em
+  1000 caracteres); `na_fila` não é dito como "enviada"; se WhatsApp e e-mail falham, o resultado diz que a senha da caixa
+  do setor também não chegou (sem a senha: o texto vai a todos os administradores); "caixa do setor" exige os dois-pontos.
   **Fica para depois (conhecido):** nada revoga `setor_coordenadores` (não há comando; `revogado_em` existe, sem UI) nem
-  olha `equipe_membros.situacao`: quem sai da equipe segue aprovando e recebendo a senha de uma caixa nova; a tela de
-  criar conta por link e a ajuda (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao grupo do setor"; o botão
-  "Sim, apagar" vale por tempo, não por lista (relê o que é apelido na hora e apaga isso, que pode incluir um apelido
-  surgido depois da prévia).
+  olha `equipe_membros.situacao`: quem sai da equipe segue aprovando; a tela de criar conta por link e a ajuda
+  (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao grupo do setor".
 - **“Não fui eu” (18/10/2026)** (`lib/whatsapp/protecao.ts`): o aviso de segurança de algo que a própria
   pessoa faria (`ofereceNaoFuiEu`: acesso de aparelho ou país novo, entrada bloqueada, senha trocada por
   ela ou pelo link, verificação mexida por ela, e-mail trocado, e `AVISO_AO_NUMERO_ANTIGO`) leva

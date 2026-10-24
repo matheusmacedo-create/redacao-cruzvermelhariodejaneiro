@@ -394,45 +394,74 @@ export function textoDaContaCriada(p: { nome: string; email: string; senha: stri
 /** Se o WhatsApp falhar, o mesmo conteúdo vai ao e-mail pessoal (lib/google/contas-emails.ts), sem duplicar a senha em dois canais. */
 export const TEXTO_DA_SENHA_NO_WHATSAPP = 'A senha provisória foi enviada ao WhatsApp da pessoa.'
 
-// ------------------------------------------------------------------ "apelidos": apagar os apelidos dos setores
+// ------------------------------------------------------------------ "caixas dos setores": a caixa própria de todos os setores de uma vez
 
-/** O id do botão carrega a hora (minutos, base 36): o botão de uma prévia antiga não apaga nada depois de 15 minutos. */
-export const VALIDADE_DO_BOTAO_DE_APELIDOS_MIN = 15
-export const idDoBotaoDeApelidos = (acao: 'sim' | 'nao', agora = Date.now()) => `ap:${acao === 'sim' ? 's' : 'n'}:${Math.floor(agora / 60_000).toString(36)}`
+/** "caixas dos setores" (e "apelidos", como era chamado antes: agora é a mesma operação, num passo só). */
+export const ehPedidoDeCaixas = (textoNormalizado: string) => /^(criar )?(as )?caixas dos setores$|^apelidos( dos setores)?$/.test(textoNormalizado)
 
-export function lerBotaoDeApelidos(texto: string, agora = Date.now()): { acao: 'sim' | 'nao'; vencido: boolean } | null {
-  const m = texto.trim().match(/^ap:([sn]):([0-9a-z]{4,8})$/)
+/** O id do botão carrega a hora (minutos, base 36) e a impressão do plano: botão velho, ou de uma prévia que já não vale, não faz nada. */
+export const VALIDADE_DO_BOTAO_DE_CAIXAS_MIN = 15
+export const idDoBotaoDeCaixas = (acao: 'sim' | 'nao', assinatura: string, agora = Date.now()) => `cx:${acao === 'sim' ? 's' : 'n'}:${Math.floor(agora / 60_000).toString(36)}:${assinatura}`
+
+export function lerBotaoDeCaixas(texto: string, agora = Date.now()): { acao: 'sim' | 'nao'; vencido: boolean; assinatura: string } | null {
+  const m = texto.trim().match(/^cx:([sn]):([0-9a-z]{4,8}):([0-9a-z]{1,8})$/)
   if (!m) return null
   const minutos = parseInt(m[2], 36)
-  const vencido = !Number.isFinite(minutos) || Math.floor(agora / 60_000) - minutos > VALIDADE_DO_BOTAO_DE_APELIDOS_MIN || minutos > Math.floor(agora / 60_000) + 1
-  return { acao: m[1] === 's' ? 'sim' : 'nao', vencido }
+  const vencido = !Number.isFinite(minutos) || Math.floor(agora / 60_000) - minutos > VALIDADE_DO_BOTAO_DE_CAIXAS_MIN || minutos > Math.floor(agora / 60_000) + 1
+  return { acao: m[1] === 's' ? 'sim' : 'nao', vencido, assinatura: m[3] }
 }
 
-export const BOTOES_DE_APELIDOS = (agora = Date.now()): Interativo => ({
-  tipo: 'botoes', botoes: [{ id: idDoBotaoDeApelidos('sim', agora), titulo: 'Sim, apagar' }, { id: idDoBotaoDeApelidos('nao', agora), titulo: 'Não' }],
+export const BOTOES_DE_CAIXAS = (assinatura: string, agora = Date.now()): Interativo => ({
+  tipo: 'botoes', botoes: [{ id: idDoBotaoDeCaixas('sim', assinatura, agora), titulo: 'Sim, criar' }, { id: idDoBotaoDeCaixas('nao', assinatura, agora), titulo: 'Não' }],
 })
+/** A pergunta do botão vai em mensagem própria: a prévia, com muitos setores, passa de 1024 caracteres e perderia os botões. */
+export const PERGUNTA_DAS_CAIXAS = 'Criar essas caixas?'
 
-export function textoDaPreviaDosApelidos(apelidos: { nome: string; endereco: string; dono: string }[]): string {
-  if (!apelidos.length) return 'Nenhum endereço de setor é apelido: não há o que apagar. ✓'
+type SetorNoPlano = { nome: string; endereco: string; estado: 'apelido' | 'livre' | 'caixa_real' | 'grupo'; dono?: string }
+
+/** `comCoordenador`: os endereços (minúsculos) dos setores que já têm coordenador(a) registrado(a). */
+export function textoDaPreviaDasCaixas(plano: SetorNoPlano[], comCoordenador: Set<string> = new Set()): string {
+  const criar = plano.filter((p) => p.estado === 'apelido' || p.estado === 'livre')
+  const jaTem = plano.filter((p) => p.estado === 'caixa_real')
+  const grupos = plano.filter((p) => p.estado === 'grupo')
+  const restante = [
+    jaTem.length ? `Já têm caixa (não mexo): ${jaTem.map((p) => p.nome).join(', ')}.` : '',
+    grupos.length ? `São grupo do Google (não mexo): ${grupos.map((p) => p.nome).join(', ')}.` : '',
+  ].filter(Boolean)
+  if (!criar.length) return ['Nenhum setor precisa de caixa nova: todos os endereços já têm caixa. ✓', ...restante].join('\n\n')
   return [
-    `Vou *apagar ${apelidos.length} apelido${apelidos.length === 1 ? '' : 's'}* de setor no Google:`,
-    apelidos.map((a) => `• ${a.nome}: ${a.endereco} (apelido de ${a.dono})`).join('\n'),
-    '*O que muda:* e-mails enviados a esses endereços passam a *voltar com erro* até a caixa própria de cada setor ser criada (logo depois de apagar, mande *caixa do setor: <nome>* para cada setor; se a coordenação ainda não foi aprovada, aprove antes). As caixas desses setores também deixam de aparecer no /correio e no /email do Palácio. O que já está no histórico do contato@ *não é apagado*. O Atendimento (contato@) não é tocado. Não dá para desfazer pelo Palácio.',
+    `Vou criar a *caixa própria* de ${criar.length} setor${criar.length === 1 ? '' : 'es'} (conta de verdade, caixa privada):`,
+    criar.map((p) => `• ${p.nome}: ${p.endereco}${p.estado === 'apelido' ? ` _(hoje apelido de ${p.dono}: o apelido é apagado e a caixa nasce em seguida)_` : ''}${comCoordenador.has(p.endereco.toLowerCase()) ? ' — já tem coordenador(a): recebe a senha agora' : ''}`).join('\n'),
+    ...restante,
+    '*Quem recebe a senha:* setor com coordenador(a) já registrado(a) recebe por WhatsApp agora. Nos outros ninguém recebe senha: a caixa fica pronta e *sem dono* (ninguém entra nela) até a coordenação do setor ser aprovada — nesse momento ela é entregue à pessoa, com senha nova por WhatsApp.',
+    '*O que muda:* o e-mail enviado a um setor que hoje é apelido passa a cair na caixa nova (o que já chegou continua no contato@, que não é tocado). Esses setores deixam de aparecer no /correio e no /email do Palácio. Se uma caixa não puder ser criada, o apelido volta ao lugar.',
   ].join('\n\n')
 }
 
-/** A pergunta do botão vai em mensagem própria: a prévia, com muitos setores, passa de 1024 caracteres e perderia os botões. */
-export const PERGUNTA_DOS_APELIDOS = 'Apagar esses apelidos?'
+/** A mensagem com a senha da caixa de um setor para quem a coordena (a única cópia: sai uma vez e não é gravada). */
+export const textoDaSenhaDaCaixa = (p: { setor: string; email: string; senha: string }) => [
+  `A caixa do setor *${p.setor}* está pronta: *${p.email}* (conta própria, caixa privada).`,
+  `*Senha provisória:*\n${p.senha}`,
+  'No Gmail: foto → *Adicionar outra conta* → esse endereço e essa senha. O Google pede uma senha nova na hora. Depois de trocar, apague esta mensagem.',
+].join('\n\n')
 
-export function textoDoResultadoDosApelidos(r: { nome: string; endereco: string; resultado: 'removido' | 'nao_era_apelido' | 'falhou'; motivo?: string }[]): string {
-  const ok = r.filter((x) => x.resultado === 'removido')
+export type EntregaDaCaixa = 'enviada' | 'na_fila' | 'falhou' | 'sem_coordenador'
+
+export function textoDoResultadoDasCaixas(r: { nome: string; endereco: string; resultado: 'criada' | 'ja_existe' | 'e_grupo' | 'falhou' | 'adiada'; apelidoApagado?: boolean; apelidoDevolvido?: boolean; motivo?: string; entrega?: EntregaDaCaixa }[]): string {
+  const criadas = r.filter((x) => x.resultado === 'criada')
   const falhou = r.filter((x) => x.resultado === 'falhou')
-  const jaNao = r.filter((x) => x.resultado === 'nao_era_apelido')
+  const adiadas = r.filter((x) => x.resultado === 'adiada')
+  const jaTem = r.filter((x) => x.resultado === 'ja_existe')
+  const grupos = r.filter((x) => x.resultado === 'e_grupo')
+  const destino = (e?: EntregaDaCaixa) => e === 'enviada' ? 'senha enviada à coordenação' : e === 'na_fila' ? 'senha na fila do WhatsApp da coordenação' : e === 'falhou' ? '⚠️ a senha NÃO chegou à coordenação: redefina no Admin do Google' : 'sem dono, aguardando a coordenação'
+  const semDono = criadas.some((x) => x.entrega === 'sem_coordenador' || x.entrega === undefined)
   return [
-    ok.length ? `✅ Apelidos apagados (${ok.length}):\n${ok.map((x) => `• ${x.nome}: ${x.endereco}`).join('\n')}` : 'Nenhum apelido foi apagado.',
-    falhou.length ? `❌ Não consegui apagar (${falhou.length}):\n${falhou.map((x) => `• ${x.nome}: ${x.endereco} — ${x.motivo ?? 'erro'}`).join('\n')}` : '',
-    jaNao.length ? `Já não eram apelido (${jaNao.length}): ${jaNao.map((x) => x.nome).join(', ')}.` : '',
-    ok.length ? 'Próximo passo, agora e um setor por vez (até a caixa existir, e-mail enviado ao setor volta com erro): mande *caixa do setor: <nome>*. Se a coordenação já está cadastrada, a senha vai para ela; se não, volta para você. Não peça novo cadastro a quem já se cadastrou.' : '',
+    criadas.length ? `✅ Caixas criadas (${criadas.length}):\n${criadas.map((x) => `• ${x.nome}: ${x.endereco} — ${destino(x.entrega)}`).join('\n')}` : 'Nenhuma caixa foi criada.',
+    falhou.length ? `❌ Não consegui (${falhou.length}):\n${falhou.map((x) => `• ${x.nome}: ${x.endereco} — ${x.motivo ?? 'erro'}${x.apelidoApagado ? (x.apelidoDevolvido ? ' (o apelido voltou ao lugar)' : ' ⚠️ o apelido foi apagado e NÃO voltou: o endereço está sem destino. Restaure o apelido no Admin do Google ou mande *caixas dos setores* de novo') : ''}`).join('\n')}` : '',
+    adiadas.length ? `⏳ Não deu tempo de começar (${adiadas.length}): ${adiadas.map((x) => x.nome).join(', ')}. Mande *caixas dos setores* de novo para continuar.` : '',
+    jaTem.length ? `Já tinham caixa (${jaTem.length}): ${jaTem.map((x) => x.nome).join(', ')}.` : '',
+    grupos.length ? `São grupo do Google (${grupos.length}): ${grupos.map((x) => x.nome).join(', ')}.` : '',
+    semDono ? 'Próximo passo: a coordenação de cada setor se cadastra (link do setor) e um administrador aprova — na aprovação a caixa é entregue a ela, com senha nova por WhatsApp. Não precisa criar nada à mão.' : '',
   ].filter(Boolean).join('\n\n')
 }
 
