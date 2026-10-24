@@ -26,10 +26,14 @@ const contem = (texto: string, trecho: string, caso: string) => { if (!String(te
 
 type Grupo = { membros: Map<string, string>; config: Record<string, unknown> | null }
 /** `lancar`: a chamada estoura (timeout, queda de rede) em vez de responder. `aplicar`: o Google faz a mudança E ENTÃO a resposta se perde. */
-type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number; mensagem?: string; reason?: string; lancar?: boolean; aplicar?: boolean }
+type Falha = { quando: (api: string, metodo: string, caminho: string) => boolean; status: number; vezes?: number; mensagem?: string; reason?: string; lancar?: boolean; aplicar?: boolean; aposAplicar?: () => void }
 
 function novoGoogle() {
   const usuarios = new Map<string, { principal: string; apelidos: Set<string>; ultimoAcesso?: string }>()
+  // Leitura atrasada: GET /users/<endereço> devolve `resposta` mais `n` vezes, mesmo depois de a mudança ter sido aplicada.
+  const leiturasVelhas = new Map<string, { n: number; resposta: () => Resposta }>()
+  // Endereços para os quais o Google recusa a criação com 400 (dado inválido só deste setor).
+  const recusaCriar = new Set<string>()
   const grupos = new Map<string, Grupo>()
   const falhasPlanejadas: Falha[] = []
   const chamadas: string[] = []
@@ -48,7 +52,7 @@ function novoGoogle() {
     const f = falhasPlanejadas.find((x) => x.quando(api, metodo, caminho) && (x.vezes ?? 1) > 0)
     if (f) {
       f.vezes = (f.vezes ?? 1) - 1
-      if (f.aplicar) await executar(api, caminho, init)
+      if (f.aplicar) { await executar(api, caminho, init); f.aposAplicar?.() }
       if (f.lancar) throw new Error(f.mensagem ?? 'The operation was aborted due to timeout')
       return erro(f.status, f.mensagem, f.reason)
     }
@@ -72,6 +76,7 @@ function novoGoogle() {
     }
     if (caminho === '/users' && metodo === 'POST') {
       const e = corpo.primaryEmail
+      if (recusaCriar.has(e)) return erro(400, 'Invalid Given Name')
       if (donoDe(e) || grupos.has(e)) return erro(409, 'Entity already exists.')
       usuarios.set(e, { principal: e, apelidos: new Set() })
       return ok({ id: 'u1', primaryEmail: e })
@@ -93,6 +98,8 @@ function novoGoogle() {
     }
     if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'PATCH') return usuarios.has(dec(m[1])) ? ok() : erro(404)
     if ((m = caminho.match(/^\/users\/([^/]+)$/)) && metodo === 'GET') {
+      const velha = leiturasVelhas.get(dec(m[1]))
+      if (velha && velha.n > 0) { velha.n--; return velha.resposta() }
       const u = donoDe(dec(m[1]))
       return u ? ok({ primaryEmail: u.principal, lastLoginTime: u.ultimoAcesso ?? '1970-01-01T00:00:00.000Z' }) : erro(404)
     }
@@ -132,6 +139,9 @@ function novoGoogle() {
     chamar, usuarios, grupos, falhasPlanejadas, chamadas, corposEnviados,
     comApelido: (dono: string, apelido: string) => { const u = usuarios.get(dono) ?? { principal: dono, apelidos: new Set<string>() }; u.apelidos.add(apelido); usuarios.set(dono, u) },
     comCaixa: (e: string) => usuarios.set(e, { principal: e, apelidos: new Set() }),
+    leituraVelha: (endereco: string, n: number, resposta: () => Resposta) => { leiturasVelhas.set(endereco, { n, resposta }) },
+    recusaCriar,
+    respostas: { ok, erro },
     comAcesso: (e: string, quando: string) => { const u = usuarios.get(e); if (u) u.ultimoAcesso = quando },
     demoraNasConfiguracoes: (n: number) => { configuracoesQueNaoAchamAinda = n },
     demoraNaCriacaoDoGrupo: (n: number) => { demoraNaCriacao = n },
@@ -617,15 +627,74 @@ async function main() {
     igual(rdn[0].resultado, 'falhou', 'caixas: DELETE que estoura sem aplicar → falhou')
     contem(rdn[0].motivo ?? '', 'continua como estava', 'caixas: confirmado que ainda é apelido → "continua como estava"')
     igual(dn.chamadas.some((c) => c === 'POST diretorio:/users'), false, 'caixas: apelido que não saiu → nem tenta criar a conta')
-    // o DELETE estoura e nem a reconsulta responde: o resultado diz que NÃO SABE
-    const du = mundo()
-    du.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 1 })
-    du.falhasPlanejadas.push({ quando: (a, m, c) => m === 'GET' && c === `/users/${encodeURIComponent(APELIDO_TI)}`, status: 0, lancar: true, vezes: 99 })
-    // (a prévia da própria função também lê o endereço: para o teste isolar o DELETE, a leitura só quebra depois dele)
-    du.falhasPlanejadas[1].quando = ((conta) => (a: string, m: string, c: string) => { if (m === 'GET' && c === `/users/${encodeURIComponent(APELIDO_TI)}`) { conta.n++; return conta.n > 2 } return false })({ n: 0 })
-    const rdu = await criarCaixasDosSetores(du.chamar, so('TI'), { espera: semEspera })
+    // o DELETE estoura e nem a lista do dono nem a releitura respondem: o resultado diz que NÃO SABE — e o lote PARA
+    const semResposta = () => {
+      const g2 = mundo()
+      g2.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 1 })
+      g2.falhasPlanejadas.push({ quando: (a, m, c) => m === 'GET' && c.endsWith('/aliases'), status: 0, lancar: true, vezes: 99 })
+      // a leitura de GET /users/ti só quebra a partir da TERCEIRA vez (a prévia e a conferência de removerApelidos ainda respondem)
+      let leituras = 0
+      g2.falhasPlanejadas.push({ quando: (a, m, c) => { if (m === 'GET' && c === `/users/${encodeURIComponent(APELIDO_TI)}`) { leituras++; return leituras > 2 } return false }, status: 0, lancar: true, vezes: 99 })
+      return g2
+    }
+    const du = semResposta()
+    const itemTI = comSenha.filter((i) => i.nome === 'TI')
+    const rdu = await criarCaixasDosSetores(du.chamar, itemTI, { espera: semEspera })
     igual(rdu[0].resultado === 'falhou' && rdu[0].incerto === true, true, 'caixas: não sei como o endereço ficou → falhou com incerto, nunca "continua como estava"')
     contem(rdu[0].motivo ?? '', 'não consegui conferir', 'caixas: o motivo diz que não deu para conferir')
+    const du2 = semResposta()
+    const rdu2 = await criarCaixasDosSetores(du2.chamar, [...itemTI, ...comSenha.filter((i) => i.nome === 'Comunicação')], { espera: semEspera })
+    igual(rdu2.map((x) => x.resultado), ['falhou', 'adiada'], 'caixas: resultado incerto → o lote PARA e o apelido do setor seguinte não é apagado')
+    igual(du2.chamadas.filter((c) => c.startsWith('DELETE')).length, 1, 'caixas: incerto → só um DELETE saiu')
+
+    // DELETE aplicado + resposta perdida + LEITURA ATRASADA (GET /users ainda mostra o apelido): a lista do dono é a palavra final
+    const e1 = mundo()
+    e1.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 1, aposAplicar: () => e1.leituraVelha(APELIDO_TI, 2, () => e1.respostas.ok({ primaryEmail: CONTATO, lastLoginTime: '1970-01-01T00:00:00.000Z' })) })
+    const re1 = await criarCaixasDosSetores(e1.chamar, so('TI'), { espera: semEspera })
+    igual(re1[0].resultado === 'criada' && re1[0].apelidoApagado === true, true, 'caixas: DELETE aplicado + leitura atrasada → pela lista do dono vê que saiu e cria a caixa')
+    // o mesmo em quatro setores: nenhum "continua como estava" falso, nenhum apelido perdido sem caixa
+    const e3 = mundo()
+    for (const nome of ['juridico', 'esportes2', 'gestao']) e3.comApelido(CONTATO, `${nome}@cruzvermelhariodejaneiro.org`)
+    e3.falhasPlanejadas.push({ quando: (a, m) => m === 'DELETE', status: 0, lancar: true, aplicar: true, vezes: 99, aposAplicar: () => { for (const t of ['ti', 'comunicacao', 'juridico', 'esportes2', 'gestao']) e3.leituraVelha(`${t}@cruzvermelhariodejaneiro.org`, 1, () => e3.respostas.ok({ primaryEmail: CONTATO, lastLoginTime: '1970-01-01T00:00:00.000Z' })) } })
+    const re3 = await criarCaixasDosSetores(e3.chamar, ['ti', 'comunicacao', 'juridico', 'esportes2', 'gestao'].map((t) => ({ nome: t, endereco: `${t}@cruzvermelhariodejaneiro.org`, senha: 'x' })), { espera: semEspera })
+    igual(re3.map((x) => x.resultado), ['criada', 'criada', 'criada', 'criada', 'criada'], 'caixas: DELETE perdido + leitura atrasada em vários setores → todas as caixas nascem')
+    igual(re3.some((x) => /continua como estava/.test(x.motivo ?? '')), false, 'caixas: nenhum "continua como estava" falso')
+    // POST aplicado + resposta perdida + leitura atrasada: a conta existe — não é "apelido NÃO voltou"
+    const e2 = mundo()
+    e2.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 0, lancar: true, aplicar: true, vezes: 1, aposAplicar: () => e2.leituraVelha(APELIDO_TI, 1, () => e2.respostas.erro(404)) })
+    const re2 = await criarCaixasDosSetores(e2.chamar, so('TI'), { espera: semEspera })
+    igual(re2[0].resultado, 'criada', 'caixas: POST aplicado + resposta perdida + leitura atrasada → relê e conta como criada')
+    igual(e2.chamadas.some((c) => c.startsWith('POST') && c.includes('/aliases')), false, 'caixas: ... e não tenta devolver o apelido por cima da conta')
+    // 4xx definitivo NÃO é "em dúvida": nada nasceu, a conta que apareça depois não é nossa
+    const e4xx = mundo()
+    e4xx.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 403, mensagem: 'Not Authorized', vezes: 99 })
+    const re4xx = await criarCaixasDosSetores(e4xx.chamar, so('TI'), { espera: semEspera })
+    igual(re4xx[0].resultado === 'falhou' && re4xx[0].apelidoDevolvido === true, true, 'caixas: 403 definitivo → falhou e o apelido voltou (sem inferir "criada")')
+    // 4xx definitivo com uma conta que apareceu por OUTRO caminho: não é "criada por nós" (a senha entregue não seria a dela)
+    const e4xxa = mundo()
+    e4xxa.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 403, mensagem: 'Not Authorized', vezes: 99, aplicar: true })
+    const re4xxa = await criarCaixasDosSetores(e4xxa.chamar, so('TI'), { espera: semEspera })
+    igual(re4xxa[0].resultado, 'falhou', 'caixas: 403 definitivo + conta que apareceu por outro caminho → NÃO conta como criada por nós')
+    // a restauração que falha PARA o lote: só o primeiro setor serve de canário destrutivo
+    const e5 = mundo()
+    e5.comApelido(CONTATO, 'juridico@cruzvermelhariodejaneiro.org')
+    e5.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 500, mensagem: 'Internal error', vezes: 99 })
+    e5.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c.endsWith('/aliases'), status: 500, mensagem: 'Backend error', vezes: 99 })
+    const re5 = await criarCaixasDosSetores(e5.chamar, [...so('TI', 'Comunicação'), { nome: 'Jurídico', endereco: 'juridico@cruzvermelhariodejaneiro.org', senha: 'x' }], { espera: semEspera })
+    igual(re5.map((x) => x.resultado), ['falhou', 'adiada', 'adiada'], 'caixas: apelido que não voltou → o lote para (só um endereço fica sem destino)')
+    contem(re5[1].motivo ?? '', 'não voltou', 'caixas: o adiado diz que parou porque um apelido não voltou')
+    igual(e5.chamadas.filter((c) => c.startsWith('DELETE')).length, 1, 'caixas: apelido que não voltou → só um DELETE saiu')
+    // dois setores livres com dado inválido (400) não travam os apelidos saudáveis
+    const e4 = mundo()
+    e4.recusaCriar.add('l1@cruzvermelhariodejaneiro.org')
+    e4.recusaCriar.add('l2@cruzvermelhariodejaneiro.org')
+    const re4 = await criarCaixasDosSetores(e4.chamar, [{ nome: 'L1', endereco: 'l1@cruzvermelhariodejaneiro.org', senha: 'x' }, { nome: 'L2', endereco: 'l2@cruzvermelhariodejaneiro.org', senha: 'x' }, ...so('TI', 'Comunicação')], { espera: semEspera })
+    igual(re4.map((x) => x.resultado), ['falhou', 'falhou', 'criada', 'criada'], 'caixas: dois setores com dado inválido (400) não impedem os apelidos saudáveis')
+    // "Rate Limit Exceeded" (403) não é "limite de usuários"
+    const rl = novoGoogle()
+    rl.falhasPlanejadas.push({ quando: (a, m, c) => m === 'POST' && c === '/users', status: 403, mensagem: 'Rate Limit Exceeded', vezes: 99 })
+    const erroRl = await tenta(() => criarCaixaDoSetor(rl.chamar, { endereco: 'novo@x.org', nome: 'Novo', senha: 'x', semConsulta: true, espera: semEspera }))
+    igual(erroRl instanceof ErroDeGrupo && !/limite de usu/i.test(erroRl.message), true, 'caixa do setor: cota transitória (Rate Limit Exceeded) não vira "limite de usuários do Workspace"')
 
     // o POST estoura DEPOIS de o Google criar a conta: reconsulta e conta como criada
     const pc = mundo()
