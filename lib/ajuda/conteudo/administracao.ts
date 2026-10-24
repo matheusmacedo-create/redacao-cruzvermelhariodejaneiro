@@ -1411,7 +1411,7 @@ const VOZ: GuiaDaArea = {
       'A administração guarda a chave da ElevenLabs no cartão “ElevenLabs (voz da instituição)”, em Integrações.',
       'Nesta aba, escolhe a voz, ouve a amostra em português e marca “Narrar as matérias do site”.',
       'A Carla publica a matéria da campanha de inverno. A página sai com o “Ouça esta matéria” logo abaixo do título.',
-      'Quem lê pelo celular no ônibus toca no play e ouve a matéria inteira.',
+      'Quem lê pelo celular no ônibus toca no play e ouve a matéria inteira; quem tem pressa toca em “1,5×” ou “2×” para acelerar.',
     ],
     resultado: 'A matéria chega também a quem enxerga mal, a quem lê com dificuldade e a quem está com as mãos ocupadas.',
   },
