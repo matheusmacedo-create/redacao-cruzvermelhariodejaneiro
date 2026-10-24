@@ -2929,7 +2929,8 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   categoria `equipe`. A rotina diária lembra (2 dias, no máximo 2 vezes) trocando o token.
 - **Fila, silêncio e volume** (`lib/whatsapp/fila.ts`, tabela `whatsapp_fila`): toda mensagem sai por
   `entregar()`. Aviso comum entre 22h e 7h (São Paulo) espera e sai às 7h (portaria, segurança da
-  conta, código, bot e teste saem na hora). No máximo 12 mensagens por minuto no espaço, 3 s entre
+  conta, código, bot, teste e **conta nova** — categoria `conta`: e-mail e senha provisória de quem acabou de ser
+  aprovado, decisão de 24/10/2026 — saem na hora, de madrugada também). No máximo 12 mensagens por minuto no espaço, 3 s entre
   uma e outra, e 40 avisos por pessoa em 24 h. Falha por Kapso fora (rede, 5xx, chave, número)
   volta para a fila com espera de 5 min a 12 h; tempo esgotado não é repetido (pode ter saído). A
   fila anda quando chega mensagem (webhook), a cada aviso novo, na rotina diária

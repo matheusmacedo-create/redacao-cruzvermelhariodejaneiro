@@ -426,6 +426,7 @@ igual(fimDoSilencio(new Date('2026-09-28T05:00:00Z')).toISOString(), '2026-09-28
 igual(fimDoSilencio(new Date('2026-09-30T02:30:00Z')).toISOString(), '2026-09-30T10:00:00.000Z', 'virada de mês')
 igual(silencioSeAplica({ tipo: 'aviso', categoria: 'chat' }), true, 'aviso comum espera')
 igual(silencioSeAplica({ tipo: 'aviso', categoria: 'portaria' }), false, 'portaria sai na hora')
+igual(silencioSeAplica({ tipo: 'aviso', categoria: 'conta' }), false, 'conta nova (senha provisória) sai na hora, de madrugada também')
 igual(silencioSeAplica({ tipo: 'seguranca' }), false, 'segurança sai na hora')
 igual(silencioSeAplica({ tipo: 'bot' }), false, 'resposta do bot sai na hora')
 igual(proximaTentativa(1, new Date('2026-09-28T12:00:00Z'))?.toISOString(), '2026-09-28T12:05:00.000Z', '1ª espera 5 min')

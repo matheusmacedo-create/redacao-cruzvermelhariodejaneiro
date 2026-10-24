@@ -302,11 +302,14 @@ export function fimDoSilencio(agora: Date): Date {
 
 /**
  * O silêncio vale para os avisos comuns. Não vale para o que a pessoa acabou
- * de pedir (código, resposta do bot, teste), para a segurança da conta e para
- * a portaria (a visita está na porta agora).
+ * de pedir (código, resposta do bot, teste), para a segurança da conta, para
+ * a portaria (a visita está na porta agora) e para a conta nova (categoria
+ * "conta": e-mail e senha provisória de quem acabou de ser aprovado, decisão do
+ * responsável em 24/10/2026 — senha parada na fila até as 7h é pior que chegar
+ * à noite).
  */
 export function silencioSeAplica(p: { tipo: Finalidade; categoria?: string | null }): boolean {
-  return p.tipo === 'aviso' && p.categoria !== 'portaria'
+  return p.tipo === 'aviso' && p.categoria !== 'portaria' && p.categoria !== 'conta'
 }
 
 /** Por que um envio falhou, para decidir se vale tentar de novo. */
