@@ -33,7 +33,7 @@ import {
 import { lerHodometro, pedidoDeRetorno, pedidoDeSaida } from '../lib/patrimonio/frota'
 import { CATEGORIAS, ROTULO_DA_CATEGORIA } from '../lib/notificacoes/regras'
 import {
-  ALERTA_DE_INTEGRACAO_A_CADA_HORAS, INTEGRACOES_ALERTADAS, alertaDeIntegracaoSai, motivoDaFalhaDoEmail, motivoDaFalhaDoR2, textoDoAlertaDeIntegracao,
+  ALERTA_DE_INTEGRACAO_A_CADA_HORAS, INTEGRACOES_ALERTADAS, alertaDeIntegracaoSai, alertasResolvidosPelaConexao, integracaoDoTitulo, motivoDaFalhaDoEmail, motivoDaFalhaDoR2, textoDoAlertaDeIntegracao,
 } from '../lib/integracoes/alertas-regras'
 import { lerRespostaDaVisita, respostaClaraDaVisita } from '../lib/portaria/regras'
 import { interativoDaFicha, lerBotaoDaFicha, modeloDaFichaForaDaJanela, montagemDaFicha as montagemDaFichaReal, textoDaFicha, type FichaDaVisita } from '../lib/whatsapp/portaria-regras'
@@ -1015,6 +1015,20 @@ igual(alertaDeIntegracaoSai({ ultimoAlertaEm: null, agora: agoraDaIntegracao }),
 igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T10:00:00Z', agora: agoraDaIntegracao }), false, 'integrações: outro em menos de 6 h não sai')
 igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T06:00:00Z', agora: agoraDaIntegracao }), true, 'integrações: 6 h depois, sai de novo')
 igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2099-01-01T00:00:00Z', agora: agoraDaIntegracao }), true, 'integrações: marco com data futura não cala o alerta')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T10:00:00Z', normalizadaEm: '2026-10-18T10:30:00Z', agora: agoraDaIntegracao }), true, 'integrações: normalizada depois do alerta, a falha nova avisa na hora')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T10:30:00Z', normalizadaEm: '2026-10-18T10:00:00Z', agora: agoraDaIntegracao }), false, 'integrações: normalizada ANTES do alerta não reabre a janela')
+igual(alertaDeIntegracaoSai({ ultimoAlertaEm: '2026-10-18T10:00:00Z', normalizadaEm: '2099-01-01T00:00:00Z', agora: agoraDaIntegracao }), false, 'integrações: normalizada com data futura não vale')
+{
+  const gmail = alertasResolvidosPelaConexao('gmail', true)
+  igual(gmail.integracoes, ['google_gmail', 'google_oauth'], 'reconexão do Gmail resolve a autorização e o cliente OAuth')
+  igual(gmail.titulos.includes('O Google recusou o cliente OAuth'), true, 'título do cliente OAuth recusado na lista')
+  igual(alertasResolvidosPelaConexao('ads', false).integracoes, ['google_ads'], 'Google Ads com cliente próprio não resolve o cliente do Gmail')
+  igual(alertasResolvidosPelaConexao('ads', true).integracoes, ['google_ads', 'google_oauth'], 'Google Ads com o cliente do Gmail resolve os dois')
+  igual(alertasResolvidosPelaConexao('drive', true).titulos.includes(textoDoAlertaDeIntegracao('google_drive', { motivo: 'servico' }).titulo), false, 'reconectar não resolve o Drive sem espaço')
+  igual(integracaoDoTitulo('O Google recusou o cliente OAuth'), 'google_oauth', 'título → integração')
+  igual(integracaoDoTitulo('O Google Drive do Palácio está sem espaço'), 'google_drive', 'título de outra variante → integração')
+  igual(integracaoDoTitulo('Nova aprovação pedida'), null, 'aviso comum não é alerta de integração')
+}
 igual(alertaDeIntegracaoSai({ ultimoAlertaEm: 'lixo', agora: agoraDaIntegracao }), true, 'integrações: marco ilegível não cala o alerta')
 igual([401, 403, 500, 503, 0, 422, 400].map((s) => motivoDaFalhaDoEmail(s)), ['chave', 'chave', 'servico', 'servico', 'servico', null, null], 'integrações: as falhas do Resend que alertam')
 igual(motivoDaFalhaDoEmail(429, 'You have reached your daily email sending quota.'), 'servico', 'integrações: Resend sem cota no plano alerta')
