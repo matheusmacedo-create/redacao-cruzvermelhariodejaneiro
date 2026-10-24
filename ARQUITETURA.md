@@ -3518,8 +3518,13 @@ aplicá-la e nada muda: a matéria sai sem áudio e o WhatsApp responde só por 
   como sempre, e logo depois a mesma resposta falada (`responderEmAudio`, passado ao turno como
   `emAudio` pelo `bot.ts`). Só a resposta comum do modelo, inteira numa mensagem: plano, pergunta,
   recibo, link de confirmação e texto fixo nunca. O texto falado sai sem link, marcação nem emoji
-  (`textoParaFalarNoWhatsapp`), e não sai se tiver menos de 20 ou mais de 700 caracteres ou for
-  quase só número (código, protocolo). Pede Opus à ElevenLabs e confere `OggS` nos primeiros
+  (`textoParaFalarNoWhatsapp`), não sai abaixo de 60 caracteres nem se for quase só número (código,
+  protocolo), e é **só o começo** da resposta: até 350 caracteres, em fim de frase, com “O restante está
+  na mensagem escrita.” (`encurtarParaFalar`). No WhatsApp o modelo é sempre o `eleven_flash_v2_5`
+  (`MODELO_DO_WHATSAPP`: metade do crédito, mais rápido; a matéria fica no de narração), e há teto de
+  15 áudios por pessoa e 150 no espaço por dia, contados em `whatsapp_mensagens` (`comando = 'voz'`)
+  desde a meia-noite de Brasília (`audioNoTeto`; sem conseguir contar, não manda). Até 24/10/2026
+  lia a resposta inteira, até 700 caracteres, no modelo de narração. Pede Opus à ElevenLabs e confere `OggS` nos primeiros
   bytes: só OGG Opus vira mensagem de voz (`audio.voice: true`); se não vier Ogg, vai MP3 como
   arquivo de áudio. Só dentro da janela de 24 h (modelo não leva áudio), nunca pela fila, com pelo
   menos 12 s sobrando no turno; registrado em `whatsapp_mensagens` com `comando = 'voz'`, sem texto.

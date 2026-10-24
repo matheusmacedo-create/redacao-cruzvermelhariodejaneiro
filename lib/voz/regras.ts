@@ -41,11 +41,33 @@ export const TAMANHO_DO_TRECHO = 2000
 /** Matéria acima disso não é narrada (custo e tempo da publicação); a página sai sem o áudio, com aviso. */
 export const TETO_DA_MATERIA = 30_000
 
-/** Resposta do assistente acima disso não vira áudio: lista longa se lê, não se ouve. */
-export const TETO_DO_WHATSAPP = 700
+/**
+ * O tamanho do que se FALA no WhatsApp. A resposta inteira vai por escrito antes; o áudio lê só o começo, até aqui,
+ * cortado em fim de frase, e avisa que o restante está no texto. Antes (até 24/10/2026) lia a resposta toda, até 700
+ * caracteres: quase o dobro do crédito por resposta para repetir o que já estava escrito.
+ */
+export const TETO_DO_WHATSAPP = 350
 
-/** Abaixo disso não vale um áudio ("Pronto.", "Não achei."). */
-export const MINIMO_DO_WHATSAPP = 20
+/** Abaixo disso não vale um áudio ("Pronto, feito.", "Não achei nada para hoje."): fica só o texto. */
+export const MINIMO_DO_WHATSAPP = 60
+
+/** O fecho do áudio cortado: a pessoa sabe que a resposta continua na mensagem escrita. */
+export const FECHO_DO_AUDIO_CORTADO = 'O restante está na mensagem escrita.'
+
+/**
+ * O modelo da voz no WhatsApp: o Flash gasta metade do crédito por caractere e responde mais rápido. A matéria do site
+ * continua no modelo escolhido em Configurações › Voz (o de narração); a voz é a mesma.
+ */
+export const MODELO_DO_WHATSAPP: ModeloDaVoz = 'eleven_flash_v2_5'
+
+/** Áudios no WhatsApp por dia (desde a meia-noite de Brasília). Batido o teto, a resposta sai só por escrito. */
+export const TETOS_DE_AUDIO_POR_DIA = { pessoa: 15, espaco: 150 } as const
+
+/** O teto do dia já foi batido? `null` numa contagem (não deu para contar) vale como batido: sem conta, sem gasto. */
+export function audioNoTeto(c: { pessoa: number | null; espaco: number | null }): boolean {
+  if (c.pessoa === null || c.espaco === null) return true
+  return c.pessoa >= TETOS_DE_AUDIO_POR_DIA.pessoa || c.espaco >= TETOS_DE_AUDIO_POR_DIA.espaco
+}
 
 const URL_SOLTA = /\bhttps?:\/\/\S+|\bwww\.\S+/gi
 
@@ -111,8 +133,9 @@ export const ehAudioDeNarracao = (nome: string) => /^ouvir-[0-9a-f]{12}\.mp3$/.t
 
 /**
  * A resposta do assistente, pronta para falar: sem link (fica no texto, que vai antes), sem a marcação do WhatsApp
- * (*negrito*, _itálico_, ~riscado~, `código`), sem emoji e sem marcador de lista. null quando não vale um áudio:
- * curta demais, longa demais, ou o que sobra é quase só número (código, protocolo, telefone: isso se lê).
+ * (*negrito*, _itálico_, ~riscado~, `código`), sem emoji e sem marcador de lista, e no máximo TETO_DO_WHATSAPP
+ * caracteres (o começo, em fim de frase, com o fecho). null quando não vale um áudio: curta demais, ou o que sobra é
+ * quase só número (código, protocolo, telefone: isso se lê).
  */
 export function textoParaFalarNoWhatsapp(texto: string): string | null {
   const t = texto
@@ -124,12 +147,27 @@ export function textoParaFalarNoWhatsapp(texto: string): string | null {
     .replace(/[ \t ]+/g, ' ')
     .replace(/\s*\n+\s*/g, '\n')
     .trim()
-  if (t.length < MINIMO_DO_WHATSAPP || t.length > TETO_DO_WHATSAPP) return null
+  if (t.length < MINIMO_DO_WHATSAPP) return null
   const digitos = (t.match(/\d/g) ?? []).length
   const letras = (t.match(/\p{L}/gu) ?? []).length
   if (letras < 15 || digitos > letras) return null
   // Uma linha por parte, com ponto: a voz pausa entre os itens de uma lista em vez de emendar.
-  return t.split('\n').map(arrumar).filter(Boolean).join(' ')
+  return encurtarParaFalar(t.split('\n').map(arrumar).filter(Boolean).join(' '))
+}
+
+/** O começo do texto, até TETO_DO_WHATSAPP, em fim de frase, com o fecho; o texto que já cabe volta como está. */
+export function encurtarParaFalar(texto: string): string {
+  if (texto.length <= TETO_DO_WHATSAPP) return texto
+  const cabe = TETO_DO_WHATSAPP - FECHO_DO_AUDIO_CORTADO.length - 1
+  const frases = texto.match(/[^.!?…]+[.!?…]+["”»)]?\s*/g) ?? []
+  let inicio = ''
+  for (const frase of frases) {
+    if ((inicio + frase).trim().length > cabe) break
+    inicio += frase
+  }
+  // A primeira frase já não cabe: corta no último espaço, com reticências.
+  if (!inicio.trim()) inicio = `${texto.slice(0, texto.lastIndexOf(' ', cabe - 1) > cabe / 2 ? texto.lastIndexOf(' ', cabe - 1) : cabe - 1).trim()}…`
+  return `${inicio.trim()} ${FECHO_DO_AUDIO_CORTADO}`
 }
 
 /** Os primeiros bytes de um arquivo Ogg: só assim ele vai como mensagem de voz (a bolinha com play) no WhatsApp. */
