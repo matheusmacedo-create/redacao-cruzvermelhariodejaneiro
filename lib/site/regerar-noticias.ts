@@ -1,12 +1,13 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { withFtp, enviarArquivo } from '@/lib/publicacao/ftp'
+import { withFtp, enviarArquivo, removerNarracoesAntigas } from '@/lib/publicacao/ftp'
 import { slugValido } from '@/lib/site/slug'
 import { prepararChatDoSite } from '@/lib/site/chat-do-site'
 import { atualizarVitrine, noticiasPublicadas, type NoticiaPublicada } from '@/lib/site/vitrine'
 import { relacionadasPorTema } from '@/lib/site/relacionadas'
-import { vozPara } from '@/lib/voz/elevenlabs'
+import { PRAZO_DA_NARRACAO_MS, vozPara } from '@/lib/voz/elevenlabs'
+import { ehAudioDeNarracao } from '@/lib/voz/regras'
 import {
   COLUNAS_DA_PECA, baseDoSite, gerarPaginaDaMateria, leitorDaBiblioteca, mensagemDaPublicacao, rastreioDaMateria, resumoDoRegistro,
   type PecaNoSite,
@@ -43,6 +44,8 @@ export type ResultadoDaRegeracao = {
   total: number
   /** Regeradas nesta rodada. */
   feitas: number
+  /** Com a narração gerada agora (só com `narrar`). */
+  narradas: number
   /** Vistas nesta rodada (regeradas, puladas ou com falha). */
   vistas: number
   puladas: { titulo: string; motivo: string }[]
@@ -51,6 +54,13 @@ export type ResultadoDaRegeracao = {
   avisos: { titulo: string; aviso: string }[]
   /** O índice, o sitemap e o robots foram refeitos nesta rodada. */
   vitrine?: { feita: boolean; detalhes: string[] }
+  /**
+   * Cada matéria vista nesta rodada, na ordem, com o desfecho: é o que a tela mostra, matéria a matéria, para o
+   * trabalho longo (narrar) não parecer uma tela travada.
+   */
+  itens: { titulo: string; situacao: 'narrada' | 'regerada' | 'pulada' | 'falha' }[]
+  /** O título da próxima matéria da fila, quando se sabe (a tela mostra "agora: …"). */
+  proximoTitulo?: string | null
   /** De onde continuar; ausente quando acabou. */
   proximo?: Continuacao
 }
@@ -66,6 +76,13 @@ export async function regerarNoticias(p: {
   continuacao?: Continuacao
   /** Até quando esta rodada pode começar trabalho novo (o limite da função menos a folga da resposta). */
   tempoMaximoMs: number
+  /**
+   * Gera também a narração (lib/voz) das matérias que ainda não têm — o "narrar as que faltam". Sem isto, a regeração
+   * só mantém o áudio que já está no ar. Exige a voz ligada para as matérias em Configurações › Voz.
+   */
+  narrar?: boolean
+  /** No máximo tantas matérias por rodada (narrando, uma: a tela avança a cada matéria em vez de a cada vários minutos). */
+  maximoPorRodada?: number
 }): Promise<ResultadoDaRegeracao> {
   const inicio = Date.now()
   const noPrazo = (reserva = 0) => Date.now() - inicio + reserva < p.tempoMaximoMs
@@ -77,7 +94,7 @@ export async function regerarNoticias(p: {
   const { count } = await supabase
     .from('content_pieces').select('id', { count: 'exact', head: true })
     .eq('workspace_id', p.workspaceId).not('site_url', 'is', null)
-  const resultado: ResultadoDaRegeracao = { total: count ?? 0, feitas: 0, vistas: 0, puladas: [], falhas: [], avisos: [] }
+  const resultado: ResultadoDaRegeracao = { total: count ?? 0, feitas: 0, narradas: 0, vistas: 0, puladas: [], falhas: [], avisos: [], itens: [] }
 
   let lote: PecaNoSite[] = []
   if (!p.continuacao?.soVitrine) {
@@ -107,33 +124,41 @@ export async function regerarNoticias(p: {
   let noAr: NoticiaPublicada[] = []
   try { noAr = await noticiasPublicadas(p.workspaceId) } catch { noAr = [] }
   const chat = await prepararChatDoSite()
-  // A narração que já está no ar continua tocando (mesmo texto, mesma voz); a regeração não gera áudio novo — gastaria
-  // crédito em lote e estouraria a rodada. A matéria sem áudio ganha o dela ao ser republicada.
-  const voz = lote.length ? await vozPara(p.workspaceId, 'materias') : null
+  // A narração que já está no ar continua tocando (mesmo texto, mesma voz). Áudio novo só com `narrar` ("Regerar e narrar
+  // as que faltam"), que alguém pede sabendo do crédito; a regeração comum não gasta crédito em lote.
+  const voz = lote.length || p.narrar ? await vozPara(p.workspaceId, 'materias') : null
+  if (p.narrar && !voz) throw new Error('A narração das matérias está desligada (ou falta a chave da ElevenLabs). Ligue em Configurações › Voz e tente de novo.')
+  // Narrando, cada matéria pode levar até o prazo da narração: só começa outra com esse tempo inteiro sobrando.
+  const reservaPorMateria = p.narrar ? PRAZO_DA_NARRACAO_MS + 30_000 : 8000
 
   let ultimoVisto: string | null = depoisDe
   let loteInteiro = true
+  const pular = (titulo: string, motivo: string) => { resultado.puladas.push({ titulo, motivo }); resultado.itens.push({ titulo, situacao: 'pulada' }) }
 
   await withFtp(async (client, config) => {
     for (const peca of lote) {
       // Cada matéria baixa as fotos, gera as versões e sobe tudo: começa só se
       // couber no prazo, com folga para ela e para a resposta.
-      if (!noPrazo(8000)) { loteInteiro = false; break }
+      if (!noPrazo(reservaPorMateria) || (p.maximoPorRodada && resultado.vistas >= p.maximoPorRodada)) {
+        loteInteiro = false
+        resultado.proximoTitulo = peca.title || 'Sem título'
+        break
+      }
       ultimoVisto = peca.id
       resultado.vistas++
       const titulo = peca.title || 'Sem título'
 
       const slug = peca.slug || String(peca.site_url ?? '').replace(/\/+$/, '').split('/').pop() || ''
-      if (!slugValido(slug)) { resultado.puladas.push({ titulo, motivo: 'o endereço gravado não é um endereço válido de matéria' }); continue }
+      if (!slugValido(slug)) { pular(titulo, 'o endereço gravado não é um endereço válido de matéria'); continue }
       const url = `${base}/${slug}/`
       const gravada = String(peca.site_url ?? '').replace(/^http:\/\//i, 'https://').replace('://www.', '://')
-      if (gravada !== url) { resultado.puladas.push({ titulo, motivo: `está publicada em outro endereço (${peca.site_url})` }); continue }
+      if (gravada !== url) { pular(titulo, `está publicada em outro endereço (${peca.site_url})`); continue }
 
       const publicada = tempo(peca.site_published_at)
       const editada = tempo(peca.updated_at)
       const marco = Math.max(Number.isNaN(publicada) ? 0 : publicada, ultimaPublicacao.get(peca.id) ?? 0)
       if (!Number.isNaN(editada) && editada > marco + FOLGA_DO_RELOGIO_MS) {
-        resultado.puladas.push({ titulo, motivo: 'o texto foi editado depois da última publicação — revise e republique pela própria matéria' })
+        pular(titulo, 'o texto foi editado depois da última publicação — revise e republique pela própria matéria')
         continue
       }
 
@@ -150,10 +175,16 @@ export async function regerarNoticias(p: {
           relacionadas: relacionadasPorTema({ url, titulo, descricao: peca.subtitle, corpo: peca.body }, noAr),
           rastreio: await rastreioDaMateria(p.workspaceId, peca.id),
           chat,
-          narracao: voz ? { voz, gerar: false } : null,
+          narracao: voz ? { voz, gerar: Boolean(p.narrar) } : null,
         })
         for (const arquivo of pagina.paraSubir) await enviarArquivo(client, config, `${slug}/${arquivo.nome}`, arquivo.bytes)
         await enviarArquivo(client, config, `${slug}/index.html`, pagina.html)
+        // Narração nova: o MP3 do texto anterior (outra voz, outro modelo) não é mais tocado por página nenhuma.
+        const narrada = pagina.paraSubir.some((a) => ehAudioDeNarracao(a.nome))
+        if (narrada) {
+          resultado.narradas++
+          if (pagina.audio) await removerNarracoesAntigas(client, config, slug, pagina.audio)
+        }
         // A capa pode ter mudado de arquivo (o PNG antigo virou o JPEG
         // canônico): o índice precisa do nome novo. Só a capa — as datas e o
         // texto não mudam, e o gancho da trilha não dispara.
@@ -166,8 +197,10 @@ export async function regerarNoticias(p: {
         const aviso = resumoDoRegistro(pagina.registro)
         if (aviso) resultado.avisos.push({ titulo, aviso })
         resultado.feitas++
+        resultado.itens.push({ titulo, situacao: narrada ? 'narrada' : 'regerada' })
       } catch (causa) {
         resultado.falhas.push({ titulo, erro: mensagemDaPublicacao(causa) })
+        resultado.itens.push({ titulo, situacao: 'falha' })
       }
     }
 

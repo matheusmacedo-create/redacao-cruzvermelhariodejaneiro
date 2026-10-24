@@ -265,6 +265,11 @@ export type ResultadoDaRegeracaoDasNoticias = { erro?: string } & Partial<Result
  * num limite de 60 s.
  */
 const TEMPO_DA_RODADA_MS = 40_000
+/**
+ * Narrando as matérias (lib/voz), cada uma pode levar até o prazo da narração: a rodada usa quase todo o limite da
+ * página (maxDuration = 300 em /configuracoes/site) e começa matéria nova só com esse prazo inteiro sobrando.
+ */
+const TEMPO_DA_RODADA_NARRANDO_MS = 250_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
@@ -276,7 +281,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * até acabar. Endereços e datas ficam como estão — regerar não é republicar.
  * Só administrador: escreve no site inteiro.
  */
-export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null): Promise<ResultadoDaRegeracaoDasNoticias> {
+export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null, opcoes?: { narrar?: boolean } | null): Promise<ResultadoDaRegeracaoDasNoticias> {
   try {
     const context = await requireWorkspace()
     if (!pode(context.role, 'site.configurar')) throw new Error('Só um administrador pode regerar as páginas do site.')
@@ -287,7 +292,10 @@ export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null
       workspaceId: context.workspace.id,
       userId: context.user.id,
       continuacao: { depoisDe, soVitrine: Boolean(continuacao?.soVitrine) },
-      tempoMaximoMs: TEMPO_DA_RODADA_MS,
+      tempoMaximoMs: opcoes?.narrar === true ? TEMPO_DA_RODADA_NARRANDO_MS : TEMPO_DA_RODADA_MS,
+      narrar: opcoes?.narrar === true,
+      // Narrando, uma matéria por rodada: a tela mostra o avanço a cada matéria, não a cada vários minutos.
+      ...(opcoes?.narrar === true ? { maximoPorRodada: 1 } : {}),
     })
 
     await createAdminClient().from('activity_log').insert({
@@ -296,7 +304,7 @@ export async function regerarPaginasDasNoticias(continuacao?: Continuacao | null
       action: 'noticias_regeradas',
       entity_type: 'site',
       metadata: {
-        total: r.total, feitas: r.feitas, vistas: r.vistas, puladas: r.puladas.length, falhas: r.falhas.length,
+        total: r.total, feitas: r.feitas, narradas: r.narradas, narrar: opcoes?.narrar === true, vistas: r.vistas, puladas: r.puladas.length, falhas: r.falhas.length,
         vitrine: r.vitrine?.feita ?? false, continua: Boolean(r.proximo),
       },
     })
