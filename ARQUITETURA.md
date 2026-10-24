@@ -2790,6 +2790,11 @@ recebimento e teste em `/configuracoes/whatsapp` (só admin). A Evolution API, u
   conhecidos: apagar o apelido provavelmente remove o "enviar como" do contato@ (assinatura, nome de exibição) e devolvê-lo
   não restaura isso; a primeira criação real merece ser conferida no Admin do Google (campos como `recoveryPhone` em E.164 e a
   janela de propagação do apelido só se confirmam contra o Google de verdade).
+  **`acompanhamento`** (24/10/2026; também `andamento`, `quem falta`): só leitura, mostra por setor se a coordenação já se
+  cadastrou (`setor_coordenadores`), se está aguardando aprovação (pedido com cargo de coordenação), o estado da caixa do setor
+  (entregue / sem dono / já existia), quantas pessoas da equipe têm e-mail institucional e quantos pedidos aguardam. O
+  administrador vê todos os setores; o coordenador, só os seus. "Quem falta" é o que o sistema sabe (coordenações sem cadastro e
+  pessoas da equipe sem e-mail institucional): não há lista de quem DEVERIA se cadastrar além de `equipe_membros`.
   **Fica para depois (conhecido):** nada revoga `setor_coordenadores` (não há comando; `revogado_em` existe, sem UI) nem
   olha `equipe_membros.situacao`: quem sai da equipe segue aprovando; dois setores com o mesmo endereço contam uma vez (o
   primeiro por nome); a tela de criar conta por link e a ajuda (`lib/ajuda/conteudo/comunicacao.ts`) ainda falam em "ligar ao

@@ -22,7 +22,7 @@ import { perfilConectado } from './servidor'
 import {
   BOTOES_DE_APROVACAO, BOTOES_DA_SEGUNDA_CONFIRMACAO, TEXTO_DE_ENVIADO, TEXTO_DE_RECUSADO, comEnderecoDoCep,
   fichaDoAutocadastro, lerAutocadastro, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro, textoDaSegundaConfirmacao,
-  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
+  BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ehCoordenador, linkDoBot, podeDecidir, setorDaEntrada, setorDoPedido, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, mensagensDoAcompanhamento, type LinhaDeSetor, textoDaSenhaDaCaixa, type EntregaDaCaixa, textoDaContaCriada, textoDoLinkDoTime, TEXTO_DA_SENHA_NO_WHATSAPP, type DadosDoAutocadastro,
 } from './autocadastro-regras'
 
 type Admin = ReturnType<typeof createAdminClient>
@@ -607,6 +607,50 @@ export async function criarCaixaDoSetorPeloComando(admin: Admin, workspaceId: st
   return [{ texto: naFila
     ? `${resultado.nota} A senha provisória está na fila do WhatsApp ${quem} e chega quando ele liberar${enviadas ? ` (já foi a ${enviadas})` : ''}. Se não chegar, redefina a senha no Admin do Google: este comando não reenvia depois que a senha entra na fila.`
     : `Pronto ✓ ${resultado.nota} A senha provisória foi enviada ao WhatsApp ${quem}.` }]
+}
+
+/**
+ * "acompanhamento": quem já se cadastrou e quem falta, por setor. O administrador vê todos os setores; o coordenador, só os
+ * que coordena. Só leitura. "Quem falta" é medido pelo que o sistema sabe: coordenações ainda sem cadastro e, por setor, quantas
+ * pessoas da equipe já têm e-mail institucional (o sistema não tem uma lista de quem DEVERIA se cadastrar além da equipe).
+ */
+export async function acompanhamentoDoCadastro(admin: Admin, workspaceId: string, ator: Ator): Promise<Saida[]> {
+  try {
+    const [setoresR, coordsR, pedidosR, membrosR, contasR, entreguesR] = await Promise.all([
+      admin.from('setores').select('id, nome, email').eq('workspace_id', workspaceId).eq('ativo', true).order('nome'),
+      admin.from('setor_coordenadores').select('setor_id').eq('workspace_id', workspaceId).is('revogado_em', null),
+      admin.from('colaborador_autocadastros').select('dados').eq('workspace_id', workspaceId).in('status', ['aguardando', 'aprovando']),
+      admin.from('equipe_membros').select('setor, email_trabalho').eq('workspace_id', workspaceId).eq('situacao', 'ativo'),
+      admin.from('google_contas').select('setor_id, email').eq('workspace_id', workspaceId).not('setor_id', 'is', null),
+      admin.from('activity_log').select('entity_id').eq('workspace_id', workspaceId).eq('action', ACAO_CAIXA_ENTREGUE),
+    ])
+    if ([setoresR, coordsR, pedidosR, membrosR, contasR, entreguesR].some((r) => r.error)) throw new ErroDeBanco('Não consegui ler o andamento no banco agora. Tente de novo em instantes.')
+    const coordenados = new Set((coordsR.data ?? []).map((c) => String(c.setor_id)))
+    const entregues = new Set((entreguesR.data ?? []).map((e) => String(e.entity_id)))
+    const caixas = new Set((contasR.data ?? []).filter((g) => typeof g.email === 'string').map((g) => `${g.setor_id}|${String(g.email).toLowerCase()}`))
+    const pedidos = (pedidosR.data ?? []).map((p) => p.dados as { coordenacao?: string; cargo?: string } | null)
+    const linhas: LinhaDeSetor[] = (setoresR.data ?? [])
+      .filter((st) => ator.admin || ator.setores.includes(String(st.nome)))
+      .map((st) => {
+        const doSetor = pedidos.filter((d) => d?.coordenacao === st.nome)
+        const membros = (membrosR.data ?? []).filter((m) => m.setor === st.nome)
+        const endereco = typeof st.email === 'string' ? st.email.toLowerCase() : ''
+        const existe = caixas.has(`${st.id}|${endereco}`)
+        return {
+          setor: String(st.nome),
+          coordenacao: coordenados.has(String(st.id)) ? 'cadastrada' : doSetor.some((d) => ehCoordenador(d?.cargo)) ? 'aguardando' : 'nenhuma',
+          caixa: existe ? (entregues.has(String(st.id)) ? 'entregue' : 'sem_dono') : endereco ? 'nao_nossa' : 'nao_criada',
+          pessoas: membros.length,
+          comEmail: membros.filter((m) => m.email_trabalho).length,
+          aguardando: doSetor.length,
+        } as LinhaDeSetor
+      })
+    if (!linhas.length) return [{ texto: ator.admin ? 'Não achei nenhum setor para acompanhar.' : 'Você não coordena nenhum setor no Palácio ainda.' }]
+    return mensagensDoAcompanhamento(linhas).map((texto) => ({ texto }))
+  } catch (causa) {
+    console.error('[whatsapp] acompanhamento:', causa instanceof Error ? `${causa.name}: ${causa.message}` : causa)
+    return [{ texto: `Não consegui montar o andamento agora: ${textoDoErro(causa)}` }]
+  }
 }
 
 /** "link do time": o link de cadastro de cada setor que o coordenador coordena. */

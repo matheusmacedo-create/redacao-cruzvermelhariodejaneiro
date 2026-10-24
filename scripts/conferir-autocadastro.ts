@@ -10,7 +10,7 @@
  * Sai com código 1 se algo estiver errado.
  */
 import {
-  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
+  BOTOES_DE_APROVACAO, comEnderecoDoCep, dadosRedigidos, fichaDoAutocadastro, idDoBotao, lerAutocadastro, BOTOES_DE_CAIXAS, PERGUNTA_DAS_CAIXAS, ID_DO_CARGO_COORDENADOR, lerCaixaDoSetor, setorDoPedido, VALIDADE_DO_BOTAO_DE_CAIXAS_MIN, ehCoordenador, ehPedidoDeCaixas, idDoBotaoDeCaixas, lerBotaoDeCaixas, textoDaPreviaDasCaixas, textoDoResultadoDasCaixas, mensagensDaPreviaDasCaixas, mensagensDoResultadoDasCaixas, emMensagens, textoDaSenhaDaCaixa, ehPedidoDeAcompanhamento, mensagensDoAcompanhamento, podeDecidir, setorDaEntrada, textoDoLinkDoTime, lerBotaoDeAprovacao, lerCep, textoDaContaCriada, textoDaSegundaConfirmacao,
   lerEndereco, lerNascimento, lerNome, linkDoBot, perguntaDoAutocadastro, proximaEtapa, resumoParaAprovador, seguirNoAutocadastro,
   type DadosDoAutocadastro,
 } from '../lib/whatsapp/autocadastro-regras'
@@ -314,6 +314,29 @@ sem(textoDaSegundaConfirmacao({ nome: 'Ana Lima' }), 'e-mail pessoal', 'segunda 
   igual(setorDoPedido(lerCaixaDoSetor('caixa do setor: Psicologia / Serviço Social') ?? '', lista), 'Psicologia / Serviço Social', 'comando: o nome inteiro, com a barra, acha o setor')
   igual(setorDoPedido('e', lista), null, 'comando: começo ambíguo não escolhe')
   igual(setorDoPedido('marte', lista), null, 'comando: setor que não existe')
+}
+
+// "acompanhamento": o andamento do cadastro por setor
+{
+  for (const t of ['acompanhamento', 'andamento', 'quem falta', 'quem ja se cadastrou']) igual(ehPedidoDeAcompanhamento(t), true, `acompanhamento: "${t}" abre o andamento`)
+  for (const t of ['cadastros', 'acompanhar', 'quem falta cadastrar hoje']) igual(ehPedidoDeAcompanhamento(t), false, `acompanhamento: "${t}" não abre`)
+  const base = { aguardando: 0, pessoas: 0, comEmail: 0 }
+  const msgs = mensagensDoAcompanhamento([
+    { setor: 'Comunicação Social', coordenacao: 'cadastrada', caixa: 'entregue', pessoas: 5, comEmail: 4, aguardando: 1 },
+    { setor: 'Jurídico', coordenacao: 'nenhuma', caixa: 'sem_dono', ...base },
+    { setor: 'Esportes', coordenacao: 'aguardando', caixa: 'sem_dono', ...base, aguardando: 1 },
+    { setor: 'Atendimento', coordenacao: 'cadastrada', caixa: 'nao_nossa', ...base },
+  ]).join('\n\n')
+  contem(msgs, 'Coordenações cadastradas: *2 de 4* (+1 aguardando aprovação)', 'acompanhamento: o resumo conta as coordenações')
+  contem(msgs, 'Pessoas com e-mail institucional: *4 de 5*', 'acompanhamento: o resumo conta as pessoas com e-mail')
+  contem(msgs, 'Pedidos esperando aprovação: *2*', 'acompanhamento: o resumo conta os pedidos esperando')
+  contem(msgs, '❌ *Ainda sem coordenação cadastrada (1):*\n• Jurídico', 'acompanhamento: o que falta vem listado')
+  contem(msgs, 'Comunicação Social* — caixa do setor ✅ entregue · pessoas com e-mail 4/5 · 1 aguardando aprovação', 'acompanhamento: linha do setor com coordenação')
+  contem(msgs, 'Atendimento* — caixa do setor ➖ já existia', 'acompanhamento: o contato@ aparece como já existente')
+  igual(msgs.indexOf('Ainda sem coordenação') < msgs.indexOf('Coordenação cadastrada'), true, 'acompanhamento: o que falta vem antes do que está pronto')
+  const quinze = Array.from({ length: 15 }, (_, i) => ({ setor: `Coordenação de Atendimento Humanitário e Apoio ${i + 1}`, coordenacao: 'cadastrada' as const, caixa: 'sem_dono' as const, pessoas: 20, comEmail: 7, aguardando: 3 }))
+  igual(mensagensDoAcompanhamento(quinze).every((m) => m.length <= 3500), true, 'acompanhamento: nenhuma mensagem passa do limite')
+  igual(mensagensDoAcompanhamento([])[0], 'Não achei nenhum setor para acompanhar.', 'acompanhamento: sem setor, diz isso')
 }
 
 console.log(falhas ? `${falhas} falha(s).` : 'Tudo certo.')

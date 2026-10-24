@@ -512,6 +512,50 @@ function blocosDoResultadoDasCaixas(r: ResultadoParaTexto[]): string[] {
   ].filter(Boolean)
 }
 
+// ------------------------------------------------------------------ "acompanhamento": quem já se cadastrou e quem falta
+
+/** "acompanhamento" e jeitos de pedir a mesma coisa. */
+export const ehPedidoDeAcompanhamento = (textoNormalizado: string) => ['acompanhamento', 'andamento', 'quem falta', 'quem ja se cadastrou', 'quem ja fez o cadastro', 'cadastros andamento'].includes(textoNormalizado)
+
+export type LinhaDeSetor = {
+  setor: string
+  coordenacao: 'cadastrada' | 'aguardando' | 'nenhuma'
+  /** 'entregue': a senha da caixa do setor chegou à coordenação; 'sem_dono': a caixa existe e ninguém a recebeu; 'nao_nossa': o Palácio não criou (ex.: contato@); 'nao_criada': ainda não existe. */
+  caixa: 'entregue' | 'sem_dono' | 'nao_nossa' | 'nao_criada'
+  /** Pessoas ativas do setor na equipe e quantas já têm e-mail institucional. */
+  pessoas: number
+  comEmail: number
+  /** Pedidos de cadastro (de qualquer pessoa do setor) esperando aprovação. */
+  aguardando: number
+}
+
+const ICONE_DA_CAIXA: Record<LinhaDeSetor['caixa'], string> = { entregue: '✅ entregue', sem_dono: '⏳ sem dono', nao_nossa: '➖ já existia', nao_criada: '❌ não criada' }
+
+/** O andamento do cadastro por setor, em mensagens do WhatsApp: o que falta (coordenação sem cadastro) vem primeiro. */
+export function mensagensDoAcompanhamento(linhas: LinhaDeSetor[]): string[] {
+  if (!linhas.length) return ['Não achei nenhum setor para acompanhar.']
+  const semCoord = linhas.filter((l) => l.coordenacao === 'nenhuma')
+  const esperando = linhas.filter((l) => l.coordenacao === 'aguardando')
+  const comCoord = linhas.filter((l) => l.coordenacao === 'cadastrada')
+  const totalAguardando = linhas.reduce((n, l) => n + l.aguardando, 0)
+  const totalPessoas = linhas.reduce((n, l) => n + l.pessoas, 0)
+  const totalComEmail = linhas.reduce((n, l) => n + l.comEmail, 0)
+  const detalhe = (l: LinhaDeSetor) => `• *${l.setor}* — caixa do setor ${ICONE_DA_CAIXA[l.caixa]} · pessoas com e-mail ${l.comEmail}/${l.pessoas}${l.aguardando ? ` · ${l.aguardando} aguardando aprovação` : ''}`
+  return emMensagens([
+    `*Andamento do cadastro* 📋
+Coordenações cadastradas: *${comCoord.length} de ${linhas.length}*${esperando.length ? ` (+${esperando.length} aguardando aprovação)` : ''}
+Pessoas com e-mail institucional: *${totalComEmail} de ${totalPessoas}* na equipe
+Pedidos esperando aprovação: *${totalAguardando}*${totalAguardando ? ' (mande *cadastros* para ver)' : ''}`,
+    semCoord.length ? `❌ *Ainda sem coordenação cadastrada (${semCoord.length}):*
+${semCoord.map((l) => `• ${l.setor}${l.pessoas ? ` — ${l.comEmail}/${l.pessoas} pessoas com e-mail` : ''}${l.aguardando ? ` · ${l.aguardando} aguardando` : ''}`).join('\n')}` : '',
+    esperando.length ? `⏳ *Coordenação aguardando a sua aprovação (${esperando.length}):*
+${esperando.map(detalhe).join('\n')}` : '',
+    comCoord.length ? `✅ *Coordenação cadastrada (${comCoord.length}):*
+${comCoord.map(detalhe).join('\n')}` : '',
+    'Legenda da caixa do setor: ✅ entregue à coordenação · ⏳ criada, sem dono (a senha vai na aprovação da coordenação) · ➖ já existia (contato@).',
+  ])
+}
+
 // ------------------------------------------------------------------ "caixa do setor: <nome>"
 
 /**
