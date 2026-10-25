@@ -81,10 +81,17 @@ export function gerarRobots(origem: string = ORIGEM_DO_SITE): string {
   // páginas, notícias e subdomínios. Este arquivo é escrito por cima do que estiver lá,
   // então omitir o índice o apagava a cada matéria publicada.
   // A porta da equipe do acervo leva ao login da Redação: não é página para a busca.
+  // As APIs da matrícula e da doação só respondem a formulário e ao JavaScript das páginas, e os
+  // arquivos de prova dos lotes (/verificar/lotes/) são para conferência: o Search Console os
+  // listava como "4xx" e como páginas não indexadas (25/10/2026). O site/robots.txt do outro
+  // repositório tem as mesmas linhas.
   return [
     'User-agent: *',
     'Allow: /',
     'Disallow: /acervo/equipe/',
+    'Disallow: /matricula-cursos-presenciais/api/',
+    'Disallow: /doe/api/',
+    'Disallow: /verificar/lotes/',
     '',
     `Sitemap: ${origem}/sitemap-index.xml`,
     `Sitemap: ${origem}/sitemap.xml`,
