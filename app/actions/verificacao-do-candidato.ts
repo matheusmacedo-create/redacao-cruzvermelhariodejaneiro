@@ -8,6 +8,7 @@ import { hojeEmSaoPaulo } from '@/components/app/projetos/comum'
 import { obterChave } from '@/lib/integracoes/chaves'
 import { IaError } from '@/lib/ia/openai'
 import { boasVindas } from '@/lib/membro/comunicacao'
+import { aprovarNoSite } from '@/lib/voluntariado/fichas-do-site'
 import { pedirDocumentos, type CanalDoPedido } from '@/lib/participantes/verificacao/link'
 import { baixarArquivo, conferirESelar, prepararEnvio, removerDoStorage } from '@/lib/participantes/verificacao/arquivos'
 import { consultarCgu } from '@/lib/participantes/verificacao/cgu'
@@ -274,13 +275,16 @@ export async function concluirVerificacao(id: string, formData: FormData): Promi
 export async function aprovarComRestricao(id: string, formData: FormData): Promise<Resultado> {
   try {
     if (!ehId(id)) throw new Error('Participante não encontrado.')
-    const { supabase, nivel } = await contextoDeParticipantes()
+    const { context, supabase, nivel } = await contextoDeParticipantes()
     if (nivel < 2) throw new Error('Você não tem acesso para aprovar.')
     const { restricoes, motivo } = lerDecisao({ parecer: 'apto_com_restricao', restricoes: formData.getAll('restricoes'), motivo: formData.get('motivo') })
     const { error } = await supabase.rpc('aprovar_candidato_com_restricao', { p_participante_id: id, p_restricoes: restricoes, p_motivo: motivo || null })
     if (error) erroDoBanco(error, 'Não foi possível aprovar.')
     await boasVindas(id)
+    // Veio do cadastro do site: o site aceita a ficha e devolve o código de aprovação (QR na ficha).
+    const site = await aprovarNoSite(context.workspace.id, id, context.user.email ?? context.user.id)
     revalidar(id)
+    if (site && 'erro' in site) return { erro: `Aprovado na Redação, mas o site não gerou o código: ${site.erro} Na ficha, use “Gerar código no site”.` }
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível aprovar.') }

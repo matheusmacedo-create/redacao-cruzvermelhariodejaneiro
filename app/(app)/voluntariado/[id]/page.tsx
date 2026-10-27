@@ -15,6 +15,9 @@ import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
 import { CardDaVerificacao, SeloDeRestricoes } from '@/components/app/participantes/verificacao'
 import { claudeConfigurado } from '@/lib/ia/anthropic'
 import { obterChave } from '@/lib/integracoes/chaves'
+import QRCode from 'qrcode'
+import { CodigoDeAprovacaoDoSite } from '@/components/app/participantes/fichas-do-site'
+import { linkDoWhatsapp, mensagemDoCodigo, urlDeConferencia } from '@/lib/voluntariado/fichas-do-site-regras'
 import type { ArquivoDoVoluntario, Referencia, Verificacao } from '@/lib/participantes/verificacao/regras'
 
 export const dynamic = 'force-dynamic'
@@ -61,6 +64,13 @@ export default async function Participante({ params }: { params: Promise<{ id: s
   const foto = p.anonimizado_em ? null : urlDaFotoNaEquipe(id, (comFoto as { foto_path?: string | null } | null)?.foto_path)
   const fc = p.anonimizado_em ? null : fotoDoCracha as { foto_path: string | null; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null; foto_cracha_motivo: string | null; foto_cracha_avaliada_em: string | null } | null
   const situacaoDaFoto = fc ? situacaoDaFotoDoCracha({ foto: fc.foto_path, aprovada: fc.foto_cracha_path, recusada: fc.foto_cracha_recusada_path }) : null
+  // A ficha do cadastro do site (migração 20261027200000), lida à parte: sem a migração, a ficha abre sem este bloco.
+  const { data: doSite } = await supabase.from('participantes').select('site_protocolo,site_codigo_aprovacao,site_aprovacao_em').eq('id', id).maybeSingle()
+  const site = (doSite ?? null) as { site_protocolo: string | null; site_codigo_aprovacao: string | null; site_aprovacao_em: string | null } | null
+  const codigoDoSite = site?.site_codigo_aprovacao ?? null
+  const urlDoCodigo = codigoDoSite ? urlDeConferencia(codigoDoSite) : null
+  const qrDoCodigo = urlDoCodigo ? await QRCode.toDataURL(urlDoCodigo, { errorCorrectionLevel: 'M', margin: 2, width: 480, color: { dark: '#1a1a1a', light: '#ffffff' } }) : null
+  const mensagemDoSite = codigoDoSite && urlDoCodigo ? mensagemDoCodigo(p.nome_social || p.nome, codigoDoSite, urlDoCodigo) : null
   const hoje = hojeEmSaoPaulo()
   const anos = idade(p.data_nascimento, hoje)
   const total = (horas ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -129,10 +139,21 @@ export default async function Participante({ params }: { params: Promise<{ id: s
             </dl>
             {p.observacoes && <p className="mt-3 whitespace-pre-line border-t border-border pt-3 text-sm">{p.observacoes}</p>}
             <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground">
-              {p.origem === 'formulario' ? 'Inscrito pelo formulário público' : 'Cadastrado pela equipe'} em {new Date(p.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+              {site?.site_protocolo ? `Ficha ${site.site_protocolo} do cadastro de voluntários do site, importada` : p.origem === 'formulario' ? 'Inscrito pelo formulário público' : 'Cadastrado pela equipe'} em {new Date(p.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
               {p.consentimento_em ? ` · aceitou o termo de dados (${p.consentimento_versao}) em ${new Date(p.consentimento_em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : ''}
             </p>
           </Card>
+
+          {site?.site_protocolo && p.situacao === 'ativo' && !p.anonimizado_em && (
+            <Card className="p-5" id="codigo-de-aprovacao" data-ajuda="voluntarios.codigo-de-aprovacao">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Código de aprovação</h2>
+              <CodigoDeAprovacaoDoSite
+                participanteId={id} codigo={codigoDoSite} qr={qrDoCodigo} url={urlDoCodigo}
+                whatsapp={mensagemDoSite ? linkDoWhatsapp(p.telefone, mensagemDoSite) : null} mensagem={mensagemDoSite}
+                podeGerar={nivel >= 2} arquivo={`aprovacao-${site.site_protocolo}.png`}
+              />
+            </Card>
+          )}
 
           {nivel >= 2 && !p.anonimizado_em && (
             <Card className="p-5" id="verificacao" data-ajuda="voluntarios.verificacao">

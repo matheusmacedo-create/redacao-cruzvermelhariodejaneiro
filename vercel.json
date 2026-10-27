@@ -51,6 +51,10 @@
     {
       "path": "/api/whatsapp/rotina",
       "schedule": "5 10 * * *"
+    },
+    {
+      "path": "/api/voluntariado/fichas-do-site",
+      "schedule": "17 13 * * *"
     }
   ]
 }

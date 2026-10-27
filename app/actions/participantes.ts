@@ -13,6 +13,7 @@ import { lerFormulario, formatarCpf, type NomeDoNivel } from '@/lib/participante
 import { nomesDosSetores } from '@/lib/setores'
 import { apagarFoto } from '@/lib/membro/foto-servidor'
 import { removerPastaDoParticipante } from '@/lib/participantes/verificacao/arquivos'
+import { aprovarNoSite, buscarFichasDoSite, chaveDoSite, recusarNoSite } from '@/lib/voluntariado/fichas-do-site'
 
 /**
  * Participantes. Tudo o que grava dado pessoal passa por funções do banco,
@@ -64,12 +65,19 @@ export async function salvarParticipante(id: string | null, _anterior: Resultado
 
 export async function mudarSituacao(id: string, situacao: 'ativo' | 'inativo' | 'desligado', motivo?: string): Promise<Resultado> {
   try {
-    const { supabase } = await contextoDeParticipantes()
+    const { context, supabase } = await contextoDeParticipantes()
     const { data: antes } = await supabase.from('participantes').select('situacao').eq('id', id).maybeSingle()
     const { error } = await supabase.rpc('mudar_situacao_participante', { p_id: id, p_situacao: situacao, p_motivo: motivo ?? null })
     if (error) erroDoBanco(error, 'Não foi possível mudar a situação.')
     // Inscrição aprovada: a pessoa fica sabendo e já recebe o caminho da Área do Voluntário.
-    if (situacao === 'ativo' && antes?.situacao === 'candidato') await boasVindas(id)
+    if (situacao === 'ativo' && antes?.situacao === 'candidato') {
+      await boasVindas(id)
+      // Veio do cadastro do site: o site aceita a ficha e devolve o código de aprovação (QR na ficha).
+      const site = await aprovarNoSite(context.workspace.id, id, context.user.email ?? context.user.id)
+      revalidar(id)
+      if (site && 'erro' in site) return { erro: `Aprovado na Redação, mas o site não gerou o código: ${site.erro} Na ficha, use “Gerar código no site”.` }
+      return {}
+    }
     revalidar(id)
     return {}
   } catch (causa) {
@@ -81,8 +89,11 @@ export async function recusarCandidato(id: string): Promise<Resultado> {
   try {
     const { context, supabase } = await contextoDeParticipantes()
     const { data: antes } = await supabase.from('participantes').select('foto_path').eq('id', id).maybeSingle()
+    // O protocolo do site sai antes: recusar apaga a linha. Lido à parte (sem a migração, a coluna não existe).
+    const { data: doSite } = await supabase.from('participantes').select('site_protocolo').eq('id', id).maybeSingle()
     const { error } = await supabase.rpc('recusar_candidato', { p_id: id })
     if (error) erroDoBanco(error, 'Não foi possível recusar a inscrição.')
+    await recusarNoSite(context.workspace.id, (doSite?.site_protocolo as string | null | undefined) ?? null, context.user.email ?? context.user.id)
     // A linha saiu do banco; a foto, se a equipe tinha posto uma, sai do Blob, e os documentos da verificação, do Storage.
     await apagarFoto(antes?.foto_path as string | null | undefined)
     await removerPastaDoParticipante(context.workspace.id, id)
@@ -90,6 +101,38 @@ export async function recusarCandidato(id: string): Promise<Resultado> {
     return {}
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível recusar a inscrição.') }
+  }
+}
+
+/** "Buscar fichas do site", na aba Inscrições pendentes: a mesma busca da rotina diária, na hora. */
+export async function buscarFichasDoSiteAgora(): Promise<Resultado & { mensagem?: string }> {
+  try {
+    const { context, nivel } = await contextoDeParticipantes()
+    if (nivel < 2) throw new Error('Você não tem acesso para importar inscrições.')
+    if (!(await chaveDoSite(context.workspace.id))) throw new Error('A ligação com o site não está configurada: em Configurações → Integrações, preencha “Site — fichas de voluntariado”.')
+    const r = await buscarFichasDoSite(context.workspace.id, Date.now() + 40_000)
+    revalidar()
+    if (r.erro) return { erro: `Parou no meio: ${r.erro}${r.importadas ? ` (${r.importadas} importadas antes disso)` : ''}` }
+    return { mensagem: r.importadas ? `${r.importadas} ${r.importadas === 1 ? 'ficha nova importada' : 'fichas novas importadas'} do site.` : 'Nenhuma ficha nova no site.' }
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível buscar as fichas do site.') }
+  }
+}
+
+/** Ficha do site aprovada aqui sem o código (o site estava fora do ar, faltava o CPF): pede de novo. */
+export async function gerarCodigoNoSite(id: string): Promise<Resultado> {
+  try {
+    const { context, supabase, nivel } = await contextoDeParticipantes()
+    if (nivel < 2) throw new Error('Você não tem acesso para aprovar.')
+    const { data: p } = await supabase.from('participantes').select('situacao').eq('id', id).eq('workspace_id', context.workspace.id).maybeSingle()
+    if (p?.situacao !== 'ativo') throw new Error('Aprove a inscrição primeiro.')
+    const r = await aprovarNoSite(context.workspace.id, id, context.user.email ?? context.user.id)
+    revalidar(id)
+    if (!r) throw new Error('Este cadastro não veio do site.')
+    if ('erro' in r) throw new Error(r.erro)
+    return {}
+  } catch (causa) {
+    return { erro: mensagemDoErro(causa, 'Não foi possível gerar o código no site.') }
   }
 }
 
