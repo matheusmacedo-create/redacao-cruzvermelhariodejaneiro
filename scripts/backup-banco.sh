@@ -22,6 +22,15 @@
 set -euo pipefail
 
 tem() { local v; for v in "$@"; do [ -n "${!v:-}" ] || return 1; done; }
+# Nenhum segredo configurado ainda: o backup está desligado, não quebrado. Aviso amarelo no GitHub (e no resumo da
+# rodada) em vez de um erro vermelho por dia que ninguém consegue resolver mexendo no código. Configuração pela metade
+# continua sendo erro, logo abaixo. Para ligar: docs/backup.md, passos 3 a 6.
+if ! tem SUPABASE_DB_URL && ! tem BACKUP_AGE_DESTINATARIO; then
+  aviso="Backup do banco DESLIGADO: faltam os segredos SUPABASE_DB_URL, BACKUP_AGE_DESTINATARIO e os do R2 (GitHub → Settings → Secrets and variables → Actions; passo a passo em docs/backup.md). Nenhuma cópia foi feita."
+  echo "::warning title=Backup desligado::$aviso"
+  [ -n "${GITHUB_STEP_SUMMARY:-}" ] && echo "### ⚠️ $aviso" >> "$GITHUB_STEP_SUMMARY"
+  exit 0
+fi
 for v in SUPABASE_DB_URL BACKUP_AGE_DESTINATARIO; do
   tem "$v" || { echo "Falta a variável $v." >&2; exit 1; }
 done

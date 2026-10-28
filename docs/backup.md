@@ -74,6 +74,10 @@ anotada no `storage.tsv`, depois do prazo da trava.
    agendamentos de repositório público depois de 60 dias sem atividade** — conferir uma vez por mês
    que a rodada do dia aconteceu (no R2, o arquivo de hoje em `cvrj-backups/banco/`).
 
+   Enquanto nenhum segredo estiver configurado, a rodada termina **em amarelo** com o aviso "Backup
+   desligado" (desde 28/10/2026; antes, ficava vermelha todo dia). Amarelo quer dizer: **nenhuma cópia foi
+   feita**. Configuração pela metade (só um dos dois segredos obrigatórios) continua vermelha.
+
 Com o FTP configurado e o certificado da Hostinger vencido (já aconteceu, ver
 `lib/publicacao/ftp.ts`), a rodada falha em vez de enviar sem conferir;
 `BACKUP_FTP_VERIFICAR_CERTIFICADO=no` no workflow é o paliativo consciente.
