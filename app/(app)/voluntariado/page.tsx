@@ -14,6 +14,8 @@ import { situacaoDaFotoDoCracha } from '@/lib/cracha/regras'
 import { urlDaFotoNaEquipe } from '@/lib/membro/foto'
 import { AvaliarFotoDoCracha } from '@/components/app/participantes/foto-do-cracha'
 import { ChipDaVerificacao } from '@/components/app/participantes/verificacao'
+import { BuscarFichasDoSite } from '@/components/app/participantes/fichas-do-site'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { Verificacao } from '@/lib/participantes/verificacao/regras'
 
 export const metadata = { title: tituloDaArea('/voluntariado') }
@@ -97,6 +99,12 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
   const conversasAbertas = abertas ?? 0
   const fotosParaAprovar = ((comFoto ?? []) as { id: string; nome: string; nome_social: string | null; foto_path: string; foto_cracha_path: string | null; foto_cracha_recusada_path: string | null }[])
     .filter((f) => situacaoDaFotoDoCracha({ foto: f.foto_path, aprovada: f.foto_cracha_path, recusada: f.foto_cracha_recusada_path }) === 'aguardando')
+  // Quando a Redação buscou as fichas do site pela última vez (tabela só do servidor; sem a migração, fica sem a data).
+  let ultimaBuscaDoSite: string | null = null
+  if (aba === 'inscricoes' && nivel >= 2) {
+    const { data: controle } = await createAdminClient().from('site_fichas_sincronizacao').select('ultima_execucao').eq('workspace_id', ws).maybeSingle()
+    if (controle?.ultima_execucao) ultimaBuscaDoSite = new Date(controle.ultima_execucao as string).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' })
+  }
   const ativos = linhas.filter((l) => l.situacao === 'ativo')
   const pendentes = linhas.filter((l) => l.situacao === 'candidato')
   const totalHoras = (horasDoMes ?? []).reduce((s, h) => s + Number(h.horas), 0)
@@ -217,11 +225,13 @@ export default async function ParticipantesPage({ searchParams }: { searchParams
 
       {aba === 'inscricoes' && (
         <Card className="divide-y divide-border p-0">
+          {nivel >= 2 && <BuscarFichasDoSite ultimaBusca={ultimaBuscaDoSite} />}
           {!pendentes.length && <p className="p-10 text-center text-sm text-muted-foreground">Nenhuma inscrição esperando. O link público é {urlBase()}/participe.</p>}
           {pendentes.map((l) => (
             <div key={l.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <Link href={`/voluntariado/${l.id}`} className="font-medium hover:text-primary hover:underline">{l.nome_social || l.nome}</Link>
+                {l.origem === 'importacao' && <span className="ml-2 rounded-full bg-muted px-2 py-0.5 align-middle text-[11px] font-semibold text-muted-foreground" title="Veio do cadastro de voluntários do site">do site</span>}
                 <p className="text-xs text-muted-foreground">
                   {[VINCULOS[l.vinculo as keyof typeof VINCULOS]?.rotulo, idade(l.data_nascimento, hoje) !== null ? `${idade(l.data_nascimento, hoje)} anos` : null, l.email, l.setores.length ? `interesse: ${l.setores.join(', ')}` : null].filter(Boolean).join(' · ')}
                 </p>

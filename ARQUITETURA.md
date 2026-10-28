@@ -92,6 +92,8 @@ Settings → Environment Variables. Aqui só existem nomes.
 | `R2_BUCKET_ACERVO` | server | bucket do acervo (`cvrj-acervo`); sem ela, a tela Acervo avisa que falta configurar (§7.10) |
 | `ELEVENLABS_API_KEY` | server | **segredo**, opcional — reserva do cartão “ElevenLabs (voz da instituição)” de Configurações → Integrações, que é o lugar preferido; a voz e onde ela fala ficam em Configurações → Voz (§8.7) |
 | `KAPSO_WHATSAPP` | server | **segredo**, opcional — reserva do cartão “WhatsApp (Kapso — API oficial)” de Configurações → Integrações, que é o lugar preferido; JSON com `chave`, `numeroId` e, opcionais, `modelo`, `modeloCodigo`, `modeloSeguranca` e `wabaId` (§8.5) |
+| `SITE_VOLUNTARIOS_TOKEN` | server | **segredo**, opcional — reserva do cartão “Site — fichas de voluntariado” de Configurações → Integrações; o mesmo valor do `REDACAO_TOKEN` no `config-redacao.php` do servidor do site. Sem ela, as fichas do site não entram (§7.38) |
+| `SITE_VOLUNTARIOS_URL` | server | opcional, só em testes — outro endereço para a API de fichas do site (§7.38) |
 
 **`NEXT_PUBLIC_` significa "vai para o navegador de todo visitante".** Um segredo
 com esse prefixo está publicado, não configurado. `lib/supabase/env.ts` recusa
@@ -2181,6 +2183,30 @@ cada parte. Guia completo em `docs/mapa-do-ecossistema.md`.
   redesenhados e animados a cada clique; o React cuida só dos dados); item
   novo entra por migração, não pela tela; a equipe da Escola não vê o mapa
   (regra geral do papel `escola`).
+
+### 7.38 Fichas de voluntariado do site (`/voluntariado?aba=inscricoes`, 27/10/2026)
+
+O cadastro de voluntários do site (`cruzvermelhariodejaneiro.org/voluntariado/cadastro/`,
+repositório do site) grava no MySQL da Hostinger. As fichas em aberto lá (`nova`,
+`em_analise`, `entrevista`) entram aqui como inscrições pendentes, `origem = 'importacao'`,
+com a selfie como foto (`lib/voluntariado/fichas-do-site.ts`; regras puras em
+`fichas-do-site-regras.ts`, conferidas por `scripts/conferir-fichas-do-site.ts`).
+
+- **Ligação**: uma chave compartilhada (`site_voluntarios` no cofre, reserva
+  `SITE_VOLUNTARIOS_TOKEN`; do lado do site, `REDACAO_TOKEN` em `config-redacao.php`). A API
+  do site é `api/redacao-voluntarios.php` (GET lista em lotes por `id`; POST aprova ou recusa).
+- **Quando roda**: o site avisa a cada ficha nova (`POST /api/voluntariado/fichas-do-site`,
+  mesma chave, a busca roda em `after()`); a rotina diária (GET, `CRON_SECRET`) e o botão
+  “Buscar fichas do site” cobrem aviso perdido. O cursor (`site_fichas_sincronizacao.ultimo_id`)
+  diz até onde já se leu.
+- **Sem duplicar**: `participantes.site_protocolo` é único por espaço; `importar_ficha_do_site`
+  é idempotente e, se já existe cadastro com o mesmo e-mail, só liga a ficha a ele.
+- **Decisão na Redação**: aprovar (`mudarSituacao`, `aprovarComRestricao`) chama o site, que
+  aceita a ficha e devolve o código de aprovação; ele fica em `site_codigo_aprovacao` e aparece
+  no quadro “Código de aprovação” com o QR de `/conferir/?c=` do site. O CPF vai junto
+  (`cpf_para_o_site`, auditado) porque o site exige CPF para emitir código. Falhar no site não
+  desfaz a aprovação: a ficha oferece “Gerar código no site”. Recusar aqui recusa lá.
+- O portal do site continua para consulta e para cancelar um código.
 
 ## 8. Integrações externas
 

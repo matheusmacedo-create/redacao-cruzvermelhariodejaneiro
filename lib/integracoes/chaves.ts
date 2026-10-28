@@ -114,6 +114,14 @@ export const SERVICOS = {
     ],
     dica: 'Chave em app.kapso.ai → Integrations → API keys; o Phone number ID está na tela do número. Os modelos são os nomes aprovados na Kapso para quem não escreveu nas últimas 24 h: o dos avisos tem uma variável no corpo; o do código é da categoria Autenticação. Depois de salvar, abra Configurações → WhatsApp e toque em "Ligar o recebimento".',
   },
+  // A ligação com o cadastro de voluntários do site (lib/voluntariado/fichas-do-site.ts, 27/10/2026): o mesmo valor do
+  // REDACAO_TOKEN no config-redacao.php do servidor do site. As fichas viram Inscrições pendentes; aprovar avisa o site.
+  site_voluntarios: {
+    nome: 'Site — fichas de voluntariado',
+    variavel: 'SITE_VOLUNTARIOS_TOKEN',
+    painel: '',
+    dica: 'O mesmo valor de REDACAO_TOKEN no config-redacao.php do servidor do site (pelo menos 32 caracteres). Com ele, as fichas do cadastro do site aparecem em Voluntários → Inscrições pendentes.',
+  },
 } as const satisfies Record<string, DefinicaoDeServico>
 
 export type Servico = keyof typeof SERVICOS

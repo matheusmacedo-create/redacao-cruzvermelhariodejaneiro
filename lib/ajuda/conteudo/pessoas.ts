@@ -857,6 +857,13 @@ const VOLUNTARIOS: GuiaDaArea = {
       seAusente: 'pular',
     },
     {
+      alvo: 'voluntarios.fichas-do-site',
+      titulo: 'Fichas do cadastro do site',
+      texto: 'As fichas do cadastro de voluntários do site (cruzvermelhariodejaneiro.org) entram aqui sozinhas, com a selfie como foto, a cada envio e numa conferência diária. “Buscar fichas do site” traz as novas na hora. Elas aparecem com a marca “do site”.',
+      lado: 'bottom',
+      seAusente: 'pular',
+    },
+    {
       alvo: 'voluntarios.filtros',
       titulo: 'Buscar e filtrar',
       texto: 'Busque por nome, e-mail, telefone, função ou cidade, filtre por vínculo, situação e setor e toque em “Filtrar”. O nome abre o cadastro.',
@@ -907,6 +914,12 @@ const VOLUNTARIOS: GuiaDaArea = {
           alvo: 'voluntarios.verificacao',
           titulo: 'Verificação do candidato',
           texto: '“Pedir documentos” manda um link pessoal: a pessoa aceita o termo e envia documento com foto, atestado de antecedentes e referências. Aqui a coordenação confere item a item, consulta a CGU e decide: apto, apto com restrição ou não apto.',
+          seAusente: 'pular',
+        },
+        {
+          alvo: 'voluntarios.codigo-de-aprovacao',
+          titulo: 'Código de aprovação do site',
+          texto: 'Quem veio do cadastro do site recebe, ao ser aprovado aqui, o código de aprovação que o site gera. O QR abre a conferência pública do site. “Enviar pelo WhatsApp” manda o código com a mensagem pronta; “Baixar o QR code” salva a imagem.',
           seAusente: 'pular',
         },
         {
@@ -1276,7 +1289,7 @@ const VOLUNTARIOS: GuiaDaArea = {
         'Em “Sanções e pessoa exposta”, toque em “Consultar CEIS, CNEP, CEAF e PEP”; em “Referências”, registre o contato com cada pessoa; registre a entrevista. As redes sociais que a pessoa informou ficam no quadro “Cadastro”, para conhecer o perfil público.',
         'Em “Decisão”, escolha “Apto”, “Apto com restrição” (marque as restrições e o motivo) ou “Não apto”, e toque em “Concluir verificação”. Com “Aprovar a inscrição agora” marcado, a pessoa passa a “Ativo”.',
       ],
-      dica: 'Sem identidade e antecedentes conferidos, “Aprovar” só funciona com a restrição “Não atua com crianças e adolescentes” e um motivo (Lei 14.811/2024). “Recusar” apaga a inscrição e os documentos. O atestado vale 90 dias e é renovado a cada 6 meses: a coordenação é avisada 15 dias antes e pede o novo pelo mesmo botão.',
+      dica: 'Sem identidade e antecedentes conferidos, “Aprovar” só funciona com a restrição “Não atua com crianças e adolescentes” e um motivo (Lei 14.811/2024). “Recusar” apaga a inscrição e os documentos. O atestado vale 90 dias e é renovado a cada 6 meses: a coordenação é avisada 15 dias antes e pede o novo pelo mesmo botão. Ficha que veio do site: aprovar aqui aceita a ficha no site e traz o código de aprovação para o quadro “Código de aprovação”; recusar aqui recusa lá também.',
     },
     {
       id: 'cadastrar-voluntario',
@@ -1475,6 +1488,12 @@ const VOLUNTARIOS: GuiaDaArea = {
       pergunta: 'Onde está o link do formulário de inscrição?',
       resposta: 'Em Voluntários, “Copiar link de inscrição” copia o endereço, e “Cartaz com QR” imprime um cartaz A4 com esse endereço no código, para o mural, eventos e parceiros: escolha a chamada entre as escritas (“Tem um tempo? Seja voluntário.” e outras) ou escreva a sua. O mesmo cartaz tem a versão da Área do Voluntário, para quem já é. Os dois botões aparecem para quem gerencia.\n\nQuem se inscreve pelo formulário entra em “Inscrições pendentes”, e quem gerencia o Voluntariado recebe um aviso a cada inscrição nova. A pessoa pode mandar uma foto (opcional; ela entra na fila “Fotos do crachá”, aguardando aprovação) e os links das redes sociais, que aparecem no quadro “Cadastro” da ficha.',
       termos: ['participe', 'formulário público', 'inscrever', 'divulgar', 'cartaz', 'qr code', 'imprimir'],
+    },
+    {
+      id: 'fichas-do-site',
+      pergunta: 'As fichas do cadastro de voluntários do site aparecem aqui?',
+      resposta: 'Sim. Toda ficha enviada em cruzvermelhariodejaneiro.org/voluntariado/cadastro/ que ainda está em aberto no site (nova, em análise ou em entrevista) entra em “Inscrições pendentes”, com a marca “do site” e a selfie como foto. Chegam a cada envio e, por segurança, numa conferência diária; “Buscar fichas do site” traz as novas na hora. A mesma ficha nunca entra duas vezes, e quem já tinha cadastro com o mesmo e-mail só ganha a ligação com a ficha.\n\nA decisão é aqui: aprovar aceita a ficha no site e gera o código de aprovação, que aparece no quadro “Código de aprovação” com o QR de conferência e o botão do WhatsApp. Se o site não gerar o código (fora do ar, ou ficha sem CPF), preencha o CPF em “Editar cadastro” e use “Gerar código no site”. Recusar aqui recusa no site também. O portal do site continua servindo para consulta e para cancelar um código.',
+      termos: ['site', 'cadastro do site', 'ficha', 'protocolo', 'VOL-', 'código de aprovação', 'qr code', 'importar', 'selfie'],
     },
     {
       id: 'status-voluntario',
