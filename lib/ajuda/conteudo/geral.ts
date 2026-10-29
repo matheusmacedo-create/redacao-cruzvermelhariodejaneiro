@@ -191,7 +191,7 @@ export const SAIR_DA_CONTA: Omit<Tarefa, 'id'> = {
 
 export const PARA_QUE_SERVE_O_EMAIL: Omit<Pergunta, 'id'> = {
   pergunta: 'Para que serve o e-mail de recuperação?',
-  resposta: 'É para ele que vão o link de “Esqueci minha senha”, os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Enquanto ele não estiver confirmado, nada disso tem para onde ir, e uma faixa amarela no alto das telas lembra você.\n\nConfirmado, ele também serve para entrar: digite-o em “Usuário ou e-mail”, na tela de entrada.',
+  resposta: 'É para ele que vão o link de “Esqueci minha senha” (que também vai para o WhatsApp confirmado), os avisos de segurança da sua conta e os e-mails de notificação que você escolher. Enquanto ele não estiver confirmado, nada disso tem para onde ir, e uma faixa amarela no alto das telas lembra você.\n\nConfirmado, ele também serve para entrar: digite-o em “Usuário ou e-mail”, na tela de entrada.',
   termos: ['e-mail de contato', 'recuperar senha', 'confirmar e-mail', 'faixa amarela', 'aviso amarelo', 'cadastrar agora'],
 }
 
@@ -396,12 +396,12 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         titulo: 'Criar uma senha nova pelo “Esqueci minha senha”',
         passos: [
           'Na tela de entrada, toque em “Esqueci minha senha”.',
-          'Em “Usuário ou e-mail”, informe o seu usuário ou o seu e-mail de recuperação e toque em “Enviar link por e-mail”.',
-          'Abra o link que chegou no seu e-mail de recuperação (confira também o spam). Ele vale por 1 hora e funciona uma vez só.',
+          'Em “Usuário, e-mail ou WhatsApp”, informe o seu usuário, o seu e-mail de recuperação ou o seu número de WhatsApp e toque em “Enviar link”.',
+          'Abra o link que chegou no seu e-mail de recuperação (confira também o spam) ou no WhatsApp, pelo número do Palácio. Ele vale por 1 hora e funciona uma vez só.',
           'Digite a senha em “Nova senha”, repita em “Confirmar senha” e toque em “Salvar nova senha”.',
           'Entre de novo com o seu usuário e a senha nova.',
         ],
-        dica: 'O link só vai para um e-mail de recuperação já confirmado. Sua senha antiga continua valendo até você salvar a nova; ao salvar, as sessões abertas em outros aparelhos são encerradas.',
+        dica: 'O link só vai para o e-mail de recuperação já confirmado e para o WhatsApp confirmado na conta (o do convite, ou o que você confirmou em “Meu perfil”). Sua senha antiga continua valendo até você salvar a nova; ao salvar, as sessões abertas em outros aparelhos são encerradas.',
       },
       { id: 'trocar-a-senha', ...TROCAR_A_SENHA },
       { id: 'confirmar-o-email', ...CONFIRMAR_O_EMAIL },

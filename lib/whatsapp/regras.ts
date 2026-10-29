@@ -708,6 +708,20 @@ export function textoDoConviteDoPalacio(p: { nome: string; usuario: string; url:
 }
 
 /**
+ * O link de "Esqueci minha senha" pelo WhatsApp confirmado da conta (app/actions/contas.ts). Vai como mensagem de
+ * segurança: sai mesmo com os avisos pausados e de madrugada, e fora da janela de 24 h pelo modelo de segurança.
+ */
+export function textoDoLinkDeSenha(p: { nome: string | null; usuario: string; url: string; minutos: number }): string {
+  const nome = primeiroNome(p.nome ?? '')
+  return [
+    `${nome ? `Olá, ${limpo(nome, 60)}!` : 'Olá!'} Pediram um link para criar uma senha nova no *Palácio Virtual*.`,
+    `Seu usuário: *${limpo(p.usuario, 40)}*`,
+    `Crie a senha nova (o link vale por ${p.minutos} minutos e funciona uma vez só):\n${p.url}`,
+    '_Se não foi você, ignore: a sua senha atual continua valendo. Não repasse este link; a Cruz Vermelha nunca pede a sua senha por mensagem._',
+  ].join('\n\n')
+}
+
+/**
  * A linha do "Não fui eu" no aviso de segurança que o oferece (lib/whatsapp/protecao.ts). É por ela que a
  * entrega remonta o botão e marca o registro da saída (interativoDaSeguranca), saia o aviso agora ou da fila.
  */

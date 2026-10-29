@@ -13,9 +13,11 @@ import { emailDeConfirmacao, emailDePedidoDeAjuda, emailDeRedefinicao, emailVali
 import { problemaDeSenhaVazada } from '@/lib/apis-publicas/servidor'
 import {
   auditarConta, avisar, avisarTrocaDeWhatsapp, consumirToken, emitirToken, enviarComSeguranca, hashDoIp, lerToken, revogarLinksDeSenha,
-  urlDoLink, VALIDADE_MIN,
+  espacoDaPessoa, urlDoLink, VALIDADE_MIN,
 } from '@/lib/contas/servidor'
 import { oQueOLinkProva } from '@/lib/contas/convite'
+import { entregar } from '@/lib/whatsapp/fila'
+import { numeroCanonico, textoDoLinkDeSenha } from '@/lib/whatsapp/regras'
 
 /**
  * O lado de conta que não precisa de administrador: esqueci minha senha,
@@ -39,12 +41,33 @@ async function ipDaRequisicao(): Promise<string> {
 
 // ------------------------------------------------------------------ esqueci minha senha
 
-const RESPOSTA_NEUTRA = 'Se existir uma conta com esse usuário ou e-mail e ela tiver um e-mail de recuperação confirmado, enviamos um link para redefinir a senha (vale por 1 hora; confira também o spam). Não chegou nada em alguns minutos? Provavelmente a conta ainda não tem e-mail de recuperação: peça a um administrador uma senha temporária e, ao entrar, cadastre o e-mail em Meu perfil.'
+const RESPOSTA_NEUTRA = 'Se existir uma conta com esse usuário, e-mail ou WhatsApp e ela tiver um e-mail de recuperação ou um WhatsApp confirmado, enviamos um link para criar uma senha nova (vale por 1 hora; no e-mail, confira também o spam). Não chegou nada em alguns minutos? Provavelmente a conta ainda não tem nenhum dos dois: peça a um administrador uma senha temporária e, ao entrar, cadastre o e-mail em Meu perfil.'
 
+/** Usuário, e-mail confirmado ou WhatsApp confirmado: o id da conta, ou null. */
+async function contaDoIdentificador(admin: ReturnType<typeof createAdminClient>, identificador: string): Promise<string | null> {
+  if (identificador.includes('@')) {
+    const { data } = await admin.from('profiles').select('id').eq('email', identificador).not('email_confirmado_em', 'is', null).maybeSingle()
+    return (data?.id as string | undefined) ?? null
+  }
+  // Só dígitos e sinais de telefone: é um número (usuário sempre tem letra).
+  const numero = /^[\d\s()+.-]+$/.test(identificador) ? numeroCanonico(identificador) : null
+  if (numero) {
+    const { data } = await admin.from('whatsapp_contas').select('user_id').eq('numero', numero).maybeSingle()
+    return (data?.user_id as string | undefined) ?? null
+  }
+  const { data } = await admin.from('profiles').select('id').eq('username', identificador).maybeSingle()
+  return (data?.id as string | undefined) ?? null
+}
+
+/**
+ * O link vai a todos os canais confirmados da conta: o e-mail de recuperação e o WhatsApp (whatsapp_contas só
+ * guarda número confirmado). Quem perdeu o acesso ao e-mail, ou nunca cadastrou um, recupera pelo número em que
+ * recebeu o convite. O WhatsApp sai como mensagem de segurança (avisos pausados não seguram).
+ */
 export async function pedirRedefinicaoDeSenha(formData: FormData): Promise<Resultado> {
   try {
     const identificador = texto(formData, 'identificador').toLowerCase().slice(0, 254)
-    if (identificador.length < 3) return { erro: 'Informe seu usuário ou e-mail.' }
+    if (identificador.length < 3) return { erro: 'Informe seu usuário, e-mail ou WhatsApp.' }
 
     const admin = createAdminClient()
     // Limite por origem: 5 pedidos a cada 15 minutos. A tela é pública; sem
@@ -56,13 +79,18 @@ export async function pedirRedefinicaoDeSenha(formData: FormData): Promise<Resul
     if ((count ?? 0) >= 5) return { erro: 'Muitos pedidos seguidos. Espere alguns minutos e tente de novo.' }
     await admin.from('pedidos_de_recuperacao').insert({ ip_hash: ipHash })
 
-    const consulta = admin.from('profiles').select('id, username, full_name, email, email_confirmado_em, active')
-    const { data: pessoa } = identificador.includes('@')
-      ? await consulta.eq('email', identificador).not('email_confirmado_em', 'is', null).maybeSingle()
-      : await consulta.eq('username', identificador).maybeSingle()
+    const userId = await contaDoIdentificador(admin, identificador)
+    if (!userId) return { recado: RESPOSTA_NEUTRA }
+    const [{ data: pessoa }, { data: whatsapp }] = await Promise.all([
+      admin.from('profiles').select('id, username, full_name, email, email_confirmado_em, active').eq('id', userId).maybeSingle(),
+      admin.from('whatsapp_contas').select('numero').eq('user_id', userId).maybeSingle(),
+    ])
 
     // Daqui para baixo, qualquer "não" responde igual ao "sim".
-    if (!pessoa || !pessoa.active || !pessoa.email || !pessoa.email_confirmado_em) return { recado: RESPOSTA_NEUTRA }
+    if (!pessoa || !pessoa.active) return { recado: RESPOSTA_NEUTRA }
+    const email = pessoa.email && pessoa.email_confirmado_em ? pessoa.email as string : null
+    const numero = (whatsapp?.numero as string | undefined) ?? null
+    if (!email && !numero) return { recado: RESPOSTA_NEUTRA }
 
     // Limite por pessoa: 3 links por hora, venha de onde vier.
     const umaHora = new Date(Date.now() - 60 * 60_000).toISOString()
@@ -71,13 +99,33 @@ export async function pedirRedefinicaoDeSenha(formData: FormData): Promise<Resul
     if ((recentes ?? 0) >= 3) return { recado: RESPOSTA_NEUTRA }
 
     const token = await emitirToken(admin, { userId: pessoa.id, finalidade: 'redefinir_senha', validadeMin: VALIDADE_MIN.redefinir_senha })
-    const enviado = await enviarComSeguranca(pessoa.email, emailDeRedefinicao({
-      nome: pessoa.full_name, usuario: pessoa.username, url: urlDoLink('/redefinir-senha', token), minutos: VALIDADE_MIN.redefinir_senha, pedidoPor: 'pessoa',
-    }))
-    await auditarConta(admin, { userId: pessoa.id, atorId: null, acao: 'link_de_senha_pedido', detalhes: { enviado } })
+    const url = urlDoLink('/redefinir-senha', token)
+    const [enviado, pelaFila] = await Promise.all([
+      email ? enviarComSeguranca(email, emailDeRedefinicao({
+        nome: pessoa.full_name, usuario: pessoa.username, url, minutos: VALIDADE_MIN.redefinir_senha, pedidoPor: 'pessoa',
+      })) : Promise.resolve(false),
+      numero ? linkPeloWhatsapp(admin, { userId: pessoa.id, numero, nome: pessoa.full_name, usuario: pessoa.username, url }) : Promise.resolve(null),
+    ])
+    await auditarConta(admin, { userId: pessoa.id, atorId: null, acao: 'link_de_senha_pedido', detalhes: { enviado, whatsapp: pelaFila } })
     return { recado: RESPOSTA_NEUTRA }
   } catch (causa) {
     return { erro: mensagemDoErro(causa, 'Não foi possível processar o pedido. Tente de novo.') }
+  }
+}
+
+/** O link pelo WhatsApp confirmado. Devolve a situação da entrega (para a auditoria); nunca lança. */
+async function linkPeloWhatsapp(admin: ReturnType<typeof createAdminClient>, p: { userId: string; numero: string; nome: string | null; usuario: string; url: string }): Promise<string | null> {
+  try {
+    const workspaceId = await espacoDaPessoa(admin, p.userId)
+    if (!workspaceId) return null
+    const entrega = await entregar(admin, workspaceId, {
+      numero: p.numero, tipo: 'seguranca', categoria: 'conta', userId: p.userId,
+      texto: textoDoLinkDeSenha({ nome: p.nome, usuario: p.usuario, url: p.url, minutos: VALIDADE_MIN.redefinir_senha }),
+    })
+    return entrega.situacao
+  } catch (causa) {
+    console.error('[contas] link de senha pelo WhatsApp não enviado:', causa instanceof Error ? causa.message : causa)
+    return null
   }
 }
 
