@@ -459,7 +459,7 @@ const USUARIOS: GuiaDaArea = {
     {
       id: 'sem-email-confirmado',
       pergunta: 'Por que importa a pessoa ter e-mail confirmado?',
-      resposta: 'Sem e-mail confirmado não há para onde mandar o link de “Esqueci minha senha”, o link de nova senha que você envia, os avisos de segurança por e-mail nem os e-mails de notificação (se a pessoa confirmou o WhatsApp, os avisos de segurança chegam por lá). Nesse caso, para redefinir a senha só restam a senha temporária ou uma senha definida por você.',
+      resposta: 'Sem e-mail confirmado, o link de “Esqueci minha senha” só chega se a pessoa tiver o WhatsApp confirmado (o do convite, ou o confirmado em “Meu perfil”). Também não há para onde mandar o link de nova senha que você envia, os avisos de segurança por e-mail nem os e-mails de notificação (se a pessoa confirmou o WhatsApp, os avisos de segurança chegam por lá). Nesse caso, para redefinir a senha só restam a senha temporária ou uma senha definida por você.',
       termos: ['não confirmado', 'sem e-mail', 'Link por e-mail indisponível'],
     },
     {
@@ -1289,7 +1289,7 @@ const PERFIL: GuiaDaArea = {
     {
       id: 'borda-amarela',
       pergunta: 'Por que o quadro do e-mail está com a borda amarela?',
-      resposta: 'Porque a sua conta ainda não tem um e-mail de recuperação confirmado. Enquanto for assim, “Esqueci minha senha” não tem para onde mandar o link. Cadastre o endereço e abra o link de confirmação que chega nele.',
+      resposta: 'Porque a sua conta ainda não tem um e-mail de recuperação confirmado. Enquanto for assim, “Esqueci minha senha” só manda o link pelo WhatsApp, se ele estiver confirmado. Cadastre o endereço e abra o link de confirmação que chega nele.',
       termos: ['faixa amarela', 'não confirmado', 'aviso amarelo'],
     },
     {

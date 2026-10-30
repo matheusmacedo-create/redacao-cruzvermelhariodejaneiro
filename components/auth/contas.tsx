@@ -40,11 +40,11 @@ export function EsqueciSenhaForm() {
 
   return (
     <form onSubmit={enviar} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-2 text-sm font-medium">Usuário ou e-mail
-        <input required autoComplete="username" value={identificador} onChange={(e) => setIdentificador(e.target.value)} className={campo} placeholder="nome.sobrenome ou seu@email.com" disabled={enviado} />
+      <label className="flex flex-col gap-2 text-sm font-medium">Usuário, e-mail ou WhatsApp
+        <input required autoComplete="username" value={identificador} onChange={(e) => setIdentificador(e.target.value)} className={campo} placeholder="nome.sobrenome, seu@email.com ou (21) 98765-4321" disabled={enviado} />
       </label>
       <Recado aviso={aviso} />
-      {!enviado && <Button type="submit" size="lg" className="h-11" disabled={ocupado || identificador.trim().length < 3}>{ocupado && <Loader2 className="size-4 animate-spin" />}Enviar link por e-mail</Button>}
+      {!enviado && <Button type="submit" size="lg" className="h-11" disabled={ocupado || identificador.trim().length < 3}>{ocupado && <Loader2 className="size-4 animate-spin" />}Enviar link</Button>}
     </form>
   )
 }
