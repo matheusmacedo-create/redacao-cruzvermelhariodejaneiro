@@ -803,7 +803,7 @@ const HISTORICO: GuiaDaArea = {
     {
       id: 'agendado-nao-aparece',
       pergunta: 'Agendei uma publicação e ela não aparece. Por quê?',
-      resposta: 'O Histórico só mostra o que consta como publicado ou que falhou. Enquanto espera o horário, a publicação está no pacote, em “Publicações”, e no “Calendário”. Nas redes, ela entra aqui quando a saída é confirmada.\n\nA edição da newsletter agendada é um caso à parte: continua como “Agendada” em “Edições enviadas”, na Newsletter, e não entra no Histórico.',
+      resposta: 'O Histórico só mostra o que consta como publicado ou que falhou. Enquanto espera o horário, a publicação está no pacote, em “Publicações” (com “Agendado para…” na barra de baixo, quando a página do site espera junto), e no “Calendário”. Nas redes, ela entra aqui quando a saída é confirmada.\n\nA edição da newsletter agendada é um caso à parte: continua como “Agendada” em “Edições enviadas”, na Newsletter, e não entra no Histórico.',
       termos: ['agendada', 'na fila', 'programada', 'sumiu'],
     },
     {

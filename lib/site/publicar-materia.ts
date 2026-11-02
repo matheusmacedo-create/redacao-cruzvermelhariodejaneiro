@@ -298,6 +298,12 @@ export type PedidoDePublicacao = {
    * versão antiga órfã no servidor.
    */
   slug?: string
+  /**
+   * Cliente do banco de quem publica. Sem ele, vale a sessão de quem clicou;
+   * a publicação agendada (/api/publicacao/agendadas) não tem sessão e passa
+   * o administrativo, em nome de quem agendou.
+   */
+  cliente?: Supabase
 }
 
 /**
@@ -317,7 +323,7 @@ export type PedidoDePublicacao = {
  */
 export async function publicarMateria(pedido: PedidoDePublicacao): Promise<ResultadoDoSite> {
   try {
-    const supabase = await createClient()
+    const supabase = pedido.cliente ?? await createClient()
     const base = baseDoSite()
 
     const { data } = await supabase

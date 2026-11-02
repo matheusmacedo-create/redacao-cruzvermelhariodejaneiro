@@ -194,9 +194,10 @@ const PUBLICACOES: GuiaDaArea = {
         'Em “Agendar o pacote”, escolha o dia e a hora (horário de Brasília).',
         'Para uma rede sair em outra hora, abra o destino dela e preencha “Horário deste destino”. Vazio, vale o horário do pacote.',
         'Toque em “Agendar prontos” e confirme.',
-        'Os destinos agendados ficam com a bolinha azul e aparecem no Calendário.',
+        'Com a página do site na rodada, nada sai na hora: a barra de baixo mostra “Agendado para…” e o pacote inteiro sai no horário. Você recebe um aviso com o resultado.',
+        'Para desistir antes da hora, toque em “Cancelar agendamento” na barra de baixo.',
       ],
-      dica: 'O horário vale para as redes e a newsletter. A página do site sobe na hora em que você confirma.',
+      dica: 'A página do site espera o horário junto com as redes: os posts com o link da matéria precisam dela no ar. Um pacote sai por minuto; cinco marcados para as 9h ficam no ar até umas 9h05. Sem a página na rodada, as redes e a newsletter ficam com a bolinha azul e aparecem no Calendário, como antes.',
     },
     {
       id: 'corrigir-noticia-no-site',

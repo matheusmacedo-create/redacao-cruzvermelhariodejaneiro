@@ -1,6 +1,8 @@
 'use server'
 
+import { timingSafeEqual } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { requireWorkspace } from '@/lib/session'
 import { recalcularStatusDoPacote } from '@/lib/publicacao/status-do-pacote'
 import { mensagemDoErro } from '@/lib/erro-de-acao'
@@ -11,6 +13,7 @@ import { enviarEdicao } from '@/lib/newsletter/envio'
 import { gerarVariante, validarVariante, temErro, separarHashtags, type DadosDoArquivo } from '@/lib/publicacao/variantes'
 import { corpoComMidias, lerLegendas, type LegendaDaMidia } from '@/lib/publicacao/legendas'
 import { normalizarQuebras } from '@/lib/content-blocks'
+import { horarioAindaFuturo, horarioEfetivo, horarioParaLer, vaiParaAFila } from '@/lib/publicacao/agendamento'
 
 /**
  * Ações do hub multicanal: pacote (mestre) e destinos (variantes).
@@ -181,8 +184,10 @@ async function reabrirSeSaiuDoAr(
   if (error) console.error('[pacotes] não foi possível reabrir o destino do site', destino.id, error.message)
 }
 
-async function pacoteDoEspaco(id: string, workspaceId: string) {
-  const supabase = await createClient()
+type Cliente = Awaited<ReturnType<typeof createClient>>
+
+async function pacoteDoEspaco(id: string, workspaceId: string, cliente?: Cliente) {
+  const supabase = cliente ?? await createClient()
   const { data } = await supabase
     .from('social_packages')
     .select('id,titulo_interno,mestre,mestre_file_ids,status,agendar_para,content_id,origem_tipo,origem_id')
@@ -770,33 +775,18 @@ export async function estimarCota(formData: FormData): Promise<ResultadoDoHub & 
  * passarem na validação) e `somente`. Com um ou mais `somente`, a rodada só
  * enxerga esses destinos — é assim que o reprocesso dispara um destino sem
  * arrastar os outros prontos do pacote. Sem `somente`, vale o pacote inteiro.
+ *
+ * Com o site na rodada e horário à frente, nada sai agora: o pacote inteiro
+ * espera na fila (publicacoes_agendadas) e o relógio do banco o publica na
+ * hora, pelo mesmo dispararPacote, em nome de quem agendou. O pacote inteiro,
+ * e não só o site, porque os posts com {{URL_DA_MATERIA}} precisam da página
+ * no ar para ter o endereço.
  */
-export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub & { publicados?: number; falhas?: number }> {
+export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub & { publicados?: number; falhas?: number; agendado?: string }> {
   try {
     const context = await requireWorkspace()
     const supabase = await createClient()
     const pacoteId = texto(formData, 'pacoteId')
-    const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id)
-
-    // Passou por aprovação? A decisão é conferida AQUI, no servidor — a tela
-    // pode estar desatualizada, e publicar em nome da instituição algo que
-    // ninguém aprovou é o que o fluxo existe para impedir.
-    if (pacote.content_id) {
-      const { data: aprovacao } = await supabase
-        .from('approvals').select('status')
-        .eq('content_id', pacote.content_id)
-        .order('created_at', { ascending: false })
-        .limit(1).maybeSingle()
-      if (aprovacao && aprovacao.status !== 'approved') {
-        throw new Error(
-          aprovacao.status === 'pending'
-            ? 'Este pacote está em aprovação. Aguarde a decisão antes de publicar.'
-            : 'A aprovação deste pacote pediu ajustes. Revise as variantes e envie de novo.',
-        )
-      }
-    } else if (pacote.status === 'em_aprovacao') {
-      throw new Error('Este pacote está em aprovação. Aguarde a decisão antes de publicar.')
-    }
 
     // Além dos já marcados como prontos, a tela pode pedir para levar juntos
     // destinos ainda em "gerada" — desde que passem AGORA na validação do
@@ -809,6 +799,225 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     // estivesse pronto no pacote — inclusive o que alguém ainda revisava.
     const somenteIds = new Set(formData.getAll('somente').map((v) => String(v)).filter(Boolean))
 
+    if (!somenteIds.size) {
+      const agendado = await agendarSeOSiteEspera(supabase, context.workspace.id, context.user.id, pacoteId, incluirIds)
+      if (agendado) return { agendado }
+      // Publicar agora vence um agendamento antigo do mesmo pacote: sem isto,
+      // o relógio voltaria depois a um pacote que já saiu.
+      await supabase.from('publicacoes_agendadas').update({ estado: 'cancelada', executado_em: new Date().toISOString() })
+        .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id).eq('estado', 'agendada')
+    }
+
+    return await dispararPacote(
+      { cliente: supabase, workspaceId: context.workspace.id, userId: context.user.id },
+      pacoteId,
+      { incluir: incluirIds, somente: somenteIds },
+    )
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível publicar o pacote.')
+  }
+}
+
+/**
+ * Passou por aprovação? A decisão é conferida AQUI, no servidor — a tela
+ * pode estar desatualizada, e publicar em nome da instituição algo que
+ * ninguém aprovou é o que o fluxo existe para impedir. Vale também na hora da
+ * fila: a aprovação pode ter mudado entre agendar e publicar.
+ */
+async function conferirAprovacao(supabase: Cliente, pacote: { content_id?: string | null; status?: string | null }) {
+  if (pacote.content_id) {
+    const { data: aprovacao } = await supabase
+      .from('approvals').select('status')
+      .eq('content_id', pacote.content_id)
+      .order('created_at', { ascending: false })
+      .limit(1).maybeSingle()
+    if (aprovacao && aprovacao.status !== 'approved') {
+      throw new Error(
+        aprovacao.status === 'pending'
+          ? 'Este pacote está em aprovação. Aguarde a decisão antes de publicar.'
+          : 'A aprovação deste pacote pediu ajustes. Revise as variantes e envie de novo.',
+      )
+    }
+  } else if (pacote.status === 'em_aprovacao') {
+    throw new Error('Este pacote está em aprovação. Aguarde a decisão antes de publicar.')
+  }
+}
+
+/**
+ * Se o site entra nesta rodada e o horário dele está à frente, põe o pacote na
+ * fila e devolve o horário; senão, null (a rodada sai agora). Agendar de novo
+ * o mesmo pacote troca o horário do pedido que espera, não cria outro.
+ */
+async function agendarSeOSiteEspera(
+  supabase: Cliente,
+  workspaceId: string,
+  userId: string,
+  pacoteId: string,
+  incluirIds: Set<string>,
+): Promise<string | null> {
+  const pacote = await pacoteDoEspaco(pacoteId, workspaceId, supabase)
+  const { data: site } = await supabase
+    .from('package_destinations')
+    .select('id,canal,formato,corpo,extras,file_ids,agendar_para,estado')
+    .eq('package_id', pacoteId).eq('workspace_id', workspaceId).eq('canal', 'site_web')
+    .in('estado', ['pronta', 'gerada', 'em_ajuste'])
+    .maybeSingle()
+  if (!site) return null
+  if (site.estado !== 'pronta') {
+    // Fora dos prontos, o site só vai junto se foi pedido e passa na
+    // validação — a mesma régua do disparo. Com erro ele ficaria de fora, e a
+    // rodada sai agora como sempre saiu.
+    if (!incluirIds.has(site.id)) return null
+    const avisos = validarVariante(
+      { corpo: site.corpo ?? '', extras: (site.extras ?? {}) as Record<string, string>, fileIds: site.file_ids ?? [] },
+      site.canal, site.formato,
+      await dadosDosArquivos(supabase, workspaceId, site.file_ids ?? []),
+    )
+    if (temErro(avisos)) return null
+  }
+
+  const quando = horarioEfetivo(site.agendar_para, pacote.agendar_para)
+  if (!quando || !vaiParaAFila(quando, new Date())) return null
+
+  // Agendar algo que não poderia sair é adiar o erro para a hora marcada,
+  // quando ninguém está olhando.
+  await conferirAprovacao(supabase, pacote)
+
+  const { data: viva } = await supabase
+    .from('publicacoes_agendadas').select('id,estado')
+    .eq('package_id', pacoteId).eq('workspace_id', workspaceId)
+    .in('estado', ['agendada', 'publicando']).maybeSingle()
+  if (viva?.estado === 'publicando') throw new Error('Este pacote está sendo publicado agora pela fila. Aguarde um minuto.')
+
+  const pedido = { quando, incluir: [...incluirIds], agendado_por: userId, erro: null }
+  const { error } = viva
+    ? await supabase.from('publicacoes_agendadas').update(pedido).eq('id', viva.id).eq('workspace_id', workspaceId)
+    : await supabase.from('publicacoes_agendadas').insert({ ...pedido, workspace_id: workspaceId, package_id: pacoteId })
+  if (error) throw new Error('Não foi possível agendar o pacote.')
+
+  revalidatePath(`/redes/${pacoteId}`)
+  revalidatePath('/redes')
+  return quando
+}
+
+/** Desfaz o agendamento que ainda espera. O pacote volta a ficar como estava: pronto, nada publicado. */
+export async function cancelarAgendamento(formData: FormData): Promise<ResultadoDoHub> {
+  try {
+    const context = await requireWorkspace()
+    const supabase = await createClient()
+    const pacoteId = texto(formData, 'pacoteId')
+    await pacoteDoEspaco(pacoteId, context.workspace.id, supabase)
+    const { data, error } = await supabase.from('publicacoes_agendadas')
+      .update({ estado: 'cancelada', executado_em: new Date().toISOString() })
+      .eq('package_id', pacoteId).eq('workspace_id', context.workspace.id).eq('estado', 'agendada')
+      .select('id')
+    if (error) throw new Error('Não foi possível cancelar o agendamento.')
+    if (!data?.length) throw new Error('Não há agendamento esperando neste pacote. Se ele já começou a sair, confira em um minuto.')
+    revalidatePath(`/redes/${pacoteId}`)
+    revalidatePath('/redes')
+    return {}
+  } catch (causa) {
+    return comoErro(causa, 'Não foi possível cancelar o agendamento.')
+  }
+}
+
+/** O pedido do relógio traz o CRON_SECRET; o do navegador, não. */
+function pedidoDoRelogio(cabecalhos: Headers): boolean {
+  const segredo = process.env.CRON_SECRET
+  const recebido = cabecalhos.get('authorization') ?? ''
+  const esperado = `Bearer ${segredo ?? ''}`
+  return Boolean(segredo) && recebido.length === esperado.length && timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado))
+}
+
+export type VezDaFila = { erro?: string; vazia?: boolean; pacoteId?: string; publicados?: number; falhas?: number }
+
+/**
+ * A vez da fila: publica o próximo pacote agendado que venceu, um por
+ * chamada (a função da Vercel tem 60 s). Quem chama é a rota do relógio
+ * (/api/publicacao/agendadas), que já conferiu o CRON_SECRET; por ser export
+ * de um arquivo 'use server', a conferência se repete aqui, no cabeçalho da
+ * requisição — chamada vinda do navegador não traz o segredo.
+ *
+ * Quem agendou recebe o aviso do resultado, com sucesso ou falha: é a única
+ * notícia que ele terá de algo que aconteceu sem ninguém olhando.
+ */
+export async function publicarProximaAgendada(): Promise<VezDaFila> {
+  if (!pedidoDoRelogio(await headers())) return { erro: 'Não autorizado.' }
+  const admin = createAdminClient()
+  const { data, error } = await admin.rpc('reservar_publicacao_agendada')
+  if (error) return { erro: 'Não foi possível ler a fila.' }
+  const pedido = ((data ?? []) as { id: string; workspace_id: string; package_id: string; quando: string; agendado_por: string | null; incluir: string[] | null }[])[0]
+  if (!pedido) return { vazia: true }
+
+  const { data: pacote } = await admin.from('social_packages').select('titulo_interno')
+    .eq('id', pedido.package_id).eq('workspace_id', pedido.workspace_id).maybeSingle()
+  const titulo = (pacote?.titulo_interno as string | undefined) || 'Pacote sem título'
+
+  const resultado = pedido.agendado_por
+    ? await dispararPacote(
+      { cliente: admin, workspaceId: pedido.workspace_id, userId: pedido.agendado_por },
+      pedido.package_id,
+      { incluir: new Set(pedido.incluir ?? []), somente: new Set(), daFila: true },
+    )
+    : { erro: 'Quem agendou não tem mais conta no Palácio. Publique o pacote à mão.' }
+
+  const publicados = resultado.publicados ?? 0
+  const falhas = resultado.falhas ?? 0
+  const erro = resultado.erro ?? (falhas ? `${falhas} destino${falhas === 1 ? '' : 's'} falhou na publicação. Veja o motivo no pacote.` : null)
+  const saiu = !resultado.erro && publicados > 0
+  await admin.from('publicacoes_agendadas')
+    .update({ estado: saiu ? 'feita' : 'falhou', erro: erro?.slice(0, 500) ?? null, executado_em: new Date().toISOString() })
+    .eq('id', pedido.id)
+
+  await notificar(admin, {
+    workspaceId: pedido.workspace_id,
+    para: [pedido.agendado_por],
+    // O aviso é para quem agendou sobre o que a fila fez: sem ator, senão o
+    // notificar() o descartaria como "quem causou o aviso".
+    atorId: null,
+    categoria: 'pautas',
+    titulo: saiu ? (falhas ? `Saiu em parte: ${titulo}` : `Publicado no horário: ${titulo}`) : `Não saiu no horário: ${titulo}`,
+    mensagem: saiu
+      ? `O pacote agendado para ${horarioParaLer(pedido.quando)} foi publicado${falhas ? `, mas ${erro}` : '.'}`
+      : `O pacote agendado para ${horarioParaLer(pedido.quando)} não foi publicado: ${erro ?? 'nenhum destino saiu.'}`,
+    link: `/redes/${pedido.package_id}`,
+    botao: 'Abrir o pacote',
+    importante: !saiu || falhas > 0,
+  })
+
+  return { pacoteId: pedido.package_id, publicados, falhas, erro: resultado.erro }
+}
+
+type QuemDispara = { cliente: Cliente; workspaceId: string; userId: string }
+
+/**
+ * O disparo em si, com o cliente de quem publica: a sessão de quem clicou,
+ * ou o administrativo da fila, em nome de quem agendou. Devolve { erro } em
+ * vez de lançar, como as actions.
+ *
+ * `daFila`: o horário do pacote já venceu (foi ele que trouxe o pacote até
+ * aqui). Repassá-lo ao conector ou ao Resend pediria um horário no passado;
+ * o vencido vira "agora", e o que ainda está à frente segue agendado.
+ */
+async function dispararPacote(
+  quem: QuemDispara,
+  pacoteId: string,
+  opcoes: { incluir: Set<string>; somente: Set<string>; daFila?: boolean },
+): Promise<ResultadoDoHub & { publicados?: number; falhas?: number }> {
+  try {
+    // O mesmo formato do requireWorkspace(), para o corpo abaixo não depender
+    // de onde veio quem publica.
+    const context = { workspace: { id: quem.workspaceId }, user: { id: quem.userId } }
+    const supabase = quem.cliente
+    const pacote = await pacoteDoEspaco(pacoteId, context.workspace.id, supabase)
+    await conferirAprovacao(supabase, pacote)
+
+    const agora = new Date()
+    const ajustar = (horario: string | null) => (opcoes.daFila ? horarioAindaFuturo(horario, agora) ?? null : horario)
+    pacote.agendar_para = ajustar(pacote.agendar_para)
+    const incluirIds = opcoes.incluir
+    const somenteIds = opcoes.somente
+
     const { data: linhas } = await supabase
       .from('package_destinations')
       .select('id,canal,formato,corpo,extras,file_ids,crops,agendar_para,estado')
@@ -816,6 +1025,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       .in('estado', ['pronta', 'gerada', 'em_ajuste'])
     const todas = ((linhas ?? []) as (DestinoParaDisparo & { estado: string })[])
       .filter((d) => !somenteIds.size || somenteIds.has(d.id))
+      .map((d) => ({ ...d, agendar_para: ajustar(d.agendar_para) }))
 
     const arquivos = await dadosDosArquivos(
       supabase,
@@ -861,7 +1071,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
     const site = prontos.find((d) => d.canal === 'site_web')
     if (site) {
       await marcar([site.id], { estado: 'publicando' })
-      const resultado = await publicarSiteDoPacote(site, pacote, context.workspace.id, context.user.id)
+      const resultado = await publicarSiteDoPacote(site, pacote, context.workspace.id, context.user.id, supabase)
       if (resultado.erro) {
         falhas++
         await marcar([site.id], { estado: 'falhou', erro: resultado.erro.slice(0, 500) })
@@ -1046,7 +1256,7 @@ export async function publicarPacote(formData: FormData): Promise<ResultadoDoHub
       await marcar(ids, { estado: 'publicando' })
       try {
         const daBiblioteca = modelo.file_ids.length
-          ? await carregarArquivos(modelo.file_ids, context.workspace.id, modelo.crops)
+          ? await carregarArquivos(modelo.file_ids, context.workspace.id, modelo.crops, supabase)
           : []
         const eVideo = daBiblioteca.length > 0 && daBiblioteca[0].contentType.startsWith('video/')
         // Foto grande demais para a rede mais exigente do grupo é recusa
@@ -1398,8 +1608,9 @@ async function publicarSiteDoPacote(
   pacote: { id?: string; content_id?: string | null; mestre?: unknown; origem_tipo?: string | null; origem_id?: string | null },
   workspaceId: string,
   userId: string,
+  cliente?: Cliente,
 ) {
-  const supabase = await createClient()
+  const supabase = cliente ?? await createClient()
   const extras = destino.extras ?? {}
 
   // Corpo da página: o texto da variante + as mídias como blocos, porque o
@@ -1469,6 +1680,7 @@ async function publicarSiteDoPacote(
     subtitulo: String(extras.subtitulo ?? ''),
     corpo: corpoDaPagina,
     slug: String(extras.slug ?? ''),
+    cliente,
   })
 }
 
