@@ -41,11 +41,12 @@ import { mediaToken, normalizarQuebras, parseContentBlocks, parseMediaLine } fro
 import { janelaDeRecorte, type CaixaDeRecorte } from '@/lib/publicacao/janela-de-recorte'
 import { arrumarTexto, textoDaColagem } from '@/lib/colagem'
 import {
-  adicionarDestino, alternarPublicacao, arquivarPacote, atualizarStatusDoPacote,
+  adicionarDestino, alternarPublicacao, arquivarPacote, atualizarStatusDoPacote, cancelarAgendamento,
   enviarPacoteParaAprovacao, estimarCota, marcarPronta, publicarPacote, realimentarDestino,
   removerDestino, reprocessarDestino, salvarMestre, salvarVariante, atualizarPaginaDoSite,
 } from '@/app/actions/pacotes'
 import { autorizarUsoDeImagem, liberarMidiaDeTerceiro } from '@/app/actions/arquivos'
+import { horarioParaLer } from '@/lib/publicacao/agendamento'
 import { SeletorDeRevisores, type PessoaDoEspaco } from '@/components/app/seletor-de-revisores'
 import type { ArquivoDaBiblioteca, DestinoRegistro, LegendaDaMidia, MestreRegistro, PacoteRegistro } from './tipos'
 
@@ -513,10 +514,23 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
       const r = await publicarPacote(form)
       if (r.erro) { setErro(r.erro); return }
       setAviso(
-        r.falhas
+        r.agendado
+          ? `Agendado para ${horarioParaLer(r.agendado)}. Nada saiu agora: o pacote inteiro sai nesse horário, e você recebe um aviso com o resultado.`
+          : r.falhas
           ? `${r.publicados} destino(s) publicados, ${r.falhas} falharam. Veja o motivo em cada card e reprocesse.`
           : `${r.publicados} destino(s) publicados.`,
       )
+      router.refresh()
+    })
+  }
+
+  function cancelarFila() {
+    const form = new FormData()
+    form.set('pacoteId', inicial.id)
+    iniciar(async () => {
+      const r = await cancelarAgendamento(form)
+      if (r.erro) { setErro(r.erro); return }
+      setAviso('Agendamento cancelado. Nada foi publicado; o pacote continua pronto.')
       router.refresh()
     })
   }
@@ -690,6 +704,19 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
           botões que os causaram — no topo da página eles passavam batidos
           ou pareciam vir de outro lugar. */}
       <div data-ajuda="publicacoes.acoes" className="sticky bottom-0 z-40 -mx-1 rounded-t-lg border border-border bg-background/95 backdrop-blur">
+        {inicial.naFila && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sky-500/30 bg-sky-500/5 px-4 py-2">
+            <p className="flex items-center gap-1.5 text-sm text-sky-700 dark:text-sky-300">
+              <Clock className="size-3.5" />
+              {inicial.naFila.estado === 'publicando'
+                ? 'Saindo agora pela fila. Em um minuto a situação de cada destino aparece aqui.'
+                : `Agendado para ${horarioParaLer(inicial.naFila.quando)}: o pacote inteiro, com a página do site, sai nesse horário.`}
+            </p>
+            {inicial.naFila.estado === 'agendada' && (
+              <Button variant="outline" size="sm" onClick={cancelarFila} disabled={enviando}>Cancelar agendamento</Button>
+            )}
+          </div>
+        )}
         {erro && (
           <div className="flex items-start justify-between gap-3 border-b border-destructive/30 bg-destructive/5 px-4 py-2">
             <p className="text-sm text-destructive">{erro}</p>
@@ -745,7 +772,7 @@ export function PacoteHub({ pacote: inicial, destinos: destinosIniciais, pessoas
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4" role="dialog" aria-modal="true">
           <Card className="w-full max-w-md p-6">
             <h2 className="text-lg font-semibold">Confirmar publicação</h2>
-            <p className="mt-2 text-sm text-muted-foreground">Vai sair agora{agendarPara ? ' (agendado)' : ''}:</p>
+            <p className="mt-2 text-sm text-muted-foreground">{agendarPara ? 'Vai sair no horário agendado, a página do site inclusive:' : 'Vai sair agora:'}</p>
             <ul className="mt-3 flex flex-col gap-1.5">
               {destinos.filter((d) => d.estado === 'pronta').map((d) => (
                 <li key={d.id} className="flex items-center gap-2 text-sm">

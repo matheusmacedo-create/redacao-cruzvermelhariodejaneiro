@@ -35,7 +35,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
   // dá a base aos pacotes que nasceram antes desta mudança — sem migração de
   // dados e sem ninguém precisar recriá-los.
   // Os destinos só depois de garantir a base; as pessoas, em paralelo.
-  const [{ data: destinosLinhas }, { data: memberRows }] = await Promise.all([
+  const [{ data: destinosLinhas }, { data: memberRows }, { data: naFila }] = await Promise.all([
     garantirBaseNoSite(id, context.workspace.id).then(() => supabase
       .from('package_destinations')
       .select('id,canal,formato,corpo,extras,file_ids,crops,descolada,estado,agendar_para,erro,external_url')
@@ -45,6 +45,13 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       .from('workspace_members')
       .select('user_id,profiles(id,full_name,initials,color,active)')
       .eq('workspace_id', context.workspace.id),
+    // O site com horário à frente espera na fila (app/actions/pacotes.ts, publicarPacote).
+    supabase
+      .from('publicacoes_agendadas')
+      .select('quando,estado')
+      .eq('package_id', id).eq('workspace_id', context.workspace.id)
+      .in('estado', ['agendada', 'publicando'])
+      .maybeSingle(),
   ])
 
   const m = (linha.mestre ?? {}) as Record<string, string>
@@ -69,6 +76,7 @@ export default async function PacotePage({ params }: { params: Promise<{ id: str
       ...(cerebro ? { cerebro } : {}),
     },
     fileIds: linha.mestre_file_ids ?? [],
+    naFila: naFila ? { quando: naFila.quando, estado: naFila.estado } : null,
   }
 
   const destinos: DestinoRegistro[] = (destinosLinhas ?? []).map((d) => ({

@@ -13,12 +13,16 @@ import { ETIQUETA_DE_IA } from '@/lib/ia/etiqueta'
  * server' não pode exportar helper sem transformá-lo em action chamável pelo
  * navegador.
  */
+type Cliente = Awaited<ReturnType<typeof createClient>>
+
+/** `cliente`: o da publicação agendada, que não tem sessão; sem ele, vale a de quem clicou. */
 export async function carregarArquivo(
   fileId: string,
   workspaceId: string,
   crop?: CaixaDeRecorte,
+  cliente?: Cliente,
 ) {
-  const supabase = await createClient()
+  const supabase = cliente ?? await createClient()
   const { data: arquivo } = await supabase
     .from('files')
     .select('name,content_type,storage_path,status,authorization_status,tags')
@@ -65,8 +69,9 @@ export async function carregarArquivos(
   fileIds: string[],
   workspaceId: string,
   crops?: Record<string, CaixaDeRecorte>,
+  cliente?: Cliente,
 ) {
   const carregados = []
-  for (const id of fileIds) carregados.push(await carregarArquivo(id, workspaceId, crops?.[id]))
+  for (const id of fileIds) carregados.push(await carregarArquivo(id, workspaceId, crops?.[id], cliente))
   return carregados
 }

@@ -57,6 +57,8 @@ export type PacoteRegistro = {
   agendarPara: string
   mestre: MestreRegistro
   fileIds: string[]
+  /** Pedido vivo na fila da publicação agendada (o site com horário à frente). */
+  naFila?: { quando: string; estado: 'agendada' | 'publicando' } | null
 }
 
 export type DestinoRegistro = {
