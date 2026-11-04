@@ -933,7 +933,7 @@ export type VezDaFila = { erro?: string; vazia?: boolean; pacoteId?: string; pub
 
 /**
  * A vez da fila: publica o próximo pacote agendado que venceu, um por
- * chamada (a função da Vercel tem 60 s). Quem chama é a rota do relógio
+ * chamada (a função da Vercel tem 300 s). Quem chama é a rota do relógio
  * (/api/publicacao/agendadas), que já conferiu o CRON_SECRET; por ser export
  * de um arquivo 'use server', a conferência se repete aqui, no cabeçalho da
  * requisição — chamada vinda do navegador não traz o segredo.
