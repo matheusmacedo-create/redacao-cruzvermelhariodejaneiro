@@ -2,7 +2,10 @@ import { timingSafeEqual } from 'node:crypto'
 import { publicarProximaAgendada } from '@/app/actions/pacotes'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+// Publicar um pacote com página no site (fotos, envio e conferência da página)
+// passa de 60 s. A tela do pacote, que publica pelo clique, já tem 300; sem o
+// mesmo teto aqui, a função morria antes de gravar "feita" e de avisar.
+export const maxDuration = 300
 
 /**
  * O relógio da publicação agendada. Quem chama não é a Vercel (o plano Hobby
