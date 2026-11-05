@@ -25,7 +25,7 @@ import type { Permissao } from './permissoes'
  * (scripts/conferir-navegacao.ts).
  */
 
-export type Contador = 'aprovacoes' | 'chat'
+export type Contador = 'aprovacoes' | 'chat' | 'chamados'
 
 export type Area = {
   href: string
@@ -76,7 +76,7 @@ export const GRUPOS: Grupo[] = [
     id: 'expediente',
     rotulo: 'Expediente',
     areas: [
-      { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos a qualquer setor da filial', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk', 'setor', 'reembolso', 'arte', 'solicitação'] },
+      { href: '/chamados', rotulo: 'Chamados', resumo: 'Pedidos a qualquer setor da filial', icone: LifeBuoy, termos: ['suporte', 'ti', 'manutenção', 'pedido', 'helpdesk', 'setor', 'reembolso', 'arte', 'solicitação'], contador: 'chamados' },
       // Aberto a todos: qualquer setor pede; a cotação e a aprovação ficam com o Financeiro (que também tem a aba Compras).
       { href: '/financeiro/compras', rotulo: 'Pedidos de compra', resumo: 'Peça o que o setor precisa e acompanhe a cotação e a aprovação', icone: ShoppingCart, termos: ['compras', 'comprar', 'cotação', 'orçamento de fornecedor', 'proposta', 'fornecedor', 'ordem de compra', 'requisição', 'mapa comparativo'] },
       { href: '/oficios', rotulo: 'Ofícios', resumo: 'Numerados por ano, assinados e registrados', icone: FileSignature, termos: ['documento oficial', 'carta'] },
