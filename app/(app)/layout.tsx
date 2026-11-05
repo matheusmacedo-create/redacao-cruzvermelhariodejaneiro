@@ -21,6 +21,7 @@ import { PainelDeAjuda } from '@/components/app/ajuda/painel'
 import { lerProgresso } from '@/lib/ajuda/progresso'
 import { indiceDaAjuda } from '@/lib/ajuda'
 import { lerVersao } from '@/lib/versao'
+import { ABERTOS, PAUSADOS } from '@/lib/chamados/regras'
 
 // Cada área põe o próprio nome na aba (via tituloDaArea); aqui só o sobrenome.
 export const metadata = { title: { template: '%s — Palácio Virtual', default: 'Palácio Virtual — Cruz Vermelha RJ' } }
@@ -33,6 +34,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // O pacote da sessão já trouxe tudo isto numa ida só (lib/session.ts); sem
   // ele (migração 20260929170000 ainda não aplicada), as consultas de antes.
   const pacote = context.pacote
+  // O número ao lado de Chamados: o que está comigo para atender (sem os que esperam outra pessoa).
+  // Começa já, junto com as leituras abaixo; quem é só da escola não tem Chamados.
+  const chamadosComigo = escola ? Promise.resolve(0) : supabase
+    .from('chamados')
+    .select('id', { count: 'exact', head: true })
+    .eq('workspace_id', ws)
+    .eq('responsavel_id', context.user.id)
+    .in('status', ABERTOS.filter((s) => !PAUSADOS.includes(s)))
+    .then(({ count }) => count ?? 0)
   const [{ data: notifications }, { count: naoLidas }, { count: aprovacoesPendentes }, lembrancas, { data: painelDoChat }, pessoas, leitorDeAcessos, avaliadorDeEnvios, entidadeDaEscola] = pacote
     ? [{ data: pacote.notificacoes }, { count: pacote.naoLidas }, { count: pacote.aprovacoesPendentes }, await cookies(), { data: pacote.chat }, pessoasDoChatDeLinhas(pacote.pessoas),
       !escola && context.role === 'admin' && pacote.leitorDeAcessos, !escola && pacote.avaliadorDeEnvios, ehEquipeDaEscola(context.role) ? { count: pacote.escolaTemEntidade ? 1 : 0 } : null]
@@ -98,7 +108,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <AjudaProvider progressoInicial={lerProgresso(context.user.user_metadata?.ajuda)} pessoa={pessoaNaAjuda} indice={indiceDaAjuda()}>
       {/* A moldura é da cor da sidebar; o conteúdo fica num painel branco por cima, como nas ferramentas de trabalho atuais. */}
       <div className="flex h-[100dvh] overflow-hidden bg-sidebar">
-        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas }} fechadosIniciais={gruposFechados} profile={context.profile} versao={versao} />
+        <Sidebar contadores={{ aprovacoes: aprovacoesPendentes ?? 0, chat: chatNaoLidas, chamados: await chamadosComigo }} fechadosIniciais={gruposFechados} profile={context.profile} versao={versao} />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-xl md:border md:border-sidebar-border md:shadow-sm">
             <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} naoLidas={naoLidas ?? 0} />

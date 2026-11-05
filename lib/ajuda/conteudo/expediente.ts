@@ -377,7 +377,7 @@ const CHAMADOS: GuiaDaArea = {
     {
       alvo: 'chamados.abas',
       titulo: 'As abas',
-      texto: '“Meus chamados” mostra o que você abriu. Quem atende uma fila também vê “Atendimento” e “Indicadores”.',
+      texto: '“Meus chamados” mostra o que está com você para atender e o que você abriu. Quem atende uma fila também vê “Atendimento” (a fila inteira) e “Indicadores”.',
       lado: 'bottom',
     },
     {

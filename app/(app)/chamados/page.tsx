@@ -80,16 +80,24 @@ export default async function ChamadosPage({ searchParams }: { searchParams: Pro
   // ---------------------------------------------------------------- meus
 
   async function Meus() {
-    const { data } = await supabase.from('chamados').select(COLUNAS).eq('workspace_id', ws).eq('solicitante_id', context.user.id).order('atualizado_em', { ascending: false }).limit(300)
-    const lista = (data ?? []) as Linha[]
+    // Duas listas: o que está comigo para atender (quem só recebe chamados, como a
+    // equipe de um setor, não precisa achar a aba Atendimento) e o que eu abri.
+    const [{ data: deMim }, { data: paraMim }] = await Promise.all([
+      supabase.from('chamados').select(COLUNAS).eq('workspace_id', ws).eq('solicitante_id', context.user.id).order('atualizado_em', { ascending: false }).limit(300),
+      supabase.from('chamados').select(COLUNAS).eq('workspace_id', ws).eq('responsavel_id', context.user.id).in('status', [...ABERTOS]).order('criado_em', { ascending: true }).limit(300),
+    ])
+    const comigo = (paraMim ?? []) as Linha[]
+    const jaListados = new Set(comigo.map((c) => c.id))
+    const lista = ((deMim ?? []) as Linha[]).filter((c) => !jaListados.has(c.id))
     const abertos = lista.filter((c) => ABERTOS.includes(c.status) || c.status === 'resolvido')
     const antigos = lista.filter((c) => !abertos.includes(c))
-    if (!lista.length) {
-      return <Card className="flex flex-col items-center gap-3 p-10 text-center"><p className="font-medium">Você ainda não abriu nenhum chamado.</p><p className="max-w-md text-sm text-muted-foreground">Computador com problema, internet caindo, ar-condicionado pingando, um acesso que falta? Abra um chamado para a equipe certa e acompanhe por aqui.</p><Button render={<Link href="/chamados/novo" />}><Plus className="size-4" />Abrir chamado</Button></Card>
+    if (!lista.length && !comigo.length) {
+      return <Card className="flex flex-col items-center gap-3 p-10 text-center"><p className="font-medium">Nenhum chamado com você nem aberto por você.</p><p className="max-w-md text-sm text-muted-foreground">Computador com problema, internet caindo, ar-condicionado pingando, um acesso que falta? Abra um chamado para a equipe certa e acompanhe por aqui.{atende && ' Os chamados das filas que você atende, sem responsável ou com outra pessoa, ficam na aba Atendimento.'}</p><Button render={<Link href="/chamados/novo" />}><Plus className="size-4" />Abrir chamado</Button></Card>
     }
     return (
       <div className="flex flex-col gap-6">
-        <Tabela titulo="Em andamento" linhas={abertos} vazio="Nada em andamento." mostrarSolicitante={false} />
+        {comigo.length > 0 && <Tabela titulo="Com você para atender" linhas={comigo} vazio="" mostrarSolicitante />}
+        <Tabela titulo={comigo.length ? 'Que você abriu' : 'Em andamento'} linhas={abertos} vazio="Nada em andamento." mostrarSolicitante={false} />
         {antigos.length > 0 && <Tabela titulo="Encerrados" linhas={antigos} vazio="" mostrarSolicitante={false} />}
       </div>
     )
