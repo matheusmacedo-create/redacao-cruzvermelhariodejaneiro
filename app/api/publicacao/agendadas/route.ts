@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
+import { after } from 'next/server'
 import { publicarProximaAgendada } from '@/app/actions/pacotes'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,11 @@ export async function GET(request: Request) {
   const ok = Boolean(segredo) && recebido.length === esperado.length && timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado))
   if (!ok) return Response.json({ erro: 'Não autorizado.' }, { status: 401 })
 
-  const vez = await publicarProximaAgendada()
-  return Response.json({ ok: !vez.erro, ...vez })
+  // O pg_net desiste aos 60 s, e publicar com página no site já levou 52.
+  // Por isso a rota responde na hora e publica depois, dentro dos 300 s:
+  // o resultado fica em publicacoes_agendadas e no aviso a quem agendou.
+  after(async () => {
+    await publicarProximaAgendada()
+  })
+  return Response.json({ ok: true, aceito: true })
 }
