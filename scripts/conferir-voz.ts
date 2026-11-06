@@ -92,11 +92,15 @@ conferir(lerConfigDaVoz({}).ok, 'tudo desligado e sem voz vale')
 // ---------------------------------------------------------------- a página
 const base = { titulo: 'Curso de primeiros socorros', subtitulo: 'Inscrições abertas', corpo: 'A filial abriu as inscrições.', slug: 'curso', baseUrl: 'https://cruzvermelhariodejaneiro.org/noticias', publicadoEm: new Date('2026-10-23T12:00:00Z') }
 const comAudio = montarPaginaDoArtigo({ ...base, audio: { nome: n1 } })
+const semAudio0 = () => montarPaginaDoArtigo(base)
 conferir(comAudio.includes(`<audio controls preload="none" src="${n1}">`), 'a página toca o MP3 da própria pasta')
 conferir(comAudio.includes('Ouça esta matéria') && comAudio.includes('voz gerada por inteligência artificial'), 'título e aviso de IA')
 conferir(comAudio.includes('"AudioObject"') && comAudio.includes(`https://cruzvermelhariodejaneiro.org/noticias/curso/${n1}`), 'JSON-LD com o áudio no endereço público')
 conferir(['1', '1.25', '1.5', '2'].every((v) => comAudio.includes(`data-velocidade="${v}"`)) && comAudio.includes('1,25×') && comAudio.includes('playbackRate'), 'botões de velocidade e o script deles')
 conferir(comAudio.includes('data-velocidade="1" aria-pressed="true"'), 'começa em 1×, marcado')
+conferir(['audio_play', 'audio_25', 'audio_50', 'audio_75', 'audio_completo', 'audio_velocidade'].every((e) => comAudio.includes(`'${e}'`)) && comAudio.includes("window.gtag('event', nome)"),
+  'medição do áudio: play, 25/50/75%, completo e velocidade pelo gtag do site')
+conferir(!semAudio0().includes('audio_play'), 'sem narração, sem a medição do áudio')
 conferir(problemasDaPagina(comAudio).length === 0, `a guarda da página aceita: ${problemasDaPagina(comAudio).join('; ')}`)
 const semAudio = montarPaginaDoArtigo(base)
 conferir(!semAudio.includes('<audio') && !semAudio.includes('news-ouvir') && !semAudio.includes('playbackRate'), 'sem narração, nada de player, CSS nem script dele')
