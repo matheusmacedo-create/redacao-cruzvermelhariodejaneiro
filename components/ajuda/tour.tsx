@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { PassoDoTour } from '@/lib/ajuda/tipos'
 import { estaNaTela, posicionarBalao, recorte, type Retangulo, type Tamanho } from '@/lib/ajuda/posicao'
+import { textoDoPassoDoTour } from '@/lib/ajuda/ouvir'
+import { Ouvir } from './ouvir'
 
 export type FimDoTour = 'concluido' | 'pulado'
 
@@ -242,6 +244,7 @@ export function Tour({ passos, rotulo, aoTerminar, focoDeVolta }: {
             "Próximo" não cabem juntos e espremiam o contador em três linhas. */}
         <div className="mt-2 flex items-center gap-3">
           <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">{i + 1} de {total}</span>
+          <Ouvir texto={textoDoPassoDoTour(passo)} rotulo="Ouvir este balão" compacto />
           <div className="ml-auto flex gap-2">
             {i > 0 && (
               <Button type="button" variant="outline" onClick={voltar} className="h-11 px-3 sm:h-9">

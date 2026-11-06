@@ -60,6 +60,12 @@ export const FECHO_DO_AUDIO_CORTADO = 'O restante está na mensagem escrita.'
  */
 export const MODELO_DO_WHATSAPP: ModeloDaVoz = 'eleven_flash_v2_5'
 
+/**
+ * O "Ouvir" da ajuda (docs/AJUDA.md §12) também usa o Flash: o áudio é gravado na hora em que alguém toca em "Ouvir"
+ * pela primeira vez, e a pessoa está esperando. Gasta metade do crédito do modelo de narração.
+ */
+export const MODELO_DA_AJUDA: ModeloDaVoz = 'eleven_flash_v2_5'
+
 /** Áudios no WhatsApp por dia (desde a meia-noite de Brasília). Batido o teto, a resposta sai só por escrito. */
 export const TETOS_DE_AUDIO_POR_DIA = { pessoa: 15, espaco: 150 } as const
 

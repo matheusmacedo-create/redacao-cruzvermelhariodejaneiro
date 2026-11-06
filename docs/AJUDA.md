@@ -672,7 +672,7 @@ da Central, a action), no `import()` de `carregar.ts` e em
   e Appcues. A Redação só tem o Analytics e o Speed Insights da Vercel, que
   contam visitas de página, sem eventos por tela ou por pessoa. Se um dia
   fizer falta, dá para começar pelos eventos do próprio Analytics.
-- **Vídeo e imagem na ajuda.** Só texto por enquanto: imagem e vídeo ficam
+- **Vídeo e imagem na ajuda.** (O áudio entrou em 06/11/2026, §12; os vídeos são a próxima fase do mesmo projeto.) Só texto por enquanto: imagem e vídeo ficam
   velhos quando a tela muda, sem ninguém perceber; o texto, o script confere
   ao menos em parte.
 - **Tour em que se clica no elemento de verdade.** O nosso bloqueia a página
@@ -928,3 +928,46 @@ introduções acima da medida, encurtadas ou com a primeira frase separada.
 - O painel não ganha seção nova. Se algo precisa aparecer em toda tela,
   entra numa das sete peças acima, ou na Central.
 
+
+## 12. Ouvir a ajuda (06/11/2026)
+
+"Quero fazer todo o suporte por áudio também." Pedido do Matheus depois da página da coordenação do voluntariado
+(no site), onde cada passo do tutorial tem "Ouvir". É a Fase 1 do projeto "Tutoriais do Palácio" (vídeos curtos,
+suporte por áudio e trilhas); o escopo aprovado está no artifact "Tutoriais do Palácio". O §6 deixou vídeo e IA de
+fora; o áudio entra porque não envelhece calado: ele nasce do texto, e texto novo grava áudio novo sozinho.
+
+**Onde aparece.** O botão "Ouvir" (`components/ajuda/ouvir.tsx`) fica:
+
+- em cada tarefa e cada pergunta, no painel "?" (recolhidas) e na Central (abertas) — `blocos.tsx`;
+- no "para que serve" da área, no painel e na página da área na Central ("Ouvir sobre <área>");
+- em cada balão do tour, ao lado do "2 de 7" (só o ícone, por causa da largura do balão).
+
+**O que se ouve** (`lib/ajuda/ouvir.ts`, puro): tarefa = título, "Passo 1: …" e a dica (o exemplo fica de fora:
+é uma história, e está na tela); pergunta = pergunta e resposta; balão = título e texto; área = "para que serve" e
+"quem usa". Cada parte ganha ponto final, para a voz pausar.
+
+**De onde vem o áudio.** O botão calcula o **código do texto** (SHA-256, 24 dígitos) e pede
+`/api/ajuda/ouvir?c=<código>`. A rota (só para quem está logado no Palácio):
+
+1. confere que o código é de um texto da ajuda (`lib/ajuda/ouvir-textos.ts` monta todos; `ouvir-servidor.ts` guarda
+   o índice): ninguém usa a rota para gravar um texto qualquer;
+2. procura `ajuda/ouvir/<nomeDoAudio>.mp3` no Blob privado (o nome muda com o texto, a voz e o modelo);
+3. se não houver, grava com a ElevenLabs (`vozDaAjuda`: a voz de Configurações › Voz, modelo
+   `eleven_flash_v2_5`, `MODELO_DA_AJUDA`), guarda e entrega. A pessoa vê "Preparando o áudio…" enquanto isso.
+
+Pelo código e não pelo id, porque os ids se repetem entre áreas (24 em 06/11/2026); o mesmo texto em dois lugares
+usa um áudio só. Não há interruptor próprio: o "Ouvir" usa a voz sempre que ela está escolhida e a chave está no
+cofre. O gasto máximo é a ajuda inteira gravada uma vez: **1.816 textos, ~571 mil caracteres** em 06/11/2026; na
+prática, só o que alguém ouvir. Texto editado grava de novo na próxima vez que alguém ouvir; o MP3 antigo fica no
+Blob sem uso (dá para limpar a pasta `ajuda/ouvir/` de tempos em tempos sem perder nada: o que for pedido grava de novo).
+
+**Sem a voz.** Sem voz configurada, com a ElevenLabs fora ou sem crédito, ou na Área do Voluntário (a rota pede a
+sessão do Palácio), a rota não entrega e o botão lê o mesmo texto com a voz do aparelho (`speechSynthesis`,
+pt-BR). Um áudio por vez: tocar outro "Ouvir" para o anterior; o balão seguinte do tour também.
+
+**Conferência:** `npx tsx scripts/conferir-ajuda-ouvir.ts` (texto falado, código, índice, nenhum texto acima de
+6.000 caracteres e o total).
+
+**Próximos passos do projeto:** a Área do Voluntário ouvir com a voz da filial (a rota aceitar a sessão do
+voluntário), a assistente de voz no painel "?" ("Perguntar falando"), os vídeos curtos por tarefa e o WhatsApp
+respondendo dúvidas de uso com áudio e vídeo.

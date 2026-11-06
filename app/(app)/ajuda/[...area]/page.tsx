@@ -1,4 +1,6 @@
 import Link from 'next/link'
+import { Ouvir } from '@/components/ajuda/ouvir'
+import { textoDaArea } from '@/lib/ajuda/ouvir'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { ArrowRight, CircleHelp, Compass } from 'lucide-react'
@@ -79,6 +81,7 @@ export default async function AjudaDaAreaPage({ params }: Props) {
             ? <p><span className="font-medium">Quem usa: </span><span className="text-muted-foreground">{guia.quemUsa}</span></p>
             : <p className="text-muted-foreground">{area.resumo}.</p>}
           {guia.tour.length > 0 && <p className="mt-1 text-muted-foreground">O tour abre a tela de {area.rotulo} e mostra, em balões, onde fica cada coisa.</p>}
+          <Ouvir texto={textoDaArea(guia.paraQueServe, guia.quemUsa)} rotulo={`Ouvir sobre ${area.rotulo}`} className="mt-3" />
         </div>
       </div>
 

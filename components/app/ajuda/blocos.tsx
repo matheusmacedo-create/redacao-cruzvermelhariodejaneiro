@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 import type { Achado } from '@/lib/ajuda'
 import type { NaPratica, Pergunta, Tarefa } from '@/lib/ajuda/tipos'
 import { IssoAjudou } from './beta'
+import { Ouvir } from '@/components/ajuda/ouvir'
+import { textoDaPergunta, textoDaTarefa } from '@/lib/ajuda/ouvir'
 
 /**
  * As peças de texto da ajuda, iguais no painel "?" e na Central (/ajuda).
@@ -110,7 +112,7 @@ export function TarefaRecolhida({ tarefa }: { tarefa: Tarefa }) {
         <span className="min-w-0 flex-1">{tarefa.titulo}</span>
         {tarefa.quem && <SeloQuem quem={tarefa.quem} className="mt-px max-w-[45%]" />}
       </summary>
-      <div className="px-3 pb-3 pl-9"><Passos tarefa={tarefa} /></div>
+      <div className="px-3 pb-3 pl-9"><Passos tarefa={tarefa} /><Ouvir texto={textoDaTarefa(tarefa)} className="mt-3" /></div>
     </details>
   )
 }
@@ -123,7 +125,7 @@ export function PerguntaRecolhida({ pergunta, area }: { pergunta: Pergunta; area
         <ChevronRight className={seta} aria-hidden="true" />
         <span className="min-w-0 flex-1">{pergunta.pergunta}</span>
       </summary>
-      <div className="px-3 pb-3 pl-9"><Resposta texto={pergunta.resposta} />{area !== undefined && <IssoAjudou perguntaId={pergunta.id} area={area} />}</div>
+      <div className="px-3 pb-3 pl-9"><Resposta texto={pergunta.resposta} /><Ouvir texto={textoDaPergunta(pergunta)} className="mt-3" />{area !== undefined && <IssoAjudou perguntaId={pergunta.id} area={area} />}</div>
     </details>
   )
 }
@@ -147,6 +149,7 @@ export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 
         {tarefa.quem && <SeloQuem quem={tarefa.quem} />}
       </div>
       <Passos tarefa={tarefa} />
+      <Ouvir texto={textoDaTarefa(tarefa)} className="mt-3" />
     </article>
   )
 }
@@ -158,6 +161,7 @@ export function PerguntaAberta({ pergunta, nivel = 3, area }: { pergunta: Pergun
     <article id={pergunta.id} tabIndex={-1} className={ancorado}>
       <Titulo className="mb-2 text-[15px] font-semibold leading-snug">{pergunta.pergunta}</Titulo>
       <Resposta texto={pergunta.resposta} />
+      <Ouvir texto={textoDaPergunta(pergunta)} className="mt-3" />
       {area !== undefined && <IssoAjudou perguntaId={pergunta.id} area={area} />}
     </article>
   )
