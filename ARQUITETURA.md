@@ -222,6 +222,15 @@ O sistema já teve seleção de espaço com cookie. Hoje é **espaço único**:
 A estrutura multi-espaço continua no banco porque desmontá-la custaria mais do
 que mantê-la.
 
+**Espaço de Demonstração (06/11/2026).** Existe de novo um espaço `kind: 'demo'`,
+só para gravar os vídeos dos tutoriais (docs/AJUDA.md §12), com dados fictícios
+e uma conta de gravação que pertence só a ele; ninguém da equipe é membro. Por
+isso: **todo código que resolve "o espaço da filial" sem sessão escolhe o de
+Produção pelo tipo** (`.eq('kind', 'production')` ou `find(kind === 'production')`),
+como portaria, envios, participe, alertas e, desde esta data, a newsletter
+(`lib/newsletter/espaco.ts`). Não escreva código novo que pegue "o primeiro
+espaço" nem "o único que existir".
+
 Papéis: `admin`, `editor`, `colaborador` (em `workspace_members.role`).
 
 ### Usuários e permissões

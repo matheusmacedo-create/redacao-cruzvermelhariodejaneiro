@@ -1,6 +1,7 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ENDERECO_DO_PALACIO } from '../dominio'
+import { escolherEspacoDaNewsletter } from './espaco'
 
 /**
  * O que a inscrição pública precisa saber e não tem como perguntar.
@@ -50,24 +51,21 @@ export const urlDeSaidaEmUmClique = (token: string) => `${urlBase()}/api/newslet
 /**
  * Qual espaço recebe as inscrições.
  *
- * A regra é: o que estiver configurado; senão, o único que existir. Hoje há um
- * só ("Produção"), então funciona sem configurar nada. Se um segundo espaço
- * aparecer amanhã, isto FALHA dizendo o que fazer, em vez de escolher um dos
- * dois na sorte — inscrição parar com erro claro é ruim; inscrição cair no
- * espaço errado em silêncio é pior, porque ninguém descobre.
+ * A regra é: o que estiver configurado (NEWSLETTER_WORKSPACE_ID); senão, o
+ * único espaço de Produção (escolherEspacoDaNewsletter, em ./espaco.ts). Até
+ * 06/11/2026 era "o único que existir", e um segundo espaço de qualquer tipo
+ * parava as inscrições; o espaço de Demonstração (o das gravações dos
+ * tutoriais) não pode fazer isso. Dois de Produção continuam FALHANDO com a
+ * instrução, em vez de escolher um na sorte.
  */
 export async function espacoDaNewsletter(): Promise<{ id: string } | { erro: string }> {
   const configurado = process.env.NEWSLETTER_WORKSPACE_ID?.trim()
   if (configurado) return { id: configurado }
 
   const admin = createAdminClient()
-  const { data, error } = await admin.from('workspaces').select('id').limit(2)
+  const { data, error } = await admin.from('workspaces').select('id, kind').order('created_at').limit(20)
   if (error) return { erro: `Não foi possível resolver o espaço da newsletter: ${error.message}` }
-  if (!data?.length) return { erro: 'Não há espaço de trabalho para receber a inscrição.' }
-  if (data.length > 1) {
-    return { erro: 'Há mais de um espaço de trabalho: defina NEWSLETTER_WORKSPACE_ID para dizer qual recebe as inscrições.' }
-  }
-  return { id: data[0].id as string }
+  return escolherEspacoDaNewsletter((data ?? []).map((w) => ({ id: w.id as string, kind: (w.kind as string | null) ?? null })))
 }
 
 /**
