@@ -3602,8 +3602,12 @@ aplicá-la e nada muda: a matéria sai sem áudio e o WhatsApp responde só por 
   bytes: só OGG Opus vira mensagem de voz (`audio.voice: true`); se não vier Ogg, vai MP3 como
   arquivo de áudio. Só dentro da janela de 24 h (modelo não leva áudio), nunca pela fila, com pelo
   menos 12 s sobrando no turno; registrado em `whatsapp_mensagens` com `comando = 'voz'`, sem texto.
-- **O que vai para a ElevenLabs:** o texto da matéria publicada e, com o WhatsApp ligado, o texto
-  da resposta do assistente. A ElevenLabs guarda o histórico na conta (`enable_logging=false` é só
+- **Ajuda** (06/11/2026, docs/AJUDA.md §12): o botão "Ouvir" da ajuda (painel "?", Central e tour) pede
+  `/api/ajuda/ouvir?c=<código do texto>`; a rota só aceita texto da própria ajuda, grava com `vozDaAjuda` (a voz
+  escolhida, modelo `eleven_flash_v2_5`, sem interruptor próprio) na primeira vez e guarda em `ajuda/ouvir/` no Blob
+  privado. Sem voz, o botão usa a voz do aparelho.
+- **O que vai para a ElevenLabs:** o texto da matéria publicada, os textos da ajuda que alguém pede para ouvir e,
+  com o WhatsApp ligado, o texto da resposta do assistente. A ElevenLabs guarda o histórico na conta (`enable_logging=false` é só
   do plano Enterprise).
 - **Testes:** `npx tsx scripts/conferir-voz.ts` (sem rede nem banco): texto narrado, trechos sem
   perda, nome do arquivo, texto falado, formatos, leitura da configuração e a página com e sem o

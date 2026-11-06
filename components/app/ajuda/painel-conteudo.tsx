@@ -9,6 +9,8 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela, type GuiaDaArea, type TopicoGeral } from '@/lib/ajuda'
 import { resumoEDetalhe } from '@/lib/ajuda/texto'
+import { textoDaArea } from '@/lib/ajuda/ouvir'
+import { Ouvir } from '@/components/ajuda/ouvir'
 import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
@@ -127,6 +129,7 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
           </div>
         </div>
         <p className="text-sm leading-relaxed">{resumo}</p>
+        <Ouvir texto={textoDaArea(guia.paraQueServe, guia.quemUsa)} rotulo={`Ouvir sobre ${area.rotulo}`} className="self-start" />
         {temMais && (
           <details className={lerMais} data-ler-mais>
             <summary className={cabecaDoLerMais}><ChevronRight className="size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden="true" />Ler mais sobre {area.rotulo}</summary>

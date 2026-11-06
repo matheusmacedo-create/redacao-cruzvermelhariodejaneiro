@@ -1,7 +1,7 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { obterChave } from '@/lib/integracoes/chaves'
-import { MODELO_PADRAO, dividirEmTrechos, ehModeloDaVoz, type ConfigDaVoz, type ModeloDaVoz } from './regras'
+import { MODELO_DA_AJUDA, MODELO_PADRAO, dividirEmTrechos, ehModeloDaVoz, type ConfigDaVoz, type ModeloDaVoz } from './regras'
 
 /**
  * A ElevenLabs (texto em voz). As regras de sempre das integrações: nunca lança, a chave não sai daqui (nem no erro),
@@ -230,6 +230,22 @@ export async function vozPara(workspaceId: string, uso: 'materias' | 'whatsapp')
     if (!config || config === 'indisponivel' || !config[uso] || !config.vozId) return null
     const chave = await chaveDaElevenlabs(workspaceId)
     return chave ? { chave, vozId: config.vozId, modelo: config.modelo } : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A voz do "Ouvir" da ajuda: a voz da filial, no modelo da ajuda. Não tem interruptor próprio: vale sempre que a voz
+ * estiver escolhida em Configurações › Voz e a chave estiver no cofre (a ajuda é texto da própria filial, e o gasto
+ * máximo é o da ajuda inteira, gravada uma vez). null se falta algo. Nunca lança.
+ */
+export async function vozDaAjuda(workspaceId: string): Promise<VozPronta | null> {
+  try {
+    const config = await configDaVoz(createAdminClient(), workspaceId)
+    if (!config || config === 'indisponivel' || !config.vozId) return null
+    const chave = await chaveDaElevenlabs(workspaceId)
+    return chave ? { chave, vozId: config.vozId, modelo: MODELO_DA_AJUDA } : null
   } catch {
     return null
   }
