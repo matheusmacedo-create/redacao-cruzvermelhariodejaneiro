@@ -542,7 +542,7 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
       ${maisNoticias}
     </div>`
 
-  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DA_VELOCIDADE}\n    ` : ''}<script>
+  const scripts = `${dados.rastreio ? `${blocoDeRastreio(dados.rastreio)}\n    ` : ''}${audioDaMateria ? `${SCRIPT_DO_OUVIR}\n    ` : ''}<script>
       document.querySelector('.copiar-link')?.addEventListener('click', async function() {
         try { await navigator.clipboard.writeText(this.dataset.url); } catch { return; }
         this.classList.add('copiado');
@@ -578,20 +578,55 @@ export function montarPaginaDoArtigo(dados: DadosDoArtigo): string {
 const VELOCIDADES_DA_NARRACAO = [1, 1.25, 1.5, 2] as const
 
 /**
- * Os botões de velocidade: trocam o playbackRate do áudio e marcam o escolhido (aria-pressed). A escolha não fica
- * guardada no navegador de propósito: guardar algo no aparelho do leitor entraria na política de cookies do site.
+ * O script do "Ouça esta matéria". Os botões de velocidade trocam o playbackRate do áudio e marcam o escolhido
+ * (aria-pressed); a escolha não fica guardada no navegador de propósito: guardar algo no aparelho do leitor entraria na
+ * política de cookies do site.
+ *
+ * Medição (06/11/2026): eventos do GA4 pelo gtag que o site já carrega (com o modo de consentimento: sem a permissão de
+ * estatística, o Google recebe o sinal sem cookie), cada um uma vez por visita: audio_play (apertou o play),
+ * audio_25 / audio_50 / audio_75 (ouviu um quarto, metade, três quartos) e audio_completo (95%), contando só o tempo
+ * TOCADO — pular a barra para a frente não vale como ouvido — e audio_velocidade (trocou a velocidade). A matéria é a
+ * página do evento (page_location), sem parâmetro nenhum: os relatórios por página já separam uma matéria da outra.
+ * Sem o gtag na página (site sem medição), nada é enviado e o player funciona igual.
  */
-const SCRIPT_DA_VELOCIDADE = `<script>
+const SCRIPT_DO_OUVIR = `<script>
       (function(){
         var caixa = document.querySelector('.news-ouvir'); if (!caixa) return;
         var audio = caixa.querySelector('audio'), botoes = caixa.querySelectorAll('[data-velocidade]');
+        var enviados = {};
+        function medir(nome){
+          if (enviados[nome]) return;
+          enviados[nome] = true;
+          try { if (typeof window.gtag === 'function') window.gtag('event', nome); } catch (e) {}
+        }
         botoes.forEach(function(b){
           b.addEventListener('click', function(){
             var v = Number(b.dataset.velocidade) || 1;
             audio.playbackRate = v; audio.defaultPlaybackRate = v;
             botoes.forEach(function(o){ o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+            medir('audio_velocidade');
           });
         });
+        var ouvido = 0, ultimo = 0;
+        function marcos(){
+          var total = audio.duration;
+          if (!total || !isFinite(total)) return;
+          var parte = ouvido / total;
+          if (parte >= 0.25) medir('audio_25');
+          if (parte >= 0.5) medir('audio_50');
+          if (parte >= 0.75) medir('audio_75');
+          if (parte >= 0.95) medir('audio_completo');
+        }
+        audio.addEventListener('play', function(){ ultimo = audio.currentTime; medir('audio_play'); });
+        audio.addEventListener('seeking', function(){ ultimo = audio.currentTime; });
+        audio.addEventListener('timeupdate', function(){
+          var agora = audio.currentTime, passo = agora - ultimo;
+          // Só o que tocou: o timeupdate vem a cada ~0,25 s (até 2 s a 2×); um salto maior é a barra arrastada.
+          if (passo > 0 && passo <= 3) ouvido += passo;
+          ultimo = agora;
+          marcos();
+        });
+        audio.addEventListener('ended', marcos);
       })();
     </script>`
 

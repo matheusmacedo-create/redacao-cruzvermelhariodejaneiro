@@ -1473,6 +1473,12 @@ const VOZ: GuiaDaArea = {
       termos: ['sem áudio', 'ouça esta matéria', 'narração', 'não narrou', 'elevenlabs', 'créditos'],
     },
     {
+      id: 'audio-quem-ouviu',
+      pergunta: 'Como sei quantas pessoas ouviram o áudio de uma matéria?',
+      resposta: 'No Google Analytics do site, nos eventos de cada página da matéria: audio_play (apertou o play), audio_25, audio_50 e audio_75 (ouviu um quarto, metade e três quartos) e audio_completo (ouviu até o fim). Conta só o que tocou de verdade: arrastar a barra até o fim não vale como ouvido. audio_velocidade diz quem trocou a velocidade. As matérias publicadas antes de 06/11/2026 só passam a medir depois de “Regerar as páginas das matérias”, em Configurações → Site.',
+      termos: ['quem ouviu', 'ouviram', 'audiência do áudio', 'métrica do áudio', 'analytics', 'play', 'reproduções'],
+    },
+    {
       id: 'audio-gasta-credito',
       pergunta: 'Quanto crédito a voz gasta?',
       resposta: 'A ElevenLabs cobra por caractere. Uma matéria de 4 mil caracteres gasta uns 4 mil na primeira publicação; republicar sem mudar o texto não gasta nada, porque o áudio que está no ar é reaproveitado. Mudou o texto, a voz ou o modelo, o áudio é gerado de novo. No WhatsApp, a voz lê só o começo da resposta (até uns 350 caracteres, e avisa que o restante está no texto), num modelo que gasta metade do crédito; sai só para quem mandou áudio, no máximo 15 por pessoa e 150 no total por dia.',
