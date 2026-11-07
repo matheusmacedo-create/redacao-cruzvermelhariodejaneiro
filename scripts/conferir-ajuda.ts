@@ -140,7 +140,8 @@ for (const [texto, esperado] of cortes) {
 
 // Os vídeos da ajuda (docs/AJUDA.md §14): a tarefa aponta para o vídeo e o vídeo para a tarefa; a legenda existe; e o
 // vídeo avisa quando o passo a passo mudou depois da gravação (a impressão é o código do texto, como no "Ouvir").
-const VIDEOS = catalogoDosVideos as Record<string, { area: string; tarefa: string; impressao: string; video: string; capa: string; legenda: string }>
+type Variante = { impressao: string; video: string; capa: string; legenda: string }
+const VIDEOS = catalogoDosVideos as Record<string, Variante & { area: string; tarefa: string; celular?: Variante }>
 const codigoDoTexto = (texto: string) => createHash('sha256').update(texto).digest('hex').slice(0, 24)
 for (const guia of GUIAS) {
   for (const t of guia.tarefas) if (t.video && !VIDEOS[t.video]) erros.push(`${guia.href}#${t.id}: o vídeo "${t.video}" não está em lib/ajuda/videos.json`)
@@ -149,10 +150,15 @@ for (const [id, v] of Object.entries(VIDEOS)) {
   const tarefa = GUIAS.find((g) => g.href === v.area)?.tarefas.find((t) => t.id === v.tarefa)
   if (!tarefa) { erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não existe`); continue }
   if (tarefa.video !== id) erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não aponta para ele (campo "video")`)
-  if (!existsSync(join(raiz, 'public', 'tutoriais', v.legenda))) erros.push(`vídeo ${id}: falta a legenda public/tutoriais/${v.legenda}`)
-  if (!v.video.startsWith(`${id}-`) || !/-[0-9a-f]{8}\.mp4$/.test(v.video) || !/-[0-9a-f]{8}\.jpg$/.test(v.capa)) erros.push(`vídeo ${id}: nome de arquivo fora do padrão (<id>-<versão>.mp4 e .jpg)`)
-  if (codigoDoTexto(textoDaTarefa(tarefa)) !== v.impressao) {
-    avisos.push(`vídeo ${id}: o passo a passo de ${v.area}#${v.tarefa} mudou depois da gravação; confira o roteiro e regrave (npx tsx scripts/videos/gravar.ts ${id})`)
+  // A de computador é o próprio item; a de celular, o campo `celular` (o nome dos arquivos leva "-celular").
+  const versoes: [string, Variante, string][] = [['computador', v, `${id}-`], ...(v.celular ? [['celular', v.celular, `${id}-celular-`] as [string, Variante, string]] : [])]
+  for (const [nome, versao, prefixo] of versoes) {
+    if (!existsSync(join(raiz, 'public', 'tutoriais', versao.legenda))) erros.push(`vídeo ${id} (${nome}): falta a legenda public/tutoriais/${versao.legenda}`)
+    const padrao = new RegExp(`^${prefixo}[0-9a-f]{8}\\.(mp4|jpg)$`)
+    if (!padrao.test(versao.video) || !padrao.test(versao.capa)) erros.push(`vídeo ${id} (${nome}): nome de arquivo fora do padrão (${prefixo}<versão>.mp4 e .jpg)`)
+    if (codigoDoTexto(textoDaTarefa(tarefa)) !== versao.impressao) {
+      avisos.push(`vídeo ${id} (${nome}): o passo a passo de ${v.area}#${v.tarefa} mudou depois da gravação; confira o roteiro e regrave (npx tsx scripts/videos/gravar.ts ${id}${nome === 'celular' ? ' --celular' : ''})`)
+    }
   }
 }
 

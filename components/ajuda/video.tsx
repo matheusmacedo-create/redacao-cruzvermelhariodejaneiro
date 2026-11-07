@@ -10,8 +10,13 @@ import { duracaoLegivel, videoDaAjuda } from '@/lib/ajuda/videos'
  * por padrão (quem está no escritório nem sempre pode ouvir). Um som por vez na página, como no "Ouvir": o vídeo
  * começar para o áudio que estava tocando, e um "Ouvir" novo pausa o vídeo.
  *
+ * Na tela estreita (celular), abre a versão de celular, em pé, quando ela existe; senão, a de computador.
+ *
  * A janela é um <dialog> nativo: foco preso dentro, Escape fecha e o foco volta ao botão.
  */
+
+/** A tela é de celular: a mesma linha do menu lateral virar gaveta (md, 768 px). */
+const TELA_DE_CELULAR = '(max-width: 767px)'
 
 const EVENTO = 'ajuda:ouvir'
 
@@ -22,6 +27,7 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
   const player = useRef<HTMLVideoElement>(null)
   const [aberta, setAberta] = useState(false)
   const [falhou, setFalhou] = useState(false)
+  const [emPe, setEmPe] = useState(false)
 
   useEffect(() => {
     const d = janela.current
@@ -40,12 +46,18 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
 
   if (!video) return null
   const tituloId = `${chave}-titulo`
+  const fonte = emPe && video.noCelular ? video.noCelular : video
+  const abrir = () => {
+    setFalhou(false)
+    setEmPe(Boolean(video.noCelular) && window.matchMedia(TELA_DE_CELULAR).matches)
+    setAberta(true)
+  }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => { setFalhou(false); setAberta(true) }}
+        onClick={abrir}
         className={cn(
           'inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 sm:min-h-9',
           className,
@@ -78,22 +90,24 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
           falhou ? (
             <p className="px-5 py-10 text-center text-sm text-muted-foreground">
               Não foi possível carregar o vídeo agora. O passo a passo escrito continua no painel.{' '}
-              <a href={video.enderecoDoVideo} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">Abrir o vídeo numa aba</a>
+              <a href={fonte.enderecoDoVideo} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">Abrir o vídeo numa aba</a>
             </p>
           ) : (
             <video
               ref={player}
-              className="block aspect-video w-full bg-black"
+              className={emPe ? 'mx-auto block bg-black' : 'block aspect-video w-full bg-black'}
+              // Em pé, a altura cabe na tela (tirando o título e a nota) e a largura sai da proporção 9:16.
+              style={emPe ? { aspectRatio: '9 / 16', height: 'min(calc(100dvh - 8rem), calc((100vw - 1rem) * 16 / 9))' } : undefined}
               controls
               autoPlay
               playsInline
               preload="metadata"
-              poster={video.enderecoDaCapa}
+              poster={fonte.enderecoDaCapa}
               onPlay={() => window.dispatchEvent(new CustomEvent(EVENTO, { detail: chave }))}
               onError={() => setFalhou(true)}
             >
-              <source src={video.enderecoDoVideo} type="video/mp4" onError={() => setFalhou(true)} />
-              <track kind="captions" srcLang="pt-BR" label="Português" src={video.enderecoDaLegenda} default />
+              <source src={fonte.enderecoDoVideo} type="video/mp4" onError={() => setFalhou(true)} />
+              <track kind="captions" srcLang="pt-BR" label="Português" src={fonte.enderecoDaLegenda} default />
             </video>
           )
         )}

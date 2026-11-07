@@ -6,12 +6,9 @@ import type { Roteiro } from './tipos'
  * (scripts/conferir-videos.ts avisa quando o texto da tarefa mudou depois da gravação).
  *
  * Gravados sempre como a conta de gravação ("Ana Ribeiro"), no espaço de Demonstração, com os dados de
- * scripts/demonstracao/semear.sql. Os alvos usam os `data-ajuda` do tour sempre que existem.
+ * scripts/demonstracao/semear.sql. Os alvos usam os `data-ajuda` do tour sempre que existem. O mesmo roteiro grava a
+ * versão de celular (--celular): o menu vira a gaveta (`r.menu`), e a fala que cita o caminho tem `falaNoCelular`.
  */
-
-const MENU_INICIO = 'aside a[href="/dashboard"]:has-text("Início")'
-const MENU_PAUTAS = 'aside a[href="/pautas"]'
-const MENU_APROVACOES = 'aside a[href="/aprovacoes"]'
 
 /** Uma data daqui a alguns dias, no fuso da filial (AAAA-MM-DD, o formato do campo de data). */
 function daquiA(dias: number) {
@@ -31,7 +28,8 @@ export const ROTEIROS: Roteiro[] = [
     passos: [
       {
         fala: 'O Início é a primeira tela do Palácio Virtual. De qualquer lugar, toque em Início, no alto do menu.',
-        acao: async (r) => { await r.esperar(1500); await r.clicar(MENU_INICIO, { navega: true }) },
+        falaNoCelular: 'O Início é a primeira tela do Palácio Virtual. De qualquer lugar, abra o menu, no canto de cima, e toque em Início.',
+        acao: async (r) => { await r.esperar(1500); await r.menu('/dashboard') },
       },
       {
         fala: 'Logo abaixo da saudação, uma frase resume o seu dia: as pautas atrasadas, as que vencem nos próximos sete dias e o que espera a sua aprovação.',
@@ -52,7 +50,8 @@ export const ROTEIROS: Roteiro[] = [
       },
       {
         fala: 'Para voltar, toque de novo em Início.',
-        acao: async (r) => { await r.clicar(MENU_INICIO, { navega: true }) },
+        falaNoCelular: 'Para voltar, abra o menu e toque de novo em Início.',
+        acao: async (r) => { await r.menu('/dashboard') },
       },
       {
         fala: 'Em Esperando você ficam os conteúdos que pedem o seu voto. Um toque abre a tela de aprovação, onde você decide.',
@@ -124,7 +123,7 @@ export const ROTEIROS: Roteiro[] = [
       {
         fala: 'No quadro de Pautas, o cartão novo aparece na primeira coluna, Entrada, pronto para a equipe.',
         acao: async (r) => {
-          await r.clicar(MENU_PAUTAS, { navega: true })
+          await r.menu('/pautas')
           await r.destacar('[data-ajuda="pautas.quadro"] [data-cartao]:has-text("Ação de prevenção de afogamentos")')
         },
         final: true,
@@ -143,7 +142,8 @@ export const ROTEIROS: Roteiro[] = [
     passos: [
       {
         fala: 'Abra Aprovações, no menu. A tela já abre no que espera o seu voto.',
-        acao: async (r) => { await r.esperar(500); await r.clicar(MENU_APROVACOES, { navega: true }); await r.destacar('[data-ajuda="aprovacoes.abas"]') },
+        falaNoCelular: 'Abra o menu e toque em Aprovações. A tela já abre no que espera o seu voto.',
+        acao: async (r) => { await r.esperar(500); await r.menu('/aprovacoes'); await r.destacar('[data-ajuda="aprovacoes.abas"]') },
       },
       {
         fala: 'Cada cartão é uma rodada, com o setor da pauta, o prazo e quem já votou. No cartão, toque em Revisar agora.',

@@ -14,11 +14,8 @@ import type { Tarefa } from './tipos'
 
 export const ENDERECO_DOS_VIDEOS = 'https://cruzvermelhariodejaneiro.org/assets/tutoriais/palacio/'
 
-export type VideoGravado = {
-  titulo: string
-  /** A área (href do guia) e a tarefa que o vídeo mostra. */
-  area: string
-  tarefa: string
+/** Uma versão gravada do vídeo: a de computador (o próprio item) ou a de celular (o campo `celular`). */
+export type VarianteGravada = {
   /** Em segundos. */
   duracao: number
   /** AAAA-MM-DD. */
@@ -31,11 +28,31 @@ export type VideoGravado = {
   legenda: string
 }
 
-export type VideoDaAjuda = VideoGravado & {
+export type VideoGravado = VarianteGravada & {
+  titulo: string
+  /** A área (href do guia) e a tarefa que o vídeo mostra. */
+  area: string
+  tarefa: string
+  /** A versão de celular (tela em pé, 1080×1920), quando já foi gravada. */
+  celular?: VarianteGravada
+}
+
+type Enderecos = { duracao: number; enderecoDoVideo: string; enderecoDaCapa: string; enderecoDaLegenda: string }
+
+export type VideoDaAjuda = VideoGravado & Enderecos & {
   id: string
-  enderecoDoVideo: string
-  enderecoDaCapa: string
-  enderecoDaLegenda: string
+  /** Os endereços da versão de celular, ou null se ela ainda não foi gravada. */
+  noCelular: Enderecos | null
+}
+
+function enderecos(v: VarianteGravada): Enderecos {
+  const versao = v.video.replace(/\.mp4$/, '').split('-').pop()
+  return {
+    duracao: v.duracao,
+    enderecoDoVideo: ENDERECO_DOS_VIDEOS + v.video,
+    enderecoDaCapa: ENDERECO_DOS_VIDEOS + v.capa,
+    enderecoDaLegenda: `/tutoriais/${v.legenda}?v=${versao}`,
+  }
 }
 
 const CATALOGO = dados as Record<string, VideoGravado>
@@ -43,14 +60,7 @@ const CATALOGO = dados as Record<string, VideoGravado>
 export function videoDaAjuda(id: string | null | undefined): VideoDaAjuda | null {
   const v = id ? CATALOGO[id] : undefined
   if (!id || !v) return null
-  const versao = v.video.replace(/\.mp4$/, '').split('-').pop()
-  return {
-    ...v,
-    id,
-    enderecoDoVideo: ENDERECO_DOS_VIDEOS + v.video,
-    enderecoDaCapa: ENDERECO_DOS_VIDEOS + v.capa,
-    enderecoDaLegenda: `/tutoriais/${v.legenda}?v=${versao}`,
-  }
+  return { ...v, id, ...enderecos(v), noCelular: v.celular ? enderecos(v.celular) : null }
 }
 
 export function todosOsVideos(): VideoDaAjuda[] {

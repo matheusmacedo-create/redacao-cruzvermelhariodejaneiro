@@ -5,7 +5,8 @@
  * - o corte da legenda em frases e em duas linhas (scripts/videos/montar.ts);
  * - a legenda WebVTT: tempos em ordem, sem sobrepor, e o texto inteiro da fala, sem perder nada;
  * - as legendas gravadas em public/tutoriais (cabeçalho e tempos);
- * - o tempo no botão e os endereços do vídeo, da capa e da legenda (lib/ajuda/videos.ts);
+ * - o tempo no botão e os endereços do vídeo, da capa e da legenda, nas versões de computador e de celular
+ *   (lib/ajuda/videos.ts);
  * - cada roteiro (scripts/videos/roteiros.ts) aponta para uma tarefa que existe.
  * A ligação tarefa ↔ vídeo e o aviso de vídeo velho ficam em scripts/conferir-ajuda.ts.
  */
@@ -60,6 +61,16 @@ for (const v of todosOsVideos()) {
     v.enderecoDaCapa === ENDERECO_DOS_VIDEOS + v.capa,
     /^\/tutoriais\/[a-z0-9-]+\.vtt\?v=[0-9a-f]{8}$/.test(v.enderecoDaLegenda),
   ], [true, true, true])
+  if (v.celular && v.noCelular) {
+    confere(`${v.id}: endereços da versão de celular`, [
+      v.noCelular.enderecoDoVideo === `${ENDERECO_DOS_VIDEOS}${v.id}-celular-${v.celular.video.slice(-12, -4)}.mp4`,
+      v.noCelular.enderecoDaCapa === ENDERECO_DOS_VIDEOS + v.celular.capa,
+      new RegExp(`^/tutoriais/${v.id}\\.celular\\.vtt\\?v=[0-9a-f]{8}$`).test(v.noCelular.enderecoDaLegenda),
+      v.noCelular.duracao === v.celular.duracao,
+    ], [true, true, true, true])
+  } else {
+    confere(`${v.id}: sem versão de celular, sem endereços dela`, v.noCelular, null)
+  }
 }
 for (const r of ROTEIROS) {
   confere(`roteiro ${r.id}: a tarefa ${r.area}#${r.tarefa} existe`, Boolean(guiaDaArea(r.area)?.tarefas.some((t) => t.id === r.tarefa)), true)
