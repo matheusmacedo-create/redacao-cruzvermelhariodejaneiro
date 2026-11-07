@@ -1,6 +1,6 @@
 /**
  * Grava um vídeo da ajuda (docs/AJUDA.md §14):
- *   npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]
+ *   npx tsx scripts/videos/gravar.ts <id> [--celular] [--ensaio] [--credenciais=arquivo.env]
  *
  * 1. a voz de cada fala do roteiro (ElevenLabs, guardada em .videos/voz: o mesmo texto não gasta crédito de novo);
  * 2. o robô entra no Palácio como a conta de gravação, confere que está no espaço de Demonstração e faz a tarefa,
@@ -10,6 +10,10 @@
  * Sem --ensaio: copia a legenda para public/tutoriais, escreve o vídeo em lib/ajuda/videos.json e deixa o MP4 e a capa
  * em .videos/saida, com a versão no nome, para subir ao site (§14). Com --ensaio: os passos marcados `final` (votar,
  * criar) não acontecem, e sai só .videos/saida/<id>.ensaio.mp4, para conferir o ritmo.
+ *
+ * Com --celular: a versão de celular do mesmo vídeo (tela de 390×693 em pé, 1080×1920 no vídeo, toque no lugar do
+ * cursor, menu na gaveta, as falas `falaNoCelular` do roteiro). Fica no mesmo item do catálogo, em `celular`; a de
+ * computador precisa existir antes.
  *
  * Precisa de:
  *  - Playwright com o Chromium. Não é dependência do projeto (pesaria no build da Vercel): onde ele estiver instalado
@@ -24,9 +28,9 @@ import { copyFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync 
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { guiaDaArea } from '../../lib/ajuda'
-import { ENDERECO_DOS_VIDEOS, impressaoDaTarefa, type VideoGravado } from '../../lib/ajuda/videos'
+import { ENDERECO_DOS_VIDEOS, impressaoDaTarefa, type VarianteGravada, type VideoGravado } from '../../lib/ajuda/videos'
 import { montarVideo, type FalaNoVideo, type Quadro } from './montar'
-import { RoboDoPalacio, SCRIPT_DA_TELA, type PaginaPw } from './robo'
+import { RoboDoPalacio, scriptDaTela, type PaginaPw } from './robo'
 import { ROTEIROS } from './roteiros'
 import { falar, type Fala } from './voz'
 
@@ -85,6 +89,7 @@ async function main() {
   const args = process.argv.slice(2)
   const id = args.find((a) => !a.startsWith('--'))
   const ensaio = args.includes('--ensaio')
+  const celular = args.includes('--celular')
   const roteiro = ROTEIROS.find((r) => r.id === id)
   if (!roteiro) {
     console.error(`Use: npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]\nVídeos: ${ROTEIROS.map((r) => r.id).join(', ')}`)
@@ -93,6 +98,9 @@ async function main() {
   const tarefa = guiaDaArea(roteiro.area)?.tarefas.find((t) => t.id === roteiro.tarefa)
   if (!tarefa) throw new Error(`A tarefa ${roteiro.area}#${roteiro.tarefa} não existe na ajuda.`)
   const conta = credenciais(args.find((a) => a.startsWith('--credenciais='))?.split('=')[1])
+  if (celular && !ensaio && !(JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, unknown>)[roteiro.id]) {
+    throw new Error(`Grave primeiro a versão de computador de ${roteiro.id}: a de celular entra no mesmo item do catálogo.`)
+  }
 
   const pastaQuadros = path.join(RAIZ, 'quadros', roteiro.id)
   const pastaSaida = path.join(RAIZ, 'saida')
@@ -101,10 +109,10 @@ async function main() {
   mkdirSync(pastaSaida, { recursive: true })
 
   // 1. As falas primeiro: se a voz falhar, nada é gravado.
-  const textos = [roteiro.abertura, ...roteiro.passos.map((p) => p.fala), roteiro.fechamento]
+  const textos = [roteiro.abertura, ...roteiro.passos.map((p) => (celular && p.falaNoCelular) || p.fala), roteiro.fechamento]
   const falas: Fala[] = []
   for (let i = 0; i < textos.length; i++) falas.push(await falar(textos[i], path.join(RAIZ, 'voz'), { anterior: textos[i - 1], seguinte: textos[i + 1] }))
-  console.log(`${roteiro.id}: ${falas.length} falas, ${falas.reduce((s, f) => s + f.duracao, 0).toFixed(1)} s de voz${ensaio ? ' (ensaio)' : ''}`)
+  console.log(`${roteiro.id}${celular ? ' (celular)' : ''}: ${falas.length} falas, ${falas.reduce((s, f) => s + f.duracao, 0).toFixed(1)} s de voz${ensaio ? ' (ensaio)' : ''}`)
 
   // 2. O navegador, já na conta de gravação e conferido o espaço.
   const exigir = createRequire(path.join(process.cwd(), 'package.json'))
@@ -118,12 +126,15 @@ async function main() {
   const navegador = await playwright.chromium.launch({ args: ['--lang=pt-BR'], env: { ...process.env, LANG: 'pt_BR.UTF-8', LANGUAGE: 'pt_BR' } })
   try {
     const contexto = await navegador.newContext({
-      viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1.5, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', colorScheme: 'light',
+      ...(celular
+        ? { viewport: { width: 390, height: 693 }, deviceScaleFactor: 1080 / 390, isMobile: true, hasTouch: true }
+        : { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1.5 }),
+      locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', colorScheme: 'light',
     })
-    await contexto.addInitScript({ content: SCRIPT_DA_TELA })
+    await contexto.addInitScript({ content: scriptDaTela(celular) })
     const pagina = await contexto.newPage()
     await entrar(pagina, conta)
-    const robo = new RoboDoPalacio(pagina, BASE)
+    const robo = new RoboDoPalacio(pagina, BASE, celular)
     await conferirEspaco(robo, pagina)
     await robo.ir(roteiro.inicio)
 
@@ -138,7 +149,8 @@ async function main() {
       cdp.send('Page.screencastFrameAck', { sessionId: q.sessionId }).catch(() => undefined)
     })
     await robo.cartao('Palácio Virtual · Como fazer', roteiro.titulo, 'O passo a passo da ajuda, na tela de verdade, com dados fictícios.')
-    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: 1920, maxHeight: 1080, everyNthFrame: 1 })
+    const tela = celular ? { largura: 1080, altura: 1920 } : { largura: 1920, altura: 1080 }
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: tela.largura, maxHeight: tela.altura, everyNthFrame: 1 })
     await robo.esperar(500)
     const t0 = Date.now() / 1000
     const agora = () => Date.now() / 1000 - t0
@@ -174,26 +186,31 @@ async function main() {
     const tFim = Date.now() / 1000
 
     // 4. A montagem.
-    const nome = ensaio ? `${roteiro.id}.ensaio` : roteiro.id
-    const pronto = montarVideo({ quadros, t0, tFim, falas: noVideo, pasta: pastaSaida, nome })
+    const nome = `${roteiro.id}${celular ? '.celular' : ''}${ensaio ? '.ensaio' : ''}`
+    const pronto = montarVideo({ quadros, t0, tFim, falas: noVideo, pasta: pastaSaida, nome, tela })
     rmSync(pastaQuadros, { recursive: true, force: true })
     const mb = (statSync(pronto.mp4).size / 1_048_576).toFixed(1)
     console.log(`Pronto: ${path.relative(process.cwd(), pronto.mp4)} (${pronto.duracao.toFixed(1)} s, ${mb} MB, ${quadros.length} imagens)`)
     if (ensaio) return
 
     const versao = createHash('sha256').update(readFileSync(pronto.mp4)).digest('hex').slice(0, 8)
-    const video = `${roteiro.id}-${versao}.mp4`
-    const capa = `${roteiro.id}-${versao}.jpg`
-    const legenda = `${roteiro.id}.vtt`
+    const base = `${roteiro.id}${celular ? '-celular' : ''}-${versao}`
+    const video = `${base}.mp4`
+    const capa = `${base}.jpg`
+    const legenda = `${roteiro.id}${celular ? '.celular' : ''}.vtt`
     copyFileSync(pronto.mp4, path.join(pastaSaida, video))
     copyFileSync(pronto.capa, path.join(pastaSaida, capa))
     mkdirSync(LEGENDAS, { recursive: true })
     copyFileSync(pronto.vtt, path.join(LEGENDAS, legenda))
     const catalogo = JSON.parse(readFileSync(CATALOGO, 'utf8')) as Record<string, VideoGravado>
-    catalogo[roteiro.id] = {
-      titulo: tarefa.titulo, area: roteiro.area, tarefa: roteiro.tarefa, duracao: Number(pronto.duracao.toFixed(1)),
-      gravadoEm: hojeNaFilial(), impressao: await impressaoDaTarefa(tarefa), video, capa, legenda,
+    const variante: VarianteGravada = {
+      duracao: Number(pronto.duracao.toFixed(1)), gravadoEm: hojeNaFilial(), impressao: await impressaoDaTarefa(tarefa), video, capa, legenda,
     }
+    // Uma versão regravada não apaga a outra: a de celular mora dentro do item da de computador.
+    const atual = catalogo[roteiro.id]
+    catalogo[roteiro.id] = celular
+      ? { ...atual, celular: variante }
+      : { ...atual, titulo: tarefa.titulo, area: roteiro.area, tarefa: roteiro.tarefa, ...variante }
     const ordenado = Object.fromEntries(Object.keys(catalogo).sort().map((k) => [k, catalogo[k]]))
     writeFileSync(CATALOGO, `${JSON.stringify(ordenado, null, 2)}\n`)
     console.log(`Catálogo: lib/ajuda/videos.json e public/tutoriais/${legenda} atualizados.`)

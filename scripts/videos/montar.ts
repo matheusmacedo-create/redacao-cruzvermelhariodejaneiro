@@ -5,8 +5,8 @@ import type { Fala } from './voz'
 
 /**
  * A montagem dos vídeos da ajuda (docs/AJUDA.md §14): as imagens capturadas da tela, as falas no ponto em que a voz
- * começou e a legenda. Sai um MP4 (H.264 e AAC, 1920×1080, pronto para tocar enquanto baixa), a capa e a legenda
- * WebVTT. Puro, menos o ffmpeg: as funções de legenda são conferidas em scripts/conferir-videos.ts.
+ * começou e a legenda. Sai um MP4 (H.264 e AAC, 1920×1080 no computador e 1080×1920 no celular, pronto para tocar
+ * enquanto baixa), a capa e a legenda WebVTT. Puro, menos o ffmpeg: as funções de legenda são conferidas em scripts/conferir-videos.ts.
  */
 
 export type Quadro = { arquivo: string; t: number }
@@ -83,7 +83,8 @@ function ffmpeg(args: string[]) {
   execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: ['ignore', 'inherit', 'inherit'] })
 }
 
-export function montarVideo(o: { quadros: Quadro[]; t0: number; tFim: number; falas: FalaNoVideo[]; pasta: string; nome: string }) {
+export function montarVideo(o: { quadros: Quadro[]; t0: number; tFim: number; falas: FalaNoVideo[]; pasta: string; nome: string; tela: { largura: number; altura: number } }) {
+  const { largura: L, altura: A } = o.tela
   if (!o.quadros.length) throw new Error('Nenhuma imagem da tela foi capturada.')
   const duracao = o.tFim - o.t0
   // O quadro que está na tela no instante zero é o último capturado antes dele.
@@ -106,14 +107,14 @@ export function montarVideo(o: { quadros: Quadro[]; t0: number; tFim: number; fa
   const mistura = `${o.falas.map((_, i) => `[a${i}]`).join('')}amix=inputs=${o.falas.length}:normalize=0:dropout_transition=0,loudnorm=I=-16:LRA=11:TP=-1.5,aresample=48000,apad[voz]`
   ffmpeg([
     '-f', 'concat', '-safe', '0', '-i', lista, ...entradas,
-    '-filter_complex', `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease:flags=lanczos,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=white,fps=30,format=yuv420p[img];${atrasos};${mistura}`,
+    '-filter_complex', `[0:v]scale=${L}:${A}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${L}:${A}:(ow-iw)/2:(oh-ih)/2:color=white,fps=30,format=yuv420p[img];${atrasos};${mistura}`,
     '-map', '[img]', '-map', '[voz]', '-t', duracao.toFixed(3),
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '24', '-profile:v', 'high', '-tune', 'stillimage',
     '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', mp4,
   ])
   // A capa é o cartão de abertura, com o título: quem vê a capa já sabe do que é o vídeo.
   const capa = path.join(o.pasta, `${o.nome}.jpg`)
-  ffmpeg(['-ss', '1.2', '-i', mp4, '-frames:v', '1', '-vf', 'scale=1280:-2', '-q:v', '3', capa])
+  ffmpeg(['-ss', '1.2', '-i', mp4, '-frames:v', '1', '-vf', `scale=${L > A ? 1280 : 720}:-2`, '-q:v', '3', capa])
   const vtt = path.join(o.pasta, `${o.nome}.vtt`)
   writeFileSync(vtt, legendaWebVtt(o.falas))
   return { mp4, capa, vtt, duracao }

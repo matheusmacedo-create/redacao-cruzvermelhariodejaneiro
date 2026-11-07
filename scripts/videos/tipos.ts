@@ -5,6 +5,10 @@
 
 /** O que o robô sabe fazer na tela. Os alvos são seletores do Playwright (`[data-ajuda="inicio.resumo"]`, `text=…`). */
 export interface Robo {
+  /** Gravando a versão de celular (tela em pé, toque no lugar do cursor, menu na gaveta). */
+  readonly celular: boolean
+  /** Abre uma área pelo menu: no computador, o menu da esquerda; no celular, a gaveta do botão ☰. */
+  menu(href: string): Promise<void>
   /** Abre uma rota do Palácio e espera a tela assentar. */
   ir(rota: string): Promise<void>
   /** Leva o cursor até o alvo (rolando a tela se precisar). */
@@ -28,6 +32,8 @@ export interface Robo {
 export type Passo = {
   /** O que a voz diz neste passo: uma ou duas frases curtas, com o nome dos botões como aparece na tela. */
   fala: string
+  /** A fala na versão de celular, quando a tela muda o caminho (o menu fica na gaveta, por exemplo). */
+  falaNoCelular?: string
   /** O que o robô faz enquanto a voz fala. */
   acao?: (robo: Robo) => Promise<void>
   /** Silêncio depois da fala, em ms (padrão 500). */

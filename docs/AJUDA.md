@@ -1032,7 +1032,7 @@ começar para o "Ouvir" que estava tocando, e um "Ouvir" novo pausa o vídeo.
 **Gravar ou regravar.**
 
 ```
-NODE_USE_ENV_PROXY=1 npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]
+NODE_USE_ENV_PROXY=1 npx tsx scripts/videos/gravar.ts <id> [--celular] [--ensaio] [--credenciais=arquivo.env]
 ```
 
 1. A voz de cada fala vem primeiro e fica guardada em `.videos/voz`: o mesmo texto não gasta crédito de novo.
@@ -1055,6 +1055,20 @@ Vídeo que muda dado consome o espaço. O de aprovar vota na rodada do mutirão,
 
 **Quando o vídeo envelhece.** O catálogo guarda a impressão do passo a passo no dia da gravação: o código do texto, o mesmo do "Ouvir". Quando o texto da tarefa muda, o `npx tsx scripts/conferir-ajuda.ts` avisa qual vídeo regravar. Ele também acusa vídeo sem tarefa, tarefa apontando para vídeo que não existe e legenda faltando. O `npx tsx scripts/conferir-videos.ts` confere as partes puras: o corte da legenda, a legenda WebVTT, o tempo no botão e os endereços.
 
-**O piloto (06/11/2026):** "Ver o que precisa de você hoje" (Início, 70 s), "Criar uma pauta completa" (Pautas, 64 s) e
-"Aprovar um conteúdo" (Aprovações, 63 s). Próximos passos: a versão de celular de cada vídeo (o escopo pede computador e
-celular), a seção "Vídeos" na Central, a primeira trilha e a medição simples (vídeo aberto e assistido até o fim).
+**A versão de celular (07/11/2026).** Cada vídeo tem também a versão em pé (1080×1920), gravada com `--celular` pelo
+mesmo roteiro, numa tela de 390×693. No lugar da seta do mouse, aparece o círculo do dedo, só no toque. O menu abre pela
+gaveta (`r.menu`), e a fala que cita o caminho usa a `falaNoCelular` do passo ("abra o menu e toque em…"). No catálogo,
+ela fica no campo `celular` do mesmo vídeo, com a legenda `<id>.celular.vtt` e os arquivos `<id>-celular-<versão>.mp4` e
+`.jpg`. A de computador precisa existir antes, e regravar uma versão não apaga a outra. No Palácio, quem abre "Ver o
+vídeo" numa tela de até 767 px (a mesma linha em que o menu vira gaveta) vê a versão de celular, quando ela existe; o
+player ajusta a altura à tela. Recomece o espaço (§13) antes de gravar as versões que mudam dado, como na de computador.
+
+**O piloto:**
+
+| Vídeo | Computador (06/11/2026) | Celular (07/11/2026) |
+| --- | --- | --- |
+| "Ver o que precisa de você hoje" (Início) | 70 s | 71 s |
+| "Criar uma pauta completa" (Pautas) | 64 s | 64 s |
+| "Aprovar um conteúdo" (Aprovações) | 63 s | 63 s |
+
+Próximos passos: a seção "Vídeos" na Central, a primeira trilha e a medição simples (vídeo aberto e assistido até o fim).
