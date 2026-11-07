@@ -223,7 +223,8 @@ function ComoFazerEDuvidas({ guia, area }: { guia: GuiaDaArea; area: string }) {
         {abas.map((a) => (
           <button key={a.id} type="button" role="tab" id={`${id}-aba-${a.id}`} data-aba={a.id} aria-selected={aba === a.id} aria-controls={`${id}-painel-${a.id}`} tabIndex={aba === a.id ? 0 : -1}
             onClick={() => escolher(a.id)}
-            className={cn('inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 sm:min-h-8', aba === a.id ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
+            // Três abas num celular de 390 px: com o respiro do computador, “Como fazer” quebrava em duas linhas.
+            className={cn('inline-flex min-h-10 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 sm:min-h-8 sm:gap-1.5 sm:px-3', aba === a.id ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
             {a.rotulo}<span className={cn('text-xs tabular-nums', aba === a.id ? 'text-muted-foreground' : 'text-muted-foreground/70')}>{a.total}</span>
           </button>
         ))}
