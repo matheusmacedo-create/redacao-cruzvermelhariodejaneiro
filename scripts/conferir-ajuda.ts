@@ -15,10 +15,13 @@
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, perguntaDaAjuda } from '../lib/ajuda'
 import { resumoEDetalhe } from '../lib/ajuda/texto'
+import { textoDaTarefa } from '../lib/ajuda/ouvir'
+import catalogoDosVideos from '../lib/ajuda/videos.json'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
 
@@ -135,7 +138,25 @@ for (const [texto, esperado] of cortes) {
   if (`${resumo} ${detalhe}`.trim() !== texto) erros.push(`corte de frases perdeu texto em "${texto.slice(0, 40)}…"`)
 }
 
+// Os vídeos da ajuda (docs/AJUDA.md §14): a tarefa aponta para o vídeo e o vídeo para a tarefa; a legenda existe; e o
+// vídeo avisa quando o passo a passo mudou depois da gravação (a impressão é o código do texto, como no "Ouvir").
+const VIDEOS = catalogoDosVideos as Record<string, { area: string; tarefa: string; impressao: string; video: string; capa: string; legenda: string }>
+const codigoDoTexto = (texto: string) => createHash('sha256').update(texto).digest('hex').slice(0, 24)
+for (const guia of GUIAS) {
+  for (const t of guia.tarefas) if (t.video && !VIDEOS[t.video]) erros.push(`${guia.href}#${t.id}: o vídeo "${t.video}" não está em lib/ajuda/videos.json`)
+}
+for (const [id, v] of Object.entries(VIDEOS)) {
+  const tarefa = GUIAS.find((g) => g.href === v.area)?.tarefas.find((t) => t.id === v.tarefa)
+  if (!tarefa) { erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não existe`); continue }
+  if (tarefa.video !== id) erros.push(`vídeo ${id}: a tarefa ${v.area}#${v.tarefa} não aponta para ele (campo "video")`)
+  if (!existsSync(join(raiz, 'public', 'tutoriais', v.legenda))) erros.push(`vídeo ${id}: falta a legenda public/tutoriais/${v.legenda}`)
+  if (!v.video.startsWith(`${id}-`) || !/-[0-9a-f]{8}\.mp4$/.test(v.video) || !/-[0-9a-f]{8}\.jpg$/.test(v.capa)) erros.push(`vídeo ${id}: nome de arquivo fora do padrão (<id>-<versão>.mp4 e .jpg)`)
+  if (codigoDoTexto(textoDaTarefa(tarefa)) !== v.impressao) {
+    avisos.push(`vídeo ${id}: o passo a passo de ${v.area}#${v.tarefa} mudou depois da gravação; confira o roteiro e regrave (npx tsx scripts/videos/gravar.ts ${id})`)
+  }
+}
+
 for (const a of avisos) console.log(`aviso: ${a}`)
 for (const e of erros) console.log(`ERRO: ${e}`)
-console.log(`${GUIAS.length} áreas com ajuda, ${citados.length} alvos citados, ${marcados.size} marcados, ${erros.length} erro(s).`)
+console.log(`${GUIAS.length} áreas com ajuda, ${citados.length} alvos citados, ${marcados.size} marcados, ${Object.keys(VIDEOS).length} vídeo(s), ${erros.length} erro(s).`)
 process.exit(erros.length ? 1 : 0)

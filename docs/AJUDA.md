@@ -1012,3 +1012,49 @@ dispensa antes ("Agora não"), a menos que o vídeo seja sobre o tour. As datas 
 rodou: rode-o no dia da gravação. Abrir uma aprovação marca como lido o aviso dela no sino; o script devolve.
 
 **Código novo:** sem sessão, "o espaço da filial" é o de Produção, escolhido pelo tipo (ARQUITETURA §5).
+
+## 14. Vídeos da ajuda (07/11/2026)
+
+A Fase 1 do projeto "Tutoriais do Palácio": um vídeo curto por tarefa (de 30 a 90 segundos), gravado por script no
+espaço de Demonstração (§13), com a voz da filial ("Sarah", modelo de narração `eleven_v4`) e legenda. O vídeo mostra a
+tarefa da ajuda escrita acontecendo na tela de verdade; o texto continua sendo a referência.
+
+**Onde aparece.** O botão "Ver o vídeo · 1 min" fica ao lado do "Ouvir" em cada tarefa que tem vídeo, no painel "?" e
+na Central (`components/ajuda/video.tsx`). Abre ali mesmo, num `<dialog>`, com a legenda ligada. Um som por vez: o vídeo
+começar para o "Ouvir" que estava tocando, e um "Ouvir" novo pausa o vídeo.
+
+**Onde ficam os arquivos.**
+
+- O catálogo, `lib/ajuda/videos.json`, é escrito pelo gravador. A tarefa aponta para o vídeo pelo campo `video` (`lib/ajuda/tipos.ts`).
+- A legenda fica em `public/tutoriais/<id>.vtt`, na mesma origem do Palácio: o navegador não carrega legenda de outra origem sem CORS.
+- O MP4 e a capa ficam no site da filial, em `https://cruzvermelhariodejaneiro.org/assets/tutoriais/palacio/`. A pasta é pública, mas fica fora dos buscadores e sem listagem (o `.htaccess` dela), e os nomes levam a versão. Fica no site porque os buckets do R2 são privados e a chave deles mora na Vercel; a mídia pública da filial já sai pelo site (o acervo publica lá). Mudar de lugar é trocar `ENDERECO_DOS_VIDEOS`.
+
+**Gravar ou regravar.**
+
+```
+NODE_USE_ENV_PROXY=1 npx tsx scripts/videos/gravar.ts <id> [--ensaio] [--credenciais=arquivo.env]
+```
+
+1. A voz de cada fala vem primeiro e fica guardada em `.videos/voz`: o mesmo texto não gasta crédito de novo.
+2. O robô entra como a conta de gravação. Se ela não estiver no espaço de Demonstração, o gravador para sem gravar nada.
+3. O robô faz a tarefa com um cursor desenhado, o clique visível e um contorno vermelho no que a voz explica, esperando cada fala terminar. Ele dispensa a dica "Primeira vez em…?" só no navegador dele, sem mudar nada da conta.
+4. O ffmpeg monta o MP4 (1920×1080, H.264), a capa (o cartão de abertura) e a legenda, cortada pelo tempo de cada letra que a ElevenLabs devolve.
+
+Sem `--ensaio`, o gravador escreve o catálogo e a legenda. Depois, falta subir o MP4 e a capa de `.videos/saida` ao site: no repositório do site, use `scripts/publicar_hostinger.sh` com `RAIZ` numa pasta que tenha `assets/tutoriais/palacio/`. Com `--ensaio`, os passos marcados `final` (votar, criar) não acontecem, e sai só `.videos/saida/<id>.ensaio.mp4`, para conferir o ritmo.
+
+O gravador precisa de:
+
+- o Playwright com o Chromium, fora do projeto, para não pesar no build da Vercel (o gravador o acha pelo `NODE_PATH`);
+- `ffmpeg` e `ffprobe` no `PATH`;
+- `ELEVENLABS_API_KEY`. No ambiente de nuvem do Claude Code, o proxy põe a chave sozinho, e o `NODE_USE_ENV_PROXY=1` faz o Node passar por ele;
+- `GRAVACAO_USUARIO` e `GRAVACAO_SENHA`, a conta de gravação.
+
+Vídeo que muda dado consome o espaço. O de aprovar vota na rodada do mutirão, e o de criar pauta cria a pauta da praia. Antes de regravar, rode `scripts/demonstracao/semear.sql` (§13).
+
+**O roteiro** (`scripts/videos/roteiros.ts`) é a tarefa contada em voz, com os mesmos passos e os mesmos nomes de botão, e as ações do robô em cada passo. Os alvos usam os `data-ajuda` do tour sempre que existem.
+
+**Quando o vídeo envelhece.** O catálogo guarda a impressão do passo a passo no dia da gravação: o código do texto, o mesmo do "Ouvir". Quando o texto da tarefa muda, o `npx tsx scripts/conferir-ajuda.ts` avisa qual vídeo regravar. Ele também acusa vídeo sem tarefa, tarefa apontando para vídeo que não existe e legenda faltando. O `npx tsx scripts/conferir-videos.ts` confere as partes puras: o corte da legenda, a legenda WebVTT, o tempo no botão e os endereços.
+
+**O piloto (06/11/2026):** "Ver o que precisa de você hoje" (Início, 70 s), "Criar uma pauta completa" (Pautas, 64 s) e
+"Aprovar um conteúdo" (Aprovações, 63 s). Próximos passos: a versão de celular de cada vídeo (o escopo pede computador e
+celular), a seção "Vídeos" na Central, a primeira trilha e a medição simples (vídeo aberto e assistido até o fim).

@@ -1,0 +1,35 @@
+{
+  "aprovacoes-aprovar-conteudo": {
+    "titulo": "Aprovar um conteúdo",
+    "area": "/aprovacoes",
+    "tarefa": "aprovar-um-conteudo",
+    "duracao": 63.2,
+    "gravadoEm": "2026-11-06",
+    "impressao": "b359f76038901c2f13fc197b",
+    "video": "aprovacoes-aprovar-conteudo-528b8a2d.mp4",
+    "capa": "aprovacoes-aprovar-conteudo-528b8a2d.jpg",
+    "legenda": "aprovacoes-aprovar-conteudo.vtt"
+  },
+  "inicio-o-que-e-meu": {
+    "titulo": "Ver o que precisa de você hoje",
+    "area": "/dashboard",
+    "tarefa": "ver-o-que-e-meu",
+    "duracao": 69.8,
+    "gravadoEm": "2026-11-06",
+    "impressao": "ff498fb1a9b20d1ac55e6315",
+    "video": "inicio-o-que-e-meu-fae95960.mp4",
+    "capa": "inicio-o-que-e-meu-fae95960.jpg",
+    "legenda": "inicio-o-que-e-meu.vtt"
+  },
+  "pautas-criar-pauta": {
+    "titulo": "Criar uma pauta completa",
+    "area": "/pautas",
+    "tarefa": "criar-pauta",
+    "duracao": 64.4,
+    "gravadoEm": "2026-11-06",
+    "impressao": "c05e9096a5ef5c835aa57c09",
+    "video": "pautas-criar-pauta-b33f95f1.mp4",
+    "capa": "pautas-criar-pauta-b33f95f1.jpg",
+    "legenda": "pautas-criar-pauta.vtt"
+  }
+}

@@ -55,6 +55,11 @@ export type Tarefa = {
   exemplo?: string
   /** Só quem tem esta condição vê a tarefa ("Só administradores"); texto livre, aparece como selo. */
   quem?: string
+  /**
+   * O vídeo desta tarefa (o id em lib/ajuda/videos.json), gravado por script no espaço de Demonstração
+   * (docs/AJUDA.md §14). Só entra depois de gravado; o botão "Ver o vídeo" aparece ao lado do "Ouvir".
+   */
+  video?: string
 }
 
 /** Uma pergunta frequente. */

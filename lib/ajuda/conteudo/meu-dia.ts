@@ -96,6 +96,7 @@ const INICIO: GuiaDaArea = {
     },
     {
       id: 'ver-o-que-e-meu',
+      video: 'inicio-o-que-e-meu',
       titulo: 'Ver o que precisa de você hoje',
       exemplo: 'A frase “1 pauta sua está atrasada” leva a Ana a “Minhas pautas”, em “Atrasadas”: a matéria do Dia do Voluntariado passou do prazo de sexta. Ela abre a pauta, ajusta o prazo com a coordenação e segue.',
       passos: [
@@ -339,6 +340,7 @@ const APROVACOES: GuiaDaArea = {
   tarefas: [
     {
       id: 'aprovar-um-conteudo',
+      video: 'aprovacoes-aprovar-conteudo',
       titulo: 'Aprovar um conteúdo',
       exemplo: 'O pedido “Matéria: Campanha do agasalho 2026” aparece no topo da fila da Carla. Ela abre, lê, confere que as fotos têm autorização e toca em “Aprovar”.',
       passos: [
