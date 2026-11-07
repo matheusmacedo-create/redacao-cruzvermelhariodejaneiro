@@ -971,3 +971,44 @@ pt-BR). Um áudio por vez: tocar outro "Ouvir" para o anterior; o balão seguint
 **Próximos passos do projeto:** a Área do Voluntário ouvir com a voz da filial (a rota aceitar a sessão do
 voluntário), a assistente de voz no painel "?" ("Perguntar falando"), os vídeos curtos por tarefa e o WhatsApp
 respondendo dúvidas de uso com áudio e vídeo.
+
+## 13. O espaço de Demonstração (07/11/2026)
+
+Os vídeos dos tutoriais (o projeto do §12) são gravados num espaço à parte, `kind: 'demo'`, chamado "Demonstração":
+pessoas e trabalho inventados, para nenhum vídeo mostrar dado de alguém. Ninguém da equipe é membro, e a Produção não
+vê nada dele: o RLS separa por espaço, e uma pessoa fictícia só aparece para quem divide um espaço com ela.
+
+**Quem está lá.**
+
+- A conta de gravação: usuário `gravacao`, que aparece na tela como "Ana Ribeiro" ("Bom dia, Ana."), editora da
+  Comunicação Social. É o papel da maior parte da equipe, então o vídeo mostra o que quase todo mundo vê. A senha não
+  fica no repositório; fica com quem grava.
+- Cinco colegas fictícios, usuários `demo.*`: Helena Duarte (a administradora do espaço), Rafael Monteiro, Beatriz
+  Lacerda, Tiago Furtado e Camila Rezende. Não têm senha, e-mail nem WhatsApp, e a conta deles está bloqueada no
+  Auth: ninguém entra com eles, e nenhum aviso do Palácio sai para fora.
+
+**O que tem lá** (`scripts/demonstracao/semear.sql`): os 12 setores e os canais do chat, como na Produção; 3 projetos;
+13 pautas pelas colunas do quadro (5 da Ana: uma atrasada, uma que vence hoje e as outras nos próximos dias); 7
+conteúdos; 5 rodadas de aprovação, 2 delas esperando o voto da Ana (na do mutirão de saúde, o voto dela fecha a
+rodada); a agenda da semana; avisos no sino; o que a equipe fez e os indicadores do Início.
+
+**Recomeçar depois de gravar.** O mesmo script. Rodado de novo, apaga só o que está no espaço de Demonstração
+(pautas, conteúdos, aprovações, agenda, etiquetas, projetos, avisos e histórico) e grava tudo outra vez, com as datas
+contadas a partir do dia. Pessoas, setores e chat ficam. É SQL de escrita no banco, que é a produção: só quando o
+responsável pedir, inteiro, no editor SQL do Supabase. O script para sem mudar nada se o espaço "demonstracao" não for
+`kind: 'demo'`, se faltar a conta de gravação ou se ela estiver em outro espaço.
+
+**O que não se grava na Demonstração**, e por isso não está no script: publicação agendada (o pg_cron publica de
+verdade), ofício, certificado, transparência, campanha de imprensa e endereço da matéria no site. A trilha pública
+(`auditoria`) registra esses atos para sempre e ainda não sabe pular o espaço de Demonstração; o vídeo dessas áreas
+espera essa mudança, que é uma migração. Financeiro e Patrimônio também não estão semeados
+(`private.semear_financeiro` e `semear_patrimonio` usam os dados reais da filial): o vídeo dessas áreas semeia antes,
+com dados fictícios.
+
+**Na tela da gravação.** A faixa "Você ainda não tem um e-mail de recuperação" não aparece na Demonstração
+(`app/(app)/layout.tsx`): a conta de gravação fica sem e-mail de propósito, para nenhum aviso do Palácio sair para
+fora. A dica "Primeira vez em …? Fazer o tour" aparece em cada tela até a Ana fazer ou dispensar o tour; quem grava
+dispensa antes ("Agora não"), a menos que o vídeo seja sobre o tour. As datas contam a partir do dia em que o script
+rodou: rode-o no dia da gravação. Abrir uma aprovação marca como lido o aviso dela no sino; o script devolve.
+
+**Código novo:** sem sessão, "o espaço da filial" é o de Produção, escolhido pelo tipo (ARQUITETURA §5).
