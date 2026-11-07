@@ -278,8 +278,10 @@ export function QuadroDePautas({ cartoes: iniciais, pessoas, etiquetas: etiqueta
         </p>
       )}
 
-      {/* Colunas lado a lado com rolagem horizontal, também no celular (como o Trello). */}
-      <div data-ajuda="pautas.quadro" className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:snap-none md:px-0">
+      {/* Colunas lado a lado com rolagem horizontal, também no celular (como o Trello). O `relative` prende aqui dentro
+          o que é posicionado de forma absoluta nos cartões (o texto `sr-only` dos selos): sem ele, isso escapava da
+          rolagem e esticava a página no celular para 705 px, e o painel "?" e o vídeo da ajuda saíam mais largos que a tela. */}
+      <div data-ajuda="pautas.quadro" className="relative -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 md:mx-0 md:snap-none md:px-0">
         {COLUNAS.map((col) => {
           const itens = porColuna.get(col.status) ?? []
           const soltandoAqui = alvo?.status === col.status
