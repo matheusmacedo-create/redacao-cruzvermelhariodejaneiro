@@ -77,7 +77,20 @@ export function rotuloDoTour(onde: { area: { rotulo: string }; tela: { rotulo: s
   return `Tour · ${onde.tela?.rotulo ?? onde.area.rotulo}`
 }
 
+/**
+ * O que é cada resultado da busca na ajuda (buscarNaAjuda, em lib/ajuda) e o nome dele na linha de baixo
+ * ("Pergunta · Pautas"). Mora aqui, no índice leve, porque o ⌘K e a busca da Central desenham os resultados sem
+ * importar o texto da ajuda.
+ */
+export type TipoDoAchado = 'pergunta' | 'tarefa' | 'termo'
+export const ROTULO_DO_ACHADO: Record<TipoDoAchado, string> = { pergunta: 'Pergunta', tarefa: 'Passo a passo', termo: 'O que quer dizer' }
+
 /** O endereço de uma área na Central de ajuda (/ajuda/pautas, /ajuda/escola/vendas#id). */
 export function hrefDaAjuda(areaHref: string, ancora?: string): string {
   return `/ajuda${areaHref}${ancora ? `#${ancora}` : ''}`
+}
+
+/** O glossário na Central (/ajuda/glossario) e um termo dele (/ajuda/glossario#pauta). Rota estática: vence o /ajuda/[...area]. */
+export function hrefDoGlossario(termo?: string): string {
+  return `/ajuda/glossario${termo ? `#${termo}` : ''}`
 }

@@ -1,6 +1,7 @@
 import { normalizar, type Area, type Grupo } from '../navegacao'
 import type { GuiaDaArea, PassoDoTour, TelaDaArea, TopicoGeral } from './tipos'
-import { hrefDaAjuda, ondeNaAjuda, type IndiceDaAjuda } from './indice'
+import { hrefDaAjuda, hrefDoGlossario, ondeNaAjuda, type IndiceDaAjuda, type TipoDoAchado } from './indice'
+import { GLOSSARIO, type Termo } from './glossario'
 import { guias as administracao } from './conteudo/administracao'
 import { guias as comunicacao } from './conteudo/comunicacao'
 import { guias as escola } from './conteudo/escola'
@@ -26,7 +27,8 @@ import { guias as relacionamento } from './conteudo/relacionamento'
 export type { GuiaDaArea, PassoDoTour, Pergunta, Tarefa, TelaDaArea, TopicoGeral } from './tipos'
 // TOPICOS_GERAIS é a lista inteira (o conferir-ajuda); para mostrar a alguém, topicosGerais().
 export { BOAS_VINDAS, BOAS_VINDAS_ESCOLA, TOPICOS_GERAIS }
-export { casarCaminho, hrefDaAjuda, ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda } from './indice'
+export { ROTULO_DO_ACHADO, casarCaminho, hrefDaAjuda, hrefDoGlossario, ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda, type TipoDoAchado } from './indice'
+export { GLOSSARIO, letraDoTermo, termoDoGlossario, termosDaArea, type Termo } from './glossario'
 
 export const GUIAS: GuiaDaArea[] = [
   ...meuDia, ...comunicacao, ...planejamento, ...producao, ...relacionamento,
@@ -106,14 +108,39 @@ export function guiasVisiveis(grupos: Grupo[]): { grupo: Grupo; area: Area; guia
   }))
 }
 
+/**
+ * Os termos do glossário que a pessoa vê: os de alguma área que ela abre e os que não são de área nenhuma (o tour).
+ * A equipe da escola não precisa saber o que é uma "rodada de aprovação"; e a lista não lembra áreas fechadas.
+ */
+export function glossarioVisivel(grupos: Grupo[]): Termo[] {
+  const abre = new Set(grupos.flatMap((g) => g.areas.map((a) => a.href)))
+  return GLOSSARIO.filter((t) => !t.areas.length || t.areas.some((a) => abre.has(a)))
+}
+
 export type Achado = {
-  tipo: 'pergunta' | 'tarefa'
+  /** O nome de cada tipo, para mostrar: ROTULO_DO_ACHADO (no índice leve). */
+  tipo: TipoDoAchado
   titulo: string
   trecho: string
-  /** Nome da área ou do tópico geral. */
+  /** Nome da área ou do tópico geral ("Glossário", para um termo). */
   onde: string
   /** Link para a resposta na Central de ajuda. */
   href: string
+}
+
+/** As palavras de quem pergunta "o que é…", "o que quer dizer…": não contam para saber se a busca é o nome de um termo. */
+const PALAVRAS_DE_PERGUNTA = new Set(['o', 'a', 'os', 'as', 'um', 'uma', 'que', 'e', 'sao', 'quer', 'dizer', 'significa', 'significado'])
+
+/** A busca, ou o nome, sem pontuação, sem as palavras de pergunta e sem o "s" do plural: "O que são etiquetas?" → "etiqueta". */
+function chaveDeNome(texto: string): string {
+  return normalizar(texto).replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/)
+    .filter((p) => p && !PALAVRAS_DE_PERGUNTA.has(p)).map((p) => p.replace(/s$/, '')).join(' ')
+}
+
+/** A busca é o nome do termo (ou um dos outros jeitos de dizer): "pauta", "o que é competência", "2FA". */
+function buscaEhOTermo(busca: string, termo: Termo): boolean {
+  const chave = chaveDeNome(busca)
+  return Boolean(chave) && [termo.termo, ...(termo.termos ?? [])].some((nome) => chaveDeNome(nome) === chave)
 }
 
 /**
@@ -126,11 +153,16 @@ export type Achado = {
  *
  * `grupos` são as áreas que a pessoa abre (as mesmas do menu); a equipe da
  * escola não recebe as tarefas gerais que são só da Redação (topicosGerais).
+ *
+ * Os termos do glossário entram por último, com uma exceção: quando a busca é
+ * o nome do termo ("pauta", "o que é competência"), ele vem antes de tudo — é
+ * a resposta exata. Por isso "pauta" no ⌘K mostra primeiro o que é uma pauta,
+ * e "pautas" não enche as cinco linhas com "Sala da pauta" e "Radar de pautas".
  */
 export function buscarNaAjuda(busca: string, grupos: Grupo[], { limite = 20, equipeDaEscola = false }: { limite?: number; equipeDaEscola?: boolean } = {}): Achado[] {
   const palavras = normalizar(busca).split(/\s+/).filter((p) => p.length > 1)
   if (!palavras.length) return []
-  const candidatos: (Achado & { titulo_: string; corpo: string })[] = []
+  const candidatos: (Achado & { titulo_: string; corpo: string; exato?: boolean })[] = []
   for (const topico of topicosGerais(equipeDaEscola)) {
     for (const p of topico.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: topico.titulo, href: `/ajuda#${p.id}`, titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), topico.titulo].join(' ')) })
     for (const t of topico.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: topico.titulo, href: `/ajuda#${t.id}`, titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', t.exemplo ?? '', topico.titulo].join(' ')) })
@@ -139,8 +171,12 @@ export function buscarNaAjuda(busca: string, grupos: Grupo[], { limite = 20, equ
     for (const p of guia.perguntas) candidatos.push({ tipo: 'pergunta', titulo: p.pergunta, trecho: p.resposta, onde: area.rotulo, href: hrefDaAjuda(area.href, p.id), titulo_: normalizar(p.pergunta), corpo: normalizar([p.resposta, ...(p.termos ?? []), area.rotulo].join(' ')) })
     for (const t of guia.tarefas) candidatos.push({ tipo: 'tarefa', titulo: t.titulo, trecho: t.passos.join(' '), onde: area.rotulo, href: hrefDaAjuda(area.href, t.id), titulo_: normalizar(t.titulo), corpo: normalizar([...t.passos, t.dica ?? '', t.exemplo ?? '', area.rotulo].join(' ')) })
   }
+  for (const t of glossarioVisivel(grupos)) {
+    candidatos.push({ tipo: 'termo', titulo: t.termo, trecho: t.definicao, onde: 'Glossário', href: hrefDoGlossario(t.id), titulo_: normalizar(t.termo), corpo: normalizar([t.definicao, ...(t.termos ?? []), 'glossario o que quer dizer significa'].join(' ')), exato: buscaEhOTermo(busca, t) })
+  }
   return candidatos
     .map((c, ordem) => {
+      if (c.exato) return { c, pontos: -1, ordem }
       const tudo = `${c.titulo_} ${c.corpo}`
       if (!palavras.every((p) => tudo.includes(p))) return null
       const noTitulo = palavras.filter((p) => c.titulo_.includes(p)).length

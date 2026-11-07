@@ -1,12 +1,14 @@
 import Link from 'next/link'
-import { ChevronRight, CircleHelp, Lightbulb, ListOrdered, MapPinned, Sparkles, UserRoundCheck } from 'lucide-react'
+import { ArrowRight, BookA, ChevronRight, CircleHelp, Lightbulb, ListOrdered, MapPinned, Sparkles, UserRoundCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Achado } from '@/lib/ajuda'
+import type { Termo } from '@/lib/ajuda/glossario'
+import { ROTULO_DO_ACHADO, hrefDaAjuda, hrefDoGlossario } from '@/lib/ajuda/indice'
 import type { NaPratica, Pergunta, Tarefa } from '@/lib/ajuda/tipos'
 import { IssoAjudou } from './beta'
 import { Ouvir } from '@/components/ajuda/ouvir'
 import { VerOVideo } from '@/components/ajuda/video'
-import { textoDaPergunta, textoDaTarefa } from '@/lib/ajuda/ouvir'
+import { textoDaPergunta, textoDaTarefa, textoDoTermo } from '@/lib/ajuda/ouvir'
 
 /**
  * As peças de texto da ajuda, iguais no painel "?" e na Central (/ajuda).
@@ -141,6 +143,30 @@ export function PerguntaRecolhida({ pergunta, area }: { pergunta: Pergunta; area
   )
 }
 
+/**
+ * Um termo do glossário recolhido (a aba "Palavras" do painel): a palavra à vista; o que ela quer dizer, o "Ouvir" e
+ * o link para o glossário atrás de um clique. `aoAbrirOGlossario`: o painel fecha antes de navegar.
+ */
+export function TermoRecolhido({ termo, aoAbrirOGlossario }: { termo: Termo; aoAbrirOGlossario?: () => void }) {
+  return (
+    <details className={recolhivel} data-termo={termo.id}>
+      <summary className={cabecaDoRecolhivel}>
+        <ChevronRight className={seta} aria-hidden="true" />
+        <span className="min-w-0 flex-1">{termo.termo}</span>
+      </summary>
+      <div className="px-3 pb-3 pl-9">
+        <p className="text-sm leading-relaxed text-muted-foreground">{termo.definicao}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <Ouvir texto={textoDoTermo(termo)} />
+          <Link href={hrefDoGlossario(termo.id)} onClick={aoAbrirOGlossario} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline sm:min-h-9">
+            Ver no glossário<ArrowRight className="size-3.5" aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+    </details>
+  )
+}
+
 // A âncora mira o próprio cartão; o scroll-margin deixa um respiro acima dele.
 // O cartão do link acende pelo :target (link aberto do zero) e pelo
 // data-ancora que AncoraDaAjuda (./ancora.tsx) põe quando se chega pelo
@@ -165,6 +191,34 @@ export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 
   )
 }
 
+/**
+ * Um termo aberto, com âncora (o glossário na Central, /ajuda/glossario#pauta). `areas`: onde a palavra aparece, só
+ * as que a pessoa abre, com o nome do menu; `veja`: os termos que ajudam a entender este.
+ */
+export function TermoAberto({ termo, areas, veja }: { termo: Termo; areas: { href: string; rotulo: string }[]; veja: { id: string; termo: string }[] }) {
+  return (
+    <article id={termo.id} tabIndex={-1} className={ancorado}>
+      <h3 className="text-[15px] font-semibold leading-snug">{termo.termo}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{termo.definicao}</p>
+      <Ouvir texto={textoDoTermo(termo)} className="mt-3" />
+      {(areas.length > 0 || veja.length > 0) && (
+        <dl className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3 text-xs leading-relaxed">
+          {areas.length > 0 && (
+            <div className="flex flex-wrap gap-x-1.5"><dt className="text-muted-foreground">Aparece em:</dt>
+              <dd className="contents">{areas.map((a, i) => <span key={a.href}><Link href={hrefDaAjuda(a.href)} className="font-medium text-primary hover:underline">{a.rotulo}</Link>{i < areas.length - 1 ? ',' : ''}</span>)}</dd>
+            </div>
+          )}
+          {veja.length > 0 && (
+            <div className="flex flex-wrap gap-x-1.5"><dt className="text-muted-foreground">Veja também:</dt>
+              <dd className="contents">{veja.map((v, i) => <span key={v.id}><a href={`#${v.id}`} className="font-medium text-primary hover:underline">{v.termo}</a>{i < veja.length - 1 ? ',' : ''}</span>)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </article>
+  )
+}
+
 /** Uma pergunta aberta, com âncora (Central). */
 export function PerguntaAberta({ pergunta, nivel = 3, area }: { pergunta: Pergunta; nivel?: 3 | 5; area?: string | null }) {
   const Titulo = nivel === 3 ? 'h3' : 'h5'
@@ -178,6 +232,9 @@ export function PerguntaAberta({ pergunta, nivel = 3, area }: { pergunta: Pergun
   )
 }
 
+/** O ícone de cada tipo de resultado da busca (o nome é ROTULO_DO_ACHADO). */
+export const ICONE_DO_ACHADO = { pergunta: CircleHelp, tarefa: ListOrdered, termo: BookA } as const satisfies Record<Achado['tipo'], unknown>
+
 /** A lista de resultados da busca na ajuda (painel e Central). */
 export function ResultadosDaAjuda({ achados, busca, aoEscolher }: { achados: Achado[]; busca: string; aoEscolher?: (href: string) => void }) {
   if (!achados.length) {
@@ -186,14 +243,14 @@ export function ResultadosDaAjuda({ achados, busca, aoEscolher }: { achados: Ach
   return (
     <ul className="flex flex-col gap-1.5">
       {achados.map((achado) => {
-        const Icone = achado.tipo === 'pergunta' ? CircleHelp : ListOrdered
+        const Icone = ICONE_DO_ACHADO[achado.tipo]
         return (
           <li key={achado.href}>
             <Link href={achado.href} onClick={() => aoEscolher?.(achado.href)} className="flex min-h-11 gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm outline-none hover:border-border hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50">
               <Icone className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium leading-snug">{achado.titulo}</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{achado.tipo === 'pergunta' ? 'Pergunta' : 'Passo a passo'} · {achado.onde}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{ROTULO_DO_ACHADO[achado.tipo]} · {achado.onde}</span>
                 <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">{achado.trecho}</span>
               </span>
             </Link>

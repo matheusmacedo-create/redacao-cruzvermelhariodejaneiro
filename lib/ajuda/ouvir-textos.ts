@@ -1,6 +1,7 @@
 import { GUIAS, TOPICOS_GERAIS, BOAS_VINDAS, BOAS_VINDAS_ESCOLA } from './index'
+import { GLOSSARIO } from './glossario'
 import { BOAS_VINDAS_DO_MEMBRO, GUIAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from './membro'
-import { codigoDoTexto, textoDaArea, textoDaPergunta, textoDaTarefa, textoDoPassoDoTour } from './ouvir'
+import { codigoDoTexto, textoDaArea, textoDaPergunta, textoDaTarefa, textoDoPassoDoTour, textoDoTermo } from './ouvir'
 import type { GuiaDaArea, TopicoGeral } from './tipos'
 
 /**
@@ -26,6 +27,7 @@ export function textosQueSePodemOuvir(): string[] {
   TOPICOS_GERAIS.forEach(doTopico)
   TOPICOS_DO_MEMBRO.forEach(doTopico)
   for (const p of [...BOAS_VINDAS, ...BOAS_VINDAS_ESCOLA, ...BOAS_VINDAS_DO_MEMBRO]) textos.push(textoDoPassoDoTour(p))
+  for (const t of GLOSSARIO) textos.push(textoDoTermo(t))
   return [...new Set(textos.filter(Boolean))]
 }
 

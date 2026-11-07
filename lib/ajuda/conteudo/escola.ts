@@ -168,7 +168,32 @@ const CURSOS: GuiaDaArea = {
       dica: '“Automático (pelo nome)” desfaz a escolha.',
     },
   ],
-  perguntas: [],
+  perguntas: [
+    {
+      id: 'aluno-e-interessado',
+      pergunta: 'O que conta como aluno, como interessado e como novo?',
+      resposta: 'Aluno é a pessoa que pagou algum produto do curso na Únicopag: quem pagou a inscrição e o curso conta uma vez. “Interessado” tentou e não pagou nada do curso: é o público para remarketing. “Novos em 30 dias” são os alunos cujo primeiro pagamento no curso foi nos últimos 30 dias.\n\nOs números chegam agregados, sem nome nem CPF dos alunos.',
+      termos: ['alunos', 'interessados', 'remarketing', 'novos', 'matrícula'],
+    },
+    {
+      id: 'conversao-e-custo',
+      pergunta: 'Como são calculados a conversão e o custo por aluno?',
+      resposta: 'A conversão é, de quem tentou, quantos pagaram: os alunos divididos pela soma de alunos e interessados. O custo por aluno é o investido nas peças das campanhas do curso dividido pelos alunos; sem investimento registrado ou sem aluno, aparece “—”.\n\nA campanha é do curso pelo campo “Curso”, e a peça, pela campanha dela.',
+      termos: ['conversão', 'custo por aluno', 'investido', 'investimento', 'CAC'],
+    },
+    {
+      id: 'frase-do-curso',
+      pergunta: 'De onde vem a frase embaixo do nome do curso?',
+      resposta: 'É a sugestão de onde agir, a partir dos números do curso e do que já foi feito para ele. Aparece só em curso ativo. Com muitos interessados (10 ou mais, ou 3 ou mais com conversão abaixo de 50%), sugere remarketing e contato; sem alunos e sem nada criado, começar pela página do curso e um anúncio.\n\nSem aluno novo em 30 dias e sem campanha no ar, ela avisa. Se o curso vende quase sem marketing, lembra que uma campanha pode multiplicar; fora isso, havendo alunos novos em 30 dias, diz quantos são.',
+      termos: ['sugestão', 'sinal', 'onde agir', 'recomendação'],
+    },
+    {
+      id: 'curso-sem-alunos',
+      pergunta: 'Um curso aparece sem alunos, mas tem vendas. Por quê?',
+      resposta: 'O nome do produto na Únicopag não bate com o nome do curso. Desça até “Produtos da Únicopag sem curso” e, no produto, escolha “Conta em:” e o curso. “Taxa de inscrição — X” e “X — Inscrição” já contam sozinhos para o curso X.',
+      termos: ['sem vendas', 'produto', 'nome diferente'],
+    },
+  ],
   relacionadas: ['/escola/marketing', '/escola/vendas'],
 }
 

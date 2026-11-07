@@ -1,11 +1,13 @@
 import Link from 'next/link'
-import { ArrowRight, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
+import { ArrowRight, BookA, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
+import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
 import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
 import { HistoriaNaPratica, PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
-import { MAIS_PERGUNTADAS, guiasVisiveis, hrefDaAjuda, perguntaDaAjuda, topicosGerais } from '@/lib/ajuda'
+import { MAIS_PERGUNTADAS, glossarioVisivel, guiasVisiveis, hrefDaAjuda, hrefDoGlossario, perguntaDaAjuda, topicosGerais } from '@/lib/ajuda'
 import { ROTULO_DO_ESTADO, ROTULO_DO_TIPO, maisUteis, type EstadoDoRetorno, type TipoDeRetorno, type VotoDaPergunta } from '@/lib/ajuda/retornos'
 import { createClient } from '@/lib/supabase/server'
 import { TODOS_OS_GRUPOS } from '@/lib/navegacao'
@@ -17,6 +19,9 @@ import { gruposDaPessoa } from './grupos-da-pessoa'
 export const metadata = { title: 'Central de ajuda' }
 
 const tecla = 'inline-flex min-w-7 items-center justify-center rounded-md border border-border bg-muted px-1.5 py-0.5 font-sans text-xs font-medium text-foreground'
+
+/** Os termos do glossário que o cartão de "Comece por aqui" mostra de exemplo (os que a pessoa vê, nesta ordem). */
+const EXEMPLOS_DO_GLOSSARIO = ['pauta', 'rodada-de-aprovacao', 'canal', 'competencia', 'plaqueta', 'unicopag', 'papel']
 
 /**
  * A Central de ajuda: tudo o que o painel "?" mostra tela a tela, junto e com
@@ -56,6 +61,8 @@ export default async function CentralDeAjudaPage() {
     })
   type MeuRetorno = { id: string; tipo: TipoDeRetorno; caminho: string; texto: string | null; nota: number | null; estado: EstadoDoRetorno; resposta: string | null; respondido_em: string | null; created_at: string }
   const meusRetornos = (meus ?? []) as MeuRetorno[]
+  const glossario = glossarioVisivel(grupos)
+  const exemplos = EXEMPLOS_DO_GLOSSARIO.flatMap((id) => glossario.filter((t) => t.id === id)).slice(0, 5)
   const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 
   return (
@@ -99,11 +106,26 @@ export default async function CentralDeAjudaPage() {
 
       <section aria-labelledby="secao-comece-por-aqui" className="mt-12">
         <h2 id="secao-comece-por-aqui" className="text-lg font-semibold">Comece por aqui</h2>
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+        {/* Quatro cartões: dois por linha a partir do tablet (com três, o quarto ficava sozinho embaixo). */}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="flex flex-col p-5">
             <h3 className="flex items-center gap-2 font-semibold"><Sparkles className="size-4 text-primary" aria-hidden="true" />Boas-vindas e tours</h3>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">O tour de boas-vindas mostra onde fica cada coisa. Cada tela com tour oferece o dela na primeira visita; recomeçar faz todas oferecerem de novo.</p>
             <BotoesDeBoasVindas />
+          </Card>
+          <Card className="flex flex-col p-5" data-cartao-glossario>
+            <h3 className="flex items-center gap-2 font-semibold"><BookA className="size-4 text-primary" aria-hidden="true" />Glossário</h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">O que quer dizer cada palavra do Palácio Virtual, em poucas frases. {glossario.length} palavras, de A a Z, e cada uma também aparece na busca.</p>
+            {exemplos.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="Algumas palavras do glossário">
+                {exemplos.map((t) => (
+                  <li key={t.id}><Link href={hrefDoGlossario(t.id)} className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm hover:bg-muted sm:min-h-8">{t.termo}</Link></li>
+                ))}
+              </ul>
+            )}
+            <Link href={hrefDoGlossario()} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'mt-4 h-11 self-start sm:h-10')}>
+              <BookA aria-hidden="true" />Abrir o glossário
+            </Link>
           </Card>
           <Card className="flex flex-col p-5">
             <h3 className="flex items-center gap-2 font-semibold"><Keyboard className="size-4 text-primary" aria-hidden="true" />Atalhos de teclado</h3>
