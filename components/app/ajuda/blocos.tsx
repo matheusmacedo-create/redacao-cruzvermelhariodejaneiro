@@ -5,6 +5,7 @@ import type { Achado } from '@/lib/ajuda'
 import type { NaPratica, Pergunta, Tarefa } from '@/lib/ajuda/tipos'
 import { IssoAjudou } from './beta'
 import { Ouvir } from '@/components/ajuda/ouvir'
+import { VerOVideo } from '@/components/ajuda/video'
 import { textoDaPergunta, textoDaTarefa } from '@/lib/ajuda/ouvir'
 
 /**
@@ -103,6 +104,16 @@ const recolhivel = 'group rounded-lg border border-border bg-card open:bg-muted/
 const cabecaDoRecolhivel = 'flex min-h-11 cursor-pointer list-none items-start gap-2 rounded-lg px-3 py-2.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden'
 const seta = 'mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none'
 
+/** "Ouvir" o passo a passo e, quando a tarefa tem vídeo (docs/AJUDA.md §14), "Ver o vídeo" ao lado. */
+function OuvirEVer({ tarefa }: { tarefa: Tarefa }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      <Ouvir texto={textoDaTarefa(tarefa)} />
+      {tarefa.video && <VerOVideo id={tarefa.video} />}
+    </div>
+  )
+}
+
 /** Uma tarefa recolhida (painel). */
 export function TarefaRecolhida({ tarefa }: { tarefa: Tarefa }) {
   return (
@@ -112,7 +123,7 @@ export function TarefaRecolhida({ tarefa }: { tarefa: Tarefa }) {
         <span className="min-w-0 flex-1">{tarefa.titulo}</span>
         {tarefa.quem && <SeloQuem quem={tarefa.quem} className="mt-px max-w-[45%]" />}
       </summary>
-      <div className="px-3 pb-3 pl-9"><Passos tarefa={tarefa} /><Ouvir texto={textoDaTarefa(tarefa)} className="mt-3" /></div>
+      <div className="px-3 pb-3 pl-9"><Passos tarefa={tarefa} /><OuvirEVer tarefa={tarefa} /></div>
     </details>
   )
 }
@@ -149,7 +160,7 @@ export function TarefaAberta({ tarefa, nivel = 3 }: { tarefa: Tarefa; nivel?: 3 
         {tarefa.quem && <SeloQuem quem={tarefa.quem} />}
       </div>
       <Passos tarefa={tarefa} />
-      <Ouvir texto={textoDaTarefa(tarefa)} className="mt-3" />
+      <OuvirEVer tarefa={tarefa} />
     </article>
   )
 }

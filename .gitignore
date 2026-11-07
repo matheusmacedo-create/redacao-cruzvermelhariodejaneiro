@@ -27,3 +27,6 @@ yarn-error.log*
 next-env.d.ts
 # mantém o template de env versionado
 !.env.example
+
+# vídeos da ajuda: imagens, falas e vídeos montados (scripts/videos)
+/.videos/

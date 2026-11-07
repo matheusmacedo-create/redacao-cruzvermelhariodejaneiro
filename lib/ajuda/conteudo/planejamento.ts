@@ -390,6 +390,7 @@ const PAUTAS: GuiaDaArea = {
   tarefas: [
     {
       id: 'criar-pauta',
+      video: 'pautas-criar-pauta',
       titulo: 'Criar uma pauta completa',
       exemplo: 'A Carla cria “Dia do Voluntariado — perfil de 3 voluntários”, prazo 03/10, responsável Bruno, com publicações previstas no site e no Instagram.',
       passos: [
