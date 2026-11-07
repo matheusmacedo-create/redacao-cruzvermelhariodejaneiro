@@ -1005,4 +1005,10 @@ espera essa mudança, que é uma migração. Financeiro e Patrimônio também n�
 (`private.semear_financeiro` e `semear_patrimonio` usam os dados reais da filial): o vídeo dessas áreas semeia antes,
 com dados fictícios.
 
+**Na tela da gravação.** A faixa "Você ainda não tem um e-mail de recuperação" não aparece na Demonstração
+(`app/(app)/layout.tsx`): a conta de gravação fica sem e-mail de propósito, para nenhum aviso do Palácio sair para
+fora. A dica "Primeira vez em …? Fazer o tour" aparece em cada tela até a Ana fazer ou dispensar o tour; quem grava
+dispensa antes ("Agora não"), a menos que o vídeo seja sobre o tour. As datas contam a partir do dia em que o script
+rodou: rode-o no dia da gravação. Abrir uma aprovação marca como lido o aviso dela no sino; o script devolve.
+
 **Código novo:** sem sessão, "o espaço da filial" é o de Produção, escolhido pelo tipo (ARQUITETURA §5).

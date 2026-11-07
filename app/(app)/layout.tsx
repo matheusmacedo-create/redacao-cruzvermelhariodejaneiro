@@ -112,7 +112,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-xl md:border md:border-sidebar-border md:shadow-sm">
             <Topbar role={context.role} profile={context.profile} notifications={notifications ?? []} naoLidas={naoLidas ?? 0} />
-            {!context.profile?.email_confirmado_em && <AvisoEmailDeRecuperacao email={context.profile?.email ?? null} />}
+            {/* Na Demonstração (docs/AJUDA.md §13) a conta de gravação fica sem e-mail de propósito: a faixa entraria em todo vídeo. */}
+            {!context.profile?.email_confirmado_em && context.workspace.kind !== 'demo' && <AvisoEmailDeRecuperacao email={context.profile?.email ?? null} />}
             <main className="flex-1 overflow-y-auto overflow-x-hidden">
               <div className="mx-auto w-full max-w-[1400px] px-4 py-5 [padding-bottom:max(1.25rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-6 lg:px-8 lg:py-7">{children}</div>
             </main>
