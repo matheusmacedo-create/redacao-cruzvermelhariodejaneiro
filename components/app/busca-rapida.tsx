@@ -3,9 +3,10 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
-import { CircleHelp, CornerDownLeft, Loader2, Search, type LucideIcon } from 'lucide-react'
+import { BookA, CircleHelp, CornerDownLeft, Loader2, Search, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { buscarAreas, type Grupo } from '@/lib/navegacao'
+import { ROTULO_DO_ACHADO } from '@/lib/ajuda/indice'
 import { ACOES_DE_CRIAR, useCriar, type AcaoDeCriar } from './acoes-de-criar'
 import { useShell } from './app-shell'
 import { avisarResposta } from './ajuda/ancora'
@@ -74,7 +75,7 @@ function Conteudo({ grupos, equipeDaEscola, fechar }: { grupos: Grupo[]; equipeD
     if (!busca.trim()) return todos
     const achados = buscarAreas(busca, todos)
     const ajuda = (buscarNaAjuda ? buscarNaAjuda(busca, grupos, { limite: 5, equipeDaEscola }) : []).map<Item>((a) => ({
-      chave: `ajuda:${a.href}`, secao: 'Ajuda', rotulo: a.titulo, resumo: `${a.tipo === 'pergunta' ? 'Pergunta' : 'Passo a passo'} · ${a.onde}`, icone: CircleHelp, href: a.href,
+      chave: `ajuda:${a.href}`, secao: 'Ajuda', rotulo: a.titulo, resumo: `${ROTULO_DO_ACHADO[a.tipo]} · ${a.onde}`, icone: a.tipo === 'termo' ? BookA : CircleHelp, href: a.href,
     }))
     return [...achados.filter((i) => i.href).map((i) => ({ ...i, secao: 'Ir para' })), ...achados.filter((i) => i.acao), ...ajuda]
   }, [busca, todos, grupos, equipeDaEscola, buscarNaAjuda])

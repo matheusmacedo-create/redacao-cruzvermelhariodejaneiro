@@ -38,6 +38,11 @@ export function textoDoPassoDoTour(p: PassoDoTour): string {
   return juntar([p.titulo, p.texto])
 }
 
+/** Um termo do glossário (lib/ajuda/glossario.ts): a palavra e o que ela quer dizer. */
+export function textoDoTermo(t: { termo: string; definicao: string }): string {
+  return juntar([t.termo, t.definicao])
+}
+
 /** O "para que serve" de uma área (e, se houver, quem usa). */
 export function textoDaArea(paraQueServe: string, quemUsa?: string | null): string {
   return juntar([paraQueServe, quemUsa ? `Quem usa: ${quemUsa}` : null])

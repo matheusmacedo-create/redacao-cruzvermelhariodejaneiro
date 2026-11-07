@@ -550,14 +550,14 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
   {
     id: 'pedir-ajuda',
     titulo: 'Ajuda e suporte',
-    resumo: 'O painel “?”, os tours, a Central de ajuda e o que fazer quando a dúvida continua.',
+    resumo: 'O painel “?”, os tours, a Central de ajuda, o glossário e o que fazer quando a dúvida continua.',
     tarefas: [
       {
         id: 'ajuda-da-tela',
         titulo: 'Ver a ajuda da tela em que você está',
         passos: [
           'Toque no “?”, no alto à direita (ou aperte a tecla ? fora de um campo de texto).',
-          'Veja para que serve a tela, o passo a passo e as perguntas frequentes dela.',
+          'Veja para que serve a tela e, nas abas, o passo a passo, as perguntas frequentes e as palavras que ela usa.',
           'Para outra dúvida, use a busca no alto do painel.',
           'Feche com o X ou com Esc.',
         ],
@@ -604,6 +604,12 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         pergunta: 'Onde encontro todas as respostas juntas?',
         resposta: 'Na Central de ajuda: no menu da sua foto, em “Ajuda”, no link “Central de ajuda” do pé do painel “?” ou pela busca (⌘K). Ela junta o passo a passo e as perguntas de todas as áreas que você pode abrir, com uma busca própria.',
         termos: ['faq', 'manual', 'tutorial', 'central de ajuda'],
+      },
+      {
+        id: 'o-que-quer-dizer-uma-palavra',
+        pergunta: 'Não sei o que uma palavra quer dizer. Onde vejo?',
+        resposta: 'No glossário: no pé do painel “?”, em “Glossário”, ou na Central de ajuda, em “Comece por aqui”. Ele explica, em poucas frases, as palavras próprias do trabalho nas áreas que você abre. Na busca da ajuda e no ⌘K, escreva a palavra, ou “o que é” e a palavra.\n\nNo painel “?”, a aba “Palavras” mostra só as da área em que você está.',
+        termos: ['glossário', 'significado', 'termo', 'vocabulário', 'dicionário', 'o que é', 'sigla'],
       },
       {
         id: 'desligar-a-tecla',

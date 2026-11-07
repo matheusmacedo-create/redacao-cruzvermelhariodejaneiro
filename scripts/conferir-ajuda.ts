@@ -11,14 +11,17 @@
  * - avisa do que passa da medida (docs/AJUDA.md §11): "para que serve" ou
  *   "quem usa" acima de 400 caracteres, resumo de painel acima de 260,
  *   resposta acima de 900, mais de 15 tarefas ou 20 perguntas numa área, tour
- *   de tela interna com um balão só.
+ *   de tela interna com um balão só;
+ * - o glossário (§15): id único e no padrão, áreas que existem no menu, "veja"
+ *   que aponta para outro termo, definição de até 420 caracteres com ponto
+ *   final, e a busca que acha cada termo pelo nome ("o que é pauta").
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, perguntaDaAjuda } from '../lib/ajuda'
+import { GLOSSARIO, GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, buscarNaAjuda, perguntaDaAjuda } from '../lib/ajuda'
 import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { textoDaTarefa } from '../lib/ajuda/ouvir'
 import catalogoDosVideos from '../lib/ajuda/videos.json'
@@ -162,7 +165,32 @@ for (const [id, v] of Object.entries(VIDEOS)) {
   }
 }
 
+// O glossário (docs/AJUDA.md §15): o id vira âncora (/ajuda/glossario#pauta) e as áreas ligam o termo à aba "Palavras".
+const idsDoGlossario = new Set<string>()
+for (const t of GLOSSARIO) {
+  if (idsDoGlossario.has(t.id)) erros.push(`glossário: id repetido "${t.id}"`)
+  idsDoGlossario.add(t.id)
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(t.id)) erros.push(`glossário: id fora do padrão "${t.id}"`)
+  for (const a of t.areas) if (!hrefs.has(a)) erros.push(`glossário: "${t.id}" cita uma área que não existe no menu (${a})`)
+  if (t.definicao.length > 420) avisos.push(`glossário: "${t.id}" com ${t.definicao.length} caracteres (até 420; o resto cabe numa pergunta da área)`)
+  if (!/[.!?]$/.test(t.definicao.trim())) erros.push(`glossário: a definição de "${t.id}" não termina com ponto`)
+}
+for (const t of GLOSSARIO) {
+  for (const v of t.veja ?? []) {
+    if (v === t.id) erros.push(`glossário: "${t.id}" manda ver ele mesmo`)
+    else if (!idsDoGlossario.has(v)) erros.push(`glossário: "${t.id}" manda ver "${v}", que não existe`)
+  }
+}
+// Quem busca o nome do termo acha o termo em primeiro lugar, com todas as áreas abertas (o ⌘K mostra só cinco).
+const todasAsAreas = TODOS_OS_GRUPOS
+for (const t of GLOSSARIO) {
+  for (const busca of [t.termo, `o que é ${t.termo.replace(/\s*\(.*\)/, '')}`]) {
+    const primeiro = buscarNaAjuda(busca, todasAsAreas, { limite: 1 })[0]
+    if (primeiro?.href !== `/ajuda/glossario#${t.id}`) erros.push(`glossário: buscar “${busca}” não traz o termo primeiro (veio ${primeiro ? `“${primeiro.titulo}”` : 'nada'})`)
+  }
+}
+
 for (const a of avisos) console.log(`aviso: ${a}`)
 for (const e of erros) console.log(`ERRO: ${e}`)
-console.log(`${GUIAS.length} áreas com ajuda, ${citados.length} alvos citados, ${marcados.size} marcados, ${Object.keys(VIDEOS).length} vídeo(s), ${erros.length} erro(s).`)
+console.log(`${GUIAS.length} áreas com ajuda, ${citados.length} alvos citados, ${marcados.size} marcados, ${Object.keys(VIDEOS).length} vídeo(s), ${GLOSSARIO.length} termos no glossário, ${erros.length} erro(s).`)
 process.exit(erros.length ? 1 : 0)

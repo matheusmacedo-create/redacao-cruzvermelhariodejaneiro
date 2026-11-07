@@ -13,7 +13,8 @@ A ajuda tem cinco partes, todas lidas do mesmo conteúdo (`lib/ajuda`):
 1. **Boas-vindas** curtas e opcionais no primeiro acesso.
 2. **Tour de cada tela**, oferecido (não imposto) na primeira visita.
 3. **Painel “?”** com o passo a passo e as perguntas frequentes da área aberta.
-4. **Central de ajuda** em `/ajuda`, com busca e link direto para cada resposta.
+4. **Central de ajuda** em `/ajuda`, com busca, link direto para cada resposta e o
+   **glossário** das palavras do Palácio Virtual (`/ajuda/glossario`, §15).
 5. O mesmo, mais enxuto, na **Área do Voluntário** (`/membro`): convite de
    boas-vindas, tours e a página `/membro/ajuda`.
 
@@ -606,7 +607,9 @@ A ajuda muda **no mesmo PR** que muda a tela.
      tópicos gerais; tarefa geral que cita o “Criar” ou chamado sem
      `quem: 'Equipe da Redação'` (§4); `id` repetido ou fora do padrão na
      ajuda do voluntário (lá a Central é uma página só, então o `id` vale para
-     a página inteira).
+     a página inteira); no glossário (§15), `id` repetido ou fora do padrão,
+     área que não existe no menu, `veja` para um termo que não existe,
+     definição sem ponto final e termo que a busca pelo nome não traz primeiro.
    - **Aviso:** área sem ajuda; área sem perguntas; tela sem tour; tour com
      menos de 2 ou mais de 8 passos; pergunta geral que cita o “Criar” ou
      chamado sem dizer o caminho da escola; `data-ajuda` marcado sem uso (ok
@@ -653,6 +656,9 @@ da Central, a action), no `import()` de `carregar.ts` e em
   pergunta que a citam;
 - **área nova** — guia novo, mesmo que curto: o script avisa "área sem
   ajuda";
+- **palavra nova** (um status, uma sigla, um nome próprio da tela, como
+  "plaqueta" ou "competência") — um termo no glossário (§15), com a área em
+  `areas`;
 - **esqueleto de carregamento novo** — um `loading.tsx` dentro de
   `app/(app)` ou `app/membro/(area)` marca o esqueleto com `data-carregando`,
   como os que já existem: é o que a dica e o `?tour=1` esperam sair antes de
@@ -716,6 +722,10 @@ da Central, a action), no `import()` de `carregar.ts` e em
   `buscarNaAjudaDoMembro()`.
 - `lib/ajuda/texto.ts` — `resumoEDetalhe()`: a primeira frase do "para que
   serve" para o painel (§11). Puro.
+- `lib/ajuda/glossario.ts` — o glossário (§15): `GLOSSARIO`, `termosDaArea()`,
+  `termoDoGlossario()`, `letraDoTermo()`. Puro. `glossarioVisivel()` (o corte
+  pelo menu) mora em `lib/ajuda/index.ts`; `hrefDoGlossario()` e
+  `ROTULO_DO_ACHADO`, no índice leve.
 - `lib/ajuda/progresso.ts` — o que a pessoa já viu e a tecla `?`.
 - `lib/ajuda/posicao.ts` — onde o balão fica (puro).
 - `components/ajuda/tour.tsx` — o motor do tour (Redação e voluntário).
@@ -733,8 +743,8 @@ da Central, a action), no `import()` de `carregar.ts` e em
   - `blocos.tsx`: as peças de texto comuns ao painel e à Central.
 - `app/(app)/layout.tsx` — monta o provedor com o progresso, o índice e os
   dados do "Primeiros passos"; `app/(app)/ajuda/` — a Central (`page.tsx`,
-  `[...area]/page.tsx`, `[...area]/not-found.tsx` e `grupos-da-pessoa.ts`, o
-  corte do menu).
+  `[...area]/page.tsx`, `[...area]/not-found.tsx`, `glossario/page.tsx` e
+  `grupos-da-pessoa.ts`, o corte do menu).
 - `app/actions/ajuda.ts` — `registrarAjuda()`, que grava o progresso.
 - `lib/navegacao.ts` — a área "Ajuda" (`/ajuda`), no grupo “Conta e administração”.
 - `components/membro/ajuda.tsx` — o provedor do voluntário (convite, tours,
@@ -1072,3 +1082,56 @@ player ajusta a altura à tela. Recomece o espaço (§13) antes de gravar as ver
 | "Aprovar um conteúdo" (Aprovações) | 63 s | 63 s |
 
 Próximos passos: a seção "Vídeos" na Central, a primeira trilha e a medição simples (vídeo aberto e assistido até o fim).
+
+## 15. O glossário (07/11/2026)
+
+Quem chega ao Palácio Virtual encontra palavras que a tela usa como se todo mundo soubesse: "pauta", "rodada de
+aprovação", "competência", "plaqueta", "fonte com destino". A ajuda explicava cada uma onde ela aparecia, numa
+pergunta perdida entre outras vinte. O glossário junta essas palavras num lugar só, cada uma em uma a três frases.
+
+**O conteúdo** mora em `lib/ajuda/glossario.ts`. Cada termo tem:
+
+- `id`: a âncora (`/ajuda/glossario#pauta`). Não troque o de um termo que já existe: é link guardado;
+- `termo`: como a palavra aparece na tela. Um complemento entre parênteses separa os sentidos ("Fio (no Chat)",
+  "Fila (de chamados)");
+- `definicao`: o que é e para que serve, até 420 caracteres, no tom do §4. Sem aula: o detalhe fica nas perguntas da
+  área;
+- `areas`: os `href` das áreas em que a palavra aparece. É o que põe o termo na aba "Palavras" do painel "?" da área e
+  decide quem o vê;
+- `termos`: outros jeitos de dizer, para a busca ("tag", "2FA", "PC"). Ponha também o nome curto de um termo
+  comprido ("rodada", "estorno"): é o que faz a busca pelo nome achá-lo;
+- `veja`: os ids de termos que ajudam a entender este.
+
+Cada definição tem apoio no código ou na ajuda da própria área, como o resto (§4). Na dúvida, a palavra fica de fora.
+O primeiro texto teve 56 termos, conferidos um a um contra o código e as respostas das áreas; quatro definições
+mudaram na conferência (o mês fechado que a gestão reabre, a venda que cai no primeiro dia aberto, "Em disputa" e
+"Contestado", que são situações diferentes, e o rótulo "Livre" da fonte).
+
+**Onde aparece:**
+
+- na Central: a página `/ajuda/glossario`, em ordem alfabética, com o índice das letras, o "Ouvir" de cada termo, as
+  áreas em que ele aparece (só as que a pessoa abre, com link para a ajuda delas) e o "Veja também". O cartão
+  "Glossário", em "Comece por aqui", leva a ela;
+- no painel "?": a aba "Palavras", ao lado de "Como fazer" e "Dúvidas", com os termos da área aberta (seis à vista,
+  como as outras abas), e o link "Glossário" no pé;
+- na busca (painel, Central e ⌘K): os termos entram por último, com uma exceção. Quando a busca é o nome do termo
+  ("pauta", "o que é competência", "o que são etiquetas", "2FA"), ele vem antes de tudo: as palavras de pergunta
+  ("o que é", "quer dizer", "significa") e o "s" do plural não contam (`buscaEhOTermo`, em `lib/ajuda/index.ts`). O
+  resultado aparece como "O que quer dizer · Glossário";
+- no "Ouvir": o termo e a definição (`textoDoTermo`) entram no conjunto fechado de textos que a rota do áudio aceita.
+
+**Quem vê o quê.** Aparecem só os termos de alguma área que a pessoa abre, e os que não são de área nenhuma, como
+"Tour" (`glossarioVisivel()`). É a mesma regra da Central: a equipe da escola vê os 19 termos das áreas dela
+(Únicopag, UTM, competência…) e não vê "rodada de aprovação".
+
+**A conferência** (`scripts/conferir-ajuda.ts`) acusa `id` repetido ou fora do padrão, área que não existe no menu,
+`veja` para um termo que não existe (ou para ele mesmo) e definição sem ponto final; avisa da definição acima de 420
+caracteres. Ela também busca cada termo pelo nome e por "o que é" + o nome, e acusa o que não vem em primeiro lugar.
+
+**A auditoria do mesmo dia.** Toda a aplicação foi conferida tela a tela (135 telas). As 46 áreas do menu têm guia (a
+própria Ajuda não precisa de um); 45 têm tour na tela principal, e o Chat tem o dele na conversa (`/chat/[id]`),
+porque `/chat` só redireciona. 72 telas internas têm tour próprio. Das 15 telas internas sem tour, 6 só redirecionam
+(`/mensagens`, `/participantes`, `/escola/contas`…), e as outras 9 — os formulários de edição de Financeiro e
+Patrimônio, a Zona de risco das Configurações e as telas de detalhe de Doações — mostram no painel "?" a ajuda da área,
+que já explica o que se faz nelas. Cursos, a única área sem perguntas, ganhou quatro.
+

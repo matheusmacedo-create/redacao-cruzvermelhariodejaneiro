@@ -4,10 +4,10 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
-import { ArrowRight, BookOpen, Check, ChevronRight, CircleHelp, Compass, LifeBuoy, MessageSquareHeart, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
+import { ArrowRight, BookA, BookOpen, Check, ChevronRight, CircleHelp, Compass, LifeBuoy, MessageSquareHeart, MessagesSquare, Search, Sparkles, X } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, rotuloDoTour, topicosGerais, type AjudaDaTela, type GuiaDaArea, type TopicoGeral } from '@/lib/ajuda'
+import { ajudaDoCaminho, buscarNaAjuda, hrefDaAjuda, hrefDoGlossario, rotuloDoTour, termosDaArea, topicosGerais, type AjudaDaTela, type GuiaDaArea, type TopicoGeral } from '@/lib/ajuda'
 import { resumoEDetalhe } from '@/lib/ajuda/texto'
 import { textoDaArea } from '@/lib/ajuda/ouvir'
 import { Ouvir } from '@/components/ajuda/ouvir'
@@ -15,7 +15,7 @@ import { normalizar } from '@/lib/navegacao'
 import { useShell } from '../app-shell'
 import { useAjuda } from './ajuda'
 import { avisarResposta } from './ancora'
-import { HistoriaRecolhida, PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, tituloDeSecao } from './blocos'
+import { HistoriaRecolhida, PerguntaRecolhida, ResultadosDaAjuda, TarefaRecolhida, TermoRecolhido, tituloDeSecao } from './blocos'
 import { FormularioDoBeta } from './beta'
 
 /**
@@ -89,6 +89,7 @@ export function ConteudoDoPainel() {
       <footer className="shrink-0 border-t border-border px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] text-sm">
         <div className="flex flex-wrap items-center">
           <Link href="/ajuda" onClick={fecharPainel} className={linkDoRodape}><BookOpen className="size-4" aria-hidden="true" />Central de ajuda</Link>
+          <Link href={hrefDoGlossario()} onClick={fecharPainel} className={linkDoRodape}><BookA className="size-4" aria-hidden="true" />Glossário</Link>
           <button type="button" onClick={reverBoasVindas} className={linkDoRodape}><Sparkles className="size-4" aria-hidden="true" />Rever as boas-vindas</button>
         </div>
         {/* A equipe da escola não abre chamados (a página manda de volta para a Escola): para ela, o Chat. */}
@@ -162,31 +163,37 @@ function AjudaDaArea({ daTela }: { daTela: AjudaDaTela }) {
   )
 }
 
-/** Quantas tarefas ou perguntas ficam à vista antes de "Mostrar as outras". */
+/** Quantas tarefas, perguntas ou palavras ficam à vista antes de "Mostrar as outras". */
 const A_VISTA = 6
 
-type Aba = { id: 'fazer' | 'duvidas'; rotulo: string; total: number }
+type Aba = { id: 'fazer' | 'duvidas' | 'palavras'; rotulo: string; total: number }
 
 /**
- * "Como fazer" e "Dúvidas" em abas: uma lista de cada vez, em vez de trinta
- * cartões enfileirados. Seis à vista; o resto atrás de "Mostrar as outras N".
- * Com só um dos dois, vira uma seção comum, sem abas.
+ * "Como fazer", "Dúvidas" e "Palavras" (o glossário da área, lib/ajuda/glossario.ts) em abas: uma lista de cada
+ * vez, em vez de trinta cartões enfileirados. Seis à vista; o resto atrás de "Mostrar as outras N". Com uma lista
+ * só, vira uma seção comum, sem abas.
  */
 function ComoFazerEDuvidas({ guia, area }: { guia: GuiaDaArea; area: string }) {
   const id = useId()
+  const { fecharPainel } = useAjuda()
+  const termos = useMemo(() => termosDaArea(area), [area])
   const abas: Aba[] = [
     ...(guia.tarefas.length ? [{ id: 'fazer' as const, rotulo: 'Como fazer', total: guia.tarefas.length }] : []),
     ...(guia.perguntas.length ? [{ id: 'duvidas' as const, rotulo: 'Dúvidas', total: guia.perguntas.length }] : []),
+    ...(termos.length ? [{ id: 'palavras' as const, rotulo: 'Palavras', total: termos.length }] : []),
   ]
   const [aba, setAba] = useState<Aba['id']>(abas[0]?.id ?? 'fazer')
   const [todas, setTodas] = useState(false)
   if (!abas.length) return null
   const escolher = (nova: Aba['id']) => { setAba(nova); setTodas(false) }
-  const total = aba === 'fazer' ? guia.tarefas.length : guia.perguntas.length
+  const total = abas.find((a) => a.id === aba)?.total ?? 0
   const escondidas = todas ? 0 : Math.max(0, total - A_VISTA)
+  const ate = todas ? undefined : A_VISTA
   const lista = aba === 'fazer'
-    ? guia.tarefas.slice(0, todas ? undefined : A_VISTA).map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)
-    : guia.perguntas.slice(0, todas ? undefined : A_VISTA).map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area={area} />)
+    ? guia.tarefas.slice(0, ate).map((t) => <TarefaRecolhida key={t.id} tarefa={t} />)
+    : aba === 'duvidas'
+      ? guia.perguntas.slice(0, ate).map((p) => <PerguntaRecolhida key={p.id} pergunta={p} area={area} />)
+      : termos.slice(0, ate).map((t) => <TermoRecolhido key={t.id} termo={t} aoAbrirOGlossario={fecharPainel} />)
   const mostrarMais = escondidas > 0 && (
     <button type="button" onClick={() => setTodas(true)} className="inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-medium text-primary hover:bg-primary/[0.06] focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9">
       <ChevronRight className="size-4" aria-hidden="true" />Mostrar {escondidas === 1 ? 'a outra' : `as outras ${escondidas}`}
@@ -203,8 +210,8 @@ function ComoFazerEDuvidas({ guia, area }: { guia: GuiaDaArea; area: string }) {
     )
   }
   return (
-    <section aria-label="Como fazer e dúvidas" className="flex flex-col gap-2">
-      <div role="tablist" aria-label="Como fazer ou dúvidas" className="flex gap-1 rounded-lg bg-muted p-1" data-abas-da-ajuda
+    <section aria-label="Como fazer, dúvidas e palavras" className="flex flex-col gap-2">
+      <div role="tablist" aria-label="Como fazer, dúvidas ou palavras" className="flex gap-1 rounded-lg bg-muted p-1" data-abas-da-ajuda
         onKeyDown={(e) => {
           if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
           e.preventDefault()
