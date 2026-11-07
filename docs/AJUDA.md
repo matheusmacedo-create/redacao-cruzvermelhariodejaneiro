@@ -1097,10 +1097,15 @@ pergunta perdida entre outras vinte. O glossário junta essas palavras num lugar
 - `definicao`: o que é e para que serve, até 420 caracteres, no tom do §4. Sem aula: o detalhe fica nas perguntas da
   área;
 - `areas`: os `href` das áreas em que a palavra aparece. É o que põe o termo na aba "Palavras" do painel "?" da área e
-  decide quem o vê;
+  decide quem o vê. A primeira é a casa do termo: na aba "Palavras" dela, ele vem antes dos que só passam por lá
+  (Patrimônio abre em "Plaqueta", e não em "Fechamento do mês");
 - `termos`: outros jeitos de dizer, para a busca ("tag", "2FA", "PC"). Ponha também o nome curto de um termo
   comprido ("rodada", "estorno"): é o que faz a busca pelo nome achá-lo;
 - `veja`: os ids de termos que ajudam a entender este.
+
+A aba mostra seis termos e esconde o resto, como as outras: a ordem do arquivo é a ordem da aba (depois da casa),
+então o que mais importa para entender a área vem antes ("Pauta" antes de "Checklist"). A página e a busca usam a
+ordem alfabética.
 
 Cada definição tem apoio no código ou na ajuda da própria área, como o resto (§4). Na dúvida, a palavra fica de fora.
 O primeiro texto teve 56 termos, conferidos um a um contra o código e as respostas das áreas; quatro definições

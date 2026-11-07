@@ -5,6 +5,11 @@
  *
  * Aparece na Central (/ajuda/glossario), na aba "Palavras" do painel "?" das áreas citadas em `areas`, na busca da
  * ajuda e do ⌘K ("o que é pauta") e com o "Ouvir". Puro: conferido em scripts/conferir-ajuda.ts.
+ *
+ * A ordem da lista abaixo importa: a aba "Palavras" mostra seis termos e esconde o resto atrás de "Mostrar as
+ * outras". Nela vêm primeiro os termos que têm a área como casa (a primeira de `areas`), depois os outros, cada grupo
+ * na ordem daqui: ponha antes o que mais importa para entender a área ("Pauta" antes de "Checklist"). A página e a
+ * busca usam a ordem alfabética (GLOSSARIO).
  */
 
 export type Termo = {
@@ -14,7 +19,10 @@ export type Termo = {
   termo: string
   /** Uma a três frases, até 420 caracteres, com ponto final. O que é e para que serve, sem aula. */
   definicao: string
-  /** As áreas (href do guia) em que a palavra aparece: o painel "?" delas mostra o termo na aba "Palavras". */
+  /**
+   * As áreas (href do guia) em que a palavra aparece: o painel "?" delas mostra o termo na aba "Palavras". A primeira
+   * é a casa do termo: lá, ele vem antes dos que só passam pela área.
+   */
   areas: string[]
   /** Outros jeitos de dizer, para a busca achar ("tag", "2FA", "ticket"). */
   termos?: string[]
@@ -22,6 +30,7 @@ export type Termo = {
   veja?: string[]
 }
 
+/** Na ordem da aba "Palavras" (o que mais importa primeiro), e não na alfabética. */
 const TERMOS: Termo[] = [
   {
     id: 'pauta',
@@ -479,7 +488,8 @@ export function termoDoGlossario(id: string): Termo | null {
 
 /** Os termos que aparecem numa área, para a aba "Palavras" do painel "?". O link de um termo: hrefDoGlossario (indice.ts). */
 export function termosDaArea(href: string): Termo[] {
-  return GLOSSARIO.filter((t) => t.areas.includes(href))
+  const daqui = TERMOS.filter((t) => t.areas.includes(href))
+  return [...daqui.filter((t) => t.areas[0] === href), ...daqui.filter((t) => t.areas[0] !== href)]
 }
 
 /** A letra do índice da página: a primeira, sem acento. */
