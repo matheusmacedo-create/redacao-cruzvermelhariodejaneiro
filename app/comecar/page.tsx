@@ -6,7 +6,7 @@ import { ArrowRight, Bell, BookOpen, CircleHelp, House, LogIn, Menu, MessageCirc
 import { BrandMark } from '@/components/app/brand-mark'
 import { Ouvir } from '@/components/ajuda/ouvir'
 import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
-import { BotaoDeImprimir, EscolhaDoGuia, RegistrarGuiaVisto } from '@/components/comecar/partes'
+import { BotaoDeImprimir, EscolhaDoGuia, MarcarGuiaVisto } from '@/components/comecar/partes'
 import {
   A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, O_QUE_DA_PARA_FAZER, O_QUE_E, O_QUE_E_DA_ESCOLA, SE_TRAVAR, VIDEOS_PARA_COMECAR,
   itensPara, textoDaCoisa, textoDaLista, textoDaParte, textoDoNao, textoDoSim, type EscolhaDoGuia as Escolha, type ItemDaTela,
@@ -62,7 +62,7 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
-      {context && <RegistrarGuiaVisto />}
+      <MarcarGuiaVisto logado={Boolean(context)} />
       <div className="mx-auto flex max-w-3xl flex-col gap-12 px-4 pb-16 pt-8 sm:px-6 sm:pt-12 print:gap-8 print:pt-0">
         <header className="flex flex-col gap-5">
           <BrandMark selo className="w-60 items-start sm:w-72" />

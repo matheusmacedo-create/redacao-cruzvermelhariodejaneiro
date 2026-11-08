@@ -1158,9 +1158,12 @@ topo). Chegam até ela:
 - a Central de ajuda, em "Comece por aqui", que agora vem logo depois da busca, com o guia e os três vídeos em ordem
   (a parte de baixo, com boas-vindas, glossário, atalhos e como pedir ajuda, passou a se chamar "Mais ajuda");
 - a janela de boas-vindas, pelo "Prefere ir com calma?" (sair por ali conta como boas-vindas vistas);
-- os "Primeiros passos" do painel "?", pelo item "Ver o guia para começar". Ele fica marcado quando a pessoa, logada,
-  abre o guia (`progresso.guia`, no `user_metadata`, como as boas-vindas; sem migração). Quem já tinha feito os três
-  passos antigos vê a caixa de novo, com o quarto item, até abrir o guia.
+- os "Primeiros passos" do painel "?", pelo item "Ver o guia para começar". Ele fica marcado quando a pessoa abre o
+  guia (`progresso.guia`, no `user_metadata`, como as boas-vindas; sem migração). O guia fica fora do provedor da
+  ajuda, então também deixa uma marca no aparelho (`GUIA_VISTO_NO_APARELHO`, no localStorage), que o provedor lê ao
+  montar: vale para quem abriu o guia antes de entrar e para quem volta ao Palácio com o layout tirado do cache do
+  navegador (o `staleTimes`), com o progresso de antes. "Recomeçar" tira a marca. Quem já tinha feito os três passos
+  antigos vê a caixa de novo, com o quarto item, até abrir o guia.
 
 **Como é.** Uma coisa de cada vez, frases curtas, letra de 18 a 20 px, botões de 56 px, "Ouvir" em cada parte e
 "Imprimir este guia" (a versão impressa mostra as duas respostas de cada pergunta e troca o botão do WhatsApp por um

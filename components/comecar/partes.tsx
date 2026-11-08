@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, Printer, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { registrarAjuda } from '@/app/actions/ajuda'
+import { GUIA_VISTO_NO_APARELHO } from '@/lib/ajuda/progresso'
 
 /**
  * As partes do guia para começar (/comecar, docs/AJUDA.md §16) que rodam no navegador. O resto da página é desenhado
@@ -69,10 +70,16 @@ export function BotaoDeImprimir({ className }: { className?: string }) {
 }
 
 /**
- * Quem está logado e abre o guia marca o item "Ver o guia para começar" dos "Primeiros passos" (o progresso da ajuda,
- * lib/ajuda/progresso.ts). Não desenha nada; sem sessão, a action não grava.
+ * Abrir o guia marca o item "Ver o guia para começar" dos "Primeiros passos" (o progresso da ajuda,
+ * lib/ajuda/progresso.ts): logado, grava na hora; e, logado ou não, deixa a marca no aparelho, que o provedor da ajuda
+ * lê quando a pessoa entra ou volta ao Palácio. Não desenha nada.
  */
-export function RegistrarGuiaVisto() {
-  useEffect(() => { registrarAjuda({ tipo: 'guia' }).catch(() => {}) }, [])
+export function MarcarGuiaVisto({ logado }: { logado: boolean }) {
+  useEffect(() => {
+    try {
+      if (!window.localStorage.getItem(GUIA_VISTO_NO_APARELHO)) window.localStorage.setItem(GUIA_VISTO_NO_APARELHO, new Date().toISOString())
+    } catch { /* sem armazenamento: vale a gravação abaixo */ }
+    if (logado) registrarAjuda({ tipo: 'guia' }).catch(() => {})
+  }, [logado])
   return null
 }

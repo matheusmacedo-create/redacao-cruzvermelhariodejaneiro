@@ -30,6 +30,13 @@ export type Progresso = {
 
 export const PROGRESSO_VAZIO: Progresso = { boasVindas: null, vistos: [] }
 
+/**
+ * A marca, no aparelho (localStorage), de que o guia para começar foi aberto. O guia (/comecar) fica fora do provedor
+ * da ajuda, e quem volta ao Palácio pode receber o layout do cache do navegador, com o progresso de antes; e quem abre
+ * o guia antes de entrar ainda não tem conta para gravar. O provedor lê a marca ao montar e grava o `guia`.
+ */
+export const GUIA_VISTO_NO_APARELHO = 'palacio:guia-para-comecar'
+
 /** Teto de chaves guardadas: o metadata viaja no token de toda requisição. */
 export const MAXIMO_DE_VISTOS = 120
 

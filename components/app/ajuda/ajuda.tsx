@@ -1,11 +1,11 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { Tour, acharAlvo } from '@/components/ajuda/tour'
 import { ondeNaAjuda, rotuloDoTour, type IndiceDaAjuda, type OndeNaAjuda } from '@/lib/ajuda/indice'
 import type { PassoDoTour } from '@/lib/ajuda/tipos'
-import { comAtalho, comBoasVindas, comTourVisto, progressoZerado, viuTour, type Progresso } from '@/lib/ajuda/progresso'
+import { GUIA_VISTO_NO_APARELHO, comAtalho, comBoasVindas, comGuia, comTourVisto, progressoZerado, viuTour, type Progresso } from '@/lib/ajuda/progresso'
 import { registrarAjuda, type EventoDaAjuda } from '@/app/actions/ajuda'
 import { useShell } from '../app-shell'
 import { adiantarAjuda, carregarAjuda } from './carregar'
@@ -166,6 +166,14 @@ export function AjudaProvider({ children, progressoInicial, pessoa, indice }: {
     registrarAjuda(evento).catch(() => {})
   }, [])
 
+  // O guia para começar (/comecar) fica fora deste provedor: ele deixa a marca no aparelho, e aqui ela vira o item
+  // marcado dos "Primeiros passos" — também para quem abriu o guia antes de entrar, e para quem volta com o layout
+  // tirado do cache do navegador, com o progresso de antes (lib/ajuda/progresso.ts, GUIA_VISTO_NO_APARELHO). A marca
+  // entra no progresso que a ajuda vê, e a gravação no servidor sai uma vez.
+  const guiaNoAparelho = useSyncExternalStore(assinarArmazenamento, lerGuiaNoAparelho, () => null)
+  useEffect(() => { if (!progresso.guia && guiaNoAparelho) registrar({ tipo: 'guia' }) }, [progresso.guia, guiaNoAparelho, registrar])
+  const progressoVisto = useMemo(() => (!progresso.guia && guiaNoAparelho ? comGuia(progresso, guiaNoAparelho) : progresso), [progresso, guiaNoAparelho])
+
   const marcarTour = useCallback((chave: string) => {
     setProgresso((p) => comTourVisto(p, chave))
     registrar({ tipo: 'tour', chave })
@@ -302,7 +310,12 @@ export function AjudaProvider({ children, progressoInicial, pessoa, indice }: {
 
   const recomecar = useCallback(() => {
     // Sem progresso, as boas-vindas abrem sozinhas (boasVindasAberta).
-    const zerar = () => { setProgresso((p) => comAtalho(progressoZerado(), !p.semAtalho)); registrar({ tipo: 'recomecar' }) }
+    const zerar = () => {
+      // Recomeçar desfaz também o guia visto: sem tirar a marca do aparelho, ele voltaria marcado na hora.
+      try { window.localStorage.removeItem(GUIA_VISTO_NO_APARELHO) } catch { /* sem armazenamento: nada a tirar */ }
+      setProgresso((p) => comAtalho(progressoZerado(), !p.semAtalho))
+      registrar({ tipo: 'recomecar' })
+    }
     if (!painelAberto) { zerar(); return }
     depoisDoDialogo(zerar)
     setPainelAberto(false)
@@ -456,11 +469,11 @@ export function AjudaProvider({ children, progressoInicial, pessoa, indice }: {
   const alternarPainel = useCallback(() => setPainelAberto((aberto) => !aberto), [])
 
   const valor = useMemo<AjudaState>(() => ({
-    progresso, pessoa, onde, passosDasBoasVindas: pessoa.equipeDaEscola ? indice.passosDasBoasVindas.escola : indice.passosDasBoasVindas.equipe, painelAberto, abrirPainel, fecharPainel, alternarPainel,
-    iniciarTour, tourAberto: Boolean(tour), reverBoasVindas, recomecar, atalhoLigado: !progresso.semAtalho, ligarAtalho,
+    progresso: progressoVisto, pessoa, onde, passosDasBoasVindas: pessoa.equipeDaEscola ? indice.passosDasBoasVindas.escola : indice.passosDasBoasVindas.equipe, painelAberto, abrirPainel, fecharPainel, alternarPainel,
+    iniciarTour, tourAberto: Boolean(tour), reverBoasVindas, recomecar, atalhoLigado: !progressoVisto.semAtalho, ligarAtalho,
     boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, travaDoFoco, dica, aceitarDica, dispensarDica,
     carregandoTour, falhouTour, tentarTourDeNovo, esquecerFalhaDoTour,
-  }), [progresso, pessoa, onde, indice, painelAberto, abrirPainel, fecharPainel, alternarPainel, iniciarTour, tour, reverBoasVindas, recomecar, ligarAtalho, boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, travaDoFoco, dica, aceitarDica, dispensarDica, carregandoTour, falhouTour, tentarTourDeNovo, esquecerFalhaDoTour])
+  }), [progressoVisto, pessoa, onde, indice, painelAberto, abrirPainel, fecharPainel, alternarPainel, iniciarTour, tour, reverBoasVindas, recomecar, ligarAtalho, boasVindasAberta, sairDasBoasVindas, aoFecharDialogo, travaDoFoco, dica, aceitarDica, dispensarDica, carregandoTour, falhouTour, tentarTourDeNovo, esquecerFalhaDoTour])
 
   return (
     <AjudaContext.Provider value={valor}>
@@ -504,4 +517,20 @@ function ehCampoDeTexto(alvo: EventTarget | null): boolean {
   if (!(alvo instanceof HTMLElement)) return false
   if (alvo.isContentEditable) return true
   return alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'SELECT'
+}
+
+/** A marca do guia para começar no aparelho (GUIA_VISTO_NO_APARELHO): a data em que foi aberto, ou null. */
+function lerGuiaNoAparelho(): string | null {
+  try {
+    const v = window.localStorage.getItem(GUIA_VISTO_NO_APARELHO)
+    return v && v.length <= 40 ? v : null
+  } catch {
+    return null
+  }
+}
+
+/** A marca muda em outra aba (o guia aberto ao lado): o evento "storage" avisa. */
+function assinarArmazenamento(aviso: () => void): () => void {
+  window.addEventListener('storage', aviso)
+  return () => window.removeEventListener('storage', aviso)
 }
