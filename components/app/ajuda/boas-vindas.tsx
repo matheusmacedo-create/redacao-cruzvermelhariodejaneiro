@@ -1,8 +1,9 @@
 'use client'
 
 import { useRef } from 'react'
+import Link from 'next/link'
 import { Dialog } from '@base-ui/react/dialog'
-import { Compass, X } from 'lucide-react'
+import { Compass, Footprints, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAjuda, useFocoAoFecharDialogo } from './ajuda'
 import { SeloDoPalacio } from '@/components/app/selo-do-palacio'
@@ -61,6 +62,11 @@ export function BoasVindas() {
               </Button>
             )}
           </div>
+          {/* Para quem prefere ir com calma (docs/AJUDA.md §16): sair por aqui também conta como boas-vindas vistas. */}
+          <Link href="/comecar" onClick={() => sairDasBoasVindas(false)} className="mt-5 flex min-h-12 items-center gap-3 rounded-xl border border-border px-4 py-3 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" data-boas-vindas-guia>
+            <Footprints className="size-5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1"><span className="block font-semibold">Prefere ir com calma?</span><span className="block text-muted-foreground">O guia para começar, com letra grande, áudio e três vídeos curtos.</span></span>
+          </Link>
           <p className="mt-4 text-xs text-muted-foreground">Dá para rever tudo isto quando quiser, na Central de ajuda.</p>
         </Dialog.Popup>
       </Dialog.Portal>

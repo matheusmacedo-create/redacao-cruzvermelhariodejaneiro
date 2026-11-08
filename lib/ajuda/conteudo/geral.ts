@@ -301,8 +301,8 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'por-onde-comecar',
         pergunta: 'Sou novo no Palácio Virtual. Por onde começo?',
-        resposta: 'Pelo Início: ele diz em uma frase o que é seu hoje. Depois, abra o “?” em cada tela que for usar: primeiro o “Na prática”, que conta como imaginamos a área funcionando, depois o passo a passo, com exemplos.\n\nSe algo não fizer sentido, é exatamente o que queremos saber: use o “Beta” para contar.',
-        termos: ['começar', 'primeiro dia', 'novo', 'iniciante', 'como usar'],
+        resposta: 'Pelo guia para começar: na Central de ajuda, em “Comece por aqui”, ou na tela de entrada, em “Primeira vez aqui?”. Ele explica, com letra grande, áudio e três vídeos curtos, como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer.\n\nDepois, abra o Início, que diz em uma frase o que é seu hoje, e o “?” de cada tela que for usar. Se algo não fizer sentido, é exatamente o que queremos saber: use o “Beta” para contar.',
+        termos: ['começar', 'primeiro dia', 'novo', 'iniciante', 'como usar', 'guia', 'tutorial', 'vídeo', 'letra grande', 'idoso', 'imprimir'],
       },
     ],
   },
@@ -593,7 +593,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
         titulo: 'Ver de novo as boas-vindas e os tours',
         passos: [
           'Abra a Central de ajuda (menu da sua foto → “Ajuda”).',
-          'Em “Comece por aqui”, toque em “Rever as boas-vindas” para ver só as boas-vindas de novo.',
+          'Em “Mais ajuda”, toque em “Rever as boas-vindas” para ver só as boas-vindas de novo.',
           'Ou toque em “Recomeçar as boas-vindas e os tours”: as boas-vindas abrem na hora e cada tela volta a oferecer o tour dela.',
         ],
       },
@@ -608,7 +608,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'o-que-quer-dizer-uma-palavra',
         pergunta: 'Não sei o que uma palavra quer dizer. Onde vejo?',
-        resposta: 'No glossário: no pé do painel “?”, em “Glossário”, ou na Central de ajuda, em “Comece por aqui”. Ele explica, em poucas frases, as palavras próprias do trabalho nas áreas que você abre. Na busca da ajuda e no ⌘K, escreva a palavra, ou “o que é” e a palavra.\n\nNo painel “?”, a aba “Palavras” mostra só as da área em que você está.',
+        resposta: 'No glossário: no pé do painel “?”, em “Glossário”, ou na Central de ajuda, em “Mais ajuda”. Ele explica, em poucas frases, as palavras próprias do trabalho nas áreas que você abre. Na busca da ajuda e no ⌘K, escreva a palavra, ou “o que é” e a palavra.\n\nNo painel “?”, a aba “Palavras” mostra só as da área em que você está.',
         termos: ['glossário', 'significado', 'termo', 'vocabulário', 'dicionário', 'o que é', 'sigla'],
       },
       {

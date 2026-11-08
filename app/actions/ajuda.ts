@@ -4,14 +4,14 @@ import { obterWorkspace } from '@/lib/session'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ehControleDoNext } from '@/lib/erro-de-acao'
 import { ehChaveDeTour } from '@/lib/ajuda'
-import { comAtalho, comBoasVindas, comTourVisto, lerProgresso, progressoZerado, type Progresso } from '@/lib/ajuda/progresso'
+import { comAtalho, comBoasVindas, comGuia, comTourVisto, lerProgresso, progressoZerado, type Progresso } from '@/lib/ajuda/progresso'
 
-export type EventoDaAjuda = { tipo: 'boas-vindas' } | { tipo: 'tour'; chave: string } | { tipo: 'recomecar' } | { tipo: 'atalho'; ligado: boolean }
+export type EventoDaAjuda = { tipo: 'boas-vindas' } | { tipo: 'guia' } | { tipo: 'tour'; chave: string } | { tipo: 'recomecar' } | { tipo: 'atalho'; ligado: boolean }
 
 /**
  * Guarda o que a pessoa já viu da ajuda (lib/ajuda/progresso.ts): as
- * boas-vindas, os tours de cada tela, o recomeço do zero — e se a tecla "?"
- * está ligada.
+ * boas-vindas, o guia para começar (/comecar), os tours de cada tela, o
+ * recomeço do zero — e se a tecla "?" está ligada.
  *
  * A tela já mudou antes de chamar (otimista); isto só registra para valer em
  * outro aparelho e no próximo acesso. Por isso nunca lança nem redireciona:
@@ -60,6 +60,7 @@ function proximo(atual: Progresso, evento: unknown): Progresso | null {
   if (!evento || typeof evento !== 'object') return null
   const { tipo, chave, ligado } = evento as { tipo?: unknown; chave?: unknown; ligado?: unknown }
   if (tipo === 'boas-vindas') return comBoasVindas(atual, new Date().toISOString())
+  if (tipo === 'guia') return comGuia(atual, new Date().toISOString())
   // Recomeçar é dos tours: a tecla "?" desligada continua desligada.
   if (tipo === 'recomecar') return comAtalho(progressoZerado(), !atual.semAtalho)
   if (tipo === 'atalho' && typeof ligado === 'boolean') return comAtalho(atual, ligado)
@@ -68,6 +69,6 @@ function proximo(atual: Progresso, evento: unknown): Progresso | null {
 }
 
 function mesmo(a: Progresso, b: Progresso): boolean {
-  return a.boasVindas === b.boasVindas && Boolean(a.semAtalho) === Boolean(b.semAtalho)
+  return a.boasVindas === b.boasVindas && a.guia === b.guia && Boolean(a.semAtalho) === Boolean(b.semAtalho)
     && a.vistos.length === b.vistos.length && a.vistos.every((v, i) => v === b.vistos[i])
 }

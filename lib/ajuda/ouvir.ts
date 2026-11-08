@@ -23,6 +23,11 @@ function frase(texto: string): string {
 
 const juntar = (partes: (string | null | undefined)[]) => partes.map((p) => frase(p ?? '')).filter(Boolean).join(' ')
 
+/** Frases soltas emendadas num texto só, com a pausa da voz entre elas (o guia para começar, lib/ajuda/comecar.ts). */
+export function textoCorrido(partes: (string | null | undefined)[]): string {
+  return juntar(partes)
+}
+
 /** "Criar uma pauta. Passo 1: … Passo 2: … Dica: …". O exemplo fica de fora: é uma história, e a tela já a mostra. */
 export function textoDaTarefa(t: Tarefa): string {
   return juntar([t.titulo, ...t.passos.map((p, i) => `Passo ${i + 1}: ${p}`), t.dica ? `Dica: ${t.dica}` : null])

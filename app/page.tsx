@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { Building2, GraduationCap, Megaphone, TriangleAlert, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Building2, ChevronRight, Footprints, GraduationCap, Megaphone, TriangleAlert, Users } from 'lucide-react'
 import { BrandMark } from '@/components/app/brand-mark'
 import { LoginForm } from '@/components/auth/login-form'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -118,6 +119,14 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <p className="mt-3 leading-relaxed text-muted-foreground">Planejamento, produção e aprovação de conteúdo em um ambiente protegido.</p>
           </div>
           <div className="mt-8"><LoginForm needsBootstrap={needsBootstrap} aviso={senha ? AVISOS[senha] : undefined} voltar={voltar} /></div>
+          {/* Para quem ainda não tem o e-mail ou o acesso, ou não sabe por onde começar: o guia aberto (docs/AJUDA.md §16). */}
+          {!needsBootstrap && (
+            <Link href="/comecar" className="mt-8 flex min-h-14 items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-3 outline-none hover:border-primary/50 focus-visible:ring-4 focus-visible:ring-ring/40" data-primeira-vez>
+              <Footprints className="size-6 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0 flex-1"><span className="block text-base font-semibold">Primeira vez aqui?</span><span className="block text-sm text-muted-foreground">Veja como conseguir o acesso e começar, passo a passo.</span></span>
+              <ChevronRight className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </Link>
+          )}
         </div>
       </section>
       {/* Sem logo repetida nem ícone genérico: o lado direito diz o que é o Palácio.

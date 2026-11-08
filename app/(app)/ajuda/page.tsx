@@ -1,11 +1,14 @@
 import Link from 'next/link'
-import { ArrowRight, BookA, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
+import { ArrowRight, BookA, BookOpen, ChevronRight, CircleHelp, Compass, Flame, Footprints, Inbox, Keyboard, LifeBuoy, MessageSquareHeart, MessagesSquare, Sparkles, ThumbsUp } from 'lucide-react'
 import { PageHeader } from '@/components/app/page-header'
 import { buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
 import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
+import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
+import { VIDEOS_PARA_COMECAR } from '@/lib/ajuda/comecar'
+import { videoDaAjuda } from '@/lib/ajuda/videos'
 import { HistoriaNaPratica, PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
 import { MAIS_PERGUNTADAS, glossarioVisivel, guiasVisiveis, hrefDaAjuda, hrefDoGlossario, perguntaDaAjuda, topicosGerais } from '@/lib/ajuda'
 import { ROTULO_DO_ESTADO, ROTULO_DO_TIPO, maisUteis, type EstadoDoRetorno, type TipoDeRetorno, type VotoDaPergunta } from '@/lib/ajuda/retornos'
@@ -20,7 +23,7 @@ export const metadata = { title: 'Central de ajuda' }
 
 const tecla = 'inline-flex min-w-7 items-center justify-center rounded-md border border-border bg-muted px-1.5 py-0.5 font-sans text-xs font-medium text-foreground'
 
-/** Os termos do glossário que o cartão de "Comece por aqui" mostra de exemplo (os que a pessoa vê, nesta ordem). */
+/** Os termos do glossário que o cartão de "Mais ajuda" mostra de exemplo (os que a pessoa vê, nesta ordem). */
 const EXEMPLOS_DO_GLOSSARIO = ['pauta', 'rodada-de-aprovacao', 'canal', 'competencia', 'plaqueta', 'unicopag', 'papel']
 
 /**
@@ -31,9 +34,10 @@ const EXEMPLOS_DO_GLOSSARIO = ['pauta', 'rodada-de-aprovacao', 'canal', 'compete
  * têm âncora — é para cá que a busca aponta (/ajuda#esqueci-a-senha) — e
  * ficam recolhidos: a AncoraDaAjuda abre o tópico da resposta pedida.
  *
- * A ordem (docs/AJUDA.md §11): a busca, as mais perguntadas, a ajuda por
- * área (o que a pessoa mais procura), "Comece por aqui", a ajuda geral e os
- * retornos da própria pessoa.
+ * A ordem (docs/AJUDA.md §11 e §16): a busca, "Comece por aqui" (o guia para
+ * começar e os vídeos de começo), as mais perguntadas, a ajuda por área (o que
+ * a pessoa mais procura), "Mais ajuda", a ajuda geral e os retornos da própria
+ * pessoa.
  */
 export default async function CentralDeAjudaPage() {
   const context = await requireWorkspace({ escola: true })
@@ -62,6 +66,11 @@ export default async function CentralDeAjudaPage() {
   type MeuRetorno = { id: string; tipo: TipoDeRetorno; caminho: string; texto: string | null; nota: number | null; estado: EstadoDoRetorno; resposta: string | null; respondido_em: string | null; created_at: string }
   const meusRetornos = (meus ?? []) as MeuRetorno[]
   const glossario = glossarioVisivel(grupos)
+  // Os vídeos de começo que a pessoa pode fazer (a equipe da escola não abre o Início, Pautas nem Aprovações).
+  const videosDeComeco = VIDEOS_PARA_COMECAR.flatMap((id) => {
+    const v = videoDaAjuda(id)
+    return v && visiveis.has(v.area) ? [v] : []
+  })
   const exemplos = EXEMPLOS_DO_GLOSSARIO.flatMap((id) => glossario.filter((t) => t.id === id)).slice(0, 5)
   const quando = (iso: string) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(new Date(iso))
 
@@ -81,6 +90,23 @@ export default async function CentralDeAjudaPage() {
           <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Link>
       )}
+
+      <section aria-labelledby="secao-comece-por-aqui" className="mt-10" data-comece-por-aqui>
+        <h2 id="secao-comece-por-aqui" className="text-lg font-semibold">Comece por aqui</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Para quem está chegando, ou quer rever o básico com calma.</p>
+        <div className={videosDeComeco.length ? 'mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]' : 'mt-4 max-w-md'}>
+          <Link href="/comecar" className="group flex flex-col rounded-xl border border-primary/30 bg-primary/[0.04] p-5 shadow-xs outline-none hover:bg-primary/[0.07] focus-visible:ring-2 focus-visible:ring-ring/50" data-guia-para-comecar>
+            <span className="flex items-center gap-2 font-semibold"><Footprints className="size-4 text-primary" aria-hidden="true" />Guia para começar</span>
+            <span className="mt-2 text-sm leading-relaxed text-muted-foreground">O Palácio explicado com calma: como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer. Com letra grande, áudio e versão para imprimir.</span>
+            <span className="mt-auto inline-flex items-center gap-1.5 pt-4 text-sm font-semibold text-primary">Abrir o guia<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" /></span>
+          </Link>
+          {videosDeComeco.length > 0 && (
+            <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Vídeos para começar, em ordem">
+              {videosDeComeco.map((v, i) => <li key={v.id}><CartaoDoVideo id={v.id} numero={i + 1} onde={nomeDaArea.get(v.area)} /></li>)}
+            </ol>
+          )}
+        </div>
+      </section>
 
       {maisPerguntadas.length > 0 && (
         <section aria-labelledby="secao-mais-perguntadas" className="mt-10">
@@ -104,8 +130,8 @@ export default async function CentralDeAjudaPage() {
 
       <AreasDaCentral grupos={grupos} />
 
-      <section aria-labelledby="secao-comece-por-aqui" className="mt-12">
-        <h2 id="secao-comece-por-aqui" className="text-lg font-semibold">Comece por aqui</h2>
+      <section aria-labelledby="secao-mais-ajuda" className="mt-12">
+        <h2 id="secao-mais-ajuda" className="text-lg font-semibold">Mais ajuda</h2>
         {/* Quatro cartões: dois por linha a partir do tablet (com três, o quarto ficava sozinho embaixo). */}
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Card className="flex flex-col p-5">

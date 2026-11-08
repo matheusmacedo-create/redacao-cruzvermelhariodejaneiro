@@ -14,7 +14,9 @@
  *   de tela interna com um balão só;
  * - o glossário (§15): id único e no padrão, áreas que existem no menu, "veja"
  *   que aponta para outro termo, definição de até 420 caracteres com ponto
- *   final, e a busca que acha cada termo pelo nome ("o que é pauta").
+ *   final, e a busca que acha cada termo pelo nome ("o que é pauta");
+ * - o guia para começar (§16): os vídeos de começo existem, cada "Quero…" é de
+ *   uma área do menu (uma vez só) e o passo a passo que ele cita existe.
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
@@ -24,6 +26,7 @@ import { join } from 'node:path'
 import { GLOSSARIO, GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, buscarNaAjuda, perguntaDaAjuda } from '../lib/ajuda'
 import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { textoDaTarefa } from '../lib/ajuda/ouvir'
+import { O_QUE_DA_PARA_FAZER, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
 import catalogoDosVideos from '../lib/ajuda/videos.json'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
@@ -189,6 +192,17 @@ for (const t of GLOSSARIO) {
     if (primeiro?.href !== `/ajuda/glossario#${t.id}`) erros.push(`glossário: buscar “${busca}” não traz o termo primeiro (veio ${primeiro ? `“${primeiro.titulo}”` : 'nada'})`)
   }
 }
+
+// O guia para começar (docs/AJUDA.md §16): /comecar leva aos vídeos, às áreas e ao passo a passo delas.
+for (const id of VIDEOS_PARA_COMECAR) if (!VIDEOS[id]) erros.push(`guia para começar: o vídeo "${id}" não está em lib/ajuda/videos.json`)
+const areasDoGuia = new Set<string>()
+for (const c of O_QUE_DA_PARA_FAZER) {
+  if (!hrefs.has(c.area)) erros.push(`guia para começar: “${c.quero}” é de uma área que não existe no menu (${c.area})`)
+  if (areasDoGuia.has(c.area)) erros.push(`guia para começar: duas linhas para a área ${c.area}`)
+  areasDoGuia.add(c.area)
+  if (c.tarefa && !GUIAS.find((g) => g.href === c.area)?.tarefas.some((t) => t.id === c.tarefa)) erros.push(`guia para começar: “${c.quero}” cita o passo a passo ${c.area}#${c.tarefa}, que não existe`)
+}
+for (const t of textosDoGuia()) if (t.length > 1200) avisos.push(`guia para começar: um texto do "Ouvir" com ${t.length} caracteres (divida a parte): “${t.slice(0, 50)}…”`)
 
 for (const a of avisos) console.log(`aviso: ${a}`)
 for (const e of erros) console.log(`ERRO: ${e}`)

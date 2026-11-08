@@ -290,12 +290,13 @@ function ConteParaAEquipe({ area }: { area: string | null }) {
 // “Fazer” e “Ver agora”: 44 px de toque no celular, como a dica e o rodapé do painel.
 const acaoDoPasso = '-my-1 inline-flex min-h-11 shrink-0 items-center rounded-md px-2 text-xs font-medium text-primary hover:bg-primary/[0.06] focus-visible:outline-2 focus-visible:outline-ring sm:min-h-9'
 
-/** Os três primeiros passos de quem acabou de chegar. Some quando os três estão feitos. */
+/** Os primeiros passos de quem acabou de chegar. Some quando todos estão feitos. */
 function PrimeirosPassos() {
   const { progresso, pessoa, reverBoasVindas, fecharPainel } = useAjuda()
   const id = useId()
-  const itens = [
+  const itens: { id: string; feito: boolean; rotulo: string; porque: string; href?: string; acao?: string }[] = [
     { id: 'boas-vindas', feito: Boolean(progresso.boasVindas), rotulo: 'Ver as boas-vindas', porque: 'Um minuto para saber onde fica cada coisa.' },
+    { id: 'guia', feito: Boolean(progresso.guia), rotulo: 'Ver o guia para começar', porque: 'O que dá para fazer e onde fica cada coisa, com letra grande, áudio e vídeos.', href: '/comecar', acao: 'Ver agora' },
     { id: 'email', feito: pessoa.emailConfirmado, rotulo: 'Confirmar o e-mail de recuperação', porque: 'Sem ele, “Esqueci minha senha” não tem para onde mandar o link.', href: '/perfil#email-de-recuperacao' },
     { id: 'foto', feito: pessoa.temFoto, rotulo: 'Pôr uma foto no perfil', porque: 'Para a equipe reconhecer você nas conversas e nas pautas.', href: '/perfil' },
   ]
@@ -321,7 +322,7 @@ function PrimeirosPassos() {
               {!item.feito && <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{item.porque}</span>}
             </span>
             {!item.feito && (item.href
-              ? <Link href={item.href} onClick={fecharPainel} className={acaoDoPasso}>Fazer</Link>
+              ? <Link href={item.href} onClick={fecharPainel} className={acaoDoPasso}>{item.acao ?? 'Fazer'}</Link>
               : <button type="button" onClick={reverBoasVindas} className={acaoDoPasso}>Ver agora</button>)}
           </li>
         ))}

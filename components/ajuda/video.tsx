@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { CirclePlay, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { duracaoLegivel, videoDaAjuda } from '@/lib/ajuda/videos'
@@ -13,6 +13,9 @@ import { duracaoLegivel, videoDaAjuda } from '@/lib/ajuda/videos'
  * Na tela estreita (celular), abre a versão de celular, em pé, quando ela existe; senão, a de computador.
  *
  * A janela é um <dialog> nativo: foco preso dentro, Escape fecha e o foco volta ao botão.
+ *
+ * `gatilho`: o que abre o vídeo, no lugar do botão "Ver o vídeo" (o cartão com a capa, em "Comece por aqui" na Central
+ * e no guia para começar). Recebe a função que abre; tem de ser um botão de verdade, para o teclado e o leitor de tela.
  */
 
 /** A tela é de celular: a mesma linha do menu lateral virar gaveta (md, 768 px). */
@@ -20,7 +23,7 @@ const TELA_DE_CELULAR = '(max-width: 767px)'
 
 const EVENTO = 'ajuda:ouvir'
 
-export function VerOVideo({ id, className }: { id: string; className?: string }) {
+export function VerOVideo({ id, className, gatilho }: { id: string; className?: string; gatilho?: (abrir: () => void) => ReactNode }) {
   const video = videoDaAjuda(id)
   const chave = useId()
   const janela = useRef<HTMLDialogElement>(null)
@@ -55,7 +58,7 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
 
   return (
     <>
-      <button
+      {gatilho ? gatilho(abrir) : <button
         type="button"
         onClick={abrir}
         className={cn(
@@ -66,7 +69,7 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
         <CirclePlay className="size-4 text-primary" aria-hidden="true" />
         <span>Ver o vídeo</span>
         <span className="text-muted-foreground">· {duracaoLegivel(video.duracao)}</span>
-      </button>
+      </button>}
       <dialog
         ref={janela}
         aria-labelledby={tituloId}
@@ -89,7 +92,7 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
         {aberta && (
           falhou ? (
             <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-              Não foi possível carregar o vídeo agora. O passo a passo escrito continua no painel.{' '}
+              Não foi possível carregar o vídeo agora. O passo a passo escrito continua na ajuda.{' '}
               <a href={fonte.enderecoDoVideo} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">Abrir o vídeo numa aba</a>
             </p>
           ) : (
@@ -111,7 +114,7 @@ export function VerOVideo({ id, className }: { id: string; className?: string })
             </video>
           )
         )}
-        <p className="px-4 py-2.5 text-xs text-muted-foreground">Gravado com dados fictícios, no espaço de Demonstração. O que vale é o passo a passo escrito, ao lado.</p>
+        <p className="px-4 py-2.5 text-xs text-muted-foreground">Gravado com dados fictícios, no espaço de Demonstração. O que vale é o passo a passo escrito, na ajuda.</p>
       </dialog>
     </>
   )
