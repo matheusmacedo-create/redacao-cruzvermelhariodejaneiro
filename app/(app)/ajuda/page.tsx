@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { AtalhoDaAjuda, BotoesDeBoasVindas, BuscaDaCentral } from '@/components/app/ajuda/central'
 import { AncoraDaAjuda } from '@/components/app/ajuda/ancora'
 import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
-import { VIDEOS_PARA_COMECAR } from '@/lib/ajuda/comecar'
+import { setorPelaCoordenacao, videosParaOSetor } from '@/lib/ajuda/comecar'
 import { videoDaAjuda } from '@/lib/ajuda/videos'
 import { HistoriaNaPratica, PerguntaAberta, TarefaAberta } from '@/components/app/ajuda/blocos'
 import { MAIS_PERGUNTADAS, glossarioVisivel, guiasVisiveis, hrefDaAjuda, hrefDoGlossario, perguntaDaAjuda, topicosGerais } from '@/lib/ajuda'
@@ -66,8 +66,10 @@ export default async function CentralDeAjudaPage() {
   type MeuRetorno = { id: string; tipo: TipoDeRetorno; caminho: string; texto: string | null; nota: number | null; estado: EstadoDoRetorno; resposta: string | null; respondido_em: string | null; created_at: string }
   const meusRetornos = (meus ?? []) as MeuRetorno[]
   const glossario = glossarioVisivel(grupos)
-  // Os vídeos de começo que a pessoa pode fazer (a equipe da escola não abre o Início, Pautas nem Aprovações).
-  const videosDeComeco = VIDEOS_PARA_COMECAR.flatMap((id) => {
+  // Os vídeos de começo do setor da pessoa (criar uma pauta é da Comunicação Social) que ela pode fazer (a equipe da
+  // escola não abre o Início nem Aprovações).
+  const coordenacao = context.memberships.find((m) => m.workspaces?.id === context.workspace.id)?.coordination ?? null
+  const videosDeComeco = videosParaOSetor(setorPelaCoordenacao(coordenacao)).flatMap((id) => {
     const v = videoDaAjuda(id)
     return v && visiveis.has(v.area) ? [v] : []
   })

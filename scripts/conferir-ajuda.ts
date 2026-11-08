@@ -16,7 +16,8 @@
  *   que aponta para outro termo, definição de até 420 caracteres com ponto
  *   final, e a busca que acha cada termo pelo nome ("o que é pauta");
  * - o guia para começar (§16): os vídeos de começo existem, cada "Quero…" é de
- *   uma área do menu (uma vez só) e o passo a passo que ele cita existe.
+ *   uma área do menu (sem repetir o mesmo "Quero…"), o passo a passo que ele
+ *   cita existe, e cada setor citado é um dos setores oficiais (lib/equipe.ts).
  *
  * Sai com código 1 se algo estiver errado, para caber num passo de validação.
  */
@@ -26,7 +27,7 @@ import { join } from 'node:path'
 import { GLOSSARIO, GUIAS, MAIS_PERGUNTADAS, SO_DA_REDACAO, TOPICOS_GERAIS, alvosCitados, buscarNaAjuda, perguntaDaAjuda } from '../lib/ajuda'
 import { resumoEDetalhe } from '../lib/ajuda/texto'
 import { textoDaTarefa } from '../lib/ajuda/ouvir'
-import { O_QUE_DA_PARA_FAZER, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
+import { COISAS_DE_TODOS, COISAS_DO_SETOR, SETORES_DO_GUIA, VIDEOS_PARA_COMECAR, textosDoGuia } from '../lib/ajuda/comecar'
 import catalogoDosVideos from '../lib/ajuda/videos.json'
 import { GUIAS_DO_MEMBRO, BOAS_VINDAS_DO_MEMBRO, TOPICOS_DO_MEMBRO } from '../lib/ajuda/membro'
 import { TODOS_OS_GRUPOS, areaDoCaminho } from '../lib/navegacao'
@@ -193,14 +194,24 @@ for (const t of GLOSSARIO) {
   }
 }
 
-// O guia para começar (docs/AJUDA.md §16): /comecar leva aos vídeos, às áreas e ao passo a passo delas.
-for (const id of VIDEOS_PARA_COMECAR) if (!VIDEOS[id]) erros.push(`guia para começar: o vídeo "${id}" não está em lib/ajuda/videos.json`)
-const areasDoGuia = new Set<string>()
-for (const c of O_QUE_DA_PARA_FAZER) {
-  if (!hrefs.has(c.area)) erros.push(`guia para começar: “${c.quero}” é de uma área que não existe no menu (${c.area})`)
-  if (areasDoGuia.has(c.area)) erros.push(`guia para começar: duas linhas para a área ${c.area}`)
-  areasDoGuia.add(c.area)
-  if (c.tarefa && !GUIAS.find((g) => g.href === c.area)?.tarefas.some((t) => t.id === c.tarefa)) erros.push(`guia para começar: “${c.quero}” cita o passo a passo ${c.area}#${c.tarefa}, que não existe`)
+// O guia para começar (docs/AJUDA.md §16): /comecar leva aos vídeos, às áreas e ao passo a passo delas, por setor.
+const nomesDosSetores = new Set(SETORES_DO_GUIA.map((x) => x.nome))
+const slugs = SETORES_DO_GUIA.map((x) => x.slug)
+for (const [i, slug] of slugs.entries()) if (!slug || slugs.indexOf(slug) !== i) erros.push(`guia para começar: endereço de setor vazio ou repetido ("${slug}")`)
+for (const v of VIDEOS_PARA_COMECAR) {
+  if (!VIDEOS[v.id]) erros.push(`guia para começar: o vídeo "${v.id}" não está em lib/ajuda/videos.json`)
+  for (const nome of v.setores ?? []) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: o vídeo "${v.id}" cita um setor que não existe (${nome})`)
+}
+for (const nome of Object.keys(COISAS_DO_SETOR)) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: “O que dá para fazer” de um setor que não existe (${nome})`)
+for (const c of COISAS_DE_TODOS) for (const nome of c.foraDe ?? []) if (!nomesDosSetores.has(nome)) erros.push(`guia para começar: “${c.quero}” fica fora de um setor que não existe (${nome})`)
+for (const [onde, lista] of [['de todos', COISAS_DE_TODOS] as const, ...Object.entries(COISAS_DO_SETOR)]) {
+  const queros = new Set<string>()
+  for (const c of lista) {
+    if (!hrefs.has(c.area)) erros.push(`guia para começar (${onde}): “${c.quero}” é de uma área que não existe no menu (${c.area})`)
+    if (queros.has(c.quero)) erros.push(`guia para começar (${onde}): “${c.quero}” aparece duas vezes`)
+    queros.add(c.quero)
+    if (c.tarefa && !GUIAS.find((g) => g.href === c.area)?.tarefas.some((t) => t.id === c.tarefa)) erros.push(`guia para começar (${onde}): “${c.quero}” cita o passo a passo ${c.area}#${c.tarefa}, que não existe`)
+  }
 }
 for (const t of textosDoGuia()) if (t.length > 1200) avisos.push(`guia para começar: um texto do "Ouvir" com ${t.length} caracteres (divida a parte): “${t.slice(0, 50)}…”`)
 

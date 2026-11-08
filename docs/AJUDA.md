@@ -1179,9 +1179,38 @@ QR). Sem login, o "Ouvir" usa a voz do aparelho: a rota do áudio da filial só 
 4. como entrar, com o endereço e o "Esqueci minha senha";
 5. a tela, parte por parte, com o mesmo ícone da tela de verdade ao lado de cada parte;
 6. o que dá para fazer, dito do jeito de quem precisa ("Quero ver o que precisa de mim hoje"), com "Abrir" e, quando
-   há, o passo a passo da área. Com login, só o que a pessoa abre;
+   há, o passo a passo da área, separado por setor (abaixo). Com login, só o que a pessoa abre;
 7. os três vídeos de começo, que abrem ali mesmo;
 8. se você travar.
+
+**Por setor (08/11/2026, no mesmo dia).** A primeira versão mostrava o Palácio inteiro a todo mundo: "pauta", por
+exemplo, só interessa à Comunicação Social. Agora o guia pergunta "Qual é o seu setor?" (os 12 setores oficiais,
+`lib/equipe.ts`), e o setor vai no endereço: `/comecar?setor=juridico` é o link que a coordenação manda ao setor. Com
+login e sem setor no endereço, vale a coordenação da pessoa (`workspace_members.coordination`). O setor muda:
+
+- "O que dá para fazer", em dois grupos: "Do seu setor" e "O que todo mundo usa" (Início, Chat, avisos, contar uma
+  ação para a Comunicação, chamados, agenda, compras, ofícios, Diretório e perfil);
+- as aprovações, que entram em "Do seu setor" com o prazo e um item da conferência dele (`perfilDoSetor`, o mesmo da
+  tela de Aprovações: "Nos pedidos do seu setor, o prazo é de 4 horas", na GRD);
+- os vídeos: "Criar uma pauta completa" é só da Comunicação Social (`VIDEOS_PARA_COMECAR`); sem setor, ficam os de
+  todos. A Central de ajuda segue a coordenação de quem está logado;
+- a frase do WhatsApp: "quero me cadastrar em Jurídico", que o robô já entende (`setorDaEntrada`).
+
+Só entra em "Do seu setor" o que o código liga ao setor (`COISAS_DO_SETOR`):
+
+| Setor | Do seu setor, além das aprovações |
+| --- | --- |
+| Comunicação Social | quadro de Pautas, Publicações, Biblioteca de mídia, Envios da equipe |
+| Tecnologia da Informação | atender os chamados da TI, dar acesso ao Palácio |
+| Jurídico | atender os chamados do Jurídico (o modelo de fila dele) |
+| Diretoria | aprovar as compras acima do limite dela, assinar ofícios |
+| Educação e Saúde | a Escola e os cursos |
+| Voluntariado | voluntários, mensagens dos voluntários, livro de ponto |
+| Juventude | os voluntários do vínculo "Juventude" |
+| Humanitário, Primeiros Socorros, GRD, Psicologia / Serviço Social, Esportes | só as aprovações do setor |
+
+Para pôr algo novo num setor, acrescente em `COISAS_DO_SETOR`, com a área e uma frase com apoio no código; um item
+de todos que não faz sentido para um setor leva `foraDe` (a Comunicação não "conta uma ação para a Comunicação").
 
 **Duas travas ficaram de propósito.** O pedido foi um começo "sem senha e o máximo sem segurança", por ser uma equipe
 da terceira idade. O guia não pede senha nem formulário, mas mantém a aprovação da coordenação para o e-mail e o
@@ -1199,5 +1228,5 @@ são `VIDEOS_PARA_COMECAR`, na ordem; o cartão de cada um é `components/ajuda/
 23/10/2026 ela vai pelo WhatsApp, e o e-mail é a reserva. A pergunta agora diz isso.
 
 **A conferência** (`scripts/conferir-ajuda.ts`) acusa vídeo de começo que não está no catálogo, "Quero…" de área que não
-existe no menu (ou duas vezes a mesma área) e passo a passo citado que não existe.
+existe no menu (ou repetido na mesma lista), passo a passo citado que não existe e setor que não é um dos oficiais.
 
