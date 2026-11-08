@@ -33,8 +33,8 @@ type Admin = ReturnType<typeof createAdminClient>
  * com quem ainda não tem conta; o pedido vive em colaborador_autocadastros (migração 20261023120000) até um
  * aprovador (usuarios.gerenciar, número confirmado) tocar em Aprovar e, de novo, em "Sim, criar".
  *
- * Nada é criado antes disso. Na aprovação, nesta ordem: a ficha do RH (banco, desfazível), a conta do Google (a senha
- * provisória vai ao e-mail pessoal, nunca ao WhatsApp) e o aviso à pessoa. Se o Google falhar, o pedido volta a
+ * Nada é criado antes disso. Na aprovação, nesta ordem: a ficha do RH (banco, desfazível), a conta do Google e o aviso
+ * à pessoa, com a senha provisória (pelo WhatsApp dela; se ele falhar, pelo e-mail pessoal — decisão de 23/10/2026). Se o Google falhar, o pedido volta a
  * "aguardando" e o aprovador pode tocar de novo. Nunca lança: a falha vira texto.
  */
 

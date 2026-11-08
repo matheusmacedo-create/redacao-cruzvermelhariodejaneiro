@@ -15,6 +15,8 @@ A ajuda tem cinco partes, todas lidas do mesmo conteúdo (`lib/ajuda`):
 3. **Painel “?”** com o passo a passo e as perguntas frequentes da área aberta.
 4. **Central de ajuda** em `/ajuda`, com busca, link direto para cada resposta e o
    **glossário** das palavras do Palácio Virtual (`/ajuda/glossario`, §15).
+   Antes de tudo, o **guia para começar** (`/comecar`, aberto, sem login, §16),
+   para quem ainda não tem acesso ou usa pouco o computador.
 5. O mesmo, mais enxuto, na **Área do Voluntário** (`/membro`): convite de
    boas-vindas, tours e a página `/membro/ajuda`.
 
@@ -132,7 +134,7 @@ para sempre.
 
 **Rever e recomeçar.** “Rever as boas-vindas” abre a janela de novo sem
 apagar nada; fica no pé do painel “?” e na Central, no cartão “Boas-vindas e
-tours” de “Comece por aqui”. Ao lado dele, e só ali, “Recomeçar as
+tours” de “Mais ajuda”. Ao lado dele, e só ali, “Recomeçar as
 boas-vindas e os tours” zera o progresso: a janela abre na hora e cada tela
 volta a oferecer o tour. Quem ainda não viu as boas-vindas também tem o “Ver
 agora” nos “Primeiros passos” do painel. Pedida de dentro do painel, a janela
@@ -221,11 +223,13 @@ perfil” e “Configurações” — do grupo, o pé da sidebar mostra só
 link “Central de ajuda” do pé do painel “?” e pela busca ⌘K. A equipe da
 escola também vê.
 
-Em `/ajuda`, nesta ordem: a busca; as “Perguntas mais frequentes” (§10); a
+Em `/ajuda`, nesta ordem: a busca; “Comece por aqui”, com o guia para
+começar e os vídeos de começo (§16); as “Perguntas mais frequentes” (§10); a
 “Ajuda por área”, com as áreas que a pessoa pode abrir e que têm guia,
 agrupadas como no menu (`guiasVisiveis()`) — é o que mais se procura, por
-isso vem antes; “Comece por aqui”, com três cartões (boas-vindas e tours,
-atalhos de teclado com a caixa da tecla `?`, e como pedir ajuda); a “Ajuda
+isso vem antes; “Mais ajuda” (até 08/11/2026, “Comece por aqui”), com quatro
+cartões (boas-vindas e tours, glossário, atalhos de teclado com a caixa da
+tecla `?`, e como pedir ajuda); a “Ajuda
 geral” (`topicosGerais()`: conta e acesso, como se achar, ajuda e suporte),
 um tópico recolhido por vez — o link para uma resposta abre o tópico dela;
 e “Seus retornos do beta”. Cada
@@ -1082,6 +1086,7 @@ player ajusta a altura à tela. Recomece o espaço (§13) antes de gravar as ver
 | "Aprovar um conteúdo" (Aprovações) | 63 s | 63 s |
 
 Próximos passos: a seção "Vídeos" na Central, a primeira trilha e a medição simples (vídeo aberto e assistido até o fim).
+Os dois primeiros saíram em 08/11/2026, em "Comece por aqui" e no guia para começar (§16); falta a medição.
 
 ## 15. O glossário (07/11/2026)
 
@@ -1116,7 +1121,7 @@ mudaram na conferência (o mês fechado que a gestão reabre, a venda que cai no
 
 - na Central: a página `/ajuda/glossario`, em ordem alfabética, com o índice das letras, o "Ouvir" de cada termo, as
   áreas em que ele aparece (só as que a pessoa abre, com link para a ajuda delas) e o "Veja também". O cartão
-  "Glossário", em "Comece por aqui", leva a ela;
+  "Glossário", em "Mais ajuda" (antes, "Comece por aqui"), leva a ela;
 - no painel "?": a aba "Palavras", ao lado de "Como fazer" e "Dúvidas", com os termos da área aberta (seis à vista,
   como as outras abas), e o link "Glossário" no pé;
 - na busca (painel, Central e ⌘K): os termos entram por último, com uma exceção. Quando a busca é o nome do termo
@@ -1139,4 +1144,60 @@ porque `/chat` só redireciona. 72 telas internas têm tour próprio. Das 15 tel
 (`/mensagens`, `/participantes`, `/escola/contas`…), e as outras 9 — os formulários de edição de Financeiro e
 Patrimônio, a Zona de risco das Configurações e as telas de detalhe de Doações — mostram no painel "?" a ajuda da área,
 que já explica o que se faz nelas. Cursos, a única área sem perguntas, ganhou quatro.
+
+## 16. O guia para começar e os vídeos de começo (08/11/2026)
+
+A ajuda tinha muito texto e três vídeos, mas nenhuma porta de entrada: os vídeos ficavam dentro de três passos a passos,
+e quem ainda não tinha acesso não via nada, porque a Central exige login. Boa parte da equipe da filial tem mais de 60
+anos e usa pouco o computador. O guia para começar é essa porta.
+
+**Onde fica.** `/comecar`, uma página aberta, sem login (`app/comecar/page.tsx`, fora do grupo `(app)`: sem menu nem
+topo). Chegam até ela:
+
+- a tela de entrada, pelo cartão "Primeira vez aqui?";
+- a Central de ajuda, em "Comece por aqui", que agora vem logo depois da busca, com o guia e os três vídeos em ordem
+  (a parte de baixo, com boas-vindas, glossário, atalhos e como pedir ajuda, passou a se chamar "Mais ajuda");
+- a janela de boas-vindas, pelo "Prefere ir com calma?" (sair por ali conta como boas-vindas vistas);
+- os "Primeiros passos" do painel "?", pelo item "Ver o guia para começar". Ele fica marcado quando a pessoa abre o
+  guia (`progresso.guia`, no `user_metadata`, como as boas-vindas; sem migração). O guia fica fora do provedor da
+  ajuda, então também deixa uma marca no aparelho (`GUIA_VISTO_NO_APARELHO`, no localStorage), que o provedor lê ao
+  montar: vale para quem abriu o guia antes de entrar e para quem volta ao Palácio com o layout tirado do cache do
+  navegador (o `staleTimes`), com o progresso de antes. "Recomeçar" tira a marca. Quem já tinha feito os três passos
+  antigos vê a caixa de novo, com o quarto item, até abrir o guia.
+
+**Como é.** Uma coisa de cada vez, frases curtas, letra de 18 a 20 px, botões de 56 px, "Ouvir" em cada parte e
+"Imprimir este guia" (a versão impressa mostra as duas respostas de cada pergunta e troca o botão do WhatsApp por um
+QR). Sem login, o "Ouvir" usa a voz do aparelho: a rota do áudio da filial só atende quem está logado. As partes:
+
+1. o que é o Palácio Virtual (a da Escola, para a equipe da escola);
+2. "Você já tem o e-mail da Cruz Vermelha?" — se não, "Pedir pelo WhatsApp" abre a conversa com o WhatsApp do
+   Palácio com a frase do autocadastro pronta ("quero me cadastrar", `lib/whatsapp/autocadastro-regras.ts`). O robô
+   pergunta uma coisa por vez, a coordenação do setor aprova com um toque, e o e-mail e a senha provisória chegam no
+   próprio WhatsApp. O botão passa por `/comecar/whatsapp`, que lê o número do robô na hora (e guarda por 10 minutos):
+   é esse endereço fixo que vai no QR. Sem o WhatsApp ligado, o guia volta com um aviso;
+3. "Você já entra no Palácio?" — se não, o convite da administração, com o link para criar a senha (72 horas);
+4. como entrar, com o endereço e o "Esqueci minha senha";
+5. a tela, parte por parte, com o mesmo ícone da tela de verdade ao lado de cada parte;
+6. o que dá para fazer, dito do jeito de quem precisa ("Quero ver o que precisa de mim hoje"), com "Abrir" e, quando
+   há, o passo a passo da área. Com login, só o que a pessoa abre;
+7. os três vídeos de começo, que abrem ali mesmo;
+8. se você travar.
+
+**Duas travas ficaram de propósito.** O pedido foi um começo "sem senha e o máximo sem segurança", por ser uma equipe
+da terceira idade. O guia não pede senha nem formulário, mas mantém a aprovação da coordenação para o e-mail e o
+convite da administração para o Palácio. Sem elas, qualquer pessoa com o link teria um e-mail
+@cruzvermelhariodejaneiro.org, que fala em nome da Cruz Vermelha, ou entraria num sistema com CPF, saúde e documentos
+(LGPD). Cada trava é um toque de outra pessoa. Se for preciso tirar mais atrito, o próximo passo seria entrar pelo
+WhatsApp, sem senha, num trabalho à parte, com revisão de segurança.
+
+**O conteúdo** mora em `lib/ajuda/comecar.ts`, com o mesmo cuidado do resto (§4): cada frase tem apoio no código. O que
+a equipe da escola não tem (o Início, o "Criar", os chamados) leva `soDaRedacao` e some para ela. Os vídeos de começo
+são `VIDEOS_PARA_COMECAR`, na ordem; o cartão de cada um é `components/ajuda/cartao-do-video.tsx`, que usa o
+`gatilho` do `VerOVideo`.
+
+**Na mesma conferência**, a pergunta do robô sobre o e-mail pessoal dizia que a senha provisória chegava nele; desde
+23/10/2026 ela vai pelo WhatsApp, e o e-mail é a reserva. A pergunta agora diz isso.
+
+**A conferência** (`scripts/conferir-ajuda.ts`) acusa vídeo de começo que não está no catálogo, "Quero…" de área que não
+existe no menu (ou duas vezes a mesma área) e passo a passo citado que não existe.
 

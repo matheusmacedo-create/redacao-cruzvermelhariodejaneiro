@@ -214,7 +214,8 @@ export function perguntaDoAutocadastro(d: DadosDoAutocadastro, antes?: string | 
       return com(`Prazer, ${primeiro}! Em qual *coordenação* você vai atuar? Responda com o número:\n${lista}`)
     }
     case 'cargo': return com('Qual é o seu *cargo ou função*? Se você coordena o setor, toque em *Coordenador(a)*. Ou toque em *Pular*.', BOTOES_DO_CARGO)
-    case 'email': return com('Qual é o seu *e-mail pessoal* (Gmail, Outlook…)? É nele que chegam a senha provisória e o passo a passo do seu e-mail institucional.')
+    // A senha provisória vai ao WhatsApp, e o e-mail pessoal fica de reserva (lib/whatsapp/autocadastro.ts, decisão de 23/10/2026).
+    case 'email': return com('Qual é o seu *e-mail pessoal* (Gmail, Outlook…)? Ele fica de reserva: a senha provisória do seu e-mail institucional chega aqui no WhatsApp e, se não der, nesse e-mail.')
     case 'nascimento': return com('Qual é a sua *data de nascimento*? Escreva assim: 25/03/1990')
     case 'cep': return com('Qual é o *CEP* da sua residência?')
     case 'endereco': return com('Não achei esse CEP. Escreva *rua, bairro, cidade/UF*. Exemplo: Rua das Flores, Centro, Rio de Janeiro/RJ')
