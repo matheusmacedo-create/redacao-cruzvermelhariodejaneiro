@@ -1,4 +1,6 @@
 import { textoCorrido } from './ouvir'
+import { SETORES, chaveDoNome } from '../equipe'
+import { perfilDoSetor } from '../aprovacoes/setores'
 
 /**
  * O guia para começar (docs/AJUDA.md §16): a página aberta /comecar, feita para quem usa pouco o computador — boa
@@ -12,6 +14,11 @@ import { textoCorrido } from './ouvir'
  *
  * As duas travas (a aprovação e o convite) ficam de propósito: o e-mail fala em nome da Cruz Vermelha, e o Palácio
  * guarda CPF, saúde e documentos. O que sai é todo o resto do atrito: nada de formulário nem de senha para começar.
+ *
+ * "O que dá para fazer" é por setor (os setores oficiais, lib/equipe.ts): cada um vê o que é do seu trabalho — as
+ * pautas e as publicações são da Comunicação Social, os voluntários do Voluntariado — e, à parte, o que todo mundo
+ * usa. O setor vem do endereço (/comecar?setor=juridico, para a coordenação mandar ao setor) ou, com login, da
+ * coordenação da pessoa. Só entra num setor o que o código liga a ele; o resto fica em "o que todo mundo usa".
  *
  * Cada frase tem apoio no código ou na ajuda já conferida (conteudo/geral.ts e o guia de cada área). Puro: conferido
  * em scripts/conferir-ajuda.ts, e os textos do "Ouvir" entram em lib/ajuda/ouvir-textos.ts.
@@ -52,8 +59,28 @@ export type CoisaQueDaParaFazer = {
   como: string
   /** O passo a passo da área que ensina isso (o id da tarefa no guia da área), quando há. */
   tarefa?: string
-  /** Para a página aberta, sem login, dizer de quem é ("Para quem coordena o voluntariado"). */
-  para?: string
+  /** Quando o botão não leva à área, mas a uma tela dela (o formulário de "Registrar atividade"). */
+  link?: { href: string; rotulo: string }
+  /** Setores para os quais o item de todos não faz sentido ("contar para a Comunicação", para a própria Comunicação). */
+  foraDe?: string[]
+}
+
+/** Um setor da filial no guia: o nome oficial (lib/equipe.ts) e o endereço curto que vai na URL. */
+export type SetorDoGuia = { nome: string; slug: string; descricao: string }
+
+/** "Psicologia / Serviço Social" → "psicologia-servico-social". */
+export const slugDoSetor = (nome: string) => chaveDoNome(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+export const SETORES_DO_GUIA: SetorDoGuia[] = SETORES.map((s) => ({ nome: s.nome, slug: slugDoSetor(s.nome), descricao: s.descricao }))
+
+export function setorPeloSlug(slug: string | null | undefined): SetorDoGuia | null {
+  return slug ? SETORES_DO_GUIA.find((s) => s.slug === slug) ?? null : null
+}
+
+/** A coordenação da pessoa (workspace_members.coordination) no setor oficial, sem acento nem caixa. */
+export function setorPelaCoordenacao(coordenacao: string | null | undefined): SetorDoGuia | null {
+  const chave = coordenacao ? chaveDoNome(coordenacao) : ''
+  return chave ? SETORES_DO_GUIA.find((s) => chaveDoNome(s.nome) === chave) ?? null : null
 }
 
 export const O_QUE_E: ParteDoGuia = {
@@ -137,23 +164,103 @@ export const A_TELA: { id: string; titulo: string; itens: ItemDaTela[] } = {
   ],
 }
 
-/** "O que dá para fazer": em ordem do que mais se usa. Cada pessoa vê só o que abre (com login). */
-export const O_QUE_DA_PARA_FAZER: CoisaQueDaParaFazer[] = [
-  { area: '/dashboard', quero: 'Ver o que precisa de mim hoje', como: 'Toque em “Início”, o primeiro item do menu. Ali estão o que espera o seu voto e as suas pautas, por prazo.', tarefa: 'ver-o-que-e-meu' },
-  { area: '/aprovacoes', quero: 'Aprovar o que pediram para eu conferir', como: 'Em “Aprovações”, abra o pedido, leia com calma e escolha “Aprovar” ou “Pedir ajustes”.', tarefa: 'aprovar-um-conteudo' },
-  { area: '/chat', quero: 'Conversar com a equipe', como: 'No “Chat”, escolha uma conversa, escreva embaixo e envie. Dá para mandar mensagem de voz.' },
+/** Aprovar: de todo mundo que recebe o convite para votar. Com o setor escolhido, vira a versão dele (aprovarNoSetor). */
+export const APROVAR: CoisaQueDaParaFazer = {
+  area: '/aprovacoes',
+  quero: 'Aprovar o que pediram para eu conferir',
+  como: 'Em “Aprovações”, abra o pedido, leia com calma e escolha “Aprovar” ou “Pedir ajustes”.',
+  tarefa: 'aprovar-um-conteudo',
+}
+
+/**
+ * Aprovar, no setor: os itens da conferência do setor aparecem na lista de quem é dele, e o prazo conta pelo setor do
+ * pedido (lib/aprovacoes/setores.ts, o mesmo perfil que a tela de Aprovações usa).
+ */
+export function aprovarNoSetor(setor: SetorDoGuia): CoisaQueDaParaFazer {
+  const perfil = perfilDoSetor(setor.nome)
+  return {
+    ...APROVAR,
+    como: `Em “Aprovações”, abra o pedido, leia com calma e marque o que conferiu. Na lista aparecem os itens do seu setor, como “${perfil.conferencia[0]}”. Nos pedidos do seu setor, o prazo é de ${perfil.prazoHoras} horas.`,
+  }
+}
+
+/** O que todo mundo usa, de qualquer setor, em ordem do que mais se usa. Cada pessoa vê só o que abre (com login). */
+export const COISAS_DE_TODOS: CoisaQueDaParaFazer[] = [
+  { area: '/dashboard', quero: 'Ver o que precisa de mim hoje', como: 'Toque em “Início”, o primeiro item do menu. Ali está o que espera por você, como os pedidos de aprovação.', tarefa: 'ver-o-que-e-meu' },
+  APROVAR,
+  { area: '/chat', quero: 'Conversar com a equipe', como: 'No “Chat”, o seu setor tem um canal só dele, e o #geral reúne toda a equipe. Escreva embaixo e envie; dá para mandar mensagem de voz.' },
   { area: '/notificacoes', quero: 'Ver os meus avisos', como: 'Toque no sino, no alto da tela. O número mostra o que você ainda não leu.' },
-  { area: '/calendario', quero: 'Ver a agenda da filial', como: 'No “Calendário” ficam as datas: publicações, prazos, ações do voluntariado, aniversários e feriados.' },
+  { area: '/pautas', quero: 'Contar uma ação ou uma ideia para a Comunicação', como: 'Toque em “Criar” e escolha “Registrar atividade”. Preencha o que aconteceu e toque em “Enviar para Comunicação”.', link: { href: '/registrar', rotulo: 'Registrar uma atividade' }, foraDe: ['Comunicação Social'] },
   { area: '/chamados', quero: 'Pedir algo à TI, à Manutenção ou a outro setor', como: 'Toque em “Criar” e escolha “Abrir chamado”. Conte o que precisa e envie: a resposta chega no sino.' },
-  { area: '/pautas', quero: 'Contar uma ação ou uma ideia para a Comunicação', como: 'Toque em “Criar” e escolha “Registrar atividade”. Preencha o que aconteceu e toque em “Enviar para Comunicação”.', tarefa: 'criar-pauta' },
+  { area: '/calendario', quero: 'Ver a agenda da filial', como: 'No “Calendário” ficam as datas: publicações, prazos, ações do voluntariado, aniversários e feriados.' },
+  { area: '/financeiro/compras', quero: 'Pedir uma compra para o meu setor', como: 'Em “Pedidos de compra”, faça o pedido e acompanhe até a compra chegar. Tudo fica no histórico do pedido.' },
+  { area: '/oficios', quero: 'Escrever ou assinar um ofício', como: 'Em “Ofícios”, escreva o ofício e escolha quem assina. Quem foi escolhido recebe o aviso e assina ali mesmo.' },
   { area: '/pessoas', quero: 'Achar o contato de alguém da equipe', como: 'No “Diretório”, procure pelo nome: aparecem o cargo, o setor e o contato de trabalho.' },
-  { area: '/voluntariado', quero: 'Ver e aprovar as inscrições de voluntários', como: 'Em “Voluntários”, a coordenação vê o cadastro de cada pessoa e aprova as inscrições.', para: 'Para quem cuida do voluntariado' },
-  { area: '/escola', quero: 'Ver como vai a Escola', como: 'Na “Visão geral” da Escola estão as vendas do mês, o financeiro, o marketing e o que pede atenção.', para: 'Para a equipe da Escola' },
   { area: '/perfil', quero: 'Trocar a minha foto ou a minha senha', como: 'Toque na sua foto (ou nas suas iniciais), no alto à direita, e depois em “Meu perfil”.' },
 ]
 
-/** Os vídeos de começo, na ordem em que fazem sentido (os ids de lib/ajuda/videos.json). */
-export const VIDEOS_PARA_COMECAR = ['inicio-o-que-e-meu', 'pautas-criar-pauta', 'aprovacoes-aprovar-conteudo']
+/**
+ * O que é de cada setor (o nome oficial, lib/equipe.ts), além das aprovações do setor. Só entra aqui o que o código liga
+ * ao setor: as áreas da Comunicação, a Escola de Educação e Saúde, o cadastro do Voluntariado, a fila da TI, o modelo de
+ * fila do Jurídico e o limite de compras da Diretoria. Setor sem linha aqui vê as aprovações dele e o que é de todos.
+ */
+export const COISAS_DO_SETOR: Record<string, CoisaQueDaParaFazer[]> = {
+  'Comunicação Social': [
+    { area: '/pautas', quero: 'Acompanhar o trabalho no quadro de Pautas', como: 'Em “Pautas”, cada cartão é uma pauta, e as colunas são as etapas, de “Entrada” a “Pronto”. Arraste o cartão quando o trabalho andar.', tarefa: 'criar-pauta' },
+    { area: '/redes', quero: 'Preparar uma publicação para o site, a newsletter e as redes', como: 'Em “Publicações”, escreva a notícia uma vez, em “A notícia”: cada destino recebe a sua versão.' },
+    { area: '/biblioteca', quero: 'Guardar e achar fotos e vídeos', como: 'Na “Biblioteca de mídia” ficam as fotos, os vídeos e os documentos, com a autorização de uso de imagem de cada um.' },
+    { area: '/envios', quero: 'Ver o que a equipe mandou de uma ação', como: 'Em “Envios da equipe” chega o que a equipe manda pelo “Mandar uma ação”: relato, áudio, fotos e vídeos.' },
+  ],
+  'Tecnologia da Informação': [
+    { area: '/chamados', quero: 'Atender os chamados da TI', como: 'Os pedidos de quem tem um problema, precisa de um acesso ou de um equipamento chegam em “Chamados”, na fila da TI.' },
+    { area: '/usuarios', quero: 'Dar acesso ao Palácio a alguém', como: 'Em “Usuários e permissões”, toque em “Novo usuário”. O convite vai pelo WhatsApp ou pelo e-mail, com o link para criar a senha.', tarefa: 'dar-acesso-por-convite' },
+  ],
+  Jurídico: [
+    { area: '/chamados', quero: 'Atender os pedidos que chegam ao Jurídico', como: 'Quando o Jurídico recebe chamados, eles chegam em “Chamados”: análise de contrato ou convênio, termos e dúvidas jurídicas.' },
+  ],
+  Diretoria: [
+    { area: '/financeiro/compras', quero: 'Aprovar as compras acima do limite da Diretoria', como: 'Em “Pedidos de compra”, as compras acima do limite da Diretoria esperam a aprovação dela.' },
+    { area: '/oficios', quero: 'Assinar os ofícios da filial', como: 'Quem foi escolhido para assinar recebe o aviso no sino e assina em “Ofícios”.' },
+  ],
+  'Educação e Saúde': [
+    { area: '/escola', quero: 'Ver como vai a Escola', como: 'Na “Visão geral” da Escola estão as vendas do mês, o financeiro, o marketing e o que pede atenção.' },
+    { area: '/escola/marketing/cursos', quero: 'Ver os cursos e quantos alunos cada um tem', como: 'Em “Cursos”, cada curso mostra os alunos, quem tentou e não pagou e o que o marketing já fez para ele.' },
+  ],
+  Voluntariado: [
+    { area: '/voluntariado', quero: 'Ver e aprovar as inscrições de voluntários', como: 'Em “Voluntários”, a coordenação vê o cadastro de cada pessoa e aprova as inscrições do formulário do site.' },
+    { area: '/voluntariado/mensagens', quero: 'Responder as mensagens dos voluntários', como: 'Em “Mensagens dos voluntários”, a equipe lê e responde o que chega da Área do Voluntário.' },
+    { area: '/livro-de-ponto', quero: 'Ver as horas dos voluntários', como: 'O “Livro de ponto” leva ao ponto da sede, onde ficam as horas doadas pelos voluntários.' },
+  ],
+  Juventude: [
+    { area: '/voluntariado', quero: 'Acompanhar os voluntários da Juventude', como: 'Em “Voluntários”, filtre pelo vínculo “Juventude” para ver o seu grupo, com as formações e as horas.' },
+  ],
+}
+
+/**
+ * O que a página mostra: com o setor, primeiro o que é dele (as áreas e as aprovações com a conferência do setor) e
+ * depois o que é de todos, sem repetir as aprovações; sem setor, só o que é de todos.
+ */
+export function coisasParaOSetor(setor: SetorDoGuia | null): { doSetor: CoisaQueDaParaFazer[]; deTodos: CoisaQueDaParaFazer[] } {
+  if (!setor) return { doSetor: [], deTodos: COISAS_DE_TODOS }
+  return {
+    doSetor: [...(COISAS_DO_SETOR[setor.nome] ?? []), aprovarNoSetor(setor)],
+    deTodos: COISAS_DE_TODOS.filter((c) => c !== APROVAR && !c.foraDe?.includes(setor.nome)),
+  }
+}
+
+/**
+ * Os vídeos de começo, na ordem em que fazem sentido (os ids de lib/ajuda/videos.json). `setores`: o vídeo é só deles
+ * (criar uma pauta é da Comunicação Social); sem setor escolhido, ficam só os de todos.
+ */
+export const VIDEOS_PARA_COMECAR: { id: string; setores?: string[] }[] = [
+  { id: 'inicio-o-que-e-meu' },
+  { id: 'pautas-criar-pauta', setores: ['Comunicação Social'] },
+  { id: 'aprovacoes-aprovar-conteudo' },
+]
+
+export function videosParaOSetor(setor: SetorDoGuia | null): string[] {
+  return VIDEOS_PARA_COMECAR.filter((v) => !v.setores || (setor !== null && v.setores.includes(setor.nome))).map((v) => v.id)
+}
 
 export const SE_TRAVAR: { id: string; titulo: string; itens: ItemDoGuia[] } = {
   id: 'se-travar',
@@ -204,6 +311,8 @@ export function textosDoGuia(): string[] {
     ...[ESCOLHA_DO_EMAIL, ESCOLHA_DO_ACESSO].flatMap((e) => [textoDoSim(e), textoDoNao(e)]),
     textoDaParte(COMO_ENTRAR),
     ...[false, true].flatMap((escola) => [textoDaLista(A_TELA, escola), textoDaLista(SE_TRAVAR, escola)]),
-    ...O_QUE_DA_PARA_FAZER.map(textoDaCoisa),
+    ...COISAS_DE_TODOS.map(textoDaCoisa),
+    ...SETORES_DO_GUIA.map((setor) => textoDaCoisa(aprovarNoSetor(setor))),
+    ...Object.values(COISAS_DO_SETOR).flat().map(textoDaCoisa),
   ]
 }

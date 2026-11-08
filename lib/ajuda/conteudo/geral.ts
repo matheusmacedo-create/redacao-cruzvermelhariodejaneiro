@@ -301,7 +301,7 @@ export const TOPICOS_GERAIS: TopicoGeral[] = [
       {
         id: 'por-onde-comecar',
         pergunta: 'Sou novo no Palácio Virtual. Por onde começo?',
-        resposta: 'Pelo guia para começar: na Central de ajuda, em “Comece por aqui”, ou na tela de entrada, em “Primeira vez aqui?”. Ele explica, com letra grande, áudio e três vídeos curtos, como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer.\n\nDepois, abra o Início, que diz em uma frase o que é seu hoje, e o “?” de cada tela que for usar. Se algo não fizer sentido, é exatamente o que queremos saber: use o “Beta” para contar.',
+        resposta: 'Pelo guia para começar: na Central de ajuda, em “Comece por aqui”, ou na tela de entrada, em “Primeira vez aqui?”. Ele explica, com letra grande, áudio e vídeos curtos, como conseguir o e-mail da Cruz Vermelha e o acesso, como entrar, onde fica cada coisa e o que dá para fazer no seu setor.\n\nDepois, abra o Início, que diz em uma frase o que é seu hoje, e o “?” de cada tela que for usar. Se algo não fizer sentido, é exatamente o que queremos saber: use o “Beta” para contar.',
         termos: ['começar', 'primeiro dia', 'novo', 'iniciante', 'como usar', 'guia', 'tutorial', 'vídeo', 'letra grande', 'idoso', 'imprimir'],
       },
     ],

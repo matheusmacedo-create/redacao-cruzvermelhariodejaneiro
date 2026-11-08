@@ -8,8 +8,9 @@ import { Ouvir } from '@/components/ajuda/ouvir'
 import { CartaoDoVideo } from '@/components/ajuda/cartao-do-video'
 import { BotaoDeImprimir, EscolhaDoGuia, MarcarGuiaVisto } from '@/components/comecar/partes'
 import {
-  A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, O_QUE_DA_PARA_FAZER, O_QUE_E, O_QUE_E_DA_ESCOLA, SE_TRAVAR, VIDEOS_PARA_COMECAR,
-  itensPara, textoDaCoisa, textoDaLista, textoDaParte, textoDoNao, textoDoSim, type EscolhaDoGuia as Escolha, type ItemDaTela,
+  A_TELA, COMO_ENTRAR, ESCOLHA_DO_ACESSO, ESCOLHA_DO_EMAIL, O_QUE_E, O_QUE_E_DA_ESCOLA, SETORES_DO_GUIA, SE_TRAVAR,
+  coisasParaOSetor, itensPara, setorPelaCoordenacao, setorPeloSlug, textoDaCoisa, textoDaLista, textoDaParte, textoDoNao, textoDoSim, videosParaOSetor,
+  type CoisaQueDaParaFazer, type EscolhaDoGuia as Escolha, type ItemDaTela,
 } from '@/lib/ajuda/comecar'
 import { hrefDaAjuda, hrefDoGlossario } from '@/lib/ajuda/indice'
 import { videoDaAjuda } from '@/lib/ajuda/videos'
@@ -40,25 +41,37 @@ const ouvirGrande = 'min-h-12 px-4 text-base [&_svg]:size-5 sm:min-h-12'
  * mora em lib/ajuda/comecar.ts. A tela de entrada, a Central de ajuda, as boas-vindas e os "Primeiros passos" levam
  * até aqui.
  *
- * Sem login, mostra tudo. Com login, "O que dá para fazer" e os vídeos mostram só o que a pessoa abre, as respostas
- * dos passos 1 e 2 já vêm marcadas como "sim", e abrir o guia marca o item dos "Primeiros passos".
+ * Por setor: "Qual é o seu setor?" leva a /comecar?setor=juridico (o endereço que a coordenação manda ao setor); com
+ * login e sem setor no endereço, vale a coordenação da pessoa. O setor muda "O que dá para fazer" ("Do seu setor" e
+ * "O que todo mundo usa"), os vídeos e a frase do WhatsApp ("quero me cadastrar em Jurídico").
+ *
+ * Sem login, mostra tudo o que é do setor. Com login, só o que a pessoa abre, as respostas do passo 2 já vêm como "sim",
+ * e abrir o guia marca o item dos "Primeiros passos".
  */
-export default async function ComecarPage({ searchParams }: { searchParams: Promise<{ whatsapp?: string }> }) {
-  const { whatsapp } = await searchParams
+export default async function ComecarPage({ searchParams }: { searchParams: Promise<{ whatsapp?: string; setor?: string }> }) {
+  const { whatsapp, setor: setorPedido } = await searchParams
   const context = await obterWorkspace({ escola: true }).catch(() => null)
   const grupos = context ? await gruposDaPessoa(context).catch(() => null) : null
   const abre = grupos ? new Set(grupos.flatMap((g) => g.areas.map((a) => a.href))) : null
   const escola = context ? ehEquipeDaEscola(context.role) : false
   const nome = context?.profile?.full_name?.trim().split(/\s+/)[0] || ''
+  const coordenacao = context ? context.memberships.find((m) => m.workspaces?.id === context.workspace.id)?.coordination ?? null : null
+  const setor = setorPeloSlug(setorPedido) ?? setorPelaCoordenacao(coordenacao)
+  const doSeuSetor = Boolean(setor && !setorPeloSlug(setorPedido))
   const nomeDaArea = new Map(TODOS_OS_GRUPOS.flatMap((g) => g.areas).map((a) => [a.href, a.rotulo] as const))
-  const coisas = O_QUE_DA_PARA_FAZER.filter((c) => !abre || abre.has(c.area))
-  const videos = VIDEOS_PARA_COMECAR.flatMap((id) => {
+  const visivel = (c: CoisaQueDaParaFazer) => !abre || abre.has(c.area)
+  const { doSetor, deTodos } = coisasParaOSetor(setor)
+  const coisasDoSetor = doSetor.filter(visivel)
+  const coisasDeTodos = deTodos.filter(visivel)
+  const videos = videosParaOSetor(setor).flatMap((id) => {
     const v = videoDaAjuda(id)
     return v && (!abre || abre.has(v.area)) ? [v] : []
   })
   const oQueE = escola ? O_QUE_E_DA_ESCOLA : O_QUE_E
-  // O QR da versão impressa: o endereço fixo que leva ao WhatsApp do Palácio (app/comecar/whatsapp/route.ts).
-  const qrDoWhatsapp = await QRCode.toDataURL(`${urlBase()}/comecar/whatsapp`, { errorCorrectionLevel: 'M', margin: 1, width: 360 }).catch(() => null)
+  // O botão e o QR da versão impressa: o endereço fixo que leva ao WhatsApp do Palácio, com o setor na frase
+  // (app/comecar/whatsapp/route.ts).
+  const linkDoWhatsapp = `/comecar/whatsapp${setor ? `?setor=${setor.slug}` : ''}`
+  const qrDoWhatsapp = await QRCode.toDataURL(`${urlBase()}${linkDoWhatsapp}`, { errorCorrectionLevel: 'M', margin: 1, width: 360 }).catch(() => null)
 
   return (
     <main className="min-h-dvh bg-background text-foreground">
@@ -87,19 +100,45 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
           {oQueE.frases.map((f) => <p key={f} className={texto}>{f}</p>)}
         </Parte>
 
+        {!escola && (
+          <section id="setor" aria-labelledby="titulo-setor" className="flex scroll-mt-6 flex-col gap-5">
+            <h2 id="titulo-setor" className={tituloDaParte}>{setor ? `O seu setor: ${setor.nome}` : 'Qual é o seu setor?'}</h2>
+            <p className={texto}>
+              {setor
+                ? `${doSeuSetor ? 'É o setor que está no seu cadastro. ' : ''}O guia agora mostra o que é do seu setor (${setor.descricao.replace(/\.$/, '').replace(/^./, (l) => l.toLowerCase())}). Não é o seu? Escolha outro.`
+                : 'Cada setor usa uma parte do Palácio. Escolha o seu: o guia mostra o que é do seu trabalho.'}
+            </p>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 print:hidden">
+              {SETORES_DO_GUIA.map((s) => (
+                <li key={s.slug}>
+                  <Link
+                    href={`/comecar?setor=${s.slug}#setor`}
+                    scroll={false}
+                    aria-current={setor?.slug === s.slug ? 'true' : undefined}
+                    className={cn('flex min-h-14 items-center justify-between gap-3 rounded-xl border-2 px-5 py-3 text-lg font-semibold outline-none focus-visible:ring-4 focus-visible:ring-ring/40', setor?.slug === s.slug ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/50')}
+                  >
+                    {s.nome}{setor?.slug === s.slug && <span className="text-base font-medium">o seu</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {setor && <p className="text-base text-muted-foreground">Para mandar este guia a alguém do setor: <span className="break-all font-medium text-foreground">{DOMINIO_DO_PALACIO}/comecar?setor={setor.slug}</span></p>}
+          </section>
+        )}
+
         <EscolhaNaPagina escolha={ESCOLHA_DO_EMAIL} inicial={whatsapp === 'fora' ? 'nao' : null} comNao={<>
           {whatsapp === 'fora' && (
             <p role="alert" className={cn(texto, 'rounded-xl border-2 border-warning/60 bg-warning/10 px-5 py-4 font-medium')}>
               O WhatsApp do Palácio não respondeu agora. Peça ajuda à coordenação do seu setor ou tente de novo daqui a pouco.
             </p>
           )}
-          <a href="/comecar/whatsapp" className={cn(botaoPrincipal, 'bg-[#1e8e3e] hover:bg-[#1a7a35] print:hidden')}>
+          <a href={linkDoWhatsapp} className={cn(botaoPrincipal, 'bg-[#1e8e3e] hover:bg-[#1a7a35] print:hidden')}>
             <MessageCircle className="size-6" aria-hidden="true" />Pedir pelo WhatsApp
           </a>
           {qrDoWhatsapp && (
             <figure className="hidden items-center gap-5 print:flex">
               <img src={qrDoWhatsapp} alt="" className="size-40" />
-              <figcaption className={texto}>No celular, aponte a câmera para este código: o WhatsApp do Palácio abre com a frase pronta, “quero me cadastrar”.</figcaption>
+              <figcaption className={texto}>No celular, aponte a câmera para este código: o WhatsApp do Palácio abre com a frase pronta, “quero me cadastrar{setor ? ` em ${setor.nome}` : ''}”.</figcaption>
             </figure>
           )}
         </>} />
@@ -130,24 +169,20 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
           </ul>
         </Parte>
 
-        {coisas.length > 0 && (
-          <section id="fazer" aria-labelledby="titulo-fazer" className="flex scroll-mt-6 flex-col gap-5">
+        {(coisasDoSetor.length > 0 || coisasDeTodos.length > 0) && (
+          <section id="fazer" aria-labelledby="titulo-fazer" className="flex scroll-mt-6 flex-col gap-6">
             <h2 id="titulo-fazer" className={tituloDaParte}>O que dá para fazer</h2>
-            <p className={texto}>{context ? 'O que o seu acesso abre, do que mais se usa para o que menos se usa.' : 'O que mais se faz no Palácio. Cada pessoa vê só o que o trabalho dela usa.'}</p>
-            <ul className="flex flex-col gap-4">
-              {coisas.map((c) => (
-                <li key={c.area} className="flex flex-col gap-3 rounded-2xl border-2 border-border bg-card p-5 print:break-inside-avoid">
-                  <p className="text-xl font-bold leading-snug">“{c.quero}”</p>
-                  {c.para && <p className="text-base font-medium text-primary">{c.para}</p>}
-                  <p className={texto}>{c.como}</p>
-                  <div className="flex flex-wrap items-center gap-3 print:hidden">
-                    <Ouvir texto={textoDaCoisa(c)} className={ouvirGrande} />
-                    <Link href={c.area} className={cn(botaoSecundario, 'min-h-12 text-base')}>Abrir {nomeDaArea.get(c.area) ?? 'a área'}<ArrowRight className="size-4" aria-hidden="true" /></Link>
-                    {c.tarefa && <Link href={hrefDaAjuda(c.area, c.tarefa)} className="inline-flex min-h-12 items-center gap-1.5 px-2 text-base font-semibold text-primary underline-offset-4 hover:underline"><BookOpen className="size-5" aria-hidden="true" />Ver o passo a passo</Link>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {coisasDoSetor.length > 0 && setor && (
+              <div className="flex flex-col gap-4">
+                <h3 className="text-xl font-bold text-primary sm:text-2xl">Do seu setor: {setor.nome}</h3>
+                <ListaDeCoisas coisas={coisasDoSetor} nomeDaArea={nomeDaArea} />
+              </div>
+            )}
+            <div className="flex flex-col gap-4">
+              <h3 className="text-xl font-bold sm:text-2xl">O que todo mundo usa</h3>
+              {!setor && !escola && <p className={texto}>Escolha o seu setor, mais acima, para ver também o que é do seu trabalho.</p>}
+              <ListaDeCoisas coisas={coisasDeTodos} nomeDaArea={nomeDaArea} />
+            </div>
           </section>
         )}
 
@@ -172,10 +207,29 @@ export default async function ComecarPage({ searchParams }: { searchParams: Prom
         </Parte>
 
         <footer className="border-t border-border pt-6 text-base text-muted-foreground">
-          Cruz Vermelha Brasileira · Filial do Rio de Janeiro · <span className="whitespace-nowrap">{DOMINIO_DO_PALACIO}/comecar</span>
+          Cruz Vermelha Brasileira · Filial do Rio de Janeiro · <span className="break-all">{DOMINIO_DO_PALACIO}/comecar{setor ? `?setor=${setor.slug}` : ''}</span>
         </footer>
       </div>
     </main>
+  )
+}
+
+/** Uma lista de "Quero…": o que é, como se faz, o "Ouvir", o botão que leva até lá e, quando há, o passo a passo. */
+function ListaDeCoisas({ coisas, nomeDaArea }: { coisas: CoisaQueDaParaFazer[]; nomeDaArea: Map<string, string> }) {
+  return (
+    <ul className="flex flex-col gap-4">
+      {coisas.map((c) => (
+        <li key={`${c.area}:${c.quero}`} className="flex flex-col gap-3 rounded-2xl border-2 border-border bg-card p-5 print:break-inside-avoid">
+          <p className="text-xl font-bold leading-snug">“{c.quero}”</p>
+          <p className={texto}>{c.como}</p>
+          <div className="flex flex-wrap items-center gap-3 print:hidden">
+            <Ouvir texto={textoDaCoisa(c)} className={ouvirGrande} />
+            <Link href={c.link?.href ?? c.area} className={cn(botaoSecundario, 'min-h-12 text-base')}>{c.link?.rotulo ?? `Abrir ${nomeDaArea.get(c.area) ?? 'a área'}`}<ArrowRight className="size-4" aria-hidden="true" /></Link>
+            {c.tarefa && <Link href={hrefDaAjuda(c.area, c.tarefa)} className="inline-flex min-h-12 items-center gap-1.5 px-2 text-base font-semibold text-primary underline-offset-4 hover:underline"><BookOpen className="size-5" aria-hidden="true" />Ver o passo a passo</Link>}
+          </div>
+        </li>
+      ))}
+    </ul>
   )
 }
 
